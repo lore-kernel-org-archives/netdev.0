@@ -1,54 +1,189 @@
 From: shemminger@osdl.org
-Subject: [RFT 1/5] sky2: more device ids (resend)
-Date: Tue, 05 Sep 2006 15:27:35 -0700
-Message-ID: <20060905223000.989812106@localhost.localdomain>
+Subject: [RFT 4/5] sky2: big endian fix
+Date: Tue, 05 Sep 2006 15:27:38 -0700
+Message-ID: <20060905223001.501752791@localhost.localdomain>
 References: <20060905222734.082143263@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:33432 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965244AbWIEWiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 18:38:03 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:56472 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965203AbWIEWjt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 18:39:49 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-yet-more-ids.patch
+Content-Disposition: inline; filename=sky2-ppc.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some more Marvell device id's, these are from the latest SysKonnect
-driver version.
+Revised version of Ben's patch to fix big endian support.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-
----
- drivers/net/sky2.c |    3 +++
- 1 file changed, 3 insertions(+)
-
---- sky2.orig/drivers/net/sky2.c	2006-09-01 14:49:49.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-09-01 14:49:56.000000000 -0700
-@@ -106,6 +106,7 @@
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9000) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9E00) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, 0x4b00) },	/* DGE-560T */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, 0x4001) }, 	/* DGE-550SX */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4340) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4341) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4342) },
-@@ -117,6 +118,7 @@
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4350) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4351) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4352) },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4353) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4360) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4361) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4362) },
-@@ -126,6 +128,7 @@
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4366) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4367) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4368) },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4369) },
- 	{ 0 }
+--- sky2.orig/drivers/net/sky2.c	2006-09-05 13:39:34.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-09-05 13:57:44.000000000 -0700
+@@ -809,7 +809,7 @@
+ 	struct sky2_rx_le *le;
+ 
+ 	le = sky2_next_rx(sky2);
+-	le->addr = (ETH_HLEN << 16) | ETH_HLEN;
++	le->addr = cpu_to_le32((ETH_HLEN << 16) | ETH_HLEN);
+ 	le->ctrl = 0;
+ 	le->opcode = OP_TCPSTART | HW_OWNER;
+ 
+@@ -1227,7 +1227,7 @@
+ 	/* Send high bits if changed or crosses boundary */
+ 	if (addr64 != sky2->tx_addr64 || high32(mapping + len) != sky2->tx_addr64) {
+ 		le = get_tx_le(sky2);
+-		le->tx.addr = cpu_to_le32(addr64);
++		le->addr = cpu_to_le32(addr64);
+ 		le->ctrl = 0;
+ 		le->opcode = OP_ADDR64 | HW_OWNER;
+ 		sky2->tx_addr64 = high32(mapping + len);
+@@ -1242,8 +1242,7 @@
+ 
+ 		if (mss != sky2->tx_last_mss) {
+ 			le = get_tx_le(sky2);
+-			le->tx.tso.size = cpu_to_le16(mss);
+-			le->tx.tso.rsvd = 0;
++			le->addr = cpu_to_le32(mss);
+ 			le->opcode = OP_LRGLEN | HW_OWNER;
+ 			le->ctrl = 0;
+ 			sky2->tx_last_mss = mss;
+@@ -1256,7 +1255,7 @@
+ 	if (sky2->vlgrp && vlan_tx_tag_present(skb)) {
+ 		if (!le) {
+ 			le = get_tx_le(sky2);
+-			le->tx.addr = 0;
++			le->addr = 0;
+ 			le->opcode = OP_VLAN|HW_OWNER;
+ 			le->ctrl = 0;
+ 		} else
+@@ -1268,20 +1267,21 @@
+ 
+ 	/* Handle TCP checksum offload */
+ 	if (skb->ip_summed == CHECKSUM_HW) {
+-		u16 hdr = skb->h.raw - skb->data;
+-		u16 offset = hdr + skb->csum;
++		unsigned offset = skb->h.raw - skb->data;
++		u32 tcpsum;
++
++		tcpsum = offset << 16;		/* sum start */
++		tcpsum |= offset + skb->csum;	/* sum write */
+ 
+ 		ctrl = CALSUM | WR_SUM | INIT_SUM | LOCK_SUM;
+ 		if (skb->nh.iph->protocol == IPPROTO_UDP)
+ 			ctrl |= UDPTCP;
+ 
+-		if (hdr != sky2->tx_csum_start || offset != sky2->tx_csum_offset) {
+-			sky2->tx_csum_start = hdr;
+-			sky2->tx_csum_offset = offset;
++		if (tcpsum != sky2->tx_tcpsum) {
++			sky2->tx_tcpsum = tcpsum;
+ 
+ 			le = get_tx_le(sky2);
+-			le->tx.csum.start = cpu_to_le16(hdr);
+-			le->tx.csum.offset = cpu_to_le16(offset);
++			le->addr = cpu_to_le32(tcpsum);
+ 			le->length = 0;	/* initial checksum value */
+ 			le->ctrl = 1;	/* one packet */
+ 			le->opcode = OP_TCPLISW | HW_OWNER;
+@@ -1289,7 +1289,7 @@
+ 	}
+ 
+ 	le = get_tx_le(sky2);
+-	le->tx.addr = cpu_to_le32((u32) mapping);
++	le->addr = cpu_to_le32((u32) mapping);
+ 	le->length = cpu_to_le16(len);
+ 	le->ctrl = ctrl;
+ 	le->opcode = mss ? (OP_LARGESEND | HW_OWNER) : (OP_PACKET | HW_OWNER);
+@@ -1307,14 +1307,14 @@
+ 		addr64 = high32(mapping);
+ 		if (addr64 != sky2->tx_addr64) {
+ 			le = get_tx_le(sky2);
+-			le->tx.addr = cpu_to_le32(addr64);
++			le->addr = cpu_to_le32(addr64);
+ 			le->ctrl = 0;
+ 			le->opcode = OP_ADDR64 | HW_OWNER;
+ 			sky2->tx_addr64 = addr64;
+ 		}
+ 
+ 		le = get_tx_le(sky2);
+-		le->tx.addr = cpu_to_le32((u32) mapping);
++		le->addr = cpu_to_le32((u32) mapping);
+ 		le->length = cpu_to_le16(frag->size);
+ 		le->ctrl = ctrl;
+ 		le->opcode = OP_BUFFER | HW_OWNER;
+@@ -1919,8 +1919,8 @@
+ 		dev = hw->dev[le->link];
+ 
+ 		sky2 = netdev_priv(dev);
+-		length = le->length;
+-		status = le->status;
++		length = le16_to_cpu(le->length);
++		status = le32_to_cpu(le->status);
+ 
+ 		switch (le->opcode & ~HW_OWNER) {
+ 		case OP_RXSTAT:
+@@ -1964,7 +1964,7 @@
+ 		case OP_RXCHKS:
+ 			skb = sky2->rx_ring[sky2->rx_next].skb;
+ 			skb->ip_summed = CHECKSUM_HW;
+-			skb->csum = le16_to_cpu(status);
++			skb->csum = status & 0xffff;
+ 			break;
+ 
+ 		case OP_TXINDEXLE:
+@@ -3266,12 +3266,13 @@
+ 	hw->pm_cap = pm_cap;
+ 
+ #ifdef __BIG_ENDIAN
+-	/* byte swap descriptors in hardware */
++	/* The sk98lin vendor driver uses hardware byte swapping but
++	 * this driver uses software swapping.
++	 */
+ 	{
+ 		u32 reg;
+-
+ 		reg = sky2_pci_read32(hw, PCI_DEV_REG2);
+-		reg |= PCI_REV_DESC;
++		reg &= ~PCI_REV_DESC;
+ 		sky2_pci_write32(hw, PCI_DEV_REG2, reg);
+ 	}
+ #endif
+--- sky2.orig/drivers/net/sky2.h	2006-09-05 12:10:13.000000000 -0700
++++ sky2/drivers/net/sky2.h	2006-09-05 13:55:55.000000000 -0700
+@@ -1783,21 +1783,9 @@
+ 	OP_TXINDEXLE	= 0x68,
  };
  
+-/* Yukon 2 hardware interface
+- * Not tested on big endian
+- */
++/* Yukon 2 hardware interface */
+ struct sky2_tx_le {
+-	union {
+-		__le32	addr;
+-		struct {
+-			__le16	offset;
+-			__le16	start;
+-		} csum  __attribute((packed));
+-		struct {
+-			__le16	size;
+-			__le16	rsvd;
+-		} tso  __attribute((packed));
+-	} tx;
++	__le32	addr;
+ 	__le16	length;	/* also vlan tag or checksum start */
+ 	u8	ctrl;
+ 	u8	opcode;
+@@ -1843,8 +1831,7 @@
+ 	u32		     tx_addr64;
+ 	u16		     tx_pending;
+ 	u16		     tx_last_mss;
+-	u16		     tx_csum_start;
+-	u16		     tx_csum_offset;
++	u32		     tx_tcpsum;
+ 
+ 	struct ring_info     *rx_ring ____cacheline_aligned_in_smp;
+ 	struct sky2_rx_le    *rx_le;
 
 --
 Stephen Hemminger <shemminger@osdl.org>
