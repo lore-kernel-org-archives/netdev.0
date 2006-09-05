@@ -1,62 +1,38 @@
-From: "Paul Aviles" <paul.aviles@palei.com>
+From: "John W. Linville" <linville@tuxdriver.com>
 Subject: Re: New stuff in wireless-dev
-Date: Mon, 4 Sep 2006 20:45:54 -0400
-Message-ID: <001501c6d084$a4d63500$3224050a@avilespaxp>
+Date: Mon, 4 Sep 2006 23:18:04 -0400
+Message-ID: <20060905031758.GA10435@tuxdriver.com>
 References: <20060905001225.GF8927@tuxdriver.com> <6bffcb0e0609041721g5548601cqdc5dcafbecc1f813@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=response
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl-7-36.cofs.net ([68.142.7.36]:20055 "EHLO www.palei.com")
-	by vger.kernel.org with ESMTP id S1751504AbWIEAqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 20:46:00 -0400
-Received: from avilespaxp ([10.5.36.50])
-	by www.palei.com (8.13.1/8.13.1) with SMTP id k850jxHB013435
-	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:45:59 -0400
-To: unlisted-recipients:; (no To-header on input)
+Received: from ra.tuxdriver.com ([70.61.120.52]:57362 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S932066AbWIEDSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 23:18:20 -0400
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <6bffcb0e0609041721g5548601cqdc5dcafbecc1f813@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-is also rejecting unsubscriptions to the list.....
-
------ Original Message ----- 
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Cc: <netdev@vger.kernel.org>
-Sent: Monday, September 04, 2006 8:21 PM
-Subject: Re: New stuff in wireless-dev
-
-
+On Tue, Sep 05, 2006 at 02:21:21AM +0200, Michal Piotrowski wrote:
 > Hi,
 > 
 > On 05/09/06, John W. Linville <linville@tuxdriver.com> wrote:
->> New stuff in wireless-dev -- I'd say more, but everytime I try to
->> say more, vger's new bogofilter rejects my email as spam...WTF???
+> >New stuff in wireless-dev -- I'd say more, but everytime I try to
+> >say more, vger's new bogofilter rejects my email as spam...WTF???
 > 
 > Please read
 > http://lkml.org/lkml/2006/9/2/44
-> 
->>
->> John
->> --
->> John W. Linville
->> linville@tuxdriver.com
-> 
-> Regards,
-> Michal
-> 
-> -- 
-> Michal K. K. Piotrowski
-> LTG - Linux Testers Group
-> (http://www.stardust.webpages.pl/ltg/)
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
->
 
+Ummm...thanks?  But that's not very helpful -- especially since I
+already have that email.
+
+"WTF?" was meant to read as "Why would the output of a git command
+be classified as spam?"
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
