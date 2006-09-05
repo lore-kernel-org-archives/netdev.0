@@ -1,76 +1,97 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [RFC] A change in periodic work scheduling in bcm43xx
-Date: Tue, 05 Sep 2006 12:58:00 -0500
-Message-ID: <44FDBAA8.6090709@lwfinger.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] network namespaces
+Date: Tue, 05 Sep 2006 12:27:20 -0600
+Message-ID: <m17j0i1853.fsf@ebiederm.dsl.xmission.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>
+	<20060816115313.GC31810@sergelap.austin.ibm.com>
+	<44FD7CF0.4030009@fr.ibm.com>
+	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>
+	<20060905165328.GA17317@MAIL.13thfloor.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alexey@sw.ru, sam@vilain.net, Andrey Savochkin <saw@sw.ru>,
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:26795 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932207AbWIES27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Sep 2006 14:28:59 -0400
+To: Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060905165328.GA17317@MAIL.13thfloor.at> (Herbert Poetzl's
+	message of "Tue, 5 Sep 2006 18:53:28 +0200")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael,
+Herbert Poetzl <herbert@13thfloor.at> writes:
 
-Based on user reports and my own experiences, the current problems with NETDEV WATCHDOG tx timeouts, 
-and the device just falling over do not happen when periodic work is not preemptible. These problems 
-seem to affect BCM4306 rev 2 & 3 chips. Since I changed BADNESS_LIMIT to 20 to disable preemption 
-during periodic work, my device has stayed up continuously for more than 18 hours. Previously, the 
-longest time between failures was less than 6 hours, and sometimes as short as 10 minutes.
+> On Tue, Sep 05, 2006 at 08:45:39AM -0600, Eric W. Biederman wrote:
+>> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+>> 
+>> For HPC if you are interested in migration you need a separate IP
+>> per container. If you can take you IP address with you migration of
+>> networking state is simple. If you can't take your IP address with you
+>> a network container is nearly pointless from a migration perspective.
+>>
+>> Beyond that from everything I have seen layer 2 is just much cleaner
+>> than any layer 3 approach short of Serge's bind filtering.
+>
+> well, the 'ip subset' approach Linux-VServer and
+> other Jail solutions use is very clean, it just does
+> not match your expectations of a virtual interface
+> (as there is none) and it does not cope well with
+> all kinds of per context 'requirements', which IMHO
+> do not really exist on the application layer (only
+> on the whole system layer)
 
-As you know, the present scheme for periodic work scheduling for bcm43xx in both wireless-2.6 and 
-wireless-dev runs all 4 periodic tasks on certain ticks of the 15-second clock. Using your values of 
-"badness" of 1, 1, 5, and 10 for the 15, 30, 60, and 120 second periodic tasks, respectively, the 
-badness repeat cycle is ..., 1, 2, 1, 7, 1, 2, 1, 17, ...
+I probably expressed that wrong.  There are currently three
+basic approaches under discussion.
+Layer 3 (Basically bind filtering) nothing at the packet level.
+   The approach taken by Serge's version of bsdjails and Vserver.
 
-I propose that we reduce the size of the spike in badness by shifting the 120 second task from a 
-clock value of 8n to 8n+7, and the 60 second task from 4n to 4n+1. This way no more than 2 of the 
-periodic tasks will be run in any clock period, and the badness repeat cycle becomes ..., 6, 2, 1, 
-2, 6, 2, 11, 2, .... The tasks are run with the same periodicity as before, just a little more 
-asynchronously. I recall that they were completely asynchronous in early versions of this driver.
+Layer 2.5 What Daniel proposed.
 
-Until we can locate and fix the problem that occurs during preemption, should we consider setting 
-BADNESS_LIMIT to 20 in the wireless-2.6 kernels? For those of us whose cards have the problem, it 
-certainly makes the device a lot more usable.
+Layer 2.  (Trivially mapping each packet to a different interface)
+           And then treating everything as multiple instances of the
+           network stack.
+        Roughly what OpenVZ and I have implemented.
 
-Larry
+You can get into some weird complications at layer 3 but because
+it doesn't touch each packet the proof it is fast is trivial.
 
-The patches to implement the scheduling change are as follows:
+>> Beyond that I have yet to see a clean semantics for anything
+>> resembling your layer 2 layer 3 hybrid approach. If we can't have
+>> clear semantics it is by definition impossible to implement correctly
+>> because no one understands what it is supposed to do.
+>
+> IMHO that would be quite simple, have a 'namespace'
+> for limiting port binds to a subset of the available
+> ips and another one which does complete network 
+> virtualization with all the whistles and bells, IMHO
+> most of them are orthogonal and can easily be combined
+>
+>  - full network virtualization
+>  - lightweight ip subset 
+>  - both
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3195,9 +3195,9 @@ static void do_periodic_work(struct bcm4
-  	unsigned int state;
+Quite possibly.  The LSM will stay for a while so we do have
+a clean way to restrict port binds.
 
-  	state = bcm->periodic_state;
--	if (state % 8 == 0)
-+	if (state % 8 == 7)
-  		bcm43xx_periodic_every120sec(bcm);
--	if (state % 4 == 0)
-+	if (state % 4 == 1)
-  		bcm43xx_periodic_every60sec(bcm);
-  	if (state % 2 == 0)
-  		bcm43xx_periodic_every30sec(bcm);
-@@ -3216,8 +3216,8 @@ static int estimate_periodic_work_badnes
-  {
-  	int badness = 0;
+>> Note. A true layer 3 approach has no impact on TCP/UDP filtering
+>> because it filters at bind time not at packet reception time. Once you
+>> start inspecting packets I don't see what the gain is from not going
+>> all of the way to layer 2.
+>
+> IMHO this requirement only arises from the full system
+> virtualization approach, just look at the other jail
+> solutions (solaris, bsd, ...) some of them do not even 
+> allow for more than a single ip but they work quite
+> well when used properly ...
 
--	if (state % 8 == 0) /* every 120 sec */
-+	if (state % 8 == 7) /* every 120 sec */
-  		badness += 10;
--	if (state % 4 == 0) /* every 60 sec */
-+	if (state % 4 == 1) /* every 60 sec */
-  		badness += 5;
-  	if (state % 2 == 0) /* every 30 sec */
+
+Yes they do.  Currently I am strongly opposed to Daniel Layer 2.5 approach
+as I see no redeeming value in it.  A good clean layer 3 approach I 
+avoid only because I think we can do better.
+
+Eric
