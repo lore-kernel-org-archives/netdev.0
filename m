@@ -1,42 +1,32 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [PATCH] DM9000 interrupt is hardware dependant
-Date: Mon, 4 Sep 2006 23:40:02 +0100
-Message-ID: <20060904224002.GB3623@home.fluff.org>
-References: <200609042217.09004.linux@schindele.name> <20060904204646.GD3782@xi.wantstofly.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: New stuff in wireless-dev
+Date: Mon, 4 Sep 2006 20:12:30 -0400
+Message-ID: <20060905001225.GF8927@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: J?rgen Schindele <linux@schindele.name>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-84-9-201-122.bulldogdsl.com ([84.9.201.122]:11809 "EHLO
-	aeryn.fluff.org.uk") by vger.kernel.org with ESMTP id S932192AbWIDWkR
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Sep 2006 18:40:17 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:41481 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S965081AbWIEAMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 20:12:38 -0400
+Received: from bilbo.hq.tuxdriver.com ([70.61.120.53])
+	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id k850CUEu003140
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:12:35 -0400
+Received: from bilbo.hq.tuxdriver.com (localhost.localdomain [127.0.0.1])
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k850CUaN009332
+	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:12:30 -0400
+Received: (from linville@localhost)
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k850CUup009331
+	for netdev@vger.kernel.org; Mon, 4 Sep 2006 20:12:30 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060904204646.GD3782@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 04, 2006 at 10:46:46PM +0200, Lennert Buytenhek wrote:
-> On Mon, Sep 04, 2006 at 10:17:08PM +0200, J?rgen Schindele wrote:
-> 
-> > i made a patch for an PXA270-evalboard with DM9000
-> > ethernet contoller. The Interrupt can be high- or low-
-> > active dependant of the wiring of the MDC-(57)pin.
-> > 
-> > Because of this hardware dependency you shoud be able
-> > to configure this behaviour in "struct resource dm9000_resources[]"
-> 
-> Putting it in 'struct dm9000_plat_data' sounds like a much better
-> idea to me...
-> 
-> Overloading the IRQ number in 'struct resource' is just ugly.
+New stuff in wireless-dev -- I'd say more, but everytime I try to
+say more, vger's new bogofilter rejects my email as spam...WTF???
 
-My view is that this would be useful to a number of drivers, and
-is a good use of the resource flags for drivers which do not
-currently have platform data.
-
+John
 -- 
-Ben (ben@fluff.org, http://www.fluff.org/)
-
-  'a smiley only costs 4 bytes'
+John W. Linville
+linville@tuxdriver.com
