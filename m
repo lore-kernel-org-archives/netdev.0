@@ -1,244 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/3] sky2: fiber support
-Date: Wed, 6 Sep 2006 12:44:53 -0700
-Message-ID: <20060906124453.73a7fde7@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/7] bonding: Add 10 Gig support
+Date: Wed, 06 Sep 2006 16:05:40 -0400
+Message-ID: <44FF2A14.9090109@pobox.com>
+References: <200609012208.k81M86Zt005275@death.nxdomain.ibm.com>	<44FEE679.6030201@pobox.com>	<Pine.CYG.4.58.0609060939150.3076@mawilli1-desk2.amr.corp.intel.com>	<44FEFD16.1040308@pobox.com> <20060906122346.1413447f.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:35523 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932072AbWIFTqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 15:46:43 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:64997 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932121AbWIFUFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 16:05:47 -0400
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
+In-Reply-To: <20060906122346.1413447f.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix the support for fiber connected gigabit boards.
-Allow half duplex gigabit to be configured.
+Randy.Dunlap wrote:
+> On Wed, 06 Sep 2006 12:53:42 -0400 Jeff Garzik wrote:
+> 
+>> Mitch Williams wrote:
+>>> Add 10 Gig support to bonding.
+>>>
+>>> Resent due to corrupt patch.
+>>>
+>>> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+>>> Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+>> Did you test with git-applymbox first?
+>>
+>> It's still corrupt...
+>>
+>>
+>> Applying 'bonding: Add 10 Gig support'
+>>
+>> fatal: corrupt patch at line 10
+> 
+> The patch applies fine for me (not using that git stuff).
+> Maybe a tool problem?
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Linus says git-applymbox is more strict than patch(1).  patch(1) 
+intentionally accepts (and attempts to correct) certain types of garbage.
 
----
+	Jeff
 
- drivers/net/sky2.c |   81 +++++++++++++++++++++++++++++++---------------------
- drivers/net/sky2.h |   15 +++++++++-
- 2 files changed, 63 insertions(+), 33 deletions(-)
 
-fcb3e066f8db9687d143b7a4d17fdaf652b1cd65
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index a3a4ab2..2b9272c 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -308,7 +308,7 @@ static void sky2_phy_init(struct sky2_hw
- 	}
- 
- 	ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
--	if (hw->copper) {
-+	if (sky2_is_copper(hw)) {
- 		if (hw->chip_id == CHIP_ID_YUKON_FE) {
- 			/* enable automatic crossover */
- 			ctrl |= PHY_M_PC_MDI_XMODE(PHY_M_PC_ENA_AUTO) >> 1;
-@@ -325,25 +325,37 @@ static void sky2_phy_init(struct sky2_hw
- 				ctrl |= PHY_M_PC_DSC(2) | PHY_M_PC_DOWN_S_ENA;
- 			}
- 		}
--		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
- 	} else {
- 		/* workaround for deviation #4.88 (CRC errors) */
- 		/* disable Automatic Crossover */
- 
- 		ctrl &= ~PHY_M_PC_MDIX_MSK;
--		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+	}
- 
--		if (hw->chip_id == CHIP_ID_YUKON_XL) {
--			/* Fiber: select 1000BASE-X only mode MAC Specific Ctrl Reg. */
--			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
--			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
--			ctrl &= ~PHY_M_MAC_MD_MSK;
--			ctrl |= PHY_M_MAC_MODE_SEL(PHY_M_MAC_MD_1000BX);
--			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+	gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+
-+	/* special setup for PHY 88E1112 Fiber */
-+	if (hw->chip_id == CHIP_ID_YUKON_XL && !sky2_is_copper(hw)) {
-+		pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
- 
-+		/* Fiber: select 1000BASE-X only mode MAC Specific Ctrl Reg. */
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
-+		ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-+		ctrl &= ~PHY_M_MAC_MD_MSK;
-+		ctrl |= PHY_M_MAC_MODE_SEL(PHY_M_MAC_MD_1000BX);
-+		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+
-+		if (hw->pmd_type  == 'P') {
- 			/* select page 1 to access Fiber registers */
- 			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 1);
-+
-+			/* for SFP-module set SIGDET polarity to low */
-+			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-+			ctrl |= PHY_M_FIB_SIGD_POL;
-+			gm_phy_write(hw, port, PHY_MARV_CTRL, ctrl);
- 		}
-+
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, pg);
- 	}
- 
- 	ctrl = gm_phy_read(hw, port, PHY_MARV_CTRL);
-@@ -361,7 +373,7 @@ static void sky2_phy_init(struct sky2_hw
- 	reg = 0;
- 
- 	if (sky2->autoneg == AUTONEG_ENABLE) {
--		if (hw->copper) {
-+		if (sky2_is_copper(hw)) {
- 			if (sky2->advertising & ADVERTISED_1000baseT_Full)
- 				ct1000 |= PHY_M_1000C_AFD;
- 			if (sky2->advertising & ADVERTISED_1000baseT_Half)
-@@ -374,8 +386,12 @@ static void sky2_phy_init(struct sky2_hw
- 				adv |= PHY_M_AN_10_FD;
- 			if (sky2->advertising & ADVERTISED_10baseT_Half)
- 				adv |= PHY_M_AN_10_HD;
--		} else		/* special defines for FIBER (88E1011S only) */
--			adv |= PHY_M_AN_1000X_AHD | PHY_M_AN_1000X_AFD;
-+		} else {	/* special defines for FIBER (88E1040S only) */
-+			if (sky2->advertising & ADVERTISED_1000baseT_Full)
-+				adv |= PHY_M_AN_1000X_AFD;
-+			if (sky2->advertising & ADVERTISED_1000baseT_Half)
-+				adv |= PHY_M_AN_1000X_AHD;
-+		}
- 
- 		/* Set Flow-control capabilities */
- 		if (sky2->tx_pause && sky2->rx_pause)
-@@ -1496,7 +1512,7 @@ static int sky2_down(struct net_device *
- 
- static u16 sky2_phy_speed(const struct sky2_hw *hw, u16 aux)
- {
--	if (!hw->copper)
-+	if (!sky2_is_copper(hw))
- 		return SPEED_1000;
- 
- 	if (hw->chip_id == CHIP_ID_YUKON_FE)
-@@ -2269,7 +2285,7 @@ static inline u32 sky2_clk2us(const stru
- static int sky2_reset(struct sky2_hw *hw)
- {
- 	u16 status;
--	u8 t8, pmd_type;
-+	u8 t8;
- 	int i;
- 
- 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
-@@ -2315,9 +2331,7 @@ static int sky2_reset(struct sky2_hw *hw
- 		sky2_pci_write32(hw, PEX_UNC_ERR_STAT, 0xffffffffUL);
- 
- 
--	pmd_type = sky2_read8(hw, B2_PMD_TYP);
--	hw->copper = !(pmd_type == 'L' || pmd_type == 'S');
--
-+	hw->pmd_type = sky2_read8(hw, B2_PMD_TYP);
- 	hw->ports = 1;
- 	t8 = sky2_read8(hw, B2_Y2_HW_RES);
- 	if ((t8 & CFG_DUAL_MAC_MSK) == CFG_DUAL_MAC_MSK) {
-@@ -2414,21 +2428,22 @@ static int sky2_reset(struct sky2_hw *hw
- 
- static u32 sky2_supported_modes(const struct sky2_hw *hw)
- {
--	u32 modes;
--	if (hw->copper) {
--		modes = SUPPORTED_10baseT_Half
--		    | SUPPORTED_10baseT_Full
--		    | SUPPORTED_100baseT_Half
--		    | SUPPORTED_100baseT_Full
--		    | SUPPORTED_Autoneg | SUPPORTED_TP;
-+	if (sky2_is_copper(hw)) {
-+		u32 modes = SUPPORTED_10baseT_Half
-+			| SUPPORTED_10baseT_Full
-+			| SUPPORTED_100baseT_Half
-+			| SUPPORTED_100baseT_Full
-+			| SUPPORTED_Autoneg | SUPPORTED_TP;
- 
- 		if (hw->chip_id != CHIP_ID_YUKON_FE)
- 			modes |= SUPPORTED_1000baseT_Half
--			    | SUPPORTED_1000baseT_Full;
-+				| SUPPORTED_1000baseT_Full;
-+		return modes;
- 	} else
--		modes = SUPPORTED_1000baseT_Full | SUPPORTED_FIBRE
--		    | SUPPORTED_Autoneg;
--	return modes;
-+		return  SUPPORTED_1000baseT_Half
-+			| SUPPORTED_1000baseT_Full
-+			| SUPPORTED_Autoneg
-+			| SUPPORTED_FIBRE;
- }
- 
- static int sky2_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-@@ -2439,7 +2454,7 @@ static int sky2_get_settings(struct net_
- 	ecmd->transceiver = XCVR_INTERNAL;
- 	ecmd->supported = sky2_supported_modes(hw);
- 	ecmd->phy_address = PHY_ADDR_MARV;
--	if (hw->copper) {
-+	if (sky2_is_copper(hw)) {
- 		ecmd->supported = SUPPORTED_10baseT_Half
- 		    | SUPPORTED_10baseT_Full
- 		    | SUPPORTED_100baseT_Half
-@@ -2448,12 +2463,14 @@ static int sky2_get_settings(struct net_
- 		    | SUPPORTED_1000baseT_Full
- 		    | SUPPORTED_Autoneg | SUPPORTED_TP;
- 		ecmd->port = PORT_TP;
--	} else
-+		ecmd->speed = sky2->speed;
-+	} else {
-+		ecmd->speed = SPEED_1000;
- 		ecmd->port = PORT_FIBRE;
-+	}
- 
- 	ecmd->advertising = sky2->advertising;
- 	ecmd->autoneg = sky2->autoneg;
--	ecmd->speed = sky2->speed;
- 	ecmd->duplex = sky2->duplex;
- 	return 0;
- }
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index a27194c..be46463 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -1318,6 +1318,14 @@ enum {
- };
- 
- /* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
-+/*****  PHY_MARV_PHY_CTRL (page 1)		16 bit r/w	Fiber Specific Ctrl *****/
-+enum {
-+	PHY_M_FIB_FORCE_LNK	= 1<<10,/* Force Link Good */
-+	PHY_M_FIB_SIGD_POL	= 1<<9,	/* SIGDET Polarity */
-+	PHY_M_FIB_TX_DIS	= 1<<3,	/* Transmitter Disable */
-+};
-+
-+/* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
- /*****  PHY_MARV_PHY_CTRL (page 2)		16 bit r/w	MAC Specific Ctrl *****/
- enum {
- 	PHY_M_MAC_MD_MSK	= 7<<7, /* Bit  9.. 7: Mode Select Mask */
-@@ -1880,7 +1888,7 @@ struct sky2_hw {
- 	int		     pm_cap;
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
--	u8		     copper;
-+	u8		     pmd_type;
- 	u8		     ports;
- 
- 	struct sky2_status_le *st_le;
-@@ -1892,6 +1900,11 @@ struct sky2_hw {
- 	wait_queue_head_t    msi_wait;
- };
- 
-+static inline int sky2_is_copper(const struct sky2_hw *hw)
-+{
-+	return !(hw->pmd_type == 'L' || hw->pmd_type == 'S' || hw->pmd_type == 'P');
-+}
-+
- /* Register accessor for memory mapped device */
- static inline u32 sky2_read32(const struct sky2_hw *hw, unsigned reg)
- {
--- 
-1.2.4
 
