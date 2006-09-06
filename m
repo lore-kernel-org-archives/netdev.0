@@ -1,152 +1,54 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Tue, 05 Sep 2006 18:46:43 -0700
-Message-ID: <1157507203.2222.11.camel@localhost>
-References: <20060905132530.GD9173@stusta.de>
-	 <20060901015818.42767813.akpm@osdl.org>
-	 <6260.1157470557@warthog.cambridge.redhat.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH] myri10ge: update the firmware download URL in Kconfig
+Date: Tue, 05 Sep 2006 21:58:50 -0400
+Message-ID: <44FE2B5A.7020506@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965259AbWIFBrK@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-In-Reply-To: <6260.1157470557@warthog.cambridge.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:2466 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S965222AbWIFB7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 21:59:23 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-09-05 at 16:35 +0100, David Howells wrote:
-> Stop do_gettimeofday() on FRV from using tickadj, and model it after ARM
-> instead.
-> 
-> This patch also provides a placeholder macro for getting hardware timer data to
-> be filled in when such is available.
+Jeff,
 
->From this patch it looks like the FRV arch could be trivially converted
-to GENERIC_TIME.
+Could you please push the following patch to Linus before 2.6.18?
+It updates the firmware download URL in Kconfig to match the header
+in drivers/net/myri10ge/myri10ge.c.
 
-Would you consider the following, totally untested patch?
+Thanks!
+Brice Goglin
 
-Signed-off-by: John Stultz <johnstul@us.ibm.com>
 
- Kconfig       |    4 ++
- kernel/time.c |   81 ----------------------------------------------------------
- 2 files changed, 4 insertions(+), 81 deletions(-)
 
-diff --git a/arch/frv/Kconfig b/arch/frv/Kconfig
-index 95a3892..a601a17 100644
---- a/arch/frv/Kconfig
-+++ b/arch/frv/Kconfig
-@@ -29,6 +29,10 @@ config GENERIC_HARDIRQS
- 	bool
- 	default n
+From: Brice Goglin <brice@myri.com>
+
+[PATCH] myri10ge: update the firmware download URL in Kconfig
+
+Update the firmware download URL in Kconfig to match the header
+in drivers/net/myri10ge/myri10ge.c.
+
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-rc/drivers/net/Kconfig
+===================================================================
+--- linux-rc.orig/drivers/net/Kconfig	2006-09-05 11:19:37.000000000 -0400
++++ linux-rc/drivers/net/Kconfig	2006-09-05 11:19:49.000000000 -0400
+@@ -2393,7 +2393,7 @@
+ 	  you will need a newer firmware image.
+ 	  You may get this image or more information, at:
  
-+config GENERIC_TIME
-+	bool
-+	default y
-+
- config TIME_LOW_RES
- 	bool
- 	default y
-diff --git a/arch/frv/kernel/time.c b/arch/frv/kernel/time.c
-index d5b64e1..68a77fe 100644
---- a/arch/frv/kernel/time.c
-+++ b/arch/frv/kernel/time.c
-@@ -32,8 +32,6 @@
+-	  <http://www.myri.com/Myri-10G/>
++	  <http://www.myri.com/scs/download-Myri10GE.html>
  
- #define TICK_SIZE (tick_nsec / 1000)
- 
--extern unsigned long wall_jiffies;
--
- unsigned long __nongprelbss __clkin_clock_speed_HZ;
- unsigned long __nongprelbss __ext_bus_clock_speed_HZ;
- unsigned long __nongprelbss __res_bus_clock_speed_HZ;
-@@ -145,85 +143,6 @@ void time_init(void)
- }
- 
- /*
-- * This version of gettimeofday has near microsecond resolution.
-- */
--void do_gettimeofday(struct timeval *tv)
--{
--	unsigned long seq;
--	unsigned long usec, sec;
--	unsigned long max_ntp_tick;
--
--	do {
--		unsigned long lost;
--
--		seq = read_seqbegin(&xtime_lock);
--
--		usec = 0;
--		lost = jiffies - wall_jiffies;
--
--		/*
--		 * If time_adjust is negative then NTP is slowing the clock
--		 * so make sure not to go into next possible interval.
--		 * Better to lose some accuracy than have time go backwards..
--		 */
--		if (unlikely(time_adjust < 0)) {
--			max_ntp_tick = (USEC_PER_SEC / HZ) - tickadj;
--			usec = min(usec, max_ntp_tick);
--
--			if (lost)
--				usec += lost * max_ntp_tick;
--		}
--		else if (unlikely(lost))
--			usec += lost * (USEC_PER_SEC / HZ);
--
--		sec = xtime.tv_sec;
--		usec += (xtime.tv_nsec / 1000);
--	} while (read_seqretry(&xtime_lock, seq));
--
--	while (usec >= 1000000) {
--		usec -= 1000000;
--		sec++;
--	}
--
--	tv->tv_sec = sec;
--	tv->tv_usec = usec;
--}
--
--EXPORT_SYMBOL(do_gettimeofday);
--
--int do_settimeofday(struct timespec *tv)
--{
--	time_t wtm_sec, sec = tv->tv_sec;
--	long wtm_nsec, nsec = tv->tv_nsec;
--
--	if ((unsigned long)tv->tv_nsec >= NSEC_PER_SEC)
--		return -EINVAL;
--
--	write_seqlock_irq(&xtime_lock);
--	/*
--	 * This is revolting. We need to set "xtime" correctly. However, the
--	 * value in this location is the value at the most recent update of
--	 * wall time.  Discover what correction gettimeofday() would have
--	 * made, and then undo it!
--	 */
--	nsec -= 0 * NSEC_PER_USEC;
--	nsec -= (jiffies - wall_jiffies) * TICK_NSEC;
--
--	wtm_sec  = wall_to_monotonic.tv_sec + (xtime.tv_sec - sec);
--	wtm_nsec = wall_to_monotonic.tv_nsec + (xtime.tv_nsec - nsec);
--
--	set_normalized_timespec(&xtime, sec, nsec);
--	set_normalized_timespec(&wall_to_monotonic, wtm_sec, wtm_nsec);
--
--	ntp_clear();
--	write_sequnlock_irq(&xtime_lock);
--	clock_was_set();
--	return 0;
--}
--
--EXPORT_SYMBOL(do_settimeofday);
--
--/*
-  * Scheduler clock - returns current time in nanosec units.
-  */
- unsigned long long sched_clock(void)
+ 	  To compile this driver as a module, choose M here and read
+ 	  <file:Documentation/networking/net-modules.txt>.  The module
+
+
