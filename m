@@ -1,196 +1,200 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 10/21] block: elevator selection and pinning
-Date: Wed, 06 Sep 2006 15:16:40 +0200
-Message-ID: <20060906133954.673752000@chello.nl>
+Subject: [PATCH 09/21] nfs: make swap on NFS robust
+Date: Wed, 06 Sep 2006 15:16:39 +0200
+Message-ID: <20060906133954.468910000@chello.nl>
 References: <20060906131630.793619000@chello.nl>>
 Cc: Daniel Phillips <phillips@google.com>,
 	Rik van Riel <riel@redhat.com>,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Jens Axboe <axboe@suse.de>, Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751035AbWIFNnR@vger.kernel.org>
+	Trond Myklebust <trond.myklebust@fys.uio.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:53215 "EHLO
+	amsfep15-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1750920AbWIFNia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:38:30 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=block_queue_init_elv.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Disposition: inline; filename=nfs_vmio.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide an block queue init function that allows to set an elevator. And a 
-function to pin the current elevator.
+Provide a proper a_ops->swapfile() implementation for NFS. This will set the
+NFS socket to SOCK_VMIO and run socket reconnect under PF_MEMALLOC as well
+as reset SOCK_VMIO before engaging the protocol ->connect() method.
+
+PF_MEMALLOC should allow the allocation of struct socket and related objects
+and the early (re)setting of SOCK_VMIO should allow us to receive the packets
+required for the TCP connection buildup.
+
+(swapping continues over a server reset during a large (4k) ping flood)
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Signed-off-by: Daniel Phillips <phillips@google.com>
-CC: Jens Axboe <axboe@suse.de>
-CC: Pavel Machek <pavel@ucw.cz>
+CC: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- block/elevator.c         |   56 ++++++++++++++++++++++++++++++++++++-----------
- block/ll_rw_blk.c        |   12 ++++++++--
- include/linux/blkdev.h   |    9 +++++++
- include/linux/elevator.h |    1 
- 4 files changed, 63 insertions(+), 15 deletions(-)
+ fs/nfs/file.c               |    2 +-
+ include/linux/sunrpc/xprt.h |    5 ++++-
+ net/sunrpc/sched.c          |    4 ++--
+ net/sunrpc/xprtsock.c       |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 51 insertions(+), 4 deletions(-)
 
-Index: linux-2.6/block/ll_rw_blk.c
+Index: linux-2.6/fs/nfs/file.c
 ===================================================================
---- linux-2.6.orig/block/ll_rw_blk.c
-+++ linux-2.6/block/ll_rw_blk.c
-@@ -1899,6 +1899,14 @@ EXPORT_SYMBOL(blk_init_queue);
- request_queue_t *
- blk_init_queue_node(request_fn_proc *rfn, spinlock_t *lock, int node_id)
- {
-+	return blk_init_queue_node_elv(rfn, lock, node_id, NULL);
-+}
-+EXPORT_SYMBOL(blk_init_queue_node);
-+
-+request_queue_t *
-+blk_init_queue_node_elv(request_fn_proc *rfn, spinlock_t *lock, int node_id,
-+		char *elv_name)
-+{
- 	request_queue_t *q = blk_alloc_queue_node(GFP_KERNEL, node_id);
+--- linux-2.6.orig/fs/nfs/file.c
++++ linux-2.6/fs/nfs/file.c
+@@ -323,7 +323,7 @@ static int nfs_release_page(struct page 
  
- 	if (!q)
-@@ -1939,7 +1947,7 @@ blk_init_queue_node(request_fn_proc *rfn
- 	/*
- 	 * all done
- 	 */
--	if (!elevator_init(q, NULL)) {
-+	if (!elevator_init(q, elv_name)) {
- 		blk_queue_congestion_threshold(q);
- 		return q;
- 	}
-@@ -1947,7 +1955,7 @@ blk_init_queue_node(request_fn_proc *rfn
- 	blk_put_queue(q);
- 	return NULL;
+ static int nfs_swapfile(struct address_space *mapping, int enable)
+ {
+-	return 0;
++	return xs_swapper(NFS_CLIENT(mapping->host)->cl_xprt, enable);
  }
--EXPORT_SYMBOL(blk_init_queue_node);
-+EXPORT_SYMBOL(blk_init_queue_node_elv);
  
- int blk_get_queue(request_queue_t *q)
+ const struct address_space_operations nfs_file_aops = {
+Index: linux-2.6/net/sunrpc/xprtsock.c
+===================================================================
+--- linux-2.6.orig/net/sunrpc/xprtsock.c
++++ linux-2.6/net/sunrpc/xprtsock.c
+@@ -1014,6 +1014,7 @@ static void xs_udp_connect_worker(void *
  {
-Index: linux-2.6/include/linux/blkdev.h
-===================================================================
---- linux-2.6.orig/include/linux/blkdev.h
-+++ linux-2.6/include/linux/blkdev.h
-@@ -444,6 +444,12 @@ struct request_queue
- #define QUEUE_FLAG_REENTER	6	/* Re-entrancy avoidance */
- #define QUEUE_FLAG_PLUGGED	7	/* queue is plugged */
- #define QUEUE_FLAG_ELVSWITCH	8	/* don't use elevator, just do FIFO */
-+#define QUEUE_FLAG_ELVPINNED	9	/* pin the current elevator */
-+
-+static inline void blk_queue_pin_elevator(struct request_queue *q)
-+{
-+	set_bit(QUEUE_FLAG_ELVPINNED, &q->queue_flags);
-+}
+ 	struct rpc_xprt *xprt = (struct rpc_xprt *) args;
+ 	struct socket *sock = xprt->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
  
- enum {
- 	/*
-@@ -696,6 +702,9 @@ static inline void elv_dispatch_add_tail
+ 	if (xprt->shutdown || xprt->addr.sin_port == 0)
+@@ -1021,6 +1022,9 @@ static void xs_udp_connect_worker(void *
+ 
+ 	dprintk("RPC:      xs_udp_connect_worker for xprt %p\n", xprt);
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	/* Start by resetting any existing state */
+ 	xs_close(xprt);
+ 
+@@ -1054,6 +1058,9 @@ static void xs_udp_connect_worker(void *
+ 		xprt->sock = sock;
+ 		xprt->inet = sk;
+ 
++		if (xprt->swapper)
++			sk_set_vmio(sk);
++
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	}
+ 	xs_udp_do_set_buffer_size(xprt);
+@@ -1061,6 +1068,7 @@ static void xs_udp_connect_worker(void *
+ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ 	xprt_clear_connecting(xprt);
++	current->flags = pflags;
+ }
+ 
  /*
-  * Access functions for manipulating queue properties
-  */
-+extern request_queue_t *blk_init_queue_node_elv(request_fn_proc *rfn,
-+					spinlock_t *lock, int node_id,
-+					char *elv_name);
- extern request_queue_t *blk_init_queue_node(request_fn_proc *rfn,
- 					spinlock_t *lock, int node_id);
- extern request_queue_t *blk_init_queue(request_fn_proc *, spinlock_t *);
-Index: linux-2.6/block/elevator.c
-===================================================================
---- linux-2.6.orig/block/elevator.c
-+++ linux-2.6/block/elevator.c
-@@ -856,11 +856,33 @@ fail_register:
+@@ -1097,11 +1105,15 @@ static void xs_tcp_connect_worker(void *
+ {
+ 	struct rpc_xprt *xprt = (struct rpc_xprt *)args;
+ 	struct socket *sock = xprt->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || xprt->addr.sin_port == 0)
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	dprintk("RPC:      xs_tcp_connect_worker for xprt %p\n", xprt);
+ 
+ 	if (!xprt->sock) {
+@@ -1148,6 +1160,10 @@ static void xs_tcp_connect_worker(void *
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	}
+ 
++
++	if (xprt->swapper)
++		sk_set_vmio(xprt->inet);
++
+ 	/* Tell the socket layer to start connecting... */
+ 	xprt->stat.connect_count++;
+ 	xprt->stat.connect_start = jiffies;
+@@ -1174,6 +1190,7 @@ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ out_clear:
+ 	xprt_clear_connecting(xprt);
++	current->flags = pflags;
+ }
+ 
+ /**
+@@ -1369,3 +1386,30 @@ int xs_setup_tcp(struct rpc_xprt *xprt, 
+ 
  	return 0;
  }
- 
-+int elv_iosched_switch(request_queue_t *q, const char *elevator_name)
++
++/**
++ * xs_swapper - Tag this transport as being used for swap.
++ * @xprt: transport to tag
++ * @enable: enable/disable
++ *
++ */
++int xs_swapper(struct rpc_xprt *xprt, int enable)
 +{
-+	struct elevator_type *e;
++	int err = 0;
 +
-+	if (test_bit(QUEUE_FLAG_ELVPINNED, &q->queue_flags))
-+		return -EPERM;
-+
-+	e = elevator_get(elevator_name);
-+	if (!e)
-+		return -EINVAL;
-+
-+	if (!strcmp(elevator_name, q->elevator->elevator_type->elevator_name)) {
-+		elevator_put(e);
-+		return -EEXIST;
++	if (enable) {
++		/*
++		 * keep one extra sock reference so the reserve won't dip
++		 * when the socket gets reconnected.
++		 */
++		sk_adjust_memalloc(1, TX_RESERVE_PAGES);
++		sk_set_vmio(xprt->inet);
++		xprt->swapper = 1;
++	} else if (xprt->swapper) {
++		xprt->swapper = 0;
++		sk_clear_vmio(xprt->inet);
++		sk_adjust_memalloc(-1, -TX_RESERVE_PAGES);
 +	}
 +
-+	if (!elevator_switch(q, e))
-+		return -ENOMEM;
-+
-+	return 0;
++	return err;
 +}
-+
- ssize_t elv_iosched_store(request_queue_t *q, const char *name, size_t count)
- {
- 	char elevator_name[ELV_NAME_MAX];
- 	size_t len;
--	struct elevator_type *e;
-+	int error;
- 
- 	elevator_name[sizeof(elevator_name) - 1] = '\0';
- 	strncpy(elevator_name, name, sizeof(elevator_name) - 1);
-@@ -869,20 +891,27 @@ ssize_t elv_iosched_store(request_queue_
- 	if (len && elevator_name[len - 1] == '\n')
- 		elevator_name[len - 1] = '\0';
- 
--	e = elevator_get(elevator_name);
--	if (!e) {
--		printk(KERN_ERR "elevator: type %s not found\n", elevator_name);
--		return -EINVAL;
--	}
--
--	if (!strcmp(elevator_name, q->elevator->elevator_type->elevator_name)) {
--		elevator_put(e);
--		return count;
-+	error = elv_iosched_switch(q, elevator_name);
-+	switch (error) {
-+		case -EPERM:
-+			printk(KERN_NOTICE
-+				"elevator: cannot switch elevator, pinned\n");
-+			break;
-+
-+		case -EINVAL:
-+			printk(KERN_ERR "elevator: type %s not found\n",
-+					elevator_name);
-+			break;
-+
-+		case -ENOMEM:
-+			printk(KERN_ERR "elevator: switch to %s failed\n",
-+					elevator_name);
-+		default:
-+			error = 0;
-+			break;
- 	}
- 
--	if (!elevator_switch(q, e))
--		printk(KERN_ERR "elevator: switch to %s failed\n",elevator_name);
--	return count;
-+	return error ?: count;
- }
- 
- ssize_t elv_iosched_show(request_queue_t *q, char *name)
-@@ -914,5 +943,6 @@ EXPORT_SYMBOL(__elv_add_request);
- EXPORT_SYMBOL(elv_next_request);
- EXPORT_SYMBOL(elv_dequeue_request);
- EXPORT_SYMBOL(elv_queue_empty);
-+EXPORT_SYMBOL(elv_iosched_switch);
- EXPORT_SYMBOL(elevator_exit);
- EXPORT_SYMBOL(elevator_init);
-Index: linux-2.6/include/linux/elevator.h
+Index: linux-2.6/include/linux/sunrpc/xprt.h
 ===================================================================
---- linux-2.6.orig/include/linux/elevator.h
-+++ linux-2.6/include/linux/elevator.h
-@@ -107,6 +107,7 @@ extern int elv_may_queue(request_queue_t
- extern void elv_completed_request(request_queue_t *, struct request *);
- extern int elv_set_request(request_queue_t *, struct request *, struct bio *, gfp_t);
- extern void elv_put_request(request_queue_t *, struct request *);
-+extern int elv_iosched_switch(request_queue_t *, const char *);
+--- linux-2.6.orig/include/linux/sunrpc/xprt.h
++++ linux-2.6/include/linux/sunrpc/xprt.h
+@@ -147,7 +147,9 @@ struct rpc_xprt {
+ 	unsigned int		max_reqs;	/* total slots */
+ 	unsigned long		state;		/* transport state */
+ 	unsigned char		shutdown   : 1,	/* being shut down */
+-				resvport   : 1; /* use a reserved port */
++				resvport   : 1, /* use a reserved port */
++				swapper    : 1; /* we're swapping over this
++						   transport */
+ 
+ 	/*
+ 	 * XID
+@@ -261,6 +263,7 @@ void			xprt_disconnect(struct rpc_xprt *
+  */
+ int			xs_setup_udp(struct rpc_xprt *xprt, struct rpc_timeout *to);
+ int			xs_setup_tcp(struct rpc_xprt *xprt, struct rpc_timeout *to);
++int			xs_swapper(struct rpc_xprt *xprt, int enable);
  
  /*
-  * io scheduler registration
+  * Reserved bit positions in xprt->state
+Index: linux-2.6/net/sunrpc/sched.c
+===================================================================
+--- linux-2.6.orig/net/sunrpc/sched.c
++++ linux-2.6/net/sunrpc/sched.c
+@@ -736,8 +736,8 @@ void * rpc_malloc(struct rpc_task *task,
+ 	struct rpc_rqst *req = task->tk_rqstp;
+ 	gfp_t	gfp;
+ 
+-	if (task->tk_flags & RPC_TASK_SWAPPER)
+-		gfp = GFP_ATOMIC;
++	if (RPC_IS_SWAPPER(task))
++		gfp = GFP_ATOMIC | __GFP_EMERGENCY;
+ 	else
+ 		gfp = GFP_NOFS;
+ 
 
 --
