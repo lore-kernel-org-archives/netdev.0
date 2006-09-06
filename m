@@ -1,29 +1,27 @@
-From: "Tim Yardley" <yardley@gmail.com>
-Subject: sendmsg receiving EPERM
-Date: Wed, 6 Sep 2006 01:24:43 -0500
-Message-ID: <98933b170609052324qc177ef6tfa8a4e5ad3a3c36c@mail.gmail.com>
+From: "Tim Yardley" <liquid@haveheart.com>
+Subject: Heavy network loading...
+Date: Wed, 6 Sep 2006 01:12:45 -0500
+Message-ID: <004c01c6d17b$78859200$0201a8c0@liquid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:44565 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1751428AbWIFGYn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 02:24:43 -0400
-Received: by py-out-1112.google.com with SMTP id n25so3495593pyg
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2006 23:24:43 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from gateway.insightbb.com ([74.128.0.19]:12922 "EHLO
+	asav14.insightbb.com") by vger.kernel.org with ESMTP
+	id S932589AbWIFGMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 02:12:48 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have an interesting situation in which a box is "heavily" loaded
-with network traffic on a bridged interface.  The card in question is
-the silicom intel 2 port pci-x bypass card
+I have an interesting situation in which a box is "heavily" loaded with
+network traffic on a bridged interface.  The card in question is  the
+silicom intel 2 port pci-x bypass card
 (http://silicom-usa.com/pgx.php?p2=207).  The driver is available at
-http://silicom-usa.com/files/PxGxBP_Linux.zip and is pretty much just
-a modified e1000 driver.  I am using a slightly older version of the
-driver (5.6.11 I believe), but this is still very strange behavior.
+http://silicom-usa.com/files/PxGxBP_Linux.zip and is pretty much just a
+modified e1000 driver.  I am using a slightly older version of the driver
+(5.6.11 I believe), but this is still very strange behavior.
 
 During the heavy network load I get the following situation:
 
@@ -47,21 +45,21 @@ Snip of the strace:
 sendmsg(3, {msg_name(16)={sa_family=AF_INET, sin_port=htons(0),
 sin_addr=inet_addr("64.233.167.99")},
 msg_iov(1)=[{"\10\0\211\321\225h\0m/\373\375D\270\25\10\0\10\t\n\v\f"...,
-64}], msg_controllen=0, msg_flags=0}, MSG_CONFIRM) = -1 EPERM
-(Operation not permitted)
-recvmsg(3, 0xbfe96470, MSG_ERRQUEUE|MSG_DONTWAIT) = -1 EAGAIN
-(Resource temporarily unavailable)
+64}], msg_controllen=0, msg_flags=0}, MSG_CONFIRM) = -1 EPERM (Operation not
+permitted)
+recvmsg(3, 0xbfe96470, MSG_ERRQUEUE|MSG_DONTWAIT) = -1 EAGAIN (Resource
+temporarily unavailable)
 dup(2)                                  = 4
 fcntl64(4, F_GETFL)                     = 0x2 (flags O_RDWR)
 fstat64(4, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 5), ...}) = 0
-mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1,
-0) = 0xb7e44000
+mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) =
+0xb7e44000
 _llseek(4, 0, 0xbfe96540, SEEK_CUR)     = -1 ESPIPE (Illegal seek)
 write(4, "ping: sendmsg: Operation not per"..., 39) = 39
 close(4)                                = 0
 munmap(0xb7e44000, 4096)                = 0
-recvmsg(3, 0xbfe96710, 0)               = -1 EAGAIN (Resource
-temporarily unavailable)
+recvmsg(3, 0xbfe96710, 0)               = -1 EAGAIN (Resource temporarily
+unavailable)
 gettimeofday({1157495600, 551997}, NULL) = 0
 gettimeofday({1157495600, 552181}, NULL) = 0
 sendmsg(3, {msg_name(16)={sa_family=AF_INET, sin_port=htons(0),
@@ -145,15 +143,15 @@ MIS:          0
 1.33 0.90 1.16 2/159 28533
 
 # cat /proc/version
-Linux version 2.6.12-gentoo-r10 (root@meepmeep) (gcc version
-3.3.5-20050130 (Gentoo 3.3.5.20050130-r1, ssp-3.3.5.20050130-1,
-pie-8.7.7.1)) #4 SMP Sun Mar 26 23:00:57 CST 2006
+Linux version 2.6.12-gentoo-r10 (root@meepmeep) (gcc version 3.3.5-20050130
+(Gentoo 3.3.5.20050130-r1, ssp-3.3.5.20050130-1, pie-8.7.7.1)) #4 SMP Sun
+Mar 26 23:00:57 CST 2006
 
-Anyone have any ideas as to what this might be?  Interrupt overload?
-Any way to relieve this situation?  I've searched around but haven't
-found much definitive.  Have I over/undertuned something?  Any help is
-definitely appreciated.  Sysctl tweaks that will address this problem
-are very much welcome as well.
+Anyone have any ideas as to what this might be?  Interrupt overload?  Any
+way to relieve this situation?  I've searched around but haven't found much
+definitive.  Have I over/undertuned something?  Any help is definitely
+appreciated.  Sysctl tweaks that will address this problem are very much
+welcome as well. 
 
 Thanks in advance.
 
