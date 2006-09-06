@@ -1,48 +1,109 @@
-From: shaw@vranix.com
-Subject: e1000_xmit_frame and e1000_down racing  with next_to_use?
-Date: Wed, 6 Sep 2006 10:58:15 -0700 (PDT)
-Message-ID: <4348.38.114.160.126.1157565495.squirrel@webmail.vranix.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] network namespaces
+Date: Wed, 06 Sep 2006 11:58:39 -0600
+Message-ID: <m17j0gx4fk.fsf@ebiederm.dsl.xmission.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>
+	<20060816115313.GC31810@sergelap.austin.ibm.com>
+	<44FD7CF0.4030009@fr.ibm.com>
+	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>
+	<20060905165328.GA17317@MAIL.13thfloor.at>
+	<44FE907F.7090508@fr.ibm.com>
+	<20060906165642.GA26202@MAIL.13thfloor.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, alexey@sw.ru, sam@vilain.net,
+	Andrey Savochkin <saw@sw.ru>, netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail2.sd.dreamhost.com ([66.33.201.157]:25784 "EHLO
-	webmail2.sd.dreamhost.com") by vger.kernel.org with ESMTP
-	id S1751241AbWIFR6T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 13:58:19 -0400
-Received: from webmail.vranix.com (localhost [127.0.0.1])
-	by webmail2.sd.dreamhost.com (Postfix) with ESMTP id D9997DC790
-	for <netdev@vger.kernel.org>; Wed,  6 Sep 2006 10:58:15 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35791 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751254AbWIFR7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 13:59:51 -0400
+To: Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060906165642.GA26202@MAIL.13thfloor.at> (Herbert Poetzl's
+	message of "Wed, 6 Sep 2006 18:56:43 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello All,
+Herbert Poetzl <herbert@13thfloor.at> writes:
 
-I have a question about the use of the tx_ring->next_to_use variable in
-the e1000.  Specifically, I'm wondering about a race between the use of
-next_to_use in e1000_xmit_frame and the clearing of next_to_use in
-e1000_down via e1000_clean_tx_ring.
+> On Wed, Sep 06, 2006 at 11:10:23AM +0200, Daniel Lezcano wrote:
+>> 
+>> As far as I see, vserver use a layer 3 solution but, when needed, the
+>> veth "component", made by Nestor Pena, is used to provide a layer 2
+>> virtualization. Right ?
+>
+> well, no, we do not explicitely use the VETH daemon
+> for networking, although some folks probably make use
+> of it, mainly because if you realize that this kind 
+> of isolation is something different and partially
+> complementary to network virtualization, you can do
+> live without the layer 2 virtualization in almost
+> all cases, nevertheless, for certain purposes layer
+> 2/3 virtualization is required and/or makes perfect
+> sense
+>
+>> Having the two solutions, you have certainly a lot if information
+>> about use cases. 
+>
+>> From the point of view of vserver, can you give some
+>> examples of when a layer 3 solution is better/worst than 
+>> a layer 2 solution ? 
+>
+> my point (until we have an implementation which clearly
+> shows that performance is equal/better to isolation)
+> is simply this:
+>
+>  of course, you can 'simulate' or 'construct' all the
+>  isolation scenarios with kernel bridging and routing
+>  and tricky injection/marking of packets, but, this
+>  usually comes with an overhead ...
+>
+>> Who wants a layer 2/3 virtualization and why ?
+>
+> there are some reasons for virtualization instead of
+> pure isolation (as Linux-VServer does it for now)
+>
+>  - context migration/snapshot (probably reason #1)
+>  - creating network devices inside a guest
+>    (can help with vpn and similar)
+>  - allowing non IP protocols (like DHCP, ICMP, etc)
+>
+> the problem which arises with this kind of network
+> virtualization is that you need some additional policy
+> for example to avoid sending 'evil' packets and/or
+> (D)DoSing one guest from another, which again adds
+> further overhead, so basically if you 'just' want
+> to have network isolation, you have to do this:
+>
+>  - create a 'copy' of your hosts networking inside
+>    the guest (with virtual interfaces)
+>  - assign all the same (subset) ips and this to
+>    the virtual guest interfaces
+>  - activate some smart bridging code which 'knows'
+>    what ports can be used and/or mapped 
+>  - add policy to block unwanted connections and/or
+>    packets to/from the guest
+>
+> all this sounds very intrusive and for sure (please
+> proove me wrong here :) adds a lot of overhead to the
+> networking itself, while a 'simple' isolation approach
+> for IP (tcp/udp) is (almost) without any cost, certainly
+> without overhead once a connection is established.
 
-Thread 1 (_xmit) ->  first = adapter->tx_ring.next_to_use;
-                     e1000_tx_map();
-Thread 2 (_down) ->  e1000_clean_tx_ring();
-                     tx_ring->next_to_use = 0;
-Thread 1 (_xmit) -> e1000_tx_queue();
+Thanks, for the good summary of the situation.
 
-It seems that tx_ring.next_to_use could change between the time the skbuff
-is mapped in e1000_tx_map and the time it is reported to the hardware in
-e1000_tx_queue.  While I don't see any memory leaks or possible oops, it
-does seem possible that that an skbuff could be "lost" in the ring as it
-will not be queued in the subsequent e1000_queue.
+I think we can prove you wrong but it is going to take
+some doing to build a good implementation and take
+the necessary measurements.
 
-If the race is possible, perhaps this could be the culprit behind the tx
-timeouts we've seen reported in this list?  The watchdog will eventually
-find the "lost" skbuff and mistakenly think that the hardware transmit has
-hung and stop the queue.
+Hmm.  I wonder if the filtering layer 3 style of isolation can be built with
+netfilter rules.  Just skimming it looks we may be able to do it with something
+like the netfilter owner module, possibly in conjunction with the connmark or
+conntrack modules.  If not if the infrastructure is close enough we can write
+our own module.
 
-Could one of you plese tell me how this race is avoided, if indeed it is?
+Has anyone looked at network isolation from the netfilter perspective?
 
-Thanks,
-Shaw
+Eric
 
