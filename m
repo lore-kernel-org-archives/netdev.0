@@ -1,65 +1,59 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [RFC] Alternate WE-21 support (core API)
-Date: Wed, 06 Sep 2006 16:43:54 -0500
-Message-ID: <44FF411A.6010402@lwfinger.net>
-References: <20060830005655.GA8405@bougret.hpl.hp.com> <1157031138.16040.17.camel@ux156> <20060831135112.GA6097@jm.kir.nu> <1157032805.16040.21.camel@ux156> <20060906205538.GA29767@tuxdriver.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Wed, 06 Sep 2006 23:44:35 +0200
+Message-ID: <44FF4143.9050708@fr.ibm.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at>	<44FE907F.7090508@fr.ibm.com> <20060906165642.GA26202@MAIL.13thfloor.at> <44FF0760.1040600@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Jouni Malinen <jkmaline@cc.hut.fi>, jt@hpl.hp.com,
-	netdev@vger.kernel.org, Javier Achirica <achirica@gmail.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	Jeroen Vreeken <pe1rxq@amsat.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Michael Buesch <mbuesch@freenet.de>
+Cc: devel@openvz.org, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net,
+	Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
+	Linux Containers <containers@lists.osdl.org>,
+	"Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:30848 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932090AbWIFVoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 17:44:03 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060906205538.GA29767@tuxdriver.com>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:20802 "EHLO
+	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1751691AbWIFVon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 17:44:43 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id k86LierT119314
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 21:44:41 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k86Ln6NK3121208
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 23:49:06 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k86LiewF031358
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 23:44:40 +0200
+To: Kir Kolyshkin <kir@openvz.org>
+In-Reply-To: <44FF0760.1040600@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Thu, Aug 31, 2006 at 04:00:05PM +0200, Johannes Berg wrote:
->> On Thu, 2006-08-31 at 06:51 -0700, Jouni Malinen wrote:
+Kir Kolyshkin wrote:
+> Herbert Poetzl wrote:
+> 
+>> my point (until we have an implementation which clearly
+>> shows that performance is equal/better to isolation)
+>> is simply this:
 >>
->>> I don't know about the others, but long/short retry limits have users
->>> (e.g., Host AP driver) and these drivers are currently forced to use a
->>> hack to do this without this cleanup. Furthermore, this part does not
->>> add a new ioctl.
->> It does, however, add new parameters and things that'd need to be
->> translated in the compat layer later. Hence, even there, I'd prefer to
->> add them directly into nl80211. However, the compat code for that
->> shouldn't be that bad, so I can see that as a softer target :) But I
->> don't want to see new ioctls for sure.
+>>  of course, you can 'simulate' or 'construct' all the
+>>  isolation scenarios with kernel bridging and routing
+>>  and tricky injection/marking of packets, but, this
+>>  usually comes with an overhead ...
+>>   
 > 
-> OK, I think we all agree that there are good parts to Jean's WE-21
-> patch.  Below I've made an attempt to separate the wheat from the chaff
-> (or to cut the baby in half)...
+> Well, TANSTAAFL*, and pretty much everything comes with an overhead. 
+> Multitasking comes with the (scheduler, context switch, CPU cache, etc.) 
+> overhead -- is that the reason to abandon it? OpenVZ and Linux-VServer 
+> resource management also adds some overhead -- do we want to throw it away?
 > 
-> Is this patch acceptable to the group?  Does it make things better?
-> Or worse?  Did I leave-out anything that should still go in?  Did I
-> take too much?
+> The question is not just "equal or better performance", the question is 
+> "what do we get and how much we pay for it".
 > 
-> Let me know what you think...?
+> Finally, as I understand both network isolation and network 
+> virtualization (both level2 and level3) can happily co-exist. We do have 
+> several filesystems in kernel. Let's have several network virtualization 
+> approaches, and let a user choose. Is that makes sense?
 
-> + *
-> + * The issue : wireless_send_event() is often called in interrupt context,
-> + * while the Netlink layer can never be called in interrupt context.
-> + * The fully formed RtNetlink events are queued, and then a tasklet is run
-> + * to feed those to Netlink.
-> + * The skb_queue is interrupt safe, and its lock is not held while calling
-> + * Netlink, so there is no possibility of dealock.
-                                              ^^^^^^^
-You might as well fix the typo now. Otherwise, it looks OK to me. I've been running the original 
-patch for several days with no problems. I don't think you removed anything essential.
-
-Larry
+Definitly yes, I agree.
