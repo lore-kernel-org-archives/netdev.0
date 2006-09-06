@@ -1,84 +1,41 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 13/21] nbd: use swapdev hook to make swap deadlock free
-Date: Wed, 06 Sep 2006 15:16:43 +0200
-Message-ID: <20060906133955.138336000@chello.nl>
-References: <20060906131630.793619000@chello.nl>>
-Cc: Daniel Phillips <phillips@google.com>,
-	Rik van Riel <riel@redhat.com>,
+From: Chase Venters <chase.venters@clientec.com>
+Subject: Re: [take16 1/4] kevent: Core files.
+Date: Wed, 6 Sep 2006 08:54:22 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0609060850150.18512@turbotaz.ourhouse>
+References: <1157543723488@2ka.mipt.ru> <Pine.LNX.4.64.0609060824090.18512@turbotaz.ourhouse>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	lkml <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pavel Machek <pavel@ucw.cz>
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:44323 "EHLO
-	amsfep18-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1750894AbWIFNie (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 09:38:34 -0400
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Content-Disposition: inline; filename=nbd_vmio.patch
+Received: from relay03.pair.com ([209.68.5.17]:56586 "HELO relay03.pair.com")
+	by vger.kernel.org with SMTP id S1751062AbWIFN5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 09:57:07 -0400
+To: Chase Venters <chase.venters@clientec.com>
+In-Reply-To: <Pine.LNX.4.64.0609060824090.18512@turbotaz.ourhouse>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use sk_set_vmio() on the nbd socket.
+On Wed, 6 Sep 2006, Chase Venters wrote:
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Signed-off-by: Daniel Phillips <phillips@google.com>
-CC: Pavel Machek <pavel@ucw.cz>
----
- drivers/block/nbd.c |   22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+>>  +	if (start + num >= KEVENT_MAX_EVENTS ||
+>>  +			start >= KEVENT_MAX_EVENTS ||
+>>  +			num >= KEVENT_MAX_EVENTS)
+>
+> Since start and num are unsigned, the last two checks are redundant. If start 
+> or num is individually >= KEVENT_MAX_EVENTS, start + num must be.
+>
 
-Index: linux-2.6/drivers/block/nbd.c
-===================================================================
---- linux-2.6.orig/drivers/block/nbd.c
-+++ linux-2.6/drivers/block/nbd.c
-@@ -135,7 +135,6 @@ static int sock_xmit(struct socket *sock
- 	spin_unlock_irqrestore(&current->sighand->siglock, flags);
- 
- 	do {
--		sock->sk->sk_allocation = GFP_NOIO;
- 		iov.iov_base = buf;
- 		iov.iov_len = size;
- 		msg.msg_name = NULL;
-@@ -525,6 +524,7 @@ static int nbd_ioctl(struct inode *inode
- 			if (S_ISSOCK(inode->i_mode)) {
- 				lo->file = file;
- 				lo->sock = SOCKET_I(inode);
-+				lo->sock->sk->sk_allocation = GFP_NOIO;
- 				error = 0;
- 			} else {
- 				fput(file);
-@@ -594,10 +594,30 @@ static int nbd_ioctl(struct inode *inode
- 	return -EINVAL;
- }
- 
-+static int nbd_swapdev(struct gendisk *disk, int enable)
-+{
-+	struct nbd_device *lo = disk->private_data;
-+
-+	if (enable) {
-+		sk_adjust_memalloc(0, TX_RESERVE_PAGES);
-+		if (!sk_set_vmio(lo->sock->sk))
-+			printk(KERN_WARNING
-+				"failed to set SOCK_VMIO on NBD socket\n");
-+	} else {
-+		if (!sk_clear_vmio(lo->sock->sk))
-+			printk(KERN_WARNING
-+				"failed to clear SOCK_VMIO on NBD socket\n");
-+		sk_adjust_memalloc(0, -TX_RESERVE_PAGES);
-+	}
-+
-+	return 0;
-+}
-+
- static struct block_device_operations nbd_fops =
- {
- 	.owner =	THIS_MODULE,
- 	.ioctl =	nbd_ioctl,
-+	.swapdev =	nbd_swapdev,
- };
- 
- /*
+Actually, my early-morning brain code optimizer is apparently broken, 
+because it forgot all about integer wraparound. Disregard please.
 
---
+>
+> Thanks,
+> Chase
+>
