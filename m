@@ -1,25 +1,37 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH 0/6] sky2 important fixes backport
-Date: Wed, 6 Sep 2006 14:19:43 -0700
-Message-ID: <20060906211943.GA27529@kroah.com>
-References: <20060906171752.781595000@localhost.localdomain>
+From: Eric Sesterhenn <snakebyte@gmx.de>
+Subject: [Patch] BUG_ON cleanup in drivers/net/tokenring/
+Date: Wed, 06 Sep 2006 23:37:34 +0200
+Message-ID: <1157578654.17839.3.camel@alice>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	stable@kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:59833 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751598AbWIFVTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 17:19:43 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060906171752.781595000@localhost.localdomain>
+Received: from mail.gmx.de ([213.165.64.20]:49815 "HELO mail.gmx.net")
+	by vger.kernel.org with SMTP id S1751656AbWIFVhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 17:37:37 -0400
+To: kernel-janitors@lists.osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 06, 2006 at 10:17:52AM -0700, Stephen Hemminger wrote:
-> Selective backport of bug fixes in 2.6.18 to 2.6.17 stable.
+hi,
 
-All 6 queued to -stable, thanks.
+this patch converts one if() BUG(); to BUG_ON();
+so it can be safely optimized away.
 
-greg k-h
+Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
+
+--- linux-2.6.18-rc6/drivers/net/tokenring/tmspci.c.orig	2006-09-06 23:32:41.000000000 +0200
++++ linux-2.6.18-rc6/drivers/net/tokenring/tmspci.c	2006-09-06 23:32:54.000000000 +0200
+@@ -224,8 +224,7 @@ static void __devexit tms_pci_detach (st
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 
+-	if (!dev)
+-		BUG();
++	BUG_ON(!dev);
+ 	unregister_netdev(dev);
+ 	release_region(dev->base_addr, TMS_PCI_IO_EXTENT);
+ 	free_irq(dev->irq, dev);
+
+
