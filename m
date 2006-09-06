@@ -1,171 +1,485 @@
 From: fpavlic@de.ibm.com
-Subject: [PATCH 4/9] s390: qeth driver fixes [1/6]
-Date: Wed, 6 Sep 2006 17:05:36 +0200
-Message-ID: <200609061705.36971.fpavlic@de.ibm.com>
+Subject: [PATCH 6/9] s390: qeth driver fixes [3/6]
+Date: Wed, 6 Sep 2006 17:05:58 +0200
+Message-ID: <200609061705.58355.fpavlic@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev Mailinglist <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:65339 "EHLO
-	mtagate3.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1751293AbWIFPEk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 11:04:40 -0400
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:50305 "EHLO
+	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1751283AbWIFPFC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 11:05:02 -0400
 Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate3.de.ibm.com (8.13.7/8.13.7) with ESMTP id k86F4diZ067600
-	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 15:04:39 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k86F94qV2756744
-	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 17:09:04 +0200
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k86F4dvu024790
-	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 17:04:39 +0200
+	by mtagate1.de.ibm.com (8.13.7/8.13.7) with ESMTP id k86F51gC062968
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 15:05:01 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k86F9QSx2494470
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 17:09:26 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k86F508r030287
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 17:05:00 +0200
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 4/9] s390: qeth driver fixes [1/6]
+[PATCH 6/9] s390: qeth driver fixes [3/6]
 
 From: Frank Pavlic <fpavlic@de.ibm.com>
- - Drop incoming packets with vlan_tag set
-          if card->vlangrp is not set.
-        - use always vlan_hwaccel_rx to pass 
-   vlan frames to the stack.
-        - fix recovery problem. Device was recovered 
-   properly but still not working. 
-   netif_carrier_on call right before
-          recovery start fixes it.
+        fixed kernel panic caused by qeth driver:
+        Using a bonding device qeth driver will realloc
+        headroom for every skb coming from the bond device.
+        Once this happens qeth frees the original skb and
+        set the skb pointer to the new realloced skb.
+        Under heavy transmit workload (e.g.UDP streams) through bond
+        network device the qdio output queue might get full.
+        In this case we return with EBUSY from qeth_send_packet.
+        Returning to qeth_hard_start_xmit routine
+        the skb address on the stack still points to the old address,
+        which has been freed before.
+        Returning from qeth_hard_start_xmit with EBUSY results in
+        requeuing the skb. In this case it corrupts the qdisc queue
+        and results in kernel panic.
 
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_main.c |   49 
-++++++++++++++++++++----------------------
- 1 files changed, 23 insertions(+), 26 deletions(-)
+ drivers/s390/net/qeth.h      |   33 +++----
+ drivers/s390/net/qeth_main.c |  193 
+++++++++++++++++++++++--------------------
+ drivers/s390/net/qeth_tso.h  |    2 
+ 3 files changed, 113 insertions(+), 115 deletions(-)
 
-aa7f6f1f5639e15a5bff562fbc19cbbd701c0078
+80a8bd094c70579c027f15838501759ab8f3331d
+diff --git a/drivers/s390/net/qeth.h b/drivers/s390/net/qeth.h
+index e8bd8c5..c04ee91 100644
+--- a/drivers/s390/net/qeth.h
++++ b/drivers/s390/net/qeth.h
+@@ -859,23 +859,18 @@ qeth_get_ipa_adp_type(enum qeth_link_typ
+  }
+ }
+ 
+-static inline int
+-qeth_realloc_headroom(struct qeth_card *card, struct sk_buff **skb, int size)
++static inline struct sk_buff *
++qeth_realloc_headroom(struct qeth_card *card, struct sk_buff *skb, int size)
+ {
+- struct sk_buff *new_skb = NULL;
++ struct sk_buff *new_skb = skb;
+ 
+- if (skb_headroom(*skb) < size){
+-  new_skb = skb_realloc_headroom(*skb, size);
+-  if (!new_skb) {
+-                        PRINT_ERR("qeth_prepare_skb: could "
+-                                  "not realloc headroom for qeth_hdr "
+-                                  "on interface %s", QETH_CARD_IFNAME(card));
+-                        return -ENOMEM;
+-                }
+-  kfree_skb(*skb);
+-                *skb = new_skb;
+- }
+- return 0;
++ if (skb_headroom(skb) >= size)
++  return skb;
++ new_skb = skb_realloc_headroom(skb, size);
++ if (!new_skb) 
++  PRINT_ERR("Could not realloc headroom for qeth_hdr "
++     "on interface %s", QETH_CARD_IFNAME(card));
++ return new_skb;
+ }
+ 
+ static inline struct sk_buff *
+@@ -885,16 +880,15 @@ qeth_pskb_unshare(struct sk_buff *skb, i
+         if (!skb_cloned(skb))
+                 return skb;
+         nskb = skb_copy(skb, pri);
+-        kfree_skb(skb); /* free our shared copy */
+         return nskb;
+ }
+ 
+ static inline void *
+-qeth_push_skb(struct qeth_card *card, struct sk_buff **skb, int size)
++qeth_push_skb(struct qeth_card *card, struct sk_buff *skb, int size)
+ {
+         void *hdr;
+ 
+- hdr = (void *) skb_push(*skb, size);
++ hdr = (void *) skb_push(skb, size);
+         /*
+          * sanity check, the Linux memory allocation scheme should
+          * never present us cases like this one (the qdio header size plus
+@@ -903,8 +897,7 @@ qeth_push_skb(struct qeth_card *card, st
+         if ((((unsigned long) hdr) & (~(PAGE_SIZE - 1))) !=
+             (((unsigned long) hdr + size +
+               QETH_IP_HEADER_SIZE) & (~(PAGE_SIZE - 1)))) {
+-                PRINT_ERR("qeth_prepare_skb: misaligned "
+-                          "packet on interface %s. Discarded.",
++                PRINT_ERR("Misaligned packet on interface %s. Discarded.",
+                           QETH_CARD_IFNAME(card));
+                 return NULL;
+         }
 diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index e1327b8..ffff7a1 100644
+index ffff7a1..522fb9d 100644
 --- a/drivers/s390/net/qeth_main.c
 +++ b/drivers/s390/net/qeth_main.c
-@@ -1708,6 +1708,7 @@ qeth_check_ipa_data(struct qeth_card *ca
-         "IP address reset.\n",
-         QETH_CARD_IFNAME(card),
-         card->info.chpid);
-+    netif_carrier_on(card->dev);
-     qeth_schedule_recovery(card);
-     return NULL;
-    case IPA_CMD_MODCCID:
-@@ -2464,24 +2465,6 @@ qeth_rebuild_skb_fake_ll(struct qeth_car
-   qeth_rebuild_skb_fake_ll_eth(card, skb, hdr);
+@@ -3919,49 +3919,59 @@ qeth_get_ip_version(struct sk_buff *skb)
+  }
  }
  
--static inline void
--qeth_rebuild_skb_vlan(struct qeth_card *card, struct sk_buff *skb,
--        struct qeth_hdr *hdr)
--{
--#ifdef CONFIG_QETH_VLAN
-- u16 *vlan_tag;
--
-- if (hdr->hdr.l3.ext_flags &
--     (QETH_HDR_EXT_VLAN_FRAME | QETH_HDR_EXT_INCLUDE_VLAN_TAG)) {
--  vlan_tag = (u16 *) skb_push(skb, VLAN_HLEN);
--  *vlan_tag = (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_VLAN_FRAME)?
--   hdr->hdr.l3.vlan_id : *((u16 *)&hdr->hdr.l3.dest_addr[12]);
--  *(vlan_tag + 1) = skb->protocol;
--  skb->protocol = __constant_htons(ETH_P_8021Q);
-- }
--#endif /* CONFIG_QETH_VLAN */
--}
--
- static inline __u16
- qeth_layer2_rebuild_skb(struct qeth_card *card, struct sk_buff *skb,
-    struct qeth_hdr *hdr)
-@@ -2510,15 +2493,16 @@ qeth_layer2_rebuild_skb(struct qeth_card
-  return vlan_id;
- }
- 
--static inline void
-+static inline __u16
- qeth_rebuild_skb(struct qeth_card *card, struct sk_buff *skb,
-    struct qeth_hdr *hdr)
+-static inline int
+-qeth_prepare_skb(struct qeth_card *card, struct sk_buff **skb,
+-   struct qeth_hdr **hdr, int ipv)
++static inline struct qeth_hdr *
++__qeth_prepare_skb(struct qeth_card *card, struct sk_buff *skb, int ipv)
  {
-+ unsigned short vlan_id = 0;
- #ifdef CONFIG_QETH_IPV6
-  if (hdr->hdr.l3.flags & QETH_HDR_PASSTHRU) {
-   skb->pkt_type = PACKET_HOST;
-   skb->protocol = qeth_type_trans(skb, card->dev);
--  return;
-+  return 0;
+- int rc = 0;
+ #ifdef CONFIG_QETH_VLAN
+  u16 *tag;
+-#endif
+-
+- QETH_DBF_TEXT(trace, 6, "prepskb");
+- if (card->info.type == QETH_CARD_TYPE_OSN) {
+-  *hdr = (struct qeth_hdr *)(*skb)->data;
+-  return rc;
+- }
+-        rc = qeth_realloc_headroom(card, skb, sizeof(struct qeth_hdr));
+-        if (rc)
+-                return rc;
+-#ifdef CONFIG_QETH_VLAN
+- if (card->vlangrp && vlan_tx_tag_present(*skb) &&
++ if (card->vlangrp && vlan_tx_tag_present(skb) &&
+      ((ipv == 6) || card->options.layer2) ) {
+   /*
+    * Move the mac addresses (6 bytes src, 6 bytes dest)
+    * to the beginning of the new header.  We are using three
+    * memcpys instead of one memmove to save cycles.
+    */
+-  skb_push(*skb, VLAN_HLEN);
+-  memcpy((*skb)->data, (*skb)->data + 4, 4);
+-  memcpy((*skb)->data + 4, (*skb)->data + 8, 4);
+-  memcpy((*skb)->data + 8, (*skb)->data + 12, 4);
+-  tag = (u16 *)((*skb)->data + 12);
++  skb_push(skb, VLAN_HLEN);
++  memcpy(skb->data, skb->data + 4, 4);
++  memcpy(skb->data + 4, skb->data + 8, 4);
++  memcpy(skb->data + 8, skb->data + 12, 4);
++  tag = (u16 *)(skb->data + 12);
+   /*
+    * first two bytes  = ETH_P_8021Q (0x8100)
+    * second two bytes = VLANID
+    */
+   *tag = __constant_htons(ETH_P_8021Q);
+-  *(tag + 1) = htons(vlan_tx_tag_get(*skb));
++  *(tag + 1) = htons(vlan_tx_tag_get(skb));
   }
- #endif /* CONFIG_QETH_IPV6 */
-  skb->protocol = htons((hdr->hdr.l3.flags & QETH_HDR_IPV6)? ETH_P_IPV6 :
-@@ -2540,7 +2524,13 @@ qeth_rebuild_skb(struct qeth_card *card,
-  default:
-   skb->pkt_type = PACKET_HOST;
-  }
-- qeth_rebuild_skb_vlan(card, skb, hdr);
+ #endif
+- *hdr = (struct qeth_hdr *)
+-  qeth_push_skb(card, skb, sizeof(struct qeth_hdr));
+- if (*hdr == NULL)
+-  return -EINVAL;
+- return 0;
++ return ((struct qeth_hdr *)
++  qeth_push_skb(card, skb, sizeof(struct qeth_hdr)));
++}
 +
-+ if (hdr->hdr.l3.ext_flags &
-+     (QETH_HDR_EXT_VLAN_FRAME | QETH_HDR_EXT_INCLUDE_VLAN_TAG)) {
-+  vlan_id = (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_VLAN_FRAME)?
-+   hdr->hdr.l3.vlan_id : *((u16 *)&hdr->hdr.l3.dest_addr[12]);
++static inline void
++__qeth_free_new_skb(struct sk_buff *orig_skb, struct sk_buff *new_skb)
++{
++ if (orig_skb != new_skb)
++  dev_kfree_skb_any(new_skb);
++}
++
++static inline struct sk_buff *
++qeth_prepare_skb(struct qeth_card *card, struct sk_buff *skb,
++   struct qeth_hdr **hdr, int ipv)
++{
++ struct sk_buff *new_skb;
++ 
++ QETH_DBF_TEXT(trace, 6, "prepskb");
++
++        new_skb = qeth_realloc_headroom(card, skb, sizeof(struct qeth_hdr));
++        if (new_skb == NULL)
++  return NULL;
++ *hdr = __qeth_prepare_skb(card, new_skb, ipv);
++ if (*hdr == NULL) {
++  __qeth_free_new_skb(skb, new_skb);
++  return NULL;
 + }
-+
-  if (card->options.fake_ll)
-   qeth_rebuild_skb_fake_ll(card, skb, hdr);
-  else
-@@ -2556,6 +2546,7 @@ qeth_rebuild_skb(struct qeth_card *card,
-   else
-    skb->ip_summed = SW_CHECKSUMMING;
-  }
-+ return vlan_id;
++ return new_skb;
  }
  
- static inline void
-@@ -2568,6 +2559,7 @@ qeth_process_inbound_buffer(struct qeth_
-  int offset;
-  int rxrc;
-  __u16 vlan_tag = 0;
-+ __u16 *vlan_addr;
+ static inline u8
+@@ -4242,21 +4252,15 @@ qeth_do_send_packet_fast(struct qeth_car
+   * check if buffer is empty to make sure that we do not 'overtake'
+   * ourselves and try to fill a buffer that is already primed
+   */
+- if (atomic_read(&buffer->state) != QETH_QDIO_BUF_EMPTY) {
+-  card->stats.tx_dropped++;
+-  atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
+-  return -EBUSY;
+- }
++ if (atomic_read(&buffer->state) != QETH_QDIO_BUF_EMPTY) 
++  goto out;
+  if (ctx == NULL)
+   queue->next_buf_to_fill = (queue->next_buf_to_fill + 1) %
+        QDIO_MAX_BUFFERS_PER_Q;
+  else {
+   buffers_needed = qeth_eddp_check_buffers_for_context(queue,ctx);
+-  if (buffers_needed < 0) {
+-   card->stats.tx_dropped++;
+-   atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
+-   return -EBUSY;
+-  }
++  if (buffers_needed < 0) 
++   goto out;
+   queue->next_buf_to_fill =
+    (queue->next_buf_to_fill + buffers_needed) %
+    QDIO_MAX_BUFFERS_PER_Q;
+@@ -4271,6 +4275,9 @@ qeth_do_send_packet_fast(struct qeth_car
+   qeth_flush_buffers(queue, 0, index, flush_cnt);
+  }
+  return 0;
++out:
++ atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
++ return -EBUSY;
+ }
  
-  /* get first element of current buffer */
-  element = (struct qdio_buffer_element *)&buf->buffer->element[0];
-@@ -2581,7 +2573,7 @@ qeth_process_inbound_buffer(struct qeth_
-   if (hdr->hdr.l2.id == QETH_HEADER_TYPE_LAYER2)
-    vlan_tag = qeth_layer2_rebuild_skb(card, skb, hdr);
-   else if (hdr->hdr.l3.id == QETH_HEADER_TYPE_LAYER3)
--   qeth_rebuild_skb(card, skb, hdr);
-+   vlan_tag = qeth_rebuild_skb(card, skb, hdr);
-   else { /*in case of OSN*/
-    skb_push(skb, sizeof(struct qeth_hdr));
-    memcpy(skb->data, hdr, sizeof(struct qeth_hdr));
-@@ -2591,14 +2583,19 @@ qeth_process_inbound_buffer(struct qeth_
-    dev_kfree_skb_any(skb);
-    continue;
+ static inline int
+@@ -4296,8 +4303,7 @@ qeth_do_send_packet(struct qeth_card *ca
+   * check if buffer is empty to make sure that we do not 'overtake'
+   * ourselves and try to fill a buffer that is already primed
+   */
+- if (atomic_read(&buffer->state) != QETH_QDIO_BUF_EMPTY){
+-  card->stats.tx_dropped++;
++ if (atomic_read(&buffer->state) != QETH_QDIO_BUF_EMPTY) {
+   atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
+   return -EBUSY;
+  }
+@@ -4320,7 +4326,6 @@ qeth_do_send_packet(struct qeth_card *ca
+      * again */
+     if (atomic_read(&buffer->state) !=
+       QETH_QDIO_BUF_EMPTY){
+-     card->stats.tx_dropped++;
+      qeth_flush_buffers(queue, 0, start_index, flush_count);
+      atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
+      return -EBUSY;
+@@ -4331,7 +4336,6 @@ qeth_do_send_packet(struct qeth_card *ca
+     * free buffers) to handle eddp context */
+    if (qeth_eddp_check_buffers_for_context(queue,ctx) < 0){
+     printk("eddp tx_dropped 1\n");
+-    card->stats.tx_dropped++;
+     rc = -EBUSY;
+     goto out;
+    }
+@@ -4343,7 +4347,6 @@ qeth_do_send_packet(struct qeth_card *ca
+   tmp = qeth_eddp_fill_buffer(queue,ctx,queue->next_buf_to_fill);
+   if (tmp < 0) {
+    printk("eddp tx_dropped 2\n");
+-   card->stats.tx_dropped++;
+    rc = - EBUSY;
+    goto out;
    }
-+  if (card->info.type == QETH_CARD_TYPE_OSN)
-+   rxrc = card->osn_info.data_cb(skb);
-+  else
- #ifdef CONFIG_QETH_VLAN
-   if (vlan_tag)
--   vlan_hwaccel_rx(skb, card->vlangrp, vlan_tag);
-+   if (card->vlangrp)
-+    vlan_hwaccel_rx(skb, card->vlangrp, vlan_tag);
-+   else {
-+    dev_kfree_skb_any(skb);
-+    continue;
-+   }
-   else
+@@ -4391,21 +4394,21 @@ qeth_get_elements_no(struct qeth_card *c
+ {
+  int elements_needed = 0;
+ 
+-        if (skb_shinfo(skb)->nr_frags > 0) {
++        if (skb_shinfo(skb)->nr_frags > 0) 
+                 elements_needed = (skb_shinfo(skb)->nr_frags + 1);
+- }
+-        if (elements_needed == 0 )
++        if (elements_needed == 0)
+                 elements_needed = 1 + (((((unsigned long) hdr) % PAGE_SIZE)
+                                         + skb->len) >> PAGE_SHIFT);
+  if ((elements_needed + elems) > QETH_MAX_BUFFER_ELEMENTS(card)){
+-                PRINT_ERR("qeth_do_send_packet: invalid size of "
+-                          "IP packet (Number=%d / Length=%d). Discarded.\n",
++                PRINT_ERR("Invalid size of IP packet "
++     "(Number=%d / Length=%d). Discarded.\n",
+                           (elements_needed+elems), skb->len);
+                 return 0;
+         }
+         return elements_needed;
+ }
+ 
++
+ static inline int
+ qeth_send_packet(struct qeth_card *card, struct sk_buff *skb)
+ {
+@@ -4421,108 +4424,110 @@ qeth_send_packet(struct qeth_card *card,
+  unsigned short nr_frags = skb_shinfo(skb)->nr_frags;
+  unsigned short tso_size = skb_shinfo(skb)->gso_size;
  #endif
--  if (card->info.type == QETH_CARD_TYPE_OSN)
--   rxrc = card->osn_info.data_cb(skb);
--  else
-    rxrc = netif_rx(skb);
-   card->dev->last_rx = jiffies;
-   card->stats.rx_packets++;
++ struct sk_buff *new_skb, *new_skb2;
+  int rc;
+ 
+  QETH_DBF_TEXT(trace, 6, "sendpkt");
+ 
++ new_skb = skb;
++ if ((card->info.type == QETH_CARD_TYPE_OSN) &&
++     (skb->protocol == htons(ETH_P_IPV6)))
++  return -EPERM;
++ cast_type = qeth_get_cast_type(card, skb);
++ if ((cast_type == RTN_BROADCAST) &&
++     (card->info.broadcast_capable == 0))
++  return -EPERM;
++ queue = card->qdio.out_qs
++  [qeth_get_priority_queue(card, skb, ipv, cast_type)];
+  if (!card->options.layer2) {
+   ipv = qeth_get_ip_version(skb);
+   if ((card->dev->hard_header == qeth_fake_header) && ipv) {
+-                 if ((skb = qeth_pskb_unshare(skb,GFP_ATOMIC)) == NULL) {
+-                         card->stats.tx_dropped++;
+-                         dev_kfree_skb_irq(skb);
+-                         return 0;
+-                 }
++   new_skb = qeth_pskb_unshare(skb, GFP_ATOMIC);
++   if (!new_skb)
++    return -ENOMEM;
+    if(card->dev->type == ARPHRD_IEEE802_TR){
+-    skb_pull(skb, QETH_FAKE_LL_LEN_TR);
++    skb_pull(new_skb, QETH_FAKE_LL_LEN_TR);
+    } else {
+-                  skb_pull(skb, QETH_FAKE_LL_LEN_ETH);
++    skb_pull(new_skb, QETH_FAKE_LL_LEN_ETH);
+    }
+   }
+  }
+- if ((card->info.type == QETH_CARD_TYPE_OSN) &&
+-  (skb->protocol == htons(ETH_P_IPV6))) {
+-  dev_kfree_skb_any(skb);
+-  return 0;
+- }
+- cast_type = qeth_get_cast_type(card, skb);
+- if ((cast_type == RTN_BROADCAST) &&
+-     (card->info.broadcast_capable == 0)){
+-  card->stats.tx_dropped++;
+-  card->stats.tx_errors++;
+-  dev_kfree_skb_any(skb);
+-  return NETDEV_TX_OK;
+- }
+- queue = card->qdio.out_qs
+-  [qeth_get_priority_queue(card, skb, ipv, cast_type)];
+-
+  if (skb_is_gso(skb))
+   large_send = card->options.large_send;
+-
+- /*are we able to do TSO ? If so ,prepare and send it from here */
++ /* check on OSN device*/
++ if (card->info.type == QETH_CARD_TYPE_OSN)
++  hdr = (struct qeth_hdr *)new_skb->data;
++ /*are we able to do TSO ? */
+  if ((large_send == QETH_LARGE_SEND_TSO) &&
+      (cast_type == RTN_UNSPEC)) {
+-  rc = qeth_tso_prepare_packet(card, skb, ipv, cast_type);
++  rc = qeth_tso_prepare_packet(card, new_skb, ipv, cast_type);
+   if (rc) {
+-   card->stats.tx_dropped++;
+-   card->stats.tx_errors++;
+-   dev_kfree_skb_any(skb);
+-   return NETDEV_TX_OK;
++   __qeth_free_new_skb(skb, new_skb);
++   return rc;
+   }
+   elements_needed++;
+- } else {
+-  if ((rc = qeth_prepare_skb(card, &skb, &hdr, ipv))) {
+-   QETH_DBF_TEXT_(trace, 4, "pskbe%d", rc);
+-   return rc;
++ } else if (card->info.type != QETH_CARD_TYPE_OSN) {
++  new_skb2 = qeth_prepare_skb(card, new_skb, &hdr, ipv);
++  if (!new_skb2) {
++   __qeth_free_new_skb(skb, new_skb);
++   return -EINVAL;
+   }
+-  if (card->info.type != QETH_CARD_TYPE_OSN)
+-   qeth_fill_header(card, hdr, skb, ipv, cast_type);
++  if (new_skb != skb)
++   __qeth_free_new_skb(new_skb2, new_skb);
++  new_skb = new_skb2;
++  qeth_fill_header(card, hdr, new_skb, ipv, cast_type);
+  }
+-
+  if (large_send == QETH_LARGE_SEND_EDDP) {
+-  ctx = qeth_eddp_create_context(card, skb, hdr);
++  ctx = qeth_eddp_create_context(card, new_skb, hdr);
+   if (ctx == NULL) {
++   __qeth_free_new_skb(skb, new_skb);
+    PRINT_WARN("could not create eddp context\n");
+    return -EINVAL;
+   }
+  } else {
+-  int elems = qeth_get_elements_no(card,(void*) hdr, skb,
++  int elems = qeth_get_elements_no(card,(void*) hdr, new_skb,
+        elements_needed);
+-  if (!elems)
++  if (!elems) {
++   __qeth_free_new_skb(skb, new_skb);
+    return -EINVAL;
++  }
+   elements_needed += elems;
+  }
+ 
+  if (card->info.type != QETH_CARD_TYPE_IQD)
+-  rc = qeth_do_send_packet(card, queue, skb, hdr,
++  rc = qeth_do_send_packet(card, queue, new_skb, hdr,
+       elements_needed, ctx);
+  else
+-  rc = qeth_do_send_packet_fast(card, queue, skb, hdr,
++  rc = qeth_do_send_packet_fast(card, queue, new_skb, hdr,
+            elements_needed, ctx);
+- if (!rc){
++ if (!rc) {
+   card->stats.tx_packets++;
+   card->stats.tx_bytes += tx_bytes;
++  if (new_skb != skb)
++   dev_kfree_skb_any(skb);
+ #ifdef CONFIG_QETH_PERF_STATS
+   if (tso_size &&
+      !(large_send == QETH_LARGE_SEND_NO)) {
+    card->perf_stats.large_send_bytes += tx_bytes;
+    card->perf_stats.large_send_cnt++;
+   }
+-   if (nr_frags > 0){
++  if (nr_frags > 0) {
+    card->perf_stats.sg_skbs_sent++;
+    /* nr_frags + skb->data */
+    card->perf_stats.sg_frags_sent +=
+     nr_frags + 1;
+   }
+ #endif /* CONFIG_QETH_PERF_STATS */
++ } else {
++  card->stats.tx_dropped++;
++  __qeth_free_new_skb(skb, new_skb);
+  }
+  if (ctx != NULL) {
+   /* drop creator's reference */
+   qeth_eddp_put_context(ctx);
+   /* free skb; it's not referenced by a buffer */
+-  if (rc == 0)
+-   dev_kfree_skb_any(skb);
+-
++  if (!rc)
++         dev_kfree_skb_any(new_skb);
+  }
+  return rc;
+ }
+diff --git a/drivers/s390/net/qeth_tso.h b/drivers/s390/net/qeth_tso.h
+index 593f298..14504af 100644
+--- a/drivers/s390/net/qeth_tso.h
++++ b/drivers/s390/net/qeth_tso.h
+@@ -24,7 +24,7 @@ static inline struct qeth_hdr_tso *
+ qeth_tso_prepare_skb(struct qeth_card *card, struct sk_buff **skb)
+ {
+  QETH_DBF_TEXT(trace, 5, "tsoprsk");
+- return qeth_push_skb(card, skb, sizeof(struct qeth_hdr_tso));
++ return qeth_push_skb(card, *skb, sizeof(struct qeth_hdr_tso));
+ }
+ 
+ /**
 -- 
 1.2.4
 
