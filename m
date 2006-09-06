@@ -1,36 +1,156 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC]: searching  SAD without assumming L3 details
-Date: Wed, 6 Sep 2006 21:26:44 +1000
-Message-ID: <20060906112644.GA22930@gondor.apana.org.au>
-References: <1157204582.5197.4.camel@jzny2> <20060905233823.GA9217@gondor.apana.org.au> <1157541639.5039.28.camel@jzny2>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take16 4/4] kevent: Timer notifications.
+Date: Wed, 6 Sep 2006 15:55:23 +0400
+Message-ID: <11575437233033@2ka.mipt.ru>
+References: <11575437234110@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:13837 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750808AbWIFL0x
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 07:26:53 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1157541639.5039.28.camel@jzny2>
+Received: from dea.vocord.ru ([217.67.177.50]:30600 "EHLO
+	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S1750832AbWIFLbm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 07:31:42 -0400
+In-Reply-To: <11575437234110@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 06, 2006 at 07:20:39AM -0400, jamal wrote:
->
-> > Any reason why xfrm_state_find can't be used? 
-> 
-> xfrm_state_find is overkill (if you compare the two functionalities). 
 
-Could you show me how you plan to use this in pktgen? Perhaps we can
-move it to the slow path where it wouldn't matter whether it's an
-overkill or not.  There should be no reason to be looking up an SA
-in the pktgen fast path.
+Timer notifications.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Timer notifications can be used for fine grained per-process time 
+management, since interval timers are very inconvenient to use, 
+and they are limited.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
+
+diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
+new file mode 100644
+index 0000000..04acc46
+--- /dev/null
++++ b/kernel/kevent/kevent_timer.c
+@@ -0,0 +1,113 @@
++/*
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/hrtimer.h>
++#include <linux/jiffies.h>
++#include <linux/kevent.h>
++
++struct kevent_timer
++{
++	struct hrtimer		ktimer;
++	struct kevent_storage	ktimer_storage;
++	struct kevent		*ktimer_event;
++};
++
++static int kevent_timer_func(struct hrtimer *timer)
++{
++	struct kevent_timer *t = container_of(timer, struct kevent_timer, ktimer);
++	struct kevent *k = t->ktimer_event;
++
++	kevent_storage_ready(&t->ktimer_storage, NULL, KEVENT_MASK_ALL);
++	hrtimer_forward(timer, timer->base->softirq_time,
++			ktime_set(k->event.id.raw[0], k->event.id.raw[1]));
++	return HRTIMER_RESTART;
++}
++
++static struct lock_class_key kevent_timer_key;
++
++static int kevent_timer_enqueue(struct kevent *k)
++{
++	int err;
++	struct kevent_timer *t;
++
++	t = kmalloc(sizeof(struct kevent_timer), GFP_KERNEL);
++	if (!t)
++		return -ENOMEM;
++
++	hrtimer_init(&t->ktimer, CLOCK_MONOTONIC, HRTIMER_REL);
++	t->ktimer.expires = ktime_set(k->event.id.raw[0], k->event.id.raw[1]);
++	t->ktimer.function = kevent_timer_func;
++	t->ktimer_event = k;
++
++	err = kevent_storage_init(&t->ktimer, &t->ktimer_storage);
++	if (err)
++		goto err_out_free;
++	lockdep_set_class(&t->ktimer_storage.lock, &kevent_timer_key);
++
++	err = kevent_storage_enqueue(&t->ktimer_storage, k);
++	if (err)
++		goto err_out_st_fini;
++
++	printk("%s: jiffies: %lu, timer: %p.\n", __func__, jiffies, &t->ktimer);
++	hrtimer_start(&t->ktimer, t->ktimer.expires, HRTIMER_REL);
++
++	return 0;
++
++err_out_st_fini:
++	kevent_storage_fini(&t->ktimer_storage);
++err_out_free:
++	kfree(t);
++
++	return err;
++}
++
++static int kevent_timer_dequeue(struct kevent *k)
++{
++	struct kevent_storage *st = k->st;
++	struct kevent_timer *t = container_of(st, struct kevent_timer, ktimer_storage);
++
++	hrtimer_cancel(&t->ktimer);
++	kevent_storage_dequeue(st, k);
++	kfree(t);
++
++	return 0;
++}
++
++static int kevent_timer_callback(struct kevent *k)
++{
++	k->event.ret_data[0] = jiffies_to_msecs(jiffies);
++	return 1;
++}
++
++static int __init kevent_init_timer(void)
++{
++	struct kevent_callbacks tc = {
++		.callback = &kevent_timer_callback,
++		.enqueue = &kevent_timer_enqueue,
++		.dequeue = &kevent_timer_dequeue};
++
++	return kevent_add_callbacks(&tc, KEVENT_TIMER);
++}
++module_init(kevent_init_timer);
++
+
