@@ -1,81 +1,44 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Wed, 06 Sep 2006 15:46:02 +0100
-Message-ID: <17274.1157553962@warthog.cambridge.redhat.com>
-References: <20060906125626.GA3718@elte.hu>  <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com>
-Cc: David Howells <dhowells@redhat.com>,
-	john stultz <johnstul@us.ibm.com>,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Fix dm9000 release_resource
+Date: Wed, 06 Sep 2006 10:58:44 -0400
+Message-ID: <44FEE224.7030904@garzik.org>
+References: <0ML25U-1GIK892FsT-0007pS@mrelayeu.kundenserver.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ben Dooks <ben@simtec.co.uk>,
+	Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33733 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751208AbWIFOwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 10:52:53 -0400
-In-Reply-To: <20060906125626.GA3718@elte.hu> 
-To: Ingo Molnar <mingo@elte.hu>
+Received: from srv5.dvmed.net ([207.36.208.214]:40665 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751255AbWIFO6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 10:58:50 -0400
+To: Dirk@Opfer-Online.de
+In-Reply-To: <0ML25U-1GIK892FsT-0007pS@mrelayeu.kundenserver.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar <mingo@elte.hu> wrote:
-
-> we'll get rid of that pt_regs thing centrally, from all drivers at once 
-> - there's upstream buy-in for that already, and Thomas already generated 
-> a test-patch for that a few months ago. But it's not a big issue right 
-> now.
-
-Yay!  Can you give me a pointer to the patch?
-
-> this shouldnt be a big issue either - we use indirect jumps all around 
-> the kernel.
-
-Yes, I know.  I'm sometimes concerned at just how fast indirect jumps (and even
-direct calls) are proliferating.  Look at the read syscall path for something
-like ext3 these days: it's like a pile of spaghetti.  That seems particularly
-true of direct-IO where it seems to weave in and out of core code and the
-filesystem as it goes down.  I'm also concerned about stack usage.
-
-> CPUs are either smart enough to predict it
-
-I was told a while back (2002?) not to use indirect pointers for some stuff
-because CPUs _couldn't_ predict it.  Maybe this has changed in modern CPUs.
-
-> >  (3) ACK'ing and controlling interrupts has to be done by groups.
+Dirk Opfer wrote:
+> dm9000_release_board calls release_resource with the platform resource
+> instead of the requested resource:
 > 
-> please be more specific,
-
-Under some circumstances I can work out which sources have triggered which
-interrupts (there are various off-CPU FPGAs which implement auxiliary PICs that
-do announce their sources), but the aux-PIC channels are grouped together upon
-delivery to the CPU PIC, so some of the ACK'ing has to be done at the group
-level.
-
-> how is this not possible via genirq?
-
-How is it possible with genirq?
-
-Unless I tie all the grouped sources together into one virtual IRQ line, this
-doesn't appear to be possible.  But doing that I might then also have a mixed
-set of "flow" types in any particular IRQ.
-
-> >  (4) No account is taken of interrupt priority.
+> db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> db->addr_req = request_mem_region(db->addr_res->start, i, pdev->name);
 > 
-> hm, i'm not sure what you mean - could you be more specific?
+> dm9000_release_board:
+> 
+>     if (db->addr_res != NULL) {
+>         release_resource(db->addr_res);
+>         kfree(db->addr_req);
+> 
+> With this behavior the kernel will crash on the second removal. The
+> attached patch fix this problem.
+> 
+> 
+> Signed-off-by: Dirk Opfer <Dirk@Opfer-Online.de>
 
-The FRV CPU, like many others, supports interrupt prioritisation.  A particular
-interrupt level is set in the PSR, and any interrupt of a higher priority can
-interrupt.  do_IRQ() can then do the interrupt processing in the interrupt
-level of the interrupt that invoked it, thus permitting higher priority
-interrupts to still happen.
+Your patch is attached base64-encoded, which makes it impossible to 
+comment on it inline.
 
-> but ... somehow the current FRV code does figure out which IRQ source 
-> fired, right?
+	Jeff
 
-Not always; sometimes it has to fall back to polling the drivers unfortunately.
 
-Btw why are we using IRQ_INPROGRESS, IRQ_DISABLED, IRQ_PENDING and friends?
-They would appear unnecessary.
-
-David
