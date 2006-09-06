@@ -1,47 +1,38 @@
-From: Kir Kolyshkin <kir@openvz.org>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Wed, 06 Sep 2006 21:37:36 +0400
-Message-ID: <44FF0760.1040600@openvz.org>
-References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at>	<44FE907F.7090508@fr.ibm.com> <20060906165642.GA26202@MAIL.13thfloor.at>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH 11/21] nbd: limit blk_queue
+Date: Wed, 6 Sep 2006 19:45:01 +0200
+Message-ID: <20060906174500.GK14565@kernel.dk>
+References: <20060906131630.793619000@chello.nl>> <20060906133954.845224000@chello.nl> <20060906151716.GG16721@harddisk-recovery.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	sam@vilain.net, Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
-	Linux Containers <containers@lists.osdl.org>,
-	"Serge E. Hallyn" <serue@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [62.205.161.221] ([62.205.161.221]:54933 "EHLO kir.sacred.ru")
-	by vger.kernel.org with ESMTP id S1751788AbWIFRgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 13:36:23 -0400
-To: devel@openvz.org
-In-Reply-To: <20060906165642.GA26202@MAIL.13thfloor.at>
+Received: from brick.kernel.dk ([62.242.22.158]:30295 "EHLO kernel.dk")
+	by vger.kernel.org with ESMTP id S1751032AbWIFRlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 13:41:42 -0400
+To: Erik Mouw <erik@harddisk-recovery.com>
+Content-Disposition: inline
+In-Reply-To: <20060906151716.GG16721@harddisk-recovery.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Poetzl wrote:
-> my point (until we have an implementation which clearly
-> shows that performance is equal/better to isolation)
-> is simply this:
->
->  of course, you can 'simulate' or 'construct' all the
->  isolation scenarios with kernel bridging and routing
->  and tricky injection/marking of packets, but, this
->  usually comes with an overhead ...
->   
-Well, TANSTAAFL*, and pretty much everything comes with an overhead. 
-Multitasking comes with the (scheduler, context switch, CPU cache, etc.) 
-overhead -- is that the reason to abandon it? OpenVZ and Linux-VServer 
-resource management also adds some overhead -- do we want to throw it away?
+On Wed, Sep 06 2006, Erik Mouw wrote:
+> On Wed, Sep 06, 2006 at 03:16:41PM +0200, Peter Zijlstra wrote:
+> > -		disk->queue = blk_init_queue(do_nbd_request, &nbd_lock);
+> > +		disk->queue = blk_init_queue_node_elv(do_nbd_request,
+> > +				&nbd_lock, -1, "noop");
+> 
+> So what happens if the noop scheduler isn't compiled into the kernel?
 
-The question is not just "equal or better performance", the question is 
-"what do we get and how much we pay for it".
+You can't de-select noop, so that cannot happen. But the point is valid
+for other choices of io schedulers, which is another reason why this
+_elv api addition is a bad idea.
 
-Finally, as I understand both network isolation and network 
-virtualization (both level2 and level3) can happily co-exist. We do have 
-several filesystems in kernel. Let's have several network virtualization 
-approaches, and let a user choose. Is that makes sense?
+-- 
+Jens Axboe
 
-
-* -- http://en.wikipedia.org/wiki/TANSTAAFL
