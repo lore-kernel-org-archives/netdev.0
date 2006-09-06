@@ -1,46 +1,35 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Wed, 06 Sep 2006 13:30:56 +0100
-Message-ID: <13982.1157545856@warthog.cambridge.redhat.com>
-References: <20060906094301.GA8694@elte.hu>  <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com>
-Cc: David Howells <dhowells@redhat.com>,
-	john stultz <johnstul@us.ibm.com>,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] FRV: Fix {dis,en}able_irq_lockdep_irqrestore compile error
+Date: Wed, 6 Sep 2006 14:50:14 +0200
+Message-ID: <20060906125014.GA3978@elte.hu>
+References: <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <5905.1157469663@warthog.cambridge.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
 	Arjan van de Ven <arjan@linux.intel.com>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:3517 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750801AbWIFMdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 08:33:43 -0400
-In-Reply-To: <20060906094301.GA8694@elte.hu> 
-To: Ingo Molnar <mingo@elte.hu>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:54159 "EHLO mx2.mail.elte.hu")
+	by vger.kernel.org with ESMTP id S1750874AbWIFM6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 08:58:40 -0400
+To: David Howells <dhowells@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <5905.1157469663@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar <mingo@elte.hu> wrote:
 
-> btw., would be nice to convert it to genirq (and irqchips) too =B-) That 
-> would solve the kind of disable_irq_lockdep() breakage that was reported 
-> recently.
+* David Howells <dhowells@redhat.com> wrote:
 
-I can think of reasons for not using that stuff also.
+> Fix the lack of certain non-LOCKDEP stub functions in 
+> linux/interrupt.h and also provide FRV with LOCKDEP variants.
+> 
+> This is to be applied to -mm kernel since not all of the functions 
+> added exist in the main kernel.
+> 
+> Signed-Off-By: David Howells <dhowells@redhat.com>
 
- (1) Passing "struct pt_regs *regs" around is a complete waste of resources on
-     FRV.  It's in GR28 at all times and can thus be accessed directly.
+Acked-by: Ingo Molnar <mingo@elte.hu>
 
- (2) All the little operations functions cause unnecessary jumping, jumps that
-     icache lookahead can't predict because they're register-indirect.
-
- (3) ACK'ing and controlling interrupts has to be done by groups.
-
- (4) No account is taken of interrupt priority.
-
- (5) The FRV CPU doesn't tell me which IRQ source fired.  Much of the code
-     I've got is stuff to try and work it out.  I could just blindly poll all
-     the sources attached to a particular interrupt level, but that seems
-     somehow less efficient.
-
-David
-
-BTW, have you looked at my patch to fix lockdep yet?
+	Ingo
