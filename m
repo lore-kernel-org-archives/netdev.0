@@ -1,57 +1,31 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/9] s390: netiucv driver fixes
-Date: Wed, 06 Sep 2006 11:13:56 -0400
-Message-ID: <44FEE5B4.9070003@pobox.com>
-References: <200609061705.14737.fpavlic@de.ibm.com>
+Subject: Re: [PATCH 1/9] s390: minor s390 network driver fixes
+Date: Wed, 06 Sep 2006 11:15:27 -0400
+Message-ID: <44FEE60F.5090207@pobox.com>
+References: <200609061705.09801.fpavlic@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev Mailinglist <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:62682 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751379AbWIFPOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 11:14:05 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:7899 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751368AbWIFPP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 11:15:29 -0400
 To: fpavlic@de.ibm.com
-In-Reply-To: <200609061705.14737.fpavlic@de.ibm.com>
+In-Reply-To: <200609061705.09801.fpavlic@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-fpavlic@de.ibm.com wrote:
-> [PATCH 2/9] s390: netiucv driver fixes
-> 
-> From: Frank Pavlic <fpavlic@de.ibm.com>
->  - missing lock initialization added
->         - avoid duplicate iucv-interfaces to the same peer
->         - rw-lock added for manipulating the list of
->           defined iucv connections
-> 
-> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
-> ---
-> 
->  drivers/s390/net/netiucv.c |   80 
-> +++++++++++++++++++++++++++++++++++---------
->  1 files changed, 64 insertions(+), 16 deletions(-)
-> 
-> 05eebe4adf2ad6b442b3dc0bd34ccc5863299efb
-> diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
-> index 5d6e6cb..d7d1cc0 100644
-> --- a/drivers/s390/net/netiucv.c
-> +++ b/drivers/s390/net/netiucv.c
-> @@ -112,7 +112,12 @@ struct iucv_connection {
->  /**
->   * Linked list of all connection structs.
->   */
-> -static struct iucv_connection *iucv_connections;
-> +struct iucv_connection_struct {
-> + struct iucv_connection *iucv_connections;
-> + rwlock_t iucv_rwlock;
-> +};
+ACK patches 1-9, but patch #1 failed to apply to netdev-2.6.git#upstream:
 
-Please submit a patch very soon that runs scripts/Lindent over all the 
-s390 net drivers.  These drivers don't comply with 
-Documentation/CodingStyle.
+[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
+9 patch(es) to process.
 
-	Jeff
+Applying 's390: minor s390 network driver fixes'
 
+error: patch failed: drivers/s390/net/ctcmain.c:1714
+error: drivers/s390/net/ctcmain.c: patch does not apply
+error: patch failed: drivers/s390/net/lcs.c:670
+error: drivers/s390/net/lcs.c: patch does not apply
 
 
