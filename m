@@ -1,60 +1,81 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [RFC] network namespaces
-Date: Wed, 06 Sep 2006 18:52:50 +0400
-Message-ID: <44FEE0C2.6020205@sw.ru>
-References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at> <m17j0i1853.fsf@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Andrey Savochkin <saw@sw.ru>, netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
-	sam@vilain.net
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
+Date: Wed, 06 Sep 2006 15:46:02 +0100
+Message-ID: <17274.1157553962@warthog.cambridge.redhat.com>
+References: <20060906125626.GA3718@elte.hu>  <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com>
+Cc: David Howells <dhowells@redhat.com>,
+	john stultz <johnstul@us.ibm.com>,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:36775 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S1751198AbWIFOt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 10:49:59 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m17j0i1853.fsf@ebiederm.dsl.xmission.com>
+Received: from mx1.redhat.com ([66.187.233.31]:33733 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751208AbWIFOwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 10:52:53 -0400
+In-Reply-To: <20060906125626.GA3718@elte.hu> 
+To: Ingo Molnar <mingo@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>On Tue, Sep 05, 2006 at 08:45:39AM -0600, Eric W. Biederman wrote:
->>
->>>Daniel Lezcano <dlezcano@fr.ibm.com> writes:
->>>
->>>For HPC if you are interested in migration you need a separate IP
->>>per container. If you can take you IP address with you migration of
->>>networking state is simple. If you can't take your IP address with you
->>>a network container is nearly pointless from a migration perspective.
->>>
->>>Beyond that from everything I have seen layer 2 is just much cleaner
->>>than any layer 3 approach short of Serge's bind filtering.
->>
->>well, the 'ip subset' approach Linux-VServer and
->>other Jail solutions use is very clean, it just does
->>not match your expectations of a virtual interface
->>(as there is none) and it does not cope well with
->>all kinds of per context 'requirements', which IMHO
->>do not really exist on the application layer (only
->>on the whole system layer)
-> 
-> 
-> I probably expressed that wrong.  There are currently three
-> basic approaches under discussion.
-> Layer 3 (Basically bind filtering) nothing at the packet level.
->    The approach taken by Serge's version of bsdjails and Vserver.
-> 
-> Layer 2.5 What Daniel proposed.
-> 
-> Layer 2.  (Trivially mapping each packet to a different interface)
->            And then treating everything as multiple instances of the
->            network stack.
->         Roughly what OpenVZ and I have implemented.
-I think classifying network virtualization by Layer X is not good enough.
-OpenVZ has Layer 3 (venet) and Layer 2 (veth) implementations, but
-in both cases networking stack inside VE remains fully virtualized.
+Ingo Molnar <mingo@elte.hu> wrote:
 
-Thanks,
-Kirill
+> we'll get rid of that pt_regs thing centrally, from all drivers at once 
+> - there's upstream buy-in for that already, and Thomas already generated 
+> a test-patch for that a few months ago. But it's not a big issue right 
+> now.
 
+Yay!  Can you give me a pointer to the patch?
+
+> this shouldnt be a big issue either - we use indirect jumps all around 
+> the kernel.
+
+Yes, I know.  I'm sometimes concerned at just how fast indirect jumps (and even
+direct calls) are proliferating.  Look at the read syscall path for something
+like ext3 these days: it's like a pile of spaghetti.  That seems particularly
+true of direct-IO where it seems to weave in and out of core code and the
+filesystem as it goes down.  I'm also concerned about stack usage.
+
+> CPUs are either smart enough to predict it
+
+I was told a while back (2002?) not to use indirect pointers for some stuff
+because CPUs _couldn't_ predict it.  Maybe this has changed in modern CPUs.
+
+> >  (3) ACK'ing and controlling interrupts has to be done by groups.
+> 
+> please be more specific,
+
+Under some circumstances I can work out which sources have triggered which
+interrupts (there are various off-CPU FPGAs which implement auxiliary PICs that
+do announce their sources), but the aux-PIC channels are grouped together upon
+delivery to the CPU PIC, so some of the ACK'ing has to be done at the group
+level.
+
+> how is this not possible via genirq?
+
+How is it possible with genirq?
+
+Unless I tie all the grouped sources together into one virtual IRQ line, this
+doesn't appear to be possible.  But doing that I might then also have a mixed
+set of "flow" types in any particular IRQ.
+
+> >  (4) No account is taken of interrupt priority.
+> 
+> hm, i'm not sure what you mean - could you be more specific?
+
+The FRV CPU, like many others, supports interrupt prioritisation.  A particular
+interrupt level is set in the PSR, and any interrupt of a higher priority can
+interrupt.  do_IRQ() can then do the interrupt processing in the interrupt
+level of the interrupt that invoked it, thus permitting higher priority
+interrupts to still happen.
+
+> but ... somehow the current FRV code does figure out which IRQ source 
+> fired, right?
+
+Not always; sometimes it has to fall back to polling the drivers unfortunately.
+
+Btw why are we using IRQ_INPROGRESS, IRQ_DISABLED, IRQ_PENDING and friends?
+They would appear unnecessary.
+
+David
