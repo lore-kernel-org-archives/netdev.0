@@ -1,48 +1,46 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 4/6] sky2: MSI test timing
-Date: Wed, 06 Sep 2006 10:17:56 -0700
-Message-ID: <20060906171921.612595000@localhost.localdomain>
-References: <20060906171752.781595000@localhost.localdomain>
-Cc: stable@kernel.org, netdev@vger.kernel.org
+Subject: [PATCH] skge: heck for PCI hotplug during IRQ
+Date: Wed, 6 Sep 2006 11:06:10 -0700
+Message-ID: <20060906110610.0aba36a0@localhost.localdomain>
+References: <20060901225346.750571061@zqx3.pdx.osdl.net>
+	<20060901225449.239532256@zqx3.pdx.osdl.net>
+	<44FEE6F1.7010701@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:19879 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751458AbWIFSKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 14:10:09 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:23719 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751467AbWIFSK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 14:10:26 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-post-bug.patch
+In-Reply-To: <44FEE6F1.7010701@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The test for MSI IRQ could have timing issues. The PCI write needs to be 
-pushed out before waiting, and the wait queue should be initialized before
-the IRQ.
+Check if IRQ came from hardware fault (hotplug).
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- linux-2.6.17.11.orig/drivers/net/sky2.c
-+++ linux-2.6.17.11/drivers/net/sky2.c
-@@ -3184,6 +3184,8 @@ static int __devinit sky2_test_msi(struc
- 	struct pci_dev *pdev = hw->pdev;
- 	int err;
- 
-+	init_waitqueue_head (&hw->msi_wait);
-+
- 	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
- 
- 	err = request_irq(pdev->irq, sky2_test_intr, SA_SHIRQ, DRV_NAME, hw);
-@@ -3193,10 +3195,8 @@ static int __devinit sky2_test_msi(struc
- 		return err;
- 	}
- 
--	init_waitqueue_head (&hw->msi_wait);
--
- 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
--	wmb();
-+	sky2_read8(hw, B0_CTST);
- 
- 	wait_event_timeout(hw->msi_wait, hw->msi_detected, HZ/10);
- 
+---
 
---
-Stephen Hemminger <shemminger@osdl.org>
+ drivers/net/skge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+7e83b6245b11158875757ab346ca6d0954ecb95e
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 3f1b72e..fba8b74 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -2884,7 +2884,7 @@ static irqreturn_t skge_intr(int irq, vo
+ 	spin_lock(&hw->hw_lock);
+ 	/* Reading this register masks IRQ */
+ 	status = skge_read32(hw, B0_SP_ISRC);
+-	if (status == 0)
++	if (status == 0 || status == ~0)
+ 		goto out;
+ 
+ 	handled = 1;
+-- 
+1.2.4
 
