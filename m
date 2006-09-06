@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [patch 35/37] sky2: MSI test timing
-Date: Wed, 6 Sep 2006 15:58:04 -0700
-Message-ID: <20060906225804.GJ15922@kroah.com>
+Subject: [patch 37/37] sky2: version 1.6.1
+Date: Wed, 6 Sep 2006 15:58:12 -0700
+Message-ID: <20060906225812.GL15922@kroah.com>
 References: <20060906224631.999046890@quad.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -16,12 +16,12 @@ Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	Stephen Hemminger <shemminger@osdl.org>,
 	Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kroah.org ([69.55.234.183]:36557 "EHLO perch.kroah.org")
-	by vger.kernel.org with ESMTP id S965163AbWIFXDP (ORCPT
+Received: from mail.kroah.org ([69.55.234.183]:37325 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S965175AbWIFXDP (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 19:03:15 -0400
 To: linux-kernel@vger.kernel.org, stable@kernel.org,
 	Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename="sky2-post-bug.patch"
+Content-Disposition: inline; filename="sky2-dotvers.patch"
 In-Reply-To: <20060906225444.GA15922@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -31,39 +31,26 @@ List-Id: netdev.vger.kernel.org
 ------------------
 From: Stephen Hemminger <shemminger@osdl.org>
 
-The test for MSI IRQ could have timing issues. The PCI write needs to be 
-pushed out before waiting, and the wait queue should be initialized before
-the IRQ.
+Since this code incorporates some of the fixes from 2.6.18, change
+the version number.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- drivers/net/sky2.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/sky2.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 --- linux-2.6.17.11.orig/drivers/net/sky2.c
 +++ linux-2.6.17.11/drivers/net/sky2.c
-@@ -3184,6 +3184,8 @@ static int __devinit sky2_test_msi(struc
- 	struct pci_dev *pdev = hw->pdev;
- 	int err;
+@@ -51,7 +51,7 @@
+ #include "sky2.h"
  
-+	init_waitqueue_head (&hw->msi_wait);
-+
- 	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
+ #define DRV_NAME		"sky2"
+-#define DRV_VERSION		"1.4"
++#define DRV_VERSION		"1.6.1"
+ #define PFX			DRV_NAME " "
  
- 	err = request_irq(pdev->irq, sky2_test_intr, SA_SHIRQ, DRV_NAME, hw);
-@@ -3193,10 +3195,8 @@ static int __devinit sky2_test_msi(struc
- 		return err;
- 	}
- 
--	init_waitqueue_head (&hw->msi_wait);
--
- 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
--	wmb();
-+	sky2_read8(hw, B0_CTST);
- 
- 	wait_event_timeout(hw->msi_wait, hw->msi_detected, HZ/10);
- 
+ /*
 
 --
