@@ -1,279 +1,244 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/3] sky2: tx pause bug fix
-Date: Wed, 6 Sep 2006 12:44:47 -0700
-Message-ID: <20060906124447.642940bd@localhost.localdomain>
+Subject: [PATCH 2/3] sky2: fiber support
+Date: Wed, 6 Sep 2006 12:44:53 -0700
+Message-ID: <20060906124453.73a7fde7@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29891 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751528AbWIFTqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 15:46:01 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:35523 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932072AbWIFTqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 15:46:43 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix problems with transmit pause frames. The driver was telling the
-GMAC to flush (not process) pause frames. Manually disabling pause wasn't
-working because of problems in the setup.
-
-This maybe the cause of the lockup under load.
-	http://bugzilla.kernel.org/show_bug.cgi?id=6839
-
-Patch against netdev-2.6 git tree
+Fix the support for fiber connected gigabit boards.
+Allow half duplex gigabit to be configured.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 ---
 
- drivers/net/sky2.c |  123 ++++++++++++++++++----------------------------------
- drivers/net/sky2.h |    2 -
- 2 files changed, 43 insertions(+), 82 deletions(-)
+ drivers/net/sky2.c |   81 +++++++++++++++++++++++++++++++---------------------
+ drivers/net/sky2.h |   15 +++++++++-
+ 2 files changed, 63 insertions(+), 33 deletions(-)
 
-1419c8ab49f8fd56bad1ac0d3dcbaf830cd5a5d6
+fcb3e066f8db9687d143b7a4d17fdaf652b1cd65
 diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7ce0663..a3a4ab2 100644
+index a3a4ab2..2b9272c 100644
 --- a/drivers/net/sky2.c
 +++ b/drivers/net/sky2.c
-@@ -289,7 +289,7 @@ static void sky2_gmac_reset(struct sky2_
- static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- {
- 	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
--	u16 ctrl, ct1000, adv, pg, ledctrl, ledover;
-+	u16 ctrl, ct1000, adv, pg, ledctrl, ledover, reg;
+@@ -308,7 +308,7 @@ static void sky2_phy_init(struct sky2_hw
+ 	}
  
- 	if (sky2->autoneg == AUTONEG_ENABLE &&
- 	    !(hw->chip_id == CHIP_ID_YUKON_XL || hw->chip_id == CHIP_ID_YUKON_EC_U)) {
-@@ -358,6 +358,7 @@ static void sky2_phy_init(struct sky2_hw
- 	ctrl = 0;
- 	ct1000 = 0;
- 	adv = PHY_AN_CSMA;
-+	reg = 0;
+ 	ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
+-	if (hw->copper) {
++	if (sky2_is_copper(hw)) {
+ 		if (hw->chip_id == CHIP_ID_YUKON_FE) {
+ 			/* enable automatic crossover */
+ 			ctrl |= PHY_M_PC_MDI_XMODE(PHY_M_PC_ENA_AUTO) >> 1;
+@@ -325,25 +325,37 @@ static void sky2_phy_init(struct sky2_hw
+ 				ctrl |= PHY_M_PC_DSC(2) | PHY_M_PC_DOWN_S_ENA;
+ 			}
+ 		}
+-		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
+ 	} else {
+ 		/* workaround for deviation #4.88 (CRC errors) */
+ 		/* disable Automatic Crossover */
+ 
+ 		ctrl &= ~PHY_M_PC_MDIX_MSK;
+-		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
++	}
+ 
+-		if (hw->chip_id == CHIP_ID_YUKON_XL) {
+-			/* Fiber: select 1000BASE-X only mode MAC Specific Ctrl Reg. */
+-			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
+-			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
+-			ctrl &= ~PHY_M_MAC_MD_MSK;
+-			ctrl |= PHY_M_MAC_MODE_SEL(PHY_M_MAC_MD_1000BX);
+-			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
++	gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
++
++	/* special setup for PHY 88E1112 Fiber */
++	if (hw->chip_id == CHIP_ID_YUKON_XL && !sky2_is_copper(hw)) {
++		pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
+ 
++		/* Fiber: select 1000BASE-X only mode MAC Specific Ctrl Reg. */
++		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
++		ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
++		ctrl &= ~PHY_M_MAC_MD_MSK;
++		ctrl |= PHY_M_MAC_MODE_SEL(PHY_M_MAC_MD_1000BX);
++		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
++
++		if (hw->pmd_type  == 'P') {
+ 			/* select page 1 to access Fiber registers */
+ 			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 1);
++
++			/* for SFP-module set SIGDET polarity to low */
++			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
++			ctrl |= PHY_M_FIB_SIGD_POL;
++			gm_phy_write(hw, port, PHY_MARV_CTRL, ctrl);
+ 		}
++
++		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, pg);
+ 	}
+ 
+ 	ctrl = gm_phy_read(hw, port, PHY_MARV_CTRL);
+@@ -361,7 +373,7 @@ static void sky2_phy_init(struct sky2_hw
+ 	reg = 0;
  
  	if (sky2->autoneg == AUTONEG_ENABLE) {
- 		if (hw->copper) {
-@@ -390,21 +391,46 @@ static void sky2_phy_init(struct sky2_hw
- 		/* forced speed/duplex settings */
- 		ct1000 = PHY_M_1000C_MSE;
- 
--		if (sky2->duplex == DUPLEX_FULL)
--			ctrl |= PHY_CT_DUP_MD;
-+		/* Disable auto update for duplex flow control and speed */
-+		reg |= GM_GPCR_AU_ALL_DIS;
- 
- 		switch (sky2->speed) {
- 		case SPEED_1000:
- 			ctrl |= PHY_CT_SP1000;
-+			reg |= GM_GPCR_SPEED_1000;
- 			break;
- 		case SPEED_100:
- 			ctrl |= PHY_CT_SP100;
-+			reg |= GM_GPCR_SPEED_100;
- 			break;
- 		}
- 
-+		if (sky2->duplex == DUPLEX_FULL) {
-+			reg |= GM_GPCR_DUP_FULL;
-+			ctrl |= PHY_CT_DUP_MD;
-+		} else if (sky2->speed != SPEED_1000 && hw->chip_id != CHIP_ID_YUKON_EC_U) {
-+			/* Turn off flow control for 10/100mbps */
-+			sky2->rx_pause = 0;
-+			sky2->tx_pause = 0;
+-		if (hw->copper) {
++		if (sky2_is_copper(hw)) {
+ 			if (sky2->advertising & ADVERTISED_1000baseT_Full)
+ 				ct1000 |= PHY_M_1000C_AFD;
+ 			if (sky2->advertising & ADVERTISED_1000baseT_Half)
+@@ -374,8 +386,12 @@ static void sky2_phy_init(struct sky2_hw
+ 				adv |= PHY_M_AN_10_FD;
+ 			if (sky2->advertising & ADVERTISED_10baseT_Half)
+ 				adv |= PHY_M_AN_10_HD;
+-		} else		/* special defines for FIBER (88E1011S only) */
+-			adv |= PHY_M_AN_1000X_AHD | PHY_M_AN_1000X_AFD;
++		} else {	/* special defines for FIBER (88E1040S only) */
++			if (sky2->advertising & ADVERTISED_1000baseT_Full)
++				adv |= PHY_M_AN_1000X_AFD;
++			if (sky2->advertising & ADVERTISED_1000baseT_Half)
++				adv |= PHY_M_AN_1000X_AHD;
 +		}
-+
-+		if (!sky2->rx_pause)
-+			reg |= GM_GPCR_FC_RX_DIS;
-+
-+		if (!sky2->tx_pause)
-+			reg |= GM_GPCR_FC_TX_DIS;
-+
-+		/* Forward pause packets to GMAC? */
-+		if (sky2->tx_pause || sky2->rx_pause)
-+			sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_ON);
-+		else
-+			sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_OFF);
-+
- 		ctrl |= PHY_CT_RESET;
- 	}
  
-+	gma_write16(hw, port, GM_GP_CTRL, reg);
-+
- 	if (hw->chip_id != CHIP_ID_YUKON_FE)
- 		gm_phy_write(hw, port, PHY_MARV_1000T_CTRL, ct1000);
+ 		/* Set Flow-control capabilities */
+ 		if (sky2->tx_pause && sky2->rx_pause)
+@@ -1496,7 +1512,7 @@ static int sky2_down(struct net_device *
  
-@@ -508,6 +534,7 @@ static void sky2_phy_init(struct sky2_hw
- 			gm_phy_write(hw, port, PHY_MARV_LED_OVER, ledover);
- 
- 	}
-+
- 	/* Enable phy interrupt on auto-negotiation complete (or link up) */
- 	if (sky2->autoneg == AUTONEG_ENABLE)
- 		gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_IS_AN_COMPL);
-@@ -570,49 +597,11 @@ static void sky2_mac_init(struct sky2_hw
- 			 gm_phy_read(hw, 1, PHY_MARV_INT_MASK) != 0);
- 	}
- 
--	if (sky2->autoneg == AUTONEG_DISABLE) {
--		reg = gma_read16(hw, port, GM_GP_CTRL);
--		reg |= GM_GPCR_AU_ALL_DIS;
--		gma_write16(hw, port, GM_GP_CTRL, reg);
--		gma_read16(hw, port, GM_GP_CTRL);
--
--		switch (sky2->speed) {
--		case SPEED_1000:
--			reg &= ~GM_GPCR_SPEED_100;
--			reg |= GM_GPCR_SPEED_1000;
--			break;
--		case SPEED_100:
--			reg &= ~GM_GPCR_SPEED_1000;
--			reg |= GM_GPCR_SPEED_100;
--			break;
--		case SPEED_10:
--			reg &= ~(GM_GPCR_SPEED_1000 | GM_GPCR_SPEED_100);
--			break;
--		}
--
--		if (sky2->duplex == DUPLEX_FULL)
--			reg |= GM_GPCR_DUP_FULL;
--
--		/* turn off pause in 10/100mbps half duplex */
--		else if (sky2->speed != SPEED_1000 &&
--			 hw->chip_id != CHIP_ID_YUKON_EC_U)
--			sky2->tx_pause = sky2->rx_pause = 0;
--	} else
--		reg = GM_GPCR_SPEED_1000 | GM_GPCR_SPEED_100 | GM_GPCR_DUP_FULL;
--
--	if (!sky2->tx_pause && !sky2->rx_pause) {
--		sky2_write32(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_OFF);
--		reg |=
--		    GM_GPCR_FC_TX_DIS | GM_GPCR_FC_RX_DIS | GM_GPCR_AU_FCT_DIS;
--	} else if (sky2->tx_pause && !sky2->rx_pause) {
--		/* disable Rx flow-control */
--		reg |= GM_GPCR_FC_RX_DIS | GM_GPCR_AU_FCT_DIS;
--	}
--
--	gma_write16(hw, port, GM_GP_CTRL, reg);
--
- 	sky2_read16(hw, SK_REG(port, GMAC_IRQ_SRC));
- 
-+	/* Enable Transmit FIFO Underrun */
-+	sky2_write8(hw, SK_REG(port, GMAC_IRQ_MSK), GMAC_DEF_MSK);
-+
- 	spin_lock_bh(&sky2->phy_lock);
- 	sky2_phy_init(hw, port);
- 	spin_unlock_bh(&sky2->phy_lock);
-@@ -1529,40 +1518,10 @@ static void sky2_link_up(struct sky2_por
- 	unsigned port = sky2->port;
- 	u16 reg;
- 
--	/* Enable Transmit FIFO Underrun */
--	sky2_write8(hw, SK_REG(port, GMAC_IRQ_MSK), GMAC_DEF_MSK);
--
--	reg = gma_read16(hw, port, GM_GP_CTRL);
--	if (sky2->autoneg == AUTONEG_DISABLE) {
--		reg |= GM_GPCR_AU_ALL_DIS;
--
--		/* Is write/read necessary?  Copied from sky2_mac_init */
--		gma_write16(hw, port, GM_GP_CTRL, reg);
--		gma_read16(hw, port, GM_GP_CTRL);
--
--		switch (sky2->speed) {
--		case SPEED_1000:
--			reg &= ~GM_GPCR_SPEED_100;
--			reg |= GM_GPCR_SPEED_1000;
--			break;
--		case SPEED_100:
--			reg &= ~GM_GPCR_SPEED_1000;
--			reg |= GM_GPCR_SPEED_100;
--			break;
--		case SPEED_10:
--			reg &= ~(GM_GPCR_SPEED_1000 | GM_GPCR_SPEED_100);
--			break;
--		}
--	} else
--		reg &= ~GM_GPCR_AU_ALL_DIS;
--
--	if (sky2->duplex == DUPLEX_FULL || sky2->autoneg == AUTONEG_ENABLE)
--		reg |= GM_GPCR_DUP_FULL;
--
- 	/* enable Rx/Tx */
-+	reg = gma_read16(hw, port, GM_GP_CTRL);
- 	reg |= GM_GPCR_RX_ENA | GM_GPCR_TX_ENA;
- 	gma_write16(hw, port, GM_GP_CTRL, reg);
--	gma_read16(hw, port, GM_GP_CTRL);
- 
- 	gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_DEF_MSK);
- 
-@@ -1616,7 +1575,6 @@ static void sky2_link_down(struct sky2_p
- 	reg = gma_read16(hw, port, GM_GP_CTRL);
- 	reg &= ~(GM_GPCR_RX_ENA | GM_GPCR_TX_ENA);
- 	gma_write16(hw, port, GM_GP_CTRL, reg);
--	gma_read16(hw, port, GM_GP_CTRL);	/* PCI post */
- 
- 	if (sky2->rx_pause && !sky2->tx_pause) {
- 		/* restore Asymmetric Pause bit */
-@@ -1633,6 +1591,7 @@ static void sky2_link_down(struct sky2_p
- 
- 	if (netif_msg_link(sky2))
- 		printk(KERN_INFO PFX "%s: Link is down.\n", sky2->netdev->name);
-+
- 	sky2_phy_init(hw, port);
- }
- 
-@@ -1673,8 +1632,11 @@ static int sky2_autoneg_done(struct sky2
- 	sky2->rx_pause = (aux & PHY_M_PS_RX_P_EN) != 0;
- 	sky2->tx_pause = (aux & PHY_M_PS_TX_P_EN) != 0;
- 
--	if ((sky2->tx_pause || sky2->rx_pause)
--	    && !(sky2->speed < SPEED_1000 && sky2->duplex == DUPLEX_HALF))
-+	if (sky2->duplex == DUPLEX_HALF && sky2->speed != SPEED_1000
-+	    && hw->chip_id != CHIP_ID_YUKON_EC_U)
-+		sky2->rx_pause = sky2->tx_pause = 0;
-+
-+	if (sky2->rx_pause || sky2->tx_pause)
- 		sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_ON);
- 	else
- 		sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_OFF);
-@@ -1700,7 +1662,7 @@ static void sky2_phy_intr(struct sky2_hw
- 		printk(KERN_INFO PFX "%s: phy interrupt status 0x%x 0x%x\n",
- 		       sky2->netdev->name, istatus, phystat);
- 
--	if (istatus & PHY_M_IS_AN_COMPL) {
-+	if (sky2->autoneg == AUTONEG_ENABLE && (istatus & PHY_M_IS_AN_COMPL)) {
- 		if (sky2_autoneg_done(sky2, phystat) == 0)
- 			sky2_link_up(sky2);
- 		goto out;
-@@ -2890,7 +2852,6 @@ static int sky2_set_pauseparam(struct ne
- 			       struct ethtool_pauseparam *ecmd)
+ static u16 sky2_phy_speed(const struct sky2_hw *hw, u16 aux)
  {
- 	struct sky2_port *sky2 = netdev_priv(dev);
--	int err = 0;
+-	if (!hw->copper)
++	if (!sky2_is_copper(hw))
+ 		return SPEED_1000;
  
- 	sky2->autoneg = ecmd->autoneg;
- 	sky2->tx_pause = ecmd->tx_pause != 0;
-@@ -2898,7 +2859,7 @@ static int sky2_set_pauseparam(struct ne
+ 	if (hw->chip_id == CHIP_ID_YUKON_FE)
+@@ -2269,7 +2285,7 @@ static inline u32 sky2_clk2us(const stru
+ static int sky2_reset(struct sky2_hw *hw)
+ {
+ 	u16 status;
+-	u8 t8, pmd_type;
++	u8 t8;
+ 	int i;
  
- 	sky2_phy_reinit(sky2);
+ 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
+@@ -2315,9 +2331,7 @@ static int sky2_reset(struct sky2_hw *hw
+ 		sky2_pci_write32(hw, PEX_UNC_ERR_STAT, 0xffffffffUL);
  
--	return err;
-+	return 0;
+ 
+-	pmd_type = sky2_read8(hw, B2_PMD_TYP);
+-	hw->copper = !(pmd_type == 'L' || pmd_type == 'S');
+-
++	hw->pmd_type = sky2_read8(hw, B2_PMD_TYP);
+ 	hw->ports = 1;
+ 	t8 = sky2_read8(hw, B2_Y2_HW_RES);
+ 	if ((t8 & CFG_DUAL_MAC_MSK) == CFG_DUAL_MAC_MSK) {
+@@ -2414,21 +2428,22 @@ static int sky2_reset(struct sky2_hw *hw
+ 
+ static u32 sky2_supported_modes(const struct sky2_hw *hw)
+ {
+-	u32 modes;
+-	if (hw->copper) {
+-		modes = SUPPORTED_10baseT_Half
+-		    | SUPPORTED_10baseT_Full
+-		    | SUPPORTED_100baseT_Half
+-		    | SUPPORTED_100baseT_Full
+-		    | SUPPORTED_Autoneg | SUPPORTED_TP;
++	if (sky2_is_copper(hw)) {
++		u32 modes = SUPPORTED_10baseT_Half
++			| SUPPORTED_10baseT_Full
++			| SUPPORTED_100baseT_Half
++			| SUPPORTED_100baseT_Full
++			| SUPPORTED_Autoneg | SUPPORTED_TP;
+ 
+ 		if (hw->chip_id != CHIP_ID_YUKON_FE)
+ 			modes |= SUPPORTED_1000baseT_Half
+-			    | SUPPORTED_1000baseT_Full;
++				| SUPPORTED_1000baseT_Full;
++		return modes;
+ 	} else
+-		modes = SUPPORTED_1000baseT_Full | SUPPORTED_FIBRE
+-		    | SUPPORTED_Autoneg;
+-	return modes;
++		return  SUPPORTED_1000baseT_Half
++			| SUPPORTED_1000baseT_Full
++			| SUPPORTED_Autoneg
++			| SUPPORTED_FIBRE;
  }
  
- static int sky2_get_coalesce(struct net_device *dev,
+ static int sky2_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+@@ -2439,7 +2454,7 @@ static int sky2_get_settings(struct net_
+ 	ecmd->transceiver = XCVR_INTERNAL;
+ 	ecmd->supported = sky2_supported_modes(hw);
+ 	ecmd->phy_address = PHY_ADDR_MARV;
+-	if (hw->copper) {
++	if (sky2_is_copper(hw)) {
+ 		ecmd->supported = SUPPORTED_10baseT_Half
+ 		    | SUPPORTED_10baseT_Full
+ 		    | SUPPORTED_100baseT_Half
+@@ -2448,12 +2463,14 @@ static int sky2_get_settings(struct net_
+ 		    | SUPPORTED_1000baseT_Full
+ 		    | SUPPORTED_Autoneg | SUPPORTED_TP;
+ 		ecmd->port = PORT_TP;
+-	} else
++		ecmd->speed = sky2->speed;
++	} else {
++		ecmd->speed = SPEED_1000;
+ 		ecmd->port = PORT_FIBRE;
++	}
+ 
+ 	ecmd->advertising = sky2->advertising;
+ 	ecmd->autoneg = sky2->autoneg;
+-	ecmd->speed = sky2->speed;
+ 	ecmd->duplex = sky2->duplex;
+ 	return 0;
+ }
 diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index fa8af9f..a27194c 100644
+index a27194c..be46463 100644
 --- a/drivers/net/sky2.h
 +++ b/drivers/net/sky2.h
-@@ -1566,7 +1566,7 @@ enum {
- 
- 	GMR_FS_ANY_ERR	= GMR_FS_RX_FF_OV | GMR_FS_CRC_ERR |
- 			  GMR_FS_FRAGMENT | GMR_FS_LONG_ERR |
--		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC | GMR_FS_GOOD_FC |
-+		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC |
- 			  GMR_FS_UN_SIZE | GMR_FS_JABBER,
+@@ -1318,6 +1318,14 @@ enum {
  };
  
+ /* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
++/*****  PHY_MARV_PHY_CTRL (page 1)		16 bit r/w	Fiber Specific Ctrl *****/
++enum {
++	PHY_M_FIB_FORCE_LNK	= 1<<10,/* Force Link Good */
++	PHY_M_FIB_SIGD_POL	= 1<<9,	/* SIGDET Polarity */
++	PHY_M_FIB_TX_DIS	= 1<<3,	/* Transmitter Disable */
++};
++
++/* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
+ /*****  PHY_MARV_PHY_CTRL (page 2)		16 bit r/w	MAC Specific Ctrl *****/
+ enum {
+ 	PHY_M_MAC_MD_MSK	= 7<<7, /* Bit  9.. 7: Mode Select Mask */
+@@ -1880,7 +1888,7 @@ struct sky2_hw {
+ 	int		     pm_cap;
+ 	u8	     	     chip_id;
+ 	u8		     chip_rev;
+-	u8		     copper;
++	u8		     pmd_type;
+ 	u8		     ports;
+ 
+ 	struct sky2_status_le *st_le;
+@@ -1892,6 +1900,11 @@ struct sky2_hw {
+ 	wait_queue_head_t    msi_wait;
+ };
+ 
++static inline int sky2_is_copper(const struct sky2_hw *hw)
++{
++	return !(hw->pmd_type == 'L' || hw->pmd_type == 'S' || hw->pmd_type == 'P');
++}
++
+ /* Register accessor for memory mapped device */
+ static inline u32 sky2_read32(const struct sky2_hw *hw, unsigned reg)
+ {
 -- 
 1.2.4
 
