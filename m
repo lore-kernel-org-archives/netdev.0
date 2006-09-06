@@ -1,83 +1,60 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 01/21] mm: serialize access to min_free_kbytes
-Date: Wed, 06 Sep 2006 15:16:31 +0200
-Message-ID: <20060906133952.766947000@chello.nl>
+Subject: [PATCH 11/21] nbd: limit blk_queue
+Date: Wed, 06 Sep 2006 15:16:41 +0200
+Message-ID: <20060906133954.845224000@chello.nl>
 References: <20060906131630.793619000@chello.nl>>
 Cc: Daniel Phillips <phillips@google.com>,
 	Rik van Riel <riel@redhat.com>,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:10420 "EHLO
-	amsfep16-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1750902AbWIFNiY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 09:38:24 -0400
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:8218 "EHLO
+	amsfep14-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1750919AbWIFNia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:38:30 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=setup_per_zone_pages_min.patch
+Content-Disposition: inline; filename=nbd_queue.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a small race between the procfs caller and the memory hotplug caller
-of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
-another caller. Time to close the gap.
+Limit each request to 1 page, so that the request throttling also limits the
+number of in-flight pages and force the IO scheduler to NOOP as anything else
+doesn't make sense anyway.
+
+(Pavel, I will analyse those !NOOP deadlocks I got, I'm just re-posting so 
+people can comment on the rest)
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Daniel Phillips <phillips@google.com>
+CC: Pavel Machek <pavel@ucw.cz>
 ---
- mm/page_alloc.c |   16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ drivers/block/nbd.c |   17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-Index: linux-2.6/mm/page_alloc.c
+Index: linux-2.6/drivers/block/nbd.c
 ===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -81,6 +81,7 @@ struct zone *zone_table[1 << ZONETABLE_S
- EXPORT_SYMBOL(zone_table);
+--- linux-2.6.orig/drivers/block/nbd.c
++++ linux-2.6/drivers/block/nbd.c
+@@ -628,11 +636,16 @@ static int __init nbd_init(void)
+ 		 * every gendisk to have its very own request_queue struct.
+ 		 * These structs are big so we dynamically allocate them.
+ 		 */
+-		disk->queue = blk_init_queue(do_nbd_request, &nbd_lock);
++		disk->queue = blk_init_queue_node_elv(do_nbd_request,
++				&nbd_lock, -1, "noop");
+ 		if (!disk->queue) {
+ 			put_disk(disk);
+ 			goto out;
+ 		}
++		blk_queue_pin_elevator(disk->queue);
++		blk_queue_max_segment_size(disk->queue, PAGE_SIZE);
++		blk_queue_max_hw_segments(disk->queue, 1);
++		blk_queue_max_phys_segments(disk->queue, 1);
+ 	}
  
- static char *zone_names[MAX_NR_ZONES] = { "DMA", "DMA32", "Normal", "HighMem" };
-+static DEFINE_SPINLOCK(min_free_lock);
- int min_free_kbytes = 1024;
- 
- unsigned long __meminitdata nr_kernel_pages;
-@@ -2190,11 +2191,11 @@ static void setup_per_zone_lowmem_reserv
- }
- 
- /*
-- * setup_per_zone_pages_min - called when min_free_kbytes changes.  Ensures 
-+ * __setup_per_zone_pages_min - called when min_free_kbytes changes.  Ensures
-  *	that the pages_{min,low,high} values for each zone are set correctly 
-  *	with respect to min_free_kbytes.
-  */
--void setup_per_zone_pages_min(void)
-+static void __setup_per_zone_pages_min(void)
- {
- 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
- 	unsigned long lowmem_pages = 0;
-@@ -2248,6 +2249,15 @@ void setup_per_zone_pages_min(void)
- 	calculate_totalreserve_pages();
- }
- 
-+void setup_per_zone_pages_min(void)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&min_free_lock, flags);
-+	__setup_per_zone_pages_min();
-+	spin_unlock_irqrestore(&min_free_lock, flags);
-+}
-+
- /*
-  * Initialise min_free_kbytes.
-  *
-@@ -2283,7 +2293,7 @@ static int __init init_per_zone_pages_mi
- 		min_free_kbytes = 128;
- 	if (min_free_kbytes > 65536)
- 		min_free_kbytes = 65536;
--	setup_per_zone_pages_min();
-+	__setup_per_zone_pages_min();
- 	setup_per_zone_lowmem_reserve();
- 	return 0;
- }
+ 	if (register_blkdev(NBD_MAJOR, "nbd")) {
 
 --
