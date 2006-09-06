@@ -1,16 +1,16 @@
 From: "Tim Yardley" <liquid@haveheart.com>
 Subject: Sendmsg receiving EPERM
-Date: Wed, 6 Sep 2006 01:17:13 -0500
-Message-ID: <005301c6d17c$185aedc0$0201a8c0@liquid>
+Date: Wed, 6 Sep 2006 01:29:31 -0500
+Message-ID: <006f01c6d17d$cff7ab70$0201a8c0@liquid>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.insightbb.com ([74.128.0.19]:2667 "EHLO
-	asav09.insightbb.com") by vger.kernel.org with ESMTP
-	id S932594AbWIFGRP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 02:17:15 -0400
+Received: from gateway.insightbb.com ([74.128.0.19]:2431 "EHLO
+	asav00.insightbb.com") by vger.kernel.org with ESMTP
+	id S932090AbWIFG3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 02:29:32 -0400
 To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -18,9 +18,7 @@ List-Id: netdev.vger.kernel.org
 
 I have an interesting situation in which a box is "heavily" loaded with
 network traffic on a bridged interface.  The card in question is  the
-silicom intel 2 port pci-x bypass card
-(http://silicom-usa.com/pgx.php?p2=207).  The driver is available at
-http://silicom-usa.com/files/PxGxBP_Linux.zip and is pretty much just a
+silicom intel 2 port pci-x bypass card. The driver is pretty much just a
 modified e1000 driver.  I am using a slightly older version of the driver
 (5.6.11 I believe), but this is still very strange behavior.
 
