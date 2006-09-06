@@ -1,126 +1,20 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [2.6 patch] net/sctp/: cleanups
-Date: Tue, 05 Sep 2006 16:44:21 -0700
-Message-ID: <1157499861.3728.7.camel@w-sridhar2.beaverton.ibm.com>
-References: <20060905215721.GM9173@stusta.de>
+From: Mohamed Abbas <mabbas@linux.intel.com>
+Subject: roaming support for d80211 stack
+Date: Tue, 05 Sep 2006 17:42:16 -0700
+Message-ID: <44FE1968.3050308@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:28883 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932237AbWIEXoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 19:44:25 -0400
-To: Adrian Bunk <bunk@stusta.de>, davem@davemloft.net
-In-Reply-To: <20060905215721.GM9173@stusta.de>
+Received: from mga06.intel.com ([134.134.136.21]:62994 "EHLO
+	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751305AbWIFAmV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Sep 2006 20:42:21 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-09-05 at 23:57 +0200, Adrian Bunk wrote:
-> This patch contains the following cleanups:
-> - make the following needlessly global function static:
->   - socket.c: sctp_apply_peer_addr_params()
-> - add proper prototypes for the several global functions in
->   include/net/sctp/sctp.h
-> 
-> Note that this fixes wrong prototypes for the following functions:
-> - sctp_snmp_proc_exit()
-> - sctp_eps_proc_exit()
-> - sctp_assocs_proc_exit()
-> 
-> The latter was spotted by the GNU C compiler and reported
-> by David Woodhouse.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
-Acked-by: Sridhar Samudrala <sri@us.ibm.com>
-
-> 
-> ---
-> 
->  include/net/sctp/sctp.h |   13 +++++++++++++
->  net/sctp/ipv6.c         |    1 -
->  net/sctp/protocol.c     |    7 -------
->  net/sctp/socket.c       |   14 +++++++-------
->  4 files changed, 20 insertions(+), 15 deletions(-)
-> 
-> --- linux-2.6.18-rc5-mm1/include/net/sctp/sctp.h.old	2006-09-05 16:50:33.000000000 +0200
-> +++ linux-2.6.18-rc5-mm1/include/net/sctp/sctp.h	2006-09-05 16:54:18.000000000 +0200
-> @@ -128,6 +128,8 @@
->  				     int flags);
->  extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
->  extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
-> +int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
-> +                        void *ptr);
->  
->  /*
->   * sctp/socket.c
-> @@ -178,6 +180,17 @@
->  			  struct sock *oldsk, struct sock *newsk);
->  
->  /*
-> + * sctp/proc.c
-> + */
-> +int sctp_snmp_proc_init(void);
-> +void sctp_snmp_proc_exit(void);
-> +int sctp_eps_proc_init(void);
-> +void sctp_eps_proc_exit(void);
-> +int sctp_assocs_proc_init(void);
-> +void sctp_assocs_proc_exit(void);
-> +
-> +
-> +/*
->   *  Section:  Macros, externs, and inlines
->   */
->  
-> --- linux-2.6.18-rc5-mm1/net/sctp/socket.c.old	2006-09-05 16:49:15.000000000 +0200
-> +++ linux-2.6.18-rc5-mm1/net/sctp/socket.c	2006-09-05 16:49:27.000000000 +0200
-> @@ -2081,13 +2081,13 @@
->   *                     SPP_SACKDELAY_ENABLE, setting both will have undefined
->   *                     results.
->   */
-> -int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
-> -				struct sctp_transport   *trans,
-> -				struct sctp_association *asoc,
-> -				struct sctp_sock        *sp,
-> -				int                      hb_change,
-> -				int                      pmtud_change,
-> -				int                      sackdelay_change)
-> +static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
-> +				       struct sctp_transport   *trans,
-> +				       struct sctp_association *asoc,
-> +				       struct sctp_sock        *sp,
-> +				       int                      hb_change,
-> +				       int                      pmtud_change,
-> +				       int                      sackdelay_change)
->  {
->  	int error;
->  
-> --- linux-2.6.18-rc5-mm1/net/sctp/ipv6.c.old	2006-09-05 16:50:51.000000000 +0200
-> +++ linux-2.6.18-rc5-mm1/net/sctp/ipv6.c	2006-09-05 16:50:58.000000000 +0200
-> @@ -78,7 +78,6 @@
->  
->  #include <asm/uaccess.h>
->  
-> -extern int sctp_inetaddr_event(struct notifier_block *, unsigned long, void *);
->  static struct notifier_block sctp_inet6addr_notifier = {
->  	.notifier_call = sctp_inetaddr_event,
->  };
-> --- linux-2.6.18-rc5-mm1/net/sctp/protocol.c.old	2006-09-05 16:53:10.000000000 +0200
-> +++ linux-2.6.18-rc5-mm1/net/sctp/protocol.c	2006-09-05 16:53:20.000000000 +0200
-> @@ -82,13 +82,6 @@
->  kmem_cache_t *sctp_chunk_cachep __read_mostly;
->  kmem_cache_t *sctp_bucket_cachep __read_mostly;
->  
-> -extern int sctp_snmp_proc_init(void);
-> -extern int sctp_snmp_proc_exit(void);
-> -extern int sctp_eps_proc_init(void);
-> -extern int sctp_eps_proc_exit(void);
-> -extern int sctp_assocs_proc_init(void);
-> -extern int sctp_assocs_proc_exit(void);
-> -
->  /* Return the address of the control sock. */
->  struct sock *sctp_get_ctl_sock(void)
->  {
-
+Hi
+Are there any one working on roaming support for  d80211 stack?
+Thanks
+Mohamed
