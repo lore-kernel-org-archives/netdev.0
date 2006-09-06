@@ -1,19 +1,20 @@
 From: "Tim Yardley" <liquid@haveheart.com>
-Subject: Heavy network loading...
-Date: Wed, 6 Sep 2006 01:12:45 -0500
-Message-ID: <004c01c6d17b$78859200$0201a8c0@liquid>
+Subject: Sendmsg receiving EPERM
+Date: Wed, 6 Sep 2006 01:17:13 -0500
+Message-ID: <005301c6d17c$185aedc0$0201a8c0@liquid>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.insightbb.com ([74.128.0.19]:12922 "EHLO
-	asav14.insightbb.com") by vger.kernel.org with ESMTP
-	id S932589AbWIFGMs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 02:12:48 -0400
+Received: from gateway.insightbb.com ([74.128.0.19]:2667 "EHLO
+	asav09.insightbb.com") by vger.kernel.org with ESMTP
+	id S932594AbWIFGRP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 02:17:15 -0400
 To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
 
 I have an interesting situation in which a box is "heavily" loaded with
 network traffic on a bridged interface.  The card in question is  the
