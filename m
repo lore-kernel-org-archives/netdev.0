@@ -1,47 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/6] sky2: clear status IRQ after empty
-Date: Wed, 06 Sep 2006 10:17:54 -0700
-Message-ID: <20060906171920.866115000@localhost.localdomain>
-References: <20060906171752.781595000@localhost.localdomain>
-Cc: stable@kernel.org, netdev@vger.kernel.org
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [REVISED] [PATCH] ethtool v4: add autoneg advertise feature
+Date: Wed, 6 Sep 2006 11:19:51 -0700
+Message-ID: <9929d2390609061119g344bd484tca0ef2ada6c5eb34@mail.gmail.com>
+References: <20060905151016.8244.16888.stgit@jtkirshe-sled.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John Rociak" <john.ronciak@intel.com>,
+	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:2729 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751492AbWIFSRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 14:17:03 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-status-clr.patch
+Received: from ug-out-1314.google.com ([66.249.92.170]:63795 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751494AbWIFSTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 14:19:53 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so2387625ugc
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2006 11:19:51 -0700 (PDT)
+To: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>
+In-Reply-To: <20060905151016.8244.16888.stgit@jtkirshe-sled.jf.intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don't clear status IRQ until list has been read to avoid causing
-status list wraparound. Clearing IRQ forces a Transmit Status update
-if it is pending.
+On 9/5/06, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+>
+> adds the ability to change the advertised speed and duplex for a network interface.  Previously, a network interface was only able to advertise all supported speed's and duplex's, or one individual speed and duplex.  The feature allows the user to choose which supported speed's and duplex's to advertise by using the hex value.
+>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>
+> ---
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+This patch can be pull from the following location:
 
---- linux-2.6.17.11.orig/drivers/net/sky2.c
-+++ linux-2.6.17.11/drivers/net/sky2.c
-@@ -2016,6 +2016,9 @@ static int sky2_status_intr(struct sky2_
- 		}
- 	}
- 
-+	/* Fully processed status ring so clear irq */
-+	sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
-+
- exit_loop:
- 	return work_done;
- }
-@@ -2218,9 +2221,6 @@ static int sky2_poll(struct net_device *
- 	*budget -= work_done;
- 	dev0->quota -= work_done;
- 
--	if (status & Y2_IS_STAT_BMU)
--		sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
--
- 	if (sky2_more_work(hw))
- 		return 1;
- 
+git pull git://lost.foo-projects.org/~jtkirshe/ethtool e1000
 
---
-Stephen Hemminger <shemminger@osdl.org>
-
+-- 
+Cheers,
+Jeff
