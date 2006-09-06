@@ -1,56 +1,51 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 37/37] sky2: version 1.6.1
-Date: Wed, 6 Sep 2006 15:58:12 -0700
-Message-ID: <20060906225812.GL15922@kroah.com>
-References: <20060906224631.999046890@quad.kroah.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
+Date: Thu, 07 Sep 2006 09:01:32 +1000
+Message-ID: <1157583693.22705.254.camel@localhost.localdomain>
+References: <20060906125626.GA3718@elte.hu>  <20060906094301.GA8694@elte.hu>
+	 <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de>
+	 <20060901015818.42767813.akpm@osdl.org>
+	 <6260.1157470557@warthog.cambridge.redhat.com>
+	 <8430.1157534853@warthog.cambridge.redhat.com>
+	 <13982.1157545856@warthog.cambridge.redhat.com>
+	 <17274.1157553962@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kroah.org ([69.55.234.183]:37325 "EHLO perch.kroah.org")
-	by vger.kernel.org with ESMTP id S965175AbWIFXDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 19:03:15 -0400
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename="sky2-dotvers.patch"
-In-Reply-To: <20060906225444.GA15922@kroah.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, john stultz <johnstul@us.ibm.com>,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965269AbWIFXFp@vger.kernel.org>
+To: David Howells <dhowells@redhat.com>
+In-Reply-To: <17274.1157553962@warthog.cambridge.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
 
-------------------
-From: Stephen Hemminger <shemminger@osdl.org>
+> Under some circumstances I can work out which sources have triggered which
+> interrupts (there are various off-CPU FPGAs which implement auxiliary PICs that
+> do announce their sources), but the aux-PIC channels are grouped together upon
+> delivery to the CPU PIC, so some of the ACK'ing has to be done at the group
+> level.
+> 
+> > how is this not possible via genirq?
+> 
+> How is it possible with genirq?
 
-Since this code incorporates some of the fixes from 2.6.18, change
-the version number.
+Well, genirq gives you more flexibility than the current mecanism so ...
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+If I understand correctly, you need to do scray stuff to figure out your
+toplevel irq, which shound't be a problem with either mecanisms... 
 
----
- drivers/net/sky2.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Now, if you have funky cascades, then you can always group them into a
+virtual irq cascade line and have a special chained flow handler that
+does all the "figuring out" off those... it's up to you. 
 
---- linux-2.6.17.11.orig/drivers/net/sky2.c
-+++ linux-2.6.17.11/drivers/net/sky2.c
-@@ -51,7 +51,7 @@
- #include "sky2.h"
- 
- #define DRV_NAME		"sky2"
--#define DRV_VERSION		"1.4"
-+#define DRV_VERSION		"1.6.1"
- #define PFX			DRV_NAME " "
- 
- /*
+In general, I found genirq allowed me to do more fancy stuff, and end up
+with actually less hooks and indirect function calls on the path to a
+given irq than before as you can use tailored flow handlers that do just
+the right thing.
 
---
+Ben.
