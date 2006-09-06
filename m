@@ -1,41 +1,66 @@
-From: Chase Venters <chase.venters@clientec.com>
-Subject: Re: [take16 1/4] kevent: Core files.
-Date: Wed, 6 Sep 2006 08:54:22 -0500 (CDT)
-Message-ID: <Pine.LNX.4.64.0609060850150.18512@turbotaz.ourhouse>
-References: <1157543723488@2ka.mipt.ru> <Pine.LNX.4.64.0609060824090.18512@turbotaz.ourhouse>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 05/21] uml: rename arch/um remove_mapping()
+Date: Wed, 06 Sep 2006 15:16:35 +0200
+Message-ID: <20060906133953.588886000@chello.nl>
+References: <20060906131630.793619000@chello.nl>>
+Cc: Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
 	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Johann Borck <johann.borck@densedata.com>
+	Andrew Morton <akpm@osdl.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Jeff Dike <jdike@addtoit.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay03.pair.com ([209.68.5.17]:56586 "HELO relay03.pair.com")
-	by vger.kernel.org with SMTP id S1751062AbWIFN5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 09:57:07 -0400
-To: Chase Venters <chase.venters@clientec.com>
-In-Reply-To: <Pine.LNX.4.64.0609060824090.18512@turbotaz.ourhouse>
+Received: from [213.46.243.16] ([213.46.243.16]:11887 "EHLO
+	amsfep17-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751065AbWIFN5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:57:33 -0400
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Content-Disposition: inline; filename=uml_remove_mapping.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Sep 2006, Chase Venters wrote:
+Now that 'include/linux/mm.h' includes 'include/linux/swap.h', the global
+remove_mapping() definition clashes with the arch/um one.
 
->>  +	if (start + num >= KEVENT_MAX_EVENTS ||
->>  +			start >= KEVENT_MAX_EVENTS ||
->>  +			num >= KEVENT_MAX_EVENTS)
->
-> Since start and num are unsigned, the last two checks are redundant. If start 
-> or num is individually >= KEVENT_MAX_EVENTS, start + num must be.
->
+Rename the arch/um one.
 
-Actually, my early-morning brain code optimizer is apparently broken, 
-because it forgot all about integer wraparound. Disregard please.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Acked-by: Jeff Dike <jdike@addtoit.com>
+---
+ arch/um/kernel/physmem.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
->
-> Thanks,
-> Chase
->
+Index: linux-2.6/arch/um/kernel/physmem.c
+===================================================================
+--- linux-2.6.orig/arch/um/kernel/physmem.c
++++ linux-2.6/arch/um/kernel/physmem.c
+@@ -160,7 +160,7 @@ int physmem_subst_mapping(void *virt, in
+ 
+ static int physmem_fd = -1;
+ 
+-static void remove_mapping(struct phys_desc *desc)
++static void um_remove_mapping(struct phys_desc *desc)
+ {
+ 	void *virt = desc->virt;
+ 	int err;
+@@ -184,7 +184,7 @@ int physmem_remove_mapping(void *virt)
+ 	if(desc == NULL)
+ 		return(0);
+ 
+-	remove_mapping(desc);
++	um_remove_mapping(desc);
+ 	return(1);
+ }
+ 
+@@ -205,7 +205,7 @@ void physmem_forget_descriptor(int fd)
+ 		page = list_entry(ele, struct phys_desc, list);
+ 		offset = page->offset;
+ 		addr = page->virt;
+-		remove_mapping(page);
++		um_remove_mapping(page);
+ 		err = os_seek_file(fd, offset);
+ 		if(err)
+ 			panic("physmem_forget_descriptor - failed to seek "
+
+--
