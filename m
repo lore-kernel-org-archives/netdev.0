@@ -1,82 +1,48 @@
-From: Dirk Opfer <Dirk@Opfer-Online.de>
-Subject: Re: [PATCH] Fix dm9000 release_resource
-Date: Wed, 06 Sep 2006 19:53:32 +0200
-Message-ID: <0ML29c-1GL1WY3G6t-0008TQ@mrelayeu.kundenserver.de>
-References: <0ML25U-1GIK892FsT-0007pS@mrelayeu.kundenserver.de> <44FEE224.7030904@garzik.org>
+From: shaw@vranix.com
+Subject: e1000_xmit_frame and e1000_down racing  with next_to_use?
+Date: Wed, 6 Sep 2006 10:58:15 -0700 (PDT)
+Message-ID: <4348.38.114.160.126.1157565495.squirrel@webmail.vranix.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030202040108050609020606"
-Cc: netdev@vger.kernel.org, Ben Dooks <ben@simtec.co.uk>,
-	Sascha Hauer <s.hauer@pengutronix.de>, dirk@opfer-online.de
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:12792 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1751228AbWIFRtU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 13:49:20 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44FEE224.7030904@garzik.org>
+Received: from webmail2.sd.dreamhost.com ([66.33.201.157]:25784 "EHLO
+	webmail2.sd.dreamhost.com") by vger.kernel.org with ESMTP
+	id S1751241AbWIFR6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 13:58:19 -0400
+Received: from webmail.vranix.com (localhost [127.0.0.1])
+	by webmail2.sd.dreamhost.com (Postfix) with ESMTP id D9997DC790
+	for <netdev@vger.kernel.org>; Wed,  6 Sep 2006 10:58:15 -0700 (PDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030202040108050609020606
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Hello All,
 
-Jeff Garzik schrieb:
->
-> Your patch is attached base64-encoded, which makes it impossible to
-> comment on it inline.
->
->     Jeff
->
->
-Sorry for that. I send this via webclient.
+I have a question about the use of the tx_ring->next_to_use variable in
+the e1000.  Specifically, I'm wondering about a race between the use of
+next_to_use in e1000_xmit_frame and the clearing of next_to_use in
+e1000_down via e1000_clean_tx_ring.
 
-Here is another attempt.
+Thread 1 (_xmit) ->  first = adapter->tx_ring.next_to_use;
+                     e1000_tx_map();
+Thread 2 (_down) ->  e1000_clean_tx_ring();
+                     tx_ring->next_to_use = 0;
+Thread 1 (_xmit) -> e1000_tx_queue();
 
-dm9000_release_board calls release_resource with the platform resource
-instead of the requested resource:
+It seems that tx_ring.next_to_use could change between the time the skbuff
+is mapped in e1000_tx_map and the time it is reported to the hardware in
+e1000_tx_queue.  While I don't see any memory leaks or possible oops, it
+does seem possible that that an skbuff could be "lost" in the ring as it
+will not be queued in the subsequent e1000_queue.
 
-db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-db->addr_req = request_mem_region(db->addr_res->start, i, pdev->name);
+If the race is possible, perhaps this could be the culprit behind the tx
+timeouts we've seen reported in this list?  The watchdog will eventually
+find the "lost" skbuff and mistakenly think that the hardware transmit has
+hung and stop the queue.
 
-dm9000_release_board:
+Could one of you plese tell me how this race is avoided, if indeed it is?
 
-if (db->addr_res != NULL) {
-release_resource(db->addr_res);
-kfree(db->addr_req);
+Thanks,
+Shaw
 
-With this behavior the kernel will crash on the second removal. The
-attached patch fix this problem.
-
-
-Signed-off-by: Dirk Opfer <Dirk@Opfer-Online.de>
-
-
-Dirk
-
---------------030202040108050609020606
-Content-Type: text/plain;
- name="dm9000-fix-release-ressource.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dm9000-fix-release-ressource.patch"
-
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 3d76fa1..a860ebb 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -377,8 +377,8 @@ dm9000_release_board(struct platform_dev
- 		kfree(db->data_req);
- 	}
- 
--	if (db->addr_res != NULL) {
--		release_resource(db->addr_res);
-+	if (db->addr_req != NULL) {
-+		release_resource(db->addr_req);
- 		kfree(db->addr_req);
- 	}
- }
-
---------------030202040108050609020606--
