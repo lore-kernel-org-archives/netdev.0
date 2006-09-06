@@ -1,59 +1,99 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Wed, 06 Sep 2006 23:44:35 +0200
-Message-ID: <44FF4143.9050708@fr.ibm.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at>	<44FE907F.7090508@fr.ibm.com> <20060906165642.GA26202@MAIL.13thfloor.at> <44FF0760.1040600@openvz.org>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 05/37] bridge-netfilter: dont overwrite memory outside of skb
+Date: Wed, 6 Sep 2006 15:55:16 -0700
+Message-ID: <20060906225516.GF15922@kroah.com>
+References: <20060906224631.999046890@quad.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, sam@vilain.net,
-	Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
-	Linux Containers <containers@lists.osdl.org>,
-	"Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:20802 "EHLO
-	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1751691AbWIFVon (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 17:44:43 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id k86LierT119314
-	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 21:44:41 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k86Ln6NK3121208
-	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 23:49:06 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k86LiewF031358
-	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 23:44:40 +0200
-To: Kir Kolyshkin <kir@openvz.org>
-In-Reply-To: <44FF0760.1040600@openvz.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964921AbWIFXBU@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	David Miller <davem@davemloft.net>
+Content-Disposition: inline; filename="bridge-netfilter-don-t-overwrite-memory-outside-of-skb.patch"
+In-Reply-To: <20060906225444.GA15922@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kir Kolyshkin wrote:
-> Herbert Poetzl wrote:
-> 
->> my point (until we have an implementation which clearly
->> shows that performance is equal/better to isolation)
->> is simply this:
->>
->>  of course, you can 'simulate' or 'construct' all the
->>  isolation scenarios with kernel bridging and routing
->>  and tricky injection/marking of packets, but, this
->>  usually comes with an overhead ...
->>   
-> 
-> Well, TANSTAAFL*, and pretty much everything comes with an overhead. 
-> Multitasking comes with the (scheduler, context switch, CPU cache, etc.) 
-> overhead -- is that the reason to abandon it? OpenVZ and Linux-VServer 
-> resource management also adds some overhead -- do we want to throw it away?
-> 
-> The question is not just "equal or better performance", the question is 
-> "what do we get and how much we pay for it".
-> 
-> Finally, as I understand both network isolation and network 
-> virtualization (both level2 and level3) can happily co-exist. We do have 
-> several filesystems in kernel. Let's have several network virtualization 
-> approaches, and let a user choose. Is that makes sense?
+-stable review patch.  If anyone has any objections, please let us know.
 
-Definitly yes, I agree.
+------------------
+From: Stephen Hemminger <shemminger@osdl.org>
+
+The bridge netfilter code needs to check for space at the
+front of the skb before overwriting; otherwise if skb from
+device doesn't have headroom, then it will cause random
+memory corruption.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ include/linux/netfilter_bridge.h |   16 ++++++++++++----
+ net/bridge/br_forward.c          |   10 +++++++---
+ 2 files changed, 19 insertions(+), 7 deletions(-)
+
+--- linux-2.6.17.11.orig/include/linux/netfilter_bridge.h
++++ linux-2.6.17.11/include/linux/netfilter_bridge.h
+@@ -47,18 +47,26 @@ enum nf_br_hook_priorities {
+ #define BRNF_BRIDGED			0x08
+ #define BRNF_NF_BRIDGE_PREROUTING	0x10
+ 
+-
+ /* Only used in br_forward.c */
+-static inline
+-void nf_bridge_maybe_copy_header(struct sk_buff *skb)
++static inline int nf_bridge_maybe_copy_header(struct sk_buff *skb)
+ {
++	int err;
++
+ 	if (skb->nf_bridge) {
+ 		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++			err = skb_cow(skb, 18);
++			if (err)
++				return err;
+ 			memcpy(skb->data - 18, skb->nf_bridge->data, 18);
+ 			skb_push(skb, 4);
+-		} else
++		} else {
++			err = skb_cow(skb, 16);
++			if (err)
++				return err;
+ 			memcpy(skb->data - 16, skb->nf_bridge->data, 16);
++		}
+ 	}
++	return 0;
+ }
+ 
+ /* This is called by the IP fragmenting code and it ensures there is
+--- linux-2.6.17.11.orig/net/bridge/br_forward.c
++++ linux-2.6.17.11/net/bridge/br_forward.c
+@@ -43,11 +43,15 @@ int br_dev_queue_push_xmit(struct sk_buf
+ 	else {
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 		/* ip_refrag calls ip_fragment, doesn't copy the MAC header. */
+-		nf_bridge_maybe_copy_header(skb);
++		if (nf_bridge_maybe_copy_header(skb))
++			kfree_skb(skb);
++		else
+ #endif
+-		skb_push(skb, ETH_HLEN);
++		{
++			skb_push(skb, ETH_HLEN);
+ 
+-		dev_queue_xmit(skb);
++			dev_queue_xmit(skb);
++		}
+ 	}
+ 
+ 	return 0;
+
+--
