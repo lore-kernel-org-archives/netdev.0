@@ -1,40 +1,84 @@
-From: Jens Axboe <axboe@kernel.dk>
-Subject: Re: [PATCH 10/21] block: elevator selection and pinning
-Date: Wed, 6 Sep 2006 15:46:43 +0200
-Message-ID: <20060906134642.GC14565@kernel.dk>
-References: <20060906131630.793619000@chello.nl>> <20060906133954.673752000@chello.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>,
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 13/21] nbd: use swapdev hook to make swap deadlock free
+Date: Wed, 06 Sep 2006 15:16:43 +0200
+Message-ID: <20060906133955.138336000@chello.nl>
+References: <20060906131630.793619000@chello.nl>>
+Cc: Daniel Phillips <phillips@google.com>,
 	Rik van Riel <riel@redhat.com>,
 	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750835AbWIFNn5@vger.kernel.org>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <20060906133954.673752000@chello.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+	Andrew Morton <akpm@osdl.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pavel Machek <pavel@ucw.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:44323 "EHLO
+	amsfep18-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1750894AbWIFNie (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:38:34 -0400
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Content-Disposition: inline; filename=nbd_vmio.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 06 2006, Peter Zijlstra wrote:
-> Provide an block queue init function that allows to set an elevator. And a 
-> function to pin the current elevator.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Signed-off-by: Daniel Phillips <phillips@google.com>
-> CC: Jens Axboe <axboe@suse.de>
-> CC: Pavel Machek <pavel@ucw.cz>
+Use sk_set_vmio() on the nbd socket.
 
-Generally I don't think this is the right approach, as what you really
-want to do is let the driver say "I want intelligent scheduling" or not.
-The type of scheduler is policy that is left with the user, not the
-driver.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Daniel Phillips <phillips@google.com>
+CC: Pavel Machek <pavel@ucw.cz>
+---
+ drivers/block/nbd.c |   22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-And this patch seems to do two things, and you don't explain what the
-pinning is useful for at all.
+Index: linux-2.6/drivers/block/nbd.c
+===================================================================
+--- linux-2.6.orig/drivers/block/nbd.c
++++ linux-2.6/drivers/block/nbd.c
+@@ -135,7 +135,6 @@ static int sock_xmit(struct socket *sock
+ 	spin_unlock_irqrestore(&current->sighand->siglock, flags);
+ 
+ 	do {
+-		sock->sk->sk_allocation = GFP_NOIO;
+ 		iov.iov_base = buf;
+ 		iov.iov_len = size;
+ 		msg.msg_name = NULL;
+@@ -525,6 +524,7 @@ static int nbd_ioctl(struct inode *inode
+ 			if (S_ISSOCK(inode->i_mode)) {
+ 				lo->file = file;
+ 				lo->sock = SOCKET_I(inode);
++				lo->sock->sk->sk_allocation = GFP_NOIO;
+ 				error = 0;
+ 			} else {
+ 				fput(file);
+@@ -594,10 +594,30 @@ static int nbd_ioctl(struct inode *inode
+ 	return -EINVAL;
+ }
+ 
++static int nbd_swapdev(struct gendisk *disk, int enable)
++{
++	struct nbd_device *lo = disk->private_data;
++
++	if (enable) {
++		sk_adjust_memalloc(0, TX_RESERVE_PAGES);
++		if (!sk_set_vmio(lo->sock->sk))
++			printk(KERN_WARNING
++				"failed to set SOCK_VMIO on NBD socket\n");
++	} else {
++		if (!sk_clear_vmio(lo->sock->sk))
++			printk(KERN_WARNING
++				"failed to clear SOCK_VMIO on NBD socket\n");
++		sk_adjust_memalloc(0, -TX_RESERVE_PAGES);
++	}
++
++	return 0;
++}
++
+ static struct block_device_operations nbd_fops =
+ {
+ 	.owner =	THIS_MODULE,
+ 	.ioctl =	nbd_ioctl,
++	.swapdev =	nbd_swapdev,
+ };
+ 
+ /*
 
-So that's 2 for 2 currently, NAK from me.
-
--- 
-Jens Axboe
+--
