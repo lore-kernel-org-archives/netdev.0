@@ -1,48 +1,70 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
-Date: Wed, 6 Sep 2006 13:47:47 -0700
-Message-ID: <20060906204747.GA18780@kroah.com>
-References: <87zme9fy94.fsf@hades.wkstn.nix> <20060813125910.GA18463@gondor.apana.org.au> <20060825230316.GA3254@kroah.com> <20060826011839.GA14010@gondor.apana.org.au>
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: [RFC] network namespaces
+Date: Wed, 06 Sep 2006 22:53:08 +0200
+Message-ID: <44FF3534.1060102@fr.ibm.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at>	<44FE907F.7090508@fr.ibm.com>	<20060906165642.GA26202@MAIL.13thfloor.at>	<44FF0760.1040600@openvz.org>	<m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com> <44FF1A47.1030900@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Brown <neilb@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
-	stable@kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:33957 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1751236AbWIFUr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 16:47:56 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20060826011839.GA14010@gondor.apana.org.au>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:49065 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751412AbWIFUxP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 16:53:15 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k86KrEfG017163
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 16:53:14 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k86KrEFH278088
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 14:53:14 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k86KrD4F022784
+	for <netdev@vger.kernel.org>; Wed, 6 Sep 2006 14:53:13 -0600
+To: Kir Kolyshkin <kir@openvz.org>
+In-Reply-To: <44FF1A47.1030900@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 26, 2006 at 11:18:39AM +1000, Herbert Xu wrote:
-> On Fri, Aug 25, 2006 at 04:03:16PM -0700, Greg KH wrote:
-> > 
-> > This patch doesn't apply at all to the latest 2.6.17-stable kernel tree.
-> > Care to rediff it?
+Kir Kolyshkin wrote:
+
+<snip>
+
+> I am not sure about "network isolation" (used by Linux-VServer), but as 
+> it comes for level2 vs. level3 virtualization, I see a need for both. 
+> Here is the easy-to-understand comparison which can shed some light: 
+> http://wiki.openvz.org/Differences_between_venet_and_veth
+
+thanks kir,
+
+> Here are a couple of examples
+> * Do we want to let container's owner (i.e. root) to add/remove IP 
+> addresses? Most probably not, but in some cases we want that.
+> * Do we want to be able to run DHCP server and/or DHCP client inside a 
+> container? Sometimes...but not always.
+> * Do we want to let container's owner to create/manage his own set of 
+> iptables? In half of the cases we do.
 > 
-> Hmm, I just rebased and it actually applied as is to 2.6.17.11 :)
-> Anyway, here is the result:
+> The problem here is single solution will not cover all those scenarios.
 
-No, are you sure you are using the right tree?
+some would argue that there is one single solution : Xen or similar.
 
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index cff9c3a..d987a27 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -946,7 +946,7 @@ alloc_new_skb:
->  				skb_prev->csum = csum_sub(skb_prev->csum,
->  							  skb->csum);
->  				data += fraggap;
-> -				skb_trim(skb_prev, maxfraglen);
-> +				pskb_trim_unique(skb_prev, maxfraglen);
->  			}
+IMO, I think containers should try to leverage their difference,
+performance, and not try to simulate a real hardware environment.
 
-Oh wait, this is already in the queue, no wonder it's failing...  Sorry
-about this, my fault...
+Restricting the network environment of a container should be considered
+acceptable if this is for the sake of performance. The network interface(s)
+could be pre-configured and provided to the container. Protocol(s) could be
+forbidden.
 
-greg k-h
+Now, if you need more network power in a container, you will need a real or
+a virtualized interface.
+
+But let's consider both alternatives.
+
+thanks,
+
+C.
