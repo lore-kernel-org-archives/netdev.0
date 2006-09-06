@@ -1,51 +1,70 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Thu, 07 Sep 2006 09:01:32 +1000
-Message-ID: <1157583693.22705.254.camel@localhost.localdomain>
-References: <20060906125626.GA3718@elte.hu>  <20060906094301.GA8694@elte.hu>
-	 <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de>
-	 <20060901015818.42767813.akpm@osdl.org>
-	 <6260.1157470557@warthog.cambridge.redhat.com>
-	 <8430.1157534853@warthog.cambridge.redhat.com>
-	 <13982.1157545856@warthog.cambridge.redhat.com>
-	 <17274.1157553962@warthog.cambridge.redhat.com>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 34/37] sky2: use dev_alloc_skb for receive buffers
+Date: Wed, 6 Sep 2006 15:57:59 -0700
+Message-ID: <20060906225759.GI15922@kroah.com>
+References: <20060906224631.999046890@quad.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, john stultz <johnstul@us.ibm.com>,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965269AbWIFXFp@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-In-Reply-To: <17274.1157553962@warthog.cambridge.redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965073AbWIFXFy@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename="sky2-dev-alloc.patch"
+In-Reply-To: <20060906225444.GA15922@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+-stable review patch.  If anyone has any objections, please let us know.
 
-> Under some circumstances I can work out which sources have triggered which
-> interrupts (there are various off-CPU FPGAs which implement auxiliary PICs that
-> do announce their sources), but the aux-PIC channels are grouped together upon
-> delivery to the CPU PIC, so some of the ACK'ing has to be done at the group
-> level.
-> 
-> > how is this not possible via genirq?
-> 
-> How is it possible with genirq?
+------------------
+From: Stephen Hemminger <shemminger@osdl.org>
 
-Well, genirq gives you more flexibility than the current mecanism so ...
+Several code paths assume an additional 16 bytes of header padding
+on the receive path. Use dev_alloc_skb to get that padding.
 
-If I understand correctly, you need to do scray stuff to figure out your
-toplevel irq, which shound't be a problem with either mecanisms... 
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-Now, if you have funky cascades, then you can always group them into a
-virtual irq cascade line and have a special chained flow handler that
-does all the "figuring out" off those... it's up to you. 
+---
+ drivers/net/sky2.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-In general, I found genirq allowed me to do more fancy stuff, and end up
-with actually less hooks and indirect function calls on the path to a
-given irq than before as you can use tailored flow handlers that do just
-the right thing.
+--- linux-2.6.17.11.orig/drivers/net/sky2.c
++++ linux-2.6.17.11/drivers/net/sky2.c
+@@ -949,14 +949,14 @@ static void sky2_vlan_rx_kill_vid(struct
+ /*
+  * It appears the hardware has a bug in the FIFO logic that
+  * cause it to hang if the FIFO gets overrun and the receive buffer
+- * is not aligned. ALso alloc_skb() won't align properly if slab
++ * is not aligned. Also dev_alloc_skb() won't align properly if slab
+  * debugging is enabled.
+  */
+ static inline struct sk_buff *sky2_alloc_skb(unsigned int size, gfp_t gfp_mask)
+ {
+ 	struct sk_buff *skb;
+ 
+-	skb = alloc_skb(size + RX_SKB_ALIGN, gfp_mask);
++	skb = __dev_alloc_skb(size + RX_SKB_ALIGN, gfp_mask);
+ 	if (likely(skb)) {
+ 		unsigned long p	= (unsigned long) skb->data;
+ 		skb_reserve(skb, ALIGN(p, RX_SKB_ALIGN) - p);
+@@ -1855,7 +1855,7 @@ static struct sk_buff *sky2_receive(stru
+ 		goto oversize;
+ 
+ 	if (length < copybreak) {
+-		skb = alloc_skb(length + 2, GFP_ATOMIC);
++		skb = dev_alloc_skb(length + 2);
+ 		if (!skb)
+ 			goto resubmit;
+ 
 
-Ben.
+--
