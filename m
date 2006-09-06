@@ -1,74 +1,40 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 12/21] mm: block device swap notification
-Date: Wed, 06 Sep 2006 15:16:42 +0200
-Message-ID: <20060906133954.989956000@chello.nl>
-References: <20060906131630.793619000@chello.nl>>
-Cc: Daniel Phillips <phillips@google.com>,
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH 10/21] block: elevator selection and pinning
+Date: Wed, 6 Sep 2006 15:46:43 +0200
+Message-ID: <20060906134642.GC14565@kernel.dk>
+References: <20060906131630.793619000@chello.nl>> <20060906133954.673752000@chello.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>,
 	Rik van Riel <riel@redhat.com>,
 	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"James E.J. Bottomley" <James.Bottomley@SteelEye.com>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Pavel Machek <pavel@ucw.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:61525 "EHLO
-	amsfep13-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1750933AbWIFNib (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 09:38:31 -0400
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Content-Disposition: inline; filename=swapdev.patch
-Sender: netdev-owner@vger.kernel.org
+	Andrew Morton <akpm@osdl.org>, Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750835AbWIFNn5@vger.kernel.org>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Disposition: inline
+In-Reply-To: <20060906133954.673752000@chello.nl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some block devices need to do some extra work when used as swap device.
+On Wed, Sep 06 2006, Peter Zijlstra wrote:
+> Provide an block queue init function that allows to set an elevator. And a 
+> function to pin the current elevator.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Daniel Phillips <phillips@google.com>
+> CC: Jens Axboe <axboe@suse.de>
+> CC: Pavel Machek <pavel@ucw.cz>
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: James E.J. Bottomley <James.Bottomley@SteelEye.com>
-CC: Mike Christie <michaelc@cs.wisc.edu>
-CC: Pavel Machek <pavel@ucw.cz>
----
- include/linux/fs.h |    1 +
- mm/swapfile.c      |    7 +++++++
- 2 files changed, 8 insertions(+)
+Generally I don't think this is the right approach, as what you really
+want to do is let the driver say "I want intelligent scheduling" or not.
+The type of scheduler is policy that is left with the user, not the
+driver.
 
-Index: linux-2.6/include/linux/fs.h
-===================================================================
---- linux-2.6.orig/include/linux/fs.h
-+++ linux-2.6/include/linux/fs.h
-@@ -1017,6 +1017,7 @@ struct block_device_operations {
- 	int (*media_changed) (struct gendisk *);
- 	int (*revalidate_disk) (struct gendisk *);
- 	int (*getgeo)(struct block_device *, struct hd_geometry *);
-+	int (*swapdev)(struct gendisk *, int enable);
- 	struct module *owner;
- };
- 
-Index: linux-2.6/mm/swapfile.c
-===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1273,6 +1273,8 @@ asmlinkage long sys_swapoff(const char _
- 	inode = mapping->host;
- 	if (S_ISBLK(inode->i_mode)) {
- 		struct block_device *bdev = I_BDEV(inode);
-+		if (bdev->bd_disk->fops->swapdev)
-+			bdev->bd_disk->fops->swapdev(bdev->bd_disk, 0);
- 		set_blocksize(bdev, p->old_block_size);
- 		bd_release(bdev);
- 	} else {
-@@ -1481,6 +1483,11 @@ asmlinkage long sys_swapdev(const char __
- 		if (error < 0)
- 			goto bad_swap;
- 		p->bdev = bdev;
-+		if (bdev->bd_disk->fops->swapdev) {
-+			error = bdev->bd_disk->fops->swapdev(bdev->bd_disk, 1);
-+			if (error < 0)
-+				goto bad_swap;
-+		}
- 	} else if (S_ISREG(inode->i_mode)) {
- 		p->bdev = inode->i_sb->s_bdev;
- 		mutex_lock(&inode->i_mutex);
+And this patch seems to do two things, and you don't explain what the
+pinning is useful for at all.
 
---
+So that's 2 for 2 currently, NAK from me.
+
+-- 
+Jens Axboe
