@@ -1,76 +1,115 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Wed, 6 Sep 2006 14:56:26 +0200
-Message-ID: <20060906125626.GA3718@elte.hu>
-References: <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 1/7] ehea: interface to network stack
+Date: Wed, 6 Sep 2006 14:53:38 +0200
+Message-ID: <200609061453.38619.ossthema@de.ibm.com>
+References: <200609041237.46528.ossthema@de.ibm.com> <44FD931A.3080107@de.ibm.com> <20060905185832.GA15311@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john stultz <johnstul@us.ibm.com>, Adrian Bunk <bunk@stusta.de>,
-	Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Klein <osstklei@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:23945 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1750817AbWIFNEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 09:04:40 -0400
-To: David Howells <dhowells@redhat.com>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:12499 "EHLO
+	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1750846AbWIFNgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:36:03 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060905185832.GA15311@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <13982.1157545856@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-* David Howells <dhowells@redhat.com> wrote:
+ok, I admit this solution looks a bit nicer. We changed it in a similar way.
 
-> Ingo Molnar <mingo@elte.hu> wrote:
+Jan-Bernd
+
+On Tuesday 05 September 2006 20:58, Francois Romieu wrote:
+> Thomas Klein <osstklei@de.ibm.com> :
+> [...]
+> > Somehow I don't get your point concerning the usage of 'k'. We need another
+> > iterator as the for loops using 'k' use 'i' as their terminating condition.
 > 
-> > btw., would be nice to convert it to genirq (and irqchips) too =B-) That 
-> > would solve the kind of disable_irq_lockdep() breakage that was reported 
-> > recently.
+> Something like the code below perhaps (with more local variables maybe):
 > 
-> I can think of reasons for not using that stuff also.
+> static int ehea_reg_interrupts(struct net_device *dev)
+> {
+> 	struct ehea_port *port = netdev_priv(dev);
+> 	struct ehea_port_res *pr;
+> 	int i, ret;
 > 
->  (1) Passing "struct pt_regs *regs" around is a complete waste of 
->      resources on FRV.  It's in GR28 at all times and can thus be 
->      accessed directly.
-
-we'll get rid of that pt_regs thing centrally, from all drivers at once 
-- there's upstream buy-in for that already, and Thomas already generated 
-a test-patch for that a few months ago. But it's not a big issue right 
-now.
-
->  (2) All the little operations functions cause unnecessary jumping, 
->      jumps that icache lookahead can't predict because they're 
->      register-indirect.
-
-this shouldnt be a big issue either - we use indirect jumps all around 
-the kernel. CPUs are either smart enough to predict it, or they simply 
-dont have that high penalties. (and if they have high penalties but dont 
-optimize for it then genirq will be the last of their worries. The VFS 
-and the MM is full of function pointers.)
-
->  (3) ACK'ing and controlling interrupts has to be done by groups.
-
-please be more specific, how is this not possible via genirq?
-
->  (4) No account is taken of interrupt priority.
-
-hm, i'm not sure what you mean - could you be more specific?
-
->  (5) The FRV CPU doesn't tell me which IRQ source fired.  Much of the 
->      code I've got is stuff to try and work it out.  I could just 
->      blindly poll all the sources attached to a particular interrupt 
->      level, but that seemssomehow less efficient.
-
-but ... somehow the current FRV code does figure out which IRQ source 
-fired, right? How is that a hindrance for a genirq/irqchips based 
-design?
-
-> BTW, have you looked at my patch to fix lockdep yet?
-
-oops, i missed it - just acked it. (This problem too was a side-effect 
-of FRV having its own IRQ layer.)
-
-	Ingo
+> 	for (i = 0; i < port->num_def_qps; i++) {
+> 		pr = &port->port_res[i];
+> 		snprintf(pr->int_recv_name, EHEA_IRQ_NAME_SIZE - 1
+> 			 , "%s-recv%d", dev->name, i);
+> 		ret = ibmebus_request_irq(NULL, pr->recv_eq->attr.ist1,
+> 					  ehea_recv_irq_handler, SA_INTERRUPT,
+> 					  pr->int_recv_name, pr);
+> 		if (ret) {
+> 			ehea_error("failed registering irq for ehea_recv_int:"
+> 				   "port_res_nr:%d, ist=%X", i,
+> 				   pr->recv_eq->attr.ist1);
+> 			goto err_free_irq_recv_eq_0;
+> 		}
+> 		if (netif_msg_ifup(port))
+> 			ehea_info("irq_handle 0x%X for funct ehea_recv_int %d "
+> 				  "registered", pr->recv_eq->attr.ist1, i);
+> 	}
+> 
+> 	snprintf(port->int_aff_name, EHEA_IRQ_NAME_SIZE - 1,
+> 		 "%s-aff", dev->name);
+> 	ret = ibmebus_request_irq(NULL, port->qp_eq->attr.ist1,
+> 				  ehea_qp_aff_irq_handler,
+> 				  SA_INTERRUPT, port->int_aff_name, port);
+> 	if (ret) {
+> 		ehea_error("failed registering irq for qp_aff_irq_handler:"
+> 			   " ist=%X", port->qp_eq->attr.ist1);
+> 		goto err_free_irq_recv_eq_0;
+> 	}
+> 	if (netif_msg_ifup(port))
+> 		ehea_info("irq_handle 0x%X for function qp_aff_irq_handler "
+> 			  "registered", port->qp_eq->attr.ist1);
+> 
+> 	for (i = 0; i < port->num_def_qps + port->num_add_tx_qps; i++) {
+> 		pr = &port->port_res[i];
+> 		snprintf(pr->int_send_name, EHEA_IRQ_NAME_SIZE - 1,
+> 			 "%s-send%d", dev->name, i);
+> 		ret = ibmebus_request_irq(NULL, pr->send_eq->attr.ist1,
+> 					  ehea_send_irq_handler, SA_INTERRUPT,
+> 					  pr->int_send_name, pr);
+> 		if (ret) {
+> 			ehea_error("failed registering irq for ehea_send"
+> 				   " port_res_nr:%d, ist=%X", i,
+> 				   pr->send_eq->attr.ist1);
+> 			goto err_free_irq_send_eq_1;
+> 		}
+> 		if (netif_msg_ifup(port))
+> 			ehea_info("irq_handle 0x%X for function ehea_send_int "
+> 				  "%d registered", pr->send_eq->attr.ist1, i);
+> 	}
+> out:
+> 	return ret;
+> 
+> err_free_irq_send_eq_1:
+> 	// Post-dec works with unsigned int too.
+> 	while (i-- > 0) {
+> 		u32 ist = port->port_res[i].send_eq->attr.ist1;
+> 		ibmebus_free_irq(NULL, ist, &port->port_res[i]);
+> 	}
+> 	ibmebus_free_irq(NULL, port->qp_eq->attr.ist1, port);
+> 	i = port->num_def_qps;
+> err_free_irq_recv_eq_0:
+> 	while (i-- > 0) {
+> 		u32 ist = port->port_res[i].recv_eq->attr.ist1;
+> 		ibmebus_free_irq(NULL, ist, &port->port_res[k]);
+> 	}
+> 	goto out;
+> }
+> 
