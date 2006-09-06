@@ -1,33 +1,46 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/6] sky2: accept flow control
-Date: Wed, 06 Sep 2006 10:17:53 -0700
-Message-ID: <20060906171920.479727000@localhost.localdomain>
+Subject: [PATCH 4/6] sky2: MSI test timing
+Date: Wed, 06 Sep 2006 10:17:56 -0700
+Message-ID: <20060906171921.612595000@localhost.localdomain>
 References: <20060906171752.781595000@localhost.localdomain>
 Cc: stable@kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:13735 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751246AbWIFSJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 14:09:41 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:19879 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751458AbWIFSKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 14:10:09 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-pause-fixes.patch
+Content-Disposition: inline; filename=sky2-post-bug.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don't program the GMAC to reject flow control packets.
-This maybe the cause of some of the transmit hangs.
+The test for MSI IRQ could have timing issues. The PCI write needs to be 
+pushed out before waiting, and the wait queue should be initialized before
+the IRQ.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- linux-2.6.17.11.orig/drivers/net/sky2.h	2006-09-06 10:02:11.000000000 -0700
-+++ linux-2.6.17.11/drivers/net/sky2.h	2006-09-06 10:08:59.000000000 -0700
-@@ -1566,7 +1566,7 @@
+--- linux-2.6.17.11.orig/drivers/net/sky2.c
++++ linux-2.6.17.11/drivers/net/sky2.c
+@@ -3184,6 +3184,8 @@ static int __devinit sky2_test_msi(struc
+ 	struct pci_dev *pdev = hw->pdev;
+ 	int err;
  
- 	GMR_FS_ANY_ERR	= GMR_FS_RX_FF_OV | GMR_FS_CRC_ERR |
- 			  GMR_FS_FRAGMENT | GMR_FS_LONG_ERR |
--		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC | GMR_FS_GOOD_FC |
-+		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC |
- 			  GMR_FS_UN_SIZE | GMR_FS_JABBER,
- };
++	init_waitqueue_head (&hw->msi_wait);
++
+ 	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
+ 
+ 	err = request_irq(pdev->irq, sky2_test_intr, SA_SHIRQ, DRV_NAME, hw);
+@@ -3193,10 +3195,8 @@ static int __devinit sky2_test_msi(struc
+ 		return err;
+ 	}
+ 
+-	init_waitqueue_head (&hw->msi_wait);
+-
+ 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
+-	wmb();
++	sky2_read8(hw, B0_CTST);
+ 
+ 	wait_event_timeout(hw->msi_wait, hw->msi_detected, HZ/10);
  
 
 --
