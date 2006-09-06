@@ -1,45 +1,46 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [IPSEC]: searching  SAD without assumming L3 details
-Date: Wed, 06 Sep 2006 08:30:30 -0400
-Message-ID: <1157545831.5039.48.camel@jzny2>
-References: <1157204582.5197.4.camel@jzny2>
-	 <20060905233823.GA9217@gondor.apana.org.au>
-	 <1157541639.5039.28.camel@jzny2>
-	 <20060906112644.GA22930@gondor.apana.org.au>
-	 <1157544895.5039.33.camel@jzny2>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
+Date: Wed, 06 Sep 2006 13:30:56 +0100
+Message-ID: <13982.1157545856@warthog.cambridge.redhat.com>
+References: <20060906094301.GA8694@elte.hu>  <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com>
+Cc: David Howells <dhowells@redhat.com>,
+	john stultz <johnstul@us.ibm.com>,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:64913 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750795AbWIFMaf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 08:30:35 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GKwY8-0007k1-Vb
-	for netdev@vger.kernel.org; Wed, 06 Sep 2006 08:30:37 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1157544895.5039.33.camel@jzny2>
+Received: from mx1.redhat.com ([66.187.233.31]:3517 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750801AbWIFMdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 08:33:43 -0400
+In-Reply-To: <20060906094301.GA8694@elte.hu> 
+To: Ingo Molnar <mingo@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-09 at 08:14 -0400, jamal wrote:
-> maybe thats what you meant by "slow path"?
+Ingo Molnar <mingo@elte.hu> wrote:
 
-Never mind what i said above;-> what is needed to have replay protection
-is calling the IPSEC fast path. The xfrm state is looked up during the
-pktgen fast still because flows are created as needed on the fly. You
-could argue that we need to change the architecture of pktgen so it
-creates all flows first, but that is a huge change.
-If i can read your mind correctly (;->)you may be thinking of splitting
-xfrm_state_find() into two pieces: a slow path lookup which perhaps
-involves the manager and a fast path which looks up just the SAD?
-Note, theres still a lot of clunky stuff like policies and templates and
-flowis etc that i dont need.
+> btw., would be nice to convert it to genirq (and irqchips) too =B-) That 
+> would solve the kind of disable_irq_lockdep() breakage that was reported 
+> recently.
 
-cheers,
-jamal
+I can think of reasons for not using that stuff also.
 
+ (1) Passing "struct pt_regs *regs" around is a complete waste of resources on
+     FRV.  It's in GR28 at all times and can thus be accessed directly.
+
+ (2) All the little operations functions cause unnecessary jumping, jumps that
+     icache lookahead can't predict because they're register-indirect.
+
+ (3) ACK'ing and controlling interrupts has to be done by groups.
+
+ (4) No account is taken of interrupt priority.
+
+ (5) The FRV CPU doesn't tell me which IRQ source fired.  Much of the code
+     I've got is stuff to try and work it out.  I could just blindly poll all
+     the sources attached to a particular interrupt level, but that seems
+     somehow less efficient.
+
+David
+
+BTW, have you looked at my patch to fix lockdep yet?
