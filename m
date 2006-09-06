@@ -1,43 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] network namespaces
-Date: Wed, 06 Sep 2006 14:40:13 -0600
-Message-ID: <m1hczkvidu.fsf@ebiederm.dsl.xmission.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru>
-	<20060816115313.GC31810@sergelap.austin.ibm.com>
-	<44FD7CF0.4030009@fr.ibm.com>
-	<m1k64i1br2.fsf@ebiederm.dsl.xmission.com>
-	<44FF2EA6.2030303@fr.ibm.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
+Date: Wed, 6 Sep 2006 13:47:47 -0700
+Message-ID: <20060906204747.GA18780@kroah.com>
+References: <87zme9fy94.fsf@hades.wkstn.nix> <20060813125910.GA18463@gondor.apana.org.au> <20060825230316.GA3254@kroah.com> <20060826011839.GA14010@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, netdev@vger.kernel.org,
-	"Serge E. Hallyn" <serue@us.ibm.com>, Andrey Savochkin <saw@sw.ru>,
-	haveblue@us.ibm.com, herbert@13thfloor.at, sam@vilain.net,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>
+Cc: Neil Brown <neilb@suse.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
+	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:30688 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1751188AbWIFUl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 16:41:28 -0400
-To: Cedric Le Goater <clg@fr.ibm.com>
-In-Reply-To: <44FF2EA6.2030303@fr.ibm.com> (Cedric Le Goater's message of
-	"Wed, 06 Sep 2006 22:25:10 +0200")
+Received: from cantor.suse.de ([195.135.220.2]:33957 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1751236AbWIFUr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 16:47:56 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20060826011839.GA14010@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cedric Le Goater <clg@fr.ibm.com> writes:
+On Sat, Aug 26, 2006 at 11:18:39AM +1000, Herbert Xu wrote:
+> On Fri, Aug 25, 2006 at 04:03:16PM -0700, Greg KH wrote:
+> > 
+> > This patch doesn't apply at all to the latest 2.6.17-stable kernel tree.
+> > Care to rediff it?
+> 
+> Hmm, I just rebased and it actually applied as is to 2.6.17.11 :)
+> Anyway, here is the result:
 
-> Eric W. Biederman wrote:
->
-> hmm ? What about an MPI application ?
->
-> I would expect each MPI task to be run in its container on different nodes
-> or on the same node. These individual tasks _communicate_ between each
-> other through the MPI layer (not only TCP btw) to complete a large calculation.
+No, are you sure you are using the right tree?
 
-All parts of the MPI application are part of the same job.  Communication between
-processes on multiple machines that are part of the job is fine.
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index cff9c3a..d987a27 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -946,7 +946,7 @@ alloc_new_skb:
+>  				skb_prev->csum = csum_sub(skb_prev->csum,
+>  							  skb->csum);
+>  				data += fraggap;
+> -				skb_trim(skb_prev, maxfraglen);
+> +				pskb_trim_unique(skb_prev, maxfraglen);
+>  			}
 
-At least that is how I used job in HPC computer context.
+Oh wait, this is already in the queue, no wonder it's failing...  Sorry
+about this, my fault...
 
-Eric
+greg k-h
