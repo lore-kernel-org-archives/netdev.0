@@ -1,115 +1,83 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [2.6.19 PATCH 1/7] ehea: interface to network stack
-Date: Wed, 6 Sep 2006 14:53:38 +0200
-Message-ID: <200609061453.38619.ossthema@de.ibm.com>
-References: <200609041237.46528.ossthema@de.ibm.com> <44FD931A.3080107@de.ibm.com> <20060905185832.GA15311@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <osstklei@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 01/21] mm: serialize access to min_free_kbytes
+Date: Wed, 06 Sep 2006 15:16:31 +0200
+Message-ID: <20060906133952.766947000@chello.nl>
+References: <20060906131630.793619000@chello.nl>>
+Cc: Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:12499 "EHLO
-	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1750846AbWIFNgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 09:36:03 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060905185832.GA15311@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:10420 "EHLO
+	amsfep16-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1750902AbWIFNiY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:38:24 -0400
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Content-Disposition: inline; filename=setup_per_zone_pages_min.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+There is a small race between the procfs caller and the memory hotplug caller
+of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
+another caller. Time to close the gap.
 
-ok, I admit this solution looks a bit nicer. We changed it in a similar way.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ mm/page_alloc.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-Jan-Bernd
+Index: linux-2.6/mm/page_alloc.c
+===================================================================
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -81,6 +81,7 @@ struct zone *zone_table[1 << ZONETABLE_S
+ EXPORT_SYMBOL(zone_table);
+ 
+ static char *zone_names[MAX_NR_ZONES] = { "DMA", "DMA32", "Normal", "HighMem" };
++static DEFINE_SPINLOCK(min_free_lock);
+ int min_free_kbytes = 1024;
+ 
+ unsigned long __meminitdata nr_kernel_pages;
+@@ -2190,11 +2191,11 @@ static void setup_per_zone_lowmem_reserv
+ }
+ 
+ /*
+- * setup_per_zone_pages_min - called when min_free_kbytes changes.  Ensures 
++ * __setup_per_zone_pages_min - called when min_free_kbytes changes.  Ensures
+  *	that the pages_{min,low,high} values for each zone are set correctly 
+  *	with respect to min_free_kbytes.
+  */
+-void setup_per_zone_pages_min(void)
++static void __setup_per_zone_pages_min(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -2248,6 +2249,15 @@ void setup_per_zone_pages_min(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++void setup_per_zone_pages_min(void)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&min_free_lock, flags);
++	__setup_per_zone_pages_min();
++	spin_unlock_irqrestore(&min_free_lock, flags);
++}
++
+ /*
+  * Initialise min_free_kbytes.
+  *
+@@ -2283,7 +2293,7 @@ static int __init init_per_zone_pages_mi
+ 		min_free_kbytes = 128;
+ 	if (min_free_kbytes > 65536)
+ 		min_free_kbytes = 65536;
+-	setup_per_zone_pages_min();
++	__setup_per_zone_pages_min();
+ 	setup_per_zone_lowmem_reserve();
+ 	return 0;
+ }
 
-On Tuesday 05 September 2006 20:58, Francois Romieu wrote:
-> Thomas Klein <osstklei@de.ibm.com> :
-> [...]
-> > Somehow I don't get your point concerning the usage of 'k'. We need another
-> > iterator as the for loops using 'k' use 'i' as their terminating condition.
-> 
-> Something like the code below perhaps (with more local variables maybe):
-> 
-> static int ehea_reg_interrupts(struct net_device *dev)
-> {
-> 	struct ehea_port *port = netdev_priv(dev);
-> 	struct ehea_port_res *pr;
-> 	int i, ret;
-> 
-> 	for (i = 0; i < port->num_def_qps; i++) {
-> 		pr = &port->port_res[i];
-> 		snprintf(pr->int_recv_name, EHEA_IRQ_NAME_SIZE - 1
-> 			 , "%s-recv%d", dev->name, i);
-> 		ret = ibmebus_request_irq(NULL, pr->recv_eq->attr.ist1,
-> 					  ehea_recv_irq_handler, SA_INTERRUPT,
-> 					  pr->int_recv_name, pr);
-> 		if (ret) {
-> 			ehea_error("failed registering irq for ehea_recv_int:"
-> 				   "port_res_nr:%d, ist=%X", i,
-> 				   pr->recv_eq->attr.ist1);
-> 			goto err_free_irq_recv_eq_0;
-> 		}
-> 		if (netif_msg_ifup(port))
-> 			ehea_info("irq_handle 0x%X for funct ehea_recv_int %d "
-> 				  "registered", pr->recv_eq->attr.ist1, i);
-> 	}
-> 
-> 	snprintf(port->int_aff_name, EHEA_IRQ_NAME_SIZE - 1,
-> 		 "%s-aff", dev->name);
-> 	ret = ibmebus_request_irq(NULL, port->qp_eq->attr.ist1,
-> 				  ehea_qp_aff_irq_handler,
-> 				  SA_INTERRUPT, port->int_aff_name, port);
-> 	if (ret) {
-> 		ehea_error("failed registering irq for qp_aff_irq_handler:"
-> 			   " ist=%X", port->qp_eq->attr.ist1);
-> 		goto err_free_irq_recv_eq_0;
-> 	}
-> 	if (netif_msg_ifup(port))
-> 		ehea_info("irq_handle 0x%X for function qp_aff_irq_handler "
-> 			  "registered", port->qp_eq->attr.ist1);
-> 
-> 	for (i = 0; i < port->num_def_qps + port->num_add_tx_qps; i++) {
-> 		pr = &port->port_res[i];
-> 		snprintf(pr->int_send_name, EHEA_IRQ_NAME_SIZE - 1,
-> 			 "%s-send%d", dev->name, i);
-> 		ret = ibmebus_request_irq(NULL, pr->send_eq->attr.ist1,
-> 					  ehea_send_irq_handler, SA_INTERRUPT,
-> 					  pr->int_send_name, pr);
-> 		if (ret) {
-> 			ehea_error("failed registering irq for ehea_send"
-> 				   " port_res_nr:%d, ist=%X", i,
-> 				   pr->send_eq->attr.ist1);
-> 			goto err_free_irq_send_eq_1;
-> 		}
-> 		if (netif_msg_ifup(port))
-> 			ehea_info("irq_handle 0x%X for function ehea_send_int "
-> 				  "%d registered", pr->send_eq->attr.ist1, i);
-> 	}
-> out:
-> 	return ret;
-> 
-> err_free_irq_send_eq_1:
-> 	// Post-dec works with unsigned int too.
-> 	while (i-- > 0) {
-> 		u32 ist = port->port_res[i].send_eq->attr.ist1;
-> 		ibmebus_free_irq(NULL, ist, &port->port_res[i]);
-> 	}
-> 	ibmebus_free_irq(NULL, port->qp_eq->attr.ist1, port);
-> 	i = port->num_def_qps;
-> err_free_irq_recv_eq_0:
-> 	while (i-- > 0) {
-> 		u32 ist = port->port_res[i].recv_eq->attr.ist1;
-> 		ibmebus_free_irq(NULL, ist, &port->port_res[k]);
-> 	}
-> 	goto out;
-> }
-> 
+--
