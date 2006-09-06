@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 17/21] iscsi: add session context to ep_connect
-Date: Wed, 06 Sep 2006 15:16:47 +0200
-Message-ID: <20060906133955.921109000@chello.nl>
+Subject: [PATCH 19/21] netlink: add SOCK_VMIO support to AF_NETLINK
+Date: Wed, 06 Sep 2006 15:16:49 +0200
+Message-ID: <20060906133956.264720000@chello.nl>
 References: <20060906131630.793619000@chello.nl>>
 Cc: Daniel Phillips <phillips@google.com>,
 	Rik van Riel <riel@redhat.com>,
@@ -9,103 +9,111 @@ Cc: Daniel Phillips <phillips@google.com>,
 	Andrew Morton <akpm@osdl.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750968AbWIFNjp@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:39351 "EHLO
+	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1750934AbWIFNif (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 09:38:35 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=iscsi_ep_connect_session.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Disposition: inline; filename=netlink_vmio.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to do a proper reconnect we need to know if we're a swapper.
-Only the session context can tell us that.
-
-(This patch breaks the NETLINK_ISCSI ABI, userspace also needs a change)
+Propagate SOCK_VMIO from kernel socket to userspace sockets.
+Allow sys_{send,recv}msg to succeed under memory pressure for
+SOCK_VMIO netlink sockets.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 CC: Mike Christie <michaelc@cs.wisc.edu>
 ---
- drivers/infiniband/ulp/iser/iscsi_iser.c |    3 ++-
- drivers/scsi/iscsi_tcp.c                 |    3 ++-
- drivers/scsi/scsi_transport_iscsi.c      |    4 +++-
- include/scsi/iscsi_if.h                  |    1 +
- include/scsi/scsi_transport_iscsi.h      |    3 ++-
- 5 files changed, 10 insertions(+), 4 deletions(-)
+ include/linux/netlink.h  |    1 +
+ net/netlink/af_netlink.c |    8 +++++---
+ net/socket.c             |    6 +++---
+ 3 files changed, 9 insertions(+), 6 deletions(-)
 
-Index: linux-2.6/drivers/scsi/iscsi_tcp.c
+Index: linux-2.6/net/netlink/af_netlink.c
 ===================================================================
---- linux-2.6.orig/drivers/scsi/iscsi_tcp.c
-+++ linux-2.6/drivers/scsi/iscsi_tcp.c
-@@ -1728,7 +1728,8 @@ iscsi_tcp_ctask_xmit(struct iscsi_conn *
+--- linux-2.6.orig/net/netlink/af_netlink.c
++++ linux-2.6/net/netlink/af_netlink.c
+@@ -199,7 +199,7 @@ netlink_unlock_table(void)
+ 		wake_up(&nl_table_wait);
  }
  
- static int
--iscsi_tcp_ep_connect(struct sockaddr *dst_addr, int non_blocking,
-+iscsi_tcp_ep_connect(struct iscsi_cls_session *cls_session,
-+		     struct sockaddr *dst_addr, int non_blocking,
- 		     uint64_t *ep_handle)
+-static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
++__inline__ struct sock *netlink_lookup(int protocol, u32 pid)
  {
- 	struct socket *sock;
-Index: linux-2.6/drivers/scsi/scsi_transport_iscsi.c
-===================================================================
---- linux-2.6.orig/drivers/scsi/scsi_transport_iscsi.c
-+++ linux-2.6/drivers/scsi/scsi_transport_iscsi.c
-@@ -914,6 +914,7 @@ iscsi_if_transport_ep(struct iscsi_trans
- 		      struct iscsi_uevent *ev, int msg_type)
- {
- 	struct sockaddr *dst_addr;
-+	struct iscsi_cls_session *session;
- 	int rc = 0;
+ 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
+ 	struct hlist_head *head;
+@@ -1147,7 +1147,7 @@ static int netlink_sendmsg(struct kiocb 
+ 	if (len > sk->sk_sndbuf - 32)
+ 		goto out;
+ 	err = -ENOBUFS;
+-	skb = alloc_skb(len, GFP_KERNEL);
++	skb = __alloc_skb(len, GFP_KERNEL, SKB_ALLOC_RX);
+ 	if (skb==NULL)
+ 		goto out;
  
- 	switch (msg_type) {
-@@ -922,7 +923,8 @@ iscsi_if_transport_ep(struct iscsi_trans
- 			return -EINVAL;
+@@ -1178,7 +1178,8 @@ static int netlink_sendmsg(struct kiocb 
  
- 		dst_addr = (struct sockaddr *)((char*)ev + sizeof(*ev));
--		rc = transport->ep_connect(dst_addr,
-+		session = iscsi_session_lookup(ev->u.ep_connect.sid);
-+		rc = transport->ep_connect(session, dst_addr,
- 					   ev->u.ep_connect.non_blocking,
- 					   &ev->r.ep_connect_ret.handle);
- 		break;
-Index: linux-2.6/include/scsi/iscsi_if.h
-===================================================================
---- linux-2.6.orig/include/scsi/iscsi_if.h
-+++ linux-2.6/include/scsi/iscsi_if.h
-@@ -117,6 +117,7 @@ struct iscsi_uevent {
- 		} get_stats;
- 		struct msg_transport_connect {
- 			uint32_t	non_blocking;
-+			uint32_t	sid;
- 		} ep_connect;
- 		struct msg_transport_poll {
- 			uint64_t	ep_handle;
-Index: linux-2.6/include/scsi/scsi_transport_iscsi.h
-===================================================================
---- linux-2.6.orig/include/scsi/scsi_transport_iscsi.h
-+++ linux-2.6/include/scsi/scsi_transport_iscsi.h
-@@ -120,7 +120,8 @@ struct iscsi_transport {
- 	int (*xmit_mgmt_task) (struct iscsi_conn *conn,
- 			       struct iscsi_mgmt_task *mtask);
- 	void (*session_recovery_timedout) (struct iscsi_cls_session *session);
--	int (*ep_connect) (struct sockaddr *dst_addr, int non_blocking,
-+	int (*ep_connect) (struct iscsi_cls_session *session,
-+			   struct sockaddr *dst_addr, int non_blocking,
- 			   uint64_t *ep_handle);
- 	int (*ep_poll) (uint64_t ep_handle, int timeout_ms);
- 	void (*ep_disconnect) (uint64_t ep_handle);
-Index: linux-2.6/drivers/infiniband/ulp/iser/iscsi_iser.c
-===================================================================
---- linux-2.6.orig/drivers/infiniband/ulp/iser/iscsi_iser.c
-+++ linux-2.6/drivers/infiniband/ulp/iser/iscsi_iser.c
-@@ -490,7 +490,8 @@ iscsi_iser_conn_get_stats(struct iscsi_c
- }
+ 	if (dst_group) {
+ 		atomic_inc(&skb->users);
+-		netlink_broadcast(sk, skb, dst_pid, dst_group, GFP_KERNEL);
++		netlink_broadcast(sk, skb, dst_pid, dst_group,
++				sk->sk_allocation);
+ 	}
+ 	err = netlink_unicast(sk, skb, dst_pid, msg->msg_flags&MSG_DONTWAIT);
  
- static int
--iscsi_iser_ep_connect(struct sockaddr *dst_addr, int non_blocking,
-+iscsi_iser_ep_connect(struct iscsi_cls_session *cls_session,
-+		      struct sockaddr *dst_addr, int non_blocking,
- 		      __u64 *ep_handle)
- {
- 	int err;
+@@ -1788,6 +1789,7 @@ panic:
+ 
+ core_initcall(netlink_proto_init);
+ 
++EXPORT_SYMBOL(netlink_lookup);
+ EXPORT_SYMBOL(netlink_ack);
+ EXPORT_SYMBOL(netlink_run_queue);
+ EXPORT_SYMBOL(netlink_queue_skip);
+Index: linux-2.6/net/socket.c
+===================================================================
+--- linux-2.6.orig/net/socket.c
++++ linux-2.6/net/socket.c
+@@ -1790,7 +1790,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 	err = -ENOMEM;
+ 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
+ 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
+-		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
++		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
+ 		if (!iov)
+ 			goto out_put;
+ 	}
+@@ -1818,7 +1818,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 	} else if (ctl_len) {
+ 		if (ctl_len > sizeof(ctl))
+ 		{
+-			ctl_buf = sock_kmalloc(sock->sk, ctl_len, GFP_KERNEL);
++			ctl_buf = sock_kmalloc(sock->sk, ctl_len, sock->sk->sk_allocation);
+ 			if (ctl_buf == NULL) 
+ 				goto out_freeiov;
+ 		}
+@@ -1891,7 +1891,7 @@ asmlinkage long sys_recvmsg(int fd, stru
+ 	err = -ENOMEM;
+ 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
+ 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
+-		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
++		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
+ 		if (!iov)
+ 			goto out_put;
+ 	}
+Index: linux-2.6/include/linux/netlink.h
+===================================================================
+--- linux-2.6.orig/include/linux/netlink.h
++++ linux-2.6/include/linux/netlink.h
+@@ -150,6 +150,7 @@ struct netlink_skb_parms
+ #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+ 
+ 
++extern struct sock *netlink_lookup(int protocol, __u32 pid);
+ extern struct sock *netlink_kernel_create(int unit, unsigned int groups, void (*input)(struct sock *sk, int len), struct module *module);
+ extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
+ extern int netlink_has_listeners(struct sock *sk, unsigned int group);
 
 --
