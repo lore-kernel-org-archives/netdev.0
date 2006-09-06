@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [patch 05/37] bridge-netfilter: dont overwrite memory outside of skb
-Date: Wed, 6 Sep 2006 15:55:16 -0700
-Message-ID: <20060906225516.GF15922@kroah.com>
+Subject: [patch 35/37] sky2: MSI test timing
+Date: Wed, 6 Sep 2006 15:58:04 -0700
+Message-ID: <20060906225804.GJ15922@kroah.com>
 References: <20060906224631.999046890@quad.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -15,12 +15,15 @@ Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@osdl.org>,
 	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964921AbWIFXBU@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kroah.org ([69.55.234.183]:36557 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S965163AbWIFXDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 19:03:15 -0400
 To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	David Miller <davem@davemloft.net>
-Content-Disposition: inline; filename="bridge-netfilter-don-t-overwrite-memory-outside-of-skb.patch"
+	Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename="sky2-post-bug.patch"
 In-Reply-To: <20060906225444.GA15922@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 -stable review patch.  If anyone has any objections, please let us know.
@@ -28,72 +31,39 @@ List-Id: netdev.vger.kernel.org
 ------------------
 From: Stephen Hemminger <shemminger@osdl.org>
 
-The bridge netfilter code needs to check for space at the
-front of the skb before overwriting; otherwise if skb from
-device doesn't have headroom, then it will cause random
-memory corruption.
+The test for MSI IRQ could have timing issues. The PCI write needs to be 
+pushed out before waiting, and the wait queue should be initialized before
+the IRQ.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- include/linux/netfilter_bridge.h |   16 ++++++++++++----
- net/bridge/br_forward.c          |   10 +++++++---
- 2 files changed, 19 insertions(+), 7 deletions(-)
+ drivers/net/sky2.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
---- linux-2.6.17.11.orig/include/linux/netfilter_bridge.h
-+++ linux-2.6.17.11/include/linux/netfilter_bridge.h
-@@ -47,18 +47,26 @@ enum nf_br_hook_priorities {
- #define BRNF_BRIDGED			0x08
- #define BRNF_NF_BRIDGE_PREROUTING	0x10
+--- linux-2.6.17.11.orig/drivers/net/sky2.c
++++ linux-2.6.17.11/drivers/net/sky2.c
+@@ -3184,6 +3184,8 @@ static int __devinit sky2_test_msi(struc
+ 	struct pci_dev *pdev = hw->pdev;
+ 	int err;
  
--
- /* Only used in br_forward.c */
--static inline
--void nf_bridge_maybe_copy_header(struct sk_buff *skb)
-+static inline int nf_bridge_maybe_copy_header(struct sk_buff *skb)
- {
-+	int err;
++	init_waitqueue_head (&hw->msi_wait);
 +
- 	if (skb->nf_bridge) {
- 		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
-+			err = skb_cow(skb, 18);
-+			if (err)
-+				return err;
- 			memcpy(skb->data - 18, skb->nf_bridge->data, 18);
- 			skb_push(skb, 4);
--		} else
-+		} else {
-+			err = skb_cow(skb, 16);
-+			if (err)
-+				return err;
- 			memcpy(skb->data - 16, skb->nf_bridge->data, 16);
-+		}
- 	}
-+	return 0;
- }
+ 	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
  
- /* This is called by the IP fragmenting code and it ensures there is
---- linux-2.6.17.11.orig/net/bridge/br_forward.c
-+++ linux-2.6.17.11/net/bridge/br_forward.c
-@@ -43,11 +43,15 @@ int br_dev_queue_push_xmit(struct sk_buf
- 	else {
- #ifdef CONFIG_BRIDGE_NETFILTER
- 		/* ip_refrag calls ip_fragment, doesn't copy the MAC header. */
--		nf_bridge_maybe_copy_header(skb);
-+		if (nf_bridge_maybe_copy_header(skb))
-+			kfree_skb(skb);
-+		else
- #endif
--		skb_push(skb, ETH_HLEN);
-+		{
-+			skb_push(skb, ETH_HLEN);
- 
--		dev_queue_xmit(skb);
-+			dev_queue_xmit(skb);
-+		}
+ 	err = request_irq(pdev->irq, sky2_test_intr, SA_SHIRQ, DRV_NAME, hw);
+@@ -3193,10 +3195,8 @@ static int __devinit sky2_test_msi(struc
+ 		return err;
  	}
  
- 	return 0;
+-	init_waitqueue_head (&hw->msi_wait);
+-
+ 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
+-	wmb();
++	sky2_read8(hw, B0_CTST);
+ 
+ 	wait_event_timeout(hw->msi_wait, hw->msi_detected, HZ/10);
+ 
 
 --
