@@ -1,40 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Wed, 6 Sep 2006 11:43:01 +0200
-Message-ID: <20060906094301.GA8694@elte.hu>
-References: <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [IPSEC]: searching  SAD without assumming L3 details
+Date: Wed, 06 Sep 2006 07:20:39 -0400
+Message-ID: <1157541639.5039.28.camel@jzny2>
+References: <1157204582.5197.4.camel@jzny2>
+	 <20060905233823.GA9217@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john stultz <johnstul@us.ibm.com>, Adrian Bunk <bunk@stusta.de>,
-	Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:21914 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1750749AbWIFJvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 05:51:13 -0400
-To: David Howells <dhowells@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <8430.1157534853@warthog.cambridge.redhat.com>
+Received: from mx03.cybersurf.com ([209.197.145.106]:24224 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750791AbWIFLUn
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 07:20:43 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1GKvSW-000665-VO
+	for netdev@vger.kernel.org; Wed, 06 Sep 2006 07:20:44 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060905233823.GA9217@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* David Howells <dhowells@redhat.com> wrote:
-
-> john stultz <johnstul@us.ibm.com> wrote:
+On Wed, 2006-06-09 at 09:38 +1000, Herbert Xu wrote:
+> On Sat, Sep 02, 2006 at 09:43:02AM -0400, jamal wrote:
+> >
+> > Allow for searching the SAD from external data path points without
+> > assumming L3 details. The only customer of this exposure currently
+> > is pktgen.
 > 
-> > From this patch it looks like the FRV arch could be trivially 
-> > converted to GENERIC_TIME.
-> > 
-> > Would you consider the following, totally untested patch?
-> 
-> It certainly looks interesting.  I'll have to study the clocksource 
-> stuff - some FRV CPUs have an effective TSC.
+> Any reason why xfrm_state_find can't be used? 
 
-btw., would be nice to convert it to genirq (and irqchips) too =B-) That 
-would solve the kind of disable_irq_lockdep() breakage that was reported 
-recently.
+xfrm_state_find is overkill (if you compare the two functionalities). 
 
-	Ingo
+> It doesn't look right
+> to add generic code that's only used by pktgen.
+
+The alternative would require heavy mods to xfrm_state_find to do the
+minimal needed (a lot more than what i was asking for in mode output). I
+could move the function to outside of xfrm_state.c but that would
+require a few exports for it to use which looks less fair to me ;-> 
+
+cheers,
+jamal
+
