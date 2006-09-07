@@ -1,33 +1,94 @@
-From: Mitch Williams <mitch.a.williams@intel.com>
-Subject: Re: [PATCH 1/7] bonding: Add 10 Gig support
-Date: Thu, 07 Sep 2006 09:45:21 -0700
-Message-ID: <1157647521.6411.1.camel@strongmad>
-References: <200609012208.k81M86Zt005275@death.nxdomain.ibm.com>
-	 <44FEE679.6030201@pobox.com>
-	 <Pine.CYG.4.58.0609060939150.3076@mawilli1-desk2.amr.corp.intel.com>
-	 <200609061922.k86JMTZt027278@death.nxdomain.ibm.com>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Thu, 7 Sep 2006 19:27:59 +0200
+Message-ID: <20060907172759.GB25118@MAIL.13thfloor.at>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <20060816115313.GC31810@sergelap.austin.ibm.com> <44FD7CF0.4030009@fr.ibm.com> <m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com> <20060905165328.GA17317@MAIL.13thfloor.at> <44FE907F.7090508@fr.ibm.com> <20060906165642.GA26202@MAIL.13thfloor.at> <44FF0760.1040600@openvz.org> <m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com> <45004799.70000@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: devel@openvz.org, Kir Kolyshkin <kir@openvz.org>,
+	Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54921 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1161046AbWIGQpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 12:45:25 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200609061922.k86JMTZt027278@death.nxdomain.ibm.com>
+Received: from MAIL.13thfloor.at ([213.145.232.33]:37787 "EHLO
+	MAIL.13thfloor.at") by vger.kernel.org with ESMTP id S1422666AbWIGR2A
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Sep 2006 13:28:00 -0400
+To: Kirill Korotaev <dev@sw.ru>
+Content-Disposition: inline
+In-Reply-To: <45004799.70000@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Note to self:  Do not use Pine EVER AGAIN.
-Sorry for the badness.  Evolution is my new best friend.
--Mitch
-
-On Wed, 2006-09-06 at 12:22 -0700, Jay Vosburgh wrote:
+On Thu, Sep 07, 2006 at 08:23:53PM +0400, Kirill Korotaev wrote:
+> >>Herbert Poetzl wrote:
+> >>
+> >>>my point (until we have an implementation which clearly
+> >>>shows that performance is equal/better to isolation)
+> >>>is simply this:
+> >>>
+> >>> of course, you can 'simulate' or 'construct' all the
+> >>> isolation scenarios with kernel bridging and routing
+> >>> and tricky injection/marking of packets, but, this
+> >>> usually comes with an overhead ...
+> >>>  
+> >>
+> >>Well, TANSTAAFL*, and pretty much everything comes with an overhead. 
+> >>Multitasking comes with the (scheduler, context switch, CPU cache, etc.) 
+> >>overhead -- is that the reason to abandon it? OpenVZ and Linux-VServer 
+> >>resource management also adds some overhead -- do we want to throw it away?
+> >>
+> >>The question is not just "equal or better performance", the question is 
+> >>"what do we get and how much we pay for it".
+> > 
+> > 
+> > Equal or better performance is certainly required when we have the code
+> > compiled in but aren't using it.  We must not penalize the current code.
+> you talk about host system performance.
+> Both approaches do not introduce overhead to host networking.
 > 
->         [Trying again; /usr/bin/patch didn't complain about Mitch's
-> original; here's a cg-diff generated from where I checked his in,
-> git-apply seems ok with it.  The problem seems to be the empty line
-> between "//endallnoun" and "// compare MAC"; in the original it's a
-> totally empty line, from cg-diff, there's a single space on there. -J]
+> >>Finally, as I understand both network isolation and network 
+> >>virtualization (both level2 and level3) can happily co-exist. We do have 
+> >>several filesystems in kernel. Let's have several network virtualization 
+> >>approaches, and let a user choose. Is that makes sense?
+> > 
+> > 
+> > If there are not compelling arguments for using both ways of doing
+> > it is silly to merge both, as it is more maintenance overhead.
+> > 
+> > That said I think there is a real chance if we can look at the bind
+> > filtering and find a way to express that in the networking stack
+> > through iptables.  Using the security hooks conflicts with things
+> > like selinux.   Although it would be interesting to see if selinux
+> > can already implement general purpose layer 3 filtering.
+> > 
+> > The more I look the gut feel I have is that the way to proceed would
+> > be to add a new table that filters binds, and connects.  Plus a new
+> > module that would look at a process creating a socket and tell us if
+> > it is the appropriate group of processes.  With a little care that
+> > would be a general solution to the layer 3 filtering problem.
+
+> Huh, you will still have to insert lots of access checks into
+> different parts of code like RAW sockets, netlinks, protocols which
+> are not inserted, netfilters (to not allow create iptables rules :) )
+> and many many other places.
+
+well, who said that you need to have things like RAW sockets
+or other protocols except IP, not to speak of iptable and 
+routing entries ...
+
+folks who _want_ full network virtualization can use the
+more complete virtual setup and be happy ...
+
+best,
+Herbert
+
+> I see Dave Miller looking at such a patch and my ears hear his rude
+> words :)
+> 
+> Thanks,
+> Kirill
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.osdl.org
+> https://lists.osdl.org/mailman/listinfo/containers
