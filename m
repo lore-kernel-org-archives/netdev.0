@@ -1,61 +1,37 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: [RFC/PATCH] fix deadlock on high loads in bond_alb_monitor()
-Date: Thu, 7 Sep 2006 14:10:49 +0200
-Message-ID: <20060907121049.GA29362@pingi.kke.suse.de>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] ucode debug status via sysfs for wireless-2.6
+Date: Thu, 07 Sep 2006 08:21:14 -0500
+Message-ID: <45001CCA.1000304@lwfinger.net>
+References: <20060904205340.GB3726@tuba> <20060905181232.GA4733@tuba>
+	<44FF772A.5000301@lwfinger.net> <200609071033.52258.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:11185 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751546AbWIGMKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 08:10:54 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+In-Reply-To: <200609071033.52258.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In bond_alb_monitor the bond->curr_slave_lock write lock is taken
-and then dev_set_promiscuity maybe called which can take some time,
-depending on the network HW. If a network IRQ for this card come in
-the softirq handler maybe try to deliver more packets which end up in
-a request to the read lock of bond->curr_slave_lock -> deadlock.
-This issue was found by a test lab during network stress tests, this patch
-disable the softirq handler for this case and solved the issue.
+Michael Buesch wrote:
+> On Thursday 07 September 2006 03:34, Larry Finger wrote:
+>> +		return -EPERM;
+>> +
+> 
+> you want to take the spinlock lock here, too.
 
-Signed-off-by: Karsten Keil <kkeil@suse.de>
+Obviously, I copied the wrong model. Is it correct that one should take both locks if your code will 
+touch the hardware, but the mutex lock only is sufficient if your code just accesses data 
+structures? This seems to be the pattern in the other bcm43xx_attr_xxxx_show routines.
 
-
----
-
- drivers/net/bonding/bond_alb.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-921ada40bf96d7dc9c4258821af3d4616fb3cbae
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index e83bc82..3292316 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1433,7 +1433,7 @@ void bond_alb_monitor(struct bonding *bo
- 		 * write lock to protect from other code that also
- 		 * sets the promiscuity.
- 		 */
--		write_lock(&bond->curr_slave_lock);
-+		write_lock_bh(&bond->curr_slave_lock);
- 
- 		if (bond_info->primary_is_promisc &&
- 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
-@@ -1448,7 +1448,7 @@ void bond_alb_monitor(struct bonding *bo
- 			bond_info->primary_is_promisc = 0;
- 		}
- 
--		write_unlock(&bond->curr_slave_lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
- 
- 		if (bond_info->rlb_rebalance) {
- 			bond_info->rlb_rebalance = 0;
-
-
--- 
-Karsten Keil
-SuSE Labs
-ISDN development
+Larry
