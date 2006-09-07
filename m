@@ -1,110 +1,74 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH]remove dead code in bcm43xx_sysfs.c  (wireless-2.6)
-Date: Thu, 07 Sep 2006 11:17:05 -0500
-Message-ID: <45004601.8090206@lwfinger.net>
+From: Kirill Korotaev <dev@sw.ru>
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Thu, 07 Sep 2006 20:23:53 +0400
+Message-ID: <45004799.70000@sw.ru>
+References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at>	<44FE907F.7090508@fr.ibm.com>	<20060906165642.GA26202@MAIL.13thfloor.at>	<44FF0760.1040600@openvz.org> <m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, Stefano Brivio <st3@riseup.net>,
-	netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
-	darrenrjenkins@gmail.com
+Cc: Kir Kolyshkin <kir@openvz.org>, netdev@vger.kernel.org,
+	sam@vilain.net, Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
+	Linux Containers <containers@lists.osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:14794 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932257AbWIGQRG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Sep 2006 12:17:06 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from mailhub.sw.ru ([195.214.233.200]:9523 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S932259AbWIGQUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 12:20:52 -0400
+To: devel@openvz.org
+In-Reply-To: <m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+>>Herbert Poetzl wrote:
+>>
+>>>my point (until we have an implementation which clearly
+>>>shows that performance is equal/better to isolation)
+>>>is simply this:
+>>>
+>>> of course, you can 'simulate' or 'construct' all the
+>>> isolation scenarios with kernel bridging and routing
+>>> and tricky injection/marking of packets, but, this
+>>> usually comes with an overhead ...
+>>>  
+>>
+>>Well, TANSTAAFL*, and pretty much everything comes with an overhead. 
+>>Multitasking comes with the (scheduler, context switch, CPU cache, etc.) 
+>>overhead -- is that the reason to abandon it? OpenVZ and Linux-VServer 
+>>resource management also adds some overhead -- do we want to throw it away?
+>>
+>>The question is not just "equal or better performance", the question is 
+>>"what do we get and how much we pay for it".
+> 
+> 
+> Equal or better performance is certainly required when we have the code
+> compiled in but aren't using it.  We must not penalize the current code.
+you talk about host system performance.
+Both approaches do not introduce overhead to host networking.
 
-Please queue this patch to remove dead code from bcm43xx-softmac in wireless-2.6. It was submitted
-by Darren Jenkins based on a Coverity code checker report. I had to revise the patch for the 2.6.18 
-locking model, and have tested it.
+>>Finally, as I understand both network isolation and network 
+>>virtualization (both level2 and level3) can happily co-exist. We do have 
+>>several filesystems in kernel. Let's have several network virtualization 
+>>approaches, and let a user choose. Is that makes sense?
+> 
+> 
+> If there are not compelling arguments for using both ways of doing
+> it is silly to merge both, as it is more maintenance overhead.
+> 
+> That said I think there is a real chance if we can look at the bind
+> filtering and find a way to express that in the networking stack
+> through iptables.  Using the security hooks conflicts with things
+> like selinux.   Although it would be interesting to see if selinux
+> can already implement general purpose layer 3 filtering.
+> 
+> The more I look the gut feel I have is that the way to proceed would
+> be to add a new table that filters binds, and connects.  Plus a new
+> module that would look at a process creating a socket and tell us if
+> it is the appropriate group of processes.  With a little care that
+> would be a general solution to the layer 3 filtering problem.
+Huh, you will still have to insert lots of access checks into different
+parts of code like RAW sockets, netlinks, protocols which are not inserted,
+netfilters (to not allow create iptables rules :) ) and many many other places.
+
+I see Dave Miller looking at such a patch and my ears hear his rude words :)
 
 Thanks,
-
-Larry
-
-===============
-
-Coverity CID 1160 & 1161
-Remove some dead code from bcm43xx_sysfs.c in 2.6.18-rc6
-
-Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-
-=============
-
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
-@@ -176,7 +176,6 @@ static ssize_t bcm43xx_attr_interfmode_s
-  					    char *buf)
-  {
-  	struct bcm43xx_private *bcm = dev_to_bcm(dev);
--	int err;
-  	ssize_t count = 0;
-
-  	if (!capable(CAP_NET_ADMIN))
-@@ -197,11 +196,10 @@ static ssize_t bcm43xx_attr_interfmode_s
-  	default:
-  		assert(0);
-  	}
--	err = 0;
-
-  	mutex_unlock(&bcm->mutex);
-
--	return err ? err : count;
-+	return count;
-
-  }
-
-@@ -259,7 +257,6 @@ static ssize_t bcm43xx_attr_preamble_sho
-  					  char *buf)
-  {
-  	struct bcm43xx_private *bcm = dev_to_bcm(dev);
--	int err;
-  	ssize_t count;
-
-  	if (!capable(CAP_NET_ADMIN))
-@@ -272,10 +269,9 @@ static ssize_t bcm43xx_attr_preamble_sho
-  	else
-  		count = snprintf(buf, PAGE_SIZE, "0 (Short Preamble disabled)\n");
-
--	err = 0;
-  	mutex_unlock(&bcm->mutex);
-
--	return err ? err : count;
-+	return count;
-  }
-
-  static ssize_t bcm43xx_attr_preamble_store(struct device *dev,
-@@ -284,7 +280,6 @@ static ssize_t bcm43xx_attr_preamble_sto
-  {
-  	struct bcm43xx_private *bcm = dev_to_bcm(dev);
-  	unsigned long flags;
--	int err;
-  	int value;
-
-  	if (!capable(CAP_NET_ADMIN))
-@@ -298,11 +293,10 @@ static ssize_t bcm43xx_attr_preamble_sto
-
-  	bcm->short_preamble = !!value;
-
--	err = 0;
-  	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-  	mutex_unlock(&bcm->mutex);
-
--	return err ? err : count;
-+	return count;
-  }
-
-  static DEVICE_ATTR(shortpreamble, 0644,
-
-
----------
-
-
+Kirill
