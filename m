@@ -1,81 +1,104 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] network namespaces
-Date: Wed, 06 Sep 2006 17:25:50 -0600
-Message-ID: <m1irk0tw5d.fsf@ebiederm.dsl.xmission.com>
-References: <54AD0F12E08D1541B826BE97C98F99F1963B59@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: "Shaw Vrana" <shaw@vranix.com>
+Subject: Re: e1000_xmit_frame and e1000_down racing  with next_to_use?
+Date: Wed, 6 Sep 2006 17:18:12 -0700 (PDT)
+Message-ID: <1127.38.114.160.126.1157588292.squirrel@webmail.vranix.com>
+References: <4348.38.114.160.126.1157565495.squirrel@webmail.vranix.com>
+    <20060906111325.7acab51a@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kir Kolyshkin" <kir@openvz.org>, devel@openvz.org,
-	"Andrey Savochkin" <saw@sw.ru>, alexey@sw.ru,
-	"Linux Containers" <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, sam@vilain.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:19393 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1030192AbWIFX0r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 19:26:47 -0400
-To: "Caitlin Bestler" <caitlinb@broadcom.com>
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F1963B59@NT-SJCA-0751.brcm.ad.broadcom.com>
-	(Caitlin Bestler's message of "Wed, 6 Sep 2006 16:06:16 -0700")
+Received: from webmail3.sd.dreamhost.com ([64.111.100.15]:38290 "EHLO
+	webmail3.sd.dreamhost.com") by vger.kernel.org with ESMTP
+	id S1161019AbWIGASO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 20:18:14 -0400
+In-Reply-To: <20060906111325.7acab51a@localhost.localdomain>
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Caitlin Bestler" <caitlinb@broadcom.com> writes:
-
-> ebiederm@xmission.com wrote:
->  
->> 
->>> Finally, as I understand both network isolation and network
->>> virtualization (both level2 and level3) can happily co-exist. We do
->>> have several filesystems in kernel. Let's have several network
->>> virtualization approaches, and let a user choose. Is that makes
->>> sense? 
->> 
->> If there are not compelling arguments for using both ways of
->> doing it is silly to merge both, as it is more maintenance overhead.
->> 
+> On Wed, 6 Sep 2006 10:58:15 -0700 (PDT)
+> shaw@vranix.com wrote:
 >
-> My reading is that full virtualization (Xen, etc.) calls for
-> implementing
-> L2 switching between the partitions and the physical NIC(s).
+>> Hello All,
+>>
+>> I have a question about the use of the tx_ring->next_to_use variable in
+>> the e1000.  Specifically, I'm wondering about a race between the use of
+>> next_to_use in e1000_xmit_frame and the clearing of next_to_use in
+>> e1000_down via e1000_clean_tx_ring.
+>>
+>> Thread 1 (_xmit) ->  first = adapter->tx_ring.next_to_use;
+>>                      e1000_tx_map();
+>> Thread 2 (_down) ->  e1000_clean_tx_ring();
+>>                      tx_ring->next_to_use = 0;
+>> Thread 1 (_xmit) -> e1000_tx_queue();
+>>
+>> It seems that tx_ring.next_to_use could change between the time the
+>> skbuff
+>> is mapped in e1000_tx_map and the time it is reported to the hardware in
+>> e1000_tx_queue.  While I don't see any memory leaks or possible oops, it
+>> does seem possible that that an skbuff could be "lost" in the ring as it
+>> will not be queued in the subsequent e1000_queue.
+>>
+>> If the race is possible, perhaps this could be the culprit behind the tx
+>> timeouts we've seen reported in this list?  The watchdog will eventually
+>> find the "lost" skbuff and mistakenly think that the hardware transmit
+>> has
+>> hung and stop the queue.
+>>
+>> Could one of you plese tell me how this race is avoided, if indeed it
+>> is?
+>>
+>> Thanks,
+>> Shaw
+>>
 >
-> The tradeoffs between L2 and L3 switching are indeed complex, but
-> there are two implications of doing L2 switching between partitions:
+> e1000_down calls netif_stop_queue() and that stops transmit requests.
+> It doesn't handle the case of a transmit in flight during the e1000_down.
 >
-> 1) Do we really want to ask device drivers to support L2 switching for
->    partitions and something *different* for containers?
+> Shouldn't clean_tx_ring acquire tx_ring->tx_lock to avoid that?
 
-No.
+Hi Stephen,
 
-> 2) Do we really want any single packet to traverse an L2 switch (for
->    the partition-style virtualization layer) and then an L3 switch
->    (for the container-style layer)?
+Yes, holding the adapter->tx_lock is all that is needed. e1000_irq_disable
+has been called prior to e1000_clean_tx_ring or the interrupt has never
+been enabled (e1000_open), so a simple spin_lock should suffice. I've
+included a patch against Garzik's netdev git tree.
 
-In general what has been done with layer 3 is to simply filter which
-processes can use which IP addresses and it all happens at socket
-creation time.  So it is very cheap, and it can be done purely
-in the network layer without any driver intervention.
+Thanks,
+Shaw
 
-Basically think of what is happening at layer 3 as an extremely light-weight
-version of traffic filtering.
 
-> The full virtualization solution calls for virtual NICs with distinct
-> MAC addresses. Is there any reason why this same solution cannot work
-> for containers (just creating more than one VNIC for the partition, 
-> and then assigning each VNIC to a container?)
+Protect against the race to modify tx_ring->next_to_use in the case of a
+transmit in flight during e1000_down.
 
-The VNIC approach is the fundamental idea with the layer two networking
-and if we can push the work down into the device driver it so different
-destination macs show up a in different packet queues it should be
-as fast as a normal networking stack.
+Signed-off-by: Shaw Vrana <shaw@vranix.com>
+---
 
-Implementing VNICs so far is the only piece of containers that has
-come close to device drivers, and we can likely do it without device
-driver support (but with more cost).  Basically this optimization
-is a subset of the Grand Unified Lookup idea.
+ drivers/net/e1000/e1000_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-I think we can do a mergeable implementation without noticeable cost without
-when not using containers without having to resort to a grand unified lookup
-but I may be wrong.
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 726f43d..b327976 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1937,6 +1937,8 @@ e1000_clean_tx_ring(struct e1000_adapter
+ 	unsigned long size;
+ 	unsigned int i;
 
-Eric
++	spin_lock(&tx_ring->tx_lock);
++
+ 	/* Free all the Tx ring sk_buffs */
+
+ 	for (i = 0; i < tx_ring->count; i++) {
+@@ -1957,6 +1959,8 @@ e1000_clean_tx_ring(struct e1000_adapter
+
+ 	writel(0, adapter->hw.hw_addr + tx_ring->tdh);
+ 	writel(0, adapter->hw.hw_addr + tx_ring->tdt);
++
++	spin_unlock(&tx_ring->tx_lock);
+ }
+
+ /**
+
