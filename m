@@ -1,104 +1,47 @@
-From: "Shaw Vrana" <shaw@vranix.com>
-Subject: Re: e1000_xmit_frame and e1000_down racing  with next_to_use?
-Date: Wed, 6 Sep 2006 17:18:12 -0700 (PDT)
-Message-ID: <1127.38.114.160.126.1157588292.squirrel@webmail.vranix.com>
-References: <4348.38.114.160.126.1157565495.squirrel@webmail.vranix.com>
-    <20060906111325.7acab51a@localhost.localdomain>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: ipv6 lockdep
+Date: Thu, 7 Sep 2006 10:21:25 +1000
+Message-ID: <20060907002125.GA27917@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0609061059200.10137@acis.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail3.sd.dreamhost.com ([64.111.100.15]:38290 "EHLO
-	webmail3.sd.dreamhost.com") by vger.kernel.org with ESMTP
-	id S1161019AbWIGASO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 20:18:14 -0400
-In-Reply-To: <20060906111325.7acab51a@localhost.localdomain>
-To: "Stephen Hemminger" <shemminger@osdl.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:6927 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964858AbWIGAV5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Sep 2006 20:21:57 -0400
+To: Arjan van de Ven <arjan@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Matthew Galgoci <mgalgoci@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0609061059200.10137@acis.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Wed, 6 Sep 2006 10:58:15 -0700 (PDT)
-> shaw@vranix.com wrote:
->
->> Hello All,
->>
->> I have a question about the use of the tx_ring->next_to_use variable in
->> the e1000.  Specifically, I'm wondering about a race between the use of
->> next_to_use in e1000_xmit_frame and the clearing of next_to_use in
->> e1000_down via e1000_clean_tx_ring.
->>
->> Thread 1 (_xmit) ->  first = adapter->tx_ring.next_to_use;
->>                      e1000_tx_map();
->> Thread 2 (_down) ->  e1000_clean_tx_ring();
->>                      tx_ring->next_to_use = 0;
->> Thread 1 (_xmit) -> e1000_tx_queue();
->>
->> It seems that tx_ring.next_to_use could change between the time the
->> skbuff
->> is mapped in e1000_tx_map and the time it is reported to the hardware in
->> e1000_tx_queue.  While I don't see any memory leaks or possible oops, it
->> does seem possible that that an skbuff could be "lost" in the ring as it
->> will not be queued in the subsequent e1000_queue.
->>
->> If the race is possible, perhaps this could be the culprit behind the tx
->> timeouts we've seen reported in this list?  The watchdog will eventually
->> find the "lost" skbuff and mistakenly think that the hardware transmit
->> has
->> hung and stop the queue.
->>
->> Could one of you plese tell me how this race is avoided, if indeed it
->> is?
->>
->> Thanks,
->> Shaw
->>
->
-> e1000_down calls netif_stop_queue() and that stops transmit requests.
-> It doesn't handle the case of a transmit in flight during the e1000_down.
->
-> Shouldn't clean_tx_ring acquire tx_ring->tx_lock to avoid that?
+On Wed, Sep 06, 2006 at 03:06:12PM +0000, Matthew Galgoci wrote:
+> 
+> =============================================
+> [ INFO: possible recursive locking detected ]
+> 2.6.17-1.2614.fc6 #1
+> ---------------------------------------------
+> java/7112 is trying to acquire lock:
+>  (slock-AF_INET6){-+..}, at: [<c05b34de>] sk_clone+0xd4/0x2d8
+> but task is already holding lock:
+>  (slock-AF_INET6){-+..}, at: [<e0ce94c9>] tcp_v6_rcv+0x327/0x736 [ipv6]
+> other info that might help us debug this:
+> 1 lock held by java/7112:
+>  #0:  (slock-AF_INET6){-+..}, at: [<e0ce94c9>] tcp_v6_rcv+0x327/0x736 [ipv6]
 
-Hi Stephen,
+This is a known problem with the validator.  The above is a legitimate
+occurance during the construction of a child TCP socket (i.e., when it
+is doing an accept(2) call).
 
-Yes, holding the adapter->tx_lock is all that is needed. e1000_irq_disable
-has been called prior to e1000_clean_tx_ring or the interrupt has never
-been enabled (e1000_open), so a simple spin_lock should suffice. I've
-included a patch against Garzik's netdev git tree.
+Arjan, is there any progress on this issue?
 
 Thanks,
-Shaw
-
-
-Protect against the race to modify tx_ring->next_to_use in the case of a
-transmit in flight during e1000_down.
-
-Signed-off-by: Shaw Vrana <shaw@vranix.com>
----
-
- drivers/net/e1000/e1000_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 726f43d..b327976 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1937,6 +1937,8 @@ e1000_clean_tx_ring(struct e1000_adapter
- 	unsigned long size;
- 	unsigned int i;
-
-+	spin_lock(&tx_ring->tx_lock);
-+
- 	/* Free all the Tx ring sk_buffs */
-
- 	for (i = 0; i < tx_ring->count; i++) {
-@@ -1957,6 +1959,8 @@ e1000_clean_tx_ring(struct e1000_adapter
-
- 	writel(0, adapter->hw.hw_addr + tx_ring->tdh);
- 	writel(0, adapter->hw.hw_addr + tx_ring->tdt);
-+
-+	spin_unlock(&tx_ring->tx_lock);
- }
-
- /**
-
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
