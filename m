@@ -1,99 +1,154 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 2.6.18-rc6 1/2] dllink driver: porting v1.19 to linux
-	2.6.18-rc6
-Date: Thu, 07 Sep 2006 11:19:55 +0200
-Message-ID: <1157620795.14882.16.camel@laptopd505.fenrus.org>
-References: <1157620189.2904.16.camel@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take17 0/4] kevent: Generic event handling mechanism.
+Date: Thu, 7 Sep 2006 13:57:39 +0400
+Message-ID: <11576230591036@2ka.mipt.ru>
+References: <1qwel34p2jrwe5.GA1898@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	edward_peng@dlink.com.tw, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:37295 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751360AbWIGJUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Sep 2006 05:20:40 -0400
-To: Hayim Shaul <hayim@iportent.com>
-In-Reply-To: <1157620189.2904.16.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751092AbWIGJeA@vger.kernel.org>
+In-Reply-To: <1qwel34p2jrwe5.GA1898@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> @@ -335,8 +374,9 @@
->  #endif
->  	/* Read eeprom */
->  	for (i = 0; i < 128; i++) {
-> -		((u16 *) sromdata)[i] = le16_to_cpu (read_eeprom (ioaddr, i));
-> +		((u16 *) sromdata)[i] = cpu_to_le16 (read_eeprom (ioaddr, i));
->  	}
-> +	psrom->crc = le32_to_cpu(psrom->crc);
 
-this looks wrong, the data comes from the hw as le, so le*_to_cpu()
-sounds the right direction
+Generic event handling mechanism.
 
-> @@ -401,7 +441,7 @@
->  	int i;
->  	u16 macctrl;
->  	
-> -	i = request_irq (dev->irq, &rio_interrupt, IRQF_SHARED, dev->name, dev);
-> +	i = request_irq (dev->irq, &rio_interrupt, SA_SHIRQ, dev->name, dev);
->  	if (i)
->  		return i;
+Since number of comments has come mostly to zero, I freeze for some time kevent
+development (since resending practically the same patches into /dev/null 
+is not that interesting task) and switch to imeplementation of special tree, 
+which probably will be used with kevents instead of hash table.
 
-this is backing out a fix/conversion to the new API. Bad.
+Changes from 'take16' patchset:
+ * misc cleanups (__read_mostly, const ...)
+ * created special macro which is used for mmap size (number of pages) calculation
+ * export kevent_socket_notify(), since it is used in network protocols which can be 
+	built as modules (IPv6 for example)
 
+Changes from 'take15' patchset:
+ * converted kevent_timer to high-resolution timers, this forces timer API update at
+	http://linux-net.osdl.org/index.php/Kevent
+ * use struct ukevent* instead of void * in syscalls (documentation has been updated)
+ * added warning in kevent_add_ukevent() if ring has broken index (for testing)
 
->  	
-> @@ -434,9 +474,12 @@
->  	writeb (0x30, ioaddr + RxDMABurstThresh);
->  	writeb (0x30, ioaddr + RxDMAUrgentThresh);
->  	writel (0x0007ffff, ioaddr + RmonStatMask);
-> +
->  	/* clear statistics */
->  	clear_stats (dev);
->  
-> +	atomic_set(&np->tx_desc_lock, 0);
+Changes from 'take14' patchset:
+ * added kevent_wait()
+    This syscall waits until either timeout expires or at least one event
+    becomes ready. It also commits that @num events from @start are processed
+    by userspace and thus can be be removed or rearmed (depending on it's flags).
+    It can be used for commit events read by userspace through mmap interface.
+    Example userspace code (evtest.c) can be found on project's homepage.
+ * added socket notifications (send/recv/accept)
 
-I'm quite scared by this naming; it suggests home-brew locking
+Changes from 'take13' patchset:
+ * do not get lock aroung user data check in __kevent_search()
+ * fail early if there were no registered callbacks for given type of kevent
+ * trailing whitespace cleanup
 
->  	dev->trans_start = jiffies;
-> +	tasklet_enable(&np->tx_tasklet);
-> +	writew(DEFAULT_INTR, ioaddr + IntEnable);
-> +	return;
+Changes from 'take12' patchset:
+ * remove non-chardev interface for initialization
+ * use pointer to kevent_mring instead of unsigned longs
+ * use aligned 64bit type in raw user data (can be used by high-res timer if needed)
+ * simplified enqueue/dequeue callbacks and kevent initialization
+ * use nanoseconds for timeout
+ * put number of milliseconds into timer's return data
+ * move some definitions into user-visible header
+ * removed filenames from comments
 
-this looks like a PCI posting bug
+Changes from 'take11' patchset:
+ * include missing headers into patchset
+ * some trivial code cleanups (use goto instead of if/else games and so on)
+ * some whitespace cleanups
+ * check for ready_callback() callback before main loop which should save us some ticks
 
+Changes from 'take10' patchset:
+ * removed non-existent prototypes
+ * added helper function for kevent_registered_callbacks
+ * fixed 80 lines comments issues
+ * added shared between userspace and kernelspace header instead of embedd them in one
+ * core restructuring to remove forward declarations
+ * s o m e w h i t e s p a c e c o d y n g s t y l e c l e a n u p
+ * use vm_insert_page() instead of remap_pfn_range()
 
-> -rio_free_tx (struct net_device *dev, int irq) 
-> +rio_free_tx (struct net_device *dev) 
->  {
->  	struct netdev_private *np = netdev_priv(dev);
->  	int entry = np->old_tx % TX_RING_SIZE;
-> -	int tx_use = 0;
->  	unsigned long flag = 0;
-> +	int irq = in_interrupt();
+Changes from 'take9' patchset:
+ * fixed ->nopage method
 
-eeeeep
+Changes from 'take8' patchset:
+ * fixed mmap release bug
+ * use module_init() instead of late_initcall()
+ * use better structures for timer notifications
 
-> +
-> +	if (atomic_read(&np->tx_desc_lock))
-> +		return;
-> +	atomic_inc(&np->tx_desc_lock);
+Changes from 'take7' patchset:
+ * new mmap interface (not tested, waiting for other changes to be acked)
+	- use nopage() method to dynamically substitue pages
+	- allocate new page for events only when new added kevent requres it
+	- do not use ugly index dereferencing, use structure instead
+	- reduced amount of data in the ring (id and flags), 
+		maximum 12 pages on x86 per kevent fd
 
-and yes.. it is broken self made locking....
-there is a nice race between the _read and the _inc here.
+Changes from 'take6' patchset:
+ * a lot of comments!
+ * do not use list poisoning for detection of the fact, that entry is in the list
+ * return number of ready kevents even if copy*user() fails
+ * strict check for number of kevents in syscall
+ * use ARRAY_SIZE for array size calculation
+ * changed superblock magic number
+ * use SLAB_PANIC instead of direct panic() call
+ * changed -E* return values
+ * a lot of small cleanups and indent fixes
 
+Changes from 'take5' patchset:
+ * removed compilation warnings about unused wariables when lockdep is not turned on
+ * do not use internal socket structures, use appropriate (exported) wrappers instead
+ * removed default 1 second timeout
+ * removed AIO stuff from patchset
 
->  	
->  	if (irq)
->  		spin_lock(&np->tx_lock);
->  	else
->  		spin_lock_irqsave(&np->tx_lock, flag);
+Changes from 'take4' patchset:
+ * use miscdevice instead of chardevice
+ * comments fixes
 
-double eeeep
+Changes from 'take3' patchset:
+ * removed serializing mutex from kevent_user_wait()
+ * moved storage list processing to RCU
+ * removed lockdep screaming - all storage locks are initialized in the same function, so it was learned 
+	to differentiate between various cases
+ * remove kevent from storage if is marked as broken after callback
+ * fixed a typo in mmaped buffer implementation which would end up in wrong index calcualtion 
 
-this is wrong to do with in_interrupt() as gating factor!
-Always doing the irqsave() is fine btw
+Changes from 'take2' patchset:
+ * split kevent_finish_user() to locked and unlocked variants
+ * do not use KEVENT_STAT ifdefs, use inline functions instead
+ * use array of callbacks of each type instead of each kevent callback initialization
+ * changed name of ukevent guarding lock
+ * use only one kevent lock in kevent_user for all hash buckets instead of per-bucket locks
+ * do not use kevent_user_ctl structure instead provide needed arguments as syscall parameters
+ * various indent cleanups
+ * added optimisation, which is aimed to help when a lot of kevents are being copied from userspace
+ * mapped buffer (initial) implementation (no userspace yet)
 
+Changes from 'take1' patchset:
+ - rebased against 2.6.18-git tree
+ - removed ioctl controlling
+ - added new syscall kevent_get_events(int fd, unsigned int min_nr, unsigned int max_nr,
+			unsigned int timeout, void __user *buf, unsigned flags)
+ - use old syscall kevent_ctl for creation/removing, modification and initial kevent 
+	initialization
+ - use mutuxes instead of semaphores
+ - added file descriptor check and return error if provided descriptor does not match
+	kevent file operations
+ - various indent fixes
+ - removed aio_sendfile() declarations.
 
+Thank you.
 
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
