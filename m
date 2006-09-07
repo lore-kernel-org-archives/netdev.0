@@ -1,68 +1,75 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: RFC/T: Possible fix for bcm43xx periodic work bug
-Date: Thu, 07 Sep 2006 13:17:05 -0500
-Message-ID: <45006221.4090603@lwfinger.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] network namespaces
+Date: Thu, 07 Sep 2006 12:29:21 -0600
+Message-ID: <m14pvjr0n2.fsf@ebiederm.dsl.xmission.com>
+References: <54AD0F12E08D1541B826BE97C98F99F1963B59@NT-SJCA-0751.brcm.ad.broadcom.com>
+	<44FFD794.7010802@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bcm43xx-dev@lists.berlios.de, Michael Buesch <mb@bu3sch.de>,
-	Stefano Brivio <st3@riseup.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Caitlin Bestler <caitlinb@broadcom.com>,
+	Kir Kolyshkin <kir@openvz.org>, devel@openvz.org,
+	Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:42197 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751026AbWIGSRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Sep 2006 14:17:09 -0400
-To: netdev@vger.kernel.org
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34722 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751810AbWIGSab (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Sep 2006 14:30:31 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44FFD794.7010802@fr.ibm.com> (Daniel Lezcano's message of "Thu,
+	07 Sep 2006 10:25:56 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+>
+> IHMO, I think there is one reason. The unsharing mechanism is not only for
+> containers, its aim other kind of isolation like a "bsdjail" for example. The
+> unshare syscall is flexible, shall the network unsharing be one-block solution ?
+> For example, we want to launch an application using TCP/IP and we want to have
+> an IP address only used by the application, nothing more.
+> With a layer 2, we must after unsharing:
+>  1) create a virtual device into the application namespace
+>  2) assign an IP address
+>  3) create a virtual device pass-through in the root namespace
+>  4) set the virtual device IP
+>
+> All this stuff, need a lot of administration (check mac addresses conflicts,
+> check interface names collision in root namespace, ...) for a simple network
+> isolation.
 
-I think I have a fix for the bcm43xx bug that leads to NETDEV WATCHDOG tx timeouts and would like it
-to get as much testing as possible as this bug affects V2.6.18-rcX. If the problem is truly
-fixed, I hope to get the fix into mainline before release of the bug into the stable series.
+Yes, and even more it is hard to show that it will perform as well.
+Although by dropping CAP_NET_ADMIN the actual runtime administration
+is about the same.
 
-I got the idea for the fix when I discovered that the timeout interval used for the watchdog is the 
-default value of 5 seconds. Obviously, the few milliseconds used in the periodic work handler 
-weren't causing us to "just miss".
+> With a layer 3:
+>  1) assign an IP address
+>
+> In the other hand, a layer 3 isolation is not sufficient to reach the level of
+> isolation/virtualization needed for the system containers.
 
-To exacerbate the problem, I changed the repeat timer for periodic work from 15 to 1 sec. I also set 
-BADNESS_LIMIT to 0. As a result, I was running the problem code once per second instead of once per 
-minute. Now failures would occur in minutes instead of hours.
+Agreed.
 
-Operating from the premise that the DMA needed some time to reach the idle state after the MAC was 
-suspended, I tried various delays, but nothing worked.
+> Very soon, I will commit more info at:
+>
+> http://wiki.openvz.org/Containers/Networking
+>
+> So the consensus is based on the fact that there is a lot of common code for the
+> layer 2 and layer 3 isolation/virtualization and we can find a way to merge the
+> 2 implementation in order to have a flexible network virtualization/isolation.
 
-Then I decided to test the premise that the problem was associated with shutting down and restarting 
-the network. That lead to the current patch, which has run for what is effectively 100 times longer 
-than previous versions.
+NACK  In a real level 3 implementation there is very little common code with
+a layer 2 implementation.  You don't need to muck with the socket handling
+code as you are not allowed to dup addresses between containers.  Look
+at what Serge did that is layer 3.
 
-Larry
--------------------------------------------------------------------
+A layer 3 isolation implementation should either be a new security module
+or a new form of iptables.  The problem with using the lsm is that it
+seems to be an all or nothing mechanism so is a very coarse grained
+tool for this job.
 
+A layer 2 implementation (where you have network devices isolated and not sockets)
+should be a namespace.
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3244,8 +3244,6 @@ static void bcm43xx_periodic_work_handle
-  		 * be preemtible.
-  		 */
-  		mutex_lock(&bcm->mutex);
--		netif_stop_queue(bcm->net_dev);
--		synchronize_net();
-  		spin_lock_irqsave(&bcm->irq_lock, flags);
-  		bcm43xx_mac_suspend(bcm);
-  		if (bcm43xx_using_pio(bcm))
-@@ -3270,7 +3268,6 @@ static void bcm43xx_periodic_work_handle
-  		if (bcm43xx_using_pio(bcm))
-  			bcm43xx_pio_thaw_txqueues(bcm);
-  		bcm43xx_mac_enable(bcm);
--		netif_wake_queue(bcm->net_dev);
-  	}
-  	mmiowb();
-  	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-
-
-
-----------------------------------------------------------
+Eric
