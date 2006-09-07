@@ -1,36 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] network namespaces
-Date: Wed, 06 Sep 2006 23:11:27 -0600
-Message-ID: <m1ac5ctg5c.fsf@ebiederm.dsl.xmission.com>
-References: <54AD0F12E08D1541B826BE97C98F99F1963B59@NT-SJCA-0751.brcm.ad.broadcom.com>
-	<m1irk0tw5d.fsf@ebiederm.dsl.xmission.com>
-	<20060906175312.7b4d0ddb@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] Alternate WE-21 support (core API)
+Date: Thu, 07 Sep 2006 08:42:35 +0200
+Message-ID: <1157611356.2857.0.camel@ux156>
+References: <20060830005655.GA8405@bougret.hpl.hp.com>
+	 <1157031138.16040.17.camel@ux156> <20060831135112.GA6097@jm.kir.nu>
+	 <1157032805.16040.21.camel@ux156>  <20060906205538.GA29767@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Caitlin Bestler" <caitlinb@broadcom.com>,
-	"Kir Kolyshkin" <kir@openvz.org>, devel@openvz.org,
-	"Andrey Savochkin" <saw@sw.ru>, alexey@sw.ru,
-	"Linux Containers" <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, sam@vilain.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jkmaline@cc.hut.fi>, jt@hpl.hp.com,
+	netdev@vger.kernel.org, Javier Achirica <achirica@gmail.com>,
+	Simon Kelley <simon@thekelleys.org.uk>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
+	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
+	Jeroen Vreeken <pe1rxq@amsat.org>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Denis Vlasenko <vda@ilport.com.ua>,
+	Michael Buesch <mbuesch@freenet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:41891 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1750789AbWIGFM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Sep 2006 01:12:28 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060906175312.7b4d0ddb@localhost.localdomain> (Stephen
-	Hemminger's message of "Wed, 6 Sep 2006 17:53:12 -0700")
+Received: from crystal.sipsolutions.net ([195.210.38.204]:44712 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750829AbWIGGmW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Sep 2006 02:42:22 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060906205538.GA29767@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+On Wed, 2006-09-06 at 16:55 -0400, John W. Linville wrote:
 
-> The problem with VNIC's is it won't work for all devices (without lots of
-> work), and for many device's it requires putting the device in promiscuous
-> mode. It also plays havoc with network access control devices.
+> Is this patch acceptable to the group?  Does it make things better?
+> Or worse?  Did I leave-out anything that should still go in?  Did I
+> take too much?
 
-Which is fine.  If it works it is a cool performance optimization.
-But it doesn't stop anything from my side if it doesn't.
+Looks good to me.
 
-Eric
-
+johannes
