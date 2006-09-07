@@ -1,147 +1,40 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] Try 2: ucode debug status via sysfs for wireless-2.6
-Date: Thu, 07 Sep 2006 10:12:11 -0500
-Message-ID: <450036CB.6080106@lwfinger.net>
-References: <20060904205340.GB3726@tuba> <200609042256.54629.mb@bu3sch.de>
-	<20060905181232.GA4733@tuba>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: roaming support for d80211 stack
+Date: Thu, 7 Sep 2006 09:00:06 -0700
+Message-ID: <20060907160006.GA19886@instant802.com>
+References: <44FE1968.3050308@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-In-Reply-To: <20060905181232.GA4733@tuba>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dhost002-29.dex002.intermedia.net ([64.78.21.73]:11636 "EHLO
+	dhost002-29.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S932092AbWIGQAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Sep 2006 12:00:31 -0400
+To: Mohamed Abbas <mabbas@linux.intel.com>
+Content-Disposition: inline
+In-Reply-To: <44FE1968.3050308@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+On Tue, Sep 05, 2006 at 05:42:16PM -0700, Mohamed Abbas wrote:
 
-Please apply this patch by Martin Langer to wireless-2.6. It must follow the patch to "Add firmware
-version printout to wireless-2.6 (bcm43xx-softmac)". Martins's original version was appropriate for 
-an obsolete version of bcm43xx-softmac, but I have updated and tested. This version incorporates the 
-locking revision comments of Michael Buesch.
+> Are there any one working on roaming support for  d80211 stack?
 
-Thanks,
+I'm not actively working on this at the moment, but I do have plans on
+doing something on this area. The current implementation uses
+wpa_supplicant to take care of the roaming for both cases of
+ieee80211_sta.c being used (i.e., management frames processed in kernel)
+and user-space MLME (management frames in user space). The trigger for
+roaming is certainly not optimal; roaming process is started only after
+losing connection, but roaming itself should work.
 
-Larry
+I will be most likely working with the user space MLME code in
+wpa_supplicant, i.e., there won't be much changes in the d80211 stack
+side. The changes there would more likely be in the area of providing
+some generic operations to help scanning and reporting current signal
+strength (etc.) to use space. The main changes in roaming logic would be
+wpa_supplicant.
 
-This patch prints out the ucode debug status to sysfs. So, users can
-watch the microcode status of their hardware.
-
-Signed-off-by: Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-
-
-
-===========
-
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx.h b/drivers/net/wireless/bcm43xx/bcm43xx.h
-index 62fd7e2..7c2163e 100644
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-@@ -311,6 +311,7 @@
-  #define BCM43xx_UCODE_PATCHLEVEL        0x0002
-  #define BCM43xx_UCODE_DATE              0x0004
-  #define BCM43xx_UCODE_TIME              0x0006
-+#define BCM43xx_UCODE_STATUS            0x0040
-
-  /* MicrocodeFlagsBitfield (addr + lo-word values?)*/
-  #define BCM43xx_UCODEFLAGS_OFFSET	0x005E
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
-@@ -373,6 +373,59 @@ static DEVICE_ATTR(phymode, 0644,
-  		   bcm43xx_attr_phymode_show,
-  		   bcm43xx_attr_phymode_store);
-
-+static ssize_t bcm43xx_attr_microcode_show(struct device *dev,
-+					   struct device_attribute *attr,
-+					   char *buf)
-+{
-+	unsigned long flags;
-+	struct bcm43xx_private *bcm = dev_to_bcm(dev);
-+	ssize_t count = 0;
-+	u16 status;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	mutex_lock(&(bcm)->mutex);
-+	spin_lock_irqsave(&bcm->irq_lock, flags);
-+	status = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				    BCM43xx_UCODE_STATUS);
-+
-+	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-+	mutex_unlock(&(bcm)->mutex);
-+	switch (status) {
-+	case 0x0000:
-+		count = snprintf(buf, PAGE_SIZE, "0x%.4x (invalid)\n",
-+				 status);
-+		break;
-+	case 0x0001:
-+		count = snprintf(buf, PAGE_SIZE, "0x%.4x (init)\n",
-+				 status);
-+		break;
-+	case 0x0002:
-+		count = snprintf(buf, PAGE_SIZE, "0x%.4x (active)\n",
-+				 status);
-+		break;
-+	case 0x0003:
-+		count = snprintf(buf, PAGE_SIZE, "0x%.4x (suspended)\n",
-+				 status);
-+		break;
-+	case 0x0004:
-+		count = snprintf(buf, PAGE_SIZE, "0x%.4x (asleep)\n",
-+				 status);
-+		break;
-+	default:
-+		count = snprintf(buf, PAGE_SIZE, "0x%.4x (unknown)\n",
-+				 status);
-+		break;
-+	}
-+
-+	return count;
-+}
-+
-+static DEVICE_ATTR(microcodestatus, 0444,
-+		   bcm43xx_attr_microcode_show,
-+		   NULL);
-+
-  int bcm43xx_sysfs_register(struct bcm43xx_private *bcm)
-  {
-  	struct device *dev = &bcm->pci_dev->dev;
-@@ -392,9 +445,14 @@ int bcm43xx_sysfs_register(struct bcm43x
-  	err = device_create_file(dev, &dev_attr_phymode);
-  	if (err)
-  		goto err_remove_shortpreamble;
-+	err = device_create_file(dev, &dev_attr_microcodestatus);
-+	if (err)
-+		goto err_remove_phymode;
-
-  out:
-  	return err;
-+err_remove_phymode:
-+	device_remove_file(dev, &dev_attr_phymode);
-  err_remove_shortpreamble:
-  	device_remove_file(dev, &dev_attr_shortpreamble);
-  err_remove_interfmode:
-@@ -408,6 +466,7 @@ void bcm43xx_sysfs_unregister(struct bcm
-  {
-  	struct device *dev = &bcm->pci_dev->dev;
-
-+	device_remove_file(dev, &dev_attr_microcodestatus);
-  	device_remove_file(dev, &dev_attr_phymode);
-  	device_remove_file(dev, &dev_attr_shortpreamble);
-  	device_remove_file(dev, &dev_attr_interference);
+-- 
+Jouni Malinen                                            PGP id EFC895FA
