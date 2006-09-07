@@ -1,61 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [patch 37/37] sky2: version 1.6.1
-Date: Thu, 7 Sep 2006 14:50:36 -0700
-Message-ID: <20060907145036.1f2a7bc4@localhost.localdomain>
-References: <20060906224631.999046890@quad.kroah.org>
-	<20060906225812.GL15922@kroah.com>
-	<20060907192528.GG8793@ucw.cz>
-	<20060907203426.GB556@suse.de>
-	<20060907210346.GF29890@elf.ucw.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org,
-	stable@kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 1/1][ATM]: [he] when transmit fails, unmap the dma regions
+Date: Thu, 07 Sep 2006 17:57:59 -0400
+Message-ID: <200609072158.k87Lvx2v022151@relax.cmf.nrl.navy.mil>
+Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34517 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751851AbWIGVxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 17:53:38 -0400
-To: Pavel Machek <pavel@suse.cz>
-In-Reply-To: <20060907210346.GF29890@elf.ucw.cz>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:23523 "EHLO
+	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
+	id S1751875AbWIGV6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Sep 2006 17:58:13 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Sep 2006 23:03:46 +0200
-Pavel Machek <pavel@suse.cz> wrote:
+please consider for 2.6.18 -- thanks!
 
-> Hi!
-> 
-> > > > -stable review patch.  If anyone has any objections, please let us know.
-> > > > 
-> > > > ------------------
-> > > > From: Stephen Hemminger <shemminger@osdl.org>
-> > > > 
-> > > > Since this code incorporates some of the fixes from 2.6.18, change
-> > > > the version number.
-> > > > 
-> > > > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> > > > Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-> > > 
-> > > Not sure, one of 'stable' criteria is 'fixes bad bug'. What bug does
-> > > this fix?
-> > 
-> > The previous 5 patches changed this driver, so changing the version
-> > number of it is acceptable to me.
-> 
-> Well... I agree that version change is understandable, but it will be
-> also surprising for the users, and stable rules were quite strict with
-> "must fix obvious bug"...
-> 
+[ATM]: [he] when transmit fails, unmap the dma regions
 
-I get lots of bug reports which are from distro and other kernels
-that cherrypick code from stable. How am I supposed to know if it
-is a new or old problem?
+Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+
+---
+commit e2c84ae30cb2dca23afb5e811c108e235f941c3d
+tree a4acb86e2e10baa5ac651e566a550e0af0c55507
+parent 0d60b74cf4354672e4586ca2bedde6695db43165
+author chas williams <chas@relax.cmf.nrl.navy.mil> Thu, 07 Sep 2006 17:04:14 -0400
+committer chas williams <chas@relax.cmf.nrl.navy.mil> Thu, 07 Sep 2006 17:04:14 -0400
+
+ drivers/atm/he.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index d369130..dd96123 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -2282,6 +2282,8 @@ __enqueue_tpd(struct he_dev *he_dev, str
+ 				TPDRQ_MASK(he_readl(he_dev, TPDRQ_B_H)));
+ 
+ 		if (new_tail == he_dev->tpdrq_head) {
++			int slot;
++
+ 			hprintk("tpdrq full (cid 0x%x)\n", cid);
+ 			/*
+ 			 * FIXME
+@@ -2289,6 +2291,13 @@ __enqueue_tpd(struct he_dev *he_dev, str
+ 			 * after service_tbrq, service the backlog
+ 			 * for now, we just drop the pdu
+ 			 */
++			for (slot = 0; slot < TPD_MAXIOV; ++slot) {
++				if (tpd->iovec[slot].addr)
++					pci_unmap_single(he_dev->pci_dev,
++						tpd->iovec[slot].addr,
++						tpd->iovec[slot].len & TPD_LEN_MASK,
++								PCI_DMA_TODEVICE);
++			}
+ 			if (tpd->skb) {
+ 				if (tpd->vcc->pop)
+ 					tpd->vcc->pop(tpd->vcc, tpd->skb);
