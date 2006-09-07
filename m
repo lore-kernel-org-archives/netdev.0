@@ -1,47 +1,89 @@
-From: Herbert Xu <herbert.xu@redhat.com>
-Subject: Re: ipv6 lockdep
-Date: Thu, 7 Sep 2006 10:21:25 +1000
-Message-ID: <20060907002125.GA27917@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0609061059200.10137@acis.rdu.redhat.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] network namespaces
+Date: Wed, 6 Sep 2006 17:53:12 -0700
+Message-ID: <20060906175312.7b4d0ddb@localhost.localdomain>
+References: <54AD0F12E08D1541B826BE97C98F99F1963B59@NT-SJCA-0751.brcm.ad.broadcom.com>
+	<m1irk0tw5d.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Caitlin Bestler" <caitlinb@broadcom.com>,
+	"Kir Kolyshkin" <kir@openvz.org>, devel@openvz.org,
+	"Andrey Savochkin" <saw@sw.ru>, alexey@sw.ru,
+	"Linux Containers" <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:6927 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964858AbWIGAV5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Sep 2006 20:21:57 -0400
-To: Arjan van de Ven <arjan@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Matthew Galgoci <mgalgoci@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0609061059200.10137@acis.rdu.redhat.com>
+Received: from smtp.osdl.org ([65.172.181.4]:20900 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161040AbWIGAxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2006 20:53:32 -0400
+To: ebiederm@xmission.com (Eric W. Biederman)
+In-Reply-To: <m1irk0tw5d.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 06, 2006 at 03:06:12PM +0000, Matthew Galgoci wrote:
+On Wed, 06 Sep 2006 17:25:50 -0600
+ebiederm@xmission.com (Eric W. Biederman) wrote:
+
+> "Caitlin Bestler" <caitlinb@broadcom.com> writes:
 > 
-> =============================================
-> [ INFO: possible recursive locking detected ]
-> 2.6.17-1.2614.fc6 #1
-> ---------------------------------------------
-> java/7112 is trying to acquire lock:
->  (slock-AF_INET6){-+..}, at: [<c05b34de>] sk_clone+0xd4/0x2d8
-> but task is already holding lock:
->  (slock-AF_INET6){-+..}, at: [<e0ce94c9>] tcp_v6_rcv+0x327/0x736 [ipv6]
-> other info that might help us debug this:
-> 1 lock held by java/7112:
->  #0:  (slock-AF_INET6){-+..}, at: [<e0ce94c9>] tcp_v6_rcv+0x327/0x736 [ipv6]
+> > ebiederm@xmission.com wrote:
+> >  
+> >> 
+> >>> Finally, as I understand both network isolation and network
+> >>> virtualization (both level2 and level3) can happily co-exist. We do
+> >>> have several filesystems in kernel. Let's have several network
+> >>> virtualization approaches, and let a user choose. Is that makes
+> >>> sense? 
+> >> 
+> >> If there are not compelling arguments for using both ways of
+> >> doing it is silly to merge both, as it is more maintenance overhead.
+> >> 
+> >
+> > My reading is that full virtualization (Xen, etc.) calls for
+> > implementing
+> > L2 switching between the partitions and the physical NIC(s).
+> >
+> > The tradeoffs between L2 and L3 switching are indeed complex, but
+> > there are two implications of doing L2 switching between partitions:
+> >
+> > 1) Do we really want to ask device drivers to support L2 switching for
+> >    partitions and something *different* for containers?
+> 
+> No.
+> 
+> > 2) Do we really want any single packet to traverse an L2 switch (for
+> >    the partition-style virtualization layer) and then an L3 switch
+> >    (for the container-style layer)?
+> 
+> In general what has been done with layer 3 is to simply filter which
+> processes can use which IP addresses and it all happens at socket
+> creation time.  So it is very cheap, and it can be done purely
+> in the network layer without any driver intervention.
+> 
+> Basically think of what is happening at layer 3 as an extremely light-weight
+> version of traffic filtering.
+> 
+> > The full virtualization solution calls for virtual NICs with distinct
+> > MAC addresses. Is there any reason why this same solution cannot work
+> > for containers (just creating more than one VNIC for the partition, 
+> > and then assigning each VNIC to a container?)
+> 
+> The VNIC approach is the fundamental idea with the layer two networking
+> and if we can push the work down into the device driver it so different
+> destination macs show up a in different packet queues it should be
+> as fast as a normal networking stack.
+> 
+> Implementing VNICs so far is the only piece of containers that has
+> come close to device drivers, and we can likely do it without device
+> driver support (but with more cost).  Basically this optimization
+> is a subset of the Grand Unified Lookup idea.
+> 
+> I think we can do a mergeable implementation without noticeable cost without
+> when not using containers without having to resort to a grand unified lookup
+> but I may be wrong.
+> 
+> Eric
 
-This is a known problem with the validator.  The above is a legitimate
-occurance during the construction of a child TCP socket (i.e., when it
-is doing an accept(2) call).
-
-Arjan, is there any progress on this issue?
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The problem with VNIC's is it won't work for all devices (without lots of
+work), and for many device's it requires putting the device in promiscuous
+mode. It also plays havoc with network access control devices.
