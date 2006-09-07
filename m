@@ -1,47 +1,47 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: [patch 37/37] sky2: version 1.6.1
-Date: Thu, 7 Sep 2006 19:25:28 +0000
-Message-ID: <20060907192528.GG8793@ucw.cz>
-References: <20060906224631.999046890@quad.kroah.org> <20060906225812.GL15922@kroah.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Thu, 07 Sep 2006 13:50:55 -0600
+Message-ID: <m1pse7o3q8.fsf@ebiederm.dsl.xmission.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>
+	<20060816115313.GC31810@sergelap.austin.ibm.com>
+	<44FD7CF0.4030009@fr.ibm.com>
+	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>
+	<20060905165328.GA17317@MAIL.13thfloor.at>
+	<44FE907F.7090508@fr.ibm.com>
+	<20060906165642.GA26202@MAIL.13thfloor.at>
+	<44FF0760.1040600@openvz.org>
+	<m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com> <45004799.70000@sw.ru>
+	<20060907172759.GB25118@MAIL.13thfloor.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
+Cc: Kirill Korotaev <dev@sw.ru>, Kir Kolyshkin <kir@openvz.org>,
+	Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:54025 "EHLO
-	spitz.ucw.cz") by vger.kernel.org with ESMTP id S1751864AbWIGT0X
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Sep 2006 15:26:23 -0400
-To: Greg KH <gregkh@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20060906225812.GL15922@kroah.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:51649 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751679AbWIGTv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Sep 2006 15:51:58 -0400
+To: Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060907172759.GB25118@MAIL.13thfloor.at> (Herbert Poetzl's
+	message of "Thu, 7 Sep 2006 19:27:59 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed 06-09-06 15:58:12, Greg KH wrote:
-> -stable review patch.  If anyone has any objections, please let us know.
-> 
-> ------------------
-> From: Stephen Hemminger <shemminger@osdl.org>
-> 
-> Since this code incorporates some of the fixes from 2.6.18, change
-> the version number.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+Herbert Poetzl <herbert@13thfloor.at> writes:
 
-Not sure, one of 'stable' criteria is 'fixes bad bug'. What bug does
-this fix?
+> On Thu, Sep 07, 2006 at 08:23:53PM +0400, Kirill Korotaev wrote:
+>
+> well, who said that you need to have things like RAW sockets
+> or other protocols except IP, not to speak of iptable and 
+> routing entries ...
+>
+> folks who _want_ full network virtualization can use the
+> more complete virtual setup and be happy ...
 
-							Pavel
--- 
-Thanks for all the (sleeping) penguins.
+Exactly this was a proposal for isolation for containers
+that don't get CAP_NET_ADMIN, with a facility that could
+easily be general purpose.
+
+Eric
