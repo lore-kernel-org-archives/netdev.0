@@ -1,74 +1,68 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Thu, 07 Sep 2006 20:23:53 +0400
-Message-ID: <45004799.70000@sw.ru>
-References: <20060815182029.A1685@castle.nmd.msu.ru>	<20060816115313.GC31810@sergelap.austin.ibm.com>	<44FD7CF0.4030009@fr.ibm.com>	<m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>	<20060905165328.GA17317@MAIL.13thfloor.at>	<44FE907F.7090508@fr.ibm.com>	<20060906165642.GA26202@MAIL.13thfloor.at>	<44FF0760.1040600@openvz.org> <m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH 10/21] block: elevator selection and pinning
+Date: Thu, 7 Sep 2006 18:33:13 +0200
+Message-ID: <20060907163313.GK18333@kernel.dk>
+References: <20060906131630.793619000@chello.nl> <20060906133954.673752000@chello.nl> <20060906134642.GC14565@kernel.dk> <1157644889.17799.35.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kir Kolyshkin <kir@openvz.org>, netdev@vger.kernel.org,
-	sam@vilain.net, Andrey Savochkin <saw@sw.ru>, alexey@sw.ru,
-	Linux Containers <containers@lists.osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:9523 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S932259AbWIGQUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 12:20:52 -0400
-To: devel@openvz.org
-In-Reply-To: <m1y7swvo6k.fsf_-_@ebiederm.dsl.xmission.com>
+Received: from brick.kernel.dk ([62.242.22.158]:55314 "EHLO kernel.dk")
+	by vger.kernel.org with ESMTP id S932258AbWIGQ3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 12:29:51 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Disposition: inline
+In-Reply-To: <1157644889.17799.35.camel@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>Herbert Poetzl wrote:
->>
->>>my point (until we have an implementation which clearly
->>>shows that performance is equal/better to isolation)
->>>is simply this:
->>>
->>> of course, you can 'simulate' or 'construct' all the
->>> isolation scenarios with kernel bridging and routing
->>> and tricky injection/marking of packets, but, this
->>> usually comes with an overhead ...
->>>  
->>
->>Well, TANSTAAFL*, and pretty much everything comes with an overhead. 
->>Multitasking comes with the (scheduler, context switch, CPU cache, etc.) 
->>overhead -- is that the reason to abandon it? OpenVZ and Linux-VServer 
->>resource management also adds some overhead -- do we want to throw it away?
->>
->>The question is not just "equal or better performance", the question is 
->>"what do we get and how much we pay for it".
+On Thu, Sep 07 2006, Peter Zijlstra wrote:
+> On Wed, 2006-09-06 at 15:46 +0200, Jens Axboe wrote:
+> > On Wed, Sep 06 2006, Peter Zijlstra wrote:
+> > > Provide an block queue init function that allows to set an elevator. And a 
+> > > function to pin the current elevator.
+> > > 
+> > > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> > > Signed-off-by: Daniel Phillips <phillips@google.com>
+> > > CC: Jens Axboe <axboe@suse.de>
+> > > CC: Pavel Machek <pavel@ucw.cz>
+> > 
+> > Generally I don't think this is the right approach, as what you really
+> > want to do is let the driver say "I want intelligent scheduling" or not.
+> > The type of scheduler is policy that is left with the user, not the
+> > driver.
 > 
-> 
-> Equal or better performance is certainly required when we have the code
-> compiled in but aren't using it.  We must not penalize the current code.
-you talk about host system performance.
-Both approaches do not introduce overhead to host networking.
+> True, and the only sane value here is NOOP, any other policy would not
+> be a good value. With this in mind would you rather prefer a 'boolean'
+> argument suggesting we use NOOP over the default scheduler?
 
->>Finally, as I understand both network isolation and network 
->>virtualization (both level2 and level3) can happily co-exist. We do have 
->>several filesystems in kernel. Let's have several network virtualization 
->>approaches, and let a user choose. Is that makes sense?
-> 
-> 
-> If there are not compelling arguments for using both ways of doing
-> it is silly to merge both, as it is more maintenance overhead.
-> 
-> That said I think there is a real chance if we can look at the bind
-> filtering and find a way to express that in the networking stack
-> through iptables.  Using the security hooks conflicts with things
-> like selinux.   Although it would be interesting to see if selinux
-> can already implement general purpose layer 3 filtering.
-> 
-> The more I look the gut feel I have is that the way to proceed would
-> be to add a new table that filters binds, and connects.  Plus a new
-> module that would look at a process creating a socket and tell us if
-> it is the appropriate group of processes.  With a little care that
-> would be a general solution to the layer 3 filtering problem.
-Huh, you will still have to insert lots of access checks into different
-parts of code like RAW sockets, netlinks, protocols which are not inserted,
-netfilters (to not allow create iptables rules :) ) and many many other places.
+Nope, I don't think it's the right thing to do. Either we want to pass a
+type down or a profile of some sort.
 
-I see Dave Miller looking at such a patch and my ears hear his rude words :)
+For the work you are doing here, just forget about it. It's not like
+it's a critical piece, just list in the README (or wherever) that noop
+is a good choice and leave it at that.
 
-Thanks,
-Kirill
+> Would you agree that this hint on intelligent scheduling could be used
+> to set the initial policy, the user can always override when he
+> disagrees.
+> 
+> These network block devices like NBD, iSCSI and AoE often talk to
+> virtual disks, any attempt to be smart is a waste of time.
+
+I think you'll find the runtime overhead of them is pretty close and
+hard to measure in most setups, it's things like the queue idling and
+anticipation that AS/CFQ might do that will potentially decrease your io
+performance. deadline and noop would be equally good choices.
+
+So you don't want to pass down hints on "use noop", you really want to
+tell the block layer that you have no seek penalty for instance. And a
+range of other parameters.
+
+-- 
+Jens Axboe
+
