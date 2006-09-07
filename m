@@ -1,68 +1,33 @@
-From: Jens Axboe <axboe@kernel.dk>
-Subject: Re: [PATCH 10/21] block: elevator selection and pinning
-Date: Thu, 7 Sep 2006 18:33:13 +0200
-Message-ID: <20060907163313.GK18333@kernel.dk>
-References: <20060906131630.793619000@chello.nl> <20060906133954.673752000@chello.nl> <20060906134642.GC14565@kernel.dk> <1157644889.17799.35.camel@lappy>
+From: Mitch Williams <mitch.a.williams@intel.com>
+Subject: Re: [PATCH 1/7] bonding: Add 10 Gig support
+Date: Thu, 07 Sep 2006 09:45:21 -0700
+Message-ID: <1157647521.6411.1.camel@strongmad>
+References: <200609012208.k81M86Zt005275@death.nxdomain.ibm.com>
+	 <44FEE679.6030201@pobox.com>
+	 <Pine.CYG.4.58.0609060939150.3076@mawilli1-desk2.amr.corp.intel.com>
+	 <200609061922.k86JMTZt027278@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>,
-	Rik van Riel <riel@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([62.242.22.158]:55314 "EHLO kernel.dk")
-	by vger.kernel.org with ESMTP id S932258AbWIGQ3v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 12:29:51 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <1157644889.17799.35.camel@lappy>
+Received: from mga02.intel.com ([134.134.136.20]:54921 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S1161046AbWIGQpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2006 12:45:25 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200609061922.k86JMTZt027278@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 07 2006, Peter Zijlstra wrote:
-> On Wed, 2006-09-06 at 15:46 +0200, Jens Axboe wrote:
-> > On Wed, Sep 06 2006, Peter Zijlstra wrote:
-> > > Provide an block queue init function that allows to set an elevator. And a 
-> > > function to pin the current elevator.
-> > > 
-> > > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > > Signed-off-by: Daniel Phillips <phillips@google.com>
-> > > CC: Jens Axboe <axboe@suse.de>
-> > > CC: Pavel Machek <pavel@ucw.cz>
-> > 
-> > Generally I don't think this is the right approach, as what you really
-> > want to do is let the driver say "I want intelligent scheduling" or not.
-> > The type of scheduler is policy that is left with the user, not the
-> > driver.
+Note to self:  Do not use Pine EVER AGAIN.
+Sorry for the badness.  Evolution is my new best friend.
+-Mitch
+
+On Wed, 2006-09-06 at 12:22 -0700, Jay Vosburgh wrote:
 > 
-> True, and the only sane value here is NOOP, any other policy would not
-> be a good value. With this in mind would you rather prefer a 'boolean'
-> argument suggesting we use NOOP over the default scheduler?
-
-Nope, I don't think it's the right thing to do. Either we want to pass a
-type down or a profile of some sort.
-
-For the work you are doing here, just forget about it. It's not like
-it's a critical piece, just list in the README (or wherever) that noop
-is a good choice and leave it at that.
-
-> Would you agree that this hint on intelligent scheduling could be used
-> to set the initial policy, the user can always override when he
-> disagrees.
-> 
-> These network block devices like NBD, iSCSI and AoE often talk to
-> virtual disks, any attempt to be smart is a waste of time.
-
-I think you'll find the runtime overhead of them is pretty close and
-hard to measure in most setups, it's things like the queue idling and
-anticipation that AS/CFQ might do that will potentially decrease your io
-performance. deadline and noop would be equally good choices.
-
-So you don't want to pass down hints on "use noop", you really want to
-tell the block layer that you have no seek penalty for instance. And a
-range of other parameters.
-
--- 
-Jens Axboe
-
+>         [Trying again; /usr/bin/patch didn't complain about Mitch's
+> original; here's a cg-diff generated from where I checked his in,
+> git-apply seems ok with it.  The problem seems to be the empty line
+> between "//endallnoun" and "// compare MAC"; in the original it's a
+> totally empty line, from cg-diff, there's a single space on there. -J]
