@@ -1,44 +1,104 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
-Date: Fri, 08 Sep 2006 08:36:36 -0500
-Message-ID: <450171E4.8070901@lwfinger.net>
-References: <45006221.4090603@lwfinger.net>
-	<20060908094204.GB26916@harddisk-recovery.com>
-	<200609081145.28095.mb@bu3sch.de>
-	<20060908132317.GS26916@harddisk-recovery.com>
+From: Jan Kiszka <jan.kiszka@web.de>
+Subject: e100 fails, eepro100 works
+Date: Fri, 08 Sep 2006 15:41:06 +0200
+Message-ID: <450172F2.50308@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Erik Mouw <erik-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
-In-Reply-To: <20060908132317.GS26916-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig591E44618DEECB2380AB111B"
+Cc: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate02.web.de ([217.72.192.227]:28856 "EHLO
+	fmmailgate02.web.de") by vger.kernel.org with ESMTP
+	id S1751110AbWIHNlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Sep 2006 09:41:17 -0400
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Erik Mouw wrote:
-> On Fri, Sep 08, 2006 at 11:45:27AM +0200, Michael Buesch wrote:
->> The crash is fixed in wireless-2.6.
->> The actual cause of the controller restart not. So at least it
->> does not crash anymore.
-> 
-> Thanks for the information, pulled wireless-2.6 and recompiling kernel.
-> If this really fixes the problem, can we try to get it merged before
-> 2.6.18 closes? I don't know if vanilla 2.6.18-rc6 locks up on other
-> hardware as well, but if it does it would be a major regression against
-> 2.6.17.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig591E44618DEECB2380AB111B
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-I'm trying. At the moment, I'm testing a patch against 2.6.18-rc6. Once it works here, I'll be 
-putting it out for testing.
+Hi,
 
-Larry
+we have a couple of industrial PCs here with Intel PRO/100 controllers
+on board. Most of them work fine with the e100, but today I stumbled
+over one box that doesn't: Reception works (RX counter increases, ARP
+cache gets filled up), but transmission fails (TX counter is also zero).
+In contrast, the eepro100 is fine, also Etherboot's driver.
+
+I'm currently on 2.6.17.8, but I don't see any changes up to latest git
+that may have positive influence. This is what lspci -v tells about this
+piece of hardware:
+
+00:12.0 Ethernet controller: Intel Corporation 8255xER/82551IT Fast
+Ethernet Controller (rev 08)
+        Subsystem: Intel Corporation: Unknown device 1229
+        Flags: bus master, medium devsel, latency 66, IRQ 10
+        Memory at fc020000 (32-bit, non-prefetchable) [size=3D4K]
+        I/O ports at 1080 [size=3D64]
+        Memory at fc000000 (32-bit, non-prefetchable) [size=3D128K]
+        Capabilities: [dc] Power Management version 2
+
+And here is the kernel log of e100 with highest debug level when sending
+out a few pings while other packets arrive on the network:
+
+e100: Intel(R) PRO/100 Network Driver, 3.5.10-k2-NAPI
+e100: Copyright(c) 1999-2005 Intel Corporation
+PCI: Found IRQ 10 for device 0000:00:12.0
+e100: eth0: e100_probe: addr 0xfc020000, irq 10, MAC addr 00:30:59:01:07:=
+A7
+e100: eth0: e100_watchdog: right now =3D 35470
+e100: eth0: e100_watchdog: link up, 100Mbps, full-duplex
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_watchdog: right now =3D 35970
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_watchdog: right now =3D 36470
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_watchdog: right now =3D 36970
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_watchdog: right now =3D 37470
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_watchdog: right now =3D 37970
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_watchdog: right now =3D 38470
+e100: eth0: e100_intr: stat_ack =3D 0x04
+e100: eth0: e100_intr: stat_ack =3D 0x40
+e100: eth0: e100_watchdog: right now =3D 38970
+e100: eth0: e100_intr: stat_ack =3D 0x04
+
+I may find the time one day to debug this at lower levels, but you could
+accelerate this process with any pointer where to dig deeper precisely.
+
+Jan
+
+
+--------------enig591E44618DEECB2380AB111B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFFAXLyniDOoMHTA+kRAg+7AJ9NVLGbOPOi3kwhxEDfI+8dMwiqyQCfQqV2
+J1a0Yc/VY+BWvHwwhVWNqXA=
+=djId
+-----END PGP SIGNATURE-----
+
+--------------enig591E44618DEECB2380AB111B--
