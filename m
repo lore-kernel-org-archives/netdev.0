@@ -1,101 +1,208 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 3/7] secid reconciliation-v02: Invoke LSM hook for inbound
+Subject: [PATCH 6/7] secid reconciliation-v02: Label locally generated IPv4
  traffic
-Date: Fri, 08 Sep 2006 11:50:42 -0500
-Message-ID: <45019F62.7000305@trustedcs.com>
+Date: Fri, 08 Sep 2006 11:50:55 -0500
+Message-ID: <45019F6F.9090500@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: jmorris@namei.org, sds@tycho.nsa.gov, chanson@trustedcs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:49987 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750958AbWIHQus
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:13465 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751065AbWIHQvG
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Sep 2006 12:50:48 -0400
+	Fri, 8 Sep 2006 12:51:06 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Invoke the skb_policy_check LSM hook for inbound (INPUT/FORWARD)
-traffic for secid reconciliation and flow control.
+This labels the skb(s) for locally generated IPv4 traffic. This will
+be reconciled with xfrm secid as well as used in pertinent flow control
+checks on the outbound later in the LSM hook.
+
+This is not as pretty as it is for IPv6, but what to do?
+Note that skb(s) that derive the secmark from the originating socket
+do so in the outbound hook.
+
+NOTE: Forwarded traffic is already labeled with the reconciled
+secmark on the inbound.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/net/xfrm.h |   50 +++++++++++++++++++++++--------------------
- 1 file changed, 27 insertions(+), 23 deletions(-)
+ include/net/ip.h           |   32 ++++++++++++++++++++++++++++++++
+ include/net/request_sock.h |   17 +++++++++++++++++
+ net/dccp/ipv4.c            |    5 +++++
+ net/ipv4/icmp.c            |    4 ++++
+ net/ipv4/ip_output.c       |    6 ++++++
+ net/ipv4/tcp_ipv4.c        |    1 +
+ 6 files changed, 65 insertions(+)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index bf8e2df..7b020bd 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -663,22 +663,20 @@ extern int __xfrm_policy_check(struct so
- 
- static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
- {
--	if (sk && sk->sk_policy[XFRM_POLICY_IN])
--		return __xfrm_policy_check(sk, dir, skb, family);
--
--	return	(!xfrm_policy_count[dir] && !skb->sp) ||
--		(skb->dst->flags & DST_NOPOLICY) ||
--		__xfrm_policy_check(sk, dir, skb, family);
--}
--
--static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return xfrm_policy_check(sk, dir, skb, AF_INET);
--}
-+	int ret;
- 
--static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return xfrm_policy_check(sk, dir, skb, AF_INET6);
-+	if (sk && sk->sk_policy[XFRM_POLICY_IN])
-+		ret = __xfrm_policy_check(sk, dir, skb, family);
-+	else
-+		ret = (!xfrm_policy_count[dir] && !skb->sp) ||
-+		      (skb->dst->flags & DST_NOPOLICY) ||
-+		      __xfrm_policy_check(sk, dir, skb, family);
-+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 98f9084..4646c13 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -48,6 +48,9 @@ struct ipcm_cookie
+ 	u32			addr;
+ 	int			oif;
+ 	struct ip_options	*opt;
 +#ifdef CONFIG_SECURITY_NETWORK
-+	if (ret)
-+		ret = security_skb_policy_check(skb, family);
++	__u32			secid;
 +#endif /* CONFIG_SECURITY_NETWORK */
-+	return ret;
- }
+ };
  
- extern int xfrm_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family);
-@@ -730,20 +728,26 @@ static inline void xfrm_sk_free_policy(s
- static inline int xfrm_sk_clone_policy(struct sock *sk) { return 0; }
- static inline int xfrm6_route_forward(struct sk_buff *skb) { return 1; }  
- static inline int xfrm4_route_forward(struct sk_buff *skb) { return 1; } 
--static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{ 
--	return 1; 
--} 
--static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return 1;
--}
- static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
- {
+ #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
+@@ -383,4 +386,33 @@ #endif
+ 
+ extern struct ctl_table ipv4_table[];
+ 
 +#ifdef CONFIG_SECURITY_NETWORK
-+	return security_skb_policy_check(skb, family);
++
++static inline void security_skb_classify_ipcm(struct sk_buff *skb,
++					struct ipcm_cookie *ipc)
++{
++	ipc->secid = 0;
++	ipc->secid = skb->secmark;
++}
++
++static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
++					struct sk_buff *skb)
++{
++	skb->secmark = ipc->secid;
++}
++
 +#else
- 	return 1;
++
++static inline void security_skb_classify_ipcm(struct sk_buff *skb,
++					struct ipcm_cookie *ipc)
++{
++}
++
++static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
++					struct sk_buff *skb)
++{
++}
++
 +#endif /* CONFIG_SECURITY_NETWORK */
++
+ #endif	/* _IP_H */
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 8e165ca..bba8dba 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -259,4 +259,21 @@ static inline void reqsk_queue_hash_req(
+ 	write_unlock(&queue->syn_wait_lock);
  }
- #endif
  
-+static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
++#ifdef CONFIG_SECURITY_NETWORK
++
++static inline void security_req_classify_skb(struct request_sock *req,
++					struct sk_buff *skb)
 +{
-+	return xfrm_policy_check(sk, dir, skb, AF_INET);
++	skb->secmark = req->secid;
 +}
 +
-+static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
++#else
++
++static inline void security_req_classify_skb(struct request_sock *req,
++					struct sk_buff *skb)
 +{
-+	return xfrm_policy_check(sk, dir, skb, AF_INET6);
 +}
 +
- static __inline__
- xfrm_address_t *xfrm_flowi_daddr(struct flowi *fl, unsigned short family)
- {
++#endif /* CONFIG_SECURITY_NETWORK */
++
+ #endif /* _REQUEST_SOCK_H */
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 9a1a76a..526835e 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -233,6 +233,8 @@ static void dccp_v4_reqsk_send_ack(struc
+ 	dccp_hdr_set_ack(dccp_hdr_ack_bits(skb),
+ 			 DCCP_SKB_CB(rxskb)->dccpd_seq);
+ 
++	security_req_classify_skb(req, skb);
++
+ 	bh_lock_sock(dccp_v4_ctl_socket->sk);
+ 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
+ 				    rxskb->nh.iph->daddr,
+@@ -264,6 +266,7 @@ static int dccp_v4_send_response(struct 
+ 		dh->dccph_checksum = dccp_v4_checksum(skb, ireq->loc_addr,
+ 						      ireq->rmt_addr);
+ 		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++		security_req_classify_skb(req, skb);
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
+ 					    ireq->rmt_addr,
+ 					    ireq->opt);
+@@ -746,6 +749,8 @@ static void dccp_v4_ctl_send_reset(struc
+ 	dh->dccph_checksum = dccp_v4_checksum(skb, rxskb->nh.iph->saddr,
+ 					      rxskb->nh.iph->daddr);
+ 
++	security_skb_classify_skb(rxskb, skb);
++
+ 	bh_lock_sock(dccp_v4_ctl_socket->sk);
+ 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
+ 				    rxskb->nh.iph->daddr,
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index c2ad07e..956791a 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -389,6 +389,8 @@ static void icmp_reply(struct icmp_bxm *
+ 	if (icmp_xmit_lock())
+ 		return;
+ 
++	security_skb_classify_ipcm(skb, &ipc);
++
+ 	icmp_param->data.icmph.checksum = 0;
+ 	icmp_out_count(icmp_param->data.icmph.type);
+ 
+@@ -507,6 +509,8 @@ void icmp_send(struct sk_buff *skb_in, i
+ 	if (icmp_xmit_lock())
+ 		return;
+ 
++	security_skb_classify_ipcm(skb_in, &ipc);
++
+ 	/*
+ 	 *	Construct source address and options.
+ 	 */
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 97aee76..2e0775c 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -926,6 +926,8 @@ alloc_new_skb:
+ 			if (skb == NULL)
+ 				goto error;
+ 
++			security_ipcm_classify_skb(ipc, skb);
++
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+@@ -1122,6 +1124,8 @@ ssize_t	ip_append_page(struct sock *sk, 
+ 				goto error;
+ 			}
+ 
++			security_skb_classify_skb(skb_prev, skb);
++
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+@@ -1349,6 +1353,8 @@ void ip_send_reply(struct sock *sk, stru
+ 	daddr = ipc.addr = rt->rt_src;
+ 	ipc.opt = NULL;
+ 
++	security_skb_classify_ipcm(skb, &ipc);
++
+ 	if (replyopts.opt.optlen) {
+ 		ipc.opt = &replyopts.opt;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 39b1798..f21509b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -658,6 +658,7 @@ static int tcp_v4_send_synack(struct soc
+ 					 ireq->rmt_addr,
+ 					 csum_partial((char *)th, skb->len,
+ 						      skb->csum));
++		security_req_classify_skb(req, skb);
+ 
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
+ 					    ireq->rmt_addr,
