@@ -1,88 +1,181 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: e100 fails, eepro100 works
-Date: Fri, 08 Sep 2006 08:42:46 -0700
-Message-ID: <45018F76.5080403@intel.com>
-References: <450172F2.50308@web.de>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Fri, 8 Sep 2006 08:49:41 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC093FB19@NT-IRVA-0751.brcm.ad.broadcom.com>
+References: <1157704257.31071.68.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750913AbWIHPof@vger.kernel.org>
-To: Jan Kiszka <jan.kiszka@web.de>
-In-Reply-To: <450172F2.50308@web.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Segher Boessenkool" <segher@kernel.crashing.org>,
+	"Linux Kernel list" <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:51726 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1750917AbWIHPtt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Sep 2006 11:49:49 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1157704257.31071.68.camel@localhost.localdomain>
+To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan Kiszka wrote:
-> Hi,
-> 
-> we have a couple of industrial PCs here with Intel PRO/100 controllers
-> on board. Most of them work fine with the e100, but today I stumbled
-> over one box that doesn't: Reception works (RX counter increases, ARP
-> cache gets filled up), but transmission fails (TX counter is also zero).
+Copying netdev.
 
-please include `ifconfig ethX` and `ethtool -S ethX` after attempting to 
-transmit using the device.
+Benjamin Herrenschmidt wrote:
+> Hi !
+> 
+> I've been chasing with Segher a data corruption problem lately.
+> Basically transferring huge amount of data (several Gb) and I get
+> corrupted data at the rx side. I cannot tell for sure wether what I've
+> been observing here is the same problem that segher's been seing on is
+> blades, he will confirm or not. He also seemed to imply that reverting
+> to an older kernel on the -receiver- side fixed it, which makes me
+> wonder, since it's looks really like a sending side problem (see
+> explanation below), if some change in, for exmaple, window scaling,
+> might hide or trigger it. 
 
-> In contrast, the eepro100 is fine, also Etherboot's driver.
-> 
-> I'm currently on 2.6.17.8, but I don't see any changes up to latest git
-> that may have positive influence. This is what lspci -v tells about this
-> piece of hardware:
-> 
-> 00:12.0 Ethernet controller: Intel Corporation 8255xER/82551IT Fast
-> Ethernet Controller (rev 08)
->         Subsystem: Intel Corporation: Unknown device 1229
->         Flags: bus master, medium devsel, latency 66, IRQ 10
->         Memory at fc020000 (32-bit, non-prefetchable) [size=4K]
->         I/O ports at 1080 [size=64]
->         Memory at fc000000 (32-bit, non-prefetchable) [size=128K]
->         Capabilities: [dc] Power Management version 2
-> 
-> And here is the kernel log of e100 with highest debug level when sending
-> out a few pings while other packets arrive on the network:
-> 
-> e100: Intel(R) PRO/100 Network Driver, 3.5.10-k2-NAPI
-> e100: Copyright(c) 1999-2005 Intel Corporation
-> PCI: Found IRQ 10 for device 0000:00:12.0
-> e100: eth0: e100_probe: addr 0xfc020000, irq 10, MAC addr 00:30:59:01:07:A7
-> e100: eth0: e100_watchdog: right now = 35470
-> e100: eth0: e100_watchdog: link up, 100Mbps, full-duplex
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_watchdog: right now = 35970
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_watchdog: right now = 36470
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_watchdog: right now = 36970
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_watchdog: right now = 37470
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_watchdog: right now = 37970
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_watchdog: right now = 38470
-> e100: eth0: e100_intr: stat_ack = 0x04
-> e100: eth0: e100_intr: stat_ack = 0x40
-> e100: eth0: e100_watchdog: right now = 38970
-> e100: eth0: e100_intr: stat_ack = 0x04
-> 
-> I may find the time one day to debug this at lower levels, but you could
-> accelerate this process with any pointer where to dig deeper precisely.
+Please send me lspci and tg3 probing output so that I know what
+tg3 hardware you're using.  I also want to look at the tcpdump or
+ethereal on the mirrored port that shows the packet being corrupted.
 
-Can you include a full `dmesg` and `lcpci -vv -s 00:12.0` ?
+> 
+> Now, first, I've been playing with ssh from /dev/zero on one machine
+> to /dev/zero on the other. That allowed me to run enough 
+> tests all over
+> the place to have some idea of where the problem comes from since ssh
+> will shoke at decryption when hitting the corruption.
+> 
+> The base setup where it happens often is 2 Quad G5's connected to a
+> gigabit switch. Both were running some versions of 2.6.18-rc4 and -rc5
+> (some random git actually, but see below as I've reproduced 
+> the problem
+> with today's git snapshot which includes the TG3 tx race fix among
+> others).
+> 
+> I have reproduced with various machines as the receiver. A sungem in a
+> Dual G5 and a virtual ethernet in a Power5 partition (so the 
+> packets go
+> to an e1000 then routed through an AIX IO server to a virtual
+> ethernet :) are good examples of "variety" :) I haven't tested with
+> non-PowerPC machines so far. I've also never been able to 
+> reproduce with
+> TSO disabled on the emitting TG3's
+> 
+> Then, I've hacked tridge "socklib" test program (a simple TCP server
+> that pushes a known buffer and a simple TCP receiver that 
+> connects to it
+> and reads the data). I've added comparison of the data with what they
+> are supposed to be on the receiving end. The interesting thing is that
+> is much faster than ssh or whatever else I tried. ssh or rsync between
+> those 2 Quad G5s give me about 35Mb/sec while I get to 
+> 107Mb/sec average
+> with the small test program.
+> 
+> The fun thing is, I've not been able to reproduce at all that 
+> way. When
+> the link is pretty much saturated, the problem doesn't occur !
+> 
+> As soon as I introduce a small delay (some crap waiting loop) in the
+> sender to slow down the throughput to about 80Mb/sec, then the problem
+> starts occuring every now and then (I don't have precise frquency data
+> but I get a corruption every couple of gigabytes I'd say).
+> 
+> As for my previous tests, disabling TSO on the sending side 
+> "fixes" it.
+> 
+> Below is a dump of what the corruption look like. I've trimmed the
+> beginning and end of the dumped packet (the receiver does 8k 
+> reads). The
+> 0x5a are the expected data, the rest is corruption. They look like
+> kernel pointers, but that isn't always the case (often though but that
+> might not be relevant). The size and position within the buffer of the
+> corrupted data is variable (doesn't seem to be specifically a page or
+> anything nice and round like that).
+> 
+> I've configured the switch to send all the traffic between the two
+> machines to a 3rd box and then recorded it with tcpdump (the 
+> "spy" uses
+> an e1000) and I can see the corrupted data in the recorded
+> traces (the exact same pattern as detected by the receiver). 
+> So it seems
+> very likely at this point that the corruption happens on the sending
+> side. The TCP checksums are correct I assume. I don't see any error
+> count on the receiving tg3 nor suspicous message in dmesg indicating
+> they aren't.
+> 
+> That's all the data I have at this point. I can't guarantee 100% that
+> it's a TSO bug (it might be a bug that TSO renders visible 
+> due to timing
+> effects) but it looks like it since I've not reproduced yet with TSO
+> disabled. I'll do an overnight test to confirm that though... 
+> sometimes
+> the bug can take it's time to show up ... I've seen it wait 
+> 20Gb before
+> it kicked in. Also the fact that fully loading the machine never
+> produced it is strange.... smells like a race.
+> 
+> Cheers,
+> Ben.
+> 
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 00 00 00 00 00 00 00 00
+> 2f 63 70 75 73 00 7f 7e c0 00 00 00 01 cb 70 82
+> 00 00 00 04 bf 1d db 4d c0 00 00 00 01 cb 92 00
+> c0 00 00 01 7b fe 6d 98 c0 00 00 00 01 cb 70 91
+> 00 00 00 04 df 5d fe fd c0 00 00 00 01 cb 92 10
+> c0 00 00 01 7b fe 6d b8 c0 00 00 00 01 cb 71 0e
+> 00 00 00 04 fe e2 fb cf c0 00 00 00 01 cb 92 20
+> c0 00 00 01 7b fe 6d d8 c0 00 00 00 01 cb 71 1f
+> 00 00 00 04 73 69 ed ff c0 00 00 00 01 cb 92 30
+> c0 00 00 01 7b fe 6d f8 c0 00 00 00 01 cb 70 04
+> 00 00 00 04 b9 fe cf ff c0 00 00 00 01 cb 92 40
+> c0 00 00 01 7b fe 6e 18 c0 00 00 00 00 3f 7b c8
+> 00 00 00 05 ff df b9 bc c0 00 00 01 7b fe 6e 38
+> 00 00 00 00 00 00 00 00 63 70 75 73 00 8d f1 ce
+> c0 00 00 01 7b fe 73 60 c0 00 00 00 01 cb 92 64
+> ff 89 d6 80 ff 89 d6 80 00 00 00 01 00 00 00 00
+> c0 00 00 01 7b fe 68 00 c0 00 00 01 7b fe 6e c8
+> c0 00 00 01 7b fe 6e e0 00 00 00 00 00 00 00 00
+> c0 00 00 01 7b fe 6c e8 c0 00 00 01 7b fe 73 70
+> c0 00 00 01 7b fe 75 48 c0 00 00 01 7b fe 73 70
+> c0 00 00 01 7b fe 73 70 c0 00 00 01 7b fa 9e 80
+> 00 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00
+> 00 00 00 00 00 00 00 00 2f 63 70 75 73 2f 50 6f
+> 77 65 72 50 43 2c 47 35 40 30 00 7e 5e 6f 4d ef
+> c0 00 00 00 01 cb 70 6c 00 00 00 04 7f ee b7 fe
+> c0 00 00 00 01 cb 92 64 c0 00 00 01 7b fe 6f 00
+> c0 00 00 00 01 cb 71 35 00 00 00 04 bb cc e9 67
+> c0 00 00 00 01 cb 92 74 c0 00 00 01 7b fe 6f 20
+> c0 00 00 00 01 cb 71 39 00 00 00 04 2f fc eb b9
+> c0 00 00 00 01 cb 92 84 c0 00 00 01 7b fe 6f 40
+> c0 00 00 00 01 cb 71 3e 00 00 00 04 e7 5f be de
+> c0 00 00 00 01 cb 92 94 c0 00 00 01 7b fe 6f 60
+> c0 00 00 00 01 cb 71 49 00 00 00 04 e6 73 e7 a7
+> c0 00 00 00 01 cb 92 a4 c0 00 00 01 7b fe 6f 80
+> c0 00 00 00 01 cb 71 55 00 00 00 08 1b fb 77 f9
+> c0 00 00 00 01 cb 92 b4 c0 00 00 01 7b fe 6f a0
+> c0 00 00 00 01 cb 70 9d 00 00 00 04 b6 db 59 ef
+> c0 00 00 00 01 cb 92 c8 c0 00 00 01 7b fe 6f c0
+> c0 00 00 00 01 cb 71 5b 00 00 00 04 69 6f fc da
+> c0 00 00 00 01 cb 92 d8 c0 00 00 01 7b fe 6f e0
+> c0 00 00 00 01 cb 71 69 00 00 00 04 d6 7b 66 de
+> c0 00 00 00 01 cb 92 e8 c0 00 00 01 7b fe 70 00
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+> 
+ 
 
-Also you're using 3.5.10-k2, can you try the current git tree version instead? 
-I can send you the e100.c if wanted.
-
-Auke
