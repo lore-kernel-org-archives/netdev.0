@@ -1,45 +1,36 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Fri, 8 Sep 2006 17:10:08 +0400
-Message-ID: <200609081710.09124.dim@openvz.org>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <45004799.70000@sw.ru> <20060907172759.GB25118@MAIL.13thfloor.at>
+From: Erik Mouw <erik@harddisk-recovery.com>
+Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
+Date: Fri, 8 Sep 2006 15:23:17 +0200
+Message-ID: <20060908132317.GS26916@harddisk-recovery.com>
+References: <45006221.4090603@lwfinger.net> <20060908094204.GB26916@harddisk-recovery.com> <200609081145.28095.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Kirill Korotaev <dev@sw.ru>, devel@openvz.org,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, sam@vilain.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
+	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:56205 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S1751081AbWIHNLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 09:11:45 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060907172759.GB25118@MAIL.13thfloor.at>
+Received: from dtp.xs4all.nl ([80.126.206.180]:12344 "HELO abra2.bitwizard.nl")
+	by vger.kernel.org with SMTP id S1751086AbWIHNXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 09:23:19 -0400
+To: Michael Buesch <mb@bu3sch.de>
 Content-Disposition: inline
+In-Reply-To: <200609081145.28095.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 07 September 2006 21:27, Herbert Poetzl wrote:
-> well, who said that you need to have things like RAW sockets
-> or other protocols except IP, not to speak of iptable and
-> routing entries ...
->
-> folks who _want_ full network virtualization can use the
-> more complete virtual setup and be happy ...
-Let's think about how to implement this.
-As I understood VServer's design, your proposal is to split CAP_NET_ADMIN to
-multiple capabilities and use them if required. So, for your light-weight 
-container it is enough to implement context isolation for protected by 
-CAP_NET_IP capability (for example) code and put 'if (!capable(CAP_NET_*))' 
-checks to all other places. But this could be easily implemented over OpenVZ 
-code by CAP_VE_NET_ADMIN split.
+On Fri, Sep 08, 2006 at 11:45:27AM +0200, Michael Buesch wrote:
+> The crash is fixed in wireless-2.6.
+> The actual cause of the controller restart not. So at least it
+> does not crash anymore.
 
-So, the question is:
-Could you point out the places in Andrey's implementation of network 
-namespaces, which prevents you to add CAP_NET_ADMIN separation later?
+Thanks for the information, pulled wireless-2.6 and recompiling kernel.
+If this really fixes the problem, can we try to get it merged before
+2.6.18 closes? I don't know if vanilla 2.6.18-rc6 locks up on other
+hardware as well, but if it does it would be a major regression against
+2.6.17.
+
+
+Erik
 
 -- 
-Thanks,
-Dmitry.
++-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
+| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
