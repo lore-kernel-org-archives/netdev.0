@@ -1,52 +1,36 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
-Date: Fri, 8 Sep 2006 11:45:27 +0200
-Message-ID: <200609081145.28095.mb@bu3sch.de>
-References: <45006221.4090603@lwfinger.net> <20060908094204.GB26916@harddisk-recovery.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
-	Stefano Brivio <st3@riseup.net>,
-	Larry Finger <Larry.Finger@lwfinger.net>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
+Date: Fri, 08 Sep 2006 11:25:52 +0100
+Message-ID: <10720.1157711152@warthog.cambridge.redhat.com>
+References: <1157669602.22705.326.camel@localhost.localdomain>  <1157583693.22705.254.camel@localhost.localdomain> <20060906125626.GA3718@elte.hu> <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com> <17274.1157553962@warthog.cambridge.redhat.com> <8934.1157622928@warthog.cambridge.redhat.com>
+Cc: David Howells <dhowells@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	john stultz <johnstul@us.ibm.com>,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:25252
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750756AbWIHJqd
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Sep 2006 05:46:33 -0400
-To: Erik Mouw <erik@harddisk-recovery.com>
-In-Reply-To: <20060908094204.GB26916@harddisk-recovery.com>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:718 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750719AbWIHKbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 06:31:13 -0400
+In-Reply-To: <1157669602.22705.326.camel@localhost.localdomain> 
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 08 September 2006 11:42, Erik Mouw wrote:
-> On Thu, Sep 07, 2006 at 01:17:05PM -0500, Larry Finger wrote:
-> > I think I have a fix for the bcm43xx bug that leads to NETDEV WATCHDOG tx timeouts and would like it
-> > to get as much testing as possible as this bug affects V2.6.18-rcX. If the problem is truly
-> > fixed, I hope to get the fix into mainline before release of the bug into the stable series.
-> 
-> FWIW, I finally tracked down the bug that hangs my laptop to the
-> bcm43xx driver. At first I got the impression it was the cpufreq code
-> (which has been flaky in early 2.6.18-rc kernels), but after disabling
-> that my laptop still crashed. After that I disabled preempt cause I got
-> a couple of lockdep warnings when I had it enabled. That didn't make a
-> difference, laptop still hangs after some time (runs a couple of hours
-> at most). Right now I'm on wired network and my laptop finally doesn't
-> hang anymore (up for two days).
-> 
-> The hang is very hard to trigger (i.e.: it happens at random, I see no
-> pattern) and locks up the machine completely. I've tried to capture
-> kernel messages through serial console, but that doesn't work (lock up
-> before any messages are printed).
-> 
-> This is with any 2.6.18-rc kernel without additional patches or
-> proprietary modules, 2.6.17 works ok.
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-The crash is fixed in wireless-2.6.
-The actual cause of the controller restart not. So at least it
-does not crash anymore.
+> No, you do a chain handler. Look at how I do it in
+> arch/powerpc/platform/pseries/setup.c for example. It's actually
+> trivial. You install a special flow handler (which means that there is
+> very little overhead, almost none, from the toplevel irq to the chained
+> irq). You can _also_ if you want just install an IRQ handler for the
+> cascaded controller and call generic_handle_irq (rather than __do_IRQ)
+> from it, but that has more overhead. A chained handler completely
+> relaces the flow handler for the cascade, and thus, if you don't need
+> all of the nits and bits of the other flow handlers for your cascade,
+> you can speed things up by hooking at that level.
 
--- 
-Greetings Michael.
+Please update Documentation/DocBook/genericirq.tmpl.  That doesn't mention it.
+
+David
