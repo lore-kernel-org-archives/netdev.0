@@ -1,40 +1,123 @@
-From: "Gnome42 Gnome42" <gnome42@gmail.com>
-Subject: IPSec broken in 2.6.18-rc4-mm3
-Date: Fri, 8 Sep 2006 12:26:17 -0400
-Message-ID: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: [PATCH 2/7] secid reconciliation-v02: Add LSM hooks
+Date: Fri, 08 Sep 2006 11:50:36 -0500
+Message-ID: <45019F5C.3030102@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: jmorris@namei.org, sds@tycho.nsa.gov, chanson@trustedcs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.193]:52665 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1750912AbWIHQ0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Sep 2006 12:26:18 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so332952nzf
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2006 09:26:18 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:54376 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751078AbWIHQut
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Sep 2006 12:50:49 -0400
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Folks,
+Add skb_policy_check and skb_netfilter_check hooks to LSM to enable
+reconciliation of the various security identifiers as well as enforce
+flow control on inbound (INPUT/FORWARD) and outbound (OUTPUT/FORWARD)
+traffic.
 
-(please CC me ...)
+Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+---
+ include/linux/security.h |   32 ++++++++++++++++++++++++++++++++
+ security/dummy.c         |   13 +++++++++++++
+ 2 files changed, 45 insertions(+)
 
-IPSec got broken in 2.6.18-rc4-mm3+, 2.6.18-rc4-mm2 works and
-2.6.18-rc5 also works.
-
-The tunnel looks like its established correctly in the racoon logs and
-the traffic is encrypted on the wire. However, the other side does not
-decrypt the traffic it just seems to disappear.
-
-I have confirmed this problem exists between two linux boxen and a
-Netopia router as well.
-
-The git-net.patch increased in size by about 50% between
-2.6.18-rc4-mm2 and 2.6.18-rc4-mm3 (likely suspect?), but i was unable
-to simply patch -R it cleanly.
-
-Suggestions?
-
-Shane
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 9f56fb8..032cede 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -828,6 +828,12 @@ #ifdef CONFIG_SECURITY
+  *	Sets the new child socket's sid to the openreq sid.
+  * @req_classify_flow:
+  *	Sets the flow's sid to the openreq sid.
++ * @skb_policy_check:
++ *	Checks to see if security policy would allow skb into the system.
++ *	Returns 1 if skb allowed into system, 0 otherwise.
++ * @skb_netfilter_check:
++ *	Checks to see if security policy would allow skb to go out of system.
++ *	Returns 1 if skb allowed out of system, 0 otherwise.
+  *
+  * Security hooks for XFRM operations.
+  *
+@@ -1372,6 +1378,8 @@ #ifdef CONFIG_SECURITY_NETWORK
+ 					struct request_sock *req);
+ 	void (*inet_csk_clone)(struct sock *newsk, const struct request_sock *req);
+ 	void (*req_classify_flow)(const struct request_sock *req, struct flowi *fl);
++	int (*skb_policy_check)(struct sk_buff *skb, unsigned short family);
++	int (*skb_netfilter_check)(struct sk_buff *skb, u32 nf_secid);
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -2946,6 +2954,18 @@ static inline void security_req_classify
+ 	security_ops->req_classify_flow(req, fl);
+ }
+ 
++static inline int security_skb_policy_check(struct sk_buff *skb,
++					unsigned short family)
++{
++	return security_ops->skb_policy_check(skb, family);
++}
++
++static inline int security_skb_netfilter_check(struct sk_buff *skb,
++					u32 nf_secid)
++{
++	return security_ops->skb_netfilter_check(skb, nf_secid);
++}
++
+ static inline void security_sock_graft(struct sock* sk, struct socket *parent)
+ {
+ 	security_ops->sock_graft(sk, parent);
+@@ -3097,6 +3117,18 @@ static inline void security_req_classify
+ {
+ }
+ 
++static inline int security_skb_policy_check(struct sk_buff *skb,
++					unsigned short family)
++{
++	return 1;
++}
++
++static inline int security_skb_netfilter_check(struct sk_buff *skb,
++					u32 nf_secid)
++{
++	return 1;
++}
++
+ static inline void security_sock_graft(struct sock* sk, struct socket *parent)
+ {
+ }
+diff --git a/security/dummy.c b/security/dummy.c
+index aeee705..077d3c9 100644
+--- a/security/dummy.c
++++ b/security/dummy.c
+@@ -832,6 +832,17 @@ static inline void dummy_req_classify_fl
+ 			struct flowi *fl)
+ {
+ }
++
++static inline int dummy_skb_policy_check(struct sk_buff *skb,
++			unsigned short family)
++{
++	return 1;
++}
++
++static inline int dummy_skb_netfilter_check(struct sk_buff *skb, u32 nf_secid)
++{
++	return 1;
++}
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -1108,6 +1119,8 @@ #ifdef CONFIG_SECURITY_NETWORK
+ 	set_to_dummy_if_null(ops, inet_conn_request);
+ 	set_to_dummy_if_null(ops, inet_csk_clone);
+ 	set_to_dummy_if_null(ops, req_classify_flow);
++	set_to_dummy_if_null(ops, skb_policy_check);
++	set_to_dummy_if_null(ops, skb_netfilter_check);
+  #endif	/* CONFIG_SECURITY_NETWORK */
+ #ifdef  CONFIG_SECURITY_NETWORK_XFRM
+ 	set_to_dummy_if_null(ops, xfrm_policy_alloc_security);
