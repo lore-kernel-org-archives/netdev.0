@@ -1,93 +1,59 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [RFC] network namespaces
-Date: Fri, 8 Sep 2006 08:02:00 +0200
-Message-ID: <20060908060200.GC9343@MAIL.13thfloor.at>
-References: <54AD0F12E08D1541B826BE97C98F99F1963B59@NT-SJCA-0751.brcm.ad.broadcom.com> <44FFD794.7010802@fr.ibm.com> <m14pvjr0n2.fsf@ebiederm.dsl.xmission.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take17 1/4] kevent: Core files.
+Date: Fri, 8 Sep 2006 10:38:09 +0400
+Message-ID: <20060908063808.GA28736@2ka.mipt.ru>
+References: <1157623151215@2ka.mipt.ru> <200609072105.16061.shaw@vranix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
-	Caitlin Bestler <caitlinb@broadcom.com>, sam@vilain.net
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([213.145.232.33]:8835 "EHLO
-	MAIL.13thfloor.at") by vger.kernel.org with ESMTP id S1752158AbWIHGCB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Sep 2006 02:02:01 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54426 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751739AbWIHGix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 02:38:53 -0400
+To: shaw@vranix.com
 Content-Disposition: inline
-In-Reply-To: <m14pvjr0n2.fsf@ebiederm.dsl.xmission.com>
+In-Reply-To: <200609072105.16061.shaw@vranix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 07, 2006 at 12:29:21PM -0600, Eric W. Biederman wrote:
-> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
-> >
-> > IHMO, I think there is one reason. The unsharing mechanism is
-> > not only for containers, its aim other kind of isolation like a
-> > "bsdjail" for example. The unshare syscall is flexible, shall the
-> > network unsharing be one-block solution ? For example, we want to
-> > launch an application using TCP/IP and we want to have
-> > an IP address only used by the application, nothing more.
-> > With a layer 2, we must after unsharing:
-> >  1) create a virtual device into the application namespace
-> >  2) assign an IP address
-> >  3) create a virtual device pass-through in the root namespace
-> >  4) set the virtual device IP
-> >
-> > All this stuff, need a lot of administration (check mac addresses
-> > conflicts, check interface names collision in root namespace, ...)
-> > for a simple network isolation.
+On Thu, Sep 07, 2006 at 09:05:16PM -0700, shaw@vranix.com (shaw@vranix.com) wrote:
+> > +static int __devinit kevent_user_init(void)
+> > +{
+> > +	int err = 0;
+> > +
+> > +	kevent_cache = kmem_cache_create("kevent_cache",
+> > +			sizeof(struct kevent), 0, SLAB_PANIC, NULL, NULL);
+> > +
+> > +	err = misc_register(&kevent_miscdev);
+> > +	if (err) {
+> > +		printk(KERN_ERR "Failed to register kevent miscdev: err=%d.\n", err);
+> > +		goto err_out_exit;
+> > +	}
+> > +
+> > +	printk("KEVENT subsystem has been successfully registered.\n");
+> > +
+> > +	return 0;
+> > +
+> > +err_out_exit:
+> > +	kmem_cache_destroy(kevent_cache);
+> > +	return err;
+> > +}
 > 
-> Yes, and even more it is hard to show that it will perform as well.
-> Although by dropping CAP_NET_ADMIN the actual runtime administration
-> is about the same.
-> 
-> > With a layer 3:
-> >  1) assign an IP address
-> >
-> > In the other hand, a layer 3 isolation is not sufficient to reach
-> > the level of isolation/virtualization needed for the system
-> > containers.
-> 
-> Agreed.
-> 
-> > Very soon, I will commit more info at:
-> >
-> > http://wiki.openvz.org/Containers/Networking
-> >
-> > So the consensus is based on the fact that there is a lot of common
-> > code for the layer 2 and layer 3 isolation/virtualization and we can
-> > find a way to merge the 2 implementation in order to have a flexible
-> > network virtualization/isolation.
-> 
-> NACK In a real level 3 implementation there is very little common
-> code with a layer 2 implementation. You don't need to muck with the
-> socket handling code as you are not allowed to dup addresses between
-> containers. Look at what Serge did that is layer 3.
->
-> A layer 3 isolation implementation should either be a new security
-> module or a new form of iptables. The problem with using the lsm is
-> that it seems to be an all or nothing mechanism so is a very coarse
-> grained tool for this job.
+> It's probably best to treat kmem_cache_create like a black box and check for 
+> it returning null.
 
-IMHO LSM was never an option for that, because it is
-a) very complicated to use it for that purpose
-b) missing many hooks you definitely need to make this work
-c) is not really efficient and/or performant
+It can not return NULL, it will panic instead since I use SLAB_PANIC
+flag.
 
-with something 'like' iptables, this could be done, but
-I'm not sure that is the best approach either ...
+> Thanks,
+> Shaw
 
-best,
-Herbert
-
-> A layer 2 implementation (where you have network devices isolated and
-> not sockets) should be a namespace.
-> 
-> Eric
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.osdl.org
-> https://lists.osdl.org/mailman/listinfo/containers
+-- 
+	Evgeniy Polyakov
