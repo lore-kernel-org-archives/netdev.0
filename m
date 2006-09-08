@@ -1,46 +1,42 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Fri, 08 Sep 2006 13:29:52 +0100
-Message-ID: <21606.1157718592@warthog.cambridge.redhat.com>
-References: <1157669602.22705.326.camel@localhost.localdomain>  <1157583693.22705.254.camel@localhost.localdomain> <20060906125626.GA3718@elte.hu> <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com> <17274.1157553962@warthog.cambridge.redhat.com> <8934.1157622928@warthog.cambridge.redhat.com>
-Cc: David Howells <dhowells@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	john stultz <johnstul@us.ibm.com>,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH 1/1] cleanup unnecessary forcedeth printk
+Date: Fri, 8 Sep 2006 08:41:48 -0400
+Message-ID: <20060908124146.GA8138@gospo.rdu.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42153 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750964AbWIHMbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 08:31:55 -0400
-In-Reply-To: <1157669602.22705.326.camel@localhost.localdomain> 
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Received: from mx1.redhat.com ([66.187.233.31]:60080 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751003AbWIHMmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 08:42:50 -0400
+To: shemminger@osdl.org, aabdulla@nvidia.com, jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-> > > Now, if you have funky cascades, then you can always group them into a
-> > > virtual irq cascade line and have a special chained flow handler that
-> > > does all the "figuring out" off those... it's up to you. 
-> > 
-> > You make it sound so easy, but it's not obvious how to do this, apart from
-> > installing interrupt handlers for the auxiliary PIC interrupts on the CPU and
-> > having those call back into __do_IRQ().  Chaining isn't mentioned in
-> > genericirq.tmpl.
-> 
-> No, you do a chain handler. Look at how I do it in
-> arch/powerpc/platform/pseries/setup.c for example. It's actually
-> trivial. You install a special flow handler (which means that there is
-> very little overhead, almost none, from the toplevel irq to the chained
-> irq). You can _also_ if you want just install an IRQ handler for the
-> cascaded controller and call generic_handle_irq (rather than __do_IRQ)
-> from it, but that has more overhead. A chained handler completely
-> relaces the flow handler for the cascade, and thus, if you don't need
-> all of the nits and bits of the other flow handlers for your cascade,
-> you can speed things up by hooking at that level.
+This removes unnecessary messages that show up every time I put my
+ethernet card in promiscuous mode.  I'm already getting notification
+from the networking layer, I don't need notification from the driver as
+well.
 
-But funky cascading using chained flow handlers doesn't work if the cascade
-must share an IRQ with some other device, right?
+There are probably other drivers that do this as well -- I'll look
+around and see what I can find.
 
-David
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
+
+ forcedeth.c |    1 -
+ 1 files changed, 1 deletion(-)
+
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -2032,7 +2032,6 @@ static void nv_set_multicast(struct net_
+ 	memset(mask, 0, sizeof(mask));
+ 
+ 	if (dev->flags & IFF_PROMISC) {
+-		printk(KERN_NOTICE "%s: Promiscuous mode enabled.\n", dev->name);
+ 		pff |= NVREG_PFF_PROMISC;
+ 	} else {
+ 		pff |= NVREG_PFF_MYADDR;
