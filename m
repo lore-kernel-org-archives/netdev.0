@@ -1,42 +1,45 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH 1/1] cleanup unnecessary forcedeth printk
-Date: Fri, 8 Sep 2006 08:41:48 -0400
-Message-ID: <20060908124146.GA8138@gospo.rdu.redhat.com>
+From: Dmitry Mishin <dim@openvz.org>
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Fri, 8 Sep 2006 17:10:08 +0400
+Message-ID: <200609081710.09124.dim@openvz.org>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <45004799.70000@sw.ru> <20060907172759.GB25118@MAIL.13thfloor.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kirill Korotaev <dev@sw.ru>, devel@openvz.org,
+	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
+	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60080 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751003AbWIHMmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 08:42:50 -0400
-To: shemminger@osdl.org, aabdulla@nvidia.com, jgarzik@pobox.com
+Received: from mailhub.sw.ru ([195.214.233.200]:56205 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1751081AbWIHNLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 09:11:45 -0400
+To: Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060907172759.GB25118@MAIL.13thfloor.at>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday 07 September 2006 21:27, Herbert Poetzl wrote:
+> well, who said that you need to have things like RAW sockets
+> or other protocols except IP, not to speak of iptable and
+> routing entries ...
+>
+> folks who _want_ full network virtualization can use the
+> more complete virtual setup and be happy ...
+Let's think about how to implement this.
+As I understood VServer's design, your proposal is to split CAP_NET_ADMIN to
+multiple capabilities and use them if required. So, for your light-weight 
+container it is enough to implement context isolation for protected by 
+CAP_NET_IP capability (for example) code and put 'if (!capable(CAP_NET_*))' 
+checks to all other places. But this could be easily implemented over OpenVZ 
+code by CAP_VE_NET_ADMIN split.
 
-This removes unnecessary messages that show up every time I put my
-ethernet card in promiscuous mode.  I'm already getting notification
-from the networking layer, I don't need notification from the driver as
-well.
+So, the question is:
+Could you point out the places in Andrey's implementation of network 
+namespaces, which prevents you to add CAP_NET_ADMIN separation later?
 
-There are probably other drivers that do this as well -- I'll look
-around and see what I can find.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
-
- forcedeth.c |    1 -
- 1 files changed, 1 deletion(-)
-
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -2032,7 +2032,6 @@ static void nv_set_multicast(struct net_
- 	memset(mask, 0, sizeof(mask));
- 
- 	if (dev->flags & IFF_PROMISC) {
--		printk(KERN_NOTICE "%s: Promiscuous mode enabled.\n", dev->name);
- 		pff |= NVREG_PFF_PROMISC;
- 	} else {
- 		pff |= NVREG_PFF_MYADDR;
+-- 
+Thanks,
+Dmitry.
