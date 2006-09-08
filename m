@@ -1,42 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPSec broken in 2.6.18-rc4-mm3
-Date: Fri, 08 Sep 2006 21:52:33 +0200
-Message-ID: <4501CA01.3050904@trash.net>
-References: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Fri, 08 Sep 2006 12:54:16 -0700
+Message-ID: <1157745256.5344.8.camel@rh4>
+References: <1551EAE59135BE47B544934E30FC4FC093FB19@NT-IRVA-0751.brcm.ad.broadcom.com>
+ <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"Linux Kernel list" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:30093 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751120AbWIHTwO
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Sep 2006 15:52:14 -0400
-To: Gnome42 Gnome42 <gnome42@gmail.com>
-In-Reply-To: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:2055 "EHLO mms1.broadcom.com")
+	by vger.kernel.org with ESMTP id S1751122AbWIHT4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 15:56:17 -0400
+To: "Segher Boessenkool" <segher@kernel.crashing.org>
+In-Reply-To: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gnome42 Gnome42 wrote:
-> IPSec got broken in 2.6.18-rc4-mm3+, 2.6.18-rc4-mm2 works and
-> 2.6.18-rc5 also works.
-> 
-> The tunnel looks like its established correctly in the racoon logs and
-> the traffic is encrypted on the wire. However, the other side does not
-> decrypt the traffic it just seems to disappear.
+On Fri, 2006-09-08 at 21:29 +0200, Segher Boessenkool wrote:
 
-Can you see the decrypted packets on the incoming interface on the
-other side?
-
-> I have confirmed this problem exists between two linux boxen and a
-> Netopia router as well.
+> I've got a patch that seems so solve the problem, it needs more testing
+> though (maybe Ben can do this :-) ).  The problem is that there should
+> be quite a few wmb()'s in the code that are just not there; adding some
+> to tg3_set_txd() seems to fix the immediate problem but more is needed
+> (and I don't see why those should be needed, unless tg3_set_txd() is
+> updating a life ring entry in place or something like that).
 > 
-> The git-net.patch increased in size by about 50% between
-> 2.6.18-rc4-mm2 and 2.6.18-rc4-mm3 (likely suspect?), but i was unable
-> to simply patch -R it cleanly.
+> More testing is needed, but the problem is definitely the lack of memory
+> ordering.
 > 
-> Suggestions?
-
-Please post your policies and related SAs from both sides.
-Are you using NAT, iptables or anything like that?
+Oh, we know about this.  The powerpc writel() used to have memory
+barriers in 2.4 kernels but not any more in 2.6 kernels.  Red Hat's
+version of tg3 has extra wmb()'s to fix this problem.  David doesn't
+think that the upstream version of tg3 should have these wmb()'s, and
+the problem should instead be fixed in powerpc's writel().
 
