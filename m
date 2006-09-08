@@ -1,53 +1,35 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Sat, 09 Sep 2006 08:49:33 +1000
-Message-ID: <1157755773.31071.118.camel@localhost.localdomain>
-References: <1551EAE59135BE47B544934E30FC4FC093FB19@NT-IRVA-0751.brcm.ad.broadcom.com>
-	 <1157751689.31071.97.camel@localhost.localdomain>
-	 <1157753242.9584.4.camel@rh4>
-	 <1157754326.31071.115.camel@localhost.localdomain>
-	 <1157755220.9584.21.camel@rh4>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Anton Blanchard <anton@samba.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] ethtool: e1000: fix a typo
+Date: Fri, 08 Sep 2006 16:13:30 -0700
+Message-ID: <20060908231330.21557.8126.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:10122 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1751150AbWIHWtu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 18:49:50 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1157755220.9584.21.camel@rh4>
+Received: from [63.64.152.142] ([63.64.152.142]:32012 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751242AbWIHXE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 19:04:57 -0400
+To: jgarzik@pobox.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Auke Kok <auke-jan.h.kok@intel.com>
 
-> > I'd rather not have to do that, or even if I go that way, not have to
-> > add that sync at all before the store and thus get back the few percent
-> > of perfs lost due to those sync's on some heavy IO benchmarks.
-> > 
-> Another way to fix this without requiring drivers to add all kinds of
-> barriers in the driver code is to add a writel_sync() variant.  So on
-> powerpc, writel_sync() will have a sync before and after the write.  On
-> most other architectures, writel_sync() is the same as writel() if the
-> ordering is guaranteed.  We'll then convert tg3 and other drivers to use
-> writel_sync() in places where they're needed.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-I think the preferred approach for that sort of thing is to have writel
-be the "sync" version and add special "relaxed" version. Now there have
-been talks and debates about relaxed IOs but they generally map to
-something different, typically IOs that are relaxed vs. DMA (PCI-X/PCIe
-relaxed ordering options for example).
+ e1000.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Adding yet another round of IO accessors sounds like a bit nasty to me,
-driver writers will potentially not understand which ones to use etc...
-
-Anyway, I think I'll let Anton and Paulus argue that one for now.
-
-Cheers,
-Ben.
-
+diff --git a/e1000.c b/e1000.c
+index 6de27ca..6741323 100644
+--- a/e1000.c
++++ b/e1000.c
+@@ -372,7 +372,7 @@ e1000_dump_regs(struct ethtool_drvinfo *
+ 		"      Descriptor minimum threshold size: %s\n"
+ 		"      Broadcast accept mode:             %s\n"
+ 		"      VLAN filter:                       %s\n"
+-		"      Cononical form indicator:          %s\n"
++		"      Canonical form indicator:          %s\n"
+ 		"      Discard pause frames:              %s\n"
+ 		"      Pass MAC control frames:           %s\n",
+ 		reg,
 
