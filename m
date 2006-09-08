@@ -1,342 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC] Alternate WE-21 support (core API)
-Date: Fri, 8 Sep 2006 16:04:05 -0400
-Message-ID: <20060908200359.GA9354@tuxdriver.com>
-References: <20060830005655.GA8405@bougret.hpl.hp.com> <1157031138.16040.17.camel@ux156> <20060831135112.GA6097@jm.kir.nu> <1157032805.16040.21.camel@ux156> <20060906205538.GA29767@tuxdriver.com> <20060906213053.GA21719@bougret.hpl.hp.com> <20060908142913.GD23852@tuxdriver.com> <20060908161345.GA27036@bougret.hpl.hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH,RFC] Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Fri, 8 Sep 2006 22:23:36 +0200
+Message-ID: <20060908202336.GA23545@electric-eye.fr.zoreil.com>
+References: <20060728101109.GA25854@xi.wantstofly.org> <20060818212852.GA5379@xi.wantstofly.org> <20060820213558.GA13188@electric-eye.fr.zoreil.com> <20060904220741.GE3782@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Jouni Malinen <jkmaline@cc.hut.fi>, netdev@vger.kernel.org,
-	Javier Achirica <achirica@gmail.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	Jeroen Vreeken <pe1rxq@amsat.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Michael Buesch <mbuesch@freenet.de>
+Cc: netdev@vger.kernel.org, tbm@cyrius.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4371 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751186AbWIHUMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 16:12:05 -0400
-To: Jean Tourrilhes <jt@hpl.hp.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:63362 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751206AbWIHUYd
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Sep 2006 16:24:33 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Content-Disposition: inline
-In-Reply-To: <20060908161345.GA27036@bougret.hpl.hp.com>
+In-Reply-To: <20060904220741.GE3782@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 08, 2006 at 09:13:45AM -0700, Jean Tourrilhes wrote:
-> On Fri, Sep 08, 2006 at 10:29:23AM -0400, John W. Linville wrote:
-> > On Wed, Sep 06, 2006 at 02:30:53PM -0700, Jean Tourrilhes wrote:
-> > > On Wed, Sep 06, 2006 at 04:55:44PM -0400, John W. Linville wrote:
-> > 
-> > > > + * V20 to V21
-> > > > + * ----------
-> > > > + *	- Remove (struct net_device *)->get_wireless_stats()
-> > > > + *	- Change length in ESSID and NICK to strlen() instead of strlen()+1
-> > > > + *	- Add IW_RETRY_SHORT/IW_RETRY_LONG retry modifiers
-> > > > + *	- Add explicit flag to tell stats are in 802.11k RCPI : IW_QUAL_RCPI
-> > > 
-> > > 	Personally, I would also add this :
-> > > 
-> > > + *	- Power/Retry relative values no longer * 100000
-> > >
-> > > 	Three reason :
-> > > 		1) It's a cleanup and does not add any new feature
-> > > 		2) It does not change the rest of the patches
-> > > 		3) Userspace part has already gone in distro, not
-> > > including this bit would mean breaking userspace.
-> > 
-> > Is there any code that corresponds to that?  Or does the comment
-> > simply indicate policy?
-> 
-> 	There is no code in the core of the WE, so it only indicates
-> policy. But, I believe policy change need to be documented.
-> 	On the other hand you will find code in the tiacx patch.
+Lennert Buytenhek <buytenh@wantstofly.org> :
+[...]
+> I suspect it's a chip bug.  I rechecked with I/O space, and that works
+> okay, so this artifact (bug) only manifests itself when you do the upper
+> write in MMIO space.
+>
+> Are there any plans to switch r8169 to the iomap API?  Would you take
+> a patch if I'd write one?
 
-Fair enough...
+Given the current state of the r8169 driver, I do not see a lot of
+benefit from the iomap() API in itself.
 
-Any objections?
+It could make the switch to I/O read/write easier for strange bugs
+like your but I have an epidermic defiance against I/O ops (much too 
+synchronizing for me: people forget that MMIO will post). I may
+change my mind if bugs start poping up like mushrooms but we are
+hopefully not there yet.
 
----
+An ordered write with a big sign in front of it to comment the issue
+is good enough for me.
 
-
-This is version 21 of the Wireless Extensions. Changelog :
-	o finishes migrating the ESSID API (remove the +1)
-	o netdev->get_wireless_stats is no more
-	o long/short retry
-
-This is a redacted version of a patch originally submitted by Jean
-Tourrilhes.  I removed most of the additions, in order to minimize
-future support requirements for nl80211 (or other WE successor).
-
-CC: Jean Tourrilhes <jt@hpl.hp.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- include/linux/netdevice.h |    1 -
- include/linux/wireless.h  |   23 +++++++++++++--
- net/core/net-sysfs.c      |    5 +--
- net/core/wireless.c       |   67 ++++++++++++++++++++++++++++-----------------
- 4 files changed, 61 insertions(+), 35 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 50a4719..91dc36c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -334,7 +334,6 @@ #define NETIF_F_ALL_CSUM	(NETIF_F_IP_CSU
- 
- 
- 	struct net_device_stats* (*get_stats)(struct net_device *dev);
--	struct iw_statistics*	(*get_wireless_stats)(struct net_device *dev);
- 
- 	/* List of functions to handle Wireless Extensions (instead of ioctl).
- 	 * See <net/iw_handler.h> for details. Jean II */
-diff --git a/include/linux/wireless.h b/include/linux/wireless.h
-index 1358856..7a5860f 100644
---- a/include/linux/wireless.h
-+++ b/include/linux/wireless.h
-@@ -1,7 +1,7 @@
- /*
-  * This file define a set of standard wireless extensions
-  *
-- * Version :	20	17.2.06
-+ * Version :	21	14.3.06
-  *
-  * Authors :	Jean Tourrilhes - HPL - <jt@hpl.hp.com>
-  * Copyright (c) 1997-2006 Jean Tourrilhes, All Rights Reserved.
-@@ -69,9 +69,14 @@ #define _LINUX_WIRELESS_H
- 
- /***************************** INCLUDES *****************************/
- 
-+/* This header is used in user-space, therefore need to be sanitised
-+ * for that purpose. Those includes are usually not compatible with glibc.
-+ * To know which includes to use in user-space, check iwlib.h. */
-+#ifdef __KERNEL__
- #include <linux/types.h>		/* for "caddr_t" et al		*/
- #include <linux/socket.h>		/* for "struct sockaddr" et al	*/
- #include <linux/if.h>			/* for IFNAMSIZ and co... */
-+#endif	/* __KERNEL__ */
- 
- /***************************** VERSION *****************************/
- /*
-@@ -80,7 +85,7 @@ #include <linux/if.h>			/* for IFNAMSIZ 
-  * (there is some stuff that will be added in the future...)
-  * I just plan to increment with each new version.
-  */
--#define WIRELESS_EXT	20
-+#define WIRELESS_EXT	21
- 
- /*
-  * Changes :
-@@ -208,6 +213,14 @@ #define WIRELESS_EXT	20
-  * V19 to V20
-  * ----------
-  *	- RtNetlink requests support (SET/GET)
-+ *
-+ * V20 to V21
-+ * ----------
-+ *	- Remove (struct net_device *)->get_wireless_stats()
-+ *	- Change length in ESSID and NICK to strlen() instead of strlen()+1
-+ *	- Add IW_RETRY_SHORT/IW_RETRY_LONG retry modifiers
-+ *	- Power/Retry relative values no longer * 100000
-+ *	- Add explicit flag to tell stats are in 802.11k RCPI : IW_QUAL_RCPI
-  */
- 
- /**************************** CONSTANTS ****************************/
-@@ -448,6 +460,7 @@ #define IW_QUAL_DBM		0x08	/* Level + Noi
- #define IW_QUAL_QUAL_INVALID	0x10	/* Driver doesn't provide value */
- #define IW_QUAL_LEVEL_INVALID	0x20
- #define IW_QUAL_NOISE_INVALID	0x40
-+#define IW_QUAL_RCPI		0x80	/* Level + Noise are 802.11k RCPI */
- #define IW_QUAL_ALL_INVALID	0x70
- 
- /* Frequency flags */
-@@ -500,10 +513,12 @@ #define IW_RETRY_ON		0x0000	/* No detail
- #define IW_RETRY_TYPE		0xF000	/* Type of parameter */
- #define IW_RETRY_LIMIT		0x1000	/* Maximum number of retries*/
- #define IW_RETRY_LIFETIME	0x2000	/* Maximum duration of retries in us */
--#define IW_RETRY_MODIFIER	0x000F	/* Modify a parameter */
-+#define IW_RETRY_MODIFIER	0x00FF	/* Modify a parameter */
- #define IW_RETRY_MIN		0x0001	/* Value is a minimum  */
- #define IW_RETRY_MAX		0x0002	/* Value is a maximum */
- #define IW_RETRY_RELATIVE	0x0004	/* Value is not in seconds/ms/us */
-+#define IW_RETRY_SHORT		0x0010	/* Value is for short packets  */
-+#define IW_RETRY_LONG		0x0020	/* Value is for long packets */
- 
- /* Scanning request flags */
- #define IW_SCAN_DEFAULT		0x0000	/* Default scan of the driver */
-@@ -1017,7 +1032,7 @@ struct	iw_range
- 	/* Note : this frequency list doesn't need to fit channel numbers,
- 	 * because each entry contain its channel index */
- 
--	__u32		enc_capa; /* IW_ENC_CAPA_* bit field */
-+	__u32		enc_capa;	/* IW_ENC_CAPA_* bit field */
- };
- 
- /*
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 1347276..f47f319 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -344,8 +344,6 @@ static ssize_t wireless_show(struct clas
- 		if(dev->wireless_handlers &&
- 		   dev->wireless_handlers->get_wireless_stats)
- 			iw = dev->wireless_handlers->get_wireless_stats(dev);
--		else if (dev->get_wireless_stats)
--			iw = dev->get_wireless_stats(dev);
- 		if (iw != NULL)
- 			ret = (*format)(iw, buf);
- 	}
-@@ -465,8 +463,7 @@ int netdev_register_sysfs(struct net_dev
- 		*groups++ = &netstat_group;
- 
- #ifdef WIRELESS_EXT
--	if (net->get_wireless_stats
--	    || (net->wireless_handlers && net->wireless_handlers->get_wireless_stats))
-+	if (net->wireless_handlers && net->wireless_handlers->get_wireless_stats)
- 		*groups++ = &wireless_group;
- #endif
- 
-diff --git a/net/core/wireless.c b/net/core/wireless.c
-index de0bde4..61457d8 100644
---- a/net/core/wireless.c
-+++ b/net/core/wireless.c
-@@ -68,6 +68,14 @@
-  *
-  * v8 - 17.02.06 - Jean II
-  *	o RtNetlink requests support (SET/GET)
-+ *
-+ * v8b - 03.08.06 - Herbert Xu
-+ *	o Fix Wireless Event locking issues.
-+ *
-+ * v9 - 14.3.06 - Jean II
-+ *	o Change length in ESSID and NICK to strlen() instead of strlen()+1
-+ *	o Make standard_ioctl_num and standard_event_num unsigned
-+ *	o Remove (struct net_device *)->get_wireless_stats()
-  */
- 
- /***************************** INCLUDES *****************************/
-@@ -234,24 +242,24 @@ static const struct iw_ioctl_description
- 	[SIOCSIWESSID	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= 1,
--		.max_tokens	= IW_ESSID_MAX_SIZE + 1,
-+		.max_tokens	= IW_ESSID_MAX_SIZE,
- 		.flags		= IW_DESCR_FLAG_EVENT,
- 	},
- 	[SIOCGIWESSID	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= 1,
--		.max_tokens	= IW_ESSID_MAX_SIZE + 1,
-+		.max_tokens	= IW_ESSID_MAX_SIZE,
- 		.flags		= IW_DESCR_FLAG_DUMP,
- 	},
- 	[SIOCSIWNICKN	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= 1,
--		.max_tokens	= IW_ESSID_MAX_SIZE + 1,
-+		.max_tokens	= IW_ESSID_MAX_SIZE,
- 	},
- 	[SIOCGIWNICKN	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= 1,
--		.max_tokens	= IW_ESSID_MAX_SIZE + 1,
-+		.max_tokens	= IW_ESSID_MAX_SIZE,
- 	},
- 	[SIOCSIWRATE	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_PARAM,
-@@ -338,8 +346,8 @@ static const struct iw_ioctl_description
- 		.max_tokens	= sizeof(struct iw_pmksa),
- 	},
- };
--static const int standard_ioctl_num = (sizeof(standard_ioctl) /
--				       sizeof(struct iw_ioctl_description));
-+static const unsigned standard_ioctl_num = (sizeof(standard_ioctl) /
-+					    sizeof(struct iw_ioctl_description));
- 
- /*
-  * Meta-data about all the additional standard Wireless Extension events
-@@ -389,8 +397,8 @@ static const struct iw_ioctl_description
- 		.max_tokens	= sizeof(struct iw_pmkid_cand),
- 	},
- };
--static const int standard_event_num = (sizeof(standard_event) /
--				       sizeof(struct iw_ioctl_description));
-+static const unsigned standard_event_num = (sizeof(standard_event) /
-+					    sizeof(struct iw_ioctl_description));
- 
- /* Size (in bytes) of the various private data types */
- static const char iw_priv_type_size[] = {
-@@ -465,17 +473,6 @@ static inline struct iw_statistics *get_
- 	   (dev->wireless_handlers->get_wireless_stats != NULL))
- 		return dev->wireless_handlers->get_wireless_stats(dev);
- 
--	/* Old location, field to be removed in next WE */
--	if(dev->get_wireless_stats) {
--		static int printed_message;
--
--		if (!printed_message++)
--			printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
--				dev->name);
--
--		return dev->get_wireless_stats(dev);
--	}
--
- 	/* Not found */
- 	return (struct iw_statistics *) NULL;
- }
-@@ -1843,8 +1840,33 @@ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK 
-  */
- 
- #ifdef WE_EVENT_RTNETLINK
-+/* ---------------------------------------------------------------- */
-+/*
-+ * Locking...
-+ * ----------
-+ *
-+ * Thanks to Herbert Xu <herbert@gondor.apana.org.au> for fixing
-+ * the locking issue in here and implementing this code !
-+ *
-+ * The issue : wireless_send_event() is often called in interrupt context,
-+ * while the Netlink layer can never be called in interrupt context.
-+ * The fully formed RtNetlink events are queued, and then a tasklet is run
-+ * to feed those to Netlink.
-+ * The skb_queue is interrupt safe, and its lock is not held while calling
-+ * Netlink, so there is no possibility of dealock.
-+ * Jean II
-+ */
-+
- static struct sk_buff_head wireless_nlevent_queue;
- 
-+static int __init wireless_nlevent_init(void)
-+{
-+	skb_queue_head_init(&wireless_nlevent_queue);
-+	return 0;
-+}
-+
-+subsys_initcall(wireless_nlevent_init);
-+
- static void wireless_nlevent_process(unsigned long data)
- {
- 	struct sk_buff *skb;
-@@ -1921,13 +1943,6 @@ static inline void rtmsg_iwinfo(struct n
- 	tasklet_schedule(&wireless_nlevent_tasklet);
- }
- 
--static int __init wireless_nlevent_init(void)
--{
--	skb_queue_head_init(&wireless_nlevent_queue);
--	return 0;
--}
--
--subsys_initcall(wireless_nlevent_init);
- #endif	/* WE_EVENT_RTNETLINK */
- 
- /* ---------------------------------------------------------------- */
--- 
-1.4.2.GIT
+Don't hesitate to protest if you think that I need a clue.
 
 -- 
-John W. Linville
-linville@tuxdriver.com
+Ueimor
