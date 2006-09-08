@@ -1,98 +1,101 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/2] loopback: minor statistics optimization
-Date: Fri, 8 Sep 2006 11:20:56 -0700
-Message-ID: <20060908112056.7ef03bac@localhost.localdomain>
-References: <20060908111613.12c1f9b8@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:2203 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750756AbWIHSVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2006 14:21:19 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060908111613.12c1f9b8@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+From: Valerie Henson <val_henson@linux.intel.com>
+Subject: [patch 08/10] [TULIP] Handle pci_enable_device() errors in resume
+Date: Fri, 08 Sep 2006 11:15:41 -0700
+Message-ID: <20060908182024.372546000@linux.intel.com>
+References: <20060908181533.771856000@linux.intel.com>
+Cc: Valerie Henson <val_henson@linux.intel.com>,
+	Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751089AbWIHSWA@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Disposition: inline; filename=tulip-handle-pci_enable_device-errors
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Minor loopback enhancements for 2.6.19
+Signed-off-by: Valerie Henson <val_henson@linux.intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 
-The loopback device status structure is a singleton and doesn't
-need to be allocated. Add ethtool_ops hooks to show checksum always on,
-and make ethtool_ops const.
+---
+ drivers/net/tulip/de2104x.c     |   16 ++++++++++------
+ drivers/net/tulip/tulip_core.c  |    5 ++++-
+ drivers/net/tulip/winbond-840.c |   12 ++++++++----
+ 3 files changed, 22 insertions(+), 11 deletions(-)
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-
---- linux-2.6.orig/drivers/net/loopback.c
-+++ linux-2.6/drivers/net/loopback.c
-@@ -161,15 +161,13 @@ static int loopback_xmit(struct sk_buff 
- 	return(0);
- }
+--- linux-2.6.18-rc4-mm1-tulip.orig/drivers/net/tulip/tulip_core.c
++++ linux-2.6.18-rc4-mm1-tulip/drivers/net/tulip/tulip_core.c
+@@ -1780,7 +1780,10 @@ static int tulip_resume(struct pci_dev *
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
  
-+static struct net_device_stats loopback_stats;
-+
- static struct net_device_stats *get_stats(struct net_device *dev)
+-	pci_enable_device(pdev);
++	if ((retval = pci_enable_device(pdev))) {
++		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");
++		return retval;
++	}
+ 
+ 	if ((retval = request_irq(dev->irq, &tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
+ 		printk (KERN_ERR "tulip: request_irq failed in resume\n");
+--- linux-2.6.18-rc4-mm1-tulip.orig/drivers/net/tulip/winbond-840.c
++++ linux-2.6.18-rc4-mm1-tulip/drivers/net/tulip/winbond-840.c
+@@ -1626,14 +1626,18 @@ static int w840_resume (struct pci_dev *
  {
--	struct net_device_stats *stats = dev->priv;
-+	struct net_device_stats *stats = &loopback_stats;
- 	int i;
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+ 	struct netdev_private *np = netdev_priv(dev);
++	int retval = 0;
  
--	if (!stats) {
--		return NULL;
--	}
+ 	rtnl_lock();
+ 	if (netif_device_present(dev))
+ 		goto out; /* device not suspended */
+ 	if (netif_running(dev)) {
+-		pci_enable_device(pdev);
+-	/*	pci_power_on(pdev); */
 -
- 	memset(stats, 0, sizeof(struct net_device_stats));
- 
- 	for_each_possible_cpu(i) {
-@@ -185,19 +183,28 @@ static struct net_device_stats *get_stat
- 	return stats;
++		if ((retval = pci_enable_device(pdev))) {
++			printk (KERN_ERR
++				"%s: pci_enable_device failed in resume\n",
++				dev->name);
++			goto out;
++		}
+ 		spin_lock_irq(&np->lock);
+ 		iowrite32(1, np->base_addr+PCIBusCfg);
+ 		ioread32(np->base_addr+PCIBusCfg);
+@@ -1651,7 +1655,7 @@ static int w840_resume (struct pci_dev *
+ 	}
+ out:
+ 	rtnl_unlock();
+-	return 0;
++	return retval;
  }
+ #endif
  
--static u32 loopback_get_link(struct net_device *dev)
-+static u32 always_on(struct net_device *dev)
+--- linux-2.6.18-rc4-mm1-tulip.orig/drivers/net/tulip/de2104x.c
++++ linux-2.6.18-rc4-mm1-tulip/drivers/net/tulip/de2104x.c
+@@ -2138,17 +2138,21 @@ static int de_resume (struct pci_dev *pd
  {
- 	return 1;
- }
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+ 	struct de_private *de = dev->priv;
++	int retval = 0;
  
--static struct ethtool_ops loopback_ethtool_ops = {
--	.get_link		= loopback_get_link,
-+static const struct ethtool_ops loopback_ethtool_ops = {
-+	.get_link		= always_on,
- 	.get_tso		= ethtool_op_get_tso,
- 	.set_tso		= ethtool_op_set_tso,
-+	.get_tx_csum		= always_on,
-+	.get_sg			= always_on,
-+	.get_rx_csum		= always_on,
- };
- 
-+/*
-+ * The loopback device is special. There is only one instance and
-+ * it is statically allocated. Don't do this for other devices.
-+ */
- struct net_device loopback_dev = {
- 	.name	 		= "lo",
-+	.get_stats		= &get_stats,
-+	.priv			= &loopback_stats,
- 	.mtu			= (16 * 1024) + 20 + 20 + 12,
- 	.hard_start_xmit	= loopback_xmit,
- 	.hard_header		= eth_header,
-@@ -221,16 +228,6 @@ struct net_device loopback_dev = {
- /* Setup and register the loopback device. */
- int __init loopback_init(void)
- {
--	struct net_device_stats *stats;
--
--	/* Can survive without statistics */
--	stats = kmalloc(sizeof(struct net_device_stats), GFP_KERNEL);
--	if (stats) {
--		memset(stats, 0, sizeof(struct net_device_stats));
--		loopback_dev.priv = stats;
--		loopback_dev.get_stats = &get_stats;
--	}
--	
- 	return register_netdev(&loopback_dev);
- };
- 
+ 	rtnl_lock();
+ 	if (netif_device_present(dev))
+ 		goto out;
+-	if (netif_running(dev)) {
+-		pci_enable_device(pdev);
+-		de_init_hw(de);
+-		netif_device_attach(dev);
+-	} else {
+-		netif_device_attach(dev);
++	if (!netif_running(dev))
++		goto out_attach;
++	if ((retval = pci_enable_device(pdev))) {
++		printk (KERN_ERR "%s: pci_enable_device failed in resume\n",
++			dev->name);
++		goto out;
+ 	}
++	de_init_hw(de);
++out_attach:
++	netif_device_attach(dev);
+ out:
+ 	rtnl_unlock();
+ 	return 0;
+
+--
