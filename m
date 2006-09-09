@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Sat, 09 Sep 2006 02:22:28 -0700 (PDT)
-Message-ID: <20060909.022228.41644790.davem@davemloft.net>
-References: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
-	<1157745256.5344.8.camel@rh4>
-	<1157751962.31071.102.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPSec broken in 2.6.18-rc4-mm3
+Date: Sat, 09 Sep 2006 15:56:46 +0200
+Message-ID: <4502C81E.600@trash.net>
+References: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>	 <4501CA01.3050904@trash.net> <fa4052ef0609081332l3c4d25a3xe5e315482884e1a8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, segher@kernel.crashing.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulus@samba.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23994
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751082AbWIIJVz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Sep 2006 05:21:55 -0400
-To: benh@kernel.crashing.org
-In-Reply-To: <1157751962.31071.102.camel@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:62672 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932187AbWIIN43
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Sep 2006 09:56:29 -0400
+To: Gnome42 Gnome42 <gnome42@gmail.com>
+In-Reply-To: <fa4052ef0609081332l3c4d25a3xe5e315482884e1a8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Sat, 09 Sep 2006 07:46:02 +1000
+Gnome42 Gnome42 wrote:
+> On 9/8/06, Patrick McHardy <kaber@trash.net> wrote:
+>>
+>> Can you see the decrypted packets on the incoming interface on the
+>> other side?
+> 
+> 
+> No, not the decrypted ones only the encrypted ones. I never see the
+> decrypted packets. ( I should see them twice right? Once encrypted and
+> once decrypted?)
 
-> I don't think that in general, you have ordering guarantees between
-> cacheable and non-cacheable stores unless you use explicit barriers.
+Yes.
 
-In fact, on most systems you absolutely do have ordering between
-MMIO and memory accesses.
+>> Please post your policies and related SAs from both sides.
+>> Are you using NAT, iptables or anything like that?
+> 
+> 
+> [...]
+> ... or did you mean dumps from setkey -D[P]?
 
-So you are making an extremely poor engineering decision
-by trying to fixup all the drivers to match PowerPC's
-semantics.  I think a smart engineer would decrease his
-debugging burdon, by matching his platform's MMIO accessors
-such that it matches what other platforms do and therefore
-inheriting the testing coverage provided by all platforms.
+Yes, I meant the SAs. But please use "ip -s xfrm state" and "ip -s xfrm
+policy" (on both sides), they include a bit more information than
+setkey.
 
-Otherwise you will be hunting down these kinds of memory
-barrier issues forever.
