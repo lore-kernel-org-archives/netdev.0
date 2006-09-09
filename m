@@ -1,52 +1,80 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
-Date: Sat, 09 Sep 2006 15:42:37 -0400
-Message-ID: <4503192D.4010509@gentoo.org>
-References: <45021D4A.6040805@lwfinger.net>
-	<20060909152305.GA27080@tuxdriver.com>
-	<4502E62B.5060601@lwfinger.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Sun, 10 Sep 2006 08:36:06 +1000
+Message-ID: <1157841367.31071.182.camel@localhost.localdomain>
+References: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
+	 <1157745256.5344.8.camel@rh4>
+	 <1157751962.31071.102.camel@localhost.localdomain>
+	 <20060909.022228.41644790.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Broadcom Linux <bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-In-Reply-To: <4502E62B.5060601-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: mchan@broadcom.com, segher@kernel.crashing.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulus@samba.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:51349 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S964985AbWIIWgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2006 18:36:39 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060909.022228.41644790.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+On Sat, 2006-09-09 at 02:22 -0700, David Miller wrote:
+> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date: Sat, 09 Sep 2006 07:46:02 +1000
+> 
+> > I don't think that in general, you have ordering guarantees between
+> > cacheable and non-cacheable stores unless you use explicit barriers.
+> 
+> In fact, on most systems you absolutely do have ordering between
+> MMIO and memory accesses.
 
-Larry Finger wrote:
-> I would like to get a listing of patches for bcm43xx-softmac that are 
-> queued but not yet applied, and the order in which they will be applied. 
-> I want to make sure nothing has fallen through the cracks, and that the 
-> patches will apply cleanly.
+Well, at least powerpc and ia64 don't in hw, I don't know about
+others... out of order in general is getting fascionable in processor
+design ... 
 
-I know you have various other commitments but I would also find it 
-beneficial if you could reduce the amount of time it takes between the 
-patch arriving in your inbox and the commit appearing in 
-wireless-2.6.git on kernel.org.
+> So you are making an extremely poor engineering decision
+> by trying to fixup all the drivers to match PowerPC's
+> semantics.  I think a smart engineer would decrease his
+> debugging burdon, by matching his platform's MMIO accessors
+> such that it matches what other platforms do and therefore
+> inheriting the testing coverage provided by all platforms.
+> 
+> Otherwise you will be hunting down these kinds of memory
+> barrier issues forever.
 
-I'm currently waiting on the last few ZD1211 patches to appear in the 
-git tree before sending the next few, since otherwise I have to 
-backtrack and find out which patches I have already sent before 
-producing the next batch.
+Well, some of you (Alan, you, etc...) seem to imply that it's always
+been the rule to have a memory store followed by an MMIO write be
+strongly ordered.
 
-I'm probably just being lazy -- the current scheme is workable, it is 
-just a simple matter of convenience to have the patches appearing in git 
-relatively quickly (even if there is still a delay before they head 
-Jeffwards).
+However, if you look at drivers like e1000, USB OHCI, or even sungem
+(:-) they, all have at least wmb()'s between updating descriptor in
+memory and the MMIO that triggers reading those by the chip. So it seems
+that I'm not the only one to have thought otherwise ;-) More
+specificaly, at least ia64 I think, like PowerPC, assumes no ordering
+requirement here. So they would need fixing too.
 
-Thanks!
-Daniel
+My main problem is the cost... it's actually very expensive to do that
+sort of synchronisation. I don't know for ia64 or other potentially out
+of order architectures, but we do introduced a measureable performance
+hit by adding the one we already have to guard against spin_unlock.
+
+So if we decide to go the way of making writel synchronous vs. previous
+MMIOs, I'd really like to have a clearly defined "relaxed" version as
+well.
+
+However, I'm not sure any of our current "relaxed" accessor have clear
+semantics. At least what is implemented currently on PowerPC is the
+__raw_* versions which not only have no barriers at all (they don't even
+order between MMIOs, for example, readl might cross writel), and do no
+endian swap. Quite a mess of semantics if you ask me... Then there has
+been talks about those *_relaxed operations but those are more a match
+to the relaxed PCI-X and PCI-E cycels, that is they relax ordering vs.
+requests in a different direction on the bus, they have nothing to do
+with storage domains on the CPU.
+
+Ben.
+
+
