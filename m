@@ -1,48 +1,87 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Subject: Re: e100 fails, eepro100 works
-Date: Sat, 09 Sep 2006 01:37:02 +0200
-Message-ID: <4501FE9E.70608@web.de>
-References: <450172F2.50308@web.de> <45018F76.5080403@intel.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
+Date: Fri, 08 Sep 2006 20:47:54 -0500
+Message-ID: <45021D4A.6040805@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig74A7B79D98563A6609FE1083"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751293AbWIHXhr@vger.kernel.org>
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45018F76.5080403@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Michael Buesch <mb@bu3sch.de>,
+	Stefano Brivio <st3@riseup.net>,
+	Broadcom Linux <bcm43xx-dev@lists.berlios.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:62716 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751307AbWIIBsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Sep 2006 21:48:12 -0400
+To: John Linville <linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig74A7B79D98563A6609FE1083
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+John,
 
-Auke Kok wrote:
-> Can you include a full `dmesg` and `lcpci -vv -s 00:12.0` ?
->=20
-> Also you're using 3.5.10-k2, can you try the current git tree version
-> instead? I can send you the e100.c if wanted.
+PLease send this upstream for inclusion in 2.6.18, if possible. This patch will not work for
+wireless-2.6. That patch will be sent to you soon.
 
-Yes, please, to make sure that we'll really discuss the same version.
-Will then try to collect the additional information on Monday.
+Larry
 
-Jan
+=============================================
 
 
---------------enig74A7B79D98563A6609FE1083
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+This patch fixes a bug in the bcm43xx driver in 2.6.18-rcX that hangs the machine due to improper
+locking. Between 2.6.17 and .18, longer portions of certain periodic work were made preemptible to
+improve latency, which is how this bug was introduced. It happens relatively infrequently - every 6
+- 10 hours, but when it does, the power button is the only possible recovery.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-iD8DBQFFAf6eniDOoMHTA+kRAiX7AJ9bK3NOxXNP2nJDsjPBH168UG11agCfcD2h
-I1EFWd8Phvxww4bGniQ/pW4=
-=GLo8
------END PGP SIGNATURE-----
+==================================
 
---------------enig74A7B79D98563A6609FE1083--
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3182,19 +3182,21 @@ static void bcm43xx_periodic_work_handle
+  		/* Periodic work will take a long time, so we want it to
+  		 * be preemtible.
+  		 */
+-		bcm43xx_lock_irqonly(bcm, flags);
++		bcm43xx_lock_noirq(bcm);
+  		netif_stop_queue(bcm->net_dev);
++		bcm43xx_lock_irqonly(bcm, flags);
++		bcm43xx_mac_suspend(bcm);
+  		if (bcm43xx_using_pio(bcm))
+  			bcm43xx_pio_freeze_txqueues(bcm);
+  		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+  		bcm43xx_unlock_irqonly(bcm, flags);
+-		bcm43xx_lock_noirq(bcm);
+  		bcm43xx_synchronize_irq(bcm);
+  	} else {
+  		/* Periodic work should take short time, so we want low
+  		 * locking overhead.
+  		 */
+-		bcm43xx_lock_irqsafe(bcm, flags);
++		bcm43xx_lock_noirq(bcm);
++		bcm43xx_lock_irqonly(bcm, flags);
+  	}
+
+  	do_periodic_work(bcm);
+@@ -3206,6 +3208,7 @@ static void bcm43xx_periodic_work_handle
+  			bcm43xx_interrupt_enable(bcm, savedirqs);
+  			if (bcm43xx_using_pio(bcm))
+  				bcm43xx_pio_thaw_txqueues(bcm);
++			bcm43xx_mac_enable(bcm);
+  		}
+  		netif_wake_queue(bcm->net_dev);
+  		mmiowb();
+@@ -3213,7 +3216,8 @@ static void bcm43xx_periodic_work_handle
+  		bcm43xx_unlock_noirq(bcm);
+  	} else {
+  		mmiowb();
+-		bcm43xx_unlock_irqsafe(bcm, flags);
++		bcm43xx_unlock_irqonly(bcm, flags);
++		bcm43xx_unlock_noirq(bcm);
+  	}
+  }
+
+
