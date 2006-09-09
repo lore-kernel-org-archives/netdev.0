@@ -1,200 +1,179 @@
-From: Gnome42 <gnome42@gmail.com>
-Subject: Re: IPSec broken in 2.6.18-rc4-mm3
-Date: Sat, 9 Sep 2006 10:35:31 -0400
-Message-ID: <fa4052ef0609090735o6e17da23y75bd6f742a8a29be@mail.gmail.com>
-References: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>
-	 <4501CA01.3050904@trash.net>
-	 <fa4052ef0609081332l3c4d25a3xe5e315482884e1a8@mail.gmail.com>
-	 <4502C81E.600@trash.net>
+From: Paolo <oopla@users.sf.net>
+Subject: Realtek r1000 driver
+Date: Sat, 9 Sep 2006 17:04:57 +0200
+Message-ID: <20060909150457.GA5538@pp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="TB36FDmn/VVEgNH/"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:28527 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S932213AbWIIOfc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Sep 2006 10:35:32 -0400
-Received: by py-out-1112.google.com with SMTP id n25so1325083pyg
-        for <netdev@vger.kernel.org>; Sat, 09 Sep 2006 07:35:32 -0700 (PDT)
-To: "Patrick McHardy" <kaber@trash.net>
-In-Reply-To: <4502C81E.600@trash.net>
+Received: from mail-relay-2.tiscali.it ([213.205.33.42]:49040 "EHLO
+	mail-relay-2.tiscali.it") by vger.kernel.org with ESMTP
+	id S932251AbWIIPFD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Sep 2006 11:05:03 -0400
+Received: from npp (84.222.101.169) by mail-relay-2.tiscali.it (7.3.110.2)
+        id 44EEFF60000D7F07 for netdev@vger.kernel.org; Sat, 9 Sep 2006 17:05:01 +0200
+Received: from oopla by npp with local (masqmail 0.2.11) id
+ 1GM4O9-1Uu-00 for <netdev@vger.kernel.org>; Sat, 09 Sep 2006 17:04:57
+ +0200
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/9/06, Patrick McHardy <kaber@trash.net> wrote:
->
-> Yes, I meant the SAs. But please use "ip -s xfrm state" and "ip -s xfrm
-> policy" (on both sides), they include a bit more information than
-> setkey.
 
-Workstation running 2.6.18-rc5-mm1 is the initiator, and responder is
-2.6.17-rc6-mm1. This is the not working scenario.
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I have snipped stanzas from the policy ouput that contained 0.0.0.0 as
-src and dest addr.
+hello,
 
-initiator.state:
+I've got a Toshiba A110-262 which comes with an 10ec:8136 ethernet chip,
+which turns out to be an Realtek 8101E. Seems no in-kernel driver covers
+such chips yet. 
 
-src 34.34.36.1 dst 34.34.36.6
-        proto esp spi 0x0dc3aba4(230927268) reqid 0(0x00000000) mode tunnel
-        replay-window 4 seq 0x00000001 flag  (0x00000000)
-        auth hmac(md5) 0xfea9e3e8d324265d8b7e17ec42d69b15 (128 bits)
-        enc cbc(aes) 0x21ca0a9677ff0225acd0d3f4a9bdcf61 (128 bits)
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 23040(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          4560(bytes), 30(packets)
-          add 2006-09-09 10:21:41 use 2006-09-09 10:21:46
-        stats:
-          replay-window 0 replay 0 failed 0
-src 34.34.36.6 dst 34.34.36.1
-        proto esp spi 0x0c882b3c(210250556) reqid 0(0x00000000) mode tunnel
-        replay-window 4 seq 0x00000001 flag  (0x00000000)
-        auth hmac(md5) 0x93f6d1f6474834e8c82ea4b9865da961 (128 bits)
-        enc cbc(aes) 0xad702c25e42826e5f2ad704808dcc381 (128 bits)
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 23040(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:41 use -
-        stats:
-          replay-window 0 replay 0 failed 0
+Realtek offers the GPL'd driver r1000, v1.04 at present, but seems it's not
+compatible with current 2.6.x kernel at the module param interface.
 
-initiator.policy:
+I've pushed Realtek src in-tree after applying the attached patches. The
+r1000 driver now compiles and WFM fine for .16.28, .17.13, .18-rc6-git3.
 
-src 206.207.0.0/16 dst 34.34.36.1/32 uid 0
-        dir in action allow index 40 priority 0 share any flag 0x00000000
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 0(sec), hard 0(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:14 use 2006-09-09 10:21:22
-        tmpl src 34.34.36.6 dst 34.34.36.1
-                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tunnel
-                level use share any
-                enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
-src 34.34.36.1/32 dst 206.207.0.0/16 uid 0
-        dir out action allow index 33 priority 0 share any flag 0x00000000
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 0(sec), hard 0(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:14 use 2006-09-09 10:22:15
-        tmpl src 34.34.36.1 dst 34.34.36.6
-                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tunnel
-                level use share any
-                enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
-src 206.207.0.0/16 dst 34.34.36.1/32 uid 0
-        dir fwd action allow index 50 priority 0 share any flag 0x00000000
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 0(sec), hard 0(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:14 use -
-        tmpl src 34.34.36.6 dst 34.34.36.1
-                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tunnel
-                level use share any
-                enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
+Hope this helps make them into .18.
 
-[.. snip 4 stanza with src 0.0.0.0/0 dst 0.0.0.0/0 uid 0 ..]
+-- 
+ paolo
+ 
+ GPG/PGP id:0x21426690 kfp:EDFB 0103 A8D8 4180 8AB5  D59E 9771 0F28 2142 6690
+ "Indeed, it does come with warranty: it *will* fail."
 
-responder.state:
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="net_Kconfig_r1000.diff"
 
-src 34.34.36.6 dst 34.34.36.1
-        proto esp spi 0x0c882b3c(210250556) reqid 0(0x00000000) mode tunnel
-        replay-window 4 seq 0x991250886 flag  (0x00000000)
-        auth md5 0x93f6d1f6474834e8c82ea4b9865da961 (128 bits)
-        enc aes 0xad702c25e42826e5f2ad704808dcc381 (128 bits)
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 23040(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:41 use -
-        stats:
-          replay-window 0 replay 0 failed 0
-src 34.34.36.1 dst 34.34.36.6
-        proto esp spi 0x0dc3aba4(230927268) reqid 0(0x00000000) mode tunnel
-        replay-window 4 seq 0x991250886 flag  (0x00000000)
-        auth md5 0xfea9e3e8d324265d8b7e17ec42d69b15 (128 bits)
-        enc aes 0x21ca0a9677ff0225acd0d3f4a9bdcf61 (128 bits)
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 23040(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:41 use 2006-09-09 10:21:46
-        stats:
-          replay-window 0 replay 0 failed 30
+--- a/drivers/net/Kconfig.17.11	2006-09-06 22:26:23.000000000 +0200
++++ b/drivers/net/Kconfig	2006-09-06 22:24:33.000000000 +0200
+@@ -2002,6 +2002,63 @@
+ 	  
+ 	  If in doubt, say Y.
+ 
++config R1000
++	tristate "Realtek support for 8169S/SB/SC 8168B 8101E"
++	depends on PCI
++	---help---
++	  Say Y here if you have a Realtek LAN chip of the family below.
++	  
++	  E.g. the 810x may be identified as 'Unknow device 8136' as
++	  of 2.6.18-rc6, with PCI_ID=10ec:8136, on recent (as of Aug 2006)
++	  Toshiba laptops.  
++
++	  Also, this r1000 may be a better (it's newer at least) choice 
++	  for RTL8169 as well than r8169 above.
++	  
++	  To compile this driver as a module, choose M here: the module
++	  will be called r1000.  This is recommended.
++
++	  == Most relevant excerpt from original README ==
++	  Chips supported:
++	  1. RTL8169S/SB/SC (Gigabit Ethernet with PCI interface)
++	  2. RTL8168B (Gigabit Ethernet with PCI-Express interface)
++	  3. RTL8101E (Fast Ethernet with PCI-Express interface)
++          
++          Advanced feature:
++
++          - Supports Jumbo Frame
++          - Hardware Tx/Rx flow control
++
++	  Force the link status when insert the driver.
++	  If the user is in the path ~/r1000, the link status can be 
++	  forced to one of the 5 modes as following command.
++
++	  #insmod ./src/r1000.ko speed=SPEED_MODE duplex=DUPLEX_MODE 
++	  	autoneg=NWAY_OPTION
++
++	  where
++		SPEED_MODE	= 1000	for 1000Mbps
++				= 100	for 100Mbps
++				= 10	for 10Mbps
++		DUPLEX_MODE	= 0	for half-duplex
++				= 1	for full-duplex
++		NWAY_OPTION	= 0	for auto-negotiation off
++				= 1	for auto-negotiation on
++
++          Force the link status by using ethtool:
++
++	  #ethtool -s eth? speed SPEED_MODE duplex DUPLEX_MODE 
++	  	autoneg NWAY_OPTION
++
++	  where
++		SPEED_MODE	= 1000	for 1000Mbps
++				= 100	for 100Mbps
++				= 10	for 10Mbps
++		DUPLEX_MODE	= half	for half-duplex
++				= full	for full-duplex
++		NWAY_OPTION	= off	for auto-negotiation off
++				= on	for auto-negotiation on
++
+ config SIS190
+ 	tristate "SiS190/SiS191 gigabit ethernet support"
+ 	depends on PCI
 
-responder.policy:
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="net_Makefile_r1000.diff"
 
-src 34.34.36.1/32 dst 206.207.0.0/16 uid 0
-        dir in action allow index 2728 priority 0 share any flag 0x00000000
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 0(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:41 use -
-        tmpl src 34.34.36.1 dst 34.34.36.6
-                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tunnel
-                level required share any
-                enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
-src 206.207.0.0/16 dst 34.34.36.1/32 uid 0
-        dir out action allow index 2745 priority 0 share any flag 0x00000000
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 0(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:41 use -
-        tmpl src 34.34.36.6 dst 34.34.36.1
-                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tunnel
-                level required share any
-                enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
-src 34.34.36.1/32 dst 206.207.0.0/16 uid 0
-        dir fwd action allow index 2738 priority 0 share any flag 0x00000000
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 0(sec), hard 28800(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2006-09-09 10:21:41 use -
-        tmpl src 34.34.36.1 dst 34.34.36.6
-                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tunnel
-                level required share any
-                enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
+--- ../linux-2.6.17/drivers/net/Makefile.17.11	2006-09-06 22:28:38.000000000 +0200
++++ ../linux-2.6.17/drivers/net/Makefile	2006-09-06 22:29:18.000000000 +0200
+@@ -145,6 +145,10 @@
+ obj-$(CONFIG_3C515) += 3c515.o
+ obj-$(CONFIG_EEXPRESS) += eexpress.o
+ obj-$(CONFIG_EEXPRESS_PRO) += eepro.o
++obj-$(CONFIG_R1000) += r1000.o
++
++r1000-objs := r1000_n.o r1000_ioctl.o
++
+ obj-$(CONFIG_8139CP) += 8139cp.o
+ obj-$(CONFIG_8139TOO) += 8139too.o
+ obj-$(CONFIG_ZNET) += znet.o
 
-[.. snip 6 stanza with src 0.0.0.0/0 dst 0.0.0.0/0 uid 0 ..]
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="net_r1000_n.c.diff"
 
-Regards,
+--- ../modules/r1000_v1.04/src/r1000_n.c	2006-07-07 07:24:09.000000000 +0200
++++ drivers/net/r1000_n.c	2006-09-07 08:55:40.000000000 +0200
+@@ -48,9 +48,12 @@
+ MODULE_DEVICE_TABLE (pci, r1000_pci_tbl);
+ MODULE_AUTHOR ("Realtek");
+ MODULE_DESCRIPTION ("Linux device driver for Realtek Ethernet Controllers");
+-MODULE_PARM (speed, "1-" __MODULE_STRING(MAX_UNITS) "i");
+-MODULE_PARM (duplex, "1-" __MODULE_STRING(MAX_UNITS) "i");
+-MODULE_PARM (autoneg, "1-" __MODULE_STRING(MAX_UNITS) "i");
++MODULE_PARM_DESC (speed, "Speed mode: [10,100,1000] Mbps");
++module_param_array (speed, int, NULL, 0444);
++MODULE_PARM_DESC (duplex, "Duplex mode: 0=half, 1=full");
++module_param_array (duplex, int, NULL, 0444);
++MODULE_PARM_DESC (autoneg, "Nway option: [0,1]=auto-negotiation [off,on]");
++module_param_array (autoneg, int, NULL, 0444);
+ MODULE_LICENSE("GPL");
+ 
+ 
 
-Shane
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="pci_ids_r1000.diff"
+
+--- a/include/linux/pci_ids.h	2006-09-06 01:10:38.000000000 +0200
++++ b/include/linux/pci_ids.h	2006-09-06 22:14:23.000000000 +0200
+@@ -1198,8 +1187,11 @@
+ #define PCI_DEVICE_ID_INTERG_5050	0x5050
+ 
+ #define PCI_VENDOR_ID_REALTEK		0x10ec
+-#define PCI_DEVICE_ID_REALTEK_8139	0x8139
+ #define PCI_DEVICE_ID_REALTEK_8136	0x8136
++#define PCI_DEVICE_ID_REALTEK_8139	0x8139
++#define PCI_DEVICE_ID_REALTEK_8167	0x8167
++#define PCI_DEVICE_ID_REALTEK_8168	0x8168
++#define PCI_DEVICE_ID_REALTEK_8169	0x8169
+ 
+ #define PCI_VENDOR_ID_XILINX		0x10ee
+ #define PCI_DEVICE_ID_RME_DIGI96	0x3fc0
+
+--TB36FDmn/VVEgNH/--
