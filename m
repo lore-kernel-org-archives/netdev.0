@@ -1,36 +1,41 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Sat, 9 Sep 2006 11:57:24 +0400
-Message-ID: <200609091157.24734.dim@openvz.org>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <200609081710.09124.dim@openvz.org> <20060908181154.GA8745@MAIL.13thfloor.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Sat, 09 Sep 2006 02:22:28 -0700 (PDT)
+Message-ID: <20060909.022228.41644790.davem@davemloft.net>
+References: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
+	<1157745256.5344.8.camel@rh4>
+	<1157751962.31071.102.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kirill Korotaev <dev@sw.ru>, devel@openvz.org,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, sam@vilain.net
+Cc: mchan@broadcom.com, segher@kernel.crashing.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulus@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:45342 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S932346AbWIIH6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2006 03:58:45 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060908181154.GA8745@MAIL.13thfloor.at>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23994
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751082AbWIIJVz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Sep 2006 05:21:55 -0400
+To: benh@kernel.crashing.org
+In-Reply-To: <1157751962.31071.102.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 08 September 2006 22:11, Herbert Poetzl wrote:
-> actually the light-weight ip isolation runs perfectly
-> fine _without_ CAP_NET_ADMIN, as you do not want the
-> guest to be able to mess with the 'configured' ips at
-> all (not to speak of interfaces here)
-It was only an example. I'm thinking about how to implement flexible solution, 
-which permits light-weight ip isolation as well as full-fledged netwrok 
-virtualization. Another solution is to split CONFIG_NET_NAMESPACE. Is it good 
-for you?
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Sat, 09 Sep 2006 07:46:02 +1000
 
--- 
-Thanks,
-Dmitry.
+> I don't think that in general, you have ordering guarantees between
+> cacheable and non-cacheable stores unless you use explicit barriers.
+
+In fact, on most systems you absolutely do have ordering between
+MMIO and memory accesses.
+
+So you are making an extremely poor engineering decision
+by trying to fixup all the drivers to match PowerPC's
+semantics.  I think a smart engineer would decrease his
+debugging burdon, by matching his platform's MMIO accessors
+such that it matches what other platforms do and therefore
+inheriting the testing coverage provided by all platforms.
+
+Otherwise you will be hunting down these kinds of memory
+barrier issues forever.
