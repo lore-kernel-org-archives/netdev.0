@@ -1,87 +1,40 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
-Date: Fri, 08 Sep 2006 20:47:54 -0500
-Message-ID: <45021D4A.6040805@lwfinger.net>
+Subject: HELP - NETDEV WATCHDOG tx timeouts
+Date: Fri, 08 Sep 2006 22:03:20 -0500
+Message-ID: <45022EF8.2020005@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Buesch <mb@bu3sch.de>,
-	Stefano Brivio <st3@riseup.net>,
-	Broadcom Linux <bcm43xx-dev@lists.berlios.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:62716 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751307AbWIIBsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Sep 2006 21:48:12 -0400
-To: John Linville <linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932097AbWIIDDd@vger.kernel.org>
+To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+In the bcm43xx driver, the code snippet shown below has a problem. When the synchronize_net 
+statement is included, once every 200-300 passes through the code, the system will report a NETDEV 
+WATCHDOG tx timeout for bcm43xx, even when the watchdog timeout is set to 30 sec. When the 
+synchronize statement is removed, there are no errors, Except for lo, this is the only active 
+network device on the system.
 
-PLease send this upstream for inclusion in 2.6.18, if possible. This patch will not work for
-wireless-2.6. That patch will be sent to you soon.
+Is there something wrong with this structure? How can synchronize_net take that long?
 
-Larry
+Thanks, Larry
 
-=============================================
+==============
 
-
-This patch fixes a bug in the bcm43xx driver in 2.6.18-rcX that hangs the machine due to improper
-locking. Between 2.6.17 and .18, longer portions of certain periodic work were made preemptible to
-improve latency, which is how this bug was introduced. It happens relatively infrequently - every 6
-- 10 hours, but when it does, the power button is the only possible recovery.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-
-==================================
-
-
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3182,19 +3182,21 @@ static void bcm43xx_periodic_work_handle
-  		/* Periodic work will take a long time, so we want it to
-  		 * be preemtible.
-  		 */
--		bcm43xx_lock_irqonly(bcm, flags);
-+		bcm43xx_lock_noirq(bcm);
-  		netif_stop_queue(bcm->net_dev);
-+		bcm43xx_lock_irqonly(bcm, flags);
-+		bcm43xx_mac_suspend(bcm);
-  		if (bcm43xx_using_pio(bcm))
-  			bcm43xx_pio_freeze_txqueues(bcm);
-  		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
-  		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_lock_noirq(bcm);
-  		bcm43xx_synchronize_irq(bcm);
-  	} else {
-  		/* Periodic work should take short time, so we want low
-  		 * locking overhead.
-  		 */
--		bcm43xx_lock_irqsafe(bcm, flags);
-+		bcm43xx_lock_noirq(bcm);
-+		bcm43xx_lock_irqonly(bcm, flags);
-  	}
-
-  	do_periodic_work(bcm);
-@@ -3206,6 +3208,7 @@ static void bcm43xx_periodic_work_handle
-  			bcm43xx_interrupt_enable(bcm, savedirqs);
-  			if (bcm43xx_using_pio(bcm))
-  				bcm43xx_pio_thaw_txqueues(bcm);
-+			bcm43xx_mac_enable(bcm);
-  		}
-  		netif_wake_queue(bcm->net_dev);
-  		mmiowb();
-@@ -3213,7 +3216,8 @@ static void bcm43xx_periodic_work_handle
-  		bcm43xx_unlock_noirq(bcm);
-  	} else {
-  		mmiowb();
--		bcm43xx_unlock_irqsafe(bcm, flags);
-+		bcm43xx_unlock_irqonly(bcm, flags);
-+		bcm43xx_unlock_noirq(bcm);
-  	}
-  }
-
-
+        mutex_lock(...);
+        netif_stop_queue(net_device);
+        synchronize_net();               <================ problem ?
+        spin_lock_irqsave(.....);
+...... do some stuff on the hardware
+        disable interrupts on device
+        spin_unlock_irqrestore(.......);
+        synchronize irq top/bottom halves
+...... lengthy processing here
+        spin_lock_irqsave(.....);
+        tasklet_enable(.....);
+        enable interrupts
+...... more stuff with the hardware
+        netif_wake_queue(net_device);
+        spin_unlock_irqrestore(...);
+        mutex_unlock(...);
