@@ -1,61 +1,101 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8168, 2.6.17 et r8169.c
-Date: Sun, 10 Sep 2006 23:42:54 +0200
-Message-ID: <20060910214254.GA22831@electric-eye.fr.zoreil.com>
-References: <200609091201.03603.corentincj@iksaif.net> <20060909112414.GA2877@electric-eye.fr.zoreil.com> <200609091451.14579.corentincj@iksaif.net>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [patch] d80211: fix WEP on big endian cpus
+Date: Sun, 10 Sep 2006 17:47:16 -0400
+Message-ID: <200609101747.21946.flamingice@sourmilk.net>
+References: <20060910173649.GA6324@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1361053.FBUUz01aru";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48273 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932094AbWIJVoi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Sep 2006 17:44:38 -0400
-To: Corentin CHARY <corentincj@iksaif.net>
-Content-Disposition: inline
-In-Reply-To: <200609091451.14579.corentincj@iksaif.net>
+Received: from server8.tchmachines.com ([216.180.241.250]:12758 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S932099AbWIJVri (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Sep 2006 17:47:38 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20060910173649.GA6324@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Corentin CHARY <corentincj@iksaif.net> :
-[no need to quote the original part in french]
-> I have a Asus Laptop A6JC, and a r8168 network card. r1000 driver from realtek 
-> works, but I want to use r8169.c.
-> I first tried with 
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.17-rc6/r8169/ patchs, but it 
-> doesn't Work (eth0 is here, I can use ifconfig and route, but ping or dhcpcd 
-> doesn't work) 
+--nextPart1361053.FBUUz01aru
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-If you still have it at hand, turn NET_IP_ALIGN into NET_IP_ALIGN + 6
-and it should work (at least it has been reported to by Boris Zhmurov).
+Huh. I assumed crc32_le gave us the result in little endian, but I guess=20
+that's wrong.
 
-[...]
-> Now I tried with http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc5/r8169/ 
-> I changed :
-> line 1751
-> - request_irq(dev->irq, rtl8169_interrupt, IRQF_SHARED, dev->name, dev);
-> + request_irq(dev->irq, rtl8169_interrupt, SA_SHIRQ, dev->name, dev);
-> line 2224
-> - u32 mss = skb_shinfo(skb)->gso_size;
-> + u32 mss = skb_shinfo(skb)->tso_size;
-> to get it compile on 2.6.17
-> 
-> I can load the module, eth0 is here, I can play with ifconfig. But i can't 
-> ping other machines on my network. dhcpd doesn't work too.
-> 
-> dmesg output :
-[...]
+I've attached another patch which basically does the same thing but adds so=
+me=20
+sparse bitwise annotations to make things clear. Also, it has a signed-off-=
+by=20
+line. :)
 
-Full story please, no cut.
+d80211: fix WEP on big endian cpus
 
-[...]
-> I tried mii-tool (and mii-diag) but I get that :
-> SCIOCGMIIPHY on eth0 failed: Operation not supported
+This patch fixes the endian issues with the ICV in WEP, as pointed out by=20
+David Kimdon <david.kimdon@devicescape.com>, and uses __le32 where=20
+appropriate to make things clear.
 
-Huh ?
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
 
-Are you really sure that you have applied the 11 patches
-and built the right file ?
+=2D--
 
--- 
-Ueimor
+ net/d80211/wep.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/d80211/wep.c b/net/d80211/wep.c
+index c3e4728..22c2e53 100644
+=2D-- a/net/d80211/wep.c
++++ b/net/d80211/wep.c
+@@ -120,10 +120,10 @@ void ieee80211_wep_encrypt_data(struct c
+ 				size_t klen, u8 *data, size_t data_len)
+ {
+ 	struct scatterlist sg;
+=2D	u32 *icv;
++	__le32 *icv;
+=20
+=2D	icv =3D (u32 *)(data + data_len);
+=2D	*icv =3D ~crc32_le(~0, data, data_len);
++	icv =3D (__le32 *)(data + data_len);
++	*icv =3D cpu_to_le32(~crc32_le(~0, data, data_len));
+=20
+ 	crypto_cipher_setkey(tfm, rc4key, klen);
+ 	sg.page =3D virt_to_page(data);
+@@ -187,7 +187,7 @@ int ieee80211_wep_decrypt_data(struct cr
+ 			       size_t klen, u8 *data, size_t data_len)
+ {
+ 	struct scatterlist sg;
+=2D	u32 crc;
++	__le32 crc;
+=20
+ 	crypto_cipher_setkey(tfm, rc4key, klen);
+ 	sg.page =3D virt_to_page(data);
+@@ -195,7 +195,7 @@ int ieee80211_wep_decrypt_data(struct cr
+ 	sg.length =3D data_len + WEP_ICV_LEN;
+ 	crypto_cipher_decrypt(tfm, &sg, &sg, sg.length);
+=20
+=2D	crc =3D ~crc32_le(~0, data, data_len);
++	crc =3D cpu_to_le32(~crc32_le(~0, data, data_len));
+ 	if (memcmp(&crc, data + data_len, WEP_ICV_LEN) !=3D 0)
+ 		/* ICV mismatch */
+ 		return -1;
+
+--nextPart1361053.FBUUz01aru
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFBIfpT3Oqt9AH4aERAtdYAJ4rXS0Hs5IPd0Rd3aQduu7gcp3XcgCfZagp
+PdIZ+aUz3stEg4jcDZxCfJs=
+=VukH
+-----END PGP SIGNATURE-----
+
+--nextPart1361053.FBUUz01aru--
