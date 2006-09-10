@@ -1,57 +1,118 @@
-From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
-Subject: Re: [PATCH] VIOC: New Network Device Driver
-Date: Sun, 10 Sep 2006 12:50:23 +0200
-Message-ID: <20060910105023.GK14477@lug-owl.de>
-References: <000501c6d85c$08a352f0$8301a8c0@calvados>
+From: Hayim Shaul <hayim@iportent.com>
+Subject: Re: [PATCH 2.6.18-rc6 1/2] dllink driver: porting v1.19 to linux
+	2.6.18-rc6
+Date: Sun, 10 Sep 2006 14:10:02 +0300
+Message-ID: <1157886602.2926.36.camel@localhost.localdomain>
+References: <1157620189.2904.16.camel@localhost.localdomain>
+	 <1157620795.14882.16.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="pMCBjikF2xGw87uL"
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	edward_peng@dlink.com.tw, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lug-owl.de ([195.71.106.12]:42921 "EHLO lug-owl.de")
-	by vger.kernel.org with ESMTP id S1750856AbWIJKuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2006 06:50:24 -0400
-To: Misha Tomushev <misha@fabric7.com>
-Content-Disposition: inline
-In-Reply-To: <000501c6d85c$08a352f0$8301a8c0@calvados>
+Received: from srv1.iportent.com ([62.90.210.153]:26566 "EHLO iportent.com")
+	by vger.kernel.org with ESMTP id S1750872AbWIJLEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2006 07:04:23 -0400
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1157620795.14882.16.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I'm not really an expert, and I didn't understand all your remarks
+but I can tell you this:
 
---pMCBjikF2xGw87uL
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The driver supplied with 2.6.15 looks like dlink's driver version 1.17.
+I had a dlink NIC that got stuck once in a while running that driver.
 
-On Thu, 2006-09-14 17:15:21 -0700, Misha Tomushev <misha@fabric7.com> wrote:
-> VIOC Device Driver provides a standard device interface to the internal
-> fabric interconnected network used on servers designed and built by
-> Fabric 7 Systems.
->=20
-> The patch can be found at ftp.fabric7.com/VIOC.
+dlink's version 1.19 is written for 2.4 kernels, so all I did was
+convert it to 2.6 kernels.
 
-To get the driver into upstream kernel sources, you'd post it in
-reviewable pieces to the list.
+The new version still got stuck once in a while.
+Maybe because the bugs you pointed out.
 
-Thanks, JBG
+I don't have the dlink NIC anymore so I don't see how I can help here.
+Maybe Edward can answer to that.
 
---=20
-      Jan-Benedict Glaw      jbglaw@lug-owl.de              +49-172-7608481
- Signature of:                    Don't believe in miracles: Rely on them!
- the second  :
+Sorry.
 
---pMCBjikF2xGw87uL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFFA+3vHb1edYOZ4bsRAiTgAJ9oRPBYzXhFJ/OuV8fxhWCxFn4wRQCfTsKJ
-QariFbsLD3/P01c8xqfdl7s=
-=3Dqt
------END PGP SIGNATURE-----
-
---pMCBjikF2xGw87uL--
+On Thu, 2006-09-07 at 11:19 +0200, Arjan van de Ven wrote:
+> > @@ -335,8 +374,9 @@
+> >  #endif
+> >  	/* Read eeprom */
+> >  	for (i = 0; i < 128; i++) {
+> > -		((u16 *) sromdata)[i] = le16_to_cpu (read_eeprom (ioaddr, i));
+> > +		((u16 *) sromdata)[i] = cpu_to_le16 (read_eeprom (ioaddr, i));
+> >  	}
+> > +	psrom->crc = le32_to_cpu(psrom->crc);
+> 
+> this looks wrong, the data comes from the hw as le, so le*_to_cpu()
+> sounds the right direction
+> 
+> > @@ -401,7 +441,7 @@
+> >  	int i;
+> >  	u16 macctrl;
+> >  	
+> > -	i = request_irq (dev->irq, &rio_interrupt, IRQF_SHARED, dev->name, dev);
+> > +	i = request_irq (dev->irq, &rio_interrupt, SA_SHIRQ, dev->name, dev);
+> >  	if (i)
+> >  		return i;
+> 
+> this is backing out a fix/conversion to the new API. Bad.
+> 
+> 
+> >  	
+> > @@ -434,9 +474,12 @@
+> >  	writeb (0x30, ioaddr + RxDMABurstThresh);
+> >  	writeb (0x30, ioaddr + RxDMAUrgentThresh);
+> >  	writel (0x0007ffff, ioaddr + RmonStatMask);
+> > +
+> >  	/* clear statistics */
+> >  	clear_stats (dev);
+> >  
+> > +	atomic_set(&np->tx_desc_lock, 0);
+> 
+> I'm quite scared by this naming; it suggests home-brew locking
+> 
+> >  	dev->trans_start = jiffies;
+> > +	tasklet_enable(&np->tx_tasklet);
+> > +	writew(DEFAULT_INTR, ioaddr + IntEnable);
+> > +	return;
+> 
+> this looks like a PCI posting bug
+> 
+> 
+> > -rio_free_tx (struct net_device *dev, int irq) 
+> > +rio_free_tx (struct net_device *dev) 
+> >  {
+> >  	struct netdev_private *np = netdev_priv(dev);
+> >  	int entry = np->old_tx % TX_RING_SIZE;
+> > -	int tx_use = 0;
+> >  	unsigned long flag = 0;
+> > +	int irq = in_interrupt();
+> 
+> eeeeep
+> 
+> > +
+> > +	if (atomic_read(&np->tx_desc_lock))
+> > +		return;
+> > +	atomic_inc(&np->tx_desc_lock);
+> 
+> and yes.. it is broken self made locking....
+> there is a nice race between the _read and the _inc here.
+> 
+> 
+> >  	
+> >  	if (irq)
+> >  		spin_lock(&np->tx_lock);
+> >  	else
+> >  		spin_lock_irqsave(&np->tx_lock, flag);
+> 
+> double eeeep
+> 
+> this is wrong to do with in_interrupt() as gating factor!
+> Always doing the irqsave() is fine btw
+> 
+> 
+> 
