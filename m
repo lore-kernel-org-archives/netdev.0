@@ -1,75 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netdevice name corruption is still present in 2.6.18-rc6-mm1
-Date: Sun, 10 Sep 2006 11:40:11 +0200
-Message-ID: <4503DD7B.1070003@trash.net>
-References: <20060909032939.GA3087@nickolas.homeunix.com> <20060910020707.GA3160@nickolas.homeunix.com>
+From: "Misha Tomushev" <misha@fabric7.com>
+Subject: [PATCH] VIOC: New Network Device Driver
+Date: Sun, 10 Sep 2006 10:40:52 +0000 (UTC)
+Message-ID: <000501c6d85c$08a352f0$8301a8c0@calvados>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080005000809040506090404"
-Cc: Nick Orlov <bugfixer@list.ru>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48285 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750817AbWIJJkN
+Received: from ext-103.mv.fabric7.com ([68.120.107.103]:1691 "EHLO
+	corp.fabric7.com") by vger.kernel.org with ESMTP id S965032AbWIJAOT
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Sep 2006 05:40:13 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060910020707.GA3160@nickolas.homeunix.com>
+	Sat, 9 Sep 2006 20:14:19 -0400
+To: <jgarzik@pobox.com>
+Date: Thu, 14 Sep 2006 17:15:21 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080005000809040506090404
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+VIOC Device Driver provides a standard device interface to the internal
+fabric interconnected network used on servers designed and built by
+Fabric 7 Systems.
 
-Nick Orlov wrote:
-> On Fri, Sep 08, 2006 at 11:29:39PM -0400, Nick Orlov wrote:
-> 
->>I would like to confirm that issue with netdevice name corruption
->>is still present in 2.6.18-rc6-mm1 and extremely easy to reproduce
->>(at least on my system) with 100% hit rate.
->>
->>All I have to do is 'sudo /etc/init.d/networking stop'. And here we go:
->>
->>Sep  8 22:50:11 nickolas kernel: [events/1:7]: Changing netdevice name from [ath0] to [\200^C^Bб\206]
->>
-> 
-> 
-> Confirmed: Patrick's patch fixes the issue for me.
-> (http://marc.theaimsgroup.com/?l=linux-kernel&m=115777959918268&w=2)
+The patch can be found at ftp.fabric7.com/VIOC.
 
 
-Thanks Nick. Dave, please apply the attached patch to net-2.6.19, it
-fixes the netdevice name corruption reported by multiple people.
 
+Misha Tomushev
 
---------------080005000809040506090404
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="x"
-
-W1JUTkVUTElOS106IEZpeCBuZXRkZXZpY2UgbmFtZSBjb3JydXB0aW9uCgpXaGVuIGNoYW5n
-aW5nIGEgZGV2aWNlIGJ5IGlmaW5kZXggd2l0aG91dCBpbmNsdWRpbmcgYSBJRkxBX0lGTkFN
-RQphdHRyaWJ1dGUsIHRoZSBpZm5hbWUgdmFyaWFibGUgY29udGFpbnMgcmFuZG9tIGdhcmJh
-Z2UgYW5kIGlzIHVzZWQKdG8gY2hhbmdlIHRoZSBkZXZpY2UgbmFtZS4KClNpZ25lZC1vZmYt
-Ynk6IFBhdHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0PgoKLS0tCmNvbW1pdCBiYzM0
-MTdmNjc5YzAzNWU0Mjk2Y2QzNGY2YTU1ZDZiOTIxNTc2NGZjCnRyZWUgZTQzZjUyNDAyZDc5
-NTYwY2JlZDczYTc2OWY0ZGVmM2U3NjFlN2EwMwpwYXJlbnQgNmRkYmQwMmViNjE1MzJmOWFm
-NGYyODkxMmEwOTcxN2FiOGM3MWQ4YQphdXRob3IgUGF0cmljayBNY0hhcmR5IDxrYWJlckB0
-cmFzaC5uZXQ+IFNhdCwgMDkgU2VwIDIwMDYgMTY6MTg6MTIgKzAyMDAKY29tbWl0dGVyIFBh
-dHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0PiBTYXQsIDA5IFNlcCAyMDA2IDE2OjE4
-OjEyICswMjAwCgogbmV0L2NvcmUvcnRuZXRsaW5rLmMgfCAgICAyICsrCiAxIGZpbGVzIGNo
-YW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9u
-ZXQvY29yZS9ydG5ldGxpbmsuYyBiL25ldC9jb3JlL3J0bmV0bGluay5jCmluZGV4IDYzYjg4
-MmEuLmQ4ZTI1ZTAgMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL3J0bmV0bGluay5jCisrKyBiL25l
-dC9jb3JlL3J0bmV0bGluay5jCkBAIC0zOTQsNiArMzk0LDggQEAgc3RhdGljIGludCBydG5s
-X3NldGxpbmsoc3RydWN0IHNrX2J1ZmYgKgogCiAJaWYgKHRiW0lGTEFfSUZOQU1FXSkKIAkJ
-bmxhX3N0cmxjcHkoaWZuYW1lLCB0YltJRkxBX0lGTkFNRV0sIElGTkFNU0laKTsKKwllbHNl
-CisJCWlmbmFtZVswXSA9ICdcMCc7CiAKIAllcnIgPSAtRUlOVkFMOwogCWlmbSA9IG5sbXNn
-X2RhdGEobmxoKTsK
---------------080005000809040506090404--
