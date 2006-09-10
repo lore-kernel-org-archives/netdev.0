@@ -1,67 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] network namespaces
-Date: Sun, 10 Sep 2006 05:48:02 -0600
-Message-ID: <m14pvgeydp.fsf_-_@ebiederm.dsl.xmission.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru>
-	<20060910024709.GA13157@MAIL.13thfloor.at>
-	<m14pvggzgw.fsf@ebiederm.dsl.xmission.com>
-	<200609101211.35834.dim@openvz.org>
+From: =?UTF-8?Q?mwitosz-linux?= <mwitosz-linux@o2.pl>
+Subject: =?UTF-8?Q?problem=20with=20DMA=20when=20writting=20driver=20for=20?=
+	=?UTF-8?Q?rtl8139=3F?=
+Date: Sun, 10 Sep 2006 15:46:15 +0200
+Message-ID: <42107d89.2f8aa3f2.45041727.950e9@o2.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
-	sam@vilain.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:49794 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1750920AbWIJLtc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Sep 2006 07:49:32 -0400
-To: Dmitry Mishin <dim@openvz.org>
-In-Reply-To: <200609101211.35834.dim@openvz.org> (Dmitry Mishin's message of
-	"Sun, 10 Sep 2006 12:11:35 +0400")
+Received: from rekin26.go2.pl ([193.17.41.76]:63447 "EHLO rekin22.go2.pl")
+	by vger.kernel.org with ESMTP id S932175AbWIJNqQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Sep 2006 09:46:16 -0400
+Received: from o2.pl (unknown [10.0.0.65])
+	by rekin22.go2.pl (Postfix) with SMTP id 95AB05BD4C
+	for <netdev@vger.kernel.org>; Sun, 10 Sep 2006 15:46:15 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin <dim@openvz.org> writes:
+hi, everybody
+my name is Mariusz, I am newbie to linux kernel, 
+For several weeks I have been writing kernel driver for network card based on 
+rtl8139c chip. I am writing this driver for micrococontrollers technology course in my university
 
-> On Sunday 10 September 2006 07:41, Eric W. Biederman wrote:
->> I certainly agree that we are not at a point where a final decision
->> can be made.  A major piece of that is that a layer 2 approach has
->> not shown to be without a performance penalty.
-> But it is required. Why to limit possible usages?
+I have some problems with DMA, i suppose.
 
-Wrong perspective.
+there is a bit in Transmit Status Descriptor of RTL8139c which after clearing(It must be cleared to 
+start transmit operation) shouldb be placed in 1 state - which according to RTL8139 specification means that 
+DMA copy from memory to internal RTL fifo has finished.
 
-The point is that we need to dig in and show that there is no
-measurable penalty for the current cases.  Showing that there
-is little penalty for the advanced configurations is a plus.
+The problem is: rtl doesn't clear this bit
 
-The practical question is, do we need to implement the grand unified
-lookup before we can do this cheaply, or can we implement this without
-needing that optimization?
+I use  pci_map_single to map address of packet buffer to dma capable memory, then cpu_to_le32 to get physicall
+address of this buffer. 
 
-To get a perspective, to get a good implementation of the pid namespace
-I am having to refactor significant parts of the kernel so it uses
-abstractions that can cleanly express what we are doing.  The
-networking stack is in better shape but there is a lot of it. 
+Do you have any idea what may work wrong?
 
->> A practical question.  Do the IPs assigned to guests ever get used
->> by anything besides the guest?
-> In case of level2 virtualization - no.
+here is my code:
+1) rtlmodule contains functions related to initialization issues
+2) rtlopen contains functions related to open device issues and interrupt handling
+3) rtltransmit contains functions related to transmision issues
 
-Actually that is one of the benefits of a layer 2 implementation
-you can set up weird things like shared IPs, that various types
-of fail over scenarios want.
+and here is output from kernel
 
-My question was really about the layer 3 bind filtering techniques,
-and how people are using them.
-
-The basic attraction with layer 3 is that you can do a simple
-implementation, and it will run very fast, and it doesn't need
-to conflict with the layer 2 work at all.  If you can make that layer
-3 implementation clean and generally mergeable  as well it is worth
-pursuing.
-
-Eric
+best regards, 
+Mariusz Witosz
