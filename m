@@ -1,45 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Sun, 10 Sep 2006 01:38:18 +0100
-Message-ID: <1157848698.6877.113.camel@localhost.localdomain>
-References: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
-	 <1157745256.5344.8.camel@rh4>
-	 <1157751962.31071.102.camel@localhost.localdomain>
-	 <20060909.022228.41644790.davem@davemloft.net>
-	 <1157841367.31071.182.camel@localhost.localdomain>
+From: Gnome42 <gnome42@gmail.com>
+Subject: Re: IPSec broken in 2.6.18-rc4-mm3
+Date: Sat, 9 Sep 2006 21:09:45 -0400
+Message-ID: <fa4052ef0609091809s87574a7n2f9e20312a795fc9@mail.gmail.com>
+References: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>
+	 <4501CA01.3050904@trash.net>
+	 <fa4052ef0609081332l3c4d25a3xe5e315482884e1a8@mail.gmail.com>
+	 <4502C81E.600@trash.net>
+	 <fa4052ef0609090735o6e17da23y75bd6f742a8a29be@mail.gmail.com>
+	 <4502EA5C.5020101@trash.net>
+	 <fa4052ef0609091039t65205ed3te10b5db571d20706@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	segher@kernel.crashing.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paulus@samba.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:49302 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S965045AbWIJAPa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Sep 2006 20:15:30 -0400
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1157841367.31071.182.camel@localhost.localdomain>
+Received: from py-out-1112.google.com ([64.233.166.182]:10055 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S965069AbWIJBJq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Sep 2006 21:09:46 -0400
+Received: by py-out-1112.google.com with SMTP id n25so1509396pyg
+        for <netdev@vger.kernel.org>; Sat, 09 Sep 2006 18:09:46 -0700 (PDT)
+To: "Patrick McHardy" <kaber@trash.net>
+In-Reply-To: <fa4052ef0609091039t65205ed3te10b5db571d20706@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ar Sul, 2006-09-10 am 08:36 +1000, ysgrifennodd Benjamin Herrenschmidt:
-> Well, some of you (Alan, you, etc...) seem to imply that it's always
-> been the rule to have a memory store followed by an MMIO write be
-> strongly ordered.
+Hi Patrick,
 
-It has always been the rule
+It is working in 2.6.18-rc6-mm1. I thought it was the compile option
+'optimize for size' that was causing a miscompilation because when I
+compiled -rc6-mm1 I turned that option off and it suddenly started
+working. But, then I recompiled -rc5-mm1 with that option off and it
+still didn't work. So, it must have been fixed in -mm1 itself I guess.
 
-> However, if you look at drivers like e1000, USB OHCI, or even sungem
-> (:-) they, all have at least wmb()'s between updating descriptor in
+Thanks for your time & help,
 
-Driver hacks to cope with platform authors who got read/writel wrong.
-
-> semantics. At least what is implemented currently on PowerPC is the
-> __raw_* versions which not only have no barriers at all (they don't even
-> order between MMIOs, for example, readl might cross writel), and do no
-> endian swap. Quite a mess of semantics if you ask me... Then there has
-
-__writel/__readl seems more in keeping for just not locking.
-
-
+Shane
