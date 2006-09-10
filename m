@@ -1,59 +1,61 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] VIOC: New Network Device Driver
-Date: Sun, 10 Sep 2006 23:39:25 +0200
-Message-ID: <200609102339.25621.arnd@arndb.de>
-References: <000501c6d85c$08a352f0$8301a8c0@calvados>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8168, 2.6.17 et r8169.c
+Date: Sun, 10 Sep 2006 23:42:54 +0200
+Message-ID: <20060910214254.GA22831@electric-eye.fr.zoreil.com>
+References: <200609091201.03603.corentincj@iksaif.net> <20060909112414.GA2877@electric-eye.fr.zoreil.com> <200609091451.14579.corentincj@iksaif.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.177]:49643 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1751130AbWIJVkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Sep 2006 17:40:01 -0400
-To: "Misha Tomushev" <misha@fabric7.com>
-In-Reply-To: <000501c6d85c$08a352f0$8301a8c0@calvados>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48273 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932094AbWIJVoi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Sep 2006 17:44:38 -0400
+To: Corentin CHARY <corentincj@iksaif.net>
 Content-Disposition: inline
+In-Reply-To: <200609091451.14579.corentincj@iksaif.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Friday 15 September 2006 02:15 schrieb Misha Tomushev:
-> VIOC Device Driver provides a standard device interface to the internal
-> fabric interconnected network used on servers designed and built by
-> Fabric 7 Systems.
->
-> The patch can be found at ftp.fabric7.com/VIOC.
+Corentin CHARY <corentincj@iksaif.net> :
+[no need to quote the original part in french]
+> I have a Asus Laptop A6JC, and a r8168 network card. r1000 driver from realtek 
+> works, but I want to use r8169.c.
+> I first tried with 
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.17-rc6/r8169/ patchs, but it 
+> doesn't Work (eth0 is here, I can use ifconfig and route, but ping or dhcpcd 
+> doesn't work) 
 
-We recently had a discussion about tx descriptor cleanup in general.
-It would probably be more efficient to call vnic_clean_txq from the
-vioc_rx_poll() function. To do that, your tx interrupt handler
-should disable the tx interrupt line and call netif_rx_schedule,
-like you do for the receive interrupts.
+If you still have it at hand, turn NET_IP_ALIGN into NET_IP_ALIGN + 6
+and it should work (at least it has been reported to by Boris Zhmurov).
 
-A few comments on coding style:
+[...]
+> Now I tried with http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc5/r8169/ 
+> I changed :
+> line 1751
+> - request_irq(dev->irq, rtl8169_interrupt, IRQF_SHARED, dev->name, dev);
+> + request_irq(dev->irq, rtl8169_interrupt, SA_SHIRQ, dev->name, dev);
+> line 2224
+> - u32 mss = skb_shinfo(skb)->gso_size;
+> + u32 mss = skb_shinfo(skb)->tso_size;
+> to get it compile on 2.6.17
+> 
+> I can load the module, eth0 is here, I can play with ifconfig. But i can't 
+> ping other machines on my network. dhcpd doesn't work too.
+> 
+> dmesg output :
+[...]
 
-- Lots of macros like your GET_VNIC_TX_BUFADDR_LO: they seem overly 
-  complicated. Maybe replace the users with something simpler, e.g.
-  instead of 'if (GET_VNIC_RXC_FLAGGED(rxcd) != VNIC_RXC_FLAGGED_HW_W)',
-  do 'if (vnic_rxc_word3(rxcd) & VNIC_RXC_FLAGGED_HW_W)'.
-- whitespace: please follow the style in Documentation/CodingStyle,
-  use tabs for indentation instead of spaces, run everything through
-  'lindent' or 'indent -kr -i8' once to get spaces in the right places.
-- unnecessary typecasts: try to avoid casts in the C source, in particular
-  from or to 'void *', that is done by C automatically. When you do a
-  macro like GETRELADDR(), make it return the right type so you don't need
-  a cast.
-- macros: whereever possible, use an inline function instead
-- printk: use dev_info/dev_dbg/... instead of plain printk, when you have
-  a pointer to a device.
-- extern declarations: belong into header files, not C files. This will
-  guarantee that the definition matches the declaration.
-- static forward declarations: get rid of them by moving the static
-  functions into the right order. This also makes reading easier, since you
-  know static functions are only called from below.
-- vmalloc: try to avoid. use it only when allocating more than a few pages.
+Full story please, no cut.
 
-	Arnd <><
+[...]
+> I tried mii-tool (and mii-diag) but I get that :
+> SCIOCGMIIPHY on eth0 failed: Operation not supported
+
+Huh ?
+
+Are you really sure that you have applied the 11 patches
+and built the right file ?
+
+-- 
+Ueimor
