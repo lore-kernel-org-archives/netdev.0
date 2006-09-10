@@ -1,31 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPSec broken in 2.6.18-rc4-mm3
-Date: Sun, 10 Sep 2006 03:12:06 +0200
-Message-ID: <45036666.1090704@trash.net>
-References: <fa4052ef0609080926j5bbae070mccb9699f0e5eb1fb@mail.gmail.com>	 <4501CA01.3050904@trash.net>	 <fa4052ef0609081332l3c4d25a3xe5e315482884e1a8@mail.gmail.com>	 <4502C81E.600@trash.net>	 <fa4052ef0609090735o6e17da23y75bd6f742a8a29be@mail.gmail.com>	 <4502EA5C.5020101@trash.net>	 <fa4052ef0609091039t65205ed3te10b5db571d20706@mail.gmail.com> <fa4052ef0609091809s87574a7n2f9e20312a795fc9@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Sun, 10 Sep 2006 11:17:32 +1000
+Message-ID: <1157851052.31071.187.camel@localhost.localdomain>
+References: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
+	 <1157745256.5344.8.camel@rh4>
+	 <1157751962.31071.102.camel@localhost.localdomain>
+	 <20060909.022228.41644790.davem@davemloft.net>
+	 <1157841367.31071.182.camel@localhost.localdomain>
+	 <1157848698.6877.113.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	segher@kernel.crashing.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, paulus@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58877 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965072AbWIJBPA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Sep 2006 21:15:00 -0400
-To: Gnome42 <gnome42@gmail.com>
-In-Reply-To: <fa4052ef0609091809s87574a7n2f9e20312a795fc9@mail.gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:3735 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S965073AbWIJBR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2006 21:17:56 -0400
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1157848698.6877.113.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gnome42 wrote:
-> It is working in 2.6.18-rc6-mm1. I thought it was the compile option
-> 'optimize for size' that was causing a miscompilation because when I
-> compiled -rc6-mm1 I turned that option off and it suddenly started
-> working. But, then I recompiled -rc5-mm1 with that option off and it
-> still didn't work. So, it must have been fixed in -mm1 itself I guess.
 
-Good, I coulnd't find anything (but discovered that the statistic didn't
-count out of replay window packets but failed authenticity checks).
+> > semantics. At least what is implemented currently on PowerPC is the
+> > __raw_* versions which not only have no barriers at all (they don't even
+> > order between MMIOs, for example, readl might cross writel), and do no
+> > endian swap. Quite a mess of semantics if you ask me... Then there has
+> 
+> __writel/__readl seems more in keeping for just not locking.
 
-Thanks for the information.
+Not locking... you mean not ordering I suppose. Ok, so the question is
+no ordering at all (that is even between MMIO read/writes, thus a
+__readl can cross a __writel), or just no ordering between MMIO and
+cacheable storage ?
+
+It's an important difference and both have their use. For example, on
+PowerPC, if I completely remove barriers, I get the first semantic and I
+get the ability to write combine on non-cacheable storage as a benefit
+(provided we add an ioremap_wc or such, as the Guarded bit we set on
+normal non-cacheable space does also prevent write combining on most
+implementations). However, if I keep at least ordering between MMIOs,
+then I leave an eieio in there, which is not nearly as expensive than a
+full sync but will not order cacheable cs. non-cacheable. However, it
+will also prevent write combine as far as I remember.
+
+Ben.
+
 
