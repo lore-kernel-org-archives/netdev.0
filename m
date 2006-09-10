@@ -1,51 +1,54 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Sun, 10 Sep 2006 11:17:32 +1000
-Message-ID: <1157851052.31071.187.camel@localhost.localdomain>
-References: <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
-	 <1157745256.5344.8.camel@rh4>
-	 <1157751962.31071.102.camel@localhost.localdomain>
-	 <20060909.022228.41644790.davem@davemloft.net>
-	 <1157841367.31071.182.camel@localhost.localdomain>
-	 <1157848698.6877.113.camel@localhost.localdomain>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Sun, 10 Sep 2006 04:47:09 +0200
+Message-ID: <20060910024709.GA13157@MAIL.13thfloor.at>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <200609081710.09124.dim@openvz.org> <20060908181154.GA8745@MAIL.13thfloor.at> <200609091157.24734.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	segher@kernel.crashing.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paulus@samba.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Kirill Korotaev <dev@sw.ru>, devel@openvz.org,
+	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
+	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:3735 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S965073AbWIJBR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2006 21:17:56 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1157848698.6877.113.camel@localhost.localdomain>
+Received: from MAIL.13thfloor.at ([213.145.232.33]:12971 "EHLO
+	MAIL.13thfloor.at") by vger.kernel.org with ESMTP id S965097AbWIJCrK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Sep 2006 22:47:10 -0400
+To: Dmitry Mishin <dim@openvz.org>
+Content-Disposition: inline
+In-Reply-To: <200609091157.24734.dim@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, Sep 09, 2006 at 11:57:24AM +0400, Dmitry Mishin wrote:
+> On Friday 08 September 2006 22:11, Herbert Poetzl wrote:
+> > actually the light-weight ip isolation runs perfectly
+> > fine _without_ CAP_NET_ADMIN, as you do not want the
+> > guest to be able to mess with the 'configured' ips at
+> > all (not to speak of interfaces here)
 
-> > semantics. At least what is implemented currently on PowerPC is the
-> > __raw_* versions which not only have no barriers at all (they don't even
-> > order between MMIOs, for example, readl might cross writel), and do no
-> > endian swap. Quite a mess of semantics if you ask me... Then there has
-> 
-> __writel/__readl seems more in keeping for just not locking.
+> It was only an example. I'm thinking about how to implement flexible
+> solution, which permits light-weight ip isolation as well as
+> full-fledged netwrok virtualization. Another solution is to split
+> CONFIG_NET_NAMESPACE. Is it good for you?
 
-Not locking... you mean not ordering I suppose. Ok, so the question is
-no ordering at all (that is even between MMIO read/writes, thus a
-__readl can cross a __writel), or just no ordering between MMIO and
-cacheable storage ?
+well, I think it would be best to have both, as
+they are complementary to some degree, and IMHO
+both, the full virtualization _and_ the isolation
+will require a separate namespace to work, I also
+think that limiting the isolation to something
+very simple (like one IP + network or so) would
+be acceptable for a start, because especially
+multi IP or network range checks require a little
+more efford to get them right ...
 
-It's an important difference and both have their use. For example, on
-PowerPC, if I completely remove barriers, I get the first semantic and I
-get the ability to write combine on non-cacheable storage as a benefit
-(provided we add an ioremap_wc or such, as the Guarded bit we set on
-normal non-cacheable space does also prevent write combining on most
-implementations). However, if I keep at least ordering between MMIOs,
-then I leave an eieio in there, which is not nearly as expensive than a
-full sync but will not order cacheable cs. non-cacheable. However, it
-will also prevent write combine as far as I remember.
+I do not think that folks would want to recompile
+their kernel just to get a light-weight guest or
+a fully virtualized one
 
-Ben.
+best,
+Herbert
 
-
+> -- 
+> Thanks,
+> Dmitry.
