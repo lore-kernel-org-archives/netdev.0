@@ -1,37 +1,75 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Sun, 10 Sep 2006 12:11:35 +0400
-Message-ID: <200609101211.35834.dim@openvz.org>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <20060910024709.GA13157@MAIL.13thfloor.at> <m14pvggzgw.fsf@ebiederm.dsl.xmission.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netdevice name corruption is still present in 2.6.18-rc6-mm1
+Date: Sun, 10 Sep 2006 11:40:11 +0200
+Message-ID: <4503DD7B.1070003@trash.net>
+References: <20060909032939.GA3087@nickolas.homeunix.com> <20060910020707.GA3160@nickolas.homeunix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
-	sam@vilain.net
+Content-Type: multipart/mixed;
+ boundary="------------080005000809040506090404"
+Cc: Nick Orlov <bugfixer@list.ru>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:50618 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S1750782AbWIJIM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2006 04:12:27 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m14pvggzgw.fsf@ebiederm.dsl.xmission.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:48285 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750817AbWIJJkN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Sep 2006 05:40:13 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060910020707.GA3160@nickolas.homeunix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 10 September 2006 07:41, Eric W. Biederman wrote:
-> I certainly agree that we are not at a point where a final decision
-> can be made.  A major piece of that is that a layer 2 approach has
-> not shown to be without a performance penalty.
-But it is required. Why to limit possible usages?
- 
-> A practical question.  Do the IPs assigned to guests ever get used
-> by anything besides the guest?
-In case of level2 virtualization - no.
+This is a multi-part message in MIME format.
+--------------080005000809040506090404
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
--- 
-Thanks,
-Dmitry.
+Nick Orlov wrote:
+> On Fri, Sep 08, 2006 at 11:29:39PM -0400, Nick Orlov wrote:
+> 
+>>I would like to confirm that issue with netdevice name corruption
+>>is still present in 2.6.18-rc6-mm1 and extremely easy to reproduce
+>>(at least on my system) with 100% hit rate.
+>>
+>>All I have to do is 'sudo /etc/init.d/networking stop'. And here we go:
+>>
+>>Sep  8 22:50:11 nickolas kernel: [events/1:7]: Changing netdevice name from [ath0] to [\200^C^Bб\206]
+>>
+> 
+> 
+> Confirmed: Patrick's patch fixes the issue for me.
+> (http://marc.theaimsgroup.com/?l=linux-kernel&m=115777959918268&w=2)
+
+
+Thanks Nick. Dave, please apply the attached patch to net-2.6.19, it
+fixes the netdevice name corruption reported by multiple people.
+
+
+--------------080005000809040506090404
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="x"
+
+W1JUTkVUTElOS106IEZpeCBuZXRkZXZpY2UgbmFtZSBjb3JydXB0aW9uCgpXaGVuIGNoYW5n
+aW5nIGEgZGV2aWNlIGJ5IGlmaW5kZXggd2l0aG91dCBpbmNsdWRpbmcgYSBJRkxBX0lGTkFN
+RQphdHRyaWJ1dGUsIHRoZSBpZm5hbWUgdmFyaWFibGUgY29udGFpbnMgcmFuZG9tIGdhcmJh
+Z2UgYW5kIGlzIHVzZWQKdG8gY2hhbmdlIHRoZSBkZXZpY2UgbmFtZS4KClNpZ25lZC1vZmYt
+Ynk6IFBhdHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0PgoKLS0tCmNvbW1pdCBiYzM0
+MTdmNjc5YzAzNWU0Mjk2Y2QzNGY2YTU1ZDZiOTIxNTc2NGZjCnRyZWUgZTQzZjUyNDAyZDc5
+NTYwY2JlZDczYTc2OWY0ZGVmM2U3NjFlN2EwMwpwYXJlbnQgNmRkYmQwMmViNjE1MzJmOWFm
+NGYyODkxMmEwOTcxN2FiOGM3MWQ4YQphdXRob3IgUGF0cmljayBNY0hhcmR5IDxrYWJlckB0
+cmFzaC5uZXQ+IFNhdCwgMDkgU2VwIDIwMDYgMTY6MTg6MTIgKzAyMDAKY29tbWl0dGVyIFBh
+dHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0PiBTYXQsIDA5IFNlcCAyMDA2IDE2OjE4
+OjEyICswMjAwCgogbmV0L2NvcmUvcnRuZXRsaW5rLmMgfCAgICAyICsrCiAxIGZpbGVzIGNo
+YW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9u
+ZXQvY29yZS9ydG5ldGxpbmsuYyBiL25ldC9jb3JlL3J0bmV0bGluay5jCmluZGV4IDYzYjg4
+MmEuLmQ4ZTI1ZTAgMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL3J0bmV0bGluay5jCisrKyBiL25l
+dC9jb3JlL3J0bmV0bGluay5jCkBAIC0zOTQsNiArMzk0LDggQEAgc3RhdGljIGludCBydG5s
+X3NldGxpbmsoc3RydWN0IHNrX2J1ZmYgKgogCiAJaWYgKHRiW0lGTEFfSUZOQU1FXSkKIAkJ
+bmxhX3N0cmxjcHkoaWZuYW1lLCB0YltJRkxBX0lGTkFNRV0sIElGTkFNU0laKTsKKwllbHNl
+CisJCWlmbmFtZVswXSA9ICdcMCc7CiAKIAllcnIgPSAtRUlOVkFMOwogCWlmbSA9IG5sbXNn
+X2RhdGEobmxoKTsK
+--------------080005000809040506090404--
