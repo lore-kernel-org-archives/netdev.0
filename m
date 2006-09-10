@@ -1,47 +1,36 @@
 From: Dmitry Mishin <dim@openvz.org>
 Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Sun, 10 Sep 2006 11:45:35 +0400
-Message-ID: <200609101145.36207.dim@openvz.org>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <200609091157.24734.dim@openvz.org> <20060910024709.GA13157@MAIL.13thfloor.at>
+Date: Sun, 10 Sep 2006 12:11:35 +0400
+Message-ID: <200609101211.35834.dim@openvz.org>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <20060910024709.GA13157@MAIL.13thfloor.at> <m14pvggzgw.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Kirill Korotaev <dev@sw.ru>, devel@openvz.org,
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
 	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, sam@vilain.net
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
+	sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:29213 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S1750740AbWIJHqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2006 03:46:35 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060910024709.GA13157@MAIL.13thfloor.at>
+Received: from mailhub.sw.ru ([195.214.233.200]:50618 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1750782AbWIJIM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2006 04:12:27 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m14pvggzgw.fsf@ebiederm.dsl.xmission.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 10 September 2006 06:47, Herbert Poetzl wrote:
-> well, I think it would be best to have both, as
-> they are complementary to some degree, and IMHO
-> both, the full virtualization _and_ the isolation
-> will require a separate namespace to work,   
-[snip]
-> I do not think that folks would want to recompile
-> their kernel just to get a light-weight guest or
-> a fully virtualized one
-In this case light-weight guest will have unnecessary overhead.
-For example, instead of using static pointer, we have to find the required 
-common namespace before. And there will be no advantages for such guest over 
-full-featured.
-
->
-> best,
-> Herbert
->
-> > --
-> > Thanks,
-> > Dmitry.
+On Sunday 10 September 2006 07:41, Eric W. Biederman wrote:
+> I certainly agree that we are not at a point where a final decision
+> can be made.  A major piece of that is that a layer 2 approach has
+> not shown to be without a performance penalty.
+But it is required. Why to limit possible usages?
+ 
+> A practical question.  Do the IPs assigned to guests ever get used
+> by anything besides the guest?
+In case of level2 virtualization - no.
 
 -- 
 Thanks,
