@@ -1,49 +1,105 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] bcm43xx-softmac: Init, shutdown and restart fixes
-Date: Mon, 11 Sep 2006 14:29:02 -0400
-Message-ID: <20060911182857.GA19326@tuxdriver.com>
-References: <44E9C6A0.3090107@lwfinger.net> <200608211653.01997.mb@bu3sch.de>
+From: Roland Dreier <roland@digitalvampire.org>
+Subject: [PATCH] [ATM] he: Fix __init/__devinit conflict
+Date: Mon, 11 Sep 2006 12:14:48 -0700
+Message-ID: <877j0a5i6v.fsf@digitalvampire.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:32266 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932305AbWIKSak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 14:30:40 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200608211653.01997.mb@bu3sch.de>
+Received: from rwcrmhc13.comcast.net ([204.127.192.83]:33413 "EHLO
+	rwcrmhc13.comcast.net") by vger.kernel.org with ESMTP
+	id S964966AbWIKTOu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 15:14:50 -0400
+To: Chas Williams <chas@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2006 at 04:52:58PM +0200, Michael Buesch wrote:
-> On Monday 21 August 2006 16:43, Larry Finger wrote:
+he_init_one() is declared __devinit, but calls lots of init functions
+that are marked __init.  However, if CONFIG_HOTPLUG is enabled,
+__devinit functions go into normal .text, which leads to
 
-> > @@ -3537,11 +3536,10 @@ static int bcm43xx_init_board(struct bcm
-> > =A0=A0=A0=A0=A0=A0=A0=A0err =3D bcm43xx_select_wireless_core(bcm, -=
-1);
-> > =A0=A0=A0=A0=A0=A0=A0=A0if (err)
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto err_crystal_of=
-f;
-> > -
-> > -=A0=A0=A0=A0=A0=A0=A0bcm43xx_periodic_tasks_setup(bcm);
-> > =A0=A0=A0=A0=A0=A0=A0=A0err =3D bcm43xx_sysfs_register(bcm);
-> > =A0=A0=A0=A0=A0=A0=A0=A0if (err)
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto err_wlshutdown=
-;
-> > +=A0=A0=A0=A0=A0=A0=A0bcm43xx_periodic_tasks_setup(bcm);
-> > =A0=A0=A0=A0=A0=A0=A0=A0err =3D bcm43xx_rng_init(bcm);
-> > =A0=A0=A0=A0=A0=A0=A0=A0if (err)
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto err_sysfs_unre=
-g;
->=20
-> Either move bcm43xx_periodic_tasks_setup after rng_init, or
-> delete the periodic work again, if rng_init fails.
+    WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x2130) and 'he_service_tbrq'
 
-Larry, will you be posting another patch to account for these comments?
+Fix this by changing the __init functions to __devinit.
 
-John
---=20
-John W. Linville
-linville@tuxdriver.com
+Signed-off-by: Roland Dreier <roland@digitalvampire.org>
+
+---
+
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index d369130..9e0383d 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -454,7 +454,7 @@ #define NONZERO (1 << 14)
+ 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_rx_lbfp0(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -485,7 +485,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
+ 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_rx_lbfp1(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -516,7 +516,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
+ 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_tx_lbfp(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -546,7 +546,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
+ 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_tpdrq(struct he_dev *he_dev)
+ {
+ 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
+@@ -568,7 +568,7 @@ he_init_tpdrq(struct he_dev *he_dev)
+ 	return 0;
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_cs_block(struct he_dev *he_dev)
+ {
+ 	unsigned clock, rate, delta;
+@@ -664,7 +664,7 @@ he_init_cs_block(struct he_dev *he_dev)
+ 
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_cs_block_rcm(struct he_dev *he_dev)
+ {
+ 	unsigned (*rategrid)[16][16];
+@@ -785,7 +785,7 @@ #define RTGTBL_OFFSET 0x400
+ 	return 0;
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_group(struct he_dev *he_dev, int group)
+ {
+ 	int i;
+@@ -955,7 +955,7 @@ #endif
+ 	return 0;
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_irq(struct he_dev *he_dev)
+ {
+ 	int i;
