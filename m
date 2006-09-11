@@ -1,55 +1,60 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
-Date: Mon, 11 Sep 2006 09:37:19 -0500
-Message-ID: <4505749F.9090808@lwfinger.net>
-References: <45006221.4090603@lwfinger.net>
-	<20060908094204.GB26916@harddisk-recovery.com>
-	<200609081145.28095.mb@bu3sch.de>
-	<20060908132317.GS26916@harddisk-recovery.com>
-	<450171E4.8070901@lwfinger.net>
-	<20060911105202.GA7903@harddisk-recovery.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [Devel] Re: [RFC] network namespaces
+Date: Mon, 11 Sep 2006 16:40:59 +0200
+Message-ID: <4505757B.3020004@fr.ibm.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>	<200609081710.09124.dim@openvz.org>	<20060908181154.GA8745@MAIL.13thfloor.at> <200609091157.24734.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Erik Mouw <erik-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
-In-Reply-To: <20060911105202.GA7903-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
+	sam@vilain.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:59918 "EHLO
+	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP id S932227AbWIKOlA
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 10:41:00 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id k8BEexWB180994
+	for <netdev@vger.kernel.org>; Mon, 11 Sep 2006 14:40:59 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8BEjVD43231938
+	for <netdev@vger.kernel.org>; Mon, 11 Sep 2006 16:45:31 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8BEewvI007753
+	for <netdev@vger.kernel.org>; Mon, 11 Sep 2006 16:40:58 +0200
+To: Dmitry Mishin <dim@openvz.org>
+In-Reply-To: <200609091157.24734.dim@openvz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Erik Mouw wrote:
-> On Fri, Sep 08, 2006 at 08:36:36AM -0500, Larry Finger wrote:
->> Erik Mouw wrote:
->>> Thanks for the information, pulled wireless-2.6 and recompiling kernel.
->>> If this really fixes the problem, can we try to get it merged before
->>> 2.6.18 closes? I don't know if vanilla 2.6.18-rc6 locks up on other
->>> hardware as well, but if it does it would be a major regression against
->>> 2.6.17.
->> I'm trying. At the moment, I'm testing a patch against 2.6.18-rc6. Once it works here, I'll be 
->> putting it out for testing.
+Dmitry Mishin wrote:
+> On Friday 08 September 2006 22:11, Herbert Poetzl wrote:
 > 
-> I suppose that's the patch in "[PATCH] fix for system lockups in
-> 2.6.18-rcX caused by bcm43xx"?
-
-Yes.
+>>actually the light-weight ip isolation runs perfectly
+>>fine _without_ CAP_NET_ADMIN, as you do not want the
+>>guest to be able to mess with the 'configured' ips at
+>>all (not to speak of interfaces here)
 > 
-> FWIW: 2.6.18-rc6+wireless-2.6 runs well, my laptop didn't lock up over
-> the weekend.
+> It was only an example. I'm thinking about how to implement flexible solution, 
+> which permits light-weight ip isolation as well as full-fledged netwrok 
+> virtualization. Another solution is to split CONFIG_NET_NAMESPACE. Is it good 
+> for you?
 
-It seems to hurt some hardware much worse than others. My BCM4306 Rev 2 could
-not run without failure longer than ~6 hours, and sometimes as short as 10 minutes,
-before the patch. I've now completed the equivalent of 3 weeks without a failure
-(I'm running the preemptible periodic work every second instead of every minute).
+Hi Dmitry,
 
-Larry
+I am currently working on this and I am finishing a prototype bringing 
+isolation at the ip layer. The prototype code is very closed to Andrey's 
+patches at TCP/UDP level. So the next step is to merge the prototype 
+code with the existing network namespace layer 2 isolation.
+
+IHMO, the solution of spliting CONFIG_NET_NS into CONFIG_L2_NET_NS and 
+CONFIG_L3_NET_NS is for me not acceptable because you will need to 
+recompile the kernel. The proper way is certainly to have a specific 
+flag for the unshare, something like CLONE_NEW_L2_NET and 
+CLONE_NEW_L3_NET for example.
+
+   -- Daniel
+
