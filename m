@@ -1,42 +1,60 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Mon, 11 Sep 2006 15:52:05 +1000
-Message-ID: <1157953925.31071.413.camel@localhost.localdomain>
-References: <1551EAE59135BE47B544934E30FC4FC093FB2C@NT-IRVA-0751.brcm.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
+From: Balbir Singh <balbir@in.ibm.com>
+Subject: [RFC][PATCH -mm] Add genetlink utilities for payload length calculation
+Date: Mon, 11 Sep 2006 13:10:21 +0530
+Message-ID: <20060911074021.26844.70576.sendpatchset@localhost.localdomain>
+Cc: Jamal Hadi <hadi@cyberus.ca>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	Balbir Singh <balbir@in.ibm.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33957 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S964888AbWIKFwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 01:52:19 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FB2C@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:1249 "EHLO e36.co.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751165AbWIKHn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 03:43:59 -0400
+To: akpm@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-09-10 at 22:33 -0700, Michael Chan wrote:
-> Benjamin Herrenschmidt wrote:
-> 
-> > I've done:
-> > 
-> > #define tw32_rx_mbox(reg, val)	do { wmb();
-> tp->write32_rx_mbox(tp, reg, val); } while(0)
-> > #define tw32_tx_mbox(reg, val)	do { wmb();
-> tp->write32_tx_mbox(tp, reg, val); } while(0)
-> > 
-> 
-> That should do it.
-> 
-> I think we need those tcpdump after all.  Can you send it to me?
-
-Looks like adding a sync to writel does fix it though... I'm trying to
-figure out which specific writel in the driver makes a difference. I'll
-then look into slicing those tcpdumps.
-
-Ben.
 
 
+Add two utility helper functions genlmsg_msg_size() and genlmsg_total_size().
+These functions are derived from their netlink counterparts.
+
+Signed-off-by: Balbir Singh <balbir@in.ibm.com>
+---
+
+ include/net/genetlink.h |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+)
+
+diff -puN include/net/genetlink.h~genetlink-payload-size-helpers include/net/genetlink.h
+--- linux-2.6.18-rc6/include/net/genetlink.h~genetlink-payload-size-helpers	2006-09-11 10:34:56.000000000 +0530
++++ linux-2.6.18-rc6-balbir/include/net/genetlink.h	2006-09-11 11:42:37.000000000 +0530
+@@ -171,4 +171,22 @@ static inline int genlmsg_len(const stru
+ 	return (nlh->nlmsg_len - GENL_HDRLEN - NLMSG_HDRLEN);
+ }
+ 
++/**
++ * genlmsg_msg_size - length of genetlink message not including padding
++ * @payload: length of message payload
++ */
++static inline int genlmsg_msg_size(int payload)
++{
++	return GENL_HDRLEN + payload;
++}
++
++/**
++ * genlmsg_total_size - length of genetlink message including padding
++ * @payload: length of message payload
++ */
++static inline int genlmsg_total_size(int payload)
++{
++	return NLMSG_ALIGN(genlmsg_msg_size(payload));
++}
++
+ #endif	/* __NET_GENERIC_NETLINK_H */
+_
+
+-- 
+
+	Balbir Singh,
+	Linux Technology Center,
+	IBM Software Labs
