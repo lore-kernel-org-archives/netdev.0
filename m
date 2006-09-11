@@ -1,38 +1,43 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Mon, 11 Sep 2006 18:20:48 +1000
-Message-ID: <1157962848.3879.6.camel@localhost.localdomain>
-References: <1551EAE59135BE47B544934E30FC4FC093FB2C@NT-IRVA-0751.brcm.ad.broadcom.com>
-	 <1157953925.31071.413.camel@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] Alternate WE-21 support (core API)
+Date: Mon, 11 Sep 2006 11:08:14 +0200
+Message-ID: <1157965694.2811.3.camel@ux156>
+References: <20060830005655.GA8405@bougret.hpl.hp.com>
+	 <1157031138.16040.17.camel@ux156> <20060831135112.GA6097@jm.kir.nu>
+	 <1157032805.16040.21.camel@ux156> <20060906205538.GA29767@tuxdriver.com>
+	 <20060906213053.GA21719@bougret.hpl.hp.com>
+	 <20060908142913.GD23852@tuxdriver.com>
+	 <20060908161345.GA27036@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jouni Malinen <jkmaline@cc.hut.fi>, netdev@vger.kernel.org,
+	Javier Achirica <achirica@gmail.com>,
+	Simon Kelley <simon@thekelleys.org.uk>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
+	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
+	Jeroen Vreeken <pe1rxq@amsat.org>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Denis Vlasenko <vda@ilport.com.ua>,
+	Michael Buesch <mbuesch@freenet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:64934 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1751255AbWIKIVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 04:21:04 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1157953925.31071.413.camel@localhost.localdomain>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:176 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750976AbWIKJH5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 05:07:57 -0400
+To: jt@hpl.hp.com
+In-Reply-To: <20060908161345.GA27036@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ok, it seems like we might have more than just the missing barrier in
-TG3. Possibly some IOMMU problems on some machines as well.
-Unfortunately, I don't have a tg3 on a PCI-X or PCI-E card to test on a
-pSeries or some other machine.
+On Fri, 2006-09-08 at 09:13 -0700, Jean Tourrilhes wrote:
+> And I don't believe nl80211 will address legacy
+> driver and non-802.11 hardware.
 
-[Olof: I've disabled the new U4 DART invalidate code (reverted to the
-old one) and added an unconditional barrier to dart_flush and I yet have
-to reproduce the problem. I suspect a problem with the DART invalidate
-one thingy, maybe a HW problem with the U4 chip. Now regarding the
-barrier in flush, we'll talk about it later, I think we might have a
-problem with the way we do the DART accesses (they might leak out of the
-lock) though I yet have to see that cause a problem in practice due to
-the round-robin nature of our allocation algorithm.]
+It'd help if you'd tell me what in WE specifically addresses non-802.11
+legacy hardware. I don't really see anything that is completely
+orthogonal.
 
-Ben.
-
-
+johannes
