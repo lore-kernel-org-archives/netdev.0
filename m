@@ -1,87 +1,134 @@
-From: sunny12 <johanhen@yahoo.com>
-Subject: tg3 driver timeout problems
-Date: Mon, 11 Sep 2006 11:18:40 -0700 (PDT)
-Message-ID: <6252031.post@talk.nabble.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH] net/dccp: Allow default/fallback service code
+Date: Mon, 11 Sep 2006 19:22:12 +0100
+Message-ID: <200609111922.12855@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.nabble.com ([72.21.53.35]:25568 "EHLO talk.nabble.com")
-	by vger.kernel.org with ESMTP id S932282AbWIKSSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 14:18:41 -0400
-Received: from [72.21.53.38] (helo=jubjub.nabble.com)
-	by talk.nabble.com with esmtp (Exim 4.50)
-	id 1GMqMi-0007Fr-D1
-	for netdev@vger.kernel.org; Mon, 11 Sep 2006 11:18:40 -0700
-To: netdev@vger.kernel.org
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39629 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S932288AbWIKSWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 14:22:39 -0400
+Content-Disposition: inline
+To: ian.mcdonald@jandi.co.nz,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[DCCP]: Allow default/fallback service code.
 
-Hi,
+This has been discussed on dccp@vger and removes the necessity for
+applications to supply service codes in each and every case. 
 
-we're experiencing serious problems on an productions system running fecora
-core5 ( 2.6.17-1.2157_FC5smp #1)  and
-running the tg3 driver.
-Here is my dmesg output:
+If an application does not want to provide a service code, that's
+fine, it will be given 0. Otherwise, service codes can be set
+via socket options as before.
 
-tg3.c:v3.59 (June 8, 2006)
-ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 169
-PCI: Setting latency timer of device 0000:02:00.0 to 64
-eth0: Tigon3 [partno(BCM95721) rev 4001 PHY(5750)] (PCI Express)
-10/100/1000BaseT Ethernet 00:16:17:2a:a8:4d
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1]
-TSOcap[1]
-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-ACPI: PCI Interrupt 0000:04:06.0[A] -> GSI 19 (level, low) -> IRQ 185
-eth1: Tigon3 [partno(BCM95705A50) rev 3003 PHY(5705)] (PCI:33MHz:32-bit)
-10/100/1000BaseT Ethernet 00:16:17:2a:a8:4c
-eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[0]
-TSOcap[1]
-eth1: dma_rwctrl[763f0000] dma_mask[64-bit]
-audit(1154348602.046:4): avc:  denied  { create } for  pid=953 comm="udevd"
-name="watchdog" scontext=system_u:system_r:udev_t:
+This patch has been tested using various client/server configurations
+(including listening on multiple service codes) and patches against
+Torvalds' tree.
 
-ethtool output
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+--
+ Documentation/networking/dccp.txt |    7 +++++--
+ include/linux/dccp.h              |    6 +-----
+ net/dccp/ipv4.c                   |    3 ---
+ net/dccp/proto.c                  |   11 +----------
+ 4 files changed, 7 insertions(+), 20 deletions(-)
 
-Settings for eth0:
-        Supported ports: [ MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Half 1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Half 1000baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: g
-        Wake-on: d
-        Current message level: 0x000000ff (255)
-        Link detected: yes
-[
 
-The sympton is that sometimes the network is down we cant ping the network
-device anymore.
-Also from a shell we cant ping the outside world. We can still ping the ipnr
-of the network device itself.
+diff --git a/Documentation/networking/dccp.txt b/Documentation/networking/dccp.txt
+index c45daab..2f479af 100644
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -42,8 +42,11 @@ Socket options
+ DCCP_SOCKOPT_PACKET_SIZE is used for CCID3 to set default packet size for
+ calculations.
 
-A restart of the network using /etc/init.d/network restart does the trick
-and the device works again.
-I dont think this is related to the TSO problem reported earlier because I
-believe its disabled by default.
+-DCCP_SOCKOPT_SERVICE sets the service. This is compulsory as per the
+-specification. If you don't set it you will get EPROTO.
++DCCP_SOCKOPT_SERVICE sets the service. The specification mandates use of
++service codes (RFC 4340, sec. 8.1.2); if this socket option is not set,
++the socket will fall back to 0 (which means that no meaningful service code
++is present). Connecting sockets set at most one service option; for
++listening sockets, multiple service codes can be specified.
 
-Any clues, help would be appreciated.
-Please let me know if I need to provide additional debug info.
+ Notes
+ =====
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index 676333b..30ce4b3 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -404,6 +404,7 @@ struct dccp_service_list {
+ };
 
-thanks,regards
+ #define DCCP_SERVICE_INVALID_VALUE htonl((__u32)-1)
++#define DCCP_SERVICE_CODE_IS_ABSENT              0
 
--- 
-View this message in context: http://www.nabble.com/tg3-driver-timeout-problems-tf2254084.html#a6252031
-Sent from the netdev forum at Nabble.com.
+ static inline int dccp_list_has_service(const struct dccp_service_list *sl,
+                                        const __be32 service)
+@@ -482,11 +483,6 @@ static inline struct dccp_minisock *dccp
+        return (struct dccp_minisock *)&dccp_sk(sk)->dccps_minisock;
+ }
+
+-static inline int dccp_service_not_initialized(const struct sock *sk)
+-{
+-       return dccp_sk(sk)->dccps_service == DCCP_SERVICE_INVALID_VALUE;
+-}
+-
+ static inline const char *dccp_role(const struct sock *sk)
+ {
+        switch (dccp_sk(sk)->dccps_role) {
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 7f56f7e..ef60f4e 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -56,9 +56,6 @@ int dccp_v4_connect(struct sock *sk, str
+
+        dp->dccps_role = DCCP_ROLE_CLIENT;
+
+-       if (dccp_service_not_initialized(sk))
+-               return -EPROTO;
+-
+        if (addr_len < sizeof(struct sockaddr_in))
+                return -EINVAL;
+
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 6f14bb5..f1b88c8 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -217,7 +217,7 @@ int dccp_init_sock(struct sock *sk, cons
+        icsk->icsk_sync_mss     = dccp_sync_mss;
+        dp->dccps_mss_cache     = 536;
+        dp->dccps_role          = DCCP_ROLE_UNDEFINED;
+-       dp->dccps_service       = DCCP_SERVICE_INVALID_VALUE;
++       dp->dccps_service       = DCCP_SERVICE_CODE_IS_ABSENT;
+        dp->dccps_l_ack_ratio   = dp->dccps_r_ack_ratio = 1;
+
+        return 0;
+@@ -267,12 +267,6 @@ static inline int dccp_listen_start(stru
+        struct dccp_sock *dp = dccp_sk(sk);
+
+        dp->dccps_role = DCCP_ROLE_LISTEN;
+-       /*
+-        * Apps need to use setsockopt(DCCP_SOCKOPT_SERVICE)
+-        * before calling listen()
+-        */
+-       if (dccp_service_not_initialized(sk))
+-               return -EPROTO;
+        return inet_csk_listen_start(sk, TCP_SYNQ_HSIZE);
+ }
+
+@@ -540,9 +534,6 @@ static int dccp_getsockopt_service(struc
+        int err = -ENOENT, slen = 0, total_len = sizeof(u32);
+
+        lock_sock(sk);
+-       if (dccp_service_not_initialized(sk))
+-               goto out;
+-
+        if ((sl = dp->dccps_service_list) != NULL) {
+                slen = sl->dccpsl_nr * sizeof(u32);
+                total_len += slen;
 
