@@ -1,105 +1,39 @@
-From: Roland Dreier <roland@digitalvampire.org>
-Subject: [PATCH] [ATM] he: Fix __init/__devinit conflict
-Date: Mon, 11 Sep 2006 12:14:48 -0700
-Message-ID: <877j0a5i6v.fsf@digitalvampire.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] VIOC: New Network Device Driver
+Date: Mon, 11 Sep 2006 21:15:52 +0200
+Message-ID: <200609112115.53520.arnd@arndb.de>
+References: <003c01c6d5cb$e00fd850$7501a8c0@ZINLAPTOP>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rwcrmhc13.comcast.net ([204.127.192.83]:33413 "EHLO
-	rwcrmhc13.comcast.net") by vger.kernel.org with ESMTP
-	id S964966AbWIKTOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 15:14:50 -0400
-To: Chas Williams <chas@cmf.nrl.navy.mil>
+Received: from moutng.kundenserver.de ([212.227.126.188]:17149 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S964969AbWIKTQA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 15:16:00 -0400
+To: "Misha Tomushev" <misha@fabric7.com>
+In-Reply-To: <003c01c6d5cb$e00fd850$7501a8c0@ZINLAPTOP>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-he_init_one() is declared __devinit, but calls lots of init functions
-that are marked __init.  However, if CONFIG_HOTPLUG is enabled,
-__devinit functions go into normal .text, which leads to
+On Monday 11 September 2006 19:58, Misha Tomushev wrote:
+> The descriptor clean-up does not contribute anything to the performance
+> of the driver, it just replenishes the memory pools. It almost does not
+> need interrupts. Why would we want to add more cycles to the receive
+> logic, when driver is doing useful work for something that can run
+> almost at any time?
 
-    WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x2130) and 'he_service_tbrq'
+It can run at almost any time, just not in the interrupt context,
+where it needs to schedule the tx softirq first.
 
-Fix this by changing the __init functions to __devinit.
+Also, the number of tx interrupts you get is a tradeoff between
+causing overhead of calling the interrupt handler and stalling
+sockets that are waiting for space to become free after transmission.
+By using ->poll for it, you can avoid tx interrupts completely
+most of the time and free skbs immediately when data comes in.
 
-Signed-off-by: Roland Dreier <roland@digitalvampire.org>
-
----
-
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index d369130..9e0383d 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -454,7 +454,7 @@ #define NONZERO (1 << 14)
- 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
- }
- 
--static void __init
-+static void __devinit
- he_init_rx_lbfp0(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -485,7 +485,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
- 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
- }
- 
--static void __init
-+static void __devinit
- he_init_rx_lbfp1(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -516,7 +516,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
- 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
- }
- 
--static void __init
-+static void __devinit
- he_init_tx_lbfp(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -546,7 +546,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
- 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
- }
- 
--static int __init
-+static int __devinit
- he_init_tpdrq(struct he_dev *he_dev)
- {
- 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
-@@ -568,7 +568,7 @@ he_init_tpdrq(struct he_dev *he_dev)
- 	return 0;
- }
- 
--static void __init
-+static void __devinit
- he_init_cs_block(struct he_dev *he_dev)
- {
- 	unsigned clock, rate, delta;
-@@ -664,7 +664,7 @@ he_init_cs_block(struct he_dev *he_dev)
- 
- }
- 
--static int __init
-+static int __devinit
- he_init_cs_block_rcm(struct he_dev *he_dev)
- {
- 	unsigned (*rategrid)[16][16];
-@@ -785,7 +785,7 @@ #define RTGTBL_OFFSET 0x400
- 	return 0;
- }
- 
--static int __init
-+static int __devinit
- he_init_group(struct he_dev *he_dev, int group)
- {
- 	int i;
-@@ -955,7 +955,7 @@ #endif
- 	return 0;
- }
- 
--static int __init
-+static int __devinit
- he_init_irq(struct he_dev *he_dev)
- {
- 	int i;
+	Arnd <><
