@@ -1,57 +1,36 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: TG3 data corruption (TSO ?)
-Date: Mon, 11 Sep 2006 14:53:30 +1000
-Message-ID: <1157950410.31071.402.camel@localhost.localdomain>
-References: <1551EAE59135BE47B544934E30FC4FC093FB19@NT-IRVA-0751.brcm.ad.broadcom.com>
-	 <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
-	 <1157745256.5344.8.camel@rh4>
+Date: Sun, 10 Sep 2006 22:18:52 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC093FB2B@NT-IRVA-0751.brcm.ad.broadcom.com>
+References: <1157950410.31071.402.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Segher Boessenkool" <segher@kernel.crashing.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:56228 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S932094AbWIKExn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 00:53:43 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1157745256.5344.8.camel@rh4>
-Sender: netdev-owner@vger.kernel.org
+	"Linux Kernel list" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964798AbWIKFTF@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1157950410.31071.402.camel@localhost.localdomain>
+To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Benjamin Herrenschmidt wrote:
 
-> Oh, we know about this.  The powerpc writel() used to have memory
-> barriers in 2.4 kernels but not any more in 2.6 kernels.  Red Hat's
-> version of tg3 has extra wmb()'s to fix this problem.  David doesn't
-> think that the upstream version of tg3 should have these wmb()'s, and
-> the problem should instead be fixed in powerpc's writel().
+> I've added a wmb() in tw32_rx_mbox() and tw32_tx_mbox() and can still
+> reproduce the problem. I've also done a 2 days run without TSO enabled
+> without a failure (my test program normally fails after a couple of
+> minutes).
+> 
 
-I've added a wmb() in tw32_rx_mbox() and tw32_tx_mbox() and can still
-reproduce the problem. I've also done a 2 days run without TSO enabled
-without a failure (my test program normally fails after a couple of
-minutes).
+Hi Ben,
 
-Thus, do you see any other code path in the driver where a
-synchronisation might be missing ? Is there any case where the chip
-might use data in memory before it has been told to do so  with a
-mailbox write ? (There are no "OWN" bits that I can see in the
-descriptors, thus I doubt it will use a transmit descriptor that is
-half-built before the store to the mailbox allows using it) but who
-knows....
+The code is a bit tricky.  It uses function pointers for the various
+register read/write methods.  For the 5780, I believe it will be
+assigned a simple writel() and not tg3_write32_tx_mbox().  Can you
+double check to make sure you have actually added the wmb()?
 
-That leads to the question that there might be an unrelated bug in the
-driver. Segher thinks we might be overriding "live" descriptors, though
-I haven't seen how yet. It seems to be TSO specific tho... maybe some
-missing smp synchronisation in the driver itself or a problem when the
-TX ring is full ?
-
-I don't have the chip docs and I'm not familiar with the driver, so I'll
-keep looking, but advice is welcome. I'll also see if I can reproduce
-with some other TSO capable card, in case the problem is in the kernel
-TSO code and not in the driver.
-
-Cheers,
-Ben.
-
-
+It's probably easiest to just add the wmb() in tg3_xmit_dma_bug()
+before the tw32_tx_mbox().
