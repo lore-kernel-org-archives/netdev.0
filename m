@@ -1,94 +1,51 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
-Date: Mon, 11 Sep 2006 14:59:01 -0500
-Message-ID: <4505C005.2070302@lwfinger.net>
-References: <45021D4A.6040805@lwfinger.net> <20060909152305.GA27080@tuxdriver.com> <4502E62B.5060601@lwfinger.net> <20060911192846.GB19326@tuxdriver.com>
+From: Carlos =?utf-8?Q?Mart=C3=ADnn?= Nieto <carlos@cmartin.tk>
+Subject: Re: tiacx module fail
+Date: Mon, 11 Sep 2006 22:03:43 +0200
+Message-ID: <20060911200343.GA3878@kiopa.cmartin.tk>
+References: <4503F640.3040300@fastwebnet.it> <20060911122541.GA4537@kiopa.cmartin.tk> <450560F6.5030405@fastwebnet.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stefano Brivio <st3@riseup.net>,
-	Michael Buesch <mb@bu3sch.de>,
-	Broadcom Linux <bcm43xx-dev@lists.berlios.de>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zhXaljGHf11kAtnf"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:11953 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S965007AbWIKT7O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 15:59:14 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060911192846.GB19326@tuxdriver.com>
+Received: from 111.red-82-159-197.user.auna.net ([82.159.197.111]:41690 "EHLO
+	indy.cmartin.tk") by vger.kernel.org with ESMTP id S965022AbWIKUE0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 16:04:26 -0400
+To: VinX <vincenx@fastwebnet.it>
+Content-Disposition: inline
+In-Reply-To: <450560F6.5030405@fastwebnet.it>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Sat, Sep 09, 2006 at 11:04:59AM -0500, Larry Finger wrote:
->> John W. Linville wrote:
-> 
-> OK, I see now.  The patch won't apply to the upstream branch at all
-> due to the open-coded locking patch applied previously.
-> 
-> The problem now is that if I send this up for 2.6.18 then it creates
-> some messiness in the git repositories.  Plus, it still might not
-> make 2.6.18 because it is already very late.
-> 
-> I think I will have to ask you to hold-on to this until Linus
-> officially releases 2.6.18.  Then you can/should send this patch to
-> the stable team (stable@vger.kernel.org) for inclusion in 2.6.18.1
-> or later.
 
-I will do that as soon as 18 is released. I don't want that bug in the 
-wild too long.
-> 
-> I have these:
-> 
-> Date	Title
-> ----	-----
-> 8/21	bcm43xx-softmac: Init, shutdown and restart fixes
-> 8/30	WE-21 for bcm43xx
-> 9/3	remove dead code from bcm43xx-softmac
-> 9/4	add firmware version printout
-> 9/6	ucode debug status via sysfs
-> 9/7	remove dead code in bcm43xx_sysfs.c
-> 
-> The first has not been merged because I haven't seen a reply to
-> Michael's last comments in that thread.  The WE-21 patch has not been
-> merged because I haven't merged the WE-21 stuff yet.  The others are
-> all from last week, which I just haven't processed yet.
-> 
-> Will you be responding to Michael's comments on the "Init, shutdown
-> and restart fixes" patch?
+--zhXaljGHf11kAtnf
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-That has already been sent. As I said in that message, it looks as if 
-the first patch has already been merged; therefore, I sent only the 
-patch to move the step that Michael noted. If that is not true, let me 
-know.
+ Did you bring the interface up (ifconfig eth1 up)? It won't work
+before that because parts of the card haven't been initialised.
 
-> P.S.  For some reason, I often have trouble applying your patches.
-> I'm not sure what process you are using to generate your patches, but
-> please make sure that your patches can be successfully applied when
-> your email is fed to 'git applymbox'.  If you use git, the output of
-> 'git format-patch' should be usable.
-> 
-> Also, if you could just use "---" instead of a long line of "======",
-> I think I would have to do less manual processing...thanks!
+ IIRC, the tiacx module in wireless-2.6 uses softmac and we never
+managed to get it working properly. There is a version with the
+devicescape stack which seems to work, though it might take a bit of
+hunting down.
 
-Sorry about the === rather than ---. Is that documented somewhere?
+--=20
+Carlos Mart=C3=ADn Nieto    |   http://www.cmartin.tk
+Hobbyist programmer    |
+--zhXaljGHf11kAtnf
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-I use quilt to generate the patches, but will check them with git in 
-the future.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
 
-In addition to the items listed above, my list for wireless-2.6 includes:
+iD8DBQFFBcEfEVXxXOiy6a4RAtTWAKCRdemCOgH9/btiLbteaT3Yxhg2/ACfcSjI
+MSHlsaLM1tI28HvkVG6gR48=
+=r1MK
+-----END PGP SIGNATURE-----
 
-8/15  bcm43xx: >1G and 64bit DMA support
-8/15  bcm43xx: re-add bcm43xx_rng_init() call
-8/15  Add Larry Finger to bcm43xx MAINTAINERS
-8/16  bcm43xx-softmac: optimization of DMA bitfields.
-8/19  bcm43xx: return correct hard_start_xmit error code]
-9/10  Change PHY initialization to match updated clean-room specs
-
-The first 3 were submitted by Michael before I took over.
-
-I hope I'm not causing too much trouble while I learn the ropes.
-
-Larry
-
-
+--zhXaljGHf11kAtnf--
