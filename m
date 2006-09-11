@@ -1,60 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8168, 2.6.17 et r8169.c
-Date: Mon, 11 Sep 2006 22:13:48 +0200
-Message-ID: <20060911201348.GA8188@electric-eye.fr.zoreil.com>
-References: <200609091201.03603.corentincj@iksaif.net> <200609091451.14579.corentincj@iksaif.net> <20060910214254.GA22831@electric-eye.fr.zoreil.com> <200609111309.08447.corentincj@iksaif.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
+Date: Mon, 11 Sep 2006 16:35:04 -0400
+Message-ID: <20060911203458.GD19326@tuxdriver.com>
+References: <45021D4A.6040805@lwfinger.net>
+	<20060909152305.GA27080@tuxdriver.com>
+	<4502E62B.5060601@lwfinger.net>
+	<20060911192846.GB19326@tuxdriver.com>
+	<4505C005.2070302@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38373 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S965029AbWIKUQn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 16:16:43 -0400
-To: Corentin CHARY <corentincj@iksaif.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	Broadcom Linux <bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <200609111309.08447.corentincj@iksaif.net>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <4505C005.2070302-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Corentin CHARY <corentincj@iksaif.net> :
-> With the 2.6.17 Patchs :
+On Mon, Sep 11, 2006 at 02:59:01PM -0500, Larry Finger wrote:
+> John W. Linville wrote:
+
+> >Also, if you could just use "---" instead of a long line of "======",
+> >I think I would have to do less manual processing...thanks!
 > 
-[...]
-> xfport /usr/src/linux # mii-tool eth0
-> SIOCGMIIPHY on 'eth0' failed: Operation not supported
+> Sorry about the === rather than ---. Is that documented somewhere?
 
-Expected result.
+Not too explicitly, but I think Andrew mentions it in "The Perfect Patch":
 
-[...]
-> With NET_IP_ALIGN + 6 : It does *exactly* the same thing, *but* it works 
-> perfectly !!!
+	http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
 
-Expected result.
+While you are looking, you might review Jeff's version of the same idea:
 
-[...]
-> So I now use that, but I test 2.6.18 patchs.
+	http://linux.yyz.us/patch-format.html
+ 
+> I use quilt to generate the patches, but will check them with git in 
+> the future.
+
+It's not terribly critical, but it does slow me down if I have to
+regenerate patches, edit comments, change subject lines, etc.
+
+> In addition to the items listed above, my list for wireless-2.6 includes:
 > 
-> With the  2.6.18 kernel patchs :
-> same thing as before but mii-tool works (i think i forget patchs 10 and 11 
-> last time, sry).
-> BUT: i can't ping .. maybe it's just because I don't use mii-tool in the right 
-> way :(
+> 8/15  bcm43xx: >1G and 64bit DMA support
+> 8/15  bcm43xx: re-add bcm43xx_rng_init() call
+> 8/15  Add Larry Finger to bcm43xx MAINTAINERS
+> 8/16  bcm43xx-softmac: optimization of DMA bitfields.
+> 8/19  bcm43xx: return correct hard_start_xmit error code]
 
-Something went wrong.
+I have all of these in the upstream branch of wireless-2.6.  BTW,
+I have _not_ applied the Init patch yet. But I still have it, so I'll
+just combine that w/ the new patch you posted this afternoon.
 
-Can you try against 2.6.18-rc6:
-http://www.fr.zoreil.com/people/francois/misc/20060911-2.6.18-rc6-r8169-test.patch
+> 9/10  Change PHY initialization to match updated clean-room specs
 
-If the driver does not work, which in itself would be fairly disappointing, 
-revert (patch -R) 0009 found in the 2.6.18-rc5 directory and try again.
+The archives show this as being posted today at ~2:00pm EDT, but I
+seem to have missed it?  Could you resend it just to me?
 
-If the driver still does not work, revert 0007 found in the 2.6.18-rc5
-directory and try again.
+> I hope I'm not causing too much trouble while I learn the ropes.
 
-If the driver still does not work, send the .c file, send your working
-2.6.17-rc6 driver and send the _complete_ dmesg from boot for both
-kernels because something is badly screwed.
+We all go through it -- if you start feeding another maintainer,
+he/she will probably have other quirks too... :-)
 
+Thanks,
+
+John
 -- 
-Ueimor
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
