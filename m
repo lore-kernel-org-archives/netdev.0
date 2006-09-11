@@ -1,53 +1,100 @@
-From: Erik Mouw <erik-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
-Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
-Date: Mon, 11 Sep 2006 12:52:02 +0200
-Message-ID: <20060911105202.GA7903@harddisk-recovery.com>
-References: <45006221.4090603@lwfinger.net>
-	<20060908094204.GB26916@harddisk-recovery.com>
-	<200609081145.28095.mb@bu3sch.de>
-	<20060908132317.GS26916@harddisk-recovery.com>
-	<450171E4.8070901@lwfinger.net>
+From: Corentin CHARY <corentincj@iksaif.net>
+Subject: Re: r8168, 2.6.17 et r8169.c
+Date: Mon, 11 Sep 2006 13:09:08 +0200
+Message-ID: <200609111309.08447.corentincj@iksaif.net>
+References: <200609091201.03603.corentincj@iksaif.net> <200609091451.14579.corentincj@iksaif.net> <20060910214254.GA22831@electric-eye.fr.zoreil.com>
+Reply-To: corentincj@iksaif.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from iksaif.dns26.com ([84.246.226.15]:15256 "EHLO iksaif.net")
+	by vger.kernel.org with ESMTP id S932088AbWIKLIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 07:08:55 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060910214254.GA22831@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <450171E4.8070901-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 08, 2006 at 08:36:36AM -0500, Larry Finger wrote:
-> Erik Mouw wrote:
-> > Thanks for the information, pulled wireless-2.6 and recompiling kernel.
-> > If this really fixes the problem, can we try to get it merged before
-> > 2.6.18 closes? I don't know if vanilla 2.6.18-rc6 locks up on other
-> > hardware as well, but if it does it would be a major regression against
-> > 2.6.17.
-> 
-> I'm trying. At the moment, I'm testing a patch against 2.6.18-rc6. Once it works here, I'll be 
-> putting it out for testing.
+With the 2.6.17 Patchs :
 
-I suppose that's the patch in "[PATCH] fix for system lockups in
-2.6.18-rcX caused by bcm43xx"?
+xfport /usr/src/linux # insmod drivers/net/r8169.ko
+xfport /usr/src/linux # dmesg | tail
+r8169 Gigabit Ethernet driver 2.2LK loaded
+ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+PCI: Setting latency timer of device 0000:02:00.0 to 64
+eth0: RTL8168b/8111b at 0xf0fe6000, 00:17:31:c1:8d:ee, IRQ 16
+r8169: eth0: link down
+r8169: eth0: link down
+r8169: eth0: link up
+xfport /usr/src/linux # ifconfig eth0 up
+xfport /usr/src/linux # ifconfig eth0 192.168.0.20
+xfport /usr/src/linux # mii-tool eth0
+SIOCGMIIPHY on 'eth0' failed: Operation not supported
+xfport /usr/src/linux # ping 192.168.0.2
+PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
 
-FWIW: 2.6.18-rc6+wireless-2.6 runs well, my laptop didn't lock up over
-the weekend.
+--- 192.168.0.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 999ms
+xfport /usr/src/linux # ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 100Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pumbg
+        Wake-on: g
+        Current message level: 0x00000033 (51)
+        Link detected: yes
 
 
-Erik
+With NET_IP_ALIGN + 6 : It does *exactly* the same thing, *but* it works 
+perfectly !!!
+So I now use that, but I test 2.6.18 patchs.
+
+
+With the  2.6.18 kernel patchs :
+same thing as before but mii-tool works (i think i forget patchs 10 and 11 
+last time, sry).
+BUT: i can't ping .. maybe it's just because I don't use mii-tool in the right 
+way :(
+
+(patch, make, insmod, ifconfig, exactly like before)
+
+xfport /usr/src/linux # mii-tool eth0
+eth0: negotiated 100baseTx-FD flow-control, link ok
+xfport /usr/src/linux # mii-diag
+Using the default interface 'eth0'.
+Basic registers of MII PHY #32:  1000 796d 001c c912 0de1 45e1 0005 2001.
+ The autonegotiated capability is 01e0.
+The autonegotiated media type is 100baseTx-FD.
+ Basic mode control register 0x1000: Auto-negotiation enabled.
+ You have link beat, and everything is working OK.
+ Your link partner advertised 45e1: Flow-control 100baseTx-FD 100baseTx 
+10baseT-FD 10baseT, w/ 802.3X                      flow control.
+   End of basic transceiver information.
+xfport /usr/src/linux # ping 192.168.0.2
+PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
+
+--- 192.168.0.2 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
 
 -- 
-+-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
-| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
+CHARY 'Iksaif' Corentin
+iksaif@gmail.com - corentincj@yahoo.fr
+http://xf.iksaif.net
