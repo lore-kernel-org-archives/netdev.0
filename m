@@ -1,43 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] Alternate WE-21 support (core API)
-Date: Mon, 11 Sep 2006 11:08:14 +0200
-Message-ID: <1157965694.2811.3.camel@ux156>
-References: <20060830005655.GA8405@bougret.hpl.hp.com>
-	 <1157031138.16040.17.camel@ux156> <20060831135112.GA6097@jm.kir.nu>
-	 <1157032805.16040.21.camel@ux156> <20060906205538.GA29767@tuxdriver.com>
-	 <20060906213053.GA21719@bougret.hpl.hp.com>
-	 <20060908142913.GD23852@tuxdriver.com>
-	 <20060908161345.GA27036@bougret.hpl.hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jouni Malinen <jkmaline@cc.hut.fi>, netdev@vger.kernel.org,
-	Javier Achirica <achirica@gmail.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	Jeroen Vreeken <pe1rxq@amsat.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Michael Buesch <mbuesch@freenet.de>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
+Date: Mon, 11 Sep 2006 11:46:44 +0100
+Message-ID: <9051.1157971604@warthog.cambridge.redhat.com>
+References: <20060909054642.GA8859@elte.hu>  <20060906125626.GA3718@elte.hu> <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com> <17274.1157553962@warthog.cambridge.redhat.com>
+Cc: David Howells <dhowells@redhat.com>,
+	john stultz <johnstul@us.ibm.com>,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:176 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750976AbWIKJH5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 05:07:57 -0400
-To: jt@hpl.hp.com
-In-Reply-To: <20060908161345.GA27036@bougret.hpl.hp.com>
+Received: from mx1.redhat.com ([66.187.233.31]:956 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750997AbWIKKtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 06:49:50 -0400
+In-Reply-To: <20060909054642.GA8859@elte.hu> 
+To: Ingo Molnar <mingo@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-09-08 at 09:13 -0700, Jean Tourrilhes wrote:
-> And I don't believe nl80211 will address legacy
-> driver and non-802.11 hardware.
+Ingo Molnar <mingo@elte.hu> wrote:
 
-It'd help if you'd tell me what in WE specifically addresses non-802.11
-legacy hardware. I don't really see anything that is completely
-orthogonal.
+> i cannot find Thomas' recent 2.6 one (Thomas, do you have a link to 
+> it?), but i did one 5 years ago:
+> 
+>  http://people.redhat.com/mingo/irq-rewrite-patches/irq-cleanup-2.4.15-B1.bz2
+> 
+> in general it's a large but otherwise pretty dumb patch.
 
-johannes
+I wrote my own patch to test this last Friday.  I found that removing all the
+regs pointer passing from the interrupt code reduced interrupt entry with a
+warm cache by 1 cpu cycle out of 87, and interrupt exit by 19 cycles out of 99.
+
+I can't tell from that exactly how many instructions/memory accesses have been
+removed since the FRV permits two instructions to be executed in one cycle
+under some circumstances, and two registers to be stored/loaded in one
+instruction.
+
+But the main gain in the exit path has to be due to recovery of the clobbered
+regs parameter due to a call inside a loop, possibly in handle_IRQ_event().
+
+I'd expect i386 to do better in cycle reduction because it has fewer registers
+and so getting one back should gain more.
+
+David
