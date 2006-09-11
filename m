@@ -1,88 +1,51 @@
-From: "Ananda Raju" <Ananda.Raju@neterion.com>
-Subject: RE: LRO fix needed
-Date: Mon, 11 Sep 2006 08:53:16 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77BB97C5@nekter>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Mon, 11 Sep 2006 15:54:24 +0200
+Message-ID: <15531494-BB50-49B3-B2A8-7E51AB3DDBF9@kernel.crashing.org>
+References: <1551EAE59135BE47B544934E30FC4FC093FB2C@NT-IRVA-0751.brcm.ad.broadcom.com> <1157953925.31071.413.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v750)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:7362 "EHLO
-	barracuda.s2io.com") by vger.kernel.org with ESMTP id S1750800AbWIKMzL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 08:55:11 -0400
-Received: from owa.neterion.com (unknown [72.1.205.142])
-	by barracuda.s2io.com (Spam Firewall) with ESMTP id E77182014A2B
-	for <netdev@vger.kernel.org>; Mon, 11 Sep 2006 08:55:09 -0400 (EDT)
-Content-class: urn:content-classes:message
-To: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David Miller" <davem@davemloft.net>
+Received: from mail-in-04.arcor-online.net ([151.189.21.44]:47257 "EHLO
+	mail-in-04.arcor-online.net") by vger.kernel.org with ESMTP
+	id S1750707AbWIKNyb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 09:54:31 -0400
+In-Reply-To: <1157953925.31071.413.camel@localhost.localdomain>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi 
+>>> #define tw32_rx_mbox(reg, val)	do { wmb();
+>> tp->write32_rx_mbox(tp, reg, val); } while(0)
+>>> #define tw32_tx_mbox(reg, val)	do { wmb();
+>> tp->write32_tx_mbox(tp, reg, val); } while(0)
+>>>
+>>
+>> That should do it.
+>>
+>> I think we need those tcpdump after all.  Can you send it to me?
+>
+> Looks like adding a sync to writel does fix it though... I'm trying to
+> figure out which specific writel in the driver makes a difference.  
+> I'll
+> then look into slicing those tcpdumps.
 
-I was on leave for 3 weeks so couldn't answer to Questions.
+Adding a PowerPC "sync" to every writel() will slow down things by
+so much that it could well just hide the problem, not solve it...
 
-Current s2io driver won't use any hardware assistance for LRO. Present
-hardware Xframe-I and Xframe-II provides header separation functionality
-which can be used for LRO but not in use.  Our next generation hardware
-will have more assistance for LRO. 
+Michael, we see this problem only with TSO on, and then the failure
+we see is bad data being sent out, with the correct header (but the
+header is constructed by the tg3 in this case, so no surprise).
 
-We aggregate
-1. Till skb length reaches close to 64k and send the packet up once
-skb->len goes to 64k
-2. Once there are not more packets to process in the ring buffers. At
-end of ISR we indicate all the LRO packets up the network stack. 
-
-Does the modification to gso_size in LRO packet applied to Linux source
-tree? 
+I'm theorizing that this same failure can happen with TSO off as well,
+but the header sent on the wire will be bogus as well as the data,
+so the receiving NIC won't pick it up.  tcpdump probably won't see
+it either...  will need a low-level ethernet analyser.
 
 
-On Fri, Sep 01, 2006 at 09:43:47AM +1000, herbert wrote:
-> 
-> It might be better to set it to the biggest frag you see rather
-> than the first.
-
-I've coded it up.
-
-BTW Ananda, what hardware assistance do your chips currently provide
-for LRO? What are the timeouts used before it gives up on aggregating
-a session?
-
-[NETDRV] s2io: Set gso_size for LRO to TCP stack
-
-Now that the TCP stack uses gso_size to estimate the receive MSS,
-it helps to actually set it :)
-
-Unlike the sending side, there is no single MSS that naturally
-pops up for LRO.  However, for our purposes the maximal TCP payload
-size is the most appropriate for estimating MSS.
-
-Signed-off-by: Herbert Xu <[EMAIL PROTECTED]>
-
-Cheers,-----Original Message-----
-From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
-Sent: Thursday, August 31, 2006 4:44 PM
-To: David Miller
-Cc: Ananda Raju; netdev@vger.kernel.org
-Subject: Re: LRO fix needed
-
-On Thu, Aug 31, 2006 at 04:42:27PM -0700, David Miller wrote:
-> 
-> So could you please make the S2io driver LRO path
-> set skb_shared_info(skb)->gso_size appropriately?
-> Probably the easiest is to use the length of the
-> first frag of a multiple frag LRO sequence.
-
-It might be better to set it to the biggest frag you see rather
-than the first.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Segher
 
