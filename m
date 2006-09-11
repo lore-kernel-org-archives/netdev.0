@@ -1,38 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
-Date: Mon, 11 Sep 2006 09:13:38 -0400
-Message-ID: <45056102.2010408@pobox.com>
-References: <20060906124447.642940bd@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patch] net driver fix
+Date: Mon, 11 Sep 2006 09:15:28 -0400
+Message-ID: <20060911131528.GA5059@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:16818 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751474AbWIKNNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 09:13:41 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060906124447.642940bd@localhost.localdomain>
+Received: from havoc.gtf.org ([69.61.125.42]:64899 "EHLO havoc.gtf.org")
+	by vger.kernel.org with ESMTP id S1751475AbWIKNP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 09:15:29 -0400
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Fix problems with transmit pause frames. The driver was telling the
-> GMAC to flush (not process) pause frames. Manually disabling pause wasn't
-> working because of problems in the setup.
-> 
-> This maybe the cause of the lockup under load.
-> 	http://bugzilla.kernel.org/show_bug.cgi?id=6839
-> 
-> Patch against netdev-2.6 git tree
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Is this for #upstream (2.6.19) or #upstream-fixes (2.6.18-rc)?
+Please pull from 'upstream-linus' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
 
-It looks OK for #upstream, but too intrusive for #upstream-fixes.
+to receive the following updates:
 
-	Jeff
+ drivers/net/dm9000.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
+Dirk Opfer:
+      Fix dm9000 release_resource
 
-
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 3d76fa1..a860ebb 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -377,8 +377,8 @@ dm9000_release_board(struct platform_dev
+ 		kfree(db->data_req);
+ 	}
+ 
+-	if (db->addr_res != NULL) {
+-		release_resource(db->addr_res);
++	if (db->addr_req != NULL) {
++		release_resource(db->addr_req);
+ 		kfree(db->addr_req);
+ 	}
+ }
