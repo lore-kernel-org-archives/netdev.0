@@ -1,37 +1,33 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: [Devel] Re: [RFC] network namespaces
-Date: Mon, 11 Sep 2006 19:10:31 +0400
-Message-ID: <200609111910.31624.dim@openvz.org>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <4505757B.3020004@fr.ibm.com> <20060911145724.GB27223@MAIL.13thfloor.at>
+From: Jeff Dike <jdike@addtoit.com>
+Subject: Re: [PATCH 14/21] uml: enable scsi and add iscsi config
+Date: Mon, 11 Sep 2006 11:49:33 -0400
+Message-ID: <20060911154933.GC4443@ccure.user-mode-linux.org>
+References: <20060906131630.793619000@chello.nl>> <20060906133955.337828000@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
-	sam@vilain.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>,
+	Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:52515 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S964792AbWIKPLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 11:11:51 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060911145724.GB27223@MAIL.13thfloor.at>
+Received: from saraswathi.solana.com ([198.99.130.12]:59843 "EHLO
+	saraswathi.solana.com") by vger.kernel.org with ESMTP
+	id S1751313AbWIKPvo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 11:51:44 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Content-Disposition: inline
+In-Reply-To: <20060906133955.337828000@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 11 September 2006 18:57, Herbert Poetzl wrote:
-> I completely agree here, we need a separate namespace
-> for that, so that we can combine isolation and virtualization
-> as needed, unless the bind restrictions can be completely
-> expressed with an additional mangle or filter table (as
-> was suggested)
-iptables are designed for packet flow decisions and filtering, it has nothing 
-common with bind restrictions. So, it may be only packet flow 
-scheduling/filtering, but it will not help to resolve bind-time IP conflicts.
+On Wed, Sep 06, 2006 at 03:16:44PM +0200, Peter Zijlstra wrote:
+> Enable iSCSI on UML, dunno why SCSI was deemed broken, it works like a charm.
 
--- 
-Thanks,
-Dmitry.
+Acked-by: Jeff Dike <jdike@addtoit.com>
+
+Although it would be nice if we didn't have to copy bits of Kconfig files
+to do this.
+
+				Jeff
