@@ -1,76 +1,254 @@
-From: Carlos =?utf-8?Q?Mart=C3=ADn?= Nieto <carlos@cmartin.tk>
-Subject: Re: tiacx module fail
-Date: Tue, 12 Sep 2006 00:40:04 +0200
-Message-ID: <20060911224004.GB3878@kiopa.cmartin.tk>
-References: <4503F640.3040300@fastwebnet.it> <20060911122541.GA4537@kiopa.cmartin.tk> <450560F6.5030405@fastwebnet.it> <20060911200343.GA3878@kiopa.cmartin.tk> <4505CF96.4060602@fastwebnet.it>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Mon, 11 Sep 2006 19:58:08 -0400
+Message-ID: <20060911235803.GB32752@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="IiVenqGWf+H9Y6IX"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 144.red-82-159-197.user.auna.net ([82.159.197.144]:39888 "EHLO
-	indy.cmartin.tk") by vger.kernel.org with ESMTP id S932277AbWIKWkI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 18:40:08 -0400
-To: VinX <vincenx@fastwebnet.it>
+Received: from ra.tuxdriver.com ([70.61.120.52]:65037 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S965179AbWIKX63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 19:58:29 -0400
+To: jeff@garzik.org
 Content-Disposition: inline
-In-Reply-To: <4505CF96.4060602@fastwebnet.it>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The following changes since commit 38f5745c5a90641079fd5b48600ae63f7ab6edcd:
+  Jack Steiner:
+        [IA64] SN fix for cpu hotplug/kexec
 
---IiVenqGWf+H9Y6IX
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+are found in the git repository at:
 
-On Mon, Sep 11, 2006 at 11:05:26PM +0200, VinX wrote:
-> Carlos Mart=C3=ADnn Nieto wrote:
-> >  Did you bring the interface up (ifconfig eth1 up)? It won't work
-> > before that because parts of the card haven't been initialised.
-> ok, now it seems to work!
->=20
-> > IIRC, the tiacx module in wireless-2.6 uses softmac and we never
-> > managed to get it working properly. There is a version with the
-> > devicescape stack which seems to work, though it might take a bit of
-> > hunting down.
-> ah ok, but why doesn't work it with acx module?
-> if i use a kernel <=3D 2.6.16, it works fine...
-> uhm... in the lastest kernels there are some changes that they are
-> indipendent on a generic wireless module, is it correct?
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
 
- One of the changes is that it now has acx_common.ko, acx_usb.ko and
-acx_pci.ko instead of just acx.ko (before that, it was acx-usb.ko and
-acx-pci.ko whith the common code in each one). This patch was applied
-upstream after the conversion to softmac IIRC.
+Ulrich Kunitz:
+      zd1211rw: Fix of signal strength and quality measurement
 
- I haven't followed the kernel much these last few months, so I'm not
-sure when each event happened, but it would seem that it was after
-=2E16 when the softmac code got in. (This being the wireless-2.6
-kernel, not mainline, which AFAIK doesn't have acx at all).
+ drivers/net/wireless/zd1211rw/zd_chip.c |   61 +++++++++++++++++++++++--------
+ drivers/net/wireless/zd1211rw/zd_mac.c  |   43 ++++++++++++++++++----
+ drivers/net/wireless/zd1211rw/zd_mac.h  |   11 ++++--
+ 3 files changed, 88 insertions(+), 27 deletions(-)
 
- I'm still not sure why it didn't work with the softmac stack, but I
-think it was a problem telling the stack what the card received. I
-think there were plans to put the devicescape stack into the mainline
-kernel, so ideally the version of acx that uses it is the one that
-should get merged upstream. I'm not sure where to find this version,
-but asking the author (search the acx archives for him) should fix that.
-
-   cmn
---=20
-Carlos Mart=C3=ADn Nieto    |   http://www.cmartin.tk
-Hobbyist programmer    |
---IiVenqGWf+H9Y6IX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQFFBeXEEVXxXOiy6a4RAkurAKCQmp/5LfaSUxpDwveFJFB1M7/hfwCfW0Ab
-YwAkCxegORFbbwDWBC9ExPk=
-=+zIt
------END PGP SIGNATURE-----
-
---IiVenqGWf+H9Y6IX--
+diff --git a/drivers/net/wireless/zd1211rw/zd_chip.c b/drivers/net/wireless/zd1211rw/zd_chip.c
+index da9d06b..aa79282 100644
+--- a/drivers/net/wireless/zd1211rw/zd_chip.c
++++ b/drivers/net/wireless/zd1211rw/zd_chip.c
+@@ -1430,9 +1430,43 @@ static int ofdm_qual_db(u8 status_qualit
+ 			break;
+ 	}
+ 
++	switch (rate) {
++	case ZD_OFDM_RATE_6M:
++	case ZD_OFDM_RATE_9M:
++		i += 3;
++		break;
++	case ZD_OFDM_RATE_12M:
++	case ZD_OFDM_RATE_18M:
++		i += 5;
++		break;
++	case ZD_OFDM_RATE_24M:
++	case ZD_OFDM_RATE_36M:
++		i += 9;
++		break;
++	case ZD_OFDM_RATE_48M:
++	case ZD_OFDM_RATE_54M:
++		i += 15;
++		break;
++	default:
++		return -EINVAL;
++	}
++
+ 	return i;
+ }
+ 
++static int ofdm_qual_percent(u8 status_quality, u8 rate, unsigned int size)
++{
++	int r;
++
++	r = ofdm_qual_db(status_quality, rate, size);
++	ZD_ASSERT(r >= 0);
++	if (r < 0)
++		r = 0;
++
++	r = (r * 100)/29;
++	return r <= 100 ? r : 100;
++}
++
+ static unsigned int log10times100(unsigned int x)
+ {
+ 	static const u8 log10[] = {
+@@ -1476,31 +1510,28 @@ static int cck_snr_db(u8 status_quality)
+ 	return r;
+ }
+ 
+-static int rx_qual_db(const void *rx_frame, unsigned int size,
+-	              const struct rx_status *status)
++static int cck_qual_percent(u8 status_quality)
+ {
+-	return (status->frame_status&ZD_RX_OFDM) ?
+-		ofdm_qual_db(status->signal_quality_ofdm,
+-			     zd_ofdm_plcp_header_rate(rx_frame),
+-			     size) :
+-		cck_snr_db(status->signal_quality_cck);
++	int r;
++
++	r = cck_snr_db(status_quality);
++	r = (100*r)/17;
++	return r <= 100 ? r : 100;
+ }
+ 
+ u8 zd_rx_qual_percent(const void *rx_frame, unsigned int size,
+ 	              const struct rx_status *status)
+ {
+-	int r = rx_qual_db(rx_frame, size, status);
+-	if (r < 0)
+-		r = 0;
+-	r = (r * 100) / 14;
+-	if (r > 100)
+-		r = 100;
+-	return r;
++	return (status->frame_status&ZD_RX_OFDM) ?
++		ofdm_qual_percent(status->signal_quality_ofdm,
++			          zd_ofdm_plcp_header_rate(rx_frame),
++			          size) :
++		cck_qual_percent(status->signal_quality_cck);
+ }
+ 
+ u8 zd_rx_strength_percent(u8 rssi)
+ {
+-	int r = (rssi*100) / 30;
++	int r = (rssi*100) / 41;
+ 	if (r > 100)
+ 		r = 100;
+ 	return (u8) r;
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index d6f3e02..a9bd80a 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -816,13 +816,25 @@ static int filter_rx(struct ieee80211_de
+ 	return -EINVAL;
+ }
+ 
+-static void update_qual_rssi(struct zd_mac *mac, u8 qual_percent, u8 rssi)
++static void update_qual_rssi(struct zd_mac *mac,
++			     const u8 *buffer, unsigned int length,
++			     u8 qual_percent, u8 rssi_percent)
+ {
+ 	unsigned long flags;
++	struct ieee80211_hdr_3addr *hdr;
++	int i;
++
++	hdr = (struct ieee80211_hdr_3addr *)buffer;
++	if (length < offsetof(struct ieee80211_hdr_3addr, addr3))
++		return;
++	if (memcmp(hdr->addr2, zd_mac_to_ieee80211(mac)->bssid, ETH_ALEN) != 0)
++		return;
+ 
+ 	spin_lock_irqsave(&mac->lock, flags);
+-	mac->qual_average = (7 * mac->qual_average + qual_percent) / 8;
+-	mac->rssi_average = (7 * mac->rssi_average + rssi) / 8;
++	i = mac->stats_count % ZD_MAC_STATS_BUFFER_SIZE;
++	mac->qual_buffer[i] = qual_percent;
++	mac->rssi_buffer[i] = rssi_percent;
++	mac->stats_count++;
+ 	spin_unlock_irqrestore(&mac->lock, flags);
+ }
+ 
+@@ -853,7 +865,6 @@ static int fill_rx_stats(struct ieee8021
+ 	if (stats->rate)
+ 		stats->mask |= IEEE80211_STATMASK_RATE;
+ 
+-	update_qual_rssi(mac, stats->signal, stats->rssi);
+ 	return 0;
+ }
+ 
+@@ -877,6 +888,8 @@ int zd_mac_rx(struct zd_mac *mac, const 
+ 		  sizeof(struct rx_status);
+ 	buffer += ZD_PLCP_HEADER_SIZE;
+ 
++	update_qual_rssi(mac, buffer, length, stats.signal, stats.rssi);
++
+ 	r = filter_rx(ieee, buffer, length, &stats);
+ 	if (r <= 0)
+ 		return r;
+@@ -981,17 +994,31 @@ struct iw_statistics *zd_mac_get_wireles
+ {
+ 	struct zd_mac *mac = zd_netdev_mac(ndev);
+ 	struct iw_statistics *iw_stats = &mac->iw_stats;
++	unsigned int i, count, qual_total, rssi_total;
+ 
+ 	memset(iw_stats, 0, sizeof(struct iw_statistics));
+ 	/* We are not setting the status, because ieee->state is not updated
+ 	 * at all and this driver doesn't track authentication state.
+ 	 */
+ 	spin_lock_irq(&mac->lock);
+-	iw_stats->qual.qual = mac->qual_average;
+-	iw_stats->qual.level = mac->rssi_average;
+-	iw_stats->qual.updated = IW_QUAL_QUAL_UPDATED|IW_QUAL_LEVEL_UPDATED|
+-		                 IW_QUAL_NOISE_INVALID;
++	count = mac->stats_count < ZD_MAC_STATS_BUFFER_SIZE ?
++		mac->stats_count : ZD_MAC_STATS_BUFFER_SIZE;
++	qual_total = rssi_total = 0;
++	for (i = 0; i < count; i++) {
++		qual_total += mac->qual_buffer[i];
++		rssi_total += mac->rssi_buffer[i];
++	}
+ 	spin_unlock_irq(&mac->lock);
++	iw_stats->qual.updated = IW_QUAL_NOISE_INVALID;
++	if (count > 0) {
++		iw_stats->qual.qual = qual_total / count;
++		iw_stats->qual.level = rssi_total / count;
++		iw_stats->qual.updated |=
++			IW_QUAL_QUAL_UPDATED|IW_QUAL_LEVEL_UPDATED;
++	} else {
++		iw_stats->qual.updated |=
++			IW_QUAL_QUAL_INVALID|IW_QUAL_LEVEL_INVALID;
++	}
+ 	/* TODO: update counter */
+ 	return iw_stats;
+ }
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.h b/drivers/net/wireless/zd1211rw/zd_mac.h
+index 71e382c..b3ba49b 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.h
++++ b/drivers/net/wireless/zd1211rw/zd_mac.h
+@@ -1,4 +1,4 @@
+-/* zd_mac.c
++/* zd_mac.h
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -87,9 +87,9 @@ struct rx_length_info {
+ #define RX_LENGTH_INFO_TAG		0x697e
+ 
+ struct rx_status {
++	u8 signal_quality_cck;
+ 	/* rssi */
+ 	u8 signal_strength;
+-	u8 signal_quality_cck;
+ 	u8 signal_quality_ofdm;
+ 	u8 decryption_type;
+ 	u8 frame_status;
+@@ -120,14 +120,17 @@ enum mac_flags {
+ 	MAC_FIXED_CHANNEL = 0x01,
+ };
+ 
++#define ZD_MAC_STATS_BUFFER_SIZE 16
++
+ struct zd_mac {
+ 	struct net_device *netdev;
+ 	struct zd_chip chip;
+ 	spinlock_t lock;
+ 	/* Unlocked reading possible */
+ 	struct iw_statistics iw_stats;
+-	u8 qual_average;
+-	u8 rssi_average;
++	unsigned int stats_count;
++	u8 qual_buffer[ZD_MAC_STATS_BUFFER_SIZE];
++	u8 rssi_buffer[ZD_MAC_STATS_BUFFER_SIZE];
+ 	u8 regdomain;
+ 	u8 default_regdomain;
+ 	u8 requested_channel;
+-- 
+John W. Linville
+linville@tuxdriver.com
