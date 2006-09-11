@@ -1,39 +1,52 @@
-From: VinX <vincenx@fastwebnet.it>
-Subject: Re: tiacx module fail
-Date: Mon, 11 Sep 2006 23:05:26 +0200
-Message-ID: <4505CF96.4060602@fastwebnet.it>
-References: <4503F640.3040300@fastwebnet.it> <20060911122541.GA4537@kiopa.cmartin.tk> <450560F6.5030405@fastwebnet.it> <20060911200343.GA3878@kiopa.cmartin.tk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000: fix TX timout hang regression for 82542rev3
+Date: Mon, 11 Sep 2006 14:00:21 -0700 (PDT)
+Message-ID: <20060911210021.972B41AB2A1@ahkok-mobl.jf.intel.com>
+Cc: auke-jan.h.kok@intel.com, auke@foo-projects.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	greg@kroah.com, jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	linville@tuxdriver.org, tony@mail.applog.com, bunk@stusta.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aa002msr.fastwebnet.it ([85.18.95.65]:48104 "EHLO
-	aa002msr.fastwebnet.it") by vger.kernel.org with ESMTP
-	id S964797AbWIKUqb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 16:46:31 -0400
-Received: from theconfessional.redirectme.net (23.251.157.101) by aa002msr.fastwebnet.it (7.2.070.1)
-        id 44ECD14E009FB52A for netdev@vger.kernel.org; Mon, 11 Sep 2006 22:46:29 +0200
-Received: from [192.168.1.144] (unknown [192.168.0.50])
-	by theconfessional.redirectme.net (Postfix) with ESMTP id 7745B38E663
-	for <netdev@vger.kernel.org>; Mon, 11 Sep 2006 22:43:27 +0200 (CEST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060911200343.GA3878@kiopa.cmartin.tk>
+Received: from mga03.intel.com ([143.182.124.21]:520 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S965061AbWIKVYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 17:24:54 -0400
+To: torvalds@osdl.org, jgarzik@pobox.com, stable@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Carlos Mart=EDnn Nieto wrote:
->  Did you bring the interface up (ifconfig eth1 up)? It won't work
-> before that because parts of the card haven't been initialised.
-ok, now it seems to work!
+Commit 581d708eb47cccb5f41bc0817e50c9b004011ba8 (oct. 5 2005) introduced
+partial Multiqueue support for e1000 which broke macro smartness in setting
+up head/tail registers for 82542 rev3 chipsets, making these adapters
+completely non-working since 2.6.15.
 
-> IIRC, the tiacx module in wireless-2.6 uses softmac and we never
-> managed to get it working properly. There is a version with the
-> devicescape stack which seems to work, though it might take a bit of
-> hunting down.
-ah ok, but why doesn't work it with acx module?
-if i use a kernel <=3D 2.6.16, it works fine...
-uhm... in the lastest kernels there are some changes that they are
-indipendent on a generic wireless module, is it correct?
+This commit sets the proper head and tail registers for read and write
+descriptor rings. Ths fix was tested on an 82542 rev3 NIC and newer NICs.
 
-Thanks
-VinX
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 726f43d..98ef9f8 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1433,8 +1433,8 @@ e1000_configure_tx(struct e1000_adapter
+ 		E1000_WRITE_REG(hw, TDBAL, (tdba & 0x00000000ffffffffULL));
+ 		E1000_WRITE_REG(hw, TDT, 0);
+ 		E1000_WRITE_REG(hw, TDH, 0);
+-		adapter->tx_ring[0].tdh = E1000_TDH;
+-		adapter->tx_ring[0].tdt = E1000_TDT;
++		adapter->tx_ring[0].tdh = ((hw->mac_type >= e1000_82543) ? E1000_TDH : E1000_82542_TDH);
++		adapter->tx_ring[0].tdt = ((hw->mac_type >= e1000_82543) ? E1000_TDT : E1000_82542_TDT);
+ 		break;
+ 	}
+ 
+@@ -1840,8 +1840,8 @@ #endif
+ 		E1000_WRITE_REG(hw, RDBAL, (rdba & 0x00000000ffffffffULL));
+ 		E1000_WRITE_REG(hw, RDT, 0);
+ 		E1000_WRITE_REG(hw, RDH, 0);
+-		adapter->rx_ring[0].rdh = E1000_RDH;
+-		adapter->rx_ring[0].rdt = E1000_RDT;
++		adapter->rx_ring[0].rdh = ((hw->mac_type >= e1000_82543) ? E1000_RDH : E1000_82542_RDH);
++		adapter->rx_ring[0].rdt = ((hw->mac_type >= e1000_82543) ? E1000_RDT : E1000_82542_RDT);
+ 		break;
+ 	}
+ 
