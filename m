@@ -1,44 +1,51 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/3] [IrDA] af_irda.c cleanups
-Date: Mon, 11 Sep 2006 10:50:54 -0700
-Message-ID: <20060911175054.GA31619@bougret.hpl.hp.com>
-References: <20060911054636.GA6368@sortiz.org>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+From: "Misha Tomushev" <misha@fabric7.com>
+Subject: RE: [PATCH] VIOC: New Network Device Driver
+Date: Mon, 11 Sep 2006 10:58:23 -0700
+Message-ID: <003c01c6d5cb$e00fd850$7501a8c0@ZINLAPTOP>
+References: <200609102339.25621.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20060911054636.GA6368-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext-103.mv.fabric7.com ([68.120.107.103]:43934 "EHLO
+	corp.fabric7.com") by vger.kernel.org with ESMTP id S1751311AbWIKR6Y
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Sep 2006 13:58:24 -0400
+To: "'Arnd Bergmann'" <arnd@arndb.de>
+In-Reply-To: <200609102339.25621.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 11, 2006 at 08:46:36AM +0300, Samuel Ortiz wrote:
-> Hi Dave,
-> 
-> We lock the socket when both releasing and getting a disconnected
-> notification. In the latter case, we also ste the socket as orphan.
-> This fixes a potential kernel bug that can be triggered when we get the
-> disconnection notification before closing the socket.
-> 
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-	Yes, all those changes look good to me. Go for it !
 
-	Jean
+-----Original Message-----
+From: Arnd Bergmann [mailto:arnd@arndb.de] 
+Sent: Sunday, September 10, 2006 2:39 PM
+To: Misha Tomushev
+Cc: jgarzik@pobox.com; netdev@vger.kernel.org;
+linux-kernel@vger.kernel.org
+Subject: Re: [PATCH] VIOC: New Network Device Driver
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+Am Friday 15 September 2006 02:15 schrieb Misha Tomushev:
+> VIOC Device Driver provides a standard device interface to the
+internal
+> fabric interconnected network used on servers designed and built by
+> Fabric 7 Systems.
+>
+> The patch can be found at ftp.fabric7.com/VIOC.
+
+We recently had a discussion about tx descriptor cleanup in general.
+It would probably be more efficient to call vnic_clean_txq from the
+vioc_rx_poll() function. To do that, your tx interrupt handler
+should disable the tx interrupt line and call netif_rx_schedule,
+like you do for the receive interrupts.
+
+The descriptor clean-up does not contribute anything to the performance
+of the driver, it just replenishes the memory pools. It almost does not
+need interrupts. Why would we want to add more cycles to the receive
+logic, when driver is doing useful work for something that can run
+almost at any time? 
+
