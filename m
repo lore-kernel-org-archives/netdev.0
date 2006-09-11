@@ -1,42 +1,57 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Mon, 11 Sep 2006 14:06:28 +1000
-Message-ID: <1157947588.31071.390.camel@localhost.localdomain>
-References: <1157669602.22705.326.camel@localhost.localdomain>
-	 <1157583693.22705.254.camel@localhost.localdomain>
-	 <20060906125626.GA3718@elte.hu> <20060906094301.GA8694@elte.hu>
-	 <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de>
-	 <20060901015818.42767813.akpm@osdl.org>
-	 <6260.1157470557@warthog.cambridge.redhat.com>
-	 <8430.1157534853@warthog.cambridge.redhat.com>
-	 <13982.1157545856@warthog.cambridge.redhat.com>
-	 <17274.1157553962@warthog.cambridge.redhat.com>
-	 <8934.1157622928@warthog.cambridge.redhat.com>
-	 <21606.1157718592@warthog.cambridge.redhat.com>
+Subject: Re: TG3 data corruption (TSO ?)
+Date: Mon, 11 Sep 2006 14:53:30 +1000
+Message-ID: <1157950410.31071.402.camel@localhost.localdomain>
+References: <1551EAE59135BE47B544934E30FC4FC093FB19@NT-IRVA-0751.brcm.ad.broadcom.com>
+	 <9EAEC3B2-260E-444E-BCA1-3C9806340F65@kernel.crashing.org>
+	 <1157745256.5344.8.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, john stultz <johnstul@us.ibm.com>,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:34468 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1750849AbWIKEJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 00:09:32 -0400
-To: David Howells <dhowells@redhat.com>
-In-Reply-To: <21606.1157718592@warthog.cambridge.redhat.com>
+Received: from gate.crashing.org ([63.228.1.57]:56228 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S932094AbWIKExn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 00:53:43 -0400
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1157745256.5344.8.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> But funky cascading using chained flow handlers doesn't work if the cascade
-> must share an IRQ with some other device, right?
+> Oh, we know about this.  The powerpc writel() used to have memory
+> barriers in 2.4 kernels but not any more in 2.6 kernels.  Red Hat's
+> version of tg3 has extra wmb()'s to fix this problem.  David doesn't
+> think that the upstream version of tg3 should have these wmb()'s, and
+> the problem should instead be fixed in powerpc's writel().
 
-Indeed. Best way there is then to have a normal action handler like you
-do and have it call generic_handle_irq() on the cascaded interrupts.
+I've added a wmb() in tw32_rx_mbox() and tw32_tx_mbox() and can still
+reproduce the problem. I've also done a 2 days run without TSO enabled
+without a failure (my test program normally fails after a couple of
+minutes).
 
+Thus, do you see any other code path in the driver where a
+synchronisation might be missing ? Is there any case where the chip
+might use data in memory before it has been told to do so  with a
+mailbox write ? (There are no "OWN" bits that I can see in the
+descriptors, thus I doubt it will use a transmit descriptor that is
+half-built before the store to the mailbox allows using it) but who
+knows....
+
+That leads to the question that there might be an unrelated bug in the
+driver. Segher thinks we might be overriding "live" descriptors, though
+I haven't seen how yet. It seems to be TSO specific tho... maybe some
+missing smp synchronisation in the driver itself or a problem when the
+TX ring is full ?
+
+I don't have the chip docs and I'm not familiar with the driver, so I'll
+keep looking, but advice is welcome. I'll also see if I can reproduce
+with some other TSO capable card, in case the problem is in the kernel
+TSO code and not in the driver.
+
+Cheers,
 Ben.
 
 
