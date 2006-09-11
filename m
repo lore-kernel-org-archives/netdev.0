@@ -1,46 +1,53 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Mon, 11 Sep 2006 11:46:44 +0100
-Message-ID: <9051.1157971604@warthog.cambridge.redhat.com>
-References: <20060909054642.GA8859@elte.hu>  <20060906125626.GA3718@elte.hu> <20060906094301.GA8694@elte.hu> <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de> <20060901015818.42767813.akpm@osdl.org> <6260.1157470557@warthog.cambridge.redhat.com> <8430.1157534853@warthog.cambridge.redhat.com> <13982.1157545856@warthog.cambridge.redhat.com> <17274.1157553962@warthog.cambridge.redhat.com>
-Cc: David Howells <dhowells@redhat.com>,
-	john stultz <johnstul@us.ibm.com>,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:956 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750997AbWIKKtu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 06:49:50 -0400
-In-Reply-To: <20060909054642.GA8859@elte.hu> 
-To: Ingo Molnar <mingo@elte.hu>
-Sender: netdev-owner@vger.kernel.org
+From: Erik Mouw <erik-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
+Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
+Date: Mon, 11 Sep 2006 12:52:02 +0200
+Message-ID: <20060911105202.GA7903@harddisk-recovery.com>
+References: <45006221.4090603@lwfinger.net>
+	<20060908094204.GB26916@harddisk-recovery.com>
+	<200609081145.28095.mb@bu3sch.de>
+	<20060908132317.GS26916@harddisk-recovery.com>
+	<450171E4.8070901@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <450171E4.8070901-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar <mingo@elte.hu> wrote:
-
-> i cannot find Thomas' recent 2.6 one (Thomas, do you have a link to 
-> it?), but i did one 5 years ago:
+On Fri, Sep 08, 2006 at 08:36:36AM -0500, Larry Finger wrote:
+> Erik Mouw wrote:
+> > Thanks for the information, pulled wireless-2.6 and recompiling kernel.
+> > If this really fixes the problem, can we try to get it merged before
+> > 2.6.18 closes? I don't know if vanilla 2.6.18-rc6 locks up on other
+> > hardware as well, but if it does it would be a major regression against
+> > 2.6.17.
 > 
->  http://people.redhat.com/mingo/irq-rewrite-patches/irq-cleanup-2.4.15-B1.bz2
-> 
-> in general it's a large but otherwise pretty dumb patch.
+> I'm trying. At the moment, I'm testing a patch against 2.6.18-rc6. Once it works here, I'll be 
+> putting it out for testing.
 
-I wrote my own patch to test this last Friday.  I found that removing all the
-regs pointer passing from the interrupt code reduced interrupt entry with a
-warm cache by 1 cpu cycle out of 87, and interrupt exit by 19 cycles out of 99.
+I suppose that's the patch in "[PATCH] fix for system lockups in
+2.6.18-rcX caused by bcm43xx"?
 
-I can't tell from that exactly how many instructions/memory accesses have been
-removed since the FRV permits two instructions to be executed in one cycle
-under some circumstances, and two registers to be stored/loaded in one
-instruction.
+FWIW: 2.6.18-rc6+wireless-2.6 runs well, my laptop didn't lock up over
+the weekend.
 
-But the main gain in the exit path has to be due to recovery of the clobbered
-regs parameter due to a call inside a loop, possibly in handle_IRQ_event().
 
-I'd expect i386 to do better in cycle reduction because it has fewer registers
-and so getting one back should gain more.
+Erik
 
-David
+-- 
++-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
+| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
