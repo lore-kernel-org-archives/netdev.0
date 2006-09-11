@@ -1,58 +1,42 @@
-From: "Paul Aviles" <paul.aviles@palei.com>
-Subject: Re: e1000 Detected Tx Unit Hang
-Date: Mon, 11 Sep 2006 00:03:40 -0400
-Message-ID: <000b01c6d557$441adcc0$3224050a@avilespaxp>
-References: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp> <4807377b0609031045w67f70a3ese6bea93c15f75ba2@mail.gmail.com> <000d01c6cfb1$f0d26880$3224050a@avilespaxp> <4807377b0609050909v59c1ad87jc4ef08ba1f4453d2@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
+Date: Mon, 11 Sep 2006 14:06:28 +1000
+Message-ID: <1157947588.31071.390.camel@localhost.localdomain>
+References: <1157669602.22705.326.camel@localhost.localdomain>
+	 <1157583693.22705.254.camel@localhost.localdomain>
+	 <20060906125626.GA3718@elte.hu> <20060906094301.GA8694@elte.hu>
+	 <1157507203.2222.11.camel@localhost> <20060905132530.GD9173@stusta.de>
+	 <20060901015818.42767813.akpm@osdl.org>
+	 <6260.1157470557@warthog.cambridge.redhat.com>
+	 <8430.1157534853@warthog.cambridge.redhat.com>
+	 <13982.1157545856@warthog.cambridge.redhat.com>
+	 <17274.1157553962@warthog.cambridge.redhat.com>
+	 <8934.1157622928@warthog.cambridge.redhat.com>
+	 <21606.1157718592@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=response
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: Ingo Molnar <mingo@elte.hu>, john stultz <johnstul@us.ibm.com>,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl-7-36.cofs.net ([68.142.7.36]:10764 "EHLO www.palei.com")
-	by vger.kernel.org with ESMTP id S1750820AbWIKEDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 00:03:46 -0400
-To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:34468 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1750849AbWIKEJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2006 00:09:32 -0400
+To: David Howells <dhowells@redhat.com>
+In-Reply-To: <21606.1157718592@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse, testing without NAPI, will see how it behaves.
 
-Paul Aviles
+> But funky cascading using chained flow handlers doesn't work if the cascade
+> must share an IRQ with some other device, right?
 
------ Original Message ----- 
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-To: "Paul Aviles" <paul.aviles@palei.com>
-Cc: <netdev@vger.kernel.org>
-Sent: Tuesday, September 05, 2006 12:09 PM
-Subject: Re: e1000 Detected Tx Unit Hang
+Indeed. Best way there is then to have a normal action handler like you
+do and have it call generic_handle_irq() on the cascaded interrupts.
 
-
-> On 9/3/06, Paul Aviles <paul.aviles@palei.com> wrote:
->> Hey Jesse, thanks for your reply. Here is the stuff on /procs. The weird
-> no problem,
->
->> part is that I have several other identical systems and only one is
->> affected. Today I moved the hard drive to another similar system and I am
->> not seeing the problem so I am wondering if is something maybe wrong with
->> the card eeprom? Is there a way to check that?
->
-> I doubt it is an eeprom problem.  you can dump the eeproms with
-> ethtool -e eth0 from both machines and compare them .  Odd that only
-> one system is having the problem.  Could it be that the hardware on
-> that box is having issues?  Are you sure the machines are running the
-> same bios version with the same settings?  Any overclocking?
->
->>  cat /proc/interrupts
->>            CPU0       CPU1
->>  16:      70540          0   IO-APIC-level  uhci_hcd:usb4, eth0
->
-> this could contribute to your problem, were you able to test without NAPI?
->
-> Jesse
->
-> 
+Ben.
 
 
