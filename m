@@ -1,51 +1,55 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: TG3 data corruption (TSO ?)
-Date: Mon, 11 Sep 2006 15:54:24 +0200
-Message-ID: <15531494-BB50-49B3-B2A8-7E51AB3DDBF9@kernel.crashing.org>
-References: <1551EAE59135BE47B544934E30FC4FC093FB2C@NT-IRVA-0751.brcm.ad.broadcom.com> <1157953925.31071.413.camel@localhost.localdomain>
-Mime-Version: 1.0 (Apple Message framework v750)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: RFC/T: Possible fix for bcm43xx periodic work bug
+Date: Mon, 11 Sep 2006 09:37:19 -0500
+Message-ID: <4505749F.9090808@lwfinger.net>
+References: <45006221.4090603@lwfinger.net>
+	<20060908094204.GB26916@harddisk-recovery.com>
+	<200609081145.28095.mb@bu3sch.de>
+	<20060908132317.GS26916@harddisk-recovery.com>
+	<450171E4.8070901@lwfinger.net>
+	<20060911105202.GA7903@harddisk-recovery.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-04.arcor-online.net ([151.189.21.44]:47257 "EHLO
-	mail-in-04.arcor-online.net") by vger.kernel.org with ESMTP
-	id S1750707AbWIKNyb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 09:54:31 -0400
-In-Reply-To: <1157953925.31071.413.camel@localhost.localdomain>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Erik Mouw <erik-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
+In-Reply-To: <20060911105202.GA7903-7jKlSzr1t1+rFW3l5+5NieqUGfbH9hYC@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
->>> #define tw32_rx_mbox(reg, val)	do { wmb();
->> tp->write32_rx_mbox(tp, reg, val); } while(0)
->>> #define tw32_tx_mbox(reg, val)	do { wmb();
->> tp->write32_tx_mbox(tp, reg, val); } while(0)
->>>
->>
->> That should do it.
->>
->> I think we need those tcpdump after all.  Can you send it to me?
->
-> Looks like adding a sync to writel does fix it though... I'm trying to
-> figure out which specific writel in the driver makes a difference.  
-> I'll
-> then look into slicing those tcpdumps.
+Erik Mouw wrote:
+> On Fri, Sep 08, 2006 at 08:36:36AM -0500, Larry Finger wrote:
+>> Erik Mouw wrote:
+>>> Thanks for the information, pulled wireless-2.6 and recompiling kernel.
+>>> If this really fixes the problem, can we try to get it merged before
+>>> 2.6.18 closes? I don't know if vanilla 2.6.18-rc6 locks up on other
+>>> hardware as well, but if it does it would be a major regression against
+>>> 2.6.17.
+>> I'm trying. At the moment, I'm testing a patch against 2.6.18-rc6. Once it works here, I'll be 
+>> putting it out for testing.
+> 
+> I suppose that's the patch in "[PATCH] fix for system lockups in
+> 2.6.18-rcX caused by bcm43xx"?
 
-Adding a PowerPC "sync" to every writel() will slow down things by
-so much that it could well just hide the problem, not solve it...
+Yes.
+> 
+> FWIW: 2.6.18-rc6+wireless-2.6 runs well, my laptop didn't lock up over
+> the weekend.
 
-Michael, we see this problem only with TSO on, and then the failure
-we see is bad data being sent out, with the correct header (but the
-header is constructed by the tg3 in this case, so no surprise).
+It seems to hurt some hardware much worse than others. My BCM4306 Rev 2 could
+not run without failure longer than ~6 hours, and sometimes as short as 10 minutes,
+before the patch. I've now completed the equivalent of 3 weeks without a failure
+(I'm running the preemptible periodic work every second instead of every minute).
 
-I'm theorizing that this same failure can happen with TSO off as well,
-but the header sent on the wire will be bogus as well as the data,
-so the receiving NIC won't pick it up.  tcpdump probably won't see
-it either...  will need a low-level ethernet analyser.
-
-
-Segher
-
+Larry
