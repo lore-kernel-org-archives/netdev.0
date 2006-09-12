@@ -1,49 +1,36 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: A Networking Puzzle
-Date: Tue, 12 Sep 2006 09:43:28 -0500
-Message-ID: <4506C790.1020007@lwfinger.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
+Date: Tue, 12 Sep 2006 10:43:21 -0400
+Message-ID: <4506C789.4050404@pobox.com>
+References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>	<1157962200.10526.10.camel@localhost.localdomain>	<1158051351.14448.97.camel@localhost.localdomain> <ada3bax2lzw.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:51945 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S965155AbWILOne (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 10:43:34 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Zang Roy-r61911 <tie-fei.zang@freescale.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965153AbWILOne@vger.kernel.org>
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <ada3bax2lzw.fsf@cisco.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+Roland Dreier wrote:
+>  > +struct tsi108_prv_data {
+>  > +	volatile u32 regs;	/* Base of normal regs */
+>  > +	volatile u32 phyregs;	/* Base of register bank used for PHY access */
+> 
+> Why volatile?  This looks really wrong here.
 
-I need help with a networking problem and I hope you can direct me to a guru.
+Indeed.
 
-As part of the changes in the bcm43xx driver just prior to 2.6.18, some sections 
-that are executed periodically were made preemptible to reduce latency. For the 
-most part, the effort was successful; however there are intermittent failures on 
-certain systems. The code in question is run once per minute, with failures only 
-after 6-10 hours when they occur. Fortunately for testing purposes, my system is 
-one that is affected by this problem. In addition, I could tweak the code to run 
-the problem section once per second. This way, I could experiment with the code 
-and I think I found the problem.
 
-In the code setting up the preemptive work, the relevant section has the following:
+>  > +	data->regs = (u32)ioremap(einfo->regs, 0x400);	/*FIX ME */
+>  > +	data->phyregs = (u32)ioremap(einfo->phyregs, 0x400); 	/*FIX ME */
+> 
+> What needs to be fixed here?  And why are you casting the result of
+> ioremap to u32?  Shouldn't you keep the normal return value?
 
-	...
-	mutex_lock
-	netif_stop_queue
-	synchronize_net
-	....
+Oh, that's very, very wrong.
 
-With this structure, a netdev watchdog tx timeout will happen every few hundred 
-passes through the code, even if the timeout is set to 30 sec. From 
-experimentation, I know that if the synchronize_net call is removed, or if it 
-comes before the netif_stop_queue, I no longer get the errors. Of course it is 
-possible that my changes just reduce the error rate to a level that I don't see 
-it with limited testing. I'm hoping that an expert can explain which of these 
-two changes might be correct, or what should be done.
-
-Thanks,
-
-Larry
+	Jeff
