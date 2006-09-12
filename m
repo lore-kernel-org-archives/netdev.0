@@ -1,237 +1,116 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 04/20] mm: methods for teaching filesystems about PG_swapcache pages
+Subject: [PATCH 16/20] iscsi: add session context to ep_connect
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144903.411063000@chello.nl>
+Message-ID: <20060912144904.733945000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
 	Rik van Riel <riel@redhat.com>,
 	Daniel Phillips <phillips@google.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>
+	Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:51404 "EHLO
-	amsfep15-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751439AbWILPvD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 11:51:03 -0400
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:38639 "EHLO
+	amsfep19-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751423AbWILPvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 11:51:16 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=page_file_methods.patch
+Content-Disposition: inline; filename=iscsi_ep_connect_session.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to teach filesystems to handle swap cache pages, two new page
-functions are introduced:
+In order to do a proper reconnect we need to know if we're a swapper.
+Only the session context can tell us that.
 
-  pgoff_t page_file_index(struct page *);
-  struct address_space *page_file_mapping(struct page *);
-
-page_file_index - gives the offset of this page in the file in PAGE_CACHE_SIZE
-blocks. Like page->index is for mapped pages, this function also gives the
-correct index for PG_swapcache pages.
-
-page_file_mapping - gives the mapping backing the actual page; that is for
-swap cache pages it will give swap_file->f_mapping.
-
-page_offset() is modified to use page_file_index(), so that it will give the
-expected result, even for PG_swapcache pages.
+(This patch breaks the NETLINK_ISCSI ABI, userspace also needs a change)
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Trond Myklebust <trond.myklebust@fys.uio.no>
+CC: Mike Christie <michaelc@cs.wisc.edu>
 ---
- include/linux/mm.h      |   30 ++++++++++++++++++++++++++++++
- include/linux/pagemap.h |    2 +-
- include/linux/swap.h    |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/swapops.h |   44 --------------------------------------------
- 4 files changed, 79 insertions(+), 45 deletions(-)
+ drivers/infiniband/ulp/iser/iscsi_iser.c |    3 ++-
+ drivers/scsi/iscsi_tcp.c                 |    3 ++-
+ drivers/scsi/scsi_transport_iscsi.c      |    4 +++-
+ include/scsi/iscsi_if.h                  |    1 +
+ include/scsi/scsi_transport_iscsi.h      |    3 ++-
+ 5 files changed, 10 insertions(+), 4 deletions(-)
 
-Index: linux-2.6/include/linux/mm.h
+Index: linux-2.6/drivers/scsi/iscsi_tcp.c
 ===================================================================
---- linux-2.6.orig/include/linux/mm.h
-+++ linux-2.6/include/linux/mm.h
-@@ -15,6 +15,7 @@
- #include <linux/fs.h>
- #include <linux/mutex.h>
- #include <linux/debug_locks.h>
-+#include <linux/swap.h>
- 
- struct mempolicy;
- struct anon_vma;
-@@ -579,6 +580,22 @@ static inline struct address_space *page
- 	return mapping;
+--- linux-2.6.orig/drivers/scsi/iscsi_tcp.c	2006-09-07 19:32:56.000000000 +0200
++++ linux-2.6/drivers/scsi/iscsi_tcp.c	2006-09-07 19:34:07.000000000 +0200
+@@ -1729,7 +1729,8 @@ iscsi_tcp_ctask_xmit(struct iscsi_conn *
  }
  
-+static inline
-+struct swap_info_struct * page_swap_info(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return get_swap_info_struct(swp_type(swap));
-+}
-+
-+static inline
-+struct address_space *page_file_mapping(struct page *page)
-+{
-+	if (unlikely(PageSwapCache(page)))
-+		return page_swap_info(page)->swap_file->f_mapping;
-+	return page->mapping;
-+}
-+
- static inline int PageAnon(struct page *page)
+ static int
+-iscsi_tcp_ep_connect(struct sockaddr *dst_addr, int non_blocking,
++iscsi_tcp_ep_connect(struct iscsi_cls_session *cls_session,
++		     struct sockaddr *dst_addr, int non_blocking,
+ 		     uint64_t *ep_handle)
  {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-@@ -596,6 +613,19 @@ static inline pgoff_t page_index(struct 
- }
- 
- /*
-+ * Return the file index of the page. Regular pagecache pages use ->index
-+ * whereas swapcache pages use swp_offset(->private)
-+ */
-+static inline pgoff_t page_file_index(struct page *page)
-+{
-+	if (unlikely(PageSwapCache(page))) {
-+		swp_entry_t swap = { .val = page_private(page) };
-+		return swp_offset(swap);
-+	}
-+	return page->index;
-+}
-+
-+/*
-  * The atomic page->_mapcount, like _count, starts from -1:
-  * so that transitions both from it and to it can be tracked,
-  * using atomic_inc_and_test and atomic_add_negative(-1).
-Index: linux-2.6/include/linux/pagemap.h
+ 	struct socket *sock;
+Index: linux-2.6/drivers/scsi/scsi_transport_iscsi.c
 ===================================================================
---- linux-2.6.orig/include/linux/pagemap.h
-+++ linux-2.6/include/linux/pagemap.h
-@@ -118,7 +118,7 @@ extern void __remove_from_page_cache(str
-  */
- static inline loff_t page_offset(struct page *page)
+--- linux-2.6.orig/drivers/scsi/scsi_transport_iscsi.c	2006-09-07 19:32:37.000000000 +0200
++++ linux-2.6/drivers/scsi/scsi_transport_iscsi.c	2006-09-07 19:34:07.000000000 +0200
+@@ -914,6 +914,7 @@ iscsi_if_transport_ep(struct iscsi_trans
+ 		      struct iscsi_uevent *ev, int msg_type)
  {
--	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
-+	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
+ 	struct sockaddr *dst_addr;
++	struct iscsi_cls_session *session;
+ 	int rc = 0;
+ 
+ 	switch (msg_type) {
+@@ -922,7 +923,8 @@ iscsi_if_transport_ep(struct iscsi_trans
+ 			return -EINVAL;
+ 
+ 		dst_addr = (struct sockaddr *)((char*)ev + sizeof(*ev));
+-		rc = transport->ep_connect(dst_addr,
++		session = iscsi_session_lookup(ev->u.ep_connect.sid);
++		rc = transport->ep_connect(session, dst_addr,
+ 					   ev->u.ep_connect.non_blocking,
+ 					   &ev->r.ep_connect_ret.handle);
+ 		break;
+Index: linux-2.6/include/scsi/iscsi_if.h
+===================================================================
+--- linux-2.6.orig/include/scsi/iscsi_if.h	2006-09-07 19:32:37.000000000 +0200
++++ linux-2.6/include/scsi/iscsi_if.h	2006-09-07 19:34:07.000000000 +0200
+@@ -117,6 +117,7 @@ struct iscsi_uevent {
+ 		} get_stats;
+ 		struct msg_transport_connect {
+ 			uint32_t	non_blocking;
++			uint32_t	sid;
+ 		} ep_connect;
+ 		struct msg_transport_poll {
+ 			uint64_t	ep_handle;
+Index: linux-2.6/include/scsi/scsi_transport_iscsi.h
+===================================================================
+--- linux-2.6.orig/include/scsi/scsi_transport_iscsi.h	2006-09-07 19:32:37.000000000 +0200
++++ linux-2.6/include/scsi/scsi_transport_iscsi.h	2006-09-07 19:34:07.000000000 +0200
+@@ -120,7 +120,8 @@ struct iscsi_transport {
+ 	int (*xmit_mgmt_task) (struct iscsi_conn *conn,
+ 			       struct iscsi_mgmt_task *mtask);
+ 	void (*session_recovery_timedout) (struct iscsi_cls_session *session);
+-	int (*ep_connect) (struct sockaddr *dst_addr, int non_blocking,
++	int (*ep_connect) (struct iscsi_cls_session *session,
++			   struct sockaddr *dst_addr, int non_blocking,
+ 			   uint64_t *ep_handle);
+ 	int (*ep_poll) (uint64_t ep_handle, int timeout_ms);
+ 	void (*ep_disconnect) (uint64_t ep_handle);
+Index: linux-2.6/drivers/infiniband/ulp/iser/iscsi_iser.c
+===================================================================
+--- linux-2.6.orig/drivers/infiniband/ulp/iser/iscsi_iser.c	2006-09-07 19:32:37.000000000 +0200
++++ linux-2.6/drivers/infiniband/ulp/iser/iscsi_iser.c	2006-09-07 19:34:07.000000000 +0200
+@@ -490,7 +490,8 @@ iscsi_iser_conn_get_stats(struct iscsi_c
  }
  
- static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
-Index: linux-2.6/include/linux/swap.h
-===================================================================
---- linux-2.6.orig/include/linux/swap.h
-+++ linux-2.6/include/linux/swap.h
-@@ -75,6 +75,50 @@ typedef struct {
- } swp_entry_t;
- 
- /*
-+ * swapcache pages are stored in the swapper_space radix tree.  We want to
-+ * get good packing density in that tree, so the index should be dense in
-+ * the low-order bits.
-+ *
-+ * We arrange the `type' and `offset' fields so that `type' is at the five
-+ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-+ * remaining bits.
-+ *
-+ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-+ */
-+#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
-+#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
-+
-+/*
-+ * Store a type+offset into a swp_entry_t in an arch-independent format
-+ */
-+static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
-+{
-+	swp_entry_t ret;
-+
-+	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
-+			(offset & SWP_OFFSET_MASK(ret));
-+	return ret;
-+}
-+
-+/*
-+ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline unsigned swp_type(swp_entry_t entry)
-+{
-+	return (entry.val >> SWP_TYPE_SHIFT(entry));
-+}
-+
-+/*
-+ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline pgoff_t swp_offset(swp_entry_t entry)
-+{
-+	return entry.val & SWP_OFFSET_MASK(entry);
-+}
-+
-+/*
-  * current->reclaim_state points to one of these when a task is running
-  * memory reclaim
-  */
-@@ -322,6 +366,10 @@ static inline int valid_swaphandles(swp_
- 	return 0;
- }
- 
-+static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
-+{
-+	return NULL;
-+}
- #define can_share_swap_page(p)			(page_mapcount(p) == 1)
- 
- static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
-Index: linux-2.6/include/linux/swapops.h
-===================================================================
---- linux-2.6.orig/include/linux/swapops.h
-+++ linux-2.6/include/linux/swapops.h
-@@ -1,48 +1,4 @@
- /*
-- * swapcache pages are stored in the swapper_space radix tree.  We want to
-- * get good packing density in that tree, so the index should be dense in
-- * the low-order bits.
-- *
-- * We arrange the `type' and `offset' fields so that `type' is at the five
-- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-- * remaining bits.
-- *
-- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-- */
--#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
--#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
--
--/*
-- * Store a type+offset into a swp_entry_t in an arch-independent format
-- */
--static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
--{
--	swp_entry_t ret;
--
--	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
--			(offset & SWP_OFFSET_MASK(ret));
--	return ret;
--}
--
--/*
-- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline unsigned swp_type(swp_entry_t entry)
--{
--	return (entry.val >> SWP_TYPE_SHIFT(entry));
--}
--
--/*
-- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline pgoff_t swp_offset(swp_entry_t entry)
--{
--	return entry.val & SWP_OFFSET_MASK(entry);
--}
--
--/*
-  * Convert the arch-dependent pte representation of a swp_entry_t into an
-  * arch-independent swp_entry_t.
-  */
+ static int
+-iscsi_iser_ep_connect(struct sockaddr *dst_addr, int non_blocking,
++iscsi_iser_ep_connect(struct iscsi_cls_session *cls_session,
++		      struct sockaddr *dst_addr, int non_blocking,
+ 		      __u64 *ep_handle)
+ {
+ 	int err;
 
 --
 
