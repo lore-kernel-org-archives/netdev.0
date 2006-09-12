@@ -1,30 +1,53 @@
-From: Philip Molter <philip@datafoundry.com>
-Subject: Re: tg3: tg3_stop_block timed out
-Date: Tue, 12 Sep 2006 12:22:33 -0500
-Message-ID: <4506ECD9.4050607@datafoundry.com>
-References: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
+From: bora.sahin@ttnet.net.tr
+Subject: [PATCH 1/11] smc911x: Fix accessor SMC_* routines
+Date: Tue, 12 Sep 2006 20:32:47 +0300
+Message-ID: <200609122032.47980.bora.sahin@ttnet.net.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Dustin McIntire <dustin@sensoria.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailstar.maildev1.aus.datafoundry.com ([209.99.125.22]:5528
-	"EHLO mailstar.maildev1.aus.datafoundry.com") by vger.kernel.org
-	with ESMTP id S965244AbWILRWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 13:22:31 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from mail.ttnet.net.tr ([212.175.13.129]:65504 "EHLO
+	fep01.ttnet.net.tr") by vger.kernel.org with ESMTP id S1030291AbWILRgq
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 13:36:46 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Please try the latest driver.  If you still get the timeouts, I'll
-> need to send you some debug patches to dump the state when these
-> timeouts occur.
 
-So far, with the new driver, I haven't seen any of these timeouts. 
-Normally, we'd have seen them by now.  If they recur at some point in 
-the future, I'll post a new message.
+When in 16 bit mode, SMC_outl incorrectly simulates the situation and plus in 
+32 bit mode SMC_outw is missing...
 
-Thanks for your help, Michael.
-Philip
+Signed-off-by: Bora Sahin <bora.sahin@ttnet.net.tr>
 
+Index: linux-2.6.18-rc4/drivers/net/smc911x.h
+===================================================================
+--- linux-2.6.18-rc4.orig/drivers/net/smc911x.h	2006-08-06 21:20:11.000000000 
++0300
++++ linux-2.6.18-rc4/drivers/net/smc911x.h	2006-08-24 12:23:10.000000000 +0300
+@@ -51,8 +51,8 @@
+ #define SMC_outw(v, a, r)		 writew(v, (a) + (r))
+ #define SMC_outl(v, a, r) 			 \
+ 	do{					 \
+-		 writel(v & 0xFFFF, (a) + (r));	 \
+-		 writel(v >> 16, (a) + (r) + 2); \
++		 writew(v & 0xFFFF, (a) + (r));	 \
++		 writew(v >> 16, (a) + (r) + 2); \
+ 	 } while (0)
+ #define SMC_insl(a, r, p, l)	 readsw((short*)((a) + (r)), p, l*2)
+ #define SMC_outsl(a, r, p, l)	 writesw((short*)((a) + (r)), p, l*2)
+@@ -62,6 +62,7 @@
+ #define SMC_inw(a, r)		 readw((a) + (r))
+ #define SMC_inl(a, r)		 readl((a) + (r))
+ #define SMC_outb(v, a, r)	 writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)	 writew(v, (a) + (r))
+ #define SMC_outl(v, a, r)	 writel(v, (a) + (r))
+ #define SMC_insl(a, r, p, l)	 readsl((int*)((a) + (r)), p, l)
+ #define SMC_outsl(a, r, p, l)	 writesl((int*)((a) + (r)), p, l)
+
+
+--
+Bora SAHIN
