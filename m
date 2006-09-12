@@ -1,45 +1,43 @@
-From: Martin Langer <martin-langer@gmx.de>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Subject: Re: [PATCH] bcm43xx-softmac: improve wrong firmware message
-Date: Tue, 12 Sep 2006 23:49:39 +0200
-Message-ID: <20060912214939.GA3750@tuba>
-References: <45071890.mailJEJ1PQOHG@lwfinger.net>
+Date: Tue, 12 Sep 2006 17:06:05 -0500
+Message-ID: <45072F4D.80109@lwfinger.net>
+References: <45071890.mailJEJ1PQOHG@lwfinger.net> <20060912214939.GA3750@tuba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Michael Buesch <mb@bu3sch.de>,
-	Stefano Brivio <st3@riseup.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.de ([213.165.64.20]:30112 "HELO mail.gmx.net")
-	by vger.kernel.org with SMTP id S1751466AbWILVts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 17:49:48 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Content-Disposition: inline
-In-Reply-To: <45071890.mailJEJ1PQOHG@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>
+In-Reply-To: <20060912214939.GA3750@tuba>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 12, 2006 at 03:29:04PM -0500, Larry Finger wrote:
-> An error message is changed to a printk as the original dprintk would
-> be optimized away if debugging were not enabled. If the error is triggered,
-> a more meaningful message is returned.
+Martin Langer wrote:
 > 
->  
->  	if ( value16 > 0x128 ) {
-> -		dprintk(KERN_ERR PFX
-> -			"Firmware: no support for microcode rev > 0x128\n");
-> -		err = -1;
-> +		printk(KERN_ERR PFX
-> +			"Firmware: no support for microcode extracted "
-> +			"from version 4.x binary drivers.\n");
+> Why not writing both (ucode rev and driver version)? Something like 
+> 
+> 	"from version 4.x binary drivers (rev>0x128).\n"
+> 
+> BTW, if anybody needs the relationship between ucode revsion and driver 
+> version then he should look at the table here:
+> 
+> http://www.langerland.de/linux/bcm43xx/firmware.html
 
-Why not writing both (ucode rev and driver version)? Something like 
+I could do that; however, I think this error message may have a short life as 
+I'm just now looking at Michael's v4 firmware revisions for d80211 with an eye 
+toward porting them to softmac.
 
-	"from version 4.x binary drivers (rev>0x128).\n"
+John - what do you think?
 
-BTW, if anybody needs the relationship between ucode revsion and driver 
-version then he should look at the table here:
-
-http://www.langerland.de/linux/bcm43xx/firmware.html
-
-
-Martin
+Larry
