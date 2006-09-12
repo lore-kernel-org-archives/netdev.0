@@ -1,41 +1,33 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: mv643xx_eth: Unmap DMA buffers in receive path
-Date: Tue, 12 Sep 2006 11:22:34 -0700
-Message-ID: <20060912182229.GA11522@xyzzy.farnsworth.org>
+From: bora.sahin@ttnet.net.tr
+Subject: Re: [PATCH 1/11] smc911x: Fix accessor SMC_* routines
+Date: Tue, 12 Sep 2006 21:28:22 +0300
+Message-ID: <200609122128.22375.bora.sahin@ttnet.net.tr>
+References: <200609122032.47980.bora.sahin@ttnet.net.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Manish Lachwani <mlachwani@mvista.com>
+Content-Type: text/plain;
+  charset="Iso-8859-9"
+Content-Transfer-Encoding: 7bit
+Cc: Dustin McIntire <dustin@sensoria.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:15877 "HELO farnsworth.org")
-	by vger.kernel.org with SMTP id S1030340AbWILSWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 14:22:39 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from mail.ttnet.net.tr ([212.175.13.129]:11733 "EHLO
+	fep05.ttnet.net.tr") by vger.kernel.org with ESMTP id S1030340AbWILSYC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 14:24:02 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <200609122032.47980.bora.sahin@ttnet.net.tr>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dale Farnsworth <dale@farnsworth.org>
 
-Fix a missing call to dma_unmap_single() in the receive path.  Without
-this call, errors have been observed on non-cache-coherent systems.
+> When in 16 bit mode, SMC_outl incorrectly simulates the situation and plus in 
+> 32 bit mode SMC_outw is missing...
+> 
+[Snip]
 
-Signed-off-by Dale Farnsworth <dale@farnsworth.org>
+Because mailer wraps the lines patch is not applied. I pushed it by mistake...
 
----
+Sory for the inconsistencies. I'll cook up new series of patches...
 
- drivers/net/mv643xx_eth.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-Index: linux-2.6.10/drivers/net/mv643xx_eth.c
-===================================================================
---- linux-2.6.10.orig/drivers/net/mv643xx_eth.c
-+++ linux-2.6.10/drivers/net/mv643xx_eth.c
-@@ -402,6 +402,8 @@ static int mv643xx_eth_receive_queue(str
- #else
- 	while (eth_port_receive(mp, &pkt_info) == ETH_OK) {
- #endif
-+		dma_unmap_single(NULL, pkt_info.buf_ptr, RX_SKB_SIZE,
-+							DMA_FROM_DEVICE);
- 		mp->rx_desc_count--;
- 		received_packets++;
- 
+--
+Bora SAHIN
