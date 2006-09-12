@@ -1,50 +1,34 @@
-From: Corentin CHARY <corentincj@iksaif.net>
-Subject: Re: r8168, 2.6.17 et r8169.c
-Date: Tue, 12 Sep 2006 13:29:25 +0200
-Message-ID: <200609121329.26159.corentincj@iksaif.net>
-References: <200609091201.03603.corentincj@iksaif.net> <200609111309.08447.corentincj@iksaif.net> <20060911201348.GA8188@electric-eye.fr.zoreil.com>
-Reply-To: corentincj@iksaif.net
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
+Date: Tue, 12 Sep 2006 07:33:07 -0700
+Message-ID: <ada3bax2lzw.fsf@cisco.com>
+References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>
+	<1157962200.10526.10.camel@localhost.localdomain>
+	<1158051351.14448.97.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, jgarzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iksaif.dns26.com ([84.246.226.15]:41098 "EHLO iksaif.net")
-	by vger.kernel.org with ESMTP id S1030186AbWILL3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 07:29:11 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060911201348.GA8188@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:34171 "EHLO
+	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
+	id S965250AbWILOdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 10:33:09 -0400
+To: Zang Roy-r61911 <tie-fei.zang@freescale.com>
+In-Reply-To: <1158051351.14448.97.camel@localhost.localdomain> (Zang Roy-r's message of "12 Sep 2006 16:55:52 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+ > +struct tsi108_prv_data {
+ > +	volatile u32 regs;	/* Base of normal regs */
+ > +	volatile u32 phyregs;	/* Base of register bank used for PHY access */
 
-> Can you try against 2.6.18-rc6:
-> http://www.fr.zoreil.com/people/francois/misc/20060911-2.6.18-rc6-r8169-tes
->t.patch
->
-> If the driver does not work, which in itself would be fairly disappointing,
-> revert (patch -R) 0009 found in the 2.6.18-rc5 directory and try again.
->
-> If the driver still does not work, revert 0007 found in the 2.6.18-rc5
-> directory and try again.
->
-> If the driver still does not work, send the .c file, send your working
-> 2.6.17-rc6 driver and send the _complete_ dmesg from boot for both
-> kernels because something is badly screwed.
+Why volatile?  This looks really wrong here.
 
-As I Tell you in the first mail, I tested only on 2.6.17 kernels, so I had to 
-modify 2 lines to compile with 2.6.18 patchs.
-Today, I tested on a 2.6.18-r6 Kernel, and it work perfectly (without 
-mii-tool !).
-On 2.6.17, even with patch -R, nothing to do ..
+ > +	data->regs = (u32)ioremap(einfo->regs, 0x400);	/*FIX ME */
+ > +	data->phyregs = (u32)ioremap(einfo->phyregs, 0x400); 	/*FIX ME */
 
-If you wan't dmesg of 2.6.17, I can send you, but the driver is for 2.6.18, so 
-I don't think it's usefull to get It work on 2.6.17.
+What needs to be fixed here?  And why are you casting the result of
+ioremap to u32?  Shouldn't you keep the normal return value?
 
-Thanks for your help ;)
--- 
-CHARY 'Iksaif' Corentin
-iksaif@gmail.com - corentincj@yahoo.fr
-http://xf.iksaif.net
+ - R.
