@@ -1,131 +1,79 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 13/20] nbd: use swapdev hook to make swap deadlock free
+Subject: [PATCH 01/20] mm: serialize access to min_free_kbytes
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144904.417049000@chello.nl>
+Message-ID: <20060912144903.094525000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
 	Rik van Riel <riel@redhat.com>,
 	Daniel Phillips <phillips@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pavel Machek <pavel@ucw.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:31737 "EHLO
-	amsfep19-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751428AbWILPu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 11:50:58 -0400
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030251AbWILP6Z@vger.kernel.org>
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=nbd_vmio.patch
-Sender: netdev-owner@vger.kernel.org
+Content-Disposition: inline; filename=setup_per_zone_pages_min.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set SOCK_VMIO on the NBD socket and make sure the request_fn always
-runs with PF_MEMALLOC when used as a swapper, this ensures we can
-always flush the requests.
+There is a small race between the procfs caller and the memory hotplug caller
+of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
+another caller. Time to close the gap.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Signed-off-by: Daniel Phillips <phillips@google.com>
-CC: Pavel Machek <pavel@ucw.cz>
 ---
- drivers/block/nbd.c |   36 +++++++++++++++++++++++++++++++-----
- 1 file changed, 31 insertions(+), 5 deletions(-)
+ mm/page_alloc.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/drivers/block/nbd.c
+Index: linux-2.6/mm/page_alloc.c
 ===================================================================
---- linux-2.6.orig/drivers/block/nbd.c	2006-09-07 18:44:12.000000000 +0200
-+++ linux-2.6/drivers/block/nbd.c	2006-09-07 18:44:22.000000000 +0200
-@@ -139,7 +139,6 @@ static int sock_xmit(struct socket *sock
- 	spin_unlock_irqrestore(&current->sighand->siglock, flags);
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -81,6 +81,7 @@ struct zone *zone_table[1 << ZONETABLE_S
+ EXPORT_SYMBOL(zone_table);
  
- 	do {
--		sock->sk->sk_allocation = GFP_NOIO;
- 		iov.iov_base = buf;
- 		iov.iov_len = size;
- 		msg.msg_name = NULL;
-@@ -406,10 +405,13 @@ static void nbd_clear_que(struct nbd_dev
- static void do_nbd_request(request_queue_t * q)
- {
- 	struct request *req;
-+	unsigned long pflags = current->flags;
-+	struct nbd_device *lo = q->queuedata;
-+
-+	if (lo->sock && sk_has_vmio(lo->sock->sk))
-+		current->flags |= PF_MEMALLOC;
- 	
- 	while ((req = elv_next_request(q)) != NULL) {
--		struct nbd_device *lo;
--
- 		blkdev_dequeue_request(req);
- 		dprintk(DBG_BLKDEV, "%s: request %p: dequeued (flags=%lx)\n",
- 				req->rq_disk->disk_name, req, req->flags);
-@@ -417,8 +419,6 @@ static void do_nbd_request(request_queue
- 		if (!(req->flags & REQ_CMD))
- 			goto error_out;
+ static char *zone_names[MAX_NR_ZONES] = { "DMA", "DMA32", "Normal", "HighMem" };
++static DEFINE_SPINLOCK(min_free_lock);
+ int min_free_kbytes = 1024;
  
--		lo = req->rq_disk->private_data;
--
- 		BUG_ON(lo->magic != LO_MAGIC);
- 
- 		nbd_cmd(req) = NBD_CMD_READ;
-@@ -472,6 +472,7 @@ error_out:
- 	 * plug the device to close it.
- 	 */
- 	blk_plug_device(q);
-+	current->flags = pflags;
- 	return;
+ unsigned long __meminitdata nr_kernel_pages;
+@@ -2190,11 +2191,11 @@ static void setup_per_zone_lowmem_reserv
  }
- 
-@@ -530,6 +531,7 @@ static int nbd_ioctl(struct inode *inode
- 			if (S_ISSOCK(inode->i_mode)) {
- 				lo->file = file;
- 				lo->sock = SOCKET_I(inode);
-+				lo->sock->sk->sk_allocation = GFP_NOIO;
- 				error = 0;
- 			} else {
- 				fput(file);
-@@ -599,10 +601,33 @@ static int nbd_ioctl(struct inode *inode
- 	return -EINVAL;
- }
- 
-+static int nbd_swapdev(struct gendisk *disk, int enable)
-+{
-+	struct nbd_device *lo = disk->private_data;
-+
-+	if (!lo->sock)
-+		return -ENODEV;
-+
-+	if (enable) {
-+		sk_adjust_memalloc(0, TX_RESERVE_PAGES);
-+		if (!sk_set_vmio(lo->sock->sk))
-+			printk(KERN_WARNING
-+				"failed to set SOCK_VMIO on NBD socket\n");
-+	} else {
-+		if (!sk_clear_vmio(lo->sock->sk))
-+			printk(KERN_WARNING
-+				"failed to clear SOCK_VMIO on NBD socket\n");
-+		sk_adjust_memalloc(0, -TX_RESERVE_PAGES);
-+	}
-+
-+	return 0;
-+}
-+
- static struct block_device_operations nbd_fops =
- {
- 	.owner =	THIS_MODULE,
- 	.ioctl =	nbd_ioctl,
-+	.swapdev =	nbd_swapdev,
- };
  
  /*
-@@ -638,6 +663,7 @@ static int __init nbd_init(void)
- 			put_disk(disk);
- 			goto out;
- 		}
-+		disk->queue->queuedata = &nbd_dev[i];
- 		blk_queue_max_segment_size(disk->queue, PAGE_SIZE);
- 		blk_queue_max_hw_segments(disk->queue, 1);
- 		blk_queue_max_phys_segments(disk->queue, 1);
+- * setup_per_zone_pages_min - called when min_free_kbytes changes.  Ensures 
++ * __setup_per_zone_pages_min - called when min_free_kbytes changes.  Ensures
+  *	that the pages_{min,low,high} values for each zone are set correctly 
+  *	with respect to min_free_kbytes.
+  */
+-void setup_per_zone_pages_min(void)
++static void __setup_per_zone_pages_min(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -2248,6 +2249,15 @@ void setup_per_zone_pages_min(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++void setup_per_zone_pages_min(void)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&min_free_lock, flags);
++	__setup_per_zone_pages_min();
++	spin_unlock_irqrestore(&min_free_lock, flags);
++}
++
+ /*
+  * Initialise min_free_kbytes.
+  *
+@@ -2283,7 +2293,7 @@ static int __init init_per_zone_pages_mi
+ 		min_free_kbytes = 128;
+ 	if (min_free_kbytes > 65536)
+ 		min_free_kbytes = 65536;
+-	setup_per_zone_pages_min();
++	__setup_per_zone_pages_min();
+ 	setup_per_zone_lowmem_reserve();
+ 	return 0;
+ }
 
 --
-
