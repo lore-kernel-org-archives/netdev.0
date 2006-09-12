@@ -1,49 +1,39 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 07/20] nfs: add a comment explaining the use of PG_private in the NFS client
-Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144903.770953000@chello.nl>
-References: <20060912143049.278065000@chello.nl>
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-	David Miller <davem@davemloft.net>,
-	Rik van Riel <riel@redhat.com>,
-	Daniel Phillips <phillips@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] pcnet32: Magic number cleanup
+Date: Tue, 12 Sep 2006 11:59:12 -0400
+Message-ID: <4506D950.9030306@pobox.com>
+References: <20060911174713.GA3978@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tsbogend@alpha.franken.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:53137 "EHLO
-	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751425AbWILPux (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 11:50:53 -0400
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Content-Disposition: inline; filename=nfs_PG_private_comment.patch
+Received: from srv5.dvmed.net ([207.36.208.214]:53472 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030244AbWILP7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 11:59:15 -0400
+To: Don Fry <brazilnut@us.ibm.com>
+In-Reply-To: <20060911174713.GA3978@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a little comment explaining the use of PG_private in the NFS client.
+Don Fry wrote:
+> @@ -2701,13 +2701,10 @@ static struct net_device_stats *pcnet32_
+>  {
+>  	struct pcnet32_private *lp = dev->priv;
+>  	unsigned long ioaddr = dev->base_addr;
+> -	u16 saved_addr;
+>  	unsigned long flags;
+>  
+>  	spin_lock_irqsave(&lp->lock, flags);
+> -	saved_addr = lp->a.read_rap(ioaddr);
+>  	lp->stats.rx_missed_errors = lp->a.read_csr(ioaddr, 112);
+> -	lp->a.write_rap(ioaddr, saved_addr);
+>  	spin_unlock_irqrestore(&lp->lock, flags);
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Trond Myklebust <trond.myklebust@fys.uio.no>
----
- fs/nfs/write.c |    5 +++++
- 1 file changed, 5 insertions(+)
+This should be in a separate patch.  Even though it is mentioned in the 
+patch description, this change is totally out of character when looking 
+at the rest of the patch.
 
-Index: linux-2.6/fs/nfs/write.c
-===================================================================
---- linux-2.6.orig/fs/nfs/write.c
-+++ linux-2.6/fs/nfs/write.c
-@@ -417,6 +417,11 @@ static int nfs_inode_add_request(struct 
- 		if (nfs_have_delegation(inode, FMODE_WRITE))
- 			nfsi->change_attr++;
- 	}
-+	/*
-+	 * The PG_private bit is unfortunately needed if we want to fix the
-+	 * hole in the mmap semantics. If we do not set it, then the VM will
-+	 * fail to call the "releasepage" address ops.
-+	 */
- 	SetPagePrivate(req->wb_page);
- 	nfsi->npages++;
- 	atomic_inc(&req->wb_count);
+	Jeff
 
---
 
