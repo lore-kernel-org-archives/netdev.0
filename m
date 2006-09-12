@@ -1,39 +1,34 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] pcnet32: Magic number cleanup
-Date: Tue, 12 Sep 2006 11:59:12 -0400
-Message-ID: <4506D950.9030306@pobox.com>
-References: <20060911174713.GA3978@us.ibm.com>
+Subject: Re: What is current sundance.c status?
+Date: Tue, 12 Sep 2006 12:05:02 -0400
+Message-ID: <4506DAAE.3020305@pobox.com>
+References: <1156448955.20424.6.camel@localhost.localdomain> <00ae01c6d635$bdfa8340$4964a8c0@icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tsbogend@alpha.franken.de, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53472 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030244AbWILP7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 11:59:15 -0400
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <20060911174713.GA3978@us.ibm.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:13537 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030253AbWILQFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 12:05:05 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
+In-Reply-To: <00ae01c6d635$bdfa8340$4964a8c0@icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don Fry wrote:
-> @@ -2701,13 +2701,10 @@ static struct net_device_stats *pcnet32_
->  {
->  	struct pcnet32_private *lp = dev->priv;
->  	unsigned long ioaddr = dev->base_addr;
-> -	u16 saved_addr;
->  	unsigned long flags;
->  
->  	spin_lock_irqsave(&lp->lock, flags);
-> -	saved_addr = lp->a.read_rap(ioaddr);
->  	lp->stats.rx_missed_errors = lp->a.read_csr(ioaddr, 112);
-> -	lp->a.write_rap(ioaddr, saved_addr);
->  	spin_unlock_irqrestore(&lp->lock, flags);
+Jesse Huang wrote:
+> Dear Jeff:
+> 
+> Would you tell me what is current sundance.c status
+> which support IP100A? Are those patches update to
+> current tree or not? Is there anything should I need to
+> add to it and generate new patches?
 
-This should be in a separate patch.  Even though it is mentioned in the 
-patch description, this change is totally out of character when looking 
-at the rest of the patch.
+I think they disappeared from my queue somewhere :(
+
+Would you be kind enough to resend your patchset?
 
 	Jeff
+
 
 
