@@ -1,69 +1,41 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] bcm43xx-softmac: update noise handling
-Date: Tue, 12 Sep 2006 14:21:55 -0400
-Message-ID: <20060912182150.GE7703@tuxdriver.com>
-References: <4506F110.mailATA11P27W@lwfinger.net>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: mv643xx_eth: Unmap DMA buffers in receive path
+Date: Tue, 12 Sep 2006 11:22:34 -0700
+Message-ID: <20060912182229.GA11522@xyzzy.farnsworth.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
+Cc: netdev@vger.kernel.org, Manish Lachwani <mlachwani@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:38925 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1030323AbWILSW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 14:22:28 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:15877 "HELO farnsworth.org")
+	by vger.kernel.org with SMTP id S1030340AbWILSWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 14:22:39 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <4506F110.mailATA11P27W@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 12, 2006 at 12:40:32PM -0500, Larry Finger wrote:
-> John,
-> 
-> Please apply this patch to wireless-2.6. In addition, please let me
-> know if you have any problems applying it. I'm sending this by a new
-> method.
- 
-Larry,
+From: Dale Farnsworth <dale@farnsworth.org>
 
-That one worked great!  One last request: please put any "chit-chat"
-or other text not appropriate for the permanent changelog _AFTER_ the
-"---" line.  Otherwise, I have to edit it out by hand.  I reformatted
-the text from this patch below as an example of what I mean.
+Fix a missing call to dma_unmap_single() in the receive path.  Without
+this call, errors have been observed on non-cache-coherent systems.
 
-Thanks!
+Signed-off-by Dale Farnsworth <dale@farnsworth.org>
 
-John
-
-======================================================================================
-
-In bcm43xx-softmac, the bcm43xx_stats struct contains a variable that
-is no longer used. In addition, two TODO entries related to noise
-processing in bcm43xx_rx have been completed, and as unused one
-is removed.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
-John,
 
-Please apply this patch to wireless-2.6. In addition, please let me
-know if you have any problems applying it. I'm sending this by a new
-method.
+ drivers/net/mv643xx_eth.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Larry
- 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+Index: linux-2.6.10/drivers/net/mv643xx_eth.c
 ===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-@@ -666,7 +666,6 @@ struct bcm43xx_noise_calculation {
- };
+--- linux-2.6.10.orig/drivers/net/mv643xx_eth.c
++++ linux-2.6.10/drivers/net/mv643xx_eth.c
+@@ -402,6 +402,8 @@ static int mv643xx_eth_receive_queue(str
+ #else
+ 	while (eth_port_receive(mp, &pkt_info) == ETH_OK) {
+ #endif
++		dma_unmap_single(NULL, pkt_info.buf_ptr, RX_SKB_SIZE,
++							DMA_FROM_DEVICE);
+ 		mp->rx_desc_count--;
+ 		received_packets++;
  
- struct bcm43xx_stats {
--	u8 link_quality;
- 	u8 noise;
- 	struct iw_statistics wstats;
- 	/* Store the last TX/RX times here for updating the leds. */
--- 
-John W. Linville
-linville@tuxdriver.com
