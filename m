@@ -1,68 +1,37 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] bcm43xx-softmac: update noise handling
-Date: Tue, 12 Sep 2006 12:40:32 -0500
-Message-ID: <4506F110.mailATA11P27W@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
+From: auke-jan.h.kok@intel.com (Auke-Jan H Kok)
+Subject: [PATCH] e1000: revert 'e1000: Remove 0x1000 as supported device'
+Date: Tue, 12 Sep 2006 10:46:15 -0700 (PDT)
+Message-ID: <20060912174615.5DA961AB2A1@ahkok-mobl.jf.intel.com>
+Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
+	auke@foo-projects.org, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-03.rdc-kc.rr.com ([24.94.166.129]:51387 "EHLO
-	ms-smtp-03.rdc-kc.rr.com") by vger.kernel.org with ESMTP
-	id S1030297AbWILRlD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 13:41:03 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from mga03.intel.com ([143.182.124.21]:49324 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S1030301AbWILRsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 13:48:01 -0400
+To: jgarzik@pobox.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+The commit 'e1000: Remove 0x1000 as supported device' (Jeff Kirsher,
+673a052fde79ab5e9dce569b0336358812ddba2d) Removes PIC device ID 8086:1000
+from the list of supported devices. A fix was submitted for the original
+issue (commit 6a9516989f94df10d9a27ba543c6b53b3e69c84a).
 
-Please apply this patch to wireless-2.6. In addition, please let me
-know if you have any problems applying it. I'm sending this by a new
-method.
+This commit reverts commit 673a052fde79ab5e9dce569b0336358812ddba2d and
+re-enables 82542rev3 chips completely.
 
-Larry
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-In bcm43xx-softmac, the bcm43xx_stats struct contains a variable that
-is no longer used. In addition, two TODO entries related to noise
-processing in bcm43xx_rx have been completed, and as unused one
-is removed.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
-
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-@@ -666,7 +666,6 @@ struct bcm43xx_noise_calculation {
- };
- 
- struct bcm43xx_stats {
--	u8 link_quality;
- 	u8 noise;
- 	struct iw_statistics wstats;
- 	/* Store the last TX/RX times here for updating the leds. */
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-@@ -496,15 +496,14 @@ int bcm43xx_rx(struct bcm43xx_private *b
- 	stats.signal = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
- 					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
- 					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
--//TODO	stats.noise = 
-+	stats.noise = bcm->stats.noise;
- 	if (is_ofdm)
- 		stats.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
- 	else
- 		stats.rate = bcm43xx_plcp_get_bitrate_cck(plcp);
- 	stats.received_channel = radio->channel;
--//TODO	stats.control = 
- 	stats.mask = IEEE80211_STATMASK_SIGNAL |
--//TODO		     IEEE80211_STATMASK_NOISE |
-+		     IEEE80211_STATMASK_NOISE |
- 		     IEEE80211_STATMASK_RATE |
- 		     IEEE80211_STATMASK_RSSI;
- 	if (phy->type == BCM43xx_PHYTYPE_A)
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 1d7c999..a8d724e 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -48,6 +48,7 @@ static char e1000_copyright[] = "Copyrig
+  *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
+  */
+ static struct pci_device_id e1000_pci_tbl[] = {
++	INTEL_E1000_ETHERNET_DEVICE(0x1000),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1001),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1004),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1008),
