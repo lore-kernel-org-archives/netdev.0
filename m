@@ -1,35 +1,52 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Pull request for 'r8169-20060912-00' branch
-Date: Tue, 12 Sep 2006 22:17:22 +0200
-Message-ID: <20060912201722.GA29802@xi.wantstofly.org>
-References: <20060912193531.GB4482@electric-eye.fr.zoreil.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx-softmac: improve wrong firmware message
+Date: Tue, 12 Sep 2006 15:29:04 -0500
+Message-ID: <45071890.mailJEJ1PQOHG@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:20189 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1030401AbWILURZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 16:17:25 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20060912193531.GB4482@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 12, 2006 at 09:35:31PM +0200, Francois Romieu wrote:
+An error message is changed to a printk as the original dprintk would
+be optimized away if debugging were not enabled. If the error is triggered,
+a more meaningful message is returned.
 
-> +	/*
-> +	 * Magic spell: some iop3xx ARM board needs the TxDescAddrHigh
-> +	 * register to be written before TxDescAddrLow to work.
-> +	 * Switching from MMIO to I/O access fixes the issue as well.
-> +	 */
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-Not that it matters much either way, but my impression was that this
-was an 8110SB bug rather than an iop3xx bug, as the same iop3xx ARM
-board sports a VIA PCI USB controller and a Silicon Image PCI SATA
-controller, which both work without any problems.
+John,
 
+This patch incorporates Michael's comments.
 
-cheers,
-Lennert
+Larry
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -2405,9 +2405,10 @@ static int bcm43xx_chip_init(struct bcm4
+ 				   BCM43xx_UCODE_TIME) & 0x1f);
+ 
+ 	if ( value16 > 0x128 ) {
+-		dprintk(KERN_ERR PFX
+-			"Firmware: no support for microcode rev > 0x128\n");
+-		err = -1;
++		printk(KERN_ERR PFX
++			"Firmware: no support for microcode extracted "
++			"from version 4.x binary drivers.\n");
++		err = -EOPNOTSUPP;
+ 		goto err_release_fw;
+ 	}
