@@ -1,58 +1,82 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 2.6.18] WE-21 for ipw2200
-Date: Tue, 12 Sep 2006 11:17:03 -0700
-Message-ID: <20060912181703.GA3818@bougret.hpl.hp.com>
-References: <20060830010140.GF8405@bougret.hpl.hp.com> <20060912180253.GC7703@tuxdriver.com>
-Reply-To: jt@hpl.hp.com
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: TCP Pacing
+Date: Tue, 12 Sep 2006 15:21:56 -0300
+Message-ID: <39e6f6c70609121121o6b1468fcv994b2365dfe3b0d4@mail.gmail.com>
+References: <200609121958.22820.root@danielinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Hemminger" <shemminger@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Carlo Caini" <ccaini@deis.unibo.it>,
+	"Rosario Firrincieli" <rfirrincieli@arces.unibo.it>,
+	"Giovanni Pau" <gpau@cs.ucla.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:47087 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S1030330AbWILSRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 14:17:45 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from wr-out-0506.google.com ([64.233.184.239]:58134 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1030318AbWILSWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 14:22:00 -0400
+Received: by wr-out-0506.google.com with SMTP id i32so572562wra
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2006 11:21:59 -0700 (PDT)
+To: root@danielinux.net
+In-Reply-To: <200609121958.22820.root@danielinux.net>
 Content-Disposition: inline
-In-Reply-To: <20060912180253.GC7703@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 12, 2006 at 02:02:59PM -0400, John W. Linville wrote:
-> On Tue, Aug 29, 2006 at 06:01:40PM -0700, Jean Tourrilhes wrote:
-> > @@ -8861,7 +8861,7 @@ static int ipw_wx_set_essid(struct net_d
-> >  	int length = 0;
-> >  	mutex_lock(&priv->mutex);
-> >  	if (wrqu->essid.flags && wrqu->essid.length) {
-> > -		length = wrqu->essid.length - 1;
-> > +		length = wrqu->essid.length;
-> >  		essid = extra;
-> >  	}
-> >  	if (length == 0) {
-> 
-> This hunk doesn't apply to the upstream branch of wireless-2.6.
+On 9/12/06, Daniele Lacamera <root@danielinux.net> wrote:
+> Hello,
+>
+> Please let me insist once again on the importance of adding a TCP Pacing
+> mechanism in our TCP, as many people are including this algorithm in
+> their congestion control proposals. Recent researches have found out
+> that it really can help improving performance in different scenarios,
+> like satellites and long-delay high-speed channels (>100ms RTT, Gbit).
+> Hybla module itself is cripple without this feature in its natural
+> scenario.
+>
+> The following patch is totally non-invasive: it has a config option and
+> a sysctl switch, both turned off by default. When the config option is
+> enabled, it adds only 6B to the tcp_sock.
+>
+> Signed-off by: Daniele Lacamera <root@danielinux.net>
+> ---
+>
+diff -ruN linux-2.6.18-rc6/net/ipv4/tcp_input.c
+linux-pacing/net/ipv4/tcp_input.c
+--- linux-2.6.18-rc6/net/ipv4/tcp_input.c	2006-09-04 04:19:48.000000000 +0200
++++ linux-pacing/net/ipv4/tcp_input.c	2006-09-12 17:11:38.000000000 +0200
+@@ -2569,6 +2569,11 @@
+ 			tcp_cong_avoid(sk, ack, seq_rtt, prior_in_flight, 1);
+ 	}
 
-	It did apply to your branch the day I sent the patches. Sorry
-about that.
+Without getting into the merits of the pacing technique:
 
-> I propose this one instead:
-> 
-> @@ -8875,8 +8875,6 @@ static int ipw_wx_set_essid(struct net_d
->          }
->  
->  	length = min((int)wrqu->essid.length, IW_ESSID_MAX_SIZE);
-> -	if (!extra[length - 1])
-> -		length--;
->  
->  	priv->config |= CFG_STATIC_ESSID;
->  
-> Everything else stays the same...OK?
++#ifdef CONFIG_TCP_PACING
++	if(sysctl_tcp_pacing)
++		tcp_pacing_recalc_delta(sk);
++#endif
 
-	It looks good. I will double check the code, and redo the
-out-of-tree patch for the IPW people. GIT through our HTTP proxy is
-quite slow, so bear with me :-(
+Please rewrite the patch so as to avoid adding that many #ifdefs to
+the common code, replacing above code with:
 
-> John
+tcp_pacing_recalc_delta(sk);
 
-	Jean
+That is defined in a header (net/tcp.h) as:
+
+#ifdef CONFIG_TCP_PACING
+extern void __tcp_pacing_recalc_delta(struct sock *sk);
+extern int sysctl_tcp_pacing;
+
+static inline void tcp_pacing_recalc_delta(struct sock *sk)
+{
+        if (sysctl_tcp_pacing) /* notice the space after ( */
+               __tcp_pacing_recalc_delta(sk);
+}
+#else
+static inline void tcp_pacing_recalc_delta(struct sock *sk) {};
+#endif
+
+Thanks,
+
+- Arnaldo
