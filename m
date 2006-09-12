@@ -1,149 +1,198 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 18/20] netlink: add SOCK_VMIO support to AF_NETLINK
+Subject: [PATCH 15/20] iscsi: kernel side tcp connect
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144904.998523000@chello.nl>
+Message-ID: <20060912144904.631458000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
 	Rik van Riel <riel@redhat.com>,
 	Daniel Phillips <phillips@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:34974 "EHLO
-	amsfep12-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751434AbWILPvA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 11:51:00 -0400
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030233AbWILP5M@vger.kernel.org>
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=netlink_vmio.patch
-Sender: netdev-owner@vger.kernel.org
+Content-Disposition: inline; filename=iscsi_ep_connect.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Modify the netlink code so that SOCK_VMIO has the desired effect on the
-user-space side of the connection.
+Move tcp connection code from user- into kernel-space.
+This makes it possible to do TCP reconnect deadlock free.
 
-Modify sys_{send,recv}msg to use sk->sk_allocation instead of GFP_KERNEL,
-this should not change existing behaviour because the default of
-sk->sk_allocation is GFP_KERNEL, and no user-space exposed socket would
-have it any different at this time.
+(This patch requires userspace changes too)
 
-This change allows the system calls to succeed for SOCK_VMIO sockets 
-(who have sk->sk_allocation |= GFP_EMERGENCY) even under extreme memory
-pressure.
-
-Since netlink_sendmsg is used to transfer msgs from user- to kernel-space
-treat the skb allocation there as a receive allocation.
-
-Also export netlink_lookup, this is needed to locate the kernel side struct
-sock object associated with the user-space netlink socket. 
-
+Signed-off-by: Mike Christie <michaelc@cs.wisc.edu>
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: David Miller <davem@davemloft.net>
-CC: Mike Christie <michaelc@cs.wisc.edu>
 ---
- include/linux/netlink.h  |    1 +
- net/compat.c             |    2 +-
- net/netlink/af_netlink.c |    8 +++++---
- net/socket.c             |    6 +++---
- 4 files changed, 10 insertions(+), 7 deletions(-)
+ drivers/scsi/iscsi_tcp.c |  108 ++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 83 insertions(+), 25 deletions(-)
 
-Index: linux-2.6/net/netlink/af_netlink.c
+Index: linux-2.6/drivers/scsi/iscsi_tcp.c
 ===================================================================
---- linux-2.6.orig/net/netlink/af_netlink.c
-+++ linux-2.6/net/netlink/af_netlink.c
-@@ -199,7 +199,7 @@ netlink_unlock_table(void)
- 		wake_up(&nl_table_wait);
+--- linux-2.6.orig/drivers/scsi/iscsi_tcp.c	2006-09-07 16:00:16.000000000 +0200
++++ linux-2.6/drivers/scsi/iscsi_tcp.c	2006-09-07 19:32:56.000000000 +0200
+@@ -35,6 +35,8 @@
+ #include <linux/kfifo.h>
+ #include <linux/scatterlist.h>
+ #include <linux/mutex.h>
++#include <linux/syscalls.h>
++#include <linux/file.h>
+ #include <net/tcp.h>
+ #include <scsi/scsi_cmnd.h>
+ #include <scsi/scsi_host.h>
+@@ -1062,21 +1064,6 @@ iscsi_conn_set_callbacks(struct iscsi_co
+ 	write_unlock_bh(&sk->sk_callback_lock);
  }
  
--static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
-+__inline__ struct sock *netlink_lookup(int protocol, u32 pid)
+-static void
+-iscsi_conn_restore_callbacks(struct iscsi_tcp_conn *tcp_conn)
+-{
+-	struct sock *sk = tcp_conn->sock->sk;
+-
+-	/* restore socket callbacks, see also: iscsi_conn_set_callbacks() */
+-	write_lock_bh(&sk->sk_callback_lock);
+-	sk->sk_user_data    = NULL;
+-	sk->sk_data_ready   = tcp_conn->old_data_ready;
+-	sk->sk_state_change = tcp_conn->old_state_change;
+-	sk->sk_write_space  = tcp_conn->old_write_space;
+-	sk->sk_no_check	 = 0;
+-	write_unlock_bh(&sk->sk_callback_lock);
+-}
+-
+ /**
+  * iscsi_send - generic send routine
+  * @sk: kernel's socket
+@@ -1741,6 +1728,77 @@ iscsi_tcp_ctask_xmit(struct iscsi_conn *
+ 	return rc;
+ }
+ 
++static int
++iscsi_tcp_ep_connect(struct sockaddr *dst_addr, int non_blocking,
++		     uint64_t *ep_handle)
++{
++	struct socket *sock;
++	int rc, size, arg = 1, window = 524288;
++
++	rc = sock_create_kern(dst_addr->sa_family, SOCK_STREAM, IPPROTO_TCP,
++			      &sock);
++	if (rc < 0) {
++		printk(KERN_ERR "Could not create socket %d.\n", rc);
++		return rc;
++	}
++	sock->sk->sk_allocation = GFP_ATOMIC;
++/*
++	rc = sock->ops->setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
++				   (char __user *)&arg, sizeof(arg));
++	if (rc) {
++		printk(KERN_ERR "Could not set TCP_NODELAY %d\n", rc);
++		goto release_sock;
++	}
++*/
++	/* should set like nfs */
++	sock_setsockopt(sock, SOL_SOCKET, SO_RCVBUF,
++			(char __user *)&window, sizeof(window));
++	sock_setsockopt(sock, SOL_SOCKET, SO_SNDBUF,
++			(char __user *)&window, sizeof(window));
++
++	if (dst_addr->sa_family == PF_INET)
++		size = sizeof(struct sockaddr_in);
++	else if (dst_addr->sa_family == PF_INET6)
++		size = sizeof(struct sockaddr_in6);
++	else {
++		rc = -EINVAL;
++		goto release_sock;
++	}
++
++	/* TODO we cannot block here */
++	rc = sock->ops->connect(sock, (struct sockaddr *)dst_addr, size,
++				0 /*O_NONBLOCK*/);
++	if (rc == -EINPROGRESS)
++		rc = 0;
++	else if (rc) {
++		printk(KERN_ERR "Could not connect %d\n", rc);
++		goto release_sock;
++	}
++
++	rc = sock_map_fd(sock);
++	if (rc < 0)
++		goto release_sock;
++	*ep_handle = (uint64_t)rc;
++	return 0;
++
++release_sock:
++	sock_release(sock);
++	return rc;
++}
++
++static int
++iscsi_tcp_ep_poll(uint64_t ep_handle, int timeout_ms)
++{
++	/* we cheated and blocked on the connect (TODO must fix) */
++	return 1;
++}
++
++static void
++iscsi_tcp_ep_disconnect(uint64_t ep_handle)
++{
++	sys_close(ep_handle);
++}
++
+ static struct iscsi_cls_conn *
+ iscsi_tcp_conn_create(struct iscsi_cls_session *cls_session, uint32_t conn_idx)
  {
- 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
- 	struct hlist_head *head;
-@@ -1147,7 +1147,7 @@ static int netlink_sendmsg(struct kiocb 
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 	err = -ENOBUFS;
--	skb = alloc_skb(len, GFP_KERNEL);
-+	skb = __alloc_skb(len, GFP_KERNEL, SKB_ALLOC_RX);
- 	if (skb==NULL)
- 		goto out;
+@@ -1795,11 +1853,7 @@ iscsi_tcp_release_conn(struct iscsi_conn
+ 	if (!tcp_conn->sock)
+ 		return;
  
-@@ -1178,7 +1178,8 @@ static int netlink_sendmsg(struct kiocb 
- 
- 	if (dst_group) {
- 		atomic_inc(&skb->users);
--		netlink_broadcast(sk, skb, dst_pid, dst_group, GFP_KERNEL);
-+		netlink_broadcast(sk, skb, dst_pid, dst_group,
-+				sk->sk_allocation);
+-	sock_hold(tcp_conn->sock->sk);
+-	iscsi_conn_restore_callbacks(tcp_conn);
+-	sock_put(tcp_conn->sock->sk);
+-
+-	sock_release(tcp_conn->sock);
++	fput(tcp_conn->sock->file);
+ 	tcp_conn->sock = NULL;
+ 	conn->recv_lock = NULL;
+ }
+@@ -1856,10 +1910,13 @@ iscsi_tcp_conn_bind(struct iscsi_cls_ses
+ 		printk(KERN_ERR "iscsi_tcp: sockfd_lookup failed %d\n", err);
+ 		return -EEXIST;
  	}
- 	err = netlink_unicast(sk, skb, dst_pid, msg->msg_flags&MSG_DONTWAIT);
++	get_file(sock->file);
  
-@@ -1788,6 +1789,7 @@ panic:
+ 	err = iscsi_conn_bind(cls_session, cls_conn, is_leading);
+-	if (err)
++	if (err) {
++		fput(sock->file);
+ 		return err;
++	}
  
- core_initcall(netlink_proto_init);
- 
-+EXPORT_SYMBOL(netlink_lookup);
- EXPORT_SYMBOL(netlink_ack);
- EXPORT_SYMBOL(netlink_run_queue);
- EXPORT_SYMBOL(netlink_queue_skip);
-Index: linux-2.6/net/socket.c
-===================================================================
---- linux-2.6.orig/net/socket.c
-+++ linux-2.6/net/socket.c
-@@ -1790,7 +1790,7 @@ asmlinkage long sys_sendmsg(int fd, stru
- 	err = -ENOMEM;
- 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
- 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
--		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
-+		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
- 		if (!iov)
- 			goto out_put;
- 	}
-@@ -1818,7 +1818,7 @@ asmlinkage long sys_sendmsg(int fd, stru
- 	} else if (ctl_len) {
- 		if (ctl_len > sizeof(ctl))
- 		{
--			ctl_buf = sock_kmalloc(sock->sk, ctl_len, GFP_KERNEL);
-+			ctl_buf = sock_kmalloc(sock->sk, ctl_len, sock->sk->sk_allocation);
- 			if (ctl_buf == NULL) 
- 				goto out_freeiov;
+ 	/* bind iSCSI connection and socket */
+ 	tcp_conn->sock = sock;
+@@ -2041,13 +2098,11 @@ iscsi_tcp_conn_get_param(struct iscsi_cl
+ 		sk = tcp_conn->sock->sk;
+ 		if (sk->sk_family == PF_INET) {
+ 			inet = inet_sk(sk);
+-			len = sprintf(buf, "%u.%u.%u.%u\n",
++			len = sprintf(buf, NIPQUAD_FMT "\n",
+ 				      NIPQUAD(inet->daddr));
+ 		} else {
+ 			np = inet6_sk(sk);
+-			len = sprintf(buf,
+-				"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+-				NIP6(np->daddr));
++			len = sprintf(buf, NIP6_FMT "\n", NIP6(np->daddr));
  		}
-@@ -1891,7 +1891,7 @@ asmlinkage long sys_recvmsg(int fd, stru
- 	err = -ENOMEM;
- 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
- 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
--		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
-+		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
- 		if (!iov)
- 			goto out_put;
- 	}
-Index: linux-2.6/include/linux/netlink.h
-===================================================================
---- linux-2.6.orig/include/linux/netlink.h
-+++ linux-2.6/include/linux/netlink.h
-@@ -150,6 +150,7 @@ struct netlink_skb_parms
- #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
- 
- 
-+extern struct sock *netlink_lookup(int protocol, __u32 pid);
- extern struct sock *netlink_kernel_create(int unit, unsigned int groups, void (*input)(struct sock *sk, int len), struct module *module);
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
- extern int netlink_has_listeners(struct sock *sk, unsigned int group);
-Index: linux-2.6/net/compat.c
-===================================================================
---- linux-2.6.orig/net/compat.c
-+++ linux-2.6/net/compat.c
-@@ -170,7 +170,7 @@ int cmsghdr_from_user_compat_to_kern(str
- 	 * from the user.
- 	 */
- 	if (kcmlen > stackbuf_size)
--		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, GFP_KERNEL);
-+		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, sk->sk_allocation);
- 	if (kcmsg == NULL)
- 		return -ENOBUFS;
- 
+ 		mutex_unlock(&conn->xmitmutex);
+ 		break;
+@@ -2185,6 +2240,9 @@ static struct iscsi_transport iscsi_tcp_
+ 	.get_session_param	= iscsi_session_get_param,
+ 	.start_conn		= iscsi_conn_start,
+ 	.stop_conn		= iscsi_tcp_conn_stop,
++	.ep_connect		= iscsi_tcp_ep_connect,
++	.ep_poll		= iscsi_tcp_ep_poll,
++	.ep_disconnect		= iscsi_tcp_ep_disconnect,
+ 	/* IO */
+ 	.send_pdu		= iscsi_conn_send_pdu,
+ 	.get_stats		= iscsi_conn_get_stats,
 
 --
-
