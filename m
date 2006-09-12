@@ -1,96 +1,67 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 11/20] nbd: request_fn fixup
+Subject: [PATCH 05/20] uml: rename arch/um remove_mapping()
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144904.197253000@chello.nl>
+Message-ID: <20060912144903.526938000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
 	Rik van Riel <riel@redhat.com>,
 	Daniel Phillips <phillips@google.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030242AbWILP57@vger.kernel.org>
+	Jeff Dike <jdike@addtoit.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:59855 "EHLO
+	amsfep15-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751421AbWILPuw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 11:50:52 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=nbd_fix.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Disposition: inline; filename=uml_remove_mapping.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dropping the queue_lock opens up a nasty race, fix this race by
-plugging the device when we're done.
+Now that 'include/linux/mm.h' includes 'include/linux/swap.h', the global
+remove_mapping() definition clashes with the arch/um one.
 
-Also includes a small cleanup.
+Rename the arch/um one.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Pavel Machek <pavel@ucw.cz>
+Acked-by: Jeff Dike <jdike@addtoit.com>
 ---
- drivers/block/nbd.c |   67 ++++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 49 insertions(+), 18 deletions(-)
+ arch/um/kernel/physmem.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/drivers/block/nbd.c
+Index: linux-2.6/arch/um/kernel/physmem.c
 ===================================================================
---- linux-2.6.orig/drivers/block/nbd.c	2006-09-07 17:20:52.000000000 +0200
-+++ linux-2.6/drivers/block/nbd.c	2006-09-07 17:35:05.000000000 +0200
-@@ -97,20 +97,24 @@ static const char *nbdcmd_to_ascii(int c
- }
- #endif /* NDEBUG */
+--- linux-2.6.orig/arch/um/kernel/physmem.c
++++ linux-2.6/arch/um/kernel/physmem.c
+@@ -160,7 +160,7 @@ int physmem_subst_mapping(void *virt, in
  
--static void nbd_end_request(struct request *req)
-+static void __nbd_end_request(struct request *req)
+ static int physmem_fd = -1;
+ 
+-static void remove_mapping(struct phys_desc *desc)
++static void um_remove_mapping(struct phys_desc *desc)
  {
- 	int uptodate = (req->errors == 0) ? 1 : 0;
--	request_queue_t *q = req->q;
--	unsigned long flags;
+ 	void *virt = desc->virt;
+ 	int err;
+@@ -184,7 +184,7 @@ int physmem_remove_mapping(void *virt)
+ 	if(desc == NULL)
+ 		return(0);
  
- 	dprintk(DBG_BLKDEV, "%s: request %p: %s\n", req->rq_disk->disk_name,
- 			req, uptodate? "done": "failed");
- 
--	spin_lock_irqsave(q->queue_lock, flags);
--	if (!end_that_request_first(req, uptodate, req->nr_sectors)) {
-+	if (!end_that_request_first(req, uptodate, req->nr_sectors))
- 		end_that_request_last(req, uptodate);
--	}
--	spin_unlock_irqrestore(q->queue_lock, flags);
-+}
-+
-+static void nbd_end_request(struct request *req)
-+{
-+	request_queue_t *q = req->q;
-+
-+	spin_lock_irq(q->queue_lock);
-+	__nbd_end_request(req);
-+	spin_unlock_irq(q->queue_lock);
+-	remove_mapping(desc);
++	um_remove_mapping(desc);
+ 	return(1);
  }
  
- /*
-@@ -435,10 +439,8 @@ static void do_nbd_request(request_queue
- 			mutex_unlock(&lo->tx_lock);
- 			printk(KERN_ERR "%s: Attempted send on closed socket\n",
- 			       lo->disk->disk_name);
--			req->errors++;
--			nbd_end_request(req);
- 			spin_lock_irq(q->queue_lock);
--			continue;
-+			goto error_out;
- 		}
- 
- 		lo->active_req = req;
-@@ -463,10 +465,13 @@ static void do_nbd_request(request_queue
- 
- error_out:
- 		req->errors++;
--		spin_unlock(q->queue_lock);
--		nbd_end_request(req);
--		spin_lock(q->queue_lock);
-+		__nbd_end_request(req);
- 	}
-+	/*
-+	 * q->queue_lock has been dropped, this opens up a race
-+	 * plug the device to close it.
-+	 */
-+	blk_plug_device(q);
- 	return;
- }
- 
+@@ -205,7 +205,7 @@ void physmem_forget_descriptor(int fd)
+ 		page = list_entry(ele, struct phys_desc, list);
+ 		offset = page->offset;
+ 		addr = page->virt;
+-		remove_mapping(page);
++		um_remove_mapping(page);
+ 		err = os_seek_file(fd, offset);
+ 		if(err)
+ 			panic("physmem_forget_descriptor - failed to seek "
 
 --
+
