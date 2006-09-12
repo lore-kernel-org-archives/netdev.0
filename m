@@ -1,28 +1,38 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: What is current sundance.c status?
-Date: Tue, 12 Sep 2006 14:36:13 +0800
-Message-ID: <00ae01c6d635$bdfa8340$4964a8c0@icplus.com.tw>
-References: <1156448955.20424.6.camel@localhost.localdomain>
+From: Dmitry Mishin <dim@openvz.org>
+Subject: Re: [RFC] network namespaces
+Date: Tue, 12 Sep 2006 11:38:16 +0400
+Message-ID: <200609121138.17403.dim@openvz.org>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <200609111910.31624.dim@openvz.org> <m1zmd57ogg.fsf_-_@ebiederm.dsl.xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
+	sam@vilain.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr49.hinet.net ([168.95.4.149]:50161 "EHLO msr49.hinet.net")
-	by vger.kernel.org with ESMTP id S1751357AbWILGg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 02:36:26 -0400
-To: "Jesse Huang" <jesse@icplus.com.tw>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<akpm@osdl.org>, <jgarzik@pobox.com>
+Received: from mailhub.sw.ru ([195.214.233.200]:50067 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S964931AbWILHjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 03:39:17 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1zmd57ogg.fsf_-_@ebiederm.dsl.xmission.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Jeff:
+Sorry, dont' understand your proposal correctly from the previous talk. :)
+But...
 
-Would you tell me what is current sundance.c status
-which support IP100A? Are those patches update to
-current tree or not? Is there anything should I need to
-add to it and generate new patches?
+On Tuesday 12 September 2006 07:28, Eric W. Biederman wrote:
+> Do you have some concrete arguments against the proposal?
+Yes, I have. I think it is unnecessary complication. This complication will 
+followed in additional bugs. Especially if we'll accept rules creation in 
+userspace. Why we need complex solution, if there are only two approaches to  
+socket bound - isolation and virtualization? These approaches could co-exist 
+without hooks. Or you probably have thoughts about other ways?
 
-Thank you very much.
-
-Best Regards,
-Jesse Huang
-
-
+-- 
+Thanks,
+Dmitry.
