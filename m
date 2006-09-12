@@ -1,75 +1,149 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 10/20] mm: block device swap notification
+Subject: [PATCH 18/20] netlink: add SOCK_VMIO support to AF_NETLINK
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144904.104909000@chello.nl>
+Message-ID: <20060912144904.998523000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
 	Rik van Riel <riel@redhat.com>,
 	Daniel Phillips <phillips@google.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"James E.J. Bottomley" <James.Bottomley@SteelEye.com>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Pavel Machek <pavel@ucw.cz>
+	Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:63382 "EHLO
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:34974 "EHLO
 	amsfep12-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751419AbWILPuz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 11:50:55 -0400
+	id S1751434AbWILPvA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 11:51:00 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=swapdev.patch
+Content-Disposition: inline; filename=netlink_vmio.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some block devices need to do some extra work when used as swap device.
+Modify the netlink code so that SOCK_VMIO has the desired effect on the
+user-space side of the connection.
+
+Modify sys_{send,recv}msg to use sk->sk_allocation instead of GFP_KERNEL,
+this should not change existing behaviour because the default of
+sk->sk_allocation is GFP_KERNEL, and no user-space exposed socket would
+have it any different at this time.
+
+This change allows the system calls to succeed for SOCK_VMIO sockets 
+(who have sk->sk_allocation |= GFP_EMERGENCY) even under extreme memory
+pressure.
+
+Since netlink_sendmsg is used to transfer msgs from user- to kernel-space
+treat the skb allocation there as a receive allocation.
+
+Also export netlink_lookup, this is needed to locate the kernel side struct
+sock object associated with the user-space netlink socket. 
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: James E.J. Bottomley <James.Bottomley@SteelEye.com>
+CC: David Miller <davem@davemloft.net>
 CC: Mike Christie <michaelc@cs.wisc.edu>
-CC: Pavel Machek <pavel@ucw.cz>
 ---
- include/linux/fs.h |    1 +
- mm/swapfile.c      |    7 +++++++
- 2 files changed, 8 insertions(+)
+ include/linux/netlink.h  |    1 +
+ net/compat.c             |    2 +-
+ net/netlink/af_netlink.c |    8 +++++---
+ net/socket.c             |    6 +++---
+ 4 files changed, 10 insertions(+), 7 deletions(-)
 
-Index: linux-2.6/include/linux/fs.h
+Index: linux-2.6/net/netlink/af_netlink.c
 ===================================================================
---- linux-2.6.orig/include/linux/fs.h
-+++ linux-2.6/include/linux/fs.h
-@@ -1017,6 +1017,7 @@ struct block_device_operations {
- 	int (*media_changed) (struct gendisk *);
- 	int (*revalidate_disk) (struct gendisk *);
- 	int (*getgeo)(struct block_device *, struct hd_geometry *);
-+	int (*swapdev)(struct gendisk *, int enable);
- 	struct module *owner;
- };
+--- linux-2.6.orig/net/netlink/af_netlink.c
++++ linux-2.6/net/netlink/af_netlink.c
+@@ -199,7 +199,7 @@ netlink_unlock_table(void)
+ 		wake_up(&nl_table_wait);
+ }
  
-Index: linux-2.6/mm/swapfile.c
+-static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
++__inline__ struct sock *netlink_lookup(int protocol, u32 pid)
+ {
+ 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
+ 	struct hlist_head *head;
+@@ -1147,7 +1147,7 @@ static int netlink_sendmsg(struct kiocb 
+ 	if (len > sk->sk_sndbuf - 32)
+ 		goto out;
+ 	err = -ENOBUFS;
+-	skb = alloc_skb(len, GFP_KERNEL);
++	skb = __alloc_skb(len, GFP_KERNEL, SKB_ALLOC_RX);
+ 	if (skb==NULL)
+ 		goto out;
+ 
+@@ -1178,7 +1178,8 @@ static int netlink_sendmsg(struct kiocb 
+ 
+ 	if (dst_group) {
+ 		atomic_inc(&skb->users);
+-		netlink_broadcast(sk, skb, dst_pid, dst_group, GFP_KERNEL);
++		netlink_broadcast(sk, skb, dst_pid, dst_group,
++				sk->sk_allocation);
+ 	}
+ 	err = netlink_unicast(sk, skb, dst_pid, msg->msg_flags&MSG_DONTWAIT);
+ 
+@@ -1788,6 +1789,7 @@ panic:
+ 
+ core_initcall(netlink_proto_init);
+ 
++EXPORT_SYMBOL(netlink_lookup);
+ EXPORT_SYMBOL(netlink_ack);
+ EXPORT_SYMBOL(netlink_run_queue);
+ EXPORT_SYMBOL(netlink_queue_skip);
+Index: linux-2.6/net/socket.c
 ===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1273,6 +1273,8 @@ asmlinkage long sys_swapoff(const char _
- 	inode = mapping->host;
- 	if (S_ISBLK(inode->i_mode)) {
- 		struct block_device *bdev = I_BDEV(inode);
-+		if (bdev->bd_disk->fops->swapdev)
-+			bdev->bd_disk->fops->swapdev(bdev->bd_disk, 0);
- 		set_blocksize(bdev, p->old_block_size);
- 		bd_release(bdev);
- 	} else {
-@@ -1481,6 +1483,11 @@ asmlinkage long sys_swapdev(const char __
- 		if (error < 0)
- 			goto bad_swap;
- 		p->bdev = bdev;
-+		if (bdev->bd_disk->fops->swapdev) {
-+			error = bdev->bd_disk->fops->swapdev(bdev->bd_disk, 1);
-+			if (error < 0)
-+				goto bad_swap;
-+		}
- 	} else if (S_ISREG(inode->i_mode)) {
- 		p->bdev = inode->i_sb->s_bdev;
- 		mutex_lock(&inode->i_mutex);
+--- linux-2.6.orig/net/socket.c
++++ linux-2.6/net/socket.c
+@@ -1790,7 +1790,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 	err = -ENOMEM;
+ 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
+ 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
+-		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
++		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
+ 		if (!iov)
+ 			goto out_put;
+ 	}
+@@ -1818,7 +1818,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 	} else if (ctl_len) {
+ 		if (ctl_len > sizeof(ctl))
+ 		{
+-			ctl_buf = sock_kmalloc(sock->sk, ctl_len, GFP_KERNEL);
++			ctl_buf = sock_kmalloc(sock->sk, ctl_len, sock->sk->sk_allocation);
+ 			if (ctl_buf == NULL) 
+ 				goto out_freeiov;
+ 		}
+@@ -1891,7 +1891,7 @@ asmlinkage long sys_recvmsg(int fd, stru
+ 	err = -ENOMEM;
+ 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
+ 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
+-		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
++		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
+ 		if (!iov)
+ 			goto out_put;
+ 	}
+Index: linux-2.6/include/linux/netlink.h
+===================================================================
+--- linux-2.6.orig/include/linux/netlink.h
++++ linux-2.6/include/linux/netlink.h
+@@ -150,6 +150,7 @@ struct netlink_skb_parms
+ #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+ 
+ 
++extern struct sock *netlink_lookup(int protocol, __u32 pid);
+ extern struct sock *netlink_kernel_create(int unit, unsigned int groups, void (*input)(struct sock *sk, int len), struct module *module);
+ extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
+ extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+Index: linux-2.6/net/compat.c
+===================================================================
+--- linux-2.6.orig/net/compat.c
++++ linux-2.6/net/compat.c
+@@ -170,7 +170,7 @@ int cmsghdr_from_user_compat_to_kern(str
+ 	 * from the user.
+ 	 */
+ 	if (kcmlen > stackbuf_size)
+-		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, GFP_KERNEL);
++		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, sk->sk_allocation);
+ 	if (kcmsg == NULL)
+ 		return -ENOBUFS;
+ 
 
 --
 
