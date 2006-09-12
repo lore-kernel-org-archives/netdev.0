@@ -1,49 +1,28 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] network namespaces
-Date: Mon, 11 Sep 2006 21:28:47 -0600
-Message-ID: <m1zmd57ogg.fsf_-_@ebiederm.dsl.xmission.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru>
-	<4505757B.3020004@fr.ibm.com>
-	<20060911145724.GB27223@MAIL.13thfloor.at>
-	<200609111910.31624.dim@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Kir Kolyshkin <kir@openvz.org>, Andrey Savochkin <saw@sw.ru>,
-	netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, alexey@sw.ru,
-	sam@vilain.net
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: What is current sundance.c status?
+Date: Tue, 12 Sep 2006 14:36:13 +0800
+Message-ID: <00ae01c6d635$bdfa8340$4964a8c0@icplus.com.tw>
+References: <1156448955.20424.6.camel@localhost.localdomain>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:32937 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S964855AbWILD3t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Sep 2006 23:29:49 -0400
-To: Dmitry Mishin <dim@openvz.org>
-In-Reply-To: <200609111910.31624.dim@openvz.org> (Dmitry Mishin's message of
-	"Mon, 11 Sep 2006 19:10:31 +0400")
+Received: from msr49.hinet.net ([168.95.4.149]:50161 "EHLO msr49.hinet.net")
+	by vger.kernel.org with ESMTP id S1751357AbWILGg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 02:36:26 -0400
+To: "Jesse Huang" <jesse@icplus.com.tw>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>, <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin <dim@openvz.org> writes:
+Dear Jeff:
 
-> On Monday 11 September 2006 18:57, Herbert Poetzl wrote:
->> I completely agree here, we need a separate namespace
->> for that, so that we can combine isolation and virtualization
->> as needed, unless the bind restrictions can be completely
->> expressed with an additional mangle or filter table (as
->> was suggested)
->
-> iptables are designed for packet flow decisions and filtering, it has nothing 
-> common with bind restrictions. So, it may be only packet flow 
-> scheduling/filtering, but it will not help to resolve bind-time IP conflicts.
+Would you tell me what is current sundance.c status
+which support IP100A? Are those patches update to
+current tree or not? Is there anything should I need to
+add to it and generate new patches?
 
-Please read the archive, where the suggestion was made.
+Thank you very much.
 
-What was suggested was a new table, with it's own set of chains.
-So we could make filtering decisions on where sockets could be bound.
+Best Regards,
+Jesse Huang
 
-That is not a far stretch from where iptables is today.
 
-Do you have some concrete arguments against the proposal?
-
-Eric
