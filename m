@@ -1,126 +1,131 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 14/20] uml: enable scsi and add iscsi config
+Subject: [PATCH 13/20] nbd: use swapdev hook to make swap deadlock free
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144904.514733000@chello.nl>
+Message-ID: <20060912144904.417049000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
 	Rik van Riel <riel@redhat.com>,
 	Daniel Phillips <phillips@google.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Jeff Dike <jdike@addtoit.com>,
-	Mike Christie <michaelc@cs.wisc.edu>
+	Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:43682 "EHLO
-	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751430AbWILPu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:31737 "EHLO
+	amsfep19-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751428AbWILPu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 12 Sep 2006 11:50:58 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=uml_iscsi.patch
+Content-Disposition: inline; filename=nbd_vmio.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable iSCSI on UML, dunno why SCSI was deemed broken, it works like a charm.
+Set SOCK_VMIO on the NBD socket and make sure the request_fn always
+runs with PF_MEMALLOC when used as a swapper, this ensures we can
+always flush the requests.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Acked-by: Jeff Dike <jdike@addtoit.com>
-CC: Mike Christie <michaelc@cs.wisc.edu>
+Signed-off-by: Daniel Phillips <phillips@google.com>
+CC: Pavel Machek <pavel@ucw.cz>
 ---
- arch/um/Kconfig      |   16 --------------
- arch/um/Kconfig.scsi |   58 ---------------------------------------------------
- 2 files changed, 1 insertion(+), 73 deletions(-)
+ drivers/block/nbd.c |   36 +++++++++++++++++++++++++++++++-----
+ 1 file changed, 31 insertions(+), 5 deletions(-)
 
-Index: linux-2.6/arch/um/Kconfig
+Index: linux-2.6/drivers/block/nbd.c
 ===================================================================
---- linux-2.6.orig/arch/um/Kconfig
-+++ linux-2.6/arch/um/Kconfig
-@@ -285,21 +285,7 @@ source "crypto/Kconfig"
+--- linux-2.6.orig/drivers/block/nbd.c	2006-09-07 18:44:12.000000000 +0200
++++ linux-2.6/drivers/block/nbd.c	2006-09-07 18:44:22.000000000 +0200
+@@ -139,7 +139,6 @@ static int sock_xmit(struct socket *sock
+ 	spin_unlock_irqrestore(&current->sighand->siglock, flags);
  
- source "lib/Kconfig"
+ 	do {
+-		sock->sk->sk_allocation = GFP_NOIO;
+ 		iov.iov_base = buf;
+ 		iov.iov_len = size;
+ 		msg.msg_name = NULL;
+@@ -406,10 +405,13 @@ static void nbd_clear_que(struct nbd_dev
+ static void do_nbd_request(request_queue_t * q)
+ {
+ 	struct request *req;
++	unsigned long pflags = current->flags;
++	struct nbd_device *lo = q->queuedata;
++
++	if (lo->sock && sk_has_vmio(lo->sock->sk))
++		current->flags |= PF_MEMALLOC;
+ 	
+ 	while ((req = elv_next_request(q)) != NULL) {
+-		struct nbd_device *lo;
+-
+ 		blkdev_dequeue_request(req);
+ 		dprintk(DBG_BLKDEV, "%s: request %p: dequeued (flags=%lx)\n",
+ 				req->rq_disk->disk_name, req, req->flags);
+@@ -417,8 +419,6 @@ static void do_nbd_request(request_queue
+ 		if (!(req->flags & REQ_CMD))
+ 			goto error_out;
  
--menu "SCSI support"
--depends on BROKEN
+-		lo = req->rq_disk->private_data;
 -
--config SCSI
--	tristate "SCSI support"
--
--# This gives us free_dma, which scsi.c wants.
--config GENERIC_ISA_DMA
--	bool
--	depends on SCSI
--	default y
--
--source "arch/um/Kconfig.scsi"
--
--endmenu
-+source "drivers/scsi/Kconfig"
+ 		BUG_ON(lo->magic != LO_MAGIC);
  
- source "drivers/md/Kconfig"
+ 		nbd_cmd(req) = NBD_CMD_READ;
+@@ -472,6 +472,7 @@ error_out:
+ 	 * plug the device to close it.
+ 	 */
+ 	blk_plug_device(q);
++	current->flags = pflags;
+ 	return;
+ }
  
-Index: linux-2.6/arch/um/Kconfig.scsi
-===================================================================
---- linux-2.6.orig/arch/um/Kconfig.scsi
-+++ /dev/null
-@@ -1,58 +0,0 @@
--comment "SCSI support type (disk, tape, CD-ROM)"
--	depends on SCSI
--
--config BLK_DEV_SD
--	tristate "SCSI disk support"
--	depends on SCSI
--
--config SD_EXTRA_DEVS
--	int "Maximum number of SCSI disks that can be loaded as modules"
--	depends on BLK_DEV_SD
--	default "40"
--
--config CHR_DEV_ST
--	tristate "SCSI tape support"
--	depends on SCSI
--
--config BLK_DEV_SR
--	tristate "SCSI CD-ROM support"
--	depends on SCSI
--
--config BLK_DEV_SR_VENDOR
--	bool "Enable vendor-specific extensions (for SCSI CDROM)"
--	depends on BLK_DEV_SR
--
--config SR_EXTRA_DEVS
--	int "Maximum number of CDROM devices that can be loaded as modules"
--	depends on BLK_DEV_SR
--	default "2"
--
--config CHR_DEV_SG
--	tristate "SCSI generic support"
--	depends on SCSI
--
--comment "Some SCSI devices (e.g. CD jukebox) support multiple LUNs"
--	depends on SCSI
--
--#if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
--config SCSI_DEBUG_QUEUES
--	bool "Enable extra checks in new queueing code"
--	depends on SCSI
--
--#fi
--config SCSI_MULTI_LUN
--	bool "Probe all LUNs on each SCSI device"
--	depends on SCSI
--
--config SCSI_CONSTANTS
--	bool "Verbose SCSI error reporting (kernel size +=12K)"
--	depends on SCSI
--
--config SCSI_LOGGING
--	bool "SCSI logging facility"
--	depends on SCSI
--
--config SCSI_DEBUG
--	tristate "SCSI debugging host simulator (EXPERIMENTAL)"
--	depends on SCSI
--
+@@ -530,6 +531,7 @@ static int nbd_ioctl(struct inode *inode
+ 			if (S_ISSOCK(inode->i_mode)) {
+ 				lo->file = file;
+ 				lo->sock = SOCKET_I(inode);
++				lo->sock->sk->sk_allocation = GFP_NOIO;
+ 				error = 0;
+ 			} else {
+ 				fput(file);
+@@ -599,10 +601,33 @@ static int nbd_ioctl(struct inode *inode
+ 	return -EINVAL;
+ }
+ 
++static int nbd_swapdev(struct gendisk *disk, int enable)
++{
++	struct nbd_device *lo = disk->private_data;
++
++	if (!lo->sock)
++		return -ENODEV;
++
++	if (enable) {
++		sk_adjust_memalloc(0, TX_RESERVE_PAGES);
++		if (!sk_set_vmio(lo->sock->sk))
++			printk(KERN_WARNING
++				"failed to set SOCK_VMIO on NBD socket\n");
++	} else {
++		if (!sk_clear_vmio(lo->sock->sk))
++			printk(KERN_WARNING
++				"failed to clear SOCK_VMIO on NBD socket\n");
++		sk_adjust_memalloc(0, -TX_RESERVE_PAGES);
++	}
++
++	return 0;
++}
++
+ static struct block_device_operations nbd_fops =
+ {
+ 	.owner =	THIS_MODULE,
+ 	.ioctl =	nbd_ioctl,
++	.swapdev =	nbd_swapdev,
+ };
+ 
+ /*
+@@ -638,6 +663,7 @@ static int __init nbd_init(void)
+ 			put_disk(disk);
+ 			goto out;
+ 		}
++		disk->queue->queuedata = &nbd_dev[i];
+ 		blk_queue_max_segment_size(disk->queue, PAGE_SIZE);
+ 		blk_queue_max_hw_segments(disk->queue, 1);
+ 		blk_queue_max_phys_segments(disk->queue, 1);
 
 --
 
