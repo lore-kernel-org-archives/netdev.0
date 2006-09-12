@@ -1,42 +1,30 @@
-From: Corentin CHARY <corentincj@iksaif.net>
-Subject: Re: r8168, 2.6.17 et r8169.c
-Date: Tue, 12 Sep 2006 19:11:37 +0200
-Message-ID: <200609121911.37767.corentincj@iksaif.net>
-References: <200609091201.03603.corentincj@iksaif.net> <200609121329.26159.corentincj@iksaif.net> <20060912165356.GA32649@electric-eye.fr.zoreil.com>
-Reply-To: corentincj@iksaif.net
+From: Philip Molter <philip@datafoundry.com>
+Subject: Re: tg3: tg3_stop_block timed out
+Date: Tue, 12 Sep 2006 12:22:33 -0500
+Message-ID: <4506ECD9.4050607@datafoundry.com>
+References: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iksaif.dns26.com ([84.246.226.15]:60054 "EHLO iksaif.net")
-	by vger.kernel.org with ESMTP id S1030240AbWILRLU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 13:11:20 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060912165356.GA32649@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from mailstar.maildev1.aus.datafoundry.com ([209.99.125.22]:5528
+	"EHLO mailstar.maildev1.aus.datafoundry.com") by vger.kernel.org
+	with ESMTP id S965244AbWILRWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 13:22:31 -0400
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 12 septembre 2006 18:53, Francois Romieu a =E9crit=A0:
-> Corentin CHARY <corentincj@iksaif.net> :
-> [...]
->
-> > Today, I tested on a 2.6.18-r6 Kernel, and it work perfectly (witho=
-ut
-> > mii-tool !).
->
-> Let's say I am a bit dense: you tested 20060911-2.6.18-rc6-r8169-test=
-=2Epatch
-> on 2.6.18-rc6 and it worked fine, right ?
->
-> (from your previous description, I thought there was a regression in =
-the
-> serie)
+> Please try the latest driver.  If you still get the timeouts, I'll
+> need to send you some debug patches to dump the state when these
+> timeouts occur.
 
-Yep, it worked fine on 2.6.18-rc6, but not on 2.6.17 :)
---=20
-CHARY 'Iksaif' Corentin
-iksaif@gmail.com - corentincj@yahoo.fr
-http://xf.iksaif.net
+So far, with the new driver, I haven't seen any of these timeouts. 
+Normally, we'd have seen them by now.  If they recur at some point in 
+the future, I'll post a new message.
+
+Thanks for your help, Michael.
+Philip
+
