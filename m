@@ -1,50 +1,41 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [RFC] Alternate WE-21 support (core API)
-Date: Tue, 12 Sep 2006 09:17:37 -0700
-Message-ID: <20060912161737.GB3536@bougret.hpl.hp.com>
-References: <1157031138.16040.17.camel@ux156> <20060831135112.GA6097@jm.kir.nu> <1157032805.16040.21.camel@ux156> <20060906205538.GA29767@tuxdriver.com> <20060906213053.GA21719@bougret.hpl.hp.com> <20060908142913.GD23852@tuxdriver.com> <20060908161345.GA27036@bougret.hpl.hp.com> <1157965694.2811.3.camel@ux156> <20060911162608.GA31459@bougret.hpl.hp.com> <1158050637.2854.16.camel@ux156>
-Reply-To: jt@hpl.hp.com
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [PATCH 00/20] vm deadlock avoidance for NFS, NBD and iSCSI (take
+ 7)
+Date: Tue, 12 Sep 2006 09:37:40 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609120935110.27779@g5.osdl.org>
+References: <20060912143049.278065000@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	David Miller <davem@davemloft.net>,
+	Rik van Riel <riel@redhat.com>,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:14819 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S1030252AbWILQS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 12:18:27 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1158050637.2854.16.camel@ux156>
+Received: from smtp.osdl.org ([65.172.181.4]:1483 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965037AbWILQiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 12:38:03 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+In-Reply-To: <20060912143049.278065000@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 12, 2006 at 10:43:57AM +0200, Johannes Berg wrote:
+
+
+On Tue, 12 Sep 2006, Peter Zijlstra wrote:
 > 
-> > But there are bits left and right, so
-> > more inspection of drivers would be needed. For example, wavelan and
-> > netwave are using encryption key sizes which are not compatible with
-> > 802.11.
-> 
-> Hmm, interesting. Will need to think about that for a bit. The whole key
-> management stuff is fairly hairy, even more so in wpa/wpa2.
+> Linus, when I mentioned swap over network to you in Ottawa, you said it was
+> a valid use case, that people actually do and want this. Can you agree with
+> the approach taken in these patches?
 
-	I was initially very negative towards the WPA API (WPA +
-extended scan), because it's so complex. I went back and forth with
-Jouni trying to simplify it, but we did not manage to gain much. I
-trust that Jouni did the best he could, that's just the nature of the
-beast.
+Well, in all honesty, I don't think I really said "valid", but that I said 
+that some crazy people want to do it, and that we should try to allow them 
+their foibles.
 
-	I was thinking of the WE -> nl80211 compatibility. It's pretty
-trivial to do as far as WE is concerned, you just need to hack
-get_handler() to return the nl80211 handler. Or, if you don't like a
-single handler, you could have one wrapper per ioctl, which is even
-easier.
-	Do you have a recent version of your code so that I can see
-how it can hook on your side ? I think we could put the generic
-mechanism in place early so that people can add specifics as they need
-them.
+So I'd be nervous to do any _guarantees_. I think that good VM policies 
+should make it be something that works in general (the dirty mapping 
+limits in particular), but I'd be a bit nervous about anybody taking it 
+_too_ seriously. Crazy people are still crazy, they just might be right 
+under certain reasonably-well-controlled circumstances.
 
-> johannes
-
-	Have fun...
-
-	Jean
+		Linus
