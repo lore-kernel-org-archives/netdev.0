@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 09/20] nfs: make swap on NFS robust
+Subject: [PATCH 04/20] mm: methods for teaching filesystems about PG_swapcache pages
 Date: Tue, 12 Sep 2006 17:25:49 +0200
-Message-ID: <20060912144903.985364000@chello.nl>
+Message-ID: <20060912144903.411063000@chello.nl>
 References: <20060912143049.278065000@chello.nl>
 Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	David Miller <davem@davemloft.net>,
@@ -10,195 +10,228 @@ Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:6682 "EHLO
-	amsfep18-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751423AbWILPuz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 11:50:55 -0400
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:51404 "EHLO
+	amsfep15-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751439AbWILPvD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 11:51:03 -0400
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Content-Disposition: inline; filename=nfs_vmio.patch
+Content-Disposition: inline; filename=page_file_methods.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide a proper a_ops->swapfile() implementation for NFS. This will set the
-NFS socket to SOCK_VMIO and run socket reconnect under PF_MEMALLOC as well
-as reset SOCK_VMIO before engaging the protocol ->connect() method.
+In order to teach filesystems to handle swap cache pages, two new page
+functions are introduced:
 
-PF_MEMALLOC should allow the allocation of struct socket and related objects
-and the early (re)setting of SOCK_VMIO should allow us to receive the packets
-required for the TCP connection buildup.
+  pgoff_t page_file_index(struct page *);
+  struct address_space *page_file_mapping(struct page *);
 
-(swapping continues over a server reset during a large (4k) ping flood)
+page_file_index - gives the offset of this page in the file in PAGE_CACHE_SIZE
+blocks. Like page->index is for mapped pages, this function also gives the
+correct index for PG_swapcache pages.
+
+page_file_mapping - gives the mapping backing the actual page; that is for
+swap cache pages it will give swap_file->f_mapping.
+
+page_offset() is modified to use page_file_index(), so that it will give the
+expected result, even for PG_swapcache pages.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 CC: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- fs/nfs/file.c               |    2 -
- include/linux/sunrpc/xprt.h |    5 +++-
- net/sunrpc/sched.c          |    4 +--
- net/sunrpc/xprtsock.c       |   47 ++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 54 insertions(+), 4 deletions(-)
+ include/linux/mm.h      |   30 ++++++++++++++++++++++++++++++
+ include/linux/pagemap.h |    2 +-
+ include/linux/swap.h    |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/swapops.h |   44 --------------------------------------------
+ 4 files changed, 79 insertions(+), 45 deletions(-)
 
-Index: linux-2.6/fs/nfs/file.c
+Index: linux-2.6/include/linux/mm.h
 ===================================================================
---- linux-2.6.orig/fs/nfs/file.c
-+++ linux-2.6/fs/nfs/file.c
-@@ -323,7 +323,7 @@ static int nfs_release_page(struct page 
+--- linux-2.6.orig/include/linux/mm.h
++++ linux-2.6/include/linux/mm.h
+@@ -15,6 +15,7 @@
+ #include <linux/fs.h>
+ #include <linux/mutex.h>
+ #include <linux/debug_locks.h>
++#include <linux/swap.h>
  
- static int nfs_swapfile(struct address_space *mapping, int enable)
- {
--	return 0;
-+	return xs_swapper(NFS_CLIENT(mapping->host)->cl_xprt, enable);
+ struct mempolicy;
+ struct anon_vma;
+@@ -579,6 +580,22 @@ static inline struct address_space *page
+ 	return mapping;
  }
  
- const struct address_space_operations nfs_file_aops = {
-Index: linux-2.6/net/sunrpc/xprtsock.c
-===================================================================
---- linux-2.6.orig/net/sunrpc/xprtsock.c
-+++ linux-2.6/net/sunrpc/xprtsock.c
-@@ -1014,6 +1014,7 @@ static void xs_udp_connect_worker(void *
++static inline
++struct swap_info_struct * page_swap_info(struct page *page)
++{
++	swp_entry_t swap = { .val = page_private(page) };
++	BUG_ON(!PageSwapCache(page));
++	return get_swap_info_struct(swp_type(swap));
++}
++
++static inline
++struct address_space *page_file_mapping(struct page *page)
++{
++	if (unlikely(PageSwapCache(page)))
++		return page_swap_info(page)->swap_file->f_mapping;
++	return page->mapping;
++}
++
+ static inline int PageAnon(struct page *page)
  {
- 	struct rpc_xprt *xprt = (struct rpc_xprt *) args;
- 	struct socket *sock = xprt->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || xprt->addr.sin_port == 0)
-@@ -1021,6 +1022,9 @@ static void xs_udp_connect_worker(void *
- 
- 	dprintk("RPC:      xs_udp_connect_worker for xprt %p\n", xprt);
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	/* Start by resetting any existing state */
- 	xs_close(xprt);
- 
-@@ -1054,6 +1058,9 @@ static void xs_udp_connect_worker(void *
- 		xprt->sock = sock;
- 		xprt->inet = sk;
- 
-+		if (xprt->swapper)
-+			sk_set_vmio(sk);
-+
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	}
- 	xs_udp_do_set_buffer_size(xprt);
-@@ -1061,6 +1068,7 @@ static void xs_udp_connect_worker(void *
- out:
- 	xprt_wake_pending_tasks(xprt, status);
- 	xprt_clear_connecting(xprt);
-+	current->flags = pflags;
+ 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+@@ -596,6 +613,19 @@ static inline pgoff_t page_index(struct 
  }
  
  /*
-@@ -1097,11 +1105,15 @@ static void xs_tcp_connect_worker(void *
++ * Return the file index of the page. Regular pagecache pages use ->index
++ * whereas swapcache pages use swp_offset(->private)
++ */
++static inline pgoff_t page_file_index(struct page *page)
++{
++	if (unlikely(PageSwapCache(page))) {
++		swp_entry_t swap = { .val = page_private(page) };
++		return swp_offset(swap);
++	}
++	return page->index;
++}
++
++/*
+  * The atomic page->_mapcount, like _count, starts from -1:
+  * so that transitions both from it and to it can be tracked,
+  * using atomic_inc_and_test and atomic_add_negative(-1).
+Index: linux-2.6/include/linux/pagemap.h
+===================================================================
+--- linux-2.6.orig/include/linux/pagemap.h
++++ linux-2.6/include/linux/pagemap.h
+@@ -118,7 +118,7 @@ extern void __remove_from_page_cache(str
+  */
+ static inline loff_t page_offset(struct page *page)
  {
- 	struct rpc_xprt *xprt = (struct rpc_xprt *)args;
- 	struct socket *sock = xprt->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || xprt->addr.sin_port == 0)
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	dprintk("RPC:      xs_tcp_connect_worker for xprt %p\n", xprt);
- 
- 	if (!xprt->sock) {
-@@ -1148,6 +1160,10 @@ static void xs_tcp_connect_worker(void *
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	}
- 
-+
-+	if (xprt->swapper)
-+		sk_set_vmio(xprt->inet);
-+
- 	/* Tell the socket layer to start connecting... */
- 	xprt->stat.connect_count++;
- 	xprt->stat.connect_start = jiffies;
-@@ -1174,6 +1190,7 @@ out:
- 	xprt_wake_pending_tasks(xprt, status);
- out_clear:
- 	xprt_clear_connecting(xprt);
-+	current->flags = pflags;
+-	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
++	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
  }
  
- /**
-@@ -1369,3 +1386,33 @@ int xs_setup_tcp(struct rpc_xprt *xprt, 
+ static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
+Index: linux-2.6/include/linux/swap.h
+===================================================================
+--- linux-2.6.orig/include/linux/swap.h
++++ linux-2.6/include/linux/swap.h
+@@ -75,6 +75,50 @@ typedef struct {
+ } swp_entry_t;
  
+ /*
++ * swapcache pages are stored in the swapper_space radix tree.  We want to
++ * get good packing density in that tree, so the index should be dense in
++ * the low-order bits.
++ *
++ * We arrange the `type' and `offset' fields so that `type' is at the five
++ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
++ * remaining bits.
++ *
++ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
++ */
++#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
++#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
++
++/*
++ * Store a type+offset into a swp_entry_t in an arch-independent format
++ */
++static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
++{
++	swp_entry_t ret;
++
++	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
++			(offset & SWP_OFFSET_MASK(ret));
++	return ret;
++}
++
++/*
++ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
++ * arch-independent format
++ */
++static inline unsigned swp_type(swp_entry_t entry)
++{
++	return (entry.val >> SWP_TYPE_SHIFT(entry));
++}
++
++/*
++ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
++ * arch-independent format
++ */
++static inline pgoff_t swp_offset(swp_entry_t entry)
++{
++	return entry.val & SWP_OFFSET_MASK(entry);
++}
++
++/*
+  * current->reclaim_state points to one of these when a task is running
+  * memory reclaim
+  */
+@@ -322,6 +366,10 @@ static inline int valid_swaphandles(swp_
  	return 0;
  }
-+
-+#define RPC_BUF_RESERVE_PAGES	(1) /* XXX: how many concurrent rpc buffers? */
-+#define RPC_RESERVE_PAGES	(RPC_BUF_RESERVE_PAGES + TX_RESERVE_PAGES)
-+
-+/**
-+ * xs_swapper - Tag this transport as being used for swap.
-+ * @xprt: transport to tag
-+ * @enable: enable/disable
-+ *
-+ */
-+int xs_swapper(struct rpc_xprt *xprt, int enable)
+ 
++static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
 +{
-+	int err = 0;
-+
-+	if (enable) {
-+		/*
-+		 * keep one extra sock reference so the reserve won't dip
-+		 * when the socket gets reconnected.
-+		 */
-+		sk_adjust_memalloc(1, RPC_RESERVE_PAGES);
-+		sk_set_vmio(xprt->inet);
-+		xprt->swapper = 1;
-+	} else if (xprt->swapper) {
-+		xprt->swapper = 0;
-+		sk_clear_vmio(xprt->inet);
-+		sk_adjust_memalloc(-1, -RPC_RESERVE_PAGES);
-+	}
-+
-+	return err;
++	return NULL;
 +}
-Index: linux-2.6/include/linux/sunrpc/xprt.h
+ #define can_share_swap_page(p)			(page_mapcount(p) == 1)
+ 
+ static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
+Index: linux-2.6/include/linux/swapops.h
 ===================================================================
---- linux-2.6.orig/include/linux/sunrpc/xprt.h
-+++ linux-2.6/include/linux/sunrpc/xprt.h
-@@ -147,7 +147,9 @@ struct rpc_xprt {
- 	unsigned int		max_reqs;	/* total slots */
- 	unsigned long		state;		/* transport state */
- 	unsigned char		shutdown   : 1,	/* being shut down */
--				resvport   : 1; /* use a reserved port */
-+				resvport   : 1, /* use a reserved port */
-+				swapper    : 1; /* we're swapping over this
-+						   transport */
- 
- 	/*
- 	 * XID
-@@ -261,6 +263,7 @@ void			xprt_disconnect(struct rpc_xprt *
-  */
- int			xs_setup_udp(struct rpc_xprt *xprt, struct rpc_timeout *to);
- int			xs_setup_tcp(struct rpc_xprt *xprt, struct rpc_timeout *to);
-+int			xs_swapper(struct rpc_xprt *xprt, int enable);
- 
+--- linux-2.6.orig/include/linux/swapops.h
++++ linux-2.6/include/linux/swapops.h
+@@ -1,48 +1,4 @@
  /*
-  * Reserved bit positions in xprt->state
-Index: linux-2.6/net/sunrpc/sched.c
-===================================================================
---- linux-2.6.orig/net/sunrpc/sched.c
-+++ linux-2.6/net/sunrpc/sched.c
-@@ -736,8 +736,8 @@ void * rpc_malloc(struct rpc_task *task,
- 	struct rpc_rqst *req = task->tk_rqstp;
- 	gfp_t	gfp;
- 
--	if (task->tk_flags & RPC_TASK_SWAPPER)
--		gfp = GFP_ATOMIC;
-+	if (RPC_IS_SWAPPER(task))
-+		gfp = GFP_ATOMIC | __GFP_EMERGENCY;
- 	else
- 		gfp = GFP_NOFS;
- 
+- * swapcache pages are stored in the swapper_space radix tree.  We want to
+- * get good packing density in that tree, so the index should be dense in
+- * the low-order bits.
+- *
+- * We arrange the `type' and `offset' fields so that `type' is at the five
+- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
+- * remaining bits.
+- *
+- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
+- */
+-#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
+-#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
+-
+-/*
+- * Store a type+offset into a swp_entry_t in an arch-independent format
+- */
+-static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
+-{
+-	swp_entry_t ret;
+-
+-	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
+-			(offset & SWP_OFFSET_MASK(ret));
+-	return ret;
+-}
+-
+-/*
+- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
+- * arch-independent format
+- */
+-static inline unsigned swp_type(swp_entry_t entry)
+-{
+-	return (entry.val >> SWP_TYPE_SHIFT(entry));
+-}
+-
+-/*
+- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
+- * arch-independent format
+- */
+-static inline pgoff_t swp_offset(swp_entry_t entry)
+-{
+-	return entry.val & SWP_OFFSET_MASK(entry);
+-}
+-
+-/*
+  * Convert the arch-dependent pte representation of a swp_entry_t into an
+  * arch-independent swp_entry_t.
+  */
 
 --
 
