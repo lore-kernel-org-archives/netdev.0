@@ -1,30 +1,30 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: examples to model ethernet driver off of?
-Date: Wed, 13 Sep 2006 13:11:07 -0700
-Message-ID: <450865DB.4040809@intel.com>
-References: <9F51F56C-9924-4DEC-A823-892DDEE69131@kernel.crashing.org> <20060913195445.GH25007@electric-eye.fr.zoreil.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] make ipv4 multicast packets only get delivered to sockets	that are joined to group
+Date: Thu, 14 Sep 2006 00:20:29 +0400
+Message-ID: <20060913202029.GA4666@ms2.inr.ac.ru>
+References: <1158156835.15449.40.camel@dantu.rdu.redhat.com> <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39603 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1751161AbWIMUNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 16:13:51 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060913195445.GH25007@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton@poochiereds.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751169AbWIMUVT@vger.kernel.org>
+To: David Stevens <dlstevens@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Kumar Gala <galak@kernel.crashing.org> :
->> What are good examples of simple/basic ethernet drivers one should  
->> use to model a new driver off of?
-> 
-> tg3/bnx2/sky2/b44/8139cp
+Hello!
 
-Can I add e1000/ixgb to that? ;)
+> IPv6 behaves the same way.
 
-Cheers,
+Actually, Linux IPv6 filters received multicasts, inet6_mc_check() does
+this.
 
-Auke
+IPv4 does not. I remember that attempts to do this were made in the past
+and failed, because some applications, related to multicast routing,
+did expect to receive all the multicasts even though they did not join
+any multicast addresses. So, it was left intact.
+
+Alexey
