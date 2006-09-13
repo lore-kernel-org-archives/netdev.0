@@ -1,30 +1,36 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] make ipv4 multicast packets only get delivered to sockets	that are joined to group
-Date: Thu, 14 Sep 2006 00:20:29 +0400
-Message-ID: <20060913202029.GA4666@ms2.inr.ac.ru>
-References: <1158156835.15449.40.camel@dantu.rdu.redhat.com> <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@poochiereds.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751169AbWIMUVT@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: examples to model ethernet driver off of?
+Date: Wed, 13 Sep 2006 15:36:17 -0500
+Message-ID: <7E7667E8-DD25-4F31-AE27-C7C2E92AC622@kernel.crashing.org>
+References: <9F51F56C-9924-4DEC-A823-892DDEE69131@kernel.crashing.org> <20060913195445.GH25007@electric-eye.fr.zoreil.com> <450865DB.4040809@intel.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:63086 "EHLO
+	nommos.sslcatacombnetworking.com") by vger.kernel.org with ESMTP
+	id S1751089AbWIMUg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 16:36:28 -0400
+In-Reply-To: <450865DB.4040809@intel.com>
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> IPv6 behaves the same way.
+On Sep 13, 2006, at 3:11 PM, Auke Kok wrote:
 
-Actually, Linux IPv6 filters received multicasts, inet6_mc_check() does
-this.
+> Francois Romieu wrote:
+>> Kumar Gala <galak@kernel.crashing.org> :
+>>> What are good examples of simple/basic ethernet drivers one  
+>>> should  use to model a new driver off of?
+>> tg3/bnx2/sky2/b44/8139cp
+>
+> Can I add e1000/ixgb to that? ;)
 
-IPv4 does not. I remember that attempts to do this were made in the past
-and failed, because some applications, related to multicast routing,
-did expect to receive all the multicasts even though they did not join
-any multicast addresses. So, it was left intact.
+What is the feeling about e100.c?
 
-Alexey
+I'm looking for something that is just basic tx/rx with no real fancy  
+features.
+
+- k
