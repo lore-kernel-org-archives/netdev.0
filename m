@@ -1,415 +1,331 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 4/5] pcnet32:  break receive routine into two pieces.
-Date: Wed, 13 Sep 2006 10:16:38 -0700
-Message-ID: <20060913171638.GA12761@us.ibm.com>
+From: "Francesco Fondelli" <francesco.fondelli@gmail.com>
+Subject: [PATCH] vlan support for pktgen
+Date: Wed, 13 Sep 2006 19:17:45 +0200
+Message-ID: <7c923b5e0609131017i4a04512rab45cff32e09527e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed;
+	boundary="----=_Part_28710_22414510.1158167865816"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:32665 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750806AbWIMRPv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 13:15:51 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8DHFpKV020550
-	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 13:15:51 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8DHFoeT200380
-	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 11:15:51 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8DHFogS028956
-	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 11:15:50 -0600
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from wx-out-0506.google.com ([66.249.82.239]:18116 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1750810AbWIMRRr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 13:17:47 -0400
+Received: by wx-out-0506.google.com with SMTP id s14so2444813wxc
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 10:17:46 -0700 (PDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Breaking the receive frame processing into two routines for greater clarity.  
+------=_Part_28710_22414510.1158167865816
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Tested ia32 and ppc64.
+Hi all,
 
-Signed-off-by:  Don Fry <brazilnut@us.ibm.com>
+The attached patch allows pktgen to produce 802.1Q and Q-in-Q tagged frames.
+I have used it for stress test a bridge and seems ok to me.
+Unfortunately I have no access to net-2.6.x git tree so the diff is against
+2.6.17.13.
+If you have a moment look over it, I think this feature could be useful for
+someone else.
 
---- linux-2.6.18-rc6/drivers/net/pcnet32.c.move	Tue Sep 12 11:37:43 2006
-+++ linux-2.6.18-rc6/drivers/net/pcnet32.c	Tue Sep 12 14:21:18 2006
-@@ -1124,161 +1124,140 @@ static int pcnet32_suspend(struct net_de
- 	return 1;
- }
- 
-+/*
-+ * process one receive descriptor entry
-+ */
- 
--static int pcnet32_rx(struct net_device *dev)
-+static void pcnet32_rx_entry(struct net_device *dev,
-+			     struct pcnet32_private *lp,
-+			     struct pcnet32_rx_head *rxp,
-+			     int entry)
- {
--	struct pcnet32_private *lp = dev->priv;
--	int entry = lp->cur_rx & lp->rx_mod_mask;
--	int boguscnt = lp->rx_ring_size / 2;
-+	int status = (short)le16_to_cpu(rxp->status) >> 8;
-+	int rx_in_place = 0;
-+	struct sk_buff *skb;
-+	short pkt_len;
- 
--	/* If we own the next entry, it's a new packet. Send it up. */
--	while ((short)le16_to_cpu(lp->rx_ring[entry].status) >= 0) {
--		int status = (short)le16_to_cpu(lp->rx_ring[entry].status) >> 8;
-+	if (status != 0x03) {	/* There was an error. */
-+		/*
-+		 * There is a tricky error noted by John Murphy,
-+		 * <murf@perftech.com> to Russ Nelson: Even with full-sized
-+		 * buffers it's possible for a jabber packet to use two
-+		 * buffers, with only the last correctly noting the error.
-+		 */
-+		if (status & 0x01)	/* Only count a general error at the */
-+			lp->stats.rx_errors++;	/* end of a packet. */
-+		if (status & 0x20)
-+			lp->stats.rx_frame_errors++;
-+		if (status & 0x10)
-+			lp->stats.rx_over_errors++;
-+		if (status & 0x08)
-+			lp->stats.rx_crc_errors++;
-+		if (status & 0x04)
-+			lp->stats.rx_fifo_errors++;
-+		return;
-+	}
- 
--		if (status != 0x03) {	/* There was an error. */
--			/*
--			 * There is a tricky error noted by John Murphy,
--			 * <murf@perftech.com> to Russ Nelson: Even with full-sized
--			 * buffers it's possible for a jabber packet to use two
--			 * buffers, with only the last correctly noting the error.
--			 */
--			if (status & 0x01)	/* Only count a general error at the */
--				lp->stats.rx_errors++;	/* end of a packet. */
--			if (status & 0x20)
--				lp->stats.rx_frame_errors++;
--			if (status & 0x10)
--				lp->stats.rx_over_errors++;
--			if (status & 0x08)
--				lp->stats.rx_crc_errors++;
--			if (status & 0x04)
--				lp->stats.rx_fifo_errors++;
--			lp->rx_ring[entry].status &= le16_to_cpu(0x03ff);
--		} else {
--			/* Malloc up new buffer, compatible with net-2e. */
--			short pkt_len =
--			    (le32_to_cpu(lp->rx_ring[entry].msg_length) & 0xfff)
--			    - 4;
--			struct sk_buff *skb;
-+	pkt_len = (le32_to_cpu(rxp->msg_length) & 0xfff) - 4;
- 
--			/* Discard oversize frames. */
--			if (unlikely(pkt_len > PKT_BUF_SZ - 2)) {
--				if (netif_msg_drv(lp))
--					printk(KERN_ERR
--					       "%s: Impossible packet size %d!\n",
--					       dev->name, pkt_len);
--				lp->stats.rx_errors++;
--			} else if (pkt_len < 60) {
--				if (netif_msg_rx_err(lp))
--					printk(KERN_ERR "%s: Runt packet!\n",
--					       dev->name);
--				lp->stats.rx_errors++;
--			} else {
--				int rx_in_place = 0;
-+	/* Discard oversize frames. */
-+	if (unlikely(pkt_len > PKT_BUF_SZ - 2)) {
-+		if (netif_msg_drv(lp))
-+			printk(KERN_ERR "%s: Impossible packet size %d!\n",
-+			       dev->name, pkt_len);
-+		lp->stats.rx_errors++;
-+		return;
-+	}
-+	if (pkt_len < 60) {
-+		if (netif_msg_rx_err(lp))
-+			printk(KERN_ERR "%s: Runt packet!\n", dev->name);
-+		lp->stats.rx_errors++;
-+		return;
-+	}
- 
--				if (pkt_len > rx_copybreak) {
--					struct sk_buff *newskb;
-+	if (pkt_len > rx_copybreak) {
-+		struct sk_buff *newskb;
- 
--					if ((newskb =
--					     dev_alloc_skb(PKT_BUF_SZ))) {
--						skb_reserve(newskb, 2);
--						skb = lp->rx_skbuff[entry];
--						pci_unmap_single(lp->pci_dev,
--								 lp->
--								 rx_dma_addr
--								 [entry],
--								 PKT_BUF_SZ - 2,
--								 PCI_DMA_FROMDEVICE);
--						skb_put(skb, pkt_len);
--						lp->rx_skbuff[entry] = newskb;
--						newskb->dev = dev;
--						lp->rx_dma_addr[entry] =
--						    pci_map_single(lp->pci_dev,
--								   newskb->data,
--								   PKT_BUF_SZ -
--								   2,
--								   PCI_DMA_FROMDEVICE);
--						lp->rx_ring[entry].base =
--						    le32_to_cpu(lp->
--								rx_dma_addr
--								[entry]);
--						rx_in_place = 1;
--					} else
--						skb = NULL;
--				} else {
--					skb = dev_alloc_skb(pkt_len + 2);
--				}
-+		if ((newskb = dev_alloc_skb(PKT_BUF_SZ))) {
-+			skb_reserve(newskb, 2);
-+			skb = lp->rx_skbuff[entry];
-+			pci_unmap_single(lp->pci_dev,
-+					 lp->rx_dma_addr[entry],
-+					 PKT_BUF_SZ - 2,
-+					 PCI_DMA_FROMDEVICE);
-+			skb_put(skb, pkt_len);
-+			lp->rx_skbuff[entry] = newskb;
-+			newskb->dev = dev;
-+			lp->rx_dma_addr[entry] =
-+					    pci_map_single(lp->pci_dev,
-+							   newskb->data,
-+							   PKT_BUF_SZ - 2,
-+							   PCI_DMA_FROMDEVICE);
-+			rxp->base = le32_to_cpu(lp->rx_dma_addr[entry]);
-+			rx_in_place = 1;
-+		} else
-+			skb = NULL;
-+	} else {
-+		skb = dev_alloc_skb(pkt_len + 2);
-+	}
- 
--				if (skb == NULL) {
--					int i;
--					if (netif_msg_drv(lp))
--						printk(KERN_ERR
--						       "%s: Memory squeeze, deferring packet.\n",
--						       dev->name);
--					for (i = 0; i < lp->rx_ring_size; i++)
--						if ((short)
--						    le16_to_cpu(lp->
--								rx_ring[(entry +
--									 i)
--									& lp->
--									rx_mod_mask].
--								status) < 0)
--							break;
--
--					if (i > lp->rx_ring_size - 2) {
--						lp->stats.rx_dropped++;
--						lp->rx_ring[entry].status |=
--						    le16_to_cpu(0x8000);
--						wmb();	/* Make sure adapter sees owner change */
--						lp->cur_rx++;
--					}
--					break;
--				}
--				skb->dev = dev;
--				if (!rx_in_place) {
--					skb_reserve(skb, 2);	/* 16 byte align */
--					skb_put(skb, pkt_len);	/* Make room */
--					pci_dma_sync_single_for_cpu(lp->pci_dev,
--								    lp->
--								    rx_dma_addr
--								    [entry],
--								    PKT_BUF_SZ -
--								    2,
--								    PCI_DMA_FROMDEVICE);
--					eth_copy_and_sum(skb,
--							 (unsigned char *)(lp->
--									   rx_skbuff
--									   [entry]->
--									   data),
--							 pkt_len, 0);
--					pci_dma_sync_single_for_device(lp->
--								       pci_dev,
--								       lp->
--								       rx_dma_addr
--								       [entry],
--								       PKT_BUF_SZ
--								       - 2,
--								       PCI_DMA_FROMDEVICE);
--				}
--				lp->stats.rx_bytes += skb->len;
--				skb->protocol = eth_type_trans(skb, dev);
--				netif_rx(skb);
--				dev->last_rx = jiffies;
--				lp->stats.rx_packets++;
--			}
--		}
-+	if (skb == NULL) {
-+		if (netif_msg_drv(lp))
-+			printk(KERN_ERR
-+			       "%s: Memory squeeze, dropping packet.\n",
-+			       dev->name);
-+		lp->stats.rx_dropped++;
-+		return;
-+	}
-+	skb->dev = dev;
-+	if (!rx_in_place) {
-+		skb_reserve(skb, 2);	/* 16 byte align */
-+		skb_put(skb, pkt_len);	/* Make room */
-+		pci_dma_sync_single_for_cpu(lp->pci_dev,
-+					    lp->rx_dma_addr[entry],
-+					    PKT_BUF_SZ - 2,
-+					    PCI_DMA_FROMDEVICE);
-+		eth_copy_and_sum(skb,
-+				 (unsigned char *)(lp->rx_skbuff[entry]->data),
-+				 pkt_len, 0);
-+		pci_dma_sync_single_for_device(lp->pci_dev,
-+					       lp->rx_dma_addr[entry],
-+					       PKT_BUF_SZ - 2,
-+					       PCI_DMA_FROMDEVICE);
-+	}
-+	lp->stats.rx_bytes += skb->len;
-+	skb->protocol = eth_type_trans(skb, dev);
-+	netif_rx(skb);
-+	dev->last_rx = jiffies;
-+	lp->stats.rx_packets++;
-+	return;
-+}
-+
-+
-+static void pcnet32_rx(struct net_device *dev)
-+{
-+	struct pcnet32_private *lp = dev->priv;
-+	int entry = lp->cur_rx & lp->rx_mod_mask;
-+	struct pcnet32_rx_head *rxp = &lp->rx_ring[entry];
-+	int npackets = 0;
-+	int boguscnt = lp->rx_ring_size / 2;
-+
-+	/* If we own the next entry, it's a new packet. Send it up. */
-+	while (boguscnt > npackets && (short)le16_to_cpu(rxp->status) >= 0) {
-+		pcnet32_rx_entry(dev, lp, rxp, entry);
-+		npackets += 1;
- 		/*
--		 * The docs say that the buffer length isn't touched, but Andrew Boyd
--		 * of QNX reports that some revs of the 79C965 clear it.
-+		 * The docs say that the buffer length isn't touched, but Andrew
-+		 * Boyd of QNX reports that some revs of the 79C965 clear it.
- 		 */
--		lp->rx_ring[entry].buf_length = le16_to_cpu(2 - PKT_BUF_SZ);
--		wmb();		/* Make sure owner changes after all others are visible */
--		lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
-+		rxp->buf_length = le16_to_cpu(2 - PKT_BUF_SZ);
-+		wmb();	/* Make sure owner changes after others are visible */
-+		rxp->status = le16_to_cpu(0x8000);
- 		entry = (++lp->cur_rx) & lp->rx_mod_mask;
--		if (--boguscnt <= 0)
--			break;	/* don't stay in loop forever */
-+		rxp = &lp->rx_ring[entry];
- 	}
- 
--	return 0;
-+	return;
- }
- 
- static int pcnet32_tx(struct net_device *dev, u16 csr0)
-@@ -1298,7 +1277,7 @@ static int pcnet32_tx(struct net_device 
- 		lp->tx_ring[entry].base = 0;
- 
- 		if (status & 0x4000) {
--			/* There was an major error, log it. */
-+			/* There was a major error, log it. */
- 			int err_status = le32_to_cpu(lp->tx_ring[entry].misc);
- 			lp->stats.tx_errors++;
- 			if (netif_msg_tx_err(lp))
-@@ -1329,8 +1308,7 @@ static int pcnet32_tx(struct net_device 
- 				if (!lp->dxsuflo) {	/* If controller doesn't recover ... */
- 					/* Ackk!  On FIFO errors the Tx unit is turned off! */
- 					/* Remove this verbosity later! */
--					if (netif_msg_tx_err
--					    (lp))
-+					if (netif_msg_tx_err(lp))
- 						printk(KERN_ERR
- 						       "%s: Tx FIFO error! CSR0=%4.4x\n",
- 						       dev->name, csr0);
-@@ -1350,16 +1328,14 @@ static int pcnet32_tx(struct net_device 
- 					 lp->tx_dma_addr[entry],
- 					 lp->tx_skbuff[entry]->
- 					 len, PCI_DMA_TODEVICE);
--			dev_kfree_skb_irq(lp->tx_skbuff[entry]);
-+			dev_kfree_skb_any(lp->tx_skbuff[entry]);
- 			lp->tx_skbuff[entry] = NULL;
- 			lp->tx_dma_addr[entry] = 0;
- 		}
- 		dirty_tx++;
- 	}
- 
--	delta =
--	    (lp->cur_tx - dirty_tx) & (lp->tx_mod_mask +
--				       lp->tx_ring_size);
-+	delta = (lp->cur_tx - dirty_tx) & (lp->tx_mod_mask + lp->tx_ring_size);
- 	if (delta > lp->tx_ring_size) {
- 		if (netif_msg_drv(lp))
- 			printk(KERN_ERR
-@@ -2535,19 +2511,20 @@ pcnet32_interrupt(int irq, void *dev_id,
- 
- 	spin_lock(&lp->lock);
- 
--	while ((csr0 = lp->a.read_csr(ioaddr, 0)) & 0x8f00 && --boguscnt >= 0) {
-+	csr0 = lp->a.read_csr(ioaddr, CSR0);
-+	while ((csr0 & 0x8f00) && --boguscnt >= 0) {
- 		if (csr0 == 0xffff) {
- 			break;	/* PCMCIA remove happened */
- 		}
- 		/* Acknowledge all of the current interrupt sources ASAP. */
--		lp->a.write_csr(ioaddr, 0, csr0 & ~0x004f);
-+		lp->a.write_csr(ioaddr, CSR0, csr0 & ~0x004f);
- 
- 		must_restart = 0;
- 
- 		if (netif_msg_intr(lp))
- 			printk(KERN_DEBUG
- 			       "%s: interrupt  csr0=%#2.2x new csr=%#2.2x.\n",
--			       dev->name, csr0, lp->a.read_csr(ioaddr, 0));
-+			       dev->name, csr0, lp->a.read_csr(ioaddr, CSR0));
- 
- 		if (csr0 & 0x0400)	/* Rx interrupt */
- 			pcnet32_rx(dev);
-@@ -2561,14 +2538,16 @@ pcnet32_interrupt(int irq, void *dev_id,
- 			lp->stats.tx_errors++;	/* Tx babble. */
- 		if (csr0 & 0x1000) {
- 			/*
--			 * this happens when our receive ring is full. This shouldn't
--			 * be a problem as we will see normal rx interrupts for the frames
--			 * in the receive ring. But there are some PCI chipsets (I can
--			 * reproduce this on SP3G with Intel saturn chipset) which have
--			 * sometimes problems and will fill up the receive ring with
--			 * error descriptors. In this situation we don't get a rx
--			 * interrupt, but a missed frame interrupt sooner or later.
--			 * So we try to clean up our receive ring here.
-+			 * This happens when our receive ring is full. This
-+			 * shouldn't be a problem as we will see normal rx
-+			 * interrupts for the frames in the receive ring.  But
-+			 * there are some PCI chipsets (I can reproduce this
-+			 * on SP3G with Intel saturn chipset) which have
-+			 * sometimes problems and will fill up the receive
-+			 * ring with error descriptors.  In this situation we
-+			 * don't get a rx interrupt, but a missed frame
-+			 * interrupt sooner or later.  So we try to clean up
-+			 * our receive ring here.
- 			 */
- 			pcnet32_rx(dev);
- 			lp->stats.rx_errors++;	/* Missed a Rx frame. */
-@@ -2588,6 +2567,7 @@ pcnet32_interrupt(int irq, void *dev_id,
- 			pcnet32_restart(dev, CSR0_START);
- 			netif_wake_queue(dev);
- 		}
-+		csr0 = lp->a.read_csr(ioaddr, CSR0);
- 	}
- 
- 	/* Set interrupt enable. */
--- 
-Don Fry
-brazilnut@us.ibm.com
+mini-how-to (to be added to Documentation/networking/pktgen.txt):
+
+pgset "vlan_id 77"   # to tag frames with VID 77
+pgset "svlan_id 88" # to double tag frames with SVID 88
+
+pgset "flag VID_RND"   # use random VID values
+pgset "flag SVID_RND" # use random SVID values
+
+you can set also p and cfi bits of Tag Control Information with:
+pgset "[s]vlan_p 5"
+pgset "[s]vlan_cfi 1"
+
+pgset "vlan_id 9999" # if id is > 4095 you remove tagging
+
+
+BTW I might have found a couple of bugs:
+
+1)
+At line 2432 (original code in 2.6.17.13):
+
+2431          memcpy(eth, pkt_dev->hh, 12);
+2432          *(u16 *) & eth[12] = __constant_htons(ETH_P_IPV6);
+//should be = protocol
+
+IPv6 over MPLS packets get out malformed, ethernet protocol type is set to
+ETH_P_IPV6 instead of ETH_P_MPLS_UC, so I've changed it the same way
+it is in IPv4 case.
+
+2)
+At line:
+
+2221          pkt_dev->seq_num++;
+
+in fill_packet_ipv4() or at line:
+
+2534          pkt_dev->seq_num++;
+
+in fill_packet_ipv6() and at line 2913:
+
+2910                  if (likely(ret == NETDEV_TX_OK)) {
+2911                          pkt_dev->last_ok = 1;
+2912                          pkt_dev->sofar++;
+2913                          pkt_dev->seq_num++;
+2914                          pkt_dev->tx_bytes += pkt_dev->cur_pkt_size;
+
+for each packet seq_num is incremented twice, so pktgen sequence number on wire
+was 1, 3, 5, 7,... if this was intentional please change my patch
+because I commented
+line 2221 and line 2534 out.
+
+Thank you
+Ciao
+FF
+
+------=_Part_28710_22414510.1158167865816
+Content-Type: application/octet-stream; name=pktgen_vlan.patch
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_es1yprfp
+Content-Disposition: attachment; filename="pktgen_vlan.patch"
+
+LS0tIHBrdGdlbi5jCTIwMDYtMDktMTMgMTE6NTU6MDguMDAwMDAwMDAwICswMjAwDQorKysgcGt0
+Z2VuLWZmLmMJMjAwNi0wOS0xMyAxNjo1NTowOC4wMDAwMDAwMDAgKzAyMDANCkBAIC0xMDksNiAr
+MTA5LDggQEANCiAgKg0KICAqIE1QTFMgc3VwcG9ydCBieSBTdGV2ZW4gV2hpdGVob3VzZSA8c3Rl
+dmVAY2h5Z3d5bi5jb20+DQogICoNCisgKiA4MDIuMVEvUS1pbi1RIHN1cHBvcnQgYnkgRnJhbmNl
+c2NvIEZvbmRlbGxpIChGRikgPGZyYW5jZXNjby5mb25kZWxsaUBnbWFpbC5jb20+DQorICoNCiAg
+Ki8NCiAjaW5jbHVkZSA8bGludXgvc3lzLmg+DQogI2luY2x1ZGUgPGxpbnV4L3R5cGVzLmg+DQpA
+QCAtMTM3LDYgKzEzOSw3IEBADQogI2luY2x1ZGUgPGxpbnV4L2luZXRkZXZpY2UuaD4NCiAjaW5j
+bHVkZSA8bGludXgvcnRuZXRsaW5rLmg+DQogI2luY2x1ZGUgPGxpbnV4L2lmX2FycC5oPg0KKyNp
+bmNsdWRlIDxsaW51eC9pZl92bGFuLmg+DQogI2luY2x1ZGUgPGxpbnV4L2luLmg+DQogI2luY2x1
+ZGUgPGxpbnV4L2lwLmg+DQogI2luY2x1ZGUgPGxpbnV4L2lwdjYuaD4NCkBAIC0xNzgsNiArMTgx
+LDggQEANCiAjZGVmaW5lIEZfVFhTSVpFX1JORCAgKDE8PDYpCS8qIFRyYW5zbWl0IHNpemUgaXMg
+cmFuZG9tICovDQogI2RlZmluZSBGX0lQVjYgICAgICAgICgxPDw3KQkvKiBJbnRlcmZhY2UgaW4g
+SVBWNiBNb2RlICovDQogI2RlZmluZSBGX01QTFNfUk5EICAgICgxPDw4KQkvKiBSYW5kb20gTVBM
+UyBsYWJlbHMgKi8NCisjZGVmaW5lIEZfVklEX1JORCAgICAgKDE8PDkpCS8qIFJhbmRvbSBWTEFO
+IElEICovDQorI2RlZmluZSBGX1NWSURfUk5EICAgICgxPDwxMCkJLyogUmFuZG9tIFNWTEFOIElE
+ICovDQogDQogLyogVGhyZWFkIGNvbnRyb2wgZmxhZyBiaXRzICovDQogI2RlZmluZSBUX1RFUk1J
+TkFURSAgICgxPDwwKQ0KQEAgLTE5OCw2ICsyMDMsOSBAQA0KIA0KICNkZWZpbmUgTUFYX0NGTE9X
+UyAgNjU1MzYNCiANCisjZGVmaW5lIFZMQU5fVEFHX1NJWkUoeCkgKCh4KS0+dmxhbl9pZCA9PSAw
+eGZmZmYgPyAwIDogNCkNCisjZGVmaW5lIFNWTEFOX1RBR19TSVpFKHgpICgoeCktPnN2bGFuX2lk
+ID09IDB4ZmZmZiA/IDAgOiA0KQ0KKw0KIHN0cnVjdCBmbG93X3N0YXRlIHsNCiAJX191MzIgY3Vy
+X2RhZGRyOw0KIAlpbnQgY291bnQ7DQpAQCAtMjg3LDYgKzI5NSwxNSBAQA0KIAkvKiBNUExTICov
+DQogCXVuc2lnbmVkIG5yX2xhYmVsczsJLyogRGVwdGggb2Ygc3RhY2ssIDAgPSBubyBNUExTICov
+DQogCV9fYmUzMiBsYWJlbHNbTUFYX01QTFNfTEFCRUxTXTsNCisJDQorCS8qIFZMQU4vU1ZMQU4g
+KDgwMi4xUS9RLWluLVEpICovDQorCV9fdTggIHZsYW5fcDsNCisJX191OCAgdmxhbl9jZmk7DQor
+CV9fdTE2IHZsYW5faWQ7ICAvKiAweGZmZmYgbWVhbnMgbm8gdmxhbiB0YWcgKi8NCisNCisJX191
+OCAgc3ZsYW5fcDsNCisJX191OCAgc3ZsYW5fY2ZpOw0KKwlfX3UxNiBzdmxhbl9pZDsgLyogMHhm
+ZmZmIG1lYW5zIG5vIHN2bGFuIHRhZyAqLw0KIA0KIAlfX3UzMiBzcmNfbWFjX2NvdW50OwkvKiBI
+b3cgbWFueSBNQUNzIHRvIGl0ZXJhdGUgdGhyb3VnaCAqLw0KIAlfX3UzMiBkc3RfbWFjX2NvdW50
+OwkvKiBIb3cgbWFueSBNQUNzIHRvIGl0ZXJhdGUgdGhyb3VnaCAqLw0KQEAgLTY0NCw2ICs2NjEs
+MTYgQEANCiAJCQkJICAgaSA9PSBwa3RfZGV2LT5ucl9sYWJlbHMtMSA/ICJcbiIgOiAiLCAiKTsN
+CiAJfQ0KIA0KKwlpZiAocGt0X2Rldi0+dmxhbl9pZCAhPSAweGZmZmYpIHsNCisJCXNlcV9wcmlu
+dGYoc2VxLCAiICAgICB2bGFuX2lkOiAldSAgdmxhbl9wOiAldSAgdmxhbl9jZmk6ICV1XG4iLA0K
+KwkJCSAgIHBrdF9kZXYtPnZsYW5faWQsIHBrdF9kZXYtPnZsYW5fcCwgcGt0X2Rldi0+dmxhbl9j
+ZmkpOw0KKwl9DQorCQ0KKwlpZiAocGt0X2Rldi0+c3ZsYW5faWQgIT0gMHhmZmZmKSB7DQorCQlz
+ZXFfcHJpbnRmKHNlcSwgIiAgICAgc3ZsYW5faWQ6ICV1ICB2bGFuX3A6ICV1ICB2bGFuX2NmaTog
+JXVcbiIsDQorCQkJICAgcGt0X2Rldi0+c3ZsYW5faWQsIHBrdF9kZXYtPnN2bGFuX3AsIHBrdF9k
+ZXYtPnN2bGFuX2NmaSk7DQorCX0NCisNCiAJc2VxX3ByaW50ZihzZXEsICIgICAgIEZsYWdzOiAi
+KTsNCiANCiAJaWYgKHBrdF9kZXYtPmZsYWdzICYgRl9JUFY2KQ0KQEAgLTY3Myw2ICs3MDAsMTIg
+QEANCiAJaWYgKHBrdF9kZXYtPmZsYWdzICYgRl9NQUNEU1RfUk5EKQ0KIAkJc2VxX3ByaW50Zihz
+ZXEsICJNQUNEU1RfUk5EICAiKTsNCiANCisJaWYgKHBrdF9kZXYtPmZsYWdzICYgRl9WSURfUk5E
+KQ0KKwkJc2VxX3ByaW50ZihzZXEsICJWSURfUk5EICAiKTsNCisNCisJaWYgKHBrdF9kZXYtPmZs
+YWdzICYgRl9TVklEX1JORCkNCisJCXNlcV9wcmludGYoc2VxLCAiU1ZJRF9STkQgICIpOw0KKw0K
+IAlzZXFfcHV0cyhzZXEsICJcbiIpOw0KIA0KIAlzYSA9IHBrdF9kZXYtPnN0YXJ0ZWRfYXQ7DQpA
+QCAtMTE0MCw2ICsxMTczLDE4IEBADQogCQllbHNlIGlmIChzdHJjbXAoZiwgIiFNUExTX1JORCIp
+ID09IDApDQogCQkJcGt0X2Rldi0+ZmxhZ3MgJj0gfkZfTVBMU19STkQ7DQogDQorCQllbHNlIGlm
+IChzdHJjbXAoZiwgIlZJRF9STkQiKSA9PSAwKQ0KKwkJCXBrdF9kZXYtPmZsYWdzIHw9IEZfVklE
+X1JORDsNCisNCisJCWVsc2UgaWYgKHN0cmNtcChmLCAiIVZJRF9STkQiKSA9PSAwKQ0KKwkJCXBr
+dF9kZXYtPmZsYWdzICY9IH5GX1ZJRF9STkQ7DQorDQorCQllbHNlIGlmIChzdHJjbXAoZiwgIlNW
+SURfUk5EIikgPT0gMCkNCisJCQlwa3RfZGV2LT5mbGFncyB8PSBGX1NWSURfUk5EOw0KKw0KKwkJ
+ZWxzZSBpZiAoc3RyY21wKGYsICIhU1ZJRF9STkQiKSA9PSAwKQ0KKwkJCXBrdF9kZXYtPmZsYWdz
+ICY9IH5GX1NWSURfUk5EOw0KKw0KIAkJZWxzZSB7DQogCQkJc3ByaW50ZihwZ19yZXN1bHQsDQog
+CQkJCSJGbGFnIC06JXM6LSB1bmtub3duXG5BdmFpbGFibGUgZmxhZ3MsIChwcmVwZW5kICEgdG8g
+dW4tc2V0IGZsYWcpOlxuJXMiLA0KQEAgLTE0NDUsNiArMTQ5MCwxMjggQEANCiAJCQlvZmZzZXQg
+Kz0gc3ByaW50ZihwZ19yZXN1bHQgKyBvZmZzZXQsDQogCQkJCQkgICIlMDh4JXMiLCBudG9obChw
+a3RfZGV2LT5sYWJlbHNbbl0pLA0KIAkJCQkJICBuID09IHBrdF9kZXYtPm5yX2xhYmVscy0xID8g
+IiIgOiAiLCIpOw0KKwkJDQorCQlpZiAocGt0X2Rldi0+bnJfbGFiZWxzICYmIHBrdF9kZXYtPnZs
+YW5faWQgIT0gMHhmZmZmKSB7DQorCQkJcGt0X2Rldi0+dmxhbl9pZCA9IDB4ZmZmZjsgLyogdHVy
+biBvZmYgVkxBTi9TVkxBTiAqLw0KKwkJCXBrdF9kZXYtPnN2bGFuX2lkID0gMHhmZmZmOw0KKwkJ
+CQ0KKwkJCWlmIChkZWJ1ZykNCisJCQkJcHJpbnRrKCJwa3RnZW46IFZMQU4vU1ZMQU4gYXV0byB0
+dXJuZWQgb2ZmXG4iKTsNCisJCX0NCisJCXJldHVybiBjb3VudDsNCisJfQ0KKw0KKwlpZiAoIXN0
+cmNtcChuYW1lLCAidmxhbl9pZCIpKSB7DQorCQlsZW4gPSBudW1fYXJnKCZ1c2VyX2J1ZmZlcltp
+XSwgNCwgJnZhbHVlKTsNCisJCWlmIChsZW4gPCAwKSB7DQorCQkJcmV0dXJuIGxlbjsNCisJCX0N
+CisJCWkgKz0gbGVuOw0KKwkJaWYgKHZhbHVlIDw9IDQwOTUpIHsNCisJCQlwa3RfZGV2LT52bGFu
+X2lkID0gdmFsdWU7ICAvKiB0dXJuIG9uIFZMQU4gKi8NCisNCisJCQlpZiAoZGVidWcpDQorCQkJ
+CXByaW50aygicGt0Z2VuOiBWTEFOIHR1cm5lZCBvblxuIik7DQorCQkJDQorCQkJaWYgKGRlYnVn
+ICYmIHBrdF9kZXYtPm5yX2xhYmVscykNCisJCQkJcHJpbnRrKCJwa3RnZW46IE1QTFMgYXV0byB0
+dXJuZWQgb2ZmXG4iKTsNCisJCQkNCisJCQlwa3RfZGV2LT5ucl9sYWJlbHMgPSAwOyAgICAvKiB0
+dXJuIG9mZiBNUExTICovDQorCQkJc3ByaW50ZihwZ19yZXN1bHQsICJPSzogdmxhbl9pZD0ldSIs
+IHBrdF9kZXYtPnZsYW5faWQpOw0KKwkJfSBlbHNlIHsNCisJCQlwa3RfZGV2LT52bGFuX2lkID0g
+MHhmZmZmOyAvKiB0dXJuIG9mZiBWTEFOL1NWTEFOICovDQorCQkJcGt0X2Rldi0+c3ZsYW5faWQg
+PSAweGZmZmY7DQorDQorCQkJaWYgKGRlYnVnKQ0KKwkJCQlwcmludGsoInBrdGdlbjogVkxBTi9T
+VkxBTiB0dXJuZWQgb2ZmXG4iKTsNCisJCX0NCisJCXJldHVybiBjb3VudDsNCisJfQ0KKw0KKwlp
+ZiAoIXN0cmNtcChuYW1lLCAidmxhbl9wIikpIHsNCisJCWxlbiA9IG51bV9hcmcoJnVzZXJfYnVm
+ZmVyW2ldLCAxLCAmdmFsdWUpOw0KKwkJaWYgKGxlbiA8IDApIHsNCisJCQlyZXR1cm4gbGVuOw0K
+KwkJfQ0KKwkJaSArPSBsZW47DQorCQlpZiAoKHZhbHVlIDw9IDcpICYmIChwa3RfZGV2LT52bGFu
+X2lkICE9IDB4ZmZmZikpIHsNCisJCQlwa3RfZGV2LT52bGFuX3AgPSB2YWx1ZTsNCisJCQlzcHJp
+bnRmKHBnX3Jlc3VsdCwgIk9LOiB2bGFuX3A9JXUiLCBwa3RfZGV2LT52bGFuX3ApOw0KKwkJfSBl
+bHNlIHsNCisJCQlzcHJpbnRmKHBnX3Jlc3VsdCwgIkVSUk9SOiB2bGFuX3AgbXVzdCBiZSAwLTci
+KTsNCisJCX0NCisJCXJldHVybiBjb3VudDsNCisJfQ0KKw0KKwlpZiAoIXN0cmNtcChuYW1lLCAi
+dmxhbl9jZmkiKSkgew0KKwkJbGVuID0gbnVtX2FyZygmdXNlcl9idWZmZXJbaV0sIDEsICZ2YWx1
+ZSk7DQorCQlpZiAobGVuIDwgMCkgew0KKwkJCXJldHVybiBsZW47DQorCQl9DQorCQlpICs9IGxl
+bjsNCisJCWlmICgodmFsdWUgPD0gMSkgJiYgKHBrdF9kZXYtPnZsYW5faWQgIT0gMHhmZmZmKSkg
+ew0KKwkJCXBrdF9kZXYtPnZsYW5fY2ZpID0gdmFsdWU7DQorCQkJc3ByaW50ZihwZ19yZXN1bHQs
+ICJPSzogdmxhbl9jZmk9JXUiLCBwa3RfZGV2LT52bGFuX2NmaSk7DQorCQl9IGVsc2Ugew0KKwkJ
+CXNwcmludGYocGdfcmVzdWx0LCAiRVJST1I6IHZsYW5fY2ZpIG11c3QgYmUgMC0xIik7DQorCQl9
+DQorCQlyZXR1cm4gY291bnQ7DQorCX0NCisNCisJaWYgKCFzdHJjbXAobmFtZSwgInN2bGFuX2lk
+IikpIHsNCisJCWxlbiA9IG51bV9hcmcoJnVzZXJfYnVmZmVyW2ldLCA0LCAmdmFsdWUpOw0KKwkJ
+aWYgKGxlbiA8IDApIHsNCisJCQlyZXR1cm4gbGVuOw0KKwkJfQ0KKwkJaSArPSBsZW47DQorCQlp
+ZiAoKHZhbHVlIDw9IDQwOTUpICYmICgocGt0X2Rldi0+dmxhbl9pZCAhPSAweGZmZmYpKSkgew0K
+KwkJCXBrdF9kZXYtPnN2bGFuX2lkID0gdmFsdWU7ICAvKiB0dXJuIG9uIFNWTEFOICovDQorDQor
+CQkJaWYgKGRlYnVnKQ0KKwkJCQlwcmludGsoInBrdGdlbjogU1ZMQU4gdHVybmVkIG9uXG4iKTsN
+CisJCQkNCisJCQlpZiAoZGVidWcgJiYgcGt0X2Rldi0+bnJfbGFiZWxzKQ0KKwkJCQlwcmludGso
+InBrdGdlbjogTVBMUyBhdXRvIHR1cm5lZCBvZmZcbiIpOw0KKwkJCQ0KKwkJCXBrdF9kZXYtPm5y
+X2xhYmVscyA9IDA7ICAgIC8qIHR1cm4gb2ZmIE1QTFMgKi8NCisJCQlzcHJpbnRmKHBnX3Jlc3Vs
+dCwgIk9LOiBzdmxhbl9pZD0ldSIsIHBrdF9kZXYtPnN2bGFuX2lkKTsNCisJCX0gZWxzZSB7DQor
+CQkJcGt0X2Rldi0+dmxhbl9pZCA9IDB4ZmZmZjsgLyogdHVybiBvZmYgVkxBTi9TVkxBTiAqLw0K
+KwkJCXBrdF9kZXYtPnN2bGFuX2lkID0gMHhmZmZmOw0KKw0KKwkJCWlmIChkZWJ1ZykNCisJCQkJ
+cHJpbnRrKCJwa3RnZW46IFZMQU4vU1ZMQU4gdHVybmVkIG9mZlxuIik7DQorCQl9DQorCQlyZXR1
+cm4gY291bnQ7DQorCX0NCisNCisJaWYgKCFzdHJjbXAobmFtZSwgInN2bGFuX3AiKSkgew0KKwkJ
+bGVuID0gbnVtX2FyZygmdXNlcl9idWZmZXJbaV0sIDEsICZ2YWx1ZSk7DQorCQlpZiAobGVuIDwg
+MCkgew0KKwkJCXJldHVybiBsZW47DQorCQl9DQorCQlpICs9IGxlbjsNCisJCWlmICgodmFsdWUg
+PD0gNykgJiYgKHBrdF9kZXYtPnN2bGFuX2lkICE9IDB4ZmZmZikpIHsNCisJCQlwa3RfZGV2LT5z
+dmxhbl9wID0gdmFsdWU7DQorCQkJc3ByaW50ZihwZ19yZXN1bHQsICJPSzogc3ZsYW5fcD0ldSIs
+IHBrdF9kZXYtPnN2bGFuX3ApOw0KKwkJfSBlbHNlIHsNCisJCQlzcHJpbnRmKHBnX3Jlc3VsdCwg
+IkVSUk9SOiBzdmxhbl9wIG11c3QgYmUgMC03Iik7DQorCQl9DQorCQlyZXR1cm4gY291bnQ7DQor
+CX0NCisNCisJaWYgKCFzdHJjbXAobmFtZSwgInN2bGFuX2NmaSIpKSB7DQorCQlsZW4gPSBudW1f
+YXJnKCZ1c2VyX2J1ZmZlcltpXSwgMSwgJnZhbHVlKTsNCisJCWlmIChsZW4gPCAwKSB7DQorCQkJ
+cmV0dXJuIGxlbjsNCisJCX0NCisJCWkgKz0gbGVuOw0KKwkJaWYgKCh2YWx1ZSA8PSAxKSAmJiAo
+cGt0X2Rldi0+c3ZsYW5faWQgIT0gMHhmZmZmKSkgew0KKwkJCXBrdF9kZXYtPnN2bGFuX2NmaSA9
+IHZhbHVlOw0KKwkJCXNwcmludGYocGdfcmVzdWx0LCAiT0s6IHN2bGFuX2NmaT0ldSIsIHBrdF9k
+ZXYtPnN2bGFuX2NmaSk7DQorCQl9IGVsc2Ugew0KKwkJCXNwcmludGYocGdfcmVzdWx0LCAiRVJS
+T1I6IHN2bGFuX2NmaSBtdXN0IGJlIDAtMSIpOw0KKwkJfQ0KIAkJcmV0dXJuIGNvdW50Ow0KIAl9
+DQogDQpAQCAtMTk0OCw2ICsyMTE1LDE0IEBADQogCQkJCQkJICAgICAocGt0Z2VuX3JhbmRvbSgp
+ICYNCiAJCQkJCQkgICAgICBodG9ubCgweDAwMGZmZmZmKSk7DQogCX0NCisJDQorCWlmICgocGt0
+X2Rldi0+ZmxhZ3MgJiBGX1ZJRF9STkQpICYmIChwa3RfZGV2LT52bGFuX2lkICE9IDB4ZmZmZikp
+IHsNCisJCXBrdF9kZXYtPnZsYW5faWQgPSBwa3RnZW5fcmFuZG9tKCkgJSA0MDk2Ow0KKwl9DQor
+DQorCWlmICgocGt0X2Rldi0+ZmxhZ3MgJiBGX1NWSURfUk5EKSAmJiAocGt0X2Rldi0+c3ZsYW5f
+aWQgIT0gMHhmZmZmKSkgew0KKwkJcGt0X2Rldi0+c3ZsYW5faWQgPSBwa3RnZW5fcmFuZG9tKCkg
+JSA0MDk2Ow0KKwl9DQogDQogCWlmIChwa3RfZGV2LT51ZHBfc3JjX21pbiA8IHBrdF9kZXYtPnVk
+cF9zcmNfbWF4KSB7DQogCQlpZiAocGt0X2Rldi0+ZmxhZ3MgJiBGX1VEUFNSQ19STkQpDQpAQCAt
+MjA5MiwxMCArMjI2NywxOCBAQA0KIAlzdHJ1Y3QgcGt0Z2VuX2hkciAqcGdoID0gTlVMTDsNCiAJ
+X19iZTE2IHByb3RvY29sID0gX19jb25zdGFudF9odG9ucyhFVEhfUF9JUCk7DQogCV9fYmUzMiAq
+bXBsczsNCisJX19iZTE2ICp2bGFuX3RjaSA9IE5VTEw7ICAgICAgICAgICAgICAgICAvKiBFbmNh
+cHN1bGF0ZXMgcHJpb3JpdHkgYW5kIFZMQU4gSUQgKi8NCisJX19iZTE2ICp2bGFuX2VuY2Fwc3Vs
+YXRlZF9wcm90byA9IE5VTEw7ICAvKiBwYWNrZXQgdHlwZSBJRCBmaWVsZCAob3IgbGVuKSBmb3Ig
+VkxBTiB0YWcgKi8NCisJX19iZTE2ICpzdmxhbl90Y2kgPSBOVUxMOyAgICAgICAgICAgICAgICAv
+KiBFbmNhcHN1bGF0ZXMgcHJpb3JpdHkgYW5kIFNWTEFOIElEICovDQorCV9fYmUxNiAqc3ZsYW5f
+ZW5jYXBzdWxhdGVkX3Byb3RvID0gTlVMTDsgLyogcGFja2V0IHR5cGUgSUQgZmllbGQgKG9yIGxl
+bikgZm9yIFNWTEFOIHRhZyAqLw0KKw0KIA0KIAlpZiAocGt0X2Rldi0+bnJfbGFiZWxzKQ0KIAkJ
+cHJvdG9jb2wgPSBfX2NvbnN0YW50X2h0b25zKEVUSF9QX01QTFNfVUMpOw0KIA0KKwlpZiAocGt0
+X2Rldi0+dmxhbl9pZCAhPSAweGZmZmYpDQorCQlwcm90b2NvbCA9IF9fY29uc3RhbnRfaHRvbnMo
+RVRIX1BfODAyMVEpOw0KKw0KIAkvKiBVcGRhdGUgYW55IG9mIHRoZSB2YWx1ZXMsIHVzZWQgd2hl
+biB3ZSdyZSBpbmNyZW1lbnRpbmcgdmFyaW91cw0KIAkgKiBmaWVsZHMuDQogCSAqLw0KQEAgLTIx
+MDMsNyArMjI4Niw5IEBADQogDQogCWRhdGFsZW4gPSAob2Rldi0+aGFyZF9oZWFkZXJfbGVuICsg
+MTYpICYgfjB4ZjsNCiAJc2tiID0gYWxsb2Nfc2tiKHBrdF9kZXYtPmN1cl9wa3Rfc2l6ZSArIDY0
+ICsgZGF0YWxlbiArDQotCQkJcGt0X2Rldi0+bnJfbGFiZWxzKnNpemVvZih1MzIpLCBHRlBfQVRP
+TUlDKTsNCisJCQlwa3RfZGV2LT5ucl9sYWJlbHMqc2l6ZW9mKHUzMikgKyANCisJCQlWTEFOX1RB
+R19TSVpFKHBrdF9kZXYpICsgU1ZMQU5fVEFHX1NJWkUocGt0X2RldiksIA0KKwkJCUdGUF9BVE9N
+SUMpOw0KIAlpZiAoIXNrYikgew0KIAkJc3ByaW50Zihwa3RfZGV2LT5yZXN1bHQsICJObyBtZW1v
+cnkiKTsNCiAJCXJldHVybiBOVUxMOw0KQEAgLTIxMTYsNiArMjMwMSwyNCBAQA0KIAltcGxzID0g
+KF9fYmUzMiAqKXNrYl9wdXQoc2tiLCBwa3RfZGV2LT5ucl9sYWJlbHMqc2l6ZW9mKF9fdTMyKSk7
+DQogCWlmIChwa3RfZGV2LT5ucl9sYWJlbHMpDQogCQltcGxzX3B1c2gobXBscywgcGt0X2Rldik7
+DQorCQ0KKwlpZiAocGt0X2Rldi0+dmxhbl9pZCAhPSAweGZmZmYpIHsNCisJCWlmKHBrdF9kZXYt
+PnN2bGFuX2lkICE9IDB4ZmZmZikgew0KKwkJCXN2bGFuX3RjaSA9IChfX2JlMTYgKilza2JfcHV0
+KHNrYiwgc2l6ZW9mKF9fYmUxNikpOw0KKwkJCSpzdmxhbl90Y2kgPSBodG9ucyhwa3RfZGV2LT5z
+dmxhbl9pZCk7DQorCQkJKnN2bGFuX3RjaSB8PSBwa3RfZGV2LT5zdmxhbl9wIDw8IDU7DQorCQkJ
+KnN2bGFuX3RjaSB8PSBwa3RfZGV2LT5zdmxhbl9jZmkgPDwgNDsNCisJCQlzdmxhbl9lbmNhcHN1
+bGF0ZWRfcHJvdG8gPSAoX19iZTE2ICopc2tiX3B1dChza2IsIHNpemVvZihfX2JlMTYpKTsNCisJ
+CQkqc3ZsYW5fZW5jYXBzdWxhdGVkX3Byb3RvID0gX19jb25zdGFudF9odG9ucyhFVEhfUF84MDIx
+USk7DQorCQl9DQorCQl2bGFuX3RjaSA9IChfX2JlMTYgKilza2JfcHV0KHNrYiwgc2l6ZW9mKF9f
+YmUxNikpOw0KKwkJKnZsYW5fdGNpID0gaHRvbnMocGt0X2Rldi0+dmxhbl9pZCk7DQorCQkqdmxh
+bl90Y2kgfD0gcGt0X2Rldi0+dmxhbl9wIDw8IDU7DQorCQkqdmxhbl90Y2kgfD0gcGt0X2Rldi0+
+dmxhbl9jZmkgPDwgNDsNCisJCXZsYW5fZW5jYXBzdWxhdGVkX3Byb3RvID0gKF9fYmUxNiAqKXNr
+Yl9wdXQoc2tiLCBzaXplb2YoX19iZTE2KSk7DQorCQkqdmxhbl9lbmNhcHN1bGF0ZWRfcHJvdG8g
+PSBfX2NvbnN0YW50X2h0b25zKEVUSF9QX0lQKTsNCisJfQ0KKw0KIAlpcGggPSAoc3RydWN0IGlw
+aGRyICopc2tiX3B1dChza2IsIHNpemVvZihzdHJ1Y3QgaXBoZHIpKTsNCiAJdWRwaCA9IChzdHJ1
+Y3QgdWRwaGRyICopc2tiX3B1dChza2IsIHNpemVvZihzdHJ1Y3QgdWRwaGRyKSk7DQogDQpAQCAt
+MjEyNCwxMCArMjMyNywxMCBAQA0KIA0KIAkvKiBFdGggKyBJUGggKyBVRFBoICsgbXBscyAqLw0K
+IAlkYXRhbGVuID0gcGt0X2Rldi0+Y3VyX3BrdF9zaXplIC0gMTQgLSAyMCAtIDggLQ0KLQkJICBw
+a3RfZGV2LT5ucl9sYWJlbHMqc2l6ZW9mKHUzMik7DQorCQkgIHBrdF9kZXYtPm5yX2xhYmVscypz
+aXplb2YodTMyKSAtIFZMQU5fVEFHX1NJWkUocGt0X2RldikgLSBTVkxBTl9UQUdfU0laRShwa3Rf
+ZGV2KTsNCiAJaWYgKGRhdGFsZW4gPCBzaXplb2Yoc3RydWN0IHBrdGdlbl9oZHIpKQ0KIAkJZGF0
+YWxlbiA9IHNpemVvZihzdHJ1Y3QgcGt0Z2VuX2hkcik7DQotDQorCQ0KIAl1ZHBoLT5zb3VyY2Ug
+PSBodG9ucyhwa3RfZGV2LT5jdXJfdWRwX3NyYyk7DQogCXVkcGgtPmRlc3QgPSBodG9ucyhwa3Rf
+ZGV2LT5jdXJfdWRwX2RzdCk7DQogCXVkcGgtPmxlbiA9IGh0b25zKGRhdGFsZW4gKyA4KTsJLyog
+REFUQSArIHVkcGhkciAqLw0KQEAgLTIxNDYsNyArMjM0OSw4IEBADQogCWlwaC0+Y2hlY2sgPSAw
+Ow0KIAlpcGgtPmNoZWNrID0gaXBfZmFzdF9jc3VtKCh2b2lkICopaXBoLCBpcGgtPmlobCk7DQog
+CXNrYi0+cHJvdG9jb2wgPSBwcm90b2NvbDsNCi0Jc2tiLT5tYWMucmF3ID0gKCh1OCAqKSBpcGgp
+IC0gMTQgLSBwa3RfZGV2LT5ucl9sYWJlbHMqc2l6ZW9mKHUzMik7DQorCXNrYi0+bWFjLnJhdyA9
+ICgodTggKikgaXBoKSAtIDE0IC0gcGt0X2Rldi0+bnJfbGFiZWxzKnNpemVvZih1MzIpIC0gDQor
+CQlWTEFOX1RBR19TSVpFKHBrdF9kZXYpIC0gU1ZMQU5fVEFHX1NJWkUocGt0X2Rldik7DQogCXNr
+Yi0+ZGV2ID0gb2RldjsNCiAJc2tiLT5wa3RfdHlwZSA9IFBBQ0tFVF9IT1NUOw0KIAlza2ItPm5o
+LmlwaCA9IGlwaDsNCkBAIC0yMjE4LDcgKzI0MjIsNyBAQA0KIAkJcGdoLT50dl9zZWMgPSBodG9u
+bCh0aW1lc3RhbXAudHZfc2VjKTsNCiAJCXBnaC0+dHZfdXNlYyA9IGh0b25sKHRpbWVzdGFtcC50
+dl91c2VjKTsNCiAJfQ0KLQlwa3RfZGV2LT5zZXFfbnVtKys7DQorCS8qIHBrdF9kZXYtPnNlcV9u
+dW0rKzsgRkY6IHlvdSByZWFsbHkgbWVhbiB0aGlzPyAqLw0KIA0KIAlyZXR1cm4gc2tiOw0KIH0N
+CkBAIC0yNDAyLDE3ICsyNjA2LDI2IEBADQogCXN0cnVjdCBwa3RnZW5faGRyICpwZ2ggPSBOVUxM
+Ow0KIAlfX2JlMTYgcHJvdG9jb2wgPSBfX2NvbnN0YW50X2h0b25zKEVUSF9QX0lQVjYpOw0KIAlf
+X2JlMzIgKm1wbHM7DQorCV9fYmUxNiAqdmxhbl90Y2kgPSBOVUxMOyAgICAgICAgICAgICAgICAg
+LyogRW5jYXBzdWxhdGVzIHByaW9yaXR5IGFuZCBWTEFOIElEICovDQorCV9fYmUxNiAqdmxhbl9l
+bmNhcHN1bGF0ZWRfcHJvdG8gPSBOVUxMOyAgLyogcGFja2V0IHR5cGUgSUQgZmllbGQgKG9yIGxl
+bikgZm9yIFZMQU4gdGFnICovDQorCV9fYmUxNiAqc3ZsYW5fdGNpID0gTlVMTDsgICAgICAgICAg
+ICAgICAgLyogRW5jYXBzdWxhdGVzIHByaW9yaXR5IGFuZCBTVkxBTiBJRCAqLw0KKwlfX2JlMTYg
+KnN2bGFuX2VuY2Fwc3VsYXRlZF9wcm90byA9IE5VTEw7IC8qIHBhY2tldCB0eXBlIElEIGZpZWxk
+IChvciBsZW4pIGZvciBTVkxBTiB0YWcgKi8NCiANCiAJaWYgKHBrdF9kZXYtPm5yX2xhYmVscykN
+CiAJCXByb3RvY29sID0gX19jb25zdGFudF9odG9ucyhFVEhfUF9NUExTX1VDKTsNCiANCisJaWYg
+KHBrdF9kZXYtPnZsYW5faWQgIT0gMHhmZmZmKQ0KKwkJcHJvdG9jb2wgPSBfX2NvbnN0YW50X2h0
+b25zKEVUSF9QXzgwMjFRKTsNCisNCiAJLyogVXBkYXRlIGFueSBvZiB0aGUgdmFsdWVzLCB1c2Vk
+IHdoZW4gd2UncmUgaW5jcmVtZW50aW5nIHZhcmlvdXMNCiAJICogZmllbGRzLg0KIAkgKi8NCiAJ
+bW9kX2N1cl9oZWFkZXJzKHBrdF9kZXYpOw0KIA0KIAlza2IgPSBhbGxvY19za2IocGt0X2Rldi0+
+Y3VyX3BrdF9zaXplICsgNjQgKyAxNiArDQotCQkJcGt0X2Rldi0+bnJfbGFiZWxzKnNpemVvZih1
+MzIpLCBHRlBfQVRPTUlDKTsNCisJCQlwa3RfZGV2LT5ucl9sYWJlbHMqc2l6ZW9mKHUzMikgKyAN
+CisJCQlWTEFOX1RBR19TSVpFKHBrdF9kZXYpICsgU1ZMQU5fVEFHX1NJWkUocGt0X2RldiksDQor
+CQkJR0ZQX0FUT01JQyk7DQogCWlmICghc2tiKSB7DQogCQlzcHJpbnRmKHBrdF9kZXYtPnJlc3Vs
+dCwgIk5vIG1lbW9yeSIpOw0KIAkJcmV0dXJuIE5VTEw7DQpAQCAtMjQyNSwxNiArMjYzOCwzNCBA
+QA0KIAltcGxzID0gKF9fYmUzMiAqKXNrYl9wdXQoc2tiLCBwa3RfZGV2LT5ucl9sYWJlbHMqc2l6
+ZW9mKF9fdTMyKSk7DQogCWlmIChwa3RfZGV2LT5ucl9sYWJlbHMpDQogCQltcGxzX3B1c2gobXBs
+cywgcGt0X2Rldik7DQorDQorCWlmIChwa3RfZGV2LT52bGFuX2lkICE9IDB4ZmZmZikgew0KKwkJ
+aWYocGt0X2Rldi0+c3ZsYW5faWQgIT0gMHhmZmZmKSB7DQorCQkJc3ZsYW5fdGNpID0gKF9fYmUx
+NiAqKXNrYl9wdXQoc2tiLCBzaXplb2YoX19iZTE2KSk7DQorCQkJKnN2bGFuX3RjaSA9IGh0b25z
+KHBrdF9kZXYtPnN2bGFuX2lkKTsNCisJCQkqc3ZsYW5fdGNpIHw9IHBrdF9kZXYtPnN2bGFuX3Ag
+PDwgNTsNCisJCQkqc3ZsYW5fdGNpIHw9IHBrdF9kZXYtPnN2bGFuX2NmaSA8PCA0Ow0KKwkJCXN2
+bGFuX2VuY2Fwc3VsYXRlZF9wcm90byA9IChfX2JlMTYgKilza2JfcHV0KHNrYiwgc2l6ZW9mKF9f
+YmUxNikpOw0KKwkJCSpzdmxhbl9lbmNhcHN1bGF0ZWRfcHJvdG8gPSBfX2NvbnN0YW50X2h0b25z
+KEVUSF9QXzgwMjFRKTsNCisJCX0NCisJCXZsYW5fdGNpID0gKF9fYmUxNiAqKXNrYl9wdXQoc2ti
+LCBzaXplb2YoX19iZTE2KSk7DQorCQkqdmxhbl90Y2kgPSBodG9ucyhwa3RfZGV2LT52bGFuX2lk
+KTsNCisJCSp2bGFuX3RjaSB8PSBwa3RfZGV2LT52bGFuX3AgPDwgNTsNCisJCSp2bGFuX3RjaSB8
+PSBwa3RfZGV2LT52bGFuX2NmaSA8PCA0Ow0KKwkJdmxhbl9lbmNhcHN1bGF0ZWRfcHJvdG8gPSAo
+X19iZTE2ICopc2tiX3B1dChza2IsIHNpemVvZihfX2JlMTYpKTsNCisJCSp2bGFuX2VuY2Fwc3Vs
+YXRlZF9wcm90byA9IF9fY29uc3RhbnRfaHRvbnMoRVRIX1BfSVBWNik7DQorCX0NCisNCiAJaXBo
+ID0gKHN0cnVjdCBpcHY2aGRyICopc2tiX3B1dChza2IsIHNpemVvZihzdHJ1Y3QgaXB2Nmhkcikp
+Ow0KIAl1ZHBoID0gKHN0cnVjdCB1ZHBoZHIgKilza2JfcHV0KHNrYiwgc2l6ZW9mKHN0cnVjdCB1
+ZHBoZHIpKTsNCiANCiAJbWVtY3B5KGV0aCwgcGt0X2Rldi0+aGgsIDEyKTsNCi0JKih1MTYgKikg
+JiBldGhbMTJdID0gX19jb25zdGFudF9odG9ucyhFVEhfUF9JUFY2KTsNCi0NCisJKih1MTYgKikg
+JiBldGhbMTJdID0gcHJvdG9jb2w7DQorCQ0KIAkvKiBFdGggKyBJUGggKyBVRFBoICsgbXBscyAq
+Lw0KIAlkYXRhbGVuID0gcGt0X2Rldi0+Y3VyX3BrdF9zaXplIC0gMTQgLQ0KIAkJICBzaXplb2Yo
+c3RydWN0IGlwdjZoZHIpIC0gc2l6ZW9mKHN0cnVjdCB1ZHBoZHIpIC0NCi0JCSAgcGt0X2Rldi0+
+bnJfbGFiZWxzKnNpemVvZih1MzIpOw0KKwkJICBwa3RfZGV2LT5ucl9sYWJlbHMqc2l6ZW9mKHUz
+MikgLSBWTEFOX1RBR19TSVpFKHBrdF9kZXYpIC0gU1ZMQU5fVEFHX1NJWkUocGt0X2Rldik7DQog
+DQogCWlmIChkYXRhbGVuIDwgc2l6ZW9mKHN0cnVjdCBwa3RnZW5faGRyKSkgew0KIAkJZGF0YWxl
+biA9IHNpemVvZihzdHJ1Y3QgcGt0Z2VuX2hkcik7DQpAQCAtMjQ1OCw3ICsyNjg5LDggQEANCiAJ
+aXB2Nl9hZGRyX2NvcHkoJmlwaC0+ZGFkZHIsICZwa3RfZGV2LT5jdXJfaW42X2RhZGRyKTsNCiAJ
+aXB2Nl9hZGRyX2NvcHkoJmlwaC0+c2FkZHIsICZwa3RfZGV2LT5jdXJfaW42X3NhZGRyKTsNCiAN
+Ci0Jc2tiLT5tYWMucmF3ID0gKCh1OCAqKSBpcGgpIC0gMTQgLSBwa3RfZGV2LT5ucl9sYWJlbHMq
+c2l6ZW9mKHUzMik7DQorCXNrYi0+bWFjLnJhdyA9ICgodTggKikgaXBoKSAtIDE0IC0gcGt0X2Rl
+di0+bnJfbGFiZWxzKnNpemVvZih1MzIpIC0gDQorCQlWTEFOX1RBR19TSVpFKHBrdF9kZXYpIC0g
+U1ZMQU5fVEFHX1NJWkUocGt0X2Rldik7DQogCXNrYi0+cHJvdG9jb2wgPSBwcm90b2NvbDsNCiAJ
+c2tiLT5kZXYgPSBvZGV2Ow0KIAlza2ItPnBrdF90eXBlID0gUEFDS0VUX0hPU1Q7DQpAQCAtMjUz
+MSw3ICsyNzYzLDcgQEANCiAJCXBnaC0+dHZfc2VjID0gaHRvbmwodGltZXN0YW1wLnR2X3NlYyk7
+DQogCQlwZ2gtPnR2X3VzZWMgPSBodG9ubCh0aW1lc3RhbXAudHZfdXNlYyk7DQogCX0NCi0JcGt0
+X2Rldi0+c2VxX251bSsrOw0KKwkvKiBwa3RfZGV2LT5zZXFfbnVtKys7IEZGOiB5b3UgcmVhbGx5
+IG1lYW4gdGhpcz8gKi8NCiANCiAJcmV0dXJuIHNrYjsNCiB9DQpAQCAtMzE3Nyw2ICszNDA5LDEz
+IEBADQogCXBrdF9kZXYtPnVkcF9kc3RfbWluID0gOTsNCiAJcGt0X2Rldi0+dWRwX2RzdF9tYXgg
+PSA5Ow0KIA0KKwlwa3RfZGV2LT52bGFuX3AgPSAwOw0KKwlwa3RfZGV2LT52bGFuX2NmaSA9IDA7
+DQorCXBrdF9kZXYtPnZsYW5faWQgPSAweGZmZmY7DQorCXBrdF9kZXYtPnN2bGFuX3AgPSAwOw0K
+Kwlwa3RfZGV2LT5zdmxhbl9jZmkgPSAwOw0KKwlwa3RfZGV2LT5zdmxhbl9pZCA9IDB4ZmZmZjsN
+CisNCiAJc3RybmNweShwa3RfZGV2LT5pZm5hbWUsIGlmbmFtZSwgSUZOQU1TSVopOw0KIA0KIAlp
+ZiAoIXBrdGdlbl9zZXR1cF9kZXYocGt0X2RldikpIHsNCg==
+------=_Part_28710_22414510.1158167865816--
