@@ -1,27 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] softmac: Update MAINTAINERS entry
-Date: Wed, 13 Sep 2006 08:12:45 +0200
-Message-ID: <1158127965.2894.3.camel@ux156>
-References: <20060912223725.093917B40A0@zog.reactivated.net>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH 11/20] nbd: request_fn fixup
+Date: Wed, 13 Sep 2006 08:14:40 +0200
+Message-ID: <20060913061440.GC23515@kernel.dk>
+References: <20060912143049.278065000@chello.nl> <20060912144904.197253000@chello.nl> <20060912224710.GB23515@kernel.dk> <45074EF2.3080407@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@osdl.org>,
+	Andrew Morton <akpm@osdl.org>,
+	David Miller <davem@davemloft.net>,
+	Rik van Riel <riel@redhat.com>,
+	Daniel Phillips <phillips@google.com>,
+	Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:17877 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751600AbWIMGMK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 02:12:10 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <20060912223725.093917B40A0@zog.reactivated.net>
+Received: from brick.kernel.dk ([62.242.22.158]:13088 "EHLO kernel.dk")
+	by vger.kernel.org with ESMTP id S1751606AbWIMGQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 02:16:26 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <45074EF2.3080407@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-09-12 at 23:37 +0100, Daniel Drake wrote:
-> This mailing list has been deactivated.
+On Tue, Sep 12 2006, Jeff Garzik wrote:
+> Jens Axboe wrote:
+> >Generally the block device rule is that once you are invoked due to an
+> >unplug (or whatever) event, it is the responsibility of the block device
+> >to run the queue until it's done. So if you bail out of queue handling
+> >for whatever reason (might be resource starvation in hard- or software),
+> >you must make sure to reenter queue handling since the device will not
+> >get replugged while it has requests pending. Unless you run into some
+> >software resource shortage, running of the queue is done
+> >deterministically when you know resources are available (ie an io
+> >completes). The device plugging itself is only ever done when you
+> >encounter a shortage outside of your control (memory shortage, for
+> >instance) _and_ you don't already have pending work where you can invoke
+> >queueing from again.
+> 
+> Or he could employ the blk_{start,stop}_queue() functions, if that model 
+> is easier for the driver (and brain).
 
-Eh, and I was so sure I'd checked the maintainers file before
-deactivating the list. Sorry about that.
+Definitely, yes.
 
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
+-- 
+Jens Axboe
 
