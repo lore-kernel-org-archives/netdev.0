@@ -1,122 +1,34 @@
-From: mabbas <mabbas@linux.intel.com>
-Subject: [d80211] some issues regarding iwconfig parameters sequence
-Date: Wed, 13 Sep 2006 14:00:43 -0700
-Message-ID: <4508717B.8060403@linux.intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: examples to model ethernet driver off of?
+Date: Wed, 13 Sep 2006 23:05:56 +0200
+Message-ID: <20060913210556.GI25007@electric-eye.fr.zoreil.com>
+References: <9F51F56C-9924-4DEC-A823-892DDEE69131@kernel.crashing.org> <20060913195445.GH25007@electric-eye.fr.zoreil.com> <450865DB.4040809@intel.com> <7E7667E8-DD25-4F31-AE27-C7C2E92AC622@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050107050201080101070801"
-Cc: jkm@devicescape.com, johannes@sipsolutions.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:79 "EHLO
-	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1751193AbWIMVCJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 17:02:09 -0400
-To: netdev@vger.kernel.org
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:18130 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751199AbWIMVIy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 17:08:54 -0400
+To: Kumar Gala <galak@kernel.crashing.org>
+Content-Disposition: inline
+In-Reply-To: <7E7667E8-DD25-4F31-AE27-C7C2E92AC622@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050107050201080101070801
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Kumar Gala <galak@kernel.crashing.org> :
+[...]
+> What is the feeling about e100.c?
+> 
+> I'm looking for something that is just basic tx/rx with no real fancy  
+> features.
 
-Hi
-I have some problem connecting if I don't follow some parameters 
-sequence in iwconfig command for example if I issues the following
-# iwconfig wlan0 essid test  ap xx:xx:xx:xx:xx:xx
-#iwconfif wlan0 channel 9
+- a bit too much of 'if(' (missing space) and 'if (evil_statement'
+- some 'return' which are not on a line of their own
+- a few local variables could be added to avoid repeated foo->bar.baz[shnort]
 
-in d80211 if essid and bssid set it will start authentication with 
-default channel and authentication will timeout then after the second 
-command kicks in to tune to the right channel the retry counter of 
-authentication will be at maximum and we wont authenticate, same problem 
-exist for IBSS it will start searching but once we call #iwconfif wlan0 
-channel 9 this will stop scanning and we stop IBSS searching . I 
-attached a patch for workaround this problem. I am not sure this is the 
-right way to fix just attached to illustrate the problem.
-Mohamed
+But yes, it's quite nice.
 
---------------050107050201080101070801
-Content-Type: text/x-patch;
- name="d80211-conn.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d80211-conn.patch"
-
-
-Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
-
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 3ffdc5c..9bd385b 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -1852,6 +1852,29 @@ static int ieee80211_ioctl_giwmode(struc
- 	return 0;
- }
- 
-+#define IEEE80211_AUTH_TIMEOUT (HZ / 5)
-+#define IEEE80211_AUTH_MAX_TRIES 3
-+#define IEEE80211_ASSOC_TIMEOUT (HZ / 5)
-+#define IEEE80211_ASSOC_MAX_TRIES 3
-+
-+void ieee80211_reset_tries(struct net_device *dev,
-+                           struct ieee80211_if_sta *ifsta,
-+			   int was_scanning)
-+{
-+
-+	if ((ifsta->state == IEEE80211_AUTHENTICATE) &&
-+	    (ifsta->auth_tries > IEEE80211_AUTH_MAX_TRIES)) {
-+		ifsta->auth_tries = 0;
-+		ifsta->auth_transaction = -1;
-+		mod_timer(&ifsta->timer, jiffies + IEEE80211_AUTH_TIMEOUT);
-+	} else if ((ifsta->assoc_tries > IEEE80211_ASSOC_MAX_TRIES) &&
-+		   (ifsta->state == IEEE80211_ASSOCIATE)) {
-+		ifsta->assoc_tries = 0;
-+		mod_timer(&ifsta->timer, jiffies + IEEE80211_ASSOC_TIMEOUT);
-+	} if (ifsta->state == IEEE80211_IBSS_SEARCH && was_scanning)
-+		mod_timer(&ifsta->timer, jiffies + 2 * HZ);
-+	return;
-+}
- 
- int ieee80211_ioctl_siwfreq(struct net_device *dev,
- 			    struct iw_request_info *info,
-@@ -1898,8 +1921,23 @@ int ieee80211_ioctl_siwfreq(struct net_d
- 	}
- 
- 	if (set) {
-+		struct ieee80211_sub_if_data *sdata;
-+		struct ieee80211_if_sta *ifsta;
-+		int ret;
-+		int was_scanning;
-+
-+		sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+		ifsta = &sdata->u.sta;
-+
-+		was_scanning = local->sta_scanning;
- 		local->sta_scanning = 0; /* Abort possible scan */
--		return ieee80211_hw_config(dev);
-+	
-+		ret = ieee80211_hw_config(dev);
-+
-+		if (!ret)
-+			ieee80211_reset_tries(dev, ifsta, was_scanning);
-+
-+		return ret;
- 	}
- 
- 	return -EINVAL;
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index e94cb4d..6a3011c 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -2346,7 +2346,7 @@ int ieee80211_sta_set_ssid(struct net_de
- 		return ieee80211_sta_find_ibss(dev, ifsta);
- 	}
- 
--	if (ifsta->bssid_set && ifsta->state != IEEE80211_AUTHENTICATE)
-+	if (ifsta->bssid_set )
- 		ieee80211_sta_new_auth(dev, ifsta);
- 
- 	return 0;
-
---------------050107050201080101070801--
+-- 
+Ueimor
