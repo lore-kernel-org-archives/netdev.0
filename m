@@ -1,76 +1,68 @@
-From: Jeff Layton <jlayton@poochiereds.net>
-Subject: [PATCH] make ipv4 multicast packets only get delivered to sockets
-	that are joined to group
-Date: Wed, 13 Sep 2006 10:13:55 -0400
-Message-ID: <1158156835.15449.40.camel@dantu.rdu.redhat.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: ieee80211 and devices which decrypt in hardware
+Date: Wed, 13 Sep 2006 16:27:57 +0200
+Message-ID: <200609131627.58153.mb@bu3sch.de>
+References: <45077241.1070102@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, yi.zhu@intel.com,
+	ipw2100-admin@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55181 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750854AbWIMON5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 10:13:57 -0400
-To: netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:3811
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750876AbWIMO3e
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 10:29:34 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <45077241.1070102@gentoo.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The situation is this:
+On Wednesday 13 September 2006 04:51, Daniel Drake wrote:
+> Hi,
+> 
+> I'm working on support for hardware-based frame decryption in zd1211rw. 
+> While doing so I encountered some strange behaviour in ieee80211 which 
+> I'm wondering if someone can clarify. Alternatively if someone could 
+> just confirm how the Intel hardware behaves here that would be useful...
+> 
+> The normal structure of a WEP-encrypted frame is:
+> 
+> 1. 802.11 header (including WEP bit)
+> 2. IV (4 bytes)
+> 3. Encrypted data
+4. ICV
+5. FCS
 
-Two programs have opened IPv4 UDP sockets, set SO_REUSEADDR on them, and
-are bound to INADDR_ANY on the same port. One program joins a multicast
-group address, the other program joins a different one. When a multicast
-packet is sent to this port on one of the group addresses to which these
-sockets are bound, both sockets get delivered a copy of the packet. Only
-the socket that is bound to the group address to which the packet was
-sent should get it.
+> The structure of a frame coming from the zd1211 device where the frame 
+> has been decrypted in hardware is:
+> 
+> 1. 802.11 header (including WEP bit)
+> 2. IV (4 bytes)
+> 3. Decrypted data
 
-The issue seems to be that there is no actual check to see if the socket
-is joined to the multicast group. This patch adds such a check, and
-corrected the problem on my test rig.
+Does it strip ICV and FCS?
 
-I looked briefly at the ipv6 equivalent code, and it appears to already
-handle this correctly with a check near the top of inet6_mc_check(). I
-have not actually verified this, however.
+> We pass this up to ieee80211_rx as usual, but things don't work right. 
+> ieee80211 converts the frame to an ethernet frame as usual, but includes 
+> the WEP IV as the first 4 bytes of the data. (Instead, I want it to skip 
+> over the IV, successful decryption has already been verified)
+> 
+> This is easy enough to fix with another ieee80211 flag or something like 
+> that, but I am wondering why it already works for existing drivers which 
+> decrypt in hardware. When doing hardware decryption, does the Intel 
+> hardware really cut out the 4 byte IV and shift the rest of the data so 
+> that it continues immediately on from the header? Seems like a 
+> complicated operation to do in hardware (although I don't really know 
+> much about hw design...)
 
-This patch should apply cleanly to Linus' git tree as of last night.
+in bcm43xx-softmac we use memmove to move the wireless header 4 bytes
+up and after that strip the first 4 bytes of the skb.
+I don't think there is another easy way to handle this. You'd have
+to modify the stack and softmac. And this would probably result in more
+overhead than the simple memove of 24 bytes.
 
-Signed-off-by: Jeff Layton <jlayton@poochiereds.net> 
-
---- linux-2.6/net/ipv4/udp.c.mcast-filter
-+++ linux-2.6/net/ipv4/udp.c
-@@ -286,6 +286,8 @@ static inline struct sock *udp_v4_mcast_
- 	struct hlist_node *node;
- 	struct sock *s = sk;
- 	unsigned short hnum = ntohs(loc_port);
-+	struct ip_mc_socklist *mc_list;
-+	int matched;
- 
- 	sk_for_each_from(s, node) {
- 		struct inet_sock *inet = inet_sk(s);
-@@ -299,6 +301,23 @@ static inline struct sock *udp_v4_mcast_
- 			continue;
- 		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
- 			continue;
-+
-+		/* only deliver multicast packets to sockets that are
-+		 * explicitly joined to the multicast group */
-+		if (MULTICAST(loc_addr)) {
-+			matched = 0;
-+			for (mc_list=inet->mc_list ; mc_list;
-+			     mc_list=mc_list->next) {
-+				if (mc_list->multi.imr_multiaddr.s_addr ==
-+				    loc_addr) {
-+					matched = 1;
-+					break;
-+				}
-+			}
-+			if (!matched)
-+				continue;
-+		}
-+
- 		goto found;
-   	}
- 	s = NULL;
-
-
+-- 
+Greetings Michael.
