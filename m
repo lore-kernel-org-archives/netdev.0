@@ -1,38 +1,28 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH 1/2] ethtool: allow const ethtool_ops
-Date: Wed, 13 Sep 2006 11:08:44 +0900
-Message-ID: <20060913110844.42623dcb@localhost.localdomain>
-References: <20060908111613.12c1f9b8@localhost.localdomain>
-	<4506DB63.2040904@pobox.com>
+Date: Tue, 12 Sep 2006 22:12:30 -0400
+Message-ID: <4507690E.2030804@pobox.com>
+References: <20060908111613.12c1f9b8@localhost.localdomain>	<4506DB63.2040904@pobox.com> <20060913110844.42623dcb@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:48800 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751497AbWIMCJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:09:48 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4506DB63.2040904@pobox.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:13190 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751499AbWIMCMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:12:34 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060913110844.42623dcb@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Sep 2006 12:08:03 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Stephen Hemminger wrote:
+> No, they can pass non-const and everthing works.
+> Changing the ethtool_ops to have const args would require a global change.
 
-> Stephen Hemminger wrote:
-> > The ethtool_ops structure is immutable, it expected to be setup
-> > by the driver and is never changed. This patch allows drivers to
-> > declare there ethtool_ops structure read-only.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> ACK, but I need the associated change-all-drivers patch, in order to 
-> apply this.
-> 
-> 	Jeff
-> 
-> 
+Re-stating previous email:  I need a patch which updates all drivers to 
+declare their ethtool_ops structs const.
 
-No, they can pass non-const and everthing works.
-Changing the ethtool_ops to have const args would require a global change.
+	Jeff
+
+
