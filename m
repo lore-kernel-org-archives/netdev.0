@@ -1,36 +1,50 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/2] ethtool: allow const ethtool_ops
-Date: Wed, 13 Sep 2006 11:19:48 +0900
-Message-ID: <20060913111948.2ab822e8@localhost.localdomain>
-References: <20060908111613.12c1f9b8@localhost.localdomain>
-	<4506DB63.2040904@pobox.com>
-	<20060913110844.42623dcb@localhost.localdomain>
-	<4507690E.2030804@pobox.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: netdev tx timeouts
+Date: Tue, 12 Sep 2006 21:25:04 -0500
+Message-ID: <45076C00.2000100@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:60834 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751504AbWIMCUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:20:06 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4507690E.2030804@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Sep 2006 22:12:30 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Michael,
 
-> Stephen Hemminger wrote:
-> > No, they can pass non-const and everthing works.
-> > Changing the ethtool_ops to have const args would require a global change.
-> 
-> Re-stating previous email:  I need a patch which updates all drivers to 
-> declare their ethtool_ops structs const.
-> 
-> 	Jeff
-> 
-> 
+I still have not gotten a network guru to answer any questions about 
+synchronize_net, but I have been testing the patch below:
 
-I'll do one mondo patch for all drivers.
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3169,8 +3169,8 @@ static void bcm43xx_periodic_work_handle
+  		 * be preemtible.
+  		 */
+  		mutex_lock(&bcm->mutex);
+-		netif_stop_queue(bcm->net_dev);
+  		synchronize_net();
++		netif_stop_queue(bcm->net_dev);
+  		spin_lock_irqsave(&bcm->irq_lock, flags);
+  		bcm43xx_mac_suspend(bcm);
+  		if (bcm43xx_using_pio(bcm))
+
+With the synchronize_net call before the netif_stop_queue as shown, my device 
+has run since last Saturday with no netdev watchdog tx timeouts. Roughly two 
+days of that testing was done at the accelerated rate of 60X normal.
+
+I still hope to get access to a guru, but if that doesn't happen soon, I'm going 
+to push this change so that it gets into 2.6.19.
+
+Larry
