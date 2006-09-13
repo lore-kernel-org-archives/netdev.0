@@ -1,136 +1,52 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver
-Date: Tue, 12 Sep 2006 22:47:54 -0400
-Message-ID: <4507715A.7090601@garzik.org>
-References: <Pine.LNX.4.64.0608310543370.23783@dut39> <450560C0.8060602@garzik.org> <200609112004.50351.pradeep@linsyssoft.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: ieee80211 and devices which decrypt in hardware
+Date: Tue, 12 Sep 2006 22:51:45 -0400
+Message-ID: <45077241.1070102@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Amit S. Kale" <amitkale@netxen.com>, netdev@vger.kernel.org,
-	sanjeev@netxen.com, rob@netxen.com, unmproj@linsyssoft.com,
-	shemminger@osdl.org, brazilnut@us.ibm.com, wendyx@us.ibm.com,
-	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59526 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030484AbWIMCsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:48:00 -0400
-To: Pradeep Dalvi <pradeep@linsyssoft.com>
-In-Reply-To: <200609112004.50351.pradeep@linsyssoft.com>
+Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:52716 "EHLO
+	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S1030485AbWIMCvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 22:51:53 -0400
+To: netdev@vger.kernel.org, yi.zhu@intel.com,
+	ipw2100-admin@linux.intel.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-More updates needed:
+Hi,
 
-1) diff against 2.6.18-rcX (currently -rc6)
+I'm working on support for hardware-based frame decryption in zd1211rw. 
+While doing so I encountered some strange behaviour in ieee80211 which 
+I'm wondering if someone can clarify. Alternatively if someone could 
+just confirm how the Intel hardware behaves here that would be useful...
 
-2) remove ifdefs around NETIF_F_TSO
+The normal structure of a WEP-encrypted frame is:
 
-3) remove ifdefs around CONFIG_PCI_MSI
+1. 802.11 header (including WEP bit)
+2. IV (4 bytes)
+3. Encrypted data
 
-4) during initial allocation of port struct, the following line is 
-completely superfluous:
+The structure of a frame coming from the zd1211 device where the frame 
+has been decrypted in hardware is:
 
-	port->flags &= ~NETXEN_NETDEV_STATUS
+1. 802.11 header (including WEP bit)
+2. IV (4 bytes)
+3. Decrypted data
 
-5) netxen_nic_set_multi() does not have any multi-cast filter update code
+We pass this up to ieee80211_rx as usual, but things don't work right. 
+ieee80211 converts the frame to an ethernet frame as usual, but includes 
+the WEP IV as the first 4 bytes of the data. (Instead, I want it to skip 
+over the IV, successful decryption has already been verified)
 
-6) remove impossible checks such as the following in nic_set_promise_mode:
+This is easy enough to fix with another ieee80211 flag or something like 
+that, but I am wondering why it already works for existing drivers which 
+decrypt in hardware. When doing hardware decryption, does the Intel 
+hardware really cut out the 4 byte IV and shift the rest of the data so 
+that it continues immediately on from the header? Seems like a 
+complicated operation to do in hardware (although I don't really know 
+much about hw design...)
 
-+       if ((phy < 0) || (phy > 3))
-+               return -1;
-
-7) the following line in nic_set_mtu requires explanation, or fixing:
-
-+       case NETXEN_NIC_XGBE:
-+               new_mtu += 100; /* so that MAC accepts frames > MTU */
-
-8) never call udelay() with a number >= 1000.  use mdelay()
-
-9) [major] a great many functions simply do
-
-netxen_nic_do_blah()
-        case NETXEN_NIC_GBE:
-		netxen_nic_do_blah_gbe()
-		break;
-
-        case NETXEN_NIC_XGBE:
-		netxen_nic_do_blah_xgbe()
-		break;
-
-This is silly and makes the code needlessly larger and needlessly 
-slower.  Modularize the driver to avoid all such functions.
-
-10) don't cast iounmap argument to u8*
-
-11) don't case to/from void*, particularly where you accidentally drop 
-the __iomem marker:
-
-+               addr = (void *)(adapter->ahw.pci_base + off);
-
-12) make sure the driver passes sparse checks.  Read 
-Documentation/sparse.txt
-
-13) __iomem markers missing in NETXEN_NIC_HW_BLOCK_WRITE_64, 
-NETXEN_NIC_HW_BLOCK_READ_64
-
-14) If you need a 'void __iomem *' cast in the following macros, there 
-is a type definition bug somewhere:
-
-
-+#define NETXEN_NIC_LOCKED_READ_REG(X, Y)                       \
-+       addr = (void __iomem *)(adapter->ahw.pci_base + X);     \
-+       *(u32 *)Y = readl(addr);
-+
-+#define NETXEN_NIC_LOCKED_WRITE_REG(X, Y)                      \
-+       addr = (void __iomem *)(adapter->ahw.pci_base + X);     \
-+       writel(*(u32 *)Y, addr);
-+
-
-15) implement NETXEN_NIC_LOCKED_READ_REG, NETXEN_NIC_LOCKED_WRITE_REG, 
-NETXEN_NIC_HW_BLOCK_WRITE_64, NETXEN_NIC_HW_BLOCK_READ_64 as static 
-inline functions rather than macros for greater type safety
-
-16) don't invent your own set_bit, clear_bit, etc:  _netxen_crb_set_bit
-
-17) don't needlessly invent new types such as
-+typedef __le32 netxen_crbword_t;       /* single word in CRB space */
-
-18) The strings in netxen_nic_gstrings_test[] should be easily 
-computer-parseable.  Eliminate parens, spaces
-
-19) eliminate magic numbers (replace with named constants) in, e.g.
-
-+       if ((netxen_rom_fast_read(adapter, 0, &n) == 0) && (n & 
-0x80000000)) {
-+               n &= ~0x80000000;
-+               if (n < 1024)
-
-20) use the short driver name (commonly DRV_NAME constant in other 
-drivers) in ETHTOOL_GDRVINFO:
-+       strncpy(drvinfo->driver, "NetXen NIC Driver", 32);
-
-21) export the real firmware version in ETHTOOL_GDRVINFO:
-+       strncpy(drvinfo->fw_version, NETXEN_NIC_FW_VERSIONID, 32);
-
-22) netxen_nic_set_settings() simply returns success if the NIC is XGBE, 
-which is obviously wrong
-
-23) bogus return value -1 in netxen_nic_get_eeprom()
-
-24) -EOPNOTSUPP would seem to be a much better return value for XGBE in 
-netxen_nic_set_pauseparam()
-
-25) netxen_nic_change_mtu() should check minimum MTU too
-
-26) long delays should be sleeping, not spinning the CPU and locking out 
-other tasks:
-
-+       udelay(10000);
-
-
-
-I stopped reviewing here.  That should keep you busy...
-
-	Jeff
-
+Daniel
 
