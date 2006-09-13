@@ -1,83 +1,47 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH 20/20] iscsi: support for swapping over iSCSI.
-Date: Wed, 13 Sep 2006 15:50:30 -0500
-Message-ID: <45086F16.9030307@cs.wisc.edu>
-References: <20060912143049.278065000@chello.nl> <20060912144905.201160000@chello.nl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: examples to model ethernet driver off of?
+Date: Wed, 13 Sep 2006 22:55:23 +0200
+Message-ID: <20060913205523.GE24477@electric-eye.fr.zoreil.com>
+References: <9F51F56C-9924-4DEC-A823-892DDEE69131@kernel.crashing.org> <20060913195445.GH25007@electric-eye.fr.zoreil.com> <450865DB.4040809@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
-	Andrew Morton <akpm@osdl.org>,
-	David Miller <davem@davemloft.net>,
-	Rik van Riel <riel@redhat.com>,
-	Daniel Phillips <phillips@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:49856 "EHLO sabe.cs.wisc.edu")
-	by vger.kernel.org with ESMTP id S1751184AbWIMUu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 16:50:56 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-In-Reply-To: <20060912144905.201160000@chello.nl>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33707 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751185AbWIMU5B
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 16:57:01 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Disposition: inline
+In-Reply-To: <450865DB.4040809@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra wrote:
-> Implement sht->swapdev() for iSCSI. This method takes care of reserving
-> the extra memory needed and marking all relevant sockets with SOCK_VMIO.
+Auke Kok <auke-jan.h.kok@intel.com> :
+[...]
+> >tg3/bnx2/sky2/b44/8139cp
 > 
-> When used for swapping, TCP socket creation is done under GFP_MEMALLOC and
-> the TCP connect is done with SOCK_VMIO to ensure their success. Also the
-> netlink userspace interface is marked SOCK_VMIO, this will ensure that even
-> under pressure we can still communicate with the daemon (which runs as
-> mlockall() and needs no additional memory to operate).
-> 
-> Netlink requests are handled under the new PF_MEM_NOWAIT when a swapper is
-> present. This ensures that the netlink socket will not block. User-space will
-> need to retry failed requests.
-> 
-> The TCP receive path is handled under PF_MEMALLOC for SOCK_VMIO sockets.
-> This makes sure we do not block the critical socket, and that we do not
-> fail to process incomming data.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> CC: Mike Christie <michaelc@cs.wisc.edu>
-> ---
->  drivers/scsi/iscsi_tcp.c            |  103 +++++++++++++++++++++++++++++++-----
->  drivers/scsi/scsi_transport_iscsi.c |   23 +++++++-
->  include/scsi/libiscsi.h             |    1 
->  include/scsi/scsi_transport_iscsi.h |    2 
->  4 files changed, 113 insertions(+), 16 deletions(-)
-> 
-> Index: linux-2.6/drivers/scsi/iscsi_tcp.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/scsi/iscsi_tcp.c
-> +++ linux-2.6/drivers/scsi/iscsi_tcp.c
-> @@ -42,6 +42,7 @@
->  #include <scsi/scsi_host.h>
->  #include <scsi/scsi.h>
->  #include <scsi/scsi_transport_iscsi.h>
-> +#include <scsi/scsi_device.h>
->  
->  #include "iscsi_tcp.h"
->  
-> @@ -845,9 +846,13 @@ iscsi_tcp_data_recv(read_descriptor_t *r
->  	int rc;
->  	struct iscsi_conn *conn = rd_desc->arg.data;
->  	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-> -	int processed;
-> +	int processed = 0;
->  	char pad[ISCSI_PAD_LEN];
->  	struct scatterlist sg;
-> +	unsigned long pflags = current->flags;
-> +
-> +	if (sk_has_vmio(tcp_conn->sock->sk))
-> +		current->flags |= PF_MEMALLOC;
->  
+> Can I add e1000/ixgb to that? ;)
 
-Is this too late or not needed or what is it for? This function gets run
-from the network layer's softirq and at this point we have a skbuff with
-data that we want to process. The iscsi layer also does not allocate
-memory for read or write IO in this path.
+Assume I have not noticed the smiley...
 
-I think we would want to set this flag at a lower level. Something
-closer to where the skbuf is allocated?
+- $ grep int32 drivers/net/e1000/*
+- $ grep ' if(' drivers/net/e1000/*
+- tabs and spaces damage
+- forward declarations (are not a substitute for documentation)
+- static some_return_type
+  e1000_shnortz(...
+
+  I still use dumb grep
+
+- wild return -EIO; in the middle of e1000_probe
+- useless cast in e1000_probe::INIT_WORK() due to wrong prototype
+  of e1000_reset_task().
+
+It looks nicer than last time I poke my nose into it but I am not
+completely sure that I would recommend it to a newcomer as the
+climax of best practices or simplicity. Btw I do not remember if
+it handles multi-page skb like everybody else either.
+
+-- 
+Ueimor
