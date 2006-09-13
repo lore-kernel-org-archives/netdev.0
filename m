@@ -1,57 +1,50 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: netdev tx timeouts
-Date: Wed, 13 Sep 2006 08:25:37 -0500
-Message-ID: <450806D1.4080809@lwfinger.net>
-References: <45076C00.2000100@lwfinger.net> <200609131430.53820.mb@bu3sch.de>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: [PATCH] natsemi: Messages being noisy
+Date: Wed, 13 Sep 2006 15:28:51 +0200
+Message-ID: <200609131528.51336.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-In-Reply-To: <200609131430.53820.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.axxeo.de ([82.100.226.146]:16579 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1750801AbWIMN25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 09:28:57 -0400
+To: Tim Hockin <thockin@hockin.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Wednesday 13 September 2006 04:25, Larry Finger wrote:
->> Michael,
->>
->> I still have not gotten a network guru to answer any questions about 
->> synchronize_net, but I have been testing the patch below:
-> 
-> I'd say this is racy.
-> Did you test this on SMP?
+Hi there,
 
-No - I don't have the hardware.
-> 
->> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
->> ===================================================================
->> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
->> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
->> @@ -3169,8 +3169,8 @@ static void bcm43xx_periodic_work_handle
->>   		 * be preemtible.
->>   		 */
->>   		mutex_lock(&bcm->mutex);
->> -		netif_stop_queue(bcm->net_dev);
->>   		synchronize_net();
-> 
-> A TX handler starts on another CPU.
-> 
->> +		netif_stop_queue(bcm->net_dev);
-> 
-> It's still running... boom.
-> 
+I  get the following message when trying to transfer big files 
+(via FTP or SCP) since Linux 2.6.16.27. It didn't happen with Linux 2.6.13.4.
 
-I see your point, but the current way breaks a UP system! What to do?
+[702238.242237] eth1: increased tx threshold, txcfg 0xd0f01008.
+[702238.242649] eth1: increased tx threshold, txcfg 0xd0f0100a.
 
-Larry
+What about putting this message at the message level "DEBUG"
+or even under pr_debug()?
+
+This NIC is just used for PPPoE in our setups.
+
+The other message "tx underrun with maximum tx threshold"
+is much more useful, since it indicates a real problem.
+
+So I would suggest the following patch:
+
+Signed-off-by: Ingo Oeser <netdev@axxeo.de>
+
+--- linux-2.6.16.28/drivers/net/natsemi.c~	2006-08-25 22:51:14.000000000 +0200
++++ linux-2.6.16.28/drivers/net/natsemi.c	2006-09-13 15:26:24.995044665 +0200
+@@ -2338,8 +2338,7 @@
+ 		if ((np->tx_config & TxDrthMask) < TX_DRTH_VAL_LIMIT) {
+ 			np->tx_config += TX_DRTH_VAL_INC;
+ 			if (netif_msg_tx_err(np))
+-				printk(KERN_NOTICE
+-					"%s: increased tx threshold, txcfg %#08x.\n",
++				pr_debug("%s: increased tx threshold, txcfg %#08x.\n",
+ 					dev->name, np->tx_config);
+ 		} else {
+ 			if (netif_msg_tx_err(np))
