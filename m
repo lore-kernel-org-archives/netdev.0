@@ -1,72 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Pull request for '8139cp-20060912-00' branch
-Date: Wed, 13 Sep 2006 09:07:00 +0200
-Message-ID: <20060913070700.GA15444@electric-eye.fr.zoreil.com>
-References: <20060912192039.GA4482@electric-eye.fr.zoreil.com> <450766D5.1070802@garzik.org>
+From: Daniele Lacamera <root@danielinux.net>
+Subject: Re: TCP Pacing
+Date: Wed, 13 Sep 2006 10:18:39 +0200
+Message-ID: <200609131018.40023.root@danielinux.net>
+References: <200609121958.22820.root@danielinux.net> <5640c7e00609121426t75f5519at562a85f40b64163@mail.gmail.com>
+Reply-To: root@danielinux.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Carlo Caini" <ccaini@deis.unibo.it>,
+	"Rosario Firrincieli" <rfirrincieli@arces.unibo.it>,
+	"Giovanni Pau" <gpau@cs.ucla.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:27874 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751644AbWIMHI7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 03:08:59 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from danielinux.vm.bytemark.co.uk ([80.68.95.85]:6661 "EHLO
+	danielinux.vm.bytemark.co.uk") by vger.kernel.org with ESMTP
+	id S1751699AbWIMISk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 04:18:40 -0400
+To: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+In-Reply-To: <5640c7e00609121426t75f5519at562a85f40b64163@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <450766D5.1070802@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jeff@garzik.org> :
-> Francois Romieu wrote:
-> >Please pull from tag '8139cp-20060912-00' in repository
-> >
-> >git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
-> >
-> >to get the change below:
-> >
-> >(patch applies to jeff#upstream-linus)
-> 
-> Pulled, but there are some git problems to address...
-> 
-> * Never use 'upstream-linus' branch.
-> 
-> * Base off of vanilla Linus linux-2.6.git, unless you are submitting on 
-> top of changes that are in netdev#upstream or netdev#upstream-fixes.
-> 
-> * For some reason, when I pulled, it fetched over 17,000 objects!
+On Tuesday 12 September 2006 23:26, Ian McDonald wrote:
+> Where is the published research? If you are going to mention research
+> you need URLs to papers and please put this in source code too so
+> people can check.
 
-I am dazed.
+I added the main reference to the code. I am going to give you all the 
+pointers on this research, mainly recent congestion control proposals 
+that include pacing.
 
-The tag 8139cp-20060912-00 currently references the head of the branch
-8139cp.
+> I agree with Arnaldo's comments and also would add I don't like having
+> to select 1000 as HZ unit. Something is wrong if you need this as I
+> can run higher resolution timers without having to do this....
 
-$ git show master
-commit 05ff0e291af086f4325bac76abad250690bbbd63
-Merge: 5eea7ee... 55669bf...
-Author: Linus Torvalds <torvalds@g5.osdl.org>
-Date:   Mon Sep 11 11:43:17 2006 -0700
+I removed that select in Kconfig, I agree it doesn't make sense at all, 
+for portability. However, pacing works with 1ms resolution, so maybe 
+a "depends HZ_1000" is still required. (How do you run 1ms timers with 
+HZ!=1000?)
 
-    Merge branch 'audit.b28' of git://git.kernel.org/pub/scm/linux/kernel/git/viro/audit-current
-    
-    * 'audit.b28' of git://git.kernel.org/pub/scm/linux/kernel/git/viro/audit-current:
-      [PATCH] audit: AUDIT_PERM support
-[...]
-
-$ git merge-base 8139cp master
-dc709bd190c130b299ac19d596594256265c042a
-
-$ git log --pretty=short $(git merge-base 8139cp master)..8139cp | grep commit
-commit 48907e39890590792c58272604cfb34ad1d80054
-commit cccb20d3a9b7c6d4b6e1b52ee02814e6094aaa12
-commit 7668a4945ba0e17a61e535a6c67aa64a319a03b4
-commit e68970e7543815133224f79a858e7c9e0c42f4de
-commit d03d376dd29cae53bf70a21a0c26b306abe37326
-commit 0ba894d420b845667e2981c2147af974a755fba2
-commit c48e9399e895834f26dff9149de1930ba18a0d6c
-commit 3598b57be449a2ee9178e5c511bdb1a8aaccba20
-
-Where do the 17000 objects come from ?
+Thanks
 
 -- 
-Ueimor
+Daniele Lacamera
+root@danielinux.net
