@@ -1,68 +1,40 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: ieee80211 and devices which decrypt in hardware
-Date: Wed, 13 Sep 2006 16:27:57 +0200
-Message-ID: <200609131627.58153.mb@bu3sch.de>
-References: <45077241.1070102@gentoo.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] make ipv4 multicast packets only get delivered to sockets	that
+ are joined to group
+Date: Wed, 13 Sep 2006 07:32:22 -0700
+Message-ID: <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
+References: <1158156835.15449.40.camel@dantu.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yi.zhu@intel.com,
-	ipw2100-admin@linux.intel.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:3811
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750876AbWIMO3e
+Received: from e35.co.us.ibm.com ([32.97.110.153]:23239 "EHLO
+	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750885AbWIMOcb
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 10:29:34 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <45077241.1070102@gentoo.org>
-Content-Disposition: inline
+	Wed, 13 Sep 2006 10:32:31 -0400
+In-Reply-To: <1158156835.15449.40.camel@dantu.rdu.redhat.com>
+To: Jeff Layton <jlayton@poochiereds.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 13 September 2006 04:51, Daniel Drake wrote:
-> Hi,
-> 
-> I'm working on support for hardware-based frame decryption in zd1211rw. 
-> While doing so I encountered some strange behaviour in ieee80211 which 
-> I'm wondering if someone can clarify. Alternatively if someone could 
-> just confirm how the Intel hardware behaves here that would be useful...
-> 
-> The normal structure of a WEP-encrypted frame is:
-> 
-> 1. 802.11 header (including WEP bit)
-> 2. IV (4 bytes)
-> 3. Encrypted data
-4. ICV
-5. FCS
+netdev-owner@vger.kernel.org wrote on 09/13/2006 07:13:55 AM:
 
-> The structure of a frame coming from the zd1211 device where the frame 
-> has been decrypted in hardware is:
-> 
-> 1. 802.11 header (including WEP bit)
-> 2. IV (4 bytes)
-> 3. Decrypted data
+> Only
+> the socket that is bound to the group address to which the packet was
+> sent should get it.
 
-Does it strip ICV and FCS?
+        This is not true on any OS I'm aware of, including the
+original sockets multicast implementation on early BSD.
 
-> We pass this up to ieee80211_rx as usual, but things don't work right. 
-> ieee80211 converts the frame to an ethernet frame as usual, but includes 
-> the WEP IV as the first 4 bytes of the data. (Instead, I want it to skip 
-> over the IV, successful decryption has already been verified)
-> 
-> This is easy enough to fix with another ieee80211 flag or something like 
-> that, but I am wondering why it already works for existing drivers which 
-> decrypt in hardware. When doing hardware decryption, does the Intel 
-> hardware really cut out the 4 byte IV and shift the rest of the data so 
-> that it continues immediately on from the header? Seems like a 
-> complicated operation to do in hardware (although I don't really know 
-> much about hw design...)
+        Multicast group membership is per-interface, not per-socket.
+Joining a group on any socket on the machine allows packets for that
+group to be delivered on the interface where it was joined.
 
-in bcm43xx-softmac we use memmove to move the wireless header 4 bytes
-up and after that strip the first 4 bytes of the skb.
-I don't think there is another easy way to handle this. You'd have
-to modify the stack and softmac. And this would probably result in more
-overhead than the simple memove of 24 bytes.
+Delivery of packets to a socket is determined by the binding, and
+INADDR_ANY means "any".
 
--- 
-Greetings Michael.
+IPv6 behaves the same way.
+                                                                +-DLS
+
+
