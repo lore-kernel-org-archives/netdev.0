@@ -1,87 +1,76 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: netdev tx timeouts
-Date: Wed, 13 Sep 2006 16:12:25 +0200
-Message-ID: <200609131612.26096.mb@bu3sch.de>
-References: <45076C00.2000100@lwfinger.net> <450806D1.4080809@lwfinger.net> <200609131549.23764.mb@bu3sch.de>
+From: Jeff Layton <jlayton@poochiereds.net>
+Subject: [PATCH] make ipv4 multicast packets only get delivered to sockets
+	that are joined to group
+Date: Wed, 13 Sep 2006 10:13:55 -0400
+Message-ID: <1158156835.15449.40.camel@dantu.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	Stefano Brivio <st3@riseup.net>
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:59612
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750826AbWIMONs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 10:13:48 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <200609131549.23764.mb@bu3sch.de>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:55181 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750854AbWIMON5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 10:13:57 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 13 September 2006 15:49, Michael Buesch wrote:
-> On Wednesday 13 September 2006 15:25, Larry Finger wrote:
-> > Michael Buesch wrote:
-> > > On Wednesday 13 September 2006 04:25, Larry Finger wrote:
-> > >> Michael,
-> > >>
-> > >> I still have not gotten a network guru to answer any questions about 
-> > >> synchronize_net, but I have been testing the patch below:
-> > > 
-> > > I'd say this is racy.
-> > > Did you test this on SMP?
-> > 
-> > No - I don't have the hardware.
-> > > 
-> > >> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > >> ===================================================================
-> > >> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > >> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > >> @@ -3169,8 +3169,8 @@ static void bcm43xx_periodic_work_handle
-> > >>   		 * be preemtible.
-> > >>   		 */
-> > >>   		mutex_lock(&bcm->mutex);
-> > >> -		netif_stop_queue(bcm->net_dev);
-> > >>   		synchronize_net();
-> > > 
-> > > A TX handler starts on another CPU.
-> > > 
-> > >> +		netif_stop_queue(bcm->net_dev);
-> > > 
-> > > It's still running... boom.
-> > > 
-> > 
-> > I see your point, but the current way breaks a UP system! What to do?
-> 
-> Simple. Reading the code of synchronize_net() and
-> netif_stop_queue() and thinking about why it breaks, instead
-> of committing bugfixes that only substitute one bug by another. ;)
-> I'll take a look, too.
+The situation is this:
 
-Ok, I am pretty sure now we need the following patch to fix this.
-Can you test?
-If it does not crash anymore, please push upstream.
+Two programs have opened IPv4 UDP sockets, set SO_REUSEADDR on them, and
+are bound to INADDR_ANY on the same port. One program joins a multicast
+group address, the other program joins a different one. When a multicast
+packet is sent to this port on one of the group addresses to which these
+sockets are bound, both sockets get delivered a copy of the packet. Only
+the socket that is bound to the group address to which the packet was
+sent should get it.
 
+The issue seems to be that there is no actual check to see if the socket
+is joined to the multicast group. This patch adds such a check, and
+corrected the problem on my test rig.
 
+I looked briefly at the ipv6 equivalent code, and it appears to already
+handle this correctly with a check near the top of inet6_mc_check(). I
+have not actually verified this, however.
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+This patch should apply cleanly to Linus' git tree as of last night.
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-09-13 16:09:39.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-09-13 16:10:43.000000000 +0200
-@@ -3169,8 +3169,7 @@ static void bcm43xx_periodic_work_handle
- 		 * be preemtible.
- 		 */
- 		mutex_lock(&bcm->mutex);
--		netif_stop_queue(bcm->net_dev);
--		synchronize_net();
-+		netif_tx_disable(bcm->net_dev);
- 		spin_lock_irqsave(&bcm->irq_lock, flags);
- 		bcm43xx_mac_suspend(bcm);
- 		if (bcm43xx_using_pio(bcm))
+Signed-off-by: Jeff Layton <jlayton@poochiereds.net> 
+
+--- linux-2.6/net/ipv4/udp.c.mcast-filter
++++ linux-2.6/net/ipv4/udp.c
+@@ -286,6 +286,8 @@ static inline struct sock *udp_v4_mcast_
+ 	struct hlist_node *node;
+ 	struct sock *s = sk;
+ 	unsigned short hnum = ntohs(loc_port);
++	struct ip_mc_socklist *mc_list;
++	int matched;
+ 
+ 	sk_for_each_from(s, node) {
+ 		struct inet_sock *inet = inet_sk(s);
+@@ -299,6 +301,23 @@ static inline struct sock *udp_v4_mcast_
+ 			continue;
+ 		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
+ 			continue;
++
++		/* only deliver multicast packets to sockets that are
++		 * explicitly joined to the multicast group */
++		if (MULTICAST(loc_addr)) {
++			matched = 0;
++			for (mc_list=inet->mc_list ; mc_list;
++			     mc_list=mc_list->next) {
++				if (mc_list->multi.imr_multiaddr.s_addr ==
++				    loc_addr) {
++					matched = 1;
++					break;
++				}
++			}
++			if (!matched)
++				continue;
++		}
++
+ 		goto found;
+   	}
+ 	s = NULL;
 
 
--- 
-Greetings Michael.
