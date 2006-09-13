@@ -1,42 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: mv643xx_eth: Unmap DMA buffers in receive path
-Date: Tue, 12 Sep 2006 22:05:40 -0400
-Message-ID: <45076774.5030909@pobox.com>
-References: <20060912182229.GA11522@xyzzy.farnsworth.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 1/2] ethtool: allow const ethtool_ops
+Date: Wed, 13 Sep 2006 11:08:44 +0900
+Message-ID: <20060913110844.42623dcb@localhost.localdomain>
+References: <20060908111613.12c1f9b8@localhost.localdomain>
+	<4506DB63.2040904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Manish Lachwani <mlachwani@mvista.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:61317 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751496AbWIMCFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:05:43 -0400
-To: Dale Farnsworth <dale@farnsworth.org>
-In-Reply-To: <20060912182229.GA11522@xyzzy.farnsworth.org>
+Received: from smtp.osdl.org ([65.172.181.4]:48800 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751497AbWIMCJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:09:48 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4506DB63.2040904@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dale Farnsworth wrote:
-> From: Dale Farnsworth <dale@farnsworth.org>
+On Tue, 12 Sep 2006 12:08:03 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
+
+> Stephen Hemminger wrote:
+> > The ethtool_ops structure is immutable, it expected to be setup
+> > by the driver and is never changed. This patch allows drivers to
+> > declare there ethtool_ops structure read-only.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 > 
-> Fix a missing call to dma_unmap_single() in the receive path.  Without
-> this call, errors have been observed on non-cache-coherent systems.
+> ACK, but I need the associated change-all-drivers patch, in order to 
+> apply this.
 > 
-> Signed-off-by Dale Farnsworth <dale@farnsworth.org>
+> 	Jeff
 > 
-> ---
 > 
->  drivers/net/mv643xx_eth.c |    2 ++
->  1 file changed, 2 insertions(+)
 
-ACK, but
-
-
-[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
-1 patch(es) to process.
-
-Applying 'mv643xx_eth: Unmap DMA buffers in receive path'
-
-error: patch failed: drivers/net/mv643xx_eth.c:402
-error: drivers/net/mv643xx_eth.c: patch does not apply
-
+No, they can pass non-const and everthing works.
+Changing the ethtool_ops to have const args would require a global change.
