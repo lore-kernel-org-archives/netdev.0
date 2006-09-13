@@ -1,34 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: examples to model ethernet driver off of?
-Date: Wed, 13 Sep 2006 23:05:56 +0200
-Message-ID: <20060913210556.GI25007@electric-eye.fr.zoreil.com>
-References: <9F51F56C-9924-4DEC-A823-892DDEE69131@kernel.crashing.org> <20060913195445.GH25007@electric-eye.fr.zoreil.com> <450865DB.4040809@intel.com> <7E7667E8-DD25-4F31-AE27-C7C2E92AC622@kernel.crashing.org>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: ieee80211 and devices which decrypt in hardware
+Date: Wed, 13 Sep 2006 18:35:37 -0400
+Message-ID: <450887B9.7080308@gentoo.org>
+References: <45077241.1070102@gentoo.org> <200609131627.58153.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040105090104050601080501"
+Cc: netdev@vger.kernel.org, yi.zhu@intel.com,
+	ipw2100-admin@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:18130 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751199AbWIMVIy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 17:08:54 -0400
-To: Kumar Gala <galak@kernel.crashing.org>
-Content-Disposition: inline
-In-Reply-To: <7E7667E8-DD25-4F31-AE27-C7C2E92AC622@kernel.crashing.org>
+Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:29388 "EHLO
+	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S1751236AbWIMWgk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 18:36:40 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200609131627.58153.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kumar Gala <galak@kernel.crashing.org> :
-[...]
-> What is the feeling about e100.c?
-> 
-> I'm looking for something that is just basic tx/rx with no real fancy  
-> features.
+This is a multi-part message in MIME format.
+--------------040105090104050601080501
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-- a bit too much of 'if(' (missing space) and 'if (evil_statement'
-- some 'return' which are not on a line of their own
-- a few local variables could be added to avoid repeated foo->bar.baz[shnort]
+Michael Buesch wrote:
+> Does it strip ICV and FCS?
 
-But yes, it's quite nice.
+The driver always strips FCS (unconditionally).
 
--- 
-Ueimor
+The device does not strip ICV even when hardware decryption is in use, 
+it gets included at the end of the frame, and I guess we should also 
+handle that.
+
+> in bcm43xx-softmac we use memmove to move the wireless header 4 bytes
+> up and after that strip the first 4 bytes of the skb.
+> I don't think there is another easy way to handle this. You'd have
+> to modify the stack and softmac. And this would probably result in more
+> overhead than the simple memove of 24 bytes.
+
+softmac doesn't need modifying, and the ieee80211 modification is very 
+simple. See the attached patch. ieee80211 could also be modified very 
+easily to drop the ICV.
+
+Surely this is nicer than adding IEEE802.11 header parsing code to 
+zd1211rw rx path (currently there is none, which is nice) and a memmove?
+
+Daniel
+
+
+--------------040105090104050601080501
+Content-Type: text/x-patch;
+ name="ieee80211-rx-strip-iv.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ieee80211-rx-strip-iv.patch"
+
+Index: linux/net/ieee80211/ieee80211_rx.c
+===================================================================
+--- linux.orig/net/ieee80211/ieee80211_rx.c
++++ linux/net/ieee80211/ieee80211_rx.c
+@@ -655,6 +655,11 @@ int ieee80211_rx(struct ieee80211_device
+ 		goto rx_dropped;
+ 	}
+ 
++	/* If the device does decryption but leaves the IV in place then we
++	 * need to kill it. */
++	if (!can_be_decrypted && (fc & IEEE80211_FCTL_PROTECTED))
++		hdrlen += 4;
++
+ 	/* skb: hdr + (possible reassembled) full plaintext payload */
+ 
+ 	payload = skb->data + hdrlen;
+
+--------------040105090104050601080501--
