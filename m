@@ -1,38 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Pull request for 'r8169-20060912-00' branch
-Date: Tue, 12 Sep 2006 22:04:09 -0400
-Message-ID: <45076719.4000504@garzik.org>
-References: <20060912193531.GB4482@electric-eye.fr.zoreil.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: mv643xx_eth: Unmap DMA buffers in receive path
+Date: Tue, 12 Sep 2006 22:05:40 -0400
+Message-ID: <45076774.5030909@pobox.com>
+References: <20060912182229.GA11522@xyzzy.farnsworth.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Manish Lachwani <mlachwani@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49541 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751495AbWIMCEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:04:11 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060912193531.GB4482@electric-eye.fr.zoreil.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:61317 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751496AbWIMCFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2006 22:05:43 -0400
+To: Dale Farnsworth <dale@farnsworth.org>
+In-Reply-To: <20060912182229.GA11522@xyzzy.farnsworth.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Please pull from tag 'r8169-20060912-00' in repository
+Dale Farnsworth wrote:
+> From: Dale Farnsworth <dale@farnsworth.org>
 > 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+> Fix a missing call to dma_unmap_single() in the receive path.  Without
+> this call, errors have been observed on non-cache-coherent systems.
 > 
-> to get the change below:
+> Signed-off-by Dale Farnsworth <dale@farnsworth.org>
 > 
-> (patch applies to jeff#upstream-linus)
+> ---
 > 
-> Notes:
-> - the so far unsupported 8136 needs to be kicked with mii-tool to get
->   the link right ;
-> - the 8168 works fine ;
-> - the 8119sb now works on iop3xx ARM ;
-> - the prom of my sparc64 is filled with 0xff. I can't test on big endian
->   any more, help !
+>  drivers/net/mv643xx_eth.c |    2 ++
+>  1 file changed, 2 insertions(+)
 
-pulled, same comment as with 8139cp
+ACK, but
 
+
+[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
+1 patch(es) to process.
+
+Applying 'mv643xx_eth: Unmap DMA buffers in receive path'
+
+error: patch failed: drivers/net/mv643xx_eth.c:402
+error: drivers/net/mv643xx_eth.c: patch does not apply
 
