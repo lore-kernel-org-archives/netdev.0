@@ -1,36 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets,
- but not icmp
-Date: Wed, 13 Sep 2006 20:44:21 +0200
-Message-ID: <45085185.2060904@trash.net>
-References: <20060913112307.GA1374@outpost.ds9a.nl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 6/12] smc911x: Unneeded spinlocks around smc911x_enable
+Date: Wed, 13 Sep 2006 21:02:02 +0200
+Message-ID: <20060913190202.GC25007@electric-eye.fr.zoreil.com>
+References: <200609132108.16835.bora.sahin@ttnet.net.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: cpw@lanl.gov, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Dustin McIntire <dustin@sensoria.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:9717 "EHLO stinky.trash.net")
-	by vger.kernel.org with ESMTP id S1751096AbWIMSoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 14:44:24 -0400
-To: bert hubert <bert.hubert@netherlabs.nl>
-In-Reply-To: <20060913112307.GA1374@outpost.ds9a.nl>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:17292 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751112AbWIMTFD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 15:05:03 -0400
+To: bora.sahin@ttnet.net.tr
+Content-Disposition: inline
+In-Reply-To: <200609132108.16835.bora.sahin@ttnet.net.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bert hubert wrote:
-> Hi people,
-> 
-> I like to use memory mapped pcap (PACKET_MMAP) since off the shelf, linux is
-> a tad prone to drop packets while capturing these days. It used to be lots
-> better at it, but right now memory mapped pcap is the only way to get things
-> working a bit. I've noticed this on many machines.
-> 
-> However, memory mapped pcap has started to truncate outgoing packets for me
-> recently, and interestingly, I only see this with locally generated TCP
-> packets, not with locally generated ICMP packets. I haven't yet tried UDP,
-> nor actual sniffing, this is all locally generated packets going out on
-> eth0.
+bora.sahin@ttnet.net.tr <bora.sahin@ttnet.net.tr> :
+[...]
+> is unneeded...
+[...]
+> -	spin_lock_irqsave(&lp->lock, flags);
 
-Are you using TSO on the outgoing device? If so please try to log the
-packet using iptables to see if it really is a TSO packet.
+The variable "flags" is not used any more.
 
+-- 
+Ueimor
