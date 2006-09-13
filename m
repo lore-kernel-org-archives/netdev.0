@@ -1,66 +1,72 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] Alternate WE-21 support (core API)
-Date: Wed, 13 Sep 2006 08:17:36 +0200
-Message-ID: <1158128256.2894.8.camel@ux156>
-References: <1157031138.16040.17.camel@ux156>
-	 <20060831135112.GA6097@jm.kir.nu> <1157032805.16040.21.camel@ux156>
-	 <20060906205538.GA29767@tuxdriver.com>
-	 <20060906213053.GA21719@bougret.hpl.hp.com>
-	 <20060908142913.GD23852@tuxdriver.com>
-	 <20060908161345.GA27036@bougret.hpl.hp.com> <1157965694.2811.3.camel@ux156>
-	 <20060911162608.GA31459@bougret.hpl.hp.com>
-	 <1158050637.2854.16.camel@ux156> <20060912161737.GB3536@bougret.hpl.hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Pull request for '8139cp-20060912-00' branch
+Date: Wed, 13 Sep 2006 09:07:00 +0200
+Message-ID: <20060913070700.GA15444@electric-eye.fr.zoreil.com>
+References: <20060912192039.GA4482@electric-eye.fr.zoreil.com> <450766D5.1070802@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:19872 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751612AbWIMGQz
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:27874 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751644AbWIMHI7
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 02:16:55 -0400
-To: jt@hpl.hp.com
-In-Reply-To: <20060912161737.GB3536@bougret.hpl.hp.com>
+	Wed, 13 Sep 2006 03:08:59 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <450766D5.1070802@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-09-12 at 09:17 -0700, Jean Tourrilhes wrote:
+Jeff Garzik <jeff@garzik.org> :
+> Francois Romieu wrote:
+> >Please pull from tag '8139cp-20060912-00' in repository
+> >
+> >git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+> >
+> >to get the change below:
+> >
+> >(patch applies to jeff#upstream-linus)
+> 
+> Pulled, but there are some git problems to address...
+> 
+> * Never use 'upstream-linus' branch.
+> 
+> * Base off of vanilla Linus linux-2.6.git, unless you are submitting on 
+> top of changes that are in netdev#upstream or netdev#upstream-fixes.
+> 
+> * For some reason, when I pulled, it fetched over 17,000 objects!
 
-> 	I was initially very negative towards the WPA API (WPA +
-> extended scan), because it's so complex. I went back and forth with
-> Jouni trying to simplify it, but we did not manage to gain much. I
-> trust that Jouni did the best he could, that's just the nature of the
-> beast.
+I am dazed.
 
-:)
+The tag 8139cp-20060912-00 currently references the head of the branch
+8139cp.
 
-> 	I was thinking of the WE -> nl80211 compatibility. It's pretty
-> trivial to do as far as WE is concerned, you just need to hack
-> get_handler() to return the nl80211 handler. Or, if you don't like a
-> single handler, you could have one wrapper per ioctl, which is even
-> easier.
+$ git show master
+commit 05ff0e291af086f4325bac76abad250690bbbd63
+Merge: 5eea7ee... 55669bf...
+Author: Linus Torvalds <torvalds@g5.osdl.org>
+Date:   Mon Sep 11 11:43:17 2006 -0700
 
-Currently, I don't rely on that at all, nl80211 relies on the
-driver/stack assigning ieee80211_ptr in the netdevice field and uses
-that as a cookie. IOW, get_handler() gets to die.
+    Merge branch 'audit.b28' of git://git.kernel.org/pub/scm/linux/kernel/git/viro/audit-current
+    
+    * 'audit.b28' of git://git.kernel.org/pub/scm/linux/kernel/git/viro/audit-current:
+      [PATCH] audit: AUDIT_PERM support
+[...]
 
-My current plan for compatibility was to make all drivers cfg80211-away
-by making them register themselves with cfg80211 with a callback struct
-with entries for each thing they need to handle, and then introduce a
-translation layer that translates incoming WE requests into the
-appropriate callbacks just like nl80211 translates the incoming
-genetlink messages.
+$ git merge-base 8139cp master
+dc709bd190c130b299ac19d596594256265c042a
 
-> 	Do you have a recent version of your code so that I can see
-> how it can hook on your side ? I think we could put the generic
-> mechanism in place early so that people can add specifics as they need
-> them.
+$ git log --pretty=short $(git merge-base 8139cp master)..8139cp | grep commit
+commit 48907e39890590792c58272604cfb34ad1d80054
+commit cccb20d3a9b7c6d4b6e1b52ee02814e6094aaa12
+commit 7668a4945ba0e17a61e535a6c67aa64a319a03b4
+commit e68970e7543815133224f79a858e7c9e0c42f4de
+commit d03d376dd29cae53bf70a21a0c26b306abe37326
+commit 0ba894d420b845667e2981c2147af974a755fba2
+commit c48e9399e895834f26dff9149de1930ba18a0d6c
+commit 3598b57be449a2ee9178e5c511bdb1a8aaccba20
 
-The latest patches were posted to netdev quite a while ago, I haven't
-done anything with them recently.
+Where do the 17000 objects come from ?
 
-One thing I'd like to do is rename the include from net/nl80211.h to
-net/cfg80211.h so that it's more obvious that it isn't purely netlink
-(include/nl80211.h is the userspace netlink interface so that stays).
-
-johannes
+-- 
+Ueimor
