@@ -1,539 +1,614 @@
-From: Diego Beltrami <Diego.Beltrami@hiit.fi>
-Subject: [PATCH]:[XFRM] BEET mode
-Date: Wed, 13 Sep 2006 19:26:19 +0300
-Message-ID: <1158164779.4508312bab9c2@webmail.hiit.fi>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] EtherIP tunnel driver (RFC 3378)
+Date: Wed, 13 Sep 2006 18:27:06 +0200
+Message-ID: <4508315A.9070809@trash.net>
+References: <20060911204129.GA28929@zlug.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	yoshfuji@linux-ipv6.org, miika@iki.fi
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:443 "EHLO creon.otaverkko.fi")
-	by vger.kernel.org with ESMTP id S1750701AbWIMQ03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 12:26:29 -0400
-To: netdev@vger.kernel.org
+Received: from stinky.trash.net ([213.144.137.162]:22765 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750710AbWIMQ1I
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 12:27:08 -0400
+To: Joerg Roedel <joro-lkml@zlug.org>
+In-Reply-To: <20060911204129.GA28929@zlug.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+There are lots of whitespace errors (trailing whitespace, whitespace
+following opening parens, no whitespace after comma, ...) which I'm
+going to ignore below, please fix them anyway.
 
-here you can find the patch rebased to the current tree net-2.6.19 which
-introduces the BEET mode (Bound End-to-End Tunnel) as specified by the ietf
-draft at the following link:
+Joerg Roedel wrote:
+> diff -uprN -X linux-2.6.17.13/Documentation/dontdiff linux-2.6.17.13-vanilla/net/ipv4/etherip.c linux-2.6.17.13/net/ipv4/etherip.c
+> --- linux-2.6.17.13-vanilla/net/ipv4/etherip.c	1970-01-01 01:00:00.000000000 +0100
+> +++ linux-2.6.17.13/net/ipv4/etherip.c	2006-09-11 21:59:40.000000000 +0200
+> @@ -0,0 +1,546 @@
+> +/*
+> + * etherip.c: Ethernet over IPv4 tunnel driver (according to RFC3378)
+> + *
+> + * This driver could be used to tunnel Ethernet packets through IPv4
+> + * networks. This is especially usefull together with the bridging
+> + * code in Linux.
+> + *
+> + * This code was written with an eye on the IPIP driver in linux from
+> + * Sam Lantinga. Thanks for the great work.
+> + *
+> + *      This program is free software; you can redistribute it and/or
+> + *      modify it under the terms of the GNU General Public License
+> + *      version 2 (no later version) as published by the
+> + *      Free Software Foundation.
+> + *
+> + */
+> +
+> +#include <linux/capability.h>
+> +#include <linux/init.h>
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/mutex.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/ip.h>
+> +#include <linux/if_tunnel.h>
+> +#include <linux/list.h>
+> +#include <linux/string.h>
+> +#include <linux/netfilter_ipv4.h>
+> +#include <net/ip.h>
+> +#include <net/protocol.h>
+> +#include <net/route.h>
+> +#include <net/ipip.h>
+> +#include <net/xfrm.h>
+> +
+> +MODULE_LICENSE("GPL");
+> +MODULE_AUTHOR("Joerg Roedel <joerg@zlug.org>");
+> +MODULE_DESCRIPTION("Ethernet over IPv4 tunnel driver");
+> +
+> +/* 
+> + * These 2 defines are taken from ipip.c - if it's good enough for them
+> + * it's good enough for me.
+> + */
+> +#define HASH_SIZE        16
+> +#define HASH(addr)       ((addr^(addr>>4))&0xF)
+> +
+> +#define ETHERIP_HEADER   ((u16)0x0300)
+> +#define ETHERIP_HLEN     2
+> +
+> +#define BANNER1 "etherip: Ethernet over IPv4 tunneling driver\n"
+> +#define BANNER2 "etherip: (C) 2006 by Joerg Roedel <joerg@zlug.org>\n"
+> +
+> +struct etherip_tunnel {
+> +	struct list_head list;
+> +	struct net_device *dev;
+> +	struct net_device_stats stats;
+> +	struct ip_tunnel_parm parms;
+> +	unsigned int recursion;
+> +};
+> +
+> +static struct net_device *etherip_tunnel_dev;
+> +static struct list_head tunnels[HASH_SIZE];
+> +
+> +static DEFINE_RWLOCK(etherip_lock);
+> +
+> +static void etherip_tunnel_setup(struct net_device *dev);
+> +
+> +/* add a tunnel to the hash */
+> +static void etherip_tunnel_add(struct etherip_tunnel *tun)
+> +{
+> +	unsigned h = HASH(tun->parms.iph.daddr);
+> +	list_add_tail(&tun->list, &tunnels[h]);
+> +}
+> +
+> +/* delete a tunnel from the hash*/
+> +static void etherip_tunnel_del(struct etherip_tunnel *tun)
+> +{
+> +	list_del(&tun->list);
+> +}
+> +
+> +/* find a tunnel in the hash by parameters from userspace */
+> +static struct etherip_tunnel* etherip_tunnel_find(struct ip_tunnel_parm *p)
+> +{
+> +	struct list_head *ptr;
+> +	struct etherip_tunnel *ret;
+> +	unsigned h = HASH(p->iph.daddr);
+> +
+> +	list_for_each(ptr, &tunnels[h]) {
+> +		ret = list_entry(ptr, struct etherip_tunnel, list);
 
-http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-06.txt
+Again, please use list_for_each_entry
 
-A BEET mode Security Associations records two pairs of IP addresses, called
-inner addresses and outer addresses.  The inner addresses are what the
-applications see.  The outer addresses are what appear on the wire.
+> +		if (ret->parms.iph.daddr == p->iph.daddr) {
+> +			return ret;
+> +		}
+> +	}
+> +
+> +	return NULL;
+> +}
+> +
+> +/* find a tunnel by its destination address */
+> +static struct etherip_tunnel* etherip_tunnel_locate(u32 remote)
+> +{
+> +	struct list_head *ptr;
+> +	struct etherip_tunnel *ret;
+> +	unsigned h = HASH(remote);
+> +
+> +	list_for_each(ptr, &tunnels[h]) {
+> +		ret = list_entry(ptr, struct etherip_tunnel, list);
+> +		if (ret->parms.iph.daddr == remote) {
+> +			return ret;
+> +		}
+> +	}
+> +
+> +	return NULL;
+> +}
+> +
+> +/* netdevice start function */
+> +static int etherip_tunnel_open(struct net_device *dev)
+> +{
+> +	netif_start_queue(dev);
+> +	return 0;
+> +}
+> +
+> +/* netdevice stop function */
+> +static int etherip_tunnel_stop(struct net_device *dev)
+> +{
+> +	netif_stop_queue(dev);
+> +	return 0;
+> +}
+> +
+> +/* netdevice hard_start_xmit function
+> + * it gets an Ethernet packet in skb and encapsulates it in another IP
+> + * packet */
+> +static int etherip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct etherip_tunnel *tunnel = netdev_priv(dev);
+> +	struct rtable *rt;
+> +	struct iphdr *iph;
+> +	struct flowi fl;
+> +	struct net_device *tdev;
+> +	int max_headroom;
+> +	struct net_device_stats *stats = &tunnel->stats;
+> +
+> +	if (tunnel->recursion++) {
+> +		tunnel->stats.collisions++;
+> +		goto tx_error;
+> +	}
+> +
+> +	fl.oif = fl.iif      = 0;
+> +	fl.proto             = IPPROTO_ETHERIP;
+> +	fl.nl_u.ip4_u.daddr  = tunnel->parms.iph.daddr;
+> +	fl.nl_u.ip4_u.saddr  = tunnel->parms.iph.saddr;
+> +	fl.nl_u.ip4_u.fwmark = 0;
+> +	fl.nl_u.ip4_u.tos    = 0;
 
-The presented BEET mode allows for transformation having inner family equal to
-outer family.
+This still leaves the entire uli_u part as well as flags uninitialized.
+Just use memset or initialize the entire structure at once. fl.oif
+should be set to parms.link.
 
-Signed-off-by: Diego Beltrami <diego.beltrami@gmail.com>
-Signed-off-by: Miika Komu     <miika@iki.fi>
-Signed-off-by: Herbert Xu     <herbert@gondor.apana.org.au>
-Signed-off-by: Abhinav Pathak <abhinav.pathak@hiit.fi>
-Signed-off-by: Jeff Ahrenholz <ahrenholz@gmail.com>
+> +
+> +	if (ip_route_output_key(&rt, &fl)) {
+> +		tunnel->stats.tx_carrier_errors++;
+> +		goto tx_error_icmp;
+> +	}
+> +
+> +	tdev = rt->u.dst.dev;
+> +	if (tdev == dev) {
+> +		ip_rt_put(rt);
+> +		tunnel->stats.collisions++;
+> +		goto tx_error;
+> +	}
+> +
+> +	max_headroom = (LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr)
+> +			+ ETHERIP_HLEN);
+> +
+> +	if (skb_headroom(skb) < max_headroom || skb_cloned(skb)
+> +			|| skb_shared(skb)) {
+> +		struct sk_buff *n_skb = skb_realloc_headroom(skb,max_headroom);
+> +		if (!n_skb) {
+> +			ip_rt_put(rt);
+> +			dev_kfree_skb(skb);
+> +			tunnel->stats.tx_dropped++;
+> +			return 0;
+> +		}
+> +		if (skb->sk)
+> +			skb_set_owner_w(n_skb, skb->sk);
+> +		dev_kfree_skb(skb);
+> +		skb = n_skb;
+> +	}
+> +
+> +	skb->h.raw = skb->nh.raw;
+> +	skb->nh.raw = skb_push(skb, sizeof(struct iphdr)+ETHERIP_HLEN);
+> +	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+> +	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+> +			IPSKB_REROUTED); 
+> +	dst_release(skb->dst);
 
---
-Diego Beltrami
+Still no propagation of the pmtu to the original dst_entry.
 
-diff --git a/include/linux/in.h b/include/linux/in.h
-index bcaca83..f1ae3cc 100644
---- a/include/linux/in.h
-+++ b/include/linux/in.h
-@@ -40,6 +40,7 @@ enum {
+> +	skb->dst = &rt->u.dst;
+> +
+> +	/* Build the IP header for the outgoing packet
+> +	 *
+> +	 * Note: This driver never sets the DF flag on outgoing packets
+> +	 *       to ensure that the tunnel provides the full Ethernet MTU.
+> +	 *       This behavior guarantees that protocols can be
+> +	 *       encapsulated within the Ethernet packet which do not
+> +	 *       know the concept of a path MTU
+> +	 */
+> +	iph = skb->nh.iph;
+> +	iph->version = 4;
+> +	iph->ihl = sizeof(struct iphdr)>>2;
+> +	iph->frag_off = 0;
+> +	iph->protocol = IPPROTO_ETHERIP;
+> +	iph->tos = 0;
+> +	iph->daddr = rt->rt_dst;
+> +	iph->saddr = rt->rt_src;
+> +	iph->ttl = tunnel->parms.iph.ttl;
+> +	if (iph->ttl == 0)
+> +		iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
+> +
+> +	/* add the 16bit etherip header after the ip header */
+> +	*((u16*)(skb->nh.raw + sizeof(struct iphdr))) = ntohs(ETHERIP_HEADER);
+> +	nf_reset(skb);
+> +	IPTUNNEL_XMIT();
+> +	tunnel->dev->trans_start = jiffies;
+> +	tunnel->recursion--;
+> +
+> +	return 0;
+> +
+> +tx_error_icmp:
+> +	dst_link_failure(skb);
+> +
+> +tx_error:
+> +	tunnel->stats.tx_errors++;
+> +	dev_kfree_skb(skb);
+> +	tunnel->recursion--;
+> +	return 0;
+> +}
+> +
+> +/* get statistics callback */
+> +static struct net_device_stats *etherip_tunnel_stats(struct net_device *dev)
+> +{
+> +	struct etherip_tunnel *ethip = netdev_priv(dev);
+> +	return &ethip->stats;
+> +}
+> +
+> +/* checks parameters the driver gets from userspace */
+> +static int etherip_param_check(struct ip_tunnel_parm *p)
+> +{
+> +	if ((p->iph.version != 4)
+> +		|| (p->iph.protocol != IPPROTO_ETHERIP)
+> +		|| (p->iph.ihl != 5)
+> +		|| (p->iph.daddr == INADDR_ANY)
+> +		|| MULTICAST(p->iph.daddr))
+> +		return -EINVAL;
 
-   IPPROTO_ESP = 50,            /* Encapsulation Security Payload protocol */
-   IPPROTO_AH = 51,             /* Authentication Header protocol       */
-+  IPPROTO_BEETPH = 94,	       /* IP option pseudo header for BEET */
-   IPPROTO_PIM    = 103,		/* Protocol Independent Multicast	*/
+Lots of unnecessary parens (here and elsewhere). It also becomes more
+readable IMO if you put the || at the end of the line and align the
+conditions:
 
-   IPPROTO_COMP   = 108,                /* Compression Header protocol */
-diff --git a/include/linux/ip.h b/include/linux/ip.h
-index 2f46001..7a3aee8 100644
---- a/include/linux/ip.h
-+++ b/include/linux/ip.h
-@@ -80,6 +80,8 @@
- #define	IPOPT_TS_TSANDADDR	1		/* timestamps and addresses */
- #define	IPOPT_TS_PRESPEC	3		/* specified modules only */
+if (p->iph.version != 4 ||
+    p->iph.protocol != IPPROTO_ETHERIP ||
+    p->iph.ihl != 4 ||
+...
 
-+#define IPV4_BEET_PHMAXLEN 8
-+
- struct iphdr {
- #if defined(__LITTLE_ENDIAN_BITFIELD)
- 	__u8	ihl:4,
-@@ -123,4 +125,11 @@ struct ip_comp_hdr {
- 	__u16 cpi;
- };
+Well, thats just my taste, but a single tab is in my opinion the
+worst of all choices since it fails to make the distinction between
+the condition and the following expression visible.
 
-+struct ip_beet_phdr {
-+	__u8 nexthdr;
-+	__u8 hdrlen;
-+	__u8 padlen;
-+	__u8 reserved;
-+};
-+
- #endif	/* _LINUX_IP_H */
-diff --git a/include/linux/ipsec.h b/include/linux/ipsec.h
-index d3c5276..d17a630 100644
---- a/include/linux/ipsec.h
-+++ b/include/linux/ipsec.h
-@@ -12,7 +12,8 @@
- enum {
- 	IPSEC_MODE_ANY		= 0,	/* We do not support this for SA */
- 	IPSEC_MODE_TRANSPORT	= 1,
--	IPSEC_MODE_TUNNEL	= 2
-+	IPSEC_MODE_TUNNEL	= 2,
-+	IPSEC_MODE_BEET         = 3
- };
+> +
+> +	return 0;
+> +}
+> +
+> +/* central ioctl function for all netdevices this driver manages
+> + * it allows to create, delete, modify a tunnel and fetch tunnel
+> + * information */
+> +static int etherip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr,
+> +		int cmd)
+> +{
+> +	int err = 0;
+> +	struct ip_tunnel_parm p;
+> +	struct net_device *new_dev;
+> +	char *dev_name;
+> +	struct etherip_tunnel *t;
+> +
+> +
+> +	switch (cmd) {
+> +	case SIOCGETTUNNEL:
+> +		err = -EINVAL;
+> +		if (dev == etherip_tunnel_dev)
+> +			goto out;
+> +		t = netdev_priv(dev);
+> +		if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms,
+> +				sizeof(t->parms)))
+> +			err = -EFAULT;
 
- enum {
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 14ecd19..a745cb3 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -129,7 +129,8 @@ enum
- #define XFRM_MODE_TUNNEL 1
- #define XFRM_MODE_ROUTEOPTIMIZATION 2
- #define XFRM_MODE_IN_TRIGGER 3
--#define XFRM_MODE_MAX 4
-+#define XFRM_MODE_BEET 4
-+#define XFRM_MODE_MAX 5
+break
 
- /* Netlink configuration messages.  */
- enum {
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 90f9136..c5e3b17 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -433,6 +433,15 @@ config INET_XFRM_MODE_TUNNEL
+> +		err = 0;
+> +		break;
+> +	case SIOCADDTUNNEL:
+> +		err = -EINVAL;
+> +		if (dev != etherip_tunnel_dev)
+> +			goto out;
+> +
+> +	case SIOCCHGTUNNEL:
+> +		err = -EPERM;
+> +		if (!capable(CAP_NET_ADMIN))
+> +			goto out;
+> +
+> +		err = -EFAULT;
+> +		if (copy_from_user(&p, ifr->ifr_ifru.ifru_data,
+> +					sizeof(p)))
+> +			goto out;
+> +
+> +		if ((err = etherip_param_check(&p)) < 0)
+> +			goto out;
+> +
+> +		t = etherip_tunnel_find(&p);
+> +
+> +		err = -EEXIST;
+> +		if ((t != NULL) && (t->dev != dev))
+> +			goto out;
+> +
+> +		if (cmd == SIOCADDTUNNEL) {
+> +
+> +			p.name[IFNAMSIZ-1] = 0;
+> +			dev_name = p.name;
+> +			if (dev_name[0] == 0)
+> +				dev_name = "ethip%d";
+> +
+> +			err = -ENOMEM;
+> +			new_dev = alloc_netdev(
+> +					sizeof(struct etherip_tunnel),
+> +					dev_name,
+> +					etherip_tunnel_setup);
+> +
+> +			if (new_dev == NULL)
+> +				goto out;
+> +				
+> +			if (strchr(new_dev->name, '%')) {
+> +				err = dev_alloc_name( new_dev, new_dev->name);
+> +				if (err < 0)
+> +					goto add_err;
+> +			}
+> +			
+> +			t = netdev_priv(new_dev);
+> +			t->dev = new_dev;
+> +			strncpy(p.name, new_dev->name, IFNAMSIZ);
+> +			memcpy(&(t->parms), &p, sizeof(p));
+> +				
+> +			err = register_netdevice(new_dev);
+> +			if (err < 0)
+> +				goto add_err;
+> +
+> +			err = -EFAULT;
+> +			if (copy_to_user(ifr->ifr_ifru.ifru_data, &p,
+> +						sizeof(p)))
+> +				goto add_err;
 
- 	  If unsure, say Y.
+You can't just free the device once its registered.
 
-+config INET_XFRM_MODE_BEET
-+	tristate "IP: IPsec BEET mode"
-+	default y
-+	select XFRM
-+	---help---
-+	  Support for IPsec BEET mode.
-+
-+	  If unsure, say Y.
-+
- config INET_DIAG
- 	tristate "INET: socket monitoring interface"
- 	default y
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index f66049e..15645c5 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_INET_AH) += ah4.o
- obj-$(CONFIG_INET_ESP) += esp4.o
- obj-$(CONFIG_INET_IPCOMP) += ipcomp.o
- obj-$(CONFIG_INET_XFRM_TUNNEL) += xfrm4_tunnel.o
-+obj-$(CONFIG_INET_XFRM_MODE_BEET) += xfrm4_mode_beet.o
- obj-$(CONFIG_INET_TUNNEL) += tunnel4.o
- obj-$(CONFIG_INET_XFRM_MODE_TRANSPORT) += xfrm4_mode_transport.o
- obj-$(CONFIG_INET_XFRM_MODE_TUNNEL) += xfrm4_mode_tunnel.o
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 9628de9..c846f13 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -241,7 +241,8 @@ static int esp_input(struct xfrm_state *
- 		 *    as per draft-ietf-ipsec-udp-encaps-06,
- 		 *    section 3.1.2
- 		 */
--		if (x->props.mode == XFRM_MODE_TRANSPORT)
-+		if (x->props.mode == XFRM_MODE_TRANSPORT ||
-+		    x->props.mode == XFRM_MODE_BEET)
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
+> +			
+> +			write_lock(&etherip_lock);
 
-@@ -259,17 +260,28 @@ static u32 esp4_get_max_size(struct xfrm
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
-+	int enclen = 0;
+Needs bh protection.
 
--	if (x->props.mode == XFRM_MODE_TUNNEL) {
--		mtu = ALIGN(mtu + 2, blksize);
--	} else {
--		/* The worst case. */
-+	switch (x->props.mode) {
-+	case XFRM_MODE_TUNNEL:
-+		mtu = ALIGN(mtu +2, blksize);
-+		break;
-+	default:
-+	case XFRM_MODE_TRANSPORT:
-+		/* The worst case */
- 		mtu = ALIGN(mtu + 2, 4) + blksize - 4;
-+		break;
-+	case XFRM_MODE_BEET:
-+ 		/* The worst case. */
-+		enclen = IPV4_BEET_PHMAXLEN;
-+		mtu = ALIGN(mtu + enclen + 2, blksize);
-+		break;
- 	}
-+
- 	if (esp->conf.padlen)
- 		mtu = ALIGN(mtu, esp->conf.padlen);
+> +			etherip_tunnel_add(t);
+> +			write_unlock(&etherip_lock);
+> +
+> +		} else {
+> +			err = -EINVAL;
+> +			if ((t = netdev_priv(dev)) == NULL)
+> +				goto out;
+> +			if (dev == etherip_tunnel_dev)
+> +				goto out;
+> +			write_lock(&etherip_lock);
+> +			memcpy(&(t->parms), &p, sizeof(p));
+> +			write_unlock(&etherip_lock);
+> +		}
+> +
+> +		err = 0;
+> +		break;
+> +add_err:
+> +		free_netdev(new_dev);
+> +		goto out;
+> +
+> +	case SIOCDELTUNNEL:
+> +		err = -EPERM;
+> +		if (!capable(CAP_NET_ADMIN))
+> +			goto out;
+> +
+> +		err = -EINVAL;
+> +		if (dev == etherip_tunnel_dev)
+> +			goto out;
+> +
+> +		t = netdev_priv(dev);
+> +			
+> +		write_lock(&etherip_lock);
+> +		etherip_tunnel_del(t);
+> +		write_unlock(&etherip_lock);
+> +
+> +		unregister_netdevice(t->dev);
+> +		err = 0;
+> +
+> +		break;
+> +	default:
+> +		err = -EINVAL;
+> +	}
+> +
+> +out:
+> +	return err;
+> +}
+> +
+> +/* device init function - called via register_netdevice
+> + * The tunnel is registered as an Ethernet device. This allows
+> + * the tunnel to be added to a bridge */
+> +static void etherip_tunnel_setup(struct net_device *dev)
+> +{
+> +	SET_MODULE_OWNER(dev);
+> +	dev->open = etherip_tunnel_open;
+> +	dev->hard_start_xmit = etherip_tunnel_xmit;
+> +	dev->stop = etherip_tunnel_stop;
+> +	dev->get_stats = etherip_tunnel_stats;
+> +	dev->do_ioctl = etherip_tunnel_ioctl;
+> +	dev->destructor = free_netdev;
+> +
+> +	ether_setup(dev);
+> +	dev->tx_queue_len = 0;
+> +	random_ether_addr(dev->dev_addr);
+> +}
+> +
+> +/* receive function for EtherIP packets
+> + * Does some basic checks on the MAC addresses and
+> + * interface modes */
+> +static int etherip_rcv(struct sk_buff *skb)
+> +{
+> +	struct iphdr *iph;
+> +	struct ethhdr *ehdr;
+> +	struct etherip_tunnel *tunnel;
+> +	struct net_device *dev;
+> +
+> +	iph = skb->nh.iph;
+> +
+> +	read_lock(&etherip_lock);
+> +	tunnel = etherip_tunnel_locate(iph->saddr);
+> +	if (tunnel == NULL)
+> +		goto drop;
+> +
+> +	dev = tunnel->dev;
+> +	secpath_reset(skb);
+> +	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+> +	skb_pull(skb, (skb->nh.raw - skb->data)
+> +			+ sizeof(struct iphdr) + ETHERIP_HLEN);
+> +	ehdr = (struct ethhdr*)skb->data;
+> +	skb->dev = dev;
+> +	skb->pkt_type = PACKET_HOST;
+> +	skb->protocol = eth_type_trans(skb, tunnel->dev);
+> +	skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +	dst_release(skb->dst);
+> +	skb->dst = NULL;
+> +
+> +	/* do some checks */
+> +	if (skb->pkt_type == PACKET_HOST || skb->pkt_type == PACKET_BROADCAST)
+> +		goto accept;
+> +
+> +	if (skb->pkt_type == PACKET_MULTICAST &&
+> +			(dev->mc_count > 0 || dev->flags & IFF_ALLMULTI))
+> +		goto accept;
+> +	
+> +	if (skb->pkt_type == PACKET_OTHERHOST && dev->flags & IFF_PROMISC)
+> +		goto accept;
+> +
+> +	goto drop;
+> +
+> +accept:
+> +	tunnel->dev->last_rx = jiffies;
+> +	tunnel->stats.rx_packets++;
+> +	tunnel->stats.rx_bytes += skb->len;
+> +	nf_reset(skb);
+> +	netif_rx(skb);
+> +	read_unlock(&etherip_lock);
+> +	return 0;
+> +
+> +drop:
+> +	read_unlock(&etherip_lock);
+> +	kfree_skb(skb);
+> +	return 0;
+> +}
+> +
+> +static struct net_protocol etherip_protocol = {
+> +	.handler      = etherip_rcv,
+> +	.err_handler  = 0,
+> +	.no_policy    = 1,
 
--	return mtu + x->props.header_len + esp->auth.icv_trunc_len;
-+	return mtu + x->props.header_len + esp->auth.icv_trunc_len - enclen;
- }
+This is wrong, you don't do any policy checks in your code.
 
- static void esp4_err(struct sk_buff *skb, u32 info)
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index b163ebc..67bd228 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -206,6 +206,7 @@ static void ipcomp4_err(struct sk_buff *
- static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
- {
- 	struct xfrm_state *t;
-+	u8 mode = XFRM_MODE_TUNNEL;
-
- 	t = xfrm_state_alloc();
- 	if (t == NULL)
-@@ -216,7 +217,9 @@ static struct xfrm_state *ipcomp_tunnel_
- 	t->id.daddr.a4 = x->id.daddr.a4;
- 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
- 	t->props.family = AF_INET;
--	t->props.mode = XFRM_MODE_TUNNEL;
-+	if (x->props.mode == XFRM_MODE_BEET)
-+		mode = x->props.mode;
-+	t->props.mode = mode;
- 	t->props.saddr.a4 = x->props.saddr.a4;
- 	t->props.flags = x->props.flags;
-
-diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
-new file mode 100644
-index 0000000..75db6a6
---- /dev/null
-+++ b/net/ipv4/xfrm4_mode_beet.c
-@@ -0,0 +1,139 @@
-+/*
-+ * xfrm4_mode_beet.c - BEET mode encapsulation for IPv4.
-+ *
-+ * Copyright (c) 2006 Diego Beltrami <diego.beltrami@gmail.com>
-+ *                    Miika Komu     <miika@iki.fi>
-+ *                    Herbert Xu     <herbert@gondor.apana.org.au>
-+ *                    Abhinav Pathak <abhinav.pathak@hiit.fi>
-+ *                    Jeff Ahrenholz <ahrenholz@gmail.com>
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/stringify.h>
-+#include <net/dst.h>
-+#include <net/ip.h>
-+#include <net/xfrm.h>
-+
-+/* Add encapsulation header.
-+ *
-+ * The top IP header will be constructed per
-draft-nikander-esp-beet-mode-06.txt.
-+ * The following fields in it shall be filled in by x->type->output:
-+ *      tot_len
-+ *      check
-+ *
-+ * On exit, skb->h will be set to the start of the payload to be processed
-+ * by x->type->output and skb->nh will be set to the top IP header.
-+ */
-+static int xfrm4_beet_output(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct iphdr *iph, *top_iph = NULL;
-+	int hdrlen, optlen;
-+
-+	iph = skb->nh.iph;
-+	skb->h.ipiph = iph;
-+
-+	hdrlen = 0;
-+	optlen = iph->ihl * 4 - sizeof(*iph);
-+	if (unlikely(optlen))
-+		hdrlen += IPV4_BEET_PHMAXLEN - (optlen & 4);
-+
-+	skb->nh.raw = skb_push(skb, x->props.header_len + hdrlen);
-+	top_iph = skb->nh.iph;
-+	hdrlen = iph->ihl * 4 - optlen;
-+	skb->h.raw += hdrlen;
-+
-+	memmove(top_iph, iph, hdrlen);
-+	if (unlikely(optlen)) {
-+		struct ip_beet_phdr *ph;
-+
-+		BUG_ON(optlen < 0);
-+
-+		ph = (struct ip_beet_phdr *)skb->h.raw;
-+		ph->padlen = 4 - (optlen & 4);
-+		ph->hdrlen = (optlen + ph->padlen + sizeof(*ph)) / 8;
-+		ph->nexthdr = top_iph->protocol;
-+
-+		top_iph->protocol = IPPROTO_BEETPH;
-+		top_iph->ihl = sizeof(struct iphdr) / 4;
-+	}
-+
-+	top_iph->saddr = x->props.saddr.a4;
-+	top_iph->daddr = x->id.daddr.a4;
-+
-+	return 0;
-+}
-+
-+static int xfrm4_beet_input(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct iphdr *iph = skb->nh.iph;
-+	int phlen = 0;
-+	int optlen = 0;
-+	__u8 ph_nexthdr = 0, protocol = 0;
-+	int err = -EINVAL;
-+
-+	protocol = iph->protocol;
-+
-+	if (unlikely(iph->protocol == IPPROTO_BEETPH)) {
-+		struct ip_beet_phdr *ph = (struct ip_beet_phdr*)(iph + 1);
-+
-+		if (!pskb_may_pull(skb, sizeof(*ph)))
-+			goto out;
-+
-+		phlen = ph->hdrlen * 8;
-+		optlen = phlen - ph->padlen - sizeof(*ph);
-+		if (optlen < 0 || optlen & 3 || optlen > 250)
-+			goto out;
-+
-+		if (!pskb_may_pull(skb, phlen))
-+			goto out;
-+
-+		ph_nexthdr = ph->nexthdr;
-+	}
-+
-+	skb_push(skb, sizeof(*iph) - phlen + optlen);
-+	memmove(skb->data, skb->nh.raw, sizeof(*iph));
-+	skb->nh.raw = skb->data;
-+
-+	iph = skb->nh.iph;
-+	iph->ihl = (sizeof(*iph) + optlen) / 4;
-+	iph->tot_len = htons(skb->len);
-+	iph->daddr = x->sel.daddr.a4;
-+	iph->saddr = x->sel.saddr.a4;
-+	if (ph_nexthdr)
-+		iph->protocol = ph_nexthdr;
-+	else
-+		iph->protocol = protocol;
-+	iph->check = 0;
-+	iph->check = ip_fast_csum(skb->nh.raw, iph->ihl);
-+	err = 0;
-+out:
-+	return err;
-+}
-+
-+static struct xfrm_mode xfrm4_beet_mode = {
-+	.input = xfrm4_beet_input,
-+	.output = xfrm4_beet_output,
-+	.owner = THIS_MODULE,
-+	.encap = XFRM_MODE_BEET,
-+};
-+
-+static int __init xfrm4_beet_init(void)
-+{
-+	return xfrm_register_mode(&xfrm4_beet_mode, AF_INET);
-+}
-+
-+static void __exit xfrm4_beet_exit(void)
-+{
-+	int err;
-+
-+	err = xfrm_unregister_mode(&xfrm4_beet_mode, AF_INET);
-+	BUG_ON(err);
-+}
-+
-+module_init(xfrm4_beet_init);
-+module_exit(xfrm4_beet_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_XFRM_MODE(AF_INET, XFRM_MODE_BEET);
-diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-index 54397ee..25dd486 100644
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -135,6 +135,16 @@ config INET6_XFRM_MODE_TUNNEL
-
- 	  If unsure, say Y.
-
-+config INET6_XFRM_MODE_BEET
-+	tristate "IPv6: IPsec BEET mode"
-+	depends on IPV6
-+	default IPV6
-+	select XFRM
-+	---help---
-+	  Support for IPsec BEET mode.
-+
-+	  If unsure, say Y.
-+
- config INET6_XFRM_MODE_ROUTEOPTIMIZATION
- 	tristate "IPv6: MIPv6 route optimization mode (EXPERIMENTAL)"
- 	depends on IPV6 && EXPERIMENTAL
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 0213c66..87274e4 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -26,6 +26,7 @@ obj-$(CONFIG_INET6_TUNNEL) += tunnel6.o
- obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) += xfrm6_mode_transport.o
- obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
- obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
-+obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
- obj-$(CONFIG_NETFILTER)	+= netfilter/
-
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index 8669146..692b74e 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -199,6 +199,7 @@ static void ipcomp6_err(struct sk_buff *
- static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
- {
- 	struct xfrm_state *t = NULL;
-+	u8 mode = XFRM_MODE_TUNNEL;
-
- 	t = xfrm_state_alloc();
- 	if (!t)
-@@ -212,7 +213,9 @@ static struct xfrm_state *ipcomp6_tunnel
- 	memcpy(t->id.daddr.a6, x->id.daddr.a6, sizeof(struct in6_addr));
- 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
- 	t->props.family = AF_INET6;
--	t->props.mode = XFRM_MODE_TUNNEL;
-+	if (x->props.mode == XFRM_MODE_BEET)
-+		mode = x->props.mode;
-+	t->props.mode = mode;
- 	memcpy(t->props.saddr.a6, x->props.saddr.a6, sizeof(struct in6_addr));
-
- 	if (xfrm_init_state(t))
-diff --git a/net/ipv6/xfrm6_mode_beet.c b/net/ipv6/xfrm6_mode_beet.c
-new file mode 100644
-index 0000000..edcfffa
---- /dev/null
-+++ b/net/ipv6/xfrm6_mode_beet.c
-@@ -0,0 +1,107 @@
-+/*
-+ * xfrm6_mode_beet.c - BEET mode encapsulation for IPv6.
-+ *
-+ * Copyright (c) 2006 Diego Beltrami <diego.beltrami@gmail.com>
-+ *                    Miika Komu     <miika@iki.fi>
-+ *                    Herbert Xu     <herbert@gondor.apana.org.au>
-+ *                    Abhinav Pathak <abhinav.pathak@hiit.fi>
-+ *                    Jeff Ahrenholz <ahrenholz@gmail.com>
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/stringify.h>
-+#include <net/dsfield.h>
-+#include <net/dst.h>
-+#include <net/inet_ecn.h>
-+#include <net/ipv6.h>
-+#include <net/xfrm.h>
-+
-+/* Add encapsulation header.
-+ *
-+ * The top IP header will be constructed per
-draft-nikander-esp-beet-mode-06.txt.
-+ * The following fields in it shall be filled in by x->type->output:
-+ *	payload_len
-+ *
-+ * On exit, skb->h will be set to the start of the encapsulation header to be
-+ * filled in by x->type->output and skb->nh will be set to the nextheader field
-+ * of the extension header directly preceding the encapsulation header, or in
-+ * its absence, that of the top IP header.  The value of skb->data will always
-+ * point to the top IP header.
-+ */
-+static int xfrm6_beet_output(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct ipv6hdr *iph, *top_iph;
-+	u8 *prevhdr;
-+	int hdr_len;
-+
-+	skb_push(skb, x->props.header_len);
-+	iph = skb->nh.ipv6h;
-+
-+	hdr_len = ip6_find_1stfragopt(skb, &prevhdr);
-+	skb->nh.raw = prevhdr - x->props.header_len;
-+	skb->h.raw = skb->data + hdr_len;
-+	memmove(skb->data, iph, hdr_len);
-+
-+	skb->nh.raw = skb->data;
-+	top_iph = skb->nh.ipv6h;
-+	skb->nh.raw = &top_iph->nexthdr;
-+	skb->h.ipv6h = top_iph + 1;
-+
-+	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
-+	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
-+
-+	return 0;
-+}
-+
-+static int xfrm6_beet_input(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct ipv6hdr *ip6h;
-+	int size = sizeof(struct ipv6hdr);
-+	int err = -EINVAL;
-+
-+	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
-+		goto out;
-+
-+	skb_push(skb, size);
-+	memmove(skb->data, skb->nh.raw, size);
-+	skb->nh.raw = skb->data;
-+
-+	skb->mac.raw = memmove(skb->data - skb->mac_len,
-+			       skb->mac.raw, skb->mac_len);
-+
-+	ip6h = skb->nh.ipv6h;
-+	ip6h->payload_len = htons(skb->len - size);
-+	ipv6_addr_copy(&ip6h->daddr, (struct in6_addr *) &x->sel.daddr.a6);
-+	ipv6_addr_copy(&ip6h->saddr, (struct in6_addr *) &x->sel.saddr.a6);
-+	err = 0;
-+out:
-+	return err;
-+}
-+
-+static struct xfrm_mode xfrm6_beet_mode = {
-+	.input = xfrm6_beet_input,
-+	.output = xfrm6_beet_output,
-+	.owner = THIS_MODULE,
-+	.encap = XFRM_MODE_BEET,
-+};
-+
-+static int __init xfrm6_beet_init(void)
-+{
-+	return xfrm_register_mode(&xfrm6_beet_mode, AF_INET6);
-+}
-+
-+static void __exit xfrm6_beet_exit(void)
-+{
-+	int err;
-+
-+	err = xfrm_unregister_mode(&xfrm6_beet_mode, AF_INET6);
-+	BUG_ON(err);
-+}
-+
-+module_init(xfrm6_beet_init);
-+module_exit(xfrm6_beet_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_XFRM_MODE(AF_INET6, XFRM_MODE_BEET);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index a096586..236c4a5 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -210,6 +210,7 @@ static int verify_newsa_info(struct xfrm
- 	case XFRM_MODE_TRANSPORT:
- 	case XFRM_MODE_TUNNEL:
- 	case XFRM_MODE_ROUTEOPTIMIZATION:
-+	case XFRM_MODE_BEET:
- 		break;
-
- 	default:
+> +};
+> +
+> +/* module init function
+> + * initializes the EtherIP protocol (97) and registers the initial
+> + * device */
+> +static int __init etherip_init(void)
+> +{
+> +	int err, i;
+> +	struct etherip_tunnel *p;
+> +
+> +	printk(KERN_INFO BANNER1);
+> +	printk(KERN_INFO BANNER2);
+> +
+> +	for (i=0;i<HASH_SIZE;++i)
+> +		INIT_LIST_HEAD(&tunnels[i]);
+> +
+> +	if (inet_add_protocol(&etherip_protocol, IPPROTO_ETHERIP)) {
+> +		printk(KERN_ERR "etherip: can't add protocol\n");
+> +		return -EAGAIN;
+> +	}
+> +
+> +	etherip_tunnel_dev = alloc_netdev(sizeof(struct etherip_tunnel),
+> +			"ethip0",
+> +			etherip_tunnel_setup);
+> +	
+> +	if (!etherip_tunnel_dev) {
+> +		err = -ENOMEM;
+> +		goto err2;
+> +	}
+> +
+> +	p = netdev_priv(etherip_tunnel_dev);
+> +	p->dev = etherip_tunnel_dev;
+> +
+> +	if ((err = register_netdev(etherip_tunnel_dev)))
+> +		goto err1;
+> +
+> +out:
+> +	return err;
+> +err1:
+> +	free_netdev(etherip_tunnel_dev);
+> +err2:
+> +	inet_del_protocol(&etherip_protocol, IPPROTO_ETHERIP);
+> +	goto out;
+> +}
+> +
+> +/* destroy all tunnels */
+> +static void __exit etherip_destroy_tunnels(void)
+> +{
+> +	int i;
+> +	struct list_head *ptr;
+> +	struct etherip_tunnel *tun;
+> +	
+> +	for (i=0;i<HASH_SIZE;++i) {
+> +		/*
+> +		ptr = tunnels[i].next;
+> +		while (ptr != &(tunnels[i])) {
+> +			ret = list_entry(ptr, struct etherip_tunnel, list);
+> +			ptr = ptr->next;
+> +			unregister_netdevice(ret->dev);
+> +		}*/
+> +		list_for_each(ptr, &tunnels[i]) {
+> +			tun = list_entry(ptr, struct etherip_tunnel, list);
+> +			ptr = ptr->prev;
+> +			etherip_tunnel_del(tun);
+> +			unregister_netdevice(tun->dev);
+> +		}
+> +	}
+> +}
+> +
+> +/* module cleanup function */
+> +static void __exit etherip_exit(void)
+> +{
+> +	rtnl_lock();
+> +	etherip_destroy_tunnels();
+> +	unregister_netdevice(etherip_tunnel_dev);
+> +	rtnl_unlock();
+> +	if (inet_del_protocol(&etherip_protocol, IPPROTO_ETHERIP))
+> +		printk(KERN_ERR "etherip: can't remove protocol\n");
+> +}
+> +
+> +module_init(etherip_init);
+> +module_exit(etherip_exit);
 
 
