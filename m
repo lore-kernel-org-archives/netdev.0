@@ -1,13 +1,13 @@
 From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Removes wrong assertions
-Date: Wed, 13 Sep 2006 02:41:35 +0100 (BST)
-Message-ID: <20060913014135.910927B40A0@zog.reactivated.net>
+Subject: [PATCH] zd1211rw: Added workqueue
+Date: Wed, 13 Sep 2006 02:42:12 +0100 (BST)
+Message-ID: <20060913014212.8AC8B7B40A0@zog.reactivated.net>
 Cc: kune@deine-taler.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:35460 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1030479AbWIMBgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Sep 2006 21:36:47 -0400
+Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:38297 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1030480AbWIMBhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Sep 2006 21:37:24 -0400
 To: linville@tuxdriver.com
 Cc: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
@@ -15,65 +15,66 @@ List-Id: netdev.vger.kernel.org
 
 From: Ulrich Kunitz <kune@deine-taler.de>
 
-Checking whether a mutex is not locked directly before
-mutex_lock() is called, doesn't make sense. The whole point of
-mutex_lock() is to block, if the mutex is locked.
+For housekeeping and watchdog tasks a workqueue is created. The
+central workqueue is not used to prevent crashes creates by bugs.
+It might be changed, when the housekeeping is stabilized.
 
 Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
 Signed-off-by: Daniel Drake <dsd@gentoo.org>
 ---
- zd_chip.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+ zd_usb.c |   10 ++++++++++
+ zd_usb.h |    2 ++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.c
+Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.c
 ===================================================================
---- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_chip.c
-+++ linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.c
-@@ -249,7 +249,6 @@ int zd_ioread16(struct zd_chip *chip, zd
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -24,6 +24,7 @@
+ #include <linux/errno.h>
+ #include <linux/skbuff.h>
+ #include <linux/usb.h>
++#include <linux/workqueue.h>
+ #include <net/ieee80211.h>
+ 
+ #include "zd_def.h"
+@@ -1112,12 +1113,20 @@ static struct usb_driver driver = {
+ 	.disconnect	= disconnect,
+ };
+ 
++struct workqueue_struct *zd_workqueue;
++
+ static int __init usb_init(void)
  {
  	int r;
  
--	ZD_ASSERT(!mutex_is_locked(&chip->mutex));
- 	mutex_lock(&chip->mutex);
- 	r = zd_ioread16_locked(chip, value, addr);
- 	mutex_unlock(&chip->mutex);
-@@ -260,7 +259,6 @@ int zd_ioread32(struct zd_chip *chip, zd
- {
- 	int r;
+ 	pr_debug("usb_init()\n");
  
--	ZD_ASSERT(!mutex_is_locked(&chip->mutex));
- 	mutex_lock(&chip->mutex);
- 	r = zd_ioread32_locked(chip, value, addr);
- 	mutex_unlock(&chip->mutex);
-@@ -271,7 +269,6 @@ int zd_iowrite16(struct zd_chip *chip, z
++	zd_workqueue = create_singlethread_workqueue(driver.name);
++	if (zd_workqueue == NULL) {
++		printk(KERN_ERR "%s: couldn't create workqueue\n", driver.name);
++		return -ENOMEM;
++	}
++
+ 	r = usb_register(&driver);
+ 	if (r) {
+ 		printk(KERN_ERR "usb_register() failed. Error number %d\n", r);
+@@ -1132,6 +1141,7 @@ static void __exit usb_exit(void)
  {
- 	int r;
+ 	pr_debug("usb_exit()\n");
+ 	usb_deregister(&driver);
++	destroy_workqueue(zd_workqueue);
+ }
  
--	ZD_ASSERT(!mutex_is_locked(&chip->mutex));
- 	mutex_lock(&chip->mutex);
- 	r = zd_iowrite16_locked(chip, value, addr);
- 	mutex_unlock(&chip->mutex);
-@@ -282,7 +279,6 @@ int zd_iowrite32(struct zd_chip *chip, z
- {
- 	int r;
+ module_init(usb_init);
+Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.h
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_usb.h
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.h
+@@ -238,4 +238,6 @@ int zd_usb_iowrite16v(struct zd_usb *usb
  
--	ZD_ASSERT(!mutex_is_locked(&chip->mutex));
- 	mutex_lock(&chip->mutex);
- 	r = zd_iowrite32_locked(chip, value, addr);
- 	mutex_unlock(&chip->mutex);
-@@ -294,7 +290,6 @@ int zd_ioread32v(struct zd_chip *chip, c
- {
- 	int r;
+ int zd_usb_rfwrite(struct zd_usb *usb, u32 value, u8 bits);
  
--	ZD_ASSERT(!mutex_is_locked(&chip->mutex));
- 	mutex_lock(&chip->mutex);
- 	r = zd_ioread32v_locked(chip, values, addresses, count);
- 	mutex_unlock(&chip->mutex);
-@@ -306,7 +301,6 @@ int zd_iowrite32a(struct zd_chip *chip, 
- {
- 	int r;
- 
--	ZD_ASSERT(!mutex_is_locked(&chip->mutex));
- 	mutex_lock(&chip->mutex);
- 	r = zd_iowrite32a_locked(chip, ioreqs, count);
- 	mutex_unlock(&chip->mutex);
++extern struct workqueue_struct *zd_workqueue;
++
+ #endif /* _ZD_USB_H */
