@@ -1,39 +1,53 @@
-From: Jeff Layton <jlayton@poochiereds.net>
-Subject: Re: [PATCH] make ipv4 multicast packets only get delivered to
-	sockets	that are joined to group
-Date: Wed, 13 Sep 2006 12:12:23 -0400
-Message-ID: <1158163943.15449.75.camel@dantu.rdu.redhat.com>
-References: <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: PATCH mv643xx_eth: Unmap DMA buffers in receive path
+Date: Wed, 13 Sep 2006 09:21:08 -0700
+Message-ID: <20060913162108.GA2171@xyzzy.farnsworth.org>
+References: <20060912182229.GA11522@xyzzy.farnsworth.org> <45076774.5030909@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Manish Lachwani <mlachwani@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:2695 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750958AbWIMQMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 12:12:32 -0400
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF0C86B64A.DE64FE98-ON882571E8.004F57A7-882571E8.004FDDED@us.ibm.com>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:14597 "HELO farnsworth.org")
+	by vger.kernel.org with SMTP id S1751010AbWIMQVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 12:21:05 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <45076774.5030909@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-09-13 at 07:32 -0700, David Stevens wrote:
-> netdev-owner@vger.kernel.org wrote on 09/13/2006 07:13:55 AM:
->
->         This is not true on any OS I'm aware of, including the
-> original sockets multicast implementation on early BSD.
-> 
+From: Dale Farnsworth <dale@farnsworth.org>
 
-The current Linux behavior does seem to be consistent with the way
-recent BSD and OSX seem to work. Solaris 8 seems to behave consistent
-with the patch I posted.
+Fix a missing call to dma_unmap_single() in the receive path.  Without
+this call, errors have been observed on non-cache-coherent systems.
 
-Most of the RFC's I've looked at don't seem to have much to say about
-how multicasting works at the socket level. Is there an RFC or
-specification that spells this out, or is this one of those situations
-where things are somewhat open to interpretation?
+Signed-off-by Dale Farnsworth <dale@farnsworth.org>
 
-Thanks,
-Jeff
+---
+
+> ACK, but
+> error: patch failed: drivers/net/mv643xx_eth.c:402
+> error: drivers/net/mv643xx_eth.c: patch does not apply
+
+Sorry.  Patch was against an old version.
+This one's current.
+
+-Dale
+
+ drivers/net/mv643xx_eth.c |    2 ++
+  1 file changed, 2 insertions(+)
 
 
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 760c61b..eeab1df 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -385,6 +385,8 @@ static int mv643xx_eth_receive_queue(str
+ 	struct pkt_info pkt_info;
+ 
+ 	while (budget-- > 0 && eth_port_receive(mp, &pkt_info) == ETH_OK) {
++		dma_unmap_single(NULL, pkt_info.buf_ptr, RX_SKB_SIZE,
++							DMA_FROM_DEVICE);
+ 		mp->rx_desc_count--;
+ 		received_packets++;
+ 
