@@ -1,45 +1,53 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] make ipv4 multicast packets only get delivered to	sockets	that
- are joined to group
-Date: Wed, 13 Sep 2006 09:42:11 -0700
-Message-ID: <OF92367C0E.A403488D-ON882571E8.00599D09-882571E8.005BC0EB@us.ibm.com>
-References: <1158163943.15449.75.camel@dantu.rdu.redhat.com>
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 0/5] pcnet32: NAPI implementation (one more try)
+Date: Wed, 13 Sep 2006 10:15:23 -0700
+Message-ID: <20060913171523.GA12714@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:53476 "EHLO
-	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750750AbWIMQqk
+Received: from e34.co.us.ibm.com ([32.97.110.152]:17062 "EHLO
+	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750796AbWIMROg
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 12:46:40 -0400
-In-Reply-To: <1158163943.15449.75.camel@dantu.rdu.redhat.com>
-To: Jeff Layton <jlayton@poochiereds.net>
+	Wed, 13 Sep 2006 13:14:36 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8DHEZ4O015329
+	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 13:14:35 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8DHEZx0253768
+	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 11:14:35 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8DHEYjQ029781
+	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 11:14:35 -0600
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Layton <jlayton@poochiereds.net> wrote on 09/13/2006 09:12:23 AM:
+These patches to the pcnet32 driver implement NAPI and respond to some
+other suggestions found during NAPI development and testing.
 
-> Most of the RFC's I've looked at don't seem to have much to say about
-> how multicasting works at the socket level. Is there an RFC or
-> specification that spells this out, or is this one of those situations
-> where things are somewhat open to interpretation?
+The first patch deletes a couple of unnecessary save/restore operations.
+The second patch replaces some magic numbers with hopefully more clear
+defines.
+The third patch moves the receive and creates a transmit routine.
+The fourth patch breaks the receive routine into two pieces to make the
+code easier to read and simpler.
+The fifth and final patch implements the NAPI changes.
 
-        RFC's are standards for protocols and are concerned with
-interoperability among multiple implementations. They, in general,
-do not define API's (and those that do are "informational").
-        There are after-the-fact standards for sockets, including
-POSIX, but older features are effectively defined by industry
-practice; in this case, Deering's BSD implementation from nearly
-20 years ago.
-        Sections 7.1 & 7.2 of RFC 988 [Deering, 1986] hint at this
-interpretation (separation of membership from socket delivery),
-esp. when it says "Incoming multicast IP datagrams are
-delivered to upper-layer protocol modules using the
-same 'Receive IP' operation as normal, unicast
-datagrams."
-        But Deering's own implementation, which
-does not distinguish which socket joined the group,
-is the source of the standard practice.
+The comments from Francois Romieu regarding using spin_lock instead of
+spin_lock_irqsave were investigated, but since interrupts have to be
+disabled to prevent the interrupt handler from deadlocking, and since I
+would probably forget sometime, it is safer to leave the locking as it
+is.  The requested mmiowb calls were added.
 
-                                                        +-DLS
+Please appply to 2.6.19.
 
+[PATCH 1/5] pcnet32:  remove unnecessary save/restore register accesses.
+[PATCH 2/5] pcnet32:  magic number cleanup
+[PATCH 3/5] pcnet32:  move/create receive and transmit routines
+[PATCH 4/5] pcnet32:  break receive routine into two pieces.
+[PATCH 5/5] pcnet32:  NAPI implementation
+-- 
+Don Fry
+brazilnut@us.ibm.com
