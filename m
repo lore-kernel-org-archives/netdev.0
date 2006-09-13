@@ -1,24 +1,27 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/2] ethtool: allow const ethtool_ops
-Date: Wed, 13 Sep 2006 02:00:45 -0400
-Message-ID: <45079E8D.4010708@pobox.com>
-References: <20060908111613.12c1f9b8@localhost.localdomain>	<4506DB63.2040904@pobox.com> <20060913140948.3b55d604@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] softmac: Update MAINTAINERS entry
+Date: Wed, 13 Sep 2006 08:12:45 +0200
+Message-ID: <1158127965.2894.3.camel@ux156>
+References: <20060912223725.093917B40A0@zog.reactivated.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:62346 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751590AbWIMGAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 02:00:52 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060913140948.3b55d604@localhost.localdomain>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:17877 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751600AbWIMGMK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Sep 2006 02:12:10 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <20060912223725.093917B40A0@zog.reactivated.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-How hard can it be to grep?  Can you please just provide the patch??
+On Tue, 2006-09-12 at 23:37 +0100, Daniel Drake wrote:
+> This mailing list has been deactivated.
 
-	Jeff
+Eh, and I was so sure I'd checked the maintainers file before
+deactivating the list. Sorry about that.
 
-
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
 
