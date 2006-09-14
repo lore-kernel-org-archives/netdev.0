@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: examples to model ethernet driver off of?
-Date: Wed, 13 Sep 2006 18:40:03 -0700 (PDT)
-Message-ID: <20060913.184003.71102937.davem@davemloft.net>
-References: <20060913195445.GH25007@electric-eye.fr.zoreil.com>
-	<450865DB.4040809@intel.com>
-	<20060914102610.6e4dc766@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 1/2] ethtool: allow const ethtool_ops
+Date: Thu, 14 Sep 2006 10:54:59 +0900
+Message-ID: <20060914105459.4923d464@localhost.localdomain>
+References: <20060908111613.12c1f9b8@localhost.localdomain>
+	<450843C6.6030605@pobox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, romieu@fr.zoreil.com,
-	galak@kernel.crashing.org, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49568
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751326AbWINBjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 21:39:13 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060914102610.6e4dc766@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:50373 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751331AbWINBzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 21:55:33 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <450843C6.6030605@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Thu, 14 Sep 2006 10:26:10 +0900
+On Wed, 13 Sep 2006 13:45:42 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> sorry to pick on e1000, but the code is too verbose and
-> split over too many files.  The e100 code is much cleaner.
+> applied, then I fixed up all the drivers
+> 
+> Otherwise, it was a half-complete job that would take years to get 
+> cleaned up.
+> 
+> 
 
-I totally agree, I would never use e1000 as a model
-driver for someone writing some new code.
+Thanks, I did the same effective patch last night but doing a "make allmodconfig"
+build took overnight on a laptop.
