@@ -1,32 +1,33 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: ieee80211 and devices which decrypt in hardware
-Date: Thu, 14 Sep 2006 09:51:28 +0200
-Message-ID: <1158220288.2936.16.camel@ux156>
-References: <45077241.1070102@gentoo.org> <200609131627.58153.mb@bu3sch.de>
-	 <450887B9.7080308@gentoo.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] genetlink custom attribute type
+Date: Thu, 14 Sep 2006 10:14:09 +0200
+Message-ID: <20060914081409.GB18349@postel.suug.ch>
+References: <1158219852.2936.12.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	yi.zhu@intel.com, ipw2100-admin@linux.intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:20366 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751444AbWINHuy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 03:50:54 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <450887B9.7080308@gentoo.org>
+Received: from postel.suug.ch ([194.88.212.233]:29393 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751459AbWININu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 04:13:50 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1158219852.2936.12.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-09-13 at 18:35 -0400, Daniel Drake wrote:
- 
-> +       /* If the device does decryption but leaves the IV in place then we: 
-> +        * need to kill it. */: 
-> +       if (!can_be_decrypted && (fc & IEEE80211_FCTL_PROTECTED)): 
-> +               hdrlen += 4;: 
+* Johannes Berg <johannes@sipsolutions.net> 2006-09-14 09:44
+> This patch adds an NLA_CUSTOM_CHECK type for netlink attributes
+> in order to be able to centrally define new attribute structures
+> instead of having to check these special types in each function
+> that uses such an attribute.
+> 
+> nl80211 will benefit from this because it needs an information
+> element attribute with a fixed type|length|value structure defined
+> in IEEE 802.11 which ought to be checked when passing an IE from
+> userspace.
 
-That might work, unless there are devices that leave the protected bit
-set but do strip the IV/ICV...
-
-johannes
+Looks good, we have to watch the size of struct nla_policy though.
+This bumps the size from 4 bytes to 16 bytes on 64bit architectures
+which might become a problem since we always use ATTR_MAX sized
+arrays.
