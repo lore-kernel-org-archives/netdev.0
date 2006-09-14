@@ -1,65 +1,35 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: netdev tx timeouts
-Date: Thu, 14 Sep 2006 10:23:37 +0900
-Message-ID: <20060914102337.137d4591@localhost.localdomain>
-References: <45076C00.2000100@lwfinger.net>
-	<200609131430.53820.mb@bu3sch.de>
-	<450806D1.4080809@lwfinger.net>
-	<200609131549.23764.mb@bu3sch.de>
+Subject: Re: examples to model ethernet driver off of?
+Date: Thu, 14 Sep 2006 10:26:10 +0900
+Message-ID: <20060914102610.6e4dc766@localhost.localdomain>
+References: <9F51F56C-9924-4DEC-A823-892DDEE69131@kernel.crashing.org>
+	<20060913195445.GH25007@electric-eye.fr.zoreil.com>
+	<450865DB.4040809@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	Stefano Brivio <st3@riseup.net>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53690 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751319AbWINBX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 21:23:57 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200609131549.23764.mb@bu3sch.de>
+Received: from smtp.osdl.org ([65.172.181.4]:49851 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751324AbWINB0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 21:26:20 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <450865DB.4040809@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Sep 2006 15:49:23 +0200
-Michael Buesch <mb@bu3sch.de> wrote:
+On Wed, 13 Sep 2006 13:11:07 -0700
+Auke Kok <auke-jan.h.kok@intel.com> wrote:
 
-> On Wednesday 13 September 2006 15:25, Larry Finger wrote:
-> > Michael Buesch wrote:
-> > > On Wednesday 13 September 2006 04:25, Larry Finger wrote:
-> > >> Michael,
-> > >>
-> > >> I still have not gotten a network guru to answer any questions about 
-> > >> synchronize_net, but I have been testing the patch below:
-> > > 
-> > > I'd say this is racy.
-> > > Did you test this on SMP?
+> Francois Romieu wrote:
+> > Kumar Gala <galak@kernel.crashing.org> :
+> >> What are good examples of simple/basic ethernet drivers one should  
+> >> use to model a new driver off of?
 > > 
-> > No - I don't have the hardware.
-> > > 
-> > >> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > >> ===================================================================
-> > >> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > >> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > >> @@ -3169,8 +3169,8 @@ static void bcm43xx_periodic_work_handle
-> > >>   		 * be preemtible.
-> > >>   		 */
-> > >>   		mutex_lock(&bcm->mutex);
-> > >> -		netif_stop_queue(bcm->net_dev);
-> > >>   		synchronize_net();
-> > > 
-> > > A TX handler starts on another CPU.
-> > > 
-> > >> +		netif_stop_queue(bcm->net_dev);
-> > > 
-> > > It's still running... boom.
-> > > 
-> > 
-> > I see your point, but the current way breaks a UP system! What to do?
+> > tg3/bnx2/sky2/b44/8139cp
 > 
-> Simple. Reading the code of synchronize_net() and
-> netif_stop_queue() and thinking about why it breaks, instead
-> of committing bugfixes that only substitute one bug by another. ;)
-> I'll take a look, too.
+> Can I add e1000/ixgb to that? ;)
 
-Why are you doing the synchronize_net()? it is meant for RCU.
+sorry to pick on e1000, but the code is too verbose and
+split over too many files.  The e100 code is much cleaner.
