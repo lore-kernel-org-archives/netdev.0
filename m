@@ -1,42 +1,53 @@
-From: Andy Gospodarek <gospo@redhat.com>
-Subject: Re: 802.1D/Linux STP issue
-Date: Thu, 14 Sep 2006 17:21:43 -0400
-Message-ID: <20060914212142.GB12665@gospo.rdu.redhat.com>
-References: <OF1AE42FF9.06C5D926-ON852571E7.005804CC-852571E7.0057EE7E@ieee.org> <45076B88.80104@bristyle.com> <6.0.1.1.2.20060913075410.04133280@mail.expressoweb.co.uk> <45088D29.30501@bristyle.com> <20060914100619.76cb1828@localhost.localdomain> <6.0.1.1.2.20060914174624.05055480@mail.expressoweb.co.uk>
+From: sunny12 <johanhen@yahoo.com>
+Subject: Re: tg3 driver timeout problems
+Date: Thu, 14 Sep 2006 14:24:08 -0700 (PDT)
+Message-ID: <6315074.post@talk.nabble.com>
+References: <6252031.post@talk.nabble.com> <1158005660.5436.9.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Brian Braunstein <brian@bristyle.com>,
-	Rajesh Mishra <rajesh_mish@yahoo.com>, bridge@osdl.org,
-	netdev@vger.kernel.org, mick_seaman@ieee.org
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:22215 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751178AbWINVVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 17:21:51 -0400
-To: Tony Jeffree <tony@jeffree.co.uk>
-Content-Disposition: inline
-In-Reply-To: <6.0.1.1.2.20060914174624.05055480@mail.expressoweb.co.uk>
+Received: from www.nabble.com ([72.21.53.35]:17625 "EHLO talk.nabble.com")
+	by vger.kernel.org with ESMTP id S1751189AbWINVYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 17:24:10 -0400
+Received: from [72.21.53.38] (helo=jubjub.nabble.com)
+	by talk.nabble.com with esmtp (Exim 4.50)
+	id 1GNygq-00019y-IJ
+	for netdev@vger.kernel.org; Thu, 14 Sep 2006 14:24:08 -0700
+To: netdev@vger.kernel.org
+In-Reply-To: <1158005660.5436.9.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 14, 2006 at 05:51:50PM +0100, Tony Jeffree wrote:
-> Steve/Brian -
+
+Thanks a lot Michael, it seems to have resolved the issue, at least we were
+not able to reproduce it again
+after changing this flag. I will update this thread if the issue reoccurs.
+
+
+
+Michael Chan wrote:
 > 
-> You've probably seen Mick Seaman's comments on this by now - as he points 
-> out in his email, tinkering with existing STP implementations is not likely 
-> to be a rewarding exercise and I would encourage you not to go there.
+> On Mon, 2006-09-11 at 11:18 -0700, sunny12 wrote:
 > 
-> I would suggest that it would be a much more valuable exercise for the 
-> Linux community to replace the existing STP support with an implementation 
-> of RSTP.
+>> A restart of the network using /etc/init.d/network restart does the trick
+>> and the device works again.
+>> I dont think this is related to the TSO problem reported earlier because
+>> I
+>> believe its disabled by default.
+>> 
+> TSO may be on by default on eth0 where you have a 5721.  Check with
+> ethtool -k eth0.  Turn it off if it is on by doing ethtool -K eth0 tso
+> off.
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 > 
 
-While we are at it can we rip it out of the kernel and develop a
-user-space daemon that does it instead?  Setting the spanning-tree state
-of a port could be done with a simple ioctl (well not too simple because
-it would be good to support multiple STP instances so someone could
-code up 802.1w support and the kernel interface would already be there).
-
-Thoughts?
-
+-- 
+View this message in context: http://www.nabble.com/tg3-driver-timeout-problems-tf2254084.html#a6315074
+Sent from the netdev forum at Nabble.com.
 
