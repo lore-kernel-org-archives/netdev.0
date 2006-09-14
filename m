@@ -1,61 +1,50 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 20/20] iscsi: support for swapping over iSCSI.
-Date: Thu, 14 Sep 2006 22:46:56 +0200
-Message-ID: <1158266816.30737.99.camel@taijtu>
-References: <20060912143049.278065000@chello.nl>
-	 <20060912144905.201160000@chello.nl>  <45086F16.9030307@cs.wisc.edu>
-	 <1158214650.13665.27.camel@twins>  <4509ABE5.2080904@cs.wisc.edu>
-	 <1158266150.30737.92.camel@taijtu>
+From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: [PATCH] bridge: add ETH_HLEN to packet_length
+Date: Thu, 14 Sep 2006 23:53:48 +0300
+Message-ID: <4509C15C.6080308@kolumbus.fi>
+References: <20060914182751.GA15203@kudzu.us>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
-	Andrew Morton <akpm@osdl.org>,
-	David Miller <davem@davemloft.net>,
-	Rik van Riel <riel@redhat.com>,
-	Daniel Phillips <phillips@google.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751155AbWINUpN@vger.kernel.org>
-To: Mike Christie <michaelc@cs.wisc.edu>
-In-Reply-To: <1158266150.30737.92.camel@taijtu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1.turkuamk.fi ([195.148.208.125]:21190 "EHLO
+	mail-gw1.turkuamk.fi") by vger.kernel.org with ESMTP
+	id S1751052AbWINUwI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 16:52:08 -0400
+To: Jon Mason <jdmason@kudzu.us>
+In-Reply-To: <20060914182751.GA15203@kudzu.us>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-14 at 22:35 +0200, Peter Zijlstra wrote:
-> On Thu, 2006-09-14 at 14:22 -0500, Mike Christie wrote:
+Jon Mason wrote:
+> In br_dev_queue_push_xmit, why is the check to drop mtu oversized
+> packets not checking for enough room for the impending ETH_HLEN size
+> skb_push?  In some code currently under development, we are seeing
+> skb_under_panic being called from the "skb_push(skb, ETH_HLEN)" in that
+> code.  It seems to me it would be better to drop those skbs than panic.
+> Attached is a patch to do this.
+>
+> Thanks,
+> Jon
+>
+> Signed-off-by: Jon Mason <jdmason@kudzu.us>
+>
+> diff -r b1d36669f98d net/bridge/br_forward.c
+> --- a/net/bridge/br_forward.c	Mon Sep  4 03:00:04 2006 +0000
+> +++ b/net/bridge/br_forward.c	Thu Sep 14 13:18:04 2006 -0500
+> @@ -29,7 +29,8 @@ static inline int should_deliver(const s
+>  
+>  static inline unsigned packet_length(const struct sk_buff *skb)
+>  {
+> -	return skb->len - (skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
+> +	return skb->len - ETH_HLEN - 
+> +		(skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
+>  }
+>
+>   
+packet_length() is a wrong place to do that, mtu has nothing to do with 
+skb headroom.
 
-> > > I thought I found allocations in that path, lemme search...
-> > > found this:
-> > > 
-> > > iscsi_tcp_data_recv()
-> > >   iscsi_data_rescv()
-> > >     iscsi_complete_pdu()
-> > >       __iscsi_complete_pdu()
-> > >         iscsi_recv_pdu()
-> > >           alloc_skb( GFP_ATOMIC);
-> > > 
-> > 
-> > You are right that is for the netlink interface. Could we move the
-> > PF_MEMALLOC setting and clearing to iscsi_recv_pdu and and add it to
-> > iscsi_conn_error in scsi_transport_iscsi.c so that iscsi_iser and
-> > qla4xxx will have it set when they need it. I will send a patch for this
-> > along with a way to have the netlink sock vmio set for all iscsi drivers
-> > that need it.
-> 
-> I already have such a patch, look at:
-> http://programming.kicks-ass.net/kernel-patches/vm_deadlock/current/iscsi_vmio.patch
-> 
-> but what conditional do you want to use for PF_MEMALLOC, an
-> unconditional setting will be highly unpopular.
-> 
-> Hmm, perhaps you could key it of sk_has_vmio(nls)...
+--Mika
 
-On second thought, not such a good idea, that will still be too course.
-You only want to force feed stuff originating from
-sk_has_vmio(iscsi_tcp_conn->sock->sk) connections, not all
-connectections as soon as there is a swapper in the system.
-
-In order to preserve that information you need extra state, abusing this
-process flags is as good as propagating __GFP_EMERGENCY down the call
-chain with extra gfp_t arguments, perhaps even better, since it will
-make sure we catch all allocations.
