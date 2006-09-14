@@ -1,64 +1,74 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] make ipv4 multicast packets only get delivered to
-	sockets	that are joined to group
-Date: Thu, 14 Sep 2006 13:12:08 -0400
-Message-ID: <1158253928.12479.3.camel@galen.zko.hp.com>
-References: <OFFA78855E.1D1E53C6-ON882571E9.00538B2B-882571E9.005607E5@us.ibm.com>
+From: mabbas <mabbas@linux.intel.com>
+Subject: Re: [d80211] some issues regarding iwconfig parameters sequence
+Date: Thu, 14 Sep 2006 10:48:47 -0700
+Message-ID: <450995FF.7080309@linux.intel.com>
+References: <4508717B.8060403@linux.intel.com> <1158240884.2634.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, jkm@devicescape.com,
+	johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:32958 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1750775AbWINRML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 13:12:11 -0400
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OFFA78855E.1D1E53C6-ON882571E9.00538B2B-882571E9.005607E5@us.ibm.com>
+Received: from mga07.intel.com ([143.182.124.22]:45326 "EHLO
+	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
+	id S1750830AbWINRsp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 13:48:45 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1158240884.2634.4.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-14 at 08:39 -0700, David Stevens wrote:
-> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote on 09/14/2006 03:30:37 AM:
-> 
-> > Hello!
-> > 
-> > >         No, it returns 1 (allow) if there are no filters to explicitly
-> > > filter it. I wrote that code. :-)
-> > 
-> > I see. It did not behave this way old times.
-> > 
-> > From your mails I understood that current behaviour matches another
-> > implementations (BSD whatever), is it true?
-> 
-> Hi, Alexey,
-> 
-> If you mean IPv6 code in current BSD derivatives, I don't know.
-> 
-> The IPv6 behaviour was different from IPv4 on Linux and was changed for
-> compatibility with IPv4 (discussion on netdev agreed that binding
-> should determine socket delivery, not group membership, or simply
-> that there was no reason to be different from long-standing IPv4 
-> practice).
-> 
-> The IPv4 code is that way for compatibility with everything else since
-> about ~4.3BSD (with the possible exception of Solaris 8, apparently).
-> 
-> FWIW, I think Deering's original interpretation is correct. Adding
-> a multicast address to an interface by joining a group is little
-> different from adding a unicast address via SIOCSIFADDR, which
-> certainly does affect packets delivered to the machine and to any
-> INADDR_ANY-bound socket. Binding to the multicast address and not
-> INADDR_ANY will give you only packets for that group, if that's
-> what you want, just as in the unicast address-specific bind.
-> 
->                                                         +-DLS
-
-There was an IETF daft quite a while ago that proposed something similar
-to the patch that originated this thread.  In case anyone is curious,
-here is the link:
-http://tools.ietf.org/wg/ipv6/draft-arunt-ipv6-multicast-filtering-rules-01.txt
-
-That work got a few positive comments, but didn't really go anywhere.
-
--vlad
-
+Dan Williams wrote:
+> On Wed, 2006-09-13 at 14:00 -0700, mabbas wrote:
+>   
+>> Hi
+>> I have some problem connecting if I don't follow some parameters 
+>> sequence in iwconfig command for example if I issues the following
+>> # iwconfig wlan0 essid test  ap xx:xx:xx:xx:xx:xx
+>> #iwconfif wlan0 channel 9
+>>     
+>
+> Any reason you don't stick all the commands on one iwconfig line, or why
+> you don't do the channel first?  Some operations with WEXT are
+> undefined, and I think command ordering is one of them.  However, I
+> believe that the card/driver should be keeping all the attributes set,
+> and any time an attribute changes that would break a current association
+> or operation (like locking the channel), then the card/driver should be
+> restarting association/auth with the new attribute set.
+>   
+the driver/card do not do any authentication itself. d80211 will start 
+the authentication for us and I don't think it is a good idea to redo 
+the same thing that d80211 already has. I don't mind to stick the 
+commands on one iwconfig  but still it will break in IBSS if the channel 
+parameter was last and also user will complain about it, I can force it 
+on them.
+>   
+>> in d80211 if essid and bssid set it will start authentication with 
+>> default channel and authentication will timeout then after the second 
+>> command kicks in to tune to the right channel the retry counter of 
+>> authentication will be at maximum and we wont authenticate, same problem 
+>> exist for IBSS it will start searching but once we call #iwconfif wlan0 
+>> channel 9 this will stop scanning and we stop IBSS searching . I 
+>>     
+>
+> That seems wrong; once you set the channel, d80211 should be resetting
+> the current assoc/auth stuff, and restarting the association with the
+> current parameters/attributes from scratch, but now only on channel 9.
+> WEXT didn't really have a good way to "package" a full set of
+> association/auth parameters; the commit-handler stuff kind of did that,
+> but if the commands got broken up then the semantics of what happened
+> when were pretty undefined.
+>
+> Dan
+>
+>   
+>> attached a patch for workaround this problem. I am not sure this is the 
+>> right way to fix just attached to illustrate the problem.
+>> Mohamed
+>>     
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
