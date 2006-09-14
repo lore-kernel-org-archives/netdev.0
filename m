@@ -1,74 +1,53 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: ipsec policy with netfilter mark value
-Date: Thu, 14 Sep 2006 13:04:50 +0200
-Message-ID: <BAY103-F408551DB10498F73AE9B53B2290@phx.gbl>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: fix netdev watchdog timeouts
+Date: Thu, 14 Sep 2006 08:28:54 -0500
+Message-ID: <45095916.mailNQM11V1HV@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s12.bay0.hotmail.com ([65.54.246.212]:4658 "EHLO
-	bay0-omc3-s12.bay0.hotmail.com") by vger.kernel.org with ESMTP
-	id S1750715AbWINLEw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 07:04:52 -0400
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello everybody.
-I would like to know if is it possible to create an ipsec
-policy based on the mark value inizialized by netfilter.
+The setup for running long periodic work has a bug that leads to
+netdev watchdog tx timeouts. This change eliminates the timeouts.
+systems.
 
-This is my problem: I need to route VoIP packets from hosts
-connected to the private networks (A & B) to the QoS routers,
-without encrypting them. 'Normal' packets are encrypted &
-delivered by the ipsec tunnel through the 'Internet router'.
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-I was thinking to mark them with netfilter (matching on dscp
-value) and then create an ipsec policy based on that mark
-value.
+John,
 
-TIA
+Please apply this to wireless-2.6. It would be great if this patch were to be
+included in 2.6.19.
 
-                       ___ private network A
-                    | /
-                    |/
-                    |
-                    |
-              +-----+-----+
-              |           |
-              |   linux   |
-              |   ipsec   |
-              |  gateway  |
-              |           |
-              +--+-----+--+
-                 |     |
-  +--------+     |     |
-  |Internet|     |     |     +------------------+
-  |        +-----+     +-----+QoS enabled router|
-  | router |                 +------------------+
-  +--------+                          ||
-     ||                               ||
-     ||                               ||
-     ||\                              ||
-     || \___ipsec tunnel              ||\
-     ||    net A <=> net B            || \___QoS WAN network
-     ||                               ||     net A <=> net B
-     ||                               ||
-  +--------+                          ||
-  |Internet|                 +------------------+
-  |        +-----+     +-----+QoS enabled router|
-  | router |     |     |     +------------------+
-  +--------+     |     |
-                 |     |
-              +--+-----+--+
-              |           |
-              |   linux   |
-              |   ipsec   |
-              |  gateway  |
-              |           |
-              +-----+-----+
-                    |
-                    |
-                    |\
-                    | \___ private network B
+Thanks,
 
+Larry
 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3169,8 +3169,7 @@ static void bcm43xx_periodic_work_handle
+ 		 * be preemtible.
+ 		 */
+ 		mutex_lock(&bcm->mutex);
+-		netif_stop_queue(bcm->net_dev);
+-		synchronize_net();
++		netif_tx_disable(bcm->net_dev);
+ 		spin_lock_irqsave(&bcm->irq_lock, flags);
+ 		bcm43xx_mac_suspend(bcm);
+ 		if (bcm43xx_using_pio(bcm))
