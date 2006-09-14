@@ -1,36 +1,37 @@
-From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-Subject: Could not remove vlan with PPPoE sessions
-Date: Thu, 14 Sep 2006 19:18:45 +0400
-Message-ID: <20060914151845.GA13701@tentacle.sectorb.msk.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: ieee80211 and devices which decrypt in hardware
+Date: Thu, 14 Sep 2006 17:25:59 +0200
+Message-ID: <200609141725.59284.mb@bu3sch.de>
+References: <45077241.1070102@gentoo.org> <200609131627.58153.mb@bu3sch.de> <450887B9.7080308@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yi.zhu@intel.com,
+	ipw2100-admin@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tentacle.s2s.msu.ru ([193.232.119.109]:62874 "EHLO
-	tentacle.sectorb.msk.ru") by vger.kernel.org with ESMTP
-	id S1750759AbWINPSy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 11:18:54 -0400
-To: netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:9966
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750775AbWINP1J
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 11:27:09 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <450887B9.7080308@gentoo.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Thursday 14 September 2006 00:35, Daniel Drake wrote:
+> Michael Buesch wrote:
+> > Does it strip ICV and FCS?
+> 
+> The driver always strips FCS (unconditionally).
+> 
+> The device does not strip ICV even when hardware decryption is in use, 
+> it gets included at the end of the frame, and I guess we should also 
+> handle that.
 
-When using "vconfig rem" command to delete vlan device,
-on which kernel-mode PPPoE session were active, vconfig
-and all pppd processes froze in D state with all 
-networking operation stuck, rendering the box non-functional.
+You should skb_trim it, or otherwise it will be included in the
+payload, which will result in various weird bugs.
 
-Kernel started to print message:
- unregister_netdevice: waiting for vlan0154 to become free. Usage count = 3
-in a loop until reboot.
-
-This was kernel 2.6.18-rc7 on AMD64 box. It said 'Usage count = 3' and
-there were exactly 3 pppd processes using vlan0154 interface and stuck
-in D state.
-
-~
-:wq
-                                        With best regards, 
-                                           Vladimir Savkin. 
-
+-- 
+Greetings Michael.
