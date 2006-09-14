@@ -1,123 +1,69 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 20/20] iscsi: support for swapping over iSCSI.
-Date: Thu, 14 Sep 2006 23:18:05 +0200
-Message-ID: <1158268685.19428.4.camel@taijtu>
-References: <20060912143049.278065000@chello.nl>
-	 <20060912144905.201160000@chello.nl>  <45086F16.9030307@cs.wisc.edu>
-	 <1158214650.13665.27.camel@twins>  <4509ABE5.2080904@cs.wisc.edu>
-	 <1158266150.30737.92.camel@taijtu> <4509C2DF.8000007@cs.wisc.edu>
-	 <4509C38B.3000808@cs.wisc.edu>
+From: "Ed L. Cashin" <ecashin@coraid.com>
+Subject: Re: [PATCH 2.6.18-rc4] aoe [04/13]: zero copy write 1 of 2
+Date: Thu, 14 Sep 2006 15:50:54 -0400
+Message-ID: <20060914195054.GL697__38769.1412623555$1158268651$gmane$org@coraid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
-	Andrew Morton <akpm@osdl.org>,
-	David Miller <davem@davemloft.net>,
-	Rik van Riel <riel@redhat.com>,
-	Daniel Phillips <phillips@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Greg K-H <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:10544 "EHLO
-	amsfep14-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751164AbWINVQT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 17:16:19 -0400
-To: Mike Christie <michaelc@cs.wisc.edu>
-In-Reply-To: <4509C38B.3000808@cs.wisc.edu>
+Received: from ns1.coraid.com ([65.14.39.133]:27732 "EHLO coraid.com")
+	by vger.kernel.org with ESMTP id S1751167AbWINVQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 17:16:53 -0400
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-14 at 16:03 -0500, Mike Christie wrote:
-> Mike Christie wrote:
-> > Peter Zijlstra wrote:
-> >> On Thu, 2006-09-14 at 14:22 -0500, Mike Christie wrote:
-> >>> Peter Zijlstra wrote:
-> >>>> On Wed, 2006-09-13 at 15:50 -0500, Mike Christie wrote:
-> >>>>> Peter Zijlstra wrote:
-> >>>>>> Implement sht->swapdev() for iSCSI. This method takes care of reserving
-> >>>>>> the extra memory needed and marking all relevant sockets with SOCK_VMIO.
-> >>>>>>
-> >>>>>> When used for swapping, TCP socket creation is done under GFP_MEMALLOC and
-> >>>>>> the TCP connect is done with SOCK_VMIO to ensure their success. Also the
-> >>>>>> netlink userspace interface is marked SOCK_VMIO, this will ensure that even
-> >>>>>> under pressure we can still communicate with the daemon (which runs as
-> >>>>>> mlockall() and needs no additional memory to operate).
-> >>>>>>
-> >>>>>> Netlink requests are handled under the new PF_MEM_NOWAIT when a swapper is
-> >>>>>> present. This ensures that the netlink socket will not block. User-space will
-> >>>>>> need to retry failed requests.
-> >>>>>>
-> >>>>>> The TCP receive path is handled under PF_MEMALLOC for SOCK_VMIO sockets.
-> >>>>>> This makes sure we do not block the critical socket, and that we do not
-> >>>>>> fail to process incomming data.
-> >>>>>>
-> >>>>>> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> >>>>>> CC: Mike Christie <michaelc@cs.wisc.edu>
-> >>>>>> ---
-> >>>>>>  drivers/scsi/iscsi_tcp.c            |  103 +++++++++++++++++++++++++++++++-----
-> >>>>>>  drivers/scsi/scsi_transport_iscsi.c |   23 +++++++-
-> >>>>>>  include/scsi/libiscsi.h             |    1 
-> >>>>>>  include/scsi/scsi_transport_iscsi.h |    2 
-> >>>>>>  4 files changed, 113 insertions(+), 16 deletions(-)
-> >>>>>>
-> >>>>>> Index: linux-2.6/drivers/scsi/iscsi_tcp.c
-> >>>>>> ===================================================================
-> >>>>>> --- linux-2.6.orig/drivers/scsi/iscsi_tcp.c
-> >>>>>> +++ linux-2.6/drivers/scsi/iscsi_tcp.c
-> >>>>>> @@ -42,6 +42,7 @@
-> >>>>>>  #include <scsi/scsi_host.h>
-> >>>>>>  #include <scsi/scsi.h>
-> >>>>>>  #include <scsi/scsi_transport_iscsi.h>
-> >>>>>> +#include <scsi/scsi_device.h>
-> >>>>>>  
-> >>>>>>  #include "iscsi_tcp.h"
-> >>>>>>  
-> >>>>>> @@ -845,9 +846,13 @@ iscsi_tcp_data_recv(read_descriptor_t *r
-> >>>>>>  	int rc;
-> >>>>>>  	struct iscsi_conn *conn = rd_desc->arg.data;
-> >>>>>>  	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-> >>>>>> -	int processed;
-> >>>>>> +	int processed = 0;
-> >>>>>>  	char pad[ISCSI_PAD_LEN];
-> >>>>>>  	struct scatterlist sg;
-> >>>>>> +	unsigned long pflags = current->flags;
-> >>>>>> +
-> >>>>>> +	if (sk_has_vmio(tcp_conn->sock->sk))
-> >>>>>> +		current->flags |= PF_MEMALLOC;
-> >>>>>>  
-> >>>>> Is this too late or not needed or what is it for? This function gets run
-> >>>>> from the network layer's softirq and at this point we have a skbuff with
-> >>>>> data that we want to process. The iscsi layer also does not allocate
-> >>>>> memory for read or write IO in this path.
-> >>>> I thought I found allocations in that path, lemme search...
-> >>>> found this:
-> >>>>
-> >>>> iscsi_tcp_data_recv()
-> >>>>   iscsi_data_rescv()
-> >>>>     iscsi_complete_pdu()
-> >>>>       __iscsi_complete_pdu()
-> >>>>         iscsi_recv_pdu()
-> >>>>           alloc_skb( GFP_ATOMIC);
-> >>>>
-> >>> You are right that is for the netlink interface. Could we move the
-> >>> PF_MEMALLOC setting and clearing to iscsi_recv_pdu and and add it to
-> >>> iscsi_conn_error in scsi_transport_iscsi.c so that iscsi_iser and
-> >>> qla4xxx will have it set when they need it. I will send a patch for this
-> >>> along with a way to have the netlink sock vmio set for all iscsi drivers
-> >>> that need it.
-> >> I already have such a patch, look at:
-> >> http://programming.kicks-ass.net/kernel-patches/vm_deadlock/current/iscsi_vmio.patch
-> >>
-> > 
-> > You are drowning me in patches :) I did not see that one. I was still
-> > commenting on this patch :)
-> > 
-> > The new patch looks ok.
-> > 
-> 
-> Oh, I think you need a sock_put to go with netlink lookup (lookup does a
-> hold).
+f5d@coraid.com> <1155982692.4051.9.camel@localhost.localdomain> <20060822212150.
+GQ6196@coraid.com> <1156345386.3007.24.camel@localhost.localdomain>
+In-Reply-To: <1156345386.3007.24.camel@localhost.localdomain>
+User-Agent: Mutt/1.5.11+cvs20060126
 
-D'0h again, I'd forgotten I'd used it there too.
-hit refresh :-)
+Hi.  Back in August I sent out some patches for the aoe driver, and
+Alan objected to the direct setting of skb->len in one of them.  I
+asked whether he was suggesting that we use something like this
+instead of setting skb->len:
 
+	skb->data_len = 0;
+	skb_trim(skb, 0);
+	skb_put(skb, sizeof *h + sizeof *ah + DEFAULTBCNT);
 
+... and Alan said that was acceptible because it takes care of
+skb->tail, checks for overflow, and is more future proof.
+
+So I took some time to implement the necessary changes, but then it
+became apparent that there was a problem.
+
+The skb_trim and skb_put macros are only for non-linear skbuffs, but
+we are only using the area inside the skbuff itself for packet
+headers, not data.
+
+When we do something like this:
+
+	if (bio_data_dir(buf->bio) == WRITE) {
+		skb_fill_page_desc(skb, 0, bv->bv_page, buf->bv_off, bcnt);
+		ah.aflags |= AOEAFL_WRITE;
+		skb->len += bcnt;
+		skb->data_len = bcnt;
+		t->wpkts++;
+
+... skb->tail isn't really relevant, because we are only using the
+pre-allocated part of the skbuff for headers, and the headers aren't
+expanding here.  Other parts of the kernel that aren't putting data in
+the skbuff itself set the skb->len directly.
+
+  e1000_main.c
+  ip_output.c
+  tcp.c
+  ip6_output.c
+
+So is it correct for the callers of skb_fill_page_desc to set skb->len
+or is another interface needed besides skb_put/skb_trim?  Such a new
+interface would be able to maintain the consistency of the skbuff
+fields without assuming that the data is in the skbuff itself.
+
+If a new interface is needed, then it seems like we should set
+skb->len in this patch until the new interface is ready.
+
+-- 
+  Ed L Cashin <ecashin@coraid.com>
