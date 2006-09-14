@@ -1,53 +1,77 @@
-From: sunny12 <johanhen@yahoo.com>
-Subject: Re: tg3 driver timeout problems
-Date: Thu, 14 Sep 2006 14:24:08 -0700 (PDT)
-Message-ID: <6315074.post@talk.nabble.com>
-References: <6252031.post@talk.nabble.com> <1158005660.5436.9.camel@rh4>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH 20/20] iscsi: support for swapping over iSCSI.
+Date: Thu, 14 Sep 2006 16:28:55 -0500
+Message-ID: <4509C997.4070006@cs.wisc.edu>
+References: <20060912143049.278065000@chello.nl>	 <20060912144905.201160000@chello.nl>  <45086F16.9030307@cs.wisc.edu>	 <1158214650.13665.27.camel@twins>  <4509ABE5.2080904@cs.wisc.edu>	 <1158266150.30737.92.camel@taijtu> <1158266816.30737.99.camel@taijtu> <4509C4ED.9080508@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
+	Andrew Morton <akpm@osdl.org>,
+	David Miller <davem@davemloft.net>,
+	Rik van Riel <riel@redhat.com>,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.nabble.com ([72.21.53.35]:17625 "EHLO talk.nabble.com")
-	by vger.kernel.org with ESMTP id S1751189AbWINVYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 17:24:10 -0400
-Received: from [72.21.53.38] (helo=jubjub.nabble.com)
-	by talk.nabble.com with esmtp (Exim 4.50)
-	id 1GNygq-00019y-IJ
-	for netdev@vger.kernel.org; Thu, 14 Sep 2006 14:24:08 -0700
-To: netdev@vger.kernel.org
-In-Reply-To: <1158005660.5436.9.camel@rh4>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:12232 "EHLO sabe.cs.wisc.edu")
+	by vger.kernel.org with ESMTP id S1751205AbWINV3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 17:29:12 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+In-Reply-To: <4509C4ED.9080508@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Thanks a lot Michael, it seems to have resolved the issue, at least we were
-not able to reproduce it again
-after changing this flag. I will update this thread if the issue reoccurs.
-
-
-
-Michael Chan wrote:
+Mike Christie wrote:
+> Peter Zijlstra wrote:
+>> On Thu, 2006-09-14 at 22:35 +0200, Peter Zijlstra wrote:
+>>> On Thu, 2006-09-14 at 14:22 -0500, Mike Christie wrote:
+>>>>> I thought I found allocations in that path, lemme search...
+>>>>> found this:
+>>>>>
+>>>>> iscsi_tcp_data_recv()
+>>>>>   iscsi_data_rescv()
+>>>>>     iscsi_complete_pdu()
+>>>>>       __iscsi_complete_pdu()
+>>>>>         iscsi_recv_pdu()
+>>>>>           alloc_skb( GFP_ATOMIC);
+>>>>>
+>>>> You are right that is for the netlink interface. Could we move the
+>>>> PF_MEMALLOC setting and clearing to iscsi_recv_pdu and and add it to
+>>>> iscsi_conn_error in scsi_transport_iscsi.c so that iscsi_iser and
+>>>> qla4xxx will have it set when they need it. I will send a patch for this
+>>>> along with a way to have the netlink sock vmio set for all iscsi drivers
+>>>> that need it.
+>>> I already have such a patch, look at:
+>>> http://programming.kicks-ass.net/kernel-patches/vm_deadlock/current/iscsi_vmio.patch
+>>>
+>>> but what conditional do you want to use for PF_MEMALLOC, an
+>>> unconditional setting will be highly unpopular.
+>>>
+>>> Hmm, perhaps you could key it of sk_has_vmio(nls)...
+>> On second thought, not such a good idea, that will still be too course.
+>> You only want to force feed stuff originating from
+>> sk_has_vmio(iscsi_tcp_conn->sock->sk) connections, not all
+>> connectections as soon as there is a swapper in the system.
+>>
 > 
-> On Mon, 2006-09-11 at 11:18 -0700, sunny12 wrote:
+> You can move the iscsi_session->swapper field to the iscsi_cls_session
+> and have iscsi_swapdev take a iscsi_cls_session and set that flag.
+> iscsi_recv_pdu and iscsi_conn_error and all the llds can then access
+> this bit.
 > 
->> A restart of the network using /etc/init.d/network restart does the trick
->> and the device works again.
->> I dont think this is related to the TSO problem reported earlier because
->> I
->> believe its disabled by default.
->> 
-> TSO may be on by default on eth0 where you have a 5721.  Check with
-> ethtool -k eth0.  Turn it off if it is on by doing ethtool -K eth0 tso
-> off.
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+>> In order to preserve that information you need extra state, abusing this
+>> process flags is as good as propagating __GFP_EMERGENCY down the call
+>> chain with extra gfp_t arguments, perhaps even better, since it will
+>> make sure we catch all allocations.
+>>
 
--- 
-View this message in context: http://www.nabble.com/tg3-driver-timeout-problems-tf2254084.html#a6315074
-Sent from the netdev forum at Nabble.com.
+Oh yeah, on the send side we also allocate some memory for the netlink
+interface if there is a connection error (iscsi_conn_failure ->
+iscsi_conn_error). And when that is called from the transmit side we can
+change the GFP_ATOMICs to GFP_NOIOs since we have process context.
 
+So I am just saying we need to set that flag in a couple more places (if
+you set it in iscsi_conn_error if iscsi_cls_session->swapper is set then
+don't worry about it), and that I need to change iscsi_conn_failure and
+iscsi_conn_error to take a gfp_t as an argument (or do a in_interrupt or
+something) so we can use GFP_NOIO in the transmit code.
