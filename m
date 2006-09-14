@@ -1,34 +1,47 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [PATCH] EtherIP tunnel driver (RFC 3378)
-Date: Thu, 14 Sep 2006 11:21:22 +1000
-Message-ID: <4508AE92.1090202@snapgear.com>
-References: <20060911204129.GA28929@zlug.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP Pacing
+Date: Thu, 14 Sep 2006 10:21:55 +0900
+Message-ID: <20060914102155.3a6552db@localhost.localdomain>
+References: <200609121958.22820.root@danielinux.net>
+	<20060913124152.350cd9b2@localhost.localdomain>
+	<200609131018.33231.root@danielinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Carlo Caini <ccaini@deis.unibo.it>,
+	Rosario Firrincieli <rfirrincieli@arces.unibo.it>,
+	Giovanni Pau <gpau@cs.ucla.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:4023 "EHLO
-	cyberguard.com.au") by vger.kernel.org with ESMTP id S1751310AbWINBVT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Sep 2006 21:21:19 -0400
-To: Joerg Roedel <joro-lkml@zlug.org>
-In-Reply-To: <20060911204129.GA28929@zlug.org>
+Received: from smtp.osdl.org ([65.172.181.4]:54201 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751314AbWINBWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 21:22:17 -0400
+To: root@danielinux.net
+In-Reply-To: <200609131018.33231.root@danielinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joerg Roedel wrote:
-> +	 To configure tunnels an extra tool is required. You can download
-> +	 it from http://zlug.fh-zwickau.de/~joro/projects/ under the
-> +	 EtherIP section. If unsure, say N.
+On Wed, 13 Sep 2006 10:18:31 +0200
+Daniele Lacamera <root@danielinux.net> wrote:
 
-To obtain a list of tunnels, this tool calls SIOCGETTUNNEL
-(SIOCDEVPRIVATE + 0) for every device in /proc/net/dev. I don't think
-this is safe, but I don't have a solution for you.
+> On Wednesday 13 September 2006 05:41, Stephen Hemminger wrote:
+> > Pacing in itself isn't a bad idea, but:
+> <cut>
+> > * Since it is most useful over long delay links, maybe it should be a 
+> route parameter.
+>
 
-Is there a reason why you have a separate tool rather than modifying
-iproute2?
+Look into rtnetlink and how we keep track of route metrics, and
+add a new per route state variable. Need to update iproute2 (ip command)
+as well.
 
-I don't know if you are aware of this older etherip patch by Lennert
-Buytenhek: http://www.wantstofly.org/~buytenh/etherip/
+> What does this mean? Should I move the sysctl switch elsewhere?
+> 
+> A new (cleaner) patch follows.
+> Thanks to you all for your attention & advices.
+> 
+> Signed-off by: Daniele Lacamera <root@danielinux.net>
+
+You may also want into look into high resolution timer (hrtimer),
+the resolution doesn't get finer than HZ without using -rt patches.
+But the ktime interface is cleaner than the normal timer math.
