@@ -1,75 +1,32 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC] genetlink custom attribute type
-Date: Thu, 14 Sep 2006 09:44:12 +0200
-Message-ID: <1158219852.2936.12.camel@ux156>
+Subject: Re: ieee80211 and devices which decrypt in hardware
+Date: Thu, 14 Sep 2006 09:51:28 +0200
+Message-ID: <1158220288.2936.16.camel@ux156>
+References: <45077241.1070102@gentoo.org> <200609131627.58153.mb@bu3sch.de>
+	 <450887B9.7080308@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	yi.zhu@intel.com, ipw2100-admin@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:21150 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751441AbWINHng
+Received: from crystal.sipsolutions.net ([195.210.38.204]:20366 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751444AbWINHuy
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 03:43:36 -0400
-To: Thomas Graf <tgraf@suug.ch>
+	Thu, 14 Sep 2006 03:50:54 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <450887B9.7080308@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds an NLA_CUSTOM_CHECK type for netlink attributes
-in order to be able to centrally define new attribute structures
-instead of having to check these special types in each function
-that uses such an attribute.
-
-nl80211 will benefit from this because it needs an information
-element attribute with a fixed type|length|value structure defined
-in IEEE 802.11 which ought to be checked when passing an IE from
-userspace.
-
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-
---- wireless-dev.orig/include/net/netlink.h	2006-09-13 22:06:09.979647141 +0200
-+++ wireless-dev/include/net/netlink.h	2006-09-13 22:06:11.329647141 +0200
-@@ -159,6 +159,7 @@ enum {
- 	NLA_MSECS,
- 	NLA_NESTED,
- 	NLA_NUL_STRING,
-+	NLA_CUSTOM_CHECK,
- 	__NLA_TYPE_MAX,
- };
+On Wed, 2006-09-13 at 18:35 -0400, Daniel Drake wrote:
  
-@@ -176,6 +177,8 @@ enum {
-  *    NLA_STRING           Maximum length of string
-  *    NLA_NUL_STRING       Maximum length of string (excluding NUL)
-  *    NLA_FLAG             Unused
-+ *    NLA_CUSTOM_CHECK     Unused, check function must be assigned,
-+ *                         it must return 0 if the attribute is valid
-  *    All other            Exact length of attribute payload
-  *
-  * Example:
-@@ -183,11 +186,13 @@ enum {
-  * 	[ATTR_FOO] = { .type = NLA_U16 },
-  *	[ATTR_BAR] = { .type = NLA_STRING, len = BARSIZ },
-  *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
-+ *	[ATTR_CST] = { .type = NLA_CUSTOM_CHECK, .check = my_check },
-  * };
-  */
- struct nla_policy {
- 	u16		type;
- 	u16		len;
-+	int		(*check)(struct nlattr *nla);
- };
- 
- extern void		netlink_run_queue(struct sock *sk, unsigned int *qlen,
---- wireless-dev.orig/net/netlink/attr.c	2006-09-13 22:06:05.889647141 +0200
-+++ wireless-dev/net/netlink/attr.c	2006-09-13 22:06:11.329647141 +0200
-@@ -67,6 +67,9 @@ static int validate_nla(struct nlattr *n
- 		}
- 		break;
- 
-+	case NLA_CUSTOM_CHECK:
-+		BUG_ON(!pt->check);
-+		return pt->check(nla);
- 	default:
- 		if (pt->len)
- 			minlen = pt->len;
+> +       /* If the device does decryption but leaves the IV in place then we: 
+> +        * need to kill it. */: 
+> +       if (!can_be_decrypted && (fc & IEEE80211_FCTL_PROTECTED)): 
+> +               hdrlen += 4;: 
 
+That might work, unless there are devices that leave the protected bit
+set but do strip the IV/ICV...
+
+johannes
