@@ -1,41 +1,80 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: [PATCH] bridge: add ETH_HLEN to packet_length
-Date: Thu, 14 Sep 2006 13:27:54 -0500
-Message-ID: <20060914182751.GA15203@kudzu.us>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 7159] New: No networking on a machine with
+ Ethernet Pro 100 and Realtek 8139
+Date: Thu, 14 Sep 2006 11:53:13 -0700
+Message-ID: <20060914115313.1b90a684.akpm@osdl.org>
+References: <200609141804.k8EI433g025893@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hazelsct@debian.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proof.pobox.com ([207.106.133.28]:60824 "EHLO proof.pobox.com")
-	by vger.kernel.org with ESMTP id S1750948AbWINS0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 14:26:46 -0400
-To: shemminger@osdl.org
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:60320 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751015AbWINSxr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 14:53:47 -0400
+To: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+In-Reply-To: <200609141804.k8EI433g025893@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In br_dev_queue_push_xmit, why is the check to drop mtu oversized
-packets not checking for enough room for the impending ETH_HLEN size
-skb_push?  In some code currently under development, we are seeing
-skb_under_panic being called from the "skb_push(skb, ETH_HLEN)" in that
-code.  It seems to me it would be better to drop those skbs than panic.
-Attached is a patch to do this.
 
-Thanks,
-Jon
+(Switching from bugzilla to email - please retain all Cc's)
 
-Signed-off-by: Jon Mason <jdmason@kudzu.us>
+On Thu, 14 Sep 2006 11:04:03 -0700
+bugme-daemon@bugzilla.kernel.org wrote:
 
-diff -r b1d36669f98d net/bridge/br_forward.c
---- a/net/bridge/br_forward.c	Mon Sep  4 03:00:04 2006 +0000
-+++ b/net/bridge/br_forward.c	Thu Sep 14 13:18:04 2006 -0500
-@@ -29,7 +29,8 @@ static inline int should_deliver(const s
- 
- static inline unsigned packet_length(const struct sk_buff *skb)
- {
--	return skb->len - (skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
-+	return skb->len - ETH_HLEN - 
-+		(skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
- }
- 
- int br_dev_queue_push_xmit(struct sk_buff *skb)
+> http://bugzilla.kernel.org/show_bug.cgi?id=7159
+> 
+>            Summary: No networking on a machine with Ethernet Pro 100 and
+>                     Realtek 8139
+>     Kernel Version: 2.6.16, 2.6.17, 2.6.18-rc6
+>             Status: NEW
+>           Severity: normal
+>              Owner: jgarzik@pobox.com
+>          Submitter: hazelsct@debian.org
+> 
+> 
+> Most recent kernel where this bug did not occur: 2.6.8
+> Distribution: Debian
+> Hardware Environment: Dual-PIII, Ethernet Pro 100 and Realtek 8139 PCI interfaces
+> Software Environment: Debian Etch (Testing)
+> Problem Description: The network is not reachable, though the kernel does seem
+> to sense line presence on both interfaces.
+> 
+> On boot, udev/discover loads e100, 8139cp and 8139too.  /etc/modules does not
+> have any network modules (needs eepro100 for 2.6.8, but I removed it, no
+> change).  The relevant lspci listings
+> are:
+> 
+> 00:09.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+> 00:0b.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+> RTL-8139/8139C/8139C+ (rev 10)
+> 
+> Both interfaces work fine under 2.6.8 as long as eepro100 is loaded.
+> 
+> More information (lspci -v, /proc/interrupts, /proc/ioports) can be found at the
+> Debian bug: http://bugs.debian.org/386972
+> 
+> Steps to reproduce: Boot, try to use network.
+> 
+
+This is all a bit peculiar.  I'd be assuming that you're not getting
+any interrupts through for those NICs.
+
+Could you please check /proc/interrupts, see if the interrupt counts
+related to the NICs can be made to increase?
+
+Also, the full `dmesg -s 1000000' output might help.
+
+We might also get some interesting info if you can compile your own kernel,
+build thsoe net drivers into vmlinux, capture the dmesg output.
+
+If it _is_ an IRQ problem then you might find that fiddling with ACPI
+helps: disable it in config or boot with `acpi=off', see if that helps.  Also
+try booting with the `pci=routeirq' option.
+
+There are various options described under acpi= and pci= in
+Documentation/kernel-parameters.txt which it would be useful for you to
+experiment with.
+
