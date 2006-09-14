@@ -1,37 +1,101 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: NIC interrupt assignments under UltraSPARC-T1
-Date: Wed, 13 Sep 2006 17:47:27 -0700
-Message-ID: <4508A69F.8060102@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 802.1D/Linux STP issue
+Date: Thu, 14 Sep 2006 10:06:19 +0900
+Message-ID: <20060914100619.76cb1828@localhost.localdomain>
+References: <OF1AE42FF9.06C5D926-ON852571E7.005804CC-852571E7.0057EE7E@ieee.org>
+	<45076B88.80104@bristyle.com>
+	<6.0.1.1.2.20060913075410.04133280@mail.expressoweb.co.uk>
+	<45088D29.30501@bristyle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Tony Jeffree <tony@jeffree.co.uk>,
+	Rajesh Mishra <rajesh_mish@yahoo.com>, bridge@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:22169 "EHLO palrel11.hp.com")
-	by vger.kernel.org with ESMTP id S1751283AbWINArb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 20:47:31 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel11.hp.com (Postfix) with ESMTP id 2063535825
-	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 17:47:28 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id RAA26509
-	for <netdev@vger.kernel.org>; Wed, 13 Sep 2006 17:47:27 -0700 (PDT)
-To: Linux Network Development list <netdev@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:50099 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751234AbWINBGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2006 21:06:35 -0400
+To: Brian Braunstein <brian@bristyle.com>
+In-Reply-To: <45088D29.30501@bristyle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- From time to time I "play" with netperf on different systems.  I happen 
-to have occasion to play with a T2000.  Under Solaris 10 I am able to 
-coerce the interrupts of the different core GbEs to be on different 
-cores rather than strands of the same core.
+On Wed, 13 Sep 2006 15:58:49 -0700
+Brian Braunstein <brian@bristyle.com> wrote:
 
-Under a 2.6.15 kernel (Ubuntu Dapper) it would appear that the old 
-standby of "echo affinity mask to the IRQ" doesn't "work" - no matter 
-how I change the mask for a NIC, running a netperf TCP_RR test seems to 
-show the interrupts happening on the same strand.
+> hi stephen and tony,
+> 
+> i have been in contact with both of you and i figured it would make 
+> sense to get you to in contact on this issue, so here's the story:
+> 
+> stephen is the maintainer of the linux spanning tree bridging code, an 
+> implementation of 802.1D-1998 that has very wide spread use.
+> 
+> tony is the chair of the IEEE802.1 working group.
+> 
+> i am trying to get my patch submitted in the linux kernel to fix a bug 
+> in the way STP behaves.  stephen and i discovered that the flaw is 
+> actually in the IEEE802.1D-1998 spec, and that the linux implementation 
+> was merely following this.  i contacted tony to try to see if we can get 
+> an update to the 802.1D-1998 spec, as this is what is implemented in the 
+> linux kernel, but tony said that the 1998 standard is obsolete, will not 
+> be updated,  and that the 2004 RSTP spec should be used.
+> 
+> so here's a review of what i've come across:
+> 
+> first lets start with the bug in the 802.1D-1998 spec
+> 
+> 1998 - 8.6.2.2 Record Configuration Information - Use
+>     you will notice that if the path cost ever goes up and everything 
+> else is held constant, the BPDU will be dropped and the network not 
+> react to the change, and the dropping of the BPDUs will make it seem 
+> like the link is down.
+> 
+> now lets look at the equivalent section in the 8021.D-2004 spec:
+> 
+> 2004 - 17.6 Priority vector calculations
+> 
+>     as you can see here, this bug has been fixed, because the last 
+> condition takes care of the problem, if the config message is received 
+> from the same designated bridge and designated port, then the config 
+> message is processed. so path cost increases will be recorded and 
+> reacted to.
+> 
+> 
+> the issue is whether or not the linux kernel should go with the 1998 or 
+> 2004 spec.  i would assume that the goal is to make the linux 
+> implmentation a functional implementation of the original STP, not a 
+> complete rewrite to conform to all of RSTP, so lets look at what the new 
+> standard says for normal legacy STP, to see if the bug is fixed there as 
+> well:
+> 
+> 2004 - 17.4 STP compatibility
+> 
+>     this section seems to say that an RSTP bridge  will revert to STP as 
+> defined in section 8.  so then we go to section 8...
+> 
+> 2004 - 8 Spanning tree algorithm protocol
+>   
+>     this one then refers to 802.1D-1998 for the STP spec, but also says 
+> that it is obsolete and RSTP should be used
+> 
+> so this is a bit confusing.  section 17.4 says use STP to interoperate 
+> with legacy bridges, then section 8 either says use the 1998 spec, or 
+> don't use STP at all, but if bugs in the 1998 spec cannot be correct, 
+> what are we to do with the linux code?  i can write the patch to 
+> implement the new algorithm from 2004-17.6 to replace the algorithm from 
+> 1998-8.6.2.2.
+> 
+> thanks for you help guys,
+> hopefully we can get this bug fixed up soon, you both have been great 
+> about timely responses and it is much appreciated.
+> 
+> Brian Braunstein
+> 858.245.0434
 
-Is it indeed not possible to alter the interrupt assignments or have I 
-(as I'm wont to do) missed something quasi-obvious?
 
-thanks,
-
-rick jones
+I have no problem fixing the code to be spec noncompliant, there
+are several case where we implement the "right thing" rather than
+the "standard way". I just want to make sure any such changes don't
+have unintended consequences.
