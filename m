@@ -1,80 +1,114 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 7159] New: No networking on a machine with
- Ethernet Pro 100 and Realtek 8139
-Date: Thu, 14 Sep 2006 11:53:13 -0700
-Message-ID: <20060914115313.1b90a684.akpm@osdl.org>
-References: <200609141804.k8EI433g025893@fire-2.osdl.org>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH 20/20] iscsi: support for swapping over iSCSI.
+Date: Thu, 14 Sep 2006 14:22:13 -0500
+Message-ID: <4509ABE5.2080904@cs.wisc.edu>
+References: <20060912143049.278065000@chello.nl>	 <20060912144905.201160000@chello.nl>  <45086F16.9030307@cs.wisc.edu> <1158214650.13665.27.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hazelsct@debian.org
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
+	Andrew Morton <akpm@osdl.org>,
+	David Miller <davem@davemloft.net>,
+	Rik van Riel <riel@redhat.com>,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:60320 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751015AbWINSxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 14:53:47 -0400
-To: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-In-Reply-To: <200609141804.k8EI433g025893@fire-2.osdl.org>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:49350 "EHLO sabe.cs.wisc.edu")
+	by vger.kernel.org with ESMTP id S1751064AbWINTWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 15:22:46 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+In-Reply-To: <1158214650.13665.27.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-(Switching from bugzilla to email - please retain all Cc's)
-
-On Thu, 14 Sep 2006 11:04:03 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=7159
+Peter Zijlstra wrote:
+> On Wed, 2006-09-13 at 15:50 -0500, Mike Christie wrote:
+>> Peter Zijlstra wrote:
+>>> Implement sht->swapdev() for iSCSI. This method takes care of reserving
+>>> the extra memory needed and marking all relevant sockets with SOCK_VMIO.
+>>>
+>>> When used for swapping, TCP socket creation is done under GFP_MEMALLOC and
+>>> the TCP connect is done with SOCK_VMIO to ensure their success. Also the
+>>> netlink userspace interface is marked SOCK_VMIO, this will ensure that even
+>>> under pressure we can still communicate with the daemon (which runs as
+>>> mlockall() and needs no additional memory to operate).
+>>>
+>>> Netlink requests are handled under the new PF_MEM_NOWAIT when a swapper is
+>>> present. This ensures that the netlink socket will not block. User-space will
+>>> need to retry failed requests.
+>>>
+>>> The TCP receive path is handled under PF_MEMALLOC for SOCK_VMIO sockets.
+>>> This makes sure we do not block the critical socket, and that we do not
+>>> fail to process incomming data.
+>>>
+>>> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+>>> CC: Mike Christie <michaelc@cs.wisc.edu>
+>>> ---
+>>>  drivers/scsi/iscsi_tcp.c            |  103 +++++++++++++++++++++++++++++++-----
+>>>  drivers/scsi/scsi_transport_iscsi.c |   23 +++++++-
+>>>  include/scsi/libiscsi.h             |    1 
+>>>  include/scsi/scsi_transport_iscsi.h |    2 
+>>>  4 files changed, 113 insertions(+), 16 deletions(-)
+>>>
+>>> Index: linux-2.6/drivers/scsi/iscsi_tcp.c
+>>> ===================================================================
+>>> --- linux-2.6.orig/drivers/scsi/iscsi_tcp.c
+>>> +++ linux-2.6/drivers/scsi/iscsi_tcp.c
+>>> @@ -42,6 +42,7 @@
+>>>  #include <scsi/scsi_host.h>
+>>>  #include <scsi/scsi.h>
+>>>  #include <scsi/scsi_transport_iscsi.h>
+>>> +#include <scsi/scsi_device.h>
+>>>  
+>>>  #include "iscsi_tcp.h"
+>>>  
+>>> @@ -845,9 +846,13 @@ iscsi_tcp_data_recv(read_descriptor_t *r
+>>>  	int rc;
+>>>  	struct iscsi_conn *conn = rd_desc->arg.data;
+>>>  	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
+>>> -	int processed;
+>>> +	int processed = 0;
+>>>  	char pad[ISCSI_PAD_LEN];
+>>>  	struct scatterlist sg;
+>>> +	unsigned long pflags = current->flags;
+>>> +
+>>> +	if (sk_has_vmio(tcp_conn->sock->sk))
+>>> +		current->flags |= PF_MEMALLOC;
+>>>  
+>> Is this too late or not needed or what is it for? This function gets run
+>> from the network layer's softirq and at this point we have a skbuff with
+>> data that we want to process. The iscsi layer also does not allocate
+>> memory for read or write IO in this path.
 > 
->            Summary: No networking on a machine with Ethernet Pro 100 and
->                     Realtek 8139
->     Kernel Version: 2.6.16, 2.6.17, 2.6.18-rc6
->             Status: NEW
->           Severity: normal
->              Owner: jgarzik@pobox.com
->          Submitter: hazelsct@debian.org
+> I thought I found allocations in that path, lemme search...
+> found this:
 > 
-> 
-> Most recent kernel where this bug did not occur: 2.6.8
-> Distribution: Debian
-> Hardware Environment: Dual-PIII, Ethernet Pro 100 and Realtek 8139 PCI interfaces
-> Software Environment: Debian Etch (Testing)
-> Problem Description: The network is not reachable, though the kernel does seem
-> to sense line presence on both interfaces.
-> 
-> On boot, udev/discover loads e100, 8139cp and 8139too.  /etc/modules does not
-> have any network modules (needs eepro100 for 2.6.8, but I removed it, no
-> change).  The relevant lspci listings
-> are:
-> 
-> 00:09.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
-> 00:0b.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> RTL-8139/8139C/8139C+ (rev 10)
-> 
-> Both interfaces work fine under 2.6.8 as long as eepro100 is loaded.
-> 
-> More information (lspci -v, /proc/interrupts, /proc/ioports) can be found at the
-> Debian bug: http://bugs.debian.org/386972
-> 
-> Steps to reproduce: Boot, try to use network.
+> iscsi_tcp_data_recv()
+>   iscsi_data_rescv()
+>     iscsi_complete_pdu()
+>       __iscsi_complete_pdu()
+>         iscsi_recv_pdu()
+>           alloc_skb( GFP_ATOMIC);
 > 
 
-This is all a bit peculiar.  I'd be assuming that you're not getting
-any interrupts through for those NICs.
+You are right that is for the netlink interface. Could we move the
+PF_MEMALLOC setting and clearing to iscsi_recv_pdu and and add it to
+iscsi_conn_error in scsi_transport_iscsi.c so that iscsi_iser and
+qla4xxx will have it set when they need it. I will send a patch for this
+along with a way to have the netlink sock vmio set for all iscsi drivers
+that need it.
 
-Could you please check /proc/interrupts, see if the interrupt counts
-related to the NICs can be made to increase?
 
-Also, the full `dmesg -s 1000000' output might help.
+>> I think we would want to set this flag at a lower level. Something
+>> closer to where the skbuf is allocated?
+> 
+> Is that the skbuff you were talking about? If so, I'd need to carve a
+> path to pass the swapper information. I had that in a previous patch,
+> but that was large and ugly. I had to go carrying gfp_t flags all
+> through that call chain.
+> 
 
-We might also get some interesting info if you can compile your own kernel,
-build thsoe net drivers into vmlinux, capture the dmesg output.
-
-If it _is_ an IRQ problem then you might find that fiddling with ACPI
-helps: disable it in config or boot with `acpi=off', see if that helps.  Also
-try booting with the `pci=routeirq' option.
-
-There are various options described under acpi= and pci= in
-Documentation/kernel-parameters.txt which it would be useful for you to
-experiment with.
-
+In my original post I was just concerned about the sk_buff that gets
+passed to the iscsi layer in iscsi_tcp_data_recv. I was wondering if the
+chunk of code in the network layer or network driver that allocated that
+skbuff needed to set PF_MEMALLOC.
