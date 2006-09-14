@@ -1,36 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] genetlink custom attribute type
-Date: Thu, 14 Sep 2006 11:21:44 +0200
-Message-ID: <1158225704.2936.27.camel@ux156>
-References: <1158219852.2936.12.camel@ux156>
-	 <20060914081409.GB18349@postel.suug.ch>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Subject: Re: [PATCH] EtherIP tunnel driver (RFC 3378)
+Date: Thu, 14 Sep 2006 11:52:05 +0200
+Message-ID: <20060914095205.GA23405@zlug.org>
+References: <20060911204129.GA28929@zlug.org> <4508AE92.1090202@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:11698 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751498AbWINJVF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 05:21:05 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060914081409.GB18349@postel.suug.ch>
+Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:49422 "EHLO
+	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
+	id S1751517AbWINJwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 05:52:07 -0400
+To: Philip Craig <philipc@snapgear.com>
+Content-Disposition: inline
+In-Reply-To: <4508AE92.1090202@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-14 at 10:14 +0200, Thomas Graf wrote:
+On Thu, Sep 14, 2006 at 11:21:22AM +1000, Philip Craig wrote:
+> Joerg Roedel wrote:
+> > +	 To configure tunnels an extra tool is required. You can download
+> > +	 it from http://zlug.fh-zwickau.de/~joro/projects/ under the
+> > +	 EtherIP section. If unsure, say N.
+> 
+> To obtain a list of tunnels, this tool calls SIOCGETTUNNEL
+> (SIOCDEVPRIVATE + 0) for every device in /proc/net/dev. I don't think
+> this is safe, but I don't have a solution for you.
 
-> Looks good, we have to watch the size of struct nla_policy though.
-> This bumps the size from 4 bytes to 16 bytes on 64bit architectures
-> which might become a problem since we always use ATTR_MAX sized
-> arrays.
+You are right. But this is the way the ipip driver does it. In the case
+of ipip it is safe, because it is visible as a tunnel interface to
+userspace. But my driver registers its devices as Ethernet (it has to,
+otherwise the devices will not be usable in a bridge). There is no safe
+way to distinguish between real Ethernet devices and devices registered
+by my driver. I think about implementing an ioctl to fetch a list of
+all EtherIP tunnel devices from the driver.
 
-Yes, I'm aware of that, but I couldn't think of a way to handle it well.
+> Is there a reason why you have a separate tool rather than modifying
+> iproute2?
 
-I thought about using a second array containing just the check
-functions, and then (ab)using `len' to index into it but that didn't
-seem clean enough.
+I wrote an own tool for testing. At development I wanted to concentrate
+on the driver and not how to modify iproute2. But when the driver
+becomes stable and may be included I will add it to iproute2.
 
-Can you think of something better?
+> I don't know if you are aware of this older etherip patch by Lennert
+> Buytenhek: http://www.wantstofly.org/~buytenh/etherip/
 
-johannes
+I found this patch after I wrote my own and read the discussions
+about it. The patch by Lennert Buytenhek has the same problem of
+identifing tunnel devices. Futhermore, his driver handles ICMP and cares
+about the payload of the Ethernet packet it transmits (it looks, if the
+payload ist IPv4 or IPv6). Further it is configurable to set the DF flag
+in outgoing packets. First I think the handling of layer 3 protocols is
+beyond the scope of tunnel which transmits layer 2 packets. Second this
+behavior may break the transport of non-IP payload in the Ethernet
+packets since the Ethernet payload protocol may not know the concept of
+a path MTU and needs the full Ethernet MTU of 1500. This is the reason
+my driver never sets the DF flag in outgoing packets.
+
+Regards,
+	Joerg Roedel
