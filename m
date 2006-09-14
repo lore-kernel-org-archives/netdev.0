@@ -1,32 +1,74 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets, but not icmp
-Date: Thu, 14 Sep 2006 14:52:31 +0400
-Message-ID: <20060914105231.GA24143@ms2.inr.ac.ru>
-References: <20060913112307.GA1374@outpost.ds9a.nl> <45085185.2060904@trash.net> <20060914085618.GA4623@outpost.ds9a.nl> <450928B2.4090003@trash.net>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: ipsec policy with netfilter mark value
+Date: Thu, 14 Sep 2006 13:04:50 +0200
+Message-ID: <BAY103-F408551DB10498F73AE9B53B2290@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bert hubert <bert.hubert@netherlabs.nl>, cpw@lanl.gov,
-	netdev@vger.kernel.org
+Content-Type: text/plain; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:20369 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751153AbWINKx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 06:53:28 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <450928B2.4090003@trash.net>
+Received: from bay0-omc3-s12.bay0.hotmail.com ([65.54.246.212]:4658 "EHLO
+	bay0-omc3-s12.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S1750715AbWINLEw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 07:04:52 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hello everybody.
+I would like to know if is it possible to create an ipsec
+policy based on the mark value inizialized by netfilter.
 
-> [PACKET]: Don't truncate non-linear skbs with mmaped IO
-> 
-> Non-linear skbs are truncated to their linear part with mmaped IO.
-> Fix by using skb_copy_bits instead of memcpy.
+This is my problem: I need to route VoIP packets from hosts
+connected to the private networks (A & B) to the QoS routers,
+without encrypting them. 'Normal' packets are encrypted &
+delivered by the ipsec tunnel through the 'Internet router'.
 
-Ack.
+I was thinking to mark them with netfilter (matching on dscp
+value) and then create an ipsec policy based on that mark
+value.
 
-I remember this trick. The "idea" was that I needed only TCP header in any
-case and it was perfect cutoff. This hack was not supposed to survive. :-)
+TIA
 
-Alexey
+                       ___ private network A
+                    | /
+                    |/
+                    |
+                    |
+              +-----+-----+
+              |           |
+              |   linux   |
+              |   ipsec   |
+              |  gateway  |
+              |           |
+              +--+-----+--+
+                 |     |
+  +--------+     |     |
+  |Internet|     |     |     +------------------+
+  |        +-----+     +-----+QoS enabled router|
+  | router |                 +------------------+
+  +--------+                          ||
+     ||                               ||
+     ||                               ||
+     ||\                              ||
+     || \___ipsec tunnel              ||\
+     ||    net A <=> net B            || \___QoS WAN network
+     ||                               ||     net A <=> net B
+     ||                               ||
+  +--------+                          ||
+  |Internet|                 +------------------+
+  |        +-----+     +-----+QoS enabled router|
+  | router |     |     |     +------------------+
+  +--------+     |     |
+                 |     |
+              +--+-----+--+
+              |           |
+              |   linux   |
+              |   ipsec   |
+              |  gateway  |
+              |           |
+              +-----+-----+
+                    |
+                    |
+                    |\
+                    | \___ private network B
+
+
