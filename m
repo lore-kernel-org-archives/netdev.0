@@ -1,25 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netdevice name corruption is still present in 2.6.18-rc6-mm1
-Date: Wed, 13 Sep 2006 20:36:26 -0700 (PDT)
-Message-ID: <20060913.203626.104044096.davem@davemloft.net>
-References: <20060909032939.GA3087@nickolas.homeunix.com>
-	<20060910020707.GA3160@nickolas.homeunix.com>
-	<4503DD7B.1070003@trash.net>
+Subject: Re: ipip and ip_gre encapsulation bugs
+Date: Wed, 13 Sep 2006 21:03:22 -0700 (PDT)
+Message-ID: <20060913.210322.78723655.davem@davemloft.net>
+References: <E1GNBTO-0001v7-Pb@ZenIV.linux.org.uk>
+	<E1GNf14-0004dW-00@gondolin.me.apana.org.au>
+	<20060914011637.GH29920@ftp.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugfixer@list.ru, linux-kernel@vger.kernel.org, akpm@osdl.org,
+Cc: herbert@gondor.apana.org.au, torvalds@osdl.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751257AbWINDfg@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <4503DD7B.1070003@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34745
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751283AbWINECa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 00:02:30 -0400
+To: viro@ftp.linux.org.uk
+In-Reply-To: <20060914011637.GH29920@ftp.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sun, 10 Sep 2006 11:40:11 +0200
+From: Al Viro <viro@ftp.linux.org.uk>
+Date: Thu, 14 Sep 2006 02:16:37 +0100
 
-> Dave, please apply the attached patch to net-2.6.19, it fixes the
-> netdevice name corruption reported by multiple people.
+> OK, after rereading the RFC...  Pointer field is one octet, indeed.
+> Avoiding all swapping will be tough - icmp_send() takes 32bit argument,
+> net-endian.
 
-Applied, thanks a lot.
+Thanks for the fix Al, but did you notice that this code is totally
+unused?  It's a code block commented out by a large ifdef, such that
+the code block is never enabled and serves as example code we
+could use if some limitations in the current internet did not
+exist. :-)
+
+But thanks anyways, I'll queue this up for 2.6.19
