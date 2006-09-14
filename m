@@ -1,101 +1,79 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: fix bcm43xx lockups and netdev timeouts in
-	2.6.18-rcX
-Date: Thu, 14 Sep 2006 09:21:54 -0500
-Message-ID: <45096582.mailOEU1TCRGO@lwfinger.net>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [patch] d80211: remove sub-interface mac address policy
+Date: Thu, 14 Sep 2006 07:33:21 -0700
+Message-ID: <20060914143321.GA1962@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	David Kimdon <david.kimdon@devicescape.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dhost002-56.dex002.intermedia.net ([64.78.21.185]:39811 "EHLO
+	dhost002-56.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1750804AbWINOdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 10:33:25 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="remove_mac_addr_policy.patch"
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In 2.6.18-rc7, the section that prepares for preemptible periodic work
-has two bugs. The first is due to an improper locking sequence that leads
-to frozen systems. The second causes netdev watchdog timeouts. Both
-are fixed.
+Wireless vlan interfaces need to have the same mac address as
+other sub interfaces.  Rather than complicate the kernel here by
+adding yet another case where uniqueness is not required, remove
+the check on mac address uniqueness altogether.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+We should not implement a mac address allocation policy here.  It
+is difficult to get it right in all cases and does not belong in
+the kernel.  It is better to leave this to be implemented as a
+userspace policy.
 
-John,
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-This patch has been taken against 2.6.18-rc7. It changes more lines
-than would be absolutely necessary to affect the fix; however, it
-ends up with this section looking exactly like the current code (with
-pending patches) that is in wireless-2.6. That way, it should not
-mess up any git trees.
-
-Larry
-
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+Index: linux-2.6.16/net/d80211/ieee80211.c
 ===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3182,39 +3182,37 @@ static void bcm43xx_periodic_work_handle
- 		/* Periodic work will take a long time, so we want it to
- 		 * be preemtible.
- 		 */
--		bcm43xx_lock_irqonly(bcm, flags);
--		netif_stop_queue(bcm->net_dev);
-+		mutex_lock(&bcm->mutex);
-+		netif_tx_disable(bcm->net_dev);
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-+		bcm43xx_mac_suspend(bcm);
- 		if (bcm43xx_using_pio(bcm))
- 			bcm43xx_pio_freeze_txqueues(bcm);
- 		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
--		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_lock_noirq(bcm);
-+		spin_unlock_irqrestore(&bcm->irq_lock, flags);
- 		bcm43xx_synchronize_irq(bcm);
- 	} else {
- 		/* Periodic work should take short time, so we want low
- 		 * locking overhead.
- 		 */
--		bcm43xx_lock_irqsafe(bcm, flags);
-+		mutex_lock(&bcm->mutex);
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
- 	}
- 
- 	do_periodic_work(bcm);
- 
- 	if (badness > BADNESS_LIMIT) {
--		bcm43xx_lock_irqonly(bcm, flags);
--		if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
--			tasklet_enable(&bcm->isr_tasklet);
--			bcm43xx_interrupt_enable(bcm, savedirqs);
--			if (bcm43xx_using_pio(bcm))
--				bcm43xx_pio_thaw_txqueues(bcm);
--		}
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-+		tasklet_enable(&bcm->isr_tasklet);
-+		bcm43xx_interrupt_enable(bcm, savedirqs);
-+		if (bcm43xx_using_pio(bcm))
-+			bcm43xx_pio_thaw_txqueues(bcm);
-+		bcm43xx_mac_enable(bcm);
- 		netif_wake_queue(bcm->net_dev);
--		mmiowb();
--		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_unlock_noirq(bcm);
--	} else {
--		mmiowb();
--		bcm43xx_unlock_irqsafe(bcm, flags);
- 	}
-+	mmiowb();
-+	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-+	mutex_unlock(&bcm->mutex);
+--- linux-2.6.16.orig/net/d80211/ieee80211.c
++++ linux-2.6.16/net/d80211/ieee80211.c
+@@ -2116,17 +2116,6 @@ static struct net_device_stats *ieee8021
+ 	return &(sdata->stats);
  }
  
- static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
+-static inline int identical_mac_addr_allowed(int type1, int type2)
+-{
+-	return (type1 == IEEE80211_IF_TYPE_MNTR ||
+-		type2 == IEEE80211_IF_TYPE_MNTR ||
+-		(type1 == IEEE80211_IF_TYPE_AP &&
+-		 type2 == IEEE80211_IF_TYPE_WDS) ||
+-		(type1 == IEEE80211_IF_TYPE_WDS &&
+-		 (type2 == IEEE80211_IF_TYPE_WDS ||
+-		  type2 == IEEE80211_IF_TYPE_AP)));
+-}
+-
+ static int ieee80211_master_open(struct net_device *dev)
+ {
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
+@@ -2202,22 +2191,12 @@ static void ieee80211_start_hard_monitor
+ 
+ static int ieee80211_open(struct net_device *dev)
+ {
+-	struct ieee80211_sub_if_data *sdata, *nsdata;
++	struct ieee80211_sub_if_data *sdata;
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
+ 	struct ieee80211_if_init_conf conf;
+ 	int res;
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-	list_for_each_entry(nsdata, &local->sub_if_list, list) {
+-		struct net_device *ndev = nsdata->dev;
+-
+-		if (ndev != dev && ndev != local->mdev &&
+-		    netif_running(ndev) &&
+-		    memcmp(dev->dev_addr, ndev->dev_addr, ETH_ALEN) == 0 &&
+-		    !identical_mac_addr_allowed(sdata->type, nsdata->type)) {
+-			return -ENOTUNIQ;
+-		}
+-	}
+ 	if (sdata->type == IEEE80211_IF_TYPE_WDS &&
+ 	    memcmp(sdata->u.wds.remote_addr, "\0\0\0\0\0\0", ETH_ALEN) == 0)
+ 		return -ENOLINK;
+
+--
