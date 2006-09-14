@@ -1,53 +1,35 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: fix netdev watchdog timeouts
-Date: Thu, 14 Sep 2006 08:28:54 -0500
-Message-ID: <45095916.mailNQM11V1HV@lwfinger.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] vlan support for pktgen
+Date: Thu, 14 Sep 2006 15:33:02 +0200
+Message-ID: <17673.23054.12731.680791@robur.slu.se>
+References: <7c923b5e0609131017i4a04512rab45cff32e09527e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.slu.se ([130.238.96.70]:54197 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S1750708AbWINNdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 09:33:04 -0400
+To: "Francesco Fondelli" <francesco.fondelli@gmail.com>
+In-Reply-To: <7c923b5e0609131017i4a04512rab45cff32e09527e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The setup for running long periodic work has a bug that leads to
-netdev watchdog tx timeouts. This change eliminates the timeouts.
-systems.
 
-Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+Francesco Fondelli writes:
 
-John,
+ > The attached patch allows pktgen to produce 802.1Q and Q-in-Q tagged frames.
+ > I have used it for stress test a bridge and seems ok to me.
+ > Unfortunately I have no access to net-2.6.x git tree so the diff is against
+ > 2.6.17.13.
+ > If you have a moment look over it, I think this feature could be useful for
+ > someone else.
 
-Please apply this to wireless-2.6. It would be great if this patch were to be
-included in 2.6.19.
+ Thanks a lot, code seems code seems straight forward but I'm not to 
+ experienced with VLAN hacking and need find some test environment
+ when I got a chance, maybe someone else has better opportunities to 
+ verify.
 
-Thanks,
-
-Larry
-
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3169,8 +3169,7 @@ static void bcm43xx_periodic_work_handle
- 		 * be preemtible.
- 		 */
- 		mutex_lock(&bcm->mutex);
--		netif_stop_queue(bcm->net_dev);
--		synchronize_net();
-+		netif_tx_disable(bcm->net_dev);
- 		spin_lock_irqsave(&bcm->irq_lock, flags);
- 		bcm43xx_mac_suspend(bcm);
- 		if (bcm43xx_using_pio(bcm))
+ Cheers.
+					--ro
