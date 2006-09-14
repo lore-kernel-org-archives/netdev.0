@@ -1,41 +1,36 @@
-From: "Francesco Fondelli" <francesco.fondelli@gmail.com>
-Subject: Re: [PATCH] vlan support for pktgen
-Date: Thu, 14 Sep 2006 16:45:39 +0200
-Message-ID: <7c923b5e0609140745v2b564701wf60b38291a84cb1a@mail.gmail.com>
-References: <7c923b5e0609131017i4a04512rab45cff32e09527e@mail.gmail.com>
-	 <17673.23054.12731.680791@robur.slu.se>
+From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+Subject: Could not remove vlan with PPPoE sessions
+Date: Thu, 14 Sep 2006 19:18:45 +0400
+Message-ID: <20060914151845.GA13701@tentacle.sectorb.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.235]:3774 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1750702AbWINOpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Sep 2006 10:45:40 -0400
-Received: by wr-out-0506.google.com with SMTP id i7so977802wra
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2006 07:45:40 -0700 (PDT)
-To: "Robert Olsson" <Robert.Olsson@data.slu.se>
-In-Reply-To: <17673.23054.12731.680791@robur.slu.se>
+Received: from tentacle.s2s.msu.ru ([193.232.119.109]:62874 "EHLO
+	tentacle.sectorb.msk.ru") by vger.kernel.org with ESMTP
+	id S1750759AbWINPSy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 11:18:54 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/14/06, Robert Olsson <Robert.Olsson@data.slu.se> wrote:
->  Thanks a lot, code seems code seems straight forward but I'm not to
->  experienced with VLAN hacking and need find some test environment
->  when I got a chance, maybe someone else has better opportunities to
->  verify.
->
->  Cheers.
->
-                                        --ro
-ok
+Hello!
 
-BTW I wrote a patch for ethereal (new name's wireshark, www.wireshark.org)
-in order to parse pktgen data, I'll submit it to wireshark ml later, it should
-be checked in next release. You might find it useful when toying with
-pktgen ;-)
+When using "vconfig rem" command to delete vlan device,
+on which kernel-mode PPPoE session were active, vconfig
+and all pppd processes froze in D state with all 
+networking operation stuck, rendering the box non-functional.
 
-Ciao
-FF
+Kernel started to print message:
+ unregister_netdevice: waiting for vlan0154 to become free. Usage count = 3
+in a loop until reboot.
+
+This was kernel 2.6.18-rc7 on AMD64 box. It said 'Usage count = 3' and
+there were exactly 3 pppd processes using vlan0154 interface and stuck
+in D state.
+
+~
+:wq
+                                        With best regards, 
+                                           Vladimir Savkin. 
+
