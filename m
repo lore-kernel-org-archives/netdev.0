@@ -1,33 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] genetlink custom attribute type
-Date: Thu, 14 Sep 2006 10:14:09 +0200
-Message-ID: <20060914081409.GB18349@postel.suug.ch>
-References: <1158219852.2936.12.camel@ux156>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
+Date: Thu, 14 Sep 2006 10:25:32 +0200
+Message-ID: <20060914082532.GA2513@ff.dom.local>
+References: <4505DD51.5090000@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:29393 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751459AbWININu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 04:13:50 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from mx10.go2.pl ([193.17.41.74]:26499 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1751467AbWINIVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 04:21:42 -0400
+To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <1158219852.2936.12.camel@ux156>
+In-Reply-To: <4505DD51.5090000@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Johannes Berg <johannes@sipsolutions.net> 2006-09-14 09:44
-> This patch adds an NLA_CUSTOM_CHECK type for netlink attributes
-> in order to be able to centrally define new attribute structures
-> instead of having to check these special types in each function
-> that uses such an attribute.
+On 12-09-2006 00:04, Jeff Garzik wrote:
+> John W. Linville wrote:
+...
+>> Not too explicitly, but I think Andrew mentions it in "The Perfect 
+>> Patch":
+>>
+>>     http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
+>>
+>> While you are looking, you might review Jeff's version of the same idea:
+>>
+>>     http://linux.yyz.us/patch-format.html
 > 
-> nl80211 will benefit from this because it needs an information
-> element attribute with a fixed type|length|value structure defined
-> in IEEE 802.11 which ought to be checked when passing an IE from
-> userspace.
+> And also Documentation/SubmittingPatches, which ATM seems to have more 
+> detail than either page.
+> 
+>     Jeff
 
-Looks good, we have to watch the size of struct nla_policy though.
-This bumps the size from 4 bytes to 16 bytes on 64bit architectures
-which might become a problem since we always use ATTR_MAX sized
-arrays.
+"Attachments are discouraged, but some corporate mail systems 
+provide no other way to send patches."
+
+I thought they didn't read this but now I understand for whom 
+Mozilla Firefox is breaking all those lines with no mercy!
+
+Jarek P.
