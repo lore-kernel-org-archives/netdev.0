@@ -1,36 +1,52 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets,  but not icmp
-Date: Thu, 14 Sep 2006 10:56:19 +0200
-Message-ID: <20060914085618.GA4623@outpost.ds9a.nl>
-References: <20060913112307.GA1374@outpost.ds9a.nl> <45085185.2060904@trash.net>
+From: bora.sahin@ttnet.net.tr
+Subject: Re: [PATCH 12/12] smc911x: afc_cfg calculation is wrong at case 5
+Date: Thu, 14 Sep 2006 12:21:16 +0300
+Message-ID: <200609141221.16279.bora.sahin@ttnet.net.tr>
+References: <200609132137.47905.bora.sahin@ttnet.net.tr> <20060913190234.GG25007@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cpw@lanl.gov, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="Iso-8859-9"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dustin McIntire <dustin@sensoria.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([213.244.168.210]:27113 "EHLO outpost.ds9a.nl")
-	by vger.kernel.org with ESMTP id S1751484AbWINI4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 04:56:46 -0400
-To: Patrick McHardy <kaber@trash.net>
+Received: from mail.ttnet.net.tr ([212.175.13.129]:34084 "EHLO
+	fep04.ttnet.net.tr") by vger.kernel.org with ESMTP id S1751486AbWINJRB
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 05:17:01 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060913190234.GG25007@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <45085185.2060904@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 13, 2006 at 08:44:21PM +0200, Patrick McHardy wrote:
+On Wednesday 13 September 2006 22:02, Francois Romieu wrote:
+> bora.sahin@ttnet.net.tr <bora.sahin@ttnet.net.tr> :
+> [...]
+> > BACKDUR  calculation is wrong at case 5. Also some cosmetic around
+> > smc911x_probe...
+> 
+> If you are in a mood for cosmetic, feel free to turn some unsigned
+> long ioaddr into something more void __iomem *ioaddr and store it
+> in the private part of the device struct instead of dev->base_addr.
 
-> Are you using TSO on the outgoing device? If so please try to log the
-> packet using iptables to see if it really is a TSO packet.
+like 
+	struct smc911x_local *lp = netdev_priv(dev);
+	void __iomem *ioaddr = lp->base_addr;
+?
+ 
+> [...]
+> > @@ -1977,7 +1975,7 @@
+> >  		case 4:/* 11520 Rx Data Fifo Size */
+> >  			lp->afc_cfg=0x00783C9F;break;
+> >  		case 5:/* 10560 Rx Data Fifo Size */
+> > -			lp->afc_cfg=0x006E374F;break;
+> > +			lp->afc_cfg=0x006E378F;break;
+> 
+> Not your fault but the break statement is misplaced.
 
-Good catch! I turned off TSO and things are working fine again.
+One line below? 
 
-Is this a known problem, should it be documented or fixed? I'm more than
-willing to write up some warnings should this be a good idea.
+Thanks for all of your comments. I will create a new set of patches...
 
-Thanks Patrick! I can do without TSO but not without mmapped pcap!
-
-	Bert
-
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+--
+Bora SAHIN
