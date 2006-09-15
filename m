@@ -1,60 +1,68 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATCH] EtherIP tunnel driver (RFC 3378)
-Date: Fri, 15 Sep 2006 10:17:51 +0200
-Message-ID: <20060915081751.GA2441@zlug.org>
-References: <20060911204129.GA28929@zlug.org> <4508AE92.1090202@snapgear.com> <20060914095205.GA23405@zlug.org> <45092ADB.9060808@trash.net> <4509E05A.7010306@snapgear.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Missing csum_fold() in ip6t_HL.c ?
+Date: Fri, 15 Sep 2006 14:37:56 +0400
+Message-ID: <20060915103755.GB5286@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750727AbWIOIRy@vger.kernel.org>
-To: Philip Craig <philipc@snapgear.com>
+Cc: netfilter-devel@lists.netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:28718 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1750990AbWIOKhv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Sep 2006 06:37:51 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so2200791nfa
+        for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 03:37:50 -0700 (PDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <4509E05A.7010306@snapgear.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 15, 2006 at 09:06:02AM +1000, Philip Craig wrote:
-> Patrick McHardy wrote:
-> > Joerg Roedel wrote:
-> >> On Thu, Sep 14, 2006 at 11:21:22AM +1000, Philip Craig wrote:
-> >>
-> >>> Joerg Roedel wrote:
-> >>>
-> >>>> +	 To configure tunnels an extra tool is required. You can download
-> >>>> +	 it from http://zlug.fh-zwickau.de/~joro/projects/ under the
-> >>>> +	 EtherIP section. If unsure, say N.
-> >>> To obtain a list of tunnels, this tool calls SIOCGETTUNNEL
-> >>> (SIOCDEVPRIVATE + 0) for every device in /proc/net/dev. I don't think
-> >>> this is safe, but I don't have a solution for you.
-> >>
-> >> You are right. But this is the way the ipip driver does it. In the case
-> >> of ipip it is safe, because it is visible as a tunnel interface to
-> >> userspace. But my driver registers its devices as Ethernet (it has to,
-> >> otherwise the devices will not be usable in a bridge). There is no safe
-> >> way to distinguish between real Ethernet devices and devices registered
-> >> by my driver. I think about implementing an ioctl to fetch a list of
-> >> all EtherIP tunnel devices from the driver.
-> > 
-> > 
-> > Just do what ipip and gre do, use a network device with a fixed name
-> > for the ioctl (you already have the ethip0 device for this purpose it
-> > appears).
-> 
-> That fixed name device isn't used to get a list of tunnels. Instead,
-> ipip and gre read /proc/net/dev, and check for ARPHRD_TUNNEL or
-> ARPHRD_IPGRE. This won't work for etherip because it uses ARPHRD_ETHER,
-> which isn't specific to etherip tunnels. A new ioctl to get a list could
-> be added (this ioctl would use the fixed name device), is that acceptable?
+It looks like "diffs" array is write-only. It also looks like ipv4
+occurences use some csum_fold() trickery. Was is forgotten here? Should
+"diffs" be removed?
 
-The problem is that the ethip0 device also uses ARPHDR_ETHER. The usage
-of that device is also unsafe. As I see the situation there are 2
-solutions for this problem. First use some other Type identifier for
-ethip0. But this is only a quick hack. I think about a new device type
-ARPHRD_ETHERIP. This makes the tunnel devices incompatible with the
-bridging code. But I think it is possible to convince the bridge code to
-accept the special tunnel devices too.
-Unfortunately I didn't saw the problem when implementing the driver...
+    20	static unsigned int ip6t_hl_target(struct sk_buff **pskb,
+    21					   const struct net_device *in,
+    22					   const struct net_device *out,
+    23					   unsigned int hooknum,
+    24					   const struct xt_target *target,
+    25					   const void *targinfo, void *userinfo)
+    26	{
+    27		struct ipv6hdr *ip6h;
+    28		const struct ip6t_HL_info *info = targinfo;
+    29	===>	u_int16_t diffs[2];	<===
+    30		int new_hl;
+    31
+    32		if (!skb_make_writable(pskb, (*pskb)->len))
+    33			return NF_DROP;
+    34
+    35		ip6h = (*pskb)->nh.ipv6h;
+    36
+    37		switch (info->mode) {
+    38			case IP6T_HL_SET:
+    39				new_hl = info->hop_limit;
+    40				break;
+    41			case IP6T_HL_INC:
+    42				new_hl = ip6h->hop_limit + info->hop_limit;
+    43				if (new_hl > 255)
+    44					new_hl = 255;
+    45				break;
+    46			case IP6T_HL_DEC:
+    47				new_hl = ip6h->hop_limit - info->hop_limit;
+    48				if (new_hl < 0)
+    49					new_hl = 0;
+    50				break;
+    51			default:
+    52				new_hl = ip6h->hop_limit;
+    53				break;
+    54		}
+    55
+    56		if (new_hl != ip6h->hop_limit) {
+    57	===>		diffs[0] = htons(((unsigned)ip6h->hop_limit) << 8) ^ 0xFFFF;
+    58			ip6h->hop_limit = new_hl;
+    59	===>		diffs[1] = htons(((unsigned)ip6h->hop_limit) << 8);
+    60		}
+    61
+    62		return IP6T_CONTINUE;
+    63	}
 
-Regards,
-    Joerg Roedel
