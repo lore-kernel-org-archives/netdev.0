@@ -1,168 +1,217 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 4/9] s390: qeth driver fixes [1/6]
-Date: Fri, 15 Sep 2006 16:25:56 +0200
-Message-ID: <20060915142556.GD10043@de.ibm.com>
+Subject: [PATCH 8/9] s390: qeth driver fixes [5/6]
+Date: Fri, 15 Sep 2006 16:26:52 +0200
+Message-ID: <20060915142651.GH10043@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([195.212.29.135]:27005 "EHLO
-	mtagate2.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751557AbWIOOhP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Sep 2006 10:37:15 -0400
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:27286 "EHLO
+	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1751547AbWIOOhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Sep 2006 10:37:16 -0400
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate2.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8FEbESC082264
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 14:37:14 GMT
+	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8FEbEVi180714
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:14 +0100
 Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8FEdPnu1892584
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:39:25 +0100
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8FEdQTc1814564
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:39:26 +0100
 Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8FEbDc2022850
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:13 +0100
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8FEbESO022870
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:14 +0100
 To: jgarzik@pobox.com
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 4/9] s390: qeth driver fixes [1/6]
+[PATCH 8/9] s390: qeth driver fixes [5/6]
 
 From: Frank Pavlic <fpavlic@de.ibm.com>
-	- Drop incoming packets with vlan_tag set
-          if card->vlangrp is not set.
-        - use always vlan_hwaccel_rx to pass 
-	  vlan frames to the stack.
-        - fix recovery problem. Device was recovered 
-	  properly but still not working. 
-	  netif_carrier_on call right before
-          recovery start fixes it.
+	fix kernel panic in qdio queue handling.
+	qeth_qdio_clear_card() could be invoked by 2 CPUs
+	simultaneously (for example reboot event and recovery).
 
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_main.c |   49 ++++++++++++++++++++----------------------
- 1 files changed, 23 insertions(+), 26 deletions(-)
+ drivers/s390/net/qeth.h      |    3 +-
+ drivers/s390/net/qeth_main.c |   71 +++++++++++++++++++++++++-----------------
+ 2 files changed, 44 insertions(+), 30 deletions(-)
 
-aa7f6f1f5639e15a5bff562fbc19cbbd701c0078
+146a24d1aeba1ad3b16e98a5553693ccc0799349
+diff --git a/drivers/s390/net/qeth.h b/drivers/s390/net/qeth.h
+index 22a7ffb..821383d 100644
+--- a/drivers/s390/net/qeth.h
++++ b/drivers/s390/net/qeth.h
+@@ -463,6 +463,7 @@ enum qeth_qdio_info_states {
+ 	QETH_QDIO_UNINITIALIZED,
+ 	QETH_QDIO_ALLOCATED,
+ 	QETH_QDIO_ESTABLISHED,
++	QETH_QDIO_CLEANING
+ };
+ 
+ struct qeth_buffer_pool_entry {
+@@ -537,7 +538,7 @@ struct qeth_qdio_out_q {
+ } __attribute__ ((aligned(256)));
+ 
+ struct qeth_qdio_info {
+-	volatile enum qeth_qdio_info_states state;
++	atomic_t state;
+ 	/* input */
+ 	struct qeth_qdio_q *in_q;
+ 	struct qeth_qdio_buffer_pool in_buf_pool;
 diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index e1327b8..ffff7a1 100644
+index 0bc55a3..a1b2e6f 100644
 --- a/drivers/s390/net/qeth_main.c
 +++ b/drivers/s390/net/qeth_main.c
-@@ -1708,6 +1708,7 @@ qeth_check_ipa_data(struct qeth_card *ca
- 					   "IP address reset.\n",
- 					   QETH_CARD_IFNAME(card),
- 					   card->info.chpid);
-+				netif_carrier_on(card->dev);
- 				qeth_schedule_recovery(card);
- 				return NULL;
- 			case IPA_CMD_MODCCID:
-@@ -2464,24 +2465,6 @@ qeth_rebuild_skb_fake_ll(struct qeth_car
- 		qeth_rebuild_skb_fake_ll_eth(card, skb, hdr);
- }
+@@ -3179,13 +3179,14 @@ qeth_alloc_qdio_buffers(struct qeth_card
  
--static inline void
--qeth_rebuild_skb_vlan(struct qeth_card *card, struct sk_buff *skb,
--		      struct qeth_hdr *hdr)
--{
--#ifdef CONFIG_QETH_VLAN
--	u16 *vlan_tag;
--
--	if (hdr->hdr.l3.ext_flags &
--	    (QETH_HDR_EXT_VLAN_FRAME | QETH_HDR_EXT_INCLUDE_VLAN_TAG)) {
--		vlan_tag = (u16 *) skb_push(skb, VLAN_HLEN);
--		*vlan_tag = (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_VLAN_FRAME)?
--			hdr->hdr.l3.vlan_id : *((u16 *)&hdr->hdr.l3.dest_addr[12]);
--		*(vlan_tag + 1) = skb->protocol;
--		skb->protocol = __constant_htons(ETH_P_8021Q);
+ 	QETH_DBF_TEXT(setup, 2, "allcqdbf");
+ 
+-	if (card->qdio.state == QETH_QDIO_ALLOCATED)
++	if (atomic_cmpxchg(&card->qdio.state, QETH_QDIO_UNINITIALIZED,
++		QETH_QDIO_ALLOCATED) != QETH_QDIO_UNINITIALIZED)
+ 		return 0;
+ 
+ 	card->qdio.in_q = kmalloc(sizeof(struct qeth_qdio_q),
+ 				  GFP_KERNEL|GFP_DMA);
+ 	if (!card->qdio.in_q)
+-		return - ENOMEM;
++		goto out_nomem;
+ 	QETH_DBF_TEXT(setup, 2, "inq");
+ 	QETH_DBF_HEX(setup, 2, &card->qdio.in_q, sizeof(void *));
+ 	memset(card->qdio.in_q, 0, sizeof(struct qeth_qdio_q));
+@@ -3194,27 +3195,19 @@ qeth_alloc_qdio_buffers(struct qeth_card
+ 		card->qdio.in_q->bufs[i].buffer =
+ 			&card->qdio.in_q->qdio_bufs[i];
+ 	/* inbound buffer pool */
+-	if (qeth_alloc_buffer_pool(card)){
+-		kfree(card->qdio.in_q);
+-		return -ENOMEM;
 -	}
--#endif /* CONFIG_QETH_VLAN */
--}
--
- static inline __u16
- qeth_layer2_rebuild_skb(struct qeth_card *card, struct sk_buff *skb,
- 			struct qeth_hdr *hdr)
-@@ -2510,15 +2493,16 @@ qeth_layer2_rebuild_skb(struct qeth_card
- 	return vlan_id;
- }
- 
--static inline void
-+static inline __u16
- qeth_rebuild_skb(struct qeth_card *card, struct sk_buff *skb,
- 		 struct qeth_hdr *hdr)
- {
-+	unsigned short vlan_id = 0;
- #ifdef CONFIG_QETH_IPV6
- 	if (hdr->hdr.l3.flags & QETH_HDR_PASSTHRU) {
- 		skb->pkt_type = PACKET_HOST;
- 		skb->protocol = qeth_type_trans(skb, card->dev);
--		return;
-+		return 0;
- 	}
- #endif /* CONFIG_QETH_IPV6 */
- 	skb->protocol = htons((hdr->hdr.l3.flags & QETH_HDR_IPV6)? ETH_P_IPV6 :
-@@ -2540,7 +2524,13 @@ qeth_rebuild_skb(struct qeth_card *card,
- 	default:
- 		skb->pkt_type = PACKET_HOST;
- 	}
--	qeth_rebuild_skb_vlan(card, skb, hdr);
-+
-+	if (hdr->hdr.l3.ext_flags &
-+	    (QETH_HDR_EXT_VLAN_FRAME | QETH_HDR_EXT_INCLUDE_VLAN_TAG)) {
-+		vlan_id = (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_VLAN_FRAME)?
-+			hdr->hdr.l3.vlan_id : *((u16 *)&hdr->hdr.l3.dest_addr[12]);
-+	}
-+
- 	if (card->options.fake_ll)
- 		qeth_rebuild_skb_fake_ll(card, skb, hdr);
- 	else
-@@ -2556,6 +2546,7 @@ qeth_rebuild_skb(struct qeth_card *card,
- 		else
- 			skb->ip_summed = SW_CHECKSUMMING;
- 	}
-+	return vlan_id;
- }
- 
- static inline void
-@@ -2568,6 +2559,7 @@ qeth_process_inbound_buffer(struct qeth_
- 	int offset;
- 	int rxrc;
- 	__u16 vlan_tag = 0;
-+	__u16 *vlan_addr;
- 
- 	/* get first element of current buffer */
- 	element = (struct qdio_buffer_element *)&buf->buffer->element[0];
-@@ -2581,7 +2573,7 @@ qeth_process_inbound_buffer(struct qeth_
- 		if (hdr->hdr.l2.id == QETH_HEADER_TYPE_LAYER2)
- 			vlan_tag = qeth_layer2_rebuild_skb(card, skb, hdr);
- 		else if (hdr->hdr.l3.id == QETH_HEADER_TYPE_LAYER3)
--			qeth_rebuild_skb(card, skb, hdr);
-+			vlan_tag = qeth_rebuild_skb(card, skb, hdr);
- 		else { /*in case of OSN*/
- 			skb_push(skb, sizeof(struct qeth_hdr));
- 			memcpy(skb->data, hdr, sizeof(struct qeth_hdr));
-@@ -2591,14 +2583,19 @@ qeth_process_inbound_buffer(struct qeth_
- 			dev_kfree_skb_any(skb);
- 			continue;
++	if (qeth_alloc_buffer_pool(card))
++		goto out_freeinq;
+ 	/* outbound */
+ 	card->qdio.out_qs =
+ 		kmalloc(card->qdio.no_out_queues *
+ 			sizeof(struct qeth_qdio_out_q *), GFP_KERNEL);
+-	if (!card->qdio.out_qs){
+-		qeth_free_buffer_pool(card);
+-		return -ENOMEM;
+-	}
+-	for (i = 0; i < card->qdio.no_out_queues; ++i){
++	if (!card->qdio.out_qs)
++		goto out_freepool;
++	for (i = 0; i < card->qdio.no_out_queues; ++i) {
+ 		card->qdio.out_qs[i] = kmalloc(sizeof(struct qeth_qdio_out_q),
+ 					       GFP_KERNEL|GFP_DMA);
+-		if (!card->qdio.out_qs[i]){
+-			while (i > 0)
+-				kfree(card->qdio.out_qs[--i]);
+-			kfree(card->qdio.out_qs);
+-			return -ENOMEM;
+-		}
++		if (!card->qdio.out_qs[i])
++			goto out_freeoutq;
+ 		QETH_DBF_TEXT_(setup, 2, "outq %i", i);
+ 		QETH_DBF_HEX(setup, 2, &card->qdio.out_qs[i], sizeof(void *));
+ 		memset(card->qdio.out_qs[i], 0, sizeof(struct qeth_qdio_out_q));
+@@ -3231,8 +3224,19 @@ qeth_alloc_qdio_buffers(struct qeth_card
+ 			INIT_LIST_HEAD(&card->qdio.out_qs[i]->bufs[j].ctx_list);
  		}
-+		if (card->info.type == QETH_CARD_TYPE_OSN)
-+			rxrc = card->osn_info.data_cb(skb);
-+		else
- #ifdef CONFIG_QETH_VLAN
- 		if (vlan_tag)
--			vlan_hwaccel_rx(skb, card->vlangrp, vlan_tag);
-+			if (card->vlangrp)
-+				vlan_hwaccel_rx(skb, card->vlangrp, vlan_tag);
-+			else {
-+				dev_kfree_skb_any(skb);
-+				continue;
-+			}
- 		else
- #endif
--		if (card->info.type == QETH_CARD_TYPE_OSN)
--			rxrc = card->osn_info.data_cb(skb);
--		else
- 			rxrc = netif_rx(skb);
- 		card->dev->last_rx = jiffies;
- 		card->stats.rx_packets++;
+ 	}
+-	card->qdio.state = QETH_QDIO_ALLOCATED;
+ 	return 0;
++
++out_freeoutq:
++	while (i > 0)
++		kfree(card->qdio.out_qs[--i]);
++	kfree(card->qdio.out_qs);
++out_freepool:
++	qeth_free_buffer_pool(card);
++out_freeinq:
++	kfree(card->qdio.in_q);
++out_nomem:
++	atomic_set(&card->qdio.state, QETH_QDIO_UNINITIALIZED);
++	return -ENOMEM;
+ }
+ 
+ static void
+@@ -3241,7 +3245,8 @@ qeth_free_qdio_buffers(struct qeth_card 
+ 	int i, j;
+ 
+ 	QETH_DBF_TEXT(trace, 2, "freeqdbf");
+-	if (card->qdio.state == QETH_QDIO_UNINITIALIZED)
++	if (atomic_swap(&card->qdio.state, QETH_QDIO_UNINITIALIZED) ==
++		QETH_QDIO_UNINITIALIZED)
+ 		return;
+ 	kfree(card->qdio.in_q);
+ 	/* inbound buffer pool */
+@@ -3254,7 +3259,6 @@ qeth_free_qdio_buffers(struct qeth_card 
+ 		kfree(card->qdio.out_qs[i]);
+ 	}
+ 	kfree(card->qdio.out_qs);
+-	card->qdio.state = QETH_QDIO_UNINITIALIZED;
+ }
+ 
+ static void
+@@ -3276,7 +3280,7 @@ static void
+ qeth_init_qdio_info(struct qeth_card *card)
+ {
+ 	QETH_DBF_TEXT(setup, 4, "intqdinf");
+-	card->qdio.state = QETH_QDIO_UNINITIALIZED;
++	atomic_set(&card->qdio.state, QETH_QDIO_UNINITIALIZED);
+ 	/* inbound */
+ 	card->qdio.in_buf_size = QETH_IN_BUF_SIZE_DEFAULT;
+ 	card->qdio.init_pool.buf_count = QETH_IN_BUF_COUNT_DEFAULT;
+@@ -3339,7 +3343,7 @@ qeth_qdio_establish(struct qeth_card *ca
+ 	struct qdio_buffer **in_sbal_ptrs;
+ 	struct qdio_buffer **out_sbal_ptrs;
+ 	int i, j, k;
+-	int rc;
++	int rc = 0;
+ 
+ 	QETH_DBF_TEXT(setup, 2, "qdioest");
+ 
+@@ -3398,8 +3402,10 @@ qeth_qdio_establish(struct qeth_card *ca
+ 	init_data.input_sbal_addr_array  = (void **) in_sbal_ptrs;
+ 	init_data.output_sbal_addr_array = (void **) out_sbal_ptrs;
+ 
+-	if (!(rc = qdio_initialize(&init_data)))
+-		card->qdio.state = QETH_QDIO_ESTABLISHED;
++	if (atomic_cmpxchg(&card->qdio.state, QETH_QDIO_ALLOCATED,
++		QETH_QDIO_ESTABLISHED) == QETH_QDIO_ALLOCATED)
++		if ((rc = qdio_initialize(&init_data)))
++			atomic_set(&card->qdio.state, QETH_QDIO_ALLOCATED);
+ 
+ 	kfree(out_sbal_ptrs);
+ 	kfree(in_sbal_ptrs);
+@@ -3515,13 +3521,20 @@ qeth_qdio_clear_card(struct qeth_card *c
+ 	int rc = 0;
+ 
+ 	QETH_DBF_TEXT(trace,3,"qdioclr");
+-	if (card->qdio.state == QETH_QDIO_ESTABLISHED){
++	switch (atomic_cmpxchg(&card->qdio.state, QETH_QDIO_ESTABLISHED,
++		QETH_QDIO_CLEANING)) {
++	case QETH_QDIO_ESTABLISHED:
+ 		if ((rc = qdio_cleanup(CARD_DDEV(card),
+-			     (card->info.type == QETH_CARD_TYPE_IQD) ?
+-			     QDIO_FLAG_CLEANUP_USING_HALT :
+-			     QDIO_FLAG_CLEANUP_USING_CLEAR)))
++				(card->info.type == QETH_CARD_TYPE_IQD) ?
++				QDIO_FLAG_CLEANUP_USING_HALT :
++				QDIO_FLAG_CLEANUP_USING_CLEAR)))
+ 			QETH_DBF_TEXT_(trace, 3, "1err%d", rc);
+-		card->qdio.state = QETH_QDIO_ALLOCATED;
++		atomic_set(&card->qdio.state, QETH_QDIO_ALLOCATED);
++		break;
++	case QETH_QDIO_CLEANING:
++		return rc;
++	default:
++		break;
+ 	}
+ 	if ((rc = qeth_clear_halt_card(card, use_halt)))
+ 		QETH_DBF_TEXT_(trace, 3, "2err%d", rc);
 -- 
 1.2.4
 
