@@ -1,41 +1,63 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [d80211] connecting to B-mode AP
-Date: Thu, 14 Sep 2006 17:20:28 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F01785286@dhost002-46.dex002.intermedia.net>
-References: <4509E4BE.40001@linux.intel.com>
+From: Jon Mason <jdmason@kudzu.us>
+Subject: Re: [PATCH] bridge: add ETH_HLEN to packet_length
+Date: Thu, 14 Sep 2006 19:31:40 -0500
+Message-ID: <20060915003140.GA15650@kudzu.us>
+References: <20060914182751.GA15203@kudzu.us> <4509C15C.6080308@kolumbus.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
+	Dwayne.Shows@3leafnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:25994 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S932171AbWIOAU0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 20:20:26 -0400
-Content-class: urn:content-classes:message
-in-reply-to: <4509E4BE.40001@linux.intel.com>
-To: "mabbas" <mabbas@linux.intel.com>, <netdev@vger.kernel.org>
+Received: from proof.pobox.com ([207.106.133.28]:47533 "EHLO proof.pobox.com")
+	by vger.kernel.org with ESMTP id S932139AbWIOAae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 20:30:34 -0400
+To: Mika Penttil? <mika.penttila@kolumbus.fi>
+Content-Disposition: inline
+In-Reply-To: <4509C15C.6080308@kolumbus.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Why is it necessary to set phymode to B? - a G client can connect
-perfectly well to a B AP.
+On Thu, Sep 14, 2006 at 11:53:48PM +0300, Mika Penttil? wrote:
+> Jon Mason wrote:
+> >In br_dev_queue_push_xmit, why is the check to drop mtu oversized
+> >packets not checking for enough room for the impending ETH_HLEN size
+> >skb_push?  In some code currently under development, we are seeing
+> >skb_under_panic being called from the "skb_push(skb, ETH_HLEN)" in that
+> >code.  It seems to me it would be better to drop those skbs than panic.
+> >Attached is a patch to do this.
+> >
+> >Thanks,
+> >Jon
+> >
+> >Signed-off-by: Jon Mason <jdmason@kudzu.us>
+> >
+> >diff -r b1d36669f98d net/bridge/br_forward.c
+> >--- a/net/bridge/br_forward.c	Mon Sep  4 03:00:04 2006 +0000
+> >+++ b/net/bridge/br_forward.c	Thu Sep 14 13:18:04 2006 -0500
+> >@@ -29,7 +29,8 @@ static inline int should_deliver(const s
+> > 
+> > static inline unsigned packet_length(const struct sk_buff *skb)
+> > {
+> >-	return skb->len - (skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 
+> >0);
+> >+	return skb->len - ETH_HLEN - 
+> >+		(skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
+> > }
+> >
+> >  
+> packet_length() is a wrong place to do that, mtu has nothing to do with 
+> skb headroom.
 
-Simon 
+Oops, you are 100% correct.  So what would be the best way to handle
+this, as a panic is pretty nasty?  Wouldn't it be better to check the
+packet to see if there is sufficient headroom, BUG, and then drop it
+(or allocate a new packet with sufficient headroom and proceed with
+the skb_push)?  
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of mabbas
-Sent: Thursday, September 14, 2006 4:25 PM
-To: netdev@vger.kernel.org
-Subject: [d80211] connecting to B-mode AP
+Thanks,
+Jon
 
-When I connect to b-mode only AP and then run iwconf it shows it as a
-G-mode AP. I guess when we set frequency it look through all the modes
-and set the mode to the first channel it founds. since B and G share the
-same frequencies it will set phymode to G. How can we force it to set
-phymode to the AP we are associating with.
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of a message to majordomo@vger.kernel.org More majordomo info at
-http://vger.kernel.org/majordomo-info.html
+> 
+> --Mika
+> 
+> 
