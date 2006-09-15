@@ -1,196 +1,90 @@
-From: Amy Fong <amy.fong@windriver.com>
-Subject: [PATCH] Add Broadcom PHY support
-Date: Fri, 15 Sep 2006 16:15:38 -0400
-Message-ID: <20060915201538.GA28483@lucciola.windriver.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets,
+   but not icmp
+Date: Fri, 15 Sep 2006 22:16:17 +0200
+Message-ID: <450B0A11.2050608@trash.net>
+References: <20060913112307.GA1374@outpost.ds9a.nl> <45085185.2060904@trash.net> <20060914085618.GA4623@outpost.ds9a.nl> <450928B2.4090003@trash.net> <20060915120235.GA9833@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="VbJkn9YxBvnuCH5J"
-Cc: netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: multipart/mixed;
+ boundary="------------090000040809010504080707"
+Cc: bert hubert <bert.hubert@netherlabs.nl>, cpw@lanl.gov,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:30431 "EHLO mail.wrs.com")
-	by vger.kernel.org with ESMTP id S1751138AbWIOUPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2006 16:15:55 -0400
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:4012 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S1751712AbWIOUQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2006 16:16:20 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060915120235.GA9833@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------090000040809010504080707
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+bert hubert wrote:
+>>It appears to be intentionally, but I don't see a reason for it.
+>>Can you try if this patch makes it work as expected?
+> 
+> 
+>>[PACKET]: Don't truncate non-linear skbs with mmaped IO
+>>
+>>Non-linear skbs are truncated to their linear part with mmaped IO.
+>>Fix by using skb_copy_bits instead of memcpy.
+> 
+> 
+> Works very well for me! I hope this can make it into 2.6.18.
 
-[PATCH] Add Broadcom PHY support
 
-This patch adds a driver to support the bcm5421s and bcm5461s PHY
+That would be fine with me, lets see what Dave thinks.
 
-Kernel version:  linux-2.6.18-rc6
 
-Signed-off-by: Amy Fong <amy.fong@windriver.com>
+--------------090000040809010504080707
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="broadcom-phy.diff"
+[PACKET]: Don't truncate non-linear skbs with mmaped IO
 
-Index: linux-2.6.18-rc6/drivers/net/phy/broadcom.c
-===================================================================
---- /dev/null
-+++ linux-2.6.18-rc6/drivers/net/phy/broadcom.c
-@@ -0,0 +1,129 @@
-+/*
-+ * drivers/net/phy/broadcom.c, Driver for Broadcom PHYs
-+ *
-+ * Copyright (c) 2006 Wind River Systems, Inc.
-+ * Written by Amy Fong
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+/* BCM5421S control register */
-+#define MII_BCM5421S_CONTROL           0x00
-+#define MII_BCM5421S_CONTROL_RESET     0x00008000
-+#define MII_BCM5421S_CONTROL_INIT      0x00001140
-+#define MII_BCM5421S_ANEN              0x00001000
-+#define MII_BCM5421S_CR                 0x00
-+#define MII_BCM5421S_CR_RST            0x00008000
-+#define MII_BCM5421S_CR_INIT           0x00001000
-+#define MII_BCM5421S_STATUS            0x1
-+#define MII_BCM5421S_STATUS_AN_DONE    0x00000020
-+#define MII_BCM5421S_STATUS_LINK       0x0004
-+#define MII_BCM5421S_PHYIR1            0x2
-+#define MII_BCM5421S_PHYIR2            0x3
-+#define MII_BCM5421S_ANLPBPA           0x5
-+#define MII_BCM5421S_ANLPBPA_HALF      0x00000040
-+#define MII_BCM5421S_ANLPBPA_FULL      0x00000020
-+#define MII_BCM5421S_ANEX              0x6
-+#define MII_BCM5421S_ANEX_NP           0x00000004
-+#define MII_BCM5421S_ANEX_PRX          0x00000002
-+
-+MODULE_DESCRIPTION("Broadcom PHY driver");
-+MODULE_AUTHOR("Amy Fong");
-+MODULE_LICENSE("GPL");
-+
-+static int bcm5421s_config_aneg(struct phy_device *phydev)
-+{
-+	int err;
-+
-+       /* Write the appropriate value to the PHY reg */
-+	if (phydev->supported & SUPPORTED_1000baseT_Full)
-+               err = phy_write(phydev, MII_BCM5421S_CONTROL, MII_BCM5421S_CONTROL_INIT);
-+       else
-+               err = phy_write(phydev, MII_BCM5421S_CONTROL, MII_BCM5421S_CR_INIT);
-+
-+	if (err < 0) return err;
-+
-+       /* doesn't have phy interrupt */
-+       phydev->interrupts = PHY_INTERRUPT_DISABLED;
-+
-+	return 0;
-+}
-+
-+static struct phy_driver bcm5421s_driver = {
-+	.phy_id         = 0x002060e1,
-+	.phy_id_mask    = 0x00ffffff,
-+	.name           = "Broadcom BCM5421S",
-+	.features       = PHY_GBIT_FEATURES,
-+	.config_aneg    = bcm5421s_config_aneg,
-+	.read_status    = genphy_read_status,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+/* Glossy description on Broadcom's site seems to hint that the 5461
-+   should be a drop-in for the 5421.... */
-+static struct phy_driver bcm5461s_driver = {
-+	.phy_id         = 0x002060c1,
-+	.phy_id_mask    = 0x00ffffff,
-+	.name           = "Broadcom BCM5461S",
-+	.features       = PHY_GBIT_FEATURES,
-+	.config_aneg    = bcm5421s_config_aneg,
-+	.read_status    = genphy_read_status,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init broadcom_init(void)
-+{
-+	int ret;
-+
-+	ret = phy_driver_register(&bcm5421s_driver);
-+	if (!ret) {
-+		ret = phy_driver_register(&bcm5461s_driver);
-+		if (ret) phy_driver_unregister(&bcm5421s_driver);
-+	}
-+	return ret;
-+}
-+
-+static void __exit broadcom_exit(void)
-+{
-+	phy_driver_unregister(&bcm5421s_driver);
-+	phy_driver_unregister(&bcm5461s_driver);
-+}
-+
-+module_init(broadcom_init);
-+module_exit(broadcom_exit);
-Index: linux-2.6.18-rc6/drivers/net/phy/Kconfig
-===================================================================
---- linux-2.6.18-rc6.orig/drivers/net/phy/Kconfig
-+++ linux-2.6.18-rc6/drivers/net/phy/Kconfig
-@@ -56,6 +56,12 @@
- 	---help---
- 	  Currently supports the LAN83C185 PHY
+Non-linear skbs are truncated to their linear part with mmaped IO.
+Fix by using skb_copy_bits instead of memcpy.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 6e184976552a407c331f9b4e52b2c26fcae46ee7
+tree 1bb4fc2b65179a51e795dc07908277b83cc0921a
+parent 9f737633e6ee54fc174282d49b2559bd2208391d
+author Patrick McHardy <kaber@trash.net> Thu, 14 Sep 2006 11:59:09 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 14 Sep 2006 11:59:09 +0200
+
+ net/packet/af_packet.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index f9cef36..4172a52 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -626,8 +626,6 @@ static int tpacket_rcv(struct sk_buff *s
+ 		if ((int)snaplen < 0)
+ 			snaplen = 0;
+ 	}
+-	if (snaplen > skb->len-skb->data_len)
+-		snaplen = skb->len-skb->data_len;
  
-+config BROADCOM_PHY
-+	tristate "Drivers for Broadcom PHYs"
-+	depends on PHYLIB
-+	---help---
-+	  Currently supports bcm5421s and bcm5461s
-+
- config FIXED_PHY
- 	tristate "Drivers for PHY emulation on fixed speed/link"
- 	depends on PHYLIB
-Index: linux-2.6.18-rc6/drivers/net/phy/Makefile
-===================================================================
---- linux-2.6.18-rc6.orig/drivers/net/phy/Makefile
-+++ linux-2.6.18-rc6/drivers/net/phy/Makefile
-@@ -10,4 +10,5 @@
- obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
- obj-$(CONFIG_SMSC_PHY)		+= smsc.o
- obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
-+obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
+ 	spin_lock(&sk->sk_receive_queue.lock);
+ 	h = (struct tpacket_hdr *)packet_lookup_frame(po, po->head);
+@@ -644,7 +642,7 @@ static int tpacket_rcv(struct sk_buff *s
+ 		status &= ~TP_STATUS_LOSING;
+ 	spin_unlock(&sk->sk_receive_queue.lock);
+ 
+-	memcpy((u8*)h + macoff, skb->data, snaplen);
++	skb_copy_bits(skb, 0, (u8*)h + macoff, snaplen);
+ 
+ 	h->tp_len = skb->len;
+ 	h->tp_snaplen = snaplen;
 
---VbJkn9YxBvnuCH5J--
+--------------090000040809010504080707--
