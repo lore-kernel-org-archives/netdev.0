@@ -1,217 +1,282 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 8/9] s390: qeth driver fixes [5/6]
-Date: Fri, 15 Sep 2006 16:26:52 +0200
-Message-ID: <20060915142651.GH10043@de.ibm.com>
+Subject: [PATCH 2/9] s390: netiucv driver fixes
+Date: Fri, 15 Sep 2006 16:25:19 +0200
+Message-ID: <20060915142519.GB10043@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:27286 "EHLO
-	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751547AbWIOOhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Sep 2006 10:37:16 -0400
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:27261 "EHLO
+	mtagate2.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1751550AbWIOOhR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Sep 2006 10:37:17 -0400
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8FEbEVi180714
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:14 +0100
+	by mtagate2.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8FEbF61185088
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 14:37:16 GMT
 Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8FEdQTc1814564
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:39:26 +0100
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8FEdRi71814570
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:39:27 +0100
 Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8FEbESO022870
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:14 +0100
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8FEbFbR022913
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:15 +0100
 To: jgarzik@pobox.com
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 8/9] s390: qeth driver fixes [5/6]
+[PATCH 2/9] s390: netiucv driver fixes
 
 From: Frank Pavlic <fpavlic@de.ibm.com>
-	fix kernel panic in qdio queue handling.
-	qeth_qdio_clear_card() could be invoked by 2 CPUs
-	simultaneously (for example reboot event and recovery).
+	- missing lock initialization added
+        - avoid duplicate iucv-interfaces to the same peer
+       	- rw-lock added for manipulating the list of
+          defined iucv connections
 
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 ---
 
- drivers/s390/net/qeth.h      |    3 +-
- drivers/s390/net/qeth_main.c |   71 +++++++++++++++++++++++++-----------------
- 2 files changed, 44 insertions(+), 30 deletions(-)
+ drivers/s390/net/netiucv.c |   80 +++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 64 insertions(+), 16 deletions(-)
 
-146a24d1aeba1ad3b16e98a5553693ccc0799349
-diff --git a/drivers/s390/net/qeth.h b/drivers/s390/net/qeth.h
-index 22a7ffb..821383d 100644
---- a/drivers/s390/net/qeth.h
-+++ b/drivers/s390/net/qeth.h
-@@ -463,6 +463,7 @@ enum qeth_qdio_info_states {
- 	QETH_QDIO_UNINITIALIZED,
- 	QETH_QDIO_ALLOCATED,
- 	QETH_QDIO_ESTABLISHED,
-+	QETH_QDIO_CLEANING
- };
+05eebe4adf2ad6b442b3dc0bd34ccc5863299efb
+diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
+index 5d6e6cb..d7d1cc0 100644
+--- a/drivers/s390/net/netiucv.c
++++ b/drivers/s390/net/netiucv.c
+@@ -112,7 +112,12 @@ struct iucv_connection {
+ /**
+  * Linked list of all connection structs.
+  */
+-static struct iucv_connection *iucv_connections;
++struct iucv_connection_struct {
++	struct iucv_connection *iucv_connections;
++	rwlock_t iucv_rwlock;
++};
++
++static struct iucv_connection_struct iucv_conns;
  
- struct qeth_buffer_pool_entry {
-@@ -537,7 +538,7 @@ struct qeth_qdio_out_q {
- } __attribute__ ((aligned(256)));
+ /**
+  * Representation of event-data for the
+@@ -1368,8 +1373,10 @@ user_write (struct device *dev, struct d
+ 	struct net_device *ndev = priv->conn->netdev;
+ 	char    *p;
+ 	char    *tmp;
+-	char 	username[10];
++	char 	username[9];
+ 	int 	i;
++	struct iucv_connection **clist = &iucv_conns.iucv_connections;
++	unsigned long flags;
  
- struct qeth_qdio_info {
--	volatile enum qeth_qdio_info_states state;
-+	atomic_t state;
- 	/* input */
- 	struct qeth_qdio_q *in_q;
- 	struct qeth_qdio_buffer_pool in_buf_pool;
-diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index 0bc55a3..a1b2e6f 100644
---- a/drivers/s390/net/qeth_main.c
-+++ b/drivers/s390/net/qeth_main.c
-@@ -3179,13 +3179,14 @@ qeth_alloc_qdio_buffers(struct qeth_card
- 
- 	QETH_DBF_TEXT(setup, 2, "allcqdbf");
- 
--	if (card->qdio.state == QETH_QDIO_ALLOCATED)
-+	if (atomic_cmpxchg(&card->qdio.state, QETH_QDIO_UNINITIALIZED,
-+		QETH_QDIO_ALLOCATED) != QETH_QDIO_UNINITIALIZED)
- 		return 0;
- 
- 	card->qdio.in_q = kmalloc(sizeof(struct qeth_qdio_q),
- 				  GFP_KERNEL|GFP_DMA);
- 	if (!card->qdio.in_q)
--		return - ENOMEM;
-+		goto out_nomem;
- 	QETH_DBF_TEXT(setup, 2, "inq");
- 	QETH_DBF_HEX(setup, 2, &card->qdio.in_q, sizeof(void *));
- 	memset(card->qdio.in_q, 0, sizeof(struct qeth_qdio_q));
-@@ -3194,27 +3195,19 @@ qeth_alloc_qdio_buffers(struct qeth_card
- 		card->qdio.in_q->bufs[i].buffer =
- 			&card->qdio.in_q->qdio_bufs[i];
- 	/* inbound buffer pool */
--	if (qeth_alloc_buffer_pool(card)){
--		kfree(card->qdio.in_q);
--		return -ENOMEM;
--	}
-+	if (qeth_alloc_buffer_pool(card))
-+		goto out_freeinq;
- 	/* outbound */
- 	card->qdio.out_qs =
- 		kmalloc(card->qdio.no_out_queues *
- 			sizeof(struct qeth_qdio_out_q *), GFP_KERNEL);
--	if (!card->qdio.out_qs){
--		qeth_free_buffer_pool(card);
--		return -ENOMEM;
--	}
--	for (i = 0; i < card->qdio.no_out_queues; ++i){
-+	if (!card->qdio.out_qs)
-+		goto out_freepool;
-+	for (i = 0; i < card->qdio.no_out_queues; ++i) {
- 		card->qdio.out_qs[i] = kmalloc(sizeof(struct qeth_qdio_out_q),
- 					       GFP_KERNEL|GFP_DMA);
--		if (!card->qdio.out_qs[i]){
--			while (i > 0)
--				kfree(card->qdio.out_qs[--i]);
--			kfree(card->qdio.out_qs);
--			return -ENOMEM;
--		}
-+		if (!card->qdio.out_qs[i])
-+			goto out_freeoutq;
- 		QETH_DBF_TEXT_(setup, 2, "outq %i", i);
- 		QETH_DBF_HEX(setup, 2, &card->qdio.out_qs[i], sizeof(void *));
- 		memset(card->qdio.out_qs[i], 0, sizeof(struct qeth_qdio_out_q));
-@@ -3231,8 +3224,19 @@ qeth_alloc_qdio_buffers(struct qeth_card
- 			INIT_LIST_HEAD(&card->qdio.out_qs[i]->bufs[j].ctx_list);
+ 	IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
+ 	if (count>9) {
+@@ -1382,7 +1389,7 @@ user_write (struct device *dev, struct d
+ 	tmp = strsep((char **) &buf, "\n");
+ 	for (i=0, p=tmp; i<8 && *p; i++, p++) {
+ 		if (isalnum(*p) || (*p == '$'))
+-			username[i]= *p;
++			username[i]= toupper(*p);
+ 		else if (*p == '\n') {
+ 			/* trailing lf, grr */
+ 			break;
+@@ -1395,11 +1402,11 @@ user_write (struct device *dev, struct d
+ 			return -EINVAL;
  		}
  	}
--	card->qdio.state = QETH_QDIO_ALLOCATED;
- 	return 0;
-+
-+out_freeoutq:
-+	while (i > 0)
-+		kfree(card->qdio.out_qs[--i]);
-+	kfree(card->qdio.out_qs);
-+out_freepool:
-+	qeth_free_buffer_pool(card);
-+out_freeinq:
-+	kfree(card->qdio.in_q);
-+out_nomem:
-+	atomic_set(&card->qdio.state, QETH_QDIO_UNINITIALIZED);
-+	return -ENOMEM;
- }
+-	while (i<9)
++	while (i<8)
+ 		username[i++] = ' ';
+-	username[9] = '\0';
++	username[8] = '\0';
  
- static void
-@@ -3241,7 +3245,8 @@ qeth_free_qdio_buffers(struct qeth_card 
- 	int i, j;
- 
- 	QETH_DBF_TEXT(trace, 2, "freeqdbf");
--	if (card->qdio.state == QETH_QDIO_UNINITIALIZED)
-+	if (atomic_swap(&card->qdio.state, QETH_QDIO_UNINITIALIZED) ==
-+		QETH_QDIO_UNINITIALIZED)
- 		return;
- 	kfree(card->qdio.in_q);
- 	/* inbound buffer pool */
-@@ -3254,7 +3259,6 @@ qeth_free_qdio_buffers(struct qeth_card 
- 		kfree(card->qdio.out_qs[i]);
+-	if (memcmp(username, priv->conn->userid, 8)) {
++	if (memcmp(username, priv->conn->userid, 9)) {
+ 		/* username changed */
+ 		if (ndev->flags & (IFF_UP | IFF_RUNNING)) {
+ 			PRINT_WARN(
+@@ -1410,6 +1417,19 @@ user_write (struct device *dev, struct d
+ 			return -EBUSY;
+ 		}
  	}
- 	kfree(card->qdio.out_qs);
--	card->qdio.state = QETH_QDIO_UNINITIALIZED;
- }
++	read_lock_irqsave(&iucv_conns.iucv_rwlock, flags);
++	while (*clist) {
++                if (!strncmp(username, (*clist)->userid, 9) ||
++		    ((*clist)->netdev != ndev))
++                        break;
++                clist = &((*clist)->next);
++        }
++	read_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
++        if (*clist) {
++                PRINT_WARN("netiucv: Connection to %s already exists\n",
++                        username);
++                return -EEXIST;
++        }
+ 	memcpy(priv->conn->userid, username, 9);
  
- static void
-@@ -3276,7 +3280,7 @@ static void
- qeth_init_qdio_info(struct qeth_card *card)
+ 	return count;
+@@ -1781,13 +1801,15 @@ netiucv_unregister_device(struct device 
+ static struct iucv_connection *
+ netiucv_new_connection(struct net_device *dev, char *username)
  {
- 	QETH_DBF_TEXT(setup, 4, "intqdinf");
--	card->qdio.state = QETH_QDIO_UNINITIALIZED;
-+	atomic_set(&card->qdio.state, QETH_QDIO_UNINITIALIZED);
- 	/* inbound */
- 	card->qdio.in_buf_size = QETH_IN_BUF_SIZE_DEFAULT;
- 	card->qdio.init_pool.buf_count = QETH_IN_BUF_COUNT_DEFAULT;
-@@ -3339,7 +3343,7 @@ qeth_qdio_establish(struct qeth_card *ca
- 	struct qdio_buffer **in_sbal_ptrs;
- 	struct qdio_buffer **out_sbal_ptrs;
- 	int i, j, k;
--	int rc;
-+	int rc = 0;
+-	struct iucv_connection **clist = &iucv_connections;
++	unsigned long flags;
++	struct iucv_connection **clist = &iucv_conns.iucv_connections;
+ 	struct iucv_connection *conn =
+ 		kzalloc(sizeof(struct iucv_connection), GFP_KERNEL);
  
- 	QETH_DBF_TEXT(setup, 2, "qdioest");
+ 	if (conn) {
+ 		skb_queue_head_init(&conn->collect_queue);
+ 		skb_queue_head_init(&conn->commit_queue);
++		spin_lock_init(&conn->collect_lock);
+ 		conn->max_buffsize = NETIUCV_BUFSIZE_DEFAULT;
+ 		conn->netdev = dev;
  
-@@ -3398,8 +3402,10 @@ qeth_qdio_establish(struct qeth_card *ca
- 	init_data.input_sbal_addr_array  = (void **) in_sbal_ptrs;
- 	init_data.output_sbal_addr_array = (void **) out_sbal_ptrs;
+@@ -1822,8 +1844,10 @@ netiucv_new_connection(struct net_device
+ 			fsm_newstate(conn->fsm, CONN_STATE_STOPPED);
+ 		}
  
--	if (!(rc = qdio_initialize(&init_data)))
--		card->qdio.state = QETH_QDIO_ESTABLISHED;
-+	if (atomic_cmpxchg(&card->qdio.state, QETH_QDIO_ALLOCATED,
-+		QETH_QDIO_ESTABLISHED) == QETH_QDIO_ALLOCATED)
-+		if ((rc = qdio_initialize(&init_data)))
-+			atomic_set(&card->qdio.state, QETH_QDIO_ALLOCATED);
- 
- 	kfree(out_sbal_ptrs);
- 	kfree(in_sbal_ptrs);
-@@ -3515,13 +3521,20 @@ qeth_qdio_clear_card(struct qeth_card *c
- 	int rc = 0;
- 
- 	QETH_DBF_TEXT(trace,3,"qdioclr");
--	if (card->qdio.state == QETH_QDIO_ESTABLISHED){
-+	switch (atomic_cmpxchg(&card->qdio.state, QETH_QDIO_ESTABLISHED,
-+		QETH_QDIO_CLEANING)) {
-+	case QETH_QDIO_ESTABLISHED:
- 		if ((rc = qdio_cleanup(CARD_DDEV(card),
--			     (card->info.type == QETH_CARD_TYPE_IQD) ?
--			     QDIO_FLAG_CLEANUP_USING_HALT :
--			     QDIO_FLAG_CLEANUP_USING_CLEAR)))
-+				(card->info.type == QETH_CARD_TYPE_IQD) ?
-+				QDIO_FLAG_CLEANUP_USING_HALT :
-+				QDIO_FLAG_CLEANUP_USING_CLEAR)))
- 			QETH_DBF_TEXT_(trace, 3, "1err%d", rc);
--		card->qdio.state = QETH_QDIO_ALLOCATED;
-+		atomic_set(&card->qdio.state, QETH_QDIO_ALLOCATED);
-+		break;
-+	case QETH_QDIO_CLEANING:
-+		return rc;
-+	default:
-+		break;
++		write_lock_irqsave(&iucv_conns.iucv_rwlock, flags);
+ 		conn->next = *clist;
+ 		*clist = conn;
++		write_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
  	}
- 	if ((rc = qeth_clear_halt_card(card, use_halt)))
- 		QETH_DBF_TEXT_(trace, 3, "2err%d", rc);
+ 	return conn;
+ }
+@@ -1835,14 +1859,17 @@ netiucv_new_connection(struct net_device
+ static void
+ netiucv_remove_connection(struct iucv_connection *conn)
+ {
+-	struct iucv_connection **clist = &iucv_connections;
++	struct iucv_connection **clist = &iucv_conns.iucv_connections;
++	unsigned long flags;
+ 
+ 	IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
+ 	if (conn == NULL)
+ 		return;
++	write_lock_irqsave(&iucv_conns.iucv_rwlock, flags);
+ 	while (*clist) {
+ 		if (*clist == conn) {
+ 			*clist = conn->next;
++			write_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
+ 			if (conn->handle) {
+ 				iucv_unregister_program(conn->handle);
+ 				conn->handle = NULL;
+@@ -1855,6 +1882,7 @@ netiucv_remove_connection(struct iucv_co
+ 		}
+ 		clist = &((*clist)->next);
+ 	}
++	write_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
+ }
+ 
+ /**
+@@ -1947,9 +1975,11 @@ static ssize_t
+ conn_write(struct device_driver *drv, const char *buf, size_t count)
+ {
+ 	char *p;
+-	char username[10];
++	char username[9];
+ 	int i, ret;
+ 	struct net_device *dev;
++	struct iucv_connection **clist = &iucv_conns.iucv_connections;
++	unsigned long flags;
+ 
+ 	IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
+ 	if (count>9) {
+@@ -1960,7 +1990,7 @@ conn_write(struct device_driver *drv, co
+ 
+ 	for (i=0, p=(char *)buf; i<8 && *p; i++, p++) {
+ 		if (isalnum(*p) || (*p == '$'))
+-			username[i]= *p;
++			username[i]= toupper(*p);
+ 		else if (*p == '\n') {
+ 			/* trailing lf, grr */
+ 			break;
+@@ -1971,9 +2001,22 @@ conn_write(struct device_driver *drv, co
+ 			return -EINVAL;
+ 		}
+ 	}
+-	while (i<9)
++	while (i<8)
+ 		username[i++] = ' ';
+-	username[9] = '\0';
++	username[8] = '\0';
++
++	read_lock_irqsave(&iucv_conns.iucv_rwlock, flags);
++	while (*clist) {
++		if (!strncmp(username, (*clist)->userid, 9))
++			break;
++		clist = &((*clist)->next);
++	}
++	read_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
++	if (*clist) {
++		PRINT_WARN("netiucv: Connection to %s already exists\n",
++			username);
++		return -EEXIST;
++	}
+ 	dev = netiucv_init_netdevice(username);
+ 	if (!dev) {
+ 		PRINT_WARN(
+@@ -2015,7 +2058,8 @@ DRIVER_ATTR(connection, 0200, NULL, conn
+ static ssize_t
+ remove_write (struct device_driver *drv, const char *buf, size_t count)
+ {
+-	struct iucv_connection **clist = &iucv_connections;
++	struct iucv_connection **clist = &iucv_conns.iucv_connections;
++	unsigned long flags;
+         struct net_device *ndev;
+         struct netiucv_priv *priv;
+         struct device *dev;
+@@ -2026,7 +2070,7 @@ remove_write (struct device_driver *drv,
+         IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
+ 
+         if (count >= IFNAMSIZ)
+-                count = IFNAMSIZ-1;
++                count = IFNAMSIZ - 1;;
+ 
+         for (i=0, p=(char *)buf; i<count && *p; i++, p++) {
+                 if ((*p == '\n') || (*p == ' ')) {
+@@ -2038,6 +2082,7 @@ remove_write (struct device_driver *drv,
+         }
+         name[i] = '\0';
+ 
++	read_lock_irqsave(&iucv_conns.iucv_rwlock, flags);
+         while (*clist) {
+                 ndev = (*clist)->netdev;
+                 priv = (struct netiucv_priv*)ndev->priv;
+@@ -2047,6 +2092,7 @@ remove_write (struct device_driver *drv,
+                         clist = &((*clist)->next);
+                         continue;
+                 }
++		read_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
+                 if (ndev->flags & (IFF_UP | IFF_RUNNING)) {
+                         PRINT_WARN(
+                                 "netiucv: net device %s active with peer %s\n",
+@@ -2060,6 +2106,7 @@ remove_write (struct device_driver *drv,
+                 netiucv_unregister_device(dev);
+                 return count;
+         }
++	read_unlock_irqrestore(&iucv_conns.iucv_rwlock, flags);
+         PRINT_WARN("netiucv: net device %s unknown\n", name);
+ 	IUCV_DBF_TEXT(data, 2, "remove_write: unknown device\n");
+         return -EINVAL;
+@@ -2077,8 +2124,8 @@ static void __exit
+ netiucv_exit(void)
+ {
+ 	IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
+-	while (iucv_connections) {
+-		struct net_device *ndev = iucv_connections->netdev;
++	while (iucv_conns.iucv_connections) {
++		struct net_device *ndev = iucv_conns.iucv_connections->netdev;
+ 		struct netiucv_priv *priv = (struct netiucv_priv*)ndev->priv;
+ 		struct device *dev = priv->dev;
+ 
+@@ -2120,6 +2167,7 @@ netiucv_init(void)
+ 	if (!ret) {
+ 		ret = driver_create_file(&netiucv_driver, &driver_attr_remove);
+ 		netiucv_banner();
++		rwlock_init(&iucv_conns.iucv_rwlock);
+ 	} else {
+ 		PRINT_ERR("NETIUCV: failed to add driver attribute.\n");
+ 		IUCV_DBF_TEXT_(setup, 2, "ret %d from driver_create_file\n", ret);
 -- 
 1.2.4
 
