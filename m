@@ -1,64 +1,34 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: Re: [PATCH 1/4] IP100A: Fix TX Pause bug (reset_tx, intr_handler)
-Date: Fri, 15 Sep 2006 13:44:48 +0200
-Message-ID: <20060915114448.GA7329@ingate.macqel.be>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets,   but not icmp
+Date: Fri, 15 Sep 2006 14:02:35 +0200
+Message-ID: <20060915120235.GA9833@outpost.ds9a.nl>
+References: <20060913112307.GA1374@outpost.ds9a.nl> <45085185.2060904@trash.net> <20060914085618.GA4623@outpost.ds9a.nl> <450928B2.4090003@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: cpw@lanl.gov, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.macqel.be ([194.78.208.39]:35090 "EHLO mail.macqel.be")
-	by vger.kernel.org with ESMTP id S1750989AbWIOLoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2006 07:44:55 -0400
-To: Jesse Huang <jesse@icplus.com.tw>
+Received: from outpost.ds9a.nl ([213.244.168.210]:1757 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1751305AbWIOMCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2006 08:02:37 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <450928B2.4090003@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 14, 2006 at 12:58:30AM +0000, Jesse Huang wrote:
-[...]
-> @@ -262,8 +262,6 @@ enum alta_offsets {
->  	ASICCtrl = 0x30,
->  	EEData = 0x34,
->  	EECtrl = 0x36,
-> -	TxStartThresh = 0x3c,
-> -	RxEarlyThresh = 0x3e,
+> It appears to be intentionally, but I don't see a reason for it.
+> Can you try if this patch makes it work as expected?
 
-Why ?
+> [PACKET]: Don't truncate non-linear skbs with mmaped IO
+> 
+> Non-linear skbs are truncated to their linear part with mmaped IO.
+> Fix by using skb_copy_bits instead of memcpy.
 
->  	FlashAddr = 0x40,
->  	FlashData = 0x44,
->  	TxStatus = 0x46,
-[...]
-> @@ -1156,29 +1160,29 @@ static irqreturn_t intr_handler(int irq,
->  						np->stats.tx_fifo_errors++;
->  					if (tx_status & 0x02)
->  						np->stats.tx_window_errors++;
-> -					/*
-> -					** This reset has been verified on
-> -					** DFE-580TX boards ! phdm@macqel.be.
-> -					*/
-> -					if (tx_status & 0x10) {	/* TxUnderrun */
-> -						unsigned short txthreshold;
-> -
-> -						txthreshold = ioread16 (ioaddr + TxStartThresh);
-> -						/* Restart Tx FIFO and transmitter */
-> -						sundance_reset(dev, (NetworkReset|FIFOReset|TxReset) << 16);
-> -						iowrite16 (txthreshold, ioaddr + TxStartThresh);
-> -						/* No need to reset the Tx pointer here */
-> +
-> +					/* FIFO ERROR need to be reset tx */
-> +					if (tx_status & 0x10) {	/* Reset the Tx. */
-> +						spin_lock(&np->lock);
-> +						reset_tx(dev);
-> +						spin_unlock(&np->lock);
-> +					}
+Works very well for me! I hope this can make it into 2.6.18.
+Thanks everybody.
 
-Just as the comments say, on DFE-580TX 4 port boards, where it is easy to
-reproduce TxUnderrun problems, just resetting on the chip the Tx FIFO and
-transmitter is enough.
-There is no need to call reset_tx, which discards all pending messages and
-frees all the skb's.  It is also not necessary to reload the Tx pointer.
 
-Is it different with newer versions of the chip ?
 
-Philippe
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
