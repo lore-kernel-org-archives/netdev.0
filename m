@@ -1,127 +1,160 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [RESEND PATCH 1/9] s390: minor s390 network driver fixes
-Date: Fri, 15 Sep 2006 16:25:03 +0200
-Message-ID: <20060915142503.GA10043@de.ibm.com>
+Subject: [PATCH 5/9] s390: qeth driver fixes [2/6]
+Date: Fri, 15 Sep 2006 16:26:07 +0200
+Message-ID: <20060915142607.GE10043@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:2612 "EHLO
-	mtagate6.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751548AbWIOOhN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Sep 2006 10:37:13 -0400
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:45101 "EHLO
+	mtagate1.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1751553AbWIOOhO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Sep 2006 10:37:14 -0400
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8FEbBvh107744
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 14:37:11 GMT
+	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8FEbDcW088206
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 14:37:13 GMT
 Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8FEdNuw938084
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:39:23 +0100
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8FEdOC01892580
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:39:24 +0100
 Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8FEbB0g022734
-	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:11 +0100
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8FEbCnN022800
+	for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 15:37:13 +0100
 To: jgarzik@pobox.com
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
-this is a RESEND of the nine s390 network driver patches.
-I finally found  that my kmail corrupted almost every patch
-I sent the last time. Please apply these 9 patches and forget 
-about my first attempt! Sorry for the delay, I had some fights
-with sendmail, IMAP and mutt configuration.
-
-Frank
-
-[RESEND PATCH 1/9] s390: minor s390 network driver fixes
+[PATCH 5/9] s390: qeth driver fixes [2/6]
 
 From: Frank Pavlic <fpavlic@de.ibm.com>
-	- iucv driver:
-          use do { } while (0) constructs 
-	  instead of empty defines to avoid compile bugs.
-        - ctc driver:
-          missing lock initialization added
-        - lcs driver:
-          BUG_ON usage was removed accidently 
-	  with the last lcs patch.
-          Put them back in place.
-	  
+	- fixed error handling in create_device_attributes
+	- fixed some minor bugs in IPv4 
+	  and IPv6 address checking
+
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 ---
 
- drivers/s390/net/ctcmain.c |    3 +++
- drivers/s390/net/iucv.c    |    4 ++--
- drivers/s390/net/lcs.c     |   13 +++++--------
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/s390/net/qeth.h     |   25 ++++++++++++++++---------
+ drivers/s390/net/qeth_sys.c |   22 ++++++++++++++++------
+ 2 files changed, 32 insertions(+), 15 deletions(-)
 
-d7012f9f15697e7dc7901108401bd8bcea1bd97d
-diff --git a/drivers/s390/net/ctcmain.c b/drivers/s390/net/ctcmain.c
-index 8a4b581..3257c22 100644
---- a/drivers/s390/net/ctcmain.c
-+++ b/drivers/s390/net/ctcmain.c
-@@ -1714,6 +1714,9 @@ add_channel(struct ccw_device *cdev, enu
- 		kfree(ch);
- 		return 0;
+8d7b1277f7334cf8c5390d72563dcd22f69f3eb4
+diff --git a/drivers/s390/net/qeth.h b/drivers/s390/net/qeth.h
+index 619f4a0..e8bd8c5 100644
+--- a/drivers/s390/net/qeth.h
++++ b/drivers/s390/net/qeth.h
+@@ -1096,10 +1096,11 @@ qeth_string_to_ipaddr4(const char *buf, 
+ {
+ 	int count = 0, rc = 0;
+ 	int in[4];
++	char c;
+ 
+-	rc = sscanf(buf, "%d.%d.%d.%d%n",
+-		    &in[0], &in[1], &in[2], &in[3], &count);
+-	if (rc != 4  || count<=0)
++	rc = sscanf(buf, "%u.%u.%u.%u%c",
++		    &in[0], &in[1], &in[2], &in[3], &c);
++	if (rc != 4 && (rc != 5 || c != '\n'))
+ 		return -EINVAL;
+ 	for (count = 0; count < 4; count++) {
+ 		if (in[count] > 255)
+@@ -1123,24 +1124,28 @@ qeth_ipaddr6_to_string(const __u8 *addr,
+ static inline int
+ qeth_string_to_ipaddr6(const char *buf, __u8 *addr)
+ {
+-	char *end, *start;
++	const char *end, *end_tmp, *start;
+ 	__u16 *in;
+         char num[5];
+         int num2, cnt, out, found, save_cnt;
+         unsigned short in_tmp[8] = {0, };
+ 
+ 	cnt = out = found = save_cnt = num2 = 0;
+-        end = start = (char *) buf;
++        end = start = buf;
+ 	in = (__u16 *) addr;
+ 	memset(in, 0, 16);
+-        while (end) {
+-                end = strchr(end,':');
++        while (*end) {
++                end = strchr(start,':');
+                 if (end == NULL) {
+-                        end = (char *)buf + (strlen(buf));
+-                        out = 1;
++                        end = buf + strlen(buf);
++			if ((end_tmp = strchr(start, '\n')) != NULL)
++				end = end_tmp;
++			out = 1;
+                 }
+                 if ((end - start)) {
+                         memset(num, 0, 5);
++			if ((end - start) > 4)
++				return -EINVAL;
+                         memcpy(num, start, end - start);
+ 			if (!qeth_isxdigit(num))
+ 				return -EINVAL;
+@@ -1158,6 +1163,8 @@ qeth_string_to_ipaddr6(const char *buf, 
+ 		}
+ 		start = ++end;
+         }
++	if (cnt + save_cnt > 8)
++		return -EINVAL;
+         cnt = 7;
+ 	while (save_cnt)
+                 in[cnt--] = in_tmp[--save_cnt];
+diff --git a/drivers/s390/net/qeth_sys.c b/drivers/s390/net/qeth_sys.c
+index 001497b..c1f3187 100644
+--- a/drivers/s390/net/qeth_sys.c
++++ b/drivers/s390/net/qeth_sys.c
+@@ -1110,12 +1110,12 @@ qeth_parse_ipatoe(const char* buf, enum 
+ {
+ 	const char *start, *end;
+ 	char *tmp;
+-	char buffer[49] = {0, };
++	char buffer[40] = {0, };
+ 
+ 	start = buf;
+ 	/* get address string */
+ 	end = strchr(start, '/');
+-	if (!end || (end-start >= 49)){
++	if (!end || (end - start >= 40)){
+ 		PRINT_WARN("Invalid format for ipato_addx/delx. "
+ 			   "Use <ip addr>/<mask bits>\n");
+ 		return -EINVAL;
+@@ -1127,7 +1127,12 @@ qeth_parse_ipatoe(const char* buf, enum 
  	}
-+
-+	spin_lock_init(&ch->collect_lock);
-+
- 	fsm_settimer(ch->fsm, &ch->timer);
- 	skb_queue_head_init(&ch->io_queue);
- 	skb_queue_head_init(&ch->collect_queue);
-diff --git a/drivers/s390/net/iucv.c b/drivers/s390/net/iucv.c
-index 0e863df..821dde8 100644
---- a/drivers/s390/net/iucv.c
-+++ b/drivers/s390/net/iucv.c
-@@ -335,8 +335,8 @@ do { \
+ 	start = end + 1;
+ 	*mask_bits = simple_strtoul(start, &tmp, 10);
+-
++	if (!strlen(start) ||
++	    (tmp == start) ||
++	    (*mask_bits > ((proto == QETH_PROT_IPV4) ? 32 : 128))) {
++		PRINT_WARN("Invalid mask bits for ipato_addx/delx !\n");
++		return -EINVAL;
++	}
+ 	return 0;
+ }
  
- #else
+@@ -1698,11 +1703,16 @@ qeth_create_device_attributes(struct dev
+ 		sysfs_remove_group(&dev->kobj, &qeth_device_attr_group);
+ 		sysfs_remove_group(&dev->kobj, &qeth_device_ipato_group);
+ 		sysfs_remove_group(&dev->kobj, &qeth_device_vipa_group);
++		return ret;
+ 	}
+-	if ((ret = sysfs_create_group(&dev->kobj, &qeth_device_blkt_group)))
++	if ((ret = sysfs_create_group(&dev->kobj, &qeth_device_blkt_group))){
++		sysfs_remove_group(&dev->kobj, &qeth_device_attr_group);
++		sysfs_remove_group(&dev->kobj, &qeth_device_ipato_group);
++		sysfs_remove_group(&dev->kobj, &qeth_device_vipa_group);
++		sysfs_remove_group(&dev->kobj, &qeth_device_rxip_group);
+ 		return ret;
+-
+-	return ret;
++	}
++	return 0;
+ }
  
--#define iucv_debug(lvl, fmt, args...)
--#define iucv_dumpit(title, buf, len)
-+#define iucv_debug(lvl, fmt, args...)	do { } while (0)
-+#define iucv_dumpit(title, buf, len)	do { } while (0)
- 
- #endif
- 
-diff --git a/drivers/s390/net/lcs.c b/drivers/s390/net/lcs.c
-index 2eded55..16ac68c 100644
---- a/drivers/s390/net/lcs.c
-+++ b/drivers/s390/net/lcs.c
-@@ -670,9 +670,8 @@ lcs_ready_buffer(struct lcs_channel *cha
- 	int index, rc;
- 
- 	LCS_DBF_TEXT(5, trace, "rdybuff");
--	if (buffer->state != BUF_STATE_LOCKED &&
--	    buffer->state != BUF_STATE_PROCESSED)
--		BUG();
-+	BUG_ON(buffer->state != BUF_STATE_LOCKED &&
-+	       buffer->state != BUF_STATE_PROCESSED);
- 	spin_lock_irqsave(get_ccwdev_lock(channel->ccwdev), flags);
- 	buffer->state = BUF_STATE_READY;
- 	index = buffer - channel->iob;
-@@ -696,8 +695,7 @@ __lcs_processed_buffer(struct lcs_channe
- 	int index, prev, next;
- 
- 	LCS_DBF_TEXT(5, trace, "prcsbuff");
--	if (buffer->state != BUF_STATE_READY)
--		BUG();
-+	BUG_ON(buffer->state != BUF_STATE_READY);
- 	buffer->state = BUF_STATE_PROCESSED;
- 	index = buffer - channel->iob;
- 	prev = (index - 1) & (LCS_NUM_BUFFS - 1);
-@@ -729,9 +727,8 @@ lcs_release_buffer(struct lcs_channel *c
- 	unsigned long flags;
- 
- 	LCS_DBF_TEXT(5, trace, "relbuff");
--	if (buffer->state != BUF_STATE_LOCKED &&
--	    buffer->state != BUF_STATE_PROCESSED)
--		BUG();
-+	BUG_ON(buffer->state != BUF_STATE_LOCKED &&
-+	       buffer->state != BUF_STATE_PROCESSED);
- 	spin_lock_irqsave(get_ccwdev_lock(channel->ccwdev), flags);
- 	buffer->state = BUF_STATE_EMPTY;
- 	spin_unlock_irqrestore(get_ccwdev_lock(channel->ccwdev), flags);
+ void
 -- 
 1.2.4
 
