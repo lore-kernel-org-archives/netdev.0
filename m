@@ -1,64 +1,51 @@
-From: Tony Jeffree <tony@jeffree.co.uk>
-Subject: Re: 802.1D/Linux STP issue
-Date: Fri, 15 Sep 2006 08:34:51 +0100
-Message-ID: <6.0.1.1.2.20060915083330.048e5968@mail.expressoweb.co.uk>
-References: <OF1AE42FF9.06C5D926-ON852571E7.005804CC-852571E7.0057EE7E@ieee.org>
- <45076B88.80104@bristyle.com>
- <6.0.1.1.2.20060913075410.04133280@mail.expressoweb.co.uk>
- <45088D29.30501@bristyle.com>
- <20060914100619.76cb1828@localhost.localdomain>
- <6.0.1.1.2.20060914174624.05055480@mail.expressoweb.co.uk>
- <20060915091528.7b5912e9@localhost.localdomain>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH] natsemi: Messages being noisy
+Date: Fri, 15 Sep 2006 10:11:38 +0200
+Message-ID: <200609151011.39096.netdev@axxeo.de>
+References: <200609131528.51336.netdev@axxeo.de> <200609141739.08461.netdev@axxeo.de> <20060914154607.GA7576@hockin.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: Brian Braunstein <brian@bristyle.com>,
-	Rajesh Mishra <rajesh_mish@yahoo.com>, bridge@osdl.org,
-	netdev@vger.kernel.org, mick_seaman@ieee.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he304war.uk.vianw.net ([195.102.244.167]:58266 "EHLO
-	he304war.uk.vianw.net") by vger.kernel.org with ESMTP
-	id S1751153AbWIOHey (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Sep 2006 03:34:54 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060915091528.7b5912e9@localhost.localdomain>
-References: <OF1AE42FF9.06C5D926-ON852571E7.005804CC-852571E7.0057EE7E@ieee.org>
- <45076B88.80104@bristyle.com>
- <6.0.1.1.2.20060913075410.04133280@mail.expressoweb.co.uk>
- <45088D29.30501@bristyle.com>
- <20060914100619.76cb1828@localhost.localdomain>
- <6.0.1.1.2.20060914174624.05055480@mail.expressoweb.co.uk>
- <20060915091528.7b5912e9@localhost.localdomain>
+Received: from mail.axxeo.de ([82.100.226.146]:18357 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1750717AbWIOIMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2006 04:12:03 -0400
+To: thockin@hockin.org
+In-Reply-To: <20060914154607.GA7576@hockin.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-At 01:15 15/09/2006, Stephen Hemminger wrote:
->On Thu, 14 Sep 2006 17:51:50 +0100
->Tony Jeffree <tony@jeffree.co.uk> wrote:
->
-> > Steve/Brian -
-> >
-> > You've probably seen Mick Seaman's comments on this by now - as he points
-> > out in his email, tinkering with existing STP implementations is not 
-> likely
-> > to be a rewarding exercise and I would encourage you not to go there.
-> >
-> > I would suggest that it would be a much more valuable exercise for the
-> > Linux community to replace the existing STP support with an implementation
-> > of RSTP.
-> >
-> > Regards,
-> > Tony
->
->Work is already in progress to do RSTP (by several different people),
->but the effort is going slowly.
+Hi Tim,
+Hi Jeff,
 
-Steve -
+thockin@hockin.org wrote:
+> On Thu, Sep 14, 2006 at 05:39:08PM +0200, Ingo Oeser wrote:
+> > Ingo Oeser wrote:
+> > > I  get the following message when trying to transfer big files 
+> > > (via FTP or SCP) since Linux 2.6.16.27. It didn't happen with Linux 2.6.13.4.
+> > > 
+> > > [702238.242237] eth1: increased tx threshold, txcfg 0xd0f01008.
+> > > [702238.242649] eth1: increased tx threshold, txcfg 0xd0f0100a.
+> > Is it possible to have the maximum value right from the start?
+> > May I tune it somewhere to be the maximum from the start?
+> 
+> This will (if I recall) increase transmit latency.  It's a fine line.  You
+> might tune it up, but this fallback path probably should not be removed..
 
-In that case, I would strongly suggest that you channel any additional 
-available effort in that direction, rather than in the direction of 
-tinkering with STP.
+Will implementing "ethtool_ringparam" be the right thing for this?
 
-Regards,
-Tony
+Or is there simply no ethtool mechanism for setting up thresholds, yet?
+
+If not, I would simply like to have my original pr_debug patch included. 
+The actual value of the tx threshhold can be queried 
+via "ethtool -d eth0" already.
+
+What do you think?
 
 
+Regards
+
+Ingo Oeser
