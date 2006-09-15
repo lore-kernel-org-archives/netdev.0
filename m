@@ -1,7 +1,7 @@
 From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 2.6.18-rc7 7/9] NetXen: hw access routines header file
-Date: Fri, 15 Sep 2006 11:57:30 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0609151151490.7710@dut39>
+Subject: [PATCH 2.6.18-rc7 8/9] NetXen: Header file and ioctl header file
+Date: Fri, 15 Sep 2006 12:01:29 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609151157400.7710@dut39>
 References: <Pine.LNX.4.64.0609151124560.7710@dut39>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
@@ -9,19 +9,19 @@ Cc: jeff@garzik.org, Sanjeev Jorapur <sanjeev@netxen.com>,
 	Rob Mapes <rob@netxen.com>, unmproj@linsyssoft.com,
 	brazilnut@us.ibm.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:39763 "EHLO
-	nxmail.netxen.com") by vger.kernel.org with ESMTP id S932245AbWIOS5a
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:12887 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S932081AbWIOTBb
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Sep 2006 14:57:30 -0400
+	Fri, 15 Sep 2006 15:01:31 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <Pine.LNX.4.64.0609151124560.7710@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff -Narup -X linux-2.6.18-rc7.orig/Documentation/dontdiff linux-2.6.18-rc7.orig/drivers/net/netxen/netxen_nic_hw.h linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h
---- linux-2.6.18-rc7.orig/drivers/net/netxen/netxen_nic_hw.h	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h	2006-09-15 10:51:59.000000000 -0700
-@@ -0,0 +1,467 @@
+diff -Narup -X linux-2.6.18-rc7.orig/Documentation/dontdiff linux-2.6.18-rc7.orig/drivers/net/netxen/netxen_nic_hdr.h linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hdr.h
+--- linux-2.6.18-rc7.orig/drivers/net/netxen/netxen_nic_hdr.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hdr.h	2006-09-15 10:51:59.000000000 -0700
+@@ -0,0 +1,618 @@
 +/*
 + * Copyright (C) 2003 - 2006 NetXen, Inc.
 + * All rights reserved.
@@ -49,444 +49,674 @@ diff -Narup -X linux-2.6.18-rc7.orig/Documentation/dontdiff linux-2.6.18-rc7.ori
 + * NetXen,
 + * 3965 Freedom Circle, Fourth floor,
 + * Santa Clara, CA 95054
-+ *
-+ *
-+ * Structures, enums, and macros for the MAC
-+ *
 + */
 +
-+#ifndef __NETXEN_NIC_HW_H_
-+#define __NETXEN_NIC_HW_H_
++#ifndef __NETXEN_NIC_HDR_H_
++#define __NETXEN_NIC_HDR_H_
 +
-+#include "netxen_nic_hdr.h"
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/config.h>
++#include <linux/version.h>
 +
-+/* Hardware memory size of 128 meg */
-+#define NETXEN_MEMADDR_MAX (128 * 1024 * 1024)
-+
-+#ifndef readq
-+static inline u64 readq(void __iomem * addr)
-+{
-+	return readl(addr) | (((u64) readl(addr + 4)) << 32LL);
-+}
-+#endif
-+
-+#ifndef writeq
-+static inline void writeq(u64 val, void __iomem * addr)
-+{
-+	writel(((u32) (val)), (addr));
-+	writel(((u32) (val >> 32)), (addr + 4));
-+}
-+#endif
-+
-+static inline void netxen_nic_hw_block_write64(u64 __iomem * data_ptr,
-+					       u64 __iomem * addr,
-+					       int num_words)
-+{
-+	int num;
-+	for (num = 0; num < num_words; num++) {
-+		writeq(readq((void __iomem *)data_ptr), addr);
-+		addr++;
-+		data_ptr++;
-+	}
-+}
-+
-+static inline void netxen_nic_hw_block_read64(u64 __iomem * data_ptr,
-+					      u64 __iomem * addr, int num_words)
-+{
-+	int num;
-+	for (num = 0; num < num_words; num++) {
-+		writeq(readq((void __iomem *)addr), data_ptr);
-+		addr++;
-+		data_ptr++;
-+	}
-+
-+}
-+
-+struct netxen_adapter;
-+
-+#define NETXEN_PCI_MAPSIZE_BYTES  (NETXEN_PCI_MAPSIZE << 20)
-+
-+#define NETXEN_NIC_LOCKED_READ_REG(X, Y)   			\
-+	addr = (adapter->ahw.pci_base + X);     \
-+	*(u32 *)Y = readl((void __iomem*) addr);
-+
-+struct netxen_port;
-+void netxen_nic_set_link_parameters(struct netxen_port *port);
-+void netxen_nic_flash_print(struct netxen_adapter *adapter);
-+int netxen_nic_hw_write_wx(struct netxen_adapter *adapter, u64 off,
-+			   void *data, int len);
-+void netxen_crb_writelit_adapter(struct netxen_adapter *adapter,
-+				 unsigned long off, int data);
-+int netxen_nic_hw_read_wx(struct netxen_adapter *adapter, u64 off,
-+			  void *data, int len);
-+
-+typedef u8 netxen_ethernet_macaddr_t[6];
-+
-+/* Nibble or Byte mode for phy interface (GbE mode only) */
-+typedef enum {
-+	NETXEN_NIU_10_100_MB = 0,
-+	NETXEN_NIU_1000_MB
-+} netxen_niu_gbe_ifmode_t;
-+
-+#define _netxen_crb_get_bit(var, bit)  ((var >> bit) & 0x1)
++#include <asm/semaphore.h>
++#include <linux/spinlock.h>
++#include <asm/irq.h>
++#include <linux/init.h>
++#include <linux/errno.h>
++#include <linux/pci.h>
++#include <linux/types.h>
++#include <asm/uaccess.h>
++#include <asm/string.h>		/* for memset */
 +
 +/*
-+ * NIU GB MAC Config Register 0 (applies to GB0, GB1, GB2, GB3)
-+ *
-+ *	Bit 0 : enable_tx => 1:enable frame xmit, 0:disable
-+ *	Bit 1 : tx_synced => R/O: xmit enable synched to xmit stream
-+ *	Bit 2 : enable_rx => 1:enable frame recv, 0:disable
-+ *	Bit 3 : rx_synced => R/O: recv enable synched to recv stream
-+ *	Bit 4 : tx_flowctl => 1:enable pause frame generation, 0:disable
-+ *	Bit 5 : rx_flowctl => 1:act on recv'd pause frames, 0:ignore
-+ *	Bit 8 : loopback => 1:loop MAC xmits to MAC recvs, 0:normal
-+ *	Bit 16: tx_reset_pb => 1:reset frame xmit protocol blk, 0:no-op
-+ *	Bit 17: rx_reset_pb => 1:reset frame recv protocol blk, 0:no-op
-+ *	Bit 18: tx_reset_mac => 1:reset data/ctl multiplexer blk, 0:no-op
-+ *	Bit 19: rx_reset_mac => 1:reset ctl frames & timers blk, 0:no-op
-+ *	Bit 31: soft_reset => 1:reset the MAC and the SERDES, 0:no-op
++ * The basic unit of access when reading/writing control registers.
 + */
 +
-+#define netxen_gb_enable_tx(config_word)	\
-+	set_bit(0, (unsigned long*)(&config_word))
-+#define netxen_gb_enable_rx(config_word)	\
-+	set_bit(2, (unsigned long*)(&config_word))
-+#define netxen_gb_tx_flowctl(config_word)	\
-+	set_bit(4, (unsigned long*)(&config_word))
-+#define netxen_gb_rx_flowctl(config_word)	\
-+	set_bit(5, (unsigned long*)(&config_word))
-+#define netxen_gb_tx_reset_pb(config_word)	\
-+		set_bit(16, (unsigned long*)(&config_word))
-+#define netxen_gb_rx_reset_pb(config_word)	\
-+		set_bit(17, (unsigned long*)(&config_word))
-+#define netxen_gb_tx_reset_mac(config_word)	\
-+		set_bit(18, (unsigned long*)(&config_word))
-+#define netxen_gb_rx_reset_mac(config_word)	\
-+		set_bit(19, (unsigned long*)(&config_word))
-+#define netxen_gb_soft_reset(config_word)	\
-+		set_bit(31, (unsigned long*)(&config_word))
++typedef __le32 netxen_crbword_t;	/* single word in CRB space */
 +
-+#define netxen_gb_unset_tx_flowctl(config_word)	\
-+		clear_bit(4, (unsigned long *)(&config_word))
-+#define netxen_gb_unset_rx_flowctl(config_word)	\
-+		clear_bit(5, (unsigned long*)(&config_word))
++enum {
++	NETXEN_HW_H0_CH_HUB_ADR = 0x05,
++	NETXEN_HW_H1_CH_HUB_ADR = 0x0E,
++	NETXEN_HW_H2_CH_HUB_ADR = 0x03,
++	NETXEN_HW_H3_CH_HUB_ADR = 0x01,
++	NETXEN_HW_H4_CH_HUB_ADR = 0x06,
++	NETXEN_HW_H5_CH_HUB_ADR = 0x07,
++	NETXEN_HW_H6_CH_HUB_ADR = 0x08
++};
 +
-+#define netxen_gb_get_tx_synced(config_word)	\
-+		_netxen_crb_get_bit((config_word), 1)
-+#define netxen_gb_get_rx_synced(config_word)	\
-+		_netxen_crb_get_bit((config_word), 3)
-+#define netxen_gb_get_tx_flowctl(config_word)	\
-+		_netxen_crb_get_bit((config_word), 4)
-+#define netxen_gb_get_rx_flowctl(config_word)	\
-+		_netxen_crb_get_bit((config_word), 5)
-+#define netxen_gb_get_soft_reset(config_word)	\
-+		_netxen_crb_get_bit((config_word), 31)
++/*  Hub 0 */
++enum {
++	NETXEN_HW_MN_CRB_AGT_ADR = 0x15,
++	NETXEN_HW_MS_CRB_AGT_ADR = 0x25
++};
++
++/*  Hub 1 */
++enum {
++	NETXEN_HW_PS_CRB_AGT_ADR = 0x73,
++	NETXEN_HW_SS_CRB_AGT_ADR = 0x20,
++	NETXEN_HW_RPMX3_CRB_AGT_ADR = 0x0b,
++	NETXEN_HW_QMS_CRB_AGT_ADR = 0x00,
++	NETXEN_HW_SQGS0_CRB_AGT_ADR = 0x01,
++	NETXEN_HW_SQGS1_CRB_AGT_ADR = 0x02,
++	NETXEN_HW_SQGS2_CRB_AGT_ADR = 0x03,
++	NETXEN_HW_SQGS3_CRB_AGT_ADR = 0x04,
++	NETXEN_HW_C2C0_CRB_AGT_ADR = 0x58,
++	NETXEN_HW_C2C1_CRB_AGT_ADR = 0x59,
++	NETXEN_HW_C2C2_CRB_AGT_ADR = 0x5a,
++	NETXEN_HW_RPMX2_CRB_AGT_ADR = 0x0a,
++	NETXEN_HW_RPMX4_CRB_AGT_ADR = 0x0c,
++	NETXEN_HW_RPMX7_CRB_AGT_ADR = 0x0f,
++	NETXEN_HW_RPMX9_CRB_AGT_ADR = 0x12,
++	NETXEN_HW_SMB_CRB_AGT_ADR = 0x18
++};
++
++/*  Hub 2 */
++enum {
++	NETXEN_HW_NIU_CRB_AGT_ADR = 0x31,
++	NETXEN_HW_I2C0_CRB_AGT_ADR = 0x19,
++	NETXEN_HW_I2C1_CRB_AGT_ADR = 0x29,
++
++	NETXEN_HW_SN_CRB_AGT_ADR = 0x10,
++	NETXEN_HW_I2Q_CRB_AGT_ADR = 0x20,
++	NETXEN_HW_LPC_CRB_AGT_ADR = 0x22,
++	NETXEN_HW_ROMUSB_CRB_AGT_ADR = 0x21,
++	NETXEN_HW_QM_CRB_AGT_ADR = 0x66,
++	NETXEN_HW_SQG0_CRB_AGT_ADR = 0x60,
++	NETXEN_HW_SQG1_CRB_AGT_ADR = 0x61,
++	NETXEN_HW_SQG2_CRB_AGT_ADR = 0x62,
++	NETXEN_HW_SQG3_CRB_AGT_ADR = 0x63,
++	NETXEN_HW_RPMX1_CRB_AGT_ADR = 0x09,
++	NETXEN_HW_RPMX5_CRB_AGT_ADR = 0x0d,
++	NETXEN_HW_RPMX6_CRB_AGT_ADR = 0x0e,
++	NETXEN_HW_RPMX8_CRB_AGT_ADR = 0x11
++};
++
++/*  Hub 3 */
++enum {
++	NETXEN_HW_PH_CRB_AGT_ADR = 0x1A,
++	NETXEN_HW_SRE_CRB_AGT_ADR = 0x50,
++	NETXEN_HW_EG_CRB_AGT_ADR = 0x51,
++	NETXEN_HW_RPMX0_CRB_AGT_ADR = 0x08
++};
++
++/*  Hub 4 */
++enum {
++	NETXEN_HW_PEGN0_CRB_AGT_ADR = 0x40,
++	NETXEN_HW_PEGN1_CRB_AGT_ADR,
++	NETXEN_HW_PEGN2_CRB_AGT_ADR,
++	NETXEN_HW_PEGN3_CRB_AGT_ADR,
++	NETXEN_HW_PEGNI_CRB_AGT_ADR,
++	NETXEN_HW_PEGND_CRB_AGT_ADR,
++	NETXEN_HW_PEGNC_CRB_AGT_ADR,
++	NETXEN_HW_PEGR0_CRB_AGT_ADR,
++	NETXEN_HW_PEGR1_CRB_AGT_ADR,
++	NETXEN_HW_PEGR2_CRB_AGT_ADR,
++	NETXEN_HW_PEGR3_CRB_AGT_ADR
++};
++
++/*  Hub 5 */
++enum {
++	NETXEN_HW_PEGS0_CRB_AGT_ADR = 0x40,
++	NETXEN_HW_PEGS1_CRB_AGT_ADR,
++	NETXEN_HW_PEGS2_CRB_AGT_ADR,
++	NETXEN_HW_PEGS3_CRB_AGT_ADR,
++	NETXEN_HW_PEGSI_CRB_AGT_ADR,
++	NETXEN_HW_PEGSD_CRB_AGT_ADR,
++	NETXEN_HW_PEGSC_CRB_AGT_ADR
++};
++
++/*  Hub 6 */
++enum {
++	NETXEN_HW_CAS0_CRB_AGT_ADR = 0x46,
++	NETXEN_HW_CAS1_CRB_AGT_ADR = 0x47,
++	NETXEN_HW_CAS2_CRB_AGT_ADR = 0x48,
++	NETXEN_HW_CAS3_CRB_AGT_ADR = 0x49,
++	NETXEN_HW_NCM_CRB_AGT_ADR = 0x16,
++	NETXEN_HW_TMR_CRB_AGT_ADR = 0x17,
++	NETXEN_HW_XDMA_CRB_AGT_ADR = 0x05,
++	NETXEN_HW_OCM0_CRB_AGT_ADR = 0x06,
++	NETXEN_HW_OCM1_CRB_AGT_ADR = 0x07
++};
++
++/*  Floaters - non existent modules */
++#define NETXEN_HW_EFC_RPMX0_CRB_AGT_ADR	0x67
++
++/*  This field defines PCI/X adr [25:20] of agents on the CRB */
++enum {
++	NETXEN_HW_PX_MAP_CRB_PH = 0,
++	NETXEN_HW_PX_MAP_CRB_PS,
++	NETXEN_HW_PX_MAP_CRB_MN,
++	NETXEN_HW_PX_MAP_CRB_MS,
++	NETXEN_HW_PX_MAP_CRB_PGR1,
++	NETXEN_HW_PX_MAP_CRB_SRE,
++	NETXEN_HW_PX_MAP_CRB_NIU,
++	NETXEN_HW_PX_MAP_CRB_QMN,
++	NETXEN_HW_PX_MAP_CRB_SQN0,
++	NETXEN_HW_PX_MAP_CRB_SQN1,
++	NETXEN_HW_PX_MAP_CRB_SQN2,
++	NETXEN_HW_PX_MAP_CRB_SQN3,
++	NETXEN_HW_PX_MAP_CRB_QMS,
++	NETXEN_HW_PX_MAP_CRB_SQS0,
++	NETXEN_HW_PX_MAP_CRB_SQS1,
++	NETXEN_HW_PX_MAP_CRB_SQS2,
++	NETXEN_HW_PX_MAP_CRB_SQS3,
++	NETXEN_HW_PX_MAP_CRB_PGN0,
++	NETXEN_HW_PX_MAP_CRB_PGN1,
++	NETXEN_HW_PX_MAP_CRB_PGN2,
++	NETXEN_HW_PX_MAP_CRB_PGN3,
++	NETXEN_HW_PX_MAP_CRB_PGND,
++	NETXEN_HW_PX_MAP_CRB_PGNI,
++	NETXEN_HW_PX_MAP_CRB_PGS0,
++	NETXEN_HW_PX_MAP_CRB_PGS1,
++	NETXEN_HW_PX_MAP_CRB_PGS2,
++	NETXEN_HW_PX_MAP_CRB_PGS3,
++	NETXEN_HW_PX_MAP_CRB_PGSD,
++	NETXEN_HW_PX_MAP_CRB_PGSI,
++	NETXEN_HW_PX_MAP_CRB_SN,
++	NETXEN_HW_PX_MAP_CRB_PGR2,
++	NETXEN_HW_PX_MAP_CRB_EG,
++	NETXEN_HW_PX_MAP_CRB_PH2,
++	NETXEN_HW_PX_MAP_CRB_PS2,
++	NETXEN_HW_PX_MAP_CRB_CAM,
++	NETXEN_HW_PX_MAP_CRB_CAS0,
++	NETXEN_HW_PX_MAP_CRB_CAS1,
++	NETXEN_HW_PX_MAP_CRB_CAS2,
++	NETXEN_HW_PX_MAP_CRB_C2C0,
++	NETXEN_HW_PX_MAP_CRB_C2C1,
++	NETXEN_HW_PX_MAP_CRB_TIMR,
++	NETXEN_HW_PX_MAP_CRB_PGR3,
++	NETXEN_HW_PX_MAP_CRB_RPMX1,
++	NETXEN_HW_PX_MAP_CRB_RPMX2,
++	NETXEN_HW_PX_MAP_CRB_RPMX3,
++	NETXEN_HW_PX_MAP_CRB_RPMX4,
++	NETXEN_HW_PX_MAP_CRB_RPMX5,
++	NETXEN_HW_PX_MAP_CRB_RPMX6,
++	NETXEN_HW_PX_MAP_CRB_RPMX7,
++	NETXEN_HW_PX_MAP_CRB_XDMA,
++	NETXEN_HW_PX_MAP_CRB_I2Q,
++	NETXEN_HW_PX_MAP_CRB_ROMUSB,
++	NETXEN_HW_PX_MAP_CRB_CAS3,
++	NETXEN_HW_PX_MAP_CRB_RPMX0,
++	NETXEN_HW_PX_MAP_CRB_RPMX8,
++	NETXEN_HW_PX_MAP_CRB_RPMX9,
++	NETXEN_HW_PX_MAP_CRB_OCM0,
++	NETXEN_HW_PX_MAP_CRB_OCM1,
++	NETXEN_HW_PX_MAP_CRB_SMB,
++	NETXEN_HW_PX_MAP_CRB_I2C0,
++	NETXEN_HW_PX_MAP_CRB_I2C1,
++	NETXEN_HW_PX_MAP_CRB_LPC,
++	NETXEN_HW_PX_MAP_CRB_PGNC,
++	NETXEN_HW_PX_MAP_CRB_PGR0
++};
++
++/*  This field defines CRB adr [31:20] of the agents */
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_MN	\
++	((NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_MN_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PH	\
++	((NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_PH_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_MS	\
++	((NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_MS_CRB_AGT_ADR)
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PS	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_PS_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SS	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SS_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX3	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX3_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_QMS	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_QMS_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQS0	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQS1	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQS2	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQS3	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS3_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_C2C0	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_C2C0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_C2C1	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_C2C1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX2	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX4	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX4_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX7	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX7_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX9	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX9_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SMB	\
++	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SMB_CRB_AGT_ADR)
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_NIU	\
++	((NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_NIU_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_I2C0	\
++	((NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_I2C0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_I2C1	\
++	((NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_I2C1_CRB_AGT_ADR)
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SRE	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SRE_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_EG	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_EG_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX0	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_QMN	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_QM_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQN0	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQN1	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQN2	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SQN3	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG3_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX1	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX5	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX5_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX6	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX6_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX8	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX8_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_CAS0	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_CAS1	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_CAS2	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_CAS3	\
++	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS3_CRB_AGT_ADR)
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGNI	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGNI_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGND	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGND_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGN0	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGN1	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGN2	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGN3	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN3_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGNC	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGNC_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGR0	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGR1	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGR2	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGR3	\
++	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR3_CRB_AGT_ADR)
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGSI	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSI_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGSD	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSD_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGS0	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGS1	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGS2	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS2_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGS3	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS3_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_PGSC	\
++	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSC_CRB_AGT_ADR)
++
++#define NETXEN_HW_CRB_HUB_AGT_ADR_CAM	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_NCM_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_TIMR	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_TMR_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_XDMA	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_XDMA_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_SN	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_SN_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_I2Q	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_I2Q_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_ROMUSB	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_ROMUSB_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_OCM0	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_OCM0_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_OCM1	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_OCM1_CRB_AGT_ADR)
++#define NETXEN_HW_CRB_HUB_AGT_ADR_LPC	\
++	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_LPC_CRB_AGT_ADR)
 +
 +/*
-+ * NIU GB MAC Config Register 1 (applies to GB0, GB1, GB2, GB3)
-+ *
-+ *	Bit 0	    : duplex => 1:full duplex mode, 0:half duplex
-+ *	Bit 1	    : crc_enable => 1:append CRC to xmit frames, 0:dont append
-+ *	Bit 2	    : padshort => 1:pad short frames and add CRC, 0:dont pad
-+ *	Bit 4	    : checklength => 1:check framelen with actual,0:dont check
-+ *	Bit 5	    : hugeframes => 1:allow oversize xmit frames, 0:dont allow
-+ *	Bits 8-9    : intfmode => 01:nibble (10/100), 10:byte (1000)
-+ *	Bits 12-15  : preamblelen => preamble field length in bytes, default 7
++ * MAX_RCV_CTX : The number of receive contexts that are available on
++ * the phantom.
 + */
++#define MAX_RCV_CTX			1
 +
-+#define netxen_gb_set_duplex(config_word)	\
-+		set_bit(0, (unsigned long*)&config_word)
-+#define netxen_gb_set_crc_enable(config_word)	\
-+		set_bit(1, (unsigned long*)&config_word)
-+#define netxen_gb_set_padshort(config_word)	\
-+		set_bit(2, (unsigned long*)&config_word)
-+#define netxen_gb_set_checklength(config_word)	\
-+		set_bit(4, (unsigned long*)&config_word)
-+#define netxen_gb_set_hugeframes(config_word)	\
-+		set_bit(5, (unsigned long*)&config_word)
-+#define netxen_gb_set_preamblelen(config_word, val)	\
-+		((config_word) |= ((val) << 12) & 0xF000)
-+#define netxen_gb_set_intfmode(config_word, val)		\
-+		((config_word) |= ((val) << 8) & 0x300)
++#define NETXEN_SRE_INT_STATUS		(NETXEN_CRB_SRE + 0x00034)
++#define NETXEN_SRE_PBI_ACTIVE_STATUS	(NETXEN_CRB_SRE + 0x01014)
++#define NETXEN_SRE_L1RE_CTL		(NETXEN_CRB_SRE + 0x03000)
++#define NETXEN_SRE_L2RE_CTL		(NETXEN_CRB_SRE + 0x05000)
++#define NETXEN_SRE_BUF_CTL		(NETXEN_CRB_SRE + 0x01000)
 +
-+#define netxen_gb_get_stationaddress_low(config_word) ((config_word) >> 16)
++#define	NETXEN_DMA_BASE(U)	(NETXEN_CRB_PCIX_MD + 0x20000 + ((U)<<16))
++#define	NETXEN_DMA_COMMAND(U)	(NETXEN_DMA_BASE(U) + 0x00008)
 +
-+#define netxen_gb_set_mii_mgmt_clockselect(config_word, val)	\
-+		((config_word) |= ((val) & 0x07))
-+#define netxen_gb_mii_mgmt_reset(config_word)	\
-+		set_bit(31, (unsigned long*)&config_word)
-+#define netxen_gb_mii_mgmt_unset(config_word)	\
-+		clear_bit(31, (unsigned long*)&config_word)
++#define NETXEN_I2Q_CLR_PCI_HI	(NETXEN_CRB_I2Q + 0x00034)
 +
++#define PEG_NETWORK_BASE(N)	(NETXEN_CRB_PEG_NET_0 + (((N)&3) << 20))
++#define CRB_REG_EX_PC		0x3c
++
++#define ROMUSB_GLB	(NETXEN_CRB_ROMUSB + 0x00000)
++#define ROMUSB_ROM	(NETXEN_CRB_ROMUSB + 0x10000)
++
++#define NETXEN_ROMUSB_GLB_STATUS	(ROMUSB_GLB + 0x0004)
++#define NETXEN_ROMUSB_GLB_SW_RESET	(ROMUSB_GLB + 0x0008)
++#define NETXEN_ROMUSB_GLB_PAD_GPIO_I	(ROMUSB_GLB + 0x000c)
++#define NETXEN_ROMUSB_GLB_CAS_RST	(ROMUSB_GLB + 0x0038)
++#define NETXEN_ROMUSB_GLB_TEST_MUX_SEL	(ROMUSB_GLB + 0x0044)
++#define NETXEN_ROMUSB_GLB_PEGTUNE_DONE	(ROMUSB_GLB + 0x005c)
++#define NETXEN_ROMUSB_GLB_CHIP_CLK_CTRL	(ROMUSB_GLB + 0x00A8)
++
++#define NETXEN_ROMUSB_GPIO(n)		(ROMUSB_GLB + 0x60 + (4 * (n)))
++
++#define NETXEN_ROMUSB_ROM_INSTR_OPCODE	(ROMUSB_ROM + 0x0004)
++#define NETXEN_ROMUSB_ROM_ADDRESS	(ROMUSB_ROM + 0x0008)
++#define NETXEN_ROMUSB_ROM_ABYTE_CNT	(ROMUSB_ROM + 0x0010)
++#define NETXEN_ROMUSB_ROM_DUMMY_BYTE_CNT (ROMUSB_ROM + 0x0014)
++#define NETXEN_ROMUSB_ROM_RDATA		(ROMUSB_ROM + 0x0018)
++
++/* Lock IDs for ROM lock */
++#define ROM_LOCK_DRIVER	0x0d417340
++
++#define NETXEN_PCI_CRB_WINDOWSIZE	0x00100000	/* all are 1MB windows */
++#define NETXEN_PCI_CRB_WINDOW(A)	\
++	(NETXEN_PCI_CRBSPACE + (A)*NETXEN_PCI_CRB_WINDOWSIZE)
++
++#define NETXEN_CRB_NIU		NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_NIU)
++#define NETXEN_CRB_SRE		NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_SRE)
++#define NETXEN_CRB_ROMUSB	\
++	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_ROMUSB)
++#define NETXEN_CRB_I2Q		NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_I2Q)
++#define NETXEN_CRB_MAX		NETXEN_PCI_CRB_WINDOW(64)
++
++#define NETXEN_CRB_PCIX_HOST	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PH)
++#define NETXEN_CRB_PCIX_HOST2	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PH2)
++#define NETXEN_CRB_PEG_NET_0	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PGN0)
++#define NETXEN_CRB_PEG_NET_1	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PGN1)
++#define NETXEN_CRB_PEG_NET_2	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PGN2)
++#define NETXEN_CRB_PEG_NET_3	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PGN3)
++#define NETXEN_CRB_PEG_NET_D	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PGND)
++#define NETXEN_CRB_PEG_NET_I	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PGNI)
++#define NETXEN_CRB_DDR_NET	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_MN)
++
++#define NETXEN_CRB_PCIX_MD	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_PS)
++#define NETXEN_CRB_PCIE		NETXEN_CRB_PCIX_MD
++
++#define ISR_INT_VECTOR		(NETXEN_PCIX_PS_REG(PCIX_INT_VECTOR))
++#define ISR_INT_MASK		(NETXEN_PCIX_PS_REG(PCIX_INT_MASK))
++#define ISR_INT_MASK_SLOW	(NETXEN_PCIX_PS_REG(PCIX_INT_MASK))
++#define ISR_INT_TARGET_STATUS	(NETXEN_PCIX_PS_REG(PCIX_TARGET_STATUS))
++#define ISR_INT_TARGET_MASK	(NETXEN_PCIX_PS_REG(PCIX_TARGET_MASK))
++
++#define NETXEN_PCI_MAPSIZE	128
++#define NETXEN_PCI_DDR_NET	(0x00000000UL)
++#define NETXEN_PCI_QDR_NET	(0x04000000UL)
++#define NETXEN_PCI_DIRECT_CRB	(0x04400000UL)
++#define NETXEN_PCI_CAMQM_MAX	(0x04ffffffUL)
++#define NETXEN_PCI_OCM0		(0x05000000UL)
++#define NETXEN_PCI_OCM0_MAX	(0x050fffffUL)
++#define NETXEN_PCI_OCM1		(0x05100000UL)
++#define NETXEN_PCI_OCM1_MAX	(0x051fffffUL)
++#define NETXEN_PCI_CRBSPACE	(0x06000000UL)
++
++#define NETXEN_CRB_CAM	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_CAM)
++
++#define NETXEN_ADDR_DDR_NET	(0x0000000000000000ULL)
++#define NETXEN_ADDR_DDR_NET_MAX (0x000000000fffffffULL)
++#define NETXEN_ADDR_OCM0	(0x0000000200000000ULL)
++#define NETXEN_ADDR_OCM0_MAX	(0x00000002000fffffULL)
++#define NETXEN_ADDR_OCM1	(0x0000000200400000ULL)
++#define NETXEN_ADDR_OCM1_MAX	(0x00000002004fffffULL)
++#define NETXEN_ADDR_QDR_NET	(0x0000000300000000ULL)
++#define NETXEN_ADDR_QDR_NET_MAX (0x00000003003fffffULL)
++
++	/* 200ms delay in each loop */
++#define	NETXEN_NIU_PHY_WAITLEN		200000
++	/* 10 seconds before we give up */
++#define	NETXEN_NIU_PHY_WAITMAX		50
++#define	NETXEN_NIU_MAX_GBE_PORTS	4
++
++#define	NETXEN_NIU_MODE			(NETXEN_CRB_NIU + 0x00000)
++
++#define	NETXEN_NIU_XG_SINGLE_TERM	(NETXEN_CRB_NIU + 0x00004)
++#define	NETXEN_NIU_XG_DRIVE_HI		(NETXEN_CRB_NIU + 0x00008)
++#define	NETXEN_NIU_XG_DRIVE_LO		(NETXEN_CRB_NIU + 0x0000c)
++#define	NETXEN_NIU_XG_DTX		(NETXEN_CRB_NIU + 0x00010)
++#define	NETXEN_NIU_XG_DEQ		(NETXEN_CRB_NIU + 0x00014)
++#define	NETXEN_NIU_XG_WORD_ALIGN	(NETXEN_CRB_NIU + 0x00018)
++#define	NETXEN_NIU_XG_RESET		(NETXEN_CRB_NIU + 0x0001c)
++#define	NETXEN_NIU_XG_POWER_DOWN	(NETXEN_CRB_NIU + 0x00020)
++#define	NETXEN_NIU_XG_RESET_PLL		(NETXEN_CRB_NIU + 0x00024)
++#define	NETXEN_NIU_XG_SERDES_LOOPBACK	(NETXEN_CRB_NIU + 0x00028)
++#define	NETXEN_NIU_XG_DO_BYTE_ALIGN	(NETXEN_CRB_NIU + 0x0002c)
++#define	NETXEN_NIU_XG_TX_ENABLE		(NETXEN_CRB_NIU + 0x00030)
++#define	NETXEN_NIU_XG_RX_ENABLE		(NETXEN_CRB_NIU + 0x00034)
++#define	NETXEN_NIU_XG_STATUS		(NETXEN_CRB_NIU + 0x00038)
++#define	NETXEN_NIU_XG_PAUSE_THRESHOLD	(NETXEN_CRB_NIU + 0x0003c)
++#define	NETXEN_NIU_INT_MASK		(NETXEN_CRB_NIU + 0x00040)
++#define	NETXEN_NIU_ACTIVE_INT		(NETXEN_CRB_NIU + 0x00044)
++#define	NETXEN_NIU_MASKABLE_INT		(NETXEN_CRB_NIU + 0x00048)
++
++#define NETXEN_NIU_STRAP_VALUE_SAVE_HIGHER	(NETXEN_CRB_NIU + 0x0004c)
++
++#define	NETXEN_NIU_GB_SERDES_RESET	(NETXEN_CRB_NIU + 0x00050)
++#define	NETXEN_NIU_GB0_GMII_MODE	(NETXEN_CRB_NIU + 0x00054)
++#define	NETXEN_NIU_GB0_MII_MODE		(NETXEN_CRB_NIU + 0x00058)
++#define	NETXEN_NIU_GB1_GMII_MODE	(NETXEN_CRB_NIU + 0x0005c)
++#define	NETXEN_NIU_GB1_MII_MODE		(NETXEN_CRB_NIU + 0x00060)
++#define	NETXEN_NIU_GB2_GMII_MODE	(NETXEN_CRB_NIU + 0x00064)
++#define	NETXEN_NIU_GB2_MII_MODE		(NETXEN_CRB_NIU + 0x00068)
++#define	NETXEN_NIU_GB3_GMII_MODE	(NETXEN_CRB_NIU + 0x0006c)
++#define	NETXEN_NIU_GB3_MII_MODE		(NETXEN_CRB_NIU + 0x00070)
++#define	NETXEN_NIU_REMOTE_LOOPBACK	(NETXEN_CRB_NIU + 0x00074)
++#define	NETXEN_NIU_GB0_HALF_DUPLEX	(NETXEN_CRB_NIU + 0x00078)
++#define	NETXEN_NIU_GB1_HALF_DUPLEX	(NETXEN_CRB_NIU + 0x0007c)
++#define	NETXEN_NIU_RESET_SYS_FIFOS	(NETXEN_CRB_NIU + 0x00088)
++#define	NETXEN_NIU_GB_CRC_DROP		(NETXEN_CRB_NIU + 0x0008c)
++#define	NETXEN_NIU_GB_DROP_WRONGADDR	(NETXEN_CRB_NIU + 0x00090)
++#define	NETXEN_NIU_TEST_MUX_CTL		(NETXEN_CRB_NIU + 0x00094)
++#define	NETXEN_NIU_XG_PAUSE_CTL		(NETXEN_CRB_NIU + 0x00098)
++#define	NETXEN_NIU_XG_PAUSE_LEVEL	(NETXEN_CRB_NIU + 0x000dc)
++#define	NETXEN_NIU_XG_SEL		(NETXEN_CRB_NIU + 0x00128)
++
++#define NETXEN_MAC_ADDR_CNTL_REG	(NETXEN_CRB_NIU + 0x1000)
++
++#define	NETXEN_MULTICAST_ADDR_HI_0	(NETXEN_CRB_NIU + 0x1010)
++#define NETXEN_MULTICAST_ADDR_HI_1	(NETXEN_CRB_NIU + 0x1014)
++#define NETXEN_MULTICAST_ADDR_HI_2	(NETXEN_CRB_NIU + 0x1018)
++#define NETXEN_MULTICAST_ADDR_HI_3	(NETXEN_CRB_NIU + 0x101c)
++
++#define	NETXEN_NIU_GB_MAC_CONFIG_0(I)		\
++	(NETXEN_CRB_NIU + 0x30000 + (I)*0x10000)
++#define	NETXEN_NIU_GB_MAC_CONFIG_1(I)		\
++	(NETXEN_CRB_NIU + 0x30004 + (I)*0x10000)
++#define	NETXEN_NIU_GB_MAC_IPG_IFG(I)		\
++	(NETXEN_CRB_NIU + 0x30008 + (I)*0x10000)
++#define	NETXEN_NIU_GB_HALF_DUPLEX_CTRL(I)	\
++	(NETXEN_CRB_NIU + 0x3000c + (I)*0x10000)
++#define	NETXEN_NIU_GB_MAX_FRAME_SIZE(I)		\
++	(NETXEN_CRB_NIU + 0x30010 + (I)*0x10000)
++#define	NETXEN_NIU_GB_TEST_REG(I)		\
++	(NETXEN_CRB_NIU + 0x3001c + (I)*0x10000)
++#define	NETXEN_NIU_GB_MII_MGMT_CONFIG(I)	\
++	(NETXEN_CRB_NIU + 0x30020 + (I)*0x10000)
++#define	NETXEN_NIU_GB_MII_MGMT_COMMAND(I)	\
++	(NETXEN_CRB_NIU + 0x30024 + (I)*0x10000)
++#define	NETXEN_NIU_GB_MII_MGMT_ADDR(I)		\
++	(NETXEN_CRB_NIU + 0x30028 + (I)*0x10000)
++#define	NETXEN_NIU_GB_MII_MGMT_CTRL(I)		\
++	(NETXEN_CRB_NIU + 0x3002c + (I)*0x10000)
++#define	NETXEN_NIU_GB_MII_MGMT_STATUS(I)	\
++	(NETXEN_CRB_NIU + 0x30030 + (I)*0x10000)
++#define	NETXEN_NIU_GB_MII_MGMT_INDICATE(I)	\
++	(NETXEN_CRB_NIU + 0x30034 + (I)*0x10000)
++#define	NETXEN_NIU_GB_INTERFACE_CTRL(I)		\
++	(NETXEN_CRB_NIU + 0x30038 + (I)*0x10000)
++#define	NETXEN_NIU_GB_INTERFACE_STATUS(I)	\
++	(NETXEN_CRB_NIU + 0x3003c + (I)*0x10000)
++#define	NETXEN_NIU_GB_STATION_ADDR_0(I)		\
++	(NETXEN_CRB_NIU + 0x30040 + (I)*0x10000)
++#define	NETXEN_NIU_GB_STATION_ADDR_1(I)		\
++	(NETXEN_CRB_NIU + 0x30044 + (I)*0x10000)
++
++#define	NETXEN_NIU_XGE_CONFIG_0			(NETXEN_CRB_NIU + 0x70000)
++#define	NETXEN_NIU_XGE_CONFIG_1			(NETXEN_CRB_NIU + 0x70004)
++#define	NETXEN_NIU_XGE_IPG			(NETXEN_CRB_NIU + 0x70008)
++#define	NETXEN_NIU_XGE_STATION_ADDR_0_HI	(NETXEN_CRB_NIU + 0x7000c)
++#define	NETXEN_NIU_XGE_STATION_ADDR_0_1		(NETXEN_CRB_NIU + 0x70010)
++#define	NETXEN_NIU_XGE_STATION_ADDR_1_LO	(NETXEN_CRB_NIU + 0x70014)
++#define	NETXEN_NIU_XGE_STATUS			(NETXEN_CRB_NIU + 0x70018)
++#define	NETXEN_NIU_XGE_MAX_FRAME_SIZE		(NETXEN_CRB_NIU + 0x7001c)
++#define	NETXEN_NIU_XGE_PAUSE_FRAME_VALUE	(NETXEN_CRB_NIU + 0x70020)
++#define	NETXEN_NIU_XGE_TX_BYTE_CNT		(NETXEN_CRB_NIU + 0x70024)
++#define	NETXEN_NIU_XGE_TX_FRAME_CNT		(NETXEN_CRB_NIU + 0x70028)
++#define	NETXEN_NIU_XGE_RX_BYTE_CNT		(NETXEN_CRB_NIU + 0x7002c)
++#define	NETXEN_NIU_XGE_RX_FRAME_CNT		(NETXEN_CRB_NIU + 0x70030)
++#define	NETXEN_NIU_XGE_AGGR_ERROR_CNT		(NETXEN_CRB_NIU + 0x70034)
++#define	NETXEN_NIU_XGE_MULTICAST_FRAME_CNT 	(NETXEN_CRB_NIU + 0x70038)
++#define	NETXEN_NIU_XGE_UNICAST_FRAME_CNT	(NETXEN_CRB_NIU + 0x7003c)
++#define	NETXEN_NIU_XGE_CRC_ERROR_CNT		(NETXEN_CRB_NIU + 0x70040)
++#define	NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR	(NETXEN_CRB_NIU + 0x70044)
++#define	NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR	(NETXEN_CRB_NIU + 0x70048)
++#define	NETXEN_NIU_XGE_LOCAL_ERROR_CNT		(NETXEN_CRB_NIU + 0x7004c)
++#define	NETXEN_NIU_XGE_REMOTE_ERROR_CNT		(NETXEN_CRB_NIU + 0x70050)
++#define	NETXEN_NIU_XGE_CONTROL_CHAR_CNT		(NETXEN_CRB_NIU + 0x70054)
++#define	NETXEN_NIU_XGE_PAUSE_FRAME_CNT		(NETXEN_CRB_NIU + 0x70058)
++
++/* XG Link status */
++#define XG_LINK_UP	0x10
++#define XG_LINK_DOWN	0x20
++
++#define NETXEN_CAM_RAM_BASE	(NETXEN_CRB_CAM + 0x02000)
++#define NETXEN_CAM_RAM(reg)	(NETXEN_CAM_RAM_BASE + (reg))
++#define NETXEN_FW_VERSION_MAJOR (NETXEN_CAM_RAM(0x150))
++#define NETXEN_FW_VERSION_MINOR (NETXEN_CAM_RAM(0x154))
++#define NETXEN_FW_VERSION_SUB	(NETXEN_CAM_RAM(0x158))
++#define NETXEN_ROM_LOCK_ID	(NETXEN_CAM_RAM(0x100))
++
++#define PCIX_PS_OP_ADDR_LO	(0x10000)	/* Used for PS PCI Memory access */
++#define PCIX_PS_OP_ADDR_HI	(0x10004)	/*   via CRB  (PS side only)     */
++
++#define PCIX_INT_VECTOR		(0x10100)
++#define PCIX_INT_MASK		(0x10104)
++
++#define PCIX_MN_WINDOW		(0x10200)
++#define PCIX_MS_WINDOW		(0x10204)
++#define PCIX_SN_WINDOW		(0x10208)
++#define PCIX_CRB_WINDOW		(0x10210)
++
++#define PCIX_TARGET_STATUS	(0x10118)
++#define PCIX_TARGET_MASK	(0x10128)
++
++#define PCIX_MSI_F0		(0x13000)
++
++#define PCIX_PS_MEM_SPACE	(0x90000)
++
++#define NETXEN_PCIX_PH_REG(reg)	(NETXEN_CRB_PCIE + (reg))
++#define NETXEN_PCIX_PS_REG(reg)	(NETXEN_CRB_PCIX_MD + (reg))
++
++#define NETXEN_PCIE_REG(reg)	(NETXEN_CRB_PCIE + (reg))
++
++#define PCIE_MAX_DMA_XFER_SIZE	(0x1404c)
++
++#define PCIE_DCR		0x00d8
++
++#define PCIE_SEM2_LOCK		(0x1c010)	/* Flash lock   */
++#define PCIE_SEM2_UNLOCK	(0x1c014)	/* Flash unlock */
++
++#define PCIE_TGT_SPLIT_CHICKEN	(0x12080)
++
++#define PCIE_MAX_MASTER_SPLIT	(0x14048)
++
++#endif				/* __NETXEN_NIC_HDR_H_ */
+diff -Narup -X linux-2.6.18-rc7.orig/Documentation/dontdiff linux-2.6.18-rc7.orig/drivers/net/netxen/netxen_nic_ioctl.h linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_ioctl.h
+--- linux-2.6.18-rc7.orig/drivers/net/netxen/netxen_nic_ioctl.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_ioctl.h	2006-09-15 10:51:59.000000000 -0700
+@@ -0,0 +1,75 @@
 +/*
-+ * NIU GB MII Mgmt Command Register (applies to GB0, GB1, GB2, GB3)
-+ * Bit 0 : read_cycle => 1:perform single read cycle, 0:no-op
-+ * Bit 1 : scan_cycle => 1:perform continuous read cycles, 0:no-op
-+ */
-+
-+#define netxen_gb_mii_mgmt_set_read_cycle(config_word)	\
-+		set_bit(0, (unsigned long*)&config_word)
-+#define netxen_gb_mii_mgmt_reg_addr(config_word, val)	\
-+		((config_word) |= ((val) & 0x1F))
-+#define netxen_gb_mii_mgmt_phy_addr(config_word, val)	\
-+		((config_word) |= (((val) & 0x1F) << 8))
-+
-+/*
-+ * NIU GB MII Mgmt Indicators Register (applies to GB0, GB1, GB2, GB3)
-+ * Read-only register.
-+ * Bit 0 : busy => 1:performing an MII mgmt cycle, 0:idle
-+ * Bit 1 : scanning => 1:scan operation in progress, 0:idle
-+ * Bit 2 : notvalid => :mgmt result data not yet valid, 0:idle
-+ */
-+#define netxen_get_gb_mii_mgmt_busy(config_word)	\
-+		_netxen_crb_get_bit(config_word, 0)
-+#define netxen_get_gb_mii_mgmt_scanning(config_word)	\
-+		_netxen_crb_get_bit(config_word, 1)
-+#define netxen_get_gb_mii_mgmt_notvalid(config_word)	\
-+		_netxen_crb_get_bit(config_word, 2)
-+
-+/*
-+ * PHY-Specific MII control/status registers.
-+ */
-+typedef enum {
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_CONTROL = 0,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_STATUS = 1,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_ID_0 = 2,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_ID_1 = 3,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG = 4,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LNKPART = 5,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG_MORE = 6,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_NEXTPAGE_XMIT = 7,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LNKPART_NEXTPAGE = 8,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_1000BT_CONTROL = 9,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_1000BT_STATUS = 10,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_EXTENDED_STATUS = 15,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_CONTROL = 16,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS = 17,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_INT_ENABLE = 18,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS = 19,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_CONTROL_MORE = 20,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_RECV_ERROR_COUNT = 21,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LED_CONTROL = 24,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LED_OVERRIDE = 25,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_CONTROL_MORE_YET = 26,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS_MORE = 27
-+} netxen_niu_phy_register_t;
-+
-+/*
-+ * PHY-Specific Status Register (reg 17).
-+ *
-+ * Bit 0      : jabber => 1:jabber detected, 0:not
-+ * Bit 1      : polarity => 1:polarity reversed, 0:normal
-+ * Bit 2      : recvpause => 1:receive pause enabled, 0:disabled
-+ * Bit 3      : xmitpause => 1:transmit pause enabled, 0:disabled
-+ * Bit 4      : energydetect => 1:sleep, 0:active
-+ * Bit 5      : downshift => 1:downshift, 0:no downshift
-+ * Bit 6      : crossover => 1:MDIX (crossover), 0:MDI (no crossover)
-+ * Bits 7-9   : cablelen => not valid in 10Mb/s mode
-+ *			0:<50m, 1:50-80m, 2:80-110m, 3:110-140m, 4:>140m
-+ * Bit 10     : link => 1:link up, 0:link down
-+ * Bit 11     : resolved => 1:speed and duplex resolved, 0:not yet
-+ * Bit 12     : pagercvd => 1:page received, 0:page not received
-+ * Bit 13     : duplex => 1:full duplex, 0:half duplex
-+ * Bits 14-15 : speed => 0:10Mb/s, 1:100Mb/s, 2:1000Mb/s, 3:rsvd
-+ */
-+
-+#define netxen_get_phy_cablelen(config_word) (((config_word) >> 7) & 0x07)
-+#define netxen_get_phy_speed(config_word) (((config_word) >> 14) & 0x03)
-+
-+#define netxen_set_phy_speed(config_word, val)	\
-+		((config_word) |= ((val & 0x03) << 14))
-+#define netxen_set_phy_duplex(config_word)	\
-+		set_bit(13, (unsigned long*)&config_word)
-+#define netxen_clear_phy_duplex(config_word)	\
-+		clear_bit(13, (unsigned long*)&config_word)
-+
-+#define netxen_get_phy_jabber(config_word)	\
-+		_netxen_crb_get_bit(config_word, 0)
-+#define netxen_get_phy_polarity(config_word)	\
-+		_netxen_crb_get_bit(config_word, 1)
-+#define netxen_get_phy_recvpause(config_word)	\
-+		_netxen_crb_get_bit(config_word, 2)
-+#define netxen_get_phy_xmitpause(config_word)	\
-+		_netxen_crb_get_bit(config_word, 3)
-+#define netxen_get_phy_energydetect(config_word) \
-+		_netxen_crb_get_bit(config_word, 4)
-+#define netxen_get_phy_downshift(config_word)	\
-+		_netxen_crb_get_bit(config_word, 5)
-+#define netxen_get_phy_crossover(config_word)	\
-+		_netxen_crb_get_bit(config_word, 6)
-+#define netxen_get_phy_link(config_word)	\
-+		_netxen_crb_get_bit(config_word, 10)
-+#define netxen_get_phy_resolved(config_word)	\
-+		_netxen_crb_get_bit(config_word, 11)
-+#define netxen_get_phy_pagercvd(config_word)	\
-+		_netxen_crb_get_bit(config_word, 12)
-+#define netxen_get_phy_duplex(config_word)	\
-+		_netxen_crb_get_bit(config_word, 13)
-+
-+/*
-+ * Interrupt Register definition
-+ * This definition applies to registers 18 and 19 (int enable and int status).
-+ * Bit 0 : jabber
-+ * Bit 1 : polarity_changed
-+ * Bit 4 : energy_detect
-+ * Bit 5 : downshift
-+ * Bit 6 : mdi_xover_changed
-+ * Bit 7 : fifo_over_underflow
-+ * Bit 8 : false_carrier
-+ * Bit 9 : symbol_error
-+ * Bit 10: link_status_changed
-+ * Bit 11: autoneg_completed
-+ * Bit 12: page_received
-+ * Bit 13: duplex_changed
-+ * Bit 14: speed_changed
-+ * Bit 15: autoneg_error
-+ */
-+
-+#define netxen_get_phy_int_jabber(config_word)	\
-+		_netxen_crb_get_bit(config_word, 0)
-+#define netxen_get_phy_int_polarity_changed(config_word)	\
-+		_netxen_crb_get_bit(config_word, 1)
-+#define netxen_get_phy_int_energy_detect(config_word)	\
-+		_netxen_crb_get_bit(config_word, 4)
-+#define netxen_get_phy_int_downshift(config_word)	\
-+		_netxen_crb_get_bit(config_word, 5)
-+#define netxen_get_phy_int_mdi_xover_changed(config_word)	\
-+		_netxen_crb_get_bit(config_word, 6)
-+#define netxen_get_phy_int_fifo_over_underflow(config_word)	\
-+		_netxen_crb_get_bit(config_word, 7)
-+#define netxen_get_phy_int_false_carrier(config_word)	\
-+		_netxen_crb_get_bit(config_word, 8)
-+#define netxen_get_phy_int_symbol_error(config_word)	\
-+		_netxen_crb_get_bit(config_word, 9)
-+#define netxen_get_phy_int_link_status_changed(config_word)	\
-+		_netxen_crb_get_bit(config_word, 10)
-+#define netxen_get_phy_int_autoneg_completed(config_word)	\
-+		_netxen_crb_get_bit(config_word, 11)
-+#define netxen_get_phy_int_page_received(config_word)	\
-+		_netxen_crb_get_bit(config_word, 12)
-+#define netxen_get_phy_int_duplex_changed(config_word)	\
-+		_netxen_crb_get_bit(config_word, 13)
-+#define netxen_get_phy_int_speed_changed(config_word)	\
-+		_netxen_crb_get_bit(config_word, 14)
-+#define netxen_get_phy_int_autoneg_error(config_word)	\
-+		_netxen_crb_get_bit(config_word, 15)
-+
-+#define netxen_set_phy_int_link_status_changed(config_word)	\
-+		set_bit(10, (unsigned long*)&config_word)
-+#define netxen_set_phy_int_autoneg_completed(config_word)	\
-+		set_bit(11, (unsigned long*)&config_word)
-+#define netxen_set_phy_int_speed_changed(config_word)	\
-+		set_bit(14, (unsigned long*)&config_word)
-+
-+/*
-+ * NIU Mode Register.
-+ * Bit 0 : enable FibreChannel
-+ * Bit 1 : enable 10/100/1000 Ethernet
-+ * Bit 2 : enable 10Gb Ethernet
-+ */
-+
-+#define netxen_get_niu_enable_ge(config_word)	\
-+		_netxen_crb_get_bit(config_word, 1)
-+
-+/* Promiscous mode options (GbE mode only) */
-+typedef enum {
-+	NETXEN_NIU_PROMISCOUS_MODE = 0,
-+	NETXEN_NIU_NON_PROMISCOUS_MODE
-+} netxen_niu_prom_mode_t;
-+
-+/*
-+ * NIU GB Drop CRC Register
++ * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * All rights reserved.
 + * 
-+ * Bit 0 : drop_gb0 => 1:drop pkts with bad CRCs, 0:pass them on
-+ * Bit 1 : drop_gb1 => 1:drop pkts with bad CRCs, 0:pass them on
-+ * Bit 2 : drop_gb2 => 1:drop pkts with bad CRCs, 0:pass them on
-+ * Bit 3 : drop_gb3 => 1:drop pkts with bad CRCs, 0:pass them on
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * 
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
++ * MA  02111-1307, USA.
++ * 
++ * The full GNU General Public License is included in this distribution
++ * in the file called LICENSE.
++ * 
++ * Contact Information:
++ *    info@netxen.com
++ * NetXen,
++ * 3965 Freedom Circle, Fourth floor,
++ * Santa Clara, CA 95054
 + */
 +
-+#define netxen_set_gb_drop_gb0(config_word)	\
-+		set_bit(0, (unsigned long*)&config_word)
-+#define netxen_set_gb_drop_gb1(config_word)	\
-+		set_bit(1, (unsigned long*)&config_word)
-+#define netxen_set_gb_drop_gb2(config_word)	\
-+		set_bit(2, (unsigned long*)&config_word)
-+#define netxen_set_gb_drop_gb3(config_word)	\
-+		set_bit(3, (unsigned long*)&config_word)
++#ifndef __NETXEN_NIC_IOCTL_H__
++#define __NETXEN_NIC_IOCTL_H__
 +
-+#define netxen_clear_gb_drop_gb0(config_word)	\
-+		clear_bit(0, (unsigned long*)&config_word)
-+#define netxen_clear_gb_drop_gb1(config_word)	\
-+		clear_bit(1, (unsigned long*)&config_word)
-+#define netxen_clear_gb_drop_gb2(config_word)	\
-+		clear_bit(2, (unsigned long*)&config_word)
-+#define netxen_clear_gb_drop_gb3(config_word)	\
-+		clear_bit(3, (unsigned long*)&config_word)
++#include <linux/sockios.h>
 +
-+/*
-+ * NIU XG MAC Config Register
-+ *
-+ * Bit 0 : tx_enable => 1:enable frame xmit, 0:disable
-+ * Bit 2 : rx_enable => 1:enable frame recv, 0:disable
-+ * Bit 4 : soft_reset => 1:reset the MAC , 0:no-op
-+ * Bit 27: xaui_framer_reset
-+ * Bit 28: xaui_rx_reset
-+ * Bit 29: xaui_tx_reset
-+ * Bit 30: xg_ingress_afifo_reset
-+ * Bit 31: xg_egress_afifo_reset
-+ */
++#define NETXEN_CMD_START        SIOCDEVPRIVATE
++#define NETXEN_NIC_CMD          (NETXEN_CMD_START + 1)
++#define NETXEN_NIC_NAME         (NETXEN_CMD_START + 2)
 +
-+#define netxen_xg_soft_reset(config_word)	\
-+		set_bit(4, (unsigned long*)&config_word)
++typedef enum {
++	netxen_nic_cmd_none = 0,
++	netxen_nic_cmd_pci_read,
++	netxen_nic_cmd_pci_write,
++	netxen_nic_cmd_pci_mem_read,
++	netxen_nic_cmd_pci_mem_write,
++	netxen_nic_cmd_pci_config_read,
++	netxen_nic_cmd_pci_config_write,
++	netxen_nic_cmd_get_stats,
++	netxen_nic_cmd_clear_stats,
++	netxen_nic_cmd_get_version
++} netxen_nic_ioctl_cmd_t;
 +
-+/* Structure  unm_mac_addr_cntl_t for MAC CONTROL REGISTER */
++struct netxen_nic_ioctl_data {
++	u32 cmd;
++	u32 unused1;
++	u64 off;
++	u32 size;
++	u32 rv;
++	char u[64];
++	void *ptr;
++};
 +
-+#define netxen_nic_mcr_set_id_pool0(config, val)	\
-+		((config) |= ((val) &0x03))
-+#define netxen_nic_mcr_set_enable_xtnd0(config)	\
-+		(set_bit(3, (unsigned long *)&(config)))
-+#define netxen_nic_mcr_set_id_pool1(config, val)	\
-+		((config) |= (((val) & 0x03) << 4))
-+#define netxen_nic_mcr_set_enable_xtnd1(config)	\
-+		(set_bit(6, (unsigned long *)&(config)))
-+#define netxen_nic_mcr_set_id_pool2(config, val)	\
-+		((config) |= (((val) & 0x03) << 8))
-+#define netxen_nic_mcr_set_enable_xtnd2(config)	\
-+		(set_bit(10, (unsigned long *)&(config)))
-+#define netxen_nic_mcr_set_id_pool3(config, val)	\
-+		((config) |= (((val) & 0x03) << 12))
-+#define netxen_nic_mcr_set_enable_xtnd3(config)	\
-+		(set_bit(14, (unsigned long *)&(config)))
-+#define netxen_nic_mcr_set_mode_select(config, val)	\
-+		((config) |= (((val) & 0x03) << 24))
-+#define netxen_nic_mcr_set_enable_pool(config, val)	\
-+		((config) |= (((val) & 0x0f) << 26))
++struct netxen_statistics {
++	u64 rx_packets;
++	u64 tx_packets;
++	u64 rx_bytes;
++	u64 rx_errors;
++	u64 tx_bytes;
++	u64 tx_errors;
++	u64 rx_crc_errors;
++	u64 rx_short_length_error;
++	u64 rx_long_length_error;
++	u64 rx_mac_errors;
++};
 +
-+/* Set promiscuous mode for a GbE interface */
-+int netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter, int port,
-+				    netxen_niu_prom_mode_t mode);
-+int netxen_niu_xg_set_promiscuous_mode(struct netxen_adapter *adapter,
-+				       int port, netxen_niu_prom_mode_t mode);
-+
-+/* get/set the MAC address for a given MAC */
-+int netxen_niu_macaddr_get(struct netxen_adapter *adapter, int port,
-+			   netxen_ethernet_macaddr_t * addr);
-+int netxen_niu_macaddr_set(struct netxen_port *port,
-+			   netxen_ethernet_macaddr_t addr);
-+
-+/* XG versons */
-+int netxen_niu_xg_macaddr_get(struct netxen_adapter *adapter, int port,
-+			      netxen_ethernet_macaddr_t * addr);
-+int netxen_niu_xg_macaddr_set(struct netxen_port *port,
-+			      netxen_ethernet_macaddr_t addr);
-+
-+/* Generic enable for GbE ports. Will detect the speed of the link. */
-+int netxen_niu_gbe_init_port(struct netxen_adapter *adapter, int port);
-+
-+/* Disable a GbE interface */
-+int netxen_niu_disable_gbe_port(struct netxen_adapter *adapter, int port);
-+
-+int netxen_niu_disable_xg_port(struct netxen_adapter *adapter, int port);
-+
-+#endif				/* __NETXEN_NIC_HW_H_ */
++#endif				/* __NETXEN_NIC_IOCTL_H_ */
 
