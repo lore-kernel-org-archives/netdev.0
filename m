@@ -1,34 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] bridge: add ETH_HLEN to packet_length
-Date: Fri, 15 Sep 2006 09:57:19 +0900
-Message-ID: <20060915095719.71baaf91@localhost.localdomain>
-References: <20060914182751.GA15203@kudzu.us>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]:[XFRM] BEET mode
+Date: Fri, 15 Sep 2006 10:16:31 +1000
+Message-ID: <20060915001631.GA25600@gondor.apana.org.au>
+References: <1158164779.4508312bab9c2@webmail.hiit.fi> <20060913201423.06990b98.rdunlap@xenotime.net> <Pine.SOL.4.64.0609141316420.361@kekkonen.cs.hut.fi> <20060914083959.60538a79.rdunlap@xenotime.net> <1158249146.45097abad4371@webmail.hiit.fi> <20060914090907.cb8b10e9.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Diego Beltrami <Diego.Beltrami@hiit.fi>, Miika Komu <miika@iki.fi>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53673 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751386AbWIOA6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2006 20:58:20 -0400
-To: Jon Mason <jdmason@kudzu.us>
-In-Reply-To: <20060914182751.GA15203@kudzu.us>
+Received: from rhun.apana.org.au ([64.62.148.172]:40971 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751182AbWIOCtj
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Sep 2006 22:49:39 -0400
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Content-Disposition: inline
+In-Reply-To: <20060914090907.cb8b10e9.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Sep 2006 13:27:54 -0500
-Jon Mason <jdmason@kudzu.us> wrote:
+On Thu, Sep 14, 2006 at 09:09:07AM -0700, Randy.Dunlap wrote:
+>
+> http://www.kernel.org/git/?p=linux/kernel/git/davem/net-2.6.19.git;a=summary
 
-> In br_dev_queue_push_xmit, why is the check to drop mtu oversized
-> packets not checking for enough room for the impending ETH_HLEN size
-> skb_push?  In some code currently under development, we are seeing
-> skb_under_panic being called from the "skb_push(skb, ETH_HLEN)" in that
-> code.  It seems to me it would be better to drop those skbs than panic.
-> Attached is a patch to do this.
-> 
-> Thanks,
-> Jon
+Yes please use this one until 2.6.18 is released.
 
-This is bridge code, it assumes that any device that claims to be a
-ethernet device has done the proper reservation. What device are
-you using?
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
