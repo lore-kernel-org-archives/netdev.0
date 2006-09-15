@@ -1,51 +1,60 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH] natsemi: Messages being noisy
-Date: Fri, 15 Sep 2006 10:11:38 +0200
-Message-ID: <200609151011.39096.netdev@axxeo.de>
-References: <200609131528.51336.netdev@axxeo.de> <200609141739.08461.netdev@axxeo.de> <20060914154607.GA7576@hockin.org>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Subject: Re: [PATCH] EtherIP tunnel driver (RFC 3378)
+Date: Fri, 15 Sep 2006 10:17:51 +0200
+Message-ID: <20060915081751.GA2441@zlug.org>
+References: <20060911204129.GA28929@zlug.org> <4508AE92.1090202@snapgear.com> <20060914095205.GA23405@zlug.org> <45092ADB.9060808@trash.net> <4509E05A.7010306@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:18357 "EHLO mail.axxeo.de")
-	by vger.kernel.org with ESMTP id S1750717AbWIOIMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2006 04:12:03 -0400
-To: thockin@hockin.org
-In-Reply-To: <20060914154607.GA7576@hockin.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750727AbWIOIRy@vger.kernel.org>
+To: Philip Craig <philipc@snapgear.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <4509E05A.7010306@snapgear.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tim,
-Hi Jeff,
-
-thockin@hockin.org wrote:
-> On Thu, Sep 14, 2006 at 05:39:08PM +0200, Ingo Oeser wrote:
-> > Ingo Oeser wrote:
-> > > I  get the following message when trying to transfer big files 
-> > > (via FTP or SCP) since Linux 2.6.16.27. It didn't happen with Linux 2.6.13.4.
-> > > 
-> > > [702238.242237] eth1: increased tx threshold, txcfg 0xd0f01008.
-> > > [702238.242649] eth1: increased tx threshold, txcfg 0xd0f0100a.
-> > Is it possible to have the maximum value right from the start?
-> > May I tune it somewhere to be the maximum from the start?
+On Fri, Sep 15, 2006 at 09:06:02AM +1000, Philip Craig wrote:
+> Patrick McHardy wrote:
+> > Joerg Roedel wrote:
+> >> On Thu, Sep 14, 2006 at 11:21:22AM +1000, Philip Craig wrote:
+> >>
+> >>> Joerg Roedel wrote:
+> >>>
+> >>>> +	 To configure tunnels an extra tool is required. You can download
+> >>>> +	 it from http://zlug.fh-zwickau.de/~joro/projects/ under the
+> >>>> +	 EtherIP section. If unsure, say N.
+> >>> To obtain a list of tunnels, this tool calls SIOCGETTUNNEL
+> >>> (SIOCDEVPRIVATE + 0) for every device in /proc/net/dev. I don't think
+> >>> this is safe, but I don't have a solution for you.
+> >>
+> >> You are right. But this is the way the ipip driver does it. In the case
+> >> of ipip it is safe, because it is visible as a tunnel interface to
+> >> userspace. But my driver registers its devices as Ethernet (it has to,
+> >> otherwise the devices will not be usable in a bridge). There is no safe
+> >> way to distinguish between real Ethernet devices and devices registered
+> >> by my driver. I think about implementing an ioctl to fetch a list of
+> >> all EtherIP tunnel devices from the driver.
+> > 
+> > 
+> > Just do what ipip and gre do, use a network device with a fixed name
+> > for the ioctl (you already have the ethip0 device for this purpose it
+> > appears).
 > 
-> This will (if I recall) increase transmit latency.  It's a fine line.  You
-> might tune it up, but this fallback path probably should not be removed..
+> That fixed name device isn't used to get a list of tunnels. Instead,
+> ipip and gre read /proc/net/dev, and check for ARPHRD_TUNNEL or
+> ARPHRD_IPGRE. This won't work for etherip because it uses ARPHRD_ETHER,
+> which isn't specific to etherip tunnels. A new ioctl to get a list could
+> be added (this ioctl would use the fixed name device), is that acceptable?
 
-Will implementing "ethtool_ringparam" be the right thing for this?
+The problem is that the ethip0 device also uses ARPHDR_ETHER. The usage
+of that device is also unsafe. As I see the situation there are 2
+solutions for this problem. First use some other Type identifier for
+ethip0. But this is only a quick hack. I think about a new device type
+ARPHRD_ETHERIP. This makes the tunnel devices incompatible with the
+bridging code. But I think it is possible to convince the bridge code to
+accept the special tunnel devices too.
+Unfortunately I didn't saw the problem when implementing the driver...
 
-Or is there simply no ethtool mechanism for setting up thresholds, yet?
-
-If not, I would simply like to have my original pr_debug patch included. 
-The actual value of the tx threshhold can be queried 
-via "ethtool -d eth0" already.
-
-What do you think?
-
-
-Regards
-
-Ingo Oeser
+Regards,
+    Joerg Roedel
