@@ -1,68 +1,41 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Missing csum_fold() in ip6t_HL.c ?
-Date: Fri, 15 Sep 2006 14:37:56 +0400
-Message-ID: <20060915103755.GB5286@martell.zuzino.mipt.ru>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: Re: [PATCH] natsemi: Messages being noisy
+Date: Fri, 15 Sep 2006 11:52:36 +0100
+Message-ID: <20060915105232.GA3645@sirena.org.uk>
+References: <200609131528.51336.netdev@axxeo.de> <200609141739.08461.netdev@axxeo.de> <20060914154607.GA7576@hockin.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org
+Cc: Ingo Oeser <netdev@axxeo.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:28718 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1750990AbWIOKhv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Sep 2006 06:37:51 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so2200791nfa
-        for <netdev@vger.kernel.org>; Fri, 15 Sep 2006 03:37:50 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:10256 "EHLO
+	cassiel.sirena.org.uk") by vger.kernel.org with ESMTP
+	id S1751254AbWIOK6E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Sep 2006 06:58:04 -0400
+To: thockin@hockin.org
 Content-Disposition: inline
+In-Reply-To: <20060914154607.GA7576@hockin.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It looks like "diffs" array is write-only. It also looks like ipv4
-occurences use some csum_fold() trickery. Was is forgotten here? Should
-"diffs" be removed?
+On Thu, Sep 14, 2006 at 08:46:07AM -0700, thockin@hockin.org wrote:
+> On Thu, Sep 14, 2006 at 05:39:08PM +0200, Ingo Oeser wrote:
 
-    20	static unsigned int ip6t_hl_target(struct sk_buff **pskb,
-    21					   const struct net_device *in,
-    22					   const struct net_device *out,
-    23					   unsigned int hooknum,
-    24					   const struct xt_target *target,
-    25					   const void *targinfo, void *userinfo)
-    26	{
-    27		struct ipv6hdr *ip6h;
-    28		const struct ip6t_HL_info *info = targinfo;
-    29	===>	u_int16_t diffs[2];	<===
-    30		int new_hl;
-    31
-    32		if (!skb_make_writable(pskb, (*pskb)->len))
-    33			return NF_DROP;
-    34
-    35		ip6h = (*pskb)->nh.ipv6h;
-    36
-    37		switch (info->mode) {
-    38			case IP6T_HL_SET:
-    39				new_hl = info->hop_limit;
-    40				break;
-    41			case IP6T_HL_INC:
-    42				new_hl = ip6h->hop_limit + info->hop_limit;
-    43				if (new_hl > 255)
-    44					new_hl = 255;
-    45				break;
-    46			case IP6T_HL_DEC:
-    47				new_hl = ip6h->hop_limit - info->hop_limit;
-    48				if (new_hl < 0)
-    49					new_hl = 0;
-    50				break;
-    51			default:
-    52				new_hl = ip6h->hop_limit;
-    53				break;
-    54		}
-    55
-    56		if (new_hl != ip6h->hop_limit) {
-    57	===>		diffs[0] = htons(((unsigned)ip6h->hop_limit) << 8) ^ 0xFFFF;
-    58			ip6h->hop_limit = new_hl;
-    59	===>		diffs[1] = htons(((unsigned)ip6h->hop_limit) << 8);
-    60		}
-    61
-    62		return IP6T_CONTINUE;
-    63	}
+> > Is it possible to have the maximum value right from the start?
+> > May I tune it somewhere to be the maximum from the start?
 
+> This will (if I recall) increase transmit latency.  It's a fine line.  You
+> might tune it up, but this fallback path probably should not be removed..
+
+Yes, raising the limit there will increase transmit latency since it
+causes the chip to wait for more data to be DMAed before it begins
+pushing the frame out.  I guess the dropped packet could be worked
+around by resubmitting the dropped packet when we reconfigure the chip,
+though obviously that's not ideal.
+
+It would be interesting to understand what caused this to start
+happening.  The main change in natsemi itself between 2.6.13.4 and
+2.6.16.27 is the introduction of NAPI although it could be some other
+change causing PCI bandwidth to become more scarce.
+
+-- 
+"You grabbed my hand and we fell into it, like a daydream - or a fever."
