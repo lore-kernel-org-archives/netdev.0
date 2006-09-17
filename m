@@ -1,79 +1,50 @@
-From: "Paul Aviles" <paul.aviles@palei.com>
-Subject: Re: e1000 Detected Tx Unit Hang
-Date: Sat, 16 Sep 2006 22:05:47 -0400
-Message-ID: <000301c6d9fd$ca77a5f0$3224050a@avilespaxp>
-References: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp> <4807377b0609031045w67f70a3ese6bea93c15f75ba2@mail.gmail.com> <000d01c6cfb1$f0d26880$3224050a@avilespaxp> <4807377b0609050909v59c1ad87jc4ef08ba1f4453d2@mail.gmail.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [RFT] sky2 vs iptables
+Date: Sat, 16 Sep 2006 23:01:46 -0400
+Message-ID: <450CBA9A.4040705@gentoo.org>
+References: <44FE2618.3010705@gentoo.org> <20060906141651.116aa758@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=response
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcclung@nebrwesleyan.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl-7-36.cofs.net ([68.142.7.36]:16195 "EHLO www.palei.com")
-	by vger.kernel.org with ESMTP id S964906AbWIQCFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2006 22:05:53 -0400
-To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
-	<netdev@vger.kernel.org>
+Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:18858 "EHLO
+	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S1750997AbWIQDCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Sep 2006 23:02:46 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060906141651.116aa758@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse, today the server froze and was not able to see anything in the logs. 
-Nothing at all about any error, just plain froze.  Just in case, this is a 
-different unit altogether, still the same model as the units having the Tx 
-Unit Hang, but different memory, motherboard and CPU. The only 1 thing that 
-is the same is the hard drive a regular IDE...
-
-The only one thing I noticed that is very weird to me at least is that in 
-powering off the unit from the crash and rebooting it I saw some lines like 
-this in the logs..
-
-Sep 16 11:08:03 www kernel: checking if image is initramfs... it is
-Sep 16 07:05:19 www sysctl: kernel.msgmnb = 65536
-
-The odd part is the diff in the time stamps between one entry and the very 
-next one in the log. Any ideas what can cause this? Also, any way to get a 
-dump or some way to prevent the system from locking without any log entries?
-
-Regards,
-
-Paul
-
------ Original Message ----- 
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-To: "Paul Aviles" <paul.aviles@palei.com>
-Cc: <netdev@vger.kernel.org>
-Sent: Tuesday, September 05, 2006 12:09 PM
-Subject: Re: e1000 Detected Tx Unit Hang
-
-
-> On 9/3/06, Paul Aviles <paul.aviles@palei.com> wrote:
->> Hey Jesse, thanks for your reply. Here is the stuff on /procs. The weird
-> no problem,
->
->> part is that I have several other identical systems and only one is
->> affected. Today I moved the hard drive to another similar system and I am
->> not seeing the problem so I am wondering if is something maybe wrong with
->> the card eeprom? Is there a way to check that?
->
-> I doubt it is an eeprom problem.  you can dump the eeproms with
-> ethtool -e eth0 from both machines and compare them .  Odd that only
-> one system is having the problem.  Could it be that the hardware on
-> that box is having issues?  Are you sure the machines are running the
-> same bios version with the same settings?  Any overclocking?
->
->>  cat /proc/interrupts
->>            CPU0       CPU1
->>  16:      70540          0   IO-APIC-level  uhci_hcd:usb4, eth0
->
-> this could contribute to your problem, were you able to test without NAPI?
->
-> Jesse
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Stephen Hemminger wrote:
+> On Tue, 05 Sep 2006 21:36:24 -0400
+> Daniel Drake <dsd@gentoo.org> wrote:
+>> There's a strange sky2 bug on the Gentoo bugzilla:
+>> http://bugs.gentoo.org/show_bug.cgi?id=136508
+>>
+>> sky2 seems to work OK, but breaks as soon as the iptables ruleset is 
+>> loaded. Nothing can be pinged, etc.
+>>
+>> Can someone try and reproduce this? The iptables rule script has been 
+>> uploaded here:
+>> http://bugs.gentoo.org/attachment.cgi?id=95694&action=view
+>>
+>> The very last command in that file is the one which produces an error 
+>> and stops everything working:
+>>
+>> 	iptables: Unknown error 18446744073709551615
+>>
+>> Apparently a sky2 null deref has also been seen at this point, although 
+>> I don't have further details on that.
 > 
+> It might be an artifact of the way sky2 was allocating receive buffers.
+> Bridge-netfilter was assuming header space in the buffer, and would corrupt
+> other memory, maybe iptables is assuming as well. This makes sky2
+> use dev_alloc_skb that reserves space.
+> -----------------------
+> Subject: sky2: use dev_alloc_skb for receive buffers
 
+Unfortunately the problem still exists with this patch. Any other ideas?
 
+Daniel
