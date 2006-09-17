@@ -1,50 +1,50 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [RFT] sky2 vs iptables
-Date: Sat, 16 Sep 2006 23:01:46 -0400
-Message-ID: <450CBA9A.4040705@gentoo.org>
-References: <44FE2618.3010705@gentoo.org> <20060906141651.116aa758@localhost.localdomain>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [d80211] connecting to B-mode AP
+Date: Sat, 16 Sep 2006 21:52:51 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F01785470@dhost002-46.dex002.intermedia.net>
+References: <200609152004.59652.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcclung@nebrwesleyan.edu
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:18858 "EHLO
-	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
-	id S1750997AbWIQDCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Sep 2006 23:02:46 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060906141651.116aa758@localhost.localdomain>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:58537 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751004AbWIQEww convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2006 00:52:52 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <200609152004.59652.flamingice@sourmilk.net>
+To: "Michael Wu" <flamingice@sourmilk.net>,
+	"mabbas" <mabbas@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 05 Sep 2006 21:36:24 -0400
-> Daniel Drake <dsd@gentoo.org> wrote:
->> There's a strange sky2 bug on the Gentoo bugzilla:
->> http://bugs.gentoo.org/show_bug.cgi?id=136508
->>
->> sky2 seems to work OK, but breaks as soon as the iptables ruleset is 
->> loaded. Nothing can be pinged, etc.
->>
->> Can someone try and reproduce this? The iptables rule script has been 
->> uploaded here:
->> http://bugs.gentoo.org/attachment.cgi?id=95694&action=view
->>
->> The very last command in that file is the one which produces an error 
->> and stops everything working:
->>
->> 	iptables: Unknown error 18446744073709551615
->>
->> Apparently a sky2 null deref has also been seen at this point, although 
->> I don't have further details on that.
-> 
-> It might be an artifact of the way sky2 was allocating receive buffers.
-> Bridge-netfilter was assuming header space in the buffer, and would corrupt
-> other memory, maybe iptables is assuming as well. This makes sky2
-> use dev_alloc_skb that reserves space.
-> -----------------------
-> Subject: sky2: use dev_alloc_skb for receive buffers
+The extended rates element is only needed if there are more than 8 rates
+to report - which is normal for G operation, but not necessary. It only
+exists because a particularly popular old 11b MAC codebase crashed when
+the normal rate element had more than 8 elements, and this hurt
+interoperability with early G AP implementations - so the spec was
+changed.
 
-Unfortunately the problem still exists with this patch. Any other ideas?
+Simon
 
-Daniel
+-----Original Message-----
+From: Michael Wu [mailto:flamingice@sourmilk.net] 
+Sent: Saturday, September 16, 2006 10:05 AM
+To: mabbas
+Cc: Simon Barber; netdev@vger.kernel.org
+Subject: Re: [d80211] connecting to B-mode AP
+
+On Friday 15 September 2006 19:50, mabbas wrote:
+> I see your point here, although some one will file some bugs against 
+> the driver about showing G while associating with B-mode AP. By the 
+> way how can you figure if the AP is B/G other than the rates?
+>
+IIRC, only 802.11g APs will send the extended rate information element,
+though I don't know if forcing 802.11b on the AP will cause it to stop
+sending that. 
+(but it might still be okay if it doesn't - it's still a 802.11g AP,
+with the faster speeds turned off..)
+
+-Michael Wu
