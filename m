@@ -1,38 +1,37 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: [Bluetooth] recursive locking in l2cap_sock_accept/bt_accept_dequeue
-Date: Sun, 17 Sep 2006 21:32:10 +0300
-Message-ID: <20060917183210.GA24913@ee.oulu.fi>
-References: <20060917113646.GA27178@ee.oulu.fi> <1158495506.6665.0.camel@localhost>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH,RESEND] rtl8150: use default MTU of 1500
+Date: Sun, 17 Sep 2006 21:35:16 +0200
+Message-ID: <20060917193516.GB29851@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ee.oulu.fi ([130.231.61.23]:34731 "EHLO ee.oulu.fi")
-	by vger.kernel.org with ESMTP id S932209AbWIQScN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2006 14:32:13 -0400
-To: Marcel Holtmann <marcel@holtmann.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:22176 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S932372AbWIQTfS
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Sep 2006 15:35:18 -0400
+To: petkan@users.sourceforge.net
 Content-Disposition: inline
-In-Reply-To: <1158495506.6665.0.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 17, 2006 at 02:18:26PM +0200, Marcel Holtmann wrote:
-> Hi Pekka,
-> 
-> > Got this from a 2.6.18rc7-based fedora-devel kernel:
-> > 
-> > =============================================
-> > [ INFO: possible recursive locking detected ]
-> > 2.6.17-1.2647.fc6 #1
+The rtl8150 (ethernet) driver uses a default MTU of 1540, which causes
+all kinds of problems with for example booting off NFS root.  There isn't
+really any reason why we shouldn't use the default of 1500.
 
-> > sdpd/4955 is trying to acquire lock:
-> >  (sk_lock-AF_BLUETOOTH){--..}, at: [<f0cea241>] bt_accept_dequeue+0x26/0xc6 [bluetooth]
-> 
-> what where you doing when this happened?
-Hiya
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-Hmn. Plugged my USB BT dongle in, started gnome-obex-server and sent a few
-pictures from my cellphone to the box, nothing fancy.. Bluetooth daemons
-running obviously at this time...
-
-
+Index: linux-2.6.18-rc2/drivers/usb/net/rtl8150.c
+===================================================================
+--- linux-2.6.18-rc2.orig/drivers/usb/net/rtl8150.c
++++ linux-2.6.18-rc2/drivers/usb/net/rtl8150.c
+@@ -867,9 +867,8 @@
+ 	netdev->hard_start_xmit = rtl8150_start_xmit;
+ 	netdev->set_multicast_list = rtl8150_set_multicast;
+ 	netdev->set_mac_address = rtl8150_set_mac_address;
+ 	netdev->get_stats = rtl8150_netdev_stats;
+-	netdev->mtu = RTL8150_MTU;
+ 	SET_ETHTOOL_OPS(netdev, &ops);
+ 	dev->intr_interval = 100;	/* 100ms */
+ 
+ 	if (!alloc_all_urbs(dev)) {
