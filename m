@@ -1,51 +1,79 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 3/3][ATM]: potential NULL pointer dereference in clip_mkip()
-Date: Sat, 16 Sep 2006 20:19:21 -0400
-Message-ID: <200609170019.k8H0JLER025309@cmf.nrl.navy.mil>
-Cc: davem@davemloft.net
+From: "Paul Aviles" <paul.aviles@palei.com>
+Subject: Re: e1000 Detected Tx Unit Hang
+Date: Sat, 16 Sep 2006 22:05:47 -0400
+Message-ID: <000301c6d9fd$ca77a5f0$3224050a@avilespaxp>
+References: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp> <4807377b0609031045w67f70a3ese6bea93c15f75ba2@mail.gmail.com> <000d01c6cfb1$f0d26880$3224050a@avilespaxp> <4807377b0609050909v59c1ad87jc4ef08ba1f4453d2@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=response
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:2217 "EHLO
-	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
-	id S964882AbWIQATf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Sep 2006 20:19:35 -0400
-To: netdev@vger.kernel.org
+Received: from dsl-7-36.cofs.net ([68.142.7.36]:16195 "EHLO www.palei.com")
+	by vger.kernel.org with ESMTP id S964906AbWIQCFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2006 22:05:53 -0400
+To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
+	<netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-please consider for 2.6.18 -- thanks!
+Jesse, today the server froze and was not able to see anything in the logs. 
+Nothing at all about any error, just plain froze.  Just in case, this is a 
+different unit altogether, still the same model as the units having the Tx 
+Unit Hang, but different memory, motherboard and CPU. The only 1 thing that 
+is the same is the hard drive a regular IDE...
 
-[ATM]: potential NULL pointer dereference in clip_mkip()
+The only one thing I noticed that is very weird to me at least is that in 
+powering off the unit from the crash and rebooting it I saw some lines like 
+this in the logs..
 
-http://article.gmane.org/gmane.linux.kernel/445717
+Sep 16 11:08:03 www kernel: checking if image is initramfs... it is
+Sep 16 07:05:19 www sysctl: kernel.msgmnb = 65536
 
-When re-processing received data, a struct sk_buff pointer skb may be
-dereferenced after a free operation.
+The odd part is the diff in the time stamps between one entry and the very 
+next one in the log. Any ideas what can cause this? Also, any way to get a 
+dump or some way to prevent the system from locking without any log entries?
 
-From: Frederik Deweerdt <deweerdt@free.fr>
-Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+Regards,
 
----
-commit 87409562aeed5fb2b85dc2f9bddca0a1bbde8c37
-tree 0885b8bd2b8881201de422877abd8979861c44de
-parent fc6b6284e9383bd8d9fd95210fbc5e3c54ccc65d
-author chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Sat, 16 Sep 2006 15:55:01 -0400
-committer chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Sat, 16 Sep 2006 15:55:01 -0400
+Paul
 
- net/atm/clip.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+----- Original Message ----- 
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+To: "Paul Aviles" <paul.aviles@palei.com>
+Cc: <netdev@vger.kernel.org>
+Sent: Tuesday, September 05, 2006 12:09 PM
+Subject: Re: e1000 Detected Tx Unit Hang
 
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index 7ce7bfe..0dfa3a4 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -500,9 +500,9 @@ static int clip_mkip(struct atm_vcc *vcc
- 		} else {
- 			unsigned int len = skb->len;
- 
--			clip_push(vcc, skb);
- 			PRIV(skb->dev)->stats.rx_packets--;
- 			PRIV(skb->dev)->stats.rx_bytes -= len;
-+			clip_push(vcc, skb);
- 		}
- 	return 0;
- }
+
+> On 9/3/06, Paul Aviles <paul.aviles@palei.com> wrote:
+>> Hey Jesse, thanks for your reply. Here is the stuff on /procs. The weird
+> no problem,
+>
+>> part is that I have several other identical systems and only one is
+>> affected. Today I moved the hard drive to another similar system and I am
+>> not seeing the problem so I am wondering if is something maybe wrong with
+>> the card eeprom? Is there a way to check that?
+>
+> I doubt it is an eeprom problem.  you can dump the eeproms with
+> ethtool -e eth0 from both machines and compare them .  Odd that only
+> one system is having the problem.  Could it be that the hardware on
+> that box is having issues?  Are you sure the machines are running the
+> same bios version with the same settings?  Any overclocking?
+>
+>>  cat /proc/interrupts
+>>            CPU0       CPU1
+>>  16:      70540          0   IO-APIC-level  uhci_hcd:usb4, eth0
+>
+> this could contribute to your problem, were you able to test without NAPI?
+>
+> Jesse
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> 
+
+
