@@ -1,66 +1,86 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: tcp congestion policy selection link order fragile
-Date: Mon, 18 Sep 2006 11:59:36 +0200
-Message-ID: <20060918095936.GA6161@outpost.ds9a.nl>
-References: <20060917101101.GA30461@outpost.ds9a.nl> <20060917205351.4f691c4e@localhost.localdomain> <20060917122153.GA2932@outpost.ds9a.nl> <20060918.015130.34760190.davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [BNEP] Fix compat BNEPGETCONNLIST ioctl.
+Date: Mon, 18 Sep 2006 11:05:09 +0100
+Message-ID: <1158573909.24527.336.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([213.244.168.210]:18382 "EHLO outpost.ds9a.nl")
-	by vger.kernel.org with ESMTP id S1751646AbWIRJ7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 05:59:38 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060918.015130.34760190.davem@davemloft.net>
+Received: from pentafluge.infradead.org ([213.146.154.40]:61645 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S965632AbWIRKFe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 06:05:34 -0400
+To: marcel@holtmann.org, torvalds@osdl.org, akpm@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2006 at 01:51:30AM -0700, David Miller wrote:
-> We created TCP_CONG_ADVANCED for a purpose.  If you turn that
-> thing on, you get full control but if something breaks you get
-> to keep the pieces.
+We were making no attempt to deal with the fact that a structure with a
+uint32_t followed by a pointer is going to be _different_ for 32-bit and
+64-bit userspace. Any 32-bit process trying to use BNEPGETCONNLIST will
+be failing with -EFAULT if it's lucky; suffering from having the
+connection list dumped at a random address if it's not.
 
-But we should not try to break stuff on purpose, no matter how advanced. It
-makes zero sense. To reiterate, when compiling in multiple TCP policies, a
-*random* one gets enabled. This is not something we want to offer even
-advanced users. It is a kernel, not an adventure course.
+Signed-off-by: David Woodhouse <dwmw2@infradead.org>
 
-Please consider this near-oneliner patch which makes stuff behave more like
-people expect: loading a module, or compiling in a congestion avoidance
-policy only makes it available, but does not turn it on by default. 
-
-It also cleans up two notices a bit.
-
-I've tested this patch and it does the job for me, reno is now the default,
-even when more advanced options are compiled in, but the rest is still
-available.
-
-When in doubt, consider that I discovered this because my kernel was
-crashing, and that this is bound to generate heaps of annoying email
-otherwise. 
-
-Thanks.
-
-Signed-off-by: bert hubert <bert.hubert@netherlabs.nl>
-
---- linux-2.6.18-rc7/net/ipv4/tcp_cong.c.org	2006-09-18 11:42:25.000000000 +0200
-+++ linux-2.6.18-rc7/net/ipv4/tcp_cong.c	2006-09-18 11:43:45.000000000 +0200
-@@ -45,11 +45,11 @@
+diff --git a/net/bluetooth/bnep/sock.c b/net/bluetooth/bnep/sock.c
+index 28c5583..0ef2783 100644
+--- a/net/bluetooth/bnep/sock.c
++++ b/net/bluetooth/bnep/sock.c
+@@ -43,6 +43,7 @@ #include <linux/socket.h>
+ #include <linux/ioctl.h>
+ #include <linux/file.h>
+ #include <linux/init.h>
++#include <linux/compat.h>
+ #include <net/sock.h>
  
- 	spin_lock(&tcp_cong_list_lock);
- 	if (tcp_ca_find(ca->name)) {
--		printk(KERN_NOTICE "TCP %s already registered\n", ca->name);
-+		printk(KERN_NOTICE "TCP congestion control '%s' already registered\n", ca->name);
- 		ret = -EEXIST;
- 	} else {
--		list_add_rcu(&ca->list, &tcp_cong_list);
--		printk(KERN_INFO "TCP %s registered\n", ca->name);
-+		list_add_tail_rcu(&ca->list, &tcp_cong_list);
-+		printk(KERN_INFO "TCP congestion control '%s' registered\n", ca->name);
- 	}
- 	spin_unlock(&tcp_cong_list_lock);
+ #include <asm/system.h>
+@@ -146,11 +147,44 @@ static int bnep_sock_ioctl(struct socket
+ 	return 0;
+ }
  
++#ifdef CONFIG_COMPAT
++static int bnep_sock_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++{
++
++	if (cmd == BNEPGETCONNLIST) {
++		struct bnep_connlist_req cl;
++		uint32_t uci;
++		int err;
++
++		if (get_user(cl.cnum, (uint32_t __user *)arg) ||
++		    get_user(uci, (u32 __user *)(arg+4)))
++			return -EFAULT;
++
++		cl.ci = compat_ptr(uci);
++
++		if (cl.cnum <= 0)
++			return -EINVAL;
++	
++		err = bnep_get_connlist(&cl);
++
++		if (!err && put_user(cl.cnum, (uint32_t __user *)arg))
++			err = -EFAULT;
++
++		return err;
++	}
++
++	return bnep_sock_ioctl(sock, cmd, arg);
++}
++#endif
++
+ static const struct proto_ops bnep_sock_ops = {
+ 	.family     = PF_BLUETOOTH,
+ 	.owner      = THIS_MODULE,
+ 	.release    = bnep_sock_release,
+ 	.ioctl      = bnep_sock_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl = bnep_sock_compat_ioctl,
++#endif
+ 	.bind       = sock_no_bind,
+ 	.getname    = sock_no_getname,
+ 	.sendmsg    = sock_no_sendmsg,
+
 -- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+dwmw2
+
