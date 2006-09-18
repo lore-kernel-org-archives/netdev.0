@@ -1,40 +1,83 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] EtherIP tunnel driver (RFC 3378)
-Date: Mon, 18 Sep 2006 22:52:52 +0200
-Message-ID: <20060918205252.GA6830@xi.wantstofly.org>
-References: <20060911204129.GA28929@zlug.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] please include in 2.6.18: e100 disable device on PCI
+ error
+Date: Mon, 18 Sep 2006 13:52:02 -0700
+Message-ID: <450F06F2.8020907@intel.com>
+References: <20060918200122.GD29167@austin.ibm.com> <20060918132102.d850c1c2.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:3753 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S964983AbWIRUw4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 16:52:56 -0400
-To: Joerg Roedel <joro-lkml@zlug.org>
-Content-Disposition: inline
-In-Reply-To: <20060911204129.GA28929@zlug.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linas Vepstas <linas@austin.ibm.com>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Rajesh Shah <rajesh.shah@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"bibo,mao" <bibo.mao@intel.com>, Auke Kok <sofar@foo-projects.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964984AbWIRUxl@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060918132102.d850c1c2.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 11, 2006 at 10:41:29PM +0200, Joerg Roedel wrote:
+Andrew Morton wrote:
+> On Mon, 18 Sep 2006 15:01:22 -0500
+> linas@austin.ibm.com (Linas Vepstas) wrote:
+> 
+>> Hi,
+>>
+>> Please apply the following one-liner patch to  
+>> what will become the stable 2.6.18.  This patch is 
+>> low-risk because it affects only the PCI error 
+>> recovery code, which dosn't run on most platforms
+>> (in particular, isn't invoked on current x86/ia64).
+>>
+>> This patch was originally sent on 29 June 2006
+>> to fix a bug that showed up in an -mm build.
+>> The code from -mm made it into mainline, but 
+>> this patch did not, and so we're unhappy. :-(
+>>
+>> Here's the original patch description:
+>>
+>> A recent patch in -mm3 titled 
+>> gregkh-pci-pci-don-t-enable-device-if-already-enabled.patch
+>> causes pci_enable_device() to be a no-op if the kernel thinks
+>> that the device is already enabled.  This change breaks the
+>> PCI error recovery mechanism in the e100 device driver, since, 
+>> after PCI slot reset, the card is no longer enabled. This is 
+>> a trivial fix for this problem. Tested.
+>>
+>> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+>> Signed-off-by: Andrew Morton <akpm@osdl.org>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>>
+>> ----
+>>  drivers/net/e100.c |    1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> Index: linux-2.6.18-rc7-git1/drivers/net/e100.c
+>> ===================================================================
+>> --- linux-2.6.18-rc7-git1.orig/drivers/net/e100.c	2006-09-18 14:21:49.000000000 -0500
+>> +++ linux-2.6.18-rc7-git1/drivers/net/e100.c	2006-09-18 14:24:50.000000000 -0500
+>> @@ -2799,6 +2799,7 @@ static pci_ers_result_t e100_io_error_de
+>>  	/* Detach; put netif into state similar to hotplug unplug. */
+>>  	netif_poll_enable(netdev);
+>>  	netif_device_detach(netdev);
+>> +	pci_disable_device(pdev);
+>>  
+>>  	/* Request a slot reset. */
+>>  	return PCI_ERS_RESULT_NEED_RESET;
+> 
+> hm.  I don't have this patch queued, but I _do_ have an equivalent patch
+> for e1000 queued; what's up with that?  Nobody seems to have paid much
+> attention to the e1000 fix.
+> 
+> If we can gather the appropriate acks quickly then I expect we can get both
+> of these into 2.6.18.
 
-> This driver implements the tunneling of Ethernet packets over IPv4
-> networks for Linux. It uses the protocol defined in RFC 3378.
+Ack! for both, of course.
 
-Check out the thread "[PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling"
-that was on netdev in January of 2005 -- a number of arguments against
-etherip (and for tunneling ethernet in GRE) were raised back then.
+I'm unsure what happened here, as I have this patch in my local tree. I suspect 
+that it got merged into jeff's #upstream only somehow.
 
-One of the most significant ones, IMHO:
-
-> Another argument against etherip would be that OpenBSD apparently
-> mis-implemented etherip by putting the etherip version nibble in the
-> second nibble of the etherip header instead of the first, which would
-> probably prevent the linux and OpenBSD versions from interoperating,
-> negating the advantage of using etherip in the first place.
-
-
-cheers,
-Lennert
+Auke
