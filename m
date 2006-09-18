@@ -1,34 +1,41 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [BNEP] Fix compat BNEPGETCONNLIST ioctl.
-Date: Mon, 18 Sep 2006 12:38:19 +0200
-Message-ID: <1158575899.25125.1.camel@localhost>
-References: <1158573909.24527.336.camel@pmac.infradead.org>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
+Date: Mon, 18 Sep 2006 14:37:05 +0400
+Message-ID: <20060918103705.GB1096@ms2.inr.ac.ru>
+References: <20060830100734.GA22235@isil.ipib.msu.ru> <20060904160045.GA15599@ms2.inr.ac.ru> <20060918.003110.88477231.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, akpm@osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:52867 "EHLO
-	mail.holtmann.net") by vger.kernel.org with ESMTP id S965640AbWIRKiQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 06:38:16 -0400
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1158573909.24527.336.camel@pmac.infradead.org>
+Received: from zeus1.kernel.org ([204.152.191.4]:63379 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S965651AbWIRKqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 06:46:05 -0400
+Received: from ms2.inr.ac.ru (minus.inr.ac.ru [194.67.69.97])
+	by zeus1.kernel.org (8.13.7/8.13.1) with SMTP id k8IAim9k030865
+	for <netdev@vger.kernel.org>; Mon, 18 Sep 2006 10:45:16 GMT
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060918.003110.88477231.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hello!
 
-> We were making no attempt to deal with the fact that a structure with a
-> uint32_t followed by a pointer is going to be _different_ for 32-bit and
-> 64-bit userspace. Any 32-bit process trying to use BNEPGETCONNLIST will
-> be failing with -EFAULT if it's lucky; suffering from having the
-> connection list dumped at a random address if it's not.
+> It looks perfectly fine to me, would you like me to apply it
+> Alexey?
 
-it seems that HIDP and CMTP will have the same problem.
-
-Regards
-
-Marcel
+Yes, I think it is safe.
 
 
+Theoretically, there is one place where it can be not so good.
+Good nagling tcp connection, which makes lots of small write()s,
+will send MSS sized frames due to delayed ACKs. But if we ACK
+each other segment, more segments will come out incomplete,
+which could result in some decrease of throughput.
+
+But the trap for this case was set 6 years ago. For unidirectional sessions
+ACKs were sent not even each second segment, but each small segment. :-)
+This did not show any problems for those 6 years. I guess it means
+that the problem does not exist.
+
+Alexey
