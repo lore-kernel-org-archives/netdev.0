@@ -1,37 +1,27 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 7/7] secid reconciliation-v02: Enforcement for SELinux
-Date: Mon, 18 Sep 2006 14:37:42 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609181436180.5976@d.namei>
-References: <45019F72.2050708@trustedcs.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tcp congestion policy selection link order fragile
+Date: Mon, 18 Sep 2006 11:53:09 -0700 (PDT)
+Message-ID: <20060918.115309.88343320.davem@davemloft.net>
+References: <20060918095936.GA6161@outpost.ds9a.nl>
+	<20060918.070600.107685035.davem@davemloft.net>
+	<20060918154048.GA18240@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
-	chanson@trustedcs.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:32666 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750957AbWIRSho (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 14:37:44 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <45019F72.2050708@trustedcs.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2241
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751810AbWIRSxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 14:53:09 -0400
+To: bert.hubert@netherlabs.nl
+In-Reply-To: <20060918154048.GA18240@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 Sep 2006, Venkat Yekkirala wrote:
+From: bert hubert <bert.hubert@netherlabs.nl>
+Date: Mon, 18 Sep 2006 17:40:48 +0200
 
-> +	if (selinux_compat_net) {
-> +		err = selinux_xfrm_decode_session(skb, &peersid, 0);
-> +		BUG_ON(err);
+> What would the desired default be, 'BIC' in all cases?
 
-I'm pretty sure this should not be a BUG_ON.  IIUC, you want to panic the 
-kernel because one of the nested SAs has a different security context.
-
-> +	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
-> +	BUG_ON(err);
-
-Same.
-
-
--- 
-James Morris
-<jmorris@namei.org>
+And if BIC is not enabled in the configuration, then what?
