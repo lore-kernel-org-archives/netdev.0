@@ -1,79 +1,54 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] please include in 2.6.18: e100 disable device on PCI
- error
-Date: Mon, 18 Sep 2006 13:21:02 -0700
-Message-ID: <20060918132102.d850c1c2.akpm@osdl.org>
-References: <20060918200122.GD29167@austin.ibm.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
+Date: Tue, 19 Sep 2006 00:41:05 +0400
+Message-ID: <20060918204105.GA31333@ms2.inr.ac.ru>
+References: <20060830100734.GA22235@isil.ipib.msu.ru> <20060904160045.GA15599@ms2.inr.ac.ru> <44FDBA04.3080104@hp.com> <20060918.003938.26278728.davem@davemloft.net> <450ED337.8000700@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Rajesh Shah <rajesh.shah@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"bibo,mao" <bibo.mao@intel.com>, Auke Kok <sofar@foo-projects.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, alex@sectorb.msk.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:4749 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751917AbWIRUVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 16:21:50 -0400
-To: linas@austin.ibm.com (Linas Vepstas)
-In-Reply-To: <20060918200122.GD29167@austin.ibm.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:16294 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S964959AbWIRUlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 16:41:49 -0400
+To: Rick Jones <rick.jones2@hp.com>
+Content-Disposition: inline
+In-Reply-To: <450ED337.8000700@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Sep 2006 15:01:22 -0500
-linas@austin.ibm.com (Linas Vepstas) wrote:
+Hello!
 
-> 
-> Hi,
-> 
-> Please apply the following one-liner patch to  
-> what will become the stable 2.6.18.  This patch is 
-> low-risk because it affects only the PCI error 
-> recovery code, which dosn't run on most platforms
-> (in particular, isn't invoked on current x86/ia64).
-> 
-> This patch was originally sent on 29 June 2006
-> to fix a bug that showed up in an -mm build.
-> The code from -mm made it into mainline, but 
-> this patch did not, and so we're unhappy. :-(
-> 
-> Here's the original patch description:
-> 
-> A recent patch in -mm3 titled 
-> gregkh-pci-pci-don-t-enable-device-if-already-enabled.patch
-> causes pci_enable_device() to be a no-op if the kernel thinks
-> that the device is already enabled.  This change breaks the
-> PCI error recovery mechanism in the e100 device driver, since, 
-> after PCI slot reset, the card is no longer enabled. This is 
-> a trivial fix for this problem. Tested.
-> 
-> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
-> ----
->  drivers/net/e100.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> Index: linux-2.6.18-rc7-git1/drivers/net/e100.c
-> ===================================================================
-> --- linux-2.6.18-rc7-git1.orig/drivers/net/e100.c	2006-09-18 14:21:49.000000000 -0500
-> +++ linux-2.6.18-rc7-git1/drivers/net/e100.c	2006-09-18 14:24:50.000000000 -0500
-> @@ -2799,6 +2799,7 @@ static pci_ers_result_t e100_io_error_de
->  	/* Detach; put netif into state similar to hotplug unplug. */
->  	netif_poll_enable(netdev);
->  	netif_device_detach(netdev);
-> +	pci_disable_device(pdev);
->  
->  	/* Request a slot reset. */
->  	return PCI_ERS_RESULT_NEED_RESET;
+Of course, number of ACK increases. It is the goal. :-)
 
-hm.  I don't have this patch queued, but I _do_ have an equivalent patch
-for e1000 queued; what's up with that?  Nobody seems to have paid much
-attention to the e1000 fix.
 
-If we can gather the appropriate acks quickly then I expect we can get both
-of these into 2.6.18.
+> unpleasant increase in service demands on something like a "burst 
+> enabled" (./configure --enable-burst) netperf TCP_RR test:
+> 
+> netperf -t TCP_RR -H foo -- -b N   # N > 1
+
+foo=localhost
+
+b	patched		orig
+2	105874.83	105143.71
+3	114208.53	114023.07
+4	120493.99	120851.27
+5	128087.48	128573.33
+10	151328.48	151056.00
+
+Probably, the test is done wrong. But I see no difference.
+
+
+> to increase as a result.   Pipelined HTTP would be like that, some NFS 
+> over TCP stuff too, maybe X traffic,
+
+X will be excited about better latency.
+
+What's about protocols not interested in latency, they will be a little
+happier, if transactions are processed asynchronously.
+
+But actually, it is not about increasing/decreasing number of ACKs.
+It is about killing that pain in ass which we used to have because
+we pretended to be too smart.
+
+Alexey
