@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
-Date: Mon, 18 Sep 2006 00:31:10 -0700 (PDT)
-Message-ID: <20060918.003110.88477231.davem@davemloft.net>
+Date: Mon, 18 Sep 2006 00:39:38 -0700 (PDT)
+Message-ID: <20060918.003938.26278728.davem@davemloft.net>
 References: <20060830100734.GA22235@isil.ipib.msu.ru>
 	<20060904160045.GA15599@ms2.inr.ac.ru>
+	<44FDBA04.3080104@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex@sectorb.msk.ru, netdev@vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58309
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:39870
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751309AbWIRHbS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:31:18 -0400
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <20060904160045.GA15599@ms2.inr.ac.ru>
+	id S1751567AbWIRHjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:39:39 -0400
+To: rick.jones2@hp.com
+In-Reply-To: <44FDBA04.3080104@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Mon, 4 Sep 2006 20:00:45 +0400
+From: Rick Jones <rick.jones2@hp.com>
+Date: Tue, 05 Sep 2006 10:55:16 -0700
 
-> Try enclosed patch. I have no idea why 9.997 sec is so magic, but I
-> get exactly this number on my notebook. :-)
-> 
-> =================
-> 
-> This patch enables sending ACKs each 2d received segment.
-> It does not affect either mss-sized connections (obviously) or connections
-> controlled by Nagle (because there is only one small segment in flight).
-> 
-> The idea is to record the fact that a small segment arrives
-> on a connection, where one small segment has already been received
-> and still not-ACKed. In this case ACK is forced after tcp_recvmsg()
-> drains receive buffer.
-> 
-> In other words, it is a "soft" each-2d-segment ACK, which is enough
-> to preserve ACK clock even when ABC is enabled.
-> 
-> Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Is this really necessary?  I thought that the problems with ABC were in 
+> trying to apply byte-based heuristics from the RFC(s) to a 
+> packet-oritented cwnd in the stack?
 
-This looks exactly like the kind of patch I tried to formulate,
-very unsuccessfully, last time this topic came up a year or
-so ago.
-
-It looks perfectly fine to me, would you like me to apply it
-Alexey?
+This is receiver side, and helps a sender who does congestion
+control based upon packet counting like Linux does.   It really
+is less related to ABC than Alexey implies, we've always had
+this kind of problem as I mentioned in previous talks in the
+past on this issue.
