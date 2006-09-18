@@ -1,48 +1,42 @@
-From: Chinmaya Mishra <chinmaya@innomedia.soft.net>
-Subject: Kernel panic occurs with ucdsnmp
-Date: Mon, 18 Sep 2006 11:56:18 +0530
-Message-ID: <450E3C0A.20406@innomedia.soft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets,
+ but not icmp
+Date: Mon, 18 Sep 2006 00:00:14 -0700 (PDT)
+Message-ID: <20060918.000014.07640227.davem@davemloft.net>
+References: <450928B2.4090003@trash.net>
+	<20060915120235.GA9833@outpost.ds9a.nl>
+	<450B0A11.2050608@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: bert.hubert@netherlabs.nl, cpw@lanl.gov, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [220.227.188.61] ([220.227.188.61]:60049 "EHLO
-	gateway.innomedia.soft.net") by vger.kernel.org with ESMTP
-	id S965435AbWIRGQD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 02:16:03 -0400
-To: linux-kernel-owner@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:40582
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965505AbWIRHAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:00:16 -0400
+To: kaber@trash.net
+In-Reply-To: <450B0A11.2050608@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 15 Sep 2006 22:16:17 +0200
 
-Hi all,
+> bert hubert wrote:
+> >>It appears to be intentionally, but I don't see a reason for it.
+> >>Can you try if this patch makes it work as expected?
+> > 
+> > 
+> >>[PACKET]: Don't truncate non-linear skbs with mmaped IO
+> >>
+> >>Non-linear skbs are truncated to their linear part with mmaped IO.
+> >>Fix by using skb_copy_bits instead of memcpy.
+> > 
+> > 
+> > Works very well for me! I hope this can make it into 2.6.18.
+> 
+> 
+> That would be fine with me, lets see what Dave thinks.
 
-I am trying to compile the uCLinux's distribution with enabling the 
-'ucdsnmp'.
-It will successfully compiled, image and romfs.img is created.
-But when i am trying to boot with this image I am getting the following
-error message....
-
-.............................
-Other stuff added by David S. Miller <davem@redhat.com>
-VFS: Mounted root (romfs filesystem) readonly.
-Freeing init memory: 44K
-Warning: unable to open an initial console.
-Kernel panic: Attempted to kill init!
-Panic reset
-
-After this it will halts. If i am not enable the 'ucdsnmp' package it
-works fine. What is the resean of this .....
-
-WORNING: UNABLE TO OPEN AN INITIAL CONSOLE.
-KERNEL PANIC: ATTEMPTED TO KILL INIT!
-PANIC RESET
-
-Please tell me where is the mistake ?
-
-Tahnks in advance.
-Chinmaya
-
-
-
+Applied to net-2.6, thanks a lot.
