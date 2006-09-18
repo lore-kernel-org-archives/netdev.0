@@ -1,31 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
-Date: Mon, 18 Sep 2006 00:22:56 -0700 (PDT)
-Message-ID: <20060918.002256.31639200.davem@davemloft.net>
-References: <m3odty57gf.fsf@defiant.localdomain>
-	<20060903111507.GA12580@gondor.apana.org.au>
+Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
+Date: Mon, 18 Sep 2006 00:31:10 -0700 (PDT)
+Message-ID: <20060918.003110.88477231.davem@davemloft.net>
+References: <20060830100734.GA22235@isil.ipib.msu.ru>
+	<20060904160045.GA15599@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, khc@pm.waw.pl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7359
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58309
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751278AbWIRHXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:23:08 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060903111507.GA12580@gondor.apana.org.au>
+	id S1751309AbWIRHbS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:31:18 -0400
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <20060904160045.GA15599@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 3 Sep 2006 21:15:07 +1000
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Mon, 4 Sep 2006 20:00:45 +0400
 
-> So here is a simple patch to remove the tx lock from dev_watchdog_up.
-> In 2.6.19 we can eliminate the unnecessary __dev_watchdog_up and
-> replace it with dev_watchdog_up.
+> Try enclosed patch. I have no idea why 9.997 sec is so magic, but I
+> get exactly this number on my notebook. :-)
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> =================
+> 
+> This patch enables sending ACKs each 2d received segment.
+> It does not affect either mss-sized connections (obviously) or connections
+> controlled by Nagle (because there is only one small segment in flight).
+> 
+> The idea is to record the fact that a small segment arrives
+> on a connection, where one small segment has already been received
+> and still not-ACKed. In this case ACK is forced after tcp_recvmsg()
+> drains receive buffer.
+> 
+> In other words, it is a "soft" each-2d-segment ACK, which is enough
+> to preserve ACK clock even when ABC is enabled.
+> 
+> Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-Applied, thanks Herbert.
+This looks exactly like the kind of patch I tried to formulate,
+very unsuccessfully, last time this topic came up a year or
+so ago.
+
+It looks perfectly fine to me, would you like me to apply it
+Alexey?
