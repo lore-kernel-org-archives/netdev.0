@@ -1,84 +1,66 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: 18 Sep 2006 11:58:21 +0200
-Message-ID: <p73eju94htu.fsf@verdi.suse.de>
-References: <4492D5D3.4000303@atmos.washington.edu>
-	<44948EF6.1060201@atmos.washington.edu>
-	<Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
-	<200606191724.31305.ak@suse.de>
-	<20060916120845.GA18912@tentacle.sectorb.msk.ru>
-	<p73k6414lnp.fsf@verdi.suse.de>
-	<20060918090330.GA9850@tentacle.sectorb.msk.ru>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: tcp congestion policy selection link order fragile
+Date: Mon, 18 Sep 2006 11:59:36 +0200
+Message-ID: <20060918095936.GA6161@outpost.ds9a.nl>
+References: <20060917101101.GA30461@outpost.ds9a.nl> <20060917205351.4f691c4e@localhost.localdomain> <20060917122153.GA2932@outpost.ds9a.nl> <20060918.015130.34760190.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:27105 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S965625AbWIRJ6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 05:58:30 -0400
-To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-In-Reply-To: <20060918090330.GA9850@tentacle.sectorb.msk.ru>
+Received: from outpost.ds9a.nl ([213.244.168.210]:18382 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1751646AbWIRJ7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 05:59:38 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060918.015130.34760190.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Vladimir B. Savkin" <master@sectorb.msk.ru> writes:
+On Mon, Sep 18, 2006 at 01:51:30AM -0700, David Miller wrote:
+> We created TCP_CONG_ADVANCED for a purpose.  If you turn that
+> thing on, you get full control but if something breaks you get
+> to keep the pieces.
 
-> On Mon, Sep 18, 2006 at 10:35:38AM +0200, Andi Kleen wrote:
-> > > I just found out that TSC clocksource is not implemented on x86-64.
-> > > Kernel version 2.6.18-rc7, is it true?
-> > 
-> > The x86-64 timer subsystems currently doesn't have clocksources
-> > at all, but it supports TSC and some other timers.
-> 
+But we should not try to break stuff on purpose, no matter how advanced. It
+makes zero sense. To reiterate, when compiling in multiple TCP policies, a
+*random* one gets enabled. This is not something we want to offer even
+advanced users. It is a kernel, not an adventure course.
 
-> until I hacked arch/i386/kernel/tsc.c
+Please consider this near-oneliner patch which makes stuff behave more like
+people expect: loading a module, or compiling in a congestion avoidance
+policy only makes it available, but does not turn it on by default. 
 
-Then you don't use x86-64. 
+It also cleans up two notices a bit.
 
+I've tested this patch and it does the job for me, reno is now the default,
+even when more advanced options are compiled in, but the rest is still
+available.
 
-> 
-> > > I've also had experience of unsychronized TSC on dual-core Athlon,
-> > > but it was cured by idle=poll.
-> > 
-> > You can use that, but it will make your system run quite hot 
-> > and cost you a lot of powe^wmoney.
-> 
-> Here in Russia electric power is cheap compared with hardware upgrade.
+When in doubt, consider that I discovered this because my kernel was
+crashing, and that this is bound to generate heaps of annoying email
+otherwise. 
 
-It's not just electrical power - the hardware is more stressed and will
-likely fail earlier too.  As a rule of thumb the hotter your hardware runs
-the earlier it will fail.
+Thanks.
 
-> 
-> > > It seems that dhcpd3 makes the box timestamping incoming packets,
-> > > killing the performance. I think that combining router and DHCP server
-> > > on a same box is a legitimate situation, isn't it?
-> > 
-> > Yes.  Good point. DHCP is broken and needs to be fixed. Can you
-> > send a bug report to the DHCP maintainers? 
-> > 
-> > iirc the problem used to be that RAW sockets didn't do something
-> > they need them to do. Maybe we can fix that now.
-> 
-> Will try some days later.
-> 
-> Oh, and pppoe-server uses some kind of packet socket too, doesn't it?
+Signed-off-by: bert hubert <bert.hubert@netherlabs.nl>
 
-The problem is not really using a packet socket, but using the SIOCGSTAMP
-ioctl on it. As soon as someone issues it the system will take accurate 
-time stamps for each incoming packet until the respective socket is closed.
-
-Quick fix is to change user space to use gettimeofday() when it reads
-the packet instead.
-
-For netdev: I'm more and more thinking we should just avoid the problem
-completely and switch to "true end2end" timestamps. This means don't
-time stamp when a packet is received, but only when it is delivered
-to a socket. The timestamp at receiving is a lie anyways because
-the network hardware can add an arbitary long delay before the driver interrupt
-handler runs. Then the problem above would completely disappear. 
-Comments? Opinions? 
-
--Andi
+--- linux-2.6.18-rc7/net/ipv4/tcp_cong.c.org	2006-09-18 11:42:25.000000000 +0200
++++ linux-2.6.18-rc7/net/ipv4/tcp_cong.c	2006-09-18 11:43:45.000000000 +0200
+@@ -45,11 +45,11 @@
+ 
+ 	spin_lock(&tcp_cong_list_lock);
+ 	if (tcp_ca_find(ca->name)) {
+-		printk(KERN_NOTICE "TCP %s already registered\n", ca->name);
++		printk(KERN_NOTICE "TCP congestion control '%s' already registered\n", ca->name);
+ 		ret = -EEXIST;
+ 	} else {
+-		list_add_rcu(&ca->list, &tcp_cong_list);
+-		printk(KERN_INFO "TCP %s registered\n", ca->name);
++		list_add_tail_rcu(&ca->list, &tcp_cong_list);
++		printk(KERN_INFO "TCP congestion control '%s' registered\n", ca->name);
+ 	}
+ 	spin_unlock(&tcp_cong_list_lock);
+ 
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
