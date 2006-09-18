@@ -1,56 +1,76 @@
-From: David Lang <dlang@digitalinsight.com>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 18 Sep 2006 14:57:04 -0700 (PDT)
-Message-ID: <Pine.LNX.4.63.0609181452470.14338@qynat.qvtvafvgr.pbz>
-References: <4492D5D3.4000303@atmos.washington.edu>  <200609181754.37623.ak@suse.de>
- <20060918162847.GA4863@ms2.inr.ac.ru>  <200609181850.22851.ak@suse.de>
- <20060918211759.GB31746@tentacle.sectorb.msk.ru> <20060918220038.GB14322@ms2.inr.ac.ru>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 7/7] secid reconciliation-v02: Enforcement for SELinux
+Date: Mon, 18 Sep 2006 18:26:47 -0400
+Message-ID: <200609181826.47622.paul.moore@hp.com>
+References: <45019F72.2050708@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>,
-	Andi Kleen <ak@suse.de>, Jesper Dangaard Brouer <hawk@diku.dk>,
-	Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov, chanson@trustedcs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warden-p.diginsite.com ([208.29.163.248]:26499 "HELO
-	warden.diginsite.com") by vger.kernel.org with SMTP
-	id S1030200AbWIRWJd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 18:09:33 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060918220038.GB14322@ms2.inr.ac.ru>
+Received: from smtp.cce.hp.com ([161.114.21.24]:27219 "EHLO
+	ccerelrim03.cce.hp.com") by vger.kernel.org with ESMTP
+	id S1751216AbWIRWby (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 18:31:54 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <45019F72.2050708@trustedcs.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Sep 2006, Alexey Kuznetsov wrote:
+On Friday 08 September 2006 12:50 pm, Venkat Yekkirala wrote:
+> This defines SELinux enforcement of the 2 new LSM hooks.
 
-> Hello!
->
->> Please think about it this way:
->> suppose you haave a heavily loaded router and some network problem is to
->> be diagnosed. You run tcpdump and suddenly router becomes overloaded (by
->> switching to timestamp-it-all mode
->
-> I am sorry. I cannot think that way. :-)
->
-> Instead of attempts to scare, better resend original report,
-> where you said how much performance degraded, I cannot find it.
->
-> * I do see get_offset_pmtmr() in top lines of profile. That's scary enough.
-> * I do not undestand what the hell dhcp needs timestamps for.
-> * I do not listen any suggestions to screw up tcpdump with a sysctl.
->  Kernel already implements much better thing then a sysctl.
->  Do not want timestamps? Fix tcpdump, add an options, submit the
->  patch to tcpdump maintainers. Not a big deal.
+{snip}
 
-if fireing up one program (however minor) can cause network performance to drop 
-by >50% (based on the numbers reported earlier in this thread) that is a 
-significant problem for sysadmins.
+> +static int selinux_skb_policy_check(struct sk_buff *skb, unsigned short
+> family) +{
+> +	u32 xfrm_sid, trans_sid;
+> +	int err;
+> +
+> +	if (selinux_compat_net)
+> +		return 1;
+> +
+> +	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
+> +	BUG_ON(err);
 
-yes tcpdump may be wrong in requesting timestamps (in most cases it probably is, 
-but in some cases it's doing exactly what the sysadmin wants it to do), but I 
-don't think that many sysadmins would expect this much of a performance hit. 
-there should be some way to tell the system to ignore requests for timestamps so 
-that a badly behaved program cannot cripple the system this way (and preferably 
-something that doesn't require a full SELinux/capabilities implementation)
+First, any reason against including the "struct sock *" in the LSM hook?  At a 
+quick glance it looks like it is available at each place 
+security_skb_policy_check() is invoked?  If there are no objections I would 
+like to see it included in the hook.
 
-David Lang
+Second, I wonder if it would be better to do a NetLabel/CIPSO query here using 
+the xfrm_sid as the NetLabel "base_sid" instead of at the end of the function 
+(see your comment)?  This way we wouldn't have to duplicate the 
+avc_has_perm() and security_transition_sid() calls for both xfrm and 
+NetLabel.  It just seems to be more inline with the whole secid 
+reconciliation concept.
+
+I don't feel too strongly either way, I just thought it was worth exploring - 
+thoughts?
+
+> +	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
+> +					PACKET__FLOW_IN, NULL);
+> +	if (err)
+> +		goto out;
+> +
+> +	if (xfrm_sid) {
+> +		err = security_transition_sid(xfrm_sid, skb->secmark,
+> +						SECCLASS_PACKET, &trans_sid);
+> +		if (err)
+> +			goto out;
+> +
+> +		skb->secmark = trans_sid;
+> +	}
+> +
+> +	/* See if CIPSO can flow in thru the current secmark here */
+> +
+> +out:
+> +	return err ? 0 : 1;
+> +};
+
+-- 
+paul moore
+linux security @ hp
