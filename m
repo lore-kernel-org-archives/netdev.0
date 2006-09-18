@@ -1,34 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp congestion policy selection link order fragile
-Date: Mon, 18 Sep 2006 01:51:30 -0700 (PDT)
-Message-ID: <20060918.015130.34760190.davem@davemloft.net>
-References: <20060917101101.GA30461@outpost.ds9a.nl>
-	<20060917205351.4f691c4e@localhost.localdomain>
-	<20060917122153.GA2932@outpost.ds9a.nl>
+From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Mon, 18 Sep 2006 13:03:30 +0400
+Message-ID: <20060918090330.GA9850@tentacle.sectorb.msk.ru>
+References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de> <20060916120845.GA18912@tentacle.sectorb.msk.ru> <p73k6414lnp.fsf@verdi.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49566
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965580AbWIRIvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 04:51:35 -0400
-To: bert.hubert@netherlabs.nl
-In-Reply-To: <20060917122153.GA2932@outpost.ds9a.nl>
+Received: from tentacle.s2s.msu.ru ([193.232.119.109]:41622 "EHLO
+	tentacle.sectorb.msk.ru") by vger.kernel.org with ESMTP
+	id S965599AbWIRJDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 05:03:32 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <p73k6414lnp.fsf@verdi.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: bert hubert <bert.hubert@netherlabs.nl>
-Date: Sun, 17 Sep 2006 14:21:53 +0200
+On Mon, Sep 18, 2006 at 10:35:38AM +0200, Andi Kleen wrote:
+> > I just found out that TSC clocksource is not implemented on x86-64.
+> > Kernel version 2.6.18-rc7, is it true?
+> 
+> The x86-64 timer subsystems currently doesn't have clocksources
+> at all, but it supports TSC and some other timers.
 
-> Operators, distributors and even people who've been doing kernel stuff for
-> more than a decade expect to be able to compile in (experimental) policies,
-> and not have a *random* one of them enabled by default!
+Hm. On my box, TSC did not work, until I hacked arch/i386/kernel/tsc.c
+in it. 
+Neither clock=tsc nor clocksource=tsc didn't have any effect.
 
-We created TCP_CONG_ADVANCED for a purpose.  If you turn that
-thing on, you get full control but if something breaks you get
-to keep the pieces.
+> > I've also had experience of unsychronized TSC on dual-core Athlon,
+> > but it was cured by idle=poll.
+> 
+> You can use that, but it will make your system run quite hot 
+> and cost you a lot of powe^wmoney.
 
-Quite frankly, just about everyone should not enable TCP_CONG_ADVANCED
-at all.  And quite likely thie applies even distribution vendors.
+Here in Russia electric power is cheap compared with hardware upgrade.
+
+> > It seems that dhcpd3 makes the box timestamping incoming packets,
+> > killing the performance. I think that combining router and DHCP server
+> > on a same box is a legitimate situation, isn't it?
+> 
+> Yes.  Good point. DHCP is broken and needs to be fixed. Can you
+> send a bug report to the DHCP maintainers? 
+> 
+> iirc the problem used to be that RAW sockets didn't do something
+> they need them to do. Maybe we can fix that now.
+
+Will try some days later.
+
+Oh, and pppoe-server uses some kind of packet socket too, doesn't it?
+
+> 
+> If that's not possible we can probably add a ioctl or similar
+> to disable time stamping for packet sockets (DHCP shouldn't really
+> need a fine grained time stamp). dhcpcd would need to use that then.
+
+I would like some sysctl very much, too. Let tcpdump show imprecise
+timestamps when forwarding performance is more important.
+After all, Ciscos don't have any tcpdump analog at all, and they are 
+very popular :)
+
+> 
+> Keep me updated what they say.
+> 
+> -Andi
+> 
+~
+:wq
+                                        With best regards, 
+                                           Vladimir Savkin. 
+
