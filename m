@@ -1,114 +1,286 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: Re: [PATCH 1/4] IP100A: Fix TX Pause bug (reset_tx, intr_handler)
-Date: Mon, 18 Sep 2006 11:41:14 +0200
-Message-ID: <20060918094113.GA4873@ingate.macqel.be>
-References: <20060915114448.GA7329@ingate.macqel.be> <005101c6dad4$47b1e2c0$4964a8c0@icplus.com.tw>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix wildcard as tunnel source
+Date: Mon, 18 Sep 2006 11:39:31 +0200
+Message-ID: <450E6953.2020008@trash.net>
+References: <44F99954.1040606@trash.net> <20060918.001904.105429466.davem@davemloft.net> <450E4FF9.9030406@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------030903010703090001050907"
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.macqel.be ([194.78.208.39]:24385 "EHLO mail.macqel.be")
-	by vger.kernel.org with ESMTP id S965641AbWIRJlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 05:41:16 -0400
-To: Jesse Huang <jesse@icplus.com.tw>
-Content-Disposition: inline
-In-Reply-To: <005101c6dad4$47b1e2c0$4964a8c0@icplus.com.tw>
+Received: from stinky.trash.net ([213.144.137.162]:51087 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S965615AbWIRJmm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 05:42:42 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <450E4FF9.9030406@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2006 at 11:41:09AM +0800, Jesse Huang wrote:
-> Dear Philippe:
-> 
-> (1) We are not allow to support register TxStartThresh and, RxEarlyThresh,
-> so
-> we remove it.
+This is a multi-part message in MIME format.
+--------------030903010703090001050907
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Could you develop ?
-- What do you mean by `We are not allow'
-- Is it specific to the IP100A chip ?
+Patrick McHardy wrote:
+> David Miller wrote:
+> 
+>>I really don't want to remove this as it's fairly critical performance
+>>wise for the scalability problems all my changes were meant to address.
+>>I hope I really don't have to do something like what was needed for
+>>the policy layer, having a linked list and a hash table to handle the
+>>two cases.
+> 
+> 
+> We could query the address before the SA lookup. It will cost an
+> additional route lookup in case a matching SA is already present,
+> but I guess thats still better than removing the source from the
+> hash. I'll try if it works and send a new patch.
 
-Those register are documented in the Sundance Technology ST201 Data Sheet
-and when modified with fine-tuned values, they can have a real positive
-effect on the overall throughput on a loaded system.
+I've tested this patch and it works fine. I'm wondering if something
+else might be affected by the hash change though, xfrm_state_addr_check
+treated 0.0.0.0 as wildcard even before the introduction of wildcards
+in tunnel templates, but I can't see in which other case it would be
+zero.
 
-> 
-> (2) Your consideration is right. But reset_tx is workaround for customer's
-> embedded system, I don't have this
-> enviroment now. I can't sure it will work fine if I removed this.
 
-On DFE-580TX boards, the reset_tx way did not work.  The ports remained
-blocked until a power-cycle.  I do not know if the TxUnderrun problem ever
-happened with earlier (one port) boards, so I doubt that the reset_tx way
-ever worked.  Is was even commented as not being tested.  On DFE-580TX
-boards, the current way has been verified by me and others to work, so
-please do not break it.
+--------------030903010703090001050907
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Best regards
+[XFRM]: Fix wildcard as tunnel source
 
-Philippe
+Hashing SAs by source address breaks templates with wildcards as tunnel
+source since the source address used for hashing/lookup is still 0/0.
+Move source address lookup to xfrm_tmpl_resolve_one() so we can use the
+real address in the lookup.
 
-> 
-> Thanks you very mutch.
-> 
-> Best Regards,
-> Jesse Huang.
-> 
-> ----- Original Message ----- 
-> From: "Philippe De Muyter" <phdm@macqel.be>
-> To: "Jesse Huang" <jesse@icplus.com.tw>
-> Cc: <netdev@vger.kernel.org>
-> Sent: Friday, September 15, 2006 7:44 PM
-> Subject: Re: [PATCH 1/4] IP100A: Fix TX Pause bug (reset_tx, intr_handler)
-> 
-> 
-> On Thu, Sep 14, 2006 at 12:58:30AM +0000, Jesse Huang wrote:
-> [...]
-> > @@ -262,8 +262,6 @@ enum alta_offsets {
-> >  ASICCtrl = 0x30,
-> >  EEData = 0x34,
-> >  EECtrl = 0x36,
-> > - TxStartThresh = 0x3c,
-> > - RxEarlyThresh = 0x3e,
-> 
-> Why ?
-> 
-> >  FlashAddr = 0x40,
-> >  FlashData = 0x44,
-> >  TxStatus = 0x46,
-> [...]
-> > @@ -1156,29 +1160,29 @@ static irqreturn_t intr_handler(int irq,
-> >  np->stats.tx_fifo_errors++;
-> >  if (tx_status & 0x02)
-> >  np->stats.tx_window_errors++;
-> > - /*
-> > - ** This reset has been verified on
-> > - ** DFE-580TX boards ! phdm@macqel.be.
-> > - */
-> > - if (tx_status & 0x10) { /* TxUnderrun */
-> > - unsigned short txthreshold;
-> > -
-> > - txthreshold = ioread16 (ioaddr + TxStartThresh);
-> > - /* Restart Tx FIFO and transmitter */
-> > - sundance_reset(dev, (NetworkReset|FIFOReset|TxReset) << 16);
-> > - iowrite16 (txthreshold, ioaddr + TxStartThresh);
-> > - /* No need to reset the Tx pointer here */
-> > +
-> > + /* FIFO ERROR need to be reset tx */
-> > + if (tx_status & 0x10) { /* Reset the Tx. */
-> > + spin_lock(&np->lock);
-> > + reset_tx(dev);
-> > + spin_unlock(&np->lock);
-> > + }
-> 
-> Just as the comments say, on DFE-580TX 4 port boards, where it is easy to
-> reproduce TxUnderrun problems, just resetting on the chip the Tx FIFO and
-> transmitter is enough.
-> There is no need to call reset_tx, which discards all pending messages and
-> frees all the skb's.  It is also not necessary to reload the Tx pointer.
-> 
-> Is it different with newer versions of the chip ?
-> 
-> Philippe
-> 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
--- 
+---
+commit f3307c3183e50959247f28c773590b5d7902097f
+tree 78ddff768dc25145110767f182408ed6993828c5
+parent c2cb1937e1054380c49699188810b9c6e04c8e21
+author Patrick McHardy <kaber@trash.net> Mon, 18 Sep 2006 11:34:25 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 18 Sep 2006 11:34:25 +0200
+
+ include/net/xfrm.h      |   13 +++++++++++++
+ net/ipv4/xfrm4_policy.c |   20 ++++++++++++++++++++
+ net/ipv4/xfrm4_state.c  |   15 ---------------
+ net/ipv6/xfrm6_policy.c |   21 +++++++++++++++++++++
+ net/ipv6/xfrm6_state.c  |   16 ----------------
+ net/xfrm/xfrm_policy.c  |   21 +++++++++++++++++++++
+ 6 files changed, 75 insertions(+), 31 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index bf8e2df..c6fac69 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -223,6 +223,7 @@ struct xfrm_policy_afinfo {
+ 	struct dst_ops		*dst_ops;
+ 	void			(*garbage_collect)(void);
+ 	int			(*dst_lookup)(struct xfrm_dst **dst, struct flowi *fl);
++	int			(*get_saddr)(xfrm_address_t *saddr, xfrm_address_t *daddr);
+ 	struct dst_entry	*(*find_bundle)(struct flowi *fl, struct xfrm_policy *policy);
+ 	int			(*bundle_create)(struct xfrm_policy *policy, 
+ 						 struct xfrm_state **xfrm, 
+@@ -632,6 +633,18 @@ #endif
+ }
+ 
+ static inline int
++xfrm_addr_any(xfrm_address_t *addr, unsigned short family)
++{
++	switch (family) {
++	case AF_INET:
++		return addr->a4 == 0;
++	case AF_INET6:
++		return ipv6_addr_any((struct in6_addr*)addr->a6);
++	}
++	return 0;
++}
++
++static inline int
+ __xfrm4_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x)
+ {
+ 	return	(tmpl->saddr.a4 &&
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 4795985..eabcd27 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -21,6 +21,25 @@ static int xfrm4_dst_lookup(struct xfrm_
+ 	return __ip_route_output_key((struct rtable**)dst, fl);
+ }
+ 
++static int xfrm4_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
++{
++	struct rtable *rt;
++	struct flowi fl_tunnel = {
++		.nl_u = {
++			.ip4_u = {
++				.daddr = daddr->a4,
++			},
++		},
++	};
++
++	if (!xfrm4_dst_lookup((struct xfrm_dst **)&rt, &fl_tunnel)) {
++		saddr->a4 = rt->rt_src;
++		dst_release(&rt->u.dst);
++		return 0;
++	}
++	return -EHOSTUNREACH;
++}
++
+ static struct dst_entry *
+ __xfrm4_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+ {
+@@ -298,6 +317,7 @@ static struct xfrm_policy_afinfo xfrm4_p
+ 	.family = 		AF_INET,
+ 	.dst_ops =		&xfrm4_dst_ops,
+ 	.dst_lookup =		xfrm4_dst_lookup,
++	.get_saddr =		xfrm4_get_saddr,
+ 	.find_bundle = 		__xfrm4_find_bundle,
+ 	.bundle_create =	__xfrm4_bundle_create,
+ 	.decode_session =	_decode_session4,
+diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
+index 6a2a4ab..fe20344 100644
+--- a/net/ipv4/xfrm4_state.c
++++ b/net/ipv4/xfrm4_state.c
+@@ -42,21 +42,6 @@ __xfrm4_init_tempsel(struct xfrm_state *
+ 	x->props.saddr = tmpl->saddr;
+ 	if (x->props.saddr.a4 == 0)
+ 		x->props.saddr.a4 = saddr->a4;
+-	if (tmpl->mode == XFRM_MODE_TUNNEL && x->props.saddr.a4 == 0) {
+-		struct rtable *rt;
+-	        struct flowi fl_tunnel = {
+-        	        .nl_u = {
+-        			.ip4_u = {
+-					.daddr = x->id.daddr.a4,
+-				}
+-			}
+-		};
+-		if (!xfrm_dst_lookup((struct xfrm_dst **)&rt,
+-		                     &fl_tunnel, AF_INET)) {
+-			x->props.saddr.a4 = rt->rt_src;
+-			dst_release(&rt->u.dst);
+-		}
+-	}
+ 	x->props.mode = tmpl->mode;
+ 	x->props.reqid = tmpl->reqid;
+ 	x->props.family = AF_INET;
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 9391c4c..6a252e2 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -34,6 +34,26 @@ static int xfrm6_dst_lookup(struct xfrm_
+ 	return err;
+ }
+ 
++static int xfrm6_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
++{
++	struct rt6_info *rt;
++	struct flowi fl_tunnel = {
++		.nl_u = {
++			.ip6_u = {
++				.daddr = *(struct in6_addr *)&daddr->a6,
++			},
++		},
++	};
++
++	if (!xfrm6_dst_lookup((struct xfrm_dst **)&rt, &fl_tunnel)) {
++		ipv6_get_saddr(&rt->u.dst, (struct in6_addr *)&daddr->a6,
++			       (struct in6_addr *)&saddr->a6);
++		dst_release(&rt->u.dst);
++		return 0;
++	}
++	return -EHOSTUNREACH;
++}
++
+ static struct dst_entry *
+ __xfrm6_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+ {
+@@ -362,6 +382,7 @@ static struct xfrm_policy_afinfo xfrm6_p
+ 	.family =		AF_INET6,
+ 	.dst_ops =		&xfrm6_dst_ops,
+ 	.dst_lookup =		xfrm6_dst_lookup,
++	.get_saddr = 		xfrm6_get_saddr,
+ 	.find_bundle =		__xfrm6_find_bundle,
+ 	.bundle_create =	__xfrm6_bundle_create,
+ 	.decode_session =	_decode_session6,
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index d88cd92..711bfaf 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -42,22 +42,6 @@ __xfrm6_init_tempsel(struct xfrm_state *
+ 	memcpy(&x->props.saddr, &tmpl->saddr, sizeof(x->props.saddr));
+ 	if (ipv6_addr_any((struct in6_addr*)&x->props.saddr))
+ 		memcpy(&x->props.saddr, saddr, sizeof(x->props.saddr));
+-	if (tmpl->mode == XFRM_MODE_TUNNEL && ipv6_addr_any((struct in6_addr*)&x->props.saddr)) {
+-		struct rt6_info *rt;
+-		struct flowi fl_tunnel = {
+-			.nl_u = {
+-				.ip6_u = {
+-					.daddr = *(struct in6_addr *)daddr,
+-				}
+-			}
+-		};
+-		if (!xfrm_dst_lookup((struct xfrm_dst **)&rt,
+-		                     &fl_tunnel, AF_INET6)) {
+-			ipv6_get_saddr(&rt->u.dst, (struct in6_addr *)daddr,
+-			               (struct in6_addr *)&x->props.saddr);
+-			dst_release(&rt->u.dst);
+-		}
+-	}
+ 	x->props.mode = tmpl->mode;
+ 	x->props.reqid = tmpl->reqid;
+ 	x->props.family = AF_INET6;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 537854f..b6e2e79 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1107,6 +1107,20 @@ int __xfrm_sk_clone_policy(struct sock *
+ 	return 0;
+ }
+ 
++static int
++xfrm_get_saddr(xfrm_address_t *local, xfrm_address_t *remote,
++	       unsigned short family)
++{
++	int err;
++	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	err = afinfo->get_saddr(local, remote);
++	xfrm_policy_put_afinfo(afinfo);
++	return err;
++}
++
+ /* Resolve list of templates for the flow, given policy. */
+ 
+ static int
+@@ -1118,6 +1132,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy
+ 	int i, error;
+ 	xfrm_address_t *daddr = xfrm_flowi_daddr(fl, family);
+ 	xfrm_address_t *saddr = xfrm_flowi_saddr(fl, family);
++	xfrm_address_t tmp;
+ 
+ 	for (nx=0, i = 0; i < policy->xfrm_nr; i++) {
+ 		struct xfrm_state *x;
+@@ -1128,6 +1143,12 @@ xfrm_tmpl_resolve_one(struct xfrm_policy
+ 		if (tmpl->mode == XFRM_MODE_TUNNEL) {
+ 			remote = &tmpl->id.daddr;
+ 			local = &tmpl->saddr;
++			if (xfrm_addr_any(local, family)) {
++				error = xfrm_get_saddr(&tmp, remote, family);
++				if (error)
++					goto fail;
++				local = &tmp;
++			}
+ 		}
+ 
+ 		x = xfrm_state_find(remote, local, fl, tmpl, policy, &error, family);
+
+--------------030903010703090001050907--
