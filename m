@@ -1,86 +1,84 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [BNEP] Fix compat BNEPGETCONNLIST ioctl.
-Date: Mon, 18 Sep 2006 11:05:09 +0100
-Message-ID: <1158573909.24527.336.camel@pmac.infradead.org>
+From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Mon, 18 Sep 2006 14:29:19 +0400
+Message-ID: <20060918102918.GA23261@tentacle.sectorb.msk.ru>
+References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de> <20060916120845.GA18912@tentacle.sectorb.msk.ru> <p73k6414lnp.fsf@verdi.suse.de> <20060918090330.GA9850@tentacle.sectorb.msk.ru> <p73eju94htu.fsf@verdi.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:61645 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S965632AbWIRKFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 06:05:34 -0400
-To: marcel@holtmann.org, torvalds@osdl.org, akpm@osdl.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965639AbWIRK3W@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <p73eju94htu.fsf@verdi.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We were making no attempt to deal with the fact that a structure with a
-uint32_t followed by a pointer is going to be _different_ for 32-bit and
-64-bit userspace. Any 32-bit process trying to use BNEPGETCONNLIST will
-be failing with -EFAULT if it's lucky; suffering from having the
-connection list dumped at a random address if it's not.
+On Mon, Sep 18, 2006 at 11:58:21AM +0200, Andi Kleen wrote:
+> > > The x86-64 timer subsystems currently doesn't have clocksources
+> > > at all, but it supports TSC and some other timers.
+> > 
+> 
+> > until I hacked arch/i386/kernel/tsc.c
+> 
+> Then you don't use x86-64. 
+> 
+Oh. I mean I made arch/i386/kernel/tsc.c compile on x86-64
+by hacking some Makefiles and headers. 
 
-Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+But the question is, why stock 2.6.18-rc7 could not use TSC on its own?
 
-diff --git a/net/bluetooth/bnep/sock.c b/net/bluetooth/bnep/sock.c
-index 28c5583..0ef2783 100644
---- a/net/bluetooth/bnep/sock.c
-+++ b/net/bluetooth/bnep/sock.c
-@@ -43,6 +43,7 @@ #include <linux/socket.h>
- #include <linux/ioctl.h>
- #include <linux/file.h>
- #include <linux/init.h>
-+#include <linux/compat.h>
- #include <net/sock.h>
- 
- #include <asm/system.h>
-@@ -146,11 +147,44 @@ static int bnep_sock_ioctl(struct socket
- 	return 0;
- }
- 
-+#ifdef CONFIG_COMPAT
-+static int bnep_sock_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-+{
-+
-+	if (cmd == BNEPGETCONNLIST) {
-+		struct bnep_connlist_req cl;
-+		uint32_t uci;
-+		int err;
-+
-+		if (get_user(cl.cnum, (uint32_t __user *)arg) ||
-+		    get_user(uci, (u32 __user *)(arg+4)))
-+			return -EFAULT;
-+
-+		cl.ci = compat_ptr(uci);
-+
-+		if (cl.cnum <= 0)
-+			return -EINVAL;
-+	
-+		err = bnep_get_connlist(&cl);
-+
-+		if (!err && put_user(cl.cnum, (uint32_t __user *)arg))
-+			err = -EFAULT;
-+
-+		return err;
-+	}
-+
-+	return bnep_sock_ioctl(sock, cmd, arg);
-+}
-+#endif
-+
- static const struct proto_ops bnep_sock_ops = {
- 	.family     = PF_BLUETOOTH,
- 	.owner      = THIS_MODULE,
- 	.release    = bnep_sock_release,
- 	.ioctl      = bnep_sock_ioctl,
-+#ifdef CONFIG_COMPAT
-+	.compat_ioctl = bnep_sock_compat_ioctl,
-+#endif
- 	.bind       = sock_no_bind,
- 	.getname    = sock_no_getname,
- 	.sendmsg    = sock_no_sendmsg,
+> > > > I've also had experience of unsychronized TSC on dual-core Athlon,
+> > > > but it was cured by idle=poll.
+> > > 
+> > > You can use that, but it will make your system run quite hot 
+> > > and cost you a lot of powe^wmoney.
+> > 
+> > Here in Russia electric power is cheap compared with hardware upgrade.
+> 
+> It's not just electrical power - the hardware is more stressed and will
+> likely fail earlier too.  As a rule of thumb the hotter your hardware runs
+> the earlier it will fail.
 
--- 
-dwmw2
+What hardware exactly. Doesn't it affect only CPU? And they are not
+know to fail before any other components.
+> > 
+> > > > It seems that dhcpd3 makes the box timestamping incoming packets,
+> > > > killing the performance. I think that combining router and DHCP server
+> > > > on a same box is a legitimate situation, isn't it?
+> > > 
+> > > Yes.  Good point. DHCP is broken and needs to be fixed. Can you
+> > > send a bug report to the DHCP maintainers? 
+> > > 
+> > > iirc the problem used to be that RAW sockets didn't do something
+> > > they need them to do. Maybe we can fix that now.
+> > 
+> > Will try some days later.
+> > 
+> > Oh, and pppoe-server uses some kind of packet socket too, doesn't it?
+> 
+> The problem is not really using a packet socket, but using the SIOCGSTAMP
+> ioctl on it. As soon as someone issues it the system will take accurate 
+> time stamps for each incoming packet until the respective socket is closed.
+> 
+> Quick fix is to change user space to use gettimeofday() when it reads
+> the packet instead.
 
+Ok, thank you, I now understand.
+
+> 
+> For netdev: I'm more and more thinking we should just avoid the problem
+> completely and switch to "true end2end" timestamps. This means don't
+> time stamp when a packet is received, but only when it is delivered
+> to a socket. The timestamp at receiving is a lie anyways because
+> the network hardware can add an arbitary long delay before the driver interrupt
+> handler runs. Then the problem above would completely disappear. 
+> Comments? Opinions? 
+> 
+> -Andi
+> 
+~
+:wq
+                                        With best regards, 
+                                           Vladimir Savkin. 
