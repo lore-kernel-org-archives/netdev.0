@@ -1,45 +1,84 @@
-From: "Alexey Dobriyan" <adobriyan@gmail.com>
-Subject: Re: kernel panic on T60 by e1000 driver
-Date: Mon, 18 Sep 2006 13:47:23 +0400
-Message-ID: <b6fcc0a0609180247j460811fao651a7883bb4dd668@mail.gmail.com>
-References: <215036450609172228l21e8fb2drbdd880f7c1bfcc21@mail.gmail.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: 18 Sep 2006 11:58:21 +0200
+Message-ID: <p73eju94htu.fsf@verdi.suse.de>
+References: <4492D5D3.4000303@atmos.washington.edu>
+	<44948EF6.1060201@atmos.washington.edu>
+	<Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
+	<200606191724.31305.ak@suse.de>
+	<20060916120845.GA18912@tentacle.sectorb.msk.ru>
+	<p73k6414lnp.fsf@verdi.suse.de>
+	<20060918090330.GA9850@tentacle.sectorb.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-To: "Joe Jin" <lkmaillist@gmail.com>
-In-Reply-To: <215036450609172228l21e8fb2drbdd880f7c1bfcc21@mail.gmail.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:27105 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S965625AbWIRJ6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 05:58:30 -0400
+To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+In-Reply-To: <20060918090330.GA9850@tentacle.sectorb.msk.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Only authors of proprietary modules you loaded can debug this.
-Please, redirect this and all futher oopses to them.
+"Vladimir B. Savkin" <master@sectorb.msk.ru> writes:
 
-On 9/18/06, Joe Jin <lkmaillist@gmail.com> wrote:
-> while I try to transmit a 8k data by send() on my laptap T60,  kernel
-> panic occured:
+> On Mon, Sep 18, 2006 at 10:35:38AM +0200, Andi Kleen wrote:
+> > > I just found out that TSC clocksource is not implemented on x86-64.
+> > > Kernel version 2.6.18-rc7, is it true?
+> > 
+> > The x86-64 timer subsystems currently doesn't have clocksources
+> > at all, but it supports TSC and some other timers.
+> 
 
-> Modules linked in: rds cisco_ipsec parport_pc lp parport autofs4
-> pcmcia opw3945 ieee80211 ie80211_crypt ipt_REJECT xt_tcpudp x_tables
-> vfat fat dm_mirror dm_mod ibm-acpi button battery ac yenta_socket
-> rsrc_nonstatic pcmcia_core uhci_hcd ehci_hcd i2c_i801 i2c_core e1000
-> ext3 jbd ahci libata sd_mod scsi_mod
-> CPU:    0
-> EIP:    0060:[<f8e02261>]       Tainted:        PF      VLI
+> until I hacked arch/i386/kernel/tsc.c
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+Then you don't use x86-64. 
+
+
+> 
+> > > I've also had experience of unsychronized TSC on dual-core Athlon,
+> > > but it was cured by idle=poll.
+> > 
+> > You can use that, but it will make your system run quite hot 
+> > and cost you a lot of powe^wmoney.
+> 
+> Here in Russia electric power is cheap compared with hardware upgrade.
+
+It's not just electrical power - the hardware is more stressed and will
+likely fail earlier too.  As a rule of thumb the hotter your hardware runs
+the earlier it will fail.
+
+> 
+> > > It seems that dhcpd3 makes the box timestamping incoming packets,
+> > > killing the performance. I think that combining router and DHCP server
+> > > on a same box is a legitimate situation, isn't it?
+> > 
+> > Yes.  Good point. DHCP is broken and needs to be fixed. Can you
+> > send a bug report to the DHCP maintainers? 
+> > 
+> > iirc the problem used to be that RAW sockets didn't do something
+> > they need them to do. Maybe we can fix that now.
+> 
+> Will try some days later.
+> 
+> Oh, and pppoe-server uses some kind of packet socket too, doesn't it?
+
+The problem is not really using a packet socket, but using the SIOCGSTAMP
+ioctl on it. As soon as someone issues it the system will take accurate 
+time stamps for each incoming packet until the respective socket is closed.
+
+Quick fix is to change user space to use gettimeofday() when it reads
+the packet instead.
+
+For netdev: I'm more and more thinking we should just avoid the problem
+completely and switch to "true end2end" timestamps. This means don't
+time stamp when a packet is received, but only when it is delivered
+to a socket. The timestamp at receiving is a lie anyways because
+the network hardware can add an arbitary long delay before the driver interrupt
+handler runs. Then the problem above would completely disappear. 
+Comments? Opinions? 
+
+-Andi
