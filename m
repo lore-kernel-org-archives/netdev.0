@@ -1,54 +1,59 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
-Date: Tue, 19 Sep 2006 02:51:23 +0400
-Message-ID: <20060918225123.GA22150@ms2.inr.ac.ru>
-References: <20060830100734.GA22235@isil.ipib.msu.ru> <20060904160045.GA15599@ms2.inr.ac.ru> <44FDBA04.3080104@hp.com> <20060918.003938.26278728.davem@davemloft.net> <450ED337.8000700@hp.com> <20060918204105.GA31333@ms2.inr.ac.ru> <450F0EA5.2020109@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: tcp congestion policy selection link order fragile
+Date: Mon, 18 Sep 2006 16:41:20 -0700
+Message-ID: <20060918164120.7d658e8b@localhost.localdomain>
+References: <20060916221948.GA12421@outpost.ds9a.nl>
+	<20060917083214.45b5f61f@localhost.localdomain>
+	<20060917101101.GA30461@outpost.ds9a.nl>
+	<20060917205351.4f691c4e@localhost.localdomain>
+	<20060917122153.GA2932@outpost.ds9a.nl>
+	<20060917221151.7d343f3f@localhost.localdomain>
+	<20060917145150.GA7223@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, alex@sectorb.msk.ru,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:29116 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1030239AbWIRWvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 18:51:32 -0400
-To: Rick Jones <rick.jones2@hp.com>
-Content-Disposition: inline
-In-Reply-To: <450F0EA5.2020109@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:21203 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030262AbWIRXlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 19:41:45 -0400
+To: bert hubert <bert.hubert@netherlabs.nl>
+In-Reply-To: <20060917145150.GA7223@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Sun, 17 Sep 2006 16:51:50 +0200
+bert hubert <bert.hubert@netherlabs.nl> wrote:
 
-> There isn't any sort of clever short-circuiting in loopback is there?
+> The original message Stephen reacts to below apparently never made it to the
+> list, it can be found here: http://ds9a.nl/tmp/module-policy.txt
+> 
+> > Any body who builds in random stuff without thinking is being foolish.
+> > But, if you can think of a better configuration method that isn't too
+> > grotty, then go for it.
+> 
+> The method I'm proposing is simple enough:
+> 
+> 1) reno is always built-in
+> 2) it is the default tcp congestion policy
 
-No, from all that I know.
+No, Reno is unstable in high BDP
 
-
-> 									I 
-> do like the convenience of testing things over loopback, but always fret 
-> about not including drivers and actual hardware interrupts etc.
-
-Well, if the test is right, it should show cost of redundant ACKs.
-
-
-> Regardless, kudos for running the test.  The only thing missing is the 
-> -c and -C options to enable the CPU utilization measurements which will 
-> then give the service demand on a CPU time per transaction basis.  Or 
-> was this a UP system that was taken to CPU saturation?
-
-It is my notebook. :-) Of course, cpu consumption is 100%.
-(Actally, netperf shows 100.10 :-))
-
-I will redo test on a real network. What range of -b should I test?
-
-
-> What i'm thinking about isn't so much about the latency
-
-I understand.
-
-Actually, I did those tests ages ago for a pure throughput case,
-when nothing goes in the opposite direction. I did not find a difference
-that time. And nobody even noticed that Linux sends ACKs _each_ small
-segment for unidirectional connections for all those years. :-)
-
-Alexey
+> 3) loading/compiling-in additional tcp congestion policies only make them
+>    available
+> 4) userspace is free to select a non-default tcp congestion policy at will
+> 
+> The implementation might be as simple as making the *first* registered
+> congestion policy the default (instead of the last one) which would be reno,
+> as it is in tcp_cong.o, which is probably always loaded first (as the other
+> .o's need symbols that are in tcp_cong.o).
+> 
+> Despite what you allege about my foolishness, I maintain that a kernel that
+> enables a *random policy* from the ones you compiled in, is not a sane
+> kernel.
+> 
+> The default kernel should be as sane as possible, allowing the userspace
+> people (ie, me) to mess things up to their heart's desire.
+> 
+> 	Bert
+> 
