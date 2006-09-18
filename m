@@ -1,51 +1,35 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 18 Sep 2006 19:38:22 +0400
-Message-ID: <20060918153822.GA805@ms2.inr.ac.ru>
-References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de> <20060916120845.GA18912@tentacle.sectorb.msk.ru> <p73k6414lnp.fsf@verdi.suse.de> <20060918090330.GA9850@tentacle.sectorb.msk.ru> <p73eju94htu.fsf@verdi.suse.de> <20060918102918.GA23261@tentacle.sectorb.msk.ru> <p73ac4x4doi.fsf@verdi.suse.de>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: tcp congestion policy selection link order fragile
+Date: Mon, 18 Sep 2006 17:40:48 +0200
+Message-ID: <20060918154048.GA18240@outpost.ds9a.nl>
+References: <20060917122153.GA2932@outpost.ds9a.nl> <20060918.015130.34760190.davem@davemloft.net> <20060918095936.GA6161@outpost.ds9a.nl> <20060918.070600.107685035.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:51840 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751787AbWIRPjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 11:39:31 -0400
-To: Andi Kleen <ak@suse.de>
+Received: from outpost.ds9a.nl ([213.244.168.210]:14731 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1751789AbWIRPku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 11:40:50 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <p73ac4x4doi.fsf@verdi.suse.de>
+In-Reply-To: <20060918.070600.107685035.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Mon, Sep 18, 2006 at 07:06:00AM -0700, David Miller wrote:
 
-> For netdev: I'm more and more thinking we should just avoid the problem
-> completely and switch to "true end2end" timestamps. This means don't
-> time stamp when a packet is received, but only when it is delivered
-> to a socket.
+> Any ordering scheme is wrong or unexpected for _somebody_.  Look how
 
-This will work.
+I agree violently. Would you agree that it would be best to have a mechanism
+that explicitly sets a sane default, and does not rely on ordering?
 
->From viewpoint of existing uses of timestamp by packet socket
-this time is not worse. The only danger is violation of casuality
-(when forwarded packet or reply packet gets timestamp earlier than
-original packet). This pathology was main reason why timestamp
-is recorded early, before packet is demultiplexed in netif_receive_skb().
-But it is not a practical problem: delivery to packet/raw sockets
-is occasionally placed _before_ delivery to real protocol handlers.
+My implementation indeed broke your intentions, but would you be open to
+revamping things so the default policy is not dependent on load order?
 
+What would the desired default be, 'BIC' in all cases?
 
-> handler runs. Then the problem above would completely disappear. 
+Thanks. 
 
-Well, not completely. Too slow clock source remains too slow clock source.
-If it is so slow, that it results in "performance degradation", it just
-should not be used at all, even such pariah as tcpdump wants to be fast.
-
-Actually, I have a question. Why the subject is
-"Network performance degradation from 2.6.11.12 to 2.6.16.20"?
-I do not see beginning of the thread and cannot guess
-why clock source degraded. :-)
-
-Alexey
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
