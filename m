@@ -1,47 +1,51 @@
-From: Andi Kleen <ak@suse.de>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 18 Sep 2006 17:19:34 +0200
-Message-ID: <200609181719.34160.ak@suse.de>
-References: <p73k6414lnp.fsf@verdi.suse.de> <200609181629.53949.ak@suse.de> <1158592789.6069.115.camel@localhost.localdomain>
+Date: Mon, 18 Sep 2006 19:38:22 +0400
+Message-ID: <20060918153822.GA805@ms2.inr.ac.ru>
+References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de> <20060916120845.GA18912@tentacle.sectorb.msk.ru> <p73k6414lnp.fsf@verdi.suse.de> <20060918090330.GA9850@tentacle.sectorb.msk.ru> <p73eju94htu.fsf@verdi.suse.de> <20060918102918.GA23261@tentacle.sectorb.msk.ru> <p73ac4x4doi.fsf@verdi.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, master@sectorb.msk.ru,
-	hawk@diku.dk, harry@atmos.washington.edu,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47779 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751768AbWIRPTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 11:19:40 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1158592789.6069.115.camel@localhost.localdomain>
+Received: from minus.inr.ac.ru ([194.67.69.97]:51840 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1751787AbWIRPjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 11:39:31 -0400
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
+In-Reply-To: <p73ac4x4doi.fsf@verdi.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 18 September 2006 17:19, Alan Cox wrote:
-> Ar Llu, 2006-09-18 am 16:29 +0200, ysgrifennodd Andi Kleen:
-> > The only delay this would add would be the queueing time from the NIC
-> > to the softirq. Do you really think that is that bad?
-> 
-> If you are trying to do things like network record/playback then you
-> want the minimal delay. 
+Hello!
 
-But it's not minimal. Maybe it was long ago when the code was designed
-on a 3c509 but not with modern hardware: Think interrupt mitigation and NAPI. 
+> For netdev: I'm more and more thinking we should just avoid the problem
+> completely and switch to "true end2end" timestamps. This means don't
+> time stamp when a packet is received, but only when it is delivered
+> to a socket.
 
-And with NAPI we tend to process the packets directly after they
-are fetched out of the RX queue, so there is practically no delay
-between driver seeing the packet and softirq seeing it.  All the queuing
-is done either at hardware level or later at socket level.
+This will work.
 
-> There's a reason the original timestamp code 
-> supported the hardware setting the timestamp itself - we actually had a
-> separare set of logic on a board that was doing the timestamping by
-> watching the IRQ line of the NIC chip.
+>From viewpoint of existing uses of timestamp by packet socket
+this time is not worse. The only danger is violation of casuality
+(when forwarded packet or reply packet gets timestamp earlier than
+original packet). This pathology was main reason why timestamp
+is recorded early, before packet is demultiplexed in netif_receive_skb().
+But it is not a practical problem: delivery to packet/raw sockets
+is occasionally placed _before_ delivery to real protocol handlers.
 
-That would be fine too (because it will be likely fast), but unfortunately
-I don't know of any driver that does that.
 
--Andi
+> handler runs. Then the problem above would completely disappear. 
+
+Well, not completely. Too slow clock source remains too slow clock source.
+If it is so slow, that it results in "performance degradation", it just
+should not be used at all, even such pariah as tcpdump wants to be fast.
+
+Actually, I have a question. Why the subject is
+"Network performance degradation from 2.6.11.12 to 2.6.16.20"?
+I do not see beginning of the thread and cannot guess
+why clock source degraded. :-)
+
+Alexey
