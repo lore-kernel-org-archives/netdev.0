@@ -1,42 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.18-rc6 memory mapped pcap truncates outgoing TCP packets,
- but not icmp
-Date: Mon, 18 Sep 2006 00:00:14 -0700 (PDT)
-Message-ID: <20060918.000014.07640227.davem@davemloft.net>
-References: <450928B2.4090003@trash.net>
-	<20060915120235.GA9833@outpost.ds9a.nl>
-	<450B0A11.2050608@trash.net>
+Subject: Re: [GENL]: Provide more information to userspace about registered
+ genl families
+Date: Mon, 18 Sep 2006 00:02:16 -0700 (PDT)
+Message-ID: <20060918.000216.108741287.davem@davemloft.net>
+References: <20060831212129.GF3470@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bert.hubert@netherlabs.nl, cpw@lanl.gov, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:40582
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41350
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965505AbWIRHAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:00:16 -0400
-To: kaber@trash.net
-In-Reply-To: <450B0A11.2050608@trash.net>
+	id S965508AbWIRHCR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:02:17 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060831212129.GF3470@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 15 Sep 2006 22:16:17 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 31 Aug 2006 23:21:29 +0200
 
-> bert hubert wrote:
-> >>It appears to be intentionally, but I don't see a reason for it.
-> >>Can you try if this patch makes it work as expected?
-> > 
-> > 
-> >>[PACKET]: Don't truncate non-linear skbs with mmaped IO
-> >>
-> >>Non-linear skbs are truncated to their linear part with mmaped IO.
-> >>Fix by using skb_copy_bits instead of memcpy.
-> > 
-> > 
-> > Works very well for me! I hope this can make it into 2.6.18.
+> Additionaly exports the following information when providing
+> the list of registered generic netlink families:
+>   - protocol version
+>   - header size
+>   - maximum number of attributes
+>   - list of available operations including
+>       - id
+>       - flags
+>       - avaiability of policy and doit/dumpit function
 > 
+> libnl HEAD provides a utility to read this new information:
 > 
-> That would be fine with me, lets see what Dave thinks.
+> 	0x0010 nlctrl version 1
+> 	    hdrsize 0 maxattr 6
+> 	      op GETFAMILY (0x03) [POLICY,DOIT,DUMPIT]
+> 	0x0011 NLBL_MGMT version 1
+> 	    hdrsize 0 maxattr 0
+> 	      op unknown (0x02) [DOIT]
+> 	      op unknown (0x03) [DOIT]
+> 	      ....
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied to net-2.6, thanks a lot.
+Applied to net-2.6.19, thanks Thomas.
