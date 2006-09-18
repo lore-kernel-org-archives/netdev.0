@@ -1,74 +1,77 @@
-From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 18 Sep 2006 13:03:30 +0400
-Message-ID: <20060918090330.GA9850@tentacle.sectorb.msk.ru>
-References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de> <20060916120845.GA18912@tentacle.sectorb.msk.ru> <p73k6414lnp.fsf@verdi.suse.de>
+From: "Frank Schneider" <twodipu@hotmail.com>
+Subject: approx.  bridging time
+Date: Mon, 18 Sep 2006 11:32:09 +0200
+Message-ID: <BAY101-F23DBDFCD6F0FDDD104515CAB2D0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tentacle.s2s.msu.ru ([193.232.119.109]:41622 "EHLO
-	tentacle.sectorb.msk.ru") by vger.kernel.org with ESMTP
-	id S965599AbWIRJDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 05:03:32 -0400
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <p73k6414lnp.fsf@verdi.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============1331747220=="
+Cc: netdev@vger.kernel.org
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+To: madwifi-devel@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2006 at 10:35:38AM +0200, Andi Kleen wrote:
-> > I just found out that TSC clocksource is not implemented on x86-64.
-> > Kernel version 2.6.18-rc7, is it true?
-> 
-> The x86-64 timer subsystems currently doesn't have clocksources
-> at all, but it supports TSC and some other timers.
+--===============1331747220==
+Content-Type: text/plain; format=flowed
 
-Hm. On my box, TSC did not work, until I hacked arch/i386/kernel/tsc.c
-in it. 
-Neither clock=tsc nor clocksource=tsc didn't have any effect.
+hi,
 
-> > I've also had experience of unsychronized TSC on dual-core Athlon,
-> > but it was cured by idle=poll.
-> 
-> You can use that, but it will make your system run quite hot 
-> and cost you a lot of powe^wmoney.
+I am using madwifi.org    as AP mode in Linux kernel 2.6.12 (debian). 
+Initially I got a problem to make bridge two interfaces (Ethernet , pcmcia) 
+to enable routing inside linux kernel,  then after getting a clue from an 
+expert, to use Shorewall.net,  bridging is working perfectly.
 
-Here in Russia electric power is cheap compared with hardware upgrade.
+Simple setup:  IP packet destined to a STA (station) associated with this AP 
+and this packet comes Ethernet interface and then is being routed inside 
+linux kernel then using madwifi packets getting into the air.
 
-> > It seems that dhcpd3 makes the box timestamping incoming packets,
-> > killing the performance. I think that combining router and DHCP server
-> > on a same box is a legitimate situation, isn't it?
-> 
-> Yes.  Good point. DHCP is broken and needs to be fixed. Can you
-> send a bug report to the DHCP maintainers? 
-> 
-> iirc the problem used to be that RAW sockets didn't do something
-> they need them to do. Maybe we can fix that now.
+Now thing is: I am getting these IP packets with some almost “constant 
+delay”. It seems packets need some time to be routed inside linux box, to 
+jump from Ethernet to pcmcia (madwifi, AP) interface.
 
-Will try some days later.
+Can anyone, please, just give us an idea (approximately) how much time it 
+may take to be routed inside linux box (with p4, 512MB), from one Ethernet 
+to pcmcia interface ??  (imagine that machine is not doing any other stuff )
 
-Oh, and pppoe-server uses some kind of packet socket too, doesn't it?
 
-> 
-> If that's not possible we can probably add a ioctl or similar
-> to disable time stamping for packet sockets (DHCP shouldn't really
-> need a fine grained time stamp). dhcpcd would need to use that then.
+/frank
 
-I would like some sysctl very much, too. Let tcpdump show imprecise
-timestamps when forwarding performance is more important.
-After all, Ciscos don't have any tcpdump analog at all, and they are 
-very popular :)
+N.B. a good reading, Vincent Guffens, "Path of a packet in the Linux kernel"
+http://www.inma.ucl.ac.be/~guffens/doc/path_packet.pdf
 
-> 
-> Keep me updated what they say.
-> 
-> -Andi
-> 
-~
-:wq
-                                        With best regards, 
-                                           Vladimir Savkin. 
+_________________________________________________________________
+FREE pop-up blocking with the new MSN Toolbar - get it now! 
+http://toolbar.msn.click-url.com/go/onm00200415ave/direct/01/
 
+
+
+--===============1331747220==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+--===============1331747220==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Madwifi-devel mailing list
+Madwifi-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/madwifi-devel
+
+--===============1331747220==--
