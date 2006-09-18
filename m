@@ -1,45 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/sctp/: cleanups
-Date: Mon, 18 Sep 2006 00:40:51 -0700 (PDT)
-Message-ID: <20060918.004051.49243272.davem@davemloft.net>
-References: <20060905215721.GM9173@stusta.de>
-	<1157499861.3728.7.camel@w-sridhar2.beaverton.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix wildcard as tunnel source
+Date: Mon, 18 Sep 2006 09:51:21 +0200
+Message-ID: <450E4FF9.9030406@trash.net>
+References: <44F99954.1040606@trash.net> <20060918.001904.105429466.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, lksctp-developers@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dwmw2@infradead.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:40638
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751572AbWIRHkx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:40:53 -0400
-To: sri@us.ibm.com
-In-Reply-To: <1157499861.3728.7.camel@w-sridhar2.beaverton.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:36487 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S964882AbWIRHuf
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:50:35 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060918.001904.105429466.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Tue, 05 Sep 2006 16:44:21 -0700
-
-> On Tue, 2006-09-05 at 23:57 +0200, Adrian Bunk wrote:
-> > This patch contains the following cleanups:
-> > - make the following needlessly global function static:
-> >   - socket.c: sctp_apply_peer_addr_params()
-> > - add proper prototypes for the several global functions in
-> >   include/net/sctp/sctp.h
-> > 
-> > Note that this fixes wrong prototypes for the following functions:
-> > - sctp_snmp_proc_exit()
-> > - sctp_eps_proc_exit()
-> > - sctp_assocs_proc_exit()
-> > 
-> > The latter was spotted by the GNU C compiler and reported
-> > by David Woodhouse.
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+David Miller wrote:
+> Unfortunately, this break scalability of the xfrm state layer when the
+> source is equally as varying as the destination.  In such setups you
+> have an enormous number of entries with destination being the local
+> system and only the source address changing.
 > 
-> Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+> BTW, how can the source be specified as wildcard?  There is no prefix
+> component, it is simply an xfrm_address_t.  And there are several
+> macros which check for x->props.saddr equality directly with no
+> special prefixing or wildcard logic.
 
-Applied, thanks.
+The tunnel endpoint in the template (either source or destination,
+depending on the direction) is set to 0.0.0.0. For outbound SAs,
+the address is compared using xfrm_state_addr_check(), which interprets
+0.0.0.0 as wildcard. When no matching SA is present, the address
+is resolved using routing and filled in the ACQ SA. The keying daemon
+will then install SAs with the proper source. For inbound SAs the
+tunnel destination from the template is ignored.
+
+> I really don't want to remove this as it's fairly critical performance
+> wise for the scalability problems all my changes were meant to address.
+> I hope I really don't have to do something like what was needed for
+> the policy layer, having a linked list and a hash table to handle the
+> two cases.
+
+We could query the address before the SA lookup. It will cost an
+additional route lookup in case a matching SA is already present,
+but I guess thats still better than removing the source from the
+hash. I'll try if it works and send a new patch.
+
