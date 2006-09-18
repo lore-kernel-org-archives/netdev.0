@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
-Date: Mon, 18 Sep 2006 00:39:38 -0700 (PDT)
-Message-ID: <20060918.003938.26278728.davem@davemloft.net>
-References: <20060830100734.GA22235@isil.ipib.msu.ru>
-	<20060904160045.GA15599@ms2.inr.ac.ru>
-	<44FDBA04.3080104@hp.com>
+Subject: Re: [2.6 patch] net/sctp/: cleanups
+Date: Mon, 18 Sep 2006 00:40:51 -0700 (PDT)
+Message-ID: <20060918.004051.49243272.davem@davemloft.net>
+References: <20060905215721.GM9173@stusta.de>
+	<1157499861.3728.7.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru, netdev@vger.kernel.org
+Cc: bunk@stusta.de, lksctp-developers@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:39870
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:40638
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751567AbWIRHjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:39:39 -0400
-To: rick.jones2@hp.com
-In-Reply-To: <44FDBA04.3080104@hp.com>
+	id S1751572AbWIRHkx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:40:53 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1157499861.3728.7.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 05 Sep 2006 10:55:16 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Tue, 05 Sep 2006 16:44:21 -0700
 
-> Is this really necessary?  I thought that the problems with ABC were in 
-> trying to apply byte-based heuristics from the RFC(s) to a 
-> packet-oritented cwnd in the stack?
+> On Tue, 2006-09-05 at 23:57 +0200, Adrian Bunk wrote:
+> > This patch contains the following cleanups:
+> > - make the following needlessly global function static:
+> >   - socket.c: sctp_apply_peer_addr_params()
+> > - add proper prototypes for the several global functions in
+> >   include/net/sctp/sctp.h
+> > 
+> > Note that this fixes wrong prototypes for the following functions:
+> > - sctp_snmp_proc_exit()
+> > - sctp_eps_proc_exit()
+> > - sctp_assocs_proc_exit()
+> > 
+> > The latter was spotted by the GNU C compiler and reported
+> > by David Woodhouse.
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-This is receiver side, and helps a sender who does congestion
-control based upon packet counting like Linux does.   It really
-is less related to ABC than Alexey implies, we've always had
-this kind of problem as I mentioned in previous talks in the
-past on this issue.
+Applied, thanks.
