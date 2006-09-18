@@ -1,49 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [XFRM]: Fix wildcard as tunnel source
-Date: Mon, 18 Sep 2006 09:51:21 +0200
-Message-ID: <450E4FF9.9030406@trash.net>
-References: <44F99954.1040606@trash.net> <20060918.001904.105429466.davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: 18 Sep 2006 10:35:38 +0200
+Message-ID: <p73k6414lnp.fsf@verdi.suse.de>
+References: <4492D5D3.4000303@atmos.washington.edu>
+	<44948EF6.1060201@atmos.washington.edu>
+	<Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
+	<200606191724.31305.ak@suse.de>
+	<20060916120845.GA18912@tentacle.sectorb.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36487 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S964882AbWIRHuf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:50:35 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060918.001904.105429466.davem@davemloft.net>
+Received: from ns1.suse.de ([195.135.220.2]:46558 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1751621AbWIRIgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 04:36:04 -0400
+To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+In-Reply-To: <20060916120845.GA18912@tentacle.sectorb.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> Unfortunately, this break scalability of the xfrm state layer when the
-> source is equally as varying as the destination.  In such setups you
-> have an enormous number of entries with destination being the local
-> system and only the source address changing.
+"Vladimir B. Savkin" <master@sectorb.msk.ru> writes:
+
+> On Mon, Jun 19, 2006 at 05:24:31PM +0200, Andi Kleen wrote:
+> > 
+> > > If you use "pmtmr" try to reboot with kernel option "clock=tsc".
+> > 
+> > That's dangerous advice - when the system choses not to use
+> > TSC it often has a reason.
 > 
-> BTW, how can the source be specified as wildcard?  There is no prefix
-> component, it is simply an xfrm_address_t.  And there are several
-> macros which check for x->props.saddr equality directly with no
-> special prefixing or wildcard logic.
+> I just found out that TSC clocksource is not implemented on x86-64.
+> Kernel version 2.6.18-rc7, is it true?
 
-The tunnel endpoint in the template (either source or destination,
-depending on the direction) is set to 0.0.0.0. For outbound SAs,
-the address is compared using xfrm_state_addr_check(), which interprets
-0.0.0.0 as wildcard. When no matching SA is present, the address
-is resolved using routing and filled in the ACQ SA. The keying daemon
-will then install SAs with the proper source. For inbound SAs the
-tunnel destination from the template is ignored.
+The x86-64 timer subsystems currently doesn't have clocksources
+at all, but it supports TSC and some other timers.
 
-> I really don't want to remove this as it's fairly critical performance
-> wise for the scalability problems all my changes were meant to address.
-> I hope I really don't have to do something like what was needed for
-> the policy layer, having a linked list and a hash table to handle the
-> two cases.
+> 
+> I've also had experience of unsychronized TSC on dual-core Athlon,
+> but it was cured by idle=poll.
 
-We could query the address before the SA lookup. It will cost an
-additional route lookup in case a matching SA is already present,
-but I guess thats still better than removing the source from the
-hash. I'll try if it works and send a new patch.
+You can use that, but it will make your system run quite hot 
+and cost you a lot of powe^wmoney.
 
+> It seems that dhcpd3 makes the box timestamping incoming packets,
+> killing the performance. I think that combining router and DHCP server
+> on a same box is a legitimate situation, isn't it?
+
+
+Yes.  Good point. DHCP is broken and needs to be fixed. Can you
+send a bug report to the DHCP maintainers? 
+
+iirc the problem used to be that RAW sockets didn't do something
+they need them to do. Maybe we can fix that now.
+
+If that's not possible we can probably add a ioctl or similar
+to disable time stamping for packet sockets (DHCP shouldn't really
+need a fine grained time stamp). dhcpcd would need to use that then.
+
+Keep me updated what they say.
+
+-Andi
