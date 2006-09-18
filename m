@@ -1,34 +1,68 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: tcp congestion policy selection link order fragile
-Date: Mon, 18 Sep 2006 21:52:24 +0200
-Message-ID: <20060918195224.GA26585@outpost.ds9a.nl>
-References: <20060918095936.GA6161@outpost.ds9a.nl> <20060918.070600.107685035.davem@davemloft.net> <20060918154048.GA18240@outpost.ds9a.nl> <20060918.115309.88343320.davem@davemloft.net>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH] please include in 2.6.18: e100 disable device on PCI error
+Date: Mon, 18 Sep 2006 15:01:22 -0500
+Message-ID: <20060918200122.GD29167@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Rajesh Shah <rajesh.shah@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"bibo,mao" <bibo.mao@intel.com>, Auke Kok <sofar@foo-projects.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([213.244.168.210]:9625 "EHLO outpost.ds9a.nl")
-	by vger.kernel.org with ESMTP id S1751892AbWIRTwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 15:52:25 -0400
-To: David Miller <davem@davemloft.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:46722 "EHLO
+	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751893AbWIRUBg
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 16:01:36 -0400
+To: akpm@osdl.org, Greg KH <greg@kroah.com>
 Content-Disposition: inline
-In-Reply-To: <20060918.115309.88343320.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2006 at 11:53:09AM -0700, David Miller wrote:
-> > What would the desired default be, 'BIC' in all cases?
-> 
-> And if BIC is not enabled in the configuration, then what?
 
-As the source notes "/* we'll always have reno */ ". This would make the
-policy: the default is "bic" if available, otherwise it is "reno", which is
-*always* available.
+Hi,
 
-But it is all up to you. I'm willing to do the leg work.
+Please apply the following one-liner patch to  
+what will become the stable 2.6.18.  This patch is 
+low-risk because it affects only the PCI error 
+recovery code, which dosn't run on most platforms
+(in particular, isn't invoked on current x86/ia64).
 
-	Bert
+This patch was originally sent on 29 June 2006
+to fix a bug that showed up in an -mm build.
+The code from -mm made it into mainline, but 
+this patch did not, and so we're unhappy. :-(
 
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+Here's the original patch description:
+
+A recent patch in -mm3 titled 
+gregkh-pci-pci-don-t-enable-device-if-already-enabled.patch
+causes pci_enable_device() to be a no-op if the kernel thinks
+that the device is already enabled.  This change breaks the
+PCI error recovery mechanism in the e100 device driver, since, 
+after PCI slot reset, the card is no longer enabled. This is 
+a trivial fix for this problem. Tested.
+
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+
+----
+ drivers/net/e100.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: linux-2.6.18-rc7-git1/drivers/net/e100.c
+===================================================================
+--- linux-2.6.18-rc7-git1.orig/drivers/net/e100.c	2006-09-18 14:21:49.000000000 -0500
++++ linux-2.6.18-rc7-git1/drivers/net/e100.c	2006-09-18 14:24:50.000000000 -0500
+@@ -2799,6 +2799,7 @@ static pci_ers_result_t e100_io_error_de
+ 	/* Detach; put netif into state similar to hotplug unplug. */
+ 	netif_poll_enable(netdev);
+ 	netif_device_detach(netdev);
++	pci_disable_device(pdev);
+ 
+ 	/* Request a slot reset. */
+ 	return PCI_ERS_RESULT_NEED_RESET;
+
