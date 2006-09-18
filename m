@@ -1,36 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/4] IP100A: Fix TX Pause bug (reset_tx, intr_handler)
-Date: Mon, 18 Sep 2006 19:03:45 +0200
-Message-ID: <20060918170344.GA18364@electric-eye.fr.zoreil.com>
-References: <20060915114448.GA7329@ingate.macqel.be> <005101c6dad4$47b1e2c0$4964a8c0@icplus.com.tw> <20060918094113.GA4873@ingate.macqel.be> <00b801c6db13$312b9840$4964a8c0@icplus.com.tw> <20060918130052.GA13012@ingate.macqel.be>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
+Date: Mon, 18 Sep 2006 10:11:19 -0700
+Message-ID: <450ED337.8000700@hp.com>
+References: <20060830100734.GA22235@isil.ipib.msu.ru>	<20060904160045.GA15599@ms2.inr.ac.ru> <44FDBA04.3080104@hp.com> <20060918.003938.26278728.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Huang <jesse@icplus.com.tw>, netdev@vger.kernel.org,
-	torvalds@osdl.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:4551 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751851AbWIRRFW
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 13:05:22 -0400
-To: Philippe De Muyter <phdm@macqel.be>
-Content-Disposition: inline
-In-Reply-To: <20060918130052.GA13012@ingate.macqel.be>
+Received: from palrel11.hp.com ([156.153.255.246]:15810 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S965305AbWIRRLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 13:11:23 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060918.003938.26278728.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Philippe De Muyter <phdm@macqel.be> :
-[...]
-> On Mon, Sep 18, 2006 at 07:11:29PM +0800, Jesse Huang wrote:
-> > Dear Philippe:
-> > (1)Because this is a patent issue, we are not allow to use it again, even it
-> > is in Data Sheet.
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Tue, 05 Sep 2006 10:55:16 -0700
 > 
-> I surmise this is only a concern for icplus as a hardware company.
+> 
+>>Is this really necessary?  I thought that the problems with ABC were in 
+>>trying to apply byte-based heuristics from the RFC(s) to a 
+>>packet-oritented cwnd in the stack?
+> 
+> 
+> This is receiver side, and helps a sender who does congestion
+> control based upon packet counting like Linux does.   It really
+> is less related to ABC than Alexey implies, we've always had
+> this kind of problem as I mentioned in previous talks in the
+> past on this issue.
 
-I'd rather avoid that any Linux user of the old sundance driver with
-a new ip100a chipset instantly has some problem with the said patent.
+For a connection receiving nothing but sub-MSS segments this is going to 
+non-trivially increase the number of ACKs sent no?  I would expect an 
+unpleasant increase in service demands on something like a "burst 
+enabled" (./configure --enable-burst) netperf TCP_RR test:
 
-Who would be responsible for it ? :o(
+netperf -t TCP_RR -H foo -- -b N   # N > 1
 
--- 
-Ueimor
+to increase as a result.   Pipelined HTTP would be like that, some NFS 
+over TCP stuff too, maybe X traffic, other "transactional" workloads as 
+well - maybe Tuxeudo.
+
+rick jones
