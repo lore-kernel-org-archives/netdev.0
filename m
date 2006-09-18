@@ -1,41 +1,47 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 4/9] network namespaces: socket hashes
-Date: Mon, 18 Sep 2006 17:12:49 +0200
-Message-ID: <450EB771.9080609@fr.ibm.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <20060815184844.A2882@castle.nmd.msu.ru>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Mon, 18 Sep 2006 17:19:34 +0200
+Message-ID: <200609181719.34160.ak@suse.de>
+References: <p73k6414lnp.fsf@verdi.suse.de> <200609181629.53949.ak@suse.de> <1158592789.6069.115.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
-	ebiederm@xmission.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	devel@openvz.org, alexey@sw.ru
+Cc: David Miller <davem@davemloft.net>, master@sectorb.msk.ru,
+	hawk@diku.dk, harry@atmos.washington.edu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:13106 "EHLO
-	mtagate4.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751761AbWIRPMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 11:12:49 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k8IFCmpp067740
-	for <netdev@vger.kernel.org>; Mon, 18 Sep 2006 15:12:48 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8IFF1JX1970266
-	for <netdev@vger.kernel.org>; Mon, 18 Sep 2006 16:15:01 +0100
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8IFCkl2032453
-	for <netdev@vger.kernel.org>; Mon, 18 Sep 2006 16:12:47 +0100
-To: Andrey Savochkin <saw@sw.ru>
-In-Reply-To: <20060815184844.A2882@castle.nmd.msu.ru>
+Received: from mx2.suse.de ([195.135.220.15]:47779 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751768AbWIRPTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 11:19:40 -0400
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1158592789.6069.115.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Savochkin wrote:
-> Socket hash lookups are made within namespace.
-> Hash tables are common for all namespaces, with
-> additional permutation of indexes.
+On Monday 18 September 2006 17:19, Alan Cox wrote:
+> Ar Llu, 2006-09-18 am 16:29 +0200, ysgrifennodd Andi Kleen:
+> > The only delay this would add would be the queueing time from the NIC
+> > to the softirq. Do you really think that is that bad?
+> 
+> If you are trying to do things like network record/playback then you
+> want the minimal delay. 
 
-Hi Andrey,
+But it's not minimal. Maybe it was long ago when the code was designed
+on a 3c509 but not with modern hardware: Think interrupt mitigation and NAPI. 
 
-why is the hash table common and not instanciated multiple times for 
-each namespace like the routes ?
+And with NAPI we tend to process the packets directly after they
+are fetched out of the RX queue, so there is practically no delay
+between driver seeing the packet and softirq seeing it.  All the queuing
+is done either at hardware level or later at socket level.
 
+> There's a reason the original timestamp code 
+> supported the hardware setting the timestamp itself - we actually had a
+> separare set of logic on a board that was doing the timestamping by
+> watching the IRQ line of the NIC chip.
+
+That would be fine too (because it will be likely fast), but unfortunately
+I don't know of any driver that does that.
+
+-Andi
