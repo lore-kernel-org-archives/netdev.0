@@ -1,83 +1,52 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] please include in 2.6.18: e100 disable device on PCI
- error
-Date: Mon, 18 Sep 2006 13:52:02 -0700
-Message-ID: <450F06F2.8020907@intel.com>
-References: <20060918200122.GD29167@austin.ibm.com> <20060918132102.d850c1c2.akpm@osdl.org>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Tue, 19 Sep 2006 01:03:21 +0400
+Message-ID: <20060918210321.GA4780@ms2.inr.ac.ru>
+References: <4492D5D3.4000303@atmos.washington.edu> <200609181754.37623.ak@suse.de> <20060918162847.GA4863@ms2.inr.ac.ru> <200609181850.22851.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linas Vepstas <linas@austin.ibm.com>, Greg KH <greg@kroah.com>,
-	linux-kernel@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Rajesh Shah <rajesh.shah@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"bibo,mao" <bibo.mao@intel.com>, Auke Kok <sofar@foo-projects.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964984AbWIRUxl@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060918132102.d850c1c2.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751088AbWIRVDd@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200609181850.22851.ak@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Mon, 18 Sep 2006 15:01:22 -0500
-> linas@austin.ibm.com (Linas Vepstas) wrote:
-> 
->> Hi,
->>
->> Please apply the following one-liner patch to  
->> what will become the stable 2.6.18.  This patch is 
->> low-risk because it affects only the PCI error 
->> recovery code, which dosn't run on most platforms
->> (in particular, isn't invoked on current x86/ia64).
->>
->> This patch was originally sent on 29 June 2006
->> to fix a bug that showed up in an -mm build.
->> The code from -mm made it into mainline, but 
->> this patch did not, and so we're unhappy. :-(
->>
->> Here's the original patch description:
->>
->> A recent patch in -mm3 titled 
->> gregkh-pci-pci-don-t-enable-device-if-already-enabled.patch
->> causes pci_enable_device() to be a no-op if the kernel thinks
->> that the device is already enabled.  This change breaks the
->> PCI error recovery mechanism in the e100 device driver, since, 
->> after PCI slot reset, the card is no longer enabled. This is 
->> a trivial fix for this problem. Tested.
->>
->> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
->> Signed-off-by: Andrew Morton <akpm@osdl.org>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->>
->> ----
->>  drivers/net/e100.c |    1 +
->>  1 file changed, 1 insertion(+)
->>
->> Index: linux-2.6.18-rc7-git1/drivers/net/e100.c
->> ===================================================================
->> --- linux-2.6.18-rc7-git1.orig/drivers/net/e100.c	2006-09-18 14:21:49.000000000 -0500
->> +++ linux-2.6.18-rc7-git1/drivers/net/e100.c	2006-09-18 14:24:50.000000000 -0500
->> @@ -2799,6 +2799,7 @@ static pci_ers_result_t e100_io_error_de
->>  	/* Detach; put netif into state similar to hotplug unplug. */
->>  	netif_poll_enable(netdev);
->>  	netif_device_detach(netdev);
->> +	pci_disable_device(pdev);
->>  
->>  	/* Request a slot reset. */
->>  	return PCI_ERS_RESULT_NEED_RESET;
-> 
-> hm.  I don't have this patch queued, but I _do_ have an equivalent patch
-> for e1000 queued; what's up with that?  Nobody seems to have paid much
-> attention to the e1000 fix.
-> 
-> If we can gather the appropriate acks quickly then I expect we can get both
-> of these into 2.6.18.
+Hello!
 
-Ack! for both, of course.
+> But that never happens right? 
 
-I'm unsure what happened here, as I have this patch in my local tree. I suspect 
-that it got merged into jeff's #upstream only somehow.
+Right.
 
-Auke
+Well, not right. It happens. Simply because you get packet
+with newer timestamp after previous handler saw this packet
+and did some actions. I just do not see any bad consequences.
+
+
+> And do you have some other prefered way to solve this? Even if the timer
+> was fast it would be still good to avoid it in the fast path when DHCPD
+> is running.
+
+No. The way, which you suggested, seems to be the best.
+
+
+1. It even does not disable possibility to record timestamp inside
+   driver, which Alan was afraid of. The sequence is:
+
+	if (!skb->tstamp.off_sec)
+                net_timestamp(skb);
+
+2. Maybe, netif_rx() should continue to get timestamp in netif_rx().
+
+3. NAPI already introduced almost the same inaccuracy. And it is really
+   silly to waste time getting timestamp in netif_receive_skb() a few
+   moments before the packet is delivered to a socket.
+
+4. ...but clock source, which takes one of top lines in profiles
+   must be repaired yet. :-)
+
+Alexey
