@@ -1,50 +1,48 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [XFRM]: Fix wildcard as tunnel source
-Date: Mon, 18 Sep 2006 11:39:31 +0200
-Message-ID: <450E6953.2020008@trash.net>
-References: <44F99954.1040606@trash.net> <20060918.001904.105429466.davem@davemloft.net> <450E4FF9.9030406@trash.net>
+Date: Mon, 18 Sep 2006 11:43:49 +0200
+Message-ID: <450E6A55.50307@trash.net>
+References: <44F99954.1040606@trash.net> <20060918.001904.105429466.davem@davemloft.net> <450E4FF9.9030406@trash.net> <450E6953.2020008@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030903010703090001050907"
+ boundary="------------060507050604040609080208"
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51087 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965615AbWIRJmm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 05:42:42 -0400
+Received: from stinky.trash.net ([213.144.137.162]:8592 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S965613AbWIRJq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 05:46:59 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <450E4FF9.9030406@trash.net>
+In-Reply-To: <450E6953.2020008@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------030903010703090001050907
+--------------060507050604040609080208
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
 Patrick McHardy wrote:
-> David Miller wrote:
+> [XFRM]: Fix wildcard as tunnel source
 > 
->>I really don't want to remove this as it's fairly critical performance
->>wise for the scalability problems all my changes were meant to address.
->>I hope I really don't have to do something like what was needed for
->>the policy layer, having a linked list and a hash table to handle the
->>two cases.
+> Hashing SAs by source address breaks templates with wildcards as tunnel
+> source since the source address used for hashing/lookup is still 0/0.
+> Move source address lookup to xfrm_tmpl_resolve_one() so we can use the
+> real address in the lookup.
 > 
-> 
-> We could query the address before the SA lookup. It will cost an
-> additional route lookup in case a matching SA is already present,
-> but I guess thats still better than removing the source from the
-> hash. I'll try if it works and send a new patch.
+>  
+>  static inline int
+> +xfrm_addr_any(xfrm_address_t *addr, unsigned short family)
+> +{
+> +	switch (family) {
+> +	case AF_INET:
+> +		return addr->a4 == 0;
+> +	case AF_INET6:
+> +		return ipv6_addr_any((struct in6_addr*)addr->a6);
 
-I've tested this patch and it works fine. I'm wondering if something
-else might be affected by the hash change though, xfrm_state_addr_check
-treated 0.0.0.0 as wildcard even before the introduction of wildcards
-in tunnel templates, but I can't see in which other case it would be
-zero.
+D'oh. Fixed patch attached.
 
 
---------------030903010703090001050907
+--------------060507050604040609080208
 Content-Type: text/plain;
  name="x"
 Content-Transfer-Encoding: 7bit
@@ -97,7 +95,7 @@ index bf8e2df..c6fac69 100644
 +	case AF_INET:
 +		return addr->a4 == 0;
 +	case AF_INET6:
-+		return ipv6_addr_any((struct in6_addr*)addr->a6);
++		return ipv6_addr_any((struct in6_addr *)&addr->a6);
 +	}
 +	return 0;
 +}
@@ -283,4 +281,4 @@ index 537854f..b6e2e79 100644
  
  		x = xfrm_state_find(remote, local, fl, tmpl, policy, &error, family);
 
---------------030903010703090001050907--
+--------------060507050604040609080208--
