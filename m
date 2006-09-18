@@ -1,44 +1,43 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] please include in 2.6.18: e100 disable device on PCI error
-Date: Mon, 18 Sep 2006 16:09:45 -0500
-Message-ID: <20060918210945.GF29167@austin.ibm.com>
-References: <20060918200122.GD29167@austin.ibm.com> <20060918132102.d850c1c2.akpm@osdl.org>
+From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Tue, 19 Sep 2006 01:18:00 +0400
+Message-ID: <20060918211759.GB31746@tentacle.sectorb.msk.ru>
+References: <4492D5D3.4000303@atmos.washington.edu> <200609181754.37623.ak@suse.de> <20060918162847.GA4863@ms2.inr.ac.ru> <200609181850.22851.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Rajesh Shah <rajesh.shah@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"bibo,mao" <bibo.mao@intel.com>, Auke Kok <sofar@foo-projects.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:29352 "EHLO
-	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751183AbWIRVJq
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 17:09:46 -0400
-To: Andrew Morton <akpm@osdl.org>
+Received: from tentacle.snto-msu.net ([194.88.210.4]:45718 "EHLO
+	tentacle.sectorb.msk.ru") by vger.kernel.org with ESMTP
+	id S1751192AbWIRVSC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 17:18:02 -0400
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
-In-Reply-To: <20060918132102.d850c1c2.akpm@osdl.org>
+In-Reply-To: <200609181850.22851.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-It seems our mails crossed.
-
-On Mon, Sep 18, 2006 at 01:21:02PM -0700, Andrew Morton wrote:
+On Mon, Sep 18, 2006 at 06:50:22PM +0200, Andi Kleen wrote:
 > 
-> hm.  I don't have this patch queued, but I _do_ have an equivalent patch
-> for e1000 queued; what's up with that?  Nobody seems to have paid much
-> attention to the e1000 fix.
+> I suppose in the worst case a sysctl like Vladimir asked for could be added,
+> but it would seem somewhat lame.
+> 
+Please think about it this way:
+suppose you haave a heavily loaded router and some network problem is to
+be diagnosed. You run tcpdump and suddenly router becomes overloaded (by
+switching to timestamp-it-all mode), drops OSPF adjancecies etc. Users
+are angry, and you can't diagnose anything. But with impresise
+timestamps and maybe even with reordered packets you still have some
+traces to analyze.
+So, in this particular corner case it's not that lame.
 
-I spotted the e100 patch in your "broken-out" patches earlier today, 
-as a part of "git-netdev-all.patch" (where it had the right changelog 
-and old acks)
+Or maybe patching tcpdump will do better?
+~
+:wq
+                                        With best regards, 
+                                           Vladimir Savkin. 
 
-> If we can gather the appropriate acks quickly then I expect we can get both
-> of these into 2.6.18.
-
-That would be great! Thanks.
-
---linas
