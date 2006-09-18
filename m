@@ -1,87 +1,99 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 1/4] IP100A: Fix TX Pause bug (reset_tx, intr_handler)
-Date: Mon, 18 Sep 2006 11:41:09 +0800
-Message-ID: <005101c6dad4$47b1e2c0$4964a8c0@icplus.com.tw>
-References: <20060915114448.GA7329@ingate.macqel.be>
-Cc: <netdev@vger.kernel.org>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: [PATCH] powerpc: ibmveth: Harden driver initilisation for kexec
+Date: Mon, 18 Sep 2006 14:31:11 +1000
+Message-ID: <1158553872.32015.17.camel@localhost.localdomain>
+Reply-To: michael@ellerman.id.au
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Santiago Leon <santil@us.ibm.com>,
+	Anton Blanchard <anton@samba.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr54.hinet.net ([168.95.4.154]:57292 "EHLO msr54.hinet.net")
-	by vger.kernel.org with ESMTP id S1751379AbWIRDlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2006 23:41:21 -0400
-To: "Philippe De Muyter" <phdm@macqel.be>
+Received: from ozlabs.org ([203.10.76.45]:25479 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S965354AbWIREbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 00:31:14 -0400
+To: jgarzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Philippe:
+Hi Jeff,
 
-(1) We are not allow to support register TxStartThresh and, RxEarlyThresh,
-so
-we remove it.
+This patch has been floating around for a while now, Santi originally
+sent it in March: http://www.spinics.net/lists/netdev/msg00471.html
 
-(2) Your consideration is right. But reset_tx is workaround for customer's
-embedded system, I don't have this
-enviroment now. I can't sure it will work fine if I removed this.
+You replied saying you thought it was "bonkers", I think I explained why
+it wasn't, perhaps you disagree.
 
-Thanks you very mutch.
-
-Best Regards,
-Jesse Huang.
-
------ Original Message ----- 
-From: "Philippe De Muyter" <phdm@macqel.be>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <netdev@vger.kernel.org>
-Sent: Friday, September 15, 2006 7:44 PM
-Subject: Re: [PATCH 1/4] IP100A: Fix TX Pause bug (reset_tx, intr_handler)
+I'm resending it now in the hope you can either give us more info on
+your objections, or merge it.
 
 
-On Thu, Sep 14, 2006 at 12:58:30AM +0000, Jesse Huang wrote:
-[...]
-> @@ -262,8 +262,6 @@ enum alta_offsets {
->  ASICCtrl = 0x30,
->  EEData = 0x34,
->  EECtrl = 0x36,
-> - TxStartThresh = 0x3c,
-> - RxEarlyThresh = 0x3e,
+After a kexec the ibmveth driver will fail when trying to register with
+the Hypervisor because the previous kernel has not unregistered.
 
-Why ?
+So if the registration fails, we unregister and then try again.
 
->  FlashAddr = 0x40,
->  FlashData = 0x44,
->  TxStatus = 0x46,
-[...]
-> @@ -1156,29 +1160,29 @@ static irqreturn_t intr_handler(int irq,
->  np->stats.tx_fifo_errors++;
->  if (tx_status & 0x02)
->  np->stats.tx_window_errors++;
-> - /*
-> - ** This reset has been verified on
-> - ** DFE-580TX boards ! phdm@macqel.be.
-> - */
-> - if (tx_status & 0x10) { /* TxUnderrun */
-> - unsigned short txthreshold;
-> -
-> - txthreshold = ioread16 (ioaddr + TxStartThresh);
-> - /* Restart Tx FIFO and transmitter */
-> - sundance_reset(dev, (NetworkReset|FIFOReset|TxReset) << 16);
-> - iowrite16 (txthreshold, ioaddr + TxStartThresh);
-> - /* No need to reset the Tx pointer here */
-> +
-> + /* FIFO ERROR need to be reset tx */
-> + if (tx_status & 0x10) { /* Reset the Tx. */
-> + spin_lock(&np->lock);
-> + reset_tx(dev);
-> + spin_unlock(&np->lock);
-> + }
+We don't unconditionally unregister, because we don't want to disturb the
+regular code path for 99% of users.
 
-Just as the comments say, on DFE-580TX 4 port boards, where it is easy to
-reproduce TxUnderrun problems, just resetting on the chip the Tx FIFO and
-transmitter is enough.
-There is no need to call reset_tx, which discards all pending messages and
-frees all the skb's.  It is also not necessary to reload the Tx pointer.
+Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+Acked-by: Anton Blanchard <anton@samba.org>
+Signed-off-by: Santiago Leon <santil@us.ibm.com>
 
-Is it different with newer versions of the chip ?
+---
+ ibmveth.c |   31 ++++++++++++++++++++++++++-----
+ 1 file changed, 26 insertions(+), 5 deletions(-)
 
-Philippe
+Index: to-merge/drivers/net/ibmveth.c
+===================================================================
+--- to-merge.orig/drivers/net/ibmveth.c
++++ to-merge/drivers/net/ibmveth.c
+@@ -437,6 +437,31 @@ static void ibmveth_cleanup(struct ibmve
+ 						 &adapter->rx_buff_pool[i]);
+ }
+ 
++static int ibmveth_register_logical_lan(struct ibmveth_adapter *adapter,
++        union ibmveth_buf_desc rxq_desc, u64 mac_address)
++{
++	int rc, try_again = 1;
++
++	/* After a kexec the adapter will still be open, so our attempt to
++	* open it will fail. So if we get a failure we free the adapter and
++	* try again, but only once. */
++retry:
++	rc = h_register_logical_lan(adapter->vdev->unit_address,
++				    adapter->buffer_list_dma, rxq_desc.desc,
++				    adapter->filter_list_dma, mac_address);
++
++	if (rc != H_SUCCESS && try_again) {
++		do {
++			rc = h_free_logical_lan(adapter->vdev->unit_address);
++		} while (H_IS_LONG_BUSY(rc) || (rc == H_BUSY));
++
++		try_again = 0;
++		goto retry;
++	}
++
++	return rc;
++}
++
+ static int ibmveth_open(struct net_device *netdev)
+ {
+ 	struct ibmveth_adapter *adapter = netdev->priv;
+@@ -503,11 +528,7 @@ static int ibmveth_open(struct net_devic
+ 	ibmveth_debug_printk("receive q   @ 0x%p\n", adapter->rx_queue.queue_addr);
+ 
+
+-	lpar_rc = h_register_logical_lan(adapter->vdev->unit_address,
+-					 adapter->buffer_list_dma,
+-					 rxq_desc.desc,
+-					 adapter->filter_list_dma,
+-					 mac_address);
++	lpar_rc = ibmveth_register_logical_lan(adapter, rxq_desc, mac_address);
+ 
+ 	if(lpar_rc != H_SUCCESS) {
+ 		ibmveth_error_printk("h_register_logical_lan failed with %ld\n", lpar_rc);
 
 
