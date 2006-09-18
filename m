@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] change netfilter tunables to __read_mostly
-Date: Mon, 18 Sep 2006 00:05:37 -0700 (PDT)
-Message-ID: <20060918.000537.122618085.davem@davemloft.net>
-References: <44F85276.1020804@hp.com>
+Subject: Re: [PATCH 1/8] address: Convert address addition to new netlink
+ api
+Date: Mon, 18 Sep 2006 00:09:58 -0700 (PDT)
+Message-ID: <20060918.000958.88702092.davem@davemloft.net>
+References: <20060901213957.138695086@lsx.localdomain>
+	<20060901214014.222216381@lsx.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6532
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55251
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965509AbWIRHFi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 03:05:38 -0400
-To: brian.haley@hp.com
-In-Reply-To: <44F85276.1020804@hp.com>
+	id S965513AbWIRHJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 03:09:59 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060901214014.222216381@lsx.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Fri, 01 Sep 2006 11:32:06 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 01 Sep 2006 23:39:58 +0200
 
-> Change some netfilter tunables to __read_mostly.  Also fixed some 
-> incorrect file reference comments while I was in there.
-> 
-> (this will be my last __read_mostly patch unless someone points out 
-> something else that needs it)
-> 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied, thanks.
+Applied.
