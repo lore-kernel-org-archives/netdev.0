@@ -1,27 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp congestion policy selection link order fragile
-Date: Mon, 18 Sep 2006 11:53:09 -0700 (PDT)
-Message-ID: <20060918.115309.88343320.davem@davemloft.net>
-References: <20060918095936.GA6161@outpost.ds9a.nl>
-	<20060918.070600.107685035.davem@davemloft.net>
-	<20060918154048.GA18240@outpost.ds9a.nl>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 7/7] secid reconciliation-v02: Enforcement for SELinux
+Date: Mon, 18 Sep 2006 14:55:51 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609181452300.5976@d.namei>
+References: <45019F72.2050708@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
+	chanson@trustedcs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2241
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751810AbWIRSxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 14:53:09 -0400
-To: bert.hubert@netherlabs.nl
-In-Reply-To: <20060918154048.GA18240@outpost.ds9a.nl>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:61418 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932174AbWIRSzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Sep 2006 14:55:53 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <45019F72.2050708@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: bert hubert <bert.hubert@netherlabs.nl>
-Date: Mon, 18 Sep 2006 17:40:48 +0200
+On Fri, 8 Sep 2006, Venkat Yekkirala wrote:
 
-> What would the desired default be, 'BIC' in all cases?
+> This defines SELinux enforcement of the 2 new LSM hooks.
+> 
 
-And if BIC is not enabled in the configuration, then what?
+I think this looks ok in general (I have a couple more technical issues), 
+athough I believe that Stephen has some question about policy 
+construction.
+
+Please rename these hooks:
+
+	+ * @skb_policy_check:
+	+ * @skb_netfilter_check
+
+to:
+
+	skb_flow_in
+	skb_flow_out
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
