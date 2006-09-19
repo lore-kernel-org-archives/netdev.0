@@ -1,64 +1,33 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [PATCH] Remove powerpc specific parts of 3c509 driver
-Date: Tue, 19 Sep 2006 11:54:49 +1000
-Message-ID: <20060919115449.247105cd.sfr@canb.auug.org.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Add Broadcom PHY support
+Date: Tue, 19 Sep 2006 00:39:52 -0400
+Message-ID: <450F7498.8090504@garzik.org>
+References: <20060915201538.GA28483@lucciola.windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, jgarzik@pobox.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:57559 "EHLO smtps.tip.net.au")
-	by vger.kernel.org with ESMTP id S1752009AbWISBzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 21:55:18 -0400
-To: netdev@vger.kernel.org
+Received: from srv5.dvmed.net ([207.36.208.214]:26013 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932174AbWISEjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 00:39:55 -0400
+To: Amy Fong <amy.fong@windriver.com>
+In-Reply-To: <20060915201538.GA28483@lucciola.windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On powerpc and ppc, insl_ns and insl are identical as are outsl_ns and
-outsl, so remove the conditional use of insl_ns and outsl_ns.
+Amy Fong wrote:
+> [PATCH] Add Broadcom PHY support
+> 
+> This patch adds a driver to support the bcm5421s and bcm5461s PHY
+> 
+> Kernel version:  linux-2.6.18-rc6
+> 
+> Signed-off-by: Amy Fong <amy.fong@windriver.com>
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/3c509.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+And... where are the users of this phy driver?
 
-This is in anticipation of removing the insl_ns and outsl_ns definitions
-which are powerpc sepcific patches.
+	Jeff
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
-index cbdae54..add6381 100644
---- a/drivers/net/3c509.c
-+++ b/drivers/net/3c509.c
-@@ -879,11 +879,7 @@ #endif
- 	outw(skb->len, ioaddr + TX_FIFO);
- 	outw(0x00, ioaddr + TX_FIFO);
- 	/* ... and the packet rounded to a doubleword. */
--#ifdef  __powerpc__
--	outsl_ns(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
--#else
- 	outsl(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
--#endif
- 
- 	dev->trans_start = jiffies;
- 	if (inw(ioaddr + TX_FREE) > 1536)
-@@ -1103,13 +1099,8 @@ el3_rx(struct net_device *dev)
- 				skb_reserve(skb, 2);     /* Align IP on 16 byte */
- 
- 				/* 'skb->data' points to the start of sk_buff data area. */
--#ifdef  __powerpc__
--				insl_ns(ioaddr+RX_FIFO, skb_put(skb,pkt_len),
--							   (pkt_len + 3) >> 2);
--#else
- 				insl(ioaddr + RX_FIFO, skb_put(skb,pkt_len),
- 					 (pkt_len + 3) >> 2);
--#endif
- 
- 				outw(RxDiscard, ioaddr + EL3_CMD); /* Pop top Rx packet. */
- 				skb->protocol = eth_type_trans(skb,dev);
--- 
-1.4.2.1
 
