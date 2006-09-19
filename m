@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: set congestion default through Kconfig
-Date: Tue, 19 Sep 2006 09:10:37 -0700 (PDT)
-Message-ID: <20060919.091037.110907025.davem@davemloft.net>
-References: <20060918214104.3824a2e2@localhost.localdomain>
-	<200609191203.51045.ak@suse.de>
-	<20060919123534.GC7000@c3po.0xdef.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Add Broadcom PHY support
+Date: Tue, 19 Sep 2006 12:45:53 -0400
+Message-ID: <45101EC1.7040407@garzik.org>
+References: <E1GPflG-0000n7-2o@lucciola> <Pine.LNX.4.64N.0609191441260.24069@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, shemminger@osdl.org, bert.hubert@netherlabs.nl,
+Cc: Amy Fong <amy.fong@windriver.com>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65181
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750793AbWISQKq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 12:10:46 -0400
-To: hagen@jauu.net
-In-Reply-To: <20060919123534.GC7000@c3po.0xdef.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:25780 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030254AbWISQp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 12:45:58 -0400
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
+In-Reply-To: <Pine.LNX.4.64N.0609191441260.24069@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Tue, 19 Sep 2006 14:35:35 +0200
+Maciej W. Rozycki wrote:
+> On Tue, 19 Sep 2006, Amy Fong wrote:
+> 
+>>> And... where are the users of this phy driver?
+> [...]
+>> This phy driver is used by the WRS's sbc8560 (bcm5421s) and sbc843x 
+>> (bcm5461s) via the gianfar driver.
+> 
+>  And sb1250-mac.c would be happy to use it too.
 
-> BTW: BIC is sometimes to aggressive in comparison to standard tcp
-> behaviour (e.g. in short RTT environments) - this is an known
-> issue. Why not cubic as the default one?
+"would be happy to" != "is using".   I don't want to add a phy driver 
+until there are already active users in the kernel.
 
-We may change over to CUBIC as the default in 2.6.19, I wanted
-CUBIC to sit around in the tree for a while in case some major
-issues came up first.
+	Jeff
+
+
+
