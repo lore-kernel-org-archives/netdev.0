@@ -1,28 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
-Date: Tue, 19 Sep 2006 13:31:59 -0700
-Message-ID: <20060919133159.27165976@localhost.localdomain>
-References: <20060906124447.642940bd@localhost.localdomain>
-	<01cb01c6d542$88544620$5001010a@bluereef.local>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.18-rc7-mm1
+Date: Tue, 19 Sep 2006 13:36:06 -0700
+Message-ID: <20060919133606.f0c92e66.akpm@osdl.org>
+References: <20060919012848.4482666d.akpm@osdl.org>
+	<200609192225.21801.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20117 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1752053AbWISUcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 16:32:07 -0400
-To: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
-In-Reply-To: <01cb01c6d542$88544620$5001010a@bluereef.local>
+Received: from smtp.osdl.org ([65.172.181.4]:30359 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751278AbWISUgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 16:36:22 -0400
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+In-Reply-To: <200609192225.21801.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 11 Sep 2006 11:35:11 +1000
-"Andrew Hall" <andrew.hall@bluereefnetworks.com> wrote:
+On Tue, 19 Sep 2006 22:25:21 +0200
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-> Stephen,
+> > - It took maybe ten hours solid work to get this dogpile vaguely
+> >   compiling and limping to a login prompt on x86, x86_64 and powerpc. 
+> >   I guess it's worth briefly testing if you're keen.
 > 
-> After some serious testing, this patch seems to fix the lockup issue 
-> completely. I manually applied these changes against the 2.6.17.13 release.
+> It's not that bad, but unfortunately the networking doesn't work on my system
+> (HPC nx6325 + SUSE 10.1 w/ updates, 64-bit).  Apparently, the interfaces don't
+> get configured (both tg3 and bcm43xx are affected).
 
-Any more problems?
+Is there anything interesting in the dmesg output?
+
+Perhaps an `strace -f ifup' or whatever would tell us what's failing.
