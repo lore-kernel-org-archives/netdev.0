@@ -1,8 +1,8 @@
 From: Pradeep Dalvi <pradeep@netxen.com>
-Subject: Re: [PATCH 2.6.18-rc7 7/9] NetXen: hw access routines header file
-Date: Tue, 19 Sep 2006 08:30:38 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0609190829060.25990@dut39>
-References: <Pine.LNX.4.64.0609151124560.7710@dut39> <Pine.LNX.4.64.0609151151490.7710@dut39>
+Subject: Re: [PATCH 2.6.18-rc7 9/9] NetXen: CRB reg definitions
+Date: Tue, 19 Sep 2006 08:32:26 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609190830490.25990@dut39>
+References: <Pine.LNX.4.64.0609151124560.7710@dut39> <Pine.LNX.4.64.0609151201320.7710@dut39>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: Jeff Garzik <jeff@garzik.org>,
@@ -12,57 +12,51 @@ Cc: Jeff Garzik <jeff@garzik.org>,
 	"Amit S. Kale" <amitkale@netxen.com>,
 	Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:44147 "EHLO
-	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1751227AbWISPal
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:22644 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1751274AbWISPc3
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 11:30:41 -0400
+	Tue, 19 Sep 2006 11:32:29 -0400
 To: netdev@vger.kernel.org
-In-Reply-To: <Pine.LNX.4.64.0609151151490.7710@dut39>
+In-Reply-To: <Pine.LNX.4.64.0609151201320.7710@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff -u linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h
---- linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h	2006-09-15 10:51:59.000000000 -0700
-+++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h	2006-09-19 07:51:20.000000000 -0700
-@@ -368,8 +368,8 @@
+diff -u linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_phan_reg.h linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_phan_reg.h
+--- linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_phan_reg.h	2006-09-15 10:51:59.000000000 -0700
++++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_phan_reg.h	2006-09-19 07:51:20.000000000 -0700
+@@ -30,26 +30,26 @@
+  #ifndef __NIC_PHAN_REG_H_
+  #define __NIC_PHAN_REG_H_
 
-  /* Promiscous mode options (GbE mode only) */
-  typedef enum {
--	NETXEN_NIU_PROMISCOUS_MODE = 0,
--	NETXEN_NIU_NON_PROMISCOUS_MODE
-+	NETXEN_NIU_PROMISC_MODE = 0,
-+	NETXEN_NIU_NON_PROMISC_MODE
-  } netxen_niu_prom_mode_t;
-
-  /*
-@@ -415,7 +415,20 @@
-  #define netxen_xg_soft_reset(config_word)	\
-  		set_bit(4, (unsigned long*)&config_word)
-
--/* Structure  unm_mac_addr_cntl_t for MAC CONTROL REGISTER */
-+/*
-+ * MAC Control Register
-+ * 
-+ * Bit 0-1   : id_pool0
-+ * Bit 2     : enable_xtnd0
-+ * Bit 4-5   : id_pool1
-+ * Bit 6     : enable_xtnd1
-+ * Bit 8-9   : id_pool2
-+ * Bit 10    : enable_xtnd2
-+ * Bit 12-13 : id_pool3
-+ * Bit 14    : enable_xtnd3
-+ * Bit 24-25 : mode_select
-+ * Bit 28-31 : enable_pool
+-/** 
+- * CRB Registers or queue message done only at initialization time....
+- **/
++/* 
++ * CRB Registers or queue message done only at initialization time.
 + */
 
-  #define netxen_nic_mcr_set_id_pool0(config, val)	\
-  		((config) |= ((val) &0x03))
-@@ -436,7 +449,7 @@
-  #define netxen_nic_mcr_set_mode_select(config, val)	\
-  		((config) |= (((val) & 0x03) << 24))
-  #define netxen_nic_mcr_set_enable_pool(config, val)	\
--		((config) |= (((val) & 0x0f) << 26))
-+		((config) |= (((val) & 0x0f) << 28))
+-/**
++/*
+   * The following 2 are the base adresses for the CRB registers and their
+- * offsets will be added to get addresses for the index addresses.......
+- **/
++ * offsets will be added to get addresses for the index addresses.
++ */
+  #define NIC_CRB_BASE_PORT1	NETXEN_CAM_RAM(0x200)
+  #define NIC_CRB_BASE_PORT2	NETXEN_CAM_RAM(0x250)
 
-  /* Set promiscuous mode for a GbE interface */
-  int netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter, int port,
+  #define NETXEN_NIC_REG(X)	(NIC_CRB_BASE_PORT1+(X))
+
+-/**
++/*
+   * CrbPortPhanCntrHi/Lo is used to pass the address of HostPhantomIndex address
+   * which can be read by the Phantom host to get producer/consumer indexes from
+   * Phantom/Casper. If it is not HOST_SHARED_MEMORY, then the following
+   * registers will be used for the addresses of the ring's shared memory
+   * on the Phantom.
+- **/
++ */
+
+  #define CRB_PHAN_CNTRL_LO_OFFSET	NETXEN_NIC_REG(0x00)
+  #define CRB_PHAN_CNTRL_HI_OFFSET	NETXEN_NIC_REG(0x04)
+
