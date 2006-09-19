@@ -1,94 +1,62 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 10/23] e1000: Fix MANC detection for PCIE adapters
-Date: Tue, 19 Sep 2006 15:31:32 -0400
-Message-ID: <45104594.8030200@pobox.com>
-References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172855.4605.79006.stgit@gitlost.site>
+Subject: Re: [PATCH 11/23] e1000: Jumbo frames fixes for 82573
+Date: Tue, 19 Sep 2006 15:32:28 -0400
+Message-ID: <451045CC.7010607@pobox.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172857.4605.51747.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55995 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751036AbWISTbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:31:34 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:60091 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751055AbWISTcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:32:31 -0400
 To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060919172855.4605.79006.stgit@gitlost.site>
+In-Reply-To: <20060919172857.4605.51747.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Kok, Auke wrote:
-> Several manageability capability detection parts hinted towards
-> our code being incomplete for PCI-E. According to spec, we do not
-> want to poke any MANC bits at all.
+> Disable jumbo frames for 82573L alltogether and when ASPM is enabled
+> since the hardware has problems with it. For the NICs that do support
+> this in the 82573 series we set ERT_2048 to attempt to receive as much
+> traffic as early as we can.
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 > Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
 > 
->  drivers/net/e1000/e1000_main.c |   15 ++++-----------
->  1 files changed, 4 insertions(+), 11 deletions(-)
+>  drivers/net/e1000/e1000_main.c |   10 +++++++---
+>  1 files changed, 7 insertions(+), 3 deletions(-)
 > 
 > diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index f3f3d38..e81aa03 100644
+> index e81aa03..2ecec51 100644
 > --- a/drivers/net/e1000/e1000_main.c
 > +++ b/drivers/net/e1000/e1000_main.c
-> @@ -662,9 +662,7 @@ e1000_reset(struct e1000_adapter *adapte
->  		                    phy_data);
->  	}
->  
-> -	if (adapter->hw.mac_type < e1000_ich8lan)
-> -	/* FIXME: this code is duplicate and wrong for PCI Express */
-> -	if (adapter->en_mng_pt) {
-> +	if ((adapter->en_mng_pt) && (adapter->hw.mac_type < e1000_82571)) {
->  		manc = E1000_READ_REG(&adapter->hw, MANC);
->  		manc |= (E1000_MANC_ARP_EN | E1000_MANC_EN_MNG2HOST);
->  		E1000_WRITE_REG(&adapter->hw, MANC, manc);
-> @@ -1042,8 +1040,7 @@ e1000_remove(struct pci_dev *pdev)
->  
->  	flush_scheduled_work();
->  
-> -	if (adapter->hw.mac_type >= e1000_82540 &&
-> -	   adapter->hw.mac_type != e1000_ich8lan &&
-> +	if (adapter->hw.mac_type < e1000_82571 &&
->  	   adapter->hw.media_type == e1000_media_type_copper) {
->  		manc = E1000_READ_REG(&adapter->hw, MANC);
->  		if (manc & E1000_MANC_SMBUS_EN) {
-> @@ -4695,9 +4692,7 @@ e1000_suspend(struct pci_dev *pdev, pm_m
->  		pci_enable_wake(pdev, PCI_D3cold, 0);
->  	}
->  
-> -	/* FIXME: this code is incorrect for PCI Express */
-> -	if (adapter->hw.mac_type >= e1000_82540 &&
-> -	   adapter->hw.mac_type != e1000_ich8lan &&
-> +	if (adapter->hw.mac_type < e1000_82571 &&
->  	   adapter->hw.media_type == e1000_media_type_copper) {
->  		manc = E1000_READ_REG(&adapter->hw, MANC);
->  		if (manc & E1000_MANC_SMBUS_EN) {
-> @@ -4749,9 +4744,7 @@ e1000_resume(struct pci_dev *pdev)
->  
->  	netif_device_attach(netdev);
->  
-> -	/* FIXME: this code is incorrect for PCI Express */
-> -	if (adapter->hw.mac_type >= e1000_82540 &&
-> -	   adapter->hw.mac_type != e1000_ich8lan &&
-> +	if (adapter->hw.mac_type < e1000_82571 &&
->  	   adapter->hw.media_type == e1000_media_type_copper) {
->  		manc = E1000_READ_REG(&adapter->hw, MANC);
->  		manc &= ~(E1000_MANC_ARP_EN);
+> @@ -3138,11 +3138,13 @@ e1000_change_mtu(struct net_device *netd
+>  		}
+>  		break;
+>  	case e1000_82573:
+> -		/* only enable jumbo frames if ASPM is disabled completely
+> -		 * this means both bits must be zero in 0x1A bits 3:2 */
+> +		/* Jumbo Frames not supported if:
+> +		 * - this is not an 82573L device
+> +		 * - ASPM is enabled in any way (0x1A bits 3:2) */
+>  		e1000_read_eeprom(&adapter->hw, EEPROM_INIT_3GIO_3, 1,
+>  		                  &eeprom_data);
+> -		if (eeprom_data & EEPROM_WORD1A_ASPM_MASK) {
+> +		if ((adapter->hw.device_id != E1000_DEV_ID_82573L) ||
+> +		    (eeprom_data & EEPROM_WORD1A_ASPM_MASK)) {
+>  			if (max_frame > MAXIMUM_ETHERNET_FRAME_SIZE) {
+>  				DPRINTK(PROBE, ERR,
+>  			            	"Jumbo Frames not supported.\n");
 
-ACK patches 9-10, though this illustrates another key problem in e1000:
+NAK.  at probe time, set a jumbo-frames-enabled bit, then test it in 
+e1000_change_mtu().
 
-you should be testing feature bits, not lists of e1000 chip revisions.
-
-set feature (and errata) bits in a flag variables at probe time, then 
-simply test a single bit to determine whether to use a certain feature, 
-or activate a certain errata workaround.
-
-	Jeff
-
+Don't include all this chip-checking code into the change_mtu function.
 
 
