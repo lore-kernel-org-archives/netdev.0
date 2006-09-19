@@ -1,39 +1,68 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] tcp: set congestion default through Kconfig
-Date: Tue, 19 Sep 2006 08:29:11 -0700
-Message-ID: <20060919082911.46828a25@localhost.localdomain>
-References: <20060918095936.GA6161@outpost.ds9a.nl>
-	<20060918195224.GA26585@outpost.ds9a.nl>
-	<20060918214104.3824a2e2@localhost.localdomain>
-	<200609191203.51045.ak@suse.de>
+From: Pradeep Dalvi <pradeep@netxen.com>
+Subject: Re: [PATCH 2.6.18-rc7 7/9] NetXen: hw access routines header file
+Date: Tue, 19 Sep 2006 08:30:38 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609190829060.25990@dut39>
+References: <Pine.LNX.4.64.0609151124560.7710@dut39> <Pine.LNX.4.64.0609151151490.7710@dut39>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bert hubert <bert.hubert@netherlabs.nl>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Sanjeev Jorapur <sanjeev@netxen.com>,
+	Rob Mapes <rob@netxen.com>, unmproj@linsyssoft.com,
+	brazilnut@us.ibm.com, wendyx@us.ibm.com,
+	"Amit S. Kale" <amitkale@netxen.com>,
+	Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30359 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751210AbWISP37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 11:29:59 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200609191203.51045.ak@suse.de>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:44147 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1751227AbWISPal
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Sep 2006 11:30:41 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0609151151490.7710@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Sep 2006 12:03:51 +0200
-Andi Kleen <ak@suse.de> wrote:
+diff -u linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h
+--- linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h	2006-09-15 10:51:59.000000000 -0700
++++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.h	2006-09-19 07:51:20.000000000 -0700
+@@ -368,8 +368,8 @@
 
-> On Tuesday 19 September 2006 06:41, Stephen Hemminger wrote:
-> > Bert's attempt was noble
-> > It showed your desire for the truth
-> > A simple path exists
-> 
-> I guess most people won't have a clue on what to configure here
-> (especially with such sparse help text, but even with more 
-> it would be hard). 
-> 
-> And you might end up with some weird error reports if someone
-> manages to configure one of the more broken algorithms.
-> 
+  /* Promiscous mode options (GbE mode only) */
+  typedef enum {
+-	NETXEN_NIU_PROMISCOUS_MODE = 0,
+-	NETXEN_NIU_NON_PROMISCOUS_MODE
++	NETXEN_NIU_PROMISC_MODE = 0,
++	NETXEN_NIU_NON_PROMISC_MODE
+  } netxen_niu_prom_mode_t;
 
-I tried to only put known stable ones in the choices list.
+  /*
+@@ -415,7 +415,20 @@
+  #define netxen_xg_soft_reset(config_word)	\
+  		set_bit(4, (unsigned long*)&config_word)
+
+-/* Structure  unm_mac_addr_cntl_t for MAC CONTROL REGISTER */
++/*
++ * MAC Control Register
++ * 
++ * Bit 0-1   : id_pool0
++ * Bit 2     : enable_xtnd0
++ * Bit 4-5   : id_pool1
++ * Bit 6     : enable_xtnd1
++ * Bit 8-9   : id_pool2
++ * Bit 10    : enable_xtnd2
++ * Bit 12-13 : id_pool3
++ * Bit 14    : enable_xtnd3
++ * Bit 24-25 : mode_select
++ * Bit 28-31 : enable_pool
++ */
+
+  #define netxen_nic_mcr_set_id_pool0(config, val)	\
+  		((config) |= ((val) &0x03))
+@@ -436,7 +449,7 @@
+  #define netxen_nic_mcr_set_mode_select(config, val)	\
+  		((config) |= (((val) & 0x03) << 24))
+  #define netxen_nic_mcr_set_enable_pool(config, val)	\
+-		((config) |= (((val) & 0x0f) << 26))
++		((config) |= (((val) & 0x0f) << 28))
+
+  /* Set promiscuous mode for a GbE interface */
+  int netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter, int port,
