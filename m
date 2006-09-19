@@ -1,49 +1,41 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 21/23] ixgb: combine more rx descriptors to improve performance
-Date: Tue, 19 Sep 2006 10:29:20 -0700
-Message-ID: <20060919172920.4605.24456.stgit@gitlost.site>
-References: <20060919172623.4605.56860.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: set congestion default through Kconfig
+Date: Tue, 19 Sep 2006 10:28:53 -0700
+Message-ID: <20060919102853.7db3cac1@localhost.localdomain>
+References: <20060918214104.3824a2e2@localhost.localdomain>
+	<200609191203.51045.ak@suse.de>
+	<20060919123534.GC7000@c3po.0xdef.net>
+	<20060919.091037.110907025.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hagen@jauu.net, ak@suse.de, bert.hubert@netherlabs.nl,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:31757 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1030358AbWISRUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 13:20:25 -0400
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20060919172623.4605.56860.stgit@gitlost.site>
+Received: from smtp.osdl.org ([65.172.181.4]:5059 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030370AbWISR3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 13:29:39 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060919.091037.110907025.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 19 Sep 2006 09:10:37 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-We experimented with more descriptor buffer writebacks and found that
-values larger than 8 give HW problems, but 8 is safe and gives us some
-improved performance.
+> From: Hagen Paul Pfeifer <hagen@jauu.net>
+> Date: Tue, 19 Sep 2006 14:35:35 +0200
+> 
+> > BTW: BIC is sometimes to aggressive in comparison to standard tcp
+> > behaviour (e.g. in short RTT environments) - this is an known
+> > issue. Why not cubic as the default one?
+> 
+> We may change over to CUBIC as the default in 2.6.19, I wanted
+> CUBIC to sit around in the tree for a while in case some major
+> issues came up first.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+I was going to do this for 2.6.19 as well, but wanted more discussion
+and also do it as a separate step from the config changes.
 
- drivers/net/ixgb/ixgb.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
-index a1a7f3b..50ffe90 100644
---- a/drivers/net/ixgb/ixgb.h
-+++ b/drivers/net/ixgb/ixgb.h
-@@ -111,7 +111,7 @@ struct ixgb_adapter;
- #define IXGB_RXBUFFER_16384 16384
- 
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
--#define IXGB_RX_BUFFER_WRITE	4	/* Must be power of 2 */
-+#define IXGB_RX_BUFFER_WRITE	8	/* Must be power of 2 */
- 
- /* only works for sizes that are powers of 2 */
- #define IXGB_ROUNDUP(i, size) ((i) = (((i) + (size) - 1) & ~((size) - 1)))
-
-
-
----
-Auke Kok <auke-jan.h.kok@intel.com>
+-- 
+Stephen Hemminger <shemminger@osdl.org>
