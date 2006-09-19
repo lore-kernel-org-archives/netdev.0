@@ -1,50 +1,38 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
 Subject: Re: [PATCH 03/23] e100: Add debugging code for cb cleaning and csum
  failures.
-Date: Tue, 19 Sep 2006 15:21:34 -0700
-Message-ID: <45106D6E.6060602@intel.com>
-References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172838.4605.35958.stgit@gitlost.site> <20060919213336.GA29362@redhat.com> <451063D2.7020301@pobox.com> <20060919214612.GC31621@redhat.com>
+Date: Tue, 19 Sep 2006 15:25:09 -0700
+Message-ID: <45106E45.5060306@intel.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172838.4605.35958.stgit@gitlost.site> <45104094.30803@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10686 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1751003AbWISWXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 18:23:11 -0400
-To: Dave Jones <davej@redhat.com>
-In-Reply-To: <20060919214612.GC31621@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:30228 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S1751097AbWISW1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 18:27:33 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <45104094.30803@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave Jones wrote:
-> On Tue, Sep 19, 2006 at 05:40:34PM -0400, Jeff Garzik wrote:
->  > Dave Jones wrote:
->  > > On Tue, Sep 19, 2006 at 10:28:38AM -0700, Kok, Auke wrote:
->  > >  > +			add_taint(TAINT_MACHINE_CHECK);
->  > > 
->  > > I object to this flag being abused this way.
->  > > A corrupt EEPROM on a network card has _nothing_ to do with
->  > > a CPU machine check exception.
->  > 
->  > Fair enough.  Better suggestions?
->  > 
->  > I think it's fair to set _some_ taint flag, perhaps a new one, on a 
->  > known corrupted firmware.  But if others disagree, I'll follow the 
->  > consensus here.
+Jeff Garzik wrote:
+> Kok, Auke wrote:
+>> Refine cb cleaning debug printout and print out all cleaned cbs' 
+>> status. Add
+>> debug flag for EEPROM csum failures that were overridden by the user.
+>>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > 
-> I don't object to a new flag, but overloading an existing flag that has
-> established meaning just seems wrong to me.
-> 
-> Question is how many more types of random hardware failures are there
-> that we'd like to do similar things for ?
-> Perhaps a catch-all "H"ardware failure flag for assorted brokenness
-> would be better than a proliferation of flags?
+> ACK patch, NAK description:  tainting is far more than a debug flag.
 
-fine with me. I don't have a strong preference for any specific flag, but 
-"H"ardware sounds reasonable.
+For now I'll drop the taint flag from this patch until a better one comes up.
+
+Cheers,
 
 Auke
