@@ -1,23 +1,23 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
+From: Mike Galbraith <efault@gmx.de>
 Subject: Re: patch blocked
-Date: Tue, 19 Sep 2006 11:50:52 +0300
-Message-ID: <20060919085052.GI16047@mea-ext.zmailer.org>
+Date: Tue, 19 Sep 2006 11:03:55 +0000
+Message-ID: <1158663835.6137.2.camel@Homer.simpson.net>
 References: <1158654797.3526.14.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:4288 "EHLO z2.cat.iki.fi")
-	by vger.kernel.org with ESMTP id S1751505AbWISIuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 04:50:55 -0400
+Received: from mail.gmx.net ([213.165.64.20]:28899 "HELO mail.gmx.net")
+	by vger.kernel.org with SMTP id S1751615AbWISIwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 04:52:14 -0400
 To: Zang Roy-r61911 <tie-fei.zang@freescale.com>
-Content-Disposition: inline
 In-Reply-To: <1158654797.3526.14.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 19, 2006 at 04:33:17PM +0800, Zang Roy-r61911 wrote:
+On Tue, 2006-09-19 at 16:33 +0800, Zang Roy-r61911 wrote:
 > Hi,
 > 	Does anyone can tell me why some of my patches were blocked in the
 > mailing list.
@@ -25,12 +25,17 @@ On Tue, Sep 19, 2006 at 04:33:17PM +0800, Zang Roy-r61911 wrote:
 > size.
 > Roy
 
-We are filtering by means of "bogofilter", and we are training it
-with all messages gone thru the list as "ham" -- but words that it
-does not know are neutral to the statistics so entirely new kind
-of message will easily receive "that is junk" treatment.
+A snippet from the 'Bogofilter at VGER' announcment:
 
-The rejection message does tell couple technical details, including
-where to contact to ask advice.
+...
 
-/Matti Aarnio -- one of  <postmaster@vger.kernel.org>
+IF we take it into use, it will start rejecting messages
+at SMTP input phase, so if it rejects legitimate message,
+you should get a bounce from your email provider's system.
+(Or from zeus.kernel.org, which is vger's backup MX.)
+
+In such case, send the bounce with some explanations to 
+<postmaster@vger.kernel.org> -- emails to that address
+are explicitely excluded from all filtering!
+
+
