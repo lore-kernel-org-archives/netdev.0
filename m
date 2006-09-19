@@ -1,35 +1,46 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: [PATCH] tcp: simpler bic default
-Date: Tue, 19 Sep 2006 23:43:05 +0200
-Message-ID: <20060919214304.GB13543@outpost.ds9a.nl>
-References: <20060918214104.3824a2e2@localhost.localdomain> <20060919.123352.124082859.davem@davemloft.net> <20060919134132.44d4da5d@localhost.localdomain> <20060919.142007.06541289.davem@davemloft.net> <20060919143209.1164d803@localhost.localdomain>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH 03/23] e100: Add debugging code for cb cleaning and csum failures.
+Date: Tue, 19 Sep 2006 17:46:12 -0400
+Message-ID: <20060919214612.GC31621@redhat.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172838.4605.35958.stgit@gitlost.site> <20060919213336.GA29362@redhat.com> <451063D2.7020301@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([213.244.168.210]:48780 "EHLO outpost.ds9a.nl")
-	by vger.kernel.org with ESMTP id S1752086AbWISVnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 17:43:06 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from mx1.redhat.com ([66.187.233.31]:33444 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1752088AbWISVqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 17:46:30 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20060919143209.1164d803@localhost.localdomain>
+In-Reply-To: <451063D2.7020301@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 19, 2006 at 02:32:09PM -0700, Stephen Hemminger wrote:
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+On Tue, Sep 19, 2006 at 05:40:34PM -0400, Jeff Garzik wrote:
+ > Dave Jones wrote:
+ > > On Tue, Sep 19, 2006 at 10:28:38AM -0700, Kok, Auke wrote:
+ > >  > +			add_taint(TAINT_MACHINE_CHECK);
+ > > 
+ > > I object to this flag being abused this way.
+ > > A corrupt EEPROM on a network card has _nothing_ to do with
+ > > a CPU machine check exception.
+ > 
+ > Fair enough.  Better suggestions?
+ > 
+ > I think it's fair to set _some_ taint flag, perhaps a new one, on a 
+ > known corrupted firmware.  But if others disagree, I'll follow the 
+ > consensus here.
 
-# CONFIG_TCP_CONG_ADVANCED is not set
-# CONFIG_DEFAULT_BIC is not set
-# CONFIG_DEFAULT_CUBIC is not set
-# CONFIG_DEFAULT_HTCP is not set
-# CONFIG_DEFAULT_VEGAS is not set
-# CONFIG_DEFAULT_WESTWOOD is not set
-# CONFIG_DEFAULT_RENO is not set
-CONFIG_DEFAULT_TCP_CONG="bic"
+I don't object to a new flag, but overloading an existing flag that has
+established meaning just seems wrong to me.
 
-There is no "bic" in the kernel now - will this do the right thing?
+Question is how many more types of random hardware failures are there
+that we'd like to do similar things for ?
+Perhaps a catch-all "H"ardware failure flag for assorted brokenness
+would be better than a proliferation of flags?
 
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+	Dave
+
