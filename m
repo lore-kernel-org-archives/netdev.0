@@ -1,41 +1,40 @@
-From: Mike Galbraith <efault@gmx.de>
+From: Zang Roy-r61911 <tie-fei.zang@freescale.com>
 Subject: Re: patch blocked
-Date: Tue, 19 Sep 2006 11:03:55 +0000
-Message-ID: <1158663835.6137.2.camel@Homer.simpson.net>
+Date: 19 Sep 2006 17:03:17 +0800
+Message-ID: <1158656597.3817.2.camel@localhost.localdomain>
 References: <1158654797.3526.14.camel@localhost.localdomain>
+	 <20060919085052.GI16047@mea-ext.zmailer.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:28899 "HELO mail.gmx.net")
-	by vger.kernel.org with SMTP id S1751615AbWISIwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 04:52:14 -0400
-To: Zang Roy-r61911 <tie-fei.zang@freescale.com>
-In-Reply-To: <1158654797.3526.14.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751659AbWISJD2@vger.kernel.org>
+To: Matti Aarnio <matti.aarnio@zmailer.org>
+In-Reply-To: <20060919085052.GI16047@mea-ext.zmailer.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-09-19 at 16:33 +0800, Zang Roy-r61911 wrote:
-> Hi,
-> 	Does anyone can tell me why some of my patches were blocked in the
-> mailing list.
-> 	I do not use attachment. The body of the mail is not exceed 40KB in
-> size.
-> Roy
+On Tue, 2006-09-19 at 16:50, Matti Aarnio wrote:
+> On Tue, Sep 19, 2006 at 04:33:17PM +0800, Zang Roy-r61911 wrote:
+> > Hi,
+> >       Does anyone can tell me why some of my patches were blocked in
+> the
+> > mailing list.
+> >       I do not use attachment. The body of the mail is not exceed
+> 40KB in
+> > size.
+> > Roy
+> 
+> We are filtering by means of "bogofilter", and we are training it
+> with all messages gone thru the list as "ham" -- but words that it
+> does not know are neutral to the statistics so entirely new kind
+> of message will easily receive "that is junk" treatment.
+> 
+> The rejection message does tell couple technical details, including
+> where to contact to ask advice.
 
-A snippet from the 'Bogofilter at VGER' announcment:
-
-...
-
-IF we take it into use, it will start rejecting messages
-at SMTP input phase, so if it rejects legitimate message,
-you should get a bounce from your email provider's system.
-(Or from zeus.kernel.org, which is vger's backup MX.)
-
-In such case, send the bounce with some explanations to 
-<postmaster@vger.kernel.org> -- emails to that address
-are explicitely excluded from all filtering!
-
-
+Well, I do not receive any rejection message. I sent out four patches.
+Three of them reached the mailing list. One seemed to disappear. I was
+informed nothing.
+Roy
