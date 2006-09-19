@@ -1,33 +1,33 @@
-From: Diego Beltrami <Diego.Beltrami@hiit.fi>
-Subject: Re: [PATCH]:[XFRM] BEET mode
-Date: Tue, 19 Sep 2006 16:15:28 +0300
-Message-ID: <1158671728.450fed7089f7c@webmail.hiit.fi>
-References: <1158399191.450bc4d7adf76@webmail.hiit.fi> <Pine.SOL.4.64.0609191430340.12459@kekkonen.cs.hut.fi> <Pine.SOL.4.64.0609191447170.14875@kekkonen.cs.hut.fi> <Pine.SOL.4.64.0609191555590.14875@kekkonen.cs.hut.fi>
+From: Amy Fong <amy.fong@windriver.com>
+Subject: Re: [PATCH] Add Broadcom PHY support
+Date: Tue, 19 Sep 2006 09:35:42 -0400 (EDT)
+Message-ID: <E1GPflG-0000n7-2o@lucciola>
+References: <450F7498.8090504@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	yoshfuji@linux-ipv6.org, rdunlap@xenotime.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:26549 "EHLO creon.otaverkko.fi")
-	by vger.kernel.org with ESMTP id S1030288AbWISNPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 09:15:35 -0400
-To: Miika Komu <miika@iki.fi>
-In-Reply-To: <Pine.SOL.4.64.0609191555590.14875@kekkonen.cs.hut.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751955AbWISNgS@vger.kernel.org>
+In-Reply-To: <450F7498.8090504@garzik.org>
+To: Jeff Garzik <jeff@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Miika Komu <miika@iki.fi>:
+[ Charset ISO-8859-1 unsupported, converting... ]
+> Amy Fong wrote:
+> > [PATCH] Add Broadcom PHY support
+> > 
+> > This patch adds a driver to support the bcm5421s and bcm5461s PHY
+> > 
+> > Kernel version:  linux-2.6.18-rc6
+> > 
+> > Signed-off-by: Amy Fong <amy.fong@windriver.com>
+> 
+> And... where are the users of this phy driver?
+> 
+> 	Jeff
+> 
 
-> On Tue, 19 Sep 2006, Miika Komu wrote:
->
-> > Ah, forgot to add new files to version control, sorry. My bad...
->
-> The last patch I sent should be fine.
->
+This phy driver is used by the WRS's sbc8560 (bcm5421s) and sbc843x (bcm5461s) via the gianfar driver.
 
-Yes, this patch taken from the mail works just fine.
-
-
-
+Amy
