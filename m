@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 14/23] e1000: handle manageability for pci-e adapters at PHY powerdown
-Date: Tue, 19 Sep 2006 10:29:04 -0700
-Message-ID: <20060919172904.4605.26861.stgit@gitlost.site>
+Subject: [PATCH 12/23] e1000: Maybe stop TX if not enough free descriptors
+Date: Tue, 19 Sep 2006 10:28:59 -0700
+Message-ID: <20060919172859.4605.60855.stgit@gitlost.site>
 References: <20060919172623.4605.56860.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,87 +9,115 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:24077 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1030344AbWISRUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 13:20:09 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:21261 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1030348AbWISRUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 13:20:04 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20060919172623.4605.56860.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-When powering down the PHY (if WoL is disabled) we should only check
-copper PHY's and handle PCI-E adapters differently.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |   41 +++++++++++++++++++++++++++++++---------
- 1 files changed, 32 insertions(+), 9 deletions(-)
+ drivers/net/e1000/e1000_main.c |   52 ++++++++++++++++++++++++++++++++--------
+ 1 files changed, 42 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 09f6662..9c41a44 100644
+index 2ecec51..af9d360 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -512,25 +512,48 @@ void e1000_power_up_phy(struct e1000_ada
- 
- static void e1000_power_down_phy(struct e1000_adapter *adapter)
- {
--	boolean_t mng_mode_enabled = (adapter->hw.mac_type >= e1000_82571) &&
--	                              e1000_check_mng_mode(&adapter->hw);
--	/* Power down the PHY so no link is implied when interface is down
--	 * The PHY cannot be powered down if any of the following is TRUE
-+	/* Power down the PHY so no link is implied when interface is down *
-+	 * The PHY cannot be powered down if any of the following is TRUE *
- 	 * (a) WoL is enabled
- 	 * (b) AMT is active
- 	 * (c) SoL/IDER session is active */
- 	if (!adapter->wol && adapter->hw.mac_type >= e1000_82540 &&
--	    adapter->hw.mac_type != e1000_ich8lan &&
--	    adapter->hw.media_type == e1000_media_type_copper &&
--	    !(E1000_READ_REG(&adapter->hw, MANC) & E1000_MANC_SMBUS_EN) &&
--	    !mng_mode_enabled &&
--	    !e1000_check_phy_reset_block(&adapter->hw)) {
-+	   adapter->hw.media_type == e1000_media_type_copper) {
- 		uint16_t mii_reg = 0;
-+
-+		switch (adapter->hw.mac_type) {
-+		case e1000_82540:
-+		case e1000_82545:
-+		case e1000_82545_rev_3:
-+		case e1000_82546:
-+		case e1000_82546_rev_3:
-+		case e1000_82541:
-+		case e1000_82541_rev_2:
-+		case e1000_82547:
-+		case e1000_82547_rev_2:
-+			if (E1000_READ_REG(&adapter->hw, MANC) &
-+			    E1000_MANC_SMBUS_EN)
-+				goto out;
-+			break;
-+		case e1000_82571:
-+		case e1000_82572:
-+		case e1000_82573:
-+		case e1000_80003es2lan:
-+		case e1000_ich8lan:
-+			if (e1000_check_mng_mode(&adapter->hw) ||
-+			    e1000_check_phy_reset_block(&adapter->hw))
-+				goto out;
-+			break;
-+		default:
-+			goto out;
-+		}
- 		e1000_read_phy_reg(&adapter->hw, PHY_CTRL, &mii_reg);
- 		mii_reg |= MII_CR_POWER_DOWN;
- 		e1000_write_phy_reg(&adapter->hw, PHY_CTRL, mii_reg);
- 		mdelay(1);
- 	}
-+out:
-+	return;
+@@ -2899,6 +2899,35 @@ e1000_transfer_dhcp_info(struct e1000_ad
+ 	return 0;
  }
  
- void
++static int __e1000_maybe_stop_tx(struct net_device *netdev, int size)
++{
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++	struct e1000_tx_ring *tx_ring = adapter->tx_ring;
++
++	netif_stop_queue(netdev);
++	/* Herbert's original patch had:
++	 *  smp_mb__after_netif_stop_queue();
++	 * but since that doesn't exist yet, just open code it. */
++	smp_mb();
++
++	/* We need to check again in a case another CPU has just
++	 * made room available. */
++	if (likely(E1000_DESC_UNUSED(tx_ring) < size))
++		return -EBUSY;
++
++	/* A reprieve! */
++	netif_start_queue(netdev);
++	return 0;
++}
++
++static int e1000_maybe_stop_tx(struct net_device *netdev,
++                               struct e1000_tx_ring *tx_ring, int size)
++{
++	if (likely(E1000_DESC_UNUSED(tx_ring) >= size))
++		return 0;
++	return __e1000_maybe_stop_tx(netdev, size);
++}
++
+ #define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1 )
+ static int
+ e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+@@ -2917,6 +2946,10 @@ e1000_xmit_frame(struct sk_buff *skb, st
+ 	unsigned int f;
+ 	len -= skb->data_len;
+ 
++	/* This goes back to the question of how to logically map a tx queue
++	 * to a flow.  Right now, performance is impacted slightly negatively
++	 * if using multiple tx queues.  If the stack breaks away from a
++	 * single qdisc implementation, we can look at this again. */
+ 	tx_ring = adapter->tx_ring;
+ 
+ 	if (unlikely(skb->len <= 0)) {
+@@ -3012,8 +3045,7 @@ e1000_xmit_frame(struct sk_buff *skb, st
+ 
+ 	/* need: count + 2 desc gap to keep tail from touching
+ 	 * head, otherwise try next time */
+-	if (unlikely(E1000_DESC_UNUSED(tx_ring) < count + 2)) {
+-		netif_stop_queue(netdev);
++	if (unlikely(e1000_maybe_stop_tx(netdev, tx_ring, count + 2))) {
+ 		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
+@@ -3060,8 +3092,7 @@ e1000_xmit_frame(struct sk_buff *skb, st
+ 	netdev->trans_start = jiffies;
+ 
+ 	/* Make sure there is space in the ring for the next send. */
+-	if (unlikely(E1000_DESC_UNUSED(tx_ring) < MAX_SKB_FRAGS + 2))
+-		netif_stop_queue(netdev);
++	e1000_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 2);
+ 
+ 	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 	return NETDEV_TX_OK;
+@@ -3557,13 +3588,14 @@ e1000_clean_tx_irq(struct e1000_adapter 
+ 	tx_ring->next_to_clean = i;
+ 
+ #define TX_WAKE_THRESHOLD 32
+-	if (unlikely(cleaned && netif_queue_stopped(netdev) &&
+-	             netif_carrier_ok(netdev))) {
+-		spin_lock(&tx_ring->tx_lock);
+-		if (netif_queue_stopped(netdev) &&
+-		    (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))
++	if (unlikely(cleaned && netif_carrier_ok(netdev) &&
++		     E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD)) {
++		/* Make sure that anybody stopping the queue after this
++		 * sees the new next_to_clean.
++		 */
++		smp_mb();
++		if (netif_queue_stopped(netdev))
+ 			netif_wake_queue(netdev);
+-		spin_unlock(&tx_ring->tx_lock);
+ 	}
+ 
+ 	if (adapter->detect_tx_hung) {
 
 
 
