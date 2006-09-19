@@ -1,24 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Tue, 19 Sep 2006 12:44:42 -0700
-Message-ID: <20060919124442.0b1127c0@localhost.localdomain>
-References: <20060918211759.GB31746@tentacle.sectorb.msk.ru>
+Date: Tue, 19 Sep 2006 12:47:51 -0700 (PDT)
+Message-ID: <20060919.124751.24100694.davem@davemloft.net>
+References: <200609181850.22851.ak@suse.de>
+	<20060918211759.GB31746@tentacle.sectorb.msk.ru>
 	<20060918220038.GB14322@ms2.inr.ac.ru>
-	<Pine.LNX.4.63.0609181452470.14338@qynat.qvtvafvgr.pbz>
-	<20060919.124034.78165098.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dlang@digitalinsight.com, kuznet@ms2.inr.ac.ru,
-	master@sectorb.msk.ru, ak@suse.de, hawk@diku.dk,
+Cc: master@sectorb.msk.ru, ak@suse.de, hawk@diku.dk,
 	harry@atmos.washington.edu, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752008AbWISTqi@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060919.124034.78165098.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32197
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1752009AbWISTrq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Sep 2006 15:47:46 -0400
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <20060918220038.GB14322@ms2.inr.ac.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sky2 hardware (and others) can timestamp in hardware, but trying
-to keep device ticks and system clock in sync looked too nasty
-to contemplate actually using it.
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Tue, 19 Sep 2006 02:00:38 +0400
+
+> * I do not undestand what the hell dhcp needs timestamps for.
+
+I can't even find a reference to SIOCGSTAMP in the
+dhcp-2.0pl5 or dhcp3-3.0.3 sources shipped in Ubuntu.
+
+But I will note that tpacket_rcv() expects to always get
+valid timestamps in the SKB, it does a:
+
+	if (skb->tstamp.off_sec == 0) { 
+		__net_timestamp(skb);
+		sock_enable_timestamp(sk);
+	}
+
+so that it can fill in the h->tp_sec and h->tp_usec
+fields.
