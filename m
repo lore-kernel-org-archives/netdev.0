@@ -1,9 +1,8 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 03/23] e100: Add debugging code for cb cleaning and csum
- failures.
-Date: Tue, 19 Sep 2006 15:10:12 -0400
-Message-ID: <45104094.30803@pobox.com>
-References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172838.4605.35958.stgit@gitlost.site>
+Subject: Re: [PATCH 04/23] e100: rework WoL and shutdown handling
+Date: Tue, 19 Sep 2006 15:10:58 -0400
+Message-ID: <451040C2.5030005@pobox.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172840.4605.33452.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,21 +11,30 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44474 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751943AbWISTKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:10:15 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:48314 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751945AbWISTLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:11:01 -0400
 To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060919172838.4605.35958.stgit@gitlost.site>
+In-Reply-To: <20060919172840.4605.33452.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Kok, Auke wrote:
-> Refine cb cleaning debug printout and print out all cleaned cbs' status. Add
-> debug flag for EEPROM csum failures that were overridden by the user.
+> Unify our shutdown/suspend/resume code and make it similar to e1000:
+> e1000_shutdown now calls suspend which does the exact same thing on
+> shutdown except saving PCI config state on suspend. WoL setup code
+> is now also more simple and works even when CONFIG_PM is not set, which
+> was previously broken.
 > 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-ACK patch, NAK description:  tainting is far more than a debug flag.
+Why does e100_suspend() need to exist even when CONFIG_PM is disabled?
+
+WoL is fundamentally power management.
+
+NAK.
+
+	Jeff
+
 
 
