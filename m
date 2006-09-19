@@ -1,46 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: simpler bic default
-Date: Tue, 19 Sep 2006 15:44:35 -0700 (PDT)
-Message-ID: <20060919.154435.102044066.davem@davemloft.net>
-References: <20060919.142007.06541289.davem@davemloft.net>
-	<20060919143209.1164d803@localhost.localdomain>
-	<20060919214304.GB13543@outpost.ds9a.nl>
+From: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
+Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
+Date: Wed, 20 Sep 2006 08:44:22 +1000
+Message-ID: <04bc01c6dc3d$4bbf6cb0$0b00000a@bluereef.local>
+References: <20060906124447.642940bd@localhost.localdomain><01cb01c6d542$88544620$5001010a@bluereef.local> <20060919133159.27165976@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18112
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751362AbWISWob (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 18:44:31 -0400
-To: bert.hubert@netherlabs.nl
-In-Reply-To: <20060919214304.GB13543@outpost.ds9a.nl>
+Received: from smtp106.biz.mail.mud.yahoo.com ([68.142.200.254]:39848 "HELO
+	smtp106.biz.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1751241AbWISWpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Sep 2006 18:45:19 -0400
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: bert hubert <bert.hubert@netherlabs.nl>
-Date: Tue, 19 Sep 2006 23:43:05 +0200
+Not that I've been able to uncover.
 
-> On Tue, Sep 19, 2006 at 02:32:09PM -0700, Stephen Hemminger wrote:
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> # CONFIG_TCP_CONG_ADVANCED is not set
-> # CONFIG_DEFAULT_BIC is not set
-> # CONFIG_DEFAULT_CUBIC is not set
-> # CONFIG_DEFAULT_HTCP is not set
-> # CONFIG_DEFAULT_VEGAS is not set
-> # CONFIG_DEFAULT_WESTWOOD is not set
-> # CONFIG_DEFAULT_RENO is not set
-> CONFIG_DEFAULT_TCP_CONG="bic"
-> 
-> There is no "bic" in the kernel now - will this do the right thing?
+Thanks for fixing this..
 
-This is wrong.
+----- Original Message ----- 
+From: "Stephen Hemminger" <shemminger@osdl.org>
+To: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
+Cc: <netdev@vger.kernel.org>
+Sent: Wednesday, September 20, 2006 6:31 AM
+Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
 
-When TCP_CONG_ADVANCED is disabled, TCP_CONG_BIC should always be set
-and be the default, but that's not what the new code is doing.
 
-I'm reverting Stephen's patch (again) until this is all sorted
-out as things are still broken in various ways even with the
-followon patch.
+> On Mon, 11 Sep 2006 11:35:11 +1000
+> "Andrew Hall" <andrew.hall@bluereefnetworks.com> wrote:
+>
+>> Stephen,
+>>
+>> After some serious testing, this patch seems to fix the lockup issue
+>> completely. I manually applied these changes against the 2.6.17.13 
+>> release.
+>
+> Any more problems?
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html 
+
