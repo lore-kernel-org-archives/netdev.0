@@ -1,23 +1,27 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 16/23] e1000: reduce RAR entries available for ICH8
-Date: Tue, 19 Sep 2006 15:39:48 -0400
-Message-ID: <45104784.4060102@pobox.com>
-References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172909.4605.70878.stgit@gitlost.site>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: set congestion default through Kconfig
+Date: Tue, 19 Sep 2006 12:39:56 -0700
+Message-ID: <20060919123956.38e87c08@localhost.localdomain>
+References: <20060918.115309.88343320.davem@davemloft.net>
+	<20060918195224.GA26585@outpost.ds9a.nl>
+	<20060918214104.3824a2e2@localhost.localdomain>
+	<20060919.123352.124082859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: bert.hubert@netherlabs.nl, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:21180 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751989AbWISTju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:39:50 -0400
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060919172909.4605.70878.stgit@gitlost.site>
+Received: from smtp.osdl.org ([65.172.181.4]:43137 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751994AbWISTkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:40:05 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060919.123352.124082859.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ACK patches 15-16
+It built (and ran) for me. But that was on a different machine.
+Perhaps there was some git confusion, I'll go back to using quilt
+it gives me less grief.
 
+-- 
+Stephen Hemminger <shemminger@osdl.org>
