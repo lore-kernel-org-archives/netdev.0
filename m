@@ -1,7 +1,7 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH 12/23] e1000: Maybe stop TX if not enough free descriptors
-Date: Tue, 19 Sep 2006 15:37:06 -0400
-Message-ID: <451046E2.8050007@pobox.com>
+Date: Tue, 19 Sep 2006 15:38:01 -0400
+Message-ID: <45104719.9080708@pobox.com>
 References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172859.4605.60855.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -11,13 +11,20 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:8892 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751979AbWISThL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:37:11 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:14524 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751053AbWISTiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:38:03 -0400
 To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 In-Reply-To: <20060919172859.4605.60855.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ACK
+Actually, I rescind the ACK.
+
+The code should be inside a spinlock, and therefore not need this 
+additional check.
+
+If this check were truly needed, then SMP code all over the kernel would 
+be broken.
+
 
