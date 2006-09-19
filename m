@@ -1,110 +1,72 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tcp: set congestion default through Kconfig (v2)
-Date: Tue, 19 Sep 2006 13:41:32 -0700
-Message-ID: <20060919134132.44d4da5d@localhost.localdomain>
-References: <20060918.115309.88343320.davem@davemloft.net>
-	<20060918195224.GA26585@outpost.ds9a.nl>
-	<20060918214104.3824a2e2@localhost.localdomain>
-	<20060919.123352.124082859.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 18/23] e1000: revert 'e1000: Remove 0x1000 as supported
+ device'
+Date: Tue, 19 Sep 2006 16:43:32 -0400
+Message-ID: <45105674.2030606@pobox.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172913.4605.84224.stgit@gitlost.site> <451047BF.6070907@pobox.com> <4510544A.8080809@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bert.hubert@netherlabs.nl, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:14746 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1752066AbWISUlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 16:41:44 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060919.123352.124082859.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:20927 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1752065AbWISUng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 16:43:36 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <4510544A.8080809@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bert's attempt was noble
-It showed your desire for the truth
-A simple path existed
+Auke Kok wrote:
+> Jeff Garzik wrote:
+>> Kok, Auke wrote:
+>>> The commit 'e1000: Remove 0x1000 as supported device' (Jeff Kirsher,
+>>> 673a052fde79ab5e9dce569b0336358812ddba2d) Removes PIC device ID 
+>>> 8086:1000
+>>> from the list of supported devices. A fix was submitted for the original
+>>> issue (commit 6a9516989f94df10d9a27ba543c6b53b3e69c84a).
+>>>
+>>> This commit reverts commit 673a052fde79ab5e9dce569b0336358812ddba2d and
+>>> re-enables 82542rev3 chips completely.
+>>>
+>>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>>> ---
+>>>
+>>>  0 files changed, 0 insertions(+), 0 deletions(-)
+>>
+>> null patch
+> 
+> hmm, it should look like this:
+> 
+> 
+> ---
+> 
+> e1000: revert 'e1000: Remove 0x1000 as supported device'
+> 
+> The commit 'e1000: Remove 0x1000 as supported device' (Jeff Kirsher,
+> 673a052fde79ab5e9dce569b0336358812ddba2d) Removes PIC device ID 8086:1000
+> from the list of supported devices. A fix was submitted for the original
+> issue (commit 6a9516989f94df10d9a27ba543c6b53b3e69c84a).
+> 
+> This commit reverts commit 673a052fde79ab5e9dce569b0336358812ddba2d and
+> re-enables 82542rev3 chips completely.
+> 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> diff --git a/drivers/net/e1000/e1000_main.c 
+> b/drivers/net/e1000/e1000_main.c
+> index 1d7c999..a8d724e 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -48,6 +48,7 @@ static char e1000_copyright[] = "Copyrig
+>   *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
+>   */
+>  static struct pci_device_id e1000_pci_tbl[] = {
+> +       INTEL_E1000_ETHERNET_DEVICE(0x1000),
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/ipv4/Kconfig           |   39 +++++++++++++++++++++++++++++++++++++--
- net/ipv4/sysctl_net_ipv4.c |    6 ++++++
- net/ipv4/tcp_cong.c        |    2 +-
- 3 files changed, 44 insertions(+), 3 deletions(-)
+This specific change is already in #upstream...
 
---- net-2.6.19.orig/net/ipv4/Kconfig	2006-09-19 13:11:09.000000000 -0700
-+++ net-2.6.19/net/ipv4/Kconfig	2006-09-19 13:20:45.000000000 -0700
-@@ -573,12 +573,47 @@
- 	loss packets.
- 	See http://www.ntu.edu.sg/home5/ZHOU0022/papers/CPFu03a.pdf
- 
-+choice
-+	prompt "Default TCP congestion control"
-+	default DEFAULT_BIC
-+	help
-+	  Select the TCP congestion control that will be used by default
-+	  for all connections.
-+
-+	config DEFAULT_BIC
-+		bool "Bic" if TCP_CONG_BIC=y
-+
-+	config DEFAULT_CUBIC
-+		bool "Cubic" if TCP_CONG_CUBIC=y
-+
-+	config DEFAULT_HTCP
-+		bool "Htcp" if TCP_CONG_HTCP=y
-+
-+	config DEFAULT_VEGAS
-+		bool "Vegas" if TCP_CONG_VEGAS=y
-+
-+	config DEFAULT_WESTWOOD
-+		bool "Westwood" if TCP_CONG_WESTWOOD=y
-+
-+	config DEFAULT_RENO
-+		bool "Reno"
-+
-+endchoice
-+
- endmenu
- 
--config TCP_CONG_BIC
--	tristate
-+config DEFAULT_BIC
- 	depends on !TCP_CONG_ADVANCED
- 	default y
- 
-+config DEFAULT_TCP_CONG
-+	string
-+	default "bic" if DEFAULT_BIC
-+	default "cubic" if DEFAULT_CUBIC
-+	default "htcp" if DEFAULT_HTCP
-+	default "vegas" if DEFAULT_VEGAS
-+	default "westwood" if DEFAULT_WESTWOOD
-+	default "reno" if DEFAULT_RENO
-+
- source "net/ipv4/ipvs/Kconfig"
- 
---- net-2.6.19.orig/net/ipv4/sysctl_net_ipv4.c	2006-09-19 13:11:09.000000000 -0700
-+++ net-2.6.19/net/ipv4/sysctl_net_ipv4.c	2006-09-19 13:37:04.000000000 -0700
-@@ -129,6 +129,12 @@
- 	return ret;
- }
- 
-+static int __init tcp_congestion_default(void)
-+{
-+	return tcp_set_default_congestion_control(CONFIG_DEFAULT_TCP_CONG);
-+}
-+
-+late_initcall(tcp_congestion_default);
- 
- ctl_table ipv4_table[] = {
-         {
---- net-2.6.19.orig/net/ipv4/tcp_cong.c	2006-09-19 13:11:09.000000000 -0700
-+++ net-2.6.19/net/ipv4/tcp_cong.c	2006-09-19 13:20:45.000000000 -0700
-@@ -48,7 +48,7 @@
- 		printk(KERN_NOTICE "TCP %s already registered\n", ca->name);
- 		ret = -EEXIST;
- 	} else {
--		list_add_rcu(&ca->list, &tcp_cong_list);
-+		list_add_tail_rcu(&ca->list, &tcp_cong_list);
- 		printk(KERN_INFO "TCP %s registered\n", ca->name);
- 	}
- 	spin_unlock(&tcp_cong_list_lock);
+
