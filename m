@@ -1,39 +1,45 @@
-From: "Zang Roy-r61911" <tie-fei.zang@freescale.com>
-Subject: RE: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
-Date: Tue, 19 Sep 2006 15:39:54 +0800
-Message-ID: <7EA18FDD2DC2154AA3BD6D2F22A62A0E2FB214@zch01exm23.fsl.freescale.net>
-References: <1158055669.3032.11.camel@laptopd505.fenrus.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCHv3  3/4][RFC]     net: basic xfrm/netfilter support for
+ UDP-Lite
+Date: Tue, 19 Sep 2006 09:37:08 +0200
+Message-ID: <450F9E24.50705@trash.net>
+References: <200607141719.02766@strip-the-willow> <20060727.223010.63131639.davem@davemloft.net> <200609190825.35251@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Andrew Morton" <akpm@osdl.org>, "jgarzik" <jgarzik@pobox.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:3757 "EHLO
-	az33egw02.freescale.net") by vger.kernel.org with ESMTP
-	id S1751142AbWISHj6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 03:39:58 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1158055669.3032.11.camel@laptopd505.fenrus.org>
-To: "Arjan van de Ven" <arjan@infradead.org>
+Received: from stinky.trash.net ([213.144.137.162]:42980 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751227AbWISHkW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Sep 2006 03:40:22 -0400
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+In-Reply-To: <200609190825.35251@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Gerrit Renker wrote:
+> Basic xfrm and netfilter support for UDP-Lite:
+>   * matching of UDP-Lite packets
+>   * LOG support
+>   * header file support
 > 
-> I have some review comments about your driver; please 
-> consider them for
-> fixing....
-> 
-Thanks.
-> 
-> > +		spin_unlock_irq(&phy_lock);
-> > +		msleep(10);
-> > +		spin_lock_irq(&phy_lock);
-> > +	}
-> 
-> hmm some places take phy_lock with disabling interrupts, while others
-> don't. I sort of fear "the others" may be buggy.... are you sure those
-> are ok?
-Could you interpret your comments in detail?
-Roy
+> --
+> --- a/net/netfilter/xt_multiport.c
+> +++ b/net/netfilter/xt_multiport.c
+> @@ -161,8 +161,9 @@ check(u_int16_t proto,
+>        u_int8_t count)
+>  {
+>  	/* Must specify supported protocol, no unknown flags or bad count */
+> -	return (proto == IPPROTO_TCP || proto == IPPROTO_UDP
+> -		|| proto == IPPROTO_SCTP || proto == IPPROTO_DCCP)
+> +	return ( proto == IPPROTO_TCP  ||
+> +		 proto == IPPROTO_UDP  || proto == IPPROTO_UDPLITE ||
+> +		 proto == IPPROTO_SCTP || proto == IPPROTO_DCCP      )
+>  		&& !(ip_invflags & XT_INV_PROTO)
+>  		&& (match_flags == XT_MULTIPORT_SOURCE
+>  		    || match_flags == XT_MULTIPORT_DESTINATION
+
+The patch looks good besides the fancy formating above. I'm not too
+much of a fan of the existing formating, but please keep it consistent.
+
