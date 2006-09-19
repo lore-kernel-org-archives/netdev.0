@@ -1,107 +1,230 @@
 From: Pradeep Dalvi <pradeep@netxen.com>
-Subject: Re: [PATCH 2.6.18-rc7 1/9] NetXen: Makefile and driver main file
-Date: Tue, 19 Sep 2006 08:18:59 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0609190814350.25990@dut39>
-References: <Pine.LNX.4.64.0609151124560.7710@dut39> <Pine.LNX.4.64.0609151134120.7710@dut39>
+Subject: Re: [PATCH 2.6.18-rc7 2/9] NetXen: Hardware access routines
+Date: Tue, 19 Sep 2006 08:20:47 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609190819220.25990@dut39>
+References: <Pine.LNX.4.64.0609151124560.7710@dut39> <Pine.LNX.4.64.0609151139170.7710@dut39>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+Cc: Jeff Garzik <jeff@garzik.org>,
 	Sanjeev Jorapur <sanjeev@netxen.com>,
 	Rob Mapes <rob@netxen.com>, unmproj@linsyssoft.com,
 	brazilnut@us.ibm.com, wendyx@us.ibm.com,
-	"Amit S. Kale" <amitkale@netxen.com>
+	"Amit S. Kale" <amitkale@netxen.com>,
+	Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:54126 "EHLO
-	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1750806AbWISPTA
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:51823 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1750840AbWISPUw
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 11:19:00 -0400
-To: Randy Dunlap <rdunlap@xenotime.net>
-In-Reply-To: <Pine.LNX.4.64.0609151134120.7710@dut39>
+	Tue, 19 Sep 2006 11:20:52 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0609151139170.7710@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy,
-
-Thanks for feedback. We have incorporated all of the suggestions.
-
---
-pradeep
-
-diff -u linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_main.c linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_main.c
---- linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_main.c	2006-09-15 10:51:59.000000000 -0700
-+++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_main.c	2006-09-19 07:51:20.000000000 -0700
-@@ -561,9 +561,9 @@
+diff -u linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.c linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.c
+--- linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.c	2006-09-15 10:51:59.000000000 -0700
++++ linux-2.6.18-rc7/drivers/net/netxen/netxen_nic_hw.c	2006-09-19 07:51:20.000000000 -0700
+@@ -44,7 +44,6 @@
+  #define NETXEN_PHANTOM_MEM_BASE	(NETXEN_FLASH_BASE)
+  #define NETXEN_MAX_MTU		8000
+  #define NETXEN_MIN_MTU          64
+-#define NETXEN_MTU_MASK		0xFFFF0000
+  #define NETXEN_ETH_FCS_SIZE     4
+  #define NETXEN_ENET_HEADER_SIZE 14
+  #define NETXEN_WINDOW_ONE 0x2000000	/* CRB Window: bit 25 of CRB address */
+@@ -77,9 +76,9 @@
   	return 0;
   }
 
 -/**
 +/*
-   * netxen_nic_close - Disables a network interface entry point
+   * netxen_nic_set_multi - Multicast
 - **/
 + */
-  static int netxen_nic_close(struct net_device *netdev)
+  void netxen_nic_set_multi(struct net_device *netdev)
   {
   	struct netxen_port *port = netdev_priv(netdev);
-@@ -628,7 +628,7 @@
+@@ -89,15 +88,15 @@
 
-  	u32 producer = 0;
-  	u32 saved_producer = 0;
--	struct cmd_desc_type0_t *hwdesc;
-+	struct cmd_desc_type0 *hwdesc;
-  	int k;
-  	struct netxen_cmd_buffer *pbuf = NULL;
-  	unsigned int tries = 0;
-@@ -691,7 +691,7 @@
-  		if (((skb->nh.iph)->ihl * sizeof(u32)) +
-  		    ((skb->h.th)->doff * sizeof(u32)) +
-  		    sizeof(struct ethhdr) >
--		    (sizeof(struct cmd_desc_type0_t) - NET_IP_ALIGN)) {
-+		    (sizeof(struct cmd_desc_type0) - NET_IP_ALIGN)) {
-  			no_of_desc++;
-  		}
+  	mc_ptr = netdev->mc_list;
+  	if (netdev->flags & IFF_PROMISC) {
+-		if (adapter->ops->set_promisc_mode)
+-			adapter->ops->set_promisc_mode(adapter,
+-						       port->portnum,
+-						       NETXEN_NIU_PROMISCOUS_MODE);
++		if (adapter->ops->set_promisc)
++			adapter->ops->set_promisc(adapter,
++						  port->portnum,
++						  NETXEN_NIU_PROMISC_MODE);
+  	} else {
+-		if (adapter->ops->unset_promisc_mode)
+-			adapter->ops->unset_promisc_mode(adapter,
+-							 port->portnum,
+-							 NETXEN_NIU_NON_PROMISCOUS_MODE);
++		if (adapter->ops->unset_promisc)
++			adapter->ops->unset_promisc(adapter,
++						    port->portnum,
++						    NETXEN_NIU_NON_PROMISC_MODE);
   	}
-@@ -733,7 +733,7 @@
-  	producer = local_producer;
-  	saved_producer = producer;
-  	hwdesc = &hw->cmd_desc_head[producer];
--	memset(hwdesc, 0, sizeof(struct cmd_desc_type0_t));
-+	memset(hwdesc, 0, sizeof(struct cmd_desc_type0));
-  	/* Take skb->data itself */
-  	pbuf = &adapter->cmd_buf_arr[producer];
-  	if (skb_shinfo(skb)->gso_size > 0) {
-@@ -773,7 +773,7 @@
-  			producer = get_next_index(producer,
-  						  adapter->max_tx_desc_count);
-  			hwdesc = &hw->cmd_desc_head[producer];
--			memset(hwdesc, 0, sizeof(struct cmd_desc_type0_t));
-+			memset(hwdesc, 0, sizeof(struct cmd_desc_type0));
+  	if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
+  		netxen_nic_mcr_set_mode_select(netxen_mac_addr_cntl_data, 0x03);
+@@ -136,31 +135,21 @@
+   * netxen_nic_change_mtu - Change the Maximum Transfer Unit
+   * @returns 0 on success, negative on failure
+   */
+-int netxen_nic_change_mtu(struct net_device *netdev, int new_mtu)
++int netxen_nic_change_mtu(struct net_device *netdev, int mtu)
+  {
+  	struct netxen_port *port = netdev_priv(netdev);
+-	int max_mtu = new_mtu + NETXEN_ENET_HEADER_SIZE + NETXEN_ETH_FCS_SIZE;
+-
+-	if (max_mtu & NETXEN_MTU_MASK)
+-		return -EINVAL;
+-
+-	if (max_mtu > NETXEN_MAX_MTU) {
+-		printk(KERN_ERR
+-		       "%s: %s MTU > NETXEN_MAX_MTU is not supported\n",
+-		       netxen_nic_driver_name, netdev->name);
+-		return -EINVAL;
+-	}
++	struct netxen_adapter *adapter = port->adapter;
++	int eff_mtu = mtu + NETXEN_ENET_HEADER_SIZE + NETXEN_ETH_FCS_SIZE;
+
+-	if (max_mtu > NETXEN_MIN_MTU) {
+-		printk(KERN_ERR
+-		       "%s: %s MTU < NETXEN_MIN_MTU is not supported\n",
+-		       netxen_nic_driver_name, netdev->name);
++	if ((eff_mtu > NETXEN_MAX_MTU) || (eff_mtu < NETXEN_MIN_MTU)) {
++		printk(KERN_ERR "%s: %s %d is not supported.\n",
++		       netxen_nic_driver_name, netdev->name, mtu);
+  		return -EINVAL;
+  	}
+
+-	if (port->adapter->ops->set_mtu)
+-		port->adapter->ops->set_mtu(port, new_mtu);
+-	netdev->mtu = new_mtu;
++	if (adapter->ops->set_mtu)
++		adapter->ops->set_mtu(port, mtu);
++	netdev->mtu = mtu;
+
+  	return 0;
+  }
+@@ -181,7 +170,7 @@
+  	struct netxen_rcv_desc_crb *rcv_desc_crb = NULL;
+  	struct netxen_recv_context *recv_ctx;
+  	struct netxen_rcv_desc_ctx *rcv_desc;
+-	struct cmd_desc_type0_t *pcmd;
++	struct cmd_desc_type0 *pcmd;
+
+  	DPRINTK(INFO, "pci_base: %lx\n", adapter->ahw.pci_base);
+  	DPRINTK(INFO, "crb_base: %lx %lx", NETXEN_PCI_CRBSPACE,
+@@ -226,7 +215,7 @@
+  	DPRINTK(INFO, "Recieve Peg ready too. starting stuff\n");
+
+  	addr = pci_alloc_consistent(adapter->ahw.pdev,
+-				    sizeof(struct cmd_desc_type0_t) *
++				    sizeof(struct cmd_desc_type0) *
+  				    adapter->max_tx_desc_count,
+  				    &hw->cmd_desc_phys_addr);
+  	if (addr == NULL) {
+@@ -236,16 +225,16 @@
+  	}
+
+  	/* we need to prelink all of the cmd descriptors */
+-	pcmd = (struct cmd_desc_type0_t *)addr;
++	pcmd = (struct cmd_desc_type0 *)addr;
+  	for (i = 1; i < adapter->max_tx_desc_count; i++) {
+  		pcmd->netxen_next =
+-		    (card_cmdring + i * sizeof(struct cmd_desc_type0_t));
++		    (card_cmdring + i * sizeof(struct cmd_desc_type0));
+  		pcmd++;
+  	}
+  	/* fill in last link (point to first) */
+  	pcmd->netxen_next = card_cmdring;
+
+-	hw->cmd_desc_head = (struct cmd_desc_type0_t *)addr;
++	hw->cmd_desc_head = (struct cmd_desc_type0 *)addr;
+
+  	for (ctx = 0; ctx < MAX_RCV_CTX; ++ctx) {
+  		recv_ctx = &adapter->recv_ctx[ctx];
+@@ -262,7 +251,7 @@
+  				err = -ENOMEM;
+  				return err;
+  			}
+-			rcv_desc->desc_head = (struct rcv_desc_t *)addr;
++			rcv_desc->desc_head = (struct rcv_desc *)addr;
   		}
-  		frag = &skb_shinfo(skb)->frags[i - 1];
-  		len = frag->size;
-@@ -819,9 +819,9 @@
-  	if (hw->cmd_desc_head[saved_producer].opcode == TX_TCP_LSO) {
-  		int hdr_len, first_hdr_len, more_hdr;
-  		hdr_len = hw->cmd_desc_head[saved_producer].total_hdr_length;
--		if (hdr_len > (sizeof(struct cmd_desc_type0_t) - NET_IP_ALIGN)) {
-+		if (hdr_len > (sizeof(struct cmd_desc_type0) - NET_IP_ALIGN)) {
-  			first_hdr_len =
--			    sizeof(struct cmd_desc_type0_t) - NET_IP_ALIGN;
-+			    sizeof(struct cmd_desc_type0) - NET_IP_ALIGN;
-  			more_hdr = 1;
-  		} else {
-  			first_hdr_len = hdr_len;
-@@ -964,11 +964,11 @@
-  	return ret;
+
+  		addr = pci_alloc_consistent(adapter->ahw.pdev,
+@@ -276,7 +265,7 @@
+  			err = -ENOMEM;
+  			return err;
+  		}
+-		recv_ctx->rcv_status_desc_head = (struct status_desc_t *)addr;
++		recv_ctx->rcv_status_desc_head = (struct status_desc *)addr;
+  		for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++) {
+  			rcv_desc = &recv_ctx->rcv_desc[ring];
+  			rcv_desc_crb =
+@@ -322,7 +311,7 @@
+
+  	if (adapter->ahw.cmd_desc_head != NULL) {
+  		pci_free_consistent(adapter->ahw.pdev,
+-				    sizeof(struct cmd_desc_type0_t) *
++				    sizeof(struct cmd_desc_type0) *
+  				    adapter->max_tx_desc_count,
+  				    adapter->ahw.cmd_desc_head,
+  				    adapter->ahw.cmd_desc_phys_addr);
+@@ -355,7 +344,7 @@
   }
 
--/**
-+/*
-   * netxen_intr - Interrupt Handler
-   * @irq: interrupt number
-   * data points to adapter stucture (which may be handling more than 1 port
-- **/
-+ */
-  irqreturn_t netxen_intr(int irq, void *data, struct pt_regs * regs)
+  void netxen_tso_check(struct netxen_adapter *adapter,
+-		      struct cmd_desc_type0_t *desc, struct sk_buff *skb)
++		      struct cmd_desc_type0 *desc, struct sk_buff *skb)
   {
-  	struct netxen_adapter *adapter;
+  	if (desc->mss) {
+  		desc->total_hdr_length = sizeof(struct ethhdr) +
+@@ -838,9 +827,10 @@
+  	netxen_nic_read_w0(adapter, NETXEN_NIU_MODE, &mode);
+  	if (netxen_get_niu_enable_ge(mode)) {	/* Gb 10/100/1000 Mbps mode */
+  		if (adapter->ops->phy_read
+-		    && adapter->ops->phy_read(adapter, port->portnum,
+-					      NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
+-					      &status) == 0) {
++		    && adapter->ops->
++		    phy_read(adapter, port->portnum,
++			     NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
++			     &status) == 0) {
+  			if (netxen_get_phy_link(status)) {
+  				switch (netxen_get_phy_speed(status)) {
+  				case 0:
+@@ -853,7 +843,7 @@
+  					port->link_speed = SPEED_1000;
+  					break;
+  				default:
+-					port->link_speed = -1;	/* unknown speed */
++					port->link_speed = -1;
+  					break;
+  				}
+  				switch (netxen_get_phy_duplex(status)) {
+@@ -864,15 +854,14 @@
+  					port->link_duplex = DUPLEX_FULL;
+  					break;
+  				default:
+-					port->link_duplex = -1;	/* unknown mode */
++					port->link_duplex = -1;
+  					break;
+  				}
+  				if (adapter->ops->phy_read
+-				    && adapter->ops->phy_read(adapter,
+-							      port->portnum,
+-							      NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
+-							      (__le32 *) &
+-							      autoneg) != 0)
++				    && adapter->ops->
++				    phy_read(adapter, port->portnum,
++					     NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
++					     (__le32 *) & autoneg) != 0)
+  					port->link_autoneg = autoneg;
+  			} else
+  				goto link_down;
 
