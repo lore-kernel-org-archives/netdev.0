@@ -1,32 +1,23 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] make some netfilter globals __read_mostly
-Date: Tue, 19 Sep 2006 15:39:14 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609191539050.20084@d.namei>
-References: <4510461A.9060700@hp.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 16/23] e1000: reduce RAR entries available for ICH8
+Date: Tue, 19 Sep 2006 15:39:48 -0400
+Message-ID: <45104784.4060102@pobox.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172909.4605.70878.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:55239 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751993AbWISTjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 15:39:16 -0400
-To: Brian Haley <brian.haley@hp.com>
-In-Reply-To: <4510461A.9060700@hp.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:21180 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751989AbWISTju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 15:39:50 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20060919172909.4605.70878.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Sep 2006, Brian Haley wrote:
+ACK patches 15-16
 
-> Make some netfilter globals __read_mostly at the request of Patrick McHardy.
-> 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-
-These look good to me.
-
-
--- 
-James Morris
-<jmorris@namei.org>
