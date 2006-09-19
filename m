@@ -1,48 +1,68 @@
-From: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
-Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
-Date: Wed, 20 Sep 2006 08:44:22 +1000
-Message-ID: <04bc01c6dc3d$4bbf6cb0$0b00000a@bluereef.local>
-References: <20060906124447.642940bd@localhost.localdomain><01cb01c6d542$88544620$5001010a@bluereef.local> <20060919133159.27165976@localhost.localdomain>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.18-rc7-mm1: networking breakage on HPC nx6325 + SUSE 10.1
+Date: Wed, 20 Sep 2006 00:56:57 +0200
+Message-ID: <200609200056.57858.rjw@sisk.pl>
+References: <20060919133606.f0c92e66.akpm@osdl.org> <20060919.150629.109607267.davem@davemloft.net> <20060919223015.GA23088@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp106.biz.mail.mud.yahoo.com ([68.142.200.254]:39848 "HELO
-	smtp106.biz.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S1751241AbWISWpT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 18:45:19 -0400
-To: "Stephen Hemminger" <shemminger@osdl.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:53145 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S1750715AbWISWxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 18:53:48 -0400
+To: Greg KH <greg@kroah.com>
+In-Reply-To: <20060919223015.GA23088@kroah.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not that I've been able to uncover.
+On Wednesday, 20 September 2006 00:30, Greg KH wrote:
+> On Tue, Sep 19, 2006 at 03:06:29PM -0700, David Miller wrote:
+> > From: "Rafael J. Wysocki" <rjw@sisk.pl>
+> > Date: Wed, 20 Sep 2006 00:06:52 +0200
+> > 
+> > > I _guess_ the problem is caused by
+> > > gregkh-driver-network-class_device-to-device.patch, but I can't verify this,
+> > > because the kernel (obviously) doesn't compile if I revert it.
+> > 
+> > Indeed.
+> > 
+> > I thought we threw this patch out because we knew it would cause
+> > problems for existing systems?  I do remember Greg making an argument
+> > as to why we needed the change, but that doesn't make breaking people's
+> > systems legitimate in any way.
+> 
+> It's now thrown out, and I think Andrew already had a patch in his tree
+> that reverted this.
+> 
+> I'll be bringing it back eventually, but first we are going to work out
+> all the kinks by probably putting these changes in the next few SuSE
+> alpha releases to see what shakes out in userspace that we need to go
+> fix.
+> 
+> It's not 2.6.19 material at all, so don't worry :)
 
-Thanks for fixing this..
+Please note, however, that by including such changes in -mm we make _other_
+things be not tested.
 
------ Original Message ----- 
-From: "Stephen Hemminger" <shemminger@osdl.org>
-To: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
-Cc: <netdev@vger.kernel.org>
-Sent: Wednesday, September 20, 2006 6:31 AM
-Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
+For example, if I can't install a new kernel and use it on my system without
+replacing some other pieces of software, I just won't be using it, because I
+have no time for playing with udev, hal, powersaved, acpid, ...
+Then, if there are any bugs in it that would have shown up on my system,
+we won't know about them unless they show up on someone else's system,
+which may not happen.
+
+The more changes that break existing setups are there in -mm, the less
+people will acutally try to use -mm kernels and that will result in buggier
+-rc kernels and more bugs propagating to the "stable" ones.  Do we really
+want that to happen?
+
+Rafael
 
 
-> On Mon, 11 Sep 2006 11:35:11 +1000
-> "Andrew Hall" <andrew.hall@bluereefnetworks.com> wrote:
->
->> Stephen,
->>
->> After some serious testing, this patch seems to fix the lockup issue
->> completely. I manually applied these changes against the 2.6.17.13 
->> release.
->
-> Any more problems?
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html 
-
+-- 
+You never change things by fighting the existing reality.
+		R. Buckminster Fuller
