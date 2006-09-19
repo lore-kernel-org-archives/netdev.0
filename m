@@ -1,136 +1,64 @@
-From: Adam C Powell IV <hazelsct@debian.org>
-Subject: Re: [Bugme-new] [Bug 7159] New: No networking on a machine with
-	Ethernet Pro 100 and Realtek 8139
-Date: Tue, 19 Sep 2006 14:19:50 -0400
-Message-ID: <1158689990.14496.2.camel@doorstop.home.net>
-References: <200609141804.k8EI433g025893@fire-2.osdl.org>
-	 <20060914115313.1b90a684.akpm@osdl.org>  <1158518840.1616.12.camel@veryst>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: Fw: [PATCH] Remove powerpc specific parts of 3c509 driver
+Date: Tue, 19 Sep 2006 13:42:43 -0500
+Message-ID: <20060919184243.GL29167@austin.ibm.com>
+References: <20060919145433.8fc7d478.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
+	akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alnrmhc14.comcast.net ([204.127.225.94]:59890 "EHLO
-	alnrmhc14.comcast.net") by vger.kernel.org with ESMTP
-	id S1030400AbWISSUe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 14:20:34 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <1158518840.1616.12.camel@veryst>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:9377 "EHLO e36.co.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750834AbWISSmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 14:42:45 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8JIgimk012238
+	for <netdev@vger.kernel.org>; Tue, 19 Sep 2006 14:42:44 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8JIgiW4170646
+	for <netdev@vger.kernel.org>; Tue, 19 Sep 2006 12:42:44 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8JIghK0023419
+	for <netdev@vger.kernel.org>; Tue, 19 Sep 2006 12:42:44 -0600
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Disposition: inline
+In-Reply-To: <20060919145433.8fc7d478.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello again,
+On Tue, Sep 19, 2006 at 02:54:33PM +1000, Stephen Rothwell wrote:
+> 
+> On powerpc and ppc, insl_ns and insl are identical as are outsl_ns and
+> outsl, so remove the conditional use of insl_ns and outsl_ns.
 
-It seems nobody received the message below; likely because the SMTP
-server at work refused to forward a message from hazelsct@debian.org .
-Sorry about the delay.
+The rest of this patch might indeed be correct, but the above comment 
+bothers me. The "ns" versions of routines are supposed to be
+non-byte-swapped versions of the insl/outsl routines (which would
+byte-swap on big-endian archs such as powerpc.)
 
-On Sun, 2006-09-17 at 15:12 -0400, Adam C Powell IV wrote:
-> Hello, and apologies for the reply delay.  (This is a production
-> machine, and I haven't been able to experiment until today, though I
-> should have time Tuesday morning to try some things if needed.)
-> 
-> On Thu, 2006-09-14 at 11:53 -0700, Andrew Morton wrote:
-> > (Switching from bugzilla to email - please retain all Cc's)
-> > 
-> > On Thu, 14 Sep 2006 11:04:03 -0700
-> > bugme-daemon@bugzilla.kernel.org wrote:
-> > 
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=7159
-> > > 
-> > >            Summary: No networking on a machine with Ethernet Pro 100 and
-> > >                     Realtek 8139
-> > >     Kernel Version: 2.6.16, 2.6.17, 2.6.18-rc6
-> > >             Status: NEW
-> > >           Severity: normal
-> > >              Owner: jgarzik@pobox.com
-> > >          Submitter: hazelsct@debian.org
-> > > 
-> > > 
-> > > Most recent kernel where this bug did not occur: 2.6.8
-> > > Distribution: Debian
-> > > Hardware Environment: Dual-PIII, Ethernet Pro 100 and Realtek 8139 PCI interfaces
-> > > Software Environment: Debian Etch (Testing)
-> > > Problem Description: The network is not reachable, though the kernel does seem
-> > > to sense line presence on both interfaces.
-> > > 
-> > > On boot, udev/discover loads e100, 8139cp and 8139too.  /etc/modules does not
-> > > have any network modules (needs eepro100 for 2.6.8, but I removed it, no
-> > > change).  The relevant lspci listings
-> > > are:
-> > > 
-> > > 00:09.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
-> > > 00:0b.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> > > RTL-8139/8139C/8139C+ (rev 10)
-> > > 
-> > > Both interfaces work fine under 2.6.8 as long as eepro100 is loaded.
-> > > 
-> > > More information (lspci -v, /proc/interrupts, /proc/ioports) can be found at the
-> > > Debian bug: http://bugs.debian.org/386972
-> > > 
-> > > Steps to reproduce: Boot, try to use network.
-> > > 
-> > 
-> > This is all a bit peculiar.  I'd be assuming that you're not getting
-> > any interrupts through for those NICs.
-> > 
-> > Could you please check /proc/interrupts, see if the interrupt counts
-> > related to the NICs can be made to increase?
-> 
-> Can't do it.  Connecting/disconnecting, ping from inside and out,
-> nothing increments the interrupt counts.
-> 
-> > Also, the full `dmesg -s 1000000' output might help.
-> > 
-> > We might also get some interesting info if you can compile your own kernel,
-> > build thsoe net drivers into vmlinux, capture the dmesg output.
-> > 
-> > If it _is_ an IRQ problem then you might find that fiddling with ACPI
-> > helps: disable it in config or boot with `acpi=off', see if that helps.
-> 
-> Yes!  The network works just fine now.
-> 
-> > Also
-> > try booting with the `pci=routeirq' option.
-> 
-> By itself, this does not cure the network problem.  But all of my GNOME
-> applets work with this; without it, the panel hangs after opening a few
-> of them.  Different few every time, so it's hard to peg which one is the
-> problem.
-> 
-> With both acpi=off and pci=routeirq, the network works and GNOME applets
-> work.  Hooray!
-> 
-> Not so fast.  The machine hung completely once, then the next two boots,
-> everything in X hung except the cursor.  I was able to ssh in, and grab
-> interrupts and dmesg.
-> 
-> Output of "dmesg -s 1000000" and "cat /proc/interrupts" is at
-> http://lyre.mit.edu/~powell/temp/ (oops, I had done "ifdown eth0; ifdown
-> eth1" before catching interrupts-acpi=off; that's why those are absent.)
-> 
-> > There are various options described under acpi= and pci= in
-> > Documentation/kernel-parameters.txt which it would be useful for you to
-> > experiment with.
-> 
-> I think the acpi=off boot option did the trick.  The config is Debian
-> stock 2.6.17-2-686 with 'enter' at all new questions in make oldconfig.
-> This problem is also in the Debian stock 2.6.17 and 2.6.16 kernels, so I
-> suspect a different .config might clear it up.
-> 
-> Any suggestions there for a .config which will work with ACPI and
-> non-ACPI machines?  Debian stock 2.6.8 seems fine (but of course is
-> missing the fancy new features).
-> 
-> The X apps hang is a separate problem.  I'll pursue it with the Debian
-> people before opening a separate bug.  Feel free to close this one.
-> 
-> Thank you again.
-> 
-> -Adam
--- 
-GPG fingerprint: D54D 1AEE B11C CE9B A02B  C5DD 526F 01E8 564E E4B6
+> diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
+> index cbdae54..add6381 100644
+> --- a/drivers/net/3c509.c
+> +++ b/drivers/net/3c509.c
+> @@ -879,11 +879,7 @@ #endif
+>  	outw(skb->len, ioaddr + TX_FIFO);
+>  	outw(0x00, ioaddr + TX_FIFO);
+>  	/* ... and the packet rounded to a doubleword. */
+> -#ifdef  __powerpc__
+> -	outsl_ns(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
+> -#else
+>  	outsl(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
+> -#endif
 
-Welcome to the best software in the world today cafe!
-http://www.take6.com/albums/greatesthits.html
+Dohh, a hack like this to work around some possbile byte-swapping
+bug should never have been done in the first place :-(
+
+However, I presume someone added the  __powerpc__ define here
+because they picked up a 3c509 at a garage sale, stuck it in 
+a powerpc, found out it didn't work due to a byte-swapping bug,
+and then patched it as above. I'm disturbed that somehow 
+outsl_ns() became identical to outsl() at some point, presumably
+breaking this patch.
+
+--linas
+
