@@ -1,33 +1,29 @@
-From: Amy Fong <amy.fong@windriver.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
 Subject: Re: [PATCH] Add Broadcom PHY support
-Date: Tue, 19 Sep 2006 09:35:42 -0400 (EDT)
-Message-ID: <E1GPflG-0000n7-2o@lucciola>
-References: <450F7498.8090504@garzik.org>
+Date: Tue, 19 Sep 2006 14:43:55 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0609191441260.24069@blysk.ds.pg.gda.pl>
+References: <E1GPflG-0000n7-2o@lucciola>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751955AbWISNgS@vger.kernel.org>
-In-Reply-To: <450F7498.8090504@garzik.org>
-To: Jeff Garzik <jeff@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:46343 "EHLO
+	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP
+	id S1751243AbWISNn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Sep 2006 09:43:56 -0400
+To: Amy Fong <amy.fong@windriver.com>
+In-Reply-To: <E1GPflG-0000n7-2o@lucciola>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ Charset ISO-8859-1 unsupported, converting... ]
-> Amy Fong wrote:
-> > [PATCH] Add Broadcom PHY support
-> > 
-> > This patch adds a driver to support the bcm5421s and bcm5461s PHY
-> > 
-> > Kernel version:  linux-2.6.18-rc6
-> > 
-> > Signed-off-by: Amy Fong <amy.fong@windriver.com>
-> 
-> And... where are the users of this phy driver?
-> 
-> 	Jeff
-> 
+On Tue, 19 Sep 2006, Amy Fong wrote:
 
-This phy driver is used by the WRS's sbc8560 (bcm5421s) and sbc843x (bcm5461s) via the gianfar driver.
+> > And... where are the users of this phy driver?
+[...]
+> This phy driver is used by the WRS's sbc8560 (bcm5421s) and sbc843x 
+> (bcm5461s) via the gianfar driver.
 
-Amy
+ And sb1250-mac.c would be happy to use it too.
+
+  Maciej
