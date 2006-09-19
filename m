@@ -1,46 +1,64 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] xt_policy: remove dups in .family
-Date: Tue, 19 Sep 2006 05:06:19 +0400
-Message-ID: <20060919010619.GB5273@martell.zuzino.mipt.ru>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH] Remove powerpc specific parts of 3c509 driver
+Date: Tue, 19 Sep 2006 11:54:49 +1000
+Message-ID: <20060919115449.247105cd.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:35302 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751379AbWISBGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Sep 2006 21:06:22 -0400
-Received: by ug-out-1314.google.com with SMTP id o38so418514ugd
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2006 18:06:21 -0700 (PDT)
+Received: from chilli.pcug.org.au ([203.10.76.44]:57559 "EHLO smtps.tip.net.au")
+	by vger.kernel.org with ESMTP id S1752009AbWISBzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2006 21:55:18 -0400
 To: netdev@vger.kernel.org
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sparse "defined twice" warning
+On powerpc and ppc, insl_ns and insl are identical as are outsl_ns and
+outsl, so remove the conditional use of insl_ns and outsl_ns.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
+ drivers/net/3c509.c |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
- net/netfilter/xt_policy.c |    2 --
- 1 file changed, 2 deletions(-)
+This is in anticipation of removing the insl_ns and outsl_ns definitions
+which are powerpc sepcific patches.
 
---- a/net/netfilter/xt_policy.c
-+++ b/net/netfilter/xt_policy.c
-@@ -171,7 +171,6 @@ static struct xt_match policy_match = {
- 	.match		= match,
- 	.matchsize	= sizeof(struct xt_policy_info),
- 	.checkentry 	= checkentry,
--	.family		= AF_INET,
- 	.me		= THIS_MODULE,
- };
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
+index cbdae54..add6381 100644
+--- a/drivers/net/3c509.c
++++ b/drivers/net/3c509.c
+@@ -879,11 +879,7 @@ #endif
+ 	outw(skb->len, ioaddr + TX_FIFO);
+ 	outw(0x00, ioaddr + TX_FIFO);
+ 	/* ... and the packet rounded to a doubleword. */
+-#ifdef  __powerpc__
+-	outsl_ns(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
+-#else
+ 	outsl(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
+-#endif
  
-@@ -181,7 +180,6 @@ static struct xt_match policy6_match = {
- 	.match		= match,
- 	.matchsize	= sizeof(struct xt_policy_info),
- 	.checkentry	= checkentry,
--	.family		= AF_INET6,
- 	.me		= THIS_MODULE,
- };
+ 	dev->trans_start = jiffies;
+ 	if (inw(ioaddr + TX_FREE) > 1536)
+@@ -1103,13 +1099,8 @@ el3_rx(struct net_device *dev)
+ 				skb_reserve(skb, 2);     /* Align IP on 16 byte */
  
+ 				/* 'skb->data' points to the start of sk_buff data area. */
+-#ifdef  __powerpc__
+-				insl_ns(ioaddr+RX_FIFO, skb_put(skb,pkt_len),
+-							   (pkt_len + 3) >> 2);
+-#else
+ 				insl(ioaddr + RX_FIFO, skb_put(skb,pkt_len),
+ 					 (pkt_len + 3) >> 2);
+-#endif
+ 
+ 				outw(RxDiscard, ioaddr + EL3_CMD); /* Pop top Rx packet. */
+ 				skb->protocol = eth_type_trans(skb,dev);
+-- 
+1.4.2.1
 
