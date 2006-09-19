@@ -1,56 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Tue, 19 Sep 2006 22:31:05 +0200
-Message-ID: <20060919203105.GF18349@postel.suug.ch>
-References: <20060918162847.GA4863@ms2.inr.ac.ru> <200609181850.22851.ak@suse.de> <20060918210321.GA4780@ms2.inr.ac.ru> <20060918.142247.14844785.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 04/23] e100: rework WoL and shutdown handling
+Date: Tue, 19 Sep 2006 16:30:38 -0400
+Message-ID: <4510536E.4000209@pobox.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172840.4605.33452.stgit@gitlost.site> <451040C2.5030005@pobox.com> <45105249.1070200@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, ak@suse.de, master@sectorb.msk.ru,
-	hawk@diku.dk, harry@atmos.washington.edu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:58037 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751127AbWISUap (ORCPT
+Received: from srv5.dvmed.net ([207.36.208.214]:42430 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751128AbWISUap (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 16:30:45 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060918.142247.14844785.davem@davemloft.net>
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <45105249.1070200@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> 2006-09-18 14:22
-> From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Date: Tue, 19 Sep 2006 01:03:21 +0400
+Auke Kok wrote:
+> Jeff Garzik wrote:
+>> Kok, Auke wrote:
+>>> Unify our shutdown/suspend/resume code and make it similar to e1000:
+>>> e1000_shutdown now calls suspend which does the exact same thing on
+>>> shutdown except saving PCI config state on suspend. WoL setup code
+>>> is now also more simple and works even when CONFIG_PM is not set, which
+>>> was previously broken.
+>>>
+>>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>>
+>> Why does e100_suspend() need to exist even when CONFIG_PM is disabled?
+>>
+>> WoL is fundamentally power management.
 > 
-> > 1. It even does not disable possibility to record timestamp inside
-> >    driver, which Alan was afraid of. The sequence is:
-> > 
-> > 	if (!skb->tstamp.off_sec)
-> >                 net_timestamp(skb);
-> > 
-> > 2. Maybe, netif_rx() should continue to get timestamp in netif_rx().
-> > 
-> > 3. NAPI already introduced almost the same inaccuracy. And it is really
-> >    silly to waste time getting timestamp in netif_receive_skb() a few
-> >    moments before the packet is delivered to a socket.
-> > 
-> > 4. ...but clock source, which takes one of top lines in profiles
-> >    must be repaired yet. :-)
+> same as e1000_suspend: we're consolidating shutdown code making 2 
+> different codepaths exactly the same.
 > 
-> Ok, ok, but don't we have queueing disciplines that need the timestamp
-> even on ingress?
+> e100_shutdown calls e100_suspend() in case of a normal powerdown.
 
-Queueing disciplines generally only care about the time delta
-between two packets, using the receive stamp would lead to
-wrong results as soon as a packet is queued more than once.
+OK, well you don't need to list it in the pci_driver struct then...
 
-However, since we recently introcued ingress queueing we
-must update the stamp to make up for the delay caused by the
-queue. Updating the stamp at socket enqueue time would solve
-this automatically.
 
-It seems only natural to me that the real problem is the slow
-clock source which needs to be resolved regardless of the
-outcome of this discussion. I believe that updating the stamp
-at socket enqueue time is the right thing to do but it shouldn't
-be considered as a solution to the performance problem.
