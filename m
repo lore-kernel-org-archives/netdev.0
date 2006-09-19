@@ -1,25 +1,547 @@
-From: Miika Komu <miika@iki.fi>
+From: Miika Komu <mkomu@kekkonen.cs.hut.fi>
 Subject: Re: [PATCH]:[XFRM] BEET mode
-Date: Tue, 19 Sep 2006 14:47:43 +0300 (EEST)
-Message-ID: <Pine.SOL.4.64.0609191447170.14875@kekkonen.cs.hut.fi>
-References: <1158399191.450bc4d7adf76@webmail.hiit.fi>
- <Pine.SOL.4.64.0609191430340.12459@kekkonen.cs.hut.fi>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Diego Beltrami <Diego.Beltrami@hiit.fi>, netdev@vger.kernel.org,
-	davem@davemloft.net, Herbert Xu <herbert@gondor.apana.org.au>,
-	yoshfuji@linux-ipv6.org, rdunlap@xenotime.net
+Date: Tue, 19 Sep 2006 15:35:30 +0300 (EEST)
+Message-ID: <200609191235.k8JCZUnv018167@kekkonen.cs.hut.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twilight.cs.hut.fi ([130.233.40.5]:59528 "EHLO
-	twilight.cs.hut.fi") by vger.kernel.org with ESMTP id S964978AbWISLrp
+Received: from twilight.cs.hut.fi ([130.233.40.5]:28305 "EHLO
+	twilight.cs.hut.fi") by vger.kernel.org with ESMTP id S1030218AbWISMfg
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 07:47:45 -0400
-To: Miika Komu <miika@iki.fi>
-In-Reply-To: <Pine.SOL.4.64.0609191430340.12459@kekkonen.cs.hut.fi>
+	Tue, 19 Sep 2006 08:35:36 -0400
+To: Diego.Beltrami@hiit.fi, davem@davemloft.net,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	rdunlap@xenotime.net, yoshfuji@linux-ipv6.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ah, forgot to add new files to version control, sorry. My bad...
+This patch introduces the BEET mode (Bound End-to-End Tunnel) with as
+specified by the ietf draft at the following link:
 
--- 
-Miika Komu                                       http://www.iki.fi/miika/
+http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-06.txt
+
+The patch provides only single family support (i.e. inner family =
+outer family).
+
+Signed-off-by: Diego Beltrami <diego.beltrami@gmail.com>
+Signed-off-by: Miika Komu     <miika@iki.fi>
+Signed-off-by: Herbert Xu     <herbert@gondor.apana.org.au>
+Signed-off-by: Abhinav Pathak <abhinav.pathak@hiit.fi>
+Signed-off-by: Jeff Ahrenholz <ahrenholz@gmail.com>
+
+---
+commit d9bc03a423b2436535efb7d4d8c36472a0c51074
+tree bd907aaedb2226abb6a51c68380fcc60e09afb12
+parent 7800c382abc6b2416eab2e935ff82c20e2f08acd
+author Miika Komu <mkomu@cheng.hiit.fi> Tue, 19 Sep 2006 15:05:24 +0300
+committer Miika Komu <mkomu@cheng.hiit.fi> Tue, 19 Sep 2006 15:05:24 +0300
+
+ include/linux/in.h         |    1 
+ include/linux/ip.h         |    9 +++
+ include/linux/ipsec.h      |    3 +
+ include/linux/xfrm.h       |    3 +
+ net/ipv4/Kconfig           |    9 +++
+ net/ipv4/Makefile          |    1 
+ net/ipv4/esp4.c            |   26 ++++++--
+ net/ipv4/ipcomp.c          |    5 +-
+ net/ipv4/xfrm4_mode_beet.c |  139 ++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/Kconfig           |   10 +++
+ net/ipv6/Makefile          |    1 
+ net/ipv6/ipcomp6.c         |    5 +-
+ net/ipv6/xfrm6_mode_beet.c |  107 ++++++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_user.c       |    1 
+ 14 files changed, 309 insertions(+), 11 deletions(-)
+
+diff --git a/include/linux/in.h b/include/linux/in.h
+index bcaca83..f1ae3cc 100644
+--- a/include/linux/in.h
++++ b/include/linux/in.h
+@@ -40,6 +40,7 @@ enum {
+ 
+   IPPROTO_ESP = 50,            /* Encapsulation Security Payload protocol */
+   IPPROTO_AH = 51,             /* Authentication Header protocol       */
++  IPPROTO_BEETPH = 94,	       /* IP option pseudo header for BEET */
+   IPPROTO_PIM    = 103,		/* Protocol Independent Multicast	*/
+ 
+   IPPROTO_COMP   = 108,                /* Compression Header protocol */
+diff --git a/include/linux/ip.h b/include/linux/ip.h
+index 2f46001..7a3aee8 100644
+--- a/include/linux/ip.h
++++ b/include/linux/ip.h
+@@ -80,6 +80,8 @@ #define	IPOPT_TS_TSONLY		0		/* timestamp
+ #define	IPOPT_TS_TSANDADDR	1		/* timestamps and addresses */
+ #define	IPOPT_TS_PRESPEC	3		/* specified modules only */
+ 
++#define IPV4_BEET_PHMAXLEN 8
++
+ struct iphdr {
+ #if defined(__LITTLE_ENDIAN_BITFIELD)
+ 	__u8	ihl:4,
+@@ -123,4 +125,11 @@ struct ip_comp_hdr {
+ 	__u16 cpi;
+ };
+ 
++struct ip_beet_phdr {
++	__u8 nexthdr;
++	__u8 hdrlen;
++	__u8 padlen;
++	__u8 reserved;
++};
++
+ #endif	/* _LINUX_IP_H */
+diff --git a/include/linux/ipsec.h b/include/linux/ipsec.h
+index d3c5276..d17a630 100644
+--- a/include/linux/ipsec.h
++++ b/include/linux/ipsec.h
+@@ -12,7 +12,8 @@ #define IPSEC_PROTO_ANY		255
+ enum {
+ 	IPSEC_MODE_ANY		= 0,	/* We do not support this for SA */
+ 	IPSEC_MODE_TRANSPORT	= 1,
+-	IPSEC_MODE_TUNNEL	= 2
++	IPSEC_MODE_TUNNEL	= 2,
++	IPSEC_MODE_BEET         = 3
+ };
+ 
+ enum {
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 14ecd19..a745cb3 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -129,7 +129,8 @@ #define XFRM_MODE_TRANSPORT 0
+ #define XFRM_MODE_TUNNEL 1
+ #define XFRM_MODE_ROUTEOPTIMIZATION 2
+ #define XFRM_MODE_IN_TRIGGER 3
+-#define XFRM_MODE_MAX 4
++#define XFRM_MODE_BEET 4
++#define XFRM_MODE_MAX 5
+ 
+ /* Netlink configuration messages.  */
+ enum {
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 90f9136..c5e3b17 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -433,6 +433,15 @@ config INET_XFRM_MODE_TUNNEL
+ 
+ 	  If unsure, say Y.
+ 
++config INET_XFRM_MODE_BEET
++	tristate "IP: IPsec BEET mode"
++	default y
++	select XFRM
++	---help---
++	  Support for IPsec BEET mode.
++
++	  If unsure, say Y.
++
+ config INET_DIAG
+ 	tristate "INET: socket monitoring interface"
+ 	default y
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f66049e..15645c5 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -23,6 +23,7 @@ obj-$(CONFIG_INET_AH) += ah4.o
+ obj-$(CONFIG_INET_ESP) += esp4.o
+ obj-$(CONFIG_INET_IPCOMP) += ipcomp.o
+ obj-$(CONFIG_INET_XFRM_TUNNEL) += xfrm4_tunnel.o
++obj-$(CONFIG_INET_XFRM_MODE_BEET) += xfrm4_mode_beet.o
+ obj-$(CONFIG_INET_TUNNEL) += tunnel4.o
+ obj-$(CONFIG_INET_XFRM_MODE_TRANSPORT) += xfrm4_mode_transport.o
+ obj-$(CONFIG_INET_XFRM_MODE_TUNNEL) += xfrm4_mode_tunnel.o
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 9628de9..c846f13 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -241,7 +241,8 @@ static int esp_input(struct xfrm_state *
+ 		 *    as per draft-ietf-ipsec-udp-encaps-06,
+ 		 *    section 3.1.2
+ 		 */
+-		if (x->props.mode == XFRM_MODE_TRANSPORT)
++		if (x->props.mode == XFRM_MODE_TRANSPORT ||
++		    x->props.mode == XFRM_MODE_BEET)
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	}
+ 
+@@ -259,17 +260,28 @@ static u32 esp4_get_max_size(struct xfrm
+ {
+ 	struct esp_data *esp = x->data;
+ 	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
+-
+-	if (x->props.mode == XFRM_MODE_TUNNEL) {
+-		mtu = ALIGN(mtu + 2, blksize);
+-	} else {
+-		/* The worst case. */
++	int enclen = 0;
++
++	switch (x->props.mode) {
++	case XFRM_MODE_TUNNEL:
++		mtu = ALIGN(mtu +2, blksize);
++		break;
++	default:
++	case XFRM_MODE_TRANSPORT:
++		/* The worst case */
+ 		mtu = ALIGN(mtu + 2, 4) + blksize - 4;
++		break;
++	case XFRM_MODE_BEET:
++ 		/* The worst case. */
++		enclen = IPV4_BEET_PHMAXLEN;
++		mtu = ALIGN(mtu + enclen + 2, blksize);
++		break;
+ 	}
++
+ 	if (esp->conf.padlen)
+ 		mtu = ALIGN(mtu, esp->conf.padlen);
+ 
+-	return mtu + x->props.header_len + esp->auth.icv_trunc_len;
++	return mtu + x->props.header_len + esp->auth.icv_trunc_len - enclen;
+ }
+ 
+ static void esp4_err(struct sk_buff *skb, u32 info)
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index b163ebc..67bd228 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -206,6 +206,7 @@ static void ipcomp4_err(struct sk_buff *
+ static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
+ {
+ 	struct xfrm_state *t;
++	u8 mode = XFRM_MODE_TUNNEL;
+ 	
+ 	t = xfrm_state_alloc();
+ 	if (t == NULL)
+@@ -216,7 +217,9 @@ static struct xfrm_state *ipcomp_tunnel_
+ 	t->id.daddr.a4 = x->id.daddr.a4;
+ 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
+ 	t->props.family = AF_INET;
+-	t->props.mode = XFRM_MODE_TUNNEL;
++	if (x->props.mode == XFRM_MODE_BEET)
++		mode = x->props.mode;
++	t->props.mode = mode;
+ 	t->props.saddr.a4 = x->props.saddr.a4;
+ 	t->props.flags = x->props.flags;
+ 
+diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
+new file mode 100644
+index 0000000..75db6a6
+--- /dev/null
++++ b/net/ipv4/xfrm4_mode_beet.c
+@@ -0,0 +1,139 @@
++/*
++ * xfrm4_mode_beet.c - BEET mode encapsulation for IPv4.
++ *
++ * Copyright (c) 2006 Diego Beltrami <diego.beltrami@gmail.com>
++ *                    Miika Komu     <miika@iki.fi>
++ *                    Herbert Xu     <herbert@gondor.apana.org.au>
++ *                    Abhinav Pathak <abhinav.pathak@hiit.fi>
++ *                    Jeff Ahrenholz <ahrenholz@gmail.com>
++ */
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/stringify.h>
++#include <net/dst.h>
++#include <net/ip.h>
++#include <net/xfrm.h>
++
++/* Add encapsulation header.
++ *
++ * The top IP header will be constructed per draft-nikander-esp-beet-mode-06.txt.
++ * The following fields in it shall be filled in by x->type->output:
++ *      tot_len
++ *      check
++ *
++ * On exit, skb->h will be set to the start of the payload to be processed
++ * by x->type->output and skb->nh will be set to the top IP header.
++ */
++static int xfrm4_beet_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct iphdr *iph, *top_iph = NULL;
++	int hdrlen, optlen;
++
++	iph = skb->nh.iph;
++	skb->h.ipiph = iph;
++
++	hdrlen = 0;
++	optlen = iph->ihl * 4 - sizeof(*iph);
++	if (unlikely(optlen))
++		hdrlen += IPV4_BEET_PHMAXLEN - (optlen & 4);
++
++	skb->nh.raw = skb_push(skb, x->props.header_len + hdrlen);
++	top_iph = skb->nh.iph;
++	hdrlen = iph->ihl * 4 - optlen;
++	skb->h.raw += hdrlen;
++
++	memmove(top_iph, iph, hdrlen);
++	if (unlikely(optlen)) {
++		struct ip_beet_phdr *ph;
++
++		BUG_ON(optlen < 0);
++
++		ph = (struct ip_beet_phdr *)skb->h.raw;
++		ph->padlen = 4 - (optlen & 4);
++		ph->hdrlen = (optlen + ph->padlen + sizeof(*ph)) / 8;
++		ph->nexthdr = top_iph->protocol;
++ 
++		top_iph->protocol = IPPROTO_BEETPH;
++		top_iph->ihl = sizeof(struct iphdr) / 4;
++	}
++
++	top_iph->saddr = x->props.saddr.a4;
++	top_iph->daddr = x->id.daddr.a4;
++
++	return 0;
++}
++
++static int xfrm4_beet_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct iphdr *iph = skb->nh.iph;
++	int phlen = 0;
++	int optlen = 0;
++	__u8 ph_nexthdr = 0, protocol = 0;
++	int err = -EINVAL;
++
++	protocol = iph->protocol;
++
++	if (unlikely(iph->protocol == IPPROTO_BEETPH)) {
++		struct ip_beet_phdr *ph = (struct ip_beet_phdr*)(iph + 1);
++		
++		if (!pskb_may_pull(skb, sizeof(*ph)))
++			goto out;
++
++		phlen = ph->hdrlen * 8;
++		optlen = phlen - ph->padlen - sizeof(*ph);
++		if (optlen < 0 || optlen & 3 || optlen > 250)
++			goto out;
++
++		if (!pskb_may_pull(skb, phlen))
++			goto out;
++
++		ph_nexthdr = ph->nexthdr;
++	}
++
++	skb_push(skb, sizeof(*iph) - phlen + optlen);
++	memmove(skb->data, skb->nh.raw, sizeof(*iph));
++	skb->nh.raw = skb->data;
++
++	iph = skb->nh.iph;
++	iph->ihl = (sizeof(*iph) + optlen) / 4;
++	iph->tot_len = htons(skb->len);
++	iph->daddr = x->sel.daddr.a4;
++	iph->saddr = x->sel.saddr.a4;
++	if (ph_nexthdr)
++		iph->protocol = ph_nexthdr;
++	else
++		iph->protocol = protocol;
++	iph->check = 0;
++	iph->check = ip_fast_csum(skb->nh.raw, iph->ihl);
++	err = 0;
++out:
++	return err;
++}
++
++static struct xfrm_mode xfrm4_beet_mode = {
++	.input = xfrm4_beet_input,
++	.output = xfrm4_beet_output,
++	.owner = THIS_MODULE,
++	.encap = XFRM_MODE_BEET,
++};
++
++static int __init xfrm4_beet_init(void)
++{
++	return xfrm_register_mode(&xfrm4_beet_mode, AF_INET);
++}
++
++static void __exit xfrm4_beet_exit(void)
++{
++	int err;
++
++	err = xfrm_unregister_mode(&xfrm4_beet_mode, AF_INET);
++	BUG_ON(err);
++}
++
++module_init(xfrm4_beet_init);
++module_exit(xfrm4_beet_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_XFRM_MODE(AF_INET, XFRM_MODE_BEET);
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 54397ee..25dd486 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -135,6 +135,16 @@ config INET6_XFRM_MODE_TUNNEL
+ 
+ 	  If unsure, say Y.
+ 
++config INET6_XFRM_MODE_BEET
++	tristate "IPv6: IPsec BEET mode"
++	depends on IPV6
++	default IPV6
++	select XFRM
++	---help---
++	  Support for IPsec BEET mode.
++
++	  If unsure, say Y.
++
+ config INET6_XFRM_MODE_ROUTEOPTIMIZATION
+ 	tristate "IPv6: MIPv6 route optimization mode (EXPERIMENTAL)"
+ 	depends on IPV6 && EXPERIMENTAL
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 0213c66..87274e4 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -26,6 +26,7 @@ obj-$(CONFIG_INET6_TUNNEL) += tunnel6.o
+ obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) += xfrm6_mode_transport.o
+ obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
+ obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
++obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
+ obj-$(CONFIG_NETFILTER)	+= netfilter/
+ 
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index 8669146..692b74e 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -199,6 +199,7 @@ static void ipcomp6_err(struct sk_buff *
+ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
+ {
+ 	struct xfrm_state *t = NULL;
++	u8 mode = XFRM_MODE_TUNNEL;
+ 
+ 	t = xfrm_state_alloc();
+ 	if (!t)
+@@ -212,7 +213,9 @@ static struct xfrm_state *ipcomp6_tunnel
+ 	memcpy(t->id.daddr.a6, x->id.daddr.a6, sizeof(struct in6_addr));
+ 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
+ 	t->props.family = AF_INET6;
+-	t->props.mode = XFRM_MODE_TUNNEL;
++	if (x->props.mode == XFRM_MODE_BEET)
++		mode = x->props.mode;
++	t->props.mode = mode;
+ 	memcpy(t->props.saddr.a6, x->props.saddr.a6, sizeof(struct in6_addr));
+ 
+ 	if (xfrm_init_state(t))
+diff --git a/net/ipv6/xfrm6_mode_beet.c b/net/ipv6/xfrm6_mode_beet.c
+new file mode 100644
+index 0000000..edcfffa
+--- /dev/null
++++ b/net/ipv6/xfrm6_mode_beet.c
+@@ -0,0 +1,107 @@
++/*
++ * xfrm6_mode_beet.c - BEET mode encapsulation for IPv6.
++ *
++ * Copyright (c) 2006 Diego Beltrami <diego.beltrami@gmail.com>
++ *                    Miika Komu     <miika@iki.fi>
++ *                    Herbert Xu     <herbert@gondor.apana.org.au>
++ *                    Abhinav Pathak <abhinav.pathak@hiit.fi>
++ *                    Jeff Ahrenholz <ahrenholz@gmail.com>
++ */
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/stringify.h>
++#include <net/dsfield.h>
++#include <net/dst.h>
++#include <net/inet_ecn.h>
++#include <net/ipv6.h>
++#include <net/xfrm.h>
++
++/* Add encapsulation header.
++ *
++ * The top IP header will be constructed per draft-nikander-esp-beet-mode-06.txt.
++ * The following fields in it shall be filled in by x->type->output:
++ *	payload_len
++ *
++ * On exit, skb->h will be set to the start of the encapsulation header to be
++ * filled in by x->type->output and skb->nh will be set to the nextheader field
++ * of the extension header directly preceding the encapsulation header, or in
++ * its absence, that of the top IP header.  The value of skb->data will always
++ * point to the top IP header.
++ */
++static int xfrm6_beet_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *iph, *top_iph;
++	u8 *prevhdr;
++	int hdr_len;
++
++	skb_push(skb, x->props.header_len);
++	iph = skb->nh.ipv6h;
++
++	hdr_len = ip6_find_1stfragopt(skb, &prevhdr);
++	skb->nh.raw = prevhdr - x->props.header_len;
++	skb->h.raw = skb->data + hdr_len;
++	memmove(skb->data, iph, hdr_len);
++
++	skb->nh.raw = skb->data;
++	top_iph = skb->nh.ipv6h;
++	skb->nh.raw = &top_iph->nexthdr;
++	skb->h.ipv6h = top_iph + 1;
++
++	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
++	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
++
++	return 0;
++}
++
++static int xfrm6_beet_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *ip6h;
++	int size = sizeof(struct ipv6hdr);
++	int err = -EINVAL;
++
++	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
++		goto out;
++
++	skb_push(skb, size);
++	memmove(skb->data, skb->nh.raw, size);
++	skb->nh.raw = skb->data;
++
++	skb->mac.raw = memmove(skb->data - skb->mac_len,
++			       skb->mac.raw, skb->mac_len);
++
++	ip6h = skb->nh.ipv6h;
++	ip6h->payload_len = htons(skb->len - size);
++	ipv6_addr_copy(&ip6h->daddr, (struct in6_addr *) &x->sel.daddr.a6);
++	ipv6_addr_copy(&ip6h->saddr, (struct in6_addr *) &x->sel.saddr.a6);
++	err = 0;
++out:
++	return err;
++}
++
++static struct xfrm_mode xfrm6_beet_mode = {
++	.input = xfrm6_beet_input,
++	.output = xfrm6_beet_output,
++	.owner = THIS_MODULE,
++	.encap = XFRM_MODE_BEET,
++};
++
++static int __init xfrm6_beet_init(void)
++{
++	return xfrm_register_mode(&xfrm6_beet_mode, AF_INET6);
++}
++
++static void __exit xfrm6_beet_exit(void)
++{
++	int err;
++
++	err = xfrm_unregister_mode(&xfrm6_beet_mode, AF_INET6);
++	BUG_ON(err);
++}
++
++module_init(xfrm6_beet_init);
++module_exit(xfrm6_beet_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_XFRM_MODE(AF_INET6, XFRM_MODE_BEET);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index a096586..236c4a5 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -210,6 +210,7 @@ #endif
+ 	case XFRM_MODE_TRANSPORT:
+ 	case XFRM_MODE_TUNNEL:
+ 	case XFRM_MODE_ROUTEOPTIMIZATION:
++	case XFRM_MODE_BEET:
+ 		break;
+ 
+ 	default:
