@@ -1,40 +1,35 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 04/23] e100: rework WoL and shutdown handling
-Date: Tue, 19 Sep 2006 14:38:42 -0700
-Message-ID: <45106362.3050604@intel.com>
-References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172840.4605.33452.stgit@gitlost.site> <451040C2.5030005@pobox.com>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: [PATCH] tcp: simpler bic default
+Date: Tue, 19 Sep 2006 23:43:05 +0200
+Message-ID: <20060919214304.GB13543@outpost.ds9a.nl>
+References: <20060918214104.3824a2e2@localhost.localdomain> <20060919.123352.124082859.davem@davemloft.net> <20060919134132.44d4da5d@localhost.localdomain> <20060919.142007.06541289.davem@davemloft.net> <20060919143209.1164d803@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26431 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1752086AbWISVmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 17:42:00 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <451040C2.5030005@pobox.com>
+Received: from outpost.ds9a.nl ([213.244.168.210]:48780 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1752086AbWISVnG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 17:43:06 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060919143209.1164d803@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> Unify our shutdown/suspend/resume code and make it similar to e1000:
->> e1000_shutdown now calls suspend which does the exact same thing on
->> shutdown except saving PCI config state on suspend. WoL setup code
->> is now also more simple and works even when CONFIG_PM is not set, which
->> was previously broken.
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
-> Why does e100_suspend() need to exist even when CONFIG_PM is disabled?
-> 
-> WoL is fundamentally power management.
+On Tue, Sep 19, 2006 at 02:32:09PM -0700, Stephen Hemminger wrote:
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-okay, I'll fix this for e1000 as well, where we have the same code flow.
+# CONFIG_TCP_CONG_ADVANCED is not set
+# CONFIG_DEFAULT_BIC is not set
+# CONFIG_DEFAULT_CUBIC is not set
+# CONFIG_DEFAULT_HTCP is not set
+# CONFIG_DEFAULT_VEGAS is not set
+# CONFIG_DEFAULT_WESTWOOD is not set
+# CONFIG_DEFAULT_RENO is not set
+CONFIG_DEFAULT_TCP_CONG="bic"
 
-Thanks.
+There is no "bic" in the kernel now - will this do the right thing?
 
-Auke
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
