@@ -1,46 +1,70 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH] tcp: set congestion default through Kconfig
-Date: Tue, 19 Sep 2006 17:08:49 +1200
-Message-ID: <5640c7e00609182208t74aadacekcf0b588b7852464d@mail.gmail.com>
-References: <20060918095936.GA6161@outpost.ds9a.nl>
-	 <20060918.070600.107685035.davem@davemloft.net>
-	 <20060918154048.GA18240@outpost.ds9a.nl>
-	 <20060918.115309.88343320.davem@davemloft.net>
-	 <20060918195224.GA26585@outpost.ds9a.nl>
-	 <20060918214104.3824a2e2@localhost.localdomain>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Tue, 19 Sep 2006 07:52:36 +0200
+Message-ID: <200609190752.36072.ak@suse.de>
+References: <4492D5D3.4000303@atmos.washington.edu> <200609181850.22851.ak@suse.de> <20060918210321.GA4780@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "bert hubert" <bert.hubert@netherlabs.nl>,
-	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.131]:49884 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1752059AbWISFIv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 01:08:51 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so496081nfa
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2006 22:08:49 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060918214104.3824a2e2@localhost.localdomain>
+Received: from cantor2.suse.de ([195.135.220.15]:54693 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751109AbWISFzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 01:55:50 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060918210321.GA4780@ms2.inr.ac.ru>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> ---
->  net/ipv4/Kconfig           |   39 +++++++++++++++++++++++++++++++++++++--
->  net/ipv4/sysctl_net_ipv4.c |    7 +++++++
->  net/ipv4/tcp_cong.c        |    2 +-
->  3 files changed, 45 insertions(+), 3 deletions(-)
+On Monday 18 September 2006 23:03, Alexey Kuznetsov wrote:
 
-Nice solution.
+> 
+> > And do you have some other prefered way to solve this? Even if the timer
+> > was fast it would be still good to avoid it in the fast path when DHCPD
+> > is running.
+> 
+> No. The way, which you suggested, seems to be the best.
 
-Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+Ok. I also checked my desktop and for some reason I got a timestamp counter
+of 7 (and it doesn't even run client dhcp). Haven't investigated why yet, and I am 
+still hoping it's not a leak. 
+
+But that hints that trying to fix all of user space to not use the ioctl 
+would have been probably too much work.
+
+
+> 1. It even does not disable possibility to record timestamp inside
+>    driver, which Alan was afraid of. The sequence is:
+> 
+> 	if (!skb->tstamp.off_sec)
+>                 net_timestamp(skb);
+> 
+> 2. Maybe, netif_rx() should continue to get timestamp in netif_rx().
+
+Hmm, there are still quite a lot users and even with netif_rx() you
+can have long delays from interrupt mitigation etc.
+
+% grep -rw netif_rx drivers/net/*  | wc -l
+253
+
+> 3. NAPI already introduced almost the same inaccuracy. And it is really
+>    silly to waste time getting timestamp in netif_receive_skb() a few
+>    moments before the packet is delivered to a socket.
+> 
+> 4. ...but clock source, which takes one of top lines in profiles
+>    must be repaired yet. :-)
+
+It's being worked on, but it'll take some time. But even when TSC 
+can be used it's still a good idea to not call gtod unnecessarily 
+because it can be still relatively slow (e.g. on P4 RDTSC takes
+hundreds of cycles because it synchronizes the CPU). Also on some 
+other non x86 platforms it is also relatively slow because they have 
+to reach out to the chipset and every time you do that things get slow.
+
+-Andi
+
