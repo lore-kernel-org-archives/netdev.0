@@ -1,49 +1,68 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
-Date: Wed, 20 Sep 2006 15:55:36 -0700
-Message-ID: <20060920155536.5454f504@localhost.localdomain>
-References: <20060918103705.GB1096@ms2.inr.ac.ru>
-	<20060918.065655.128444024.davem@davemloft.net>
-	<20060920154406.3c2c1721@localhost.localdomain>
-	<20060920.154756.37589174.davem@davemloft.net>
+From: "cramerj" <cramerj@intel.com>
+Subject: RE: [PATCH 08/23] e1000: add multicast stats counters
+Date: Wed, 20 Sep 2006 16:50:30 -0700
+Message-ID: <F2C59D1E488E7A4FB7F6F673DAF8325901C7BBF3@orsmsx413.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:50844 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932444AbWITW4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 18:56:14 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060920.154756.37589174.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:46419 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1750789AbWITXwl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 19:52:41 -0400
+Content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Sep 2006 15:47:56 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Wed, 20 Sep 2006 15:44:06 -0700
+> Williams, Mitch A wrote:
+> >>> +	{ "rx_broadcast", E1000_STAT(stats.bprc) },
+> >>> +	{ "tx_broadcast", E1000_STAT(stats.bptc) },
+> >>> +	{ "rx_multicast", E1000_STAT(stats.mprc) },
+> >>> +	{ "tx_multicast", E1000_STAT(stats.mptc) },
+> >>>  	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
+> >>>  	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
+> >>>  	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
+> >> NAK -- you also need to remove the standard net stats, which are
+> >> exported elsewhere
+> >
+> > Jeff, can you please explain the reason for this NAK a little more?
+> > Neither Auke nor I understand why you rejected the patch.
+> >
+> > This patch just adds the display of a few more stats in Ethtool.  It
+> > doesn't affect any other counters, and is really just a convenience
+> > feature.  I added this to the driver because of a customer request.
 > 
-> > On Mon, 18 Sep 2006 06:56:55 -0700 (PDT)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> > > Ok, I'll put this into net-2.6.19 for now.  Thanks.
-> > 
-> > Did you try this on a desktop system?  Something is wrong with net-2.6.19
-> > basic web browsing seems slower.
+> Adding those stats is fine.  You guys just need to remove the existing
+> mess first.
 > 
-> It might be due to other changes, please verify that it's
-> truly caused by Alexey's change by backing it out and
-> retesting.
+> 	Jeff
 > 
-> Note that I had to use an updated version of Alexey's change,
-> which he sent me privately, because the first version didn't
-> compile :)
 
-It might be something else.. there are a lot of changes from 2.6.18 to net-2.6.19.
+Since we have 1-to-1 mapping of some of our statistics registers to the
+net_stats, we could s/net_stats/stats/.  However, there are a few
+net_stats (e.g. net_stats.rx_errors) that encapsulate more than one
+e1000 statistic register of which we don't have a private stat member
+defined.
 
+For those statistics, is it really necessary to add another stat
+structure just to rm "net_stats" from that list we pass to ethtool?  At
+best, it would look something like this...
 
+  { "foo_count", E1000_STAT(stats.foo) },
+- { "rx_errors", E1000_STAT(net_stats.rx_errors) },
++ { "rx_errors", E1000_STAT(eth_stats.rx_errors) },
+  { "bar_count", E1000_STAT(stats.bar) },
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+If so, well, OK.  I'm just scratching my head as to why it's a "mess"
+as-is.
+
+I've missed obvious alternatives before; care to enlighten?
+
+-Jeb
