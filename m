@@ -1,70 +1,60 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 05/23] e1000: rename flow control symbols
-Date: Tue, 19 Sep 2006 14:45:51 -0700
-Message-ID: <4510650F.7050805@intel.com>
-References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172842.4605.41117.stgit@gitlost.site> <451040F6.1060902@pobox.com>
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/3] [IrDA] nsc-ircc: Configuration base
+	address for PC87383
+Date: Wed, 20 Sep 2006 08:08:46 +0300
+Message-ID: <20060920050846.GC4140@sortiz.org>
+Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55187 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1751217AbWISVrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 17:47:23 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <451040F6.1060902@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Lamarque Vieira Souza <lamarque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> --- a/drivers/net/e1000/e1000_hw.h
->> +++ b/drivers/net/e1000/e1000_hw.h
->> @@ -90,15 +90,6 @@ typedef enum {
->>      e1000_100_full = 3
->>  } e1000_speed_duplex_type;
->>  
->> -/* Flow Control Settings */
->> -typedef enum {
->> -    e1000_fc_none = 0,
->> -    e1000_fc_rx_pause = 1,
->> -    e1000_fc_tx_pause = 2,
->> -    e1000_fc_full = 3,
->> -    e1000_fc_default = 0xFF
->> -} e1000_fc_type;
->> -
->>  struct e1000_shadow_ram {
->>      uint16_t    eeprom_word;
->>      boolean_t   modified;
->> @@ -1376,7 +1367,7 @@ struct e1000_hw {
->>      struct e1000_shadow_ram *eeprom_shadow_ram;
->>      uint32_t flash_bank_size;
->>      uint32_t flash_base_addr;
->> -    e1000_fc_type fc;
->> +    uint32_t fc;
->>      e1000_bus_speed bus_speed;
->>      e1000_bus_width bus_width;
->>      e1000_bus_type bus_type;
->> @@ -1930,6 +1921,13 @@ struct e1000_hw {
->>  #define E1000_FCRTL_RTL  0x0000FFF8     /* Mask Bits[15:3] for RTL */
->>  #define E1000_FCRTL_XONE 0x80000000     /* Enable XON frame 
->> transmission */
->>  
->> +/* Flow Control Settings */
->> +#define E1000_FC_NONE     0
->> +#define E1000_FC_RX_PAUSE 1
->> +#define E1000_FC_TX_PAUSE 2
->> +#define E1000_FC_FULL     3
->> +#define E1000_FC_DEFAULT  0xFF
-> 
-> 
-> NAK.  Goes from enum to #define, which loses type information and 
-> obfuscates things when inside a debugger (or other tool knowledgable of 
-> source code symbols).
+Hi Dave,
 
-Agreed, will change this back into an enum.
+According to NatSemi datasheet, the configuration base address for the PC8738x
+family is 0x2e or 0x164. 0x0 doesn't appear in any datasheet.
 
-Auke
+Patch from Lamarque Vieira Souza <lamarque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+
+---
+ drivers/net/irda/nsc-ircc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index cb62f2a..7185a4e 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -110,7 +110,7 @@ static nsc_chip_t chips[] = {
+ 	{ "PC87338", { 0x398, 0x15c, 0x2e }, 0x08, 0xb0, 0xf8, 
+ 	  nsc_ircc_probe_338, nsc_ircc_init_338 },
+ 	/* Contributed by Steffen Pingel - IBM X40 */
+-	{ "PC8738x", { 0x164e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
++	{ "PC8738x", { 0x164e, 0x4e, 0x2e }, 0x20, 0xf4, 0xff,
+ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+ 	/* Contributed by Jan Frey - IBM A30/A31 */
+ 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff, 
+-- 
+1.4.1.1
+
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys -- and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
