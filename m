@@ -1,40 +1,53 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] sky2: process tx pause frames.
-Date: Wed, 20 Sep 2006 14:53:10 -0700
-Message-ID: <20060920145310.04e75e97@localhost.localdomain>
-References: <20060906124447.642940bd@localhost.localdomain>
-	<45056102.2010408@pobox.com>
-	<20060919141308.7e52b7d0@localhost.localdomain>
-	<4511B775.4020607@pobox.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 7/7] secid reconciliation-v02: Enforcement for SELinux
+Date: Wed, 20 Sep 2006 18:46:00 -0400
+Message-ID: <4511C4A8.2090709@hp.com>
+References: <36282A1733C57546BE392885C061859201573267@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov, Chad Hanson <chanson@TrustedCS.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:64391 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932216AbWITVyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 17:54:03 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4511B775.4020607@pobox.com>
+Received: from atlrel6.hp.com ([156.153.255.205]:41417 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S932433AbWITWqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 18:46:02 -0400
+To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <36282A1733C57546BE392885C061859201573267@chaos.tcs.tcs-sec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Sep 2006 17:49:41 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Venkat Yekkirala wrote:
+>>>+static int selinux_skb_policy_check(struct sk_buff *skb, 
+>>
+>>unsigned short
+>>
+>>>family) +{
+>>>+	u32 xfrm_sid, trans_sid;
+>>>+	int err;
+>>>+
+>>>+	if (selinux_compat_net)
+>>>+		return 1;
+>>>+
+>>>+	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
+>>>+	BUG_ON(err);
+>>
+>>First, any reason against including the "struct sock *" in 
+>>the LSM hook?  At a 
+>>quick glance it looks like it is available at each place 
+>>security_skb_policy_check() is invoked?  If there are no 
+>>objections I would 
+>>like to see it included in the hook.
+>  
+> There's no sock available (NULL) for forward, no-sock, time-wait cases, etc.
 
-> Stephen Hemminger wrote:
-> > This patch already is in 2.6.17 stable, but the bigger version was pushed
-> > off till 2.6.19. Here is a less intrusive version that needs to go into 2.6.18
-> > (or I'll end up sending it for 2.6.18.1). The driver was telling the
-> > GMAC to flush (not process) pause frames. Manually disabling pause wasn't
-> > working because of problems in the setup.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> You'll need to send this to stable@kernel.org...
-> 
-> 	Jeff
+... which would be why I should have taken a closer look :)
 
-I did already thanks.
+> What you are trying to accomplish with the sock here anyway?
+
+Actually this is no longer an issue because of something else - you can
+ignore this now.
+
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+paul moore
+linux security @ hp
