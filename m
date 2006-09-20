@@ -1,43 +1,33 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: Re: [PATCH 08/23] e1000: add multicast stats counters
-Date: Wed, 20 Sep 2006 09:38:54 -0700
-Message-ID: <F3EE2A9EB4576F40AFE238EC0AC04BC5091F8526@orsmsx402.amr.corp.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: UDP Out 0f Sequence
+Date: Wed, 20 Sep 2006 09:47:02 -0700
+Message-ID: <45117086.6080406@hp.com>
+References: <F444CAE5E62A714C9F45AA292785BED30EB97591@esng11p33001.sg.csfb.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33289 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1751672AbWITQjU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 12:39:20 -0400
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>, "Jeff Garzik" <jgarzik@pobox.com>
+Received: from palrel11.hp.com ([156.153.255.246]:54158 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S1751880AbWITQrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 12:47:03 -0400
+To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+In-Reply-To: <F444CAE5E62A714C9F45AA292785BED30EB97591@esng11p33001.sg.csfb.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> +	{ "rx_broadcast", E1000_STAT(stats.bprc) },
->> +	{ "tx_broadcast", E1000_STAT(stats.bptc) },
->> +	{ "rx_multicast", E1000_STAT(stats.mprc) },
->> +	{ "tx_multicast", E1000_STAT(stats.mptc) },
->>  	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
->>  	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
->>  	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
->
->NAK -- you also need to remove the standard net stats, which are 
->exported elsewhere
+Majumder, Rajib wrote:
+> Hi,
+> 
+> If I write UDP datagrams 1,2 and 3 to network and if the receiver
+> receives in order 2,1, and 3, where can the sequence get changed? Is it
+> at the source stack, network transit or destination stack?
 
-Jeff, can you please explain the reason for this NAK a little more?
-Neither Auke nor I understand why you rejected the patch.
+Yes. :)
 
-This patch just adds the display of a few more stats in Ethtool.  It
-doesn't affect any other counters, and is really just a convenience
-feature.  I added this to the driver because of a customer request.
+Although network transit is by far the most likely case.  Destination 
+stack is a distant second and source stack an even more distant third. 
+Generally stack writers try to avoid having places in their stacks where 
+things can reorder, but it isn't completely unknown.
 
-Thank you in advance for edifying us.
-
--Mitch
-
+rick jones
