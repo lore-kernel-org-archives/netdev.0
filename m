@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tcp: default congestion control menu
-Date: Wed, 20 Sep 2006 13:28:06 -0700
-Message-ID: <20060920132806.34eadc9e@localhost.localdomain>
+Subject: [PATCH] tcp: make cubic the default
+Date: Wed, 20 Sep 2006 13:32:58 -0700
+Message-ID: <20060920133258.36ff42ce@localhost.localdomain>
 References: <20060919214304.GB13543@outpost.ds9a.nl>
 	<20060919.154435.102044066.davem@davemloft.net>
 	<20060919160202.23390471@localhost.localdomain>
@@ -13,122 +13,76 @@ Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30676 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750821AbWITU2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:28:35 -0400
-To: bert hubert <bert.hubert@netherlabs.nl>,
-	David Miller <davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:39894 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750882AbWITUdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:33:14 -0400
+To: David Miller <davem@davemloft.net>
 In-Reply-To: <20060920081704.GA1812@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change how default TCP congestion control is chosen. Don't just use
-last installed module, instead allow selection during configuration,
-and make sure and use the default regardless of load order.
+Change default congestion control used from BIC to the newer CUBIC
+which it the successor to BIC but has better properties over long delay links.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/ipv4/Kconfig           |   45 ++++++++++++++++++++++++++++++++++++++++-----
- net/ipv4/sysctl_net_ipv4.c |    6 ++++++
- net/ipv4/tcp_cong.c        |    2 +-
- 3 files changed, 47 insertions(+), 6 deletions(-)
 
---- net-2.6.19.orig/net/ipv4/Kconfig	2006-09-19 16:13:02.000000000 -0700
-+++ net-2.6.19/net/ipv4/Kconfig	2006-09-20 11:17:45.000000000 -0700
-@@ -447,7 +447,7 @@
- 	depends on INET_DIAG
- 	def_tristate INET_DIAG
+---
+ net/ipv4/Kconfig |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+--- net-test.orig/net/ipv4/Kconfig	2006-09-20 12:22:06.000000000 -0700
++++ net-test/net/ipv4/Kconfig	2006-09-20 13:31:21.000000000 -0700
+@@ -454,7 +454,7 @@
+ 	  modules.
  
--config TCP_CONG_ADVANCED
-+menuconfig TCP_CONG_ADVANCED
- 	bool "TCP: advanced congestion control"
- 	---help---
- 	  Support for selection of various TCP congestion control
-@@ -458,9 +458,7 @@
+ 	  Nearly all users can safely say no here, and a safe default
+-	  selection will be made (BIC-TCP with new Reno as a fallback).
++	  selection will be made (CUBIC with new Reno as a fallback).
  
  	  If unsure, say N.
  
--# TCP Reno is builtin (required as fallback)
--menu "TCP congestion control"
--	depends on TCP_CONG_ADVANCED
-+if TCP_CONG_ADVANCED
+@@ -462,7 +462,7 @@
  
  config TCP_CONG_BIC
  	tristate "Binary Increase Congestion (BIC) control"
-@@ -573,12 +571,49 @@
- 	loss packets.
- 	See http://www.ntu.edu.sg/home5/ZHOU0022/papers/CPFu03a.pdf
+-	default y
++	default m
+ 	---help---
+ 	BIC-TCP is a sender-side only change that ensures a linear RTT
+ 	fairness under large windows while offering both scalability and
+@@ -476,7 +476,7 @@
  
--endmenu
-+choice
-+	prompt "Default TCP congestion control"
-+	default DEFAULT_BIC
-+	help
-+	  Select the TCP congestion control that will be used by default
-+	  for all connections.
-+
-+	config DEFAULT_BIC
-+		bool "Bic" if TCP_CONG_BIC=y
-+
-+	config DEFAULT_CUBIC
-+		bool "Cubic" if TCP_CONG_CUBIC=y
-+
-+	config DEFAULT_HTCP
-+		bool "Htcp" if TCP_CONG_HTCP=y
-+
-+	config DEFAULT_VEGAS
-+		bool "Vegas" if TCP_CONG_VEGAS=y
-+
-+	config DEFAULT_WESTWOOD
-+		bool "Westwood" if TCP_CONG_WESTWOOD=y
-+
-+	config DEFAULT_RENO
-+		bool "Reno"
-+
-+endchoice
-+
-+endif
+ config TCP_CONG_CUBIC
+ 	tristate "CUBIC TCP"
+-	default m
++	default y
+ 	---help---
+ 	This is version 2.0 of BIC-TCP which uses a cubic growth function
+ 	among other techniques.
+@@ -573,7 +573,7 @@
  
- config TCP_CONG_BIC
+ choice
+ 	prompt "Default TCP congestion control"
+-	default DEFAULT_BIC
++	default DEFAULT_CUBIC
+ 	help
+ 	  Select the TCP congestion control that will be used by default
+ 	  for all connections.
+@@ -600,7 +600,7 @@
+ 
+ endif
+ 
+-config TCP_CONG_BIC
++config TCP_CONG_CUBIC
  	tristate
  	depends on !TCP_CONG_ADVANCED
  	default y
+@@ -613,7 +613,7 @@
+ 	default "vegas" if DEFAULT_VEGAS
+ 	default "westwood" if DEFAULT_WESTWOOD
+ 	default "reno" if DEFAULT_RENO
+-	default "bic"
++	default "cubic"
  
-+config DEFAULT_TCP_CONG
-+	string
-+	default "bic" if DEFAULT_BIC
-+	default "cubic" if DEFAULT_CUBIC
-+	default "htcp" if DEFAULT_HTCP
-+	default "vegas" if DEFAULT_VEGAS
-+	default "westwood" if DEFAULT_WESTWOOD
-+	default "reno" if DEFAULT_RENO
-+	default "bic"
-+
  source "net/ipv4/ipvs/Kconfig"
  
---- net-2.6.19.orig/net/ipv4/sysctl_net_ipv4.c	2006-09-19 16:13:02.000000000 -0700
-+++ net-2.6.19/net/ipv4/sysctl_net_ipv4.c	2006-09-19 16:13:05.000000000 -0700
-@@ -129,6 +129,12 @@
- 	return ret;
- }
- 
-+static int __init tcp_congestion_default(void)
-+{
-+	return tcp_set_default_congestion_control(CONFIG_DEFAULT_TCP_CONG);
-+}
-+
-+late_initcall(tcp_congestion_default);
- 
- ctl_table ipv4_table[] = {
-         {
---- net-2.6.19.orig/net/ipv4/tcp_cong.c	2006-09-19 16:13:02.000000000 -0700
-+++ net-2.6.19/net/ipv4/tcp_cong.c	2006-09-19 16:13:05.000000000 -0700
-@@ -48,7 +48,7 @@
- 		printk(KERN_NOTICE "TCP %s already registered\n", ca->name);
- 		ret = -EEXIST;
- 	} else {
--		list_add_rcu(&ca->list, &tcp_cong_list);
-+		list_add_tail_rcu(&ca->list, &tcp_cong_list);
- 		printk(KERN_INFO "TCP %s registered\n", ca->name);
- 	}
- 	spin_unlock(&tcp_cong_list_lock);
