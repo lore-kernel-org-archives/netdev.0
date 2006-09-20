@@ -1,34 +1,37 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH] Remove powerpc specific parts of 3c509 driver
-Date: Wed, 20 Sep 2006 03:08:25 +0200
-Message-ID: <1192ED41-329C-4CB0-AD87-B3BF62EC4337@kernel.crashing.org>
-References: <20060919145433.8fc7d478.sfr@canb.auug.org.au> <20060919184243.GL29167@austin.ibm.com> <45103C62.4080003@genesi-usa.com> <1158708269.6002.186.camel@localhost.localdomain> <488875E7-CCBC-47E1-A273-A2D037A997B2@kernel.crashing.org> <45109203.6060606@pobox.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Matt Sealey <matt@genesi-usa.com>, akpm@osdl.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+From: akpm@osdl.org
+Subject: [patch 3/5] ATM: he: fix section mismatch
+Date: Tue, 19 Sep 2006 18:08:50 -0700
+Message-ID: <200609200108.k8K18oW2011719@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, rdunlap@xenotime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-06.arcor-online.net ([151.189.21.46]:64954 "EHLO
-	mail-in-01.arcor-online.net") by vger.kernel.org with ESMTP
-	id S1750809AbWITBIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 21:08:43 -0400
-In-Reply-To: <45109203.6060606@pobox.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from smtp.osdl.org ([65.172.181.4]:55696 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750813AbWITBIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 21:08:53 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Sure, PCI busses are little-endian.  But is readX()/writeX() for PCI
->> only?
->
-> Yes.
->
-> For other buses, use foo_writel(), etc.
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-Can this please be documented then?  Never heard this before...
+WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x218a) and 'he_service_tbrq'
 
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-Segher
+ drivers/atm/he.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff -puN drivers/atm/he.c~atm-he-fix-section-mismatch drivers/atm/he.c
+--- a/drivers/atm/he.c~atm-he-fix-section-mismatch
++++ a/drivers/atm/he.c
+@@ -785,7 +785,7 @@ he_init_cs_block_rcm(struct he_dev *he_d
+ 	return 0;
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_group(struct he_dev *he_dev, int group)
+ {
+ 	int i;
+_
