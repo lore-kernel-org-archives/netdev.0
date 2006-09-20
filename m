@@ -1,86 +1,121 @@
 From: Ashwini Kulkarni <ashwini.kulkarni@intel.com>
-Subject: [RFC 1/6] Make splice_to_pipe non-static and move structure definitions to a header file
-Date: Wed, 20 Sep 2006 14:08:11 -0700
-Message-ID: <20060920210811.17480.60103.stgit@gitlost.site>
-References: <20060920210711.17480.92354.stgit@gitlost.site>
+Subject: [RFC 0/6] TCP socket splice
+Date: Wed, 20 Sep 2006 14:07:11 -0700
+Message-ID: <20060920210711.17480.92354.stgit@gitlost.site>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: christopher.leech@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:58125 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1751066AbWITU7O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:59:14 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:57357 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751058AbWITU7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:59:13 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <20060920210711.17480.92354.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
----
+My name is Ashwini Kulkarni and I have been working at Intel Corporatio=
+n for
+the past 4 months as an engineering intern. I have been working on the =
+'TCP
+socket splice' project with Chris Leech. This is a work-in-progress ver=
+sion
+of the project with scope for further modifications.
 
- fs/splice.c               |   18 +-----------------
- include/linux/pipe_fs_i.h |   18 ++++++++++++++++++
- 2 files changed, 19 insertions(+), 17 deletions(-)
+TCP socket splicing:
+It allows a TCP socket to be spliced to a file via a pipe buffer. First=
+, to
+splice data from a socket to a pipe buffer, upto 16 source pages(s) are=
+ pulled
+into the pipe buffer. Then to splice data from the pipe buffer to a fil=
+e,
+those pages are migrated into the address space of the target file. It =
+takes
+place entirely within the kernel and thus results in zero memory copies=
+=2E It is
+the receive side complement to sendfile() but unlike sendfile() it is
+possible to splice from a socket as well and not just to a socket.
 
-diff --git a/fs/splice.c b/fs/splice.c
-index 684bca3..c6a880b 100644
---- a/fs/splice.c
-+++ b/fs/splice.c
-@@ -29,22 +29,6 @@
- #include <linux/syscalls.h>
- #include <linux/uio.h>
- 
--struct partial_page {
--	unsigned int offset;
--	unsigned int len;
--};
--
--/*
-- * Passed to splice_to_pipe
-- */
--struct splice_pipe_desc {
--	struct page **pages;		/* page map */
--	struct partial_page *partial;	/* pages[] may not be contig */
--	int nr_pages;			/* number of pages in map */
--	unsigned int flags;		/* splice flags */
--	struct pipe_buf_operations *ops;/* ops associated with output pipe */
--};
--
- /*
-  * Attempt to steal a page from a pipe buffer. This should perhaps go into
-  * a vm helper function, it's already simplified quite a bit by the
-@@ -173,7 +157,7 @@ static struct pipe_buf_operations user_p
-  * Pipe output worker. This sets up our pipe format with the page cache
-  * pipe buffer operations. Otherwise very similar to the regular pipe_writev().
-  */
--static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
-+ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
- 			      struct splice_pipe_desc *spd)
- {
- 	int ret, do_wakeup, page_nr;
-diff --git a/include/linux/pipe_fs_i.h b/include/linux/pipe_fs_i.h
-index ea4f7cd..9067985 100644
---- a/include/linux/pipe_fs_i.h
-+++ b/include/linux/pipe_fs_i.h
-@@ -100,4 +100,22 @@ extern ssize_t splice_from_pipe(struct p
- 				loff_t *, size_t, unsigned int,
- 				splice_actor *);
- 
-+struct partial_page {
-+	unsigned int offset;
-+	unsigned int len;
-+};
-+
-+/*
-+ * Passed to splice_to_pipe
-+ */
-+struct splice_pipe_desc {
-+	struct page **pages;		/* page map */
-+	struct partial_page *partial;	/* pages[] may not be contig */
-+	int nr_pages;			/* number of pages in map */
-+	unsigned int flags;		/* splice flags */
-+	struct pipe_buf_operations *ops;/* ops associated with output pipe */
-+};
-+
-+ssize_t splice_to_pipe(struct pipe_inode_info *, struct splice_pipe_desc *);
-+
- #endif
+Current Method:
+                         + >  Application Buffer +
+                         |                       |
+        _________________|_______________________|_____________
+                         |                       |
+              Receive or |                       | Write
+              I/OAT DMA  |                       |
+                         |                       |
+                         |                       V
+                       Network              File System
+                       Buffer                  Buffer
+                         ^                       |
+                         |                       |
+        _________________|_______________________|_____________
+                     DMA |                       | DMA
+                         |                       |
+       Hardware          |                       |
+                         |                       V
+                        NIC                     SATA
+                                                                   =20
+In the current method, the packet is DMA=E2=80=99d from the NIC into th=
+e network buffer.
+There is a read on socket to the user space and the packet data is copi=
+ed from
+the network buffer to the application buffer. A write operation then mo=
+ves the
+data from the application buffer to the file system buffer which is the=
+n DMA'd
+to the disk again. Thus, in the current method there will be one full c=
+opy of
+all the data to the user space.
 
+Using TCP socket splice:
+
+                    Application Control
+                         |
+        _________________|__________________________________
+                         |
+                         |   TCP socket splice
+                         | +---------------------+
+                         | |     Direct path     |
+                         V |                     V
+                       Network              File System
+                       Buffer                  Buffer
+                         ^                       |
+                         |                       |
+        _________________|_______________________|__________
+                     DMA |                       | DMA
+                         |                       |
+       Hardware          |                       |
+                         |                       V
+                        NIC                     SATA
+                                                                   =20
+In this method, the objective is to use TCP socket splicing to create a=
+ direct
+path in the kernel from the network buffer to the file system buffer vi=
+a a pipe
+buffer. The pages will migrate from the network buffer (which is associ=
+ated
+with the socket) into the pipe buffer for an optimized path. From the p=
+ipe
+buffer, the pages will then be migrated to the output file address spac=
+e page
+cache. This will enable to create a LAN to file-system API which will a=
+void the
+memcpy operations in user space and thus create a fast path from the ne=
+twork
+buffer to the storage buffer.
+
+Open Issues (currently being addressed):
+There is a performance drop when transferring bigger files (usually lar=
+ger than
+65536 bytes in size). Performance drop increases with the size of the f=
+ile.
+Work is in progress to identify the source of this issue.
+
+We encourage the community to review our TCP socket splice project. Fee=
+dback
+would be greatly appreciated.
+
+--
+Ashwini Kulkarni
