@@ -1,36 +1,36 @@
-From: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
-Subject: UDP Out 0f Sequence
-Date: Wed, 20 Sep 2006 15:13:48 +0800
-Message-ID: <F444CAE5E62A714C9F45AA292785BED30EB97591@esng11p33001.sg.csfb.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Suspend/Resume: IPv6 default route gets lost
+Date: Wed, 20 Sep 2006 10:49:50 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0609201043290.31679@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ny-bas08.csfb.com ([198.240.130.81]:44774 "EHLO
-	ny-bas08.csfb.com") by vger.kernel.org with ESMTP id S1751020AbWITHQ1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 03:16:27 -0400
-Received: from snyc11p30741.csfb.cs-group.com (snyc11p30741.csfb.mail [169.37.102.72])
-	by ny-bas08.csfb.com (Postfix) with ESMTP id 88F6C1821
-	for <netdev@vger.kernel.org>; Wed, 20 Sep 2006 03:16:26 -0400 (EDT)
-To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+Received: from netcore.fi ([193.94.160.1]:12266 "EHLO netcore.fi")
+	by vger.kernel.org with ESMTP id S1751287AbWITHtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 03:49:52 -0400
+Received: from localhost (pekkas@localhost)
+	by netcore.fi (8.12.11.20060614/8.12.11) with ESMTP id k8K7noch001772
+	for <netdev@vger.kernel.org>; Wed, 20 Sep 2006 10:49:50 +0300
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello,
 
-If I write UDP datagrams 1,2 and 3 to network and if the receiver receives in order 2,1, and 3, where can the sequence get changed? Is it at the source stack, network transit or destination stack? 
+I'm using FC5 w/ 2.6.17-1.2174_FC5.  When the laptop resumes from 
+suspend, it does not re-send an IPv6 route solicitation.  So, if the 
+IPv6 default route expired while you were in suspend, you'll have to 
+wait for the next multicast unsolicited RA.
 
-Any reply is highly appreciated. 
+A workaround is to cycle the interface at ACPI resume scripts.
 
-Thanks
+Maybe triggering a RS is a missing feature in suspend/resume kernel 
+functionality?
 
-Rajib 
+There has also been discussion (years ago) about user-space interface 
+to triggering a RS, but AFAIK, none exists right now.
 
-==============================================================================
-Please access the attached hyperlink for an important electronic communications disclaimer: 
-
-http://www.credit-suisse.com/legal/en/disclaimer_email_ib.html
-==============================================================================
-
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
