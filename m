@@ -1,96 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PATCH] IPV6: Updates for net-2.6.19
-Date: Wed, 20 Sep 2006 12:46:33 +0900 (JST)
-Message-ID: <20060920.124633.93310316.yoshfuji@linux-ipv6.org>
-References: <20060919.000826.80802464.yoshfuji@linux-ipv6.org>
-	<45101A35.6060908@6wind.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [patch 3/5] ATM: he: fix section mismatch
+Date: Tue, 19 Sep 2006 23:05:08 -0700
+Message-ID: <adaslinjcob.fsf@cisco.com>
+References: <200609200108.k8K18oW2011719@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, rdunlap@xenotime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:14086 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1750895AbWITDoX
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 23:44:23 -0400
-To: nicolas.dichtel@6wind.com, davem@davemloft.net
-In-Reply-To: <45101A35.6060908@6wind.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:50082 "EHLO
+	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
+	id S1750803AbWITGFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 02:05:14 -0400
+To: akpm@osdl.org
+In-Reply-To: <200609200108.k8K18oW2011719@shell0.pdx.osdl.net> (akpm@osdl.org's message of "Tue, 19 Sep 2006 18:08:50 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <45101A35.6060908@6wind.com> (at Tue, 19 Sep 2006 18:26:29 +0200), Nicolas DICHTEL <nicolas.dichtel@6wind.com> says:
+ > WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x218a) and 'he_service_tbrq'
 
-> > +	if (pneigh)
-> > +		is_router = pneigh->flags & NTF_ROUTER;
-> >   
-> In function ndisc_send_na(), is_router must be 1 or 0, doesn't it ? Because,
-> icmph.icmp6_router is define as: "__u32           router:1,".
-> 
-> So, patch will be:
-> 
-> -		is_router = pneigh->flags & NTF_ROUTER;
-> +		is_router = !!(pneigh->flags & NTF_ROUTER);
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> 
-> 
-> What do you think ?
+ > -static int __init
+ > +static int __devinit
+ >  he_init_group(struct he_dev *he_dev, int group)
 
-Oh, good catch.
+There are a ton of other __init functions (he_init_irq(),
+he_init_tx_lbfp(), etc.) called from the __devinit function he_start()
+in this driver.  So I think this patch is insufficient -- does it even
+really fix the warning??  (I think -funit-at-a-time hides the warning
+with this patch on x86-64)
 
-In addition, we are sending NA with wrong IsRouter if forwarding is
-set to even non-zero value.  We need to fix both.
+Anyway, I sent a more comprehensive fix to Chas who forwarded it to
+DaveM already.
 
-Here's the patch on top of my git tree for IPv6 updates.
-
-----
-[IPV6] NDISC: Fix is_router flag setting.
-
-We did not send appropriate IsRouter flag in proxy NAs, or in non-proxy NAs
-if the forwarding setting is even non-zero value.  To fix both cases,
-let's ensure to give 1/0 value to ndisc_send_na().
-
-Also, existing users of ndisc_send_na() give 0/1 to override,
-we can omit redundant operation in that function.
-
-Bug in proxy NAs was spotted by Nicolas Dichtel <nicolas.dichtel@6wind.com>.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/ndisc.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 76517a5..0304b5f 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -496,7 +496,7 @@ static void ndisc_send_na(struct net_dev
-         msg->icmph.icmp6_unused = 0;
-         msg->icmph.icmp6_router    = router;
-         msg->icmph.icmp6_solicited = solicited;
--        msg->icmph.icmp6_override  = !!override;
-+        msg->icmph.icmp6_override  = override;
- 
-         /* Set the target address. */
- 	ipv6_addr_copy(&msg->target, solicited_addr);
-@@ -847,10 +847,7 @@ static void ndisc_recv_ns(struct sk_buff
- 			goto out;
- 	}
- 
--	if (pneigh)
--		is_router = pneigh->flags & NTF_ROUTER;
--	else
--		is_router = idev->cnf.forwarding;
-+	is_router = !!(pneigh ? pneigh->flags & NTF_ROUTER : idev->cnf.forwarding);
- 
- 	if (dad) {
- 		struct in6_addr maddr;
--- 
-1.4.0
-
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+ - R.
