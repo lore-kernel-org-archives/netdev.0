@@ -1,48 +1,43 @@
-From: Andrey Savochkin <saw@sw.ru>
-Subject: Re: [PATCH 4/9] network namespaces: socket hashes
-Date: Wed, 20 Sep 2006 20:32:22 +0400
-Message-ID: <20060920203222.B10791@castle.nmd.msu.ru>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <20060815184844.A2882@castle.nmd.msu.ru> <450EB771.9080609@fr.ibm.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: Re: [PATCH 08/23] e1000: add multicast stats counters
+Date: Wed, 20 Sep 2006 09:38:54 -0700
+Message-ID: <F3EE2A9EB4576F40AFE238EC0AC04BC5091F8526@orsmsx402.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
-	ebiederm@xmission.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	devel@openvz.org, alexey@sw.ru
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:6163 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1751808AbWITQcY
+Received: from mga01.intel.com ([192.55.52.88]:33289 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1751672AbWITQjU convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 12:32:24 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <450EB771.9080609@fr.ibm.com>; from "Daniel Lezcano" on Mon, Sep 18, 2006 at 05:12:49PM
+	Wed, 20 Sep 2006 12:39:20 -0400
+Content-class: urn:content-classes:message
+To: <netdev@vger.kernel.org>, "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+>> +	{ "rx_broadcast", E1000_STAT(stats.bprc) },
+>> +	{ "tx_broadcast", E1000_STAT(stats.bptc) },
+>> +	{ "rx_multicast", E1000_STAT(stats.mprc) },
+>> +	{ "tx_multicast", E1000_STAT(stats.mptc) },
+>>  	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
+>>  	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
+>>  	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
+>
+>NAK -- you also need to remove the standard net stats, which are 
+>exported elsewhere
 
-On Mon, Sep 18, 2006 at 05:12:49PM +0200, Daniel Lezcano wrote:
-> Andrey Savochkin wrote:
-> > Socket hash lookups are made within namespace.
-> > Hash tables are common for all namespaces, with
-> > additional permutation of indexes.
-> 
-> Hi Andrey,
-> 
-> why is the hash table common and not instanciated multiple times for 
-> each namespace like the routes ?
+Jeff, can you please explain the reason for this NAK a little more?
+Neither Auke nor I understand why you rejected the patch.
 
-The main reason is that socket hash tables should be large enough to work
-efficiently, but it isn't good to waste a lot of memory for each namespace.
-Namespaces should be cheap enough, to allow to have hundreds of them.
-This reason of memory efficiency, of course, has a priority unless/until
-socket hash tables start to resize automatically.
+This patch just adds the display of a few more stats in Ethtool.  It
+doesn't affect any other counters, and is really just a convenience
+feature.  I added this to the driver because of a customer request.
 
-Another point is that routing lookup is much more complicated than the
-socket's one to add another search key.
-Routing also have additional routines for deleting entries matching some
-patterns, and so on.
-In short, routing is much more complicated, and it already quite efficient
-for various sizes of routing tables.
+Thank you in advance for edifying us.
 
-	Andrey
+-Mitch
+
