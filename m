@@ -1,167 +1,71 @@
-From: akpm@osdl.org
-Subject: [patch 5/5] Add netpoll/netconsole support to vlan devices
-Date: Tue, 19 Sep 2006 18:08:52 -0700
-Message-ID: <200609200108.k8K18qqu011728@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jesper.juhl@gmail.com,
-	davem@redhat.com, greearb@candelatech.com, mingo@redhat.com,
-	mpm@selenic.com
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] Remove powerpc specific parts of 3c509 driver
+Date: Tue, 19 Sep 2006 20:17:50 -0500
+Message-ID: <20060920011750.GS29167@austin.ibm.com>
+References: <20060919145433.8fc7d478.sfr@canb.auug.org.au> <20060919184243.GL29167@austin.ibm.com> <45103C62.4080003@genesi-usa.com> <1158708269.6002.186.camel@localhost.localdomain> <488875E7-CCBC-47E1-A273-A2D037A997B2@kernel.crashing.org> <1158711935.6002.226.camel@localhost.localdomain> <9F6F4A8E-C780-4358-97AA-570B33C0598F@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, akpm@osdl.org,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
+	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:63632 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750820AbWITBJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 21:09:07 -0400
-To: davem@davemloft.net
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:3021 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750798AbWITBRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 21:17:52 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8K1Hp9K028980
+	for <netdev@vger.kernel.org>; Tue, 19 Sep 2006 21:17:51 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8K1Hpbp262790
+	for <netdev@vger.kernel.org>; Tue, 19 Sep 2006 21:17:51 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8K1Ho1n014797
+	for <netdev@vger.kernel.org>; Tue, 19 Sep 2006 21:17:51 -0400
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Content-Disposition: inline
+In-Reply-To: <9F6F4A8E-C780-4358-97AA-570B33C0598F@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
 
-I recently tried running netconsole via a vlan interface without luck,
-and decided to do something about it (see patch below).
+Hi,
 
-My interfaces look like this:
+I am alarmed and embarassed that sloppy comments on my part has turned
+onto a long conversation.
 
-eth0      Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:11763760878 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:13800040335 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:3453951528686 (3.1 TiB)  TX bytes:7086425530052 (6.4 TiB)
-          Interrupt:169
+On Wed, Sep 20, 2006 at 02:58:39AM +0200, Segher Boessenkool wrote:
+> >> Sure, PCI busses are little-endian.  But is readX()/writeX() for PCI
+> >> only?  I sure hope not.
+> >
+> > It's defined for PCI and possibly ISA memory. You can use it for other
+> > things if you whish to, but "other things" are arch specific in any
+> > case.
+> 
+> Huh?  You're saying that only PCI and ISA are standardised busses?
 
-eth0.20   Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
-          inet addr:vvv.xxx.yyy.zzz  Bcast:ggg.hhh.iii.jjj  Mask:255.255.252.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:11759883828 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:13800040452 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:3194985806767 (2.9 TiB)  TX bytes:6975984645540 (6.3 TiB)
+Well, I'm having trouble thinking of other busses that have as strong 
+a sense of the "address-data" style I/O as PCI. Busses like scsi and 
+ide are primarily "command-data" or "data-data" in style.  Only the
+address-data style busses need readl/writel-style routines.
 
-Trying to load netconsole fails miserably :
+I can't prove, but suspect that the "adress-data" style of access is 
+why PCI is wired up "close to" the CPU.  What other bsses are there 
+that are direct-attached to the CPU? I can't think of much ...
 
-[root@server root]# modprobe netconsole
-netconsole=@/eth0,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
-FATAL: Error inserting netconsole
-(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
-[root@server root]# modprobe netconsole
-netconsole=@/eth0.20,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
-FATAL: Error inserting netconsole
-(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
+The sbus on sparc ... hypertransport from AMD ... but hypertransport is 
+more or less invisible to the kernel.  ... some recent attempts to 
+supplant the system bus with infiniband, but I get the impression that 
+this will be strangely engineered, and semi-invisible to the kernel as
+well. The actual infiniband protocols are ipv6-like+rdma and so fall
+into a "data-data" programming style.
 
-And results in this in dmesg :
+> > Different bus -> different accessor.
+> 
+> Then please rename readX()/writeX() to pci_readX()/pci_writeX().
 
-netconsole: interface eth0
-netconsole: remote port 10514
-netconsole: remote IP aaa.bbb.ccc.ddd
-netconsole: remote ethernet address 00:04:23:bf:d9:62
-netconsole: no IP address for eth0, aborting
-netconsole: local port 6665
-netconsole: interface eth0.20
-netconsole: remote port 10514
-netconsole: remote IP aaa.bbb.ccc.ddd
-netconsole: remote ethernet address 00:04:23:bf:d9:62
-netconsole: eth0.20 doesn't support polling, aborting.
+Well, I don't get the impression that there will be othre busses for
+which this is an issue the way it is on pci.
 
-The actual interface is a e1000 and supports polling just fine.
-The problem is simply that netpoll won't play with eth0 since it has
-no IP and it won't play with eth0.20 either since it's a vlan
-interface and doesn't support polling even if the underlying device
-does.
+--linas
 
-This is a problem for me since it means that several of my servers
-that are configured like this won't be able to use netconsole.
-So I set out to try and fix the problem by making the vlan device
-support polling if the underlying device supports polling.
-
-I have met with a resonable success in that the patch below seems to
-work. With this patch I can now load netconsole for eth0.20 and log
-messages are send just fine and can be recieved on the remote host.
-
- netconsole: local port 6665
- netconsole: interface eth0.20
- netconsole: remote port 10514
- netconsole: remote IP aaa.bbb.ccc.ddd
- netconsole: remote ethernet address 00:04:23:bf:d9:62
- netconsole: local IP vvv.xxx.yyy.zzz
- netconsole: network logging started
-
-Now, I would very much like to get this merged, but first I would
-appreciate some review of the patch. This part of the kernel is not
-one I know all too well, so I may have made a number of silly mistakes.
-If people would kindly take a look at the patch and point out any
-problems with it so I can fix it up and arrive at a version that's
-mergable, I'd greatly appreciate it.
-
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: "David S. Miller" <davem@redhat.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- net/8021q/vlan.c     |    5 +++++
- net/8021q/vlan_dev.c |   15 ++++++++++++++-
- 2 files changed, 19 insertions(+), 1 deletion(-)
-
-diff -puN net/8021q/vlan.c~add-netpoll-netconsole-support-to-vlan-devices net/8021q/vlan.c
---- a/net/8021q/vlan.c~add-netpoll-netconsole-support-to-vlan-devices
-+++ a/net/8021q/vlan.c
-@@ -11,6 +11,7 @@
-  *		Add HW acceleration hooks - David S. Miller <davem@redhat.com>;
-  *		Correct all the locking - David S. Miller <davem@redhat.com>;
-  *		Use hash table for VLAN groups - David S. Miller <davem@redhat.com>
-+ *		Add NETPOLL support - Jesper Juhl
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-@@ -512,6 +513,10 @@ static struct net_device *register_vlan_
- 	}
- 	new_dev->hard_header_parse = real_dev->hard_header_parse;
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	new_dev->poll_controller = real_dev->poll_controller;
-+#endif
-+
- 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
- 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
- 	VLAN_DEV_INFO(new_dev)->dent = NULL;
-diff -puN net/8021q/vlan_dev.c~add-netpoll-netconsole-support-to-vlan-devices net/8021q/vlan_dev.c
---- a/net/8021q/vlan_dev.c~add-netpoll-netconsole-support-to-vlan-devices
-+++ a/net/8021q/vlan_dev.c
-@@ -12,7 +12,8 @@
-  *              Oct 20, 2001:  Ard van Breeman:
-  *                - Fix MC-list, finally.
-  *                - Flush MC-list on VLAN destroy.
-- *                
-+ *		Aug 31, 2006: Jesper Juhl
-+ *		  - Add NETPOLL support.
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-@@ -489,6 +490,12 @@ int vlan_dev_hard_start_xmit(struct sk_b
- 	stats->tx_bytes += skb->len;
- 
- 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (irqs_disabled()) {
-+		skb->dev->hard_start_xmit(skb, skb->dev);
-+		return 0;
-+	}
-+#endif
- 	dev_queue_xmit(skb);
- 
- 	return 0;
-@@ -513,6 +520,12 @@ int vlan_dev_hwaccel_hard_start_xmit(str
- 	stats->tx_bytes += skb->len;
- 
- 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (irqs_disabled()) {
-+		skb->dev->hard_start_xmit(skb, skb->dev);
-+		return 0;
-+	}
-+#endif
- 	dev_queue_xmit(skb);
- 
- 	return 0;
-_
