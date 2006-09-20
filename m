@@ -1,80 +1,34 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: RE: ipsec acquire has security context although I a m
-	not using it.
-Date: Wed, 20 Sep 2006 10:16:43 -0500
-Message-ID: <200609201516.k8KFGh1I018437@faith.austin.ibm.com>
-Cc: redhat-lspp@redhat.com, netdev@vger.kernel.org,
-	davem@davemloft.net, selinux@tycho.nsa.gov, jmorris@namei.org
-Return-path: <redhat-lspp-bounces@redhat.com>
-To: vyekkirala@TrustedCS.com
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/redhat-lspp>
-List-Post: <mailto:redhat-lspp@redhat.com>
-List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
-Sender: redhat-lspp-bounces@redhat.com
-Errors-To: redhat-lspp-bounces@redhat.com
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 12/23] e1000: Maybe stop TX if not enough free descriptors
+Date: Wed, 20 Sep 2006 08:30:13 -0700
+Message-ID: <45115E85.3090202@intel.com>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172859.4605.60855.stgit@gitlost.site> <45104719.9080708@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:44973 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1751625AbWITPcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 11:32:51 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <45104719.9080708@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Venkat,
+Jeff Garzik wrote:
+> Actually, I rescind the ACK.
+> 
+> The code should be inside a spinlock, and therefore not need this 
+> additional check.
+> 
+> If this check were truly needed, then SMP code all over the kernel would 
+> be broken.
 
->This doesn't look right since kzalloc would already have zeroed the
->structure out. Are you sure you are getting garbage in the acquire
->from the kernel? If you are, I strongly doubt that this would be the
->one causing it (unless kzalloc on this arch misbehaved).
->Or is this a racoon bug?
+I will drop the patch for now. Once Jesse is back next week he gets to explain 
+all it to me :)
 
-Yes, you are correct! Thanks for pointing this out to me
-as I missed it! It is racoon that has the bug.
-Will fix and post correct fix shortly. Please ignore
-attached fix as it is incorrect.
-
-Again, thanks!
-
-Regards,
-Joy
-
->> When using ipsec while selinux is enabled in my kernel, 
->> my racoon daemon fails to establish an SA. I believe the
->> ACQUIRE sent from kernel has a security context although I 
->> am not using this feature with ipsec. As a result, racoon
->> fails to establish the SA, because it is looking for a policy
->> with security context. I noticed the security context 
->> contains garbage. 
->> 
->> I am using a pseries, power5, ppc64 box, and it appears
->> that since policy->security structure is not really initialized
->> or zero'd out when not using, it is possible it may contain garbage
->> on my pseries and a call such as "if (policy->security)" may 
->> come back as true such that security context is included in
->> my acquire message although I believe it should not be. 
->> 
->> Hopefully, the below patch is acceptable. I have compiled and
->> tested it.
->> 
->> Regards,
->> Joy Latten
->> 
->> 
->> diff -urpN linux-2.6.17.orig/net/xfrm/xfrm_policy.c 
->> linux-2.6.17.patch/net/xfrm/xfrm_policy.c
->> --- linux-2.6.17.orig/net/xfrm/xfrm_policy.c	2006-09-19 
->> 02:11:33.000000000 -0500
->> +++ linux-2.6.17.patch/net/xfrm/xfrm_policy.c	2006-09-19 
->> 04:33:50.000000000 -0500
->> @@ -319,6 +319,7 @@ struct xfrm_policy *xfrm_policy_alloc(gf
->>  		init_timer(&policy->timer);
->>  		policy->timer.data = (unsigned long)policy;
->>  		policy->timer.function = xfrm_policy_timer;
->> +		policy->security = NULL;
->>  	}
->>  	return policy;
->>  }
->> 
-
---
-This message was distributed to subscribers of the selinux mailing list.
-If you no longer wish to subscribe, send mail to majordomo@tycho.nsa.gov with
-the words "unsubscribe selinux" without quotes as the message.
+Auke
