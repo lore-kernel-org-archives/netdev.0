@@ -1,56 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Remove powerpc specific parts of 3c509 driver
-Date: Wed, 20 Sep 2006 17:29:04 -0400
-Message-ID: <4511B2A0.2010607@pobox.com>
-References: <20060919145433.8fc7d478.sfr@canb.auug.org.au> <20060919184243.GL29167@austin.ibm.com> <45103C62.4080003@genesi-usa.com> <1158708269.6002.186.camel@localhost.localdomain> <488875E7-CCBC-47E1-A273-A2D037A997B2@kernel.crashing.org> <45109203.6060606@pobox.com> <1192ED41-329C-4CB0-AD87-B3BF62EC4337@kernel.crashing.org> <451096FE.1000104@pobox.com> <82BFB659-DCB3-477C-B53D-4D8C55BAADB7@kernel.crashing.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Update of the r8169 branch
+Date: Wed, 20 Sep 2006 23:40:10 +0200
+Message-ID: <20060920214010.GA7879@electric-eye.fr.zoreil.com>
+References: <20060726215840.GA4032@electric-eye.fr.zoreil.com> <4511A4F0.6050101@kernelpanic.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Matt Sealey <matt@genesi-usa.com>, akpm@osdl.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	Matt Bockol <mbockol@carleton.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:11756 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932130AbWITV3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 17:29:45 -0400
-To: Segher Boessenkool <segher@kernel.crashing.org>
-In-Reply-To: <82BFB659-DCB3-477C-B53D-4D8C55BAADB7@kernel.crashing.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:26285 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932151AbWITVlg
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 17:41:36 -0400
+To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Content-Disposition: inline
+In-Reply-To: <4511A4F0.6050101@kernelpanic.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Segher Boessenkool wrote:
->>>>> Sure, PCI busses are little-endian.  But is readX()/writeX() for PCI
->>>>> only?
->>>>
->>>> Yes.
->>>>
->>>> For other buses, use foo_writel(), etc.
->>> Can this please be documented then?  Never heard this before...
->>
->> You have come late to the party.
-> 
-> WHat do you mean here?  Could you please explain?
-> 
->> This has been the case for many, many years.
-> 
-> No, it was never documented AFAICS.
+(adding netdev to Cc: so that the patch gets publically known)
 
-A de facto standard does not need to be documented, to be a de facto 
-standard.
+Boris B. Zhmurov <bb@kernelpanic.ru> :
+[...]
+> Hello Francois. I've figured out, that this patch wasn't merged in 
+> linux-2.6.18 :(
 
-A lot of Linux "standards" are often based on emails from Linus buried 
-halfway down a thread.  A decision gets made, and people follow.
+Bad timing. Patches are available.
 
+> Is there any plans to merge it in mainline ?
 
->> And there is no point in a massive rename to pci_writel(), either.
-> 
-> That would be really inconvenient, sure.  It's also inconvenient
-> that all the nice short names are PCI-only.
+Jeff pulled most of the r8169 branch. I can't answer for him but
+I guess that the answer is RSN.
 
-Only to you, a decided minority of developers.
+> And is there any patches available against linux-2.6.18 release?
 
-	Jeff
+The content of the r8169 branch in the git repository can be retrieved at:
 
+http://www.fr.zoreil.com/people/francois/misc/20060920-2.6.18-r8169-test.patch
 
+It should support 8167 as is.
 
+-- 
+Ueimor
