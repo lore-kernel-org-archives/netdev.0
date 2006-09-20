@@ -1,13 +1,13 @@
 From: Ashwini Kulkarni <ashwini.kulkarni@intel.com>
-Subject: [RFC 4/6] Add TCP socket splicing (tcp_splice_read) support
-Date: Wed, 20 Sep 2006 14:08:18 -0700
-Message-ID: <20060920210818.17480.59450.stgit@gitlost.site>
+Subject: [RFC 3/6] Add in TCP related part of splice read to ipv4
+Date: Wed, 20 Sep 2006 14:08:16 -0700
+Message-ID: <20060920210815.17480.77860.stgit@gitlost.site>
 References: <20060920210711.17480.92354.stgit@gitlost.site>
 Cc: christopher.leech@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:60429 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1751085AbWITU7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:59:21 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:59661 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751066AbWITU7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:59:18 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 In-Reply-To: <20060920210711.17480.92354.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
@@ -16,122 +16,194 @@ List-Id: netdev.vger.kernel.org
 
 ---
 
- fs/splice.c               |   16 ++++++++++++++++
- include/linux/net.h       |    2 ++
- include/linux/pipe_fs_i.h |    1 +
- include/net/tcp.h         |    3 +++
- net/socket.c              |   13 +++++++++++++
- 5 files changed, 35 insertions(+), 0 deletions(-)
+ net/ipv4/af_inet.c |    1 
+ net/ipv4/tcp.c     |  135 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 136 insertions(+), 0 deletions(-)
 
-diff --git a/fs/splice.c b/fs/splice.c
-index c6a880b..3a4202d 100644
---- a/fs/splice.c
-+++ b/fs/splice.c
-@@ -123,6 +123,12 @@ error:
- 	return err;
- }
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index c84a320..3c0d245 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -807,6 +807,7 @@ const struct proto_ops inet_stream_ops =
+ 	.recvmsg	   = sock_common_recvmsg,
+ 	.mmap		   = sock_no_mmap,
+ 	.sendpage	   = tcp_sendpage,
++	.splice_read	   = tcp_splice_read,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 934396b..d4c02a1 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -254,6 +254,10 @@
+ #include <linux/init.h>
+ #include <linux/smp_lock.h>
+ #include <linux/fs.h>
++#include <linux/skbuff.h>
++#include <linux/pipe_fs_i.h>
++#include <linux/net.h>
++#include <linux/socket.h>
+ #include <linux/random.h>
+ #include <linux/bootmem.h>
+ #include <linux/cache.h>
+@@ -264,6 +268,7 @@
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+ #include <net/netdma.h>
++#include <net/sock.h>
  
-+void generic_sock_buf_release(struct pipe_inode_info *pipe,
-+					struct pipe_buffer *buf)
-+{
-+	put_page(buf->page);
-+}
-+
- static struct pipe_buf_operations page_cache_pipe_buf_ops = {
- 	.can_merge = 0,
- 	.map = generic_pipe_buf_map,
-@@ -133,6 +139,16 @@ static struct pipe_buf_operations page_c
- 	.get = generic_pipe_buf_get,
- };
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -291,6 +296,23 @@ EXPORT_SYMBOL(tcp_memory_allocated);
+ EXPORT_SYMBOL(tcp_sockets_allocated);
  
-+static struct pipe_buf_operations sock_buf_ops = {
-+	.can_merge = 0,
-+	.map = generic_pipe_buf_map,
-+	.unmap = generic_pipe_buf_unmap,
-+	.pin = generic_pipe_buf_pin,
-+	.release = generic_sock_buf_release,
-+	.steal = generic_pipe_buf_steal,
-+	.get = generic_pipe_buf_get,
+ /*
++ *	Create a TCP splice context.
++ */
++struct tcp_splice_state {
++		struct pipe_inode_info *pipe;
++		void (*original_data_ready)(struct sock*, int);
++		size_t len;
++		size_t offset;
++		unsigned int flags;
 +};
 +
- static int user_page_pipe_buf_steal(struct pipe_inode_info *pipe,
- 				    struct pipe_buffer *buf)
- {
-diff --git a/include/linux/net.h b/include/linux/net.h
-index b20c53c..65dfe0c 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -164,6 +164,8 @@ struct proto_ops {
- 				      struct vm_area_struct * vma);
- 	ssize_t		(*sendpage)  (struct socket *sock, struct page *page,
- 				      int offset, size_t size, int flags);
-+	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
-+				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
- };
- 
- struct net_proto_family {
-diff --git a/include/linux/pipe_fs_i.h b/include/linux/pipe_fs_i.h
-index 9067985..f7f439b 100644
---- a/include/linux/pipe_fs_i.h
-+++ b/include/linux/pipe_fs_i.h
-@@ -72,6 +72,7 @@ void generic_pipe_buf_get(struct pipe_in
- int generic_pipe_buf_pin(struct pipe_inode_info *, struct pipe_buffer *);
- int generic_pipe_buf_steal(struct pipe_inode_info *, struct pipe_buffer *);
- 
-+void generic_sock_buf_release(struct pipe_inode_info *, struct pipe_buffer *);
- /*
-  * splice is tied to pipes as a transport (at least for now), so we'll just
-  * add the splice flags here.
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7a093d0..5032501 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -300,6 +300,9 @@ extern void			tcp_cleanup_rbuf(struct so
- extern int			tcp_twsk_unique(struct sock *sk,
- 						struct sock *sktw, void *twp);
- 
-+extern ssize_t			tcp_splice_read(struct socket *sk, loff_t *ppos,
-+					        struct pipe_inode_info *pipe, size_t len, unsigned int flags);
++int __tcp_splice_read(struct sock *sk, loff_t *ppos, struct pipe_inode_info *pipe,
++		      size_t len, unsigned int flags, struct tcp_splice_state *tss);
++int tcp_splice_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb,
++			 unsigned int offset, size_t len);
++void tcp_splice_data_ready(struct sock *sk, int flag);
 +
- static inline void tcp_dec_quickack_mode(struct sock *sk,
- 					 const unsigned int pkts)
- {
-diff --git a/net/socket.c b/net/socket.c
-index 6d261bf..8a4f602 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -117,6 +117,8 @@ static ssize_t sock_writev(struct file *
- 			  unsigned long count, loff_t *ppos);
- static ssize_t sock_sendpage(struct file *file, struct page *page,
- 			     int offset, size_t size, loff_t *ppos, int more);
-+static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
-+			        struct pipe_inode_info *pipe, size_t len, unsigned int flags);
- 
- /*
-  *	Socket files have a set of 'special' operations as well as the generic file ones. These don't appear
-@@ -141,6 +143,7 @@ static struct file_operations socket_fil
- 	.writev =	sock_writev,
- 	.sendpage =	sock_sendpage,
- 	.splice_write = generic_splice_sendpage,
-+	.splice_read =	sock_splice_read,
- };
- 
- /*
-@@ -701,6 +704,16 @@ static ssize_t sock_sendpage(struct file
- 	return sock->ops->sendpage(sock, page, offset, size, flags);
++/*
+  * Pressure flag: try to collapse.
+  * Technical note: it is used by multiple contexts non atomically.
+  * All the sk_stream_mem_schedule() is of this nature: accounting
+@@ -499,6 +521,118 @@ static inline void tcp_push(struct sock 
+ 	}
  }
  
-+static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
-+			        struct pipe_inode_info *pipe, size_t len, unsigned int flags)
++/*
++ *  tcp_splice_read - splice data from TCP socket to a pipe
++ * @sock:	socket to splice from
++ * @pipe:	pipe to splice to
++ * @len:	number of bytes to splice
++ * @flags:	splice modifier flags
++ *
++ * Will read pages from given socket and fill them into a pipe.
++ */
++ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos, struct pipe_inode_info *pipe, size_t len, unsigned int flags)
 +{
-+	struct socket *sock;
++	struct tcp_splice_state tss = {
++		.pipe = pipe,
++		.len = len,
++		.flags = flags,
++	};
++	struct sock *sk = sock->sk;
++	ssize_t spliced;
++	int ret;
 +
-+	sock = file->private_data;
++	ret = 0;
++	spliced = 0;
 +
-+	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
++	if (*ppos != 0)
++		return -EINVAL;
++
++	while(tss.len) {
++		ret = __tcp_splice_read(sk, ppos, tss.pipe, tss.len, tss.flags, &tss);
++
++		if(ret < 0)
++			break;
++		else if (!ret) {
++			if (spliced)
++				break;
++			if (flags & SPLICE_F_NONBLOCK) {
++				ret = -EAGAIN;
++				break;
++			}
++		}
++		tss.len -= ret;
++		spliced += ret;
++	}
++	if (spliced)
++		return spliced;
++
++	return ret;
 +}
 +
- static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
- 		char __user *ubuf, size_t size, struct sock_iocb *siocb)
++int __tcp_splice_read(struct sock *sk, loff_t *ppos, struct pipe_inode_info *pipe, size_t len, unsigned int flags, struct tcp_splice_state *tss)
++{
++	read_descriptor_t rd_desc;
++	int copied;
++
++	tss->original_data_ready = sk->sk_data_ready;
++
++	sk->sk_user_data = tss;
++
++	/* Store TCP splice context information in read_descriptor_t. */
++	rd_desc.arg.data = tss;
++
++	copied = tcp_read_sock(sk, &rd_desc, tcp_splice_data_recv);
++
++	if (copied != 0) {
++		if (flags & SPLICE_F_MORE) {
++			/* Setup new sk_data_ready as tcp_splice_data_ready. */
++			sk->sk_data_ready = tcp_splice_data_ready;
++			return sk_wait_data(sk, &sk->sk_rcvtimeo);
++		}
++		else if(flags & SPLICE_F_NONBLOCK)
++			return -EAGAIN;
++		else return copied;
++	}
++	else
++		return copied;
++}
++
++int tcp_splice_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb, unsigned int offset, size_t len)
++{
++	/*
++	 * Restore TCP splice context from read_descriptor_t
++	 */
++	struct tcp_splice_state *tss = rd_desc->arg.data;
++
++	return skb_splice_bits(skb, offset, tss->pipe, tss->len, tss->flags);
++}
++
++void tcp_splice_data_ready(struct sock *sk, int flag)
++{
++	/*
++	 * Restore splice context/ read_descriptor_t from sk->sk_user_data
++	 */
++	struct tcp_splice_state *tss = sk->sk_user_data;
++	read_descriptor_t rd_desc;
++
++	read_lock(&sk->sk_callback_lock);
++
++	rd_desc.arg.data = tss;
++	rd_desc.count = 1;
++	tcp_read_sock(sk, &rd_desc, tcp_splice_data_recv);
++
++	read_unlock(&sk->sk_callback_lock);
++
++	if(tss->len == 0) {
++		/* Restore original sk_data_ready callback. */
++		sk->sk_data_ready = tss->original_data_ready;
++		/* Wakeup user thread. */
++		return sock_def_wakeup(sk);
++	}
++	else
++		return;
++}
++
+ static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
+ 			 size_t psize, int flags)
  {
+@@ -2345,6 +2479,7 @@ EXPORT_SYMBOL(tcp_poll);
+ EXPORT_SYMBOL(tcp_read_sock);
+ EXPORT_SYMBOL(tcp_recvmsg);
+ EXPORT_SYMBOL(tcp_sendmsg);
++EXPORT_SYMBOL(tcp_splice_read);
+ EXPORT_SYMBOL(tcp_sendpage);
+ EXPORT_SYMBOL(tcp_setsockopt);
+ EXPORT_SYMBOL(tcp_shutdown);
 
