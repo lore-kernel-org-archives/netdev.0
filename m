@@ -1,47 +1,86 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] genetlink custom attribute type
-Date: Wed, 20 Sep 2006 08:24:48 +0200
-Message-ID: <20060920062448.GG18349@postel.suug.ch>
-References: <1158219852.2936.12.camel@ux156> <20060914081409.GB18349@postel.suug.ch> <1158225704.2936.27.camel@ux156>
+Subject: Re: [RFC 3/3] cfg80211 thoughts on configuration
+Date: Wed, 20 Sep 2006 08:33:06 +0200
+Message-ID: <20060920063306.GH18349@postel.suug.ch>
+References: <1158230812.2936.46.camel@ux156> <1158231183.2936.55.camel@ux156>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Mohamed Abbas <mabbas@linux.intel.com>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:4284 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751041AbWITGY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 02:24:28 -0400
+Received: from postel.suug.ch ([194.88.212.233]:13244 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751217AbWITGcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 02:32:45 -0400
 To: Johannes Berg <johannes@sipsolutions.net>
 Content-Disposition: inline
-In-Reply-To: <1158225704.2936.27.camel@ux156>
+In-Reply-To: <1158231183.2936.55.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Johannes Berg <johannes@sipsolutions.net> 2006-09-14 11:21
-> On Thu, 2006-09-14 at 10:14 +0200, Thomas Graf wrote:
+* Johannes Berg <johannes@sipsolutions.net> 2006-09-14 12:53
+> This is some preliminary code how I'm currently thinking (and that might
+> change radically :) ) configuration might look like.
 > 
-> > Looks good, we have to watch the size of struct nla_policy though.
-> > This bumps the size from 4 bytes to 16 bytes on 64bit architectures
-> > which might become a problem since we always use ATTR_MAX sized
-> > arrays.
+> It uses the patch I previously posted to make genetlink attributes
+> custom-definable.
 > 
-> Yes, I'm aware of that, but I couldn't think of a way to handle it well.
-> 
-> I thought about using a second array containing just the check
-> functions, and then (ab)using `len' to index into it but that didn't
-> seem clean enough.
+> --- wireless-dev.orig/include/linux/nl80211.h	2006-09-13 22:06:10.539647141 +0200
+> +++ wireless-dev/include/linux/nl80211.h	2006-09-13 22:06:11.919647141 +0200
+> @@ -45,6 +45,47 @@ enum {
+>  	/* get list of all interfaces belonging to a wiphy */
+>  	NL80211_CMD_NEW_INTERFACES,
+>  
+> +	/* configure device */
+> +	NL80211_CMD_CONFIGURE,
+> +
+> +	/* request configuration */
+> +	NL80211_CMD_GET_CONFIG,
+> +
+> +	/* configuration sent from kernel */
+> +	NL80211_CMD_CONFIGURATION,
 
-I agree, I talked about this with various people and some ideas
-came up.
+I think I brought this up already, it's a lot easier to understand
+things if you keep it symmetric, i.e. NL80211_CMD_GET_CONFIG triggers
+sending a NL80211_CMD_NEW_CONFIG.
 
-Always use function pointers to define the validation policy, i.e.
-there would be nla_validate_u32() etc. The problem with this approach
-is that for every string attribute with different length a separate
-validation function is required which simply adds to code what it
-saved from text. It also makes exporting the policy to userspace
-impossible.
+> +static int check_information_element(struct nlattr *nla)
+> +{
+> +	int len = nla_len(nla);
+> +	u8 *data = nla_data(nla);
+> +	int elementlen;
+> +
+> +	while (len >= 2) {
+> +		/* 1 byte ID, 1 byte len, `len' bytes data */
+> +		elementlen = *(data+1) + 2;
+> +		data += elementlen;
+> +		len -= elementlen;
+> +	}
+> +	return len ? -EINVAL : 0;
+> +}
+> +
+>  static struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] __read_mostly = {
+>  	[NL80211_ATTR_IFINDEX] = { .type = NLA_U32 },
+>  	[NL80211_ATTR_WIPHY] = { .type = NLA_U32 },
+> @@ -33,6 +49,17 @@ static struct nla_policy nl80211_policy[
+>  				 .len = NL80211_MAX_FRAME_LEN },
+>  	[NL80211_ATTR_IFNAME] = { .type = NLA_NUL_STRING, .len = IFNAMSIZ-1 },
+>  	[NL80211_ATTR_IFTYPE] = { .type = NLA_U32 },
+> +	[NL80211_ATTR_NETWORK_ID] = { .type = NLA_U16 },
+> +	[NL80211_ATTR_CHANNEL] = { .type = NLA_U32 },
+> +	[NL80211_ATTR_RX_SENSITIVITY] = { .type = NLA_U32 },
+> +	[NL80211_ATTR_BSSID] = { .len = 6 },
+> +	[NL80211_ATTR_SSID] = { .type = NLA_STRING, .len = 32 },
+> +	[NL80211_ATTR_TRANSMIT_POWER] = { .type = NLA_U32 },
+> +	[NL80211_ATTR_FRAG_THRESHOLD] = { .type = NLA_U32 },
+> +	[NL80211_ATTR_INFORMATION_ELEMENT] = { .type = NLA_CUSTOM_CHECK,
+> +					       .check = check_information_element },
 
-Following up on your idea, we could save a bit by using ERR_PTR() to
-store both the callback pointer and type/len tuple in the very same
-pointer but that gets very ugly.
-
-I think its best to use your patch for now and see where this leads to.
+Just use a nested attribute here, this new array format you introduce
+having 1 byte ID, 1 byte len is equivalent to using a set of nested
+attributes with nla_type=id, nla_len=len.
