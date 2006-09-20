@@ -1,119 +1,62 @@
-From: Kimitoshi Takahashi <ktaka@clustcom.com>
-Subject: source ip selection for local route
-Date: Wed, 20 Sep 2006 19:56:56 +0900
-Message-ID: <45111E78.5090802@clustcom.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: RE: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
+Date: Wed, 20 Sep 2006 10:45:57 +0200
+Message-ID: <1158741958.2921.3.camel@laptopd505.fenrus.org>
+References: <7EA18FDD2DC2154AA3BD6D2F22A62A0E2FB214@zch01exm23.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Kimitoshi Takahashi <ktaka@clustcom.com>
+Cc: Andrew Morton <akpm@osdl.org>, jgarzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from i220-221-252-159.s30.a048.ap.plala.or.jp ([220.221.252.159]:24249
-	"EHLO mail.m.clustcom.com") by vger.kernel.org with ESMTP
-	id S1751091AbWITK47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 06:56:59 -0400
-To: netdev@vger.kernel.org
+Received: from pentafluge.infradead.org ([213.146.154.40]:30930 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750821AbWITLbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 07:31:15 -0400
+To: Zang Roy-r61911 <tie-fei.zang@freescale.com>
+In-Reply-To: <7EA18FDD2DC2154AA3BD6D2F22A62A0E2FB214@zch01exm23.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, 2006-09-19 at 15:39 +0800, Zang Roy-r61911 wrote:
 
-I have a question regarding the subject.
-In the old threads it seemed to have concluded that ignoring preferred source in local route was a
-bug and a pacth was proposed.
+> > 
+> > > +		spin_unlock_irq(&phy_lock);
+> > > +		msleep(10);
+> > > +		spin_lock_irq(&phy_lock);
+> > > +	}
+> > 
+> > hmm some places take phy_lock with disabling interrupts, while others
+> > don't. I sort of fear "the others" may be buggy.... are you sure those
+> > are ok?
+> Could you interpret your comments in detail?
+> Roy
 
-See,
-http://marc.theaimsgroup.com/?l=linux-netdev&m=99985580920599&w=2
+Hi,
 
-There, the following patch is proposed,
---- net/ipv4/route.c.x	Fri Sep  7 02:30:54 2001
-+++ net/ipv4/route.c	Fri Sep  7 02:30:54 2001
-@@ -1795,14 +1795,13 @@
+sorry for being unclear/too short in the review.
 
- 	if (res.type == RTN_LOCAL) {
- 		if (!key.src)
--			key.src = key.dst;
-+			key.src = res.fi->fib_prefsrc ? : key.dst;
- 		if (dev_out)
- 			dev_put(dev_out);
- 		dev_out = &loopback_dev;
- 		dev_hold(dev_out);
- 		key.oif = dev_out->ifindex;
--		if (res.fi)
--			fib_info_put(res.fi);
-+		fib_info_put(res.fi);
- 		res.fi = NULL;
- 		flags |= RTCF_LOCAL;
- 		goto make_route;
+The phy_lock lock is sometimes taken as spin_lock() and sometimes as
+spin_lock_irq(). It looks likes it can be used in interrupt context, in
+which case the spin_lock_irq() version is correct and the places where
+spin_lock() is used would be a deadlock bug (just think what happens if
+the interrupt happens while spin_lock(&phy_lock) is helt, and the
+spinlock then again tries to take the lock!)
 
-However, in the relatively recent kernel (2.6.17.9) it seems that the patch hasn't been applied.
+If there is no way this lock is used in interrupt context, then the
+spin_lock_irq() version is doing something which is not needed and also
+a bit expensive; so could be optimized.
 
-net/ipv4/route.c
-   2508         if (res.type == RTN_LOCAL) {
-   2509                 if (!fl.fl4_src)
-   2510                         fl.fl4_src = fl.fl4_dst;
-   2511                 if (dev_out)
-   2512                         dev_put(dev_out);
-   2513                 dev_out = &loopback_dev;
-   2514                 dev_hold(dev_out);
-   2515                 fl.oif = dev_out->ifindex;
-   2516                 if (res.fi)
-   2517                         fib_info_put(res.fi);
-   2518                 res.fi = NULL;
-   2519                 flags |= RTCF_LOCAL;
-   2520                 goto make_route;
-   2521         }
+But my impression is that the _irq() is needed. Also, please consider
+switching from spin_lock_irq() to spin_lock_irqsave() version instead;
+spin_unlock_irq() has some side effects (interrupts get enabled
+unconditionally) so it is generally safer to use
+spin_lock_irqsave()/spin_unlock_irqrestore() API.
 
-And actually the source IP of the comunication between two local interfaces is always that of
-destination.
+If you have more questions please do not hesitate to ask!
 
-So the questions is why the patch hasn't been applied to the main line kernel, although deciding the
-souce IP for local route based on routing table seemed more natural than makeing it IP of the
-destination.
-
-
-The actual problem I have is the following, (if you are interested,)
-We have a nfs server whose IP address is shared among two hosts using vrrp and those two hosts also
-act as nfs clients.
-
-When the following host1 is a nfs server, the two hosts have following IPs.
-host1  IP1, VRIP(nfs server's IP shared using vrrp)
-host2  IP2
-
-The nfs server and clients IP becomes as follows, because on host1 the source IP of nfs packet
-becomes that of destination i.e. VRIP.
-           nfs server IP   nfs client IP
-on host1   VRIP            VRIP
-on host2   VRIP            IP2
-
-We also share the content of the rmtab which is something like
-VRIP:/filesystem:0x00000001
-IP2:/filesystem:0x00000001
-(the first colummn is nfs client, the second is shared file system and the third column is the mount
-count.)
-
-When something happens to host1, the failover is triggered and the VRIP is moved to the host2,
-host1  IP1
-host2  IP2, VRIP(nfs server's IP shared using vrrp)
-
-           nfs server IP   nfs client IP
-on host1   VRIP            IP1
-on host2   VRIP            VRIP
-
-Accesses to the nfs mounted filesystem on host1 will be denied, if the content of the rmtab dosen't
-change, because the nfs server on host2 thinks the clients are only VRIP and IP2.
-
-Of course, it can be avoided, if we unmount and remount the files system on the client, or if we
-appropriately change the content of the rmtab when the failover occurs.
-
-However I think, it would be much nicer if the source IP of the client was always the primary IP of
-a interface. This is realized if the source IP is determined by the preferred source in routing table.
-
-Then the IPs of the nfs server and the clients are always like this, and this dosen't cause any
-problem when the failover happens.
-           nfs server IP   nfs client IP
-on host1   VRIP            IP1
-on host2   VRIP            IP2
-
-Thanks in advance,
-Kimitoshi Takahashi, Cluster Computing Inc., Japan
+Greetings,
+   Arjan van de Ven 
+-- 
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
 
