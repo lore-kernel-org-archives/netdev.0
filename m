@@ -1,42 +1,68 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH] Remove powerpc specific parts of 3c509 driver
-Date: Wed, 20 Sep 2006 03:41:02 +0200
-Message-ID: <96ED0FD1-ADE8-408B-82B1-CAB4D6964942@kernel.crashing.org>
-References: <20060919145433.8fc7d478.sfr@canb.auug.org.au>
-	<20060919184243.GL29167@austin.ibm.com>
-	<45103C62.4080003@genesi-usa.com>
-	<1158708269.6002.186.camel@localhost.localdomain>
-	<488875E7-CCBC-47E1-A273-A2D037A997B2@kernel.crashing.org>
-	<1158711935.6002.226.camel@localhost.localdomain>
-	<9F6F4A8E-C780-4358-97AA-570B33C0598F@kernel.crashing.org>
-	<20060920011750.GS29167@austin.ibm.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20060920011750.GS29167@austin.ibm.com>
-To: linas@austin.ibm.com (Linas Vepstas)
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+From: Greg KH <greg@kroah.com>
+Subject: Re: 2.6.18-rc7-mm1: networking breakage on HPC nx6325 + SUSE 10.1
+Date: Tue, 19 Sep 2006 19:28:32 -0700
+Message-ID: <20060920022832.GA24577@kroah.com>
+References: <20060919133606.f0c92e66.akpm@osdl.org> <20060919.150629.109607267.davem@davemloft.net> <20060919223015.GA23088@kroah.com> <200609200056.57858.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:6070 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1750740AbWITCaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 22:30:46 -0400
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Disposition: inline
+In-Reply-To: <200609200056.57858.rjw@sisk.pl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Well, I'm having trouble thinking of other busses that have as strong
-> a sense of the "address-data" style I/O as PCI. Busses like scsi and
-> ide are primarily "command-data" or "data-data" in style.  Only the
-> address-data style busses need readl/writel-style routines.
+On Wed, Sep 20, 2006 at 12:56:57AM +0200, Rafael J. Wysocki wrote:
+> On Wednesday, 20 September 2006 00:30, Greg KH wrote:
+> > On Tue, Sep 19, 2006 at 03:06:29PM -0700, David Miller wrote:
+> > > From: "Rafael J. Wysocki" <rjw@sisk.pl>
+> > > Date: Wed, 20 Sep 2006 00:06:52 +0200
+> > > 
+> > > > I _guess_ the problem is caused by
+> > > > gregkh-driver-network-class_device-to-device.patch, but I can't verify this,
+> > > > because the kernel (obviously) doesn't compile if I revert it.
+> > > 
+> > > Indeed.
+> > > 
+> > > I thought we threw this patch out because we knew it would cause
+> > > problems for existing systems?  I do remember Greg making an argument
+> > > as to why we needed the change, but that doesn't make breaking people's
+> > > systems legitimate in any way.
+> > 
+> > It's now thrown out, and I think Andrew already had a patch in his tree
+> > that reverted this.
+> > 
+> > I'll be bringing it back eventually, but first we are going to work out
+> > all the kinks by probably putting these changes in the next few SuSE
+> > alpha releases to see what shakes out in userspace that we need to go
+> > fix.
+> > 
+> > It's not 2.6.19 material at all, so don't worry :)
+> 
+> Please note, however, that by including such changes in -mm we make _other_
+> things be not tested.
+> 
+> For example, if I can't install a new kernel and use it on my system without
+> replacing some other pieces of software, I just won't be using it, because I
+> have no time for playing with udev, hal, powersaved, acpid, ...
+> Then, if there are any bugs in it that would have shown up on my system,
+> we won't know about them unless they show up on someone else's system,
+> which may not happen.
+> 
+> The more changes that break existing setups are there in -mm, the less
+> people will acutally try to use -mm kernels and that will result in buggier
+> -rc kernels and more bugs propagating to the "stable" ones.  Do we really
+> want that to happen?
 
-SBUS, JBUS, VMEbus, NuBus, RapidIO, eBus, various SoC busses, to name
-a few.  There are many, and most are big-endian.
+When it comes back, I will have updates for all versions of broken udev
+packages so that it will not break older distros.  Then it will be able
+to be tested.
 
+thanks,
 
-Segher
+greg k-h
