@@ -1,88 +1,86 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tcp: make cubic the default
-Date: Wed, 20 Sep 2006 13:32:58 -0700
-Message-ID: <20060920133258.36ff42ce@localhost.localdomain>
-References: <20060919214304.GB13543@outpost.ds9a.nl>
-	<20060919.154435.102044066.davem@davemloft.net>
-	<20060919160202.23390471@localhost.localdomain>
-	<20060919.160441.66322371.davem@davemloft.net>
-	<20060919162355.3a22fec1@localhost.localdomain>
-	<20060920081704.GA1812@outpost.ds9a.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: Ashwini Kulkarni <ashwini.kulkarni@intel.com>
+Subject: [RFC 1/6] Make splice_to_pipe non-static and move structure definitions to a header file
+Date: Wed, 20 Sep 2006 14:08:11 -0700
+Message-ID: <20060920210811.17480.60103.stgit@gitlost.site>
+References: <20060920210711.17480.92354.stgit@gitlost.site>
+Cc: christopher.leech@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:39894 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750882AbWITUdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:33:14 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060920081704.GA1812@outpost.ds9a.nl>
+Received: from [63.64.152.142] ([63.64.152.142]:58125 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751066AbWITU7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 16:59:14 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+In-Reply-To: <20060920210711.17480.92354.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change default congestion control used from BIC to the newer CUBIC
-which it the successor to BIC but has better properties over long delay links.
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 ---
- net/ipv4/Kconfig |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
 
---- net-test.orig/net/ipv4/Kconfig	2006-09-20 12:22:06.000000000 -0700
-+++ net-test/net/ipv4/Kconfig	2006-09-20 13:31:21.000000000 -0700
-@@ -454,7 +454,7 @@
- 	  modules.
+ fs/splice.c               |   18 +-----------------
+ include/linux/pipe_fs_i.h |   18 ++++++++++++++++++
+ 2 files changed, 19 insertions(+), 17 deletions(-)
+
+diff --git a/fs/splice.c b/fs/splice.c
+index 684bca3..c6a880b 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -29,22 +29,6 @@
+ #include <linux/syscalls.h>
+ #include <linux/uio.h>
  
- 	  Nearly all users can safely say no here, and a safe default
--	  selection will be made (BIC-TCP with new Reno as a fallback).
-+	  selection will be made (CUBIC with new Reno as a fallback).
+-struct partial_page {
+-	unsigned int offset;
+-	unsigned int len;
+-};
+-
+-/*
+- * Passed to splice_to_pipe
+- */
+-struct splice_pipe_desc {
+-	struct page **pages;		/* page map */
+-	struct partial_page *partial;	/* pages[] may not be contig */
+-	int nr_pages;			/* number of pages in map */
+-	unsigned int flags;		/* splice flags */
+-	struct pipe_buf_operations *ops;/* ops associated with output pipe */
+-};
+-
+ /*
+  * Attempt to steal a page from a pipe buffer. This should perhaps go into
+  * a vm helper function, it's already simplified quite a bit by the
+@@ -173,7 +157,7 @@ static struct pipe_buf_operations user_p
+  * Pipe output worker. This sets up our pipe format with the page cache
+  * pipe buffer operations. Otherwise very similar to the regular pipe_writev().
+  */
+-static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
++ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+ 			      struct splice_pipe_desc *spd)
+ {
+ 	int ret, do_wakeup, page_nr;
+diff --git a/include/linux/pipe_fs_i.h b/include/linux/pipe_fs_i.h
+index ea4f7cd..9067985 100644
+--- a/include/linux/pipe_fs_i.h
++++ b/include/linux/pipe_fs_i.h
+@@ -100,4 +100,22 @@ extern ssize_t splice_from_pipe(struct p
+ 				loff_t *, size_t, unsigned int,
+ 				splice_actor *);
  
- 	  If unsure, say N.
- 
-@@ -462,7 +462,7 @@
- 
- config TCP_CONG_BIC
- 	tristate "Binary Increase Congestion (BIC) control"
--	default y
-+	default m
- 	---help---
- 	BIC-TCP is a sender-side only change that ensures a linear RTT
- 	fairness under large windows while offering both scalability and
-@@ -476,7 +476,7 @@
- 
- config TCP_CONG_CUBIC
- 	tristate "CUBIC TCP"
--	default m
-+	default y
- 	---help---
- 	This is version 2.0 of BIC-TCP which uses a cubic growth function
- 	among other techniques.
-@@ -573,7 +573,7 @@
- 
- choice
- 	prompt "Default TCP congestion control"
--	default DEFAULT_BIC
-+	default DEFAULT_CUBIC
- 	help
- 	  Select the TCP congestion control that will be used by default
- 	  for all connections.
-@@ -600,7 +600,7 @@
- 
- endif
- 
--config TCP_CONG_BIC
-+config TCP_CONG_CUBIC
- 	tristate
- 	depends on !TCP_CONG_ADVANCED
- 	default y
-@@ -613,7 +613,7 @@
- 	default "vegas" if DEFAULT_VEGAS
- 	default "westwood" if DEFAULT_WESTWOOD
- 	default "reno" if DEFAULT_RENO
--	default "bic"
-+	default "cubic"
- 
- source "net/ipv4/ipvs/Kconfig"
- 
++struct partial_page {
++	unsigned int offset;
++	unsigned int len;
++};
++
++/*
++ * Passed to splice_to_pipe
++ */
++struct splice_pipe_desc {
++	struct page **pages;		/* page map */
++	struct partial_page *partial;	/* pages[] may not be contig */
++	int nr_pages;			/* number of pages in map */
++	unsigned int flags;		/* splice flags */
++	struct pipe_buf_operations *ops;/* ops associated with output pipe */
++};
++
++ssize_t splice_to_pipe(struct pipe_inode_info *, struct splice_pipe_desc *);
++
+ #endif
+
