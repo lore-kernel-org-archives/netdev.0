@@ -1,60 +1,131 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH] Remove powerpc specific parts of 3c509 driver
-Date: Wed, 20 Sep 2006 02:58:39 +0200
-Message-ID: <9F6F4A8E-C780-4358-97AA-570B33C0598F@kernel.crashing.org>
-References: <20060919145433.8fc7d478.sfr@canb.auug.org.au> <20060919184243.GL29167@austin.ibm.com> <45103C62.4080003@genesi-usa.com> <1158708269.6002.186.camel@localhost.localdomain> <488875E7-CCBC-47E1-A273-A2D037A997B2@kernel.crashing.org> <1158711935.6002.226.camel@localhost.localdomain>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.18-rc7-mm1: networking breakage on HPC nx6325 + SUSE 10.1
+Date: Tue, 19 Sep 2006 21:03:56 -0400
+Message-ID: <200609200103.k8K13uWa006107@turing-police.cc.vt.edu>
+References: <20060919012848.4482666d.akpm@osdl.org> <200609192225.21801.rjw@sisk.pl> <20060919133606.f0c92e66.akpm@osdl.org>
+            <200609192330.34769.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1158714236_3580P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Matt Sealey <matt@genesi-usa.com>, akpm@osdl.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>, jgarzik@pobox.com,
-	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-07.arcor-online.net ([151.189.21.47]:2469 "EHLO
-	mail-in-01.arcor-online.net") by vger.kernel.org with ESMTP
-	id S1750784AbWITA7L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Sep 2006 20:59:11 -0400
-In-Reply-To: <1158711935.6002.226.camel@localhost.localdomain>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Received: from pool-71-254-65-206.ronkva.east.verizon.net ([71.254.65.206]:38595
+	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
+	id S1750797AbWITBFA (ORCPT <RFC822;netdev@vger.kernel.org>);
+	Tue, 19 Sep 2006 21:05:00 -0400
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+In-Reply-To: Your message of "Tue, 19 Sep 2006 23:30:34 +0200."
+             <200609192330.34769.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Sure, PCI busses are little-endian.  But is readX()/writeX() for PCI
->> only?  I sure hope not.
->
-> It's defined for PCI and possibly ISA memory. You can use it for other
-> things if you whish to, but "other things" are arch specific in any
-> case.
+--==_Exmh_1158714236_3580P
+Content-Type: text/plain; charset=us-ascii
 
-Huh?  You're saying that only PCI and ISA are standardised busses?
+On Tue, 19 Sep 2006 23:30:34 +0200, "Rafael J. Wysocki" said:
 
->> It would make a lot more sense if readX()/writeX() used the  
->> endianness
->> of the bus they are performed on.
->
-> No way ! Again, it's evil if such a simple thing start doing different
-> things depending on random external factors.
+> Well, I can configure the interfaces manually, with ifconfig, but the SUSE's
+> configuration tools don't work.  For example, "ifup eth0" tells me that
+> "No configuration found for eth0" and that's all.
 
-That's your opinion, yes.
+I'm seeing issues on a Dell Latitude C840 as well, but I'm not positive
+it's the same bug(s).  The problem I'm seeing is that device renaming is
+failing (I have up to 5 different ethernet-ish interfaces that can be
+connected, so I abuse /sbin/nameif extensively. There seem to be some
+other issues with pcmcia, but it's not clear what the problem is - it
+manages to find the (normally down) ethernet on my Xircom card, but the
+orinoco driver seems unable to find my wireless card....
 
-I'm saying it's *not* doing different things: in both cases it just does
-the correct-endian access.  Also it doesn't depend on "random external
-factors" -- they're not random factors, and not external either: it only
-depends on the bus the access is done on.
+For instance, under 2.6.18-rc6-mm2, I see:
 
-> Different bus -> different accessor.
+pccard: CardBus card inserted into slot 0
+PCI: Enabling device 0000:03:00.0 (0000 -> 0003)
+ACPI: PCI Interrupt 0000:03:00.0[A] -> Link [LNKD] -> GSI 11 (level, low) -> IRQ 11
+PCI: Setting latency timer of device 0000:03:00.0 to 64
+eth2: Xircom cardbus revision 3 at irq 11
+PCI: Enabling device 0000:03:00.1 (0000 -> 0003)
+ACPI: PCI Interrupt 0000:03:00.1[A] -> Link [LNKD] -> GSI 11 (level, low) -> IRQ 11
+0000:03:00.1: ttyS1 at I/O 0xe080 (irq = 11) is a 16550A
+pccard: PCMCIA card inserted into slot 2
+[rename_device:851]: Changing netdevice name from [eth1] to [eth3]
+ohci1394: fw-host0: AT dma reset ctx=0, aborting transmission
+ieee1394: Current remote IRM is not 1394a-2000 compliant, resetting...
+ieee1394: Host added: ID:BUS[0-00:1023]  GUID[374fc0002a71c021]
+[rename_device:1237]: Changing netdevice name from [eth2] to [eth1]
+cs: memory probe 0xf4000000-0xfbffffff: excluding 0xf4000000-0xf8ffffff 0xfa000000-0xfbffffff
+pcmcia: registering new device pcmcia2.0
+orinoco 0.15 (David Gibson <hermes@gibson.dropbear.id.au>, Pavel Roskin <proski@gnu.org>, et al)
+orinoco_cs 0.15 (David Gibson <hermes@gibson.dropbear.id.au>, Pavel Roskin <proski@gnu.org>, et al)
+pcmcia: request for exclusive IRQ could not be fulfilled.
+pcmcia: the driver needs updating to supported shared IRQ lines.
+cs: IO port probe 0x100-0x3af: excluding 0x370-0x37f
+cs: IO port probe 0x3e0-0x4ff: clean.
+cs: IO port probe 0x820-0x8ff: clean.
+cs: IO port probe 0xc00-0xcf7: clean.
+cs: IO port probe 0xa00-0xaff: clean.
+cs: IO port probe 0x100-0x3af: excluding 0x370-0x37f
+cs: IO port probe 0x3e0-0x4ff: clean.
+cs: IO port probe 0x820-0x8ff: clean.
+cs: IO port probe 0xc00-0xcf7: clean.
+cs: IO port probe 0xa00-0xaff: clean.
+cs: IO port probe 0x100-0x3af: excluding 0x370-0x37f
+cs: IO port probe 0x3e0-0x4ff: clean.
+cs: IO port probe 0x820-0x8ff: clean.
+cs: IO port probe 0xc00-0xcf7: clean.
+cs: IO port probe 0xa00-0xaff: clean.
+eth2: Hardware identity 0005:0004:0005:0000
+eth2: Station identity  001f:0001:0008:000a
+eth2: Firmware determined as Lucent/Agere 8.10
+eth2: Ad-hoc demo mode supported
+eth2: IEEE standard IBSS ad-hoc mode supported
+eth2: WEP supported, 104-bit key
+eth2: MAC address 00:02:2D:5C:11:48
+eth2: Station name "HERMES I"
+eth2: ready
+eth2: orinoco_cs at 2.0, irq 11, io 0xe100-0xe13f
+[rename_device:1295]: Changing netdevice name from [eth2] to [eth5]
+Non-volatile memory driver v1.2
 
-Then please rename readX()/writeX() to pci_readX()/pci_writeX().
+and under -rc7-mm1, I see:
 
->> Now you can say, use readl_be() or something similar, but that's a)
->> ugly,
->> b) error-prone, c) exponential interface explosion, d) ugly.
->
-> I'd rather has an interface explosion than having black endian magic
-> happening inside of the accessors.
+pccard: CardBus card inserted into slot 0
+PCI: Enabling device 0000:03:00.0 (0000 -> 0003)
+ACPI: PCI Interrupt 0000:03:00.0[A] -> Link [LNKD] -> GSI 11 (level, low) -> IRQ 11
+PCI: Setting latency timer of device 0000:03:00.0 to 64
+eth1: Xircom cardbus revision 3 at irq 11 
+PCI: Enabling device 0000:03:00.1 (0000 -> 0003)
+ACPI: PCI Interrupt 0000:03:00.1[A] -> Link [LNKD] -> GSI 11 (level, low) -> IRQ 11
+0000:03:00.1: ttyS1 at I/O 0xe080 (irq = 11) is a 16550A
+pccard: PCMCIA card inserted into slot 2
+ohci1394: fw-host0: AT dma reset ctx=0, aborting transmission
+ieee1394: Current remote IRM is not 1394a-2000 compliant, resetting...
+ieee1394: Host added: ID:BUS[0-00:1023]  GUID[374fc0002a71c021]
+Non-volatile memory driver v1.2
 
-Any comments on a), b) and d) as well?
+Amazingly less chatty.  Much later, when /etc/rc5.d/S10network runs, we finally
+see:
+
+orinoco 0.15 (David Gibson <hermes@gibson.dropbear.id.au>, Pavel Roskin <proski@gnu.org>, et al)
+orinoco_cs 0.15 (David Gibson <hermes@gibson.dropbear.id.au>, Pavel Roskin <proski@gnu.org>, et al)
+
+but no output for the wireless configuring.
+
+Unless somebody has a better idea overnight, I'll start a bisect of -rc7-mm1
+in the morning...
 
 
-Segher
+--==_Exmh_1158714236_3580P
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFFEJN8cC3lWbTT17ARApQFAKCl2mCHnTSrnozbBOrkm+VDkd9TzACggh/T
+CZIxVHs1kFj7m450UK4s0do=
+=waL/
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1158714236_3580P--
