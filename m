@@ -1,44 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Update of the r8169 branch
-Date: Wed, 20 Sep 2006 23:40:10 +0200
-Message-ID: <20060920214010.GA7879@electric-eye.fr.zoreil.com>
-References: <20060726215840.GA4032@electric-eye.fr.zoreil.com> <4511A4F0.6050101@kernelpanic.ru>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sky2: process tx pause frames.
+Date: Wed, 20 Sep 2006 17:49:41 -0400
+Message-ID: <4511B775.4020607@pobox.com>
+References: <20060906124447.642940bd@localhost.localdomain>	<45056102.2010408@pobox.com> <20060919141308.7e52b7d0@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Matt Bockol <mbockol@carleton.edu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:26285 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932151AbWITVlg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 17:41:36 -0400
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
-Content-Disposition: inline
-In-Reply-To: <4511A4F0.6050101@kernelpanic.ru>
+Received: from srv5.dvmed.net ([207.36.208.214]:3821 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932155AbWITVtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 17:49:43 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060919141308.7e52b7d0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(adding netdev to Cc: so that the patch gets publically known)
+Stephen Hemminger wrote:
+> This patch already is in 2.6.17 stable, but the bigger version was pushed
+> off till 2.6.19. Here is a less intrusive version that needs to go into 2.6.18
+> (or I'll end up sending it for 2.6.18.1). The driver was telling the
+> GMAC to flush (not process) pause frames. Manually disabling pause wasn't
+> working because of problems in the setup.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Boris B. Zhmurov <bb@kernelpanic.ru> :
-[...]
-> Hello Francois. I've figured out, that this patch wasn't merged in 
-> linux-2.6.18 :(
+You'll need to send this to stable@kernel.org...
 
-Bad timing. Patches are available.
+	Jeff
 
-> Is there any plans to merge it in mainline ?
 
-Jeff pulled most of the r8169 branch. I can't answer for him but
-I guess that the answer is RSN.
 
-> And is there any patches available against linux-2.6.18 release?
-
-The content of the r8169 branch in the git repository can be retrieved at:
-
-http://www.fr.zoreil.com/people/francois/misc/20060920-2.6.18-r8169-test.patch
-
-It should support 8167 as is.
-
--- 
-Ueimor
