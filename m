@@ -1,64 +1,56 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 12/23] e1000: Maybe stop TX if not enough free
- descriptors
-Date: Tue, 19 Sep 2006 16:59:23 -0700
-Message-ID: <20060919165923.1c0073d9@localhost.localdomain>
-References: <20060919172623.4605.56860.stgit@gitlost.site>
-	<20060919172859.4605.60855.stgit@gitlost.site>
-	<45104719.9080708@pobox.com>
-	<20060919125019.316d3790@localhost.localdomain>
-	<451056D2.4080909@pobox.com>
-	<20060919135910.1afb7f24@localhost.localdomain>
-	<45107C94.9020503@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH] Remove powerpc specific parts of 3c509 driver
+Date: Wed, 20 Sep 2006 02:21:41 +0200
+Message-ID: <488875E7-CCBC-47E1-A273-A2D037A997B2@kernel.crashing.org>
+References: <20060919145433.8fc7d478.sfr@canb.auug.org.au>
+	<20060919184243.GL29167@austin.ibm.com>
+	<45103C62.4080003@genesi-usa.com>
+	<1158708269.6002.186.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20968 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751043AbWISX77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 19:59:59 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45107C94.9020503@intel.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: akpm@osdl.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <1158708269.6002.186.camel@localhost.localdomain>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Sep 2006 16:26:12 -0700
-Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> Nah. We have the basic rule that readl/writel are little endian.  
+> PowerPC
+> additionally provides arch specific low level in_{be,le}32 type
+> accessors with explicit endianness. Or you can also use
+> cpu_to_le32/le32_to_cpu kind of macros to convert between native and
+> explicit endianness.
 
-> Stephen Hemminger wrote:
-> > On Tue, 19 Sep 2006 16:45:06 -0400
-> > Jeff Garzik <jgarzik@pobox.com> wrote:
-> > 
-> >> looks OK except for the tasklet, which may starve if the lock is being 
-> >> held upon entry
-> >>
-> >>
-> > 
-> > Why would the tasklet starve anymore than NAPI?
-> > Worst case, the transmitters fill the ring completely and have to
-> > wait for the tasklet to clean up.
-> > 
-> > Maybe it would be better to always to Tx cleanup in tasklet even with
-> > NAPI. Then the NAPI poll flow control would be used only for Rx.
-> > As it stands, if receiver gets swamped, the poll doesn't get run often,
-> > so the transmitter cleanup doesn't get run. A tasklet has the advantage
-> > of eliminating the need for adapter->tx_queue_lock as well.
-> 
-> I gave it a spin and it looks horrible with NAPI - the box almost freezes up 
-> with even 2 clients. Minor nitpick: you forgot to delete a spin_lock_irqsave() 
-> call but gcc would have spotted that for you. Unsurprisingly it's more stable 
-> without NAPI.
-> 
-> I'm unsure (not enough knowlege) why you would prefer to remove lltx - care to 
-> enlighten me?
+Sure, PCI busses are little-endian.  But is readX()/writeX() for PCI
+only?  I sure hope not.
 
-It is just that bouncing in and out of the driver to do spin lock attempts is
-awkward. I don't think the implementation of LLTX was meant for devices that
-lock, more for software devices like loopback.
+It would make a lot more sense if readX()/writeX() used the endianness
+of the bus they are performed on.  PowerPC byteswaps are cheap -- for
+16- and 32-bit accesses.  They're quite bad for 64-bit though; it would
+be a pity to end up doing two of those for a 64-bit big-endian I/O  
+access
+(one on the access itself, one to convert the data back to CPU order).
 
-The patch was more of an experiment to see if there was a simpler way.
+This would happily solve the problem of the various variations of
+byte-swapping bus bridges, too ("natural" swap, 32-bit swap, 64-bit  
+swap,
+perhaps others that I thankfully have never seen or cannot remember).
+
+Now you can say, use readl_be() or something similar, but that's a)  
+ugly,
+b) error-prone, c) exponential interface explosion, d) ugly.
+
+
+Segher
