@@ -1,53 +1,39 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 7/7] secid reconciliation-v02: Enforcement for SELinux
-Date: Wed, 20 Sep 2006 18:46:00 -0400
-Message-ID: <4511C4A8.2090709@hp.com>
-References: <36282A1733C57546BE392885C061859201573267@chaos.tcs.tcs-sec.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
+Date: Wed, 20 Sep 2006 15:44:06 -0700
+Message-ID: <20060920154406.3c2c1721@localhost.localdomain>
+References: <20060904160045.GA15599@ms2.inr.ac.ru>
+	<20060918.003110.88477231.davem@davemloft.net>
+	<20060918103705.GB1096@ms2.inr.ac.ru>
+	<20060918.065655.128444024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
-	sds@tycho.nsa.gov, Chad Hanson <chanson@TrustedCS.com>
+Cc: kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:41417 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S932433AbWITWqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 18:46:02 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <36282A1733C57546BE392885C061859201573267@chaos.tcs.tcs-sec.com>
+Received: from smtp.osdl.org ([65.172.181.4]:37273 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932434AbWITWqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 18:46:32 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060918.065655.128444024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Venkat Yekkirala wrote:
->>>+static int selinux_skb_policy_check(struct sk_buff *skb, 
->>
->>unsigned short
->>
->>>family) +{
->>>+	u32 xfrm_sid, trans_sid;
->>>+	int err;
->>>+
->>>+	if (selinux_compat_net)
->>>+		return 1;
->>>+
->>>+	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
->>>+	BUG_ON(err);
->>
->>First, any reason against including the "struct sock *" in 
->>the LSM hook?  At a 
->>quick glance it looks like it is available at each place 
->>security_skb_policy_check() is invoked?  If there are no 
->>objections I would 
->>like to see it included in the hook.
->  
-> There's no sock available (NULL) for forward, no-sock, time-wait cases, etc.
+On Mon, 18 Sep 2006 06:56:55 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-... which would be why I should have taken a closer look :)
+> From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Date: Mon, 18 Sep 2006 14:37:05 +0400
+> 
+> > > It looks perfectly fine to me, would you like me to apply it
+> > > Alexey?
+> > 
+> > Yes, I think it is safe.
+> 
+> Ok, I'll put this into net-2.6.19 for now.  Thanks.
 
-> What you are trying to accomplish with the sock here anyway?
-
-Actually this is no longer an issue because of something else - you can
-ignore this now.
+Did you try this on a desktop system?  Something is wrong with net-2.6.19
+basic web browsing seems slower.
 
 -- 
-paul moore
-linux security @ hp
+Stephen Hemminger <shemminger@osdl.org>
