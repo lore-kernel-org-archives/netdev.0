@@ -1,41 +1,167 @@
 From: akpm@osdl.org
-Subject: [patch 1/5] net/ipv6: bh_lock_sock_nested on tcp_v6_rcv
-Date: Tue, 19 Sep 2006 18:08:48 -0700
-Message-ID: <200609200108.k8K18mN9011708@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, fleite@redhat.com,
-	herbert@gondor.apana.org.au
+Subject: [patch 5/5] Add netpoll/netconsole support to vlan devices
+Date: Tue, 19 Sep 2006 18:08:52 -0700
+Message-ID: <200609200108.k8K18qqu011728@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jesper.juhl@gmail.com,
+	davem@redhat.com, greearb@candelatech.com, mingo@redhat.com,
+	mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:64144 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750821AbWITBJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 21:09:08 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:63632 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750820AbWITBJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2006 21:09:07 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Fabio Olive Leite <fleite@redhat.com>
+From: Jesper Juhl <jesper.juhl@gmail.com>
 
-A while ago Ingo patched tcp_v4_rcv on net/ipv4/tcp_ipv4.c to use
-bh_lock_sock_nested and silence a lock validator warning. This fixed
-it for IPv4, but recently I saw a report of the same warning on IPv6.
+I recently tried running netconsole via a vlan interface without luck,
+and decided to do something about it (see patch below).
 
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
+My interfaces look like this:
+
+eth0      Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:11763760878 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:13800040335 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:3453951528686 (3.1 TiB)  TX bytes:7086425530052 (6.4 TiB)
+          Interrupt:169
+
+eth0.20   Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
+          inet addr:vvv.xxx.yyy.zzz  Bcast:ggg.hhh.iii.jjj  Mask:255.255.252.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:11759883828 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:13800040452 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:3194985806767 (2.9 TiB)  TX bytes:6975984645540 (6.3 TiB)
+
+Trying to load netconsole fails miserably :
+
+[root@server root]# modprobe netconsole
+netconsole=@/eth0,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
+FATAL: Error inserting netconsole
+(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
+[root@server root]# modprobe netconsole
+netconsole=@/eth0.20,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
+FATAL: Error inserting netconsole
+(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
+
+And results in this in dmesg :
+
+netconsole: interface eth0
+netconsole: remote port 10514
+netconsole: remote IP aaa.bbb.ccc.ddd
+netconsole: remote ethernet address 00:04:23:bf:d9:62
+netconsole: no IP address for eth0, aborting
+netconsole: local port 6665
+netconsole: interface eth0.20
+netconsole: remote port 10514
+netconsole: remote IP aaa.bbb.ccc.ddd
+netconsole: remote ethernet address 00:04:23:bf:d9:62
+netconsole: eth0.20 doesn't support polling, aborting.
+
+The actual interface is a e1000 and supports polling just fine.
+The problem is simply that netpoll won't play with eth0 since it has
+no IP and it won't play with eth0.20 either since it's a vlan
+interface and doesn't support polling even if the underlying device
+does.
+
+This is a problem for me since it means that several of my servers
+that are configured like this won't be able to use netconsole.
+So I set out to try and fix the problem by making the vlan device
+support polling if the underlying device supports polling.
+
+I have met with a resonable success in that the patch below seems to
+work. With this patch I can now load netconsole for eth0.20 and log
+messages are send just fine and can be recieved on the remote host.
+
+ netconsole: local port 6665
+ netconsole: interface eth0.20
+ netconsole: remote port 10514
+ netconsole: remote IP aaa.bbb.ccc.ddd
+ netconsole: remote ethernet address 00:04:23:bf:d9:62
+ netconsole: local IP vvv.xxx.yyy.zzz
+ netconsole: network logging started
+
+Now, I would very much like to get this merged, but first I would
+appreciate some review of the patch. This part of the kernel is not
+one I know all too well, so I may have made a number of silly mistakes.
+If people would kindly take a look at the patch and point out any
+problems with it so I can fix it up and arrive at a version that's
+mergable, I'd greatly appreciate it.
+
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Matt Mackall <mpm@selenic.com>
+Cc: Ben Greear <greearb@candelatech.com>
+Cc: "David S. Miller" <davem@redhat.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- net/ipv6/tcp_ipv6.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/8021q/vlan.c     |    5 +++++
+ net/8021q/vlan_dev.c |   15 ++++++++++++++-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
 
-diff -puN net/ipv6/tcp_ipv6.c~net-ipv6-bh_lock_sock_nested-on-tcp_v6_rcv net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c~net-ipv6-bh_lock_sock_nested-on-tcp_v6_rcv
-+++ a/net/ipv6/tcp_ipv6.c
-@@ -1237,7 +1237,7 @@ process:
+diff -puN net/8021q/vlan.c~add-netpoll-netconsole-support-to-vlan-devices net/8021q/vlan.c
+--- a/net/8021q/vlan.c~add-netpoll-netconsole-support-to-vlan-devices
++++ a/net/8021q/vlan.c
+@@ -11,6 +11,7 @@
+  *		Add HW acceleration hooks - David S. Miller <davem@redhat.com>;
+  *		Correct all the locking - David S. Miller <davem@redhat.com>;
+  *		Use hash table for VLAN groups - David S. Miller <davem@redhat.com>
++ *		Add NETPOLL support - Jesper Juhl
+  *
+  *		This program is free software; you can redistribute it and/or
+  *		modify it under the terms of the GNU General Public License
+@@ -512,6 +513,10 @@ static struct net_device *register_vlan_
+ 	}
+ 	new_dev->hard_header_parse = real_dev->hard_header_parse;
  
- 	skb->dev = NULL;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	new_dev->poll_controller = real_dev->poll_controller;
++#endif
++
+ 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
+ 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
+ 	VLAN_DEV_INFO(new_dev)->dent = NULL;
+diff -puN net/8021q/vlan_dev.c~add-netpoll-netconsole-support-to-vlan-devices net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c~add-netpoll-netconsole-support-to-vlan-devices
++++ a/net/8021q/vlan_dev.c
+@@ -12,7 +12,8 @@
+  *              Oct 20, 2001:  Ard van Breeman:
+  *                - Fix MC-list, finally.
+  *                - Flush MC-list on VLAN destroy.
+- *                
++ *		Aug 31, 2006: Jesper Juhl
++ *		  - Add NETPOLL support.
+  *
+  *		This program is free software; you can redistribute it and/or
+  *		modify it under the terms of the GNU General Public License
+@@ -489,6 +490,12 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	stats->tx_bytes += skb->len;
  
--	bh_lock_sock(sk);
-+	bh_lock_sock_nested(sk);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
- #ifdef CONFIG_NET_DMA
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (irqs_disabled()) {
++		skb->dev->hard_start_xmit(skb, skb->dev);
++		return 0;
++	}
++#endif
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+@@ -513,6 +520,12 @@ int vlan_dev_hwaccel_hard_start_xmit(str
+ 	stats->tx_bytes += skb->len;
+ 
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (irqs_disabled()) {
++		skb->dev->hard_start_xmit(skb, skb->dev);
++		return 0;
++	}
++#endif
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
 _
