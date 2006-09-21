@@ -1,40 +1,94 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Question about David's blog entry for NetCONF 2006, Day 1
-Date: Thu, 21 Sep 2006 15:15:14 -0700
-Message-ID: <45130EF2.2090509@hp.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails
+ due to missing declaration in net/netfilter/xt_physdev.c
+Date: Thu, 21 Sep 2006 15:37:01 -0700
+Message-ID: <20060921153701.2c49e331.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:49813 "EHLO palrel13.hp.com")
-	by vger.kernel.org with ESMTP id S1751683AbWIUWPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 18:15:15 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel13.hp.com (Postfix) with ESMTP id 08CB537636
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:15:23 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id PAA24763
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:15:14 -0700 (PDT)
-To: Linux Network Development list <netdev@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:22250 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932078AbWIUWhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 18:37:12 -0400
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id k8LMb1nW025057
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:37:02 -0700
+Received: from akpm.corp.google.com (shell0.pdx.osdl.net [10.9.0.31])
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id k8LMb16D007766
+	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:37:01 -0700
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was reading David's blog entries on the netdev meeting in Japan, and 
-have a question about this bit:
 
-> Currently, things like Xen have to put the card into promiscuous
-> mode, accepting all packets, which is quite inefficient.
+Methinks CONFIG_NETFILTER_XT_TARGET_CLASSIFY should depend upon
+CONFIG_BRIDGE_NETFILTER.  Because brnf_deferred_hooks is defined in
+net/bridge/br_netfilter.c and is referred to in net/netfilter/xt_physdev.c.
 
-Is the inefficient bit meant for accepting all packets, or more broadly 
-that the promiscuous path is quite inefficient compared to the 
-non-promiscuous path?
+Or something else ;)
 
-I ask because I would have thought that if the system were connected to 
-a switch (*), the number of packets received through a NIC in 
-promiscuous mode would be nearly the same as when it was not in 
-promiscuous mode - the delta being (perhaps) multicast frames.
 
-rick jones
 
-(*) "Today," it seems 99 times out of 10 systems are connected to 
-switches not hubs.
+Begin forwarded message:
+
+Date: Thu, 21 Sep 2006 14:41:13 -0700
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails due to missing declaration in net/netfilter/xt_physdev.c
+
+
+http://bugzilla.kernel.org/show_bug.cgi?id=7179
+
+           Summary: Compilation of .tmp_linux1 fails due to missing
+                    declaration in net/netfilter/xt_physdev.c
+    Kernel Version: 2.6.18
+            Status: NEW
+          Severity: high
+             Owner: laforge@gnumonks.org
+         Submitter: gfrank@neoservers.com
+
+
+Most recent kernel where this bug did not occur: 2.6.17.13
+Distribution: CentOS
+Hardware Environment: Dual Intel Xeon 5160
+Software Environment: gcc 3.4.6, glibc 2.3.4, make 3.8
+Problem Description:
+
+Using the same config from 2.6.17.13, kernel 2.6.18 fails on make when 
+attempting to make .tmp_vmlinux1
+
+LD      .tmp_vmlinux1
+net/built-in.o(.text.checkentry+0x1e1): In function `checkentry':
+net/netfilter/xt_physdev.c:130: undefined reference to `brnf_deferred_hooks'
+make: *** [.tmp_vmlinux1] Error 1
+
+Line 130 is simply "brnf_deferred_hooks = 1;"  This variable is also used on 
+line 118.
+
+Adding 
+
+"int brnf_deferred_hooks = 0;" 
+
+in a line before line 104 (static int) will cause .tmp_vmlinux1 to be 
+successfully created, and make will finish successfully.  However, it will 
+generate a warning (seen below) on now line 119 which can be fixed by changing 
+it to: 
+
+"if ((brnf_deferred_hooks == 0) & (info->bitmask & XT_PHYSDEV_OP_OUT) && "
+
+The warning generated is:
+
+net/netfilter/xt_physdev.c: In function `checkentry':
+net/netfilter/xt_physdev.c:118: warning: ISO C90 forbids mixed declarations 
+and code
+
+The kernel produced after making these changes works fine
+
+Steps to reproduce:
+
+I am unsure of which kernel .config parameter is sparking this.  My .config 
+can be found here: http://www.animeforum.com/jakiao/misato.config
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
