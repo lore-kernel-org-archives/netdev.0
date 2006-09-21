@@ -1,40 +1,40 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 1/7] d80211:  add SIOCSIWTXPOW, SIOCGIWTXPOW,
- SIOCSIWPOWER and SIOCGIWPOWER
-Date: Fri, 22 Sep 2006 00:13:32 +0200
-Message-ID: <20060922001332.7ea0d30a@logostar.upir.cz>
-References: <44F355DE.3000206@linux.intel.com>
-	<20060921183040.12d679f2@logostar.upir.cz>
-	<4512C133.7010509@linux.intel.com>
-	<20060921203347.44d66563@logostar.upir.cz>
-	<4512EE8D.708@linux.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Question about David's blog entry for NetCONF 2006, Day 1
+Date: Thu, 21 Sep 2006 15:15:14 -0700
+Message-ID: <45130EF2.2090509@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:49598 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751680AbWIUWNj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 18:13:39 -0400
-To: mabbas <mabbas@linux.intel.com>
-In-Reply-To: <4512EE8D.708@linux.intel.com>
+Received: from palrel13.hp.com ([156.153.255.238]:49813 "EHLO palrel13.hp.com")
+	by vger.kernel.org with ESMTP id S1751683AbWIUWPP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 18:15:15 -0400
+Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
+	by palrel13.hp.com (Postfix) with ESMTP id 08CB537636
+	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:15:23 -0700 (PDT)
+Received: from [127.0.0.1] (localhost [127.0.0.1])
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id PAA24763
+	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:15:14 -0700 (PDT)
+To: Linux Network Development list <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Sep 2006 12:57:01 -0700, mabbas wrote:
-> if the user set txpoer using iwconfig command, the driver will clap all 
-> txpower to this
-> value for all available channels if channels original txpower is higher 
-> than txpower value.
+I was reading David's blog entries on the netdev meeting in Japan, and 
+have a question about this bit:
 
-Looks like a job for the stack.
+> Currently, things like Xen have to put the card into promiscuous
+> mode, accepting all packets, which is quite inefficient.
 
-If the stack takes care about that and always pass the correct value to a
-driver, is there still a reason for the driver to know where the request
-originated from?
+Is the inefficient bit meant for accepting all packets, or more broadly 
+that the promiscuous path is quite inefficient compared to the 
+non-promiscuous path?
 
- Jiri
+I ask because I would have thought that if the system were connected to 
+a switch (*), the number of packets received through a NIC in 
+promiscuous mode would be nearly the same as when it was not in 
+promiscuous mode - the delta being (perhaps) multicast frames.
 
--- 
-Jiri Benc
-SUSE Labs
+rick jones
+
+(*) "Today," it seems 99 times out of 10 systems are connected to 
+switches not hubs.
