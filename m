@@ -1,54 +1,62 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [patch] d80211: remove sub-interface mac address policy
-Date: Thu, 21 Sep 2006 20:09:39 +0200
-Message-ID: <20060921200939.1cab8c1c@logostar.upir.cz>
-References: <20060914143321.GA1962@devicescape.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/6] NetLabel: correct improper handling of non-NetLabel
+ peer contexts
+Date: Thu, 21 Sep 2006 14:28:42 -0400
+Message-ID: <4512D9DA.4030608@hp.com>
+References: <20060921165703.251871000@hp.com> <20060921170335.013411000@hp.com> <Pine.LNX.4.64.0609211406030.7534@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org, sds@epoch.ncsc.mil,
+	jmorris@redhat.com, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:25005 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751426AbWIUSJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 14:09:49 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20060914143321.GA1962@devicescape.com>
+Received: from atlrel6.hp.com ([156.153.255.205]:56291 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1751307AbWIUS2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 14:28:44 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0609211406030.7534@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Sep 2006 07:33:21 -0700, David Kimdon wrote:
-> Wireless vlan interfaces need to have the same mac address as
-> other sub interfaces.  Rather than complicate the kernel here by
-> adding yet another case where uniqueness is not required, remove
-> the check on mac address uniqueness altogether.
+James Morris wrote:
+> On Thu, 21 Sep 2006, paul.moore@hp.com wrote:
 > 
-> We should not implement a mac address allocation policy here.  It
-> is difficult to get it right in all cases and does not belong in
-> the kernel.  It is better to leave this to be implemented as a
-> userspace policy.
+> 
+>>Fix a problem where NetLabel would always set the value of 
+>>sk_security_struct->peer_sid in selinux_netlbl_sock_graft() to the context of
+>>the socket, causing problems when users would query the context of the
+>>connection.  This patch fixes this so that the value in
+>>sk_security_struct->peer_sid is only set when the connection is NetLabel based,
+>>otherwise the value is untouched.
+> 
+> I'll let Thomas comment on the Netlink changes, as he's been working with 
+> you on them.
 
-I disagree. This is not about policy, this is about prevention of
-accidental violation of IEEE 802.11. The only effect of this patch would
-be forcing drivers to do that check themselves thus duplicating code.
+Hey, third times the charm right?
 
-Actually, I'd like to add support for the common case (based on a flag in
-ieee80211_hw) when WDS is _required_ to have the same MAC address as an AP
-interface. That will complicate things even more in the stack but save a
-lot of duplicated code in drivers.
+ ;)
 
-I agree that getting this to work with wireless vlans is not easy.
-Actually, I'm convinced I broke vlan support at several other places too.
-It's really hard not to break it if you know nothing about it.
+> These changes otherwise seem ok.  How much testing has this had with and 
+> without Netlabel enabled?
 
-What is the purpose of "wireless vlans"? Is it something Atheros-specific?
-Is it documented somewhere? Or is it in some of IEEE 802.11 standards and I
-just overlooked it? (In that case I would be more than happy to review the
-whole stack and fix it.) Could you send us some pointers?
+Joshua Brindle started a thread on the SELinux list which uncovered at
+least two problems that I am aware of, one with NetLabel overriding the
+peer's context and one with IPsec labeling returning the context from
+the wrong SA (I may have the details of this wrong, Venkat posted about
+this in the same thread).  This patch correct the NetLabel problem and
+was tested using the simple reproducer provided by Joshua; I tested both
+on a NetLabel'd and non-NetLabel'd connection and the results were
+correct.  I have also tested this patch with the getpeercon() enabled
+version of xinetd in FC/Rawhide; when configured to use labeled
+connections and used with NetLabel the daemon is spawned with the
+correct MLS label, when configured to use labeled connections and
+NetLabel is not used xinetd reports an error because getpeercon()
+returns an error (desired behavior as there is no network label present
+for the connection).
 
-Thanks,
-
- Jiri
+If there is some other test you would like to see run let me know and
+I'll give it a shot and report the results.
 
 -- 
-Jiri Benc
-SUSE Labs
+paul moore
+linux security @ hp
