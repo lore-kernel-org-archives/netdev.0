@@ -1,78 +1,1075 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
-Date: Thu, 21 Sep 2006 15:55:14 -0700
-Message-ID: <20060921225514.GA26850@bougret.hpl.hp.com>
-References: <44F356DF.9000000@linux.intel.com> <20060921190126.4d884c44@logostar.upir.cz> <1158865436.27546.23.camel@localhost.localdomain> <4512EC5C.1030807@linux.intel.com> <1158870634.5769.21.camel@localhost.localdomain> <4512F876.7000203@linux.intel.com> <20060922003844.6817f22b@logostar.upir.cz>
-Reply-To: jt@hpl.hp.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] cirrus logic ep93xx ethernet driver
+Date: Thu, 21 Sep 2006 19:10:02 -0400
+Message-ID: <45131BCA.3050809@garzik.org>
+References: <20060921210536.GA29520@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mabbas <mabbas@linux.intel.com>, Dan Williams <dcbw@redhat.com>,
-	netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:48070 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S932098AbWIUW6d
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Sep 2006 18:58:33 -0400
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20060922003844.6817f22b@logostar.upir.cz>
+Received: from srv5.dvmed.net ([207.36.208.214]:24234 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751693AbWIUXKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 19:10:07 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20060921210536.GA29520@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2006 at 12:38:44AM +0200, Jiri Benc wrote:
-> On Thu, 21 Sep 2006 13:39:18 -0700, mabbas wrote:
-> > I can fix the patch to do just that if we agree on that.
+Lennert Buytenhek wrote:
+> +#include <linux/config.h>
+> +#include <linux/dma-mapping.h>
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/mii.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/ethtool.h>
+> +#include <linux/init.h>
+> +#include <linux/moduleparam.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/delay.h>
+> +#include <asm/arch/ep93xx-regs.h>
+> +#include <asm/arch/platform.h>
+> +#include <asm/io.h>
+> +#include "ep93xx_eth.h"
+
+the header is short enough to simply include inline
+
+
+> +#define DRV_MODULE_NAME		"ep93xx-eth"
+> +#define DRV_MODULE_VERSION	"0.1"
+> +
+> +#define RX_QUEUE_ENTRIES	64
+> +#define TX_QUEUE_ENTRIES	8
+> +
+> +#define MAX_PKT_SIZE		2044
+> +#define PKT_BUF_SIZE		2048
+> +
+> +struct ep93xx_descs
+> +{
+> +	struct ep93xx_rdesc	rdesc[RX_QUEUE_ENTRIES];
+> +	struct ep93xx_tdesc	tdesc[TX_QUEUE_ENTRIES];
+> +	struct ep93xx_rstat	rstat[RX_QUEUE_ENTRIES];
+> +	struct ep93xx_tstat	tstat[TX_QUEUE_ENTRIES];
+> +};
+> +
+> +struct ep93xx_priv
+> +{
+> +	struct resource		*res;
+> +	void			*base_addr;
+> +	int			irq;
+> +
+> +	struct ep93xx_descs	*descs;
+> +	dma_addr_t		descs_dma_addr;
+> +
+> +	void			*rx_buf[RX_QUEUE_ENTRIES];
+> +	void			*tx_buf[TX_QUEUE_ENTRIES];
+> +
+> +	spinlock_t		rx_lock;
+> +	int			rx_pointer;
+> +	int			tx_clean_pointer;
+> +	int			tx_pointer;
+> +	spinlock_t		tx_pending_lock;
+> +	int			tx_pending;
+
+most likely the buf indexes should be unsigned
+
+
+> +	struct net_device_stats	stats;
+> +
+> +	struct mii_if_info	mii;
+> +	u8			mdc_divisor;
+> +};
+> +
+> +#define rdb(ep, off)		__raw_readb((ep)->base_addr + (off))
+> +#define rdw(ep, off)		__raw_readw((ep)->base_addr + (off))
+> +#define rdl(ep, off)		__raw_readl((ep)->base_addr + (off))
+> +#define wrb(ep, off, val)	__raw_writeb((val), (ep)->base_addr + (off))
+> +#define wrw(ep, off, val)	__raw_writew((val), (ep)->base_addr + (off))
+> +#define wrl(ep, off, val)	__raw_writel((val), (ep)->base_addr + (off))
+> +
+> +static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg);
+> +
+> +static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	return &(ep->stats);
+> +}
+> +
+> +static int ep93xx_rx(struct net_device *dev, int *budget)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int tail_offset;
+> +	int rx_done;
+> +	int processed;
+> +
+> +	tail_offset = rdl(ep, REG_RXSTSQCURADD) - ep->descs_dma_addr;
+> +
+> +	rx_done = 0;
+> +	processed = 0;
+> +	while (*budget > 0) {
+> +		int entry;
+> +		struct ep93xx_rstat *rstat;
+> +		u32 rstat0;
+> +		u32 rstat1;
+> +		int length;
+> +		struct sk_buff *skb;
+> +
+> +		entry = ep->rx_pointer;
+> +		rstat = ep->descs->rstat + entry;
+> +		if ((void *)rstat - (void *)ep->descs == tail_offset) {
+> +			rx_done = 1;
+> +			break;
+> +		}
+> +
+> +		rstat0 = rstat->rstat0;
+> +		rstat1 = rstat->rstat1;
+> +		rstat->rstat0 = 0;
+> +		rstat->rstat1 = 0;
+> +
+> +		if (!(rstat0 & RSTAT0_RFP)) {
+> +			printk(KERN_CRIT "ep93xx_rx: buffer not done "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +			BUG();
+> +		}
+> +		if (!(rstat0 & RSTAT0_EOF)) {
+> +			printk(KERN_CRIT "ep93xx_rx: not end-of-frame "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +			BUG();
+> +		}
+> +		if (!(rstat0 & RSTAT0_EOB)) {
+> +			printk(KERN_CRIT "ep93xx_rx: not end-of-buffer "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +			BUG();
+> +		}
+> +		if (!(rstat1 & RSTAT1_RFP)) {
+> +			printk(KERN_CRIT "ep93xx_rx: buffer1 not done "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +			BUG();
+> +		}
+> +		if ((rstat1 & RSTAT1_BUFFER_INDEX) >> 16 != entry) {
+> +			printk(KERN_CRIT "ep93xx_rx: entry mismatch "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +			BUG();
+> +		}
+
+NAK all these BUGs.
+
+Very unfriendly
+
+
+> +		if (!(rstat0 & RSTAT0_RWE)) {
+> +			printk(KERN_NOTICE "ep93xx_rx: receive error "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +
+> +			ep->stats.rx_errors++;
+> +			if (rstat0 & RSTAT0_OE)
+> +				ep->stats.rx_fifo_errors++;
+> +			if (rstat0 & RSTAT0_FE)
+> +				ep->stats.rx_frame_errors++;
+> +			if (rstat0 & (RSTAT0_RUNT | RSTAT0_EDATA))
+> +				ep->stats.rx_length_errors++;
+> +			if (rstat0 & RSTAT0_CRCE)
+> +				ep->stats.rx_crc_errors++;
+> +			goto err;
+> +		}
+> +
+> +		length = rstat1 & RSTAT1_FRAME_LENGTH;
+> +		if (length < 4 || length > MAX_PKT_SIZE) {
+> +			printk(KERN_NOTICE "ep93xx_rx: invalid length "
+> +					 " %.8x %.8x\n", rstat0, rstat1);
+> +			goto err;
+> +		}
+
+the 'length < 4' check would seem to be invalid, if RSTAT0_CRCI is not set
+
+
+> +		/* Strip FCS.  */
+> +		if (rstat0 & RSTAT0_CRCI)
+> +			length -= 4;
+> +
+> +		skb = dev_alloc_skb(length + 2);
+> +		if (likely(skb != NULL)) {
+> +			skb->dev = dev;
+> +			skb_reserve(skb, 2);
+> +			dma_sync_single(NULL, ep->descs->rdesc[entry].buf_addr,
+> +						length, DMA_FROM_DEVICE);
+> +			eth_copy_and_sum(skb, ep->rx_buf[entry], length, 0);
+> +			skb_put(skb, length);
+> +			skb->protocol = eth_type_trans(skb, dev);
+> +
+> +			dev->last_rx = jiffies;
+> +
+> +			netif_receive_skb(skb);
+> +
+> +			ep->stats.rx_packets++;
+> +			ep->stats.rx_bytes += length;
+> +		} else {
+> +			ep->stats.rx_dropped++;
+> +		}
+> +
+> +err:
+> +		ep->rx_pointer = (entry + 1) % RX_QUEUE_ENTRIES;
+> +		processed++;
+> +		dev->quota--;
+> +		(*budget)--;
+> +	}
+> +
+> +	if (processed) {
+> +		wrw(ep, REG_RXDENQ, processed);
+> +		wrw(ep, REG_RXSTSENQ, processed);
+> +	}
+> +
+> +	return !rx_done;
+
+
+> +static int ep93xx_have_more_rx(struct ep93xx_priv *ep)
+> +{
+> +	struct ep93xx_rstat *rstat;
+> +	int tail_offset;
+> +
+> +	rstat = ep->descs->rstat + ep->rx_pointer;
+> +	tail_offset = rdl(ep, REG_RXSTSQCURADD) - ep->descs_dma_addr;
+> +
+> +	return !((void *)rstat - (void *)ep->descs == tail_offset);
+> +}
+> +
+> +static int ep93xx_poll(struct net_device *dev, int *budget)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +
+> +	/*
+> +	 * @@@ Have to stop polling if device is downed while we
+> +	 * are polling.
+> +	 */
+> +
+> +poll_some_more:
+> +	if (ep93xx_rx(dev, budget))
+> +		return 1;
+> +
+> +	netif_rx_complete(dev);
+> +
+> +	spin_lock_irq(&ep->rx_lock);
+> +	wrl(ep, REG_INTEN, 0x0000000f);
+> +	if (ep93xx_have_more_rx(ep)) {
+> +		wrl(ep, REG_INTEN, 0x00000008);
+> +		wrl(ep, REG_INTSTSP, 0x00000004);
+> +		spin_unlock_irq(&ep->rx_lock);
+> +
+> +		if (netif_rx_reschedule(dev, 0))
+> +			goto poll_some_more;
+> +
+> +		return 0;
+> +	}
+> +	spin_unlock_irq(&ep->rx_lock);
+> +
+> +	return 0;
+> +}
+> +
+> +static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int entry;
+> +
+> +	if (unlikely(skb->len) > MAX_PKT_SIZE) {
+> +		ep->stats.tx_dropped++;
+> +		dev_kfree_skb(skb);
+> +		return 0;
+> +	}
+
+use NETDEV_TX_xxx return code
+
+
+> +	entry = ep->tx_pointer;
+> +	ep->tx_pointer = (ep->tx_pointer + 1) % TX_QUEUE_ENTRIES;
+> +
+> +	ep->descs->tdesc[entry].tdesc1 =
+> +		TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
+> +	skb_copy_and_csum_dev(skb, ep->tx_buf[entry]);
+> +	dma_sync_single(NULL, ep->descs->tdesc[entry].buf_addr,
+> +				skb->len, DMA_TO_DEVICE);
+> +	dev_kfree_skb(skb);
+> +
+> +	dev->trans_start = jiffies;
+> +
+> +	spin_lock_irq(&ep->tx_pending_lock);
+> +	ep->tx_pending++;
+> +	if (ep->tx_pending == TX_QUEUE_ENTRIES)
+> +		netif_stop_queue(dev);
+> +	spin_unlock_irq(&ep->tx_pending_lock);
+> +
+> +	wrl(ep, REG_TXDENQ, 1);
+> +
+> +	return 0;
+
+ditto
+
+
+> +static void ep93xx_tx_complete(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int tail_offset;
+> +	int wake;
+> +
+> +	tail_offset = rdl(ep, REG_TXSTSQCURADD) - ep->descs_dma_addr;
+> +	wake = 0;
+> +
+> +	spin_lock(&ep->tx_pending_lock);
+> +	while (1) {
+> +		int entry;
+> +		struct ep93xx_tstat *tstat;
+> +		u32 tstat0;
+> +
+> +		entry = ep->tx_clean_pointer;
+> +		tstat = ep->descs->tstat + entry;
+> +		if ((void *)tstat - (void *)ep->descs == tail_offset)
+> +			break;
+> +
+> +		tstat0 = tstat->tstat0;
+> +		tstat->tstat0 = 0;
+> +
+> +		if (!(tstat0 & TSTAT0_TXFP)) {
+> +			printk(KERN_CRIT "ep93xx_tx_complete: buffer not done "
+> +					 " %.8x\n", tstat0);
+> +			BUG();
+> +		}
+> +		if (tstat0 & TSTAT0_FA) {
+> +			printk(KERN_CRIT "ep93xx_tx_complete: frame aborted "
+> +					 " %.8x\n", tstat0);
+> +			BUG();
+> +		}
+> +		if ((tstat0 & TSTAT0_BUFFER_INDEX) != entry) {
+> +			printk(KERN_CRIT "ep93xx_tx_complete: entry mismatch "
+> +					 " %.8x\n", tstat0);
+> +			BUG();
+> +		}
+
+NAK on all these BUGs
+
+
+> +		if (tstat0 & TSTAT0_TXWE) {
+> +			int length = ep->descs->tdesc[entry].tdesc1 & 0xfff;
+> +
+> +			ep->stats.tx_packets++;
+> +			ep->stats.tx_bytes += length;
+> +		} else {
+> +			ep->stats.tx_errors++;
+> +		}
+> +#if 0
+> +		/* This is only valid in half duplex mode.  */
+> +		if (tstat0 & TSTAT0_LCRS)
+> +			ep->stats.tx_carrier_errors++;
+> +#endif
+
+why #if 0'd?
+
+
+> +		if (tstat0 & TSTAT0_OW)
+> +			ep->stats.tx_window_errors++;
+> +		if (tstat0 & TSTAT0_TXU)
+> +			ep->stats.tx_fifo_errors++;
+> +		ep->stats.collisions += (tstat0 >> 16) & 0x1f;
+> +
+> +		ep->tx_clean_pointer = (entry + 1) % TX_QUEUE_ENTRIES;
+
+A mask would be faster than '%'
+
+
+> +		if (ep->tx_pending == TX_QUEUE_ENTRIES)
+> +			wake = 1;
+> +		ep->tx_pending--;
+> +	}
+> +	spin_unlock(&ep->tx_pending_lock);
+> +
+> +	if (wake)
+> +		netif_wake_queue(dev);
+> +}
+> +
+> +static irqreturn_t ep93xx_irq(int irq, void *dev_id, struct pt_regs *regs)
+> +{
+> +	struct net_device *dev = dev_id;
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	u32 status;
+> +
+> +	status = rdl(ep, REG_INTSTSC);
+> +	if (status == 0)
+> +		return IRQ_NONE;
+
+also check for status == 0xffffffff
+
+
+> +	if (status & 0x00000004) {
+> +		spin_lock(&ep->rx_lock);
+> +		if (likely(__netif_rx_schedule_prep(dev))) {
+> +			wrl(ep, REG_INTEN, 0x00000008);
+> +			__netif_rx_schedule(dev);
+> +		}
+> +		spin_unlock(&ep->rx_lock);
+> +	}
+> +
+> +	if (status & 0x00000008)
+> +		ep93xx_tx_complete(dev);
+
+magic numbers:  prefer named constants to numeric ones
+
+
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
+> +		dma_addr_t d;
+> +
+> +		d = ep->descs->rdesc[i].buf_addr;
+> +		if (d)
+> +			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_FROM_DEVICE);
+> +
+> +		if (ep->rx_buf[i] != NULL)
+> +			free_page((unsigned long)ep->rx_buf[i]);
+> +	}
+> +
+> +	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
+> +		dma_addr_t d;
+> +
+> +		d = ep->descs->tdesc[i].buf_addr;
+> +		if (d)
+> +			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_TO_DEVICE);
+> +
+> +		if (ep->tx_buf[i] != NULL)
+> +			free_page((unsigned long)ep->tx_buf[i]);
+> +	}
+> +
+> +	dma_free_coherent(NULL, sizeof(struct ep93xx_descs), ep->descs,
+> +							ep->descs_dma_addr);
+> +}
+> +
+> +/*
+> + * The hardware enforces a sub-2K maximum packet size, so we put
+> + * two buffers on every hardware page.
+> + */
+> +static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
+> +{
+> +	int i;
+> +
+> +	ep->descs = dma_alloc_coherent(NULL, sizeof(struct ep93xx_descs),
+> +				&ep->descs_dma_addr, GFP_KERNEL | GFP_DMA);
+> +	if (ep->descs == NULL)
+> +		return 1;
+> +
+> +	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
+> +		void *page;
+> +		dma_addr_t d;
+> +
+> +		page = (void *)get_zeroed_page(GFP_KERNEL | GFP_DMA);
+> +		if (page == NULL)
+> +			goto err;
+
+do you really need a zeroed page?
+
+
+> +		d = dma_map_single(NULL, page, PAGE_SIZE, DMA_FROM_DEVICE);
+> +		if (dma_mapping_error(d)) {
+> +			free_page((unsigned long)page);
+> +			goto err;
+> +		}
+> +
+> +		ep->rx_buf[i] = page;
+> +		ep->descs->rdesc[i].buf_addr = d;
+> +		ep->descs->rdesc[i].rdesc1 = (i << 16) | PKT_BUF_SIZE;
+> +
+> +		ep->rx_buf[i + 1] = page + PKT_BUF_SIZE;
+> +		ep->descs->rdesc[i + 1].buf_addr = d + PKT_BUF_SIZE;
+> +		ep->descs->rdesc[i + 1].rdesc1 = ((i + 1) << 16) | PKT_BUF_SIZE;
+> +	}
+> +
+> +	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
+> +		void *page;
+> +		dma_addr_t d;
+> +
+> +		page = (void *)get_zeroed_page(GFP_KERNEL | GFP_DMA);
+> +		if (page == NULL)
+> +			goto err;
+> +
+> +		d = dma_map_single(NULL, page, PAGE_SIZE, DMA_TO_DEVICE);
+> +		if (dma_mapping_error(d)) {
+> +			free_page((unsigned long)page);
+> +			goto err;
+> +		}
+> +
+> +		ep->tx_buf[i] = page;
+> +		ep->descs->tdesc[i].buf_addr = d;
+> +
+> +		ep->tx_buf[i + 1] = page + PKT_BUF_SIZE;
+> +		ep->descs->tdesc[i + 1].buf_addr = d + PKT_BUF_SIZE;
+> +	}
+> +
+> +	return 0;
+> +
+> +err:
+> +	ep93xx_free_buffers(ep);
+> +	return 1;
+> +}
+> +
+> +static int ep93xx_start_hw(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	unsigned long addr;
+> +	int i;
+> +
+> +	wrl(ep, REG_SELFCTL, 0x00000001);
+> +	for (i = 0; i < 10; i++) {
+> +		if ((rdl(ep, REG_SELFCTL) & 0x00000001) == 0)
+> +			break;
+> +		msleep(1);
+> +	}
+
+magic numbers
+
+
+> +	if (i == 10) {
+> +		printk(KERN_CRIT "ep93xx_eth: hw failed to reset\n");
+> +		return 1;
+> +	}
+> +
+> +	wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9));
+> +
+> +	/* Does the PHY support preamble suppress?  */
+> +	if ((ep93xx_mdio_read(dev, ep->mii.phy_id, MII_BMSR) & 0x0040) != 0)
+> +		wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9) | (1 << 8));
+> +
+> +	/* Receive descriptor ring.  */
+> +	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, rdesc);
+> +	wrl(ep, REG_RXDQBADD, addr);
+> +	wrl(ep, REG_RXDCURADD, addr);
+> +	wrw(ep, REG_RXDQBLEN, RX_QUEUE_ENTRIES * sizeof(struct ep93xx_rdesc));
+> +
+> +	/* Receive status ring.  */
+> +	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, rstat);
+> +	wrl(ep, REG_RXSTSQBADD, addr);
+> +	wrl(ep, REG_RXSTSQCURADD, addr);
+> +	wrw(ep, REG_RXSTSQBLEN, RX_QUEUE_ENTRIES * sizeof(struct ep93xx_rstat));
+> +
+> +	/* Transmit descriptor ring.  */
+> +	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, tdesc);
+> +	wrl(ep, REG_TXDQBADD, addr);
+> +	wrl(ep, REG_TXDQCURADD, addr);
+> +	wrw(ep, REG_TXDQBLEN, TX_QUEUE_ENTRIES * sizeof(struct ep93xx_tdesc));
+> +
+> +	/* Transmit status ring.  */
+> +	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, tstat);
+> +	wrl(ep, REG_TXSTSQBADD, addr);
+> +	wrl(ep, REG_TXSTSQCURADD, addr);
+> +	wrw(ep, REG_TXSTSQBLEN, TX_QUEUE_ENTRIES * sizeof(struct ep93xx_tstat));
+> +
+> +	wrl(ep, REG_BMCTL, 0x00000101);
+> +	wrl(ep, REG_INTEN, 0x0000000f);
+> +	wrl(ep, REG_GIINTMSK, 0x00000000);
+
+magic numbers
+
+
+> +	for (i = 0; i < 10; i++) {
+> +		if ((rdl(ep, REG_BMSTS) & 0x00000008) != 0)
+> +			break;
+> +		msleep(1);
+> +	}
+> +
+> +	if (i == 10) {
+> +		printk(KERN_CRIT "ep93xx_eth: hw failed to start\n");
+> +		return 1;
+> +	}
+> +
+> +	wrl(ep, REG_RXDENQ, RX_QUEUE_ENTRIES);
+> +	wrl(ep, REG_RXSTSENQ, RX_QUEUE_ENTRIES);
+> +
+> +	wrb(ep, REG_INDAD0, dev->dev_addr[0]);
+> +	wrb(ep, REG_INDAD1, dev->dev_addr[1]);
+> +	wrb(ep, REG_INDAD2, dev->dev_addr[2]);
+> +	wrb(ep, REG_INDAD3, dev->dev_addr[3]);
+> +	wrb(ep, REG_INDAD4, dev->dev_addr[4]);
+> +	wrb(ep, REG_INDAD5, dev->dev_addr[5]);
+> +	wrl(ep, REG_AFP, 0x00000000);
+> +
+> +	wrl(ep, REG_MAXFRMLEN, (MAX_PKT_SIZE << 16) | MAX_PKT_SIZE);
+> +
+> +	wrl(ep, REG_RXCTL, 0x00073800);
+> +	wrl(ep, REG_TXCTL, 0x00000001);
+
+magic numbers
+
+
+> +	return 0;
+> +}
+> +
+> +static void ep93xx_stop_hw(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int i;
+> +
+> +	wrl(ep, REG_SELFCTL, 0x00000001);
+> +	for (i = 0; i < 10; i++) {
+> +		if ((rdl(ep, REG_SELFCTL) & 0x00000001) == 0)
+> +			break;
+> +		msleep(1);
+> +	}
+
+ditto
+
+
+> +	if (i == 10)
+> +		printk(KERN_CRIT "ep93xx_eth: hw failed to reset\n");
+> +}
+> +
+> +static int ep93xx_open(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int err;
+> +
+> +	if (ep93xx_alloc_buffers(ep))
+> +		return -ENOMEM;
+> +
+> +	if (!memcmp(dev->dev_addr, "\x00\x00\x00\x00\x00\x00", 6)) {
+> +		random_ether_addr(dev->dev_addr);
+> +		printk(KERN_INFO "%s: generated random MAC address "
+> +			"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
+> +			dev->dev_addr[0], dev->dev_addr[1],
+> +			dev->dev_addr[2], dev->dev_addr[3],
+> +			dev->dev_addr[4], dev->dev_addr[5]);
+> +	}
+
+use is_zero_ether_addr() or perhaps is_valid_ether_addr()
+
+
+> +
+> +	if (ep93xx_start_hw(dev)) {
+> +		ep93xx_free_buffers(ep);
+> +		return -EIO;
+> +	}
+> +
+> +	spin_lock_init(&ep->rx_lock);
+> +	ep->rx_pointer = 0;
+> +	ep->tx_clean_pointer = 0;
+> +	ep->tx_pointer = 0;
+> +	spin_lock_init(&ep->tx_pending_lock);
+> +	ep->tx_pending = 0;
+> +
+> +	err = request_irq(ep->irq, ep93xx_irq, SA_SHIRQ, "ep93xx_eth", dev);
+
+1) use IRQF_xxx flags
+
+2) use interface name (ethX) not driver name for irq string
+
+
+> +	if (err) {
+> +		ep93xx_stop_hw(dev);
+> +		ep93xx_free_buffers(ep);
+> +		return err;
+> +	}
+> +
+> +	wrl(ep, REG_GIINTMSK, 0x00008000);
+> +
+> +	netif_start_queue(dev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int ep93xx_close(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +
+> +	netif_stop_queue(dev);
+> +
+> +	wrl(ep, REG_GIINTMSK, 0x00000000);
+> +	free_irq(ep->irq, dev);
+> +	ep93xx_stop_hw(dev);
+> +	ep93xx_free_buffers(ep);
+> +
+> +	return 0;
+> +}
+> +
+> +static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	struct mii_ioctl_data *data = if_mii(ifr);
+> +
+> +	return generic_mii_ioctl(&ep->mii, data, cmd, NULL);
+> +}
+> +
+> +static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int data;
+> +	int i;
+> +
+> +	wrl(ep, REG_MIICMD, 0x8000 | (phy_id << 5) | reg);
+> +
+> +	for (i = 0; i < 10; i++) {
+> +		if ((rdl(ep, REG_MIISTS) & 1) == 0)
+> +			break;
+> +		msleep(1);
+> +	}
+> +
+> +	if (i == 10) {
+> +		printk(KERN_INFO "ep93xx_eth: mdio read timed out\n");
+> +		data = 0xffff;
+> +	} else {
+> +		data = rdl(ep, REG_MIIDATA);
+> +	}
+> +
+> +	return data;
+> +}
+> +
+> +static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int data)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	int i;
+> +
+> +	wrl(ep, REG_MIIDATA, data);
+> +	wrl(ep, REG_MIICMD, 0x4000 | (phy_id << 5) | reg);
+> +
+> +	for (i = 0; i < 10; i++) {
+> +		if ((rdl(ep, REG_MIISTS) & 1) == 0)
+> +			break;
+> +		msleep(1);
+> +	}
+> +
+> +	if (i == 10)
+> +		printk(KERN_INFO "ep93xx_eth: mdio write timed out\n");
+> +}
+> +
+> +static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+> +{
+> +	strcpy(info->driver, DRV_MODULE_NAME);
+> +	strcpy(info->version, DRV_MODULE_VERSION);
+> +}
+> +
+> +static int ep93xx_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	return mii_ethtool_gset(&ep->mii, cmd);
+> +}
+> +
+> +static int ep93xx_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	return mii_ethtool_sset(&ep->mii, cmd);
+> +}
+> +
+> +static int ep93xx_nway_reset(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	return mii_nway_restart(&ep->mii);
+> +}
+> +
+> +static u32 ep93xx_get_link(struct net_device *dev)
+> +{
+> +	struct ep93xx_priv *ep = netdev_priv(dev);
+> +	return mii_link_ok(&ep->mii);
+> +}
+> +
+> +static struct ethtool_ops ep93xx_ethtool_ops = {
+> +	.get_drvinfo		= ep93xx_get_drvinfo,
+> +	.get_settings		= ep93xx_get_settings,
+> +	.set_settings		= ep93xx_set_settings,
+> +	.nway_reset		= ep93xx_nway_reset,
+> +	.get_link		= ep93xx_get_link,
+> +};
+> +
+> +struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
+> +{
+> +	struct net_device *dev;
+> +	struct ep93xx_priv *ep;
+> +
+> +	dev = alloc_etherdev(sizeof(struct ep93xx_priv));
+> +	if (dev == NULL)
+> +		return NULL;
+> +	ep = netdev_priv(dev);
+> +
+> +	memcpy(dev->dev_addr, data->dev_addr, ETH_ALEN);
+> +
+> +	dev->get_stats = ep93xx_get_stats;
+> +	dev->ethtool_ops = &ep93xx_ethtool_ops;
+> +	dev->poll = ep93xx_poll;
+> +	dev->hard_start_xmit = ep93xx_xmit;
+> +	dev->open = ep93xx_open;
+> +	dev->stop = ep93xx_close;
+> +	dev->do_ioctl = ep93xx_ioctl;
+> +
+> +	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
+> +	dev->weight = 64;
+> +
+> +	return dev;
+> +}
+> +
+> +
+> +static int ep93xx_eth_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *dev;
+> +	struct ep93xx_priv *ep;
+> +
+> +	dev = platform_get_drvdata(pdev);
+> +	if (dev == NULL)
+> +		return 0;
+> +	platform_set_drvdata(pdev, NULL);
+> +
+> +	ep = netdev_priv(dev);
+> +
+> +	/* @@@ Force down.  */
+> +	unregister_netdev(dev);
+> +	ep93xx_free_buffers(ep);
+> +
+> +	if (ep->base_addr != NULL)
+> +		iounmap(ep->base_addr);
+> +
+> +	if (ep->res != NULL) {
+> +		release_resource(ep->res);
+> +		kfree(ep->res);
+> +	}
+
+when will these ever be NULL ?
+
+
+> +	free_netdev(dev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int ep93xx_eth_probe(struct platform_device *pdev)
+> +{
+> +	struct ep93xx_eth_data *data;
+> +	struct net_device *dev;
+> +	struct ep93xx_priv *ep;
+> +	int err;
+> +
+> +	data = pdev->dev.platform_data;
+> +	if (pdev == NULL)
+> +		return -ENODEV;
+> +
+> +	dev = ep93xx_dev_alloc(data);
+> +	if (dev == NULL) {
+> +		err = -ENOMEM;
+> +		goto err_out;
+> +	}
+> +	ep = netdev_priv(dev);
+> +
+> +	platform_set_drvdata(pdev, dev);
+> +
+> +	ep->res = request_mem_region(pdev->resource[0].start,
+> +			pdev->resource[0].end - pdev->resource[0].start + 1,
+> +			pdev->dev.bus_id);
+> +	if (ep->res == NULL) {
+> +		dev_err(&pdev->dev, "Could not reserve memory region\n");
+> +		err = -ENOMEM;
+> +		goto err_out;
+> +	}
+> +
+> +	ep->base_addr = ioremap(pdev->resource[0].start,
+> +			pdev->resource[0].end - pdev->resource[0].start);
+> +	if (ep->base_addr == NULL) {
+> +		dev_err(&pdev->dev, "Failed to ioremap ethernet registers\n");
+> +		err = -EIO;
+> +		goto err_out;
+> +	}
+> +	ep->irq = pdev->resource[1].start;
+> +
+> +	ep->mii.phy_id = data->phy_id;
+> +	ep->mii.phy_id_mask = 0x1f;
+> +	ep->mii.reg_num_mask = 0x1f;
+> +	ep->mii.dev = dev;
+> +	ep->mii.mdio_read = ep93xx_mdio_read;
+> +	ep->mii.mdio_write = ep93xx_mdio_write;
+> +	ep->mdc_divisor = 40;	/* Max HCLK 100 MHz, min MDIO clk 2.5 MHz.  */
+> +
+> +	err = register_netdev(dev);
+> +	if (err) {
+> +		dev_err(&pdev->dev, "Failed to register netdev\n");
+> +		goto err_out;
+> +	}
+> +
+> +	printk(KERN_INFO "%s: ep93xx on-chip ethernet, IRQ %d, "
+> +			 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
+> +			ep->irq, data->dev_addr[0], data->dev_addr[1],
+> +			data->dev_addr[2], data->dev_addr[3],
+> +			data->dev_addr[4], data->dev_addr[5]);
+> +
+> +	return 0;
+> +
+> +err_out:
+> +	ep93xx_eth_remove(pdev);
+> +	return err;
+> +}
+> +
+> +
+> +static struct platform_driver ep93xx_eth_driver = {
+> +	.probe		= ep93xx_eth_probe,
+> +	.remove		= ep93xx_eth_remove,
+> +	.driver		= {
+> +		.name	= "ep93xx-eth",
+> +	},
+> +};
+> +
+> +static int __init ep93xx_eth_init_module(void)
+> +{
+> +	printk(KERN_INFO DRV_MODULE_NAME " version " DRV_MODULE_VERSION " loading\n");
+> +	return platform_driver_register(&ep93xx_eth_driver);
+> +}
+> +
+> +static void __exit ep93xx_eth_cleanup_module(void)
+> +{
+> +	platform_driver_unregister(&ep93xx_eth_driver);
+> +}
+> +
+> +module_init(ep93xx_eth_init_module);
+> +module_exit(ep93xx_eth_cleanup_module);
+> +MODULE_LICENSE("GPL");
+> Index: linux-2.6.18/drivers/net/arm/ep93xx_eth.h
+> ===================================================================
+> --- /dev/null
+> +++ linux-2.6.18/drivers/net/arm/ep93xx_eth.h
+> @@ -0,0 +1,112 @@
+> +/*
+> + * EP93xx ethernet network device driver
+> + * Copyright (C) 2006 Lennert Buytenhek <buytenh@wantstofly.org>
+> + * Dedicated to Marija Kulikova.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#ifndef __EP93XX_ETH_H
+> +#define __EP93XX_ETH_H
+> +
+> +#define REG_RXCTL		0x0000
+> +#define REG_TXCTL		0x0004
+> +#define REG_MIICMD		0x0010
+> +#define REG_MIIDATA		0x0014
+> +#define REG_MIISTS		0x0018
+> +#define REG_SELFCTL		0x0020
+> +#define REG_INTEN		0x0024
+> +#define REG_INTSTSP		0x0028
+> +#define REG_INTSTSC		0x002c
+> +#define REG_AFP			0x004c
+> +#define REG_INDAD0		0x0050
+> +#define REG_INDAD1		0x0051
+> +#define REG_INDAD2		0x0052
+> +#define REG_INDAD3		0x0053
+> +#define REG_INDAD4		0x0054
+> +#define REG_INDAD5		0x0055
+> +#define REG_GIINTMSK		0x0064
+> +#define REG_BMCTL		0x0080
+> +#define REG_BMSTS		0x0084
+> +#define REG_RXDQBADD		0x0090
+> +#define REG_RXDQBLEN		0x0094
+> +#define REG_RXDCURADD		0x0098
+> +#define REG_RXDENQ		0x009c
+> +#define REG_RXSTSQBADD		0x00a0
+> +#define REG_RXSTSQBLEN		0x00a4
+> +#define REG_RXSTSQCURADD	0x00a8
+> +#define REG_RXSTSENQ		0x00ac
+> +#define REG_TXDQBADD		0x00b0
+> +#define REG_TXDQBLEN		0x00b4
+> +#define REG_TXDQCURADD		0x00b8
+> +#define REG_TXDENQ		0x00bc
+> +#define REG_TXSTSQBADD		0x00c0
+> +#define REG_TXSTSQBLEN		0x00c4
+> +#define REG_TXSTSQCURADD	0x00c8
+> +#define REG_MAXFRMLEN		0x00e8
+> +
+> +
+> +struct ep93xx_rdesc
+> +{
+> +	u32	buf_addr;
+> +	u32	rdesc1;
+> +};
+> +
+> +#define RDESC1_NSOF		0x80000000
+> +#define RDESC1_BUFFER_INDEX	0x7fff0000
+> +#define RDESC1_BUFFER_LENGTH	0x0000ffff
+> +
+> +struct ep93xx_rstat
+> +{
+> +	u32	rstat0;
+> +	u32	rstat1;
+> +};
+> +
+> +#define RSTAT0_RFP		0x80000000
+> +#define RSTAT0_RWE		0x40000000
+> +#define RSTAT0_EOF		0x20000000
+> +#define RSTAT0_EOB		0x10000000
+> +#define RSTAT0_AM		0x00c00000
+> +#define RSTAT0_RX_ERR		0x00200000
+> +#define RSTAT0_OE		0x00100000
+> +#define RSTAT0_FE		0x00080000
+> +#define RSTAT0_RUNT		0x00040000
+> +#define RSTAT0_EDATA		0x00020000
+> +#define RSTAT0_CRCE		0x00010000
+> +#define RSTAT0_CRCI		0x00008000
+> +#define RSTAT0_HTI		0x00003f00
+> +#define RSTAT1_RFP		0x80000000
+> +#define RSTAT1_BUFFER_INDEX	0x7fff0000
+> +#define RSTAT1_FRAME_LENGTH	0x0000ffff
+> +
+> +struct ep93xx_tdesc
+> +{
+> +	u32	buf_addr;
+> +	u32	tdesc1;
+> +};
+> +
+> +#define TDESC1_EOF		0x80000000
+> +#define TDESC1_BUFFER_INDEX	0x7fff0000
+> +#define TDESC1_BUFFER_ABORT	0x00008000
+> +#define TDESC1_BUFFER_LENGTH	0x00000fff
+> +
+> +struct ep93xx_tstat
+> +{
+> +	u32	tstat0;
+> +};
+> +
+> +#define TSTAT0_TXFP		0x80000000
+> +#define TSTAT0_TXWE		0x40000000
+> +#define TSTAT0_FA		0x20000000
+> +#define TSTAT0_LCRS		0x10000000
+> +#define TSTAT0_OW		0x04000000
+> +#define TSTAT0_TXU		0x02000000
+> +#define TSTAT0_ECOLL		0x01000000
+> +#define TSTAT0_NCOLL		0x001f0000
+> +#define TSTAT0_BUFFER_INDEX	0x00007fff
+> +
+> +
+> +#endif
+> Index: linux-2.6.18/include/asm-arm/arch-ep93xx/ep93xx-regs.h
+> ===================================================================
+> --- linux-2.6.18.orig/include/asm-arm/arch-ep93xx/ep93xx-regs.h
+> +++ linux-2.6.18/include/asm-arm/arch-ep93xx/ep93xx-regs.h
+> @@ -27,6 +27,7 @@
+>  #define EP93XX_DMA_BASE			(EP93XX_AHB_VIRT_BASE + 0x00000000)
+>  
+>  #define EP93XX_ETHERNET_BASE		(EP93XX_AHB_VIRT_BASE + 0x00010000)
+> +#define EP93XX_ETHERNET_PHYS_BASE	(EP93XX_AHB_PHYS_BASE + 0x00010000)
+>  
+>  #define EP93XX_USB_BASE			(EP93XX_AHB_VIRT_BASE + 0x00020000)
+>  #define EP93XX_USB_PHYS_BASE		(EP93XX_AHB_PHYS_BASE + 0x00020000)
+> Index: linux-2.6.18/include/asm-arm/arch-ep93xx/platform.h
+> ===================================================================
+> --- linux-2.6.18.orig/include/asm-arm/arch-ep93xx/platform.h
+> +++ linux-2.6.18/include/asm-arm/arch-ep93xx/platform.h
+> @@ -11,5 +11,11 @@ void ep93xx_init_devices(void);
+>  void ep93xx_clock_init(void);
+>  extern struct sys_timer ep93xx_timer;
+>  
+> +struct ep93xx_eth_data
+> +{
+> +	unsigned char	dev_addr[6];
+> +	unsigned char	phy_id;
+> +};
+> +
+>  
+>  #endif
 > 
-> Well, we need a flag indicating whether we are associated or not. I don't
-> know about such a flag in WE (hopefully we will have that in nl80211).
 
-	SIOCSIWAP is that flag.
-	Sorry, but the way "struct sockaddr" is designed did not allow
-for having an explicit flag, otherwise I would have done it like for
-every other commands.
-
-> Now we have two possibilities:
-> 
-> (a) If a fixed BSSID is set (via SIOCSIWAP), return it from SIOCGIWAP. There
-> is no way to find out whether we are associated or not. The behaviour is
-> also inconsistent with the case when no fixed BSSID is set - SIOCGIWAP
-> returns all zeros or some (random from our POV) BSSID then. So, when you
-> get a BSSID from SIOCGIWAP, to determine what that means you need to know
-> if there was a fixed BSSID set. To do that you need to get a BSSID from
-> SIOCGIWAP. The chicken and egg problem?
-> 
-> (b) SIOCSIWAP returns zeros when we are not associated, BSSID otherwise.
-> There is no way to find out if you set a fixed BSSID or not. If you
-> accidentally set a fixed BSSID you will have a hard time finding out why
-> your card is not associating.
-> 
-> Jean, are there any other possibilities?
-
-	Yes, dropping SIOCSIWAP (set) entirely, and keep only
-SIOCGIWAP (get).
-
-> If not, (b) seems much more reasonable to me, because:
-> - The value returned from SIOCGIWAP has a well-defined meaning independent
->   of the current configuration of the interface.
-> - Dan wants that.
-
-	(b) is the correct answer ;-)
-	We need to be pragmatic. Very few people need to set a fixed
-BSSID. I would even venture to say that in the case of most people
-setting a fixed BSSID, it's an error and they should not do it (it
-kills roaming, which is a desirable feature). I've yet to find a card
-which scanning is broken to the point that you need to fudge the
-BSSID.
-	There are some drivers that don't support SIOCSIWAP (set), and
-it's usually not a problem, users are not complaining about it. That's
-why I claim we could drop the (set) support. Of course, we can't do it
-because one PhD student at Berkeley need the feature ;-)
-	If a program like NetworkManager want to play advanced tricks
-with the BSSID and want to know if the user has set a fixed BSSID, it
-can monitor SIOCSIWAP events and remember the state.
-
->  Jiri
-
-	Regards,
-
-	Jean
