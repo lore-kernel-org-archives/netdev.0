@@ -1,41 +1,43 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: UDP Out 0f Sequence
-Date: Thu, 21 Sep 2006 15:59:05 +1200
-Message-ID: <5640c7e00609202059p74c1c653t8a97fb873915f5d@mail.gmail.com>
-References: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
+From: Zang Roy-r61911 <tie-fei.zang@freescale.com>
+Subject: [patch 0/3 v2] Add tsi108 On chip Ethernet device driver support
+Date: 21 Sep 2006 12:04:03 +0800
+Message-ID: <1158811443.10823.40.camel@localhost.localdomain>
+References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>
+	 <1157962200.10526.10.camel@localhost.localdomain>
+	 <1158051315.14448.91.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Rick Jones" <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Andrew Morton <akpm@osdl.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.131]:35830 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1751192AbWIUD7M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 23:59:12 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so632725nfa
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2006 20:59:11 -0700 (PDT)
-To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
-In-Reply-To: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
-Content-Disposition: inline
+Received: from de01egw02.freescale.net ([192.88.165.103]:29382 "EHLO
+	de01egw02.freescale.net") by vger.kernel.org with ESMTP
+	id S1751193AbWIUEEP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Sep 2006 00:04:15 -0400
+To: jgarzik <jgarzik@pobox.com>
+In-Reply-To: <1158051315.14448.91.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/21/06, Majumder, Rajib <rajib.majumder@credit-suisse.com> wrote:
-> Does this mean if we have 2 hosts connected back to back (there's no network device in between), sequence is guaranteed even in UDP?
->
-I think if you're trying to make the packets appear in order you need
-to untie the Gordian knot http://en.wikipedia.org/wiki/Gordian_Knot
+The Tundra Semiconductor Corporation (Tundra) Tsi108/9 is a host bridge
+for PowerPC processors that offers numerous system interconnect options
+for embedded application designers . The Tsi108/9 can interconnect 60x
+or MPX processors to PCI/X peripherals, DDR2-400 memory, Gigabit
+Ethernet, and Flash.
 
-In other words you should fix the application rather than the near
-impossible task of trying to make the packets in order...
+Tsi108/109 is used on powerpc/mpc7448hpc2 platform.
 
-Ian
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+The following serial patches provide Tsi108/9 on chip Ethernet chip
+support.
+
+1/3 : Config and Makefile modification.
+2/3 : Header file
+3/3 : C body file
+
+This serial patches fix the issues in the feedback from the previous
+patches.
+Feedback is welcomed.
+Roy 
+
