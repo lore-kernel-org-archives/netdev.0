@@ -1,98 +1,37 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 1/7] d80211:  add SIOCSIWTXPOW, SIOCGIWTXPOW,
- SIOCSIWPOWER and SIOCGIWPOWER
-Date: Thu, 21 Sep 2006 18:30:40 +0200
-Message-ID: <20060921183040.12d679f2@logostar.upir.cz>
-References: <44F355DE.3000206@linux.intel.com>
+Subject: Re: [PATCH 2/7] d80211: add support for SIOCSIWRATE and SIOCGIWRATE
+Date: Thu, 21 Sep 2006 18:40:21 +0200
+Message-ID: <20060921184021.1fb7fa6e@logostar.upir.cz>
+References: <44F355EE.3090607@linux.intel.com>
+	<20060830171919.GC18041@instant802.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: mabbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:46245 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751303AbWIUQau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 12:30:50 -0400
-To: mabbas <mabbas@linux.intel.com>
-In-Reply-To: <44F355DE.3000206@linux.intel.com>
+Received: from styx.suse.cz ([82.119.242.94]:21414 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751308AbWIUQkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 12:40:24 -0400
+To: "Jouni Malinen" <jkm@devicescape.com>
+In-Reply-To: <20060830171919.GC18041@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 30 Aug 2006 10:19:19 -0700, Jouni Malinen wrote:
+> On Mon, Aug 28, 2006 at 01:45:34PM -0700, mabbas wrote:
+> 
+> > This patch modify d80211 to add SIOCSIWRATE and SIOCGIWRATE
+> > commands. this patch almost does the same thing as in 
+> > PRISM2_HOSTAPD_SET_RATE_SETS.
+> 
+> I don't think I would like to get this applied since this seems to be
+> changing the design on how the per-STA TX rate limiting is done in a
+> way that does not match the original design and no justification has
+> been given for that change so far. Some comments below.
 
-sorry for the long delay.
-
-On Mon, 28 Aug 2006 13:45:18 -0700, mabbas wrote:
-> [...]
-> +static int ieee80211_ioctl_siwtxpow(struct net_device *dev,
-> +				    struct iw_request_info *info,
-> +				    union iwreq_data *wrqu, 
-> +				    char *extra)
-> +{
-> +	int rc = 0;
-> +	struct ieee80211_conf *conf = ieee80211_get_hw_conf(dev);
-> +
-> +	if (wrqu->txpower.flags != IW_TXPOW_DBM)
-> +		rc = -EINVAL;
-> +	else
-> +		conf->power_level = wrqu->txpower.value;
-> +
-> +
-> +	ieee80211_ioctl_set_radio_enabled(dev, !wrqu->txpower.disabled);
-
-Expecting implicit call of ieee80211_hw_config in
-ieee80211_ioctl_set_radio_enabled doesn't look like a good idea. If the
-latter function is changed (to call hw_config only if the radio_enabled
-field isn't the same as before), the SIOCSIWTXPOW ioctl won't have any
-effect.
-
-I'd prefer setting conf->radio_enabled directly and calling of
-ieee80211_hw_config explicitly.
-
-Also, always double check that you do error handling correctly (functions
-usually return something on purpose). (Hm, I already told you in this
-specific case. Please also double check that you haven't missed any comment
-before resending patches.)
-
-> +	return rc;
-> +}
-> +
-> +static int ieee80211_ioctl_siwpower(struct net_device *dev,
-> +				    struct iw_request_info *info,
-> +				    union iwreq_data *wrqu, 
-> +				    char *extra)
-> +{
-> +	struct ieee80211_conf *conf = ieee80211_get_hw_conf(dev);
-> +
-> +	if (wrqu->power.disabled) {
-> +		conf->power_management_enable = 0;
-> +		if (ieee80211_hw_config(dev))
-> +			return -EINVAL;
-> +		return 0;
-
-This is wrong. Return the error code you've got from ieee80211_hw_config.
-
-> +	}
-> +
-> +	if (wrqu->power.flags & IW_POWER_TYPE)
-> +		return -EINVAL;
-> +
-> +	switch (wrqu->power.flags & IW_POWER_MODE) {
-> +	case IW_POWER_ON:       /* If not specified */
-> +	case IW_POWER_MODE:     /* If set all mask */
-> +	case IW_POWER_ALL_R:    /* If explicitely state all */
-> +		break;
-> +	default:                /* Otherwise we don't support it */
-> +		return -EINVAL;
-> +	}
-> +
-> +	conf->power_management_enable = 1;
-> +
-> +	if (ieee80211_hw_config(dev))
-> +		return -EINVAL;
-
-Ditto.
-
-Thanks,
+I agree with Jouni. We definitely want similar feature but it needs to be
+carefully designed (and no, we are not limited by the limitations of WE).
+I'm not going to apply the patch.
 
  Jiri
 
