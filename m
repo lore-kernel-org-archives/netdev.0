@@ -1,53 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
-Date: Thu, 21 Sep 2006 12:14:06 +0200
-Message-ID: <20060921101406.GK18349@postel.suug.ch>
-References: <20060919.000800.127570535.yoshfuji@linux-ipv6.org> <20060918185746.GD18349@postel.suug.ch> <20060921.143046.29082693.yoshfuji@linux-ipv6.org>
+From: bora.sahin@ttnet.net.tr
+Subject: Re: [PATCH 2/12] smc911x: Fix SMC_WRITE_EEPROM_CMD macro
+Date: Thu, 21 Sep 2006 14:51:13 +0300
+Message-ID: <200609211451.14067.bora.sahin@ttnet.net.tr>
+References: <OFAEF14D11.7E5DA419-ON802571E9.006B70D9-802571E9.006CBCEF@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain;
+  charset="Iso-8859-9"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, romieu@fr.zoreil.com,
+	dustin@sensoria.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:63181 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1750705AbWIUKNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 06:13:46 -0400
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Received: from mail.ttnet.net.tr ([212.175.13.129]:34903 "EHLO
+	fep04.ttnet.net.tr") by vger.kernel.org with ESMTP id S1751121AbWIULqx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Sep 2006 07:46:53 -0400
+To: Steve.Glendinning@smsc.com
+In-Reply-To: <OFAEF14D11.7E5DA419-ON802571E9.006B70D9-802571E9.006CBCEF@smsc.com>
 Content-Disposition: inline
-In-Reply-To: <20060921.143046.29082693.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org> 2006-09-21 14:30
-> In article <20060918185746.GD18349@postel.suug.ch> (at Mon, 18 Sep 2006 20:57:46 +0200), Thomas Graf <tgraf@suug.ch> says:
-> > Same here, it doesn't make sense to export macros only of functional
-> > value and used by userspace only. The same issue will pop up once
-> > all users have been converted to use the new netlink interface.
-> > Keeping the old interface around just so userspace doesn't have to
-> > make copies doesn't make sense. I think it's better to start fixing
-> > userspace than to try and keep headers source compatible.
-> 
-> Backward compatibility is one of the most important factor.
-> A careless breakage is, say,  of "brain freeze."
+Hi,
 
-This isn't about backward compatibility, it's about userspace
-applications not sticking to the policy of using kernel headers.
-Which applications will break? I'll fix them. The kernel is
-only required to provide binary backward compatibility.
+Send again with this time to netdev also. I didnt notice Steve not including 
+netdev in the first place.
 
-> About these macros, we have other similar *_{RTA,PAYLOAD}()s in kernel,
-> which are not used by kernel but are exported to userspace.  They are
-> forming part of our API, and they're good example how to use netlink
-> interface.
+> Hi Francois/Bora,
+>
+> > > Macro abuse. It should be a function.
+> >
+> > Yes but I got smc911x.h and smc91x.h as a basis. In the smc911x.c
+> > there are macros which is longer than it, e.g. SMC_GET_MII. In the
+> > same way, smc91x.h contains even more longer like SMC_PUSH_DATA.
+> > But, of course, it doesnt mean they are correct.
+>
+> At SMSC (with help from ARM) we tidied up and posted our smsc911x driver
+> to the netdev list.  This uses a more "2.6" style, supports more devices,
+> contains additional workarounds for hardware issues and works on !arm.
+>
+> I don't think Jeff has included this in 2.6 yet, so let me know if you
+> would like a copy.
 
-Actually they are miserable examples of how to use netlink, they
-only cover part of the interface required and lead to tons of
-duplicated code in every userspace application. F.e. the different
-semantics of simliar interfaces inside the kernel and libnetlink
-have lead to countless bugs.
+I tracked your mails from archives. Well, as said, which one will be stay at 
+the kernel, Dustin's or SMSC's? Because I have additional patches againist to 
+in-kernel driver and maybe some more in the future. Our board is MIPS based.
 
-> Yes, we could change the interface, but we definately need to give
-> them graceful period at least; we can do it in 2.7, or at least,
-> after 2-3 stable releases.
+PS: I am happy if you send me your patches privately...
 
-Even thinking of 2.7 is not an option for me and I don't get the
-point in waiting 6 months before fixing userspace applications.
+--
+Bora SAHIN
