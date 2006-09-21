@@ -1,58 +1,61 @@
 From: paul.moore@hp.com
-Subject: [PATCH 3/6] NetLabel: change the SELinux permissions
-Date: Thu, 21 Sep 2006 12:57:06 -0400
-Message-ID: <20060921170336.334044000@hp.com>
+Subject: [PATCH 6/6] NetLabel: update docs with website information
+Date: Thu, 21 Sep 2006 12:57:09 -0400
+Message-ID: <20060921170338.666423000@hp.com>
 References: <20060921165703.251871000@hp.com>
-Cc: sds@epoch.ncsc.mil, jmorris@redhat.com, tgraf@suug.ch
+Cc: sds@epoch.ncsc.mil, jmorris@redhat.com, tgraf@suug.ch,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:9603 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1751358AbWIURDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 13:03:41 -0400
+Received: from atlrel9.hp.com ([156.153.255.214]:50412 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S1751357AbWIURDk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 13:03:40 -0400
 To: selinux@tycho.nsa.gov, netdev@vger.kernel.org
-Content-Disposition: inline; filename=netlabel-selinux_perm
+Content-Disposition: inline; filename=netlabel-doc_update
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change NetLabel to use the 'recvfrom' socket permission and the
-SECINITSID_NETMSG SELinux SID as the NetLabel base SID for incoming packets.
-This patch effectively makes the old, and currently unused, SELinux NETMSG
-permissions NetLabel permissions.
+Now that all of the supporting pieces of NetLabel have a home at SourceForge
+update the Kconfig help text and add an entry to the MAINTAINERS file.
 
-Signed-of-by: Paul Moore <paul.moore@hp.com>
+Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
- security/selinux/ss/services.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ MAINTAINERS          |    7 +++++++
+ net/netlabel/Kconfig |    5 ++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-Index: net-2.6.19/security/selinux/ss/services.c
+Index: net-2.6.19/MAINTAINERS
 ===================================================================
---- net-2.6.19.orig/security/selinux/ss/services.c
-+++ net-2.6.19/security/selinux/ss/services.c
-@@ -2611,7 +2611,7 @@ int selinux_netlbl_sock_rcv_skb(struct s
- 	u32 netlbl_sid;
- 	u32 recv_perm;
+--- net-2.6.19.orig/MAINTAINERS
++++ net-2.6.19/MAINTAINERS
+@@ -2008,6 +2008,13 @@ L:	netfilter@lists.netfilter.org
+ L:	netfilter-devel@lists.netfilter.org
+ S:	Supported
  
--	rc = selinux_netlbl_skbuff_getsid(skb, sksec->sid, &netlbl_sid);
-+	rc = selinux_netlbl_skbuff_getsid(skb, SECINITSID_NETMSG, &netlbl_sid);
- 	if (rc != 0)
- 		return rc;
++NETLABEL
++P:	Paul Moore
++M:	paul.moore@hp.com
++W:	http://netlabel.sf.net
++L:	netdev@vger.kernel.org
++S:	Supported
++
+ NETROM NETWORK LAYER
+ P:	Ralf Baechle
+ M:	ralf@linux-mips.org
+Index: net-2.6.19/net/netlabel/Kconfig
+===================================================================
+--- net-2.6.19.orig/net/netlabel/Kconfig
++++ net-2.6.19/net/netlabel/Kconfig
+@@ -9,6 +9,9 @@ config NETLABEL
+ 	---help---
+ 	  NetLabel provides support for explicit network packet labeling
+ 	  protocols such as CIPSO and RIPSO.  For more information see
+-	  Documentation/netlabel.
++	  Documentation/netlabel as well as the NetLabel SourceForge project
++	  for configuration tools and additional documentation.
++
++	   * http://netlabel.sf.net
  
-@@ -2620,13 +2620,13 @@ int selinux_netlbl_sock_rcv_skb(struct s
- 
- 	switch (sksec->sclass) {
- 	case SECCLASS_UDP_SOCKET:
--		recv_perm = UDP_SOCKET__RECV_MSG;
-+		recv_perm = UDP_SOCKET__RECVFROM;
- 		break;
- 	case SECCLASS_TCP_SOCKET:
--		recv_perm = TCP_SOCKET__RECV_MSG;
-+		recv_perm = TCP_SOCKET__RECVFROM;
- 		break;
- 	default:
--		recv_perm = RAWIP_SOCKET__RECV_MSG;
-+		recv_perm = RAWIP_SOCKET__RECVFROM;
- 	}
- 
- 	rc = avc_has_perm(sksec->sid,
+ 	  If you are unsure, say N.
 
 --
 paul moore
