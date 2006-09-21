@@ -1,41 +1,48 @@
-From: Florian Weimer <fweimer@bfk.de>
-Subject: Re: [PATCH 2.6.18-rc6 1/2] dllink driver: porting v1.19 to linux 2.6.18-rc6
-Date: Thu, 21 Sep 2006 15:29:09 +0200
-Message-ID: <82slilmjq2.fsf@mid.bfk.de>
-References: <1157620189.2904.16.camel@localhost.localdomain>
-	<1157620795.14882.16.camel@laptopd505.fenrus.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH]d80211: fix "iwconfig key [x]" behavior
+Date: Thu, 21 Sep 2006 17:51:04 +0200
+Message-ID: <20060921175104.31429d65@logostar.upir.cz>
+References: <1156754199.6061.3.camel@devlinux-hong>
+	<20060830192452.6ae099d5@griffin.suse.cz>
+	<1157081877.11040.44.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hayim Shaul <hayim@iportent.com>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, edward_peng@dlink.com.tw,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751070AbWIUN3c@vger.kernel.org>
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1157620795.14882.16.camel@laptopd505.fenrus.org> (Arjan van de Ven's message of "Thu, 07 Sep 2006 11:19:55 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:18593 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751274AbWIUPvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 11:51:11 -0400
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1157081877.11040.44.camel@devlinux-hong>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Arjan van de Ven:
+Hi,
 
->>  	if (irq)
->>  		spin_lock(&np->tx_lock);
->>  	else
->>  		spin_lock_irqsave(&np->tx_lock, flag);
->
-> double eeeep
->
-> this is wrong to do with in_interrupt() as gating factor!
+sorry for the delay.
 
-Well, this is not Hayim fault.  It's in 2.6.18 as is.
+On Fri, 01 Sep 2006 11:37:57 +0800, Hong Liu wrote:
+> @@ -2925,7 +2932,8 @@ static int ieee80211_ioctl_giwencode(str
+>  		return 0;
+>  	}
+>  
+> -	erq->length = 0;
+> +	erq->length = min((int)erq->length, sdata->keys[idx]->keylen);
+> +	memcpy(key, sdata->keys[idx]->key, erq->length);
+>  	erq->flags |= IW_ENCODE_ENABLED;
+>  
+>  	return 0;
 
-Unfortunately, the driver does not work very well.  Transmitting
-frames hangs after a while (quickly to reproduce with ping -f
--s40000).  Any suggestions how we could this get working?  The cards
-used work quite well in older systems despite all the driver bugs, but
-current systems with different timings expose them.
+This is still not correct, erq->length should be set to the actual key
+length to allow WE to return -E2BIG in case of too small buffer.
+
+	memcpy(key, sdata->keys[idx]->key,
+	       min((int)erq->length, sdata->keys[idx]->keylen));
+	erq->length = sdata->keys[idx]->keylen;
+
+ Jiri
 
 -- 
-Florian Weimer                <fweimer@bfk.de>
-BFK edv-consulting GmbH       http://www.bfk.de/
-Durlacher Allee 47            tel: +49-721-96201-1
-D-76131 Karlsruhe             fax: +49-721-96201-99
+Jiri Benc
+SUSE Labs
