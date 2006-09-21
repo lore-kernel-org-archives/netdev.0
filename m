@@ -1,43 +1,41 @@
-From: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
-Subject: RE: UDP Out 0f Sequence
-Date: Thu, 21 Sep 2006 11:55:23 +0800
-Message-ID: <F444CAE5E62A714C9F45AA292785BED30EB9759A@esng11p33001.sg.csfb.com>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: UDP Out 0f Sequence
+Date: Thu, 21 Sep 2006 15:59:05 +1200
+Message-ID: <5640c7e00609202059p74c1c653t8a97fb873915f5d@mail.gmail.com>
+References: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+Cc: "Rick Jones" <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx-2.csfb.com ([198.240.128.81]:61057 "EHLO ln-bas08.csfb.com")
-	by vger.kernel.org with ESMTP id S1751187AbWIUDzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 23:55:48 -0400
-To: "'David Miller'" <davem@davemloft.net>
+Received: from nf-out-0910.google.com ([64.233.182.131]:35830 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S1751192AbWIUD7M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 23:59:12 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so632725nfa
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2006 20:59:11 -0700 (PDT)
+To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+In-Reply-To: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Let's say we have 2 uniprocessor hosts connected back to back. Is there any possibility of an out-of-order scenario on recv? Is this same for all kernel (linux/solaris)?  
+On 9/21/06, Majumder, Rajib <rajib.majumder@credit-suisse.com> wrote:
+> Does this mean if we have 2 hosts connected back to back (there's no network device in between), sequence is guaranteed even in UDP?
+>
+I think if you're trying to make the packets appear in order you need
+to untie the Gordian knot http://en.wikipedia.org/wiki/Gordian_Knot
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net]
-Sent: 21 September 2006 11:51
-To: rajib.majumder@credit-suisse.com
-Cc: rick.jones2@hp.com; netdev@vger.kernel.org
-Subject: Re: UDP Out 0f Sequence
+In other words you should fix the application rather than the near
+impossible task of trying to make the packets in order...
 
-
-From: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
-Date: Thu, 21 Sep 2006 10:50:17 +0800
-
-> Does this mean if we have 2 hosts connected back to back (there's no
-> network device in between), sequence is guaranteed even in UDP?
-
-Not true.  Even for back to back systems SMP can cause packets
-to be delivered out of order even locally within the system
-on receive.
-
-==============================================================================
-Please access the attached hyperlink for an important electronic communications disclaimer: 
-
-http://www.credit-suisse.com/legal/en/disclaimer_email_ib.html
-==============================================================================
-
+Ian
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
