@@ -1,173 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Update of the r8169 branch
-Date: Thu, 21 Sep 2006 23:07:43 +0200
-Message-ID: <20060921210743.GA5083@electric-eye.fr.zoreil.com>
-References: <20060726215840.GA4032@electric-eye.fr.zoreil.com> <4511A4F0.6050101@kernelpanic.ru> <20060920214010.GA7879@electric-eye.fr.zoreil.com> <4512B475.1000703@kernelpanic.ru> <20060921165156.GC496@electric-eye.fr.zoreil.com> <4512ED7A.40001@kernelpanic.ru>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [patch] d80211: remove sub-interface mac address policy
+Date: Thu, 21 Sep 2006 14:10:57 -0700
+Message-ID: <20060921211057.GA22875@devicescape.com>
+References: <20060914143321.GA1962@devicescape.com> <20060921200939.1cab8c1c@logostar.upir.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, mbockol@carleton.edu, netdev@vger.kernel.org
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:21223 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751563AbWIUVJt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Sep 2006 17:09:49 -0400
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Received: from dhost002-87.dex002.intermedia.net ([64.78.20.224]:47156 "EHLO
+	dhost002-87.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1750862AbWIUVS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Sep 2006 17:18:56 -0400
+To: Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
-In-Reply-To: <4512ED7A.40001@kernelpanic.ru>
+In-Reply-To: <20060921200939.1cab8c1c@logostar.upir.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Boris B. Zhmurov <bb@kernelpanic.ru> :
-[...]
-> Is there any chance to get linux worked at least as fast, as freebsd-6.1 
-> with small udp packets?
-> Any help will be more than welcome!
-> Please, CC: me, due to I'm not subscribed to netdev@vger.kernel.org.
-
-Can you publish dmesg, vmstat 1 and /proc/interrupts somewhere ?
-
-> # Thu Sep 21 10:31:58 2006
-> #
-> CONFIG_X86_32=y
-> CONFIG_GENERIC_TIME=y
-> CONFIG_LOCKDEP_SUPPORT=y
-
-Disable
-
-> CONFIG_STACKTRACE_SUPPORT=y
-> CONFIG_SEMAPHORE_SLEEPERS=y
-
-Disable
-
-> CONFIG_X86=y
-> CONFIG_MMU=y
-> CONFIG_GENERIC_ISA_DMA=y
-> CONFIG_GENERIC_IOMAP=y
-> CONFIG_GENERIC_HWEIGHT=y
-> CONFIG_ARCH_MAY_HAVE_PC_FDC=y
-> CONFIG_DMI=y
-> CONFIG_DEFCONFIG_LIST="/lib/modules/$UNAME_RELEASE/.config"
+On Thu, Sep 21, 2006 at 08:09:39PM +0200, Jiri Benc wrote:
+> On Thu, 14 Sep 2006 07:33:21 -0700, David Kimdon wrote:
+> > Wireless vlan interfaces need to have the same mac address as
+> > other sub interfaces.  Rather than complicate the kernel here by
+> > adding yet another case where uniqueness is not required, remove
+> > the check on mac address uniqueness altogether.
+> > 
+> > We should not implement a mac address allocation policy here.  It
+> > is difficult to get it right in all cases and does not belong in
+> > the kernel.  It is better to leave this to be implemented as a
+> > userspace policy.
 > 
-> #
-> # Code maturity level options
-> #
-> CONFIG_EXPERIMENTAL=y
+> I disagree. This is not about policy, this is about prevention of
+> accidental violation of IEEE 802.11. The only effect of this patch would
+> be forcing drivers to do that check themselves thus duplicating code.
 
-Disable
+That is fine, I don't feel strongly, I will cook up a patch that fixes
+the check for vlan interfaces.
 
-> CONFIG_LOCK_KERNEL=y
-> CONFIG_INIT_ENV_ARG_LIMIT=32
-[...]
-> CONFIG_AUDIT=y
-> CONFIG_AUDITSYSCALL=y
+> What is the purpose of "wireless vlans"?
 
-Disable
+We use wireless vlans to isolate stations to separate multicast
+domains within the same bss based on the input of a radius server.  A
+stations is bound to a particular wireless vlan interface, all
+stations on that wireless vlan share broadcast keys, and the wireless
+vlan interface can be bridged to a particular wired vlan.
 
-> CONFIG_IKCONFIG=y
-> CONFIG_IKCONFIG_PROC=y
-[...]
-> CONFIG_M686=y
-> # CONFIG_MPENTIUMII is not set
-> # CONFIG_MPENTIUMIII is not set
-> # CONFIG_MPENTIUMM is not set
-> # CONFIG_MPENTIUM4 is not set
+> Is it something Atheros-specific?
+no, it is chip driver agnostic.
 
-?
+> Is it documented somewhere?  Or is it in some of IEEE 802.11
+> standards and I just overlooked it? (In that case I would be more
+> than happy to review the whole stack and fix it.) Could you send us
+> some pointers?
 
-[...]
-> # CONFIG_PREEMPT_NONE is not set
+Take a look at http://www.ietf.org/rfc/rfc3580.txt section 3.31.
+Tunnel Attributes.  That is what we are processing at a high level to
+get vlan assignment.  FWIW, we have code on its way to hostapd cvs
+that uses wireless vlans which will show more details of this
+particular implementation.
 
-Enable
-
-> CONFIG_PREEMPT_VOLUNTARY=y
-
-Disable
-
-> # CONFIG_PREEMPT is not set
-> CONFIG_PREEMPT_BKL=y
-
-Disable
-
-[...]
-> # CONFIG_NOHIGHMEM is not set
-> CONFIG_HIGHMEM4G=y
-> # CONFIG_HIGHMEM64G is not set
-> CONFIG_PAGE_OFFSET=0xC0000000
-> CONFIG_HIGHMEM=y
-> CONFIG_SELECT_MEMORY_MODEL=y
-> CONFIG_FLATMEM_MANUAL=y
-> # CONFIG_DISCONTIGMEM_MANUAL is not set
-> # CONFIG_SPARSEMEM_MANUAL is not set
-> CONFIG_FLATMEM=y
-> CONFIG_FLAT_NODE_MEM_MAP=y
-> # CONFIG_SPARSEMEM_STATIC is not set
-> CONFIG_SPLIT_PTLOCK_CPUS=4
-> # CONFIG_RESOURCES_64BIT is not set
-> CONFIG_HIGHPTE=y
-> # CONFIG_MATH_EMULATION is not set
-> CONFIG_MTRR=y
-> # CONFIG_EFI is not set
-> # CONFIG_IRQBALANCE is not set
-> CONFIG_REGPARM=y
-> # CONFIG_SECCOMP is not set
-> CONFIG_HZ_100=y
-> # CONFIG_HZ_250 is not set
-> # CONFIG_HZ_1000 is not set
-> CONFIG_HZ=100
-
-CONFIG_HZ_1000
-
-[...]
-> #
-> # CPU Frequency scaling
-> #
-> CONFIG_CPU_FREQ=y
-> CONFIG_CPU_FREQ_TABLE=y
-> # CONFIG_CPU_FREQ_DEBUG is not set
-> CONFIG_CPU_FREQ_STAT=m
-> CONFIG_CPU_FREQ_STAT_DETAILS=y
-> # CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
-> CONFIG_CPU_FREQ_DEFAULT_GOV_USERSPACE=y
-> CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
-> CONFIG_CPU_FREQ_GOV_POWERSAVE=m
-> CONFIG_CPU_FREQ_GOV_USERSPACE=y
-> CONFIG_CPU_FREQ_GOV_ONDEMAND=m
-> CONFIG_CPU_FREQ_GOV_CONSERVATIVE=m
-
-...
-
-> #
-> # CPUFreq processor drivers
-> #
-> CONFIG_X86_ACPI_CPUFREQ=m
-> # CONFIG_X86_POWERNOW_K6 is not set
-> CONFIG_X86_POWERNOW_K7=y
-> CONFIG_X86_POWERNOW_K8=y
-> # CONFIG_X86_GX_SUSPMOD is not set
-> CONFIG_X86_SPEEDSTEP_CENTRINO=y
-> CONFIG_X86_SPEEDSTEP_CENTRINO_TABLE=y
-> CONFIG_X86_SPEEDSTEP_ICH=m
-> CONFIG_X86_SPEEDSTEP_SMI=m
-> CONFIG_X86_P4_CLOCKMOD=m
-
-...
-
-[...]
-> # Instrumentation Support
-> #
-> # CONFIG_PROFILING is not set
-> # CONFIG_KPROBES is not set
-> 
-> #
-> # Kernel hacking
-> #
-> CONFIG_TRACE_IRQFLAGS_SUPPORT=y
-> # CONFIG_PRINTK_TIME is not set
-> # CONFIG_MAGIC_SYSRQ is not set
-> CONFIG_UNUSED_SYMBOLS=y
-> CONFIG_DEBUG_KERNEL=y
-
-Disable
-
--- 
-Ueimor
+David
