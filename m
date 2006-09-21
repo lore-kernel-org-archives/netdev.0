@@ -1,47 +1,53 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: 2.6.18-rc7-mm1
-Date: Thu, 21 Sep 2006 11:44:58 +0200
-Message-ID: <200609211144.58950.ak@suse.de>
-References: <20060919012848.4482666d.akpm@osdl.org> <20060919133606.f0c92e66.akpm@osdl.org> <1158762221.6512.10.camel@Homer.simpson.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
+Date: Thu, 21 Sep 2006 12:14:06 +0200
+Message-ID: <20060921101406.GK18349@postel.suug.ch>
+References: <20060919.000800.127570535.yoshfuji@linux-ipv6.org> <20060918185746.GD18349@postel.suug.ch> <20060921.143046.29082693.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:61065 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751095AbWIUJpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 05:45:14 -0400
-To: Mike Galbraith <efault@gmx.de>
-In-Reply-To: <1158762221.6512.10.camel@Homer.simpson.net>
+Received: from postel.suug.ch ([194.88.212.233]:63181 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1750705AbWIUKNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 06:13:46 -0400
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
 Content-Disposition: inline
+In-Reply-To: <20060921.143046.29082693.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 20 September 2006 16:23, Mike Galbraith wrote:
-> On Tue, 2006-09-19 at 13:36 -0700, Andrew Morton wrote:
-> > On Tue, 19 Sep 2006 22:25:21 +0200
-> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > 
-> > > > - It took maybe ten hours solid work to get this dogpile vaguely
-> > > >   compiling and limping to a login prompt on x86, x86_64 and powerpc. 
-> > > >   I guess it's worth briefly testing if you're keen.
-> > > 
-> > > It's not that bad, but unfortunately the networking doesn't work on my system
-> > > (HPC nx6325 + SUSE 10.1 w/ updates, 64-bit).  Apparently, the interfaces don't
-> > > get configured (both tg3 and bcm43xx are affected).
-> > 
-> > Is there anything interesting in the dmesg output?
-> > 
-> > Perhaps an `strace -f ifup' or whatever would tell us what's failing.
+* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org> 2006-09-21 14:30
+> In article <20060918185746.GD18349@postel.suug.ch> (at Mon, 18 Sep 2006 20:57:46 +0200), Thomas Graf <tgraf@suug.ch> says:
+> > Same here, it doesn't make sense to export macros only of functional
+> > value and used by userspace only. The same issue will pop up once
+> > all users have been converted to use the new netlink interface.
+> > Keeping the old interface around just so userspace doesn't have to
+> > make copies doesn't make sense. I think it's better to start fixing
+> > userspace than to try and keep headers source compatible.
 > 
-> FYI, it`s SuSE`s /sbin/getcfg binary that doesn't like the changes.  It
-> sees /sys/class/net/eth0 as a symlink, and reels off into sys/block (?)
-> looking for a directory.
+> Backward compatibility is one of the most important factor.
+> A careless breakage is, say,  of "brain freeze."
 
-It's a known problem. It's actually libsysfs' fault which somehow manages
-to not support symlinks properly. Unfortunately getcfg made the mistake of using libsysfs
-instead of accessing /sys directly
+This isn't about backward compatibility, it's about userspace
+applications not sticking to the policy of using kernel headers.
+Which applications will break? I'll fix them. The kernel is
+only required to provide binary backward compatibility.
 
--Andi
+> About these macros, we have other similar *_{RTA,PAYLOAD}()s in kernel,
+> which are not used by kernel but are exported to userspace.  They are
+> forming part of our API, and they're good example how to use netlink
+> interface.
+
+Actually they are miserable examples of how to use netlink, they
+only cover part of the interface required and lead to tons of
+duplicated code in every userspace application. F.e. the different
+semantics of simliar interfaces inside the kernel and libnetlink
+have lead to countless bugs.
+
+> Yes, we could change the interface, but we definately need to give
+> them graceful period at least; we can do it in 2.7, or at least,
+> after 2-3 stable releases.
+
+Even thinking of 2.7 is not an option for me and I don't get the
+point in waiting 6 months before fixing userspace applications.
