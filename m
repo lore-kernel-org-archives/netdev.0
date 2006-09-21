@@ -1,51 +1,28 @@
-From: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
-Subject: RE: UDP Out 0f Sequence
-Date: Thu, 21 Sep 2006 10:50:17 +0800
-Message-ID: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: UDP Out 0f Sequence
+Date: Wed, 20 Sep 2006 20:51:16 -0700 (PDT)
+Message-ID: <20060920.205116.71097065.davem@davemloft.net>
+References: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ln-bas08.csfb.com ([198.240.128.81]:40840 "EHLO
-	ln-bas08.csfb.com") by vger.kernel.org with ESMTP id S1751016AbWIUCvA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Sep 2006 22:51:00 -0400
-To: "'Rick Jones'" <rick.jones2@hp.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:62397
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751182AbWIUDvG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 23:51:06 -0400
+To: rajib.majumder@credit-suisse.com
+In-Reply-To: <F444CAE5E62A714C9F45AA292785BED30EB97599@esng11p33001.sg.csfb.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Does this mean if we have 2 hosts connected back to back (there's no network device in between), sequence is guaranteed even in UDP? 
+From: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+Date: Thu, 21 Sep 2006 10:50:17 +0800
 
------Original Message-----
-From: Rick Jones [mailto:rick.jones2@hp.com]
-Sent: 21 September 2006 00:47
-To: Majumder, Rajib
-Cc: 'netdev@vger.kernel.org'
-Subject: Re: UDP Out 0f Sequence
+> Does this mean if we have 2 hosts connected back to back (there's no
+> network device in between), sequence is guaranteed even in UDP?
 
-
-Majumder, Rajib wrote:
-> Hi,
-> 
-> If I write UDP datagrams 1,2 and 3 to network and if the receiver
-> receives in order 2,1, and 3, where can the sequence get changed? Is it
-> at the source stack, network transit or destination stack?
-
-Yes. :)
-
-Although network transit is by far the most likely case.  Destination 
-stack is a distant second and source stack an even more distant third. 
-Generally stack writers try to avoid having places in their stacks where 
-things can reorder, but it isn't completely unknown.
-
-rick jones
-
-
-==============================================================================
-Please access the attached hyperlink for an important electronic communications disclaimer: 
-
-http://www.credit-suisse.com/legal/en/disclaimer_email_ib.html
-==============================================================================
-
+Not true.  Even for back to back systems SMP can cause packets
+to be delivered out of order even locally within the system
+on receive.
