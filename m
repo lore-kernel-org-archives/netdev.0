@@ -1,94 +1,58 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails
- due to missing declaration in net/netfilter/xt_physdev.c
-Date: Thu, 21 Sep 2006 15:37:01 -0700
-Message-ID: <20060921153701.2c49e331.akpm@osdl.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
+Date: Fri, 22 Sep 2006 00:38:44 +0200
+Message-ID: <20060922003844.6817f22b@logostar.upir.cz>
+References: <44F356DF.9000000@linux.intel.com>
+	<20060921190126.4d884c44@logostar.upir.cz>
+	<1158865436.27546.23.camel@localhost.localdomain>
+	<4512EC5C.1030807@linux.intel.com>
+	<1158870634.5769.21.camel@localhost.localdomain>
+	<4512F876.7000203@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:22250 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932078AbWIUWhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 18:37:12 -0400
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id k8LMb1nW025057
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:37:02 -0700
-Received: from akpm.corp.google.com (shell0.pdx.osdl.net [10.9.0.31])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id k8LMb16D007766
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 15:37:01 -0700
-To: netdev@vger.kernel.org
+Received: from styx.suse.cz ([82.119.242.94]:17856 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932080AbWIUWis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2006 18:38:48 -0400
+To: mabbas <mabbas@linux.intel.com>
+In-Reply-To: <4512F876.7000203@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 21 Sep 2006 13:39:18 -0700, mabbas wrote:
+> I can fix the patch to do just that if we agree on that.
 
-Methinks CONFIG_NETFILTER_XT_TARGET_CLASSIFY should depend upon
-CONFIG_BRIDGE_NETFILTER.  Because brnf_deferred_hooks is defined in
-net/bridge/br_netfilter.c and is referred to in net/netfilter/xt_physdev.c.
+Well, we need a flag indicating whether we are associated or not. I don't
+know about such a flag in WE (hopefully we will have that in nl80211).
 
-Or something else ;)
+Now we have two possibilities:
 
+(a) If a fixed BSSID is set (via SIOCSIWAP), return it from SIOCGIWAP. There
+is no way to find out whether we are associated or not. The behaviour is
+also inconsistent with the case when no fixed BSSID is set - SIOCGIWAP
+returns all zeros or some (random from our POV) BSSID then. So, when you
+get a BSSID from SIOCGIWAP, to determine what that means you need to know
+if there was a fixed BSSID set. To do that you need to get a BSSID from
+SIOCGIWAP. The chicken and egg problem?
 
+(b) SIOCSIWAP returns zeros when we are not associated, BSSID otherwise.
+There is no way to find out if you set a fixed BSSID or not. If you
+accidentally set a fixed BSSID you will have a hard time finding out why
+your card is not associating.
 
-Begin forwarded message:
+Jean, are there any other possibilities?
 
-Date: Thu, 21 Sep 2006 14:41:13 -0700
-From: bugme-daemon@bugzilla.kernel.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails due to missing declaration in net/netfilter/xt_physdev.c
+If not, (b) seems much more reasonable to me, because:
+- The value returned from SIOCGIWAP has a well-defined meaning independent
+  of the current configuration of the interface.
+- Dan wants that.
 
+ Jiri
 
-http://bugzilla.kernel.org/show_bug.cgi?id=7179
-
-           Summary: Compilation of .tmp_linux1 fails due to missing
-                    declaration in net/netfilter/xt_physdev.c
-    Kernel Version: 2.6.18
-            Status: NEW
-          Severity: high
-             Owner: laforge@gnumonks.org
-         Submitter: gfrank@neoservers.com
-
-
-Most recent kernel where this bug did not occur: 2.6.17.13
-Distribution: CentOS
-Hardware Environment: Dual Intel Xeon 5160
-Software Environment: gcc 3.4.6, glibc 2.3.4, make 3.8
-Problem Description:
-
-Using the same config from 2.6.17.13, kernel 2.6.18 fails on make when 
-attempting to make .tmp_vmlinux1
-
-LD      .tmp_vmlinux1
-net/built-in.o(.text.checkentry+0x1e1): In function `checkentry':
-net/netfilter/xt_physdev.c:130: undefined reference to `brnf_deferred_hooks'
-make: *** [.tmp_vmlinux1] Error 1
-
-Line 130 is simply "brnf_deferred_hooks = 1;"  This variable is also used on 
-line 118.
-
-Adding 
-
-"int brnf_deferred_hooks = 0;" 
-
-in a line before line 104 (static int) will cause .tmp_vmlinux1 to be 
-successfully created, and make will finish successfully.  However, it will 
-generate a warning (seen below) on now line 119 which can be fixed by changing 
-it to: 
-
-"if ((brnf_deferred_hooks == 0) & (info->bitmask & XT_PHYSDEV_OP_OUT) && "
-
-The warning generated is:
-
-net/netfilter/xt_physdev.c: In function `checkentry':
-net/netfilter/xt_physdev.c:118: warning: ISO C90 forbids mixed declarations 
-and code
-
-The kernel produced after making these changes works fine
-
-Steps to reproduce:
-
-I am unsure of which kernel .config parameter is sparking this.  My .config 
-can be found here: http://www.animeforum.com/jakiao/misato.config
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+-- 
+Jiri Benc
+SUSE Labs
