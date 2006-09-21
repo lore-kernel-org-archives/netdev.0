@@ -1,70 +1,130 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 08/23] e1000: add multicast stats counters
-Date: Wed, 20 Sep 2006 20:47:21 -0400
-Message-ID: <4511E119.3080302@pobox.com>
-References: <F2C59D1E488E7A4FB7F6F673DAF8325901C7BBF3@orsmsx413.amr.corp.intel.com>
+From: James Morris <jmorris@namei.org>
+Subject: RE: [PATCH 4/7] secid reconciliation-v02: Invoke LSM hook for out
+ bound traffic
+Date: Wed, 20 Sep 2006 22:16:17 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609202201090.32645@d.namei>
+References: <36282A1733C57546BE392885C061859201573239@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Chad Hanson <chanson@TrustedCS.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:12933 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750873AbWIUArY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2006 20:47:24 -0400
-To: cramerj <cramerj@intel.com>
-In-Reply-To: <F2C59D1E488E7A4FB7F6F673DAF8325901C7BBF3@orsmsx413.amr.corp.intel.com>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:40601 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751005AbWIUCQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Sep 2006 22:16:21 -0400
+To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <36282A1733C57546BE392885C061859201573239@chaos.tcs.tcs-sec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-cramerj wrote:
->> Williams, Mitch A wrote:
->>>>> +	{ "rx_broadcast", E1000_STAT(stats.bprc) },
->>>>> +	{ "tx_broadcast", E1000_STAT(stats.bptc) },
->>>>> +	{ "rx_multicast", E1000_STAT(stats.mprc) },
->>>>> +	{ "tx_multicast", E1000_STAT(stats.mptc) },
->>>>>  	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
->>>>>  	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
->>>>>  	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
->>>> NAK -- you also need to remove the standard net stats, which are
->>>> exported elsewhere
->>> Jeff, can you please explain the reason for this NAK a little more?
->>> Neither Auke nor I understand why you rejected the patch.
+On Wed, 20 Sep 2006, Venkat Yekkirala wrote:
 
->>> This patch just adds the display of a few more stats in Ethtool.  It
->>> doesn't affect any other counters, and is really just a convenience
->>> feature.  I added this to the driver because of a customer request.
->> Adding those stats is fine.  You guys just need to remove the existing
->> mess first.
-
-> Since we have 1-to-1 mapping of some of our statistics registers to the
-> net_stats, we could s/net_stats/stats/.  However, there are a few
-> net_stats (e.g. net_stats.rx_errors) that encapsulate more than one
-> e1000 statistic register of which we don't have a private stat member
-> defined.
+> > Quite a lot of logic has changed here.
+> > 
+> > With the original code, we only restored a secmark once for 
+> > the lifetime 
+> > of a packet or connetcion (to make behavior deterministic and 
+> > security 
+> > marks immutable in the face of arbitrarily complex iptables rules).
+> > 
+> > With your patch, secmarks are always writable.
 > 
-> For those statistics, is it really necessary to add another stat
-> structure just to rm "net_stats" from that list we pass to ethtool?  At
-> best, it would look something like this...
+> Hopefully the following thread addressed these concerns.
+> http://marc.theaimsgroup.com/?l=selinux&m=115870100405571&w=2
+
+Ok, but can we preserve existing behavior when packet are only being 
+labeled internally?
+
+(We should probably settle on the use of 'external' for cipso/xfrm 
+labeling and 'internal' for iptables only).
+
+
+> > Also, we did not restore a 'null' (zero) secmark to the skb 
+> > (while this 
+> > should never happen with the current SECMARK target, there may be 
+> > non-SELinux extensions later which set a null marking).
 > 
->   { "foo_count", E1000_STAT(stats.foo) },
-> - { "rx_errors", E1000_STAT(net_stats.rx_errors) },
-> + { "rx_errors", E1000_STAT(eth_stats.rx_errors) },
->   { "bar_count", E1000_STAT(stats.bar) },
+> How do you envision this (i.e. resoring a null secmark) being useful?
+> secmark is anyway zero by default (when no labeling rules exist for the
+> connection) right?
+
+Actually, don't worry about this.  The implementation can decide what a 
+'null' mark might be and manage it themselves.
+
+
+> > You've also changed the logic for the dummy case of 
+> > security_skb_netfilter_check()
 > 
-> If so, well, OK.  I'm just scratching my head as to why it's a "mess"
-> as-is.
+> I am not getting this. This is a new function. Did you mean
+> to point to a different function?
+> 
+> > 
+> > 
+> > +static inline int security_skb_netfilter_check(struct sk_buff *skb,
+> > +                                       u32 nf_secid)
+> > +{
+> > +       return 1;
+> > +}
+> > +
+> > 
+> > This code does not now behave as it did originally.  Keep in 
+> > mind that 
+> > SELinux is not the only user of SECMARK.
 
-The ethtool get-stats sub ioctl has _always_ been for exporting _only_ 
-NIC-private statistics.
+I'm talking about the code as a whole and the way this hook does not 
+preserve existing behavior in the default case.
 
-So, no, there is no inherent connection between adding multicast stats 
-and removing ones that should have never been in the list.  But if I 
-don't put my foot down, this will never get corrected.
+Look at the original code:
 
-	Jeff
+static void secmark_restore(struct sk_buff *skb)
+{
+        if (!skb->secmark) {
+                u32 *connsecmark;
+                enum ip_conntrack_info ctinfo;
+
+                connsecmark = nf_ct_get_secmark(skb, &ctinfo);
+                if (connsecmark && *connsecmark)
+                        if (skb->secmark != *connsecmark)
+                                skb->secmark = *connsecmark;
+        }
+}
+
+Now, you have added an LSM hook in here:
+
++       /* Set secmark on inbound and filter it on outbound */
++       if (hooknum == NF_IP_POST_ROUTING || hooknum == NF_IP6_POST_ROUTING) {
++               if (!security_skb_netfilter_check(skb, secmark))
++                       return NF_DROP;
++       } else
++               if (skb->secmark != secmark)
++                       skb->secmark = secmark;
+
+The dummy hook does not restore the secmark in the way that the original 
+code does, now depending on the hooknum.
+
+When LSM is not configured or no LSM module is active, the behavior of the 
+code must be identical to the original version.
+
+> > I really don't know if connection tracking is the right place 
+> > to be doing 
+> > policy enforcment, either.  Perhaps you should just do the 
+> > relabeling here 
+> > and enforcement later.
+> 
+> We could have done enforcement, in the SELinux postroute_last
+> hook for example, if only there were a place to hold onto the
+> "exit point context", separate from the label already associated
+> with the skb in the secmark field. postroute_last would need BOTH
+> the label of the skb (available in the secmark field) and the
+> "exit point context" to do enforcement.
+
+Ok, it's not pretty, but I guess it's much better than adding another 
+field to the skb or similar.
 
 
+- James
+-- 
+James Morris
+<jmorris@namei.org>
