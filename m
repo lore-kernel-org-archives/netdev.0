@@ -1,70 +1,78 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 3/3] bonding: Fix primary selection error at enslavement time
-Date: Thu, 21 Sep 2006 15:47:09 -0700
-Message-ID: <200609212247.k8LMl9Zt031977@death.nxdomain.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
+Date: Thu, 21 Sep 2006 15:55:14 -0700
+Message-ID: <20060921225514.GA26850@bougret.hpl.hp.com>
+References: <44F356DF.9000000@linux.intel.com> <20060921190126.4d884c44@logostar.upir.cz> <1158865436.27546.23.camel@localhost.localdomain> <4512EC5C.1030807@linux.intel.com> <1158870634.5769.21.camel@localhost.localdomain> <4512F876.7000203@linux.intel.com> <20060922003844.6817f22b@logostar.upir.cz>
+Reply-To: jt@hpl.hp.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mabbas <mabbas@linux.intel.com>, Dan Williams <dcbw@redhat.com>,
+	netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:44722 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S932095AbWIUWrU
+Received: from gundega.hpl.hp.com ([192.6.19.190]:48070 "EHLO
+	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S932098AbWIUW6d
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Sep 2006 18:47:20 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8LMlEel001495
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 18:47:16 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8LMlAeE241576
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 16:47:10 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8LMl99X032411
-	for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 16:47:10 -0600
-To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+	Thu, 21 Sep 2006 18:58:33 -0400
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20060922003844.6817f22b@logostar.upir.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 22, 2006 at 12:38:44AM +0200, Jiri Benc wrote:
+> On Thu, 21 Sep 2006 13:39:18 -0700, mabbas wrote:
+> > I can fix the patch to do just that if we agree on that.
+> 
+> Well, we need a flag indicating whether we are associated or not. I don't
+> know about such a flag in WE (hopefully we will have that in nl80211).
 
-	At enslavement time, the primary slave might not be activated if
-there is already an active slave and the new slave is the primary.
-Replaced complicated logic with a call to bond_select_active_slave(),
-which does the right thing.
+	SIOCSIWAP is that flag.
+	Sorry, but the way "struct sockaddr" is designed did not allow
+for having an explicit flag, otherwise I would have done it like for
+every other commands.
 
-	Fixes http://bugzilla.kernel.org/show_bug.cgi?id=6378
+> Now we have two possibilities:
+> 
+> (a) If a fixed BSSID is set (via SIOCSIWAP), return it from SIOCGIWAP. There
+> is no way to find out whether we are associated or not. The behaviour is
+> also inconsistent with the case when no fixed BSSID is set - SIOCGIWAP
+> returns all zeros or some (random from our POV) BSSID then. So, when you
+> get a BSSID from SIOCGIWAP, to determine what that means you need to know
+> if there was a fixed BSSID set. To do that you need to get a BSSID from
+> SIOCGIWAP. The chicken and egg problem?
+> 
+> (b) SIOCSIWAP returns zeros when we are not associated, BSSID otherwise.
+> There is no way to find out if you set a fixed BSSID or not. If you
+> accidentally set a fixed BSSID you will have a hard time finding out why
+> your card is not associating.
+> 
+> Jean, are there any other possibilities?
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+	Yes, dropping SIOCSIWAP (set) entirely, and keep only
+SIOCGIWAP (get).
 
+> If not, (b) seems much more reasonable to me, because:
+> - The value returned from SIOCGIWAP has a well-defined meaning independent
+>   of the current configuration of the interface.
+> - Dan wants that.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 03b0aaa..4e7aaf9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1513,29 +1513,8 @@ int bond_enslave(struct net_device *bond
- 
- 	switch (bond->params.mode) {
- 	case BOND_MODE_ACTIVEBACKUP:
--		/* if we're in active-backup mode, we need one and
--		 * only one active interface. The backup interfaces
--		 * will have their SLAVE_INACTIVE flag set because we
--		 * need them to be drop all packets. Thus, since we
--		 * guarantee that curr_active_slave always point to
--		 * the last usable interface, we just have to verify
--		 * this interface's flag.
--		 */
--		if (((!bond->curr_active_slave) ||
--		     (bond->curr_active_slave->dev->priv_flags & IFF_SLAVE_INACTIVE)) &&
--		    (new_slave->link != BOND_LINK_DOWN)) {
--			/* first slave or no active slave yet, and this link
--			   is OK, so make this interface the active one */
--			bond_change_active_slave(bond, new_slave);
--			printk(KERN_INFO DRV_NAME
--			       ": %s: first active interface up!\n",
--			       bond->dev->name);
--			netif_carrier_on(bond->dev);
--
--		} else {
--			dprintk("This is just a backup slave\n");
--			bond_set_slave_inactive_flags(new_slave);
--		}
-+		bond_set_slave_inactive_flags(new_slave);
-+		bond_select_active_slave(bond);
- 		break;
- 	case BOND_MODE_8023AD:
- 		/* in 802.3ad mode, the internal mechanism
+	(b) is the correct answer ;-)
+	We need to be pragmatic. Very few people need to set a fixed
+BSSID. I would even venture to say that in the case of most people
+setting a fixed BSSID, it's an error and they should not do it (it
+kills roaming, which is a desirable feature). I've yet to find a card
+which scanning is broken to the point that you need to fudge the
+BSSID.
+	There are some drivers that don't support SIOCSIWAP (set), and
+it's usually not a problem, users are not complaining about it. That's
+why I claim we could drop the (set) support. Of course, we can't do it
+because one PhD student at Berkeley need the feature ;-)
+	If a program like NetworkManager want to play advanced tricks
+with the BSSID and want to know if the user has set a fixed BSSID, it
+can monitor SIOCSIWAP events and remember the state.
+
+>  Jiri
+
+	Regards,
+
+	Jean
