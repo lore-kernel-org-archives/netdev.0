@@ -1,42 +1,39 @@
-From: Eddie Kohler <kohler@cs.ucla.edu>
-Subject: Re: [PATCH 6/7] [DCCP]: Fix setting of packet size in CCID3
-Date: Fri, 22 Sep 2006 09:57:57 -0700
-Message-ID: <45141615.30908@cs.ucla.edu>
-References: <200609221432.20022.ian.mcdonald@jandi.co.nz> <200609221151.57230@strip-the-willow>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: PATCH: fix cut/paste error in TCPPROBE
+Date: Fri, 22 Sep 2006 10:01:06 -0700
+Message-ID: <20060922100106.2e128bf5@dxpl.pdx.osdl.net>
+References: <20060922144710.GB26719@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ian McDonald <ian.mcdonald@jandi.co.nz>,
-	Arnaldo de Melo <acme@mandriva.com>,
-	David Miller <davem@davemloft.net>,
-	"dccp (vger)" <dccp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-2.smtp.ucla.edu ([169.232.47.136]:55955 "EHLO
-	smtp-2.smtp.ucla.edu") by vger.kernel.org with ESMTP
-	id S932599AbWIVQ7t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 12:59:49 -0400
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-In-Reply-To: <200609221151.57230@strip-the-willow>
+Received: from smtp.osdl.org ([65.172.181.4]:34272 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932603AbWIVRB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 13:01:56 -0400
+To: Grant Grundler <grundler@parisc-linux.org>
+In-Reply-To: <20060922144710.GB26719@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> |  +	case DCCP_SOCKOPT_TX_PACKET_SIZE:
-> |  +		if (dmsk->dccpms_tx_ccid != DCCPC_CCID3)
-> |  +			err = -EINVAL;
-> This is unfortunate: it is in the generic dccp code but
-> works only for CCID 3. Same for DCCP_SOCKOPT_RX_PACKET_SIZE.
+On Fri, 22 Sep 2006 08:47:10 -0600
+Grant Grundler <grundler@parisc-linux.org> wrote:
 
-I agree with Gerrit.  An average packet size congestion control parameter 
-might be useful for multiple CCIDs, even if only some CCIDs would use it. 
-Would prefer that this sets the parameter in all cases.
-
-E
-
+> Fix cut/paste error in TCPPROBE help text.
+> 
+> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 > 
 > 
-> --Gerrit
-> -
-> To unsubscribe from this list: send the line "unsubscribe dccp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -231,7 +231,7 @@ config NET_TCPPROBE
+>  	TCP congestion avoidance modules. If you don't understand
+>  	what was just said, you don't need it: say N.
+>  
+> -	Documentation on how to use the packet generator can be found
+> +	Documentation on how to use TCP connection probing can be found
+>  	at http://linux-net.osdl.org/index.php/TcpProbe
+>  
+>  	To compile this code as a module, choose M here: the
+
+Thanks...
