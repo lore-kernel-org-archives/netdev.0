@@ -1,79 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1
- fails due to missing declaration in net/netfilter/xt_physdev.c
-Date: Fri, 22 Sep 2006 12:15:43 +0200
-Message-ID: <4513B7CF.5040209@trash.net>
-References: <20060921153701.2c49e331.akpm@osdl.org> <20060922084108.GB6820@ff.dom.local> <20060922092731.GC6820@ff.dom.local> <20060922095556.GA11991@ff.dom.local>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 5/7] [DCCP]: Introduce two new socket options
+Date: Fri, 22 Sep 2006 11:37:45 +0100
+Message-ID: <200609221137.45879@strip-the-willow>
+References: <200609221430.14555.ian.mcdonald@jandi.co.nz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090004010700030903070808"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo de Melo <acme@mandriva.com>,
+	David Miller <davem@davemloft.net>,
+	"dccp (vger)" <dccp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:12794 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750704AbWIVKPs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 06:15:48 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20060922095556.GA11991@ff.dom.local>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40629 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1750748AbWIVKiC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 06:38:02 -0400
+To: Ian McDonald <ian.mcdonald@jandi.co.nz>
+In-Reply-To: <200609221430.14555.ian.mcdonald@jandi.co.nz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090004010700030903070808
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+|  This creates two new socket options DCCP_SOCKOPT_TX_PACKET_SIZE
+|  and DCCP_SOCKOPT_RX_PACKET_SIZE. DCCP_SOCKOPT_PACKET_SIZE doesn't
+|  work and packet size should be set independently on two half
+|  connections.
+I disagree with this solution: it solves one problem by introducing two
+new ones:
 
-Jarek Poplawski wrote:
-> On Fri, Sep 22, 2006 at 11:27:31AM +0200, Jarek Poplawski wrote:
-> ...
-> 
->>There is CONFIG_BRIDGE=m and this is the source of a problem:
->>config shouldn't allow for:
->>
->>CONFIG_NETFILTER_BRIDGE=y 
->>CONFIG_NETFILTER_XT_MATCH_PHYSDEV=y 
-> 
->  
-> So here is a patch proposal.
-> 
-> Jarek P.
-> 
-> diff -Nurp linux-2.6.18-/net/Kconfig linux-2.6.18/net/Kconfig
-> --- linux-2.6.18-/net/Kconfig	2006-09-20 05:42:06.000000000 +0200
-> +++ linux-2.6.18/net/Kconfig	2006-09-22 11:42:19.000000000 +0200
-> @@ -143,7 +143,7 @@ config NETFILTER_DEBUG
->  
->  config BRIDGE_NETFILTER
->  	bool "Bridged IP/ARP packets filtering"
-> -	depends on BRIDGE && NETFILTER && INET
-> +	depends on BRIDGE=y && NETFILTER && INET
+ * the options are redundant:
+     --at the sender the packet size is implicitly communicated via the 
+       `len' argument of dccp_sendmsg()
+     --the receiver samples the packet sizes of incoming packets
 
-We should fix the physdev dependencies since this is what is causing
-problems.
+ * it makes the programming interface more complex; currently these options
+   only work for CCID 3 (cf. patch 6/7)
 
+ * both CCID 2/3 are for fixed-packet sizes anyway, and the upcoming
+   CCID 4 draft-ietf-dccp-tfrc-voip-05.txt looks much rather like a 
+   fixed `mini' packet size rather than a variable-size protocols
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+ * for varying packet sizes, the sender should calculate the mean/avg
+   packet size by itself, rather than relying on information. For TFRC, 
+   [draft-floyd-rfc3448bis-00, sec. 4.1] suggests here:
+      "where the segment size varies depending on the data, the sender MAY estimate the
+       segment size s as the average segment size over the last four loss intervals."
 
---------------090004010700030903070808
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+In summary, I think it would be better to let the sender/receiver determine the 
+packet size from already available data. That is, derive s from the `len' of dccp_sendmsg(),
+and use a weighted-average mechanism like
+                       s  =   q * len  +  (1-q) * s
+to smooth out variations: in accordance with draft-floyd-rfc3448bis-00.
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 0a28d2c..ce94732 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -365,7 +365,7 @@ config NETFILTER_XT_MATCH_MULTIPORT
- 
- config NETFILTER_XT_MATCH_PHYSDEV
- 	tristate '"physdev" match support'
--	depends on NETFILTER_XTABLES && BRIDGE_NETFILTER
-+	depends on NETFILTER_XTABLES && BRIDGE && BRIDGE_NETFILTER
- 	help
- 	  Physdev packet matching matches against the physical bridge ports
- 	  the IP packet arrived on or will leave by.
-
---------------090004010700030903070808--
+-- Gerrit
