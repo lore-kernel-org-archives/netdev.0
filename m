@@ -1,71 +1,52 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 5/9] network namespaces: async socket operations
-Date: Fri, 22 Sep 2006 17:33:56 +0200
-Message-ID: <45140264.3020007@fr.ibm.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <20060815184845.A2882@castle.nmd.msu.ru>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Fri, 22 Sep 2006 19:35:17 +0400
+Message-ID: <20060922153517.GB24866@ms2.inr.ac.ru>
+References: <200609181850.22851.ak@suse.de> <20060918211759.GB31746@tentacle.sectorb.msk.ru> <20060918220038.GB14322@ms2.inr.ac.ru> <20060919.124751.24100694.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
-	ebiederm@xmission.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	devel@openvz.org, alexey@sw.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: master@sectorb.msk.ru, ak@suse.de, hawk@diku.dk,
+	harry@atmos.washington.edu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:25131 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S932602AbWIVPd5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 11:33:57 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id k8MFXspU102686
-	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 15:33:54 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8MFZjDT3174608
-	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 17:35:45 +0200
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8MFXrVN000433
-	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 17:33:54 +0200
-To: Andrey Savochkin <saw@sw.ru>
-In-Reply-To: <20060815184845.A2882@castle.nmd.msu.ru>
+Received: from minus.inr.ac.ru ([194.67.69.97]:27883 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932601AbWIVPgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 11:36:33 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060919.124751.24100694.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Savochkin wrote:
-> Non-trivial part of socket namespaces: asynchronous events
-> should be run in proper context.
+Hello!
+
+> I can't even find a reference to SIOCGSTAMP in the
+> dhcp-2.0pl5 or dhcp3-3.0.3 sources shipped in Ubuntu.
 > 
-> Signed-off-by: Andrey Savochkin <saw@swsoft.com>
-> ---
->  af_inet.c            |   10 ++++++++++
->  inet_timewait_sock.c |    8 ++++++++
->  tcp_timer.c          |    9 +++++++++
->  3 files changed, 27 insertions(+)
-> 
-> --- ./net/ipv4/af_inet.c.venssock-asyn	Mon Aug 14 17:04:07 2006
-> +++ ./net/ipv4/af_inet.c	Tue Aug 15 13:45:44 2006
-> @@ -366,10 +366,17 @@ out_rcu_unlock:
->  int inet_release(struct socket *sock)
->  {
->  	struct sock *sk = sock->sk;
-> +	struct net_namespace *ns, *orig_net_ns;
->  
->  	if (sk) {
->  		long timeout;
->  
-> +		/* Need to change context here since protocol ->close
-> +		 * operation may send packets.
-> +		 */
-> +		ns = get_net_ns(sk->sk_net_ns);
-> +		push_net_ns(ns, orig_net_ns);
-> +
+> But I will note that tpacket_rcv() expects to always get
+> valid timestamps in the SKB, it does a:
 
-Is it not a race condition here ? What happens if you have a packet 
-incoming during the namespace context switching ?
+It is equally unlikely it uses mmapped packet socket (tpacket_rcv).
 
-IHMO doing namespace switching is something dangerous, you can probably 
-handle that with locks but it will be difficult and will decrease all 
-network performance.
+I even installed that dhcp on x86_64. And I do not see anything,
+netstamp_needed remains zero when running both server and client.
+It looks like dhcp was defamed without a guilt. :-)
 
-In an other hand, I don't see how you can handle the 
-"sk->sk_prot->close" after ...
+Seems, Andi saw some leakage in netstamp_needed (value of 7),
+but I do not see this too.
 
-    -- Cheers
+
+In any case, the issue is obviously more serious than just behaviour
+of some applications. On my notebook one gettimeofday() takes:
+
+	0.2 us with tsc
+	4.6 us with pm  (AND THIS CRAP IS DEFAULT!!)
+	9.4 us with pit (kinda expected)
+
+It is ridiculous. Obviosuly, nobody (not only tcpdump, but everything
+else) does not need such clock. Taking timestamp takes time comparable
+with processing the whole tcp frame. :-) I have no idea what is possible
+to do without breaking everything, but it is not something to ignore.
+This timer must be shot. :-)
+
+Alexey
