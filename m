@@ -1,7 +1,7 @@
 From: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Subject: [PATCH 4/7] [DCCP]: Shift constants into header
-Date: Fri, 22 Sep 2006 14:29:06 +1200
-Message-ID: <200609221429.06266.ian.mcdonald@jandi.co.nz>
+Subject: [PATCH 7/7] [DCCP]: Remove socket option
+Date: Fri, 22 Sep 2006 14:33:48 +1200
+Message-ID: <200609221433.48612.ian.mcdonald@jandi.co.nz>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.189]:44962 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932229AbWIVCf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Sep 2006 22:35:26 -0400
+	id S932236AbWIVCfk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Sep 2006 22:35:40 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so922337nfa
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 19:35:26 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 19:35:40 -0700 (PDT)
 To: Arnaldo de Melo <acme@mandriva.com>,
 	David Miller <davem@davemloft.net>,
 	"dccp (vger)" <dccp@vger.kernel.org>,
@@ -22,49 +22,63 @@ Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This shifts some constants from ccid3.c to ccid3.h
-
-This is not needed for in tree code (yet) but for my own work.
-
-Makes sense to have constants in header though.
+This removes DCCP_SOCKOPT_PACKET_SIZE for two reasons:
+* the current code doesn't work
+* tx and rx should be different (introduced in former patch)
 
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index 67d2dc0..7b4699a 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -75,14 +75,6 @@ static struct dccp_tx_hist *ccid3_tx_his
- static struct dccp_rx_hist *ccid3_rx_hist;
- static struct dccp_li_hist *ccid3_li_hist;
- 
--/* TFRC sender states */
--enum ccid3_hc_tx_states {
--       	TFRC_SSTATE_NO_SENT = 1,
--	TFRC_SSTATE_NO_FBACK,
--	TFRC_SSTATE_FBACK,
--	TFRC_SSTATE_TERM,
--};
--
- #ifdef CCID3_DEBUG
- static const char *ccid3_tx_state_name(enum ccid3_hc_tx_states state)
- {
-diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
-index 0a2cb75..df4ff13 100644
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -65,6 +65,14 @@ enum ccid3_options {
- 	TFRC_OPT_RECEIVE_RATE	 = 194,
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index ef1c57b..18fbbb4 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -196,7 +196,6 @@ struct dccp_so_feat {
  };
  
-+/* TFRC sender states */
-+enum ccid3_hc_tx_states {
-+	TFRC_SSTATE_NO_SENT = 1,
-+	TFRC_SSTATE_NO_FBACK,
-+	TFRC_SSTATE_FBACK,
-+	TFRC_SSTATE_TERM,
-+};
-+
- struct ccid3_options_received {
- 	u64 ccid3or_seqno:48,
- 	    ccid3or_loss_intervals_idx:16;
+ /* DCCP socket options */
+-#define DCCP_SOCKOPT_PACKET_SIZE	1
+ #define DCCP_SOCKOPT_SERVICE		2
+ #define DCCP_SOCKOPT_CHANGE_L		3
+ #define DCCP_SOCKOPT_CHANGE_R		4
+@@ -465,7 +464,6 @@ struct dccp_sock {
+ 	struct dccp_service_list	*dccps_service_list;
+ 	struct timeval			dccps_timestamp_time;
+ 	__u32				dccps_timestamp_echo;
+-	__u32				dccps_packet_size;
+ 	__u16				dccps_l_ack_ratio;
+ 	__u16				dccps_r_ack_ratio;
+ 	unsigned long			dccps_ndp_count;
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index c8f7d5a..c8c884e 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -458,7 +458,6 @@ out_free_val:
+ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		char __user *optval, int optlen)
+ {
+-	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct dccp_minisock *dmsk = dccp_msk(sk);
+ 	struct ccid3_hc_tx_sock *hctx;
+ 	struct ccid3_hc_rx_sock *hcrx;
+@@ -478,10 +477,6 @@ static int do_dccp_setsockopt(struct soc
+ 	err = 0;
+ 
+ 	switch (optname) {
+-	case DCCP_SOCKOPT_PACKET_SIZE:
+-		dp->dccps_packet_size = val;
+-		break;
+-
+ 	case DCCP_SOCKOPT_CHANGE_L:
+ 		if (optlen != sizeof(struct dccp_so_feat))
+ 			err = -EINVAL;
+@@ -605,10 +600,6 @@ static int do_dccp_getsockopt(struct soc
+ 		return -EINVAL;
+ 
+ 	switch (optname) {
+-	case DCCP_SOCKOPT_PACKET_SIZE:
+-		val = dp->dccps_packet_size;
+-		len = sizeof(dp->dccps_packet_size);
+-		break;
+ 	case DCCP_SOCKOPT_TX_PACKET_SIZE:
+ 		if (dmsk->dccpms_tx_ccid != DCCPC_CCID3)
+ 			return -EINVAL;
