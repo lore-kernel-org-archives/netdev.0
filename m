@@ -1,35 +1,36 @@
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] net/dccp: Allow default/fallback service code
-Date: Fri, 22 Sep 2006 10:26:19 -0300
-Message-ID: <39e6f6c70609220626r187a17e0t7f159f9b6957859f@mail.gmail.com>
-References: <200609111922.12855@strip-the-willow>
-	 <5640c7e00609212037y254b72day7553c40a14692a51@mail.gmail.com>
-	 <200609220933.58965@strip-the-willow>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/7] d80211:  add SIOCSIWTXPOW, SIOCGIWTXPOW,
+	SIOCSIWPOWER and SIOCGIWPOWER
+Date: Fri, 22 Sep 2006 15:30:50 +0200
+Message-ID: <1158931850.5368.34.camel@ux156>
+References: <44F355DE.3000206@linux.intel.com>
+	 <20060921183040.12d679f2@logostar.upir.cz>
+	 <4512C133.7010509@linux.intel.com>
+	 <20060921203347.44d66563@logostar.upir.cz> <4512EE8D.708@linux.intel.com>
+	 <20060922001332.7ea0d30a@logostar.upir.cz>
+	 <451314AC.3070103@linux.intel.com>
+	 <20060922131605.0edfd719@logostar.upir.cz>  <4513E407.50400@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Ian McDonald" <ian.mcdonald@jandi.co.nz>, davem@davemloft.net,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, mabbas <mabbas@linux.intel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.225]:63191 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932409AbWIVN0U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 09:26:20 -0400
-Received: by wr-out-0506.google.com with SMTP id i7so477059wra
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 06:26:19 -0700 (PDT)
-To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
-In-Reply-To: <200609220933.58965@strip-the-willow>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:8902 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932431AbWIVNaL
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 09:30:11 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <4513E407.50400@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/22/06, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
-> [DCCP]: If an application does not want to provide a service code, that's
+On Fri, 2006-09-22 at 08:24 -0500, Larry Finger wrote:
 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> That project is on hold now, but I'm willing to share the information I have and to participate in 
+> further developments.
 
-Applied
+The database seems useful, maybe nl80211 could subsume the userspace
+interface?
 
-Thanks,
-
-- Arnaldo
+johannes
