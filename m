@@ -1,55 +1,48 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] netdev config: revert part of previous patch
-Date: Fri, 22 Sep 2006 12:56:25 -0700
-Message-ID: <20060922125625.36a5c56b.rdunlap@xenotime.net>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
+Date: Sat, 23 Sep 2006 08:04:48 +1200
+Message-ID: <5640c7e00609221304h78689765kd63d2bc2e985d42e@mail.gmail.com>
+References: <4513F1A1.3000506@nuim.ie>
+	 <5640c7e00609221042w5122c37cm7db3013e21e3b5dc@mail.gmail.com>
+	 <45143B9F.9080000@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, akpm <akpm@osdl.org>, blaisorblade@yahoo.it,
-	sam@ravnborg.org, jengelh@linux01.gwdg.de
+Cc: end2end-interest@postel.org, netdev <netdev@vger.kernel.org>,
+	"Stephen Hemminger" <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:32471 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S964848AbWIVTzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 15:55:21 -0400
-Received: from midway.site ([71.117.233.155]) by xenotime.net for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 12:55:14 -0700
-To: netdev <netdev@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.131]:26790 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S964867AbWIVUEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 16:04:50 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so51029nfa
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 13:04:49 -0700 (PDT)
+To: "Douglas Leith" <doug.leith@nuim.ie>
+In-Reply-To: <45143B9F.9080000@nuim.ie>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+> I wasn't aware of the planned move to cubic in Linux.  Can I ask the
+> rationale for this ?  Cubic is, of course, closely related to HTCP
+> (borrowing the HTCP idea of using elapsed time since last backoff as the
+> quantity used to adjust the cwnd increase rate) which *is* tested in the
+> reported study.  I'd be more than happy to run tests on cubic and I
+> reckon we should do this sooner rather than later now that you have
+> flagged up plans to rollout cubic.
+>
+As I understand it, it is because Cubic is better than bic for
+differing rtts and bic is the current default. Stephen might like to
+add to it.
 
-Net devices should depend on NETDEVICES, so revert part of
-Paolo's previous patch.
+More tests are always good!
 
-See http://marc.theaimsgroup.com/?l=linux-kernel&m=115566326218740&w=2
-for history.
-
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- drivers/net/Kconfig |    5 +++++
- 1 files changed, 5 insertions(+)
-
---- linux-2618-all.orig/drivers/net/Kconfig
-+++ linux-2618-all/drivers/net/Kconfig
-@@ -24,6 +24,9 @@ config NETDEVICES
- 
- 	  If unsure, say Y.
- 
-+# All the following symbols are dependent on NETDEVICES - do not repeat
-+# that for each of the symbols.
-+if NETDEVICES
- 
- config IFB
- 	tristate "Intermediate Functional Block support"
-@@ -2799,6 +2802,8 @@ config NETCONSOLE
- 	If you want to log kernel messages over the network, enable this.
- 	See <file:Documentation/networking/netconsole.txt> for details.
- 
-+endif #NETDEVICES
-+
- config NETPOLL
- 	def_bool NETCONSOLE
- 
-
-
----
+Ian
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
