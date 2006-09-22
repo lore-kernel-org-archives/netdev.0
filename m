@@ -1,38 +1,34 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC 1/3] cfg80211/nl80211 core
-Date: Fri, 22 Sep 2006 17:48:11 +0200
-Message-ID: <20060922174811.6485d795@logostar.upir.cz>
-References: <1158230812.2936.46.camel@ux156>
-	<1158230963.2936.49.camel@ux156>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Fri, 22 Sep 2006 09:51:09 -0700
+Message-ID: <4514147D.5040803@hp.com>
+References: <200609181850.22851.ak@suse.de>	<20060919.124751.24100694.davem@davemloft.net>	<20060922153517.GB24866@ms2.inr.ac.ru> <200609221743.40053.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Mohamed Abbas <mabbas@linux.intel.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Daniel Drake <dsd@gentoo.org>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	David Miller <davem@davemloft.net>, master@sectorb.msk.ru,
+	hawk@diku.dk, harry@atmos.washington.edu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:38299 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S964771AbWIVPsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 11:48:14 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1158230963.2936.49.camel@ux156>
+Received: from palrel12.hp.com ([156.153.255.237]:47266 "EHLO palrel12.hp.com")
+	by vger.kernel.org with ESMTP id S932562AbWIVQvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 12:51:13 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200609221743.40053.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Sep 2006 12:49:23 +0200, Johannes Berg wrote:
-> There should be support for notifications, but we need to figure
-> out if we remove the sysfs based add/remove virtual interface
-> thing completely or allow the driver to create a notification
-> through some new API here.
+> That came from named. It opens lots of sockets with SIOCGSTAMP.
+> No idea what it needs that many for.
 
-Feel free to remove it if it makes your work easier.
+IIRC ISC BIND named opens a socket for each IP it finds on the system. 
+Presumeably in this way it "knows" implicitly the destination IP without 
+using platform-specific recvfrom/whatever extensions and gets some 
+additional parallelism in the stack on SMP systems.
 
- Jiri
+Why it needs/wants the timestamps I've no idea, I don't think it gets 
+them that way on all platforms.  I suppose the next time I do some named 
+benchmarking I can try to take a closer look in the source.
 
--- 
-Jiri Benc
-SUSE Labs
+rick jones
