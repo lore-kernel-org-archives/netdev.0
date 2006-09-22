@@ -1,50 +1,55 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
-Date: Fri, 22 Sep 2006 14:13:22 +0200
-Message-ID: <20060922141322.24f2e5c4@logostar.upir.cz>
-References: <20060822173241.313859000@devicescape.com>
-	<20060822173419.GF12500@devicescape.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Is TCP over IPsec broken in 2.6.18?
+Date: Fri, 22 Sep 2006 16:19:20 +0400
+Message-ID: <20060922121920.GA3172@2ka.mipt.ru>
+References: <20060922112948.GA17335@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Simon Barber" <simon@devicescape.com>
+Content-Type: text/plain; charset=koi8-r
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:29575 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S932354AbWIVMNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 08:13:25 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20060822173419.GF12500@devicescape.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:62085 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932355AbWIVMTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 08:19:24 -0400
+Received: from 2ka.mipt.ru (localhost [127.0.0.1])
+	by 2ka.mipt.ru (8.13.7/8.13.7) with ESMTP id k8MCJMFq003669
+	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 16:19:23 +0400
+Received: (from johnpol@localhost)
+	by 2ka.mipt.ru (8.13.7/8.12.1/Submit) id k8MCJKR0003668
+	for netdev@vger.kernel.org; Fri, 22 Sep 2006 16:19:20 +0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060922112948.GA17335@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Aug 2006 10:34:19 -0700, David Kimdon wrote:
-> This ioctl is used when radar is delected on a channel.  Data frames must stop
-> but management frames must be allowed to continue for some time to communicate
-> the channel switch to stations.
+On Fri, Sep 22, 2006 at 03:29:48PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Hello.
+> 
+> I've found strange behaviour of transport mode IPsec in 2.6.18 tree.
+> After key daemons exchanged keys (I use racoon) I try following command
+> on 2.6.18 machine: telnet 192.168.4.79 22 (telnet from 2.6.18 to 2.6.17 based one)
+> and get very slow response, here is related tcpdump output:
+> 
+> 15:15:47.396925 IP 192.168.4.78 > 192.168.4.79: ESP(spi=0x027181f9,seq=0x21), length 84
+> 15:15:47.397391 IP 192.168.4.79 > 192.168.4.78: ESP(spi=0x0961a360,seq=0x18), length 84
+> 15:15:47.397025 IP 192.168.4.78 > 192.168.4.79: ESP(spi=0x027181f9,seq=0x22), length 84
+> 15:15:47.404166 IP 192.168.4.79.ssh > 192.168.4.78.47256: P 2541002438:2541002458(20) ack 1601271418 win 91 
+> 15:15:48.279375 IP 192.168.4.79.ssh > 192.168.4.78.47256: P 0:20(20) ack 1 win 91 
+> 15:15:50.031487 IP 192.168.4.79.ssh > 192.168.4.78.47256: P 0:20(20) ack 1 win 91 
+> 15:15:53.535710 IP 192.168.4.79.ssh > 192.168.4.78.47256: P 0:20(20) ack 1 win 91 
+> 15:16:00.544154 IP 192.168.4.79.ssh > 192.168.4.78.47256: P 0:20(20) ack 1 win 91 
+> 15:16:14.561064 IP 192.168.4.79 > 192.168.4.78: ESP(spi=0x0961a360,seq=0x19), length 100
+> 15:16:14.561218 IP 192.168.4.78 > 192.168.4.79: ESP(spi=0x027181f9,seq=0x23), length 84
+> 
+> Unencrypted packets somehow sneaked into the wire.
 
-Any progress here? Is what Simon wrote (quoted below) reasonable? (It seems
-so to me.)
+...
 
-Anybody volunteers to implement this? ;-)
+> I can use git bisect to track bug down if someone will show me simple tutorial.
 
-On Wed, 23 Aug 2006 12:20:16 -0700, Simon Barber wrote:
-> There is one other application where data frames should be buffered - in
-> a client while roaming between 2 APs. The best way to implement this
-> will be to extend the 802.11 qdisc. Currently there are 4 queues,
-> representing the 4 EDCA access categories. Only the top AC (AC_VO) is
-> used for sending management frames. I would recommend we split the
-> qdisc, so that there are 2 software queues attached to this AC - one for
-> management frames and 802.1x, and another for data frames. This way if
-> we want to stop data (either for radar, or because we are mid BSS
-> transition) we can simply stop all the queues except the AC_VO
-> management queue.
-
-Thanks,
-
- Jiri
+Ok, I've found how to use it.
+I started process but if there will be no results in about an hour I
+will continue after weekend only if there will be no interesting results
+from other developers.
 
 -- 
-Jiri Benc
-SUSE Labs
+	Evgeniy Polyakov
