@@ -1,46 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IP fragmentation bug from NFS
-Date: Fri, 22 Sep 2006 13:50:54 -0700 (PDT)
-Message-ID: <20060922.135054.09947776.davem@davemloft.net>
-References: <20060922133512.01a9e9d0@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Update of the r8169 branch
+Date: Fri, 22 Sep 2006 23:00:31 +0200
+Message-ID: <20060922210031.GA30761@electric-eye.fr.zoreil.com>
+References: <20060726215840.GA4032@electric-eye.fr.zoreil.com> <4511A4F0.6050101@kernelpanic.ru> <20060920214010.GA7879@electric-eye.fr.zoreil.com> <4512B475.1000703@kernelpanic.ru> <20060921165156.GC496@electric-eye.fr.zoreil.com> <4512ED7A.40001@kernelpanic.ru> <20060921210743.GA5083@electric-eye.fr.zoreil.com> <451431B7.3080608@kernelpanic.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, mbockol@carleton.edu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58529
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750775AbWIVUug (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 16:50:36 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060922133512.01a9e9d0@localhost.localdomain>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48615 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S965017AbWIVVCW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 17:02:22 -0400
+To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Content-Disposition: inline
+In-Reply-To: <451431B7.3080608@kernelpanic.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 22 Sep 2006 13:35:12 -0700
+Boris B. Zhmurov <bb@kernelpanic.ru> :
+[...]
+> Thanks Francois, after your suggestions, network performance was twice 
+> increased, but I'm still loosing to freebsd:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7018
->
-> Looking at this, it seems that when NFS hands UDP a fragmented
-> (non-linear skb), it traps because it tries to trim bytes off a
-> non-linear skb. Not sure if skb_trim needs fixing, or IP is broken..
+Ok, now that the Linux kernel is not in heavy debugging mode, it takes
+some ~10 us/(sent packet). It is not _too_ far from the usual syscall
+tax.
 
-Should be fixed by: e9fa4f7bd291c29a785666e2fa5a9cf3241ee6c3
+Can you send a typical excerpt of an 'strace -T' for your client iperf
+process and compare it against the FreeBSD one ?
 
-[INET]: Use pskb_trim_unique when trimming paged unique skbs
+[...]
+> P.S. I couldn't disable the following things due to bzImage build errors:
+> CONFIG_GENERIC_TIME
+> CONFIG_X86=y
+> CONFIG_MMU=y
+> CONFIG_GENERIC_IOMAP=y
+> CONFIG_DMI=y
 
-The IPv4/IPv6 datagram output path was using skb_trim to trim paged
-packets because they know that the packet has not been cloned yet
-(since the packet hasn't been given to anything else in the system).
+Oops, I was a bit terse: you were only supposed to disable the outlined
+options (i.e. mostly debugging and/or unneeded stuff). As long as the
+kernel performs better, it should not be a big issue though.
 
-This broke because skb_trim no longer allows paged packets to be
-trimmed.  Paged packets must be given to one of the pskb_trim functions
-instead.
-
-This patch adds a new pskb_trim_unique function to cover the IPv4/IPv6
-datagram output path scenario and replaces the corresponding skb_trim
-calls with it.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+-- 
+Ueimor
