@@ -1,36 +1,30 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/7] d80211:  add SIOCSIWTXPOW, SIOCGIWTXPOW,
-	SIOCSIWPOWER and SIOCGIWPOWER
-Date: Fri, 22 Sep 2006 15:30:50 +0200
-Message-ID: <1158931850.5368.34.camel@ux156>
-References: <44F355DE.3000206@linux.intel.com>
-	 <20060921183040.12d679f2@logostar.upir.cz>
-	 <4512C133.7010509@linux.intel.com>
-	 <20060921203347.44d66563@logostar.upir.cz> <4512EE8D.708@linux.intel.com>
-	 <20060922001332.7ea0d30a@logostar.upir.cz>
-	 <451314AC.3070103@linux.intel.com>
-	 <20060922131605.0edfd719@logostar.upir.cz>  <4513E407.50400@lwfinger.net>
+From: Arnaldo Carvalho de Melo <acme@mandriva.com>
+Subject: Re: [PATCH 1/7] [DCCP]: Introduce constants for CCID numbers
+Date: Fri, 22 Sep 2006 10:39:19 -0300
+Message-ID: <20060922133919.GA1828@mandriva.com>
+References: <200609221425.37592.ian.mcdonald@jandi.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, mabbas <mabbas@linux.intel.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	"dccp (vger)" <dccp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Andrea Bittau <a.bittau@cs.ucl.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:8902 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932431AbWIVNaL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 09:30:11 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <4513E407.50400@lwfinger.net>
+Received: from mx1.mandriva.com ([212.85.150.183]:28815 "EHLO mx1.mandriva.com")
+	by vger.kernel.org with ESMTP id S932409AbWIVNjc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 09:39:32 -0400
+To: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Content-Disposition: inline
+In-Reply-To: <200609221425.37592.ian.mcdonald@jandi.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-09-22 at 08:24 -0500, Larry Finger wrote:
+On Fri, Sep 22, 2006 at 02:25:36PM +1200, Ian McDonald wrote:
+> This change introduces a constant for CCID numbers.
+> 
+> Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
-> That project is on hold now, but I'm willing to share the information I have and to participate in 
-> further developments.
+Applied
 
-The database seems useful, maybe nl80211 could subsume the userspace
-interface?
-
-johannes
+- Arnaldo 
