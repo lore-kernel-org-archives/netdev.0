@@ -1,40 +1,53 @@
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH 2.6.19] net/dccp: set safe upper bound for option length
-Date: Fri, 22 Sep 2006 11:50:22 -0300
-Message-ID: <39e6f6c70609220750i681a28c4lf912c7ccb393cd72@mail.gmail.com>
-References: <200609221545.03112@strip-the-willow>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Is TCP over IPsec broken in 2.6.18?
+Date: Fri, 22 Sep 2006 11:15:35 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609221112000.7628@d.namei>
+References: <20060922112948.GA17335@2ka.mipt.ru> <20060922121920.GA3172@2ka.mipt.ru>
+ <4513D5B5.6090301@trash.net> <20060922140318.GA14408@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, dccp@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.231]:10825 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932556AbWIVOuX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 10:50:23 -0400
-Received: by wr-out-0506.google.com with SMTP id i7so497216wra
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 07:50:22 -0700 (PDT)
-To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
-In-Reply-To: <200609221545.03112@strip-the-willow>
-Content-Disposition: inline
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:54951 "EHLO
+	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932584AbWIVPPh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 11:15:37 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060922140318.GA14408@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/22/06, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
-> [DCCP]: current upper limit for option length is 128 bytes;
-> much less than actually possible. This patch sets a safe upper
-> bound on option length of 992, under worst-case assumptions.
->
-> This patches against the 2.6.19 tree by David.
+On Fri, 22 Sep 2006, Evgeniy Polyakov wrote:
 
-Gerrit, could you please use my net-2.6.19? I'm going over the pending
-dccp patches backlog and it is possible that this patch now doesn't
-applies, haven't checked tho as I'm going out, will check in 20
-minutes or so.
+> 17:45:04.770225 IP 192.168.4.79 > 192.168.4.78: ESP(spi=0x070635c0,seq=0x1), length 84
+> 17:45:04.770344 IP 192.168.4.78 > 192.168.4.79: ESP(spi=0x01f452be,seq=0x2), length 84
+> 17:45:04.777560 IP 192.168.4.79.ssh > 192.168.4.78.56527: P 3412388275:3412388295(20) ack 1965868757 win 91 <nop,nop,timestamp 1531076218 4294904370>
 
-Ah, and please keep dccp@vger.kernel.org instead of netdev when the
-patch is only dccp specific.
+Where are you running tcpdump?  It is normal to see both the encrypted and 
+unencrypted packets if you run it on one of the machines doing ipsec, 
+because of the way xfrm stacking works.
 
-Thanks,
+> 17:45:04.981642 IP 192.168.4.79.ssh > 192.168.4.78.56527: P 0:20(20) ack 1 win 91 <nop,nop,timestamp 1531076269 4294904370>
+> 17:45:05.389666 IP 192.168.4.79.ssh > 192.168.4.78.56527: P 0:20(20) ack 1 win 91 <nop,nop,timestamp 1531076371 4294904370>
+> 17:45:06.205721 IP 192.168.4.79.ssh > 192.168.4.78.56527: P 0:20(20) ack 1 win 91 <nop,nop,timestamp 1531076575 4294904370>
+> 17:45:07.837827 IP 192.168.4.79.ssh > 192.168.4.78.56527: P 0:20(20) ack 1 win 91 <nop,nop,timestamp 1531076983 4294904370>
 
-- Arnaldo
+Not sure what's going on here.
+
+> The same packet.
+> 
+> 17:45:11.102066 IP 192.168.4.79 > 192.168.4.78: ESP(spi=0x070635c0,seq=0x2), length 100
+> 17:45:11.102212 IP 192.168.4.78 > 192.168.4.79: ESP(spi=0x01f452be,seq=0x3), length 84
+> 17:45:12.098146 IP 192.168.4.79.isakmp > 192.168.4.78.isakmp: isakmp: phase 2/others ? oakley-quick[E]
+> 17:45:12.098427 IP 192.168.4.78.isakmp > 192.168.4.79.isakmp: isakmp: phase 2/others ? inf
+
+And why racoon packets are here at this stage.
+
+Can you try this with either a fully manual config (setkey only) or 
+openswan?
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
