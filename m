@@ -1,32 +1,31 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Fw: [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails due to missing declaration in net/netfilter/xt_physdev.c
-Date: Fri, 22 Sep 2006 10:41:08 +0200
-Message-ID: <20060922084108.GB6820@ff.dom.local>
-References: <20060921153701.2c49e331.akpm@osdl.org>
+From: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
+Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
+Date: Fri, 22 Sep 2006 18:40:00 +1000
+Message-ID: <08f701c6de22$b25420b0$0b00000a@bluereef.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=response
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:34212 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1750891AbWIVIhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 04:37:01 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060921153701.2c49e331.akpm@osdl.org>
+Received: from smtp104.biz.mail.mud.yahoo.com ([68.142.200.252]:28306 "HELO
+	smtp104.biz.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1751008AbWIVIj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 04:39:56 -0400
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22-09-2006 00:37, Andrew Morton wrote:
-> Methinks CONFIG_NETFILTER_XT_TARGET_CLASSIFY should depend upon
-> CONFIG_BRIDGE_NETFILTER.  Because brnf_deferred_hooks is defined in
-> net/bridge/br_netfilter.c and is referred to in net/netfilter/xt_physdev.c.
-> 
-> Or something else ;)
-...
-> I am unsure of which kernel .config parameter is sparking this.  My .config 
-> can be found here: http://www.animeforum.com/jakiao/misato.config
+>
+> If there's anything I can do to help isolate this issue please let me 
+> know.
+>
 
-I don't see CONFIG_BRIDGE set in this misato.config,
-so CONFIG_BRIDGE_NETFILTER was set in some unofficial way.
+Looking through the logs I'm also intermittently seeing some of this:
 
-Jarek P. 
+sky2 eth1: rx error, status 0x7ffc0001 length 844
+
+I'm not sure if it's related to the TX issue but I thought I'd mention it.
+
