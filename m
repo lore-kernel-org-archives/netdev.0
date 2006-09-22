@@ -1,50 +1,49 @@
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH 0/7] [DCCP]: Further fixes and enhancements
-Date: Thu, 21 Sep 2006 23:46:30 -0300
-Message-ID: <39e6f6c70609211946g34ea56bbp9eeea01920842901@mail.gmail.com>
-References: <200609221425.16349.ian.mcdonald@jandi.co.nz>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH 2.6.17][Trivial] net/dccp: update references to standards
+Date: Fri, 22 Sep 2006 15:22:54 +1200
+Message-ID: <5640c7e00609212022p4b9f85a5t93ca9ada4206ad8f@mail.gmail.com>
+References: <200609141644.32243@strip-the-willow>
+	 <200609141649.33877@strip-the-willow>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"dccp (vger)" <dccp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Stephen Hemminger" <shemminger@osdl.org>,
-	"Andrea Bittau" <a.bittau@cs.ucl.ac.uk>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, dccp@vger.kernel.org,
+	"Arnaldo Carvalho de Melo" <acme@mandriva.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:60559 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932226AbWIVCqb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Sep 2006 22:46:31 -0400
-Received: by wx-out-0506.google.com with SMTP id s14so874899wxc
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 19:46:31 -0700 (PDT)
-To: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-In-Reply-To: <200609221425.16349.ian.mcdonald@jandi.co.nz>
+Received: from nf-out-0910.google.com ([64.233.182.131]:31866 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S932248AbWIVDW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Sep 2006 23:22:56 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so9826nfa
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 20:22:55 -0700 (PDT)
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
+In-Reply-To: <200609141649.33877@strip-the-willow>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/21/06, Ian McDonald <ian.mcdonald@jandi.co.nz> wrote:
-> Here is my latest set of patches for DCCP.
->
-> If possible I would like these to go into 2.6.19. I have tested against
-> 2.6.18rc5 and latest net-2.6.19 git tree of Dave M as well.
->
-> Dave - Patches 1 and 2 are trivial and just introducing constants and using
-> them. Patch 4 is shifting some code into a header. If patch 3 could be
-> merged also that would be great - it is just about the same as Stephen
-> Hemminger's TCP Probe code but instead for DCCP. Patch 3 depends on patch 1.
->
-> I think it would be good for Arnaldo or another person to sign off on 5, 6
-> and 7 after a bit more of a look. These fix up packet size setting for
-> CCID3 and also change them to work on half connections as you may have
-> different packet sizes for each. I've tested myself thoroughly but others
-> might have an opinion on the style of these. These three patches need to be
-> applied in order.
+Arnaldo - this looks good.
 
-Everything seems fine, I'll merge them early tomorrow, do some testing
-and push to DaveM,
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
-Thanks,
-
-- Arnaldo
+On 9/15/06, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> Sorry kmail garbled this, clean text below.
+>
+> - Gerrit
+> --
+>
+> diff --git a/net/dccp/Kconfig b/net/dccp/Kconfig
+> index 859e335..2c345c0 100644
+> --- a/net/dccp/Kconfig
+> +++ b/net/dccp/Kconfig
+> @@ -4,9 +4,9 @@ menu "DCCP Configuration (EXPERIMENTAL)"
+>  config IP_DCCP
+>         tristate "The DCCP Protocol (EXPERIMENTAL)"
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
