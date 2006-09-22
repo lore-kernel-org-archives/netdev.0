@@ -1,69 +1,53 @@
-From: Holger Kiehl <Holger.Kiehl@dwd.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
-Date: Fri, 22 Sep 2006 12:03:11 +0000 (GMT)
-Message-ID: <Pine.LNX.4.64.0609221149560.13396@diagnostix.dwd.de>
-References: <Pine.LNX.4.64.0609220655550.13396@diagnostix.dwd.de>
- <20060922004253.2e2e2612.akpm@osdl.org>
+Date: Fri, 22 Sep 2006 16:12:28 +0400
+Message-ID: <20060922121228.GA25849@2ka.mipt.ru>
+References: <Pine.LNX.4.64.0609220655550.13396@diagnostix.dwd.de> <20060922004253.2e2e2612.akpm@osdl.org> <Pine.LNX.4.64.0609221149560.13396@diagnostix.dwd.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrew Morton <akpm@osdl.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	linux-net <linux-net@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060922004253.2e2e2612.akpm@osdl.org>
+To: Holger Kiehl <Holger.Kiehl@dwd.de>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0609221149560.13396@diagnostix.dwd.de>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Sep 2006, Andrew Morton wrote:
+On Fri, Sep 22, 2006 at 12:03:11PM +0000, Holger Kiehl (Holger.Kiehl@dwd.de) wrote:
+> >This is going to cause an 9000-byte MTU to use a 16384-byte allocation.
+> >e1000_alloc_rx_buffers() adds two bytes to that, so we do kmalloc(16386),
+> >which causes the slab allocator to request 32768 bytes.  All for a 9kbyte 
+> >skb.
+> >
+> I searched the list, which I should have done before asking (I was not sure
+> if this was due to the e1000) and found this
+> 
+>    http://www.ussg.iu.edu/hypermail/linux/kernel/0608.0/0942.html
+> 
+> discusion from 3rd August. As a summary I read that people are trying to 
+> find
+> a solution, in the meantime one should set /proc/sys/vm/min_free_kbytes to
+> 65000 or higher, to ensure that the driver gets enough unfragmented memory.
 
-> On Fri, 22 Sep 2006 07:27:18 +0000 (GMT)
-> Holger Kiehl <Holger.Kiehl@dwd.de> wrote:
->
->> I get some of the "page allocation failure" errors. My hardware is 4 CPU
->> Opteron with one quad + one dual intel e1000 cards. Kernel is plain 2.6.18
->> and for two cards MTU is set to 9000.
->>
->>     Sep 21 21:03:15 athena kernel: vsftpd: page allocation failure. order:3, mode:0x20
->>     Sep 21 21:03:15 athena kernel:
->>     Sep 21 21:03:15 athena kernel: Call Trace:
->>     Sep 21 21:03:15 athena kernel:  <IRQ> [<ffffffff8024e516>] __alloc_pages+0x282/0x29b
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8807aa93>] :ip_tables:ipt_do_table+0x1eb/0x318
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8026614b>] cache_grow+0x134/0x33d
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8026664c>] cache_alloc_refill+0x189/0x1d7
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff80266724>] __kmalloc+0x8a/0x94
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff803b5438>] __alloc_skb+0x5c/0x123
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff803b5f2e>] __netdev_alloc_skb+0x12/0x2d
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8033cb22>] e1000_alloc_rx_buffers+0x6f/0x2f3
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff803d1234>] ip_local_deliver+0x173/0x23b
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8033d29a>] e1000_clean_rx_irq+0x4f4/0x514
->
-> Is OK, it's just a warning and it is expected - the kernel will recover.
->
-> I'm half-inclined to shut the warning up by sticking a __GFP_NOWARN in there.
->
-> But on the other hand, that warning is handy sometimes.  How come kmalloc
-> decided to request a 32k hunk of memory when the MTU size is only 9k?  Is
-> the driver doing something dumb?
->
-> 	else if (max_frame <= E1000_RXBUFFER_8192)
-> 		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
-> 	else if (max_frame <= E1000_RXBUFFER_16384)
-> 		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
->
-> It sure is.
->
-> This is going to cause an 9000-byte MTU to use a 16384-byte allocation.
-> e1000_alloc_rx_buffers() adds two bytes to that, so we do kmalloc(16386),
-> which causes the slab allocator to request 32768 bytes.  All for a 9kbyte skb.
->
-I searched the list, which I should have done before asking (I was not sure
-if this was due to the e1000) and found this
+There is no solution (although e1000 memory management problem is one of
+the reasons I created memory tree allocator) yet, only workarounds, one
+of which you described above.
 
-    http://www.ussg.iu.edu/hypermail/linux/kernel/0608.0/0942.html
+e1000 hardware does not support setting of the maximum transfer size, it
+only allows power of two (and about 1500), so it does require 16k of
+memory for 9k frame (plus network skb allocation path adds a little which
+is transformed into 32k request due to power of two problem).
 
-discusion from 3rd August. As a summary I read that people are trying to find
-a solution, in the meantime one should set /proc/sys/vm/min_free_kbytes to
-65000 or higher, to ensure that the driver gets enough unfragmented memory.
+Intel folks were suggested to either use fragments in one skb (or wait
+until network developers invent something new), but there are no patches
+from them (hopefully yet).
 
-Holger
+It is not e1000 only problem - expect even 8k-12k allocation not on
+startup is definitely a wrong way.
 
+> Holger
+
+-- 
+	Evgeniy Polyakov
