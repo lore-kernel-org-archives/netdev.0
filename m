@@ -1,58 +1,38 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2.6.19]  net/dccp: set safe upper bound for option length
-Date: Fri, 22 Sep 2006 15:45:03 +0100
-Message-ID: <200609221545.03112@strip-the-willow>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: PATCH: fix cut/paste error in TCPPROBE
+Date: Fri, 22 Sep 2006 08:47:10 -0600
+Message-ID: <20060922144710.GB26719@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:474 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S932543AbWIVOpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 10:45:17 -0400
-To: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Received: from colo.lackof.org ([198.49.126.79]:31902 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S932550AbWIVOrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 10:47:12 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by colo.lackof.org (Postfix) with ESMTP id 8B21836003C
+	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 08:47:12 -0600 (MDT)
+Received: from colo.lackof.org ([127.0.0.1])
+	by localhost (colo.lackof.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 28362-03 for <netdev@vger.kernel.org>;
+	Fri, 22 Sep 2006 08:47:10 -0600 (MDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[DCCP]: current upper limit for option length is 128 bytes;
-much less than actually possible. This patch sets a safe upper
-bound on option length of 992, under worst-case assumptions.
+Fix cut/paste error in TCPPROBE help text.
 
-This patches against the 2.6.19 tree by David.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- dccp.h |   17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 
 
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index 272e858..adabf3e 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -40,12 +40,17 @@ extern void dccp_tw_deschedule(struct in
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -231,7 +231,7 @@ config NET_TCPPROBE
+ 	TCP congestion avoidance modules. If you don't understand
+ 	what was just said, you don't need it: say N.
  
- extern void dccp_time_wait(struct sock *sk, int state, int timeo);
+-	Documentation on how to use the packet generator can be found
++	Documentation on how to use TCP connection probing can be found
+ 	at http://linux-net.osdl.org/index.php/TcpProbe
  
--/* FIXME: Right size this */
--#define DCCP_MAX_OPT_LEN 128
--
--#define DCCP_MAX_PACKET_HDR 32
--
--#define MAX_DCCP_HEADER  (DCCP_MAX_PACKET_HDR + DCCP_MAX_OPT_LEN + MAX_HEADER)
-+/*
-+ *  Set safe upper bounds for header and option length. Since Data Offset is 8
-+ *  bits (RFC 4340, sec. 5.1), the total header length can never be more than
-+ *  8 * 255 = 1020 bytes. The largest possible header length is 28 bytes (X=1):
-+ *    - DCCP-Response with ACK Subheader and 4 bytes of Service code      OR
-+ *    - DCCP-Reset    with ACK Subheader and 4 bytes of Reset Code fields
-+ *  Hence a safe upper bound for the maximum option length is 1020-28 = 992
-+ */
-+#define DCCP_MAX_OPT_LEN      992
-+#define DCCP_MAX_PACKET_HDR    28
-+#define MAX_DCCP_HEADER     (1020 + MAX_HEADER)
- 
- #define DCCP_TIMEWAIT_LEN (60 * HZ) /* how long to wait to destroy TIME-WAIT
- 				     * state, about 60 seconds */
+ 	To compile this code as a module, choose M here: the
