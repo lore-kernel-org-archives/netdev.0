@@ -1,53 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
-Date: Fri, 22 Sep 2006 16:12:28 +0400
-Message-ID: <20060922121228.GA25849@2ka.mipt.ru>
-References: <Pine.LNX.4.64.0609220655550.13396@diagnostix.dwd.de> <20060922004253.2e2e2612.akpm@osdl.org> <Pine.LNX.4.64.0609221149560.13396@diagnostix.dwd.de>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
+Date: Fri, 22 Sep 2006 14:13:22 +0200
+Message-ID: <20060922141322.24f2e5c4@logostar.upir.cz>
+References: <20060822173241.313859000@devicescape.com>
+	<20060822173419.GF12500@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Andrew Morton <akpm@osdl.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-net <linux-net@vger.kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Holger Kiehl <Holger.Kiehl@dwd.de>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0609221149560.13396@diagnostix.dwd.de>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Simon Barber" <simon@devicescape.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:29575 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932354AbWIVMNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 08:13:25 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20060822173419.GF12500@devicescape.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2006 at 12:03:11PM +0000, Holger Kiehl (Holger.Kiehl@dwd.de) wrote:
-> >This is going to cause an 9000-byte MTU to use a 16384-byte allocation.
-> >e1000_alloc_rx_buffers() adds two bytes to that, so we do kmalloc(16386),
-> >which causes the slab allocator to request 32768 bytes.  All for a 9kbyte 
-> >skb.
-> >
-> I searched the list, which I should have done before asking (I was not sure
-> if this was due to the e1000) and found this
-> 
->    http://www.ussg.iu.edu/hypermail/linux/kernel/0608.0/0942.html
-> 
-> discusion from 3rd August. As a summary I read that people are trying to 
-> find
-> a solution, in the meantime one should set /proc/sys/vm/min_free_kbytes to
-> 65000 or higher, to ensure that the driver gets enough unfragmented memory.
+On Tue, 22 Aug 2006 10:34:19 -0700, David Kimdon wrote:
+> This ioctl is used when radar is delected on a channel.  Data frames must stop
+> but management frames must be allowed to continue for some time to communicate
+> the channel switch to stations.
 
-There is no solution (although e1000 memory management problem is one of
-the reasons I created memory tree allocator) yet, only workarounds, one
-of which you described above.
+Any progress here? Is what Simon wrote (quoted below) reasonable? (It seems
+so to me.)
 
-e1000 hardware does not support setting of the maximum transfer size, it
-only allows power of two (and about 1500), so it does require 16k of
-memory for 9k frame (plus network skb allocation path adds a little which
-is transformed into 32k request due to power of two problem).
+Anybody volunteers to implement this? ;-)
 
-Intel folks were suggested to either use fragments in one skb (or wait
-until network developers invent something new), but there are no patches
-from them (hopefully yet).
+On Wed, 23 Aug 2006 12:20:16 -0700, Simon Barber wrote:
+> There is one other application where data frames should be buffered - in
+> a client while roaming between 2 APs. The best way to implement this
+> will be to extend the 802.11 qdisc. Currently there are 4 queues,
+> representing the 4 EDCA access categories. Only the top AC (AC_VO) is
+> used for sending management frames. I would recommend we split the
+> qdisc, so that there are 2 software queues attached to this AC - one for
+> management frames and 802.1x, and another for data frames. This way if
+> we want to stop data (either for radar, or because we are mid BSS
+> transition) we can simply stop all the queues except the AC_VO
+> management queue.
 
-It is not e1000 only problem - expect even 8k-12k allocation not on
-startup is definitely a wrong way.
+Thanks,
 
-> Holger
+ Jiri
 
 -- 
-	Evgeniy Polyakov
+Jiri Benc
+SUSE Labs
