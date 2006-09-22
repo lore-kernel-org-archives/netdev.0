@@ -1,56 +1,38 @@
-From: Brent Cook <bcook@bpointsys.com>
-Subject: Re: Question about David's blog entry for NetCONF 2006, Day 1
-Date: Fri, 22 Sep 2006 10:47:55 -0500
-Message-ID: <200609221047.55238.bcook@bpointsys.com>
-References: <45130EF2.2090509@hp.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [RFC 1/3] cfg80211/nl80211 core
+Date: Fri, 22 Sep 2006 17:48:11 +0200
+Message-ID: <20060922174811.6485d795@logostar.upir.cz>
+References: <1158230812.2936.46.camel@ux156>
+	<1158230963.2936.49.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Mohamed Abbas <mabbas@linux.intel.com>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 70-253-197-251.ded.swbell.net ([70.253.197.251]:9326 "EHLO
-	bpointsys.com") by vger.kernel.org with ESMTP id S964770AbWIVPry
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 11:47:54 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <45130EF2.2090509@hp.com>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:38299 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S964771AbWIVPsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 11:48:14 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1158230963.2936.49.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 21 September 2006 17:15, Rick Jones wrote:
-> I was reading David's blog entries on the netdev meeting in Japan, and
->
-> have a question about this bit:
-> > Currently, things like Xen have to put the card into promiscuous
-> > mode, accepting all packets, which is quite inefficient.
->
-> Is the inefficient bit meant for accepting all packets, or more broadly
-> that the promiscuous path is quite inefficient compared to the
-> non-promiscuous path?
->
-> I ask because I would have thought that if the system were connected to
-> a switch (*), the number of packets received through a NIC in
-> promiscuous mode would be nearly the same as when it was not in
-> promiscuous mode - the delta being (perhaps) multicast frames.
->
-> rick jones
->
-> (*) "Today," it seems 99 times out of 10 systems are connected to
-> switches not hubs.
+On Thu, 14 Sep 2006 12:49:23 +0200, Johannes Berg wrote:
+> There should be support for notifications, but we need to figure
+> out if we remove the sysfs based add/remove virtual interface
+> thing completely or allow the driver to create a notification
+> through some new API here.
 
-It depends on how good your switch is. Say you have a bank of 8 servers on a 
-8-port switch, each running 16 Xen instances with virtual NICs and different 
-MAC addresses. If the switch does not have enough resources in its MAC table 
-(likely for an 8-port switch) to cache 136 entries (8 * (16 + 1) mac 
-addresses), it will broadcast any packet that is not in the cache to every 
-port on the switch, effectively making the switch into a hub for certain 
-usage patterns.
+Feel free to remove it if it makes your work easier.
 
-Of course, this is an argument for getting a better switch, but the 
-possibility of virtual MAC addresses might cause some surprising resource 
-utilization problems for network administrators who are used to counting 
-physical ports.
+ Jiri
 
- - Brent
+-- 
+Jiri Benc
+SUSE Labs
