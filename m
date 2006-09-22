@@ -1,118 +1,97 @@
-From: William Pitcock <nenolod@atheme.org>
-Subject: Re: [PATCH 2.6.18 try 2] net/ipv4: sysctl to allow non-superuser to bypass CAP_NET_BIND_SERVICE requirement
-Date: Fri, 22 Sep 2006 03:22:47 -0500
-Message-ID: <410AB903-2500-4CDF-B777-0367A7C0AEDF@atheme.org>
-References: <4E1176C1-8F18-4790-9BCB-95306ACED48A@atheme.org> <736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org> <20060922.164109.112537486.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=UTF-8;
-	delsp=yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
+Date: Sat, 23 Sep 2006 05:42:59 +1200
+Message-ID: <5640c7e00609221042w5122c37cm7db3013e21e3b5dc@mail.gmail.com>
+References: <4513F1A1.3000506@nuim.ie>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: end2end-interest@postel.org, netdev <netdev@vger.kernel.org>,
+	"Stephen Hemminger" <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: (root@vger.kernel.org) by vger.kernel.org id S964781AbWIVRjU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 13:39:20 -0400
-Received: from osiris.atheme.org ([69.60.119.211]:50834 "EHLO
-	osiris.atheme.org") by vger.kernel.org with ESMTP id S932081AbWIVIWY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 04:22:24 -0400
-In-Reply-To: <20060922.164109.112537486.yoshfuji@linux-ipv6.org>
-To: =?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1?=
-	 =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+Received: from qb-out-0506.google.com ([72.14.204.234]:27220 "EHLO
+	qb-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S964822AbWIVRnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 13:43:01 -0400
+Received: by qb-out-0506.google.com with SMTP id p36so78455qba
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 10:43:00 -0700 (PDT)
+To: "Douglas Leith" <doug.leith@nuim.ie>
+In-Reply-To: <4513F1A1.3000506@nuim.ie>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sep 22, 2006, at 2:41 AM, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E wrote:
-
-> In article <736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org> (at =20
-> Fri, 22 Sep 2006 02:31:59 -0500), William Pitcock =20
-> <nenolod@atheme.org> says:
+On 9/23/06, Douglas Leith <doug.leith@nuim.ie> wrote:
+> For those interested in TCP for high-speed environments, and perhaps
+> also people interested in TCP evaluation generally, I'd like to point
+> you towards the results of a detailed experimental study which are now
+> available at:
 >
->> This patch allows for a user to disable the requirement to meet the
->> CAP_NET_BIND_SERVICE capability for a non-superuser. It is toggled b=
-y
->> the net.ipv4.allow_lowport_bind_nonsuperuser sysctl value.
+> http://www.hamilton.ie/net/eval/ToNfinal.pdf
 >
-> Why?  I don't think this is a good idea.
+> This study consistently compares Scalable-TCP, HS-TCP, BIC-TCP, FAST-TCP
+> and H-TCP performance under a wide range of conditions including with
+> mixes of long and short-lived flows.  This study has now been subject to
+> peer review (to hopefully give it some legitimacy) and is due to appear
+> in the Transactions on Networking.
 >
-
-There are several reasons. To summarize, in some setups, such as =20
-mine, it is undesirable to force applications to run as root to gain =20
-access to 'service' ports. A more defined listing of reasons why this =20
-patch is a good idea are below:
-
-* People wanting to run restricted services such as jabber, ircd, etc =20
-on low ports to allow people to bypass ISP firewalls, but the =20
-software doesn't have mechanisms for dropping privileges (most ircds, =20
-for example do not have such an option)
-
-* The software is untrusted by the end user, in the event that the =20
-software is not trustworthy, the amount of damage it can do running =20
-as a normal user is less than as a superuser. As it is, the bind() =20
-may have failed before the CAP_NET_BIND_SERVICE capability was =20
-granted to the process.
-
-* Building on that, capabilities are still linux-specific. Other =20
-systems, such as FreeBSD allow you to disable this restriction via =20
-sysctl as well. It is very likely that daemons are not capability =20
-aware, and thus would require some sort of wrapper script (which is =20
-likely beyond the ability of most endusers). Wrapping the daemon =20
-would still require superuser privileges as well to make sure it =20
-worked properly, and even if it did work properly, it still opens a =20
-race condition where the bind() may have failed before the capability =20
-bit was granted to the process.
-
-* Many services do not run on 'service' ports, and instead run out in =20
-userspace. For instance, MySQL listens on TCP/3306 by default, and =20
-PostgreSQL listens in userspace as well (although, I cannot recall =20
-the exact port number it listens on at present). In many cases, squid =20
-runs on port 8080, which is also userspace. For this reason, it is =20
-arguable that the entire CAP_NET_BIND_SERVICE restriction isn't very =20
-useful.
-
-* Embedded devices (consumer routers, etc) may want to have some =20
-level of privilege seperation internally to reduce the amount of =20
-exploitation possibility in their firmware, this patch makes that =20
-easier to accomplish (just set the sysctl in the initialization and =20
-go from there)
-
-* Other TCP stacks (Winsock2, for instance) do not impose the <=3D 1023=
- =20
-limit.
-
->> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
->> index e4b1a4d..c3f7c3c 100644
->> --- a/include/linux/sysctl.h
->> +++ b/include/linux/sysctl.h
->> @@ -411,6 +411,7 @@ enum
->> 	NET_IPV4_TCP_WORKAROUND_SIGNED_WINDOWS=3D115,
->> 	NET_TCP_DMA_COPYBREAK=3D116,
->> 	NET_TCP_SLOW_START_AFTER_IDLE=3D117,
->> +	NET_IPV4_ALLOW_LOWPORT_BIND_NONSUPERUSER=3D118,
->>    };
->>
->>    enum {
+> The conclusions (see summary below) seem especially topical as BIC-TCP
+> is currently widely deployed as the default algorithm in Linux.
 >
-> This implies all IPv4 protocols including other protocols
-> such as UDP, SCTP, ...
-
-Yes, I'll change the sysctl name to better infer that it is for TCP. =20
-That is not an issue. If you have a suggestion for what it should be, =20
-I'd love to hear it.
-
+> Comments appreciated.  Our measurements are publicly available - on the
+> web or drop me a line if you'd like a copy.
 >
->> @@ -1412,3 +1418,4 @@ EXPORT_SYMBOL(inet_stream_ops);
->>    EXPORT_SYMBOL(inet_unregister_protosw);
->>    EXPORT_SYMBOL(net_statistics);
->>    EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
->> +EXPORT_SYMBOL(sysctl_ip_allow_lowport_bind_nonsuperuser);
+> Summary:
+> In this paper we present experimental results evaluating the
+> performance of the Scalable-TCP, HS-TCP, BIC-TCP, FAST-TCP and
+> H-TCP proposals in a series of benchmark tests.
 >
-> Please be aware about indent.
+> We find that many recent proposals perform surprisingly poorly in
+> even the most simple test, namely achieving fairness between two
+> competing flows in a dumbbell topology with the same round-trip
+> times and shared bottleneck link. Specifically, both Scalable-TCP
+> and FAST TCP exhibit very substantial unfairness in this test.
+>
+> We also find that Scalable-TCP, HS-TCP and BIC-TCP induce significantly
+> greater RTT unfairness between competing flows with different round-trip
+> times.  The unfairness can be an order of magnitude greater than that
+> with standard TCP and is such that flows with longer round-trip times
+> can be completely starved of bandwidth.
+>
+> While the TCP proposals studied are all successful at improving
+> the link utilisation in a relatively static environment with
+> long-lived flows, in our tests many of the proposals exhibit poor
+> responsiveness to changing network conditions.  We observe that
+> Scalable-TCP, HS-TCP and BIC-TCP can all suffer from extremely
+> slow (>100s) convergence times following the startup of a new
+> flow. We also observe that while FAST-TCP flows typically converge
+> quickly initially, flows may later diverge again to create
+> significant and sustained unfairness.
+>
+> --Doug
+>
+> Hamilton Institute
+> www.hamilton.ie
+>
+>
+>
+Interesting reading and I am replying to netdev@vger.kernel.org as
+well. I will read in more detail later but my first questions/comments
+are:
+- have you tested CUBIC subsequently as this is meant to fix many of
+the rtt issues? This is becoming the default in 2.6.19 probably.
+- have you tested subsequently on more recent kernels than 2.6.6?
 
-I'll be sure to fix that, thank you.
+Looks like some very useful information.
 
-(resent due to mailer glitch)
+Regards,
 
-- nenolod
-
+Ian
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
