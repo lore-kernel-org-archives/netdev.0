@@ -1,109 +1,37 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Bcm43xx softMac Driver in 2.6.18
-Date: Fri, 22 Sep 2006 08:20:08 -0500
-Message-ID: <4513E308.10507@lwfinger.net>
+Subject: Re: [PATCH 1/7] d80211:  add SIOCSIWTXPOW, SIOCGIWTXPOW, SIOCSIWPOWER
+ and SIOCGIWPOWER
+Date: Fri, 22 Sep 2006 08:24:23 -0500
+Message-ID: <4513E407.50400@lwfinger.net>
+References: <44F355DE.3000206@linux.intel.com> <20060921183040.12d679f2@logostar.upir.cz> <4512C133.7010509@linux.intel.com> <20060921203347.44d66563@logostar.upir.cz> <4512EE8D.708@linux.intel.com> <20060922001332.7ea0d30a@logostar.upir.cz> <451314AC.3070103@linux.intel.com> <20060922131605.0edfd719@logostar.upir.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932402AbWIVNU3@vger.kernel.org>
-To: dbtsai@gmail.com
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mabbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:39559 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S932407AbWIVNY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 09:24:28 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060922131605.0edfd719@logostar.upir.cz>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When we found the cause of NETDEV watchdog timeouts in the wireless-2.6 code, I knew that the 2.6.18 
-release code would cause a serious regression. I immediately prepared and tested a patch to fix 
-this; however, I was unable to get it pushed into the stable code before release of 2.6.18. The 
-following submission text and patch has been sent to the stable maintainers, which I hope is 
-included in 2.6.18.1.
+Jiri Benc wrote:
+> Thu, 21 Sep 2006 15:39:40 -0700, mabbas pise:
+>> if the stack handle it then no need to know. When I call 
+>> ieee80211_register_hw with driver's channel, rate and txpower info. the 
+>> txpower values are overwritten by ieee80211_init_client. I get all the 
+>> txpower info from EEPROMin the NIC and they are different that what 
+>> d80211 default to. Is there is away to keep the value the driver passed 
+>> in ieee80211_register_hw?
+> 
+> Well, there is still a work to do here. See Larry Finger's proposal,
+> http://www.spinics.net/lists/netdev/msg05623.html - it's not ideal, there
+> are some problems with its design, but it's probably the way to go.
 
-For people having these lockups with 2.6.18, please try this patch and inform me of the results, 
-both positive and negative. The latter are particularly important.
-
-Larry
-==================================================================
-
-In 2.6.18, the section that prepares for preemptible periodic work
-has two bugs. The first is due to an improper locking sequence that leads
-to frozen systems. The second causes netdev watchdog timeouts. Both
-lead to serious regressions as compared with 2.6.17.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
-
-This patch, which was originally sent to John Linville on 9/14/06,
-has been taken against 2.6.18. It changes more lines
-than would be absolutely necessary to affect the fix; however, it
-ends up with this section looking exactly like the current code (with
-pending patches) that is in wireless-2.6.
+That project is on hold now, but I'm willing to share the information I have and to participate in 
+further developments.
 
 Larry
-
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3182,39 +3182,37 @@ static void bcm43xx_periodic_work_handle
-  		/* Periodic work will take a long time, so we want it to
-  		 * be preemtible.
-  		 */
--		bcm43xx_lock_irqonly(bcm, flags);
--		netif_stop_queue(bcm->net_dev);
-+		mutex_lock(&bcm->mutex);
-+		netif_tx_disable(bcm->net_dev);
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-+		bcm43xx_mac_suspend(bcm);
-  		if (bcm43xx_using_pio(bcm))
-  			bcm43xx_pio_freeze_txqueues(bcm);
-  		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
--		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_lock_noirq(bcm);
-+		spin_unlock_irqrestore(&bcm->irq_lock, flags);
-  		bcm43xx_synchronize_irq(bcm);
-  	} else {
-  		/* Periodic work should take short time, so we want low
-  		 * locking overhead.
-  		 */
--		bcm43xx_lock_irqsafe(bcm, flags);
-+		mutex_lock(&bcm->mutex);
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-  	}
-
-  	do_periodic_work(bcm);
-
-  	if (badness > BADNESS_LIMIT) {
--		bcm43xx_lock_irqonly(bcm, flags);
--		if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
--			tasklet_enable(&bcm->isr_tasklet);
--			bcm43xx_interrupt_enable(bcm, savedirqs);
--			if (bcm43xx_using_pio(bcm))
--				bcm43xx_pio_thaw_txqueues(bcm);
--		}
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-+		tasklet_enable(&bcm->isr_tasklet);
-+		bcm43xx_interrupt_enable(bcm, savedirqs);
-+		if (bcm43xx_using_pio(bcm))
-+			bcm43xx_pio_thaw_txqueues(bcm);
-+		bcm43xx_mac_enable(bcm);
-  		netif_wake_queue(bcm->net_dev);
--		mmiowb();
--		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_unlock_noirq(bcm);
--	} else {
--		mmiowb();
--		bcm43xx_unlock_irqsafe(bcm, flags);
-  	}
-+	mmiowb();
-+	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-+	mutex_unlock(&bcm->mutex);
-  }
-
-  static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
-
-
-
-_______________________________________________
-Bcm43xx-dev mailing list
-Bcm43xx-dev@lists.berlios.de
-https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
