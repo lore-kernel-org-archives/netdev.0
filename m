@@ -1,104 +1,70 @@
-From: William Pitcock <nenolod@atheme.org>
-Subject: Re: [PATCH 2.6.18 try 2] net/ipv4: sysctl to allow non-superuser to bypass CAP_NET_BIND_SERVICE requirement
-Date: Fri, 22 Sep 2006 03:27:22 -0500
-Message-ID: <AD838733-3A8F-4B3E-B620-9B2284B8B2BF@atheme.org>
-References: <4E1176C1-8F18-4790-9BCB-95306ACED48A@atheme.org> <736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org> <20060922.164109.112537486.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
+Date: Fri, 22 Sep 2006 10:32:17 +0200
+Message-ID: <1158913937.5368.10.camel@ux156>
+References: <44F356DF.9000000@linux.intel.com>
+	 <20060921190126.4d884c44@logostar.upir.cz>
+	 <1158865436.27546.23.camel@localhost.localdomain>
+	 <4512EC5C.1030807@linux.intel.com>
+	 <1158870634.5769.21.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932127AbWIVI1B@vger.kernel.org>
-In-Reply-To: <20060922.164109.112537486.yoshfuji@linux-ipv6.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mabbas <mabbas@linux.intel.com>, Jiri Benc <jbenc@suse.cz>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:6786 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932124AbWIVIbf
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 04:31:35 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1158870634.5769.21.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sep 22, 2006, at 2:41 AM, YOSHIFUJI Hideaki wrote:
+On Thu, 2006-09-21 at 16:30 -0400, Dan Williams wrote:
 
-> In article <736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org> (at  
-> Fri, 22 Sep 2006 02:31:59 -0500), William Pitcock  
-> <nenolod@atheme.org> says:
->
->> This patch allows for a user to disable the requirement to meet the
->> CAP_NET_BIND_SERVICE capability for a non-superuser. It is toggled by
->> the net.ipv4.allow_lowport_bind_nonsuperuser sysctl value.
->
-> Why?  I don't think this is a good idea.
->
+> That's kind a hole in the WE API.  In this case, I think, SIOCGIWAP
+> should always return the BSSID of the current association, or none if
+> there is no association.
 
-There are several reasons. To summarize, in some setups, such as  
-mine, it is undesirable to force applications to run as root to gain  
-access to 'service' ports. A more defined listing of reasons why this  
-patch is a good idea are below:
+I was never sure if it was a hole or just a lack of clearly defined
+semantics (duh, I should probably look at the iwconfig code......)
 
-* People wanting to run restricted services such as jabber, ircd, etc  
-on low ports to allow people to bypass ISP firewalls, but the  
-software doesn't have mechanisms for dropping privileges (most ircds,  
-for example do not have such an option)
+> Doing an iwconfig ap xx:xx:xx:xx:xx:xx should make the driver internally
+> locked to that BSSID, such that until you clear that lock, SIOCGIWAP
+> should only show either that BSSID or 00:00:00:00:00:00.  SIOCGIWAP
+> should not return a valid BSSID when there is no association.
+> 
+> Hopefully nl80211 can fix this omission in WE.
 
-* The software is untrusted by the end user, in the event that the  
-software is not trustworthy, the amount of damage it can do running  
-as a normal user is less than as a superuser. As it is, the bind()  
-may have failed before the CAP_NET_BIND_SERVICE capability was  
-granted to the process.
+I think I have addressed this already.
 
-* Building on that, capabilities are still linux-specific. Other  
-systems, such as FreeBSD allow you to disable this restriction via  
-sysctl as well. It is very likely that daemons are not capability  
-aware, and thus would require some sort of wrapper script (which is  
-likely beyond the ability of most endusers). Wrapping the daemon  
-would still require superuser privileges as well to make sure it  
-worked properly, and even if it did work properly, it still opens a  
-race condition where the bind() may have failed before the capability  
-bit was granted to the process.
++       /* set access point BSSID for userspace roaming */
++       NL80211_CMD_SET_BSSID,
+...
++
++       /* BSSID to associate to, only used when roaming control
++        * is in userspace */
++       NL80211_ATTR_BSSID,
++
+...
 
-* Many services do not run on 'service' ports, and instead run out in  
-userspace. For instance, MySQL listens on TCP/3306 by default, and  
-PostgreSQL listens in userspace as well (although, I cannot recall  
-the exact port number it listens on at present). In many cases, squid  
-runs on port 8080, which is also userspace. For this reason, it is  
-arguable that the entire CAP_NET_BIND_SERVICE restriction isn't very  
-useful.
++       /* get current association information, if not associated then
++        * the BSSID attribute is not present in response */
++       NL80211_CMD_GET_ASSOCIATION,
 
-* Embedded devices (consumer routers, etc) may want to have some  
-level of privilege seperation internally to reduce the amount of  
-exploitation possibility in their firmware, this patch makes that  
-easier to accomplish (just set the sysctl in the initialization and  
-go from there)
+as well as in the compatibility document:
 
-* Other TCP stacks (Winsock2, for instance) do not impose the <= 1023  
-limit.
++SIOCSIWAP
++  -> if bssid is all-ones: set roaming to kernel, reassociate
++  -> if bssid is all-zeroes: set roaming to kernel
++  -> otherwise: set roaming to userspace, set bssid
++
++SIOCGIWAP
++  -> get association parameters and fill return bssid appropriately
 
->> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
->> index e4b1a4d..c3f7c3c 100644
->> --- a/include/linux/sysctl.h
->> +++ b/include/linux/sysctl.h
->> @@ -411,6 +411,7 @@ enum
->> 	NET_IPV4_TCP_WORKAROUND_SIGNED_WINDOWS=115,
->> 	NET_TCP_DMA_COPYBREAK=116,
->> 	NET_TCP_SLOW_START_AFTER_IDLE=117,
->> +	NET_IPV4_ALLOW_LOWPORT_BIND_NONSUPERUSER=118,
->>    };
->>
->>    enum {
->
-> This implies all IPv4 protocols including other protocols
-> such as UDP, SCTP, ...
 
-Yes, I'll change the sysctl name to better infer that it is for TCP.  
-That is not an issue. If you have a suggestion for what it should be,  
-I'd love to hear it.
+I think that should do what you need, no?
 
->
->> @@ -1412,3 +1418,4 @@ EXPORT_SYMBOL(inet_stream_ops);
->>    EXPORT_SYMBOL(inet_unregister_protosw);
->>    EXPORT_SYMBOL(net_statistics);
->>    EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
->> +EXPORT_SYMBOL(sysctl_ip_allow_lowport_bind_nonsuperuser);
->
-> Please be aware about indent.
-
-I'll be sure to fix that, thank you.
-
-(resent due to mailer glitch)
-
-- nenolod
+johannes
