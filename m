@@ -1,75 +1,76 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH] net/dccp: Allow default/fallback service code
-Date: Fri, 22 Sep 2006 15:37:57 +1200
-Message-ID: <5640c7e00609212037y254b72day7553c40a14692a51@mail.gmail.com>
-References: <200609111922.12855@strip-the-willow>
+From: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
+Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
+Date: Fri, 22 Sep 2006 14:11:04 +1000
+Message-ID: <089101c6ddfd$20ba4320$0b00000a@bluereef.local>
+References: <20060906124447.642940bd@localhost.localdomain><01cb01c6d542$88544620$5001010a@bluereef.local> <20060919133159.27165976@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org,
-	"Arnaldo Carvalho de Melo" <acme@mandriva.com>
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.131]:12418 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S932252AbWIVDh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Sep 2006 23:37:59 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so10536nfa
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2006 20:37:58 -0700 (PDT)
-To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
-In-Reply-To: <200609111922.12855@strip-the-willow>
-Content-Disposition: inline
+Received: from smtp104.biz.mail.mud.yahoo.com ([68.142.200.252]:13485 "HELO
+	smtp104.biz.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S932267AbWIVELA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 00:11:00 -0400
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gerrit,
+Unfortunately I spoke too soon.. :-(
 
-Not sure what happened here but I can't apply this with git-apply. Can
-you check and resubmit. Looks great patch though and would love to
-test! This would mean DCCP is easier to port to which must be good.
+The driver no longer appears to fail under load but still fails randomly 
+with relatively light load:
 
-Just a quick note - you didn't updated last changed date in
-Documentation/networking/dccp.txt. I think rather than updating you
-can remove as people can find dates by looking at git history.
+Sep 22 07:04:38 localhost syslog.info -- MARK --
+Sep 22 07:24:38 localhost syslog.info -- MARK --
+Sep 22 07:31:52 localhost user.info kernel: NETDEV WATCHDOG: eth1: transmit 
+timed out
+Sep 22 07:31:52 localhost user.err kernel: sky2 eth1: tx timeout
+Sep 22 07:31:52 localhost user.debug kernel: sky2 eth1: transmit ring 27 .. 
+498 report=27 done=27
+Sep 22 07:31:52 localhost user.info kernel: sky2 hardware hung? flushing
+Sep 22 07:39:27 localhost user.info kernel: NETDEV WATCHDOG: eth1: transmit 
+timed out
+Sep 22 07:39:27 localhost user.err kernel: sky2 eth1: tx timeout
+Sep 22 07:39:27 localhost user.debug kernel: sky2 eth1: transmit ring 498 .. 
+457 report=27 done=27
+Sep 22 07:39:27 localhost user.info kernel: sky2 status report lost?
+Sep 22 07:40:07 localhost user.info kernel: NETDEV WATCHDOG: eth1: transmit 
+timed out
+Sep 22 07:40:07 localhost user.err kernel: sky2 eth1: tx timeout
+Sep 22 07:40:07 localhost user.debug kernel: sky2 eth1: transmit ring 27 .. 
+498 report=27 done=27
+Sep 22 07:40:07 localhost user.info kernel: sky2 hardware hung? flushing
 
-Ian
+The driver version that I am using is 1.6.1 with the tx pause bug fix 
+manually applied. This is compiled against 2.6.17.13 stock.
 
-On 9/12/06, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
-> [DCCP]: Allow default/fallback service code.
+This fault (since releasing this version into production) has now occured in 
+3 sites since upgrading them yesterday. The previous version of kernel that 
+was being used was 2.6.12 (based on the old sk98lin driver) which didn't 
+manifest any of these problems.
+
+If there's anything I can do to help isolate this issue please let me know.
+
+----- Original Message ----- 
+From: "Stephen Hemminger" <shemminger@osdl.org>
+To: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
+Cc: <netdev@vger.kernel.org>
+Sent: Wednesday, September 20, 2006 6:31 AM
+Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
+
+
+> On Mon, 11 Sep 2006 11:35:11 +1000
+> "Andrew Hall" <andrew.hall@bluereefnetworks.com> wrote:
 >
-> This has been discussed on dccp@vger and removes the necessity for
-> applications to supply service codes in each and every case.
+>> Stephen,
+>>
+>> After some serious testing, this patch seems to fix the lockup issue
+>> completely. I manually applied these changes against the 2.6.17.13 
+>> release.
 >
-> If an application does not want to provide a service code, that's
-> fine, it will be given 0. Otherwise, service codes can be set
-> via socket options as before.
->
-> This patch has been tested using various client/server configurations
-> (including listening on multiple service codes) and patches against
-> Torvalds' tree.
->
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> --
->  Documentation/networking/dccp.txt |    7 +++++--
->  include/linux/dccp.h              |    6 +-----
->  net/dccp/ipv4.c                   |    3 ---
->  net/dccp/proto.c                  |   11 +----------
->  4 files changed, 7 insertions(+), 20 deletions(-)
->
->
-> diff --git a/Documentation/networking/dccp.txt b/Documentation/networking/dccp.txt
-> index c45daab..2f479af 100644
-> --- a/Documentation/networking/dccp.txt
-> +++ b/Documentation/networking/dccp.txt
-> @@ -42,8 +42,11 @@ Socket options
->  DCCP_SOCKOPT_PACKET_SIZE is used for CCID3 to set default packet size for
->  calculations.
->
-> -DCCP_SOCKOPT_SERVICE sets the service. This is compulsory as per the
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+> Any more problems? 
+
