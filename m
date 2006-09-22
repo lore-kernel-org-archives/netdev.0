@@ -1,56 +1,330 @@
-From: mabbas <mabbas@linux.intel.com>
-Subject: [d80211 patch 1/1] setting bss freq and phymode using rx_status
-Date: Fri, 22 Sep 2006 15:29:42 -0700
-Message-ID: <451463D6.4070309@linux.intel.com>
-References: <44F356DF.9000000@linux.intel.com> <20060921190126.4d884c44@logostar.upir.cz> <1158865436.27546.23.camel@localhost.localdomain> <4512EC5C.1030807@linux.intel.com> <1158870634.5769.21.camel@localhost.localdomain> <4512F876.7000203@linux.intel.com> <20060922003844.6817f22b@logostar.upir.cz> <20060921225514.GA26850@bougret.hpl.hp.com> <20060922004235.GA7322@instant802.com> <20060922005743.GB27052@bougret.hpl.hp.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [GIT PULL] please pull infiniband.git
+Date: Fri, 22 Sep 2006 15:37:22 -0700
+Message-ID: <adapsdnfrz1.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030303090108040200090207"
-Cc: Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: openib-general@openib.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:20129 "EHLO
-	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
-	id S965238AbWIVW3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 18:29:37 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <20060922005743.GB27052@bougret.hpl.hp.com>
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:60454 "EHLO
+	sj-iport-1.cisco.com") by vger.kernel.org with ESMTP
+	id S965240AbWIVWh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 18:37:27 -0400
+To: torvalds@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030303090108040200090207
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Linus, please pull from
 
-this patch is a replacement for d80211-iwlist-fix.patch. Now we
-set bss's phymode and freq using rx_status. The low level driver need to
-set these values.
+    master.kernel.org:/pub/scm/linux/kernel/git/roland/infiniband.git for-linus
 
---------------030303090108040200090207
-Content-Type: text/x-patch;
- name="d80211-iwlist-fix-freq-mode.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d80211-iwlist-fix-freq-mode.patch"
+This tree is also available from kernel.org mirrors at:
 
+    git://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git for-linus
 
-Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
+This tree has:
+ - Add support for iWARP (RDMA over IP)
+ - Add amso1100 driver for Ammasso 1100 iWARP adapters
+ - Add ehca driver for IBM GX InfiniBand adapters
+ - ipath fixes
+ - lots of other smaller stuff
 
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index a933d92..ddbaf14 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -1539,9 +1539,9 @@ #endif
- 	}
- 
- 
--	bss->hw_mode = local->conf.phymode;
-+	bss->hw_mode = rx_status->phymode;
- 	bss->channel = channel;
--	bss->freq = local->conf.freq;
-+	bss->freq = rx_status->freq;
- 	if (channel != local->conf.channel &&
- 	    (local->conf.phymode == MODE_IEEE80211G ||
- 	     local->conf.phymode == MODE_IEEE80211B) &&
+Bryan O'Sullivan:
+      IB/ipath: More changes to support InfiniPath on PowerPC 970 systems
+      IB/ipath: lock resource limit counters correctly
+      IB/ipath: fix for crash on module unload, if cfgports < portcnt
+      IB/ipath: fix handling of kpiobufs
+      IB/ipath: drop requirement that PIO buffers be mmaped write-only
+      IB/ipath: merge ipath_core and ib_ipath drivers
+      IB/ipath: simplify layering code
+      IB/ipath: simplify debugging code after ipath_core and ib_ipath merger
+      IB/ipath: remove stale references to userspace SMA
+      IB/ipath: trivial cleanups
+      IB/ipath: add new minor device to allow sending of diag packets
+      IB/ipath: do not allow use of CQ entries with invalid counts
+      IB/ipath: account for attached QPs correctly
+      IB/ipath: support new QLogic product naming scheme
+      IB/ipath: add serial number to hardware freeze error message
+      IB/ipath: be more strict about testing the modify QP verb
+      IB/ipath: validate path_mig_state properly
+      IB/ipath: put a limit on the number of QPs that can be created
+      IB/ipath: handle sq_sig_all field correctly
+      IB/ipath: allow SMA to be disabled
+      IB/ipath: fix return value from ipath_poll
+      IB/ipath: control receive polarity inversion
 
---------------030303090108040200090207--
+Dotan Barak:
+      IPoIB: Remove unused include of vmalloc.h
+
+Eli Cohen:
+      IPoIB: Rejoin all multicast groups after a port event
+      IPoIB: Add some likely/unlikely annotations in hot path
+
+Erez Zilber:
+      IB/iser: fix a check of SG alignment for RDMA
+      IB/iser: Limit the max size of a scsi command
+      IB/iser: make FMR "page size" be 4K and not PAGE_SIZE
+      IB/iser: fix some debug prints
+      IB/iser: Do not use FMR for a single dma entry sg
+
+Heiko J Schick:
+      IB/ehca: Add driver for IBM eHCA InfiniBand adapters
+
+Ishai Rabinovitz:
+      IB/srp: Add port/device attributes
+
+Jack Morgenstein:
+      IB/mthca: Fix lid used for sending traps
+      IB/mthca: Fix default static rate returned for Tavor in AV
+      IB/mthca: Return port number for unconnected QPs in query_qp
+      IB/mthca: Return correct number of bits for static rate in query_qp
+      IB/mthca: Recover from catastrophic errors
+
+James Lentini:
+      IB/mthca: Include the header we really want
+      IB/mad: Remove unused includes
+
+Krishna Kumar:
+      IB: Fix typo in kerneldoc for ib_set_client_data()
+
+Michael S. Tsirkin:
+      IB/mthca: Don't use privileged UAR for kernel access
+      IB/ipoib: Fix flush/start xmit race (from code review)
+      IB/sa: Require SA registration
+      IB/cm: Do not track remote QPN in timewait state
+      IB/sa: fix ib_sa_selector names
+
+Or Gerlitz:
+      RDMA/cma: Document rdma_destroy_id() function
+      RDMA/cma: Document rdma_accept() error handling
+
+Ralph Campbell:
+      IB/uverbs: Allow resize CQ operation to return driver-specific data
+      IB/uverbs: Pass userspace data to modify_srq and modify_qp methods
+      IB/ipath: Performance improvements via mmap of queues
+
+Roland Dreier:
+      IB/uverbs: Use idr_read_cq() where appropriate
+      IB/uverbs: Fix lockdep warning when QP is created with 2 CQs
+      IB: Whitespace fixes
+      IPoIB: Refactor completion handling
+      IB/mthca: Simplify calls to mthca_cq_clean()
+      IB/iser: INFINIBAND_ISER depends on INET
+      IPoIB: Create MCGs with all attributes required by RFC
+
+Sean Hefty:
+      IB/cm: Enable atomics along with RDMA reads
+      IB/cm: Use correct reject code for invalid GID
+      IB/mad: Add support for dual-sided RMPP transfers.
+      IB/cm: Randomize starting comm ID
+      RDMA/cma: Protect against adding device during destruction
+
+Tom Tucker:
+      RDMA: iWARP Connection Manager.
+      RDMA: iWARP Core Changes.
+      RDMA/amso1100: Add driver for Ammasso 1100 RNIC
+
+ MAINTAINERS                                       |   16 
+ drivers/infiniband/Kconfig                        |    4 
+ drivers/infiniband/Makefile                       |    4 
+ drivers/infiniband/core/Makefile                  |    4 
+ drivers/infiniband/core/addr.c                    |   22 
+ drivers/infiniband/core/cache.c                   |    5 
+ drivers/infiniband/core/cm.c                      |   66 -
+ drivers/infiniband/core/cma.c                     |  403 +++-
+ drivers/infiniband/core/device.c                  |    6 
+ drivers/infiniband/core/iwcm.c                    | 1019 +++++++++
+ drivers/infiniband/core/iwcm.h                    |   62 +
+ drivers/infiniband/core/mad.c                     |   19 
+ drivers/infiniband/core/mad_priv.h                |    1 
+ drivers/infiniband/core/mad_rmpp.c                |   94 +
+ drivers/infiniband/core/sa_query.c                |   67 +
+ drivers/infiniband/core/smi.c                     |   16 
+ drivers/infiniband/core/sysfs.c                   |   13 
+ drivers/infiniband/core/ucm.c                     |    9 
+ drivers/infiniband/core/user_mad.c                |    7 
+ drivers/infiniband/core/uverbs_cmd.c              |   64 -
+ drivers/infiniband/core/verbs.c                   |   21 
+ drivers/infiniband/hw/amso1100/Kbuild             |    8 
+ drivers/infiniband/hw/amso1100/Kconfig            |   15 
+ drivers/infiniband/hw/amso1100/c2.c               | 1255 ++++++++++++
+ drivers/infiniband/hw/amso1100/c2.h               |  551 +++++
+ drivers/infiniband/hw/amso1100/c2_ae.c            |  321 +++
+ drivers/infiniband/hw/amso1100/c2_ae.h            |  108 +
+ drivers/infiniband/hw/amso1100/c2_alloc.c         |  144 +
+ drivers/infiniband/hw/amso1100/c2_cm.c            |  452 ++++
+ drivers/infiniband/hw/amso1100/c2_cq.c            |  433 ++++
+ drivers/infiniband/hw/amso1100/c2_intr.c          |  209 ++
+ drivers/infiniband/hw/amso1100/c2_mm.c            |  375 +++
+ drivers/infiniband/hw/amso1100/c2_mq.c            |  174 ++
+ drivers/infiniband/hw/amso1100/c2_mq.h            |  106 +
+ drivers/infiniband/hw/amso1100/c2_pd.c            |   89 +
+ drivers/infiniband/hw/amso1100/c2_provider.c      |  869 ++++++++
+ drivers/infiniband/hw/amso1100/c2_provider.h      |  181 ++
+ drivers/infiniband/hw/amso1100/c2_qp.c            |  975 +++++++++
+ drivers/infiniband/hw/amso1100/c2_rnic.c          |  663 ++++++
+ drivers/infiniband/hw/amso1100/c2_status.h        |  158 +
+ drivers/infiniband/hw/amso1100/c2_user.h          |   82 +
+ drivers/infiniband/hw/amso1100/c2_vq.c            |  260 ++
+ drivers/infiniband/hw/amso1100/c2_vq.h            |   63 +
+ drivers/infiniband/hw/amso1100/c2_wr.h            | 1520 ++++++++++++++
+ drivers/infiniband/hw/ehca/Kconfig                |   16 
+ drivers/infiniband/hw/ehca/Makefile               |   16 
+ drivers/infiniband/hw/ehca/ehca_av.c              |  271 +++
+ drivers/infiniband/hw/ehca/ehca_classes.h         |  346 +++
+ drivers/infiniband/hw/ehca/ehca_classes_pSeries.h |  236 ++
+ drivers/infiniband/hw/ehca/ehca_cq.c              |  427 ++++
+ drivers/infiniband/hw/ehca/ehca_eq.c              |  185 ++
+ drivers/infiniband/hw/ehca/ehca_hca.c             |  241 ++
+ drivers/infiniband/hw/ehca/ehca_irq.c             |  762 +++++++
+ drivers/infiniband/hw/ehca/ehca_irq.h             |   77 +
+ drivers/infiniband/hw/ehca/ehca_iverbs.h          |  182 ++
+ drivers/infiniband/hw/ehca/ehca_main.c            |  818 ++++++++
+ drivers/infiniband/hw/ehca/ehca_mcast.c           |  131 +
+ drivers/infiniband/hw/ehca/ehca_mrmw.c            | 2261 +++++++++++++++++++++
+ drivers/infiniband/hw/ehca/ehca_mrmw.h            |  140 +
+ drivers/infiniband/hw/ehca/ehca_pd.c              |  114 +
+ drivers/infiniband/hw/ehca/ehca_qes.h             |  259 ++
+ drivers/infiniband/hw/ehca/ehca_qp.c              | 1507 ++++++++++++++
+ drivers/infiniband/hw/ehca/ehca_reqs.c            |  653 ++++++
+ drivers/infiniband/hw/ehca/ehca_sqp.c             |  111 +
+ drivers/infiniband/hw/ehca/ehca_tools.h           |  172 ++
+ drivers/infiniband/hw/ehca/ehca_uverbs.c          |  392 ++++
+ drivers/infiniband/hw/ehca/hcp_if.c               |  874 ++++++++
+ drivers/infiniband/hw/ehca/hcp_if.h               |  261 ++
+ drivers/infiniband/hw/ehca/hcp_phyp.c             |   80 +
+ drivers/infiniband/hw/ehca/hcp_phyp.h             |   90 +
+ drivers/infiniband/hw/ehca/hipz_fns.h             |   68 +
+ drivers/infiniband/hw/ehca/hipz_fns_core.h        |  100 +
+ drivers/infiniband/hw/ehca/hipz_hw.h              |  388 ++++
+ drivers/infiniband/hw/ehca/ipz_pt_fn.c            |  149 +
+ drivers/infiniband/hw/ehca/ipz_pt_fn.h            |  247 ++
+ drivers/infiniband/hw/ipath/Kconfig               |   21 
+ drivers/infiniband/hw/ipath/Makefile              |   29 
+ drivers/infiniband/hw/ipath/ipath_common.h        |   19 
+ drivers/infiniband/hw/ipath/ipath_cq.c            |  183 +-
+ drivers/infiniband/hw/ipath/ipath_debug.h         |    2 
+ drivers/infiniband/hw/ipath/ipath_diag.c          |  154 +
+ drivers/infiniband/hw/ipath/ipath_driver.c        |  349 ++-
+ drivers/infiniband/hw/ipath/ipath_file_ops.c      |   35 
+ drivers/infiniband/hw/ipath/ipath_fs.c            |    4 
+ drivers/infiniband/hw/ipath/ipath_ht400.c         | 1603 ---------------
+ drivers/infiniband/hw/ipath/ipath_iba6110.c       | 1612 +++++++++++++++
+ drivers/infiniband/hw/ipath/ipath_iba6120.c       | 1264 ++++++++++++
+ drivers/infiniband/hw/ipath/ipath_init_chip.c     |   21 
+ drivers/infiniband/hw/ipath/ipath_intr.c          |   24 
+ drivers/infiniband/hw/ipath/ipath_kernel.h        |   57 -
+ drivers/infiniband/hw/ipath/ipath_keys.c          |    3 
+ drivers/infiniband/hw/ipath/ipath_layer.c         | 1179 -----------
+ drivers/infiniband/hw/ipath/ipath_layer.h         |  115 -
+ drivers/infiniband/hw/ipath/ipath_mad.c           |  339 +++
+ drivers/infiniband/hw/ipath/ipath_mmap.c          |  122 +
+ drivers/infiniband/hw/ipath/ipath_mr.c            |   12 
+ drivers/infiniband/hw/ipath/ipath_pe800.c         | 1254 ------------
+ drivers/infiniband/hw/ipath/ipath_qp.c            |  242 ++
+ drivers/infiniband/hw/ipath/ipath_rc.c            |    9 
+ drivers/infiniband/hw/ipath/ipath_registers.h     |    7 
+ drivers/infiniband/hw/ipath/ipath_ruc.c           |  160 +
+ drivers/infiniband/hw/ipath/ipath_srq.c           |  244 +-
+ drivers/infiniband/hw/ipath/ipath_stats.c         |   27 
+ drivers/infiniband/hw/ipath/ipath_sysfs.c         |   41 
+ drivers/infiniband/hw/ipath/ipath_uc.c            |    5 
+ drivers/infiniband/hw/ipath/ipath_ud.c            |  182 +-
+ drivers/infiniband/hw/ipath/ipath_verbs.c         |  687 +++++-
+ drivers/infiniband/hw/ipath/ipath_verbs.h         |  252 ++
+ drivers/infiniband/hw/ipath/ipath_verbs_mcast.c   |    7 
+ drivers/infiniband/hw/ipath/ipath_wc_ppc64.c      |   52 
+ drivers/infiniband/hw/ipath/verbs_debug.h         |  108 -
+ drivers/infiniband/hw/mthca/mthca_av.c            |    2 
+ drivers/infiniband/hw/mthca/mthca_catas.c         |   62 +
+ drivers/infiniband/hw/mthca/mthca_cmd.c           |    2 
+ drivers/infiniband/hw/mthca/mthca_cq.c            |   10 
+ drivers/infiniband/hw/mthca/mthca_dev.h           |   12 
+ drivers/infiniband/hw/mthca/mthca_mad.c           |    2 
+ drivers/infiniband/hw/mthca/mthca_main.c          |   88 +
+ drivers/infiniband/hw/mthca/mthca_provider.c      |    2 
+ drivers/infiniband/hw/mthca/mthca_qp.c            |   20 
+ drivers/infiniband/hw/mthca/mthca_srq.c           |    2 
+ drivers/infiniband/hw/mthca/mthca_uar.c           |    2 
+ drivers/infiniband/ulp/ipoib/ipoib.h              |    2 
+ drivers/infiniband/ulp/ipoib/ipoib_ib.c           |  194 +-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c         |   37 
+ drivers/infiniband/ulp/ipoib/ipoib_multicast.c    |   34 
+ drivers/infiniband/ulp/iser/Kconfig               |    2 
+ drivers/infiniband/ulp/iser/iscsi_iser.c          |    1 
+ drivers/infiniband/ulp/iser/iscsi_iser.h          |    7 
+ drivers/infiniband/ulp/iser/iser_memory.c         |   80 +
+ drivers/infiniband/ulp/iser/iser_verbs.c          |   10 
+ drivers/infiniband/ulp/srp/ib_srp.c               |   43 
+ include/rdma/ib_addr.h                            |   17 
+ include/rdma/ib_sa.h                              |   45 
+ include/rdma/ib_user_verbs.h                      |    2 
+ include/rdma/ib_verbs.h                           |   31 
+ include/rdma/iw_cm.h                              |  258 ++
+ include/rdma/rdma_cm.h                            |   12 
+ 138 files changed, 28416 insertions(+), 5494 deletions(-)
+ create mode 100644 drivers/infiniband/core/iwcm.c
+ create mode 100644 drivers/infiniband/core/iwcm.h
+ create mode 100644 drivers/infiniband/hw/amso1100/Kbuild
+ create mode 100644 drivers/infiniband/hw/amso1100/Kconfig
+ create mode 100644 drivers/infiniband/hw/amso1100/c2.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_ae.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_ae.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_alloc.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_cm.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_cq.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_intr.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_mm.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_mq.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_mq.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_pd.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_provider.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_provider.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_qp.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_rnic.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_status.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_user.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_vq.c
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_vq.h
+ create mode 100644 drivers/infiniband/hw/amso1100/c2_wr.h
+ create mode 100644 drivers/infiniband/hw/ehca/Kconfig
+ create mode 100644 drivers/infiniband/hw/ehca/Makefile
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_av.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_classes.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_classes_pSeries.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_cq.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_eq.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_hca.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_irq.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_irq.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_iverbs.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_main.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_mcast.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_mrmw.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_mrmw.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_pd.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_qes.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_qp.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_reqs.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_sqp.c
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_tools.h
+ create mode 100644 drivers/infiniband/hw/ehca/ehca_uverbs.c
+ create mode 100644 drivers/infiniband/hw/ehca/hcp_if.c
+ create mode 100644 drivers/infiniband/hw/ehca/hcp_if.h
+ create mode 100644 drivers/infiniband/hw/ehca/hcp_phyp.c
+ create mode 100644 drivers/infiniband/hw/ehca/hcp_phyp.h
+ create mode 100644 drivers/infiniband/hw/ehca/hipz_fns.h
+ create mode 100644 drivers/infiniband/hw/ehca/hipz_fns_core.h
+ create mode 100644 drivers/infiniband/hw/ehca/hipz_hw.h
+ create mode 100644 drivers/infiniband/hw/ehca/ipz_pt_fn.c
+ create mode 100644 drivers/infiniband/hw/ehca/ipz_pt_fn.h
+ delete mode 100644 drivers/infiniband/hw/ipath/ipath_ht400.c
+ create mode 100644 drivers/infiniband/hw/ipath/ipath_iba6110.c
+ create mode 100644 drivers/infiniband/hw/ipath/ipath_iba6120.c
+ create mode 100644 drivers/infiniband/hw/ipath/ipath_mmap.c
+ delete mode 100644 drivers/infiniband/hw/ipath/ipath_pe800.c
+ create mode 100644 drivers/infiniband/hw/ipath/ipath_wc_ppc64.c
+ delete mode 100644 drivers/infiniband/hw/ipath/verbs_debug.h
+ create mode 100644 include/rdma/iw_cm.h
