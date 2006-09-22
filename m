@@ -1,116 +1,58 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Bcm43xx softMac Driver in 2.6.18
-Date: Fri, 22 Sep 2006 09:31:09 -0500
-Message-ID: <4513F3AD.9070603@lwfinger.net>
-References: <4513E308.10507@lwfinger.net> <20060922135352.GD4122@harddisk-recovery.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2.6.19]  net/dccp: set safe upper bound for option length
+Date: Fri, 22 Sep 2006 15:45:03 +0100
+Message-ID: <200609221545.03112@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040203060207010409060309"
-Cc: dbtsai@gmail.com, John Linville <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:36504 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932535AbWIVOb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 10:31:28 -0400
-To: Erik Mouw <erik@harddisk-recovery.com>
-In-Reply-To: <20060922135352.GD4122@harddisk-recovery.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:474 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S932543AbWIVOpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 10:45:17 -0400
+To: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040203060207010409060309
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+[DCCP]: current upper limit for option length is 128 bytes;
+much less than actually possible. This patch sets a safe upper
+bound on option length of 992, under worst-case assumptions.
 
-Erik Mouw wrote:
-> On Fri, Sep 22, 2006 at 08:20:08AM -0500, Larry Finger wrote:
->> This patch, which was originally sent to John Linville on 9/14/06,
->> has been taken against 2.6.18. It changes more lines
->> than would be absolutely necessary to affect the fix; however, it
->> ends up with this section looking exactly like the current code (with
->> pending patches) that is in wireless-2.6.
-> 
-> Sorry, but your patch doesn't apply cleanly against 2.6.18:
-> 
-> erik@arthur:~/git/linux-2.6 > patch -p1 --dry-run < ../bcm43xx-2.6.18.diff
-> patching file drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> Hunk #1 FAILED at 3182.
-> 1 out of 1 hunk FAILED -- saving rejects to file drivers/net/wireless/bcm43xx/bcm43xx_main.c.rej
+This patches against the 2.6.19 tree by David.
 
-Arrrgh! My mailer messed up the white space and put spaces instead of tabs. The correct patch is 
-attached here so it doesn't happen again. This one has been tested against a clean download of 2.6.18.
-
-Larry
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ dccp.h |   17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
 
---------------040203060207010409060309
-Content-Type: text/plain;
- name="patch_preempt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch_preempt"
-
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3182,39 +3182,37 @@ static void bcm43xx_periodic_work_handle
- 		/* Periodic work will take a long time, so we want it to
- 		 * be preemtible.
- 		 */
--		bcm43xx_lock_irqonly(bcm, flags);
--		netif_stop_queue(bcm->net_dev);
-+		mutex_lock(&bcm->mutex);
-+		netif_tx_disable(bcm->net_dev);
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-+		bcm43xx_mac_suspend(bcm);
- 		if (bcm43xx_using_pio(bcm))
- 			bcm43xx_pio_freeze_txqueues(bcm);
- 		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
--		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_lock_noirq(bcm);
-+		spin_unlock_irqrestore(&bcm->irq_lock, flags);
- 		bcm43xx_synchronize_irq(bcm);
- 	} else {
- 		/* Periodic work should take short time, so we want low
- 		 * locking overhead.
- 		 */
--		bcm43xx_lock_irqsafe(bcm, flags);
-+		mutex_lock(&bcm->mutex);
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
- 	}
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index 272e858..adabf3e 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -40,12 +40,17 @@ extern void dccp_tw_deschedule(struct in
  
- 	do_periodic_work(bcm);
+ extern void dccp_time_wait(struct sock *sk, int state, int timeo);
  
- 	if (badness > BADNESS_LIMIT) {
--		bcm43xx_lock_irqonly(bcm, flags);
--		if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
--			tasklet_enable(&bcm->isr_tasklet);
--			bcm43xx_interrupt_enable(bcm, savedirqs);
--			if (bcm43xx_using_pio(bcm))
--				bcm43xx_pio_thaw_txqueues(bcm);
--		}
-+		spin_lock_irqsave(&bcm->irq_lock, flags);
-+		tasklet_enable(&bcm->isr_tasklet);
-+		bcm43xx_interrupt_enable(bcm, savedirqs);
-+		if (bcm43xx_using_pio(bcm))
-+			bcm43xx_pio_thaw_txqueues(bcm);
-+		bcm43xx_mac_enable(bcm);
- 		netif_wake_queue(bcm->net_dev);
--		mmiowb();
--		bcm43xx_unlock_irqonly(bcm, flags);
--		bcm43xx_unlock_noirq(bcm);
--	} else {
--		mmiowb();
--		bcm43xx_unlock_irqsafe(bcm, flags);
- 	}
-+	mmiowb();
-+	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-+	mutex_unlock(&bcm->mutex);
- }
+-/* FIXME: Right size this */
+-#define DCCP_MAX_OPT_LEN 128
+-
+-#define DCCP_MAX_PACKET_HDR 32
+-
+-#define MAX_DCCP_HEADER  (DCCP_MAX_PACKET_HDR + DCCP_MAX_OPT_LEN + MAX_HEADER)
++/*
++ *  Set safe upper bounds for header and option length. Since Data Offset is 8
++ *  bits (RFC 4340, sec. 5.1), the total header length can never be more than
++ *  8 * 255 = 1020 bytes. The largest possible header length is 28 bytes (X=1):
++ *    - DCCP-Response with ACK Subheader and 4 bytes of Service code      OR
++ *    - DCCP-Reset    with ACK Subheader and 4 bytes of Reset Code fields
++ *  Hence a safe upper bound for the maximum option length is 1020-28 = 992
++ */
++#define DCCP_MAX_OPT_LEN      992
++#define DCCP_MAX_PACKET_HDR    28
++#define MAX_DCCP_HEADER     (1020 + MAX_HEADER)
  
- static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
-
-
---------------040203060207010409060309--
+ #define DCCP_TIMEWAIT_LEN (60 * HZ) /* how long to wait to destroy TIME-WAIT
+ 				     * state, about 60 seconds */
