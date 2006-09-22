@@ -1,31 +1,23 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/3] sky2: tx pause bug fix
-Date: Thu, 21 Sep 2006 23:35:30 -0500
-Message-ID: <45136812.5060203@lwfinger.net>
-References: <20060906124447.642940bd@localhost.localdomain> <01cb01c6d542$88544620$5001010a@bluereef.local> <20060919133159.27165976@localhost.localdomain> <089101c6ddfd$20ba4320$0b00000a@bluereef.local>
+From: Rainer Baumann <baumann@tik.ee.ethz.ch>
+Subject: [PATCH 2.6.16.19 0/2] LARTC: trace control for netem
+Date: Fri, 22 Sep 2006 08:12:11 +0200
+Message-ID: <45137EBB.2030707@tik.ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:26851 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751605AbWIVEfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 00:35:45 -0400
-To: Andrew Hall <andrew.hall@bluereefnetworks.com>
-In-Reply-To: <089101c6ddfd$20ba4320$0b00000a@bluereef.local>
+To: Stephen Hemminger <shemminger@osdl.org>, netdev@VGER.KERNEL.ORG,
+	netem@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Hall wrote:
-> Unfortunately I spoke too soon.. :-(
-> 
-> The driver no longer appears to fail under load but still fails randomly 
-> with relatively light load:
-> 
+Trace Control for Netem: Emulate network properties such as long range dependency and self-similarity of cross-traffic.
 
-I don't know if this will help, but NETDEV watchdog timeouts in the bcm43xx driver were fixed by 
-changing a netif_stop_queue call into a netif_tx_disable. Why wrapping the stop_queue inside 
-netif_tx_lock_bh/netif_tx_unlock_bh pairs works is beyond me, but ...
+A new option (trace) has been added to the netem command. If the trace option is used, the values for packet delay etc. are read from a pregenerated trace file, afterwards the packets are processed by the normal netem functions. The packet action values are readout from the trace file in user space and sent to kernel space via configfs.
 
-Larry
+After our patches from 2nd and 22th of August we have integrated the comments from Stephen and hope we are on the right way now.
+
+We are looking forward for any comments, feedback and suggestions!
+
+
+
