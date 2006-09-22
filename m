@@ -1,58 +1,28 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Martin Lucina <mato@kotelna.sk>
 Subject: Re: sky2 hangs, hw csum errors with 2.6.18
-Date: Fri, 22 Sep 2006 11:31:52 -0700
-Message-ID: <20060922113152.02874cbc@localhost.localdomain>
-References: <20060922112442.GB4161@dezo.moloch.sk>
-	<20060922095642.5acf4ac9@dxpl.pdx.osdl.net>
-	<20060922182924.GE4161@dezo.moloch.sk>
+Date: Fri, 22 Sep 2006 20:38:13 +0200
+Message-ID: <20060922183812.GF4161@dezo.moloch.sk>
+References: <20060922112442.GB4161@dezo.moloch.sk> <20060922095642.5acf4ac9@dxpl.pdx.osdl.net> <20060922182924.GE4161@dezo.moloch.sk> <20060922113152.02874cbc@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:61591 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964873AbWIVScC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 14:32:02 -0400
-To: Martin Lucina <mato@kotelna.sk>
-In-Reply-To: <20060922182924.GE4161@dezo.moloch.sk>
+Received: from chrocht.moloch.sk ([62.176.169.44]:42117 "EHLO mail.moloch.sk")
+	by vger.kernel.org with ESMTP id S964878AbWIVSiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 14:38:15 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060922113152.02874cbc@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Sep 2006 20:29:25 +0200
-Martin Lucina <mato@kotelna.sk> wrote:
-
-> shemminger@osdl.org said:
-> > You can turn off TX pause and get the same effect.
+shemminger@osdl.org said:
+> To get tx flow control to turn off. You need a patch (already in netdev-2.6 upstream)
+> and then you can do:
 > 
-> Not sure if I did the right thing, but:
-> 
-> # ifdown eth1
-> ...
-> # ethtool -A eth1 tx off
-> # ethtool -a eth1
-> Pause parameters for eth1:
-> Autonegotiate:	on
-> RX:		on
-> TX:		off
-> # ifup eth1
-> ...
-> sky2 eth1: enabling interface
-> sky2 eth1: Link is up at 1000 Mbps, full duplex, flow control both
-> # ethtool -a eth1
-> Pause parameters for eth1:
-> Autonegotiate:	on
-> RX:		on
-> TX:		on
-> 
-> is this what I should be seeing?
-> 
-> -mato
+> 	ethtool -A eth1 autoneg off tx off
 
+Sorry, you've lost me.  Which patch?  You're saying that turning off tx
+flow control will fix the hangs I'm seeing?
 
-To get tx flow control to turn off. You need a patch (already in netdev-2.6 upstream)
-and then you can do:
-
-	ethtool -A eth1 autoneg off tx off
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+-mato
