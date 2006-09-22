@@ -1,138 +1,64 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
-Date: Fri, 22 Sep 2006 10:10:36 -0700
-Message-ID: <4514190C.8010901@intel.com>
-References: <Pine.LNX.4.64.0609220655550.13396@diagnostix.dwd.de> <20060922004253.2e2e2612.akpm@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.16.19 2/2] LARTC: trace control for netem:
+ kernelspace
+Date: Fri, 22 Sep 2006 10:20:56 -0700
+Message-ID: <20060922102056.0069f944@localhost.localdomain>
+References: <45137F71.2000404@tik.ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Holger Kiehl <Holger.Kiehl@dwd.de>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-net <linux-net@vger.kernel.org>, netdev@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: netdev@VGER.KERNEL.ORG, netem@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43034 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S964782AbWIVRR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 13:17:56 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060922004253.2e2e2612.akpm@osdl.org>
+To: Rainer Baumann <baumann@tik.ee.ethz.ch>
+In-Reply-To: <45137F71.2000404@tik.ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Fri, 22 Sep 2006 07:27:18 +0000 (GMT)
-> Holger Kiehl <Holger.Kiehl@dwd.de> wrote:
+On Fri, 22 Sep 2006 08:15:13 +0200
+Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
+
+> Trace Control for Netem: Emulate network properties such as long range dependency and self-similarity of cross-traffic.
 > 
->> I get some of the "page allocation failure" errors. My hardware is 4 CPU
->> Opteron with one quad + one dual intel e1000 cards. Kernel is plain 2.6.18
->> and for two cards MTU is set to 9000.
->>
->>     Sep 21 21:03:15 athena kernel: vsftpd: page allocation failure. order:3, mode:0x20
->>     Sep 21 21:03:15 athena kernel:
->>     Sep 21 21:03:15 athena kernel: Call Trace:
->>     Sep 21 21:03:15 athena kernel:  <IRQ> [<ffffffff8024e516>] __alloc_pages+0x282/0x29b
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8807aa93>] :ip_tables:ipt_do_table+0x1eb/0x318
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8026614b>] cache_grow+0x134/0x33d
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8026664c>] cache_alloc_refill+0x189/0x1d7
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff80266724>] __kmalloc+0x8a/0x94
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff803b5438>] __alloc_skb+0x5c/0x123
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff803b5f2e>] __netdev_alloc_skb+0x12/0x2d
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8033cb22>] e1000_alloc_rx_buffers+0x6f/0x2f3
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff803d1234>] ip_local_deliver+0x173/0x23b
->>     Sep 21 21:03:15 athena kernel:  [<ffffffff8033d29a>] e1000_clean_rx_irq+0x4f4/0x514
+> kernel space:
+> The delay, drop, duplication and corruption values are readout in user space and sent to kernel space via configfs. The userspace process will "hang on write" until the kernel needs new data.
 > 
-> Is OK, it's just a warning and it is expected - the kernel will recover.
+> In order to have always packet action values ready to apply, there are two buffers that hold these values. Packet action values can be read from one buffer and the other buffer can be refilled with new values simultaneously. The synchronization of "need more delay values" and "return from write" is done with the use of wait queues.
 > 
-> I'm half-inclined to shut the warning up by sticking a __GFP_NOWARN in there.
+> Having applied the delay value to a packet, the packet gets processed by the original netem functions.
 > 
-> But on the other hand, that warning is handy sometimes.  How come kmalloc
-> decided to request a 32k hunk of memory when the MTU size is only 9k?  Is
-> the driver doing something dumb?
+> Signed-off-by: Rainer Baumann <baumann@tik.ee.ethz.ch>
 > 
-> 	else if (max_frame <= E1000_RXBUFFER_8192)
-> 		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
-> 	else if (max_frame <= E1000_RXBUFFER_16384)
-> 		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
+> ---
 > 
-> It sure is.
-> 
-> This is going to cause an 9000-byte MTU to use a 16384-byte allocation. 
-> e1000_alloc_rx_buffers() adds two bytes to that, so we do kmalloc(16386),
-> which causes the slab allocator to request 32768 bytes.  All for a 9kbyte skb.
+> Patch for linux kernel 2.6.16.19: http://tcn.hypert.net/tcnKernel_procfs.patch
 
-I wonder if we can't account for NET_IP_ALIGN when selecting bufsize, to get at 
-rid of at least 1 order size before we netdev_alloc_skb. This should make 9k 
-frames only kmalloc(16384) and thus stay within the 16k boundary. I hope.
+I like the concept of the trace based delay stuff, it is just that the implementation
+needs more work.
 
-Completely untested: don't commit :)
+Style:
+	* whitespace around operators, keywords etc
+	* use /* for comments not //
+	* indentation
+	scripts/Lindent may help
+	* accidental blank line changes introduced in patch as well
 
-Auke
+	* You don't really change Makefile
+Code:
+	* now netem depends on CONFIG_PROC_FS
 
----
+	* why not use a miscdevice (/dev/netem_trace?) instead of /proc
+	  
+	* still has signal flow control to process. This is an awkward way
+	  to do flow control and I don't think it is safe.
+	
+	* hard coding MAX_FLOWS leads to scaling problems. Not all users will
+	  want to waste the memory, and what if there are more flows. Can't you
+	  figure out a way to allocate and scale flow buffers.
 
-e1000: account for NET_IP_ALIGN when calculating bufsiz
 
-Account for NET_IP_ALIGN when requesting buffer sizes from netdev_alloc_skb to 
-reduce slab allocation by half.
+	
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index bb0d129..20b1f39 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1144,7 +1144,7 @@ #endif
 
-  	pci_read_config_word(pdev, PCI_COMMAND, &hw->pci_cmd_word);
-
--	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
-+	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE + NET_IP_ALIGN;
-  	adapter->rx_ps_bsize0 = E1000_RXBUFFER_128;
-  	hw->max_frame_size = netdev->mtu +
-  			     ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
-@@ -3234,26 +3234,27 @@ #define MAX_STD_JUMBO_FRAME_SIZE 9234
-  	 * larger slab size
-  	 * i.e. RXBUFFER_2048 --> size-4096 slab */
-
--	if (max_frame <= E1000_RXBUFFER_256)
-+	if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_256)
-  		adapter->rx_buffer_len = E1000_RXBUFFER_256;
--	else if (max_frame <= E1000_RXBUFFER_512)
-+	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_512)
-  		adapter->rx_buffer_len = E1000_RXBUFFER_512;
--	else if (max_frame <= E1000_RXBUFFER_1024)
-+	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_1024)
-  		adapter->rx_buffer_len = E1000_RXBUFFER_1024;
--	else if (max_frame <= E1000_RXBUFFER_2048)
-+	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_2048)
-  		adapter->rx_buffer_len = E1000_RXBUFFER_2048;
--	else if (max_frame <= E1000_RXBUFFER_4096)
-+	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_4096)
-  		adapter->rx_buffer_len = E1000_RXBUFFER_4096;
--	else if (max_frame <= E1000_RXBUFFER_8192)
-+	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_8192)
-  		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
--	else if (max_frame <= E1000_RXBUFFER_16384)
-+	else
-  		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
-
-  	/* adjust allocation if LPE protects us, and we aren't using SBP */
-  	if (!adapter->hw.tbi_compatibility_on &&
-  	    ((max_frame == MAXIMUM_ETHERNET_FRAME_SIZE) ||
-  	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE)))
--		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
-+		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE
-+		                         + NET_IP_ALIGN;
-
-  	netdev->mtu = new_mtu;
-
-@@ -4076,7 +4076,8 @@ e1000_alloc_rx_buffers(struct e1000_adap
-  	struct e1000_buffer *buffer_info;
-  	struct sk_buff *skb;
-  	unsigned int i;
--	unsigned int bufsz = adapter->rx_buffer_len + NET_IP_ALIGN;
-+	/* we have already accounted for NET_IP_ALIGN */
-+	unsigned int bufsz = adapter->rx_buffer_len;
-
-  	i = rx_ring->next_to_use;
-  	buffer_info = &rx_ring->buffer_info[i];
+-- 
+Stephen Hemminger <shemminger@osdl.org>
