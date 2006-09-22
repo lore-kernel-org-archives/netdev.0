@@ -1,171 +1,138 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH][RFC] Re: high latency with TCP connections
-Date: Fri, 22 Sep 2006 10:15:47 -0700
-Message-ID: <45141A43.8020306@hp.com>
-References: <20060830100734.GA22235@isil.ipib.msu.ru>	<20060904160045.GA15599@ms2.inr.ac.ru> <44FDBA04.3080104@hp.com>	<20060918.003938.26278728.davem@davemloft.net>	<450ED337.8000700@hp.com> <20060918204105.GA31333@ms2.inr.ac.ru>	<450F0EA5.2020109@hp.com> <20060918225123.GA22150@ms2.inr.ac.ru>	<450F3BC7.4020603@hp.com> <20060922134642.GA10175@ms2.inr.ac.ru>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
+Date: Fri, 22 Sep 2006 10:10:36 -0700
+Message-ID: <4514190C.8010901@intel.com>
+References: <Pine.LNX.4.64.0609220655550.13396@diagnostix.dwd.de> <20060922004253.2e2e2612.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alex@sectorb.msk.ru,
-	netdev@vger.kernel.org
+Cc: Holger Kiehl <Holger.Kiehl@dwd.de>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-net <linux-net@vger.kernel.org>, netdev@vger.kernel.org,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:58007 "EHLO palrel10.hp.com")
-	by vger.kernel.org with ESMTP id S964790AbWIVRPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 13:15:50 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060922134642.GA10175@ms2.inr.ac.ru>
+Received: from mga02.intel.com ([134.134.136.20]:43034 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S964782AbWIVRR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 13:17:56 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060922004253.2e2e2612.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Kuznetsov wrote:
-> Hello!
+Andrew Morton wrote:
+> On Fri, 22 Sep 2006 07:27:18 +0000 (GMT)
+> Holger Kiehl <Holger.Kiehl@dwd.de> wrote:
 > 
+>> I get some of the "page allocation failure" errors. My hardware is 4 CPU
+>> Opteron with one quad + one dual intel e1000 cards. Kernel is plain 2.6.18
+>> and for two cards MTU is set to 9000.
+>>
+>>     Sep 21 21:03:15 athena kernel: vsftpd: page allocation failure. order:3, mode:0x20
+>>     Sep 21 21:03:15 athena kernel:
+>>     Sep 21 21:03:15 athena kernel: Call Trace:
+>>     Sep 21 21:03:15 athena kernel:  <IRQ> [<ffffffff8024e516>] __alloc_pages+0x282/0x29b
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff8807aa93>] :ip_tables:ipt_do_table+0x1eb/0x318
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff8026614b>] cache_grow+0x134/0x33d
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff8026664c>] cache_alloc_refill+0x189/0x1d7
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff80266724>] __kmalloc+0x8a/0x94
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff803b5438>] __alloc_skb+0x5c/0x123
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff803b5f2e>] __netdev_alloc_skb+0x12/0x2d
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff8033cb22>] e1000_alloc_rx_buffers+0x6f/0x2f3
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff803d1234>] ip_local_deliver+0x173/0x23b
+>>     Sep 21 21:03:15 athena kernel:  [<ffffffff8033d29a>] e1000_clean_rx_irq+0x4f4/0x514
 > 
->>transactions to data segments is fubar.  That issue is also why I wonder 
->>about the setting of tcp_abc.
+> Is OK, it's just a warning and it is expected - the kernel will recover.
 > 
+> I'm half-inclined to shut the warning up by sticking a __GFP_NOWARN in there.
 > 
-> Yes, switching ABC on/off has visible impact on amount of segments.
-> When ABC is off, amount of segments is almost the same as number of
-> transactions. When it is on, ~1.5% are merged. But this is invisible
-> in numbers of throughput/cpu usage.
+> But on the other hand, that warning is handy sometimes.  How come kmalloc
+> decided to request a 32k hunk of memory when the MTU size is only 9k?  Is
+> the driver doing something dumb?
+> 
+> 	else if (max_frame <= E1000_RXBUFFER_8192)
+> 		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
+> 	else if (max_frame <= E1000_RXBUFFER_16384)
+> 		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
+> 
+> It sure is.
+> 
+> This is going to cause an 9000-byte MTU to use a 16384-byte allocation. 
+> e1000_alloc_rx_buffers() adds two bytes to that, so we do kmalloc(16386),
+> which causes the slab allocator to request 32768 bytes.  All for a 9kbyte skb.
 
-Hmm, that would seem to suggest that for "new" the netperf/netserver 
-were being fast enough that the code didn't perceive the receipt of 
-back-to-back sub-MSS segments? (Is that even possible once -b is fairly 
-large?)  Otherwise, with new I would have expected the segment count to 
-be meaningfully > than the transaction count?
+I wonder if we can't account for NET_IP_ALIGN when selecting bufsize, to get at 
+rid of at least 1 order size before we netdev_alloc_skb. This should make 9k 
+frames only kmalloc(16384) and thus stay within the 16k boundary. I hope.
 
-> 
-> That' numbers:
-> 
-> 1Gig link. The first column is "b". - separates runs of netperf
-> in backward direction.
-> 
-> Run #1. One host is slower.
-> 
->         old,abc=0
-> 	 new,abc=0
-> 	  new,abc=1
-> 	   old,abc=1
-> 
-> 2	23652.00  6.31   21.11  10.665  8.924
-> 	 23622.16  6.47   21.01  10.951  8.893
-> 	  23625.05  6.21   21.01  10.512  8.891
-> 	   23725.12  6.46   20.31  10.898  8.559
-> 	-
-> 	23594.87  21.90  6.44   9.283   10.912
-> 	 23631.52  20.30  6.36   8.592   10.766
-> 	  23609.55  21.00  6.26   8.896   10.599
-> 	   23633.75  21.10  5.44   8.929   9.206
-> 
-> 4	36349.11  8.71   31.21  9.584   8.585
-> 	 36461.37  8.65   30.81  9.492   8.449
-> 	  36723.72  8.22   31.31  8.949   8.526
-> 	   35801.24  8.58   30.51  9.589   8.521
-> 	-
-> 	35127.34  33.80  8.43   9.621   9.605
-> 	 36165.50  30.90  8.48   8.545   9.381
-> 	  36201.45  31.10  8.31   8.592   9.185
-> 	   35269.76  30.00  8.58   8.507   9.732
-> 
-> 8	41148.23  10.39  42.30  10.101  10.281
-> 	 41270.06  11.04  31.31  10.698  7.585
-> 	  41181.56  5.66   48.61  5.496   11.803
-> 	   40372.37  9.68   56.50  9.591   13.996
-> 	-
-> 	40392.14  47.00  11.89  11.637  11.775
-> 	 40613.80  36.90  9.16   9.086   9.019
-> 	  40504.66  53.60  7.73   13.234  7.639
-> 	   40388.99  48.70  11.93  12.058  11.814
-> 
-> 16	67952.27  16.27  43.70  9.576   6.432
-> 	 68031.40  10.56  53.70  6.206   7.894
-> 	  67777.95  12.81  46.90  7.559   6.920
-> 	   67814.41  16.13  46.50  9.517   6.857
-> 	-
-> 	68031.46  51.30  11.53  7.541   6.781
-> 	 68044.57  40.70  8.48   5.982   4.986
-> 	  67808.13  39.60  15.86  5.840   9.355
-> 	   67818.32  52.90  11.51  7.801   6.791
-> 
-> 32	90445.09  15.41  99.90  6.817   11.045
-> 	 90210.34  16.11  100.00 7.143   11.085
-> 	  90221.84  17.31  98.90  7.676   10.962
-> 	   90712.78  18.41  99.40  8.120   10.958
-> 	-
-> 	89155.51  99.90  12.89  11.205  5.782
-> 	 90058.54  99.90  16.16  11.093  7.179
-> 	  90092.31  98.60  15.41  10.944  6.840
-> 	   88688.96  99.00  17.59  11.163  7.933
-> 
-> 64	89983.76  13.66  100.00 6.071   11.113
-> 	 90504.24  17.54  100.00 7.750   11.049
-> 	  92043.36  17.44  99.70  7.580   10.832
-> 	   90979.29  16.01  99.90  7.038   10.981
-> 	-
-> 	88615.27  99.90  14.91  11.273  6.729
-> 	 89316.13  99.90  17.28  11.185  7.740
-> 	  90622.85  99.90  16.81  11.024  7.420
-> 	   89084.85  99.90  17.51  11.214  7.861
-> 
-> Run #2. Slower host is replaced with better one. ABC=0.
-> No runs in backward directions.
-> 
-> 	new
-> 	 old
-> 
-> 2	24009.73  8.80   6.49   3.667   10.806
-> 	 24008.43  8.00   6.32   3.334   10.524
-> 4	40012.53  18.30  8.79   4.574   8.783
-> 	 39999.84  19.40  8.86   4.851   8.857
-> 8	60500.29  26.30  12.78  4.348   8.452
-> 	 60397.79  26.30  11.73  4.355   7.769
-> 16	69619.95  39.80  14.03  5.717   8.063
-> 	 70528.72  24.90  14.43  3.531   8.184
-> 32	132522.01  53.20  21.28  4.015   6.424
-> 	 132602.93  57.70  22.59  4.351   6.813
-> 64	145738.83  60.30  25.01  4.138   6.865
-> 	 143129.55  73.20  24.19  5.114   6.759
-> 128	148184.21  69.70  24.96  4.704   6.739
-> 	 148143.47  71.00  25.01  4.793   6.753
-> 256	144798.91  69.40  25.01  4.793   6.908
-> 	 144086.01  73.00  24.61  5.067   6.832
-> 
-> Frankly, I do not see any statistically valid correlations.
+Completely untested: don't commit :)
 
-Does look like it jumps-around quite a bit - for example the run#2 with 
--b 16 had the CPU util all over the map on the netperf side.  That 
-wasn't by any chance an SMP system?
+Auke
 
->>that "linux" didn't seem to be doing the same thing. Hence my tweaking 
->>when seeing this patch come along...]
-> 
-> 
-> netperf does not catch this. :-)
+---
 
-Nope :(  One of these days.... I need to teach netperf how to extract 
-TCP statistics from as many platforms as possible.  Meantime it relies 
-as always on the kindness of benchmarkers :) (My appologies to Tennesee 
-Williams :)
+e1000: account for NET_IP_ALIGN when calculating bufsiz
 
-> Even with this patch linux does not ack each second segment dumbly,
-> it waits for some conditions, mostly read() emptying receive queue.
+Account for NET_IP_ALIGN when requesting buffer sizes from netdev_alloc_skb to 
+reduce slab allocation by half.
 
-Good.  HP-UX is indeed dumb about this, but I'm assured it will be 
-changing.  I forget what Solaris does in this situation - I thought I 
-looked a while ago but cannot recall the result.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-> To model this it is necessary to insert some gaps between
-> bursted segments or to use slow network.
-> 
-> I have no doubts it is easy to model a situation when we send
-> lots of useless ACKs. F.e. inserting 20ms gaps between requests.
-> To see effect on thoughput/cpu, we could start enough of connections,
-> doing the same thing.
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index bb0d129..20b1f39 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1144,7 +1144,7 @@ #endif
 
-Adding --enable-intervals might work there.  I don't recall how well it 
-gets along with --enable-burst though, and you have already made lots of 
-runs as it is.
+  	pci_read_config_word(pdev, PCI_COMMAND, &hw->pci_cmd_word);
 
-rick
+-	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
++	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE + NET_IP_ALIGN;
+  	adapter->rx_ps_bsize0 = E1000_RXBUFFER_128;
+  	hw->max_frame_size = netdev->mtu +
+  			     ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
+@@ -3234,26 +3234,27 @@ #define MAX_STD_JUMBO_FRAME_SIZE 9234
+  	 * larger slab size
+  	 * i.e. RXBUFFER_2048 --> size-4096 slab */
+
+-	if (max_frame <= E1000_RXBUFFER_256)
++	if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_256)
+  		adapter->rx_buffer_len = E1000_RXBUFFER_256;
+-	else if (max_frame <= E1000_RXBUFFER_512)
++	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_512)
+  		adapter->rx_buffer_len = E1000_RXBUFFER_512;
+-	else if (max_frame <= E1000_RXBUFFER_1024)
++	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_1024)
+  		adapter->rx_buffer_len = E1000_RXBUFFER_1024;
+-	else if (max_frame <= E1000_RXBUFFER_2048)
++	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_2048)
+  		adapter->rx_buffer_len = E1000_RXBUFFER_2048;
+-	else if (max_frame <= E1000_RXBUFFER_4096)
++	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_4096)
+  		adapter->rx_buffer_len = E1000_RXBUFFER_4096;
+-	else if (max_frame <= E1000_RXBUFFER_8192)
++	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_8192)
+  		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
+-	else if (max_frame <= E1000_RXBUFFER_16384)
++	else
+  		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
+
+  	/* adjust allocation if LPE protects us, and we aren't using SBP */
+  	if (!adapter->hw.tbi_compatibility_on &&
+  	    ((max_frame == MAXIMUM_ETHERNET_FRAME_SIZE) ||
+  	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE)))
+-		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
++		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE
++		                         + NET_IP_ALIGN;
+
+  	netdev->mtu = new_mtu;
+
+@@ -4076,7 +4076,8 @@ e1000_alloc_rx_buffers(struct e1000_adap
+  	struct e1000_buffer *buffer_info;
+  	struct sk_buff *skb;
+  	unsigned int i;
+-	unsigned int bufsz = adapter->rx_buffer_len + NET_IP_ALIGN;
++	/* we have already accounted for NET_IP_ALIGN */
++	unsigned int bufsz = adapter->rx_buffer_len;
+
+  	i = rx_ring->next_to_use;
+  	buffer_info = &rx_ring->buffer_info[i];
