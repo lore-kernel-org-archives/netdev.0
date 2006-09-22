@@ -1,43 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ProxyARP and IPSec
-Date: Fri, 22 Sep 2006 13:36:46 -0700 (PDT)
-Message-ID: <20060922.133646.68153303.davem@davemloft.net>
-References: <20060904222722.GA24078@ms2.inr.ac.ru>
-	<44FD0759.8070307@zytor.com>
-	<20060905090530.GA17104@ms2.inr.ac.ru>
+Subject: Re: IP fragmentation bug from NFS
+Date: Fri, 22 Sep 2006 13:50:54 -0700 (PDT)
+Message-ID: <20060922.135054.09947776.davem@davemloft.net>
+References: <20060922133512.01a9e9d0@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hpa@zytor.com, stephen@dino.dnsalias.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54165
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58529
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964899AbWIVUg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 16:36:29 -0400
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <20060905090530.GA17104@ms2.inr.ac.ru>
+	id S1750775AbWIVUug (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 16:50:36 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060922133512.01a9e9d0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Tue, 5 Sep 2006 13:05:30 +0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 22 Sep 2006 13:35:12 -0700
 
-> Look into old rfc2401, search for word "fragment".
-> Then search for the same word in new rfc4301. All those 100K of new text
-> deal with various design bugs in IPsec, mostly with pathologies encountered
-> in the case of security gateways. (Some section there are real fun: f.e.
-> look at section 7.2)
+> http://bugzilla.kernel.org/show_bug.cgi?id=7018
+>
+> Looking at this, it seems that when NFS hands UDP a fragmented
+> (non-linear skb), it traps because it tries to trim bytes off a
+> non-linear skb. Not sure if skb_trim needs fixing, or IP is broken..
 
-I even was not aware of this problem. :-)
+Should be fixed by: e9fa4f7bd291c29a785666e2fa5a9cf3241ee6c3
 
-Essentially, if you use ports as part of your selector,
-then it is impossible to handle anything other than the
-first fragment of a fragmented frame because the subsequent
-fragments will not have the ports which you need in order
-to match.
+[INET]: Use pskb_trim_unique when trimming paged unique skbs
 
-The suggestions in 7.2 involving a seperate SA for the non-first
-fragments seem totally unrealistic, if you ask me.  They even say
-the idea cannot work with ipv6, what is the point? :-)
+The IPv4/IPv6 datagram output path was using skb_trim to trim paged
+packets because they know that the packet has not been cloned yet
+(since the packet hasn't been given to anything else in the system).
 
+This broke because skb_trim no longer allows paged packets to be
+trimmed.  Paged packets must be given to one of the pskb_trim functions
+instead.
 
+This patch adds a new pskb_trim_unique function to cover the IPv4/IPv6
+datagram output path scenario and replaces the corresponding skb_trim
+calls with it.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
