@@ -1,33 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails due to missing declaration in net/netfilter/xt_physdev.c
-Date: Fri, 22 Sep 2006 12:51:22 +0200
-Message-ID: <20060922105122.GA12425@ff.dom.local>
-References: <20060921153701.2c49e331.akpm@osdl.org> <20060922084108.GB6820@ff.dom.local> <20060922092731.GC6820@ff.dom.local> <20060922095556.GA11991@ff.dom.local> <4513B7CF.5040209@trash.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 6/7] [DCCP]: Fix setting of packet size in CCID3
+Date: Fri, 22 Sep 2006 11:51:57 +0100
+Message-ID: <200609221151.57230@strip-the-willow>
+References: <200609221432.20022.ian.mcdonald@jandi.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	"David S\. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo de Melo <acme@mandriva.com>,
+	David Miller <davem@davemloft.net>,
+	"dccp (vger)" <dccp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:30948 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S932134AbWIVKrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 06:47:15 -0400
-To: Patrick McHardy <kaber@trash.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:32439 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S932163AbWIVKwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 06:52:10 -0400
+To: Ian McDonald <ian.mcdonald@jandi.co.nz>
+In-Reply-To: <200609221432.20022.ian.mcdonald@jandi.co.nz>
 Content-Disposition: inline
-In-Reply-To: <4513B7CF.5040209@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2006 at 12:15:43PM +0200, Patrick McHardy wrote:
-...
-> We should fix the physdev dependencies since this is what is causing
-> problems.
-...
->  config NETFILTER_XT_MATCH_PHYSDEV
->  	tristate '"physdev" match support'
-> -	depends on NETFILTER_XTABLES && BRIDGE_NETFILTER
-> +	depends on NETFILTER_XTABLES && BRIDGE && BRIDGE_NETFILTER
+Quoting Ian McDonald:
+|  Set initial packet size to defaults as existing code doesn't work
+|  as set_sockopt occurs after initialisation so dccps_packet_size
+|  is of no use really.
+Please see comments to patch 5/7; rather than setting a default,
+ccid3hc{rx,tx}_s should be derived from incoming/outgoing effective
+packet sizes.
 
-Sure! But someone may ask what for BRIDGE_NETFILTER depends
-on BRIDGE if you should repeat this? 
+|  +	case DCCP_SOCKOPT_TX_PACKET_SIZE:
+|  +		if (dmsk->dccpms_tx_ccid != DCCPC_CCID3)
+|  +			err = -EINVAL;
+This is unfortunate: it is in the generic dccp code but
+works only for CCID 3. Same for DCCP_SOCKOPT_RX_PACKET_SIZE.
 
-Jarek P.
+
+--Gerrit
