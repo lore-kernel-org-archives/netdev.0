@@ -1,27 +1,55 @@
-From: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Subject: [PATCH 2.6.16.19 1/2] LARTC: trace control for netem: userspace
-Date: Fri, 22 Sep 2006 08:13:54 +0200
-Message-ID: <45137F22.4000304@tik.ee.ethz.ch>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6.18 try 2] net/ipv4: sysctl to allow non-superuser
+ to bypass CAP_NET_BIND_SERVICE requirement
+Date: Fri, 22 Sep 2006 16:41:09 +0900 (JST)
+Message-ID: <20060922.164109.112537486.yoshfuji@linux-ipv6.org>
+References: <4E1176C1-8F18-4790-9BCB-95306ACED48A@atheme.org>
+	<736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>, netdev@VGER.KERNEL.ORG,
-	netem@osdl.org
+Received: from yue.linux-ipv6.org ([203.178.140.15]:5128 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1750845AbWIVHi5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 03:38:57 -0400
+To: nenolod@atheme.org
+In-Reply-To: <736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Trace Control for Netem: Emulate network properties such as long range dependency and self-similarity of cross-traffic.
+In article <736CE60D-FB88-4246-8728-B7AC7880B28E@atheme.org> (at Fri, 22 Sep 2006 02:31:59 -0500), William Pitcock <nenolod@atheme.org> says:
 
-user space (iproute2):
-The directory tc/netem was split in two parts, one containing the original distribution tables and the other the tools to generate trace files as well as the program responsible for reading the delay values from the trace file and sending them to the kernel (called flowseed).
+> This patch allows for a user to disable the requirement to meet the  
+> CAP_NET_BIND_SERVICE capability for a non-superuser. It is toggled by  
+> the net.ipv4.allow_lowport_bind_nonsuperuser sysctl value.
 
-If the trace option is set, netem initializes the kernel and starts the flowseedprocess. The flowseedprocess does not
-send data to the kernel until the registration is completed. The data is sent to the kernel module via configfs. For each qdisc applied, a new directory (in /config/tcn/) is created. The write returns when the kernel needs new data, or when the corresponding qdisc was deleted. In the first case new data is sent and in the latter case the flowseedprocess terminates himself.
+Why?  I don't think this is a good idea.
 
-Signed-off-by: Rainer Baumann <baumann@tik.ee.ethz.ch>
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index e4b1a4d..c3f7c3c 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -411,6 +411,7 @@ enum
+> 	NET_IPV4_TCP_WORKAROUND_SIGNED_WINDOWS=115,
+> 	NET_TCP_DMA_COPYBREAK=116,
+> 	NET_TCP_SLOW_START_AFTER_IDLE=117,
+> +	NET_IPV4_ALLOW_LOWPORT_BIND_NONSUPERUSER=118,
+>    };
+> 
+>    enum {
 
----
+This implies all IPv4 protocols including other protocols
+such as UDP, SCTP, ...
 
-Patch for iproute2-2.6.16-060323: http://tcn.hypert.net/tcn_iproute2.patch
+> @@ -1412,3 +1418,4 @@ EXPORT_SYMBOL(inet_stream_ops);
+>    EXPORT_SYMBOL(inet_unregister_protosw);
+>    EXPORT_SYMBOL(net_statistics);
+>    EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
+> +EXPORT_SYMBOL(sysctl_ip_allow_lowport_bind_nonsuperuser);
 
+Please be aware about indent.
+
+--yoshfuji
