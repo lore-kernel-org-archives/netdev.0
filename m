@@ -1,32 +1,33 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 7/7] [DCCP]: Remove socket option
-Date: Fri, 22 Sep 2006 11:46:37 +0100
-Message-ID: <200609221146.37827@strip-the-willow>
-References: <200609221433.48612.ian.mcdonald@jandi.co.nz>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] [Bugme-new] [Bug 7179] New: Compilation of .tmp_linux1 fails due to missing declaration in net/netfilter/xt_physdev.c
+Date: Fri, 22 Sep 2006 12:51:22 +0200
+Message-ID: <20060922105122.GA12425@ff.dom.local>
+References: <20060921153701.2c49e331.akpm@osdl.org> <20060922084108.GB6820@ff.dom.local> <20060922092731.GC6820@ff.dom.local> <20060922095556.GA11991@ff.dom.local> <4513B7CF.5040209@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo de Melo <acme@mandriva.com>,
-	David Miller <davem@davemloft.net>,
-	"dccp (vger)" <dccp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	"David S\. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63414 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S932112AbWIVKqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 06:46:51 -0400
-To: Ian McDonald <ian.mcdonald@jandi.co.nz>
-In-Reply-To: <200609221433.48612.ian.mcdonald@jandi.co.nz>
+Received: from mx10.go2.pl ([193.17.41.74]:30948 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932134AbWIVKrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 06:47:15 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <4513B7CF.5040209@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-|  This removes DCCP_SOCKOPT_PACKET_SIZE for two reasons:
-|  * the current code doesn't work
-|  * tx and rx should be different (introduced in former patch)
+On Fri, Sep 22, 2006 at 12:15:43PM +0200, Patrick McHardy wrote:
+...
+> We should fix the physdev dependencies since this is what is causing
+> problems.
+...
+>  config NETFILTER_XT_MATCH_PHYSDEV
+>  	tristate '"physdev" match support'
+> -	depends on NETFILTER_XTABLES && BRIDGE_NETFILTER
+> +	depends on NETFILTER_XTABLES && BRIDGE && BRIDGE_NETFILTER
 
-Agree that DCCP_SOCKOPT_PACKET_SIZE is redundant, patch looks good and
-has been tested.
+Sure! But someone may ask what for BRIDGE_NETFILTER depends
+on BRIDGE if you should repeat this? 
 
-Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-|  Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Jarek P.
