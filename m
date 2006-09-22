@@ -1,45 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Update of the r8169 branch
-Date: Fri, 22 Sep 2006 23:00:31 +0200
-Message-ID: <20060922210031.GA30761@electric-eye.fr.zoreil.com>
-References: <20060726215840.GA4032@electric-eye.fr.zoreil.com> <4511A4F0.6050101@kernelpanic.ru> <20060920214010.GA7879@electric-eye.fr.zoreil.com> <4512B475.1000703@kernelpanic.ru> <20060921165156.GC496@electric-eye.fr.zoreil.com> <4512ED7A.40001@kernelpanic.ru> <20060921210743.GA5083@electric-eye.fr.zoreil.com> <451431B7.3080608@kernelpanic.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PATCH] IPv6 Update for net-2.6.19, Take 2
+Date: Fri, 22 Sep 2006 14:46:38 -0700 (PDT)
+Message-ID: <20060922.144638.42781542.davem@davemloft.net>
+References: <20060921.155952.14019351.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, mbockol@carleton.edu, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, takamiya@po.ntts.co.jp,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48615 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S965017AbWIVVCW
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 17:02:22 -0400
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
-Content-Disposition: inline
-In-Reply-To: <451431B7.3080608@kernelpanic.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59818
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964813AbWIVVqV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 17:46:21 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20060921.155952.14019351.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Boris B. Zhmurov <bb@kernelpanic.ru> :
-[...]
-> Thanks Francois, after your suggestions, network performance was twice 
-> increased, but I'm still loosing to freebsd:
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 21 Sep 2006 15:59:52 +0900 (JST)
 
-Ok, now that the Linux kernel is not in heavy debugging mode, it takes
-some ~10 us/(sent packet). It is not _too_ far from the usual syscall
-tax.
+>     [IPV6] NDISC: Handle NDP messages to proxied addresses.
+>     [IPV6]: Don't forward packets to proxied link-local address.
+>     [IPV6] NDISC: Avoid updating neighbor cache for proxied address in receiving NA.
+>     [IPV6] NDISC: Set per-entry is_router flag in Proxy NA.
+>     [IPV6] NDISC: Add proxy_ndp sysctl.
+>     [IPV6] ADDRCONF: Convert addrconf_lock to RCU.
+>     [IPV6] NDISC: Fix is_router flag setting.
+>     [IPV6] ADDRCONF: Allow non-DAD'able addresses.
+>     [IPV6] ADDRCONF: Mobile IPv6 Home Address support.
 
-Can you send a typical excerpt of an 'strace -T' for your client iperf
-process and compare it against the FreeBSD one ?
+All applied as patches, thank you.
 
-[...]
-> P.S. I couldn't disable the following things due to bzImage build errors:
-> CONFIG_GENERIC_TIME
-> CONFIG_X86=y
-> CONFIG_MMU=y
-> CONFIG_GENERIC_IOMAP=y
-> CONFIG_DMI=y
-
-Oops, I was a bit terse: you were only supposed to disable the outlined
-options (i.e. mostly debugging and/or unneeded stuff). As long as the
-kernel performs better, it should not be a big issue though.
-
--- 
-Ueimor
+I'm also rebasing the net-2.6.19 tree so I can push it
+cleanly to Linus, so it may take a while for these
+changes to show up on kernel.org which I do that work.
