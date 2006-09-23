@@ -1,71 +1,32 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: further fix for periodic work errors
-Date: Sat, 23 Sep 2006 21:41:20 +0200
-Message-ID: <200609232141.20720.mb@bu3sch.de>
-References: <4514B322.mail1K91A36N8@lwfinger.net>
-	<200609230956.05475.mb@bu3sch.de> <451585D1.3080102@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tested: Re: [PATCH] tcp: make cubic the default
+Date: Sat, 23 Sep 2006 13:00:51 -0700 (PDT)
+Message-ID: <20060923.130051.104036351.davem@davemloft.net>
+References: <20060920081704.GA1812@outpost.ds9a.nl>
+	<20060920133258.36ff42ce@localhost.localdomain>
+	<20060923111434.GA10254@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-In-Reply-To: <451585D1.3080102-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16086
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751520AbWIWUAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Sep 2006 16:00:48 -0400
+To: bert.hubert@netherlabs.nl
+In-Reply-To: <20060923111434.GA10254@outpost.ds9a.nl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 23 September 2006 21:06, Larry Finger wrote:
-> Michael Buesch wrote:
-> > On Saturday 23 September 2006 06:08, Larry Finger wrote:
-> >> Recent changes in the setup for preemptible periodic work fixed most
-> >> of the problems with NETDEV watchdog timeouts; however, some variants
-> >> of the bcm43xx device still had the problem. These were fixed by setting
-> >> the parameter MAXIMUM_BADNESS to 0. By doing so, all the functionality
-> >> associated with calculating the 'badness' of the upcoming periodic work
-> >> is no longer needed; therefore it is removed.
-> > 
-> > Uhm, no. Wait. _Why_ does the watchdog trigger.
-> > All periodic work in the fastpath (which you remove with this patch)
-> > is supposed to execute in a few microseconds.
-> > I don't think we want to fix this my removing the fastpath and always
-> > taking the _expensive_ slowpath periodic work.
-> > 
-> > So why does the watchdog trigger for the fast periodic work?
-> > We need to find out.
-> > Removing the fastpath is just bad for overall latency.
-> > 
-> > The two fastpath periodic works are 15 and 30, if executed
-> > standalone. If the 15 and/or 30 is execiuted alongside with
-> > a 60sec work, it's all slowpath, of course.
+From: bert hubert <bert.hubert@netherlabs.nl>
+Date: Sat, 23 Sep 2006 13:14:34 +0200
+
+> All in all, this final iteration of the congestion selection patches appears
+> to do the job!
 > 
-> I was thinking that the 15 second periodic work called mac suspend, which is the most expensive part 
-> of the slowpath, but I see that is an unlikely condition. I'm now testing to see if moving the 
-> netif_tx_disable/netif_wake_queue pair into all paths fixes the errors. Those calls should be 
-> relatively inexpensive.
+> Davem, I'd recommend both patches for merging.
 
-Well, even _if_ mac_suspend takes a few milliseconds (which it
-does not), it would not trigger the watchdog.
-I measured the time it takes to execute the various works
-and based the badness selection on the results.
+Great, I'll make sure I review them too and integrate them.
 
-If the 15 or 30 second work is really able to trigger a watchdog
-timeout, it's a _bug_ that needs to be fixed and not to be
-papered over.
-It won't trigger the watchdog, because it is running too long
-uninterruptible (it won't run 5sec...). If it triggers, it's
-triggered by something else (like the synchronize_net thingie
-in the past).
-
--- 
-Greetings Michael.
+Thanks for checking this stuff out so thoroughly.
