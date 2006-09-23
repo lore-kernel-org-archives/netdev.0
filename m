@@ -1,134 +1,35 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: further fix for periodic work errors
-Date: Fri, 22 Sep 2006 23:08:02 -0500
-Message-ID: <4514B322.mail1K91A36N8@lwfinger.net>
+From: stephen@dino.dnsalias.com (Stephen J. Bevan)
+Subject: Re: ProxyARP and IPSec
+Date: Fri, 22 Sep 2006 21:22:55 -0700
+Message-ID: <17684.46751.466893.446331@localhost.localdomain>
+References: <20060904222722.GA24078@ms2.inr.ac.ru>
+	<44FD0759.8070307@zytor.com>
+	<20060905090530.GA17104@ms2.inr.ac.ru>
+	<20060922.133646.68153303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: kuznet@ms2.inr.ac.ru, hpa@zytor.com, stephen@dino.dnsalias.com,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from S010600014e000000.vc.shawcable.net ([70.79.40.36]:64940 "EHLO
+	dino.dnsalias.com") by vger.kernel.org with ESMTP id S1750803AbWIWEXo
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Sep 2006 00:23:44 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060922.133646.68153303.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Recent changes in the setup for preemptible periodic work fixed most
-of the problems with NETDEV watchdog timeouts; however, some variants
-of the bcm43xx device still had the problem. These were fixed by setting
-the parameter MAXIMUM_BADNESS to 0. By doing so, all the functionality
-associated with calculating the 'badness' of the upcoming periodic work
-is no longer needed; therefore it is removed.
+David Miller writes:
+ > Essentially, if you use ports as part of your selector,
+ > then it is impossible to handle anything other than the
+ > first fragment of a fragmented frame because the subsequent
+ > fragments will not have the ports which you need in order
+ > to match.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
-
-John,
-
-This patch relies on "[PATCH] bcm43xx: fix netdev watchdog timeouts", which
-was submitted on 9/14/06. It is important for this one, as well as those
-already queued, to make the 2.6.19 cutoff.
-
-Thanks,
-
-Larry
-
-
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3136,67 +3136,32 @@ static void do_periodic_work(struct bcm4
- 	schedule_delayed_work(&bcm->periodic_work, HZ * 15);
- }
- 
--/* Estimate a "Badness" value based on the periodic work
-- * state-machine state. "Badness" is worse (bigger), if the
-- * periodic work will take longer.
-- */
--static int estimate_periodic_work_badness(unsigned int state)
--{
--	int badness = 0;
--
--	if (state % 8 == 0) /* every 120 sec */
--		badness += 10;
--	if (state % 4 == 0) /* every 60 sec */
--		badness += 5;
--	if (state % 2 == 0) /* every 30 sec */
--		badness += 1;
--	if (state % 1 == 0) /* every 15 sec */
--		badness += 1;
--
--#define BADNESS_LIMIT	4
--	return badness;
--}
--
- static void bcm43xx_periodic_work_handler(void *d)
- {
- 	struct bcm43xx_private *bcm = d;
- 	unsigned long flags;
- 	u32 savedirqs = 0;
--	int badness;
--
--	badness = estimate_periodic_work_badness(bcm->periodic_state);
--	if (badness > BADNESS_LIMIT) {
--		/* Periodic work will take a long time, so we want it to
--		 * be preemtible.
--		 */
--		mutex_lock(&bcm->mutex);
--		netif_tx_disable(bcm->net_dev);
--		spin_lock_irqsave(&bcm->irq_lock, flags);
--		bcm43xx_mac_suspend(bcm);
--		if (bcm43xx_using_pio(bcm))
--			bcm43xx_pio_freeze_txqueues(bcm);
--		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
--		spin_unlock_irqrestore(&bcm->irq_lock, flags);
--		bcm43xx_synchronize_irq(bcm);
--	} else {
--		/* Periodic work should take short time, so we want low
--		 * locking overhead.
--		 */
--		mutex_lock(&bcm->mutex);
--		spin_lock_irqsave(&bcm->irq_lock, flags);
--	}
- 
-+	/* Periodic work may take a long time, so we want it to
-+	 * be preemtible. In any case, we need to disable transmits.
-+	 */
-+	mutex_lock(&bcm->mutex);
-+	netif_tx_disable(bcm->net_dev);
-+	spin_lock_irqsave(&bcm->irq_lock, flags);
-+	bcm43xx_mac_suspend(bcm);
-+	if (bcm43xx_using_pio(bcm))
-+		bcm43xx_pio_freeze_txqueues(bcm);
-+	savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
-+	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-+	bcm43xx_synchronize_irq(bcm);
- 	do_periodic_work(bcm);
--
--	if (badness > BADNESS_LIMIT) {
--		spin_lock_irqsave(&bcm->irq_lock, flags);
--		tasklet_enable(&bcm->isr_tasklet);
--		bcm43xx_interrupt_enable(bcm, savedirqs);
--		if (bcm43xx_using_pio(bcm))
--			bcm43xx_pio_thaw_txqueues(bcm);
--		bcm43xx_mac_enable(bcm);
--		netif_wake_queue(bcm->net_dev);
--	}
-+	spin_lock_irqsave(&bcm->irq_lock, flags);
-+	tasklet_enable(&bcm->isr_tasklet);
-+	bcm43xx_interrupt_enable(bcm, savedirqs);
-+	if (bcm43xx_using_pio(bcm))
-+		bcm43xx_pio_thaw_txqueues(bcm);
-+	bcm43xx_mac_enable(bcm);
-+	netif_wake_queue(bcm->net_dev);
- 	mmiowb();
- 	spin_unlock_irqrestore(&bcm->irq_lock, flags);
- 	mutex_unlock(&bcm->mutex);
+If you have port/protocol based selectors and you are firewalling then
+re-assembly is already being done so IPsec will see the re-assembled
+packet at little cost.  Alternately in a pure IPsec configuration it
+possible to arrange things so that re-assembly is only done if
+port/protocol based selectors are used.
