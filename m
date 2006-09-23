@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Advertise PPPoE MTU / avoid memory leak.
-Date: Sat, 23 Sep 2006 14:56:00 -0700 (PDT)
-Message-ID: <20060923.145600.51855973.davem@davemloft.net>
-References: <115903262344-git-send-email-mostrows@earthlink.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: softmac mtu
+Date: Sat, 23 Sep 2006 16:59:48 -0500
+Message-ID: <4515AE54.4040403@lwfinger.net>
+References: <ef3s4u$or5$3@sea.gmane.org> <4515A9BF.90709@lwfinger.net> <20060923.144757.78710420.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ppp-bugs@dp.samba.org
+Cc: castet.matthieu@free.fr, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57800
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750738AbWIWV4B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 17:56:01 -0400
-To: mostrows@earthlink.net
-In-Reply-To: <115903262344-git-send-email-mostrows@earthlink.net>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:64502 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1750718AbWIWV7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Sep 2006 17:59:51 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060923.144757.78710420.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: mostrows@earthlink.net
-Date: Sat, 23 Sep 2006 12:30:23 -0500
+David Miller wrote:
+> From: Larry Finger <Larry.Finger@lwfinger.net>
+> Date: Sat, 23 Sep 2006 16:40:15 -0500
+> 
+>> The maximum value for MTU is set in include/linux/if_ether.h for all
+>> ethernet-type communications, not in softmac or ieee80211. I doubt
+>> that one could easily change the number. It may be that the 802.11
+>> standard allows bigger frames, but it looks to me as if Linux does
+>> not.
+> 
+> 
+> Not correct.  Linux is perfectly fine with setting 9000 byte MTU on
+> ethernet devices that support it, and in fact just about every
+> gigabit ethernet driver supports it.
+> 
+> That macro you see in if_ether.h is just the value of the base MTU
+> limit, so larger MTU settings are easily allowable on a per-device
+> basis.
 
-> __pppoe_xmit must free any skb it allocates if there is an error
-> submitting the skb downstream.
+Where/how does the device allow it? When I tried 'ifconfig eth0 mtu 2000' on my VIA Technologies, 
+Inc. VT6102 [Rhine-II] wired controller, I got a 'SIOCSIFMTU: Invalid argument' message, which is 
+the same message I get on my BCM4306 wireless card.
 
-This isn't right, dev_queue_xmit() can return -ENETDOWN and still
-free the SKB, so your change will cause the SKB to be freed up
-twice in that case, from dev_queue_xmit():
+Larry
 
-	rc = -ENETDOWN;
-	rcu_read_unlock_bh();
 
-out_kfree_skb:
-	kfree_skb(skb);
-	return rc;
-
-dev_queue_xmit() is basically expected to consume the packet,
-error or not.
-
-What case of calling dev_queue_xmit() did you discover that did not
-kfree the SKB on error?  We should fix that.  On a quick scan on the
-entire dev_queue_xmit() implmentation, I cannot find such a case.
