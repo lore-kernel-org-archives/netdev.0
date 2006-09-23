@@ -1,33 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] skge: fiber support
-Date: Fri, 22 Sep 2006 20:16:45 -0400
-Message-ID: <45147CED.10801@pobox.com>
-References: <20060815131852.GP2900@mathom.us> <20060921153939.739947ab@dxpl.pdx.osdl.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Pull request for 'r8169-20060920-00' tag
+Date: Fri, 22 Sep 2006 20:18:29 -0400
+Message-ID: <45147D55.1050702@garzik.org>
+References: <20060920192332.GA10396@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Stone <mstone@mathom.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Matt Bockol <mbockol@carleton.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33496 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932194AbWIWAQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 20:16:50 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060921153939.739947ab@dxpl.pdx.osdl.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:35800 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932213AbWIWASc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 20:18:32 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060920192332.GA10396@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Add support for older fiber versions of the SysKonnect board. These chipsets
-> use an internal PHY so they require special handling. The older sk98lin
-> driver already supported these
+Francois Romieu wrote:
+> Please pull from tag 'r8169-20060920-00' in repository
+>  
+> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> to get the change below.
+> 
+> Note:
+> Since something went wrong last time I submitted a pull request, here
+> goes the trace from the start of the branch
 
-ACK, but:
+pulled, thanks.  Didn't download 7000+ objects, like it did last time :)
+
+	Jeff
 
 
-Applying 'skge: fiber support'
-
-error: patch failed: drivers/net/skge.c:3107
-error: drivers/net/skge.c: patch does not apply
 
