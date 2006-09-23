@@ -1,109 +1,157 @@
-From: Douglas Leith <doug.leith@nuim.ie>
+From: "Injong Rhee" <rhee@eos.ncsu.edu>
 Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
-Date: Sat, 23 Sep 2006 10:43:11 +0100
-Message-ID: <451501AF.2040209@nuim.ie>
-References: <001b01c6deb8$c0375bc0$4a580e98@ncsu2cc0c3fa00>
- <4514D590.9010201@nuim.ie>
- <56271.66.57.32.78.1158997517.squirrel@webmail.ncsu.edu>
+Date: Fri, 22 Sep 2006 22:43:22 -0400
+Message-ID: <003001c6deba$099411e0$4a580e98@ncsu2cc0c3fa00>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Injong Rhee <rhee@eos.ncsu.edu>, floyd@icsi.berkeley.edu,
-	netdev@vger.kernel.org, end2end-interest@postel.org,
-	lisongxu@gmail.com
+Content-Type: text/plain;
+	format=flowed;
+	charset="ks_c_5601-1987";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nuim.ie ([149.157.1.19]:29895 "EHLO LARCH.MAY.IE")
-	by vger.kernel.org with ESMTP id S1751427AbWIWJoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2006 05:44:34 -0400
-Received: from [192.168.0.2] ([212.2.173.133])
- by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01M7J5EYT1OW00V303@NUIM.IE>
- for netdev@vger.kernel.org; Sat, 23 Sep 2006 10:44:43 +0000 (GMT)
-In-reply-to: <56271.66.57.32.78.1158997517.squirrel@webmail.ncsu.edu>
-To: rhee@ncsu.edu
+Received: from uni01mr.unity.ncsu.edu ([152.1.1.164]:39152 "EHLO
+	uni01mr.unity.ncsu.edu") by vger.kernel.org with ESMTP
+	id S1750703AbWIWCn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Sep 2006 22:43:27 -0400
+Received: from ncsu2cc0c3fa00 (bakdu.csc.ncsu.edu [152.14.88.74])
+	by uni01mr.unity.ncsu.edu (8.13.7/8.13.4/Nv5.2006.0214) with SMTP id k8N2hOLJ004185
+	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 22:43:25 -0400 (EDT)
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a resend with fixed web links. The links were broken in my previous 
+email -- sorry about multiple transmissions.
+---------------------------------------------------------------------------------
+Hi Doug,
+Thanks for sharing your paper. Also congratulations to the acceptance of 
+your journal paper to TONs. But I am wondering what's new in this paper. At 
+first glance, I did not find many new things that are different from your 
+previously publicized reports. How much is this different from the ones you 
+put out in this mail list a year or two ago and also the one publicized in 
+PFLDnet February this year http://www.hpcc.jp/pfldnet2006/? In that same 
+workshop, we also presented our experimental results that shows significant 
+discrepancy from yours but i am not sure why you forgot to reference our 
+experimental work presented in that same PFLDnet. Here is a link to a more 
+detailed version of that report accepted to COMNET 
+http://netsrv.csc.ncsu.edu/highspeed/comnet-asteppaper.pdf
 
- > I was not sure whether this whole new page is good enough to make another
- > public announcement about this paper
+The main point of contention [that we talked about in that PFLDnet workshop] 
+is the presence of background traffic and the method to add them. Your 
+report mostly ignores the effect of background traffic. Some texts in this 
+paper state that you added some web traffic (10%), but the paper shows only 
+the results from NO background traffic scenarios. But our results differ 
+from yours in many aspects. Below are the links to our results (the links to 
+them have been available in our BIC web site for a long time and also 
+mentioned in our PFLDnet paper; this result is with the patch that corrects 
+HTCP bugs).
 
-At the risk of repeating myself, the page referred to contains the 
-results of approx. 500 new test runs (and we have carried out many more 
-than that which are summarised in the text) and directly addresses the 
-primary concern raised by yourself and others that situations with a mix 
-of connection lengths may lead to significantly different conclusions 
-from tests with only long-lived flows.  Our finding is that, for the 
-metrics studied, the mix of flow sizes makes little difference to our 
-conclusions.  That, combined with the scrutiny provided by the peer 
-review process, greatly strengthens our conclusions and certainly seems 
-worth reporting.
+[Convergence and intra protocol fairness]
+without background traffic: 
+http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/intra_protocol/intra_protocol.htm
+with background traffic: 
+http://netsrv.csc.ncsu.edu/highspeed/1200/bk/intra_protocol/intra_protocol.htm
 
- > I am not doubting your effort here and I am sure your methods are 
-correct.
- > Just i was pondering why we got different results and try to see if 
-we can
- > come to some understanding on this different results we got. Who knows we
- > together might run into some fundamental research issues regarding
- > testing.
+[RTT fairness]:
+w/o background traffic: 
+http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/rtt_fairness/rtt_fairness.htm
+with background traffic: 
+http://netsrv.csc.ncsu.edu/highspeed/1200/bk/rtt_fairness/rtt_fairness.htm
 
-I'm certainly up for taking a closer look at this.
+[TCP friendliness]
+without background traffic: 
+http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/tcp_friendliness/tcp_friendliness.htm
+with background traffic: 
+http://netsrv.csc.ncsu.edu/highspeed/1200/bk/tcp_friendliness/tcp_friendliness.htm
 
+After our discussion in that PFLDnet, I puzzled why we get different 
+results. My guess is that the main difference between your experiment and 
+ours is the inclusion of mid-sized flows with various RTTs -- our experience 
+tells that the RTT variations of mid size flows play a very important role 
+in creating significant dynamics in testing environments. The same point 
+about the importance of mid size flows with RTT variations has been raised 
+in several occasions by Sally Floyd as well, including in this year's E2E 
+research group meeting. You can find some reference to the importance of RTT 
+variations in her paper too [ http://www.icir.org/models/hotnetsFinal.pdf]. 
+Just having web-traffic (all with the same RTTs) does not create a realistic 
+environment as it does not do anything about RTTs and also flow sizes tend 
+to be highly skewed with the Pareto distribution-- but I don't know exactly 
+how you create your testing environment with web-traffic -- I can only guess 
+from the description you have about the web traffic in your paper.
 
- > Sally's paper on this role of RTT variations provides more
- > scientific explanation on this "dynamics".
- > In case you missed it, here is the link again.
- > http://www.icir.org/models/hotnetsFinal.pdf. Please read Section 3.3.
+Another puzzle in this difference seems that even under no background 
+traffic, we also get different results from yours..hmm...especially with 
+FAST because under no background traffic, FAST seems to work fairly well 
+with good RTT fairness in our experiment. But your results show FAST has 
+huge RTT-unfairness. That is very strange. Is that because we have different 
+bandwidth and buffer sizes in the setup? I think we need to compare our 
+notes more. Also in the journal paper of FAST experimental results [ 
+http://netlab.caltech.edu/publications/FAST-ToN-final-060209-2007.pdf ], 
+FAST seems to work very well under no background traffic. We will verify our 
+results again in the exact same environment as you have in your report, to 
+make sure we can reproduce your results....but here are some samples of our 
+results for FAST.
+http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/rtt_fairness/1200--2.4_FAST-2.4_FAST-NONE--400-3-1333--1000-76-3-0-0-0-5-500--200000-0.6-1000-10-1200-64000-150--1/
+In this experiment, FAST flows are just perfect. Also the same result is 
+confirmed inthe FAST journal paper [ 
+http://netlab.caltech.edu/publications/FAST-ToN-final-060209-2007.pdf --  
+please look at Section IV.B and C. But your results show really bad RTT 
+fairness.]
 
-Section 3.3 of this paper seems to concern "Active Queue Management: 
-Oscillations".  The discussion relates to queue dynamics of RED.  How is 
-this relevant ?  All of our tests are for drop-tail queues only.
+Best regards,
+Injong
+---
+Injong Rhee
+NCSU
+On Sep 22, 2006, at 10:22 AM, Douglas Leith wrote:
+For those interested in TCP for high-speed environments, and perhaps also 
+people interested in TCP evaluation generally, I'd like to point you towards 
+the results of a detailed experimental study which are now available at:
 
- > Also about mid size flows, I am referring to the flow lifetimes. The mid
- > sized flows cannot be represented well by the Pareto distribution -- the
- > ones that are in the middle of the distribution that heavy tail is not
- > capable of providing with a large number. Since the Pareto distribution
- > (of your web traffic sz) follows the power law, the distribution of flow
- > sizes around the origin (very short-term) is very high while very
- > long-term flows have relatively high probability.
+http://www.hamilton.ie/net/eval/ToNfinal.pdf
 
-I suspect your answers in the previous point and here just re-emphasise 
-my point.  Its not clear for example what actual values of flow lifetime 
-you consider "mid-size" nor what the basis for those values is - there 
-are a huge number of measurement studies on traffic stats and if the aim 
-is to get closer to real link behaviour then it seems sensible to make 
-use of this sort of data.   I do agree it might be interesting to see if 
-our test results are sensitive to the connection size distribution used, 
-although I suspect the answer will be that they are largely insensitive 
-- should be easy enough to check though if you'd be kind enough to send 
-me details of the sort of distribution you have in mind.
+This study consistently compares Scalable-TCP, HS-TCP, BIC-TCP, FAST-TCP and 
+H-TCP performance under a wide range of conditions including with mixes of 
+long and short-lived flows. This study has now been subject to peer review 
+(to hopefully give it some legitimacy) and is due to appear in the 
+Transactions on Networking.
 
- > That might be the case. Thanks for pointing that out. But it is hard to
- > explain why we got coincidently the same results as the FAST folks.
+The conclusions (see summary below) seem especially topical as BIC-TCP is 
+currently widely deployed as the default algorithm in Linux.
 
-Its  hard for me to comment without more information - can you post a 
-link to the results by the FAST folks that you mention ?  Perhaps they 
-also might like to comment here ?  See also the next comment below ...
+Comments appreciated. Our measurements are publicly available - on the web 
+or drop me a line if you'd like a copy.
 
- > But I think it is more to do with the different
- > setups we have regarding buffer sizes and the maximum bandwidth. FAST
- > doesn't adapt very well especially under small buffers because of this
- > alpha tuning.
+Summary:
+In this paper we present experimental results evaluating the
+performance of the Scalable-TCP, HS-TCP, BIC-TCP, FAST-TCP and
+H-TCP proposals in a series of benchmark tests.
 
-I thought you were suggesting in your last post that you obtained 
-different results for the *same* setup as us ?  Some clarity here seems 
-important as otherwise your comments are in danger of just serving to 
-muddy the water.
+We find that many recent proposals perform surprisingly poorly in
+even the most simple test, namely achieving fairness between two
+competing flows in a dumbbell topology with the same round-trip
+times and shared bottleneck link. Specifically, both Scalable-TCP
+and FAST TCP exhibit very substantial unfairness in this test.
 
-If the network setup is different, then its maybe no surprise if the 
-results are a little different.  Our own experience (and a key part of 
-the rationale for our work) underlines the need to carry out tests over 
-a broad range of conditions rather than confining testing to a small 
-number of specific scenarios (e.g. only gigabit speed links or only 
-links with large buffers) - otherwise its hard to get an overall feel 
-for expected behaviour.  We did carry out tests for really quite a wide 
-range of network conditions and do already comment, for example, that 
-FAST performance does depend on the buffer size.
+We also find that Scalable-TCP, HS-TCP and BIC-TCP induce significantly 
+greater RTT unfairness between competing flows with different round-trip 
+times. The unfairness can be an order of magnitude greater than that with 
+standard TCP and is such that flows with longer round-trip times
+can be completely starved of bandwidth.
 
-Doug
+While the TCP proposals studied are all successful at improving
+the link utilisation in a relatively static environment with
+long-lived flows, in our tests many of the proposals exhibit poor
+responsiveness to changing network conditions. We observe that
+Scalable-TCP, HS-TCP and BIC-TCP can all suffer from extremely
+slow (>100s) convergence times following the startup of a new
+flow. We also observe that while FAST-TCP flows typically converge
+quickly initially, flows may later diverge again to create
+significant and sustained unfairness.
+
+--Doug
+
+Hamilton Institute
+www.hamilton.ie 
 
 
