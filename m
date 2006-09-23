@@ -1,106 +1,156 @@
-From: rhee@ncsu.edu
-Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
-Date: Sat, 23 Sep 2006 03:45:17 -0400 (EDT)
-Message-ID: <56271.66.57.32.78.1158997517.squirrel@webmail.ncsu.edu>
-References: <001b01c6deb8$c0375bc0$4a580e98@ncsu2cc0c3fa00>
-    <4514D590.9010201@nuim.ie>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: further fix for periodic work errors
+Date: Sat, 23 Sep 2006 09:56:05 +0200
+Message-ID: <200609230956.05475.mb@bu3sch.de>
+References: <4514B322.mail1K91A36N8@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Injong Rhee" <rhee@eos.ncsu.edu>, floyd@icsi.berkeley.edu,
-	netdev@vger.kernel.org, end2end-interest@postel.org,
-	lisongxu@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from uni01mr.unity.ncsu.edu ([152.1.1.164]:34999 "EHLO
-	uni01mr.unity.ncsu.edu") by vger.kernel.org with ESMTP
-	id S1751030AbWIWHp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 03:45:56 -0400
-In-Reply-To: <4514D590.9010201@nuim.ie>
-To: "Douglas Leith" <doug.leith@nuim.ie>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+In-Reply-To: <4514B322.mail1K91A36N8-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Saturday 23 September 2006 06:08, Larry Finger wrote:
+> Recent changes in the setup for preemptible periodic work fixed most
+> of the problems with NETDEV watchdog timeouts; however, some variants
+> of the bcm43xx device still had the problem. These were fixed by setting
+> the parameter MAXIMUM_BADNESS to 0. By doing so, all the functionality
+> associated with calculating the 'badness' of the upcoming periodic work
+> is no longer needed; therefore it is removed.
 
-Doug Leith wrote-----
-> I suggest you take a closer look Injong - there is a whole page of data
-> from tests covering a wide range of levels of background traffic.  These
-> results are all new, and significantly strengthen the conclusions I
-> think, as is the expanded explanatory discussion of the observed
-> behaviour of the various algorithms (the result of a fair bit of
-> detective work of course).
+Uhm, no. Wait. _Why_ does the watchdog trigger.
+All periodic work in the fastpath (which you remove with this patch)
+is supposed to execute in a few microseconds.
+I don't think we want to fix this my removing the fastpath and always
+taking the _expensive_ slowpath periodic work.
 
-I was not sure whether this whole new page is good enough to make another
-public announcement about this paper -- this paper has been publicized by
-you many times in these mailing lists and also in the workshop. It would
-have saved us some time if you had just pointed out the new stuff.
+So why does the watchdog trigger for the fast periodic work?
+We need to find out.
+Removing the fastpath is just bad for overall latency.
 
->
-> I can't really comment on your own tests without more information,
-> although I can say that we went to a good bit of trouble to make sure
-> our results were consistent and reproducible - in fact all our reported
-> results are from at least five, and usually more, runs of each test.
+The two fastpath periodic works are 15 and 30, if executed
+standalone. If the 15 and/or 30 is execiuted alongside with
+a 60sec work, it's all slowpath, of course.
 
-I am not doubting your effort here and I am sure your methods are correct.
-Just i was pondering why we got different results and try to see if we can
-come to some understanding on this different results we got. Who knows we
-together might run into some fundamental research issues regarding
-testing.
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> ---
+> 
+> John,
+> 
+> This patch relies on "[PATCH] bcm43xx: fix netdev watchdog timeouts", which
+> was submitted on 9/14/06. It is important for this one, as well as those
+> already queued, to make the 2.6.19 cutoff.
+> 
+> Thanks,
+> 
+> Larry
+> 
+> 
+> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> ===================================================================
+> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> @@ -3136,67 +3136,32 @@ static void do_periodic_work(struct bcm4
+>  	schedule_delayed_work(&bcm->periodic_work, HZ * 15);
+>  }
+>  
+> -/* Estimate a "Badness" value based on the periodic work
+> - * state-machine state. "Badness" is worse (bigger), if the
+> - * periodic work will take longer.
+> - */
+> -static int estimate_periodic_work_badness(unsigned int state)
+> -{
+> -	int badness = 0;
+> -
+> -	if (state % 8 == 0) /* every 120 sec */
+> -		badness += 10;
+> -	if (state % 4 == 0) /* every 60 sec */
+> -		badness += 5;
+> -	if (state % 2 == 0) /* every 30 sec */
+> -		badness += 1;
+> -	if (state % 1 == 0) /* every 15 sec */
+> -		badness += 1;
+> -
+> -#define BADNESS_LIMIT	4
+> -	return badness;
+> -}
+> -
+>  static void bcm43xx_periodic_work_handler(void *d)
+>  {
+>  	struct bcm43xx_private *bcm = d;
+>  	unsigned long flags;
+>  	u32 savedirqs = 0;
+> -	int badness;
+> -
+> -	badness = estimate_periodic_work_badness(bcm->periodic_state);
+> -	if (badness > BADNESS_LIMIT) {
+> -		/* Periodic work will take a long time, so we want it to
+> -		 * be preemtible.
+> -		 */
+> -		mutex_lock(&bcm->mutex);
+> -		netif_tx_disable(bcm->net_dev);
+> -		spin_lock_irqsave(&bcm->irq_lock, flags);
+> -		bcm43xx_mac_suspend(bcm);
+> -		if (bcm43xx_using_pio(bcm))
+> -			bcm43xx_pio_freeze_txqueues(bcm);
+> -		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+> -		spin_unlock_irqrestore(&bcm->irq_lock, flags);
+> -		bcm43xx_synchronize_irq(bcm);
+> -	} else {
+> -		/* Periodic work should take short time, so we want low
+> -		 * locking overhead.
+> -		 */
+> -		mutex_lock(&bcm->mutex);
+> -		spin_lock_irqsave(&bcm->irq_lock, flags);
+> -	}
+>  
+> +	/* Periodic work may take a long time, so we want it to
+> +	 * be preemtible. In any case, we need to disable transmits.
+> +	 */
+> +	mutex_lock(&bcm->mutex);
+> +	netif_tx_disable(bcm->net_dev);
+> +	spin_lock_irqsave(&bcm->irq_lock, flags);
+> +	bcm43xx_mac_suspend(bcm);
+> +	if (bcm43xx_using_pio(bcm))
+> +		bcm43xx_pio_freeze_txqueues(bcm);
+> +	savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+> +	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+> +	bcm43xx_synchronize_irq(bcm);
+>  	do_periodic_work(bcm);
+> -
+> -	if (badness > BADNESS_LIMIT) {
+> -		spin_lock_irqsave(&bcm->irq_lock, flags);
+> -		tasklet_enable(&bcm->isr_tasklet);
+> -		bcm43xx_interrupt_enable(bcm, savedirqs);
+> -		if (bcm43xx_using_pio(bcm))
+> -			bcm43xx_pio_thaw_txqueues(bcm);
+> -		bcm43xx_mac_enable(bcm);
+> -		netif_wake_queue(bcm->net_dev);
+> -	}
+> +	spin_lock_irqsave(&bcm->irq_lock, flags);
+> +	tasklet_enable(&bcm->isr_tasklet);
+> +	bcm43xx_interrupt_enable(bcm, savedirqs);
+> +	if (bcm43xx_using_pio(bcm))
+> +		bcm43xx_pio_thaw_txqueues(bcm);
+> +	bcm43xx_mac_enable(bcm);
+> +	netif_wake_queue(bcm->net_dev);
+>  	mmiowb();
+>  	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+>  	mutex_unlock(&bcm->mutex);
+> 
 
-Also the "more" information about our own experiment is already given in
-the paper and also in our web site. If you could tell what specific info
-you need more, I can provide. Let's put our heads together to solve this
-mystery of "different results".
-
->
-> General comments such as "our experience tells that the RTT variations
-> of mid size flows play a very important role in creating significant
-> dynamics in testing environments" are not too helpful.  What do you mean
-> by a "mid-sized flow" ?  What do you mean by "significant dynamics" ?
-> What do you mean by "important role" - is this quantified ?  Best to
-> stick to science rather than grandstanding.  This is especially true
-> when dealing with a sensitive subject such as the evaluation of
-> competing algorithms.
-
-I hope you can perhaps enlighten us with this "science".
- Well..this WAS just email. There wasn't much space to delve into
-"science" there. So that is why I gave the link to Floyd and Kohler's
-paper. Sally's paper on this role of RTT variations provides more
-scientific explanation on this "dynamics".
-In case you missed it, here is the link again.
-http://www.icir.org/models/hotnetsFinal.pdf. Please read Section 3.3.
-
-Also about mid size flows, I am referring to the flow lifetimes. The mid
-sized flows cannot be represented well by the Pareto distribution -- the
-ones that are in the middle of the distribution that heavy tail is not
-capable of providing with a large number. Since the Pareto distribution
-(of your web traffic sz) follows the power law, the distribution of flow
-sizes around the origin (very short-term) is very high while very
-long-term flows have relatively high probability.
-
-So speaking of "science", can you please tell me whether all flows of your
-web traffic have the same RTTs or not? If you could please point me to the
-results you have with your web traffic tests instead of simply hand-wavy
-about the results saying they are just the same (or similar) as the
-results from your NO background traffic tests, I'd appreciate that very
-much.
-
->
-> Re FAST, we have of course discussed our results with the Caltech folks.
->   As stated in the paper, some of the observed behaviour seems to be
-> associated with the alpha tuning algorithm.  Other behaviour seems to be
-> associated with packet burst effects that have also been reported
-> independently by the Caltech folks.  Similar results to ours have since
-> been observed by other groups I believe.  Perhaps differences between
-> our results point to some issue in your testbed setup.
-
-That might be the case. Thanks for pointing that out. But it is hard to
-explain why we got coincidently the same results as the FAST folks. Maybe
-our and FAST folks' testbeds have "this issue" while yours are completely
-sound and scientific. But I think it is more to do with the different
-setups we have regarding buffer sizes and the maximum bandwidth. FAST
-doesn't adapt very well especially under small buffers because of this
-alpha tuning.
-
-
-
-
+-- 
+Greetings Michael.
