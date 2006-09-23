@@ -1,29 +1,64 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
-Date: Sat, 23 Sep 2006 14:07:04 +0200
-Message-ID: <20060923120704.GA32284@zlug.org>
+From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
+Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
+Date: Sat, 23 Sep 2006 14:13:27 +0200
+Message-ID: <20060923121327.GH30245@lug-owl.de>
+References: <20060923120704.GA32284@zlug.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OpLPJvDmhXTZE4Lg"
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:14780 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1750768AbWIWMHH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 08:07:07 -0400
-To: Patrick McHardy <kaber@trash.net>, davem@davemloft.net
+Received: from lug-owl.de ([195.71.106.12]:1928 "EHLO lug-owl.de")
+	by vger.kernel.org with ESMTP id S1750770AbWIWMN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2006 08:13:29 -0400
+To: Joerg Roedel <joro-lkml@zlug.org>
 Content-Disposition: inline
+In-Reply-To: <20060923120704.GA32284@zlug.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset is the resubmit of the Ethernet over IPv4 tunnel driver
-for Linux.  I want to thank all reviewers for their annotations and
-helpfull input.  This version contains some major changes to the driver.
-It uses an own device type now (ARPHRD_ETHERIP). This fixes the problem
-that EtherIP devices could not be safely differenced from Ethernet
-devices. This change also required some other changes. First a second
-patch to the bridge code is included to allow the use of EtherIP devices
-in a bridge.  The third patch includes the necessary changes to iproute2
-(support of the new ARPHRD and general tunnel configuration support for
- EtherIP).
 
-Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
+--OpLPJvDmhXTZE4Lg
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2006-09-23 14:07:04 +0200, Joerg Roedel <joro-lkml@zlug.org> wrote:
+> This patchset is the resubmit of the Ethernet over IPv4 tunnel driver
+> for Linux.  I want to thank all reviewers for their annotations and
+> helpfull input.  This version contains some major changes to the driver.
+> It uses an own device type now (ARPHRD_ETHERIP). This fixes the problem
+> that EtherIP devices could not be safely differenced from Ethernet
+> devices. This change also required some other changes. First a second
+> patch to the bridge code is included to allow the use of EtherIP devices
+> in a bridge.  The third patch includes the necessary changes to iproute2
+> (support of the new ARPHRD and general tunnel configuration support for
+>  EtherIP).
+
+I haven't seen the first submission, but is this driver really needed?
+Can't this be done with creating two tap interfaces on both endpoints
+and bridge them with a local ethernet device using userland software?
+
+MfG, JBG
+
+--=20
+      Jan-Benedict Glaw      jbglaw@lug-owl.de              +49-172-7608481
+Signature of:         Alles wird gut! ...und heute wirds schon ein bi=C3=9F=
+chen besser.
+the second  :
+
+--OpLPJvDmhXTZE4Lg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFFFSTnHb1edYOZ4bsRArbeAJ9nes60mAhOlF3paoQ7GWIxNvEX8QCfY9Hn
+6fsq1lzih0u6BKOUvmG6heE=
+=iHe0
+-----END PGP SIGNATURE-----
+
+--OpLPJvDmhXTZE4Lg--
