@@ -1,27 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [ANNOUNCE] bridge-utils 1.2
-Date: Fri, 22 Sep 2006 16:24:36 -0700
-Message-ID: <20060922162436.21ff5bea@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/3] bonding: Validate probe replies in ARP monitor
+Date: Fri, 22 Sep 2006 20:12:21 -0400
+Message-ID: <45147BE5.2070303@pobox.com>
+References: <200609212246.k8LMkiZt031759@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16552 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964916AbWIVXYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 19:24:50 -0400
-To: bridge@osdl.org
+Received: from srv5.dvmed.net ([207.36.208.214]:20696 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964952AbWIWAMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2006 20:12:25 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200609212246.k8LMkiZt031759@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a minor release update to the bridge utilities to fix some
-build issues and remove the usage of libsysfs. libsysfs wasn't making the
-code easier and it was a pain for other build environments.
+ACK patches 1-3, but does not apply to #upstream.  Also, it adds 
+trailing whitespace.
 
-Also some error messages and spelling fixes, etc.
+Applying 'bonding: Validate probe replies in ARP monitor'
 
-Download from:
-	http://prdownloads.sourceforge.net/bridge/bridge-utils-1.2.tar.gz?download
+Adds trailing whitespace.
+.dotest/patch:42:
+Adds trailing whitespace.
+.dotest/patch:46:
+error: patch failed: drivers/net/bonding/bond_main.c:1785
+error: drivers/net/bonding/bond_main.c: patch does not apply
+error: patch failed: drivers/net/bonding/bonding.h:151
+error: drivers/net/bonding/bonding.h: patch does not apply
+error: patch failed: include/linux/if.h:60
+error: include/linux/if.h: patch does not apply
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
