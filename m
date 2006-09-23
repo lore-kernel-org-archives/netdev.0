@@ -1,82 +1,48 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH REPOST 1/10] bonding: Allow bonding to enslave a 10 Gig adapter
-Date: Fri, 22 Sep 2006 21:52:15 -0700
-Message-ID: <200609230452.k8N4qFZt027590@death.nxdomain.ibm.com>
+Subject: [PATCH REPOST 2/10] bonding: Convert delay value from s16 to int
+Date: Fri, 22 Sep 2006 21:52:51 -0700
+Message-ID: <200609230452.k8N4qpZt027924@death.nxdomain.ibm.com>
 Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:61151 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750960AbWIWEwT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 00:52:19 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8N4qJtG003949
-	for <netdev@vger.kernel.org>; Sat, 23 Sep 2006 00:52:19 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8N4qIct241492
-	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 22:52:18 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8N4qIKE009641
-	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 22:52:18 -0600
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:11726 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750972AbWIWEwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2006 00:52:53 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8N4qqfp031061
+	for <netdev@vger.kernel.org>; Sat, 23 Sep 2006 00:52:52 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8N4qqwL253218
+	for <netdev@vger.kernel.org>; Sat, 23 Sep 2006 00:52:52 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8N4qqK2030621
+	for <netdev@vger.kernel.org>; Sat, 23 Sep 2006 00:52:52 -0400
 To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Allow channel bonding to enslave a 10 Gig adapter without errors.
+The value of "downdelay/miimon" and "updelay/miimon" are stored in
+slave->delay. The type of downdelay, updelay, and miimon are all int.
+However, slave->delay is type short, and it is not possible to store the
+value of "downdelay/miimon" or "updelay/miimon" in some cases. (For example,
+miimon=1 downdelay=32768)
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+The attached patch fixes this problem.
+
+Signed-off-by: Kenzo Iwami <k-iwami@cj.jp.nec.com>
 Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 
-diff -urpN -X linux-2.6.18-rc4-clean/Documentation/dontdiff linux-2.6.18-rc4-clean/drivers/net/bonding/bond_3ad.c linux-2.6.18-rc4/drivers/net/bonding/bond_3ad.c
---- linux-2.6.18-rc4-clean/drivers/net/bonding/bond_3ad.c	2006-06-17 18:49:35.000000000 -0700
-+++ linux-2.6.18-rc4/drivers/net/bonding/bond_3ad.c	2006-08-30 11:31:45.000000000 -0700
-@@ -85,6 +85,7 @@
- #define     AD_LINK_SPEED_BITMASK_10MBPS      0x2
- #define     AD_LINK_SPEED_BITMASK_100MBPS     0x4
- #define     AD_LINK_SPEED_BITMASK_1000MBPS    0x8
-+#define     AD_LINK_SPEED_BITMASK_10000MBPS   0x10
- //endalloun
- 
- // compare MAC addresses
-@@ -330,7 +331,8 @@ static inline void __release_rx_machine_
-  *     0,
-  *     %AD_LINK_SPEED_BITMASK_10MBPS,
-  *     %AD_LINK_SPEED_BITMASK_100MBPS,
-- *     %AD_LINK_SPEED_BITMASK_1000MBPS
-+ *     %AD_LINK_SPEED_BITMASK_1000MBPS,
-+ *     %AD_LINK_SPEED_BITMASK_10000MBPS
-  */
- static u16 __get_link_speed(struct port *port)
- {
-@@ -357,6 +359,10 @@ static u16 __get_link_speed(struct port
- 			speed = AD_LINK_SPEED_BITMASK_1000MBPS;
- 			break;
- 
-+		case SPEED_10000:
-+			speed = AD_LINK_SPEED_BITMASK_10000MBPS;
-+			break;
-+
- 		default:
- 			speed = 0; // unknown speed value from ethtool. shouldn't happen
- 			break;
-@@ -775,6 +781,9 @@ static u32 __get_agg_bandwidth(struct ag
- 		case AD_LINK_SPEED_BITMASK_1000MBPS:
- 			bandwidth = aggregator->num_of_ports * 1000;
- 			break;
-+		case AD_LINK_SPEED_BITMASK_10000MBPS:
-+			bandwidth = aggregator->num_of_ports * 10000;
-+			break;
- 		default:
- 			bandwidth=0; // to silent the compilor ....
- 		}
-diff -urpN -X linux-2.6.18-rc4-clean/Documentation/dontdiff linux-2.6.18-rc4-clean/drivers/net/bonding/bond_main.c linux-2.6.18-rc4/drivers/net/bonding/bond_main.c
---- linux-2.6.18-rc4-clean/drivers/net/bonding/bond_main.c	2006-08-21 13:28:43.000000000 -0700
-+++ linux-2.6.18-rc4/drivers/net/bonding/bond_main.c	2006-08-30 10:49:37.000000000 -0700
-@@ -638,6 +638,7 @@ verify:
- 	case SPEED_10:
- 	case SPEED_100:
- 	case SPEED_1000:
-+	case SPEED_10000:
- 		break;
- 	default:
- 		return -1;
+
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 0bdfe2c..17caafe 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -149,7 +149,7 @@ struct slave {
+ 	struct net_device *dev; /* first - useful for panic debug */
+ 	struct slave *next;
+ 	struct slave *prev;
+-	s16    delay;
++	int    delay;
+ 	u32    jiffies;
+ 	s8     link;    /* one of BOND_LINK_XXXX */
+ 	s8     state;   /* one of BOND_STATE_XXXX */
