@@ -1,157 +1,123 @@
-From: "Injong Rhee" <rhee@eos.ncsu.edu>
-Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
-Date: Fri, 22 Sep 2006 22:43:22 -0400
-Message-ID: <003001c6deba$099411e0$4a580e98@ncsu2cc0c3fa00>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: tested: Re: [PATCH] tcp: make cubic the default
+Date: Sat, 23 Sep 2006 13:14:34 +0200
+Message-ID: <20060923111434.GA10254@outpost.ds9a.nl>
+References: <20060919214304.GB13543@outpost.ds9a.nl> <20060919.154435.102044066.davem@davemloft.net> <20060919160202.23390471@localhost.localdomain> <20060919.160441.66322371.davem@davemloft.net> <20060919162355.3a22fec1@localhost.localdomain> <20060920081704.GA1812@outpost.ds9a.nl> <20060920133258.36ff42ce@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="ks_c_5601-1987";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uni01mr.unity.ncsu.edu ([152.1.1.164]:39152 "EHLO
-	uni01mr.unity.ncsu.edu") by vger.kernel.org with ESMTP
-	id S1750703AbWIWCn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Sep 2006 22:43:27 -0400
-Received: from ncsu2cc0c3fa00 (bakdu.csc.ncsu.edu [152.14.88.74])
-	by uni01mr.unity.ncsu.edu (8.13.7/8.13.4/Nv5.2006.0214) with SMTP id k8N2hOLJ004185
-	for <netdev@vger.kernel.org>; Fri, 22 Sep 2006 22:43:25 -0400 (EDT)
-To: <netdev@vger.kernel.org>
+Received: from outpost.ds9a.nl ([213.244.168.210]:5826 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1750738AbWIWLOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2006 07:14:36 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060920133258.36ff42ce@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a resend with fixed web links. The links were broken in my previous 
-email -- sorry about multiple transmissions.
----------------------------------------------------------------------------------
-Hi Doug,
-Thanks for sharing your paper. Also congratulations to the acceptance of 
-your journal paper to TONs. But I am wondering what's new in this paper. At 
-first glance, I did not find many new things that are different from your 
-previously publicized reports. How much is this different from the ones you 
-put out in this mail list a year or two ago and also the one publicized in 
-PFLDnet February this year http://www.hpcc.jp/pfldnet2006/? In that same 
-workshop, we also presented our experimental results that shows significant 
-discrepancy from yours but i am not sure why you forgot to reference our 
-experimental work presented in that same PFLDnet. Here is a link to a more 
-detailed version of that report accepted to COMNET 
-http://netsrv.csc.ncsu.edu/highspeed/comnet-asteppaper.pdf
+Stephen,
 
-The main point of contention [that we talked about in that PFLDnet workshop] 
-is the presence of background traffic and the method to add them. Your 
-report mostly ignores the effect of background traffic. Some texts in this 
-paper state that you added some web traffic (10%), but the paper shows only 
-the results from NO background traffic scenarios. But our results differ 
-from yours in many aspects. Below are the links to our results (the links to 
-them have been available in our BIC web site for a long time and also 
-mentioned in our PFLDnet paper; this result is with the patch that corrects 
-HTCP bugs).
+I've applied both of your patches
+(http://marc.theaimsgroup.com/?l=linux-netdev&m=115878447914612&w=2
+and 
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115878448125216&w=2
+) and tried to break them, but it now appears to do the right thing in all
+cases, even when malforming the .config by hand, a 'make oldconfig' restores
+sanity.
 
-[Convergence and intra protocol fairness]
-without background traffic: 
-http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/intra_protocol/intra_protocol.htm
-with background traffic: 
-http://netsrv.csc.ncsu.edu/highspeed/1200/bk/intra_protocol/intra_protocol.htm
+Reno is chosen if none of the non-scary congestion avoidance algorithms are
+available, and the default for when they are are as you intended.
 
-[RTT fairness]:
-w/o background traffic: 
-http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/rtt_fairness/rtt_fairness.htm
-with background traffic: 
-http://netsrv.csc.ncsu.edu/highspeed/1200/bk/rtt_fairness/rtt_fairness.htm
+I've testbooted the resulting kernel and everything appears to work as
+desired, the proper TCP gets chosen, loading other ones does not change the
+default, but does make them available.
 
-[TCP friendliness]
-without background traffic: 
-http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/tcp_friendliness/tcp_friendliness.htm
-with background traffic: 
-http://netsrv.csc.ncsu.edu/highspeed/1200/bk/tcp_friendliness/tcp_friendliness.htm
+Unloading the module containing the configured policy sets the policy to
+'cubic', which is probably the next entry in the policy list.
 
-After our discussion in that PFLDnet, I puzzled why we get different 
-results. My guess is that the main difference between your experiment and 
-ours is the inclusion of mid-sized flows with various RTTs -- our experience 
-tells that the RTT variations of mid size flows play a very important role 
-in creating significant dynamics in testing environments. The same point 
-about the importance of mid size flows with RTT variations has been raised 
-in several occasions by Sally Floyd as well, including in this year's E2E 
-research group meeting. You can find some reference to the importance of RTT 
-variations in her paper too [ http://www.icir.org/models/hotnetsFinal.pdf]. 
-Just having web-traffic (all with the same RTTs) does not create a realistic 
-environment as it does not do anything about RTTs and also flow sizes tend 
-to be highly skewed with the Pareto distribution-- but I don't know exactly 
-how you create your testing environment with web-traffic -- I can only guess 
-from the description you have about the web traffic in your paper.
+All in all, this final iteration of the congestion selection patches appears
+to do the job!
 
-Another puzzle in this difference seems that even under no background 
-traffic, we also get different results from yours..hmm...especially with 
-FAST because under no background traffic, FAST seems to work fairly well 
-with good RTT fairness in our experiment. But your results show FAST has 
-huge RTT-unfairness. That is very strange. Is that because we have different 
-bandwidth and buffer sizes in the setup? I think we need to compare our 
-notes more. Also in the journal paper of FAST experimental results [ 
-http://netlab.caltech.edu/publications/FAST-ToN-final-060209-2007.pdf ], 
-FAST seems to work very well under no background traffic. We will verify our 
-results again in the exact same environment as you have in your report, to 
-make sure we can reproduce your results....but here are some samples of our 
-results for FAST.
-http://netsrv.csc.ncsu.edu/highspeed/1200/nobk/rtt_fairness/1200--2.4_FAST-2.4_FAST-NONE--400-3-1333--1000-76-3-0-0-0-5-500--200000-0.6-1000-10-1200-64000-150--1/
-In this experiment, FAST flows are just perfect. Also the same result is 
-confirmed inthe FAST journal paper [ 
-http://netlab.caltech.edu/publications/FAST-ToN-final-060209-2007.pdf --  
-please look at Section IV.B and C. But your results show really bad RTT 
-fairness.]
+Davem, I'd recommend both patches for merging.
 
-Best regards,
-Injong
----
-Injong Rhee
-NCSU
-On Sep 22, 2006, at 10:22 AM, Douglas Leith wrote:
-For those interested in TCP for high-speed environments, and perhaps also 
-people interested in TCP evaluation generally, I'd like to point you towards 
-the results of a detailed experimental study which are now available at:
+	Bert
 
-http://www.hamilton.ie/net/eval/ToNfinal.pdf
+On Wed, Sep 20, 2006 at 01:32:58PM -0700, Stephen Hemminger wrote:
+> Change default congestion control used from BIC to the newer CUBIC
+> which it the successor to BIC but has better properties over long delay links.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> ---
+>  net/ipv4/Kconfig |   12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
+> 
+> --- net-test.orig/net/ipv4/Kconfig	2006-09-20 12:22:06.000000000 -0700
+> +++ net-test/net/ipv4/Kconfig	2006-09-20 13:31:21.000000000 -0700
+> @@ -454,7 +454,7 @@
+>  	  modules.
+>  
+>  	  Nearly all users can safely say no here, and a safe default
+> -	  selection will be made (BIC-TCP with new Reno as a fallback).
+> +	  selection will be made (CUBIC with new Reno as a fallback).
+>  
+>  	  If unsure, say N.
+>  
+> @@ -462,7 +462,7 @@
+>  
+>  config TCP_CONG_BIC
+>  	tristate "Binary Increase Congestion (BIC) control"
+> -	default y
+> +	default m
+>  	---help---
+>  	BIC-TCP is a sender-side only change that ensures a linear RTT
+>  	fairness under large windows while offering both scalability and
+> @@ -476,7 +476,7 @@
+>  
+>  config TCP_CONG_CUBIC
+>  	tristate "CUBIC TCP"
+> -	default m
+> +	default y
+>  	---help---
+>  	This is version 2.0 of BIC-TCP which uses a cubic growth function
+>  	among other techniques.
+> @@ -573,7 +573,7 @@
+>  
+>  choice
+>  	prompt "Default TCP congestion control"
+> -	default DEFAULT_BIC
+> +	default DEFAULT_CUBIC
+>  	help
+>  	  Select the TCP congestion control that will be used by default
+>  	  for all connections.
+> @@ -600,7 +600,7 @@
+>  
+>  endif
+>  
+> -config TCP_CONG_BIC
+> +config TCP_CONG_CUBIC
+>  	tristate
+>  	depends on !TCP_CONG_ADVANCED
+>  	default y
+> @@ -613,7 +613,7 @@
+>  	default "vegas" if DEFAULT_VEGAS
+>  	default "westwood" if DEFAULT_WESTWOOD
+>  	default "reno" if DEFAULT_RENO
+> -	default "bic"
+> +	default "cubic"
+>  
+>  source "net/ipv4/ipvs/Kconfig"
+>  
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> !DSPAM:4511a594269391527717022!
+> 
 
-This study consistently compares Scalable-TCP, HS-TCP, BIC-TCP, FAST-TCP and 
-H-TCP performance under a wide range of conditions including with mixes of 
-long and short-lived flows. This study has now been subject to peer review 
-(to hopefully give it some legitimacy) and is due to appear in the 
-Transactions on Networking.
-
-The conclusions (see summary below) seem especially topical as BIC-TCP is 
-currently widely deployed as the default algorithm in Linux.
-
-Comments appreciated. Our measurements are publicly available - on the web 
-or drop me a line if you'd like a copy.
-
-Summary:
-In this paper we present experimental results evaluating the
-performance of the Scalable-TCP, HS-TCP, BIC-TCP, FAST-TCP and
-H-TCP proposals in a series of benchmark tests.
-
-We find that many recent proposals perform surprisingly poorly in
-even the most simple test, namely achieving fairness between two
-competing flows in a dumbbell topology with the same round-trip
-times and shared bottleneck link. Specifically, both Scalable-TCP
-and FAST TCP exhibit very substantial unfairness in this test.
-
-We also find that Scalable-TCP, HS-TCP and BIC-TCP induce significantly 
-greater RTT unfairness between competing flows with different round-trip 
-times. The unfairness can be an order of magnitude greater than that with 
-standard TCP and is such that flows with longer round-trip times
-can be completely starved of bandwidth.
-
-While the TCP proposals studied are all successful at improving
-the link utilisation in a relatively static environment with
-long-lived flows, in our tests many of the proposals exhibit poor
-responsiveness to changing network conditions. We observe that
-Scalable-TCP, HS-TCP and BIC-TCP can all suffer from extremely
-slow (>100s) convergence times following the startup of a new
-flow. We also observe that while FAST-TCP flows typically converge
-quickly initially, flows may later diverge again to create
-significant and sustained unfairness.
-
---Doug
-
-Hamilton Institute
-www.hamilton.ie 
-
-
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
