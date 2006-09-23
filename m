@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tested: Re: [PATCH] tcp: make cubic the default
-Date: Sat, 23 Sep 2006 13:00:51 -0700 (PDT)
-Message-ID: <20060923.130051.104036351.davem@davemloft.net>
-References: <20060920081704.GA1812@outpost.ds9a.nl>
-	<20060920133258.36ff42ce@localhost.localdomain>
-	<20060923111434.GA10254@outpost.ds9a.nl>
+Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
+Date: Sat, 23 Sep 2006 13:03:22 -0700 (PDT)
+Message-ID: <20060923.130322.78711694.davem@davemloft.net>
+References: <20060922.222507.74751476.davem@davemloft.net>
+	<20060922223348.1b24fda5.akpm@osdl.org>
+	<451581FA.5080403@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: akpm@osdl.org, Holger.Kiehl@dwd.de, linux-kernel@vger.kernel.org,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16086
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:24271
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751520AbWIWUAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 16:00:48 -0400
-To: bert.hubert@netherlabs.nl
-In-Reply-To: <20060923111434.GA10254@outpost.ds9a.nl>
+	id S1751517AbWIWUDT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Sep 2006 16:03:19 -0400
+To: auke-jan.h.kok@intel.com
+In-Reply-To: <451581FA.5080403@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: bert hubert <bert.hubert@netherlabs.nl>
-Date: Sat, 23 Sep 2006 13:14:34 +0200
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Date: Sat, 23 Sep 2006 11:50:34 -0700
 
-> All in all, this final iteration of the congestion selection patches appears
-> to do the job!
+> Andrew Morton wrote:
+> > It's still there, isn't it?
+> > 
+> > For the 9k MTU case, for example, we end up allocating 16384 byte skbs
+> > instead of 32786 kbytes ones.
 > 
-> Davem, I'd recommend both patches for merging.
+> yes, the only thing I'm doing is accounting for the 2 bytes one steap earlier. 
 
-Great, I'll make sure I review them too and integrate them.
-
-Thanks for checking this stuff out so thoroughly.
+Ok, I'm fine with this patch unless it causes some regression that hasn't
+been discovered yet :-)
