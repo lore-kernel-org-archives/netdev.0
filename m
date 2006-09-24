@@ -1,67 +1,96 @@
-From: Elimar Riesebieter <riesebie@lxtec.de>
-Subject: kernel: TKIP: replay detected:
-Date: Sun, 24 Sep 2006 12:40:53 +0200
-Message-ID: <20060924104053.GA6645@frodo.home.lxtec.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fwd: [PATCH 12/23] e1000: Maybe stop TX if not enough free descriptors
+Date: Sun, 24 Sep 2006 21:30:23 +1000
+Message-ID: <20060924113023.GA10526@gondor.apana.org.au>
+References: <20060919172623.4605.56860.stgit@gitlost.site> <20060919172859.4605.60855.stgit@gitlost.site> <45104719.9080708@pobox.com> <4807377b0609211659mb0cb308hcbc78520148300a1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h01.hostsharing.net ([212.42.230.152]:22946 "EHLO
-	h01.hostsharing.net") by vger.kernel.org with ESMTP
-	id S1751957AbWIXKlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Sep 2006 06:41:05 -0400
-Received: from mail.home.lxtec.de (p549EF5B2.dip.t-dialin.net [84.158.245.178])
-	(using TLSv1 with cipher AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by h01.hostsharing.net (Postfix) with ESMTP id 707FC161B665B
-	for <netdev@vger.kernel.org>; Sun, 24 Sep 2006 12:28:55 +0200 (CEST)
-Received: from localhost ([127.0.0.1])
-	by mail.home.lxtec.de with esmtp (Exim 4.63 1 (LXTEC))
-	id 1GRRPz-0006pW-Hq
-	for <netdev@vger.kernel.org>; Sun, 24 Sep 2006 12:41:03 +0200
-Received: from mail.home.lxtec.de ([127.0.0.1])
-	by localhost (mail.home.lxtec.de [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id TQK1bZrxbltR for <netdev@vger.kernel.org>;
-	Sun, 24 Sep 2006 12:40:55 +0200 (CEST)
-Received: from frodo.home.lxtec.de ([192.168.200.202] ident=Debian-exim)
-	by mail.home.lxtec.de with esmtps (Exim 4.63 1 (LXTEC))
-	id 1GRRPr-0006pN-1z
-	for <netdev@vger.kernel.org>; Sun, 24 Sep 2006 12:40:55 +0200
-To: netdev <netdev@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:29957 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751996AbWIXLal
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Sep 2006 07:30:41 -0400
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
 Content-Disposition: inline
+In-Reply-To: <4807377b0609211659mb0cb308hcbc78520148300a1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Thu, Sep 21, 2006 at 04:59:37PM -0700, Jesse Brandeburg wrote:
+> Herbert can you help describe why we need this patch on this thread on
+> netdev?  We reproduced the race without it and it appears to go away
+> with it.
 
-I am running
+Of course you can resolve it by adding a lock to the txclean path.
+However, the advantages of a lockless txclean path is obvious.
 
-zd1211rw 4-1:1.0: firmware version 4605
-zd1211rw 4-1:1.0: zd1211 chip 6891:a727 v4330 high 00-14-7c RF2959_RF pa0 g---
+Here's the original changelog:
 
-IEEE 802.11b/g  ESSID:"BLO"  Nickname:"zd1211"
-Mode:Managed  Frequency:2.462 GHz  Access Point: XX:XX:BB:LL:KK:00
-Bit Rate:54 Mb/s
-Link Quality=98/100  Signal level=91/100
-Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
-Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+[NETDRV] e1000: Fix potential tx wake up race
 
-in wpa/tkip mode.
+Jamal posted a patch which improved e1000 TX performance.  That in
+turn spawned a discussion on potential tx wake up races caused by
+the change.  During that discussion, Michael Chan posted the following
+scenario (redrawn by me for e1000):
 
-My sylog is filled up with thousands of:
-Sep 21 18:18:00 aragorn kernel: TKIP: replay detected: \
-STA=XX:XX:BB:LL:KK:00 previous TSC 00000000BLAa received TSC 00000000BLAa
-Sep 21 18:18:29 aragorn kernel: printk: 62 messages suppressed.
+CPU0                                    CPU1
+e1000_xmit_frame
+        tx_lock
+        if (tx_ring_empty)
+                                        e1000_clean_tx_irq
+                                                if (netif_queue_stopped)
+                                                        tx_lock
+                                                        netif_wake_queue
+                                                        tx_unlock
+                netif_stop_queue
+        tx_unlock
 
-Driver is off kernel zd1211_2006-08-19.
+As you can see, even with the locks around netif_wake_queue this still
+allows the race to occur because the netif_wake_queue code path is
+conditional on netif_queue_stopped.
 
-Linux version 2.6.18, but has also on the rc ones.
+So here is a patch that uses the memory barriers rather than spin locks
+to solve the problem.
 
-How do I get rid of the syslog messages, which are trashing my vt's
-at well?
+First of all I've made netif_wake_queue independent of netif_queue_stopped.
+This means that we operate on the stopped bit only once which closes a race
+window.
 
-Elimar
+Furthermore, netif_wake_queue itself is already a memory barrier because
+it does a test_and_clear_bit.  This means that if the other side can
+observe the netif_wake_queue then it can observe the extra room we've
+made on the
+queue.
 
+On the e1000_xmit_frame side, I've changed netif_stop_queue into a new
+function netif_test_and_stop_queue which does test_and_set_bit.  This
+means that it also is a full memory barrier.
+
+In order to close the race then, we simply recheck the tx queue size
+if netif_test_and_stop_queue returns 0 indicating that the queue was
+previously started.  There are two possibilities:
+
+1) netif_wake_queue is about to occur.  In this case it doesn't really
+matter what we do as netif_wake_queue will always wake the queue for us.
+In the worst case, it'll wake up the queue with too little room but that's
+really uncommon and we can cope with that anyway.
+
+2) netif_wake_queue has just occured.  Because it is a memory barrier,
+when we recheck the queue size we're guaranteed to see the new indices
+which means that we'll see the extra room it has made for us.  As a
+result we'll simply restart the queue.
+
+The one wart in the patch is that we now have an unconditional atomic
+operation in e1000_clean_tx_irq (netif_wake_queue).  If anyone can
+think of a way to get rid of it without opening up the race, please
+let us know.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-  Planung:
-  Ersatz des Zufalls durch den Irrtum.
-                                -unknown-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
