@@ -1,32 +1,45 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.18 BUG: unable to handle kernel NULL pointer dereference at virtual address 000,0000a
-Date: Sun, 24 Sep 2006 19:59:34 +0200
-Message-ID: <20060924175934.GA15420@elte.hu>
-References: <45155915.7080107@cweiske.de> <20060923134244.e7b73826.akpm@osdl.org> <45164BA6.60200@cweiske.de> <20060924031923.76886810.akpm@osdl.org>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [NETFILTER]: x_tables: replace IPv4 dscp match by address
+	family independent version
+Date: Sun, 24 Sep 2006 21:02:38 +0100
+Message-ID: <1159128158.24527.948.camel@pmac.infradead.org>
+References: <200609240002.k8O02wT5010490@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christian Weiske <cweiske@cweiske.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, reiserfs-dev@namesys.com,
-	Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752023AbWIXSHV@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060924031923.76886810.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:12764 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1751212AbWIXUCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Sep 2006 16:02:52 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <200609240002.k8O02wT5010490@hera.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2006-09-24 at 00:02 +0000, Linux Kernel Mailing List wrote:
+> --- a/include/linux/netfilter_ipv4/ipt_dscp.h
+> +++ b/include/linux/netfilter_ipv4/ipt_dscp.h
+> @@ -10,14 +10,12 @@
+>  #ifndef _IPT_DSCP_H
+>  #define _IPT_DSCP_H
+>  
+> -#define IPT_DSCP_MASK  0xfc    /* 11111100 */
+> -#define IPT_DSCP_SHIFT 2
+> -#define IPT_DSCP_MAX   0x3f    /* 00111111 */
+> +#include <linux/netfilter/xt_dscp.h> 
 
-* Andrew Morton <akpm@osdl.org> wrote:
+This causes the following error in 'make headers_check':
 
-> You have tcp_v6 lockdep warnings.  They're in
-> http://xml.cweiske.de/dojo%20kernelpanic%20+%20debug.tar.bz2 is anyone is
-> keen.  (I've largely lost interest in lockdep warnings - many of them are
-> false positives and require make-lockdep-shut-up patches).
+linux/netfilter_ipv4/ipt_DSCP.h requires linux/netfilter/xt_DSCP.h,
+which does not exist in exported headers
+make[4]: *** [ipt_DSCP.h] Error 1
 
-FYI, this is from Herbert Xu's recent mail to netdev:
+Please remember to run 'make headers_check' before submitting patches.
 
-| Subject: Re: neigh_lookup lockdep warning
-|
-| [...]
-| BTW, out of the last four validator reports I've read three have 
-| turned out to be genuine bugs.  So you guys have done a fantastic job!
+-- 
+dwmw2
+
