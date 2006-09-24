@@ -1,61 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
-Date: Sat, 23 Sep 2006 16:35:35 -0700 (PDT)
-Message-ID: <20060923.163535.41636370.davem@davemloft.net>
-References: <20060923120704.GA32284@zlug.org>
-	<20060923121327.GH30245@lug-owl.de>
-	<1159015118.5301.19.camel@jzny2>
+From: Roland Dreier <roland@digitalvampire.org>
+Subject: Re: [PATCH] [ATM] he: Fix __init/__devinit conflict
+Date: Sat, 23 Sep 2006 17:17:54 -0700
+Message-ID: <87fyeit8wd.fsf@digitalvampire.org>
+References: <877j0a5i6v.fsf@digitalvampire.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jbglaw@lug-owl.de, joro-lkml@zlug.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	Chas Williams <chas@cmf.nrl.navy.mil>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:39379
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750910AbWIWXfg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 19:35:36 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1159015118.5301.19.camel@jzny2>
+Received: from rwcrmhc14.comcast.net ([216.148.227.154]:51701 "EHLO
+	rwcrmhc14.comcast.net") by vger.kernel.org with ESMTP
+	id S1751286AbWIXASE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Sep 2006 20:18:04 -0400
+To: davem@davemloft.net
+In-Reply-To: <877j0a5i6v.fsf@digitalvampire.org> (Roland Dreier's message of
+ "Mon, 11 Sep 2006 12:14:48 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Sat, 23 Sep 2006 08:38:37 -0400
+he_init_one() is declared __devinit, but calls lots of init functions
+that are marked __init.  However, if CONFIG_HOTPLUG is enabled,
+__devinit functions go into normal .text, which leads to
 
-> You just need to use GRE tunnel instead of what you describe above.
-> 
-> While i feel bad that Joerg (and Lennert and others before) have put the
-> effort to do the work, i too question the need for this driver. I dont
-> think even the authors of the original RFC feel this provides anything
-> that GRE cant (according to some posting on netdev that one of the
-> authors made). My understanding is also that the only other OS that
-> implemented this got it wrong - hence you will have to interop with them
-> and provide quirks checks.
-> 
-> I am actually curious if anyone uses it instead of GRE in openbsd?
-> You could argue that including this driver would allow Linux to have
-> another bulb in the christmas tree; the other (more pragmatic way) to
-> look at this is it allows spreading a bad idea and needs to be censored.
-> I prefer the later - and hope this doesnt discourage Joerg from
-> contributing in the future.
+    WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x2130) and 'he_service_tbrq'
 
-First, the only mentioned real use of EtherIP I've seen anywhere is to
-tunnel old LAN based games that used protocols other than IP :-)
+Fix this by changing the __init functions to __devinit.
 
-Second, the OpenBSD interoperability issues are very real, and there
-is even a Xerox implementation that used an 8-bit instead of a 16-bit
-header size.
+Signed-off-by: Roland Dreier <roland@digitalvampire.org>
 
-Third, even the introductory material in RFC3378 mentions that people
-are strongly encouraged to use other technologies over EtherIP.
+---
 
-Fourth, and finally, if GRE can provide the same functionality then
-that plus the first three points makes EtherIP something we really
-should not latch onto.
+Dave, this was acked by Chas (and he even requested it go into 2.6.18)
+but it seems to have gotten dropped somewhere -- it's not in Linus's
+tree even after he pulled your net tree.
 
-And if it doesn't go in, it's not the end of the world.  Anyone can
-maintain and use the external patch, and if usage gets widespread
-enough we'll of course be required to reevaluate integration.
+Please apply.
 
-So I think we should pass on this for now.
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index d369130..9e0383d 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -454,7 +454,7 @@ #define NONZERO (1 << 14)
+ 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_rx_lbfp0(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -485,7 +485,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
+ 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_rx_lbfp1(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -516,7 +516,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
+ 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_tx_lbfp(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -546,7 +546,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
+ 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_tpdrq(struct he_dev *he_dev)
+ {
+ 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
+@@ -568,7 +568,7 @@ he_init_tpdrq(struct he_dev *he_dev)
+ 	return 0;
+ }
+ 
+-static void __init
++static void __devinit
+ he_init_cs_block(struct he_dev *he_dev)
+ {
+ 	unsigned clock, rate, delta;
+@@ -664,7 +664,7 @@ he_init_cs_block(struct he_dev *he_dev)
+ 
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_cs_block_rcm(struct he_dev *he_dev)
+ {
+ 	unsigned (*rategrid)[16][16];
+@@ -785,7 +785,7 @@ #define RTGTBL_OFFSET 0x400
+ 	return 0;
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_group(struct he_dev *he_dev, int group)
+ {
+ 	int i;
+@@ -955,7 +955,7 @@ #endif
+ 	return 0;
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_irq(struct he_dev *he_dev)
+ {
+ 	int i;
