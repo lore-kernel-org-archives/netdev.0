@@ -1,55 +1,38 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Is TCP over IPsec broken in 2.6.18?
-Date: Sun, 24 Sep 2006 01:11:21 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609240106270.24276@d.namei>
-References: <20060922112948.GA17335@2ka.mipt.ru> <20060922121920.GA3172@2ka.mipt.ru>
- <4513D5B5.6090301@trash.net> <20060922140318.GA14408@2ka.mipt.ru>
- <Pine.LNX.4.64.0609221112000.7628@d.namei> <20060923042914.GC24099@2ka.mipt.ru>
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: bcm43xx driver unstable behaviour (and linux wireless is junk btw)
+Date: Sun, 24 Sep 2006 16:13:06 +1000
+Message-ID: <1159078386.5924.13.camel@localhost.localdomain>
+References: <1159065798.5924.8.camel@localhost.localdomain>
+	<1159069857.2748.5.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:65417 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751313AbWIXFLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Sep 2006 01:11:25 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060923042914.GC24099@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <1159069857.2748.5.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 23 Sep 2006, Evgeniy Polyakov wrote:
 
-> I never saw unencrypted packets before.
+> prism54 fullmac, right?
 
-It's normal and expected, perhaps you didn't notice or had tcpdump 
-filtering them.
+Yes.
 
-> > > 17:45:11.102212 IP 192.168.4.78 > 192.168.4.79: ESP(spi=0x01f452be,seq=0x3), length 84
-> > > 17:45:12.098146 IP 192.168.4.79.isakmp > 192.168.4.78.isakmp: isakmp: phase 2/others ? oakley-quick[E]
-> > > 17:45:12.098427 IP 192.168.4.78.isakmp > 192.168.4.79.isakmp: isakmp: phase 2/others ? inf
-> > 
-> > And why racoon packets are here at this stage.
-> > 
-> > Can you try this with either a fully manual config (setkey only) or 
-> > openswan?
-> 
-> I use racoon, may be there are some problems with it's version, I will
-> try new one after weekend.
+> Try using -Dwext; the prism54 wpa_supplicant driver is a dead-end and I
+> added WE-19 commands to it a bit ago anyway.  Oddly enough, I couldn't
+> seem to get the driver to work reliably for me using straight WEP
+> either, let alone WPA.  It's pretty unmaintained at the moment.
 
-I just verified that racoon is working with current kernels.  Racoon can 
-be troublesome.  
+Ok, well, I tried with wext but iirc, I got rejected ioctls' from
+wpa_supplicant. I'll try again later. Thanks.
 
-I'm using racoon from ipsec-tools-0.6.5-3.1.
-
-You didn't specify a lifetime in your phase 1 spec ('remote anonymous') 
-section.  Not sure what happens in that case, could be something to do 
-with it.
-
-
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Ben.
