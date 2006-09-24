@@ -1,114 +1,75 @@
-From: Roland Dreier <roland@digitalvampire.org>
-Subject: Re: [PATCH] [ATM] he: Fix __init/__devinit conflict
-Date: Sat, 23 Sep 2006 17:17:54 -0700
-Message-ID: <87fyeit8wd.fsf@digitalvampire.org>
-References: <877j0a5i6v.fsf@digitalvampire.org>
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: bcm43xx driver unstable behaviour (and linux wireless is junk btw)
+Date: Sun, 24 Sep 2006 12:43:18 +1000
+Message-ID: <1159065798.5924.8.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	Chas Williams <chas@cmf.nrl.navy.mil>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rwcrmhc14.comcast.net ([216.148.227.154]:51701 "EHLO
-	rwcrmhc14.comcast.net") by vger.kernel.org with ESMTP
-	id S1751286AbWIXASE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Sep 2006 20:18:04 -0400
-To: davem@davemloft.net
-In-Reply-To: <877j0a5i6v.fsf@digitalvampire.org> (Roland Dreier's message of
- "Mon, 11 Sep 2006 12:14:48 -0700")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-he_init_one() is declared __devinit, but calls lots of init functions
-that are marked __init.  However, if CONFIG_HOTPLUG is enabled,
-__devinit functions go into normal .text, which leads to
+Hi folks !
 
-    WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x2130) and 'he_service_tbrq'
+So this is 2.6.18 + Larry "fix" (though I've seen this problem before,
+it seems using WPA just make it happen more often).
 
-Fix this by changing the __init functions to __devinit.
+This is also a 4318, so the link is pretty weak due to the Tx Power
+problem and I suspects it makes the driver problems more visible...
 
-Signed-off-by: Roland Dreier <roland@digitalvampire.org>
+So basically, I "lose" the link every few minutes for a minute or so, I
+suspect it's related to wpa_supplicant vs. the ack losses due to the
+4318 Tx Power problems. That alone would be ok though, if the driver
+wasn't totally stuck after a while. (Similar problem to after
+sleep/wakeup, looks like nothign goes through).
 
----
+When it goes bunk, it looks like that in the logs:
 
-Dave, this was acked by Chas (and he even requested it go into 2.6.18)
-but it seems to have gotten dropped somewhere -- it's not in Linus's
-tree even after he pulled your net tree.
+Sep 24 12:24:18 localhost kernel: [  285.686826] SoftMAC: Sent Authentication Request to 00:0f:66:52:4b:60.
+Sep 24 12:24:18 localhost kernel: [  285.686976] SoftMAC: generic IE set to <....>
+Sep 24 12:24:18 localhost kernel: [  285.686999] SoftMAC: Already associating or associated to 00:0f:66:52:4b:60
+Sep 24 12:24:28 localhost kernel: [  295.687229] SoftMAC: Start scanning with channel: 1
+Sep 24 12:24:28 localhost kernel: [  295.687240] SoftMAC: Scanning 14 channels
+Sep 24 12:24:29 localhost kernel: [  296.027053] SoftMAC: Scanning finished
+Sep 24 12:24:29 localhost kernel: [  296.035267] SoftMAC: generic IE set to <....>
+Sep 24 12:24:29 localhost kernel: [  296.035310] SoftMAC: Already associating or associated to 00:0f:66:52:4b:60
+Sep 24 12:24:31 localhost kernel: [  297.690969] SoftMAC: Sent Authentication Request to 00:0f:66:52:4b:60.
+Sep 24 12:24:39 localhost kernel: [  306.039210] SoftMAC: Start scanning with channel: 1
+Sep 24 12:24:39 localhost kernel: [  306.039222] SoftMAC: Scanning 14 channels
+Sep 24 12:24:39 localhost kernel: [  306.375046] SoftMAC: Scanning finished
+Sep 24 12:24:39 localhost kernel: [  306.383018] SoftMAC: generic IE set to <....>
+Sep 24 12:24:39 localhost kernel: [  306.383075] SoftMAC: Already associating or associated to 00:0f:66:52:4b:60
+Sep 24 12:24:42 localhost kernel: [  309.695021] SoftMAC: Sent Authentication Request to 00:0f:66:52:4b:60.
+Sep 24 12:24:49 localhost kernel: [  316.387211] SoftMAC: Start scanning with channel: 1
 
-Please apply.
+ etc...
 
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index d369130..9e0383d 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -454,7 +454,7 @@ #define NONZERO (1 << 14)
- 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
- }
- 
--static void __init
-+static void __devinit
- he_init_rx_lbfp0(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -485,7 +485,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
- 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
- }
- 
--static void __init
-+static void __devinit
- he_init_rx_lbfp1(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -516,7 +516,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
- 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
- }
- 
--static void __init
-+static void __devinit
- he_init_tx_lbfp(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -546,7 +546,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
- 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
- }
- 
--static int __init
-+static int __devinit
- he_init_tpdrq(struct he_dev *he_dev)
- {
- 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
-@@ -568,7 +568,7 @@ he_init_tpdrq(struct he_dev *he_dev)
- 	return 0;
- }
- 
--static void __init
-+static void __devinit
- he_init_cs_block(struct he_dev *he_dev)
- {
- 	unsigned clock, rate, delta;
-@@ -664,7 +664,7 @@ he_init_cs_block(struct he_dev *he_dev)
- 
- }
- 
--static int __init
-+static int __devinit
- he_init_cs_block_rcm(struct he_dev *he_dev)
- {
- 	unsigned (*rategrid)[16][16];
-@@ -785,7 +785,7 @@ #define RTGTBL_OFFSET 0x400
- 	return 0;
- }
- 
--static int __init
-+static int __devinit
- he_init_group(struct he_dev *he_dev, int group)
- {
- 	int i;
-@@ -955,7 +955,7 @@ #endif
- 	return 0;
- }
- 
--static int __init
-+static int __devinit
- he_init_irq(struct he_dev *he_dev)
- {
- 	int i;
+Then, if you rmmod, you get back a prompt, and about a second later, the kernel blows up. At this point,
+I've always been in X and it's too dead to dump anything into the disk logs so I don't know what
+the precise crash is, but it looks to me like the driver is not properly removing some timer
+or something there.
+
+Note that it also goes "bunk" on sleep/wakeup, and sometimes ifdown/ifup... in general, it's fragile and
+just 'loses it' in which case the only way to get it back is to rmmod/insmod.
+
+Doesn't help me to have my prism54 not working with WPA (apparently, the driver looks like it handles hostap
+ioctls but it doesn't agree on the ioctl numbers, among others, with whatever wpa_supplicant sends when
+configured to wpa mode... somebody knows if that driver is maintained ?)
+
+So at this point I have a choice between two wireless devices that don't work (and none of them is less than
+a couple years old). Looks like the linux wireless situation isn't getting any better since last KS.
+
+Oh and I don't care about "it works in dscape stack" sort of crap I regulary get. I want something that
+works with upstream kernels. That isn't that much to ask... or is it ?
+
+Ben, back to ethernet cables.
