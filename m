@@ -1,47 +1,113 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [NETFILTER]: remove unused include file
-Date: Sun, 24 Sep 2006 21:04:13 +0100
-Message-ID: <1159128253.24527.951.camel@pmac.infradead.org>
-References: <200609240005.k8O05uNk015180@hera.kernel.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
+Date: Sun, 24 Sep 2006 14:15:42 -0700
+Message-ID: <4516F57E.7090603@intel.com>
+References: <20060922004253.2e2e2612.akpm@osdl.org> <4514190C.8010901@intel.com> <20060922215000.c1fde093.akpm@osdl.org> <20060922.222507.74751476.davem@davemloft.net> <20060922223348.1b24fda5.akpm@osdl.org> <20060924152651.GA2077@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:14556 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751341AbWIXUEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Sep 2006 16:04:25 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <200609240005.k8O05uNk015180@hera.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>, Holger.Kiehl@dwd.de,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org, john.ronciak@intel.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060924152651.GA2077@2ka.mipt.ru>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-09-24 at 00:05 +0000, Linux Kernel Mailing List wrote:
-> [NETFILTER]: remove unused include file
+Evgeniy Polyakov wrote:
+> On Fri, Sep 22, 2006 at 10:33:48PM -0700, Andrew Morton (akpm@osdl.org) wrote:
+>>> The NET_IP_ALIGN existed not just for fun :)  There are ramifications
+>>> for removing it.
+>> It's still there, isn't it?
+>>
+>> For the 9k MTU case, for example, we end up allocating 16384 byte skbs
+>> instead of 32786 kbytes ones.
 > 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> This patch will not help - netdev_alloc_skb() adds additional
+> NET_SKB_PAD and then alloc_skb() adds sizeof(struct skb_shared_info).
+> And even if you acconut for them in adapter->rx_buf_len, chip still can
+> overwrite that area (in the thread mentioned in this e-mail thread
+> before I posted such patch and received a dump of sizes chip receives -
+> there were a lot of _different_ ones which were too close to the limit).
+
+I just did the math on it and it does not compute as I wanted too, we're 
+basically flowing to the next larger buffersize 2 mtu bytes earlier, undoing 
+any benefit completely.
+
+There is not much that can fix this issue since the hardware will always 
+receive in 2-order buffers and dma that back in its entirity, so we must always 
+claim size for NET_IP_ALIGN and NET_SKB_PAD after the 2-order bufsz. For the 
+9kb mtu case (16kb hw bufsz), we're stuck with 32kb slab allocations. bummer.
+
+Andrew, please drop this patch.
+
+Auke
+
 > 
->  include/linux/netfilter_logging.h |   33 ---------------------------------
->  1 file changed, 33 deletions(-) 
-
-You neglected to also remove the file from include/linux/Kbuild.
-
-Signed-off-by: David Woodhouse <dwmw2@infradead.org>
-
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -267,7 +267,6 @@ unifdef-y += netfilter_decnet.h
- unifdef-y += netfilter.h
- unifdef-y += netfilter_ipv4.h
- unifdef-y += netfilter_ipv6.h
--unifdef-y += netfilter_logging.h
- unifdef-y += net.h
- unifdef-y += netlink.h
- unifdef-y += nfs3.h
-
--- 
-dwmw2
-
+>> diff -puN drivers/net/e1000/e1000_main.c~e1000-account-for-net_ip_align-when-calculating-bufsiz drivers/net/e1000/e1000_main.c
+>> --- a/drivers/net/e1000/e1000_main.c~e1000-account-for-net_ip_align-when-calculating-bufsiz
+>> +++ a/drivers/net/e1000/e1000_main.c
+>> @@ -1101,7 +1101,7 @@ e1000_sw_init(struct e1000_adapter *adap
+>>  
+>>  	pci_read_config_word(pdev, PCI_COMMAND, &hw->pci_cmd_word);
+>>  
+>> -	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+>> +	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE + NET_IP_ALIGN;
+>>  	adapter->rx_ps_bsize0 = E1000_RXBUFFER_128;
+>>  	hw->max_frame_size = netdev->mtu +
+>>  			     ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
+>> @@ -3163,26 +3163,27 @@ e1000_change_mtu(struct net_device *netd
+>>  	 * larger slab size
+>>  	 * i.e. RXBUFFER_2048 --> size-4096 slab */
+>>  
+>> -	if (max_frame <= E1000_RXBUFFER_256)
+>> +	if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_256)
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_256;
+>> -	else if (max_frame <= E1000_RXBUFFER_512)
+>> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_512)
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_512;
+>> -	else if (max_frame <= E1000_RXBUFFER_1024)
+>> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_1024)
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_1024;
+>> -	else if (max_frame <= E1000_RXBUFFER_2048)
+>> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_2048)
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_2048;
+>> -	else if (max_frame <= E1000_RXBUFFER_4096)
+>> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_4096)
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_4096;
+>> -	else if (max_frame <= E1000_RXBUFFER_8192)
+>> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_8192)
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
+>> -	else if (max_frame <= E1000_RXBUFFER_16384)
+>> +	else
+>>  		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
+>>  
+>>  	/* adjust allocation if LPE protects us, and we aren't using SBP */
+>>  	if (!adapter->hw.tbi_compatibility_on &&
+>>  	    ((max_frame == MAXIMUM_ETHERNET_FRAME_SIZE) ||
+>>  	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE)))
+>> -		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+>> +		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE +
+>> +					NET_IP_ALIGN;
+>>  
+>>  	netdev->mtu = new_mtu;
+>>  
+>> @@ -4002,7 +4003,8 @@ e1000_alloc_rx_buffers(struct e1000_adap
+>>  	struct e1000_buffer *buffer_info;
+>>  	struct sk_buff *skb;
+>>  	unsigned int i;
+>> -	unsigned int bufsz = adapter->rx_buffer_len + NET_IP_ALIGN;
+>> +	/* we have already accounted for NET_IP_ALIGN */
+>> +	unsigned int bufsz = adapter->rx_buffer_len;
+>>  
+>>  	i = rx_ring->next_to_use;
+>>  	buffer_info = &rx_ring->buffer_info[i];
+>> _
+>>
+>> -
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
