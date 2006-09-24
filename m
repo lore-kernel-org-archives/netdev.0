@@ -1,59 +1,32 @@
-From: Nathanael Nerode <neroden@fastmail.fm>
-Subject: Please remove useless dgrs driver
-Date: Sun, 24 Sep 2006 13:00:12 -0400
-Message-ID: <20060924170012.GA13939@doctormoo.dyndns.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.18 BUG: unable to handle kernel NULL pointer dereference at virtual address 000,0000a
+Date: Sun, 24 Sep 2006 19:59:34 +0200
+Message-ID: <20060924175934.GA15420@elte.hu>
+References: <45155915.7080107@cweiske.de> <20060923134244.e7b73826.akpm@osdl.org> <45164BA6.60200@cweiske.de> <20060924031923.76886810.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-01.nyroc.rr.com ([24.24.2.55]:61321 "EHLO
-	ms-smtp-01.nyroc.rr.com") by vger.kernel.org with ESMTP
-	id S1751156AbWIXRAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Sep 2006 13:00:24 -0400
-Received: from doctormoo (cpe-24-59-106-240.twcny.res.rr.com [24.59.106.240])
-	by ms-smtp-01.nyroc.rr.com (8.13.6/8.13.6) with ESMTP id k8OH0JHd000520
-	for <netdev@vger.kernel.org>; Sun, 24 Sep 2006 13:00:22 -0400 (EDT)
-Received: from neroden by doctormoo with local (Exim 4.63)
-	(envelope-from <neroden@fastmail.fm>)
-	id 1GRXL0-0003dR-49
-	for netdev@vger.kernel.org; Sun, 24 Sep 2006 13:00:18 -0400
-To: netdev@vger.kernel.org
+Cc: Christian Weiske <cweiske@cweiske.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, reiserfs-dev@namesys.com,
+	Nick Piggin <nickpiggin@yahoo.com.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752023AbWIXSHV@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20060924031923.76886810.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-An official email from digi.com to Andres Salomon <dilinger@debian.org>
-explained:
 
- Dear Andres:
+* Andrew Morton <akpm@osdl.org> wrote:
 
- After further research, we found that this product was killed in place
- and never reached the market.  We would like to request that this not be
- included.
+> You have tcp_v6 lockdep warnings.  They're in
+> http://xml.cweiske.de/dojo%20kernelpanic%20+%20debug.tar.bz2 is anyone is
+> keen.  (I've largely lost interest in lockdep warnings - many of them are
+> false positives and require make-lockdep-shut-up patches).
 
-Copy at http://wiki.debian.org/KernelFirmwareLicensing (this was discovered
-during research into firmware licensing).
+FYI, this is from Herbert Xu's recent mail to netdev:
 
-The drgs driver is useless (no hardware to drive) and should be removed.
-The files which should be deleted from the tree are:
-        drivers/net/dgrs.c
-        drivers/net/dgrs.h
-        drivers/net/dgrs_es4h.h
-        drivers/net/dgrs_plx9060.h
-        drivers/net/dgrs_i82596.h
-        drivers/net/dgrs_ether.h
-        drivers/net/dgrs_asstruct.h
-        drivers/net/dgrs_bcomm.h
-        drivers/net/dgrs_firmware.c
-
-It will probably also be necessary to delete some stuff from drivers/net/Kconfig
-and drivers/net/Makefile, but I assume that this will be trivial for any
-net maintainer.
-
-Thanks in advance for doing this.
-
--- 
-Nathanael Nerode  <neroden@fastmail.fm>
-
-"(Instead, we front-load the flamewars and grudges in
-the interest of efficiency.)" --Steve Lanagasek,
-http://lists.debian.org/debian-devel/2005/09/msg01056.html
+| Subject: Re: neigh_lookup lockdep warning
+|
+| [...]
+| BTW, out of the last four validator reports I've read three have 
+| turned out to be genuine bugs.  So you guys have done a fantastic job!
