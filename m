@@ -1,49 +1,102 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Is TCP over IPsec broken in 2.6.18?
-Date: Sun, 24 Sep 2006 10:33:37 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609241029410.14827@d.namei>
-References: <20060922112948.GA17335@2ka.mipt.ru> <20060922121920.GA3172@2ka.mipt.ru>
- <4513D5B5.6090301@trash.net> <20060922140318.GA14408@2ka.mipt.ru>
- <Pine.LNX.4.64.0609221112000.7628@d.namei> <20060923042914.GC24099@2ka.mipt.ru>
- <Pine.LNX.4.64.0609240106270.24276@d.namei> <45164B02.1090801@trash.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: 2.6.1[78] page allocation failure. order:3, mode:0x20
+Date: Sun, 24 Sep 2006 19:26:51 +0400
+Message-ID: <20060924152651.GA2077@2ka.mipt.ru>
+References: <20060922004253.2e2e2612.akpm@osdl.org> <4514190C.8010901@intel.com> <20060922215000.c1fde093.akpm@osdl.org> <20060922.222507.74751476.davem@davemloft.net> <20060922223348.1b24fda5.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:36302 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750966AbWIXOdl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Sep 2006 10:33:41 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <45164B02.1090801@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
+	Holger.Kiehl@dwd.de, linux-kernel@vger.kernel.org,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751182AbWIXP13@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060922223348.1b24fda5.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 24 Sep 2006, Patrick McHardy wrote:
-
-> James Morris wrote:
-> > On Sat, 23 Sep 2006, Evgeniy Polyakov wrote:
-> > 
-> > 
-> >>I never saw unencrypted packets before.
-> > 
-> > 
-> > It's normal and expected, perhaps you didn't notice or had tcpdump 
-> > filtering them.
+On Fri, Sep 22, 2006 at 10:33:48PM -0700, Andrew Morton (akpm@osdl.org) wrote:
+> > The NET_IP_ALIGN existed not just for fun :)  There are ramifications
+> > for removing it.
 > 
-> He's talking about transport mode, unencrypted packet should
-> only be visible in tunnel mode.
+> It's still there, isn't it?
+> 
+> For the 9k MTU case, for example, we end up allocating 16384 byte skbs
+> instead of 32786 kbytes ones.
 
-Ok.
+This patch will not help - netdev_alloc_skb() adds additional
+NET_SKB_PAD and then alloc_skb() adds sizeof(struct skb_shared_info).
+And even if you acconut for them in adapter->rx_buf_len, chip still can
+overwrite that area (in the thread mentioned in this e-mail thread
+before I posted such patch and received a dump of sizes chip receives -
+there were a lot of _different_ ones which were too close to the limit).
 
-I've done some more testing with local tcpdumps and not seeing any issues.
+> 
+> diff -puN drivers/net/e1000/e1000_main.c~e1000-account-for-net_ip_align-when-calculating-bufsiz drivers/net/e1000/e1000_main.c
+> --- a/drivers/net/e1000/e1000_main.c~e1000-account-for-net_ip_align-when-calculating-bufsiz
+> +++ a/drivers/net/e1000/e1000_main.c
+> @@ -1101,7 +1101,7 @@ e1000_sw_init(struct e1000_adapter *adap
+>  
+>  	pci_read_config_word(pdev, PCI_COMMAND, &hw->pci_cmd_word);
+>  
+> -	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+> +	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE + NET_IP_ALIGN;
+>  	adapter->rx_ps_bsize0 = E1000_RXBUFFER_128;
+>  	hw->max_frame_size = netdev->mtu +
+>  			     ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
+> @@ -3163,26 +3163,27 @@ e1000_change_mtu(struct net_device *netd
+>  	 * larger slab size
+>  	 * i.e. RXBUFFER_2048 --> size-4096 slab */
+>  
+> -	if (max_frame <= E1000_RXBUFFER_256)
+> +	if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_256)
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_256;
+> -	else if (max_frame <= E1000_RXBUFFER_512)
+> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_512)
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_512;
+> -	else if (max_frame <= E1000_RXBUFFER_1024)
+> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_1024)
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_1024;
+> -	else if (max_frame <= E1000_RXBUFFER_2048)
+> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_2048)
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_2048;
+> -	else if (max_frame <= E1000_RXBUFFER_4096)
+> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_4096)
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_4096;
+> -	else if (max_frame <= E1000_RXBUFFER_8192)
+> +	else if (max_frame + NET_IP_ALIGN <= E1000_RXBUFFER_8192)
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_8192;
+> -	else if (max_frame <= E1000_RXBUFFER_16384)
+> +	else
+>  		adapter->rx_buffer_len = E1000_RXBUFFER_16384;
+>  
+>  	/* adjust allocation if LPE protects us, and we aren't using SBP */
+>  	if (!adapter->hw.tbi_compatibility_on &&
+>  	    ((max_frame == MAXIMUM_ETHERNET_FRAME_SIZE) ||
+>  	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE)))
+> -		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+> +		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE +
+> +					NET_IP_ALIGN;
+>  
+>  	netdev->mtu = new_mtu;
+>  
+> @@ -4002,7 +4003,8 @@ e1000_alloc_rx_buffers(struct e1000_adap
+>  	struct e1000_buffer *buffer_info;
+>  	struct sk_buff *skb;
+>  	unsigned int i;
+> -	unsigned int bufsz = adapter->rx_buffer_len + NET_IP_ALIGN;
+> +	/* we have already accounted for NET_IP_ALIGN */
+> +	unsigned int bufsz = adapter->rx_buffer_len;
+>  
+>  	i = rx_ring->next_to_use;
+>  	buffer_info = &rx_ring->buffer_info[i];
+> _
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Evgeniy: if you update to the latest racoon (and kernel), and still see 
-it, please send complete logs of 'racoon -dddd' from each side, and also 
-'setkey -x', so we can see if the policy entries are being being modified.
-
-
-- James
 -- 
-James Morris
-<jmorris@namei.org>
+	Evgeniy Polyakov
