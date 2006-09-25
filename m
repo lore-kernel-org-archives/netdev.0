@@ -1,47 +1,179 @@
 From: akpm@osdl.org
-Subject: [patch 06/11] drivers/net/tokenring/lanstreamer.h Removal of old code
-Date: Mon, 25 Sep 2006 16:39:21 -0700
-Message-ID: <200609252339.k8PNdLik002641@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org,
-	michal.k.k.piotrowski@gmail.com
+Subject: [patch 02/11] 3x59x: fix PCI resource management
+Date: Mon, 25 Sep 2006 16:39:16 -0700
+Message-ID: <200609252339.k8PNdGBp002625@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com,
+	sshtylyov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:14004 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751716AbWIYXj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:39:29 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:31412 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751730AbWIYXkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:40:35 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 
-Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+The driver wrongly claimed I/O ports at an address returned by pci_iomap()
+-- even if it was passed an MMIO address.  Fix this by claiming/releasing
+all PCI resources in the PCI driver probe/remove handlers instead and get
+rid of the must_free_region flag weirdness (why would Cardbus claim
+anything for us?).
+
+Also, the remove handler was trying to talk to the chip after having
+disabled its address decoders (at least on x86) -- fix this and get rid of
+useless VORTEX_PCI() calls.
+
+While at it, fix some cases of the overly indented code...
+
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+
+- Would prefer that vortex_init_one() do the `goto out_release;' thing
+  rather than having multiple cleanup-then-return points.
+
+- I don't remember the story with cardbus either.  Presumably once upon a
+  time the cardbus layer was claiming IO regions on behalf of cardbus
+  devices (?)
+
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/tokenring/lanstreamer.h |   12 ------------
- 1 file changed, 12 deletions(-)
+ drivers/net/3c59x.c |   66 ++++++++++++++++++++----------------------
+ 1 file changed, 32 insertions(+), 34 deletions(-)
 
-diff -puN drivers/net/tokenring/lanstreamer.h~drivers-net-tokenring-lanstreamerh-removal-of-old-code drivers/net/tokenring/lanstreamer.h
---- a/drivers/net/tokenring/lanstreamer.h~drivers-net-tokenring-lanstreamerh-removal-of-old-code
-+++ a/drivers/net/tokenring/lanstreamer.h
-@@ -62,18 +62,6 @@
+diff -puN drivers/net/3c59x.c~3x59x-fix-pci-resource-management drivers/net/3c59x.c
+--- a/drivers/net/3c59x.c~3x59x-fix-pci-resource-management
++++ a/drivers/net/3c59x.c
+@@ -630,7 +630,6 @@ struct vortex_private {
+ 		pm_state_valid:1,				/* pci_dev->saved_config_space has sane contents */
+ 		open:1,
+ 		medialock:1,
+-		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O region */
+ 		large_frames:1;			/* accept large frames */
+ 	int drv_flags;
+ 	u16 status_enable;
+@@ -956,7 +955,13 @@ static int __devinit vortex_init_one(str
+ 	/* wake up and enable device */
+ 	rc = pci_enable_device(pdev);
+ 	if (rc < 0)
+-		goto out;
++		return rc;
++
++	rc = pci_request_regions(pdev, "3c59x");
++	if (rc < 0) {
++		pci_disable_device(pdev);
++		return rc;
++	}
  
- #include <linux/version.h>
+ 	unit = vortex_cards_found;
  
--#if STREAMER_IOCTL && (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0))
--#include <asm/ioctl.h>
--#define IOCTL_PRINT_RX_BUFS   SIOCDEVPRIVATE
--#define IOCTL_PRINT_TX_BUFS   SIOCDEVPRIVATE+1
--#define IOCTL_RX_CMD          SIOCDEVPRIVATE+2
--#define IOCTL_TX_CMD          SIOCDEVPRIVATE+3
--#define IOCTL_PRINT_REGISTERS SIOCDEVPRIVATE+4
--#define IOCTL_PRINT_BDAS      SIOCDEVPRIVATE+5
--#define IOCTL_SPIN_LOCK_TEST  SIOCDEVPRIVATE+6
--#define IOCTL_SISR_MASK       SIOCDEVPRIVATE+7
--#endif
+@@ -976,13 +981,13 @@ static int __devinit vortex_init_one(str
+ 	rc = vortex_probe1(&pdev->dev, ioaddr, pdev->irq,
+ 			   ent->driver_data, unit);
+ 	if (rc < 0) {
+-		pci_disable_device(pdev);
+-		goto out;
++		pci_release_regions(pdev);
++		pci_disable_device (pdev);
++		return rc;
+ 	}
+ 
+ 	vortex_cards_found++;
+ 
+-out:
+ 	return rc;
+ }
+ 
+@@ -1084,11 +1089,6 @@ static int __devinit vortex_probe1(struc
+ 
+ 	/* PCI-only startup logic */
+ 	if (pdev) {
+-		/* EISA resources already marked, so only PCI needs to do this here */
+-		/* Ignore return value, because Cardbus drivers already allocate for us */
+-		if (request_region(dev->base_addr, vci->io_size, print_name) != NULL)
+-			vp->must_free_region = 1;
 -
- /* MAX_INTR - the maximum number of times we can loop
-  * inside the interrupt function before returning
-  * control to the OS (maximum value is 256)
+ 		/* enable bus-mastering if necessary */
+ 		if (vci->flags & PCI_USES_MASTER)
+ 			pci_set_master(pdev);
+@@ -1120,12 +1120,13 @@ static int __devinit vortex_probe1(struc
+ 	vp->mii.reg_num_mask = 0x1f;
+ 
+ 	/* Makes sure rings are at least 16 byte aligned. */
+-	vp->rx_ring = pci_alloc_consistent(pdev, sizeof(struct boom_rx_desc) * RX_RING_SIZE
+-					   + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
++	vp->rx_ring = pci_alloc_consistent(pdev,
++					   sizeof(struct boom_rx_desc) * RX_RING_SIZE +
++					   sizeof(struct boom_tx_desc) * TX_RING_SIZE,
+ 					   &vp->rx_ring_dma);
+ 	retval = -ENOMEM;
+ 	if (vp->rx_ring == 0)
+-		goto free_region;
++		goto free_device;
+ 
+ 	vp->tx_ring = (struct boom_tx_desc *)(vp->rx_ring + RX_RING_SIZE);
+ 	vp->tx_ring_dma = vp->rx_ring_dma + sizeof(struct boom_rx_desc) * RX_RING_SIZE;
+@@ -1406,13 +1407,11 @@ static int __devinit vortex_probe1(struc
+ 
+ free_ring:
+ 	pci_free_consistent(pdev,
+-						sizeof(struct boom_rx_desc) * RX_RING_SIZE
+-							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
+-						vp->rx_ring,
+-						vp->rx_ring_dma);
+-free_region:
+-	if (vp->must_free_region)
+-		release_region(dev->base_addr, vci->io_size);
++			    sizeof(struct boom_rx_desc) * RX_RING_SIZE +
++			    sizeof(struct boom_tx_desc) * TX_RING_SIZE,
++			    vp->rx_ring,
++			    vp->rx_ring_dma);
++free_device:
+ 	free_netdev(dev);
+ 	printk(KERN_ERR PFX "vortex_probe1 fails.  Returns %d\n", retval);
+ out:
+@@ -3122,29 +3121,28 @@ static void __devexit vortex_remove_one(
+ 	vp = netdev_priv(dev);
+ 
+ 	if (vp->cb_fn_base)
+-		pci_iounmap(VORTEX_PCI(vp), vp->cb_fn_base);
++		pci_iounmap(pdev, vp->cb_fn_base);
+ 
+ 	unregister_netdev(dev);
+ 
+-	if (VORTEX_PCI(vp)) {
+-		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
+-		if (vp->pm_state_valid)
+-			pci_restore_state(VORTEX_PCI(vp));
+-		pci_disable_device(VORTEX_PCI(vp));
+-	}
++	pci_set_power_state(pdev, PCI_D0);	/* Go active */
++	if (vp->pm_state_valid)
++		pci_restore_state(pdev);
++
+ 	/* Should really use issue_and_wait() here */
+ 	iowrite16(TotalReset | ((vp->drv_flags & EEPROM_RESET) ? 0x04 : 0x14),
+ 	     vp->ioaddr + EL3_CMD);
+ 
+-	pci_iounmap(VORTEX_PCI(vp), vp->ioaddr);
++	pci_iounmap(pdev, vp->ioaddr);
+ 
+ 	pci_free_consistent(pdev,
+-						sizeof(struct boom_rx_desc) * RX_RING_SIZE
+-							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
+-						vp->rx_ring,
+-						vp->rx_ring_dma);
+-	if (vp->must_free_region)
+-		release_region(dev->base_addr, vp->io_size);
++			    sizeof(struct boom_rx_desc) * RX_RING_SIZE +
++			    sizeof(struct boom_tx_desc) * TX_RING_SIZE,
++			    vp->rx_ring,
++			    vp->rx_ring_dma);
++
++	pci_release_regions(pdev);
++	pci_disable_device (pdev);
+ 	free_netdev(dev);
+ }
+ 
 _
