@@ -1,41 +1,51 @@
 From: akpm@osdl.org
-Subject: [patch 1/3] net/ipv6: bh_lock_sock_nested on tcp_v6_rcv
-Date: Mon, 25 Sep 2006 16:43:07 -0700
-Message-ID: <200609252343.k8PNh7DH002845@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, fleite@redhat.com,
-	herbert@gondor.apana.org.au
+Subject: [patch 2/3] via-ircc: fix memory leak
+Date: Mon, 25 Sep 2006 16:43:08 -0700
+Message-ID: <200609252343.k8PNh81i002848@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, chuck@maggie,
+	bcollins@ubuntu.com, samuel@sortiz.org, zulcss@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30901 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751748AbWIYXn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:43:28 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:30133 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751748AbWIYXnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:43:25 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Fabio Olive Leite <fleite@redhat.com>
+From: Chuck Short <chuck@maggie>
 
-A while ago Ingo patched tcp_v4_rcv on net/ipv4/tcp_ipv4.c to use
-bh_lock_sock_nested and silence a lock validator warning. This fixed
-it for IPv4, but recently I saw a report of the same warning on IPv6.
+Fix memory leak.
 
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
+Coverity id# 653
+
+patch location:
+http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=a1f34cb68b16807ed9d5ebb0f6a6ec5ff8a5fc78
+
+Signed-off-by: Chuck Short <zulcss@gmail.com>
+Signed-off-by: Ben Collins <bcollins@ubuntu.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- net/ipv6/tcp_ipv6.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/irda/via-ircc.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff -puN net/ipv6/tcp_ipv6.c~net-ipv6-bh_lock_sock_nested-on-tcp_v6_rcv net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c~net-ipv6-bh_lock_sock_nested-on-tcp_v6_rcv
-+++ a/net/ipv6/tcp_ipv6.c
-@@ -1237,7 +1237,7 @@ process:
+diff -puN drivers/net/irda/via-ircc.c~via-ircc-fix-memory-leak drivers/net/irda/via-ircc.c
+--- a/drivers/net/irda/via-ircc.c~via-ircc-fix-memory-leak
++++ a/drivers/net/irda/via-ircc.c
+@@ -1223,8 +1223,13 @@ static int upload_rxdata(struct via_ircc
  
- 	skb->dev = NULL;
+ 	IRDA_DEBUG(2, "%s(): len=%x\n", __FUNCTION__, len);
  
--	bh_lock_sock(sk);
-+	bh_lock_sock_nested(sk);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
- #ifdef CONFIG_NET_DMA
++	if ((len - 4) < 2) {
++		self->stats.rx_dropped++;
++		return FALSE;
++	}
++
+ 	skb = dev_alloc_skb(len + 1);
+-	if ((skb == NULL) || ((len - 4) < 2)) {
++	if (skb == NULL) {
+ 		self->stats.rx_dropped++;
+ 		return FALSE;
+ 	}
 _
