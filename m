@@ -1,68 +1,52 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 5/6] NetLabel: rework the Netlink attribute handling (part
- 2)
-Date: Mon, 25 Sep 2006 11:42:03 -0400
-Message-ID: <4517F8CB.1030707@hp.com>
-References: <20060921165703.251871000@hp.com> <20060921170337.744519000@hp.com> <20060925094311.GO18349@postel.suug.ch> <4517E3F1.6050809@hp.com> <20060925150625.GP18349@postel.suug.ch>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] ieee80211: quiet TKIP and CCMP replay messages for
+ identical TSCs
+Date: Mon, 25 Sep 2006 10:49:12 -0500
+Message-ID: <4517FA78.mailH4P11L3ZE@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org, sds@epoch.ncsc.mil,
-	jmorris@redhat.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:35529 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1751027AbWIYPmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 11:42:07 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060925150625.GP18349@postel.suug.ch>
+Received: from ms-smtp-01.rdc-kc.rr.com ([24.94.166.115]:64228 "EHLO
+	ms-smtp-01.rdc-kc.rr.com") by vger.kernel.org with ESMTP
+	id S1751051AbWIYPts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Sep 2006 11:49:48 -0400
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Paul Moore <paul.moore@hp.com> 2006-09-25 10:13
-> 
->>>>-	ret_val = netlbl_netlink_snd(ans_skb, info->snd_pid);
->>>>+	switch (doi_def->type) {
->>>>+	case CIPSO_V4_MAP_STD:
->>>>+		nla_a = nla_nest_start(ans_skb, NLBL_CIPSOV4_A_MLSLVLLST);
->>>>+		if (nla_a == NULL) {
->>>>+			ret_val = -ENOMEM;
->>>>+			goto list_failure_lock;
->>>>+		}
->>>>+		for (iter = 0;
->>>>+		     iter < doi_def->map.std->lvl.local_size;
->>>>+		     iter++) {
->>>>+			if (doi_def->map.std->lvl.local[iter] ==
->>>>+			    CIPSO_V4_INV_LVL)
->>>>+				continue;
->>>
->>>
->>>Can you estimate the number of entries being dumped here and in the cat
->>>list below?
->>>
->>
->>It's too hard to come up with a reasonable estimate without going
->>through the entire list before hand, which in previous messages (might
->>of been off-list) you pointed out as a bad thing.  If you would prefer I
->>can go back to doing it that way?
->  
-> Sorry, I didn't make myself clear. I didn't mean to estimate the
-> size of the message. The way you're doing it right now is perfectly
-> fine. I'm interested in a estimate on how many items are being dumped
-> in practice. Less than 1K or a couple of K?
-> 
-> High order allocations are likely to fail if under pressure while
-> using dumpit() allows to reuse memory ressources.
+When using TKIP and CCMP for wireless encryption with ieee80211, the logs get filled with useless
+replay messages where the previous and received TSC are identical. This change deletes
+the log message for this case, but still prints the message when there are major differences
+in the TSC's.
 
-It's hard to get a good idea of the likely usage scenario as I'm not
-sure how users will want to configure NetLabel.  However, there is a
-possibility of this growing larger than NLMSG_GOODSIZE, which makes
-things a bit more difficult.  From what I can see dumpit() requires the
-message be within NLMSG_GOODSIZE while a doit() response can be of
-arbitrary length; this is why I chose a doit() response.  Even if the
-system is under memory pressure I think a failure here is okay as this
-is not what I would consider a critical message.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
--- 
-paul moore
-linux security @ hp
+Index: wireless-2.6/net/ieee80211/ieee80211_crypt_tkip.c
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/ieee80211_crypt_tkip.c
++++ wireless-2.6/net/ieee80211/ieee80211_crypt_tkip.c
+@@ -394,7 +394,7 @@ static inline int tkip_replay_check(u32 
+ 				    u32 iv32_o, u16 iv16_o)
+ {
+ 	if ((s32)iv32_n - (s32)iv32_o < 0 ||
+-	    (iv32_n == iv32_o && iv16_n <= iv16_o))
++	    (iv32_n == iv32_o && iv16_n < iv16_o))
+ 		return 1;
+ 	return 0;
+ }
+Index: wireless-2.6/net/ieee80211/ieee80211_crypt_ccmp.c
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/ieee80211_crypt_ccmp.c
++++ wireless-2.6/net/ieee80211/ieee80211_crypt_ccmp.c
+@@ -287,7 +287,7 @@ static inline int ccmp_replay_check(u8 *
+ 	iv16_o = (pn_o[4] << 8) | pn_o[5];
+ 
+ 	if ((s32)iv32_n - (s32)iv32_o < 0 ||
+-	    (iv32_n == iv32_o && iv16_n <= iv16_o))
++	    (iv32_n == iv32_o && iv16_n < iv16_o))
+ 		return 1;
+ 	return 0;
+ }
