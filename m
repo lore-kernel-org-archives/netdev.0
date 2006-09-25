@@ -1,42 +1,48 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
-Date: Mon, 25 Sep 2006 14:35:25 +0200
-Message-ID: <20060925123525.GE23028@zlug.org>
-References: <20060923120704.GA32284@zlug.org> <p738xk8kzym.fsf@verdi.suse.de> <20060925115744.GD23028@zlug.org> <200609251416.15738.ak@suse.de>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: tc related lockdep warning.
+Date: Mon, 25 Sep 2006 14:43:52 +0200
+Message-ID: <20060925124352.GA1592@ff.dom.local>
+References: <20060924212933.GB20123@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jbglaw@lug-owl.de,
-	kaber@trash.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: Dave Jones <davej@redhat.com>, hadi@cyberus.ca, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:21800 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1751299AbWIYMfa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 08:35:30 -0400
-To: Andi Kleen <ak@suse.de>
+Received: from mx10.go2.pl ([193.17.41.74]:3721 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1750770AbWIYMjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 08:39:39 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <200609251416.15738.ak@suse.de>
+In-Reply-To: <20060924212933.GB20123@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2006 at 02:16:15PM +0200, Andi Kleen wrote:
-> On Monday 25 September 2006 13:57, Joerg Roedel wrote:
-> > On Mon, Sep 25, 2006 at 12:22:41PM +0200, Andi Kleen wrote:
-> > 
-> > > How would you convince those old LAN games to use a MTU < 1500 which
-> > > is needed for the tunnel?  I bet they have the size hardcoded.
-> > 
-> > The tunnel provides an MTU of 1500. To guarantee this, it never sets the
-> > DF flag in outgoing packets.
-> 
-> This means it will multiply all full sized packets. That sounds horrible.
+On 24-09-2006 23:29, Dave Jones wrote:
+> =================================
+> [ INFO: inconsistent lock state ]
+> ---------------------------------
+> inconsistent {softirq-on-R} -> {in-softirq-W} usage.
+> swapper/0 [HC0[0]:SC1[2]:HE1:SE0] takes:
+>  (police_lock){-+--}, at: [<f8d304fd>] tcf_police_destroy+0x24/0x8f [act_police]
+> {softirq-on-R} state was registered at:
+>   [<c043bdd6>] lock_acquire+0x4b/0x6d
+>   [<c061495a>] _read_lock+0x19/0x28
+>   [<f8d3026a>] tcf_act_police_locate+0x26a/0x363 [act_police]
+...
+>  [<c06148a5>] _write_lock_bh+0x1e/0x2d
+>  [<f8d304fd>] tcf_police_destroy+0x24/0x8f [act_police]
+...
+>  [<c042900f>] __do_softirq+0x78/0xf2
+>  [<c0406683>] do_softirq+0x5a/0xbe
+>  [<c0428eb8>] irq_exit+0x3d/0x3f
+>  [<c04179df>] smp_apic_timer_interrupt+0x73/0x78
+>  [<c0404b12>] apic_timer_interrupt+0x2a/0x30
+> DWARF2 unwinder stuck at apic_timer_interrupt+0x2a/0x30
+> Leftover inexact backtrace:
 
-Yes, all full sized packets gets fragmented at the IP layer according to
-the MTU of the physical device. As I know, this is the only way to
-guarantee the full Ethernet MTU on the tunnel device. This guarantee is
-required for layer 3 protocols that does not know the concept of a path
-MTU (as used by some old LAN based games ;-)
-And for some cases this procedure is also defined in RFC 2473, section
-7. for "Generic Packet Tunneling in IPv6".
+It's probably 2.6.18 and should change a little now (git4) but
+IMHO main problem stays: it looks tcf_act_police_locate in
+act_police.c was preempted in read_lock (tcf_police_lookup)
+- now the same is possible in tcf_hash_lookup. So maybe
+read_lock_bh will help?
 
-Joerg
+Jarek P. 
