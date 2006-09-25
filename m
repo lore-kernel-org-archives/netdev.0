@@ -1,72 +1,35 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: output proper link quality with scans
-Date: Mon, 25 Sep 2006 15:33:20 -0500
-Message-ID: <45183D10.mail64719C0VM@lwfinger.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
+Date: Mon, 25 Sep 2006 16:49:14 -0400
+Message-ID: <451840CA.5060901@hp.com>
+References: <20060923120704.GA32284@zlug.org> <20060923121327.GH30245@lug-owl.de> <1159015118.5301.19.camel@jzny2> <20060923132736.GA345@zlug.org> <200609250107.k8P17h8A019714@turing-police.cc.vt.edu> <20060925083249.GC23028@zlug.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Valdis.Kletnieks@vt.edu, jamal <hadi@cyberus.ca>,
+	Jan-Benedict Glaw <jbglaw@lug-owl.de>,
+	Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel7.hp.com ([156.153.255.213]:33166 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S1751109AbWIYUtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 16:49:21 -0400
+To: Joerg Roedel <joro-lkml@zlug.org>
+In-Reply-To: <20060925083249.GC23028@zlug.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bcm43xx-softmac driver fails to set two quantities needed for
-iwlist to compute wireless quality when scanning. As a result, userland
-programs using the quality to determine the best connection fail.
+Joerg Roedel wrote:
+>> Is there something in the RFC that suggests that a byte order other than
+>> 'network order' is possible/acceptable there?
+> 
+> No. The RFC states nothing at all about byte- or bitorder. That is why
+> the RFC is ambigious at this point.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+RFC 791 (IPv4) Appendix B does give instructions on byte ordering for 
+all IPv4 headers and data, and RFC 791 is listed in the References for 
+RFC 3378.  I noticed this is only Informational, not a Standards track 
+document, so I guess the non-interoperable implementations kind of go 
+with the territory.
 
-This patch is intended for wireless-2.6.
- 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-@@ -365,6 +365,9 @@
- #define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
- #define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
- 
-+/* FIXME: the next line is a guess as to what the maximum RSSI value might be */
-+#define RX_RSSI_MAX				60
-+
- /* Max size of a security key */
- #define BCM43xx_SEC_KEYSIZE			16
- /* Security algorithms. */
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -3648,6 +3648,8 @@ static int bcm43xx_read_phyinfo(struct b
- 		       phy_type);
- 		return -ENODEV;
- 	};
-+	bcm->ieee->perfect_rssi = RX_RSSI_MAX;
-+	bcm->ieee->worst_rssi = 0;
- 	if (!phy_rev_ok) {
- 		printk(KERN_WARNING PFX "Invalid PHY Revision %x\n",
- 		       phy_rev);
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-@@ -47,9 +47,6 @@
- #define BCM43xx_WX_VERSION	18
- 
- #define MAX_WX_STRING		80
--/* FIXME: the next line is a guess as to what the maximum RSSI value might be */
--#define RX_RSSI_MAX		60
--
- 
- static int bcm43xx_wx_get_name(struct net_device *net_dev,
-                                struct iw_request_info *info,
+-Brian
