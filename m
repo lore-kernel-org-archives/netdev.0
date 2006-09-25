@@ -1,41 +1,38 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: bcm43xx driver unstable behaviour (and linux wireless is junk btw)
-Date: Mon, 25 Sep 2006 11:02:39 +0200
-Message-ID: <1159174960.4509.13.camel@ux156>
-References: <1159065798.5924.8.camel@localhost.localdomain>
-	<4515FF5D.4080602@gentoo.org>
-	<1159078683.5924.16.camel@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC 1/3] cfg80211/nl80211 core
+Date: Mon, 25 Sep 2006 11:05:07 +0200
+Message-ID: <1159175107.4509.15.camel@ux156>
+References: <1158230812.2936.46.camel@ux156>
+	 <1158230963.2936.49.camel@ux156> <20060922174811.6485d795@logostar.upir.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1159078683.5924.16.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Mohamed Abbas <mabbas@linux.intel.com>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Daniel Drake <dsd@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:4296 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750804AbWIYJEV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Sep 2006 05:04:21 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060922174811.6485d795@logostar.upir.cz>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-09-24 at 16:18 +1000, Benjamin Herrenschmidt wrote:
+On Fri, 2006-09-22 at 17:48 +0200, Jiri Benc wrote:
+> On Thu, 14 Sep 2006 12:49:23 +0200, Johannes Berg wrote:
+> > There should be support for notifications, but we need to figure
+> > out if we remove the sysfs based add/remove virtual interface
+> > thing completely or allow the driver to create a notification
+> > through some new API here.
+> 
+> Feel free to remove it if it makes your work easier.
 
-> So what are the chances of getting this dscape stack merged, let's
-> say... for 2.6.19 ?
-
-0
-
->  Or we'll get yet another full release with barely
-> working wireless ?
-
-yes. Many locking issues in d80211 to still sort out. Basically, there
-are next to no useful locks in it and most data structures are not
-protected at all.
+It definitely would.
 
 johannes
