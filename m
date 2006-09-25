@@ -1,686 +1,80 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Is TCP over IPsec broken in 2.6.18?
-Date: Mon, 25 Sep 2006 16:05:19 +0400
-Message-ID: <20060925120519.GA19010@2ka.mipt.ru>
-References: <Pine.LNX.4.64.0609241029410.14827@d.namei> <E1GRdnS-0003kd-00@gondolin.me.apana.org.au> <20060925103836.GA13966@2ka.mipt.ru> <20060925112754.GA18228@gondor.apana.org.au>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
+Date: Mon, 25 Sep 2006 22:15:30 +1000
+Message-ID: <20060925121530.GC18667@gondor.apana.org.au>
+References: <20060827142347.GA20092@ripe.net> <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net> <20060829082828.GA8625@gondor.apana.org.au> <20060831151243.GJ3590@ripe.net> <20060901070557.GA15731@gondor.apana.org.au> <20060901162248.GI19284@ripe.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="vkogqOf2sHV7VnPd"
-Cc: James Morris <jmorris@namei.org>, kaber@trash.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:23446 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750724AbWIYMFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 08:05:45 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:35595 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750951AbWIYMPz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Sep 2006 08:15:55 -0400
+To: cagri coltekin <cagri@ripe.net>
 Content-Disposition: inline
-In-Reply-To: <20060925112754.GA18228@gondor.apana.org.au>
+In-Reply-To: <20060901162248.GI19284@ripe.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 01, 2006 at 06:22:48PM +0200, cagri coltekin wrote:
+>
+> The second causes the system to give the bug a couple of seconds
+> after bind starts, and loads the zones, without any traffic going
+> on. BTW, patch applied with some offset difference (3 for the
+> first -48 for the other two changes), on a pristine 2.6.17.11
+> source tree.
 
---vkogqOf2sHV7VnPd
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: inline
+Well the good news is that I found a bug with MSG_PROBE that can
+cause exactly what you're seeing.  The bad news is that bind doesn't
+use MSG_PROBE :)
 
-On Mon, Sep 25, 2006 at 09:27:54PM +1000, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Mon, Sep 25, 2006 at 02:38:36PM +0400, Evgeniy Polyakov wrote:
-> > 
-> > I ran two times the same 'telnet 192.168.4.79 22' and got unencrypted
-> > packets and very long timeout. After some magic initial process things
-> > started to work as expected - only ESP encrypted packets can be found in
-> > tcpdump, until next connection is started, which becames to work not
-> > correctly and then again starts to work as expected.
-> 
-> Perhaps something's screwed up with the policies.  Unfortunately
-> the racoon logs draw a blank around the interesting interval as
-> shown by the tcpdump.
+So please try this patch to narrow the problem down further.
 
-I insrted blank lines specially to show where things started to work
-correctly (first blank lines), second one shows where I started second 
-telnet. I think you've noticed that time difference on machines
-is about 30 minutes.
-
-> Please run ip x p once every second and the post what it shows
-> before, during and after the period when unecrypted packets show
-> up on the wire.
-> 
-> You only have to do it on the 79 machine since it's the one sending
-> unencrypted data.
-
-Attached three files - before, while and after connection establishment.
-
+Thanks,
 -- 
-	Evgeniy Polyakov
-
---vkogqOf2sHV7VnPd
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: attachment; filename=after
-
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-
---vkogqOf2sHV7VnPd
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: attachment; filename=before
-
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-
---vkogqOf2sHV7VnPd
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: attachment; filename=while
-
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir in priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.79/32 dst 192.168.4.78/32 
-	dir out priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 192.168.4.78/32 dst 192.168.4.79/32 
-	dir fwd priority 2147483648 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src ::/0 dst ::/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir in priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src ::/0 dst ::/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-src 0.0.0.0/0 dst 0.0.0.0/0 
-	dir out priority 0 
-
---vkogqOf2sHV7VnPd--
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6671691..637b5c4 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -990,8 +990,10 @@ int ip6_append_data(struct sock *sk, int
+ 	int offset = 0;
+ 	int csummode = CHECKSUM_NONE;
+ 
+-	if (flags&MSG_PROBE)
++	if (flags&MSG_PROBE) {
++		WARN_ON(1);
+ 		return 0;
++	}
+ 	if (skb_queue_empty(&sk->sk_write_queue)) {
+ 		/*
+ 		 * setup for corking
+@@ -1013,6 +1015,7 @@ int ip6_append_data(struct sock *sk, int
+ 		dst_hold(&rt->u.dst);
+ 		np->cork.rt = rt;
+ 		inet->cork.fl = *fl;
++		BUG_ON(!fl->proto);
+ 		np->cork.hop_limit = hlimit;
+ 		np->cork.tclass = tclass;
+ 		mtu = dst_mtu(rt->u.dst.path);
+@@ -1032,6 +1035,7 @@ int ip6_append_data(struct sock *sk, int
+ 	} else {
+ 		rt = np->cork.rt;
+ 		fl = &inet->cork.fl;
++		BUG_ON(!fl->proto);
+ 		if (inet->cork.flags & IPCORK_OPT)
+ 			opt = np->cork.opt;
+ 		transhdrlen = 0;
+@@ -1285,6 +1289,7 @@ int ip6_push_pending_frames(struct sock 
+ 
+ 	if ((skb = __skb_dequeue(&sk->sk_write_queue)) == NULL)
+ 		goto out;
++	BUG_ON(!proto);
+ 	tail_skb = &(skb_shinfo(skb)->frag_list);
+ 
+ 	/* move skb->data to ip header from ext header */
