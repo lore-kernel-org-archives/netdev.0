@@ -1,46 +1,60 @@
 From: akpm@osdl.org
-Subject: [patch 08/11] Signedness issue in drivers/net/phy/phy_device.c
-Date: Mon, 25 Sep 2006 16:39:22 -0700
-Message-ID: <200609252339.k8PNdMsp002651@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, snakebyte@gmx.de
+Subject: [patch 03/11] Update smc91x driver with ARM Versatile board info
+Date: Mon, 25 Sep 2006 16:39:18 -0700
+Message-ID: <200609252339.k8PNdICF002628@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, dsaxena@plexity.net,
+	nico@cam.org, rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:13748 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751715AbWIYXj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:39:29 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:19636 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751712AbWIYXjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:39:43 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Sesterhenn <snakebyte@gmx.de>
+From: Deepak Saxena <dsaxena@plexity.net>
 
-While checking gcc 4.1 -Wextra warnings, I stumbled across the following
-two warnings:
+We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
+generic IRQ layer will complain thusly:
 
-drivers/net/phy/phy_device.c:528: warning: comparison of unsigned expression < 0 is always false
-drivers/net/phy/phy_device.c:546: warning: comparison of unsigned expression < 0 is always false
+No IRQF_TRIGGER set_type function for IRQ 25 (<NULL>)
 
-Since phy_read() returns an integer and can return negative values, it seems
-to me the best way to get proper error handling working again is to make val
-an int.  Currently it is an u32, so the < 0 check always fails.
-
-Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
+Signed-off-by: Deepak Saxena <dsaxena@plexity.net>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Russell King <rmk@arm.linux.org.uk>
+Cc: Nicolas Pitre <nico@cam.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/phy/phy_device.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/smc91x.h |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-diff -puN drivers/net/phy/phy_device.c~signedness-issue-in-drivers-net-phy-phy_devicec drivers/net/phy/phy_device.c
---- a/drivers/net/phy/phy_device.c~signedness-issue-in-drivers-net-phy-phy_devicec
-+++ a/drivers/net/phy/phy_device.c
-@@ -522,7 +522,7 @@ EXPORT_SYMBOL(genphy_read_status);
+diff -puN drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info drivers/net/smc91x.h
+--- a/drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info
++++ a/drivers/net/smc91x.h
+@@ -379,6 +379,24 @@ static inline void LPD7_SMC_outsw (unsig
  
- static int genphy_config_init(struct phy_device *phydev)
- {
--	u32 val;
-+	int val;
- 	u32 features;
+ #define SMC_IRQ_FLAGS		(0)
  
- 	/* For now, I'll claim that the generic driver supports
++#elif	defined(CONFIG_ARCH_VERSATILE)
++
++#define SMC_CAN_USE_8BIT	1
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	1
++#define SMC_NOWAIT		1
++
++#define SMC_inb(a, r)		readb((a) + (r))
++#define SMC_inw(a, r)		readw((a) + (r))
++#define SMC_inl(a, r)		readl((a) + (r))
++#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)	writew(v, (a) + (r))
++#define SMC_outl(v, a, r)	writel(v, (a) + (r))
++#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
++#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
++
++#define SMC_IRQ_FLAGS		(0)
++
+ #else
+ 
+ #define SMC_CAN_USE_8BIT	1
 _
