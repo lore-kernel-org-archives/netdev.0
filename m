@@ -1,50 +1,47 @@
-From: Michal Ostrowski <mostrows@earthlink.net>
-Subject: Re: [PATCH] Advertise PPPoE MTU / avoid memory leak.
-Date: Mon, 25 Sep 2006 13:16:37 -0500
-Message-ID: <1159208197.23197.303.camel@brick.austin.ibm.com>
-References: <115903262344-git-send-email-mostrows@earthlink.net>
-	 <20060923.145600.51855973.davem@davemloft.net>
-	 <1159100966.23197.293.camel@brick.austin.ibm.com>
-	 <20060924.184118.104036249.davem@davemloft.net>
+From: "Matthieu CASTET" <castet.matthieu@free.fr>
+Subject: Re: kernel: TKIP: replay detected:
+Date: Mon, 25 Sep 2006 19:13:28 +0000 (UTC)
+Message-ID: <ef99oo$4jb$3@sea.gmane.org>
+References: <20060924104053.GA6645@frodo.home.lxtec.de>
+	<20060925144954.GC16949@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ppp-bugs@dp.samba.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw2.watson.ibm.com ([129.34.20.6]:42903 "EHLO
-	igw2.watson.ibm.com") by vger.kernel.org with ESMTP
-	id S1750793AbWIYSRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 14:17:55 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060924.184118.104036249.davem@davemloft.net>
+Received: from main.gmane.org ([80.91.229.2]:20947 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1751507AbWIYTP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 15:15:26 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1GRvuw-0005yU-Ix
+	for netdev@vger.kernel.org; Mon, 25 Sep 2006 21:15:02 +0200
+Received: from cac94-1-81-57-151-96.fbx.proxad.net ([81.57.151.96])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 21:15:02 +0200
+Received: from castet.matthieu by cac94-1-81-57-151-96.fbx.proxad.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 21:15:02 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-09-24 at 18:41 -0700, David Miller wrote:
-> From: Michal Ostrowski <mostrows@earthlink.net>
-> Date: Sun, 24 Sep 2006 07:29:25 -0500
-> 
-> > I think the call path via dev->hard_start_xmit, if it fails, may result
-> > in an skb not being freed.  This appears to be the case with the e100.c
-> > driver.  The qdisc_restart path to dev->hard_start_xmit also appears
-> > susceptible to this.  It appears that not all devices agree as to who
-> > should clean-up an skb on error.
-> 
-> There is a well defined policy about who frees the SKB or has
-> ownership of it based upon dev->hard_start_xmit() return values.
-> 
-> Any driver deviating from this set of rules should simply be
-> audited and fixed, as needed.
-> 
-> But, no matter, your change is buggy and we can't apply your
-> patch (even if it does fix a leak in some legitimate case)
-> because it introduces an obvious double-free bug.
-> 
+Hi,
 
-Yup.  I'll resubmit a fixed one.
+On Mon, 25 Sep 2006 10:50:00 -0400, John W. Linville wrote:
 
+> On Sun, Sep 24, 2006 at 12:40:53PM +0200, Elimar Riesebieter wrote:
+> 
+>> My sylog is filled up with thousands of:
+>> Sep 21 18:18:00 aragorn kernel: TKIP: replay detected: \
+>> STA=XX:XX:BB:LL:KK:00 previous TSC 00000000BLAa received TSC 00000000BLAa
+>> Sep 21 18:18:29 aragorn kernel: printk: 62 messages suppressed.
+> 
+> Opinion seems to be running that these messages are useless and should
+> be removed.  Anyone disagree?
+> 
+They could be useful for debugging.
 
--- 
-Michal Ostrowski <mostrows@earthlink.net>
+Instead of removing them, enable them when a DEBUG flags is enabled.
+
+Matthieu
 
