@@ -1,41 +1,34 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH v2 0/8] Updated patchset with Thomas' comments
-Date: Mon, 25 Sep 2006 15:18:03 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609251516240.26346@d.namei>
-References: <20060925180412.715069000@hp.com>
+From: "Matthieu CASTET" <castet.matthieu@free.fr>
+Subject: Re: softmac mtu
+Date: Mon, 25 Sep 2006 19:17:31 +0000 (UTC)
+Message-ID: <ef9a0b$4jb$4@sea.gmane.org>
+References: <ef3s4u$or5$3@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, tgraf@suug.ch,
-	jmorris@redhat.com, sds@epoch.ncsc.mil
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:37562 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751521AbWIYTSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 15:18:07 -0400
-To: Paul Moore <paul.moore@hp.com>,
-	"David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060925180412.715069000@hp.com>
+Received: from main.gmane.org ([80.91.229.2]:48552 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1751522AbWIYTUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 15:20:22 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1GRvzo-0007Ea-6J
+	for netdev@vger.kernel.org; Mon, 25 Sep 2006 21:20:04 +0200
+Received: from cac94-1-81-57-151-96.fbx.proxad.net ([81.57.151.96])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 21:20:03 +0200
+Received: from castet.matthieu by cac94-1-81-57-151-96.fbx.proxad.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 21:20:03 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Sep 2006, paul.moore@hp.com wrote:
+So why a special mtu handler is not implemented in 802.11 stack :
+- 802.11 stack doesn't support bigger packet
+- 802.11 stack doesn't support very bigger packet (with
+802.11 fragmentation)
+- 802.11 writers were lazy
 
-> This is an updated patchset which takes into account Thomas' comments.  This
-> includes the addition of two new patches in the patchset which add a new
-> Netlink interface as well as correct the list of interfaces in the large
-> comment block at the top of include/net/netlink.h.
-> 
-> Please consider these patches for 2.6.19, thanks.
+Matthieu
 
-All patches -
-
-Acked-by: James Morris <jmorris@namei.org>
-
-
-Dave, I think these should be applied now and queued for 2.6.19.
-
-
-
--- 
-James Morris
-<jmorris@namei.org>
