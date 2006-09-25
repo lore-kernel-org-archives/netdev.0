@@ -1,66 +1,59 @@
-From: mabbas <mabbas@linux.intel.com>
-Subject: Re: [d80211 patch 1/1] setting bss freq and phymode using rx_status
-Date: Mon, 25 Sep 2006 10:15:28 -0700
-Message-ID: <45180EB0.1060204@linux.intel.com>
-References: <44F356DF.9000000@linux.intel.com>	<20060921190126.4d884c44@logostar.upir.cz>	<1158865436.27546.23.camel@localhost.localdomain>	<4512EC5C.1030807@linux.intel.com>	<1158870634.5769.21.camel@localhost.localdomain>	<4512F876.7000203@linux.intel.com>	<20060922003844.6817f22b@logostar.upir.cz>	<20060921225514.GA26850@bougret.hpl.hp.com>	<20060922004235.GA7322@instant802.com>	<20060922005743.GB27052@bougret.hpl.hp.com>	<451463D6.4070309@linux.intel.com> <20060925181643.1621489a@griffin.suse.cz>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050003070009060001030506"
-Cc: Jiri Benc <jbenc@suse.cz>
+From: paul.moore@hp.com
+Subject: [PATCH v2 3/8] NetLabel: change the SELinux permissions
+Date: Mon, 25 Sep 2006 14:04:15 -0400
+Message-ID: <20060925180640.679073000@hp.com>
+References: <20060925180412.715069000@hp.com>
+Cc: tgraf@suug.ch, jmorris@redhat.com, sds@epoch.ncsc.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:28526 "EHLO
-	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1751318AbWIYRRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 13:17:17 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <20060925181643.1621489a@griffin.suse.cz>
+Received: from atlrel8.hp.com ([156.153.255.206]:32955 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1751418AbWIYSGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 14:06:43 -0400
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=netlabel-selinux_perm
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050003070009060001030506
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
+Change NetLabel to use the 'recvfrom' socket permission and the
+SECINITSID_NETMSG SELinux SID as the NetLabel base SID for incoming packets.
+This patch effectively makes the old, and currently unused, SELinux NETMSG
+permissions NetLabel permissions.
 
-actaully we dont even need local->conf.channel. rx_status->channel holds 
-the channel
-we physically received the frame on. channel hold the value from ds. if 
-they are not equal then
-adjust freq. Attached is the modified patch
+Signed-of-by: Paul Moore <paul.moore@hp.com>
+---
+ security/selinux/ss/services.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-
-
---------------050003070009060001030506
-Content-Type: text/x-patch;
- name="d80211-iwlist-fix-freq-mode.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d80211-iwlist-fix-freq-mode.patch"
-
-
-Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
-
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index a933d92..a0746b9 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -1539,12 +1539,12 @@ #endif
+Index: net-2.6.19/security/selinux/ss/services.c
+===================================================================
+--- net-2.6.19.orig/security/selinux/ss/services.c
++++ net-2.6.19/security/selinux/ss/services.c
+@@ -2611,7 +2611,7 @@ int selinux_netlbl_sock_rcv_skb(struct s
+ 	u32 netlbl_sid;
+ 	u32 recv_perm;
+ 
+-	rc = selinux_netlbl_skbuff_getsid(skb, sksec->sid, &netlbl_sid);
++	rc = selinux_netlbl_skbuff_getsid(skb, SECINITSID_NETMSG, &netlbl_sid);
+ 	if (rc != 0)
+ 		return rc;
+ 
+@@ -2620,13 +2620,13 @@ int selinux_netlbl_sock_rcv_skb(struct s
+ 
+ 	switch (sksec->sclass) {
+ 	case SECCLASS_UDP_SOCKET:
+-		recv_perm = UDP_SOCKET__RECV_MSG;
++		recv_perm = UDP_SOCKET__RECVFROM;
+ 		break;
+ 	case SECCLASS_TCP_SOCKET:
+-		recv_perm = TCP_SOCKET__RECV_MSG;
++		recv_perm = TCP_SOCKET__RECVFROM;
+ 		break;
+ 	default:
+-		recv_perm = RAWIP_SOCKET__RECV_MSG;
++		recv_perm = RAWIP_SOCKET__RECVFROM;
  	}
  
- 
--	bss->hw_mode = local->conf.phymode;
-+	bss->hw_mode = rx_status->phymode;
- 	bss->channel = channel;
--	bss->freq = local->conf.freq;
--	if (channel != local->conf.channel &&
--	    (local->conf.phymode == MODE_IEEE80211G ||
--	     local->conf.phymode == MODE_IEEE80211B) &&
-+	bss->freq = rx_status->freq;
-+	if (channel != rx_status->channel &&
-+	    (bss->hw_mode == MODE_IEEE80211G ||
-+	     bss->hw_mode == MODE_IEEE80211B) &&
- 	    channel >= 1 && channel <= 14) {
- 		static const int freq_list[] = {
- 			2412, 2417, 2422, 2427, 2432, 2437, 2442,
+ 	rc = avc_has_perm(sksec->sid,
 
---------------050003070009060001030506--
+--
+paul moore
+linux security @ hp
