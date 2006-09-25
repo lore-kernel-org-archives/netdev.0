@@ -1,38 +1,34 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 1/3] cfg80211/nl80211 core
-Date: Mon, 25 Sep 2006 11:05:07 +0200
-Message-ID: <1159175107.4509.15.camel@ux156>
-References: <1158230812.2936.46.camel@ux156>
-	 <1158230963.2936.49.camel@ux156> <20060922174811.6485d795@logostar.upir.cz>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 4/6] NetLabel: rework the Netlink attribute handling (part 1)
+Date: Mon, 25 Sep 2006 11:12:35 +0200
+Message-ID: <20060925091235.GN18349@postel.suug.ch>
+References: <20060921165703.251871000@hp.com> <20060921170337.004669000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Mohamed Abbas <mabbas@linux.intel.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Daniel Drake <dsd@gentoo.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org, sds@epoch.ncsc.mil,
+	jmorris@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:4296 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750804AbWIYJEV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 05:04:21 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060922174811.6485d795@logostar.upir.cz>
+Received: from postel.suug.ch ([194.88.212.233]:59552 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1750815AbWIYJMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 05:12:14 -0400
+To: paul.moore@hp.com
+Content-Disposition: inline
+In-Reply-To: <20060921170337.004669000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-09-22 at 17:48 +0200, Jiri Benc wrote:
-> On Thu, 14 Sep 2006 12:49:23 +0200, Johannes Berg wrote:
-> > There should be support for notifications, but we need to figure
-> > out if we remove the sysfs based add/remove virtual interface
-> > thing completely or allow the driver to create a notification
-> > through some new API here.
-> 
-> Feel free to remove it if it makes your work easier.
+* paul.moore@hp.com <paul.moore@hp.com> 2006-09-21 12:57
+> -int netlbl_netlink_snd_multicast(struct sk_buff *skb, u32 pid, u32 group)
+> +int netlbl_netlink_snd_multicast(struct sk_buff *skb,
+> +				 void *buf,
+> +				 u32 pid,
+> +				 u32 group)
+>  {
+> +	genlmsg_end(skb, buf);
+>  	return genlmsg_multicast(skb, pid, group, GFP_KERNEL);
+>  }
 
-It definitely would.
+This is a bit weird at first, one would expect that the message
+is terminated when it is build but I guess this is ok for now.
 
-johannes
+Rest seems fine.
