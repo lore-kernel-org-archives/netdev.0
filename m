@@ -1,55 +1,35 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
-Date: Sun, 24 Sep 2006 21:07:43 -0400
-Message-ID: <200609250107.k8P17h8A019714@turing-police.cc.vt.edu>
-References: <20060923120704.GA32284@zlug.org> <20060923121327.GH30245@lug-owl.de> <1159015118.5301.19.camel@jzny2>
-            <20060923132736.GA345@zlug.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1159146463_16795P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Jan-Benedict Glaw <jbglaw@lug-owl.de>,
-	Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH] Restore the original TX FIFO overflow process.
+Date: Mon, 25 Sep 2006 09:20:57 +0800
+Message-ID: <005801c6e040$dae8daa0$4964a8c0@icplus.com.tw>
+References: <1158953401.2630.0.camel@localhost.localdomain><20060923015041.54e1aa51.akpm@osdl.org> <20060923015157.b4014c6a.akpm@osdl.org>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-71-254-65-206.ronkva.east.verizon.net ([71.254.65.206]:3527
-	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
-	id S1751782AbWIYBIc (ORCPT <RFC822;netdev@vger.kernel.org>);
-	Sun, 24 Sep 2006 21:08:32 -0400
-To: Joerg Roedel <joro-lkml@zlug.org>
-In-Reply-To: Your message of "Sat, 23 Sep 2006 15:27:36 +0200."
-             <20060923132736.GA345@zlug.org>
+Received: from msr40.hinet.net ([168.95.4.140]:12267 "EHLO msr40.hinet.net")
+	by vger.kernel.org with ESMTP id S1751801AbWIYBVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2006 21:21:09 -0400
+To: "Andrew Morton" <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1159146463_16795P
-Content-Type: text/plain; charset=us-ascii
+Ok, I will generate new patch according to this.
 
-On Sat, 23 Sep 2006 15:27:36 +0200, Joerg Roedel said:
+Thanks.
+----- Original Message ----- 
+From: "Andrew Morton" <akpm@osdl.org>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Sent: Saturday, September 23, 2006 4:51 PM
+Subject: Re: [PATCH] Restore the original TX FIFO overflow process.
 
-> (I assume you are speaking of the position of the 3 in the header). The
-> RFC is not clear at this point. It defines that the first 4 bits in the
-> 16 bit Ethernet header MUST be 0011. But it don't defines the
-> byteorder of that 16 bit word nor if the least or most significant bit
-> comes first.
 
-Unless stated otherwise, it's pretty safe to assume that all "on the wire" data
-mentioned in an RFC is in 'network byte order'.  That's why hton*() and ntoh*()
-functions exist...
+On Sat, 23 Sep 2006 01:50:41 -0700
+Andrew Morton <akpm@osdl.org> wrote:
 
-Is there something in the RFC that suggests that a byte order other than
-'network order' is possible/acceptable there?
+> I suggest you send a complete new patch series against Jeff's latest tree.
+> I'll send you a copy of that.
 
---==_Exmh_1159146463_16795P
-Content-Type: application/pgp-signature
+attached.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
 
-iD8DBQFFFyvfcC3lWbTT17ARAsOTAKDec+tjKGbWpGug29jg4SmPmkT02QCgumNE
-f5rOne55cvmC3bawERalwlc=
-=K3FP
------END PGP SIGNATURE-----
 
---==_Exmh_1159146463_16795P--
