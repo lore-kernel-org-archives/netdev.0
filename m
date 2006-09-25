@@ -1,52 +1,71 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] ieee80211: quiet TKIP and CCMP replay messages for
- identical TSCs
-Date: Mon, 25 Sep 2006 10:49:12 -0500
-Message-ID: <4517FA78.mailH4P11L3ZE@lwfinger.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH] small fix for d80211:sta_info
+Date: Mon, 25 Sep 2006 18:04:03 +0200
+Message-ID: <20060925180403.0d4c2ee9@griffin.suse.cz>
+References: <4517DB26.8040008@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-01.rdc-kc.rr.com ([24.94.166.115]:64228 "EHLO
-	ms-smtp-01.rdc-kc.rr.com") by vger.kernel.org with ESMTP
-	id S1751051AbWIYPts (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 11:49:48 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from styx.suse.cz ([82.119.242.94]:28108 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1750843AbWIYQEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 12:04:05 -0400
+To: Savin Zlobec <savinz@users.sourceforge.net>
+In-Reply-To: <4517DB26.8040008@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using TKIP and CCMP for wireless encryption with ieee80211, the logs get filled with useless
-replay messages where the previous and received TSC are identical. This change deletes
-the log message for this case, but still prints the message when there are major differences
-in the TSC's.
+On Mon, 25 Sep 2006 15:35:34 +0200, Savin Zlobec wrote:
+> while testing the rt2x00 driver I've found a
+> problem in d80211 stack which results in kernel panic.
+> I experienced kernel panic every time I unloaded the
+> rt2x00 driver module after associating with my AP.
+> 
+> The problem traced down to sta_info_proc_add_task
+> being called with local->deleted_sta_list != empty
+> and local->sta_list == empty which resulted in
+> a call to ieee80211_sta_sysfs_add with a bogus sta.
+> 
+> Attached is a fix for the mentioned case.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Thanks for the patch!
+
+I think this is a slightly better fix for the problem:
+
 ---
+Subject: [PATCH] d80211: fix invalid pointer dereference
 
-Index: wireless-2.6/net/ieee80211/ieee80211_crypt_tkip.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/ieee80211_crypt_tkip.c
-+++ wireless-2.6/net/ieee80211/ieee80211_crypt_tkip.c
-@@ -394,7 +394,7 @@ static inline int tkip_replay_check(u32 
- 				    u32 iv32_o, u16 iv16_o)
- {
- 	if ((s32)iv32_n - (s32)iv32_o < 0 ||
--	    (iv32_n == iv32_o && iv16_n <= iv16_o))
-+	    (iv32_n == iv32_o && iv16_n < iv16_o))
- 		return 1;
- 	return 0;
- }
-Index: wireless-2.6/net/ieee80211/ieee80211_crypt_ccmp.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/ieee80211_crypt_ccmp.c
-+++ wireless-2.6/net/ieee80211/ieee80211_crypt_ccmp.c
-@@ -287,7 +287,7 @@ static inline int ccmp_replay_check(u8 *
- 	iv16_o = (pn_o[4] << 8) | pn_o[5];
+When deleted_sta_list is nonempty and sta_list is empty in
+sta_info_proc_add_task, an invalid sta pointer was dereferenced.
+
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
+
+---
+ net/d80211/sta_info.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
+
+--- dscape.orig/net/d80211/sta_info.c
++++ dscape/net/d80211/sta_info.c
+@@ -354,13 +354,14 @@ static void sta_info_proc_add_task(void 
+ 	}
  
- 	if ((s32)iv32_n - (s32)iv32_o < 0 ||
--	    (iv32_n == iv32_o && iv16_n <= iv16_o))
-+	    (iv32_n == iv32_o && iv16_n < iv16_o))
- 		return 1;
- 	return 0;
- }
+ 	while (1) {
++		sta = NULL;
+ 		spin_lock_bh(&local->sta_lock);
+-		list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
+-			if (!sta->sysfs_registered) {
++		list_for_each_entry(tmp, &local->sta_list, list) {
++			if (!tmp->sysfs_registered) {
++				sta = tmp;
+ 				__sta_info_get(sta);
+ 				break;
+ 			}
+-			sta = NULL;
+ 		}
+ 		spin_unlock_bh(&local->sta_lock);
+ 
+
+-- 
+Jiri Benc
+SUSE Labs
