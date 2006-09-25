@@ -1,34 +1,29 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: bcm43xx driver unstable behaviour (and linux wireless is junk
-	btw)
-Date: Mon, 25 Sep 2006 12:00:47 +0200
-Message-ID: <1159178447.4509.17.camel@ux156>
-References: <1159065798.5924.8.camel@localhost.localdomain>
-	 <4515FF5D.4080602@gentoo.org>
-	 <1159078683.5924.16.camel@localhost.localdomain>
-	 <1159174960.4509.13.camel@ux156>
-	 <1159178281.13140.5.camel@localhost.localdomain>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
+Date: 25 Sep 2006 12:22:41 +0200
+Message-ID: <p738xk8kzym.fsf@verdi.suse.de>
+References: <20060923120704.GA32284@zlug.org>
+	<20060923121327.GH30245@lug-owl.de> <1159015118.5301.19.camel@jzny2>
+	<20060923.163535.41636370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>, Bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jbglaw@lug-owl.de, joro-lkml@zlug.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:43163 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750917AbWIYKAG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 06:00:06 -0400
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1159178281.13140.5.camel@localhost.localdomain>
+Received: from ns.suse.de ([195.135.220.2]:3226 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1750876AbWIYKWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 06:22:54 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060923.163535.41636370.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-09-25 at 19:58 +1000, Benjamin Herrenschmidt wrote:
+David Miller <davem@davemloft.net> writes:
+> 
+> First, the only mentioned real use of EtherIP I've seen anywhere is to
+> tunnel old LAN based games that used protocols other than IP :-)
 
-> Doh ! Scary... locking is hard ... if the stuff was written without
-> locking in mind in the first place, it might end up being a nightmare...
+How would you convince those old LAN games to use a MTU < 1500 which
+is needed for the tunnel?  I bet they have the size hardcoded.
 
-Yeah, I've actually suggested "rewriting" it from its own pieces :) But
-Jiri says he understands it well enough now to not have to do that.
-
-johannes
+-Andi
