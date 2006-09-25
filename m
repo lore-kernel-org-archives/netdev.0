@@ -1,167 +1,95 @@
 From: akpm@osdl.org
-Subject: [patch 3/3] Add netpoll/netconsole support to vlan devices
-Date: Mon, 25 Sep 2006 16:43:10 -0700
-Message-ID: <200609252343.k8PNhAKO002851@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jesper.juhl@gmail.com,
-	davem@redhat.com, greearb@candelatech.com, mingo@redhat.com,
-	mpm@selenic.com
+Subject: [patch 1/3] tulip: fix shutdown DMA/irq race
+Date: Mon, 25 Sep 2006 16:42:15 -0700
+Message-ID: <200609252342.k8PNgFY5002814@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, grundler@parisc-linux.org,
+	jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:33717 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751748AbWIYXnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:43:32 -0400
-To: davem@davemloft.net
+Received: from smtp.osdl.org ([65.172.181.4]:55477 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750930AbWIYXpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:45:32 -0400
+To: val_henson@linux.intel.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
+From: Grant Grundler <grundler@parisc-linux.org>
 
-I recently tried running netconsole via a vlan interface without luck,
-and decided to do something about it (see patch below).
+IRQs are racing with tulip_down().  DMA can be restarted by the interrupt
+handler _after_ we call tulip_stop_rxtx() and the DMA buffers are unmapped.
+ The result is an MCA (hard crash on ia64) because of an IO TLB miss.  The
+long-term fix is to make the interrupt handler shutdown aware.
 
-My interfaces look like this:
-
-eth0      Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:11763760878 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:13800040335 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:3453951528686 (3.1 TiB)  TX bytes:7086425530052 (6.4 TiB)
-          Interrupt:169
-
-eth0.20   Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
-          inet addr:vvv.xxx.yyy.zzz  Bcast:ggg.hhh.iii.jjj  Mask:255.255.252.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:11759883828 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:13800040452 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:3194985806767 (2.9 TiB)  TX bytes:6975984645540 (6.3 TiB)
-
-Trying to load netconsole fails miserably :
-
-[root@server root]# modprobe netconsole
-netconsole=@/eth0,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
-FATAL: Error inserting netconsole
-(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
-[root@server root]# modprobe netconsole
-netconsole=@/eth0.20,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
-FATAL: Error inserting netconsole
-(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
-
-And results in this in dmesg :
-
-netconsole: interface eth0
-netconsole: remote port 10514
-netconsole: remote IP aaa.bbb.ccc.ddd
-netconsole: remote ethernet address 00:04:23:bf:d9:62
-netconsole: no IP address for eth0, aborting
-netconsole: local port 6665
-netconsole: interface eth0.20
-netconsole: remote port 10514
-netconsole: remote IP aaa.bbb.ccc.ddd
-netconsole: remote ethernet address 00:04:23:bf:d9:62
-netconsole: eth0.20 doesn't support polling, aborting.
-
-The actual interface is a e1000 and supports polling just fine.
-The problem is simply that netpoll won't play with eth0 since it has
-no IP and it won't play with eth0.20 either since it's a vlan
-interface and doesn't support polling even if the underlying device
-does.
-
-This is a problem for me since it means that several of my servers
-that are configured like this won't be able to use netconsole.
-So I set out to try and fix the problem by making the vlan device
-support polling if the underlying device supports polling.
-
-I have met with a resonable success in that the patch below seems to
-work. With this patch I can now load netconsole for eth0.20 and log
-messages are send just fine and can be recieved on the remote host.
-
- netconsole: local port 6665
- netconsole: interface eth0.20
- netconsole: remote port 10514
- netconsole: remote IP aaa.bbb.ccc.ddd
- netconsole: remote ethernet address 00:04:23:bf:d9:62
- netconsole: local IP vvv.xxx.yyy.zzz
- netconsole: network logging started
-
-Now, I would very much like to get this merged, but first I would
-appreciate some review of the patch. This part of the kernel is not
-one I know all too well, so I may have made a number of silly mistakes.
-If people would kindly take a look at the patch and point out any
-problems with it so I can fix it up and arrive at a version that's
-mergable, I'd greatly appreciate it.
-
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: "David S. Miller" <davem@redhat.com>
+Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+Acked-by: Valerie Henson <val_henson@linux.intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- net/8021q/vlan.c     |    5 +++++
- net/8021q/vlan_dev.c |   15 ++++++++++++++-
- 2 files changed, 19 insertions(+), 1 deletion(-)
+ drivers/net/tulip/tulip_core.c |   31 +++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
 
-diff -puN net/8021q/vlan.c~add-netpoll-netconsole-support-to-vlan-devices net/8021q/vlan.c
---- a/net/8021q/vlan.c~add-netpoll-netconsole-support-to-vlan-devices
-+++ a/net/8021q/vlan.c
-@@ -11,6 +11,7 @@
-  *		Add HW acceleration hooks - David S. Miller <davem@redhat.com>;
-  *		Correct all the locking - David S. Miller <davem@redhat.com>;
-  *		Use hash table for VLAN groups - David S. Miller <davem@redhat.com>
-+ *		Add NETPOLL support - Jesper Juhl
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-@@ -512,6 +513,10 @@ static struct net_device *register_vlan_
- 	}
- 	new_dev->hard_header_parse = real_dev->hard_header_parse;
+diff -puN drivers/net/tulip/tulip_core.c~tulip-fix-shutdown-dma-irq-race drivers/net/tulip/tulip_core.c
+--- a/drivers/net/tulip/tulip_core.c~tulip-fix-shutdown-dma-irq-race
++++ a/drivers/net/tulip/tulip_core.c
+@@ -734,23 +734,36 @@ static void tulip_down (struct net_devic
+ #endif
+ 	spin_lock_irqsave (&tp->lock, flags);
  
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	new_dev->poll_controller = real_dev->poll_controller;
-+#endif
++	/*
++	  FIXME: We should really add a shutdown-in-progress flag and
++	  check it in the interrupt handler to see whether we should
++	  reenable DMA or not.  The preferred ordering here would be:
 +
- 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
- 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
- 	VLAN_DEV_INFO(new_dev)->dent = NULL;
-diff -puN net/8021q/vlan_dev.c~add-netpoll-netconsole-support-to-vlan-devices net/8021q/vlan_dev.c
---- a/net/8021q/vlan_dev.c~add-netpoll-netconsole-support-to-vlan-devices
-+++ a/net/8021q/vlan_dev.c
-@@ -12,7 +12,8 @@
-  *              Oct 20, 2001:  Ard van Breeman:
-  *                - Fix MC-list, finally.
-  *                - Flush MC-list on VLAN destroy.
-- *                
-+ *		Aug 31, 2006: Jesper Juhl
-+ *		  - Add NETPOLL support.
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-@@ -489,6 +490,12 @@ int vlan_dev_hard_start_xmit(struct sk_b
- 	stats->tx_bytes += skb->len;
++	  stop DMA engine
++	  disable interrupts
++	  remove DMA resources
++	  free_irq()
++
++	  The below works but is non-obvious and doesn't match the
++	  ordering of bring-up. -VAL
++	*/
++
+ 	/* Disable interrupts by clearing the interrupt mask. */
+ 	iowrite32 (0x00000000, ioaddr + CSR7);
++	ioread32 (ioaddr + CSR7);	/* flush posted write */
  
- 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (irqs_disabled()) {
-+		skb->dev->hard_start_xmit(skb, skb->dev);
-+		return 0;
-+	}
-+#endif
- 	dev_queue_xmit(skb);
+-	/* Stop the Tx and Rx processes. */
+-	tulip_stop_rxtx(tp);
++	spin_unlock_irqrestore (&tp->lock, flags);
  
- 	return 0;
-@@ -513,6 +520,12 @@ int vlan_dev_hwaccel_hard_start_xmit(str
- 	stats->tx_bytes += skb->len;
+-	/* prepare receive buffers */
+-	tulip_refill_rx(dev);
++	free_irq (dev->irq, dev);	/* no more races after this */
++	tulip_stop_rxtx(tp);		/* Stop DMA */
  
- 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (irqs_disabled()) {
-+		skb->dev->hard_start_xmit(skb, skb->dev);
-+		return 0;
-+	}
-+#endif
- 	dev_queue_xmit(skb);
+-	/* release any unconsumed transmit buffers */
+-	tulip_clean_tx_ring(tp);
++	/* Put driver back into the state we start with */
++	tulip_refill_rx(dev);		/* prepare RX buffers */
++	tulip_clean_tx_ring(tp);	/* clean up unsent TX buffers */
  
- 	return 0;
+ 	if (ioread32 (ioaddr + CSR6) != 0xffffffff)
+ 		tp->stats.rx_missed_errors += ioread32 (ioaddr + CSR8) & 0xffff;
+ 
+-	spin_unlock_irqrestore (&tp->lock, flags);
+-
+ 	init_timer(&tp->timer);
+ 	tp->timer.data = (unsigned long)dev;
+ 	tp->timer.function = tulip_tbl[tp->chip_id].media_timer;
+@@ -776,7 +789,6 @@ static int tulip_close (struct net_devic
+ 		printk (KERN_DEBUG "%s: Shutting down ethercard, status was %2.2x.\n",
+ 			dev->name, ioread32 (ioaddr + CSR5));
+ 
+-	free_irq (dev->irq, dev);
+ 
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+@@ -1746,7 +1758,6 @@ static int tulip_suspend (struct pci_dev
+ 		tulip_down(dev);
+ 
+ 	netif_device_detach(dev);
+-	free_irq(dev->irq, dev);
+ 
+ 	pci_save_state(pdev);
+ 	pci_disable_device(pdev);
 _
