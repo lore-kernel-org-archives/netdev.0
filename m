@@ -1,95 +1,62 @@
-From: akpm@osdl.org
-Subject: [patch 1/3] tulip: fix shutdown DMA/irq race
-Date: Mon, 25 Sep 2006 16:42:15 -0700
-Message-ID: <200609252342.k8PNgFY5002814@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, grundler@parisc-linux.org,
-	jeff@garzik.org
+From: Andrew Morton <akpm@osdl.org>
+Subject: [patch] neighbour.c, pneigh_get_next() skips published entry
+Date: Mon, 25 Sep 2006 16:45:35 -0700
+Message-ID: <20060925164535.4245ee02.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jari Takkala <jari.takkala@q9.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55477 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750930AbWIYXpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:45:32 -0400
-To: val_henson@linux.intel.com
+Received: from smtp.osdl.org ([65.172.181.4]:57013 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750943AbWIYXpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:45:39 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <grundler@parisc-linux.org>
 
-IRQs are racing with tulip_down().  DMA can be restarted by the interrupt
-handler _after_ we call tulip_stop_rxtx() and the DMA buffers are unmapped.
- The result is an MCA (hard crash on ia64) because of an IO TLB miss.  The
-long-term fix is to make the interrupt handler shutdown aware.
+I've been sitting on this patch because afaik the problem which it purports
+to fix remains unfixed.
 
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-Acked-by: Valerie Henson <val_henson@linux.intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Should I drop it??
+
+Thanks.
+
+
+
+From: "Jari Takkala" <Jari.Takkala@Q9.com>
+
+Fix a problem where output from /proc/net/arp skips a record when the full
+output does not fit into the users read() buffer.
+
+To reproduce: publish a large number of ARP entries (more than 10 required
+on my system).  Run 'dd if=/proc/net/arp of=arp-1024.out bs=1024'.  View
+the output, one entry will be missing.
+
+Signed-off-by: Jari Takkala <jari.takkala@q9.com>
+
+[akpm: submitted before, discussion ended inconclusively, iirc]
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/tulip/tulip_core.c |   31 +++++++++++++++++++++----------
- 1 file changed, 21 insertions(+), 10 deletions(-)
+ net/core/neighbour.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff -puN drivers/net/tulip/tulip_core.c~tulip-fix-shutdown-dma-irq-race drivers/net/tulip/tulip_core.c
---- a/drivers/net/tulip/tulip_core.c~tulip-fix-shutdown-dma-irq-race
-+++ a/drivers/net/tulip/tulip_core.c
-@@ -734,23 +734,36 @@ static void tulip_down (struct net_devic
- #endif
- 	spin_lock_irqsave (&tp->lock, flags);
+diff -puN net/core/neighbour.c~neighbourc-pneigh_get_next-skips-published-entry net/core/neighbour.c
+--- a/net/core/neighbour.c~neighbourc-pneigh_get_next-skips-published-entry
++++ a/net/core/neighbour.c
+@@ -2209,6 +2209,12 @@ static struct pneigh_entry *pneigh_get_n
+ 	struct neigh_seq_state *state = seq->private;
+ 	struct neigh_table *tbl = state->tbl;
  
-+	/*
-+	  FIXME: We should really add a shutdown-in-progress flag and
-+	  check it in the interrupt handler to see whether we should
-+	  reenable DMA or not.  The preferred ordering here would be:
++	if (pos != NULL && *pos == 1 &&
++			(pn->next || tbl->phash_buckets[state->bucket])) {
++		--(*pos);
++		return pn;
++	}
 +
-+	  stop DMA engine
-+	  disable interrupts
-+	  remove DMA resources
-+	  free_irq()
-+
-+	  The below works but is non-obvious and doesn't match the
-+	  ordering of bring-up. -VAL
-+	*/
-+
- 	/* Disable interrupts by clearing the interrupt mask. */
- 	iowrite32 (0x00000000, ioaddr + CSR7);
-+	ioread32 (ioaddr + CSR7);	/* flush posted write */
- 
--	/* Stop the Tx and Rx processes. */
--	tulip_stop_rxtx(tp);
-+	spin_unlock_irqrestore (&tp->lock, flags);
- 
--	/* prepare receive buffers */
--	tulip_refill_rx(dev);
-+	free_irq (dev->irq, dev);	/* no more races after this */
-+	tulip_stop_rxtx(tp);		/* Stop DMA */
- 
--	/* release any unconsumed transmit buffers */
--	tulip_clean_tx_ring(tp);
-+	/* Put driver back into the state we start with */
-+	tulip_refill_rx(dev);		/* prepare RX buffers */
-+	tulip_clean_tx_ring(tp);	/* clean up unsent TX buffers */
- 
- 	if (ioread32 (ioaddr + CSR6) != 0xffffffff)
- 		tp->stats.rx_missed_errors += ioread32 (ioaddr + CSR8) & 0xffff;
- 
--	spin_unlock_irqrestore (&tp->lock, flags);
--
- 	init_timer(&tp->timer);
- 	tp->timer.data = (unsigned long)dev;
- 	tp->timer.function = tulip_tbl[tp->chip_id].media_timer;
-@@ -776,7 +789,6 @@ static int tulip_close (struct net_devic
- 		printk (KERN_DEBUG "%s: Shutting down ethercard, status was %2.2x.\n",
- 			dev->name, ioread32 (ioaddr + CSR5));
- 
--	free_irq (dev->irq, dev);
- 
- 	/* Free all the skbuffs in the Rx queue. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
-@@ -1746,7 +1758,6 @@ static int tulip_suspend (struct pci_dev
- 		tulip_down(dev);
- 
- 	netif_device_detach(dev);
--	free_irq(dev->irq, dev);
- 
- 	pci_save_state(pdev);
- 	pci_disable_device(pdev);
+ 	pn = pn->next;
+ 	while (!pn) {
+ 		if (++state->bucket > PNEIGH_HASHMASK)
 _
+
