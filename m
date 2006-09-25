@@ -1,101 +1,58 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: wireless-2.6 now has a 'pending' branch (was Re: Please pull 'upstream' branch of wireless-2.6.git)
-Date: Mon, 25 Sep 2006 17:55:36 -0400
-Message-ID: <20060925215535.GH16949@tuxdriver.com>
-References: <20060925215037.GG16949@tuxdriver.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH]: e1000: Janitor: Use #defined values for literals
+Date: Mon, 25 Sep 2006 17:30:50 -0500
+Message-ID: <20060925223050.GC4518@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:35338 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751493AbWIYV7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 17:59:43 -0400
-Received: from bilbo.hq.tuxdriver.com ([70.61.120.53])
-	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id k8PLsi3W029793
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 17:54:49 -0400
-Received: from bilbo.hq.tuxdriver.com (localhost.localdomain [127.0.0.1])
-	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k8PLtaeI010657
-	for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 17:55:36 -0400
-Received: (from linville@localhost)
-	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k8PLtasH010656
-	for netdev@vger.kernel.org; Mon, 25 Sep 2006 17:55:36 -0400
-To: netdev@vger.kernel.org
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:49051 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751260AbWIYWbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 18:31:53 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8PMVqFY026904
+	for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 18:31:52 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8PMVqGj273210
+	for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 18:31:52 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8PMUpLi028715
+	for <netdev@vger.kernel.org>; Mon, 25 Sep 2006 18:30:52 -0400
+To: Auke Kok <sofar@foo-projects.org>
 Content-Disposition: inline
-In-Reply-To: <20060925215037.GG16949@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2006 at 05:50:43PM -0400, John W. Linville wrote:
-> The following changes since commit 7c250413e5b7c3dfae89354725b70c76d7621395:
->   Al Viro:
->         pata_pdc2027x iomem annotations
-> 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
 
-It's been a little while, and for that I apologize.  Work, kids, elderly
-relatives, blah, blah, blah... :-(
+Resending a minor janitorial patch from long ago that seems to have 
+fallen through the cracks.  Its not in 2.6.18-git4 nor in 2.6.18-mm1.
+Please apply and forward upstream.
 
-Anyway, this covers _almost_ everything I've got in my queue for pushing
-upstream.  The exceptions are a couple of patches posted very recently
-which I'd like to give a chance to simmer first.  That gives people a
-little more time to review them rather than asking me to revert them
-later... :-)
+--linas
 
-Anyway, I know have a "pending" branch.  Patches on this branch are
-really only there for three reasons:
+[PATCH]: e1000: Janitor: Use #defined values for literals
 
-	-- to let the author know I got the patch;
+Minor janitorial patch: use #defines for literal values.
 
-	-- to let me know that the patch applies to the tree; and,
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-	-- to enhance a patch's exposure for review.
+----
+ drivers/net/e1000/e1000_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I do not intend to add my "Signed-off-by:" to patches on the pending
-branch.  This is intended to further signify (albeit subtley) that
-they are not yet queued for upstream.  This also implies that I won't
-be pulling from that branch, so you shouldn't be pulling from there
-into your own trees either (except for the purpose of reviewing the
-patches, of course).  I probably won't usually announce new patches
-in the pending branch, so feel free to check it periodically.
-
-For now, the pending branch is just a trial intended to add more
-visibility to the process.  Feel free to propose changes to the
-pending process if it does not seem to be effective.  YMMV, objects
-in mirror may be closer than they appear, you are not expected to
-understand this, etc... :-)
-
-John
-
-P.S.  Individual patches are available here (w/o using git):
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/pending
-
----
-
-The following changes since commit a67ab2bde752b26be75d4b68ecead9a14692eac5:
-  Larry Finger:
-        bcm43xx: fix netdev watchdog timeouts
-
-are found in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git pending
-
-Daniel Drake:
-      ieee80211: Move IV/ICV stripping into ieee80211_rx
-
-Larry Finger:
-      ieee80211: quiet TKIP and CCMP replay messages for identical TSCs
-
- drivers/net/wireless/bcm43xx/bcm43xx_main.c |    3 +
- drivers/net/wireless/bcm43xx/bcm43xx_xmit.c |   19 ---------
- drivers/net/wireless/ipw2200.c              |   48 +----------------------
- include/net/ieee80211.h                     |    4 ++
- net/ieee80211/ieee80211_crypt_ccmp.c        |    2 -
- net/ieee80211/ieee80211_crypt_tkip.c        |    2 -
- net/ieee80211/ieee80211_rx.c                |   56 ++++++++++++++++++++++++---
- 7 files changed, 61 insertions(+), 73 deletions(-)
--- 
-John W. Linville
-linville@tuxdriver.com
+Index: linux-2.6.18-mm1/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.18-mm1.orig/drivers/net/e1000/e1000_main.c	2006-09-25 17:23:32.000000000 -0500
++++ linux-2.6.18-mm1/drivers/net/e1000/e1000_main.c	2006-09-25 17:23:51.000000000 -0500
+@@ -4986,8 +4986,8 @@ static pci_ers_result_t e1000_io_slot_re
+ 	}
+ 	pci_set_master(pdev);
+ 
+-	pci_enable_wake(pdev, 3, 0);
+-	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
++	pci_enable_wake(pdev, PCI_D3hot, 0);
++	pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+ 	/* Perform card reset only on one instance of the card */
+ 	if (PCI_FUNC (pdev->devfn) != 0)
