@@ -1,179 +1,105 @@
 From: akpm@osdl.org
-Subject: [patch 02/11] 3x59x: fix PCI resource management
-Date: Mon, 25 Sep 2006 16:39:16 -0700
-Message-ID: <200609252339.k8PNdGBp002625@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com,
-	sshtylyov@ru.mvista.com
+Subject: [patch 2/3] tulip: fix for 64-bit mips
+Date: Mon, 25 Sep 2006 16:42:16 -0700
+Message-ID: <200609252342.k8PNgGoH002817@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, maillist@jg555.com,
+	grundler@parisc-linux.org, pdh@colonel-panic.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:31412 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751730AbWIYXkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:40:35 -0400
-To: jeff@garzik.org
+Received: from smtp.osdl.org ([65.172.181.4]:2741 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751734AbWIYXmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 19:42:42 -0400
+To: val_henson@linux.intel.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Jim Gifford <maillist@jg555.com>,
+      Grant Grundler <grundler@parisc-linux.org>,
+      Peter Horton <pdh@colonel-panic.org>
 
-The driver wrongly claimed I/O ports at an address returned by pci_iomap()
--- even if it was passed an MMIO address.  Fix this by claiming/releasing
-all PCI resources in the PCI driver probe/remove handlers instead and get
-rid of the must_free_region flag weirdness (why would Cardbus claim
-anything for us?).
+With Grant's help I was able to get the tulip driver to work with 64 bit 
+MIPS.
 
-Also, the remove handler was trying to talk to the chip after having
-disabled its address decoders (at least on x86) -- fix this and get rid of
-useless VORTEX_PCI() calls.
+Cc: Valerie Henson <val_henson@linux.intel.com>
 
-While at it, fix some cases of the overly indented code...
+[akpm: this is a previously-nacked patch, but the problem is real]
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Jeff sez:
 
-- Would prefer that vortex_init_one() do the `goto out_release;' thing
-  rather than having multiple cleanup-then-return points.
+| Answer hasn't changed since this was last discussed:  sleep, rather than
+| delay for an extra-long time.  That's the only hurdle for the tulip
+| patches you keep resending.
 
-- I don't remember the story with cardbus either.  Presumably once upon a
-  time the cardbus layer was claiming IO regions on behalf of cardbus
-  devices (?)
+| Francois Romieu even had an untested patch that attempted this,
+| somewhere.
 
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/3c59x.c |   66 ++++++++++++++++++++----------------------
- 1 file changed, 32 insertions(+), 34 deletions(-)
+ drivers/net/tulip/media.c |   22 ++++++++++++++++++++--
+ drivers/net/tulip/tulip.h |    7 +++++--
+ 2 files changed, 25 insertions(+), 4 deletions(-)
 
-diff -puN drivers/net/3c59x.c~3x59x-fix-pci-resource-management drivers/net/3c59x.c
---- a/drivers/net/3c59x.c~3x59x-fix-pci-resource-management
-+++ a/drivers/net/3c59x.c
-@@ -630,7 +630,6 @@ struct vortex_private {
- 		pm_state_valid:1,				/* pci_dev->saved_config_space has sane contents */
- 		open:1,
- 		medialock:1,
--		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O region */
- 		large_frames:1;			/* accept large frames */
- 	int drv_flags;
- 	u16 status_enable;
-@@ -956,7 +955,13 @@ static int __devinit vortex_init_one(str
- 	/* wake up and enable device */
- 	rc = pci_enable_device(pdev);
- 	if (rc < 0)
--		goto out;
-+		return rc;
+diff -puN drivers/net/tulip/media.c~tulip-fix-for-64-bit-mips drivers/net/tulip/media.c
+--- a/drivers/net/tulip/media.c~tulip-fix-for-64-bit-mips
++++ a/drivers/net/tulip/media.c
+@@ -44,8 +44,10 @@ static const unsigned char comet_miireg2
+ 
+ /* MII transceiver control section.
+    Read and write the MII registers using software-generated serial
+-   MDIO protocol.  See the MII specifications or DP83840A data sheet
+-   for details. */
++   MDIO protocol.
++   See IEEE 802.3-2002.pdf (Section 2, Chapter "22.2.4 Management functions")
++   or DP83840A data sheet for more details.
++   */
+ 
+ int tulip_mdio_read(struct net_device *dev, int phy_id, int location)
+ {
+@@ -272,13 +274,29 @@ void tulip_select_media(struct net_devic
+ 				int reset_length = p[2 + init_length];
+ 				misc_info = (u16*)(reset_sequence + reset_length);
+ 				if (startup) {
++					int timeout = 10;	/* max 1 ms */
+ 					iowrite32(mtable->csr12dir | 0x100, ioaddr + CSR12);
+ 					for (i = 0; i < reset_length; i++)
+ 						iowrite32(reset_sequence[i], ioaddr + CSR12);
 +
-+	rc = pci_request_regions(pdev, "3c59x");
-+	if (rc < 0) {
-+		pci_disable_device(pdev);
-+		return rc;
-+	}
++					/* flush posted writes */
++					ioread32(ioaddr + CSR12);
++
++					/* Sect 3.10.3 in DP83840A.pdf (p39) */
++					udelay(500);
++
++					/* Section 4.2 in DP83840A.pdf (p43) */
++					/* and IEEE 802.3 "22.2.4.1.1 Reset" */
++					while (timeout-- &&
++						(tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
++						udelay(100);
+ 				}
+ 				for (i = 0; i < init_length; i++)
+ 					iowrite32(init_sequence[i], ioaddr + CSR12);
++
++				ioread32(ioaddr + CSR12);	/* flush posted writes */
+ 			}
++
+ 			tmp_info = get_u16(&misc_info[1]);
+ 			if (tmp_info)
+ 				tp->advertising[phy_num] = tmp_info | 1;
+diff -puN drivers/net/tulip/tulip.h~tulip-fix-for-64-bit-mips drivers/net/tulip/tulip.h
+--- a/drivers/net/tulip/tulip.h~tulip-fix-for-64-bit-mips
++++ a/drivers/net/tulip/tulip.h
+@@ -481,8 +481,11 @@ static inline void tulip_stop_rxtx(struc
+ 			udelay(10);
  
- 	unit = vortex_cards_found;
- 
-@@ -976,13 +981,13 @@ static int __devinit vortex_init_one(str
- 	rc = vortex_probe1(&pdev->dev, ioaddr, pdev->irq,
- 			   ent->driver_data, unit);
- 	if (rc < 0) {
--		pci_disable_device(pdev);
--		goto out;
-+		pci_release_regions(pdev);
-+		pci_disable_device (pdev);
-+		return rc;
+ 		if (!i)
+-			printk(KERN_DEBUG "%s: tulip_stop_rxtx() failed\n",
+-					pci_name(tp->pdev));
++			printk(KERN_DEBUG "%s: tulip_stop_rxtx() failed"
++					" (CSR5 0x%x CSR6 0x%x)\n",
++					pci_name(tp->pdev),
++					ioread32(ioaddr + CSR5),
++					ioread32(ioaddr + CSR6));
  	}
- 
- 	vortex_cards_found++;
- 
--out:
- 	return rc;
- }
- 
-@@ -1084,11 +1089,6 @@ static int __devinit vortex_probe1(struc
- 
- 	/* PCI-only startup logic */
- 	if (pdev) {
--		/* EISA resources already marked, so only PCI needs to do this here */
--		/* Ignore return value, because Cardbus drivers already allocate for us */
--		if (request_region(dev->base_addr, vci->io_size, print_name) != NULL)
--			vp->must_free_region = 1;
--
- 		/* enable bus-mastering if necessary */
- 		if (vci->flags & PCI_USES_MASTER)
- 			pci_set_master(pdev);
-@@ -1120,12 +1120,13 @@ static int __devinit vortex_probe1(struc
- 	vp->mii.reg_num_mask = 0x1f;
- 
- 	/* Makes sure rings are at least 16 byte aligned. */
--	vp->rx_ring = pci_alloc_consistent(pdev, sizeof(struct boom_rx_desc) * RX_RING_SIZE
--					   + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
-+	vp->rx_ring = pci_alloc_consistent(pdev,
-+					   sizeof(struct boom_rx_desc) * RX_RING_SIZE +
-+					   sizeof(struct boom_tx_desc) * TX_RING_SIZE,
- 					   &vp->rx_ring_dma);
- 	retval = -ENOMEM;
- 	if (vp->rx_ring == 0)
--		goto free_region;
-+		goto free_device;
- 
- 	vp->tx_ring = (struct boom_tx_desc *)(vp->rx_ring + RX_RING_SIZE);
- 	vp->tx_ring_dma = vp->rx_ring_dma + sizeof(struct boom_rx_desc) * RX_RING_SIZE;
-@@ -1406,13 +1407,11 @@ static int __devinit vortex_probe1(struc
- 
- free_ring:
- 	pci_free_consistent(pdev,
--						sizeof(struct boom_rx_desc) * RX_RING_SIZE
--							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
--						vp->rx_ring,
--						vp->rx_ring_dma);
--free_region:
--	if (vp->must_free_region)
--		release_region(dev->base_addr, vci->io_size);
-+			    sizeof(struct boom_rx_desc) * RX_RING_SIZE +
-+			    sizeof(struct boom_tx_desc) * TX_RING_SIZE,
-+			    vp->rx_ring,
-+			    vp->rx_ring_dma);
-+free_device:
- 	free_netdev(dev);
- 	printk(KERN_ERR PFX "vortex_probe1 fails.  Returns %d\n", retval);
- out:
-@@ -3122,29 +3121,28 @@ static void __devexit vortex_remove_one(
- 	vp = netdev_priv(dev);
- 
- 	if (vp->cb_fn_base)
--		pci_iounmap(VORTEX_PCI(vp), vp->cb_fn_base);
-+		pci_iounmap(pdev, vp->cb_fn_base);
- 
- 	unregister_netdev(dev);
- 
--	if (VORTEX_PCI(vp)) {
--		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
--		if (vp->pm_state_valid)
--			pci_restore_state(VORTEX_PCI(vp));
--		pci_disable_device(VORTEX_PCI(vp));
--	}
-+	pci_set_power_state(pdev, PCI_D0);	/* Go active */
-+	if (vp->pm_state_valid)
-+		pci_restore_state(pdev);
-+
- 	/* Should really use issue_and_wait() here */
- 	iowrite16(TotalReset | ((vp->drv_flags & EEPROM_RESET) ? 0x04 : 0x14),
- 	     vp->ioaddr + EL3_CMD);
- 
--	pci_iounmap(VORTEX_PCI(vp), vp->ioaddr);
-+	pci_iounmap(pdev, vp->ioaddr);
- 
- 	pci_free_consistent(pdev,
--						sizeof(struct boom_rx_desc) * RX_RING_SIZE
--							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
--						vp->rx_ring,
--						vp->rx_ring_dma);
--	if (vp->must_free_region)
--		release_region(dev->base_addr, vp->io_size);
-+			    sizeof(struct boom_rx_desc) * RX_RING_SIZE +
-+			    sizeof(struct boom_tx_desc) * TX_RING_SIZE,
-+			    vp->rx_ring,
-+			    vp->rx_ring_dma);
-+
-+	pci_release_regions(pdev);
-+	pci_disable_device (pdev);
- 	free_netdev(dev);
  }
  
 _
