@@ -1,43 +1,35 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATCH 00/03][RESUBMIT] net: EtherIP tunnel driver
-Date: Mon, 25 Sep 2006 10:32:49 +0200
-Message-ID: <20060925083249.GC23028@zlug.org>
-References: <20060923120704.GA32284@zlug.org> <20060923121327.GH30245@lug-owl.de> <1159015118.5301.19.camel@jzny2> <20060923132736.GA345@zlug.org> <200609250107.k8P17h8A019714@turing-police.cc.vt.edu>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/7] d80211:  add SIOCSIWTXPOW,
+	SIOCGIWTXPOW,	SIOCSIWPOWER and SIOCGIWPOWER
+Date: Mon, 25 Sep 2006 10:42:43 +0200
+Message-ID: <1159173763.4509.3.camel@ux156>
+References: <44F355DE.3000206@linux.intel.com>
+	 <20060921183040.12d679f2@logostar.upir.cz>
+	 <4512C133.7010509@linux.intel.com>
+	 <20060921203347.44d66563@logostar.upir.cz> <4512EE8D.708@linux.intel.com>
+	 <20060922001332.7ea0d30a@logostar.upir.cz>
+	 <451314AC.3070103@linux.intel.com>
+	 <20060922131605.0edfd719@logostar.upir.cz> <4513E407.50400@lwfinger.net>
+	 <1158931850.5368.34.camel@ux156>  <4513EB25.8050304@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, Jan-Benedict Glaw <jbglaw@lug-owl.de>,
-	Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, mabbas <mabbas@linux.intel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:26242 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1750716AbWIYIcv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 04:32:51 -0400
-To: Valdis.Kletnieks@vt.edu
-Content-Disposition: inline
-In-Reply-To: <200609250107.k8P17h8A019714@turing-police.cc.vt.edu>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:7298 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750732AbWIYIl4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Sep 2006 04:41:56 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <4513EB25.8050304@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 24, 2006 at 09:07:43PM -0400, Valdis.Kletnieks@vt.edu wrote:
-> On Sat, 23 Sep 2006 15:27:36 +0200, Joerg Roedel said:
-> 
-> > (I assume you are speaking of the position of the 3 in the header). The
-> > RFC is not clear at this point. It defines that the first 4 bits in the
-> > 16 bit Ethernet header MUST be 0011. But it don't defines the
-> > byteorder of that 16 bit word nor if the least or most significant bit
-> > comes first.
-> 
-> Unless stated otherwise, it's pretty safe to assume that all "on the wire" data
-> mentioned in an RFC is in 'network byte order'.  That's why hton*() and ntoh*()
-> functions exist...
+On Fri, 2006-09-22 at 08:54 -0500, Larry Finger wrote:
 
-Yes. Thats what the OpenBSD people did :-)
-The problem with the header is the bitorder. The OpenBSD people assumed
-that the least significant bits come first in the 16-bit header.
+> That sounds perfect as nl80211 seems to be the coming userspace client. Let me know how to help.
 
-> Is there something in the RFC that suggests that a byte order other than
-> 'network order' is possible/acceptable there?
+I'll have to read up on what it actually needs to provide first :)
 
-No. The RFC states nothing at all about byte- or bitorder. That is why
-the RFC is ambigious at this point.
+johannes
