@@ -1,35 +1,40 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH] Restore the original TX FIFO overflow process.
-Date: Mon, 25 Sep 2006 09:20:57 +0800
-Message-ID: <005801c6e040$dae8daa0$4964a8c0@icplus.com.tw>
-References: <1158953401.2630.0.camel@localhost.localdomain><20060923015041.54e1aa51.akpm@osdl.org> <20060923015157.b4014c6a.akpm@osdl.org>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<jgarzik@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Advertise PPPoE MTU / avoid memory leak.
+Date: Sun, 24 Sep 2006 18:41:18 -0700 (PDT)
+Message-ID: <20060924.184118.104036249.davem@davemloft.net>
+References: <115903262344-git-send-email-mostrows@earthlink.net>
+	<20060923.145600.51855973.davem@davemloft.net>
+	<1159100966.23197.293.camel@brick.austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ppp-bugs@dp.samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr40.hinet.net ([168.95.4.140]:12267 "EHLO msr40.hinet.net")
-	by vger.kernel.org with ESMTP id S1751801AbWIYBVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2006 21:21:09 -0400
-To: "Andrew Morton" <akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13515
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932216AbWIYBlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Sep 2006 21:41:16 -0400
+To: mostrows@earthlink.net
+In-Reply-To: <1159100966.23197.293.camel@brick.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ok, I will generate new patch according to this.
+From: Michal Ostrowski <mostrows@earthlink.net>
+Date: Sun, 24 Sep 2006 07:29:25 -0500
 
-Thanks.
------ Original Message ----- 
-From: "Andrew Morton" <akpm@osdl.org>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Sent: Saturday, September 23, 2006 4:51 PM
-Subject: Re: [PATCH] Restore the original TX FIFO overflow process.
+> I think the call path via dev->hard_start_xmit, if it fails, may result
+> in an skb not being freed.  This appears to be the case with the e100.c
+> driver.  The qdisc_restart path to dev->hard_start_xmit also appears
+> susceptible to this.  It appears that not all devices agree as to who
+> should clean-up an skb on error.
 
+There is a well defined policy about who frees the SKB or has
+ownership of it based upon dev->hard_start_xmit() return values.
 
-On Sat, 23 Sep 2006 01:50:41 -0700
-Andrew Morton <akpm@osdl.org> wrote:
+Any driver deviating from this set of rules should simply be
+audited and fixed, as needed.
 
-> I suggest you send a complete new patch series against Jeff's latest tree.
-> I'll send you a copy of that.
-
-attached.
-
-
-
+But, no matter, your change is buggy and we can't apply your
+patch (even if it does fix a leak in some legitimate case)
+because it introduces an obvious double-free bug.
