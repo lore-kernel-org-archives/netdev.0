@@ -1,47 +1,74 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Generic HDLC update
-Date: Tue, 26 Sep 2006 22:42:34 +0200
-Message-ID: <m3odt21hs5.fsf@defiant.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 v1.7 rx error...
+Date: Tue, 26 Sep 2006 13:44:17 -0700
+Message-ID: <20060926134417.689affb0@freekitty>
+References: <6278d2220609261058y4b686489p813ef504f71bca4a@mail.gmail.com>
+	<20060926115526.4bb5b99b@freekitty>
+	<6278d2220609261309v148618a4p4315d17aedc79a7d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
-	PC300 Maintainer <pc300@cyclades.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Linux Netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:33439 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S932297AbWIZUmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 16:42:39 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from smtp.osdl.org ([65.172.181.4]:27367 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932300AbWIZUoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 16:44:24 -0400
+To: "Daniel J Blueman" <daniel.blueman@gmail.com>
+In-Reply-To: <6278d2220609261309v148618a4p4315d17aedc79a7d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 26 Sep 2006 21:09:31 +0100
+"Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
 
-Jeff,
-in this thread I'm posting two patches:
-- 1/2: modularizes generic HDLC code - WAN protocols (FR, Cisco HDLC
-  etc.) can now be separate modules. We can now have multiple module
-  versions for a protocol (something like syncppp-based PPP or based
-  on generic PPP). Also we don't have to load things like syncppp or
-  lapb if we don't need it.
+> The server processor is a Pentium-M 1.7GHz (ondemand governor, from
+> 0.6GHz -> 1.7GHz).
+> 
+> Gigabit path from server -> switch -> client. Client runs WinXP,
+> Core2Duo 2.13GHz, Realtek RTL8168/8111 PCI-e NIC.
+> 
+> Flow contol enabled in both directions, both for client and server:
+> sky2 lan0: Link is up at 1000 Mbps, full duplex, flow control both
+> 
+> Jumbo frames are in use on the tx side of server only - MTU 9000. I
+> reproduced this with sky2 v1.7 with non-jumbo MTU 1500 frames too.
+> 
+> Let me know if there is any further information I can grab and/or any
+> other settings/tweaks/patches I can try.
+> 
+> Dan
+> 
+> On 26/09/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+> > On Tue, 26 Sep 2006 18:58:40 +0100
+> > "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+> >
+> > > I got a this message with sky2 on 2.6.18 + the sky2 v1.7 patches - it
+> > > has different status bits set than before (0x977d977d):
+> > >
+> > > kernel: sky2 lan0: rx error, status 0x377d377d length 0
+> > >
+> > > Great work so far though - this race takes a while to hit!
+> > >
+> > > Dan
+> >
+> > What speed processor? Are you using receive flow control? Are you
+> > using Jumbo frames?
+> >
+> > --
+> > Stephen Hemminger <shemminger@osdl.org>
 
-  "Core" generic HDLC code doesn't now know anything about the
-  WAN protocols - all protocol-related information has been moved from
-  hdlc.h to the protocol drivers.
+Statistics?
+	ethtool -S eth0
 
+Does it hang after this? It looks like a receive fifo overflow, that happens
+when the receive ring gets full.  You could try increasing RX_LE_SIZE from 512
+to 1024.  That would eat more memory (510 packets) but might avoid the
+problem.
 
-- 2/2: while both user-space and low-level driver interfaces are not
-  changed by the first patch, it has to change data structures
-  internal to the generic HDLC. Unfortunately, there is one particular
-  driver - pc300 - abusing those internal structures. There are few
-  ways to fix this driver but it's not trivial. PC300 maintainer has
-  been notified about the problem and possible solutions, and has
-  been sent a copy of the modularizing patch two+ months ago.
+Other possible solutions would be to reduce the coalescing timer values
+with ethtool.
+	ethtool -c eth1
+	ethtool -C eth1 rx-usecs 10 rx-usecs-irq 10 rx-iframes-irq 4
 
-  This patch removes accesses to the HDLC-internal data structures
-  from pc300 driver, thus enabling it to compile but breaking part
-  of its functionality.
-
-Please apply both patches to Linux 2.6.
-Thanks.
 -- 
-Krzysztof Halasa
+Stephen Hemminger <shemminger@osdl.org>
