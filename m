@@ -1,41 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB
- devices
-Date: Tue, 26 Sep 2006 10:05:35 -0700
-Message-ID: <20060926100535.7cde2de2@freekitty>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben>
-	<Pine.LNX.4.64.0609261317460.24189@zuben>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [patch 09/11] b44: fix eeprom endianess issue
+Date: Tue, 26 Sep 2006 19:14:22 +0200
+Message-ID: <200609261914.22538.mb@bu3sch.de>
+References: <200609252339.k8PNdNE4002654@shell0.pdx.osdl.net> <200609261820.46308.mb@bu3sch.de> <45195C92.4040503@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
+Cc: netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:38809 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932112AbWIZRFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 13:05:49 -0400
-To: Or Gerlitz <ogerlitz@voltaire.com>
-In-Reply-To: <Pine.LNX.4.64.0609261317460.24189@zuben>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:11915
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932153AbWIZROh
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 13:14:37 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45195C92.4040503@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Sep 2006 13:18:09 +0300 (IDT)
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
-
-> Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
+On Tuesday 26 September 2006 19:00, Jeff Garzik wrote:
+> Michael Buesch wrote:
+> > #ifdef BIG_ENDIAN
+> > 	bp->phy_addr = eeprom[91] & 0x1f;
+> > #else
+> > 	bp->phy_addr = eeprom[90] & 0x1f;
+> > #endif
 > 
-> Index: net-2.6.19/drivers/net/bonding/bond_main.c
-> ===================================================================
-> --- net-2.6.19.orig/drivers/net/bonding/bond_main.c	2006-09-25 11:46:35.000000000 +0300
-> +++ net-2.6.19/drivers/net/bonding/bond_main.c	2006-09-26 10:54:44.000000000 +0300
-> @@ -128,6 +128,12 @@ MODULE_PARM_DESC(arp_interval, "arp inte
->  module_param_array(arp_ip_target, charp, NULL, 0);
->  MODULE_PARM_DESC(arp_ip_target, "arp targets in n.n.n.n form");
-> 
-> +static int bonding_dev_type    = ARPHRD_ETHER;
-> +static int bonding_dev_addrlen = ETH_ALEN;
-> +
-> +module_param(bonding_dev_type,    int, 0644);
-> +module_param(bonding_dev_addrlen, int, 0644);
+> False.  It's already fixed endian.  It's just not the endian you like.
 
-Do you really want to allow changing these values after module load?
-If not replace 0644 with 0
+Jeff, come on...
+Read Johannes' mail.
+readX returns CPU endian data.
+
+-- 
+Greetings Michael.
