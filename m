@@ -1,64 +1,65 @@
 From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: [RFC][PATCH 1/3] enable bonding to enslave non ARPHRD_ETHER netdevices
-Date: Tue, 26 Sep 2006 13:17:01 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0609261316420.24189@zuben>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben>
+Subject: [RFC][PATCH 0/3] bonding support for operation over IPoIB
+Date: Tue, 26 Sep 2006 13:16:35 +0300 (IDT)
+Message-ID: <Pine.LNX.4.64.0609261309540.24189@zuben>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from taurus.voltaire.com ([193.47.165.240]:61245 "EHLO
+Received: from taurus.voltaire.com ([193.47.165.240]:59709 "EHLO
 	taurus.voltaire.com") by vger.kernel.org with ESMTP
-	id S1751089AbWIZKRC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 06:17:02 -0400
+	id S1750792AbWIZKQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 06:16:37 -0400
 To: netdev@vger.kernel.org
-In-Reply-To: <Pine.LNX.4.64.0609261309540.24189@zuben>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
+This patch series is an RFC for changes to the bonding driver such that it
+would be able to support non ARPHRD_ETHER netdevices for its High-Availability
+(active-backup) mode.
 
-Index: net-2.6.19/drivers/net/bonding/bond_main.c
-===================================================================
---- net-2.6.19.orig/drivers/net/bonding/bond_main.c	2006-09-20 14:40:13.000000000 +0300
-+++ net-2.6.19/drivers/net/bonding/bond_main.c	2006-09-25 11:43:52.000000000 +0300
-@@ -1013,6 +1013,23 @@ static struct slave *bond_find_best_slav
- 	return bestslave;
- }
+My motivation was to enable the bonding driver on its HA mode to work with the
+IP over Infiniband (IPoIB) driver. With these patches I was able to enslave
+IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast and ICMP traffic with
+fail-over and fail-back working fine.
 
-+void bond_setup_by_slave(struct bonding *bond, struct slave *new_active)
-+{
-+	bond->dev->hard_header	        = new_active->dev->hard_header;
-+	bond->dev->rebuild_header       = new_active->dev->rebuild_header;
-+	bond->dev->hard_header_cache	= new_active->dev->hard_header_cache;
-+	bond->dev->header_cache_update  = new_active->dev->header_cache_update;
-+	bond->dev->hard_header_parse	= new_active->dev->hard_header_parse;
-+
-+	bond->dev->type		    = new_active->dev->type;
-+	bond->dev->hard_header_len  = new_active->dev->hard_header_len;
-+	bond->dev->mtu		    = new_active->dev->mtu;
-+	bond->dev->addr_len	    = new_active->dev->addr_len;
-+
-+	memcpy(bond->dev->broadcast, new_active->dev->broadcast,
-+		new_active->dev->addr_len);
-+}
-+
- /**
-  * change_active_interface - change the active slave into the specified one
-  * @bond: our bonding struct
-@@ -1091,6 +1108,14 @@ void bond_change_active_slave(struct bon
- 		if (new_active) {
- 			bond_set_slave_active_flags(new_active);
- 		}
-+
-+		/* bonding netdevices are created with ether_setup, so when the
-+		 * slave type is not ARPHRD_ETHER there is a need to override
-+		 * some of the type dependent attributes/functions
-+		 */
-+		if (new_active && new_active->dev->type != ARPHRD_ETHER)
-+			bond_setup_by_slave(bond, new_active);
-+
- 		bond_send_gratuitous_arp(bond);
- 	}
- }
+More over, as IPoIB is also the IB ARP provider for the RDMA CM driver which
+is used by native IB ULPs whose addressing scheme is based on IP (eg iSER, SDP,
+Lustre, NFSoRDMA, RDS), bonding support for IPoIB devices **enables** HA for
+these ULPs. This holds as when the ULP is informed by the IB HW on the failure
+of the currect IB connection, it just need to reconnect, where the bonding
+device will now issue the IB ARP over the active IPoIB slave.
 
+The first patch changes some of the bond netdevice attributes and functions
+to be that of the active slave for the case of the enslaved device not being
+of ARPHRD_ETHER type. Basically it overrides those setting done by ether_setup(),
+which are netdevice **type** dependent and hence might be not appropriate for
+devices of other types.
+
+IPoIB (see Documentation/infiniband/ipoib.txt) MAC address is made of a 3 bytes
+IB QP (Queue Pair) number and 16 bytes IB port GID (Global ID) of the port this
+IPoIB device is bounded to. The QP is a resource created by the IB HW and the
+GID is an identifier burned into the HCA (i have ommited here some details which
+are not important for the bonding RFC).
+
+Basically the IPoIB spec and impl. do not allow for setting the MAC address of
+an IPoIB device and my work was made under this assumption.
+
+The second patch allows for enslaving netdevices which do not support the
+set_mac_address() function. In that case the bond mac address is the one
+of the active slave, where remote peers are notified on the mac address
+(neighbour) change by Gratuitous ARP sent by the bonding code when fail-over
+occurs (this was already in the bonding code).
+
+The third patch is temporal i hope, and is now required to run IP multicast when
+bonding IPoIB devices. The problem is that some multicast groups (eg the all-hosts
+224.0.0.1) might be set to the bonding device by the net stack **before** any
+enslavement takes place.
+
+Since ether_setup() sets the bonding device type to be ARPHRD_ETHER and address
+len to be ETHER_ALEN, the net core code computes a wrong multicast link address.
+Now, the current IPoIB impl. attempts to join on this wrong mcast address and
+does not process more join requests. As a result IP multicast over other groups
+whose link address is computed correct would not work.
+
+Or Gerlitz.
