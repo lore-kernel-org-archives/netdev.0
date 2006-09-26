@@ -1,38 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/3] Add netpoll/netconsole support to vlan devices
-Date: Mon, 25 Sep 2006 22:34:36 -0700 (PDT)
-Message-ID: <20060925.223436.08322700.davem@davemloft.net>
-References: <200609252343.k8PNhAKO002851@shell0.pdx.osdl.net>
+From: jes@trained-monkey.org (Jes Sorensen)
+Subject: Re: [patch 04/11] drivers/net/acenic.c Removal of old code
+Date: Tue, 26 Sep 2006 01:52:37 -0400
+Message-ID: <17688.49189.283673.335085@jaguar.mkp.net>
+References: <200609252339.k8PNdJ4x002631@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesper.juhl@gmail.com, davem@redhat.com,
-	greearb@candelatech.com, mingo@redhat.com, mpm@selenic.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	michal.k.k.piotrowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:51641
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751276AbWIZFec (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 01:34:32 -0400
+Received: from jaguar.mkp.net ([192.139.46.146]:44746 "EHLO jaguar.mkp.net")
+	by vger.kernel.org with ESMTP id S1751285AbWIZFwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 01:52:38 -0400
 To: akpm@osdl.org
-In-Reply-To: <200609252343.k8PNhAKO002851@shell0.pdx.osdl.net>
+In-Reply-To: <200609252339.k8PNdJ4x002631@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@osdl.org
-Date: Mon, 25 Sep 2006 16:43:10 -0700
+>>>>> "akpm" == akpm  <akpm@osdl.org> writes:
 
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +	new_dev->poll_controller = real_dev->poll_controller;
-> +#endif
-> +
+akpm> From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+akpm> Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+akpm> Cc: Jeff Garzik <jeff@garzik.org>
+akpm> Cc: Jes Sorensen <jes@trained-monkey.org>
+akpm> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-I don't see how this part can be correct.  If netpoll actually
-calls new_dev->poll_controller it will pass new_dev in
-(ie. the VLAN device) yet this method is for real_dev.
+Signed-off-by: Jes Sorensen <jes@trained-monkey.org>
 
-If the only side effect of this assignment is that netpoll recognizes
-the device as being usable with netpoll, that's really a nasty way to
-accomplish that.
+akpm>  drivers/net/acenic.c | 4 ---- 1 file changed, 4 deletions(-)
 
-In any event, propagating this method pointer to the wrong device
-structure is a bug.
+akpm> diff -puN
+akpm> drivers/net/acenic.c~drivers-net-acenicc-removal-of-old-code
+akpm> drivers/net/acenic.c ---
+akpm> a/drivers/net/acenic.c~drivers-net-acenicc-removal-of-old-code +++
+akpm> a/drivers/net/acenic.c @@ -163,11 +163,7 @@
+akpm> MODULE_DEVICE_TABLE(pci, acenic_pci_tbl) #define
+akpm> SET_NETDEV_DEV(net, pdev) do{} while(0) #endif
+ 
+akpm> -#if LINUX_VERSION_CODE >= 0x2051c #define ace_sync_irq(irq)
+akpm> synchronize_irq(irq) -#else -#define ace_sync_irq(irq)
+akpm> synchronize_irq() -#endif
+ 
+akpm>  #ifndef offset_in_page #define offset_in_page(ptr) ((unsigned
+akpm> long)(ptr) & ~PAGE_MASK) _
