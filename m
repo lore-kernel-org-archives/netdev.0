@@ -1,35 +1,36 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Tue, 26 Sep 2006 16:54:16 +0100
-Message-ID: <20060926155416.GB32030@infradead.org>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060922122207.3b716028.akpm@osdl.org>
+From: Michael Stone <mstone@mathom.us>
+Subject: Re: [PATCH] skge: fiber support
+Date: Tue, 26 Sep 2006 11:45:01 -0400
+Message-ID: <20060926154459.GA6030@mathom.us>
+References: <20060815131852.GP2900@mathom.us>
+ <20060921153939.739947ab@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932141AbWIZPy1@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060922122207.3b716028.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms048pub.verizon.net ([206.46.252.48]:19869 "EHLO
+	vms048pub.verizon.net") by vger.kernel.org with ESMTP
+	id S932140AbWIZPxX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 11:53:23 -0400
+Received: from osgiliath.mathom.us ([72.66.19.85])
+ by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-4.02 (built Sep
+ 9 2005)) with ESMTPA id <0J6700L8XIF6P66B@vms048.mailsrvcs.net> for
+ netdev@vger.kernel.org; Tue, 26 Sep 2006 10:45:07 -0500 (CDT)
+In-reply-to: <20060921153939.739947ab@dxpl.pdx.osdl.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2006 at 12:22:07PM -0700, Andrew Morton wrote:
-> On Wed, 20 Sep 2006 13:35:47 +0400
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > Generic event handling mechanism.
-> > 
-> > Consider for inclusion.
-> 
-> Ulrich's objections sounded substantial, and afaik remain largely
-> unresolved.   How do we sort this out?
+On Thu, Sep 21, 2006 at 03:39:39PM -0700, Stephen Hemminger wrote:
+>Add support for older fiber versions of the SysKonnect board. These chipsets
+>use an internal PHY so they require special handling. The older sk98lin
+>driver already supported these
 
-I haven't seen any of Ulrichs points (which mostly is a large subset of
-my objection) beeing addressed.
+The patch seems to work with a single port card SX card. I'll test with 
+LX & dual port shortly. One thing that I haven't got working is forcing 
+the card up if autonegotiation isn't possible. (It used to be a module 
+parameter like AutoNeg=Off for sk98lin; I've tried (unsuccessfully) to 
+use ethtool to turn off autoneg, but I'll try harder.)
+
+Mike Stone
