@@ -1,40 +1,49 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Add 3 more device IDs
-Date: Tue, 26 Sep 2006 04:04:38 +0100 (BST)
-Message-ID: <20060926030438.488CE7B40A0@zog.reactivated.net>
-Cc: netdev@vger.kernel.org
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: [patch 07/11] drivers/net/typhoon.c Removal of old code
+Date: Mon, 25 Sep 2006 23:11:21 -0400
+Message-ID: <1159240281.22240.0.camel@obelisk.thedillows.org>
+References: <200609252339.k8PNdMRI002644@shell0.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	michal.k.k.piotrowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:12946 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750793AbWIZDEl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Sep 2006 23:04:41 -0400
-To: linville@tuxdriver.com
-Cc: kune@deine-taler.de
+Received: from smtp.knology.net ([24.214.63.101]:25021 "EHLO smtp.knology.net")
+	by vger.kernel.org with ESMTP id S1750724AbWIZDLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 23:11:24 -0400
+To: akpm@osdl.org
+In-Reply-To: <200609252339.k8PNdMRI002644@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-iNexQ UR055g: Tested by Todor T Zviskov
-zd1211 chip 1435:0711 v4330 high 00-10-a7 AL2230_RF pa0 g--
+On Mon, 2006-09-25 at 16:39 -0700, akpm@osdl.org wrote:
+> From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+> 
+> Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-ZyXEL AG-225, FCC ID SI5WUB410: Tested by Nathan
-zd1211 chip 0586:3409 v4810 full 00-13-49 AL7230B_RF pa0 g---
+Signed-off-by: Dave Dillow <dave@thedillows.org>
 
-Yakumo QuickWLAN USB: Tested by EdB
-zd1211 chip 0b3b:1630 v4330 high 00-01-36 RF2959_RF pa0 ---
+> ---
+> 
+>  drivers/net/typhoon.c |    4 ----
+>  1 file changed, 4 deletions(-)
+> 
+> diff -puN drivers/net/typhoon.c~drivers-net-typhoonc-removal-of-old-code drivers/net/typhoon.c
+> --- a/drivers/net/typhoon.c~drivers-net-typhoonc-removal-of-old-code
+> +++ a/drivers/net/typhoon.c
+> @@ -333,11 +333,7 @@ enum state_values {
+>  #define TYPHOON_RESET_TIMEOUT_NOSLEEP	((6 * 1000000) / TYPHOON_UDELAY)
+>  #define TYPHOON_WAIT_TIMEOUT		((1000000 / 2) / TYPHOON_UDELAY)
+>  
+> -#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 28)
+> -#define typhoon_synchronize_irq(x) synchronize_irq()
+> -#else
+>  #define typhoon_synchronize_irq(x) synchronize_irq(x)
+> -#endif
+>  
+>  #if defined(NETIF_F_TSO)
+>  #define skb_tso_size(x)		(skb_shinfo(x)->gso_size)
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
-
-Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -47,6 +47,9 @@ static struct usb_device_id usb_ids[] = 
- 	{ USB_DEVICE(0x0586, 0x3402), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0b3b, 0x5630), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0b05, 0x170c), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x1435, 0x0711), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x0586, 0x3409), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x0b3b, 0x1630), .driver_info = DEVICE_ZD1211 },
- 	/* ZD1211B */
- 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
