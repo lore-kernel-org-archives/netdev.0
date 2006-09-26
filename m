@@ -1,46 +1,36 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [patch 01/11] e1000: memory leak in e1000_set_ringparam()
-Date: Mon, 25 Sep 2006 21:57:50 -0700
-Message-ID: <4518B34E.1040707@intel.com>
-References: <200609252339.k8PNdFO1002622@shell0.pdx.osdl.net> <45186E09.1080003@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/3] net/ipv6: bh_lock_sock_nested on tcp_v6_rcv
+Date: Mon, 25 Sep 2006 22:30:10 -0700 (PDT)
+Message-ID: <20060925.223010.85417803.davem@davemloft.net>
+References: <200609252343.k8PNh7DH002845@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, vvs@sw.ru,
-	auke-jan.h.kok@intel.com, cramerj@intel.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com
+Cc: netdev@vger.kernel.org, fleite@redhat.com,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:8722 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1750898AbWIZE7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 00:59:40 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <45186E09.1080003@garzik.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48569
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751165AbWIZFaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 01:30:06 -0400
+To: akpm@osdl.org
+In-Reply-To: <200609252343.k8PNh7DH002845@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> akpm@osdl.org wrote:
->> From: Vasily Averin <vvs@sw.ru>
->>
->> Memory leak was found in 2.6.18-rc4 and e1000 7.2.7 from sourceforge:
->> Memory allocated for new tx_ring and rx_ring leaks if
->> e1000_setup_XX_resources() fails.c Also this patch reduces stack usage
->> (removed tx_new and rx_new) and uses kzalloc instead kmalloc+memset(0)
->>
->> Signed-off-by: Vasily Averin <vvs@sw.ru>
->> Cc: Jeb Cramer <cramerj@intel.com>
->> Cc: John Ronciak <john.ronciak@intel.com>
->> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Cc: Auke Kok <auke-jan.h.kok@intel.com>
->> Cc: Jeff Garzik <jeff@garzik.org>
->> Signed-off-by: Andrew Morton <akpm@osdl.org>
+From: akpm@osdl.org
+Date: Mon, 25 Sep 2006 16:43:07 -0700
+
+> From: Fabio Olive Leite <fleite@redhat.com>
 > 
-> ACK + HOLD, waiting to see if this will be included in Auke's push
+> A while ago Ingo patched tcp_v4_rcv on net/ipv4/tcp_ipv4.c to use
+> bh_lock_sock_nested and silence a lock validator warning. This fixed
+> it for IPv4, but recently I saw a report of the same warning on IPv6.
+> 
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-Ack, I've stacked it on the workqueue and it will go out to Jeff this week.
+Applied, and pushed to -stable as well.
 
-Cheers,
-
-Auke
+Thanks a lot.
