@@ -1,46 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [2.6.18 backport] RTL8168 ethernet support in r8169
-Date: Tue, 26 Sep 2006 21:14:58 +0200
-Message-ID: <20060926191458.GB15039@electric-eye.fr.zoreil.com>
-References: <451972B0.5020805@gentoo.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC][PATCH 1/3] enable bonding to enslave non ARPHRD_ETHER netdevices
+Date: Tue, 26 Sep 2006 12:23:21 -0700
+Message-ID: <200609261923.k8QJNLZt021182@death.nxdomain.ibm.com>
+References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261316420.24189@zuben>
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:21712 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932396AbWIZTRp
+Received: from e35.co.us.ibm.com ([32.97.110.153]:44451 "EHLO
+	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S932485AbWIZTX2
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 15:17:45 -0400
-To: Daniel Drake <dsd@gentoo.org>
-Content-Disposition: inline
-In-Reply-To: <451972B0.5020805@gentoo.org>
+	Tue, 26 Sep 2006 15:23:28 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8QJNNhG004749
+	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 15:23:23 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8QJNNCK274598
+	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 13:23:23 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8QJNMWO016248
+	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 13:23:23 -0600
+To: Or Gerlitz <ogerlitz@voltaire.com>
+In-reply-to: <Pine.LNX.4.64.0609261316420.24189@zuben> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Drake <dsd@gentoo.org> :
+Or Gerlitz <ogerlitz@voltaire.com> wrote:
 [...]
- static struct pci_device_id rtl8169_pci_tbl[] = {
--	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), },
--	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), },
--	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), },
--	{ PCI_DEVICE(0x16ec,			0x0116), },
--	{ PCI_VENDOR_ID_LINKSYS,		0x1032, PCI_ANY_ID, 0x0024, },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), 0, 0, RTL_CFG_0 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8136), 0, 0, RTL_CFG_1 },
++	bond->dev->mtu		    = new_active->dev->mtu;
 
-Should be RTL_CFG_2 (but there are still issues with the link management).
+	This won't generate a NETDEV_CHANGEMTU notifier event.
 
-+	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8167), 0, 0, RTL_CFG_1 },
-                                                               ^^^^^^^^^
-Should be RTL_CFG_1.
+[...]
+>+		/* bonding netdevices are created with ether_setup, so when the
+>+		 * slave type is not ARPHRD_ETHER there is a need to override
+>+		 * some of the type dependent attributes/functions
+>+		 */
+>+		if (new_active && new_active->dev->type != ARPHRD_ETHER)
+>+			bond_setup_by_slave(bond, new_active);
+>+
 
-Is there any chance that you can push a different patch for your releases ?
+	In this case, if the bond has one slave that's ARPHRD_ETHER and
+one that's not, when the active changes from the non-ARPHRD_ETHER slave
+to the ARPHRD_ETHER slave, it won't call bond_setup_by_slave() to switch
+the hard_header, rebuild_header, et al, back to the ARPHRD_ETHER
+settings.
 
-There are no pending changes outside of the git vanilla tree. As an option,
-you can use the patch below too:
-http://www.fr.zoreil.com/people/francois/misc/20060920-2.6.18-r8169-test.patch
+	-J
 
-I should have Cced: you :o/
-
---
-Ueimor
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
