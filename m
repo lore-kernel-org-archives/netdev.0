@@ -1,47 +1,57 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 02/11] 3x59x: fix PCI resource management
-Date: Mon, 25 Sep 2006 20:02:41 -0400
-Message-ID: <45186E21.7000202@garzik.org>
-References: <200609252339.k8PNdGBp002625@shell0.pdx.osdl.net>
+Subject: Re: [patch 11/11] forcedeth: hardirq lockdep warning
+Date: Mon, 25 Sep 2006 20:03:25 -0400
+Message-ID: <45186E4D.3020406@garzik.org>
+References: <200609252339.k8PNdQKG002661@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, sshtylyov@ru.mvista.com
+Cc: netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
+	aabdulla@nvidia.com, arjan@linux.intel.com, davej@redhat.com,
+	mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:29912 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751810AbWIZACo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 20:02:44 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:37592 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751812AbWIZADa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 20:03:30 -0400
 To: akpm@osdl.org
-In-Reply-To: <200609252339.k8PNdGBp002625@shell0.pdx.osdl.net>
+In-Reply-To: <200609252339.k8PNdQKG002661@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 akpm@osdl.org wrote:
-> From: Jeff Garzik <jgarzik@pobox.com>
+> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
 > 
-> The driver wrongly claimed I/O ports at an address returned by pci_iomap()
-> -- even if it was passed an MMIO address.  Fix this by claiming/releasing
-> all PCI resources in the PCI driver probe/remove handlers instead and get
-> rid of the must_free_region flag weirdness (why would Cardbus claim
-> anything for us?).
+> BUG: warning at kernel/lockdep.c:1816/trace_hardirqs_on() (Not tainted)
 > 
-> Also, the remove handler was trying to talk to the chip after having
-> disabled its address decoders (at least on x86) -- fix this and get rid of
-> useless VORTEX_PCI() calls.
+> Call Trace:
+>  show_trace
+>  dump_stack
+>  trace_hardirqs_on
+>  :forcedeth:nv_nic_irq_other
+>  handle_IRQ_event
+>  __do_IRQ
+>  do_IRQ
+>  ret_from_intr
+> DWARF2 barf
+>  default_idle
+>  cpu_idle
+>  rest_init
+>  start_kernel
+>  _sinittext
 > 
-> While at it, fix some cases of the overly indented code...
+> These 3 functions nv_nic_irq_tx(), nv_nic_irq_rx() and nv_nic_irq_other()
+> are reachable from IRQ context and process context. Make use of the
+> irq-save/restore spinlock variant.
 > 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-> Cc: Jeff Garzik <jgarzik@pobox.com>
-> 
-> - Would prefer that vortex_init_one() do the `goto out_release;' thing
->   rather than having multiple cleanup-then-return points.
-> 
-> - I don't remember the story with cardbus either.  Presumably once upon a
->   time the cardbus layer was claiming IO regions on behalf of cardbus
->   devices (?)
-> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Ingo Molnar <mingo@elte.hu>
+> Cc: Arjan van de Ven <arjan@linux.intel.com>
+> Cc: Dave Jones <davej@redhat.com>
+> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
 > Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-ACK + HOLD, waiting to see if someone actually tested it
+ACK + HOLD, must analyze locking before applying.  It still looks 
+strange, even after this patch.
+
 
