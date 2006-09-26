@@ -1,60 +1,41 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: sky2 v1.7 rx error...
-Date: Tue, 26 Sep 2006 21:09:31 +0100
-Message-ID: <6278d2220609261309v148618a4p4315d17aedc79a7d@mail.gmail.com>
-References: <6278d2220609261058y4b686489p813ef504f71bca4a@mail.gmail.com>
-	 <20060926115526.4bb5b99b@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] genetlink custom attribute type
+Date: Tue, 26 Sep 2006 13:09:59 -0700 (PDT)
+Message-ID: <20060926.130959.90119692.davem@davemloft.net>
+References: <1159255520.2782.1.camel@ux156>
+	<20060926094408.GT18349@postel.suug.ch>
+	<1159265074.2782.13.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.233]:34179 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932262AbWIZUJc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 16:09:32 -0400
-Received: by wr-out-0506.google.com with SMTP id i7so869608wra
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 13:09:32 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060926115526.4bb5b99b@freekitty>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13528
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932262AbWIZUJz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 16:09:55 -0400
+To: johannes@sipsolutions.net
+In-Reply-To: <1159265074.2782.13.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The server processor is a Pentium-M 1.7GHz (ondemand governor, from
-0.6GHz -> 1.7GHz).
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 26 Sep 2006 12:04:34 +0200
 
-Gigabit path from server -> switch -> client. Client runs WinXP,
-Core2Duo 2.13GHz, Realtek RTL8168/8111 PCI-e NIC.
+> On Tue, 2006-09-26 at 11:44 +0200, Thomas Graf wrote:
+> 
+> > Thinking it over I'm still not completely happy with this. A
+> > small subset of all the validation tasks is simply too complex
+> > to be put into the policy. The validation of your type value
+> > array is such a case, address fields with variable length based
+> > on their family is another. I think it's just not worth to
+> > blow up struct nla_policy by 12 bytes per entry just to save
+> > some code.
+> 
+> Alright, I can instead just add the validation function call wherever
+> that attribute is going to be used. Just thought it might be nice to
+> have this generically, I'm not really too attached to it :)
+> 
+> I'll change it in the next nl80211 iteration.
 
-Flow contol enabled in both directions, both for client and server:
-sky2 lan0: Link is up at 1000 Mbps, full duplex, flow control both
-
-Jumbo frames are in use on the tx side of server only - MTU 9000. I
-reproduced this with sky2 v1.7 with non-jumbo MTU 1500 frames too.
-
-Let me know if there is any further information I can grab and/or any
-other settings/tweaks/patches I can try.
-
-Dan
-
-On 26/09/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> On Tue, 26 Sep 2006 18:58:40 +0100
-> "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
->
-> > I got a this message with sky2 on 2.6.18 + the sky2 v1.7 patches - it
-> > has different status bits set than before (0x977d977d):
-> >
-> > kernel: sky2 lan0: rx error, status 0x377d377d length 0
-> >
-> > Great work so far though - this race takes a while to hit!
-> >
-> > Dan
->
-> What speed processor? Are you using receive flow control? Are you
-> using Jumbo frames?
->
-> --
-> Stephen Hemminger <shemminger@osdl.org>
--- 
-Daniel J Blueman
+Thanks Johannes.
