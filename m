@@ -1,74 +1,33 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: sky2 v1.7 rx error...
-Date: Tue, 26 Sep 2006 13:44:17 -0700
-Message-ID: <20060926134417.689affb0@freekitty>
-References: <6278d2220609261058y4b686489p813ef504f71bca4a@mail.gmail.com>
-	<20060926115526.4bb5b99b@freekitty>
-	<6278d2220609261309v148618a4p4315d17aedc79a7d@mail.gmail.com>
+Subject: Re: [PATCH 2.6.17.13 2/2] LARTC: trace control for netem:
+ kernelspace
+Date: Tue, 26 Sep 2006 13:45:31 -0700
+Message-ID: <20060926134531.3ec4991a@freekitty>
+References: <4514DC9A.2000505@tik.ee.ethz.ch>
+	<20060925132800.09856e10@dxpl.pdx.osdl.net>
+	<45198AF5.9090909@tik.ee.ethz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>
+Cc: netdev@VGER.KERNEL.ORG, netem@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27367 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932300AbWIZUoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 16:44:24 -0400
-To: "Daniel J Blueman" <daniel.blueman@gmail.com>
-In-Reply-To: <6278d2220609261309v148618a4p4315d17aedc79a7d@mail.gmail.com>
+To: Rainer Baumann <baumann@tik.ee.ethz.ch>
+In-Reply-To: <45198AF5.9090909@tik.ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Sep 2006 21:09:31 +0100
-"Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+On Tue, 26 Sep 2006 22:17:57 +0200
+Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
 
-> The server processor is a Pentium-M 1.7GHz (ondemand governor, from
-> 0.6GHz -> 1.7GHz).
+> Hi Stephens
 > 
-> Gigabit path from server -> switch -> client. Client runs WinXP,
-> Core2Duo 2.13GHz, Realtek RTL8168/8111 PCI-e NIC.
+> We merged your changes into our patch
+> http://tcn.hypert.net/tcn_kernel_2_6_18.patch
+> Please let us know if we should do further adoptions to our
+> implementation and/or resubmit the adapted patch.
 > 
-> Flow contol enabled in both directions, both for client and server:
-> sky2 lan0: Link is up at 1000 Mbps, full duplex, flow control both
-> 
-> Jumbo frames are in use on the tx side of server only - MTU 9000. I
-> reproduced this with sky2 v1.7 with non-jumbo MTU 1500 frames too.
-> 
-> Let me know if there is any further information I can grab and/or any
-> other settings/tweaks/patches I can try.
-> 
-> Dan
-> 
-> On 26/09/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> > On Tue, 26 Sep 2006 18:58:40 +0100
-> > "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
-> >
-> > > I got a this message with sky2 on 2.6.18 + the sky2 v1.7 patches - it
-> > > has different status bits set than before (0x977d977d):
-> > >
-> > > kernel: sky2 lan0: rx error, status 0x377d377d length 0
-> > >
-> > > Great work so far though - this race takes a while to hit!
-> > >
-> > > Dan
-> >
-> > What speed processor? Are you using receive flow control? Are you
-> > using Jumbo frames?
-> >
-> > --
-> > Stephen Hemminger <shemminger@osdl.org>
+> Cheers+thanx,
+> Rainer
 
-Statistics?
-	ethtool -S eth0
-
-Does it hang after this? It looks like a receive fifo overflow, that happens
-when the receive ring gets full.  You could try increasing RX_LE_SIZE from 512
-to 1024.  That would eat more memory (510 packets) but might avoid the
-problem.
-
-Other possible solutions would be to reduce the coalescing timer values
-with ethtool.
-	ethtool -c eth1
-	ethtool -C eth1 rx-usecs 10 rx-usecs-irq 10 rx-iframes-irq 4
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+I'll test it out, and send off to Dave for 2.6.20, 2.6.19 is so in
+flux right now that adding more seems not like a good idea.
