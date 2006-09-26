@@ -1,40 +1,40 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 2.6.19-rc1] ehea firmware interface based on Anton
-	Blanchard's new hvcall interface
-Date: Tue, 26 Sep 2006 12:53:51 +1000
-Message-ID: <1159239231.5462.8.camel@localhost.localdomain>
-References: <200609251550.01514.ossthema@de.ibm.com>
-	 <45186F25.9000700@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>, pmac@au1.ibm.com,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Add 3 more device IDs
+Date: Tue, 26 Sep 2006 04:04:38 +0100 (BST)
+Message-ID: <20060926030438.488CE7B40A0@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:5863 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1750732AbWIZCzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 22:55:44 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <45186F25.9000700@garzik.org>
+Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:12946 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1750793AbWIZDEl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Sep 2006 23:04:41 -0400
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-09-25 at 20:07 -0400, Jeff Garzik wrote:
-> patch does not apply.
-> 
-> also, it would seem like varargs would be appropriate here.
+iNexQ UR055g: Tested by Todor T Zviskov
+zd1211 chip 1435:0711 v4330 high 00-10-a7 AL2230_RF pa0 g--
 
-Not really... these are hypervisor calls, their calling convention is
-not varargs, thus we would need some conversion layer if using them,
-with possible performance loss (it's also hard to do right as we are
-passing args by registers, not stack).
+ZyXEL AG-225, FCC ID SI5WUB410: Tested by Nathan
+zd1211 chip 0586:3409 v4810 full 00-13-49 AL7230B_RF pa0 g---
 
-Ben.
+Yakumo QuickWLAN USB: Tested by EdB
+zd1211 chip 0b3b:1630 v4330 high 00-01-36 RF2959_RF pa0 ---
 
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
+Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -47,6 +47,9 @@ static struct usb_device_id usb_ids[] = 
+ 	{ USB_DEVICE(0x0586, 0x3402), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0b3b, 0x5630), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0b05, 0x170c), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x1435, 0x0711), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x0586, 0x3409), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x0b3b, 0x1630), .driver_info = DEVICE_ZD1211 },
+ 	/* ZD1211B */
+ 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
