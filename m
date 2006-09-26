@@ -1,50 +1,52 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC][PATCH 1/3] enable bonding to enslave non ARPHRD_ETHER netdevices
-Date: Tue, 26 Sep 2006 12:23:21 -0700
-Message-ID: <200609261923.k8QJNLZt021182@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261316420.24189@zuben>
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
+From: James Morris <jmorris@namei.org>
+Subject: [Patch] Possible dereference in net/core/rtnetlink.c (fwd)
+Date: Tue, 26 Sep 2006 15:34:07 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609261534030.3929@d.namei>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:44451 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S932485AbWIZTX2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 15:23:28 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8QJNNhG004749
-	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 15:23:23 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8QJNNCK274598
-	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 13:23:23 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8QJNMWO016248
-	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 13:23:23 -0600
-To: Or Gerlitz <ogerlitz@voltaire.com>
-In-reply-to: <Pine.LNX.4.64.0609261316420.24189@zuben> 
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:468 "EHLO
+	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932488AbWIZTeL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 15:34:11 -0400
+Received: from megaweapon.nightmoose.net (HELO d.namei) ([66.92.66.197])
+          (envelope-sender <jmorris@namei.org>)
+          by mail4.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 26 Sep 2006 19:34:10 -0000
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
-[...]
-+	bond->dev->mtu		    = new_active->dev->mtu;
+---------- Forwarded message ----------
+Date: Tue, 26 Sep 2006 12:50:51 +0200
+From: Eric Sesterhenn <snakebyte@gmx.de>
+To: linux-kernel@vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru
+Subject: [Patch] Possible dereference in net/core/rtnetlink.c
 
-	This won't generate a NETDEV_CHANGEMTU notifier event.
+hi,
 
-[...]
->+		/* bonding netdevices are created with ether_setup, so when the
->+		 * slave type is not ARPHRD_ETHER there is a need to override
->+		 * some of the type dependent attributes/functions
->+		 */
->+		if (new_active && new_active->dev->type != ARPHRD_ETHER)
->+			bond_setup_by_slave(bond, new_active);
->+
+another possible dereference spotted by coverity (#cid 1390).
+if the nlmsg_parse() call fails, we goto errout, where we call
+dev_put(), with dev still initialized to NULL.
 
-	In this case, if the bond has one slave that's ARPHRD_ETHER and
-one that's not, when the active changes from the non-ARPHRD_ETHER slave
-to the ARPHRD_ETHER slave, it won't call bond_setup_by_slave() to switch
-the hard_header, rebuild_header, et al, back to the ARPHRD_ETHER
-settings.
+Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
 
-	-J
+--- linux-2.6.18-git5/net/core/rtnetlink.c.orig	2006-09-26 12:48:03.000000000 +0200
++++ linux-2.6.18-git5/net/core/rtnetlink.c	2006-09-26 12:48:28.000000000 +0200
+@@ -562,7 +562,7 @@ static int rtnl_getlink(struct sk_buff *
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+-		goto errout;
++		return err;
+ 
+ 	ifm = nlmsg_data(nlh);
+ 	if (ifm->ifi_index >= 0) {
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
