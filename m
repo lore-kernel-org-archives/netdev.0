@@ -1,52 +1,46 @@
-From: James Morris <jmorris@namei.org>
-Subject: [Patch] Possible dereference in net/core/rtnetlink.c (fwd)
-Date: Tue, 26 Sep 2006 15:34:07 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609261534030.3929@d.namei>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.18-mm1 -- ieee80211: Info elem: parse failed:
+ info_element->len + 2 > left : info_element->len+2=28 left=9, id=221.
+Date: Tue, 26 Sep 2006 12:43:10 -0700
+Message-ID: <20060926124310.17797fe5.akpm@osdl.org>
+References: <a44ae5cd0609261204g673fbf8ft6809378930986eac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"Jouni Malinen" <jkmaline@cc.hut.fi>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:468 "EHLO
-	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932488AbWIZTeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 15:34:11 -0400
-Received: from megaweapon.nightmoose.net (HELO d.namei) ([66.92.66.197])
-          (envelope-sender <jmorris@namei.org>)
-          by mail4.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
-          for <netdev@vger.kernel.org>; 26 Sep 2006 19:34:10 -0000
-To: netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:16846 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932493AbWIZTnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 15:43:18 -0400
+To: "Miles Lane" <miles.lane@gmail.com>, netdev@vger.kernel.org
+In-Reply-To: <a44ae5cd0609261204g673fbf8ft6809378930986eac@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
----------- Forwarded message ----------
-Date: Tue, 26 Sep 2006 12:50:51 +0200
-From: Eric Sesterhenn <snakebyte@gmx.de>
-To: linux-kernel@vger.kernel.org
-Cc: kuznet@ms2.inr.ac.ru
-Subject: [Patch] Possible dereference in net/core/rtnetlink.c
 
-hi,
+[added netdev]
 
-another possible dereference spotted by coverity (#cid 1390).
-if the nlmsg_parse() call fails, we goto errout, where we call
-dev_put(), with dev still initialized to NULL.
+On Tue, 26 Sep 2006 12:04:40 -0700
+"Miles Lane" <miles.lane@gmail.com> wrote:
 
-Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
+> ieee80211: Info elem: parse failed: info_element->len + 2 > left :
+> info_element->len+2=28 left=9, id=221.
+> ieee80211: Info elem: parse failed: info_element->len + 2 > left :
+> info_element->len+2=28 left=9, id=221.
+> ieee80211: Info elem: parse failed: info_element->len + 2 > left :
+> info_element->len+2=28 left=9, id=221.
+> 
+> >From dmesg output:
+> ieee80211: 802.11 data/management/control stack, git-1.1.13
+> ieee80211: Copyright (C) 2004-2005 Intel Corporation <jketreno@linux.intel.com>
+> ieee80211_crypt: registered algorithm 'NULL'
+> ieee80211_crypt: registered algorithm 'WEP'
+> ieee80211_crypt: registered algorithm 'CCMP'
+> ieee80211_crypt: registered algorithm 'TKIP'
 
---- linux-2.6.18-git5/net/core/rtnetlink.c.orig	2006-09-26 12:48:03.000000000 +0200
-+++ linux-2.6.18-git5/net/core/rtnetlink.c	2006-09-26 12:48:28.000000000 +0200
-@@ -562,7 +562,7 @@ static int rtnl_getlink(struct sk_buff *
- 
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
--		goto errout;
-+		return err;
- 
- 	ifm = nlmsg_data(nlh);
- 	if (ifm->ifi_index >= 0) {
+I suspect that whatever caused this is now in mainline.  Are you able to
+test Linus's current git tree?
 
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+Thanks.
