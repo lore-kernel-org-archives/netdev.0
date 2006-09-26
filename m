@@ -1,28 +1,25 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] DSCP support for pktgen
-Date: Tue, 26 Sep 2006 16:18:10 +0200
-Message-ID: <17689.13986.848022.719899@robur.slu.se>
+Subject: [PATCH] Documentation update pktgen
+Date: Tue, 26 Sep 2006 16:23:46 +0200
+Message-ID: <17689.14322.908796.178905@robur.slu.se>
+References: <17689.13986.848022.719899@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:38278 "EHLO mx1.slu.se")
-	by vger.kernel.org with ESMTP id S1750813AbWIZOSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 10:18:15 -0400
+Received: from mx1.slu.se ([130.238.96.70]:903 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S1750827AbWIZOXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 10:23:51 -0400
 To: "Francesco Fondelli" <francesco.fondelli@gmail.com>
+In-Reply-To: <17689.13986.848022.719899@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Francesco Fondelli writes:
 
- > Anyway, I've been asked to add support for managing DSCP codepoints, so
- > one can test DiffServ capable routers. It's very simple code and is working for
- > me.
-
-Looks fine too. We ask Dave to apply again.
+And the docs.
 
 Cheers.
 					--ro
@@ -31,143 +28,37 @@ Cheers.
 Signed-off-by: Francesco Fondelli <francesco.fondelli@gmail.com>
 Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
 
-
-
---- new/net/core/pktgen.c.vlan	2006-09-26 14:53:34.000000000 +0200
-+++ new/net/core/pktgen.c	2006-09-26 14:54:49.000000000 +0200
-@@ -160,7 +160,7 @@
- #include <asm/div64.h>		/* do_div */
- #include <asm/timex.h>
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index 278771c..6062e35 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -100,6 +100,7 @@ Examples:
+                          are: IPSRC_RND #IP Source is random (between min/max),
+                               IPDST_RND, UDPSRC_RND,
+                               UDPDST_RND, MACSRC_RND, MACDST_RND 
++                              MPLS_RND, VID_RND, SVID_RND 
  
--#define VERSION  "pktgen v2.67: Packet Generator for packet performance testing.\n"
-+#define VERSION  "pktgen v2.68: Packet Generator for packet performance testing.\n"
+  pgset "udp_src_min 9"   set UDP source port min, If < udp_src_max, then
+                          cycle through the port range.
+@@ -125,6 +126,21 @@ Examples:
  
- /* #define PG_DEBUG(a) a */
- #define PG_DEBUG(a)
-@@ -292,6 +292,10 @@
- 	__u16 udp_dst_min;	/* inclusive, dest UDP port */
- 	__u16 udp_dst_max;	/* exclusive, dest UDP port */
+  pgset "mpls 0"		  turn off mpls (or any invalid argument works too!)
  
-+	/* DSCP + ECN */
-+	__u8 tos;            /* six most significant bits of (former) IPv4 TOS are for dscp codepoint */
-+	__u8 traffic_class;  /* ditto for the (former) Traffic Class in IPv6 (see RFC 3260, sec. 4) */
++ pgset "vlan_id 77"       set VLAN ID 0-4095
++ pgset "vlan_p 3"         set priority bit 0-7 (default 0)
++ pgset "vlan_cfi 0"       set canonical format identifier 0-1 (default 0)
 +
- 	/* MPLS */
- 	unsigned nr_labels;	/* Depth of stack, 0 = no MPLS */
- 	__be32 labels[MAX_MPLS_LABELS];
-@@ -671,6 +675,14 @@
- 			   pkt_dev->svlan_id, pkt_dev->svlan_p, pkt_dev->svlan_cfi);
- 	}
- 
-+	if (pkt_dev->tos) {
-+		seq_printf(seq, "     tos: 0x%02x\n", pkt_dev->tos);
-+	}
++ pgset "svlan_id 22"      set SVLAN ID 0-4095
++ pgset "svlan_p 3"        set priority bit 0-7 (default 0)
++ pgset "svlan_cfi 0"      set canonical format identifier 0-1 (default 0)
 +
-+	if (pkt_dev->traffic_class) {
-+		seq_printf(seq, "     traffic_class: 0x%02x\n", pkt_dev->traffic_class);
-+	}
++ pgset "vlan_id 9999"     > 4095 remove vlan and svlan tags
++ pgset "svlan 9999"       > 4095 remove svlan tag
 +
- 	seq_printf(seq, "     Flags: ");
- 
- 	if (pkt_dev->flags & F_IPV6)
-@@ -748,12 +760,12 @@
- }
- 
- 
--static int hex32_arg(const char __user *user_buffer, __u32 *num)
-+static int hex32_arg(const char __user *user_buffer, unsigned long maxlen, __u32 *num)
- {
- 	int i = 0;
- 	*num = 0;
- 
--	for(; i < 8; i++) {
-+	for(; i < maxlen; i++) {
- 		char c;
- 		*num <<= 4;
- 		if (get_user(c, &user_buffer[i]))
-@@ -848,7 +860,7 @@
- 	pkt_dev->nr_labels = 0;
- 	do {
- 		__u32 tmp;
--		len = hex32_arg(&buffer[i], &tmp);
-+		len = hex32_arg(&buffer[i], 8, &tmp);
- 		if (len <= 0)
- 			return len;
- 		pkt_dev->labels[n] = htonl(tmp);
-@@ -1185,11 +1197,15 @@
- 		else if (strcmp(f, "!SVID_RND") == 0)
- 			pkt_dev->flags &= ~F_SVID_RND;
- 
-+		else if (strcmp(f, "!IPV6") == 0)
-+			pkt_dev->flags &= ~F_IPV6;
 +
- 		else {
- 			sprintf(pg_result,
- 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
- 				f,
--				"IPSRC_RND, IPDST_RND, TXSIZE_RND, UDPSRC_RND, UDPDST_RND, MACSRC_RND, MACDST_RND\n");
-+				"IPSRC_RND, IPDST_RND, UDPSRC_RND, UDPDST_RND, "
-+				"MACSRC_RND, MACDST_RND, TXSIZE_RND, IPV6, MPLS_RND, VID_RND, SVID_RND\n");
- 			return count;
- 		}
- 		sprintf(pg_result, "OK: flags=0x%x", pkt_dev->flags);
-@@ -1615,6 +1631,38 @@
- 		return count;
- 	}
- 
-+	if (!strcmp(name, "tos")) {
-+		__u32 tmp_value = 0;
-+		len = hex32_arg(&user_buffer[i], 2, &tmp_value);
-+		if (len < 0) {
-+			return len;
-+		}
-+		i += len;
-+		if (len == 2) {
-+			pkt_dev->tos = tmp_value;
-+			sprintf(pg_result, "OK: tos=0x%02x", pkt_dev->tos);
-+		} else {
-+			sprintf(pg_result, "ERROR: tos must be 00-ff");
-+		}
-+		return count;
-+	}
++ pgset "tos XX"           set former IPv4 TOS field (e.g. "tos 28" for AF11 no ECN, default 00)
++ pgset "traffic_class XX" set former IPv6 TRAFFIC CLASS (e.g. "traffic_class B8" for EF no ECN, default 00)
 +
-+	if (!strcmp(name, "traffic_class")) {
-+		__u32 tmp_value = 0;
-+		len = hex32_arg(&user_buffer[i], 2, &tmp_value);
-+		if (len < 0) {
-+			return len;
-+		}
-+		i += len;
-+		if (len == 2) {
-+			pkt_dev->traffic_class = tmp_value;
-+			sprintf(pg_result, "OK: traffic_class=0x%02x", pkt_dev->traffic_class);
-+		} else {
-+			sprintf(pg_result, "ERROR: traffic_class must be 00-ff");
-+		}
-+		return count;
-+	}
-+
- 	sprintf(pkt_dev->result, "No such parameter \"%s\"", name);
- 	return -EINVAL;
- }
-@@ -2339,7 +2387,7 @@
- 	iph->ihl = 5;
- 	iph->version = 4;
- 	iph->ttl = 32;
--	iph->tos = 0;
-+	iph->tos = pkt_dev->tos;
- 	iph->protocol = IPPROTO_UDP;	/* UDP */
- 	iph->saddr = pkt_dev->cur_saddr;
- 	iph->daddr = pkt_dev->cur_daddr;
-@@ -2678,6 +2726,11 @@
+  pgset stop    	          aborts injection. Also, ^C aborts generator.
  
- 	*(u32 *) iph = __constant_htonl(0x60000000);	/* Version + flow */
  
-+	if(pkt_dev->traffic_class) {
-+		/* Version + traffic class + flow (0) */
-+		*(u32 *)iph |= htonl(0x60000000 | (pkt_dev->traffic_class << 20));
-+	}
-+
- 	iph->hop_limit = 32;
- 
- 	iph->payload_len = htons(sizeof(struct udphdr) + datalen);
