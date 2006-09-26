@@ -1,20 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] skge: fiber support (rebased)
-Date: Mon, 25 Sep 2006 20:04:53 -0400
-Message-ID: <45186EA5.5090005@pobox.com>
-References: <20060815131852.GP2900@mathom.us>	<20060921153939.739947ab@dxpl.pdx.osdl.net>	<45147CED.10801@pobox.com> <20060923212528.109a5056@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.19-rc1] ehea firmware interface based on Anton Blanchard's
+ new hvcall interface
+Date: Mon, 25 Sep 2006 20:07:01 -0400
+Message-ID: <45186F25.9000700@garzik.org>
+References: <200609251550.01514.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Stone <mstone@mathom.us>, netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, pmac@au1.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46296 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751814AbWIZAE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 20:04:57 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060923212528.109a5056@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:50392 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751819AbWIZAHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 20:07:07 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+In-Reply-To: <200609251550.01514.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied
+patch does not apply.
+
+also, it would seem like varargs would be appropriate here.
+
 
