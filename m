@@ -1,49 +1,46 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: [patch 07/11] drivers/net/typhoon.c Removal of old code
-Date: Mon, 25 Sep 2006 23:11:21 -0400
-Message-ID: <1159240281.22240.0.camel@obelisk.thedillows.org>
-References: <200609252339.k8PNdMRI002644@shell0.pdx.osdl.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [patch 01/11] e1000: memory leak in e1000_set_ringparam()
+Date: Mon, 25 Sep 2006 21:57:50 -0700
+Message-ID: <4518B34E.1040707@intel.com>
+References: <200609252339.k8PNdFO1002622@shell0.pdx.osdl.net> <45186E09.1080003@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	michal.k.k.piotrowski@gmail.com
+Cc: akpm@osdl.org, netdev@vger.kernel.org, vvs@sw.ru,
+	auke-jan.h.kok@intel.com, cramerj@intel.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:25021 "EHLO smtp.knology.net")
-	by vger.kernel.org with ESMTP id S1750724AbWIZDLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2006 23:11:24 -0400
-To: akpm@osdl.org
-In-Reply-To: <200609252339.k8PNdMRI002644@shell0.pdx.osdl.net>
+Received: from mga03.intel.com ([143.182.124.21]:8722 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S1750898AbWIZE7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 00:59:40 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45186E09.1080003@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-09-25 at 16:39 -0700, akpm@osdl.org wrote:
-> From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Jeff Garzik wrote:
+> akpm@osdl.org wrote:
+>> From: Vasily Averin <vvs@sw.ru>
+>>
+>> Memory leak was found in 2.6.18-rc4 and e1000 7.2.7 from sourceforge:
+>> Memory allocated for new tx_ring and rx_ring leaks if
+>> e1000_setup_XX_resources() fails.c Also this patch reduces stack usage
+>> (removed tx_new and rx_new) and uses kzalloc instead kmalloc+memset(0)
+>>
+>> Signed-off-by: Vasily Averin <vvs@sw.ru>
+>> Cc: Jeb Cramer <cramerj@intel.com>
+>> Cc: John Ronciak <john.ronciak@intel.com>
+>> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Cc: Auke Kok <auke-jan.h.kok@intel.com>
+>> Cc: Jeff Garzik <jeff@garzik.org>
+>> Signed-off-by: Andrew Morton <akpm@osdl.org>
 > 
-> Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
+> ACK + HOLD, waiting to see if this will be included in Auke's push
 
-Signed-off-by: Dave Dillow <dave@thedillows.org>
+Ack, I've stacked it on the workqueue and it will go out to Jeff this week.
 
-> ---
-> 
->  drivers/net/typhoon.c |    4 ----
->  1 file changed, 4 deletions(-)
-> 
-> diff -puN drivers/net/typhoon.c~drivers-net-typhoonc-removal-of-old-code drivers/net/typhoon.c
-> --- a/drivers/net/typhoon.c~drivers-net-typhoonc-removal-of-old-code
-> +++ a/drivers/net/typhoon.c
-> @@ -333,11 +333,7 @@ enum state_values {
->  #define TYPHOON_RESET_TIMEOUT_NOSLEEP	((6 * 1000000) / TYPHOON_UDELAY)
->  #define TYPHOON_WAIT_TIMEOUT		((1000000 / 2) / TYPHOON_UDELAY)
->  
-> -#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 28)
-> -#define typhoon_synchronize_irq(x) synchronize_irq()
-> -#else
->  #define typhoon_synchronize_irq(x) synchronize_irq(x)
-> -#endif
->  
->  #if defined(NETIF_F_TSO)
->  #define skb_tso_size(x)		(skb_shinfo(x)->gso_size)
+Cheers,
 
+Auke
