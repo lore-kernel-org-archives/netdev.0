@@ -1,35 +1,46 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch 09/11] b44: fix eeprom endianess issue
-Date: Tue, 26 Sep 2006 21:05:52 +0200
-Message-ID: <20060926190552.GA15039@electric-eye.fr.zoreil.com>
-References: <200609252339.k8PNdNE4002654@shell0.pdx.osdl.net> <1159289374.2782.39.camel@ux156> <20060926174915.GA12512@electric-eye.fr.zoreil.com> <200609262010.50420.mb@bu3sch.de>
+Subject: Re: [2.6.18 backport] RTL8168 ethernet support in r8169
+Date: Tue, 26 Sep 2006 21:14:58 +0200
+Message-ID: <20060926191458.GB15039@electric-eye.fr.zoreil.com>
+References: <451972B0.5020805@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, akpm@osdl.org,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:20941 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932474AbWIZTJ7
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:21712 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932396AbWIZTRp
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 15:09:59 -0400
-To: Michael Buesch <mb@bu3sch.de>
+	Tue, 26 Sep 2006 15:17:45 -0400
+To: Daniel Drake <dsd@gentoo.org>
 Content-Disposition: inline
-In-Reply-To: <200609262010.50420.mb@bu3sch.de>
+In-Reply-To: <451972B0.5020805@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch <mb@bu3sch.de> :
+Daniel Drake <dsd@gentoo.org> :
 [...]
-> > 3 - The data in the eeprom contains u16 and it has a known endianness.
-> >     It can be annotated as such (__be16 eeprom[]). I do not know how to
-> >     do the same with an u8 [].
-> 
-> No. The eeprom is mostly not be16. The eeprom is mostly little
-> endian, except the mac address and some wireless specific bits
-> I forgot.
+ static struct pci_device_id rtl8169_pci_tbl[] = {
+-	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), },
+-	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), },
+-	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), },
+-	{ PCI_DEVICE(0x16ec,			0x0116), },
+-	{ PCI_VENDOR_ID_LINKSYS,		0x1032, PCI_ANY_ID, 0x0024, },
++	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), 0, 0, RTL_CFG_0 },
++	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8136), 0, 0, RTL_CFG_1 },
 
-Sorry, s/__be16/__le16/
+Should be RTL_CFG_2 (but there are still issues with the link management).
 
--- 
++	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8167), 0, 0, RTL_CFG_1 },
+                                                               ^^^^^^^^^
+Should be RTL_CFG_1.
+
+Is there any chance that you can push a different patch for your releases ?
+
+There are no pending changes outside of the git vanilla tree. As an option,
+you can use the patch below too:
+http://www.fr.zoreil.com/people/francois/misc/20060920-2.6.18-r8169-test.patch
+
+I should have Cced: you :o/
+
+--
 Ueimor
