@@ -1,36 +1,70 @@
-From: Michael Stone <mstone@mathom.us>
-Subject: Re: [PATCH] skge: fiber support
-Date: Tue, 26 Sep 2006 11:45:01 -0400
-Message-ID: <20060926154459.GA6030@mathom.us>
-References: <20060815131852.GP2900@mathom.us>
- <20060921153939.739947ab@dxpl.pdx.osdl.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 09/11] b44: fix eeprom endianess issue
+Date: Tue, 26 Sep 2006 11:59:28 -0400
+Message-ID: <45194E60.4010701@garzik.org>
+References: <200609252339.k8PNdNE4002654@shell0.pdx.osdl.net> <45186D66.1000508@garzik.org> <200609261747.25575.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms048pub.verizon.net ([206.46.252.48]:19869 "EHLO
-	vms048pub.verizon.net") by vger.kernel.org with ESMTP
-	id S932140AbWIZPxX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 11:53:23 -0400
-Received: from osgiliath.mathom.us ([72.66.19.85])
- by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-4.02 (built Sep
- 9 2005)) with ESMTPA id <0J6700L8XIF6P66B@vms048.mailsrvcs.net> for
- netdev@vger.kernel.org; Tue, 26 Sep 2006 10:45:07 -0500 (CDT)
-In-reply-to: <20060921153939.739947ab@dxpl.pdx.osdl.net>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:8325 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932158AbWIZP7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 11:59:31 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200609261747.25575.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 21, 2006 at 03:39:39PM -0700, Stephen Hemminger wrote:
->Add support for older fiber versions of the SysKonnect board. These chipsets
->use an internal PHY so they require special handling. The older sk98lin
->driver already supported these
+Michael Buesch wrote:
+> On Tuesday 26 September 2006 01:59, Jeff Garzik wrote:
+>> akpm@osdl.org wrote:
+>>> From: Michael Buesch <mb@bu3sch.de>
+>>>
+>>> This fixes eeprom read on big-endian architectures.
+>>>
+>>> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+>>> Cc: Jeff Garzik <jeff@garzik.org>
+>>> Signed-off-by: Andrew Morton <akpm@osdl.org>
+>>> ---
+>>>
+>>>  drivers/net/b44.c |    2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff -puN drivers/net/b44.c~b44-fix-eeprom-endianess-issue drivers/net/b44.c
+>>> --- a/drivers/net/b44.c~b44-fix-eeprom-endianess-issue
+>>> +++ a/drivers/net/b44.c
+>>> @@ -2055,7 +2055,7 @@ static int b44_read_eeprom(struct b44 *b
+>>>  	u16 *ptr = (u16 *) data;
+>>>  
+>>>  	for (i = 0; i < 128; i += 2)
+>>> -		ptr[i / 2] = readw(bp->regs + 4096 + i);
+>>> +		ptr[i / 2] = cpu_to_le16(readw(bp->regs + 4096 + i));
+>> Seems highly silly to me:  readw() already swaps on big endian, so 
+>> you're just swapping again.  And then...  read the call of 
+>> b44_read_eeprom():  bp->dev->dev_addr[] assignment is such that it swaps 
+>> YET AGAIN.
+>>
+>> Seems like a better solution would be to remove the manual swap from the 
+>> caller of b44_read_eeprom().
+> 
+> I already explained this to you, but I will repeat me.
+> readw returns the data in CPU order.
+> With cpu_to_le16 we convert it to little endian, because
+> "ptr" is a pointer to a _byte_ arrray. See the cast above.
+> A byte array is little endian.
+> Should I go into deeper detail, or did you get it? ;)
+> 
+> The dev_addr assignment _intentionally_ swaps yet again, because
+> the values are stored in bigendian format in the SPROM.
+> 
+> Removing the swap for dev_addr would definately the worse and wrong
+> solution.
 
-The patch seems to work with a single port card SX card. I'll test with 
-LX & dual port shortly. One thing that I haven't got working is forcing 
-the card up if autonegotiation isn't possible. (It used to be a module 
-parameter like AutoNeg=Off for sk98lin; I've tried (unsuccessfully) to 
-use ethtool to turn off autoneg, but I'll try harder.)
+AFAICS it's an obviously-correct end result, with far fewer swaps to boot.
 
-Mike Stone
+	Jeff
+
+
+
