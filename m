@@ -1,60 +1,74 @@
-From: "Miles Lane" <miles.lane@gmail.com>
-Subject: Re: 2.6.18-mm1 -- ieee80211: Info elem: parse failed: info_element->len + 2 > left : info_element->len+2=28 left=9, id=221.
-Date: Tue, 26 Sep 2006 17:53:10 -0700
-Message-ID: <a44ae5cd0609261753t311a7952w2a98434c093ef1c@mail.gmail.com>
-References: <a44ae5cd0609261204g673fbf8ft6809378930986eac@mail.gmail.com>
-	 <20060926124310.17797fe5.akpm@osdl.org>
+From: Manish Lachwani <mlachwani@mvista.com>
+Subject: [PATCH] Add NETPOLL Support to SB1250 driver
+Date: Tue, 26 Sep 2006 18:59:18 -0700
+Message-ID: <20060927015918.GA21824@prometheus.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"Jouni Malinen" <jkmaline@cc.hut.fi>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Content-Type: multipart/mixed; boundary="+HP7ph2BbKc20aGI"
+Cc: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.179]:44859 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S932094AbWI0AxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Sep 2006 20:53:11 -0400
-Received: by py-out-1112.google.com with SMTP id n25so21993pyg
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 17:53:10 -0700 (PDT)
-To: "Andrew Morton" <akpm@osdl.org>
-In-Reply-To: <20060926124310.17797fe5.akpm@osdl.org>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:10493 "EHLO
+	prometheus.mvista.com") by vger.kernel.org with ESMTP
+	id S932256AbWI0B71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 21:59:27 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/26/06, Andrew Morton <akpm@osdl.org> wrote:
->
-> [added netdev]
->
-> On Tue, 26 Sep 2006 12:04:40 -0700
-> "Miles Lane" <miles.lane@gmail.com> wrote:
->
-> > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
-> > info_element->len+2=28 left=9, id=221.
-> > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
-> > info_element->len+2=28 left=9, id=221.
-> > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
-> > info_element->len+2=28 left=9, id=221.
-> >
-> > >From dmesg output:
-> > ieee80211: 802.11 data/management/control stack, git-1.1.13
-> > ieee80211: Copyright (C) 2004-2005 Intel Corporation <jketreno@linux.intel.com>
-> > ieee80211_crypt: registered algorithm 'NULL'
-> > ieee80211_crypt: registered algorithm 'WEP'
-> > ieee80211_crypt: registered algorithm 'CCMP'
-> > ieee80211_crypt: registered algorithm 'TKIP'
->
-> I suspect that whatever caused this is now in mainline.  Are you able to
-> test Linus's current git tree?
 
-Sorry, I don't have oodles of disk space free to hold all the git
-historical information (iirc, it's huge).  I could conceivably put it
-together, but I'd been some help and time.  I am currently travelling,
-but I do have my kernel test laptop with me.  Also, I am currently
-staying in a building running off of solar power, so I need to be a
-bit careful with power consumption.  I'll be in a place with AC power
-in five days.  Lastly, I don't know how I triggered the problem.  I am
-happy to try to reproduce it for you, though.
+--+HP7ph2BbKc20aGI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-        Miles
+Hello!
+
+Attached patch adds NETPOLL support for the Sibyte Network driver.
+
+Thanks,
+Manish Lachwani
+
+--+HP7ph2BbKc20aGI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="mips_sb1250_netpoll.patch"
+
+Source: MontaVista Software, Inc. | Manish Lachwani <mlachwani@mvista.com>
+
+NETPOLL support for Sibyte MAC
+
+ drivers/net/sb1250-mac.c |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+)
+
+Index: linux-2.6.18/drivers/net/sb1250-mac.c
+===================================================================
+--- linux-2.6.18.orig/drivers/net/sb1250-mac.c
++++ linux-2.6.18/drivers/net/sb1250-mac.c
+@@ -1128,6 +1128,17 @@ static void sbdma_fillring(sbmacdma_t *d
+ 	}
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void sbmac_netpoll(struct net_device *netdev)
++{
++	struct sbmac_softc *sc = netdev_priv(netdev);
++	int irq = sc->sbm_dev->irq;
++
++	disable_irq(irq);
++	sbmac_intr(irq, netdev, NULL);
++	enable_irq(irq);
++}
++#endif
+ 
+ /**********************************************************************
+  *  SBDMA_RX_PROCESS(sc,d)
+@@ -2402,6 +2413,9 @@ static int sbmac_init(struct net_device 
+ 	dev->watchdog_timeo     = TX_TIMEOUT;
+ 
+ 	dev->change_mtu         = sb1250_change_mtu;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = sbmac_netpoll;
++#endif
+ 
+ 	/* This is needed for PASS2 for Rx H/W checksum feature */
+ 	sbmac_set_iphdr_offset(sc);
+
+--+HP7ph2BbKc20aGI--
