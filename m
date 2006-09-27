@@ -1,49 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] genetlink custom attribute type
-Date: Wed, 27 Sep 2006 14:18:42 +0200
-Message-ID: <1159359523.2698.27.camel@ux156>
-References: <1159255520.2782.1.camel@ux156>
-	 <20060926094408.GT18349@postel.suug.ch>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: softmac mtu
+Date: Wed, 27 Sep 2006 14:39:05 +0200
+Message-ID: <20060927143905.721ddf3e@griffin.suse.cz>
+References: <ef3s4u$or5$3@sea.gmane.org>
+	<ef9a0b$4jb$4@sea.gmane.org>
+	<20060925200125.GF16949@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Cc: Matthieu CASTET <castet.matthieu@free.fr>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:33231 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030210AbWI0MR6
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 08:17:58 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060926094408.GT18349@postel.suug.ch>
+Received: from styx.suse.cz ([82.119.242.94]:12228 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932308AbWI0MjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 08:39:07 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060925200125.GF16949@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-09-26 at 11:44 +0200, Thomas Graf wrote:
+On Mon, 25 Sep 2006 16:01:32 -0400, John W. Linville wrote:
+> On Mon, Sep 25, 2006 at 07:17:31PM +0000, Matthieu CASTET wrote:
+> > So why a special mtu handler is not implemented in 802.11 stack :
+> > - 802.11 stack doesn't support bigger packet
+> > - 802.11 stack doesn't support very bigger packet (with
+> > 802.11 fragmentation)
+> > - 802.11 writers were lazy
+> 
+> I suspect the latter...patches welcome! :-)
 
-> Thinking it over I'm still not completely happy with this. A
-> small subset of all the validation tasks is simply too complex
-> to be put into the policy. The validation of your type value
-> array is such a case, address fields with variable length based
-> on their family is another. I think it's just not worth to
-> blow up struct nla_policy by 12 bytes per entry just to save
-> some code.
+d80211 supports larger MTU.
 
-Oh, I just had another idea... Feel free to ignore me if you think that
-having this done in some generic way isn't worth it though. As I said,
-it doesn't really make a difference to me in the end :)
+ Jiri
 
-
-Currently, we always pass a "struct nla_policy *policy" into things,
-which really is an array. We could instead pass in a new
-
-struct nla_validation {
-	int (*custom_validate)(struct nlattr *nla);
-	struct nla_policy *policy;
-};
-
-and call custom_validate() whenever we encounter something in the policy
-that has type NLA_CUSTOM_VALIDATE. Downsides of this approach are that
-it requires changing all current users, and introduces 16 bytes constant
-overhead on 64-bit platforms, the size of nla_validation.
-
-johannes
+-- 
+Jiri Benc
+SUSE Labs
