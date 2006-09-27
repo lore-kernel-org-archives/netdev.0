@@ -1,7 +1,7 @@
 From: Christian <email@christianhoffmann.info>
 Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Wed, 27 Sep 2006 23:11:01 +0200
-Message-ID: <200609272311.01479.email@christianhoffmann.info>
+Date: Wed, 27 Sep 2006 23:21:50 +0200
+Message-ID: <200609272321.50564.email@christianhoffmann.info>
 References: <200609271726.34305.mb@bu3sch.de> <451AA446.7060009@lwfinger.net> <200609271950.47430.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,211 +11,25 @@ Cc: linville@tuxdriver.com, Larry Finger <Larry.Finger@lwfinger.net>,
 	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:20478 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.187]:5581 "EHLO
 	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1030858AbWI0VLX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 17:11:23 -0400
+	id S1030875AbWI0VWj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 17:22:39 -0400
 To: Michael Buesch <mb@bu3sch.de>
 In-Reply-To: <200609271950.47430.mb@bu3sch.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-And a second try seems to hint at some acpi problems on the acer:
-bcm43xx: Device resumed.
-PM: Writing back config space on device 0000:06:09.0 at offset f (was 34001ff, 
-writing 5c0010b)
-PM: Writing back config space on device 0000:06:09.0 at offset e (was 0, 
-writing 24fc)
-PM: Writing back config space on device 0000:06:09.0 at offset d (was 0, 
-writing 2400)
-PM: Writing back config space on device 0000:06:09.0 at offset c (was 0, 
-writing 20fc)
-PM: Writing back config space on device 0000:06:09.0 at offset b (was 0, 
-writing 2000)
-PM: Writing back config space on device 0000:06:09.0 at offset a (was 0, 
-writing 53fff000)
-PM: Writing back config space on device 0000:06:09.0 at offset 9 (was 0, 
-writing 52000000)
-PM: Writing back config space on device 0000:06:09.0 at offset 8 (was 0, 
-writing 51fff000)
-PM: Writing back config space on device 0000:06:09.0 at offset 7 (was 0, 
-writing 50000000)
-PM: Writing back config space on device 0000:06:09.0 at offset 6 (was 0, 
-writing b00a0706)
-PM: Writing back config space on device 0000:06:09.0 at offset 4 (was 0, 
-writing c0308000)
-PM: Writing back config space on device 0000:06:09.0 at offset 3 (was 820000, 
-writing 82a810)
-PM: Writing back config space on device 0000:06:09.0 at offset 1 (was 2100000, 
-writing 2100007)
-ACPI: PCI Interrupt 0000:06:09.0[A] -> Link [LNKH] -> GSI 11 (level, low) -> 
-IRQ 11
-PM: Writing back config space on device 0000:06:09.2 at offset f (was 4030300, 
-writing 403030b)
-PM: Writing back config space on device 0000:06:09.2 at offset 5 (was 0, 
-writing c0300000)
-PM: Writing back config space on device 0000:06:09.2 at offset 4 (was 0, 
-writing c0309000)
-PM: Writing back config space on device 0000:06:09.2 at offset 3 (was 800000, 
-writing 804008)
-PM: Writing back config space on device 0000:06:09.2 at offset 1 (was 2100000, 
-writing 2100016)
-PM: Writing back config space on device 0000:06:09.3 at offset f (was 40701ff, 
-writing 407010b)
-PM: Writing back config space on device 0000:06:09.3 at offset 4 (was 0, 
-writing c0306000)
-PM: Writing back config space on device 0000:06:09.3 at offset 3 (was 800000, 
-writing 804008)
-PM: Writing back config space on device 0000:06:09.3 at offset 1 (was 2100000, 
-writing 2100002)
-ACPI: PCI Interrupt 0000:06:09.3[A] -> Link [LNKH] -> GSI 11 (level, low) -> 
-IRQ 11
-Restarting tasks...<7>ACPI: read EC, OB not full
-ACPI Exception (evregion-0424): AE_TIME, Returned by Handler for 
-[EmbeddedControl] [20060707]
-ACPI Exception (dswexec-0458): AE_TIME, While resolving operands for 
-[OpcodeName unavailable] [20060707]
-ACPI Error (psparse-0537): Method parse/execution failed [\_SB_.ACAD._PSR] 
-(Node ffff810001fba690), AE_TIME
-ACPI Exception (acpi_ac-0096): AE_TIME, Error reading AC Adapter state 
-[20060707]
- done
-ohci_hcd: 2005 April 22 USB 1.1 'Open' Host Controller (OHCI) Driver (PCI)
-ACPI: PCI Interrupt 0000:00:13.0[A] -> Link [LNKD] -> GSI 10 (level, low) -> 
-IRQ 10
-ohci_hcd 0000:00:13.0: OHCI Host Controller
-ohci_hcd 0000:00:13.0: new USB bus registered, assigned bus number 2
-ohci_hcd 0000:00:13.0: irq 10, io mem 0xc0000000
-usb usb2: configuration #1 chosen from 1 choice
-hub 2-0:1.0: USB hub found
-hub 2-0:1.0: 4 ports detected
-ACPI: PCI Interrupt 0000:00:13.1[A] -> Link [LNKD] -> GSI 10 (level, low) -> 
-IRQ 10
-ohci_hcd 0000:00:13.1: OHCI Host Controller
-ohci_hcd 0000:00:13.1: new USB bus registered, assigned bus number 3
-ohci_hcd 0000:00:13.1: irq 10, io mem 0xc0001000
-usb usb3: configuration #1 chosen from 1 choice
-hub 3-0:1.0: USB hub found
-hub 3-0:1.0: 4 ports detected
-Synaptics Touchpad, model: 1, fw: 5.9, id: 0x126eb1, caps: 0xa04713/0x4000
-input: SynPS/2 Synaptics TouchPad as /class/input/input8
-tg3.c:v3.65 (August 07, 2006)
-ACPI: PCI Interrupt 0000:05:00.0[A] -> Link [LNKC] -> GSI 10 (level, low) -> 
-IRQ 10
-PCI: Setting latency timer of device 0000:05:00.0 to 64
-eth0: Tigon3 [partno(BCM95789) rev 4101 PHY(5750)] (PCI Express) 
-10/100/1000BaseT Ethernet 00:c0:9f:b7:77:f3
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1]
-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-usb 3-2: new full speed USB device using ohci_hcd and address 2
-usb 3-2: configuration #1 chosen from 1 choice
-input: Bluetooth HID Boot Protocol Device as /class/input/input9
-bcm43xx: Radio turned off
-bcm43xx: DMA-32 0x0200 (RX) max used slots: 0/64
-bcm43xx: DMA-32 0x02A0 (TX) max used slots: 0/512
-bcm43xx: DMA-32 0x0280 (TX) max used slots: 0/512
-bcm43xx: DMA-32 0x0260 (TX) max used slots: 0/512
-bcm43xx: DMA-32 0x0240 (TX) max used slots: 0/512
-bcm43xx: DMA-32 0x0220 (TX) max used slots: 2/512
-bcm43xx: ASSERTION FAILED (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) 
-at: 
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:1848:bcm43xx_interrupt_handler()
-bcm43xx: DMA-32 0x0200 (TX) max used slots: 0/512
-bcm43xx driver
-ACPI: PCI Interrupt 0000:06:02.0[A] -> Link [LNKF] -> GSI 11 (level, low) -> 
-IRQ 11
-bcm43xx: Chip ID 0x4318, rev 0x2
-bcm43xx: Number of cores: 4
-bcm43xx: Core 0: ID 0x800, rev 0xd, vendor 0x4243, enabled
-bcm43xx: Core 1: ID 0x812, rev 0x9, vendor 0x4243, enabled
-bcm43xx: Core 2: ID 0x804, rev 0xc, vendor 0x4243, enabled
-bcm43xx: Core 3: ID 0x80d, rev 0x7, vendor 0x4243, enabled
-bcm43xx: PHY connected
-bcm43xx: Detected PHY: Version: 3, Type 2, Revision 7
-bcm43xx: Detected Radio: ID: 8205017f (Manuf: 17f Ver: 2050 Rev: 8)
-bcm43xx: Radio turned off
-bcm43xx: Radio turned off
-ieee80211softmac_wx_set_wap 00:00:00:00:00:00
-ieee80211softmac_wx_set_rate
-SoftMAC: empty ratesinfo?
-SoftMAC: empty ratesinfo?
-ieee80211softmac_wx_set_wap 00:00:00:00:00:00
-ieee80211softmac_wx_set_essid
-SoftMAC: Associate: Scanning for networks first.
-SoftMAC: Associate: failed to initiate scan. Is device up?
-bcm43xx: PHY connected
-bcm43xx: Microcode rev 0x123, pl 0x21 (2005-01-22  19:48:06)
-bcm43xx: Radio turned on
-bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: 
-drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1496:bcm43xx_find_lopair()
-bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: 
-drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1496:bcm43xx_find_lopair()
-bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: 
-drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1496:bcm43xx_find_lopair()
-bcm43xx: Chip initialized
-bcm43xx: 32-bit DMA initialized
-bcm43xx: Keys cleared
-bcm43xx: Selected 802.11 core (phytype 2)
-bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: 
-drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1496:bcm43xx_find_lopair()
-SoftMAC: Associate: Scanning for networks first.
-SoftMAC: Associate: failed to initiate scan. Is device up?
-ADDRCONF(NETDEV_UP): eth1: link is not ready
-ieee80211softmac_wx_set_rate
-SoftMAC: empty ratesinfo?
-SoftMAC: empty ratesinfo?
-ieee80211softmac_wx_set_wap 00:00:00:00:00:00
-ieee80211softmac_wx_set_essid
-SoftMAC: Associate: Scanning for networks first.
-SoftMAC: Start scanning with channel: 1
-SoftMAC: Scanning 14 channels
-bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-ieee80211softmac_wx_get_scan_results
-ieee80211softmac_wx_trigger_scan
-SoftMAC: Scanning finished
-SoftMAC: Unable to find matching network after scan!
-ieee80211softmac_wx_get_scan_results
-ieee80211softmac_wx_set_genie
-SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f202
-ieee80211softmac_wx_set_essid
-SoftMAC: Associate: Scanning for networks first.
-SoftMAC: Start scanning with channel: 1
-SoftMAC: Scanning 14 channels
-ieee80211softmac_wx_set_wap 00:13:10:2f:98:3e
-SoftMAC: Queueing Authentication Request to 00:13:10:2f:98:3e
-SoftMAC: Cannot associate without being authenticated, requested 
-authentication
-SoftMAC: Sent Authentication Request to 00:13:10:2f:98:3e.
-SoftMAC: Open Authentication completed with 00:13:10:2f:98:3e
-SoftMAC: sent association request!
-SoftMAC: Scanning finished
-SoftMAC: sent association request!
-ieee80211softmac_wx_get_scan_results
-SoftMAC: associated!
-ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
-ieee80211softmac_wx_get_wap
-ieee80211softmac_wx_get_essid
-ieee80211softmac_wx_get_wap
-bcm43xx: set security called, .active_key = 0, .level = 2, .enabled = 
-1, .encrypt = 1
-bcm43xx: set security called, .enabled = 1, .encrypt = 1
-r2d2 ~ # ping www.christianhoffmann.info
-PING www.christianhoffmann.info (82.165.77.52) 56(84) bytes of data.
-64 bytes from 82.165.77.52: icmp_seq=1 ttl=52 time=95.1 ms
-64 bytes from 82.165.77.52: icmp_seq=2 ttl=52 time=94.9 ms
-64 bytes from 82.165.77.52: icmp_seq=3 ttl=52 time=95.1 ms
 
---- www.christianhoffmann.info ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2000ms
-rtt min/avg/max/mdev = 94.928/95.096/95.190/0.375 ms
-r2d2 ~ #                                   
+Actually, I dont need the rmmod/modprobe of the module, I just need to do 
+a /et	c/init.d/net.eth1 restart. So maybe just an isssue with wpa_supplicant 
+or a missing ifconfig eth1 up?
+
 
 
 Chris
+
 
 On Wednesday 27 September 2006 19:50, Michael Buesch wrote:
 > On Wednesday 27 September 2006 18:18, Larry Finger wrote:
