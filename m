@@ -1,85 +1,54 @@
-From: matthieu castet <castet.matthieu@free.fr>
-Subject: Re: softmac mtu
-Date: Wed, 27 Sep 2006 19:17:09 +0200
-Message-ID: <451AB215.3080500@free.fr>
-References: <ef3s4u$or5$3@sea.gmane.org> <ef9a0b$4jb$4@sea.gmane.org>	 <20060925200125.GF16949@tuxdriver.com>	 <20060927143905.721ddf3e@griffin.suse.cz>	 <1159365434.451a833ae7728@imp3-g19.free.fr> <1159365316.2698.40.camel@ux156>
+From: Ismail Donmez <ismail@pardus.org.tr>
+Subject: Re: tc related lockdep warning.
+Date: Wed, 27 Sep 2006 20:26:04 +0300
+Message-ID: <200609272026.04934.ismail@pardus.org.tr>
+References: <20060925124352.GA1592@ff.dom.local> <20060926212034.GA3134@redhat.com> <451A6968.2090607@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080201050109010505060500"
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Jones <davej@redhat.com>, hadi@cyberus.ca,
+	Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g19.free.fr ([212.27.42.30]:4845 "EHLO smtp4-g19.free.fr")
-	by vger.kernel.org with ESMTP id S1030466AbWI0RRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 13:17:13 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1159365316.2698.40.camel@ux156>
+Received: from ns2.uludag.org.tr ([193.140.100.220]:34027 "EHLO uludag.org.tr")
+	by vger.kernel.org with ESMTP id S1030332AbWI0R0A convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 13:26:00 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <451A6968.2090607@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080201050109010505060500
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+27 Eyl 2006 =C3=87ar 15:07 tarihinde, Patrick McHardy =C5=9Funlar=C4=B1=
+ yazm=C4=B1=C5=9Ft=C4=B1:=20
+> Dave Jones wrote:
+> > With this patch, I get no lockdep warnings, but the machine locks u=
+p
+> > completely. I hooked up a serial console, and found this..
+> >
+> >
+> > u32 classifier
+> >     Performance counters on
+> >     input device check on
+> >     Actions configured
+> > BUG: warning at net/sched/sch_htb.c:395/htb_safe_rb_erase()
+> >
+> > Call Trace:
+> >  [<ffffffff8026f79b>] show_trace+0xae/0x336
+> >  [<ffffffff8026fa38>] dump_stack+0x15/0x17
+> >  [<ffffffff8860a171>] :sch_htb:htb_safe_rb_erase+0x3b/0x55
+>
+> I found the reason for this, it was an unrelated bug. I've attached
+> the latest version of the locking fixes and the fix for the HTB bug.
+> Can you please try again?
 
-Johannes Berg wrote:
-> On Wed, 2006-09-27 at 15:57 +0200, castet.matthieu@free.fr wrote:
-> 
-> 
->>Also I wonder what should be the max mtu.
-> 
-> 
-> 2304, I think, as that's
-> synonym sMaxMsduLng Integer = 2304; /* max octets in an MSDU */
-> 
+This patch (01.diff) fixed the hard lockup for me, thanks.
 
-Yes but if it is bigger the frame get framented at the 802.11 layer : in 
-theory we could put mtu (IP max packet size) a big as we want [1].
-Also if I understand it correctly if encryption is used there is less 
-space for IP data ?
+/ismail
 
-If people want to play with it, I attach the current version of my 
-(trivial) patch.
-
-
-Matthieu
-
-[1]
-if mtu > 2304, (struct ieee80211_txb*)->nr_frags is bigger than one ;)
-
---------------080201050109010505060500
-Content-Type: text/plain;
- name="ieee80211mtu"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ieee80211mtu"
-
-Index: linux/net/ieee80211/ieee80211_module.c
-===================================================================
---- linux.orig/net/ieee80211/ieee80211_module.c	2006-09-25 22:37:20.000000000 +0200
-+++ linux/net/ieee80211/ieee80211_module.c	2006-09-25 22:39:07.000000000 +0200
-@@ -118,6 +118,14 @@
- 			      &ieee->network_free_list);
- }
- 
-+static int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if ((new_mtu < 68) || (new_mtu > 2400))
-+		return -EINVAL;
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
- struct net_device *alloc_ieee80211(int sizeof_priv)
- {
- 	struct ieee80211_device *ieee;
-@@ -133,6 +141,7 @@
- 	}
- 	ieee = netdev_priv(dev);
- 	dev->hard_start_xmit = ieee80211_xmit;
-+	dev->change_mtu = ieee80211_change_mtu;
- 
- 	ieee->dev = dev;
- 
-
---------------080201050109010505060500--
+--=20
+They that can give up essential liberty to obtain a little temporary sa=
+fety=20
+deserve neither liberty nor safety.
+-- Benjamin Franklin
