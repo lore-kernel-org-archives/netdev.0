@@ -1,593 +1,1220 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] softmac: Fix WX and association related races
-Date: Wed, 27 Sep 2006 17:26:33 +0200
-Message-ID: <200609271726.34305.mb@bu3sch.de>
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 2.6.18 1/9] NetXen: Makefile and driver main file
+Date: Wed, 27 Sep 2006 08:31:45 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609270829270.18527@dut39>
+References: <Pine.LNX.4.64.0609270821160.18527@dut39>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Christian <email@christianhoffmann.info>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Sanjeev Jorapur <sanjeev@netxen.com>, Rob Mapes <rob@netxen.com>,
+	unmproj@linsyssoft.com, brazilnut@us.ibm.com, wendyx@us.ibm.com,
+	Randy Dunlap <rdunlap@xenotime.net>, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49852
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S964933AbWI0Pa6
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:57680 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S964937AbWI0Pbq
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 11:30:58 -0400
-To: linville@tuxdriver.com
-Content-Disposition: inline
+	Wed, 27 Sep 2006 11:31:46 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0609270821160.18527@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes some race conditions in the WirelessExtension
-handling and association handling code.
+diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/MAINTAINERS linux-2.6.18/MAINTAINERS
+--- linux-2.6.18.orig/MAINTAINERS	2006-09-25 02:28:24.000000000 -0700
++++ linux-2.6.18/MAINTAINERS	2006-09-25 05:02:37.000000000 -0700
+@@ -2060,6 +2060,13 @@ L:	netdev@vger.kernel.org
+  T:	git kernel.org:/pub/scm/linux/kernel/git/linville/wireless-2.6.git
+  S:	Maintained
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
++NETXEN (1/10) GbE SUPPORT
++P:	Amit S. Kale
++M:	amitkale@netxen.com
++L:	netdev@vger.kernel.org
++W:	http://www.netxen.com
++S:	Supported
++
+  IPVS
+  P:	Wensong Zhang
+  M:	wensong@linux-vs.org
+diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/Kconfig linux-2.6.18/drivers/net/Kconfig
+--- linux-2.6.18.orig/drivers/net/Kconfig	2006-09-25 02:28:22.000000000 -0700
++++ linux-2.6.18/drivers/net/Kconfig	2006-09-25 05:03:43.000000000 -0700
+@@ -2399,6 +2399,11 @@ config MYRI10GE
+  	  <file:Documentation/networking/net-modules.txt>.  The module
+  	  will be called myri10ge.
 
----
++config NETXEN_NIC
++	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
++	help
++	  This enables the support for NetXen's Gigabit Ethernet card.
++
+  endmenu
 
-Hi John,
+  source "drivers/net/tokenring/Kconfig"
+diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/Makefile linux-2.6.18/drivers/net/Makefile
+--- linux-2.6.18.orig/drivers/net/Makefile	2006-09-25 02:28:22.000000000 -0700
++++ linux-2.6.18/drivers/net/Makefile	2006-09-25 05:04:07.000000000 -0700
+@@ -219,3 +219,4 @@ obj-$(CONFIG_NETCONSOLE) += netconsole.o
 
-Please apply this fo wireless-2.6 and push it with your
-next push of bugfixes.
-There are other theoretical raceconditions possible in softmac
-related to scanning and assoc code. But I don't really want to fix
-these, as I think they:
-1) are not triggerable in real world conditions.
-2) are not exploitable to do some bad attacks, etc...
-3) require _huge_ changes to softmac, and I don't really
-   want to spend more effort into softmac any longer.
-This patch fixes some real-world exploitable bugs, so better
-fix them to have working wireless until d80211 is ready for
-prime-time.
+  obj-$(CONFIG_FS_ENET) += fs_enet/
 
-btw: d80211 might have similiar race conditions like this.
-
-Larry, once this patch settled a little bit and enough people
-tested it, you might want to try pushing it into -stable (although
-it's big...)
-
-
-Index: wireless-2.6/include/net/ieee80211softmac.h
-===================================================================
---- wireless-2.6.orig/include/net/ieee80211softmac.h	2006-09-25 17:02:08.000000000 +0200
-+++ wireless-2.6/include/net/ieee80211softmac.h	2006-09-27 16:39:17.000000000 +0200
-@@ -63,13 +63,11 @@ struct ieee80211softmac_wpa {
- 
- /*
-  * Information about association
-- *
-- * Do we need a lock for this?
-- * We only ever use this structure inlined
-- * into our global struct. I've used its lock,
-- * but maybe we need a local one here?
-  */
- struct ieee80211softmac_assoc_info {
++obj-$(CONFIG_NETXEN_NIC) += netxen/
+diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/netxen/Makefile linux-2.6.18/drivers/net/netxen/Makefile
+--- linux-2.6.18.orig/drivers/net/netxen/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.18/drivers/net/netxen/Makefile	2006-09-25 05:04:07.000000000 -0700
+@@ -0,0 +1,35 @@
++# Copyright (C) 2003 - 2006 NetXen, Inc.
++# All rights reserved.
++# 
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License
++# as published by the Free Software Foundation; either version 2
++# of the License, or (at your option) any later version.
++# 
++# This program is distributed in the hope that it will be useful, but
++# WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++# 
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place - Suite 330, Boston,
++# MA  02111-1307, USA.
++# 
++# The full GNU General Public License is included in this distribution
++# in the file called LICENSE.
++# 
++# Contact Information:
++#    info@netxen.com
++# NetXen,
++# 3965 Freedom Circle, Fourth floor,
++# Santa Clara, CA 95054
++#
++# Makefile for the NetXen NIC Driver
++#
 +
-+	struct mutex mutex;
 +
- 	/*
- 	 * This is the requested ESSID. It is written
- 	 * only by the WX handlers.
-@@ -99,12 +97,13 @@ struct ieee80211softmac_assoc_info {
- 	 *
- 	 * bssfixed is used for SIOCSIWAP.
- 	 */
--	u8 static_essid:1,
--	   short_preamble_available:1,
--	   associating:1,
--	   assoc_wait:1,
--	   bssvalid:1,
--	   bssfixed:1;
-+	u8 static_essid;
-+	u8 short_preamble_available;
-+	u8 associating;
-+	u8 associated;
-+	u8 assoc_wait;
-+	u8 bssvalid;
-+	u8 bssfixed;
- 
- 	/* Scan retries remaining */
- 	int scan_retry;
-@@ -229,12 +228,10 @@ struct ieee80211softmac_device {
- 	/* private stuff follows */
- 	/* this lock protects this structure */
- 	spinlock_t lock;
--	
--	/* couple of flags */
--	u8 scanning:1, /* protects scanning from being done multiple times at once */
--	   associated:1,
--	   running:1;
--	
++obj-$(CONFIG_NETXEN_NIC) := netxen_nic.o
 +
-+	u8 running; /* SoftMAC started? */
-+	u8 scanning;
++netxen_nic-y := netxen_nic_hw.o netxen_nic_main.o netxen_nic_init.o \
++	netxen_nic_isr.o netxen_nic_ethtool.o netxen_nic_niu.o
+diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/netxen/netxen_nic_main.c linux-2.6.18/drivers/net/netxen/netxen_nic_main.c
+--- linux-2.6.18.orig/drivers/net/netxen/netxen_nic_main.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.18/drivers/net/netxen/netxen_nic_main.c	2006-09-25 05:04:07.000000000 -0700
+@@ -0,0 +1,1116 @@
++/*
++ * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * 
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
++ * MA  02111-1307, USA.
++ * 
++ * The full GNU General Public License is included in this distribution
++ * in the file called LICENSE.
++ * 
++ * Contact Information:
++ *    info@netxen.com
++ * NetXen,
++ * 3965 Freedom Circle, Fourth floor,
++ * Santa Clara, CA 95054
++ *
++ *
++ *  Main source file for NetXen NIC Driver on Linux
++ *
++ */
 +
- 	struct ieee80211softmac_scaninfo *scaninfo;
- 	struct ieee80211softmac_assoc_info associnfo;
- 	struct ieee80211softmac_bss_info bssinfo;
-@@ -250,7 +247,7 @@ struct ieee80211softmac_device {
- 
- 	/* we need to keep a list of network structs we copied */
- 	struct list_head network_list;
--	
++#include "netxen_nic_hw.h"
 +
- 	/* This must be the last item so that it points to the data
- 	 * allocated beyond this structure by alloc_ieee80211 */
- 	u8 priv[0];
-@@ -295,7 +292,7 @@ static inline u8 ieee80211softmac_sugges
- {
- 	struct ieee80211softmac_txrates *txrates = &mac->txrates;
- 
--	if (!mac->associated)
-+	if (!mac->associnfo.associated)
- 		return txrates->mgt_mcast_rate;
- 
- 	/* We are associated, sending unicast frame */
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_assoc.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_assoc.c	2006-09-17 15:21:53.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_assoc.c	2006-09-27 17:10:08.000000000 +0200
-@@ -48,7 +48,7 @@ ieee80211softmac_assoc(struct ieee80211s
- 	dprintk(KERN_INFO PFX "sent association request!\n");
- 
- 	spin_lock_irqsave(&mac->lock, flags);
--	mac->associated = 0; /* just to make sure */
-+	mac->associnfo.associated = 0; /* just to make sure */
- 
- 	/* Set a timer for timeout */
- 	/* FIXME: make timeout configurable */
-@@ -62,24 +62,22 @@ ieee80211softmac_assoc_timeout(void *d)
- {
- 	struct ieee80211softmac_device *mac = (struct ieee80211softmac_device *)d;
- 	struct ieee80211softmac_network *n;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
- 	/* we might race against ieee80211softmac_handle_assoc_response,
- 	 * so make sure only one of us does something */
--	if (!mac->associnfo.associating) {
--		spin_unlock_irqrestore(&mac->lock, flags);
--		return;
--	}
-+	if (!mac->associnfo.associating)
-+		goto out;
- 	mac->associnfo.associating = 0;
- 	mac->associnfo.bssvalid = 0;
--	mac->associated = 0;
-+	mac->associnfo.associated = 0;
- 
- 	n = ieee80211softmac_get_network_by_bssid_locked(mac, mac->associnfo.bssid);
--	spin_unlock_irqrestore(&mac->lock, flags);
- 
- 	dprintk(KERN_INFO PFX "assoc request timed out!\n");
- 	ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT, n);
-+out:
-+	mutex_unlock(&mac->associnfo.mutex);
- }
- 
- void
-@@ -93,7 +91,7 @@ ieee80211softmac_disassoc(struct ieee802
- 
- 	netif_carrier_off(mac->dev);
- 
--	mac->associated = 0;
-+	mac->associnfo.associated = 0;
- 	mac->associnfo.bssvalid = 0;
- 	mac->associnfo.associating = 0;
- 	ieee80211softmac_init_bss(mac);
-@@ -107,7 +105,7 @@ ieee80211softmac_send_disassoc_req(struc
- {
- 	struct ieee80211softmac_network *found;
- 
--	if (mac->associnfo.bssvalid && mac->associated) {
-+	if (mac->associnfo.bssvalid && mac->associnfo.associated) {
- 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);
- 		if (found)
- 			ieee80211softmac_send_mgt_frame(mac, found, IEEE80211_STYPE_DISASSOC, reason);
-@@ -196,17 +194,18 @@ ieee80211softmac_assoc_work(void *d)
- 	int bssvalid;
- 	unsigned long flags;
- 
-+	mutex_lock(&mac->associnfo.mutex);
++#include "netxen_nic.h"
++#define DEFINE_GLOBAL_RECV_CRB
++#include "netxen_nic_phan_reg.h"
++#include "netxen_nic_ioctl.h"
 +
-+	if (!mac->associnfo.associating)
-+		goto out;
++MODULE_DESCRIPTION("NetXen Multi port (1/10) Gigabit Network Driver");
++MODULE_LICENSE("GPL");
++MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
 +
- 	/* ieee80211_disassoc might clear this */
- 	bssvalid = mac->associnfo.bssvalid;
- 
- 	/* meh */
--	if (mac->associated)
-+	if (mac->associnfo.associated)
- 		ieee80211softmac_send_disassoc_req(mac, WLAN_REASON_DISASSOC_STA_HAS_LEFT);
- 
--	spin_lock_irqsave(&mac->lock, flags);
--	mac->associnfo.associating = 1;
--	spin_unlock_irqrestore(&mac->lock, flags);
--
- 	/* try to find the requested network in our list, if we found one already */
- 	if (bssvalid || mac->associnfo.bssfixed)
- 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);	
-@@ -260,10 +259,8 @@ ieee80211softmac_assoc_work(void *d)
- 
- 	if (!found) {
- 		if (mac->associnfo.scan_retry > 0) {
--			spin_lock_irqsave(&mac->lock, flags);
- 			mac->associnfo.scan_retry--;
--			spin_unlock_irqrestore(&mac->lock, flags);
--		
++char netxen_nic_driver_name[] = "netxen";
++static char netxen_nic_driver_string[] = "NetXen Network Driver version "
++    NETXEN_NIC_LINUX_VERSIONID "-" NETXEN_NIC_BUILD_NO;
 +
- 			/* We know of no such network. Let's scan. 
- 			 * NB: this also happens if we had no memory to copy the network info...
- 			 * Maybe we can hope to have more memory after scanning finishes ;)
-@@ -272,19 +269,17 @@ ieee80211softmac_assoc_work(void *d)
- 			ieee80211softmac_notify(mac->dev, IEEE80211SOFTMAC_EVENT_SCAN_FINISHED, ieee80211softmac_assoc_notify_scan, NULL);
- 			if (ieee80211softmac_start_scan(mac))
- 				dprintk(KERN_INFO PFX "Associate: failed to initiate scan. Is device up?\n");
--			return;
-+			goto out;
- 		} else {
--			spin_lock_irqsave(&mac->lock, flags);
- 			mac->associnfo.associating = 0;
--			mac->associated = 0;
--			spin_unlock_irqrestore(&mac->lock, flags);
-+			mac->associnfo.associated = 0;
- 
- 			dprintk(KERN_INFO PFX "Unable to find matching network after scan!\n");
- 			/* reset the retry counter for the next user request since we
- 			 * break out and don't reschedule ourselves after this point. */
- 			mac->associnfo.scan_retry = IEEE80211SOFTMAC_ASSOC_SCAN_RETRY_LIMIT;
- 			ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_NET_NOT_FOUND, NULL);
--			return;
-+			goto out;
- 		}
- 	}
- 
-@@ -297,7 +292,7 @@ ieee80211softmac_assoc_work(void *d)
- 	/* copy the ESSID for displaying it */
- 	mac->associnfo.associate_essid.len = found->essid.len;
- 	memcpy(mac->associnfo.associate_essid.data, found->essid.data, IW_ESSID_MAX_SIZE + 1);
--	
++#define NETXEN_NETDEV_WEIGHT 120
++#define NETXEN_ADAPTER_UP_MAGIC 777
 +
- 	/* we found a network! authenticate (if necessary) and associate to it. */
- 	if (found->authenticating) {
- 		dprintk(KERN_INFO PFX "Already requested authentication, waiting...\n");
-@@ -305,7 +300,7 @@ ieee80211softmac_assoc_work(void *d)
- 			mac->associnfo.assoc_wait = 1;
- 			ieee80211softmac_notify_internal(mac, IEEE80211SOFTMAC_EVENT_ANY, found, ieee80211softmac_assoc_notify_auth, NULL, GFP_KERNEL);
- 		}
--		return;
-+		goto out;
- 	}
- 	if (!found->authenticated && !found->authenticating) {
- 		/* This relies on the fact that _auth_req only queues the work,
-@@ -321,11 +316,14 @@ ieee80211softmac_assoc_work(void *d)
- 			mac->associnfo.assoc_wait = 0;
- 			ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_FAILED, found);
- 		}
--		return;
-+		goto out;
- 	}
- 	/* finally! now we can start associating */
- 	mac->associnfo.assoc_wait = 0;
- 	ieee80211softmac_assoc(mac, found);
++/* Local functions to NetXen NIC driver */
++static int __devinit netxen_nic_probe(struct pci_dev *pdev,
++				      const struct pci_device_id *ent);
++static void __devexit netxen_nic_remove(struct pci_dev *pdev);
++static int netxen_nic_open(struct net_device *netdev);
++static int netxen_nic_close(struct net_device *netdev);
++static int netxen_nic_xmit_frame(struct sk_buff *, struct net_device *);
++static void netxen_tx_timeout(struct net_device *netdev);
++static void netxen_tx_timeout_task(struct net_device *netdev);
++static void netxen_watchdog(unsigned long);
++static int netxen_handle_int(struct netxen_adapter *, struct net_device *);
++static int netxen_nic_ioctl(struct net_device *netdev,
++			    struct ifreq *ifr, int cmd);
++static int netxen_nic_poll(struct net_device *dev, int *budget);
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void netxen_nic_poll_controller(struct net_device *netdev);
++#endif
++static irqreturn_t netxen_intr(int irq, void *data, struct pt_regs *regs);
 +
-+out:
-+	mutex_unlock(&mac->associnfo.mutex);
- }
- 
- /* call this to do whatever is necessary when we're associated */
-@@ -341,7 +339,7 @@ ieee80211softmac_associated(struct ieee8
- 	mac->bssinfo.supported_rates = net->supported_rates;
- 	ieee80211softmac_recalc_txrates(mac);
- 
--	mac->associated = 1;
-+	mac->associnfo.associated = 1;
- 
- 	mac->associnfo.short_preamble_available =
- 		(cap & WLAN_CAPABILITY_SHORT_PREAMBLE) != 0;
-@@ -421,7 +419,7 @@ ieee80211softmac_handle_assoc_response(s
- 			dprintk(KERN_INFO PFX "associating failed (reason: 0x%x)!\n", status);
- 			mac->associnfo.associating = 0;
- 			mac->associnfo.bssvalid = 0;
--			mac->associated = 0;
-+			mac->associnfo.associated = 0;
- 			ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_FAILED, network);
- 	}
- 	
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_module.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_module.c	2006-09-17 15:21:52.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_module.c	2006-09-27 16:30:07.000000000 +0200
-@@ -57,6 +57,7 @@ struct net_device *alloc_ieee80211softma
- 	INIT_LIST_HEAD(&softmac->network_list);
- 	INIT_LIST_HEAD(&softmac->events);
- 
-+	mutex_init(&softmac->associnfo.mutex);
- 	INIT_WORK(&softmac->associnfo.work, ieee80211softmac_assoc_work, softmac);
- 	INIT_WORK(&softmac->associnfo.timeout, ieee80211softmac_assoc_timeout, softmac);
- 	softmac->start_scan = ieee80211softmac_start_scan_implementation;
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-09-17 15:21:53.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-09-27 16:49:25.000000000 +0200
-@@ -73,13 +73,14 @@ ieee80211softmac_wx_set_essid(struct net
- 	struct ieee80211softmac_network *n;
- 	struct ieee80211softmac_auth_queue_item *authptr;
- 	int length = 0;
--	unsigned long flags;
++/*  PCI Device ID Table  */
++static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
++	{PCI_DEVICE(0x4040, 0x0001)},
++	{PCI_DEVICE(0x4040, 0x0002)},
++	{PCI_DEVICE(0x4040, 0x0003)},
++	{PCI_DEVICE(0x4040, 0x0004)},
++	{PCI_DEVICE(0x4040, 0x0005)},
++	{0,}
++};
 +
-+	mutex_lock(&sm->associnfo.mutex);
- 
- 	/* Check if we're already associating to this or another network
- 	 * If it's another network, cancel and start over with our new network
- 	 * If it's our network, ignore the change, we're already doing it!
- 	 */
--	if((sm->associnfo.associating || sm->associated) &&
-+	if((sm->associnfo.associating || sm->associnfo.associated) &&
- 	   (data->essid.flags && data->essid.length && extra)) {
- 		/* Get the associating network */
- 		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
-@@ -87,10 +88,9 @@ ieee80211softmac_wx_set_essid(struct net
- 		   !memcmp(n->essid.data, extra, n->essid.len)) {
- 			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
- 				MAC_ARG(sm->associnfo.bssid));
--			return 0;
-+			goto out;
- 		} else {
- 			dprintk(KERN_INFO PFX "Canceling existing associate request!\n");
--			spin_lock_irqsave(&sm->lock,flags);
- 			/* Cancel assoc work */
- 			cancel_delayed_work(&sm->associnfo.work);
- 			/* We don't have to do this, but it's a little cleaner */
-@@ -98,14 +98,13 @@ ieee80211softmac_wx_set_essid(struct net
- 				cancel_delayed_work(&authptr->work);
- 			sm->associnfo.bssvalid = 0;
- 			sm->associnfo.bssfixed = 0;
--			spin_unlock_irqrestore(&sm->lock,flags);
- 			flush_scheduled_work();
-+			sm->associnfo.associating = 0;
-+			sm->associnfo.associated = 0;
- 		}
- 	}
- 
- 
--	spin_lock_irqsave(&sm->lock, flags);
--
- 	sm->associnfo.static_essid = 0;
- 	sm->associnfo.assoc_wait = 0;
- 
-@@ -121,10 +120,12 @@ ieee80211softmac_wx_set_essid(struct net
- 	 * If applicable, we have already copied the data in */
- 	sm->associnfo.req_essid.len = length;
- 
-+	sm->associnfo.associating = 1;
- 	/* queue lower level code to do work (if necessary) */
- 	schedule_work(&sm->associnfo.work);
-+out:
-+	mutex_unlock(&sm->associnfo.mutex);
- 
--	spin_unlock_irqrestore(&sm->lock, flags);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_essid);
-@@ -136,10 +137,8 @@ ieee80211softmac_wx_get_essid(struct net
- 			      char *extra)
- {
- 	struct ieee80211softmac_device *sm = ieee80211_priv(net_dev);
--	unsigned long flags;
- 
--	/* avoid getting inconsistent information */
--	spin_lock_irqsave(&sm->lock, flags);
-+	mutex_lock(&sm->associnfo.mutex);
- 	/* If all fails, return ANY (empty) */
- 	data->essid.length = 0;
- 	data->essid.flags = 0;  /* active */
-@@ -152,12 +151,13 @@ ieee80211softmac_wx_get_essid(struct net
- 	}
- 	
- 	/* If we're associating/associated, return that */
--	if (sm->associated || sm->associnfo.associating) {
-+	if (sm->associnfo.associated || sm->associnfo.associating) {
- 		data->essid.length = sm->associnfo.associate_essid.len;
- 		data->essid.flags = 1;  /* active */
- 		memcpy(extra, sm->associnfo.associate_essid.data, sm->associnfo.associate_essid.len);
- 	}
--	spin_unlock_irqrestore(&sm->lock, flags);
-+	mutex_unlock(&sm->associnfo.mutex);
++MODULE_DEVICE_TABLE(pci, netxen_pci_tbl);
 +
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_essid);
-@@ -322,15 +322,15 @@ ieee80211softmac_wx_get_wap(struct net_d
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(net_dev);
- 	int err = 0;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
- 	if (mac->associnfo.bssvalid)
- 		memcpy(data->ap_addr.sa_data, mac->associnfo.bssid, ETH_ALEN);
- 	else
- 		memset(data->ap_addr.sa_data, 0xff, ETH_ALEN);
- 	data->ap_addr.sa_family = ARPHRD_ETHER;
--	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_unlock(&mac->associnfo.mutex);
++/*
++ * netxen_nic_probe()
++ *
++ * The Linux system will invoke this after identifying the vendor ID and
++ * device Id in the pci_tbl supported by this module.
++ *
++ * A quad port card has one operational PCI config space, (function 0),
++ * which is used to access all four ports.
++ *
++ * This routine will initialize the adapter, and setup the global parameters
++ * along with the port's specific structure.
++ */
++static int __devinit
++netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++{
++	struct net_device *netdev = NULL;
++	struct netxen_adapter *adapter = NULL;
++	struct netxen_port *port = NULL;
++	u8 __iomem *mem_ptr = NULL;
++	unsigned long mem_base, mem_len;
++	int pci_using_dac, i, err;
++	int ring;
++	struct netxen_recv_context *recv_ctx = NULL;
++	struct netxen_rcv_desc_ctx *rcv_desc = NULL;
++	struct netxen_cmd_buffer *cmd_buf_arr = NULL;
++	u64 mac_addr[FLASH_NUM_PORTS + 1];
++	int valid_mac;
 +
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_wap);
-@@ -342,28 +342,27 @@ ieee80211softmac_wx_set_wap(struct net_d
- 			    char *extra)
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(net_dev);
--	unsigned long flags;
- 
- 	/* sanity check */
- 	if (data->ap_addr.sa_family != ARPHRD_ETHER) {
- 		return -EINVAL;
- 	}
- 
--	spin_lock_irqsave(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
- 	if (is_broadcast_ether_addr(data->ap_addr.sa_data)) {
- 		/* the bssid we have is not to be fixed any longer,
- 		 * and we should reassociate to the best AP. */
- 		mac->associnfo.bssfixed = 0;
- 		/* force reassociation */
- 		mac->associnfo.bssvalid = 0;
--		if (mac->associated)
-+		if (mac->associnfo.associated)
- 			schedule_work(&mac->associnfo.work);
- 	} else if (is_zero_ether_addr(data->ap_addr.sa_data)) {
- 		/* the bssid we have is no longer fixed */
- 		mac->associnfo.bssfixed = 0;
-         } else {
- 		if (!memcmp(mac->associnfo.bssid, data->ap_addr.sa_data, ETH_ALEN)) {
--			if (mac->associnfo.associating || mac->associated) {
-+			if (mac->associnfo.associating || mac->associnfo.associated) {
- 			/* bssid unchanged and associated or associating - just return */
- 				goto out;
- 			}
-@@ -378,7 +377,8 @@ ieee80211softmac_wx_set_wap(struct net_d
-         }
- 
-  out:
--	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_unlock(&mac->associnfo.mutex);
++	if ((err = pci_enable_device(pdev)))
++		return err;
++	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
++		err = -ENODEV;
++		goto err_out_disable_pdev;
++	}
 +
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_wap);
-@@ -394,7 +394,8 @@ ieee80211softmac_wx_set_genie(struct net
- 	int err = 0;
- 	char *buf;
- 	int i;
--	
++	if ((err = pci_request_regions(pdev, netxen_nic_driver_name)))
++		goto err_out_disable_pdev;
 +
-+	mutex_lock(&mac->associnfo.mutex);
- 	spin_lock_irqsave(&mac->lock, flags);
- 	/* bleh. shouldn't be locked for that kmalloc... */
- 
-@@ -432,6 +433,8 @@ ieee80211softmac_wx_set_genie(struct net
- 
-  out:	
- 	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_unlock(&mac->associnfo.mutex);
++	pci_set_master(pdev);
++	if ((pci_set_dma_mask(pdev, DMA_64BIT_MASK) == 0) &&
++	    (pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK) == 0))
++		pci_using_dac = 1;
++	else {
++		if ((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) ||
++		    (err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK)))
++			goto err_out_free_res;
 +
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_genie);
-@@ -446,7 +449,8 @@ ieee80211softmac_wx_get_genie(struct net
- 	unsigned long flags;
- 	int err = 0;
- 	int space = wrqu->data.length;
--	
++		pci_using_dac = 0;
++	}
 +
-+	mutex_lock(&mac->associnfo.mutex);
- 	spin_lock_irqsave(&mac->lock, flags);
- 	
- 	wrqu->data.length = 0;
-@@ -459,6 +463,8 @@ ieee80211softmac_wx_get_genie(struct net
- 			err = -E2BIG;
- 	}
- 	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
++	/* remap phys address */
++	mem_base = pci_resource_start(pdev, 0);	/* 0 is for BAR 0 */
++	mem_len = pci_resource_len(pdev, 0);
 +
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_genie);
-@@ -473,10 +479,13 @@ ieee80211softmac_wx_set_mlme(struct net_
- 	struct iw_mlme *mlme = (struct iw_mlme *)extra;
- 	u16 reason = cpu_to_le16(mlme->reason_code);
- 	struct ieee80211softmac_network *net;
-+	int err = -EINVAL;
++	/* 128 Meg of memory */
++	mem_ptr = ioremap(mem_base, NETXEN_PCI_MAPSIZE_BYTES);
++	if (mem_ptr == 0UL) {
++		printk(KERN_ERR "%s: Cannot ioremap adapter memory aborting."
++		       ":%p\n", netxen_nic_driver_name, mem_ptr);
++		err = -EIO;
++		goto err_out_free_res;
++	}
 +
-+	mutex_lock(&mac->associnfo.mutex);
- 
- 	if (memcmp(mac->associnfo.bssid, mlme->addr.sa_data, ETH_ALEN)) {
- 		printk(KERN_DEBUG PFX "wx_set_mlme: requested operation on net we don't use\n");
--		return -EINVAL;
-+		goto out;
- 	}
- 
- 	switch (mlme->cmd) {
-@@ -484,14 +493,22 @@ ieee80211softmac_wx_set_mlme(struct net_
- 		net = ieee80211softmac_get_network_by_bssid_locked(mac, mlme->addr.sa_data);
- 		if (!net) {
- 			printk(KERN_DEBUG PFX "wx_set_mlme: we should know the net here...\n");
--			return -EINVAL;
-+			goto out;
- 		}
- 		return ieee80211softmac_deauth_req(mac, net, reason);
- 	case IW_MLME_DISASSOC:
- 		ieee80211softmac_send_disassoc_req(mac, reason);
--		return 0;
-+		mac->associnfo.associated = 0;
-+		mac->associnfo.associating = 0;
-+		err = 0;
-+		goto out;
- 	default:
--		return -EOPNOTSUPP;
++/*
++ *      Allocate a adapter structure which will manage all the initialization
++ *      as well as the common resources for all ports...
++ *      all the ports will have pointer to this adapter as well as Adapter
++ *      will have pointers of all the ports structures.
++ */
++
++	/* One adapter structure for all 4 ports....   */
++	adapter = kzalloc(sizeof(struct netxen_adapter), GFP_KERNEL);
++	if (adapter == NULL) {
++		printk(KERN_ERR "%s: Could not allocate adapter memory:%d\n",
++		       netxen_nic_driver_name,
++		       (int)sizeof(struct netxen_adapter));
++		err = -ENOMEM;
++		goto err_out_iounmap;
++	}
++
++	adapter->max_tx_desc_count = MAX_CMD_DESCRIPTORS;
++	adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS;
++	adapter->max_jumbo_rx_desc_count = MAX_JUMBO_RCV_DESCRIPTORS;
++
++	pci_set_drvdata(pdev, adapter);
++
++	cmd_buf_arr = (struct netxen_cmd_buffer *)vmalloc(TX_RINGSIZE);
++	if (cmd_buf_arr == NULL) {
++		err = -ENOMEM;
++		goto err_out_free_adapter;
++	}
++	memset(cmd_buf_arr, 0, TX_RINGSIZE);
++
++	for (i = 0; i < MAX_RCV_CTX; ++i) {
++		recv_ctx = &adapter->recv_ctx[i];
++		for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++) {
++			rcv_desc = &recv_ctx->rcv_desc[ring];
++			switch (RCV_DESC_TYPE(ring)) {
++			case RCV_DESC_NORMAL:
++				rcv_desc->max_rx_desc_count =
++				    adapter->max_rx_desc_count;
++				rcv_desc->flags = RCV_DESC_NORMAL;
++				rcv_desc->dma_size = RX_DMA_MAP_LEN;
++				rcv_desc->skb_size = MAX_RX_BUFFER_LENGTH;
++				break;
++
++			case RCV_DESC_JUMBO:
++				rcv_desc->max_rx_desc_count =
++				    adapter->max_jumbo_rx_desc_count;
++				rcv_desc->flags = RCV_DESC_JUMBO;
++				rcv_desc->dma_size = RX_JUMBO_DMA_MAP_LEN;
++				rcv_desc->skb_size = MAX_RX_JUMBO_BUFFER_LENGTH;
++				break;
++
++			}
++			rcv_desc->rx_buf_arr = (struct netxen_rx_buffer *)
++			    vmalloc(RCV_BUFFSIZE);
++
++			if (rcv_desc->rx_buf_arr == NULL) {
++				err = -ENOMEM;
++				goto err_out_free_rx_buffer;
++			}
++			memset(rcv_desc->rx_buf_arr, 0, RCV_BUFFSIZE);
++		}
++
++	}
++
++	adapter->ops = kzalloc(sizeof(struct netxen_drvops), GFP_KERNEL);
++	if (adapter->ops == NULL) {
++		printk(KERN_ERR
++		       "%s: Could not allocate memory for adapter->ops:%d\n",
++		       netxen_nic_driver_name,
++		       (int)sizeof(struct netxen_adapter));
++		err = -ENOMEM;
++		goto err_out_free_rx_buffer;
++	}
++
++	adapter->cmd_buf_arr = cmd_buf_arr;
++	adapter->ahw.pci_base = mem_ptr;
++	spin_lock_init(&adapter->tx_lock);
++	spin_lock_init(&adapter->lock);
++	/* initialize the buffers in adapter */
++	netxen_initialize_adapter_sw(adapter);
++	/*
++	 * Set the CRB window to invalid. If any register in window 0 is
++	 * accessed it should set the window to 0 and then reset it to 1.
++	 */
++	adapter->curr_window = 255;
++	/*
++	 *  Adapter in our case is quad port so initialize it before
++	 *  initializing the ports
++	 */
++	netxen_initialize_adapter_hw(adapter);	/* initialize the adapter */
++
++	netxen_initialize_adapter_ops(adapter);
++
++	init_timer(&adapter->watchdog_timer);
++	adapter->ahw.xg_linkup = 0;
++	adapter->watchdog_timer.function = &netxen_watchdog;
++	adapter->watchdog_timer.data = (unsigned long)adapter;
++	INIT_WORK(&adapter->watchdog_task,
++		  (void (*)(void *))netxen_watchdog_task, adapter);
++	adapter->ahw.pdev = pdev;
++	adapter->proc_cmd_buf_counter = 0;
++	pci_read_config_byte(pdev, PCI_REVISION_ID, &adapter->ahw.revision_id);
++
++	if (pci_enable_msi(pdev)) {
++		adapter->flags &= ~NETXEN_NIC_MSI_ENABLED;
++		printk(KERN_WARNING "%s: unable to allocate MSI interrupt"
++		       " error\n", netxen_nic_driver_name);
++	} else
++		adapter->flags |= NETXEN_NIC_MSI_ENABLED;
++
++	if (netxen_is_flash_supported(adapter) == 0 &&
++	    netxen_get_flash_mac_addr(adapter, mac_addr) == 0)
++		valid_mac = 1;
++	else
++		valid_mac = 0;
++
++	/* initialize the all the ports */
++
++	for (i = 0; i < adapter->ahw.max_ports; i++) {
++		netdev = alloc_etherdev(sizeof(struct netxen_port));
++		if (!netdev) {
++			printk(KERN_ERR "%s: could not allocate netdev for port"
++			       " %d\n", netxen_nic_driver_name, i + 1);
++			goto err_out_free_dev;
++		}
++
++		SET_MODULE_OWNER(netdev);
++
++		port = netdev_priv(netdev);
++		port->netdev = netdev;
++		port->pdev = pdev;
++		port->adapter = adapter;
++		port->portnum = i;	/* Gigabit port number from 0-3 */
++
++		netdev->open = netxen_nic_open;
++		netdev->stop = netxen_nic_close;
++		netdev->hard_start_xmit = netxen_nic_xmit_frame;
++		netdev->get_stats = netxen_nic_get_stats;
++		netdev->set_multicast_list = netxen_nic_set_multi;
++		netdev->set_mac_address = netxen_nic_set_mac;
++		netdev->change_mtu = netxen_nic_change_mtu;
++		netdev->do_ioctl = netxen_nic_ioctl;
++		netdev->tx_timeout = netxen_tx_timeout;
++		netdev->watchdog_timeo = HZ;
++
++		SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
++		netdev->poll = netxen_nic_poll;
++		netdev->weight = NETXEN_NETDEV_WEIGHT;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++		netdev->poll_controller = netxen_nic_poll_controller;
++#endif
++		/* ScatterGather support */
++		netdev->features = NETIF_F_SG;
++		netdev->features |= NETIF_F_IP_CSUM;
++		netdev->features |= NETIF_F_TSO;
++
++		if (pci_using_dac)
++			netdev->features |= NETIF_F_HIGHDMA;
++
++		if (valid_mac) {
++			unsigned char *p = (unsigned char *)&mac_addr[i];
++			netdev->dev_addr[0] = *(p + 5);
++			netdev->dev_addr[1] = *(p + 4);
++			netdev->dev_addr[2] = *(p + 3);
++			netdev->dev_addr[3] = *(p + 2);
++			netdev->dev_addr[4] = *(p + 1);
++			netdev->dev_addr[5] = *(p + 0);
++
++			memcpy(netdev->perm_addr, netdev->dev_addr,
++			       netdev->addr_len);
++			if (!is_valid_ether_addr(netdev->perm_addr)) {
++				printk(KERN_ERR "%s: Bad MAC address "
++				       "%02x:%02x:%02x:%02x:%02x:%02x.\n",
++				       netxen_nic_driver_name,
++				       netdev->dev_addr[0],
++				       netdev->dev_addr[1],
++				       netdev->dev_addr[2],
++				       netdev->dev_addr[3],
++				       netdev->dev_addr[4],
++				       netdev->dev_addr[5]);
++			} else {
++				if (adapter->ops->macaddr_set)
++					adapter->ops->macaddr_set(port,
++								  netdev->
++								  dev_addr);
++			}
++		}
++		INIT_WORK(&adapter->tx_timeout_task,
++			  (void (*)(void *))netxen_tx_timeout_task, netdev);
++		netif_carrier_off(netdev);
++		netif_stop_queue(netdev);
++
++		if ((err = register_netdev(netdev))) {
++			printk(KERN_ERR "%s: register_netdev failed port #%d"
++			       " aborting\n", netxen_nic_driver_name, i + 1);
++			err = -EIO;
++			free_netdev(netdev);
++			goto err_out_free_dev;
++		}
++		adapter->port_count++;
++		adapter->active_ports = 0;
++		adapter->port[i] = port;
++	}
++
++	/*
++	 * Initialize all the CRB registers here.
++	 */
++	/* Window = 1 */
++	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMD_PRODUCER_OFFSET));
++	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMD_CONSUMER_OFFSET));
++	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_HOST_CMD_ADDR_LO));
++
++	netxen_phantom_init(adapter);
++	/*
++	 * delay a while to ensure that the Pegs are up & running.
++	 * Otherwise, we might see some flaky behaviour.
++	 */
++	udelay(100);
++
++	switch (adapter->ahw.board_type) {
++	case NETXEN_NIC_GBE:
++		printk("%s: QUAD GbE board initialized\n",
++		       netxen_nic_driver_name);
++		break;
++
++	case NETXEN_NIC_XGBE:
++		printk("%s: XGbE board initialized\n", netxen_nic_driver_name);
++		break;
++	}
++
++	adapter->driver_mismatch = 0;
++
++	return 0;
++
++      err_out_free_dev:
++	if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
++		pci_disable_msi(pdev);
++	for (i = 0; i < adapter->port_count; i++) {
++		port = adapter->port[i];
++		if ((port) && (port->netdev)) {
++			unregister_netdev(port->netdev);
++			free_netdev(port->netdev);
++		}
++	}
++	kfree(adapter->ops);
++
++      err_out_free_rx_buffer:
++	for (i = 0; i < MAX_RCV_CTX; ++i) {
++		recv_ctx = &adapter->recv_ctx[i];
++		for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++) {
++			rcv_desc = &recv_ctx->rcv_desc[ring];
++			if (rcv_desc->rx_buf_arr != NULL) {
++				vfree(rcv_desc->rx_buf_arr);
++				rcv_desc->rx_buf_arr = NULL;
++			}
++		}
++	}
++
++	vfree(cmd_buf_arr);
++
++	kfree(adapter->port);
++
++      err_out_free_adapter:
++	pci_set_drvdata(pdev, NULL);
++	kfree(adapter);
++
++      err_out_iounmap:
++	iounmap(mem_ptr);
++      err_out_free_res:
++	pci_release_regions(pdev);
++      err_out_disable_pdev:
++	pci_disable_device(pdev);
++	return err;
++}
++
++static void __devexit netxen_nic_remove(struct pci_dev *pdev)
++{
++	struct netxen_adapter *adapter;
++	struct netxen_port *port;
++	struct netxen_rx_buffer *buffer;
++	struct netxen_recv_context *recv_ctx;
++	struct netxen_rcv_desc_ctx *rcv_desc;
++	int i;
++	int ctxid, ring;
++
++	adapter = pci_get_drvdata(pdev);
++	if (adapter == NULL)
++		return;
++
++	netxen_nic_stop_all_ports(adapter);
++	/* leave the hw in the same state as reboot */
++	netxen_pinit_from_rom(adapter, 0);
++	udelay(500);
++	netxen_load_firmware(adapter);
++
++	if ((adapter->flags & NETXEN_NIC_MSI_ENABLED))
++		netxen_nic_disable_int(adapter);
++
++	udelay(500);		/* Delay for a while to drain the DMA engines */
++	for (i = 0; i < adapter->port_count; i++) {
++		port = adapter->port[i];
++		if ((port) && (port->netdev)) {
++			unregister_netdev(port->netdev);
++			free_netdev(port->netdev);
++		}
++	}
++
++	if ((adapter->flags & NETXEN_NIC_MSI_ENABLED))
++		pci_disable_msi(pdev);
++	pci_set_drvdata(pdev, NULL);
++	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC)
++		netxen_free_hw_resources(adapter);
++
++	iounmap(adapter->ahw.pci_base);
++
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
++
++	for (ctxid = 0; ctxid < MAX_RCV_CTX; ++ctxid) {
++		recv_ctx = &adapter->recv_ctx[ctxid];
++		for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++) {
++			rcv_desc = &recv_ctx->rcv_desc[ring];
++			for (i = 0; i < rcv_desc->max_rx_desc_count; ++i) {
++				buffer = &(rcv_desc->rx_buf_arr[i]);
++				if (buffer->state == NETXEN_BUFFER_FREE)
++					continue;
++				pci_unmap_single(pdev, buffer->dma,
++						 rcv_desc->dma_size,
++						 PCI_DMA_FROMDEVICE);
++				if (buffer->skb != NULL)
++					dev_kfree_skb_any(buffer->skb);
++			}
++			vfree(rcv_desc->rx_buf_arr);
++		}
++	}
++
++	vfree(adapter->cmd_buf_arr);
++	kfree(adapter->ops);
++	kfree(adapter);
++}
++
++/*
++ * Called when a network interface is made active
++ * @returns 0 on success, negative value on failure
++ */
++static int netxen_nic_open(struct net_device *netdev)
++{
++	struct netxen_port *port = netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++	struct netxen_rcv_desc_ctx *rcv_desc;
++	int err = 0;
++	int ctx, ring;
++
++	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC) {
++		err = netxen_init_firmware(adapter);
++		if (err != 0) {
++			printk(KERN_ERR "Failed to init firmware\n");
++			return -EIO;
++		}
++		netxen_nic_flash_print(adapter);
++
++		/* setup all the resources for the Phantom... */
++		/* this include the descriptors for rcv, tx, and status */
++		netxen_nic_clear_stats(adapter);
++		err = netxen_nic_hw_resources(adapter);
++		if (err) {
++			printk(KERN_ERR "Error in setting hw resources:%d\n",
++			       err);
++			return err;
++		}
++		if (adapter->ops->init_port
++		    && adapter->ops->init_port(adapter, port->portnum) != 0) {
++			printk(KERN_ERR "%s: Failed to initialize port %d\n",
++			       netxen_nic_driver_name, port->portnum);
++			netxen_free_hw_resources(adapter);
++			return -EIO;
++		}
++		if (adapter->ops->init_niu)
++			adapter->ops->init_niu(adapter);
++		for (ctx = 0; ctx < MAX_RCV_CTX; ++ctx) {
++			for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++) {
++				rcv_desc =
++				    &adapter->recv_ctx[ctx].rcv_desc[ring];
++				netxen_post_rx_buffers(adapter, ctx, ring);
++			}
++		}
++		adapter->is_up = NETXEN_ADAPTER_UP_MAGIC;
++	}
++	adapter->active_ports++;
++	if (adapter->active_ports == 1) {
++		err = request_irq(adapter->ahw.pdev->irq, &netxen_intr,
++				  SA_SHIRQ | SA_SAMPLE_RANDOM, netdev->name,
++				  adapter);
++		if (err) {
++			printk(KERN_ERR "request_irq failed with: %d\n", err);
++			adapter->active_ports--;
++			return err;
++		}
++		adapter->irq = adapter->ahw.pdev->irq;
++		if (!adapter->driver_mismatch)
++			mod_timer(&adapter->watchdog_timer, jiffies);
++
++		netxen_nic_enable_int(adapter);
++	}
++
++	/* Done here again so that even if phantom sw overwrote it,
++	 * we set it */
++	if (adapter->ops->macaddr_set)
++		adapter->ops->macaddr_set(port, netdev->dev_addr);
++	netxen_nic_set_link_parameters(port);
++
++	netxen_nic_set_multi(netdev);
++	if (!adapter->driver_mismatch)
++		netif_start_queue(netdev);
++
++	return 0;
++}
++
++/*
++ * netxen_nic_close - Disables a network interface entry point
++ */
++static int netxen_nic_close(struct net_device *netdev)
++{
++	struct netxen_port *port = netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++	int i, j;
++	struct netxen_cmd_buffer *cmd_buff;
++	struct netxen_skb_frag *buffrag;
++
++	netif_carrier_off(netdev);
++	netif_stop_queue(netdev);
++
++	/* disable phy_ints */
++	if (adapter->ops->disable_phy_interrupts)
++		adapter->ops->disable_phy_interrupts(adapter, port->portnum);
++
++	adapter->active_ports--;
++
++	if (!adapter->active_ports) {
++		netxen_nic_disable_int(adapter);
++		if (adapter->irq)
++			free_irq(adapter->irq, adapter);
++		cmd_buff = adapter->cmd_buf_arr;
++		for (i = 0; i < adapter->max_tx_desc_count; i++) {
++			buffrag = cmd_buff->frag_array;
++			if (buffrag->dma) {
++				pci_unmap_single(port->pdev, buffrag->dma,
++						 buffrag->length,
++						 PCI_DMA_TODEVICE);
++				buffrag->dma = (u64) NULL;
++			}
++			for (j = 0; j < cmd_buff->frag_count; j++) {
++				buffrag++;
++				if (buffrag->dma) {
++					pci_unmap_page(port->pdev,
++						       buffrag->dma,
++						       buffrag->length,
++						       PCI_DMA_TODEVICE);
++					buffrag->dma = (u64) NULL;
++				}
++			}
++			/* Free the skb we received in netxen_nic_xmit_frame */
++			if (cmd_buff->skb) {
++				dev_kfree_skb_any(cmd_buff->skb);
++				cmd_buff->skb = NULL;
++			}
++			cmd_buff++;
++		}
++		del_timer_sync(&adapter->watchdog_timer);
++	}
++
++	return 0;
++}
++
++static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++{
++	struct netxen_port *port = netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++	struct netxen_hardware_context *hw = &adapter->ahw;
++	unsigned int first_seg_len = skb->len - skb->data_len;
++	struct netxen_skb_frag *buffrag;
++	unsigned int i;
++
++	u32 producer = 0;
++	u32 saved_producer = 0;
++	struct cmd_desc_type0 *hwdesc;
++	int k;
++	struct netxen_cmd_buffer *pbuf = NULL;
++	unsigned int tries = 0;
++	static int dropped_packet = 0;
++	int frag_count;
++	u32 local_producer = 0;
++	u32 max_tx_desc_count = 0;
++	u32 last_cmd_consumer = 0;
++	int no_of_desc;
++
++	port->stats.xmitcalled++;
++	frag_count = skb_shinfo(skb)->nr_frags + 1;
++
++	if (unlikely(skb->len <= 0)) {
++		dev_kfree_skb_any(skb);
++		port->stats.badskblen++;
++		return NETDEV_TX_OK;
++	}
++
++	if (frag_count > MAX_BUFFERS_PER_CMD) {
++		printk("%s: %s netxen_nic_xmit_frame: frag_count (%d)"
++		       "too large, can handle only %d frags\n",
++		       netxen_nic_driver_name, netdev->name,
++		       frag_count, MAX_BUFFERS_PER_CMD);
++		port->stats.txdropped++;
++		if ((++dropped_packet & 0xff) == 0xff)
++			printk("%s: %s droppped packets = %d\n",
++			       netxen_nic_driver_name, netdev->name,
++			       dropped_packet);
++
++		return NETDEV_TX_OK;
++	}
++
++	/*
++	 * Everything is set up. Now, we just need to transmit it out.
++	 * Note that we have to copy the contents of buffer over to
++	 * right place. Later on, this can be optimized out by de-coupling the
++	 * producer index from the buffer index.
++	 */
++      retry_getting_window:
++	spin_lock_bh(&adapter->tx_lock);
++	if (adapter->total_threads == MAX_XMIT_PRODUCERS) {
++		spin_unlock_bh(&adapter->tx_lock);
++		/*
++		 * Yield CPU
++		 */
++		if (!in_atomic())
++			schedule();
++		else {
++			for (i = 0; i < 20; i++)
++				cpu_relax();	/*This a nop instr on i386 */
++		}
++		goto retry_getting_window;
++	}
++	local_producer = adapter->cmd_producer;
++	/* There 4 fragments per descriptor */
++	no_of_desc = (frag_count + 3) >> 2;
++	if (skb_shinfo(skb)->gso_size > 0) {
++		no_of_desc++;
++		if (((skb->nh.iph)->ihl * sizeof(u32)) +
++		    ((skb->h.th)->doff * sizeof(u32)) +
++		    sizeof(struct ethhdr) >
++		    (sizeof(struct cmd_desc_type0) - NET_IP_ALIGN)) {
++			no_of_desc++;
++		}
++	}
++	k = adapter->cmd_producer;
++	max_tx_desc_count = adapter->max_tx_desc_count;
++	last_cmd_consumer = adapter->last_cmd_consumer;
++	if ((k + no_of_desc) >=
++	    ((last_cmd_consumer <= k) ? last_cmd_consumer + max_tx_desc_count :
++	     last_cmd_consumer)) {
++		spin_unlock_bh(&adapter->tx_lock);
++		if (tries == 0) {
++			local_bh_disable();
++			netxen_process_cmd_ring((unsigned long)adapter);
++			local_bh_enable();
++			++tries;
++			goto retry_getting_window;
++		} else {
++			port->stats.nocmddescriptor++;
++			DPRINTK(ERR, "No command descriptors available,"
++				" producer = %d, consumer = %d count=%llu,"
++				" dropping packet\n", producer,
++				adapter->last_cmd_consumer,
++				port->stats.nocmddescriptor);
++
++			spin_lock_bh(&adapter->tx_lock);
++			netif_stop_queue(netdev);
++			port->flags |= NETXEN_NETDEV_STATUS;
++			spin_unlock_bh(&adapter->tx_lock);
++			return NETDEV_TX_BUSY;
++		}
++	}
++	k = get_index_range(k, max_tx_desc_count, no_of_desc);
++	adapter->cmd_producer = k;
++	adapter->total_threads++;
++	adapter->num_threads++;
++
++	spin_unlock_bh(&adapter->tx_lock);
++	/* Copy the descriptors into the hardware    */
++	producer = local_producer;
++	saved_producer = producer;
++	hwdesc = &hw->cmd_desc_head[producer];
++	memset(hwdesc, 0, sizeof(struct cmd_desc_type0));
++	/* Take skb->data itself */
++	pbuf = &adapter->cmd_buf_arr[producer];
++	if (skb_shinfo(skb)->gso_size > 0) {
++		pbuf->mss = skb_shinfo(skb)->gso_size;
++		hwdesc->mss = skb_shinfo(skb)->gso_size;
++	} else {
++		pbuf->mss = 0;
++		hwdesc->mss = 0;
++	}
++	pbuf->no_of_descriptors = no_of_desc;
++	pbuf->total_length = skb->len;
++	pbuf->skb = skb;
++	pbuf->cmd = TX_ETHER_PKT;
++	pbuf->frag_count = frag_count;
++	pbuf->port = port->portnum;
++	buffrag = &pbuf->frag_array[0];
++	buffrag->dma = pci_map_single(port->pdev, skb->data, first_seg_len,
++				      PCI_DMA_TODEVICE);
++	buffrag->length = first_seg_len;
++	CMD_DESC_TOTAL_LENGTH_WRT(hwdesc, skb->len);
++	hwdesc->num_of_buffers = frag_count;
++	hwdesc->opcode = TX_ETHER_PKT;
++
++	CMD_DESC_PORT_WRT(hwdesc, port->portnum);
++	hwdesc->buffer1_length = cpu_to_le16(first_seg_len);
++	hwdesc->addr_buffer1 = cpu_to_le64(buffrag->dma);
++
++	for (i = 1, k = 1; i < frag_count; i++, k++) {
++		struct skb_frag_struct *frag;
++		int len, temp_len;
++		unsigned long offset;
++		dma_addr_t temp_dma;
++
++		/* move to next desc. if there is a need */
++		if ((i & 0x3) == 0) {
++			k = 0;
++			producer = get_next_index(producer,
++						  adapter->max_tx_desc_count);
++			hwdesc = &hw->cmd_desc_head[producer];
++			memset(hwdesc, 0, sizeof(struct cmd_desc_type0));
++		}
++		frag = &skb_shinfo(skb)->frags[i - 1];
++		len = frag->size;
++		offset = frag->page_offset;
++
++		temp_len = len;
++		temp_dma = pci_map_page(port->pdev, frag->page, offset,
++					len, PCI_DMA_TODEVICE);
++
++		buffrag++;
++		buffrag->dma = temp_dma;
++		buffrag->length = temp_len;
++
++		DPRINTK(INFO, "for loop. i=%d k=%d\n", i, k);
++		switch (k) {
++		case 0:
++			hwdesc->buffer1_length = cpu_to_le16(temp_len);
++			hwdesc->addr_buffer1 = cpu_to_le64(temp_dma);
++			break;
++		case 1:
++			hwdesc->buffer2_length = cpu_to_le16(temp_len);
++			hwdesc->addr_buffer2 = cpu_to_le64(temp_dma);
++			break;
++		case 2:
++			hwdesc->buffer3_length = cpu_to_le16(temp_len);
++			hwdesc->addr_buffer3 = cpu_to_le64(temp_dma);
++			break;
++		case 3:
++			hwdesc->buffer4_length = temp_len;
++			hwdesc->addr_buffer4 = cpu_to_le64(temp_dma);
++			break;
++		}
++		frag++;
++	}
++	producer = get_next_index(producer, adapter->max_tx_desc_count);
++
++	/* might change opcode to TX_TCP_LSO */
++	netxen_tso_check(adapter, &hw->cmd_desc_head[saved_producer], skb);
++
++	/* For LSO, we need to copy the MAC/IP/TCP headers into
++	 * the descriptor ring
++	 */
++	if (hw->cmd_desc_head[saved_producer].opcode == TX_TCP_LSO) {
++		int hdr_len, first_hdr_len, more_hdr;
++		hdr_len = hw->cmd_desc_head[saved_producer].total_hdr_length;
++		if (hdr_len > (sizeof(struct cmd_desc_type0) - NET_IP_ALIGN)) {
++			first_hdr_len =
++			    sizeof(struct cmd_desc_type0) - NET_IP_ALIGN;
++			more_hdr = 1;
++		} else {
++			first_hdr_len = hdr_len;
++			more_hdr = 0;
++		}
++		/* copy the MAC/IP/TCP headers to the cmd descriptor list */
++		hwdesc = &hw->cmd_desc_head[producer];
++
++		/* copy the first 64 bytes */
++		memcpy(((void *)hwdesc) + NET_IP_ALIGN,
++		       (void *)(skb->data), first_hdr_len);
++		producer = get_next_index(producer, max_tx_desc_count);
++
++		if (more_hdr) {
++			hwdesc = &hw->cmd_desc_head[producer];
++			/* copy the next 64 bytes - should be enough except
++			 * for pathological case
++			 */
++			memcpy((void *)hwdesc, (void *)(skb->data) +
++			       first_hdr_len, hdr_len - first_hdr_len);
++			producer = get_next_index(producer, max_tx_desc_count);
++		}
++	}
++	spin_lock_bh(&adapter->tx_lock);
++	port->stats.txbytes +=
++	    CMD_DESC_TOTAL_LENGTH(&hw->cmd_desc_head[saved_producer]);
++	/* Code to update the adapter considering how many producer threads
++	   are currently working */
++	if ((--adapter->num_threads) == 0) {
++		/* This is the last thread */
++		u32 crb_producer = adapter->cmd_producer;
++		writel(crb_producer,
++		       NETXEN_CRB_NORMALIZE(adapter, CRB_CMD_PRODUCER_OFFSET));
++		wmb();
++		adapter->total_threads = 0;
++	} else {
++		u32 crb_producer = 0;
++		crb_producer =
++		    readl(NETXEN_CRB_NORMALIZE
++			  (adapter, CRB_CMD_PRODUCER_OFFSET));
++		if (crb_producer == local_producer) {
++			crb_producer = get_index_range(crb_producer,
++						       max_tx_desc_count,
++						       no_of_desc);
++			writel(crb_producer,
++			       NETXEN_CRB_NORMALIZE(adapter,
++						    CRB_CMD_PRODUCER_OFFSET));
++			wmb();
++		}
++	}
++
++	port->stats.xmitfinished++;
++	spin_unlock_bh(&adapter->tx_lock);
++
++	netdev->trans_start = jiffies;
++
++	DPRINTK(INFO, "wrote CMD producer %x to phantom\n", producer);
++
++	DPRINTK(INFO, "Done. Send\n");
++	return NETDEV_TX_OK;
++}
++
++static void netxen_watchdog(unsigned long v)
++{
++	struct netxen_adapter *adapter = (struct netxen_adapter *)v;
++	schedule_work(&adapter->watchdog_task);
++}
++
++static void netxen_tx_timeout(struct net_device *netdev)
++{
++	struct netxen_port *port = (struct netxen_port *)netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++
++	schedule_work(&adapter->tx_timeout_task);
++}
++
++static void netxen_tx_timeout_task(struct net_device *netdev)
++{
++	struct netxen_port *port = (struct netxen_port *)netdev_priv(netdev);
++	unsigned long flags;
++
++	printk(KERN_ERR "%s %s: transmit timeout, resetting.\n",
++	       netxen_nic_driver_name, netdev->name);
++
++	spin_lock_irqsave(&port->adapter->lock, flags);
++	netxen_nic_close(netdev);
++	netxen_nic_open(netdev);
++	spin_unlock_irqrestore(&port->adapter->lock, flags);
++	netdev->trans_start = jiffies;
++	netif_wake_queue(netdev);
++}
++
++static int
++netxen_handle_int(struct netxen_adapter *adapter, struct net_device *netdev)
++{
++	u32 ret = 0;
++
++	DPRINTK(INFO, "Entered handle ISR\n");
++
++	adapter->stats.ints++;
++
++	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
++		int count = 0;
++		u32 mask;
++		netxen_nic_disable_int(adapter);
++		/* Window = 0 or 1 */
++		do {
++			writel(0xffffffff, (void __iomem *)
++			       (adapter->ahw.pci_base + ISR_INT_TARGET_STATUS));
++			mask = readl((void __iomem *)
++				     (adapter->ahw.pci_base + ISR_INT_VECTOR));
++		} while (((mask & 0x80) != 0) && (++count < 32));
++		if ((mask & 0x80) != 0)
++			printk("Could not disable interrupt completely\n");
++
++	}
++	adapter->stats.hostints++;
++
++	if (netxen_nic_rx_has_work(adapter) || netxen_nic_tx_has_work(adapter)) {
++		if (netif_rx_schedule_prep(netdev)) {
++			/*
++			 * Interrupts are already disabled.
++			 */
++			__netif_rx_schedule(netdev);
++		} else {
++			static unsigned int intcount = 0;
++			if ((++intcount & 0xfff) == 0xfff)
++				printk(KERN_ERR
++				       "%s: %s interrupt %d while in poll\n",
++				       netxen_nic_driver_name, netdev->name,
++				       intcount);
++		}
++		ret = 1;
++	}
++
++	if (ret == 0) {
++		netxen_nic_enable_int(adapter);
++	}
++
++	return ret;
++}
++
++/*
++ * netxen_intr - Interrupt Handler
++ * @irq: interrupt number
++ * data points to adapter stucture (which may be handling more than 1 port
++ */
++irqreturn_t netxen_intr(int irq, void *data, struct pt_regs * regs)
++{
++	struct netxen_adapter *adapter;
++	struct netxen_port *port;
++	struct net_device *netdev;
++	int i;
++
++	if (unlikely(!irq)) {
++		return IRQ_NONE;	/* Not our interrupt */
++	}
++
++	adapter = (struct netxen_adapter *)data;
++	for (i = 0; i < adapter->ahw.max_ports; i++) {
++		port = adapter->port[i];
++		netdev = port->netdev;
++
++		/* process our status queue (for all 4 ports) */
++		netxen_handle_int(adapter, netdev);
++	}
++
++	return IRQ_HANDLED;
++}
++
++static int netxen_nic_poll(struct net_device *netdev, int *budget)
++{
++	struct netxen_port *port = (struct netxen_port *)netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++	int work_to_do = min(*budget, netdev->quota);
++	int done = 1;
++	int ctx;
++	int this_work_done;
++
++	DPRINTK(INFO, "polling for %d descriptors\n", *budget);
++	port->stats.polled++;
++
++	adapter->work_done = 0;
++	for (ctx = 0; ctx < MAX_RCV_CTX; ++ctx) {
++		/*
++		 * Fairness issue. This will give undue weight to the
++		 * receive context 0.
++		 */
++
++		/*
++		 * To avoid starvation, we give each of our receivers,
++		 * a fraction of the quota. Sometimes, it might happen that we
++		 * have enough quota to process every packet, but since all the
++		 * packets are on one context, it gets only half of the quota,
++		 * and ends up not processing it.
++		 */
++		this_work_done = netxen_process_rcv_ring(adapter, ctx,
++							 work_to_do /
++							 MAX_RCV_CTX);
++		adapter->work_done += this_work_done;
++	}
++
++	netdev->quota -= adapter->work_done;
++	*budget -= adapter->work_done;
++
++	if (adapter->work_done >= work_to_do
++	    && netxen_nic_rx_has_work(adapter) != 0)
++		done = 0;
++
++	netxen_process_cmd_ring((unsigned long)adapter);
++
++	DPRINTK(INFO, "new work_done: %d work_to_do: %d\n",
++		adapter->work_done, work_to_do);
++	if (done) {
++		netif_rx_complete(netdev);
++		netxen_nic_enable_int(adapter);
++	}
++
++	return (done ? 0 : 1);
++}
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void netxen_nic_poll_controller(struct net_device *netdev)
++{
++	struct netxen_port *port = netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++	disable_irq(adapter->irq);
++	netxen_intr(adapter->irq, adapter, NULL);
++	enable_irq(adapter->irq);
++}
++#endif
++/*
++ * netxen_nic_ioctl ()    We provide the tcl/phanmon support through these
++ * ioctls.
++ */
++static int
++netxen_nic_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
++{
++	int err = 0;
++	struct netxen_port *port = netdev_priv(netdev);
++	struct netxen_adapter *adapter = port->adapter;
++
++	DPRINTK(INFO, "doing ioctl for %s\n", netdev->name);
++	switch (cmd) {
++	case NETXEN_NIC_CMD:
++		err = netxen_nic_do_ioctl(adapter, (void *)ifr->ifr_data, port);
++		break;
++
++	case NETXEN_NIC_NAME:
++		DPRINTK(INFO, "ioctl cmd for NetXen\n");
++		if (ifr->ifr_data) {
++			put_user(port->portnum, (u16 __user *) ifr->ifr_data);
++		}
++		break;
++
++	default:
++		DPRINTK(INFO, "ioctl cmd %x not supported\n", cmd);
 +		err = -EOPNOTSUPP;
- 	}
-+
-+out:
-+	mutex_unlock(&mac->associnfo.mutex);
++		break;
++	}
 +
 +	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_mlme);
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_leds.c	2006-09-17 15:24:29.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.c	2006-09-27 15:29:01.000000000 +0200
-@@ -242,7 +242,7 @@ void bcm43xx_leds_update(struct bcm43xx_
- 			//TODO
- 			break;
- 		case BCM43xx_LED_ASSOC:
--			if (bcm->softmac->associated)
-+			if (bcm->softmac->associnfo.associated)
- 				turn_on = 1;
- 			break;
- #ifdef CONFIG_BCM43XX_DEBUG
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_wx.c	2006-09-24 18:34:58.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c	2006-09-27 15:28:36.000000000 +0200
-@@ -847,7 +847,7 @@ static struct iw_statistics *bcm43xx_get
- 	unsigned long flags;
- 
- 	wstats = &bcm->stats.wstats;
--	if (!mac->associated) {
-+	if (!mac->associnfo.associated) {
- 		wstats->miss.beacon = 0;
- //		bcm->ieee->ieee_stats.tx_retry_limit_exceeded = 0; // FIXME: should this be cleared here?
- 		wstats->discard.retries = 0;
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_io.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_io.c	2006-09-17 15:21:53.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_io.c	2006-09-27 16:33:18.000000000 +0200
-@@ -475,8 +475,13 @@ int ieee80211softmac_handle_beacon(struc
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
- 
--	if (mac->associated && memcmp(network->bssid, mac->associnfo.bssid, ETH_ALEN) == 0)
--		ieee80211softmac_process_erp(mac, network->erp_value);
-+	/* This might race, but we don't really care and it's not worth
-+	 * adding heavyweight locking in this fastpath.
++}
++
++static struct pci_driver netxen_driver = {
++	.name = netxen_nic_driver_name,
++	.id_table = netxen_pci_tbl,
++	.probe = netxen_nic_probe,
++	.remove = __devexit_p(netxen_nic_remove)
++};
++
++/* Driver Registration on NetXen card    */
++
++static int __init netxen_init_module(void)
++{
++	printk(KERN_INFO "%s \n", netxen_nic_driver_string);
++
++	return pci_module_init(&netxen_driver);
++}
++
++module_init(netxen_init_module);
++
++static void __exit netxen_exit_module(void)
++{
++	/*
++	 * Wait for some time to allow the dma to drain, if any.
 +	 */
-+	if (mac->associnfo.associated) {
-+		if (memcmp(network->bssid, mac->associnfo.bssid, ETH_ALEN) == 0)
-+			ieee80211softmac_process_erp(mac, network->erp_value);
-+	}
- 
- 	return 0;
- }
++	mdelay(5);
++	pci_unregister_driver(&netxen_driver);
++}
++
++module_exit(netxen_exit_module);
 
-
--- 
-Greetings Michael.
