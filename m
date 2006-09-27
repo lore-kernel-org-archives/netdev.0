@@ -1,36 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 3/4] ethtool: don't show sync queue's on skge/sky2
-Date: Wed, 27 Sep 2006 15:34:49 -0700
-Message-ID: <20060927153449.695a0f09@freekitty>
-References: <20060926115437.11ed1f85@freekitty>
-	<451AF4B1.2000208@pobox.com>
-	<20060926131000.08a67c89@freekitty>
-	<451B0345.50504@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PKT_SCHED] cls_basic: Use unsigned int when generating handle
+Date: Wed, 27 Sep 2006 16:18:48 -0700 (PDT)
+Message-ID: <20060927.161848.122030745.davem@davemloft.net>
+References: <20060927100939.GZ18349@postel.suug.ch>
+	<Pine.LNX.4.44.0609271441390.9010-100000@dhcp09282.ntc.nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tgraf@suug.ch, kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:59329 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1031237AbWI0XRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 19:17:30 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <451B0345.50504@pobox.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12738
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1031227AbWI0XSt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 19:18:49 -0400
+To: Kim.Nordlund@nokia.com
+In-Reply-To: <Pine.LNX.4.44.0609271441390.9010-100000@dhcp09282.ntc.nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Sep 2006 19:03:33 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+From: "Nordlund Kim (Nokia-NET/Helsinki)" <Kim.Nordlund@nokia.com>
+Date: Wed, 27 Sep 2006 14:45:21 +0300 (EEST)
 
-> Stephen Hemminger wrote:
-> > Remove printout of synchronous transmit queue info because
-> > it is unused by the driver.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> But for signed types it falls under this:
 > 
-> NAK, it doesn't matter whether a feature is used by the driver or not.
+>     6.5 Expressions
+>     5 If an exceptional condition occurs during the evaluation of an
+>     expression (that is, if the
+>     result is not mathematically defined or not in the range of
+>     representable values for its
+>     type), the behavior is undefined.
+> 
+> Already the initial assignment of 0x80000000 to int falls under this:
+> 
+>     6.3.1.3 Signed and unsigned integers
+>     1 When a value with integer type is converted to another integer type
+>     other than _Bool, if
+>     the value can be represented by the new type, it is unchanged.
+>     2 Otherwise, if the new type is unsigned, the value is converted by
+>     repeatedly adding or
+>     subtracting one more than the maximum value that can be represented
+>     in the new type
+>     until the value is in the range of the new type.49)
+>     3 Otherwise, the new type is signed and the value cannot be
+>     represented in it; either the
+>     result is implementation-defined or an implementation-defined signal
+>     is raised.
+> 
+> Of course it can be argued whether the gcc optimization is sane. But it
+> seems not to be wrong, and there is no justification for writing the code
+> to be unspecified.
 
-Okay, but it's just noise.
+Correct, and actually this undefined behavior turns out to be
+critical for several types of loop optimizations which I feel
+totally justifies the interpretation gcc is using now.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+I'll apply Thomas's original patch, thanks.
