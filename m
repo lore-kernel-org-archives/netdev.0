@@ -1,80 +1,190 @@
-From: "Or Gerlitz" <or.gerlitz@gmail.com>
-Subject: Re: [RFC][PATCH 1/3] enable bonding to enslave non ARPHRD_ETHER netdevices
-Date: Wed, 27 Sep 2006 21:59:05 +0200
-Message-ID: <15ddcffd0609271259o31cd0d20r9bfea4cf2ec979b4@mail.gmail.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben>
-	 <Pine.LNX.4.64.0609261316420.24189@zuben>
-	 <200609261923.k8QJNLZt021182@death.nxdomain.ibm.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 08/23] e1000: add multicast stats counters
+Date: Wed, 27 Sep 2006 13:09:16 -0700
+Message-ID: <451ADA6C.10600@intel.com>
+References: <F2C59D1E488E7A4FB7F6F673DAF8325901C7BBF3@orsmsx413.amr.corp.intel.com> <4511E119.3080302@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Or Gerlitz" <ogerlitz@voltaire.com>, netdev@vger.kernel.org,
-	"Roland Dreier" <rdreier@cisco.com>
+Cc: cramerj <cramerj@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:13669 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1030731AbWI0T7H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 15:59:07 -0400
-Received: by py-out-1112.google.com with SMTP id n25so417618pyg
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2006 12:59:05 -0700 (PDT)
-To: "Jay Vosburgh" <fubar@us.ibm.com>
-In-Reply-To: <200609261923.k8QJNLZt021182@death.nxdomain.ibm.com>
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:54858 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S1030745AbWI0ULB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 16:11:01 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4511E119.3080302@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/26/06, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> Or Gerlitz <ogerlitz@voltaire.com> wrote:
-> [...]
-> +       bond->dev->mtu              = new_active->dev->mtu;
->
->         This won't generate a NETDEV_CHANGEMTU notifier event.
+Jeff Garzik wrote:
+> cramerj wrote:
+>>> Williams, Mitch A wrote:
+>>>>>> +    { "rx_broadcast", E1000_STAT(stats.bprc) }, +    {
+>>>>>> "tx_broadcast", E1000_STAT(stats.bptc) }, +    { "rx_multicast",
+>>>>>> E1000_STAT(stats.mprc) }, +    { "tx_multicast",
+>>>>>> E1000_STAT(stats.mptc) }, { "rx_errors",
+>>>>>> E1000_STAT(net_stats.rx_errors) }, { "tx_errors",
+>>>>>> E1000_STAT(net_stats.tx_errors) }, { "tx_dropped",
+>>>>>> E1000_STAT(net_stats.tx_dropped) },
+>>>>> NAK -- you also need to remove the standard net stats, which are 
+>>>>> exported elsewhere
+>>>> Jeff, can you please explain the reason for this NAK a little more? 
+>>>> Neither Auke nor I understand why you rejected the patch.
+> 
+>>>> This patch just adds the display of a few more stats in Ethtool.  It 
+>>>> doesn't affect any other counters, and is really just a convenience 
+>>>> feature.  I added this to the driver because of a customer request.
+>>> Adding those stats is fine.  You guys just need to remove the existing 
+>>> mess first.
+> 
+>> Since we have 1-to-1 mapping of some of our statistics registers to the 
+>> net_stats, we could s/net_stats/stats/.  However, there are a few 
+>> net_stats (e.g. net_stats.rx_errors) that encapsulate more than one e1000
+>> statistic register of which we don't have a private stat member defined.
+>> 
+>> For those statistics, is it really necessary to add another stat structure
+>> just to rm "net_stats" from that list we pass to ethtool?  At best, it
+>> would look something like this...
+>> 
+>> { "foo_count", E1000_STAT(stats.foo) }, - { "rx_errors",
+>> E1000_STAT(net_stats.rx_errors) }, + { "rx_errors",
+>> E1000_STAT(eth_stats.rx_errors) }, { "bar_count", E1000_STAT(stats.bar) },
+>> 
+>> 
+>> If so, well, OK.  I'm just scratching my head as to why it's a "mess" 
+>> as-is.
+> 
+> The ethtool get-stats sub ioctl has _always_ been for exporting _only_ 
+> NIC-private statistics.
+> 
+> So, no, there is no inherent connection between adding multicast stats and
+> removing ones that should have never been in the list.  But if I don't put
+> my foot down, this will never get corrected.
 
-What is actually the trigger for the event with the current impl? is
-the code that actually calls dev_set_mtu() on the bonding device or
-dev_set_mtu() itself?
+okay, here's my offer - we fix it as much as we can. I realize that it may not
+be enough but I doubt that removeing stats makes people happy. I suggest that
+we take one step in the right direction and another one later if we must.
 
->
-> [...]
-> >+              /* bonding netdevices are created with ether_setup, so when the
-> >+               * slave type is not ARPHRD_ETHER there is a need to override
-> >+               * some of the type dependent attributes/functions
-> >+               */
-> >+              if (new_active && new_active->dev->type != ARPHRD_ETHER)
-> >+                      bond_setup_by_slave(bond, new_active);
-> >+
+this is in my queue.
 
->         In this case, if the bond has one slave that's ARPHRD_ETHER and
-> one that's not, when the active changes from the non-ARPHRD_ETHER slave
-> to the ARPHRD_ETHER slave, it won't call bond_setup_by_slave() to switch
-> the hard_header, rebuild_header, et al, back to the ARPHRD_ETHER
-> settings.
+Auke
 
-OK. First, under the assumption that one may enslave ARPHRD_ETHER and
-non-ARPHRD_ETHER devices in the same bond, you are correct and the
-patch is not complete here.
+---
 
-However, putting devices from different types in the same bond
-requires a switch that **both** HW NICs/ports associated with the each
-of the netdevices can talk to. If there is no such switch, then the
-only possible config is two isolated networks/switches where each
-NIC/type is connected to a switch supporting this type so  a local
-failure/failover on some node requires the whole subset of nodes
-talking to this one to do failover. So if the relation (i,j) which
-holds if node i talks to node j does not impose a disjoint partition
-on the set of all N nodes, you just can't do this bonding scheme.
+e1000: add multicast stats counters
 
-Practically, talking on IPoIB vs. "IPoETH" (ie slave devices of type
-ARPHRD_INFINIBAND vs slaves of type ARPHRD_ETHER) to have an IPoIB
-slave talk to "IPoETH" slave you need an IB to Ethernet IP router
-(actually IPoIB to IPoETH "bridge") in the middle where the IB switch
-should be connected to the IB ports of the bridge and the Ethernet
-switch to the Ethernet ports of the bridge. All in all, it is a
-configuration i think we can avoid supporting.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-So at the bottom line, i would go on enhancing my patch not to allow
-bonding together devices of different types or at least if you don't
-mind, not to allow putting ARPHRD_INFINIBAND with
-non-ARPHRD_INFINIBAND devices in the same bond.
+Add 4 multicast and broadcast hardware counters (rx/tx), and eliminate
+as many non-hardware counters as possible.
 
-Or.
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+  drivers/net/e1000/e1000_ethtool.c |   32 ++++++++++++++++++--------------
+  drivers/net/e1000/e1000_hw.h      |    4 +++-
+  drivers/net/e1000/e1000_main.c    |    9 ++++-----
+  3 files changed, 25 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_ethtool.c /drivers/net/e1000/e1000_ethtool.c
+index 858c14d..9791b8a 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -56,26 +56,30 @@ struct e1000_stats {
+  #define E1000_STAT(m) sizeof(((struct e1000_adapter *)0)->m), \
+  		      offsetof(struct e1000_adapter, m)
+  static const struct e1000_stats e1000_gstrings_stats[] = {
+-	{ "rx_packets", E1000_STAT(net_stats.rx_packets) },
+-	{ "tx_packets", E1000_STAT(net_stats.tx_packets) },
+-	{ "rx_bytes", E1000_STAT(net_stats.rx_bytes) },
+-	{ "tx_bytes", E1000_STAT(net_stats.tx_bytes) },
+-	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
+-	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
++	{ "rx_packets", E1000_STAT(stats.gprc) },
++	{ "tx_packets", E1000_STAT(stats.gptc) },
++	{ "rx_bytes", E1000_STAT(stats.gorcl) },
++	{ "tx_bytes", E1000_STAT(stats.gotcl) },
++	{ "rx_broadcast", E1000_STAT(stats.bprc) },
++	{ "tx_broadcast", E1000_STAT(stats.bptc) },
++	{ "rx_multicast", E1000_STAT(stats.mprc) },
++	{ "tx_multicast", E1000_STAT(stats.mptc) },
++	{ "rx_errors", E1000_STAT(stats.rxerrc) },
++	{ "tx_errors", E1000_STAT(stats.txerrc) },
+  	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
+-	{ "multicast", E1000_STAT(net_stats.multicast) },
+-	{ "collisions", E1000_STAT(net_stats.collisions) },
+-	{ "rx_length_errors", E1000_STAT(net_stats.rx_length_errors) },
++	{ "multicast", E1000_STAT(stats.mprc) },
++	{ "collisions", E1000_STAT(stats.colc) },
++	{ "rx_length_errors", E1000_STAT(stats.rlerrc) },
+  	{ "rx_over_errors", E1000_STAT(net_stats.rx_over_errors) },
+-	{ "rx_crc_errors", E1000_STAT(net_stats.rx_crc_errors) },
++	{ "rx_crc_errors", E1000_STAT(stats.crcerrs) },
+  	{ "rx_frame_errors", E1000_STAT(net_stats.rx_frame_errors) },
+  	{ "rx_no_buffer_count", E1000_STAT(stats.rnbc) },
+-	{ "rx_missed_errors", E1000_STAT(net_stats.rx_missed_errors) },
+-	{ "tx_aborted_errors", E1000_STAT(net_stats.tx_aborted_errors) },
+-	{ "tx_carrier_errors", E1000_STAT(net_stats.tx_carrier_errors) },
++	{ "rx_missed_errors", E1000_STAT(stats.mpc) },
++	{ "tx_aborted_errors", E1000_STAT(stats.ecol) },
++	{ "tx_carrier_errors", E1000_STAT(stats.tncrs) },
+  	{ "tx_fifo_errors", E1000_STAT(net_stats.tx_fifo_errors) },
+  	{ "tx_heartbeat_errors", E1000_STAT(net_stats.tx_heartbeat_errors) },
+-	{ "tx_window_errors", E1000_STAT(net_stats.tx_window_errors) },
++	{ "tx_window_errors", E1000_STAT(stats.latecol) },
+  	{ "tx_abort_late_coll", E1000_STAT(stats.latecol) },
+  	{ "tx_deferred_ok", E1000_STAT(stats.dc) },
+  	{ "tx_single_coll_ok", E1000_STAT(stats.scc) },
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 47f34f2..113344e 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -1298,6 +1298,7 @@ struct e1000_hw_stats {
+      uint64_t algnerrc;
+      uint64_t symerrs;
+      uint64_t rxerrc;
++    uint64_t txerrc;
+      uint64_t mpc;
+      uint64_t scc;
+      uint64_t ecol;
+@@ -1330,8 +1331,9 @@ struct e1000_hw_stats {
+      uint64_t gotch;
+      uint64_t rnbc;
+      uint64_t ruc;
+-    uint64_t rfc;
+      uint64_t roc;
++    uint64_t rlerrc;
++    uint64_t rfc;
+      uint64_t rjc;
+      uint64_t mgprc;
+      uint64_t mgpdc;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 447b7c8..5296a82 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3338,16 +3338,15 @@ #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+  		adapter->stats.crcerrs + adapter->stats.algnerrc +
+  		adapter->stats.ruc + adapter->stats.roc +
+  		adapter->stats.cexterr;
+-	adapter->net_stats.rx_length_errors = adapter->stats.ruc +
+-	                                      adapter->stats.roc;
++	adapter->stats.rlerrc = adapter->stats.ruc + adapter->stats.roc;
++	adapter->net_stats.rx_length_errors = adapter->stats.rlerrc;
+  	adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
+  	adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
+  	adapter->net_stats.rx_missed_errors = adapter->stats.mpc;
+
+  	/* Tx Errors */
+-
+-	adapter->net_stats.tx_errors = adapter->stats.ecol +
+-	                               adapter->stats.latecol;
++	adapter->stats.txerrc = adapter->stats.ecol + adapter->stats.latecol;
++	adapter->net_stats.tx_errors = adapter->stats.txerrc;
+  	adapter->net_stats.tx_aborted_errors = adapter->stats.ecol;
+  	adapter->net_stats.tx_window_errors = adapter->stats.latecol;
+  	
