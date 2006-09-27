@@ -1,7 +1,7 @@
 From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 2.6.18 4/9] NetXen: intr routines and niu handling
-Date: Wed, 27 Sep 2006 08:39:48 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0609270838180.18527@dut39>
+Subject: [PATCH 2.6.18 5/9] NetXen: ethtool interface
+Date: Wed, 27 Sep 2006 08:43:19 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609270839540.18527@dut39>
 References: <Pine.LNX.4.64.0609270821160.18527@dut39>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
@@ -9,19 +9,19 @@ Cc: Sanjeev Jorapur <sanjeev@netxen.com>, Rob Mapes <rob@netxen.com>,
 	unmproj@linsyssoft.com, brazilnut@us.ibm.com, wendyx@us.ibm.com,
 	Randy Dunlap <rdunlap@xenotime.net>, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:11360 "EHLO
-	nxmail.netxen.com") by vger.kernel.org with ESMTP id S964953AbWI0Pjy
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:59225 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S964959AbWI0PnU
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 11:39:54 -0400
+	Wed, 27 Sep 2006 11:43:20 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <Pine.LNX.4.64.0609270821160.18527@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/netxen/netxen_nic_isr.c linux-2.6.18/drivers/net/netxen/netxen_nic_isr.c
---- linux-2.6.18.orig/drivers/net/netxen/netxen_nic_isr.c	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.18/drivers/net/netxen/netxen_nic_isr.c	2006-09-25 05:04:07.000000000 -0700
-@@ -0,0 +1,221 @@
+diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/netxen/netxen_nic_ethtool.c linux-2.6.18/drivers/net/netxen/netxen_nic_ethtool.c
+--- linux-2.6.18.orig/drivers/net/netxen/netxen_nic_ethtool.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.18/drivers/net/netxen/netxen_nic_ethtool.c	2006-09-25 05:04:07.000000000 -0700
+@@ -0,0 +1,715 @@
 +/*
 + * Copyright (C) 2003 - 2006 NetXen, Inc.
 + * All rights reserved.
@@ -49,1002 +49,692 @@ diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/driver
 + * NetXen,
 + * 3965 Freedom Circle, Fourth floor,
 + * Santa Clara, CA 95054
++ *
++ *
++ * ethtool support for netxen nic
++ *
 + */
 +
++#include <linux/types.h>
++#include <asm/uaccess.h>
++#include <linux/pci.h>
++#include <asm/io.h>
 +#include <linux/netdevice.h>
-+#include <linux/delay.h>
++#include <linux/ethtool.h>
++#include <linux/version.h>
 +
-+#include "netxen_nic.h"
 +#include "netxen_nic_hw.h"
++#include "netxen_nic.h"
 +#include "netxen_nic_phan_reg.h"
++#include "netxen_nic_ioctl.h"
 +
-+/*
-+ * netxen_nic_get_stats - Get System Network Statistics
-+ * @netdev: network interface device structure
-+ */
-+struct net_device_stats *netxen_nic_get_stats(struct net_device *netdev)
++struct netxen_nic_stats {
++	char stat_string[ETH_GSTRING_LEN];
++	int sizeof_stat;
++	int stat_offset;
++};
++
++#define NETXEN_NIC_STAT(m) sizeof(((struct netxen_port *)0)->m), \
++			offsetof(struct netxen_port, m)
++
++static const struct netxen_nic_stats netxen_nic_gstrings_stats[] = {
++	{"rcvd_bad_skb", NETXEN_NIC_STAT(stats.rcvdbadskb)},
++	{"xmit_called", NETXEN_NIC_STAT(stats.xmitcalled)},
++	{"xmited_frames", NETXEN_NIC_STAT(stats.xmitedframes)},
++	{"xmit_finished", NETXEN_NIC_STAT(stats.xmitfinished)},
++	{"bad_skb_len", NETXEN_NIC_STAT(stats.badskblen)},
++	{"no_cmd_desc", NETXEN_NIC_STAT(stats.nocmddescriptor)},
++	{"polled", NETXEN_NIC_STAT(stats.polled)},
++	{"uphappy", NETXEN_NIC_STAT(stats.uphappy)},
++	{"updropped", NETXEN_NIC_STAT(stats.updropped)},
++	{"uplcong", NETXEN_NIC_STAT(stats.uplcong)},
++	{"uphcong", NETXEN_NIC_STAT(stats.uphcong)},
++	{"upmcong", NETXEN_NIC_STAT(stats.upmcong)},
++	{"updunno", NETXEN_NIC_STAT(stats.updunno)},
++	{"skb_freed", NETXEN_NIC_STAT(stats.skbfreed)},
++	{"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
++	{"tx_null_skb", NETXEN_NIC_STAT(stats.txnullskb)},
++	{"csummed", NETXEN_NIC_STAT(stats.csummed)},
++	{"no_rcv", NETXEN_NIC_STAT(stats.no_rcv)},
++	{"rx_bytes", NETXEN_NIC_STAT(stats.rxbytes)},
++	{"tx_bytes", NETXEN_NIC_STAT(stats.txbytes)},
++};
++
++#define NETXEN_NIC_STATS_LEN	\
++	sizeof(netxen_nic_gstrings_stats) / sizeof(struct netxen_nic_stats)
++
++static const char netxen_nic_gstrings_test[][ETH_GSTRING_LEN] = {
++	"Register_Test_offline", "EEPROM_Test_offline",
++	"Interrupt_Test_offline", "Loopback_Test_offline",
++	"Link_Test_on_offline"
++};
++
++#define NETXEN_NIC_TEST_LEN sizeof(netxen_nic_gstrings_test) / ETH_GSTRING_LEN
++
++#define NETXEN_NIC_REGS_COUNT 42
++#define NETXEN_NIC_REGS_LEN (NETXEN_NIC_REGS_COUNT * sizeof(__le32))
++#define NETXEN_MAX_EEPROM_LEN   1024
++
++static int netxen_nic_get_eeprom_len(struct net_device *dev)
 +{
-+	struct netxen_port *port = netdev_priv(netdev);
-+	struct net_device_stats *stats = &port->net_stats;
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	int n;
 +
-+	memset(stats, 0, sizeof(*stats));
-+
-+	/* total packets received   */
-+	stats->rx_packets = port->stats.no_rcv;
-+	/* total packets transmitted    */
-+	stats->tx_packets = port->stats.xmitedframes + port->stats.xmitfinished;
-+	/* total bytes received     */
-+	stats->rx_bytes = port->stats.rxbytes;
-+	/* total bytes transmitted  */
-+	stats->tx_bytes = port->stats.txbytes;
-+	/* bad packets received     */
-+	stats->rx_errors = port->stats.rcvdbadskb;
-+	/* packet transmit problems */
-+	stats->tx_errors = port->stats.nocmddescriptor;
-+	/* no space in linux buffers    */
-+	stats->rx_dropped = port->stats.updropped;
-+	/* no space available in linux  */
-+	stats->tx_dropped = port->stats.txdropped;
-+
-+	return stats;
-+}
-+
-+void netxen_indicate_link_status(struct netxen_adapter *adapter, u32 portno,
-+				 u32 link)
-+{
-+	struct netxen_port *pport = adapter->port[portno];
-+	struct net_device *netdev = pport->netdev;
-+
-+	if (link)
-+		netif_carrier_on(netdev);
-+	else
-+		netif_carrier_off(netdev);
-+}
-+
-+void netxen_handle_port_int(struct netxen_adapter *adapter, u32 portno,
-+			    u32 enable)
-+{
-+	__le32 int_src;
-+	struct netxen_port *port;
-+
-+	/*  This should clear the interrupt source */
-+	if (adapter->ops->phy_read)
-+		adapter->ops->phy_read(adapter, portno,
-+				       NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS,
-+				       &int_src);
-+	if (int_src == 0) {
-+		DPRINTK(INFO, "No phy interrupts for port #%d\n", portno);
-+		return;
++	if ((netxen_rom_fast_read(adapter, 0, &n) == 0)
++	    && (n & NETXEN_ROM_ROUNDUP)) {
++		n &= ~NETXEN_ROM_ROUNDUP;
++		if (n < NETXEN_MAX_EEPROM_LEN)
++			return n;
 +	}
-+	if (adapter->ops->disable_phy_interrupts)
-+		adapter->ops->disable_phy_interrupts(adapter, portno);
++	return 0;
++}
 +
-+	port = adapter->port[portno];
++static void
++netxen_nic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	uint32_t fw_major = 0;
++	uint32_t fw_minor = 0;
++	uint32_t fw_build = 0;
 +
-+	if (netxen_get_phy_int_jabber(int_src))
-+		DPRINTK(INFO, "NetXen: %s Jabber interrupt \n",
-+			port->netdev->name);
++	strncpy(drvinfo->driver, "netxen_nic", 32);
++	strncpy(drvinfo->version, NETXEN_NIC_LINUX_VERSIONID, 32);
++	fw_major = readl(NETXEN_CRB_NORMALIZE(adapter,
++					      NETXEN_FW_VERSION_MAJOR));
++	fw_minor = readl(NETXEN_CRB_NORMALIZE(adapter,
++					      NETXEN_FW_VERSION_MINOR));
++	fw_build = readl(NETXEN_CRB_NORMALIZE(adapter, NETXEN_FW_VERSION_SUB));
++	sprintf(drvinfo->fw_version, "%d.%d.%d", fw_major, fw_minor, fw_build);
 +
-+	if (netxen_get_phy_int_polarity_changed(int_src))
-+		DPRINTK(INFO, "NetXen: %s POLARITY CHANGED int \n",
-+			port->netdev->name);
++	strncpy(drvinfo->bus_info, pci_name(port->pdev), 32);
++	drvinfo->n_stats = NETXEN_NIC_STATS_LEN;
++	drvinfo->testinfo_len = NETXEN_NIC_TEST_LEN;
++	drvinfo->regdump_len = NETXEN_NIC_REGS_LEN;
++	drvinfo->eedump_len = netxen_nic_get_eeprom_len(dev);
++}
 +
-+	if (netxen_get_phy_int_energy_detect(int_src))
-+		DPRINTK(INFO, "NetXen: %s ENERGY DETECT INT \n",
-+			port->netdev->name);
++static int
++netxen_nic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
 +
-+	if (netxen_get_phy_int_downshift(int_src))
-+		DPRINTK(INFO, "NetXen: %s DOWNSHIFT INT \n",
-+			port->netdev->name);
-+	/* write it down later.. */
-+	if ((netxen_get_phy_int_speed_changed(int_src))
-+	    || (netxen_get_phy_int_link_status_changed(int_src))) {
-+		__le32 status;
++	/* read which mode */
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
++		ecmd->supported = (SUPPORTED_10baseT_Half |
++				   SUPPORTED_10baseT_Full |
++				   SUPPORTED_100baseT_Half |
++				   SUPPORTED_100baseT_Full |
++				   SUPPORTED_1000baseT_Half |
++				   SUPPORTED_1000baseT_Full |
++				   SUPPORTED_TP |
++				   SUPPORTED_MII | SUPPORTED_Autoneg);
 +
-+		DPRINTK(INFO, "NetXen: %s SPEED CHANGED OR"
-+			" LINK STATUS CHANGED \n", port->netdev->name);
++		ecmd->advertising = (ADVERTISED_100baseT_Half |
++				     ADVERTISED_100baseT_Full |
++				     ADVERTISED_1000baseT_Half |
++				     ADVERTISED_1000baseT_Full |
++				     ADVERTISED_TP |
++				     ADVERTISED_MII | ADVERTISED_Autoneg);
++
++		ecmd->port = PORT_TP;
++
++		if (netif_running(dev)) {
++			ecmd->speed = port->link_speed;
++			ecmd->duplex = port->link_duplex;
++		} else
++			return -EIO;	/* link absent */
++
++		ecmd->phy_address = port->portnum;
++		ecmd->transceiver = XCVR_EXTERNAL;
++
++		/* get autoneg settings */
++		ecmd->autoneg = port->link_autoneg;
++		return 0;
++	}
++
++	if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
++		ecmd->supported = (SUPPORTED_TP |
++				   SUPPORTED_1000baseT_Full |
++				   SUPPORTED_10000baseT_Full);
++		ecmd->advertising = (ADVERTISED_TP |
++				     ADVERTISED_1000baseT_Full |
++				     ADVERTISED_10000baseT_Full);
++		ecmd->port = PORT_TP;
++
++		ecmd->speed = SPEED_10000;
++		ecmd->duplex = DUPLEX_FULL;
++		ecmd->phy_address = port->portnum;
++		ecmd->transceiver = XCVR_EXTERNAL;
++		ecmd->autoneg = AUTONEG_DISABLE;
++		return 0;
++	}
++
++	return -EIO;
++}
++
++static int
++netxen_nic_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	__le32 status;
++
++	/* read which mode */
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
++		/* autonegotiation */
++		if (adapter->ops->phy_write
++		    && adapter->ops->phy_write(adapter, port->portnum,
++					       NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
++					       (__le32) ecmd->autoneg) != 0)
++			return -EIO;
++		else
++			port->link_autoneg = ecmd->autoneg;
 +
 +		if (adapter->ops->phy_read
-+		    && adapter->ops->phy_read(adapter, portno,
++		    && adapter->ops->phy_read(adapter, port->portnum,
 +					      NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-+					      &status) == 0) {
-+			if (netxen_get_phy_int_link_status_changed(int_src)) {
-+				if (netxen_get_phy_link(status)) {
-+					netxen_niu_gbe_init_port(adapter,
-+								 portno);
-+					printk("%s: %s Link UP\n",
-+					       netxen_nic_driver_name,
-+					       port->netdev->name);
-+
-+				} else {
-+					printk("%s: %s Link DOWN\n",
-+					       netxen_nic_driver_name,
-+					       port->netdev->name);
-+				}
-+				netxen_indicate_link_status(adapter, portno,
-+							    netxen_get_phy_link
-+							    (status));
-+			}
-+		}
-+	}
-+	if (adapter->ops->enable_phy_interrupts)
-+		adapter->ops->enable_phy_interrupts(adapter, portno);
-+}
-+
-+void netxen_nic_isr_other(struct netxen_adapter *adapter)
-+{
-+	u32 enable, portno;
-+	u32 i2qhi;
-+
-+	/*
-+	 * bit 3 is for i2qInt, if high its enabled
-+	 * check for phy interrupts
-+	 * read vector and check for bit 45 for phy
-+	 * clear int by writing the same value into ISR_INT_VECTOR REG
-+	 */
-+
-+	DPRINTK(INFO, "I2Q is the source of INT \n");
-+
-+	/* verify the offset */
-+	i2qhi = readl(NETXEN_CRB_NORMALIZE(adapter, NETXEN_I2Q_CLR_PCI_HI));
-+
-+	DPRINTK(INFO, "isr NETXEN_I2Q_CLR_PCI_HI = 0x%x \n", i2qhi);
-+
-+	if (i2qhi & 0x4000) {
-+		for (portno = 0; portno < NETXEN_NIU_MAX_GBE_PORTS; portno++) {
-+			DPRINTK(INFO, "External PHY interrupt ON PORT %d\n",
-+				portno);
-+
-+			enable = 1;
-+			netxen_handle_port_int(adapter, portno, enable);
-+		}
-+
-+		/* Clear the interrupt on I2Q */
-+		writel((u32) i2qhi,
-+		       NETXEN_CRB_NORMALIZE(adapter, NETXEN_I2Q_CLR_PCI_HI));
-+
-+	}
-+}
-+
-+void netxen_nic_gbe_handle_phy_intr(struct netxen_adapter *adapter)
-+{
-+	u32 val;
-+	val = readl(NETXEN_CRB_NORMALIZE(adapter, ISR_INT_VECTOR));
-+	if (val & 0x4) {
-+		adapter->stats.otherints++;
-+		netxen_nic_isr_other(adapter);
-+	}
-+}
-+
-+void netxen_nic_xgbe_handle_phy_intr(struct netxen_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->port[0]->netdev;
-+	u32 val;
-+
-+	/* WINDOW = 1 */
-+	val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_XG_STATE));
-+
-+	if (adapter->ahw.xg_linkup == 1 && val != XG_LINK_UP) {
-+		printk(KERN_INFO "%s: %s NIC Link is down\n",
-+		       netxen_nic_driver_name, netdev->name);
-+		adapter->ahw.xg_linkup = 0;
-+		/* read twice to clear sticky bits */
-+		/* WINDOW = 0 */
-+		netxen_nic_read_w0(adapter, NETXEN_NIU_XG_STATUS, &val);
-+		netxen_nic_read_w0(adapter, NETXEN_NIU_XG_STATUS, &val);
-+
-+		if ((val & 0xffb) != 0xffb) {
-+			printk(KERN_INFO "%s ISR: Sync/Align BAD: 0x%08x\n",
-+			       netxen_nic_driver_name, val);
-+		}
-+	} else if (adapter->ahw.xg_linkup == 0 && val == XG_LINK_UP) {
-+		printk(KERN_INFO "%s: %s NIC Link is up\n",
-+		       netxen_nic_driver_name, netdev->name);
-+		adapter->ahw.xg_linkup = 1;
-+	}
-+}
-diff -Narup -X linux-2.6.18.orig/Documentation/dontdiff linux-2.6.18.orig/drivers/net/netxen/netxen_nic_niu.c linux-2.6.18/drivers/net/netxen/netxen_nic_niu.c
---- linux-2.6.18.orig/drivers/net/netxen/netxen_nic_niu.c	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.18/drivers/net/netxen/netxen_nic_niu.c	2006-09-25 05:04:07.000000000 -0700
-@@ -0,0 +1,800 @@
-+/*
-+ * Copyright (C) 2003 - 2006 NetXen, Inc.
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or (at your option) any later version.
-+ * 
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ * 
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
-+ * MA  02111-1307, USA.
-+ * 
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called LICENSE.
-+ * 
-+ * Contact Information:
-+ *    info@netxen.com
-+ * NetXen,
-+ * 3965 Freedom Circle, Fourth floor,
-+ * Santa Clara, CA 95054
-+ *
-+ *
-+ * Provides access to the Network Interface Unit h/w block.
-+ *
-+ */
-+
-+#include "netxen_nic.h"
-+#include <linux/delay.h>
-+
-+/* 
-+ * netxen_niu_gbe_phy_read - read a register from the GbE PHY via
-+ * mii management interface.
-+ *
-+ * Note: The MII management interface goes through port 0.
-+ *       Individual phys are addressed as follows:
-+ * @param phy  [15:8]  phy id
-+ * @param reg  [7:0]   register number
-+ *
-+ * @returns  0 on success
-+ *          -1 on error
-+ *
-+ */
-+int netxen_niu_gbe_phy_read(struct netxen_adapter *adapter, long phy,
-+			    long reg, __le32 * readval)
-+{
-+	long timeout = 0;
-+	long result = 0;
-+	long restore = 0;
-+	__le32 address;
-+	__le32 command;
-+	__le32 status;
-+	__le32 mii_cfg;
-+	__le32 mac_cfg0;
-+
-+	/* MII mgmt all goes through port 0 MAC interface, so it cannot be in reset */
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(0),
-+				  &mac_cfg0, 4))
-+		return -EIO;
-+	if (netxen_gb_get_soft_reset(mac_cfg0)) {
-+		__le32 temp;
-+		temp = 0;
-+		netxen_gb_tx_reset_pb(temp);
-+		netxen_gb_rx_reset_pb(temp);
-+		netxen_gb_tx_reset_mac(temp);
-+		netxen_gb_rx_reset_mac(temp);
-+		if (netxen_nic_hw_write_wx(adapter,
-+					   NETXEN_NIU_GB_MAC_CONFIG_0(0),
-+					   &temp, 4))
++					      &status) != 0)
 +			return -EIO;
-+		restore = 1;
-+	}
 +
-+	/* reset MII management interface */
-+	mii_cfg = 0;
-+	netxen_gb_set_mii_mgmt_clockselect(mii_cfg, 7);
-+	netxen_gb_mii_mgmt_reset(mii_cfg);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_CONFIG(0),
-+				   &mii_cfg, 4))
-+		return -EIO;
-+	netxen_gb_mii_mgmt_unset(mii_cfg);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_CONFIG(0),
-+				   &mii_cfg, 4))
-+		return -EIO;
-+
-+	address = 0;
-+	netxen_gb_mii_mgmt_reg_addr(address, reg);
-+	netxen_gb_mii_mgmt_phy_addr(address, phy);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_ADDR(0),
-+				   &address, 4))
-+		return -EIO;
-+	command = 0;		/* turn off any prior activity */
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_COMMAND(0),
-+				   &command, 4))
-+		return -EIO;
-+	/* send read command */
-+	netxen_gb_mii_mgmt_set_read_cycle(command);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_COMMAND(0),
-+				   &command, 4))
-+		return -EIO;
-+
-+	status = 0;
-+	do {
-+		if (netxen_nic_hw_read_wx(adapter,
-+					  NETXEN_NIU_GB_MII_MGMT_INDICATE(0),
-+					  &status, 4))
++		/* speed */
++		switch (ecmd->speed) {
++		case SPEED_10:
++			netxen_set_phy_speed(status, 0);
++			break;
++		case SPEED_100:
++			netxen_set_phy_speed(status, 1);
++			break;
++		case SPEED_1000:
++			netxen_set_phy_speed(status, 2);
++			break;
++		}
++		/* set duplex mode */
++		if (ecmd->duplex == DUPLEX_HALF)
++			netxen_clear_phy_duplex(status);
++		if (ecmd->duplex == DUPLEX_FULL)
++			netxen_set_phy_duplex(status);
++		if (adapter->ops->phy_write
++		    && adapter->ops->phy_write(adapter, port->portnum,
++					       NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
++					       *((int *)&status)) != 0)
 +			return -EIO;
-+		timeout++;
-+	} while ((netxen_get_gb_mii_mgmt_busy(status)
-+		  || netxen_get_gb_mii_mgmt_notvalid(status))
-+		 && (timeout++ < NETXEN_NIU_PHY_WAITMAX));
-+
-+	if (timeout < NETXEN_NIU_PHY_WAITMAX) {
-+		if (netxen_nic_hw_read_wx(adapter,
-+					  NETXEN_NIU_GB_MII_MGMT_STATUS(0),
-+					  readval, 4))
-+			return -EIO;
-+		result = 0;
++		else {
++			port->link_speed = ecmd->speed;
++			port->link_duplex = ecmd->duplex;
++		}
 +	} else
-+		result = -1;
++		return -EOPNOTSUPP;
 +
-+	if (restore)
-+		if (netxen_nic_hw_write_wx(adapter,
-+					   NETXEN_NIU_GB_MAC_CONFIG_0(0),
-+					   &mac_cfg0, 4))
-+			return -EIO;
-+
-+	return result;
-+}
-+
-+/* 
-+ * netxen_niu_gbe_phy_write - write a register to the GbE PHY via
-+ * mii management interface.
-+ *
-+ * Note: The MII management interface goes through port 0.
-+ *       Individual phys are addressed as follows:
-+ * @param phy      [15:8]  phy id
-+ * @param reg      [7:0]   register number
-+ *
-+ * @returns  0 on success
-+ *          -1 on error
-+ *
-+ */
-+int netxen_niu_gbe_phy_write(struct netxen_adapter *adapter,
-+			     long phy, long reg, __le32 val)
-+{
-+	long timeout = 0;
-+	long result = 0;
-+	long restore = 0;
-+	__le32 address;
-+	__le32 command;
-+	__le32 status;
-+	__le32 mac_cfg0;
-+
-+	/* MII mgmt all goes through port 0 MAC interface, so it cannot be in reset */
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(0),
-+				  &mac_cfg0, 4))
-+		return -EIO;
-+	if (netxen_gb_get_soft_reset(mac_cfg0)) {
-+		__le32 temp;
-+		temp = 0;
-+		netxen_gb_tx_reset_pb(temp);
-+		netxen_gb_rx_reset_pb(temp);
-+		netxen_gb_tx_reset_mac(temp);
-+		netxen_gb_rx_reset_mac(temp);
-+
-+		if (netxen_nic_hw_write_wx(adapter,
-+					   NETXEN_NIU_GB_MAC_CONFIG_0(0),
-+					   &temp, 4))
-+			return -EIO;
-+		restore = 1;
++	if (netif_running(dev)) {
++		dev->stop(dev);
++		dev->open(dev);
 +	}
-+
-+	command = 0;		/* turn off any prior activity */
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_COMMAND(0),
-+				   &command, 4))
-+		return -EIO;
-+
-+	address = 0;
-+	netxen_gb_mii_mgmt_reg_addr(address, reg);
-+	netxen_gb_mii_mgmt_phy_addr(address, phy);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_ADDR(0),
-+				   &address, 4))
-+		return -EIO;
-+
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_CTRL(0),
-+				   &val, 4))
-+		return -EIO;
-+
-+	status = 0;
-+	do {
-+		if (netxen_nic_hw_read_wx(adapter,
-+					  NETXEN_NIU_GB_MII_MGMT_INDICATE(0),
-+					  &status, 4))
-+			return -EIO;
-+		timeout++;
-+	} while ((netxen_get_gb_mii_mgmt_busy(status))
-+		 && (timeout++ < NETXEN_NIU_PHY_WAITMAX));
-+
-+	if (timeout < NETXEN_NIU_PHY_WAITMAX)
-+		result = 0;
-+	else
-+		result = -EIO;
-+
-+	/* restore the state of port 0 MAC in case we tampered with it */
-+	if (restore)
-+		if (netxen_nic_hw_write_wx(adapter,
-+					   NETXEN_NIU_GB_MAC_CONFIG_0(0),
-+					   &mac_cfg0, 4))
-+			return -EIO;
-+
-+	return result;
-+}
-+
-+int netxen_niu_xgbe_enable_phy_interrupts(struct netxen_adapter *adapter,
-+					  int port)
-+{
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_INT_MASK, 0x3f);
 +	return 0;
 +}
 +
-+int netxen_niu_gbe_enable_phy_interrupts(struct netxen_adapter *adapter,
-+					 int port)
++static int netxen_nic_get_regs_len(struct net_device *dev)
 +{
-+	int result = 0;
-+	__le32 enable = 0;
-+	netxen_set_phy_int_link_status_changed(enable);
-+	netxen_set_phy_int_autoneg_completed(enable);
-+	netxen_set_phy_int_speed_changed(enable);
-+
-+	if (0 !=
-+	    netxen_niu_gbe_phy_write(adapter, port,
-+				     NETXEN_NIU_GB_MII_MGMT_ADDR_INT_ENABLE,
-+				     enable))
-+		result = -EIO;
-+
-+	return result;
++	return NETXEN_NIC_REGS_LEN;
 +}
 +
-+int netxen_niu_xgbe_disable_phy_interrupts(struct netxen_adapter *adapter,
-+					   int port)
++struct netxen_niu_regs {
++	__le32 reg[NETXEN_NIC_REGS_COUNT];
++};
++
++static struct netxen_niu_regs niu_registers[] = {
++	{
++	 /* GB Mode */
++	 {
++	  NETXEN_NIU_GB_SERDES_RESET,
++	  NETXEN_NIU_GB0_MII_MODE,
++	  NETXEN_NIU_GB1_MII_MODE,
++	  NETXEN_NIU_GB2_MII_MODE,
++	  NETXEN_NIU_GB3_MII_MODE,
++	  NETXEN_NIU_GB0_GMII_MODE,
++	  NETXEN_NIU_GB1_GMII_MODE,
++	  NETXEN_NIU_GB2_GMII_MODE,
++	  NETXEN_NIU_GB3_GMII_MODE,
++	  NETXEN_NIU_REMOTE_LOOPBACK,
++	  NETXEN_NIU_GB0_HALF_DUPLEX,
++	  NETXEN_NIU_GB1_HALF_DUPLEX,
++	  NETXEN_NIU_RESET_SYS_FIFOS,
++	  NETXEN_NIU_GB_CRC_DROP,
++	  NETXEN_NIU_GB_DROP_WRONGADDR,
++	  NETXEN_NIU_TEST_MUX_CTL,
++
++	  NETXEN_NIU_GB_MAC_CONFIG_0(0),
++	  NETXEN_NIU_GB_MAC_CONFIG_1(0),
++	  NETXEN_NIU_GB_HALF_DUPLEX_CTRL(0),
++	  NETXEN_NIU_GB_MAX_FRAME_SIZE(0),
++	  NETXEN_NIU_GB_TEST_REG(0),
++	  NETXEN_NIU_GB_MII_MGMT_CONFIG(0),
++	  NETXEN_NIU_GB_MII_MGMT_COMMAND(0),
++	  NETXEN_NIU_GB_MII_MGMT_ADDR(0),
++	  NETXEN_NIU_GB_MII_MGMT_CTRL(0),
++	  NETXEN_NIU_GB_MII_MGMT_STATUS(0),
++	  NETXEN_NIU_GB_MII_MGMT_INDICATE(0),
++	  NETXEN_NIU_GB_INTERFACE_CTRL(0),
++	  NETXEN_NIU_GB_INTERFACE_STATUS(0),
++	  NETXEN_NIU_GB_STATION_ADDR_0(0),
++	  NETXEN_NIU_GB_STATION_ADDR_1(0),
++	  -1,
++	  }
++	 },
++	{
++	 /* XG Mode */
++	 {
++	  NETXEN_NIU_XG_SINGLE_TERM,
++	  NETXEN_NIU_XG_DRIVE_HI,
++	  NETXEN_NIU_XG_DRIVE_LO,
++	  NETXEN_NIU_XG_DTX,
++	  NETXEN_NIU_XG_DEQ,
++	  NETXEN_NIU_XG_WORD_ALIGN,
++	  NETXEN_NIU_XG_RESET,
++	  NETXEN_NIU_XG_POWER_DOWN,
++	  NETXEN_NIU_XG_RESET_PLL,
++	  NETXEN_NIU_XG_SERDES_LOOPBACK,
++	  NETXEN_NIU_XG_DO_BYTE_ALIGN,
++	  NETXEN_NIU_XG_TX_ENABLE,
++	  NETXEN_NIU_XG_RX_ENABLE,
++	  NETXEN_NIU_XG_STATUS,
++	  NETXEN_NIU_XG_PAUSE_THRESHOLD,
++	  NETXEN_NIU_XGE_CONFIG_0,
++	  NETXEN_NIU_XGE_CONFIG_1,
++	  NETXEN_NIU_XGE_IPG,
++	  NETXEN_NIU_XGE_STATION_ADDR_0_HI,
++	  NETXEN_NIU_XGE_STATION_ADDR_0_1,
++	  NETXEN_NIU_XGE_STATION_ADDR_1_LO,
++	  NETXEN_NIU_XGE_STATUS,
++	  NETXEN_NIU_XGE_MAX_FRAME_SIZE,
++	  NETXEN_NIU_XGE_PAUSE_FRAME_VALUE,
++	  NETXEN_NIU_XGE_TX_BYTE_CNT,
++	  NETXEN_NIU_XGE_TX_FRAME_CNT,
++	  NETXEN_NIU_XGE_RX_BYTE_CNT,
++	  NETXEN_NIU_XGE_RX_FRAME_CNT,
++	  NETXEN_NIU_XGE_AGGR_ERROR_CNT,
++	  NETXEN_NIU_XGE_MULTICAST_FRAME_CNT,
++	  NETXEN_NIU_XGE_UNICAST_FRAME_CNT,
++	  NETXEN_NIU_XGE_CRC_ERROR_CNT,
++	  NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR,
++	  NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR,
++	  NETXEN_NIU_XGE_LOCAL_ERROR_CNT,
++	  NETXEN_NIU_XGE_REMOTE_ERROR_CNT,
++	  NETXEN_NIU_XGE_CONTROL_CHAR_CNT,
++	  NETXEN_NIU_XGE_PAUSE_FRAME_CNT,
++	  -1,
++	  }
++	 }
++};
++
++static void
++netxen_nic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
 +{
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_INT_MASK, 0x7f);
-+	return 0;
-+}
-+
-+int netxen_niu_gbe_disable_phy_interrupts(struct netxen_adapter *adapter,
-+					  int port)
-+{
-+	int result = 0;
-+	if (0 !=
-+	    netxen_niu_gbe_phy_write(adapter, port,
-+				     NETXEN_NIU_GB_MII_MGMT_ADDR_INT_ENABLE, 0))
-+		result = -EIO;
-+
-+	return result;
-+}
-+
-+int netxen_niu_xgbe_clear_phy_interrupts(struct netxen_adapter *adapter,
-+					 int port)
-+{
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_ACTIVE_INT, -1);
-+	return 0;
-+}
-+
-+int netxen_niu_gbe_clear_phy_interrupts(struct netxen_adapter *adapter,
-+					int port)
-+{
-+	int result = 0;
-+	if (0 !=
-+	    netxen_niu_gbe_phy_write(adapter, port,
-+				     NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS,
-+				     -EIO))
-+		result = -EIO;
-+
-+	return result;
-+}
-+
-+/* 
-+ * netxen_niu_gbe_set_mii_mode- Set 10/100 Mbit Mode for GbE MAC
-+ *
-+ */
-+void netxen_niu_gbe_set_mii_mode(struct netxen_adapter *adapter,
-+				 int port, long enable)
-+{
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_MODE, 0x2);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				    0x80000000);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				    0x0000f0025);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB_MAC_CONFIG_1(port),
-+				    0xf1ff);
-+	netxen_crb_writelit_adapter(adapter,
-+				    NETXEN_NIU_GB0_GMII_MODE + (port << 3), 0);
-+	netxen_crb_writelit_adapter(adapter,
-+				    NETXEN_NIU_GB0_MII_MODE + (port << 3), 1);
-+	netxen_crb_writelit_adapter(adapter,
-+				    (NETXEN_NIU_GB0_HALF_DUPLEX + port * 4), 0);
-+	netxen_crb_writelit_adapter(adapter,
-+				    NETXEN_NIU_GB_MII_MGMT_CONFIG(port), 0x7);
-+
-+	if (enable) {
-+		/* 
-+		 * Do NOT enable flow control until a suitable solution for 
-+		 *  shutting down pause frames is found. 
-+		 */
-+		netxen_crb_writelit_adapter(adapter,
-+					    NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+					    0x5);
-+	}
-+
-+	if (netxen_niu_gbe_enable_phy_interrupts(adapter, port))
-+		printk(KERN_ERR PFX "ERROR enabling PHY interrupts\n");
-+	if (netxen_niu_gbe_clear_phy_interrupts(adapter, port))
-+		printk(KERN_ERR PFX "ERROR clearing PHY interrupts\n");
-+}
-+
-+/* 
-+ * netxen_niu_gbe_set_gmii_mode- Set GbE Mode for GbE MAC
-+ */
-+void netxen_niu_gbe_set_gmii_mode(struct netxen_adapter *adapter,
-+				  int port, long enable)
-+{
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_MODE, 0x2);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				    0x80000000);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				    0x0000f0025);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB_MAC_CONFIG_1(port),
-+				    0xf2ff);
-+	netxen_crb_writelit_adapter(adapter,
-+				    NETXEN_NIU_GB0_MII_MODE + (port << 3), 0);
-+	netxen_crb_writelit_adapter(adapter,
-+				    NETXEN_NIU_GB0_GMII_MODE + (port << 3), 1);
-+	netxen_crb_writelit_adapter(adapter,
-+				    (NETXEN_NIU_GB0_HALF_DUPLEX + port * 4), 0);
-+	netxen_crb_writelit_adapter(adapter,
-+				    NETXEN_NIU_GB_MII_MGMT_CONFIG(port), 0x7);
-+
-+	if (enable) {
-+		/* 
-+		 * Do NOT enable flow control until a suitable solution for 
-+		 *  shutting down pause frames is found. 
-+		 */
-+		netxen_crb_writelit_adapter(adapter,
-+					    NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+					    0x5);
-+	}
-+
-+	if (netxen_niu_gbe_enable_phy_interrupts(adapter, port))
-+		printk(KERN_ERR PFX "ERROR enabling PHY interrupts\n");
-+	if (netxen_niu_gbe_clear_phy_interrupts(adapter, port))
-+		printk(KERN_ERR PFX "ERROR clearing PHY interrupts\n");
-+}
-+
-+int netxen_niu_gbe_init_port(struct netxen_adapter *adapter, int port)
-+{
-+	int result = 0;
-+	__le32 status;
-+	if (adapter->ops->disable_phy_interrupts)
-+		adapter->ops->disable_phy_interrupts(adapter, port);
-+	mdelay(2);
-+
-+	if (0 ==
-+	    netxen_niu_gbe_phy_read(adapter, port,
-+				    NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-+				    (__le32 *) & status)) {
-+		if (netxen_get_phy_link(status)) {
-+			if (netxen_get_phy_speed(status) == 2) {
-+				netxen_niu_gbe_set_gmii_mode(adapter, port, 1);
-+			} else if ((netxen_get_phy_speed(status) == 1)
-+				   || (netxen_get_phy_speed(status) == 0)) {
-+				netxen_niu_gbe_set_mii_mode(adapter, port, 1);
-+			} else {
-+				result = -1;
-+			}
-+
-+		} else {
-+			/* We don't have link. Cable  must be unconnected. */
-+			/* Enable phy interrupts so we take action when plugged in */
-+			netxen_crb_writelit_adapter(adapter,
-+						    NETXEN_NIU_GB_MAC_CONFIG_0
-+						    (port), 0x80000000);
-+			netxen_crb_writelit_adapter(adapter,
-+						    NETXEN_NIU_GB_MAC_CONFIG_0
-+						    (port), 0x0000f0025);
-+			if (netxen_niu_gbe_clear_phy_interrupts(adapter, port))
-+				printk(KERN_ERR PFX
-+				       "ERROR clearing PHY interrupts\n");
-+			if (netxen_niu_gbe_enable_phy_interrupts(adapter, port))
-+				printk(KERN_ERR PFX
-+				       "ERROR enabling PHY interrupts\n");
-+			if (netxen_niu_gbe_clear_phy_interrupts(adapter, port))
-+				printk(KERN_ERR PFX
-+				       "ERROR clearing PHY interrupts\n");
-+			result = -1;
-+		}
-+	} else {
-+		result = -EIO;
-+	}
-+	return result;
-+}
-+
-+/* 
-+ * netxen_niu_gbe_handle_phy_interrupt - Handles GbE PHY interrupts
-+ * @param enable 0 means don't enable the port
-+ *               1 means enable (or re-enable) the port
-+ */
-+int netxen_niu_gbe_handle_phy_interrupt(struct netxen_adapter *adapter,
-+					int port, long enable)
-+{
-+	int result = 0;
-+	__le32 int_src;
-+
-+	printk(KERN_INFO PFX "NETXEN: Handling PHY interrupt on port %d"
-+	       " (device enable = %d)\n", (int)port, (int)enable);
-+
-+	/* The read of the PHY INT status will clear the pending interrupt status */
-+	if (netxen_niu_gbe_phy_read(adapter, port,
-+				    NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS,
-+				    &int_src) != 0)
-+		result = -EINVAL;
-+	else {
-+		printk(KERN_INFO PFX "PHY Interrupt source = 0x%x \n", int_src);
-+		if (netxen_get_phy_int_jabber(int_src))
-+			printk(KERN_INFO PFX "jabber Interrupt ");
-+		if (netxen_get_phy_int_polarity_changed(int_src))
-+			printk(KERN_INFO PFX "polarity changed ");
-+		if (netxen_get_phy_int_energy_detect(int_src))
-+			printk(KERN_INFO PFX "energy detect \n");
-+		if (netxen_get_phy_int_downshift(int_src))
-+			printk(KERN_INFO PFX "downshift \n");
-+		if (netxen_get_phy_int_mdi_xover_changed(int_src))
-+			printk(KERN_INFO PFX "mdi_xover_changed ");
-+		if (netxen_get_phy_int_fifo_over_underflow(int_src))
-+			printk(KERN_INFO PFX "fifo_over_underflow ");
-+		if (netxen_get_phy_int_false_carrier(int_src))
-+			printk(KERN_INFO PFX "false_carrier ");
-+		if (netxen_get_phy_int_symbol_error(int_src))
-+			printk(KERN_INFO PFX "symbol_error ");
-+		if (netxen_get_phy_int_autoneg_completed(int_src))
-+			printk(KERN_INFO PFX "autoneg_completed ");
-+		if (netxen_get_phy_int_page_received(int_src))
-+			printk(KERN_INFO PFX "page_received ");
-+		if (netxen_get_phy_int_duplex_changed(int_src))
-+			printk(KERN_INFO PFX "duplex_changed ");
-+		if (netxen_get_phy_int_autoneg_error(int_src))
-+			printk(KERN_INFO PFX "autoneg_error ");
-+		if ((netxen_get_phy_int_speed_changed(int_src))
-+		    || (netxen_get_phy_int_link_status_changed(int_src))) {
-+			__le32 status;
-+
-+			printk(KERN_INFO PFX
-+			       "speed_changed or link status changed");
-+			if (netxen_niu_gbe_phy_read
-+			    (adapter, port,
-+			     NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-+			     &status) == 0) {
-+				if (netxen_get_phy_speed(status) == 2) {
-+					printk
-+					    (KERN_INFO PFX "Link speed changed"
-+					     " to 1000 Mbps\n");
-+					netxen_niu_gbe_set_gmii_mode(adapter,
-+								     port,
-+								     enable);
-+				} else if (netxen_get_phy_speed(status) == 1) {
-+					printk
-+					    (KERN_INFO PFX "Link speed changed"
-+					     " to 100 Mbps\n");
-+					netxen_niu_gbe_set_mii_mode(adapter,
-+								    port,
-+								    enable);
-+				} else if (netxen_get_phy_speed(status) == 0) {
-+					printk
-+					    (KERN_INFO PFX "Link speed changed"
-+					     " to 10 Mbps\n");
-+					netxen_niu_gbe_set_mii_mode(adapter,
-+								    port,
-+								    enable);
-+				} else {
-+					printk(KERN_ERR PFX "ERROR reading"
-+					       "PHY status. Illegal speed.\n");
-+					result = -1;
-+				}
-+			} else {
-+				printk(KERN_ERR PFX
-+				       "ERROR reading PHY status.\n");
-+				result = -1;
-+			}
-+
-+		}
-+		printk(KERN_INFO "\n");
-+	}
-+	return result;
-+}
-+
-+/*
-+ * Return the current station MAC address.
-+ * Note that the passed-in value must already be in network byte order.
-+ */
-+int netxen_niu_macaddr_get(struct netxen_adapter *adapter,
-+			   int phy, netxen_ethernet_macaddr_t * addr)
-+{
-+	u64 result = 0;
-+	__le32 stationhigh;
-+	__le32 stationlow;
-+
-+	if (addr == NULL)
-+		return -EINVAL;
-+	if ((phy < 0) || (phy > 3))
-+		return -EINVAL;
-+
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_GB_STATION_ADDR_0(phy),
-+				  &stationhigh, 4))
-+		return -EIO;
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_GB_STATION_ADDR_1(phy),
-+				  &stationlow, 4))
-+		return -EIO;
-+
-+	result = (u64) netxen_gb_get_stationaddress_low(stationlow);
-+	result |= (u64) stationhigh << 16;
-+	memcpy(*addr, &result, sizeof(netxen_ethernet_macaddr_t));
-+
-+	return 0;
-+}
-+
-+/*
-+ * Set the station MAC address.
-+ * Note that the passed-in value must already be in network byte order.
-+ */
-+int netxen_niu_macaddr_set(struct netxen_port *port,
-+			   netxen_ethernet_macaddr_t addr)
-+{
-+	__le32 temp = 0;
++	struct netxen_port *port = netdev_priv(dev);
 +	struct netxen_adapter *adapter = port->adapter;
-+	int phy = port->portnum;
++	__le32 mode, *regs_buff = p;
++	void __iomem *addr;
++	int i, window;
 +
-+	memcpy(&temp, addr, 2);
-+	temp <<= 16;
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_STATION_ADDR_1(phy),
-+				   &temp, 4))
-+		return -EIO;
++	memset(p, 0, NETXEN_NIC_REGS_LEN);
++	regs->version = (1 << 24) | (adapter->ahw.revision_id << 16) |
++	    (port->pdev)->device;
++	/* which mode */
++	NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_MODE, &regs_buff[0]);
++	mode = regs_buff[0];
 +
-+	temp = 0;
++	/* Common registers to all the modes */
++	NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_STRAP_VALUE_SAVE_HIGHER,
++				   &regs_buff[2]);
++	/* GB/XGB Mode */
++	mode = (mode / 2) - 1;
++	window = 0;
++	if (mode <= 1) {
++		for (i = 3; niu_registers[mode].reg[i - 3] != -1; i++) {
++			/* GB: port specific registers */
++			if (mode == 0 && i >= 19)
++				window = port->portnum * 0x10000;
 +
-+	memcpy(&temp, ((u8 *) addr) + 2, sizeof(__le32));
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_STATION_ADDR_0(phy),
-+				   &temp, 4))
-+		return -2;
-+
-+	return 0;
-+}
-+
-+/* Enable a GbE interface */
-+int netxen_niu_enable_gbe_port(struct netxen_adapter *adapter,
-+			       int port, netxen_niu_gbe_ifmode_t mode)
-+{
-+	__le32 mac_cfg0;
-+	__le32 mac_cfg1;
-+	__le32 mii_cfg;
-+
-+	if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
-+		return -EINVAL;
-+
-+	mac_cfg0 = 0;
-+	netxen_gb_soft_reset(mac_cfg0);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				   &mac_cfg0, 4))
-+		return -EIO;
-+	mac_cfg0 = 0;
-+	netxen_gb_enable_tx(mac_cfg0);
-+	netxen_gb_enable_rx(mac_cfg0);
-+	netxen_gb_unset_rx_flowctl(mac_cfg0);
-+	netxen_gb_tx_reset_pb(mac_cfg0);
-+	netxen_gb_rx_reset_pb(mac_cfg0);
-+	netxen_gb_tx_reset_mac(mac_cfg0);
-+	netxen_gb_rx_reset_mac(mac_cfg0);
-+
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				   &mac_cfg0, 4))
-+		return -EIO;
-+	mac_cfg1 = 0;
-+	netxen_gb_set_preamblelen(mac_cfg1, 0xf);
-+	netxen_gb_set_duplex(mac_cfg1);
-+	netxen_gb_set_crc_enable(mac_cfg1);
-+	netxen_gb_set_padshort(mac_cfg1);
-+	netxen_gb_set_checklength(mac_cfg1);
-+	netxen_gb_set_hugeframes(mac_cfg1);
-+
-+	if (mode == NETXEN_NIU_10_100_MB) {
-+		netxen_gb_set_intfmode(mac_cfg1, 1);
-+		if (netxen_nic_hw_write_wx(adapter,
-+					   NETXEN_NIU_GB_MAC_CONFIG_1(port),
-+					   &mac_cfg1, 4))
-+			return -EIO;
-+
-+		/* set mii mode */
-+		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_GMII_MODE +
-+					    (port << 3), 0);
-+		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_MII_MODE +
-+					    (port << 3), 1);
-+
-+	} else if (mode == NETXEN_NIU_1000_MB) {
-+		netxen_gb_set_intfmode(mac_cfg1, 2);
-+		if (netxen_nic_hw_write_wx(adapter,
-+					   NETXEN_NIU_GB_MAC_CONFIG_1(port),
-+					   &mac_cfg1, 4))
-+			return -EIO;
-+		/* set gmii mode */
-+		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_MII_MODE +
-+					    (port << 3), 0);
-+		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_GMII_MODE +
-+					    (port << 3), 1);
-+	}
-+	mii_cfg = 0;
-+	netxen_gb_set_mii_mgmt_clockselect(mii_cfg, 7);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_CONFIG(port),
-+				   &mii_cfg, 4))
-+		return -EIO;
-+	mac_cfg0 = 0;
-+	netxen_gb_enable_tx(mac_cfg0);
-+	netxen_gb_enable_rx(mac_cfg0);
-+	netxen_gb_unset_rx_flowctl(mac_cfg0);
-+	netxen_gb_unset_tx_flowctl(mac_cfg0);
-+
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				   &mac_cfg0, 4))
-+		return -EIO;
-+	return 0;
-+}
-+
-+/* Disable a GbE interface */
-+int netxen_niu_disable_gbe_port(struct netxen_adapter *adapter, int port)
-+{
-+	__le32 mac_cfg0;
-+
-+	if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
-+		return -EINVAL;
-+
-+	mac_cfg0 = 0;
-+	netxen_gb_soft_reset(mac_cfg0);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
-+				   &mac_cfg0, 4))
-+		return -EIO;
-+	return 0;
-+}
-+
-+/* Disable an XG interface */
-+int netxen_niu_disable_xg_port(struct netxen_adapter *adapter, int port)
-+{
-+	__le32 mac_cfg;
-+
-+	if (port != 0)
-+		return -EINVAL;
-+
-+	mac_cfg = 0;
-+	netxen_xg_soft_reset(mac_cfg);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_XGE_CONFIG_0,
-+				   &mac_cfg, 4))
-+		return -EIO;
-+	return 0;
-+}
-+
-+/* Set promiscuous mode for a GbE interface */
-+int netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter, int port,
-+				    netxen_niu_prom_mode_t mode)
-+{
-+	__le32 reg;
-+
-+	if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
-+		return -EINVAL;
-+
-+	/* save previous contents */
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_GB_DROP_WRONGADDR,
-+				  &reg, 4))
-+		return -EIO;
-+	if (mode == NETXEN_NIU_PROMISC_MODE) {
-+		switch (port) {
-+		case 0:
-+			netxen_clear_gb_drop_gb0(reg);
-+			break;
-+		case 1:
-+			netxen_clear_gb_drop_gb1(reg);
-+			break;
-+		case 2:
-+			netxen_clear_gb_drop_gb2(reg);
-+			break;
-+		case 3:
-+			netxen_clear_gb_drop_gb3(reg);
-+			break;
-+		default:
-+			return -EIO;
++			NETXEN_NIC_LOCKED_READ_REG(niu_registers[mode].
++						   reg[i - 3] + window,
++						   &regs_buff[i]);
 +		}
-+	} else {
-+		switch (port) {
-+		case 0:
-+			netxen_set_gb_drop_gb0(reg);
-+			break;
-+		case 1:
-+			netxen_set_gb_drop_gb1(reg);
-+			break;
-+		case 2:
-+			netxen_set_gb_drop_gb2(reg);
-+			break;
-+		case 3:
-+			netxen_set_gb_drop_gb3(reg);
-+			break;
-+		default:
-+			return -EIO;
-+		}
++
 +	}
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_GB_DROP_WRONGADDR,
-+				   &reg, 4))
-+		return -EIO;
-+	return 0;
 +}
 +
-+/*
-+ * Set the MAC address for an XG port
-+ * Note that the passed-in value must already be in network byte order.
-+ */
-+int netxen_niu_xg_macaddr_set(struct netxen_port *port,
-+			      netxen_ethernet_macaddr_t addr)
++static void
++netxen_nic_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 +{
-+	__le32 temp = 0;
++	wol->supported = WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | WAKE_MAGIC;
++	wol->wolopts = 0;	/* options can be added depending upon the mode */
++}
++
++static u32 netxen_nic_get_link(struct net_device *dev)
++{
++	struct netxen_port *port = netdev_priv(dev);
 +	struct netxen_adapter *adapter = port->adapter;
++	__le32 status;
 +
-+	memcpy(&temp, addr, 2);
-+	temp = cpu_to_le32(temp);
-+	temp <<= 16;
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_XGE_STATION_ADDR_0_1,
-+				   &temp, 4))
-+		return -EIO;
-+
-+	temp = 0;
-+
-+	memcpy(&temp, ((u8 *) addr) + 2, sizeof(__le32));
-+	temp = cpu_to_le32(temp);
-+	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_XGE_STATION_ADDR_0_HI,
-+				   &temp, 4))
-+		return -EIO;
-+
-+	return 0;
++	/* read which mode */
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
++		if (adapter->ops->phy_read
++		    && adapter->ops->phy_read(adapter, port->portnum,
++					      NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
++					      &status) != 0)
++			return -EIO;
++		else
++			return (netxen_get_phy_link(status));
++	} else if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
++		int val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_XG_STATE));
++		return val == XG_LINK_UP;
++	}
++	return -EIO;
 +}
 +
-+/*
-+ * Return the current station MAC address.
-+ * Note that the passed-in value must already be in network byte order.
-+ */
-+int netxen_niu_xg_macaddr_get(struct netxen_adapter *adapter, int phy,
-+			      netxen_ethernet_macaddr_t * addr)
++static int
++netxen_nic_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
++		      u8 * bytes)
 +{
-+	__le32 stationhigh;
-+	__le32 stationlow;
-+	u64 result;
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	int offset;
 +
-+	if (addr == NULL)
-+		return -EINVAL;
-+	if (phy != 0)
++	if (eeprom->len == 0)
 +		return -EINVAL;
 +
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_XGE_STATION_ADDR_0_HI,
-+				  &stationhigh, 4))
-+		return -EIO;
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_XGE_STATION_ADDR_0_1,
-+				  &stationlow, 4))
-+		return -EIO;
-+
-+	result = ((u64) stationlow) >> 16;
-+	result |= (u64) stationhigh << 16;
-+	memcpy(*addr, &result, sizeof(netxen_ethernet_macaddr_t));
-+
++	eeprom->magic = (port->pdev)->vendor | ((port->pdev)->device << 16);
++	for (offset = 0; offset < eeprom->len; offset++)
++		if (netxen_rom_fast_read
++		    (adapter, (8 * offset) + 8, (int *)eeprom->data) == -1)
++			return -EIO;
 +	return 0;
 +}
 +
-+int netxen_niu_xg_set_promiscuous_mode(struct netxen_adapter *adapter,
-+				       int port, netxen_niu_prom_mode_t mode)
++static void
++netxen_nic_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
 +{
-+	__le32 reg;
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	int i, j;
 +
-+	if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
-+		return -EINVAL;
++	ring->rx_pending = 0;
++	for (i = 0; i < MAX_RCV_CTX; ++i) {
++		for (j = 0; j < NUM_RCV_DESC_RINGS; j++)
++			ring->rx_pending +=
++			    adapter->recv_ctx[i].rcv_desc[j].rcv_pending;
++	}
 +
-+	if (netxen_nic_hw_read_wx(adapter, NETXEN_NIU_XGE_CONFIG_1, &reg, 4))
-+		return -EIO;
-+	if (mode == NETXEN_NIU_PROMISC_MODE)
-+		reg = (reg | 0x2000UL);
-+	else
-+		reg = (reg & ~0x2000UL);
-+
-+	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_XGE_CONFIG_1, reg);
-+
-+	return 0;
++	ring->rx_max_pending = adapter->max_rx_desc_count;
++	ring->tx_max_pending = adapter->max_tx_desc_count;
++	ring->rx_mini_max_pending = 0;
++	ring->rx_mini_pending = 0;
++	ring->rx_jumbo_max_pending = 0;
++	ring->rx_jumbo_pending = 0;
 +}
++
++static void
++netxen_nic_get_pauseparam(struct net_device *dev,
++			  struct ethtool_pauseparam *pause)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	__le32 val;
++
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
++		/* get flow control settings */
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_MAC_CONFIG_0(port->portnum),
++				   (u32 *) & val);
++		pause->rx_pause = netxen_gb_get_rx_flowctl(val);
++		pause->tx_pause = netxen_gb_get_tx_flowctl(val);
++		/* get autoneg settings */
++		pause->autoneg = port->link_autoneg;
++	}
++}
++
++static int
++netxen_nic_set_pauseparam(struct net_device *dev,
++			  struct ethtool_pauseparam *pause)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	__le32 val;
++	unsigned int autoneg;
++
++	/* read mode */
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
++		/* set flow control */
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_MAC_CONFIG_0(port->portnum),
++				   (u32 *) & val);
++		if (pause->tx_pause)
++			netxen_gb_tx_flowctl(val);
++		else
++			netxen_gb_unset_tx_flowctl(val);
++		if (pause->rx_pause)
++			netxen_gb_rx_flowctl(val);
++		else
++			netxen_gb_unset_rx_flowctl(val);
++
++		netxen_nic_write_w0(adapter,
++				    NETXEN_NIU_GB_MAC_CONFIG_0(port->portnum),
++				    *(u32 *) (&val));
++		/* set autoneg */
++		autoneg = pause->autoneg;
++		if (adapter->ops->phy_write
++		    && adapter->ops->phy_write(adapter, port->portnum,
++					       NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
++					       (__le32) autoneg) != 0)
++			return -EIO;
++		else {
++			port->link_autoneg = pause->autoneg;
++			return 0;
++		}
++	} else
++		return -EOPNOTSUPP;
++}
++
++static int netxen_nic_reg_test(struct net_device *dev)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	struct netxen_adapter *adapter = port->adapter;
++	u32 data_read, data_written, save;
++	__le32 mode;
++
++	/* 
++	 * first test the "Read Only" registers by writing which mode
++	 */
++	netxen_nic_read_w0(adapter, NETXEN_NIU_MODE, &mode);
++	if (netxen_get_niu_enable_ge(mode)) {	/* GB Mode */
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_MII_MGMT_STATUS(port->portnum),
++				   &data_read);
++
++		save = data_read;
++		if (data_read)
++			data_written = data_read & 0xDEADBEEF;
++		else
++			data_written = 0xDEADBEEF;
++		netxen_nic_write_w0(adapter,
++				    NETXEN_NIU_GB_MII_MGMT_STATUS(port->
++								  portnum),
++				    data_written);
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_MII_MGMT_STATUS(port->portnum),
++				   &data_read);
++
++		if (data_written == data_read) {
++			netxen_nic_write_w0(adapter,
++					    NETXEN_NIU_GB_MII_MGMT_STATUS(port->
++									  portnum),
++					    save);
++
++			return 0;
++		}
++
++		/* netxen_niu_gb_mii_mgmt_indicators is read only */
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_MII_MGMT_INDICATE(port->
++								   portnum),
++				   &data_read);
++
++		save = data_read;
++		if (data_read)
++			data_written = data_read & 0xDEADBEEF;
++		else
++			data_written = 0xDEADBEEF;
++		netxen_nic_write_w0(adapter,
++				    NETXEN_NIU_GB_MII_MGMT_INDICATE(port->
++								    portnum),
++				    data_written);
++
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_MII_MGMT_INDICATE(port->
++								   portnum),
++				   &data_read);
++
++		if (data_written == data_read) {
++			netxen_nic_write_w0(adapter,
++					    NETXEN_NIU_GB_MII_MGMT_INDICATE
++					    (port->portnum), save);
++			return 0;
++		}
++
++		/* netxen_niu_gb_interface_status is read only */
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_INTERFACE_STATUS(port->
++								  portnum),
++				   &data_read);
++
++		save = data_read;
++		if (data_read)
++			data_written = data_read & 0xDEADBEEF;
++		else
++			data_written = 0xDEADBEEF;
++		netxen_nic_write_w0(adapter,
++				    NETXEN_NIU_GB_INTERFACE_STATUS(port->
++								   portnum),
++				    data_written);
++
++		netxen_nic_read_w0(adapter,
++				   NETXEN_NIU_GB_INTERFACE_STATUS(port->
++								  portnum),
++				   &data_read);
++
++		if (data_written == data_read) {
++			netxen_nic_write_w0(adapter,
++					    NETXEN_NIU_GB_INTERFACE_STATUS
++					    (port->portnum), save);
++
++			return 0;
++		}
++	}			/* GB Mode */
++	return 1;
++}
++
++static int netxen_nic_diag_test_count(struct net_device *dev)
++{
++	return NETXEN_NIC_TEST_LEN;
++}
++
++static void
++netxen_nic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
++		     u64 * data)
++{
++	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {	/* offline tests */
++		/* link test */
++		if (!(data[4] = (u64) netxen_nic_get_link(dev)))
++			eth_test->flags |= ETH_TEST_FL_FAILED;
++
++		if (netif_running(dev))
++			dev->stop(dev);
++
++		/* register tests */
++		if (!(data[0] = netxen_nic_reg_test(dev)))
++			eth_test->flags |= ETH_TEST_FL_FAILED;
++		/* other tests pass as of now */
++		data[1] = data[2] = data[3] = 1;
++		if (netif_running(dev))
++			dev->open(dev);
++	} else {		/* online tests */
++		/* link test */
++		if (!(data[4] = (u64) netxen_nic_get_link(dev)))
++			eth_test->flags |= ETH_TEST_FL_FAILED;
++
++		/* other tests pass by default */
++		data[0] = data[1] = data[2] = data[3] = 1;
++	}
++}
++
++static void
++netxen_nic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
++{
++	int index;
++
++	switch (stringset) {
++	case ETH_SS_TEST:
++		memcpy(data, *netxen_nic_gstrings_test,
++		       NETXEN_NIC_TEST_LEN * ETH_GSTRING_LEN);
++		break;
++	case ETH_SS_STATS:
++		for (index = 0; index < NETXEN_NIC_STATS_LEN; index++) {
++			memcpy(data + index * ETH_GSTRING_LEN,
++			       netxen_nic_gstrings_stats[index].stat_string,
++			       ETH_GSTRING_LEN);
++		}
++		break;
++	}
++}
++
++static int netxen_nic_get_stats_count(struct net_device *dev)
++{
++	return NETXEN_NIC_STATS_LEN;
++}
++
++static void
++netxen_nic_get_ethtool_stats(struct net_device *dev,
++			     struct ethtool_stats *stats, u64 * data)
++{
++	struct netxen_port *port = netdev_priv(dev);
++	int index;
++
++	for (index = 0; index < NETXEN_NIC_STATS_LEN; index++) {
++		char *p =
++		    (char *)port + netxen_nic_gstrings_stats[index].stat_offset;
++		data[index] =
++		    (netxen_nic_gstrings_stats[index].sizeof_stat ==
++		     sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
++	}
++
++}
++
++struct ethtool_ops netxen_nic_ethtool_ops = {
++	.get_settings = netxen_nic_get_settings,
++	.set_settings = netxen_nic_set_settings,
++	.get_drvinfo = netxen_nic_get_drvinfo,
++	.get_regs_len = netxen_nic_get_regs_len,
++	.get_regs = netxen_nic_get_regs,
++	.get_wol = netxen_nic_get_wol,
++	.get_link = netxen_nic_get_link,
++	.get_eeprom_len = netxen_nic_get_eeprom_len,
++	.get_eeprom = netxen_nic_get_eeprom,
++	.get_ringparam = netxen_nic_get_ringparam,
++	.get_pauseparam = netxen_nic_get_pauseparam,
++	.set_pauseparam = netxen_nic_set_pauseparam,
++	.get_tx_csum = ethtool_op_get_tx_csum,
++	.set_tx_csum = ethtool_op_set_tx_csum,
++	.get_sg = ethtool_op_get_sg,
++	.set_sg = ethtool_op_set_sg,
++	.get_tso = ethtool_op_get_tso,
++	.set_tso = ethtool_op_set_tso,
++	.self_test_count = netxen_nic_diag_test_count,
++	.self_test = netxen_nic_diag_test,
++	.get_strings = netxen_nic_get_strings,
++	.get_stats_count = netxen_nic_get_stats_count,
++	.get_ethtool_stats = netxen_nic_get_ethtool_stats,
++	.get_perm_addr = ethtool_op_get_perm_addr,
++};
 
