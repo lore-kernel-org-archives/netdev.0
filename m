@@ -1,58 +1,65 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: tc related lockdep warning.
-Date: Wed, 27 Sep 2006 10:54:27 +0200
-Message-ID: <20060927085427.GA1619@ff.dom.local>
-References: <20060925124352.GA1592@ff.dom.local> <1159188473.5301.68.camel@jzny2> <4517D9A6.70307@trash.net> <45195219.7050105@trash.net> <20060926212034.GA3134@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PKT_SCHED] cls_basic: Use unsigned int when generating handle
+Date: Wed, 27 Sep 2006 11:33:01 +0200
+Message-ID: <20060927093301.GY18349@postel.suug.ch>
+References: <20060926183621.GX18349@postel.suug.ch> <Pine.LNX.4.44.0609271104470.9010-100000@dhcp09282.ntc.nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, davem@davemloft.net
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:15261 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1750864AbWI0IuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 04:50:10 -0400
-To: Dave Jones <davej@redhat.com>
+Received: from postel.suug.ch ([194.88.212.233]:27842 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965458AbWI0Jck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 05:32:40 -0400
+To: "Nordlund Kim (Nokia-NET/Helsinki)" <Kim.Nordlund@nokia.com>
 Content-Disposition: inline
-In-Reply-To: <20060926212034.GA3134@redhat.com>
+In-Reply-To: <Pine.LNX.4.44.0609271104470.9010-100000@dhcp09282.ntc.nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 26, 2006 at 05:20:34PM -0400, Dave Jones wrote:
-> On Tue, Sep 26, 2006 at 06:15:21PM +0200, Patrick McHardy wrote:
->  > Patrick McHardy wrote:
->  > > jamal wrote:
->  > > 
->  > >>Yes, that looks plausible. Can you try making those changes and see if
->  > >>the warning is gone?
->  > > 
->  > >
->  > > I think this points to a bigger brokeness caused by the move of
->  > > dev->qdisc to RCU. It means destruction of filters and actions doesn't
->  > > necessarily happens in user-context and thus not protected by the rtnl
->  > > anymore.
->  > 
->  > I looked into this and we indeed still have lots of problems from that
->  > broken RCU patch. Basically all locking (qdiscs, classifiers, actions,
->  > estimators) assumes that updates are only done in process context and
->  > thus read_lock doesn't need bottem half protection. Quite a few things
->  > also assume that updates only happen under the RTNL and don't need
->  > any further protection if not used during packet processing.
->  > 
->  > Instead of "fixing" all this I suggest something like this (untested)
->  > patch instead. Since only the dev->qdisc pointer is protected by RCU,
->  > but enqueue and the qdisc tree are still protected by dev->qdisc_lock,
->  > we can perform destruction of the tree immediately and only do the
->  > final free in the rcu callback, as long as we make sure not to enqueue
->  > anything to a half-way destroyed qdisc.
+* Nordlund Kim (Nokia-NET/Helsinki) <Kim.Nordlund@nokia.com> 2006-09-27 11:50
+> basic_change() won't work without this patch if we compile the
+> kernel with the GCC version in RHEL5...
 > 
-> With this patch, I get no lockdep warnings, but the machine locks up completely.
-> I hooked up a serial console, and found this..
-...
+> gcc version 4.1.1 20060817 (Red Hat 4.1.1-18)
+> 
+> which optimizes the code like this (objdump -S inttest.c) ...
+> 
+> int main()
+> {
+>    0:   55                      push   %ebp
+>    1:   89 e5                   mov    %esp,%ebp
+>   int i = 0x80000000;
+>   do {
+>     printf(KERN_ERR "in do %d\n", i);
+>    3:   68 00 00 00 80          push   $0x80000000
+>    8:   68 00 00 00 00          push   $0x0
+>    d:   e8 fc ff ff ff          call   e <main+0xe>
+>   } while (--i > 0);
+>   printf(KERN_ERR "out of do %d\n", i);
+>   12:   68 00 00 00 80          push   $0x80000000
+>   17:   68 0a 00 00 00          push   $0xa
+>   1c:   e8 fc ff ff ff          call   1d <main+0x1d>
+>   return 0;
+> }
+>   21:   31 c0                   xor    %eax,%eax
+>   23:   c9                      leave
+>   24:   c3                      ret
+> 
+> # ./inttest
+> in do -2147483648
+> out of do -2147483648
 
-Sorry for my not humble and simplistic opinion, but I'd dare
-to remind you are changing "stable" version and even without
-this lockups this patch would look very "serious". Why don't
-try to restore not-rcu version of qdisc_destroy which looks
-not lot to do.
+Very interesting, naturally I tried the same after Patrick's
+comment but gcc 20060901 produced code as expected, thus
+staying in the loop. But now after specifying -Os gcc seems
+to turn on some optimziation which produces the same code as
+above.
 
-Jarek P.
+I'm not sure I understand this optimization :-)
+
+> So I would suggest to apply this patch to be compatible with the
+> GCC version in RHEL5, and simply to make code clearer (to the
+> intended idea).
+
+Yes.
