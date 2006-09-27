@@ -1,37 +1,52 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] Customizable TCP backoff patch
-Date: Wed, 27 Sep 2006 16:00:44 -0700
-Message-ID: <20060927160044.68ffca2e@freekitty>
-References: <451AC889.5000407@redhat.com>
-	<20060927.161638.62343616.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tc related lockdep warning.
+Date: Wed, 27 Sep 2006 16:53:04 -0700 (PDT)
+Message-ID: <20060927.165304.116354998.davem@davemloft.net>
+References: <45195219.7050105@trash.net>
+	<20060926212034.GA3134@redhat.com>
+	<451A6968.2090607@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: woodard@redhat.com, netdev@vger.kernel.org, mgrondona@llnl.gov,
-	behlendorf1@llnl.gov
+Cc: davej@redhat.com, hadi@cyberus.ca, jarkao2@o2.pl,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56012 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1031255AbWI0Xl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 19:41:58 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060927.161638.62343616.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:8882
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1031258AbWI0XxF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 19:53:05 -0400
+To: kaber@trash.net
+In-Reply-To: <451A6968.2090607@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Sep 2006 16:16:38 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 27 Sep 2006 14:07:04 +0200
 
-> From: Ben Woodard <woodard@redhat.com>
-> Date: Wed, 27 Sep 2006 11:52:57 -0700
+> Dave Jones wrote:
+> > With this patch, I get no lockdep warnings, but the machine locks up completely.
+> > I hooked up a serial console, and found this..
+> > 
+> > 
+> > u32 classifier
+> >     Performance counters on
+> >     input device check on 
+> >     Actions configured 
+> > BUG: warning at net/sched/sch_htb.c:395/htb_safe_rb_erase()
+> > 
+> > Call Trace:
+> >  [<ffffffff8026f79b>] show_trace+0xae/0x336
+> >  [<ffffffff8026fa38>] dump_stack+0x15/0x17
+> >  [<ffffffff8860a171>] :sch_htb:htb_safe_rb_erase+0x3b/0x55
 > 
-> > Because these are general utility clusters we run many different 
-> > programs and so trying to fix this problem in the application is not 
-> > possible since there are literally hundreds if not thousands of them.
-> 
-> Then why add a socket option setting as your patch does? :-)
-> 
-> I also object to the socket option setting being allowed for
-> any user because this can have awful effects if allowed by
-> arbitrary users on arbitrary networks.
+> I found the reason for this, it was an unrelated bug. I've attached
+> the latest version of the locking fixes and the fix for the HTB bug.
+> Can you please try again?
 
-Setting a cwnd limit would do the same thing.
+Although the HTB bug is post-2.6.18, the other issue has been
+around for a long time.
+
+Thus I'll need to submit the second patch to -stable, but I want
+it to cook in Linus's tree for a few days before I do that.
+
+Thanks.
