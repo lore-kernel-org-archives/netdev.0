@@ -1,27 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/4] ethtool: don't show sync queue's on skge/sky2
-Date: Wed, 27 Sep 2006 19:03:33 -0400
-Message-ID: <451B0345.50504@pobox.com>
-References: <20060926115437.11ed1f85@freekitty>	<451AF4B1.2000208@pobox.com> <20060926131000.08a67c89@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/9][TG3]: Add tg3_poll_fw().
+Date: Wed, 27 Sep 2006 16:03:40 -0700 (PDT)
+Message-ID: <20060927.160340.95062228.davem@davemloft.net>
+References: <1159389289.3411.22.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:5325 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1031196AbWI0XDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 19:03:35 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060926131000.08a67c89@freekitty>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28326
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1031207AbWI0XDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 19:03:41 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1159389289.3411.22.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Remove printout of synchronous transmit queue info because
-> it is unused by the driver.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 27 Sep 2006 13:34:49 -0700
+
+> [TG3]: Add tg3_poll_fw().
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Put the firmware polling logic into a separate function.  This makes
+> the code cleaner.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-NAK, it doesn't matter whether a feature is used by the driver or not.
-
-
+Applied, thanks.
