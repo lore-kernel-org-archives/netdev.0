@@ -1,53 +1,71 @@
-From: Ismail Donmez <ismail@pardus.org.tr>
-Subject: Re: tc related lockdep warning.
-Date: Wed, 27 Sep 2006 17:41:08 +0300
-Message-ID: <200609271741.09375.ismail@pardus.org.tr>
-References: <20060925124352.GA1592@ff.dom.local> <20060926212034.GA3134@redhat.com> <451A4EEE.6080004@trash.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: mii-tool gigabit support.
+Date: Wed, 27 Sep 2006 08:00:17 -0700
+Message-ID: <451A9201.6000600@intel.com>
+References: <20060926145113.7a6791c8@freekitty>	<4519A1D6.1050802@pobox.com> <20060926150947.3d538547@freekitty> <451A7603.1030204@roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Jones <davej@redhat.com>, hadi@cyberus.ca,
-	Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, dhinds@pcmcia.sourceforge.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:53484 "EHLO uludag.org.tr")
-	by vger.kernel.org with ESMTP id S932359AbWI0Okt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 10:40:49 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <451A4EEE.6080004@trash.net>
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:7035 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S932462AbWI0PCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:02:34 -0400
+To: David Acker <dacker@roinet.com>
+In-Reply-To: <451A7603.1030204@roinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-27 Eyl 2006 =C3=87ar 13:14 tarihinde =C5=9Funlar=C4=B1 yazm=C4=B1=C5=9F=
-t=C4=B1n=C4=B1z:
-> Dave Jones wrote:
-> > With this patch, I get no lockdep warnings, but the machine locks u=
-p
-> > completely. I hooked up a serial console, and found this..
-> >
-> >
-> > u32 classifier
-> >     Performance counters on
-> >     input device check on
-> >     Actions configured
-> > BUG: warning at net/sched/sch_htb.c:395/htb_safe_rb_erase()
->
-> I can't reproduce this, could you send me your tc script please?
-> Did you do anything to trigger this?
+David Acker wrote:
+> Stephen Hemminger wrote:
+>> On Tue, 26 Sep 2006 17:55:34 -0400
+>> Jeff Garzik <jgarzik@pobox.com> wrote:
+>>
+>>> Stephen Hemminger wrote:
+>>>> The mii-tool utility seems to be abandoned and unmaintained?
+>>>>
+>>>> Here is a version that does standard 1000baseT support.
+>>>>     http://developer.osdl.org/shemminger/prototypes/mii-tool.tar.bz2
+>>> Not really.  I would rather leave it as-is, and deprecate it in favor 
+>>> of ethtool.
+>>>
+>>
+>> It does make a handy debug tool when driver isn't doing MII correctly.
+>>
+> 
+> mii-tool supports some things that ethtool does not.  mii-tool -A lets 
+> you set the advertised speeds and can include a list of speeds.  The 
+> closest ethtool seems to have is ethtool -s but that seems to just set 
+> the advertised speed to a single value only.
 
-Using sabishape[1] with latest linux-2.6 git tree I can reproduce this.=
- Just=20
-running sabishape -i eth1 -u 50 -d 240 freezes whole box.
+We sent a patch for this to Jeff recently that allows setting of 'arbitrary' 
+speeds. Unfortunately the interface is rather crude but it works (for e1000, 
+and possibly all other nics) to set any combination of advertised speeds.
 
-[1] http://www.sabi.co.uk/Proj/Small/sabishape-2.1.tar.gz
+e.g. `ethtool -s eth0 advertise 0x0f` advertises all non-gigabit speeds
 
-Regards,
-ismail
+I haven't seen the patch merged yet upstream though.
 
---=20
-They that can give up essential liberty to obtain a little temporary sa=
-fety=20
-deserve neither liberty nor safety.
--- Benjamin Franklin
+Cheers,
+
+Auke
+
+> 
+> We have instances where we want to limit the link of the ethernet port 
+> to no higher then 10 Mbps full duplex but also advertise support for 
+> half duplex.
+> 
+> With mii-tool we can do the command below and work with a half duplex 
+> hub and a full duplex switch.
+> mii-tool -A 10baseT-FD,10baseT-HD eth0
+> 
+> Meanwhile if I use ethtool like the command below I will not work with a 
+> half duplex only hub.
+> ethtool -s eth0 speed 10 duplex full autoneg on
+> 
+> Perhaps the "speed" part of ethtool -s should take a list of speeds like 
+> mii-tool does.
+> 
+> -Ack
