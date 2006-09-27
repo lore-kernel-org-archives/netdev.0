@@ -1,54 +1,68 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] spidernet: Use pci_dma_mapping_error()
-Date: Wed, 27 Sep 2006 14:02:26 -0500
-Message-ID: <20060927140226.6f215273@localhost.localdomain>
+From: dean gaudet <dean@arctic.org>
+Subject: Re: mii-tool gigabit support.
+Date: Wed, 27 Sep 2006 12:15:08 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609271208400.2299@twinlark.arctic.org>
+References: <20060926145113.7a6791c8@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, dhinds@pcmcia.sourceforge.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:45786 "EHLO mail.lixom.net")
-	by vger.kernel.org with ESMTP id S1030642AbWI0TDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 15:03:05 -0400
-To: Utz Bacher <utz.bacher@de.ibm.com>,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>, jgarzik@pobox.com
+Received: from twinlark.arctic.org ([207.7.145.18]:45279 "EHLO
+	twinlark.arctic.org") by vger.kernel.org with ESMTP
+	id S1030652AbWI0TPK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 15:15:10 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060926145113.7a6791c8@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A driver shouldn't compare to DMA_ERROR_CODE directly, use
-pci_dma_mapping_error() instead.
+On Tue, 26 Sep 2006, Stephen Hemminger wrote:
+
+> The mii-tool utility seems to be abandoned and unmaintained?
+> 
+> Here is a version that does standard 1000baseT support.
+> 	http://developer.osdl.org/shemminger/prototypes/mii-tool.tar.bz2
+
+cool that's bugged me for a while...
+
+there's an off-by-1 for the non-verbose basic output -- you need register 
+10 but only read up to register 9.  patch below.
+
+tested on various mobos with e1000, tg3, skge.
+
+oh, two of my tyans show this (one e1000 one tg3):
+
+  product info: vendor 00:08:18, model 25 rev 0
+
+but i'm not physically at the boards so i can't find the PHY to see what 
+model it is.
+
+-dean
 
 
-Signed-off-by: Olof Johansson <olof@lixom.net>
-
-Index: linux-2.6/drivers/net/spider_net.c
+Index: mii-tool/mii-tool.c
 ===================================================================
---- linux-2.6.orig/drivers/net/spider_net.c
-+++ linux-2.6/drivers/net/spider_net.c
-@@ -317,7 +317,7 @@ spider_net_init_chain(struct spider_net_
- 				     SPIDER_NET_DESCR_SIZE,
- 				     direction);
+--- mii-tool.orig/mii-tool.c	2006-09-26 14:44:56.000000000 -0700
++++ mii-tool/mii-tool.c	2006-09-27 12:05:03.000000000 -0700
+@@ -233,7 +233,7 @@
+     /* Some bits in the BMSR are latched, but we can't rely on being
+        the only reader, so only the current values are meaningful */
+     mdio_read(sock, MII_BMSR);
+-    for (i = 0; i < ((verbose > 1) ? 32 : 10); i++)
++    for (i = 0; i < ((verbose > 1) ? 32 : MII_BASIC_MAX); i++)
+ 	mii_val[i] = mdio_read(sock, i);
  
--		if (buf == DMA_ERROR_CODE)
-+		if (pci_dma_mapping_error(buf))
- 			goto iommu_error;
+     if (mii_val[MII_BMCR] == 0xffff) {
+Index: mii-tool/mii.h
+===================================================================
+--- mii-tool.orig/mii.h	2006-09-26 14:44:59.000000000 -0700
++++ mii-tool/mii.h	2006-09-27 12:05:56.000000000 -0700
+@@ -94,4 +94,7 @@
+ #define   MII_LPA2_1000FULL	0x0800
+ #define   MII_LPA2_1000HALF	0x0400
  
- 		descr->bus_addr = buf;
-@@ -420,7 +420,7 @@ spider_net_prepare_rx_descr(struct spide
- 	buf = pci_map_single(card->pdev, descr->skb->data,
- 			SPIDER_NET_MAX_FRAME, PCI_DMA_FROMDEVICE);
- 	descr->buf_addr = buf;
--	if (buf == DMA_ERROR_CODE) {
-+	if (pci_dma_mapping_error(buf)) {
- 		dev_kfree_skb_any(descr->skb);
- 		if (netif_msg_rx_err(card) && net_ratelimit())
- 			pr_err("Could not iommu-map rx buffer\n");
-@@ -649,7 +649,7 @@ spider_net_prepare_tx_descr(struct spide
- 	dma_addr_t buf;
- 
- 	buf = pci_map_single(card->pdev, skb->data, skb->len, PCI_DMA_TODEVICE);
--	if (buf == DMA_ERROR_CODE) {
-+	if (pci_dma_mapping_error(buf)) {
- 		if (netif_msg_tx_err(card) && net_ratelimit())
- 			pr_err("could not iommu-map packet (%p, %i). "
- 				  "Dropping packet\n", skb->data, skb->len);
++/* Last register we need for show_basic_mii() */
++#define MII_BASIC_MAX		(MII_STAT1000+1)
++
+ #endif /* _LINUX_MII_H */
