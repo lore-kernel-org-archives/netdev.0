@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix order in inet_init failure path.
-Date: Wed, 27 Sep 2006 16:33:54 -0700 (PDT)
-Message-ID: <20060927.163354.51841900.davem@davemloft.net>
-References: <20060926141709.GA19722@suse.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] Customizable TCP backoff patch
+Date: Wed, 27 Sep 2006 16:00:44 -0700
+Message-ID: <20060927160044.68ffca2e@freekitty>
+References: <451AC889.5000407@redhat.com>
+	<20060927.161638.62343616.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: woodard@redhat.com, netdev@vger.kernel.org, mgrondona@llnl.gov,
+	behlendorf1@llnl.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20905
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1031249AbWI0Xdz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 19:33:55 -0400
-To: okir@suse.de
-In-Reply-To: <20060926141709.GA19722@suse.de>
+Received: from smtp.osdl.org ([65.172.181.4]:56012 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1031255AbWI0Xl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 19:41:58 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060927.161638.62343616.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olaf Kirch <okir@suse.de>
-Date: Tue, 26 Sep 2006 16:17:09 +0200
+On Wed, 27 Sep 2006 16:16:38 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> This is just a minor buglet I came across by accident - when inet_init
-> fails to register raw_prot, it jumps to out_unregister_udp_proto which
-> should unregister UDP _and_ TCP.
+> From: Ben Woodard <woodard@redhat.com>
+> Date: Wed, 27 Sep 2006 11:52:57 -0700
 > 
-> Signed-off-by: Olaf Kirch <okir@suse.de>
+> > Because these are general utility clusters we run many different 
+> > programs and so trying to fix this problem in the application is not 
+> > possible since there are literally hundreds if not thousands of them.
+> 
+> Then why add a socket option setting as your patch does? :-)
+> 
+> I also object to the socket option setting being allowed for
+> any user because this can have awful effects if allowed by
+> arbitrary users on arbitrary networks.
 
-Applied, thanks Olaf.
+Setting a cwnd limit would do the same thing.
