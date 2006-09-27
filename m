@@ -1,56 +1,112 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 13/14] d80211: getting wrong freq value if we did hardware scan
-Date: Wed, 27 Sep 2006 17:50:58 +0200 (CEST)
-Message-ID: <20060927155058.3F87D3BA25A@silver.suse.cz>
+Subject: [PATCH 10/14] d80211: fix "iwconfig key [x]" behavior
+Date: Wed, 27 Sep 2006 17:50:55 +0200 (CEST)
+Message-ID: <20060927155055.1C5323BA254@silver.suse.cz>
 References: <20060927175006.637430015.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:51084 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S964989AbWI0Ptx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:49:53 -0400
+Received: from styx.suse.cz ([82.119.242.94]:50828 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S964983AbWI0Ptu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:49:50 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060927175006.637430015.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mohamed Abbas <mabbas@linux.intel.com>
+From: Hong Liu <hong.liu@intel.com>
 
-This patch modify d80211 to fix getting wrong frequency value
-for scan implemented in hardware. With harware scan we might get
-beacon of a network that is on different channel that in
-local->conf.channel causing set freq to wrong value.
+"iwconfig key [x]" behavior is not correctly handled in the stack, also
+modify the giwencode method to show the key info.
 
-Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
+Signed-off-by: Hong Liu <hong.liu@intel.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211_sta.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ net/d80211/ieee80211_ioctl.c |   32 +++++++++++++++++++++-----------
+ 1 files changed, 21 insertions(+), 11 deletions(-)
 
-a5b4c8adb19c9d5d8b6c9b187ae6b2351e74e4a1
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 2e82405..dd95ce8 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -1541,12 +1541,12 @@ #endif
+ad8c3766f67df906ff45143d393c924ad7297471
+diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
+index 34fdf40..b47a014 100644
+--- a/net/d80211/ieee80211_ioctl.c
++++ b/net/d80211/ieee80211_ioctl.c
+@@ -2867,9 +2867,10 @@ static int ieee80211_ioctl_siwencode(str
+ 		if (!sdata->default_key)
+ 			idx = 0;
+ 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
+-			if (sdata->default_key == sdata->keys[i])
++			if (sdata->default_key == sdata->keys[i]) {
+ 				idx = i;
+-			break;
++				break;
++			}
+ 		}
+ 		if (idx < 0)
+ 			return -EINVAL;
+@@ -2880,16 +2881,21 @@ static int ieee80211_ioctl_siwencode(str
+ 		alg = ALG_NONE;
+ 	else if (erq->length == 0) {
+ 		/* No key data - just set the default TX key index */
+-		sdata->default_key = sdata->keys[idx];
++		if (sdata->default_key != sdata->keys[idx]) {
++			if (sdata->default_key)
++				ieee80211_key_sysfs_remove_default(sdata);
++			sdata->default_key = sdata->keys[idx];
++			if (sdata->default_key)
++				ieee80211_key_sysfs_add_default(sdata);
++		}
++		return 0;
  	}
  
+ 	return ieee80211_set_encryption(
+ 		dev, bcaddr,
+-		idx, erq->length == 0 ? ALG_NONE : ALG_WEP,
++		idx, alg,
+ 		!sdata->default_key,
+ 		NULL, keybuf, erq->length);
+-
+-	return 0;
+ }
  
--	bss->hw_mode = local->conf.phymode;
-+	bss->hw_mode = rx_status->phymode;
- 	bss->channel = channel;
--	bss->freq = local->conf.freq;
--	if (channel != local->conf.channel &&
--	    (local->conf.phymode == MODE_IEEE80211G ||
--	     local->conf.phymode == MODE_IEEE80211B) &&
-+	bss->freq = rx_status->freq;
-+	if (channel != rx_status->channel &&
-+	    (bss->hw_mode == MODE_IEEE80211G ||
-+	     bss->hw_mode == MODE_IEEE80211B) &&
- 	    channel >= 1 && channel <= 14) {
- 		static const int freq_list[] = {
- 			2412, 2417, 2422, 2427, 2432, 2437, 2442,
+ 
+@@ -2908,9 +2914,10 @@ static int ieee80211_ioctl_giwencode(str
+ 		if (!sdata->default_key)
+ 			idx = 0;
+ 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
+-			if (sdata->default_key == sdata->keys[i])
++			if (sdata->default_key == sdata->keys[i]) {
+ 				idx = i;
+-			break;
++				break;
++			}
+ 		}
+ 		if (idx < 0)
+ 			return -EINVAL;
+@@ -2925,7 +2932,9 @@ static int ieee80211_ioctl_giwencode(str
+ 		return 0;
+ 	}
+ 
+-	erq->length = 0;
++	memcpy(key, sdata->keys[idx]->key,
++	       min((int)erq->length, sdata->keys[idx]->keylen));
++	erq->length = sdata->keys[idx]->keylen;
+ 	erq->flags |= IW_ENCODE_ENABLED;
+ 
+ 	return 0;
+@@ -3054,9 +3063,10 @@ static int ieee80211_ioctl_siwencodeext(
+ 		if (!sdata->default_key)
+ 			idx = 0;
+ 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
+-			if (sdata->default_key == sdata->keys[i])
++			if (sdata->default_key == sdata->keys[i]) {
+ 				idx = i;
+-			break;
++				break;
++			}
+ 		}
+ 		if (idx < 0)
+ 			return -EINVAL;
 -- 
 1.3.0
 
