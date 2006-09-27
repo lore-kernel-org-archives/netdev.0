@@ -1,13 +1,13 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 2/14] d80211: add hardware scan callback
-Date: Wed, 27 Sep 2006 17:50:46 +0200 (CEST)
-Message-ID: <20060927155046.CE57B483B5@silver.suse.cz>
+Subject: [PATCH 1/14] d80211: fix wpa_supplicant reassoc problem
+Date: Wed, 27 Sep 2006 17:50:45 +0200 (CEST)
+Message-ID: <20060927155045.C522B483B4@silver.suse.cz>
 References: <20060927175006.637430015.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:48780 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S964965AbWI0Ptm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:49:42 -0400
+Received: from styx.suse.cz ([82.119.242.94]:48268 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S964963AbWI0Ptl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:49:41 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060927175006.637430015.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
@@ -15,122 +15,64 @@ List-Id: netdev.vger.kernel.org
 
 From: Hong Liu <hong.liu@intel.com>
 
-Add hardware scan callback to support cards like ipw3945 which
-implements the scan command in firmware.
+After key negotiation completed using wpa_supplicant, wpa_supplicant
+can't reassoc with the AP if we reboot the AP. It always fails at the
+4-way handshake.
+The problem is the key info is not cleared correctly. Thus when
+wpa_supplicant send the EAPOL-KEY packet, the d80211 stack finds the old
+key and uses it to encrypt the packet.
+
+The patch removes the sta_info when we disassociate with AP.
 
 Signed-off-by: Hong Liu <hong.liu@intel.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- include/net/d80211.h       |    6 ++++++
- net/d80211/ieee80211_sta.c |   47 ++++++++++++++++++++++++++++++--------------
- 2 files changed, 38 insertions(+), 15 deletions(-)
+ net/d80211/ieee80211_sta.c |    2 ++
+ net/d80211/sta_info.c      |    8 ++++++--
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-5b1756ecb9786baeb5127ca60cf0b3431e1d0e84
-diff --git a/include/net/d80211.h b/include/net/d80211.h
-index 42fdbf7..36c58b4 100644
---- a/include/net/d80211.h
-+++ b/include/net/d80211.h
-@@ -600,6 +600,10 @@ struct ieee80211_hw {
-         int (*passive_scan)(struct net_device *dev, int state,
-                             struct ieee80211_scan_conf *conf);
- 
-+	/* Ask the hardware to service the scan request, no need to start
-+	 * the scan state machine in stack. */
-+	int (*hw_scan)(struct net_device *dev, u8 *ssid, size_t len);
-+
-         /* return low-level statistics */
- 	int (*get_stats)(struct net_device *dev,
- 			 struct ieee80211_low_level_stats *stats);
-@@ -863,6 +867,8 @@ struct dev_mc_list *ieee80211_get_mc_lis
- struct ieee80211_conf *
- ieee80211_get_hw_conf(struct net_device *dev);
- 
-+/* called by driver to notify scan status completed */
-+void ieee80211_scan_completed(struct net_device *dev);
- 
- /* Return a pointer to the low-level private data area for the given device. */
- void * ieee80211_dev_hw_data(struct net_device *dev);
+25a49e579344602c14e4cf79fa95098b01e7cf27
 diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 557ba17..1f60a22 100644
+index a933d92..557ba17 100644
 --- a/net/d80211/ieee80211_sta.c
 +++ b/net/d80211/ieee80211_sta.c
-@@ -2410,6 +2410,29 @@ static int ieee80211_active_scan(struct 
- }
+@@ -710,6 +710,8 @@ static void ieee80211_associated(struct 
+ 				       "range\n",
+ 				       dev->name, MAC_ARG(ifsta->bssid));
+ 				disassoc = 1;
++				sta_info_free(sta, 0);
++				ifsta->probereq_poll = 0;
+ 			} else {
+ 				ieee80211_send_probe_req(dev, ifsta->bssid,
+ 							 local->scan_ssid,
+diff --git a/net/d80211/sta_info.c b/net/d80211/sta_info.c
+index 622b234..5edbd0c 100644
+--- a/net/d80211/sta_info.c
++++ b/net/d80211/sta_info.c
+@@ -197,6 +197,12 @@ #ifdef CONFIG_D80211_VERBOSE_DEBUG
+ 	       local->mdev->name, MAC_ARG(sta->addr));
+ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
  
- 
-+void ieee80211_scan_completed(struct net_device *dev)
-+{
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	union iwreq_data wrqu;
-+
-+	printk(KERN_DEBUG "%s: scan completed\n", dev->name);
-+	local->sta_scanning = 0;
-+	local->last_scan_completed = jiffies;
-+
-+	memset(&wrqu, 0, sizeof(wrqu));
-+	wireless_send_event(dev, SIOCGIWSCAN, &wrqu, NULL);
-+
-+	if (sdata->type == IEEE80211_IF_TYPE_IBSS) {
-+		struct ieee80211_if_sta *ifsta = &sdata->u.sta;
-+		if (!ifsta->bssid_set ||
-+		    (!ifsta->state == IEEE80211_IBSS_JOINED &&
-+		    !ieee80211_sta_active_ibss(dev)))
-+			ieee80211_sta_find_ibss(dev, ifsta);
++	if (sta->key) {
++		ieee80211_key_sysfs_remove(sta->key);
++		ieee80211_key_free(sta->key);
++		sta->key = NULL;
 +	}
-+}
-+EXPORT_SYMBOL(ieee80211_scan_completed);
 +
- static void ieee80211_sta_scan_work(void *ptr)
- {
- 	struct net_device *dev = ptr;
-@@ -2418,7 +2441,6 @@ static void ieee80211_sta_scan_work(void
- 	struct ieee80211_hw_modes *mode;
- 	struct ieee80211_channel *chan;
- 	int skip;
--	union iwreq_data wrqu;
- 	unsigned long next_delay = 0;
+ 	rate_control_remove_sta_attrs(local, sta->rate_ctrl_priv, &sta->kobj);
+ 	ieee80211_sta_sysfs_remove(sta);
  
- 	if (!local->sta_scanning)
-@@ -2435,20 +2457,8 @@ static void ieee80211_sta_scan_work(void
- 				       "operational channel after scan\n",
- 				       dev->name);
+@@ -244,8 +250,6 @@ void sta_info_free(struct sta_info *sta,
+ 				kfree(key);
  			}
--			printk(KERN_DEBUG "%s: scan completed\n", dev->name);
--			local->sta_scanning = 0;
--			local->last_scan_completed = jiffies;
--			memset(&wrqu, 0, sizeof(wrqu));
--			wireless_send_event(dev, SIOCGIWSCAN, &wrqu, NULL);
--			if (sdata->type == IEEE80211_IF_TYPE_IBSS) {
--				struct ieee80211_sub_if_data *sdata =
--					IEEE80211_DEV_TO_SUB_IF(dev);
--				struct ieee80211_if_sta *ifsta = &sdata->u.sta;
--				if (!ifsta->bssid_set ||
--				    (ifsta->state == IEEE80211_IBSS_JOINED &&
--				     !ieee80211_sta_active_ibss(dev)))
--					ieee80211_sta_find_ibss(dev, ifsta);
--			}
-+
-+			ieee80211_scan_completed(dev);
- 			return;
  		}
- 		skip = !(local->enabled_modes & (1 << mode->mode));
-@@ -2549,6 +2559,13 @@ int ieee80211_sta_req_scan(struct net_de
- 
- 	printk(KERN_DEBUG "%s: starting scan\n", dev->name);
- 
-+	if (local->hw->hw_scan) {
-+		int rc = local->hw->hw_scan(dev, ssid, ssid_len);
-+		if (!rc)
-+			local->sta_scanning = 1;
-+		return rc;
-+	}
-+
- 	ieee80211_sta_save_oper_chan(dev);
- 
- 	local->sta_scanning = 1;
+-		ieee80211_key_free(sta->key);
+-		sta->key = NULL;
+ 	} else if (sta->key_idx_compression != HW_KEY_IDX_INVALID) {
+ 		struct ieee80211_key_conf conf;
+ 		memset(&conf, 0, sizeof(conf));
 -- 
 1.3.0
 
