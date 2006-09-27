@@ -1,41 +1,30 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 27 Sep 2006 08:46:09 +0400
-Message-ID: <20060927044608.GA8965@2ka.mipt.ru>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060922122207.3b716028.akpm@osdl.org> <20060926155416.GB32030@infradead.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 09/11] b44: fix eeprom endianess issue
+Date: Wed, 27 Sep 2006 09:55:22 +0200
+Message-ID: <1159343722.2698.4.camel@ux156>
+References: <200609252339.k8PNdNE4002654@shell0.pdx.osdl.net>
+	 <200609261804.37422.mb@bu3sch.de> <4519508A.4010004@garzik.org>
+	 <200609261820.46308.mb@bu3sch.de>  <45195C92.4040503@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Andrew Morton <akpm@osdl.org>, lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Chase Venters <chase.venters@clientec.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Gary Zambrano <zambrano@broadcom.com>, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:52201 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964970AbWI0Eq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 00:46:56 -0400
-To: Christoph Hellwig <hch@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20060926155416.GB32030@infradead.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:45226 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932163AbWI0Hyj
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 03:54:39 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45195C92.4040503@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 26, 2006 at 04:54:16PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
-> > > Generic event handling mechanism.
-> > > 
-> > > Consider for inclusion.
-> > 
-> > Ulrich's objections sounded substantial, and afaik remain largely
-> > unresolved.   How do we sort this out?
-> 
-> I haven't seen any of Ulrichs points (which mostly is a large subset of
-> my objection) beeing addressed.
+On Tue, 2006-09-26 at 13:00 -0400, Jeff Garzik wrote:
 
-Could you please be more specific?
+> False.  It's already fixed endian.  It's just not the endian you like.
 
-As far as I can see I addressed all suggestions made by Christoph and
-still waiting for comments about my points after reply to Ulrich's.
+No, that's where you're wrong. It isn't fixed endian. It's CPU endian,
+and the thing overlays a u8 array over CPU endian, hence it's not fixed.
 
--- 
-	Evgeniy Polyakov
+johannes
