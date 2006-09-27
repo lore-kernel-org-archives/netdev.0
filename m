@@ -1,30 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: tc related lockdep warning.
-Date: Wed, 27 Sep 2006 11:57:44 +0200
-Message-ID: <451A4B18.1010809@trash.net>
-References: <20060925124352.GA1592@ff.dom.local> <1159188473.5301.68.camel@jzny2> <4517D9A6.70307@trash.net> <45195219.7050105@trash.net> <20060926212034.GA3134@redhat.com> <20060927085427.GA1619@ff.dom.local>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PKT_SCHED] cls_basic: Use unsigned int when generating handle
+Date: Wed, 27 Sep 2006 12:09:39 +0200
+Message-ID: <20060927100939.GZ18349@postel.suug.ch>
+References: <20060926183621.GX18349@postel.suug.ch> <Pine.LNX.4.44.0609271104470.9010-100000@dhcp09282.ntc.nokia.com> <20060927093301.GY18349@postel.suug.ch> <451A480F.7050404@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "Nordlund Kim (Nokia-NET/Helsinki)" <Kim.Nordlund@nokia.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:11190 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965491AbWI0J5r
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 05:57:47 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20060927085427.GA1619@ff.dom.local>
+Received: from postel.suug.ch ([194.88.212.233]:50882 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965492AbWI0KJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 06:09:19 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <451A480F.7050404@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> Sorry for my not humble and simplistic opinion, but I'd dare
-> to remind you are changing "stable" version and even without
-> this lockups this patch would look very "serious". Why don't
-> try to restore not-rcu version of qdisc_destroy which looks
-> not lot to do.
+* Patrick McHardy <kaber@trash.net> 2006-09-27 11:44
+> Thomas Graf wrote:
+> > * Nordlund Kim (Nokia-NET/Helsinki) <Kim.Nordlund@nokia.com> 2006-09-27 11:50
+> > 
+> >>So I would suggest to apply this patch to be compatible with the
+> >>GCC version in RHEL5, and simply to make code clearer (to the
+> >>intended idea).
+> > 
+> > 
+> > Yes.
+> 
+> I don't care much about this small change, but I think bugs
+> should be fixed where they originate.
 
-I'm trying to restore the original rules, while keeping the
-loopback optimization. That should be safe once I figure out
-whats causing the crash.
+Absolutely, I'm not even sure who's fault it really is. When
+writing that code I must have expected gcc to correctly
+underflow which might have been a wrong assumption.
+
+I think it doesn't matter whether this is a gcc bug or not,
+having this code part wort with gcc 4.1 is a good thing anyway.
+
+> If RH's gcc miscompiles
+> this with -Os I wouldn't trust it anyway, and the easy way to
+> fix it seems to be to deactivate CONFIG_CC_OPTIMIZE_FOR_SIZE,
+> which even includes a big warning of broken compilers.
+
+gcc >= 4.1 seems to produce this code with either -Os or -O2
+so the range of affected useres might in fact be bigger.
+
+> What about the similar code in u32 and cbq?
+
+Not affected by this.
