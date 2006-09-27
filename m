@@ -1,60 +1,60 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
-Date: Tue, 26 Sep 2006 16:40:31 -0700
-Message-ID: <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben>
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
+From: "Miles Lane" <miles.lane@gmail.com>
+Subject: Re: 2.6.18-mm1 -- ieee80211: Info elem: parse failed: info_element->len + 2 > left : info_element->len+2=28 left=9, id=221.
+Date: Tue, 26 Sep 2006 17:53:10 -0700
+Message-ID: <a44ae5cd0609261753t311a7952w2a98434c093ef1c@mail.gmail.com>
+References: <a44ae5cd0609261204g673fbf8ft6809378930986eac@mail.gmail.com>
+	 <20060926124310.17797fe5.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	"Jouni Malinen" <jkmaline@cc.hut.fi>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:6538 "EHLO e36.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932433AbWIZXkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2006 19:40:36 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8QNeX4t021989
-	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 19:40:33 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8QNeXRA338170
-	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 17:40:33 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8QNeXeB015547
-	for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 17:40:33 -0600
-To: Or Gerlitz <ogerlitz@voltaire.com>
-In-reply-to: <Pine.LNX.4.64.0609261317460.24189@zuben> 
+Received: from py-out-1112.google.com ([64.233.166.179]:44859 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S932094AbWI0AxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Sep 2006 20:53:11 -0400
+Received: by py-out-1112.google.com with SMTP id n25so21993pyg
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2006 17:53:10 -0700 (PDT)
+To: "Andrew Morton" <akpm@osdl.org>
+In-Reply-To: <20060926124310.17797fe5.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
+On 9/26/06, Andrew Morton <akpm@osdl.org> wrote:
+>
+> [added netdev]
+>
+> On Tue, 26 Sep 2006 12:04:40 -0700
+> "Miles Lane" <miles.lane@gmail.com> wrote:
+>
+> > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
+> > info_element->len+2=28 left=9, id=221.
+> > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
+> > info_element->len+2=28 left=9, id=221.
+> > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
+> > info_element->len+2=28 left=9, id=221.
+> >
+> > >From dmesg output:
+> > ieee80211: 802.11 data/management/control stack, git-1.1.13
+> > ieee80211: Copyright (C) 2004-2005 Intel Corporation <jketreno@linux.intel.com>
+> > ieee80211_crypt: registered algorithm 'NULL'
+> > ieee80211_crypt: registered algorithm 'WEP'
+> > ieee80211_crypt: registered algorithm 'CCMP'
+> > ieee80211_crypt: registered algorithm 'TKIP'
+>
+> I suspect that whatever caused this is now in mainline.  Are you able to
+> test Linus's current git tree?
 
->+	/* XXX set the bond dev type and addr len such that the net core code
->+	* (eg arp_mc_map() in net/ipv4/arp.c) would correctly process multicast
->+	* groups set ***before*** the first enslaveness
->+	*/
->+	bond_dev->type     = bonding_dev_type;
->+	bond_dev->addr_len = bonding_dev_addrlen;
+Sorry, I don't have oodles of disk space free to hold all the git
+historical information (iirc, it's huge).  I could conceivably put it
+together, but I'd been some help and time.  I am currently travelling,
+but I do have my kernel test laptop with me.  Also, I am currently
+staying in a building running off of solar power, so I need to be a
+bit careful with power consumption.  I'll be in a place with AC power
+in five days.  Lastly, I don't know how I triggered the problem.  I am
+happy to try to reproduce it for you, though.
 
-	I've been thinking about this a little bit more.  The system is
-understandably not set up to deal with this situation, since normal
-devices won't ever change their hardware type.
-
-	You almost want to have some kind of call to induce a reload
-from scratch of the multicast filter settings (along with whatever else
-might be necessary to alter the hardware type on the fly), to be called
-by bonding at the time the first slave is added (since slave adds happen
-in user context, and can therefore hold rtnl as required by most of the
-multicast address handling code).  That seems less hassle than having to
-specify the hardware type and address length at module load time.
-
-	A side effect of this is that bonds would have to be restricted
-to consisting only of slaves of one hardware type, since slave changes
-(and thus hardware type changes) aren't necessarily restricted to user
-context.
-
-	Other random thoughts on how to resolve this include modifying
-bonding to accept slaves when the master is down (which would also
-require changes to the initscripts that normally configure bonding), so
-that the initial setting of the, e.g., 224.0.0.1 multicast hardware
-address happens to the already-changed hardware type.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+        Miles
