@@ -1,53 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 6/9][TG3]: Add basic 5906 support.
-Date: Wed, 27 Sep 2006 16:21:01 -0700
-Message-ID: <1159399261.3411.45.camel@rh4>
-References: <1159389299.3411.23.camel@rh4>
- <20060927.160836.74560378.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vlan support for pktgen
+Date: Wed, 27 Sep 2006 16:30:59 -0700 (PDT)
+Message-ID: <20060927.163059.102771174.davem@davemloft.net>
+References: <7c923b5e0609131017i4a04512rab45cff32e09527e@mail.gmail.com>
+	<17689.13463.736977.366105@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: francesco.fondelli@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:45329 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1031220AbWI0XY2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 19:24:28 -0400
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060927.160836.74560378.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17577
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965166AbWI0XbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 19:31:00 -0400
+To: Robert.Olsson@data.slu.se
+In-Reply-To: <17689.13463.736977.366105@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-09-27 at 16:08 -0700, David Miller wrote:
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Date: Tue, 26 Sep 2006 16:09:27 +0200
 
-> > @@ -491,6 +513,9 @@ static inline void tg3_cond_int(struct t
-> >  	if (!(tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) &&
-> >  	    (tp->hw_status->status & SD_STATUS_UPDATED))
-> >  		tw32(GRC_LOCAL_CTRL, tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
-> > +	else
-> > +		tw32(HOSTCC_MODE, tp->coalesce_mode |
-> > +		     (HOSTCC_MODE_ENABLE | HOSTCC_MODE_NOW));
-> >  }
-> >  
-> >  static void tg3_enable_ints(struct tg3 *tp)
 > 
-> Why are we forcing a coalescing event here now?  This seems
-> to apply in quite a large number of cases.  It will trigger
-> if either:
+> Francesco Fondelli writes:
 > 
-> 1) using tagged status
-> 2) SD_STATUS_UPDATED is not indicated in the status block
+>  > The attached patch allows pktgen to produce 802.1Q and Q-in-Q tagged frames.
+>  > I have used it for stress test a bridge and seems ok to me.
+>  > Unfortunately I have no access to net-2.6.x git tree so the diff is against
+>  > 2.6.17.13.
 > 
-> In particular, how is this a 5906 specific support change
-> when there are no 5906 or other chipset conditionals guarding
-> the logic here?
+> Thanks a lot.
 > 
+> Looks fine but haven't been able to test Q-in-Q. Below is a git diff.
+> We ask Dave to apply.
 
-It was found that on rare occasions, the 5906 will miss the first
-interrupt after reset without the COALESCE_NOW.  It was also felt that
-other chips may also have this problem, and therefore it is a good and a
-safe thing to do for all chips using the tagged mode.
-
-This call is only made after resetting the chip, and so there's no
-performance impact at all during run-time.
-
+Applied, thanks Robert.
