@@ -1,28 +1,22 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/1] atl1: Attansic L1 Gigabit Ethernet driver
-Date: Wed, 27 Sep 2006 18:09:26 -0400
-Message-ID: <451AF696.1050201@pobox.com>
-References: <20060927132345.GC11922@osprey.hogchain.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: netdev-2.6.git rebased
+Date: Wed, 27 Sep 2006 18:16:16 -0400
+Message-ID: <451AF830.6050601@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031132AbWI0WJ3@vger.kernel.org>
-To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <20060927132345.GC11922@osprey.hogchain.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:49609 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1031138AbWI0WQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 18:16:18 -0400
+To: Netdev List <netdev@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'll wait for the update based on Stephen's comments, before reviewing.
-
-As usual for a new driver, it will take a couple rounds of review+update 
-to get things straight.  So please be patient :)
-
-And thanks for working on this!
+Just an FYI:  I rebased netdev#ALL and netdev#e100-sbit branches.  All 
+other branches (master, upstream) behave as normal.
 
 	Jeff
 
 
-P.S.  I wonder if Attansic would permit upload of their hardware 
-programming guide to http://gkernel.sf.net/specs/ ?
