@@ -1,48 +1,44 @@
-From: Eric Sesterhenn <snakebyte@gmx.de>
-Subject: [Patch] Remove unnecessary check in net/sunrpc/svcsock.c
-Date: Wed, 27 Sep 2006 17:34:49 +0200
-Message-ID: <1159371290.9125.6.camel@alice>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [d80211 patch 1/1] setting bss freq and phymode using rx_status
+Date: Wed, 27 Sep 2006 17:34:41 +0200
+Message-ID: <20060927173441.49f5f59f@griffin.suse.cz>
+References: <44F356DF.9000000@linux.intel.com>
+	<20060921190126.4d884c44@logostar.upir.cz>
+	<1158865436.27546.23.camel@localhost.localdomain>
+	<4512EC5C.1030807@linux.intel.com>
+	<1158870634.5769.21.camel@localhost.localdomain>
+	<4512F876.7000203@linux.intel.com>
+	<20060922003844.6817f22b@logostar.upir.cz>
+	<20060921225514.GA26850@bougret.hpl.hp.com>
+	<20060922004235.GA7322@instant802.com>
+	<20060922005743.GB27052@bougret.hpl.hp.com>
+	<451463D6.4070309@linux.intel.com>
+	<20060925181643.1621489a@griffin.suse.cz>
+	<45180EB0.1060204@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:64658 "HELO mail.gmx.net")
-	by vger.kernel.org with SMTP id S964948AbWI0Pew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:34:52 -0400
-To: netdev@vger.kernel.org
+Received: from styx.suse.cz ([82.119.242.94]:33747 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S964946AbWI0Pen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:34:43 -0400
+To: mabbas <mabbas@linux.intel.com>
+In-Reply-To: <45180EB0.1060204@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi,
+On Mon, 25 Sep 2006 10:15:28 -0700, mabbas wrote:
+> actaully we dont even need local->conf.channel. rx_status->channel holds 
+> the channel
+> we physically received the frame on. channel hold the value from ds. if 
+> they are not equal then
+> adjust freq. Attached is the modified patch
 
-coverity spotted this one as possible dereference in the dprintk(),
-but since there is only one caller of svc_create_socket(), which always
-passes a valid sin, we dont need this check.
+Applied to my tree. Thanks for the patch!
 
-Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
+ Jiri
 
---- linux-2.6.18-git7/net/sunrpc/svcsock.c.orig	2006-09-27 16:06:53.000000000 +0200
-+++ linux-2.6.18-git7/net/sunrpc/svcsock.c	2006-09-27 16:07:09.000000000 +0200
-@@ -1393,14 +1393,12 @@ svc_create_socket(struct svc_serv *serv,
- 	if ((error = sock_create_kern(PF_INET, type, protocol, &sock)) < 0)
- 		return error;
- 
--	if (sin != NULL) {
--		if (type == SOCK_STREAM)
--			sock->sk->sk_reuse = 1; /* allow address reuse */
--		error = kernel_bind(sock, (struct sockaddr *) sin,
--						sizeof(*sin));
--		if (error < 0)
--			goto bummer;
--	}
-+	if (type == SOCK_STREAM)
-+		sock->sk->sk_reuse = 1; /* allow address reuse */
-+	error = kernel_bind(sock, (struct sockaddr *) sin,
-+					sizeof(*sin));
-+	if (error < 0)
-+		goto bummer;
- 
- 	if (protocol == IPPROTO_TCP) {
- 		if ((error = kernel_listen(sock, 64)) < 0)
-
-
+-- 
+Jiri Benc
+SUSE Labs
