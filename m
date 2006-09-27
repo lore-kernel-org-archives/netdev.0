@@ -1,136 +1,136 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 5/14] d80211: clean up those huge else if statements
-Date: Wed, 27 Sep 2006 17:50:49 +0200 (CEST)
-Message-ID: <20060927155049.EB9D23BA24A@silver.suse.cz>
+Subject: [PATCH 2/14] d80211: add hardware scan callback
+Date: Wed, 27 Sep 2006 17:50:46 +0200 (CEST)
+Message-ID: <20060927155046.CE57B483B5@silver.suse.cz>
 References: <20060927175006.637430015.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:49804 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S964972AbWI0Ptp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:49:45 -0400
+Received: from styx.suse.cz ([82.119.242.94]:48780 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S964965AbWI0Ptm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 11:49:42 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060927175006.637430015.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Hong Liu <hong.liu@intel.com>
 
-This patch replaces the if (...) else if (...) else if (...) ...
-statements I complained about earlier with switches.
+Add hardware scan callback to support cards like ipw3945 which
+implements the scan command in firmware.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Hong Liu <hong.liu@intel.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211_ioctl.c |   44 +++++++++++++++++++++---------------------
- 1 files changed, 22 insertions(+), 22 deletions(-)
+ include/net/d80211.h       |    6 ++++++
+ net/d80211/ieee80211_sta.c |   47 ++++++++++++++++++++++++++++++--------------
+ 2 files changed, 38 insertions(+), 15 deletions(-)
 
-361d9a9f51633c7128158d90a05a3b6cc43ee444
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 89a58e3..34fdf40 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -1000,11 +1000,13 @@ static int ieee80211_ioctl_add_if(struct
-         int left = param_len - ((u8 *) pos - (u8 *) param);
- 	struct net_device *new_dev;
- 	int res;
-+	struct hostapd_if_wds *wds;
-+	struct hostapd_if_bss *bss;
+5b1756ecb9786baeb5127ca60cf0b3431e1d0e84
+diff --git a/include/net/d80211.h b/include/net/d80211.h
+index 42fdbf7..36c58b4 100644
+--- a/include/net/d80211.h
++++ b/include/net/d80211.h
+@@ -600,6 +600,10 @@ struct ieee80211_hw {
+         int (*passive_scan)(struct net_device *dev, int state,
+                             struct ieee80211_scan_conf *conf);
  
- 	printk(KERN_WARNING "PRISM2_HOSTAPD_ADD_IF ioctl is deprecated!");
--        if (param->u.if_info.type == HOSTAP_IF_WDS) {
--                struct hostapd_if_wds *wds =
--			(struct hostapd_if_wds *) param->u.if_info.data;
-+	switch (param->u.if_info.type) {
-+	case HOSTAP_IF_WDS:
-+		wds = (struct hostapd_if_wds *) param->u.if_info.data;
++	/* Ask the hardware to service the scan request, no need to start
++	 * the scan state machine in stack. */
++	int (*hw_scan)(struct net_device *dev, u8 *ssid, size_t len);
++
+         /* return low-level statistics */
+ 	int (*get_stats)(struct net_device *dev,
+ 			 struct ieee80211_low_level_stats *stats);
+@@ -863,6 +867,8 @@ struct dev_mc_list *ieee80211_get_mc_lis
+ struct ieee80211_conf *
+ ieee80211_get_hw_conf(struct net_device *dev);
  
-                 if (left < sizeof(struct hostapd_if_wds))
-                         return -EPROTO;
-@@ -1018,7 +1020,7 @@ static int ieee80211_ioctl_add_if(struct
- 			__ieee80211_if_del(dev->ieee80211_ptr,
- 					   IEEE80211_DEV_TO_SUB_IF(new_dev));
- 		return res;
--	} else if (param->u.if_info.type == HOSTAP_IF_VLAN) {
-+	case HOSTAP_IF_VLAN:
- 		if (left < sizeof(struct hostapd_if_vlan))
- 			return -EPROTO;
++/* called by driver to notify scan status completed */
++void ieee80211_scan_completed(struct net_device *dev);
  
-@@ -1033,9 +1035,8 @@ #if 0
- 					   IEEE80211_DEV_TO_SUB_IF(new_dev));
- #endif
- 		return res;
--        } else if (param->u.if_info.type == HOSTAP_IF_BSS) {
--                struct hostapd_if_bss *bss =
--			(struct hostapd_if_bss *) param->u.if_info.data;
-+	case HOSTAP_IF_BSS:
-+		bss = (struct hostapd_if_bss *) param->u.if_info.data;
+ /* Return a pointer to the low-level private data area for the given device. */
+ void * ieee80211_dev_hw_data(struct net_device *dev);
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index 557ba17..1f60a22 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -2410,6 +2410,29 @@ static int ieee80211_active_scan(struct 
+ }
  
-                 if (left < sizeof(struct hostapd_if_bss))
-                         return -EPROTO;
-@@ -1046,12 +1047,7 @@ #endif
- 		ieee80211_if_set_type(new_dev, IEEE80211_IF_TYPE_AP);
- 		memcpy(new_dev->dev_addr, bss->bssid, ETH_ALEN);
- 		return 0;
--        } else if (param->u.if_info.type == HOSTAP_IF_STA) {
--#if 0
--                struct hostapd_if_sta *sta =
--			(struct hostapd_if_sta *) param->u.if_info.data;
--#endif
--
-+	case HOSTAP_IF_STA:
-                 if (left < sizeof(struct hostapd_if_sta))
-                         return -EPROTO;
  
-@@ -1060,34 +1056,38 @@ #endif
- 			return res;
- 		ieee80211_if_set_type(new_dev, IEEE80211_IF_TYPE_STA);
- 		return 0;
--	} else
--                return -EINVAL;
-+	default:
-+		return -EINVAL;
++void ieee80211_scan_completed(struct net_device *dev)
++{
++	struct ieee80211_local *local = dev->ieee80211_ptr;
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	union iwreq_data wrqu;
++
++	printk(KERN_DEBUG "%s: scan completed\n", dev->name);
++	local->sta_scanning = 0;
++	local->last_scan_completed = jiffies;
++
++	memset(&wrqu, 0, sizeof(wrqu));
++	wireless_send_event(dev, SIOCGIWSCAN, &wrqu, NULL);
++
++	if (sdata->type == IEEE80211_IF_TYPE_IBSS) {
++		struct ieee80211_if_sta *ifsta = &sdata->u.sta;
++		if (!ifsta->bssid_set ||
++		    (!ifsta->state == IEEE80211_IBSS_JOINED &&
++		    !ieee80211_sta_active_ibss(dev)))
++			ieee80211_sta_find_ibss(dev, ifsta);
 +	}
- 
- 	return 0;
- }
- 
--
- static int ieee80211_ioctl_remove_if(struct net_device *dev,
- 				     struct prism2_hostapd_param *param)
++}
++EXPORT_SYMBOL(ieee80211_scan_completed);
++
+ static void ieee80211_sta_scan_work(void *ptr)
  {
- 	unsigned int type;
+ 	struct net_device *dev = ptr;
+@@ -2418,7 +2441,6 @@ static void ieee80211_sta_scan_work(void
+ 	struct ieee80211_hw_modes *mode;
+ 	struct ieee80211_channel *chan;
+ 	int skip;
+-	union iwreq_data wrqu;
+ 	unsigned long next_delay = 0;
  
--	if (param->u.if_info.type == HOSTAP_IF_WDS) {
-+	switch (param->u.if_info.type) {
-+	case HOSTAP_IF_WDS:
- 		type = IEEE80211_IF_TYPE_WDS;
--	} else if (param->u.if_info.type == HOSTAP_IF_VLAN) {
-+		break;
-+	case HOSTAP_IF_VLAN:
- 		type = IEEE80211_IF_TYPE_VLAN;
--	} else if (param->u.if_info.type == HOSTAP_IF_BSS) {
-+		break;
-+	case HOSTAP_IF_BSS:
- 		type = IEEE80211_IF_TYPE_AP;
--	} else if (param->u.if_info.type == HOSTAP_IF_STA) {
-+		break;
-+	case HOSTAP_IF_STA:
- 		type = IEEE80211_IF_TYPE_STA;
--	} else {
-+		break;
-+	default:
- 		return -EINVAL;
- 	}
+ 	if (!local->sta_scanning)
+@@ -2435,20 +2457,8 @@ static void ieee80211_sta_scan_work(void
+ 				       "operational channel after scan\n",
+ 				       dev->name);
+ 			}
+-			printk(KERN_DEBUG "%s: scan completed\n", dev->name);
+-			local->sta_scanning = 0;
+-			local->last_scan_completed = jiffies;
+-			memset(&wrqu, 0, sizeof(wrqu));
+-			wireless_send_event(dev, SIOCGIWSCAN, &wrqu, NULL);
+-			if (sdata->type == IEEE80211_IF_TYPE_IBSS) {
+-				struct ieee80211_sub_if_data *sdata =
+-					IEEE80211_DEV_TO_SUB_IF(dev);
+-				struct ieee80211_if_sta *ifsta = &sdata->u.sta;
+-				if (!ifsta->bssid_set ||
+-				    (ifsta->state == IEEE80211_IBSS_JOINED &&
+-				     !ieee80211_sta_active_ibss(dev)))
+-					ieee80211_sta_find_ibss(dev, ifsta);
+-			}
++
++			ieee80211_scan_completed(dev);
+ 			return;
+ 		}
+ 		skip = !(local->enabled_modes & (1 << mode->mode));
+@@ -2549,6 +2559,13 @@ int ieee80211_sta_req_scan(struct net_de
  
- 	return ieee80211_if_remove(dev, param->u.if_info.name, type);
- }
+ 	printk(KERN_DEBUG "%s: starting scan\n", dev->name);
  
--
- static int ieee80211_ioctl_update_if(struct net_device *dev,
- 				     struct prism2_hostapd_param *param,
- 				     int param_len)
++	if (local->hw->hw_scan) {
++		int rc = local->hw->hw_scan(dev, ssid, ssid_len);
++		if (!rc)
++			local->sta_scanning = 1;
++		return rc;
++	}
++
+ 	ieee80211_sta_save_oper_chan(dev);
+ 
+ 	local->sta_scanning = 1;
 -- 
 1.3.0
 
