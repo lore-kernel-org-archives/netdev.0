@@ -1,69 +1,41 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] ieee80211: Move IV/ICV stripping into ieee80211_rx
-Date: Tue, 26 Sep 2006 23:02:16 -0500
-Message-ID: <4519F7C8.2040503@lwfinger.net>
-References: <20060927025031.90F567B40A0@zog.reactivated.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 27 Sep 2006 08:46:09 +0400
+Message-ID: <20060927044608.GA8965@2ka.mipt.ru>
+References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060922122207.3b716028.akpm@osdl.org> <20060926155416.GB32030@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, mb@bu3sch.de,
-	ipw2100-admin@linux.intel.com
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrew Morton <akpm@osdl.org>, lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:16516 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932394AbWI0ECY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 00:02:24 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <20060927025031.90F567B40A0@zog.reactivated.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:52201 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964970AbWI0Eq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 00:46:56 -0400
+To: Christoph Hellwig <hch@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20060926155416.GB32030@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Drake wrote:
-> This patch adds a host_strip_iv_icv flag to ieee80211 which indicates that
-> ieee80211_rx should strip the IV/ICV/other security features from the payload.
-> This saves on some memmove() calls in the driver and seems like something that
-> belongs in the stack as it can be used by bcm43xx, ipw2200, and zd1211rw
+On Tue, Sep 26, 2006 at 04:54:16PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> > > Generic event handling mechanism.
+> > > 
+> > > Consider for inclusion.
+> > 
+> > Ulrich's objections sounded substantial, and afaik remain largely
+> > unresolved.   How do we sort this out?
 > 
-> I will submit the ipw2200 patch separately as it needs testing.
-> 
-> This patch also adds some sensible variable reuse (idx vs keyidx) in
-> ieee80211_rx
-> 
-> Signed-off-by: Daniel Drake <dsd@gentoo.org>
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
-> 
-> Index: linux/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-> ===================================================================
-> --- linux.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-> +++ linux/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-> @@ -543,25 +543,6 @@ int bcm43xx_rx(struct bcm43xx_private *b
->  		break;
->  	}
->  
-> -	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
-> -	if ((frame_ctl & IEEE80211_FCTL_PROTECTED) && !bcm->ieee->host_decrypt) {
-> -		frame_ctl &= ~IEEE80211_FCTL_PROTECTED;
-> -		wlhdr->frame_ctl = cpu_to_le16(frame_ctl);		
-> -		/* trim IV and ICV */
-> -		/* FIXME: this must be done only for WEP encrypted packets */
-> -		if (skb->len < 32) {
-> -			dprintkl(KERN_ERR PFX "RX packet dropped (PROTECTED flag "
-> -					      "set and length < 32)\n");
-> -			return -EINVAL;
-> -		} else {		
-> -			memmove(skb->data + 4, skb->data, 24);
-> -			skb_pull(skb, 4);
-> -			skb_trim(skb, skb->len - 4);
-> -			stats.len -= 8;
-> -		}
-> -		wlhdr = (struct ieee80211_hdr_4addr *)(skb->data);
-> -	}
-> -	
->  	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
+> I haven't seen any of Ulrichs points (which mostly is a large subset of
+> my objection) beeing addressed.
 
-At this point, gcc warns that frame_ctl has been used uninitialized. Did you mean to remove the 
-extraction of frame_ctl from wlhdr just before the previous 'if'?
+Could you please be more specific?
 
-Larry
+As far as I can see I addressed all suggestions made by Christoph and
+still waiting for comments about my points after reply to Ulrich's.
 
+-- 
+	Evgeniy Polyakov
