@@ -1,47 +1,54 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 5/9][TG3]: Add tg3_poll_fw().
-Date: Wed, 27 Sep 2006 13:49:23 -0700
-Message-ID: <1159390163.3411.29.camel@rh4>
-References: <1159389289.3411.22.camel@rh4> <451AE346.9010801@garzik.org>
+From: Bernd Eckenfels <be-mail2006@lina.inka.de>
+Subject: Re: Bug#389804: mii-tool gigabit support.  (fwd)
+Date: Wed, 27 Sep 2006 22:57:21 +0200
+Message-ID: <20060927205721.GA3688@lina.inka.de>
+References: <Pine.LNX.4.64.0609271225070.2299@twinlark.arctic.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: 389804@bugs.debian.org, Stephen Hemminger <shemminger@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, dhinds@pcmcia.sourceforge.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:15879 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1030825AbWI0Uwr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 16:52:47 -0400
-To: "Jeff Garzik" <jeff@garzik.org>
-In-Reply-To: <451AE346.9010801@garzik.org>
+Received: from quechua.inka.de ([193.197.184.2]:61393 "EHLO mail.inka.de")
+	by vger.kernel.org with ESMTP id S1030831AbWI0U5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 16:57:30 -0400
+To: dean gaudet <dean@arctic.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0609271225070.2299@twinlark.arctic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-09-27 at 16:47 -0400, Jeff Garzik wrote:
-> Michael Chan wrote:
-> > +	/* Chip might not be fitted with firmware.  Some Sun onboard
-> > +	 * parts are configured like that.  So don't signal the timeout
-> > +	 * of the above loop as an error, but do report the lack of
-> > +	 * running firmware once.
-> > +	 */
-> > +	if (i >= 100000 &&
-> > +	    !(tp->tg3_flags2 & TG3_FLG2_NO_FWARE_REPORTED)) {
-> > +		tp->tg3_flags2 |= TG3_FLG2_NO_FWARE_REPORTED;
-> > +
-> > +		printk(KERN_INFO PFX "%s: No firmware running.\n",
-> > +		       tp->dev->name);
-> > +	}
-> > +
-> > +	return 0;
-> 
-> You need to actually return failure, for the failure case.
-> 
-> Currently, this function is written to return an error code, but always 
-> returns zero.
-> 
-It's actually not a failure.  It was decided that we'll just print a
-message once and continue.  Some SUN onboard chips do not have firmware.
+On Wed, Sep 27, 2006 at 12:27:48PM -0700, dean gaudet wrote:
+> Package: net-tools
+> Version: 1.60-17
+>=20
+> the version of mii-tool referenced below (plus the patch below) provi=
+des=20
+> support for more mii types, and more importantly, allows it to report=
+=20
+> 1000baseT link states (which are otherwise misreported as 100baseT).
+>=20
+> please upgrade the version in net-tools... thanks!
 
-In the next patch (6/9) where we support a new chip with a new firmware
-polling method, it can return -ENODEV.
+thanks, I have added that to HEAD of net-tools CVS, will also be in nex=
+t
+debian package version.
 
+cvs: http://net-tools.berlios.de
+
+> On Tue, 26 Sep 2006, Stephen Hemminger wrote:
+> > The mii-tool utility seems to be abandoned and unmaintained?
+> >=20
+> > Here is a version that does standard 1000baseT support.
+> > 	http://developer.osdl.org/shemminger/prototypes/mii-tool.tar.bz2
+=2E..
+> +    for (i =3D 0; i < ((verbose > 1) ? 32 : MII_BASIC_MAX); i++)
+=2E..
+--=20
+  (OO)     -- Bernd_Eckenfels@M=F6rscher_Strasse_8.76185Karlsruhe.de --
+ ( .. )    ecki@{inka.de,linux.de,debian.org}  http://www.eckes.org/
+  o--o   1024D/E383CD7E  eckes@IRCNet  v:+497211603874  f:+497211515161=
+29
+(O____O)  When cryptography is outlawed, bayl bhgynjf jvyy unir cevinpl=
+!
