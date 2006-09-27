@@ -1,45 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Add NETPOLL Support to SB1250 driver
-Date: Wed, 27 Sep 2006 17:59:22 -0400
-Message-ID: <451AF43A.8040600@garzik.org>
-References: <20060927015918.GA21824@prometheus.mvista.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] ethtool: add sky2 register dump
+Date: Wed, 27 Sep 2006 18:01:21 -0400
+Message-ID: <451AF4B1.2000208@pobox.com>
+References: <20060926115437.11ed1f85@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39367 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030925AbWI0V7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 17:59:25 -0400
-To: Manish Lachwani <mlachwani@mvista.com>
-In-Reply-To: <20060927015918.GA21824@prometheus.mvista.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:61127 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1031036AbWI0WBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 18:01:23 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060926115437.11ed1f85@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Manish Lachwani wrote:
-> Hello!
+Stephen Hemminger wrote:
+> Add support for sky2 register dump, put it in a common file
+> for both skge and sky2.
 > 
-> Attached patch adds NETPOLL support for the Sibyte Network driver.
-> 
-> Thanks,
-> Manish Lachwani
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> Source: MontaVista Software, Inc. | Manish Lachwani <mlachwani@mvista.com>
-> 
-> NETPOLL support for Sibyte MAC
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
+You should know this by now:  separate out logical changes into multiple 
+patches.
 
-ACK patch, NAK patch format.
+When renaming a file AND making changes to it, your changes are 
+completely obscured by the rename.
 
-Most importantly, it uses attachments and doesn't include a 
-Signed-off-by line.
+First patch should do the rename, but not change existing code.  Second 
+patch should include any code updates you wish to make.
 
-Read Documentation/SubmittingPatches and 
-http://linux.yyz.us/patch-format.html
-
-	Jeff
+ACK changes, NAK in present form.
 
 
