@@ -1,79 +1,36 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth update for 2.6
-Date: Thu, 28 Sep 2006 23:14:44 +0200
-Message-ID: <1159478084.21120.75.camel@localhost>
-References: <1158868040.11194.56.camel@localhost>
-	 <1159267581.1235.10.camel@localhost>
-	 <20060927.225817.106770711.davem@davemloft.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration changes
+Date: Thu, 28 Sep 2006 17:25:14 -0400
+Message-ID: <451C3DBA.9040007@hp.com>
+References: <20060928180326.896170000@hp.com> <20060928180337.570612000@hp.com> <Pine.LNX.4.64.0609281547060.28120@d.namei> <451C2AEA.7050608@hp.com> <Pine.LNX.4.64.0609281609560.28355@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-audit@redhat.com, Eric Paris <eparis@redhat.com>,
+	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:34230 "EHLO
-	mail.holtmann.net") by vger.kernel.org with ESMTP id S1750953AbWI1VOK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 17:14:10 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060927.225817.106770711.davem@davemloft.net>
+Received: from atlrel8.hp.com ([156.153.255.206]:8922 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1161181AbWI1VZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 17:25:16 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0609281609560.28355@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-> > > here are the pending patches that didn't make it into the 2.6.18 kernel
-> > > release. I have some additional fixes, but all of them need some more
-> > > additional testing from my side.
-> > 
-> > it seems that you haven't pulled in these changes so far. So I didn't
-> > rebase the tree and simply pushed some additional ones on top of it. All
-> > three of them address the issues we had with non-blocking connects.
+James Morris wrote:
+> On Thu, 28 Sep 2006, Paul Moore wrote:
 > 
-> I applied all of your fixes into my tree, sorry for taking so long.
+>>Agreed, in fact, as I suspect you have already noticed, this was ripped
+>>right from that function.  It was private to kernel/auditsc.c making it
+>>offlimits, but I would have gladly used it instead; making
+>>audit_log_task_info() public seemed like something that was beyond this
+>>NetLabel specific patch.
+> 
+> Don't ever be afraid to improve core kernel code :-)
 
-no big problem. If you haven't synced with Linus yet, then I have two
-small additional fixes that should go in with the others.
+Okay, I just added it to my todo list.
 
-Regards
-
-Marcel
-
-
-Please pull from
-
-        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
-
-This will update the following files:
-
- net/bluetooth/hci_event.c |    8 ++++----
- net/bluetooth/hci_sysfs.c |    2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
-through these ChangeSets:
-
-Marcel Holtmann <marcel@holtmann.org> Thu, 28 Sep 2006 20:23:29 +0200 
-
-    [Bluetooth] Fix section mismatch of bt_sysfs_cleanup()
-    
-    The bt_sysfs_cleanup() is marked with __exit attribute, but it will
-    be called from an __init function in the error case. So the __exit
-    attribute must be removed.
-    
-    Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Marcel Holtmann <marcel@holtmann.org> Tue, 26 Sep 2006 22:18:03 +0200 
-
-    [Bluetooth] Don't update disconnect timer for incoming connections
-    
-    In the case of device pairing the only safe method is to establish
-    a low-level ACL link. In this case, the remote side should not use
-    the disconnect timer to give the other side the chance to enter the
-    PIN code. If the disconnect timer is used, the connection will be
-    dropped to soon, because it is impossible to identify an actual user
-    of this link.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-
-
+-- 
+paul moore
+linux security @ hp
