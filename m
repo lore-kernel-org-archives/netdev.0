@@ -1,36 +1,47 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Wed, 27 Sep 2006 19:43:28 -0500
-Message-ID: <451B1AB0.9020302@lwfinger.net>
-References: <200609271726.34305.mb@bu3sch.de> <451AA446.7060009@lwfinger.net> <200609271950.47430.mb@bu3sch.de> <1159395803.18293.72.camel@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPV6]: Disable SG for GSO unless we have checksum
+Date: Thu, 28 Sep 2006 10:44:23 +1000
+Message-ID: <20060928004422.GA9050@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, linville@tuxdriver.com,
-	Christian <email@christianhoffmann.info>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:12980 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1031088AbWI1Anu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 20:43:50 -0400
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1159395803.18293.72.camel@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:14342 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1031298AbWI1AoZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 20:44:25 -0400
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
->> 
-> I won't try some random other git tree to test things, it's simply not
-> feasible for me and we need something we can give to distros to backport
-> so they have something remotely stable (I'm thinking for example about
-> the upcoming ubuntu edgy which is coming out soon an a 2.6.17 base).
+Hi:
 
-I don't know what your problem is! Despite your negative attitude, I have tried to accommodate you, 
-but obviously you do not appreciate my efforts. My big patch for 2.6.18 concentrated on bcm43xx. Yes 
-there were changes in softmac, but they had no major effect until Michael's fix of the race condition.
+[IPV6]: Disable SG for GSO unless we have checksum
 
-The bottom line is that I have had it with you! You had best go back to some mainline kernel as you 
-will get no further help from me. There are lots of folks that need help _AND_ are appreciative of 
-that help. My time will be spent on them.
+Because the system won't turn off the SG flag for us we
+need to do this manually on the IPv6 path.  Otherwise we
+will throw IPv6 packets with bad checksums at the hardware.
 
-Larry
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 4f3bb7f..de6b919 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -123,6 +123,9 @@ static struct sk_buff *ipv6_gso_segment(
+ 	struct ipv6hdr *ipv6h;
+ 	struct inet6_protocol *ops;
+ 
++	if (!(features & NETIF_F_HW_CSUM))
++		features &= ~NETIF_F_SG;
++
+ 	if (unlikely(skb_shinfo(skb)->gso_type &
+ 		     ~(SKB_GSO_UDP |
+ 		       SKB_GSO_DODGY |
