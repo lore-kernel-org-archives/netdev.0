@@ -1,101 +1,61 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: simplify microsecond rtt sampling
-Date: Thu, 28 Sep 2006 13:47:28 +0100
-Message-ID: <451BC460.8080902@psc.edu>
-References: <451A5EC9.6090001@psc.edu> <451A9519.6000504@psc.edu> <451BC184.1000707@psc.edu>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Thu, 28 Sep 2006 14:55:53 +0200
+Message-ID: <200609281455.53763.mb@bu3sch.de>
+References: <200609271726.34305.mb@bu3sch.de> <200609271950.47430.mb@bu3sch.de> <451B4AF6.3090203@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000009060608030603070408"
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:25024 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S965410AbWI1Mrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 08:47:49 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <451BC184.1000707@psc.edu>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:17793
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1161109AbWI1M4H
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 08:56:07 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <451B4AF6.3090203@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000009060608030603070408
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thursday 28 September 2006 06:09, Larry Finger wrote:
+> Michael Buesch wrote:
+> > On Wednesday 27 September 2006 18:18, Larry Finger wrote:
+> >> Michael Buesch wrote:
+> >>> This fixes some race conditions in the WirelessExtension
+> >>> handling and association handling code.
+> >>>
+> >>> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> >>>
+> >>> ---
+> >> This patch doesn't apply.
+> > 
+> > Oh, linville merged stuff on the 25th. That's the day I updated
+> > my tree to do this patch. But seems like I did it just before
+> > the merge.
+> > Who could suspect that linville merges something. :D
+> > *me runs away*
+> > 
+> > Anyway. Here's an updated patch.
+> 
+> NACK this version. It applied correctly, but introduced a new problem. My device occasionally gets 
+> deauthentication messages from my AP.Preciously, it would do a scan or two, and then reauthenticate. 
+> After your patch was applied, it never stops scanning.
 
-Sigh.  Here's one that's not corrupted.  And for the record:
+Oh, well... It's impossible to completely fix softmac race issues.
+I am _not_ going to rewrite huge parts of softmac to get locking
+working. If you want this to be fixed, please hack up a solution by
+yourself. I'm really not going to do more work on softmac. This
+has various reasons. 1) I cannot reproduce all these bugs I'm hunting
+2) Time is spent better at d80211 or other projects.
 
+But to debug the problem:
+Why do you get deauth messages? Broken AP?
+I'd say that it's _correct_ behaviour to stop working
+after getting a deauth ;). wpa_supplicant is responsible to re-auth.
+Why doesn't it re-auth? Or does it do and it just doesn't work as
+expected?
 
-This changes the microsecond RTT sampling so that samples are taken in 
-the same way that RTT samples are taken for the RTO calculator: on the 
-last segment acknowledged, and only when the segment hasn't been 
-retransmitted.
-
-
-Signed-off-by: John Heffner <jheffner@psc.edu>
-
---------------000009060608030603070408
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="rtt_sample_fix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="rtt_sample_fix.patch"
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b5521a9..d0f6bd6 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2228,13 +2228,12 @@ static int tcp_tso_acked(struct sock *sk
- 	return acked;
- }
- 
--static u32 tcp_usrtt(const struct sk_buff *skb)
-+static u32 tcp_usrtt(struct timeval *tv)
- {
--	struct timeval tv, now;
-+	struct timeval now;
- 
- 	do_gettimeofday(&now);
--	skb_get_timestamp(skb, &tv);
--	return (now.tv_sec - tv.tv_sec) * 1000000 + (now.tv_usec - tv.tv_usec);
-+	return (now.tv_sec - tv->tv_sec) * 1000000 + (now.tv_usec - tv->tv_usec);
- }
- 
- /* Remove acknowledged frames from the retransmission queue. */
-@@ -2249,6 +2248,7 @@ static int tcp_clean_rtx_queue(struct so
- 	u32 pkts_acked = 0;
- 	void (*rtt_sample)(struct sock *sk, u32 usrtt)
- 		= icsk->icsk_ca_ops->rtt_sample;
-+	struct timeval tv;
- 
- 	while ((skb = skb_peek(&sk->sk_write_queue)) &&
- 	       skb != sk->sk_send_head) {
-@@ -2297,8 +2297,7 @@ static int tcp_clean_rtx_queue(struct so
- 				seq_rtt = -1;
- 			} else if (seq_rtt < 0) {
- 				seq_rtt = now - scb->when;
--				if (rtt_sample)
--					(*rtt_sample)(sk, tcp_usrtt(skb));
-+				skb_get_timestamp(skb, &tv);
- 			}
- 			if (sacked & TCPCB_SACKED_ACKED)
- 				tp->sacked_out -= tcp_skb_pcount(skb);
-@@ -2311,8 +2310,7 @@ static int tcp_clean_rtx_queue(struct so
- 			}
- 		} else if (seq_rtt < 0) {
- 			seq_rtt = now - scb->when;
--			if (rtt_sample)
--				(*rtt_sample)(sk, tcp_usrtt(skb));
-+			skb_get_timestamp(skb, &tv);
- 		}
- 		tcp_dec_pcount_approx(&tp->fackets_out, skb);
- 		tcp_packets_out_dec(tp, skb);
-@@ -2324,6 +2322,8 @@ static int tcp_clean_rtx_queue(struct so
- 	if (acked&FLAG_ACKED) {
- 		tcp_ack_update_rtt(sk, acked, seq_rtt);
- 		tcp_ack_packets_out(sk, tp);
-+		if (rtt_sample && !(acked & FLAG_RETRANS_DATA_ACKED))
-+			(*rtt_sample)(sk, tcp_usrtt(&tv));
- 
- 		if (icsk->icsk_ca_ops->pkts_acked)
- 			icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked);
-
---------------000009060608030603070408--
+-- 
+Greetings Michael.
