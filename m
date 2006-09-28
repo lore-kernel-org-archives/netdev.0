@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC] let mortals use ethtool
-Date: Thu, 28 Sep 2006 15:16:49 -0700 (PDT)
-Message-ID: <20060928.151649.71167157.davem@davemloft.net>
-References: <20060928122514.112a19a8@dxpl.pdx.osdl.net>
-	<1159474625.3741.6.camel@rh4>
-	<Pine.LNX.4.64.0609281632200.28620@d.namei>
+Date: Thu, 28 Sep 2006 15:22:39 -0700 (PDT)
+Message-ID: <20060928.152239.15408691.davem@davemloft.net>
+References: <451C28E9.6040708@intel.com>
+	<20060928.145345.90823467.davem@davemloft.net>
+	<1159481020.3741.16.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, shemminger@osdl.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, shemminger@osdl.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6614
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57320
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030383AbWI1WQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 18:16:46 -0400
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0609281632200.28620@d.namei>
+	id S932527AbWI1WWf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 18:22:35 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1159481020.3741.16.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Thu, 28 Sep 2006 16:32:38 -0400 (EDT)
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 28 Sep 2006 15:03:40 -0700
 
-> On Thu, 28 Sep 2006, Michael Chan wrote:
+> On Thu, 2006-09-28 at 14:53 -0700, David Miller wrote:
 > 
-> > I'm against letting normal users do ETHTOOL_GREGS and ETHTOOL_PHYS_ID.
-> > Dumping 64K worth of registers and blinking the LEDs should be
-> > restricted.
+> > I've applied Stephen's patch with PHYS_ID removed from the
+> > allowed list, thanks for the feedback.
 > 
-> Out of curiosity -- why?
+> Can you remove GREGS as well?  Allowing users to dump all the registers
+> will be very problematic.
 
-Reading some registers might have side effects, that's one thing.
-
-Secondarily, looping over reading all of the registers of the chip
-might kill performance since the IO accesses compete with the
-normal packet sending/receiving operations.
+I did, see my subsequent email.
