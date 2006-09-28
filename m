@@ -1,34 +1,36 @@
-From: Herbert Xu <herbert.xu@redhat.com>
-Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
-Date: Thu, 28 Sep 2006 10:38:29 +1000
-Message-ID: <20060928003829.GA8952@gondor.apana.org.au>
-References: <20060827142347.GA20092@ripe.net> <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net> <20060829082828.GA8625@gondor.apana.org.au> <20060831151243.GJ3590@ripe.net> <20060901070557.GA15731@gondor.apana.org.au> <20060901162248.GI19284@ripe.net> <20060925121530.GC18667@gondor.apana.org.au> <20060926112122.GU22330@ripe.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Wed, 27 Sep 2006 19:43:28 -0500
+Message-ID: <451B1AB0.9020302@lwfinger.net>
+References: <200609271726.34305.mb@bu3sch.de> <451AA446.7060009@lwfinger.net> <200609271950.47430.mb@bu3sch.de> <1159395803.18293.72.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>, linville@tuxdriver.com,
+	Christian <email@christianhoffmann.info>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:6150 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1031290AbWI1Aio
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 20:38:44 -0400
-To: cagri coltekin <cagri@ripe.net>
-Content-Disposition: inline
-In-Reply-To: <20060926112122.GU22330@ripe.net>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:12980 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1031088AbWI1Anu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 20:43:50 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1159395803.18293.72.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 26, 2006 at 01:21:22PM +0200, cagri coltekin wrote:
->
-> ------------------------------------------------------------------------------
-> [ 1395.890897] ------------[ cut here ]------------
-> [ 1395.946093] kernel BUG at net/ipv6/ip6_output.c:940!
+Benjamin Herrenschmidt wrote:
+>> 
+> I won't try some random other git tree to test things, it's simply not
+> feasible for me and we need something we can give to distros to backport
+> so they have something remotely stable (I'm thinking for example about
+> the upcoming ubuntu edgy which is coming out soon an a 2.6.17 base).
 
-Could you go further back in the logs to see if there was a
-warning message? Either that or turn the WARN_ON into a BUG.
+I don't know what your problem is! Despite your negative attitude, I have tried to accommodate you, 
+but obviously you do not appreciate my efforts. My big patch for 2.6.18 concentrated on bcm43xx. Yes 
+there were changes in softmac, but they had no major effect until Michael's fix of the race condition.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The bottom line is that I have had it with you! You had best go back to some mainline kernel as you 
+will get no further help from me. There are lots of folks that need help _AND_ are appreciative of 
+that help. My time will be spent on them.
+
+Larry
