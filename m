@@ -1,114 +1,88 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: tc related lockdep warning.
-Date: Thu, 28 Sep 2006 14:17:51 +0200
-Message-ID: <451BBD6F.6020007@trash.net>
-References: <20060925124352.GA1592@ff.dom.local> <1159188473.5301.68.camel@jzny2> <4517D9A6.70307@trash.net> <45195219.7050105@trash.net> <20060926212034.GA3134@redhat.com> <20060927085427.GA1619@ff.dom.local>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: simplify microsecond rtt sampling
+Date: Thu, 28 Sep 2006 13:35:16 +0100
+Message-ID: <451BC184.1000707@psc.edu>
+References: <451A5EC9.6090001@psc.edu> <451A9519.6000504@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: multipart/mixed;
+ boundary="------------010800040700080906050007"
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.qsc.de ([213.148.129.14]:17805 "EHLO mx01.qsc.de")
-	by vger.kernel.org with ESMTP id S1751802AbWI1MRy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 08:17:54 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20060927085427.GA1619@ff.dom.local>
+Received: from mailer2.psc.edu ([128.182.66.106]:19146 "EHLO mailer2.psc.edu")
+	by vger.kernel.org with ESMTP id S1751873AbWI1Mfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 08:35:36 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <451A9519.6000504@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[My mail provider is down, so responding "manually"]
+This is a multi-part message in MIME format.
+--------------010800040700080906050007
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Jarek Poplawski wrote:
-> > [NET_SCHED]: Fix fallout from dev->qdisc RCU change
->
-> Sorry again but I can't abstain from some doubts:
->
-> ...
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 14de297..4d891be 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -1480,14 +1480,16 @@ #endif
-> >  	if (q->enqueue) {
-> >  		/* Grab device queue */
-> >  		spin_lock(&dev->queue_lock);
-> > +		q = dev->qdisc;
->
-> I don't get it. If it is some anti-race step according to
-> rcu rules it should be again:
-> q = rcu_dereference(dev->qdisc);
+Here is a corrected patch.
 
-At this point RCU protection is not needed anymore since we
-have the lock. We simply want to avoid taking the lock for
-devices that don't have a real qdisc attached (like loopback).
-Thats what the test for q->enqueue is there for. RCU is only
-needed to avoid races between testing q->enqueue and freeing
-of the qdisc.
 
-> But I don't know which of the attached lockups would be
-> fixed by this.
+Signed-off-by: John Heffner <jheffner@psc.edu>
 
-None - the repeated check is needed because deconstruction
-of the qdisc tree now happens immediately instead of in the
-RCU callback, so stale data can't be tolerated.
 
-> And by the way - a few lines above is:
-> rcu_read_lock_bh();
-> which according to the rules should be
-> rcu_read_lock();
-> (or call_rcu should be changed to call_rcu_bh).
+--------------010800040700080906050007
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="rtt_sample_fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="rtt_sample_fix.patch"
 
-Read up on how it got there or simply look at the comment directly
-above it:
+-static u32 tcp_usrtt(const struct sk_buff *skb)
++static u32 tcp_usrtt(struct timeval *tv)
+ {
+-	struct timeval tv, now;
++	struct timeval now;
+ 
+ 	do_gettimeofday(&now);
+-	skb_get_timestamp(skb, &tv);
+-	return (now.tv_sec - tv.tv_sec) * 1000000 + (now.tv_usec - tv.tv_usec);
++	return (now.tv_sec - tv->tv_sec) * 1000000 + (now.tv_usec - tv->tv_usec);
+ }
+ 
+ /* Remove acknowledged frames from the retransmission queue. */
+@@ -2249,6 +2248,7 @@ static int tcp_clean_rtx_queue(struct so
+ 	u32 pkts_acked = 0;
+ 	void (*rtt_sample)(struct sock *sk, u32 usrtt)
+ 		= icsk->icsk_ca_ops->rtt_sample;
++	struct timeval tv;
+ 
+ 	while ((skb = skb_peek(&sk->sk_write_queue)) &&
+ 	       skb != sk->sk_send_head) {
+@@ -2297,8 +2297,7 @@ static int tcp_clean_rtx_queue(struct so
+ 				seq_rtt = -1;
+ 			} else if (seq_rtt < 0) {
+ 				seq_rtt = now - scb->when;
+-				if (rtt_sample)
+-					(*rtt_sample)(sk, tcp_usrtt(skb));
++				skb_get_timestamp(skb, &tv);
+ 			}
+ 			if (sacked & TCPCB_SACKED_ACKED)
+ 				tp->sacked_out -= tcp_skb_pcount(skb);
+@@ -2311,8 +2310,7 @@ static int tcp_clean_rtx_queue(struct so
+ 			}
+ 		} else if (seq_rtt < 0) {
+ 			seq_rtt = now - scb->when;
+-			if (rtt_sample)
+-				(*rtt_sample)(sk, tcp_usrtt(skb));
++			skb_get_timestamp(skb, &tv);
+ 		}
+ 		tcp_dec_pcount_approx(&tp->fackets_out, skb);
+ 		tcp_packets_out_dec(tp, skb);
+@@ -2324,6 +2322,8 @@ static int tcp_clean_rtx_queue(struct so
+ 	if (acked&FLAG_ACKED) {
+ 		tcp_ack_update_rtt(sk, acked, seq_rtt);
+ 		tcp_ack_packets_out(sk, tp);
++		if (rtt_sample && !(acked & FLAG_RETRANS_DATA_ACKED))
++			(*rtt_sample)(sk, tcp_usrtt(&tv));
+ 
+ 		if (icsk->icsk_ca_ops->pkts_acked)
+ 			icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked);
 
-        /* Disable soft irqs for various locks below. Also
-         * stops preemption for RCU.
-         */
-
-> > @@ -504,32 +489,23 @@ #endif
-> >
-> >  void qdisc_destroy(struct Qdisc *qdisc)
-> >  {
-> > -	struct list_head cql = LIST_HEAD_INIT(cql);
-> > -	struct Qdisc *cq, *q, *n;
-> > +	struct Qdisc_ops  *ops = qdisc->ops;
-> >
-> >  	if (qdisc->flags & TCQ_F_BUILTIN ||
-> > -		!atomic_dec_and_test(&qdisc->refcnt))
-> > +	    !atomic_dec_and_test(&qdisc->refcnt))
-> >  		return;
-> ...
-> > +	list_del(&qdisc->list);
-> > +#ifdef CONFIG_NET_ESTIMATOR
-> > +	gen_kill_estimator(&qdisc->bstats, &qdisc->rate_est);
-> > +#endif
-> > +	if (ops->reset)
-> > +		ops->reset(qdisc);
-> > +	if (ops->destroy)
-> > +		ops->destroy(qdisc);
-> >
-> > +	module_put(ops->owner);
-> > +	dev_put(qdisc->dev);
-> >  	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
->
->
-> This qdisc way of RCU looks very "special" to me.
-> Is this really doing anything here? There is no
-> pointers switching, everything is deleted in place,
-> refcnt checked, no clean read_lock_rcu (without
-> spin_locks) anywhere - in my once more not very
-> humble opinion it is only very advanced method of
-> time wasting.
-
-You don't seem to understand what is done here at all and
-additionally haven't even read any of the comments explaining
-what this is for. You are wasting time.
-
-As I already explained, RCU is only needed for one thing,
-and for nothing more: to make sure the q->enqueue check
-in net/core/dev.c doesn't reference freed memory.
-Therefore just the final free is done in the RCU callback.
-We could also have used synchronize_net(), but it doesn't
-really matter.
-
+--------------010800040700080906050007--
