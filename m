@@ -1,48 +1,97 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] let mortals use ethtool
-Date: Thu, 28 Sep 2006 15:41:35 -0700
-Message-ID: <20060928154135.2110633f@freekitty>
-References: <20060928122514.112a19a8@dxpl.pdx.osdl.net>
-	<451C2F52.6040003@pobox.com>
+Subject: Re: 2.6.18-mm2
+Date: Thu, 28 Sep 2006 15:45:07 -0700
+Message-ID: <20060928154507.05ed598b@freekitty>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	<efh217$8au$1@sea.gmane.org>
+	<20060928140124.5f7154e3.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "Steve Fox" <drfickle@us.ibm.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:9701 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161348AbWI1WnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 18:43:16 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <451C2F52.6040003@pobox.com>
+Received: from smtp.osdl.org ([65.172.181.4]:18150 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161351AbWI1WpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 18:45:11 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060928140124.5f7154e3.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2006 16:23:46 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Thu, 28 Sep 2006 14:01:24 -0700
+Andrew Morton <akpm@osdl.org> wrote:
 
-> Stephen Hemminger wrote:
-> > There is no reason to not allow non-admin users to query network
-> > statistics and settings.
 > 
-> NAK.
+> (please always do reply-to-all)
 > 
-> Some functions in the past didn't like getting hit rapidly in succession.
+> On Thu, 28 Sep 2006 17:50:31 +0000 (UTC)
+> "Steve Fox" <drfickle@us.ibm.com> wrote:
 > 
-> I would agree to this, but only after an exhaustive audit of each driver 
-> and each sub-ioctl.  Right now, I only have confidence in GDRVINFO 
-> probably being safe -- but still that requires an audit, since in rare 
-> cases the driver may be poking firmware and eeprom areas.
+> > On Thu, 28 Sep 2006 01:46:23 -0700, Andrew Morton wrote:
+> > 
+> > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18/2.6.18-mm2/
+> > 
+> > Panic on boot. This machine booted 2.6.18-mm1 fine. em64t machine.
+> > 
+> > TCP bic registered
+> > TCP westwood registered
+> > TCP htcp registered
+> > NET: Registered protocol family 1
+> > NET: Registered protocol family 17
+> > Unable to handle kernel paging request at ffffffffffffffff RIP: 
+> >  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
+> > PGD 203027 PUD 2b031067 PMD 0 
+> > Oops: 0000 [1] SMP 
+> > last sysfs file: 
+> > CPU 0 
+> > Modules linked in:
+> > Pid: 1, comm: swapper Not tainted 2.6.18-mm2-autokern1 #1
+> > RIP: 0010:[<ffffffff8047ef93>]  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
+> > RSP: 0000:ffff810bffcbde90  EFLAGS: 00010286
+> > RAX: 0000000000000000 RBX: ffff810bff4a1000 RCX: 2222222222222222
+> > RDX: ffff810bff4a1000 RSI: 0000000000000005 RDI: ffffffff8055f5e0
+> > RBP: ffffffffffffffff R08: 0000000000007616 R09: 000000000000000e
+> > R10: 0000000000000006 R11: ffffffff803373f0 R12: 0000000000000000
+> > R13: 0000000000000005 R14: ffff810bff4a1000 R15: 0000000000000000
+> > FS:  0000000000000000(0000) GS:ffffffff805d8000(0000) knlGS:0000000000000000
+> > CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+> > CR2: ffffffffffffffff CR3: 0000000000201000 CR4: 00000000000006e0
+> > Process swapper (pid: 1, threadinfo ffff810bffcbc000, task ffff810bffcbb510)
+> > Stack:  ffff810bff4a1000 ffffffff8055f4c0 0000000000000000 ffff810bffcbdef0
+> >  0000000000000000 ffffffff8042736e 0000000000000000 0000000000000000
+> >  0000000000000000 ffffffff8061c68d ffffffff806260f0 ffffffff80207182
+> > Call Trace:
+> >  [<ffffffff8042736e>] register_netdevice_notifier+0x3e/0x70
+> >  [<ffffffff8061c68d>] packet_init+0x2d/0x53
+> >  [<ffffffff80207182>] init+0x162/0x330
+> >  [<ffffffff8020a9d8>] child_rip+0xa/0x12
+> >  [<ffffffff8033c2a2>] acpi_ds_init_one_object+0x0/0x82
+> >  [<ffffffff80207020>] init+0x0/0x330
+> >  [<ffffffff8020a9ce>] child_rip+0x0/0x12
+> > 
+> > 
+> > Code: 48 8b 45 00 0f 18 08 49 83 fd 02 4c 8d 65 f8 0f 84 f8 fe ff 
+> > RIP  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
+> >  RSP <ffff810bffcbde90>
+> > CR2: ffffffffffffffff
+> >  <0>Kernel panic - not syncing: Attempted to kill init!
+> > 
 > 
-> Finally, I fixed a buffer overflow in ethtool version 5, so an audit to 
-> make sure overflows cannot affect the kernel is basically _required_.
+> I'm really struggling to work out what went wrong there.  Comparing your
+> miserable 20 bytes of code to my object code makes me think that this:
 > 
-> 	Jeff
+> 		struct packet_sock *po = pkt_sk(sk);
+> 
+> returned -1, perhaps in %ebp.  But it's all very crude.
 
-The first step should be conservative, so why not allow GDRVINFO, and the
-various offload setting GTSO, GxSUM, ...
+That doesn't seem possible given:
 
-Agreed, that PHY stuff, register area, WOL, are bad. The statistics stuff
-also might be a problem for some chips.
+static inline struct packet_sock *pkt_sk(struct sock *sk)
+{
+	return (struct packet_sock *)sk;
+}
 
--- 
+That means the packet socket list is corrupted??
+
 Stephen Hemminger <shemminger@osdl.org>
