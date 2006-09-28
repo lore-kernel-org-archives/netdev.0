@@ -1,77 +1,33 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 7222] New: sky2 throws a lot of "pci express
- error" in 2.6.18-mm2 on amd64
-Date: Thu, 28 Sep 2006 09:22:42 -0700
-Message-ID: <20060928092242.9cd44493.akpm@osdl.org>
-References: <200609281210.k8SCAh9j005500@fire-2.osdl.org>
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Thu, 28 Sep 2006 12:31:35 -0400
+Message-ID: <20060928163135.GH8121@knob.reflex>
+References: <200609271726.34305.mb@bu3sch.de> <1159455169.2642.30.camel@localhost.localdomain> <451BE74F.3010908@lwfinger.net> <200609281135.24720.flamingice@sourmilk.net> <451BEFB8.8000402@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
-	jackdachef@gmail.com, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>, Michael Buesch <mb@bu3sch.de>,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56756 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030247AbWI1QZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 12:25:49 -0400
-To: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-In-Reply-To: <200609281210.k8SCAh9j005500@fire-2.osdl.org>
+Received: from smtp.reflexsecurity.com ([72.54.64.74]:47236 "EHLO
+	crown.reflexsecurity.com") by vger.kernel.org with ESMTP
+	id S932518AbWI1Qb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 12:31:56 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <451BEFB8.8000402@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2006 05:10:43 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+On Thu, Sep 28, 2006 at 10:52:24AM -0500, Larry Finger wrote:
+> I had very good luck with my first AP, a Linksys WRT54G V1, that I
+> bought a second when the power supply failed in the first. Little did
+> I know that a VxWorks license costs less than the extra memory needed
+> to run Linux. Or was it to defeat the open-source alternatives for the
+> AP?
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7222
-> 
->            Summary: sky2 throws a lot of "pci express error" in 2.6.18-mm2
->                     on amd64
->     Kernel Version: 2.6.18-mm2
->             Status: NEW
->           Severity: normal
->              Owner: acme@conectiva.com.br
->          Submitter: jackdachef@gmail.com
-> 
-> 
-> Most recent kernel where this bug did not occur: 2.6.18-mm1
-> Distribution: Gentoo Linux
-> Hardware Environment: Asus P5W DH Deluxe
-> Software Environment:
-> Problem Description: kernel throws a lot of "pci express error"s
-> 
-> Steps to reproduce:
-> compile in sky2 driver in amd64 kernel (2.6.18-mm2),
-> boot into system => errors appear:
-> 
-> sky2 v1.9 addr 0xebdfc000 irq 19 Yukon-EC (0xb6) rev 2
-> sky2 eth0: addr 00:17:31:e8:f3:53
-> ACPI: PCI Interrupt 0000:03:00.0[A] -> GSI 16 (level, low) -> IRQ 16
-> PCI: Setting latency timer of device 0000:03:00.0 to 64
-> sky2 v1.9 addr 0xebcfc000 irq 16 Yukon-EC (0xb6) rev 2
-> sky2 eth1: addr 00:17:31:ee:e4:18
-> [...]
-> sky2 0000:04:00.0: pci express error (0x100407)
-> [...]
-> sky2 0000:03:00.0: pci express error (0x100407)
-> [...]
-> sky2 0000:04:00.0: pci express error (0x500547)
-> sky2 0000:03:00.0: pci express error (0x500547)
-> sky2 0000:04:00.0: pci express error (0x500547)
-> sky2 0000:03:00.0: pci express error (0x500547)
-> sky2 0000:04:00.0: pci express error (0x500547)
-> sky2 0000:03:00.0: pci express error (0x500547)
-> Losing some ticks... checking if CPU frequency changed.
-> sky2 0000:04:00.0: pci express error (0x500547)
-> sky2 0000:03:00.0: pci express error (0x500547)
-> 
-> this error occurs during the whole runtime of the kernel ...
-> 
-> I don't know if this severe, so I didn't let that kernel run long ...
-> 
-> network-functionality doesn't seem to be impaired:
-> ping -c 3 www.google.com
-> works & I can surf with links -g www.google.com
-> 
+last I checked, linksys (cisco?) still sells the linux-compatible
+version as the WRT54GL. <- note the extra 'L'.
 
-I would be suspecting that something went wrong with "[PATCH] sky2: use
-standard pci register capabilties for error register".
+Jason
+
