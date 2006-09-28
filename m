@@ -1,102 +1,51 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Wed, 27 Sep 2006 23:09:26 -0500
-Message-ID: <451B4AF6.3090203@lwfinger.net>
-References: <200609271726.34305.mb@bu3sch.de> <451AA446.7060009@lwfinger.net> <200609271950.47430.mb@bu3sch.de>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/3] myri10ge Large Receive Offload
+Date: Thu, 28 Sep 2006 00:27:48 -0400
+Message-ID: <451B4F44.60204@garzik.org>
+References: <451B0541.1030208@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:47561 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S965278AbWI1EJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 00:09:30 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200609271950.47430.mb@bu3sch.de>
+Received: from srv5.dvmed.net ([207.36.208.214]:49366 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751334AbWI1E1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 00:27:53 -0400
+To: Brice Goglin <brice@myri.com>
+In-Reply-To: <451B0541.1030208@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Wednesday 27 September 2006 18:18, Larry Finger wrote:
->> Michael Buesch wrote:
->>> This fixes some race conditions in the WirelessExtension
->>> handling and association handling code.
->>>
->>> Signed-off-by: Michael Buesch <mb@bu3sch.de>
->>>
->>> ---
->> This patch doesn't apply.
+Brice Goglin wrote:
+> This is a complete rework of the myri10ge receive path. The first
+> patch converts skb allocation to use physical pages. The second one
+> adds a software implementation of Large Receive Offload. The third
+> one updates the driver version to 1.1.0.
 > 
-> Oh, linville merged stuff on the 25th. That's the day I updated
-> my tree to do this patch. But seems like I did it just before
-> the merge.
-> Who could suspect that linville merges something. :D
-> *me runs away*
+> The complete driver code in our CVS actually also supports high-order
+> allocations instead of single physical pages since it significantly
+> increase the performance. Order=2 allows us to receive standard frames
+> at line rate even on low-end hardware such as an AMD Athlon(tm) 64 X2
+> Dual Core Processor 3800+ (2.0GHz). Some customer might not care a lot
+> about memory fragmentation if the performance is better.
 > 
-> Anyway. Here's an updated patch.
+> But, since high-order allocations are generally considered a bad idea,
+> we do not include the relevant code in the following patch for inclusion
+> in Linux. Here, we simply pass order=0 to all page allocation routines.
+> If necessary, I could drop the remaining reference to high-order
+> (especially replace alloc_pages() with alloc_page()) but I'd rather
+> keep it as is.
+> 
+> If high-order allocations are ever considered OK under some circum-
+> stances, we could send an additional patch (a module parameter would
+> be used to switch from single physical pages to high-order pages).
 
-NACK this version. It applied correctly, but introduced a new problem. My device occasionally gets 
-deauthentication messages from my AP.Preciously, it would do a scan or two, and then reauthenticate. 
-After your patch was applied, it never stops scanning.
+As Herbert's already done, I would rather let the net core people 
+comment on this.  The code implementation doesn't look scary, but we may 
+want to be smarter about this in the core net stack, rather than 
+implementing it inside multiple drivers.
 
-The "normal" sequence is
+	Jeff
 
-kernel: SoftMAC: Received deauthentication packet from 00:14:bf:85:49:fa, but that network is unknown.
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: bcm43xx: set security called, .enabled = 0, .encrypt = 0
-kernel: bcm43xx: set security called, .enabled = 0, .encrypt = 0
-kernel: bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-kernel: bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-kernel: bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Queueing Authentication Request to 00:14:bf:85:49:fa
-kernel: SoftMAC: Cannot associate without being authenticated, requested authentication
-kernel: SoftMAC: Sent Authentication Request to 00:14:bf:85:49:fa.
-kernel: SoftMAC: Open Authentication completed with 00:14:bf:85:49:fa
-kernel: SoftMAC: sent association request!
-kernel: SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f202
-kernel: SoftMAC: Already associating or associated to 00:14:bf:85:49:fa
-kernel: SoftMAC: associated!
-kernel: bcm43xx: set security called, .active_key = 0, .level = 2, .enabled = 1,
 
-With your patch:
-
-kernel: SoftMAC: Received deauthentication packet from 00:14:bf:85:49:fa, but that network is unknown.
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Unable to find matching network after scan!
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Unable to find matching network after scan!
-kernel: SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f202
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Associate: Scanning for networks first.
-kernel: SoftMAC: Start scanning with channel: 1
-kernel: SoftMAC: Scanning 14 channels
-kernel: SoftMAC: Scanning finished
-kernel: SoftMAC: Unable to find matching network after scan!
-kernel: SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f202
-
-This pattern repeats until the network is brought down and back up.
-
-Larry
 
