@@ -1,68 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
-Date: Wed, 27 Sep 2006 22:44:44 -0700 (PDT)
-Message-ID: <20060927.224444.109879330.davem@davemloft.net>
-References: <20060919.000800.127570535.yoshfuji@linux-ipv6.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/3] [IrDA] nsc-ircc: Configuration base
+ address for PC87383
+Date: Wed, 27 Sep 2006 22:48:51 -0700 (PDT)
+Message-ID: <20060927.224851.80031694.davem@davemloft.net>
+References: <20060920050846.GC4140@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9425
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965279AbWI1Foo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 01:44:44 -0400
-To: yoshfuji@linux-ipv6.org, tgraf@suug.ch
-In-Reply-To: <20060919.000800.127570535.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lamarque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+In-Reply-To: <20060920050846.GC4140-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Tue, 19 Sep 2006 00:08:00 +0900 (JST)
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Wed, 20 Sep 2006 08:08:46 +0300
 
->     [XFRM]: Do not add a state whose SPI is zero to the SPI hash.
->     
->     SPI=0 is used for acquired IPsec SA and MIPv6 RO state.
->     Such state should not be added to the SPI hash
->     because we do not care about it on deleting path.
->     
->     Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
->     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> According to NatSemi datasheet, the configuration base address for the PC8738x
+> family is 0x2e or 0x164. 0x0 doesn't appear in any datasheet.
+> 
+> Patch from Lamarque Vieira Souza <lamarque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-Patch applied, thank you.
+Applied, thanks.
 
-But the rest of these patches need more thought about these header
-file issues.
-
->     [NET]: Move netlink interface bits to linux/if_link.h.
->     
->     Moving netlink interface bits to linux/if.h is rather troublesome for
->     applications including both linux/if.h (which was changed to be included
->     from linux/rtnetlink.h automatically) and net/if.h.
->     
->     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-If it is illegal for user to include kernel's linux/if.h (by any
-means) if he uses net/if.h from userland headers, then he should
-also avoid including the kernel's rtnetlink.h header too.
-
-I understand the issue, in that net/if.h defines macros that
-linux/if.h defines as well so there are conflicts (even though
-in the end the same exact values are used).
-
-What I see happening is that the troublesome interfaces move from
-linux/if.h to a new file named linux/if_addr.h, then this gets
-included again to linux/rtnetlink.h but only for userspace with
-some messy ifdefs.
-
-These kinds of things don't go away, they stay around forever once
-you decide to support them.
-
-Actually, what I'm going to do is apply:
-
-[NET]: Move netlink interface bits to linux/if_link.h.
-[NET] KBUILD: Add missing entries for new net headers.
-
-And leave the rest for now.
-
-Thank you.
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys -- and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
