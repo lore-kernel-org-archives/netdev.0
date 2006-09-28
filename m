@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth update for 2.6
-Date: Wed, 27 Sep 2006 22:58:17 -0700 (PDT)
-Message-ID: <20060927.225817.106770711.davem@davemloft.net>
-References: <1158868040.11194.56.camel@localhost>
-	<1159267581.1235.10.camel@localhost>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 0/1] atl1: New driver, Attansic L1 Gigabit Ethernet
+Date: Thu, 28 Sep 2006 08:59:12 +0200
+Message-ID: <20060928065912.GA6647@electric-eye.fr.zoreil.com>
+References: <20060927132119.GB11922@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12471
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161011AbWI1F6S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 01:58:18 -0400
-To: marcel@holtmann.org
-In-Reply-To: <1159267581.1235.10.camel@localhost>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58553 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751622AbWI1HCE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 03:02:04 -0400
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Disposition: inline
+In-Reply-To: <20060927132119.GB11922@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Tue, 26 Sep 2006 12:46:21 +0200
+Jay Cliburn <jacliburn@bellsouth.net> :
+> Apologies:  I neglected to cc netdev on the initial message.
 
-> > here are the pending patches that didn't make it into the 2.6.18 kernel
-> > release. I have some additional fixes, but all of them need some more
-> > additional testing from my side.
-> 
-> it seems that you haven't pulled in these changes so far. So I didn't
-> rebase the tree and simply pushed some additional ones on top of it. All
-> three of them address the issues we had with non-blocking connects.
+No patch here (netdev, l-k subscribed).
 
-I applied all of your fixes into my tree, sorry for taking so long.
+Can you publish the patch somewhere ?
+
+$ grep Attansic ~/Mail/from/200639
+ Subject: [PATCH 0/1] atl1: New driver, Attansic L1 Gigabit Ethernet
+ Subject: [PATCH 0/1] atl1: New driver, Attansic L1 Gigabit Ethernet
+ Subject: Re: [PATCH 1/1] atl1: Attansic L1 Gigabit Ethernet driver
+ Subject: Re: [PATCH 1/1] atl1: Attansic L1 Gigabit Ethernet driver
+ Subject: Re: [PATCH 1/1] atl1: Attansic L1 Gigabit Ethernet driver
+ Subject: Re: [PATCH 1/1] atl1: Attansic L1 Gigabit Ethernet driver
+
+-- 
+Ueimor
