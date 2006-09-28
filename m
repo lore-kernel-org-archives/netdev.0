@@ -1,93 +1,140 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH] bonding: lockdep annotation
-Date: Thu, 28 Sep 2006 11:42:41 +0200
-Message-ID: <1159436561.28131.37.camel@taijtu>
+From: Douglas Leith <doug.leith@nuim.ie>
+Subject: Re the default linux tcp algorithm being changed from bic to cubic.
+Date: Thu, 28 Sep 2006 11:07:18 +0100
+Message-ID: <451B9ED6.9090208@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Ingo Molnar <mingo@elte.hu>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: Douglas Leith <doug.leith@nuim.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:31628 "EHLO
-	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751811AbWI1JnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 05:43:10 -0400
-To: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Received: from mail.nuim.ie ([149.157.1.19]:52221 "EHLO LARCH.MAY.IE")
+	by vger.kernel.org with ESMTP id S1751794AbWI1KI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 06:08:58 -0400
+Received: from [10.220.3.214] ([149.157.192.252])
+ by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01M7Q5PTG07G00VAW2@NUIM.IE>
+ for netdev@vger.kernel.org; Thu, 28 Sep 2006 11:09:00 +0000 (GMT)
+To: shemminger@osdl.org, netdev <netdev@vger.kernel.org>,
+	davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-=============================================
-[ INFO: possible recursive locking detected ]
-2.6.17-1.2600.fc6 #1
----------------------------------------------
-ifconfig/2411 is trying to acquire lock:
- (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
+Steve,
 
-but task is already holding lock:
- (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
+I think we're all conscious of the fact that recent history contains 
+quite a number of proposals for changes to tcp's congestion control 
+algorithm for high bandwidth-delay product paths that on closer 
+inspection have proved problematic in one way or another.   It seems to 
+be a hard problem to solve, so maybe that's fair enough and hopefully 
+we'll end up with a workable solution soon.
 
-other info that might help us debug this:
-3 locks held by ifconfig/2411:
- #0:  (rtnl_mutex){--..}, at: [<ffffffff802664af>] mutex_lock+0x2a/0x2e
- #1:  (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
- #2:  (&bond->lock){-.-+}, at: [<ffffffff8831b7f7>] bond_set_multicast_list+0x2c/0x26a [bonding]
+Where I'm coming from here though is that bic was made the linux default 
+a year or so ago at a time when there were essentially no tests 
+available on its performance other than the infocom paper by Injong. 
+Subsequent tests have since highlighted a bunch of issues with bic.  To 
+my knowledge, we're currently in a similar situation with cubic as we 
+were with bic back then i.e. essentially no independent tests 
+investigating its behaviour.
 
-stack backtrace:
+Of course I know Injong has posted some test results, but these are 
+hardly independent as he's the author of both bic and cubic.  Have there 
+perhaps been private tests carried out (e.g. by osdl) ?  If so, would it 
+be possible to make them public ?  If not, well that would be good to 
+know too.
 
-Call Trace:
- [<ffffffff8026e97d>] show_trace+0xae/0x319
- [<ffffffff8026ebfd>] dump_stack+0x15/0x17
- [<ffffffff802a839b>] __lock_acquire+0x135/0xa64
- [<ffffffff802a926d>] lock_acquire+0x4b/0x69
- [<ffffffff80267981>] _spin_lock_bh+0x2a/0x36
- [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
- [<ffffffff8831b903>] :bonding:bond_set_multicast_list+0x138/0x26a
- [<ffffffff80429901>] __dev_mc_upload+0x22/0x24
- [<ffffffff80429c74>] dev_mc_add+0x11a/0x15f
- [<ffffffff8045d154>] igmp_group_added+0x55/0x10f
- [<ffffffff8045d4ab>] ip_mc_inc_group+0x1d6/0x21a
- [<ffffffff8045d535>] ip_mc_up+0x46/0x61
- [<ffffffff804594b8>] inetdev_init+0x11c/0x136
- [<ffffffff8045a0b7>] devinet_ioctl+0x3eb/0x5e9
- [<ffffffff8045a56c>] inet_ioctl+0x71/0x8f
- [<ffffffff8041ed74>] sock_ioctl+0x1e8/0x20a
- [<ffffffff80243ae0>] do_ioctl+0x2a/0x77
- [<ffffffff802325cc>] vfs_ioctl+0x25a/0x277
- [<ffffffff8024ea4b>] sys_ioctl+0x5f/0x82
- [<ffffffff8026060e>] system_call+0x7e/0x83
+Doug
 
-The bonding driver nests other drivers, give the bonding driver its own
-lock class.
-
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Acked-by: Ingo Molnar <mingo@elte.hu>
----
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0fb5f65..ebbf002 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4692,6 +4692,8 @@ static int bond_check_params(struct bond
- 	return 0;
- }
- 
-+static struct lock_class_key bonding_netdev_xmit_lock_key;
-+
- /* Create a new bond based on the specified name and bonding parameters.
-  * Caller must NOT hold rtnl_lock; we need to release it here before we
-  * set up our sysfs entries.
-@@ -4727,6 +4729,9 @@ int bond_create(char *name, struct bond_
- 	if (res < 0) {
- 		goto out_bond;
- 	}
-+
-+	lockdep_set_class(&bond_dev->_xmit_lock, &bonding_netdev_xmit_lock_key);
-+
- 	if (newbond)
- 		*newbond = bond_dev->priv;
- 
+Hamilton Institute
+www.hamilton.ie
 
 
+
+------- Original Message --------
+Subject: [TCP]: make cubic the default
+Date: Tue, 26 Sep 2006 00:59:56 GMT
+From: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: git-commits-head@vger.kernel.org
+
+commit 597811ec167fa01c926a0957a91d9e39baa30e64
+tree 24e6ce26a4464d21993f2cd17dbdb9aec13360ab
+parent 3d2573f7ebe507e372a23cdd3c8b03305d6e90aa
+author Stephen Hemminger <shemminger@osdl.org> 1159153983 -0700
+committer David S. Miller <davem@davemloft.net> 1159153983 -0700
+
+[TCP]: make cubic the default
+
+Change default congestion control used from BIC to the newer CUBIC
+which it the successor to BIC but has better properties over long delay
+links.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+  net/ipv4/Kconfig |   12 ++++++------
+  1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 1bbc368..30af4a4 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -455,7 +455,7 @@ menuconfig TCP_CONG_ADVANCED
+  	  modules.
+
+  	  Nearly all users can safely say no here, and a safe default
+-	  selection will be made (BIC-TCP with new Reno as a fallback).
++	  selection will be made (CUBIC with new Reno as a fallback).
+
+  	  If unsure, say N.
+
+@@ -463,7 +463,7 @@ if TCP_CONG_ADVANCED
+
+  config TCP_CONG_BIC
+  	tristate "Binary Increase Congestion (BIC) control"
+-	default y
++	default m
+  	---help---
+  	BIC-TCP is a sender-side only change that ensures a linear RTT
+  	fairness under large windows while offering both scalability and
+@@ -477,7 +477,7 @@ config TCP_CONG_BIC
+
+  config TCP_CONG_CUBIC
+  	tristate "CUBIC TCP"
+-	default m
++	default y
+  	---help---
+  	This is version 2.0 of BIC-TCP which uses a cubic growth function
+  	among other techniques.
+@@ -574,7 +574,7 @@ config TCP_CONG_VENO
+
+  choice
+  	prompt "Default TCP congestion control"
+-	default DEFAULT_BIC
++	default DEFAULT_CUBIC
+  	help
+  	  Select the TCP congestion control that will be used by default
+  	  for all connections.
+@@ -601,7 +601,7 @@ endchoice
+
+  endif
+
+-config TCP_CONG_BIC
++config TCP_CONG_CUBIC
+  	tristate
+  	depends on !TCP_CONG_ADVANCED
+  	default y
+@@ -614,7 +614,7 @@ config DEFAULT_TCP_CONG
+  	default "vegas" if DEFAULT_VEGAS
+  	default "westwood" if DEFAULT_WESTWOOD
+  	default "reno" if DEFAULT_RENO
+-	default "bic"
++	default "cubic"
+
+  source "net/ipv4/ipvs/Kconfig"
+
+-
+To unsubscribe from this list: send the line "unsubscribe
+git-commits-head" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
