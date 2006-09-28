@@ -1,54 +1,53 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 2/7] d80211: add support for SIOCSIWRATE and SIOCGIWRATE
-Date: Thu, 28 Sep 2006 13:38:24 +0200
-Message-ID: <20060928133824.0cb2aa78@logostar.upir.cz>
-References: <44F355EE.3090607@linux.intel.com>
-	<20060830171919.GC18041@instant802.com>
-	<20060921184021.1fb7fa6e@logostar.upir.cz>
-	<4512C4FB.5010704@linux.intel.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [ACRYPTO] New asynchronous crypto layer (acrypto) release.
+Date: Thu, 28 Sep 2006 16:08:26 +0400
+Message-ID: <20060928120826.GA18063@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:53422 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S965362AbWI1Lib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 07:38:31 -0400
-To: mabbas <mabbas@linux.intel.com>
-In-Reply-To: <4512C4FB.5010704@linux.intel.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:27089 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751867AbWI1MI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 08:08:27 -0400
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Sep 2006 09:59:39 -0700, mabbas wrote:
-> I can not see how does it break per-STA TX rate limit, especially 
-> PRISM2_HOSTAPD_SET_RATE_SETS almost doing the same thing. I am not saying
-> the patch is correct I just want to know how to fix it to get it in.
+Hello.
 
-As Jouni wrote, it's not useful to change the per-radio rate table. You
-want to limit the rates you are using to communicate with the current AP
-while not limiting other virtual interfaces. (Imagine you have the card
-that is capable to associate to two APs at the same time. You don't want to
-limit rates for both APs with SIOCSIWRATE.)
+I'm pleased to announce asynchronous crypto layer (acrypto) [1] release 
+for 2.6.18 kernel tree. Acrypto allows to handle crypto requests 
+asynchronously in hardware.
 
-To do that I think the following is needed:
+Combined patchset includes:
+ * acrypto core
+ * IPsec ESP4 port to acrypto
+ * dm-crypt port to acrypto
+ * OCF to acrypto bridge
 
-1. Add 'allowed_rates' field to struct sta_info. It defaults to 0xffffffff.
-(Or perhaps call it 'disabled_rates' and make it default to 0.)
+Acrypto supports following crypto providers:
+ * SW crypto provider
+ * HIFN 795x adapters
+ * VIA nehemiah CPU
+ * SuperCrypt CE99C003B
+ * devices supported by OCF
 
-2. The SIOCSIWRATE handler: If the interface is not in a STA mode, return
--EOPNOTSUPP. Otherwise, modify the allowed_rates field of the sta entry
-belonging to the current AP.
+With this release of combined patchset for 2.6.18 I drop feature
+extensions for 2.6.16 and 2.6.17 trees and move them into maintenance
+state.
 
-3. Bitmask sta->curr_rates with sta->allowed_rates (or
-~sta->disabled_rates) in various places (ieee80211_ioctl_add_sta,
-ieee80211_rx_mgmt_assoc_resp, ieee80211_rx_bss_info; please check for other
-places).
+Combined patchset [190k] and drivers for various acrypto providers can 
+be found on project's homepage.
 
-In IBSS and AP mode setting this (per-STA, of course, which is not
-supported by WE, btw.) can be useful as well but it can be done later.
+1. Acrypto homepage.
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=acrypto
 
- Jiri
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
 -- 
-Jiri Benc
-SUSE Labs
+	Evgeniy Polyakov
+
+
+-- 
+	Evgeniy Polyakov
