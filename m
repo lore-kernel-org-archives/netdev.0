@@ -1,49 +1,78 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: softmac mtu
-Date: Thu, 28 Sep 2006 09:13:32 -0700
-Message-ID: <20060928161332.GD9615@instant802.com>
-References: <ef3s4u$or5$3@sea.gmane.org> <1159365434.451a833ae7728@imp3-g19.free.fr> <1159365316.2698.40.camel@ux156> <200609281735.17616.mb@bu3sch.de> <1159458432.2648.38.camel@ux156>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
+Date: Thu, 28 Sep 2006 08:36:45 -0700
+Message-ID: <20060928083645.786b1ab1@freekitty>
+References: <20060919.000800.127570535.yoshfuji@linux-ipv6.org>
+	<20060927.224444.109879330.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, castet.matthieu@free.fr
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-33.dex002.intermedia.net ([64.78.21.118]:154 "EHLO
-	dhost002-33.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751328AbWI1QNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 12:13:42 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1159458432.2648.38.camel@ux156>
+Received: from smtp.osdl.org ([65.172.181.4]:5297 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751827AbWI1QRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 12:17:44 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060927.224444.109879330.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2006 at 05:47:12PM +0200, Johannes Berg wrote:
-> On Thu, 2006-09-28 at 17:35 +0200, Michael Buesch wrote:
+On Wed, 27 Sep 2006 22:44:44 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Tue, 19 Sep 2006 00:08:00 +0900 (JST)
 > 
-> > I am pretty sure this is the maximum _fragment_ size.
+> >     [XFRM]: Do not add a state whose SPI is zero to the SPI hash.
+> >     
+> >     SPI=0 is used for acquired IPsec SA and MIPv6 RO state.
+> >     Such state should not be added to the SPI hash
+> >     because we do not care about it on deleting path.
+> >     
+> >     Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> >     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 > 
-> But then why does it talk of MPDU and MSDU?
-
-Maybe because your understanding is closer to what the standard says..
-;-)
-
-> IOW, I read it as an MSDU is the data that is supposed to be transmitted
-> over the link and that can be at most 2304 bytes long, and then it may
-> be fragmented or not and is then copied into (an) MPDU(s).
-
-Yes.
-
-> > But each packet (which max size is defined by the MTU) can
-> > be fragmented. I don't know if there's a limit on the max
-> > number of frags.
+> Patch applied, thank you.
 > 
-> There's only a 4 bit fragment counter ;) However, see above.
+> But the rest of these patches need more thought about these header
+> file issues.
+> 
+> >     [NET]: Move netlink interface bits to linux/if_link.h.
+> >     
+> >     Moving netlink interface bits to linux/if.h is rather troublesome for
+> >     applications including both linux/if.h (which was changed to be included
+> >     from linux/rtnetlink.h automatically) and net/if.h.
+> >     
+> >     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> If it is illegal for user to include kernel's linux/if.h (by any
+> means) if he uses net/if.h from userland headers, then he should
+> also avoid including the kernel's rtnetlink.h header too.
+> 
+> I understand the issue, in that net/if.h defines macros that
+> linux/if.h defines as well so there are conflicts (even though
+> in the end the same exact values are used).
+> 
+> What I see happening is that the troublesome interfaces move from
+> linux/if.h to a new file named linux/if_addr.h, then this gets
+> included again to linux/rtnetlink.h but only for userspace with
+> some messy ifdefs.
+> 
+> These kinds of things don't go away, they stay around forever once
+> you decide to support them.
+> 
+> Actually, what I'm going to do is apply:
+> 
+> [NET]: Move netlink interface bits to linux/if_link.h.
+> [NET] KBUILD: Add missing entries for new net headers.
+> 
+> And leave the rest for now.
+> 
 
-And 4 bits is quite enough for sending the maximum number of fragments
-which is currently about 10 (256 octet min frag len and 2304 max MSDU
-len with some extra needed to cover the extra header in each fragment).
+Please figure out how to keep rtnetlink.h useful from user space.
+I tried putting the current sanitized version of rtnetlink.h into
+iproute2 and the build fails. 
 
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Stephen Hemminger <shemminger@osdl.org>
