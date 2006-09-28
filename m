@@ -1,65 +1,34 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: 2.6.18-mm1 -- ieee80211: Info elem: parse failed: info_element->len + 2 > left : info_element->len+2=28 left=9, id=221.
-Date: Thu, 28 Sep 2006 02:24:20 +0200
-Message-ID: <9a8748490609271724y5f39c57s889f94986e119e6d@mail.gmail.com>
-References: <a44ae5cd0609261204g673fbf8ft6809378930986eac@mail.gmail.com>
-	 <20060926124310.17797fe5.akpm@osdl.org>
-	 <a44ae5cd0609261753t311a7952w2a98434c093ef1c@mail.gmail.com>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
+Date: Thu, 28 Sep 2006 10:38:29 +1000
+Message-ID: <20060928003829.GA8952@gondor.apana.org.au>
+References: <20060827142347.GA20092@ripe.net> <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net> <20060829082828.GA8625@gondor.apana.org.au> <20060831151243.GJ3590@ripe.net> <20060901070557.GA15731@gondor.apana.org.au> <20060901162248.GI19284@ripe.net> <20060925121530.GC18667@gondor.apana.org.au> <20060926112122.GU22330@ripe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Jouni Malinen" <jkmaline@cc.hut.fi>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:99 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1031288AbWI1AYY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 20:24:24 -0400
-Received: by wx-out-0506.google.com with SMTP id s14so378230wxc
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2006 17:24:20 -0700 (PDT)
-To: "Miles Lane" <miles.lane@gmail.com>
-In-Reply-To: <a44ae5cd0609261753t311a7952w2a98434c093ef1c@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:6150 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1031290AbWI1Aio
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 20:38:44 -0400
+To: cagri coltekin <cagri@ripe.net>
 Content-Disposition: inline
+In-Reply-To: <20060926112122.GU22330@ripe.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 27/09/06, Miles Lane <miles.lane@gmail.com> wrote:
-> On 9/26/06, Andrew Morton <akpm@osdl.org> wrote:
-> >
-> > [added netdev]
-> >
-> > On Tue, 26 Sep 2006 12:04:40 -0700
-> > "Miles Lane" <miles.lane@gmail.com> wrote:
-> >
-> > > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
-> > > info_element->len+2=28 left=9, id=221.
-> > > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
-> > > info_element->len+2=28 left=9, id=221.
-> > > ieee80211: Info elem: parse failed: info_element->len + 2 > left :
-> > > info_element->len+2=28 left=9, id=221.
-> > >
-> > > >From dmesg output:
-> > > ieee80211: 802.11 data/management/control stack, git-1.1.13
-> > > ieee80211: Copyright (C) 2004-2005 Intel Corporation <jketreno@linux.intel.com>
-> > > ieee80211_crypt: registered algorithm 'NULL'
-> > > ieee80211_crypt: registered algorithm 'WEP'
-> > > ieee80211_crypt: registered algorithm 'CCMP'
-> > > ieee80211_crypt: registered algorithm 'TKIP'
-> >
-> > I suspect that whatever caused this is now in mainline.  Are you able to
-> > test Linus's current git tree?
+On Tue, Sep 26, 2006 at 01:21:22PM +0200, cagri coltekin wrote:
 >
-> Sorry, I don't have oodles of disk space free to hold all the git
-> historical information (iirc, it's huge).
-[snip]
+> ------------------------------------------------------------------------------
+> [ 1395.890897] ------------[ cut here ]------------
+> [ 1395.946093] kernel BUG at net/ipv6/ip6_output.c:940!
 
-You could just grab the latest snapshot (at the time of this writing
-that's 2.6.18-git8) from kernel.org - that way you wouldn't get all
-the historical git data.
+Could you go further back in the logs to see if there was a
+warning message? Either that or turn the WARN_ON into a BUG.
 
+Thanks,
 -- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
