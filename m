@@ -1,36 +1,30 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration changes
-Date: Thu, 28 Sep 2006 17:25:14 -0400
-Message-ID: <451C3DBA.9040007@hp.com>
-References: <20060928180326.896170000@hp.com> <20060928180337.570612000@hp.com> <Pine.LNX.4.64.0609281547060.28120@d.namei> <451C2AEA.7050608@hp.com> <Pine.LNX.4.64.0609281609560.28355@d.namei>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
+Date: Thu, 28 Sep 2006 14:33:04 -0700 (PDT)
+Message-ID: <20060928.143304.83622307.davem@davemloft.net>
+References: <20060919.000800.127570535.yoshfuji@linux-ipv6.org>
+	<20060927.224444.109879330.davem@davemloft.net>
+	<20060928083645.786b1ab1@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-audit@redhat.com, Eric Paris <eparis@redhat.com>,
-	selinux@tycho.nsa.gov
+Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:8922 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S1161181AbWI1VZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 17:25:16 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0609281609560.28355@d.namei>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54752
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964769AbWI1VdB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 17:33:01 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060928083645.786b1ab1@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> On Thu, 28 Sep 2006, Paul Moore wrote:
-> 
->>Agreed, in fact, as I suspect you have already noticed, this was ripped
->>right from that function.  It was private to kernel/auditsc.c making it
->>offlimits, but I would have gladly used it instead; making
->>audit_log_task_info() public seemed like something that was beyond this
->>NetLabel specific patch.
-> 
-> Don't ever be afraid to improve core kernel code :-)
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Thu, 28 Sep 2006 08:36:45 -0700
 
-Okay, I just added it to my todo list.
+> Please figure out how to keep rtnetlink.h useful from user space.
+> I tried putting the current sanitized version of rtnetlink.h into
+> iproute2 and the build fails. 
 
--- 
-paul moore
-linux security @ hp
+Please give the error so I have a chance of fixing this.
