@@ -1,34 +1,30 @@
-From: David Miller <davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: [RFC] let mortals use ethtool
-Date: Thu, 28 Sep 2006 14:53:45 -0700 (PDT)
-Message-ID: <20060928.145345.90823467.davem@davemloft.net>
+Date: Thu, 28 Sep 2006 15:03:40 -0700
+Message-ID: <1159481020.3741.16.camel@rh4>
 References: <20060928122514.112a19a8@dxpl.pdx.osdl.net>
-	<451C28E9.6040708@intel.com>
+ <451C28E9.6040708@intel.com>
+ <20060928.145345.90823467.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, jgarzik@pobox.com, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com
+Cc: auke-jan.h.kok@intel.com, shemminger@osdl.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47515
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161192AbWI1Vxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 17:53:42 -0400
-To: auke-jan.h.kok@intel.com
-In-Reply-To: <451C28E9.6040708@intel.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:57865 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1161325AbWI1WHO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 18:07:14 -0400
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060928.145345.90823467.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Date: Thu, 28 Sep 2006 12:56:25 -0700
+On Thu, 2006-09-28 at 14:53 -0700, David Miller wrote:
 
-> PHYS_ID pokes in hardware and makes it jump through hoops, in the case of some hardware 
-> this could create a local DOS attack (e1000 suffers fromt his, probably more if not all) 
-> where the NIC might stop receiving packets, or the big lock is help indefinately.
-> 
-> Not a good idea
-> 
-> The other ones are fine I think.
+> I've applied Stephen's patch with PHYS_ID removed from the
+> allowed list, thanks for the feedback.
 
-I've applied Stephen's patch with PHYS_ID removed from the
-allowed list, thanks for the feedback.
+Can you remove GREGS as well?  Allowing users to dump all the registers
+will be very problematic.
+
