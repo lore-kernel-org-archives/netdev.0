@@ -1,102 +1,50 @@
-From: "Injong Rhee" <rhee@eos.ncsu.edu>
-Subject: Stability of various TCP protocols [CUBIC, BIC, HTCP, HSTCP,
-	STCP]
-Date: Thu, 28 Sep 2006 12:58:02 -0400
-Message-ID: <00d301c6e31f$4304fed0$4a580e98@ncsu2cc0c3fa00>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Thu, 28 Sep 2006 19:14:16 +0200
+Message-ID: <200609281914.17041.mb@bu3sch.de>
+References: <200609271726.34305.mb@bu3sch.de> <20060928163135.GH8121@knob.reflex> <451C0090.10109@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_000_00D0_01C6E2FD.BB6B6A20"
-Cc: netdev@vger.kernel.org
-Return-path: <end2end-interest-bounces@postel.org>
-To: <end2end-interest@postel.org>
-List-Unsubscribe: <http://mailman.postel.org/mailman/listinfo/end2end-interest>,
-	<mailto:end2end-interest-request@postel.org?subject=unsubscribe>
-List-Archive: <http://mailman.postel.org/pipermail/end2end-interest>
-List-Post: <mailto:end2end-interest@postel.org>
-List-Help: <mailto:end2end-interest-request@postel.org?subject=help>
-List-Subscribe: <http://mailman.postel.org/mailman/listinfo/end2end-interest>,
-	<mailto:end2end-interest-request@postel.org?subject=subscribe>
-Sender: end2end-interest-bounces@postel.org
-Errors-To: end2end-interest-bounces@postel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, linville@tuxdriver.com,
+	netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>,
+	Jason Lunz <lunz@falooley.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52942
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751324AbWI1RPT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 13:15:19 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <451C0090.10109@lwfinger.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+On Thursday 28 September 2006 19:04, Larry Finger wrote:
+> Jason Lunz wrote:
+> > On Thu, Sep 28, 2006 at 10:52:24AM -0500, Larry Finger wrote:
+> >> I had very good luck with my first AP, a Linksys WRT54G V1, that I
+> >> bought a second when the power supply failed in the first. Little did
+> >> I know that a VxWorks license costs less than the extra memory needed
+> >> to run Linux. Or was it to defeat the open-source alternatives for the
+> >> AP?
+> > 
+> > last I checked, linksys (cisco?) still sells the linux-compatible
+> > version as the WRT54GL. <- note the extra 'L'.
+> 
+> I know, but have decided to stay with V5 (and bitch a lot) as others are likely to suffer from the 
+> same problems as I do. As many of them would never try alternate firmware, we need to provide the 
+> workarounds. If I'm using one of the brain-dead APs, I get the symptoms first hand and can tell when 
+> they are fixed.
 
-------=_NextPart_000_00D0_01C6E2FD.BB6B6A20
-Content-Type: text/plain;
-	charset="ks_c_5601-1987"
-Content-Transfer-Encoding: quoted-printable
+Well. You say that it works with your AP and without my patch, but
+not with the patch. I'd say it works by pure luck. I don't think
+my patch changes any semantics. It just properly protects some
+parts from racing. Maybe you actually benefit from these races
+and softmac magically "races you the correct result" ;)
 
-Hi,
-I'd like to report on a measurement study regarding the stability of =
-various TCP variant protocols. Although we can find quite a bit of work =
-on fairness and convergence of protocols (including some theoretical =
-studies on the topic as well), there is relatively little work on =
-measuring the stability of protocols and its impact on protocol =
-performance and overall health of the networks (e.g., the overall queue =
-fluctions and link utilization). We have measured the degree of rate =
-oscillation and fluctuation of protocols to have some understanding of =
-protocol stability.=20
-We would like to share our results with you to get some feedback from =
-the community.=20
+Or do you notice something that changes semantics?
 
-We have some theoretical results and also experimental results. Here is =
-the link to the experimental results. You can find links to all of our =
-experimental data that include results from several hundred experiments.
-
-http://netsrv.csc.ncsu.edu/convex-ordering/
-
-If you need our report on theoretical results,  we can e-mail you the =
-report.
-Injong Rhee
-------=_NextPart_000_00D0_01C6E2FD.BB6B6A20
-Content-Type: text/html;
-	charset="ks_c_5601-1987"
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META http-equiv=3DContent-Type content=3D"text/html; =
-charset=3Dks_c_5601-1987">
-<META content=3D"MSHTML 6.00.2900.2963" name=3DGENERATOR>
-<STYLE></STYLE>
-</HEAD>
-<BODY bgColor=3D#ffffff>
-<DIV><FONT face=3DArial size=3D2>Hi,</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>I'd&nbsp;like to report on&nbsp;a =
-measurement=20
-study&nbsp;regarding the stability of various TCP variant protocols.=20
-Although&nbsp;we can find quite a bit of work&nbsp;on fairness and =
-convergence=20
-of protocols (including some&nbsp;theoretical studies on the topic as =
-well),=20
-there is relatively little work on measuring the stability of protocols =
-and its=20
-impact on protocol performance and overall health of the networks (e.g., =
-the=20
-overall queue fluctions and link utilization).&nbsp;We=20
-have&nbsp;measured&nbsp;the degree of rate oscillation and fluctuation =
-of=20
-protocols to have some understanding of protocol stability. =
-</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>We would like to share our results with =
-you to get=20
-some feedback from the community. </FONT></DIV>
-<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
-<DIV><FONT face=3DArial size=3D2>We have some theoretical results and =
-also=20
-experimental results. Here is the link to the experimental results. You =
-can find=20
-links to all of our experimental data that include results from several =
-hundred=20
-experiments.</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
-<DIV><FONT face=3DArial size=3D2><A=20
-href=3D"http://netsrv.csc.ncsu.edu/convex-ordering/">http://netsrv.csc.nc=
-su.edu/convex-ordering/</A></FONT></DIV>
-<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
-<DIV><FONT face=3DArial size=3D2>If you need our report on theoretical=20
-results,&nbsp; we can e-mail you the report.</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Injong Rhee</FONT></DIV></BODY></HTML>
-
-------=_NextPart_000_00D0_01C6E2FD.BB6B6A20--
+-- 
+Greetings Michael.
