@@ -1,52 +1,70 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Thu, 28 Sep 2006 12:40:08 -0500
-Message-ID: <451C08F8.5040201@lwfinger.net>
-References: <200609271726.34305.mb@bu3sch.de> <20060928163135.GH8121@knob.reflex> <451C0090.10109@lwfinger.net> <200609281914.17041.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, linville@tuxdriver.com,
-	netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>,
-	Jason Lunz <lunz@falooley.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
+Date: Thu, 28 Sep 2006 10:43:50 -0700
+Message-ID: <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com>
+References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben> <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com> <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com>
+Cc: "Or Gerlitz" <ogerlitz@voltaire.com>, netdev@vger.kernel.org,
+	"Roland Dreier" <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:34489 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1030319AbWI1RkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 13:40:16 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200609281914.17041.mb@bu3sch.de>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:36784 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030314AbWI1Rny
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 13:43:54 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8SHhrQ5030686
+	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 13:43:53 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8SHhr1X033312
+	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 11:43:53 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8SHhqB9012019
+	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 11:43:53 -0600
+To: "Or Gerlitz" <or.gerlitz@gmail.com>
+In-reply-to: <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Thursday 28 September 2006 19:04, Larry Finger wrote:
->> Jason Lunz wrote:
->>> On Thu, Sep 28, 2006 at 10:52:24AM -0500, Larry Finger wrote:
->>>> I had very good luck with my first AP, a Linksys WRT54G V1, that I
->>>> bought a second when the power supply failed in the first. Little did
->>>> I know that a VxWorks license costs less than the extra memory needed
->>>> to run Linux. Or was it to defeat the open-source alternatives for the
->>>> AP?
->>> last I checked, linksys (cisco?) still sells the linux-compatible
->>> version as the WRT54GL. <- note the extra 'L'.
->> I know, but have decided to stay with V5 (and bitch a lot) as others are likely to suffer from the 
->> same problems as I do. As many of them would never try alternate firmware, we need to provide the 
->> workarounds. If I'm using one of the brain-dead APs, I get the symptoms first hand and can tell when 
->> they are fixed.
-> 
-> Well. You say that it works with your AP and without my patch, but
-> not with the patch. I'd say it works by pure luck. I don't think
-> my patch changes any semantics. It just properly protects some
-> parts from racing. Maybe you actually benefit from these races
-> and softmac magically "races you the correct result" ;)
-> 
-> Or do you notice something that changes semantics?
-> 
+Or Gerlitz <or.gerlitz@gmail.com> wrote:
 
-No, only that the system recovers w/o your patch, and not with it. It could very well race to the 
-correct point. ATM, I have your patch back in and I'm trying to get more diagnostics in the logs. 
-I'll let you know.
+>On 9/27/06, Jay Vosburgh <fubar@us.ibm.com> wrote:
+>> Or Gerlitz <ogerlitz@voltaire.com> wrote:
+[...]
+>>         You almost want to have some kind of call to induce a reload
+>> from scratch of the multicast filter settings (along with whatever else
+>> might be necessary to alter the hardware type on the fly), to be called
+>> by bonding at the time the first slave is added (since slave adds happen
+>> in user context, and can therefore hold rtnl as required by most of the
+>> multicast address handling code).  That seems less hassle than having to
+>> specify the hardware type and address length at module load time.
+>
+>I agree that it would be better to avoid doing it this way.
 
-Larry
+	Actually, it would be ideal to do it this way in all cases, as
+the change of hardware type is the biggest hurdle to cross-hardware
+bonding instances.  The current infrastructure simply won't allow it,
+though, since bonding failover events usually occur in a timer context
+(if memory serves, timers run in softirq and can't acquire rtnl).
 
+[...]
+>>         Other random thoughts on how to resolve this include modifying
+>> bonding to accept slaves when the master is down (which would also
+>> require changes to the initscripts that normally configure bonding), so
+>> that the initial setting of the, e.g., 224.0.0.1 multicast hardware
+>> address happens to the already-changed hardware type.
+>
+>OK, this is a direction i would like to check. Can be nice if you
+>provide me with a 1-2 liner of directions on what need to be changed
+>to enable bonding to accept slaves when it down.
+
+	I don't think right offhand this would be a particularly
+difficult change; the "up" operation for bonding mostly just starts up
+various timers.  A few minutes poking around doesn't reveal anything
+obvious that would hinder enslaving with the master down.  You'll have
+to change ifenslave and the sysfs code to allow enslaves with the master
+down; that might be all that's needed for bonding itself.  Changing
+/sbin/ifup and friends is a separate problem.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
