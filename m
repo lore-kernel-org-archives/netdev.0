@@ -1,51 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
-Date: Thu, 28 Sep 2006 16:04:58 -0700 (PDT)
-Message-ID: <20060928.160458.00452499.davem@davemloft.net>
-References: <20060928083645.786b1ab1@freekitty>
-	<20060928.143304.83622307.davem@davemloft.net>
-	<20060928155052.63ed5ce8@freekitty>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: sky2 (was Re: 2.6.18-mm2)
+Date: Thu, 28 Sep 2006 19:07:05 -0400
+Message-ID: <451C5599.80402@garzik.org>
+References: <20060928155053.7d8567ae.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Cc: Andrew Morton <akpm@osdl.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10633
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751027AbWI1XE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 19:04:56 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060928155052.63ed5ce8@freekitty>
+Received: from srv5.dvmed.net ([207.36.208.214]:14224 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1750826AbWI1XHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 19:07:11 -0400
+To: oe@hentges.net
+In-Reply-To: <20060928155053.7d8567ae.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Thu, 28 Sep 2006 15:50:52 -0700
+Andrew Morton wrote:
+> Another customer..
+> 
+> Begin forwarded message:
+> 
+> Date: Fri, 29 Sep 2006 00:44:01 +0200
+> From: Matthias Hentges <oe@hentges.net>
+> To: Andrew Morton <akpm@osdl.org>
+> Cc: linux-kernel@vger.kernel.org
+> Subject: Re: 2.6.18-mm2
+> 
+> 
+> Hello all,
+> 
+> I've just tested -mm2 on my C2D system and I'm getting a lot of these
+> messages:
+> 
+> "[  139.143807] printk: 131 messages suppressed.
+> [  139.148235] sky2 0000:03:00.0: pci express error (0x500547)"
+> 
+> Please note that the "sky2" driver has always been the black sheep on
+> that system due to regular full lock-ups of the driver, requiring a
+> rmmod sky2 + modprobe sky2 cycle.
+> 
+> This happens often enough to warrant writing a cronjob checking the
+> network and auto-rmmod'ing the module.....
+> 
+> While the above is bloody annoying at times (heh), the driver never
+> caused any messages like the ones I now get with -mm2 .
 
-> On Thu, 28 Sep 2006 14:33:04 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Stephen Hemminger <shemminger@osdl.org>
-> > Date: Thu, 28 Sep 2006 08:36:45 -0700
-> > 
-> > > Please figure out how to keep rtnetlink.h useful from user space.
-> > > I tried putting the current sanitized version of rtnetlink.h into
-> > > iproute2 and the build fails. 
-> > 
-> > Please give the error so I have a chance of fixing this.
-> 
-> If I put 2.6.19 headers in:
-> 
-> 
-> In file included from ../include/linux/rtnetlink.h:5,
->                  from ../include/libnetlink.h:6,
->                  from ll_map.c:23:
-> /usr/include/linux/if.h:117: error: redefinition of $,1rx(Bstruct ifmap$,1ry(B
-> /usr/include/linux/if.h:153: error: redefinition of $,1rx(Bstruct ifreq$,1ry(B
-> /usr/include/linux/if.h:203: error: redefinition of $,1rx(Bstruct ifconf$,1ry(B
+sky2 just turned on PCI Express error reporting, so it makes sense that 
+messages would appear.  The better question is whether this is a driver 
+problem, or a hardware problem.  With your "black sheep" comment, I 
+wonder if it isn't a hardware problem that's been hidden.
 
-Hmmm... we explicitly removed the "linux/if.h" inclusion from
-rtnetlink.h so this is weird.  Where is the linux/if.h include coming
-from?
+	Jeff
+
 
