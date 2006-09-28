@@ -1,50 +1,36 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Thu, 28 Sep 2006 19:14:16 +0200
-Message-ID: <200609281914.17041.mb@bu3sch.de>
-References: <200609271726.34305.mb@bu3sch.de> <20060928163135.GH8121@knob.reflex> <451C0090.10109@lwfinger.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: simplify microsecond rtt sampling
+Date: Thu, 28 Sep 2006 09:36:50 -0700
+Message-ID: <20060928093650.179dab92@freekitty>
+References: <451A5EC9.6090001@psc.edu>
+	<451A9519.6000504@psc.edu>
+	<451BC184.1000707@psc.edu>
+	<451BC460.8080902@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, linville@tuxdriver.com,
-	netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>,
-	Jason Lunz <lunz@falooley.org>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52942
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751324AbWI1RPT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 13:15:19 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <451C0090.10109@lwfinger.net>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:23754 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751955AbWI1RRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 13:17:52 -0400
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <451BC460.8080902@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 28 September 2006 19:04, Larry Finger wrote:
-> Jason Lunz wrote:
-> > On Thu, Sep 28, 2006 at 10:52:24AM -0500, Larry Finger wrote:
-> >> I had very good luck with my first AP, a Linksys WRT54G V1, that I
-> >> bought a second when the power supply failed in the first. Little did
-> >> I know that a VxWorks license costs less than the extra memory needed
-> >> to run Linux. Or was it to defeat the open-source alternatives for the
-> >> AP?
-> > 
-> > last I checked, linksys (cisco?) still sells the linux-compatible
-> > version as the WRT54GL. <- note the extra 'L'.
+On Thu, 28 Sep 2006 13:47:28 +0100
+John Heffner <jheffner@psc.edu> wrote:
+
+> Sigh.  Here's one that's not corrupted.  And for the record:
 > 
-> I know, but have decided to stay with V5 (and bitch a lot) as others are likely to suffer from the 
-> same problems as I do. As many of them would never try alternate firmware, we need to provide the 
-> workarounds. If I'm using one of the brain-dead APs, I get the symptoms first hand and can tell when 
-> they are fixed.
+> 
+> This changes the microsecond RTT sampling so that samples are taken in 
+> the same way that RTT samples are taken for the RTO calculator: on the 
+> last segment acknowledged, and only when the segment hasn't been 
+> retransmitted.
+> 
+> 
+> Signed-off-by: John Heffner <jheffner@psc.edu>
 
-Well. You say that it works with your AP and without my patch, but
-not with the patch. I'd say it works by pure luck. I don't think
-my patch changes any semantics. It just properly protects some
-parts from racing. Maybe you actually benefit from these races
-and softmac magically "races you the correct result" ;)
-
-Or do you notice something that changes semantics?
-
--- 
-Greetings Michael.
+Looks ok. I wish skbuff timestamp was converted to ktime.
