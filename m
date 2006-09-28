@@ -1,47 +1,66 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: softmac mtu
-Date: Thu, 28 Sep 2006 08:45:15 -0700
-Message-ID: <20060928154515.GA9615@instant802.com>
-References: <ef3s4u$or5$3@sea.gmane.org> <1159365434.451a833ae7728@imp3-g19.free.fr> <1159365316.2698.40.camel@ux156> <200609281735.17616.mb@bu3sch.de>
+Date: Thu, 28 Sep 2006 17:47:12 +0200
+Message-ID: <1159458432.2648.38.camel@ux156>
+References: <ef3s4u$or5$3@sea.gmane.org>
+	 <1159365434.451a833ae7728@imp3-g19.free.fr>
+	 <1159365316.2698.40.camel@ux156>  <200609281735.17616.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Jiri Benc <jbenc@suse.cz>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	netdev@vger.kernel.org, castet.matthieu@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-41.dex002.intermedia.net ([64.78.21.130]:12496 "EHLO
-	dhost002-41.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S965058AbWI1PpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 11:45:22 -0400
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35267 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S964948AbWI1Pqb
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 11:46:31 -0400
 To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
 In-Reply-To: <200609281735.17616.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2006 at 05:35:17PM +0200, Michael Buesch wrote:
-> On Wednesday 27 September 2006 15:55, Johannes Berg wrote:
-> > On Wed, 2006-09-27 at 15:57 +0200, castet.matthieu@free.fr wrote:
-> > > Also I wonder what should be the max mtu.
-> > 
-> > 2304, I think, as that's
-> > synonym sMaxMsduLng Integer = 2304; /* max octets in an MSDU */
-> > 
-> > But maybe I'm interpreting the spec wrongly?
-> 
-> Yes, I think so. ;)
-> 
+On Thu, 2006-09-28 at 17:35 +0200, Michael Buesch wrote:
+
 > I am pretty sure this is the maximum _fragment_ size.
+
+But then why does it talk of MPDU and MSDU?
+
+from 802.11:
+
+synonym sMaxMsduLng Integer = 2304; /* max octets in an MSDU */
+
+synonym sMaxMpduLng Integer =         /* max octets in an MPDU */
+  (sMaxMsduLng + sMacHdrLng + sWdsAddLng + sWepAddLng + sCrcLng);
+
+synonym sMinFragLng Integer = 256; /* min value for aMpduMaxLength */
+synonym sMaxFragNum Integer =        /* maximum fragment number */
+  (sMaxMsduLng / (sMinFragLng - sMacHdrLng - sCrcLng));
+
+The last calculation implies that each frame can only be up to
+sMaxMsduLng octets long even when fragmented.
+
+also cf. 9.1.4:
+
+   9.1.4 Fragmentation/defragmentation overview
+
+   The process of partitioning a MAC service data unit (MSDU) or a MAC
+   management protocol data unit (MMPDU) into smaller MAC level frames,
+   MAC protocol data units (MPDUs), is called fragmentation.
+   Fragmentation creates MPDUs smaller than the original MSDU or MMPDU
+   length to increase reliability, by increasing the probability of
+   successful transmission of the MSDU or MMPDU in cases where channel
+   characteristics limit reception reliability for longer frames.
+
+IOW, I read it as an MSDU is the data that is supposed to be transmitted
+over the link and that can be at most 2304 bytes long, and then it may
+be fragmented or not and is then copied into (an) MPDU(s).
+
 > But each packet (which max size is defined by the MTU) can
 > be fragmented. I don't know if there's a limit on the max
 > number of frags.
 
-No it's not. How about reading the standard.. ;-) Take a look at how
-MSDU and MPDU are defined.. MSDU can be fragmented into smaller MPDUs,
-but the limit here is indeed for MSDU, not MPDU. In other words,
-fragmentation in IEEE 802.11 is different from fragmentation in IP and
-it is also used for different purpose.
+There's only a 4 bit fragment counter ;) However, see above.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+johannes
