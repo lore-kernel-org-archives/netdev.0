@@ -1,43 +1,35 @@
-From: cagri coltekin <cagri@ripe.net>
-Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
-Date: Thu, 28 Sep 2006 10:40:18 +0200
-Message-ID: <20060928084018.GA15141@ripe.net>
-References: <20060827142347.GA20092@ripe.net> <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net> <20060829082828.GA8625@gondor.apana.org.au> <20060831151243.GJ3590@ripe.net> <20060901070557.GA15731@gondor.apana.org.au> <20060901162248.GI19284@ripe.net> <20060925121530.GC18667@gondor.apana.org.au> <20060926112122.GU22330@ripe.net> <20060928003829.GA8952@gondor.apana.org.au>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: tc related lockdep warning.
+Date: Thu, 28 Sep 2006 11:07:28 +0200
+Message-ID: <20060928090728.GB1820@ff.dom.local>
+References: <45195219.7050105@trash.net> <20060926212034.GA3134@redhat.com> <451A6968.2090607@trash.net> <20060927.165304.116354998.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, davej@redhat.com, hadi@cyberus.ca,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x10.ripe.net ([193.0.1.10]:41155 "EHLO x10.ripe.net")
-	by vger.kernel.org with ESMTP id S1751784AbWI1IkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 04:40:20 -0400
-To: Herbert Xu <herbert.xu@redhat.com>
+Received: from mx10.go2.pl ([193.17.41.74]:27810 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1751772AbWI1JDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 05:03:08 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060928003829.GA8952@gondor.apana.org.au>
+In-Reply-To: <20060927.165304.116354998.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2006 at 10:38:29AM +1000, Herbert Xu wrote:
-> On Tue, Sep 26, 2006 at 01:21:22PM +0200, cagri coltekin wrote:
-> >
-> > ------------------------------------------------------------------------------
-> > [ 1395.890897] ------------[ cut here ]------------
-> > [ 1395.946093] kernel BUG at net/ipv6/ip6_output.c:940!
+On Wed, Sep 27, 2006 at 04:53:04PM -0700, David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 27 Sep 2006 14:07:04 +0200
+...
+> Although the HTB bug is post-2.6.18, the other issue has been
+> around for a long time.
 > 
-> Could you go further back in the logs to see if there was a
-> warning message? Either that or turn the WARN_ON into a BUG.
+> Thus I'll need to submit the second patch to -stable, but I want
+> it to cook in Linus's tree for a few days before I do that.
 
-No. Bug is the first after boot:
+I don't know which version of act_police.c is planned for
+2.6.18 -stable but I think it would be nice to fix the
+original bug of this thread in 2.6.17 etc.
+So I remind the proposal of read_lock_bh in tcf_police_lookup. 
 
-[   34.042841] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-[   44.110469] eth0: no IPv6 routers present
-[   80.968012] process `syslogd' is using obsolete setsockopt SO_BSDCOMPAT
-[   81.452248] process `named' is using obsolete setsockopt SO_BSDCOMPAT
-[  110.559560] process `lwresd' is using obsolete setsockopt SO_BSDCOMPAT
-[  140.568831] process `named' is using obsolete setsockopt SO_BSDCOMPAT
-[ 1395.890897] ------------[ cut here ]------------
-[ 1395.946093] kernel BUG at net/ipv6/ip6_output.c:940!
-[ 1396.005441] invalid opcode: 0000 [#1]
-
-Cheers,
--- 
-cagri
+Jarek P.
