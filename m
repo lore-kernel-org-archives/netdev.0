@@ -1,61 +1,43 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Thu, 28 Sep 2006 14:55:53 +0200
-Message-ID: <200609281455.53763.mb@bu3sch.de>
-References: <200609271726.34305.mb@bu3sch.de> <200609271950.47430.mb@bu3sch.de> <451B4AF6.3090203@lwfinger.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [PATCH 0/1] atl1: New driver, Attansic L1 Gigabit Ethernet
+Date: Thu, 28 Sep 2006 08:03:04 -0500
+Message-ID: <20060928130304.GA4775@osprey.hogchain.net>
+References: <20060927132119.GB11922@osprey.hogchain.net> <20060928065912.GA6647@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:17793
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1161109AbWI1M4H
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 08:56:07 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <451B4AF6.3090203@lwfinger.net>
+Received: from imf16aec.mail.bellsouth.net ([205.152.59.64]:61152 "EHLO
+	imf16aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
+	id S1751015AbWI1NDG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 09:03:06 -0400
+Received: from ibm58aec.bellsouth.net ([70.144.210.103])
+          by imf16aec.mail.bellsouth.net with ESMTP
+          id <20060928130305.FAZY7969.imf16aec.mail.bellsouth.net@ibm58aec.bellsouth.net>
+          for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 09:03:05 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
+In-Reply-To: <20060928065912.GA6647@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 28 September 2006 06:09, Larry Finger wrote:
-> Michael Buesch wrote:
-> > On Wednesday 27 September 2006 18:18, Larry Finger wrote:
-> >> Michael Buesch wrote:
-> >>> This fixes some race conditions in the WirelessExtension
-> >>> handling and association handling code.
-> >>>
-> >>> Signed-off-by: Michael Buesch <mb@bu3sch.de>
-> >>>
-> >>> ---
-> >> This patch doesn't apply.
-> > 
-> > Oh, linville merged stuff on the 25th. That's the day I updated
-> > my tree to do this patch. But seems like I did it just before
-> > the merge.
-> > Who could suspect that linville merges something. :D
-> > *me runs away*
-> > 
-> > Anyway. Here's an updated patch.
+On Thu, Sep 28, 2006 at 08:59:12AM +0200, Francois Romieu wrote:
+> Jay Cliburn <jacliburn@bellsouth.net> :
+> > Apologies:  I neglected to cc netdev on the initial message.
 > 
-> NACK this version. It applied correctly, but introduced a new problem. My device occasionally gets 
-> deauthentication messages from my AP.Preciously, it would do a scan or two, and then reauthenticate. 
-> After your patch was applied, it never stops scanning.
+> No patch here (netdev, l-k subscribed).
+> 
+> Can you publish the patch somewhere ?
 
-Oh, well... It's impossible to completely fix softmac race issues.
-I am _not_ going to rewrite huge parts of softmac to get locking
-working. If you want this to be fixed, please hack up a solution by
-yourself. I'm really not going to do more work on softmac. This
-has various reasons. 1) I cannot reproduce all these bugs I'm hunting
-2) Time is spent better at d80211 or other projects.
+At 200ish kbytes, the patch was apparently too large for the lists.  The
+version I sent to the lists may be found at:
 
-But to debug the problem:
-Why do you get deauth messages? Broken AP?
-I'd say that it's _correct_ behaviour to stop working
-after getting a deauth ;). wpa_supplicant is responsible to re-auth.
-Why doesn't it re-auth? Or does it do and it just doesn't work as
-expected?
+ftp://hogchain.net/pub/linux/m2v/attansic/kernel_driver/obsolete/20060927_full_atl1.patch.gz
 
--- 
-Greetings Michael.
+You will note that it's in a directory called "obsolete."  That's
+because it is undergoing significant rework based on shemminger's
+comments and other considerations.
+
+A new version will be posted in the upcoming days.
+
+Jay
