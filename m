@@ -1,53 +1,57 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: kernel: TKIP: replay detected:
-Date: Thu, 28 Sep 2006 09:08:34 -0700
-Message-ID: <20060928160834.GC9615@instant802.com>
-References: <20060924104053.GA6645@frodo.home.lxtec.de> <20060925144954.GC16949@tuxdriver.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Re the default linux tcp algorithm being changed from bic to
+ cubic.
+Date: Thu, 28 Sep 2006 08:32:35 -0700
+Message-ID: <20060928083235.77785a2c@freekitty>
+References: <451B9ED6.9090208@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-45.dex002.intermedia.net ([64.78.21.137]:41081 "EHLO
-	dhost002-45.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S932462AbWI1QIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 12:08:39 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
-In-Reply-To: <20060925144954.GC16949@tuxdriver.com>
+Received: from smtp.osdl.org ([65.172.181.4]:53423 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751328AbWI1QN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 12:13:29 -0400
+To: Douglas Leith <doug.leith@nuim.ie>
+In-Reply-To: <451B9ED6.9090208@nuim.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2006 at 10:50:00AM -0400, John W. Linville wrote:
-> On Sun, Sep 24, 2006 at 12:40:53PM +0200, Elimar Riesebieter wrote:
+On Thu, 28 Sep 2006 11:07:18 +0100
+Douglas Leith <doug.leith@nuim.ie> wrote:
 
-> > My sylog is filled up with thousands of:
-> > Sep 21 18:18:00 aragorn kernel: TKIP: replay detected: \
-> > STA=XX:XX:BB:LL:KK:00 previous TSC 00000000BLAa received TSC 00000000BLAa
+> Content-Type: text/plain; charset=UTF-8; format=flowed
+> Content-Transfer-Encoding: 7bit
+> 
+> Steve,
+> 
+> I think we're all conscious of the fact that recent history contains 
+> quite a number of proposals for changes to tcp's congestion control 
+> algorithm for high bandwidth-delay product paths that on closer 
+> inspection have proved problematic in one way or another.   It seems to 
+> be a hard problem to solve, so maybe that's fair enough and hopefully 
+> we'll end up with a workable solution soon.
+> 
+> Where I'm coming from here though is that bic was made the linux default 
+> a year or so ago at a time when there were essentially no tests 
+> available on its performance other than the infocom paper by Injong. 
+> Subsequent tests have since highlighted a bunch of issues with bic.  To 
+> my knowledge, we're currently in a similar situation with cubic as we 
+> were with bic back then i.e. essentially no independent tests 
+> investigating its behaviour.
+> 
+> Of course I know Injong has posted some test results, but these are 
+> hardly independent as he's the author of both bic and cubic.  Have there 
+> perhaps been private tests carried out (e.g. by osdl) ?  If so, would it 
+> be possible to make them public ?  If not, well that would be good to 
+> know too.
+> 
+> Doug
+> 
+> Hamilton Institute
+> www.hamilton.ie
 
-> Opinion seems to be running that these messages are useless and should
-> be removed.  Anyone disagree?
-
-Yes, I disagree (again). In most cases, these are indication of an
-implementation error. The problem here is that this issue may be at the
-end of the connection. Anyway, if we are seeing large numbers of replays
-detected with the same TSC/PN, I would suggest verifying that the IEEE
-802.11 duplicate detection is working correctly in the driver that is
-reporting these replays.
-
-TKIP/CCMP are required to use incrementing TSC/PN for each frame. When a
-directed IEEE 802.11 frame is not acknowledged, it will be retransmitted
-(up to a certain limit). This retransmitted frame will use the same
-TSC/PN. However, the duplicate detection routine in the receiver
-(something that happens before TKIP/CCMP processing) should catch these
-cases since the frames from the same source address that use the same
-seq# and fragm# should be dropped at that layer.
-
-If it can be shown, that these errors are indeed caused by a broken
-transmitter (and that transmitter is not a Linux device for which we
-control the driver code ;-), I would be much more willing to accept
-patches that silence these messages (as long as the replay statistics
-are easily available in other ways) by default, but I would still not
-remove them completely.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+To get some exposure, how about moving the cubic patch off to -mm
+kernel tree for one release, and leave BIC as the default for 2.6.19
