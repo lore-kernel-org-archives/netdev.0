@@ -1,57 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Re the default linux tcp algorithm being changed from bic to
- cubic.
-Date: Thu, 28 Sep 2006 08:32:35 -0700
-Message-ID: <20060928083235.77785a2c@freekitty>
-References: <451B9ED6.9090208@nuim.ie>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: softmac mtu
+Date: Thu, 28 Sep 2006 09:13:32 -0700
+Message-ID: <20060928161332.GD9615@instant802.com>
+References: <ef3s4u$or5$3@sea.gmane.org> <1159365434.451a833ae7728@imp3-g19.free.fr> <1159365316.2698.40.camel@ux156> <200609281735.17616.mb@bu3sch.de> <1159458432.2648.38.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>, Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, castet.matthieu@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53423 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751328AbWI1QN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 12:13:29 -0400
-To: Douglas Leith <doug.leith@nuim.ie>
-In-Reply-To: <451B9ED6.9090208@nuim.ie>
+Received: from dhost002-33.dex002.intermedia.net ([64.78.21.118]:154 "EHLO
+	dhost002-33.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751328AbWI1QNm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 12:13:42 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1159458432.2648.38.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2006 11:07:18 +0100
-Douglas Leith <doug.leith@nuim.ie> wrote:
+On Thu, Sep 28, 2006 at 05:47:12PM +0200, Johannes Berg wrote:
+> On Thu, 2006-09-28 at 17:35 +0200, Michael Buesch wrote:
+> 
+> > I am pretty sure this is the maximum _fragment_ size.
+> 
+> But then why does it talk of MPDU and MSDU?
 
-> Content-Type: text/plain; charset=UTF-8; format=flowed
-> Content-Transfer-Encoding: 7bit
-> 
-> Steve,
-> 
-> I think we're all conscious of the fact that recent history contains 
-> quite a number of proposals for changes to tcp's congestion control 
-> algorithm for high bandwidth-delay product paths that on closer 
-> inspection have proved problematic in one way or another.   It seems to 
-> be a hard problem to solve, so maybe that's fair enough and hopefully 
-> we'll end up with a workable solution soon.
-> 
-> Where I'm coming from here though is that bic was made the linux default 
-> a year or so ago at a time when there were essentially no tests 
-> available on its performance other than the infocom paper by Injong. 
-> Subsequent tests have since highlighted a bunch of issues with bic.  To 
-> my knowledge, we're currently in a similar situation with cubic as we 
-> were with bic back then i.e. essentially no independent tests 
-> investigating its behaviour.
-> 
-> Of course I know Injong has posted some test results, but these are 
-> hardly independent as he's the author of both bic and cubic.  Have there 
-> perhaps been private tests carried out (e.g. by osdl) ?  If so, would it 
-> be possible to make them public ?  If not, well that would be good to 
-> know too.
-> 
-> Doug
-> 
-> Hamilton Institute
-> www.hamilton.ie
+Maybe because your understanding is closer to what the standard says..
+;-)
 
-To get some exposure, how about moving the cubic patch off to -mm
-kernel tree for one release, and leave BIC as the default for 2.6.19
+> IOW, I read it as an MSDU is the data that is supposed to be transmitted
+> over the link and that can be at most 2304 bytes long, and then it may
+> be fragmented or not and is then copied into (an) MPDU(s).
+
+Yes.
+
+> > But each packet (which max size is defined by the MTU) can
+> > be fragmented. I don't know if there's a limit on the max
+> > number of frags.
+> 
+> There's only a 4 bit fragment counter ;) However, see above.
+
+And 4 bits is quite enough for sending the maximum number of fragments
+which is currently about 10 (256 octet min frag len and 2304 max MSDU
+len with some extra needed to cover the extra header in each fragment).
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
