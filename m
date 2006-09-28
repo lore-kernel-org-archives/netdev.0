@@ -1,88 +1,70 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: tc related lockdep warning.
-Date: Thu, 28 Sep 2006 07:20:00 -0700
-Message-ID: <20060928072000.014009f2@freekitty>
-References: <20060925124352.GA1592@ff.dom.local>
-	<1159188473.5301.68.camel@jzny2>
-	<4517D9A6.70307@trash.net>
-	<45195219.7050105@trash.net>
-	<20060926212034.GA3134@redhat.com>
-	<20060927085427.GA1619@ff.dom.local>
-	<451BBD6F.6020007@trash.net>
-	<20060928131301.GB3283@ff.dom.local>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Thu, 28 Sep 2006 17:13:20 +0200
+Message-ID: <200609281713.21082.mb@bu3sch.de>
+References: <200609271726.34305.mb@bu3sch.de> <200609281643.04631.mb@bu3sch.de> <1159455169.2642.30.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Dave Jones <davej@redhat.com>,
-	hadi@cyberus.ca, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:36498 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751907AbWI1PBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 11:01:33 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20060928131301.GB3283@ff.dom.local>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:19119
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751203AbWI1PNa
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 11:13:30 -0400
+To: Dan Williams <dcbw@redhat.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1159455169.2642.30.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2006 15:13:01 +0200
-Jarek Poplawski <jarkao2@o2.pl> wrote:
-
-> On Thu, Sep 28, 2006 at 02:17:51PM +0200, Patrick McHardy wrote:
-> > [My mail provider is down, so responding "manually"]
+On Thursday 28 September 2006 16:52, Dan Williams wrote:
+> On Thu, 2006-09-28 at 16:43 +0200, Michael Buesch wrote:
+> > On Thursday 28 September 2006 16:37, Dan Williams wrote:
+> > > On Thu, 2006-09-28 at 16:27 +0200, Johannes Berg wrote:
+> > > > On Thu, 2006-09-28 at 10:19 -0400, Dan Williams wrote:
+> > > > 
+> > > > > I'd buy that argument.  When the driver gets the deauth message,
+> > > > > shouldn't it be sending an IWAP 00:00:00:00:00:00 wireless event to
+> > > > > userspace?
+> > > > 
+> > > > I thought we did that since a long time now, didn't you actually develop
+> > > > the initial patch?
+> > > 
+> > > Yes, I think I did.  My point here wasn't that the driver is _not_
+> > > sending those messages (it almost certainly is), but what's _implied_ by
+> > > those messages.  Namely that, if you're using a tool like wpa_supplicant
+> > > and/or NM, when you get a deauth from the AP and send the IWAP event,
+> > > all bets are off because the tool will likely override whatever the
+> > > driver thinks its doing.
+> > > 
+> > > I'm somewhat ambiguous on just how much policy a driver should try to
+> > > enforce.  I guess I'm OK with reassociation with the _same_ credentials.
+> > > But what airo does with "auto_wep" is very nearly, if not completely,
+> > > crossing the line [1].  The real question is, how much should drivers
+> > > really do, and how much should they leave to userspace?
 > > 
-> > Jarek Poplawski wrote:
-> > > > [NET_SCHED]: Fix fallout from dev->qdisc RCU change
-> > >
-> > > Sorry again but I can't abstain from some doubts:
-> > >
-> > > ...
-> > > > diff --git a/net/core/dev.c b/net/core/dev.c
-> > > > index 14de297..4d891be 100644
-> > > > --- a/net/core/dev.c
-> > > > +++ b/net/core/dev.c
-> > > > @@ -1480,14 +1480,16 @@ #endif
-> > > >  	if (q->enqueue) {
-> > > >  		/* Grab device queue */
-> > > >  		spin_lock(&dev->queue_lock);
-> > > > +		q = dev->qdisc;
-> > >
-> > > I don't get it. If it is some anti-race step according to
-> > > rcu rules it should be again:
-> > > q = rcu_dereference(dev->qdisc);
-> > 
-> > At this point RCU protection is not needed anymore since we
-> > have the lock. We simply want to avoid taking the lock for
-> > devices that don't have a real qdisc attached (like loopback).
-> > Thats what the test for q->enqueue is there for. RCU is only
-> > needed to avoid races between testing q->enqueue and freeing
-> > of the qdisc.
+> > IMO a driver should implement absolutely _zero_ policy, as this
+> > is the only way to get the same (default) policy for different
+> > cards. A driver should _only_ provide generic events for
+> > userspace tools to make decisions.
+> > A "I got a deauth" event is really enough for userspace to
+> > know what to do.
 > 
-> But in Documentation/RCU/whatisRCU.txt I see this:
-> 
->         /*
->          * Return the value of field "a" of the current gbl_foo
->          * structure.  Use rcu_read_lock() and rcu_read_unlock()
->          * to ensure that the structure does not get deleted out
->          * from under us, and use rcu_dereference() to ensure that
->          * we see the initialized version of the structure (important
->          * for DEC Alpha and for people reading the code).
->          */
->         int foo_get_a(void)
->         {
->                 int retval;
-> 
->                 rcu_read_lock();
->                 retval = rcu_dereference(gbl_foo)->a;
->                 rcu_read_unlock();
->                 return retval;
->         }
-> 
+> As a counterpoint, does every developer _really_ want to run
+> wpa_supplicant just to use a WEP-encrypted connection where you may
+> occasionally get kicked off?
 
-The example uses rcu_read_lock() which is a weaker form of protection
-than a real lock, so the rcu_dereference() is needed to do memory barriers.
+I think that's the way we want to take. Even for unencrypted networks,
+probably. We want as much as possible of the high level MAC
+implementation in userspace. Remember the summit and Simon's talk?
+It was a good talk and made a lot of sense.
 
-In the qdisc case we have the proper spin_lock() so no additional
-barrier is needed.
+This userspace implementation should probably renamed from wpa_supplicant
+to wireless_supplicant or whatever.
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+Greetings Michael.
