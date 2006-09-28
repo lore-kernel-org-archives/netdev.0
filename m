@@ -1,64 +1,38 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC][PATCH 1/3] enable bonding to enslave non ARPHRD_ETHER netdevices
-Date: Thu, 28 Sep 2006 10:02:40 -0700
-Message-ID: <200609281702.k8SH2eZt024937@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261316420.24189@zuben> <200609261923.k8QJNLZt021182@death.nxdomain.ibm.com> <15ddcffd0609271259o31cd0d20r9bfea4cf2ec979b4@mail.gmail.com>
-Cc: "Or Gerlitz" <ogerlitz@voltaire.com>, netdev@vger.kernel.org,
-	"Roland Dreier" <rdreier@cisco.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Thu, 28 Sep 2006 12:04:16 -0500
+Message-ID: <451C0090.10109@lwfinger.net>
+References: <200609271726.34305.mb@bu3sch.de> <1159455169.2642.30.camel@localhost.localdomain> <451BE74F.3010908@lwfinger.net> <200609281135.24720.flamingice@sourmilk.net> <451BEFB8.8000402@lwfinger.net> <20060928163135.GH8121@knob.reflex>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, Michael Buesch <mb@bu3sch.de>,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:43963 "EHLO
-	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751940AbWI1RCq
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 13:02:46 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8SH2h4D019622
-	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 13:02:43 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8SH2hkC339574
-	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 11:02:43 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8SH2haD024445
-	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 11:02:43 -0600
-To: "Or Gerlitz" <or.gerlitz@gmail.com>
-In-reply-to: <15ddcffd0609271259o31cd0d20r9bfea4cf2ec979b4@mail.gmail.com> 
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:37525 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751942AbWI1REn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 13:04:43 -0400
+To: Jason Lunz <lunz@falooley.org>
+In-Reply-To: <20060928163135.GH8121@knob.reflex>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz <or.gerlitz@gmail.com> wrote:
+Jason Lunz wrote:
+> On Thu, Sep 28, 2006 at 10:52:24AM -0500, Larry Finger wrote:
+>> I had very good luck with my first AP, a Linksys WRT54G V1, that I
+>> bought a second when the power supply failed in the first. Little did
+>> I know that a VxWorks license costs less than the extra memory needed
+>> to run Linux. Or was it to defeat the open-source alternatives for the
+>> AP?
+> 
+> last I checked, linksys (cisco?) still sells the linux-compatible
+> version as the WRT54GL. <- note the extra 'L'.
 
->On 9/26/06, Jay Vosburgh <fubar@us.ibm.com> wrote:
->> Or Gerlitz <ogerlitz@voltaire.com> wrote:
->> [...]
->> +       bond->dev->mtu              = new_active->dev->mtu;
->>
->>         This won't generate a NETDEV_CHANGEMTU notifier event.
->
->What is actually the trigger for the event with the current impl? is
->the code that actually calls dev_set_mtu() on the bonding device or
->dev_set_mtu() itself?
+I know, but have decided to stay with V5 (and bitch a lot) as others are likely to suffer from the 
+same problems as I do. As many of them would never try alternate firmware, we need to provide the 
+workarounds. If I'm using one of the brain-dead APs, I get the symptoms first hand and can tell when 
+they are fixed.
 
-	My comment wasn't quite totally thought out; pretend you didn't
-see it.
-
-	I think what would be better overall is to handle the mtu for
-this case the way bonding handles the mtu for other slave devices.
-Normally, the mtu is pushed to the slaves from the bonding master, not
-the other way around.  So, you don't want to assign the master's mtu
-here; the slave mtu should already be up to date (and set to whatever
-the master's mtu is via the usual mechanism, bond_change_mtu for
-changes, or set in the slave at enslavement time).
-
-[...]
->So at the bottom line, i would go on enhancing my patch not to allow
->bonding together devices of different types or at least if you don't
->mind, not to allow putting ARPHRD_INFINIBAND with
->non-ARPHRD_INFINIBAND devices in the same bond.
-
-	I think this (disallowing bonding of dissimilar ARPHRD types) is
-the way to go, at least in the short term.  Get it to work for the
-common case first, then deal with the fringe stuff later.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Larry
