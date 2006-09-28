@@ -1,109 +1,54 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH 2.6.19-rc1] ehea bug fix (port state notification, default queue sizes)
-Date: Thu, 28 Sep 2006 12:44:40 +0200
-Message-ID: <200609281244.40887.ossthema@de.ibm.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 2/7] d80211: add support for SIOCSIWRATE and SIOCGIWRATE
+Date: Thu, 28 Sep 2006 13:38:24 +0200
+Message-ID: <20060928133824.0cb2aa78@logostar.upir.cz>
+References: <44F355EE.3090607@linux.intel.com>
+	<20060830171919.GC18041@instant802.com>
+	<20060921184021.1fb7fa6e@logostar.upir.cz>
+	<4512C4FB.5010704@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:19093 "EHLO
-	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1161086AbWI1La0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 07:30:26 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:53422 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S965362AbWI1Lib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 07:38:31 -0400
+To: mabbas <mabbas@linux.intel.com>
+In-Reply-To: <4512C4FB.5010704@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+On Thu, 21 Sep 2006 09:59:39 -0700, mabbas wrote:
+> I can not see how does it break per-STA TX rate limit, especially 
+> PRISM2_HOSTAPD_SET_RATE_SETS almost doing the same thing. I am not saying
+> the patch is correct I just want to know how to fix it to get it in.
 
-this patch includes a bug fix for the port state notification
-and fixes the default queue sizes.
+As Jouni wrote, it's not useful to change the per-radio rate table. You
+want to limit the rates you are using to communicate with the current AP
+while not limiting other virtual interfaces. (Imagine you have the card
+that is capable to associate to two APs at the same time. You don't want to
+limit rates for both APs with SIOCSIWRATE.)
 
-Thanks,
-Jan-Bernd
+To do that I think the following is needed:
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
----
- drivers/net/ehea/ehea.h      |   13 +++++++------
- drivers/net/ehea/ehea_main.c |    6 +++---
- 2 files changed, 10 insertions(+), 9 deletions(-)
+1. Add 'allowed_rates' field to struct sta_info. It defaults to 0xffffffff.
+(Or perhaps call it 'disabled_rates' and make it default to 0.)
 
+2. The SIOCSIWRATE handler: If the interface is not in a STA mode, return
+-EOPNOTSUPP. Otherwise, modify the allowed_rates field of the sta entry
+belonging to the current AP.
 
-diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index 23b451a..b40724f 100644
---- a/drivers/net/ehea/ehea.h
-+++ b/drivers/net/ehea/ehea.h
-@@ -39,7 +39,7 @@ #include <asm/abs_addr.h>
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0028"
-+#define DRV_VERSION	"EHEA_0034"
- 
- #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
- 	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
-@@ -50,6 +50,7 @@ #define EHEA_MAX_ENTRIES_RQ3 16383
- #define EHEA_MAX_ENTRIES_SQ  32767
- #define EHEA_MIN_ENTRIES_QP  127
- 
-+#define EHEA_SMALL_QUEUES
- #define EHEA_NUM_TX_QP 1
- 
- #ifdef EHEA_SMALL_QUEUES
-@@ -59,11 +60,11 @@ #define EHEA_DEF_ENTRIES_RQ1    4095
- #define EHEA_DEF_ENTRIES_RQ2    1023
- #define EHEA_DEF_ENTRIES_RQ3    1023
- #else
--#define EHEA_MAX_CQE_COUNT     32000
--#define EHEA_DEF_ENTRIES_SQ    16000
--#define EHEA_DEF_ENTRIES_RQ1   32080
--#define EHEA_DEF_ENTRIES_RQ2    4020
--#define EHEA_DEF_ENTRIES_RQ3    4020
-+#define EHEA_MAX_CQE_COUNT      4080
-+#define EHEA_DEF_ENTRIES_SQ     4080
-+#define EHEA_DEF_ENTRIES_RQ1    8160
-+#define EHEA_DEF_ENTRIES_RQ2    2040
-+#define EHEA_DEF_ENTRIES_RQ3    2040
- #endif
- 
- #define EHEA_MAX_ENTRIES_EQ 20
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 263d1c5..0edb2f8 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -769,7 +769,7 @@ static void ehea_parse_eqe(struct ehea_a
- 		if (EHEA_BMASK_GET(NEQE_PORT_UP, eqe)) {
- 			if (!netif_carrier_ok(port->netdev)) {
- 				ret = ehea_sense_port_attr(
--					adapter->port[portnum]);
-+					port);
- 				if (ret) {
- 					ehea_error("failed resensing port "
- 						   "attributes");
-@@ -821,7 +821,7 @@ static void ehea_parse_eqe(struct ehea_a
- 		netif_stop_queue(port->netdev);
- 		break;
- 	default:
--		ehea_error("unknown event code %x", ec);
-+		ehea_error("unknown event code %x, eqe=0x%lX", ec, eqe);
- 		break;
- 	}
- }
-@@ -1845,7 +1845,7 @@ static int ehea_start_xmit(struct sk_buf
- 
- 	if (netif_msg_tx_queued(port)) {
- 		ehea_info("post swqe on QP %d", pr->qp->init_attr.qp_nr);
--		ehea_dump(swqe, sizeof(*swqe), "swqe");
-+		ehea_dump(swqe, 512, "swqe");
- 	}
- 
- 	ehea_post_swqe(pr->qp, swqe);
+3. Bitmask sta->curr_rates with sta->allowed_rates (or
+~sta->disabled_rates) in various places (ieee80211_ioctl_add_sta,
+ieee80211_rx_mgmt_assoc_resp, ieee80211_rx_bss_info; please check for other
+places).
+
+In IBSS and AP mode setting this (per-STA, of course, which is not
+supported by WE, btw.) can be useful as well but it can be done later.
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
