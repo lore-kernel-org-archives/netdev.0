@@ -1,48 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Customizable TCP backoff patch
-Date: Wed, 27 Sep 2006 19:06:01 -0700 (PDT)
-Message-ID: <20060927.190601.26530992.davem@davemloft.net>
-References: <451AC889.5000407@redhat.com>
-	<20060927.161638.62343616.davem@davemloft.net>
-	<20060927160044.68ffca2e@freekitty>
+Subject: Re: [PATCH 2/2] loopback: minor statistics optimization
+Date: Wed, 27 Sep 2006 20:04:59 -0700 (PDT)
+Message-ID: <20060927.200459.13769170.davem@davemloft.net>
+References: <20060908111613.12c1f9b8@localhost.localdomain>
+	<20060908112056.7ef03bac@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: woodard@redhat.com, netdev@vger.kernel.org, mgrondona@llnl.gov,
-	behlendorf1@llnl.gov
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65003
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35240
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965193AbWI1CGD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 22:06:03 -0400
+	id S965236AbWI1DFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Sep 2006 23:05:00 -0400
 To: shemminger@osdl.org
-In-Reply-To: <20060927160044.68ffca2e@freekitty>
+In-Reply-To: <20060908112056.7ef03bac@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 27 Sep 2006 16:00:44 -0700
+Date: Fri, 8 Sep 2006 11:20:56 -0700
 
-> On Wed, 27 Sep 2006 16:16:38 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+> Minor loopback enhancements for 2.6.19
 > 
-> > From: Ben Woodard <woodard@redhat.com>
-> > Date: Wed, 27 Sep 2006 11:52:57 -0700
-> > 
-> > > Because these are general utility clusters we run many different 
-> > > programs and so trying to fix this problem in the application is not 
-> > > possible since there are literally hundreds if not thousands of them.
-> > 
-> > Then why add a socket option setting as your patch does? :-)
-> > 
-> > I also object to the socket option setting being allowed for
-> > any user because this can have awful effects if allowed by
-> > arbitrary users on arbitrary networks.
+> The loopback device status structure is a singleton and doesn't
+> need to be allocated. Add ethtool_ops hooks to show checksum always on,
+> and make ethtool_ops const.
 > 
-> Setting a cwnd limit would do the same thing.
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Not really :-)
+The ethtool bits are OK, but putting the loopback stats into
+the image adds nearly 200 bytes of .data section space on
+64-bit.
 
-It would not influence the TCP retransmit timeouts and
-backoff, although it would influence the congestion window
-handling during recovery after such timeout based losses.
+I don't really think it's that big of a deal to avoid the
+kmalloc() call.
