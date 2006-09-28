@@ -1,87 +1,57 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.18-mm2
-Date: Thu, 28 Sep 2006 14:01:24 -0700
-Message-ID: <20060928140124.5f7154e3.akpm@osdl.org>
-References: <20060928014623.ccc9b885.akpm@osdl.org>
-	<efh217$8au$1@sea.gmane.org>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: Network problem with 2.6.18-mm1 ?
+Date: Thu, 28 Sep 2006 14:10:02 -0700
+Message-ID: <4807377b0609281410p28d445c8mc32e7d2cb71221ab@mail.gmail.com>
+References: <20060928013724.GA22898@us.ibm.com> <451B2D29.9040306@intel.com>
+	 <20060928185222.GB3352@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: "Auke Kok" <auke-jan.h.kok@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25025 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750879AbWI1VB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 17:01:29 -0400
-To: "Steve Fox" <drfickle@us.ibm.com>
-In-Reply-To: <efh217$8au$1@sea.gmane.org>
+Received: from ug-out-1314.google.com ([66.249.92.173]:37787 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1750922AbWI1VKE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 17:10:04 -0400
+Received: by ug-out-1314.google.com with SMTP id o38so215773ugd
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 14:10:03 -0700 (PDT)
+To: "Sukadev Bhattiprolu" <sukadev@us.ibm.com>
+In-Reply-To: <20060928185222.GB3352@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 9/28/06, Sukadev Bhattiprolu <sukadev@us.ibm.com> wrote:
+> Thanks. See below for additional info
+>
+> Auke Kok [auke-jan.h.kok@intel.com] wrote:
+> | Sukadev Bhattiprolu wrote:
+> | >
+> | >I am unable to get networking to work with 2.6.18-mm1 on my system.
+> | >
+> | >But 2.6.18 kernel on same system works fine. Here is some info about
+> | >the system/debug attempts. Attached are the lspci output and config.
+> | >
+> | >Appreciate any help. Please let me know if you need more info.
 
-(please always do reply-to-all)
+It seems you're having interrupt delivery problems or interrupts are
+getting lost.
+rx_missed_errors indicates frames that were dropped due to the e1000
+adapter's fifo getting full and over flowing.
+> rx_no_buffer_count: 310
+> rx_missed_errors: 5865
+rx_no_buffer_count indicates that the driver didn't return buffers to
+the hardware soon enough, but the hardware was able to store the
+packet (at the time of reception) in the fifo to try again.
 
-On Thu, 28 Sep 2006 17:50:31 +0000 (UTC)
-"Steve Fox" <drfickle@us.ibm.com> wrote:
+Both these indicate to me that there is something wrong with
+interrupts.  Maybe interrupt sharing
 
-> On Thu, 28 Sep 2006 01:46:23 -0700, Andrew Morton wrote:
-> 
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18/2.6.18-mm2/
-> 
-> Panic on boot. This machine booted 2.6.18-mm1 fine. em64t machine.
-> 
-> TCP bic registered
-> TCP westwood registered
-> TCP htcp registered
-> NET: Registered protocol family 1
-> NET: Registered protocol family 17
-> Unable to handle kernel paging request at ffffffffffffffff RIP: 
->  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
-> PGD 203027 PUD 2b031067 PMD 0 
-> Oops: 0000 [1] SMP 
-> last sysfs file: 
-> CPU 0 
-> Modules linked in:
-> Pid: 1, comm: swapper Not tainted 2.6.18-mm2-autokern1 #1
-> RIP: 0010:[<ffffffff8047ef93>]  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
-> RSP: 0000:ffff810bffcbde90  EFLAGS: 00010286
-> RAX: 0000000000000000 RBX: ffff810bff4a1000 RCX: 2222222222222222
-> RDX: ffff810bff4a1000 RSI: 0000000000000005 RDI: ffffffff8055f5e0
-> RBP: ffffffffffffffff R08: 0000000000007616 R09: 000000000000000e
-> R10: 0000000000000006 R11: ffffffff803373f0 R12: 0000000000000000
-> R13: 0000000000000005 R14: ffff810bff4a1000 R15: 0000000000000000
-> FS:  0000000000000000(0000) GS:ffffffff805d8000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-> CR2: ffffffffffffffff CR3: 0000000000201000 CR4: 00000000000006e0
-> Process swapper (pid: 1, threadinfo ffff810bffcbc000, task ffff810bffcbb510)
-> Stack:  ffff810bff4a1000 ffffffff8055f4c0 0000000000000000 ffff810bffcbdef0
->  0000000000000000 ffffffff8042736e 0000000000000000 0000000000000000
->  0000000000000000 ffffffff8061c68d ffffffff806260f0 ffffffff80207182
-> Call Trace:
->  [<ffffffff8042736e>] register_netdevice_notifier+0x3e/0x70
->  [<ffffffff8061c68d>] packet_init+0x2d/0x53
->  [<ffffffff80207182>] init+0x162/0x330
->  [<ffffffff8020a9d8>] child_rip+0xa/0x12
->  [<ffffffff8033c2a2>] acpi_ds_init_one_object+0x0/0x82
->  [<ffffffff80207020>] init+0x0/0x330
->  [<ffffffff8020a9ce>] child_rip+0x0/0x12
-> 
-> 
-> Code: 48 8b 45 00 0f 18 08 49 83 fd 02 4c 8d 65 f8 0f 84 f8 fe ff 
-> RIP  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
->  RSP <ffff810bffcbde90>
-> CR2: ffffffffffffffff
->  <0>Kernel panic - not syncing: Attempted to kill init!
-> 
+can you possibly try a back to back connection with another linux box
+and run tcpdump on both ends then ping?  it will tell us if traffic is
+truely getting out and coming in okay.
 
-I'm really struggling to work out what went wrong there.  Comparing your
-miserable 20 bytes of code to my object code makes me think that this:
+also please send output of lspci -vv and cat /proc/interrupts
 
-		struct packet_sock *po = pkt_sk(sk);
-
-returned -1, perhaps in %ebp.  But it's all very crude.
-
-Perhaps you could compile that kernel with CONFIG_DEBUG_INFO, rerun it (the
-addresses might change) then have a poke around with `gdb vmlinux' (or
-maybe just addr2line) to work out where it's really oopsing?
-
-I don't see much which has changed in that area recently.
+Jesse
