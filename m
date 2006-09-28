@@ -1,88 +1,60 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: simplify microsecond rtt sampling
-Date: Thu, 28 Sep 2006 13:35:16 +0100
-Message-ID: <451BC184.1000707@psc.edu>
-References: <451A5EC9.6090001@psc.edu> <451A9519.6000504@psc.edu>
+From: Karsten Keil <kkeil@suse.de>
+Subject: [Resend][RFC/PATCH] fix deadlock on high loads in bond_alb_monitor()
+Date: Thu, 28 Sep 2006 14:39:41 +0200
+Message-ID: <20060928123941.GA10067@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010800040700080906050007"
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:19146 "EHLO mailer2.psc.edu")
-	by vger.kernel.org with ESMTP id S1751873AbWI1Mfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 08:35:36 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <451A9519.6000504@psc.edu>
+Received: from cantor2.suse.de ([195.135.220.15]:63928 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1750776AbWI1Mjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 08:39:43 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010800040700080906050007
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+In bond_alb_monitor the bond->curr_slave_lock write lock is taken
+and then dev_set_promiscuity maybe called which can take some time,
+depending on the network HW. If a network IRQ for this card come in
+the softirq handler maybe try to deliver more packets which end up in
+a request to the read lock of bond->curr_slave_lock -> deadlock.
+This issue was found by a test lab during network stress tests, this patch
+disable the softirq handler for this case and solved the issue.
 
-Here is a corrected patch.
+Signed-off-by: Karsten Keil <kkeil@suse.de>
 
 
-Signed-off-by: John Heffner <jheffner@psc.edu>
+---
 
+ drivers/net/bonding/bond_alb.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
---------------010800040700080906050007
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="rtt_sample_fix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="rtt_sample_fix.patch"
-
--static u32 tcp_usrtt(const struct sk_buff *skb)
-+static u32 tcp_usrtt(struct timeval *tv)
- {
--	struct timeval tv, now;
-+	struct timeval now;
+921ada40bf96d7dc9c4258821af3d4616fb3cbae
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index e83bc82..3292316 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1433,7 +1433,7 @@ void bond_alb_monitor(struct bonding *bo
+ 		 * write lock to protect from other code that also
+ 		 * sets the promiscuity.
+ 		 */
+-		write_lock(&bond->curr_slave_lock);
++		write_lock_bh(&bond->curr_slave_lock);
  
- 	do_gettimeofday(&now);
--	skb_get_timestamp(skb, &tv);
--	return (now.tv_sec - tv.tv_sec) * 1000000 + (now.tv_usec - tv.tv_usec);
-+	return (now.tv_sec - tv->tv_sec) * 1000000 + (now.tv_usec - tv->tv_usec);
- }
- 
- /* Remove acknowledged frames from the retransmission queue. */
-@@ -2249,6 +2248,7 @@ static int tcp_clean_rtx_queue(struct so
- 	u32 pkts_acked = 0;
- 	void (*rtt_sample)(struct sock *sk, u32 usrtt)
- 		= icsk->icsk_ca_ops->rtt_sample;
-+	struct timeval tv;
- 
- 	while ((skb = skb_peek(&sk->sk_write_queue)) &&
- 	       skb != sk->sk_send_head) {
-@@ -2297,8 +2297,7 @@ static int tcp_clean_rtx_queue(struct so
- 				seq_rtt = -1;
- 			} else if (seq_rtt < 0) {
- 				seq_rtt = now - scb->when;
--				if (rtt_sample)
--					(*rtt_sample)(sk, tcp_usrtt(skb));
-+				skb_get_timestamp(skb, &tv);
- 			}
- 			if (sacked & TCPCB_SACKED_ACKED)
- 				tp->sacked_out -= tcp_skb_pcount(skb);
-@@ -2311,8 +2310,7 @@ static int tcp_clean_rtx_queue(struct so
- 			}
- 		} else if (seq_rtt < 0) {
- 			seq_rtt = now - scb->when;
--			if (rtt_sample)
--				(*rtt_sample)(sk, tcp_usrtt(skb));
-+			skb_get_timestamp(skb, &tv);
+ 		if (bond_info->primary_is_promisc &&
+ 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
+@@ -1448,7 +1448,7 @@ void bond_alb_monitor(struct bonding *bo
+ 			bond_info->primary_is_promisc = 0;
  		}
- 		tcp_dec_pcount_approx(&tp->fackets_out, skb);
- 		tcp_packets_out_dec(tp, skb);
-@@ -2324,6 +2322,8 @@ static int tcp_clean_rtx_queue(struct so
- 	if (acked&FLAG_ACKED) {
- 		tcp_ack_update_rtt(sk, acked, seq_rtt);
- 		tcp_ack_packets_out(sk, tp);
-+		if (rtt_sample && !(acked & FLAG_RETRANS_DATA_ACKED))
-+			(*rtt_sample)(sk, tcp_usrtt(&tv));
  
- 		if (icsk->icsk_ca_ops->pkts_acked)
- 			icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked);
+-		write_unlock(&bond->curr_slave_lock);
++		write_unlock_bh(&bond->curr_slave_lock);
+ 
+ 		if (bond_info->rlb_rebalance) {
+ 			bond_info->rlb_rebalance = 0;
 
---------------010800040700080906050007--
+
+-- 
+Karsten Keil
+SuSE Labs
