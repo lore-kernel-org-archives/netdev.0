@@ -1,19 +1,19 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Andrew Morton <akpm@osdl.org>
 Subject: Re: sky2 (was Re: 2.6.18-mm2)
-Date: Thu, 28 Sep 2006 16:19:56 -0700
-Message-ID: <20060928161956.5262e5d3@freekitty>
+Date: Thu, 28 Sep 2006 16:25:39 -0700
+Message-ID: <20060928162539.7d565d0a.akpm@osdl.org>
 References: <20060928155053.7d8567ae.akpm@osdl.org>
 	<451C5599.80402@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: oe@hentges.net, Andrew Morton <akpm@osdl.org>,
+Cc: oe@hentges.net, Stephen Hemminger <shemminger@osdl.org>,
 	Linux Kernel <linux-kernel@vger.kernel.org>,
 	Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34948 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964961AbWI1XUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 19:20:22 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:56710 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750834AbWI1XZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 19:25:55 -0400
 To: Jeff Garzik <jeff@garzik.org>
 In-Reply-To: <451C5599.80402@garzik.org>
 Sender: netdev-owner@vger.kernel.org
@@ -56,34 +56,9 @@ Jeff Garzik <jeff@garzik.org> wrote:
 > messages would appear.  The better question is whether this is a driver 
 > problem, or a hardware problem.  With your "black sheep" comment, I 
 > wonder if it isn't a hardware problem that's been hidden.
+> 
 
-Here is the debug patch I sent to the first reporter of the problem.
-I know what the offset is supposed to be, so if the PCI subsystem is
-wrong, this will show. 
+See also http://bugzilla.kernel.org/show_bug.cgi?id=7222
 
---- sky2.orig/drivers/net/sky2.c	2006-09-28 08:45:27.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-09-28 08:51:24.000000000 -0700
-@@ -2463,6 +2463,7 @@
- 
- 	sky2_write8(hw, B0_CTST, CS_MRST_CLR);
- 
-+#define PEX_UNC_ERR_STAT 0x104		/* PCI extended error capablity */
- 	/* clear any PEX errors */
- 	if (pci_find_capability(hw->pdev, PCI_CAP_ID_EXP)) {
- 		hw->err_cap = pci_find_ext_capability(hw->pdev, PCI_EXT_CAP_ID_ERR);
-@@ -2470,6 +2471,15 @@
- 			sky2_pci_write32(hw,
- 					 hw->err_cap + PCI_ERR_UNCOR_STATUS,
- 					 0xffffffffUL);
-+		else
-+			printk(KERN_ERR PFX "pci express found but not extended error support?\n");
-+		
-+		if (hw->err_cap + PCI_ERR_UNCOR_STATUS != PEX_UNC_ERR_STAT) {
-+			
-+			printk(KERN_ERR PFX "pci express error status register fixed from %#x to %#x\n",
-+			       hw->err_cap, PEX_UNC_ERR_STAT - PCI_ERR_UNCOR_STATUS);
-+			hw->err_cap = PEX_UNC_ERR_STAT - PCI_ERR_UNCOR_STATUS;
-+		}
- 	}
- 
- 	hw->pmd_type = sky2_read8(hw, B2_PMD_TYP);
+That's two reports in 18 hours, from amongst the presumably-small population
+of sky2-owning -mm testers.
