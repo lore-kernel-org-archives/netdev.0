@@ -1,48 +1,39 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC] let mortals use ethtool
-Date: Thu, 28 Sep 2006 13:17:04 -0700
-Message-ID: <1159474625.3741.6.camel@rh4>
+Date: Thu, 28 Sep 2006 16:23:46 -0400
+Message-ID: <451C2F52.6040003@pobox.com>
 References: <20060928122514.112a19a8@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:10248 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1161178AbWI1UUj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 16:20:39 -0400
-To: "Stephen Hemminger" <shemminger@osdl.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:22151 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751509AbWI1UXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 16:23:49 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 In-Reply-To: <20060928122514.112a19a8@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-28 at 12:25 -0700, Stephen Hemminger wrote:
+Stephen Hemminger wrote:
+> There is no reason to not allow non-admin users to query network
+> statistics and settings.
 
-> +	/* Allow some commands to be done by anyone */
-> +	switch(ethcmd) {
-> +	case ETHTOOL_GSET:
-> +	case ETHTOOL_GDRVINFO:
-> +	case ETHTOOL_GREGS:
-> +	case ETHTOOL_GWOL:
-> +	case ETHTOOL_GMSGLVL:
-> +	case ETHTOOL_GLINK:
-> +	case ETHTOOL_GCOALESCE:
-> +	case ETHTOOL_GRINGPARAM:
-> +	case ETHTOOL_GPAUSEPARAM:
-> +	case ETHTOOL_GRXCSUM:
-> +	case ETHTOOL_GTXCSUM:
-> +	case ETHTOOL_GSG:
-> +	case ETHTOOL_GSTRINGS:
-> +	case ETHTOOL_PHYS_ID:
-> +	case ETHTOOL_GSTATS:
-> +	case ETHTOOL_GTSO:
-> +	case ETHTOOL_GPERMADDR:
-> +	case ETHTOOL_GUFO:
-> +	case ETHTOOL_GGSO:
+NAK.
 
-I'm against letting normal users do ETHTOOL_GREGS and ETHTOOL_PHYS_ID.
-Dumping 64K worth of registers and blinking the LEDs should be
-restricted.  But I have no problem doing these checks in the driver if
-necessary.
+Some functions in the past didn't like getting hit rapidly in succession.
+
+I would agree to this, but only after an exhaustive audit of each driver 
+and each sub-ioctl.  Right now, I only have confidence in GDRVINFO 
+probably being safe -- but still that requires an audit, since in rare 
+cases the driver may be poking firmware and eeprom areas.
+
+Finally, I fixed a buffer overflow in ethtool version 5, so an audit to 
+make sure overflows cannot affect the kernel is basically _required_.
+
+	Jeff
+
+
+
 
