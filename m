@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC] let mortals use ethtool
-Date: Thu, 28 Sep 2006 15:22:39 -0700 (PDT)
-Message-ID: <20060928.152239.15408691.davem@davemloft.net>
-References: <451C28E9.6040708@intel.com>
-	<20060928.145345.90823467.davem@davemloft.net>
-	<1159481020.3741.16.camel@rh4>
+Date: Thu, 28 Sep 2006 18:25:26 -0400
+Message-ID: <451C4BD6.7050200@pobox.com>
+References: <20060928122514.112a19a8@dxpl.pdx.osdl.net>	<1159474625.3741.6.camel@rh4> <20060928.151358.01288837.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, shemminger@osdl.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
+Cc: mchan@broadcom.com, shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57320
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932527AbWI1WWf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 18:22:35 -0400
-To: mchan@broadcom.com
-In-Reply-To: <1159481020.3741.16.camel@rh4>
+Received: from srv5.dvmed.net ([207.36.208.214]:22925 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1161335AbWI1WZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 18:25:34 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060928.151358.01288837.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 28 Sep 2006 15:03:40 -0700
-
-> On Thu, 2006-09-28 at 14:53 -0700, David Miller wrote:
+David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Thu, 28 Sep 2006 13:17:04 -0700
 > 
-> > I've applied Stephen's patch with PHYS_ID removed from the
-> > allowed list, thanks for the feedback.
+>> I'm against letting normal users do ETHTOOL_GREGS and ETHTOOL_PHYS_ID.
+>> Dumping 64K worth of registers and blinking the LEDs should be
+>> restricted.  But I have no problem doing these checks in the driver if
+>> necessary.
 > 
-> Can you remove GREGS as well?  Allowing users to dump all the registers
-> will be very problematic.
+> Ok I removed PHYS_ID and GREGS from the allowed list.
+> Any others?
 
-I did, see my subsequent email.
+GWOL now spits out a password for all users -> security risk.  Ditto 
+GEEPROM.  GSET has been known to cause hangs if done in a tight loop, on 
+some 10/100 cards, which is now permitted by any user.  At the very 
+least, it should be rate-limited.
+
+I wasn't just being obstinate, when requesting an audit.
+
+	Jeff
+
+
+
