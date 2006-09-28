@@ -1,78 +1,65 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
-Date: Thu, 28 Sep 2006 08:36:45 -0700
-Message-ID: <20060928083645.786b1ab1@freekitty>
-References: <20060919.000800.127570535.yoshfuji@linux-ipv6.org>
-	<20060927.224444.109879330.davem@davemloft.net>
+From: Douglas Leith <doug.leith@nuim.ie>
+Subject: Re: Re the default linux tcp algorithm being changed from bic to cubic.
+Date: Thu, 28 Sep 2006 17:20:46 +0100
+Message-ID: <451BF65E.9000701@nuim.ie>
+References: <451B9ED6.9090208@nuim.ie> <20060928071657.5d0cbf70@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:5297 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751827AbWI1QRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 12:17:44 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060927.224444.109879330.davem@davemloft.net>
+Received: from mail.nuim.ie ([149.157.1.19]:30187 "EHLO LARCH.MAY.IE")
+	by vger.kernel.org with ESMTP id S1751921AbWI1QWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 12:22:21 -0400
+Received: from [192.168.0.2] ([212.2.174.101])
+ by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01M7QIRVM69A00WT0K@NUIM.IE>
+ for netdev@vger.kernel.org; Thu, 28 Sep 2006 17:22:30 +0000 (GMT)
+In-reply-to: <20060928071657.5d0cbf70@freekitty>
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Sep 2006 22:44:44 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Stephen Hemminger wrote:
+> On Thu, 28 Sep 2006 11:07:18 +0100
+> Douglas Leith <doug.leith@nuim.ie> wrote:
+> 
+>> Content-Type: text/plain; charset=UTF-8; format=flowed
+>> Content-Transfer-Encoding: 7bit
+>>
+>> Steve,
+>>
+>> I think we're all conscious of the fact that recent history contains 
+>> quite a number of proposals for changes to tcp's congestion control 
+>> algorithm for high bandwidth-delay product paths that on closer 
+>> inspection have proved problematic in one way or another.   It seems to 
+>> be a hard problem to solve, so maybe that's fair enough and hopefully 
+>> we'll end up with a workable solution soon.
+>>
+>> Where I'm coming from here though is that bic was made the linux default 
+>> a year or so ago at a time when there were essentially no tests 
+>> available on its performance other than the infocom paper by Injong. 
+>> Subsequent tests have since highlighted a bunch of issues with bic.  To 
+>> my knowledge, we're currently in a similar situation with cubic as we 
+>> were with bic back then i.e. essentially no independent tests 
+>> investigating its behaviour.
+>>
+>> Of course I know Injong has posted some test results, but these are 
+>> hardly independent as he's the author of both bic and cubic.  Have there 
+>> perhaps been private tests carried out (e.g. by osdl) ?  If so, would it 
+>> be possible to make them public ?  If not, well that would be good to 
+>> know too.
+> 
+> My tests have been limited and showed no difference. It is worthy
+> of more discussion as to what is best. Could you rerun your tests?
 
-> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date: Tue, 19 Sep 2006 00:08:00 +0900 (JST)
-> 
-> >     [XFRM]: Do not add a state whose SPI is zero to the SPI hash.
-> >     
-> >     SPI=0 is used for acquired IPsec SA and MIPv6 RO state.
-> >     Such state should not be added to the SPI hash
-> >     because we do not care about it on deleting path.
-> >     
-> >     Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> >     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> Patch applied, thank you.
-> 
-> But the rest of these patches need more thought about these header
-> file issues.
-> 
-> >     [NET]: Move netlink interface bits to linux/if_link.h.
-> >     
-> >     Moving netlink interface bits to linux/if.h is rather troublesome for
-> >     applications including both linux/if.h (which was changed to be included
-> >     from linux/rtnetlink.h automatically) and net/if.h.
-> >     
-> >     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> If it is illegal for user to include kernel's linux/if.h (by any
-> means) if he uses net/if.h from userland headers, then he should
-> also avoid including the kernel's rtnetlink.h header too.
-> 
-> I understand the issue, in that net/if.h defines macros that
-> linux/if.h defines as well so there are conflicts (even though
-> in the end the same exact values are used).
-> 
-> What I see happening is that the troublesome interfaces move from
-> linux/if.h to a new file named linux/if_addr.h, then this gets
-> included again to linux/rtnetlink.h but only for userspace with
-> some messy ifdefs.
-> 
-> These kinds of things don't go away, they stay around forever once
-> you decide to support them.
-> 
-> Actually, what I'm going to do is apply:
-> 
-> [NET]: Move netlink interface bits to linux/if_link.h.
-> [NET] KBUILD: Add missing entries for new net headers.
-> 
-> And leave the rest for now.
-> 
+Unfortunately we haven't really looked at cubic at all to date as I 
+didn't appreciate it was being seriously considered for the new default 
+until Ian's post a few days ago.  It'll take a little time to free up 
+some bandwidth in people's time here, but we'd be happy to rerun the 
+previous tests with cubic as a priority and generally try to have an 
+initial poke around.
 
-Please figure out how to keep rtnetlink.h useful from user space.
-I tried putting the current sanitized version of rtnetlink.h into
-iproute2 and the build fails. 
+Doug
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Hamilton Institute
+www.hamilton.ie
