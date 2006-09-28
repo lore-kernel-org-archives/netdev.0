@@ -1,41 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3/3] [IrDA] stir4200: removing undocumented
- bits handling
-Date: Wed, 27 Sep 2006 22:50:17 -0700 (PDT)
-Message-ID: <20060927.225017.129775752.davem@davemloft.net>
-References: <20060920050923.GE4140@sortiz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/2] [IPVS]: Make sure ip_vs_ftp ports are valid (again)
+Date: Wed, 27 Sep 2006 22:53:54 -0700 (PDT)
+Message-ID: <20060927.225354.48396393.davem@davemloft.net>
+References: <20060920144457.533479580@yukiko.lab.ultramonkey.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-In-Reply-To: <20060920050923.GE4140-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: netdev@vger.kernel.org, kaber@trash.net, wensong@linux-vs.org,
+	ja@ssi.bg, jmack@wm7d.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30085
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965286AbWI1Fxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 01:53:55 -0400
+To: horms@verge.net.au
+In-Reply-To: <20060920144457.533479580@yukiko.lab.ultramonkey.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Wed, 20 Sep 2006 08:09:24 +0300
+From: Horms <horms@verge.net.au>
+Date: Wed, 20 Sep 2006 23:44:57 +0900
 
-> FIFOCTL_RXERR and FIFOCTL_TXERR are undocumented bits, according to the
-> Sigmatel datasheet. We should thus not take any assumption on their values
-> and semantics.
+> there are two patches floating around for this problem.
+> It seems that the first incarntation has been committed
+> to Linus's tree as 3f5af5b353ca36aca4f8a46e3da2172f669dbbbc.
 > 
-> Problem spotted by andrzej zaborowski <balrogg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> This series of 2 patches reverses that change, and
+> adds the new, simpler, change in its place.
 
-Applied, thanks.
+Both applied, thanks Simon.
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys -- and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+If you think it's serious enough to submit for -stable, just
+let me know.
