@@ -1,37 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] loopback: minor statistics optimization
-Date: Wed, 27 Sep 2006 20:04:59 -0700 (PDT)
-Message-ID: <20060927.200459.13769170.davem@davemloft.net>
-References: <20060908111613.12c1f9b8@localhost.localdomain>
-	<20060908112056.7ef03bac@localhost.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/3] [IrDA] af_irda.c cleanups
+Date: Wed, 27 Sep 2006 20:05:53 -0700 (PDT)
+Message-ID: <20060927.200553.75760623.davem@davemloft.net>
+References: <20060911054636.GA6368@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35240
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965236AbWI1DFA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 23:05:00 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060908112056.7ef03bac@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+In-Reply-To: <20060911054636.GA6368-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 8 Sep 2006 11:20:56 -0700
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Mon, 11 Sep 2006 08:46:36 +0300
 
-> Minor loopback enhancements for 2.6.19
+> We lock the socket when both releasing and getting a disconnected
+> notification. In the latter case, we also ste the socket as orphan.
+> This fixes a potential kernel bug that can be triggered when we get the
+> disconnection notification before closing the socket.
 > 
-> The loopback device status structure is a singleton and doesn't
-> need to be allocated. Add ethtool_ops hooks to show checksum always on,
-> and make ethtool_ops const.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-The ethtool bits are OK, but putting the loopback stats into
-the image adds nearly 200 bytes of .data section space on
-64-bit.
+Applied, sorry for taking so long :)
 
-I don't really think it's that big of a deal to avoid the
-kmalloc() call.
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys -- and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
