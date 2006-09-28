@@ -1,66 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: softmac mtu
-Date: Thu, 28 Sep 2006 17:47:12 +0200
-Message-ID: <1159458432.2648.38.camel@ux156>
-References: <ef3s4u$or5$3@sea.gmane.org>
-	 <1159365434.451a833ae7728@imp3-g19.free.fr>
-	 <1159365316.2698.40.camel@ux156>  <200609281735.17616.mb@bu3sch.de>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] softmac: Fix WX and association related races
+Date: Thu, 28 Sep 2006 10:52:24 -0500
+Message-ID: <451BEFB8.8000402@lwfinger.net>
+References: <200609271726.34305.mb@bu3sch.de> <1159455169.2642.30.camel@localhost.localdomain> <451BE74F.3010908@lwfinger.net> <200609281135.24720.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, castet.matthieu@free.fr
+Cc: Dan Williams <dcbw@redhat.com>, Michael Buesch <mb@bu3sch.de>,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35267 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S964948AbWI1Pqb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 11:46:31 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200609281735.17616.mb@bu3sch.de>
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:38118 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751201AbWI1Pwk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 11:52:40 -0400
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200609281135.24720.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-28 at 17:35 +0200, Michael Buesch wrote:
+Michael Wu wrote:
+> On Thursday 28 September 2006 11:16, Larry Finger wrote:
+>> First of all, my problem is quite likely caused by a buggy AP. It is a
+>> Linksys WRT54G V5, which is one of those with a VxWorks kernel, not Linux.
+>> I have already reported one bug to Linksys, which they have neither
+>> acknowledged nor fixed! In that case, SoftMAC had to be modified as a
+>> work-around.
+>>
+> These APs are truly bad. Hacking linux into it (DD-WRT) helps a bit, but 
+> wireless often seems to fail *completely* at times.
 
-> I am pretty sure this is the maximum _fragment_ size.
+I had very good luck with my first AP, a Linksys WRT54G V1, that I bought a second when the power 
+supply failed in the first. Little did I know that a VxWorks license costs less than the extra 
+memory needed to run Linux. Or was it to defeat the open-source alternatives for the AP?
 
-But then why does it talk of MPDU and MSDU?
+>> I don't know why the deauthentication is being sent. The reason is not
+>> logged, which will be my first change in the code. The second place to look
+>> is why SoftMAC reports the network is unknown when the MAC printed is that
+>> of my AP.
+>>
+> The deauth reason code is usually 6 or 7.. IIRC, it is 6: Class 2 Frame from 
+> Non Authenticated STA. The AP just forgets you're associated. However, I 
+> think that was from when I had a v3 WRT54G.
 
-from 802.11:
+I already have modified SoftMAC to log the reason. Now I have to wait for the event to happen.
 
-synonym sMaxMsduLng Integer = 2304; /* max octets in an MSDU */
+> I made sure the old adm8211 softmac stack had a very good set of printks to 
+> report these sort of things. :) Many APs do funny things..
 
-synonym sMaxMpduLng Integer =         /* max octets in an MPDU */
-  (sMaxMsduLng + sMacHdrLng + sWdsAddLng + sWepAddLng + sCrcLng);
+Thanks for the tip. It is unfortunate that the Linux code has to work around all the closed-source 
+other stuff!
 
-synonym sMinFragLng Integer = 256; /* min value for aMpduMaxLength */
-synonym sMaxFragNum Integer =        /* maximum fragment number */
-  (sMaxMsduLng / (sMinFragLng - sMacHdrLng - sCrcLng));
 
-The last calculation implies that each frame can only be up to
-sMaxMsduLng octets long even when fragmented.
-
-also cf. 9.1.4:
-
-   9.1.4 Fragmentation/defragmentation overview
-
-   The process of partitioning a MAC service data unit (MSDU) or a MAC
-   management protocol data unit (MMPDU) into smaller MAC level frames,
-   MAC protocol data units (MPDUs), is called fragmentation.
-   Fragmentation creates MPDUs smaller than the original MSDU or MMPDU
-   length to increase reliability, by increasing the probability of
-   successful transmission of the MSDU or MMPDU in cases where channel
-   characteristics limit reception reliability for longer frames.
-
-IOW, I read it as an MSDU is the data that is supposed to be transmitted
-over the link and that can be at most 2304 bytes long, and then it may
-be fragmented or not and is then copied into (an) MPDU(s).
-
-> But each packet (which max size is defined by the MTU) can
-> be fragmented. I don't know if there's a limit on the max
-> number of frags.
-
-There's only a 4 bit fragment counter ;) However, see above.
-
-johannes
+Larry
