@@ -1,28 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPV6]: Disable SG for GSO unless we have checksum
-Date: Thu, 28 Sep 2006 10:44:23 +1000
-Message-ID: <20060928004422.GA9050@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: Re: [PATCH 0/3] myri10ge Large Receive Offload
+Date: Thu, 28 Sep 2006 10:53:42 +1000
+Message-ID: <E1GSk9m-0002NX-00@gondolin.me.apana.org.au>
+References: <451B0541.1030208@myri.com>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:14342 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1031298AbWI1AoZ
+Received: from rhun.apana.org.au ([64.62.148.172]:22790 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1031305AbWI1AyI
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Sep 2006 20:44:25 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Content-Disposition: inline
+	Wed, 27 Sep 2006 20:54:08 -0400
+To: brice@myri.com (Brice Goglin)
+In-Reply-To: <451B0541.1030208@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+Brice Goglin <brice@myri.com> wrote:
+> This is a complete rework of the myri10ge receive path. The first
+> patch converts skb allocation to use physical pages. The second one
+> adds a software implementation of Large Receive Offload. The third
+> one updates the driver version to 1.1.0.
 
-[IPV6]: Disable SG for GSO unless we have checksum
-
-Because the system won't turn off the SG flag for us we
-need to do this manually on the IPv6 path.  Otherwise we
-will throw IPv6 packets with bad checksums at the hardware.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+If this LRO is completely in software it might be time to consider
+something more generic since this would be the second software LRO
+implementation (the other being s2io).
 
 Cheers,
 -- 
@@ -30,18 +30,3 @@ Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 4f3bb7f..de6b919 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -123,6 +123,9 @@ static struct sk_buff *ipv6_gso_segment(
- 	struct ipv6hdr *ipv6h;
- 	struct inet6_protocol *ops;
- 
-+	if (!(features & NETIF_F_HW_CSUM))
-+		features &= ~NETIF_F_SG;
-+
- 	if (unlikely(skb_shinfo(skb)->gso_type &
- 		     ~(SKB_GSO_UDP |
- 		       SKB_GSO_DODGY |
