@@ -1,82 +1,53 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFC] let mortals use ethtool
-Date: Thu, 28 Sep 2006 12:25:14 -0700
-Message-ID: <20060928122514.112a19a8@dxpl.pdx.osdl.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration changes
+Date: Thu, 28 Sep 2006 15:50:42 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609281547060.28120@d.namei>
+References: <20060928180326.896170000@hp.com> <20060928180337.570612000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+	Eric Paris <eparis@redhat.com>, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30868 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751457AbWI1TZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 15:25:41 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:13022 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030363AbWI1Tuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 15:50:44 -0400
+To: Paul Moore <paul.moore@hp.com>,
+	"David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060928180337.570612000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-There is no reason to not allow non-admin users to query network
-statistics and settings.
+> +struct audit_buffer *netlbl_audit_start_common(int type, u32 secid)
+
+> +	if (current->mm) {
+> +		down_read(&current->mm->mmap_sem);
+> +		vma = current->mm->mmap;
+> +		while (vma) {
+> +			if ((vma->vm_flags & VM_EXECUTABLE) &&
+> +			    vma->vm_file) {
+> +				audit_log_d_path(audit_buf,
+> +						 " exe=",
+> +						 vma->vm_file->f_dentry,
+> +						 vma->vm_file->f_vfsmnt);
+> +				break;
+> +			}
+> +			vma = vma->vm_next;
+> +		}
+> +		up_read(&current->mm->mmap_sem);
 
 
---- linux-2.6.orig/net/core/ethtool.c
-+++ linux-2.6/net/core/ethtool.c
-@@ -806,13 +806,6 @@ int dev_ethtool(struct ifreq *ifr)
- 	int rc;
- 	unsigned long old_features;
- 
--	/*
--	 * XXX: This can be pushed down into the ethtool_* handlers that
--	 * need it.  Keep existing behaviour for the moment.
--	 */
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	if (!dev || !netif_device_present(dev))
- 		return -ENODEV;
- 
-@@ -822,6 +815,33 @@ int dev_ethtool(struct ifreq *ifr)
- 	if (copy_from_user(&ethcmd, useraddr, sizeof (ethcmd)))
- 		return -EFAULT;
- 
-+	/* Allow some commands to be done by anyone */
-+	switch(ethcmd) {
-+	case ETHTOOL_GSET:
-+	case ETHTOOL_GDRVINFO:
-+	case ETHTOOL_GREGS:
-+	case ETHTOOL_GWOL:
-+	case ETHTOOL_GMSGLVL:
-+	case ETHTOOL_GLINK:
-+	case ETHTOOL_GCOALESCE:
-+	case ETHTOOL_GRINGPARAM:
-+	case ETHTOOL_GPAUSEPARAM:
-+	case ETHTOOL_GRXCSUM:
-+	case ETHTOOL_GTXCSUM:
-+	case ETHTOOL_GSG:
-+	case ETHTOOL_GSTRINGS:
-+	case ETHTOOL_PHYS_ID:
-+	case ETHTOOL_GSTATS:
-+	case ETHTOOL_GTSO:
-+	case ETHTOOL_GPERMADDR:
-+	case ETHTOOL_GUFO:
-+	case ETHTOOL_GGSO:
-+		break;
-+	default:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+	}
-+
- 	if(dev->ethtool_ops->begin)
- 		if ((rc = dev->ethtool_ops->begin(dev)) < 0)
- 			return rc;
-@@ -947,6 +967,10 @@ int dev_ethtool(struct ifreq *ifr)
- 	return rc;
- 
-  ioctl:
-+	/* Keep existing behaviour for the moment.	 */
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
- 	if (dev->do_ioctl)
- 		return dev->do_ioctl(dev, ifr, SIOCETHTOOL);
- 	return -EOPNOTSUPP;
+Suggestion for the future: I think it'd be wortwhile consolidating this 
+with the code in audit_log_task_info().
+
+In any case, the patch looks fine to me.
+
+Acked-by: James Morris <jmorris@namei.org>
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
