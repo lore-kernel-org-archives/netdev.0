@@ -1,54 +1,48 @@
-From: Eric Sesterhenn <snakebyte@gmx.de>
-Subject: [Patch] check dev_alloc_skb() return value in s2io.c
-Date: Thu, 28 Sep 2006 15:16:26 +0200
-Message-ID: <1159449386.8136.6.camel@alice>
+From: Andreas Jellinghaus <aj@ciphirelabs.com>
+Subject: Re: [ACRYPTO] New asynchronous crypto layer (acrypto) release.
+Date: Thu, 28 Sep 2006 15:23:43 +0200
+Message-ID: <451BCCDF.5000201__14002.1316278309$1159451344$gmane$org@ciphirelabs.com>
+References: <20060928120826.GA18063@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.de ([213.165.64.20]:10374 "HELO mail.gmx.net")
-	by vger.kernel.org with SMTP id S1751795AbWI1NQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 09:16:28 -0400
+Received: from main.gmane.org ([80.91.229.2]:2765 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1751098AbWI1Nqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 09:46:35 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1GSwCE-0003kd-Jk
+	for netdev@vger.kernel.org; Thu, 28 Sep 2006 15:45:02 +0200
+Received: from ciphirelabs.net ([217.72.114.248])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 15:45:02 +0200
+Received: from aj by ciphirelabs.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 15:45:02 +0200
 To: netdev@vger.kernel.org
+In-Reply-To: <20060928120826.GA18063@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi,
+Evgeniy Polyakov wrote:
+> Hello.
+> 
+> I'm pleased to announce asynchronous crypto layer (acrypto) [1] release 
+> for 2.6.18 kernel tree. Acrypto allows to handle crypto requests 
+> asynchronously in hardware.
+> 
+> Combined patchset includes:
+>  * acrypto core
+>  * IPsec ESP4 port to acrypto
+>  * dm-crypt port to acrypto
 
-coverity spotted two dev_alloc_skb() calls,
-where we use the return value without checking it
-for NULL. This patch simply adds the check, including
-the debug message that is used in all other dev_alloc_skb()
-calls.
+so I should be able to replace a plain 2.6.18 kernel with one
+with this patchset and use dm-crypt'ed partitions (e.g. swap,
+encrypted root filesystem) as usual without further changes?
 
-Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
+Did anyone test this with success?
 
---- linux-2.6.18-git8/drivers/net/s2io.c.orig	2006-09-28 01:25:36.000000000 +0200
-+++ linux-2.6.18-git8/drivers/net/s2io.c	2006-09-28 01:26:32.000000000 +0200
-@@ -5989,6 +5989,12 @@ static int set_rxd_buffer_pointer(nic_t 
- 			((RxD3_t*)rxdp)->Buffer1_ptr = *temp1;
- 		} else {
- 			*skb = dev_alloc_skb(size);
-+			if (!*skb) {
-+				DBG_PRINT(ERR_DBG, "%s: dev_alloc_skb \
-+					failed\n ", dev->name);
-+					return -ENOMEM;
-+			}
-+
- 			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2 =
- 				pci_map_single(sp->pdev, (*skb)->data,
- 					       dev->mtu + 4,
-@@ -6011,6 +6017,11 @@ static int set_rxd_buffer_pointer(nic_t 
- 			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2;
- 		} else {
- 			*skb = dev_alloc_skb(size);
-+			if (!*skb) {
-+				DBG_PRINT(ERR_DBG, "%s: dev_alloc_skb \
-+					failed\n ", dev->name);
-+				return -ENOMEM;
-+			}
- 
- 			((RxD3_t*)rxdp)->Buffer0_ptr = *temp0 =
- 				pci_map_single(sp->pdev, ba->ba_0, BUF0_LEN,
-
+Regards, Andreas
 
