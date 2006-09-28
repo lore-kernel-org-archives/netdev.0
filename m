@@ -1,53 +1,52 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
 Subject: Re: [PATCH] softmac: Fix WX and association related races
-Date: Thu, 28 Sep 2006 10:33:44 -0700
-Message-ID: <20060928173344.GE9615@instant802.com>
-References: <200609271726.34305.mb@bu3sch.de> <200609281643.04631.mb@bu3sch.de> <1159455169.2642.30.camel@localhost.localdomain> <200609281713.21082.mb@bu3sch.de>
+Date: Thu, 28 Sep 2006 12:40:08 -0500
+Message-ID: <451C08F8.5040201@lwfinger.net>
+References: <200609271726.34305.mb@bu3sch.de> <20060928163135.GH8121@knob.reflex> <451C0090.10109@lwfinger.net> <200609281914.17041.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	linville@tuxdriver.com, netdev@vger.kernel.org,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, linville@tuxdriver.com,
+	netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>,
+	Jason Lunz <lunz@falooley.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-91.dex002.intermedia.net ([64.78.21.115]:9171 "EHLO
-	dhost002-91.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1030276AbWI1Rdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 13:33:54 -0400
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:34489 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1030319AbWI1RkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 13:40:16 -0400
 To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200609281713.21082.mb@bu3sch.de>
+In-Reply-To: <200609281914.17041.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2006 at 05:13:20PM +0200, Michael Buesch wrote:
-> On Thursday 28 September 2006 16:52, Dan Williams wrote:
-> > As a counterpoint, does every developer _really_ want to run
-> > wpa_supplicant just to use a WEP-encrypted connection where you may
-> > occasionally get kicked off?
+Michael Buesch wrote:
+> On Thursday 28 September 2006 19:04, Larry Finger wrote:
+>> Jason Lunz wrote:
+>>> On Thu, Sep 28, 2006 at 10:52:24AM -0500, Larry Finger wrote:
+>>>> I had very good luck with my first AP, a Linksys WRT54G V1, that I
+>>>> bought a second when the power supply failed in the first. Little did
+>>>> I know that a VxWorks license costs less than the extra memory needed
+>>>> to run Linux. Or was it to defeat the open-source alternatives for the
+>>>> AP?
+>>> last I checked, linksys (cisco?) still sells the linux-compatible
+>>> version as the WRT54GL. <- note the extra 'L'.
+>> I know, but have decided to stay with V5 (and bitch a lot) as others are likely to suffer from the 
+>> same problems as I do. As many of them would never try alternate firmware, we need to provide the 
+>> workarounds. If I'm using one of the brain-dead APs, I get the symptoms first hand and can tell when 
+>> they are fixed.
 > 
-> I think that's the way we want to take. Even for unencrypted networks,
-> probably. We want as much as possible of the high level MAC
-> implementation in userspace. Remember the summit and Simon's talk?
-> It was a good talk and made a lot of sense.
+> Well. You say that it works with your AP and without my patch, but
+> not with the patch. I'd say it works by pure luck. I don't think
+> my patch changes any semantics. It just properly protects some
+> parts from racing. Maybe you actually benefit from these races
+> and softmac magically "races you the correct result" ;)
+> 
+> Or do you notice something that changes semantics?
+> 
 
-I don't know whether every developer wants to run a userspace tool for
-that, but taken into account that I'm planning on focusing on the MLME
-code in wpa_supplicant instead of fine tuning similar code in kernel, it
-should be quite obvious what I would be voting for ;-).
+No, only that the system recovers w/o your patch, and not with it. It could very well race to the 
+correct point. ATM, I have your patch back in and I'm trying to get more diagnostics in the logs. 
+I'll let you know.
 
-> This userspace implementation should probably renamed from wpa_supplicant
-> to wireless_supplicant or whatever.
+Larry
 
-Yeah.. wpa_supplicant does not really describe the exact set of
-functionality in the program. Though, I'm not planning on renaming it
-just for the sake of having a better name. Then again, there are plans
-on merging (with build time options) wpa_supplicant and hostapd
-functionality, so there is a good point for renaming the end result to
-something else. At this point, it shouldn't have "supplicant" in the name
-either since it will be possible to include both supplicant and
-authenticator functionality into the same program (e.g., for IEEE
-802.11i IBSS).
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
