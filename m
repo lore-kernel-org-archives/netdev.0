@@ -1,39 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3/3] [IrDA] Memory allocations cleanups
-Date: Wed, 27 Sep 2006 20:06:52 -0700 (PDT)
-Message-ID: <20060927.200652.45872807.davem@davemloft.net>
-References: <20060911054700.GC6368@sortiz.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/2] loopback: minor statistics optimization
+Date: Wed, 27 Sep 2006 20:13:14 -0700
+Message-ID: <451B3DCA.9010407@osdl.org>
+References: <20060908111613.12c1f9b8@localhost.localdomain>	<20060908112056.7ef03bac@localhost.localdomain> <20060927.200459.13769170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-In-Reply-To: <20060911054700.GC6368-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:33441 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965239AbWI1DNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2006 23:13:32 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060927.200459.13769170.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Mon, 11 Sep 2006 08:47:00 +0300
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Fri, 8 Sep 2006 11:20:56 -0700
+>
+>   
+>> Minor loopback enhancements for 2.6.19
+>>
+>> The loopback device status structure is a singleton and doesn't
+>> need to be allocated. Add ethtool_ops hooks to show checksum always on,
+>> and make ethtool_ops const.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+>>     
+>
+> The ethtool bits are OK, but putting the loopback stats into
+> the image adds nearly 200 bytes of .data section space on
+> 64-bit.
+>
+> I don't really think it's that big of a deal to avoid the
+> kmalloc() call.
+>   
+Yeah but doing the kmalloc is going to get a bigger chunk (rounded up),
+anyway. The statistics should show up in BSS so it won't add to kernel size.
 
-> This patch replaces the bunch of arbitrary 64 and 128 bytes alloc_skb() calls
-> with more accurate allocation sizes.
-> 
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-
-Also applied, thanks.
-
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys -- and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
