@@ -1,44 +1,37 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH] bcm43xx-softmac: fix warning from ignoring returned value from pci_enable_device
-Date: Thu, 28 Sep 2006 19:26:50 +1200
-Message-ID: <5640c7e00609280026m4c734f29i76a92860296d4b8a@mail.gmail.com>
-References: <451B595F.mailDJI11YVSN@lwfinger.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: softmac mtu
+Date: Thu, 28 Sep 2006 09:39:22 +0200
+Message-ID: <1159429162.2648.0.camel@ux156>
+References: <ef3s4u$or5$3@sea.gmane.org> <ef9a0b$4jb$4@sea.gmane.org>
+	 <20060925200125.GF16949@tuxdriver.com>
+	 <20060927143905.721ddf3e@griffin.suse.cz>
+	 <1159365434.451a833ae7728@imp3-g19.free.fr>
+	 <1159365316.2698.40.camel@ux156>  <451AB215.3080500@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "John Linville" <linville@tuxdriver.com>,
-	"Michael Buesch" <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, "Stefano Brivio" <st3@riseup.net>
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0708.google.com ([64.233.184.131]:19005 "EHLO
-	wr-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1751729AbWI1H0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 03:26:51 -0400
-Received: by wr-out-f131.google.com with SMTP id 20so19346wra
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 00:26:50 -0700 (PDT)
-To: "Larry Finger" <Larry.Finger@lwfinger.net>
-In-Reply-To: <451B595F.mailDJI11YVSN@lwfinger.net>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:7809 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751753AbWI1Hir
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 03:38:47 -0400
+To: matthieu castet <castet.matthieu@free.fr>
+In-Reply-To: <451AB215.3080500@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/28/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> Linus's tree now has a configuration option that prints a warning whenever
-> the returned value of any routine is ignored. This patch fixes the only such
-> warning for bcm43xx.
->
-Can you tell me how to make this check please so I can check my code
-in the kernel? I could look it up but obviously you can tell me
-quickly :-)
+On Wed, 2006-09-27 at 19:17 +0200, matthieu castet wrote:
 
-Regards,
+> > 2304, I think, as that's
+> > synonym sMaxMsduLng Integer = 2304; /* max octets in an MSDU */
+> > 
+> 
+> Yes but if it is bigger the frame get framented at the 802.11 layer : in 
+> theory we could put mtu (IP max packet size) a big as we want [1].
 
-Ian
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+No, you're confusing MPDU and MSDU. Or I am :) Please try to read the
+spec as well.
+
+johannes
