@@ -1,388 +1,584 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
-Date: Fri, 29 Sep 2006 12:39:47 -0400
-Message-ID: <451D4C53.3020202@hp.com>
-References: <451C85F4.7000406@trustedcs.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
-	sds@tycho.nsa.gov
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 3/8][ATM]: [lec] header indent, comment and whitespace cleanup
+Date: Fri, 29 Sep 2006 12:39:40 -0400
+Message-ID: <200609291639.k8TGdeVo025534@cmf.nrl.navy.mil>
+Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:36486 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1161201AbWI2Qju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 12:39:50 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <451C85F4.7000406@trustedcs.com>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:55260 "EHLO
+	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
+	id S1161206AbWI2QkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 12:40:16 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Venkat Yekkirala wrote:
-> This defines SELinux enforcement of the 2 new LSM hooks as well
-> as related changes elsewhere in the SELinux code.
+please consider for 2.6.19 -- thanks!
 
-As soon as I hit send on this mail I'll start working on the related
-patch to provide the missing NetLabel support.
+[ATM]: [lec] header indent, comment and whitespace cleanup
 
-Additional comments are below.
+Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-> Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-> ---
->  security/selinux/hooks.c        |  129 +++++++++++++++++++++++-------
->  security/selinux/include/xfrm.h |    5 +
->  security/selinux/ss/mls.c       |    2 
->  security/selinux/ss/services.c  |    2 
->  security/selinux/xfrm.c         |   28 ++++++
->  5 files changed, 139 insertions(+), 27 deletions(-)
-> 
-> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> index 5a66c4c..143b4b8 100644
-> --- a/security/selinux/hooks.c
-> +++ b/security/selinux/hooks.c
-> @@ -3449,8 +3449,12 @@ static int selinux_sock_rcv_skb_compat(s
->  
->  		err = avc_has_perm(sock_sid, port_sid,
->  				   sock_class, recv_perm, ad);
-> +		if (err)
-> +			goto out;
->  	}
->  
-> +	err = selinux_xfrm_sock_rcv_skb(sock_sid, skb, ad);
-> +
->  out:
->  	return err;
->  }
-> @@ -3489,10 +3493,6 @@ static int selinux_socket_sock_rcv_skb(s
->  		goto out;
->  
->  	err = selinux_netlbl_sock_rcv_skb(sksec, skb, &ad);
-> -	if (err)
-> -		goto out;
-> -
-> -	err = selinux_xfrm_sock_rcv_skb(sksec->sid, skb, &ad);
->  out:	
->  	return err;
->  }
-> @@ -3626,13 +3626,16 @@ static int selinux_inet_conn_request(str
->  		return 0;
->  	}
->  
-> -	err = selinux_xfrm_decode_session(skb, &peersid, 0);
-> -	BUG_ON(err);
-> +	if (selinux_compat_net) {
-> +		err = selinux_xfrm_decode_session(skb, &peersid, 0);
-> +		BUG_ON(err);
->  
-> -	if (peersid == SECSID_NULL) {
-> -		req->secid = sksec->sid;
-> -		return 0;
-> -	}
-> +		if (peersid == SECSID_NULL) {
-> +			req->secid = sksec->sid;
-> +			return 0;
-> +		}
-> +	} else
-> +		peersid = skb->secmark;
->  
->  	err = security_sid_mls_copy(sksec->sid, peersid, &newsid);
->  	if (err)
-> @@ -3662,6 +3665,69 @@ static void selinux_req_classify_flow(co
->  	fl->secid = req->secid;
->  }
->  
-> +static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
-> +{
-> +	u32 xfrm_sid, trans_sid;
-> +	int err;
-> +
-> +	if (selinux_compat_net)
-> +		return 1;
-> +
-> +	/* xfrm/cipso inapplicable for loopback traffic */
-> +	if (skb->dev == &loopback_dev)
-> +		return 1;
+---
+commit ad9e9d30230b99dd41921b61a506c41e168e1a84
+tree cc1e31605aaf3d473c4f3c8e26d9a1f9b98e72b7
+parent 55300d040155e883eb8d3dd39d381c95080719e6
+author chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Wed, 20 Sep 2006 18:18:44 -0400
+committer chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Wed, 20 Sep 2006 18:18:44 -0400
 
-Just to clarify (I believe this is the case from your remarks as well as
-the code, but better safe than sorry) the secmark for loopback traffic
-is set by the originating socket, yes?
+ include/linux/atmlec.h |  119 ++++++++++++++++++---------------
+ net/atm/lec.h          |  172 ++++++++++++++++++++++++++----------------------
+ net/atm/lec_arpc.h     |  148 +++++++++++++++++++++--------------------
+ 3 files changed, 235 insertions(+), 204 deletions(-)
 
-Beware: a bit of a nit follows :)
-
-While I understand that NetLabel currently only supports CIPSO, it is a
-framework that can support multiple labeling procotols (i.e. RIPSO
-support is planned).  Please change the comment from cipso/CIPSO to
-netlabel/NetLabel so it is consistent with the rest of the code which
-makes use of NetLabel.
-
-> +	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
-> +	BUG_ON(err);
-> +
-> +	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
-> +					PACKET__FLOW_IN, NULL);
-> +	if (err)
-> +		goto out;
-> +
-> +	if (xfrm_sid) {
-> +		err = security_transition_sid(xfrm_sid, skb->secmark,
-> +						SECCLASS_PACKET, &trans_sid);
-> +		if (err)
-> +			goto out;
-> +
-> +		skb->secmark = trans_sid;
-> +	}
-> +	/* See if CIPSO can flow in thru the current secmark here */
-
-Same nit applies about the use of "CIPSO" vs "NetLabel".
-
-> +out:
-> +	return err ? 0 : 1;
-> +};
-> +
-> +static int selinux_skb_flow_out(struct sk_buff *skb, u32 nf_secid)
-> +{
-> +	u32 trans_sid;
-> +	int err;
-> +
-> +	if (selinux_compat_net)
-> +		return 1;
-> +
-> +	if (!skb->secmark) {
-> +		u32 xfrm_sid;
-> +
-> +		selinux_skb_xfrm_sid(skb, &xfrm_sid);
-> +
-> +		if (xfrm_sid)
-> +			skb->secmark = xfrm_sid;
-> +		else if (skb->sk) {
-> +			struct sk_security_struct *sksec = skb->sk->sk_security;
-> +			skb->secmark = sksec->sid;
-> +		}
-> +	}
-> +
-> +	err = avc_has_perm(skb->secmark, nf_secid, SECCLASS_PACKET,
-> +				PACKET__FLOW_OUT, NULL);
-
-While I don't see any explicit mention of it in the documentation or
-your comments, I assume we would want a flow_out check for NetLabel here
-as well?
-
-> +out:
-> +	return err ? 0 : 1;
-> +}
-> +
->  static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
->  {
->  	int err = 0;
-> @@ -3700,7 +3766,8 @@ out:
->  
->  #ifdef CONFIG_NETFILTER
->  
-> -static int selinux_ip_postroute_last_compat(struct sock *sk, struct net_device *dev,
-> +static int selinux_ip_postroute_last_compat(struct sock *sk, struct sk_buff *skb,
-> +					    struct net_device *dev,
->  					    struct avc_audit_data *ad,
->  					    u16 family, char *addrp, int len)
->  {
-> @@ -3710,6 +3777,9 @@ static int selinux_ip_postroute_last_com
->  	struct inode *inode;
->  	struct inode_security_struct *isec;
->  
-> +	if (!sk)
-> +		goto out;
-> +
->  	sock = sk->sk_socket;
->  	if (!sock)
->  		goto out;
-> @@ -3768,7 +3838,11 @@ static int selinux_ip_postroute_last_com
->  
->  		err = avc_has_perm(isec->sid, port_sid, isec->sclass,
->  				   send_perm, ad);
-> +		if (err)
-> +			goto out;
->  	}
-> +
-> +	err = selinux_xfrm_postroute_last(isec->sid, skb, ad);
->  out:
->  	return err;
->  }
-> @@ -3782,17 +3856,9 @@ static unsigned int selinux_ip_postroute
->  {
->  	char *addrp;
->  	int len, err = 0;
-> -	struct sock *sk;
->  	struct sk_buff *skb = *pskb;
->  	struct avc_audit_data ad;
->  	struct net_device *dev = (struct net_device *)out;
-> -	struct sk_security_struct *sksec;
-> -
-> -	sk = skb->sk;
-> -	if (!sk)
-> -		goto out;
-> -
-> -	sksec = sk->sk_security;
->  
->  	AVC_AUDIT_DATA_INIT(&ad, NET);
->  	ad.u.net.netif = dev->name;
-> @@ -3803,16 +3869,25 @@ static unsigned int selinux_ip_postroute
->  		goto out;
->  
->  	if (selinux_compat_net)
-> -		err = selinux_ip_postroute_last_compat(sk, dev, &ad,
-> +		err = selinux_ip_postroute_last_compat(skb->sk, skb, dev, &ad,
->  						       family, addrp, len);
-> -	else
-> -		err = avc_has_perm(sksec->sid, skb->secmark, SECCLASS_PACKET,
-> -				   PACKET__SEND, &ad);
-> +	else {
-> +		if (!skb->secmark) {
-> +			u32 xfrm_sid;
->  
-> -	if (err)
-> -		goto out;
-> +			selinux_skb_xfrm_sid(skb, &xfrm_sid);
->  
-> -	err = selinux_xfrm_postroute_last(sksec->sid, skb, &ad);
-> +			if (xfrm_sid)
-> +				skb->secmark = xfrm_sid;
-> +			else if (skb->sk) {
-> +				struct sk_security_struct *sksec =
-> +						skb->sk->sk_security;
-> +				skb->secmark = sksec->sid;
-> +			}
-> +		}
-> +		err = avc_has_perm(skb->secmark, SECINITSID_UNLABELED,
-> +				   SECCLASS_PACKET, PACKET__FLOW_OUT, &ad);
-> +	}
-
-This looks nearly identical to selinux_skb_flow_out() as implemented
-above, the only real differences being two of the args to the
-avc_has_perm() call.  Any reason you don't abstract out the common parts
-to a separate function?
-
-Also, the same comment/question about NetLabel support in
-selinux_skb_flow_out() applies here as well I suspect.
-
->  out:
->  	return err ? NF_DROP : NF_ACCEPT;
->  }
-> @@ -4719,6 +4794,8 @@ static struct security_operations selinu
->  	.inet_conn_request =		selinux_inet_conn_request,
->  	.inet_csk_clone =		selinux_inet_csk_clone,
->  	.req_classify_flow =		selinux_req_classify_flow,
-> +	.skb_flow_in =			selinux_skb_flow_in,
-> +	.skb_flow_out =			selinux_skb_flow_out,
->  
->  #ifdef CONFIG_SECURITY_NETWORK_XFRM
->  	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
-> diff --git a/security/selinux/include/xfrm.h b/security/selinux/include/xfrm.h
-> index 81eb598..ed07f92 100644
-> --- a/security/selinux/include/xfrm.h
-> +++ b/security/selinux/include/xfrm.h
-> @@ -41,6 +41,7 @@ int selinux_xfrm_postroute_last(u32 isec
->  u32 selinux_socket_getpeer_stream(struct sock *sk);
->  u32 selinux_socket_getpeer_dgram(struct sk_buff *skb);
->  int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall);
-> +void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid);
->  #else
->  static inline int selinux_xfrm_sock_rcv_skb(u32 isec_sid, struct sk_buff *skb,
->  			struct avc_audit_data *ad)
-> @@ -68,6 +69,10 @@ static inline int selinux_xfrm_decode_se
->  	*sid = SECSID_NULL;
->  	return 0;
->  }
-> +static inline void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid)
-> +{
-> +	*sid = SECSID_NULL;
-> +}
->  #endif
->  
->  #endif /* _SELINUX_XFRM_H_ */
-> diff --git a/security/selinux/ss/mls.c b/security/selinux/ss/mls.c
-> index 119bd60..c551def 100644
-> --- a/security/selinux/ss/mls.c
-> +++ b/security/selinux/ss/mls.c
-> @@ -548,6 +548,8 @@ int mls_compute_sid(struct context *scon
->  				}
->  			}
->  		}
-> +		else if (tclass == SECCLASS_PACKET)
-> +			return mls_copy_context(newcontext, scontext);
->  		/* Fallthrough */
->  	case AVTAB_CHANGE:
->  		if (tclass == SECCLASS_PROCESS)
-> diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
-> index 22ed17c..26176c2 100644
-> --- a/security/selinux/ss/services.c
-> +++ b/security/selinux/ss/services.c
-> @@ -832,6 +832,7 @@ static int security_compute_sid(u32 ssid
->  
->  	if (!ss_initialized) {
->  		switch (tclass) {
-> +		case SECCLASS_PACKET:
->  		case SECCLASS_PROCESS:
->  			*out_sid = ssid;
->  			break;
-> @@ -876,6 +877,7 @@ static int security_compute_sid(u32 ssid
->  
->  	/* Set the role and type to default values. */
->  	switch (tclass) {
-> +	case SECCLASS_PACKET:
->  	case SECCLASS_PROCESS:
->  		/* Use the current role and type of process. */
->  		newcontext.role = scontext->role;
-> diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
-> index 3e742b8..3a68723 100644
-> --- a/security/selinux/xfrm.c
-> +++ b/security/selinux/xfrm.c
-> @@ -155,7 +155,7 @@ int selinux_xfrm_flow_state_match(struct
->  }
->  
->  /*
-> - * LSM hook implementation that determines the sid for the session.
-> + * LSM hook implementation that checks/returns the xfrm sid for the incoming packet.
->   */
->  
->  int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
-> @@ -193,6 +193,32 @@ int selinux_xfrm_decode_session(struct s
->  }
->  
->  /*
-> + * LSM hook implementation that returns the xfrm sid for the outgoing packet.
-> + */
-> +
-> +void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid)
-> +{
-> +	struct dst_entry *dst;
-> +
-> +	*sid = SECSID_NULL;
-> +
-> +	dst = skb->dst;
-> +	if (dst) {
-> +		struct dst_entry *dst_test;
-> +		for (dst_test = dst; dst_test != 0;
-> +			dst_test = dst_test->child) {
-> +			struct xfrm_state *x = dst_test->xfrm;
-> +
-> +			if (x && selinux_authorizable_xfrm(x)) {
-> +				struct xfrm_sec_ctx *ctx = x->security;
-> +				*sid = ctx->ctx_sid;
-> +				break;
-> +			}
-> +		}
-> +	}
-> +}
-> +
-> +/*
->   * Security blob allocation for xfrm_policy and xfrm_state
->   * CTX does not have a meaningful value on input
->   */
-> 
-> --
-> This message was distributed to subscribers of the selinux mailing list.
-> If you no longer wish to subscribe, send mail to majordomo@tycho.nsa.gov with
-> the words "unsubscribe selinux" without quotes as the message.
-
-
--- 
-paul moore
-linux security @ hp
+diff --git a/include/linux/atmlec.h b/include/linux/atmlec.h
+index f267f24..e7f1a75 100644
+--- a/include/linux/atmlec.h
++++ b/include/linux/atmlec.h
+@@ -1,9 +1,7 @@
+ /*
+- * 
+- * ATM Lan Emulation Daemon vs. driver interface
+- *
+- * mkiiskila@yahoo.com
++ * ATM Lan Emulation Daemon driver interface
+  *
++ * Marko Kiiskila <mkiiskila@yahoo.com>
+  */
+ 
+ #ifndef _ATMLEC_H_
+@@ -13,76 +11,87 @@ #include <linux/atmapi.h>
+ #include <linux/atmioc.h>
+ #include <linux/atm.h>
+ #include <linux/if_ether.h>
++
+ /* ATM lec daemon control socket */
+-#define ATMLEC_CTRL _IO('a',ATMIOC_LANE)
+-#define ATMLEC_DATA _IO('a',ATMIOC_LANE+1)
+-#define ATMLEC_MCAST _IO('a',ATMIOC_LANE+2)
++#define ATMLEC_CTRL	_IO('a', ATMIOC_LANE)
++#define ATMLEC_DATA	_IO('a', ATMIOC_LANE+1)
++#define ATMLEC_MCAST	_IO('a', ATMIOC_LANE+2)
+ 
+ /* Maximum number of LEC interfaces (tweakable) */
+ #define MAX_LEC_ITF 48
+ 
+-/* From the total of MAX_LEC_ITF, last NUM_TR_DEVS are reserved for Token Ring.
++/*
++ * From the total of MAX_LEC_ITF, last NUM_TR_DEVS are reserved for Token Ring.
+  * E.g. if MAX_LEC_ITF = 48 and NUM_TR_DEVS = 8, then lec0-lec39 are for
+  * Ethernet ELANs and lec40-lec47 are for Token Ring ELANS.
+  */
+ #define NUM_TR_DEVS 8
+ 
+-typedef enum { 
+-        l_set_mac_addr,   l_del_mac_addr, 
+-        l_svc_setup, 
+-        l_addr_delete,    l_topology_change, 
+-        l_flush_complete, l_arp_update,
+-        l_narp_req, /* LANE2 mandates the use of this */
+-        l_config,         l_flush_tran_id, 
+-        l_set_lecid,      l_arp_xmt,
+-        l_rdesc_arp_xmt,
+-        l_associate_req,
+-        l_should_bridge   /* should we bridge this MAC? */
++typedef enum {
++	l_set_mac_addr,
++	l_del_mac_addr,
++	l_svc_setup,
++	l_addr_delete,
++	l_topology_change,
++	l_flush_complete,
++	l_arp_update,
++	l_narp_req,		/* LANE2 mandates the use of this */
++	l_config,
++	l_flush_tran_id,
++	l_set_lecid,
++	l_arp_xmt,
++	l_rdesc_arp_xmt,
++	l_associate_req,
++	l_should_bridge		/* should we bridge this MAC? */
+ } atmlec_msg_type;
+ 
+ #define ATMLEC_MSG_TYPE_MAX l_should_bridge
+ 
+ struct atmlec_config_msg {
+-        unsigned int maximum_unknown_frame_count;
+-        unsigned int max_unknown_frame_time;
+-        unsigned short max_retry_count;
+-        unsigned int aging_time;
+-        unsigned int forward_delay_time;
+-        unsigned int arp_response_time;
+-        unsigned int flush_timeout;
+-        unsigned int path_switching_delay;
+-        unsigned int  lane_version; /* LANE2: 1 for LANEv1, 2 for LANEv2 */
+-        int mtu;
+-        int is_proxy;
++	unsigned int maximum_unknown_frame_count;
++	unsigned int max_unknown_frame_time;
++	unsigned short max_retry_count;
++	unsigned int aging_time;
++	unsigned int forward_delay_time;
++	unsigned int arp_response_time;
++	unsigned int flush_timeout;
++	unsigned int path_switching_delay;
++	unsigned int lane_version;	/* LANE2: 1 for LANEv1, 2 for LANEv2 */
++	int mtu;
++	int is_proxy;
+ };
+- 
++
+ struct atmlec_msg {
+-        atmlec_msg_type type;
+-        int             sizeoftlvs;        /* LANE2: if != 0, tlvs follow */ 
+-        union {
+-                struct {
+-                        unsigned char mac_addr[ETH_ALEN];
+-                        unsigned char atm_addr[ATM_ESA_LEN];
+-                        unsigned int flag;/* Topology_change flag, 
+-                                              remoteflag, permanent flag,
+-                                              lecid, transaction id */
+-                        unsigned int targetless_le_arp; /* LANE2 */
+-                        unsigned int no_source_le_narp; /* LANE2 */
+-                } normal;
+-                struct atmlec_config_msg config;
+-                struct {
+-                        uint16_t lec_id;                     /* requestor lec_id  */
+-                        uint32_t tran_id;                    /* transaction id    */
+-                        unsigned char mac_addr[ETH_ALEN];    /* dst mac addr      */
+-                        unsigned char atm_addr[ATM_ESA_LEN]; /* reqestor ATM addr */
+-                } proxy;
+-		     /* For mapping LE_ARP requests to responses. Filled by */
+-        } content;       /* zeppelin, returned by kernel. Used only when proxying */ 
++	atmlec_msg_type type;
++	int sizeoftlvs;		/* LANE2: if != 0, tlvs follow */
++	union {
++		struct {
++			unsigned char mac_addr[ETH_ALEN];
++			unsigned char atm_addr[ATM_ESA_LEN];
++			unsigned int flag;	/*
++						 * Topology_change flag, 
++						 * remoteflag, permanent flag,
++						 * lecid, transaction id
++						 */
++			unsigned int targetless_le_arp;	/* LANE2 */
++			unsigned int no_source_le_narp;	/* LANE2 */
++		} normal;
++		struct atmlec_config_msg config;
++		struct {
++			uint16_t lec_id;			/* requestor lec_id  */
++			uint32_t tran_id;			/* transaction id    */
++			unsigned char mac_addr[ETH_ALEN];	/* dst mac addr      */
++			unsigned char atm_addr[ATM_ESA_LEN];	/* reqestor ATM addr */
++		} proxy;	/*
++				 * For mapping LE_ARP requests to responses. Filled by
++				 * zeppelin, returned by kernel. Used only when proxying
++				 */
++	} content;
+ } __ATM_API_ALIGN;
+ 
+ struct atmlec_ioc {
+-        int dev_num;
+-        unsigned char atm_addr[ATM_ESA_LEN];
+-        unsigned char receive;    /* 1= receive vcc, 0 = send vcc */
++	int dev_num;
++	unsigned char atm_addr[ATM_ESA_LEN];
++	unsigned char receive;	/* 1= receive vcc, 0 = send vcc */
+ };
+ #endif /* _ATMLEC_H_ */
+diff --git a/net/atm/lec.h b/net/atm/lec.h
+index c22a8bf..7efd586 100644
+--- a/net/atm/lec.h
++++ b/net/atm/lec.h
+@@ -1,14 +1,13 @@
+ /*
+- *
+  * Lan Emulation client header file
+  *
+- * Marko Kiiskila mkiiskila@yahoo.com
+- *
++ * Marko Kiiskila <mkiiskila@yahoo.com>
+  */
+ 
+ #ifndef _LEC_H_
+ #define _LEC_H_
+ 
++#include <linux/config.h>
+ #include <linux/atmdev.h>
+ #include <linux/netdevice.h>
+ #include <linux/atmlec.h>
+@@ -16,18 +15,18 @@ #include <linux/atmlec.h>
+ #define LEC_HEADER_LEN 16
+ 
+ struct lecdatahdr_8023 {
+-  unsigned short le_header;
+-  unsigned char h_dest[ETH_ALEN];
+-  unsigned char h_source[ETH_ALEN];
+-  unsigned short h_type;
++	unsigned short le_header;
++	unsigned char h_dest[ETH_ALEN];
++	unsigned char h_source[ETH_ALEN];
++	unsigned short h_type;
+ };
+ 
+ struct lecdatahdr_8025 {
+-  unsigned short le_header;
+-  unsigned char ac_pad;
+-  unsigned char fc;
+-  unsigned char h_dest[ETH_ALEN];
+-  unsigned char h_source[ETH_ALEN];
++	unsigned short le_header;
++	unsigned char ac_pad;
++	unsigned char fc;
++	unsigned char h_dest[ETH_ALEN];
++	unsigned char h_source[ETH_ALEN];
+ };
+ 
+ #define LEC_MINIMUM_8023_SIZE   62
+@@ -44,17 +43,18 @@ #define LEC_MINIMUM_8025_SIZE   16
+  *
+  */
+ struct lane2_ops {
+-	int  (*resolve)(struct net_device *dev, u8 *dst_mac, int force,
+-                        u8 **tlvs, u32 *sizeoftlvs);
+-        int  (*associate_req)(struct net_device *dev, u8 *lan_dst,
+-                              u8 *tlvs, u32 sizeoftlvs);
+-	void (*associate_indicator)(struct net_device *dev, u8 *mac_addr,
+-                                    u8 *tlvs, u32 sizeoftlvs);
++	int (*resolve) (struct net_device *dev, u8 *dst_mac, int force,
++			u8 **tlvs, u32 *sizeoftlvs);
++	int (*associate_req) (struct net_device *dev, u8 *lan_dst,
++			      u8 *tlvs, u32 sizeoftlvs);
++	void (*associate_indicator) (struct net_device *dev, u8 *mac_addr,
++				     u8 *tlvs, u32 sizeoftlvs);
+ };
+ 
+ /*
+  * ATM LAN Emulation supports both LLC & Dix Ethernet EtherType
+  * frames. 
++ *
+  * 1. Dix Ethernet EtherType frames encoded by placing EtherType
+  *    field in h_type field. Data follows immediatelly after header.
+  * 2. LLC Data frames whose total length, including LLC field and data,
+@@ -70,72 +70,88 @@ struct lane2_ops {
+ #define LEC_ARP_TABLE_SIZE 16
+ 
+ struct lec_priv {
+-        struct net_device_stats stats;
+-        unsigned short lecid;      /* Lecid of this client */
+-        struct lec_arp_table *lec_arp_empty_ones;
+-        /* Used for storing VCC's that don't have a MAC address attached yet */
+-        struct lec_arp_table *lec_arp_tables[LEC_ARP_TABLE_SIZE];
+-        /* Actual LE ARP table */
+-        struct lec_arp_table *lec_no_forward;
+-        /* Used for storing VCC's (and forward packets from) which are to
+-           age out by not using them to forward packets. 
+-           This is because to some LE clients there will be 2 VCCs. Only
+-           one of them gets used. */
+-        struct lec_arp_table *mcast_fwds;
+-        /* With LANEv2 it is possible that BUS (or a special multicast server)
+-           establishes multiple Multicast Forward VCCs to us. This list
+-           collects all those VCCs. LANEv1 client has only one item in this
+-           list. These entries are not aged out. */
+-        spinlock_t lec_arp_lock;
+-        struct atm_vcc *mcast_vcc; /* Default Multicast Send VCC */
+-        struct atm_vcc *lecd;
+-        struct timer_list lec_arp_timer;
+-        /* C10 */
+-        unsigned int maximum_unknown_frame_count;
+-/* Within the period of time defined by this variable, the client will send 
+-   no more than C10 frames to BUS for a given unicast destination. (C11) */
+-        unsigned long max_unknown_frame_time;
+-/* If no traffic has been sent in this vcc for this period of time,
+-   vcc will be torn down (C12)*/
+-        unsigned long vcc_timeout_period;
+-/* An LE Client MUST not retry an LE_ARP_REQUEST for a 
+-   given frame's LAN Destination more than maximum retry count times,
+-   after the first LEC_ARP_REQUEST (C13)*/
+-        unsigned short max_retry_count;
+-/* Max time the client will maintain an entry in its arp cache in
+-   absence of a verification of that relationship (C17)*/
+-        unsigned long aging_time;
+-/* Max time the client will maintain an entry in cache when
+-   topology change flag is true (C18) */
+-        unsigned long forward_delay_time;
+-/* Topology change flag  (C19)*/
+-        int topology_change;
+-/* Max time the client expects an LE_ARP_REQUEST/LE_ARP_RESPONSE
+-   cycle to take (C20)*/
+-        unsigned long arp_response_time;
+-/* Time limit ot wait to receive an LE_FLUSH_RESPONSE after the
+-   LE_FLUSH_REQUEST has been sent before taking recover action. (C21)*/
+-        unsigned long flush_timeout;
+-/* The time since sending a frame to the bus after which the
+-   LE Client may assume that the frame has been either discarded or
+-   delivered to the recipient (C22) */
+-        unsigned long path_switching_delay;
++	struct net_device_stats stats;
++	unsigned short lecid;			/* Lecid of this client */
++	struct lec_arp_table *lec_arp_empty_ones;
++						/* Used for storing VCC's that don't have a MAC address attached yet */
++	struct lec_arp_table *lec_arp_tables[LEC_ARP_TABLE_SIZE];
++						/* Actual LE ARP table */
++	struct lec_arp_table *lec_no_forward;
++						/*
++						 * Used for storing VCC's (and forward packets from) which are to
++						 * age out by not using them to forward packets. 
++						 * This is because to some LE clients there will be 2 VCCs. Only
++						 * one of them gets used.
++						 */
++	struct lec_arp_table *mcast_fwds;
++						/*
++						 * With LANEv2 it is possible that BUS (or a special multicast server)
++						 * establishes multiple Multicast Forward VCCs to us. This list
++						 * collects all those VCCs. LANEv1 client has only one item in this
++						 * list. These entries are not aged out.
++						 */
++	spinlock_t lec_arp_lock;
++	struct atm_vcc *mcast_vcc;		/* Default Multicast Send VCC */
++	struct atm_vcc *lecd;
++	struct timer_list lec_arp_timer;	/* C10 */
++	unsigned int maximum_unknown_frame_count;
++						/*
++						 * Within the period of time defined by this variable, the client will send 
++						 * no more than C10 frames to BUS for a given unicast destination. (C11)
++						 */
++	unsigned long max_unknown_frame_time;
++						/*
++						 * If no traffic has been sent in this vcc for this period of time,
++						 * vcc will be torn down (C12)
++						 */
++	unsigned long vcc_timeout_period;
++						/*
++						 * An LE Client MUST not retry an LE_ARP_REQUEST for a 
++						 * given frame's LAN Destination more than maximum retry count times,
++						 * after the first LEC_ARP_REQUEST (C13)
++						 */
++	unsigned short max_retry_count;
++						/*
++						 * Max time the client will maintain an entry in its arp cache in
++						 * absence of a verification of that relationship (C17)
++						 */
++	unsigned long aging_time;
++						/*
++						 * Max time the client will maintain an entry in cache when
++						 * topology change flag is true (C18)
++						 */
++	unsigned long forward_delay_time;	/* Topology change flag (C19) */
++	int topology_change;
++						/*
++						 * Max time the client expects an LE_ARP_REQUEST/LE_ARP_RESPONSE
++						 * cycle to take (C20)
++						 */
++	unsigned long arp_response_time;
++						/*
++						 * Time limit ot wait to receive an LE_FLUSH_RESPONSE after the
++						 * LE_FLUSH_REQUEST has been sent before taking recover action. (C21)
++						 */
++	unsigned long flush_timeout;
++						/* The time since sending a frame to the bus after which the
++						 * LE Client may assume that the frame has been either discarded or
++						 * delivered to the recipient (C22)
++						 */
++	unsigned long path_switching_delay;
+ 
+-        u8 *tlvs;          /* LANE2: TLVs are new                */
+-        u32 sizeoftlvs;    /* The size of the tlv array in bytes */
+-        int lane_version;  /* LANE2                              */
+-	int itfnum;        /* e.g. 2 for lec2, 5 for lec5        */
+-        struct lane2_ops *lane2_ops; /* can be NULL for LANE v1  */
+-        int is_proxy;      /* bridge between ATM and Ethernet    */
+-        int is_trdev;      /* Device type, 0 = Ethernet, 1 = TokenRing */
++	u8 *tlvs;				/* LANE2: TLVs are new */
++	u32 sizeoftlvs;				/* The size of the tlv array in bytes */
++	int lane_version;			/* LANE2 */
++	int itfnum;				/* e.g. 2 for lec2, 5 for lec5 */
++	struct lane2_ops *lane2_ops;		/* can be NULL for LANE v1 */
++	int is_proxy;				/* bridge between ATM and Ethernet */
++	int is_trdev;				/* Device type, 0 = Ethernet, 1 = TokenRing */
+ };
+ 
+ struct lec_vcc_priv {
+-	void (*old_pop)(struct atm_vcc *vcc, struct sk_buff *skb);
++	void (*old_pop) (struct atm_vcc *vcc, struct sk_buff *skb);
+ 	int xoff;
+ };
+ 
+ #define LEC_VCC_PRIV(vcc)	((struct lec_vcc_priv *)((vcc)->user_back))
+ 
+-#endif /* _LEC_H_ */
+-
++#endif				/* _LEC_H_ */
+diff --git a/net/atm/lec_arpc.h b/net/atm/lec_arpc.h
+index 3974480..eb09a35 100644
+--- a/net/atm/lec_arpc.h
++++ b/net/atm/lec_arpc.h
+@@ -1,92 +1,98 @@
+ /*
+  * Lec arp cache
+- * Marko Kiiskila mkiiskila@yahoo.com
+  *
++ * Marko Kiiskila <mkiiskila@yahoo.com>
+  */
+-#ifndef _LEC_ARP_H
+-#define _LEC_ARP_H
++#ifndef _LEC_ARP_H_
++#define _LEC_ARP_H_
+ #include <linux/atm.h>
+ #include <linux/atmdev.h>
+ #include <linux/if_ether.h>
+ #include <linux/atmlec.h>
+ 
+ struct lec_arp_table {
+-        struct lec_arp_table *next;          /* Linked entry list */
+-        unsigned char atm_addr[ATM_ESA_LEN]; /* Atm address */
+-        unsigned char mac_addr[ETH_ALEN];    /* Mac address */
+-        int is_rdesc;                        /* Mac address is a route descriptor */
+-        struct atm_vcc *vcc;                 /* Vcc this entry is attached */
+-        struct atm_vcc *recv_vcc;            /* Vcc we receive data from */
+-        void (*old_push)(struct atm_vcc *vcc,struct sk_buff *skb); 
+-                                             /* Push that leads to daemon */
+-        void (*old_recv_push)(struct atm_vcc *vcc, struct sk_buff *skb);
+-                                             /* Push that leads to daemon */
+-        void (*old_close)(struct atm_vcc *vcc);
+-                                             /* We want to see when this
+-                                              * vcc gets closed */
+-        unsigned long last_used;             /* For expiry */
+-        unsigned long timestamp;             /* Used for various timestamping
+-                                              * things:
+-                                              * 1. FLUSH started 
+-                                              *    (status=ESI_FLUSH_PENDING)
+-                                              * 2. Counting to 
+-                                              *    max_unknown_frame_time
+-                                              *    (status=ESI_ARP_PENDING||
+-                                              *     status=ESI_VC_PENDING)
+-                                              */
+-        unsigned char no_tries;              /* No of times arp retry has been 
+-                                                tried */
+-        unsigned char status;                /* Status of this entry */
+-        unsigned short flags;                /* Flags for this entry */
+-        unsigned short packets_flooded;      /* Data packets flooded */
+-        unsigned long flush_tran_id;         /* Transaction id in flush protocol */
+-        struct timer_list timer;             /* Arping timer */
+-        struct lec_priv *priv;               /* Pointer back */
++	struct lec_arp_table *next;	/* Linked entry list */
++	unsigned char atm_addr[ATM_ESA_LEN];	/* Atm address */
++	unsigned char mac_addr[ETH_ALEN];	/* Mac address */
++	int is_rdesc;			/* Mac address is a route descriptor */
++	struct atm_vcc *vcc;		/* Vcc this entry is attached */
++	struct atm_vcc *recv_vcc;	/* Vcc we receive data from */
+ 
+-        u8  *tlvs;             /* LANE2: Each MAC address can have TLVs    */
+-        u32 sizeoftlvs;        /* associated with it. sizeoftlvs tells the */
+-                               /* the length of the tlvs array             */
+-        struct sk_buff_head tx_wait; /* wait queue for outgoing packets    */
++	void (*old_push) (struct atm_vcc *vcc, struct sk_buff *skb);
++					/* Push that leads to daemon */
++
++	void (*old_recv_push) (struct atm_vcc *vcc, struct sk_buff *skb);
++					/* Push that leads to daemon */
++
++	void (*old_close) (struct atm_vcc *vcc);
++					/* We want to see when this vcc gets closed */
++
++	unsigned long last_used;	/* For expiry */
++	unsigned long timestamp;	/* Used for various timestamping things:
++					 * 1. FLUSH started 
++					 *    (status=ESI_FLUSH_PENDING)
++					 * 2. Counting to 
++					 *    max_unknown_frame_time
++					 *    (status=ESI_ARP_PENDING||
++					 *     status=ESI_VC_PENDING)
++					 */
++	unsigned char no_tries;		/* No of times arp retry has been tried */
++	unsigned char status;		/* Status of this entry */
++	unsigned short flags;		/* Flags for this entry */
++	unsigned short packets_flooded;	/* Data packets flooded */
++	unsigned long flush_tran_id;	/* Transaction id in flush protocol */
++	struct timer_list timer;	/* Arping timer */
++	struct lec_priv *priv;		/* Pointer back */
++	u8 *tlvs;
++	u32 sizeoftlvs;			/*
++					 * LANE2: Each MAC address can have TLVs
++					 * associated with it.  sizeoftlvs tells the
++					 * the length of the tlvs array
++					 */
++	struct sk_buff_head tx_wait;	/* wait queue for outgoing packets */
+ };
+ 
+-struct tlv {                   /* LANE2: Template tlv struct for accessing */
+-                               /* the tlvs in the lec_arp_table->tlvs array*/
+-        u32 type;
+-        u8  length;
+-        u8  value[255];
++/*
++ * LANE2: Template tlv struct for accessing
++ * the tlvs in the lec_arp_table->tlvs array
++ */
++struct tlv {		
++	u32 type;
++	u8 length;
++	u8 value[255];
+ };
+ 
+ /* Status fields */
+-#define ESI_UNKNOWN 0       /*
+-                             * Next packet sent to this mac address
+-                             * causes ARP-request to be sent 
+-                             */
+-#define ESI_ARP_PENDING 1   /*
+-                             * There is no ATM address associated with this
+-                             * 48-bit address.  The LE-ARP protocol is in
+-                             * progress.
+-                             */
+-#define ESI_VC_PENDING 2    /*
+-                             * There is a valid ATM address associated with 
+-                             * this 48-bit address but there is no VC set 
+-                             * up to that ATM address.  The signaling 
+-                             * protocol is in process.
+-                             */
+-#define ESI_FLUSH_PENDING 4 /*
+-                             * The LEC has been notified of the FLUSH_START
+-                             * status and it is assumed that the flush 
+-                             * protocol is in process.
+-                             */
+-#define ESI_FORWARD_DIRECT 5 /*
+-                              * Either the Path Switching Delay (C22) has 
+-                              * elapsed or the LEC has notified the Mapping 
+-                              * that the flush protocol has completed.  In 
+-                              * either case, it is safe to forward packets 
+-                              * to this address via the data direct VC.
+-                              */
++#define ESI_UNKNOWN 0		/*
++				 * Next packet sent to this mac address
++				 * causes ARP-request to be sent 
++				 */
++#define ESI_ARP_PENDING 1	/*
++				 * There is no ATM address associated with this
++				 * 48-bit address.  The LE-ARP protocol is in
++				 * progress.
++				 */
++#define ESI_VC_PENDING 2	/*
++				 * There is a valid ATM address associated with 
++				 * this 48-bit address but there is no VC set 
++				 * up to that ATM address.  The signaling 
++				 * protocol is in process.
++				 */
++#define ESI_FLUSH_PENDING 4	/*
++				 * The LEC has been notified of the FLUSH_START
++				 * status and it is assumed that the flush 
++				 * protocol is in process.
++				 */
++#define ESI_FORWARD_DIRECT 5	/*
++				 * Either the Path Switching Delay (C22) has 
++				 * elapsed or the LEC has notified the Mapping 
++				 * that the flush protocol has completed.  In 
++				 * either case, it is safe to forward packets 
++				 * to this address via the data direct VC.
++				 */
+ 
+ /* Flag values */
+ #define LEC_REMOTE_FLAG      0x0001
+ #define LEC_PERMANENT_FLAG   0x0002
+ 
+-#endif
++#endif /* _LEC_ARP_H_ */
