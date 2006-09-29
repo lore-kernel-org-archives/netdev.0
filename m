@@ -1,31 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] ieee80211: quiet TKIP and CCMP replay messages for
-	identical TSCs
-Date: Fri, 29 Sep 2006 09:41:01 +0200
-Message-ID: <1159515661.2644.5.camel@ux156>
-References: <4517FA78.mailH4P11L3ZE@lwfinger.net>
-	 <20060928160240.GB9615@instant802.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 4/7] secid reconciliation-v03: Invoke LSM hook for outbound
+ traffic
+Date: Fri, 29 Sep 2006 03:42:57 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609290338050.1650@d.namei>
+References: <451C85E2.2030201@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
+	paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60317 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161478AbWI2HkQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 03:40:16 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060928160240.GB9615@instant802.com>
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:48585 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1161348AbWI2Hm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 03:42:59 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <451C85E2.2030201@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-28 at 09:02 -0700, Jouni Malinen wrote:
-> (and it should be fixed if it did not do its
-> job correctly). 
+On Thu, 28 Sep 2006, Venkat Yekkirala wrote:
 
-Yup, that's actually the correct fix for this problem. ieee80211 doesn't
-do any such thing afaict, probably because Intel's hardware does it
-directly or something.
+> +		}
+> +		else	/* inbound */
+> +			/* loopback traffic should already be labeled
+> +			   and any filtering on outbound should suffice */
+> +			if (in == &loopback_dev)
+> +				goto out;
 
-johannes
+Minor nit that akpm will point out, the else belongs on the same line as 
+the brace.  Also, the comment style is:
+
+	/*
+	 * Comment...
+	 * etc.
+	 */
+
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
