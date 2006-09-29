@@ -1,43 +1,53 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
-Date: Fri, 29 Sep 2006 12:50:32 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609291247170.6007@d.namei>
-References: <36282A1733C57546BE392885C0618592015CF2BE@chaos.tcs.tcs-sec.com>
- <451D4A51.4000603@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: mii-tool gigabit support.
+Date: Fri, 29 Sep 2006 10:12:15 -0700
+Message-ID: <20060929101215.649a9e32@freekitty>
+References: <20060926145113.7a6791c8@freekitty>
+	<4519A1D6.1050802@pobox.com>
+	<Pine.LNX.4.64.0609271215150.2299@twinlark.arctic.org>
+	<451AD1D6.4030708@intel.com>
+	<1159546378.2761.5.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Joshua Brindle <method@gentoo.org>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, kmacmillan@mentalrootkit.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, dean gaudet <dean@arctic.org>,
+	Jeff Garzik <jgarzik@pobox.com>, dhinds@pcmcia.sourceforge.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:31469 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932357AbWI2Que (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 12:50:34 -0400
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <451D4A51.4000603@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:44759 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422640AbWI2RPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 13:15:05 -0400
+To: David Hollis <dhollis@davehollis.com>
+In-Reply-To: <1159546378.2761.5.camel@dhollis-lnx.sunera.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Sep 2006, Paul Moore wrote:
+On Fri, 29 Sep 2006 12:12:58 -0400
+David Hollis <dhollis@davehollis.com> wrote:
 
-> > It seems more of a pain to actually
-> > prevent their use at the same time and/or explain strange/unnatural
-> > behavior.
+> On Wed, 2006-09-27 at 12:32 -0700, Auke Kok wrote:
+> > dumping registers in readable format is an extension that needs to be 
+> > implemented per driver. Not all nics have done this - we just did it
+> > ourselves 
+> > for ixgb, and I saw skge/sky2 just fly by this week. 
 > 
-> Agreed, the solution that we agreed upon is much easier to implement and
-> explain than a lot of the alternatives.
-
-Ok, can you please explain it further?
-
-i.e. show me what the policy looks like, exactly what the user is trying 
-to achieve, and explain what happens to each packet exactly in terms of 
-labeling on the input and output paths.
-
-
+> This has always bothered me a bit with ethtool.  It really stinks that
+> we have to actually write code and generate patches and get everyone to
+> update a utility just to be able to get this type of access.  I see two
+> ways to make the situation better:  1) add extensions to the drivers
+> themselves to be able to report this which would likely lead to a lot of
+> driver bloat and too much user-space style info (like verbose
+> descriptions of the register and it's purpose) or 2) develop some style
+> of register description definition type of text file, maybe XML, maybe
+> INI style or something stored in /etc/ethtool as <drivername>.conf or
+> something like that.  This way, ethtool doesn't have to be
+> changed/updated/patched/likely-bug-added for every single device known
+> to man.  
+> 
+> Just a thought.
+ 
+We could switch to shared libraries like 'tc' uses.
 
 
 -- 
-James Morris
-<jmorris@namei.org>
+Stephen Hemminger <shemminger@osdl.org>
