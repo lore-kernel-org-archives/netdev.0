@@ -1,33 +1,39 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATH] Allow mtu bigger than 1500 for ieee80211
-Date: Fri, 29 Sep 2006 17:47:51 +0200
-Message-ID: <20060929154751.GA23067@zlug.org>
-References: <451C0D05.4050705@free.fr> <1159515501.2644.3.camel@ux156> <20060929093050.GA19115@zlug.org> <1159530970.2644.21.camel@ux156>
+From: Andrea Gelmini <gelma@gelma.net>
+Subject: Re: sky2 (was Re: 2.6.18-mm2)
+Date: Fri, 29 Sep 2006 18:04:13 +0200
+Message-ID: <20060929160413.GB4067@gelma.net>
+References: <20060928155053.7d8567ae.akpm@osdl.org> <451C5599.80402@garzik.org> <20060928162539.7d565d0a.akpm@osdl.org> <20060928163023.21086528@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: matthieu castet <castet.matthieu@free.fr>, netdev@vger.kernel.org,
-	linville@tuxdriver.com
+Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jeff@garzik.org>,
+	oe@hentges.net, Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:60089 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S932304AbWI2Prx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 11:47:53 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from aa010msg.fastweb.it ([213.140.2.77]:2510 "EHLO
+	aa010msg.fastweb.it") by vger.kernel.org with ESMTP
+	id S1161096AbWI2QEo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 12:04:44 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <1159530970.2644.21.camel@ux156>
+In-Reply-To: <20060928163023.21086528@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 29, 2006 at 01:56:10PM +0200, Johannes Berg wrote:
-> On Fri, 2006-09-29 at 11:30 +0200, Joerg Roedel wrote:
+On Thu, Sep 28, 2006 at 04:30:23PM -0700, Stephen Hemminger wrote:
+> Note: I know what is causing all the sky2 problems, there is something wrong that
+> is causing flow control negotiation not to propagate back to all the multiple levels
+> of the chip. Unclear how to fix it, the documentation is not helpful on this.
+> If not resolved soon, I'll just force Tx flow control off for now.
 
-> > Isn't 68 the minimum MTU required by IPv4?
-> 
-> No idea, but shouldn't there be a named constant somewhere for that
-> then?
+just for the record, same problem here.
+I mean, with my Sony Vaio VGN-SZ1VP (here[1] you can find all hardware
+details), it's enough some mega of udp traffic, usually nfs, to "freeze"
+the network. Well, no complain from the kernel. It's enough to rmmod and
+modprobe sky2 to fix the problem. I already tried -mm1, but nothing
+changed. In the meanwhile I will continue to use my usb network card.
 
-Maybe. Other network drivers also implement this number as a hard value
-in their change_mtu callback. For example, the default ethernet function
-is implemented this way.
+Thanks a lot for your time,
+Andrea Gelmini
 
-Joerg
+-------
+[1] http://groups.google.it/group/linux.kernel/msg/ceff3014c410bea6 
