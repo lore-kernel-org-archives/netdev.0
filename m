@@ -1,40 +1,103 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH][BNX2]: Disable MSI on 5706 if AMD 8132 bridge is
- present
-Date: Fri, 29 Sep 2006 16:27:35 -0700
-Message-ID: <1159572456.3741.38.camel@rh4>
-References: <1159565963.3741.23.camel@rh4>
- <20060929.154917.125894679.davem@davemloft.net>
- <451DA57F.60609@garzik.org>
- <20060929.160807.28788865.davem@davemloft.net>
- <451DA902.7030409@garzik.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network problem with 2.6.18-mm1 ?
+Date: Fri, 29 Sep 2006 17:30:27 -0600
+Message-ID: <m1ejtui73g.fsf@ebiederm.dsl.xmission.com>
+References: <20060928013724.GA22898@us.ibm.com> <451B2D29.9040306@intel.com>
+	<20060928185222.GB3352@us.ibm.com>
+	<4807377b0609281410p28d445c8mc32e7d2cb71221ab@mail.gmail.com>
+	<20060929005205.GA3876@us.ibm.com>
+	<4807377b0609291108x84f39c6ic4c669fd91f8fcd4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Sukadev Bhattiprolu" <sukadev@us.ibm.com>,
+	"Auke Kok" <auke-jan.h.kok@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Andrew Morton" <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:267 "EHLO mms2.broadcom.com")
-	by vger.kernel.org with ESMTP id S1422646AbWI2XbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 19:31:16 -0400
-To: "Jeff Garzik" <jeff@garzik.org>
-In-Reply-To: <451DA902.7030409@garzik.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:32224 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1422644AbWI2Xbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 19:31:47 -0400
+To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0609291108x84f39c6ic4c669fd91f8fcd4@mail.gmail.com>
+	(Jesse Brandeburg's message of "Fri, 29 Sep 2006 11:08:10 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-09-29 at 19:15 -0400, Jeff Garzik wrote:
+"Jesse Brandeburg" <jesse.brandeburg@gmail.com> writes:
 
-> It was completely vague as to why this incompatibility was specific to 
-> the 5706, when -- as the description noted -- the behavior is legal.
+> On 9/28/06, Sukadev Bhattiprolu <sukadev@us.ibm.com> wrote:
+>> $ cat /proc/interrupts
+>>
+>>            CPU0       CPU1
+>>  28:          0          0   IO-APIC-fasteoi  eth0
+>> NMI:         96         35
+>> LOC:      18251      18524
+>> ERR:          0
+>
+> you should be getting an interrupt every two seconds from the eth0
+> (e1000) driver.  You are having interrupt delivery problems probably
+> due to something screwing up interrupt routing in the kernel.
+> Normally these issues are associated with MSI interrupts but your
+> adapter doesn't support those and is using generic IRQ
+>
+> I'm guessing that if you somehow enable interrupts on your vga card on
+> the same bus as e1000 (bus 3) it will have interrupt delivery problems
+> as well.  Maybe try xorg?
+
+To summarize.
+
+We have an e1000 plugged into a pci-x slot on an Opteron system with
+an amd chipset.
+
+That motherboard has 3 ioapics.  (One on each PCI-X bridge and
+one on the 8111 for handling everything else.
+
+We know we are getting interrupts through the 8111 ioapic.
+
+We don't know which ioapic the pci-x bus is hooked to.
+
+So either the ioapics on the 8131 are having problems.
+Or we have a problem parsing the irq routing tables.
+
+We see in dmesg.
+[    0.000000] I/O APIC #2 at 0xFEC00000.
+[    0.000000] I/O APIC #3 at 0xE8000000.
+[    0.000000] I/O APIC #4 at 0xE8001000.
+...
+[   97.410411] PCI: Cannot allocate resource region 0 of device 0000:00:0a.1
+[   97.423945] PCI: Cannot allocate resource region 0 of device 0000:00:0b.1
+
+We see in lspci
 > 
-
-The description is a bit vague in that one aspect that Jeff pointed out,
-but otherwise very complete in my opinion.
-
-> Re-read the patch.  At no time does it say 5706 was in the wrong.
+> 0000:00:0a.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC (rev 01)
+> (prog-if 10 [IO-APIC])
+> 	Subsystem: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 	Region 0: Memory at 88100000 (64-bit, non-prefetchable) [size=4K]
 > 
+> 0000:00:0b.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC (rev 01)
+> (prog-if 10 [IO-APIC])
+> 	Subsystem: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 	Region 0: Memory at 88101000 (64-bit, non-prefetchable) [size=4K]
 
-The behavior is legal but AMD believes that it is unique to the 5706.  I
-cannot make this less vague since it is a recommendation from AMD.  I
-just trust their opinion on this.
+So it looks like the kernel moved the ioapics.
 
+The following patch in 2.6.18-mm1 is known to have that effect.
+x86_64-mm-insert-ioapics-and-local-apic-into-resource-map
 
+Can you please try reverting that one patch?
+
+There is a fix an updated version of that patch I think in -mm2
+but I haven't had a chance to see if it fixes the problem yet.
+
+Eric
