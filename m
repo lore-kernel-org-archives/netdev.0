@@ -1,339 +1,159 @@
-From: paul.moore@hp.com
-Subject: [PATCH 1/1] NetLabel: secid reconciliation support
-Date: Fri, 29 Sep 2006 16:17:47 -0400
-Message-ID: <20060929202226.124529000@hp.com>
-References: <20060929201746.711738000@hp.com>
-Cc: jmorris@namei.org, sds@tycho.nsa.gov, method@gentoo.org,
-	kmacmillan@mentalrootkit.com, Paul Moore <paul.moore@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:23958 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1422797AbWI2UWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 16:22:30 -0400
-To: vyekkirala@TrustedCS.com, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=netlabel-secid_support
-Sender: netdev-owner@vger.kernel.org
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration
+	changes
+Date: Fri, 29 Sep 2006 16:28:36 -0400
+Message-ID: <451D81F4.30107@hp.com>
+References: <20060928180326.896170000@hp.com>
+	<200609291008.07290.sgrubb@redhat.com> <451D614F.8090502@hp.com>
+	<200609291435.53680.sgrubb@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
+	selinux@tycho.nsa.gov, linux-audit@redhat.com
+Return-path: <linux-audit-bounces@redhat.com>
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <200609291435.53680.sgrubb@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-This patch provides the missing NetLabel support to the secid reconciliation
-patchset.
+Dave,
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
- security/selinux/hooks.c                    |   51 ++++++++++++++++++++--------
- security/selinux/include/objsec.h           |    1 
- security/selinux/include/selinux_netlabel.h |   16 +++++++-
- security/selinux/ss/mls.c                   |    2 -
- security/selinux/ss/services.c              |   42 ++++++++++++++++-------
- 5 files changed, 82 insertions(+), 30 deletions(-)
+I think Steve and I have agreed on a solution, I'll put together a patch
+right now based on what is currently in net-2.6 (i.e. the existing
+NetLabel audit patch) and submit it to the lists in a few hours.
 
-Index: net-2.6/security/selinux/hooks.c
-===================================================================
---- net-2.6.orig/security/selinux/hooks.c
-+++ net-2.6/security/selinux/hooks.c
-@@ -3440,6 +3440,10 @@ static int selinux_sock_rcv_skb_compat(s
- 			goto out;
- 	}
- 
-+	err = selinux_netlbl_sock_rcv_skb(sock_sid, sock_class, skb, ad);
-+	if (err)
-+		goto out;
-+
- 	err = selinux_xfrm_sock_rcv_skb(sock_sid, skb, ad);
- 
- out:
-@@ -3476,10 +3480,7 @@ static int selinux_socket_sock_rcv_skb(s
- 	else
- 		err = avc_has_perm(sksec->sid, skb->secmark, SECCLASS_PACKET,
- 				   PACKET__RECV, &ad);
--	if (err)
--		goto out;
- 
--	err = selinux_netlbl_sock_rcv_skb(sksec, skb, &ad);
- out:	
- 	return err;
- }
-@@ -3654,13 +3655,14 @@ static void selinux_req_classify_flow(co
- 
- static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
- {
--	u32 xfrm_sid, trans_sid;
-+	u32 xfrm_sid;
-+	u32 nlbl_sid;
- 	int err;
- 
- 	if (selinux_compat_net)
- 		return 1;
- 
--	/* xfrm/cipso inapplicable for loopback traffic */
-+	/* allow all loopback traffic */
- 	if (skb->dev == &loopback_dev)
- 		return 1;
- 
-@@ -3672,16 +3674,20 @@ static int selinux_skb_flow_in(struct sk
- 	if (err)
- 		goto out;
- 
--	if (xfrm_sid) {
--		err = security_transition_sid(xfrm_sid, skb->secmark,
--						SECCLASS_PACKET, &trans_sid);
--		if (err)
--			goto out;
-+	if (xfrm_sid)
-+		skb->secmark = xfrm_sid;
- 
--		skb->secmark = trans_sid;
--	}
-+	err = selinux_netlbl_skb_sid(skb, skb->secmark, &nlbl_sid);
-+	if (err)
-+		goto out;
- 
--	/* See if CIPSO can flow in thru the current secmark here */
-+	err = avc_has_perm(nlbl_sid, skb->secmark, SECCLASS_PACKET,
-+					PACKET__FLOW_IN, NULL);
-+	if (err)
-+		goto out;
-+
-+	if (nlbl_sid)
-+		skb->secmark = nlbl_sid;
- 
- out:
- 	return err ? 0 : 1;
-@@ -3689,7 +3695,6 @@ out:
- 
- static int selinux_skb_flow_out(struct sk_buff *skb, u32 nf_secid)
- {
--	u32 trans_sid;
- 	int err;
- 
- 	if (selinux_compat_net)
-@@ -3697,6 +3702,7 @@ static int selinux_skb_flow_out(struct s
- 
- 	if (!skb->secmark) {
- 		u32 xfrm_sid;
-+		u32 nlbl_sid;
- 
- 		selinux_skb_xfrm_sid(skb, &xfrm_sid);
- 
-@@ -3706,6 +3712,13 @@ static int selinux_skb_flow_out(struct s
- 			struct sk_security_struct *sksec = skb->sk->sk_security;
- 			skb->secmark = sksec->sid;
- 		}
-+
-+		err = selinux_netlbl_skb_sid(skb, skb->secmark, &nlbl_sid);
-+		if (err)
-+			goto out;
-+
-+		if (nlbl_sid)
-+			skb->secmark = nlbl_sid;
- 	}
- 
- 	err = avc_has_perm(skb->secmark, nf_secid, SECCLASS_PACKET,
-@@ -3861,6 +3874,7 @@ static unsigned int selinux_ip_postroute
- 	else {
- 		if (!skb->secmark) {
- 			u32 xfrm_sid;
-+			u32 nlbl_sid;
- 
- 			selinux_skb_xfrm_sid(skb, &xfrm_sid);
- 
-@@ -3871,6 +3885,15 @@ static unsigned int selinux_ip_postroute
- 						skb->sk->sk_security;
- 				skb->secmark = sksec->sid;
- 			}
-+
-+			err = selinux_netlbl_skb_sid(skb,
-+						     skb->secmark,
-+						     &nlbl_sid);
-+			if (err)
-+				goto out;
-+
-+			if (nlbl_sid)
-+				skb->secmark = nlbl_sid;
- 		}
- 		err = avc_has_perm(skb->secmark, SECINITSID_UNLABELED,
- 				   SECCLASS_PACKET, PACKET__FLOW_OUT, &ad);
-Index: net-2.6/security/selinux/include/objsec.h
-===================================================================
---- net-2.6.orig/security/selinux/include/objsec.h
-+++ net-2.6/security/selinux/include/objsec.h
-@@ -102,7 +102,6 @@ struct sk_security_struct {
- 	u32 sid;			/* SID of this object */
- 	u32 peer_sid;			/* SID of peer */
- #ifdef CONFIG_NETLABEL
--	u16 sclass;			/* sock security class */
- 	enum {				/* NetLabel state */
- 		NLBL_UNSET = 0,
- 		NLBL_REQUIRE,
-Index: net-2.6/security/selinux/include/selinux_netlabel.h
-===================================================================
---- net-2.6.orig/security/selinux/include/selinux_netlabel.h
-+++ net-2.6/security/selinux/include/selinux_netlabel.h
-@@ -43,7 +43,8 @@ int selinux_netlbl_socket_post_create(st
- 				      u32 sid);
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock);
- u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb, u32 sock_sid);
--int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
-+int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
-+				u16 sock_class,
- 				struct sk_buff *skb,
- 				struct avc_audit_data *ad);
- u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock);
-@@ -53,6 +54,7 @@ void selinux_netlbl_sk_security_init(str
- void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
- 				      struct sk_security_struct *newssec);
- int selinux_netlbl_inode_permission(struct inode *inode, int mask);
-+int selinux_netlbl_skb_sid(struct sk_buff *skb, u32 base_sid, u32 *sid);
- #else
- static inline void selinux_netlbl_cache_invalidate(void)
- {
-@@ -78,7 +80,8 @@ static inline u32 selinux_netlbl_inet_co
- 	return SECSID_NULL;
- }
- 
--static inline int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
-+static inline int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
-+					      u16 sock_class,
- 					      struct sk_buff *skb,
- 					      struct avc_audit_data *ad)
- {
-@@ -114,6 +117,15 @@ static inline int selinux_netlbl_inode_p
- {
- 	return 0;
- }
-+
-+static inline int selinux_netlbl_skb_sid(struct sk_buff *skb,
-+					 u32 base_sid,
-+					 u32 *sid)
-+{
-+	*sid = SECINITSID_UNLABELED;
-+	return 0;
-+}
-+
- #endif /* CONFIG_NETLABEL */
- 
- #endif
-Index: net-2.6/security/selinux/ss/mls.c
-===================================================================
---- net-2.6.orig/security/selinux/ss/mls.c
-+++ net-2.6/security/selinux/ss/mls.c
-@@ -547,7 +547,7 @@ int mls_compute_sid(struct context *scon
- 				                     &rtr->target_range);
- 			}
- 		}
--		else if (tclass == SECCLASS_PACKET)
-+		if (tclass == SECCLASS_PACKET)
- 			return mls_copy_context(newcontext, scontext);
- 		/* Fallthrough */
- 	case AVTAB_CHANGE:
-Index: net-2.6/security/selinux/ss/services.c
-===================================================================
---- net-2.6.orig/security/selinux/ss/services.c
-+++ net-2.6/security/selinux/ss/services.c
-@@ -2456,7 +2456,6 @@ void selinux_netlbl_sk_security_init(str
- void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
- 				      struct sk_security_struct *newssec)
- {
--	newssec->sclass = ssec->sclass;
- 	if (ssec->nlbl_state != NLBL_UNSET)
- 		newssec->nlbl_state = NLBL_REQUIRE;
- 	else
-@@ -2478,11 +2477,8 @@ int selinux_netlbl_socket_post_create(st
- 				      int sock_family,
- 				      u32 sid)
- {
--	struct inode_security_struct *isec = SOCK_INODE(sock)->i_security;
- 	struct sk_security_struct *sksec = sock->sk->sk_security;
- 
--	sksec->sclass = isec->sclass;
--
- 	if (sock_family != PF_INET)
- 		return 0;
- 
-@@ -2502,13 +2498,10 @@ int selinux_netlbl_socket_post_create(st
-  */
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
- {
--	struct inode_security_struct *isec = SOCK_INODE(sock)->i_security;
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	struct netlbl_lsm_secattr secattr;
- 	u32 nlbl_peer_sid;
- 
--	sksec->sclass = isec->sclass;
--
- 	if (sk->sk_family != PF_INET)
- 		return;
- 
-@@ -2595,7 +2588,8 @@ int selinux_netlbl_inode_permission(stru
- 
- /**
-  * selinux_netlbl_sock_rcv_skb - Do an inbound access check using NetLabel
-- * @sksec: the sock's sk_security_struct
-+ * @sock_sid: the socket's SID
-+ * @sock_class: the socket's class
-  * @skb: the packet
-  * @ad: the audit data
-  *
-@@ -2605,7 +2599,8 @@ int selinux_netlbl_inode_permission(stru
-  * error.
-  *
-  */
--int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
-+int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
-+				u16 sock_class,
- 				struct sk_buff *skb,
- 				struct avc_audit_data *ad)
- {
-@@ -2620,7 +2615,7 @@ int selinux_netlbl_sock_rcv_skb(struct s
- 	if (netlbl_sid == SECINITSID_UNLABELED)
- 		return 0;
- 
--	switch (sksec->sclass) {
-+	switch (sock_class) {
- 	case SECCLASS_UDP_SOCKET:
- 		recv_perm = UDP_SOCKET__RECVFROM;
- 		break;
-@@ -2631,9 +2626,9 @@ int selinux_netlbl_sock_rcv_skb(struct s
- 		recv_perm = RAWIP_SOCKET__RECVFROM;
- 	}
- 
--	rc = avc_has_perm(sksec->sid,
-+	rc = avc_has_perm(sock_sid,
- 			  netlbl_sid,
--			  sksec->sclass,
-+			  sock_class,
- 			  recv_perm,
- 			  ad);
- 	if (rc == 0)
-@@ -2688,4 +2683,27 @@ u32 selinux_netlbl_socket_getpeersec_dgr
- 
- 	return peer_sid;
- }
-+
-+/**
-+ * selinux_netlbl_skb_sid - Calculate the NetLabel SID of a packet
-+ * @skb: the packet
-+ * @base_sid: the SELinux SID to use as a context for MLS only attributes
-+ * @sid: the SID
-+ *
-+ * Description:
-+ * Call the NetLabel mechanism to get the security attributes of the given
-+ * packet and use those attributes to determine the correct context/SID to
-+ * assign to the packet.  Returns zero on success, negative values on failure.
-+ *
-+ */
-+int selinux_netlbl_skb_sid(struct sk_buff *skb, u32 base_sid, u32 *sid)
-+{
-+	int rc;
-+
-+	rc = selinux_netlbl_skbuff_getsid(skb, base_sid, sid);
-+	if (rc == 0 && *sid == SECINITSID_UNLABELED)
-+		*sid = 0;
-+
-+	return rc;
-+}
- #endif /* CONFIG_NETLABEL */
+Steve Grubb wrote:
+> On Friday 29 September 2006 14:09, Paul Moore wrote:
+> 
+>>>type field is already taken for another purpose, it needs to be renamed.
+>>
+>>If we can't have duplicate field names I would propose prefixing both
+>>these fields (and doing similar things with the other NetLabel specific
+>>fields) with a "cipso_" making them "cipso_doi" and "cipso_type".
+> 
+> 
+> That would be fine. This limits future field name collisions.
+> 
+> 
+>>>>+/**
+>>>>+ * netlbl_unlabel_acceptflg_set - Set the unlabeled accept flag
+>>>>+ * @value: desired value
+>>>>+ * @audit_secid: the LSM secid to use in the audit message
+>>>>+ *
+>>>>+ * Description:
+>>>>+ * Set the value of the unlabeled accept flag to @value.
+>>>>+ *
+>>>>+ */
+>>>>+static void netlbl_unlabel_acceptflg_set(u8 value, u32 audit_secid)
+>>>>+{
+>>>>+     atomic_set(&netlabel_unlabel_accept_flg, value);
+>>>>+     netlbl_audit_nomsg((value ?
+>>>>+                         AUDIT_MAC_UNLBL_ACCEPT : AUDIT_MAC_UNLBL_DENY),
+>>>>+                        audit_secid);
+>>>
+>>>Looking at how this is being used, I think only 1 message type should be
+>>>used. There are places in the audit system where we set a flag to 1 or 0,
+>>>but only have 1 message type. We record the old and new value. So, you'd
+>>>need to pass that to the logger.
+>>
+>>With that in mind I would probably change the message type to
+>>AUDIT_MAC_UNLBL_ALLOW and use a "unlbl_accept" field; is that okay?  
+> 
+> 
+> That would be fine. Just a quick note...we have generally been "old " to 
+> indicate the previous value. Example, "backlog=512 old=256".
+> 
+> 
+>>>>+/**
+>>>>+ * netlbl_audit_start_common - Start an audit message
+>>>>+ * @type: audit message type
+>>>>+ * @secid: LSM context ID
+>>>>+ *
+>>>>+ * Description:
+>>>>+ * Start an audit message using the type specified in @type and fill the
+>>>>audit + * message with some fields common to all NetLabel audit messages.
+>>>>Returns + * a pointer to the audit buffer on success, NULL on failure.
+>>>>+ *
+>>>>+ */
+>>>>+struct audit_buffer *netlbl_audit_start_common(int type, u32 secid)
+>>>>+{
+>>>
+>>>Generally, logging functions are moved into auditsc.c where the context
+>>>and other functions are defined.
+>>
+>>How about leaving this for a future revision?
+> 
+> 
+> Come to think of it, you don't need to move it. The reason to move it is to 
+> access the context and use helper functions related to it. But I found that 
+> you were using "current" which may not always be the sender. So if you cannot 
+> use current, most of the stuff you are logging can't be, so the event being 
+> logged becomes simpler and you don't need to move it.
+> 
+> I have not traced through all the code, but if you do any security checks 
+> before taking the rules, be careful not to use current.
+> 
+> 
+>>>>+     audit_log_format(audit_buf,
+>>>>+                      "netlabel: auid=%u uid=%u tty=%s pid=%d",
+>>>>+                      audit_loginuid,
+>>>>+                      current->uid,
+>>>>+                      audit_tty,
+>>>>+                      current->pid);
+>>>
+>>>Why are you logging all this? When we add audit rules, all that we log is
+>>>the auid, and subj. If we need to log all this, we should probably have a
+>>>helper function that gets called by other config change loggers.
+>>
+>>If I drop the uid, tty, and pid fields will this be acceptable?
+> 
+> 
+>  and comm & exe, yes. Anything you were basing off of current has to go. The 
+> audit rule logging was reduced to the credentials that are carried along in 
+> the netlink packet since that's all you can trust. The sending process could 
+> be gone by the time you get to this point in the code.
+> 
+> 
+>>>>+     audit_log_format(audit_buf, " comm=");
+>>>>+     audit_log_untrustedstring(audit_buf, audit_comm);
+>>>>+     if (current->mm) {
+>>>>+             down_read(&current->mm->mmap_sem);
+>>>>+             vma = current->mm->mmap;
+>>>>+             while (vma) {
+>>>>+                     if ((vma->vm_flags & VM_EXECUTABLE) &&
+>>>>+                         vma->vm_file) {
+>>>>+                             audit_log_d_path(audit_buf,
+>>>>+                                              " exe=",
+>>>>+                                              vma->vm_file->f_dentry,
+>>>>+                                              vma->vm_file->f_vfsmnt);
+>>>>+                             break;
+>>>>+                     }
+>>>>+                     vma = vma->vm_next;
+>>>>+             }
+>>>>+             up_read(&current->mm->mmap_sem);
+>>>>+     }
+>>>>+
+>>>
+>>>If this function was moved inside auditsc.c you could use a function
+>>>there that does this. But the question remains why all this data?
+>>
+>>In the ideal world would you prefer this to be removed?
+> 
+> 
+> Yes.
+> 
+> -Steve
 
---
+
+-- 
 paul moore
 linux security @ hp
