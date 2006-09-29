@@ -1,45 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.19 status
-Date: Fri, 29 Sep 2006 00:48:54 -0700 (PDT)
-Message-ID: <20060929.004854.104036222.davem@davemloft.net>
-References: <20060928.184135.41635707.davem@davemloft.net>
-	<200609291010.35025.ismail@pardus.org.tr>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Subject: Re: [PATH] Allow mtu bigger than 1500 for ieee80211
+Date: Fri, 29 Sep 2006 11:30:50 +0200
+Message-ID: <20060929093050.GA19115@zlug.org>
+References: <451C0D05.4050705@free.fr> <1159515501.2644.3.camel@ux156>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: matthieu castet <castet.matthieu@free.fr>, netdev@vger.kernel.org,
+	linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20910
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161489AbWI2Hsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 03:48:55 -0400
-To: ismail@pardus.org.tr
-In-Reply-To: <200609291010.35025.ismail@pardus.org.tr>
+Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:23366 "EHLO
+	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
+	id S1751361AbWI2Jaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 05:30:55 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1159515501.2644.3.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ismail Donmez <ismail@pardus.org.tr>
-Date: Fri, 29 Sep 2006 10:10:34 +0300
-
-> Hi Dave,
-> 29 Eyl 2006 Cum 04:41 tarihinde $,1 (Bunlar$,1 Q(B yazm$,1 Q (Bt$,1 Q(Bn$,1 Q(Bz:
-> > I've just pushed my current net-2.6 tree to Linus.  The bulk of the
-> > changes in there are endianness annotations for sparse by Al Viro,
-> > along with the patches I've been ACK'ing here on the list and
-> > elsewhere.
-> >
-> > If you want a non-bugfix change to get into 2.6.19 you must have it to
-> > me by the end of the weekend.
-> >
-> > As of next Monday, anything I receive has to be a bugfix for 2.6.19
-> > consideration.
-> >
-> > Thanks for everyone's hard work and let's make sure there are no
-> > networking regressions at all in 2.6.19, in fact let's strive to
-> > make it have no regressions plus bugs fixed that were in 2.6.18 :-)
+On Fri, Sep 29, 2006 at 09:38:21AM +0200, Johannes Berg wrote:
+> On Thu, 2006-09-28 at 19:57 +0200, matthieu castet wrote:
 > 
-> Looks like following fix from Herbert still didn't made it to Linus which 
-> fixes hard lockups with some tc usage.
+> > +	if ((new_mtu < 68) || (new_mtu > IEEE80211_DATA_LEN))
+> > +		return -EINVAL;
+> 
+> What's with that lower limit, why 68?
 
-It's in my net-2.6 tree, which is where you should check for
-whether something is queued and pending submission yet.
+Isn't 68 the minimum MTU required by IPv4?
