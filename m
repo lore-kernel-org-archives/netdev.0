@@ -1,29 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
-Date: Fri, 29 Sep 2006 03:47:24 -0400
-Message-ID: <451CCF8C.1000504@pobox.com>
-References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>	 <1157962200.10526.10.camel@localhost.localdomain>	 <1158051351.14448.97.camel@localhost.localdomain>	 <ada3bax2lzw.fsf@cisco.com>  <4506C789.4050404@pobox.com>	 <1158749825.7973.9.camel@localhost.localdomain>	 <45121924.4000200@pobox.com> <1159515406.13634.2.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.19 status
+Date: Fri, 29 Sep 2006 00:48:54 -0700 (PDT)
+Message-ID: <20060929.004854.104036222.davem@davemloft.net>
+References: <20060928.184135.41635707.davem@davemloft.net>
+	<200609291010.35025.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:19614 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965062AbWI2Hrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 03:47:33 -0400
-To: Zang Roy-r61911 <tie-fei.zang@freescale.com>
-In-Reply-To: <1159515406.13634.2.camel@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20910
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161489AbWI2Hsz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 03:48:55 -0400
+To: ismail@pardus.org.tr
+In-Reply-To: <200609291010.35025.ismail@pardus.org.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zang Roy-r61911 wrote:
-> Could you interpret the chip structure in more detail?
-> Need I create two net_device struct for each port?
+From: Ismail Donmez <ismail@pardus.org.tr>
+Date: Fri, 29 Sep 2006 10:10:34 +0300
 
-No.  One net_device per port.  And one container structure for the 
-entire device.
+> Hi Dave,
+> 29 Eyl 2006 Cum 04:41 tarihinde $,1 (Bunlar$,1 Q(B yazm$,1 Q (Bt$,1 Q(Bn$,1 Q(Bz:
+> > I've just pushed my current net-2.6 tree to Linus.  The bulk of the
+> > changes in there are endianness annotations for sparse by Al Viro,
+> > along with the patches I've been ACK'ing here on the list and
+> > elsewhere.
+> >
+> > If you want a non-bugfix change to get into 2.6.19 you must have it to
+> > me by the end of the weekend.
+> >
+> > As of next Monday, anything I receive has to be a bugfix for 2.6.19
+> > consideration.
+> >
+> > Thanks for everyone's hard work and let's make sure there are no
+> > networking regressions at all in 2.6.19, in fact let's strive to
+> > make it have no regressions plus bugs fixed that were in 2.6.18 :-)
+> 
+> Looks like following fix from Herbert still didn't made it to Linus which 
+> fixes hard lockups with some tc usage.
 
-	Jeff
-
-
+It's in my net-2.6 tree, which is where you should check for
+whether something is queued and pending submission yet.
