@@ -1,209 +1,194 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 6/7] secid reconciliation-v03: Label locally generated IPv4
+Subject: [PATCH 4/7] secid reconciliation-v03: Invoke LSM hook for outbound
  traffic
-Date: Thu, 28 Sep 2006 21:33:18 -0500
-Message-ID: <451C85EE.4030307@trustedcs.com>
+Date: Thu, 28 Sep 2006 21:33:06 -0500
+Message-ID: <451C85E2.2030201@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
 	paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:11169 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161295AbWI2Cdn
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:57414 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161289AbWI2CdU
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 22:33:43 -0400
+	Thu, 28 Sep 2006 22:33:20 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This labels the skb(s) for locally generated IPv4 traffic. This will
-be used in pertinent flow control checks on the outbound later in the
-LSM hook.
-
-This is not as pretty as it is for IPv6, but what to do?
-Note that skb(s) that derive the secmark from the originating socket
-do so in the outbound hook.
-
-NOTE: Forwarded traffic is already labeled with the reconciled
-secmark on the inbound.
+Invoke the skb_flow_out LSM hook for outbound
+traffic for secid reconciliation and flow control.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/net/ip.h           |   32 ++++++++++++++++++++++++++++++++
- include/net/request_sock.h |   17 +++++++++++++++++
- net/dccp/ipv4.c            |    5 +++++
- net/ipv4/icmp.c            |    4 ++++
- net/ipv4/ip_output.c       |    6 ++++++
- net/ipv4/tcp_ipv4.c        |    1 +
- 6 files changed, 65 insertions(+)
+ net/netfilter/xt_CONNSECMARK.c |   70 +++++++++++++++++++++++--------
+ net/netfilter/xt_SECMARK.c     |   33 +++++++++++++-
+ 2 files changed, 85 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 98f9084..6d23593 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -48,6 +48,9 @@ struct ipcm_cookie
- 	u32			addr;
- 	int			oif;
- 	struct ip_options	*opt;
-+#ifdef CONFIG_SECURITY_NETWORK
-+	u32			secid;
-+#endif /* CONFIG_SECURITY_NETWORK */
- };
+diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
+index 4673862..40b4150 100644
+--- a/net/netfilter/xt_CONNSECMARK.c
++++ b/net/netfilter/xt_CONNSECMARK.c
+@@ -17,6 +17,8 @@
+  */
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
++#include <linux/security.h>
++#include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_CONNSECMARK.h>
+ #include <net/netfilter/nf_conntrack_compat.h>
+@@ -33,34 +35,70 @@ MODULE_ALIAS("ip6t_CONNSECMARK");
+  * If the packet has a security mark and the connection does not, copy
+  * the security mark from the packet to the connection.
+  */
+-static void secmark_save(struct sk_buff *skb)
++static void secmark_save(struct sk_buff *skb, unsigned int hooknum,
++		const struct xt_target *target)
+ {
+ 	if (skb->secmark) {
+ 		u32 *connsecmark;
+ 		enum ip_conntrack_info ctinfo;
  
- #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
-@@ -383,4 +386,33 @@ #endif
- 
- extern struct ctl_table ipv4_table[];
- 
-+#ifdef CONFIG_SECURITY_NETWORK
-+
-+static inline void security_skb_classify_ipcm(struct sk_buff *skb,
-+					struct ipcm_cookie *ipc)
-+{
-+	ipc->secid = 0;
-+	ipc->secid = skb->secmark;
-+}
-+
-+static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
-+					struct sk_buff *skb)
-+{
-+	skb->secmark = ipc->secid;
-+}
-+
-+#else
-+
-+static inline void security_skb_classify_ipcm(struct sk_buff *skb,
-+					struct ipcm_cookie *ipc)
-+{
-+}
-+
-+static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
-+					struct sk_buff *skb)
-+{
-+}
-+
-+#endif /* CONFIG_SECURITY_NETWORK */
-+
- #endif	/* _IP_H */
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 8e165ca..bba8dba 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -259,4 +259,21 @@ static inline void reqsk_queue_hash_req(
- 	write_unlock(&queue->syn_wait_lock);
+ 		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
+-		if (connsecmark && !*connsecmark)
+-			if (*connsecmark != skb->secmark)
++		if (connsecmark)
++			if (*connsecmark != skb->secmark) {
+ 				*connsecmark = skb->secmark;
++			}
+ 	}
  }
  
-+#ifdef CONFIG_SECURITY_NETWORK
+ /*
+- * If packet has no security mark, and the connection does, restore the
+- * security mark from the connection to the packet.
++ * On the inbound, restore the security mark from the connection to the packet.
++ * On the outbound, filter based on the current secmark.
+  */
+-static void secmark_restore(struct sk_buff *skb)
++static unsigned int secmark_restore(struct sk_buff *skb, unsigned int hooknum,
++		   const struct net_device *in, const struct xt_target *target)
+ {
+-	if (!skb->secmark) {
+-		u32 *connsecmark;
+-		enum ip_conntrack_info ctinfo;
+-
+-		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
+-		if (connsecmark && *connsecmark)
+-			if (skb->secmark != *connsecmark)
+-				skb->secmark = *connsecmark;
++	u32 *psecmark;
++	enum ip_conntrack_info ctinfo;
 +
-+static inline void security_req_classify_skb(struct request_sock *req,
-+					struct sk_buff *skb)
++	psecmark = nf_ct_get_secmark(skb, &ctinfo);
++
++	if (psecmark && *psecmark) {
++
++printk(KERN_ERR "IN HOOK (%d) (%u) (%u)\n", hooknum, skb->secmark, *psecmark);
++		/* Set secmark on inbound and filter it on outbound */
++		if ((target->family == AF_INET &&
++			(hooknum == NF_IP_POST_ROUTING ||
++			 hooknum == NF_IP_LOCAL_OUT ||
++			 hooknum == NF_IP_FORWARD)) ||
++		    (target->family == AF_INET6 &&
++			(hooknum == NF_IP6_POST_ROUTING ||
++			 hooknum == NF_IP6_LOCAL_OUT ||
++			 hooknum == NF_IP6_FORWARD))) {
++			/* outbound */
++			int err;
++
++			err = security_skb_flow_out(skb, *psecmark);
++printk(KERN_ERR "ERR (%d) (%u)\n", err, skb->secmark);
++			if (!err)
++				return NF_DROP;
++		}
++		else	/* inbound */
++			/* loopback traffic should already be labeled
++			   and any filtering on outbound should suffice */
++			if (in == &loopback_dev)
++				goto out;
++
++		/* inbound or done with outbound check or no LSM hook
++		   for outbound */
++		if (skb->secmark != *psecmark)
 +{
-+	skb->secmark = req->secid;
++printk(KERN_ERR "RESTORING FROM (%u) TO (%u) (%u)\n", skb->secmark, *psecmark, 0xffffffff);
++			skb->secmark = *psecmark;
 +}
+ 	}
 +
-+#else
-+
-+static inline void security_req_classify_skb(struct request_sock *req,
-+					struct sk_buff *skb)
-+{
-+}
-+
-+#endif /* CONFIG_SECURITY_NETWORK */
-+
- #endif /* _REQUEST_SOCK_H */
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 66be29b..57ba542 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -230,6 +230,8 @@ static void dccp_v4_reqsk_send_ack(struc
- 	dccp_hdr_set_ack(dccp_hdr_ack_bits(skb),
- 			 DCCP_SKB_CB(rxskb)->dccpd_seq);
++out:
++	return XT_CONTINUE;
+ }
  
-+	security_req_classify_skb(req, skb);
+ static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
+@@ -73,11 +111,11 @@ static unsigned int target(struct sk_buf
+ 
+ 	switch (info->mode) {
+ 	case CONNSECMARK_SAVE:
+-		secmark_save(skb);
++		secmark_save(skb, hooknum, target);
+ 		break;
+ 
+ 	case CONNSECMARK_RESTORE:
+-		secmark_restore(skb);
++		return secmark_restore(skb, hooknum, in, target);
+ 		break;
+ 
+ 	default:
+diff --git a/net/netfilter/xt_SECMARK.c b/net/netfilter/xt_SECMARK.c
+index add7521..28dc059 100644
+--- a/net/netfilter/xt_SECMARK.c
++++ b/net/netfilter/xt_SECMARK.c
+@@ -15,8 +15,10 @@
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <linux/selinux.h>
++#include <linux/security.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_SECMARK.h>
++#include <linux/netfilter_ipv6.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
+@@ -47,9 +49,36 @@ static unsigned int target(struct sk_buf
+ 		BUG();
+ 	}
+ 
+-	if ((*pskb)->secmark != secmark)
+-		(*pskb)->secmark = secmark;
++	if (secmark) {
 +
- 	bh_lock_sock(dccp_v4_ctl_socket->sk);
- 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
- 				    rxskb->nh.iph->daddr,
-@@ -261,6 +263,7 @@ static int dccp_v4_send_response(struct 
- 		dh->dccph_checksum = dccp_v4_checksum(skb, ireq->loc_addr,
- 						      ireq->rmt_addr);
- 		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+		security_req_classify_skb(req, skb);
- 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
- 					    ireq->rmt_addr,
- 					    ireq->opt);
-@@ -743,6 +746,8 @@ static void dccp_v4_ctl_send_reset(struc
- 	dh->dccph_checksum = dccp_v4_checksum(skb, rxskb->nh.iph->saddr,
- 					      rxskb->nh.iph->daddr);
- 
-+	security_skb_classify_skb(rxskb, skb);
++		/* Set secmark on inbound and filter it on outbound */
++		if ((target->family == AF_INET &&
++			(hooknum == NF_IP_POST_ROUTING ||
++			 hooknum == NF_IP_LOCAL_OUT ||
++			 hooknum == NF_IP_FORWARD)) ||
++		    (target->family == AF_INET6 &&
++			(hooknum == NF_IP6_POST_ROUTING ||
++			 hooknum == NF_IP6_LOCAL_OUT ||
++			 hooknum == NF_IP6_FORWARD))) {
++			/* outbound */
++			int err;
 +
- 	bh_lock_sock(dccp_v4_ctl_socket->sk);
- 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
- 				    rxskb->nh.iph->daddr,
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index c2ad07e..956791a 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -389,6 +389,8 @@ static void icmp_reply(struct icmp_bxm *
- 	if (icmp_xmit_lock())
- 		return;
- 
-+	security_skb_classify_ipcm(skb, &ipc);
++			err = security_skb_flow_out(*pskb, secmark);
++			if (!err)
++				return NF_DROP;
++		}
++		else 	/* inbound */
++			/* loopback traffic should already be labeled
++			   and any filtering on outbound should suffice */
++			if (in == &loopback_dev)
++				goto out;
 +
- 	icmp_param->data.icmph.checksum = 0;
- 	icmp_out_count(icmp_param->data.icmph.type);
++		/* inbound or no LSM hook for outbound */
++		if ((*pskb)->secmark != secmark)
++			(*pskb)->secmark = secmark;
++	}
  
-@@ -507,6 +509,8 @@ void icmp_send(struct sk_buff *skb_in, i
- 	if (icmp_xmit_lock())
- 		return;
++out:
+ 	return XT_CONTINUE;
+ }
  
-+	security_skb_classify_ipcm(skb_in, &ipc);
-+
- 	/*
- 	 *	Construct source address and options.
- 	 */
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 97aee76..2e0775c 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -926,6 +926,8 @@ alloc_new_skb:
- 			if (skb == NULL)
- 				goto error;
- 
-+			security_ipcm_classify_skb(ipc, skb);
-+
- 			/*
- 			 *	Fill in the control structures
- 			 */
-@@ -1122,6 +1124,8 @@ ssize_t	ip_append_page(struct sock *sk, 
- 				goto error;
- 			}
- 
-+			security_skb_classify_skb(skb_prev, skb);
-+
- 			/*
- 			 *	Fill in the control structures
- 			 */
-@@ -1349,6 +1353,8 @@ void ip_send_reply(struct sock *sk, stru
- 	daddr = ipc.addr = rt->rt_src;
- 	ipc.opt = NULL;
- 
-+	security_skb_classify_ipcm(skb, &ipc);
-+
- 	if (replyopts.opt.optlen) {
- 		ipc.opt = &replyopts.opt;
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 39b1798..f21509b 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -658,6 +658,7 @@ static int tcp_v4_send_synack(struct soc
- 					 ireq->rmt_addr,
- 					 csum_partial((char *)th, skb->len,
- 						      skb->csum));
-+		security_req_classify_skb(req, skb);
- 
- 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
- 					    ireq->rmt_addr,
