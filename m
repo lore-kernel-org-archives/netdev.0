@@ -1,47 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
-Date: Thu, 28 Sep 2006 17:28:27 -0700 (PDT)
-Message-ID: <20060928.172827.26929236.davem@davemloft.net>
-References: <20060928155052.63ed5ce8@freekitty>
-	<20060928.160458.00452499.davem@davemloft.net>
-	<20060928162704.55e863ca@freekitty>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [PATCH] IPv6/DCCP: Fix memory leak in dccp_v6_do_rcv()
+Date: Fri, 29 Sep 2006 02:45:33 +0200
+Message-ID: <200609290245.33618.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:46289
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161222AbWI2A2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 20:28:24 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060928162704.55e863ca@freekitty>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Savola <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@coreworks.de>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Jesper Juhl <jesper.juhl@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161239AbWI2AoQ@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Thu, 28 Sep 2006 16:27:04 -0700
+Coverity found what looks like a real leak in net/dccp/ipv6.c::dccp_v6_do_rcv()
 
-> It got added by this:
-> 
-> commit 0844565fb8a9418f5a860aa480c1aef70319c9a2
-> Author: Thomas Graf <tgraf@suug.ch>
-> Date:   Fri Aug 4 23:05:56 2006 -0700
-> 
->     [NET]: Move netlink interface bits to linux/if.h
->     
->     Signed-off-by: Thomas Graf <tgraf@suug.ch>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+We may leave via the return inside "if (sk->sk_state == DCCP_OPEN) {"
+but at that point we may have allocated opt_skb, but we never free it
+in that path before the return.
 
-Stephen, we just removed the troublesome bits from linux/if.h when I
-put in Yoshifuji's patches last night, it should explicitly remove
-this problem.
 
-You will thus see that linux/rtnetlink.h no longer includes
-linux/if.h, which is why your errors were completely perplexing
-to me.  Instead, it includes linux/if_link.h
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+---
 
-It's been in my tree since last night, and if you had used
-the rtnetlink.h from my current tree you wouldn't have seen
-the error.
+ net/dccp/ipv6.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- linux-2.6.18-git10-orig/net/dccp/ipv6.c	2006-09-28 22:40:07.000000000 +0200
++++ linux-2.6.18-git10/net/dccp/ipv6.c	2006-09-29 02:35:15.000000000 +0200
+@@ -997,6 +997,8 @@ static int dccp_v6_do_rcv(struct sock *s
+ 	if (sk->sk_state == DCCP_OPEN) { /* Fast path */
+ 		if (dccp_rcv_established(sk, skb, dccp_hdr(skb), skb->len))
+ 			goto reset;
++		if (opt_skb)
++			__kfree_skb(opt_skb);
+ 		return 0;
+ 	}
+ 
+
+
+
+
+
+PS. Please keep me on Cc:
+
+-- 
+Jesper Juhl <jesper.juhl@gmail.com>
