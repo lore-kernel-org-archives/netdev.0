@@ -1,42 +1,56 @@
-From: "Wong Edison" <hswong3i@gmail.com>
-Subject: Re: [PATCH] tcp-lp: prevent chance for oops
-Date: Sat, 30 Sep 2006 03:27:00 +0800
-Message-ID: <3feffd230609291226n673d9aa4s2f16fbacd34cfc48@mail.gmail.com>
-References: <3feffd230609280343o1975ee70o8a55acf3e5d4769e@mail.gmail.com>
-	 <20060928.144029.32722435.davem@davemloft.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
+Date: Fri, 29 Sep 2006 15:33:02 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609291517170.7975@d.namei>
+References: <36282A1733C57546BE392885C0618592015CF2BE@chaos.tcs.tcs-sec.com>
+ <451D4A51.4000603@hp.com> <Pine.LNX.4.64.0609291247170.6007@d.namei>
+ <451D5B3F.70206@hp.com> <Pine.LNX.4.64.0609291430130.7553@d.namei>
+ <451D6EB1.3040006@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@osdl.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Joshua Brindle <method@gentoo.org>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, kmacmillan@mentalrootkit.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.206]:4338 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751351AbWI2T1C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 15:27:02 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so451588nzf
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 12:27:01 -0700 (PDT)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060928.144029.32722435.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:60080 "EHLO
+	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751360AbWI2TdF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 15:33:05 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <451D6EB1.3040006@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I do this since i have a sourceforge homepage for it. I update the CVS
-version there, test, and then submit to netdev. As I sync code in both
-side, this $Id$ is keeped.
+On Fri, 29 Sep 2006, Paul Moore wrote:
 
-May you just let it be? I think it will let my maintenance become more simple...
+> > Say that the SA is labeled "secret" and you have two FTP clients 
+> > connecting to a server via xinetd on this SA.  Each client additionally 
+> > labels their packets via CIPSO as secret:c1 and secret:c2 respectively.  
+> > xinetd launches an FTP server for each at the correct level.
+> 
+> I believe Venkat can address this.
 
-On 9/29/06, David Miller <davem@davemloft.net> wrote:
-> From: "Wong Edison" <hswong3i@gmail.com>
-> Date: Thu, 28 Sep 2006 18:43:58 +0800
->
-> >   *
-> > - * Version: $Id: tcp_lp.c,v 1.24 2006/09/05 20:22:53 hswong3i Exp $
-> > + * Version: $Id: tcp_lp.c,v 1.25 2006/09/22 20:50:27 hswong3i Exp $
->
-> BTW, I'm deleting this line from the source file in the tree
-> because every patch you send doesn't apply cleanly because
-> your patch is against a different string on this line and we
-> don't use $Id$ tags in the kernel sources anyways.
->
+Ok, I'd still really like to see a worked example of just Netlabel + 
+secmark/connseckmark, to see what happens to the connection marks.  It 
+seems that the connection mark should always be correct, and restored to 
+the packet.  In which case, what happens when a CIPSO label on an 
+established or related packet doesn't match, or you get no CIPSO label 
+(e.g. ICMP from intermediate router) ?  Or, is would you be always 
+overwriting secmark/connsecmark labeling, and if so, how/why are you using 
+them?
+
+Venkat,
+
+With xfrm labeling, the external packets are always going to be protocol 
+ESP or AH, and we can't connection track the inner protocols.  So, 
+external labeling when using xfrm labeling seems somewhat superfluous, 
+except for the case of setting a label based on the interface the packets 
+arrived on.  Correct?  If so, all you can realistically do with the flow 
+permissions is bind the ESP/AH packets to types of interfaces (which does 
+seem useful for some folk).
+
+
+-- 
+James Morris
+<jmorris@namei.org>
