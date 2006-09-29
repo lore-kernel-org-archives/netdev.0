@@ -1,194 +1,60 @@
-From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 4/7] secid reconciliation-v03: Invoke LSM hook for outbound
- traffic
-Date: Thu, 28 Sep 2006 21:33:06 -0500
-Message-ID: <451C85E2.2030201@trustedcs.com>
+From: Samir Bellabes <sbellabes@mandriva.com>
+Subject: Re: [2.6.18 backport] RTL8168 ethernet support in r8169
+Date: Fri, 29 Sep 2006 04:46:48 +0200
+Message-ID: <m264f7jso7.fsf@cerbere.dyndns.info>
+References: <451972B0.5020805@gentoo.org>
+	<20060926191458.GB15039@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
-	paul.moore@hp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:57414 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161289AbWI2CdU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 22:33:20 -0400
-To: netdev@vger.kernel.org
+Received: from 188.235.97-84.rev.gaoland.net ([84.97.235.188]:8939 "EHLO
+	cerbere.dyndns.info") by vger.kernel.org with ESMTP
+	id S1751324AbWI2Cru (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 22:47:50 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060926191458.GB15039@electric-eye.fr.zoreil.com> (Francois
+	Romieu's message of "Tue, 26 Sep 2006 21:14:58 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Invoke the skb_flow_out LSM hook for outbound
-traffic for secid reconciliation and flow control.
+Francois Romieu <romieu@fr.zoreil.com> writes:
 
-Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
----
- net/netfilter/xt_CONNSECMARK.c |   70 +++++++++++++++++++++++--------
- net/netfilter/xt_SECMARK.c     |   33 +++++++++++++-
- 2 files changed, 85 insertions(+), 18 deletions(-)
+> Daniel Drake <dsd@gentoo.org> :
+> [...]
+>  static struct pci_device_id rtl8169_pci_tbl[] = {
+> -	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), },
+> -	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), },
+> -	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), },
+> -	{ PCI_DEVICE(0x16ec,			0x0116), },
+> -	{ PCI_VENDOR_ID_LINKSYS,		0x1032, PCI_ANY_ID, 0x0024, },
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), 0, 0, RTL_CFG_0 },
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8136), 0, 0, RTL_CFG_1 },
+>
+> Should be RTL_CFG_2 (but there are still issues with the link management).
+>
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8167), 0, 0, RTL_CFG_1 },
+>                                                                ^^^^^^^^^
+> Should be RTL_CFG_1.
 
-diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
-index 4673862..40b4150 100644
---- a/net/netfilter/xt_CONNSECMARK.c
-+++ b/net/netfilter/xt_CONNSECMARK.c
-@@ -17,6 +17,8 @@
-  */
- #include <linux/module.h>
- #include <linux/skbuff.h>
-+#include <linux/security.h>
-+#include <linux/netfilter_ipv6.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_CONNSECMARK.h>
- #include <net/netfilter/nf_conntrack_compat.h>
-@@ -33,34 +35,70 @@ MODULE_ALIAS("ip6t_CONNSECMARK");
-  * If the packet has a security mark and the connection does not, copy
-  * the security mark from the packet to the connection.
-  */
--static void secmark_save(struct sk_buff *skb)
-+static void secmark_save(struct sk_buff *skb, unsigned int hooknum,
-+		const struct xt_target *target)
- {
- 	if (skb->secmark) {
- 		u32 *connsecmark;
- 		enum ip_conntrack_info ctinfo;
- 
- 		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
--		if (connsecmark && !*connsecmark)
--			if (*connsecmark != skb->secmark)
-+		if (connsecmark)
-+			if (*connsecmark != skb->secmark) {
- 				*connsecmark = skb->secmark;
-+			}
- 	}
- }
- 
- /*
-- * If packet has no security mark, and the connection does, restore the
-- * security mark from the connection to the packet.
-+ * On the inbound, restore the security mark from the connection to the packet.
-+ * On the outbound, filter based on the current secmark.
-  */
--static void secmark_restore(struct sk_buff *skb)
-+static unsigned int secmark_restore(struct sk_buff *skb, unsigned int hooknum,
-+		   const struct net_device *in, const struct xt_target *target)
- {
--	if (!skb->secmark) {
--		u32 *connsecmark;
--		enum ip_conntrack_info ctinfo;
--
--		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
--		if (connsecmark && *connsecmark)
--			if (skb->secmark != *connsecmark)
--				skb->secmark = *connsecmark;
-+	u32 *psecmark;
-+	enum ip_conntrack_info ctinfo;
-+
-+	psecmark = nf_ct_get_secmark(skb, &ctinfo);
-+
-+	if (psecmark && *psecmark) {
-+
-+printk(KERN_ERR "IN HOOK (%d) (%u) (%u)\n", hooknum, skb->secmark, *psecmark);
-+		/* Set secmark on inbound and filter it on outbound */
-+		if ((target->family == AF_INET &&
-+			(hooknum == NF_IP_POST_ROUTING ||
-+			 hooknum == NF_IP_LOCAL_OUT ||
-+			 hooknum == NF_IP_FORWARD)) ||
-+		    (target->family == AF_INET6 &&
-+			(hooknum == NF_IP6_POST_ROUTING ||
-+			 hooknum == NF_IP6_LOCAL_OUT ||
-+			 hooknum == NF_IP6_FORWARD))) {
-+			/* outbound */
-+			int err;
-+
-+			err = security_skb_flow_out(skb, *psecmark);
-+printk(KERN_ERR "ERR (%d) (%u)\n", err, skb->secmark);
-+			if (!err)
-+				return NF_DROP;
-+		}
-+		else	/* inbound */
-+			/* loopback traffic should already be labeled
-+			   and any filtering on outbound should suffice */
-+			if (in == &loopback_dev)
-+				goto out;
-+
-+		/* inbound or done with outbound check or no LSM hook
-+		   for outbound */
-+		if (skb->secmark != *psecmark)
-+{
-+printk(KERN_ERR "RESTORING FROM (%u) TO (%u) (%u)\n", skb->secmark, *psecmark, 0xffffffff);
-+			skb->secmark = *psecmark;
-+}
- 	}
-+
-+out:
-+	return XT_CONTINUE;
- }
- 
- static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
-@@ -73,11 +111,11 @@ static unsigned int target(struct sk_buf
- 
- 	switch (info->mode) {
- 	case CONNSECMARK_SAVE:
--		secmark_save(skb);
-+		secmark_save(skb, hooknum, target);
- 		break;
- 
- 	case CONNSECMARK_RESTORE:
--		secmark_restore(skb);
-+		return secmark_restore(skb, hooknum, in, target);
- 		break;
- 
- 	default:
-diff --git a/net/netfilter/xt_SECMARK.c b/net/netfilter/xt_SECMARK.c
-index add7521..28dc059 100644
---- a/net/netfilter/xt_SECMARK.c
-+++ b/net/netfilter/xt_SECMARK.c
-@@ -15,8 +15,10 @@
- #include <linux/module.h>
- #include <linux/skbuff.h>
- #include <linux/selinux.h>
-+#include <linux/security.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_SECMARK.h>
-+#include <linux/netfilter_ipv6.h>
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
-@@ -47,9 +49,36 @@ static unsigned int target(struct sk_buf
- 		BUG();
- 	}
- 
--	if ((*pskb)->secmark != secmark)
--		(*pskb)->secmark = secmark;
-+	if (secmark) {
-+
-+		/* Set secmark on inbound and filter it on outbound */
-+		if ((target->family == AF_INET &&
-+			(hooknum == NF_IP_POST_ROUTING ||
-+			 hooknum == NF_IP_LOCAL_OUT ||
-+			 hooknum == NF_IP_FORWARD)) ||
-+		    (target->family == AF_INET6 &&
-+			(hooknum == NF_IP6_POST_ROUTING ||
-+			 hooknum == NF_IP6_LOCAL_OUT ||
-+			 hooknum == NF_IP6_FORWARD))) {
-+			/* outbound */
-+			int err;
-+
-+			err = security_skb_flow_out(*pskb, secmark);
-+			if (!err)
-+				return NF_DROP;
-+		}
-+		else 	/* inbound */
-+			/* loopback traffic should already be labeled
-+			   and any filtering on outbound should suffice */
-+			if (in == &loopback_dev)
-+				goto out;
-+
-+		/* inbound or no LSM hook for outbound */
-+		if ((*pskb)->secmark != secmark)
-+			(*pskb)->secmark = secmark;
-+	}
- 
-+out:
- 	return XT_CONTINUE;
- }
- 
+You mean should be RTL_CFG_0 ?
+
+> Is there any chance that you can push a different patch for your releases ?
+>
+> There are no pending changes outside of the git vanilla tree. As an option,
+> you can use the patch below too:
+> http://www.fr.zoreil.com/people/francois/misc/20060920-2.6.18-r8169-test.patch
+
+I have backported this pointed patch to 2.6.17. [1]
+So far, it have been tested successfully with this devices:
+RTL-8169
+RTL-8169SC
+RTL-8168
+
+[1] http://cvs.mandriva.com/cgi-bin/viewvc.cgi/packages/cooker/kernel-2.6/current/PATCHES/patches/DN85_r8169_others.patch?root=svn&view=log
+
+regards,
+
+-- 
+Samir Bellabes
+Mandriva
