@@ -1,47 +1,162 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: Network problem with 2.6.18-mm1 ?
-Date: Fri, 29 Sep 2006 11:08:10 -0700
-Message-ID: <4807377b0609291108x84f39c6ic4c669fd91f8fcd4@mail.gmail.com>
-References: <20060928013724.GA22898@us.ibm.com> <451B2D29.9040306@intel.com>
-	 <20060928185222.GB3352@us.ibm.com>
-	 <4807377b0609281410p28d445c8mc32e7d2cb71221ab@mail.gmail.com>
-	 <20060929005205.GA3876@us.ibm.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration
+	changes
+Date: Fri, 29 Sep 2006 14:09:19 -0400
+Message-ID: <451D614F.8090502@hp.com>
+References: <20060928180326.896170000@hp.com> <20060928180337.570612000@hp.com>
+	<200609291008.07290.sgrubb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "Auke Kok" <auke-jan.h.kok@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Andrew Morton" <akpm@osdl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:57763 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751252AbWI2SIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 14:08:12 -0400
-Received: by ug-out-1314.google.com with SMTP id o38so301301ugd
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 11:08:11 -0700 (PDT)
-To: "Sukadev Bhattiprolu" <sukadev@us.ibm.com>
-In-Reply-To: <20060929005205.GA3876@us.ibm.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+	selinux@tycho.nsa.gov
+Return-path: <linux-audit-bounces@redhat.com>
+To: Steve Grubb <sgrubb@redhat.com>
+In-Reply-To: <200609291008.07290.sgrubb@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-On 9/28/06, Sukadev Bhattiprolu <sukadev@us.ibm.com> wrote:
-> $ cat /proc/interrupts
->
->            CPU0       CPU1
->  28:          0          0   IO-APIC-fasteoi  eth0
-> NMI:         96         35
-> LOC:      18251      18524
-> ERR:          0
+Steve Grubb wrote:
+> On Thursday 28 September 2006 14:03, paul.moore@hp.com wrote:
+>>@@ -381,21 +380,35 @@ static int netlbl_cipsov4_add(struct sk_
+>>
+>> {
+>> 	int ret_val = -EINVAL;
+>>-	u32 map_type;
+>>+	u32 type;
+>>+	u32 doi;
+>>+	const char *type_str = "(unknown)";
+>>+	struct audit_buffer *audit_buf;
+>>
+>>-	if (!info->attrs[NLBL_CIPSOV4_A_MTYPE])
+>>+	if (!info->attrs[NLBL_CIPSOV4_A_DOI] ||
+>>+	    !info->attrs[NLBL_CIPSOV4_A_MTYPE])
+>> 		return -EINVAL;
+>>
+>>-	map_type = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE]);
+>>-	switch (map_type) {
+>>+	type = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE]);
+>>+	switch (type) {
+>> 	case CIPSO_V4_MAP_STD:
+>>+		type_str = "std";
+>> 		ret_val = netlbl_cipsov4_add_std(info);
+>> 		break;
+>> 	case CIPSO_V4_MAP_PASS:
+>>+		type_str = "pass";
+>> 		ret_val = netlbl_cipsov4_add_pass(info);
+>> 		break;
+>> 	}
+>>
+>>+	if (ret_val == 0) {
+>>+		doi = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_DOI]);
+>>+		audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
+>>+						      NETLINK_CB(skb).sid);
+>>+		audit_log_format(audit_buf, " doi=%u type=%s", doi, type_str);
+> 
+> 
+> type field is already taken for another purpose, it needs to be renamed.
 
-you should be getting an interrupt every two seconds from the eth0
-(e1000) driver.  You are having interrupt delivery problems probably
-due to something screwing up interrupt routing in the kernel.
-Normally these issues are associated with MSI interrupts but your
-adapter doesn't support those and is using generic IRQ
+If we can't have duplicate field names I would propose prefixing both
+these fields (and doing similar things with the other NetLabel specific
+fields) with a "cipso_" making them "cipso_doi" and "cipso_type".
 
-I'm guessing that if you somehow enable interrupts on your vga card on
-the same bus as e1000 (bus 3) it will have interrupt delivery problems
-as well.  Maybe try xorg?
+If this isn't acceptable please suggest names which you feel are
+appropriate.
 
-Jesse
+>>+/**
+>>+ * netlbl_unlabel_acceptflg_set - Set the unlabeled accept flag
+>>+ * @value: desired value
+>>+ * @audit_secid: the LSM secid to use in the audit message
+>>+ *
+>>+ * Description:
+>>+ * Set the value of the unlabeled accept flag to @value.
+>>+ *
+>>+ */
+>>+static void netlbl_unlabel_acceptflg_set(u8 value, u32 audit_secid)
+>>+{
+>>+	atomic_set(&netlabel_unlabel_accept_flg, value);
+>>+	netlbl_audit_nomsg((value ?
+>>+			    AUDIT_MAC_UNLBL_ACCEPT : AUDIT_MAC_UNLBL_DENY),
+>>+			   audit_secid);
+> 
+> Looking at how this is being used, I think only 1 message type should be used. 
+> There are places in the audit system where we set a flag to 1 or 0, but only 
+> have 1 message type. We record the old and new value. So, you'd need to pass 
+> that to the logger.
+
+With that in mind I would probably change the message type to
+AUDIT_MAC_UNLBL_ALLOW and use a "unlbl_accept" field; is that okay?  If
+not please suggest something you would find acceptable.
+
+>>+/**
+>>+ * netlbl_audit_start_common - Start an audit message
+>>+ * @type: audit message type
+>>+ * @secid: LSM context ID
+>>+ *
+>>+ * Description:
+>>+ * Start an audit message using the type specified in @type and fill the
+>>audit + * message with some fields common to all NetLabel audit messages. 
+>>Returns + * a pointer to the audit buffer on success, NULL on failure.
+>>+ *
+>>+ */
+>>+struct audit_buffer *netlbl_audit_start_common(int type, u32 secid)
+>>+{
+> 
+> Generally, logging functions are moved into auditsc.c where the context and 
+> other functions are defined.
+
+How about leaving this for a future revision?  I'd like this first
+attempt to be relatively self contained.  James Morris has made other
+comments along the same lines.
+
+>>+	audit_log_format(audit_buf,
+>>+			 "netlabel: auid=%u uid=%u tty=%s pid=%d",
+>>+			 audit_loginuid,
+>>+			 current->uid,
+>>+			 audit_tty,
+>>+			 current->pid);
+> 
+> 
+> Why are you logging all this? When we add audit rules, all that we log is the 
+> auid, and subj. If we need to log all this, we should probably have a helper 
+> function that gets called by other config change loggers.
+
+If I drop the uid, tty, and pid fields will this be acceptable?
+
+>>+	audit_log_format(audit_buf, " comm=");
+>>+	audit_log_untrustedstring(audit_buf, audit_comm);
+>>+	if (current->mm) {
+>>+		down_read(&current->mm->mmap_sem);
+>>+		vma = current->mm->mmap;
+>>+		while (vma) {
+>>+			if ((vma->vm_flags & VM_EXECUTABLE) &&
+>>+			    vma->vm_file) {
+>>+				audit_log_d_path(audit_buf,
+>>+						 " exe=",
+>>+						 vma->vm_file->f_dentry,
+>>+						 vma->vm_file->f_vfsmnt);
+>>+				break;
+>>+			}
+>>+			vma = vma->vm_next;
+>>+		}
+>>+		up_read(&current->mm->mmap_sem);
+>>+	}
+>>+
+> 
+> 
+> If this function was moved inside auditsc.c you could use a function there 
+> that does this. But the question remains why all this data?
+
+In the ideal world would you prefer this to be removed?
+
+-- 
+paul moore
+linux security @ hp
