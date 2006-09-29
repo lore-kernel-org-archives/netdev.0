@@ -1,52 +1,63 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH 1/1] NetLabel: secid reconciliation support
-Date: Fri, 29 Sep 2006 17:20:09 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CF3A5@chaos.tcs.tcs-sec.com>
+From: Ray Lee <ray-lk@madrabbit.org>
+Subject: Re: Bcm43xx softMac Driver in 2.6.18
+Date: Fri, 29 Sep 2006 14:23:00 -0700
+Message-ID: <451D8EB4.6020000@madrabbit.org>
+References: <4513E308.10507@lwfinger.net> <2c0942db0609222303o50e47156xe6af9a50ed8301c8@mail.gmail.com> <200609231141.26090.rjw@sisk.pl> <45156612.2080906@madrabbit.org> <4515972F.9080307@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: jmorris@namei.org, sds@tycho.nsa.gov, method@gentoo.org,
-	kmacmillan@mentalrootkit.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, dbtsai@gmail.com,
+	John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:60588 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161386AbWI2VU3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 17:20:29 -0400
-To: paul.moore@hp.com, netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Received: from 242.178.36.72.reverse.layeredtech.com ([72.36.178.242]:37555
+	"EHLO tapestrysystems.com") by vger.kernel.org with ESMTP
+	id S1422641AbWI2VY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 17:24:58 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <4515972F.9080307@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> @@ -3672,16 +3674,20 @@ static int selinux_skb_flow_in(struct sk
->  	if (err)
->  		goto out;
->  
-> -	if (xfrm_sid) {
-> -		err = security_transition_sid(xfrm_sid, skb->secmark,
-> -						
-> SECCLASS_PACKET, &trans_sid);
-> -		if (err)
-> -			goto out;
-> +	if (xfrm_sid)
-> +		skb->secmark = xfrm_sid;
->  
-> -		skb->secmark = trans_sid;
-> -	}
-> +	err = selinux_netlbl_skb_sid(skb, skb->secmark, &nlbl_sid);
+(re-adding linux-kernel.)
 
-I take it nlbl_sid here will be 0 if netlabel is NOT configured
-for the traffic correct?
+Larry Finger wrote:
+> Would you please test the attached patch that should be applied to a
+> vanilla 2.6.18? I'm currently running it, but only for a few minutes. It
+> comes up fine and I ran it through several ifdown/ifup cycles without
+> any problem.
 
-> --- net-2.6.orig/security/selinux/ss/mls.c
-> +++ net-2.6/security/selinux/ss/mls.c
-> @@ -547,7 +547,7 @@ int mls_compute_sid(struct context *scon
->  				                     
-&rtr->target_range);
->  			}
->  		}
-> -		else if (tclass == SECCLASS_PACKET)
-> +		if (tclass == SECCLASS_PACKET)
+Okay, this is far better than vanilla 2.6.18 (or your other patch). I've
+been running this for six hours so far with no troubles, when before I'd
+have a hard system freeze within a minute or two of associating (or
+trying to associate) with an access point.
 
-What's the purpose of getting rid of "else" above?
+As for -stable, the patch is sorta, y'know, ginormous:
 
-I haven't reviewed the netlbl native changes, but the hooks.c changes
-seem ok to me.
+ bcm43xx.h         |  181 +++++-----
+ bcm43xx_debugfs.c |   80 ++++
+ bcm43xx_debugfs.h |    1
+ bcm43xx_dma.c     |  583 +++++++++++++++++++++++-----------
+ bcm43xx_dma.h     |  296 +++++++++++++----
+ bcm43xx_leds.c    |   10
+ bcm43xx_main.c    |  905
++++++++++++++++++++++++++++++++-----------------------
+ bcm43xx_main.h    |    6
+ bcm43xx_phy.c     |   48 +-
+ bcm43xx_pio.c     |    4
+ bcm43xx_sysfs.c   |   46 +-
+ bcm43xx_wx.c      |  121 +++----
+ 12 files changed, 1426 insertions(+), 855 deletions(-)
+
+OTOH, the current version is completely unusable on this system, so I
+don't know if the right path is to revert the driver to 2.6.17's
+version, or to try to move forward with the patch when it's had hard
+review and testing.
+
+I'm heading out on vacation for the next two weeks. I'll catch up with
+any mail directed to me for more things to try (or report about this
+specific system), if requested, when I get back. (Or catch me today.)
+
+Thank you very much for your help,
+
+Ray
