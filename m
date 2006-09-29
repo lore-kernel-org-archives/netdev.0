@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][BNX2]: Disable MSI on 5706 if AMD 8132 bridge is
- present
-Date: Fri, 29 Sep 2006 16:08:07 -0700 (PDT)
-Message-ID: <20060929.160807.28788865.davem@davemloft.net>
-References: <1159565963.3741.23.camel@rh4>
-	<20060929.154917.125894679.davem@davemloft.net>
-	<451DA57F.60609@garzik.org>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 1/6]: powerpc/cell spidernet burst alignment patch.
+Date: Fri, 29 Sep 2006 18:15:11 -0500
+Message-ID: <20060929231511.GI6433@austin.ibm.com>
+References: <20060929230552.GG6433@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55218
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932291AbWI2XIF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 19:08:05 -0400
-To: jeff@garzik.org
-In-Reply-To: <451DA57F.60609@garzik.org>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:54493 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750862AbWI2XPQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 19:15:16 -0400
+To: jeff@garzik.org, akpm@osdl.org
+Content-Disposition: inline
+In-Reply-To: <20060929230552.GG6433@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 29 Sep 2006 19:00:15 -0400
 
-> The patch and description provided no information about whether or not 
-> it would be better to blacklist 8132 globally, as we have already done 
-> with the 8131.
+This patch increases the Burst Address alignment from 64 to 1024 in the
+Spidernet driver. This improves transmit performance for large packets.
 
-It absolutely was not vague, it gave an explicit description of what
-the problem was, down to the transaction type being used by 5706 and
-what the stated rules are in the PCI spec, and it also gave a clear
-indication that the 5706 was in the wrong and that this was believed
-to be a unique situation.
+From: James K Lewis <jklewis@us.ibm.com>
+Signed-off-by: James K Lewis <jklewis@us.ibm.com>
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+
+----
+ drivers/net/spider_net.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.18-mm2/drivers/net/spider_net.h
+===================================================================
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.h	2006-09-29 14:11:21.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.h	2006-09-29 16:33:49.000000000 -0500
+@@ -209,7 +209,7 @@ extern char spider_net_driver_name[];
+ #define SPIDER_NET_DMA_RX_FEND_VALUE	0x00030003
+ /* to set TX_DMA_EN */
+ #define SPIDER_NET_TX_DMA_EN		0x80000000
+-#define SPIDER_NET_GDTDCEIDIS		0x00000002
++#define SPIDER_NET_GDTDCEIDIS		0x00000302
+ #define SPIDER_NET_DMA_TX_VALUE		SPIDER_NET_TX_DMA_EN | \
+ 					SPIDER_NET_GDTDCEIDIS
+ #define SPIDER_NET_DMA_TX_FEND_VALUE	0x00030003
