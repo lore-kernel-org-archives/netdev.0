@@ -1,82 +1,65 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 4/4] [SCTP]: Do not timestamp every SCTP packet.
-Date: Fri, 29 Sep 2006 13:00:37 -0700
-Message-ID: <1159560037.29637.52.camel@w-sridhar2.beaverton.ibm.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
+Date: Fri, 29 Sep 2006 16:04:13 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609291557520.8199@d.namei>
+References: <36282A1733C57546BE392885C0618592015CF2BE@chaos.tcs.tcs-sec.com>
+ <451D4A51.4000603@hp.com> <Pine.LNX.4.64.0609291247170.6007@d.namei>
+ <451D5B3F.70206@hp.com> <Pine.LNX.4.64.0609291430130.7553@d.namei>
+ <451D6EB1.3040006@hp.com> <Pine.LNX.4.64.0609291517170.7975@d.namei>
+ <451D793A.4040007@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Joshua Brindle <method@gentoo.org>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, kmacmillan@mentalrootkit.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:19429 "EHLO e3.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1422699AbWI2UAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 16:00:42 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8TK0eFu018680
-	for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 16:00:40 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8TK0d5O174884
-	for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 16:00:40 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8TK0caB000560
-	for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 16:00:39 -0400
-To: davem@davemloft.net
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:52396 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1422718AbWI2UEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 16:04:16 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <451D793A.4040007@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[SCTP]: Do not timestamp every SCTP packet.
+On Fri, 29 Sep 2006, Paul Moore wrote:
 
-We only need the timestamp on COOKIE-ECHO chunks, so instead of always
-timestamping every SCTP packet, let common code timestamp if the socket
-option is set.  For COOKIE-ECHO, simply get the time of day if we don't
-have a timestamp.  This introduces a small possibility that the cookie
-may be considered expired, but it will be renegotiated.
+> > ... or related packet doesn't match ...
+> 
+> Not sure what you mean by "related packet",
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+A related packet with conntrack would be an FTP data packet related to a 
+specific FTP control session (where the conntrack is initialized, and has 
+a secmark saved to it).
 
----
- net/sctp/input.c         |    6 ------
- net/sctp/sm_make_chunk.c |   10 +++++++++-
- 2 files changed, 9 insertions(+), 7 deletions(-)
+> but if the check in step #2
+> fails then the packet would be dropped. 
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 4714882..64f6301 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -218,12 +218,6 @@ int sctp_rcv(struct sk_buff *skb)
- 		}
- 	}
- 
--	/* SCTP seems to always need a timestamp right now (FIXME) */
--	if (skb->tstamp.off_sec == 0) {
--		__net_timestamp(skb);
--		sock_enable_timestamp(sk); 
--	}
--
- 	if (!xfrm_policy_check(sk, XFRM_POLICY_IN, skb, family))
- 		goto discard_release;
- 	nf_reset(skb);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 7745bde..507dff7 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1447,8 +1447,16 @@ no_hmac:
- 	/* Check to see if the cookie is stale.  If there is already
- 	 * an association, there is no need to check cookie's expiration
- 	 * for init collision case of lost COOKIE ACK.
-+	 * If skb has been timestamped, then use the stamp, otherwise
-+	 * use current time.  This introduces a small possibility that
-+	 * that a cookie may be considered expired, but his would only slow
-+	 * down the new association establishment instead of every packet.
- 	 */
--	skb_get_timestamp(skb, &tv);
-+	if (sock_flag(ep->base.sk, SOCK_TIMESTAMP))
-+		skb_get_timestamp(skb, &tv);
-+	else
-+		do_gettimeofday(&tv);
-+
- 	if (!asoc && tv_lt(bear_cookie->expiration, tv)) {
- 		__u16 len;
- 		/*
+Ok.
+
+> The only case where I can see
+> this happening is that if the MLS/MCS constraints did not allow the
+> flow_in permission.  This allows administrators to set specific MLS
+> labels for any iptables "object".
+
+Yep, one thing to watch for here is packets arriving on a different 
+interface for valid reasons (e.g. routing changes), but that's a policy 
+issue.
+
+> > ... or you get no CIPSO label (e.g. ICMP from intermediate router) ...
+> 
+> If there is no packet label that NetLabel recognizes and NetLabel is
+> configured to allow unlabeled traffic then the NetLabel SID generated in
+> step #1 above would be 0.
+
+Well, conntrack will say that this packet is related to the connection 
+and CONNSECMARK will restore the secmark label to it (i.e. it'll have the 
+same secmark as the initial syn packet).  But, no CIPSO label.  I guess 
+this needs to be considered in any case, secmark or not.
 
 
+- James
+-- 
+James Morris
+<jmorris@namei.org>
