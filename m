@@ -1,102 +1,201 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 6/8][ATM]: [lec] use work queue instead of timer for lec arp expiry
-Date: Fri, 29 Sep 2006 12:44:35 -0400
-Message-ID: <200609291644.k8TGiZ5g025624@cmf.nrl.navy.mil>
+Subject: [PATCH 7/8][ATM]: [lec] add reference counting to lec_arp entries
+Date: Fri, 29 Sep 2006 12:45:01 -0400
+Message-ID: <200609291645.k8TGj1pc025637@cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:2525 "EHLO
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:4061 "EHLO
 	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
-	id S932353AbWI2Qoz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 12:44:55 -0400
+	id S1161229AbWI2QpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 12:45:19 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 please consider for 2.6.19 -- thanks!
 
-[ATM]: [lec] use work queue instead of timer for lec arp expiry
+[ATM]: [lec] add reference counting to lec_arp entries
 
 Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
 ---
-commit 0152dcfb9d42e203ff26d1619158c9664cfbf2d9
-tree 24d0a36e52e7d4e86dd7bf1422ae9948011a194d
-parent 693b186c2a764f62e017db4b7ed39298831d99e8
-author chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Mon, 25 Sep 2006 07:22:57 -0400
-committer chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Mon, 25 Sep 2006 07:22:57 -0400
+commit 397725689277192a899da4009cd078bab8f6ee2d
+tree 3bba44e1549229947ed332bb6263c704cabd55c7
+parent 0152dcfb9d42e203ff26d1619158c9664cfbf2d9
+author chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Mon, 25 Sep 2006 07:28:18 -0400
+committer chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Mon, 25 Sep 2006 07:28:18 -0400
 
- net/atm/lec.c |   17 +++++++----------
- net/atm/lec.h |    2 +-
- 2 files changed, 8 insertions(+), 11 deletions(-)
+ net/atm/lec.c      |   42 ++++++++++++++++++++++++++++--------------
+ net/atm/lec_arpc.h |    1 +
+ 2 files changed, 29 insertions(+), 14 deletions(-)
 
 diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 87fb0c2..8a9f9ab 100644
+index 8a9f9ab..c865f68 100644
 --- a/net/atm/lec.c
 +++ b/net/atm/lec.c
-@@ -1442,7 +1442,7 @@ #define DEBUG_ARP_TABLE 0
+@@ -107,6 +107,19 @@ static void lec_vcc_added(struct lec_pri
+ 					    struct sk_buff *skb));
+ static void lec_vcc_close(struct lec_priv *priv, struct atm_vcc *vcc);
  
- #define LEC_ARP_REFRESH_INTERVAL (3*HZ)
++/* must be done under lec_arp_lock */
++static inline void lec_arp_hold(struct lec_arp_table *entry)
++{
++	atomic_inc(&entry->usage);
++}
++
++static inline void lec_arp_put(struct lec_arp_table *entry)
++{
++	if (atomic_dec_and_test(&entry->usage))
++		kfree(entry);
++}
++
++
+ static struct lane2_ops lane2_ops = {
+ 	lane2_resolve,		/* resolve,             spec 3.1.3 */
+ 	lane2_associate_req,	/* associate_req,       spec 3.1.4 */
+@@ -795,7 +808,7 @@ #endif
+ 			entry = lec_arp_find(priv, src);
+ 			if (entry && entry->vcc != vcc) {
+ 				lec_arp_remove(priv, entry);
+-				kfree(entry);
++				lec_arp_put(entry);
+ 			}
+ 		}
+ 		spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+@@ -1726,7 +1739,7 @@ static void lec_arp_destroy(struct lec_p
+ 	for (i = 0; i < LEC_ARP_TABLE_SIZE; i++) {
+ 		hlist_for_each_entry_safe(entry, node, next, &priv->lec_arp_tables[i], next) {
+ 			lec_arp_remove(priv, entry);
+-			kfree(entry);
++			lec_arp_put(entry);
+ 		}
+ 		INIT_HLIST_HEAD(&priv->lec_arp_tables[i]);
+ 	}
+@@ -1735,7 +1748,7 @@ static void lec_arp_destroy(struct lec_p
+ 		del_timer_sync(&entry->timer);
+ 		lec_arp_clear_vccs(entry);
+ 		hlist_del(&entry->next);
+-		kfree(entry);
++		lec_arp_put(entry);
+ 	}
+ 	INIT_HLIST_HEAD(&priv->lec_arp_empty_ones);
+ 	
+@@ -1743,7 +1756,7 @@ static void lec_arp_destroy(struct lec_p
+ 		del_timer_sync(&entry->timer);
+ 		lec_arp_clear_vccs(entry);
+ 		hlist_del(&entry->next);
+-		kfree(entry);
++		lec_arp_put(entry);
+ 	}
+ 	INIT_HLIST_HEAD(&priv->lec_no_forward);
  
--static void lec_arp_check_expire(unsigned long data);
-+static void lec_arp_check_expire(void *data);
- static void lec_arp_expire_arp(unsigned long data);
- 
- /* 
-@@ -1465,11 +1465,8 @@ static void lec_arp_init(struct lec_priv
-         INIT_HLIST_HEAD(&priv->lec_no_forward);
-         INIT_HLIST_HEAD(&priv->mcast_fwds);
- 	spin_lock_init(&priv->lec_arp_lock);
--	init_timer(&priv->lec_arp_timer);
--	priv->lec_arp_timer.expires = jiffies + LEC_ARP_REFRESH_INTERVAL;
--	priv->lec_arp_timer.data = (unsigned long)priv;
--	priv->lec_arp_timer.function = lec_arp_check_expire;
--	add_timer(&priv->lec_arp_timer);
-+	INIT_WORK(&priv->lec_arp_work, lec_arp_check_expire, priv);
-+	schedule_delayed_work(&priv->lec_arp_work, LEC_ARP_REFRESH_INTERVAL);
+@@ -1751,7 +1764,7 @@ static void lec_arp_destroy(struct lec_p
+ 		/* No timer, LANEv2 7.1.20 and 2.3.5.3 */
+ 		lec_arp_clear_vccs(entry);
+ 		hlist_del(&entry->next);
+-		kfree(entry);
++		lec_arp_put(entry);
+ 	}
+ 	INIT_HLIST_HEAD(&priv->mcast_fwds);
+ 	priv->mcast_vcc = NULL;
+@@ -1799,6 +1812,7 @@ static struct lec_arp_table *make_entry(
+ 	to_return->last_used = jiffies;
+ 	to_return->priv = priv;
+ 	skb_queue_head_init(&to_return->tx_wait);
++	atomic_set(&to_return->usage, 1);
+ 	return to_return;
  }
  
- static void lec_arp_clear_vccs(struct lec_arp_table *entry)
-@@ -1719,7 +1716,7 @@ static void lec_arp_destroy(struct lec_p
- 	struct lec_arp_table *entry;
- 	int i;
- 
--	del_timer_sync(&priv->lec_arp_timer);
-+	cancel_rearming_delayed_work(&priv->lec_arp_work);
- 
- 	/*
- 	 * Remove all entries
-@@ -1865,10 +1862,10 @@ static void lec_arp_expire_vcc(unsigned 
-  *       to ESI_FORWARD_DIRECT. This causes the flush period to end
-  *       regardless of the progress of the flush protocol.
-  */
--static void lec_arp_check_expire(unsigned long data)
-+static void lec_arp_check_expire(void *data)
- {
- 	unsigned long flags;
--	struct lec_priv *priv = (struct lec_priv *)data;
-+	struct lec_priv *priv = data;
- 	struct hlist_node *node, *next;
- 	struct lec_arp_table *entry;
- 	unsigned long now;
-@@ -1930,7 +1927,7 @@ static void lec_arp_check_expire(unsigne
- 	}
+@@ -1843,7 +1857,7 @@ static void lec_arp_expire_vcc(unsigned 
  	spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
  
--	mod_timer(&priv->lec_arp_timer, jiffies + LEC_ARP_REFRESH_INTERVAL);
-+	schedule_delayed_work(&priv->lec_arp_work, LEC_ARP_REFRESH_INTERVAL);
+ 	lec_arp_clear_vccs(to_remove);
+-	kfree(to_remove);
++	lec_arp_put(to_remove);
  }
  
  /*
-diff --git a/net/atm/lec.h b/net/atm/lec.h
-index 8a6cb64..5bf3544 100644
---- a/net/atm/lec.h
-+++ b/net/atm/lec.h
-@@ -93,7 +93,7 @@ struct lec_priv {
- 	spinlock_t lec_arp_lock;
- 	struct atm_vcc *mcast_vcc;		/* Default Multicast Send VCC */
- 	struct atm_vcc *lecd;
--	struct timer_list lec_arp_timer;	/* C10 */
-+	struct work_struct lec_arp_work;	/* C10 */
- 	unsigned int maximum_unknown_frame_count;
- 						/*
- 						 * Within the period of time defined by this variable, the client will send 
+@@ -1891,7 +1905,7 @@ static void lec_arp_check_expire(void *d
+ 				/* Remove entry */
+ 				DPRINTK("LEC:Entry timed out\n");
+ 				lec_arp_remove(priv, entry);
+-				kfree(entry);
++				lec_arp_put(entry);
+ 			} else {
+ 				/* Something else */
+ 				if ((entry->status == ESI_VC_PENDING ||
+@@ -2045,7 +2059,7 @@ lec_addr_delete(struct lec_priv *priv, u
+ 			    && (permanent ||
+ 				!(entry->flags & LEC_PERMANENT_FLAG))) {
+ 				lec_arp_remove(priv, entry);
+-				kfree(entry);
++				lec_arp_put(entry);
+ 			}
+ 			spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+ 			return 0;
+@@ -2094,7 +2108,7 @@ lec_arp_update(struct lec_priv *priv, un
+ 					tmp->old_push = entry->old_push;
+ 					tmp->last_used = jiffies;
+ 					del_timer(&entry->timer);
+-					kfree(entry);
++					lec_arp_put(entry);
+ 					entry = tmp;
+ 				} else {
+ 					entry->status = ESI_FORWARD_DIRECT;
+@@ -2414,7 +2428,7 @@ static void lec_vcc_close(struct lec_pri
+ 		hlist_for_each_entry_safe(entry, node, next, &priv->lec_arp_tables[i], next) {
+ 			if (vcc == entry->vcc) {
+ 				lec_arp_remove(priv, entry);
+-				kfree(entry);
++				lec_arp_put(entry);
+ 				if (priv->mcast_vcc == vcc) {
+ 					priv->mcast_vcc = NULL;
+ 				}
+@@ -2427,7 +2441,7 @@ static void lec_vcc_close(struct lec_pri
+ 			lec_arp_clear_vccs(entry);
+ 			del_timer(&entry->timer);
+ 			hlist_del(&entry->next);
+-			kfree(entry);
++			lec_arp_put(entry);
+ 		}
+ 	}
+ 
+@@ -2436,7 +2450,7 @@ static void lec_vcc_close(struct lec_pri
+ 			lec_arp_clear_vccs(entry);
+ 			del_timer(&entry->timer);
+ 			hlist_del(&entry->next);
+-			kfree(entry);
++			lec_arp_put(entry);
+ 		}
+ 	}
+ 
+@@ -2445,7 +2459,7 @@ static void lec_vcc_close(struct lec_pri
+ 			lec_arp_clear_vccs(entry);
+ 			/* No timer, LANEv2 7.1.20 and 2.3.5.3 */
+ 			hlist_del(&entry->next);
+-			kfree(entry);
++			lec_arp_put(entry);
+ 		}
+ 	}
+ 
+@@ -2481,7 +2495,7 @@ #endif
+ 			/* We might have got an entry */
+ 			if ((tmp = lec_arp_find(priv, src))) {
+ 				lec_arp_remove(priv, tmp);
+-				kfree(tmp);
++				lec_arp_put(tmp);
+ 			}
+ 			hlist_del(&entry->next);
+ 			lec_arp_add(priv, entry);
+diff --git a/net/atm/lec_arpc.h b/net/atm/lec_arpc.h
+index 69aeb07..c9c9d8f 100644
+--- a/net/atm/lec_arpc.h
++++ b/net/atm/lec_arpc.h
+@@ -47,6 +47,7 @@ struct lec_arp_table {
+ 					 * the length of the tlvs array
+ 					 */
+ 	struct sk_buff_head tx_wait;	/* wait queue for outgoing packets */
++	atomic_t usage;			/* usage count */
+ };
+ 
+ /*
