@@ -1,41 +1,34 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [MLSXFRM] Fix mis-labelling of child sockets
-Date: Fri, 29 Sep 2006 17:38:28 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609291738000.9262@d.namei>
-References: <1159564681.3309.431.camel@pmac.infradead.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH][BNX2]: Disable MSI on 5706 if AMD 8132 bridge is
+ present
+Date: Fri, 29 Sep 2006 14:39:23 -0700
+Message-ID: <1159565963.3741.23.camel@rh4>
+References: <1159564053.3741.19.camel@rh4> <451D9007.6010905@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: torvalds@osdl.org, akpm@osdl.org, netdev@vger.kernel.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Paul Moore <paul.moore@hp.com>,
-	James Morris <jmorris@redhat.com>,
-	Venkat Yekkirala <vyekkirala@trustedcs.com>,
-	Eric Paris <eparis@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:57261 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1422828AbWI2Vic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 17:38:32 -0400
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1159564681.3309.431.camel@pmac.infradead.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:26118 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1422833AbWI2Vm4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 17:42:56 -0400
+To: "Jeff Garzik" <jeff@garzik.org>
+In-Reply-To: <451D9007.6010905@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Sep 2006, David Woodhouse wrote:
-
-> Accepted connections of types other than AF_INET, AF_INET6, AF_UNIX
-> won't have an appropriate label derived from the peer, so don't use it.
+On Fri, 2006-09-29 at 17:28 -0400, Jeff Garzik wrote:
+> Michael Chan wrote:
+> > AMD believes this incompatibility is unique to the 5706, and
+> > prefers to locally disable MSI rather than globally disabling it
+> > using pci_msi_quirk.
 > 
-> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
-> Acked-by:  Stephen Smalley <sds@tycho.nsa.gov>
+> Why is it unique to the 5706?  Is this just a guess on AMD and 
+> Broadcom's part?
+> 
+I just took AMD's word for it.  It doesn't matter to me whether we
+disable it locally or globally.  Since this is AMD's bridge, I just
+follow their recommendation.  They probably haven't seen this issue on
+any other devices except ours.
 
-Acked-by: James Morris <jmorris@namei.org>
-
-
-Please apply as a bugfix.
-
-
-
--- 
-James Morris
-<jmorris@namei.org>
