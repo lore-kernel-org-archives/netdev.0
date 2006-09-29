@@ -1,162 +1,98 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration
-	changes
-Date: Fri, 29 Sep 2006 14:09:19 -0400
-Message-ID: <451D614F.8090502@hp.com>
-References: <20060928180326.896170000@hp.com> <20060928180337.570612000@hp.com>
-	<200609291008.07290.sgrubb@redhat.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: rewriting skb->truesize... good or bad idea
+Date: Fri, 29 Sep 2006 14:16:57 -0400
+Message-ID: <451D6319.1040506@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
-	selinux@tycho.nsa.gov
-Return-path: <linux-audit-bounces@redhat.com>
-To: Steve Grubb <sgrubb@redhat.com>
-In-Reply-To: <200609291008.07290.sgrubb@redhat.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
+Content-Type: multipart/mixed;
+ boundary="------------050805020504010504020301"
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel8.hp.com ([156.153.255.206]:51587 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1751328AbWI2SRB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 14:17:01 -0400
+Received: from smtp1.fc.hp.com (smtp.fc.hp.com [15.15.136.127])
+	by atlrel8.hp.com (Postfix) with ESMTP id 6DBCF35D9A
+	for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 14:16:58 -0400 (EDT)
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Grubb wrote:
-> On Thursday 28 September 2006 14:03, paul.moore@hp.com wrote:
->>@@ -381,21 +380,35 @@ static int netlbl_cipsov4_add(struct sk_
->>
->> {
->> 	int ret_val = -EINVAL;
->>-	u32 map_type;
->>+	u32 type;
->>+	u32 doi;
->>+	const char *type_str = "(unknown)";
->>+	struct audit_buffer *audit_buf;
->>
->>-	if (!info->attrs[NLBL_CIPSOV4_A_MTYPE])
->>+	if (!info->attrs[NLBL_CIPSOV4_A_DOI] ||
->>+	    !info->attrs[NLBL_CIPSOV4_A_MTYPE])
->> 		return -EINVAL;
->>
->>-	map_type = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE]);
->>-	switch (map_type) {
->>+	type = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE]);
->>+	switch (type) {
->> 	case CIPSO_V4_MAP_STD:
->>+		type_str = "std";
->> 		ret_val = netlbl_cipsov4_add_std(info);
->> 		break;
->> 	case CIPSO_V4_MAP_PASS:
->>+		type_str = "pass";
->> 		ret_val = netlbl_cipsov4_add_pass(info);
->> 		break;
->> 	}
->>
->>+	if (ret_val == 0) {
->>+		doi = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_DOI]);
->>+		audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
->>+						      NETLINK_CB(skb).sid);
->>+		audit_log_format(audit_buf, " doi=%u type=%s", doi, type_str);
-> 
-> 
-> type field is already taken for another purpose, it needs to be renamed.
+This is a multi-part message in MIME format.
+--------------050805020504010504020301
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-If we can't have duplicate field names I would propose prefixing both
-these fields (and doing similar things with the other NetLabel specific
-fields) with a "cipso_" making them "cipso_doi" and "cipso_type".
+Hi Folks
 
-If this isn't acceptable please suggest names which you feel are
-appropriate.
+I was looking at SCTP performance problem that is a result of
+receive buffer exhaustion and found the we severely overcharge
+the receive buffer when multiple data chunks are bundled together.
+This bundling usually happens at retransmit time which penalizes us
+even more.
 
->>+/**
->>+ * netlbl_unlabel_acceptflg_set - Set the unlabeled accept flag
->>+ * @value: desired value
->>+ * @audit_secid: the LSM secid to use in the audit message
->>+ *
->>+ * Description:
->>+ * Set the value of the unlabeled accept flag to @value.
->>+ *
->>+ */
->>+static void netlbl_unlabel_acceptflg_set(u8 value, u32 audit_secid)
->>+{
->>+	atomic_set(&netlabel_unlabel_accept_flg, value);
->>+	netlbl_audit_nomsg((value ?
->>+			    AUDIT_MAC_UNLBL_ACCEPT : AUDIT_MAC_UNLBL_DENY),
->>+			   audit_secid);
-> 
-> Looking at how this is being used, I think only 1 message type should be used. 
-> There are places in the audit system where we set a flag to 1 or 0, but only 
-> have 1 message type. We record the old and new value. So, you'd need to pass 
-> that to the logger.
+Here is what happens.  For every "data" chunk that SCTP stack receives,
+we clone skb of that data chunk, charge the receive buffer for the skb,
+and put the chunk on the the socket receive queue (this is skipping a
+few steps, but they don't matter for the sake of this discussion).  We
+charge the receive buffer with the skb->truesize.
 
-With that in mind I would probably change the message type to
-AUDIT_MAC_UNLBL_ALLOW and use a "unlbl_accept" field; is that okay?  If
-not please suggest something you would find acceptable.
+The problem shows up when multiple data chunks are "bundled" into the
+same skb.  We end up with multiple clones, and for each clone we charge
+skb->truesize against the receive buffer.  However, since skb_clone()
+preservers the original truesize in all clones, we end up overcharging.
 
->>+/**
->>+ * netlbl_audit_start_common - Start an audit message
->>+ * @type: audit message type
->>+ * @secid: LSM context ID
->>+ *
->>+ * Description:
->>+ * Start an audit message using the type specified in @type and fill the
->>audit + * message with some fields common to all NetLabel audit messages. 
->>Returns + * a pointer to the audit buffer on success, NULL on failure.
->>+ *
->>+ */
->>+struct audit_buffer *netlbl_audit_start_common(int type, u32 secid)
->>+{
-> 
-> Generally, logging functions are moved into auditsc.c where the context and 
-> other functions are defined.
+One of the proposed solutions is change the skb->truesize of the clone
+to just be sizeof(struct sk_buff), if and only if this is not the first
+data chunk in the packet.
 
-How about leaving this for a future revision?  I'd like this first
-attempt to be relatively self contained.  James Morris has made other
-comments along the same lines.
+I've attached the patch, in case people want to look at the code.
 
->>+	audit_log_format(audit_buf,
->>+			 "netlabel: auid=%u uid=%u tty=%s pid=%d",
->>+			 audit_loginuid,
->>+			 current->uid,
->>+			 audit_tty,
->>+			 current->pid);
-> 
-> 
-> Why are you logging all this? When we add audit rules, all that we log is the 
-> auid, and subj. If we need to log all this, we should probably have a helper 
-> function that gets called by other config change loggers.
+However, we question if this is a good idea or if this is going to break
+things...
 
-If I drop the uid, tty, and pid fields will this be acceptable?
+Thanks
+-vlad
 
->>+	audit_log_format(audit_buf, " comm=");
->>+	audit_log_untrustedstring(audit_buf, audit_comm);
->>+	if (current->mm) {
->>+		down_read(&current->mm->mmap_sem);
->>+		vma = current->mm->mmap;
->>+		while (vma) {
->>+			if ((vma->vm_flags & VM_EXECUTABLE) &&
->>+			    vma->vm_file) {
->>+				audit_log_d_path(audit_buf,
->>+						 " exe=",
->>+						 vma->vm_file->f_dentry,
->>+						 vma->vm_file->f_vfsmnt);
->>+				break;
->>+			}
->>+			vma = vma->vm_next;
->>+		}
->>+		up_read(&current->mm->mmap_sem);
->>+	}
->>+
-> 
-> 
-> If this function was moved inside auditsc.c you could use a function there 
-> that does this. But the question remains why all this data?
+--------------050805020504010504020301
+Content-Type: text/plain;
+ name="p"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="p"
 
-In the ideal world would you prefer this to be removed?
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 5b5ae79..9bb1dbd 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -5349,7 +5349,7 @@ static int sctp_eat_data(const struct sc
+ 	if (SCTP_CMD_CHUNK_ULP == deliver)
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_TSN, SCTP_U32(tsn));
+ 
+-	chunk->data_accepted = 1;
++	chunk->data_accepted++;
+ 
+ 	/* Note: Some chunks may get overcounted (if we drop) or overcounted
+ 	 * if we renege and the chunk arrives again.
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index ee23678..0e1f11d 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -685,6 +685,17 @@ struct sctp_ulpevent *sctp_ulpevent_make
+ 	/* Initialize event with flags 0.  */
+ 	sctp_ulpevent_init(event, 0);
+ 
++	/* Check to see if we need to fixup the truesize of the clone.
++	 * We are about to charge the receive buffer for this chunk,
++	 * and we always use skb->truesize.  However, this doesn't work
++	 * for bundled data chunks since we'll drastically overcharge.
++	 * To get around that, keep the oiginal truesize on the clone
++	 * only for the first data chunk, and update truesize for the clone
++	 * on subsequent ones.
++	 */
++	if (chunk->data_accepted > 1)
++		skb->truesize = sizeof(struct skb);
++
+ 	sctp_ulpevent_receive_data(event, asoc);
+ 
+ 	event->stream = ntohs(chunk->subh.data_hdr->stream);
 
--- 
-paul moore
-linux security @ hp
+--------------050805020504010504020301--
