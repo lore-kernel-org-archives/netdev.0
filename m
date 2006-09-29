@@ -1,103 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network problem with 2.6.18-mm1 ?
-Date: Fri, 29 Sep 2006 17:30:27 -0600
-Message-ID: <m1ejtui73g.fsf@ebiederm.dsl.xmission.com>
-References: <20060928013724.GA22898@us.ibm.com> <451B2D29.9040306@intel.com>
-	<20060928185222.GB3352@us.ibm.com>
-	<4807377b0609281410p28d445c8mc32e7d2cb71221ab@mail.gmail.com>
-	<20060929005205.GA3876@us.ibm.com>
-	<4807377b0609291108x84f39c6ic4c669fd91f8fcd4@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH][BNX2]: Disable MSI on 5706 if AMD 8132 bridge is present
+Date: Fri, 29 Sep 2006 16:46:56 -0700
+Message-ID: <451DB070.8040809@hp.com>
+References: <1159565963.3741.23.camel@rh4>	<20060929.154917.125894679.davem@davemloft.net>	<451DA57F.60609@garzik.org> <20060929.160807.28788865.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Sukadev Bhattiprolu" <sukadev@us.ibm.com>,
-	"Auke Kok" <auke-jan.h.kok@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Andrew Morton" <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, mchan@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:32224 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1422644AbWI2Xbr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 19:31:47 -0400
-To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0609291108x84f39c6ic4c669fd91f8fcd4@mail.gmail.com>
-	(Jesse Brandeburg's message of "Fri, 29 Sep 2006 11:08:10 -0700")
+Received: from palrel11.hp.com ([156.153.255.246]:34201 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S932294AbWI2Xq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 19:46:57 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060929.160807.28788865.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Jesse Brandeburg" <jesse.brandeburg@gmail.com> writes:
+> It absolutely was not vague, it gave an explicit description of what
+> the problem was, down to the transaction type being used by 5706 and
+> what the stated rules are in the PCI spec, and it also gave a clear
+> indication that the 5706 was in the wrong and that this was believed
+> to be a unique situation.
 
-> On 9/28/06, Sukadev Bhattiprolu <sukadev@us.ibm.com> wrote:
->> $ cat /proc/interrupts
->>
->>            CPU0       CPU1
->>  28:          0          0   IO-APIC-fasteoi  eth0
->> NMI:         96         35
->> LOC:      18251      18524
->> ERR:          0
+I'm not disagreeing with a per-driver check at the moment, but I thought that 
+Michael told us that the masking being attempted by the 5706 was legal:
+
+Michael Chan wrote:
+> MSI is defined to be 32-bit write.  The 5706 does 64-bit MSI writes
+> with byte enables disabled on the unused 32-bit word.  This is legal
+> but causes problems on the AMD 8132 which will eventually stop
+> responding after a while.
 >
-> you should be getting an interrupt every two seconds from the eth0
-> (e1000) driver.  You are having interrupt delivery problems probably
-> due to something screwing up interrupt routing in the kernel.
-> Normally these issues are associated with MSI interrupts but your
-> adapter doesn't support those and is using generic IRQ
->
-> I'm guessing that if you somehow enable interrupts on your vga card on
-> the same bus as e1000 (bus 3) it will have interrupt delivery problems
-> as well.  Maybe try xorg?
-
-To summarize.
-
-We have an e1000 plugged into a pci-x slot on an Opteron system with
-an amd chipset.
-
-That motherboard has 3 ioapics.  (One on each PCI-X bridge and
-one on the 8111 for handling everything else.
-
-We know we are getting interrupts through the 8111 ioapic.
-
-We don't know which ioapic the pci-x bus is hooked to.
-
-So either the ioapics on the 8131 are having problems.
-Or we have a problem parsing the irq routing tables.
-
-We see in dmesg.
-[    0.000000] I/O APIC #2 at 0xFEC00000.
-[    0.000000] I/O APIC #3 at 0xE8000000.
-[    0.000000] I/O APIC #4 at 0xE8001000.
-...
-[   97.410411] PCI: Cannot allocate resource region 0 of device 0000:00:0a.1
-[   97.423945] PCI: Cannot allocate resource region 0 of device 0000:00:0b.1
-
-We see in lspci
+ > ...
+> MSI is defined to be 32-bit write.  The 5706 does 64-bit MSI writes
+> with byte enables disabled on the unused 32-bit word.  This is legal
+> but causes problems on the AMD 8132 which will eventually stop
+> responding after a while.
 > 
-> 0000:00:0a.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC (rev 01)
-> (prog-if 10 [IO-APIC])
-> 	Subsystem: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 	Region 0: Memory at 88100000 (64-bit, non-prefetchable) [size=4K]
-> 
-> 0000:00:0b.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC (rev 01)
-> (prog-if 10 [IO-APIC])
-> 	Subsystem: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 	Region 0: Memory at 88101000 (64-bit, non-prefetchable) [size=4K]
 
-So it looks like the kernel moved the ioapics.
+rick jones
 
-The following patch in 2.6.18-mm1 is known to have that effect.
-x86_64-mm-insert-ioapics-and-local-apic-into-resource-map
-
-Can you please try reverting that one patch?
-
-There is a fix an updated version of that patch I think in -mm2
-but I haven't had a chance to see if it fixes the problem yet.
-
-Eric
