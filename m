@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] NetLabel: add audit support for configuration
- changes
-Date: Fri, 29 Sep 2006 14:33:21 -0700 (PDT)
-Message-ID: <20060929.143321.85416931.davem@davemloft.net>
-References: <451D614F.8090502@hp.com> <200609291435.53680.sgrubb@redhat.com>
-	<451D81F4.30107@hp.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [MLSXFRM] Fix mis-labelling of child sockets
+Date: Fri, 29 Sep 2006 17:38:28 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609291738000.9262@d.namei>
+References: <1159564681.3309.431.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org, selinux@tycho.nsa.gov,
-	linux-audit@redhat.com
-Return-path: <linux-audit-bounces@redhat.com>
-To: paul.moore@hp.com
-In-Reply-To: <451D81F4.30107@hp.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: torvalds@osdl.org, akpm@osdl.org, netdev@vger.kernel.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Paul Moore <paul.moore@hp.com>,
+	James Morris <jmorris@redhat.com>,
+	Venkat Yekkirala <vyekkirala@trustedcs.com>,
+	Eric Paris <eparis@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:57261 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1422828AbWI2Vic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 17:38:32 -0400
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1159564681.3309.431.camel@pmac.infradead.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Fri, 29 Sep 2006 16:28:36 -0400
+On Fri, 29 Sep 2006, David Woodhouse wrote:
 
-> I think Steve and I have agreed on a solution, I'll put together a patch
-> right now based on what is currently in net-2.6 (i.e. the existing
-> NetLabel audit patch) and submit it to the lists in a few hours.
+> Accepted connections of types other than AF_INET, AF_INET6, AF_UNIX
+> won't have an appropriate label derived from the peer, so don't use it.
+> 
+> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+> Acked-by:  Stephen Smalley <sds@tycho.nsa.gov>
 
-Great, I'll just leave the tree alone until you send me that.
+Acked-by: James Morris <jmorris@namei.org>
 
-Thanks.
+
+Please apply as a bugfix.
+
+
+
+-- 
+James Morris
+<jmorris@namei.org>
