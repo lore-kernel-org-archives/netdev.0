@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: 2.6.19 status
-Date: Thu, 28 Sep 2006 18:41:35 -0700 (PDT)
-Message-ID: <20060928.184135.41635707.davem@davemloft.net>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
+Date: Fri, 29 Sep 2006 10:59:45 +0900
+Message-ID: <451C7E11.6040506@linux-ipv6.org>
+References: <20060928155052.63ed5ce8@freekitty>	<20060928.160458.00452499.davem@davemloft.net>	<20060928162704.55e863ca@freekitty> <20060928.172827.26929236.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=Shift_JIS
 Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36506
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751245AbWI2Blh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Sep 2006 21:41:37 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 17E6BAE424A
-	for <netdev@vger.kernel.org>; Thu, 28 Sep 2006 18:41:36 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from [203.178.140.9] ([203.178.140.9]:59085 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1751284AbWI2B7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 21:59:47 -0400
+To: David Miller <davem@davemloft.net>, shemminger@osdl.org
+In-Reply-To: <20060928.172827.26929236.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller wrote:
+>> commit 0844565fb8a9418f5a860aa480c1aef70319c9a2
+>> Author: Thomas Graf <tgraf@suug.ch>
+>> Date:   Fri Aug 4 23:05:56 2006 -0700
+>>
+>>     [NET]: Move netlink interface bits to linux/if.h
+>>     
+>>     Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Stephen, we just removed the troublesome bits from linux/if.h when I
+> put in Yoshifuji's patches last night, it should explicitly remove
+> this problem.
+> 
+> You will thus see that linux/rtnetlink.h no longer includes
+> linux/if.h, which is why your errors were completely perplexing
+> to me.  Instead, it includes linux/if_link.h
+> 
+> It's been in my tree since last night, and if you had used
+> the rtnetlink.h from my current tree you wouldn't have seen
+> the error.
 
-I've just pushed my current net-2.6 tree to Linus.  The bulk of the
-changes in there are endianness annotations for sparse by Al Viro,
-along with the patches I've been ACK'ing here on the list and
-elsewhere.
+Yes, as David mentioned you need to copy the latest rtnetlink.h
+at first. It is also required to be added if_{link,addr}.h, neighbour.h
+to iproute2 tree. Some macros may be needed for libnetlink.h, too.
+I'll send the patch to you if you haven't started on it.
 
-If you want a non-bugfix change to get into 2.6.19 you must have it to
-me by the end of the weekend.
+Regards,
 
-As of next Monday, anything I receive has to be a bugfix for 2.6.19
-consideration.
-
-Thanks for everyone's hard work and let's make sure there are no
-networking regressions at all in 2.6.19, in fact let's strive to
-make it have no regressions plus bugs fixed that were in 2.6.18 :-)
+-- 
+Masahide NAKAMURA
