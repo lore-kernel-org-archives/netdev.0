@@ -1,46 +1,48 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
-Date: Fri, 29 Sep 2006 10:39:14 -0400
-Message-ID: <1159540754.8496.62.camel@moss-spartans.epoch.ncsc.mil>
-References: <451C85F4.7000406@trustedcs.com>  <451C9897.6030306@gentoo.org>
-	 <1159534759.8496.1.camel@moss-spartans.epoch.ncsc.mil>
-	 <1159538414.3592.5.camel@twoface.columbia.tresys.com>
-	 <1159540113.8496.59.camel@moss-spartans.epoch.ncsc.mil>
-	 <Pine.LNX.4.64.0609291030520.5023@d.namei>
+From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Subject: Re: [PATCH] IPv6/DCCP: Remove unused IPV6_PKTOPTIONS code
+Date: Fri, 29 Sep 2006 11:40:43 -0300
+Message-ID: <39e6f6c70609290740s79bf0b1cwe0b64eef8074eeeb@mail.gmail.com>
+References: <200609290245.33618.jesper.juhl@gmail.com>
+	 <20060928230751.99041004.akpm@osdl.org>
+	 <200609291102.19243@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Joshua Brindle <method@gentoo.org>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov, paul.moore@hp.com,
-	kmacmillan@mentalrootkit.com
+Cc: "Andrew Morton" <akpm@osdl.org>,
+	"Ian McDonald" <ian.mcdonald@jandi.co.nz>,
+	"Jesper Juhl" <jesper.juhl@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	dccp@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"Pekka Savola" <pekkas@netcore.fi>,
+	"James Morris" <jmorris@namei.org>,
+	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
+	"Patrick McHardy" <kaber@coreworks.de>,
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mummy.ncsc.mil ([144.51.88.129]:3309 "EHLO jazzhorn.ncsc.mil")
-	by vger.kernel.org with ESMTP id S1751119AbWI2OiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 10:38:12 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0609291030520.5023@d.namei>
+Received: from wx-out-0506.google.com ([66.249.82.230]:46953 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1751134AbWI2Okn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 10:40:43 -0400
+Received: by wx-out-0506.google.com with SMTP id s14so961943wxc
+        for <netdev@vger.kernel.org>; Fri, 29 Sep 2006 07:40:43 -0700 (PDT)
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
+In-Reply-To: <200609291102.19243@strip-the-willow>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-09-29 at 10:33 -0400, James Morris wrote:
-> On Fri, 29 Sep 2006, Stephen Smalley wrote:
-> 
-> > However, since the transition was removed in the flow_out case, it would
-> > be logical to remove it from the flow_in case as well, and that would
-> > have the side benefit of less overhead.
-> 
-> How about adding secmark transitions later, if needed, perhaps with an 
-> /selinux config control ?
-> 
-> It does keep things simpler for now, in terms of getting this code merged, 
-> deployed into distros and likely certified.
+On 9/29/06, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> >  Coverity found what looks like a real leak in net/dccp/ipv6.c::dccp_v6_do_rcv()
+>
+> |  otoh, it seems to me that opt_skb doesn't actually do anything and can be
+> |  removed?
+> This is right, there is no code referencing opt_skb: compare with net/ipv6/tcp_ipv6.c.
+> Until someone has time to add the missing DCCP-specific code, it does seem better
+> to replace the dead part with a FIXME. This is done by the patch below, applies to
+> davem-net2.6 and has been tested to compile.
 
-Fine with me, unless Venkat has an immediate use case for such
-transitions in the flow_in case (but I think this is mostly my fault for
-suggesting transitions a while ago).
+Thanks, I've been again sidetracked by Real Life(tm) but hopefully
+tomorrow I'll go over all the DCCP pending patches backlog and get
+them into tree to submit to Dave.
 
--- 
-Stephen Smalley
-National Security Agency
-
+- Arnaldo
