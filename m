@@ -1,50 +1,84 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
-Date: Fri, 29 Sep 2006 10:59:45 +0900
-Message-ID: <451C7E11.6040506@linux-ipv6.org>
-References: <20060928155052.63ed5ce8@freekitty>	<20060928.160458.00452499.davem@davemloft.net>	<20060928162704.55e863ca@freekitty> <20060928.172827.26929236.davem@davemloft.net>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: [PATCH 0/7] secid reconciliation-v03: Repost patchset with updates
+Date: Thu, 28 Sep 2006 21:32:41 -0500
+Message-ID: <451C85C9.4020804@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Shift_JIS
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
+	paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:59085 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1751284AbWI2B7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2006 21:59:47 -0400
-To: David Miller <davem@davemloft.net>, shemminger@osdl.org
-In-Reply-To: <20060928.172827.26929236.davem@davemloft.net>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:4390 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161284AbWI2CdI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Sep 2006 22:33:08 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
->> commit 0844565fb8a9418f5a860aa480c1aef70319c9a2
->> Author: Thomas Graf <tgraf@suug.ch>
->> Date:   Fri Aug 4 23:05:56 2006 -0700
->>
->>     [NET]: Move netlink interface bits to linux/if.h
->>     
->>     Signed-off-by: Thomas Graf <tgraf@suug.ch>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> Stephen, we just removed the troublesome bits from linux/if.h when I
-> put in Yoshifuji's patches last night, it should explicitly remove
-> this problem.
-> 
-> You will thus see that linux/rtnetlink.h no longer includes
-> linux/if.h, which is why your errors were completely perplexing
-> to me.  Instead, it includes linux/if_link.h
-> 
-> It's been in my tree since last night, and if you had used
-> the rtnetlink.h from my current tree you wouldn't have seen
-> the error.
+This patchset is relative to davem's net-2.6.git
 
-Yes, as David mentioned you need to copy the latest rtnetlink.h
-at first. It is also required to be added if_{link,addr}.h, neighbour.h
-to iproute2 tree. Some macros may be needed for libnetlink.h, too.
-I'll send the patch to you if you haven't started on it.
+The following are the changes included in this patchset since the previous post:
 
-Regards,
+- Retain secmark (from the originating socket/flow) on loopback traffic;
+  this traffic is now flow controlled on the outbound only.
 
--- 
-Masahide NAKAMURA
+- When multiple iptables labeling rules are present (e.g.: both on PREROUTING and INPUT)
+	INBOUND: The label in the last rule will prevail.
+	OUTBOUND: secmark (from the originating socket) is flow-controlled against
+		the label on the first rule, and, if it passes, the label on the
+		first rule overrides the secmark (from the originating socket).
+		This secmark is flow controlled against labels on the subsequent
+		rules, each time, overridden by those labels.
+
+- Forwarded packets: The FORWARD chain is treated as an outbound chain for flow
+  control purposes. e.g: label with PREROUTING and flow-control with FORWARD or
+  POSTROUTING.
+
+- Simplification of the flow_out hook for SELinux: deleted the redundant flow_out
+  check against the xfrm secid and the transition between the xfrm secid and the
+  netfilter secid.
+
+- SELinux postroute_last hook: unfortunately, the secmark Vs. UNLABELED SID check
+  will now be done for ALL traffic (I couldn't except traffic already processed
+  by (CONN)SECMARK outbound rules; a better understanding of iptabels resulted
+  in realizing that the SECSID_WILD thing attempted in the previous patchset won't
+  work well).
+
+Please consider for inclusion in 2.6.19.
+
+
+PATCHES TO BE POSTED BY COB FRIDAY (tomorrow):
+
+NOTE: These patches were originally planned/desired to be included in this set
+but I didn't want to hold this critical patchset up for one more day since
+it needs a good extensive review.
+
+- Create IPSec SAs to be acquired with the creating sock's context as opposed
+  to that of the matching SPD rule, resulting in a simpler SPD as well as policy.
+- Set peer_sid on tcp sockets to the reconciled secmark so trusted applications
+  can retrieve and service the data at the appropriate context.
+
+ include/linux/security.h                     |   35 ++++
+ include/linux/skbuff.h                       |   29 +++
+ include/net/ip.h                             |   32 ++++
+ include/net/request_sock.h                   |   17 ++
+ include/net/xfrm.h                           |   45 ++---
+ net/dccp/ipv4.c                              |    5 
+ net/ipv4/icmp.c                              |    4 
+ net/ipv4/ip_output.c                         |    6 
+ net/ipv4/tcp_ipv4.c                          |    1 
+ net/ipv6/ip6_output.c                        |    5 
+ net/ipv6/netfilter/ip6t_REJECT.c             |    2 
+ net/netfilter/xt_CONNSECMARK.c               |   70 +++++++--
+ net/netfilter/xt_SECMARK.c                   |   33 ++++
+ security/dummy.c                             |   13 +
+ security/selinux/hooks.c                     |  129 +++++++++++++----
+ security/selinux/include/av_perm_to_string.h |    2 
+ security/selinux/include/av_permissions.h    |    2 
+ security/selinux/include/xfrm.h              |    5 
+ security/selinux/ss/mls.c                    |    2 
+ security/selinux/ss/services.c               |    2 
+ security/selinux/xfrm.c                      |   28 +++
+ 21 files changed, 399 insertions(+), 68 deletions(-)
+
