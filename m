@@ -1,59 +1,37 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
-Date: Fri, 29 Sep 2006 13:50:28 -0400
-Message-ID: <451D5CE4.30700@hp.com>
-References: <36282A1733C57546BE392885C0618592015CF2BE@chaos.tcs.tcs-sec.com> <451D4A51.4000603@hp.com> <Pine.LNX.4.64.0609291247170.6007@d.namei> <Pine.LNX.4.64.0609291329030.7218@d.namei>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: mii-tool gigabit support.
+Date: Fri, 29 Sep 2006 10:54:54 -0700
+Message-ID: <451D5DEE.2080609@hp.com>
+References: <20060926145113.7a6791c8@freekitty> <4519A1D6.1050802@pobox.com>	<Pine.LNX.4.64.0609271215150.2299@twinlark.arctic.org>	<451AD1D6.4030708@intel.com>	<1159546378.2761.5.camel@dhollis-lnx.sunera.com> <20060929101215.649a9e32@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Joshua Brindle <method@gentoo.org>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, kmacmillan@mentalrootkit.com
+Cc: David Hollis <dhollis@davehollis.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	dean gaudet <dean@arctic.org>, Jeff Garzik <jgarzik@pobox.com>,
+	dhinds@pcmcia.sourceforge.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:49325 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1161313AbWI2Rua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 13:50:30 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0609291329030.7218@d.namei>
+Received: from palrel12.hp.com ([156.153.255.237]:32739 "EHLO palrel12.hp.com")
+	by vger.kernel.org with ESMTP id S1751186AbWI2RzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 13:55:00 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060929101215.649a9e32@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> On Fri, 29 Sep 2006, James Morris wrote:
+2) develop some style
+>>of register description definition type of text file, maybe XML, maybe
+>>INI style or something stored in /etc/ethtool as <drivername>.conf or
+>>something like that.  This way, ethtool doesn't have to be
+>>changed/updated/patched/likely-bug-added for every single device known
+>>to man.  
+>>
+>>Just a thought.
 > 
-> 
->>On Fri, 29 Sep 2006, Paul Moore wrote:
->>
->>
->>>>It seems more of a pain to actually
->>>>prevent their use at the same time and/or explain strange/unnatural
->>>>behavior.
->>>
->>>Agreed, the solution that we agreed upon is much easier to implement and
->>>explain than a lot of the alternatives.
->>
->>Ok, can you please explain it further?
->>
->>i.e. show me what the policy looks like, exactly what the user is trying 
->>to achieve, and explain what happens to each packet exactly in terms of 
->>labeling on the input and output paths.
 >  
-> Also, why can't this be done just with xfrm labeling?
+> We could switch to shared libraries like 'tc' uses.
 
-I believe the issue Venkat and I were discussing was how to handle the
-case of multiple external labeling protocols, i.e. what to do if we get
-a packet through labeled SA which has a CIPSO option.  As I've said
-before, I don't believe this is something we will see much in practice
-but I think we need to decide what to do: handle it somehow or just punt
-on the problem and drop it.  Several people with experience with
-external labeling have commented on how supporting both external
-labeling protocols would be a good idea so Venkat and I are trying to
-come up with a solution that works.
+ From a practical standpoint is shipping a new config file or a new shared 
+library all that much different from a new ethtool binary?
 
-Please see my reponse with the pseudo code/policy examples as this might
-help clear things up.
-
--- 
-paul moore
-linux security @ hp
+rick
