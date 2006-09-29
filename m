@@ -1,65 +1,83 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 0/3] myri10ge Large Receive Offload
-Date: Sat, 30 Sep 2006 00:16:44 +0200
-Message-ID: <451D9B4C.3020008@myri.com>
-References: <451B0541.1030208@myri.com> <451B4F44.60204@garzik.org>
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: [RFC] cfg80211 and nl80211
+Date: Fri, 29 Sep 2006 14:10:41 -0700
+Message-ID: <451D8BD1.5020906@linux.intel.com>
+References: <1159435399.2648.17.camel@ux156>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:47855 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1750808AbWI2WTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 18:19:54 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <451B4F44.60204@garzik.org>
+Received: from mga06.intel.com ([134.134.136.21]:2899 "EHLO
+	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1750844AbWI2WZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 18:25:33 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1159435399.2648.17.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik a =E9crit :
-> Brice Goglin wrote:
->> This is a complete rework of the myri10ge receive path. The first
->> patch converts skb allocation to use physical pages. The second one
->> adds a software implementation of Large Receive Offload. The third
->> one updates the driver version to 1.1.0.
->>
->> The complete driver code in our CVS actually also supports high-orde=
-r
->> allocations instead of single physical pages since it significantly
->> increase the performance. Order=3D2 allows us to receive standard fr=
-ames
->> at line rate even on low-end hardware such as an AMD Athlon(tm) 64 X=
-2
->> Dual Core Processor 3800+ (2.0GHz). Some customer might not care a l=
-ot
->> about memory fragmentation if the performance is better.
->>
->> But, since high-order allocations are generally considered a bad ide=
-a,
->> we do not include the relevant code in the following patch for inclu=
-sion
->> in Linux. Here, we simply pass order=3D0 to all page allocation rout=
-ines.
->> If necessary, I could drop the remaining reference to high-order
->> (especially replace alloc_pages() with alloc_page()) but I'd rather
->> keep it as is.
->>
->> If high-order allocations are ever considered OK under some circum-
->> stances, we could send an additional patch (a module parameter would
->> be used to switch from single physical pages to high-order pages).
->
-> As Herbert's already done, I would rather let the net core people
-> comment on this.  The code implementation doesn't look scary, but we
-> may want to be smarter about this in the core net stack, rather than
-> implementing it inside multiple drivers.
+Johannes Berg wrote:
 
-Ok, makes sense. We look forward to see this.
+>  * Should the userspace daemon be allowed to unilaterally update the
+>    regulatory information if it learns something new (via the user)?
 
-Could we get patch #1 merged anyway (page-based skb allocation)?
+Many countries forbid users (root is still a user) being enabled to
+override the parameters set up by the hardware vendor as tested for use
+with a specific device.
 
-Any comments about what I was saying about high-order allocations above=
-?
+If the hardware and/or driver for the hardware advertises a set of
+operating parameters, user space should honor those settings and the
+kernel should enforce them.
 
-thanks,
-Brice
+User space should be able to shrink the set of available spectrum
+parameters but should not expand it.
 
+>    Or why not even just publish the regulatory information APs might
+>    broadcast in the scan results, and let the userspace daemon pick
+>    that apart? Then the kernel need not ask for anything at all...
+
+I think exposing this information to the user would be useful, and
+indicate which capabilities are restricted based on information provided
+by the kernel and/or hardware driver.  When channel 13 doesn't work, it
+should be clear to the user why so they know who to get mad at.
+
+>  * I seem to have read between the lines that the EEPROM data is
+>    pretty much useless. Is that generally true, or should the userspace
+>    daemon be told what it contains (somehow)?
+
+The EEPROM contents typically represent the configuration and operating
+parameters which have been tested and certified to be operational.
+
+These would represent the only settings which a user can operate with
+and still be covered by existing certifications.
+
+Regardless of which country you are operating a device in, the device
+was intended for sale within a specific geographic and regulatory region
+-- it was tested and certified accordingly.  The EEPROM contents
+typically provide the information on what was tested and what the
+approved operating parameters are for that device.
+
+>  * Should the kernel perform some kind of validation on the regulatory
+>    data the daemon gives it as well?
+
+The kernel should enforce the parameters as specified by the
+hardware/driver.  In the event that a driver does not advertise a set of
+capabilities, the kernel should select the minimal "safe set", which
+would be a subset of the 2.4Ghz spectrum and likely exclude all of 5.2Ghz.
+
+> Right now I'd think that it would make sense to just leave the whole
+> task to our userspace daemon, iow. nl80211 just provides a command
+> to update the kernel's knowledge about regulory and the daemon periodically
+> checks the scan results for country information, asks the user for
+> the country, or similar. If it's not running, the kernel simply starts
+> from a generic no-frills set.
+
+With hardware that restricts operation to the capabilities it was tested
+and calibrated for, this will likely result in a broken user experience
+-- if they try and use a device on channel 13 and the device restricts
+operation to channels 1 - 11, tuning operations will fail.
+
+James
