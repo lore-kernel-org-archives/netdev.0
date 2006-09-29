@@ -1,66 +1,65 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH 7/7] secid reconciliation-v03: Enforcement for SELinux
-Date: Fri, 29 Sep 2006 18:10:05 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CF3BE@chaos.tcs.tcs-sec.com>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 0/3] myri10ge Large Receive Offload
+Date: Sat, 30 Sep 2006 00:16:44 +0200
+Message-ID: <451D9B4C.3020008@myri.com>
+References: <451B0541.1030208@myri.com> <451B4F44.60204@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: Stephen Smalley <sds@tycho.nsa.gov>,
-	Joshua Brindle <method@gentoo.org>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, kmacmillan@mentalrootkit.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:54306 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750711AbWI2WKb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 18:10:31 -0400
-To: Paul Moore <paul.moore@hp.com>, James Morris <jmorris@namei.org>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:47855 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1750808AbWI2WTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 18:19:54 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <451B4F44.60204@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >>>>It seems more of a pain to actually
-> >>>>prevent their use at the same time and/or explain 
-> strange/unnatural
-> >>>>behavior.
-> >>>
-> >>>Agreed, the solution that we agreed upon is much easier to 
-> implement and
-> >>>explain than a lot of the alternatives.
-> >>
-> >>Ok, can you please explain it further?
-> >>
-> >>i.e. show me what the policy looks like, exactly what the 
-> user is trying 
-> >>to achieve, and explain what happens to each packet exactly 
-> in terms of 
-> >>labeling on the input and output paths.
-> >  
-> > Also, why can't this be done just with xfrm labeling?
-> 
-> I believe the issue Venkat and I were discussing was how to handle the
-> case of multiple external labeling protocols, i.e. what to do 
-> if we get
-> a packet through labeled SA which has a CIPSO option.  As I've said
-> before, I don't believe this is something we will see much in practice
-> but I think we need to decide what to do: handle it somehow 
-> or just punt
-> on the problem and drop it.  Several people with experience with
-> external labeling have commented on how supporting both external
-> labeling protocols would be a good idea so Venkat and I are trying to
-> come up with a solution that works.
+Jeff Garzik a =E9crit :
+> Brice Goglin wrote:
+>> This is a complete rework of the myri10ge receive path. The first
+>> patch converts skb allocation to use physical pages. The second one
+>> adds a software implementation of Large Receive Offload. The third
+>> one updates the driver version to 1.1.0.
+>>
+>> The complete driver code in our CVS actually also supports high-orde=
+r
+>> allocations instead of single physical pages since it significantly
+>> increase the performance. Order=3D2 allows us to receive standard fr=
+ames
+>> at line rate even on low-end hardware such as an AMD Athlon(tm) 64 X=
+2
+>> Dual Core Processor 3800+ (2.0GHz). Some customer might not care a l=
+ot
+>> about memory fragmentation if the performance is better.
+>>
+>> But, since high-order allocations are generally considered a bad ide=
+a,
+>> we do not include the relevant code in the following patch for inclu=
+sion
+>> in Linux. Here, we simply pass order=3D0 to all page allocation rout=
+ines.
+>> If necessary, I could drop the remaining reference to high-order
+>> (especially replace alloc_pages() with alloc_page()) but I'd rather
+>> keep it as is.
+>>
+>> If high-order allocations are ever considered OK under some circum-
+>> stances, we could send an additional patch (a module parameter would
+>> be used to switch from single physical pages to high-order pages).
+>
+> As Herbert's already done, I would rather let the net core people
+> comment on this.  The code implementation doesn't look scary, but we
+> may want to be smarter about this in the core net stack, rather than
+> implementing it inside multiple drivers.
 
-Here's the scoop on using xfrm and cipso at the same time:
+Ok, makes sense. We look forward to see this.
 
-JUST REDUNDANT
+Could we get patch #1 merged anyway (page-based skb allocation)?
 
-I was only paying attention to the inbound side when I was
-saying a ranged SA could be used in conjunction with fine-grained
-cipso labeling. In actuality, this isn't possible because of the
-change we are instituting for SA selection to be based on the context
-of the sock (specifically, the sock's MLS range must "equal" the range
-on the SA, and cipso at this point would be representing this same range).
+Any comments about what I was saying about high-order allocations above=
+?
 
-So, if someone were to configure CIPSO along with labeled ipsec, BOTH
-mechanisms will be used, with BOTH labels carrying the same MLS range,
-and with CIPSO always overriding the SA (after a
-flow_in check) on the inbound. Should just be additional overhead, that's
-all.
+thanks,
+Brice
+
