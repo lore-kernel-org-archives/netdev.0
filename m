@@ -1,44 +1,29 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 4/7] secid reconciliation-v03: Invoke LSM hook for outbound
- traffic
-Date: Fri, 29 Sep 2006 03:42:57 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609290338050.1650@d.namei>
-References: <451C85E2.2030201@trustedcs.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
+Date: Fri, 29 Sep 2006 03:47:24 -0400
+Message-ID: <451CCF8C.1000504@pobox.com>
+References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>	 <1157962200.10526.10.camel@localhost.localdomain>	 <1158051351.14448.97.camel@localhost.localdomain>	 <ada3bax2lzw.fsf@cisco.com>  <4506C789.4050404@pobox.com>	 <1158749825.7973.9.camel@localhost.localdomain>	 <45121924.4000200@pobox.com> <1159515406.13634.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
-	paul.moore@hp.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:48585 "EHLO
-	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1161348AbWI2Hm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 03:42:59 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <451C85E2.2030201@trustedcs.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:19614 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965062AbWI2Hrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 03:47:33 -0400
+To: Zang Roy-r61911 <tie-fei.zang@freescale.com>
+In-Reply-To: <1159515406.13634.2.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2006, Venkat Yekkirala wrote:
+Zang Roy-r61911 wrote:
+> Could you interpret the chip structure in more detail?
+> Need I create two net_device struct for each port?
 
-> +		}
-> +		else	/* inbound */
-> +			/* loopback traffic should already be labeled
-> +			   and any filtering on outbound should suffice */
-> +			if (in == &loopback_dev)
-> +				goto out;
+No.  One net_device per port.  And one container structure for the 
+entire device.
 
-Minor nit that akpm will point out, the else belongs on the same line as 
-the brace.  Also, the comment style is:
-
-	/*
-	 * Comment...
-	 * etc.
-	 */
+	Jeff
 
 
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
