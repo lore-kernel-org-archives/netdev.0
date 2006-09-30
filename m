@@ -1,43 +1,59 @@
-From: "Wong Edison" <hswong3i@gmail.com>
-Subject: Re: [PATCH] tcp-lp: prevent chance for oops
-Date: Sat, 30 Sep 2006 18:54:46 +0800
-Message-ID: <3feffd230609300354w5d00128bs105c1647869b69c3@mail.gmail.com>
-References: <3feffd230609280343o1975ee70o8a55acf3e5d4769e@mail.gmail.com>
-	 <20060928.144029.32722435.davem@davemloft.net>
-	 <3feffd230609291226n673d9aa4s2f16fbacd34cfc48@mail.gmail.com>
-	 <20060929.141940.39158284.davem@davemloft.net>
+From: Bernard Lee <leewk123@hkbn.net>
+Subject: [PATCH 2.6.18] 8139too: force media setting cleanup
+Date: Sat, 30 Sep 2006 19:11:19 +0800
+Message-ID: <20060930111119.GG9175@lfs5p1.leewkb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Bernard Lee <leewkb@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:20721 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1750777AbWI3Kyq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Sep 2006 06:54:46 -0400
-Received: by py-out-1112.google.com with SMTP id n25so1646419pyg
-        for <netdev@vger.kernel.org>; Sat, 30 Sep 2006 03:54:46 -0700 (PDT)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060929.141940.39158284.davem@davemloft.net>
+Received: from smtp.ctimail.com ([203.186.94.58]:53430 "EHLO smtpo.ctimail.com")
+	by vger.kernel.org with ESMTP id S1750820AbWI3LKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 07:10:13 -0400
+To: Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-oic i learn it and will change it in coming on version
+From: Bernard Lee <leewkb@yahoo.com>
 
-On 9/30/06, David Miller <davem@davemloft.net> wrote:
-> From: "Wong Edison" <hswong3i@gmail.com>
-> Date: Sat, 30 Sep 2006 03:27:00 +0800
->
-> > I do this since i have a sourceforge homepage for it. I update the
-> > CVS version there, test, and then submit to netdev. As I sync code
-> > in both side, this $Id$ is keeped.  May you just let it be? I think
-> > it will let my maintenance become more simple...
->
-> You could not even generate a clean patch to me, it just
-> gets in the way and causes more work for me and anyone
-> else who tries to use your patches.
->
-> If you want to use versioning, use MODULE_VERSION() just like
-> everyone else in the kernel does.
->
+Setting bit 4 & 5 alone in 8139too module media option does not really
+force 100Mbps full-duplex mode. When media option bit 0-3 is cleared,
+8139too module does not force media setting. Therefore, bit 0-3 requires
+to be set for bit 4 & 5 to take effect. The hidden bit 0-3 setting is
+not stated in module description.
+
+It can be fixed by changing rtl8139_private structure default_port
+bitfield from 4-bit to 6-bit.
+
+Besides, module media bit 9 is a duplicate of bit 4 (full-duplex). It
+is suggested that bit 9 is freed. A remark is added to module
+description that bit 0 can be used to force setting. It helps to clarify
+10Mbps half-duplex mode.
+
+Signed-off-by: Bernard Lee <leewkb@yahoo.com>
+---
+
+ 8139too.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+--- linux-2.6.18/drivers/net/8139too.c	2006-09-20 11:42:06.000000000 +0800
++++ linux-2.6.18-fixed/drivers/net/8139too.c	2006-09-30 16:30:32.000000000 +0800
+@@ -588,3 +588,3 @@ struct rtl8139_private {
+ 	unsigned int watchdog_fired : 1;
+-	unsigned int default_port : 4;	/* Last dev->if_port value. */
++	unsigned int default_port : 6;	/* Last dev->if_port value. */
+ 	unsigned int have_thread : 1;
+@@ -614,3 +614,3 @@ MODULE_PARM_DESC (debug, "8139too bitmap
+ MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
+-MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
++MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
+ MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
+@@ -1071,4 +1071,4 @@ static int __devinit rtl8139_init_one (s
+ 	if (option > 0) {
+-		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
+-		tp->default_port = option & 0xFF;
++		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
++		tp->default_port = option & 0x3F;
+ 		if (tp->default_port)
