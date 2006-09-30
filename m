@@ -1,37 +1,55 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
-Date: Fri, 29 Sep 2006 18:40:43 -0700
-Message-ID: <20060930014043.GA10927@bougret.hpl.hp.com>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org>
-Reply-To: jt@hpl.hp.com
+From: x z <dealup@yahoo.com>
+Subject: Makefile for linux modules
+Date: Fri, 29 Sep 2006 18:57:00 -0700 (PDT)
+Message-ID: <20060930015700.26045.qmail@web52812.mail.yahoo.com>
+References: <20060929182008.fee2a229.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Valdis.Kletnieks@vt.edu,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:55265 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S1422877AbWI3BpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 21:45:06 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Received: from web52812.mail.yahoo.com ([206.190.49.1]:16046 "HELO
+	web52812.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S1422884AbWI3B5B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Sep 2006 21:57:01 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 In-Reply-To: <20060929182008.fee2a229.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 29, 2006 at 06:20:08PM -0700, Andrew Morton wrote:
-> On Fri, 29 Sep 2006 20:01:54 -0400
-> > 
-> > A quick strace of gkrellm finds these likely ioctl's causing the problem:
-> > 
-> > % grep ioctl /tmp/foo2 | sort -u | more
-> > ioctl(13, SIOCGIWESSID, 0xbfbcdb9c)     = 0
-> > ioctl(13, SIOCGIWRANGE, 0xbfbcdbdc)     = 0
-> > ioctl(13, SIOCGIWRATE, 0xbfbcdbbc)      = 0
+Hi
+   I have a makefielt to make several driver modules:
+obj-$(CONFIG_FUSION_SPI)	+= mptbase.o mptscsih.o
+mptspi.o
+obj-$(CONFIG_FUSION_FC)		+= mptbase.o mptscsih.o
+mptfc.o
+obj-m				+= mptbase.o mptscsih.o mptsas.o
+obj-$(CONFIG_FUSION_LAN)	+= mptlan.o
+obj-m				+= mptctl.o
+obj-m                           += mptcfg.o
+obj-m                       +=mptstm.o
 
-	Excuse me, can you point out wich version of gkrellm you use
-and where to find it, the only version that is listed on my page does
-not use the ESSID ioctl. I want to be sure I'm looking at the same
-thing as you are...
 
-	Jean
+this will compile and modules can be installed
+successfully.
+
+I need to have a comfunc.c file, which contains all
+common functions, which could be used by these module
+files.
+I added the line below to the content just below
+mptstm.o (I tried adding just above mptlan). All
+modules are compiled successfully. I can install
+mptbase.ko. However, when I try to install mptctl.ko
+(or other modules), I got errors like mptctl: Unknown
+symbol mpt_register; mpt_deregister. These functions
+are implemented in mptbase.c.
+
+How do I fix this problem?
+
+thanks
+Robert
+mptbase-objs             := comfunc.o
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
