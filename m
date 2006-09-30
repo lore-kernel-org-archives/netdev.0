@@ -1,60 +1,83 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: Makefile for linux modules
-Date: Sat, 30 Sep 2006 10:55:32 +0200
-Message-ID: <20060930085532.GA13745@uranus.ravnborg.org>
-References: <20060929182008.fee2a229.akpm@osdl.org> <20060930015700.26045.qmail@web52812.mail.yahoo.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 0/3] myri10ge Large Receive Offload
+Date: Sat, 30 Sep 2006 13:38:00 +0400
+Message-ID: <20060930093800.GA19549@2ka.mipt.ru>
+References: <451B0541.1030208@myri.com> <451B4F44.60204@garzik.org> <451D9B4C.3020008@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:35797 "EHLO pasmtpB.tele.dk")
-	by vger.kernel.org with ESMTP id S1751174AbWI3Izd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 04:55:33 -0400
-To: x z <dealup@yahoo.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:5791 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751201AbWI3Jie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 05:38:34 -0400
+To: Brice Goglin <brice@myri.com>
 Content-Disposition: inline
-In-Reply-To: <20060930015700.26045.qmail@web52812.mail.yahoo.com>
+In-Reply-To: <451D9B4C.3020008@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Robert.
+On Sat, Sep 30, 2006 at 12:16:44AM +0200, Brice Goglin (brice@myri.com)=
+ wrote:
+> Jeff Garzik a =C3=A9crit :
+> > Brice Goglin wrote:
+> >> This is a complete rework of the myri10ge receive path. The first
+> >> patch converts skb allocation to use physical pages. The second on=
+e
+> >> adds a software implementation of Large Receive Offload. The third
+> >> one updates the driver version to 1.1.0.
+> >>
+> >> The complete driver code in our CVS actually also supports high-or=
+der
+> >> allocations instead of single physical pages since it significantl=
+y
+> >> increase the performance. Order=3D2 allows us to receive standard =
+frames
+> >> at line rate even on low-end hardware such as an AMD Athlon(tm) 64=
+ X2
+> >> Dual Core Processor 3800+ (2.0GHz). Some customer might not care a=
+ lot
+> >> about memory fragmentation if the performance is better.
+> >>
+> >> But, since high-order allocations are generally considered a bad i=
+dea,
+> >> we do not include the relevant code in the following patch for inc=
+lusion
+> >> in Linux. Here, we simply pass order=3D0 to all page allocation ro=
+utines.
+> >> If necessary, I could drop the remaining reference to high-order
+> >> (especially replace alloc_pages() with alloc_page()) but I'd rathe=
+r
+> >> keep it as is.
+> >>
+> >> If high-order allocations are ever considered OK under some circum=
+-
+> >> stances, we could send an additional patch (a module parameter wou=
+ld
+> >> be used to switch from single physical pages to high-order pages).
+> >
+> > As Herbert's already done, I would rather let the net core people
+> > comment on this.  The code implementation doesn't look scary, but w=
+e
+> > may want to be smarter about this in the core net stack, rather tha=
+n
+> > implementing it inside multiple drivers.
+>=20
+> Ok, makes sense. We look forward to see this.
+>=20
+> Could we get patch #1 merged anyway (page-based skb allocation)?
+>=20
+> Any comments about what I was saying about high-order allocations abo=
+ve?
 
->    I have a makefielt to make several driver modules:
-> obj-$(CONFIG_FUSION_SPI)	+= mptbase.o mptscsih.o
-> mptspi.o
-> obj-$(CONFIG_FUSION_FC)		+= mptbase.o mptscsih.o
-> mptfc.o
-> obj-m				+= mptbase.o mptscsih.o mptsas.o
-> obj-$(CONFIG_FUSION_LAN)	+= mptlan.o
-> obj-m				+= mptctl.o
-> obj-m                           += mptcfg.o
-> obj-m                       +=mptstm.o
+It is quite strnage that you see very noticeble speed degradation after
+switching from higher order to 0 order allocations, could specify where=
+=20
+observed  bottleneck in network stack is?
 
-The above kbuild file snippet tells us that you are creating
-a number of modules:
-mptbase.ko mptscsih.ko mptsas.ko mptlan.ko mptctl.ko mtpcfg.ko and mptstm.ko
-They are each build from a single .c file.
+> thanks,
+> Brice
 
-> mptbase-objs             := comfunc.o
-
-Now you try to include confunc.o in every module.
-To do so you need to tell kbuild that you are dealing with a module
-based on composite .o files.
-That would look like:
-obj-$(CONFIG_FUSION_PCI) += mptbase-foo.o
-mtpbase-foo-y := comfunc.o mptbase.o
-
-This will result in a module named mtpbase-foo.ko which is hardly what
-you try to achive. Likewise you will have duplicate symbols in the
-modules due to comfunc.o being included more than once.
-
-The only sane approce here is to compile comfunc.o as an independent
-module and let the modutils pull in the comfunc (deservers a more
-specific name) module as needed.
-
-So what you need to do is simply:
-obj-m += comfunc.o
-
-And accept this is a module so all symbols that you needs must be properly
-exported using EXPORT_SYMBOL*
-
-	Sam
+--=20
+	Evgeniy Polyakov
