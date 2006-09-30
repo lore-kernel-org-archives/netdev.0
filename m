@@ -1,60 +1,58 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
-Date: Fri, 29 Sep 2006 23:31:07 -0400
-Message-ID: <200609300331.k8U3V71c008874@turing-police.cc.vt.edu>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org>
-            <20060930013348.GA10905@bougret.hpl.hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Offloading features in VLAN interfaces
+Date: Fri, 29 Sep 2006 20:33:34 -0700
+Message-ID: <20060929203334.6ac78838@localhost.localdomain>
+References: <b54af0b00609291721u16acb2f1ma918adec9b2e782b@mail.gmail.com>
+	<b54af0b00609291725t55ac0a84pf86525ef0a31f44e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1159587067_2769P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: olivier.crameri@gmail.com, netdev@vger.kernel.org,
+	"Yoshio Turner" <yoshiotu@hpl.hp.com>,
+	"Santos, Jose Renato G" <joserenato.santos@hp.com>,
+	"Janakiraman, John" <john.janakiraman@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-72-66-199-147.ronkva.east.verizon.net ([72.66.199.147]:9159
-	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
-	id S1750736AbWI3Dhb (ORCPT <RFC822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 23:37:31 -0400
-To: jt@hpl.hp.com
-In-Reply-To: Your message of "Fri, 29 Sep 2006 18:33:48 PDT."
-             <20060930013348.GA10905@bougret.hpl.hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:51664 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750730AbWI3DkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 23:40:10 -0400
+To: olivier.crameri@epfl.ch
+In-Reply-To: <b54af0b00609291725t55ac0a84pf86525ef0a31f44e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1159587067_2769P
-Content-Type: text/plain; charset=us-ascii
+On Fri, 29 Sep 2006 17:25:35 -0700
+"Olivier Crameri" <olivier.crameri@gmail.com> wrote:
 
-On Fri, 29 Sep 2006 18:33:48 PDT, Jean Tourrilhes said:
-> On Fri, Sep 29, 2006 at 06:20:08PM -0700, Andrew Morton wrote:
-> > On Fri, 29 Sep 2006 20:01:54 -0400
-> > > 
-> > > Here's the traceback I got:
-> > > 
-> > > slab error in verify_redzone_free(): cache `size-32': memory outside object was overwritten
+> Same thing but with the patch this time.
+> 
+> Sorry about that,
+> Olivier Crameri
+> 
+> On 9/29/06, Olivier Crameri <olivier.crameri@gmail.com> wrote:
+> > Hi,
+> >
+> > after running some experiments, we realised that using VLAN support in
+> > Linux caused some overhead. It turned out to be that the offloading
+> > features of our NIC (tso, sg, checksum offloading) were not beeing
+> > used.
+> >
+> > After digging a little bit in the code, we realised that the VLAN code
+> > did not set the features parameter of the net_device structure for the
+> > virtual interface. Attached is a patch with a suggested solution to
+> > this problem.
+> >
+> > Please let us know if this is an acceptable patch.
+> >
+> > Thanks,
+> > Olivier Crameri, HP Labs
+> >
 
-> 	Hum... Not clear what's happening. I'll look more into it on
-> monday.
+Patch needs to include "Developer's Certificate of Origin"
+see Documentation/SubmittingPatches section 11.
 
-Fair enough,  I'm going to try reverting the 2 commits and see if things
-behave better.
+Patch should not be sent as an attachment (if at all possible).
 
-> 	I'm using Orinoco, I've not seen that with iwconfig.
-> 	I'll look into that...
+Skip the marque comment. It is standard practice now to use the revision
+control system change log for attribution.
 
-I'll bet it's the difference between a modern iwconfig and a 3-year-old
-stone-age gkrellm plugin :)
-
---==_Exmh_1159587067_2769P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFFHeT7cC3lWbTT17ARAmL1AKCDMhRrjdE3MwpAV3XkB9WZ+ISkDgCg0jZa
-bpgm37/RX4gHpAjVM7No7u8=
-=tBw2
------END PGP SIGNATURE-----
-
---==_Exmh_1159587067_2769P--
+Please handle all the current offload features including GSO.
