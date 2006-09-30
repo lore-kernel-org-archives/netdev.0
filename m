@@ -1,22 +1,28 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: James Morris <jmorris@namei.org>
 Subject: Re: Is TCP over IPsec broken in 2.6.18?
-Date: Sat, 30 Sep 2006 18:42:29 +0400
-Message-ID: <20060930144229.GA18438@2ka.mipt.ru>
-References: <Pine.LNX.4.64.0609241029410.14827@d.namei> <E1GRdnS-0003kd-00@gondolin.me.apana.org.au> <20060925103836.GA13966@2ka.mipt.ru> <20060925112754.GA18228@gondor.apana.org.au> <20060925120519.GA19010@2ka.mipt.ru> <Pine.LNX.4.64.0609300037460.12011@d.namei> <Pine.LNX.4.64.0609300110190.12422@d.namei> <20060930111521.GA646@2ka.mipt.ru> <Pine.LNX.4.64.0609301035020.26766@d.namei> <20060930144018.GA16918@2ka.mipt.ru>
+Date: Sat, 30 Sep 2006 10:44:31 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609301044090.26813@d.namei>
+References: <Pine.LNX.4.64.0609241029410.14827@d.namei>
+ <E1GRdnS-0003kd-00@gondolin.me.apana.org.au> <20060925103836.GA13966@2ka.mipt.ru>
+ <20060925112754.GA18228@gondor.apana.org.au> <20060925120519.GA19010@2ka.mipt.ru>
+ <Pine.LNX.4.64.0609300037460.12011@d.namei> <Pine.LNX.4.64.0609300110190.12422@d.namei>
+ <20060930111521.GA646@2ka.mipt.ru> <Pine.LNX.4.64.0609301035020.26766@d.namei>
+ <20060930144018.GA16918@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:64706 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751038AbWI3Omk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 10:42:40 -0400
-To: James Morris <jmorris@namei.org>
-Content-Disposition: inline
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:63623 "EHLO
+	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751034AbWI3Ood (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Sep 2006 10:44:33 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 In-Reply-To: <20060930144018.GA16918@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 30, 2006 at 06:40:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+On Sat, 30 Sep 2006, Evgeniy Polyakov wrote:
+
 > On Sat, Sep 30, 2006 at 10:36:29AM -0400, James Morris (jmorris@namei.org) wrote:
 > > On Sat, 30 Sep 2006, Evgeniy Polyakov wrote:
 > > 
@@ -31,11 +37,15 @@ On Sat, Sep 30, 2006 at 06:40:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru)
 > Well, it is acrypto test machine and I do not care about security there,
 > so I can even disable selinux completely, but it will not help to resolve
 > the issue, right?
+
+Yes, it is a workaround.
+
 > 
 > So if you have some patches I'm more than happy to test them.
 
-And to confirm theory about CONFIG_SECURITY_NETWORK_XFRM I'm compiling
-kernel without it (and then without selinux at all).
+Ok, coming soon.
+
 
 -- 
-	Evgeniy Polyakov
+James Morris
+<jmorris@namei.org>
