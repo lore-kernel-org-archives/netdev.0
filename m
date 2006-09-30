@@ -1,40 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][BNX2]: Disable MSI on 5706 if AMD 8132 bridge is
- present
-Date: Fri, 29 Sep 2006 18:22:07 -0700 (PDT)
-Message-ID: <20060929.182207.26963755.davem@davemloft.net>
-References: <451DA902.7030409@garzik.org>
-	<20060929.162958.102576741.davem@davemloft.net>
-	<451DBC6F.2010901@garzik.org>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
+Date: Fri, 29 Sep 2006 18:20:08 -0700
+Message-ID: <20060929182008.fee2a229.akpm@osdl.org>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	<200609290319.k8T3JOwS005455@turing-police.cc.vt.edu>
+	<20060928202931.dc324339.akpm@osdl.org>
+	<200609291519.k8TFJfvw004256@turing-police.cc.vt.edu>
+	<20060929124558.33ef6c75.akpm@osdl.org>
+	<200609300001.k8U01sPI004389@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org
+Cc: Jean Tourrilhes <jt@hpl.hp.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18866
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422872AbWI3BWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Sep 2006 21:22:05 -0400
-To: jeff@garzik.org
-In-Reply-To: <451DBC6F.2010901@garzik.org>
+Received: from smtp.osdl.org ([65.172.181.4]:61615 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161056AbWI3Bam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2006 21:30:42 -0400
+To: Valdis.Kletnieks@vt.edu
+In-Reply-To: <200609300001.k8U01sPI004389@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 29 Sep 2006 20:38:07 -0400
+On Fri, 29 Sep 2006 20:01:54 -0400
+Valdis.Kletnieks@vt.edu wrote:
 
-> David, rejoin reality.  You are either arguing with a fictionalized Jeff 
-> Garzik in your head, or constructing a classical strawman.
+> On Fri, 29 Sep 2006 12:45:58 PDT, Andrew Morton said:
 > 
-> Let me say it for the cheap seats:  AT NO TIME DID I PROPOSE ACTION OF 
-> ANY KIND.  I sought clarification.  Information.
+> (Adding a bunch of people to the cc: list now that I have a clue what is
+> going on....)
+> 
+> > I'd expect it's the same bug - slab data structures have gone bad.
+> 
+> *bing*! We have a winner.  A quick check showed the kernel wasn't built with
+> slab debugging enabled, so I turned on the more obvious options, and got
+> rewarded with a traceback..
 
-Ok, my bad, and my apologies.
+doh.  I'd assumed that CONFIG_DEBUG_SLAB was enabled :(
 
-> So, please, quit making stupid and incorrect assumptions about my 
-> intentions.  If this is indeed a rare behavior and most other MSI cases 
-> work with the 8132, then the patch is quite reasonable.  I see no reason 
-> to NAK the patch.
+> > Again: how come nobody else is hitting this?  Something's different.
+> 
+> gkrellm and wireless (specifically, gkrellm-wifi-0.9.12-3.fc6 from Fedora
+> Core extras-development).  Kernel is still a 2.6.18 with *only* the
+> origin.patch from -mm2 applied. Note that the gkrellm plugin hasn't had
+> a change in the code since 01/03/2004 - hopefully there's been no unintentional
+> API change on the kernel side since then...
+> 
+> Here's the traceback I got:
+> 
+> slab error in verify_redzone_free(): cache `size-32': memory outside object was overwritten
+> [<c0103ad2>] dump_trace+0x64/0x1cd
+> [<c0103c4d>] show_trace_log_lvl+0x12/0x25
+> [<c010415f>] show_trace+0xd/0x10
+> [<c01041fc>] dump_stack+0x19/0x1b
+> [<c014c796>] __slab_error+0x17/0x1c
+> [<c014cdac>] cache_free_debugcheck+0xaf/0x230
+> [<c014d43e>] kfree+0x59/0x8c
+> [<c02dc04a>] ioctl_standard_call+0x1da/0x218
+> [<c02dc275>] wireless_process_ioctl+0x55/0x312
+> [<c02d3750>] dev_ioctl+0x45f/0x49a
+> [<c02c92aa>] sock_ioctl+0x1b3/0x1c6
+> [<c0160322>] do_ioctl+0x22/0x67
+> [<c01605a5>] vfs_ioctl+0x23e/0x251
+> [<c01605ff>] sys_ioctl+0x47/0x64
+> [<c0102cd3>] syscall_call+0x7/0xb
+> DWARF2 unwinder stuck at syscall_call+0x7/0xb
+> 
+> Leftover inexact backtrace:
+> 
+> =======================
+> de57e16c: redzone 1:0x170fc2a5, redzone 2:0x170fc200.
+> 
+> Repeated, over and over, just about once a second.
+> 
+> A quick strace of gkrellm finds these likely ioctl's causing the problem:
+> 
+> % grep ioctl /tmp/foo2 | sort -u | more
+> ioctl(13, SIOCGIWESSID, 0xbfbcdb9c)     = 0
+> ioctl(13, SIOCGIWRANGE, 0xbfbcdbdc)     = 0
+> ioctl(13, SIOCGIWRATE, 0xbfbcdbbc)      = 0
 
-Awesome.
+Yes.  The main thing which those WE-21 patches do is to shorten the size of
+various buffers which are used in wireless ioctls.
 
+> Since I'm using an orinoco-based card, these 2 look like the most likely
+> candidates.  WE-21 was merged between -mm1 and -mm2, which is why -mm1 was
+> stable for me.
+
+The WE-21 patches weren't in Jeff's tree for -mm1 or for -mm2.  They
+appeared there transiently then quickly went mainline.  They _might_ have
+been in the wireless git tree, although I often drop that due to git woes. 
+But that hasn't happened recently....
+
+> I'll let somebody else argue over what path these took that
+> I never tripped over them in an earlier -mm before they hit Linus's tree...
+> 
+> commit baef186519c69b11cf7e48c26e75feb1e6173baa
+> Author: John W. Linville <linville@tuxdriver.com>
+> Date:   Fri Sep 8 16:04:05 2006 -0400
+> 
+>     [PATCH] WE-21 support (core API)
+> 
+>     This is version 21 of the Wireless Extensions. Changelog :
+>         o finishes migrating the ESSID API (remove the +1)
+>         o netdev->get_wireless_stats is no more
+>         o long/short retry
+> 
+>     This is a redacted version of a patch originally submitted by Jean
+>     Tourrilhes.  I removed most of the additions, in order to minimize
+>     future support requirements for nl80211 (or other WE successor).
+> 
+>     CC: Jean Tourrilhes <jt@hpl.hp.com>
+>     Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> 
+> commit eeec9f1a931262d69811135092c8447d6dccc3e6
+> Author: Jean Tourrilhes <jt@hpl.hp.com>
+> Date:   Tue Aug 29 18:02:31 2006 -0700
+> 
+>     [PATCH] WE-21 for orinoco
+> 
+>     Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
+>     Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> 
+
+Try reverting those?
