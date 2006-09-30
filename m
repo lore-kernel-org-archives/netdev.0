@@ -1,124 +1,92 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [IPROUTE2][PATCH] Add missing macros which was removed from kernel header. (Re: [GIT PATCH] NET: Fixes for net-2.6.19)
-Date: Sat, 30 Sep 2006 16:27:07 +0900
-Message-ID: <200609301627.08278.nakam@linux-ipv6.org>
-References: <20060928155052.63ed5ce8@freekitty> <20060928.172827.26929236.davem@davemloft.net> <451C7E11.6040506@linux-ipv6.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Is TCP over IPsec broken in 2.6.18?
+Date: Sat, 30 Sep 2006 03:41:01 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0609300244280.17297@d.namei>
+References: <Pine.LNX.4.64.0609241029410.14827@d.namei>
+ <E1GRdnS-0003kd-00@gondolin.me.apana.org.au> <20060925103836.GA13966@2ka.mipt.ru>
+ <20060925112754.GA18228@gondor.apana.org.au> <20060925120519.GA19010@2ka.mipt.ru>
+ <Pine.LNX.4.64.0609300037460.12011@d.namei> <Pine.LNX.4.64.0609300110190.12422@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	tgraf@suug.ch, netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:8671 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1751077AbWI3H1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 03:27:13 -0400
-To: shemminger@osdl.org
-In-Reply-To: <451C7E11.6040506@linux-ipv6.org>
-Content-Disposition: inline
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:3011 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751114AbWI3HlE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Sep 2006 03:41:04 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <Pine.LNX.4.64.0609300110190.12422@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> David Miller wrote:
-> >> commit 0844565fb8a9418f5a860aa480c1aef70319c9a2
-> >> Author: Thomas Graf <tgraf@suug.ch>
-> >> Date:   Fri Aug 4 23:05:56 2006 -0700
-> >>
-> >>     [NET]: Move netlink interface bits to linux/if.h
-> >>     
-> >>     Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> >>     Signed-off-by: David S. Miller <davem@davemloft.net>
-> > 
-> > Stephen, we just removed the troublesome bits from linux/if.h when I
-> > put in Yoshifuji's patches last night, it should explicitly remove
-> > this problem.
-> > 
-> > You will thus see that linux/rtnetlink.h no longer includes
-> > linux/if.h, which is why your errors were completely perplexing
-> > to me.  Instead, it includes linux/if_link.h
-> > 
-> > It's been in my tree since last night, and if you had used
-> > the rtnetlink.h from my current tree you wouldn't have seen
-> > the error.
-> 
-> Yes, as David mentioned you need to copy the latest rtnetlink.h
-> at first. It is also required to be added if_{link,addr}.h, neighbour.h
-> to iproute2 tree. Some macros may be needed for libnetlink.h, too.
-> I'll send the patch to you if you haven't started on it.
+On Sat, 30 Sep 2006, James Morris wrote:
 
-Stephen, this patch is for iproute2. Please check and apply it after syncing
-kernel headers (e.g. rtnetlink.h) with David's tree. Please also note to add
-new ones (i.e. include/linux/{if_link.h,if_addr.h,neighbour.h}) which is
-split from rtnetlink.h.
+> SELinux enabled is changed to permissive mode.
 
 
-[PATCH] Add missing macros which was removed from kernel header.
+Ok, in the case where unencrypted packets are leaking, the problem is that 
+xfrm_lookup() is returning a false zero on a polmatch denial like:
 
-{IFA,IFLA,NDA,NDTA}_{RTA,PAYLOAD} macro is removed from kernel
-header since net-2.6.19 because it is not used by kernel code.
+  avc:  denied  { polmatch } for  scontext=system_u:system_r:ftpd_t:s0 
+  tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
----
- include/libnetlink.h |   35 +++++++++++++++++++++++++++++++++++
- 1 files changed, 35 insertions(+), 0 deletions(-)
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 63cc3c8..9de3a0b 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -4,6 +4,9 @@ #define __LIBNETLINK_H__ 1
- #include <asm/types.h>
- #include <linux/netlink.h>
- #include <linux/rtnetlink.h>
-+#include <linux/if_link.h>
-+#include <linux/if_addr.h>
-+#include <linux/neighbour.h>
- 
- struct rtnl_handle
- {
-@@ -53,5 +56,37 @@ extern int rtnl_from_file(FILE *, rtnl_f
- #define NLMSG_TAIL(nmsg) \
- 	((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
- 
-+#ifndef IFA_RTA
-+#define IFA_RTA(r) \
-+	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
-+#endif
-+#ifndef IFA_PAYLOAD
-+#define IFA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
-+#endif
-+
-+#ifndef IFLA_RTA
-+#define IFLA_RTA(r) \
-+	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
-+#endif
-+#ifndef IFLA_PAYLOAD
-+#define IFLA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
-+#endif
-+
-+#ifndef NDA_RTA
-+#define NDA_RTA(r) \
-+	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ndmsg))))
-+#endif
-+#ifndef NDA_PAYLOAD
-+#define NDA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ndmsg))
-+#endif
-+
-+#ifndef NDTA_RTA
-+#define NDTA_RTA(r) \
-+	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ndtmsg))))
-+#endif
-+#ifndef NDTA_PAYLOAD
-+#define NDTA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ndtmsg))
-+#endif
-+
- #endif /* __LIBNETLINK_H__ */
- 
+Follow the call back up from selinux_xfrm_policy_lookup(), when:
+
+{
+	rc = avc_has_perm(fl_secid, sel_sid, SECCLASS_ASSOCIATION,
+                          ASSOCIATION__POLMATCH,
+                          NULL);
+
+	return rc;  <----  -EACCESS
+}
+
+
+Which is propagated back via 
+
+   xfrm_policy_match()
+   xfrm_policy_lookup_bytype()
+   xfrm_policy_lookup()
+   
+to
+
+int xfrm_lookup() 
+{
+	...
+
+	if (!policy) {
+		/* To accelerate a bit...  */
+		if ((dst_orig->flags & DST_NOXFRM) ||
+		     !xfrm_policy_count[XFRM_POLICY_OUT])
+			return 0;
+		
+		policy = flow_cache_lookup(fl, dst_orig->ops->family,
+					   dir, xfrm_policy_lookup);
+	}
+
+	if (!policy)
+		return 0;   <---- returns
+
+	...
+}
+
+and the callers then allow the packet to proceed unencrypted.
+
+It seems that some logic needs to be reworked to ensure that the real 
+error value is propagated back and returned via xfrm_lookup().
+
+I was also seeing these AVCs when receiving ping requests:
+
+  avc:  denied { sendto } for scontext=system_u:object_r:unlabeled_t:s0 
+  tcontext=system_u :object_r:unlabeled_t:s0 tclass=association
+
+Not sure if there are any deeper issues in this case: the callers need to 
+be audited.
+
+
+
+
+- James
 -- 
-1.4.2
-
-
-
-
--- 
-Masahide NAKAMURA
+James Morris <jmorris@namei.org>
