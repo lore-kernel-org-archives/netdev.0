@@ -1,67 +1,124 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH] bonding: fix deadlock on high loads in bond_alb_monitor()
-Date: Fri, 29 Sep 2006 23:28:42 -0700
-Message-ID: <200609300628.k8U6SgZt030638@death.nxdomain.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [IPROUTE2][PATCH] Add missing macros which was removed from kernel header. (Re: [GIT PATCH] NET: Fixes for net-2.6.19)
+Date: Sat, 30 Sep 2006 16:27:07 +0900
+Message-ID: <200609301627.08278.nakam@linux-ipv6.org>
+References: <20060928155052.63ed5ce8@freekitty> <20060928.172827.26929236.davem@davemloft.net> <451C7E11.6040506@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	tgraf@suug.ch, netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:5509 "EHLO e33.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751063AbWI3G2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 02:28:45 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k8U6SilK007269
-	for <netdev@vger.kernel.org>; Sat, 30 Sep 2006 02:28:44 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k8U6SidX518262
-	for <netdev@vger.kernel.org>; Sat, 30 Sep 2006 00:28:44 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k8U6SiHf005871
-	for <netdev@vger.kernel.org>; Sat, 30 Sep 2006 00:28:44 -0600
-To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-Subject: 
+Received: from [203.178.140.9] ([203.178.140.9]:8671 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1751077AbWI3H1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2006 03:27:13 -0400
+To: shemminger@osdl.org
+In-Reply-To: <451C7E11.6040506@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> David Miller wrote:
+> >> commit 0844565fb8a9418f5a860aa480c1aef70319c9a2
+> >> Author: Thomas Graf <tgraf@suug.ch>
+> >> Date:   Fri Aug 4 23:05:56 2006 -0700
+> >>
+> >>     [NET]: Move netlink interface bits to linux/if.h
+> >>     
+> >>     Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> >>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > Stephen, we just removed the troublesome bits from linux/if.h when I
+> > put in Yoshifuji's patches last night, it should explicitly remove
+> > this problem.
+> > 
+> > You will thus see that linux/rtnetlink.h no longer includes
+> > linux/if.h, which is why your errors were completely perplexing
+> > to me.  Instead, it includes linux/if_link.h
+> > 
+> > It's been in my tree since last night, and if you had used
+> > the rtnetlink.h from my current tree you wouldn't have seen
+> > the error.
+> 
+> Yes, as David mentioned you need to copy the latest rtnetlink.h
+> at first. It is also required to be added if_{link,addr}.h, neighbour.h
+> to iproute2 tree. Some macros may be needed for libnetlink.h, too.
+> I'll send the patch to you if you haven't started on it.
 
-From: Karsten Keil <kkeil@suse.de>
+Stephen, this patch is for iproute2. Please check and apply it after syncing
+kernel headers (e.g. rtnetlink.h) with David's tree. Please also note to add
+new ones (i.e. include/linux/{if_link.h,if_addr.h,neighbour.h}) which is
+split from rtnetlink.h.
 
-In bond_alb_monitor the bond->curr_slave_lock write lock is taken
-and then dev_set_promiscuity maybe called which can take some time,
-depending on the network HW. If a network IRQ for this card come in
-the softirq handler maybe try to deliver more packets which end up in
-a request to the read lock of bond->curr_slave_lock -> deadlock.
-This issue was found by a test lab during network stress tests, this patch
-disable the softirq handler for this case and solved the issue.
 
-Signed-off-by: Karsten Keil <kkeil@suse.de>
-Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+[PATCH] Add missing macros which was removed from kernel header.
 
+{IFA,IFLA,NDA,NDTA}_{RTA,PAYLOAD} macro is removed from kernel
+header since net-2.6.19 because it is not used by kernel code.
+
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 ---
+ include/libnetlink.h |   35 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 35 insertions(+), 0 deletions(-)
 
- drivers/net/bonding/bond_alb.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-921ada40bf96d7dc9c4258821af3d4616fb3cbae
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index e83bc82..3292316 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1433,7 +1433,7 @@ void bond_alb_monitor(struct bonding *bo
- 		 * write lock to protect from other code that also
- 		 * sets the promiscuity.
- 		 */
--		write_lock(&bond->curr_slave_lock);
-+		write_lock_bh(&bond->curr_slave_lock);
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 63cc3c8..9de3a0b 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -4,6 +4,9 @@ #define __LIBNETLINK_H__ 1
+ #include <asm/types.h>
+ #include <linux/netlink.h>
+ #include <linux/rtnetlink.h>
++#include <linux/if_link.h>
++#include <linux/if_addr.h>
++#include <linux/neighbour.h>
  
- 		if (bond_info->primary_is_promisc &&
- 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
-@@ -1448,7 +1448,7 @@ void bond_alb_monitor(struct bonding *bo
- 			bond_info->primary_is_promisc = 0;
- 		}
+ struct rtnl_handle
+ {
+@@ -53,5 +56,37 @@ extern int rtnl_from_file(FILE *, rtnl_f
+ #define NLMSG_TAIL(nmsg) \
+ 	((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
  
--		write_unlock(&bond->curr_slave_lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
++#ifndef IFA_RTA
++#define IFA_RTA(r) \
++	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
++#endif
++#ifndef IFA_PAYLOAD
++#define IFA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
++#endif
++
++#ifndef IFLA_RTA
++#define IFLA_RTA(r) \
++	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
++#endif
++#ifndef IFLA_PAYLOAD
++#define IFLA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
++#endif
++
++#ifndef NDA_RTA
++#define NDA_RTA(r) \
++	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ndmsg))))
++#endif
++#ifndef NDA_PAYLOAD
++#define NDA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ndmsg))
++#endif
++
++#ifndef NDTA_RTA
++#define NDTA_RTA(r) \
++	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ndtmsg))))
++#endif
++#ifndef NDTA_PAYLOAD
++#define NDTA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ndtmsg))
++#endif
++
+ #endif /* __LIBNETLINK_H__ */
  
- 		if (bond_info->rlb_rebalance) {
- 			bond_info->rlb_rebalance = 0;
+-- 
+1.4.2
 
 
+
+
+-- 
+Masahide NAKAMURA
