@@ -1,92 +1,77 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Is TCP over IPsec broken in 2.6.18?
-Date: Sat, 30 Sep 2006 03:41:01 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0609300244280.17297@d.namei>
-References: <Pine.LNX.4.64.0609241029410.14827@d.namei>
- <E1GRdnS-0003kd-00@gondolin.me.apana.org.au> <20060925103836.GA13966@2ka.mipt.ru>
- <20060925112754.GA18228@gondor.apana.org.au> <20060925120519.GA19010@2ka.mipt.ru>
- <Pine.LNX.4.64.0609300037460.12011@d.namei> <Pine.LNX.4.64.0609300110190.12422@d.namei>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
+Date: Sat, 30 Sep 2006 03:50:43 -0400
+Message-ID: <200609300750.k8U7oihQ008628@turing-police.cc.vt.edu>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org> <20060930013348.GA10905@bougret.hpl.hp.com>
+            <200609300331.k8U3V71c008874@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>
+Content-Type: multipart/signed; boundary="==_Exmh_1159602643_8054P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:3011 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751114AbWI3HlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Sep 2006 03:41:04 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <Pine.LNX.4.64.0609300110190.12422@d.namei>
+Received: from pool-72-66-199-147.ronkva.east.verizon.net ([72.66.199.147]:41668
+	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
+	id S1751122AbWI3HxL (ORCPT <RFC822;netdev@vger.kernel.org>);
+	Sat, 30 Sep 2006 03:53:11 -0400
+To: jt@hpl.hp.com, Andrew Morton <akpm@osdl.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: Your message of "Fri, 29 Sep 2006 23:31:07 EDT."
+             <200609300331.k8U3V71c008874@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Sep 2006, James Morris wrote:
+--==_Exmh_1159602643_8054P
+Content-Type: text/plain; charset=us-ascii
 
-> SELinux enabled is changed to permissive mode.
+On Fri, 29 Sep 2006 23:31:07 EDT, Valdis.Kletnieks@vt.edu said:
+> Fair enough,  I'm going to try reverting the 2 commits and see if things
+> behave better.
 
+OK, it's definitely something in those 2 commits - I reverted them and the
+resulting 2.6.18-mm2 kernel has been up and stable for 4 hours, even with
+the problem gkrellm updating once a second the whole time.
 
-Ok, in the case where unencrypted packets are leaking, the problem is that 
-xfrm_lookup() is returning a false zero on a polmatch denial like:
+I'm not *seeing* how those changes can cause trouble - unless it's this:
 
-  avc:  denied  { polmatch } for  scontext=system_u:system_r:ftpd_t:s0 
-  tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+index 1840b69..9e19a96 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -3037,7 +3037,7 @@ static int orinoco_ioctl_getessid(struct
+        }
+ 
+        erq->flags = 1;
+-       erq->length = strlen(essidbuf) + 1;
++       erq->length = strlen(essidbuf);
 
+Does some other code go batshit if length ==0?  My current config doesn't
+try to actually ifup the wireless if I also have connectivity via copper (in
+order to avoid chewing up a DHCP lease in crowded address space if not needed).
 
-Follow the call back up from selinux_xfrm_policy_lookup(), when:
+% iwconfig eth5
+eth5      IEEE 802.11b  ESSID:""  Nickname:"HERMES I"
+          Mode:Managed  Frequency:2.457 GHz  Access Point: Not-Associated   
+          Bit Rate:11 Mb/s   Sensitivity:1/3  
+          Retry limit:4   RTS thr:off   Fragment thr:off
+          Power Management:off
+          Link Quality=0/92  Signal level=134/153  Noise level=134/153
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
 
-{
-	rc = avc_has_perm(fl_secid, sel_sid, SECCLASS_ASSOCIATION,
-                          ASSOCIATION__POLMATCH,
-                          NULL);
-
-	return rc;  <----  -EACCESS
-}
-
-
-Which is propagated back via 
-
-   xfrm_policy_match()
-   xfrm_policy_lookup_bytype()
-   xfrm_policy_lookup()
-   
-to
-
-int xfrm_lookup() 
-{
-	...
-
-	if (!policy) {
-		/* To accelerate a bit...  */
-		if ((dst_orig->flags & DST_NOXFRM) ||
-		     !xfrm_policy_count[XFRM_POLICY_OUT])
-			return 0;
-		
-		policy = flow_cache_lookup(fl, dst_orig->ops->family,
-					   dir, xfrm_policy_lookup);
-	}
-
-	if (!policy)
-		return 0;   <---- returns
-
-	...
-}
-
-and the callers then allow the packet to proceed unencrypted.
-
-It seems that some logic needs to be reworked to ensure that the real 
-error value is propagated back and returned via xfrm_lookup().
-
-I was also seeing these AVCs when receiving ping requests:
-
-  avc:  denied { sendto } for scontext=system_u:object_r:unlabeled_t:s0 
-  tcontext=system_u :object_r:unlabeled_t:s0 tclass=association
-
-Not sure if there are any deeper issues in this case: the callers need to 
-be audited.
+That ESSID the source of the trouble?
 
 
+--==_Exmh_1159602643_8054P
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-- James
--- 
-James Morris <jmorris@namei.org>
+iD8DBQFFHiHTcC3lWbTT17ARAo7OAJ9gqj5InOTJqNR2vTw88Z45y9EjmwCeMHwW
+W8JqCgJYtBD5wRKIJCwJ4kk=
+=Pio6
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1159602643_8054P--
