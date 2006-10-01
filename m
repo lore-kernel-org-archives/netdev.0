@@ -1,96 +1,54 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 3/9] secid reconciliation-v04: Invoke LSM hook for inbound
- traffic
-Date: Sun, 01 Oct 2006 16:26:37 -0500
-Message-ID: <4520328D.3090009@trustedcs.com>
+Subject: [PATCH 0/9] secid reconciliation-v04: Repost patchset with updates
+Date: Sun, 01 Oct 2006 16:26:03 -0500
+Message-ID: <4520326B.4020008@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
 	paul.moore@hp.com, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:47241 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932404AbWJAV05
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:48974 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932375AbWJAV0r
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Oct 2006 17:26:57 -0400
+	Sun, 1 Oct 2006 17:26:47 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Invoke the skb_flow_in LSM hook for inbound
-traffic for secid reconciliation and flow control.
+This patchset is relative to davem's net-2.6.git
 
-Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
----
- include/net/xfrm.h |   45 +++++++++++++++++++++----------------------
- 1 file changed, 22 insertions(+), 23 deletions(-)
+The following are the changes included in this patchset since the previous post:
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 11e0b1d..8f9c184 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -675,22 +675,18 @@ extern int __xfrm_policy_check(struct so
- 
- static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
- {
--	if (sk && sk->sk_policy[XFRM_POLICY_IN])
--		return __xfrm_policy_check(sk, dir, skb, family);
--
--	return	(!xfrm_policy_count[dir] && !skb->sp) ||
--		(skb->dst->flags & DST_NOPOLICY) ||
--		__xfrm_policy_check(sk, dir, skb, family);
--}
--
--static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return xfrm_policy_check(sk, dir, skb, AF_INET);
--}
-+	int ret;
- 
--static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return xfrm_policy_check(sk, dir, skb, AF_INET6);
-+	if (sk && sk->sk_policy[XFRM_POLICY_IN])
-+		ret = __xfrm_policy_check(sk, dir, skb, family);
-+	else
-+		ret = (!xfrm_policy_count[dir] && !skb->sp) ||
-+		      (skb->dst->flags & DST_NOPOLICY) ||
-+		      __xfrm_policy_check(sk, dir, skb, family);
-+
-+	if (ret)
-+		ret = security_skb_flow_in(skb, family);
-+	return ret;
- }
- 
- extern int xfrm_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family);
-@@ -742,19 +738,22 @@ static inline void xfrm_sk_free_policy(s
- static inline int xfrm_sk_clone_policy(struct sock *sk) { return 0; }
- static inline int xfrm6_route_forward(struct sk_buff *skb) { return 1; }  
- static inline int xfrm4_route_forward(struct sk_buff *skb) { return 1; } 
--static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{ 
--	return 1; 
--} 
-+static inline int xfrm_policy_check(struct sock *sk, int dir,
-+		struct sk_buff *skb, unsigned short family)
-+{
-+	return security_skb_flow_in(skb, family);
-+}
-+#endif
-+
- static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
- {
--	return 1;
-+	return xfrm_policy_check(sk, dir, skb, AF_INET);
- }
--static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
-+
-+static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
- {
--	return 1;
-+	return xfrm_policy_check(sk, dir, skb, AF_INET6);
- }
--#endif
- 
- static __inline__
- xfrm_address_t *xfrm_flowi_daddr(struct flowi *fl, unsigned short family)
+- Create IPSec SAs to be acquired with the creating sock's context as opposed
+  to that of the matching SPD rule, resulting in a simpler SPD as well as policy.
+- Set peer_sid on tcp sockets to the reconciled secmark so trusted applications
+  can retrieve and service the data at the appropriate context. Also return secmark
+  when security is queried for a UDP packet.
+- Fix minor things from James Morris' review.
+
+Paul, please spin a new patch to bring NetLabel into the reconciliation path
+as well as to address any NetLabel changes needed in regard to the above.
+
+Please consider for inclusion in 2.6.19.
+
+ include/linux/security.h                     |   51 ++++-
+ include/linux/skbuff.h                       |   49 +++++
+ include/net/ip.h                             |   31 +++
+ include/net/request_sock.h                   |   18 ++
+ include/net/xfrm.h                           |   45 ++---
+ net/dccp/ipv4.c                              |    5 
+ net/ipv4/icmp.c                              |    4 
+ net/ipv4/ip_output.c                         |    6 
+ net/ipv4/tcp_ipv4.c                          |    1 
+ net/ipv6/ip6_output.c                        |    5 
+ net/ipv6/netfilter/ip6t_REJECT.c             |    2 
+ net/netfilter/xt_CONNSECMARK.c               |   72 ++++++--
+ net/netfilter/xt_SECMARK.c                   |   45 ++++-
+ security/dummy.c                             |   13 +
+ security/selinux/hooks.c                     |  148 +++++++++++++----
+ security/selinux/include/av_perm_to_string.h |    2 
+ security/selinux/include/av_permissions.h    |    2 
+ security/selinux/include/xfrm.h              |   11 -
+ security/selinux/xfrm.c                      |   66 +++----
+ 19 files changed, 450 insertions(+), 126 deletions(-)
