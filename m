@@ -1,27 +1,26 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: wan/pc300 bug found
-Date: Sun, 1 Oct 2006 12:35:59 -0400
-Message-ID: <20061001163559.GA8649@havoc.gtf.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: ATM firestream bug
+Date: Sun, 01 Oct 2006 12:56:41 -0400
+Message-ID: <200610011656.k91GufHC007522@cmf.nrl.navy.mil>
+References: <451FD494.1090804@garzik.org>
+Cc: Netdev List <netdev@vger.kernel.org>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:26093 "EHLO havoc.gtf.org")
-	by vger.kernel.org with ESMTP id S1750990AbWJAQgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2006 12:36:01 -0400
-To: pc300@cyclades.com, khc@pm.waw.pl, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:5780 "EHLO
+	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
+	id S1751294AbWJAQ5I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Oct 2006 12:57:08 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-reply-to: <451FD494.1090804@garzik.org> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+In message <451FD494.1090804@garzik.org>,Jeff Garzik writes:
+>1) not safe on 64-bit
 
-The following gcc warning indicates a bug:
+firestream is not the only driver that's likely 32-bit safe only.
+zatm, nicstar, horizon and ambassdor all use virt_to_bus().
 
-drivers/net/wan/pc300_drv.c: In function =E2=80=98cpc_open=E2=80=99:
-drivers/net/wan/pc300_drv.c:2870: warning: =E2=80=98br=E2=80=99 may be =
-used uninitialized in this function
+>2) variable 'tmc0' is indeed potentially used uninit'd, in particular if 
+>make_rate() returns an error (use occurs before error check).
 
-clock_rate_calc() is not checked for a negative return value.
-
+i will fix this later.
