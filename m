@@ -1,46 +1,42 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 2/3][ATM]: [ambassador] Change the return type to reflect reality
-Date: Sun, 01 Oct 2006 11:17:43 -0400
-Message-ID: <200610011517.k91FHi1p006386@cmf.nrl.navy.mil>
+Subject: [PATCH 3/3][ATM]: [zatm] always *pcr in alloc_shaper()
+Date: Sun, 01 Oct 2006 11:18:00 -0400
+Message-ID: <200610011518.k91FI070006399@cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:46225 "EHLO
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:48273 "EHLO
 	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
-	id S1750962AbWJAPR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Oct 2006 11:17:58 -0400
+	id S1750955AbWJAPSO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Oct 2006 11:18:14 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-please consider for 2.6.19 -- thanks!
+please consider for 2.6.18 -- thanks!
 
-[ATM]: [ambassador] Change the return type to reflect reality
+[ATM]: [zatm] always *pcr in alloc_shaper()
 
-Signed-off-by: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
 ---
-commit d7b1207f84d681df2e46c6f22ca153eb7f0944cb
-tree 9204a7e7f6812bd683a0079a9a9177ec400fadbd
-parent 339d365266211690a446773e3eb9d864637a71bb
-author Jeff Garzik <jeff@garzik.org> Sun, 01 Oct 2006 10:23:44 -0400
-committer chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Sun, 01 Oct 2006 10:23:44 -0400
+commit ae0e261f74750f57c963349f5c09c8057d5eee32
+tree 5e9358ef3fd7d00e3be7a1862afa62a6852c8cb6
+parent d7b1207f84d681df2e46c6f22ca153eb7f0944cb
+author chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Sun, 01 Oct 2006 11:14:19 -0400
+committer chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil> Sun, 01 Oct 2006 11:14:19 -0400
 
- drivers/atm/ambassador.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/atm/zatm.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
-index 4521a24..da599e6 100644
---- a/drivers/atm/ambassador.c
-+++ b/drivers/atm/ambassador.c
-@@ -915,8 +915,8 @@ #endif
- 
- /********** make rate (not quite as much fun as Horizon) **********/
- 
--static unsigned int make_rate (unsigned int rate, rounding r,
--			       u16 * bits, unsigned int * actual) {
-+static int make_rate (unsigned int rate, rounding r,
-+		      u16 * bits, unsigned int * actual) {
-   unsigned char exp = -1; // hush gcc
-   unsigned int man = -1;  // hush gcc
-   
+diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+index c491ec4..083c5d3 100644
+--- a/drivers/atm/zatm.c
++++ b/drivers/atm/zatm.c
+@@ -800,6 +800,7 @@ static int alloc_shaper(struct atm_dev *
+ 		i = m = 1;
+ 		zatm_dev->ubr_ref_cnt++;
+ 		zatm_dev->ubr = shaper;
++		*pcr = 0;
+ 	}
+ 	else {
+ 		if (min) {
