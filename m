@@ -1,216 +1,435 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 6/9] secid reconciliation-v04: Label locally generated IPv4
- traffic
-Date: Sun, 01 Oct 2006 16:26:57 -0500
-Message-ID: <452032A1.6040009@trustedcs.com>
+Subject: [PATCH 7/9] secid reconciliation-v04: Enforcement for SELinux
+Date: Sun, 01 Oct 2006 16:27:02 -0500
+Message-ID: <452032A6.1080306@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
 	paul.moore@hp.com, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:32544 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932406AbWJAV1P
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:5193 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932408AbWJAV1Q
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Oct 2006 17:27:15 -0400
+	Sun, 1 Oct 2006 17:27:16 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This labels the skb(s) for locally generated IPv4 traffic. This will
-be used in pertinent flow control checks on the outbound later in the
-LSM hook.
+This defines SELinux enforcement of the 2 new LSM hooks as well
+as related changes elsewhere in the SELinux code.
 
-This is not as pretty as it is for IPv6, but what to do?
-Note that skb(s) that derive the secmark from the originating socket
-do so in the outbound hook.
-
-NOTE: Forwarded traffic is already labeled with the reconciled
-secmark on the inbound.
+This also now keeps track of the peersid thru the establishment
+of a connection on the server (tracking peersid on the client
+is covered later in this patch set).
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/net/ip.h           |   31 +++++++++++++++++++++++++++++++
- include/net/request_sock.h |   18 ++++++++++++++++++
- net/dccp/ipv4.c            |    5 +++++
- net/ipv4/icmp.c            |    4 ++++
- net/ipv4/ip_output.c       |    6 ++++++
- net/ipv4/tcp_ipv4.c        |    1 +
- 6 files changed, 65 insertions(+)
+ security/selinux/hooks.c        |  148 +++++++++++++++++++++++-------
+ security/selinux/include/xfrm.h |   11 +-
+ security/selinux/xfrm.c         |   66 +++++--------
+ 3 files changed, 150 insertions(+), 75 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 98f9084..40ac276 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -48,6 +48,9 @@ struct ipcm_cookie
- 	u32			addr;
- 	int			oif;
- 	struct ip_options	*opt;
-+#ifdef CONFIG_SECURITY_NETWORK
-+	u32			secid;
-+#endif /* CONFIG_SECURITY_NETWORK */
- };
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 5a66c4c..fc65cc7 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -3449,8 +3449,12 @@ static int selinux_sock_rcv_skb_compat(s
  
- #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
-@@ -383,4 +386,32 @@ #endif
+ 		err = avc_has_perm(sock_sid, port_sid,
+ 				   sock_class, recv_perm, ad);
++		if (err)
++			goto out;
+ 	}
  
- extern struct ctl_table ipv4_table[];
++	err = selinux_xfrm_sock_rcv_skb(sock_sid, skb, ad);
++
+ out:
+ 	return err;
+ }
+@@ -3489,10 +3493,6 @@ static int selinux_socket_sock_rcv_skb(s
+ 		goto out;
  
-+#ifdef CONFIG_SECURITY_NETWORK
-+
-+static inline void security_skb_classify_ipcm(struct sk_buff *skb,
-+					struct ipcm_cookie *ipc)
-+{
-+	ipc->secid = skb->secmark;
-+}
-+
-+static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
-+					struct sk_buff *skb)
-+{
-+	skb->secmark = ipc->secid;
-+}
-+
-+#else
-+
-+static inline void security_skb_classify_ipcm(struct sk_buff *skb,
-+					struct ipcm_cookie *ipc)
-+{
-+}
-+
-+static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
-+					struct sk_buff *skb)
-+{
-+}
-+
-+#endif /* CONFIG_SECURITY_NETWORK */
-+
- #endif	/* _IP_H */
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 8e165ca..6d6da9c 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -54,6 +54,7 @@ struct request_sock {
- 	struct request_sock_ops		*rsk_ops;
- 	struct sock			*sk;
- 	u32				secid;
-+	u32				peer_secid;
- };
+ 	err = selinux_netlbl_sock_rcv_skb(sksec, skb, &ad);
+-	if (err)
+-		goto out;
+-
+-	err = selinux_xfrm_sock_rcv_skb(sksec->sid, skb, &ad);
+ out:	
+ 	return err;
+ }
+@@ -3505,7 +3505,7 @@ static int selinux_socket_getpeersec_str
+ 	u32 scontext_len;
+ 	struct sk_security_struct *ssec;
+ 	struct inode_security_struct *isec;
+-	u32 peer_sid = 0;
++	u32 peer_sid;
  
- static inline struct request_sock *reqsk_alloc(struct request_sock_ops *ops)
-@@ -259,4 +260,21 @@ static inline void reqsk_queue_hash_req(
- 	write_unlock(&queue->syn_wait_lock);
+ 	isec = SOCK_INODE(sock)->i_security;
+ 
+@@ -3516,8 +3516,10 @@ static int selinux_socket_getpeersec_str
+ 	}
+ 	else if (isec->sclass == SECCLASS_TCP_SOCKET) {
+ 		peer_sid = selinux_netlbl_socket_getpeersec_stream(sock);
+-		if (peer_sid == SECSID_NULL)
+-			peer_sid = selinux_socket_getpeer_stream(sock->sk);
++		if (peer_sid == SECSID_NULL) {
++			ssec = sock->sk->sk_security;
++			peer_sid = ssec->peer_sid;
++		}
+ 		if (peer_sid == SECSID_NULL) {
+ 			err = -ENOPROTOOPT;
+ 			goto out;
+@@ -3550,7 +3552,8 @@ out:	
+ 	return err;
  }
  
-+#ifdef CONFIG_SECURITY_NETWORK
-+
-+static inline void security_req_classify_skb(struct request_sock *req,
-+					struct sk_buff *skb)
+-static int selinux_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
++static int selinux_socket_getpeersec_dgram(struct socket *sock,
++				struct sk_buff *skb, u32 *secid)
+ {
+ 	u32 peer_secid = SECSID_NULL;
+ 	int err = 0;
+@@ -3559,8 +3562,12 @@ static int selinux_socket_getpeersec_dgr
+ 		selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
+ 	else if (skb) {
+ 		peer_secid = selinux_netlbl_socket_getpeersec_dgram(skb);
+-		if (peer_secid == SECSID_NULL)
+-			peer_secid = selinux_socket_getpeer_dgram(skb);
++		if (peer_secid == SECSID_NULL) {
++			if (selinux_compat_net)
++				peer_secid = selinux_socket_getpeer_dgram(skb);
++			else
++				peer_secid = skb->secmark;
++		}
+ 	}
+ 
+ 	if (peer_secid == SECSID_NULL)
+@@ -3626,19 +3633,24 @@ static int selinux_inet_conn_request(str
+ 		return 0;
+ 	}
+ 
+-	err = selinux_xfrm_decode_session(skb, &peersid, 0);
+-	BUG_ON(err);
++	if (selinux_compat_net) {
++		err = selinux_xfrm_decode_session(skb, &peersid, 0);
++		BUG_ON(err);
+ 
+-	if (peersid == SECSID_NULL) {
+-		req->secid = sksec->sid;
+-		return 0;
+-	}
++		if (peersid == SECSID_NULL) {
++			req->secid = sksec->sid;
++			req->peer_secid = 0;
++			return 0;
++		}
++	} else
++		peersid = skb->secmark;
+ 
+ 	err = security_sid_mls_copy(sksec->sid, peersid, &newsid);
+ 	if (err)
+ 		return err;
+ 
+ 	req->secid = newsid;
++	req->peer_secid = peersid;
+ 	return 0;
+ }
+ 
+@@ -3648,6 +3660,7 @@ static void selinux_inet_csk_clone(struc
+ 	struct sk_security_struct *newsksec = newsk->sk_security;
+ 
+ 	newsksec->sid = req->secid;
++	newsksec->peer_sid = req->peer_secid;
+ 	/* NOTE: Ideally, we should also get the isec->sid for the
+ 	   new socket in sync, but we don't have the isec available yet.
+ 	   So we will wait until sock_graft to do it, by which
+@@ -3662,6 +3675,66 @@ static void selinux_req_classify_flow(co
+ 	fl->secid = req->secid;
+ }
+ 
++static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
 +{
-+	skb->secmark = req->secid;
++	u32 xfrm_sid;
++	int err;
++
++	if (selinux_compat_net)
++		return 1;
++
++	/*
++	 * loopback traffic already labeled and
++	 * flow-controlled on outbound. We may
++	 * need to flow-control on the inbound
++	 * as well if there's ever a use-case for it.
++	 */
++	if (skb->dev == &loopback_dev)
++		return 1;
++
++	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
++	BUG_ON(err);
++
++	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
++					PACKET__FLOW_IN, NULL);
++	if (err)
++		goto out;
++
++	if (xfrm_sid)
++		skb->secmark = xfrm_sid;
++
++	/* See if NetLabel can flow in thru the current secmark here */
++
++out:
++	return err ? 0 : 1;
++};
++
++static int selinux_skb_flow_out(struct sk_buff *skb, u32 nf_secid)
++{
++	int err;
++
++	if (selinux_compat_net)
++		return 1;
++
++	if (!skb->secmark) {
++		u32 xfrm_sid;
++
++		selinux_skb_xfrm_sid(skb, &xfrm_sid);
++
++		if (xfrm_sid)
++			skb->secmark = xfrm_sid;
++		else if (skb->sk) {
++			struct sk_security_struct *sksec = skb->sk->sk_security;
++			skb->secmark = sksec->sid;
++		}
++	}
++
++	err = avc_has_perm(skb->secmark, nf_secid, SECCLASS_PACKET,
++				PACKET__FLOW_OUT, NULL);
++
++	return err ? 0 : 1;
 +}
 +
-+#else
+ static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int err = 0;
+@@ -3700,7 +3773,8 @@ out:
+ 
+ #ifdef CONFIG_NETFILTER
+ 
+-static int selinux_ip_postroute_last_compat(struct sock *sk, struct net_device *dev,
++static int selinux_ip_postroute_last_compat(struct sock *sk, struct sk_buff *skb,
++					    struct net_device *dev,
+ 					    struct avc_audit_data *ad,
+ 					    u16 family, char *addrp, int len)
+ {
+@@ -3710,6 +3784,9 @@ static int selinux_ip_postroute_last_com
+ 	struct inode *inode;
+ 	struct inode_security_struct *isec;
+ 
++	if (!sk)
++		goto out;
 +
-+static inline void security_req_classify_skb(struct request_sock *req,
-+					struct sk_buff *skb)
+ 	sock = sk->sk_socket;
+ 	if (!sock)
+ 		goto out;
+@@ -3768,7 +3845,11 @@ static int selinux_ip_postroute_last_com
+ 
+ 		err = avc_has_perm(isec->sid, port_sid, isec->sclass,
+ 				   send_perm, ad);
++		if (err)
++			goto out;
+ 	}
++
++	err = selinux_xfrm_postroute_last(isec->sid, skb, ad);
+ out:
+ 	return err;
+ }
+@@ -3782,17 +3863,9 @@ static unsigned int selinux_ip_postroute
+ {
+ 	char *addrp;
+ 	int len, err = 0;
+-	struct sock *sk;
+ 	struct sk_buff *skb = *pskb;
+ 	struct avc_audit_data ad;
+ 	struct net_device *dev = (struct net_device *)out;
+-	struct sk_security_struct *sksec;
+-
+-	sk = skb->sk;
+-	if (!sk)
+-		goto out;
+-
+-	sksec = sk->sk_security;
+ 
+ 	AVC_AUDIT_DATA_INIT(&ad, NET);
+ 	ad.u.net.netif = dev->name;
+@@ -3803,16 +3876,25 @@ static unsigned int selinux_ip_postroute
+ 		goto out;
+ 
+ 	if (selinux_compat_net)
+-		err = selinux_ip_postroute_last_compat(sk, dev, &ad,
++		err = selinux_ip_postroute_last_compat(skb->sk, skb, dev, &ad,
+ 						       family, addrp, len);
+-	else
+-		err = avc_has_perm(sksec->sid, skb->secmark, SECCLASS_PACKET,
+-				   PACKET__SEND, &ad);
++	else {
++		if (!skb->secmark) {
++			u32 xfrm_sid;
+ 
+-	if (err)
+-		goto out;
++			selinux_skb_xfrm_sid(skb, &xfrm_sid);
+ 
+-	err = selinux_xfrm_postroute_last(sksec->sid, skb, &ad);
++			if (xfrm_sid)
++				skb->secmark = xfrm_sid;
++			else if (skb->sk) {
++				struct sk_security_struct *sksec =
++						skb->sk->sk_security;
++				skb->secmark = sksec->sid;
++			}
++		}
++		err = avc_has_perm(skb->secmark, SECINITSID_UNLABELED,
++				   SECCLASS_PACKET, PACKET__FLOW_OUT, &ad);
++	}
+ out:
+ 	return err ? NF_DROP : NF_ACCEPT;
+ }
+@@ -4719,6 +4801,8 @@ static struct security_operations selinu
+ 	.inet_conn_request =		selinux_inet_conn_request,
+ 	.inet_csk_clone =		selinux_inet_csk_clone,
+ 	.req_classify_flow =		selinux_req_classify_flow,
++	.skb_flow_in =			selinux_skb_flow_in,
++	.skb_flow_out =			selinux_skb_flow_out,
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ 	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
+diff --git a/security/selinux/include/xfrm.h b/security/selinux/include/xfrm.h
+index 81eb598..b1e8425 100644
+--- a/security/selinux/include/xfrm.h
++++ b/security/selinux/include/xfrm.h
+@@ -38,9 +38,9 @@ int selinux_xfrm_sock_rcv_skb(u32 sid, s
+ 			struct avc_audit_data *ad);
+ int selinux_xfrm_postroute_last(u32 isec_sid, struct sk_buff *skb,
+ 			struct avc_audit_data *ad);
+-u32 selinux_socket_getpeer_stream(struct sock *sk);
+ u32 selinux_socket_getpeer_dgram(struct sk_buff *skb);
+ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall);
++void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid);
+ #else
+ static inline int selinux_xfrm_sock_rcv_skb(u32 isec_sid, struct sk_buff *skb,
+ 			struct avc_audit_data *ad)
+@@ -54,11 +54,6 @@ static inline int selinux_xfrm_postroute
+ 	return 0;
+ }
+ 
+-static inline int selinux_socket_getpeer_stream(struct sock *sk)
+-{
+-	return SECSID_NULL;
+-}
+-
+ static inline int selinux_socket_getpeer_dgram(struct sk_buff *skb)
+ {
+ 	return SECSID_NULL;
+@@ -68,6 +63,10 @@ static inline int selinux_xfrm_decode_se
+ 	*sid = SECSID_NULL;
+ 	return 0;
+ }
++static inline void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid)
 +{
++	*sid = SECSID_NULL;
++}
+ #endif
+ 
+ #endif /* _SELINUX_XFRM_H_ */
+diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+index 3e742b8..aae9f8f 100644
+--- a/security/selinux/xfrm.c
++++ b/security/selinux/xfrm.c
+@@ -155,7 +155,8 @@ int selinux_xfrm_flow_state_match(struct
+ }
+ 
+ /*
+- * LSM hook implementation that determines the sid for the session.
++ * LSM hook implementation that checks and/or returns the xfrm sid for the
++ * incoming packet.
+  */
+ 
+ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
+@@ -193,6 +194,32 @@ int selinux_xfrm_decode_session(struct s
+ }
+ 
+ /*
++ * LSM hook implementation that returns the xfrm sid for the outgoing packet.
++ */
++
++void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid)
++{
++	struct dst_entry *dst;
++
++	*sid = SECSID_NULL;
++
++	dst = skb->dst;
++	if (dst) {
++		struct dst_entry *dst_test;
++		for (dst_test = dst; dst_test != 0;
++			dst_test = dst_test->child) {
++			struct xfrm_state *x = dst_test->xfrm;
++
++			if (x && selinux_authorizable_xfrm(x)) {
++				struct xfrm_sec_ctx *ctx = x->security;
++				*sid = ctx->ctx_sid;
++				break;
++			}
++		}
++	}
 +}
 +
-+#endif /* CONFIG_SECURITY_NETWORK */
-+
- #endif /* _REQUEST_SOCK_H */
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 66be29b..57ba542 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -230,6 +230,8 @@ static void dccp_v4_reqsk_send_ack(struc
- 	dccp_hdr_set_ack(dccp_hdr_ack_bits(skb),
- 			 DCCP_SKB_CB(rxskb)->dccpd_seq);
++/*
+  * Security blob allocation for xfrm_policy and xfrm_state
+  * CTX does not have a meaningful value on input
+  */
+@@ -391,43 +418,8 @@ void selinux_xfrm_state_free(struct xfrm
+ }
  
-+	security_req_classify_skb(req, skb);
-+
- 	bh_lock_sock(dccp_v4_ctl_socket->sk);
- 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
- 				    rxskb->nh.iph->daddr,
-@@ -261,6 +263,7 @@ static int dccp_v4_send_response(struct 
- 		dh->dccph_checksum = dccp_v4_checksum(skb, ireq->loc_addr,
- 						      ireq->rmt_addr);
- 		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+		security_req_classify_skb(req, skb);
- 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
- 					    ireq->rmt_addr,
- 					    ireq->opt);
-@@ -743,6 +746,8 @@ static void dccp_v4_ctl_send_reset(struc
- 	dh->dccph_checksum = dccp_v4_checksum(skb, rxskb->nh.iph->saddr,
- 					      rxskb->nh.iph->daddr);
- 
-+	security_skb_classify_skb(rxskb, skb);
-+
- 	bh_lock_sock(dccp_v4_ctl_socket->sk);
- 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
- 				    rxskb->nh.iph->daddr,
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index c2ad07e..956791a 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -389,6 +389,8 @@ static void icmp_reply(struct icmp_bxm *
- 	if (icmp_xmit_lock())
- 		return;
- 
-+	security_skb_classify_ipcm(skb, &ipc);
-+
- 	icmp_param->data.icmph.checksum = 0;
- 	icmp_out_count(icmp_param->data.icmph.type);
- 
-@@ -507,6 +509,8 @@ void icmp_send(struct sk_buff *skb_in, i
- 	if (icmp_xmit_lock())
- 		return;
- 
-+	security_skb_classify_ipcm(skb_in, &ipc);
-+
- 	/*
- 	 *	Construct source address and options.
- 	 */
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 97aee76..2e0775c 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -926,6 +926,8 @@ alloc_new_skb:
- 			if (skb == NULL)
- 				goto error;
- 
-+			security_ipcm_classify_skb(ipc, skb);
-+
- 			/*
- 			 *	Fill in the control structures
- 			 */
-@@ -1122,6 +1124,8 @@ ssize_t	ip_append_page(struct sock *sk, 
- 				goto error;
- 			}
- 
-+			security_skb_classify_skb(skb_prev, skb);
-+
- 			/*
- 			 *	Fill in the control structures
- 			 */
-@@ -1349,6 +1353,8 @@ void ip_send_reply(struct sock *sk, stru
- 	daddr = ipc.addr = rt->rt_src;
- 	ipc.opt = NULL;
- 
-+	security_skb_classify_ipcm(skb, &ipc);
-+
- 	if (replyopts.opt.optlen) {
- 		ipc.opt = &replyopts.opt;
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 39b1798..f21509b 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -658,6 +658,7 @@ static int tcp_v4_send_synack(struct soc
- 					 ireq->rmt_addr,
- 					 csum_partial((char *)th, skb->len,
- 						      skb->csum));
-+		security_req_classify_skb(req, skb);
- 
- 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
- 					    ireq->rmt_addr,
+ /*
+- * SELinux internal function to retrieve the context of a connected
+- * (sk->sk_state == TCP_ESTABLISHED) TCP socket based on its security
+- * association used to connect to the remote socket.
+- *
+- * Retrieve via getsockopt SO_PEERSEC.
+- */
+-u32 selinux_socket_getpeer_stream(struct sock *sk)
+-{
+-	struct dst_entry *dst, *dst_test;
+-	u32 peer_sid = SECSID_NULL;
+-
+-	if (sk->sk_state != TCP_ESTABLISHED)
+-		goto out;
+-
+-	dst = sk_dst_get(sk);
+-	if (!dst)
+-		goto out;
+-
+- 	for (dst_test = dst; dst_test != 0;
+-      	     dst_test = dst_test->child) {
+-		struct xfrm_state *x = dst_test->xfrm;
+-
+- 		if (x && selinux_authorizable_xfrm(x)) {
+-	 	 	struct xfrm_sec_ctx *ctx = x->security;
+-			peer_sid = ctx->ctx_sid;
+-			break;
+-		}
+-	}
+-	dst_release(dst);
+-
+-out:
+-	return peer_sid;
+-}
+-
+-/*
+  * SELinux internal function to retrieve the context of a UDP packet
+- * based on its security association used to connect to the remote socket.
++ * based on its security association.
+  *
+  * Retrieve via setsockopt IP_PASSSEC and recvmsg with control message
+  * type SCM_SECURITY.
