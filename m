@@ -1,34 +1,47 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: ATM firestream bug
-Date: Sun, 1 Oct 2006 08:10:41 -0700
-Message-ID: <20061001151041.GC83074@gaz.sfgoth.com>
-References: <451FD494.1090804@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	Netdev List <netdev@vger.kernel.org>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: ATM bug found
+Date: Sun, 01 Oct 2006 11:14:03 -0400
+Message-ID: <200610011514.k91FE3ai003599@cmf.nrl.navy.mil>
+References: <451FC182.6000502@garzik.org>
+Cc: Netdev List <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gaz.sfgoth.com ([69.36.241.230]:42484 "EHLO gaz.sfgoth.com")
-	by vger.kernel.org with ESMTP id S1750710AbWJAO6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2006 10:58:23 -0400
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:40849 "EHLO
+	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
+	id S1750866AbWJAPO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Oct 2006 11:14:26 -0400
 To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <451FD494.1090804@garzik.org>
+In-reply-to: <451FC182.6000502@garzik.org> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> 1) not safe on 64-bit
+In message <451FC182.6000502@garzik.org>,Jeff Garzik writes:
+>If alloc_shaper() argument 'unlimited' is true, then pcr is never 
+>assigned a value.  However, the caller of alloc_shaper() always tests 
+>the pcr value, regardless of whether or not 'unlimited' is true.
 
-Almost certainly correct.  Probably never will be -- IIRC this SAR was
-mainly used in embedded apps.  I don't know if any commercially-available
-PCI cards were ever made with it.  I could be wrong though, it's been awhile
-since I was up on the ATM industry.
+when unlimited is true, this means ubr.  alloc_shaper() creates a queue
+to use for all ubr (best effort) traffic.  ubr doesnt count against tx_bw
+so its handled a bit differently.  alloc_shaper() should return a 0 for
+the pcr since this gets assigned to the vcc's qos parameters.  min_pcr =
+0 and max_pcr = 0 means "best effort".
 
-> 2) variable 'tmc0' is indeed potentially used uninit'd, in particular if 
-> make_rate() returns an error (use occurs before error check).
+still generates a warning from gcc though.
 
-Exact same error as the one you spotted in ambassador.c -- make_rate()'s
-error is not checked at all.  It should be.
+[ATM]: [zatm] always *pcr in alloc_shaper()
 
--Mitch
+Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+
+diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+index c491ec4..083c5d3 100644
+--- a/drivers/atm/zatm.c
++++ b/drivers/atm/zatm.c
+@@ -800,6 +800,7 @@ static int alloc_shaper(struct atm_dev *
+ 		i = m = 1;
+ 		zatm_dev->ubr_ref_cnt++;
+ 		zatm_dev->ubr = shaper;
++		*pcr = 0;
+ 	}
+ 	else {
+ 		if (min) {
