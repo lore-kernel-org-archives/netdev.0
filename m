@@ -1,97 +1,216 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 1/9] secid reconciliation-v04
-Date: Sun, 01 Oct 2006 16:26:20 -0500
-Message-ID: <4520327C.7080506@trustedcs.com>
+Subject: [PATCH 6/9] secid reconciliation-v04: Label locally generated IPv4
+ traffic
+Date: Sun, 01 Oct 2006 16:26:57 -0500
+Message-ID: <452032A1.6040009@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
 	paul.moore@hp.com, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:31844 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932395AbWJAV0s
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:32544 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932406AbWJAV1P
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Oct 2006 17:26:48 -0400
+	Sun, 1 Oct 2006 17:27:15 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset helps with leveraging secmark in defining fine-grained security
-check points with support for a. a default place holder domain defined using
-secmark for each of the check points and b. flow control and reconciliation
-of domains entering/leaving the system.
+This labels the skb(s) for locally generated IPv4 traffic. This will
+be used in pertinent flow control checks on the outbound later in the
+LSM hook.
 
-The reconciliation steps for SELinux are explained in the Labeled Networking
-document at:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115136637800361&w=2
+This is not as pretty as it is for IPv6, but what to do?
+Note that skb(s) that derive the secmark from the originating socket
+do so in the outbound hook.
 
-Also please refer to the discussion at:
-http://marc.theaimsgroup.com/?l=selinux&m=115885031311565&w=2
-
-The following are the identifiers handled here:
-
-1. secmark on the skb
-2. xfrm security identifier associated with the skb if it used any xfrms,
- a zero secid otherwise.
-
-The following features are included:
-
-- Retain secmark (from the originating socket/flow) on loopback traffic;
-  this traffic is now flow controlled on the outbound only.
-
-- When multiple iptables labeling rules are present (e.g.: both on PREROUTING and INPUT)
-	INBOUND: The label in the last rule will prevail.
-	OUTBOUND: secmark (from the originating socket) is flow-controlled against
-		the label on the first rule, and, if it passes, the label on the
-		first rule overrides the secmark (from the originating socket).
-		This secmark is flow controlled against labels on the subsequent
-		rules, each time, overridden by those labels.
-
-- Forwarded packets: The FORWARD chain is treated as an outbound chain for flow
-  control purposes. e.g: label with PREROUTING and flow-control with FORWARD or
-  POSTROUTING.
-
-- SELinux postroute_last hook: unfortunately, the secmark Vs. UNLABELED SID check
-  will be done for ALL traffic (couldn't figure out a way to except traffic already
-  processed by (CONN)SECMARK outbound rules).
-
-
-This patch: Add new flask definitions to SELinux
-
-Adds a new avperm "flow_in" to arbitrate among the identifiers on the
-inbound (input/forward). Also adds a new avperm "flow_out" to enable flow
-control checks on the outbound (output/forward), addressed in this patch
-as well.
+NOTE: Forwarded traffic is already labeled with the reconciled
+secmark on the inbound.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- security/selinux/include/av_perm_to_string.h |    2 ++
- security/selinux/include/av_permissions.h    |    2 ++
- 2 files changed, 4 insertions(+)
+ include/net/ip.h           |   31 +++++++++++++++++++++++++++++++
+ include/net/request_sock.h |   18 ++++++++++++++++++
+ net/dccp/ipv4.c            |    5 +++++
+ net/ipv4/icmp.c            |    4 ++++
+ net/ipv4/ip_output.c       |    6 ++++++
+ net/ipv4/tcp_ipv4.c        |    1 +
+ 6 files changed, 65 insertions(+)
 
-diff --git a/security/selinux/include/av_perm_to_string.h b/security/selinux/include/av_perm_to_string.h
-index 09fc8a2..1e65d28 100644
---- a/security/selinux/include/av_perm_to_string.h
-+++ b/security/selinux/include/av_perm_to_string.h
-@@ -245,6 +245,8 @@
-    S_(SECCLASS_PACKET, PACKET__SEND, "send")
-    S_(SECCLASS_PACKET, PACKET__RECV, "recv")
-    S_(SECCLASS_PACKET, PACKET__RELABELTO, "relabelto")
-+   S_(SECCLASS_PACKET, PACKET__FLOW_IN, "flow_in")
-+   S_(SECCLASS_PACKET, PACKET__FLOW_OUT, "flow_out")
-    S_(SECCLASS_KEY, KEY__VIEW, "view")
-    S_(SECCLASS_KEY, KEY__READ, "read")
-    S_(SECCLASS_KEY, KEY__WRITE, "write")
-diff --git a/security/selinux/include/av_permissions.h b/security/selinux/include/av_permissions.h
-index 81f4f52..2faf3d8 100644
---- a/security/selinux/include/av_permissions.h
-+++ b/security/selinux/include/av_permissions.h
-@@ -962,6 +962,8 @@ #define APPLETALK_SOCKET__NAME_BIND     
- #define PACKET__SEND                              0x00000001UL
- #define PACKET__RECV                              0x00000002UL
- #define PACKET__RELABELTO                         0x00000004UL
-+#define PACKET__FLOW_IN                           0x00000008UL
-+#define PACKET__FLOW_OUT                          0x00000010UL
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 98f9084..40ac276 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -48,6 +48,9 @@ struct ipcm_cookie
+ 	u32			addr;
+ 	int			oif;
+ 	struct ip_options	*opt;
++#ifdef CONFIG_SECURITY_NETWORK
++	u32			secid;
++#endif /* CONFIG_SECURITY_NETWORK */
+ };
  
- #define KEY__VIEW                                 0x00000001UL
- #define KEY__READ                                 0x00000002UL
+ #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
+@@ -383,4 +386,32 @@ #endif
+ 
+ extern struct ctl_table ipv4_table[];
+ 
++#ifdef CONFIG_SECURITY_NETWORK
++
++static inline void security_skb_classify_ipcm(struct sk_buff *skb,
++					struct ipcm_cookie *ipc)
++{
++	ipc->secid = skb->secmark;
++}
++
++static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
++					struct sk_buff *skb)
++{
++	skb->secmark = ipc->secid;
++}
++
++#else
++
++static inline void security_skb_classify_ipcm(struct sk_buff *skb,
++					struct ipcm_cookie *ipc)
++{
++}
++
++static inline void security_ipcm_classify_skb(struct ipcm_cookie *ipc,
++					struct sk_buff *skb)
++{
++}
++
++#endif /* CONFIG_SECURITY_NETWORK */
++
+ #endif	/* _IP_H */
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 8e165ca..6d6da9c 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -54,6 +54,7 @@ struct request_sock {
+ 	struct request_sock_ops		*rsk_ops;
+ 	struct sock			*sk;
+ 	u32				secid;
++	u32				peer_secid;
+ };
+ 
+ static inline struct request_sock *reqsk_alloc(struct request_sock_ops *ops)
+@@ -259,4 +260,21 @@ static inline void reqsk_queue_hash_req(
+ 	write_unlock(&queue->syn_wait_lock);
+ }
+ 
++#ifdef CONFIG_SECURITY_NETWORK
++
++static inline void security_req_classify_skb(struct request_sock *req,
++					struct sk_buff *skb)
++{
++	skb->secmark = req->secid;
++}
++
++#else
++
++static inline void security_req_classify_skb(struct request_sock *req,
++					struct sk_buff *skb)
++{
++}
++
++#endif /* CONFIG_SECURITY_NETWORK */
++
+ #endif /* _REQUEST_SOCK_H */
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 66be29b..57ba542 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -230,6 +230,8 @@ static void dccp_v4_reqsk_send_ack(struc
+ 	dccp_hdr_set_ack(dccp_hdr_ack_bits(skb),
+ 			 DCCP_SKB_CB(rxskb)->dccpd_seq);
+ 
++	security_req_classify_skb(req, skb);
++
+ 	bh_lock_sock(dccp_v4_ctl_socket->sk);
+ 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
+ 				    rxskb->nh.iph->daddr,
+@@ -261,6 +263,7 @@ static int dccp_v4_send_response(struct 
+ 		dh->dccph_checksum = dccp_v4_checksum(skb, ireq->loc_addr,
+ 						      ireq->rmt_addr);
+ 		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++		security_req_classify_skb(req, skb);
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
+ 					    ireq->rmt_addr,
+ 					    ireq->opt);
+@@ -743,6 +746,8 @@ static void dccp_v4_ctl_send_reset(struc
+ 	dh->dccph_checksum = dccp_v4_checksum(skb, rxskb->nh.iph->saddr,
+ 					      rxskb->nh.iph->daddr);
+ 
++	security_skb_classify_skb(rxskb, skb);
++
+ 	bh_lock_sock(dccp_v4_ctl_socket->sk);
+ 	err = ip_build_and_send_pkt(skb, dccp_v4_ctl_socket->sk,
+ 				    rxskb->nh.iph->daddr,
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index c2ad07e..956791a 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -389,6 +389,8 @@ static void icmp_reply(struct icmp_bxm *
+ 	if (icmp_xmit_lock())
+ 		return;
+ 
++	security_skb_classify_ipcm(skb, &ipc);
++
+ 	icmp_param->data.icmph.checksum = 0;
+ 	icmp_out_count(icmp_param->data.icmph.type);
+ 
+@@ -507,6 +509,8 @@ void icmp_send(struct sk_buff *skb_in, i
+ 	if (icmp_xmit_lock())
+ 		return;
+ 
++	security_skb_classify_ipcm(skb_in, &ipc);
++
+ 	/*
+ 	 *	Construct source address and options.
+ 	 */
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 97aee76..2e0775c 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -926,6 +926,8 @@ alloc_new_skb:
+ 			if (skb == NULL)
+ 				goto error;
+ 
++			security_ipcm_classify_skb(ipc, skb);
++
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+@@ -1122,6 +1124,8 @@ ssize_t	ip_append_page(struct sock *sk, 
+ 				goto error;
+ 			}
+ 
++			security_skb_classify_skb(skb_prev, skb);
++
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+@@ -1349,6 +1353,8 @@ void ip_send_reply(struct sock *sk, stru
+ 	daddr = ipc.addr = rt->rt_src;
+ 	ipc.opt = NULL;
+ 
++	security_skb_classify_ipcm(skb, &ipc);
++
+ 	if (replyopts.opt.optlen) {
+ 		ipc.opt = &replyopts.opt;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 39b1798..f21509b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -658,6 +658,7 @@ static int tcp_v4_send_synack(struct soc
+ 					 ireq->rmt_addr,
+ 					 csum_partial((char *)th, skb->len,
+ 						      skb->csum));
++		security_req_classify_skb(req, skb);
+ 
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
+ 					    ireq->rmt_addr,
