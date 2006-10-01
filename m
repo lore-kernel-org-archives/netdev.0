@@ -1,25 +1,29 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+From: Mitchell Blank Jr <mitch@sfgoth.com>
 Subject: Re: ATM bug found
-Date: Sun, 01 Oct 2006 11:22:56 -0400
-Message-ID: <200610011522.k91FMumH006619@cmf.nrl.navy.mil>
-References: <20061001145829.GA83074@gaz.sfgoth.com>
-Reply-To: chas3@users.sourceforge.net
+Date: Sun, 1 Oct 2006 08:38:42 -0700
+Message-ID: <20061001153842.GD83074@gaz.sfgoth.com>
+References: <451FC182.6000502@garzik.org> <200610011514.k91FE3ai003599@cmf.nrl.navy.mil>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jeff@garzik.org>, Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:55185 "EHLO
-	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
-	id S1750974AbWJAPXN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Oct 2006 11:23:13 -0400
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-reply-to: <20061001145829.GA83074@gaz.sfgoth.com> 
+Received: from gaz.sfgoth.com ([69.36.241.230]:12789 "EHLO gaz.sfgoth.com")
+	by vger.kernel.org with ESMTP id S1750990AbWJAP0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2006 11:26:23 -0400
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Content-Disposition: inline
+In-Reply-To: <200610011514.k91FE3ai003599@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In message <20061001145829.GA83074@gaz.sfgoth.com>,Mitchell Blank Jr writes:
->The fix is for alloc_shaper() should really do "*pcr = ATM_MAX_PCR" in
->the "if (ubr)" stanza.  Chas, want to submit that in the next batch
->of patches?
+chas williams - CONTRACTOR wrote:
+> still generates a warning from gcc though.
 
-i dont think you can do that.  pcr gets assigned to .min_pcr and .min_pcr
-= ATM_MAX_PCR has a different meaning.  it should probably be set to 0.
-there is no minimum or maximum pcr for ubr.  you get what you get.
+The warning is bogus in this case, though -- the only way for "*pcr" to
+be unset is when alloc_shaper() returns non-zero
+
+> +		*pcr = 0;
+
+You're right, 0 is better than ATM_MAX_PCR here.
+
+-Mitch
