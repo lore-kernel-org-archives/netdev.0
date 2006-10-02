@@ -1,219 +1,346 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 7/8] d80211: allow changing of the rate control algorithm
-Date: Mon,  2 Oct 2006 20:26:11 +0200 (CEST)
-Message-ID: <20061002182611.6A61B3AA6B8@silver.suse.cz>
+Subject: [PATCH 4/8] d80211: proper rate_control loading
+Date: Mon,  2 Oct 2006 20:26:08 +0200 (CEST)
+Message-ID: <20061002182608.389133AA6B7@silver.suse.cz>
 References: <20061002202530.235763132.midnight@suse.cz>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:42183 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S965247AbWJBSY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 14:24:59 -0400
+Received: from styx.suse.cz ([82.119.242.94]:40647 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S965245AbWJBSYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 14:24:55 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <20061002202530.235763132.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow changing of the rate control algorithm.
-
-This has some limitations:
-- The rate control algorithm can be set per-wiphy only.
-- All of network interfaces of the wiphy have to be down to change the
-  algorithm.
-- All sta entries are flushed when the algorithm is succesfully changed.
-- The add_sta ioctl can be called only at a running interface from now.
-
-Changing of the algorithm is possible by writing a new algorithm name into
-/sys/class/ieee80211/phyX/rate_ctrl_alg. This will be most likely changed in
-the future.
+Fix locking issues with loading of rate_control modules. This still doesn't
+allow changing of the modules on the fly.
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211.c       |   50 +++++++++++++++++++++++++++++-------------
- net/d80211/ieee80211_i.h     |    2 ++
- net/d80211/ieee80211_ioctl.c |    4 +++
- net/d80211/ieee80211_sysfs.c |   18 ++++++++++++++-
- 4 files changed, 57 insertions(+), 17 deletions(-)
+ net/d80211/Makefile         |    1 
+ net/d80211/ieee80211.c      |  108 ++++++++++++++-----------------------------
+ net/d80211/ieee80211_rate.c |   92 +++++++++++++++++++++++++++++++++++++
+ net/d80211/ieee80211_rate.h |    8 ++-
+ net/d80211/rate_control.c   |    3 +
+ 5 files changed, 136 insertions(+), 76 deletions(-)
+ create mode 100644 net/d80211/ieee80211_rate.c
 
-7fc923b53c8689378512c6fe51b21e85224f860b
+57da83fffc22dc16bc244a4453a09c8a177d881e
+diff --git a/net/d80211/Makefile b/net/d80211/Makefile
+index 2a2a0c6..27d90e5 100644
+--- a/net/d80211/Makefile
++++ b/net/d80211/Makefile
+@@ -12,6 +12,7 @@ obj-$(CONFIG_D80211) += 80211.o rate_con
+ 	ieee80211_sta.o \
+ 	ieee80211_dev.o \
+ 	ieee80211_iface.o \
++	ieee80211_rate.o \
+ 	ieee80211_sysfs.o \
+ 	ieee80211_sysfs_sta.o \
+ 	michael.o \
 diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 8d8149e..ce56fd3 100644
+index b138eb0..8c4a6d6 100644
 --- a/net/d80211/ieee80211.c
 +++ b/net/d80211/ieee80211.c
-@@ -4303,22 +4303,44 @@ static void ieee80211_precalc_modes(stru
+@@ -46,16 +46,6 @@ static unsigned char eapol_header[] =
+ { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00, 0x88, 0x8e };
+ 
+ 
+-struct rate_control_algs {
+-	struct rate_control_algs *next;
+-	struct rate_control_ops *ops;
+-};
+-
+-static struct rate_control_algs *ieee80211_rate_ctrl_algs;
+-
+-static int rate_control_initialize(struct ieee80211_local *local);
+-
+-
+ static u8 * ieee80211_get_bssid(struct ieee80211_hdr *hdr, size_t len);
+ 
+ static int ieee80211_mgmt_start_xmit(struct sk_buff *skb,
+@@ -4312,6 +4302,39 @@ static void ieee80211_precalc_modes(stru
  	}
  }
  
--static int rate_control_initialize(struct ieee80211_local *local)
-+int ieee80211_init_rate_ctrl_alg(struct ieee80211_local *local,
-+				 const char *name)
- {
--	struct rate_control_ref *ref;
-+	struct rate_control_ref *ref, *old;
-+	int res;
-+
-+	ASSERT_RTNL();
-+	if (local->open_count || netif_running(local->mdev) ||
-+	    (local->apdev && netif_running(local->apdev)))
-+		return -EBUSY;
- 
--	ref = rate_control_alloc(NULL, local);
-+	ref = rate_control_alloc(name, local);
- 	if (!ref) {
- 		printk(KERN_WARNING "%s: Failed to select rate control "
- 		       "algorithm\n", local->mdev->name);
--		return -1;
-+		return -ENOENT;
-+	}
-+	res = rate_control_add_attrs(ref, &local->class_dev.kobj);
-+	if (res < 0) {
-+		printk(KERN_DEBUG "%s: Failed to register sysfs attributes "
-+		       "for rate control\n", local->mdev->name);
-+		rate_control_put(ref);
-+		return res;
- 	}
-+
-+	old = local->rate_ctrl;
- 	local->rate_ctrl = ref;
-+	if (old) {
-+		rate_control_remove_attrs(ref, &local->class_dev.kobj);
-+		rate_control_put(old);
-+		sta_info_flush(local, NULL);
-+	}
- 
- 	printk(KERN_DEBUG "%s: Selected rate control "
- 	       "algorithm '%s'\n", local->mdev->name,
- 	       ref->ops->name);
- 
-+
- 	return 0;
- }
- 
-@@ -4328,6 +4350,7 @@ static void rate_control_deinitialize(st
- 
- 	ref = local->rate_ctrl;
- 	local->rate_ctrl = NULL;
-+	rate_control_remove_attrs(ref, &local->class_dev.kobj);
- 	rate_control_put(ref);
- }
- 
-@@ -4496,28 +4519,24 @@ int ieee80211_register_hw(struct net_dev
- 		goto fail_masterlink;
- 	}
- 	result = ieee80211_sysfs_add_netdevice(dev);
--	rtnl_unlock();
--	if (result < 0)
-+	if (result < 0) {
-+		rtnl_unlock();
- 		goto fail_if_sysfs;
-+	}
- 
--	result = rate_control_initialize(local);
-+	result = ieee80211_init_rate_ctrl_alg(local, NULL);
-+	rtnl_unlock();
- 	if (result < 0) {
- 		printk(KERN_DEBUG "%s: Failed to initialize rate control "
- 		       "algorithm\n", dev->name);
- 		goto fail_rate;
- 	}
--	result = rate_control_add_attrs(local->ref, &local->class_dev.kobj);
--	if (result < 0) {
--		printk(KERN_DEBUG "%s: Failed to register sysfs attributes "
--		       "for rate control\n", dev->name);
--		goto fail_rate_attrs;
--	}
- 
- 	result = ieee80211_wep_init(local);
- 
- 	if (result < 0) {
- 		printk(KERN_DEBUG "%s: Failed to initialize wep\n", dev->name);
--		goto fail_rate_attrs;
-+		goto fail_wep;
- 	}
- 
- 	/* TODO: add rtnl locking around device creation and qdisc install */
-@@ -4536,7 +4555,7 @@ int ieee80211_register_hw(struct net_dev
- 
- 	return 0;
- 
--fail_rate_attrs:
-+fail_wep:
- 	rate_control_deinitialize(local);
- fail_rate:
- 	ieee80211_sysfs_remove_netdevice(dev);
-@@ -4624,7 +4643,6 @@ void ieee80211_unregister_hw(struct net_
- 	ieee80211_rx_bss_list_deinit(dev);
- 	ieee80211_clear_tx_pending(local);
- 	sta_info_stop(local);
--	rate_control_remove_attrs(local->ref, &local->class_dev.kobj);
- 	rate_control_deinitialize(local);
- 	ieee80211_dev_sysfs_del(local);
- 
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index 9c81c48..314235b 100644
---- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -583,6 +583,8 @@ int ieee80211_if_update_wds(struct net_d
- void ieee80211_if_setup(struct net_device *dev);
- void ieee80211_if_mgmt_setup(struct net_device *dev);
- void ieee80211_if_shutdown(struct net_device *dev);
-+int ieee80211_init_rate_ctrl_alg(struct ieee80211_local *local,
-+				 const char *name);
- 
- /* ieee80211_ioctl.c */
- int ieee80211_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 30390de..ff6718b 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -270,6 +270,10 @@ static int ieee80211_ioctl_add_sta(struc
-         struct ieee80211_sub_if_data *sdata;
- 	int add_key_entry = 1;
- 
-+	/* Prevent a race with changing the rate control algorithm */
-+	if (!netif_running(dev))
-+		return -ENETDOWN;
-+
- 	sta = sta_info_get(local, param->sta_addr);
- 
- 	if (!sta) {
-diff --git a/net/d80211/ieee80211_sysfs.c b/net/d80211/ieee80211_sysfs.c
-index c0aab4a..2b74a7a 100644
---- a/net/d80211/ieee80211_sysfs.c
-+++ b/net/d80211/ieee80211_sysfs.c
-@@ -102,6 +102,22 @@ static ssize_t store_remove_iface(struct
- 	return res < 0 ? res : len;
- }
- 
-+static ssize_t store_rate_ctrl_alg(struct class_device *dev,
-+				   const char *buf, size_t len)
++static int rate_control_initialize(struct ieee80211_local *local)
 +{
-+	struct ieee80211_local *local = to_ieee80211_local(dev);
-+	int res;
++	struct rate_control_ops *ops;
 +
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+	res = rtnl_lock_local(local);
-+	if (res)
-+		return res;
-+	res = ieee80211_init_rate_ctrl_alg(local, buf);
-+	rtnl_unlock();
-+	return res < 0 ? res : len;
++	ops = ieee80211_rate_control_ops_get(NULL);
++	if (!ops) {
++		printk(KERN_WARNING "%s: Failed to select rate control "
++		       "algorithm\n", local->mdev->name);
++		return -1;
++	}
++	local->rate_ctrl_priv = rate_control_alloc(ops, local);
++	if (!local->rate_ctrl_priv) {
++		ieee80211_rate_control_ops_put(ops);
++		return -1;
++	}
++	local->rate_ctrl = ops;
++
++	printk(KERN_DEBUG "%s: Selected rate control "
++	       "algorithm '%s'\n", local->mdev->name,
++	       local->rate_ctrl->name);
++
++	return 0;
 +}
 +
- static ssize_t ieee80211_local_show(struct class_device *dev, char *buf,
- 			ssize_t (*format)(struct ieee80211_local *, char *))
- {
-@@ -214,7 +230,7 @@ static struct class_device_attribute iee
- 	__ATTR(wep_iv, S_IRUGO, ieee80211_local_show_wep_iv, NULL),
- 	__ATTR(tx_power_reduction, S_IRUGO, ieee80211_local_show_tx_power_reduction, NULL),
- 	__ATTR(modes, S_IRUGO, ieee80211_local_show_modes, NULL),
--	__ATTR(rate_ctrl_alg, S_IRUGO, ieee80211_local_show_rate_ctrl_alg, NULL),
-+	__ATTR(rate_ctrl_alg, S_IRUGO | S_IWUGO, ieee80211_local_show_rate_ctrl_alg, store_rate_ctrl_alg),
- 	{}
- };
++static void rate_control_deinitialize(struct ieee80211_local *local)
++{
++	struct rate_control_ops *ops;
++
++	rate_control_free(local);
++	ops = local->rate_ctrl;
++	local->rate_ctrl = NULL;
++	ieee80211_rate_control_ops_put(ops);
++}
  
+ struct net_device *ieee80211_alloc_hw(size_t priv_data_len,
+ 				      void (*setup)(struct net_device *))
+@@ -4520,7 +4543,7 @@ int ieee80211_register_hw(struct net_dev
+ 	return 0;
+ 
+ fail_rate_attrs:
+-	rate_control_free(local);
++	rate_control_deinitialize(local);
+ fail_rate:
+ 	ieee80211_sysfs_remove_netdevice(dev);
+ fail_if_sysfs:
+@@ -4639,7 +4662,7 @@ EXPORT_SYMBOL(ieee80211_free_hw);
+ 
+ void ieee80211_release_hw(struct ieee80211_local *local)
+ {
+-	rate_control_free(local);
++	rate_control_deinitialize(local);
+ 	kfree(local);
+ }
+ 
+@@ -4742,67 +4765,6 @@ void * ieee80211_dev_stats(struct net_de
+ }
+ EXPORT_SYMBOL(ieee80211_dev_stats);
+ 
+-int ieee80211_rate_control_register(struct rate_control_ops *ops)
+-{
+-	struct rate_control_algs *alg;
+-
+-	alg = kzalloc(sizeof(*alg), GFP_KERNEL);
+-	if (!alg)
+-		return -1;
+-
+-	alg->next = ieee80211_rate_ctrl_algs;
+-	alg->ops = ops;
+-	ieee80211_rate_ctrl_algs = alg;
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL(ieee80211_rate_control_register);
+-
+-void ieee80211_rate_control_unregister(struct rate_control_ops *ops)
+-{
+-	struct rate_control_algs *alg, *prev;
+-
+-	prev = NULL;
+-	alg = ieee80211_rate_ctrl_algs;
+-	while (alg) {
+-		if (alg->ops == ops) {
+-			if (prev)
+-				prev->next = alg->next;
+-			else
+-				ieee80211_rate_ctrl_algs = alg->next;
+-			kfree(alg);
+-			break;
+-		}
+-		prev = alg;
+-		alg = alg->next;
+-	}
+-}
+-EXPORT_SYMBOL(ieee80211_rate_control_unregister);
+-
+-static int rate_control_initialize(struct ieee80211_local *local)
+-{
+-	struct rate_control_algs *algs;
+-
+-	if (!ieee80211_rate_ctrl_algs)
+-		request_module("ieee80211_rate_control");
+-
+-	for (algs = ieee80211_rate_ctrl_algs; algs; algs = algs->next) {
+-		local->rate_ctrl = algs->ops;
+-		local->rate_ctrl_priv = rate_control_alloc(local);
+-		if (local->rate_ctrl_priv) {
+-			printk(KERN_DEBUG "%s: Selected rate control "
+-			       "algorithm '%s'\n", local->mdev->name,
+-			       local->rate_ctrl->name);
+-			return 0;
+-		}
+-	}
+-
+-	printk(KERN_WARNING "%s: Failed to select rate control algorithm\n",
+-	       local->mdev->name);
+-	return -1;
+-}
+-
+-
+ static int __init ieee80211_init(void)
+ {
+ 	struct sk_buff *skb;
+diff --git a/net/d80211/ieee80211_rate.c b/net/d80211/ieee80211_rate.c
+new file mode 100644
+index 0000000..3ec370f
+--- /dev/null
++++ b/net/d80211/ieee80211_rate.c
+@@ -0,0 +1,92 @@
++/*
++ * Copyright 2002-2005, Instant802 Networks, Inc.
++ * Copyright 2005-2006, Devicescape Software, Inc.
++ * Copyright (c) 2006 Jiri Benc <jbenc@suse.cz>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/kernel.h>
++#include "ieee80211_rate.h"
++#include "ieee80211_i.h"
++
++struct rate_control_alg {
++	struct list_head list;
++	struct rate_control_ops *ops;
++};
++
++static LIST_HEAD(rate_ctrl_algs);
++static DEFINE_MUTEX(rate_ctrl_mutex);
++
++int ieee80211_rate_control_register(struct rate_control_ops *ops)
++{
++	struct rate_control_alg *alg;
++
++	alg = kmalloc(sizeof(*alg), GFP_KERNEL);
++	if (alg == NULL) {
++		return -ENOMEM;
++	}
++	memset(alg, 0, sizeof(*alg));
++	alg->ops = ops;
++
++	mutex_lock(&rate_ctrl_mutex);
++	list_add_tail(&alg->list, &rate_ctrl_algs);
++	mutex_unlock(&rate_ctrl_mutex);
++
++	return 0;
++}
++EXPORT_SYMBOL(ieee80211_rate_control_register);
++
++void ieee80211_rate_control_unregister(struct rate_control_ops *ops)
++{
++	struct rate_control_alg *alg;
++
++	mutex_lock(&rate_ctrl_mutex);
++	list_for_each_entry(alg, &rate_ctrl_algs, list) {
++		if (alg->ops == ops) {
++			list_del(&alg->list);
++			break;
++		}
++	}
++	mutex_unlock(&rate_ctrl_mutex);
++	kfree(alg);
++}
++EXPORT_SYMBOL(ieee80211_rate_control_unregister);
++
++static struct rate_control_ops *ieee80211_try_rate_control_ops_get(char *name)
++{
++	struct rate_control_alg *alg;
++	struct rate_control_ops *ops = NULL;
++
++	mutex_lock(&rate_ctrl_mutex);
++	list_for_each_entry(alg, &rate_ctrl_algs, list) {
++		if (!name || !strcmp(alg->ops->name, name))
++			if (try_module_get(alg->ops->module)) {
++				ops = alg->ops;
++				break;
++			}
++	}
++	mutex_unlock(&rate_ctrl_mutex);
++	return ops;
++}
++
++/* Get the rate control algorithm. If `name' is NULL, get the first
++ * available algorithm. */
++struct rate_control_ops *ieee80211_rate_control_ops_get(char *name)
++{
++	struct rate_control_ops *ops;
++
++	ops = ieee80211_try_rate_control_ops_get(name);
++	if (!ops) {
++		request_module("rc80211_%s", name ? name : "default");
++		ops = ieee80211_try_rate_control_ops_get(name);
++	}
++	return ops;
++}
++
++void ieee80211_rate_control_ops_put(struct rate_control_ops *ops)
++{
++	module_put(ops->module);
++}
+diff --git a/net/d80211/ieee80211_rate.h b/net/d80211/ieee80211_rate.h
+index e1c9e05..2a4c662 100644
+--- a/net/d80211/ieee80211_rate.h
++++ b/net/d80211/ieee80211_rate.h
+@@ -37,6 +37,7 @@ struct rate_control_extra {
+ 
+ 
+ struct rate_control_ops {
++	struct module *module;
+ 	const char *name;
+ 	void (*tx_status)(struct net_device *dev, struct sk_buff *skb,
+ 			  struct ieee80211_tx_status *status);
+@@ -61,6 +62,8 @@ struct rate_control_ops {
+ int ieee80211_rate_control_register(struct rate_control_ops *ops);
+ void ieee80211_rate_control_unregister(struct rate_control_ops *ops);
+ 
++struct rate_control_ops *ieee80211_rate_control_ops_get(char *name);
++void ieee80211_rate_control_ops_put(struct rate_control_ops *ops);
+ 
+ static inline void rate_control_tx_status(struct net_device *dev,
+ 					  struct sk_buff *skb,
+@@ -93,9 +96,10 @@ static inline void rate_control_clear(st
+ }
+ 
+ 
+-static inline void * rate_control_alloc(struct ieee80211_local *local)
++static inline void *rate_control_alloc(struct rate_control_ops *ops,
++				       struct ieee80211_local *local)
+ {
+-	return local->rate_ctrl->alloc(local);
++	return ops->alloc(local);
+ }
+ 
+ 
+diff --git a/net/d80211/rate_control.c b/net/d80211/rate_control.c
+index 90326a8..6703931 100644
+--- a/net/d80211/rate_control.c
++++ b/net/d80211/rate_control.c
+@@ -28,7 +28,7 @@ #define RATE_CONTROL_EMERG_DEC 2
+ #define RATE_CONTROL_INTERVAL (HZ / 20)
+ #define RATE_CONTROL_MIN_TX 10
+ 
+-MODULE_ALIAS("ieee80211_rate_control");
++MODULE_ALIAS("rc80211_default");
+ 
+ static void rate_control_rate_inc(struct ieee80211_local *local,
+ 				  struct sta_info *sta)
+@@ -361,6 +361,7 @@ static void rate_control_simple_remove_s
+ }
+ 
+ static struct rate_control_ops rate_control_simple = {
++	.module = THIS_MODULE,
+ 	.name = "simple",
+ 	.tx_status = rate_control_simple_tx_status,
+ 	.get_rate = rate_control_simple_get_rate,
 -- 
 1.3.0
 
