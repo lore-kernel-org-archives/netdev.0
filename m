@@ -1,26 +1,34 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 4/5] Correct initial and close hardware step.
-Date: Sun, 1 Oct 2006 23:56:37 -0700
-Message-ID: <20061001235637.08619ecf.akpm@osdl.org>
-References: <1159813560.2576.6.camel@localhost.localdomain>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/5] remove TxStartThresh and RxEarlyThresh
+Date: Mon, 02 Oct 2006 00:00:18 -0700
+Message-ID: <ada3ba7xkvx.fsf@cisco.com>
+References: <1159813431.2576.0.camel@localhost.localdomain>
+	<20061001235312.aa2c6d17.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Huang <jesse@icplus.com.tw>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53644 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932702AbWJBG4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 02:56:44 -0400
-To: Jesse Huang <jesse@icplus.com.tw>
-In-Reply-To: <1159813560.2576.6.camel@localhost.localdomain>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:6590 "EHLO
+	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
+	id S932701AbWJBHAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 03:00:20 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061001235312.aa2c6d17.akpm@osdl.org> (Andrew Morton's message of "Sun, 1 Oct 2006 23:53:12 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 02 Oct 2006 14:26:00 -0400
-Jesse Huang <jesse@icplus.com.tw> wrote:
+ > > For pattern issue need to remove TxStartThresh and RxEarlyThresh.
 
-> Correct initial and close hardware step.
+ > Please describe this issue more completely.
+ > 
+ > What are the implications of simply removing this feature?  Presumably that
+ > code was there for a reason..
 
-Please provide a description of what was wrong with it, and how this
-patch fixes it, thanks.
+Actually I think this patch needs to be handled delicately -- because
+based on earlier emails from Jesse (http://www.mail-archive.com/netdev@vger.kernel.org/msg22254.html),
+I am pretty sure that "pattern" is a typo for "patent".  So I guess
+the question is what exactly the patent covers and what the
+implications of having the current kernel code are.
+
+ - R.
