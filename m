@@ -1,50 +1,31 @@
-From: Badari Pulavarty <pbadari@gmail.com>
-Subject: Re: Network problem with 2.6.18-mm1 ?
-Date: Mon, 02 Oct 2006 16:17:51 -0700
-Message-ID: <1159831071.5039.19.camel@dyn9047017100.beaverton.ibm.com>
-References: <20060928013724.GA22898@us.ibm.com> <451B2D29.9040306@intel.com>
-	 <20060928185222.GB3352@us.ibm.com>
-	 <4807377b0609281410p28d445c8mc32e7d2cb71221ab@mail.gmail.com>
-	 <20060929005205.GA3876@us.ibm.com>
-	 <4807377b0609291108x84f39c6ic4c669fd91f8fcd4@mail.gmail.com>
-	 <m1ejtui73g.fsf@ebiederm.dsl.xmission.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 1/2] remove Momentum Jaguar ATX network driver support
+Date: Mon, 2 Oct 2006 16:22:06 +0100
+Message-ID: <20061002152206.GB25180@linux-mips.org>
+References: <20061002233344.4e09116b.yoichi_yuasa@tripeaks.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Sukadev Bhattiprolu <sukadev@us.ibm.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:23730 "EHLO
-	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S965517AbWJBXSX
+Received: from ftp.linux-mips.org ([194.74.144.162]:26550 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S964978AbWJBXet
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 19:18:23 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>, akpm@osdl.org,
-	adurbin@google.com, ak@suse.de
-In-Reply-To: <m1ejtui73g.fsf@ebiederm.dsl.xmission.com>
+	Mon, 2 Oct 2006 19:34:49 -0400
+Received: from localhost.localdomain ([127.0.0.1]:59338 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20038824AbWJBXer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 00:34:47 +0100
+To: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+Content-Disposition: inline
+In-Reply-To: <20061002233344.4e09116b.yoichi_yuasa@tripeaks.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-09-29 at 17:30 -0600, Eric W. Biederman wrote:
-....
-> 
-> So it looks like the kernel moved the ioapics.
-> 
-> The following patch in 2.6.18-mm1 is known to have that effect.
-> x86_64-mm-insert-ioapics-and-local-apic-into-resource-map
-> 
-> Can you please try reverting that one patch?
-> 
-> There is a fix an updated version of that patch I think in -mm2
-> but I haven't had a chance to see if it fixes the problem yet.
-> 
+On Mon, Oct 02, 2006 at 11:33:44PM +0900, Yoichi Yuasa wrote:
 
-Bingo !! Reverting this patch fixed my networking problem on
-2.6.18-mm2.
+> This patch has removed Momentum / PMC-Sierra Jaguar ATX network driver support.
+> It is listed in feature-removal-schedule.txt .
 
-Thanks,
-Badari
+NAK.  I won't remove the Momentum / Ocelot support for now.
 
-
+  Ralf
