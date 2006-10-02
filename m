@@ -1,158 +1,129 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 8/8] d80211: rate_control: do not use atomic allocations when not necessary
-Date: Mon,  2 Oct 2006 20:26:12 +0200 (CEST)
-Message-ID: <20061002182612.7916A483A8@silver.suse.cz>
+Subject: [PATCH 2/8] d80211: del sta timer on interface close
+Date: Mon,  2 Oct 2006 20:26:06 +0200 (CEST)
+Message-ID: <20061002182606.2415D3AA6B6@silver.suse.cz>
 References: <20061002202530.235763132.midnight@suse.cz>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:42439 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S965260AbWJBSZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 14:25:00 -0400
+Received: from styx.suse.cz ([82.119.242.94]:40647 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S965244AbWJBSYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 14:24:53 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <20061002202530.235763132.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow GFP_KERNEL to be used for allocations of sta entries triggered from
-the user space.
+Delete sta timer when the corresponding network interface is brought down.
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211_ioctl.c |    2 +-
- net/d80211/ieee80211_rate.h  |    7 ++++---
- net/d80211/ieee80211_sta.c   |    4 ++--
- net/d80211/rc80211_simple.c  |    4 ++--
- net/d80211/sta_info.c        |    8 +++-----
- net/d80211/sta_info.h        |    2 +-
- 6 files changed, 13 insertions(+), 14 deletions(-)
+ net/d80211/ieee80211.c       |   24 ++++++++++++++++++++++++
+ net/d80211/ieee80211_i.h     |    1 +
+ net/d80211/ieee80211_iface.c |   12 +++---------
+ net/d80211/ieee80211_sta.c   |    3 +++
+ 4 files changed, 31 insertions(+), 9 deletions(-)
 
-53c1534ebad3c02a67517ed7339c76140812947e
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index ff6718b..cded685 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -277,7 +277,7 @@ static int ieee80211_ioctl_add_sta(struc
- 	sta = sta_info_get(local, param->sta_addr);
- 
- 	if (!sta) {
--		sta = sta_info_add(local, dev, param->sta_addr);
-+		sta = sta_info_add(local, dev, param->sta_addr, GFP_KERNEL);
- 		if (!sta)
- 			return -ENOMEM;
-         }
-diff --git a/net/d80211/ieee80211_rate.h b/net/d80211/ieee80211_rate.h
-index 60e4879..04c7465 100644
---- a/net/d80211/ieee80211_rate.h
-+++ b/net/d80211/ieee80211_rate.h
-@@ -52,7 +52,7 @@ struct rate_control_ops {
- 
- 	void *(*alloc)(struct ieee80211_local *local);
- 	void (*free)(void *priv);
--	void *(*alloc_sta)(void *priv);
-+	void *(*alloc_sta)(void *priv, gfp_t gfp);
- 	void (*free_sta)(void *priv, void *priv_sta);
- 
- 	int (*add_attrs)(void *priv, struct kobject *kobj);
-@@ -112,9 +112,10 @@ static inline void rate_control_clear(st
- 	ref->ops->clear(ref->priv);
+832beeb503d7c41a6a9f3ea73cf31dee5c9f1eb9
+diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+index 036eca1..b30bd80 100644
+--- a/net/d80211/ieee80211.c
++++ b/net/d80211/ieee80211.c
+@@ -2106,6 +2106,29 @@ static struct net_device_stats *ieee8021
+ 	return &(sdata->stats);
  }
  
--static inline void *rate_control_alloc_sta(struct rate_control_ref *ref)
-+static inline void *rate_control_alloc_sta(struct rate_control_ref *ref,
-+					   gfp_t gfp)
++void ieee80211_if_shutdown(struct net_device *dev)
++{
++	struct ieee80211_local *local = dev->ieee80211_ptr;
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
++	ASSERT_RTNL();
++	switch (sdata->type) {
++	case IEEE80211_IF_TYPE_STA:
++	case IEEE80211_IF_TYPE_IBSS:
++		sdata->u.sta.state = IEEE80211_DISABLED;
++		del_timer_sync(&sdata->u.sta.timer);
++		if (local->scan_work.data == sdata->dev) {
++			local->sta_scanning = 0;
++			cancel_delayed_work(&local->scan_work);
++			flush_scheduled_work();
++			/* see comment in ieee80211_unregister_hw to
++			 * understand why this works */
++			local->scan_work.data = NULL;
++		}
++		break;
++	}
++}
++
+ static inline int identical_mac_addr_allowed(int type1, int type2)
  {
--	return ref->ops->alloc_sta(ref->priv);
-+	return ref->ops->alloc_sta(ref->priv, gfp);
- }
+ 	return (type1 == IEEE80211_IF_TYPE_MNTR ||
+@@ -2306,6 +2329,7 @@ static int ieee80211_stop(struct net_dev
+ 		conf.mac_addr = dev->dev_addr;
+ 		local->hw->remove_interface(sdata->master, &conf);
+ 	}
++	ieee80211_if_shutdown(dev);
  
- static inline void rate_control_free_sta(struct rate_control_ref *ref,
+ 	ieee80211_start_hard_monitor(local);
+ 
+diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
+index 425fc9b..6fd208e 100644
+--- a/net/d80211/ieee80211_i.h
++++ b/net/d80211/ieee80211_i.h
+@@ -583,6 +583,7 @@ void ieee80211_tx_set_iswep(struct ieee8
+ int ieee80211_if_update_wds(struct net_device *dev, u8 *remote_addr);
+ void ieee80211_if_setup(struct net_device *dev);
+ void ieee80211_if_mgmt_setup(struct net_device *dev);
++void ieee80211_if_shutdown(struct net_device *dev);
+ 
+ /* ieee80211_ioctl.c */
+ int ieee80211_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
+index 0a10c86..9a187af 100644
+--- a/net/d80211/ieee80211_iface.c
++++ b/net/d80211/ieee80211_iface.c
+@@ -242,6 +242,9 @@ #endif
+ 		ieee80211_key_free(sdata->keys[i]);
+ 	}
+ 
++	/* Shouldn't be necessary but won't hurt */
++	ieee80211_if_shutdown(dev);
++
+ 	switch (sdata->type) {
+ 	case IEEE80211_IF_TYPE_AP: {
+ 		/* Remove all virtual interfaces that use this BSS
+@@ -286,15 +289,6 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
+ 		break;
+ 	case IEEE80211_IF_TYPE_STA:
+ 	case IEEE80211_IF_TYPE_IBSS:
+-		del_timer_sync(&sdata->u.sta.timer);
+-		if (local->scan_work.data == sdata->dev) {
+-			local->sta_scanning = 0;
+-			cancel_delayed_work(&local->scan_work);
+-			flush_scheduled_work();
+-			/* see comment in ieee80211_unregister_hw to
+-			 * understand why this works */
+-			local->scan_work.data = NULL;
+-		}
+ 		kfree(sdata->u.sta.extra_ie);
+ 		sdata->u.sta.extra_ie = NULL;
+ 		kfree(sdata->u.sta.assocreq_ies);
 diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index ed6747a..480e9c9 100644
+index dd95ce8..159474f 100644
 --- a/net/d80211/ieee80211_sta.c
 +++ b/net/d80211/ieee80211_sta.c
-@@ -1158,7 +1158,7 @@ static void ieee80211_rx_mgmt_assoc_resp
- 	/* Add STA entry for the AP */
- 	sta = sta_info_get(local, ifsta->bssid);
- 	if (!sta) {
--		sta = sta_info_add(local, dev, ifsta->bssid);
-+		sta = sta_info_add(local, dev, ifsta->bssid, GFP_ATOMIC);
- 		if (!sta) {
- 			printk(KERN_DEBUG "%s: failed to add STA entry for the"
- 			       " AP\n", dev->name);
-@@ -2832,7 +2832,7 @@ struct sta_info * ieee80211_ibss_add_sta
- 	printk(KERN_DEBUG "%s: Adding new IBSS station " MAC_FMT " (dev=%s)\n",
- 	       dev->name, MAC_ARG(addr), sta_dev->name);
+@@ -1848,6 +1848,9 @@ void ieee80211_sta_timer(unsigned long p
+ 	struct ieee80211_if_sta *ifsta;
  
--	sta = sta_info_add(local, dev, addr);
-+	sta = sta_info_add(local, dev, addr, GFP_ATOMIC);
- 	if (!sta)
- 		return NULL;
- 
-diff --git a/net/d80211/rc80211_simple.c b/net/d80211/rc80211_simple.c
-index 055a167..3634d00 100644
---- a/net/d80211/rc80211_simple.c
-+++ b/net/d80211/rc80211_simple.c
-@@ -305,11 +305,11 @@ static void rate_control_simple_clear(vo
- }
- 
- 
--static void * rate_control_simple_alloc_sta(void *priv)
-+static void * rate_control_simple_alloc_sta(void *priv, gfp_t gfp)
- {
- 	struct sta_rate_control *rctrl;
- 
--	rctrl = kzalloc(sizeof(*rctrl), GFP_ATOMIC);
-+	rctrl = kzalloc(sizeof(*rctrl), gfp);
- 
- 	return rctrl;
- }
-diff --git a/net/d80211/sta_info.c b/net/d80211/sta_info.c
-index a177d2f..c18365b 100644
---- a/net/d80211/sta_info.c
-+++ b/net/d80211/sta_info.c
-@@ -130,16 +130,14 @@ void sta_info_release(struct kobject *ko
- 
- 
- struct sta_info * sta_info_add(struct ieee80211_local *local,
--			       struct net_device *dev, u8 *addr)
-+			       struct net_device *dev, u8 *addr, gfp_t gfp)
- {
- 	struct sta_info *sta;
- 
--	sta = kmalloc(sizeof(*sta), GFP_ATOMIC);
-+	sta = kzalloc(sizeof(*sta), gfp);
- 	if (!sta)
- 		return NULL;
- 
--	memset(sta, 0, sizeof(*sta));
--
- 	if (kobject_set_name(&sta->kobj, MAC_FMT, MAC_ARG(addr))) {
- 		kfree(sta);
- 		return NULL;
-@@ -148,7 +146,7 @@ struct sta_info * sta_info_add(struct ie
- 	kobject_init(&sta->kobj);
- 
- 	sta->rate_ctrl = rate_control_get(local->rate_ctrl);
--	sta->rate_ctrl_priv = rate_control_alloc_sta(sta->rate_ctrl);
-+	sta->rate_ctrl_priv = rate_control_alloc_sta(sta->rate_ctrl, gfp);
- 	if (!sta->rate_ctrl_priv) {
- 		rate_control_put(sta->rate_ctrl);
- 		kobject_put(&sta->kobj);
-diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
-index 9bd7e0d..ed1a104 100644
---- a/net/d80211/sta_info.h
-+++ b/net/d80211/sta_info.h
-@@ -133,7 +133,7 @@ struct sta_info * sta_info_get(struct ie
- int sta_info_min_txrate_get(struct ieee80211_local *local);
- void sta_info_put(struct sta_info *sta);
- struct sta_info * sta_info_add(struct ieee80211_local *local,
--			       struct net_device *dev, u8 *addr);
-+			       struct net_device *dev, u8 *addr, gfp_t gfp);
- void sta_info_free(struct sta_info *sta, int locked);
- void sta_info_release(struct kobject *kobj);
- void sta_info_init(struct ieee80211_local *local);
+ 	dev = (struct net_device *) ptr;
++	if (!netif_running(dev))
++		return;
++
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 	if (sdata->type != IEEE80211_IF_TYPE_STA &&
+ 	    sdata->type != IEEE80211_IF_TYPE_IBSS) {
 -- 
 1.3.0
 
