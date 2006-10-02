@@ -1,54 +1,103 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH] Fix for IPsec leakage with SELinux enabled
-Date: Mon, 2 Oct 2006 14:59:47 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CF537@chaos.tcs.tcs-sec.com>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH v2 1/1] NetLabel: secid reconciliation support
+Date: Mon, 02 Oct 2006 15:24:01 -0400
+Message-ID: <1159817041.6855.150.camel@moss-spartans.epoch.ncsc.mil>
+References: <20061002180633.639599000@hp.com>
+	 <20061002181633.788771000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Paul Moore <paul.moore@hp.com>,
-	Chad Hanson <chanson@TrustedCS.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:13635 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S965073AbWJBTA4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 15:00:56 -0400
-To: James Morris <jmorris@namei.org>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Received: from zombie.ncsc.mil ([144.51.88.131]:37575 "EHLO jazzdrum.ncsc.mil")
+	by vger.kernel.org with ESMTP id S965371AbWJBTXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 15:23:24 -0400
+To: paul.moore@hp.com
+In-Reply-To: <20061002181633.788771000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > This is indeed the "designed" and expected (for me) behavior.
+On Mon, 2006-10-02 at 14:06 -0400, paul.moore@hp.com wrote:
+> plain text document attachment (netlabel-secid_support)
+> This patch provides the missing NetLabel support to the secid reconciliation
+> patchset.
 > 
-> This is a security hole.  SELinux denies all access by 
-> default, so the 
-> default behavior of this code is to allow all traffic to bypass IPsec.
-> 
-> You should not need to add a rule to 'allow' increased security.
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> ---
+>  security/selinux/hooks.c                    |   67 +++++++++++------
+>  security/selinux/include/objsec.h           |    1 
+>  security/selinux/include/selinux_netlabel.h |   28 +++----
+>  security/selinux/ss/services.c              |  106 ++++++++++------------------
+>  4 files changed, 98 insertions(+), 104 deletions(-)
 
-You are right. Currently working on a patch (should be out
-tonight/tomorrow).
+> @@ -3725,7 +3723,16 @@ static int selinux_skb_flow_in(struct sk
+>  	if (xfrm_sid)
+>  		skb->secmark = xfrm_sid;
+>  
+> -	/* See if NetLabel can flow in thru the current secmark here */
+> +	err = selinux_netlbl_skb_sid(skb, skb->secmark, &nlbl_sid);
+> +	BUG_ON(err);
 
-<snip>
+If this selinux_netlbl_skb_sid() call can fail for any reason other than
+a kernel bug, then this needs to goto out instead of using BUG_ON.  For
+example, if the function can fail due to temporary memory pressure
+leading to a failed allocation, then you want to simply drop the packet,
+not panic the kernel.  
 
-> This needs to be handled within SELinux as far as possible, 
-> and errors 
-> will generally need to be propagated back to the callers, as 
+> +
+> +	err = avc_has_perm(nlbl_sid, skb->secmark, SECCLASS_PACKET,
+> +					PACKET__FLOW_IN, NULL);
 
-Agreed here as well. I have yet to review your patch in depth,
-but it definitely makes sense to do what you say here. Thanks.
+This means we end up with two flow_in checks each time, even if only one
+or none of the two labeling mechanisms was used, right?  Given the
+conclusion on the discussion of what it means to use them together (just
+redundant), this seems to be pointless overhead.
 
-> we don't know 
-> what other LSMs might do, and errors unrelated to access 
-> control can be 
-> returned.
-> 
-> 
-> - James
-> -- 
-> James Morris
-> <jmorris@namei.org>
-> 
+> @@ -3749,6 +3757,12 @@ static int selinux_skb_flow_out(struct s
+>  			struct sk_security_struct *sksec = skb->sk->sk_security;
+>  			skb->secmark = sksec->sid;
+>  		}
+> +
+> +		err = selinux_netlbl_skb_sid(skb, skb->secmark, &nlbl_sid);
+> +		BUG_ON(err);
+
+Same concern about BUG_ON as above.  Also, I'd have expected this to
+happen at the same point that selinux_skb_xfrm_sid() is called.
+
+> +		if (nlbl_sid)
+> +			skb->secmark = nlbl_sid;
+
+And then I'd expect this to be moved up prior to the if (xfrm_sid)
+clause, turning that into an else clause, e.g.:
+	if (nlbl_sid)
+		skb->secmark = nlbl_sid;
+	else if (xfrm_sid)
+		skb->secmark = xfrm_sid;
+	else if (skb->sk) ...
+
+> @@ -3913,9 +3928,15 @@ static unsigned int selinux_ip_postroute
+>  						skb->sk->sk_security;
+>  				skb->secmark = sksec->sid;
+>  			}
+> +
+> +			err = selinux_netlbl_skb_sid(skb,
+> +						     skb->secmark,
+> +						     &nlbl_sid);
+> +			BUG_ON(err);
+> +
+> +			if (nlbl_sid)
+> +				skb->secmark = nlbl_sid;
+
+Similar comments as above.
+
+>  		}
+> -		err = avc_has_perm(skb->secmark, SECINITSID_UNLABELED,
+> -				   SECCLASS_PACKET, PACKET__FLOW_OUT, &ad);
+
+Why do you think you can remove this?
+
+-- 
+Stephen Smalley
+National Security Agency
+
