@@ -1,52 +1,41 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 7/9] secid reconciliation-v04: Enforcement for SELinux
-Date: Mon, 02 Oct 2006 13:29:48 -0400
-Message-ID: <45214C8C.2090306@hp.com>
-References: <36282A1733C57546BE392885C0618592015CF4E4@chaos.tcs.tcs-sec.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 6/6]: powerpc/cell spidernet refine locking
+Date: Mon, 2 Oct 2006 12:47:22 -0500
+Message-ID: <20061002174722.GE4546@austin.ibm.com>
+References: <20060929230552.GG6433@austin.ibm.com> <20060929232911.GN6433@austin.ibm.com> <20060929194752.2194f94f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, jmorris@namei.org, eparis@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:3799 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S965155AbWJBRaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 13:30:00 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <36282A1733C57546BE392885C0618592015CF4E4@chaos.tcs.tcs-sec.com>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:43462 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S965171AbWJBRr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 13:47:26 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060929194752.2194f94f.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Venkat Yekkirala wrote:
->>My immediate concern is not really what selinux_xfrm_decode_session()
->>returns, but how to handle it, or rather errors in general, in
->>selinux_skb_flow_in().  I'm in the process of creating a patch to add
->>the missing NetLabel support to the secid patches and I am 
->>wondering if
->>I should BUG_ON() for an error condition or simply jump to "out".
->>Jumping seems a bit cleaner to me, although perhaps harder to 
->>debug, so
->>I was just wondering what the reasoning was behind the use of 
->>BUG_ON().
+On Fri, Sep 29, 2006 at 07:47:52PM -0700, Andrew Morton wrote:
+> On Fri, 29 Sep 2006 18:29:11 -0500
+> linas@austin.ibm.com (Linas Vepstas) wrote:
 > 
+> > The transmit side of the spider ethernet driver currently
+> > places locks around some very large chunks of code. This
+> > results in a fair amount of lock contention is some cases. 
+> > This patch makes the locks much more fine-grained, protecting
+> > only the cirtical sections. One lock is used to protect 
+> > three locations: the queue head and tail pointers, and the 
+> > queue low-watermark location.
 > 
-> It's more a "code integrity" check that I have sought to enforce
-> via BUG_ON (meaning the function isn't expected to fail under any
-> circumstances). Whether this is a severe enough error (possible as
-> a result of a bug in decode_session or a corrupted kernel) that we
-> should panic the system at that point is probably debatable. In particular
-> I would be interested to know how similar situations are currently
-> treated in the kernel.
-> 
-> My recommendation would be to be consistent with the rest of the code
-> and do a BUG_ON. 
+> You have spider_net_set_low_watermark() walking the tx_chain outside
+> tx_chain.lock.  Are you sure about that?
 
-That was how I was leaning and for the same reasons, I'll go that route
-and if we need we can always change it later.
+Yes. Its making an approximate count of the queue length, and I figured
+that if its approximate to begin with, an unlocked version should be
+just fine.
 
-> As for other errors, you could jump out like the rest
-> of the code already does (if that meets your needs that is).
-
--- 
-paul moore
-linux security @ hp
+--linas
