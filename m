@@ -1,41 +1,58 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled
-Date: Mon, 2 Oct 2006 10:05:22 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610021004180.9739@d.namei>
-References: <20060925120519.GA19010@2ka.mipt.ru> <Pine.LNX.4.64.0609300037460.12011@d.namei>
- <Pine.LNX.4.64.0609300110190.12422@d.namei> <20060930111521.GA646@2ka.mipt.ru>
- <Pine.LNX.4.64.0609301035020.26766@d.namei> <20060930144018.GA16918@2ka.mipt.ru>
- <Pine.LNX.4.64.0609301044090.26813@d.namei> <Pine.LNX.4.64.0610010203440.8658@d.namei>
- <20061002112050.GA772@2ka.mipt.ru> <Pine.LNX.4.64.0610020919050.9400@d.namei>
- <20061002134200.GA20441@2ka.mipt.ru>
+From: Markus Lidel <Markus.Lidel@shadowconnect.com>
+Subject: Re: [PATCH] Introduce BROKEN_ON_64BIT facility
+Date: Mon, 02 Oct 2006 16:19:34 +0200
+Message-ID: <45211FF6.7090303@shadowconnect.com>
+References: <20061002045512.GA8835@havoc.gtf.org> <p737izjhwpa.fsf@verdi.suse.de> <4520E1CB.6070104@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	Paul Moore <paul.moore@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:9160 "EHLO
-	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932353AbWJBOF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 10:05:26 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061002134200.GA20441@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@suse.de>, chas@cmf.nrl.navy.mil,
+	netdev@vger.kernel.org, kkeil@suse.de, kai.germaschewski@gmx.de,
+	isdn4linux@listserv.isdn4linux.de, mac@melware.de,
+	samuel@sortiz.org, Neela.Kolli@engenio.com,
+	linux-scsi@vger.kernel.org, Greg KH <greg@kroah.com>,
+	thomas@winischhofer.net
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4520E1CB.6070104@garzik.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Oct 2006, Evgeniy Polyakov wrote:
+Hello,
 
-> Probably reference counter is inside freed object...
+Jeff Garzik wrote:
+> Andi Kleen wrote:
+>> Jeff Garzik <jeff@garzik.org> writes:
+>>> Add a broken-on-64bit option, similar to the existing broken-on-smp
+>>> config option.  This is just the first pass, marking the obvious
+>>> candidates.
+>> When I had this problem in the past I just used && !64BIT.
+>> How is this new option different?
+> Same reason why we have CONFIG_BROKEN_ON_SMP separate from CONFIG_SMP.
+>> AFAIK I2O got fixed too. Do you have any evidence that it is really
+>> broken on 64bit?
+> i2o_config did not.  Just read the code, it's obvious...
 
-I think I know what it is (xfrm_lookup needs to just return on flow cache 
-lookup failure, not goto error and free the dst).  Patch forthcoming.
+Although the documentation does say it need fixes, it really doesn't. It 
+is broken if used with 64-bit DMA addresses, but it does work on 64-bit 
+systems.
 
 
 
+Best regards,
 
-- James
--- 
-James Morris
-<jmorris@namei.org>
+
+Markus Lidel
+------------------------------------------
+Markus Lidel (Senior IT Consultant)
+
+Shadow Connect GmbH
+Carl-Reisch-Weg 12
+D-86381 Krumbach
+Germany
+
+Phone:  +49 82 82/99 51-0
+Fax:    +49 82 82/99 51-11
+
+E-Mail: Markus.Lidel@shadowconnect.com
+URL:    http://www.shadowconnect.com
