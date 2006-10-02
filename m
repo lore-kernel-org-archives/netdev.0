@@ -1,40 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Introduce BROKEN_ON_64BIT facility
-Date: Mon, 02 Oct 2006 05:54:19 -0400
-Message-ID: <4520E1CB.6070104@garzik.org>
-References: <20061002045512.GA8835@havoc.gtf.org> <p737izjhwpa.fsf@verdi.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org, kkeil@suse.de,
-	kai.germaschewski@gmx.de, isdn4linux@listserv.isdn4linux.de,
-	mac@melware.de, markus.lidel@shadowconnect.com, samuel@sortiz.org,
-	Neela.Kolli@engenio.com, linux-scsi@vger.kernel.org,
-	Greg KH <greg@kroah.com>, thomas@winischhofer.net
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <p737izjhwpa.fsf@verdi.suse.de>
-Sender: linux-scsi-owner@vger.kernel.org
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH 5/5] Solve host error problem in low performance embedded system when continune down and up.
+Date: Mon, 2 Oct 2006 18:03:23 +0800
+Message-ID: <024e01c6e609$fef98f60$4964a8c0@icplus.com.tw>
+References: <1159813596.2576.8.camel@localhost.localdomain> <20061001235151.97ff6d11.akpm@osdl.org>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from msr45.hinet.net ([168.95.4.145]:53225 "EHLO msr45.hinet.net")
+	by vger.kernel.org with ESMTP id S1750721AbWJBKDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 06:03:36 -0400
+To: "Andrew Morton" <akpm@osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> Jeff Garzik <jeff@garzik.org> writes:
-> 
->> Add a broken-on-64bit option, similar to the existing broken-on-smp
->> config option.  This is just the first pass, marking the obvious
->> candidates.
-> 
-> When I had this problem in the past I just used && !64BIT.
-> How is this new option different?
+In some low performance embedded CPU, if continued to ifconfig up
+and down driver. It will cause host error. Driver need to make sure all
+counter is clear to zero, and hardware actually stop.
 
-Same reason why we have CONFIG_BROKEN_ON_SMP separate from CONFIG_SMP.
+----- Original Message ----- 
+From: "Andrew Morton" <akpm@osdl.org>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<jgarzik@pobox.com>
+Sent: Monday, October 02, 2006 2:51 PM
+Subject: Re: [PATCH 5/5] Solve host error problem in low performance
+embedded system when continune down and up.
 
 
-> AFAIK I2O got fixed too. Do you have any evidence that it is really
-> broken on 64bit?
+On Mon, 02 Oct 2006 14:26:36 -0400
+Jesse Huang <jesse@icplus.com.tw> wrote:
 
-i2o_config did not.  Just read the code, it's obvious...
+> Solve host error problem in low performance embedded system when continune
+down and up.
 
-	Jeff
+I don't understand that.  Please describe the actual problem which is being
+solved,
+as well as the means by which it was solved, thanks.
 
 
