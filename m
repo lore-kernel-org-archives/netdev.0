@@ -1,235 +1,435 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH] Introduce BROKEN_ON_64BIT facility
-Date: Mon, 2 Oct 2006 00:55:12 -0400
-Message-ID: <20061002045512.GA8835@havoc.gtf.org>
+From: Samir Bellabes <sbellabes@mandriva.com>
+Subject: [PATCH] Network Events Connector
+Date: Mon, 02 Oct 2006 08:11:06 +0200
+Message-ID: <m23ba7gscl.fsf@cerbere.dyndns.info>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org, kkeil@suse.de,
-	kai.germaschewski@gmx.de, isdn4linux@listserv.isdn4linux.de,
-	mac@melware.de, markus.lidel@shadowconnect.com, samuel@sortiz.org,
-	Neela.Kolli@engenio.com, linux-scsi@vger.kernel.org,
-	Greg KH <greg@kroah.com>, thomas@winischhofer.net, ak@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:11925 "EHLO havoc.gtf.org")
-	by vger.kernel.org with ESMTP id S932611AbWJBEzc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 00:55:32 -0400
-To: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
+Received: from 188.235.97-84.rev.gaoland.net ([84.97.235.188]:47590 "EHLO
+	cerbere.dyndns.info") by vger.kernel.org with ESMTP id S932637AbWJBGMJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 02:12:09 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Add a broken-on-64bit option, similar to the existing broken-on-smp
-config option.  This is just the first pass, marking the obvious
-candidates.
+This patch adds a connector which reports networking's events to
+userspace. It's sending events when a sock has its sk_state changed to :
+  - LISTEN or CLOSE for DCCP and TCP
+  - BIND or CLOSE for UDP.
 
-Several driver have been marked as dependent on CONFIG_32BIT in the
-past, when they should really be dependent on this new
-CONFIG_BROKEN_ON_64BIT option, because the 32BIT marker was due to bugs
-rather than fundamentals.
+With this notification, a userspace tool can ask the user if he want to
+let the local firewall open for the corresponding sport or not, and if
+so open the firewall for the application which get the corresponding sport.
 
-Signed-off-by: Jeff Garzik <jeff@garzik.org>
+For people behind a firewall (non-running in the user box) we can have a
+authentification between the user box, which have set the port to state
+TCP_LISTEN for example, and the firewall, in a such way that the
+firewall's router will forward incoming packet for this port to the user
+box.
 
- drivers/atm/Kconfig                    |    2 +-
- drivers/char/ftape/Kconfig             |    2 +-
- drivers/isdn/capi/Kconfig              |    4 ++--
- drivers/isdn/hardware/eicon/Kconfig    |    2 +-
- drivers/isdn/hisax/Kconfig             |    1 +
- drivers/message/i2o/Kconfig            |    2 +-
- drivers/net/irda/Kconfig               |    2 +-
- drivers/scsi/megaraid/Kconfig.megaraid |    2 +-
- drivers/usb/misc/sisusbvga/Kconfig     |    2 +-
- init/Kconfig                           |    5 +++++
- sound/oss/Kconfig                      |   10 +++++-----
- 11 files changed, 20 insertions(+), 14 deletions(-)
+It will avoid adding specific rules to the user's firewall-script, and
+let the firewall be more interactive for users.
 
-diff --git a/drivers/atm/Kconfig b/drivers/atm/Kconfig
-index cfa5af8..36c0fd7 100644
---- a/drivers/atm/Kconfig
-+++ b/drivers/atm/Kconfig
-@@ -139,7 +139,7 @@ config ATM_ENI_BURST_RX_2W
+Signed-off-by: Samir Bellabes <sbellabes@mandriva.com>
+---
+ drivers/connector/Kconfig  |    8 ++
+ drivers/connector/Makefile |    1 
+ drivers/connector/cn_net.c |  161 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/cn_net.h     |   64 +++++++++++++++++
+ include/linux/connector.h  |    4 +
+ net/dccp/proto.c           |    6 +-
+ net/ipv4/af_inet.c         |    6 ++
+ net/ipv4/tcp.c             |    5 +
+ net/ipv4/udp.c             |    2 +
+ 9 files changed, 254 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/connector/Kconfig b/drivers/connector/Kconfig
+index e0bdc0d..bcb801f 100644
+--- a/drivers/connector/Kconfig
++++ b/drivers/connector/Kconfig
+@@ -18,4 +18,12 @@ config PROC_EVENTS
+ 	  Provide a connector that reports process events to userspace. Send
+ 	  events such as fork, exec, id change (uid, gid, suid, etc), and exit.
  
- config ATM_FIRESTREAM
- 	tristate "Fujitsu FireStream (FS50/FS155) "
--	depends on PCI && ATM
-+	depends on PCI && ATM && BROKEN_ON_64BIT
- 	help
- 	  Driver for the Fujitsu FireStream 155 (MB86697) and
- 	  FireStream 50 (MB86695) ATM PCI chips.
-diff --git a/drivers/char/ftape/Kconfig b/drivers/char/ftape/Kconfig
-index 0d65189..13c9460 100644
---- a/drivers/char/ftape/Kconfig
-+++ b/drivers/char/ftape/Kconfig
-@@ -56,7 +56,7 @@ comment "The compressor will be built as
- 
- config ZFT_COMPRESSOR
- 	tristate
--	depends on FTAPE!=n && ZFTAPE!=n
-+	depends on FTAPE!=n && ZFTAPE!=n && BROKEN_ON_64BIT
- 	default m
- 
- config FT_NR_BUFFERS
-diff --git a/drivers/isdn/capi/Kconfig b/drivers/isdn/capi/Kconfig
-index 8b6c9a4..064b7bb 100644
---- a/drivers/isdn/capi/Kconfig
-+++ b/drivers/isdn/capi/Kconfig
-@@ -21,7 +21,7 @@ config ISDN_CAPI_MIDDLEWARE
- 
- config ISDN_CAPI_CAPI20
- 	tristate "CAPI2.0 /dev/capi support"
--	depends on ISDN_CAPI
-+	depends on ISDN_CAPI && BROKEN_ON_64BIT
- 	help
- 	  This option will provide the CAPI 2.0 interface to userspace
- 	  applications via /dev/capi20. Applications should use the
-@@ -44,7 +44,7 @@ config ISDN_CAPI_CAPIFS
- 
- config ISDN_CAPI_CAPIDRV
- 	tristate "CAPI2.0 capidrv interface support"
--	depends on ISDN_CAPI && ISDN_I4L
-+	depends on ISDN_CAPI && ISDN_I4L && BROKEN_ON_64BIT
- 	help
- 	  This option provides the glue code to hook up CAPI driven cards to
- 	  the legacy isdn4linux link layer.  If you have a card which is
-diff --git a/drivers/isdn/hardware/eicon/Kconfig b/drivers/isdn/hardware/eicon/Kconfig
-index 51e66bc..d41e99d 100644
---- a/drivers/isdn/hardware/eicon/Kconfig
-+++ b/drivers/isdn/hardware/eicon/Kconfig
-@@ -32,7 +32,7 @@ config ISDN_DIVAS_PRIPCI
- 
- config ISDN_DIVAS_DIVACAPI
- 	tristate "DIVA CAPI2.0 interface support"
--	depends on ISDN_DIVAS && ISDN_CAPI
-+	depends on ISDN_DIVAS && ISDN_CAPI && BROKEN_ON_64BIT
- 	help
- 	  You need this to provide the CAPI interface
- 	  for DIVA Server cards.
-diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
-index 6dfc941..b78abd8 100644
---- a/drivers/isdn/hisax/Kconfig
-+++ b/drivers/isdn/hisax/Kconfig
-@@ -4,6 +4,7 @@ menu "Passive cards"
- 
- config ISDN_DRV_HISAX
- 	tristate "HiSax SiemensChipSet driver support"
-+	depends on BROKEN_ON_64BIT
- 	select CRC_CCITT
- 	---help---
- 	  This is a driver supporting the Siemens chipset on various
-diff --git a/drivers/message/i2o/Kconfig b/drivers/message/i2o/Kconfig
-index 6443392..0e135ce 100644
---- a/drivers/message/i2o/Kconfig
-+++ b/drivers/message/i2o/Kconfig
-@@ -56,7 +56,7 @@ config I2O_EXT_ADAPTEC_DMA64
- 
- config I2O_CONFIG
- 	tristate "I2O Configuration support"
--	depends on I2O
-+	depends on I2O && BROKEN_ON_64BIT
- 	---help---
- 	  Say Y for support of the configuration interface for the I2O adapters.
- 	  If you have a RAID controller from Adaptec and you want to use the
-diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-index 7c8ccc0..f8cf8e1 100644
---- a/drivers/net/irda/Kconfig
-+++ b/drivers/net/irda/Kconfig
-@@ -145,7 +145,7 @@ comment "Old SIR device drivers"
- 
- config IRPORT_SIR
- 	tristate "IrPORT (IrDA serial driver)"
--	depends on IRDA && BROKEN_ON_SMP
-+	depends on IRDA && BROKEN_ON_SMP && BROKEN_ON_64BIT
- 	---help---
- 	  Say Y here if you want to build support for the IrPORT IrDA device
- 	  driver.  To compile it as a module, choose M here: the module will be
-diff --git a/drivers/scsi/megaraid/Kconfig.megaraid b/drivers/scsi/megaraid/Kconfig.megaraid
-index 17419e3..6227125 100644
---- a/drivers/scsi/megaraid/Kconfig.megaraid
-+++ b/drivers/scsi/megaraid/Kconfig.megaraid
-@@ -66,7 +66,7 @@ config MEGARAID_MAILBOX
- 
- config MEGARAID_LEGACY
- 	tristate "LSI Logic Legacy MegaRAID Driver"
--	depends on PCI && SCSI
-+	depends on PCI && SCSI && BROKEN_ON_64BIT
- 	help
- 	This driver supports the LSI MegaRAID 418, 428, 438, 466, 762, 490
- 	and 467 SCSI host adapters. This driver also support the all U320
-diff --git a/drivers/usb/misc/sisusbvga/Kconfig b/drivers/usb/misc/sisusbvga/Kconfig
-index 7603cbe..b6cc15c 100644
---- a/drivers/usb/misc/sisusbvga/Kconfig
-+++ b/drivers/usb/misc/sisusbvga/Kconfig
-@@ -1,7 +1,7 @@
- 
- config USB_SISUSBVGA
- 	tristate "USB 2.0 SVGA dongle support (Net2280/SiS315)"
--	depends on USB && USB_EHCI_HCD
-+	depends on USB && USB_EHCI_HCD && BROKEN_ON_64BIT
-         ---help---
- 	  Say Y here if you intend to attach a USB2VGA dongle based on a
- 	  Net2280 and a SiS315 chip.
-diff --git a/init/Kconfig b/init/Kconfig
-index f7a04d0..6bd3dc3 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -47,6 +47,11 @@ config BROKEN_ON_SMP
- 	depends on BROKEN || !SMP
- 	default y
- 
-+config BROKEN_ON_64BIT
-+	bool
-+	depends on BROKEN || !64BIT
++config NET_EVENTS
++	boolean "Report network events to userspace"
++	depends on CONNECTOR=y
 +	default y
++	---help---
++	  Provide a connector that reports networking's events to userspace.
++	  Send events such as DCCP/TCP listen/close and UDP bind/close.
 +
- config LOCK_KERNEL
- 	bool
- 	depends on SMP || PREEMPT
-diff --git a/sound/oss/Kconfig b/sound/oss/Kconfig
-index 97e38b6..724a3db 100644
---- a/sound/oss/Kconfig
-+++ b/sound/oss/Kconfig
-@@ -63,7 +63,7 @@ config MIDI_EMU10K1
+ endmenu
+diff --git a/drivers/connector/Makefile b/drivers/connector/Makefile
+index 1f255e4..436bb5d 100644
+--- a/drivers/connector/Makefile
++++ b/drivers/connector/Makefile
+@@ -1,4 +1,5 @@
+ obj-$(CONFIG_CONNECTOR)		+= cn.o
+ obj-$(CONFIG_PROC_EVENTS)	+= cn_proc.o
++obj-$(CONFIG_NET_EVENTS)	+= cn_net.o
  
- config SOUND_FUSION
- 	tristate "Crystal SoundFusion (CS4280/461x)"
--	depends on SOUND_PRIME && PCI && OSS_OBSOLETE_DRIVER
-+	depends on SOUND_PRIME && PCI && OSS_OBSOLETE_DRIVER && BROKEN_ON_64BIT
- 	help
- 	  This module drives the Crystal SoundFusion devices (CS4280/46xx
- 	  series) when wired as native sound drivers with AC97 codecs.  If
-@@ -509,7 +509,7 @@ config SOUND_CS4232
+ cn-y				+= cn_queue.o connector.o
+diff --git a/drivers/connector/cn_net.c b/drivers/connector/cn_net.c
+new file mode 100644
+index 0000000..affe30a
+--- /dev/null
++++ b/drivers/connector/cn_net.c
+@@ -0,0 +1,161 @@
++/* 
++ * drivers/connector/cn_net.c
++ *
++ * Network events connector
++ * Samir Bellabes <sbellabes@mandriva.com>
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */ 
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/netlink.h>
++#include <linux/connector.h>
++#include <net/sock.h>
++#include <net/inet_sock.h>
++#include <linux/ipv6.h>
++#include <linux/in6.h>
++
++#include <linux/cn_net.h>
++
++MODULE_AUTHOR("Samir Bellabes <sbellabes@mandriva.com>");
++MODULE_DESCRIPTION("Net events module");
++MODULE_LICENSE("GPL");
++
++#define CN_NET_MSG_SIZE (sizeof(struct cn_msg) + sizeof(struct net_event))
++
++static atomic_t net_event_num_listeners = ATOMIC_INIT(0);
++static struct cb_id cn_net_event_id = { CN_IDX_NET, CN_VAL_NET };
++static char cn_net_event_name[] = "cn_net_event";
++
++/**
++ * cn_net_event
++ * @sk: sock which sk->sk_state change to the state identified by @event
++ * @event: type of event
++ */
++void cn_net_event(struct sock *sk, unsigned int event) {
++	struct net_event *ev;
++	struct cn_msg *m;
++	struct inet_sock *inet = inet_sk(sk);
++
++	__u8 buffer[CN_NET_MSG_SIZE];
++
++	if (atomic_read(&net_event_num_listeners) < 1)
++		goto out ;
++
++	m = (struct cn_msg *) buffer;
++	ev = (struct net_event *) m->data;
++
++	ev->event = event;
++	ktime_get_real_ts(&ev->timestamp);
++	ev->net_event_data.data.family = sk->sk_family;
++	ev->net_event_data.data.sport = ntohs(inet->sport);
++	switch (sk->sk_family) {
++	case AF_INET:
++		ev->net_event_data.data.saddr.ipv4 = inet->saddr;
++		break;
++	case AF_INET6:
++		memcpy(&(ev->net_event_data.data.saddr.ipv6),
++		       &(inet->pinet6->saddr), sizeof(struct in6_addr));
++		break;
++	default:
++		/* other protocol, sending nothing */
++		goto out;
++		break;
++	};
++	memcpy(&m->id, &cn_net_event_id, sizeof(m->id));
++	m->seq = 0;
++	m->ack = 0;
++	m->len = sizeof(struct net_event);
++
++	cn_netlink_send(m, CN_IDX_NET, gfp_any());
++
++out:
++	return;
++}
++EXPORT_SYMBOL(cn_net_event);
++
++/**
++ * Send an acknowledgement message to userspace
++ *
++ * Use 0 for success, EFOO otherwise.
++ * Note: this is the negative of conventional kernel error
++ * values because it's not being returned via syscall return
++ * mechanisms.
++ */
++static void cn_net_ack(int err, int rcvd_seq, int rcvd_ack)
++{
++	struct cn_msg *m;
++	struct net_event *ev;
++	__u8 buffer[CN_NET_MSG_SIZE];
++
++	if (atomic_read(&net_event_num_listeners) < 1)
++		return;
++
++	m = (struct cn_msg *) buffer;
++	ev = (struct net_event *) m->data;
++
++	ev->event = NET_EVENT_NONE;
++	ktime_get_real_ts(&ev->timestamp);
++	m->seq = rcvd_seq;
++	ev->net_event_data.ack.err = err;
++	memcpy(&m->id, &cn_net_event_id, sizeof(m->id));
++	m->ack = rcvd_ack + 1;
++	m->len = sizeof(struct net_event);
++	cn_netlink_send(m, CN_IDX_NET, gfp_any());
++}
++
++/* 
++ * cn_net_ctl
++ * @data: message sent from userpace via the connector
++ */
++void cn_net_ctl(void *data) {
++	struct cn_msg *m = data, *msg;
++	enum cn_net_status *status = NULL;
++	int err = 0;
++
++	msg = (struct cn_msg *)data;
++	
++	if (m->len != sizeof(*status))
++		return;
++
++	status = (enum cn_net_status *) m->data;
++	switch (*status) {
++	case CN_NET_LISTEN:
++		atomic_inc(&net_event_num_listeners);
++		break;
++	case CN_NET_IGNORE:
++		atomic_dec(&net_event_num_listeners);
++		break;
++	default:
++		err = EINVAL;
++		break;
++	}
++	cn_net_ack(err, m->seq, m->ack);
++	return;
++}
++
++static int __init init(void) {
++	int err;
++
++	err = cn_add_callback(&cn_net_event_id, cn_net_event_name,
++			      cn_net_ctl);
++	if (err) {
++		printk(KERN_WARNING "net_event module failed to load\n");
++		return err;
++	}
++	printk(KERN_INFO "network events module loaded\n");
++	return 0;
++}
++
++static void __exit fini(void) {
++	cn_del_callback(&cn_net_event_id);
++	printk(KERN_INFO "network events module unloaded\n");
++}
++
++module_init(init);
++module_exit(fini);
+diff --git a/include/linux/cn_net.h b/include/linux/cn_net.h
+new file mode 100644
+index 0000000..9426538
+--- /dev/null
++++ b/include/linux/cn_net.h
+@@ -0,0 +1,64 @@
++/* 
++ * include/linux/cn_net.h
++ *
++ * Network events connector
++ * Samir Bellabes <sbellabes@mandriva.com>
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */ 
++
++#ifndef CN_NET_H
++#define CN_NET_H
++
++#include <linux/time.h>
++#include <linux/ipv6.h>
++
++/*
++ * Userspace sends this enum to register with the kernel that it is listening
++ * for events on the connector.
++ */
++enum cn_net_status {
++	CN_NET_LISTEN = 1,
++	CN_NET_IGNORE = 2
++};
++
++struct net_event {
++	enum event {
++		NET_EVENT_NONE		= 0x00000000,
++		NET_EVENT_TCP_LISTEN	= 0x00000001,
++		NET_EVENT_TCP_CLOSE	= 0x00000002,
++		NET_EVENT_UDP_BIND	= 0x00000004,
++		NET_EVENT_UDP_CLOSE	= 0x00000008,
++		NET_EVENT_DCCP_LISTEN	= 0x00000010,
++		NET_EVENT_DCCP_CLOSE	= 0x00000020,
++		NET_EVENT_MAX		= 0x80000000
++	} event;
++	struct timespec timestamp;
++	union {
++		struct {
++			__u32 err;
++		} ack;
++		
++		struct {
++			unsigned int family;
++			union {
++				struct in6_addr ipv6;
++				unsigned long ipv4;
++			} saddr;
++			unsigned int sport;
++		} data;
++	} net_event_data;
++};
++
++#ifdef __KERNEL__
++#ifdef CONFIG_NET_EVENTS
++void cn_net_event(struct sock *sk, unsigned int event);
++#else
++static inline void cn_net_event(struct sock *sk, unsigned int event)
++{}
++#endif /* CONFIG_NET_EVENTS */
++#endif /* __KERNEL__ */
++#endif /* CN_NET_H */
+diff --git a/include/linux/connector.h b/include/linux/connector.h
+index 4c02119..f070bce 100644
+--- a/include/linux/connector.h
++++ b/include/linux/connector.h
+@@ -36,9 +36,11 @@ #define CN_IDX_CIFS			0x2
+ #define CN_VAL_CIFS                     0x1
+ #define CN_W1_IDX			0x3	/* w1 communication */
+ #define CN_W1_VAL			0x1
++#define CN_IDX_NET			0x4
++#define CN_VAL_NET			0x1
  
- config SOUND_SSCAPE
- 	tristate "Ensoniq SoundScape support"
--	depends on SOUND_OSS
-+	depends on SOUND_OSS && BROKEN_ON_64BIT
- 	help
- 	  Answer Y if you have a sound card based on the Ensoniq SoundScape
- 	  chipset. Such cards are being manufactured at least by Ensoniq, Spea
-@@ -584,7 +584,7 @@ config SOUND_MSS
  
- config SOUND_MPU401
- 	tristate "MPU-401 support (NOT for SB16)"
--	depends on SOUND_OSS
-+	depends on SOUND_OSS && BROKEN_ON_64BIT
- 	---help---
- 	  Be careful with this question.  The MPU401 interface is supported by
- 	  all sound cards.  However, some natively supported cards have their
-@@ -634,7 +634,7 @@ config PAS_JOYSTICK
+-#define CN_NETLINK_USERS		4
++#define CN_NETLINK_USERS		5
  
- config SOUND_PSS
- 	tristate "PSS (AD1848, ADSP-2115, ESC614) support"
--	depends on SOUND_OSS
-+	depends on SOUND_OSS && BROKEN_ON_64BIT
- 	help
- 	  Answer Y or M if you have an Orchid SW32, Cardinal DSP16, Beethoven
- 	  ADSP-16 or some other card based on the PSS chipset (AD1848 codec +
-@@ -720,7 +720,7 @@ config SOUND_YM3812
+ /*
+  * Maximum connector's message size.
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 72cbdcf..c5146b1 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -21,6 +21,7 @@ #include <linux/if_arp.h>
+ #include <linux/init.h>
+ #include <linux/random.h>
+ #include <net/checksum.h>
++#include <linux/cn_net.h>
  
- config SOUND_OPL3SA2
- 	tristate "Yamaha OPL3-SA2 and SA3 based PnP cards"
--	depends on SOUND_OSS && OSS_OBSOLETE_DRIVER
-+	depends on SOUND_OSS && OSS_OBSOLETE_DRIVER && BROKEN_ON_64BIT
- 	help
- 	  Say Y or M if you have a card based on one of these Yamaha sound
- 	  chipsets or the "SAx", which is actually a SA3. Read
+ #include <net/inet_sock.h>
+ #include <net/sock.h>
+@@ -794,6 +795,7 @@ int inet_dccp_listen(struct socket *sock
+ 	}
+ 	sk->sk_max_ack_backlog = backlog;
+ 	err = 0;
++	cn_net_event(sk, NET_EVENT_DCCP_LISTEN);
+ 
+ out:
+ 	release_sock(sk);
+@@ -906,8 +908,10 @@ #if 0
+ #endif
+ 	}
+ 
+-	if (sk->sk_state == DCCP_CLOSED)
++	if (sk->sk_state == DCCP_CLOSED) {
++		cn_net_event(sk, NET_EVENT_DCCP_CLOSE);
+ 		inet_csk_destroy_sock(sk);
++	}
+ 
+ 	/* Otherwise, socket is reprieved until protocol close. */
+ 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index edcf093..a58996d 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -114,6 +114,7 @@ #include <net/xfrm.h>
+ #ifdef CONFIG_IP_MROUTE
+ #include <linux/mroute.h>
+ #endif
++#include <linux/cn_net.h>
+ 
+ DEFINE_SNMP_STAT(struct linux_mib, net_statistics) __read_mostly;
+ 
+@@ -210,6 +211,7 @@ int inet_listen(struct socket *sock, int
+ 	}
+ 	sk->sk_max_ack_backlog = backlog;
+ 	err = 0;
++	cn_net_event(sk, NET_EVENT_TCP_LISTEN);
+ 
+ out:
+ 	release_sock(sk);
+@@ -468,6 +470,10 @@ int inet_bind(struct socket *sock, struc
+ 	inet->dport = 0;
+ 	sk_dst_reset(sk);
+ 	err = 0;
++	
++	if (sk->sk_protocol == IPPROTO_UDP)
++		cn_net_event(sk, NET_EVENT_UDP_BIND);
++
+ out_release_sock:
+ 	release_sock(sk);
+ out:
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 66e9a72..345b376 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -258,6 +258,7 @@ #include <linux/random.h>
+ #include <linux/bootmem.h>
+ #include <linux/cache.h>
+ #include <linux/err.h>
++#include <linux/cn_net.h>
+ 
+ #include <net/icmp.h>
+ #include <net/tcp.h>
+@@ -1684,8 +1685,10 @@ adjudge_to_death:
+ 		}
+ 	}
+ 
+-	if (sk->sk_state == TCP_CLOSE)
++	if (sk->sk_state == TCP_CLOSE) {
++		cn_net_event(sk, NET_EVENT_TCP_CLOSE);
+ 		inet_csk_destroy_sock(sk);
++	}
+ 	/* Otherwise, socket is reprieved until protocol close. */
+ 
+ out:
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 6d6142f..16bc4d7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -108,6 +108,7 @@ #include <net/route.h>
+ #include <net/inet_common.h>
+ #include <net/checksum.h>
+ #include <net/xfrm.h>
++#include <linux/cn_net.h>
+ 
+ /*
+  *	Snmp MIB for the UDP layer
+@@ -912,6 +913,7 @@ int udp_disconnect(struct sock *sk, int 
+ 
+ static void udp_close(struct sock *sk, long timeout)
+ {
++	cn_net_event(sk, NET_EVENT_UDP_CLOSE);
+ 	sk_common_release(sk);
+ }
+ 
