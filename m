@@ -1,30 +1,33 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] Revert [NET_SCHED]: HTB: fix incorrect use of RB_EMPTY_NODE
-Date: Mon, 2 Oct 2006 13:52:53 +0200
-Message-ID: <20061002115253.GA3707@ff.dom.local>
-References: <200609302223.47627.ismail@pardus.org.tr> <20061002102447.GA2936@ff.dom.local> <20061002111555.GB2936@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Makemoney@online.com
+Subject: Make money at home
+Date: Mon, 02 Oct 2006 07:16:14 -0500
+Message-ID: <E1GUMiU-0000wQ-5p@host24.root-name-server.net>
+Reply-To: Makemoney@online.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.go2.pl ([193.17.41.41]:9154 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1750953AbWJBLsZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 07:48:25 -0400
-To: Ismail Donmez <ismail@pardus.org.tr>, axboe@suse.de,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061002111555.GB2936@ff.dom.local>
+Received: from ns36.root-name-server.net ([67.18.107.190]:57066 "EHLO
+	host24.root-name-server.net") by vger.kernel.org with ESMTP
+	id S932157AbWJBMQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 08:16:17 -0400
+Received: from nobody by host24.root-name-server.net with local (Exim 4.52)
+	id 1GUMiU-0000wQ-5p
+	for netdev@vger.kernel.org; Mon, 02 Oct 2006 07:16:14 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 02, 2006 at 01:15:55PM +0200, Jarek Poplawski wrote:
-...
-> instead of:
-> 
-> + if (RB_EMPTY_NODE(rb))
+www.goldinvestment.biz
 
-should be:
+53.5% Daily For 2 Days
+75% Daily For 2 Days
+350% After 3 Days
+600% After 3 Days
 
-+ if (RB_EMPTY_NODE(node))
+www.goldinvestment.biz
 
-Jarek P.
+Started  Sep 16, 2006 
+Total accounts 75 
+Total deposited $ 1,112.50 
+Total withdraw $ 709.08 
+Visitors online 31 
+
+www.goldinvestment.biz
