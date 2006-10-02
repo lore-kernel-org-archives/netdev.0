@@ -1,71 +1,63 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 7/9] secid reconciliation-v04: Enforcement for SELinux
-Date: Mon, 02 Oct 2006 12:12:05 -0400
-Message-ID: <45213A55.8070205@hp.com>
-References: <452032A6.1080306@trustedcs.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
+Date: Mon, 2 Oct 2006 12:13:45 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610021208050.10965@d.namei>
+References: <20060930111521.GA646@2ka.mipt.ru> <Pine.LNX.4.64.0609301035020.26766@d.namei>
+ <20060930144018.GA16918@2ka.mipt.ru> <Pine.LNX.4.64.0609301044090.26813@d.namei>
+ <Pine.LNX.4.64.0610010203440.8658@d.namei> <20061002112050.GA772@2ka.mipt.ru>
+ <Pine.LNX.4.64.0610020919050.9400@d.namei> <20061002134200.GA20441@2ka.mipt.ru>
+ <Pine.LNX.4.64.0610021004180.9739@d.namei> <Pine.LNX.4.64.0610021020390.9909@d.namei>
+ <20061002160021.GA8823@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
-	sds@tycho.nsa.gov, eparis@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:52099 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S964924AbWJBQMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 12:12:10 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <452032A6.1080306@trustedcs.com>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:24553 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S965062AbWJBQNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 12:13:49 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061002160021.GA8823@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Venkat Yekkirala wrote:
-> This defines SELinux enforcement of the 2 new LSM hooks as well
-> as related changes elsewhere in the SELinux code.
-> 
-> This also now keeps track of the peersid thru the establishment
-> of a connection on the server (tracking peersid on the client
-> is covered later in this patch set).
-> 
-> Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-> 
-> {snip}
->
-> +static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
-> +{
-> +	u32 xfrm_sid;
-> +	int err;
-> +
-> +	if (selinux_compat_net)
-> +		return 1;
-> +
-> +	/*
-> +	 * loopback traffic already labeled and
-> +	 * flow-controlled on outbound. We may
-> +	 * need to flow-control on the inbound
-> +	 * as well if there's ever a use-case for it.
-> +	 */
-> +	if (skb->dev == &loopback_dev)
-> +		return 1;
-> +
-> +	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
-> +	BUG_ON(err);
+On Mon, 2 Oct 2006, Evgeniy Polyakov wrote:
 
-Just a quick question that has been nagging me for awhile - any
-particular reason why this is a BUG_ON() and not an "if (err) goto out;"?
+> On Mon, Oct 02, 2006 at 10:27:13AM -0400, James Morris (jmorris@namei.org) wrote:
+> > Updated version of the patch, which return directly after a flow cache 
+> > lookup error in xfrm_lookup rather than returing via the cleanup path 
+> > (which was causing a spurious dst_release).
+> > 
+> > This works for me, although I never saw the oops with the old patch.
+> > 
+> > Evgeniy, let me know if this fixes the oops you're seeing.
+> 
+> With enabled selinux in enforcing mode I can not even get messages to
+> racoon, i.e. tcpdump sees first message of the daemon, but racoon log
+> (with a lot of -d) is not changed.
+> With permissive mode everything works fine.
 
-> +	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
-> +					PACKET__FLOW_IN, NULL);
-> +	if (err)
-> +		goto out;
-> +
-> +	if (xfrm_sid)
-> +		skb->secmark = xfrm_sid;
-> +
-> +	/* See if NetLabel can flow in thru the current secmark here */
-> +
-> +out:
-> +	return err ? 0 : 1;
-> +};
+I think this could be your security policy denying access (which is a 
+strong suspicion, becuase you hit the problem easily and it requires a 
+policy denial).
 
+Can you look in /var/log/audit/audit.log ? (especially grep for 
+'association' )
+
+What version of SELinux policy are you using?
+
+i.e. $ rpm -q selinux-policy-targeted
+
+If it's not very recent, like 2.3.16-9 or better, you may need to run a 
+yum update.
+
+
+- James
 -- 
-paul moore
-linux security @ hp
+James Morris
+<jmorris@namei.org>
+
