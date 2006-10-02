@@ -1,479 +1,183 @@
-From: paul.moore@hp.com
-Subject: [PATCH v3 1/1] NetLabel: secid reconciliation support
-Date: Mon, 02 Oct 2006 16:54:23 -0400
-Message-ID: <20061002205549.576265000@hp.com>
-References: <20061002205422.013172000@hp.com>
-Cc: jmorris@namei.org, sds@tycho.nsa.gov, eparis@redhat.com,
-	Paul Moore <paul.moore@hp.com>
+From: Douglas Leith <doug.leith@nuim.ie>
+Subject: Re: cubic tcp behaviour
+Date: Mon, 02 Oct 2006 22:43:19 +0100
+Message-ID: <452187F7.5010106@nuim.ie>
+References: <mailman.1.1159470000.5558.end2end-interest@postel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:39047 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S965104AbWJBUzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 16:55:54 -0400
-To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=netlabel-secid_support
+Received: from mail.nuim.ie ([149.157.1.19]:6126 "EHLO LARCH.MAY.IE")
+	by vger.kernel.org with ESMTP id S965424AbWJBVpC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 17:45:02 -0400
+Received: from [192.168.0.2] ([212.2.171.230])
+ by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01M7WF7COSUI00XBNA@NUIM.IE>
+ for netdev@vger.kernel.org; Mon, 02 Oct 2006 22:45:12 +0000 (GMT)
+In-reply-to: <mailman.1.1159470000.5558.end2end-interest@postel.org>
+To: end2end-interest@postel.org, Injong Rhee <rhee@eos.ncsu.edu>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch provides the missing NetLabel support to the secid reconciliation
-patchset.
+Thanks for posting your measurements on the web Injong.
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
- security/selinux/hooks.c                    |   80 ++++++++++++++-------
- security/selinux/include/objsec.h           |    1 
- security/selinux/include/selinux_netlabel.h |   28 +++----
- security/selinux/ss/services.c              |  106 ++++++++++------------------
- 4 files changed, 107 insertions(+), 108 deletions(-)
+Without getting into the merits or otherwise of the coefficient of 
+variation as a measure of anything users might care about, the 
+individual time history plots of throughput and cwnd look interesting.
 
-Index: net-2.6/security/selinux/hooks.c
-===================================================================
---- net-2.6.orig/security/selinux/hooks.c
-+++ net-2.6/security/selinux/hooks.c
-@@ -3465,6 +3465,10 @@ static int selinux_sock_rcv_skb_compat(s
- 			goto out;
- 	}
- 
-+	err = selinux_netlbl_sock_rcv_skb(sock_sid, sock_class, skb, ad);
-+	if (err)
-+		goto out;
-+
- 	err = selinux_xfrm_sock_rcv_skb(sock_sid, skb, ad);
- 
- out:
-@@ -3501,10 +3505,7 @@ static int selinux_socket_sock_rcv_skb(s
- 	else
- 		err = avc_has_perm(sksec->sid, skb->secmark, SECCLASS_PACKET,
- 				   PACKET__RECV, &ad);
--	if (err)
--		goto out;
- 
--	err = selinux_netlbl_sock_rcv_skb(sksec, skb, &ad);
- out:	
- 	return err;
- }
-@@ -3527,11 +3528,8 @@ static int selinux_socket_getpeersec_str
- 		peer_sid = ssec->peer_sid;
- 	}
- 	else if (isec->sclass == SECCLASS_TCP_SOCKET) {
--		peer_sid = selinux_netlbl_socket_getpeersec_stream(sock);
--		if (peer_sid == SECSID_NULL) {
--			ssec = sock->sk->sk_security;
--			peer_sid = ssec->peer_sid;
--		}
-+		ssec = sock->sk->sk_security;
-+		peer_sid = ssec->peer_sid;
- 		if (peer_sid == SECSID_NULL) {
- 			err = -ENOPROTOOPT;
- 			goto out;
-@@ -3573,13 +3571,13 @@ static int selinux_socket_getpeersec_dgr
- 	if (sock && (sock->sk->sk_family == PF_UNIX))
- 		selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
- 	else if (skb) {
--		peer_secid = selinux_netlbl_socket_getpeersec_dgram(skb);
--		if (peer_secid == SECSID_NULL) {
--			if (selinux_compat_net)
-+		if (selinux_compat_net) {
-+			peer_secid = selinux_netlbl_socket_getpeersec_dgram(
-+				skb);
-+			if (peer_secid == SECSID_NULL)
- 				peer_secid = selinux_socket_getpeer_dgram(skb);
--			else
--				peer_secid = skb->secmark;
--		}
-+		} else
-+			peer_secid = skb->secmark;
- 	}
- 
- 	if (peer_secid == SECSID_NULL)
-@@ -3641,13 +3639,11 @@ static int selinux_inet_conn_request(str
- 	u32 newsid;
- 	u32 peersid;
- 
--	newsid = selinux_netlbl_inet_conn_request(skb, sksec->sid);
--	if (newsid != SECSID_NULL) {
--		req->secid = newsid;
--		return 0;
--	}
--
- 	if (selinux_compat_net) {
-+		err = selinux_netlbl_skb_sid(skb, sksec->sid, &peersid);
-+		if (err == 0 && peersid != SECSID_NULL)
-+			goto out;
-+
- 		err = selinux_xfrm_decode_session(skb, &peersid, 0);
- 		BUG_ON(err);
- 
-@@ -3659,6 +3655,7 @@ static int selinux_inet_conn_request(str
- 	} else
- 		peersid = skb->secmark;
- 
-+out:
- 	err = security_sid_mls_copy(sksec->sid, peersid, &newsid);
- 	if (err)
- 		return err;
-@@ -3700,6 +3697,8 @@ static void selinux_req_classify_flow(co
- static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
- {
- 	u32 xfrm_sid;
-+	u32 nlbl_sid;
-+	u32 ext_sid;
- 	int err;
- 
- 	if (selinux_compat_net)
-@@ -3717,15 +3716,27 @@ static int selinux_skb_flow_in(struct sk
- 	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
- 	BUG_ON(err);
- 
--	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
--					PACKET__FLOW_IN, NULL);
-+	err = selinux_netlbl_skb_sid(skb,
-+				     xfrm_sid ? xfrm_sid : skb->secmark,
-+				     &nlbl_sid);
- 	if (err)
- 		goto out;
- 
--	if (xfrm_sid)
--		skb->secmark = xfrm_sid;
-+	if (nlbl_sid)
-+		ext_sid = nlbl_sid;
-+	else
-+		ext_sid = xfrm_sid;
- 
--	/* See if NetLabel can flow in thru the current secmark here */
-+	err = avc_has_perm(ext_sid,
-+			   skb->secmark,
-+			   SECCLASS_PACKET,
-+			   PACKET__FLOW_IN,
-+			   NULL);
-+	if (err)
-+		goto out;
-+
-+	if (ext_sid)
-+		skb->secmark = ext_sid;
- 
- out:
- 	return err ? 0 : 1;
-@@ -3740,10 +3751,16 @@ static int selinux_skb_flow_out(struct s
- 
- 	if (!skb->secmark) {
- 		u32 xfrm_sid;
-+		u32 nlbl_sid;
- 
-+		err = selinux_netlbl_skb_sid(skb, skb->secmark, &nlbl_sid);
-+		if (err)
-+			goto out;
- 		selinux_skb_xfrm_sid(skb, &xfrm_sid);
- 
--		if (xfrm_sid)
-+		if (nlbl_sid)
-+			skb->secmark = nlbl_sid;
-+		else if (xfrm_sid)
- 			skb->secmark = xfrm_sid;
- 		else if (skb->sk) {
- 			struct sk_security_struct *sksec = skb->sk->sk_security;
-@@ -3754,6 +3771,7 @@ static int selinux_skb_flow_out(struct s
- 	err = avc_has_perm(skb->secmark, nf_secid, SECCLASS_PACKET,
- 				PACKET__FLOW_OUT, NULL);
- 
-+out:
- 	return err ? 0 : 1;
- }
- 
-@@ -3903,10 +3921,18 @@ static unsigned int selinux_ip_postroute
- 	else {
- 		if (!skb->secmark) {
- 			u32 xfrm_sid;
-+			u32 nlbl_sid;
- 
-+			err = selinux_netlbl_skb_sid(skb,
-+						     skb->secmark,
-+						     &nlbl_sid);
-+			if (err)
-+				goto out;
- 			selinux_skb_xfrm_sid(skb, &xfrm_sid);
- 
--			if (xfrm_sid)
-+			if (nlbl_sid)
-+				skb->secmark = nlbl_sid;
-+			else if (xfrm_sid)
- 				skb->secmark = xfrm_sid;
- 			else if (skb->sk) {
- 				struct sk_security_struct *sksec =
-Index: net-2.6/security/selinux/include/objsec.h
-===================================================================
---- net-2.6.orig/security/selinux/include/objsec.h
-+++ net-2.6/security/selinux/include/objsec.h
-@@ -102,7 +102,6 @@ struct sk_security_struct {
- 	u32 sid;			/* SID of this object */
- 	u32 peer_sid;			/* SID of peer */
- #ifdef CONFIG_NETLABEL
--	u16 sclass;			/* sock security class */
- 	enum {				/* NetLabel state */
- 		NLBL_UNSET = 0,
- 		NLBL_REQUIRE,
-Index: net-2.6/security/selinux/include/selinux_netlabel.h
-===================================================================
---- net-2.6.orig/security/selinux/include/selinux_netlabel.h
-+++ net-2.6/security/selinux/include/selinux_netlabel.h
-@@ -42,17 +42,17 @@ int selinux_netlbl_socket_post_create(st
- 				      int sock_family,
- 				      u32 sid);
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock);
--u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb, u32 sock_sid);
--int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
-+int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
-+				u16 sock_class,
- 				struct sk_buff *skb,
- 				struct avc_audit_data *ad);
--u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock);
- u32 selinux_netlbl_socket_getpeersec_dgram(struct sk_buff *skb);
- void selinux_netlbl_sk_security_init(struct sk_security_struct *ssec,
- 				     int family);
- void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
- 				      struct sk_security_struct *newssec);
- int selinux_netlbl_inode_permission(struct inode *inode, int mask);
-+int selinux_netlbl_skb_sid(struct sk_buff *skb, u32 base_sid, u32 *sid);
- #else
- static inline void selinux_netlbl_cache_invalidate(void)
- {
-@@ -72,24 +72,14 @@ static inline void selinux_netlbl_sock_g
- 	return;
- }
- 
--static inline u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb,
--						   u32 sock_sid)
--{
--	return SECSID_NULL;
--}
--
--static inline int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
-+static inline int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
-+					      u16 sock_class,
- 					      struct sk_buff *skb,
- 					      struct avc_audit_data *ad)
- {
- 	return 0;
- }
- 
--static inline u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock)
--{
--	return SECSID_NULL;
--}
--
- static inline u32 selinux_netlbl_socket_getpeersec_dgram(struct sk_buff *skb)
- {
- 	return SECSID_NULL;
-@@ -114,6 +104,14 @@ static inline int selinux_netlbl_inode_p
- {
- 	return 0;
- }
-+
-+static inline int selinux_netlbl_skb_sid(struct sk_buff *skb,
-+					 u32 base_sid,
-+					 u32 *sid)
-+{
-+	*sid = SECSID_NULL;
-+	return 0;
-+}
- #endif /* CONFIG_NETLABEL */
- 
- #endif
-Index: net-2.6/security/selinux/ss/services.c
-===================================================================
---- net-2.6.orig/security/selinux/ss/services.c
-+++ net-2.6/security/selinux/ss/services.c
-@@ -51,6 +51,7 @@
- #include "selinux_netlabel.h"
- 
- extern void selnl_notify_policyload(u32 seqno);
-+extern int selinux_compat_net;
- unsigned int policydb_loaded_version;
- 
- static DEFINE_RWLOCK(policy_rwlock);
-@@ -2454,7 +2455,6 @@ void selinux_netlbl_sk_security_init(str
- void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
- 				      struct sk_security_struct *newssec)
- {
--	newssec->sclass = ssec->sclass;
- 	if (ssec->nlbl_state != NLBL_UNSET)
- 		newssec->nlbl_state = NLBL_REQUIRE;
- 	else
-@@ -2476,11 +2476,8 @@ int selinux_netlbl_socket_post_create(st
- 				      int sock_family,
- 				      u32 sid)
- {
--	struct inode_security_struct *isec = SOCK_INODE(sock)->i_security;
- 	struct sk_security_struct *sksec = sock->sk->sk_security;
- 
--	sksec->sclass = isec->sclass;
--
- 	if (sock_family != PF_INET)
- 		return 0;
- 
-@@ -2500,24 +2497,23 @@ int selinux_netlbl_socket_post_create(st
-  */
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
- {
--	struct inode_security_struct *isec = SOCK_INODE(sock)->i_security;
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	struct netlbl_lsm_secattr secattr;
- 	u32 nlbl_peer_sid;
- 
--	sksec->sclass = isec->sclass;
--
- 	if (sk->sk_family != PF_INET)
- 		return;
- 
--	netlbl_secattr_init(&secattr);
--	if (netlbl_sock_getattr(sk, &secattr) == 0 &&
--	    selinux_netlbl_secattr_to_sid(NULL,
--					  &secattr,
--					  sksec->sid,
--					  &nlbl_peer_sid) == 0)
--		sksec->peer_sid = nlbl_peer_sid;
--	netlbl_secattr_destroy(&secattr, 0);
-+	if (selinux_compat_net) {
-+		netlbl_secattr_init(&secattr);
-+		if (netlbl_sock_getattr(sk, &secattr) == 0 &&
-+		    selinux_netlbl_secattr_to_sid(NULL,
-+						  &secattr,
-+						  sksec->sid,
-+						  &nlbl_peer_sid) == 0)
-+			sksec->peer_sid = nlbl_peer_sid;
-+		netlbl_secattr_destroy(&secattr, 0);
-+	}
- 
- 	sksec->nlbl_state = NLBL_REQUIRE;
- 
-@@ -2528,32 +2524,6 @@ void selinux_netlbl_sock_graft(struct so
- }
- 
- /**
-- * selinux_netlbl_inet_conn_request - Handle a new connection request
-- * @skb: the packet
-- * @sock_sid: the SID of the parent socket
-- *
-- * Description:
-- * If present, use the security attributes of the packet in @skb and the
-- * parent sock's SID to arrive at a SID for the new child sock.  Returns the
-- * SID of the connection or SECSID_NULL on failure.
-- *
-- */
--u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb, u32 sock_sid)
--{
--	int rc;
--	u32 peer_sid;
--
--	rc = selinux_netlbl_skbuff_getsid(skb, sock_sid, &peer_sid);
--	if (rc != 0)
--		return SECSID_NULL;
--
--	if (peer_sid == SECINITSID_UNLABELED)
--		return SECSID_NULL;
--
--	return peer_sid;
--}
--
--/**
-  * selinux_netlbl_inode_permission - Verify the socket is NetLabel labeled
-  * @inode: the file descriptor's inode
-  * @mask: the permission mask
-@@ -2593,7 +2563,8 @@ int selinux_netlbl_inode_permission(stru
- 
- /**
-  * selinux_netlbl_sock_rcv_skb - Do an inbound access check using NetLabel
-- * @sksec: the sock's sk_security_struct
-+ * @sock_sid: the socket's SID
-+ * @sock_class: the socket's class
-  * @skb: the packet
-  * @ad: the audit data
-  *
-@@ -2603,7 +2574,8 @@ int selinux_netlbl_inode_permission(stru
-  * error.
-  *
-  */
--int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
-+int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
-+				u16 sock_class,
- 				struct sk_buff *skb,
- 				struct avc_audit_data *ad)
- {
-@@ -2618,7 +2590,7 @@ int selinux_netlbl_sock_rcv_skb(struct s
- 	if (netlbl_sid == SECINITSID_UNLABELED)
- 		return 0;
- 
--	switch (sksec->sclass) {
-+	switch (sock_class) {
- 	case SECCLASS_UDP_SOCKET:
- 		recv_perm = UDP_SOCKET__RECVFROM;
- 		break;
-@@ -2629,9 +2601,9 @@ int selinux_netlbl_sock_rcv_skb(struct s
- 		recv_perm = RAWIP_SOCKET__RECVFROM;
- 	}
- 
--	rc = avc_has_perm(sksec->sid,
-+	rc = avc_has_perm(sock_sid,
- 			  netlbl_sid,
--			  sksec->sclass,
-+			  sock_class,
- 			  recv_perm,
- 			  ad);
- 	if (rc == 0)
-@@ -2642,25 +2614,6 @@ int selinux_netlbl_sock_rcv_skb(struct s
- }
- 
- /**
-- * selinux_netlbl_socket_getpeersec_stream - Return the connected peer's SID
-- * @sock: the socket
-- *
-- * Description:
-- * Examine @sock to find the connected peer's SID.  Returns the SID on success
-- * or SECSID_NULL on error.
-- *
-- */
--u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock)
--{
--	struct sk_security_struct *sksec = sock->sk->sk_security;
--
--	if (sksec->peer_sid == SECINITSID_UNLABELED)
--		return SECSID_NULL;
--
--	return sksec->peer_sid;
--}
--
--/**
-  * selinux_netlbl_socket_getpeersec_dgram - Return the SID of a NetLabel packet
-  * @skb: the packet
-  *
-@@ -2686,4 +2639,27 @@ u32 selinux_netlbl_socket_getpeersec_dgr
- 
- 	return peer_sid;
- }
-+
-+/**
-+ * selinux_netlbl_skb_sid - Calculate the NetLabel SID of a packet
-+ * @skb: the packet
-+ * @base_sid: the SELinux SID to use as a context for MLS only attributes
-+ * @sid: the SID
-+ *
-+ * Description:
-+ * Call the NetLabel mechanism to get the security attributes of the given
-+ * packet and use those attributes to determine the correct context/SID to
-+ * assign to the packet.  Returns zero on success, negative values on failure.
-+ *
-+ */
-+int selinux_netlbl_skb_sid(struct sk_buff *skb, u32 base_sid, u32 *sid)
-+{
-+	int rc;
-+
-+	rc = selinux_netlbl_skbuff_getsid(skb, base_sid, sid);
-+	if (rc == 0 && *sid == SECINITSID_UNLABELED)
-+		*sid = SECSID_NULL;
-+
-+	return rc;
-+}
- #endif /* CONFIG_NETLABEL */
+I wonder if I could flag up some curious behaviour that seems evident in 
+the measurements for the cubic algorithm.  In very many of the 
+individual time history plots it looks as if there are sustained periods 
+(extending to 100s of seconds) of substantial unfairness between 
+competing cubic flows with the same round-trip time.  See for example:
 
---
-paul moore
-linux security @ hp
+http://netsrv.csc.ncsu.edu/highspeed/convex-ordering/FullSet_old/RTTFAIR/1MB_4HS_0FLF_2RLF_SLF_320MS/600--CUBIC-CUBIC-SIMPLE--400-3-667--1000-155-0-0-1-1-5-500--200000-0.6-1000-10-600-64000-150--24/
+http://netsrv.csc.ncsu.edu/highspeed/convex-ordering/FullSet_old/RTTFAIR/1MB_4HS_0FLF_2RLF_SLF_320MS/600--CUBIC-CUBIC-SIMPLE--400-3-667--1000-155-0-0-1-1-5-500--200000-0.6-1000-10-600-64000-150--17/
+
+Can you comment on this behaviour ?  Perhaps I am misinterpreting the data.
+
+I think its probably worth pointing out that in all the tests it looks 
+as if the cubic flows are all started at much the same time - is this 
+correct ?  If so, the tests do not really probe the responsiveness of 
+cubic and it might well be useful to perform tests where the flows have 
+significantly different start times - it was this sort of experiment (by 
+ourselves a couple of years ago now - blowing my own trumpet, I know, 
+but what the heck :-)) that initially highlighted the convergence issues 
+with scalable-tcp, and the slow convergence of high-speed tcp and 
+bic-tcp.  Slow convergence translates into possible sustained 
+unfairness, for example, against new flows starting up.
+
+Doug
+
+Hamilton Institute
+www.hamilton.ie
+
+
+
+end2end-interest-request@postel.org wrote:
+> Send end2end-interest mailing list submissions to
+> 	end2end-interest@postel.org
+> 
+> To subscribe or unsubscribe via the World Wide Web, visit
+> 	http://mailman.postel.org/mailman/listinfo/end2end-interest
+> or, via email, send a message with subject or body 'help' to
+> 	end2end-interest-request@postel.org
+> 
+> You can reach the person managing the list at
+> 	end2end-interest-owner@postel.org
+> 
+> When replying, please edit your Subject line so it is more specific
+> than "Re: Contents of end2end-interest digest..."
+> 
+> 
+> Today's Topics:
+> 
+>    1. Stability of various TCP protocols [CUBIC, BIC, HTCP, HSTCP,
+>       STCP] (Injong Rhee)
+>    2. Re: performance of BIC-TCP, High-Speed-TCP, H-TCP etc
+>       (Injong Rhee)
+> 
+> 
+> ----------------------------------------------------------------------
+> 
+> Message: 1
+> Date: Thu, 28 Sep 2006 12:58:02 -0400
+> From: "Injong Rhee" <rhee@eos.ncsu.edu>
+> Subject: [e2e] Stability of various TCP protocols [CUBIC, BIC, HTCP,
+> 	HSTCP,	STCP]
+> To: <end2end-interest@postel.org>
+> Cc: netdev@vger.kernel.org
+> Message-ID: <00d301c6e31f$4304fed0$4a580e98@ncsu2cc0c3fa00>
+> Content-Type: text/plain; charset="ks_c_5601-1987"
+> 
+> Hi,
+> I'd like to report on a measurement study regarding the stability of various TCP variant protocols. Although we can find quite a bit of work on fairness and convergence of protocols (including some theoretical studies on the topic as well), there is relatively little work on measuring the stability of protocols and its impact on protocol performance and overall health of the networks (e.g., the overall queue fluctions and link utilization). We have measured the degree of rate oscillation and fluctuation of protocols to have some understanding of protocol stability. 
+> We would like to share our results with you to get some feedback from the community. 
+> 
+> We have some theoretical results and also experimental results. Here is the link to the experimental results. You can find links to all of our experimental data that include results from several hundred experiments.
+> 
+> http://netsrv.csc.ncsu.edu/convex-ordering/
+> 
+> If you need our report on theoretical results,  we can e-mail you the report.
+> Injong Rhee
+> -------------- next part --------------
+> An HTML attachment was scrubbed...
+> URL: http://mailman.postel.org/pipermail/end2end-interest/attachments/20060928/c42cf65c/attachment-0001.html
+> 
+> ------------------------------
+> 
+> Message: 2
+> Date: Thu, 28 Sep 2006 12:33:32 -0400
+> From: "Injong Rhee" <rhee@eos.ncsu.edu>
+> Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
+> To: <l.andrew@ieee.org>, <rhee@ncsu.edu>
+> Cc: netdev@vger.kernel.org, Douglas Leith <doug.leith@nuim.ie>,
+> 	lisongxu@gmail.com, floyd@icsi.berkeley.edu,
+> 	end2end-interest@postel.org
+> Message-ID: <00c401c6e31b$d75c9970$4a580e98@ncsu2cc0c3fa00>
+> Content-Type: text/plain; format=flowed; charset="ISO-8859-1";
+> 	reply-type=response
+> 
+> Sure. I don't mind doing this test. I am currently working with Doug Leith 
+> to get to the bottom of this difference. So when we get to the PFLDnet, we 
+> should have some more findings on this. But I am up for this challenge.
+> 
+> ----- Original Message ----- 
+> From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
+> To: <rhee@ncsu.edu>
+> Cc: "Douglas Leith" <doug.leith@nuim.ie>; <netdev@vger.kernel.org>; 
+> <floyd@icsi.berkeley.edu>; <lisongxu@gmail.com>; "Injong Rhee" 
+> <rhee@eos.ncsu.edu>; <end2end-interest@postel.org>
+> Sent: Wednesday, September 27, 2006 7:20 PM
+> Subject: Re: [e2e] performance of BIC-TCP, High-Speed-TCP, H-TCP etc
+> 
+> 
+>> Greetings all,
+>>
+>> On 23/09/06, rhee@ncsu.edu <rhee@ncsu.edu> wrote:
+>>> Just i was pondering why we got different results and try to see if we 
+>>> can
+>>> come to some understanding on this different results we got. Who knows we
+>>> together might run into some fundamental research issues regarding
+>>> testing.
+>> Since many interested parties will be around LA for PFLDnet, how about
+>> getting together after that (Friday 9 Feb) to re-run some of the
+>> disputed tests on one set of hardware, with everyone present to debate
+>> the results?
+>>
+>> You're all welcome to come to Caltech to do the testing.  We can
+>> provide a few servers, dummynets and Gigabit switches.  Everyone is
+>> welcome to bring their scripts, and any other hardware they need.
+>>
+>> If there is interest, we could also have things like a round-table
+>> discussion of the benefits of testing with different file-length
+>> distributions (like long lived flows to understand what is happening
+>> vs a range of flows to test suitability for deployment), and the
+>> benefits of repeating other people's tests vs testing in as many
+>> scenarios as possible.
+>>
+>> Who is interested in coming?
+>>
+>> Cheers,
+>> Lachlan
+>>
+>> -- 
+>> Lachlan Andrew  Dept of Computer Science, Caltech
+>> 1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
+>> Phone: +1 (626) 395-8820    Fax: +1 (626) 568-3603
+>>
+> 
+> 
+> 
+> ------------------------------
+> 
+> _______________________________________________
+> end2end-interest mailing list
+> end2end-interest@postel.org
+> http://mailman.postel.org/mailman/listinfo/end2end-interest
+> 
+> 
+> End of end2end-interest Digest, Vol 31, Issue 21
+> ************************************************
+
