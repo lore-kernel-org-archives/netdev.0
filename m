@@ -1,107 +1,108 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: rewriting skb->truesize... good or bad idea
-Date: Mon, 02 Oct 2006 10:46:42 -0400
-Message-ID: <45212652.5030505@hp.com>
-References: <451D6319.1040506@hp.com> <20060929.143139.74560775.davem@davemloft.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] Introduce BROKEN_ON_64BIT facility
+Date: Mon, 02 Oct 2006 16:12:35 +0100
+Message-ID: <1159801956.8907.13.camel@localhost.localdomain>
+References: <200610021352.k92DqRwa015220@cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:30357 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S932466AbWJBOqo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 10:46:44 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060929.143139.74560775.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kkeil@suse.de, kai.germaschewski@gmx.de,
+	isdn4linux@listserv.isdn4linux.de, mac@melware.de,
+	markus.lidel@shadowconnect.com, samuel@sortiz.org,
+	Neela.Kolli@engenio.com, linux-scsi@vger.kernel.org,
+	Greg KH <greg@kroah.com>, thomas@winischhofer.net, ak@suse.de
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200610021352.k92DqRwa015220@cmf.nrl.navy.mil>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David
+Ar Llu, 2006-10-02 am 09:52 -0400, ysgrifennodd chas williams -
+CONTRACTOR:
+> some of the drivers in atm are already marked with !64BIT and some
+> need to be marked.  this might be more complete for drivers/atm/Kconfig:
 
-Thanks for the answer.
+This should fix Iphase for one. Some of the others look a lot harder
+however
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Fri, 29 Sep 2006 14:16:57 -0400
-> 
->> I've attached the patch, in case people want to look at the code.
->>
->> However, we question if this is a good idea or if this is going to break
->> things...
-> 
-> Modification of skb->truesize is very dangerous and is only legal
-> in a very limited set of circumstances.
-> 
-> The core problem is that if any other reference exists to the skb
-> you could corrupt existing socket accounting by changing skb->truesize.
+Signed-off-by: Alan Cox <alan@redhat.com>
 
-Yes, that's what I've found in the code.
+Binary files linux.vanilla-2.6.18-mm2/drivers/atm/fore200e_mkfirm and linux-2.6.18-mm2/drivers/atm/fore200e_mkfirm differ
+diff -u --new-file --recursive --exclude-from /usr/src/exclude linux.vanilla-2.6.18-mm2/drivers/atm/iphase.c linux-2.6.18-mm2/drivers/atm/iphase.c
+--- linux.vanilla-2.6.18-mm2/drivers/atm/iphase.c	2006-09-20 04:42:06.000000000 +0100
++++ linux-2.6.18-mm2/drivers/atm/iphase.c	2006-10-02 15:28:51.678220488 +0100
+@@ -93,10 +93,6 @@
+ 
+ MODULE_LICENSE("GPL");
+ 
+-#if BITS_PER_LONG != 32
+-#  error FIXME: this driver only works on 32-bit platforms
+-#endif
+-
+ /**************************** IA_LIB **********************************/
+ 
+ static void ia_init_rtn_q (IARTN_Q *que) 
+@@ -1408,7 +1404,6 @@
+ 	struct abr_vc_table  *abr_vc_table; 
+ 	u16 *vc_table;  
+ 	u16 *reass_table;  
+-        u16 *ptr16;
+ 	int i,j, vcsize_sel;  
+ 	u_short freeq_st_adr;  
+ 	u_short *freeq_start;  
+@@ -1423,14 +1418,15 @@
+ 		printk(KERN_ERR DEV_LABEL "can't allocate DLEs\n");
+ 		goto err_out;
+ 	}
+-	iadev->rx_dle_q.start = (struct dle*)dle_addr;  
++	iadev->rx_dle_q.start = (struct dle *)dle_addr;
+ 	iadev->rx_dle_q.read = iadev->rx_dle_q.start;  
+ 	iadev->rx_dle_q.write = iadev->rx_dle_q.start;  
+-	iadev->rx_dle_q.end = (struct dle*)((u32)dle_addr+sizeof(struct dle)*DLE_ENTRIES);  
++	iadev->rx_dle_q.end = (struct dle*)((unsigned long)dle_addr+sizeof(struct dle)*DLE_ENTRIES);
+ 	/* the end of the dle q points to the entry after the last  
+ 	DLE that can be used. */  
+   
+ 	/* write the upper 20 bits of the start address to rx list address register */  
++	/* We know this is 32bit bus addressed so the following is safe */
+ 	writel(iadev->rx_dle_dma & 0xfffff000,
+ 	       iadev->dma + IPHASE5575_RX_LIST_ADDR);  
+ 	IF_INIT(printk("Tx Dle list addr: 0x%08x value: 0x%0x\n", 
+@@ -1584,11 +1580,12 @@
+ 	   Set Packet Aging Interval count register to overflow in about 4 us
+  	*/  
+         writew(0xF6F8, iadev->reass_reg+PKT_TM_CNT );
+-        ptr16 = (u16*)j;
+-        i = ((u32)ptr16 >> 6) & 0xff;
+-	ptr16  += j - 1;
+-	i |=(((u32)ptr16 << 2) & 0xff00);
++        
++        i = (j >> 6) & 0xFF;
++        j += 2 * (j - 1);
++        i |= ((j << 2) & 0xFF00);
+         writew(i, iadev->reass_reg+TMOUT_RANGE);
++
+         /* initiate the desc_tble */
+         for(i=0; i<iadev->num_tx_desc;i++)
+             iadev->desc_tbl[i].timestamp = 0;
+@@ -1911,7 +1908,7 @@
+ 	iadev->tx_dle_q.start = (struct dle*)dle_addr;  
+ 	iadev->tx_dle_q.read = iadev->tx_dle_q.start;  
+ 	iadev->tx_dle_q.write = iadev->tx_dle_q.start;  
+-	iadev->tx_dle_q.end = (struct dle*)((u32)dle_addr+sizeof(struct dle)*DLE_ENTRIES);  
++	iadev->tx_dle_q.end = (struct dle*)((unsigned long)dle_addr+sizeof(struct dle)*DLE_ENTRIES);  
+ 
+ 	/* write the upper 20 bits of the start address to tx list address register */  
+ 	writel(iadev->tx_dle_dma & 0xfffff000,
+@@ -2913,7 +2910,7 @@
+                  dev_kfree_skb_any(skb);
+           return 0;
+         }
+-        if ((u32)skb->data & 3) {
++        if ((unsigned long)skb->data & 3) {
+            printk("Misaligned SKB\n");
+            if (vcc->pop)
+                  vcc->pop(vcc, skb);
 
-> 
-> Let's say that the packet went into a network tap like tcpdump and
-> the packet has been charged to an AF_PACKET socket via skb->truesize.
-> If you modify skb->truesize then when the AF_PACKET socket releases
-> it's reference it will subtract the wrong amount of skb->truesize
-> from the socket receive buffer.
-
-Thankfully, this does not appear to be a problem in this particular
-case.  The clones that would have their truesize changed, only exist in
-SCTP.  The packet has already gone through all verifications and we just
-queue the clones to the socket. The original packet skb remains
-unchanged.  SCTP calls kfree_skb on it once all the cloning is done.
-
-> 
-> If, on the other hand, you know you have exclusive access to the
-> skb and there are no other references, setting skb->truesize can
-> be OK.  However setting it to sizeof(struct sk_buff) doesn't make
-> sense since there is at least:
-> 
-> 	sizeof(struct sk_buff) + sizeof(struct skb_shared_info)
-> 
-> memory assosciated with any SKB whatsoever in the kernel.  That is,
-> even for a "zero length" skb->data buffer, we still always allocate
-> the skb_shared_info area which must be accounted for.
-
-Well, since we are dealing with clones of the original skb, I didn't
-think that we need to include skb_shared_info.  I thought that was
-accounted for in the original skb?
-
-The clones, that SCTP creates, point at a subset of data...
-something like this:
-
- clone 1 ------+          clone 2 ------+
-               |                        |
-               |                        |
-               v                        v
-  +-------------------------------------------------------
-  | proto hdrs | sctp data chunk 1      | data chunk 2
-  +-------------------------------------------------------
-  ^
-  |
-  |
-  +--- orig_skb->head
-
-
-Right now, for every clone we use the generic socket accounting code
-that uses skb->truesize.
-
-The alternative to changing truesize is to write an SCTP version of
-socket accounting.  This is what we did back in 2.6.10 days and we
-tried get away from that.
-
-If you have another idea of how we could do this, I'd appreciate it.
-
-> 
-> BTW, I think the whole chunking mechanism in the SCTP code is the
-> largest source of problems and maintainability issues in that stack.
-> Any time I want to make major modifications to SKBs to make them
-> smaller or whatever, the most difficult piece of code to adjust is
-> this code.
-> 
-
-I think you've already removed all the dependencies between chunking and
-SKBs.  All we have now are some pointers to skb.  This work actually
-made the protocol a lot more stable.
-
-Thanks
--vlad
