@@ -1,97 +1,60 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] cfg80211 and nl80211
-Date: Mon, 02 Oct 2006 11:08:19 +0200
-Message-ID: <1159780099.2655.35.camel@ux156>
-References: <1159435399.2648.17.camel@ux156>
-	 <451D8BD1.5020906@linux.intel.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Introduce BROKEN_ON_64BIT facility
+Date: 02 Oct 2006 11:51:45 +0200
+Message-ID: <p737izjhwpa.fsf@verdi.suse.de>
+References: <20061002045512.GA8835@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Michael Wu <flamingice@sourmilk.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:12173 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750898AbWJBJHc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 05:07:32 -0400
-To: James Ketrenos <jketreno@linux.intel.com>
-In-Reply-To: <451D8BD1.5020906@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org, kkeil@suse.de,
+	kai.germaschewski@gmx.de, isdn4linux@listserv.isdn4linux.de,
+	mac@melware.de, markus.lidel@shadowconnect.com, samuel@sortiz.org,
+	Neela.Kolli@engenio.com, linux-scsi@vger.kernel.org,
+	Greg KH <greg@kroah.com>, thomas@winischhofer.net
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <20061002045512.GA8835@havoc.gtf.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James,
+Jeff Garzik <jeff@garzik.org> writes:
 
-Good points. Just a few comments.
+> Add a broken-on-64bit option, similar to the existing broken-on-smp
+> config option.  This is just the first pass, marking the obvious
+> candidates.
 
-> The EEPROM contents typically represent the configuration and operating
-> parameters which have been tested and certified to be operational.
-> 
-> These would represent the only settings which a user can operate with
-> and still be covered by existing certifications.
+When I had this problem in the past I just used && !64BIT.
+How is this new option different?
+>  config ISDN_CAPI_CAPI20
+>  	tristate "CAPI2.0 /dev/capi support"
+> -	depends on ISDN_CAPI
+> +	depends on ISDN_CAPI && BROKEN_ON_64BIT
+>  	help
+>  	  This option will provide the CAPI 2.0 interface to userspace
+>  	  applications via /dev/capi20. Applications should use the
+> @@ -44,7 +44,7 @@ config ISDN_CAPI_CAPIFS
+>  
+>  config ISDN_CAPI_CAPIDRV
+>  	tristate "CAPI2.0 capidrv interface support"
+> -	depends on ISDN_CAPI && ISDN_I4L
+> +	depends on ISDN_CAPI && ISDN_I4L && BROKEN_ON_64BIT
 
-Also, the EEPROM could potentially contain limitations of the device
-itself, a device manufactured for channels 1-11 might not even operate
-correctly in channel 14, I guess.
+As discussed earlier ISDN is actually ok.
+> diff --git a/drivers/message/i2o/Kconfig b/drivers/message/i2o/Kconfig
+> index 6443392..0e135ce 100644
+> --- a/drivers/message/i2o/Kconfig
+> +++ b/drivers/message/i2o/Kconfig
+> @@ -56,7 +56,7 @@ config I2O_EXT_ADAPTEC_DMA64
+>  
+>  config I2O_CONFIG
+>  	tristate "I2O Configuration support"
+> -	depends on I2O
+> +	depends on I2O && BROKEN_ON_64BIT
+>  	---help---
+>  	  Say Y for support of the configuration interface for the I2O adapters.
 
-> The kernel should enforce the parameters as specified by the
-> hardware/driver.  In the event that a driver does not advertise a set of
-> capabilities, the kernel should select the minimal "safe set", which
-> would be a subset of the 2.4Ghz spectrum and likely exclude all of 5.2Ghz.
+AFAIK I2O got fixed too. Do you have any evidence that it is really
+broken on 64bit?
 
-Right. Note that for bcm43xx for example, we know that these devices
-have been certified all over the world and hence the EEPROM information
-is effectively useless because it just tells us for which region this
-particular device was manufactured, the vendor actually programs this
-info and not Broadcom. Hence, in the driver, we'd probably announce some
-rather liberal set of parameters.
 
-Maybe there's a need for two different sets of parameters here: one that
-the hardware can potentially be used at (usually known to the driver),
-and one that it was certified for (the eeprom country info for a given
-device)?
 
-> With hardware that restricts operation to the capabilities it was tested
-> and calibrated for, this will likely result in a broken user experience
-> -- if they try and use a device on channel 13 and the device restricts
-> operation to channels 1 - 11, tuning operations will fail.
-
-Yes, makes sense to enforce this all the way through to userspace and
-refuse broadening of the limitations from what the driver announced.
-
-This does, however, mean that we cannot just have one global set of
-parameters because different hardware might behave differently, if I use
-a card manufactured for the somewhere else and it restricts operating to
-the eeprom limitations, then that means that I can potentially not make
-use of the full permitted spectrum for where I am, and hence will not
-want this card to restrict other cards in the system that may be
-certified for that broader spectrum. On the other hand, since the other
-card is not certified for the broader spectrum there should not be a way
-to force it to operate there since it may misbehave.
-
-The conclusion, it seems, is to have two different sets of limitations:
- (a) a global set of regulatory limitations that is completely
-     controlled by external information (802.11d anouncements, user
-     specified operating country, ...) and set by the userspace daemon
-     that analyses all these things and
- (b) a device specific set of limitations initialised by the driver to
-     the ranges supported by the card (what the card was certified for
-     etc)
-
-Both (a) and (b) are initialised to some sort of (to be determined)
-'safe set', (b) then given by the driver for each wiphy, and (a) by the
-userspace daemon.
-
-Then, when a given card operates, the kernel makes sure that operation
-is limited to adhere to both sets of limitations. Of course there needs
-to be some userspace interface to query both (a) and (b).
-
-This makes sure that
- - devices always only operate in the ranges they were certified with
- - operations is additionally limited to what the current locale permits
- - 802.11d is possible within those ranges that the devices allow
-
-Does that sound sane?
-
-johannes
+-Andi
