@@ -1,75 +1,105 @@
-From: chunkeey@web.de
-Subject: [PATCH] wext
-Date: Mon, 2 Oct 2006 19:55:22 +0200
-Message-ID: <200610021955.23112.chunkeey@web.de>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
+Date: Mon, 2 Oct 2006 10:52:45 -0700
+Message-ID: <20061002175245.GA14744@bougret.hpl.hp.com>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_LKVIFiR5P0fxTxG"
+Content-Type: text/plain; charset=us-ascii
+Cc: Valdis.Kletnieks@vt.edu,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:44008 "EHLO
-	fmmailgate01.web.de") by vger.kernel.org with ESMTP id S965191AbWJBRzZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 13:55:25 -0400
-Received: from smtp08.web.de (fmsmtp08.dlan.cinetic.de [172.20.5.216])
-	by fmmailgate01.web.de (Postfix) with ESMTP id 42F5B245FCE1
-	for <netdev@vger.kernel.org>; Mon,  2 Oct 2006 19:55:24 +0200 (CEST)
-Received: from [84.157.243.57] (helo=debian64.daheim)
-	by smtp08.web.de with asmtp (TLSv1:AES256-SHA:256)
-	(WEB.DE 4.107 #114)
-	id 1GUS0i-000598-00
-	for netdev@vger.kernel.org; Mon, 02 Oct 2006 19:55:24 +0200
-Received: from localhost.localdomain
-	([127.0.0.1] helo=localhost ident=chuck)
-	by debian64.daheim with esmtpa (Exim 4.63)
-	(envelope-from <chunkeey@web.de>)
-	id 1GUS0h-0002QZ-Ei
-	for netdev@vger.kernel.org; Mon, 02 Oct 2006 19:55:23 +0200
-To: netdev@vger.kernel.org
+Received: from madara.hpl.hp.com ([192.6.19.124]:56292 "EHLO madara.hpl.hp.com")
+	by vger.kernel.org with ESMTP id S965194AbWJBR4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 13:56:38 -0400
+To: Andrew Morton <akpm@osdl.org>, Pavel Roskin <proski@gnu.org>
+Content-Disposition: inline
+In-Reply-To: <20060929182008.fee2a229.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_LKVIFiR5P0fxTxG
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, Sep 29, 2006 at 06:20:08PM -0700, Andrew Morton wrote:
+> On Fri, 29 Sep 2006 20:01:54 -0400
+> > 
+> > % grep ioctl /tmp/foo2 | sort -u | more
+> > ioctl(13, SIOCGIWESSID, 0xbfbcdb9c)     = 0
+> > ioctl(13, SIOCGIWRANGE, 0xbfbcdbdc)     = 0
+> > ioctl(13, SIOCGIWRATE, 0xbfbcdbbc)      = 0
+> 
+> Yes.  The main thing which those WE-21 patches do is to shorten the size of
+> various buffers which are used in wireless ioctls.
 
-This patch (wext-patch) is a proposal. It adds two new defines for the=20
-SIOCSIWMLME to cover all kinds MLMEs (well, except REASSOC) through a ioctl.
-(it would be nice to have them, so that I can post the hostapd code for the=
-=20
-prism54 card!)
+	Ok, I've found it. Actually, I feel ashamed, as it is a fairly
+classical buffer overflow, we put one extra char in a buffer. Now, I
+don't understand why it did not blow up on my box ;-)
+	New patch. I think it is right, but I would not mind Pavel to
+have a look at it. On my box it does not make thing worse.
+	Valdis : would you mind trying if this patch fix the problem
+you are seeing with WE-21 ? If it fixes it, I'll send it to John...
+	Have fun...
 
-I didn't update the changelog! but this should be done in a matter of secon=
-ds.
+	Jean
 
-diffstat wext-patch
-=A0wireless.h | =A0 =A02 ++
-=A01 file changed, 2 insertions(+)
+P.S. : I'll audit the other wireless drivers for the same thing.
 
-Signed-off-by: Christian Lamparter <chunkeey@web.de>
+-------------------------------------------------
 
-Regards,
-=A0=A0=A0=A0=A0=A0=A0=A0Chr. Lamparter
-
---Boundary-00=_LKVIFiR5P0fxTxG
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="wext-patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="wext-patch"
-
---- a/include/linux/wireless.h	2006-10-01 03:24:01.000000000 +0200
-+++ b/include/linux/wireless.h	2006-10-01 03:24:38.000000000 +0200
-@@ -546,6 +546,8 @@
- /* MLME requests (SIOCSIWMLME / struct iw_mlme) */
- #define IW_MLME_DEAUTH		0
- #define IW_MLME_DISASSOC	1
-+#define IW_MLME_AUTH		2
-+#define IW_MLME_ASSOC		3
+diff -u -p linux/drivers/net/wireless/orinoco.j1.c linux/drivers/net/wireless/orinoco.c
+--- linux/drivers/net/wireless/orinoco.j1.c	2006-10-02 10:15:41.000000000 -0700
++++ linux/drivers/net/wireless/orinoco.c	2006-10-02 10:39:20.000000000 -0700
+@@ -2456,6 +2456,7 @@ void free_orinocodev(struct net_device *
+ /* Wireless extensions                                              */
+ /********************************************************************/
  
- /* SIOCSIWAUTH/SIOCGIWAUTH struct iw_param flags */
- #define IW_AUTH_INDEX		0x0FFF
-
---Boundary-00=_LKVIFiR5P0fxTxG--
++/* Return : < 0 -> error code ; >= 0 -> length */
+ static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
+ 				char buf[IW_ESSID_MAX_SIZE+1])
+ {
+@@ -2500,9 +2501,9 @@ static int orinoco_hw_get_essid(struct o
+ 	len = le16_to_cpu(essidbuf.len);
+ 	BUG_ON(len > IW_ESSID_MAX_SIZE);
+ 
+-	memset(buf, 0, IW_ESSID_MAX_SIZE+1);
++	memset(buf, 0, IW_ESSID_MAX_SIZE);
+ 	memcpy(buf, p, len);
+-	buf[len] = '\0';
++	err = len;
+ 
+  fail_unlock:
+ 	orinoco_unlock(priv, &flags);
+@@ -3026,17 +3027,18 @@ static int orinoco_ioctl_getessid(struct
+ 
+ 	if (netif_running(dev)) {
+ 		err = orinoco_hw_get_essid(priv, &active, essidbuf);
+-		if (err)
++		if (err < 0)
+ 			return err;
++		erq->length = err;
+ 	} else {
+ 		if (orinoco_lock(priv, &flags) != 0)
+ 			return -EBUSY;
+-		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE + 1);
++		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE);
++		erq->length = strlen(priv->desired_essid);
+ 		orinoco_unlock(priv, &flags);
+ 	}
+ 
+ 	erq->flags = 1;
+-	erq->length = strlen(essidbuf);
+ 
+ 	return 0;
+ }
+@@ -3074,10 +3076,10 @@ static int orinoco_ioctl_getnick(struct 
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+ 
+-	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE+1);
++	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE);
+ 	orinoco_unlock(priv, &flags);
+ 
+-	nrq->length = strlen(nickbuf);
++	nrq->length = strlen(priv->nick);
+ 
+ 	return 0;
+ }
