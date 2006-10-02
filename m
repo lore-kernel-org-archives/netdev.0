@@ -1,30 +1,41 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] Introduce BROKEN_ON_64BIT facility
-Date: Mon, 02 Oct 2006 14:03:28 +0100
-Message-ID: <1159794208.8907.9.camel@localhost.localdomain>
-References: <20061002045512.GA8835@havoc.gtf.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled
+Date: Mon, 2 Oct 2006 10:05:22 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610021004180.9739@d.namei>
+References: <20060925120519.GA19010@2ka.mipt.ru> <Pine.LNX.4.64.0609300037460.12011@d.namei>
+ <Pine.LNX.4.64.0609300110190.12422@d.namei> <20060930111521.GA646@2ka.mipt.ru>
+ <Pine.LNX.4.64.0609301035020.26766@d.namei> <20060930144018.GA16918@2ka.mipt.ru>
+ <Pine.LNX.4.64.0609301044090.26813@d.namei> <Pine.LNX.4.64.0610010203440.8658@d.namei>
+ <20061002112050.GA772@2ka.mipt.ru> <Pine.LNX.4.64.0610020919050.9400@d.namei>
+ <20061002134200.GA20441@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
-	chas@cmf.nrl.navy.mil, netdev@vger.kernel.org, kkeil@suse.de,
-	kai.germaschewski@gmx.de, isdn4linux@listserv.isdn4linux.de,
-	mac@melware.de, markus.lidel@shadowconnect.com, samuel@sortiz.org,
-	Neela.Kolli@engenio.com, linux-scsi@vger.kernel.org,
-	Greg KH <greg@kroah.com>, thomas@winischhofer.net, ak@suse.de
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <20061002045512.GA8835@havoc.gtf.org>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:9160 "EHLO
+	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932353AbWJBOF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 10:05:26 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061002134200.GA20441@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ar Llu, 2006-10-02 am 00:55 -0400, ysgrifennodd Jeff Garzik:
-> Add a broken-on-64bit option, similar to the existing broken-on-smp
-> config option.  This is just the first pass, marking the obvious
-> candidates.
+On Mon, 2 Oct 2006, Evgeniy Polyakov wrote:
 
-NAK. This contains lots of stuff whcih isn't broken in the first place.
+> Probably reference counter is inside freed object...
 
-(Eg Megaraid works with 32bit config tools not 64bit ones and is
-otherwise fine, ISDN is just bogus warnings now swatted)
+I think I know what it is (xfrm_lookup needs to just return on flow cache 
+lookup failure, not goto error and free the dst).  Patch forthcoming.
 
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
