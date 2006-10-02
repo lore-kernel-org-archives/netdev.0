@@ -1,49 +1,42 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] Revert [NET_SCHED]: HTB: fix incorrect use of RB_EMPTY_NODE
-Date: Mon, 2 Oct 2006 13:15:55 +0200
-Message-ID: <20061002111555.GB2936@ff.dom.local>
-References: <200609302223.47627.ismail@pardus.org.tr> <20061002102447.GA2936@ff.dom.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] fix bcm43xx-d80211 for inode diet
+Date: Mon, 02 Oct 2006 13:14:47 +0200
+Message-ID: <1159787687.2655.53.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:37558 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S932089AbWJBLL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 07:11:27 -0400
-To: Ismail Donmez <ismail@pardus.org.tr>, axboe@suse.de,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061002102447.GA2936@ff.dom.local>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35750 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750823AbWJBLN7
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 07:13:59 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 02, 2006 at 12:24:47PM +0200, Jarek Poplawski wrote:
-> On 30-09-2006 21:23, Ismail Donmez wrote:
-> > Hi,
-> > 
-> > With commit 10fd48f2376db52f08bf0420d2c4f580e39269e1 [1] ,  RB_EMPTY_NODE 
-> > changed behaviour so it returns false when the node is empty as expected. 
-> ...
-> > -	if (!RB_EMPTY_NODE(rb)) {
-> > +	if (RB_EMPTY_NODE(rb)) {
-> 
-> Maybe you have some kind of agreement with Jens Axboe but I
-> can't understand current way of kernel cooperation:
-> he changes some global behavior to the opposite and fixes
-> his code in three places but can't fix it in the fourth place
-...
+This patch propagates the inode diet changes to bcm43xx-d80211.
 
-But I see it's not so bad and net_sched isn't the last!
-It looks deadline-iosched.c and one place in as-iosched.c
-(~ 466 line) where probably also forgotten. 
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+This patch is required for compiling bcm43xx-d80211 after pulling the
+inode diet changes that went into Linus's tree into wireless-dev, since
+bcm43xx-d80211 is not in mainline it wasn't fixed up along with the
+changes.
 
-Another question - is there any change planned?
-If not why in rbtree.c is:
+I've compiled this but couldn't test because the kernel currently
+doesn't boot on my powerbook, it hangs very early.
 
-+ if (rb_parent(node) == node)
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-10-01 11:30:18.040555764 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-10-01 11:50:01.780555764 +0200
+@@ -54,7 +54,7 @@ static ssize_t write_file_dummy(struct f
+ 
+ static int open_file_generic(struct inode *inode, struct file *file)
+ {
+-	file->private_data = inode->u.generic_ip;
++	file->private_data = inode->i_private;
+ 	return 0;
+ }
+ 
 
-instead of:
-
-+ if (RB_EMPTY_NODE(rb))
-
-Jarek P.
