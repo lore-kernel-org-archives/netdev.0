@@ -1,100 +1,40 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH v2 1/1] NetLabel: secid reconciliation support
-Date: Mon, 02 Oct 2006 16:19:35 -0400
-Message-ID: <45217457.6070303@hp.com>
-References: <20061002180633.639599000@hp.com>	 <20061002181633.788771000@hp.com> <1159817041.6855.150.camel@moss-spartans.epoch.ncsc.mil>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Network Events Connector
+Date: Mon, 02 Oct 2006 13:33:14 -0700 (PDT)
+Message-ID: <20061002.133314.41657633.davem@davemloft.net>
+References: <m23ba7gscl.fsf@cerbere.dyndns.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
-	eparis@redhat.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:31630 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S964973AbWJBUTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 16:19:37 -0400
-To: Stephen Smalley <sds@tycho.nsa.gov>,
-	Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <1159817041.6855.150.camel@moss-spartans.epoch.ncsc.mil>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29931
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964990AbWJBUdC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 16:33:02 -0400
+To: sbellabes@mandriva.com
+In-Reply-To: <m23ba7gscl.fsf@cerbere.dyndns.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Smalley wrote:
-> On Mon, 2006-10-02 at 14:06 -0400, paul.moore@hp.com wrote:
+From: Samir Bellabes <sbellabes@mandriva.com>
+Date: Mon, 02 Oct 2006 08:11:06 +0200
+
+> This patch adds a connector which reports networking's events to
+> userspace. It's sending events when a sock has its sk_state changed to :
+>   - LISTEN or CLOSE for DCCP and TCP
+>   - BIND or CLOSE for UDP.
 > 
->>plain text document attachment (netlabel-secid_support)
->>This patch provides the missing NetLabel support to the secid reconciliation
->>patchset.
->>
->>Signed-off-by: Paul Moore <paul.moore@hp.com>
->>---
->> security/selinux/hooks.c                    |   67 +++++++++++------
->> security/selinux/include/objsec.h           |    1 
->> security/selinux/include/selinux_netlabel.h |   28 +++----
->> security/selinux/ss/services.c              |  106 ++++++++++------------------
->> 4 files changed, 98 insertions(+), 104 deletions(-)
-> 
-> 
->>@@ -3725,7 +3723,16 @@ static int selinux_skb_flow_in(struct sk
->>+
->>+	err = avc_has_perm(nlbl_sid, skb->secmark, SECCLASS_PACKET,
->>+					PACKET__FLOW_IN, NULL);
-> 
-> 
-> This means we end up with two flow_in checks each time, even if only one
-> or none of the two labeling mechanisms was used, right?  Given the
-> conclusion on the discussion of what it means to use them together (just
-> redundant), this seems to be pointless overhead.
+> With this notification, a userspace tool can ask the user if he want to
+> let the local firewall open for the corresponding sport or not, and if
+> so open the firewall for the application which get the corresponding sport.
 
-Okay, how about something like this?
+You can do this with the security layer, netfilter's ULOG, or even
+the netfilter connection tracking netlink sockets.
 
-static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
-{
-	u32 xfrm_sid;
-	u32 nlbl_sid;
-	u32 ext_sid;
-	int err;
+That's 3 facilities by which you can accomplish this, and if none
+of them are perfect, add the small modifications you need to one
+of them to make them usable for your task.
 
-	if (selinux_compat_net)
-		return 1;
+It makes no sense to add new facilities just for this.
 
-	/*
-	 * loopback traffic already labeled and
-	 * flow-controlled on outbound. We may
-	 * need to flow-control on the inbound
-	 * as well if there's ever a use-case for it.
-	 */
-	if (skb->dev == &loopback_dev)
-		return 1;
-
-	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
-	BUG_ON(err);
-
-	err = selinux_netlbl_skb_sid(skb,
-				     xfrm_sid ? xfrm_sid : skb->secmark,
-				     &nlbl_sid);
-	if (err)
-		goto out;
-
-	if (nlbl_sid)
-		ext_sid = nlbl_sid;
-	else
-		ext_sid = xfrm_sid;
-
-	err = avc_has_perm(ext_sid,
-			   skb->secmark,
-			   SECCLASS_PACKET,
-			   PACKET__FLOW_IN,
-			   NULL);
-	if (err)
-		goto out;
-
-	if (ext_sid)
-		skb->secmark = ext_sid;
-
-out:
-	return err ? 0 : 1;
-};
-
--- 
-paul moore
-linux security @ hp
