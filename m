@@ -1,80 +1,81 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Mon, 2 Oct 2006 20:30:13 +0400
-Message-ID: <20061002163013.GA24585@2ka.mipt.ru>
-References: <20060930144018.GA16918@2ka.mipt.ru> <Pine.LNX.4.64.0609301044090.26813@d.namei> <Pine.LNX.4.64.0610010203440.8658@d.namei> <20061002112050.GA772@2ka.mipt.ru> <Pine.LNX.4.64.0610020919050.9400@d.namei> <20061002134200.GA20441@2ka.mipt.ru> <Pine.LNX.4.64.0610021004180.9739@d.namei> <Pine.LNX.4.64.0610021020390.9909@d.namei> <20061002160021.GA8823@2ka.mipt.ru> <Pine.LNX.4.64.0610021208050.10965@d.namei>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH 7/9] secid reconciliation-v04: Enforcement for SELinux
+Date: Mon, 02 Oct 2006 12:35:08 -0400
+Message-ID: <1159806908.6855.58.camel@moss-spartans.epoch.ncsc.mil>
+References: <452032A6.1080306@trustedcs.com>  <45213A55.8070205@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Venkat Yekkirala <vyekkirala@trustedcs.com>,
+	netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:21182 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S965043AbWJBQbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 12:31:33 -0400
-To: James Morris <jmorris@namei.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0610021208050.10965@d.namei>
+Received: from mummy.ncsc.mil ([144.51.88.129]:54163 "EHLO jazzhorn.ncsc.mil")
+	by vger.kernel.org with ESMTP id S965033AbWJBQe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 12:34:29 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <45213A55.8070205@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 02, 2006 at 12:13:45PM -0400, James Morris (jmorris@namei.org) wrote:
-> On Mon, 2 Oct 2006, Evgeniy Polyakov wrote:
-> 
-> > On Mon, Oct 02, 2006 at 10:27:13AM -0400, James Morris (jmorris@namei.org) wrote:
-> > > Updated version of the patch, which return directly after a flow cache 
-> > > lookup error in xfrm_lookup rather than returing via the cleanup path 
-> > > (which was causing a spurious dst_release).
-> > > 
-> > > This works for me, although I never saw the oops with the old patch.
-> > > 
-> > > Evgeniy, let me know if this fixes the oops you're seeing.
+On Mon, 2006-10-02 at 12:12 -0400, Paul Moore wrote:
+> Venkat Yekkirala wrote:
+> > This defines SELinux enforcement of the 2 new LSM hooks as well
+> > as related changes elsewhere in the SELinux code.
 > > 
-> > With enabled selinux in enforcing mode I can not even get messages to
-> > racoon, i.e. tcpdump sees first message of the daemon, but racoon log
-> > (with a lot of -d) is not changed.
-> > With permissive mode everything works fine.
+> > This also now keeps track of the peersid thru the establishment
+> > of a connection on the server (tracking peersid on the client
+> > is covered later in this patch set).
+> > 
+> > Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+> > 
+> > {snip}
+> >
+> > +static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
+> > +{
+> > +	u32 xfrm_sid;
+> > +	int err;
+> > +
+> > +	if (selinux_compat_net)
+> > +		return 1;
+> > +
+> > +	/*
+> > +	 * loopback traffic already labeled and
+> > +	 * flow-controlled on outbound. We may
+> > +	 * need to flow-control on the inbound
+> > +	 * as well if there's ever a use-case for it.
+> > +	 */
+> > +	if (skb->dev == &loopback_dev)
+> > +		return 1;
+> > +
+> > +	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
+> > +	BUG_ON(err);
 > 
-> I think this could be your security policy denying access (which is a 
-> strong suspicion, becuase you hit the problem easily and it requires a 
-> policy denial).
+> Just a quick question that has been nagging me for awhile - any
+> particular reason why this is a BUG_ON() and not an "if (err) goto out;"?
+
+It appears that selinux_xfrm_decode_session() can only legitimately
+return an error if the last argument (ckall) is non-zero.
+security_skb_classify_flow() was doing the same thing prior to this
+patch series.  It would be clearer if there were two separate interfaces
+that internally use the same helper, with one of the functions returning
+void.
+
+> > +	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
+> > +					PACKET__FLOW_IN, NULL);
+> > +	if (err)
+> > +		goto out;
+> > +
+> > +	if (xfrm_sid)
+> > +		skb->secmark = xfrm_sid;
+> > +
+> > +	/* See if NetLabel can flow in thru the current secmark here */
+> > +
+> > +out:
+> > +	return err ? 0 : 1;
+> > +};
 > 
-> Can you look in /var/log/audit/audit.log ? (especially grep for 
-> 'association' )
-
-Indeed.
-
-type=AVC msg=audit(1159804556.391:21): avc:  denied  { polmatch } for
-pid=2213 comm="racoon" scontext=root:system_r:unconfined_t:s0-s0:c0.c255
-tcontext=root:system_r:unconfined_t:s0-s0:c0.c255 tclass=association
-
-But then it is quite strange why FC5 2.6.17-1.2187_FC5smp works,
-are there some bindings to the kernel version?
-(my knowledge about selinux changes related to xfrm are somewhere
-between zero and void).
-
-> What version of SELinux policy are you using?
-> 
-> i.e. $ rpm -q selinux-policy-targeted
-
-selinux-policy-targeted-2.3.7-2.fc5
-
-> If it's not very recent, like 2.3.16-9 or better, you may need to run a 
-> yum update.
-
-I run it every day in cron and there are no updates at
-
-http://download.fedora.redhat.com/pub/fedora/linux/core/updates/5/i386/
-
-behind my version.
-
-> 
-> - James
-> -- 
-> James Morris
-> <jmorris@namei.org>
-
 -- 
-	Evgeniy Polyakov
+Stephen Smalley
+National Security Agency
+
