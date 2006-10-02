@@ -1,80 +1,43 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Please pull bcm43xx-d80211 bugfixes and new features
-Date: Mon, 2 Oct 2006 18:43:20 +0200
-Message-ID: <200610021843.20694.mb@bu3sch.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/6]: powerpc/cell spidernet ethernet patches
+Date: Mon, 2 Oct 2006 18:50:39 +0200
+Message-ID: <200610021850.41062.arnd@arndb.de>
+References: <20060929230552.GG6433@austin.ibm.com> <200609301240.03464.arnd@arndb.de> <20061002162749.GB4546@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linuxppc-dev@ozlabs.org, jeff@garzik.org, akpm@osdl.org,
+	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:40128 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S932282AbWJBQu6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 12:50:58 -0400
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20061002162749.GB4546@austin.ibm.com>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+On Monday 02 October 2006 18:27, Linas Vepstas wrote:
+> >=20
+> > I'm not sure if I have missed a patch in here, but I
+> > don't see anything reintroducing the 'netif_stop_queue'
+> > that is missing from the transmit path.
+> >=20
+> > Do you have a extra patch for that?
+>=20
+> Unfinished. =A0There are several ways in which the current=20
+> spider-net driver doesn't do things the way Greg KH's, etal=20
+> book on device drivers recommends. I was planning on combing=20
+> through these this week.
 
-Please pull from my tree
-git pull http://bu3sch.de/git/wireless-dev.git for-linville
+Ok, that's good. However, removing the netif_stop_queue
+was an obvious oversight that happened during the cleanup
+last year.
 
-This will pull various bugfixes and feature improvements.
-Most noteably it will pull a bugfix for a crash introduced
-by an earlier patch to d80211 which changed RX status information
-handling.
+Putting that one line back in should be a really safe fix for
+the problem of overly high system load we sometimes see.
 
-The new features include support for the new v4 firmware.
-I also did my homework to get better support for OpenWRT
-devices in ssb.
-
-
-The list of pulled changesets is:
-
-Michael Buesch:
-      ssb: Abstract bus accesses.
-      bcm43xx-d80211: convert to ssb abstract bus access API
-      bcm43xx-d80211: Don't crash if we use v4 firmware.
-      bcm43xx-d80211: Always make fwpostfix option available.
-      bcm43xx-d80211: Firmware revision/patchlevel detection.
-      bcm43xx-d80211: Add support for v4 firmware.
-      bcm43xx-d80211: add SHM constants
-      bcm43xx-d80211: Don't use low level netif and ieee80211_netif_oper functions.
-      bcm43xx-d80211: DMA-mask fixes.
-      bcm43xx-d80211: Remove some BCM947XX ifdefs,
-      Merge branch 'master' of git://kernel.org/.../linville/wireless-dev
-      bcm43xx-d80211: Assign all fields in the RX status report.
-      bcm43xx-d80211: Set channel cookie to prevent ghost packets.
-      bcm43xx-d80211: Prevent crash by setting active wlcore to NULL on wlcore-select failure.
-
-
-The diffstat is:
-
- drivers/misc/ssb.c                                 |  431 ++++++-----
- drivers/net/wireless/d80211/bcm43xx/bcm43xx.h      |  143 +++
- .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c  |  295 +++-----
- .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h  |   35 -
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |  149 ++--
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.h  |   18 
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c |   16 
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |  820 +++++++++-----------
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c  |   76 +-
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c  |  104 +--
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.h  |   12 
- .../net/wireless/d80211/bcm43xx/bcm43xx_power.c    |  125 +---
- .../net/wireless/d80211/bcm43xx/bcm43xx_radio.c    |  143 ++--
- .../net/wireless/d80211/bcm43xx/bcm43xx_radio.h    |    1 
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c |  309 +++++++-
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.h |  247 +++++-
- include/linux/ssb.h                                |   71 +-
- 17 files changed, 1681 insertions(+), 1314 deletions(-)
-
--- 
-Greetings Michael.
+	Arnd <><
