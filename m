@@ -1,194 +1,131 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH][XFRM] Fixes for net-2.6
-Date: Tue, 03 Oct 2006 12:29:54 +0900
-Message-ID: <4521D932.8050502@linux-ipv6.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
+Date: Mon, 02 Oct 2006 22:44:59 -0500
+Message-ID: <4521DCBB.2030201@lwfinger.net>
+References: <200610021843.20694.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Cc: linville@tuxdriver.com, bcm43xx-dev@lists.berlios.de,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:36748 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S932157AbWJCD35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 23:29:57 -0400
-To: David Miller <davem@davemloft.net>
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:42233 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S932328AbWJCDpI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Oct 2006 23:45:08 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200610021843.20694.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Michael Buesch wrote:
+> Hi John,
+> 
+> Please pull from my tree
+> git pull http://bu3sch.de/git/wireless-dev.git for-linville
+> 
+> This will pull various bugfixes and feature improvements.
+> Most noteably it will pull a bugfix for a crash introduced
+> by an earlier patch to d80211 which changed RX status information
+> handling.
+> 
+> The new features include support for the new v4 firmware.
+> I also did my homework to get better support for OpenWRT
+> devices in ssb.
+> 
+> 
+> The list of pulled changesets is:
+> 
+> Michael Buesch:
+>       ssb: Abstract bus accesses.
+>       bcm43xx-d80211: convert to ssb abstract bus access API
+>       bcm43xx-d80211: Don't crash if we use v4 firmware.
+>       bcm43xx-d80211: Always make fwpostfix option available.
+>       bcm43xx-d80211: Firmware revision/patchlevel detection.
+>       bcm43xx-d80211: Add support for v4 firmware.
+>       bcm43xx-d80211: add SHM constants
+>       bcm43xx-d80211: Don't use low level netif and ieee80211_netif_oper functions.
+>       bcm43xx-d80211: DMA-mask fixes.
+>       bcm43xx-d80211: Remove some BCM947XX ifdefs,
+>       Merge branch 'master' of git://kernel.org/.../linville/wireless-dev
+>       bcm43xx-d80211: Assign all fields in the RX status report.
+>       bcm43xx-d80211: Set channel cookie to prevent ghost packets.
+>       bcm43xx-d80211: Prevent crash by setting active wlcore to NULL on wlcore-select failure.
+> 
+> 
+> The diffstat is:
+> 
+>  drivers/misc/ssb.c                                 |  431 ++++++-----
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx.h      |  143 +++
+>  .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c  |  295 +++-----
+>  .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h  |   35 -
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |  149 ++--
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.h  |   18 
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c |   16 
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |  820 +++++++++-----------
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c  |   76 +-
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c  |  104 +--
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.h  |   12 
+>  .../net/wireless/d80211/bcm43xx/bcm43xx_power.c    |  125 +---
+>  .../net/wireless/d80211/bcm43xx/bcm43xx_radio.c    |  143 ++--
+>  .../net/wireless/d80211/bcm43xx/bcm43xx_radio.h    |    1 
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c |  309 +++++++-
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.h |  247 +++++-
+>  include/linux/ssb.h                                |   71 +-
+>  17 files changed, 1681 insertions(+), 1314 deletions(-)
+> 
+Michael,
 
-I have two patches to fix XFRM. Can you check and apply them?
+There is something wrong with wireless-dev after I pulled your changes. The logs are:
 
+kernel: ssb: Core 0 found: cc 0800, rev 02, vendor 4243
+kernel: ssb: Core 1 found: cc 0812, rev 04, vendor 4243
+kernel: ssb: Core 2 found: cc 080D, rev 01, vendor 4243
+kernel: ssb: Core 3 found: cc 0807, rev 01, vendor 4243
+kernel: ssb: Core 4 found: cc 0804, rev 07, vendor 4243
+kernel: ssb: Core 5 found: cc 0812, rev 04, vendor 4243
+kernel: bcm43xx_d80211: Ignoring additional 802.11 core.
+kernel: bcm43xx_d80211: Broadcom 4306 WLAN found
+kernel: ssb: Switching to core 4
+kernel: bcm43xx_d80211: PHY connected
+kernel: ssb: Switching to core 1
+kernel: bcm43xx_d80211: Detected PHY: Version: 1, Type 2, Revision 1
+kernel: bcm43xx_d80211: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
+kernel: bcm43xx_d80211: Radio turned off
+kernel: bcm43xx_d80211: Radio turned off
+kernel: wmaster0: Selected rate control algorithm 'simple'
+kernel: bcm43xx_d80211: Virtual interface added (type: 0x00000002, ID: 4, MAC: 00
+:06:25:40:6f:03)
+kernel: bcm43xx_d80211: PHY connected
+kernel: bcm43xx_d80211: PHY disconnected
+kernel: bcm43xx_d80211: PHY connected
+kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
+  29:46:18
+kernel: ssb: Switching to core 0
+kernel: ssb: Switching to core 1
+kernel: bcm43xx_d80211: Radio turned on
+kernel: bcm43xx_d80211: Chip initialized
+kernel: bcm43xx_d80211: 30-bit DMA initialized
+kernel: bcm43xx_d80211: TODO: Incomplete code in keymac_write() at 
+drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:871
+.....
+kernel: bcm43xx_d80211: Keys cleared
+kernel: bcm43xx_d80211: Selected 802.11 core (phytype 2)
+kernel: wmaster0: Does not support passive scan, disabled
+kernel: wlan1: starting scan
+kernel: HW CONFIG: channel=1 freq=2412 phymode=3
+kernel: HW CONFIG: channel=2 freq=2417 phymode=3
+kernel: bcm43xx_d80211: FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR
+kernel: bcm43xx_d80211: ASSERTION FAILED (0) at: 
+drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1020:parse_cookie()
+kernel: bcm43xx_d80211: ASSERTION FAILED (ring && *slot >= 0 && *slot < ring->nr_slots) at: 
+drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1023:parse_cookie()
+kernel: bcm43xx_d80211: FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR
+kernel: bcm43xx_d80211: ASSERTION FAILED (0) at: 
+drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1020:parse_cookie()
+kernel: bcm43xx_d80211: ASSERTION FAILED (ring && *slot >= 0 && *slot < ring->nr_
+slots) at: drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1023:parse_cookie()
 
-HEADLINES
----------
+If you need any other info, please contact me.
 
-    [XFRM] POLICY: Fix per-direction policy counter after flushing.
-    [XFRM] STATE: Use destination address for src hash.
-
-DIFFSTAT
---------
-
- net/xfrm/xfrm_hash.h   |    7 ++++---
- net/xfrm/xfrm_policy.c |    4 ++--
- net/xfrm/xfrm_state.c  |   16 +++++++++-------
- 3 files changed, 15 insertions(+), 12 deletions(-)
-
-CHANGESETS
-----------
-
-commit 90c1f7d3e1019b2885844b03088588268e38cec5
-Author: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date:   Sun Sep 24 14:46:59 2006 +0900
-
-    [XFRM] POLICY: Fix per-direction policy counter after flushing.
-
-    Currently when xfrm_policy_flush() is called per-direction
-    policy counter is cleared. However flusing policy is performed
-    for each type (i.e. main or sub) then it is not always true
-    to make the counter zero.
-
-    Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b6e2e79..048e248 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -787,6 +787,7 @@ void xfrm_policy_flush(u8 type)
- 				continue;
- 			hlist_del(&pol->bydst);
- 			hlist_del(&pol->byidx);
-+			xfrm_policy_count[dir]--;
- 			write_unlock_bh(&xfrm_policy_lock);
-
- 			xfrm_policy_kill(pol);
-@@ -804,6 +805,7 @@ void xfrm_policy_flush(u8 type)
- 					continue;
- 				hlist_del(&pol->bydst);
- 				hlist_del(&pol->byidx);
-+				xfrm_policy_count[dir]--;
- 				write_unlock_bh(&xfrm_policy_lock);
-
- 				xfrm_policy_kill(pol);
-@@ -812,8 +814,6 @@ void xfrm_policy_flush(u8 type)
- 				goto again2;
- 			}
- 		}
--
--		xfrm_policy_count[dir] = 0;
- 	}
- 	atomic_inc(&flow_cache_genid);
- 	write_unlock_bh(&xfrm_policy_lock);
-
----
-commit e517421855d241f0b85a186b25e85d00eafa129f
-Author: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date:   Sat Sep 23 16:41:34 2006 +0900
-
-    [XFRM] STATE: Use destination address for src hash.
-
-    Src hash is introduced for Mobile IPv6 route optimization usage.
-    On current kenrel code it is calculated with source address only.
-    It results we uses the same hash value for outbound state (when
-    the node has only one address for Mobile IPv6).
-    This patch use also destination address as peer information for
-    src hash to be dispersed.
-
-    Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-
-diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
-index 6ac4e4f..d401dc8 100644
---- a/net/xfrm/xfrm_hash.h
-+++ b/net/xfrm/xfrm_hash.h
-@@ -41,17 +41,18 @@ static inline unsigned int __xfrm_dst_ha
- 	return (h ^ (h >> 16)) & hmask;
- }
-
--static inline unsigned __xfrm_src_hash(xfrm_address_t *saddr,
-+static inline unsigned __xfrm_src_hash(xfrm_address_t *daddr,
-+				       xfrm_address_t *saddr,
- 				       unsigned short family,
- 				       unsigned int hmask)
- {
- 	unsigned int h = family;
- 	switch (family) {
- 	case AF_INET:
--		h ^= __xfrm4_addr_hash(saddr);
-+		h ^= __xfrm4_daddr_saddr_hash(daddr, saddr);
- 		break;
- 	case AF_INET6:
--		h ^= __xfrm6_addr_hash(saddr);
-+		h ^= __xfrm6_daddr_saddr_hash(daddr, saddr);
- 		break;
- 	};
- 	return (h ^ (h >> 16)) & hmask;
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f927b73..39b8bf3 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -63,10 +63,11 @@ static inline unsigned int xfrm_dst_hash
- 	return __xfrm_dst_hash(daddr, saddr, reqid, family, xfrm_state_hmask);
- }
-
--static inline unsigned int xfrm_src_hash(xfrm_address_t *addr,
-+static inline unsigned int xfrm_src_hash(xfrm_address_t *daddr,
-+					 xfrm_address_t *saddr,
- 					 unsigned short family)
- {
--	return __xfrm_src_hash(addr, family, xfrm_state_hmask);
-+	return __xfrm_src_hash(daddr, saddr, family, xfrm_state_hmask);
- }
-
- static inline unsigned int
-@@ -92,7 +93,8 @@ static void xfrm_hash_transfer(struct hl
- 				    nhashmask);
- 		hlist_add_head(&x->bydst, ndsttable+h);
-
--		h = __xfrm_src_hash(&x->props.saddr, x->props.family,
-+		h = __xfrm_src_hash(&x->id.daddr, &x->props.saddr,
-+				    x->props.family,
- 				    nhashmask);
- 		hlist_add_head(&x->bysrc, nsrctable+h);
-
-@@ -458,7 +460,7 @@ static struct xfrm_state *__xfrm_state_l
-
- static struct xfrm_state *__xfrm_state_lookup_byaddr(xfrm_address_t *daddr, xfrm_address_t *saddr, u8 proto, unsigned short family)
- {
--	unsigned int h = xfrm_src_hash(saddr, family);
-+	unsigned int h = xfrm_src_hash(daddr, saddr, family);
- 	struct xfrm_state *x;
- 	struct hlist_node *entry;
-
-@@ -587,7 +589,7 @@ xfrm_state_find(xfrm_address_t *daddr, x
- 		if (km_query(x, tmpl, pol) == 0) {
- 			x->km.state = XFRM_STATE_ACQ;
- 			hlist_add_head(&x->bydst, xfrm_state_bydst+h);
--			h = xfrm_src_hash(saddr, family);
-+			h = xfrm_src_hash(daddr, saddr, family);
- 			hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
- 			if (x->id.spi) {
- 				h = xfrm_spi_hash(&x->id.daddr, x->id.spi, x->id.proto, family);
-@@ -622,7 +624,7 @@ static void __xfrm_state_insert(struct x
- 			  x->props.reqid, x->props.family);
- 	hlist_add_head(&x->bydst, xfrm_state_bydst+h);
-
--	h = xfrm_src_hash(&x->props.saddr, x->props.family);
-+	h = xfrm_src_hash(&x->id.daddr, &x->props.saddr, x->props.family);
- 	hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
-
- 	if (x->id.spi) {
-@@ -748,7 +750,7 @@ static struct xfrm_state *__find_acq_cor
- 		x->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
- 		add_timer(&x->timer);
- 		hlist_add_head(&x->bydst, xfrm_state_bydst+h);
--		h = xfrm_src_hash(saddr, family);
-+		h = xfrm_src_hash(daddr, saddr, family);
- 		hlist_add_head(&x->bysrc, xfrm_state_bysrc+h);
- 		wake_up(&km_waitq);
- 	}
-
----
-
-
--- 
-Masahide NAKAMURA
+Larry
