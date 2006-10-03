@@ -1,49 +1,39 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
-Date: Tue, 3 Oct 2006 09:56:05 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610030955400.19772@d.namei>
-References: <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net>
- <20060829082828.GA8625@gondor.apana.org.au> <20060831151243.GJ3590@ripe.net>
- <20060901070557.GA15731@gondor.apana.org.au> <20060901162248.GI19284@ripe.net>
- <20060925121530.GC18667@gondor.apana.org.au> <20060926112122.GU22330@ripe.net>
- <20060928003829.GA8952@gondor.apana.org.au> <20060928084018.GA15141@ripe.net>
- <20061003054935.GA23963@gondor.apana.org.au>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
+Date: Tue, 03 Oct 2006 09:36:25 -0500
+Message-ID: <45227569.6070901@lwfinger.net>
+References: <200610021843.20694.mb@bu3sch.de> <4521DCBB.2030201@lwfinger.net>
+	<200610031358.33760.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: cagri coltekin <cagri@ripe.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, pekkas@netcore.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:8859 "EHLO
-	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750853AbWJCN4I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 09:56:08 -0400
-To: Herbert Xu <herbert.xu@redhat.com>
-In-Reply-To: <20061003054935.GA23963@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+In-Reply-To: <200610031358.33760.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Oct 2006, Herbert Xu wrote:
-
-> On Thu, Sep 28, 2006 at 10:40:18AM +0200, cagri coltekin wrote:
-> >
-> > No. Bug is the first after boot:
+Michael Buesch wrote:
+>> kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
+>>   29:46:18
 > 
-> OK, I think I've got the right bug this time.
-> 
-> [UDP6]: Fix flowi clobbering
-> 
-> The udp6_sendmsg function uses a shared buffer to store the
-> flow without taking any locks.  This leads to races with SMP.
-> This patch moves the flowi object onto the stack.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Uhm, which firmware are you running?
 
-Nice catch.
+The softmac version reports the following (The "loaded" messages are something I'm trying.):
 
-Acked-by: James Morris <jmorris@namei.org>
+kernel: bcm43xx: Firmware: Microcode "bcm43xx_microcode4.fw" loaded.
+kernel: bcm43xx: Firmware: PCM "bcm43xx_pcm4.fw" loaded.
+kernel: bcm43xx: Firmware: InitVals0 "bcm43xx_initval01.fw" loaded.
+kernel: bcm43xx: Microcode rev 0x123, pl 0x21 (2005-01-22  19:48:06)
 
-
-
--- 
-James Morris
-<jmorris@namei.org>
+Larry
