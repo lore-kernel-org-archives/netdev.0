@@ -1,131 +1,171 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
-Date: Mon, 02 Oct 2006 22:44:59 -0500
-Message-ID: <4521DCBB.2030201@lwfinger.net>
-References: <200610021843.20694.mb@bu3sch.de>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
+Date: Mon, 02 Oct 2006 23:48:54 -0500
+Message-ID: <4521EBB6.mailBJL11AF99@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:42233 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932328AbWJCDpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 23:45:08 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200610021843.20694.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> Hi John,
-> 
-> Please pull from my tree
-> git pull http://bu3sch.de/git/wireless-dev.git for-linville
-> 
-> This will pull various bugfixes and feature improvements.
-> Most noteably it will pull a bugfix for a crash introduced
-> by an earlier patch to d80211 which changed RX status information
-> handling.
-> 
-> The new features include support for the new v4 firmware.
-> I also did my homework to get better support for OpenWRT
-> devices in ssb.
-> 
-> 
-> The list of pulled changesets is:
-> 
-> Michael Buesch:
->       ssb: Abstract bus accesses.
->       bcm43xx-d80211: convert to ssb abstract bus access API
->       bcm43xx-d80211: Don't crash if we use v4 firmware.
->       bcm43xx-d80211: Always make fwpostfix option available.
->       bcm43xx-d80211: Firmware revision/patchlevel detection.
->       bcm43xx-d80211: Add support for v4 firmware.
->       bcm43xx-d80211: add SHM constants
->       bcm43xx-d80211: Don't use low level netif and ieee80211_netif_oper functions.
->       bcm43xx-d80211: DMA-mask fixes.
->       bcm43xx-d80211: Remove some BCM947XX ifdefs,
->       Merge branch 'master' of git://kernel.org/.../linville/wireless-dev
->       bcm43xx-d80211: Assign all fields in the RX status report.
->       bcm43xx-d80211: Set channel cookie to prevent ghost packets.
->       bcm43xx-d80211: Prevent crash by setting active wlcore to NULL on wlcore-select failure.
-> 
-> 
-> The diffstat is:
-> 
->  drivers/misc/ssb.c                                 |  431 ++++++-----
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx.h      |  143 +++
->  .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c  |  295 +++-----
->  .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h  |   35 -
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |  149 ++--
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.h  |   18 
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c |   16 
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |  820 +++++++++-----------
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c  |   76 +-
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c  |  104 +--
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.h  |   12 
->  .../net/wireless/d80211/bcm43xx/bcm43xx_power.c    |  125 +---
->  .../net/wireless/d80211/bcm43xx/bcm43xx_radio.c    |  143 ++--
->  .../net/wireless/d80211/bcm43xx/bcm43xx_radio.h    |    1 
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c |  309 +++++++-
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.h |  247 +++++-
->  include/linux/ssb.h                                |   71 +-
->  17 files changed, 1681 insertions(+), 1314 deletions(-)
-> 
-Michael,
+The bcm43xx-softmac software currently fails when running on x86_64 systems
+with more than 1GB RAM and one of the card variants with 30-bit DMA addressing.
+This patch uses the address extension bits in the hardware to set the correct
+DMA mask for the specific card in use.
 
-There is something wrong with wireless-dev after I pulled your changes. The logs are:
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-kernel: ssb: Core 0 found: cc 0800, rev 02, vendor 4243
-kernel: ssb: Core 1 found: cc 0812, rev 04, vendor 4243
-kernel: ssb: Core 2 found: cc 080D, rev 01, vendor 4243
-kernel: ssb: Core 3 found: cc 0807, rev 01, vendor 4243
-kernel: ssb: Core 4 found: cc 0804, rev 07, vendor 4243
-kernel: ssb: Core 5 found: cc 0812, rev 04, vendor 4243
-kernel: bcm43xx_d80211: Ignoring additional 802.11 core.
-kernel: bcm43xx_d80211: Broadcom 4306 WLAN found
-kernel: ssb: Switching to core 4
-kernel: bcm43xx_d80211: PHY connected
-kernel: ssb: Switching to core 1
-kernel: bcm43xx_d80211: Detected PHY: Version: 1, Type 2, Revision 1
-kernel: bcm43xx_d80211: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
-kernel: bcm43xx_d80211: Radio turned off
-kernel: bcm43xx_d80211: Radio turned off
-kernel: wmaster0: Selected rate control algorithm 'simple'
-kernel: bcm43xx_d80211: Virtual interface added (type: 0x00000002, ID: 4, MAC: 00
-:06:25:40:6f:03)
-kernel: bcm43xx_d80211: PHY connected
-kernel: bcm43xx_d80211: PHY disconnected
-kernel: bcm43xx_d80211: PHY connected
-kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
-  29:46:18
-kernel: ssb: Switching to core 0
-kernel: ssb: Switching to core 1
-kernel: bcm43xx_d80211: Radio turned on
-kernel: bcm43xx_d80211: Chip initialized
-kernel: bcm43xx_d80211: 30-bit DMA initialized
-kernel: bcm43xx_d80211: TODO: Incomplete code in keymac_write() at 
-drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:871
-.....
-kernel: bcm43xx_d80211: Keys cleared
-kernel: bcm43xx_d80211: Selected 802.11 core (phytype 2)
-kernel: wmaster0: Does not support passive scan, disabled
-kernel: wlan1: starting scan
-kernel: HW CONFIG: channel=1 freq=2412 phymode=3
-kernel: HW CONFIG: channel=2 freq=2417 phymode=3
-kernel: bcm43xx_d80211: FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR
-kernel: bcm43xx_d80211: ASSERTION FAILED (0) at: 
-drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1020:parse_cookie()
-kernel: bcm43xx_d80211: ASSERTION FAILED (ring && *slot >= 0 && *slot < ring->nr_slots) at: 
-drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1023:parse_cookie()
-kernel: bcm43xx_d80211: FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR
-kernel: bcm43xx_d80211: ASSERTION FAILED (0) at: 
-drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1020:parse_cookie()
-kernel: bcm43xx_d80211: ASSERTION FAILED (ring && *slot >= 0 && *slot < ring->nr_
-slots) at: drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1023:parse_cookie()
+John,
 
-If you need any other info, please contact me.
+Please apply this to wireless-2.6. It is a fix for a current bug,
+and should be sent upstream for inclusion in 2.6.19. The patch has been
+circulated on the bcm43xx mailing list for a couple of weeks, and has
+fixed every case where there was a problem with more than 1 GB RAM.
 
 Larry
+
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
+@@ -314,6 +314,23 @@ int bcm43xx_dma_tx(struct bcm43xx_privat
+ 		   struct ieee80211_txb *txb);
+ void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring);
+ 
++/* Helper function that returns the dma mask for this device. */
++static inline
++u64 bcm43xx_get_supported_dma_mask(struct bcm43xx_private *bcm)
++{
++	int dma64 = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH) &
++				   BCM43xx_SBTMSTATEHIGH_DMA64BIT;
++	u16 mmio_base = bcm43xx_dmacontroller_base(dma64, 0);
++	u32 mask = BCM43xx_DMA32_TXADDREXT_MASK;
++
++	if (dma64)
++		return DMA_64BIT_MASK;
++	bcm43xx_write32(bcm, mmio_base + BCM43xx_DMA32_TXCTL, mask);
++	if (bcm43xx_read32(bcm, mmio_base + BCM43xx_DMA32_TXCTL) & mask)
++		return DMA_32BIT_MASK;
++	return DMA_30BIT_MASK;
++}
++
+ #else /* CONFIG_BCM43XX_DMA */
+ 
+ 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -2925,10 +2925,13 @@ static int bcm43xx_wireless_core_init(st
+ 		bcm43xx_write16(bcm, 0x043C, 0x000C);
+ 
+ 	if (active_wlcore) {
+-		if (bcm43xx_using_pio(bcm))
++		if (bcm43xx_using_pio(bcm)) {
+ 			err = bcm43xx_pio_init(bcm);
+-		else
++		} else {
+ 			err = bcm43xx_dma_init(bcm);
++			if (err == -ENOSYS)
++				err = bcm43xx_pio_init(bcm);
++		}
+ 		if (err)
+ 			goto err_chip_cleanup;
+ 	}
+@@ -3994,8 +3997,6 @@ static int bcm43xx_init_private(struct b
+ 				struct net_device *net_dev,
+ 				struct pci_dev *pci_dev)
+ {
+-	int err;
+-
+ 	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+ 	bcm->ieee = netdev_priv(net_dev);
+ 	bcm->softmac = ieee80211_priv(net_dev);
+@@ -4013,22 +4014,8 @@ static int bcm43xx_init_private(struct b
+ 		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
+ 		     (unsigned long)bcm);
+ 	tasklet_disable_nosync(&bcm->isr_tasklet);
+-	if (modparam_pio) {
++	if (modparam_pio)
+ 		bcm->__using_pio = 1;
+-	} else {
+-		err = pci_set_dma_mask(pci_dev, DMA_30BIT_MASK);
+-		err |= pci_set_consistent_dma_mask(pci_dev, DMA_30BIT_MASK);
+-		if (err) {
+-#ifdef CONFIG_BCM43XX_PIO
+-			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
+-			bcm->__using_pio = 1;
+-#else
+-			printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
+-					    "Recompile the driver with PIO support, please.\n");
+-			return -ENODEV;
+-#endif /* CONFIG_BCM43XX_PIO */
+-		}
+-	}
+ 	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
+ 
+ 	/* default to sw encryption for now */
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+@@ -705,11 +705,30 @@ int bcm43xx_dma_init(struct bcm43xx_priv
+ 	struct bcm43xx_dmaring *ring;
+ 	int err = -ENOMEM;
+ 	int dma64 = 0;
+-	u32 sbtmstatehi;
++	u64 mask = bcm43xx_get_supported_dma_mask(bcm);
++	int nobits;
+ 
+-	sbtmstatehi = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+-	if (sbtmstatehi & BCM43xx_SBTMSTATEHIGH_DMA64BIT)
++	if (mask == DMA_64BIT_MASK) {
+ 		dma64 = 1;
++		nobits = 64;
++	} else if (mask == DMA_32BIT_MASK)
++		nobits = 32;
++	else
++		nobits = 30;
++	err = pci_set_dma_mask(bcm->pci_dev, mask);
++	err |= pci_set_consistent_dma_mask(bcm->pci_dev, mask);
++	if (err) {
++#ifdef CONFIG_BCM43XX_PIO
++		printk(KERN_WARNING PFX "DMA not supported on this device."
++					" Falling back to PIO.\n");
++		bcm->__using_pio = 1;
++		return -ENOSYS;
++#else
++		printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
++				    "Please recompile the driver with PIO support.\n");
++		return -ENODEV;
++#endif /* CONFIG_BCM43XX_PIO */
++	}
+ 
+ 	/* setup TX DMA channels. */
+ 	ring = bcm43xx_setup_dmaring(bcm, 0, 1, dma64);
+@@ -755,8 +774,7 @@ int bcm43xx_dma_init(struct bcm43xx_priv
+ 		dma->rx_ring3 = ring;
+ 	}
+ 
+-	dprintk(KERN_INFO PFX "%s DMA initialized\n",
+-			dma64 ? "64-bit" : "32-bit");
++	dprintk(KERN_INFO PFX "%d-bit DMA initialized\n", nobits);
+ 	err = 0;
+ out:
+ 	return err;
+
+====
