@@ -1,171 +1,196 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
-Date: Mon, 02 Oct 2006 23:48:54 -0500
-Message-ID: <4521EBB6.mailBJL11AF99@lwfinger.net>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
+Date: Tue, 3 Oct 2006 15:49:35 +1000
+Message-ID: <20061003054935.GA23963@gondor.apana.org.au>
+References: <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net> <20060829082828.GA8625@gondor.apana.org.au> <20060831151243.GJ3590@ripe.net> <20060901070557.GA15731@gondor.apana.org.au> <20060901162248.GI19284@ripe.net> <20060925121530.GC18667@gondor.apana.org.au> <20060926112122.GU22330@ripe.net> <20060928003829.GA8952@gondor.apana.org.au> <20060928084018.GA15141@ripe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:17423 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965262AbWJCFtv
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 01:49:51 -0400
+To: cagri coltekin <cagri@ripe.net>
+Content-Disposition: inline
+In-Reply-To: <20060928084018.GA15141@ripe.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bcm43xx-softmac software currently fails when running on x86_64 systems
-with more than 1GB RAM and one of the card variants with 30-bit DMA addressing.
-This patch uses the address extension bits in the hardware to set the correct
-DMA mask for the specific card in use.
+On Thu, Sep 28, 2006 at 10:40:18AM +0200, cagri coltekin wrote:
+>
+> No. Bug is the first after boot:
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+OK, I think I've got the right bug this time.
 
-John,
+[UDP6]: Fix flowi clobbering
 
-Please apply this to wireless-2.6. It is a fix for a current bug,
-and should be sent upstream for inclusion in 2.6.19. The patch has been
-circulated on the bcm43xx mailing list for a couple of weeks, and has
-fixed every case where there was a problem with more than 1 GB RAM.
+The udp6_sendmsg function uses a shared buffer to store the
+flow without taking any locks.  This leads to races with SMP.
+This patch moves the flowi object onto the stack.
 
-Larry
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+This bug is pretty old so we need the fix for 2.6.18 too.
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
-@@ -314,6 +314,23 @@ int bcm43xx_dma_tx(struct bcm43xx_privat
- 		   struct ieee80211_txb *txb);
- void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring);
- 
-+/* Helper function that returns the dma mask for this device. */
-+static inline
-+u64 bcm43xx_get_supported_dma_mask(struct bcm43xx_private *bcm)
-+{
-+	int dma64 = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH) &
-+				   BCM43xx_SBTMSTATEHIGH_DMA64BIT;
-+	u16 mmio_base = bcm43xx_dmacontroller_base(dma64, 0);
-+	u32 mask = BCM43xx_DMA32_TXADDREXT_MASK;
-+
-+	if (dma64)
-+		return DMA_64BIT_MASK;
-+	bcm43xx_write32(bcm, mmio_base + BCM43xx_DMA32_TXCTL, mask);
-+	if (bcm43xx_read32(bcm, mmio_base + BCM43xx_DMA32_TXCTL) & mask)
-+		return DMA_32BIT_MASK;
-+	return DMA_30BIT_MASK;
-+}
-+
- #else /* CONFIG_BCM43XX_DMA */
- 
- 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -2925,10 +2925,13 @@ static int bcm43xx_wireless_core_init(st
- 		bcm43xx_write16(bcm, 0x043C, 0x000C);
- 
- 	if (active_wlcore) {
--		if (bcm43xx_using_pio(bcm))
-+		if (bcm43xx_using_pio(bcm)) {
- 			err = bcm43xx_pio_init(bcm);
--		else
-+		} else {
- 			err = bcm43xx_dma_init(bcm);
-+			if (err == -ENOSYS)
-+				err = bcm43xx_pio_init(bcm);
-+		}
- 		if (err)
- 			goto err_chip_cleanup;
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -546,7 +546,7 @@ static int udpv6_sendmsg(struct kiocb *i
+ 	struct in6_addr *daddr, *final_p = NULL, final;
+ 	struct ipv6_txoptions *opt = NULL;
+ 	struct ip6_flowlabel *flowlabel = NULL;
+-	struct flowi *fl = &inet->cork.fl;
++	struct flowi fl;
+ 	struct dst_entry *dst;
+ 	int addr_len = msg->msg_namelen;
+ 	int ulen = len;
+@@ -626,19 +626,19 @@ do_udp_sendmsg:
  	}
-@@ -3994,8 +3997,6 @@ static int bcm43xx_init_private(struct b
- 				struct net_device *net_dev,
- 				struct pci_dev *pci_dev)
- {
--	int err;
--
- 	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
- 	bcm->ieee = netdev_priv(net_dev);
- 	bcm->softmac = ieee80211_priv(net_dev);
-@@ -4013,22 +4014,8 @@ static int bcm43xx_init_private(struct b
- 		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
- 		     (unsigned long)bcm);
- 	tasklet_disable_nosync(&bcm->isr_tasklet);
--	if (modparam_pio) {
-+	if (modparam_pio)
- 		bcm->__using_pio = 1;
--	} else {
--		err = pci_set_dma_mask(pci_dev, DMA_30BIT_MASK);
--		err |= pci_set_consistent_dma_mask(pci_dev, DMA_30BIT_MASK);
--		if (err) {
--#ifdef CONFIG_BCM43XX_PIO
--			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
--			bcm->__using_pio = 1;
--#else
--			printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
--					    "Recompile the driver with PIO support, please.\n");
--			return -ENODEV;
--#endif /* CONFIG_BCM43XX_PIO */
--		}
--	}
- 	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
+ 	ulen += sizeof(struct udphdr);
  
- 	/* default to sw encryption for now */
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-@@ -705,11 +705,30 @@ int bcm43xx_dma_init(struct bcm43xx_priv
- 	struct bcm43xx_dmaring *ring;
- 	int err = -ENOMEM;
- 	int dma64 = 0;
--	u32 sbtmstatehi;
-+	u64 mask = bcm43xx_get_supported_dma_mask(bcm);
-+	int nobits;
+-	memset(fl, 0, sizeof(*fl));
++	memset(&fl, 0, sizeof(fl));
  
--	sbtmstatehi = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
--	if (sbtmstatehi & BCM43xx_SBTMSTATEHIGH_DMA64BIT)
-+	if (mask == DMA_64BIT_MASK) {
- 		dma64 = 1;
-+		nobits = 64;
-+	} else if (mask == DMA_32BIT_MASK)
-+		nobits = 32;
-+	else
-+		nobits = 30;
-+	err = pci_set_dma_mask(bcm->pci_dev, mask);
-+	err |= pci_set_consistent_dma_mask(bcm->pci_dev, mask);
-+	if (err) {
-+#ifdef CONFIG_BCM43XX_PIO
-+		printk(KERN_WARNING PFX "DMA not supported on this device."
-+					" Falling back to PIO.\n");
-+		bcm->__using_pio = 1;
-+		return -ENOSYS;
-+#else
-+		printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
-+				    "Please recompile the driver with PIO support.\n");
-+		return -ENODEV;
-+#endif /* CONFIG_BCM43XX_PIO */
-+	}
+ 	if (sin6) {
+ 		if (sin6->sin6_port == 0)
+ 			return -EINVAL;
  
- 	/* setup TX DMA channels. */
- 	ring = bcm43xx_setup_dmaring(bcm, 0, 1, dma64);
-@@ -755,8 +774,7 @@ int bcm43xx_dma_init(struct bcm43xx_priv
- 		dma->rx_ring3 = ring;
+-		fl->fl_ip_dport = sin6->sin6_port;
++		fl.fl_ip_dport = sin6->sin6_port;
+ 		daddr = &sin6->sin6_addr;
+ 
+ 		if (np->sndflow) {
+-			fl->fl6_flowlabel = sin6->sin6_flowinfo&IPV6_FLOWINFO_MASK;
+-			if (fl->fl6_flowlabel&IPV6_FLOWLABEL_MASK) {
+-				flowlabel = fl6_sock_lookup(sk, fl->fl6_flowlabel);
++			fl.fl6_flowlabel = sin6->sin6_flowinfo&IPV6_FLOWINFO_MASK;
++			if (fl.fl6_flowlabel&IPV6_FLOWLABEL_MASK) {
++				flowlabel = fl6_sock_lookup(sk, fl.fl6_flowlabel);
+ 				if (flowlabel == NULL)
+ 					return -EINVAL;
+ 				daddr = &flowlabel->dst;
+@@ -656,32 +656,32 @@ do_udp_sendmsg:
+ 		if (addr_len >= sizeof(struct sockaddr_in6) &&
+ 		    sin6->sin6_scope_id &&
+ 		    ipv6_addr_type(daddr)&IPV6_ADDR_LINKLOCAL)
+-			fl->oif = sin6->sin6_scope_id;
++			fl.oif = sin6->sin6_scope_id;
+ 	} else {
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+ 			return -EDESTADDRREQ;
+ 
+-		fl->fl_ip_dport = inet->dport;
++		fl.fl_ip_dport = inet->dport;
+ 		daddr = &np->daddr;
+-		fl->fl6_flowlabel = np->flow_label;
++		fl.fl6_flowlabel = np->flow_label;
+ 		connected = 1;
  	}
  
--	dprintk(KERN_INFO PFX "%s DMA initialized\n",
--			dma64 ? "64-bit" : "32-bit");
-+	dprintk(KERN_INFO PFX "%d-bit DMA initialized\n", nobits);
- 	err = 0;
- out:
- 	return err;
-
-====
+-	if (!fl->oif)
+-		fl->oif = sk->sk_bound_dev_if;
++	if (!fl.oif)
++		fl.oif = sk->sk_bound_dev_if;
+ 
+ 	if (msg->msg_controllen) {
+ 		opt = &opt_space;
+ 		memset(opt, 0, sizeof(struct ipv6_txoptions));
+ 		opt->tot_len = sizeof(*opt);
+ 
+-		err = datagram_send_ctl(msg, fl, opt, &hlimit, &tclass);
++		err = datagram_send_ctl(msg, &fl, opt, &hlimit, &tclass);
+ 		if (err < 0) {
+ 			fl6_sock_release(flowlabel);
+ 			return err;
+ 		}
+-		if ((fl->fl6_flowlabel&IPV6_FLOWLABEL_MASK) && !flowlabel) {
+-			flowlabel = fl6_sock_lookup(sk, fl->fl6_flowlabel);
++		if ((fl.fl6_flowlabel&IPV6_FLOWLABEL_MASK) && !flowlabel) {
++			flowlabel = fl6_sock_lookup(sk, fl.fl6_flowlabel);
+ 			if (flowlabel == NULL)
+ 				return -EINVAL;
+ 		}
+@@ -695,39 +695,39 @@ do_udp_sendmsg:
+ 		opt = fl6_merge_options(&opt_space, flowlabel, opt);
+ 	opt = ipv6_fixup_options(&opt_space, opt);
+ 
+-	fl->proto = IPPROTO_UDP;
+-	ipv6_addr_copy(&fl->fl6_dst, daddr);
+-	if (ipv6_addr_any(&fl->fl6_src) && !ipv6_addr_any(&np->saddr))
+-		ipv6_addr_copy(&fl->fl6_src, &np->saddr);
+-	fl->fl_ip_sport = inet->sport;
++	fl.proto = IPPROTO_UDP;
++	ipv6_addr_copy(&fl.fl6_dst, daddr);
++	if (ipv6_addr_any(&fl.fl6_src) && !ipv6_addr_any(&np->saddr))
++		ipv6_addr_copy(&fl.fl6_src, &np->saddr);
++	fl.fl_ip_sport = inet->sport;
+ 	
+ 	/* merge ip6_build_xmit from ip6_output */
+ 	if (opt && opt->srcrt) {
+ 		struct rt0_hdr *rt0 = (struct rt0_hdr *) opt->srcrt;
+-		ipv6_addr_copy(&final, &fl->fl6_dst);
+-		ipv6_addr_copy(&fl->fl6_dst, rt0->addr);
++		ipv6_addr_copy(&final, &fl.fl6_dst);
++		ipv6_addr_copy(&fl.fl6_dst, rt0->addr);
+ 		final_p = &final;
+ 		connected = 0;
+ 	}
+ 
+-	if (!fl->oif && ipv6_addr_is_multicast(&fl->fl6_dst)) {
+-		fl->oif = np->mcast_oif;
++	if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst)) {
++		fl.oif = np->mcast_oif;
+ 		connected = 0;
+ 	}
+ 
+-	security_sk_classify_flow(sk, fl);
++	security_sk_classify_flow(sk, &fl);
+ 
+-	err = ip6_sk_dst_lookup(sk, &dst, fl);
++	err = ip6_sk_dst_lookup(sk, &dst, &fl);
+ 	if (err)
+ 		goto out;
+ 	if (final_p)
+-		ipv6_addr_copy(&fl->fl6_dst, final_p);
++		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
+ 		goto out;
+ 
+ 	if (hlimit < 0) {
+-		if (ipv6_addr_is_multicast(&fl->fl6_dst))
++		if (ipv6_addr_is_multicast(&fl.fl6_dst))
+ 			hlimit = np->mcast_hops;
+ 		else
+ 			hlimit = np->hop_limit;
+@@ -763,7 +763,7 @@ back_from_confirm:
+ do_append_data:
+ 	up->len += ulen;
+ 	err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov, ulen,
+-		sizeof(struct udphdr), hlimit, tclass, opt, fl,
++		sizeof(struct udphdr), hlimit, tclass, opt, &fl,
+ 		(struct rt6_info*)dst,
+ 		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+ 	if (err)
+@@ -774,10 +774,10 @@ do_append_data:
+ 	if (dst) {
+ 		if (connected) {
+ 			ip6_dst_store(sk, dst,
+-				      ipv6_addr_equal(&fl->fl6_dst, &np->daddr) ?
++				      ipv6_addr_equal(&fl.fl6_dst, &np->daddr) ?
+ 				      &np->daddr : NULL,
+ #ifdef CONFIG_IPV6_SUBTREES
+-				      ipv6_addr_equal(&fl->fl6_src, &np->saddr) ?
++				      ipv6_addr_equal(&fl.fl6_src, &np->saddr) ?
+ 				      &np->saddr :
+ #endif
+ 				      NULL);
