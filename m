@@ -1,52 +1,30 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: [PATCH] mv643xx_eth: Fix ethtool stats
-Date: Tue, 3 Oct 2006 10:27:10 -0700
-Message-ID: <20061003172710.GA5906@xyzzy.farnsworth.org>
-References: <1159893752.6580.27.camel@sakura.staff.proxad.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Revert [NET_SCHED]: HTB: fix incorrect use of RB_EMPTY_NODE
+Date: Tue, 03 Oct 2006 20:05:33 +0200
+Message-ID: <4522A66D.3020702@trash.net>
+References: <200609302223.47627.ismail@pardus.org.tr> <20061002111555.GB2936@ff.dom.local> <20061003102831.GA7778@kernel.dk> <200610031554.56353.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Dale Farnsworth <dale@farnsworth.org>,
-	Manish Lachwani <mlachwani@mvista.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <jens.axboe@oracle.com>,
+	Jarek Poplawski <jarkao2@o2.pl>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:64527 "HELO farnsworth.org")
-	by vger.kernel.org with SMTP id S1030334AbWJCR1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 13:27:12 -0400
-To: Maxime Bizon <mbizon@freebox.fr>
-Content-Disposition: inline
-In-Reply-To: <1159893752.6580.27.camel@sakura.staff.proxad.net>
+Received: from stinky.trash.net ([213.144.137.162]:29841 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1030344AbWJCSEX
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 14:04:23 -0400
+To: Ismail Donmez <ismail@pardus.org.tr>
+In-Reply-To: <200610031554.56353.ismail@pardus.org.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Maxime Bizon <mbizon@freebox.fr>
+Ismail Donmez wrote:
+> With commit 10fd48f2376db52f08bf0420d2c4f580e39269e1 [1] ,  RB_EMPTY_NODE 
+> changed behaviour so it returns true when the node is empty as expected. 
+> Hence Patrick McHardy's fix for sched_htb.c should be reverted.
+> 
+> Signed-off-by: Ismail Donmez <ismail@pardus.org.tr>
 
-Some stats reported by ethtool -S on mv643xx_eth device are cleared
-between each call.  This patch fixes it.
-
-Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-
----
-
-Thanks Maxime.
-
---- linux-2.6.18/drivers/net/mv643xx_eth.c.orig	2006-10-03 18:29:14.000000000 +0200
-+++ linux-2.6.18/drivers/net/mv643xx_eth.c	2006-10-03 18:29:42.000000000 +0200
-@@ -2156,7 +2156,7 @@
- 	for (offset = ETH_MIB_BAD_OCTETS_RECEIVED;
- 			offset <= ETH_MIB_FRAMES_1024_TO_MAX_OCTETS;
- 			offset += 4)
--		*(u32 *)((char *)p + offset) = read_mib(mp, offset);
-+		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
- 
- 	p->good_octets_sent += read_mib(mp, ETH_MIB_GOOD_OCTETS_SENT_LOW);
- 	p->good_octets_sent +=
-@@ -2165,7 +2165,7 @@
- 	for (offset = ETH_MIB_GOOD_FRAMES_SENT;
- 			offset <= ETH_MIB_LATE_COLLISION;
- 			offset += 4)
--		*(u32 *)((char *)p + offset) = read_mib(mp, offset);
-+		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
- }
- 
- /*
+ACKed-by: Patrick McHardy <kaber@trash.net>
