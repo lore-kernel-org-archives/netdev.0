@@ -1,52 +1,52 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
-Date: Tue, 3 Oct 2006 10:07:51 -0700
-Message-ID: <20061003170751.GG17252@bougret.hpl.hp.com>
-References: <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org> <20061002175245.GA14744@bougret.hpl.hp.com> <2006-10-03-17-58-31+trackit+sam@rfc1149.net> <20061003163415.GA17252@bougret.hpl.hp.com> <2006-10-03-18-45-35+trackit+sam@rfc1149.net>
-Reply-To: jt@hpl.hp.com
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: [PATCH] mv643xx_eth: Fix ethtool stats
+Date: Tue, 3 Oct 2006 10:27:10 -0700
+Message-ID: <20061003172710.GA5906@xyzzy.farnsworth.org>
+References: <1159893752.6580.27.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Roskin <proski@gnu.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Dale Farnsworth <dale@farnsworth.org>,
+	Manish Lachwani <mlachwani@mvista.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:58612 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1030336AbWJCRIY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 13:08:24 -0400
-To: Samuel Tardieu <sam@rfc1149.net>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:64527 "HELO farnsworth.org")
+	by vger.kernel.org with SMTP id S1030334AbWJCR1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 13:27:12 -0400
+To: Maxime Bizon <mbizon@freebox.fr>
 Content-Disposition: inline
-In-Reply-To: <2006-10-03-18-45-35+trackit+sam@rfc1149.net>
+In-Reply-To: <1159893752.6580.27.camel@sakura.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2006 at 06:45:35PM +0200, Samuel Tardieu wrote:
-> On  3/10, Jean Tourrilhes wrote:
-> 
-> | > I suggest that you revert the memset() to IW_ESSID_MAX_SIZE+1 so that
-> | > the last byte is cleared as well. Or am I missing something?
-> | 
-> | No, that would bring back the slab/memory overflow we are
-> | trying to get rid of.
-> 
-> Then I am puzzled by the function declaration:
-> 
-> static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
->                                 char buf[IW_ESSID_MAX_SIZE+1])
-> 
-> Do you mean that this function is called with a buf parameter which
-> doesn't have the expected size? (as far as the function declaration is
-> concerned) Shouldn't the declaration be changed to
-> 
-> static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
->                                 char buf[IW_ESSID_MAX_SIZE])
-> 
-> then to reflect the reality? (it won't change the code but would be
-> clearer from a documentation point of view)
+From: Maxime Bizon <mbizon@freebox.fr>
 
-	Yep, that one is a bug.
-	Thanks !
+Some stats reported by ethtool -S on mv643xx_eth device are cleared
+between each call.  This patch fixes it.
 
->  Sam
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
-	Jean
+---
+
+Thanks Maxime.
+
+--- linux-2.6.18/drivers/net/mv643xx_eth.c.orig	2006-10-03 18:29:14.000000000 +0200
++++ linux-2.6.18/drivers/net/mv643xx_eth.c	2006-10-03 18:29:42.000000000 +0200
+@@ -2156,7 +2156,7 @@
+ 	for (offset = ETH_MIB_BAD_OCTETS_RECEIVED;
+ 			offset <= ETH_MIB_FRAMES_1024_TO_MAX_OCTETS;
+ 			offset += 4)
+-		*(u32 *)((char *)p + offset) = read_mib(mp, offset);
++		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
+ 
+ 	p->good_octets_sent += read_mib(mp, ETH_MIB_GOOD_OCTETS_SENT_LOW);
+ 	p->good_octets_sent +=
+@@ -2165,7 +2165,7 @@
+ 	for (offset = ETH_MIB_GOOD_FRAMES_SENT;
+ 			offset <= ETH_MIB_LATE_COLLISION;
+ 			offset += 4)
+-		*(u32 *)((char *)p + offset) = read_mib(mp, offset);
++		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
+ }
+ 
+ /*
