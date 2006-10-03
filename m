@@ -1,141 +1,59 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>
 Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
-Date: Tue, 3 Oct 2006 13:58:33 +0200
-Message-ID: <200610031358.33760.mb@bu3sch.de>
+Date: Tue, 3 Oct 2006 14:36:21 +0200
+Message-ID: <20061003123621.GA4673@tuba>
 References: <200610021843.20694.mb@bu3sch.de> <4521DCBB.2030201@lwfinger.net>
+	<200610031358.33760.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:51358
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750701AbWJCL6v
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 07:58:51 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <4521DCBB.2030201@lwfinger.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200610031358.33760.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 03 October 2006 05:44, Larry Finger wrote:
-> Michael Buesch wrote:
-> > Hi John,
+On Tue, Oct 03, 2006 at 01:58:33PM +0200, Michael Buesch wrote:
+> On Tuesday 03 October 2006 05:44, Larry Finger wrote:
 > > 
-> > Please pull from my tree
-> > git pull http://bu3sch.de/git/wireless-dev.git for-linville
-> > 
-> > This will pull various bugfixes and feature improvements.
-> > Most noteably it will pull a bugfix for a crash introduced
-> > by an earlier patch to d80211 which changed RX status information
-> > handling.
-> > 
-> > The new features include support for the new v4 firmware.
-> > I also did my homework to get better support for OpenWRT
-> > devices in ssb.
-> > 
-> > 
-> > The list of pulled changesets is:
-> > 
-> > Michael Buesch:
-> >       ssb: Abstract bus accesses.
-> >       bcm43xx-d80211: convert to ssb abstract bus access API
-> >       bcm43xx-d80211: Don't crash if we use v4 firmware.
-> >       bcm43xx-d80211: Always make fwpostfix option available.
-> >       bcm43xx-d80211: Firmware revision/patchlevel detection.
-> >       bcm43xx-d80211: Add support for v4 firmware.
-> >       bcm43xx-d80211: add SHM constants
-> >       bcm43xx-d80211: Don't use low level netif and ieee80211_netif_oper functions.
-> >       bcm43xx-d80211: DMA-mask fixes.
-> >       bcm43xx-d80211: Remove some BCM947XX ifdefs,
-> >       Merge branch 'master' of git://kernel.org/.../linville/wireless-dev
-> >       bcm43xx-d80211: Assign all fields in the RX status report.
-> >       bcm43xx-d80211: Set channel cookie to prevent ghost packets.
-> >       bcm43xx-d80211: Prevent crash by setting active wlcore to NULL on wlcore-select failure.
-> > 
-> > 
-> > The diffstat is:
-> > 
-> >  drivers/misc/ssb.c                                 |  431 ++++++-----
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx.h      |  143 +++
-> >  .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c  |  295 +++-----
-> >  .../net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h  |   35 -
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |  149 ++--
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.h  |   18 
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c |   16 
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |  820 +++++++++-----------
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c  |   76 +-
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c  |  104 +--
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.h  |   12 
-> >  .../net/wireless/d80211/bcm43xx/bcm43xx_power.c    |  125 +---
-> >  .../net/wireless/d80211/bcm43xx/bcm43xx_radio.c    |  143 ++--
-> >  .../net/wireless/d80211/bcm43xx/bcm43xx_radio.h    |    1 
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c |  309 +++++++-
-> >  drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.h |  247 +++++-
-> >  include/linux/ssb.h                                |   71 +-
-> >  17 files changed, 1681 insertions(+), 1314 deletions(-)
-> > 
-> Michael,
+> > kernel: ssb: Core 0 found: cc 0800, rev 02, vendor 4243
+> > kernel: ssb: Core 1 found: cc 0812, rev 04, vendor 4243
+> > kernel: ssb: Core 2 found: cc 080D, rev 01, vendor 4243
+> > kernel: ssb: Core 3 found: cc 0807, rev 01, vendor 4243
+> > kernel: ssb: Core 4 found: cc 0804, rev 07, vendor 4243
+> > kernel: ssb: Core 5 found: cc 0812, rev 04, vendor 4243
+> > kernel: bcm43xx_d80211: Ignoring additional 802.11 core.
+> > kernel: bcm43xx_d80211: Broadcom 4306 WLAN found
+> > kernel: ssb: Switching to core 4
+> > kernel: bcm43xx_d80211: PHY connected
+> > kernel: ssb: Switching to core 1
+> > kernel: bcm43xx_d80211: Detected PHY: Version: 1, Type 2, Revision 1
+> > kernel: bcm43xx_d80211: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
+> > kernel: bcm43xx_d80211: Radio turned off
+> > kernel: bcm43xx_d80211: Radio turned off
+> > kernel: wmaster0: Selected rate control algorithm 'simple'
+> > kernel: bcm43xx_d80211: Virtual interface added (type: 0x00000002, ID: 4, MAC: 00
+> > :06:25:40:6f:03)
+> > kernel: bcm43xx_d80211: PHY connected
+> > kernel: bcm43xx_d80211: PHY disconnected
+> > kernel: bcm43xx_d80211: PHY connected
+> > kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
+> >   29:46:18
 > 
-> There is something wrong with wireless-dev after I pulled your changes. The logs are:
-> 
-> kernel: ssb: Core 0 found: cc 0800, rev 02, vendor 4243
-> kernel: ssb: Core 1 found: cc 0812, rev 04, vendor 4243
-> kernel: ssb: Core 2 found: cc 080D, rev 01, vendor 4243
-> kernel: ssb: Core 3 found: cc 0807, rev 01, vendor 4243
-> kernel: ssb: Core 4 found: cc 0804, rev 07, vendor 4243
-> kernel: ssb: Core 5 found: cc 0812, rev 04, vendor 4243
-> kernel: bcm43xx_d80211: Ignoring additional 802.11 core.
-> kernel: bcm43xx_d80211: Broadcom 4306 WLAN found
-> kernel: ssb: Switching to core 4
-> kernel: bcm43xx_d80211: PHY connected
-> kernel: ssb: Switching to core 1
-> kernel: bcm43xx_d80211: Detected PHY: Version: 1, Type 2, Revision 1
-> kernel: bcm43xx_d80211: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
-> kernel: bcm43xx_d80211: Radio turned off
-> kernel: bcm43xx_d80211: Radio turned off
-> kernel: wmaster0: Selected rate control algorithm 'simple'
-> kernel: bcm43xx_d80211: Virtual interface added (type: 0x00000002, ID: 4, MAC: 00
-> :06:25:40:6f:03)
-> kernel: bcm43xx_d80211: PHY connected
-> kernel: bcm43xx_d80211: PHY disconnected
-> kernel: bcm43xx_d80211: PHY connected
-> kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
->   29:46:18
+> Uhm, which firmware are you running?
 
-Uhm, which firmware are you running?
+v4 testers should use the SVN version of fwcutter. There was a v4 
+windriver bug in fwcutter .... some time ago.
 
-> kernel: ssb: Switching to core 0
-> kernel: ssb: Switching to core 1
-> kernel: bcm43xx_d80211: Radio turned on
-> kernel: bcm43xx_d80211: Chip initialized
-> kernel: bcm43xx_d80211: 30-bit DMA initialized
-> kernel: bcm43xx_d80211: TODO: Incomplete code in keymac_write() at 
-> drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:871
-> .....
-> kernel: bcm43xx_d80211: Keys cleared
-> kernel: bcm43xx_d80211: Selected 802.11 core (phytype 2)
-> kernel: wmaster0: Does not support passive scan, disabled
-> kernel: wlan1: starting scan
-> kernel: HW CONFIG: channel=1 freq=2412 phymode=3
-> kernel: HW CONFIG: channel=2 freq=2417 phymode=3
-> kernel: bcm43xx_d80211: FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR
-> kernel: bcm43xx_d80211: ASSERTION FAILED (0) at: 
-> drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1020:parse_cookie()
-> kernel: bcm43xx_d80211: ASSERTION FAILED (ring && *slot >= 0 && *slot < ring->nr_slots) at: 
-> drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1023:parse_cookie()
-> kernel: bcm43xx_d80211: FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR
-> kernel: bcm43xx_d80211: ASSERTION FAILED (0) at: 
-> drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1020:parse_cookie()
-> kernel: bcm43xx_d80211: ASSERTION FAILED (ring && *slot >= 0 && *slot < ring->nr_
-> slots) at: drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c:1023:parse_cookie()
-> 
-> If you need any other info, please contact me.
-> 
-> Larry
-> 
-
--- 
-Greetings Michael.
+Martin
