@@ -1,88 +1,84 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: [PATCH 2.6] Fix WE-21 Orinoco overflow issue...
-Date: Mon, 2 Oct 2006 17:54:05 -0700
-Message-ID: <20061003005405.GA15997@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH] hp100: fix conditional compilation mess
+Date: Mon, 2 Oct 2006 21:08:22 -0400
+Message-ID: <20061003010822.GA29176@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:11219 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1030199AbWJCA6X
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 20:58:23 -0400
-To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Received: from havoc.gtf.org ([69.61.125.42]:4031 "EHLO havoc.gtf.org")
+	by vger.kernel.org with ESMTP id S1030198AbWJCBIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 21:08:23 -0400
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Hi John,
+The previous hp100 changeset attempted to kill warnings, but was only
+tested on !CONFIG_ISA platforms.  The correct conditional compilation
+setup involves tested CONFIG_ISA rather than just MODULE.
 
-	This patch fixes the Orinoco driver overflow issue with
-WE-21. This was discussed on the mailing list, the reporter confirmed
-that it fixes the issue and Andrew has already added this patch in
-tree.
-	Regards,
+Fixes link on CONFIG_ISA platforms (i386) in current -git.
 
-	Jean
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
 
-------------------------------------------------------------
+---
 
-diff -u -p linux/drivers/net/wireless/orinoco.j1.c linux/drivers/net/wireless/orinoco.c
---- linux/drivers/net/wireless/orinoco.j1.c	2006-10-02 10:15:41.000000000 -0700
-+++ linux/drivers/net/wireless/orinoco.c	2006-10-02 10:39:20.000000000 -0700
-@@ -2456,6 +2456,7 @@ void free_orinocodev(struct net_device *
- /* Wireless extensions                                              */
- /********************************************************************/
+ drivers/net/Space.c |    2 +-
+ drivers/net/hp100.c |    8 +++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/Space.c b/drivers/net/Space.c
+index 9953201..a67f5ef 100644
+--- a/drivers/net/Space.c
++++ b/drivers/net/Space.c
+@@ -165,7 +165,7 @@ #endif
+  * look for EISA/PCI/MCA cards in addition to ISA cards).
+  */
+ static struct devprobe2 isa_probes[] __initdata = {
+-#ifdef CONFIG_HP100 		/* ISA, EISA & PCI */
++#if defined(CONFIG_HP100) && defined(CONFIG_ISA)	/* ISA, EISA */
+ 	{hp100_probe, 0},
+ #endif
+ #ifdef CONFIG_3C515
+diff --git a/drivers/net/hp100.c b/drivers/net/hp100.c
+index 561db44..ae8ad4f 100644
+--- a/drivers/net/hp100.c
++++ b/drivers/net/hp100.c
+@@ -188,7 +188,7 @@ struct hp100_private {
+ /*
+  *  variables
+  */
+-#ifndef MODULE
++#ifdef CONFIG_ISA
+ static const char *hp100_isa_tbl[] = {
+ 	"HWPF150", /* HP J2573 rev A */
+ 	"HWP1950", /* HP J2573 */
+@@ -335,7 +335,7 @@ static __devinit const char *hp100_read_
+ 	return str;
+ }
  
-+/* Return : < 0 -> error code ; >= 0 -> length */
- static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
- 				char buf[IW_ESSID_MAX_SIZE+1])
+-#ifndef MODULE
++#ifdef CONFIG_ISA
+ static __init int hp100_isa_probe1(struct net_device *dev, int ioaddr)
  {
-@@ -2500,9 +2501,9 @@ static int orinoco_hw_get_essid(struct o
- 	len = le16_to_cpu(essidbuf.len);
- 	BUG_ON(len > IW_ESSID_MAX_SIZE);
- 
--	memset(buf, 0, IW_ESSID_MAX_SIZE+1);
-+	memset(buf, 0, IW_ESSID_MAX_SIZE);
- 	memcpy(buf, p, len);
--	buf[len] = '\0';
-+	err = len;
- 
-  fail_unlock:
- 	orinoco_unlock(priv, &flags);
-@@ -3026,17 +3027,18 @@ static int orinoco_ioctl_getessid(struct
- 
- 	if (netif_running(dev)) {
- 		err = orinoco_hw_get_essid(priv, &active, essidbuf);
--		if (err)
-+		if (err < 0)
- 			return err;
-+		erq->length = err;
- 	} else {
- 		if (orinoco_lock(priv, &flags) != 0)
- 			return -EBUSY;
--		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE + 1);
-+		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE);
-+		erq->length = strlen(priv->desired_essid);
- 		orinoco_unlock(priv, &flags);
+ 	const char *sig;
+@@ -393,7 +393,9 @@ static int  __init hp100_isa_probe(struc
  	}
- 
- 	erq->flags = 1;
--	erq->length = strlen(essidbuf);
- 
- 	return 0;
+ 	return err;
  }
-@@ -3074,10 +3076,10 @@ static int orinoco_ioctl_getnick(struct 
- 	if (orinoco_lock(priv, &flags) != 0)
- 		return -EBUSY;
++#endif /* CONFIG_ISA */
  
--	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE+1);
-+	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE);
- 	orinoco_unlock(priv, &flags);
- 
--	nrq->length = strlen(nickbuf);
-+	nrq->length = strlen(priv->nick);
- 
- 	return 0;
++#if !defined(MODULE) && defined(CONFIG_ISA)
+ struct net_device * __init hp100_probe(int unit)
+ {
+ 	struct net_device *dev = alloc_etherdev(sizeof(struct hp100_private));
+@@ -423,7 +425,7 @@ #endif
+ 	free_netdev(dev);
+ 	return ERR_PTR(err);
  }
-
+-#endif
++#endif /* !MODULE && CONFIG_ISA */
+ 
+ static int __devinit hp100_probe1(struct net_device *dev, int ioaddr,
+ 				  u_char bus, struct pci_dev *pci_dev)
