@@ -1,97 +1,32 @@
-From: Martin Lucina <mato@kotelna.sk>
-Subject: Re: sky2 hangs, hw csum errors with 2.6.18
-Date: Tue, 3 Oct 2006 20:21:20 +0200
-Message-ID: <20061003182119.GM14180@dezo.moloch.sk>
-References: <20060922112442.GB4161@dezo.moloch.sk> <20060922095642.5acf4ac9@dxpl.pdx.osdl.net> <20060922182924.GE4161@dezo.moloch.sk> <20060922113152.02874cbc@localhost.localdomain> <20060922183812.GF4161@dezo.moloch.sk> <20060922115008.5060c599@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+From: Santiago Leon <santil@us.ibm.com>
+Subject: [PATCH 0/5] ibmveth: various fixes
+Date: Tue, 03 Oct 2006 12:24:17 -0500
+Message-ID: <20061003172417.14851.63625.sendpatchset@ltcml8p1.rchland.ibm.com>
+Cc: Santiago Leon <santil@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chrocht.moloch.sk ([62.176.169.44]:35263 "EHLO mail.moloch.sk")
-	by vger.kernel.org with ESMTP id S964898AbWJCSVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 14:21:24 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060922115008.5060c599@localhost.localdomain>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:49385 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S964903AbWJCS1H
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 14:27:07 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k93IR6b6002902
+	for <netdev@vger.kernel.org>; Tue, 3 Oct 2006 14:27:06 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k93IR6ak276040
+	for <netdev@vger.kernel.org>; Tue, 3 Oct 2006 12:27:06 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k93IR5QA024910
+	for <netdev@vger.kernel.org>; Tue, 3 Oct 2006 12:27:06 -0600
+To: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hi Jeff,
 
-I'm still getting tx timeouts even after applying the patch you sent me
-and forcing tx flow control off:
+Can you apply the following patches (hopefully for 2.6.19)?  They are the hardening of the initialization for kexec, adding netpoll, and some small fixes for bugs that people have been running into.
 
-Sep 28 20:35:53 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 20:35:53 dezo kernel: sky2 eth1: tx timeout
-Sep 28 20:35:53 dezo kernel: sky2 eth1: transmit ring 420 .. 379 report=420 done=420
-Sep 28 20:35:53 dezo kernel: sky2 hardware hung? flushing
-Sep 28 20:50:28 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 20:50:28 dezo kernel: sky2 eth1: tx timeout
-Sep 28 20:50:28 dezo kernel: sky2 eth1: transmit ring 379 .. 338 report=420 done=420
-Sep 28 20:50:28 dezo kernel: sky2 status report lost?
-Sep 28 20:51:53 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 20:51:53 dezo kernel: sky2 eth1: tx timeout
-Sep 28 20:51:53 dezo kernel: sky2 eth1: transmit ring 420 .. 379 report=420 done=420
-Sep 28 20:51:53 dezo kernel: sky2 hardware hung? flushing
-Sep 28 21:08:03 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 21:08:03 dezo kernel: sky2 eth1: tx timeout
-Sep 28 21:08:03 dezo kernel: sky2 eth1: transmit ring 379 .. 338 report=420 done=420
-Sep 28 21:08:03 dezo kernel: sky2 status report lost?
-Sep 28 21:09:28 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 21:09:28 dezo kernel: sky2 eth1: tx timeout
-Sep 28 21:09:28 dezo kernel: sky2 eth1: transmit ring 420 .. 379 report=420 done=420
-Sep 28 21:09:28 dezo kernel: sky2 hardware hung? flushing
-Sep 28 21:25:18 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 21:25:18 dezo kernel: sky2 eth1: tx timeout
-Sep 28 21:25:18 dezo kernel: sky2 eth1: transmit ring 379 .. 338 report=420 done=420
-Sep 28 21:25:18 dezo kernel: sky2 status report lost?
-Sep 28 21:26:38 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 21:26:38 dezo kernel: sky2 eth1: tx timeout
-Sep 28 21:26:38 dezo kernel: sky2 eth1: transmit ring 420 .. 379 report=420 done=420
-Sep 28 21:26:38 dezo kernel: sky2 hardware hung? flushing
-Sep 28 21:41:42 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 21:41:42 dezo kernel: sky2 eth1: tx timeout
-Sep 28 21:41:42 dezo kernel: sky2 eth1: transmit ring 379 .. 338 report=420 done=420
-Sep 28 21:41:42 dezo kernel: sky2 status report lost?
-Sep 28 21:42:57 dezo kernel: NETDEV WATCHDOG: eth1: transmit timed out
-Sep 28 21:42:57 dezo kernel: sky2 eth1: tx timeout
-Sep 28 21:42:57 dezo kernel: sky2 eth1: transmit ring 420 .. 379 report=420 done=420
-Sep 28 21:42:57 dezo kernel: sky2 hardware hung? flushing
-Sep 28 21:49:19 dezo kernel: sky2 eth1: disabling interface
-Sep 28 21:49:19 dezo kernel: sky2 eth1: enabling interface
-Sep 28 21:49:22 dezo kernel: sky2 eth1: Link is up at 1000 Mbps, full duplex, flow control
- rx
-Sep 28 21:49:30 dezo kernel: eth1: no IPv6 routers present
-
-This appears to have resulted in a system hang some time later, since
-the machine stopped responding and the last message I see in the syslog
-is:
-
-Sep 28 22:09:22 dezo -- MARK --
-
-The box was dead when I arrived at the office the next morning.
-
-Also, I'm seeing a bunch of messages like this (in addition to the hw
-csum failures I mentioned in my original email):
-
-Oct  2 16:42:17 dezo kernel: SKB BUG: Invalid truesize (3944) len=12745, sizeof(sk_buff)=2
-32
-Oct  2 16:42:29 dezo kernel: SKB BUG: Invalid truesize (3944) len=16384, sizeof(sk_buff)=2
-32
-Oct  2 16:42:29 dezo last message repeated 11 times
-Oct  3 17:20:54 dezo kernel: SKB BUG: Invalid truesize (3944) len=16384, sizeof(sk_buff)=2
-32
-Oct  3 17:21:56 dezo last message repeated 4 times
-Oct  3 17:21:56 dezo last message repeated 3 times
-Oct  3 17:23:46 dezo last message repeated 2 times
-Oct  3 20:03:28 dezo kernel: SKB BUG: Invalid truesize (3944) len=16384, sizeof(sk_buff)=2
-32
-Oct  3 20:03:28 dezo last message repeated 16 times
-
-After which some open TCP sockets between dezo and another box (also
-with sky2) start running really slowly.
-
-Not sure how to proceed with this - is there a newer version of sky2
-than that in 2.6.18 which I can test?
-
--mato
+Thanks,
+-- 
+Santiago A. Leon
+Power Linux Development
+IBM Linux Technology Center
