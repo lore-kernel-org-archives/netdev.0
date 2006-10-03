@@ -1,39 +1,109 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
-Date: Tue, 03 Oct 2006 09:36:25 -0500
-Message-ID: <45227569.6070901@lwfinger.net>
-References: <200610021843.20694.mb@bu3sch.de> <4521DCBB.2030201@lwfinger.net>
-	<200610031358.33760.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-In-Reply-To: <200610031358.33760.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: [PATCH] Add spinlocks to serialize ib_post_send/ib_post_recv
+Date: Tue, 03 Oct 2006 09:46:41 -0500
+Message-ID: <20061003144641.8901.28566.stgit@dell3.ogc.int>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: tom@opengridcomputing.com, openib-general@openib.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:46777 "EHLO
+	dell3.ogc.int") by vger.kernel.org with ESMTP id S932251AbWJCOqm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 10:46:42 -0400
+To: rdreier@cisco.com
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
->> kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
->>   29:46:18
-> 
-> Uhm, which firmware are you running?
+From: Tom Tucker <tom@opengridcomputing.com>
 
-The softmac version reports the following (The "loaded" messages are something I'm trying.):
+The AMSO driver was not thread-safe in the post WR code and had
+code that would sleep if the WR post FIFO was full. Since these
+functions can be called on interrupt level I changed the sleep to a
+udelay.
 
-kernel: bcm43xx: Firmware: Microcode "bcm43xx_microcode4.fw" loaded.
-kernel: bcm43xx: Firmware: PCM "bcm43xx_pcm4.fw" loaded.
-kernel: bcm43xx: Firmware: InitVals0 "bcm43xx_initval01.fw" loaded.
-kernel: bcm43xx: Microcode rev 0x123, pl 0x21 (2005-01-22  19:48:06)
+Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
+---
 
-Larry
+ drivers/infiniband/hw/amso1100/c2_qp.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/infiniband/hw/amso1100/c2_qp.c b/drivers/infiniband/hw/amso1100/c2_qp.c
+index 1226113..681c130 100644
+--- a/drivers/infiniband/hw/amso1100/c2_qp.c
++++ b/drivers/infiniband/hw/amso1100/c2_qp.c
+@@ -35,6 +35,7 @@
+  *
+  */
+ 
++#include <linux/delay.h>
+ #include "c2.h"
+ #include "c2_vq.h"
+ #include "c2_status.h"
+@@ -705,10 +706,8 @@ static inline void c2_activity(struct c2
+ 	 * cannot get on the bus and the card and system hang in a
+ 	 * deadlock -- thus the need for this code. [TOT]
+ 	 */
+-	while (readl(c2dev->regs + PCI_BAR0_ADAPTER_HINT) & 0x80000000) {
+-		set_current_state(TASK_UNINTERRUPTIBLE);
+-		schedule_timeout(0);
+-	}
++	while (readl(c2dev->regs + PCI_BAR0_ADAPTER_HINT) & 0x80000000)
++		udelay(10);
+ 
+ 	__raw_writel(C2_HINT_MAKE(mq_index, shared),
+ 		     c2dev->regs + PCI_BAR0_ADAPTER_HINT);
+@@ -766,6 +765,7 @@ int c2_post_send(struct ib_qp *ibqp, str
+ 	struct c2_dev *c2dev = to_c2dev(ibqp->device);
+ 	struct c2_qp *qp = to_c2qp(ibqp);
+ 	union c2wr wr;
++	unsigned long lock_flags;
+ 	int err = 0;
+ 
+ 	u32 flags;
+@@ -881,8 +881,10 @@ int c2_post_send(struct ib_qp *ibqp, str
+ 		/*
+ 		 * Post the puppy!
+ 		 */
++		spin_lock_irqsave(&qp->lock, lock_flags);
+ 		err = qp_wr_post(&qp->sq_mq, &wr, qp, msg_size);
+ 		if (err) {
++			spin_unlock_irqrestore(&qp->lock, lock_flags);
+ 			break;
+ 		}
+ 
+@@ -890,6 +892,7 @@ int c2_post_send(struct ib_qp *ibqp, str
+ 		 * Enqueue mq index to activity FIFO.
+ 		 */
+ 		c2_activity(c2dev, qp->sq_mq.index, qp->sq_mq.hint_count);
++		spin_unlock_irqrestore(&qp->lock, lock_flags);
+ 
+ 		ib_wr = ib_wr->next;
+ 	}
+@@ -905,6 +908,7 @@ int c2_post_receive(struct ib_qp *ibqp, 
+ 	struct c2_dev *c2dev = to_c2dev(ibqp->device);
+ 	struct c2_qp *qp = to_c2qp(ibqp);
+ 	union c2wr wr;
++	unsigned long lock_flags;
+ 	int err = 0;
+ 
+ 	if (qp->state > IB_QPS_RTS)
+@@ -945,8 +949,10 @@ int c2_post_receive(struct ib_qp *ibqp, 
+ 			break;
+ 		}
+ 
++		spin_lock_irqsave(&qp->lock, lock_flags);
+ 		err = qp_wr_post(&qp->rq_mq, &wr, qp, qp->rq_mq.msg_size);
+ 		if (err) {
++			spin_unlock_irqrestore(&qp->lock, lock_flags);
+ 			break;
+ 		}
+ 
+@@ -954,6 +960,7 @@ int c2_post_receive(struct ib_qp *ibqp, 
+ 		 * Enqueue mq index to activity FIFO
+ 		 */
+ 		c2_activity(c2dev, qp->rq_mq.index, qp->rq_mq.hint_count);
++		spin_unlock_irqrestore(&qp->lock, lock_flags);
+ 
+ 		ib_wr = ib_wr->next;
+ 	}
