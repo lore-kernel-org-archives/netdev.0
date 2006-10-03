@@ -1,70 +1,88 @@
 From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: [PATCH 2.6] More WE-21 potential overflows...
-Date: Mon, 2 Oct 2006 17:58:04 -0700
-Message-ID: <20061003005804.GB15997@bougret.hpl.hp.com>
+Subject: [PATCH 2.6] Fix WE-21 Orinoco overflow issue...
+Date: Mon, 2 Oct 2006 17:54:05 -0700
+Message-ID: <20061003005405.GA15997@bougret.hpl.hp.com>
 Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:13011 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1030200AbWJCA6h
+Received: from gundega.hpl.hp.com ([192.6.19.190]:11219 "EHLO
+	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1030199AbWJCA6X
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 20:58:37 -0400
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+	Mon, 2 Oct 2006 20:58:23 -0400
+To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Hi,
+	Hi John,
 
-	After the Orinoco issue, I did an audit of other drivers for
-the same issue. Three drivers were NULL terminating the ESSID, which
-could cause an overflow in WE-21 when the ESSID has maximum size.
-
-	Sorry for having overlooked that...
+	This patch fixes the Orinoco driver overflow issue with
+WE-21. This was discussed on the mailing list, the reporter confirmed
+that it fixes the issue and Andrew has already added this patch in
+tree.
+	Regards,
 
 	Jean
 
+------------------------------------------------------------
 
-Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
-
------------------------------------------------------------
-
-diff -u -p linux/drivers/net/wireless/airo.j1.c linux/drivers/net/wireless/airo.c
---- linux/drivers/net/wireless/airo.j1.c	2006-10-02 17:40:43.000000000 -0700
-+++ linux/drivers/net/wireless/airo.c	2006-10-02 17:41:32.000000000 -0700
-@@ -5910,7 +5910,6 @@ static int airo_get_essid(struct net_dev
+diff -u -p linux/drivers/net/wireless/orinoco.j1.c linux/drivers/net/wireless/orinoco.c
+--- linux/drivers/net/wireless/orinoco.j1.c	2006-10-02 10:15:41.000000000 -0700
++++ linux/drivers/net/wireless/orinoco.c	2006-10-02 10:39:20.000000000 -0700
+@@ -2456,6 +2456,7 @@ void free_orinocodev(struct net_device *
+ /* Wireless extensions                                              */
+ /********************************************************************/
  
- 	/* Get the current SSID */
- 	memcpy(extra, status_rid.SSID, status_rid.SSIDlen);
--	extra[status_rid.SSIDlen] = '\0';
- 	/* If none, we may want to get the one that was set */
++/* Return : < 0 -> error code ; >= 0 -> length */
+ static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
+ 				char buf[IW_ESSID_MAX_SIZE+1])
+ {
+@@ -2500,9 +2501,9 @@ static int orinoco_hw_get_essid(struct o
+ 	len = le16_to_cpu(essidbuf.len);
+ 	BUG_ON(len > IW_ESSID_MAX_SIZE);
  
- 	/* Push it out ! */
-diff -u -p linux/drivers/net/wireless/atmel.j1.c linux/drivers/net/wireless/atmel.c
---- linux/drivers/net/wireless/atmel.j1.c	2006-10-02 17:40:51.000000000 -0700
-+++ linux/drivers/net/wireless/atmel.c	2006-10-02 17:41:59.000000000 -0700
-@@ -1678,11 +1678,9 @@ static int atmel_get_essid(struct net_de
- 	/* Get the current SSID */
- 	if (priv->new_SSID_size != 0) {
- 		memcpy(extra, priv->new_SSID, priv->new_SSID_size);
--		extra[priv->new_SSID_size] = '\0';
- 		dwrq->length = priv->new_SSID_size;
+-	memset(buf, 0, IW_ESSID_MAX_SIZE+1);
++	memset(buf, 0, IW_ESSID_MAX_SIZE);
+ 	memcpy(buf, p, len);
+-	buf[len] = '\0';
++	err = len;
+ 
+  fail_unlock:
+ 	orinoco_unlock(priv, &flags);
+@@ -3026,17 +3027,18 @@ static int orinoco_ioctl_getessid(struct
+ 
+ 	if (netif_running(dev)) {
+ 		err = orinoco_hw_get_essid(priv, &active, essidbuf);
+-		if (err)
++		if (err < 0)
+ 			return err;
++		erq->length = err;
  	} else {
- 		memcpy(extra, priv->SSID, priv->SSID_size);
--		extra[priv->SSID_size] = '\0';
- 		dwrq->length = priv->SSID_size;
+ 		if (orinoco_lock(priv, &flags) != 0)
+ 			return -EBUSY;
+-		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE + 1);
++		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE);
++		erq->length = strlen(priv->desired_essid);
+ 		orinoco_unlock(priv, &flags);
  	}
  
-diff -u -p linux/drivers/net/wireless/ray_cs.j1.c linux/drivers/net/wireless/ray_cs.c
---- linux/drivers/net/wireless/ray_cs.j1.c	2006-10-02 17:40:58.000000000 -0700
-+++ linux/drivers/net/wireless/ray_cs.c	2006-10-02 17:42:41.000000000 -0700
-@@ -1198,7 +1198,6 @@ static int ray_get_essid(struct net_devi
+ 	erq->flags = 1;
+-	erq->length = strlen(essidbuf);
  
- 	/* Get the essid that was set */
- 	memcpy(extra, local->sparm.b5.a_current_ess_id, IW_ESSID_MAX_SIZE);
--	extra[IW_ESSID_MAX_SIZE] = '\0';
+ 	return 0;
+ }
+@@ -3074,10 +3076,10 @@ static int orinoco_ioctl_getnick(struct 
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
  
- 	/* Push it out ! */
- 	dwrq->length = strlen(extra);
+-	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE+1);
++	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE);
+ 	orinoco_unlock(priv, &flags);
+ 
+-	nrq->length = strlen(nickbuf);
++	nrq->length = strlen(priv->nick);
+ 
+ 	return 0;
+ }
+
