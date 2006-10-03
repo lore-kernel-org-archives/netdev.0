@@ -1,47 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: incorrect length on receive packets
-Date: Tue, 3 Oct 2006 16:39:12 -0700
-Message-ID: <20061003163912.1b96bc70@freekitty>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 4/6] 2.6.18: sb1250-mac: The actual driver update
+Date: Tue, 3 Oct 2006 16:42:53 -0700
+Message-ID: <20061003164253.62f9d5a3.akpm@osdl.org>
+References: <Pine.LNX.4.64N.0610031549270.4642@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18318 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932333AbWJCXkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 19:40:16 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from smtp.osdl.org ([65.172.181.4]:5776 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751035AbWJCXq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 19:46:26 -0400
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
+In-Reply-To: <Pine.LNX.4.64N.0610031549270.4642@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The previous change to do fragmented receive (post 2.6.18) introduced a bug
-where packets are passed up with size set to the size of the receive buffer
-not the actual received data.  IP silently trims this so it didn't show up
-right away.
+On Tue, 3 Oct 2006 16:18:44 +0100 (BST)
+"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> +	sbmac_state_t		sbm_state;	/* current state */
 
----
- drivers/net/sky2.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+argh.
 
---- sky2.orig/drivers/net/sky2.c	2006-10-03 16:35:09.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-10-03 16:35:23.000000000 -0700
-@@ -1907,7 +1907,7 @@
- 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
- 					       length, PCI_DMA_FROMDEVICE);
- 		re->skb->ip_summed = CHECKSUM_NONE;
--		__skb_put(skb, length);
-+		skb_put(skb, length);
- 	}
- 	return skb;
- }
-@@ -1970,7 +1970,7 @@
- 	if (skb_shinfo(skb)->nr_frags)
- 		skb_put_frags(skb, hdr_space, length);
- 	else
--		skb_put(skb, hdr_space);
-+		skb_put(skb, length);
- 	return skb;
- }
- 
+The reader looks at this and doesn't know if it's an integer, a void*, a
+struct usb_ac_header_descriptor** or what.
+
+	enum sbmac_state	smb_state;
+
+is nicer.  It has information.
