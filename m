@@ -1,62 +1,80 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
-Date: Tue, 3 Oct 2006 15:05:02 +0200
-Message-ID: <200610031505.03129.mb@bu3sch.de>
-References: <200610021843.20694.mb@bu3sch.de> <200610031358.33760.mb@bu3sch.de> <20061003123621.GA4673@tuba>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
+Date: Tue, 03 Oct 2006 15:06:38 +0200
+Message-ID: <4522605E.8000208@voltaire.com>
+References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben> <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com> <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com> <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Martin Langer <martin-langer@gmx.de>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39865
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932149AbWJCNFc
+Received: from taurus.voltaire.com ([193.47.165.240]:50359 "EHLO
+	taurus.voltaire.com") by vger.kernel.org with ESMTP id S932156AbWJCNGp
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 09:05:32 -0400
-To: bcm43xx-dev@lists.berlios.de
-In-Reply-To: <20061003123621.GA4673@tuba>
-Content-Disposition: inline
+	Tue, 3 Oct 2006 09:06:45 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 03 October 2006 14:36, Martin Langer wrote:
-> On Tue, Oct 03, 2006 at 01:58:33PM +0200, Michael Buesch wrote:
-> > On Tuesday 03 October 2006 05:44, Larry Finger wrote:
-> > > 
-> > > kernel: ssb: Core 0 found: cc 0800, rev 02, vendor 4243
-> > > kernel: ssb: Core 1 found: cc 0812, rev 04, vendor 4243
-> > > kernel: ssb: Core 2 found: cc 080D, rev 01, vendor 4243
-> > > kernel: ssb: Core 3 found: cc 0807, rev 01, vendor 4243
-> > > kernel: ssb: Core 4 found: cc 0804, rev 07, vendor 4243
-> > > kernel: ssb: Core 5 found: cc 0812, rev 04, vendor 4243
-> > > kernel: bcm43xx_d80211: Ignoring additional 802.11 core.
-> > > kernel: bcm43xx_d80211: Broadcom 4306 WLAN found
-> > > kernel: ssb: Switching to core 4
-> > > kernel: bcm43xx_d80211: PHY connected
-> > > kernel: ssb: Switching to core 1
-> > > kernel: bcm43xx_d80211: Detected PHY: Version: 1, Type 2, Revision 1
-> > > kernel: bcm43xx_d80211: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
-> > > kernel: bcm43xx_d80211: Radio turned off
-> > > kernel: bcm43xx_d80211: Radio turned off
-> > > kernel: wmaster0: Selected rate control algorithm 'simple'
-> > > kernel: bcm43xx_d80211: Virtual interface added (type: 0x00000002, ID: 4, MAC: 00
-> > > :06:25:40:6f:03)
-> > > kernel: bcm43xx_d80211: PHY connected
-> > > kernel: bcm43xx_d80211: PHY disconnected
-> > > kernel: bcm43xx_d80211: PHY connected
-> > > kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
-> > >   29:46:18
-> > 
-> > Uhm, which firmware are you running?
+Jay Vosburgh wrote:
+> Or Gerlitz <or.gerlitz@gmail.com> wrote:
 > 
-> v4 testers should use the SVN version of fwcutter. There was a v4 
-> windriver bug in fwcutter .... some time ago.
+>> On 9/27/06, Jay Vosburgh <fubar@us.ibm.com> wrote:
+>>> Or Gerlitz <ogerlitz@voltaire.com> wrote:
+> [...]
+>>>         You almost want to have some kind of call to induce a reload
+>>> from scratch of the multicast filter settings (along with whatever else
+>>> might be necessary to alter the hardware type on the fly), to be called
+>>> by bonding at the time the first slave is added (since slave adds happen
+>>> in user context, and can therefore hold rtnl as required by most of the
+>>> multicast address handling code).  That seems less hassle than having to
+>>> specify the hardware type and address length at module load time.
+>> I agree that it would be better to avoid doing it this way.
+> 
+> 	Actually, it would be ideal to do it this way in all cases, as
+> the change of hardware type is the biggest hurdle to cross-hardware
+> bonding instances.  The current infrastructure simply won't allow it,
+> though, since bonding failover events usually occur in a timer context
+> (if memory serves, timers run in softirq and can't acquire rtnl).
 
-For convenience I modified current fwcutter to not reject v4 firmware files
-(but print a big fat warning) and tagged the 005 release here:
-http://prdownload.berlios.de/bcm43xx/bcm43xx-fwcutter-005.tar.bz2
+Sorry, but I don't follow... by saying "would be ideal to do ***it*** 
+this way in all cases" what exactly is the "it" you are referring to?
 
--- 
-Greetings Michael.
+> 
+> [...]
+>>>         Other random thoughts on how to resolve this include modifying
+>>> bonding to accept slaves when the master is down (which would also
+>>> require changes to the initscripts that normally configure bonding), so
+>>> that the initial setting of the, e.g., 224.0.0.1 multicast hardware
+>>> address happens to the already-changed hardware type.
+>> OK, this is a direction i would like to check. Can be nice if you
+>> provide me with a 1-2 liner of directions on what need to be changed
+>> to enable bonding to accept slaves when it down.
+> 
+> 	I don't think right offhand this would be a particularly
+> difficult change; the "up" operation for bonding mostly just starts up
+> various timers.  A few minutes poking around doesn't reveal anything
+> obvious that would hinder enslaving with the master down.  You'll have
+> to change ifenslave and the sysfs code to allow enslaves with the master
+> down; that might be all that's needed for bonding itself.  Changing
+> /sbin/ifup and friends is a separate problem.
+
+OK, lets see i follow:
+
+1st, your current recommendation to solve the link layer address 
+computation of multicast groups joined by the stack before any 
+enslavement actually takes place, is to instrument the bonding code such 
+that it would be possible to enslave devices when the bonding device is 
+not "up" yet.
+
+2nd, the change need to be worked out in the bonding sysfs code, the 
+ifenslave program but ***also*** in packages such as /sbin/ifup and friends.
+
+???
+
+BTW - is the ifenslave program still supported to work with upstream 
+(2.6.18 and above) kernel or it was obsoleted at some point.
+
+Or.
+
