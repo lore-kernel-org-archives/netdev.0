@@ -1,30 +1,33 @@
-From: Martin Lucina <mato@kotelna.sk>
-Subject: Re: sky2 hangs, hw csum errors with 2.6.18
-Date: Tue, 3 Oct 2006 21:23:59 +0200
-Message-ID: <20061003192358.GS14180@dezo.moloch.sk>
-References: <20060922182924.GE4161@dezo.moloch.sk> <20060922113152.02874cbc@localhost.localdomain> <20060922183812.GF4161@dezo.moloch.sk> <20060922115008.5060c599@localhost.localdomain> <20061003182119.GM14180@dezo.moloch.sk> <20061003113538.4c3fe57d@freekitty> <20061003183948.GO14180@dezo.moloch.sk> <20061003120355.0730097a@freekitty> <20061003191350.GP14180@dezo.moloch.sk> <20061003121624.77a08cb5@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 7254] New: leaving IP multicast group with
+ incorrect imr_address unexpectedly succeeded
+Date: Tue, 03 Oct 2006 13:47:57 -0700 (PDT)
+Message-ID: <20061003.134757.122617543.davem@davemloft.net>
+References: <20061003100750.902d4837.akpm@osdl.org>
+	<OF6602D35D.A9238CC7-ON882571FC.00659110-882571FC.0065E706@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, Alexandra.Kossovsky@oktetlabs.ru,
+	bugme-daemon@bugzilla.kernel.org, Konstantin.Petrov@oktetlabs.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chrocht.moloch.sk ([62.176.169.44]:24761 "EHLO mail.moloch.sk")
-	by vger.kernel.org with ESMTP id S1030488AbWJCTYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 15:24:02 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061003121624.77a08cb5@freekitty>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16075
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030380AbWJCUrz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 16:47:55 -0400
+To: dlstevens@us.ibm.com
+In-Reply-To: <OF6602D35D.A9238CC7-ON882571FC.00659110-882571FC.0065E706@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-shemminger@osdl.org said:
-> If you are seeing truesize errors with the stock 2.6.18 kernel then
-> some other protocol is messing with the skb's?  Are you using IPV6?
-> Or PPPoE or something like that.
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Tue, 3 Oct 2006 11:33:07 -0700
 
-Only thing like that that is running here is OpenVPN which is using a
-tun interface.  There's hardly any traffic running over that though.
-Could that explain  the truesize errors?
+> If the index is set, it doesn't look up the address (which may be 
+> expensive).
+> If you want to look up by address, the index must be 0.
+> 
+> I wouldn't  call that a bug.
 
-Doesn't explain the sky2 tx timeouts though...
-
--mato
+Me neither, Andrew please close this. :)
