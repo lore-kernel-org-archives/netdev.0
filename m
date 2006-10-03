@@ -1,7 +1,7 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 3/4]: Spidernet transmit interupt mitigation
-Date: Tue, 3 Oct 2006 16:03:04 -0500
-Message-ID: <20061003210304.GH4381@austin.ibm.com>
+Subject: [PATCH 4/4]: Spidernet module parm permissions
+Date: Tue, 3 Oct 2006 16:04:08 -0500
+Message-ID: <20061003210408.GI4381@austin.ibm.com>
 References: <20061003205240.GE4381@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,9 +9,10 @@ Cc: netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
 	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
 	linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:2204 "EHLO e1.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1030459AbWJCVDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 17:03:06 -0400
+Received: from e31.co.us.ibm.com ([32.97.110.149]:25499 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030416AbWJCVEO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 17:04:14 -0400
 To: akpm@osdl.org, jeff@garzik.org
 Content-Disposition: inline
 In-Reply-To: <20061003205240.GE4381@austin.ibm.com>
@@ -19,76 +20,28 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+The module param permsissions should bw read-only, not writable.
 
-For small packets, the transmit interrupt settings were 
-accidentally generating too many interrupts. This patch
-turns off all transmit-related interrupts when the tx
-queue is mostly empty.
-
+Signed-off-by: James K Lewis <jklewis@us.ibm.com>
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: James K Lewis <jklewis@us.ibm.com>
 Cc: Arnd Bergmann <arnd@arndb.de>
 
 ----
- drivers/net/spider_net.c |    8 +++++---
- drivers/net/spider_net.h |    7 +++----
- 2 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/spider_net.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 Index: linux-2.6.18-mm2/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-02 19:06:55.000000000 -0500
-+++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-02 19:09:38.000000000 -0500
-@@ -707,7 +707,9 @@ spider_net_set_low_watermark(struct spid
- 		descr = descr->next;
- 		cnt++;
- 	}
--	if (cnt == 0)
-+
-+	/* If TX queue is short, don't even bother with interrupts */
-+	if (cnt < tx_descriptors/4)
- 		return;
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-02 19:09:38.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-02 19:14:48.000000000 -0500
+@@ -60,8 +60,8 @@ MODULE_VERSION(VERSION);
+ static int rx_descriptors = SPIDER_NET_RX_DESCRIPTORS_DEFAULT;
+ static int tx_descriptors = SPIDER_NET_TX_DESCRIPTORS_DEFAULT;
  
- 	/* Set low-watermark 3/4th's of the way into the queue. */
-@@ -716,7 +718,7 @@ spider_net_set_low_watermark(struct spid
- 	for (i=0;i<cnt; i++)
- 		descr = descr->next;
+-module_param(rx_descriptors, int, 0644);
+-module_param(tx_descriptors, int, 0644);
++module_param(rx_descriptors, int, 0444);
++module_param(tx_descriptors, int, 0444);
  
--	/* Set the new watermark, clear the old wtermark */
-+	/* Set the new watermark, clear the old watermark */
- 	spin_lock_irqsave(&card->tx_chain.lock, flags);
- 	descr->dmac_cmd_status |= SPIDER_NET_DESCR_TXDESFLG;
- 	if (card->low_watermark && card->low_watermark != descr)
-@@ -1639,7 +1641,7 @@ spider_net_enable_card(struct spider_net
- 			     SPIDER_NET_INT2_MASK_VALUE);
- 
- 	spider_net_write_reg(card, SPIDER_NET_GDTDMACCNTR,
--			     SPIDER_NET_GDTBSTA);
-+			     SPIDER_NET_GDTBSTA | SPIDER_NET_GDTDCEIDIS);
- }
- 
- /**
-Index: linux-2.6.18-mm2/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.18-mm2.orig/drivers/net/spider_net.h	2006-10-02 19:06:55.000000000 -0500
-+++ linux-2.6.18-mm2/drivers/net/spider_net.h	2006-10-02 19:09:38.000000000 -0500
-@@ -217,7 +217,8 @@ extern char spider_net_driver_name[];
- #define SPIDER_NET_GDTBSTA             0x00000300
- #define SPIDER_NET_GDTDCEIDIS          0x00000002
- #define SPIDER_NET_DMA_TX_VALUE        SPIDER_NET_TX_DMA_EN | \
--                                       SPIDER_NET_GDTBSTA
-+                                       SPIDER_NET_GDTBSTA   | \
-+                                       SPIDER_NET_GDTDCEIDIS
- #define SPIDER_NET_DMA_TX_FEND_VALUE	0x00030003
- 
- /* SPIDER_NET_UA_DESCR_VALUE is OR'ed with the unicast address */
-@@ -326,9 +327,7 @@ enum spider_net_int2_status {
- 	SPIDER_NET_GRISPDNGINT
- };
- 
--#define SPIDER_NET_TXINT	( (1 << SPIDER_NET_GTTEDINT) | \
--				  (1 << SPIDER_NET_GDTDCEINT) | \
--				  (1 << SPIDER_NET_GDTFDCINT) )
-+#define SPIDER_NET_TXINT	( (1 << SPIDER_NET_GDTFDCINT) )
- 
- /* we rely on flagged descriptor interrupts*/
- #define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) | \
+ MODULE_PARM_DESC(rx_descriptors, "number of descriptors used " \
+ 		 "in rx chains");
