@@ -1,36 +1,58 @@
-From: Martin Lucina <mato@kotelna.sk>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: sky2 hangs, hw csum errors with 2.6.18
-Date: Tue, 3 Oct 2006 20:39:49 +0200
-Message-ID: <20061003183948.GO14180@dezo.moloch.sk>
-References: <20060922112442.GB4161@dezo.moloch.sk> <20060922095642.5acf4ac9@dxpl.pdx.osdl.net> <20060922182924.GE4161@dezo.moloch.sk> <20060922113152.02874cbc@localhost.localdomain> <20060922183812.GF4161@dezo.moloch.sk> <20060922115008.5060c599@localhost.localdomain> <20061003182119.GM14180@dezo.moloch.sk> <20061003113538.4c3fe57d@freekitty>
+Date: Tue, 3 Oct 2006 12:03:55 -0700
+Message-ID: <20061003120355.0730097a@freekitty>
+References: <20060922112442.GB4161@dezo.moloch.sk>
+	<20060922095642.5acf4ac9@dxpl.pdx.osdl.net>
+	<20060922182924.GE4161@dezo.moloch.sk>
+	<20060922113152.02874cbc@localhost.localdomain>
+	<20060922183812.GF4161@dezo.moloch.sk>
+	<20060922115008.5060c599@localhost.localdomain>
+	<20061003182119.GM14180@dezo.moloch.sk>
+	<20061003113538.4c3fe57d@freekitty>
+	<20061003183948.GO14180@dezo.moloch.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chrocht.moloch.sk ([62.176.169.44]:13198 "EHLO mail.moloch.sk")
-	by vger.kernel.org with ESMTP id S1030468AbWJCSju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 14:39:50 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061003113538.4c3fe57d@freekitty>
+Received: from smtp.osdl.org ([65.172.181.4]:4519 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030476AbWJCTEZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 15:04:25 -0400
+To: Martin Lucina <mato@kotelna.sk>
+In-Reply-To: <20061003183948.GO14180@dezo.moloch.sk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-shemminger@osdl.org said:
-> On Tue, 3 Oct 2006 20:21:20 +0200
-> Martin Lucina <mato@kotelna.sk> wrote:
-> 
-> > Hi Stephen,
+On Tue, 3 Oct 2006 20:39:49 +0200
+Martin Lucina <mato@kotelna.sk> wrote:
+
+> shemminger@osdl.org said:
+> > On Tue, 3 Oct 2006 20:21:20 +0200
+> > Martin Lucina <mato@kotelna.sk> wrote:
 > > 
-> > I'm still getting tx timeouts even after applying the patch you sent me
-> > and forcing tx flow control off:
+> > > Hi Stephen,
+> > > 
+> > > I'm still getting tx timeouts even after applying the patch you sent me
+> > > and forcing tx flow control off:
+> > 
+> > What speed and duplex are you using?
 > 
-> What speed and duplex are you using?
+> 1000 Mbps, full duplex
+> 
+> > What MTU are you using.
+> 
+> 1500
+> 
+> -mato
 
-1000 Mbps, full duplex
+Are you sure? I assume you are using the latest driver from Linus's
+git repository. That version adds support for fragmented receive, but
+that code shouldn't be doing anything unless MTU > page size (4K).
 
-> What MTU are you using.
+Maybe oversize frames are coming in, and the driver isn't handling.
+I'll check
 
-1500
 
--mato
+-- 
+Stephen Hemminger <shemminger@osdl.org>
