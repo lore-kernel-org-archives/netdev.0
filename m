@@ -1,31 +1,83 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 1/2] remove Momentum Jaguar ATX network driver support
-Date: Mon, 2 Oct 2006 16:22:06 +0100
-Message-ID: <20061002152206.GB25180@linux-mips.org>
-References: <20061002233344.4e09116b.yoichi_yuasa@tripeaks.co.jp>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] neigh: always use hash_mask under tbl lock
+Date: Tue, 3 Oct 2006 03:05:51 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0610030124220.3580@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:26550 "EHLO
-	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S964978AbWJBXet
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Oct 2006 19:34:49 -0400
-Received: from localhost.localdomain ([127.0.0.1]:59338 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20038824AbWJBXer (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 00:34:47 +0100
-To: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
-Content-Disposition: inline
-In-Reply-To: <20061002233344.4e09116b.yoichi_yuasa@tripeaks.co.jp>
+Received: from ja.ssi.bg ([217.79.71.194]:18187 "EHLO u.domain.uli")
+	by vger.kernel.org with ESMTP id S965536AbWJCADL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2006 20:03:11 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 02, 2006 at 11:33:44PM +0900, Yoichi Yuasa wrote:
 
-> This patch has removed Momentum / PMC-Sierra Jaguar ATX network driver support.
-> It is listed in feature-removal-schedule.txt .
+	Make sure hash_mask is protected with tbl->lock in all
+cases just like the hash_buckets.
 
-NAK.  I won't remove the Momentum / Ocelot support for now.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+	I just noticed this in sources. Let me know if such change
+is valid and desired for 2.4 or stable tree. Compiles on 2.6.18 and
+2.6.18-git18.
 
-  Ralf
+diff -urp v2.6.18-git18/linux/net/core/neighbour.c linux/net/core/neighbour.c
+--- v2.6.18-git18/linux/net/core/neighbour.c	2006-10-03 01:50:15.000000000 +0300
++++ linux/net/core/neighbour.c	2006-10-03 01:50:32.000000000 +0300
+@@ -344,12 +344,12 @@ struct neighbour *neigh_lookup(struct ne
+ {
+ 	struct neighbour *n;
+ 	int key_len = tbl->key_len;
+-	u32 hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
++	u32 hash_val = tbl->hash(pkey, dev);
+
+ 	NEIGH_CACHE_STAT_INC(tbl, lookups);
+
+ 	read_lock_bh(&tbl->lock);
+-	for (n = tbl->hash_buckets[hash_val]; n; n = n->next) {
++	for (n = tbl->hash_buckets[hash_val & tbl->hash_mask]; n; n = n->next) {
+ 		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+ 			neigh_hold(n);
+ 			NEIGH_CACHE_STAT_INC(tbl, hits);
+@@ -364,12 +364,12 @@ struct neighbour *neigh_lookup_nodev(str
+ {
+ 	struct neighbour *n;
+ 	int key_len = tbl->key_len;
+-	u32 hash_val = tbl->hash(pkey, NULL) & tbl->hash_mask;
++	u32 hash_val = tbl->hash(pkey, NULL);
+
+ 	NEIGH_CACHE_STAT_INC(tbl, lookups);
+
+ 	read_lock_bh(&tbl->lock);
+-	for (n = tbl->hash_buckets[hash_val]; n; n = n->next) {
++	for (n = tbl->hash_buckets[hash_val & tbl->hash_mask]; n; n = n->next) {
+ 		if (!memcmp(n->primary_key, pkey, key_len)) {
+ 			neigh_hold(n);
+ 			NEIGH_CACHE_STAT_INC(tbl, hits);
+@@ -1998,12 +1998,12 @@ static int neigh_dump_table(struct neigh
+ 	int rc, h, s_h = cb->args[1];
+ 	int idx, s_idx = idx = cb->args[2];
+
++	read_lock_bh(&tbl->lock);
+ 	for (h = 0; h <= tbl->hash_mask; h++) {
+ 		if (h < s_h)
+ 			continue;
+ 		if (h > s_h)
+ 			s_idx = 0;
+-		read_lock_bh(&tbl->lock);
+ 		for (n = tbl->hash_buckets[h], idx = 0; n; n = n->next, idx++) {
+ 			if (idx < s_idx)
+ 				continue;
+@@ -2016,8 +2016,8 @@ static int neigh_dump_table(struct neigh
+ 				goto out;
+ 			}
+ 		}
+-		read_unlock_bh(&tbl->lock);
+ 	}
++	read_unlock_bh(&tbl->lock);
+ 	rc = skb->len;
+ out:
+ 	cb->args[1] = h;
+
