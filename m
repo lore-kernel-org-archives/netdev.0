@@ -1,47 +1,59 @@
-From: Samuel Tardieu <sam@rfc1149.net>
-Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
-Date: Tue, 3 Oct 2006 18:45:35 +0200
-Message-ID: <2006-10-03-18-45-35+trackit+sam@rfc1149.net>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org> <20061002175245.GA14744@bougret.hpl.hp.com> <2006-10-03-17-58-31+trackit+sam@rfc1149.net> <20061003163415.GA17252@bougret.hpl.hp.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 7254] New: leaving IP multicast group with
+ incorrect imr_address unexpectedly succeeded
+Date: Tue, 3 Oct 2006 10:07:50 -0700
+Message-ID: <20061003100750.902d4837.akpm@osdl.org>
+References: <200610031440.k93Ee4pP018478@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: Pavel Roskin <proski@gnu.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, Konstantin.Petrov@oktetlabs.ru,
+	Alexandra.Kossovsky@oktetlabs.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anyanka.rfc1149.net ([81.56.47.149]:23781 "EHLO
-	mail2.rfc1149.net") by vger.kernel.org with ESMTP id S932276AbWJCQpg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 12:45:36 -0400
-To: Jean Tourrilhes <jt@hpl.hp.com>
-Content-Disposition: inline
-In-Reply-To: <20061003163415.GA17252@bougret.hpl.hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:43756 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030331AbWJCRIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 13:08:07 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <200610031440.k93Ee4pP018478@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On  3/10, Jean Tourrilhes wrote:
+On Tue, 3 Oct 2006 07:40:04 -0700
+bugme-daemon@bugzilla.kernel.org wrote:
 
-| > I suggest that you revert the memset() to IW_ESSID_MAX_SIZE+1 so that
-| > the last byte is cleared as well. Or am I missing something?
-| 
-| No, that would bring back the slab/memory overflow we are
-| trying to get rid of.
-
-Then I am puzzled by the function declaration:
-
-static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
-                                char buf[IW_ESSID_MAX_SIZE+1])
-
-Do you mean that this function is called with a buf parameter which
-doesn't have the expected size? (as far as the function declaration is
-concerned) Shouldn't the declaration be changed to
-
-static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
-                                char buf[IW_ESSID_MAX_SIZE])
-
-then to reflect the reality? (it won't change the code but would be
-clearer from a documentation point of view)
-
- Sam
-
+> http://bugzilla.kernel.org/show_bug.cgi?id=7254
+> 
+>            Summary: leaving IP multicast group with incorrect imr_address
+>                     unexpectedly succeeded
+>     Kernel Version: 2.6.18
+>             Status: NEW
+>           Severity: normal
+>              Owner: shemminger@osdl.org
+>          Submitter: Konstantin.Petrov@oktetlabs.ru
+>                 CC: Alexandra.Kossovsky@oktetlabs.ru
+> 
+> 
+> Most recent kernel where this bug did not occur:
+> Distribution:
+> Hardware Environment: P4 PC
+> Software Environment:
+> Problem Description:
+> 
+> When trying to leave IP multicast group with
+> incorrect imr_address we expect function
+> setsockopt(s, SOL_IP, IP_DROP_MEMBERSHIP, ip_mreq)
+> to fail with ERRNO EADDRNOTAVAIL, but it succeeds.
+> 
+> Steps to reproduce:
+> 1) Join socket to IP multicast group
+> 2) Using incorrerct imr_address try to leave 
+>    IP multicast group
+> 
+> Note:
+> Probably function ip_mc_leave_group(...) in the
+> file /net/ipv4/igmp.c "forgets" to check imr_address when
+> imr_ifindex is OK.
+> 
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
