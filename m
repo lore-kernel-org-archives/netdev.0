@@ -1,59 +1,56 @@
-From: Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: Please pull bcm43xx-d80211 bugfixes and new features
-Date: Tue, 3 Oct 2006 14:36:21 +0200
-Message-ID: <20061003123621.GA4673@tuba>
-References: <200610021843.20694.mb@bu3sch.de> <4521DCBB.2030201@lwfinger.net>
-	<200610031358.33760.mb@bu3sch.de>
+From: Ismail Donmez <ismail@pardus.org.tr>
+Subject: [PATCH] Revert [NET_SCHED]: HTB: fix incorrect use of RB_EMPTY_NODE
+Date: Tue, 3 Oct 2006 15:54:55 +0300
+Message-ID: <200610031554.56353.ismail@pardus.org.tr>
+References: <200609302223.47627.ismail@pardus.org.tr> <20061002111555.GB2936@ff.dom.local> <20061003102831.GA7778@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200610031358.33760.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_g2lIFKlgzt6agxc"
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.uludag.org.tr ([193.140.100.220]:31682 "EHLO uludag.org.tr")
+	by vger.kernel.org with ESMTP id S932085AbWJCMyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 08:54:36 -0400
+To: Jens Axboe <jens.axboe@oracle.com>
+In-Reply-To: <20061003102831.GA7778@kernel.dk>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2006 at 01:58:33PM +0200, Michael Buesch wrote:
-> On Tuesday 03 October 2006 05:44, Larry Finger wrote:
-> > 
-> > kernel: ssb: Core 0 found: cc 0800, rev 02, vendor 4243
-> > kernel: ssb: Core 1 found: cc 0812, rev 04, vendor 4243
-> > kernel: ssb: Core 2 found: cc 080D, rev 01, vendor 4243
-> > kernel: ssb: Core 3 found: cc 0807, rev 01, vendor 4243
-> > kernel: ssb: Core 4 found: cc 0804, rev 07, vendor 4243
-> > kernel: ssb: Core 5 found: cc 0812, rev 04, vendor 4243
-> > kernel: bcm43xx_d80211: Ignoring additional 802.11 core.
-> > kernel: bcm43xx_d80211: Broadcom 4306 WLAN found
-> > kernel: ssb: Switching to core 4
-> > kernel: bcm43xx_d80211: PHY connected
-> > kernel: ssb: Switching to core 1
-> > kernel: bcm43xx_d80211: Detected PHY: Version: 1, Type 2, Revision 1
-> > kernel: bcm43xx_d80211: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
-> > kernel: bcm43xx_d80211: Radio turned off
-> > kernel: bcm43xx_d80211: Radio turned off
-> > kernel: wmaster0: Selected rate control algorithm 'simple'
-> > kernel: bcm43xx_d80211: Virtual interface added (type: 0x00000002, ID: 4, MAC: 00
-> > :06:25:40:6f:03)
-> > kernel: bcm43xx_d80211: PHY connected
-> > kernel: bcm43xx_d80211: PHY disconnected
-> > kernel: bcm43xx_d80211: PHY connected
-> > kernel: bcm43xx_d80211: firmware revision FE84, patchlevel 90B4, date 2000-14-248
-> >   29:46:18
-> 
-> Uhm, which firmware are you running?
+--Boundary-00=_g2lIFKlgzt6agxc
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-v4 testers should use the SVN version of fwcutter. There was a v4 
-windriver bug in fwcutter .... some time ago.
+With commit 10fd48f2376db52f08bf0420d2c4f580e39269e1 [1] ,  RB_EMPTY_NODE 
+changed behaviour so it returns true when the node is empty as expected. 
+Hence Patrick McHardy's fix for sched_htb.c should be reverted.
 
-Martin
+Signed-off-by: Ismail Donmez <ismail@pardus.org.tr>
+
+--Boundary-00=_g2lIFKlgzt6agxc
+Content-Type: text/x-diff;
+  charset="Iso-8859-1";
+  name="rb.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="rb.diff"
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 6c058e3..1f1360e 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -391,7 +391,7 @@ static inline void htb_add_class_to_row(
+ /* If this triggers, it is a bug in this code, but it need not be fatal */
+ static void htb_safe_rb_erase(struct rb_node *rb, struct rb_root *root)
+ {
+-	if (!RB_EMPTY_NODE(rb)) {
++	if (RB_EMPTY_NODE(rb)) {
+ 		WARN_ON(1);
+ 	} else {
+ 		rb_erase(rb, root);
+
+--Boundary-00=_g2lIFKlgzt6agxc--
