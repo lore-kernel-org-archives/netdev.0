@@ -1,91 +1,92 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 1/4]: Spidernet stop queue when queue is full
-Date: Tue, 3 Oct 2006 15:57:29 -0500
-Message-ID: <20061003205729.GF4381@austin.ibm.com>
+Subject: [PATCH 2/4]: Spidernet fix register field definitions
+Date: Tue, 3 Oct 2006 15:59:22 -0500
+Message-ID: <20061003205922.GG4381@austin.ibm.com>
 References: <20061003205240.GE4381@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
 	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
 	linuxppc-dev@ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:53162 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030407AbWJCU5b
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 16:57:31 -0400
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 To: akpm@osdl.org, jeff@garzik.org
 Content-Disposition: inline
 In-Reply-To: <20061003205240.GE4381@austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
 
-Subject: [PATCH 1/4]: Spidernet stop queue when queue is full.
-
-This patch adds a call to netif_stop_queue() when there is
-no more room for more packets on the transmit queue.
+This patch fixes the names of a few fields in the DMA control 
+register. There is no functional change.
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 Cc: James K Lewis <jklewis@us.ibm.com>
 Cc: Arnd Bergmann <arnd@arndb.de>
 
 ----
- drivers/net/spider_net.c |   19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+
+ drivers/net/spider_net.c |    2 +-
+ drivers/net/spider_net.h |   14 +++++++++-----
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
 Index: linux-2.6.18-mm2/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-02 12:12:56.000000000 -0500
-+++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-02 18:59:43.000000000 -0500
-@@ -686,6 +686,7 @@ spider_net_prepare_tx_descr(struct spide
- 	/* Chain the bus address, so that the DMA engine finds this descr. */
- 	descr->prev->next_descr_addr = descr->bus_addr;
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-02 18:59:43.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-02 19:06:55.000000000 -0500
+@@ -1639,7 +1639,7 @@ spider_net_enable_card(struct spider_net
+ 			     SPIDER_NET_INT2_MASK_VALUE);
  
-+	card->netdev->trans_start = jiffies;
- 	return 0;
- }
- 
-@@ -857,29 +858,23 @@ spider_net_xmit(struct sk_buff *skb, str
- 
- 	spider_net_release_tx_chain(card, 0);
- 
--	if (chain->head->next == chain->tail->prev) {
--		card->netdev_stats.tx_dropped++;
--		result = NETDEV_TX_LOCKED;
--		goto out;
--	}
--
--	if (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE) {
--		card->netdev_stats.tx_dropped++;
-+	if ((chain->head->next == chain->tail->prev) ||
-+	   (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE)) {
- 		result = NETDEV_TX_LOCKED;
- 		goto out;
- 	}
- 
- 	if (spider_net_prepare_tx_descr(card, skb) != 0) {
--		card->netdev_stats.tx_dropped++;
- 		result = NETDEV_TX_BUSY;
- 		goto out;
- 	}
- 
--	result = NETDEV_TX_OK;
- 	spider_net_kick_tx_dma(card);
-+	return NETDEV_TX_OK;
- 
- out:
--	netif_wake_queue(netdev);
-+	card->netdev_stats.tx_dropped++;
-+	netif_stop_queue(netdev);
- 	return result;
- }
- 
-@@ -898,6 +893,8 @@ spider_net_cleanup_tx_ring(struct spider
- 	if ((spider_net_release_tx_chain(card, 0) != 0) &&
- 	    (card->netdev->flags & IFF_UP))
- 		spider_net_kick_tx_dma(card);
-+
-+	netif_wake_queue(card->netdev);
+ 	spider_net_write_reg(card, SPIDER_NET_GDTDMACCNTR,
+-			     SPIDER_NET_GDTDCEIDIS);
++			     SPIDER_NET_GDTBSTA);
  }
  
  /**
+Index: linux-2.6.18-mm2/drivers/net/spider_net.h
+===================================================================
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.h	2006-10-02 18:58:11.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.h	2006-10-02 19:06:55.000000000 -0500
+@@ -191,7 +191,9 @@ extern char spider_net_driver_name[];
+ #define SPIDER_NET_MACMODE_VALUE	0x00000001
+ #define SPIDER_NET_BURSTLMT_VALUE	0x00000200 /* about 16 us */
+ 
+-/* 1(0)					enable r/tx dma
++/* DMAC control register GDMACCNTR
++ *
++ * 1(0)				enable r/tx dma
+  *  0000000				fixed to 0
+  *
+  *         000000			fixed to 0
+@@ -200,6 +202,7 @@ extern char spider_net_driver_name[];
+  *
+  *                 000000		fixed to 0
+  *                       00		burst alignment: 128 bytes
++ *                       11		burst alignment: 1024 bytes
+  *
+  *                         00000	fixed to 0
+  *                              0	descr writeback size 32 bytes
+@@ -210,10 +213,11 @@ extern char spider_net_driver_name[];
+ #define SPIDER_NET_DMA_RX_VALUE		0x80000000
+ #define SPIDER_NET_DMA_RX_FEND_VALUE	0x00030003
+ /* to set TX_DMA_EN */
+-#define SPIDER_NET_TX_DMA_EN		0x80000000
+-#define SPIDER_NET_GDTDCEIDIS		0x00000300
+-#define SPIDER_NET_DMA_TX_VALUE		SPIDER_NET_TX_DMA_EN | \
+-					SPIDER_NET_GDTDCEIDIS
++#define SPIDER_NET_TX_DMA_EN           0x80000000
++#define SPIDER_NET_GDTBSTA             0x00000300
++#define SPIDER_NET_GDTDCEIDIS          0x00000002
++#define SPIDER_NET_DMA_TX_VALUE        SPIDER_NET_TX_DMA_EN | \
++                                       SPIDER_NET_GDTBSTA
+ #define SPIDER_NET_DMA_TX_FEND_VALUE	0x00030003
+ 
+ /* SPIDER_NET_UA_DESCR_VALUE is OR'ed with the unicast address */
