@@ -1,29 +1,91 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 0/4]: Spidernet transmit patches
-Date: Tue, 3 Oct 2006 15:52:40 -0500
-Message-ID: <20061003205240.GE4381@austin.ibm.com>
+Subject: [PATCH 1/4]: Spidernet stop queue when queue is full
+Date: Tue, 3 Oct 2006 15:57:29 -0500
+Message-ID: <20061003205729.GF4381@austin.ibm.com>
+References: <20061003205240.GE4381@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Arnd Bergmann <arnd@arndb.de>
+	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:47849 "EHLO
-	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030385AbWJCUwn
+Received: from e34.co.us.ibm.com ([32.97.110.152]:53162 "EHLO
+	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030407AbWJCU5b
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 16:52:43 -0400
+	Tue, 3 Oct 2006 16:57:31 -0400
 To: akpm@osdl.org, jeff@garzik.org
 Content-Disposition: inline
+In-Reply-To: <20061003205240.GE4381@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-The following set of four patches provide some more spidernet fixes.
-Most important are a pair of patches to stop the transmit queue when it
-is full, and to actually turn off transmit interrupts during NAPI(!)
+Subject: [PATCH 1/4]: Spidernet stop queue when queue is full.
+
+This patch adds a call to netif_stop_queue() when there is
+no more room for more packets on the transmit queue.
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 Cc: James K Lewis <jklewis@us.ibm.com>
 Cc: Arnd Bergmann <arnd@arndb.de>
 
+----
+ drivers/net/spider_net.c |   19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
 
+Index: linux-2.6.18-mm2/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-02 12:12:56.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-02 18:59:43.000000000 -0500
+@@ -686,6 +686,7 @@ spider_net_prepare_tx_descr(struct spide
+ 	/* Chain the bus address, so that the DMA engine finds this descr. */
+ 	descr->prev->next_descr_addr = descr->bus_addr;
+ 
++	card->netdev->trans_start = jiffies;
+ 	return 0;
+ }
+ 
+@@ -857,29 +858,23 @@ spider_net_xmit(struct sk_buff *skb, str
+ 
+ 	spider_net_release_tx_chain(card, 0);
+ 
+-	if (chain->head->next == chain->tail->prev) {
+-		card->netdev_stats.tx_dropped++;
+-		result = NETDEV_TX_LOCKED;
+-		goto out;
+-	}
+-
+-	if (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE) {
+-		card->netdev_stats.tx_dropped++;
++	if ((chain->head->next == chain->tail->prev) ||
++	   (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE)) {
+ 		result = NETDEV_TX_LOCKED;
+ 		goto out;
+ 	}
+ 
+ 	if (spider_net_prepare_tx_descr(card, skb) != 0) {
+-		card->netdev_stats.tx_dropped++;
+ 		result = NETDEV_TX_BUSY;
+ 		goto out;
+ 	}
+ 
+-	result = NETDEV_TX_OK;
+ 	spider_net_kick_tx_dma(card);
++	return NETDEV_TX_OK;
+ 
+ out:
+-	netif_wake_queue(netdev);
++	card->netdev_stats.tx_dropped++;
++	netif_stop_queue(netdev);
+ 	return result;
+ }
+ 
+@@ -898,6 +893,8 @@ spider_net_cleanup_tx_ring(struct spider
+ 	if ((spider_net_release_tx_chain(card, 0) != 0) &&
+ 	    (card->netdev->flags & IFF_UP))
+ 		spider_net_kick_tx_dma(card);
++
++	netif_wake_queue(card->netdev);
+ }
+ 
+ /**
