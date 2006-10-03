@@ -1,54 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Tue, 03 Oct 2006 16:18:07 -0700 (PDT)
-Message-ID: <20061003.161807.18306641.davem@davemloft.net>
-References: <20061002134200.GA20441@2ka.mipt.ru>
-	<Pine.LNX.4.64.0610021004180.9739@d.namei>
-	<Pine.LNX.4.64.0610021020390.9909@d.namei>
+Subject: Re: rewriting skb->truesize... good or bad idea
+Date: Tue, 03 Oct 2006 16:21:53 -0700 (PDT)
+Message-ID: <20061003.162153.06584617.davem@davemloft.net>
+References: <451D6319.1040506@hp.com>
+	<20060929.143139.74560775.davem@davemloft.net>
+	<45212652.5030505@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov,
-	vyekkirala@TrustedCS.com, paul.moore@hp.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17321
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15594
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030673AbWJCXSG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 19:18:06 -0400
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0610021020390.9909@d.namei>
+	id S1030676AbWJCXVu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 19:21:50 -0400
+To: vladislav.yasevich@hp.com
+In-Reply-To: <45212652.5030505@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Mon, 2 Oct 2006 10:27:13 -0400 (EDT)
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon, 02 Oct 2006 10:46:42 -0400
 
-> Updated version of the patch, which return directly after a flow cache 
-> lookup error in xfrm_lookup rather than returing via the cleanup path 
-> (which was causing a spurious dst_release).
+> David Miller wrote:
+> > If, on the other hand, you know you have exclusive access to the
+> > skb and there are no other references, setting skb->truesize can
+> > be OK.  However setting it to sizeof(struct sk_buff) doesn't make
+> > sense since there is at least:
+> > 
+> > 	sizeof(struct sk_buff) + sizeof(struct skb_shared_info)
+> > 
+> > memory assosciated with any SKB whatsoever in the kernel.  That is,
+> > even for a "zero length" skb->data buffer, we still always allocate
+> > the skb_shared_info area which must be accounted for.
 > 
-> This works for me, although I never saw the oops with the old patch.
-> 
-> Evgeniy, let me know if this fixes the oops you're seeing.
-> 
-> Signed-off-by: James Morris <jmorris@namei.org>
+> Well, since we are dealing with clones of the original skb, I didn't
+> think that we need to include skb_shared_info.  I thought that was
+> accounted for in the original skb?
 
-As I review this patch I realize there is a question of
-semantics and prioritization here.
+We use the original packet's truesize, as-is, when making
+SKB clones.  This is our global policy.
 
-For example, socket policies are handled such that if the security
-layer gives an error we behave as if the socket policy did not match.
+The reason for that behavior is the usual case is that the
+clone is being attached to a different socket than the
+original SKB will.  And we very much should charge the memory
+fully to every socket that references it.
 
-Whereas we handle sub vs. primary global policies differently.  If we
-hit a sub-policy match, and we get a security layer error, we signal a
-full lookup failure instead of trying to see if there is a primary
-policy that the security layer likes.
+In your case it seems that the memory is already charged to
+the socket, and we would just be charging that memory again
+to the same socket.  So in this very specific case, it should
+be OK not to include skb_shared_info in the truesize calculation.
 
-I'm not saying either is wrong, I'm just pointing it out to make sure
-this is intentional.
-
-The socket policy behavior deserves some scrutiny.  I say this because
-if a matching socket policy is avoided due to security layer error,
-this could potentially make key manager problems very hard to
-diagnose.
