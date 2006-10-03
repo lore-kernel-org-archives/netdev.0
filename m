@@ -1,72 +1,52 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: 2.6.18-mm2 - oops in cache_alloc_refill()
-Date: Tue, 3 Oct 2006 09:34:15 -0700
-Message-ID: <20061003163415.GA17252@bougret.hpl.hp.com>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200609290319.k8T3JOwS005455@turing-police.cc.vt.edu> <20060928202931.dc324339.akpm@osdl.org> <200609291519.k8TFJfvw004256@turing-police.cc.vt.edu> <20060929124558.33ef6c75.akpm@osdl.org> <200609300001.k8U01sPI004389@turing-police.cc.vt.edu> <20060929182008.fee2a229.akpm@osdl.org> <20061002175245.GA14744@bougret.hpl.hp.com> <2006-10-03-17-58-31+trackit+sam@rfc1149.net>
-Reply-To: jt@hpl.hp.com
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: [PATCH] mv643xx_eth: Fix ethtool stats
+Date: Tue, 03 Oct 2006 18:42:32 +0200
+Message-ID: <1159893752.6580.27.camel@sakura.staff.proxad.net>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Roskin <proski@gnu.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Dale Farnsworth <dale@farnsworth.org>,
+	Manish Lachwani <mlachwani@mvista.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:6897 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1750942AbWJCQfD
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 12:35:03 -0400
-To: Samuel Tardieu <sam@rfc1149.net>
-Content-Disposition: inline
-In-Reply-To: <2006-10-03-17-58-31+trackit+sam@rfc1149.net>
+Received: from sakura.staff.proxad.net ([213.228.1.107]:2255 "EHLO
+	sakura.staff.proxad.net") by vger.kernel.org with ESMTP
+	id S932261AbWJCQn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 12:43:26 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2006 at 05:58:31PM +0200, Samuel Tardieu wrote:
-> >>>>> "Jean" == Jean Tourrilhes <jt@hpl.hp.com> writes:
-> 
-> Jean> @@ -2500,9 +2501,9 @@ static int orinoco_hw_get_essid(struct o
-> Jean>  	len = le16_to_cpu(essidbuf.len);
-> Jean>  	BUG_ON(len > IW_ESSID_MAX_SIZE);
-> Jean>  
-> Jean> -	memset(buf, 0, IW_ESSID_MAX_SIZE+1);
-> Jean> +	memset(buf, 0, IW_ESSID_MAX_SIZE);
-> Jean>  	memcpy(buf, p, len);
-> Jean> -	buf[len] = '\0';
-> Jean> +	err = len;
-> 
-> Jean,
-> 
-> something bugs me here:
-> 
->   - either buf is supposed to be a nul-terminated string, in which
->     case if p is IW_ESSID_MAX_SIZE long there may be a bug (no '\0' at
->     the end of buf)
 
-	ESSID is supposed to be up to 32 char, so we need to full
-buffer size.
+Some stats reported by ethtool -S on mv643xx_eth device are cleared
+between each call.
 
->   - either buf is not-supposed to be nul-terminated and the length
->     value will always be used, in which case the memset() looks
->     useless
+Is it the wanted behaviour ? If not, the attached patch fixes it.
 
-	Yes, it is entirely useless, but not incorrect. Note that the
-code was not very efficient to start with, the last char of the string
-was set to NUL twice.
-	I don't really want to overstep my authority there, my goal
-was to minimise the changes. Pavel will have to clean up my mess, so I
-don't want change things too much.
 
-> I suggest that you revert the memset() to IW_ESSID_MAX_SIZE+1 so that
-> the last byte is cleared as well. Or am I missing something?
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
 
-	No, that would bring back the slab/memory overflow we are
-trying to get rid of.
+--- linux-2.6.18/drivers/net/mv643xx_eth.c.orig	2006-10-03 18:29:14.000000000 +0200
++++ linux-2.6.18/drivers/net/mv643xx_eth.c	2006-10-03 18:29:42.000000000 +0200
+@@ -2156,7 +2156,7 @@
+ 	for (offset = ETH_MIB_BAD_OCTETS_RECEIVED;
+ 			offset <= ETH_MIB_FRAMES_1024_TO_MAX_OCTETS;
+ 			offset += 4)
+-		*(u32 *)((char *)p + offset) = read_mib(mp, offset);
++		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
+ 
+ 	p->good_octets_sent += read_mib(mp, ETH_MIB_GOOD_OCTETS_SENT_LOW);
+ 	p->good_octets_sent +=
+@@ -2165,7 +2165,7 @@
+ 	for (offset = ETH_MIB_GOOD_FRAMES_SENT;
+ 			offset <= ETH_MIB_LATE_COLLISION;
+ 			offset += 4)
+-		*(u32 *)((char *)p + offset) = read_mib(mp, offset);
++		*(u32 *)((char *)p + offset) += read_mib(mp, offset);
+ }
+ 
+ /*
 
->  Sam
-> -- 
-> Samuel Tardieu -- sam@rfc1149.net -- http://www.rfc1149.net/
 
-	Strange, this name remind me someone. Must be a previous life ;-)
-
-	A+
-
-	Jean
+-- 
+Maxime
