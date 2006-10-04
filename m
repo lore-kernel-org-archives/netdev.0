@@ -1,35 +1,41 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wext
-Date: Wed, 04 Oct 2006 13:06:13 +0200
-Message-ID: <1159959973.2817.52.camel@ux156>
-References: <200610021955.23112.chunkeey@web.de>
-	 <1159951043.2817.36.camel@ux156>  <200610041256.07110.chunkeey@web.de>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] prism54: wpa support for fullmac cards
+Date: Wed, 04 Oct 2006 07:40:11 -0400
+Message-ID: <1159962011.2708.19.camel@localhost.localdomain>
+References: <200610031457.33215.chunkeey@web.de>
+	 <20061004123849.060a1842@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: chunkeey@web.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:47064 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161190AbWJDLGb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 07:06:31 -0400
-To: chunkeey@web.de
-In-Reply-To: <200610041256.07110.chunkeey@web.de>
+Received: from mx1.redhat.com ([66.187.233.31]:47517 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1030825AbWJDLiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 07:38:14 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061004123849.060a1842@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-04 at 12:56 +0200, chunkeey@web.de wrote:
-
-> no really, the problem is that "my" hardware (aka: prism54 fullmac) does all 
-> the mac-management, encryption/decryption, AP-Management,... in the firmware. 
-> And all "management" operation are wrapped into a simple unique 
-> 4-byte "Operation ID"... That's why the WEXT "would be better" for that 
-> thing...
+On Wed, 2006-10-04 at 12:38 +0200, Jiri Benc wrote:
+> On Tue, 3 Oct 2006 14:57:33 +0200, chunkeey@web.de wrote:
+> > This patch (prism54-en-wpa3.patch) brings WPA/WPA2(RSN) with 
+> > TKIP-Cipher to everyone with a FULLMAC Prism GT/Indigo/Duette card.
+> > I removed all the parts(e.g.: Hostapd Support) which are not relevant for 
+> > wpa_supplicant (client/managed mode).
 > 
-> (Or, do I mix everything up and nl80211 has "nothing" to do with devicescape's 
-> networkstack d80211?)
+> Are you proposing a patch that removes AP support from the driver or did
+> I understand it wrong?
 
-Yes, nl80211 is not tied to d80211, it simply provides a new way of
-doing configuration.
+I believe it adds the support back in, just using standard WE ioctls
+like ENCODEEXT and AUTH rather than the custom HostAP ones...  which
+brings up the question whether the hostapd driver for wext (is there
+such a thing?) works well enough.
 
-johannes
+Dan
+
+> Thanks,
+> 
+>  Jiri
+> 
+
