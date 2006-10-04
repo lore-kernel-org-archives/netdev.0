@@ -1,99 +1,80 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH v4 1/2] NetLabel: secid reconciliation support
-Date: Wed, 4 Oct 2006 13:09:52 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CF8A7@chaos.tcs.tcs-sec.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] Customizable TCP backoff patch
+Date: Wed, 4 Oct 2006 10:17:52 -0700
+Message-ID: <20061004101752.4e42e2ff@freekitty>
+References: <451AC889.5000407@redhat.com>
+	<20060927.161638.62343616.davem@davemloft.net>
+	<4522A88E.2070200@redhat.com>
+	<20061004.000722.99203823.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: "'eparis@redhat.com'" <eparis@redhat.com>,
-	"'jmorris@namei.org'" <jmorris@namei.org>,
-	"'sds@tycho.nsa.gov'" <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: woodard@redhat.com, netdev@vger.kernel.org, mgrondona@llnl.gov,
+	behlendorf1@llnl.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:42848 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161811AbWJDRKS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 13:10:18 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	"'paul.moore@hp.com'" <paul.moore@hp.com>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'selinux@tycho.nsa.gov'" <selinux@tycho.nsa.gov>
+Received: from smtp.osdl.org ([65.172.181.4]:17834 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161894AbWJDRSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 13:18:12 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061004.000722.99203823.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > @@ -3714,19 +3714,34 @@ static int selinux_skb_flow_in(struct sk
-> >  	if (skb->dev == &loopback_dev)
-> >  		return 1;
-> >  
-> > +	if (skb->secmark)
-> > +		loc_sid = skb->secmark;
-> > +	else
-> > +		loc_sid = SECINITSID_NETMSG;
-> > +
-> >  	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
-> >  	BUG_ON(err);
-> > -
-> > -	err = avc_has_perm(xfrm_sid, skb->secmark? : SECINITSID_NETMSG,
-> > -					SECCLASS_PACKET,
-> > -					PACKET__FLOW_IN, NULL);
-> > +	err = selinux_netlbl_skb_sid(skb,
-> > +				     xfrm_sid ? xfrm_sid : loc_sid,
-> > +				     &nlbl_sid);
-> >  	if (err)
-> >  		goto out;
-> >  
-> > -	if (xfrm_sid)
-> > -		skb->secmark = xfrm_sid;
-> > +	if (nlbl_sid)
-> > +		ext_sid = nlbl_sid;
-> > +	else
-> > +		ext_sid = xfrm_sid;
-> 
-> There's a problem here in that it would require 2 different policies
-> depending on whether one is using netlabel or xfrm. Specifically, in
-> the absence of matching iptables contexts (secmark),
+On Wed, 04 Oct 2006 00:07:22 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-as well as any external labeling via ipsec/NetLabel,
-
-> the skb here
-> will get:
+> From: Ben Woodard <woodard@redhat.com>
+> Date: Tue, 03 Oct 2006 11:14:38 -0700
 > 
-> - 0 (xfrm case)
-> - network_t (netlabel)
-> 
-> This has implications for getpeercon() where it would
-> 
-> - fail with ENOPROTOOPT (xfrm case)
-> - returns network_t (netlabel)
-> 
-> I would still argue that the nature of the domain being carried by
-> the packet is still unlabeled_t as implied by the null secmark. While
-> I view secmark/point as specifying BOTH a flow control point and a
-> default domain (incidentally using the same label more because of
-> implementation constrainst), I view network_t as purely a flow control
-> point.
-> 
-> But I also realize there can be equally forceful arguments 
-> for what this
-> patch does.
-> 
-> What does the community think? We need to resolve it one way or the
-> other unless the above differences in behavior are desired or somehow
-> accounted for in policy and apps.
-> 
-> > +
-> > +	err = avc_has_perm(ext_sid,
-> > +			   loc_sid,
-> > +			   SECCLASS_PACKET,
-> > +			   PACKET__FLOW_IN,
-> > +			   NULL);
-> > +	if (err)
-> > +		goto out;
-> >  
-> > -	/* See if NetLabel can flow in thru the current secmark here */
-> > +	if (ext_sid)
-> > +		skb->secmark = ext_sid;
-> >  
-> >  out:
-> >  	return err ? 0 : 1;
+> > > Other issues:
+> > > 
+> > > 1) 2 "u32" in the tcp_sock is a lot of space to devote to this
+> > >    new state.  If it can fit in 2 "u16"'s or even less space,
+> > >    please use that.
+> > > 
+> > > 2) the expression "(tp->foo ? : sysctl_foo)" is repeated many times
+> > >    in the patch, please encapsulate it into an inline function
+> > >    or similar
+> > > 
 > > 
+> > How does this look to you for answering your two complaints above.
 > 
+> It looks a lot better.  I'd like you to take #2 further,
+> put the inline function into net/tcp.h and use it in the
+> tcp.c instances too.
+> 
+> Also, please don't format code like this:
+> 
+> +static inline __u16 rto_max(struct tcp_sock *tp){
+> +        return tp->rto_max ? : sysctl_tcp_rto_max;
+> +}
+> +
+> +static inline __u16 rto_init(struct tcp_sock *tp){
+> +        return tp->rto_init ? : sysctl_tcp_rto_init;
+> +}
+> 
+> The openning brace of each functions belongs on a line by itself,
+> thanks.
+> 
+> Finally, I'm not so sure "seconds" is the best unit for the
+> socket option.  In fact you use "seconds" as the unit for
+> the socket option and the sysctl is raw jiffies.  That's
+> inconsistency is really problematic.
+> 
+> At the very least, seconds might not be fine enough granularity
+> for some circumstances.  Heck, the default RTO_MIN is 1/5 of a
+> second. :-)
+> 
+> I also understand that going to milliseconds or microseconds would
+> make the size of the in-socket struct members an issue again.  These
+> things are never easy are they? :-/
+> 
+> Any better ideas?
+
+If you are willing to do a little more work, the sysctl value can be
+in milliseconds, and the internal socket member in some other unit
+like jiffies.  It does require writing your own in/out translation
+instead of using proc_dointvec
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
