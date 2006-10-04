@@ -1,93 +1,31 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Wed, 4 Oct 2006 10:02:15 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CF842@chaos.tcs.tcs-sec.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [RFT] sky2 vs iptables
+Date: Wed, 04 Oct 2006 10:11:15 -0400
+Message-ID: <4523C103.1090000@gentoo.org>
+References: <44FE2618.3010705@gentoo.org>	<20060906141651.116aa758@localhost.localdomain>	<450CBA9A.4040705@gentoo.org> <20060921163737.027b7701@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	Paul Moore <paul.moore@hp.com>,
-	Daniel J Walsh <dwalsh@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcclung@nebrwesleyan.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:51241 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S964862AbWJDOCZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 10:02:25 -0400
-To: James Morris <jmorris@namei.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from smtp161.iad.emailsrvr.com ([207.97.245.161]:13799 "EHLO
+	smtp161.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S1161007AbWJDOLM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 10:11:12 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060921163737.027b7701@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evegeniy,
+Stephen Hemminger wrote:
+> I tried the script with 2.6.18 and saw no problem.
+> Of course, my configuration was probably different and I wasn't
+> running Gentoo.   Eth0 was a sky2 device, and eth1 was a skge.
+> 
 
-Please start with my patch which should actually address the issue
-you were originally running into. I doubt that you were running into
-the kind of errors that James' patch (which will need to be modified
-to not treat -EACCES as an error to be propagated up the chain) would
-handle.
+This turned out to be a netfilter configuration issue. sky2+iptables 
+works fine when the kernel is compiled correctly. Sorry for the noise, 
+although the netfilter error messages weren't exactly clear that certain 
+modules were missing!
 
-Thanks,
-
-venkat
-
-> -----Original Message-----
-> From: James Morris [mailto:jmorris@namei.org]
-> Sent: Wednesday, October 04, 2006 8:00 AM
-> To: Evgeniy Polyakov
-> Cc: David S. Miller; Herbert Xu; netdev@vger.kernel.org; Stephen
-> Smalley; Venkat Yekkirala; Paul Moore; Daniel J Walsh
-> Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-> 
-> 
-> On Wed, 4 Oct 2006, Evgeniy Polyakov wrote:
-> 
-> > Linux kano 2.6.18 #5 SMP Mon Oct 2 18:44:30 MSD 2006 i686 
-> i686 i386 GNU/Linux
-> > [root@kano ~]# rpm -q selinux-policy-targeted
-> > selinux-policy-targeted-2.3.17-2
-> > 
-> > I get only this messages in audit.log when remote racoon tries to
-> > connect to system with selinux enabled in enforcing mode:
-> > 
-> 
-> I think the policy has just not been written for racoon, and 
-> it's being 
-> denied by deault (cd'd Dan Walsh).
-> 
-> > type=AVC msg=audit(1159938297.845:625): avc:  denied  { 
-> polmatch } for
-> > scontext=system_u:object_r:unlabeled_t:s0
-> > tcontext=root:system_r:unconfined_t:s0-s0:c0.c255 tclass=association
-> > type=AVC msg=audit(1159938297.845:626): avc:  denied  { 
-> polmatch } for
-> > scontext=system_u:object_r:unlabeled_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-> > type=AVC msg=audit(1159938307.837:627): avc:  denied  { 
-> polmatch } for
-> > scontext=system_u:object_r:unlabeled_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-> > type=AVC msg=audit(1159938317.838:628): avc:  denied  { 
-> polmatch } for
-> > scontext=system_u:object_r:unlabeled_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-> > type=AVC msg=audit(1159938327.839:629): avc:  denied  { 
-> polmatch } for
-> > scontext=system_u:object_r:unlabeled_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-> > 
-> > It is with your patch applied.
-> > Should I try Venkat's or it is unrelated problem?
-> > 
-> > > -- 
-> > > James Morris
-> > > <jmorris@namei.org>
-> > 
-> > 
-> 
-> -- 
-> James Morris
-> <jmorris@namei.org>
-> 
+Daniel
