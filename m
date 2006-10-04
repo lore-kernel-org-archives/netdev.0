@@ -1,35 +1,38 @@
-From: Steve Fox <drfickle@us.ibm.com>
-Subject: Re: 2.6.18-mm3 oops in xfrm_register_mode
-Date: Wed, 04 Oct 2006 16:02:11 -0500
-Message-ID: <1159995731.28106.82.camel@flooterbu>
-References: <20061003001115.e898b8cb.akpm@osdl.org>
-	 <4523CFEF.6000007@us.ibm.com>  <20061004095703.5c843514.akpm@osdl.org>
+From: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+Subject: Re: [LARTC] [ANNOUNCE] iproute2-2.6.18-061002
+Date: Wed, 04 Oct 2006 23:34:24 +0200
+Message-ID: <452428E0.8050003@gmx.net>
+References: <20061002135552.4acb6892@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl,
+	linux-kernel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:64403 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751126AbWJDVCP
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 17:02:15 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061004095703.5c843514.akpm@osdl.org>
+Received: from mail.gmx.de ([213.165.64.20]:4480 "HELO mail.gmx.net")
+	by vger.kernel.org with SMTP id S1751152AbWJDVdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 17:33:51 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061002135552.4acb6892@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-04 at 09:57 -0700, Andrew Morton wrote:
+Stephen Hemminger wrote:
+> This is a much delayed update to the iproute2 command set.
+> It can be downloaded from:
+>   http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.18-061002.tar.gz
 
-> You might well find this bisection lands you on origin.patch.  ie: a
-> mainline bug.  I note that David merged a few more xfrm fixes this morning.
-> 
-> So to confirm that, first test just origin.patch and if that fails, test
-> git-of-the-moment.  If that doesn't fail, they fixed it.
+Thanks!
 
-origin.patch from --m3 failed. Unfortunately so did a fresh clone of
-Linus's git tree.
+Are there any plans to merge the "ip arp" patches at
+http://www.ssi.bg/~ja/#iparp ? Apologies if this has already
+been rejected before. Searching the archives I couldn't find
+such a discussion.
+
+
+Regards,
+Carl-Daniel
+
 
 -- 
-
-Steve Fox
-IBM Linux Technology Center
+http://www.hailfinger.org/
