@@ -1,44 +1,93 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Wed, 4 Oct 2006 23:41:17 +1000
-Message-ID: <20061004134117.GA12726@gondor.apana.org.au>
-References: <20061002134200.GA20441@2ka.mipt.ru> <Pine.LNX.4.64.0610021004180.9739@d.namei> <Pine.LNX.4.64.0610021020390.9909@d.namei> <20061003.161807.18306641.davem@davemloft.net>
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Subject: RE: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
+Date: Wed, 4 Oct 2006 10:02:15 -0400
+Message-ID: <36282A1733C57546BE392885C0618592015CF842@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jmorris@namei.org, johnpol@2ka.mipt.ru, netdev@vger.kernel.org,
-	sds@tycho.nsa.gov, vyekkirala@TrustedCS.com, paul.moore@hp.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Kazunori Miyazawa <kazunori@miyazawa.org>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Paul Moore <paul.moore@hp.com>,
+	Daniel J Walsh <dwalsh@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:530 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1030424AbWJDNmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 09:42:20 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061003.161807.18306641.davem@davemloft.net>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:51241 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S964862AbWJDOCZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 10:02:25 -0400
+To: James Morris <jmorris@namei.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2006 at 04:18:07PM -0700, David Miller wrote:
+Evegeniy,
+
+Please start with my patch which should actually address the issue
+you were originally running into. I doubt that you were running into
+the kind of errors that James' patch (which will need to be modified
+to not treat -EACCES as an error to be propagated up the chain) would
+handle.
+
+Thanks,
+
+venkat
+
+> -----Original Message-----
+> From: James Morris [mailto:jmorris@namei.org]
+> Sent: Wednesday, October 04, 2006 8:00 AM
+> To: Evgeniy Polyakov
+> Cc: David S. Miller; Herbert Xu; netdev@vger.kernel.org; Stephen
+> Smalley; Venkat Yekkirala; Paul Moore; Daniel J Walsh
+> Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
 > 
-> As I review this patch I realize there is a question of
-> semantics and prioritization here.
-
-Indeed.  Unfortunately I was doing other things at the time
-sub-policies were introduced so I didn't pay attention to it.
-
-After a quick look, it seems that the intention is to perform
-some sort of recursive lookup (restricted to 2 levels only).
-
-If that is the intention, perhaps we should try to come up
-with a better mechansim because hard-coding a single level
-of recursion for mobility is probably not the best solution
-as this is just a special case of the general nested tunnel
-problem.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> On Wed, 4 Oct 2006, Evgeniy Polyakov wrote:
+> 
+> > Linux kano 2.6.18 #5 SMP Mon Oct 2 18:44:30 MSD 2006 i686 
+> i686 i386 GNU/Linux
+> > [root@kano ~]# rpm -q selinux-policy-targeted
+> > selinux-policy-targeted-2.3.17-2
+> > 
+> > I get only this messages in audit.log when remote racoon tries to
+> > connect to system with selinux enabled in enforcing mode:
+> > 
+> 
+> I think the policy has just not been written for racoon, and 
+> it's being 
+> denied by deault (cd'd Dan Walsh).
+> 
+> > type=AVC msg=audit(1159938297.845:625): avc:  denied  { 
+> polmatch } for
+> > scontext=system_u:object_r:unlabeled_t:s0
+> > tcontext=root:system_r:unconfined_t:s0-s0:c0.c255 tclass=association
+> > type=AVC msg=audit(1159938297.845:626): avc:  denied  { 
+> polmatch } for
+> > scontext=system_u:object_r:unlabeled_t:s0
+> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> > type=AVC msg=audit(1159938307.837:627): avc:  denied  { 
+> polmatch } for
+> > scontext=system_u:object_r:unlabeled_t:s0
+> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> > type=AVC msg=audit(1159938317.838:628): avc:  denied  { 
+> polmatch } for
+> > scontext=system_u:object_r:unlabeled_t:s0
+> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> > type=AVC msg=audit(1159938327.839:629): avc:  denied  { 
+> polmatch } for
+> > scontext=system_u:object_r:unlabeled_t:s0
+> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> > 
+> > It is with your patch applied.
+> > Should I try Venkat's or it is unrelated problem?
+> > 
+> > > -- 
+> > > James Morris
+> > > <jmorris@namei.org>
+> > 
+> > 
+> 
+> -- 
+> James Morris
+> <jmorris@namei.org>
+> 
