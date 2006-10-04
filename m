@@ -1,32 +1,39 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: d80211: ieee80211_hw handlers in atomic context
-Date: Wed, 4 Oct 2006 18:38:04 +0200
-Message-ID: <20061004183804.748706d6@griffin.suse.cz>
-References: <4523DA7D.2080604@web.de>
-	<200610041807.05266.IvDoorn@gmail.com>
-	<4523E1D5.1060505@web.de>
-	<200610041834.57918.IvDoorn@gmail.com>
+From: Steve Fox <drfickle@us.ibm.com>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Wed, 04 Oct 2006 11:41:59 -0500
+Message-ID: <1159980119.28106.75.camel@flooterbu>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	 <efh217$8au$1@sea.gmane.org> <20060928140124.5f7154e3.akpm@osdl.org>
+	 <1159969349.28106.64.camel@flooterbu>
+	 <20061004084540.af17fee5.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jan Kiszka <jan.kiszka@web.de>, netdev <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andi Kleen <ak@suse.de>, Vivek Goyal <vgoyal@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:26803 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1161150AbWJDQiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 12:38:06 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200610041834.57918.IvDoorn@gmail.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:36845 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1161577AbWJDQmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 12:42:01 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061004084540.af17fee5.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Oct 2006 18:34:57 +0200, Ivo van Doorn wrote:
-> You could replace the timer with a workqueue, the original patch
-> also did that, so I think it would be good enough this time as well. :)
+On Wed, 2006-10-04 at 08:45 -0700, Andrew Morton wrote:
+> On Wed, 04 Oct 2006 08:42:28 -0500
+> Steve Fox <drfickle@us.ibm.com> wrote:
+> > Sorry for the delay. I was finally able to perform a bisect on this. It
+> > turns out the patch that causes this is
+> > x86_64-mm-re-positioning-the-bss-segment.patch, which seems like a
+> > strange candidate, but sure enough I can boot to login: right up until
+> > that patch is applied.
+> 
+> hm, that patch was merged into mainline September 29.  Does mainline work?
 
-Yes, the timing isn't required to be precise here.
-
- Jiri
+-git21 also fails with this same error.
 
 -- 
-Jiri Benc
-SUSE Labs
+
+Steve Fox
+IBM Linux Technology Center
