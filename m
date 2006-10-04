@@ -1,35 +1,52 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: [PATCH] wext
-Date: Wed, 4 Oct 2006 14:45:48 -0700
-Message-ID: <20061004214548.GQ10337@instant802.com>
-References: <200610021955.23112.chunkeey@web.de> <1159951043.2817.36.camel@ux156>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [ANNOUNCE] iproute2-2.6.18-061002
+Date: Wed, 4 Oct 2006 12:18:19 -0700
+Message-ID: <20061004121819.65594372@freekitty>
+References: <20061002135552.4acb6892@freekitty>
+	<452428E0.8050003@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chunkeey@web.de, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-42.dex002.intermedia.net ([64.78.21.132]:11365 "EHLO
-	dhost002-42.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751169AbWJDVp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 17:45:57 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1159951043.2817.36.camel@ux156>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lartc@mailman.ds9a.nl
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+To: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+In-Reply-To: <452428E0.8050003@gmx.net>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2006 at 10:37:23AM +0200, Johannes Berg wrote:
-> On Mon, 2006-10-02 at 19:55 +0200, chunkeey@web.de wrote:
-> > This patch (wext-patch) is a proposal. It adds two new defines for the 
-> > SIOCSIWMLME to cover all kinds MLMEs (well, except REASSOC) through a ioctl.
-> > (it would be nice to have them, so that I can post the hostapd code for the 
-> > prism54 card!)
-> 
-> NACK from me. Please help me work on nl80211 instead :)
+On Wed, 04 Oct 2006 23:34:24 +0200
+Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net> wrote:
 
-SIOCSIWMLME was designed to allow additional MLME commands to be added.
-IMHO, a potential replacement in the future should not prevent us from
-extending WEXT at this point and stop all changes in something that is
-currently available.
+> Stephen Hemminger wrote:
+> > This is a much delayed update to the iproute2 command set.
+> > It can be downloaded from:
+> >   http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.18-061002.tar.gz
+> 
+> Thanks!
+> 
+> Are there any plans to merge the "ip arp" patches at
+> http://www.ssi.bg/~ja/#iparp ? Apologies if this has already
+> been rejected before. Searching the archives I couldn't find
+> such a discussion.
+> 
+> 
+> Regards,
+> Carl-Daniel
+> 
+> 
+
+
+When the kernel patches were accepted by the mainline kernel, then
+I'll update iproute2.
 
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Stephen Hemminger <shemminger@osdl.org>
