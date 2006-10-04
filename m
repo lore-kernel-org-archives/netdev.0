@@ -1,39 +1,51 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Tue, 3 Oct 2006 21:33:17 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610032132050.27760@d.namei>
-References: <20061002134200.GA20441@2ka.mipt.ru> <Pine.LNX.4.64.0610021004180.9739@d.namei>
- <Pine.LNX.4.64.0610021020390.9909@d.namei> <20061003.161807.18306641.davem@davemloft.net>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH][XFRM] Fixes for net-2.6
+Date: Wed, 04 Oct 2006 11:08:01 +0900
+Message-ID: <45231781.9060409@linux-ipv6.org>
+References: <4521D932.8050502@linux-ipv6.org> <20061003.155504.126762903.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov,
-	vyekkirala@TrustedCS.com, paul.moore@hp.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:10680 "EHLO
-	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1030690AbWJDBdT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 21:33:19 -0400
+Received: from [203.178.140.9] ([203.178.140.9]:63619 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1030705AbWJDCIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2006 22:08:02 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061003.161807.18306641.davem@davemloft.net>
+In-Reply-To: <20061003.155504.126762903.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Oct 2006, David Miller wrote:
-
-> I'm not saying either is wrong, I'm just pointing it out to make sure
-> this is intentional.
+David Miller wrote:
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Date: Tue, 03 Oct 2006 12:29:54 +0900
 > 
-> The socket policy behavior deserves some scrutiny.  I say this because
-> if a matching socket policy is avoided due to security layer error,
-> this could potentially make key manager problems very hard to
-> diagnose.
+>>     [XFRM] POLICY: Fix per-direction policy counter after flushing.
+>>
+>>     Currently when xfrm_policy_flush() is called per-direction
+>>     policy counter is cleared. However flusing policy is performed
+>>     for each type (i.e. main or sub) then it is not always true
+>>     to make the counter zero.
+>>
+>>     Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> 
+> The idea of this code is to avoid updating global state many
+> many times during such a flush.  This can be expensive and
+> cause much SMP cacheline activity as other cpus read the
+> counter in the routing lookup path.
 
-Yep, the code needs to be reworked in general (Venkat is doing this).
+Thanks for the clarify. My patch should have included such cacheline
+consideration.
 
+> I think what I'll do is reimplement this patch so that a local
+> variable is used to maintain how many entries were removed,
+> and then simply subtract that counter from xfrm_policy_count[dir]
+> at the very end where the assignment to zero occurs.
 
+I feel it's better idea now. I agree to apply it instead of my patch.
 
-- James
+Regards,
+
 -- 
-James Morris
-<jmorris@namei.org>
+Masahide NAKAMURA
