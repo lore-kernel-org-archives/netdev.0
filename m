@@ -1,80 +1,74 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] Customizable TCP backoff patch
-Date: Wed, 4 Oct 2006 10:17:52 -0700
-Message-ID: <20061004101752.4e42e2ff@freekitty>
-References: <451AC889.5000407@redhat.com>
-	<20060927.161638.62343616.davem@davemloft.net>
-	<4522A88E.2070200@redhat.com>
-	<20061004.000722.99203823.davem@davemloft.net>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 04 Oct 2006 10:20:44 -0700
+Message-ID: <4523ED6C.9080902@redhat.com>
+References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060927150957.GA18116@2ka.mipt.ru> <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com> <20061004045527.GB32267@2ka.mipt.ru> <452363C5.1020505@redhat.com> <20061004074821.GA22688@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: woodard@redhat.com, netdev@vger.kernel.org, mgrondona@llnl.gov,
-	behlendorf1@llnl.gov
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:17834 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161894AbWJDRSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 13:18:12 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061004.000722.99203823.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig0658E7C63740A516B1128C14"
+Cc: Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964903AbWJDRXY@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061004074821.GA22688@2ka.mipt.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Oct 2006 00:07:22 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0658E7C63740A516B1128C14
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> From: Ben Woodard <woodard@redhat.com>
-> Date: Tue, 03 Oct 2006 11:14:38 -0700
-> 
-> > > Other issues:
-> > > 
-> > > 1) 2 "u32" in the tcp_sock is a lot of space to devote to this
-> > >    new state.  If it can fit in 2 "u16"'s or even less space,
-> > >    please use that.
-> > > 
-> > > 2) the expression "(tp->foo ? : sysctl_foo)" is repeated many times
-> > >    in the patch, please encapsulate it into an inline function
-> > >    or similar
-> > > 
-> > 
-> > How does this look to you for answering your two complaints above.
-> 
-> It looks a lot better.  I'd like you to take #2 further,
-> put the inline function into net/tcp.h and use it in the
-> tcp.c instances too.
-> 
-> Also, please don't format code like this:
-> 
-> +static inline __u16 rto_max(struct tcp_sock *tp){
-> +        return tp->rto_max ? : sysctl_tcp_rto_max;
-> +}
-> +
-> +static inline __u16 rto_init(struct tcp_sock *tp){
-> +        return tp->rto_init ? : sysctl_tcp_rto_init;
-> +}
-> 
-> The openning brace of each functions belongs on a line by itself,
-> thanks.
-> 
-> Finally, I'm not so sure "seconds" is the best unit for the
-> socket option.  In fact you use "seconds" as the unit for
-> the socket option and the sysctl is raw jiffies.  That's
-> inconsistency is really problematic.
-> 
-> At the very least, seconds might not be fine enough granularity
-> for some circumstances.  Heck, the default RTO_MIN is 1/5 of a
-> second. :-)
-> 
-> I also understand that going to milliseconds or microseconds would
-> make the size of the in-socket struct members an issue again.  These
-> things are never easy are they? :-/
-> 
-> Any better ideas?
+Evgeniy Polyakov wrote:
+> It is completely possible to do what you describe without special
+> syscall parameters.
 
-If you are willing to do a little more work, the sysctl value can be
-in milliseconds, and the internal socket member in some other unit
-like jiffies.  It does require writing your own in/out translation
-instead of using proc_dointvec
+First of all, I don't see how this is efficiently possible.  The mask
+might change from call to call.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Second, hasn't it sunk in that inventing new ways to pass parameters is
+bad?  Programmers don't want to learn new ways for every new interface.
+ Reuse is good!
+
+This applies to the signal mask here.
+
+But there is another parameter falling into that category and I meant to
+mention it before: the timeout value.  All other calls except poll and
+especially all modern interfaces use a timespec pointer.  This is the
+way times are kept in userland code.  Don't try to force people to do
+something else.
+
+Using a timespec also has the advantage that we can add an absolute
+timeout value mode (optional) instead of the relative timeout value.
+
+In this context, we should/must be able to specify which clock the
+timeout is for (not as part of the wait call, but another control
+operation perhaps).  It's important to distinguish between
+CLOCK_REALTIME and CLOCK_MONOTONE.  Both have their use.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
+
+
+--------------enig0658E7C63740A516B1128C14
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFFI+1s2ijCOnn/RHQRAimhAJ0T64z1qhbiCRnYzZGAKcasQ5JrlACeIyLJ
+aUzqTBXH0RVCdAd2DKhFJho=
+=chcY
+-----END PGP SIGNATURE-----
+
+--------------enig0658E7C63740A516B1128C14--
