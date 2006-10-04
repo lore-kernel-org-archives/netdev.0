@@ -1,52 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [ANNOUNCE] iproute2-2.6.18-061002
-Date: Wed, 4 Oct 2006 12:18:19 -0700
-Message-ID: <20061004121819.65594372@freekitty>
-References: <20061002135552.4acb6892@freekitty>
-	<452428E0.8050003@gmx.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 0/2] [PATCH 0/2] Updated NetLabel/secid-reconciliation
+ bits and a bugfix
+Date: Wed, 4 Oct 2006 18:56:20 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610041855560.16024@d.namei>
+References: <20061004154629.186531000@hp.com> <Pine.LNX.4.64.0610041439050.6196@d.namei>
+ <45240369.4030107@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
-In-Reply-To: <452428E0.8050003@gmx.net>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, eparis@redhat.com,
+	sds@tycho.nsa.gov, vyekkirala@TrustedCS.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:43904 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751211AbWJDW4X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 18:56:23 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <45240369.4030107@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Oct 2006 23:34:24 +0200
-Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net> wrote:
+On Wed, 4 Oct 2006, Paul Moore wrote:
 
-> Stephen Hemminger wrote:
-> > This is a much delayed update to the iproute2 command set.
-> > It can be downloaded from:
-> >   http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.18-061002.tar.gz
+> > So, patch 2/2 should go in on it's own against upstream?  If so, in 5B
+> > future, please post such patches separately.
 > 
-> Thanks!
-> 
-> Are there any plans to merge the "ip arp" patches at
-> http://www.ssi.bg/~ja/#iparp ? Apologies if this has already
-> been rejected before. Searching the archives I couldn't find
-> such a discussion.
-> 
-> 
-> Regards,
-> Carl-Daniel
-> 
-> 
+> Yes, please commit patch 2/2 regardless as it fixes a bug which is not
+> dependent on any of the secid patches which are being discussed.  My
+> apologies for including it in the same patchset, I'll be sure to split
+> it up next time.
 
+Applied.
 
-When the kernel patches were accepted by the mainline kernel, then
-I'll update iproute2.
+http://git.infradead.org/?p=users/jmorris/selinux-2.6.git
+
+(This repo may move soon).
+
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+James Morris
+<jmorris@namei.org>
