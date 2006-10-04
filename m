@@ -1,24 +1,26 @@
-From: Vivek Goyal <vgoyal@in.ibm.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Wed, 4 Oct 2006 11:55:34 -0400
-Message-ID: <20061004155534.GC16218@in.ibm.com>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <efh217$8au$1@sea.gmane.org> <20060928140124.5f7154e3.akpm@osdl.org> <1159969349.28106.64.camel@flooterbu> <20061004084540.af17fee5.akpm@osdl.org>
-Reply-To: vgoyal@in.ibm.com
+Date: Wed, 4 Oct 2006 17:56:47 +0200
+Message-ID: <200610041756.47682.ak@suse.de>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <1159969349.28106.64.camel@flooterbu> <20061004084540.af17fee5.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: Steve Fox <drfickle@us.ibm.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Andi Kleen <ak@suse.de>
+	netdev@vger.kernel.org, Vivek Goyal <vgoyal@in.ibm.com>,
+	Ian Campbell <Ian.Campbell@xensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:41873 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1161236AbWJDP4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 11:56:10 -0400
+Received: from ns2.suse.de ([195.135.220.15]:54418 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1161251AbWJDP46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 11:56:58 -0400
 To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
 In-Reply-To: <20061004084540.af17fee5.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2006 at 08:45:40AM -0700, Andrew Morton wrote:
+On Wednesday 04 October 2006 17:45, Andrew Morton wrote:
 > On Wed, 04 Oct 2006 08:42:28 -0500
 > Steve Fox <drfickle@us.ibm.com> wrote:
 > 
@@ -96,14 +98,14 @@ On Wed, Oct 04, 2006 at 08:45:40AM -0700, Andrew Morton wrote:
 > > that patch is applied.
 > 
 > hm, that patch was merged into mainline September 29.  Does mainline work?
-> 
 
-I thought above patch was dropped because Keith ran into some boot issues
-on one of the machines. Though there seems to be nothing wrong with the
-patch as such but it might have triggered some existing bug. At that point
-of time I looked into the issue but nothing was conclusive.
+Yes we had this earlier already. But without this patch it doesn't 
+compile for some people. So it was readded.
 
-So looks like this patch has come back. I am not sure how.
+And nobody knows why the reposition-bss patch actually breaks things :/
 
-Thanks
-Vivek
+In theory the reposition is ok, so it must be some marginal code
+somewhere else that just ends up failing over.
+
+-Andi
+
