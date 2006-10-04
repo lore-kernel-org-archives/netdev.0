@@ -1,83 +1,61 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] cfg80211 and nl80211
-Date: Wed, 04 Oct 2006 16:19:20 +0200
-Message-ID: <1159971561.2817.87.camel@ux156>
-References: <1159435399.2648.17.camel@ux156>
-	 <1159805711.2834.67.camel@localhost.localdomain>
-	 <1159947674.2817.19.camel@ux156>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/1] secid reconcialiation: Replace unlabeled_t with the
+ network_t
+Date: Wed, 04 Oct 2006 10:33:57 -0400
+Message-ID: <4523C655.7010008@hp.com>
+References: <45231F6F.4030509@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Thomas Graf <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:15042 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161029AbWJDOTL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 10:19:11 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1159947674.2817.19.camel@ux156>
+Received: from atlrel8.hp.com ([156.153.255.206]:27866 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1161109AbWJDOeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 10:34:01 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <45231F6F.4030509@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-04 at 09:41 +0200, Johannes Berg wrote:
+Venkat Yekkirala wrote:
+> The following replaces unlabeled_t with network_t for
+> better characterization of the flow out/in checks in
+> SELinux, as well as to allow for mls packets to
+> flow out/in from the network since network_t would allow
+> the full range of MLS labels, as opposed to the unlabeled init sid
+> that only allows system-hi.
+> 
+> Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+> ---
+> This is an incremental patch the secid-reconcilation v4 patchset.
+> 
+> --- net-2.6.sid3/security/selinux/hooks.c	2006-10-01 15:43:12.000000000 -0500
+> +++ net-2.6/security/selinux/hooks.c	2006-10-03 16:43:21.000000000 -0500
+> @@ -3703,7 +3703,8 @@ static int selinux_skb_flow_in(struct sk
+>  	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
+>  	BUG_ON(err);
+>  
+> -	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
+> +	err = avc_has_perm(xfrm_sid, skb->secmark? : SECINITSID_NETMSG,
+> +					SECCLASS_PACKET,
+>  					PACKET__FLOW_IN, NULL);
+>  	if (err)
+>  		goto out;
+> @@ -3900,7 +3901,7 @@ static unsigned int selinux_ip_postroute
+>  				skb->secmark = sksec->sid;
+>  			}
+>  		}
+> -		err = avc_has_perm(skb->secmark, SECINITSID_UNLABELED,
+> +		err = avc_has_perm(skb->secmark, SECINITSID_NETMSG,
+>  				   SECCLASS_PACKET, PACKET__FLOW_OUT, &ad);
+>  	}
+>  out:
 
-> I don't really have an explicit ToDo list, but here are a few points
-> that come to mind
->  * notification support when parameters change multicast a netlink
->    message to all subscribers of that group
+Considering the above change, I wonder if it would also make sense to
+update the secmark to SECINITSID_UNLABELED in the abscence of any
+external labeling (labeled IPsec or NetLabel)?
 
-I think we'll want at least two groups here:
- - scan results
- - configuration changes
-
-can anyone think of more? NM might like to listen for config changes and
-scan events, but most tools won't be that much concerned about config
-changes... current wireless events are subsumed here as well.
-
->  * transmit status notification support for packet injection (sort of
->    ties in with the first point)
-
-This should be a matter of saving the socket id of the requesting
-nl80211 packet in the request structure, and having d80211/the driver
-keep track of it and pass it back with the tx status structure to an
-cfg80211_transmit_status(). Maybe a second cookie would be good too if
-we ever gain packet injection capabilities over something other than
-netlink. Thoughts?
-
->  * scan results (also somewhat related to the first point)
-
-Should cfg80211 do the chore of keeping track of the whole scan results?
-On the other hand, that doesn't seem to be doable with legacy hardware
-that does all the scanning. So probably one call for
-   cfg80211_notify_scan()
-that takes a new scan result structure (taking a single BSSID etc.) and
-notifies all listeners.
-The same structure is used for get_scan() from the wiphy ops in an
-iterator interface like some other calls.
-
->  * crypto and auth support
-
-I really need someone to help me out with this one. So far I've seen
-that we have commands for
- * getting crypto capabilities (several orthogonal issues, crypto
-   algorithms as well as auth algorithms as well as key management?)
- * setting keys for both rx and tx
-    - up to 4 default keys
-    - setting WPA key(s?)
-    - setting sta pairwise key (AP)
-    - setting group key (AP, same as for STA?)
- * setting the WPA IE(s)
- * authentication (WE sticks so much into that call that I can't pull it
-   apart, what exactly is needed?) looks like it needs (sub)commands for
-    - allowed wpa versions (why is this AUTH??)
-    - setting pairwise and group ciphers (again.. AUTH??)
-    - setting key management (again.. AUTH??)
-    - authentication algorithm (whew, something that really is auth)
-    - roaming control (haha, already covered)
- * more?
-
-johannes
+-- 
+paul moore
+linux security @ hp
