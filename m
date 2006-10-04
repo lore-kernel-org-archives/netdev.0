@@ -1,59 +1,54 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH v4 1/2] NetLabel: secid reconciliation support
-Date: Wed, 04 Oct 2006 15:27:55 -0400
-Message-ID: <45240B3B.3040603@hp.com>
-References: <36282A1733C57546BE392885C0618592015CF939@chaos.tcs.tcs-sec.com>
+From: "Gary Zambrano" <zambrano@broadcom.com>
+Subject: Re: [PATCH] b44: fix multicast with >32 groups
+Date: Wed, 04 Oct 2006 12:32:14 -0700
+Message-ID: <1159990334.14865.5.camel@dhcp-10-7-81-7.broadcom.com>
+References: <451D95D5.5010005@flitterfly.whirpon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, eparis@redhat.com,
-	jmorris@namei.org, sds@tycho.nsa.gov
+Cc: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:39404 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1750822AbWJDT16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 15:27:58 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <36282A1733C57546BE392885C0618592015CF939@chaos.tcs.tcs-sec.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:64006 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1750905AbWJDTew
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 15:34:52 -0400
+To: "Bill Helfinstine" <bhelf@flitterfly.whirpon.com>
+In-Reply-To: <451D95D5.5010005@flitterfly.whirpon.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Venkat Yekkirala wrote:
->> * XFRM present
->>
->>   xfrm_sid = <full context from xfrm>
->>   loc_sid = SECINITSID_NETMSG
->>   nlbl_sid = SECSID_NULL/0
->>   ext_sid = xfrm_sid
->>   final skb->secmark = avc_ok : ext_sid ? unchanged
->>
->> * NetLabel present
->>
->>   xfrm_sid = SECSID_NULL/0
->>   loc_sid = SECSID_NULL/0
->>   nlbl_sid = <SECINITSID_NETMSG te ctx, netlabel mls ctx>
->>   ext_sid = nlbl_sid
->>   final skb->secmark = avc_ok : ext_sid ? unchanged
+On Fri, 2006-09-29 at 17:53 -0400, Bill Helfinstine wrote:
+> The b44 driver has a bug where if there are more than B44_MCAST_TABLE_SIZE 
+> groups in the dev->mc_list, it will only listen to the first 
+> B44_MCAST_TABLE_SIZE that it sees.
 > 
-> I was referring to the differences in what getpeercon would
-> return in the above 2 scenarios.
+> This patch makes the driver go into RXCONFIG_ALLMULTI mode if there are more 
+> than B44_MCAST_TABLE_SIZE groups being subscribed to.
 > 
-> In the xfrm case:     final skb->secmark would be 0 resulting in getpeercon
-> to return EPROTONOOPT
+> This patch is against 2.6.18, b44.c version 1.01.
+> 
+> 
+> Signed-off-by: Bill Helfinstine <bhelf@flitterfly.whirpon.com>
+> 
+> diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> index e891ea2..dd024e1 100644
+> --- a/drivers/net/b44.c
+> +++ b/drivers/net/b44.c
+> @@ -1706,7 +1706,8 @@ static void __b44_set_rx_mode(struct net
+> 
+>                  __b44_set_mac_addr(bp);
+> 
+> -               if (dev->flags & IFF_ALLMULTI)
+> +               if ((dev->flags & IFF_ALLMULTI) ||
+> +                   (dev->mc_count > B44_MCAST_TABLE_SIZE))
+>                          val |= RXCONFIG_ALLMULTI;
+>                  else
+>                          i = __b44_load_mcast(bp, dev);
+> 
 
-In the "XFRM present" case above if the access is allowed (avc_ok is
-true) then the final skb->secmark value is going to be set to the value
-of ext_sid which is the xfrm_sid.  Any calls made to getpeercon() would
-return success with the context matching xfrm_sid.
+It looks good to me, however, I'll have to nack it as this patch has spaces and will not apply.
+Please convert the spaces to tabs.
 
-I have a hunch we are still on different pages here ...
+Thanks,
+Gary
 
-> In the NetLabel case: final skb->secmark would be network_t resulting in
-> getpeercon to return network_t
-
-Yep, and I understand you would like to see it as unlabeled_t.  I think
-we both have valid arguments for either case and we are just waiting to
-hear from others.
-
--- 
-paul moore
-linux security @ hp
