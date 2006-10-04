@@ -1,41 +1,37 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 0/2] [PATCH 0/2] Updated NetLabel/secid-reconciliation
- bits and a bugfix
-Date: Wed, 4 Oct 2006 18:56:20 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610041855560.16024@d.namei>
-References: <20061004154629.186531000@hp.com> <Pine.LNX.4.64.0610041439050.6196@d.namei>
- <45240369.4030107@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] sk98lin: check result of pci_enable_device on resume
+Date: Wed, 4 Oct 2006 16:21:34 -0700
+Message-ID: <20061004162134.48288923@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, eparis@redhat.com,
-	sds@tycho.nsa.gov, vyekkirala@TrustedCS.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:43904 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751211AbWJDW4X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 18:56:23 -0400
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <45240369.4030107@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:17848 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751221AbWJDXWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 19:22:19 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Oct 2006, Paul Moore wrote:
+Gets rid of a must_check warning.
 
-> > So, patch 2/2 should go in on it's own against upstream?  If so, in 5B
-> > future, please post such patches separately.
-> 
-> Yes, please commit patch 2/2 regardless as it fixes a bug which is not
-> dependent on any of the secid patches which are being discussed.  My
-> apologies for including it in the same patchset, I'll be sure to split
-> it up next time.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied.
-
-http://git.infradead.org/?p=users/jmorris/selinux-2.6.git
-
-(This repo may move soon).
-
-
--- 
-James Morris
-<jmorris@namei.org>
+--- linux-2.6.orig/drivers/net/sk98lin/skge.c
++++ linux-2.6/drivers/net/sk98lin/skge.c
+@@ -5070,7 +5070,13 @@ static int skge_resume(struct pci_dev *p
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+-	pci_enable_device(pdev);
++	ret = pci_enable_device(pdev);
++	if (ret) {
++		printk(KERN_WARNING "sk98lin: unable to enable device %s\n",
++		       dev->name);
++		return ret;
++	}
++
+ 	pci_set_master(pdev);
+ 	if (pAC->GIni.GIMacsFound == 2)
+ 		ret = request_irq(dev->irq, SkGeIsr, IRQF_SHARED, "sk98lin", dev);
