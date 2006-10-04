@@ -1,41 +1,69 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] prism54: wpa support for fullmac cards
-Date: Wed, 04 Oct 2006 07:40:11 -0400
-Message-ID: <1159962011.2708.19.camel@localhost.localdomain>
-References: <200610031457.33215.chunkeey@web.de>
-	 <20061004123849.060a1842@griffin.suse.cz>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
+Date: Wed, 4 Oct 2006 09:00:09 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610040859120.2679@d.namei>
+References: <Pine.LNX.4.64.0610010203440.8658@d.namei> <20061002112050.GA772@2ka.mipt.ru>
+ <Pine.LNX.4.64.0610020919050.9400@d.namei> <20061002134200.GA20441@2ka.mipt.ru>
+ <Pine.LNX.4.64.0610021004180.9739@d.namei> <Pine.LNX.4.64.0610021020390.9909@d.namei>
+ <20061002160021.GA8823@2ka.mipt.ru> <Pine.LNX.4.64.0610021208050.10965@d.namei>
+ <20061002163013.GA24585@2ka.mipt.ru> <Pine.LNX.4.64.0610021238450.11172@d.namei>
+ <20061004050839.GE32267@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: chunkeey@web.de, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Paul Moore <paul.moore@hp.com>,
+	Daniel J Walsh <dwalsh@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47517 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1030825AbWJDLiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 07:38:14 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061004123849.060a1842@griffin.suse.cz>
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:45758 "EHLO
+	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932407AbWJDNAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 09:00:12 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061004050839.GE32267@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-04 at 12:38 +0200, Jiri Benc wrote:
-> On Tue, 3 Oct 2006 14:57:33 +0200, chunkeey@web.de wrote:
-> > This patch (prism54-en-wpa3.patch) brings WPA/WPA2(RSN) with 
-> > TKIP-Cipher to everyone with a FULLMAC Prism GT/Indigo/Duette card.
-> > I removed all the parts(e.g.: Hostapd Support) which are not relevant for 
-> > wpa_supplicant (client/managed mode).
+On Wed, 4 Oct 2006, Evgeniy Polyakov wrote:
+
+> Linux kano 2.6.18 #5 SMP Mon Oct 2 18:44:30 MSD 2006 i686 i686 i386 GNU/Linux
+> [root@kano ~]# rpm -q selinux-policy-targeted
+> selinux-policy-targeted-2.3.17-2
 > 
-> Are you proposing a patch that removes AP support from the driver or did
-> I understand it wrong?
-
-I believe it adds the support back in, just using standard WE ioctls
-like ENCODEEXT and AUTH rather than the custom HostAP ones...  which
-brings up the question whether the hostapd driver for wext (is there
-such a thing?) works well enough.
-
-Dan
-
-> Thanks,
-> 
->  Jiri
+> I get only this messages in audit.log when remote racoon tries to
+> connect to system with selinux enabled in enforcing mode:
 > 
 
+I think the policy has just not been written for racoon, and it's being 
+denied by deault (cd'd Dan Walsh).
+
+> type=AVC msg=audit(1159938297.845:625): avc:  denied  { polmatch } for
+> scontext=system_u:object_r:unlabeled_t:s0
+> tcontext=root:system_r:unconfined_t:s0-s0:c0.c255 tclass=association
+> type=AVC msg=audit(1159938297.845:626): avc:  denied  { polmatch } for
+> scontext=system_u:object_r:unlabeled_t:s0
+> tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> type=AVC msg=audit(1159938307.837:627): avc:  denied  { polmatch } for
+> scontext=system_u:object_r:unlabeled_t:s0
+> tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> type=AVC msg=audit(1159938317.838:628): avc:  denied  { polmatch } for
+> scontext=system_u:object_r:unlabeled_t:s0
+> tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> type=AVC msg=audit(1159938327.839:629): avc:  denied  { polmatch } for
+> scontext=system_u:object_r:unlabeled_t:s0
+> tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+> 
+> It is with your patch applied.
+> Should I try Venkat's or it is unrelated problem?
+> 
+> > -- 
+> > James Morris
+> > <jmorris@namei.org>
+> 
+> 
+
+-- 
+James Morris
+<jmorris@namei.org>
