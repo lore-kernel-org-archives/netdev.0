@@ -1,69 +1,25 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 4 Oct 2006 11:48:22 +0400
-Message-ID: <20061004074821.GA22688@2ka.mipt.ru>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060927150957.GA18116@2ka.mipt.ru> <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com> <20061004045527.GB32267@2ka.mipt.ru> <452363C5.1020505@redhat.com>
+From: "Ronghua Zhang" <ronghuazhang@gmail.com>
+Subject: are all protocol headers in the linear part of a sk_buff?
+Date: Wed, 4 Oct 2006 01:19:56 -0700
+Message-ID: <ba020e9f0610040119k70aabccfic109dbf2c103846b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:62617 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030532AbWJDHsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 03:48:53 -0400
-To: Ulrich Drepper <drepper@redhat.com>
+Received: from py-out-1112.google.com ([64.233.166.181]:1341 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1030666AbWJDIT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 04:19:59 -0400
+Received: by py-out-1112.google.com with SMTP id n25so162178pyg
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2006 01:19:57 -0700 (PDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <452363C5.1020505@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2006 at 12:33:25AM -0700, Ulrich Drepper (drepper@redha=
-t.com) wrote:
-> Evgeniy Polyakov wrote:
-> > When we enter sys_ppoll() we specify needed signals as syscall
-> > parameter, with kevents we will add them into the queue.
->=20
-> No, this is not sufficient as I said in the last mail.  Why do you
-> completely ignore what others say.  The code which depends on the sig=
-nal
-> does not have to have access to the event queue.  If a library sets u=
-p
-> an interrupt handler then it expect the signal to be delivered this w=
-ay.
->  In such situations ppoll etc allow the signal to be generally blocke=
-d
-> and enabled only and *ATOMICALLY* around the delays.  This is not
-> possible with the current wait interface.  We need this signal mask
-> interfaces and the appropriate setup code.
->=20
-> Being able to get signal notifications does not mean this is always t=
-he
-> way it can and must happen.
+When a skb reaches a device driver for tx, can the driver assumes that
+all protocol headers (up to the tcp layer and including tcp options)
+are in the linear part of the skb, thus it can access them via
+skb->h.th? Or the answer depends on the linux kernel version? Thanks
 
-It is completely possible to do what you describe without special
-syscall parameters. Just add interesting signals to the queue (and
-optionally block them globally) and wait on that queue.
-When signal's event is generated and appropriate kevent is removed, tha=
-t
-signal will be restored in global signal mask (there are appropriate
-enqueue/dequeue callbacks which can perform operations on signal mask
-for given process).
-
-My main consern is to not add special cases for something in generic
-code, especially when gneric code can easily handle that situations.
-
-> --=20
-> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
- St =E2=9E=A7 Mountain View, CA =E2=9D=96
->=20
-
-
-
---=20
-	Evgeniy Polyakov
+Ronghua
