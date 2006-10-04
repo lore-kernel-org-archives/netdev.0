@@ -1,45 +1,39 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [patch 4/6] 2.6.18: sb1250-mac: The actual driver update
-Date: Wed, 4 Oct 2006 02:10:46 +0100
-Message-ID: <20061004011046.GA10247@linux-mips.org>
-References: <Pine.LNX.4.64N.0610031549270.4642@blysk.ds.pg.gda.pl> <20061003164253.62f9d5a3.akpm@osdl.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
+Date: Tue, 3 Oct 2006 21:33:17 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610032132050.27760@d.namei>
+References: <20061002134200.GA20441@2ka.mipt.ru> <Pine.LNX.4.64.0610021004180.9739@d.namei>
+ <Pine.LNX.4.64.0610021020390.9909@d.namei> <20061003.161807.18306641.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, sds@tycho.nsa.gov,
+	vyekkirala@TrustedCS.com, paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p549F5BCD.dip.t-dialin.net ([84.159.91.205]:9407 "EHLO
-	p549F5BCD.dip.t-dialin.net") by vger.kernel.org with ESMTP
-	id S1030542AbWJDBLH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Oct 2006 21:11:07 -0400
-Received: from localhost ([127.0.0.1]:37059 "EHLO dl5rb.ham-radio-op.net")
-	by lappi.linux-mips.net with ESMTP id S1100414AbWJDBLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 03:11:03 +0200
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061003164253.62f9d5a3.akpm@osdl.org>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:10680 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030690AbWJDBdT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Oct 2006 21:33:19 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061003.161807.18306641.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2006 at 04:42:53PM -0700, Andrew Morton wrote:
+On Tue, 3 Oct 2006, David Miller wrote:
 
-> On Tue, 3 Oct 2006 16:18:44 +0100 (BST)
-> "Maciej W. Rozycki" <macro@linux-mips.org> wrote:
+> I'm not saying either is wrong, I'm just pointing it out to make sure
+> this is intentional.
 > 
-> > +	sbmac_state_t		sbm_state;	/* current state */
-> 
-> argh.
-> 
-> The reader looks at this and doesn't know if it's an integer, a void*, a
-> struct usb_ac_header_descriptor** or what.
-> 
-> 	enum sbmac_state	smb_state;
-> 
-> is nicer.  It has information.
+> The socket policy behavior deserves some scrutiny.  I say this because
+> if a matching socket policy is avoided due to security layer error,
+> this could potentially make key manager problems very hard to
+> diagnose.
 
-De-typedef-ing would be a separate project for this driver which makes
-quite generous use of typedefs.
+Yep, the code needs to be reworked in general (Venkat is doing this).
 
-  Ralf
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
