@@ -1,323 +1,507 @@
 From: paul.moore@hp.com
-Subject: [PATCH 2/2] NetLabel: fix a cache race condition
-Date: Wed, 04 Oct 2006 11:46:31 -0400
-Message-ID: <20061004154645.400637000@hp.com>
+Subject: [PATCH v4 1/2] NetLabel: secid reconciliation support
+Date: Wed, 04 Oct 2006 11:46:30 -0400
+Message-ID: <20061004154645.100135000@hp.com>
 References: <20061004154629.186531000@hp.com>
 Cc: eparis@redhat.com, jmorris@namei.org, sds@tycho.nsa.gov,
 	vyekkirala@TrustedCS.com, Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:37849 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S1161255AbWJDPsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 11:48:15 -0400
+Received: from atlrel8.hp.com ([156.153.255.206]:36057 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1161254AbWJDPsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 11:48:14 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=netlabel-cache_fix
+Content-Disposition: inline; filename=netlabel-secid_support
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Testing revealed a problem with the NetLabel cache where a cached entry could
-be freed while in use by the LSM layer causing an oops and other problems.
-This patch fixes that problem by introducing a reference counter to the cache
-entry so that it is only freed when it is no longer in use.
+This patch provides the missing NetLabel support to the secid reconciliation
+patchset.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
- include/net/netlabel.h         |   62 +++++++++++++++++++++++++++++++----------
- net/ipv4/cipso_ipv4.c          |   18 ++++++-----
- net/netlabel/netlabel_kapi.c   |    2 -
- security/selinux/ss/services.c |   37 +++++++++++++-----------
- 4 files changed, 79 insertions(+), 40 deletions(-)
+ security/selinux/hooks.c                    |  104 +++++++++++++++++----------
+ security/selinux/include/objsec.h           |    1 
+ security/selinux/include/selinux_netlabel.h |   28 +++----
+ security/selinux/ss/services.c              |  106 ++++++++++------------------
+ 4 files changed, 121 insertions(+), 118 deletions(-)
 
-Index: net-2.6/include/net/netlabel.h
+Index: net-2.6/security/selinux/hooks.c
 ===================================================================
---- net-2.6.orig/include/net/netlabel.h
-+++ net-2.6/include/net/netlabel.h
-@@ -34,6 +34,7 @@
- #include <linux/net.h>
- #include <linux/skbuff.h>
- #include <net/netlink.h>
-+#include <asm/atomic.h>
+--- net-2.6.orig/security/selinux/hooks.c
++++ net-2.6/security/selinux/hooks.c
+@@ -3465,6 +3465,10 @@ static int selinux_sock_rcv_skb_compat(s
+ 			goto out;
+ 	}
  
- /*
-  * NetLabel - A management interface for maintaining network packet label
-@@ -106,6 +107,7 @@ int netlbl_domhsh_remove(const char *dom
++	err = selinux_netlbl_sock_rcv_skb(sock_sid, sock_class, skb, ad);
++	if (err)
++		goto out;
++
+ 	err = selinux_xfrm_sock_rcv_skb(sock_sid, skb, ad);
  
- /* LSM security attributes */
- struct netlbl_lsm_cache {
-+	atomic_t refcount;
- 	void (*free) (const void *data);
- 	void *data;
- };
-@@ -117,7 +119,7 @@ struct netlbl_lsm_secattr {
- 	unsigned char *mls_cat;
- 	size_t mls_cat_len;
+ out:
+@@ -3501,10 +3505,7 @@ static int selinux_socket_sock_rcv_skb(s
+ 	else
+ 		err = avc_has_perm(sksec->sid, skb->secmark, SECCLASS_PACKET,
+ 				   PACKET__RECV, &ad);
+-	if (err)
+-		goto out;
  
--	struct netlbl_lsm_cache cache;
-+	struct netlbl_lsm_cache *cache;
- };
+-	err = selinux_netlbl_sock_rcv_skb(sksec, skb, &ad);
+ out:	
+ 	return err;
+ }
+@@ -3527,11 +3528,8 @@ static int selinux_socket_getpeersec_str
+ 		peer_sid = ssec->peer_sid;
+ 	}
+ 	else if (isec->sclass == SECCLASS_TCP_SOCKET) {
+-		peer_sid = selinux_netlbl_socket_getpeersec_stream(sock);
+-		if (peer_sid == SECSID_NULL) {
+-			ssec = sock->sk->sk_security;
+-			peer_sid = ssec->peer_sid;
+-		}
++		ssec = sock->sk->sk_security;
++		peer_sid = ssec->peer_sid;
+ 		if (peer_sid == SECSID_NULL) {
+ 			err = -ENOPROTOOPT;
+ 			goto out;
+@@ -3573,13 +3571,13 @@ static int selinux_socket_getpeersec_dgr
+ 	if (sock && (sock->sk->sk_family == PF_UNIX))
+ 		selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
+ 	else if (skb) {
+-		peer_secid = selinux_netlbl_socket_getpeersec_dgram(skb);
+-		if (peer_secid == SECSID_NULL) {
+-			if (selinux_compat_net)
++		if (selinux_compat_net) {
++			peer_secid = selinux_netlbl_socket_getpeersec_dgram(
++				skb);
++			if (peer_secid == SECSID_NULL)
+ 				peer_secid = selinux_socket_getpeer_dgram(skb);
+-			else
+-				peer_secid = skb->secmark;
+-		}
++		} else
++			peer_secid = skb->secmark;
+ 	}
  
- /*
-@@ -126,6 +128,43 @@ struct netlbl_lsm_secattr {
+ 	if (peer_secid == SECSID_NULL)
+@@ -3641,13 +3639,11 @@ static int selinux_inet_conn_request(str
+ 	u32 newsid;
+ 	u32 peersid;
  
+-	newsid = selinux_netlbl_inet_conn_request(skb, sksec->sid);
+-	if (newsid != SECSID_NULL) {
+-		req->secid = newsid;
+-		return 0;
+-	}
+-
+ 	if (selinux_compat_net) {
++		err = selinux_netlbl_skb_sid(skb, sksec->sid, &peersid);
++		if (err == 0 && peersid != SECSID_NULL)
++			goto out;
++
+ 		err = selinux_xfrm_decode_session(skb, &peersid, 0);
+ 		BUG_ON(err);
  
- /**
-+ * netlbl_secattr_cache_alloc - Allocate and initialize a secattr cache
-+ * @flags: the memory allocation flags
-+ *
-+ * Description:
-+ * Allocate and initialize a netlbl_lsm_cache structure.  Returns a pointer
-+ * on success, NULL on failure.
-+ *
-+ */
-+static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(int flags)
+@@ -3659,6 +3655,7 @@ static int selinux_inet_conn_request(str
+ 	} else
+ 		peersid = skb->secmark;
+ 
++out:
+ 	err = security_sid_mls_copy(sksec->sid, peersid, &newsid);
+ 	if (err)
+ 		return err;
+@@ -3700,6 +3697,9 @@ static void selinux_req_classify_flow(co
+ static int selinux_skb_flow_in(struct sk_buff *skb, unsigned short family)
+ {
+ 	u32 xfrm_sid;
++	u32 nlbl_sid;
++	u32 ext_sid;
++	u32 loc_sid;
+ 	int err;
+ 
+ 	if (selinux_compat_net)
+@@ -3714,19 +3714,34 @@ static int selinux_skb_flow_in(struct sk
+ 	if (skb->dev == &loopback_dev)
+ 		return 1;
+ 
++	if (skb->secmark)
++		loc_sid = skb->secmark;
++	else
++		loc_sid = SECINITSID_NETMSG;
++
+ 	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
+ 	BUG_ON(err);
+-
+-	err = avc_has_perm(xfrm_sid, skb->secmark? : SECINITSID_NETMSG,
+-					SECCLASS_PACKET,
+-					PACKET__FLOW_IN, NULL);
++	err = selinux_netlbl_skb_sid(skb,
++				     xfrm_sid ? xfrm_sid : loc_sid,
++				     &nlbl_sid);
+ 	if (err)
+ 		goto out;
+ 
+-	if (xfrm_sid)
+-		skb->secmark = xfrm_sid;
++	if (nlbl_sid)
++		ext_sid = nlbl_sid;
++	else
++		ext_sid = xfrm_sid;
++
++	err = avc_has_perm(ext_sid,
++			   loc_sid,
++			   SECCLASS_PACKET,
++			   PACKET__FLOW_IN,
++			   NULL);
++	if (err)
++		goto out;
+ 
+-	/* See if NetLabel can flow in thru the current secmark here */
++	if (ext_sid)
++		skb->secmark = ext_sid;
+ 
+ out:
+ 	return err ? 0 : 1;
+@@ -3740,21 +3755,29 @@ static int selinux_skb_flow_out(struct s
+ 		return 1;
+ 
+ 	if (!skb->secmark) {
++		struct sk_security_struct *sksec = skb->sk->sk_security;
+ 		u32 xfrm_sid;
++		u32 nlbl_sid;
+ 
+ 		selinux_skb_xfrm_sid(skb, &xfrm_sid);
++		err = selinux_netlbl_skb_sid(skb,
++					     xfrm_sid ? xfrm_sid : sksec->sid,
++					     &nlbl_sid);
++		if (err)
++			goto out;
+ 
+-		if (xfrm_sid)
++		if (nlbl_sid)
++			skb->secmark = nlbl_sid;
++		else if (xfrm_sid)
+ 			skb->secmark = xfrm_sid;
+-		else if (skb->sk) {
+-			struct sk_security_struct *sksec = skb->sk->sk_security;
++		else if (skb->sk)
+ 			skb->secmark = sksec->sid;
+-		}
+ 	}
+ 
+ 	err = avc_has_perm(skb->secmark, nf_secid, SECCLASS_PACKET,
+ 				PACKET__FLOW_OUT, NULL);
+ 
++out:
+ 	return err ? 0 : 1;
+ }
+ 
+@@ -3903,17 +3926,24 @@ static unsigned int selinux_ip_postroute
+ 						       family, addrp, len);
+ 	else {
+ 		if (!skb->secmark) {
++			struct sk_security_struct *sksec =
++				skb->sk->sk_security;
+ 			u32 xfrm_sid;
++			u32 nlbl_sid;
+ 
+ 			selinux_skb_xfrm_sid(skb, &xfrm_sid);
+-
+-			if (xfrm_sid)
++			err = selinux_netlbl_skb_sid(skb,
++					      xfrm_sid ? xfrm_sid : sksec->sid,
++					      &nlbl_sid);
++			if (err)
++				goto out;
++
++			if (nlbl_sid)
++				skb->secmark = nlbl_sid;
++			else if (xfrm_sid)
+ 				skb->secmark = xfrm_sid;
+-			else if (skb->sk) {
+-				struct sk_security_struct *sksec =
+-						skb->sk->sk_security;
++			else if (skb->sk)
+ 				skb->secmark = sksec->sid;
+-			}
+ 		}
+ 		err = avc_has_perm(skb->secmark, SECINITSID_NETMSG,
+ 				   SECCLASS_PACKET, PACKET__FLOW_OUT, &ad);
+Index: net-2.6/security/selinux/include/objsec.h
+===================================================================
+--- net-2.6.orig/security/selinux/include/objsec.h
++++ net-2.6/security/selinux/include/objsec.h
+@@ -102,7 +102,6 @@ struct sk_security_struct {
+ 	u32 sid;			/* SID of this object */
+ 	u32 peer_sid;			/* SID of peer */
+ #ifdef CONFIG_NETLABEL
+-	u16 sclass;			/* sock security class */
+ 	enum {				/* NetLabel state */
+ 		NLBL_UNSET = 0,
+ 		NLBL_REQUIRE,
+Index: net-2.6/security/selinux/include/selinux_netlabel.h
+===================================================================
+--- net-2.6.orig/security/selinux/include/selinux_netlabel.h
++++ net-2.6/security/selinux/include/selinux_netlabel.h
+@@ -42,17 +42,17 @@ int selinux_netlbl_socket_post_create(st
+ 				      int sock_family,
+ 				      u32 sid);
+ void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock);
+-u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb, u32 sock_sid);
+-int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
++int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
++				u16 sock_class,
+ 				struct sk_buff *skb,
+ 				struct avc_audit_data *ad);
+-u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock);
+ u32 selinux_netlbl_socket_getpeersec_dgram(struct sk_buff *skb);
+ void selinux_netlbl_sk_security_init(struct sk_security_struct *ssec,
+ 				     int family);
+ void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
+ 				      struct sk_security_struct *newssec);
+ int selinux_netlbl_inode_permission(struct inode *inode, int mask);
++int selinux_netlbl_skb_sid(struct sk_buff *skb, u32 base_sid, u32 *sid);
+ #else
+ static inline void selinux_netlbl_cache_invalidate(void)
+ {
+@@ -72,24 +72,14 @@ static inline void selinux_netlbl_sock_g
+ 	return;
+ }
+ 
+-static inline u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb,
+-						   u32 sock_sid)
+-{
+-	return SECSID_NULL;
+-}
+-
+-static inline int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
++static inline int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
++					      u16 sock_class,
+ 					      struct sk_buff *skb,
+ 					      struct avc_audit_data *ad)
+ {
+ 	return 0;
+ }
+ 
+-static inline u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock)
+-{
+-	return SECSID_NULL;
+-}
+-
+ static inline u32 selinux_netlbl_socket_getpeersec_dgram(struct sk_buff *skb)
+ {
+ 	return SECSID_NULL;
+@@ -114,6 +104,14 @@ static inline int selinux_netlbl_inode_p
+ {
+ 	return 0;
+ }
++
++static inline int selinux_netlbl_skb_sid(struct sk_buff *skb,
++					 u32 base_sid,
++					 u32 *sid)
 +{
-+	struct netlbl_lsm_cache *cache;
-+
-+	cache = kzalloc(sizeof(*cache), flags);
-+	if (cache)
-+		atomic_set(&cache->refcount, 1);
-+	return cache;
++	*sid = SECSID_NULL;
++	return 0;
 +}
-+
-+/**
-+ * netlbl_secattr_cache_free - Frees a netlbl_lsm_cache struct
-+ * @cache: the struct to free
-+ *
-+ * Description:
-+ * Frees @secattr including all of the internal buffers.
-+ *
-+ */
-+static inline void netlbl_secattr_cache_free(struct netlbl_lsm_cache *cache)
-+{
-+	if (!atomic_dec_and_test(&cache->refcount))
-+		return;
-+
-+	if (cache->free)
-+		cache->free(cache->data);
-+	kfree(cache);
-+}
-+
-+/**
-  * netlbl_secattr_init - Initialize a netlbl_lsm_secattr struct
-  * @secattr: the struct to initialize
-  *
-@@ -143,20 +182,16 @@ static inline int netlbl_secattr_init(st
- /**
-  * netlbl_secattr_destroy - Clears a netlbl_lsm_secattr struct
-  * @secattr: the struct to clear
-- * @clear_cache: cache clear flag
-  *
-  * Description:
-  * Destroys the @secattr struct, including freeing all of the internal buffers.
-- * If @clear_cache is true then free the cache fields, otherwise leave them
-- * intact.  The struct must be reset with a call to netlbl_secattr_init()
-- * before reuse.
-+ * The struct must be reset with a call to netlbl_secattr_init() before reuse.
-  *
-  */
--static inline void netlbl_secattr_destroy(struct netlbl_lsm_secattr *secattr,
--					  u32 clear_cache)
-+static inline void netlbl_secattr_destroy(struct netlbl_lsm_secattr *secattr)
- {
--	if (clear_cache && secattr->cache.data != NULL && secattr->cache.free)
--		secattr->cache.free(secattr->cache.data);
-+	if (secattr->cache)
-+		netlbl_secattr_cache_free(secattr->cache);
- 	kfree(secattr->domain);
- 	kfree(secattr->mls_cat);
- }
-@@ -178,17 +213,14 @@ static inline struct netlbl_lsm_secattr 
- /**
-  * netlbl_secattr_free - Frees a netlbl_lsm_secattr struct
-  * @secattr: the struct to free
-- * @clear_cache: cache clear flag
-  *
-  * Description:
-- * Frees @secattr including all of the internal buffers.  If @clear_cache is
-- * true then free the cache fields, otherwise leave them intact.
-+ * Frees @secattr including all of the internal buffers.
-  *
-  */
--static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr,
--				       u32 clear_cache)
-+static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr)
- {
--	netlbl_secattr_destroy(secattr, clear_cache);
-+	netlbl_secattr_destroy(secattr);
- 	kfree(secattr);
- }
+ #endif /* CONFIG_NETLABEL */
  
-Index: net-2.6/net/ipv4/cipso_ipv4.c
-===================================================================
---- net-2.6.orig/net/ipv4/cipso_ipv4.c
-+++ net-2.6/net/ipv4/cipso_ipv4.c
-@@ -43,6 +43,7 @@
- #include <net/tcp.h>
- #include <net/netlabel.h>
- #include <net/cipso_ipv4.h>
-+#include <asm/atomic.h>
- #include <asm/bug.h>
- 
- struct cipso_v4_domhsh_entry {
-@@ -79,7 +80,7 @@ struct cipso_v4_map_cache_entry {
- 	unsigned char *key;
- 	size_t key_len;
- 
--	struct netlbl_lsm_cache lsm_data;
-+	struct netlbl_lsm_cache *lsm_data;
- 
- 	u32 activity;
- 	struct list_head list;
-@@ -188,13 +189,14 @@ static void cipso_v4_doi_domhsh_free(str
-  * @entry: the entry to free
-  *
-  * Description:
-- * This function frees the memory associated with a cache entry.
-+ * This function frees the memory associated with a cache entry including the
-+ * LSM cache data if there are no longer any users, i.e. reference count == 0.
-  *
-  */
- static void cipso_v4_cache_entry_free(struct cipso_v4_map_cache_entry *entry)
- {
--	if (entry->lsm_data.free)
--		entry->lsm_data.free(entry->lsm_data.data);
-+	if (entry->lsm_data)
-+		netlbl_secattr_cache_free(entry->lsm_data);
- 	kfree(entry->key);
- 	kfree(entry);
- }
-@@ -315,8 +317,8 @@ static int cipso_v4_cache_check(const un
- 		    entry->key_len == key_len &&
- 		    memcmp(entry->key, key, key_len) == 0) {
- 			entry->activity += 1;
--			secattr->cache.free = entry->lsm_data.free;
--			secattr->cache.data = entry->lsm_data.data;
-+			atomic_inc(&entry->lsm_data->refcount);
-+			secattr->cache = entry->lsm_data;
- 			if (prev_entry == NULL) {
- 				spin_unlock_bh(&cipso_v4_cache[bkt].lock);
- 				return 0;
-@@ -383,8 +385,8 @@ int cipso_v4_cache_add(const struct sk_b
- 	memcpy(entry->key, cipso_ptr, cipso_ptr_len);
- 	entry->key_len = cipso_ptr_len;
- 	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
--	entry->lsm_data.free = secattr->cache.free;
--	entry->lsm_data.data = secattr->cache.data;
-+	atomic_inc(&secattr->cache->refcount);
-+	entry->lsm_data = secattr->cache;
- 
- 	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
- 	spin_lock_bh(&cipso_v4_cache[bkt].lock);
-Index: net-2.6/net/netlabel/netlabel_kapi.c
-===================================================================
---- net-2.6.orig/net/netlabel/netlabel_kapi.c
-+++ net-2.6/net/netlabel/netlabel_kapi.c
-@@ -200,7 +200,7 @@ void netlbl_cache_invalidate(void)
- int netlbl_cache_add(const struct sk_buff *skb,
- 		     const struct netlbl_lsm_secattr *secattr)
- {
--	if (secattr->cache.data == NULL)
-+	if (secattr->cache == NULL)
- 		return -ENOMSG;
- 
- 	if (CIPSO_V4_OPTEXIST(skb))
+ #endif
 Index: net-2.6/security/selinux/ss/services.c
 ===================================================================
 --- net-2.6.orig/security/selinux/ss/services.c
 +++ net-2.6/security/selinux/ss/services.c
-@@ -2173,7 +2173,12 @@ struct netlbl_cache {
-  */
- static void selinux_netlbl_cache_free(const void *data)
+@@ -51,6 +51,7 @@
+ #include "selinux_netlabel.h"
+ 
+ extern void selnl_notify_policyload(u32 seqno);
++extern int selinux_compat_net;
+ unsigned int policydb_loaded_version;
+ 
+ static DEFINE_RWLOCK(policy_rwlock);
+@@ -2454,7 +2455,6 @@ void selinux_netlbl_sk_security_init(str
+ void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
+ 				      struct sk_security_struct *newssec)
  {
--	struct netlbl_cache *cache = NETLBL_CACHE(data);
-+	struct netlbl_cache *cache;
-+
-+	if (data == NULL)
-+		return;
-+
-+	cache = NETLBL_CACHE(data);
- 	switch (cache->type) {
- 	case NETLBL_CACHE_T_MLS:
- 		ebitmap_destroy(&cache->data.mls_label.level[0].cat);
-@@ -2198,17 +2203,20 @@ static void selinux_netlbl_cache_add(str
- 	struct netlbl_lsm_secattr secattr;
+-	newssec->sclass = ssec->sclass;
+ 	if (ssec->nlbl_state != NLBL_UNSET)
+ 		newssec->nlbl_state = NLBL_REQUIRE;
+ 	else
+@@ -2476,11 +2476,8 @@ int selinux_netlbl_socket_post_create(st
+ 				      int sock_family,
+ 				      u32 sid)
+ {
+-	struct inode_security_struct *isec = SOCK_INODE(sock)->i_security;
+ 	struct sk_security_struct *sksec = sock->sk->sk_security;
  
- 	netlbl_secattr_init(&secattr);
-+	secattr.cache = netlbl_secattr_cache_alloc(GFP_ATOMIC);
-+	if (secattr.cache == NULL)
-+		goto netlbl_cache_add_return;
- 
- 	cache = kzalloc(sizeof(*cache),	GFP_ATOMIC);
- 	if (cache == NULL)
--		goto netlbl_cache_add_failure;
--	secattr.cache.free = selinux_netlbl_cache_free;
--	secattr.cache.data = (void *)cache;
-+		goto netlbl_cache_add_return;
-+	secattr.cache->free = selinux_netlbl_cache_free;
-+	secattr.cache->data = (void *)cache;
- 
- 	cache->type = NETLBL_CACHE_T_MLS;
- 	if (ebitmap_cpy(&cache->data.mls_label.level[0].cat,
- 			&ctx->range.level[0].cat) != 0)
--		goto netlbl_cache_add_failure;
-+		goto netlbl_cache_add_return;
- 	cache->data.mls_label.level[1].cat.highbit =
- 		cache->data.mls_label.level[0].cat.highbit;
- 	cache->data.mls_label.level[1].cat.node =
-@@ -2216,13 +2224,10 @@ static void selinux_netlbl_cache_add(str
- 	cache->data.mls_label.level[0].sens = ctx->range.level[0].sens;
- 	cache->data.mls_label.level[1].sens = ctx->range.level[0].sens;
- 
--	if (netlbl_cache_add(skb, &secattr) != 0)
--		goto netlbl_cache_add_failure;
+-	sksec->sclass = isec->sclass;
 -
--	return;
-+	netlbl_cache_add(skb, &secattr);
+ 	if (sock_family != PF_INET)
+ 		return 0;
  
--netlbl_cache_add_failure:
--	netlbl_secattr_destroy(&secattr, 1);
-+netlbl_cache_add_return:
-+	netlbl_secattr_destroy(&secattr);
+@@ -2500,24 +2497,23 @@ int selinux_netlbl_socket_post_create(st
+  */
+ void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock)
+ {
+-	struct inode_security_struct *isec = SOCK_INODE(sock)->i_security;
+ 	struct sk_security_struct *sksec = sk->sk_security;
+ 	struct netlbl_lsm_secattr secattr;
+ 	u32 nlbl_peer_sid;
+ 
+-	sksec->sclass = isec->sclass;
+-
+ 	if (sk->sk_family != PF_INET)
+ 		return;
+ 
+-	netlbl_secattr_init(&secattr);
+-	if (netlbl_sock_getattr(sk, &secattr) == 0 &&
+-	    selinux_netlbl_secattr_to_sid(NULL,
+-					  &secattr,
+-					  sksec->sid,
+-					  &nlbl_peer_sid) == 0)
+-		sksec->peer_sid = nlbl_peer_sid;
+-	netlbl_secattr_destroy(&secattr, 0);
++	if (selinux_compat_net) {
++		netlbl_secattr_init(&secattr);
++		if (netlbl_sock_getattr(sk, &secattr) == 0 &&
++		    selinux_netlbl_secattr_to_sid(NULL,
++						  &secattr,
++						  sksec->sid,
++						  &nlbl_peer_sid) == 0)
++			sksec->peer_sid = nlbl_peer_sid;
++		netlbl_secattr_destroy(&secattr, 0);
++	}
+ 
+ 	sksec->nlbl_state = NLBL_REQUIRE;
+ 
+@@ -2528,32 +2524,6 @@ void selinux_netlbl_sock_graft(struct so
  }
  
  /**
-@@ -2264,8 +2269,8 @@ static int selinux_netlbl_secattr_to_sid
+- * selinux_netlbl_inet_conn_request - Handle a new connection request
+- * @skb: the packet
+- * @sock_sid: the SID of the parent socket
+- *
+- * Description:
+- * If present, use the security attributes of the packet in @skb and the
+- * parent sock's SID to arrive at a SID for the new child sock.  Returns the
+- * SID of the connection or SECSID_NULL on failure.
+- *
+- */
+-u32 selinux_netlbl_inet_conn_request(struct sk_buff *skb, u32 sock_sid)
+-{
+-	int rc;
+-	u32 peer_sid;
+-
+-	rc = selinux_netlbl_skbuff_getsid(skb, sock_sid, &peer_sid);
+-	if (rc != 0)
+-		return SECSID_NULL;
+-
+-	if (peer_sid == SECINITSID_UNLABELED)
+-		return SECSID_NULL;
+-
+-	return peer_sid;
+-}
+-
+-/**
+  * selinux_netlbl_inode_permission - Verify the socket is NetLabel labeled
+  * @inode: the file descriptor's inode
+  * @mask: the permission mask
+@@ -2593,7 +2563,8 @@ int selinux_netlbl_inode_permission(stru
  
- 	POLICY_RDLOCK;
+ /**
+  * selinux_netlbl_sock_rcv_skb - Do an inbound access check using NetLabel
+- * @sksec: the sock's sk_security_struct
++ * @sock_sid: the socket's SID
++ * @sock_class: the socket's class
+  * @skb: the packet
+  * @ad: the audit data
+  *
+@@ -2603,7 +2574,8 @@ int selinux_netlbl_inode_permission(stru
+  * error.
+  *
+  */
+-int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
++int selinux_netlbl_sock_rcv_skb(u32 sock_sid,
++				u16 sock_class,
+ 				struct sk_buff *skb,
+ 				struct avc_audit_data *ad)
+ {
+@@ -2618,7 +2590,7 @@ int selinux_netlbl_sock_rcv_skb(struct s
+ 	if (netlbl_sid == SECINITSID_UNLABELED)
+ 		return 0;
  
--	if (secattr->cache.data) {
--		cache = NETLBL_CACHE(secattr->cache.data);
-+	if (secattr->cache) {
-+		cache = NETLBL_CACHE(secattr->cache->data);
- 		switch (cache->type) {
- 		case NETLBL_CACHE_T_SID:
- 			*sid = cache->data.sid;
-@@ -2370,7 +2375,7 @@ static int selinux_netlbl_skbuff_getsid(
- 						   &secattr,
- 						   base_sid,
- 						   sid);
--	netlbl_secattr_destroy(&secattr, 0);
-+	netlbl_secattr_destroy(&secattr);
- 
- 	return rc;
- }
-@@ -2416,7 +2421,7 @@ static int selinux_netlbl_socket_setsid(
- 	if (rc == 0)
- 		sksec->nlbl_state = NLBL_LABELED;
- 
--	netlbl_secattr_destroy(&secattr, 0);
-+	netlbl_secattr_destroy(&secattr);
- 
- netlbl_socket_setsid_return:
- 	POLICY_RDUNLOCK;
-@@ -2512,7 +2517,7 @@ void selinux_netlbl_sock_graft(struct so
- 						  sksec->sid,
- 						  &nlbl_peer_sid) == 0)
- 			sksec->peer_sid = nlbl_peer_sid;
--		netlbl_secattr_destroy(&secattr, 0);
-+		netlbl_secattr_destroy(&secattr);
+-	switch (sksec->sclass) {
++	switch (sock_class) {
+ 	case SECCLASS_UDP_SOCKET:
+ 		recv_perm = UDP_SOCKET__RECVFROM;
+ 		break;
+@@ -2629,9 +2601,9 @@ int selinux_netlbl_sock_rcv_skb(struct s
+ 		recv_perm = RAWIP_SOCKET__RECVFROM;
  	}
  
- 	sksec->nlbl_state = NLBL_REQUIRE;
+-	rc = avc_has_perm(sksec->sid,
++	rc = avc_has_perm(sock_sid,
+ 			  netlbl_sid,
+-			  sksec->sclass,
++			  sock_class,
+ 			  recv_perm,
+ 			  ad);
+ 	if (rc == 0)
+@@ -2642,25 +2614,6 @@ int selinux_netlbl_sock_rcv_skb(struct s
+ }
+ 
+ /**
+- * selinux_netlbl_socket_getpeersec_stream - Return the connected peer's SID
+- * @sock: the socket
+- *
+- * Description:
+- * Examine @sock to find the connected peer's SID.  Returns the SID on success
+- * or SECSID_NULL on error.
+- *
+- */
+-u32 selinux_netlbl_socket_getpeersec_stream(struct socket *sock)
+-{
+-	struct sk_security_struct *sksec = sock->sk->sk_security;
+-
+-	if (sksec->peer_sid == SECINITSID_UNLABELED)
+-		return SECSID_NULL;
+-
+-	return sksec->peer_sid;
+-}
+-
+-/**
+  * selinux_netlbl_socket_getpeersec_dgram - Return the SID of a NetLabel packet
+  * @skb: the packet
+  *
+@@ -2686,4 +2639,27 @@ u32 selinux_netlbl_socket_getpeersec_dgr
+ 
+ 	return peer_sid;
+ }
++
++/**
++ * selinux_netlbl_skb_sid - Calculate the NetLabel SID of a packet
++ * @skb: the packet
++ * @base_sid: the SELinux SID to use as a context for MLS only attributes
++ * @sid: the SID
++ *
++ * Description:
++ * Call the NetLabel mechanism to get the security attributes of the given
++ * packet and use those attributes to determine the correct context/SID to
++ * assign to the packet.  Returns zero on success, negative values on failure.
++ *
++ */
++int selinux_netlbl_skb_sid(struct sk_buff *skb, u32 base_sid, u32 *sid)
++{
++	int rc;
++
++	rc = selinux_netlbl_skbuff_getsid(skb, base_sid, sid);
++	if (rc == 0 && *sid == SECINITSID_UNLABELED)
++		*sid = SECSID_NULL;
++
++	return rc;
++}
+ #endif /* CONFIG_NETLABEL */
 
 --
 paul moore
