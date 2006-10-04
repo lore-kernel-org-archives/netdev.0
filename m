@@ -1,91 +1,98 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
-Date: Wed, 04 Oct 2006 10:34:14 -0700
-Message-ID: <200610041734.k94HYEZt013562@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben> <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com> <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com> <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com> <4522605E.8000208@voltaire.com> <200610032310.k93NAGZt003069@death.nxdomain.ibm.com> <4523D254.9060006@voltaire.com>
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
+From: "Ulrich Drepper" <drepper@gmail.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Wed, 4 Oct 2006 10:57:32 -0700
+Message-ID: <a36005b50610041057g67dcaf73wd48d9fef88187ec6@mail.gmail.com>
+References: <11587449471424@2ka.mipt.ru> <1158744950130@2ka.mipt.ru>
+	 <a36005b50610032334n50e66198rdfef30e4ccf545c8@mail.gmail.com>
+	 <20061004064855.GA1981@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Ulrich Drepper" <drepper@redhat.com>,
+	"Andrew Morton" <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	"Zach Brown" <zach.brown@oracle.com>,
+	"Christoph Hellwig" <hch@infradead.org>,
+	"Chase Venters" <chase.venters@clientec.com>,
+	"Johann Borck" <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:22956 "EHLO
-	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S964918AbWJDReQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 13:34:16 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k94HYGR2023622
-	for <netdev@vger.kernel.org>; Wed, 4 Oct 2006 13:34:16 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k94HYFkH482036
-	for <netdev@vger.kernel.org>; Wed, 4 Oct 2006 11:34:15 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k94HYFc4027483
-	for <netdev@vger.kernel.org>; Wed, 4 Oct 2006 11:34:15 -0600
-To: Or Gerlitz <ogerlitz@voltaire.com>
-In-reply-to: <4523D254.9060006@voltaire.com> 
+Received: from ug-out-1314.google.com ([66.249.92.173]:19623 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1030729AbWJDR5e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 13:57:34 -0400
+Received: by ug-out-1314.google.com with SMTP id o38so95861ugd
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2006 10:57:33 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061004064855.GA1981@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
-[...]
->Looking on the sysconfig package, some tools eg /sbin/if{up,down,status}
->use ifenslave which is in turn provided by the iputils package.
->
->My understanding is that changing ifenslave and the bonding kernel code to
->allow for enslaving while master is not up is enough, so actually no
->change is needed to the sysconfig tools, correct?
+On 10/3/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> http://tservice.net.ru/~s0mbre/archive/kevent/evserver_kevent.c
+> http://tservice.net.ru/~s0mbre/archive/kevent/evtest.c
 
-	Incorrect.  The /sbin/ifup included with sysconfig (I'm looking
-at version 0.31-0-15.51) has logic to set the bonding master device up
-prior to adding any slaves.  E.g.,
+These are simple programs which by themselves have problems.  For
+instance, I consider a very bad idea to hardcode the size of the ring
+buffer.  Specifying macros in the header file counts as hardcoding.
+Systems grow over time and so will the demand of connections.  I have
+no problem with the kernel hardcoding the value internally (or having
+a /proc entry to select it) but programs should be able to dynamically
+learn about the value so they don't have to be recompiled.
 
-		# get up the bonding device before enslaving
-#		if ! is_iface_up $INTERFACE; then
-			ip link set $INTERFACE up 2>&1
-#		fi
-		# enslave available slave devices; if there is none -> hard break and log
-		MESSAGE=`/sbin/ifenslave $BONDING_OPTIONS $INTERFACE $BSINTERFACES 2>&1`
+But more problematic is that I don't see how the interfaces can be
+efficiently used in multi-threaded (or multi-process) programs.  How
+would multiple threads using the same kevent queue and running in the
+same kevent_get_events() loop work out?  How do they guarantee that
+each request is only handled once?
 
-	For your purposes, this would cause it to register as an
-ethernet hardware type, not an IB type.  The /sbin/ifup included with
-initscripts operates a little differently, but also sets the bonding
-master up prior to adding any slaves.
+>From what I see now this means a second data structure is needed to
+keep track of the state of each entry.  But even then, how do we even
+recognized used ring buffer entries?
 
->I have now removed the two assertions in the bonding code on enslaving
->while master is not up and manage to work fine with IPoIB slave devices
->and ***without*** the two module params!
->
->When you have the most troublesome to deploy, the troubles you refer to is
->make sure that the distros would include ***both*** the bonding kernel
->changes and use an iputils package which has the ifenslave changes?
+For instance, assume two threads.  Both call get_events, one event is
+reported, both threads are woken up (which is another thing to
+consider, more later).  One thread uses ring buffer entry, the other
+goes back to sleep in get_events.  Now, how does the kernel know when
+the other thread is done working on the ring buffer entry?  There
+might be lots of entries coming in overflowing the entire buffer.
+Heck, you don't even need two threads for this scenario.
 
-	Yes.  Part of the difficulty is that the changes to the
-initscripts and sysconfig packages won't be compatible with versions of
-bonding prior to the bonding kernel changes (because older versions of
-bonding will refuse to add slaves if the master is down).  It might
-require adding another API version to bonding, and modifying ifenslave
-to work both ways (i.e., with the current "enslave with master up" API,
-as well as the new "enslave with master down" API).
+When I was thinking about this (and discussing it in Ottawa) I was
+always assuming that we have a status field in the ring buffer entry
+which lets the userlevel code indicate whether the entry is free again
+or not.  This requires a writable mapping, yes, and potentially causes
+cache line ping-pong.  I think Zach mentioned he has some ideas about
+this.
 
->> 	Yes, ifenslave is still supported.  It probably will be
->> obsoleted some day (or replaced with a script that uses sysfs), but not
->> anytime soon.  As far as I know, all current distros use ifenslave to
->> configure bonding.
->
->Cool, thanks for bringing this into my attention... I understand now my
->patch set should also handle the ifenslave.c source that comes with the
->kernel (eg to allow for not setting the hw address etc)
 
-	An alternate approach would be to undertake the more substantial
-task of converting the initscripts and sysconfig code to use sysfs to
-configure bonding.  This would permit changing the logic (to add slaves
-while the bonding master is down, then set it up), as well as remove the
-current hacks (present only in sysconfig) to load the bonding module
-once per configured bonding interface.  The initscripts currently don't
-do this (as far as I know), so it's generally only possible to have one
-bonding interface under initscripts control.
+As for the multiple thread wakeup, I mentioned this before.  We have
+to avoid the trampling herd problem.  We cannot wakeup all waiters.
+But we also cannot assume that, without protocols, waking up just one
+for each available entry is sufficient.  So the first question is:
+what is the current policy?
 
-	In this case, ifenslave would continue to work as it does now,
-and would simply not be supported for the new hardware.
 
-	-J
+> AIO was removed from patchset by request of Cristoph.
+> Timers, network AIO, fs AIO, socket nortifications and poll/select
+> events work well with existing structures.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Well, excuse me if I don't take your word for it.  I agree, the AIO
+code should not be submitted along with this.  The same for any other
+code using the event handling.  But we need to check whether the
+interface is generic enough to accomodate them in a way which actually
+makes sense.  Again, think highly threaded processes or multiple
+processes sharing the same event queue.
+
+
+> It is even possible to create variable sized kevents - each kevent
+> contain pointer to user's data, which can be considered as pointer to
+> additional area (it's size kernel implementation for given kevent type
+> can determine from other parameters or use predefined one and fetch
+> additional data in ->enqueue() callback).
+
+That sounds interesting and certainly helps with securing the
+interface for the future.  But if there is anything we can do to avoid
+unnecessary costs we should do it, even if this means investigation
+all this further.
