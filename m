@@ -1,74 +1,49 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 04 Oct 2006 10:20:44 -0700
-Message-ID: <4523ED6C.9080902@redhat.com>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060927150957.GA18116@2ka.mipt.ru> <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com> <20061004045527.GB32267@2ka.mipt.ru> <452363C5.1020505@redhat.com> <20061004074821.GA22688@2ka.mipt.ru>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: d80211: ieee80211_hw handlers in atomic context
+Date: Wed, 4 Oct 2006 19:22:38 +0200
+Message-ID: <200610041922.39079.IvDoorn@gmail.com>
+References: <4523DA7D.2080604@web.de> <20061004183804.748706d6@griffin.suse.cz> <4523E69C.1090408@web.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig0658E7C63740A516B1128C14"
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964903AbWJDRXY@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061004074821.GA22688@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.191]:64967 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S964862AbWJDRXd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 13:23:33 -0400
+Received: by nf-out-0910.google.com with SMTP id x30so547541nfb
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2006 10:23:32 -0700 (PDT)
+To: Jan Kiszka <jan.kiszka@web.de>
+In-Reply-To: <4523E69C.1090408@web.de>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig0658E7C63740A516B1128C14
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-Evgeniy Polyakov wrote:
-> It is completely possible to do what you describe without special
-> syscall parameters.
+> > On Wed, 4 Oct 2006 18:34:57 +0200, Ivo van Doorn wrote:
+> >> You could replace the timer with a workqueue, the original patch
+> >> also did that, so I think it would be good enough this time as well. :)
+> > 
+> > Yes, the timing isn't required to be precise here.
+> 
+> Ok, I'm not promising success and I'm going to duck immediately if
+> someone else feels like working on it, but I could try to patch in this
+> direction.
 
-First of all, I don't see how this is efficiently possible.  The mask
-might change from call to call.
+If you need testing of the patch for a slightly larger audience,
+you can send it to me and I'll place it in the rt2x00 CVS tree which contains
+a copy of the current dscape stack for backwards compatibility with older kernels.
 
-Second, hasn't it sunk in that inventing new ways to pass parameters is
-bad?  Programmers don't want to learn new ways for every new interface.
- Reuse is good!
+> Now there just remains my precautious question if there are other
+> services in the ieee_80211_hw interface that may conflict with sleeping
+> USB drivers. What about specifying the possible contexts in
+> include/net/d80211.h?
 
-This applies to the signal mask here.
+Well another point of concern for me is the TSF handling, those handlers are called
+from interrupt context as well, and also deliver problems for the USB drivers in case
+of adhoc mode.
 
-But there is another parameter falling into that category and I meant to
-mention it before: the timeout value.  All other calls except poll and
-especially all modern interfaces use a timespec pointer.  This is the
-way times are kept in userland code.  Don't try to force people to do
-something else.
-
-Using a timespec also has the advantage that we can add an absolute
-timeout value mode (optional) instead of the relative timeout value.
-
-In this context, we should/must be able to specify which clock the
-timeout is for (not as part of the wait call, but another control
-operation perhaps).  It's important to distinguish between
-CLOCK_REALTIME and CLOCK_MONOTONE.  Both have their use.
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
-
-
---------------enig0658E7C63740A516B1128C14
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFFI+1s2ijCOnn/RHQRAimhAJ0T64z1qhbiCRnYzZGAKcasQ5JrlACeIyLJ
-aUzqTBXH0RVCdAd2DKhFJho=
-=chcY
------END PGP SIGNATURE-----
-
---------------enig0658E7C63740A516B1128C14--
+Ivo
