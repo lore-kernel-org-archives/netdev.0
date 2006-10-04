@@ -1,90 +1,107 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
-Date: Wed, 04 Oct 2006 17:25:08 +0200
-Message-ID: <4523D254.9060006@voltaire.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben> <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com> <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com> <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com> <4522605E.8000208@voltaire.com> <200610032310.k93NAGZt003069@death.nxdomain.ibm.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Wed, 4 Oct 2006 08:45:40 -0700
+Message-ID: <20061004084540.af17fee5.akpm@osdl.org>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	<efh217$8au$1@sea.gmane.org>
+	<20060928140124.5f7154e3.akpm@osdl.org>
+	<1159969349.28106.64.camel@flooterbu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from taurus.voltaire.com ([193.47.165.240]:35202 "EHLO
-	taurus.voltaire.com") by vger.kernel.org with ESMTP
-	id S1161239AbWJDPZW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 11:25:22 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200610032310.k93NAGZt003069@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andi Kleen <ak@suse.de>, Vivek Goyal <vgoyal@in.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161252AbWJDPpw@vger.kernel.org>
+To: Steve Fox <drfickle@us.ibm.com>
+In-Reply-To: <1159969349.28106.64.camel@flooterbu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Or Gerlitz <ogerlitz@voltaire.com> wrote:
+On Wed, 04 Oct 2006 08:42:28 -0500
+Steve Fox <drfickle@us.ibm.com> wrote:
+
+> On Thu, 2006-09-28 at 14:01 -0700, Andrew Morton wrote:
+> > On Thu, 28 Sep 2006 17:50:31 +0000 (UTC)
+> > "Steve Fox" <drfickle@us.ibm.com> wrote:
+> > 
+> > > On Thu, 28 Sep 2006 01:46:23 -0700, Andrew Morton wrote:
+> > > 
+> > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18/2.6.18-mm2/
+> > > 
+> > > Panic on boot. This machine booted 2.6.18-mm1 fine. em64t machine.
+> > > 
+> > > TCP bic registered
+> > > TCP westwood registered
+> > > TCP htcp registered
+> > > NET: Registered protocol family 1
+> > > NET: Registered protocol family 17
+> > > Unable to handle kernel paging request at ffffffffffffffff RIP: 
+> > >  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
+> > > PGD 203027 PUD 2b031067 PMD 0 
+> > > Oops: 0000 [1] SMP 
+> > > last sysfs file: 
+> > > CPU 0 
+> > > Modules linked in:
+> > > Pid: 1, comm: swapper Not tainted 2.6.18-mm2-autokern1 #1
+> > > RIP: 0010:[<ffffffff8047ef93>]  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
+> > > RSP: 0000:ffff810bffcbde90  EFLAGS: 00010286
+> > > RAX: 0000000000000000 RBX: ffff810bff4a1000 RCX: 2222222222222222
+> > > RDX: ffff810bff4a1000 RSI: 0000000000000005 RDI: ffffffff8055f5e0
+> > > RBP: ffffffffffffffff R08: 0000000000007616 R09: 000000000000000e
+> > > R10: 0000000000000006 R11: ffffffff803373f0 R12: 0000000000000000
+> > > R13: 0000000000000005 R14: ffff810bff4a1000 R15: 0000000000000000
+> > > FS:  0000000000000000(0000) GS:ffffffff805d8000(0000) knlGS:0000000000000000
+> > > CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+> > > CR2: ffffffffffffffff CR3: 0000000000201000 CR4: 00000000000006e0
+> > > Process swapper (pid: 1, threadinfo ffff810bffcbc000, task ffff810bffcbb510)
+> > > Stack:  ffff810bff4a1000 ffffffff8055f4c0 0000000000000000 ffff810bffcbdef0
+> > >  0000000000000000 ffffffff8042736e 0000000000000000 0000000000000000
+> > >  0000000000000000 ffffffff8061c68d ffffffff806260f0 ffffffff80207182
+> > > Call Trace:
+> > >  [<ffffffff8042736e>] register_netdevice_notifier+0x3e/0x70
+> > >  [<ffffffff8061c68d>] packet_init+0x2d/0x53
+> > >  [<ffffffff80207182>] init+0x162/0x330
+> > >  [<ffffffff8020a9d8>] child_rip+0xa/0x12
+> > >  [<ffffffff8033c2a2>] acpi_ds_init_one_object+0x0/0x82
+> > >  [<ffffffff80207020>] init+0x0/0x330
+> > >  [<ffffffff8020a9ce>] child_rip+0x0/0x12
+> > > 
+> > > 
+> > > Code: 48 8b 45 00 0f 18 08 49 83 fd 02 4c 8d 65 f8 0f 84 f8 fe ff 
+> > > RIP  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
+> > >  RSP <ffff810bffcbde90>
+> > > CR2: ffffffffffffffff
+> > >  <0>Kernel panic - not syncing: Attempted to kill init!
+> > > 
+> > 
+> > I'm really struggling to work out what went wrong there.  Comparing your
+> > miserable 20 bytes of code to my object code makes me think that this:
+> > 
+> > 		struct packet_sock *po = pkt_sk(sk);
+> > 
+> > returned -1, perhaps in %ebp.  But it's all very crude.
+> > 
+> > Perhaps you could compile that kernel with CONFIG_DEBUG_INFO, rerun it (the
+> > addresses might change) then have a poke around with `gdb vmlinux' (or
+> > maybe just addr2line) to work out where it's really oopsing?
+> > 
+> > I don't see much which has changed in that area recently.
 > 
->> Sorry, but I don't follow... by saying "would be ideal to do ***it*** this
->> way in all cases" what exactly is the "it" you are referring to?
-> 
-> 	It refers to:
-> 
->>>>>         You almost want to have some kind of call to induce a reload
->>>>> from scratch of the multicast filter settings (along with whatever else
->>>>> might be necessary to alter the hardware type on the fly), to be called
->>>>> by bonding at the time the first slave is added (since slave adds happen
->>>>> in user context, and can therefore hold rtnl as required by most of the
->>>>> multicast address handling code).  That seems less hassle than having to
->>>>> specify the hardware type and address length at module load time.
-> 
-> 	Having this would eliminate the need to specify the hardware
-> type at load time, and would allow changing of the hardware type at
-> enslave time, rather than at device up time.  This requires fewer
-> changes to other things, like the initscripts or ifenslave.
-> 
-> 	The ideal would be to allow changing of hardware type at
-> literally any time, allowing failover across dissimilar hardware types.
-> That's a lot more complicated, and has a smaller pool of potential uses.
+> Sorry for the delay. I was finally able to perform a bisect on this. It
+> turns out the patch that causes this is
+> x86_64-mm-re-positioning-the-bss-segment.patch, which seems like a
+> strange candidate, but sure enough I can boot to login: right up until
+> that patch is applied.
 
-Thanks for the clarification. I would prefer first trying to go in the 
-direction you suggest below of changing the ifenslave program and the 
-kernel bonding code to allow for enslaving while the bonding device is 
-not UP.
+hm, that patch was merged into mainline September 29.  Does mainline work?
 
+> P.S. I had to comment usb-hubc-build-fix.patch out of the series file
+> because it would not apply cleanly and caused quilt (0.45) to simply
+> abort its 'push' operation.
 
->> 1st, your current recommendation to solve the link layer address
->> computation of multicast groups joined by the stack before any enslavement
->> actually takes place, is to instrument the bonding code such that it would
->> be possible to enslave devices when the bonding device is not "up" yet.
->>
->> 2nd, the change need to be worked out in the bonding sysfs code, the
->> ifenslave program but ***also*** in packages such as /sbin/ifup and
->> friends.
-> 
-> 	Correct.  The necessary changes to initscript and sysconfig are
-> probably the most complex piece to organize (not necessarily the hardest
-> to implement, but rather the most troublesome to deploy, as it
-> introduces an API change).
+Sorry about that.
 
-Looking on the sysconfig package, some tools eg /sbin/if{up,down,status} 
-use ifenslave which is in turn provided by the iputils package.
-
-My understanding is that changing ifenslave and the bonding kernel code 
-to allow for enslaving while master is not up is enough, so actually no 
-change is needed to the sysconfig tools, correct?
-
-I have now removed the two assertions in the bonding code on enslaving 
-while master is not up and manage to work fine with IPoIB slave devices 
-and ***without*** the two module params!
-
-When you have the most troublesome to deploy, the troubles you refer to 
-is make sure that the distros would include ***both*** the bonding 
-kernel changes and use an iputils package which has the ifenslave changes?
-
-> 	Yes, ifenslave is still supported.  It probably will be
-> obsoleted some day (or replaced with a script that uses sysfs), but not
-> anytime soon.  As far as I know, all current distros use ifenslave to
-> configure bonding.
-
-Cool, thanks for bringing this into my attention... I understand now my 
-patch set should also handle the ifenslave.c source that comes with the 
-kernel (eg to allow for not setting the hw address etc)
-
-Or.
-
+If mainline _does_ work then perhaps it's an interaction between that patch
+and something else in the -mm2 lineup (and at that point in the bisection,
+it'll be one of the git trees or something else in the x86_64 tree).  Could
+be that the problem remains in -mm3.
