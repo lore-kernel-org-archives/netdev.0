@@ -1,59 +1,59 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH 0/2] [PATCH 0/2] Updated NetLabel/secid-reconciliation
-	 bits and a bugfix
-Date: Wed, 4 Oct 2006 15:11:04 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CF940@chaos.tcs.tcs-sec.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH v4 1/2] NetLabel: secid reconciliation support
+Date: Wed, 04 Oct 2006 15:27:55 -0400
+Message-ID: <45240B3B.3040603@hp.com>
+References: <36282A1733C57546BE392885C0618592015CF939@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, eparis@redhat.com,
-	sds@tycho.nsa.gov, Venkat Yekkirala <vyekkirala@TrustedCS.com>
+	jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:39458 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750802AbWJDTL2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 15:11:28 -0400
-To: Paul Moore <paul.moore@hp.com>, James Morris <jmorris@namei.org>
+Received: from atlrel6.hp.com ([156.153.255.205]:39404 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1750822AbWJDT16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 15:27:58 -0400
+To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <36282A1733C57546BE392885C0618592015CF939@chaos.tcs.tcs-sec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > As for the rest of the network labeling, please work 
-> together with Venkat 
-> > and the SELinux developers on a final patchset which meets 
-> all of the 
-> > design goals and has been tested, with policy which has been merged 
-> > upstream and is available via Fedora devel.  Please keep 
-> the discussion 
-> > going, but ensure that the final patchset for review and merge 
-> > consideration is a complete set against the current git 
-> kernel coming from 
-> > one person.
+Venkat Yekkirala wrote:
+>> * XFRM present
+>>
+>>   xfrm_sid = <full context from xfrm>
+>>   loc_sid = SECINITSID_NETMSG
+>>   nlbl_sid = SECSID_NULL/0
+>>   ext_sid = xfrm_sid
+>>   final skb->secmark = avc_ok : ext_sid ? unchanged
+>>
+>> * NetLabel present
+>>
+>>   xfrm_sid = SECSID_NULL/0
+>>   loc_sid = SECSID_NULL/0
+>>   nlbl_sid = <SECINITSID_NETMSG te ctx, netlabel mls ctx>
+>>   ext_sid = nlbl_sid
+>>   final skb->secmark = avc_ok : ext_sid ? unchanged
 > 
-> I'm trying :)  When I posted the NetLabel secid support patch 
-> last week
-> I asked Venkat if he could merge it with the main secid 
-> patchset (due to
-> size and dependencies that seemed like the most reasonable course of
-> action).  For reasons I'm not aware of he chose not to.
-
-FYI- I am no NetLabel expert, and the pathset I sent out that day included
-the peersid changes. And since you were going to have to post a patch for
-that
-again, I thought it best you ported and reposted the entire patch again.
-
->  As a result I
-> keep posting updated patches backed against Venkat's latest and
-> incorporating the latest feedback.
-
-And let's keep this going like this on the selinux list. When all the
-testing is done and selinux ok's the patchsets, I will combine them
-and send them onto netdev. How does that sound?
-
+> I was referring to the differences in what getpeercon would
+> return in the above 2 scenarios.
 > 
-> Venkat, can you please merge the latest my latest NetLabel 
-> secid support
-> patch in with your next release?
+> In the xfrm case:     final skb->secmark would be 0 resulting in getpeercon
+> to return EPROTONOOPT
 
-I would, but it currently is premature. As James says, let's
-get policy done, the design proven, and tested and then we will
-go to netdev with one patchset.
+In the "XFRM present" case above if the access is allowed (avc_ok is
+true) then the final skb->secmark value is going to be set to the value
+of ext_sid which is the xfrm_sid.  Any calls made to getpeercon() would
+return success with the context matching xfrm_sid.
+
+I have a hunch we are still on different pages here ...
+
+> In the NetLabel case: final skb->secmark would be network_t resulting in
+> getpeercon to return network_t
+
+Yep, and I understand you would like to see it as unlabeled_t.  I think
+we both have valid arguments for either case and we are just waiting to
+hear from others.
+
+-- 
+paul moore
+linux security @ hp
