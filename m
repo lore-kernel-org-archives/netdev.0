@@ -1,107 +1,325 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Wed, 4 Oct 2006 08:45:40 -0700
-Message-ID: <20061004084540.af17fee5.akpm@osdl.org>
-References: <20060928014623.ccc9b885.akpm@osdl.org>
-	<efh217$8au$1@sea.gmane.org>
-	<20060928140124.5f7154e3.akpm@osdl.org>
-	<1159969349.28106.64.camel@flooterbu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andi Kleen <ak@suse.de>, Vivek Goyal <vgoyal@in.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161252AbWJDPpw@vger.kernel.org>
-To: Steve Fox <drfickle@us.ibm.com>
-In-Reply-To: <1159969349.28106.64.camel@flooterbu>
-Sender: linux-kernel-owner@vger.kernel.org
+From: paul.moore@hp.com
+Subject: [PATCH 2/2] NetLabel: fix a cache race condition
+Date: Wed, 04 Oct 2006 11:46:31 -0400
+Message-ID: <20061004154645.400637000@hp.com>
+References: <20061004154629.186531000@hp.com>
+Cc: eparis@redhat.com, jmorris@namei.org, sds@tycho.nsa.gov,
+	vyekkirala@TrustedCS.com, Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel8.hp.com ([156.153.255.206]:37849 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1161255AbWJDPsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 11:48:15 -0400
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=netlabel-cache_fix
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Oct 2006 08:42:28 -0500
-Steve Fox <drfickle@us.ibm.com> wrote:
+Testing revealed a problem with the NetLabel cache where a cached entry could
+be freed while in use by the LSM layer causing an oops and other problems.
+This patch fixes that problem by introducing a reference counter to the cache
+entry so that it is only freed when it is no longer in use.
 
-> On Thu, 2006-09-28 at 14:01 -0700, Andrew Morton wrote:
-> > On Thu, 28 Sep 2006 17:50:31 +0000 (UTC)
-> > "Steve Fox" <drfickle@us.ibm.com> wrote:
-> > 
-> > > On Thu, 28 Sep 2006 01:46:23 -0700, Andrew Morton wrote:
-> > > 
-> > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18/2.6.18-mm2/
-> > > 
-> > > Panic on boot. This machine booted 2.6.18-mm1 fine. em64t machine.
-> > > 
-> > > TCP bic registered
-> > > TCP westwood registered
-> > > TCP htcp registered
-> > > NET: Registered protocol family 1
-> > > NET: Registered protocol family 17
-> > > Unable to handle kernel paging request at ffffffffffffffff RIP: 
-> > >  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
-> > > PGD 203027 PUD 2b031067 PMD 0 
-> > > Oops: 0000 [1] SMP 
-> > > last sysfs file: 
-> > > CPU 0 
-> > > Modules linked in:
-> > > Pid: 1, comm: swapper Not tainted 2.6.18-mm2-autokern1 #1
-> > > RIP: 0010:[<ffffffff8047ef93>]  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
-> > > RSP: 0000:ffff810bffcbde90  EFLAGS: 00010286
-> > > RAX: 0000000000000000 RBX: ffff810bff4a1000 RCX: 2222222222222222
-> > > RDX: ffff810bff4a1000 RSI: 0000000000000005 RDI: ffffffff8055f5e0
-> > > RBP: ffffffffffffffff R08: 0000000000007616 R09: 000000000000000e
-> > > R10: 0000000000000006 R11: ffffffff803373f0 R12: 0000000000000000
-> > > R13: 0000000000000005 R14: ffff810bff4a1000 R15: 0000000000000000
-> > > FS:  0000000000000000(0000) GS:ffffffff805d8000(0000) knlGS:0000000000000000
-> > > CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-> > > CR2: ffffffffffffffff CR3: 0000000000201000 CR4: 00000000000006e0
-> > > Process swapper (pid: 1, threadinfo ffff810bffcbc000, task ffff810bffcbb510)
-> > > Stack:  ffff810bff4a1000 ffffffff8055f4c0 0000000000000000 ffff810bffcbdef0
-> > >  0000000000000000 ffffffff8042736e 0000000000000000 0000000000000000
-> > >  0000000000000000 ffffffff8061c68d ffffffff806260f0 ffffffff80207182
-> > > Call Trace:
-> > >  [<ffffffff8042736e>] register_netdevice_notifier+0x3e/0x70
-> > >  [<ffffffff8061c68d>] packet_init+0x2d/0x53
-> > >  [<ffffffff80207182>] init+0x162/0x330
-> > >  [<ffffffff8020a9d8>] child_rip+0xa/0x12
-> > >  [<ffffffff8033c2a2>] acpi_ds_init_one_object+0x0/0x82
-> > >  [<ffffffff80207020>] init+0x0/0x330
-> > >  [<ffffffff8020a9ce>] child_rip+0x0/0x12
-> > > 
-> > > 
-> > > Code: 48 8b 45 00 0f 18 08 49 83 fd 02 4c 8d 65 f8 0f 84 f8 fe ff 
-> > > RIP  [<ffffffff8047ef93>] packet_notifier+0x163/0x1a0
-> > >  RSP <ffff810bffcbde90>
-> > > CR2: ffffffffffffffff
-> > >  <0>Kernel panic - not syncing: Attempted to kill init!
-> > > 
-> > 
-> > I'm really struggling to work out what went wrong there.  Comparing your
-> > miserable 20 bytes of code to my object code makes me think that this:
-> > 
-> > 		struct packet_sock *po = pkt_sk(sk);
-> > 
-> > returned -1, perhaps in %ebp.  But it's all very crude.
-> > 
-> > Perhaps you could compile that kernel with CONFIG_DEBUG_INFO, rerun it (the
-> > addresses might change) then have a poke around with `gdb vmlinux' (or
-> > maybe just addr2line) to work out where it's really oopsing?
-> > 
-> > I don't see much which has changed in that area recently.
-> 
-> Sorry for the delay. I was finally able to perform a bisect on this. It
-> turns out the patch that causes this is
-> x86_64-mm-re-positioning-the-bss-segment.patch, which seems like a
-> strange candidate, but sure enough I can boot to login: right up until
-> that patch is applied.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ include/net/netlabel.h         |   62 +++++++++++++++++++++++++++++++----------
+ net/ipv4/cipso_ipv4.c          |   18 ++++++-----
+ net/netlabel/netlabel_kapi.c   |    2 -
+ security/selinux/ss/services.c |   37 +++++++++++++-----------
+ 4 files changed, 79 insertions(+), 40 deletions(-)
 
-hm, that patch was merged into mainline September 29.  Does mainline work?
+Index: net-2.6/include/net/netlabel.h
+===================================================================
+--- net-2.6.orig/include/net/netlabel.h
++++ net-2.6/include/net/netlabel.h
+@@ -34,6 +34,7 @@
+ #include <linux/net.h>
+ #include <linux/skbuff.h>
+ #include <net/netlink.h>
++#include <asm/atomic.h>
+ 
+ /*
+  * NetLabel - A management interface for maintaining network packet label
+@@ -106,6 +107,7 @@ int netlbl_domhsh_remove(const char *dom
+ 
+ /* LSM security attributes */
+ struct netlbl_lsm_cache {
++	atomic_t refcount;
+ 	void (*free) (const void *data);
+ 	void *data;
+ };
+@@ -117,7 +119,7 @@ struct netlbl_lsm_secattr {
+ 	unsigned char *mls_cat;
+ 	size_t mls_cat_len;
+ 
+-	struct netlbl_lsm_cache cache;
++	struct netlbl_lsm_cache *cache;
+ };
+ 
+ /*
+@@ -126,6 +128,43 @@ struct netlbl_lsm_secattr {
+ 
+ 
+ /**
++ * netlbl_secattr_cache_alloc - Allocate and initialize a secattr cache
++ * @flags: the memory allocation flags
++ *
++ * Description:
++ * Allocate and initialize a netlbl_lsm_cache structure.  Returns a pointer
++ * on success, NULL on failure.
++ *
++ */
++static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(int flags)
++{
++	struct netlbl_lsm_cache *cache;
++
++	cache = kzalloc(sizeof(*cache), flags);
++	if (cache)
++		atomic_set(&cache->refcount, 1);
++	return cache;
++}
++
++/**
++ * netlbl_secattr_cache_free - Frees a netlbl_lsm_cache struct
++ * @cache: the struct to free
++ *
++ * Description:
++ * Frees @secattr including all of the internal buffers.
++ *
++ */
++static inline void netlbl_secattr_cache_free(struct netlbl_lsm_cache *cache)
++{
++	if (!atomic_dec_and_test(&cache->refcount))
++		return;
++
++	if (cache->free)
++		cache->free(cache->data);
++	kfree(cache);
++}
++
++/**
+  * netlbl_secattr_init - Initialize a netlbl_lsm_secattr struct
+  * @secattr: the struct to initialize
+  *
+@@ -143,20 +182,16 @@ static inline int netlbl_secattr_init(st
+ /**
+  * netlbl_secattr_destroy - Clears a netlbl_lsm_secattr struct
+  * @secattr: the struct to clear
+- * @clear_cache: cache clear flag
+  *
+  * Description:
+  * Destroys the @secattr struct, including freeing all of the internal buffers.
+- * If @clear_cache is true then free the cache fields, otherwise leave them
+- * intact.  The struct must be reset with a call to netlbl_secattr_init()
+- * before reuse.
++ * The struct must be reset with a call to netlbl_secattr_init() before reuse.
+  *
+  */
+-static inline void netlbl_secattr_destroy(struct netlbl_lsm_secattr *secattr,
+-					  u32 clear_cache)
++static inline void netlbl_secattr_destroy(struct netlbl_lsm_secattr *secattr)
+ {
+-	if (clear_cache && secattr->cache.data != NULL && secattr->cache.free)
+-		secattr->cache.free(secattr->cache.data);
++	if (secattr->cache)
++		netlbl_secattr_cache_free(secattr->cache);
+ 	kfree(secattr->domain);
+ 	kfree(secattr->mls_cat);
+ }
+@@ -178,17 +213,14 @@ static inline struct netlbl_lsm_secattr 
+ /**
+  * netlbl_secattr_free - Frees a netlbl_lsm_secattr struct
+  * @secattr: the struct to free
+- * @clear_cache: cache clear flag
+  *
+  * Description:
+- * Frees @secattr including all of the internal buffers.  If @clear_cache is
+- * true then free the cache fields, otherwise leave them intact.
++ * Frees @secattr including all of the internal buffers.
+  *
+  */
+-static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr,
+-				       u32 clear_cache)
++static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr)
+ {
+-	netlbl_secattr_destroy(secattr, clear_cache);
++	netlbl_secattr_destroy(secattr);
+ 	kfree(secattr);
+ }
+ 
+Index: net-2.6/net/ipv4/cipso_ipv4.c
+===================================================================
+--- net-2.6.orig/net/ipv4/cipso_ipv4.c
++++ net-2.6/net/ipv4/cipso_ipv4.c
+@@ -43,6 +43,7 @@
+ #include <net/tcp.h>
+ #include <net/netlabel.h>
+ #include <net/cipso_ipv4.h>
++#include <asm/atomic.h>
+ #include <asm/bug.h>
+ 
+ struct cipso_v4_domhsh_entry {
+@@ -79,7 +80,7 @@ struct cipso_v4_map_cache_entry {
+ 	unsigned char *key;
+ 	size_t key_len;
+ 
+-	struct netlbl_lsm_cache lsm_data;
++	struct netlbl_lsm_cache *lsm_data;
+ 
+ 	u32 activity;
+ 	struct list_head list;
+@@ -188,13 +189,14 @@ static void cipso_v4_doi_domhsh_free(str
+  * @entry: the entry to free
+  *
+  * Description:
+- * This function frees the memory associated with a cache entry.
++ * This function frees the memory associated with a cache entry including the
++ * LSM cache data if there are no longer any users, i.e. reference count == 0.
+  *
+  */
+ static void cipso_v4_cache_entry_free(struct cipso_v4_map_cache_entry *entry)
+ {
+-	if (entry->lsm_data.free)
+-		entry->lsm_data.free(entry->lsm_data.data);
++	if (entry->lsm_data)
++		netlbl_secattr_cache_free(entry->lsm_data);
+ 	kfree(entry->key);
+ 	kfree(entry);
+ }
+@@ -315,8 +317,8 @@ static int cipso_v4_cache_check(const un
+ 		    entry->key_len == key_len &&
+ 		    memcmp(entry->key, key, key_len) == 0) {
+ 			entry->activity += 1;
+-			secattr->cache.free = entry->lsm_data.free;
+-			secattr->cache.data = entry->lsm_data.data;
++			atomic_inc(&entry->lsm_data->refcount);
++			secattr->cache = entry->lsm_data;
+ 			if (prev_entry == NULL) {
+ 				spin_unlock_bh(&cipso_v4_cache[bkt].lock);
+ 				return 0;
+@@ -383,8 +385,8 @@ int cipso_v4_cache_add(const struct sk_b
+ 	memcpy(entry->key, cipso_ptr, cipso_ptr_len);
+ 	entry->key_len = cipso_ptr_len;
+ 	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
+-	entry->lsm_data.free = secattr->cache.free;
+-	entry->lsm_data.data = secattr->cache.data;
++	atomic_inc(&secattr->cache->refcount);
++	entry->lsm_data = secattr->cache;
+ 
+ 	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
+ 	spin_lock_bh(&cipso_v4_cache[bkt].lock);
+Index: net-2.6/net/netlabel/netlabel_kapi.c
+===================================================================
+--- net-2.6.orig/net/netlabel/netlabel_kapi.c
++++ net-2.6/net/netlabel/netlabel_kapi.c
+@@ -200,7 +200,7 @@ void netlbl_cache_invalidate(void)
+ int netlbl_cache_add(const struct sk_buff *skb,
+ 		     const struct netlbl_lsm_secattr *secattr)
+ {
+-	if (secattr->cache.data == NULL)
++	if (secattr->cache == NULL)
+ 		return -ENOMSG;
+ 
+ 	if (CIPSO_V4_OPTEXIST(skb))
+Index: net-2.6/security/selinux/ss/services.c
+===================================================================
+--- net-2.6.orig/security/selinux/ss/services.c
++++ net-2.6/security/selinux/ss/services.c
+@@ -2173,7 +2173,12 @@ struct netlbl_cache {
+  */
+ static void selinux_netlbl_cache_free(const void *data)
+ {
+-	struct netlbl_cache *cache = NETLBL_CACHE(data);
++	struct netlbl_cache *cache;
++
++	if (data == NULL)
++		return;
++
++	cache = NETLBL_CACHE(data);
+ 	switch (cache->type) {
+ 	case NETLBL_CACHE_T_MLS:
+ 		ebitmap_destroy(&cache->data.mls_label.level[0].cat);
+@@ -2198,17 +2203,20 @@ static void selinux_netlbl_cache_add(str
+ 	struct netlbl_lsm_secattr secattr;
+ 
+ 	netlbl_secattr_init(&secattr);
++	secattr.cache = netlbl_secattr_cache_alloc(GFP_ATOMIC);
++	if (secattr.cache == NULL)
++		goto netlbl_cache_add_return;
+ 
+ 	cache = kzalloc(sizeof(*cache),	GFP_ATOMIC);
+ 	if (cache == NULL)
+-		goto netlbl_cache_add_failure;
+-	secattr.cache.free = selinux_netlbl_cache_free;
+-	secattr.cache.data = (void *)cache;
++		goto netlbl_cache_add_return;
++	secattr.cache->free = selinux_netlbl_cache_free;
++	secattr.cache->data = (void *)cache;
+ 
+ 	cache->type = NETLBL_CACHE_T_MLS;
+ 	if (ebitmap_cpy(&cache->data.mls_label.level[0].cat,
+ 			&ctx->range.level[0].cat) != 0)
+-		goto netlbl_cache_add_failure;
++		goto netlbl_cache_add_return;
+ 	cache->data.mls_label.level[1].cat.highbit =
+ 		cache->data.mls_label.level[0].cat.highbit;
+ 	cache->data.mls_label.level[1].cat.node =
+@@ -2216,13 +2224,10 @@ static void selinux_netlbl_cache_add(str
+ 	cache->data.mls_label.level[0].sens = ctx->range.level[0].sens;
+ 	cache->data.mls_label.level[1].sens = ctx->range.level[0].sens;
+ 
+-	if (netlbl_cache_add(skb, &secattr) != 0)
+-		goto netlbl_cache_add_failure;
+-
+-	return;
++	netlbl_cache_add(skb, &secattr);
+ 
+-netlbl_cache_add_failure:
+-	netlbl_secattr_destroy(&secattr, 1);
++netlbl_cache_add_return:
++	netlbl_secattr_destroy(&secattr);
+ }
+ 
+ /**
+@@ -2264,8 +2269,8 @@ static int selinux_netlbl_secattr_to_sid
+ 
+ 	POLICY_RDLOCK;
+ 
+-	if (secattr->cache.data) {
+-		cache = NETLBL_CACHE(secattr->cache.data);
++	if (secattr->cache) {
++		cache = NETLBL_CACHE(secattr->cache->data);
+ 		switch (cache->type) {
+ 		case NETLBL_CACHE_T_SID:
+ 			*sid = cache->data.sid;
+@@ -2370,7 +2375,7 @@ static int selinux_netlbl_skbuff_getsid(
+ 						   &secattr,
+ 						   base_sid,
+ 						   sid);
+-	netlbl_secattr_destroy(&secattr, 0);
++	netlbl_secattr_destroy(&secattr);
+ 
+ 	return rc;
+ }
+@@ -2416,7 +2421,7 @@ static int selinux_netlbl_socket_setsid(
+ 	if (rc == 0)
+ 		sksec->nlbl_state = NLBL_LABELED;
+ 
+-	netlbl_secattr_destroy(&secattr, 0);
++	netlbl_secattr_destroy(&secattr);
+ 
+ netlbl_socket_setsid_return:
+ 	POLICY_RDUNLOCK;
+@@ -2512,7 +2517,7 @@ void selinux_netlbl_sock_graft(struct so
+ 						  sksec->sid,
+ 						  &nlbl_peer_sid) == 0)
+ 			sksec->peer_sid = nlbl_peer_sid;
+-		netlbl_secattr_destroy(&secattr, 0);
++		netlbl_secattr_destroy(&secattr);
+ 	}
+ 
+ 	sksec->nlbl_state = NLBL_REQUIRE;
 
-> P.S. I had to comment usb-hubc-build-fix.patch out of the series file
-> because it would not apply cleanly and caused quilt (0.45) to simply
-> abort its 'push' operation.
+--
+paul moore
+linux security @ hp
 
-Sorry about that.
-
-If mainline _does_ work then perhaps it's an interaction between that patch
-and something else in the -mm2 lineup (and at that point in the bisection,
-it'll be one of the git trees or something else in the x86_64 tree).  Could
-be that the problem remains in -mm3.
