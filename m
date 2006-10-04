@@ -1,59 +1,39 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Wed, 4 Oct 2006 09:08:39 +0400
-Message-ID: <20061004050839.GE32267@2ka.mipt.ru>
-References: <Pine.LNX.4.64.0610010203440.8658@d.namei> <20061002112050.GA772@2ka.mipt.ru> <Pine.LNX.4.64.0610020919050.9400@d.namei> <20061002134200.GA20441@2ka.mipt.ru> <Pine.LNX.4.64.0610021004180.9739@d.namei> <Pine.LNX.4.64.0610021020390.9909@d.namei> <20061002160021.GA8823@2ka.mipt.ru> <Pine.LNX.4.64.0610021208050.10965@d.namei> <20061002163013.GA24585@2ka.mipt.ru> <Pine.LNX.4.64.0610021238450.11172@d.namei>
+From: "Ulrich Drepper" <drepper@gmail.com>
+Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
+Date: Tue, 3 Oct 2006 23:09:15 -0700
+Message-ID: <a36005b50610032309u2a8b5797x43e5cce2fbd1d18e@mail.gmail.com>
+References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru>
+	 <20060922122207.3b716028.akpm@osdl.org>
+	 <20060923042350.GA24099@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Ulrich Drepper" <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Zach Brown" <zach.brown@oracle.com>,
+	"Christoph Hellwig" <hch@infradead.org>,
+	"Chase Venters" <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:48617 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030293AbWJDFP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 01:15:57 -0400
-To: James Morris <jmorris@namei.org>
+Received: from ug-out-1314.google.com ([66.249.92.169]:9504 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1030323AbWJDGJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 02:09:16 -0400
+Received: by ug-out-1314.google.com with SMTP id o38so17493ugd
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2006 23:09:15 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060923042350.GA24099@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0610021238450.11172@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 02, 2006 at 12:41:57PM -0400, James Morris (jmorris@namei.org) wrote:
-> You can get recent policy packages via the devel repo, which I'd suggest 
-> if you're using development (or DIY) kernels.
+On 9/22/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> The only two things missed in patchset after his suggestions are
+> new POSIX-like interface, which I personally consider as very unconvenient,
 
-[root@kano ~]# uname -a
-Linux kano 2.6.18 #5 SMP Mon Oct 2 18:44:30 MSD 2006 i686 i686 i386 GNU/Linux
-[root@kano ~]# rpm -q selinux-policy-targeted
-selinux-policy-targeted-2.3.17-2
-
-I get only this messages in audit.log when remote racoon tries to
-connect to system with selinux enabled in enforcing mode:
-
-type=AVC msg=audit(1159938297.845:625): avc:  denied  { polmatch } for
-scontext=system_u:object_r:unlabeled_t:s0
-tcontext=root:system_r:unconfined_t:s0-s0:c0.c255 tclass=association
-type=AVC msg=audit(1159938297.845:626): avc:  denied  { polmatch } for
-scontext=system_u:object_r:unlabeled_t:s0
-tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-type=AVC msg=audit(1159938307.837:627): avc:  denied  { polmatch } for
-scontext=system_u:object_r:unlabeled_t:s0
-tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-type=AVC msg=audit(1159938317.838:628): avc:  denied  { polmatch } for
-scontext=system_u:object_r:unlabeled_t:s0
-tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-type=AVC msg=audit(1159938327.839:629): avc:  denied  { polmatch } for
-scontext=system_u:object_r:unlabeled_t:s0
-tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
-
-It is with your patch applied.
-Should I try Venkat's or it is unrelated problem?
-
-> -- 
-> James Morris
-> <jmorris@namei.org>
-
--- 
-	Evgeniy Polyakov
+This means you really do not know at all what this is about.  We
+already have these interfaces.  Several of them and there will likely
+be more.  These are interfaces for functionality which needs the new
+event notification.  There is *NO* reason whatsoever to not make this
