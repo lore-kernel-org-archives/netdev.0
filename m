@@ -1,39 +1,27 @@
-From: Steve Fox <drfickle@us.ibm.com>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Wed, 04 Oct 2006 11:41:59 -0500
-Message-ID: <1159980119.28106.75.camel@flooterbu>
-References: <20060928014623.ccc9b885.akpm@osdl.org>
-	 <efh217$8au$1@sea.gmane.org> <20060928140124.5f7154e3.akpm@osdl.org>
-	 <1159969349.28106.64.camel@flooterbu>
-	 <20061004084540.af17fee5.akpm@osdl.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 5/5] d80211: allow wireless vlan interface to have same
+ MAC an AP interface
+Date: Wed, 4 Oct 2006 18:47:19 +0200
+Message-ID: <20061004184719.695a2511@griffin.suse.cz>
+References: <20061003181118.537800000@devicescape.com>
+	<20061003181233.GE19403@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andi Kleen <ak@suse.de>, Vivek Goyal <vgoyal@in.ibm.com>
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:36845 "EHLO e1.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1161577AbWJDQmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 12:42:01 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061004084540.af17fee5.akpm@osdl.org>
+Received: from styx.suse.cz ([82.119.242.94]:58803 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1161596AbWJDQrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 12:47:21 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20061003181233.GE19403@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-04 at 08:45 -0700, Andrew Morton wrote:
-> On Wed, 04 Oct 2006 08:42:28 -0500
-> Steve Fox <drfickle@us.ibm.com> wrote:
-> > Sorry for the delay. I was finally able to perform a bisect on this. It
-> > turns out the patch that causes this is
-> > x86_64-mm-re-positioning-the-bss-segment.patch, which seems like a
-> > strange candidate, but sure enough I can boot to login: right up until
-> > that patch is applied.
-> 
-> hm, that patch was merged into mainline September 29.  Does mainline work?
+All patches have been applied to my tree, thanks!
 
--git21 also fails with this same error.
+ Jiri
 
 -- 
-
-Steve Fox
-IBM Linux Technology Center
+Jiri Benc
+SUSE Labs
