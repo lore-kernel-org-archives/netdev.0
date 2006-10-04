@@ -1,47 +1,59 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 4 Oct 2006 08:55:27 +0400
-Message-ID: <20061004045527.GB32267@2ka.mipt.ru>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060927150957.GA18116@2ka.mipt.ru> <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com>
+Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
+Date: Wed, 4 Oct 2006 09:08:39 +0400
+Message-ID: <20061004050839.GE32267@2ka.mipt.ru>
+References: <Pine.LNX.4.64.0610010203440.8658@d.namei> <20061002112050.GA772@2ka.mipt.ru> <Pine.LNX.4.64.0610020919050.9400@d.namei> <20061002134200.GA20441@2ka.mipt.ru> <Pine.LNX.4.64.0610021004180.9739@d.namei> <Pine.LNX.4.64.0610021020390.9909@d.namei> <20061002160021.GA8823@2ka.mipt.ru> <Pine.LNX.4.64.0610021208050.10965@d.namei> <20061002163013.GA24585@2ka.mipt.ru> <Pine.LNX.4.64.0610021238450.11172@d.namei>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:41947 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1160996AbWJDEz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 00:55:57 -0400
-To: Ulrich Drepper <drepper@gmail.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:48617 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030293AbWJDFP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2006 01:15:57 -0400
+To: James Morris <jmorris@namei.org>
 Content-Disposition: inline
-In-Reply-To: <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com>
+In-Reply-To: <Pine.LNX.4.64.0610021238450.11172@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2006 at 09:50:09PM -0700, Ulrich Drepper (drepper@gmail.com) wrote:
-> On 9/27/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> \> I have been told in private what is signal masks about - just to wait
-> >until either signal or given condition is ready, but in that case just
-> >add additional kevent user like AIO complete or netwrok notification
-> >and wait until either requested events are ready or signal is triggered.
-> 
-> No, this won't work.  Yes, I want signal notification as part of the
-> event handling.  But there are situations when this is not suitable.
-> Only if the signal is expected in the same code using the event
-> handling can you do this.  But this is not always possible.
-> Especially when the signal handling code is used in other parts of the
-> code than the event handling.  E.g., signal handling in a library,
-> event handling in the main code.  You cannot assume that all the code
-> is completely integrated.
+On Mon, Oct 02, 2006 at 12:41:57PM -0400, James Morris (jmorris@namei.org) wrote:
+> You can get recent policy packages via the devel repo, which I'd suggest 
+> if you're using development (or DIY) kernels.
 
-Signals still can be delivered in usual way too.
+[root@kano ~]# uname -a
+Linux kano 2.6.18 #5 SMP Mon Oct 2 18:44:30 MSD 2006 i686 i686 i386 GNU/Linux
+[root@kano ~]# rpm -q selinux-policy-targeted
+selinux-policy-targeted-2.3.17-2
 
-When we enter sys_ppoll() we specify needed signals as syscall
-parameter, with kevents we will add them into the queue.
+I get only this messages in audit.log when remote racoon tries to
+connect to system with selinux enabled in enforcing mode:
+
+type=AVC msg=audit(1159938297.845:625): avc:  denied  { polmatch } for
+scontext=system_u:object_r:unlabeled_t:s0
+tcontext=root:system_r:unconfined_t:s0-s0:c0.c255 tclass=association
+type=AVC msg=audit(1159938297.845:626): avc:  denied  { polmatch } for
+scontext=system_u:object_r:unlabeled_t:s0
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+type=AVC msg=audit(1159938307.837:627): avc:  denied  { polmatch } for
+scontext=system_u:object_r:unlabeled_t:s0
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+type=AVC msg=audit(1159938317.838:628): avc:  denied  { polmatch } for
+scontext=system_u:object_r:unlabeled_t:s0
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+type=AVC msg=audit(1159938327.839:629): avc:  denied  { polmatch } for
+scontext=system_u:object_r:unlabeled_t:s0
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=association
+
+It is with your patch applied.
+Should I try Venkat's or it is unrelated problem?
+
+> -- 
+> James Morris
+> <jmorris@namei.org>
 
 -- 
 	Evgeniy Polyakov
