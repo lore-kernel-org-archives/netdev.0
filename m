@@ -1,31 +1,55 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [RFT] sky2 vs iptables
-Date: Wed, 04 Oct 2006 10:11:15 -0400
-Message-ID: <4523C103.1090000@gentoo.org>
-References: <44FE2618.3010705@gentoo.org>	<20060906141651.116aa758@localhost.localdomain>	<450CBA9A.4040705@gentoo.org> <20060921163737.027b7701@dxpl.pdx.osdl.net>
+From: chunkeey@web.de
+Subject: Re: [PATCH] prism54: wpa support for fullmac cards
+Date: Wed, 4 Oct 2006 16:12:26 +0200
+Message-ID: <200610041612.26824.chunkeey@web.de>
+References: <200610031457.33215.chunkeey@web.de> <20061004123849.060a1842@griffin.suse.cz> <1159962011.2708.19.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcclung@nebrwesleyan.edu
+Cc: netdev@vger.kernel.org, chunkeey@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp161.iad.emailsrvr.com ([207.97.245.161]:13799 "EHLO
-	smtp161.iad.emailsrvr.com") by vger.kernel.org with ESMTP
-	id S1161007AbWJDOLM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Oct 2006 10:11:12 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060921163737.027b7701@dxpl.pdx.osdl.net>
+Received: from fmmailgate02.web.de ([217.72.192.227]:424 "EHLO
+	fmmailgate02.web.de") by vger.kernel.org with ESMTP id S964900AbWJDOMF
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 10:12:05 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1159962011.2708.19.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> I tried the script with 2.6.18 and saw no problem.
-> Of course, my configuration was probably different and I wasn't
-> running Gentoo.   Eth0 was a sky2 device, and eth1 was a skge.
-> 
+On Wed, 4 Oct 2006 13:40 +0200 dcbw@redhat.com wrote:
+> On Wed, 2006-10-04 at 12:38 +0200, Jiri Benc wrote:
+> > On Tue, 3 Oct 2006 14:57:33 +0200, chunkeey@web.de wrote:
+> > > This patch (prism54-en-wpa3.patch) brings WPA/WPA2(RSN) with
+> > > TKIP-Cipher to everyone with a FULLMAC Prism GT/Indigo/Duette card.
+> > > I removed all the parts(e.g.: Hostapd Support) which are not relevant
+> > > for wpa_supplicant (client/managed mode).
+> >
+> > Are you proposing a patch that removes AP support from the driver or did
+> > I understand it wrong?
+>
+> I believe it adds the support back in, just using standard WE ioctls
+> like ENCODEEXT and AUTH rather than the custom HostAP ones...  which
+> brings up the question whether the hostapd driver for wext (is there
+> such a thing?) works well enough.
+>
+> Dan
+>
 
-This turned out to be a netfilter configuration issue. sky2+iptables 
-works fine when the kernel is compiled correctly. Sorry for the noise, 
-although the netfilter error messages weren't exactly clear that certain 
-modules were missing!
+the AP code never worked. And the hostapd-ioctl interface was designed 
+for prism2/2.5/3 cards, but not for "fullmac" prism54.
+Because the "fullmac" prism54 card does everything(mac-, key- and 
+station-management) in the firmware and the hostapd_param struct 
+does neither support the necessary mlme requests/responses (Authentication & 
+Association frames) nor a param to handle the EAP filter for the stations.
 
-Daniel
+(I wrote a "patch" HostAPD support, but with it's own 
+firmwareap_param struct and some other hacky things, but it works well.
+I can post a diff too, but "be" warned! ;) )
+
+(BTW, hostapd's backend for prism54 uses a "proprietary" interface - 
+PIMFOR -, which never made it into the kernel.) 
+
+Chr.
