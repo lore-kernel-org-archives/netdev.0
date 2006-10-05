@@ -1,41 +1,42 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Please pull bcm43xx-d80211 fixes
-Date: Thu, 5 Oct 2006 16:51:08 +0200
-Message-ID: <200610051651.09152.mb@bu3sch.de>
+From: Steve Fox <drfickle@us.ibm.com>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Thu, 05 Oct 2006 09:53:40 -0500
+Message-ID: <1160060020.29690.5.camel@flooterbu>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	 <20061004170659.f3b089a8.akpm@osdl.org> <20061005005124.GA23408@in.ibm.com>
+	 <200610050257.53971.ak@suse.de>  <45245B03.2070803@mbligh.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
-	Martin Langer <martin-langer@gmx.de>,
-	bcm43xx-dev@lists.berlios.de, Bandan <bandan.das@gmail.com>
+Cc: Andi Kleen <ak@suse.de>, vgoyal@in.ibm.com,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kmannth@us.ibm.com,
+	Andy Whitcroft <apw@shadowen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48817
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751472AbWJEOwC
+Received: from e32.co.us.ibm.com ([32.97.110.150]:43440 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751473AbWJEOxo
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 10:52:02 -0400
-To: linville@tuxdriver.com
-Content-Disposition: inline
+	Thu, 5 Oct 2006 10:53:44 -0400
+To: Martin Bligh <mbligh@mbligh.org>
+In-Reply-To: <45245B03.2070803@mbligh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+On Wed, 2006-10-04 at 18:08 -0700, Martin Bligh wrote:
+> Andi Kleen wrote:
+> >>I think most likely it would crash on 2.6.18. Keith mannthey had reported
+> >>a different crash on 2.6.18-rc4-mm2 when this patch was introduced first
+> >>time. Following is the link to the thread.
+> > 
+> > 
+> > Then maybe trying 2.6.17 + the patch and then bisect between that and -rc4?
+> 
+> I think it's fixed already in -git22, or at least it is for the IBM box
+> reporting to test.kernel.org. You might want to try that one ...
 
-I updated the "for-linville" branch of my tree with one important
-bugfix and a small cleanup.
-In case you didn't pull, yet, this will pull all changes of my previous
-pull request plus the following two.
-
-bcm43xx-d80211: Wait for the firmware to respond, before we read revision codes.
-http://bu3sch.de/gitweb?p=wireless-dev.git;a=commitdiff;h=faac518bf4a2d2846a7153b0b4f8b99ff8db4166
-
-bcm43xx-d80211: Remove unused "err" variables.
-http://bu3sch.de/gitweb?p=wireless-dev.git;a=commitdiff;h=455ae5bb4ee0b18ed06ffee0d89b92a8fca3f217
-
-
-The old branch (as I submitted it in my previous pull request) is
-still available for reference as "old-for-linville". But I don't think
-you'll need it. Simply pull from "for-linville" now, please.
+-git22 also panics for me.
 
 -- 
-Greetings Michael.
+
+Steve Fox
+IBM Linux Technology Center
