@@ -1,59 +1,63 @@
-From: James Morris <jmorris@namei.org>
-Subject: RE: [PATCH 1/3] Fix for IPsec leakage with SELinux enabled - V.03
-Date: Thu, 5 Oct 2006 19:30:33 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610051918080.26924@d.namei>
-References: <36282A1733C57546BE392885C0618592015CFB62@chaos.tcs.tcs-sec.com>
+From: keith mannthey <kmannth@us.ibm.com>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64 II
+Date: Thu, 05 Oct 2006 16:32:58 -0700
+Message-ID: <1160091179.5664.17.camel@keithlap>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	 <Pine.LNX.4.64.0610052128570.29014@skynet.skynet.ie>
+	 <200610052251.31571.ak@suse.de>  <200610060114.03466.ak@suse.de>
+Reply-To: kmannth@us.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, Stephen Smalley <sds@tycho.nsa.gov>,
-	Eric Paris <eparis@redhat.com>, johnpol@2ka.mipt.ru,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: mel gorman <mel@csn.ul.ie>, Vivek goyal <vgoyal@in.ibm.com>,
+	Steve Fox <drfickle@us.ibm.com>,
+	Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Andy Whitcroft <apw@shadowen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:19624 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932423AbWJEXag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 19:30:36 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <36282A1733C57546BE392885C0618592015CFB62@chaos.tcs.tcs-sec.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:35771 "EHLO
+	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751457AbWJEXdC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 19:33:02 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200610060114.03466.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 5 Oct 2006, Venkat Yekkirala wrote:
-
-> > > -		if (xfrm_policy_match(pol, fl, type, family, dir)) {
-> > > +		err = xfrm_policy_match(pol, fl, type, family, dir);
-> > > +		if (err) {
-> > > +			if (err == -ESRCH)
-> > > +				continue;
-> > > +			else {
-> > > +				ret = ERR_PTR(err);
-> > > +				goto fail;
-> > > +			}
-> > > +		} else {
+On Fri, 2006-10-06 at 01:14 +0200, Andi Kleen wrote:
+> On Thursday 05 October 2006 22:51, Andi Kleen wrote:
 > > 
-> > Semantics issue: if the exact policy match fails with 
-> > -EACCESS, should we 
-> > then try an inexact match before failing?
+> > > hmm, rather than bugging you with patches now, I'll see what I can find 
+> > > with the x86_64 machines I have access to and see can I reproduce it.
+> > 
+> > I started the bisect, should finish soon.
 > 
-> I wonder what you mean by an inexact match here.
+> It ended at 
+> 
+> diff-tree d5cdb67236dba94496de052c9f9f431e1fc658f4 (from 0dad3510ee82bcf8a380b81
+> a2184a664a911ef9c)
+> Author: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+> Date:   Tue Sep 12 10:19:00 2006 -0700
+> 
+>     acpiphp: disable bridges
+>     
+>     Currently acpiphp calls pci_enable_device() against all
+>     hot-added bridges, but acpiphp does not call pci_disable_device()
+>     against them in hot-remove. So ioapic hot-remove would fail.
+>     This patch fixes this issue.
+> 
+> Not sure that is it really, it is possible i made a mistake during bisect
+> (the symptoms changed from bad page to just networking doesn't work
+> somewhere at 4cfee88ad30acc47f02b8b7ba3db8556262dce1e) 
+> 
+> I don't have time to rerun unfortunately
+> for some time. Anyone else looking would be useful.
 
-There are two policy chains in the kernel: 'bydst'for non-prefixed 
-addresses (e.g. /32 or /128 nodes) and 'byidx' for prefixed addresses.
+As of yet I haven't been able to recreate the hang.  I am running
+similar HW to Steve. 
 
-xfrm_policy_lookup_bytype() first checks for a non-prefixed match and then 
-for a prefixed match with a higher priority mark.
+Thanks,
+  Keith 
 
-So, I wonder if it makes sense to continue on to the prefixed lookup if we 
-get an -EACCESS on the non-prefixed lookup.
-
-Perhaps some further discussion on this with MLS folk is needed, but in 
-any case, I don't think it should block this patchset going in as a 
-bugfix, as the behavior can be changed in a further patch if required.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
