@@ -1,80 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Thu, 5 Oct 2006 13:02:15 +0400
-Message-ID: <20061005090214.GB1015@2ka.mipt.ru>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060927150957.GA18116@2ka.mipt.ru> <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com> <20061004045527.GB32267@2ka.mipt.ru> <452363C5.1020505@redhat.com> <20061004074821.GA22688@2ka.mipt.ru> <4523ED6C.9080902@redhat.com>
+From: Jean-Philippe Andriot <jean-philippe.andriot@6WIND.com>
+Subject: Re: !! SPAM Suspect : SPAM-URL-DBL !!  Re: [RFC] Disable addrconf on ~multicast interfaces?
+Date: Thu, 5 Oct 2006 11:54:33 +0200
+Message-ID: <20061005095433.GD2933@palpatine.dev.6wind.com>
+References: <Pine.LNX.4.64.0610050907160.22625@netcore.fi> <E1GVMph-0005Do-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Savola <pekkas@netcore.fi>, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:64434 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751258AbWJEJCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 05:02:46 -0400
-To: Ulrich Drepper <drepper@redhat.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:50949 "EHLO
+	proxy.6wind.com") by vger.kernel.org with ESMTP id S1751575AbWJEJye
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 05:54:34 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <4523ED6C.9080902@redhat.com>
+In-Reply-To: <E1GVMph-0005Do-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2006 at 10:20:44AM -0700, Ulrich Drepper (drepper@redha=
-t.com) wrote:
-> Evgeniy Polyakov wrote:
-> > It is completely possible to do what you describe without special
-> > syscall parameters.
->=20
-> First of all, I don't see how this is efficiently possible.  The mask
-> might change from call to call.
 
-And you can add/remove signal events using existing kevent api between
-calls.
+This patch will break multicast forwarding using the pim6 daemon.
+This daemon creates an interface called pim6reg which is not MULTICAST
+enabled but needs to be configred by addrconf to get ff00::/8 and
+fe80::/64 routes. This is required since the route lookup process has
+been enforced to strictly match input interfaces for linklocal and
+multicast packets.
 
-> Second, hasn't it sunk in that inventing new ways to pass parameters =
-is
-> bad?  Programmers don't want to learn new ways for every new interfac=
-e.
->  Reuse is good!
-
-And creating special cases for usual events is bad.
-There is unified way to deal with events in kevent -
-add/remove/modify/wait on them, signals are just usual events.
-
-> This applies to the signal mask here.
->=20
-> But there is another parameter falling into that category and I meant=
- to
-> mention it before: the timeout value.  All other calls except poll an=
-d
-> especially all modern interfaces use a timespec pointer.  This is the
-> way times are kept in userland code.  Don't try to force people to do
-> something else.
->=20
-> Using a timespec also has the advantage that we can add an absolute
-> timeout value mode (optional) instead of the relative timeout value.
->=20
-> In this context, we should/must be able to specify which clock the
-> timeout is for (not as part of the wait call, but another control
-> operation perhaps).  It's important to distinguish between
-> CLOCK_REALTIME and CLOCK_MONOTONE.  Both have their use.
-
-I think you wanted to say, that 'all event mechanism except the most
-commonly used poll/select/epoll use timespec'.
-I designed it to be similar to poll(), it is really good interface.
-Nature of the waiting is to wait for some time, so I put there that
-'some time'.
-
-> --=20
-> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
- St =E2=9E=A7 Mountain View, CA =E2=9D=96
->=20
+Regards,
+JP
 
 
-
---=20
-	Evgeniy Polyakov
+On Thu, Oct 05, 2006 at 04:35:49PM +1000, Herbert Xu wrote:
+> Pekka Savola <pekkas@netcore.fi> wrote:
+> > On Thu, 5 Oct 2006, Herbert Xu wrote:
+> >> Are there any non-multicast interfaces that require addrconf?
+> >> In other words, what does the following patch break :)
+> > 
+> > Point-to-point (or NOARP) interfaces such as tunnels.   I'm not sure 
+> > what are the right flags to check..
+> 
+> Tunnels shouldn't even get into that function so they aren't
+> affected.  Are there any Ethernet-like interfaces which do not
+> set IFF_MULTICAST yet still require addrconf?
+> 
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
