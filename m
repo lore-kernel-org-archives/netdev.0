@@ -1,8 +1,8 @@
 From: Misha Tomushev <misha@fabric7.com> (by way of Misha Tomushev
 	<misha@fabric7.com>)
-Subject: [PATCH 7/10] VIOC: New Network Device Driver
-Date: Thu, 5 Oct 2006 11:55:05 -0700
-Message-ID: <200610051155.05009.misha@fabric7.com>
+Subject: [PATCH 4/10] VIOC: New Network Device Driver
+Date: Thu, 5 Oct 2006 11:53:48 -0700
+Message-ID: <200610051153.48247.misha@fabric7.com>
 Reply-To: misha@fabric7.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -10,25 +10,25 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ext-103.mv.fabric7.com ([68.120.107.103]:59611 "EHLO
-	corp.fabric7.com") by vger.kernel.org with ESMTP id S1750745AbWJETF1
+	corp.fabric7.com") by vger.kernel.org with ESMTP id S1750705AbWJETFZ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 15:05:27 -0400
+	Thu, 5 Oct 2006 15:05:25 -0400
 To: NETDEV Linux <netdev@vger.kernel.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adding VIOC device driver. Interrupt handler.
+Adding VIOC device driver. VIOC hardware APIs.
 
-Signed-off-by: Misha Tomushev  <misha@fabric7.com>
+Signed-off-by: Misha Tomushev  <misha@fabric7.com
 
-diff -uprN linux-2.6.17/drivers/net/vioc/vioc_irq.c
-linux-2.6.17.vioc/drivers/net/vioc/vioc_irq.c
---- linux-2.6.17/drivers/net/vioc/vioc_irq.c	1969-12-31 16:00:00.000000000
+diff -uprN linux-2.6.17/drivers/net/vioc/vioc_api.c
+linux-2.6.17.vioc/drivers/net/vioc/vioc_api.c
+--- linux-2.6.17/drivers/net/vioc/vioc_api.c	1969-12-31 16:00:00.000000000
 -0800
-+++ linux-2.6.17.vioc/drivers/net/vioc/vioc_irq.c	2006-10-04
-10:37:56.000000000 -0700
-@@ -0,0 +1,538 @@
++++ linux-2.6.17.vioc/drivers/net/vioc/vioc_api.c	2006-10-04
+10:21:45.000000000 -0700
+@@ -0,0 +1,384 @@
 +/*
 + * Fabric7 Systems Virtual IO Controller Driver
 + * Copyright (C) 2003-2005 Fabric7 Systems.  All rights reserved.
@@ -56,518 +56,441 @@ linux-2.6.17.vioc/drivers/net/vioc/vioc_irq.c
 + *
 + */
 +#include <linux/config.h>
++#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/types.h>
 +#include <linux/compiler.h>
-+#include <linux/interrupt.h>
-+#include <linux/slab.h>
-+#include <linux/delay.h>
 +#include <linux/init.h>
 +#include <linux/ioport.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/if_vlan.h>
-+#include <linux/wait.h>
-+#include <linux/sched.h>
 +#include <linux/pci.h>
++#include <linux/errno.h>
++#include <linux/delay.h>
 +
 +#include <asm/system.h>
 +#include <asm/io.h>
 +#include <asm/byteorder.h>
 +#include <asm/uaccess.h>
-+#include <asm/apic.h>
 +
 +#include "f7/vnic_hw_registers.h"
 +#include "f7/vnic_defs.h"
++
 +#include "vioc_vnic.h"
++#include "vioc_api.h"
 +
-+#define VIOC_INTERRUPTS_CNT    19	/* 16 Rx + 1 Tx + 1 BMC + 1 Error */
-+#define VIOC_INTERRUPTS_CNT_PIN_IRQ    4	/* 2 Rx + 1 Tx + 1 BMC */
-+
-+#define VIOC_SLVAR(x) x spinlock_t vioc_driver_lock = SPIN_LOCK_UNLOCKED
-+#define VIOC_CLI spin_lock_irq(&vioc_driver_lock)
-+#define VIOC_STI spin_unlock_irq(&vioc_driver_lock)
-+#define IRQRETURN return IRQ_HANDLED
-+#define TX_IRQ_IDX			16
-+#define BMC_IRQ_IDX			17
-+#define ERR_IRQ_IDX			18
-+#define HANDLER_TASKLET		1
-+#define HANDLER_DIRECT		2
-+#define HANDLER_TASKQ		3
-+#define VIOC_RX0_PCI_FUNC   0
-+#define VIOC_TX_PCI_FUNC    1
-+#define VIOC_BMC_PCI_FUNC   2
-+#define VIOC_RX1_PCI_FUNC   3
-+#define VIOC_IRQ_NONE       (u16) -1
-+#define VIOC_ID_NONE        -1
-+#define VIOC_IVEC_NONE      -1
-+#define VIOC_INTR_NONE      -1
-+
-+
-+struct vioc_msix_entry {
-+	u16 vector;
-+	u16 entry;
-+};
-+
-+struct vioc_intreq {
-+	char name[VIOC_NAME_LEN];
-+	void (*intrFuncp) (void *);
-+	void *intrFuncparm;
-+	 irqreturn_t(*hthandler) (int, void *, struct pt_regs *);
-+	unsigned int irq;
-+	unsigned int vec;
-+	unsigned int intr_base;
-+	unsigned int intr_offset;
-+	unsigned int timeout_value;
-+	unsigned int pkt_counter;
-+	unsigned int rxc_mask;
-+	struct work_struct taskq;
-+	struct tasklet_struct tasklet;
-+};
-+
-+struct viocdev_intreq {
-+	int vioc_id;
-+	struct pci_dev *pci_dev;
-+	void *vioc_virt;
-+	unsigned long long vioc_phy;
-+	void *ioapic_virt;
-+	unsigned long long ioapic_phy;
-+	struct vioc_intreq intreq[VIOC_INTERRUPTS_CNT];
-+	struct vioc_msix_entry irqs[VIOC_INTERRUPTS_CNT];
-+};
-+
-+/* GLOBAL VIOC Interrupt table/structure */
-+struct viocdev_intreq vioc_interrupts[VIOC_MAX_VIOCS];
-+
-+VIOC_SLVAR();
-+
-+static irqreturn_t taskq_handler(int i, void *p, struct pt_regs *r)
++int vioc_set_rx_intr_param(int viocdev_idx, int rx_intr_id, u32 timeout, u32
+cntout)
 +{
-+	int intr_id = VIOC_IRQ_PARAM_INTR_ID(p);
-+	int vioc_id = VIOC_IRQ_PARAM_VIOC_ID(p);
++	int ret = 0;
++	struct vioc_device *viocdev;
++	u64 regaddr;
 +
-+	schedule_work(&vioc_interrupts[vioc_id].intreq[intr_id].taskq);
-+	IRQRETURN;
++	viocdev = vioc_viocdev(viocdev_idx);
++
++	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXCINTTIMER +
++							(rx_intr_id << 2)));
++	vioc_reg_wr(timeout, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXCINTPKTCNT +
++							(rx_intr_id << 2)));
++	vioc_reg_wr(cntout, viocdev->ba.virt, regaddr);
++
++	return ret;
 +}
 +
-+static irqreturn_t tasklet_handler(int i, void *p, struct pt_regs *r)
-+{
-+	int intr_id = VIOC_IRQ_PARAM_INTR_ID(p);
-+	int vioc_id = VIOC_IRQ_PARAM_VIOC_ID(p);
 +
-+	tasklet_schedule(&vioc_interrupts[vioc_id].intreq[intr_id].tasklet);
-+	IRQRETURN;
-+}
-+
-+static irqreturn_t direct_handler(int i, void *p, struct pt_regs *r)
-+{
-+	int intr_id = VIOC_IRQ_PARAM_INTR_ID(p);
-+	int vioc_id = VIOC_IRQ_PARAM_VIOC_ID(p);
-+
-+	vioc_interrupts[vioc_id].intreq[intr_id].
-+	    intrFuncp(vioc_interrupts[vioc_id].intreq[intr_id].intrFuncparm);
-+	IRQRETURN;
-+}
-+
-+static int vioc_enable_msix(u32 viocdev_idx)
++int vioc_get_vnic_mac(int viocdev_idx, u32 vnic_id, u8 * p)
 +{
 +	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-+	int ret;
++	u64 regaddr;
++	u32 value;
 +
-+#if defined(CONFIG_MSIX_MOD)
-+	ret = pci_enable_msix(viocdev->pdev,
-+			      (struct msix_entry *)
-+			      &vioc_interrupts[viocdev_idx].irqs,
-+			      VIOC_INTERRUPTS_CNT);
-+	if (ret == 0) {
-+		dev_err(&viocdev->pdev->dev, "MSI-X OK\n");
-+		return VIOC_INTERRUPTS_CNT;
-+	} else {
-+		dev_err(&viocdev->pdev->dev,
-+		       "Enabling MSIX failed (%d) VIOC %d, use PIN-IRQ\n", ret,
-+		       viocdev_idx);
-+		pci_disable_msix(viocdev->pdev);
-+		ret = pci_request_regions(viocdev->pdev, VIOC_DRV_MODULE_NAME);
-+		if (ret != 0) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: Cannot obtain PCI resources\n",
-+			       viocdev_idx);
-+			return 0;
-+		}
-+		return VIOC_INTERRUPTS_CNT_PIN_IRQ;
-+	}
-+#else
-+	ret = pci_request_regions(viocdev->pdev, VIOC_DRV_MODULE_NAME);
-+	if (ret != 0) {
-+		dev_err(&viocdev->pdev->dev, "vioc%d: Cannot obtain PCI resources\n",
-+		       viocdev_idx);
-+		return 0;
-+	}
-+	return VIOC_INTERRUPTS_CNT_PIN_IRQ;
-+#endif
-+}
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRLO);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
++	*((u32 *) & p[2]) = htonl(value);
 +
-+static void vioc_irq_remove(int viocdev_idx, int irq)
-+{
-+	int intr_id;
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRHI);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
++	*((u16 *) & p[0]) = htons(value);
 +
-+	if (viocdev_idx >= VIOC_MAX_VIOCS)
-+		return;
-+
-+	for (intr_id = 0; intr_id < VIOC_INTERRUPTS_CNT; intr_id++) {
-+		if (vioc_interrupts[viocdev_idx].intreq[intr_id].irq == irq) {
-+			if (vioc_interrupts[viocdev_idx].intreq[intr_id].irq !=
-+			    VIOC_IRQ_NONE) {
-+				free_irq(vioc_interrupts[viocdev_idx].
-+					 intreq[intr_id].irq,
-+					 vioc_interrupts[viocdev_idx].
-+					 intreq[intr_id].intrFuncparm);
-+			}
-+			vioc_interrupts[viocdev_idx].intreq[intr_id].irq =
-+			    VIOC_IRQ_NONE;
-+			vioc_interrupts[viocdev_idx].irqs[intr_id].vector =
-+			    VIOC_IRQ_NONE;
-+		}
-+	}
-+}
-+
-+void vioc_free_irqs(u32 viocdev_idx)
-+{
-+	u32 i;
-+
-+	for (i = 0; i < VIOC_INTERRUPTS_CNT; i++) {
-+		if (vioc_interrupts[viocdev_idx].irqs[i].vector !=
-+		    VIOC_IRQ_NONE) {
-+			vioc_irq_remove(viocdev_idx,
-+					vioc_interrupts[viocdev_idx].irqs[i].
-+					vector);
-+		}
-+	}
-+}
-+
-+void vioc_irq_exit(void)
-+{
-+	int vioc_id;
-+
-+	for (vioc_id = 0; vioc_id < VIOC_MAX_VIOCS; vioc_id++)
-+		vioc_free_irqs(vioc_id);
-+}
-+
-+int vioc_irq_init(void)
-+{
-+	int intr_id, vioc_id;
-+
-+	/* Zero out whole vioc_interrupts array */
-+	memset(&vioc_interrupts, 0, sizeof(vioc_interrupts));
-+
-+	for (vioc_id = 0; vioc_id < VIOC_MAX_VIOCS; vioc_id++) {
-+		vioc_interrupts[vioc_id].vioc_id = VIOC_ID_NONE;
-+		for (intr_id = 0; intr_id < VIOC_INTERRUPTS_CNT; intr_id++) {
-+			vioc_interrupts[vioc_id].intreq[intr_id].irq =
-+			    VIOC_IRQ_NONE;
-+			vioc_interrupts[vioc_id].irqs[intr_id].vector =
-+			    VIOC_IRQ_NONE;
-+			vioc_interrupts[vioc_id].irqs[intr_id].entry = intr_id;
-+		}
-+	}
 +	return 0;
 +}
 +
-+int get_pci_pin_irq(struct pci_dev *dev_in, int func)
++int vioc_set_vnic_mac(int viocdev_idx, u32 vnic_id, u8 * p)
 +{
-+	struct pci_dev *dev = NULL;
-+	unsigned int slot, fn, devfn;
++	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
++	u64 regaddr;
++	u32 value;
 +
-+	slot = PCI_SLOT(dev_in->devfn);
-+	fn = PCI_FUNC(dev_in->devfn);
-+	devfn = dev_in->devfn;
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRLO);
++	value = ntohl(*((u32 *) & p[2]));
 +
-+	devfn = PCI_DEVFN(slot, func);
-+	/* Find pci_dev structure of the requested function */
-+	dev = pci_find_slot(dev_in->bus->number, devfn);
-+	if (dev) {
-+		return dev->irq;
-+	} else {
-+		return VIOC_IRQ_NONE;
-+	}
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRHI);
++	value = (ntohl(*((u32 *) & p[0])) >> 16) & 0xffff;
++
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	return 0;
 +}
 +
-+static int vioc_irq_install(struct pci_dev *vioc_pci_dev,
-+			    void (*routine) (void *),
-+			    int vioc_id,
-+			    int intr_id,
-+			    int irq,
-+			    int intr_handler_type,
-+			    int intr_param, char *intr_name)
++int vioc_set_txq(int viocdev_idx, u32 vnic_id, u32 txq_id, dma_addr_t base,
++		 u32 num_elements)
 +{
-+	int ret;
-+	void *intr_func_param = (void *)
-+	    VIOC_IRQ_PARAM_SET(vioc_id, intr_id, intr_param);
++	int ret = 0;
++	u32 value;
++	struct vioc_device *viocdev;
++	u64 regaddr;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++	if (vnic_id >= VIOC_MAX_VNICS)
++		goto parm_err_ret;
++
++	if (txq_id >= VIOC_MAX_TXQ)
++		goto parm_err_ret;
++
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, (VREG_VENG_TXD_W0 + (txq_id <<
+5)));
++
++	value = base;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, (VREG_VENG_TXD_W1 + (txq_id <<
+5)));
++	value = (((base >> 16) >> 16) & 0x000000ff) |
++	    ((num_elements << 8) & 0x00ffff00);
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
 +
 +	/*
-+	 * Find IRQ of requested interrupt: For now, search the
-+	 * vioc_interrupts[] table that was initialized with proper
-+	 * IRQs during viocdev_htirq_init() In the final product, the
-+	 * IRQ will be obtained from the pci_dev structure of the VIOC
-+	 * device.
++	 * Enable Interrupt-on-Empty
 +	 */
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_TXINTCTL);
++	vioc_reg_wr(VREG_VENG_TXINTCTL_INTONEMPTY_MASK, viocdev->ba.virt,
++		    regaddr);
 +
-+	if (vioc_id >= VIOC_MAX_VIOCS)
-+		return -ENODEV;
++	return ret;
 +
-+	if (intr_id >= VIOC_INTERRUPTS_CNT) {
-+		dev_err(&vioc_pci_dev->dev,
-+		       "%s: INTR ID (%d) out of range for Interrupt IRQ %d, name %s\n",
-+		       __FUNCTION__, intr_id, irq, intr_name);
-+		return -EINVAL;
-+	}
-+	vioc_interrupts[vioc_id].vioc_id = vioc_id;
-+
-+	if (vioc_interrupts[vioc_id].intreq[intr_id].irq != VIOC_IRQ_NONE) {
-+		free_irq(vioc_interrupts[vioc_id].
-+			 intreq[intr_id].irq,
-+			 vioc_interrupts[vioc_id].intreq[intr_id].intrFuncparm);
-+		vioc_interrupts[vioc_id].intreq[intr_id].irq = VIOC_IRQ_NONE;
-+	}
-+
-+	vioc_set_intr_func_param(vioc_id, intr_id, intr_param);
-+	INIT_WORK(&vioc_interrupts[vioc_id].intreq[intr_id].taskq, routine,
-+		  intr_func_param);
-+
-+	vioc_interrupts[vioc_id].intreq[intr_id].irq = irq;
-+	vioc_interrupts[vioc_id].intreq[intr_id].name[VIOC_NAME_LEN - 1] = '\0';
-+
-+	vioc_interrupts[vioc_id].intreq[intr_id].timeout_value = 100;
-+	vioc_interrupts[vioc_id].intreq[intr_id].pkt_counter = 1;
-+	vioc_interrupts[vioc_id].intreq[intr_id].vec = VIOC_IVEC_NONE;
-+	vioc_interrupts[vioc_id].intreq[intr_id].intrFuncp = routine;
-+
-+	/* Init work_struct used to schedule task from INTR handler code */
-+
-+	/* Init tasklet_struct used to run "tasklet" from INTR handler code */
-+	vioc_interrupts[vioc_id].intreq[intr_id].tasklet.next = NULL;
-+	vioc_interrupts[vioc_id].intreq[intr_id].tasklet.state = 0;
-+	atomic_set(&vioc_interrupts[vioc_id].intreq[intr_id].tasklet.count, 0);
-+	vioc_interrupts[vioc_id].intreq[intr_id].tasklet.func =
-+	    (void (*)(unsigned long))routine;
-+
-+	snprintf(&vioc_interrupts[vioc_id].intreq[intr_id].name[0],
-+		 VIOC_NAME_LEN, "%s_%02x", intr_name, vioc_id);
-+	vioc_interrupts[vioc_id].intreq[intr_id].name[VIOC_NAME_LEN - 1] = '\0';
-+
-+	if (intr_handler_type == HANDLER_TASKLET)
-+		vioc_interrupts[vioc_id].intreq[intr_id].hthandler =
-+		    tasklet_handler;
-+	else if (intr_handler_type == HANDLER_TASKQ)
-+		vioc_interrupts[vioc_id].intreq[intr_id].hthandler =
-+		    taskq_handler;
-+	else if (intr_handler_type == HANDLER_DIRECT)
-+		vioc_interrupts[vioc_id].intreq[intr_id].hthandler =
-+		    direct_handler;
-+	else {
-+		dev_err(&vioc_pci_dev->dev,
-+		       "%s: Interrupt handler type for name %s unknown\n",
-+		       __FUNCTION__, intr_name);
-+		return -EINVAL;
-+	}
-+
-+	ret = request_irq(vioc_interrupts[vioc_id].intreq[intr_id].irq,
-+			  vioc_interrupts[vioc_id].intreq[intr_id].hthandler,
-+			  SA_INTERRUPT,
-+			  vioc_interrupts[vioc_id].intreq[intr_id].name,
-+			  vioc_interrupts[vioc_id].intreq[intr_id].
-+			  intrFuncparm);
-+	if (ret) {
-+		dev_err(&vioc_pci_dev->dev, "%s: request_irq() -> %d\n", __FUNCTION__,
-ret);
-+		return ret;
-+	}
-+
-+	return 0;
++      parm_err_ret:
++	return -EINVAL;
 +}
 +
-+int vioc_set_intr_func_param(int viocdev_idx, int intr_idx, int intr_param)
++int vioc_set_rxc(int viocdev_idx, struct rxc *rxc)
 +{
++	u32 value;
++	struct vioc_device *viocdev;
++	u64 regaddr;
++	int ret = 0;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++
++	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXC_LO + (rxc->rxc_id <<
+ 4))); +	value = rxc->dma;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXC_HI + (rxc->rxc_id <<
+ 4))); +	value = (((rxc->dma >> 16) >> 16) & 0x000000ff) |
++	    ((rxc->count << 8) & 0x00ffff00);
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	/*
++	 * Set-up mapping between this RxC queue and Rx interrupt
++	 */
++	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXC_INT + (rxc->rxc_id <<
+4)));
++	vioc_reg_wr((rxc->interrupt_id & 0xF), viocdev->ba.virt, regaddr);
++
++	ret = vioc_set_rx_intr_param(viocdev_idx,
++				     rxc->interrupt_id,
++				     viocdev->prov.run_param.rx_intr_timeout,
++				     viocdev->prov.run_param.rx_intr_cntout);
++	return ret;
++}
++
++int vioc_set_rxs(int viocdev_idx, dma_addr_t base)
++{
++	int ret = 0;
++	u32 value;
++	u64 regaddr;
++	struct vioc_device *viocdev;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_INTRSTATADDRLO);
++	value = base;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_INTRSTATADDRHI);
++	value = ((base >> 16) >> 16) & 0x000000ff;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	return ret;
++}
++
++int vioc_set_rxdq(int viocdev_idx, u32 vnic_id, u32 rxdq_id, u32 rx_bufsize,
++		  dma_addr_t base, u32 num_elements)
++{
++	int ret = 0;
++	u32 value;
++	struct vioc_device *viocdev;
++	u64 regaddr;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++
++	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXD_W0_R0 +
++							(rxdq_id << 4)));
++	value = base;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXD_W1_R0 +
++							(rxdq_id << 4)));
++	value = (((base >> 16) >> 16) & 0x000000ff) |
++	    ((num_elements << 8) & 0x00ffff00);
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXD_W2_R0 +
++							(rxdq_id << 4)));
++	value = rx_bufsize;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	return ret;
++}
++
++u32 vioc_rrd(int viocdev_idx, int module_id, int vnic_id, int reg_addr)
++{
++	u32 value;
++	u64 regaddr;
++	struct vioc_device *viocdev;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++
++	regaddr = GETRELADDR(module_id, vnic_id, reg_addr);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
++
++	return value;
++}
++
++int vioc_rwr(int viocdev_idx, int module_id, int vnic_id, int reg_addr,
++	     u32 value)
++{
++	int ret = 0;
++	struct vioc_device *viocdev;
++	u64 regaddr;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++
++	regaddr = GETRELADDR(module_id, vnic_id, reg_addr);
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	return ret;
++}
++
++int vioc_ena_dis_tx_on_empty(int viocdev_idx, u32 vnic_id, u32 txq_id,
++			     int ena_dis)
++{
++	u32 value = 0;
++	u64 regaddr;
 +	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
 +
-+	void *intr_func_param = (void *)
-+	    VIOC_IRQ_PARAM_SET(viocdev_idx, intr_idx, intr_param);
++	if (ena_dis)
++		value |= VREG_VENG_TXINTCTL_INTONEMPTY_MASK;
++	else
++		value &= ~VREG_VENG_TXINTCTL_INTONEMPTY_MASK;
 +
-+	if (viocdev_idx >= VIOC_MAX_VIOCS) {
-+		dev_err(&viocdev->pdev->dev, "%s: VIOC ID (%d) is out of range\n",
-+		       __FUNCTION__, viocdev_idx);
-+		return -ENODEV;
-+	}
++	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_TXINTCTL);
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
 +
-+	if (intr_idx >= VIOC_INTERRUPTS_CNT) {
-+		dev_err(&viocdev->pdev->dev, "%s: INTR ID (%d) is out of range\n",
-+		       __FUNCTION__, intr_idx);
-+		return -EINVAL;
-+	}
-+
-+	vioc_interrupts[viocdev_idx].intreq[intr_idx].intrFuncparm =
-+	    intr_func_param;
-+	vioc_interrupts[viocdev_idx].intreq[intr_idx].taskq.data =
-+	    intr_func_param;
-+	vioc_interrupts[viocdev_idx].intreq[intr_idx].tasklet.data =
-+	    (unsigned long)intr_func_param;
 +	return 0;
 +}
 +
++int vioc_set_vnic_cfg(int viocdev_idx, u32 vnic_id, u32 cfg)
++{
++	int ret = 0;
++	u64 regaddr;
++	struct vioc_device *viocdev;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++	regaddr = GETRELADDR(VIOC_BMC, vnic_id, VREG_BMC_VNIC_CFG);
++
++	vioc_reg_wr(cfg, viocdev->ba.virt, regaddr);
++
++	return ret;
++}
++
++int vioc_ena_dis_rxd_q(int viocdev_idx, u32 q_id, int ena_dis)
++{
++	int ret = 0;
++	u32 value;
++	u64 regaddr;
++	struct vioc_device *viocdev;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_RXDQEN);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
++
++	if (ena_dis)
++		value |= 1 << q_id;
++	else
++		value &= ~(1 << q_id);
++
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	return ret;
++}
++
++void vioc_sw_reset(int viocdev_idx)
++{
++	u32 value;
++	u64 regaddr;
++	struct vioc_device *viocdev;
++
++	viocdev = vioc_viocdev(viocdev_idx);
++
++	regaddr = GETRELADDR(VIOC_BMC, 0, VREG_BMC_GLOBAL);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
++	value |= VREG_BMC_GLOBAL_SOFTRESET_MASK;
++	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
++
++	do {
++		vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
++		mdelay(1);
++	} while (value & VREG_BMC_GLOBAL_SOFTRESET_MASK);
++
++	/*
++	 * Clear BMC INTERRUPT register
++	 */
++	regaddr = GETRELADDR(VIOC_BMC, 0, VREG_BMC_INTRSTATUS);
++	vioc_reg_wr(0xffff, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH1);
++	vioc_reg_wr(128, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH2);
++	vioc_reg_wr(150, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH3);
++	vioc_reg_wr(200, viocdev->ba.virt, regaddr);
++
++	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH4);
++	vioc_reg_wr(256, viocdev->ba.virt, regaddr);
++
++	/*
++	 * Initialize Context Scrub Control Register
++	 */
++	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_CONTEXTSCRUB);
++	/* Enable Context Scrub, Timeout ~ 5 sec */
++	vioc_reg_wr(0x8000000f, viocdev->ba.virt, regaddr);
++	/*
++	 * Initialize Sleep Time Register
++	 */
++	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_SLEEPTIME);
++	/* at 50ns ticks, 20 = 20x50 = 1usec */
++	vioc_reg_wr(20, viocdev->ba.virt, regaddr);
++	/*
++	 * VIOC bits version
++	 */
++	regaddr = GETRELADDR(VIOC_HT, 0, VREG_HT_CLASSREV);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &viocdev->vioc_bits_version);
++	/*
++	 * VIOC bits sub-version
++	 */
++	regaddr = GETRELADDR(VIOC_HT, 0, VREG_HT_EXPREV);
++	vioc_reg_rd(viocdev->ba.virt, regaddr, &viocdev->vioc_bits_subversion);
++
++}
++
++int vioc_vnic_resources_set(int viocdev_idx, u32 vnic_id)
++{
++	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
++	struct vnic_device *vnicdev = viocdev->vnic_netdev[vnic_id]->priv;
++	u64 regaddr;
++
++	/* Map VNIC-2-RXD */
++	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, VREG_IHCU_VNICRXDMAP);
++	vioc_reg_wr(vnicdev->qmap, viocdev->ba.virt, regaddr);
++
++	/* Map VNIC-2-RXC */
++	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, VREG_IHCU_VNICRXCMAP);
++	vioc_reg_wr(vnicdev->rxc_id, viocdev->ba.virt, regaddr);
++
++	/* Map Interrupt-2-RXC */
++	regaddr =  GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXC_INT +
++					       (vnicdev->rxc_id << 4)));
++	vioc_reg_wr(vnicdev->rxc_intr_id, viocdev->ba.virt, regaddr);
++
++	return 0;
++}
+diff -uprN linux-2.6.17/drivers/net/vioc/vioc_api.h
+linux-2.6.17.vioc/drivers/net/vioc/vioc_api.h
+--- linux-2.6.17/drivers/net/vioc/vioc_api.h	1969-12-31 16:00:00.000000000
+-0800
++++ linux-2.6.17.vioc/drivers/net/vioc/vioc_api.h	2006-09-06
+16:23:00.000000000 -0700
+@@ -0,0 +1,64 @@
 +/*
-+ * Function returns number of Rx IRQs.
-+ * When PIN IRQ is used, 2 Rx IRQs are supported.
-+ * With MSI-X 16 Rx IRQs.
++ * Fabric7 Systems Virtual IO Controller Driver
++ * Copyright (C) 2003-2005 Fabric7 Systems.  All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
++ * USA
++ *
++ * http://www.fabric7.com/
++ *
++ * Maintainers:
++ *    driver-support@fabric7.com
++ *
++ *
 + */
++#ifndef _VIOC_API_H_
++#define _VIOC_API_H_
 +
-+int vioc_request_irqs(u32 viocdev_idx)
++#include <asm/io.h>
++#include "vioc_vnic.h"
++
++extern int vioc_vnic_resources_set(int vioc_id, u32 vnic_id);
++extern void vioc_sw_reset(int vioc_id);
++extern u32 vioc_rrd(int vioc_id, int module_id, int vnic_id, int reg_addr);
++extern int vioc_rwr(int vioc_id, int module_id, int vnic_id, int reg_addr,
+u32 value);
++extern int vioc_set_vnic_mac(int vioc_id, u32 vnic_id, u8 * p);
++extern int vioc_get_vnic_mac(int vioc_id, u32 vnic_id, u8 * p);
++extern int vioc_set_txq(int vioc_id, u32 vnic_id, u32 txq_id, dma_addr_t
+base,
++                u32 num_elements);
++
++extern int vioc_set_rxc(int viocdev_idx, struct rxc *rxc);
++
++
++extern int vioc_set_rxdq(int vioc_id, u32 vnic_id, u32 rxq_id, u32
+rx_bufsize,
++                 dma_addr_t base, u32 num_elements);
++extern int vioc_set_rxs(int vioc_id, dma_addr_t base);
++extern int vioc_set_vnic_cfg(int viocdev_idx, u32 vnic_id, u32 vnic_q_map);
++extern int vioc_ena_dis_rxd_q(int vioc_id, u32 q_id, int ena_dis);
++extern int vioc_ena_dis_tx_on_empty(int viocdev_idx, u32 vnic_id, u32
+ txq_id, +                            int ena_dis);
++static inline void
++vioc_reg_wr(u32 value, void __iomem *vaddr, u32 offset)
 +{
-+	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-+	int ret;
-+	int total_num_irqs;
-+	int intr_idx;
-+	char name_buf[64];
-+
-+	/* Check for MSI-X, install either 2 or 16 Rx IRQs */
-+	total_num_irqs = vioc_enable_msix(viocdev_idx);
-+	viocdev->num_irqs = total_num_irqs;
-+
-+	switch (total_num_irqs) {
-+
-+	case VIOC_INTERRUPTS_CNT_PIN_IRQ:
-+		vioc_interrupts[viocdev_idx].irqs[2].vector =
-+		    get_pci_pin_irq(viocdev->pdev, VIOC_TX_PCI_FUNC);
-+		vioc_interrupts[viocdev_idx].irqs[3].vector =
-+		    get_pci_pin_irq(viocdev->pdev, VIOC_BMC_PCI_FUNC);
-+
-+		intr_idx = 0;
-+		vioc_interrupts[viocdev_idx].irqs[intr_idx].vector =
-+		    get_pci_pin_irq(viocdev->pdev, VIOC_RX0_PCI_FUNC);
-+		sprintf(name_buf, "rx%02d_intr", intr_idx);
-+		ret = vioc_irq_install(viocdev->pdev,
-+				       vioc_rxc_interrupt,
-+				       viocdev_idx,
-+				       intr_idx,
-+				       vioc_interrupts[viocdev_idx].
-+				       irqs[intr_idx].vector, HANDLER_DIRECT,
-+				       intr_idx, name_buf);
-+		if (ret) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: RX IRQ %02d not installed\n",
-+			       viocdev_idx, intr_idx);
-+			return 0;
-+		}
-+
-+		intr_idx = 1;
-+		vioc_interrupts[viocdev_idx].irqs[intr_idx].vector =
-+		    get_pci_pin_irq(viocdev->pdev, VIOC_RX1_PCI_FUNC);
-+		sprintf(name_buf, "rx%02d_intr", intr_idx);
-+		ret = vioc_irq_install(viocdev->pdev,
-+				       vioc_rxc_interrupt,
-+				       viocdev_idx,
-+				       intr_idx,
-+				       vioc_interrupts[viocdev_idx].
-+				       irqs[intr_idx].vector, HANDLER_DIRECT,
-+				       intr_idx, name_buf);
-+		if (ret) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: RX IRQ %02d not installed\n",
-+			       viocdev_idx, intr_idx);
-+			return 0;
-+		}
-+
-+		intr_idx = TX_IRQ_IDX;
-+		vioc_interrupts[viocdev_idx].irqs[intr_idx].vector =
-+		    get_pci_pin_irq(viocdev->pdev, VIOC_TX_PCI_FUNC);
-+		ret = vioc_irq_install(viocdev->pdev,
-+				       vioc_tx_interrupt,
-+				       viocdev_idx,
-+				       intr_idx,
-+				       vioc_interrupts[viocdev_idx].
-+				       irqs[intr_idx].vector, HANDLER_TASKLET,
-+				       intr_idx, "tx_intr");
-+		if (ret) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: TX IRQ not installed\n",
-+			       viocdev_idx);
-+			return 0;
-+		}
-+
-+		intr_idx = BMC_IRQ_IDX;
-+		vioc_interrupts[viocdev_idx].irqs[intr_idx].vector =
-+		    get_pci_pin_irq(viocdev->pdev, VIOC_BMC_PCI_FUNC);
-+		ret = vioc_irq_install(viocdev->pdev,
-+				       vioc_bmc_interrupt,
-+				       viocdev_idx,
-+				       intr_idx,
-+				       vioc_interrupts[viocdev_idx].
-+				       irqs[intr_idx].vector, HANDLER_TASKQ,
-+				       intr_idx, "bmc_intr");
-+		if (ret) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: BMC IRQ not installed\n",
-+			       viocdev_idx);
-+			return 0;
-+		}
-+
-+		return 2;
-+
-+	case VIOC_INTERRUPTS_CNT:
-+
-+		for (intr_idx = 0; intr_idx < 16; intr_idx++) {
-+			sprintf(name_buf, "rx%02d_intr", intr_idx);
-+			ret = vioc_irq_install(viocdev->pdev,
-+					       vioc_rxc_interrupt,
-+					       viocdev_idx,
-+					       intr_idx,
-+					       vioc_interrupts[viocdev_idx].
-+					       irqs[intr_idx].vector,
-+					       HANDLER_DIRECT, intr_idx,
-+					       name_buf);
-+			if (ret) {
-+				dev_err(&viocdev->pdev->dev,
-+				       "vioc%d: RX IRQ %02d not installed\n",
-+				       viocdev_idx, intr_idx);
-+				return 0;
-+			}
-+		}
-+
-+		intr_idx = TX_IRQ_IDX;
-+		ret = vioc_irq_install(viocdev->pdev,
-+				       vioc_tx_interrupt,
-+				       viocdev_idx,
-+				       intr_idx,
-+				       vioc_interrupts[viocdev_idx].
-+				       irqs[intr_idx].vector, HANDLER_TASKLET,
-+				       intr_idx, "tx_intr");
-+		if (ret) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: TX IRQ not installed\n",
-+			       viocdev_idx);
-+			return 0;
-+		}
-+
-+		intr_idx = BMC_IRQ_IDX;
-+		ret = vioc_irq_install(viocdev->pdev,
-+				       vioc_bmc_interrupt,
-+				       viocdev_idx,
-+				       intr_idx,
-+				       vioc_interrupts[viocdev_idx].
-+				       irqs[intr_idx].vector, HANDLER_TASKQ,
-+				       intr_idx, "bmc_intr");
-+		if (ret) {
-+			dev_err(&viocdev->pdev->dev, "vioc%d: BMC IRQ not installed\n",
-+			       viocdev_idx);
-+			return 0;
-+		}
-+
-+		return 16;
-+
-+	default:
-+
-+		return 0;
-+	}
-+
-+	return 0;
++       writel(value, vaddr + offset);
 +}
 +
++static inline void
++vioc_reg_rd(void __iomem *vaddr, u32 offset, u32 * value_p)
++{
++       *value_p = readl(vaddr + offset);
++}
++
++#endif                         /* _VIOC_API_H_ */
 
 
 --
