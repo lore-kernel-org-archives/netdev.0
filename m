@@ -1,57 +1,80 @@
-From: Jean-Philippe Andriot <jean-philippe.andriot@6WIND.com>
-Subject: Re: !! SPAM Suspect : SPAM-URL-DBL !!  Re: [RFC] Disable addrconf on ~multicast interfaces?
-Date: Thu, 5 Oct 2006 11:54:33 +0200
-Message-ID: <20061005095433.GD2933@palpatine.dev.6wind.com>
-References: <Pine.LNX.4.64.0610050907160.22625@netcore.fi> <E1GVMph-0005Do-00@gondolin.me.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Thu, 5 Oct 2006 11:56:24 +0200
+Message-ID: <200610051156.25036.dada1@cosmosbay.com>
+References: <11587449471424@2ka.mipt.ru> <a36005b50610041057g67dcaf73wd48d9fef88187ec6@mail.gmail.com> <20061005085750.GA1015@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Savola <pekkas@netcore.fi>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:50949 "EHLO
-	proxy.6wind.com") by vger.kernel.org with ESMTP id S1751575AbWJEJye
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 05:54:34 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from pfx2.jmh.fr ([194.153.89.55]:51167 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1751576AbWJEJ42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 05:56:28 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061005085750.GA1015@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <E1GVMph-0005Do-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday 05 October 2006 10:57, Evgeniy Polyakov wrote:
 
-This patch will break multicast forwarding using the pim6 daemon.
-This daemon creates an interface called pim6reg which is not MULTICAST
-enabled but needs to be configred by addrconf to get ff00::/8 and
-fe80::/64 routes. This is required since the route lookup process has
-been enforced to strictly match input interfaces for linklocal and
-multicast packets.
+> Well, it is possible to create /sys/proc entry for that, and even now
+> userspace can grow mapping ring until it is forbiden by kernel, which
+> means limit is reached.
 
-Regards,
-JP
+No need for yet another /sys/proc entry.
+
+Right now, I (for example) may have a use for Generic event handling, but for 
+a program that needs XXX.XXX handles, and about XX.XXX events per second.
+
+Right now, this program uses epoll, and reaches no limit at all, once you pass 
+the "ulimit -n", and other kernel wide tunes of course, not related to epoll.
+
+With your current kevent, I cannot switch to it, because of hardcoded limits.
+
+I may be wrong, but what is currently missing for me is :
+
+- No hardcoded limit on the max number of events. (A process that can open 
+XXX.XXX files should be allowed to open a kevent queue with at least XXX.XXX 
+events). Right now thats not clear what happens IF the current limit is 
+reached.
+
+- In order to avoid touching the whole ring buffer, it might be good to be 
+able to reset the indexes to the beginning when ring buffer is empty. (So if 
+the user land is responsive enough to consume events, only first pages of the 
+mapping would be used : that saves L1/L2 cpu caches)
+
+A plus would be
+
+- A working/usable mmap ring buffer implementation, but I think its not 
+mandatory. System calls are not that expensive, especially if you can batch 
+XX events per syscall (like epoll). Nice thing with a ring buffer is that we 
+touch less cache lines than say epoll that have lot of linked structures.
+
+About mmap, I think you might want a hybrid thing :
+
+One writable page where userland can write its index, (and hold one or more 
+futex shared by kernel) (with appropriate thread locking in case multiple 
+threads want to dequeue events). In fast path, no syscalls are needed to 
+maintain this user index.
+
+XXX readonly pages (for user, but r/w for kernel), where kernel write its own 
+index, and events of course.
+
+Using separate cache lines avoid false sharing : kernel can update its own 
+index and events without having to pay the price of cache line ping pongs.
+It could use futex infrastructure to wakeup one thread 'only' instead of all 
+threads waiting an event.
 
 
-On Thu, Oct 05, 2006 at 04:35:49PM +1000, Herbert Xu wrote:
-> Pekka Savola <pekkas@netcore.fi> wrote:
-> > On Thu, 5 Oct 2006, Herbert Xu wrote:
-> >> Are there any non-multicast interfaces that require addrconf?
-> >> In other words, what does the following patch break :)
-> > 
-> > Point-to-point (or NOARP) interfaces such as tunnels.   I'm not sure 
-> > what are the right flags to check..
-> 
-> Tunnels shouldn't even get into that function so they aren't
-> affected.  Are there any Ethernet-like interfaces which do not
-> set IFF_MULTICAST yet still require addrconf?
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Eric
