@@ -1,44 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/6] 2.6.18: sb1250-mac: Broadcom PHY support
-Date: Thu, 05 Oct 2006 07:02:32 -0400
-Message-ID: <4524E648.2000706@garzik.org>
-References: <Pine.LNX.4.64N.0610031457070.4642@blysk.ds.pg.gda.pl> <4524E5BD.1040000@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re:
+Date: Thu, 05 Oct 2006 07:03:10 -0400
+Message-ID: <4524E66E.20502@pobox.com>
+References: <200609300628.k8U6SgZt030638@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Ralf Baechle <ralf@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58588 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751673AbWJELCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 07:02:37 -0400
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-In-Reply-To: <4524E5BD.1040000@pobox.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:5853 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751677AbWJELDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 07:03:13 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200609300628.k8U6SgZt030638@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Maciej W. Rozycki wrote:
->> Hello,
-> [...]
->>  Please consider.
->>
->>   Maciej
+Jay Vosburgh wrote:
+> From: Karsten Keil <kkeil@suse.de>
 > 
+> In bond_alb_monitor the bond->curr_slave_lock write lock is taken
+> and then dev_set_promiscuity maybe called which can take some time,
+> depending on the network HW. If a network IRQ for this card come in
+> the softirq handler maybe try to deliver more packets which end up in
+> a request to the read lock of bond->curr_slave_lock -> deadlock.
+> This issue was found by a test lab during network stress tests, this patch
+> disable the softirq handler for this case and solved the issue.
 > 
-> Please don't include this in the patch description.  It must be 
-> hand-edited out, before applying with git-applymbox.  All comments 
-> should be placed AFTER the "---" separator, which terminates the patch 
-> description.
-> 
-> Applied patches 1-3, patch #4 failed due to drivers/net/Kconfig breakage
+> Signed-off-by: Karsten Keil <kkeil@suse.de>
+> Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Also, in your email subject line, the kernel version should be included 
-in the [PATCH...] brackets.  Please see 
-http://linux.yyz.us/patch-format.html and 
-Documentation/SubmittingPatches for more info.
+applied, though note that your email was slightly corrupted.  It 
+included _two_ Subject headers, making the email non-compliant with RFC822.
 
 	Jeff
+
 
 
