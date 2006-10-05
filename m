@@ -1,37 +1,36 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
-Date: Thu, 5 Oct 2006 13:52:19 -0700
-Message-ID: <20061005135219.1c6d6b05.rdunlap@xenotime.net>
-References: <4505DD51.5090000@garzik.org>
-	<20060914082532.GA2513@ff.dom.local>
-	<20060914082930.GB2513@ff.dom.local>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Thu, 5 Oct 2006 22:50:55 +0200
+Message-ID: <200610052250.55146.ak@suse.de>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052105.00359.ak@suse.de> <1160080954.29690.44.camel@flooterbu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Cc: Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>, vgoyal@in.ibm.com,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:54151 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S932142AbWJEUu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 16:50:59 -0400
-Received: from midway.site ([71.117.236.95]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 5 Oct 2006 13:50:51 -0700
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20060914082930.GB2513@ff.dom.local>
+Received: from mx1.suse.de ([195.135.220.2]:32921 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S932147AbWJEUvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 16:51:05 -0400
+To: Steve Fox <drfickle@us.ibm.com>
+In-Reply-To: <1160080954.29690.44.camel@flooterbu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Sep 2006 10:29:30 +0200 Jarek Poplawski wrote:
+On Thursday 05 October 2006 22:42, Steve Fox wrote:
+> On Thu, 2006-10-05 at 21:05 +0200, Andi Kleen wrote:
+> 
+> > Can you please try it again with this patch to narrow it down further?
+> 
+> Unfortunately this is as far as it got before it hung.
 
-> On Thu, Sep 14, 2006 at 10:25:32AM +0200, Jarek Poplawski wrote:
-> ...
-> > "Attachments are discouraged, but some corporate mail systems 
-> > provide no other way to send patches."
-> > 
-> > I thought they didn't read this but now I understand for whom 
-> > Mozilla Firefox is breaking all those lines with no mercy!
->  
-> Mozilla Thunderbird. Sorry.
+Boot with earlyprintk=serial,ttyS0,57600
+(or change the panic in the checkfunction back to a printk) 
 
-see http://mbligh.org/linuxdocs/Email/Clients/Thunderbird
+-Andi
 
----
-~Randy
