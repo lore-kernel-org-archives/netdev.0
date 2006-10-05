@@ -1,42 +1,83 @@
-From: Steve Fox <drfickle@us.ibm.com>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Thu, 05 Oct 2006 09:53:40 -0500
-Message-ID: <1160060020.29690.5.camel@flooterbu>
-References: <20060928014623.ccc9b885.akpm@osdl.org>
-	 <20061004170659.f3b089a8.akpm@osdl.org> <20061005005124.GA23408@in.ibm.com>
-	 <200610050257.53971.ak@suse.de>  <45245B03.2070803@mbligh.org>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
+Date: Thu, 05 Oct 2006 16:56:46 +0200
+Message-ID: <45251D2E.7050006@voltaire.com>
+References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben> <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com> <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com> <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com> <4522605E.8000208@voltaire.com> <200610032310.k93NAGZt003069@death.nxdomain.ibm.com> <4523D254.9060006@voltaire.com> <200610041734.k94HYEZt013562@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, vgoyal@in.ibm.com,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kmannth@us.ibm.com,
-	Andy Whitcroft <apw@shadowen.org>
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:43440 "EHLO
-	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751473AbWJEOxo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 10:53:44 -0400
-To: Martin Bligh <mbligh@mbligh.org>
-In-Reply-To: <45245B03.2070803@mbligh.org>
+Received: from taurus.voltaire.com ([193.47.165.240]:29732 "EHLO
+	taurus.voltaire.com") by vger.kernel.org with ESMTP
+	id S1751479AbWJEO5B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 10:57:01 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200610041734.k94HYEZt013562@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-04 at 18:08 -0700, Martin Bligh wrote:
-> Andi Kleen wrote:
-> >>I think most likely it would crash on 2.6.18. Keith mannthey had reported
-> >>a different crash on 2.6.18-rc4-mm2 when this patch was introduced first
-> >>time. Following is the link to the thread.
-> > 
-> > 
-> > Then maybe trying 2.6.17 + the patch and then bisect between that and -rc4?
+Jay Vosburgh wrote:
+> Or Gerlitz <ogerlitz@voltaire.com> wrote:
+>> My understanding is that changing ifenslave and the bonding kernel code to
+>> allow for enslaving while master is not up is enough, so actually no
+>> change is needed to the sysconfig tools, correct?
 > 
-> I think it's fixed already in -git22, or at least it is for the IBM box
-> reporting to test.kernel.org. You might want to try that one ...
+> 	Incorrect.  The /sbin/ifup included with sysconfig (I'm looking
+> at version 0.31-0-15.51) has logic to set the bonding master device up
+> prior to adding any slaves.  E.g.,
+> 
+> 		# get up the bonding device before enslaving
+> #		if ! is_iface_up $INTERFACE; then
+> 			ip link set $INTERFACE up 2>&1
+> #		fi
+> 		# enslave available slave devices; if there is none -> hard break and log
+> 		MESSAGE=`/sbin/ifenslave $BONDING_OPTIONS $INTERFACE $BSINTERFACES 2>&1`
+> 
+> 	For your purposes, this would cause it to register as an
+> ethernet hardware type, not an IB type.  The /sbin/ifup included with
+> initscripts operates a little differently, but also sets the bonding
+> master up prior to adding any slaves.
 
--git22 also panics for me.
+OK, you are correct, i agree that the /sbin/ifup would attempt to first 
+bring up the bonding device so it breaks my assumptions...
 
--- 
+> 	Yes.  Part of the difficulty is that the changes to the
+> initscripts and sysconfig packages won't be compatible with versions of
+> bonding prior to the bonding kernel changes (because older versions of
+> bonding will refuse to add slaves if the master is down).  It might
+> require adding another API version to bonding, and modifying ifenslave
+> to work both ways (i.e., with the current "enslave with master up" API,
+> as well as the new "enslave with master down" API).
 
-Steve Fox
-IBM Linux Technology Center
+Gee, sounds bad
+
+> 	An alternate approach would be to undertake the more substantial
+> task of converting the initscripts and sysconfig code to use sysfs to
+> configure bonding.  This would permit changing the logic (to add slaves
+> while the bonding master is down, then set it up), as well as remove the
+> current hacks (present only in sysconfig) to load the bonding module
+> once per configured bonding interface.  The initscripts currently don't
+> do this (as far as I know), so it's generally only possible to have one
+> bonding interface under initscripts control.
+
+This sounds like a good idea to get out of all these troubles...
+
+So the direction to have sysconfig and initscripts tools configure 
+bonding by sysfs and not by the enslave program is something you were 
+considering regardless of the needs imposed by bonding support for non 
+ARPHRD_ETHER netdevices? and you think the distro packages owners would 
+like this?
+
+I will look into the current methods used by sysconfig to configure 
+bonding and see if i can come up with sketch of how to do it with sysfs.
+
+Basically, i use now my own script working with sysfs in my IPoIB 
+bonding testing where i have followed the directions in the bonding 
+kernel doc.
+
+Thanks again for all the coaching...
+
+Or.
+
+
