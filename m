@@ -1,103 +1,47 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Request to postpone WE-21
-Date: Thu, 5 Oct 2006 16:49:54 -0400
-Message-ID: <20061005204949.GF18408@tuxdriver.com>
-References: <20061005163113.GB6510@bougret.hpl.hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] Fix for IPsec leakage with SELinux enabled - V.03
+Date: Thu, 05 Oct 2006 14:04:23 -0700 (PDT)
+Message-ID: <20061005.140423.48528368.davem@davemloft.net>
+References: <45256E33.8080205@trustedcs.com>
+	<Pine.LNX.4.64.0610051651580.25705@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: liniville@bougret.hpl.hp.com, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyekkirala@trustedcs.com, paul.moore@hp.com,
+	netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
+	eparis@redhat.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:45834 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751311AbWJEVA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 17:00:29 -0400
-To: Jean Tourrilhes <jt@hpl.hp.com>
-Content-Disposition: inline
-In-Reply-To: <20061005163113.GB6510@bougret.hpl.hp.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61098
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751340AbWJEVEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 17:04:22 -0400
+To: jmorris@namei.org
+In-Reply-To: <Pine.LNX.4.64.0610051651580.25705@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 05, 2006 at 09:31:13AM -0700, Jean Tourrilhes wrote:
+From: James Morris <jmorris@namei.org>
+Date: Thu, 5 Oct 2006 16:54:38 -0400 (EDT)
 
-> 	Based on the feedback, I formally request you to back out all
-> of WE-21 from 2.6.19. Rationale : it's probably too early. You can
-> keep it for a later date if you wish.
+> >  #ifdef CONFIG_XFRM_SUB_POLICY
+> >  	pol = xfrm_policy_lookup_bytype(XFRM_POLICY_TYPE_SUB, fl, family, dir);
+> > -	if (pol)
+> > +	if (IS_ERR(pol)) {
+> > +		err = PTR_ERR(pol);
+> > +		pol = NULL;
+> > +	}
+> > +	if (pol || err)
+> >  		goto end;
+> 
+> Similarly, if the sub-policy lookup returns -EACCESS, should we then try a 
+> main policy lookup before failing?
 
-Jean,
+We're trying to fill the flow cache here.  In the case where we'd
+have a match in both the sub-policy and main table, I think the
+sub-policy is supposed to take precedence, and if you fail to get
+this sub-policy you should fail the entire lookup.
 
-What about a patch like the one below?  It tries to detect WE-20
-ESSID/NICKN accesses and adjust them to WE-21 style.  What am
-I missing?
-
-I haven't had a chance to test it yet -- just hacked it
-up...YMMV... :-)
-
-John
-
-diff --git a/net/core/wireless.c b/net/core/wireless.c
-index ffff0da..ba5fe77 100644
---- a/net/core/wireless.c
-+++ b/net/core/wireless.c
-@@ -748,11 +748,39 @@ #endif	/* WE_SET_EVENT */
- 		int	extra_size;
- 		int	user_length = 0;
- 		int	err;
-+		int	essid_compat = 0;
- 
- 		/* Calculate space needed by arguments. Always allocate
- 		 * for max space. Easier, and won't last long... */
- 		extra_size = descr->max_tokens * descr->token_size;
- 
-+		/* Check need for ESSID compatibility for WE < 21 */
-+		switch (cmd) {
-+		case SIOCSIWESSID:
-+		case SIOCGIWESSID:
-+		case SIOCSIWNICKN:
-+		case SIOCGIWNICKN:
-+			if (iwr->u.data.length == descr->max_tokens + 1)
-+				essid_compat = 1;
-+			else if (IW_IS_SET(cmd)) {
-+				char essid[IW_ESSID_MAX_SIZE + 1];
-+
-+				err = copy_from_user(essid, iwr->u.data.pointer,
-+						     iwr->u.data.length *
-+						     descr->token_size);
-+				if (err)
-+					return -EFAULT;
-+
-+				if (essid[iwr->u.data.length] == '\0')
-+					essid_compat = 1;
-+			}
-+			break;
-+		default:
-+			break;
-+		}
-+
-+		iwr->u.data.length -= essid_compat;
-+
- 		/* Check what user space is giving us */
- 		if(IW_IS_SET(cmd)) {
- 			/* Check NULL pointer */
-@@ -795,7 +823,8 @@ #ifdef WE_IOCTL_DEBUG
- #endif	/* WE_IOCTL_DEBUG */
- 
- 		/* Create the kernel buffer */
--		extra = kmalloc(extra_size, GFP_KERNEL);
-+		/*    kzalloc ensures NULL-termination for essid_compat */
-+		extra = kzalloc(extra_size, GFP_KERNEL);
- 		if (extra == NULL) {
- 			return -ENOMEM;
- 		}
-@@ -819,6 +848,8 @@ #endif	/* WE_IOCTL_DEBUG */
- 		/* Call the handler */
- 		ret = handler(dev, &info, &(iwr->u), extra);
- 
-+		iwr->u.data.length += essid_compat;
-+
- 		/* If we have something to return to the user */
- 		if (!ret && IW_IS_GET(cmd)) {
- 			/* Check if there is enough buffer up there */
-
--- 
-John W. Linville
-linville@tuxdriver.com
+The way the sub-policied entries work is that you find the sub-policy
+as the primary object in the flow cache, and once you notice you have
+a sub-policy you do an explicit lookup in the main table to put the
+whole thing together.
