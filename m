@@ -1,34 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Offloading features in VLAN interfaces
-Date: Thu, 05 Oct 2006 09:25:39 -0700
-Message-ID: <45253203.8050805@candelatech.com>
-References: <b54af0b00609291721u16acb2f1ma918adec9b2e782b@mail.gmail.com> <b54af0b00609291725t55ac0a84pf86525ef0a31f44e@mail.gmail.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: [PATCH] kernel-doc fix for sock.h
+Date: Thu, 5 Oct 2006 09:34:30 -0700
+Message-ID: <20061005093430.4dc842c5.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yoshio Turner <yoshiotu@hpl.hp.com>,
-	"Santos, Jose Renato G" <joserenato.santos@hp.com>,
-	"Janakiraman, John" <john.janakiraman@hp.com>
+Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:39397 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1751674AbWJEQ2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 12:28:36 -0400
-To: olivier.crameri@epfl.ch
-In-Reply-To: <b54af0b00609291725t55ac0a84pf86525ef0a31f44e@mail.gmail.com>
+Received: from xenotime.net ([66.160.160.81]:44689 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S1750743AbWJEQdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 12:33:07 -0400
+Received: from midway.site ([71.117.236.95]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 5 Oct 2006 09:33:01 -0700
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olivier Crameri wrote:
-> Same thing but with the patch this time.
-Since the VLAN device's features may also change in the handler, 
-shouldn't we check and generate a feature-change
-event for the VLAN device(s) as well?
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-Ben
+Fix kernel-doc warning in include/net/sock.h:
+Warning(/var/linsrc/linux-2619-rc1-pv//include/net/sock.h:894): No description found for parameter 'rcu'
+
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ include/net/sock.h |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
+
+--- linux-2619-rc1-pv.orig/include/net/sock.h
++++ linux-2619-rc1-pv/include/net/sock.h
+@@ -884,8 +884,7 @@ static inline int sk_filter(struct sock 
+ 
+ /**
+  *	sk_filter_release: Release a socket filter
+- *	@sk: socket
+- *	@fp: filter to remove
++ *	@rcu: rcu_head that contains the sk_filter info to remove
+  *
+  *	Remove a filter from a socket and release its resources.
+  */
 
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+---
