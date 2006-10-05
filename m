@@ -1,37 +1,20 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 3/3] Fix for IPsec leakage with SELinux enabled - V.03:
- Process security errors for scket policies also
-Date: Thu, 5 Oct 2006 19:53:56 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610051947200.27547@d.namei>
-References: <45256E3B.7070508@trustedcs.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
-	eparis@redhat.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 0/4] skge: fiber related fixes
+Date: Thu, 05 Oct 2006 15:49:49 -0700
+Message-ID: <20061005224949.456192755@osdl.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:917 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751524AbWJEXx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 19:53:58 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <45256E3B.7070508@trustedcs.com>
+Received: from smtp.osdl.org ([65.172.181.4]:63439 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751524AbWJEXzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 19:55:00 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For future patches, please follow the recommended subject line outlined in 
-http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
+These patches address the problems that were causing a fiber
+connected SysKonnect board to revert to have performance problems.
+They fix flow control, duplex, and irq masking issues.
 
-e.g.  "[patch 2/5] ext2: improve scalability of bitmap searching"
+--
+Stephen Hemminger <shemminger@osdl.org>
 
-
-Also, can you please try and figure out how to get outlook to stop 
-breaking threads or switch to Thunderbird or something?  It's very 
-difficult with hundreds of emails in a discussion, many of which are 
-important patches to dig out.  Also, some kernel developers filter posts 
-from mailers which break threads.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
