@@ -1,42 +1,67 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: d80211: ieee80211_hw handlers in atomic context
-Date: Thu, 5 Oct 2006 16:52:58 +0200
-Message-ID: <200610051652.59000.IvDoorn@gmail.com>
-References: <4523DA7D.2080604@web.de> <4523E69C.1090408@web.de> <20061005132917.78c985c1@griffin.suse.cz>
+From: Hans Henrik Happe <hhh@imada.sdu.dk>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Thu, 5 Oct 2006 17:07:48 +0200
+Message-ID: <200610051707.49087.hhh@imada.sdu.dk>
+References: <11587449471424@2ka.mipt.ru> <200610051601.20701.hhh@imada.sdu.dk> <20061005141556.GA30715@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: Jan Kiszka <jan.kiszka@web.de>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:20066 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751481AbWJEPBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 11:01:25 -0400
-Received: by ug-out-1314.google.com with SMTP id o38so200069ugd
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2006 08:01:24 -0700 (PDT)
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061005132917.78c985c1@griffin.suse.cz>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751287AbWJEPHz@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061005141556.GA30715@2ka.mipt.ru>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 05 October 2006 13:29, Jiri Benc wrote:
-> On Wed, 04 Oct 2006 18:51:40 +0200, Jan Kiszka wrote:
-> > Ok, I'm not promising success and I'm going to duck immediately if
-> > someone else feels like working on it, but I could try to patch in this
-> > direction.
+On Thursday 05 October 2006 16:15, Evgeniy Polyakov wrote:
+> On Thu, Oct 05, 2006 at 04:01:19PM +0200, Hans Henrik Happe 
+(hhh@imada.sdu.dk) wrote:
+> > > And what happens when there are 3 empty at the beginning and \we need to
+> > > put there 4 ready events?
+> > 
+> > Couldn't there be 3 areas in the mmap buffer:
+> > 
+> > - Unused: entries that the kernel can alloc from.
+> > - Alloced: entries alloced by kernel but not yet used by user. Kernel can 
+> > update these if new events requires that.
+> > - Consumed: entries that the user are processing.
+> > 
+> > The user takes a set of alloced entries and make them consumed. Then it 
+> > processes the events after which it makes them unused. 
+> > 
+> > If there are no unused entries and the kernel needs some, it has wait for 
+free 
+> > entries. The user has to notify when unused entries becomes available. It 
+> > could set a flag in the mmap'ed area to avoid unnessesary wakeups.
+> > 
+> > The are some details with indexing and wakeup notification that I have 
+left 
+> > out, but I hope my idea is clear. I could give a more detailed description 
+if 
+> > requested. Also, I'm a user-level programmer so I might not get the whole 
+> > picture.
 > 
-> Your patches are welcomed!
-> 
-> > Now there just remains my precautious question if there are other
-> > services in the ieee_80211_hw interface that may conflict with sleeping
-> > USB drivers. What about specifying the possible contexts in
-> > include/net/d80211.h?
-> 
-> Yes, that makes sense. Feel free to send a patch :-)
+> This looks good on a picture, but how can you put it into page-based
+> storage without major and complex shared structures, which should be
+> properly locked between kernelspace and userspace?
 
-The patch is currently in testing in the rt2x00 tree.
-So it will be shortly send to the netdev list. :)
+I wasn't clear about the structure. I meant a ring-buffer with 3 areas. So 
+it's basically the same model as Eric Dumazet described, only with 3 indexes; 
+2 in the user-writeable page and 1 in kernel.
 
-Ivo
+When the kernel has alloced an entry it should store it in a way that makes it 
+invalid after user consumsion, which is simply an increment of an index. 
+Sliding-window like schemes should solve this.
+
+Hans Henrik Happe
