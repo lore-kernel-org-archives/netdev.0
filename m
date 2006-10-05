@@ -1,28 +1,41 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC] Disable addrconf on ~multicast interfaces?
-Date: Thu, 5 Oct 2006 09:08:30 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0610050907160.22625@netcore.fi>
-References: <20061005053531.GA19482@gondor.apana.org.au>
+Date: Thu, 5 Oct 2006 16:17:24 +1000
+Message-ID: <20061005061724.GA19785@gondor.apana.org.au>
+References: <20061005053531.GA19482@gondor.apana.org.au> <20061005.150634.27869684.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:13957 "EHLO netcore.fi")
-	by vger.kernel.org with ESMTP id S1751001AbWJEGJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 02:09:07 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20061005053531.GA19482@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:11027 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751498AbWJEGR0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 02:17:26 -0400
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20061005.150634.27869684.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 5 Oct 2006, Herbert Xu wrote:
-> Are there any non-multicast interfaces that require addrconf?
-> In other words, what does the following patch break :)
+On Thu, Oct 05, 2006 at 03:06:34PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> 
+> Why do you want to do this?  Xen issue?
 
-Point-to-point (or NOARP) interfaces such as tunnels.   I'm not sure 
-what are the right flags to check..
+Yes it's to disable addrconf on the Xen bridge interface.
 
+> As Alexey mentioned before, addrconf should work even for !MULTICAST &&
+> BROADCAST.  This is true for POINTOPOINT as well; ISATAP will use this.
+
+I'm only proposing this as a stop-gap measure until we have a way to
+disable addrconf before ifup, or until Xen loses the netloop interface.
+
+So what I'd like to know is what setups this patch would break.  ISATAP
+uses SIT right? This patch only affects Ethernet-type interfaces so it
+shouldn't affect SIT at all.
+
+Cheers,
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
