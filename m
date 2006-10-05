@@ -1,34 +1,43 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH 0/3] Fix for IPsec leakage with SELinux enabled - V.03
-Date: Thu, 5 Oct 2006 17:07:59 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CFB5B@chaos.tcs.tcs-sec.com>
+From: Jingping Lin <jplin_99@yahoo.com>
+Subject: socket/IP on Linux
+Date: Thu, 5 Oct 2006 14:17:07 -0700 (PDT)
+Message-ID: <20061005211707.61196.qmail@web30514.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
-	sds@tycho.nsa.gov, eparis@redhat.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:34196 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751362AbWJEVIR
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 17:08:17 -0400
-To: David Miller <davem@davemloft.net>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Received: from web30514.mail.mud.yahoo.com ([68.142.201.242]:6832 "HELO
+	web30514.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1751375AbWJEVRI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 17:17:08 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > This version takes into account David Miller's comments
-> > regarding treatment of security layer errors in the case
-> > of socket policies. Specifically, these errors will be
-> > treated like how these kind of errors are treated for
-> > the main/sub policies, which is to return a full lookup
-> > failure.
-> 
-> I only have patches "1" and "3" in my inbox, did you forget
-> to send the second one out or are they simply misnumbered?
-> 
+Hello, Linux Kernel:
+For a project I will work on for mobile, I am looking
+into the IP stacks on Linux.
 
-My apologies. The second one is also numbered 1, but has the
-following distinct subject line:
-[PATCH 1/3] Fix for IPsec leakage with SELinux enabled - V.03: Fix xfrm code
+I have a few questions to bother you:
+
+1. is "socket.c" the file handling the socket
+interface?
+
+2. which function is for opening a socket?
+It looks like "sock_map_fd()" is the one for
+opening/creating a socket? Is that correct?
+The "Linux IP Stacks Commentary" book suggested the
+function is "int socket()" which I didn't find in
+"socket.c" though.
+
+3. Do you have documentations discussing in details
+the implemented socket interfaces?
+
+Thanks a lot in advance for your help,
+Jingping
+
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
