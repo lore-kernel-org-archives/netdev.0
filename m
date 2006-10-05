@@ -1,30 +1,53 @@
-From: Martin Bligh <mbligh@mbligh.org>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Wed, 04 Oct 2006 18:08:19 -0700
-Message-ID: <45245B03.2070803@mbligh.org>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <20061004170659.f3b089a8.akpm@osdl.org> <20061005005124.GA23408@in.ibm.com> <200610050257.53971.ak@suse.de>
+From: Samir Bellabes <sbellabes@mandriva.com>
+Subject: Re: [PATCH] Network Events Connector
+Date: Thu, 05 Oct 2006 03:10:02 +0200
+Message-ID: <m21wpn600l.fsf@cerbere.dyndns.info>
+References: <m23ba7gscl.fsf@cerbere.dyndns.info>
+	<20061002090222.GA32591@2ka.mipt.ru>
+	<m2r6xqg9ik.fsf@cerbere.dyndns.info>
+	<20061002131345.GA18129@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vgoyal@in.ibm.com, Andrew Morton <akpm@osdl.org>,
-	Steve Fox <drfickle@us.ibm.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kmannth@us.ibm.com,
-	Andy Whitcroft <apw@shadowen.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751300AbWJEBIV@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200610050257.53971.ak@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Samir Bellabes <sbellabes@mandriva.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 188.235.97-84.rev.gaoland.net ([84.97.235.188]:64416 "EHLO
+	cerbere.dyndns.info") by vger.kernel.org with ESMTP
+	id S1751299AbWJEBLE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Oct 2006 21:11:04 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061002131345.GA18129@2ka.mipt.ru> (Evgeniy Polyakov's message
+	of "Mon, 2 Oct 2006 17:13:45 +0400")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
->>I think most likely it would crash on 2.6.18. Keith mannthey had reported
->>a different crash on 2.6.18-rc4-mm2 when this patch was introduced first
->>time. Following is the link to the thread.
-> 
-> 
-> Then maybe trying 2.6.17 + the patch and then bisect between that and -rc4?
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
 
-I think it's fixed already in -git22, or at least it is for the IBM box
-reporting to test.kernel.org. You might want to try that one ...
+> On Mon, Oct 02, 2006 at 02:57:55PM +0200, Samir Bellabes (sbellabes@mandriva.com) wrote:
+>> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
+>> 
+>> > On Mon, Oct 02, 2006 at 08:11:06AM +0200, Samir Bellabes (sbellabes@mandriva.com) wrote:
+> You can also extend your module to be more generic and send all (or just
+> requested in config) state changes for all protocols (or those checked
+> in config).
 
-M.
+Ok, so the next step now is to target all state changes for all
+protocols, *but* send only the states asked dynamically from the
+userspace, using the userspace-to-kernel's way of the netlink.
+What do you think about that ?
+
+>> > Btw, you could also create netlink/connector based firewall rules
+>> > update, I think people with hundreds of rules in one table will bless
+>> > you after that.
+>> 
+>> This is the real goal, using ipset - http://ipset.netfilter.org/
+>> With this we can easily create a uniq rule for iptables, and then
+>> add/remove port from the 'set' involve.
+>
+> It is not the same as create and update existing rules.
+> I think hipac project uses feature of fast rules update.
+> It is quite major break for existing iptables, but it should be
+> eventually done...
+
+Ok now i understand clearly your point. 
+But we are a bit far from the initial idea, even if it could be really
+good to do that. First, let's code the initial idea.
