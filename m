@@ -1,87 +1,161 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Thu, 5 Oct 2006 16:37:15 +0400
-Message-ID: <20061005123715.GA7475@2ka.mipt.ru>
-References: <11587449471424@2ka.mipt.ru> <200610051245.03880.dada1@cosmosbay.com> <20061005105536.GA4838@2ka.mipt.ru> <200610051409.31826.dada1@cosmosbay.com>
+From: Stuffed Crust <pizza@shaftnet.org>
+Subject: Re: [RFC] cfg80211 and nl80211
+Date: Thu, 5 Oct 2006 09:13:53 -0400
+Message-ID: <20061005131353.GA3432@shaftnet.org>
+References: <1159435399.2648.17.camel@ux156> <1159805711.2834.67.camel@localhost.localdomain> <1159947674.2817.19.camel@ux156> <1159971561.2817.87.camel@ux156> <1159984658.3287.98.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="82I3+IH0IqGh5yIs"
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:52608 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751439AbWJEMh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 08:37:57 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
+Received: from rrcs-24-73-230-86.se.biz.rr.com ([24.73.230.86]:14510 "EHLO
+	shaft.shaftnet.org") by vger.kernel.org with ESMTP id S1751455AbWJENL7
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 09:11:59 -0400
+To: Dan Williams <dcbw@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <200610051409.31826.dada1@cosmosbay.com>
+In-Reply-To: <1159984658.3287.98.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 05, 2006 at 02:09:31PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> On Thursday 05 October 2006 12:55, Evgeniy Polyakov wrote:
-> > On Thu, Oct 05, 2006 at 12:45:03PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
-> > >
-> > > What is missing or not obvious is : If events are skipped because of
-> > > overflows, What happens ? Connections stuck forever ? Hope that
-> > > everything will restore itself ? Is kernel able to SIGNAL this problem to
-> > > user land ?
-> >
-> > Exisitng  code does not overflow by design, but can consume a lot of
-> > memory. I talked about the case, when there will be some limit on
-> > number of entries put into mapped buffer.
-> 
-> You still dont answer my question. Please answer the question.
-> Recap : You have a max of XXXX events queued. A network message come and 
-> kernel want to add another event. It cannot because limit is reached. How the 
-> User Program knows that this problem was hit ?
 
-Existing design does not allow overflow.
-If event was added into the queue (like user requested notification,
-when new data has arrived), it is guaranteed that there will be place to
-put that event into mapped buffer when it is ready.
+--82I3+IH0IqGh5yIs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If user wants to add anotehr event (for example after accept() user
-wants to add another socket with request for notification about data
-arrival into that socket), it can fail though. This limit is introduced
-only because of mmap buffer.
- 
-> > It is the same.
-> > What if reing buffer was grown upto 3 entry, and is now empty, and we
-> > need to put there 4 entries? Grow it again?
-> > It can be done, easily, but it looks like a workaround not as solution.
-> > And it is highly unlikely that in situation, when there are a lot of
-> > event, ring can be empty.
-> 
-> I dont speak of re-allocation of ring buffer. I dont care to allocate at 
-> startup a big enough buffer.
-> 
-> Say you have allocated a ring buffer of 1024*1024 entries.
-> Then you queue 100 events per second, and dequeue them immediatly.
-> No need to blindly use all 1024*1024 slots in the ring buffer, doing 
-> index = (index+1)%(1024*1024)
+On Wed, Oct 04, 2006 at 01:57:38PM -0400, Dan Williams wrote:
+> * None
+>     - Crypto: None
+>     - 802.11 Auth: Open System
+>=20
+> * Static WEP
+>     - Keys: up to 4 group keys
+>     - Crypto: WEP-40, WEP-104, WEP-152, WEP-256
+>     - 802.11 Auth: Open System or Shared Key
+>     - Key Mgmt/Auth: none
+>=20
+> * Dynamic WEP (LEAP?)
+>     - Keys: up to 4 group keys
+>     - Crypto: WEP-40, WEP-104, WEP-152, WEP-256
+>     - 802.11 Auth: Open System (only?)
+>     - Key Mgmt/Auth: IEEE 802.1x with LEAP or EAP
+>=20
+> * WPA PSK
+>     - Keys: pairwise & group
+>     - Use WPA IEs
+>     - 802.11 Auth: Open System
+>     - Crypto: TKIP or CCMP
+>     - Key Mgmt/Auth: WPA-PSK (elided 802.1x)
+>=20
+> * WPA Enterprise
+>     - Keys: pairwise & group
+>     - Use WPA IEs
+>     - 802.11 Auth: Open System
+>     - Crypto: TKIP or CCMP
+>     - Key Mgmt/Auth: WPA-EAP (full 802.1x)
+>=20
+> * WPA2 PSK
+>     - Keys: pairwise & group
+>     - Use RSN IEs
+>     - 802.11 Auth: Open System
+>     - Crypto: TKIP or CCMP
+>     - Key Mgmt/Auth: WPA-PSK (elided 802.1x)
+>=20
+> * WPA2 Enterprise
+>     - Keys: pairwise & group
+>     - Use RSN IEs
+>     - 802.11 Auth: Open System
+>     - Crypto: TKIP or CCMP
+>     - Key Mgmt/Auth: WPA-EAP (full 802.1x)
 
-But what if they are not dequeued immediateyl? What if rate is high and
-while one tries to dequeue, system adds another events?
+This strikes me as overly complicated; to figure out what's necessary=20
+you shoudn't be looking at the WEXT API -- The 802.11 standards are=20
+all you need, and they lay things out fairly clearly, complete with=20
+rx/tx path flowcharts.  :)
 
-> > epoll() does not have mmap.
-> > Problem is not about how many events can be put into the kernel, but how
-> > many of them can be put into mapped buffer.
-> > There is no problem if mmap is turned off.
-> 
-> So zap mmap() support completely, since it is not usable at all. We wont 
-> discuss on it.
+Essentially, you have two crypto paradigms, pre-802.11i and=20
+post-802.11i.  (WPA uses the latter, and LEAP/CCX v1 is mostly the=20
+former; newer ones use the latter)
 
-Initial implementation did not have it.
-But I was requested to do it, and it is ready now.
-No one likes it, but no one provides an alternative implementation.
-We are stuck.
+(Leave out the RSNIE, AuthType and KeyMgmt stuff; while they're=20
+ used in the actual key negotiation/derivation, they're separate=20
+ problems and have no bearing on the crypto layer.  From the driver's=20
+ perspective the RSNIE is just an opaque blob to be appended to=20
+ beacons,presps and [re]assoc frames, KeyMgmt is purely a matter for=20
+ the authenticator/supplicant, and AuthType is just a toggle that=20
+ happens to be off for post-802.11i, although LEAP v1 adds some=20
+ complications there..)
 
--- 
-	Evgeniy Polyakov
+The old way:
+
+* Four "default" keys. (used globally)
+* PrivacyInvoked
+* SetDefaultKeyIndex
+
+The new way:
+
+* PrivacyInvoked
+* SetProtection (tx&|rx -- essentially "require crypto for a given macaddr)
+* SetKeyMapping (one key per macaddr)
+
+Each key has:
+
+* Key type (WEP/TKIP/AES-CCMP/NONE)
+* Key length (implied, but WEP can have varying key lengths)
+* Key index (only '0' is generally used for unicast frames, but 802.11i=20
+             requires use of simultaneous broadcast keys)
+* Macaddr (ucast addr or broadcast aka pairwise vs group)
+* RxSequence (mainly for bcast aka group keys)
+
+It's fairly easy to implement the old stuff in terms of the new stuff,=20
+if you assume that "if I don't have a per-sta key, just use the=20
+global/bcast key".   The 802.11i rx/tx frame path flow handles the old=20
+crypto style just fine.
+
+=2E..Meanwhile.  It's foolish to ignore the 802.11 MLME.  It lists out
+pretty much everything that's necessary to get a working connection, and
+looking at its evolution (and changes in the pipeline) shows that it's
+impossible to do it all (right) the first time, and that changes, not
+just additions, will be necessary.
+
+(Did I mention that I really like how the ALSA people manage this?  The=20
+ userspace-kernelspace API is effectively private; apps write to the =20
+ libs, which do the hard work of maintaining backwards compatibility as=20
+ the internals change and get new features, but now I'm really just=20
+ armchair quarterbacking, so I'll shut up now.)
+
+> Wheee!  So you basically have a bunch of buckets and you just pull shit
+> out of them at random, stick it all together, and you've got a wireless
+> connection :)  Thank you, Cisco.  Thank you, Wi-Fi Alliance.
+
+You forgot the part about sacrificing rubber chickens with pulleys=20
+in the middle.  While hopping on one foot.  Under a new moon.=20
+
+Bah, it's too early in the morning to be thinking about this stuff. =20
+
+ - Solomon=20
+--=20
+Solomon Peachy        		       pizza at shaftnet dot org	=20
+Melbourne, FL                          ^^ (mail/jabber/gtalk) ^^
+Quidquid latine dictum sit, altum viditur.          ICQ: 1318344
+
+
+--82I3+IH0IqGh5yIs
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.7 (GNU/Linux)
+
+iD8DBQFFJQURPuLgii2759ARArfhAJ0YnLzgccO7U8V4KxOvNJf1drs5yACggKl9
+gcYSBwuJH8PhoJJL9dctpmY=
+=YxBA
+-----END PGP SIGNATURE-----
+
+--82I3+IH0IqGh5yIs--
