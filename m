@@ -1,39 +1,35 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.19-rc1] ehea bug fix (port state notification, default
- queue sizes)
-Date: Thu, 05 Oct 2006 07:30:14 -0400
-Message-ID: <4524ECC6.2060201@garzik.org>
-References: <200609281244.40887.ossthema@de.ibm.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: d80211: ieee80211_hw handlers in atomic context
+Date: Thu, 5 Oct 2006 13:37:09 +0200
+Message-ID: <20061005133709.36a764c0@griffin.suse.cz>
+References: <4523DA7D.2080604@web.de>
+	<20061004183804.748706d6@griffin.suse.cz>
+	<4523E69C.1090408@web.de>
+	<200610041922.39079.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Cc: Jan Kiszka <jan.kiszka@web.de>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35550 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750749AbWJELaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 07:30:19 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-Reply-To: <200609281244.40887.ossthema@de.ibm.com>
+Received: from styx.suse.cz ([82.119.242.94]:17285 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751690AbWJELhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 07:37:12 -0400
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200610041922.39079.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-which patch is to be applied first?
+On Wed, 4 Oct 2006 19:22:38 +0200, Ivo van Doorn wrote:
+> Well another point of concern for me is the TSF handling, those handlers are called
+> from interrupt context as well, and also deliver problems for the USB drivers in case
+> of adhoc mode.
 
-You failed to include an order, as described by 
-http://linux.yyz.us/patch-format.html and Documentation/SubmittingPatches.
+Where is a problem with tsf handlers? get_tsf is not called at all
+(unless CONFIG_D80211_IBSS_DEBUG is set; well, that raises a question
+why the function exists in the first place), reset_tsf returns void.
 
-Also, stuff like "hi Jeff" and "Thanks, Jan-Bernd" must be hand-edited 
-out before patch application.  All comments not intended to be DIRECTLY 
-copied into the kernel changeset description should follow the "---" 
-separator.
+ Jiri
 
-	Jeff
-
-
-
+-- 
+Jiri Benc
+SUSE Labs
