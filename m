@@ -1,98 +1,103 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/2] sk98lin: MII ioctl support
-Date: Thu, 5 Oct 2006 10:21:26 -0700
-Message-ID: <20061005102126.0be5e6c5@dxpl.pdx.osdl.net>
+From: Steve Fox <drfickle@us.ibm.com>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Thu, 05 Oct 2006 12:57:12 -0500
+Message-ID: <1160071032.29690.19.camel@flooterbu>
+References: <20060928014623.ccc9b885.akpm@osdl.org>
+	 <1160061173.9569.43.camel@dyn9047017100.beaverton.ibm.com>
+	 <1160062332.29690.10.camel@flooterbu>  <200610051740.58511.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:46533 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751734AbWJER1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 13:27:46 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>, vgoyal@in.ibm.com,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751760AbWJER5R@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200610051740.58511.ak@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add MII ioctl support to the deprecated sk98lin driver.
-This allows comparison with skge driver's PHY settings.
+On Thu, 2006-10-05 at 17:40 +0200, Andi Kleen wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Please don't snip the Code: line. It is fairly important.
 
---- linux-2.6.orig/drivers/net/sk98lin/skge.c
-+++ linux-2.6/drivers/net/sk98lin/skge.c
-@@ -113,6 +113,7 @@
- #include	<linux/init.h>
- #include	<linux/dma-mapping.h>
- #include	<linux/ip.h>
-+#include	<linux/mii.h>
- 
- #include	"h/skdrv1st.h"
- #include	"h/skdrv2nd.h"
-@@ -2843,6 +2844,56 @@ unsigned long	Flags;			/* for spin lock 
- 	return(&pAC->stats);
- } /* SkGeStats */
- 
-+/*
-+ * Basic MII register access
-+ */
-+static int SkGeMiiIoctl(struct net_device *dev,
-+			struct mii_ioctl_data *data, int cmd)
-+{
-+	DEV_NET *pNet = netdev_priv(dev);
-+	SK_AC *pAC = pNet->pAC;
-+	SK_IOC IoC = pAC->IoBase;
-+	int Port = pNet->PortNr;
-+	SK_GEPORT *pPrt = &pAC->GIni.GP[Port];
-+	unsigned long Flags;
-+	int err = 0;
-+	int reg = data->reg_num & 0x1f;
-+	SK_U16 val = data->val_in;
-+
-+	if (!netif_running(dev))
-+		return -ENODEV;	/* Phy still in reset */
-+
-+	spin_lock_irqsave(&pAC->SlowPathLock, Flags);
-+	switch(cmd) {
-+	case SIOCGMIIPHY:
-+		data->phy_id = pPrt->PhyAddr;
-+
-+		/* fallthru */
-+	case SIOCGMIIREG:
-+		if (pAC->GIni.GIGenesis)
-+			SkXmPhyRead(pAC, IoC, Port, reg, &val);
-+		else
-+			SkGmPhyRead(pAC, IoC, Port, reg, &val);
-+
-+		data->val_out = val;
-+		break;
-+
-+	case SIOCSMIIREG:
-+		if (!capable(CAP_NET_ADMIN))
-+			err = -EPERM;
-+
-+		else if (pAC->GIni.GIGenesis)
-+			SkXmPhyWrite(pAC, IoC, Port, reg, val);
-+		else
-+			SkGmPhyWrite(pAC, IoC, Port, reg, val);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+	}
-+        spin_unlock_irqrestore(&pAC->SlowPathLock, Flags);
-+	return err;
-+}
-+
- 
- /*****************************************************************************
-  *
-@@ -2876,6 +2927,9 @@ int		HeaderLength = sizeof(SK_U32) + siz
- 	pNet = netdev_priv(dev);
- 	pAC = pNet->pAC;
- 	
-+	if (cmd == SIOCGMIIPHY || cmd == SIOCSMIIREG || cmd == SIOCGMIIREG)
-+	    return SkGeMiiIoctl(dev, if_mii(rq), cmd);
-+
- 	if(copy_from_user(&Ioctl, rq->ifr_data, sizeof(SK_GE_IOCTL))) {
- 		return -EFAULT;
- 	}
+Sorry about that. The remote console I was using appears to overwrite
+some text after I force the reboot. Here's a clean one.
+
+global ffffffffffffffff
+Unable to handle kernel NULL pointer dereference at 0000000000000827 RIP:
+ [<ffffffff80470766>] xfrm_register_mode+0x36/0x60
+PGD 0
+Oops: 0000 [1] SMP
+CPU 0
+Modules linked in:
+Pid: 1, comm: swapper Not tainted 2.6.18-git22 #3
+RIP: 0010:[<ffffffff80470766>]  [<ffffffff80470766>] xfrm_register_mode+0x36/0x60
+RSP: 0000:ffff810bffcbded0  EFLAGS: 00010286
+RAX: 000000000000081f RBX: ffffffff805588a0 RCX: 0000000000000000
+RDX: ffffffffffffffff RSI: 0000000000000046 RDI: ffffffff80559550
+RBP: 00000000ffffffef R08: 0000000000007a02 R09: 000000000000000e
+R10: 0000000000000006 R11: ffffffff80334660 R12: 0000000000000000
+R13: ffff810bffcbdef0 R14: 0000000000000000 R15: 0000000000000000
+FS:  0000000000000000(0000) GS:ffffffff805d2000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+CR2: 0000000000000827 CR3: 0000000000201000 CR4: 00000000000006e0
+Process swapper (pid: 1, threadinfo ffff810bffcbc000, task ffff810bffcbb4e0)
+Stack:  0000000000000000 ffffffff8061fb48 0000000000000000 ffffffff80207182
+ 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+ 0000000000000000 0000000000000000 0000000000000000 0000000000090000
+Call Trace:
+ [<ffffffff80207182>] init+0x162/0x330
+ [<ffffffff8020a9a8>] child_rip+0xa/0x12
+ [<ffffffff803394c2>] acpi_ds_init_one_object+0x0/0x82
+ [<ffffffff80207020>] init+0x0/0x330
+ [<ffffffff8020a99e>] child_rip+0x0/0x12
+
+
+Code: 48 83 78 08 00 75 06 48 89 58 08 31 ed 48 89 d7 e8 65 fd ff
+RIP  [<ffffffff80470766>] xfrm_register_mode+0x36/0x60
+ RSP <ffff810bffcbded0>
+CR2: 0000000000000827
+ <0>Kernel panic - not syncing: Aiee, killing interrupt handler!
+
+> My guess is that something is wrong with the global variable it is accessing.
+> Can you post the output of grep -5 xfrm_policy_afinfo ? 
+
+elm3b239:/boot # grep -5 xfrm_policy_afinfo System.map-2.6.18-git22
+ffffffff805594c0 d xfrm4_state_afinfo
+ffffffff80559500 D xfrm_cfg_mutex
+ffffffff80559530 d xfrm_dev_notifier
+ffffffff80559548 d xfrm_policy_lock
+ffffffff8055954c d xfrm_policy_gc_lock
+ffffffff80559550 d xfrm_policy_afinfo_lock
+ffffffff80559560 d xfrm_hash_work
+ffffffff805595c0 d hash_resize_mutex
+ffffffff80559600 D sysctl_xfrm_aevent_etime
+ffffffff80559604 D sysctl_xfrm_aevent_rseqth
+ffffffff80559610 D km_waitq
+--
+ffffffff8075bfd8 b idiagnl
+ffffffff8075bfe0 B xfrm_policy_count
+ffffffff8075bff8 b xfrm_policy_gc_list
+ffffffff8075c000 b dummy.28400
+ffffffff8075c038 b idx_generator.27450
+ffffffff8075c040 b xfrm_policy_afinfo
+ffffffff8075c140 b xfrm_policy_gc_work
+ffffffff8075c1a0 b xfrm_policy_inexact
+ffffffff8075c1e0 B xfrm_nl
+ffffffff8075c1e8 b xfrm_state_gc_list
+ffffffff8075c1f0 b acqseq.27386
+
+> And please add a 
+> printk("global %p\n",  xfrm_policy_afinfo[family]);
+> at the beginning of net/xfrm/xfrm_poliy.c:xfrm_policy_lock_afinfo
+> and post the output.
+
+Included above.
+
+-- 
+
+Steve Fox
+IBM Linux Technology Center
