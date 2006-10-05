@@ -1,242 +1,442 @@
-From: Misha Tomushev <misha@fabric7.com> (by way of Misha Tomushev
-	<misha@fabric7.com>)
-Subject: [PATCH 1/10] VIOC: New Network Device Driver
-Date: Thu, 5 Oct 2006 11:52:58 -0700
-Message-ID: <200610051152.58326.misha@fabric7.com>
-Reply-To: misha@fabric7.com
+From: Andi Kleen <ak@suse.de>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Thu, 5 Oct 2006 21:05:00 +0200
+Message-ID: <200610052105.00359.ak@suse.de>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052027.02208.ak@suse.de> <1160074263.29690.23.camel@flooterbu>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
+Cc: Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>, vgoyal@in.ibm.com,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext-103.mv.fabric7.com ([68.120.107.103]:59611 "EHLO
-	corp.fabric7.com") by vger.kernel.org with ESMTP id S1750706AbWJETFT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 15:05:19 -0400
-To: NETDEV Linux <netdev@vger.kernel.org>
+Received: from ns1.suse.de ([195.135.220.2]:16006 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1750698AbWJETFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 15:05:11 -0400
+To: Steve Fox <drfickle@us.ibm.com>
+In-Reply-To: <1160074263.29690.23.camel@flooterbu>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adding VIOC device driver, support files: Documenation, makefiles etc.
+On Thursday 05 October 2006 20:51, Steve Fox wrote:
+> On Thu, 2006-10-05 at 20:27 +0200, Andi Kleen wrote:
+> 
+> > I guess we need to track when it gets corrupted. Can you send the full
+> > boot log with this patch applied?
+> 
+> Here she blows!
 
-Signed-off-by: Misha Tomushev  <misha@fabric7.com>
+Can you please try it again with this patch to narrow it down further?
 
-diff -uprN linux-2.6.17/Documentation/networking/vioc.txt
-linux-2.6.17.vioc/Documentation/networking/vioc.txt
---- linux-2.6.17/Documentation/networking/vioc.txt	1969-12-31
-16:00:00.000000000 -0800
-+++ linux-2.6.17.vioc/Documentation/networking/vioc.txt	2006-09-01
-10:09:49.000000000 -0700
-@@ -0,0 +1,98 @@
-+                VIOC Driver Release Notes (07/12/06)
-+                ====================================
-+                     driver-support@fabric7.com
-+
-+
-+Overview
-+========
-+
-+A Virtual Input-Output Controller (VIOC) is a PCI device that provides
-+10Gbps of I/O bandwidth that can be shared by up to 16 virtual network
-+interfaces (VNICs).  VIOC hardware supports several features such as
-+large frames, checksum offload, gathered send, MSI/MSI-X, bandwidth
-+control, interrupt mitigation, etc.
-+
-+VNICs are provisioned to a host partition via an out-of-band interface
-+from the System Controller -- typically before the partition boots,
-+although they can be dynamically added or removed from a running
-+partition as well.
-+
-+Each provisioned VNIC appears as an Ethernet netdevice to the host OS,
-+and maintains its own transmit ring in DMA memory.  VNICs are
-+configured to share up to 4 of total 16 receive rings and 1 of total
-+16 receive-completion rings in DMA memory.  VIOC hardware classifies
-+packets into receive rings based on size, allowing more efficient use
-+of DMA buffer memory.  The default, and recommended, configuration
-+uses groups of 'receive sets' (rxsets), each with 3 receive rings, a
-+receive completion ring, and a VIOC Rx interrupt.  The driver gives
-+each rxset a NAPI poll handler associated with a phantom (invisible)
-+netdevice, for concurrency.  VNICs are assigned to rxsets using a
-+simple modulus.
-+
-+VIOC provides 4 interrupts in INTx mode: 2 for Rx, 1 for Tx, and 1 for
-+out-of-band messages from the System Controller and errors.  VIOC also
-+provides 19 MSI-X interrupts: 16 for Rx, 1 for Tx, 1 for out-of-band
-+messages from the System Controller, and 1 for error signalling from
-+the hardware.  The VIOC driver makes a determination whether MSI-X
-+functionality is supported and initializes interrupts accordingly.
-+[Note: The Linux kernel disables MSI-X for VIOCs on modules with AMD
-+8131, even if the device is on the HT link.]
-+
-+
-+Module loadable parameters
-+==========================
-+
-+- poll_weight (default 8) - the number of received packets will be
-+  processed during one call into the NAPI poll handler.
-+
-+- rx_intr_timeout (default 1) - hardware rx interrupt mitigation
-+  timer, in units of 5us.
-+
-+- rx_intr_pkt_cnt (default 64) - hardware rx interrupt mitigation
-+  counter, in units of packets.
-+
-+- tx_pkts_per_irq (default 64) - hardware tx interrupt mitigation
-+  counter, in units of packets.
-+
-+- tx_pkts_per_bell (default 1) - the number of packets to enqueue on a
-+  transmit ring before issuing a doorbell to hardware.
-+
-+Performance Tuning
-+==================
-+
-+You may want to use the following sysctl settings to improve
-+performance.  [NOTE: To be re-checked]
-+
-+# set in /etc/sysctl.conf
-+
-+net.ipv4.tcp_timestamps = 0
-+net.ipv4.tcp_sack = 0
-+net.ipv4.tcp_rmem = 10000000 10000000 10000000
-+net.ipv4.tcp_wmem = 10000000 10000000 10000000
-+net.ipv4.tcp_mem  = 10000000 10000000 10000000
-+
-+net.core.rmem_max = 5242879
-+net.core.wmem_max = 5242879
-+net.core.rmem_default = 5242879
-+net.core.wmem_default = 5242879
-+net.core.optmem_max = 5242879
-+net.core.netdev_max_backlog = 100000
-+
-+Out-of-band Communications with System Controller
-+=================================================
-+
-+System operators can use the out-of-band facility to allow for remote
-+shutdown or reboot of the host partition.  Upon receiving such a
-+command, the VIOC driver executes "/sbin/reboot" or "/sbin/shutdown"
-+via the usermodehelper() call.
-+
-+This same communications facility is used for dynamic VNIC
-+provisioning (plug in and out).
-+
-+The VIOC driver also registers a callback with
-+register_reboot_notifier().  When the callback is executed, the driver
-+records the shutdown event and reason in a VIOC register to notify the
-+System Controller.
-+
-+
-+
-diff -uprN linux-2.6.17/MAINTAINERS linux-2.6.17.vioc/MAINTAINERS
---- linux-2.6.17/MAINTAINERS	2006-06-17 18:49:35.000000000 -0700
-+++ linux-2.6.17.vioc/MAINTAINERS	2006-09-01 10:09:49.000000000 -0700
-@@ -3106,6 +3106,11 @@ L:	rio500-users@lists.sourceforge.net
- W:	http://rio500.sourceforge.net
- S:	Maintained
+-Andi
 
-+VIOC NETWORK DRIVER
-+P:     support@fabric7.com
-+L:     netdev@vger.kernel.org
-+S:     Maintained
+Index: linux-2.6.19-rc1-hack/init/main.c
+===================================================================
+--- linux-2.6.19-rc1-hack.orig/init/main.c
++++ linux-2.6.19-rc1-hack/init/main.c
+@@ -75,6 +75,9 @@
+ 
+ static int init(void *);
+ 
++extern void bugcheck(char *, int);
++#define CHECK bugcheck(__FILE__, __LINE__)
 +
- VIDEO FOR LINUX
- P:	Mauro Carvalho Chehab
- M:	mchehab@infradead.org
-diff -uprN linux-2.6.17/drivers/net/Kconfig
-linux-2.6.17.vioc/drivers/net/Kconfig
---- linux-2.6.17/drivers/net/Kconfig	2006-06-17 18:49:35.000000000 -0700
-+++ linux-2.6.17.vioc/drivers/net/Kconfig	2006-09-01 10:19:35.000000000 -0700
-@@ -1818,9 +1818,6 @@ config NE_H8300
- 	  Say Y here if you want to use the NE2000 compatible
- 	  controller on the Renesas H8/300 processor.
-
--source "drivers/net/fec_8xx/Kconfig"
--source "drivers/net/fs_enet/Kconfig"
--
- endmenu
-
- #
-@@ -2228,6 +2225,15 @@ endmenu
- menu "Ethernet (10000 Mbit)"
- 	depends on !UML
-
-+config VIOC
-+	tristate "Fabric7 VIOC support"
-+	depends on PCI
-+	help
-+	 This driver supports the Virtual Input-Output Controller (VIOC) a
-+	 single PCI device that provides 10Gbps of I/O bandwidth that can be
-+	 shared by up to 16 virtual network interfaces (VNICs).
-+	 See <file:Documentation/networking/vioc.txt> for more information
+ extern void init_IRQ(void);
+ extern void fork_init(unsigned long);
+ extern void mca_init(void);
+@@ -480,6 +483,8 @@ asmlinkage void __init start_kernel(void
+ 	char * command_line;
+ 	extern struct kernel_param __start___param[], __stop___param[];
+ 
++	CHECK;
 +
- config CHELSIO_T1
-         tristate "Chelsio 10Gb Ethernet support"
-         depends on PCI
-@@ -2311,6 +2317,9 @@ config S2IO_NAPI
-
- 	  If in doubt, say N.
-
-+source "drivers/net/fec_8xx/Kconfig"
-+source "drivers/net/fs_enet/Kconfig"
+ 	smp_setup_processor_id();
+ 
+ 	/*
+@@ -502,7 +507,9 @@ asmlinkage void __init start_kernel(void
+ 	page_address_init();
+ 	printk(KERN_NOTICE);
+ 	printk(linux_banner);
++	CHECK;
+ 	setup_arch(&command_line);
++	CHECK;
+ 	setup_per_cpu_areas();
+ 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
+ 
+@@ -517,6 +524,7 @@ asmlinkage void __init start_kernel(void
+ 	 * fragile until we cpu_idle() for the first time.
+ 	 */
+ 	preempt_disable();
++	CHECK;
+ 	build_all_zonelists();
+ 	page_alloc_init();
+ 	printk(KERN_NOTICE "Kernel command line: %s\n", saved_command_line);
+@@ -525,6 +533,7 @@ asmlinkage void __init start_kernel(void
+ 		   __stop___param - __start___param,
+ 		   &unknown_bootoption);
+ 	sort_main_extable();
++	CHECK;
+ 	trap_init();
+ 	rcu_init();
+ 	init_IRQ();
+@@ -533,8 +542,10 @@ asmlinkage void __init start_kernel(void
+ 	hrtimers_init();
+ 	softirq_init();
+ 	timekeeping_init();
++	CHECK;
+ 	time_init();
+ 	profile_init();
++	CHECK;
+ 	if (!irqs_disabled())
+ 		printk("start_kernel(): bug: interrupts were enabled early\n");
+ 	early_boot_irqs_on();
+@@ -568,7 +579,9 @@ asmlinkage void __init start_kernel(void
+ #endif
+ 	vfs_caches_init_early();
+ 	cpuset_init_early();
++	CHECK;
+ 	mem_init();
++	CHECK;
+ 	kmem_cache_init();
+ 	setup_per_cpu_pageset();
+ 	numa_policy_init();
+@@ -577,6 +590,7 @@ asmlinkage void __init start_kernel(void
+ 	calibrate_delay();
+ 	pidmap_init();
+ 	pgtable_cache_init();
++	CHECK;
+ 	prio_tree_init();
+ 	anon_vma_init();
+ #ifdef CONFIG_X86
+@@ -586,12 +600,14 @@ asmlinkage void __init start_kernel(void
+ 	fork_init(num_physpages);
+ 	proc_caches_init();
+ 	buffer_init();
++	CHECK;
+ 	unnamed_dev_init();
+ 	key_init();
+ 	security_init();
+ 	vfs_caches_init(num_physpages);
+ 	radix_tree_init();
+ 	signals_init();
++	CHECK;
+ 	/* rootfs populating might need page-writeback */
+ 	page_writeback_init();
+ #ifdef CONFIG_PROC_FS
+@@ -599,6 +615,7 @@ asmlinkage void __init start_kernel(void
+ #endif
+ 	cpuset_init();
+ 	taskstats_init_early();
++	CHECK;
+ 	delayacct_init();
+ 
+ 	check_bugs();
+@@ -609,7 +626,7 @@ asmlinkage void __init start_kernel(void
+ 	rest_init();
+ }
+ 
+-static int __initdata initcall_debug;
++static int __initdata initcall_debug = 1;
+ 
+ static int __init initcall_debug_setup(char *str)
+ {
+@@ -639,7 +656,11 @@ static void __init do_initcalls(void)
+ 			printk("\n");
+ 		}
+ 
++		CHECK;
 +
- endmenu
-
- source "drivers/net/tokenring/Kconfig"
-diff -uprN linux-2.6.17/drivers/net/Makefile
-linux-2.6.17.vioc/drivers/net/Makefile
---- linux-2.6.17/drivers/net/Makefile	2006-06-17 18:49:35.000000000 -0700
-+++ linux-2.6.17.vioc/drivers/net/Makefile	2006-09-01 10:09:49.000000000
- -0700 @@ -10,6 +10,7 @@ obj-$(CONFIG_E1000) += e1000/
- obj-$(CONFIG_IBM_EMAC) += ibm_emac/
- obj-$(CONFIG_IXGB) += ixgb/
- obj-$(CONFIG_CHELSIO_T1) += chelsio/
-+obj-$(CONFIG_VIOC) += vioc/
- obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-
-diff -uprN linux-2.6.17/drivers/net/vioc/Makefile
-linux-2.6.17.vioc/drivers/net/vioc/Makefile
---- linux-2.6.17/drivers/net/vioc/Makefile	1969-12-31 16:00:00.000000000
- -0800 +++ linux-2.6.17.vioc/drivers/net/vioc/Makefile	2006-10-04
- 13:32:21.000000000 -0700
-@@ -0,0 +1,34 @@
-+############################################################################
-#### +#
-+#
-+# Copyright(c) 2003-2006 Fabric7 Systems. All rights reserved.
-+#
-+# This program is free software; you can redistribute it and/or modify it
-+# under the terms of the GNU General Public License as published by the Free
-+# Software Foundation; either version 2 of the License, or (at your option)
-+# any later version.
-+#
-+# This program is distributed in the hope that it will be useful, but
- WITHOUT +# ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or +# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
- Public License for +# more details.
-+#
-+# You should have received a copy of the GNU General Public License along
-with
-+# this program; if not, write to the Free Software Foundation, Inc., 59
-+# Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+#
-+# The full GNU General Public License is included in this distribution in
- the +# file called LICENSE.
-+#
-+# Contact Information:
-+# <support@fabric7.com>
-+# Fabric7 Systems, 1300 Crittenden Lane Suite 302 Mountain View, CA 94043
-+#
-+############################################################################
-#### +
-+obj-$(CONFIG_VIOC) += vioc.o
+ 		result = (*call)();
++		
++		CHECK;
+ 
+ 		if (result && result != -ENODEV && initcall_debug) {
+ 			sprintf(msgbuf, "error code %d", result);
+@@ -725,21 +746,32 @@ static int init(void * unused)
+ 
+ 	smp_prepare_cpus(max_cpus);
+ 
++	CHECK;
 +
-+vioc-objs := vioc_driver.o vioc_transmit.o vioc_receive.o vioc_api.o \
-+            vioc_spp.o vioc_irq.o spp.o spp_vnic.o vioc_provision.o \
-+            vioc_ethtool.o
+ 	do_pre_smp_initcalls();
+ 
+ 	smp_init();
 +
-
---
-Misha Tomushev
-misha@fabric7.com
-
++	CHECK;
++
+ 	sched_init_smp();
+ 
+ 	cpuset_init_smp();
+ 
++	CHECK;
++
+ 	/*
+ 	 * Do this before initcalls, because some drivers want to access
+ 	 * firmware files.
+ 	 */
+ 	populate_rootfs();
+ 
++	CHECK;
++
+ 	do_basic_setup();
+ 
++	CHECK;
++
+ 	/*
+ 	 * check if there is an early userspace init.  If yes, let it do all
+ 	 * the work
+Index: linux-2.6.19-rc1-hack/net/xfrm/xfrm_policy.c
+===================================================================
+--- linux-2.6.19-rc1-hack.orig/net/xfrm/xfrm_policy.c
++++ linux-2.6.19-rc1-hack/net/xfrm/xfrm_policy.c
+@@ -39,6 +39,16 @@ EXPORT_SYMBOL(xfrm_policy_count);
+ static DEFINE_RWLOCK(xfrm_policy_afinfo_lock);
+ static struct xfrm_policy_afinfo *xfrm_policy_afinfo[NPROTO];
+ 
++void bugcheck(char *where, int line)
++{
++	int i;
++	for (i = 0; i < NPROTO; i++)
++		if (xfrm_policy_afinfo[i] == (void *)-1UL) {
++			panic("afinfo corrupted at %s:%d\n",where,line);
++			return;
++		}
++}
++
+ static kmem_cache_t *xfrm_dst_cache __read_mostly;
+ 
+ static struct work_struct xfrm_policy_gc_work;
+Index: linux-2.6.19-rc1-hack/arch/x86_64/kernel/setup.c
+===================================================================
+--- linux-2.6.19-rc1-hack.orig/arch/x86_64/kernel/setup.c
++++ linux-2.6.19-rc1-hack/arch/x86_64/kernel/setup.c
+@@ -65,6 +65,12 @@
+ #include <asm/sections.h>
+ #include <asm/dmi.h>
+ 
++
++
++extern void bugcheck(char *, int);
++#define CHECK bugcheck(__FILE__, __LINE__)
++
++
+ /*
+  * Machine setup..
+  */
+@@ -351,14 +357,22 @@ void __init setup_arch(char **cmdline_p)
+ 	saved_video_mode = SAVED_VIDEO_MODE;
+ 	bootloader_type = LOADER_TYPE;
+ 
++	CHECK;
++
+ #ifdef CONFIG_BLK_DEV_RAM
+ 	rd_image_start = RAMDISK_FLAGS & RAMDISK_IMAGE_START_MASK;
+ 	rd_prompt = ((RAMDISK_FLAGS & RAMDISK_PROMPT_FLAG) != 0);
+ 	rd_doload = ((RAMDISK_FLAGS & RAMDISK_LOAD_FLAG) != 0);
+ #endif
++
++	CHECK;
++
+ 	setup_memory_region();
++	CHECK;
+ 	copy_edd();
+ 
++	CHECK;
++
+ 	if (!MOUNT_ROOT_RDONLY)
+ 		root_mountflags &= ~MS_RDONLY;
+ 	init_mm.start_code = (unsigned long) &_text;
+@@ -373,14 +387,25 @@ void __init setup_arch(char **cmdline_p)
+ 
+ 	early_identify_cpu(&boot_cpu_data);
+ 
++	CHECK;
++
++
+ 	strlcpy(command_line, saved_command_line, COMMAND_LINE_SIZE);
+ 	*cmdline_p = command_line;
+ 
++	CHECK;
++
++
+ 	parse_early_param();
+ 
++	CHECK;
++
+ 	finish_e820_parsing();
++	CHECK;
+ 
+ 	e820_register_active_regions(0, 0, -1UL);
++	CHECK;
++
+ 	/*
+ 	 * partially used pages are not usable - thus
+ 	 * we are rounding upwards:
+@@ -389,14 +414,19 @@ void __init setup_arch(char **cmdline_p)
+ 	num_physpages = end_pfn;
+ 
+ 	check_efer();
++	CHECK;
+ 
+ 	discover_ebda();
++	CHECK;
+ 
+ 	init_memory_mapping(0, (end_pfn_map << PAGE_SHIFT));
++	CHECK;
+ 
+ 	dmi_scan_machine();
++	CHECK;
+ 
+ 	zap_low_mappings(0);
++	CHECK;
+ 
+ #ifdef CONFIG_ACPI
+ 	/*
+@@ -405,6 +435,7 @@ void __init setup_arch(char **cmdline_p)
+ 	 */
+ 	acpi_boot_table_init();
+ #endif
++	CHECK;
+ 
+ 	/* How many end-of-memory variables you have, grandma! */
+ 	max_low_pfn = end_pfn;
+@@ -413,6 +444,7 @@ void __init setup_arch(char **cmdline_p)
+ 
+ 	/* Remove active ranges so rediscovery with NUMA-awareness happens */
+ 	remove_all_active_ranges();
++	CHECK;
+ 
+ #ifdef CONFIG_ACPI_NUMA
+ 	/*
+@@ -420,20 +452,24 @@ void __init setup_arch(char **cmdline_p)
+ 	 */
+ 	acpi_numa_init();
+ #endif
++	CHECK;
+ 
+ #ifdef CONFIG_NUMA
+ 	numa_initmem_init(0, end_pfn); 
+ #else
+ 	contig_initmem_init(0, end_pfn);
+ #endif
++	CHECK;
+ 
+ 	/* Reserve direct mapping */
+ 	reserve_bootmem_generic(table_start << PAGE_SHIFT, 
+ 				(table_end - table_start) << PAGE_SHIFT);
++	CHECK;
+ 
+ 	/* reserve kernel */
+ 	reserve_bootmem_generic(__pa_symbol(&_text),
+ 				__pa_symbol(&_end) - __pa_symbol(&_text));
++	CHECK;
+ 
+ 	/*
+ 	 * reserve physical page 0 - it's a special BIOS page on many boxes,
+@@ -444,6 +480,7 @@ void __init setup_arch(char **cmdline_p)
+ 	/* reserve ebda region */
+ 	if (ebda_addr)
+ 		reserve_bootmem_generic(ebda_addr, ebda_size);
++	CHECK;
+ 
+ #ifdef CONFIG_SMP
+ 	/*
+@@ -456,6 +493,7 @@ void __init setup_arch(char **cmdline_p)
+ 	/* Reserve SMP trampoline */
+ 	reserve_bootmem_generic(SMP_TRAMPOLINE_BASE, PAGE_SIZE);
+ #endif
++	CHECK;
+ 
+ #ifdef CONFIG_ACPI_SLEEP
+        /*
+@@ -463,10 +501,14 @@ void __init setup_arch(char **cmdline_p)
+         */
+        acpi_reserve_bootmem();
+ #endif
++	CHECK;
++
+ 	/*
+ 	 * Find and reserve possible boot-time SMP configuration:
+ 	 */
+ 	find_smp_config();
++	CHECK;
++
+ #ifdef CONFIG_BLK_DEV_INITRD
+ 	if (LOADER_TYPE && INITRD_START) {
+ 		if (INITRD_START + INITRD_SIZE <= (end_pfn << PAGE_SHIFT)) {
+@@ -484,18 +526,23 @@ void __init setup_arch(char **cmdline_p)
+ 		}
+ 	}
+ #endif
++	CHECK;
++
+ #ifdef CONFIG_KEXEC
+ 	if (crashk_res.start != crashk_res.end) {
+ 		reserve_bootmem_generic(crashk_res.start,
+ 			crashk_res.end - crashk_res.start + 1);
+ 	}
+ #endif
++	CHECK;
+ 
+ 	paging_init();
++	CHECK;
+ 
+ #ifdef CONFIG_PCI
+ 	early_quirks();
+ #endif
++	CHECK;
+ 
+ 	/*
+ 	 * set this early, so we dont allocate cpu0
+@@ -509,25 +556,36 @@ void __init setup_arch(char **cmdline_p)
+ 	 */
+ 	acpi_boot_init();
+ #endif
++	CHECK;
+ 
+ 	init_cpu_to_node();
++	CHECK;
+ 
+ 	/*
+ 	 * get boot-time SMP configuration:
+ 	 */
+ 	if (smp_found_config)
+ 		get_smp_config();
++	CHECK;
++
+ 	init_apic_mappings();
++	CHECK;
+ 
+ 	/*
+ 	 * Request address space for all standard RAM and ROM resources
+ 	 * and also for regions reported as reserved by the e820.
+ 	 */
+ 	probe_roms();
++	CHECK;
++
+ 	e820_reserve_resources(); 
++	CHECK;
++
+ 	e820_mark_nosave_regions();
++	CHECK;
+ 
+ 	request_resource(&iomem_resource, &video_ram_resource);
++	CHECK;
+ 
+ 	{
+ 	unsigned i;
+@@ -535,8 +593,10 @@ void __init setup_arch(char **cmdline_p)
+ 	for (i = 0; i < ARRAY_SIZE(standard_io_resources); i++)
+ 		request_resource(&ioport_resource, &standard_io_resources[i]);
+ 	}
++	CHECK;
+ 
+ 	e820_setup_gap();
++	CHECK;
+ 
+ #ifdef CONFIG_VT
+ #if defined(CONFIG_VGA_CONSOLE)
