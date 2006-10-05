@@ -1,8 +1,8 @@
 From: Misha Tomushev <misha@fabric7.com> (by way of Misha Tomushev
 	<misha@fabric7.com>)
-Subject: [PATCH 4/10] VIOC: New Network Device Driver
-Date: Thu, 5 Oct 2006 11:53:48 -0700
-Message-ID: <200610051153.48247.misha@fabric7.com>
+Subject: [PATCH 8/10] VIOC: New Network Device Driver
+Date: Thu, 5 Oct 2006 11:55:16 -0700
+Message-ID: <200610051155.16533.misha@fabric7.com>
 Reply-To: misha@fabric7.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -10,25 +10,25 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ext-103.mv.fabric7.com ([68.120.107.103]:59611 "EHLO
-	corp.fabric7.com") by vger.kernel.org with ESMTP id S1750705AbWJETFZ
+	corp.fabric7.com") by vger.kernel.org with ESMTP id S1750739AbWJETF3
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 15:05:25 -0400
+	Thu, 5 Oct 2006 15:05:29 -0400
 To: NETDEV Linux <netdev@vger.kernel.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adding VIOC device driver. VIOC hardware APIs.
+Adding VIOC device driver. Device driver provisioning settings.
 
-Signed-off-by: Misha Tomushev  <misha@fabric7.com
+Signed-off-by: Misha Tomushev  <misha@fabric7.com>
 
-diff -uprN linux-2.6.17/drivers/net/vioc/vioc_api.c
-linux-2.6.17.vioc/drivers/net/vioc/vioc_api.c
---- linux-2.6.17/drivers/net/vioc/vioc_api.c	1969-12-31 16:00:00.000000000
--0800
-+++ linux-2.6.17.vioc/drivers/net/vioc/vioc_api.c	2006-10-04
-10:21:45.000000000 -0700
-@@ -0,0 +1,384 @@
+diff -uprN linux-2.6.17/drivers/net/vioc/vioc_provision.c
+linux-2.6.17.vioc/drivers/net/vioc/vioc_provision.c
+--- linux-2.6.17/drivers/net/vioc/vioc_provision.c	1969-12-31
+16:00:00.000000000 -0800
++++ linux-2.6.17.vioc/drivers/net/vioc/vioc_provision.c	2006-10-03
+12:17:03.000000000 -0700
+@@ -0,0 +1,226 @@
 +/*
 + * Fabric7 Systems Virtual IO Controller Driver
 + * Copyright (C) 2003-2005 Fabric7 Systems.  All rights reserved.
@@ -55,442 +55,211 @@ linux-2.6.17.vioc/drivers/net/vioc/vioc_api.c
 + *
 + *
 + */
-+#include <linux/config.h>
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/compiler.h>
-+#include <linux/init.h>
-+#include <linux/ioport.h>
-+#include <linux/pci.h>
-+#include <linux/errno.h>
-+#include <linux/delay.h>
-+
-+#include <asm/system.h>
-+#include <asm/io.h>
-+#include <asm/byteorder.h>
-+#include <asm/uaccess.h>
-+
 +#include "f7/vnic_hw_registers.h"
-+#include "f7/vnic_defs.h"
-+
 +#include "vioc_vnic.h"
-+#include "vioc_api.h"
 +
-+int vioc_set_rx_intr_param(int viocdev_idx, int rx_intr_id, u32 timeout, u32
-cntout)
-+{
-+	int ret = 0;
-+	struct vioc_device *viocdev;
-+	u64 regaddr;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXCINTTIMER +
-+							(rx_intr_id << 2)));
-+	vioc_reg_wr(timeout, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXCINTPKTCNT +
-+							(rx_intr_id << 2)));
-+	vioc_reg_wr(cntout, viocdev->ba.virt, regaddr);
-+
-+	return ret;
-+}
-+
-+
-+int vioc_get_vnic_mac(int viocdev_idx, u32 vnic_id, u8 * p)
-+{
-+	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-+	u64 regaddr;
-+	u32 value;
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRLO);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
-+	*((u32 *) & p[2]) = htonl(value);
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRHI);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
-+	*((u16 *) & p[0]) = htons(value);
-+
-+	return 0;
-+}
-+
-+int vioc_set_vnic_mac(int viocdev_idx, u32 vnic_id, u8 * p)
-+{
-+	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-+	u64 regaddr;
-+	u32 value;
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRLO);
-+	value = ntohl(*((u32 *) & p[2]));
-+
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_MACADDRHI);
-+	value = (ntohl(*((u32 *) & p[0])) >> 16) & 0xffff;
-+
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	return 0;
-+}
-+
-+int vioc_set_txq(int viocdev_idx, u32 vnic_id, u32 txq_id, dma_addr_t base,
-+		 u32 num_elements)
-+{
-+	int ret = 0;
-+	u32 value;
-+	struct vioc_device *viocdev;
-+	u64 regaddr;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+	if (vnic_id >= VIOC_MAX_VNICS)
-+		goto parm_err_ret;
-+
-+	if (txq_id >= VIOC_MAX_TXQ)
-+		goto parm_err_ret;
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, (VREG_VENG_TXD_W0 + (txq_id <<
-5)));
-+
-+	value = base;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, (VREG_VENG_TXD_W1 + (txq_id <<
-5)));
-+	value = (((base >> 16) >> 16) & 0x000000ff) |
-+	    ((num_elements << 8) & 0x00ffff00);
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	/*
-+	 * Enable Interrupt-on-Empty
-+	 */
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_TXINTCTL);
-+	vioc_reg_wr(VREG_VENG_TXINTCTL_INTONEMPTY_MASK, viocdev->ba.virt,
-+		    regaddr);
-+
-+	return ret;
-+
-+      parm_err_ret:
-+	return -EINVAL;
-+}
-+
-+int vioc_set_rxc(int viocdev_idx, struct rxc *rxc)
-+{
-+	u32 value;
-+	struct vioc_device *viocdev;
-+	u64 regaddr;
-+	int ret = 0;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXC_LO + (rxc->rxc_id <<
- 4))); +	value = rxc->dma;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXC_HI + (rxc->rxc_id <<
- 4))); +	value = (((rxc->dma >> 16) >> 16) & 0x000000ff) |
-+	    ((rxc->count << 8) & 0x00ffff00);
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	/*
-+	 * Set-up mapping between this RxC queue and Rx interrupt
-+	 */
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, (VREG_IHCU_RXC_INT + (rxc->rxc_id <<
-4)));
-+	vioc_reg_wr((rxc->interrupt_id & 0xF), viocdev->ba.virt, regaddr);
-+
-+	ret = vioc_set_rx_intr_param(viocdev_idx,
-+				     rxc->interrupt_id,
-+				     viocdev->prov.run_param.rx_intr_timeout,
-+				     viocdev->prov.run_param.rx_intr_cntout);
-+	return ret;
-+}
-+
-+int vioc_set_rxs(int viocdev_idx, dma_addr_t base)
-+{
-+	int ret = 0;
-+	u32 value;
-+	u64 regaddr;
-+	struct vioc_device *viocdev;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_INTRSTATADDRLO);
-+	value = base;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_INTRSTATADDRHI);
-+	value = ((base >> 16) >> 16) & 0x000000ff;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	return ret;
-+}
-+
-+int vioc_set_rxdq(int viocdev_idx, u32 vnic_id, u32 rxdq_id, u32 rx_bufsize,
-+		  dma_addr_t base, u32 num_elements)
-+{
-+	int ret = 0;
-+	u32 value;
-+	struct vioc_device *viocdev;
-+	u64 regaddr;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXD_W0_R0 +
-+							(rxdq_id << 4)));
-+	value = base;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXD_W1_R0 +
-+							(rxdq_id << 4)));
-+	value = (((base >> 16) >> 16) & 0x000000ff) |
-+	    ((num_elements << 8) & 0x00ffff00);
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXD_W2_R0 +
-+							(rxdq_id << 4)));
-+	value = rx_bufsize;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	return ret;
-+}
-+
-+u32 vioc_rrd(int viocdev_idx, int module_id, int vnic_id, int reg_addr)
-+{
-+	u32 value;
-+	u64 regaddr;
-+	struct vioc_device *viocdev;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+
-+	regaddr = GETRELADDR(module_id, vnic_id, reg_addr);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
-+
-+	return value;
-+}
-+
-+int vioc_rwr(int viocdev_idx, int module_id, int vnic_id, int reg_addr,
-+	     u32 value)
-+{
-+	int ret = 0;
-+	struct vioc_device *viocdev;
-+	u64 regaddr;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+
-+	regaddr = GETRELADDR(module_id, vnic_id, reg_addr);
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	return ret;
-+}
-+
-+int vioc_ena_dis_tx_on_empty(int viocdev_idx, u32 vnic_id, u32 txq_id,
-+			     int ena_dis)
-+{
-+	u32 value = 0;
-+	u64 regaddr;
-+	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-+
-+	if (ena_dis)
-+		value |= VREG_VENG_TXINTCTL_INTONEMPTY_MASK;
-+	else
-+		value &= ~VREG_VENG_TXINTCTL_INTONEMPTY_MASK;
-+
-+	regaddr = GETRELADDR(VIOC_VENG, vnic_id, VREG_VENG_TXINTCTL);
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	return 0;
-+}
-+
-+int vioc_set_vnic_cfg(int viocdev_idx, u32 vnic_id, u32 cfg)
-+{
-+	int ret = 0;
-+	u64 regaddr;
-+	struct vioc_device *viocdev;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+	regaddr = GETRELADDR(VIOC_BMC, vnic_id, VREG_BMC_VNIC_CFG);
-+
-+	vioc_reg_wr(cfg, viocdev->ba.virt, regaddr);
-+
-+	return ret;
-+}
-+
-+int vioc_ena_dis_rxd_q(int viocdev_idx, u32 q_id, int ena_dis)
-+{
-+	int ret = 0;
-+	u32 value;
-+	u64 regaddr;
-+	struct vioc_device *viocdev;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_RXDQEN);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
-+
-+	if (ena_dis)
-+		value |= 1 << q_id;
-+	else
-+		value &= ~(1 << q_id);
-+
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	return ret;
-+}
-+
-+void vioc_sw_reset(int viocdev_idx)
-+{
-+	u32 value;
-+	u64 regaddr;
-+	struct vioc_device *viocdev;
-+
-+	viocdev = vioc_viocdev(viocdev_idx);
-+
-+	regaddr = GETRELADDR(VIOC_BMC, 0, VREG_BMC_GLOBAL);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
-+	value |= VREG_BMC_GLOBAL_SOFTRESET_MASK;
-+	vioc_reg_wr(value, viocdev->ba.virt, regaddr);
-+
-+	do {
-+		vioc_reg_rd(viocdev->ba.virt, regaddr, &value);
-+		mdelay(1);
-+	} while (value & VREG_BMC_GLOBAL_SOFTRESET_MASK);
-+
-+	/*
-+	 * Clear BMC INTERRUPT register
-+	 */
-+	regaddr = GETRELADDR(VIOC_BMC, 0, VREG_BMC_INTRSTATUS);
-+	vioc_reg_wr(0xffff, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH1);
-+	vioc_reg_wr(128, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH2);
-+	vioc_reg_wr(150, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH3);
-+	vioc_reg_wr(200, viocdev->ba.virt, regaddr);
-+
-+	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_BUFTH4);
-+	vioc_reg_wr(256, viocdev->ba.virt, regaddr);
-+
-+	/*
-+	 * Initialize Context Scrub Control Register
-+	 */
-+	regaddr = GETRELADDR(VIOC_VING, 0, VREG_VING_CONTEXTSCRUB);
-+	/* Enable Context Scrub, Timeout ~ 5 sec */
-+	vioc_reg_wr(0x8000000f, viocdev->ba.virt, regaddr);
-+	/*
-+	 * Initialize Sleep Time Register
-+	 */
-+	regaddr = GETRELADDR(VIOC_IHCU, 0, VREG_IHCU_SLEEPTIME);
-+	/* at 50ns ticks, 20 = 20x50 = 1usec */
-+	vioc_reg_wr(20, viocdev->ba.virt, regaddr);
-+	/*
-+	 * VIOC bits version
-+	 */
-+	regaddr = GETRELADDR(VIOC_HT, 0, VREG_HT_CLASSREV);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &viocdev->vioc_bits_version);
-+	/*
-+	 * VIOC bits sub-version
-+	 */
-+	regaddr = GETRELADDR(VIOC_HT, 0, VREG_HT_EXPREV);
-+	vioc_reg_rd(viocdev->ba.virt, regaddr, &viocdev->vioc_bits_subversion);
-+
-+}
-+
-+int vioc_vnic_resources_set(int viocdev_idx, u32 vnic_id)
-+{
-+	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-+	struct vnic_device *vnicdev = viocdev->vnic_netdev[vnic_id]->priv;
-+	u64 regaddr;
-+
-+	/* Map VNIC-2-RXD */
-+	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, VREG_IHCU_VNICRXDMAP);
-+	vioc_reg_wr(vnicdev->qmap, viocdev->ba.virt, regaddr);
-+
-+	/* Map VNIC-2-RXC */
-+	regaddr = GETRELADDR(VIOC_IHCU, vnic_id, VREG_IHCU_VNICRXCMAP);
-+	vioc_reg_wr(vnicdev->rxc_id, viocdev->ba.virt, regaddr);
-+
-+	/* Map Interrupt-2-RXC */
-+	regaddr =  GETRELADDR(VIOC_IHCU, vnic_id, (VREG_IHCU_RXC_INT +
-+					       (vnicdev->rxc_id << 4)));
-+	vioc_reg_wr(vnicdev->rxc_intr_id, viocdev->ba.virt, regaddr);
-+
-+	return 0;
-+}
-diff -uprN linux-2.6.17/drivers/net/vioc/vioc_api.h
-linux-2.6.17.vioc/drivers/net/vioc/vioc_api.h
---- linux-2.6.17/drivers/net/vioc/vioc_api.h	1969-12-31 16:00:00.000000000
--0800
-+++ linux-2.6.17.vioc/drivers/net/vioc/vioc_api.h	2006-09-06
-16:23:00.000000000 -0700
-@@ -0,0 +1,64 @@
 +/*
-+ * Fabric7 Systems Virtual IO Controller Driver
-+ * Copyright (C) 2003-2005 Fabric7 Systems.  All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
-+ * USA
-+ *
-+ * http://www.fabric7.com/
-+ *
-+ * Maintainers:
-+ *    driver-support@fabric7.com
-+ *
-+ *
++ * Standard parameters for ring provisioning.  Single TxQ per VNIC.
++ * Two RX sets per VIOC, with 3 RxDs, 1 RxC, 1 Rx interrupt per set.
 + */
-+#ifndef _VIOC_API_H_
-+#define _VIOC_API_H_
 +
-+#include <asm/io.h>
-+#include "vioc_vnic.h"
++#define TXQ_ENTRIES                    1024
++#define TX_INTR_ON_EMPTY       false
 +
-+extern int vioc_vnic_resources_set(int vioc_id, u32 vnic_id);
-+extern void vioc_sw_reset(int vioc_id);
-+extern u32 vioc_rrd(int vioc_id, int module_id, int vnic_id, int reg_addr);
-+extern int vioc_rwr(int vioc_id, int module_id, int vnic_id, int reg_addr,
-u32 value);
-+extern int vioc_set_vnic_mac(int vioc_id, u32 vnic_id, u8 * p);
-+extern int vioc_get_vnic_mac(int vioc_id, u32 vnic_id, u8 * p);
-+extern int vioc_set_txq(int vioc_id, u32 vnic_id, u32 txq_id, dma_addr_t
-base,
-+                u32 num_elements);
++/* RXDQ sizes (entry counts) must be multiples of this */
++#define        RXDQ_ALIGN              VIOC_RXD_BATCH_BITS
++#define        RXDQ_ENTRIES    1024
 +
-+extern int vioc_set_rxc(int viocdev_idx, struct rxc *rxc);
++#define        RXDQ_JUMBO_ENTRIES              ALIGN(RXDQ_ENTRIES,
+RXDQ_ALIGN)
++#define        RXDQ_STD_ENTRIES                ALIGN(RXDQ_ENTRIES,
+RXDQ_ALIGN)
++#define        RXDQ_SMALL_ENTRIES              ALIGN(RXDQ_ENTRIES,
+RXDQ_ALIGN)
++#define        RXDQ_EXTRA_ENTRIES              ALIGN(RXDQ_ENTRIES,
+RXDQ_ALIGN)
 +
++#define        RXC_ENTRIES
+(RXDQ_JUMBO_ENTRIES+RXDQ_STD_ENTRIES+RXDQ_SMALL_ENTRIES+RXDQ_EXTRA_ENTRIES)
 +
-+extern int vioc_set_rxdq(int vioc_id, u32 vnic_id, u32 rxq_id, u32
-rx_bufsize,
-+                 dma_addr_t base, u32 num_elements);
-+extern int vioc_set_rxs(int vioc_id, dma_addr_t base);
-+extern int vioc_set_vnic_cfg(int viocdev_idx, u32 vnic_id, u32 vnic_q_map);
-+extern int vioc_ena_dis_rxd_q(int vioc_id, u32 q_id, int ena_dis);
-+extern int vioc_ena_dis_tx_on_empty(int viocdev_idx, u32 vnic_id, u32
- txq_id, +                            int ena_dis);
-+static inline void
-+vioc_reg_wr(u32 value, void __iomem *vaddr, u32 offset)
++#define        RXDQ_JUMBO_BUFSIZE      (VNIC_MAX_MTU+ETH_HLEN+F7PF_HLEN_STD)
++#define        RXDQ_STD_BUFSIZE        (VNIC_STD_MTU+ETH_HLEN+F7PF_HLEN_STD)
++#define        RXDQ_SMALL_BUFSIZE      (256+ETH_HLEN+F7PF_HLEN_STD)
++
++#define        RXDQ_JUMBO_ALLOC_BUFSIZE        ALIGN(RXDQ_JUMBO_BUFSIZE,64)
++#define        RXDQ_STD_ALLOC_BUFSIZE  ALIGN(RXDQ_STD_BUFSIZE,64)
++#define        RXDQ_SMALL_ALLOC_BUFSIZE        ALIGN(RXDQ_SMALL_BUFSIZE,64)
++
++/*
++ Every entry in this structure is defined as follows:
++
++struct vnic_prov_def {
++       struct rxd_q_prov rxd_ring[4];
++       u32  tx_entries;        Size of Tx Ring
++       u32  rxc_entries;   Size of Rx Completion Ring
++       u8      rxc_id;                 Rx Completion queue ID
++       u8      rxc_intr_id;    INTR servicing the above Rx Completion queue
++};
++
++The 4 rxd_q_prov structures of rxd_ring[] array define  Rx queues per VNIC.
++struct rxd_q_prov {
++       u32        buf_size;    Buffer size
++       u32        entries;             Size of the queue
++       u8         id;                  Queue id/
++       u8         state;               Provisioning state 1-ena, 0-dis
++};
++
++*/
++
++struct vnic_prov_def vnic_set_0 = {
++	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
++	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
++	.rxd_ring[0].id = 0,
++	.rxd_ring[0].state = 1,
++	.rxd_ring[1].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[1].entries = RXDQ_STD_ENTRIES,
++	.rxd_ring[1].id = 1,
++	.rxd_ring[1].state = 1,
++	.rxd_ring[2].buf_size = RXDQ_JUMBO_ALLOC_BUFSIZE,
++	.rxd_ring[2].entries = RXDQ_JUMBO_ENTRIES,
++	.rxd_ring[2].id = 2,
++	.rxd_ring[2].state = 1,
++	.tx_entries = TXQ_ENTRIES,.rxc_entries = RXC_ENTRIES,.rxc_id =
++	    0,.rxc_intr_id = 0
++};
++
++struct vnic_prov_def vnic_set_1 = {
++	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
++	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
++	.rxd_ring[0].id = 4,
++	.rxd_ring[0].state = 1,
++	.rxd_ring[1].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[1].entries = RXDQ_STD_ENTRIES,
++	.rxd_ring[1].id = 5,
++	.rxd_ring[1].state = 1,
++	.rxd_ring[2].buf_size = RXDQ_JUMBO_ALLOC_BUFSIZE,
++	.rxd_ring[2].entries = RXDQ_JUMBO_ENTRIES,
++	.rxd_ring[2].id = 6,
++	.rxd_ring[2].state = 1,
++	.tx_entries = TXQ_ENTRIES,.rxc_entries = RXC_ENTRIES,.rxc_id =
++	    1,.rxc_intr_id = 1
++};
++
++struct vnic_prov_def vnic_set_2 = {
++	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
++	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
++	.rxd_ring[0].id = 8,
++	.rxd_ring[0].state = 1,
++	.rxd_ring[1].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[1].entries = RXDQ_STD_ENTRIES,
++	.rxd_ring[1].id = 9,
++	.rxd_ring[1].state = 1,
++	.rxd_ring[2].buf_size = RXDQ_JUMBO_ALLOC_BUFSIZE,
++	.rxd_ring[2].entries = RXDQ_JUMBO_ENTRIES,
++	.rxd_ring[2].id = 10,
++	.rxd_ring[2].state = 1,
++	.tx_entries = TXQ_ENTRIES,.rxc_entries = RXC_ENTRIES,.rxc_id =
++	    2,.rxc_intr_id = 2
++};
++
++struct vnic_prov_def vnic_set_3 = {
++	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
++	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
++	.rxd_ring[0].id = 12,
++	.rxd_ring[0].state = 1,
++	.rxd_ring[1].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[1].entries = RXDQ_STD_ENTRIES,
++	.rxd_ring[1].id = 13,
++	.rxd_ring[1].state = 1,
++	.rxd_ring[2].buf_size = RXDQ_JUMBO_ALLOC_BUFSIZE,
++	.rxd_ring[2].entries = RXDQ_JUMBO_ENTRIES,
++	.rxd_ring[2].id = 15,
++	.rxd_ring[2].state = 1,
++	.tx_entries = TXQ_ENTRIES,.rxc_entries = RXC_ENTRIES,.rxc_id =
++	    3,.rxc_intr_id = 3
++};
++
++struct vnic_prov_def vnic_set_sim = {
++	.rxd_ring[0].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[0].entries = 256,
++	.rxd_ring[0].id = 0,
++	.rxd_ring[0].state = 1,
++	.rxd_ring[1].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[1].entries = 256,
++	.rxd_ring[1].id = 1,
++	.rxd_ring[1].state = 1,
++	.rxd_ring[2].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
++	.rxd_ring[2].entries = 256,
++	.rxd_ring[2].id = 2,
++	.rxd_ring[2].state = 1,
++	.tx_entries = 256,.rxc_entries = 256 * 3,.rxc_id = 0,.rxc_intr_id = 0
++};
++
++struct vnic_prov_def *vnic_prov_pmm_pin_irq[VIOC_MAX_VNICS] = {
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_0,
++	&vnic_set_1
++};
++
++struct vnic_prov_def *vnic_prov_pmm_msi_x[VIOC_MAX_VNICS] = {
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_2,
++	&vnic_set_3,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_2,
++	&vnic_set_3,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_2,
++	&vnic_set_3,
++	&vnic_set_0,
++	&vnic_set_1,
++	&vnic_set_2,
++	&vnic_set_3
++};
++
++struct vnic_prov_def *vnic_prov_sim[VIOC_MAX_VNICS] = {
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim,
++	&vnic_set_sim
++};
++
++struct vnic_prov_def **vioc_prov_get(int num_rx_irq)
 +{
-+       writel(value, vaddr + offset);
-+}
++	if (num_rx_irq == 16)
++		return (struct vnic_prov_def **)&vnic_prov_pmm_msi_x;
++	else
++		return (struct vnic_prov_def **)&vnic_prov_pmm_pin_irq;
 +
-+static inline void
-+vioc_reg_rd(void __iomem *vaddr, u32 offset, u32 * value_p)
-+{
-+       *value_p = readl(vaddr + offset);
 +}
-+
-+#endif                         /* _VIOC_API_H_ */
 
 
 --
