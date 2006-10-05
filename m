@@ -1,98 +1,215 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] [PATCH 3/3] enable IP multicast when bonding IPoIB devices
-Date: Thu, 05 Oct 2006 11:13:57 -0700
-Message-ID: <200610051813.k95IDvZt031303@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0609261309540.24189@zuben> <Pine.LNX.4.64.0609261317460.24189@zuben> <200609262340.k8QNeVZt030301@death.nxdomain.ibm.com> <15ddcffd0609271312m3a4f9613ke3d81695684ca523@mail.gmail.com> <200609281743.k8SHhoZt014879@death.nxdomain.ibm.com> <4522605E.8000208@voltaire.com> <200610032310.k93NAGZt003069@death.nxdomain.ibm.com> <4523D254.9060006@voltaire.com> <200610041734.k94HYEZt013562@death.nxdomain.ibm.com> <45251D2E.7050006@voltaire.com>
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:42435 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1750727AbWJESOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 14:14:09 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k95IE2X4018776
-	for <netdev@vger.kernel.org>; Thu, 5 Oct 2006 14:14:02 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k95IE2Yw288778
-	for <netdev@vger.kernel.org>; Thu, 5 Oct 2006 14:14:02 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k95IE2mO031581
-	for <netdev@vger.kernel.org>; Thu, 5 Oct 2006 14:14:02 -0400
-To: Or Gerlitz <ogerlitz@voltaire.com>
-In-reply-to: <45251D2E.7050006@voltaire.com> 
-Sender: netdev-owner@vger.kernel.org
+From: Andi Kleen <ak@suse.de>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Thu, 5 Oct 2006 20:27:02 +0200
+Message-ID: <200610052027.02208.ak@suse.de>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <200610051740.58511.ak@suse.de> <1160071032.29690.19.camel@flooterbu>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>, vgoyal@in.ibm.com,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751416AbWJES1O@vger.kernel.org>
+To: Steve Fox <drfickle@us.ibm.com>
+In-Reply-To: <1160071032.29690.19.camel@flooterbu>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
+On Thursday 05 October 2006 19:57, Steve Fox wrote:
+> On Thu, 2006-10-05 at 17:40 +0200, Andi Kleen wrote:
+> 
+> > Please don't snip the Code: line. It is fairly important.
+> 
+> Sorry about that. The remote console I was using appears to overwrite
+> some text after I force the reboot. Here's a clean one.
+> 
+> global ffffffffffffffff
 
->Jay Vosburgh wrote:
-[...]
->> 	Yes.  Part of the difficulty is that the changes to the
->> initscripts and sysconfig packages won't be compatible with versions of
->> bonding prior to the bonding kernel changes (because older versions of
->> bonding will refuse to add slaves if the master is down).  It might
->> require adding another API version to bonding, and modifying ifenslave
->> to work both ways (i.e., with the current "enslave with master up" API,
->> as well as the new "enslave with master down" API).
->
->Gee, sounds bad
+Ok that definitely shouldn't be in there.
 
-	After some reflection, I suspect it wouldn't be all that awful.
-The main concern is going to be whether or not the existing ifenslave
-binaries supplied with distros will run with the new version of bonding.
-Since the new version of bonding that you're proposing is really just
-relaxing the rules (rather than imposing a different, incompatible set
-of rules), that's probably not a really big deal.  I don't think it
-would require a revision change to the bonding ifenslave API.
+I guess we need to track when it gets corrupted. Can you send the full
+boot log with this patch applied?
 
-[...]
->So the direction to have sysconfig and initscripts tools configure bonding
->by sysfs and not by the enslave program is something you were considering
->regardless of the needs imposed by bonding support for non ARPHRD_ETHER
->netdevices? and you think the distro packages owners would like this?
 
-	Yes, the long term direction is to have the initscripts
-configure bonding via sysfs, either directly or via the step of
-converting ifenslave to a script that uses sysfs.  
+-Andi
 
-	I personally find ifenslave to be more convenient to use than
-repeated "echo whatever > /sys/this/that/the/other", but there's no
-reason that ifenslave couldn't do the various echo things itself under
-the covers.  
-
-	One drawback to sysfs is that there's no real-time error
-reporting; you have to look at dmesg to see if your request succeeded or
-not.  I'm not sure offhand if, e.g., adding a sysfs file to bonding for
-"last-request-status" is a kosher sysfs thing to do; if it is, then an
-ifenslave script could check such a thing to figure out error returns.
-
-	It seems more logical to me to embed all of the bonding sysfs
-magic stuff into a separate script, but the maintainers of initscipts or
-sysconfig may see things differently.
-
-	The main advantage to either of these (initscripts/sysconfig
-and/or ifenslave converted to sysfs) is that it eliminates the need to
-load the bonding driver module multiple times to have more than one
-bonding device with differing module parameters (because the sysfs
-interface can create any number of bonding interfaces with arbitrary
-settings).
-
->I will look into the current methods used by sysconfig to configure
->bonding and see if i can come up with sketch of how to do it with sysfs.
-
-	It's probably easier to first convert ifenslave to a sysfs-using
-script that the existing initscripts can use.  
-
-	This allows the changes to be published in stages, rather than
-requiring a single flag day changeover.  The first stage changes the
-bonding driver itself to permit enslavement with the master down
-(insuring that existing ifenslave binaries supplied with reasonably
-current distros continue to function).  Next, ifenslave is changed to
-use sysfs (simultaneously removing the adjustment of the master or
-slave's up/down state during enslavement).  The next stage either
-changes the initscripts/sysconfig to use sysfs directly or change its
-use of ifenslave to not do multiple loads of the bonding driver. 
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Index: linux-2.6.19-rc1-hack/init/main.c
+===================================================================
+--- linux-2.6.19-rc1-hack.orig/init/main.c
++++ linux-2.6.19-rc1-hack/init/main.c
+@@ -75,6 +75,9 @@
+ 
+ static int init(void *);
+ 
++extern void bugcheck(char *, int);
++#define CHECK bugcheck(__FILE__, __LINE__)
++
+ extern void init_IRQ(void);
+ extern void fork_init(unsigned long);
+ extern void mca_init(void);
+@@ -480,6 +483,8 @@ asmlinkage void __init start_kernel(void
+ 	char * command_line;
+ 	extern struct kernel_param __start___param[], __stop___param[];
+ 
++	CHECK;
++
+ 	smp_setup_processor_id();
+ 
+ 	/*
+@@ -502,7 +507,9 @@ asmlinkage void __init start_kernel(void
+ 	page_address_init();
+ 	printk(KERN_NOTICE);
+ 	printk(linux_banner);
++	CHECK;
+ 	setup_arch(&command_line);
++	CHECK;
+ 	setup_per_cpu_areas();
+ 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
+ 
+@@ -517,6 +524,7 @@ asmlinkage void __init start_kernel(void
+ 	 * fragile until we cpu_idle() for the first time.
+ 	 */
+ 	preempt_disable();
++	CHECK;
+ 	build_all_zonelists();
+ 	page_alloc_init();
+ 	printk(KERN_NOTICE "Kernel command line: %s\n", saved_command_line);
+@@ -525,6 +533,7 @@ asmlinkage void __init start_kernel(void
+ 		   __stop___param - __start___param,
+ 		   &unknown_bootoption);
+ 	sort_main_extable();
++	CHECK;
+ 	trap_init();
+ 	rcu_init();
+ 	init_IRQ();
+@@ -533,8 +542,10 @@ asmlinkage void __init start_kernel(void
+ 	hrtimers_init();
+ 	softirq_init();
+ 	timekeeping_init();
++	CHECK;
+ 	time_init();
+ 	profile_init();
++	CHECK;
+ 	if (!irqs_disabled())
+ 		printk("start_kernel(): bug: interrupts were enabled early\n");
+ 	early_boot_irqs_on();
+@@ -568,7 +579,9 @@ asmlinkage void __init start_kernel(void
+ #endif
+ 	vfs_caches_init_early();
+ 	cpuset_init_early();
++	CHECK;
+ 	mem_init();
++	CHECK;
+ 	kmem_cache_init();
+ 	setup_per_cpu_pageset();
+ 	numa_policy_init();
+@@ -577,6 +590,7 @@ asmlinkage void __init start_kernel(void
+ 	calibrate_delay();
+ 	pidmap_init();
+ 	pgtable_cache_init();
++	CHECK;
+ 	prio_tree_init();
+ 	anon_vma_init();
+ #ifdef CONFIG_X86
+@@ -586,12 +600,14 @@ asmlinkage void __init start_kernel(void
+ 	fork_init(num_physpages);
+ 	proc_caches_init();
+ 	buffer_init();
++	CHECK;
+ 	unnamed_dev_init();
+ 	key_init();
+ 	security_init();
+ 	vfs_caches_init(num_physpages);
+ 	radix_tree_init();
+ 	signals_init();
++	CHECK;
+ 	/* rootfs populating might need page-writeback */
+ 	page_writeback_init();
+ #ifdef CONFIG_PROC_FS
+@@ -599,6 +615,7 @@ asmlinkage void __init start_kernel(void
+ #endif
+ 	cpuset_init();
+ 	taskstats_init_early();
++	CHECK;
+ 	delayacct_init();
+ 
+ 	check_bugs();
+@@ -609,7 +626,7 @@ asmlinkage void __init start_kernel(void
+ 	rest_init();
+ }
+ 
+-static int __initdata initcall_debug;
++static int __initdata initcall_debug = 1;
+ 
+ static int __init initcall_debug_setup(char *str)
+ {
+@@ -639,7 +656,11 @@ static void __init do_initcalls(void)
+ 			printk("\n");
+ 		}
+ 
++		CHECK;
++
+ 		result = (*call)();
++		
++		CHECK;
+ 
+ 		if (result && result != -ENODEV && initcall_debug) {
+ 			sprintf(msgbuf, "error code %d", result);
+@@ -725,21 +746,32 @@ static int init(void * unused)
+ 
+ 	smp_prepare_cpus(max_cpus);
+ 
++	CHECK;
++
+ 	do_pre_smp_initcalls();
+ 
+ 	smp_init();
++
++	CHECK;
++
+ 	sched_init_smp();
+ 
+ 	cpuset_init_smp();
+ 
++	CHECK;
++
+ 	/*
+ 	 * Do this before initcalls, because some drivers want to access
+ 	 * firmware files.
+ 	 */
+ 	populate_rootfs();
+ 
++	CHECK;
++
+ 	do_basic_setup();
+ 
++	CHECK;
++
+ 	/*
+ 	 * check if there is an early userspace init.  If yes, let it do all
+ 	 * the work
+Index: linux-2.6.19-rc1-hack/net/xfrm/xfrm_policy.c
+===================================================================
+--- linux-2.6.19-rc1-hack.orig/net/xfrm/xfrm_policy.c
++++ linux-2.6.19-rc1-hack/net/xfrm/xfrm_policy.c
+@@ -39,6 +39,16 @@ EXPORT_SYMBOL(xfrm_policy_count);
+ static DEFINE_RWLOCK(xfrm_policy_afinfo_lock);
+ static struct xfrm_policy_afinfo *xfrm_policy_afinfo[NPROTO];
+ 
++void bugcheck(char *where, int line)
++{
++	int i;
++	for (i = 0; i < NPROTO; i++)
++		if (xfrm_policy_afinfo[i] == (void *)-1UL) {
++			printk("afinfo corrupted at %s:%d\n",where,line);
++			return;
++		}
++}
++
+ static kmem_cache_t *xfrm_dst_cache __read_mostly;
+ 
+ static struct work_struct xfrm_policy_gc_work;
