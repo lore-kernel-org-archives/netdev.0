@@ -1,63 +1,98 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/2] sk98lin: ethtool register dump
-Date: Thu, 5 Oct 2006 10:16:23 -0700
-Message-ID: <20061005101623.5da0ce3e@dxpl.pdx.osdl.net>
+Subject: [PATCH 2/2] sk98lin: MII ioctl support
+Date: Thu, 5 Oct 2006 10:21:26 -0700
+Message-ID: <20061005102126.0be5e6c5@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:22468 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751420AbWJERWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 13:22:14 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:46533 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751734AbWJER1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 13:27:46 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for dumping the registers in the deprecated
-sk98lin driver. This is allows for easier comparison with
-settings in new skge driver.
+Add MII ioctl support to the deprecated sk98lin driver.
+This allows comparison with skge driver's PHY settings.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-
---- linux-2.6.orig/drivers/net/sk98lin/skethtool.c
-+++ linux-2.6/drivers/net/sk98lin/skethtool.c
-@@ -581,6 +581,30 @@ static int setRxCsum(struct net_device *
- 	return 0;
- }
+--- linux-2.6.orig/drivers/net/sk98lin/skge.c
++++ linux-2.6/drivers/net/sk98lin/skge.c
+@@ -113,6 +113,7 @@
+ #include	<linux/init.h>
+ #include	<linux/dma-mapping.h>
+ #include	<linux/ip.h>
++#include	<linux/mii.h>
  
-+static int getRegsLen(struct net_device *dev)
-+{
-+	return 0x4000;
-+}
-+
+ #include	"h/skdrv1st.h"
+ #include	"h/skdrv2nd.h"
+@@ -2843,6 +2844,56 @@ unsigned long	Flags;			/* for spin lock 
+ 	return(&pAC->stats);
+ } /* SkGeStats */
+ 
 +/*
-+ * Returns copy of whole control register region
-+ * Note: skip RAM address register because accessing it will
-+ * 	 cause bus hangs!
++ * Basic MII register access
 + */
-+static void getRegs(struct net_device *dev, struct ethtool_regs *regs,
-+			  void *p)
++static int SkGeMiiIoctl(struct net_device *dev,
++			struct mii_ioctl_data *data, int cmd)
 +{
 +	DEV_NET *pNet = netdev_priv(dev);
-+	const void __iomem *io = pNet->pAC->IoBase;
++	SK_AC *pAC = pNet->pAC;
++	SK_IOC IoC = pAC->IoBase;
++	int Port = pNet->PortNr;
++	SK_GEPORT *pPrt = &pAC->GIni.GP[Port];
++	unsigned long Flags;
++	int err = 0;
++	int reg = data->reg_num & 0x1f;
++	SK_U16 val = data->val_in;
 +
-+	regs->version = 1;
-+	memset(p, 0, regs->len);
-+	memcpy_fromio(p, io, B3_RAM_ADDR);
++	if (!netif_running(dev))
++		return -ENODEV;	/* Phy still in reset */
 +
-+	memcpy_fromio(p + B3_RI_WTO_R1, io + B3_RI_WTO_R1,
-+		      regs->len - B3_RI_WTO_R1);
++	spin_lock_irqsave(&pAC->SlowPathLock, Flags);
++	switch(cmd) {
++	case SIOCGMIIPHY:
++		data->phy_id = pPrt->PhyAddr;
++
++		/* fallthru */
++	case SIOCGMIIREG:
++		if (pAC->GIni.GIGenesis)
++			SkXmPhyRead(pAC, IoC, Port, reg, &val);
++		else
++			SkGmPhyRead(pAC, IoC, Port, reg, &val);
++
++		data->val_out = val;
++		break;
++
++	case SIOCSMIIREG:
++		if (!capable(CAP_NET_ADMIN))
++			err = -EPERM;
++
++		else if (pAC->GIni.GIGenesis)
++			SkXmPhyWrite(pAC, IoC, Port, reg, val);
++		else
++			SkGmPhyWrite(pAC, IoC, Port, reg, val);
++		break;
++	default:
++		err = -EOPNOTSUPP;
++	}
++        spin_unlock_irqrestore(&pAC->SlowPathLock, Flags);
++	return err;
 +}
 +
- const struct ethtool_ops SkGeEthtoolOps = {
- 	.get_settings		= getSettings,
- 	.set_settings		= setSettings,
-@@ -599,4 +623,6 @@ const struct ethtool_ops SkGeEthtoolOps 
- 	.set_tx_csum		= setTxCsum,
- 	.get_rx_csum		= getRxCsum,
- 	.set_rx_csum		= setRxCsum,
-+	.get_regs		= getRegs,
-+	.get_regs_len		= getRegsLen,
- };
+ 
+ /*****************************************************************************
+  *
+@@ -2876,6 +2927,9 @@ int		HeaderLength = sizeof(SK_U32) + siz
+ 	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 	
++	if (cmd == SIOCGMIIPHY || cmd == SIOCSMIIREG || cmd == SIOCGMIIREG)
++	    return SkGeMiiIoctl(dev, if_mii(rq), cmd);
++
+ 	if(copy_from_user(&Ioctl, rq->ifr_data, sizeof(SK_GE_IOCTL))) {
+ 		return -EFAULT;
+ 	}
