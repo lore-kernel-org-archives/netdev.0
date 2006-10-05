@@ -1,40 +1,55 @@
-From: James Morris <jmorris@namei.org>
-Subject: RE: [PATCH 1/3] Fix for IPsec leakage with SELinux enabled - V.03
-Date: Thu, 5 Oct 2006 19:05:48 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610051903500.26861@d.namei>
-References: <36282A1733C57546BE392885C0618592015CFB65@chaos.tcs.tcs-sec.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64 II
+Date: Fri, 6 Oct 2006 01:14:03 +0200
+Message-ID: <200610060114.03466.ak@suse.de>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <Pine.LNX.4.64.0610052128570.29014@skynet.skynet.ie> <200610052251.31571.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, paul.moore@hp.com,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
-	eparis@redhat.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: vgoyal@in.ibm.com, Steve Fox <drfickle@us.ibm.com>,
+	Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:62664 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932413AbWJEXFv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 19:05:51 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <36282A1733C57546BE392885C0618592015CFB65@chaos.tcs.tcs-sec.com>
+Received: from ns2.suse.de ([195.135.220.15]:47007 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751411AbWJEXOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 19:14:18 -0400
+To: Mel Gorman <mel@csn.ul.ie>
+In-Reply-To: <200610052251.31571.ak@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 5 Oct 2006, Venkat Yekkirala wrote:
-
-> > We're trying to fill the flow cache here.  In the case where we'd
-> > have a match in both the sub-policy and main table, I think the
-> > sub-policy is supposed to take precedence, and if you fail to get
-> > this sub-policy you should fail the entire lookup.
+On Thursday 05 October 2006 22:51, Andi Kleen wrote:
 > 
-> Which is what's happening here correct?
+> > hmm, rather than bugging you with patches now, I'll see what I can find 
+> > with the x86_64 machines I have access to and see can I reproduce it.
+> 
+> I started the bisect, should finish soon.
 
-Yes, the patch is correct for this.
+It ended at 
 
-The way sub-policy is used is during Mobile IP, where you have multiple 
-policies composed, so it wouldn't make sense for one of the policies to be 
-rejected and the other allowed and for packets to flow.
+diff-tree d5cdb67236dba94496de052c9f9f431e1fc658f4 (from 0dad3510ee82bcf8a380b81
+a2184a664a911ef9c)
+Author: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+Date:   Tue Sep 12 10:19:00 2006 -0700
 
+    acpiphp: disable bridges
+    
+    Currently acpiphp calls pci_enable_device() against all
+    hot-added bridges, but acpiphp does not call pci_disable_device()
+    against them in hot-remove. So ioapic hot-remove would fail.
+    This patch fixes this issue.
 
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Not sure that is it really, it is possible i made a mistake during bisect
+(the symptoms changed from bad page to just networking doesn't work
+somewhere at 4cfee88ad30acc47f02b8b7ba3db8556262dce1e) 
+
+I don't have time to rerun unfortunately
+for some time. Anyone else looking would be useful.
+
+-Andi
+
