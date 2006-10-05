@@ -1,95 +1,54 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Thu, 5 Oct 2006 14:21:06 +0400
-Message-ID: <20061005102106.GE1015@2ka.mipt.ru>
-References: <11587449471424@2ka.mipt.ru> <a36005b50610041057g67dcaf73wd48d9fef88187ec6@mail.gmail.com> <20061005085750.GA1015@2ka.mipt.ru> <200610051156.25036.dada1@cosmosbay.com>
+Subject: Re: [PATCH] Network Events Connector
+Date: Thu, 5 Oct 2006 14:29:39 +0400
+Message-ID: <20061005102937.GH1015@2ka.mipt.ru>
+References: <m23ba7gscl.fsf@cerbere.dyndns.info> <20061002090222.GA32591@2ka.mipt.ru> <m2r6xqg9ik.fsf@cerbere.dyndns.info> <20061002131345.GA18129@2ka.mipt.ru> <m21wpn600l.fsf@cerbere.dyndns.info>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:19877 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751609AbWJEKVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 06:21:51 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:17553 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751615AbWJEK3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 06:29:51 -0400
+To: Samir Bellabes <sbellabes@mandriva.com>
 Content-Disposition: inline
-In-Reply-To: <200610051156.25036.dada1@cosmosbay.com>
+In-Reply-To: <m21wpn600l.fsf@cerbere.dyndns.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 05, 2006 at 11:56:24AM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> On Thursday 05 October 2006 10:57, Evgeniy Polyakov wrote:
+On Thu, Oct 05, 2006 at 03:10:02AM +0200, Samir Bellabes (sbellabes@mandriva.com) wrote:
+> > You can also extend your module to be more generic and send all (or just
+> > requested in config) state changes for all protocols (or those checked
+> > in config).
 > 
-> > Well, it is possible to create /sys/proc entry for that, and even now
-> > userspace can grow mapping ring until it is forbiden by kernel, which
-> > means limit is reached.
-> 
-> No need for yet another /sys/proc entry.
-> 
-> Right now, I (for example) may have a use for Generic event handling, but for 
-> a program that needs XXX.XXX handles, and about XX.XXX events per second.
-> 
-> Right now, this program uses epoll, and reaches no limit at all, once you pass 
-> the "ulimit -n", and other kernel wide tunes of course, not related to epoll.
-> 
-> With your current kevent, I cannot switch to it, because of hardcoded limits.
-> 
-> I may be wrong, but what is currently missing for me is :
-> 
-> - No hardcoded limit on the max number of events. (A process that can open 
-> XXX.XXX files should be allowed to open a kevent queue with at least XXX.XXX 
-> events). Right now thats not clear what happens IF the current limit is 
-> reached.
+> Ok, so the next step now is to target all state changes for all
+> protocols, *but* send only the states asked dynamically from the
+> userspace, using the userspace-to-kernel's way of the netlink.
+> What do you think about that ?
 
-This forces to overflows in fixed sized memory mapped buffer.
-If we remove memory mapped buffer or will allow to have overflows (and
-thus skipped entries) keven can easily scale to that limits (tested with
-xx.xxx events though).
+That sounds good, but as David mentioned, if there are other good
+possibilities to do so, there is no need to reinvent new one (although
+sometimes it is much better to reinvent the wheel, if existing one is
+square).
 
-> - In order to avoid touching the whole ring buffer, it might be good to be 
-> able to reset the indexes to the beginning when ring buffer is empty. (So if 
-> the user land is responsive enough to consume events, only first pages of the 
-> mapping would be used : that saves L1/L2 cpu caches)
+> >> > Btw, you could also create netlink/connector based firewall rules
+> >> > update, I think people with hundreds of rules in one table will bless
+> >> > you after that.
+> >> 
+> >> This is the real goal, using ipset - http://ipset.netfilter.org/
+> >> With this we can easily create a uniq rule for iptables, and then
+> >> add/remove port from the 'set' involve.
+> >
+> > It is not the same as create and update existing rules.
+> > I think hipac project uses feature of fast rules update.
+> > It is quite major break for existing iptables, but it should be
+> > eventually done...
+> 
+> Ok now i understand clearly your point. 
+> But we are a bit far from the initial idea, even if it could be really
+> good to do that. First, let's code the initial idea.
 
-And what happens when there are 3 empty at the beginning and \we need to
-put there 4 ready events?
-
-> A plus would be
-> 
-> - A working/usable mmap ring buffer implementation, but I think its not 
-> mandatory. System calls are not that expensive, especially if you can batch 
-> XX events per syscall (like epoll). Nice thing with a ring buffer is that we 
-> touch less cache lines than say epoll that have lot of linked structures.
-> 
-> About mmap, I think you might want a hybrid thing :
-> 
-> One writable page where userland can write its index, (and hold one or more 
-> futex shared by kernel) (with appropriate thread locking in case multiple 
-> threads want to dequeue events). In fast path, no syscalls are needed to 
-> maintain this user index.
-> 
-> XXX readonly pages (for user, but r/w for kernel), where kernel write its own 
-> index, and events of course.
-
-The problem is in that xxx pages - how many can we eat per kevent
-descriptor? It is pinned memory and thus it is possible to have a DoS.
-If xxx above is not enough to store all events, we will have
-yet-another-broken behaviour like rt-signal queue overflow.
-
-> Using separate cache lines avoid false sharing : kernel can update its own 
-> index and events without having to pay the price of cache line ping pongs.
-> It could use futex infrastructure to wakeup one thread 'only' instead of all 
-> threads waiting an event.
->
-> 
-> Eric
+Agree.
 
 -- 
 	Evgeniy Polyakov
