@@ -1,29 +1,61 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Thu, 5 Oct 2006 22:51:31 +0200
-Message-ID: <200610052251.31571.ak@suse.de>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052108.55208.ak@suse.de> <Pine.LNX.4.64.0610052128570.29014@skynet.skynet.ie>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 1/3] Fix for IPsec leakage with SELinux enabled - V.03
+Date: Thu, 5 Oct 2006 16:54:38 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610051651580.25705@d.namei>
+References: <45256E33.8080205@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: vgoyal@in.ibm.com, Steve Fox <drfickle@us.ibm.com>,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	Andrew Morton <akpm@osdl.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932194AbWJEUvq@vger.kernel.org>
-To: Mel Gorman <mel@csn.ul.ie>
-In-Reply-To: <Pine.LNX.4.64.0610052128570.29014@skynet.skynet.ie>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@redhat.com>, johnpol@2ka.mipt.ru,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:57780 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932192AbWJEUym (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 16:54:42 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul.moore@hp.com>
+In-Reply-To: <45256E33.8080205@trustedcs.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 5 Oct 2006, Venkat Yekkirala wrote:
 
-> hmm, rather than bugging you with patches now, I'll see what I can find 
-> with the x86_64 machines I have access to and see can I reproduce it.
+> -		if (xfrm_policy_match(pol, fl, type, family, dir)) {
+> +		err = xfrm_policy_match(pol, fl, type, family, dir);
+> +		if (err) {
+> +			if (err == -ESRCH)
+> +				continue;
+> +			else {
+> +				ret = ERR_PTR(err);
+> +				goto fail;
+> +			}
+> +		} else {
 
-I started the bisect, should finish soon.
+Semantics issue: if the exact policy match fails with -EACCESS, should we 
+then try an inexact match before failing?
 
--Andi
+>  #ifdef CONFIG_XFRM_SUB_POLICY
+>  	pol = xfrm_policy_lookup_bytype(XFRM_POLICY_TYPE_SUB, fl, family, dir);
+> -	if (pol)
+> +	if (IS_ERR(pol)) {
+> +		err = PTR_ERR(pol);
+> +		pol = NULL;
+> +	}
+> +	if (pol || err)
+>  		goto end;
+
+Similarly, if the sub-policy lookup returns -EACCESS, should we then try a 
+main policy lookup before failing?
+
+I would think yes to both.
+
+Opinions?
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
