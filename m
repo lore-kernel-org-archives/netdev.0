@@ -1,64 +1,51 @@
-From: Steve Fox <drfickle@us.ibm.com>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Thu, 05 Oct 2006 10:32:11 -0500
-Message-ID: <1160062332.29690.10.camel@flooterbu>
-References: <20060928014623.ccc9b885.akpm@osdl.org>
-	 <20061004170659.f3b089a8.akpm@osdl.org> <20061005005124.GA23408@in.ibm.com>
-	 <200610050257.53971.ak@suse.de>  <45245B03.2070803@mbligh.org>
-	 <1160060020.29690.5.camel@flooterbu>
-	 <1160061173.9569.43.camel@dyn9047017100.beaverton.ibm.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: d80211: ieee80211_hw handlers in atomic context
+Date: Thu, 5 Oct 2006 17:35:52 +0200
+Message-ID: <200610051735.52309.IvDoorn@gmail.com>
+References: <4523DA7D.2080604@web.de> <200610051700.31171.IvDoorn@gmail.com> <20061005171357.44a8d413@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Martin Bligh <mbligh@mbligh.org>, Andi Kleen <ak@suse.de>,
-	vgoyal@in.ibm.com, Andrew Morton <akpm@osdl.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Cc: Jan Kiszka <jan.kiszka@web.de>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:15517 "EHLO e6.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751018AbWJEPcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 11:32:14 -0400
-To: Badari Pulavarty <pbadari@us.ibm.com>
-In-Reply-To: <1160061173.9569.43.camel@dyn9047017100.beaverton.ibm.com>
+Received: from nf-out-0910.google.com ([64.233.182.190]:32104 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S932133AbWJEPgr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 11:36:47 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so820280nfa
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2006 08:36:45 -0700 (PDT)
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061005171357.44a8d413@griffin.suse.cz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-10-05 at 08:12 -0700, Badari Pulavarty wrote:
+On Thursday 05 October 2006 17:13, Jiri Benc wrote:
+> On Thu, 5 Oct 2006 17:00:31 +0200, Ivo van Doorn wrote:
+> > Basically it comes down to this:
+> > 
+> > Sep 13 12:27:34 wz4a kernel: wlan0: Creating new IBSS network, BSSID 7a:b9:60:8a:84:39
+> > Sep 13 12:27:34 wz4a kernel: BUG: scheduling while atomic: swapper/0x00000100/0
+> > Sep 13 12:27:34 wz4a kernel:  <b02701e7> schedule+0x43/0xa84  <b01ef8b8> extract_buf+0x97/0xc8
+> > Sep 13 12:27:34 wz4a kernel:  <b0270ca8> wait_for_completion+0x6a/0x9f  <b0116f2d> default_wake_function+0x0/0xc
+> > Sep 13 12:27:34 wz4a kernel:  <c08ac59f> usb_start_wait_urb+0x98/0xdc [usbcore]  <c08ac418> timeout_kill+0x0/0x5 [usbcore]
+> > Sep 13 12:27:34 wz4a kernel:  <c08ac7d5> usb_control_msg+0xc3/0xde [usbcore]  <c0b6c0f1> rt2x00_vendor_request+0x7c/0xa6 [rt73usb]
+> > Sep 13 12:27:34 wz4a kernel:  <c0b6fa68> rt73usb_reset_tsf+0x30/0x59 [rt73usb]  <c0bdb3e8> ieee80211_sta_join_ibss+0x3a/0x572 [80211]
+> > Sep 13 12:27:34 wz4a kernel:  <b011cea9> printk+0x14/0x18  <c0bdaa4a> ieee80211_rx_bss_add+0x88/0x90 [80211]
+> > Sep 13 12:27:34 wz4a kernel:  <c0bdbc2e> ieee80211_sta_find_ibss+0x30e/0x366 [80211]  <c0bdda17> ieee80211_sta_timer+0x0/0x18f [80211]
+> > Sep 13 12:27:34 wz4a kernel:  <c0bdda91> ieee80211_sta_timer+0x7a/0x18f [80211]  <c0bdda17> ieee80211_sta_timer+0x0/0x18f [80211]
+> > Sep 13 12:27:34 wz4a kernel:  <b01241b1> run_timer_softirq+0x10b/0x153  <b0120a52> __do_softirq+0x58/0xc2
+> > Sep 13 12:27:34 wz4a kernel:  <b0120aea> do_softirq+0x2e/0x32  <b0104fe6> do_IRQ+0x1e/0x24
+> > Sep 13 12:27:34 wz4a kernel:  <b0103592> common_interrupt+0x1a/0x20  <c0827484> acpi_processor_idle+0x18a/0x39e [processor]
+> > Sep 13 12:27:34 wz4a kernel:  <b0101e77> cpu_idle+0x8f/0xa8  <b03026d2> start_kernel+0x355/0x35c
+> 
+> So this will be solved for free when sta_timer is converted to a
+> workqueue.
 
-> Can you post the latest panic stack again (with CONFIG_DEBUG_KERNEL) ? 
+Hi,
 
-CONFIG_DEBUG_KERNEL should be on
+True, this is what I realized later as well. :)
+I have asked for confirmation by the bug submitter.
 
-> Last time I couldn't match your instruction dump to any code segment
-> in the routine. And also, can you post your .config file. I have
-> an amd64 and em64t machine and both work fine...
-
-Unable to handle kernel NULL pointer dereference at 0000000000000827 RIP:
- [<ffffffff804705e6>] xfrm_register_mode+0x36/0x60
-PGD 0
-Oops: 0000 [1] SMP
-CPU 0
-Modules linked in:
-Pid: 1, comm: swapper Not tainted 2.6.18-git22 #1
-RIP: 0010:[<ffffffff804705e6>]  [<ffffffff804705e6>] xfrm_register_mode+0x36/0x60
-RSP: 0000:ffff810bffcbded0  EFLAGS: 00010286
-RAX: 000000000000081f RBX: ffffffff805588a0 RCX: 0000000000000000
-RDX: ffffffffffffffff RSI: 0000000000000002 RDI: ffffffff80559550
-RBP: 00000000ffffffef R08: 000000003f924371 R09: 0000000000000000
-R10: ffff810bffcbdcb0 R11: 0000000000000154 R12: 0000000000000000
-R13: ffff810bffcbdef0 R14: 0000000000000000 R15: 0000000000000000
-FS:  0000000000000000(0000) GS:ffffffff805d2000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-CR2: 0000000000000827 CR3: 0000000000201000 CR4: 00000000000006e0
-Process swapper (pid: 1, threadinfo ffff810bffcbc000, task ffff810bffcbb4e0)
-Stack:  0000000000000000 ffffffff8061fb48 0000000000000000 ffffffff80207182
- 0000000000000000 0000000000000000 0000000000000000 0000000000000000
- 0000000000000000 0000000000000000 0000000000000000 0000000000090000
-
-The base config file I'm using is at
-http://flooterbu.net/kernel/elm3b239-2.6.17.config
-
--- 
-
-Steve Fox
-IBM Linux Technology Center
+Ivo
