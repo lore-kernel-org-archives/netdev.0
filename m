@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] Fix for IPsec leakage with SELinux enabled - V.03
-Date: Thu, 05 Oct 2006 14:04:23 -0700 (PDT)
-Message-ID: <20061005.140423.48528368.davem@davemloft.net>
-References: <45256E33.8080205@trustedcs.com>
-	<Pine.LNX.4.64.0610051651580.25705@d.namei>
+Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
+Date: Thu, 05 Oct 2006 14:04:31 -0700 (PDT)
+Message-ID: <20061005.140431.75431182.davem@davemloft.net>
+References: <Pine.LNX.4.64.0610021020390.9909@d.namei>
+	<20061003.161807.18306641.davem@davemloft.net>
+	<Pine.LNX.4.64.0610051657270.25705@d.namei>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyekkirala@trustedcs.com, paul.moore@hp.com,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
-	eparis@redhat.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, sds@tycho.nsa.gov,
+	vyekkirala@TrustedCS.com, paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61098
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63402
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751340AbWJEVEW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 17:04:22 -0400
+	id S1751343AbWJEVEa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 17:04:30 -0400
 To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0610051651580.25705@d.namei>
+In-Reply-To: <Pine.LNX.4.64.0610051657270.25705@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: James Morris <jmorris@namei.org>
-Date: Thu, 5 Oct 2006 16:54:38 -0400 (EDT)
+Date: Thu, 5 Oct 2006 16:58:31 -0400 (EDT)
 
-> >  #ifdef CONFIG_XFRM_SUB_POLICY
-> >  	pol = xfrm_policy_lookup_bytype(XFRM_POLICY_TYPE_SUB, fl, family, dir);
-> > -	if (pol)
-> > +	if (IS_ERR(pol)) {
-> > +		err = PTR_ERR(pol);
-> > +		pol = NULL;
-> > +	}
-> > +	if (pol || err)
-> >  		goto end;
+> On Tue, 3 Oct 2006, David Miller wrote:
 > 
-> Similarly, if the sub-policy lookup returns -EACCESS, should we then try a 
-> main policy lookup before failing?
+> > The socket policy behavior deserves some scrutiny.  I say this because
+> > if a matching socket policy is avoided due to security layer error,
+> > this could potentially make key manager problems very hard to
+> > diagnose.
+> 
+> In this case, AVC denial messages would be logged to the audit log, so 
+> there'd be an indication of what's going wrong.
 
-We're trying to fill the flow cache here.  In the case where we'd
-have a match in both the sub-policy and main table, I think the
-sub-policy is supposed to take precedence, and if you fail to get
-this sub-policy you should fail the entire lookup.
-
-The way the sub-policied entries work is that you find the sub-policy
-as the primary object in the flow cache, and once you notice you have
-a sub-policy you do an explicit lookup in the main table to put the
-whole thing together.
+Ok.
