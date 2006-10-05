@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix for IPsec leakage with SELinux enabled - V.02
-Date: Thu, 05 Oct 2006 14:04:31 -0700 (PDT)
-Message-ID: <20061005.140431.75431182.davem@davemloft.net>
-References: <Pine.LNX.4.64.0610021020390.9909@d.namei>
-	<20061003.161807.18306641.davem@davemloft.net>
-	<Pine.LNX.4.64.0610051657270.25705@d.namei>
+Subject: Re: [PATCH 0/3] Fix for IPsec leakage with SELinux enabled - V.03
+Date: Thu, 05 Oct 2006 14:05:05 -0700 (PDT)
+Message-ID: <20061005.140505.21926017.davem@davemloft.net>
+References: <45256E25.6020201@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov,
-	vyekkirala@TrustedCS.com, paul.moore@hp.com
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov, eparis@redhat.com, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63402
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65450
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751343AbWJEVEa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Oct 2006 17:04:30 -0400
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0610051657270.25705@d.namei>
+	id S1751352AbWJEVFE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 17:05:04 -0400
+To: vyekkirala@trustedcs.com
+In-Reply-To: <45256E25.6020201@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Thu, 5 Oct 2006 16:58:31 -0400 (EDT)
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Date: Thu, 05 Oct 2006 15:42:13 -0500
 
-> On Tue, 3 Oct 2006, David Miller wrote:
-> 
-> > The socket policy behavior deserves some scrutiny.  I say this because
-> > if a matching socket policy is avoided due to security layer error,
-> > this could potentially make key manager problems very hard to
-> > diagnose.
-> 
-> In this case, AVC denial messages would be logged to the audit log, so 
-> there'd be an indication of what's going wrong.
+> This version takes into account David Miller's comments
+> regarding treatment of security layer errors in the case
+> of socket policies. Specifically, these errors will be
+> treated like how these kind of errors are treated for
+> the main/sub policies, which is to return a full lookup
+> failure.
 
-Ok.
+I only have patches "1" and "3" in my inbox, did you forget
+to send the second one out or are they simply misnumbered?
