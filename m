@@ -1,34 +1,37 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64 II
-Date: Fri, 6 Oct 2006 01:35:56 +0200
-Message-ID: <200610060135.56134.ak@suse.de>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200610060114.03466.ak@suse.de> <1160091179.5664.17.camel@keithlap>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 3/3] Fix for IPsec leakage with SELinux enabled - V.03:
+ Process security errors for scket policies also
+Date: Thu, 5 Oct 2006 19:53:56 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610051947200.27547@d.namei>
+References: <45256E3B.7070508@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: mel gorman <mel@csn.ul.ie>, Vivek goyal <vgoyal@in.ibm.com>,
-	Steve Fox <drfickle@us.ibm.com>,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	Andrew Morton <akpm@osdl.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Andy Whitcroft <apw@shadowen.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
+	eparis@redhat.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:28578 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751468AbWJEXii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 19:38:38 -0400
-To: kmannth@us.ibm.com
-In-Reply-To: <1160091179.5664.17.camel@keithlap>
-Content-Disposition: inline
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:917 "EHLO
+	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751524AbWJEXx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 19:53:58 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <45256E3B.7070508@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+For future patches, please follow the recommended subject line outlined in 
+http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
 
-> As of yet I haven't been able to recreate the hang.  I am running
-> similar HW to Steve. 
+e.g.  "[patch 2/5] ext2: improve scalability of bitmap searching"
 
-That was on a 4 core Opteron with Tyan board  (S2881) and AMD-8111 
-chipset.
 
--Andi
+Also, can you please try and figure out how to get outlook to stop 
+breaking threads or switch to Thunderbird or something?  It's very 
+difficult with hundreds of emails in a discussion, many of which are 
+important patches to dig out.  Also, some kernel developers filter posts 
+from mailers which break threads.
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
