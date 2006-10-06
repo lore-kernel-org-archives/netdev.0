@@ -1,36 +1,31 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
-Date: Fri, 6 Oct 2006 08:57:22 +0200
-Message-ID: <20061006065722.GA2084@ff.dom.local>
-References: <4505DD51.5090000@garzik.org> <20060914082532.GA2513@ff.dom.local> <20060914082930.GB2513@ff.dom.local> <20061005135219.1c6d6b05.rdunlap@xenotime.net> <20061006055732.GA1743@ff.dom.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Latest fixes to bcm43xx-d80211 now available as patch to 2.6.18
+Date: Fri, 06 Oct 2006 10:30:26 +0200
+Message-ID: <1160123426.2715.12.camel@ux156>
+References: <45259659.9040804@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bcm43xx-dev@lists.berlios.de, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.go2.pl ([193.17.41.41]:52418 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S932637AbWJFGwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 02:52:54 -0400
-To: Randy Dunlap <rdunlap@xenotime.net>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061006055732.GA1743@ff.dom.local>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:51384 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751271AbWJFI3x
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 04:29:53 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <45259659.9040804@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 06, 2006 at 07:57:32AM +0200, Jarek Poplawski wrote:
-> On Thu, Oct 05, 2006 at 01:52:19PM -0700, Randy Dunlap wrote:
-...
-> > see http://mbligh.org/linuxdocs/Email/Clients/Thunderbird
-...
+On Thu, 2006-10-05 at 18:33 -0500, Larry Finger wrote:
 
-dangerous feature of Thunderbird - you never could be sure
-> how a message will look because it is reformated
-> after send command. So it isn't "you send what you see"
-> definitely (I mean text messages here). 
+> The patch file contains Michael Buesch's changes of 05-Oct-2006. This
+> version can use either V3 or V4 firmware. It has been compiled and
+> tested on my system.
 
-I see from this link it was told in the discussion,
-so I'll only add that with a feature like this even
-if you do everything correctly you are never sure.
-You always have to trust yourself you didn't miss
-any step. 
+Note that there seem to be some problems with v4 firmware, I had the
+machine hang at about 20% si/hi load with v4, maybe some interrupt the
+v4 firmware keeps triggering and we never handle the condition or
+something... I'll keep digging.
 
-Jarek P.
+johannes
