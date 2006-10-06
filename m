@@ -1,56 +1,37 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.19-rc1 regression: airo suspend fails
-Date: Fri, 6 Oct 2006 20:47:07 +0200
-Message-ID: <20061006184706.GR16812@stusta.de>
-References: <Pine.LNX.4.64.0610042017340.3952@g5.osdl.org> <871wpmoyjv.fsf@sycorax.lbl.gov>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
+Date: Fri, 06 Oct 2006 14:50:59 -0400
+Message-ID: <4526A593.6080804@garzik.org>
+References: <11601583542790-git-send-email-matthew@wil.cx> <4526A2ED.6030406@garzik.org> <20061006184517.GL2563@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	netdev@vger.kernel.org, pavel@suse.cz, linux-pm@osdl.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Val Henson <val_henson@linux.intel.com>, netdev@vger.kernel.org,
+	Helge Deller <deller@parisc-linux.org>,
+	Kyle McMartin <kyle@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:16649 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1422838AbWJFSrK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 14:47:10 -0400
-To: Alex Romosan <romosan@sycorax.lbl.gov>
-Content-Disposition: inline
-In-Reply-To: <871wpmoyjv.fsf@sycorax.lbl.gov>
+Received: from srv5.dvmed.net ([207.36.208.214]:47782 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1422837AbWJFSvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 14:51:03 -0400
+To: Matthew Wilcox <matthew@wil.cx>
+In-Reply-To: <20061006184517.GL2563@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 05, 2006 at 09:31:16PM -0700, Alex Romosan wrote:
-> Linus Torvalds <torvalds@osdl.org> writes:
+Matthew Wilcox wrote:
+> On Fri, Oct 06, 2006 at 02:39:41PM -0400, Jeff Garzik wrote:
+>> I'm a bit blind, so help me out here...  what precisely is mismatched?
+>>
+>> AFAICS everything is properly marked __init or __exit.
 > 
-> > so please give it a good testing, and let's see if there are any 
-> > regressions.
-> 
-> it breaks suspend when the airo module is loaded:
-> 
-> kernel: Stopping tasks: =================================================================================
-> kernel:  stopping tasks timed out after 20 seconds (1 tasks remaining):
-> kernel:   eth1
-> kernel: Restarting tasks...<6> Strange, eth1 not stopped
-> 
-> if i remove the airo module suspend works normally (this is on a
-> thinkpad t40).
+> Wasn't my patch, but the markings are now consistent with tulip_core at least.
 
-Thanks for your report.
+That's a totally separate driver :)
 
-Let's try to figure out what broke it.
+These section mismatch warnings occasionally stump me, and this is one 
+of them.  I don't want to ACK it until I know _why_ it is needed...
 
-As a first step, please replace drivers/net/wireless/airo.c with the 
-version in 2.6.18 and check whether this fixes the issue (you can ignore 
-the deprecated warning during compilation).
+	Jeff
 
-> --alex--
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
