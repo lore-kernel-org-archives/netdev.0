@@ -1,56 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
-Date: Thu, 5 Oct 2006 23:43:10 -0700
-Message-ID: <20061005234310.6c8042b5.akpm@osdl.org>
-References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] fix for system lockups in 2.6.18-rcX caused by bcm43xx
+Date: Fri, 6 Oct 2006 08:57:22 +0200
+Message-ID: <20061006065722.GA2084@ff.dom.local>
+References: <4505DD51.5090000@garzik.org> <20060914082532.GA2513@ff.dom.local> <20060914082930.GB2513@ff.dom.local> <20061005135219.1c6d6b05.rdunlap@xenotime.net> <20061006055732.GA1743@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:54456 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932636AbWJFGnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 02:43:24 -0400
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-In-Reply-To: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
+Received: from mx.go2.pl ([193.17.41.41]:52418 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932637AbWJFGwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 02:52:54 -0400
+To: Randy Dunlap <rdunlap@xenotime.net>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20061006055732.GA1743@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Oct 2006 16:18:35 +0100 (BST)
-"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
+On Fri, Oct 06, 2006 at 07:57:32AM +0200, Jarek Poplawski wrote:
+> On Thu, Oct 05, 2006 at 01:52:19PM -0700, Randy Dunlap wrote:
+...
+> > see http://mbligh.org/linuxdocs/Email/Clients/Thunderbird
+...
 
-> 
-> 2. The driver uses schedule_work() for handling interrupts, but does not 
->    make sure any pending work scheduled thus has been completed before 
->    driver's structures get freed from memory.  This is especially 
->    important as interrupts may keep arriving if the line is shared with 
->    another PHY.
-> 
->    The solution is to ignore phy_interrupt() calls if the reported device 
->    has already been halted and calling flush_scheduled_work() from 
->    phy_stop_interrupts() (but guarded with current_is_keventd() in case 
->    the function has been called through keventd from the MAC device's 
->    close call to avoid a deadlock on the netlink lock).
-> 
+dangerous feature of Thunderbird - you never could be sure
+> how a message will look because it is reformated
+> after send command. So it isn't "you send what you see"
+> definitely (I mean text messages here). 
 
-eww, hack.
+I see from this link it was told in the discussion,
+so I'll only add that with a feature like this even
+if you do everything correctly you are never sure.
+You always have to trust yourself you didn't miss
+any step. 
 
-Also not module-friendly:
-
-WARNING: "current_is_keventd" [drivers/net/phy/libphy.ko] undefined!
-
-Does this
-
-static void flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
-{
-	if (cwq->thread == current) {
-		/*
-		 * Probably keventd trying to flush its own queue. So simply run
-		 * it by hand rather than deadlocking.
-		 */
-		run_workqueue(cwq);
-
-not work???
+Jarek P.
