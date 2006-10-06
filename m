@@ -1,32 +1,26 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 02/02] net/ipv6: seperate sit driver to extra module
- (addrconf.c changes)
-Date: Fri, 06 Oct 2006 22:00:45 +0900 (JST)
-Message-ID: <20061006.220045.89792760.yoshfuji@linux-ipv6.org>
-References: <20061006093927.GB12460@zlug.org>
+From: "Yana K." <adm@7floor.ru>
+Subject: Re[1]: Greeting !
+Date: Fri, 06 Oct 2006 16:25:31 +0300
+Message-ID: <000001c6e94a$e0806380$ec23000a@fkFTA>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:49935 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932072AbWJFM6V
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 08:58:21 -0400
-To: joro-lkml@zlug.org
-In-Reply-To: <20061006093927.GB12460@zlug.org>
+Received: from 201-43-203-181.dsl.telesp.net.br ([201.43.203.181]:30469 "EHLO
+	201-43-203-181.dsl.telesp.net.br") by vger.kernel.org with ESMTP
+	id S1422654AbWJFNYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 09:24:42 -0400
+To: "linux-msdos" <linux-msdos@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20061006093927.GB12460@zlug.org> (at Fri, 6 Oct 2006 11:39:27 +0200), Joerg Roedel <joro-lkml@zlug.org> says:
+Hi=85=09
 
-> This patch contains the changes to net/ipv6/addrconf.c to remove sit
-> specific code if the sit driver is not selected.
-> 
-> Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
+If you feel sad and lonely, go to my <a>page</a> and let's start chatti=
+ng :)
+http://youisnotalone.com/mydarling
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+ta-ta....
+Yana K.
 
---yoshfuji
+
