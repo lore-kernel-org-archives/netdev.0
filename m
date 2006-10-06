@@ -1,117 +1,74 @@
-From: mel@skynet.ie (Mel Gorman)
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Fri, 6 Oct 2006 18:11:05 +0100
-Message-ID: <20061006171105.GC9881@skynet.ie>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052105.00359.ak@suse.de> <1160080954.29690.44.camel@flooterbu> <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com>
+From: "Joseph S. Myers" <joseph@codesourcery.com>
+Subject: Kernel header changes break glibc build
+Date: Fri, 6 Oct 2006 17:20:07 +0000 (UTC)
+Message-ID: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Steve Fox <drfickle@us.ibm.com>, Andi Kleen <ak@suse.de>,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	Andrew Morton <akpm@osdl.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Woodhouse <dwmw2@infradead.org>, libc-alpha@sourceware.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from calculon.skynet.ie ([193.1.99.88]:40135 "EHLO
-	calculon.skynet.ie") by vger.kernel.org with ESMTP id S1422760AbWJFRLI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 13:11:08 -0400
-To: Vivek Goyal <vgoyal@in.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20061006153629.GA19756@in.ibm.com>
+Received: from mail.codesourcery.com ([65.74.133.4]:41606 "EHLO
+	mail.codesourcery.com") by vger.kernel.org with ESMTP
+	id S1422765AbWJFRUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 13:20:09 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On (06/10/06 11:36), Vivek Goyal didst pronounce:
-> On Fri, Oct 06, 2006 at 03:33:12PM +0100, Mel Gorman wrote:
-> > > Linux version 2.6.18-git22 (root@elm3b239) (gcc version 4.1.0 (SUSE Linux)) #2 SMP Thu Oct 5 19:05:36 PDT 2006
-> > > Command line: root=/dev/sda1 vga=791  ip=9.47.67.239:9.47.67.50:9.47.67.1:255.255.255.0 resume=/dev/sdb1 showopts earlyprintk=serial,ttyS0,57600 console=tty0 console=ttyS0,57600 autobench_args: root=/dev/sda1 ABAT:1160100417
-> > > BIOS-provided physical RAM map:
-> > >  BIOS-e820: 0000000000000000 - 000000000009ac00 (usable)
-> > >  BIOS-e820: 000000000009ac00 - 00000000000a0000 (reserved)
-> > >  BIOS-e820: 00000000000e0000 - 0000000000100000 (reserved)
-> > >  BIOS-e820: 0000000000100000 - 00000000bff764c0 (usable)
-> > >  BIOS-e820: 00000000bff764c0 - 00000000bff98880 (ACPI data)
-> > >  BIOS-e820: 00000000bff98880 - 00000000c0000000 (reserved)
-> > >  BIOS-e820: 00000000fec00000 - 0000000100000000 (reserved)
-> > >  BIOS-e820: 0000000100000000 - 0000000c00000000 (usable)
-> > 
-> > I continued what Steve was doing this morning to see could this be
-> > pinned down. After placing 'CHECK;' in a few places as suggested by
-> > Andi's check, the problem code was identified as that following in
-> > mm/bootmem.c#init_bootmem_core()
-> > 
-> >         mapsize = get_mapsize(bdata);
-> >         memset(bdata->node_bootmem_map, 0xff, mapsize);
-> > 
-> > That explains the value in the array at least. A few more printfs around
-> > this point printed out the following in the boot log
-> > 
-> > init_bootmem_core(0, 1909, 0, 12582912)
-> > init_bootmem_core: Calling memset(0xFFFF810000775000, 1572864)
-> > AAGH: afinfo corrupted at mm/bootmem.c:121
-> > 
-> > where;
-> > 
-> > 1909 == mapstart
-> > 0 == start
-> > 12582912 == end
-> > 1572864 == mapsize
-> > 
-> > mapstart, start and end being the parameters being passed to
-> > init_bootmem_core(). This means we are calling memset for the physical
-> > range 0x775000 -> 0x8F5000 which is in a usable range according to the
-> > BIOS-e820 map it appears.
-> > 
-> 
-> Hi Mel,
-> 
+The kernel headers installed by Linux 2.6.19-rc1 "make
+headers_install" do not work for building glibc, because glibc expects
+<linux/rtnetlink.h> to provide various definitions, some of which have
+been moved to <linux/if_addr.h> and some of which have been removed
+altogether.
 
-Hi.
+This kernel patch allows glibc to build again by making rtnetlink.h
+include if_addr.h and adding back the removed definitions required by
+glibc, but I don't know if it's the correct approach or if glibc
+should change the headers it includes and add its own macro
+definitions.
 
-> Where is bss placed in physical memory? I guess bss_start and bss_stop
-> from System.map will tell us. That will confirm that above memset step is
-> stomping over bss. Then we have to just find that somewhere probably
-> we allocated wrong physical memory area for bootmem allocator map.
-> 
-
-BSS is at 0x643000 -> 0x777BC4
-init_bootmem wipes from 0x777000 -> 0x8F7000
-
-So the BSS bytes from 0x777000 ->0x777BC4 (which looks very suspiciously
-pile a page alignment of addr & PAGE_MASK) gets set to 0xFF. One possible
-fix is below. It adds a check in bad_addr() to see if the BSS section is
-about to be used for bootmap. It Seems To Work For Me (tm) and illustrates
-the source of the problem even if it's not the 100% correct fix.
-
-diff -rup -X /usr/src/patchset-0.6/bin//dontdiff linux-2.6.18-git22-clean/arch/x86_64/kernel/e820.c linux-2.6.18-git22-bss_relocate_fix/arch/x86_64/kernel/e820.c
---- linux-2.6.18-git22-clean/arch/x86_64/kernel/e820.c	2006-10-05 20:42:07.000000000 +0100
-+++ linux-2.6.18-git22-bss_relocate_fix/arch/x86_64/kernel/e820.c	2006-10-06 17:39:51.000000000 +0100
-@@ -51,6 +51,7 @@ extern struct resource code_resource, da
- static inline int bad_addr(unsigned long *addrp, unsigned long size)
- { 
- 	unsigned long addr = *addrp, last = addr + size; 
-+	unsigned long bss_start, bss_end;
+Signed-off-by: Joseph Myers <joseph@codesourcery.com>
+---
+Index: include/linux/rtnetlink.h
+===================================================================
+--- include/linux/rtnetlink.h
++++ include/linux/rtnetlink.h
+@@ -2,6 +2,7 @@
+ #define __LINUX_RTNETLINK_H
  
- 	/* various gunk below that needed for SMP startup */
- 	if (addr < 0x8000) { 
-@@ -77,6 +78,14 @@ static inline int bad_addr(unsigned long
- 		*addrp = __pa_symbol(&_end);
- 		return 1;
- 	}
-+	
-+	/* bss section */
-+	bss_start = __pa_symbol(&__bss_start);
-+	bss_end = PAGE_ALIGN(__pa_symbol(&__bss_stop));
-+	if (addr >= bss_start && addr < bss_end) {
-+		*addrp = bss_end;
-+		return 1;
-+	}
+ #include <linux/netlink.h>
++#include <linux/if_addr.h>
+ #include <linux/if_link.h>
  
- 	if (last >= ebda_addr && addr < ebda_addr + ebda_size) {
- 		*addrp = ebda_addr + ebda_size;
+ /****
+Index: include/linux/if_link.h
+===================================================================
+--- include/linux/if_link.h
++++ include/linux/if_link.h
+@@ -82,6 +82,9 @@
+ 
+ #define IFLA_MAX (__IFLA_MAX - 1)
+ 
++#define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
++#define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
++
+ /* ifi_flags.
+ 
+    IFF_* flags.
+Index: include/linux/if_addr.h
+===================================================================
+--- include/linux/if_addr.h
++++ include/linux/if_addr.h
+@@ -52,4 +52,7 @@
+ 	__u32	tstamp; /* updated timestamp, hundredths of seconds */
+ };
+ 
++#define IFA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
++#define IFA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
++
+ #endif
+
+
 
 -- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+Joseph S. Myers
+joseph@codesourcery.com
