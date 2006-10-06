@@ -1,136 +1,79 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: [PATCH 02/02] net/ipv6: seperate sit driver to extra module (addrconf.c changes)
-Date: Fri, 6 Oct 2006 11:39:27 +0200
-Message-ID: <20061006093927.GB12460@zlug.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] cfg80211 and nl80211
+Date: Fri, 06 Oct 2006 11:41:34 +0200
+Message-ID: <1160127694.2715.51.camel@ux156>
+References: <1159435399.2648.17.camel@ux156>
+	 <1159805711.2834.67.camel@localhost.localdomain>
+	 <1159947674.2817.19.camel@ux156> <1159971561.2817.87.camel@ux156>
+	 <1159984658.3287.98.camel@localhost.localdomain>
+	 <20061005162006.GC17517@instant802.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="7iMSBzlTiPOCCT2k"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, netdev <netdev@vger.kernel.org>,
+	Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:2936 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1751382AbWJFJj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 05:39:29 -0400
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:64491 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751391AbWJFJkw
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 05:40:52 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20061005162006.GC17517@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Let me try to summarise this... probably wrong :)
 
---7iMSBzlTiPOCCT2k
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> 1.5 KB sounds like a small scan result set to me.. I'm hitting 100+
+> BSSes at work (well, not really your normal environment ;-), and 50 at
+> home.. These go way beyond 1.5 KB; closer to 32 KB at times, I'd guess.
 
-This patch contains the changes to net/ipv6/addrconf.c to remove sit
-specific code if the sit driver is not selected.
+Ok this is easy, we need huge results and thus can't reasonably push
+them out on each change... Maybe some sequence number thingie could be
+used? I'd like to have a .dumpit call with genl to actually dump all the
+scan results to userspace, maybe that message could be multicast to
+interested stations if someone requests one? No idea... Thomas?
 
-Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
+As for the auth/crypto/key mgmt issue... It looks like these three are
+basically orthogonal. If I understand correctly, you need to be able to
+ * set a key including algorithm for the possible
+     - key indexes 0,1,2,3
+     - a STA identified by MAC address
+     (and the key is identified by these uniquely)
+   This includes
+     - algorithm (none to clear, wep, tkip, ccmp, ...)
+     - key material
+     - TSC/SN (only valid for some algorithms)
+     (key material length is used to decide between wep types, and some
+     attributes may be left off, e.g. to change the tsc/sn without
+     changing the key material or algorithm)
+ * set transmit key index (STA only?)
+ * set multicast/broadcast key index
+ * dot11ExcludeUnecrypted (default true)
+ * authentication mode, including
+     - allowed algorithms (open, shared-key, ...)
+     - key index of key to use
+     - preference of use? That would make the allowed algorithms a list
+       instead of a bitfield
+ * set IE(s) (only some cards)
+ * set allowed cipher suites for RSN/WPA IE generation (only some cards)
+   [do we need to be able to distinguish between these or is it fine to
+   just try both and get an error for one?]
+ * a way to get the device's capabilities (per-net_device)
+    - crypto algorithms
+    - auth algorithms
+    - ...?
 
---7iMSBzlTiPOCCT2k
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=patch_sit_as_module_addrconf
+Does that sound right? (throw in get versions for most of these, of
+course)
 
-diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/addrconf.c linux-2.6.18/net/ipv6/addrconf.c
---- linux-2.6.18-vanilla/net/ipv6/addrconf.c	2006-09-20 05:42:06.000000000 +0200
-+++ linux-2.6.18/net/ipv6/addrconf.c	2006-10-06 11:04:04.000000000 +0200
-@@ -389,8 +389,10 @@ static struct inet6_dev * ipv6_add_dev(s
- 	ndev->regen_timer.data = (unsigned long) ndev;
- 	if ((dev->flags&IFF_LOOPBACK) ||
- 	    dev->type == ARPHRD_TUNNEL ||
--	    dev->type == ARPHRD_NONE ||
--	    dev->type == ARPHRD_SIT) {
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
-+	    dev->type == ARPHRD_SIT ||
-+#endif
-+	    dev->type == ARPHRD_NONE) {
- 		printk(KERN_INFO
- 		       "%s: Disabled Privacy Extensions\n",
- 		       dev->name);
-@@ -1522,8 +1524,10 @@ addrconf_prefix_route(struct in6_addr *p
- 	   This thing is done here expecting that the whole
- 	   class of non-broadcast devices need not cloning.
- 	 */
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- 	if (dev->type == ARPHRD_SIT && (dev->flags&IFF_POINTOPOINT))
- 		rtmsg.rtmsg_flags |= RTF_NONEXTHOP;
-+#endif
- 
- 	ip6_route_add(&rtmsg, NULL, NULL, NULL);
- }
-@@ -1545,6 +1549,7 @@ static void addrconf_add_mroute(struct n
- 	ip6_route_add(&rtmsg, NULL, NULL, NULL);
- }
- 
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- static void sit_route_add(struct net_device *dev)
- {
- 	struct in6_rtmsg rtmsg;
-@@ -1561,6 +1566,7 @@ static void sit_route_add(struct net_dev
- 
- 	ip6_route_add(&rtmsg, NULL, NULL, NULL);
- }
-+#endif
- 
- static void addrconf_add_lroute(struct net_device *dev)
- {
-@@ -1831,6 +1837,7 @@ int addrconf_set_dstaddr(void __user *ar
- 	if (dev == NULL)
- 		goto err_exit;
- 
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- 	if (dev->type == ARPHRD_SIT) {
- 		struct ifreq ifr;
- 		mm_segment_t	oldfs;
-@@ -1860,6 +1867,7 @@ int addrconf_set_dstaddr(void __user *ar
- 			err = dev_open(dev);
- 		}
- 	}
-+#endif
- 
- err_exit:
- 	rtnl_unlock();
-@@ -1993,6 +2001,7 @@ int addrconf_del_ifaddr(void __user *arg
- 	return err;
- }
- 
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- static void sit_add_v4_addrs(struct inet6_dev *idev)
- {
- 	struct inet6_ifaddr * ifp;
-@@ -2061,6 +2070,7 @@ static void sit_add_v4_addrs(struct inet
- 		}
-         }
- }
-+#endif
- 
- static void init_loopback(struct net_device *dev)
- {
-@@ -2124,6 +2134,7 @@ static void addrconf_dev_config(struct n
- 		addrconf_add_linklocal(idev, &addr);
- }
- 
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- static void addrconf_sit_config(struct net_device *dev)
- {
- 	struct inet6_dev *idev;
-@@ -2149,6 +2160,7 @@ static void addrconf_sit_config(struct n
- 	} else
- 		sit_route_add(dev);
- }
-+#endif
- 
- static inline int
- ipv6_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_dev)
-@@ -2243,9 +2255,11 @@ static int addrconf_notify(struct notifi
- 		}
- 
- 		switch(dev->type) {
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- 		case ARPHRD_SIT:
- 			addrconf_sit_config(dev);
- 			break;
-+#endif
- 		case ARPHRD_TUNNEL6:
- 			addrconf_ip6_tnl_config(dev);
- 			break;
+Open issues:
+ * associating a key index with a mac address for unicast wep key?
 
---7iMSBzlTiPOCCT2k--
+Hmm. That's at least 8 operations that WE sticks into 3. No wonder no
+one understands it...
+
+johannes
