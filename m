@@ -1,111 +1,75 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATCH 01/02] net/ipv6: seperate sit driver to extra module
-Date: Fri, 6 Oct 2006 17:15:56 +0200
-Message-ID: <20061006151556.GA15637@zlug.org>
-References: <20061006093402.GA12460@zlug.org> <20061006.215935.92667295.yoshfuji@linux-ipv6.org>
+From: Vivek Goyal <vgoyal@in.ibm.com>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Fri, 6 Oct 2006 11:36:29 -0400
+Message-ID: <20061006153629.GA19756@in.ibm.com>
+References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052105.00359.ak@suse.de> <1160080954.29690.44.camel@flooterbu> <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie>
+Reply-To: vgoyal@in.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="n8g4imXOkfNTN/H1"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Fox <drfickle@us.ibm.com>, Andi Kleen <ak@suse.de>,
+	Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>,
+	Andrew Morton <akpm@osdl.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:9398 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1751429AbWJFPP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 11:15:58 -0400
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:49794 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751355AbWJFPh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 11:37:58 -0400
+To: Mel Gorman <mel@skynet.ie>
 Content-Disposition: inline
-In-Reply-To: <20061006.215935.92667295.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061006143312.GB9881@skynet.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Oct 06, 2006 at 03:33:12PM +0100, Mel Gorman wrote:
+> > Linux version 2.6.18-git22 (root@elm3b239) (gcc version 4.1.0 (SUSE Linux)) #2 SMP Thu Oct 5 19:05:36 PDT 2006
+> > Command line: root=/dev/sda1 vga=791  ip=9.47.67.239:9.47.67.50:9.47.67.1:255.255.255.0 resume=/dev/sdb1 showopts earlyprintk=serial,ttyS0,57600 console=tty0 console=ttyS0,57600 autobench_args: root=/dev/sda1 ABAT:1160100417
+> > BIOS-provided physical RAM map:
+> >  BIOS-e820: 0000000000000000 - 000000000009ac00 (usable)
+> >  BIOS-e820: 000000000009ac00 - 00000000000a0000 (reserved)
+> >  BIOS-e820: 00000000000e0000 - 0000000000100000 (reserved)
+> >  BIOS-e820: 0000000000100000 - 00000000bff764c0 (usable)
+> >  BIOS-e820: 00000000bff764c0 - 00000000bff98880 (ACPI data)
+> >  BIOS-e820: 00000000bff98880 - 00000000c0000000 (reserved)
+> >  BIOS-e820: 00000000fec00000 - 0000000100000000 (reserved)
+> >  BIOS-e820: 0000000100000000 - 0000000c00000000 (usable)
+> 
+> I continued what Steve was doing this morning to see could this be
+> pinned down. After placing 'CHECK;' in a few places as suggested by
+> Andi's check, the problem code was identified as that following in
+> mm/bootmem.c#init_bootmem_core()
+> 
+>         mapsize = get_mapsize(bdata);
+>         memset(bdata->node_bootmem_map, 0xff, mapsize);
+> 
+> That explains the value in the array at least. A few more printfs around
+> this point printed out the following in the boot log
+> 
+> init_bootmem_core(0, 1909, 0, 12582912)
+> init_bootmem_core: Calling memset(0xFFFF810000775000, 1572864)
+> AAGH: afinfo corrupted at mm/bootmem.c:121
+> 
+> where;
+> 
+> 1909 == mapstart
+> 0 == start
+> 12582912 == end
+> 1572864 == mapsize
+> 
+> mapstart, start and end being the parameters being passed to
+> init_bootmem_core(). This means we are calling memset for the physical
+> range 0x775000 -> 0x8F5000 which is in a usable range according to the
+> BIOS-e820 map it appears.
+> 
 
---n8g4imXOkfNTN/H1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi Mel,
 
-On Fri, Oct 06, 2006 at 09:59:35PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+Where is bss placed in physical memory? I guess bss_start and bss_stop
+from System.map will tell us. That will confirm that above memset step is
+stomping over bss. Then we have to just find that somewhere probably
+we allocated wrong physical memory area for bootmem allocator map.
 
-> > +         into IPv4 packets. This is usefull if you want to connect two IPv6
+Thanks
+Vivek
 
-Argh. Bad typo. I appended the fixed patch
-
-Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
-
---n8g4imXOkfNTN/H1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=patch_sit_as_module
-
-diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/af_inet6.c linux-2.6.18/net/ipv6/af_inet6.c
---- linux-2.6.18-vanilla/net/ipv6/af_inet6.c	2006-09-20 05:42:06.000000000 +0200
-+++ linux-2.6.18/net/ipv6/af_inet6.c	2006-10-05 16:55:02.000000000 +0200
-@@ -849,7 +849,6 @@ static int __init inet6_init(void)
- 	err = addrconf_init();
- 	if (err)
- 		goto addrconf_fail;
--	sit_init();
- 
- 	/* Init v6 extension headers. */
- 	ipv6_rthdr_init();
-@@ -920,7 +919,6 @@ static void __exit inet6_exit(void)
-  	raw6_proc_exit();
- #endif
- 	/* Cleanup code parts. */
--	sit_cleanup();
- 	ip6_flowlabel_cleanup();
- 	addrconf_cleanup();
- 	ip6_route_cleanup();
-diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/Kconfig linux-2.6.18/net/ipv6/Kconfig
---- linux-2.6.18-vanilla/net/ipv6/Kconfig	2006-09-20 05:42:06.000000000 +0200
-+++ linux-2.6.18/net/ipv6/Kconfig	2006-10-05 18:14:57.000000000 +0200
-@@ -126,6 +126,19 @@ config INET6_XFRM_MODE_TUNNEL
- 
- 	  If unsure, say Y.
- 
-+config IPV6_SIT
-+	tristate "IPv6: IPv6-in-IPv4 tunnel (SIT driver)"
-+	depends on IPV6
-+	default y
-+	---help---
-+	  Tunneling means encapsulating data of one protocol type within
-+	  another protocol and sending it over a channel that understands the
-+	  encapsulating protocol. This driver implements encapsulation of IPv6
-+	  into IPv4 packets. This is useful if you want to connect two IPv6
-+	  networks over an IPv4-only path.
-+
-+	  Saying M here will produce a module called sit.ko. If unsure, say N.
-+
- config IPV6_TUNNEL
- 	tristate "IPv6: IPv6-in-IPv6 tunnel"
- 	select INET6_TUNNEL
-diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/Makefile linux-2.6.18/net/ipv6/Makefile
---- linux-2.6.18-vanilla/net/ipv6/Makefile	2006-09-20 05:42:06.000000000 +0200
-+++ linux-2.6.18/net/ipv6/Makefile	2006-10-05 17:10:42.000000000 +0200
-@@ -4,7 +4,7 @@
- 
- obj-$(CONFIG_IPV6) += ipv6.o
- 
--ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o sit.o \
-+ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o raw.o \
- 		protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
- 		exthdrs.o sysctl_net_ipv6.o datagram.o proc.o \
-@@ -24,6 +24,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) 
- obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
- obj-$(CONFIG_NETFILTER)	+= netfilter/
- 
-+obj-$(CONFIG_IPV6_SIT) += sit.o
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
- 
- obj-y += exthdrs_core.o
-diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/sit.c linux-2.6.18/net/ipv6/sit.c
---- linux-2.6.18-vanilla/net/ipv6/sit.c	2006-09-20 05:42:06.000000000 +0200
-+++ linux-2.6.18/net/ipv6/sit.c	2006-10-05 16:55:02.000000000 +0200
-@@ -850,3 +850,6 @@ int __init sit_init(void)
- 	inet_del_protocol(&sit_protocol, IPPROTO_IPV6);
- 	goto out;
- }
-+
-+module_init(sit_init);
-+module_exit(sit_cleanup);
-
---n8g4imXOkfNTN/H1--
