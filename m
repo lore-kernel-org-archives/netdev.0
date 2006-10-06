@@ -1,79 +1,57 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] cfg80211 and nl80211
-Date: Fri, 06 Oct 2006 11:41:34 +0200
-Message-ID: <1160127694.2715.51.camel@ux156>
-References: <1159435399.2648.17.camel@ux156>
-	 <1159805711.2834.67.camel@localhost.localdomain>
-	 <1159947674.2817.19.camel@ux156> <1159971561.2817.87.camel@ux156>
-	 <1159984658.3287.98.camel@localhost.localdomain>
-	 <20061005162006.GC17517@instant802.com>
+Subject: Re: [RFC 1/3] cfg80211/nl80211 core
+Date: Fri, 06 Oct 2006 11:51:07 +0200
+Message-ID: <1160128267.2715.59.camel@ux156>
+References: <1158230812.2936.46.camel@ux156>
+	 <1158230963.2936.49.camel@ux156>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev <netdev@vger.kernel.org>,
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
 	Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Thomas Graf <tgraf@suug.ch>
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Mohamed Abbas <mabbas@linux.intel.com>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:64491 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751391AbWJFJkw
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35503 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750993AbWJFJuW
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 05:40:52 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20061005162006.GC17517@instant802.com>
+	Fri, 6 Oct 2006 05:50:22 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <1158230963.2936.49.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Let me try to summarise this... probably wrong :)
+On Thu, 2006-09-14 at 12:49 +0200, Johannes Berg wrote:
 
-> 1.5 KB sounds like a small scan result set to me.. I'm hitting 100+
-> BSSes at work (well, not really your normal environment ;-), and 50 at
-> home.. These go way beyond 1.5 KB; closer to 32 KB at times, I'd guess.
+> +struct cfg80211_registered_driver *
+> +cfg80211_get_drv_from_ifindex(int ifindex)
+> +{
+> +	struct cfg80211_registered_driver *drv;
+> +	struct net_device *dev;
+> +
+> +	mutex_lock(&cfg80211_drv_mutex);
+> +	dev = dev_get_by_index(ifindex);
+> +	if (!dev)
+> +		return ERR_PTR(-ENODEV);
+> +	drv = cfg80211_drv_by_priv(dev->ieee80211_ptr);
+> +	if (drv)
+> +		mutex_lock(&drv->mtx);
+> +	dev_put(dev);
+> +	if (drv)
+> +		return drv;
+> +	return ERR_PTR(-ENODEV);
+> +}
 
-Ok this is easy, we need huge results and thus can't reasonably push
-them out on each change... Maybe some sequence number thingie could be
-used? I'd like to have a .dumpit call with genl to actually dump all the
-scan results to userspace, maybe that message could be multicast to
-interested stations if someone requests one? No idea... Thomas?
-
-As for the auth/crypto/key mgmt issue... It looks like these three are
-basically orthogonal. If I understand correctly, you need to be able to
- * set a key including algorithm for the possible
-     - key indexes 0,1,2,3
-     - a STA identified by MAC address
-     (and the key is identified by these uniquely)
-   This includes
-     - algorithm (none to clear, wep, tkip, ccmp, ...)
-     - key material
-     - TSC/SN (only valid for some algorithms)
-     (key material length is used to decide between wep types, and some
-     attributes may be left off, e.g. to change the tsc/sn without
-     changing the key material or algorithm)
- * set transmit key index (STA only?)
- * set multicast/broadcast key index
- * dot11ExcludeUnecrypted (default true)
- * authentication mode, including
-     - allowed algorithms (open, shared-key, ...)
-     - key index of key to use
-     - preference of use? That would make the allowed algorithms a list
-       instead of a bitfield
- * set IE(s) (only some cards)
- * set allowed cipher suites for RSN/WPA IE generation (only some cards)
-   [do we need to be able to distinguish between these or is it fine to
-   just try both and get an error for one?]
- * a way to get the device's capabilities (per-net_device)
-    - crypto algorithms
-    - auth algorithms
-    - ...?
-
-Does that sound right? (throw in get versions for most of these, of
-course)
-
-Open issues:
- * associating a key index with a mac address for unicast wep key?
-
-Hmm. That's at least 8 operations that WE sticks into 3. No wonder no
-one understands it...
+So... nobody spotted the "obvious" [1] locking problem here ;) fixed,
+will update the patches soon and upload somewhere, netdev doesn't like
+them and drops my mail (even 0/3 which wasn't that big).
 
 johannes
+
+[1] hint: drv->mtx is supposed to be left locked at the end, but
+cfg80211_drv_mutex isn't :) I found out the hard way when testing my WE
+backward compat code
+
