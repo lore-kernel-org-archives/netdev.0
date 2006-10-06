@@ -1,51 +1,38 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64 II
-Date: Thu, 5 Oct 2006 17:12:23 -0700
-Message-ID: <20061005171223.9e8fda85.akpm@osdl.org>
-References: <20060928014623.ccc9b885.akpm@osdl.org>
-	<200610060114.03466.ak@suse.de>
-	<1160091179.5664.17.camel@keithlap>
-	<200610060135.56134.ak@suse.de>
-	<1160092711.5664.19.camel@keithlap>
-	<45259D2E.3000002@us.ibm.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 1/1] NetLabel: use SECINITSID_UNLABELED for a base SID
+Date: Thu, 5 Oct 2006 21:46:06 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610052145030.29449@d.namei>
+References: <20061005222823.387569000@hp.com> <20061005223704.067757000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kmannth@us.ibm.com, Andi Kleen <ak@suse.de>,
-	mel gorman <mel@csn.ul.ie>, Vivek goyal <vgoyal@in.ibm.com>,
-	Steve Fox <drfickle@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Andy Whitcroft <apw@shadowen.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18901 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932481AbWJFANA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2006 20:13:00 -0400
-To: Badari Pulavarty <pbadari@us.ibm.com>
-In-Reply-To: <45259D2E.3000002@us.ibm.com>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:62178 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932562AbWJFBqI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Oct 2006 21:46:08 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <20061005223704.067757000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 05 Oct 2006 17:02:54 -0700
-Badari Pulavarty <pbadari@us.ibm.com> wrote:
+On Thu, 5 Oct 2006, paul.moore@hp.com wrote:
 
-> > Code: 0f 0b 48 8b 3d 15 ab 1e 00 be d0 00 00 00 e8 c0 f5 ff ff 48
-> > RIP  [<ffffffff8027f8fa>] init_list+0x1d/0xfd
-> >  RSP <ffffffff80577f48>
-> >  <0>Kernel panic - not syncing: Attempted to kill the idle task!
-> >
-> >
-> > I am going to revert the patch and see if it works.  I ran -git22 just
-> > fine. 
-> >
-> > Thanks,
-> >   Keith 
-> >
-> >   
-> Keith,
-> 
-> I fixed this already. Can you look for it on lkml (look for 2.6.18-mm3 
-> in the subject line).
-> one typo in mm/slab.c
+> This patch changes NetLabel to use SECINITSID_UNLABLELED as it's source of
+> SELinux type information when generating a NetLabel context.
 
-ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18/2.6.18-mm3/hot-fixes
+Applied.
+
+
+Git:
+git://git.infradead.org/~jmorris/selinux-2.6.git
+
+Web:
+http://git.infradead.org/?p=users/jmorris/selinux-2.6.git;a=summary
+
+
+
+
+-- 
+James Morris
+<jmorris@namei.org>
