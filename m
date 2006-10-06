@@ -1,123 +1,55 @@
-From: Vivek Goyal <vgoyal@in.ibm.com>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Fri, 6 Oct 2006 16:04:36 -0400
-Message-ID: <20061006200436.GG19756@in.ibm.com>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052105.00359.ak@suse.de> <1160080954.29690.44.camel@flooterbu> <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com> <20061006171105.GC9881@skynet.ie> <1160157830.29690.66.camel@flooterbu>
-Reply-To: vgoyal@in.ibm.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
+Date: Fri, 06 Oct 2006 16:11:25 -0400
+Message-ID: <4526B86D.2080307@garzik.org>
+References: <11601583542790-git-send-email-matthew@wil.cx> <20061006110317.0c6c1f98@freekitty> <4526AC09.4040804@garzik.org> <20061006192552.GM2563@parisc-linux.org> <4526B21E.8060408@garzik.org> <20061006195447.GQ2563@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	Andrew Morton <akpm@osdl.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Val Henson <val_henson@linux.intel.com>,
+	netdev@vger.kernel.org, Helge Deller <deller@parisc-linux.org>,
+	Kyle McMartin <kyle@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:35558 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1422912AbWJFUFQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 16:05:16 -0400
-To: Steve Fox <drfickle@us.ibm.com>, mel@skynet.ie
-Content-Disposition: inline
-In-Reply-To: <1160157830.29690.66.camel@flooterbu>
+Received: from srv5.dvmed.net ([207.36.208.214]:49577 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932563AbWJFULf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 16:11:35 -0400
+To: Matthew Wilcox <matthew@wil.cx>
+In-Reply-To: <20061006195447.GQ2563@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 06, 2006 at 01:03:50PM -0500, Steve Fox wrote:
-> On Fri, 2006-10-06 at 18:11 +0100, Mel Gorman wrote:
-> > On (06/10/06 11:36), Vivek Goyal didst pronounce:
-> > > Where is bss placed in physical memory? I guess bss_start and bss_stop
-> > > from System.map will tell us. That will confirm that above memset step is
-> > > stomping over bss. Then we have to just find that somewhere probably
-> > > we allocated wrong physical memory area for bootmem allocator map.
-> > > 
-> > 
-> > BSS is at 0x643000 -> 0x777BC4
-> > init_bootmem wipes from 0x777000 -> 0x8F7000
-> > 
-> > So the BSS bytes from 0x777000 ->0x777BC4 (which looks very suspiciously
-> > pile a page alignment of addr & PAGE_MASK) gets set to 0xFF. One possible
-> > fix is below. It adds a check in bad_addr() to see if the BSS section is
-> > about to be used for bootmap. It Seems To Work For Me (tm) and illustrates
-> > the source of the problem even if it's not the 100% correct fix.
+Matthew Wilcox wrote:
+> On Fri, Oct 06, 2006 at 03:44:30PM -0400, Jeff Garzik wrote:
+>> Matthew Wilcox wrote:
+>>> On Fri, Oct 06, 2006 at 03:18:33PM -0400, Jeff Garzik wrote:
+>>>> This device will never ever meet a platform where it can be hotplugged.
+>>> According to a FreeBSD list from 1995, you could get these chips on a PCI
+>>> card from several different vendors.
+>>>
+>> Yes, they are ancient 32-bit PCI cards, which will never make an 
+>> appearance on a PCI hotplug platform.  So, it's wasteful to support 
+>> hotplug in code that will never be hotplugged (as I've said for years).
 > 
-> I was able to boot the machine with Mel's patch applied on top of
-> -git22.
+> Sorry, you're saying that anyone who has found one of these cards and
+> wants to plug them into a hotplug slot in their shiny new server is just
+> SOL?  That makes no sense, Jeff.  We've fixed *so* many old drivers to
+> confirm to these rules, why's this one so special?  I'd understand if it
+> were only found on motherboards, but it can be found on cards.
+> 
+> Plus it silences a warning.  Isn't that enough reason of its own?
+
+Early tulips were electrically "special", so I am highly doubtful it 
+would work in any case.
+
+But overall it doesn't make sense to me to force code to exist, that we 
+know will likely never ever be needed.
+
+Whatever.  This patch comes up every year or two, so I suppose I should 
+just quit fighting and eat the needless code size increase, to silence 
+the human warnings :)
+
+	Jeff
 
 
-Please have a look at the attached patch. Does it make some sense. 
 
-Steve, can you please give this patch a try if it fixes the problem?
-
-Thanks
-Vivek
-
-
-
-
-o Currently some code pieces assume that address returned by find_e820_area()
-  are page aligned. But looks like find_e820_area() had no such intention
-  and hence one might end up stomping over some of the data. One such
-  case is bootmem allocator initialization code stomped over bss.
-
-o This patch modified find_e820_area() to return page aligned address. This
-  might be little wasteful of memory but at the same time probably it is
-  easier to handle page aligned memory. 
-
-Signed-off-by: Vivek Goyal <vgoyal@in.ibm.com>
----
-
- arch/x86_64/kernel/e820.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff -puN arch/x86_64/kernel/e820.c~x86_64-return-page-aligned-phy-addr-from-find-e820-area arch/x86_64/kernel/e820.c
---- linux-2.6.19-rc1-1M/arch/x86_64/kernel/e820.c~x86_64-return-page-aligned-phy-addr-from-find-e820-area	2006-10-06 15:28:13.000000000 -0400
-+++ linux-2.6.19-rc1-1M-root/arch/x86_64/kernel/e820.c	2006-10-06 15:44:45.000000000 -0400
-@@ -54,13 +54,13 @@ static inline int bad_addr(unsigned long
- 
- 	/* various gunk below that needed for SMP startup */
- 	if (addr < 0x8000) { 
--		*addrp = 0x8000;
-+		*addrp = PAGE_ALIGN(0x8000);
- 		return 1; 
- 	}
- 
- 	/* direct mapping tables of the kernel */
- 	if (last >= table_start<<PAGE_SHIFT && addr < table_end<<PAGE_SHIFT) { 
--		*addrp = table_end << PAGE_SHIFT; 
-+		*addrp = PAGE_ALIGN(table_end << PAGE_SHIFT);
- 		return 1;
- 	} 
- 
-@@ -68,18 +68,18 @@ static inline int bad_addr(unsigned long
- #ifdef CONFIG_BLK_DEV_INITRD
- 	if (LOADER_TYPE && INITRD_START && last >= INITRD_START && 
- 	    addr < INITRD_START+INITRD_SIZE) { 
--		*addrp = INITRD_START + INITRD_SIZE; 
-+		*addrp = PAGE_ALIGN(INITRD_START + INITRD_SIZE);
- 		return 1;
- 	} 
- #endif
- 	/* kernel code */
--	if (last >= __pa_symbol(&_text) && last < __pa_symbol(&_end)) {
--		*addrp = __pa_symbol(&_end);
-+	if (last >= __pa_symbol(&_text) && addr < __pa_symbol(&_end)) {
-+		*addrp = PAGE_ALIGN(__pa_symbol(&_end));
- 		return 1;
- 	}
- 
- 	if (last >= ebda_addr && addr < ebda_addr + ebda_size) {
--		*addrp = ebda_addr + ebda_size;
-+		*addrp = PAGE_ALIGN(ebda_addr + ebda_size);
- 		return 1;
- 	}
- 
-@@ -152,7 +152,7 @@ unsigned long __init find_e820_area(unsi
- 			continue; 
- 		while (bad_addr(&addr, size) && addr+size <= ei->addr+ei->size)
- 			;
--		last = addr + size;
-+		last = PAGE_ALIGN(addr) + size;
- 		if (last > ei->addr + ei->size)
- 			continue;
- 		if (last > end) 
-_
