@@ -1,45 +1,40 @@
-From: Samuel Tardieu <sam@rfc1149.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH 01/02] net/ipv6: seperate sit driver to extra module
-Date: 06 Oct 2006 14:24:11 +0200
-Message-ID: <87zmc9k4yc.fsf@willow.rfc1149.net>
-References: <20061006093402.GA12460@zlug.org> <87d595lln3.fsf@willow.rfc1149.net> <20061006120917.GC12460@zlug.org>
+Date: Fri, 06 Oct 2006 21:59:35 +0900 (JST)
+Message-ID: <20061006.215935.92667295.yoshfuji@linux-ipv6.org>
+References: <20061006093402.GA12460@zlug.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:11731 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1751238AbWJFMZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 08:25:53 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1GVolU-0004Q7-Nl
-	for netdev@vger.kernel.org; Fri, 06 Oct 2006 14:25:21 +0200
-Received: from zaphod.rfc1149.net ([88.191.14.223])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2006 14:25:20 +0200
-Received: from sam by zaphod.rfc1149.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2006 14:25:20 +0200
-To: netdev@vger.kernel.org
+Received: from yue.linux-ipv6.org ([203.178.140.15]:48143 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751353AbWJFM5L
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 08:57:11 -0400
+To: joro-lkml@zlug.org
+In-Reply-To: <20061006093402.GA12460@zlug.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "Joerg" == Joerg Roedel <joro-lkml@zlug.org> writes:
+In article <20061006093402.GA12460@zlug.org> (at Fri, 6 Oct 2006 11:34:02 +0200), Joerg Roedel <joro-lkml@zlug.org> says:
 
-Joerg> It is enabled per default because the users get this per
-Joerg> default when using the current IPv6 module. James Morris
-Joerg> mentioned this issue yesterday. I think setting the default to
-Joerg> N would be more consistent, but the Y is probably less painfull
-Joerg> for the users.
+> this is the submit of the patch discussed yesterday to compile the sit
+> driver as a seperate module.
+> 
+> changes to yesterday:
+> - default select changed to y in Kconfig
+> - added ifdefs to net/ipv6/addrconf.c
+>   (this part is big, to keep the patches around 100 lines the
+>    addrconf.c changes are posted in a seperate patch)
+> 
+> Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
 
-Makes sense. I proposed this because I reconfigure my kernel with
-"make oldconfig" and see new questions pop up. Maybe menuconfig and
-xconfig should proeminently highlight NEW questions from the top-level
-(by using a bold font on any item which is either new or has new
-sub-items) so that users get a clear view of what they may need to
-configure.
+> +         into IPv4 packets. This is usefull if you want to connect two IPv6
+                                       ~~~~~~~useful
 
-  Sam
--- 
-Samuel Tardieu -- sam@rfc1149.net -- http://www.rfc1149.net/
+Otherwise, it seems okay to me.
 
+--yoshfuji
