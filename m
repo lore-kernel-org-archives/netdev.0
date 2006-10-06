@@ -1,57 +1,77 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 1/3] cfg80211/nl80211 core
-Date: Fri, 06 Oct 2006 11:51:07 +0200
-Message-ID: <1160128267.2715.59.camel@ux156>
-References: <1158230812.2936.46.camel@ux156>
-	 <1158230963.2936.49.camel@ux156>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
+Date: Fri, 6 Oct 2006 12:26:22 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0610061152340.22053@blysk.ds.pg.gda.pl>
+References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
+ <20061005234310.6c8042b5.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Jean Tourrilhes <jt@hpl.hp.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Mohamed Abbas <mabbas@linux.intel.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Daniel Drake <dsd@gentoo.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35503 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750993AbWJFJuW
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 05:50:22 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <1158230963.2936.49.camel@ux156>
+Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:4613 "EHLO
+	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP
+	id S1751169AbWJFL0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 07:26:41 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061005234310.6c8042b5.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-09-14 at 12:49 +0200, Johannes Berg wrote:
+On Thu, 5 Oct 2006, Andrew Morton wrote:
 
-> +struct cfg80211_registered_driver *
-> +cfg80211_get_drv_from_ifindex(int ifindex)
-> +{
-> +	struct cfg80211_registered_driver *drv;
-> +	struct net_device *dev;
-> +
-> +	mutex_lock(&cfg80211_drv_mutex);
-> +	dev = dev_get_by_index(ifindex);
-> +	if (!dev)
-> +		return ERR_PTR(-ENODEV);
-> +	drv = cfg80211_drv_by_priv(dev->ieee80211_ptr);
-> +	if (drv)
-> +		mutex_lock(&drv->mtx);
-> +	dev_put(dev);
-> +	if (drv)
-> +		return drv;
-> +	return ERR_PTR(-ENODEV);
-> +}
+> > 2. The driver uses schedule_work() for handling interrupts, but does not 
+> >    make sure any pending work scheduled thus has been completed before 
+> >    driver's structures get freed from memory.  This is especially 
+> >    important as interrupts may keep arriving if the line is shared with 
+> >    another PHY.
+> > 
+> >    The solution is to ignore phy_interrupt() calls if the reported device 
+> >    has already been halted and calling flush_scheduled_work() from 
+> >    phy_stop_interrupts() (but guarded with current_is_keventd() in case 
+> >    the function has been called through keventd from the MAC device's 
+> >    close call to avoid a deadlock on the netlink lock).
+> > 
+> 
+> eww, hack.
+> 
+> Also not module-friendly:
+> 
+> WARNING: "current_is_keventd" [drivers/net/phy/libphy.ko] undefined!
+> 
+> Does this
+> 
+> static void flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
+> {
+> 	if (cwq->thread == current) {
+> 		/*
+> 		 * Probably keventd trying to flush its own queue. So simply run
+> 		 * it by hand rather than deadlocking.
+> 		 */
+> 		run_workqueue(cwq);
+> 
+> not work???
 
-So... nobody spotted the "obvious" [1] locking problem here ;) fixed,
-will update the patches soon and upload somewhere, netdev doesn't like
-them and drops my mail (even 0/3 which wasn't that big).
+ It does, too well even! -- in the case I am trying to take care of we are 
+run with "rtnl_mutex" held as a result of rtnl_lock() called from 
+unregister_netdev() and there is some work already in the workqueue 
+(linkwatch_event(), apparently) wanting to acquire the same lock.  Hence a 
+deadlock.  It seems problematic elsewhere as well -- see tg3.c -- but a 
+different way to deal with it has been found there.
 
-johannes
+ I am not that fond of this solution, but at least it works, unlike 
+calling flush_scheduled_work() here, which deadlocks the current CPU in my 
+system instantly.  Any suggestions as to how to do this differently?  
+Perhaps linkwatch_event() should be scheduled differently (using a 
+separate workqueue?)...  Or does dev_close() have to be called under this 
+lock from unregister_netdevice()?  Perhaps code like this would do:
 
-[1] hint: drv->mtx is supposed to be left locked at the end, but
-cfg80211_drv_mutex isn't :) I found out the hard way when testing my WE
-backward compat code
+	while (dev->flags & IFF_UP) {
+		rtnl_unlock();
+		dev_close(dev);
+		rtnl_lock();
+	}
 
+  Maciej
