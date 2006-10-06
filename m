@@ -1,48 +1,111 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: cfg80211 take 7
-Date: Fri, 06 Oct 2006 17:07:49 +0200
-Message-ID: <1160147269.2715.88.camel@ux156>
-References: <1160146790.2715.82.camel@ux156>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Subject: Re: [PATCH 01/02] net/ipv6: seperate sit driver to extra module
+Date: Fri, 6 Oct 2006 17:15:56 +0200
+Message-ID: <20061006151556.GA15637@zlug.org>
+References: <20061006093402.GA12460@zlug.org> <20061006.215935.92667295.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: multipart/mixed; boundary="n8g4imXOkfNTN/H1"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:41648 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932431AbWJFPG7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 11:06:59 -0400
-To: netdev <netdev@vger.kernel.org>
-In-Reply-To: <1160146790.2715.82.camel@ux156>
+Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:9398 "EHLO
+	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
+	id S1751429AbWJFPP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 11:15:58 -0400
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20061006.215935.92667295.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Maybe this time it'll take the announcement too?
----
-I have
- * addressed Dan's comments about naming a few things and
-   also fixed the problems he pointed out
- * moved wext from net/core/wireless.c to net/wireless/wext-old.c
- * added compat hunking for WE to cfg80211, finally completely
-   separating the userspace interface and the internal interface
- * made it possible to port drivers to cfg80211 call by call!  
- * fixed a bug with locking in core.c
 
-I have not
- * added get_scan
- * added event notification
+--n8g4imXOkfNTN/H1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Have fun. Oh, I can put this into a git tree too if you think that'd be
-useful for further collaboration. However, I'm thinking that wireless-dev
-could also be used since this doesn't really break anything, it just adds
-new code that might not be in use yet, but should be fairly good to use  
-should anyone want that.
+On Fri, Oct 06, 2006 at 09:59:35PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
 
-I guess what I'm trying to say with that is that there's no way I can finish
-this all by myself, I also need sleep sometimes ;) I thank everyone for
-their review and suppose that more people read it than commented (which is
-probably a good thing). Hopefully I can motivate you with these patches that
-should ease migration to actually help with code as well :)
+> > +         into IPv4 packets. This is usefull if you want to connect two IPv6
 
-johannes
+Argh. Bad typo. I appended the fixed patch
+
+Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
+
+--n8g4imXOkfNTN/H1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=patch_sit_as_module
+
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/af_inet6.c linux-2.6.18/net/ipv6/af_inet6.c
+--- linux-2.6.18-vanilla/net/ipv6/af_inet6.c	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/af_inet6.c	2006-10-05 16:55:02.000000000 +0200
+@@ -849,7 +849,6 @@ static int __init inet6_init(void)
+ 	err = addrconf_init();
+ 	if (err)
+ 		goto addrconf_fail;
+-	sit_init();
+ 
+ 	/* Init v6 extension headers. */
+ 	ipv6_rthdr_init();
+@@ -920,7 +919,6 @@ static void __exit inet6_exit(void)
+  	raw6_proc_exit();
+ #endif
+ 	/* Cleanup code parts. */
+-	sit_cleanup();
+ 	ip6_flowlabel_cleanup();
+ 	addrconf_cleanup();
+ 	ip6_route_cleanup();
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/Kconfig linux-2.6.18/net/ipv6/Kconfig
+--- linux-2.6.18-vanilla/net/ipv6/Kconfig	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/Kconfig	2006-10-05 18:14:57.000000000 +0200
+@@ -126,6 +126,19 @@ config INET6_XFRM_MODE_TUNNEL
+ 
+ 	  If unsure, say Y.
+ 
++config IPV6_SIT
++	tristate "IPv6: IPv6-in-IPv4 tunnel (SIT driver)"
++	depends on IPV6
++	default y
++	---help---
++	  Tunneling means encapsulating data of one protocol type within
++	  another protocol and sending it over a channel that understands the
++	  encapsulating protocol. This driver implements encapsulation of IPv6
++	  into IPv4 packets. This is useful if you want to connect two IPv6
++	  networks over an IPv4-only path.
++
++	  Saying M here will produce a module called sit.ko. If unsure, say N.
++
+ config IPV6_TUNNEL
+ 	tristate "IPv6: IPv6-in-IPv6 tunnel"
+ 	select INET6_TUNNEL
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/Makefile linux-2.6.18/net/ipv6/Makefile
+--- linux-2.6.18-vanilla/net/ipv6/Makefile	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/Makefile	2006-10-05 17:10:42.000000000 +0200
+@@ -4,7 +4,7 @@
+ 
+ obj-$(CONFIG_IPV6) += ipv6.o
+ 
+-ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o sit.o \
++ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
+ 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o raw.o \
+ 		protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
+ 		exthdrs.o sysctl_net_ipv6.o datagram.o proc.o \
+@@ -24,6 +24,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) 
+ obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
+ obj-$(CONFIG_NETFILTER)	+= netfilter/
+ 
++obj-$(CONFIG_IPV6_SIT) += sit.o
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+ 
+ obj-y += exthdrs_core.o
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/sit.c linux-2.6.18/net/ipv6/sit.c
+--- linux-2.6.18-vanilla/net/ipv6/sit.c	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/sit.c	2006-10-05 16:55:02.000000000 +0200
+@@ -850,3 +850,6 @@ int __init sit_init(void)
+ 	inet_del_protocol(&sit_protocol, IPPROTO_IPV6);
+ 	goto out;
+ }
++
++module_init(sit_init);
++module_exit(sit_cleanup);
+
+--n8g4imXOkfNTN/H1--
