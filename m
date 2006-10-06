@@ -1,51 +1,33 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: [PATCH 1/2] [PCI] Check that MWI bit really did get set
-Date: Fri, 06 Oct 2006 13:05:18 -0600
-Message-ID: <1160161519800-git-send-email-matthew@wil.cx>
-Reply-To: Matthew Wilcox <matthew@wil.cx>
-Cc: netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	linux-kernel@vger.kernel.org, Matthew Wilcox <matthew@wil.cx>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
+Date: Fri, 6 Oct 2006 11:03:17 -0700
+Message-ID: <20061006110317.0c6c1f98@freekitty>
+References: <11601583542790-git-send-email-matthew@wil.cx>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Val Henson <val_henson@linux.intel.com>, netdev@vger.kernel.org,
+	Helge Deller <deller@parisc-linux.org>,
+	Kyle McMartin <kyle@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palinux.external.hp.com ([192.25.206.14]:19405 "EHLO
-	mail.parisc-linux.org") by vger.kernel.org with ESMTP
-	id S1422876AbWJFTFU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 15:05:20 -0400
-To: Val Henson <val_henson@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>
+Received: from smtp.osdl.org ([65.172.181.4]:22443 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932315AbWJFTFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 15:05:52 -0400
+To: Matthew Wilcox <matthew@wil.cx>
+In-Reply-To: <11601583542790-git-send-email-matthew@wil.cx>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since some devices may not implement the MWI bit, we should check that
-the write did set it and return an error if it didn't.
+On Fri, 06 Oct 2006 12:12:34 -0600
+Matthew Wilcox <matthew@wil.cx> wrote:
 
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+> From: Helge Deller <deller@parisc-linux.org>
+> 
+> WARNING: drivers/net/tulip/de2104x.o - Section mismatch: reference to .init.text:de_init_one from .data.rel.local after 'de_driver' (at offset 0x20)
+> WARNING: drivers/net/tulip/de2104x.o - Section mismatch: reference to .exit.text:de_remove_one from .data.rel.local after 'de_driver' (at offset 0x28)
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index a544997..3d041f4 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -900,13 +900,17 @@ #endif
- 		return rc;
- 
- 	pci_read_config_word(dev, PCI_COMMAND, &cmd);
--	if (! (cmd & PCI_COMMAND_INVALIDATE)) {
--		pr_debug("PCI: Enabling Mem-Wr-Inval for device %s\n", pci_name(dev));
--		cmd |= PCI_COMMAND_INVALIDATE;
--		pci_write_config_word(dev, PCI_COMMAND, cmd);
--	}
--	
--	return 0;
-+	if (cmd & PCI_COMMAND_INVALIDATE)
-+		return 0;
-+
-+	pr_debug("PCI: Enabling Mem-Wr-Inval for device %s\n", pci_name(dev));
-+	cmd |= PCI_COMMAND_INVALIDATE;
-+	pci_write_config_word(dev, PCI_COMMAND, cmd);
-+
-+	/* read result from hardware (in case bit refused to enable) */
-+	pci_read_config_word(dev, PCI_COMMAND, &cmd);
-+
-+	return (cmd & PCI_COMMAND_INVALIDATE) ? 0 : -EINVAL;
- }
- 
- /**
+This is caused because with PCI hotplug the device might be probed after the init section
+has been removed.  Ditto for remove.
+
+The fix looks correct.
+
