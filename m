@@ -1,55 +1,25 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
-Date: Fri, 06 Oct 2006 16:11:25 -0400
-Message-ID: <4526B86D.2080307@garzik.org>
-References: <11601583542790-git-send-email-matthew@wil.cx> <20061006110317.0c6c1f98@freekitty> <4526AC09.4040804@garzik.org> <20061006192552.GM2563@parisc-linux.org> <4526B21E.8060408@garzik.org> <20061006195447.GQ2563@parisc-linux.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [git-or-PATCH] IRQ handler cleanups
+Date: Fri, 06 Oct 2006 22:48:15 +0100
+Message-ID: <1160171295.12835.11.camel@localhost.localdomain>
+References: <20061006193438.GA10730@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Val Henson <val_henson@linux.intel.com>,
-	netdev@vger.kernel.org, Helge Deller <deller@parisc-linux.org>,
-	Kyle McMartin <kyle@parisc-linux.org>
+Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49577 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932563AbWJFULf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 16:11:35 -0400
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20061006195447.GQ2563@parisc-linux.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:3013 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S932636AbWJFVWp
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 17:22:45 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <20061006193438.GA10730@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Fri, Oct 06, 2006 at 03:44:30PM -0400, Jeff Garzik wrote:
->> Matthew Wilcox wrote:
->>> On Fri, Oct 06, 2006 at 03:18:33PM -0400, Jeff Garzik wrote:
->>>> This device will never ever meet a platform where it can be hotplugged.
->>> According to a FreeBSD list from 1995, you could get these chips on a PCI
->>> card from several different vendors.
->>>
->> Yes, they are ancient 32-bit PCI cards, which will never make an 
->> appearance on a PCI hotplug platform.  So, it's wasteful to support 
->> hotplug in code that will never be hotplugged (as I've said for years).
-> 
-> Sorry, you're saying that anyone who has found one of these cards and
-> wants to plug them into a hotplug slot in their shiny new server is just
-> SOL?  That makes no sense, Jeff.  We've fixed *so* many old drivers to
-> confirm to these rules, why's this one so special?  I'd understand if it
-> were only found on motherboards, but it can be found on cards.
-> 
-> Plus it silences a warning.  Isn't that enough reason of its own?
+Acked-by: Alan Cox <alan@redhat.com>
 
-Early tulips were electrically "special", so I am highly doubtful it 
-would work in any case.
-
-But overall it doesn't make sense to me to force code to exist, that we 
-know will likely never ever be needed.
-
-Whatever.  This patch comes up every year or two, so I suppose I should 
-just quit fighting and eat the needless code size increase, to silence 
-the human warnings :)
-
-	Jeff
-
-
+All looks ok, the bigger change in riscom8 is verifiably safe too
 
