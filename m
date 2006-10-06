@@ -1,40 +1,41 @@
-From: Samuel Tardieu <sam@rfc1149.net>
+From: Peter Bieringer <pb@bieringer.de>
 Subject: Re: [PATCH 01/02] net/ipv6: seperate sit driver to extra module
-Date: 06 Oct 2006 13:38:24 +0200
-Message-ID: <87d595lln3.fsf@willow.rfc1149.net>
-References: <20061006093402.GA12460@zlug.org>
+Date: Fri, 06 Oct 2006 13:44:49 +0200
+Message-ID: <452641B1.3000203@bieringer.de>
+References: <20061006093402.GA12460@zlug.org> <87d595lln3.fsf@willow.rfc1149.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:26011 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1751222AbWJFLmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 07:42:03 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1GVo4d-0001iX-Kr
-	for netdev@vger.kernel.org; Fri, 06 Oct 2006 13:41:04 +0200
-Received: from zaphod.rfc1149.net ([88.191.14.223])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2006 13:41:03 +0200
-Received: from sam by zaphod.rfc1149.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2006 13:41:03 +0200
-To: netdev@vger.kernel.org
+Received: from smtp4.aerasec.de ([212.18.21.179]:18305 "EHLO smtp4.aerasec.de")
+	by vger.kernel.org with ESMTP id S1751222AbWJFLox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 07:44:53 -0400
+To: Samuel Tardieu <sam@rfc1149.net>
+In-Reply-To: <87d595lln3.fsf@willow.rfc1149.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "Joerg" == Joerg Roedel <joro-lkml@zlug.org> writes:
+Samuel Tardieu schrieb:
+>>>>>> "Joerg" == Joerg Roedel <joro-lkml@zlug.org> writes:
+>
+> Joerg> this is the submit of the patch discussed yesterday to compile
+> Joerg> the sit driver as a seperate module.
+>
+> Your patch looks ok to me, but given that many people won't need sit,
+> why is it enabled by default? Omitting it would save 10k of kernel
+> text on x86 and people will see the new kernel configuration option
+> anyway and will enable it if needed.
 
-Joerg> this is the submit of the patch discussed yesterday to compile
-Joerg> the sit driver as a seperate module.
+At least if set to "n" don't forget to alert the distributors (Red Hat,
+etc.) to renable this. Otherwise, many clients which using 6to4 will fail...
 
-Your patch looks ok to me, but given that many people won't need sit,
-why is it enabled by default? Omitting it would save 10k of kernel
-text on x86 and people will see the new kernel configuration option
-anyway and will enable it if needed.
+Just my 2 cents,
 
-  Sam
+	Peter
 -- 
-Samuel Tardieu -- sam@rfc1149.net -- http://www.rfc1149.net/
-
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
+Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
