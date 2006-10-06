@@ -1,31 +1,37 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
-Date: Fri, 06 Oct 2006 15:16:36 -0400
-Message-ID: <4526AB94.7060200@garzik.org>
-References: <1160161519800-git-send-email-matthew@wil.cx>
+Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
+Date: Fri, 06 Oct 2006 15:18:33 -0400
+Message-ID: <4526AC09.4040804@garzik.org>
+References: <11601583542790-git-send-email-matthew@wil.cx> <20061006110317.0c6c1f98@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Val Henson <val_henson@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org
+Cc: Matthew Wilcox <matthew@wil.cx>,
+	Val Henson <val_henson@linux.intel.com>,
+	netdev@vger.kernel.org, Helge Deller <deller@parisc-linux.org>,
+	Kyle McMartin <kyle@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:12200 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1422680AbWJFTQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 15:16:50 -0400
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <1160161519800-git-send-email-matthew@wil.cx>
+Received: from srv5.dvmed.net ([207.36.208.214]:18856 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1422685AbWJFTSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 15:18:41 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061006110317.0c6c1f98@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> Since some devices may not implement the MWI bit, we should check that
-> the write did set it and return an error if it didn't.
+Stephen Hemminger wrote:
+> On Fri, 06 Oct 2006 12:12:34 -0600
+> Matthew Wilcox <matthew@wil.cx> wrote:
 > 
-> Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+>> From: Helge Deller <deller@parisc-linux.org>
+>>
+>> WARNING: drivers/net/tulip/de2104x.o - Section mismatch: reference to .init.text:de_init_one from .data.rel.local after 'de_driver' (at offset 0x20)
+>> WARNING: drivers/net/tulip/de2104x.o - Section mismatch: reference to .exit.text:de_remove_one from .data.rel.local after 'de_driver' (at offset 0x28)
+> 
+> This is caused because with PCI hotplug the device might be probed after the init section
+> has been removed.  Ditto for remove.
 
-ACK, though (as it seems you are doing) you should audit pci_set_mwi() 
-users to make sure behavior matches up with this implementation
+This device will never ever meet a platform where it can be hotplugged.
 
 	Jeff
 
