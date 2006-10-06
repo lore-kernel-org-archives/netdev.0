@@ -1,74 +1,56 @@
-From: "Joseph S. Myers" <joseph@codesourcery.com>
-Subject: Kernel header changes break glibc build
-Date: Fri, 6 Oct 2006 17:20:07 +0000 (UTC)
-Message-ID: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk>
+From: James Morris <jmorris@namei.org>
+Subject: [GIT] SELinux/IPsec: bugfix pull request
+Date: Fri, 6 Oct 2006 13:21:09 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610061319170.6386@d.namei>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Woodhouse <dwmw2@infradead.org>, libc-alpha@sourceware.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.codesourcery.com ([65.74.133.4]:41606 "EHLO
-	mail.codesourcery.com") by vger.kernel.org with ESMTP
-	id S1422765AbWJFRUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 13:20:09 -0400
-To: netdev@vger.kernel.org
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:12454 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1422765AbWJFRVL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 13:21:11 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The kernel headers installed by Linux 2.6.19-rc1 "make
-headers_install" do not work for building glibc, because glibc expects
-<linux/rtnetlink.h> to provide various definitions, some of which have
-been moved to <linux/if_addr.h> and some of which have been removed
-altogether.
-
-This kernel patch allows glibc to build again by making rtnetlink.h
-include if_addr.h and adding back the removed definitions required by
-glibc, but I don't know if it's the correct approach or if glibc
-should change the headers it includes and add its own macro
-definitions.
-
-Signed-off-by: Joseph Myers <joseph@codesourcery.com>
----
-Index: include/linux/rtnetlink.h
-===================================================================
---- include/linux/rtnetlink.h
-+++ include/linux/rtnetlink.h
-@@ -2,6 +2,7 @@
- #define __LINUX_RTNETLINK_H
- 
- #include <linux/netlink.h>
-+#include <linux/if_addr.h>
- #include <linux/if_link.h>
- 
- /****
-Index: include/linux/if_link.h
-===================================================================
---- include/linux/if_link.h
-+++ include/linux/if_link.h
-@@ -82,6 +82,9 @@
- 
- #define IFLA_MAX (__IFLA_MAX - 1)
- 
-+#define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
-+#define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
-+
- /* ifi_flags.
- 
-    IFF_* flags.
-Index: include/linux/if_addr.h
-===================================================================
---- include/linux/if_addr.h
-+++ include/linux/if_addr.h
-@@ -52,4 +52,7 @@
- 	__u32	tstamp; /* updated timestamp, hundredths of seconds */
- };
- 
-+#define IFA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
-+#define IFA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
-+
- #endif
+Hi Dave, please pull the following bugfix patches, for the IPsec/SELinux 
+and related labeled network code.
 
 
+The following changes since commit e77119c769b71c3f10b35d66988a3e279d30388c:
+  James Morris:
+        Merge ../../linux-2.6 into linus
+
+are found in the git repository at:
+
+  git://git.infradead.org/~jmorris/selinux-2.6.git
+
+James Morris:
+      IPsec: propagate security module errors up from flow_cache_lookup
+
+paul.moore@hp.com:
+      NetLabel: use SECINITSID_UNLABELED for a base SID
+
+Venkat Yekkirala:
+      IPsec: correct semantics for SELinux policy matching
+      IPsec: fix handling of errors for socket policies
+
+ include/linux/security.h        |   24 +++------
+ include/net/flow.h              |    2 -
+ include/net/xfrm.h              |    3 +
+ net/core/flow.c                 |   42 +++++++++++-----
+ net/ipv4/xfrm4_policy.c         |    2 -
+ net/ipv6/xfrm6_policy.c         |    2 -
+ net/key/af_key.c                |    5 --
+ net/xfrm/xfrm_policy.c          |  101 +++++++++++++++++++++++++++++----------
+ net/xfrm/xfrm_user.c            |    9 ---
+ security/dummy.c                |    3 +
+ security/selinux/include/xfrm.h |    3 +
+ security/selinux/ss/services.c  |   29 +++--------
+ security/selinux/xfrm.c         |   53 ++++++++++++++++----
+ 13 files changed, 171 insertions(+), 107 deletions(-)
 
 -- 
-Joseph S. Myers
-joseph@codesourcery.com
+James Morris
+<jmorris@namei.org>
