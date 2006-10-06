@@ -1,42 +1,55 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
-Date: Fri, 6 Oct 2006 13:54:47 -0600
-Message-ID: <20061006195447.GQ2563@parisc-linux.org>
-References: <11601583542790-git-send-email-matthew@wil.cx> <20061006110317.0c6c1f98@freekitty> <4526AC09.4040804@garzik.org> <20061006192552.GM2563@parisc-linux.org> <4526B21E.8060408@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/2] [TULIP] Check the return value from pci_set_mwi()
+Date: Fri, 06 Oct 2006 15:59:57 -0400
+Message-ID: <4526B5BD.4030809@garzik.org>
+References: <1160161519800-git-send-email-matthew@wil.cx> <11601615192857-git-send-email-matthew@wil.cx> <4526AB43.7030809@garzik.org> <20061006192842.GO2563@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Val Henson <val_henson@linux.intel.com>,
-	netdev@vger.kernel.org, Helge Deller <deller@parisc-linux.org>,
-	Kyle McMartin <kyle@parisc-linux.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Val Henson <val_henson@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palinux.external.hp.com ([192.25.206.14]:47579 "EHLO
-	mail.parisc-linux.org") by vger.kernel.org with ESMTP
-	id S932354AbWJFTys (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 15:54:48 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <4526B21E.8060408@garzik.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:20905 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1422666AbWJFUAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 16:00:10 -0400
+To: Matthew Wilcox <matthew@wil.cx>
+In-Reply-To: <20061006192842.GO2563@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 06, 2006 at 03:44:30PM -0400, Jeff Garzik wrote:
-> Matthew Wilcox wrote:
-> >On Fri, Oct 06, 2006 at 03:18:33PM -0400, Jeff Garzik wrote:
-> >>This device will never ever meet a platform where it can be hotplugged.
-> >
-> >According to a FreeBSD list from 1995, you could get these chips on a PCI
-> >card from several different vendors.
-> >
+Matthew Wilcox wrote:
+> On Fri, Oct 06, 2006 at 03:15:15PM -0400, Jeff Garzik wrote:
+>> Matthew Wilcox wrote:
+>>> Also, pci_set_mwi() will fail if the cache line
+>>> size is 0, so we don't need to check that ourselves any more.
+>> NAK, not true on all arches.  sparc64 at least presumes that the 
+>> firmware DTRT with cacheline size, which hurts us now given this tulip patch
 > 
-> Yes, they are ancient 32-bit PCI cards, which will never make an 
-> appearance on a PCI hotplug platform.  So, it's wasteful to support 
-> hotplug in code that will never be hotplugged (as I've said for years).
+> How does it hurt us?
+> 
+> int pcibios_prep_mwi(struct pci_dev *dev)
+> {
+>         /* We set correct PCI_CACHE_LINE_SIZE register values for every
+>          * device probed on this platform.  So there is nothing to check
+>          * and this always succeeds.
+>          */
+>         return 0;
+> }
+> 
+> If Dave's wrong about that, it hurts him, not us ;-)
+> 
+> It's still not necessary for the Tulip driver to check.
 
-Sorry, you're saying that anyone who has found one of these cards and
-wants to plug them into a hotplug slot in their shiny new server is just
-SOL?  That makes no sense, Jeff.  We've fixed *so* many old drivers to
-confirm to these rules, why's this one so special?  I'd understand if it
-were only found on motherboards, but it can be found on cards.
+The unmodified tulip driver checks both MWI and cacheline-size because 
+one of the clones (PNIC or PNIC2) will let you set the MWI bit, but 
+hardwires cacheline size to zero.
 
-Plus it silences a warning.  Isn't that enough reason of its own?
+If the arches do not behave consistently, we need to keep the check in 
+the tulip driver, to avoid incorrectly programming the csr0 MWI bit.
+
+	Jeff
+
+
+
