@@ -1,131 +1,53 @@
-From: Vivek Goyal <vgoyal@in.ibm.com>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Fri, 6 Oct 2006 13:34:41 -0400
-Message-ID: <20061006173441.GC19756@in.ibm.com>
-References: <20060928014623.ccc9b885.akpm@osdl.org> <200610052105.00359.ak@suse.de> <1160080954.29690.44.camel@flooterbu> <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com> <20061006171105.GC9881@skynet.ie>
-Reply-To: vgoyal@in.ibm.com
+From: "Bin Zhang" <yangtze31@gmail.com>
+Subject: Re: Latest fixes to bcm43xx-d80211 now available as patch to 2.6.18
+Date: Fri, 6 Oct 2006 19:40:15 +0200
+Message-ID: <51ad2e0d0610061040v3f532e83h96df3d67c379529d@mail.gmail.com>
+References: <45259659.9040804@lwfinger.net>
+	 <51ad2e0d0610060137n5cc2bf4cna4a4a68ccedd94e@mail.gmail.com>
+	 <45268352.7010504@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Fox <drfickle@us.ibm.com>, Andi Kleen <ak@suse.de>,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	Andrew Morton <akpm@osdl.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:22150 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751260AbWJFRfT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Oct 2006 13:35:19 -0400
-To: Mel Gorman <mel@skynet.ie>
+Received: from nf-out-0910.google.com ([64.233.182.185]:44411 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1422783AbWJFRkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 13:40:16 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1159501nfa
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2006 10:40:15 -0700 (PDT)
+To: "Larry Finger" <Larry.Finger@lwfinger.net>
+In-Reply-To: <45268352.7010504@lwfinger.net>
 Content-Disposition: inline
-In-Reply-To: <20061006171105.GC9881@skynet.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 06, 2006 at 06:11:05PM +0100, Mel Gorman wrote:
-> On (06/10/06 11:36), Vivek Goyal didst pronounce:
-> > On Fri, Oct 06, 2006 at 03:33:12PM +0100, Mel Gorman wrote:
-> > > > Linux version 2.6.18-git22 (root@elm3b239) (gcc version 4.1.0 (SUSE Linux)) #2 SMP Thu Oct 5 19:05:36 PDT 2006
-> > > > Command line: root=/dev/sda1 vga=791  ip=9.47.67.239:9.47.67.50:9.47.67.1:255.255.255.0 resume=/dev/sdb1 showopts earlyprintk=serial,ttyS0,57600 console=tty0 console=ttyS0,57600 autobench_args: root=/dev/sda1 ABAT:1160100417
-> > > > BIOS-provided physical RAM map:
-> > > >  BIOS-e820: 0000000000000000 - 000000000009ac00 (usable)
-> > > >  BIOS-e820: 000000000009ac00 - 00000000000a0000 (reserved)
-> > > >  BIOS-e820: 00000000000e0000 - 0000000000100000 (reserved)
-> > > >  BIOS-e820: 0000000000100000 - 00000000bff764c0 (usable)
-> > > >  BIOS-e820: 00000000bff764c0 - 00000000bff98880 (ACPI data)
-> > > >  BIOS-e820: 00000000bff98880 - 00000000c0000000 (reserved)
-> > > >  BIOS-e820: 00000000fec00000 - 0000000100000000 (reserved)
-> > > >  BIOS-e820: 0000000100000000 - 0000000c00000000 (usable)
-> > > 
-> > > I continued what Steve was doing this morning to see could this be
-> > > pinned down. After placing 'CHECK;' in a few places as suggested by
-> > > Andi's check, the problem code was identified as that following in
-> > > mm/bootmem.c#init_bootmem_core()
-> > > 
-> > >         mapsize = get_mapsize(bdata);
-> > >         memset(bdata->node_bootmem_map, 0xff, mapsize);
-> > > 
-> > > That explains the value in the array at least. A few more printfs around
-> > > this point printed out the following in the boot log
-> > > 
-> > > init_bootmem_core(0, 1909, 0, 12582912)
-> > > init_bootmem_core: Calling memset(0xFFFF810000775000, 1572864)
-> > > AAGH: afinfo corrupted at mm/bootmem.c:121
-> > > 
-> > > where;
-> > > 
-> > > 1909 == mapstart
-> > > 0 == start
-> > > 12582912 == end
-> > > 1572864 == mapsize
-> > > 
-> > > mapstart, start and end being the parameters being passed to
-> > > init_bootmem_core(). This means we are calling memset for the physical
-> > > range 0x775000 -> 0x8F5000 which is in a usable range according to the
-> > > BIOS-e820 map it appears.
-> > > 
-> > 
-> > Hi Mel,
-> > 
-> 
-> Hi.
-> 
-> > Where is bss placed in physical memory? I guess bss_start and bss_stop
-> > from System.map will tell us. That will confirm that above memset step is
-> > stomping over bss. Then we have to just find that somewhere probably
-> > we allocated wrong physical memory area for bootmem allocator map.
-> > 
-> 
-> BSS is at 0x643000 -> 0x777BC4
-> init_bootmem wipes from 0x777000 -> 0x8F7000
-> 
-> So the BSS bytes from 0x777000 ->0x777BC4 (which looks very suspiciously
-> pile a page alignment of addr & PAGE_MASK) gets set to 0xFF. One possible
-> fix is below. It adds a check in bad_addr() to see if the BSS section is
-> about to be used for bootmap. It Seems To Work For Me (tm) and illustrates
-> the source of the problem even if it's not the 100% correct fix.
-> 
-> diff -rup -X /usr/src/patchset-0.6/bin//dontdiff linux-2.6.18-git22-clean/arch/x86_64/kernel/e820.c linux-2.6.18-git22-bss_relocate_fix/arch/x86_64/kernel/e820.c
-> --- linux-2.6.18-git22-clean/arch/x86_64/kernel/e820.c	2006-10-05 20:42:07.000000000 +0100
-> +++ linux-2.6.18-git22-bss_relocate_fix/arch/x86_64/kernel/e820.c	2006-10-06 17:39:51.000000000 +0100
-> @@ -51,6 +51,7 @@ extern struct resource code_resource, da
->  static inline int bad_addr(unsigned long *addrp, unsigned long size)
->  { 
->  	unsigned long addr = *addrp, last = addr + size; 
-> +	unsigned long bss_start, bss_end;
->  
->  	/* various gunk below that needed for SMP startup */
->  	if (addr < 0x8000) { 
-> @@ -77,6 +78,14 @@ static inline int bad_addr(unsigned long
->  		*addrp = __pa_symbol(&_end);
->  		return 1;
->  	}
-> +	
-> +	/* bss section */
-> +	bss_start = __pa_symbol(&__bss_start);
-> +	bss_end = PAGE_ALIGN(__pa_symbol(&__bss_stop));
-> +	if (addr >= bss_start && addr < bss_end) {
-> +		*addrp = bss_end;
-> +		return 1;
-> +	}
->  
+On 10/6/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
+> Bin Zhang wrote:
+> >  CC [M]  drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.o
+> >  LD [M]  drivers/net/wireless/d80211/bcm43xx/bcm43xx-d80211.o
+> >  LD      drivers/net/wireless/built-in.o
+> > ld: drivers/net/wireless/d80211/built-in.o: No such file: No such file
+> > or directory
+> > make[3]: *** [drivers/net/wireless/built-in.o] Error 1
+> > make[2]: *** [drivers/net/wireless] Error 2
+> > make[1]: *** [drivers/net] Error 2
+> > make: *** [drivers] Error 2
+>
+> Initially I had seen that error, but thought it was fixed. A new version has been uploaded that
+> builds correctly from a 'make clean' - please try it.
+>
 
-Surprising, the kernel code check just before this should have taken care
-of it.
+Thanks. It works fine now (2.6.18 + the two patches).
 
- /* kernel code */
-	if (last >= __pa_symbol(&_text) && last < __pa_symbol(&_end)) {
-		*addrp = __pa_symbol(&_end);
-		return 1;
-	}
-May be it can be changed to 
-	if (last >= __pa_symbol(&_text) && last < PAGE_ALIGN(__pa_symbol(&_end))) {
+Best regards,
+Bin
 
-But all this seem to be a stopgap fix. Still the real puzzle is exactly
-where did it slip out and should be fixed there.
-
-May be some more printks will help us.
-
-Thanks
-Vivek
+> Also, please note Johannes Berg's comments regarding the increased interrupt usage for V4 firmware.
+>
+> Larry
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev@lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
