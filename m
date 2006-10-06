@@ -1,37 +1,66 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [TULIP] Fix section mismatch in de2104x.c
-Date: Fri, 06 Oct 2006 14:50:59 -0400
-Message-ID: <4526A593.6080804@garzik.org>
-References: <11601583542790-git-send-email-matthew@wil.cx> <4526A2ED.6030406@garzik.org> <20061006184517.GL2563@parisc-linux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Val Henson <val_henson@linux.intel.com>, netdev@vger.kernel.org,
-	Helge Deller <deller@parisc-linux.org>,
-	Kyle McMartin <kyle@parisc-linux.org>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: From: Matthew Wilcox <matthew@wil.cx>
+Date: Fri, 06 Oct 2006 13:01:34 -0600
+Message-ID: <1160161294850-git-send-email-matthew@wil.cx>
+References: <11601612941804-git-send-email-matthew@wil.cx>
+Reply-To: Matthew Wilcox <matthew@wil.cx>
+Cc: netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	linux-kernel@vger.kernel.org, Matthew Wilcox <matthew@wil.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47782 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1422837AbWJFSvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 14:51:03 -0400
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20061006184517.GL2563@parisc-linux.org>
+Received: from palinux.external.hp.com ([192.25.206.14]:55216 "EHLO
+	mail.parisc-linux.org") by vger.kernel.org with ESMTP
+	id S1422877AbWJFTBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Oct 2006 15:01:36 -0400
+To: Val Henson <val_henson@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+In-Reply-To: <11601612941804-git-send-email-matthew@wil.cx>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Fri, Oct 06, 2006 at 02:39:41PM -0400, Jeff Garzik wrote:
->> I'm a bit blind, so help me out here...  what precisely is mismatched?
->>
->> AFAICS everything is properly marked __init or __exit.
-> 
-> Wasn't my patch, but the markings are now consistent with tulip_core at least.
+We used to check whether pci_set_mwi() had succeeded by testing the
+hardware MWI bit.  Now we need only check the return value (and failing
+to do so is a warning).  Also, pci_set_mwi() will fail if the cache line
+size is 0, so we don't need to check that ourselves any more.
 
-That's a totally separate driver :)
+Signed-off-by: Matthew Wilcox <matthew@wil.cx>
 
-These section mismatch warnings occasionally stump me, and this is one 
-of them.  I don't want to ACK it until I know _why_ it is needed...
-
-	Jeff
-
-
-
+diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+index d11d28c..64d999b 100644
+--- a/drivers/net/tulip/tulip_core.c
++++ b/drivers/net/tulip/tulip_core.c
+@@ -1135,7 +1135,6 @@ static void __devinit tulip_mwi_config (
+ {
+ 	struct tulip_private *tp = netdev_priv(dev);
+ 	u8 cache;
+-	u16 pci_command;
+ 	u32 csr0;
+ 
+ 	if (tulip_debug > 3)
+@@ -1153,21 +1152,15 @@ static void __devinit tulip_mwi_config (
+ 	/* set or disable MWI in the standard PCI command bit.
+ 	 * Check for the case where  mwi is desired but not available
+ 	 */
+-	if (csr0 & MWI)	pci_set_mwi(pdev);
+-	else		pci_clear_mwi(pdev);
+-
+-	/* read result from hardware (in case bit refused to enable) */
+-	pci_read_config_word(pdev, PCI_COMMAND, &pci_command);
+-	if ((csr0 & MWI) && (!(pci_command & PCI_COMMAND_INVALIDATE)))
+-		csr0 &= ~MWI;
+-
+-	/* if cache line size hardwired to zero, no MWI */
+-	pci_read_config_byte(pdev, PCI_CACHE_LINE_SIZE, &cache);
+-	if ((csr0 & MWI) && (cache == 0)) {
+-		csr0 &= ~MWI;
++	if (csr0 & MWI)	{
++		if (pci_set_mwi(pdev))
++			csr0 &= ~MWI;
++	} else {
+ 		pci_clear_mwi(pdev);
+ 	}
+ 
++	pci_read_config_byte(pdev, PCI_CACHE_LINE_SIZE, &cache);
++
+ 	/* assign per-cacheline-size cache alignment and
+ 	 * burst length values
+ 	 */
