@@ -1,49 +1,74 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 7278] New: forcedeth slowed down by traffic
- shaping
-Date: Fri, 6 Oct 2006 17:22:17 -0700
-Message-ID: <20061006172217.af619871.akpm@osdl.org>
-References: <200610070018.k970IDgF032404@fire-2.osdl.org>
+From: Alex Romosan <romosan@sycorax.lbl.gov>
+Subject: Re: 2.6.19-rc1 regression: airo suspend fails
+Date: Fri, 06 Oct 2006 20:54:59 -0700
+Message-ID: <87y7rszsoc.fsf@sycorax.lbl.gov>
+References: <Pine.LNX.4.64.0610042017340.3952@g5.osdl.org>
+	<871wpmoyjv.fsf@sycorax.lbl.gov> <20061006184706.GR16812@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kernel-bugzilla@future.shiny.co.il,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30108 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1423032AbWJGAWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2006 20:22:48 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <200610070018.k970IDgF032404@fire-2.osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-pm@osdl.org, linux-kernel@vger.kernel.org
+Return-path: <linux-pm-bounces@lists.osdl.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061006184706.GR16812@stusta.de> (message from Adrian Bunk on
+	Fri, 6 Oct 2006 20:47:07 +0200)
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Oct 2006 17:18:13 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+Adrian Bunk <bunk@stusta.de> writes:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7278
-> 
->            Summary: forcedeth slowed down by traffic shaping
->     Kernel Version: 2.6.16
->             Status: NEW
->           Severity: normal
->              Owner: jgarzik@pobox.com
->          Submitter: kernel-bugzilla@future.shiny.co.il
-> 
-> 
-> When assigninig a simple Tocket Bucket Filter (TBF) classless trafic shaping
-> policy to the eth0 device (provided by forcedeth), the device's upstream speed
-> drops to ~12kbyte/s, regardless of the traffic limit I set in the shaping rule.
-> In fact, the traffic limit values could be larger than the connection's
-> throughput and it'll still limit to mere 12kbyte/s. Once I revert the rule to
-> pfifo_fast, the rate resumes to the connection's real one (64kbyte/s).
-> 
-> If I set the TBF lower than 96kbit on eth0, it indeed applies; in other words, I
-> can make the connection slower than 12kbyte/s but not faster.
-> 
-> If I assign the same rule to ppp0, it works just as intended, for rules higher
-> than 12kbyte/s, leading me to believe forcedeth has something to do with it.
-> 
-> (Is there any module parameter I can try tweaking?)
-> 
+> On Thu, Oct 05, 2006 at 09:31:16PM -0700, Alex Romosan wrote:
+>> Linus Torvalds <torvalds@osdl.org> writes:
+>> =
+
+>> > so please give it a good testing, and let's see if there are any =
+
+>> > regressions.
+>> =
+
+>> it breaks suspend when the airo module is loaded:
+>> =
+
+>> kernel: Stopping tasks: =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> kernel:  stopping tasks timed out after 20 seconds (1 tasks remaining):
+>> kernel:   eth1
+>> kernel: Restarting tasks...<6> Strange, eth1 not stopped
+>> =
+
+>> if i remove the airo module suspend works normally (this is on a
+>> thinkpad t40).
+>
+> Thanks for your report.
+>
+> Let's try to figure out what broke it.
+>
+> As a first step, please replace drivers/net/wireless/airo.c with the =
+
+> version in 2.6.18 and check whether this fixes the issue (you can ignore =
+
+> the deprecated warning during compilation).
+
+i replaced airo.c with the 2.6.18 version. the good news is i can
+suspend to memory with it. the bad news is dhcp never got an ip
+address (so i don't think the 2.6.18 driver really works with the
+2.6.19-rc1 infrastructure). any patches i could try? thanks.
+
+--alex--
+
+-- =
+
+| I believe the moment is at hand when, by a paranoiac and active |
+|  advance of the mind, it will be possible (simultaneously with  |
+|  automatism and other passive states) to systematize confusion  |
+|  and thus to help to discredit completely the world of reality. |
