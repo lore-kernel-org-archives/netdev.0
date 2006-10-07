@@ -1,55 +1,39 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 01/02] net/ipv6: seperate sit driver to extra module
-Date: Sat, 7 Oct 2006 01:32:06 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610070131390.15387@d.namei>
-References: <20061006093402.GA12460@zlug.org> <20061006.215935.92667295.yoshfuji@linux-ipv6.org>
- <20061006151556.GA15637@zlug.org> <20061007010517.3b9db240.billfink@mindspring.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [PATCH 2/2] [TULIP] Check the return value from pci_set_mwi()
+Date: Fri, 6 Oct 2006 23:34:48 -0600
+Message-ID: <20061007053448.GC3314@colo.lackof.org>
+References: <1160161519800-git-send-email-matthew@wil.cx> <11601615192857-git-send-email-matthew@wil.cx> <4526AB43.7030809@garzik.org> <20061006192842.GO2563@parisc-linux.org> <4526B5BD.4030809@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joerg Roedel <joro-lkml@zlug.org>,
-	"YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Wilcox <matthew@wil.cx>,
+	Val Henson <val_henson@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:54665 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751746AbWJGFcJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Oct 2006 01:32:09 -0400
-To: Bill Fink <billfink@mindspring.com>
-In-Reply-To: <20061007010517.3b9db240.billfink@mindspring.com>
+Received: from colo.lackof.org ([198.49.126.79]:4039 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S1751747AbWJGFev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2006 01:34:51 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <4526B5BD.4030809@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 7 Oct 2006, Bill Fink wrote:
+On Fri, Oct 06, 2006 at 03:59:57PM -0400, Jeff Garzik wrote:
+> The unmodified tulip driver checks both MWI and cacheline-size because 
+> one of the clones (PNIC or PNIC2) will let you set the MWI bit, but 
+> hardwires cacheline size to zero.
 
-> On Fri, 6 Oct 2006 17:15:56 +0200, Joerg Roedel wrote:
-> 
-> > +config IPV6_SIT
-> > +	tristate "IPv6: IPv6-in-IPv4 tunnel (SIT driver)"
-> > +	depends on IPV6
-> > +	default y
-> > +	---help---
-> > +	  Tunneling means encapsulating data of one protocol type within
-> > +	  another protocol and sending it over a channel that understands the
-> > +	  encapsulating protocol. This driver implements encapsulation of IPv6
-> > +	  into IPv4 packets. This is useful if you want to connect two IPv6
-> > +	  networks over an IPv4-only path.
-> > +
-> > +	  Saying M here will produce a module called sit.ko. If unsure, say N.
-> 
-> >From a user perspective, I believe it should say "If unsure, say Y".
-> The unsure case for the unsure user should be the case that works for
-> the broadest possible usage spectrum, which would be the 'Y' case.
-> To put it another way, if you pick 'Y' and don't really need it, the
-> only downside is wasting some memory.  But if you pick 'N' and actually
-> did need it, previously working IPv6 networking would no longer work.
-> I believe the default setting should match the unsure recommendation.
+Maybe the generic pci_set_mwi() can verify cacheline size is non-zero?
+I don't think each driver should need to enforce this.
 
-Yes, the unsure value should match the default.  People pick the default 
-because they're unsure.
+> If the arches do not behave consistently, we need to keep the check in 
+> the tulip driver, to avoid incorrectly programming the csr0 MWI bit.
 
+Why not fix the arches to be consistent?
+There's alot more drivers than arches...and we have control
+of the arch specific PCI support.
 
-
--- 
-James Morris
-<jmorris@namei.org>
+thanks,
+grant
