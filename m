@@ -1,59 +1,47 @@
-From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-Subject: RE: [PATCH] changes to ucc_geth driver as a result of qe_lib changesand bugfixes
-Date: Sat, 7 Oct 2006 12:23:45 +0200
-Message-ID: <000101c6e9fa$abc94cf0$020120ac@Jocke>
-References: <20061006172229.10b144df.kim.phillips@freescale.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/2] [TULIP] Check the return value from pci_set_mwi()
+Date: Sat, 07 Oct 2006 10:44:18 -0400
+Message-ID: <4527BD42.8050502@garzik.org>
+References: <1160161519800-git-send-email-matthew@wil.cx> <11601615192857-git-send-email-matthew@wil.cx> <4526AB43.7030809@garzik.org> <20061006192842.GO2563@parisc-linux.org> <4526B5BD.4030809@garzik.org> <20061007053448.GC3314@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linuxppc-dev@ozlabs.org>, <jgarzik@pobox.com>
+Cc: Matthew Wilcox <matthew@wil.cx>,
+	Val Henson <val_henson@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 147.175.241.83.in-addr.dgcsystems.net ([83.241.175.147]:9195
-	"EHLO tmnt04.transmode.se") by vger.kernel.org with ESMTP
-	id S1750787AbWJGKZx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Oct 2006 06:25:53 -0400
-To: "'Kim Phillips'" <kim.phillips@freescale.com>,
-	<netdev@vger.kernel.org>
-In-Reply-To: <20061006172229.10b144df.kim.phillips@freescale.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:5569 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932119AbWJGOpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2006 10:45:40 -0400
+To: Grant Grundler <grundler@parisc-linux.org>
+In-Reply-To: <20061007053448.GC3314@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Grant Grundler wrote:
+> On Fri, Oct 06, 2006 at 03:59:57PM -0400, Jeff Garzik wrote:
+>> The unmodified tulip driver checks both MWI and cacheline-size because 
+>> one of the clones (PNIC or PNIC2) will let you set the MWI bit, but 
+>> hardwires cacheline size to zero.
 > 
-> changes due to qe_lib changes include:
-> 
-> o removed platform_device code, replaced with of_device
-> o removed typedefs
-> o uint -> u32 conversions
-> o removed following defines:
->   QE_SIZEOF_BD, BD_BUFFER_ARG, BD_BUFFER_CLEAR, BD_BUFFER,
->   BD_STATUS_AND_LENGTH_SET, BD_STATUS_AND_LENGTH, and BD_BUFFER_SET
->   because they hid sizeof/in_be32/out_be32 operations from the reader.
-> o removed irrelevant comments, added others to resemble 
-> removed BD_ defines
-> o const'd and uncasted all get_property() assignments
-> 
-> bugfixes, courtesy of Scott Wood, include:
-> 
-> - Read phy_address as a u32, not u8.
-> - Match on type == "network" as well as compatible == "ucc_geth", as
->   device_is_compatible() will only compare up to the length of the
->   test string, allowing "ucc_geth_phy" to match as well.
-> - fixes the MAC setting code in ucc_geth.c.  The old code was 
-> overwriting and dereferencing random stack contents.
-> 
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
-> 
-> ---
-> 
-> Jeff, this patch fixes ucc_geth buildtime and runtime errors; 
-> please apply.
+> Maybe the generic pci_set_mwi() can verify cacheline size is non-zero?
+> I don't think each driver should need to enforce this.
 
-Can you send the complete patch againt paulus tree to get ucc_qeth driver going? Currently there
-are too many patches floating around.
+Agreed.
 
- Regards
-          Joakim
+
+>> If the arches do not behave consistently, we need to keep the check in 
+>> the tulip driver, to avoid incorrectly programming the csr0 MWI bit.
+> 
+> Why not fix the arches to be consistent?
+> There's alot more drivers than arches...and we have control
+> of the arch specific PCI support.
+
+Agreed.
+
+	Jeff
+
+
 
