@@ -1,80 +1,83 @@
-From: Dave Kleikamp <shaggy@austin.ibm.com>
+From: Alex Romosan <romosan@sycorax.lbl.gov>
 Subject: Re: 2.6.19-rc1 regression: airo suspend fails
-Date: Sat, 07 Oct 2006 14:52:51 -0500
-Message-ID: <1160250771.24902.6.camel@kleikamp.austin.ibm.com>
+Date: Sat, 07 Oct 2006 13:17:13 -0700
+Message-ID: <873b9zhody.fsf@sycorax.lbl.gov>
 References: <Pine.LNX.4.64.0610042017340.3952@g5.osdl.org>
-	 <871wpmoyjv.fsf@sycorax.lbl.gov>  <20061006184706.GR16812@stusta.de>
+	<871wpmoyjv.fsf@sycorax.lbl.gov> <20061006184706.GR16812@stusta.de>
+	<1160250771.24902.6.camel@kleikamp.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alex Romosan <romosan@sycorax.lbl.gov>,
-	linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	netdev@vger.kernel.org, pavel@suse.cz, linux-pm@osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:4314 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932793AbWJGTw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2006 15:52:56 -0400
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20061006184706.GR16812@stusta.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-pm@osdl.org, netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>,
+   linux-kernel@vger.kernel.org
+Return-path: <linux-pm-bounces@lists.osdl.org>
+To: Dave Kleikamp <shaggy@austin.ibm.com>
+In-Reply-To: <1160250771.24902.6.camel@kleikamp.austin.ibm.com> (message from
+	Dave Kleikamp on Sat, 07 Oct 2006 14:52:51 -0500)
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-10-06 at 20:47 +0200, Adrian Bunk wrote:
-> On Thu, Oct 05, 2006 at 09:31:16PM -0700, Alex Romosan wrote:
+Dave Kleikamp <shaggy@austin.ibm.com> writes:
 
-> > it breaks suspend when the airo module is loaded:
-> > 
-> > kernel: Stopping tasks: =================================================================================
-> > kernel:  stopping tasks timed out after 20 seconds (1 tasks remaining):
-> > kernel:   eth1
-> > kernel: Restarting tasks...<6> Strange, eth1 not stopped
-> > 
-> > if i remove the airo module suspend works normally (this is on a
-> > thinkpad t40).
-> 
-> Thanks for your report.
-> 
-> Let's try to figure out what broke it.
+> I believe it was broken by:
+> http://www.kernel.org/git/gitweb.cgi?p=3Dlinux/kernel/git/torvalds/linux-=
+2.6.git;a=3Dcommit;h=3D3b4c7d640376dbccfe80fc4f7b8772ecc7de28c5
+>
+> I have seen this in the -mm tree, but didn't follow up at the time.  I
+> was able to fix it with the following patch.  I don't know if it's the
+> best fix, but it seems to follow the same logic as the original code.
+>
+>
+> The airo driver used to break out of while loop if there were any signals
+> pending.  Since it no longer checks for signals, it at least needs to che=
+ck
+> if it needs to be frozen.
+>
+> Signed-off-by: Dave Kleikamp <shaggy@austin.ibm.com>
+>
+> diff -Nurp linux-2.6.19-rc1/drivers/net/wireless/airo.c linux/drivers/net=
+/wireless/airo.c
+> --- linux-2.6.19-rc1/drivers/net/wireless/airo.c	2006-10-05 07:22:39.0000=
+00000 -0500
+> +++ linux/drivers/net/wireless/airo.c	2006-10-07 13:42:13.000000000 -0500
+> @@ -3090,7 +3090,8 @@ static int airo_thread(void *data) {
+>  						set_bit(JOB_AUTOWEP, &ai->jobs);
+>  						break;
+>  					}
+> -					if (!kthread_should_stop()) {
+> +					if (!kthread_should_stop() &&
+> +					    !freezing(current)) {
+>  						unsigned long wake_at;
+>  						if (!ai->expires || !ai->scan_timeout) {
+>  							wake_at =3D max(ai->expires,
+> @@ -3102,7 +3103,8 @@ static int airo_thread(void *data) {
+>  						schedule_timeout(wake_at - jiffies);
+>  						continue;
+>  					}
+> -				} else if (!kthread_should_stop()) {
+> +				} else if (!kthread_should_stop() &&
+> +					   !freezing(current)) {
+>  					schedule();
+>  					continue;
+>  				}
+>
 
-I believe it was broken by:
-http://www.kernel.org/git/gitweb.cgi?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=3b4c7d640376dbccfe80fc4f7b8772ecc7de28c5
+thanks. with this patch applied i can suspend to ram with the airo
+module loaded.
 
-I have seen this in the -mm tree, but didn't follow up at the time.  I
-was able to fix it with the following patch.  I don't know if it's the
-best fix, but it seems to follow the same logic as the original code.
+--alex--
 
+-- =
 
-The airo driver used to break out of while loop if there were any signals
-pending.  Since it no longer checks for signals, it at least needs to check
-if it needs to be frozen.
-
-Signed-off-by: Dave Kleikamp <shaggy@austin.ibm.com>
-
-diff -Nurp linux-2.6.19-rc1/drivers/net/wireless/airo.c linux/drivers/net/wireless/airo.c
---- linux-2.6.19-rc1/drivers/net/wireless/airo.c	2006-10-05 07:22:39.000000000 -0500
-+++ linux/drivers/net/wireless/airo.c	2006-10-07 13:42:13.000000000 -0500
-@@ -3090,7 +3090,8 @@ static int airo_thread(void *data) {
- 						set_bit(JOB_AUTOWEP, &ai->jobs);
- 						break;
- 					}
--					if (!kthread_should_stop()) {
-+					if (!kthread_should_stop() &&
-+					    !freezing(current)) {
- 						unsigned long wake_at;
- 						if (!ai->expires || !ai->scan_timeout) {
- 							wake_at = max(ai->expires,
-@@ -3102,7 +3103,8 @@ static int airo_thread(void *data) {
- 						schedule_timeout(wake_at - jiffies);
- 						continue;
- 					}
--				} else if (!kthread_should_stop()) {
-+				} else if (!kthread_should_stop() &&
-+					   !freezing(current)) {
- 					schedule();
- 					continue;
- 				}
-
--- 
-David Kleikamp
-IBM Linux Technology Center
-
+| I believe the moment is at hand when, by a paranoiac and active |
+|  advance of the mind, it will be possible (simultaneously with  |
+|  automatism and other passive states) to systematize confusion  |
+|  and thus to help to discredit completely the world of reality. |
