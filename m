@@ -1,56 +1,51 @@
-From: Miklos Szeredi <miklos@szeredi.hu>
-Subject: [PATCH] file descriptor loss while receiving SCM_RIGHTS
-Date: Sun, 08 Oct 2006 12:53:11 +0200
-Message-ID: <E1GWWHP-0006jw-00@dorka.pomaz.szeredi.hu>
-Cc: akpm@osdl.org
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] prism54: use BUILG_BUG_ON
+Date: Sun, 8 Oct 2006 15:58:55 +0400
+Message-ID: <20061008115855.GD5344@martell.zuzino.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: prism54-private@prism54.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2.sa.eol.hu ([212.108.200.109]:48065 "EHLO
-	mail-gw2.sa.eol.hu") by vger.kernel.org with ESMTP id S1751071AbWJHKxi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Oct 2006 06:53:38 -0400
-To: netdev@vger.kernel.org
+Received: from nf-out-0910.google.com ([64.233.182.187]:21697 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751109AbWJHL7L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Oct 2006 07:59:11 -0400
+Received: by nf-out-0910.google.com with SMTP id x30so1648680nfb
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2006 04:59:09 -0700 (PDT)
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If more than one file descriptor was sent with an SCM_RIGHTS message,
-and on the receiving end, after installing a nonzero (but not all)
-file descritpors the process runs out of fds, then the already
-installed fds will be lost (userspace will have no way of knowing
-about them).
-
-The following patch makes sure, that at least the already installed
-fds are sent to userspace.  It doesn't solve the issue of losing file
-descriptors in case of an EFAULT on the userspace buffer.
-
-Signed-off-by: Miklos Szeredi <miklos@szeredi.hu>
-
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
-Index: linux/net/core/scm.c
-===================================================================
---- linux.orig/net/core/scm.c	2006-10-08 12:41:14.000000000 +0200
-+++ linux/net/core/scm.c	2006-10-08 12:41:46.000000000 +0200
-@@ -245,8 +245,7 @@ void scm_detach_fds(struct msghdr *msg, 
- 	if (i > 0)
- 	{
- 		int cmlen = CMSG_LEN(i*sizeof(int));
--		if (!err)
--			err = put_user(SOL_SOCKET, &cm->cmsg_level);
-+		err = put_user(SOL_SOCKET, &cm->cmsg_level);
- 		if (!err)
- 			err = put_user(SCM_RIGHTS, &cm->cmsg_type);
- 		if (!err)
-Index: linux/net/compat.c
-===================================================================
---- linux.orig/net/compat.c	2006-10-08 12:43:41.000000000 +0200
-+++ linux/net/compat.c	2006-10-08 12:43:47.000000000 +0200
-@@ -285,8 +285,7 @@ void scm_detach_fds_compat(struct msghdr
+
+ drivers/net/wireless/prism54/isl_oid.h |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+--- a/drivers/net/wireless/prism54/isl_oid.h
++++ b/drivers/net/wireless/prism54/isl_oid.h
+@@ -106,14 +106,14 @@ struct obj_attachment {
+ static inline void
+ __bug_on_wrong_struct_sizes(void)
+ {
+-	BUG_ON(sizeof (struct obj_ssid) != 34);
+-	BUG_ON(sizeof (struct obj_key) != 34);
+-	BUG_ON(sizeof (struct obj_mlme) != 12);
+-	BUG_ON(sizeof (struct obj_mlmeex) != 14);
+-	BUG_ON(sizeof (struct obj_buffer) != 8);
+-	BUG_ON(sizeof (struct obj_bss) != 60);
+-	BUG_ON(sizeof (struct obj_bsslist) != 4);
+-	BUG_ON(sizeof (struct obj_frequencies) != 2);
++	BUILD_BUG_ON(sizeof (struct obj_ssid) != 34);
++	BUILD_BUG_ON(sizeof (struct obj_key) != 34);
++	BUILD_BUG_ON(sizeof (struct obj_mlme) != 12);
++	BUILD_BUG_ON(sizeof (struct obj_mlmeex) != 14);
++	BUILD_BUG_ON(sizeof (struct obj_buffer) != 8);
++	BUILD_BUG_ON(sizeof (struct obj_bss) != 60);
++	BUILD_BUG_ON(sizeof (struct obj_bsslist) != 4);
++	BUILD_BUG_ON(sizeof (struct obj_frequencies) != 2);
+ }
  
- 	if (i > 0) {
- 		int cmlen = CMSG_COMPAT_LEN(i * sizeof(int));
--		if (!err)
--			err = put_user(SOL_SOCKET, &cm->cmsg_level);
-+		err = put_user(SOL_SOCKET, &cm->cmsg_level);
- 		if (!err)
- 			err = put_user(SCM_RIGHTS, &cm->cmsg_type);
- 		if (!err)
+ enum dot11_state_t {
 
