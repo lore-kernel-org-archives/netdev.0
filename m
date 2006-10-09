@@ -1,60 +1,37 @@
-From: Amol Lad <amol@verismonetworks.com>
-Subject: [KJ] [PATCH] drivers/net/depca.c: Replacing yield with a better
-	function
-Date: Mon, 09 Oct 2006 17:03:27 +0530
-Message-ID: <1160393608.19143.238.camel@amol.verismonetworks.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: cfg80211 take 7
+Date: Mon, 09 Oct 2006 13:49:15 +0200
+Message-ID: <1160394555.3258.3.camel@ux156>
+References: <1160146790.2715.82.camel@ux156>
+	 <200610091322.10495.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: netdev@vger.kernel.org, kernel Janitors <kernel-janitors@lists.osdl.org>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:39594 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932584AbWJILsm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Oct 2006 07:48:42 -0400
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200610091322.10495.stefan@loplof.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The change removes the 'manual' schedule_timeout and replaces it with
-schedule_timeout_uninterruptible
+On Mon, 2006-10-09 at 13:22 +0200, Stefan Rompf wrote:
 
-Tested compile only with allmodconfig
+> nice work! Is there any possibility to limit the card to a specific band (e.g. 
+> 802.11 a/b/g) using cfg80211? I'm asking because I haven't seen code to 
+> accomplish this in cfg80211, but I maybe wrong.
 
-Signed-off-by: Amol Lad <amol@verismonetworks.com>
----
- depca.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
----
---- linux-2.6.19-rc1-orig/drivers/net/depca.c	2006-10-05 14:00:47.000000000=
- +0530
-+++ linux-2.6.19-rc1/drivers/net/depca.c	2006-10-09 16:37:13.000000000 +0530
-@@ -738,7 +738,7 @@ static int __init depca_hw_init (struct =
+Never really thought about that, so the answer for now is "no" :) Should
+be easy to add though if we figure out what exactly we want/need.
 
- 	   interrupts. For now we will always get a DMA error. */
- 	if (dev->irq < 2) {
- 		unsigned char irqnum;
--		unsigned long irq_mask, delay;
-+		unsigned long irq_mask;
- =
+> Many drivers implement this feature as an iwpriv, and I consider it useful 
+> enough (especially when association and roaming is kernel controlled) to 
+> justify a generic configuration element.
 
- 		irq_mask =3D probe_irq_on();
- =
+Yeah, probably makes sense. Though, maybe not just the band but a set of
+channels instead?
 
-@@ -767,9 +767,7 @@ static int __init depca_hw_init (struct =
-
- 		/* Trigger an initialization just for the interrupt. */
- 		outw(INEA | INIT, DEPCA_DATA);
- =
-
--		delay =3D jiffies + HZ/50;
--		while (time_before(jiffies, delay))
--			yield();
-+		schedule_timeout_uninterruptible(jiffies + HZ/50);
- =
-
- 		irqnum =3D probe_irq_off(irq_mask);
- =
+johannes
