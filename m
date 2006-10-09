@@ -1,58 +1,103 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: cfg80211 take 7
-Date: Mon, 9 Oct 2006 11:38:54 -0700
-Message-ID: <20061009183854.GA6676@devicescape.com>
-References: <1160146790.2715.82.camel@ux156>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
+From: paul.moore@hp.com
+Subject: [PATCH 08/11] secid reconciliation: Use secmark when classifying flow using skb
+Date: Mon, 09 Oct 2006 15:42:31 -0400
+Message-ID: <20061009195850.814267000@hp.com>
+References: <20061009194223.402695000@hp.com>
+Cc: vyekkirala@TrustedCS.com, jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:15797 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751890AbWJISjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 14:39:09 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1160146790.2715.82.camel@ux156>
+Received: from atlrel8.hp.com ([156.153.255.206]:26595 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S964788AbWJIT6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:58:52 -0400
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=secid-8
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 
-FYI, all three patches mentioned as possibly required by the nl80211
-patchset in the header of nl80211.patch are already in wireless-dev:
+This beings secmark into the picture when classifying flows
+using an skb.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115625436628696&w=2
-(Introduces NLA_NUL_STRING) 
+Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+---
+ include/linux/security.h |   10 ----------
+ include/linux/skbuff.h   |   20 ++++++++++++++++++++
+ 2 files changed, 20 insertions(+), 10 deletions(-)
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115625168405439&w=2
-(Convert existing NLA_STRING attributes to use the new validation
-features)
+Index: net-2.6_secidfinal/include/linux/security.h
+===================================================================
+--- net-2.6_secidfinal.orig/include/linux/security.h
++++ net-2.6_secidfinal/include/linux/security.h
+@@ -3224,12 +3224,6 @@ static inline int security_xfrm_decode_s
+ 	return security_ops->xfrm_decode_session(skb, secid, 1);
+ }
+ 
+-static inline void security_skb_classify_flow(struct sk_buff *skb, struct flowi *fl)
+-{
+-	int rc = security_ops->xfrm_decode_session(skb, &fl->secid, 0);
+-
+-	BUG_ON(rc);
+-}
+ #else	/* CONFIG_SECURITY_NETWORK_XFRM */
+ static inline int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
+ {
+@@ -3298,10 +3292,6 @@ static inline int security_xfrm_decode_s
+ 	return 0;
+ }
+ 
+-static inline void security_skb_classify_flow(struct sk_buff *skb, struct flowi *fl)
+-{
+-}
+-
+ #endif	/* CONFIG_SECURITY_NETWORK_XFRM */
+ 
+ #ifdef CONFIG_KEYS
+Index: net-2.6_secidfinal/include/linux/skbuff.h
+===================================================================
+--- net-2.6_secidfinal.orig/include/linux/skbuff.h
++++ net-2.6_secidfinal/include/linux/skbuff.h
+@@ -30,6 +30,7 @@
+ #include <net/checksum.h>
+ #include <linux/dmaengine.h>
+ #include <net/flow.h>
++#include <linux/security.h>
+ 
+ #define HAVE_ALLOC_SKB		/* For the drivers to know */
+ #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
+@@ -1514,6 +1515,20 @@ static inline void security_flow_classif
+ 	skb->secmark = fl->secid;
+ }
+ 
++static inline void security_skb_classify_flow(struct sk_buff *skb,
++					struct flowi *fl)
++{
++	/*
++	 * We need to check for xfrm label here since secid reconciliation
++	 * may or may not have happened yet and we want the
++	 * flow to use the best available label.
++	 */
++	int rc = security_xfrm_decode_session(skb, &fl->secid);
++
++	if (rc || !fl->secid)
++		fl->secid = skb->secmark;
++}
++
+ #else
+ 
+ static inline void security_skb_classify_skb(struct sk_buff *from,
+@@ -1526,6 +1541,11 @@ static inline void security_flow_classif
+ {
+ }
+ 
++static inline void security_skb_classify_flow(struct sk_buff *skb,
++					struct flowi *fl)
++{
++}
++
+ #endif /* CONFIG_SECURITY_NETWORK */
+ 
+ #endif	/* __KERNEL__ */
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115650333420169&w=2
-(remove value argument from NLA_PUT_FLAG)
-
-I also updated the patchset a bit to apply to current wireless-dev.
-I will send that to Johannes directly.
-
-
-
-On Fri, Oct 06, 2006 at 04:59:50PM +0200, Johannes Berg wrote:
-> Hah, take 6 was eaten by netdev (even the announcement) but it did reach
-> some people (and before those who did get it wonder: I resent to netdev,
-> the original mail was accidentally not addressed to netdev, so it's not
-> that I simply didn't send it).
-> 
-> anyway, it's getting large, so... straight from quilt:
-> http://johannes.sipsolutions.net/files/cfg80211/
-> 
-> order is:
-> nl80211.patch
-> move-wext.patch
-> wext-compat.patch
-> 
-> johannes
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+paul moore
+linux security @ hp
