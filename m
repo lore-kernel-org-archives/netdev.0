@@ -1,41 +1,37 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: 2.6.19-rc1: known regressions (v2) - xfrm_register_mode
-Date: Mon, 9 Oct 2006 16:51:00 +0100 (IST)
-Message-ID: <Pine.LNX.4.64.0610091649300.5101@skynet.skynet.ie>
-References: <Pine.LNX.4.64.0610042017340.3952@g5.osdl.org>
- <20061007214620.GB8810@stusta.de> <1160407954.1984.11.camel@flooterbu>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: [PATCH 0/3] Fix for IPsec leakage with SELinux enabled - V.04
+Date: Mon, 09 Oct 2006 11:24:32 -0500
+Message-ID: <452A77C0.5040108@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Adrian Bunk <bunk@stusta.de>, Linus Torvalds <torvalds@osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Mel Gorman <mel@skynet.ie>,
-	Vivek Goyal <vgoyal@in.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jmorris@namei.org, sds@tycho.nsa.gov,
+	paul.moore@hp.com, eparis@redhat.com, sgrubb@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from calculon.skynet.ie ([193.1.99.88]:59338 "EHLO
-	calculon.skynet.ie") by vger.kernel.org with ESMTP id S1751433AbWJIPvC
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:2633 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932965AbWJIQZT
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 11:51:02 -0400
-To: Steve Fox <drfickle@us.ibm.com>
-In-Reply-To: <1160407954.1984.11.camel@flooterbu>
+	Mon, 9 Oct 2006 12:25:19 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Oct 2006, Steve Fox wrote:
+This is a bug fix for the MLSXFRM patchset already queued for 2.6.19.
 
-> On Sat, 2006-10-07 at 23:46 +0200, Adrian Bunk wrote:
->> Subject    : oops in xfrm_register_mode
->> References : http://lkml.org/lkml/2006/10/4/170
->> Submitter  : Steve Fox <drfickle@us.ibm.com>
->> Status     : unknown
->
-> Status: Vivek and Mel have both created patches which fix the boot
-> issue, but it is not clear to me if either of these are acceptable
-> fixes.
->
+This version is just a repost of V.03 with the subject titles
+fixed up, and the patches ported to davem's net-2.6.git as of today.
 
-I suggest taking Vivek's.
+ include/linux/security.h        |   24 ++-----
+ include/net/flow.h              |    2 
+ include/net/xfrm.h              |    3 
+ net/core/flow.c                 |   42 ++++++++----
+ net/ipv4/xfrm4_policy.c         |    2 
+ net/ipv6/xfrm6_policy.c         |    2 
+ net/key/af_key.c                |    5 -
+ net/xfrm/xfrm_policy.c          |  101 ++++++++++++++++++++++--------
+ net/xfrm/xfrm_user.c            |    9 --
+ security/dummy.c                |    3 
+ security/selinux/include/xfrm.h |    3 
+ security/selinux/xfrm.c         |   53 ++++++++++++---
+ 12 files changed, 162 insertions(+), 87 deletions(-)
 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
