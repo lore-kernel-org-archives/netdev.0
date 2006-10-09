@@ -1,37 +1,60 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: cfg80211 take 7
-Date: Mon, 9 Oct 2006 13:22:43 +0200
-Message-ID: <200610091322.43612.stefan@loplof.de>
-References: <1160146790.2715.82.camel@ux156>
+From: Amol Lad <amol@verismonetworks.com>
+Subject: [KJ] [PATCH] drivers/net/depca.c: Replacing yield with a better
+	function
+Date: Mon, 09 Oct 2006 17:03:27 +0530
+Message-ID: <1160393608.19143.238.camel@amol.verismonetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lvps80-237-161-167.dedicated.hosteurope.de ([80.237.161.167]:53913
-	"EHLO lvps80-237-161-167.dedicated.hosteurope.de") by vger.kernel.org
-	with ESMTP id S932428AbWJILVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 07:21:24 -0400
-To: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>
-In-Reply-To: <1160146790.2715.82.camel@ux156>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: netdev@vger.kernel.org, kernel Janitors <kernel-janitors@lists.osdl.org>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, 6. Oktober 2006 16:59 schrieben Sie:
+The change removes the 'manual' schedule_timeout and replaces it with
+schedule_timeout_uninterruptible
 
-> anyway, it's getting large, so... straight from quilt:
-> http://johannes.sipsolutions.net/files/cfg80211/
+Tested compile only with allmodconfig
 
-nice work! Is there any possibility to limit the card to a specific band (e.g. 
-802.11 a/b/g) using cfg80211? I'm asking because I haven't seen code to 
-accomplish this in cfg80211, but I maybe wrong.
+Signed-off-by: Amol Lad <amol@verismonetworks.com>
+---
+ depca.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
+---
+--- linux-2.6.19-rc1-orig/drivers/net/depca.c	2006-10-05 14:00:47.000000000=
+ +0530
++++ linux-2.6.19-rc1/drivers/net/depca.c	2006-10-09 16:37:13.000000000 +0530
+@@ -738,7 +738,7 @@ static int __init depca_hw_init (struct =
 
-Many drivers implement this feature as an iwpriv, and I consider it useful 
-enough (especially when association and roaming is kernel controlled) to 
-justify a generic configuration element.
+ 	   interrupts. For now we will always get a DMA error. */
+ 	if (dev->irq < 2) {
+ 		unsigned char irqnum;
+-		unsigned long irq_mask, delay;
++		unsigned long irq_mask;
+ =
 
-Thoughts?
+ 		irq_mask =3D probe_irq_on();
+ =
 
-Stefan
+@@ -767,9 +767,7 @@ static int __init depca_hw_init (struct =
+
+ 		/* Trigger an initialization just for the interrupt. */
+ 		outw(INEA | INIT, DEPCA_DATA);
+ =
+
+-		delay =3D jiffies + HZ/50;
+-		while (time_before(jiffies, delay))
+-			yield();
++		schedule_timeout_uninterruptible(jiffies + HZ/50);
+ =
+
+ 		irqnum =3D probe_irq_off(irq_mask);
+ =
