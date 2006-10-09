@@ -1,304 +1,55 @@
-From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 2/3] Fix for IPsec leakage with SELinux enabled - V.04: Fix
- xfrm code
-Date: Mon, 09 Oct 2006 11:24:47 -0500
-Message-ID: <452A77CF.2020900@trustedcs.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Marvell 88E8001 - WoL - GigaBitSwitch
+Date: Mon, 9 Oct 2006 08:46:39 -0700
+Message-ID: <20061009084639.3ee7f7e4@freekitty>
+References: <002a01c6e796$873a8db0$0200a8c0@sokrates>
+	<20061004102548.401e0add@freekitty>
+	<000401c6eba6$afecd470$0200a8c0@sokrates>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org, sds@tycho.nsa.gov,
-	paul.moore@hp.com, eparis@redhat.com, sgrubb@redhat.com
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:21256 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932970AbWJIQcg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 12:32:36 -0400
-To: davem@davemloft.net
+Received: from smtp.osdl.org ([65.172.181.4]:47309 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932720AbWJIQsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 12:48:20 -0400
+To: "TiVi" <tivi21de@yahoo.de>
+In-Reply-To: <000401c6eba6$afecd470$0200a8c0@sokrates>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
+On Mon, 9 Oct 2006 15:27:32 +0200
+"TiVi" <tivi21de@yahoo.de> wrote:
 
-When a security module is loaded (in this case, SELinux), the 
-security_xfrm_policy_lookup() hook can return an access denied permission 
-(or other error).  We were not handling that correctly, and in fact 
-inverting the return logic and propagating a false "ok" back up to 
-xfrm_lookup(), which then allowed packets to pass as if they were not 
-associated with an xfrm policy.
+> Hello Stephen,
+> 
+> thanks for response. Sorry for lag in posting. I was ill.
+> 
+> Short description of my problem:
+> 
+> My machine has an onboard NIC (Marvell 88E8001).
+> I am running Debian Sarge (Kernel 2.6.16).
+> skge is loaded. I use ethtool to set WoL by MagicPacket.
+> 
+> Unfortunately, the machine is not waking up if it is
+> connected to my gigabit switch. BTW, I could do
+> some testing with three different gigabit switches.
+> 
+> Using direct, old 10MBit Hub or 10/100 MBit Switch
+> connection, the machine always wakes up.
+> 
+> If I shutdown the machine using WinXP, the machine is
+> waking up although it is connected to the gigabit switch.
+> 
+> Could not test sk98lin driver. Not easy to me.
+> If needed I will try.
+> 
+> Regards,
+> 
+> Per
 
-The way I was seeing the problem was when connecting via IPsec to a 
-confined service on an SELinux box (vsftpd), which did not have the 
-appropriate SELinux policy permissions to send packets via IPsec.
+WOL is not working yet with skge. I would try sk98lin to see if that works.
+Tell me if it does, that will help in fixing skge.
 
-The first SYNACK would be blocked, because of an uncached lookup via 
-flow_cache_lookup(), which would fail to resolve an xfrm policy because 
-the SELinux policy is checked at that point via the resolver.
-
-However, retransmitted SYNACKs would then find a cached flow entry when 
-calling into flow_cache_lookup() with a null xfrm policy, which is 
-interpreted by xfrm_lookup() as the packet not having any associated 
-policy and similarly to the first case, allowing it to pass without 
-transformation.
-
-The solution presented here is to first ensure that errno values are 
-correctly propagated all the way back up through the various call chains 
-from security_xfrm_policy_lookup(), and handled correctly.
-
-Then, flow_cache_lookup() is modified, so that if the policy resolver 
-fails (typically a permission denied via the security module), the flow 
-cache entry is killed rather than having a null policy assigned (which 
-indicates that the packet can pass freely).  This also forces any future 
-lookups for the same flow to consult the security module (e.g. SELinux) 
-for current security policy (rather than, say, caching the error on the 
-flow cache entry).
-
-Signed-off-by: James Morris <jmorris@namei.org>
----
- include/net/flow.h     |    2 -
- net/core/flow.c        |   42 ++++++++++++++++--------
- net/xfrm/xfrm_policy.c |   68 ++++++++++++++++++++++++++++++---------
- 3 files changed, 82 insertions(+), 30 deletions(-)
-
---- net-2.6.leak1/include/net/flow.h	2006-10-09 08:54:39.000000000 -0500
-+++ net-2.6.leak2/include/net/flow.h	2006-10-09 10:50:32.000000000 -0500
-@@ -97,7 +97,7 @@ struct flowi {
- #define FLOW_DIR_FWD	2
- 
- struct sock;
--typedef void (*flow_resolve_t)(struct flowi *key, u16 family, u8 dir,
-+typedef int (*flow_resolve_t)(struct flowi *key, u16 family, u8 dir,
- 			       void **objp, atomic_t **obj_refp);
- 
- extern void *flow_cache_lookup(struct flowi *key, u16 family, u8 dir,
---- net-2.6.leak1/net/core/flow.c	2006-10-09 08:54:40.000000000 -0500
-+++ net-2.6.leak2/net/core/flow.c	2006-10-09 10:50:32.000000000 -0500
-@@ -85,6 +85,14 @@ static void flow_cache_new_hashrnd(unsig
- 	add_timer(&flow_hash_rnd_timer);
- }
- 
-+static void flow_entry_kill(int cpu, struct flow_cache_entry *fle)
-+{
-+	if (fle->object)
-+		atomic_dec(fle->object_ref);
-+	kmem_cache_free(flow_cachep, fle);
-+	flow_count(cpu)--;
-+}
-+
- static void __flow_cache_shrink(int cpu, int shrink_to)
- {
- 	struct flow_cache_entry *fle, **flp;
-@@ -100,10 +108,7 @@ static void __flow_cache_shrink(int cpu,
- 		}
- 		while ((fle = *flp) != NULL) {
- 			*flp = fle->next;
--			if (fle->object)
--				atomic_dec(fle->object_ref);
--			kmem_cache_free(flow_cachep, fle);
--			flow_count(cpu)--;
-+			flow_entry_kill(cpu, fle);
- 		}
- 	}
- }
-@@ -220,24 +225,33 @@ void *flow_cache_lookup(struct flowi *ke
- 
- nocache:
- 	{
-+		int err;
- 		void *obj;
- 		atomic_t *obj_ref;
- 
--		resolver(key, family, dir, &obj, &obj_ref);
-+		err = resolver(key, family, dir, &obj, &obj_ref);
- 
- 		if (fle) {
--			fle->genid = atomic_read(&flow_cache_genid);
--
--			if (fle->object)
--				atomic_dec(fle->object_ref);
--
--			fle->object = obj;
--			fle->object_ref = obj_ref;
--			if (obj)
--				atomic_inc(fle->object_ref);
-+			if (err) {
-+				/* Force security policy check on next lookup */
-+				*head = fle->next;
-+				flow_entry_kill(cpu, fle);
-+			} else {
-+				fle->genid = atomic_read(&flow_cache_genid);
-+				
-+				if (fle->object)
-+					atomic_dec(fle->object_ref);
-+					
-+				fle->object = obj;
-+				fle->object_ref = obj_ref;
-+				if (obj)
-+					atomic_inc(fle->object_ref);
-+			}
- 		}
- 		local_bh_enable();
- 
-+		if (err)
-+			obj = ERR_PTR(err);
- 		return obj;
- 	}
- }
---- net-2.6.leak1/net/xfrm/xfrm_policy.c	2006-10-09 10:49:47.000000000 -0500
-+++ net-2.6.leak2/net/xfrm/xfrm_policy.c	2006-10-09 10:50:32.000000000 -0500
-@@ -883,30 +883,32 @@ out:
- }
- EXPORT_SYMBOL(xfrm_policy_walk);
- 
--/* Find policy to apply to this flow. */
--
-+/*
-+ * Find policy to apply to this flow.
-+ *
-+ * Returns 0 if policy found, else an -errno.
-+ */
- static int xfrm_policy_match(struct xfrm_policy *pol, struct flowi *fl,
- 			     u8 type, u16 family, int dir)
- {
- 	struct xfrm_selector *sel = &pol->selector;
--	int match;
-+	int match, ret = -ESRCH;
- 
- 	if (pol->family != family ||
- 	    pol->type != type)
--		return 0;
-+		return ret;
- 
- 	match = xfrm_selector_match(sel, fl, family);
--	if (match) {
--		if (!security_xfrm_policy_lookup(pol, fl->secid, dir))
--			return 1;
--	}
-+	if (match)
-+		ret = security_xfrm_policy_lookup(pol, fl->secid, dir);
- 
--	return 0;
-+	return ret;
- }
- 
- static struct xfrm_policy *xfrm_policy_lookup_bytype(u8 type, struct flowi *fl,
- 						     u16 family, u8 dir)
- {
-+	int err;
- 	struct xfrm_policy *pol, *ret;
- 	xfrm_address_t *daddr, *saddr;
- 	struct hlist_node *entry;
-@@ -922,7 +924,15 @@ static struct xfrm_policy *xfrm_policy_l
- 	chain = policy_hash_direct(daddr, saddr, family, dir);
- 	ret = NULL;
- 	hlist_for_each_entry(pol, entry, chain, bydst) {
--		if (xfrm_policy_match(pol, fl, type, family, dir)) {
-+		err = xfrm_policy_match(pol, fl, type, family, dir);
-+		if (err) {
-+			if (err == -ESRCH)
-+				continue;
-+			else {
-+				ret = ERR_PTR(err);
-+				goto fail;
-+			}
-+		} else {
- 			ret = pol;
- 			priority = ret->priority;
- 			break;
-@@ -930,36 +940,53 @@ static struct xfrm_policy *xfrm_policy_l
- 	}
- 	chain = &xfrm_policy_inexact[dir];
- 	hlist_for_each_entry(pol, entry, chain, bydst) {
--		if (xfrm_policy_match(pol, fl, type, family, dir) &&
--		    pol->priority < priority) {
-+		err = xfrm_policy_match(pol, fl, type, family, dir);
-+		if (err) {
-+			if (err == -ESRCH)
-+				continue;
-+			else {
-+				ret = ERR_PTR(err);
-+				goto fail;
-+			}
-+		} else if (pol->priority < priority) {
- 			ret = pol;
- 			break;
- 		}
- 	}
- 	if (ret)
- 		xfrm_pol_hold(ret);
-+fail:
- 	read_unlock_bh(&xfrm_policy_lock);
- 
- 	return ret;
- }
- 
--static void xfrm_policy_lookup(struct flowi *fl, u16 family, u8 dir,
-+static int xfrm_policy_lookup(struct flowi *fl, u16 family, u8 dir,
- 			       void **objp, atomic_t **obj_refp)
- {
- 	struct xfrm_policy *pol;
-+	int err = 0;
- 
- #ifdef CONFIG_XFRM_SUB_POLICY
- 	pol = xfrm_policy_lookup_bytype(XFRM_POLICY_TYPE_SUB, fl, family, dir);
--	if (pol)
-+	if (IS_ERR(pol)) {
-+		err = PTR_ERR(pol);
-+		pol = NULL;
-+	}
-+	if (pol || err)
- 		goto end;
- #endif
- 	pol = xfrm_policy_lookup_bytype(XFRM_POLICY_TYPE_MAIN, fl, family, dir);
--
-+	if (IS_ERR(pol)) {
-+		err = PTR_ERR(pol);
-+		pol = NULL;
-+	}
- #ifdef CONFIG_XFRM_SUB_POLICY
- end:
- #endif
- 	if ((*objp = (void *) pol) != NULL)
- 		*obj_refp = &pol->refcnt;
-+	return err;
- }
- 
- static inline int policy_to_flow_dir(int dir)
-@@ -1297,6 +1324,8 @@ restart:
- 
- 		policy = flow_cache_lookup(fl, dst_orig->ops->family,
- 					   dir, xfrm_policy_lookup);
-+		if (IS_ERR(policy))
-+			return PTR_ERR(policy);
- 	}
- 
- 	if (!policy)
-@@ -1343,6 +1372,10 @@ restart:
- 							    fl, family,
- 							    XFRM_POLICY_OUT);
- 			if (pols[1]) {
-+				if (IS_ERR(pols[1])) {
-+					err = PTR_ERR(pols[1]);
-+					goto error;
-+				}
- 				if (pols[1]->action == XFRM_POLICY_BLOCK) {
- 					err = -EPERM;
- 					goto error;
-@@ -1581,6 +1614,9 @@ int __xfrm_policy_check(struct sock *sk,
- 		pol = flow_cache_lookup(&fl, family, fl_dir,
- 					xfrm_policy_lookup);
- 
-+	if (IS_ERR(pol))
-+		return 0;
-+
- 	if (!pol) {
- 		if (skb->sp && secpath_has_nontransport(skb->sp, 0, &xerr_idx)) {
- 			xfrm_secpath_reject(xerr_idx, skb, &fl);
-@@ -1599,6 +1635,8 @@ int __xfrm_policy_check(struct sock *sk,
- 						    &fl, family,
- 						    XFRM_POLICY_IN);
- 		if (pols[1]) {
-+			if (IS_ERR(pols[1]))
-+				return 0;
- 			pols[1]->curlft.use_time = (unsigned long)xtime.tv_sec;
- 			npols ++;
- 		}
+-- 
+Stephen Hemminger <shemminger@osdl.org>
