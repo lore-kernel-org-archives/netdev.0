@@ -1,31 +1,41 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH 0/3] Fix for IPsec leakage with SELinux enabled - V.03
-Date: Mon, 9 Oct 2006 11:42:18 -0400
-Message-ID: <36282A1733C57546BE392885C0618592015CFD4D@chaos.tcs.tcs-sec.com>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: 2.6.19-rc1: known regressions (v2) - xfrm_register_mode
+Date: Mon, 9 Oct 2006 16:51:00 +0100 (IST)
+Message-ID: <Pine.LNX.4.64.0610091649300.5101@skynet.skynet.ie>
+References: <Pine.LNX.4.64.0610042017340.3952@g5.osdl.org>
+ <20061007214620.GB8810@stusta.de> <1160407954.1984.11.camel@flooterbu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
-	sds@tycho.nsa.gov, eparis@redhat.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Adrian Bunk <bunk@stusta.de>, Linus Torvalds <torvalds@osdl.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Mel Gorman <mel@skynet.ie>,
+	Vivek Goyal <vgoyal@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:46459 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932950AbWJIPmt
+Received: from calculon.skynet.ie ([193.1.99.88]:59338 "EHLO
+	calculon.skynet.ie") by vger.kernel.org with ESMTP id S1751433AbWJIPvC
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 11:42:49 -0400
-To: David Miller <davem@davemloft.net>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>
+	Mon, 9 Oct 2006 11:51:02 -0400
+To: Steve Fox <drfickle@us.ibm.com>
+In-Reply-To: <1160407954.1984.11.camel@flooterbu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > My apologies. The second one is also numbered 1, but has the
-> > following distinct subject line:
-> > [PATCH 1/3] Fix for IPsec leakage with SELinux enabled - 
-> V.03: Fix xfrm code
-> 
-> I definitely deleted one of them, since I usually get N copies
-> of very single patch posting and two of them looked identical:)
+On Mon, 9 Oct 2006, Steve Fox wrote:
 
-I guess this is probably the reason why I don't see the fix in net-2.6.git
-yet :) I will resend the patchset with the subject titles fixed up since
-it needs to be in 2.6.19.
+> On Sat, 2006-10-07 at 23:46 +0200, Adrian Bunk wrote:
+>> Subject    : oops in xfrm_register_mode
+>> References : http://lkml.org/lkml/2006/10/4/170
+>> Submitter  : Steve Fox <drfickle@us.ibm.com>
+>> Status     : unknown
+>
+> Status: Vivek and Mel have both created patches which fix the boot
+> issue, but it is not clear to me if either of these are acceptable
+> fixes.
+>
+
+I suggest taking Vivek's.
+
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
