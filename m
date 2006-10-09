@@ -1,55 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Marvell 88E8001 - WoL - GigaBitSwitch
-Date: Mon, 9 Oct 2006 08:46:39 -0700
-Message-ID: <20061009084639.3ee7f7e4@freekitty>
-References: <002a01c6e796$873a8db0$0200a8c0@sokrates>
-	<20061004102548.401e0add@freekitty>
-	<000401c6eba6$afecd470$0200a8c0@sokrates>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [patch 1/3] d80211: use FCS_LEN instead of hardcoded number.
+Date: Mon, 9 Oct 2006 10:02:49 -0700
+Message-ID: <20061009170249.GA27239@devicescape.com>
+References: <20061009170159.804032000@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	David Kimdon <david.kimdon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:47309 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932720AbWJIQsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 12:48:20 -0400
-To: "TiVi" <tivi21de@yahoo.de>
-In-Reply-To: <000401c6eba6$afecd470$0200a8c0@sokrates>
+Received: from mail.devicescape.com ([207.138.119.2]:20898 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S932936AbWJIRDC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Oct 2006 13:03:02 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="FCS_LEN.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Oct 2006 15:27:32 +0200
-"TiVi" <tivi21de@yahoo.de> wrote:
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-> Hello Stephen,
-> 
-> thanks for response. Sorry for lag in posting. I was ill.
-> 
-> Short description of my problem:
-> 
-> My machine has an onboard NIC (Marvell 88E8001).
-> I am running Debian Sarge (Kernel 2.6.16).
-> skge is loaded. I use ethtool to set WoL by MagicPacket.
-> 
-> Unfortunately, the machine is not waking up if it is
-> connected to my gigabit switch. BTW, I could do
-> some testing with three different gigabit switches.
-> 
-> Using direct, old 10MBit Hub or 10/100 MBit Switch
-> connection, the machine always wakes up.
-> 
-> If I shutdown the machine using WinXP, the machine is
-> waking up although it is connected to the gigabit switch.
-> 
-> Could not test sk98lin driver. Not easy to me.
-> If needed I will try.
-> 
-> Regards,
-> 
-> Per
+Index: wireless-dev/net/d80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/d80211/ieee80211.c
++++ wireless-dev/net/d80211/ieee80211.c
+@@ -451,7 +451,7 @@ ieee80211_tx_h_fragment(struct ieee80211
+ 
+ 	hdrlen = ieee80211_get_hdrlen(tx->fc);
+ 	payload_len = first->len - hdrlen;
+-	per_fragm = frag_threshold - hdrlen - 4 /* FCS */;
++	per_fragm = frag_threshold - hdrlen - FCS_LEN;
+ 	num_fragm = (payload_len + per_fragm - 1) / per_fragm;
+ 
+ 	frags = kzalloc(num_fragm * sizeof(struct sk_buff *), GFP_ATOMIC);
+@@ -1103,7 +1103,7 @@ __ieee80211_tx_prepare(struct ieee80211_
+         control->no_ack = is_multicast_ether_addr(hdr->addr1);
+ 	tx->fragmented = local->fragmentation_threshold <
+ 		IEEE80211_MAX_FRAG_THRESHOLD && tx->u.tx.unicast &&
+-		skb->len + 4 /* FCS */ > local->fragmentation_threshold &&
++		skb->len + FCS_LEN > local->fragmentation_threshold &&
+ 		(!local->hw->set_frag_threshold);
+ 	if (!tx->sta)
+ 		control->clear_dst_mask = 1;
 
-WOL is not working yet with skge. I would try sk98lin to see if that works.
-Tell me if it does, that will help in fixing skge.
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+--
