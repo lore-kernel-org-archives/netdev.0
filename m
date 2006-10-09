@@ -1,46 +1,48 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Exact meaning of rx_bytes and tx_bytes
-Date: Mon, 9 Oct 2006 09:22:53 -0700
-Message-ID: <20061009092253.6cfbd406@freekitty>
-References: <200610091739.02361.jdelvare@suse.de>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Dropping NETIF_F_SG since no checksum feature.
+Date: Mon, 9 Oct 2006 19:47:05 +0200
+Message-ID: <20061009174705.GG26849@mellanox.co.il>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25561 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964774AbWJIRYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 13:24:36 -0400
-To: Jean Delvare <jdelvare@suse.de>
-In-Reply-To: <200610091739.02361.jdelvare@suse.de>
+Received: from dev.mellanox.co.il ([194.90.237.44]:641 "EHLO
+	dev.mellanox.co.il") by vger.kernel.org with ESMTP id S964776AbWJIRrW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Oct 2006 13:47:22 -0400
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, openib-general@openib.org,
+	Roland Dreier <rolandd@cisco.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Oct 2006 17:39:02 +0200
-Jean Delvare <jdelvare@suse.de> wrote:
+Hi!
+I'm trying to build a network device driver supporting a very large MTU (around 64K)
+on top of an infiniband connection, and I've hit a couple of issues I'd
+appreciate some feedback on:
 
-> Hi all,
-> 
-> I am wondering what exactly the rx_bytes and tx_bytes values exported 
-> under statistics/ in sysfs are supposed to represent.
-> 
-> Most popular ethernet drivers (8139too, e100, 3c59x) count the bytes in 
-> software, so they only take into account the bytes they actually send and 
-> receive. This excludes the 4-byte ethernet CRC if I understand correctly.
-> 
-> Other drivers, on the other hand, get the transfered bytes statistics from 
-> hardware registers, and these appear to include the 4-byte CRC in the 
-> total count. This is the case of sk98lin and e1000, for example.
-> 
-> So my question is, which drivers are right? Are we counting the emitted 
-> and received bytes at software level or at hardware level? Or do we just 
-> not care about the 4-byte/packet difference and both are acceptable?
-> 
-> Thanks,
+1. On the send side,
+   I've set NETIF_F_SG, but hardware does not support checksum offloading,
+   and I see "dropping NETIF_F_SG since no checksum feature" warning,
+   and I seem to be getting large packets all in one chunk.
+   The reason I've set NETIF_F_SG, is because I'm concerned that under real life
+   stress Linux won't be able to allocate 64K of continuous memory.
 
-Does it really mater that much, unless you are charging people per
-byte.
+   Is this concern of mine valid? I saw in-tree drivers allocating at least 8K.
+   What's the best way to enable S/G on send side?
+   Is checksum offloading really required for S/G?
 
+2. On the receive side, what's the best/right way to create an skb that
+   is larger than PAGE_SIZE?
+   Do I allocate with alloc_page and fill in nr_frags with skb_fill_page_desc?
+   Some drivers seem to fill in frag_list - which is better?
+   I see than even skb_put only works properly on linear skb.
+   What are the helpers legal for fragmented skb?
+
+Suggestions would be appreciated.
+
+Thanks,
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+MST
