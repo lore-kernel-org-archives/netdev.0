@@ -1,126 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Pull request for 'jg-20061009-00' tag
-Date: Mon, 9 Oct 2006 22:21:33 +0200
-Message-ID: <20061009202133.GA18466@electric-eye.fr.zoreil.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 00/11] The _entire_ secid reconciliation patchset (tada!)
+Date: Mon, 09 Oct 2006 16:30:13 -0400
+Message-ID: <452AB155.8070409@hp.com>
+References: <20061009194223.402695000@hp.com> <Pine.LNX.4.64.0610091612140.31187@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, dragoran@feuerpokemon.de,
-	ranma+kernel@tdiedrich.de, hchacha@users.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:31680 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S964821AbWJIUXe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 16:23:34 -0400
-To: jeff@garzik.org
-Content-Disposition: inline
+Received: from atlrel9.hp.com ([156.153.255.214]:34735 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S964819AbWJIUaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 16:30:17 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0610091612140.31187@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please pull from tag 'jg-20061009-00' in repository
- 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git jg-20061009-00
+James Morris wrote:
+> On Mon, 9 Oct 2006, paul.moore@hp.com wrote:
+> 
+>>Please consider this for inclusion into 2.6.20.  If it's too soon to be
+>>thinking of 2.6.20 let me know and I'll rebase/resend this patchset once I see
+>>notice of David's net-2.6.20 git tree.
+> 
+> From an initial review of this patchset, it doesn't look quite ready to 
+> queue for 2.6.20 (which I plan to to via git once it is).
+> 
+> Outstanding items include resolving the igmp skb hook issue generally, 
+> testing to verify both the design and implementation, and ensuring that 
+> all the related policy changes are merged upstream first.
 
-to get the changes below.
+I'll keep the patchset up to date and keep tracking the secid patches (I know
+there has been discussion around the IGMP hook this morning).  Once everything
+looks okay I'll resend the patchset (with any updates/corrections/etc.) again.
 
-Distance from 'upstream-fixes'
------------------------------
-
-$ git rev-list 2f614fe04f4463ff22234133319067d7361f54e5..jg-20061009-00
-91a6ba7162852092080b0e710dc0ba0f35496308
-73f5e28b336772c4b08ee82e5bf28ab872898ee1
-
-Diffstat
---------
-
- drivers/net/forcedeth.c |   43 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/r8169.c     |    1 +
- 2 files changed, 44 insertions(+), 0 deletions(-)
-
-Shortlog
---------
- 
-Andrew Morton:
-      r8169: PCI ID for Corega Gigabit network card
-
-Francois Romieu:
-      forcedeth: restore network after swsup/resume or ACPI S3
-
-Patch
------
-
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 35467e0..c41a886 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -4603,6 +4603,47 @@ static void __devexit nv_remove(struct p
- 	pci_set_drvdata(pci_dev, NULL);
- }
- 
-+
-+static int nv_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct fe_priv *np = netdev_priv(dev);
-+	int rc = 0;
-+
-+	if (!netif_running(dev))
-+		goto out;
-+
-+	netif_device_detach(dev);
-+
-+	/* Gross. */
-+	rc = nv_close(dev);
-+
-+	pci_save_state(pdev);
-+	pci_enable_wake(pdev, pci_choose_state(pdev, state), np->wolenabled);
-+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+out:
-+	return rc;
-+}
-+
-+static int nv_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	int rc = 0;
-+
-+	if (!netif_running(dev))
-+		goto out;
-+
-+	netif_device_attach(dev);
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+	pci_enable_wake(pdev, PCI_D0, 0);
-+
-+	rc = nv_open(dev);
-+out:
-+	return rc;
-+}
-+
- static struct pci_device_id pci_tbl[] = {
- 	{	/* nForce Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_1),
-@@ -4704,6 +4745,8 @@ static struct pci_driver driver = {
- 	.id_table = pci_tbl,
- 	.probe = nv_probe,
- 	.remove = __devexit_p(nv_remove),
-+	.suspend = nv_suspend,
-+	.resume = nv_resume,
- };
- 
- 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 4c47c5b..c7309e9 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -214,6 +214,7 @@ static struct pci_device_id rtl8169_pci_
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8168), 0, 0, RTL_CFG_2 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), 0, 0, RTL_CFG_0 },
-+	{ PCI_DEVICE(0x1259,			0xc107), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(0x16ec,			0x0116), 0, 0, RTL_CFG_0 },
- 	{ PCI_VENDOR_ID_LINKSYS,		0x1032,
- 		PCI_ANY_ID, 0x0024, 0, 0, RTL_CFG_0 },
 -- 
-Ueimor
+paul moore
+linux security @ hp
