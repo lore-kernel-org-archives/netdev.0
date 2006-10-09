@@ -1,102 +1,221 @@
 From: paul.moore@hp.com
-Subject: [PATCH 08/11] secid reconciliation: Use secmark when classifying flow using skb
-Date: Mon, 09 Oct 2006 15:42:31 -0400
-Message-ID: <20061009195850.814267000@hp.com>
+Subject: [PATCH 04/11] secid reconciliation: Invoke LSM hook for outbound traffic
+Date: Mon, 09 Oct 2006 15:42:27 -0400
+Message-ID: <20061009195848.642381000@hp.com>
 References: <20061009194223.402695000@hp.com>
 Cc: vyekkirala@TrustedCS.com, jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:26595 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S964788AbWJIT6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:58:52 -0400
+Received: from atlrel9.hp.com ([156.153.255.214]:62391 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S933017AbWJIT6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:58:50 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=secid-8
+Content-Disposition: inline; filename=secid-4
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 
-This beings secmark into the picture when classifying flows
-using an skb.
+Invoke the skb_flow_out LSM hook for outbound
+traffic for secid reconciliation and flow control.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/linux/security.h |   10 ----------
- include/linux/skbuff.h   |   20 ++++++++++++++++++++
- 2 files changed, 20 insertions(+), 10 deletions(-)
+ net/netfilter/xt_CONNSECMARK.c |   72 ++++++++++++++++++++++++-------
+ net/netfilter/xt_SECMARK.c     |   45 ++++++++++++++++++-
+ 2 files changed, 100 insertions(+), 17 deletions(-)
 
-Index: net-2.6_secidfinal/include/linux/security.h
-===================================================================
---- net-2.6_secidfinal.orig/include/linux/security.h
-+++ net-2.6_secidfinal/include/linux/security.h
-@@ -3224,12 +3224,6 @@ static inline int security_xfrm_decode_s
- 	return security_ops->xfrm_decode_session(skb, secid, 1);
- }
- 
--static inline void security_skb_classify_flow(struct sk_buff *skb, struct flowi *fl)
--{
--	int rc = security_ops->xfrm_decode_session(skb, &fl->secid, 0);
--
--	BUG_ON(rc);
--}
- #else	/* CONFIG_SECURITY_NETWORK_XFRM */
- static inline int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
- {
-@@ -3298,10 +3292,6 @@ static inline int security_xfrm_decode_s
- 	return 0;
- }
- 
--static inline void security_skb_classify_flow(struct sk_buff *skb, struct flowi *fl)
--{
--}
--
- #endif	/* CONFIG_SECURITY_NETWORK_XFRM */
- 
- #ifdef CONFIG_KEYS
-Index: net-2.6_secidfinal/include/linux/skbuff.h
-===================================================================
---- net-2.6_secidfinal.orig/include/linux/skbuff.h
-+++ net-2.6_secidfinal/include/linux/skbuff.h
-@@ -30,6 +30,7 @@
- #include <net/checksum.h>
- #include <linux/dmaengine.h>
- #include <net/flow.h>
+diff --git a/net/netfilter/xt_CONNSECMARK.c b/net/netfilter/xt_CONNSECMARK.c
+index 4673862..cca4a0c 100644
+--- a/net/netfilter/xt_CONNSECMARK.c
++++ b/net/netfilter/xt_CONNSECMARK.c
+@@ -17,6 +17,8 @@
+  */
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
 +#include <linux/security.h>
++#include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_CONNSECMARK.h>
+ #include <net/netfilter/nf_conntrack_compat.h>
+@@ -29,38 +31,78 @@ MODULE_DESCRIPTION("ip[6]tables CONNSECM
+ MODULE_ALIAS("ipt_CONNSECMARK");
+ MODULE_ALIAS("ip6t_CONNSECMARK");
  
- #define HAVE_ALLOC_SKB		/* For the drivers to know */
- #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
-@@ -1514,6 +1515,20 @@ static inline void security_flow_classif
- 	skb->secmark = fl->secid;
- }
- 
-+static inline void security_skb_classify_flow(struct sk_buff *skb,
-+					struct flowi *fl)
++static inline int outbound(unsigned short family, unsigned int hooknum)
 +{
-+	/*
-+	 * We need to check for xfrm label here since secid reconciliation
-+	 * may or may not have happened yet and we want the
-+	 * flow to use the best available label.
-+	 */
-+	int rc = security_xfrm_decode_session(skb, &fl->secid);
-+
-+	if (rc || !fl->secid)
-+		fl->secid = skb->secmark;
++	if ((family == AF_INET &&
++		(hooknum == NF_IP_POST_ROUTING ||
++		 hooknum == NF_IP_LOCAL_OUT ||
++		 hooknum == NF_IP_FORWARD)) ||
++	    (family == AF_INET6 &&
++		(hooknum == NF_IP6_POST_ROUTING ||
++		 hooknum == NF_IP6_LOCAL_OUT ||
++		 hooknum == NF_IP6_FORWARD)))
++		return 1;
++	else
++		return 0;
 +}
 +
- #else
- 
- static inline void security_skb_classify_skb(struct sk_buff *from,
-@@ -1526,6 +1541,11 @@ static inline void security_flow_classif
+ /*
+  * If the packet has a security mark and the connection does not, copy
+  * the security mark from the packet to the connection.
+  */
+-static void secmark_save(struct sk_buff *skb)
++static void secmark_save(struct sk_buff *skb, unsigned int hooknum)
  {
+ 	if (skb->secmark) {
+ 		u32 *connsecmark;
+ 		enum ip_conntrack_info ctinfo;
+ 
+ 		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
+-		if (connsecmark && !*connsecmark)
++		if (connsecmark)
+ 			if (*connsecmark != skb->secmark)
+ 				*connsecmark = skb->secmark;
+ 	}
  }
  
-+static inline void security_skb_classify_flow(struct sk_buff *skb,
-+					struct flowi *fl)
+ /*
+- * If packet has no security mark, and the connection does, restore the
+- * security mark from the connection to the packet.
++ * On the inbound, restore the security mark from the connection to the packet.
++ * On the outbound, filter based on the current secmark.
+  */
+-static void secmark_restore(struct sk_buff *skb)
++static unsigned int secmark_restore(struct sk_buff *skb, unsigned int hooknum,
++		   const struct net_device *in, unsigned short family)
+ {
+-	if (!skb->secmark) {
+-		u32 *connsecmark;
+-		enum ip_conntrack_info ctinfo;
+-
+-		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
+-		if (connsecmark && *connsecmark)
+-			if (skb->secmark != *connsecmark)
+-				skb->secmark = *connsecmark;
++	u32 *psecmark;
++	enum ip_conntrack_info ctinfo;
++
++	psecmark = nf_ct_get_secmark(skb, &ctinfo);
++
++	if (psecmark && *psecmark) {
++
++		/* Set secmark on inbound and filter it on outbound */
++		if (outbound(family, hooknum)) {
++			int err;
++
++			err = security_skb_flow_out(skb, *psecmark);
++			if (!err)
++				return NF_DROP;
++		} else
++			/* 
++			 * inbound:
++			 * loopback traffic should already be labeled
++			 * and any filtering on outbound should suffice
++			 */
++			if (in == &loopback_dev)
++				goto out;
++
++		/*
++		 * inbound or done with outbound check or no LSM hook
++		 * for outbound
++		 */
++		if (skb->secmark != *psecmark)
++			skb->secmark = *psecmark;
+ 	}
++
++out:
++	return XT_CONTINUE;
+ }
+ 
+ static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
+@@ -73,11 +115,11 @@ static unsigned int target(struct sk_buf
+ 
+ 	switch (info->mode) {
+ 	case CONNSECMARK_SAVE:
+-		secmark_save(skb);
++		secmark_save(skb, hooknum);
+ 		break;
+ 
+ 	case CONNSECMARK_RESTORE:
+-		secmark_restore(skb);
++		return secmark_restore(skb, hooknum, in, target->family);
+ 		break;
+ 
+ 	default:
+diff --git a/net/netfilter/xt_SECMARK.c b/net/netfilter/xt_SECMARK.c
+index add7521..9ecce66 100644
+--- a/net/netfilter/xt_SECMARK.c
++++ b/net/netfilter/xt_SECMARK.c
+@@ -15,8 +15,10 @@
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <linux/selinux.h>
++#include <linux/security.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_SECMARK.h>
++#include <linux/netfilter_ipv6.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
+@@ -28,6 +30,21 @@ #define PFX "SECMARK: "
+ 
+ static u8 mode;
+ 
++static inline int outbound(unsigned short family, unsigned int hooknum)
 +{
++	if ((family == AF_INET &&
++		(hooknum == NF_IP_POST_ROUTING ||
++		 hooknum == NF_IP_LOCAL_OUT ||
++		 hooknum == NF_IP_FORWARD)) ||
++	    (family == AF_INET6 &&
++		(hooknum == NF_IP6_POST_ROUTING ||
++		 hooknum == NF_IP6_LOCAL_OUT ||
++		 hooknum == NF_IP6_FORWARD)))
++		return 1;
++	else
++		return 0;
 +}
 +
- #endif /* CONFIG_SECURITY_NETWORK */
+ static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
+ 			   const struct net_device *out, unsigned int hooknum,
+ 			   const struct xt_target *target,
+@@ -47,9 +64,33 @@ static unsigned int target(struct sk_buf
+ 		BUG();
+ 	}
  
- #endif	/* __KERNEL__ */
+-	if ((*pskb)->secmark != secmark)
+-		(*pskb)->secmark = secmark;
++	if (secmark) {
++
++		/* Set secmark on inbound and filter it on outbound */
++		if (outbound(target->family, hooknum)) {
++			int err;
++
++			err = security_skb_flow_out(*pskb, secmark);
++			if (!err)
++				return NF_DROP;
++		} else
++			/*
++			 * inbound:
++			 * loopback traffic should already be labeled
++			 * and any filtering on outbound should suffice
++			 */
++			if (in == &loopback_dev)
++				goto out;
++
++		/* 
++		 * inbound or done with outbound check or no LSM hook
++		 * for outbound
++		 */
++		if ((*pskb)->secmark != secmark)
++			(*pskb)->secmark = secmark;
++	}
+ 
++out:
+ 	return XT_CONTINUE;
+ }
+ 
 
 --
 paul moore
