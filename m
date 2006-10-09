@@ -1,51 +1,41 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [patch 3/3] d80211: silence sparse warning: bad constant expression
-Date: Mon, 9 Oct 2006 13:11:02 -0700
-Message-ID: <20061009201102.GA10661@devicescape.com>
-References: <20061009170159.804032000@devicescape.com> <20061009170345.GC27239@devicescape.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 00/11] The _entire_ secid reconciliation patchset (tada!)
+Date: Mon, 9 Oct 2006 16:19:29 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610091612140.31187@d.namei>
+References: <20061009194223.402695000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:27591 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S964805AbWJIULM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 16:11:12 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-Content-Disposition: inline
-In-Reply-To: <20061009170345.GC27239@devicescape.com>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:32151 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964809AbWJIUTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Oct 2006 16:19:32 -0400
+To: Paul Moore <paul.moore@hp.com>,
+	"David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20061009194223.402695000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update to use ARRAY_SIZE, based on comment from Joe Perches.
+On Mon, 9 Oct 2006, paul.moore@hp.com wrote:
 
-d80211: silence sparse warning: 'bad constant expression'
+> Please consider this for inclusion into 2.6.20.  If it's too soon to be
+> thinking of 2.6.20 let me know and I'll rebase/resend this patchset once I see
+> notice of David's net-2.6.20 git tree.
 
-Sparse does not figure out that algs[] isn't really a variable length array.
-The message is:
+>From an initial review of this patchset, it doesn't look quite ready to 
+queue for 2.6.20 (which I plan to to via git once it is).
 
-net/d80211/ieee80211_sta.c:934:12: error: bad constant expression
+Outstanding items include resolving the igmp skb hook issue generally, 
+testing to verify both the design and implementation, and ensuring that 
+all the related policy changes are merged upstream first.
 
-This switches algs[] to be obviously a constant array, and derives the value of
-num_algs algs[].  The code is correct and equivalent with or without this
-change.
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-Index: wireless-dev/net/d80211/ieee80211_sta.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_sta.c
-+++ wireless-dev/net/d80211/ieee80211_sta.c
-@@ -930,8 +930,8 @@ static void ieee80211_rx_mgmt_auth(struc
- 		printk(KERN_DEBUG "%s: AP denied authentication (auth_alg=%d "
- 		       "code=%d)\n", dev->name, ifsta->auth_alg, status_code);
- 		if (status_code == WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG) {
--			const int num_algs = 3;
--			u8 algs[num_algs];
-+			u8 algs[3];
-+			const int num_algs = ARRAY_SIZE(algs);
- 			int i, pos;
- 			algs[0] = algs[1] = algs[2] = 0xff;
- 			if (ifsta->auth_algs & IEEE80211_AUTH_ALG_OPEN)
+- James
+-- 
+James Morris
+<jmorris@namei.org>
