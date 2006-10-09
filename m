@@ -1,97 +1,116 @@
 From: paul.moore@hp.com
-Subject: [PATCH 03/11] secid reconciliation: Invoke LSM hook for inbound traffic
-Date: Mon, 09 Oct 2006 15:42:26 -0400
-Message-ID: <20061009195847.992616000@hp.com>
+Subject: [PATCH 05/11] secid reconciliation: Label locally generated IPv6 traffic
+Date: Mon, 09 Oct 2006 15:42:28 -0400
+Message-ID: <20061009195849.188298000@hp.com>
 References: <20061009194223.402695000@hp.com>
 Cc: vyekkirala@TrustedCS.com, jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:33500 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S964796AbWJIT7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:59:08 -0400
+Received: from atlrel6.hp.com ([156.153.255.205]:40607 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S933018AbWJIT6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:58:51 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=secid-3
+Content-Disposition: inline; filename=secid-5
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 
-Invoke the skb_flow_in LSM hook for inbound
-traffic for secid reconciliation and flow control.
+This labels the skb(s) for locally generated IPv6 traffic. This will
+be used in pertinent flow control checks on the outbound later in the
+LSM hook.
+
+NOTE: Forwarded traffic is already labeled with the reconciled
+secmark on the inbound.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/net/xfrm.h |   45 +++++++++++++++++++++----------------------
- 1 file changed, 22 insertions(+), 23 deletions(-)
+ include/linux/skbuff.h           |   29 +++++++++++++++++++++++++++++
+ net/ipv6/ip6_output.c            |    5 +++++
+ net/ipv6/netfilter/ip6t_REJECT.c |    2 ++
+ 3 files changed, 36 insertions(+)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 11e0b1d..8f9c184 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -675,22 +675,18 @@ extern int __xfrm_policy_check(struct so
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 85577a4..18967f2 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -29,6 +29,7 @@ #include <linux/net.h>
+ #include <linux/textsearch.h>
+ #include <net/checksum.h>
+ #include <linux/dmaengine.h>
++#include <net/flow.h>
  
- static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
- {
--	if (sk && sk->sk_policy[XFRM_POLICY_IN])
--		return __xfrm_policy_check(sk, dir, skb, family);
--
--	return	(!xfrm_policy_count[dir] && !skb->sp) ||
--		(skb->dst->flags & DST_NOPOLICY) ||
--		__xfrm_policy_check(sk, dir, skb, family);
--}
--
--static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return xfrm_policy_check(sk, dir, skb, AF_INET);
--}
-+	int ret;
- 
--static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{
--	return xfrm_policy_check(sk, dir, skb, AF_INET6);
-+	if (sk && sk->sk_policy[XFRM_POLICY_IN])
-+		ret = __xfrm_policy_check(sk, dir, skb, family);
-+	else
-+		ret = (!xfrm_policy_count[dir] && !skb->sp) ||
-+		      (skb->dst->flags & DST_NOPOLICY) ||
-+		      __xfrm_policy_check(sk, dir, skb, family);
-+
-+	if (ret)
-+		ret = security_skb_flow_in(skb, family);
-+	return ret;
+ #define HAVE_ALLOC_SKB		/* For the drivers to know */
+ #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
+@@ -1499,5 +1500,33 @@ static inline int skb_is_gso(const struc
+ 	return skb_shinfo(skb)->gso_size;
  }
  
- extern int xfrm_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family);
-@@ -742,19 +738,22 @@ static inline void xfrm_sk_free_policy(s
- static inline int xfrm_sk_clone_policy(struct sock *sk) { return 0; }
- static inline int xfrm6_route_forward(struct sk_buff *skb) { return 1; }  
- static inline int xfrm4_route_forward(struct sk_buff *skb) { return 1; } 
--static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
--{ 
--	return 1; 
--} 
-+static inline int xfrm_policy_check(struct sock *sk, int dir,
-+		struct sk_buff *skb, unsigned short family)
++#ifdef CONFIG_SECURITY_NETWORK
++
++static inline void security_skb_classify_skb(struct sk_buff *from,
++					struct sk_buff *skb)
 +{
-+	return security_skb_flow_in(skb, family);
++	skb->secmark = from->secmark;
 +}
-+#endif
 +
- static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
- {
--	return 1;
-+	return xfrm_policy_check(sk, dir, skb, AF_INET);
- }
--static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
++static inline void security_flow_classify_skb(struct flowi *fl,
++					struct sk_buff *skb)
++{
++	skb->secmark = fl->secid;
++}
 +
-+static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
- {
--	return 1;
-+	return xfrm_policy_check(sk, dir, skb, AF_INET6);
- }
--#endif
++#else
++
++static inline void security_skb_classify_skb(struct sk_buff *from,
++					struct sk_buff *skb)
++{
++}
++
++static inline void security_flow_classify_skb(struct flowi *fl,
++					struct sk_buff *skb)
++{
++}
++
++#endif /* CONFIG_SECURITY_NETWORK */
++
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6671691..6648eb3 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -170,6 +170,8 @@ int ip6_xmit(struct sock *sk, struct sk_
+ 	int hlimit, tclass;
+ 	u32 mtu;
  
- static __inline__
- xfrm_address_t *xfrm_flowi_daddr(struct flowi *fl, unsigned short family)
++	security_flow_classify_skb(fl, skb);
++
+ 	if (opt) {
+ 		int head_room;
+ 
+@@ -1150,6 +1152,9 @@ alloc_new_skb:
+ 			}
+ 			if (skb == NULL)
+ 				goto error;
++
++			security_flow_classify_skb(fl, skb);
++
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 311eae8..0508c30 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -128,6 +128,8 @@ static void send_reset(struct sk_buff *o
+ 	ipv6_addr_copy(&ip6h->saddr, &oip6h->daddr);
+ 	ipv6_addr_copy(&ip6h->daddr, &oip6h->saddr);
+ 
++	security_skb_classify_skb(oldskb, nskb);
++
+ 	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
+ 	/* Truncate to length (no data) */
+ 	tcph->doff = sizeof(struct tcphdr)/4;
 
 --
 paul moore
