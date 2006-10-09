@@ -1,141 +1,97 @@
 From: paul.moore@hp.com
-Subject: [PATCH 09/11] secid reconciliation: Track peersecid at connection establishment
-Date: Mon, 09 Oct 2006 15:42:32 -0400
-Message-ID: <20061009195851.444828000@hp.com>
+Subject: [PATCH 03/11] secid reconciliation: Invoke LSM hook for inbound traffic
+Date: Mon, 09 Oct 2006 15:42:26 -0400
+Message-ID: <20061009195847.992616000@hp.com>
 References: <20061009194223.402695000@hp.com>
 Cc: vyekkirala@TrustedCS.com, jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:47007 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S964791AbWJIT6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:58:54 -0400
+Received: from atlrel7.hp.com ([156.153.255.213]:33500 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S964796AbWJIT7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 15:59:08 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=secid-9
+Content-Disposition: inline; filename=secid-3
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 
-This tracks the peer's secid at connection establishment time
-for clients, for later retrieval using SO_PEERSEC.
+Invoke the skb_flow_in LSM hook for inbound
+traffic for secid reconciliation and flow control.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/linux/security.h |   14 ++++++++++++++
- net/ipv4/tcp_input.c     |    2 ++
- security/dummy.c         |    6 ++++++
- security/selinux/hooks.c |    9 +++++++++
- 4 files changed, 31 insertions(+)
+ include/net/xfrm.h |   45 +++++++++++++++++++++----------------------
+ 1 file changed, 22 insertions(+), 23 deletions(-)
 
-Index: net-2.6_secidfinal/include/linux/security.h
-===================================================================
---- net-2.6_secidfinal.orig/include/linux/security.h
-+++ net-2.6_secidfinal/include/linux/security.h
-@@ -826,6 +826,8 @@ struct request_sock;
-  *	Sets the openreq's sid to socket's sid with MLS portion taken from peer sid.
-  * @inet_csk_clone:
-  *	Sets the new child socket's sid to the openreq sid.
-+ * @inet_conn_established:
-+ *	Sets the connection's peersid to the secmark on skb.
-  * @req_classify_flow:
-  *	Sets the flow's sid to the openreq sid.
-  * @skb_flow_in:
-@@ -1380,6 +1382,7 @@ struct security_operations {
- 	int (*inet_conn_request)(struct sock *sk, struct sk_buff *skb,
- 					struct request_sock *req);
- 	void (*inet_csk_clone)(struct sock *newsk, const struct request_sock *req);
-+	void (*inet_conn_established)(struct sock *sk, struct sk_buff *skb);
- 	void (*req_classify_flow)(const struct request_sock *req, struct flowi *fl);
- 	int (*skb_flow_in)(struct sk_buff *skb, unsigned short family);
- 	int (*skb_flow_out)(struct sk_buff *skb, u32 nf_secid);
-@@ -2986,6 +2989,12 @@ static inline void security_inet_csk_clo
- {
- 	security_ops->inet_csk_clone(newsk, req);
- }
-+
-+static inline void security_inet_conn_established(struct sock *sk,
-+					struct sk_buff *skb)
-+{
-+	security_ops->inet_conn_established(sk, skb);
-+}
- #else	/* CONFIG_SECURITY_NETWORK */
- static inline int security_unix_stream_connect(struct socket * sock,
- 					       struct socket * other, 
-@@ -3147,6 +3156,11 @@ static inline void security_inet_csk_clo
- 			const struct request_sock *req)
- {
- }
-+
-+static inline void security_inet_conn_established(struct sock *sk,
-+					struct sk_buff *skb)
-+{
-+}
- #endif	/* CONFIG_SECURITY_NETWORK */
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 11e0b1d..8f9c184 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -675,22 +675,18 @@ extern int __xfrm_policy_check(struct so
  
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-Index: net-2.6_secidfinal/net/ipv4/tcp_input.c
-===================================================================
---- net-2.6_secidfinal.orig/net/ipv4/tcp_input.c
-+++ net-2.6_secidfinal/net/ipv4/tcp_input.c
-@@ -4230,6 +4230,8 @@ static int tcp_rcv_synsent_state_process
- 		mb();
- 		tcp_set_state(sk, TCP_ESTABLISHED);
- 
-+		security_inet_conn_established(sk, skb);
-+
- 		/* Make sure socket is routed, for correct metrics.  */
- 		icsk->icsk_af_ops->rebuild_header(sk);
- 
-Index: net-2.6_secidfinal/security/dummy.c
-===================================================================
---- net-2.6_secidfinal.orig/security/dummy.c
-+++ net-2.6_secidfinal/security/dummy.c
-@@ -828,6 +828,11 @@ static inline void dummy_inet_csk_clone(
+ static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
  {
+-	if (sk && sk->sk_policy[XFRM_POLICY_IN])
+-		return __xfrm_policy_check(sk, dir, skb, family);
+-
+-	return	(!xfrm_policy_count[dir] && !skb->sp) ||
+-		(skb->dst->flags & DST_NOPOLICY) ||
+-		__xfrm_policy_check(sk, dir, skb, family);
+-}
+-
+-static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
+-{
+-	return xfrm_policy_check(sk, dir, skb, AF_INET);
+-}
++	int ret;
+ 
+-static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
+-{
+-	return xfrm_policy_check(sk, dir, skb, AF_INET6);
++	if (sk && sk->sk_policy[XFRM_POLICY_IN])
++		ret = __xfrm_policy_check(sk, dir, skb, family);
++	else
++		ret = (!xfrm_policy_count[dir] && !skb->sp) ||
++		      (skb->dst->flags & DST_NOPOLICY) ||
++		      __xfrm_policy_check(sk, dir, skb, family);
++
++	if (ret)
++		ret = security_skb_flow_in(skb, family);
++	return ret;
  }
  
-+static inline void dummy_inet_conn_established(struct sock *sk,
-+			struct sk_buff *skb)
+ extern int xfrm_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family);
+@@ -742,19 +738,22 @@ static inline void xfrm_sk_free_policy(s
+ static inline int xfrm_sk_clone_policy(struct sock *sk) { return 0; }
+ static inline int xfrm6_route_forward(struct sk_buff *skb) { return 1; }  
+ static inline int xfrm4_route_forward(struct sk_buff *skb) { return 1; } 
+-static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
+-{ 
+-	return 1; 
+-} 
++static inline int xfrm_policy_check(struct sock *sk, int dir,
++		struct sk_buff *skb, unsigned short family)
 +{
++	return security_skb_flow_in(skb, family);
 +}
++#endif
 +
- static inline void dummy_req_classify_flow(const struct request_sock *req,
- 			struct flowi *fl)
+ static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
  {
-@@ -1118,6 +1123,7 @@ void security_fixup_ops (struct security
- 	set_to_dummy_if_null(ops, sock_graft);
- 	set_to_dummy_if_null(ops, inet_conn_request);
- 	set_to_dummy_if_null(ops, inet_csk_clone);
-+	set_to_dummy_if_null(ops, inet_conn_established);
- 	set_to_dummy_if_null(ops, req_classify_flow);
- 	set_to_dummy_if_null(ops, skb_flow_in);
- 	set_to_dummy_if_null(ops, skb_flow_out);
-Index: net-2.6_secidfinal/security/selinux/hooks.c
-===================================================================
---- net-2.6_secidfinal.orig/security/selinux/hooks.c
-+++ net-2.6_secidfinal/security/selinux/hooks.c
-@@ -3683,6 +3683,14 @@ static void selinux_inet_csk_clone(struc
- 	selinux_netlbl_sk_security_init(newsksec, req->rsk_ops->family);
+-	return 1;
++	return xfrm_policy_check(sk, dir, skb, AF_INET);
  }
- 
-+static void selinux_inet_conn_established(struct sock *sk,
-+				   struct sk_buff *skb)
-+{
-+	struct sk_security_struct *sksec = sk->sk_security;
+-static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
 +
-+	sksec->peer_sid = skb->secmark;
-+}
-+
- static void selinux_req_classify_flow(const struct request_sock *req,
- 				      struct flowi *fl)
++static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
  {
-@@ -4815,6 +4823,7 @@ static struct security_operations selinu
- 	.sock_graft =			selinux_sock_graft,
- 	.inet_conn_request =		selinux_inet_conn_request,
- 	.inet_csk_clone =		selinux_inet_csk_clone,
-+	.inet_conn_established =	selinux_inet_conn_established,
- 	.req_classify_flow =		selinux_req_classify_flow,
- 	.skb_flow_in =			selinux_skb_flow_in,
- 	.skb_flow_out =			selinux_skb_flow_out,
+-	return 1;
++	return xfrm_policy_check(sk, dir, skb, AF_INET6);
+ }
+-#endif
+ 
+ static __inline__
+ xfrm_address_t *xfrm_flowi_daddr(struct flowi *fl, unsigned short family)
 
 --
 paul moore
