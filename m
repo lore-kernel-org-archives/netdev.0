@@ -1,48 +1,61 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: [patch 3/3] d80211: silence sparse warning: bad constant expression
-Date: Mon, 9 Oct 2006 10:03:45 -0700
-Message-ID: <20061009170345.GC27239@devicescape.com>
-References: <20061009170159.804032000@devicescape.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [GIT PATCH] NET: Fixes for net-2.6.19
+Date: Mon, 9 Oct 2006 09:08:12 -0700
+Message-ID: <20061009090812.176533bf@freekitty>
+References: <20060928155052.63ed5ce8@freekitty>
+	<20060928.160458.00452499.davem@davemloft.net>
+	<20060928162704.55e863ca@freekitty>
+	<20060928.172827.26929236.davem@davemloft.net>
+	<451C7E11.6040506@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	David Kimdon <david.kimdon@devicescape.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	tgraf@suug.ch, netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:32418 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S932980AbWJIRDq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 13:03:46 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename="sparse.patch"
+Received: from smtp.osdl.org ([65.172.181.4]:12501 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932983AbWJIRKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2006 13:10:05 -0400
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <451C7E11.6040506@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sparse does not figure out that algs[] isn't really a variable length array.
-The message is:
+On Fri, 29 Sep 2006 10:59:45 +0900
+Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
 
-net/d80211/ieee80211_sta.c:934:12: error: bad constant expression
+> David Miller wrote:
+> >> commit 0844565fb8a9418f5a860aa480c1aef70319c9a2
+> >> Author: Thomas Graf <tgraf@suug.ch>
+> >> Date:   Fri Aug 4 23:05:56 2006 -0700
+> >>
+> >>     [NET]: Move netlink interface bits to linux/if.h
+> >>     
+> >>     Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> >>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > Stephen, we just removed the troublesome bits from linux/if.h when I
+> > put in Yoshifuji's patches last night, it should explicitly remove
+> > this problem.
+> > 
+> > You will thus see that linux/rtnetlink.h no longer includes
+> > linux/if.h, which is why your errors were completely perplexing
+> > to me.  Instead, it includes linux/if_link.h
+> > 
+> > It's been in my tree since last night, and if you had used
+> > the rtnetlink.h from my current tree you wouldn't have seen
+> > the error.
+> 
+> Yes, as David mentioned you need to copy the latest rtnetlink.h
+> at first. It is also required to be added if_{link,addr}.h, neighbour.h
+> to iproute2 tree. Some macros may be needed for libnetlink.h, too.
+> I'll send the patch to you if you haven't started on it.
+> 
+> Regards,
+> 
 
-This switches algs[] to be obviously a constant array, and derives the value of
-num_algs algs[].  The code is correct and equivalent with or without this
-change.
+Since the rtnetlink changes for 2.6.19, broke the GLIBC build, I am
+going to wait until that gets straightened out first.
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
-
-Index: wireless-dev/net/d80211/ieee80211_sta.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_sta.c
-+++ wireless-dev/net/d80211/ieee80211_sta.c
-@@ -930,8 +930,8 @@ static void ieee80211_rx_mgmt_auth(struc
- 		printk(KERN_DEBUG "%s: AP denied authentication (auth_alg=%d "
- 		       "code=%d)\n", dev->name, ifsta->auth_alg, status_code);
- 		if (status_code == WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG) {
--			const int num_algs = 3;
--			u8 algs[num_algs];
-+			u8 algs[3];
-+			const int num_algs = sizeof(algs) / sizeof(algs[0]);
- 			int i, pos;
- 			algs[0] = algs[1] = algs[2] = 0xff;
- 			if (ifsta->auth_algs & IEEE80211_AUTH_ALG_OPEN)
-
---
+-- 
+Stephen Hemminger <shemminger@osdl.org>
