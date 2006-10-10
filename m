@@ -1,24 +1,31 @@
-From: "Ronghua Zhang" <ronghuazhang@gmail.com>
-Subject: is each frag of a skb always less than 1 page?
-Date: Tue, 10 Oct 2006 15:37:04 -0700
-Message-ID: <ba020e9f0610101537m492a957fj982097c8d7f407e0@mail.gmail.com>
+From: Paul Dickson <paul@permanentmail.com>
+Subject: Re: [patch 2/2] round_jiffies users
+Date: Tue, 10 Oct 2006 15:47:17 -0700
+Message-ID: <20061010154717.e2c4c149.paul@permanentmail.com>
+References: <1160496165.3000.308.camel@laptopd505.fenrus.org>
+	<1160496210.3000.310.camel@laptopd505.fenrus.org>
+	<1160496263.3000.312.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, akpm@osdl.org, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.179]:27072 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1030608AbWJJWhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 18:37:05 -0400
-Received: by py-out-1112.google.com with SMTP id 57so22630pya
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2006 15:37:05 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from rune.pobox.com ([208.210.124.79]:62404 "EHLO rune.pobox.com")
+	by vger.kernel.org with ESMTP id S1030586AbWJJWra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 18:47:30 -0400
+To: Arjan van de Ven <arjan@linux.intel.com>
+In-Reply-To: <1160496263.3000.312.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From the code of tcp_sendmsg, it seems to me that each frag is at most
-one page. Is it a guaranteed property or the driver should not assume
-it? Thanks
+On Tue, 10 Oct 2006 18:04:23 +0200, Arjan van de Ven wrote:
 
-Ronghua
+> +			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+
+Shouldn't round_jiffies_relative be used for some of these, a la:
+
+  +			mod_timer(&adapter->phy_info_timer, round_jiffies_relative(2 * HZ));
+
+	-Paul
+
