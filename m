@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/02 V2] net/ipv6: seperate sit driver to extra module
-Date: Mon, 09 Oct 2006 21:38:56 -0700 (PDT)
-Message-ID: <20061009.213856.28787525.davem@davemloft.net>
-References: <20061009093416.GA11901@zlug.org>
+Subject: Re: [PATCH] file descriptor loss while receiving SCM_RIGHTS
+Date: Mon, 09 Oct 2006 21:42:29 -0700 (PDT)
+Message-ID: <20061009.214229.01913749.davem@davemloft.net>
+References: <E1GWWHP-0006jw-00@dorka.pomaz.szeredi.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31386
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30440
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964967AbWJJEi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 00:38:57 -0400
-To: joro-lkml@zlug.org
-In-Reply-To: <20061009093416.GA11901@zlug.org>
+	id S964968AbWJJEma (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 00:42:30 -0400
+To: miklos@szeredi.hu
+In-Reply-To: <E1GWWHP-0006jw-00@dorka.pomaz.szeredi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joerg Roedel <joro-lkml@zlug.org>
-Date: Mon, 9 Oct 2006 11:34:16 +0200
+From: Miklos Szeredi <miklos@szeredi.hu>
+Date: Sun, 08 Oct 2006 12:53:11 +0200
 
-> This is the changed version of the patch making the sit driver
-> configurable as a seperate module.
+> If more than one file descriptor was sent with an SCM_RIGHTS message,
+> and on the receiving end, after installing a nonzero (but not all)
+> file descritpors the process runs out of fds, then the already
+> installed fds will be lost (userspace will have no way of knowing
+> about them).
 > 
-> Changes:
-> - spelling fixes in Kconfig
-> - changed "If unsure, say N" to "If unsure, say Y" for consistency
+> The following patch makes sure, that at least the already installed
+> fds are sent to userspace.  It doesn't solve the issue of losing file
+> descriptors in case of an EFAULT on the userspace buffer.
+> 
+> Signed-off-by: Miklos Szeredi <miklos@szeredi.hu>
 
-Joerg, when you make resubmissions, please always restate the full
-changelog and all signed-off-by lines.
-
-If you want to say "Changed since last version" do that seperately
-at the top of the email, right before the main changelog entry and
-the patch itself.
-
-I wanted to apply this latest version of these two patches, but I
-cannot because the full changelog isn't here.  Please get this
-into a mergable form for me.
-
-Thanks a lot.
-
+Looks good.  Applied, thanks Miklos.
