@@ -1,7 +1,7 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 10/21]: powerpc/cell spidernet  fix error interrupt print
-Date: Tue, 10 Oct 2006 16:06:53 -0500
-Message-ID: <20061010210653.GG4381@austin.ibm.com>
+Subject: [PATCH 11/21]: powerpc/cell spidernet stop error printing patch.
+Date: Tue, 10 Oct 2006 16:08:42 -0500
+Message-ID: <20061010210842.GH4381@austin.ibm.com>
 References: <20061010204946.GW4381@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,9 +9,9 @@ Cc: jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
 	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
 	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:55190 "EHLO e1.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1030390AbWJJVGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:06:55 -0400
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:36038 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1030397AbWJJVIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:08:49 -0400
 To: akpm@osdl.org
 Content-Disposition: inline
 In-Reply-To: <20061010204946.GW4381@austin.ibm.com>
@@ -19,28 +19,59 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-
-The print message associated with the descriptor chain end interrupt
-prints a bogs value. Fix that.
+Turn off mis-interpretation of the queue-empty interrupt
+status bit as an error. 
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: James K Lewis <jklewis@us.ibm.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: James K Lewis <jklewis@us.ibm.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 
 ----
- drivers/net/spider_net.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/spider_net.c |   13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
 Index: linux-2.6.18-mm2/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-10 12:52:42.000000000 -0500
-+++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-10 12:58:08.000000000 -0500
-@@ -1356,7 +1356,7 @@ spider_net_handle_error_irq(struct spide
- 		if (netif_msg_intr(card))
- 			pr_err("got descriptor chain end interrupt, "
- 			       "restarting DMAC %c.\n",
--			       'D'+i-SPIDER_NET_GDDDCEINT);
-+			       'D'-(i-SPIDER_NET_GDDDCEINT)/3);
- 		spider_net_refill_rx_chain(card);
- 		spider_net_enable_rxdmac(card);
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-10 12:58:08.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-10 13:01:06.000000000 -0500
+@@ -1245,12 +1245,15 @@ spider_net_handle_error_irq(struct spide
+ 	case SPIDER_NET_PHYINT:
+ 	case SPIDER_NET_GMAC2INT:
+ 	case SPIDER_NET_GMAC1INT:
+-	case SPIDER_NET_GIPSINT:
+ 	case SPIDER_NET_GFIFOINT:
+ 	case SPIDER_NET_DMACINT:
+ 	case SPIDER_NET_GSYSINT:
+ 		break; */
+ 
++	case SPIDER_NET_GIPSINT:
++		show_error = 0;
++		break;
++
+ 	case SPIDER_NET_GPWOPCMPINT:
+ 		/* PHY write operation completed */
  		show_error = 0;
+@@ -1309,9 +1312,10 @@ spider_net_handle_error_irq(struct spide
+ 	case SPIDER_NET_GDTDCEINT:
+ 		/* chain end. If a descriptor should be sent, kick off
+ 		 * tx dma
+-		if (card->tx_chain.tail == card->tx_chain.head)
++		if (card->tx_chain.tail != card->tx_chain.head)
+ 			spider_net_kick_tx_dma(card);
+-		show_error = 0; */
++		*/
++		show_error = 0;
+ 		break;
+ 
+ 	/* case SPIDER_NET_G1TMCNTINT: not used. print a message */
+@@ -1425,8 +1429,9 @@ spider_net_handle_error_irq(struct spide
+ 	}
+ 
+ 	if ((show_error) && (netif_msg_intr(card)))
+-		pr_err("Got error interrupt, GHIINT0STS = 0x%08x, "
++		pr_err("Got error interrupt on %s, GHIINT0STS = 0x%08x, "
+ 		       "GHIINT1STS = 0x%08x, GHIINT2STS = 0x%08x\n",
++		       card->netdev->name,
+ 		       status_reg, error_reg1, error_reg2);
+ 
+ 	/* clear interrupt sources */
