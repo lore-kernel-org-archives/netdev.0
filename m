@@ -1,80 +1,58 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Tue, 10 Oct 2006 10:43:15 -0700
-Message-ID: <20061010104315.61540986@freekitty>
-References: <20061009095051.38ed9f22@freekitty>
-	<20061010144330.GA28175@mellanox.co.il>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] ixgb: Delete IXGB_DBG() macro and call pr_debug()
+ directly.
+Date: Tue, 10 Oct 2006 13:51:09 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610101347270.10344@localhost.localdomain>
+References: <Pine.LNX.4.64.0610100816440.7711@localhost.localdomain>
+ <452BC6C9.3050902@intel.com> <Pine.LNX.4.64.0610101227170.9699@localhost.localdomain>
+ <452BCF5C.2090407@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	Roland Dreier <rolandd@cisco.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	trivial@kernel.org, NetDev <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:1720 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751050AbWJJRqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 13:46:43 -0400
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20061010144330.GA28175@mellanox.co.il>
+Received: from nic.NetDirect.CA ([216.16.235.2]:43403 "EHLO
+	rubicon.netdirect.ca") by vger.kernel.org with ESMTP
+	id S964846AbWJJRwp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 13:52:45 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <452BCF5C.2090407@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Oct 2006 16:43:30 +0200
-"Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
+On Tue, 10 Oct 2006, Auke Kok wrote:
 
-> Quoting r. Stephen Hemminger <shemminger@osdl.org>:
-> > Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-> > 
-> > On Mon, 9 Oct 2006 19:47:05 +0200
-> > "Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
-> > 
-> > > Hi!
-> > > I'm trying to build a network device driver supporting a very large MTU (around 64K)
-> > > on top of an infiniband connection, and I've hit a couple of issues I'd
-> > > appreciate some feedback on:
-> > > 
-> > > 1. On the send side,
-> > >    I've set NETIF_F_SG, but hardware does not support checksum offloading,
-> > >    and I see "dropping NETIF_F_SG since no checksum feature" warning,
-> > >    and I seem to be getting large packets all in one chunk.
-> > >    The reason I've set NETIF_F_SG, is because I'm concerned that under real life
-> > >    stress Linux won't be able to allocate 64K of continuous memory.
-> > > 
-> > >    Is this concern of mine valid? I saw in-tree drivers allocating at least 8K.
-> > >    What's the best way to enable S/G on send side?
-> > >    Is checksum offloading really required for S/G?
-> > 
-> > Yes, in the current implementation, Linux needs checksum offload. But there
-> > is no reason, your driver can't compute the checksum in software.
+> Robert P. J. Day wrote:
+
+... snip ...
+
+> >   if someone wants to tell me what, in the context of ixgb_main.c,
+> > i would use as that "dev" argument [for dev_dbg], i'm all for
+> > that.
 >
-> Are there drivers that do this already? Couldn't find any such beast ...
+> (CC netdev since it's a network driver topic).
+>
+> all our macro's (e100, e1000, ixgb) use adapter->netdev->name
+> inserted through the DPRINTK macro.
+>
+> if you'd really want to clean it all up, you'd have to replace all
+> DPRINTK() calls with dev_dbg(adapter->netdev->name, ....) which
+> would just make it more lengthy and uncomfortable to read.
+>
+> which puts this in a bigger perspective. I suppose the nicest way to do
+> program these is to do something like this:
+>
+> #define ixgb_dbg(args...) dev_dbg(adapter->netdev->name, args)
+> #define ixgb_err(args...) dev_err(adapter->netdev->name, args)
+> #define ixgb_info(args...) dev_info(adapter->netdev->name, args)
+>
+> and use those consistently throughout the driver, ditto for e100/e1000.
+>
+> I'll look into it and see what I can do.
 
-dev_queue_xmit() does it, all you need to do in your driver is:
-	
-	/* If packet is not checksummed and device does not support
-	 * checksumming for this protocol, complete checksumming here.
-	 */
-	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-	      	if (skb_checksum_help(skb))
-	      		goto error_recovery
-	}
+um, yeah.  i'm rapidly getting out of my comfort zone here.  this
+seemed like such a simple submission six hours ago.  :-)  live and
+learn.
 
-
-> I'm worried whether an extra pass over data won't eat up all of
-> the performance gains I get from the large MTU ...
-
-Yup, the cost is in touching the data, not in the copy.
-
-> > >    What are the helpers legal for fragmented skb?
-> 
-> BTW, I found skb_put_frags in sky2 which seems generic enough - I even wander
-> why isn't this in net/core.
-> 
-
-Only because I just wrote it for my needs. If you need it, then it
-can be moved to skbuff.c
-
-
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+rday
