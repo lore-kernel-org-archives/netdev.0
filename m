@@ -1,57 +1,80 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [patch 2/2] round_jiffies users
-Date: Tue, 10 Oct 2006 18:59:50 +0200
-Message-ID: <1160499590.3000.323.camel@laptopd505.fenrus.org>
-References: <1160496165.3000.308.camel@laptopd505.fenrus.org>
-	 <1160496210.3000.310.camel@laptopd505.fenrus.org>
-	 <1160496263.3000.312.camel@laptopd505.fenrus.org>
-	 <200610101847.39604.netdev@axxeo.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+Date: Tue, 10 Oct 2006 10:43:15 -0700
+Message-ID: <20061010104315.61540986@freekitty>
+References: <20061009095051.38ed9f22@freekitty>
+	<20061010144330.GA28175@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, akpm@osdl.org, mingo@elte.hu
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, openib-general@openib.org,
+	Roland Dreier <rolandd@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a222036.upc-a.chello.nl ([62.163.222.36]:33486 "EHLO
-	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
-	id S1750921AbWJJRBC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 13:01:02 -0400
-To: Ingo Oeser <netdev@axxeo.de>
-In-Reply-To: <200610101847.39604.netdev@axxeo.de>
+Received: from smtp.osdl.org ([65.172.181.4]:1720 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751050AbWJJRqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 13:46:43 -0400
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+In-Reply-To: <20061010144330.GA28175@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-10-10 at 18:47 +0200, Ingo Oeser wrote:
-> Hi Arjan,
+On Tue, 10 Oct 2006 16:43:30 +0200
+"Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
+
+> Quoting r. Stephen Hemminger <shemminger@osdl.org>:
+> > Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+> > 
+> > On Mon, 9 Oct 2006 19:47:05 +0200
+> > "Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
+> > 
+> > > Hi!
+> > > I'm trying to build a network device driver supporting a very large MTU (around 64K)
+> > > on top of an infiniband connection, and I've hit a couple of issues I'd
+> > > appreciate some feedback on:
+> > > 
+> > > 1. On the send side,
+> > >    I've set NETIF_F_SG, but hardware does not support checksum offloading,
+> > >    and I see "dropping NETIF_F_SG since no checksum feature" warning,
+> > >    and I seem to be getting large packets all in one chunk.
+> > >    The reason I've set NETIF_F_SG, is because I'm concerned that under real life
+> > >    stress Linux won't be able to allocate 64K of continuous memory.
+> > > 
+> > >    Is this concern of mine valid? I saw in-tree drivers allocating at least 8K.
+> > >    What's the best way to enable S/G on send side?
+> > >    Is checksum offloading really required for S/G?
+> > 
+> > Yes, in the current implementation, Linux needs checksum offload. But there
+> > is no reason, your driver can't compute the checksum in software.
+>
+> Are there drivers that do this already? Couldn't find any such beast ...
+
+dev_queue_xmit() does it, all you need to do in your driver is:
+	
+	/* If packet is not checksummed and device does not support
+	 * checksumming for this protocol, complete checksumming here.
+	 */
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+	      	if (skb_checksum_help(skb))
+	      		goto error_recovery
+	}
+
+
+> I'm worried whether an extra pass over data won't eat up all of
+> the performance gains I get from the large MTU ...
+
+Yup, the cost is in touching the data, not in the copy.
+
+> > >    What are the helpers legal for fragmented skb?
 > 
-> Arjan van de Ven wrote:
-> > Index: linux-2.6.19-rc1-git6/mm/slab.c
-> > ===================================================================
-> > --- linux-2.6.19-rc1-git6.orig/mm/slab.c
-> > +++ linux-2.6.19-rc1-git6/mm/slab.c
-> > @@ -926,7 +926,7 @@ static void __devinit start_cpu_timer(in
-> >  	if (keventd_up() && reap_work->func == NULL) {
-> >  		init_reap_node(cpu);
-> >  		INIT_WORK(reap_work, cache_reap, NULL);
-> > -		schedule_delayed_work_on(cpu, reap_work, HZ + 3 * cpu);
-> > +		schedule_delayed_work_on(cpu, reap_work, __round_jiffies_relative(HZ, cpu));
-> >  	}
-> >  }
-> >  
+> BTW, I found skb_put_frags in sky2 which seems generic enough - I even wander
+> why isn't this in net/core.
 > 
-> Did you changed the behavior by intention?
-> You seem to miss the factor "3" here. This hunk should read:
 
-Hi,
-
-actually.. not really; the __round_jiffies_relative function just takes
-a CPU number, and internally takes care of spreading things around based
-on CPU number (eg it does the *3 internally); it's cleaner that way, the
-callers don't need to bother by how much to spread for each cpu etc
-etc... So the patch is correct as is.
+Only because I just wrote it for my needs. If you need it, then it
+can be moved to skbuff.c
 
 
-Greetings,
-   Arjan van de Ven
 
-
+-- 
+Stephen Hemminger <shemminger@osdl.org>
