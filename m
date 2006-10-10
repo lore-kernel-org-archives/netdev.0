@@ -1,139 +1,182 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: [PATCH 02/02 V3] net/ipv6: seperate sit driver to extra module (addrconf.c changes)
-Date: Tue, 10 Oct 2006 17:43:55 +0200
-Message-ID: <20061010154355.GD27455@zlug.org>
-References: <20061010153745.GA27455@zlug.org>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: [patch 2/2] round_jiffies users
+Date: Tue, 10 Oct 2006 18:04:23 +0200
+Message-ID: <1160496263.3000.312.camel@laptopd505.fenrus.org>
+References: <1160496165.3000.308.camel@laptopd505.fenrus.org>
+	 <1160496210.3000.310.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="7ZAtKRhVyVSsbBD2"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, akpm@osdl.org,
+	mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:12350 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1750893AbWJJPn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 11:43:57 -0400
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061010153745.GA27455@zlug.org>
+Received: from a222036.upc-a.chello.nl ([62.163.222.36]:10369 "EHLO
+	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
+	id S932176AbWJJQGm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 12:06:42 -0400
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <1160496210.3000.310.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: round_jiffies users
+CC: jgarzik@pobox.com
+CC: netdev@vger.kernel.org
 
---7ZAtKRhVyVSsbBD2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This patch introduces users of the round_jiffies() function.
+These timers all were of the "about once a second" or "about once every X seconds" 
+variety and several showed up in the "what wakes the cpu up" profiles that
+the tickless patches provide.
 
-This patch contains the changes to net/ipv6/addrconf.c to remove sit
-specific code if the sit driver is not selected.
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 
-Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
---7ZAtKRhVyVSsbBD2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=patch_sit_as_module_addrconf
-
-diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/addrconf.c linux-2.6.18/net/ipv6/addrconf.c
---- linux-2.6.18-vanilla/net/ipv6/addrconf.c	2006-09-20 05:42:06.000000000 +0200
-+++ linux-2.6.18/net/ipv6/addrconf.c	2006-10-06 11:04:04.000000000 +0200
-@@ -389,8 +389,10 @@ static struct inet6_dev * ipv6_add_dev(s
- 	ndev->regen_timer.data = (unsigned long) ndev;
- 	if ((dev->flags&IFF_LOOPBACK) ||
- 	    dev->type == ARPHRD_TUNNEL ||
--	    dev->type == ARPHRD_NONE ||
--	    dev->type == ARPHRD_SIT) {
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
-+	    dev->type == ARPHRD_SIT ||
-+#endif
-+	    dev->type == ARPHRD_NONE) {
- 		printk(KERN_INFO
- 		       "%s: Disabled Privacy Extensions\n",
- 		       dev->name);
-@@ -1522,8 +1524,10 @@ addrconf_prefix_route(struct in6_addr *p
- 	   This thing is done here expecting that the whole
- 	   class of non-broadcast devices need not cloning.
- 	 */
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- 	if (dev->type == ARPHRD_SIT && (dev->flags&IFF_POINTOPOINT))
- 		rtmsg.rtmsg_flags |= RTF_NONEXTHOP;
-+#endif
- 
- 	ip6_route_add(&rtmsg, NULL, NULL, NULL);
- }
-@@ -1545,6 +1549,7 @@ static void addrconf_add_mroute(struct n
- 	ip6_route_add(&rtmsg, NULL, NULL, NULL);
+Index: linux-2.6.19-rc1-git6/mm/slab.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/mm/slab.c
++++ linux-2.6.19-rc1-git6/mm/slab.c
+@@ -926,7 +926,7 @@ static void __devinit start_cpu_timer(in
+ 	if (keventd_up() && reap_work->func == NULL) {
+ 		init_reap_node(cpu);
+ 		INIT_WORK(reap_work, cache_reap, NULL);
+-		schedule_delayed_work_on(cpu, reap_work, HZ + 3 * cpu);
++		schedule_delayed_work_on(cpu, reap_work, __round_jiffies_relative(HZ, cpu));
+ 	}
  }
  
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- static void sit_route_add(struct net_device *dev)
- {
- 	struct in6_rtmsg rtmsg;
-@@ -1561,6 +1566,7 @@ static void sit_route_add(struct net_dev
+@@ -3821,7 +3821,7 @@ static void cache_reap(void *unused)
+ 	if (!mutex_trylock(&cache_chain_mutex)) {
+ 		/* Give up. Setup the next iteration. */
+ 		schedule_delayed_work(&__get_cpu_var(reap_work),
+-				      REAPTIMEOUT_CPUC);
++				      round_jiffies_relative(REAPTIMEOUT_CPUC));
+ 		return;
+ 	}
  
- 	ip6_route_add(&rtmsg, NULL, NULL, NULL);
+@@ -3867,7 +3867,8 @@ next:
+ 	next_reap_node();
+ 	refresh_cpu_vm_stats(smp_processor_id());
+ 	/* Set up the next iteration */
+-	schedule_delayed_work(&__get_cpu_var(reap_work), REAPTIMEOUT_CPUC);
++	schedule_delayed_work(&__get_cpu_var(reap_work),
++		round_jiffies_relative(REAPTIMEOUT_CPUC));
  }
-+#endif
  
- static void addrconf_add_lroute(struct net_device *dev)
- {
-@@ -1831,6 +1837,7 @@ int addrconf_set_dstaddr(void __user *ar
- 	if (dev == NULL)
- 		goto err_exit;
+ #ifdef CONFIG_PROC_FS
+Index: linux-2.6.19-rc1-git6/fs/jbd/transaction.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/fs/jbd/transaction.c
++++ linux-2.6.19-rc1-git6/fs/jbd/transaction.c
+@@ -53,7 +53,7 @@ get_transaction(journal_t *journal, tran
+ 	spin_lock_init(&transaction->t_handle_lock);
  
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- 	if (dev->type == ARPHRD_SIT) {
- 		struct ifreq ifr;
- 		mm_segment_t	oldfs;
-@@ -1860,6 +1867,7 @@ int addrconf_set_dstaddr(void __user *ar
- 			err = dev_open(dev);
+ 	/* Set up the commit timer for the new transaction. */
+-	journal->j_commit_timer.expires = transaction->t_expires;
++	journal->j_commit_timer.expires = round_jiffies(transaction->t_expires);
+ 	add_timer(&journal->j_commit_timer);
+ 
+ 	J_ASSERT(journal->j_running_transaction == NULL);
+Index: linux-2.6.19-rc1-git6/drivers/ata/libata-scsi.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/drivers/ata/libata-scsi.c
++++ linux-2.6.19-rc1-git6/drivers/ata/libata-scsi.c
+@@ -3094,7 +3094,8 @@ void ata_scsi_hotplug(void *data)
+ 	for (i = 0; i < ATA_MAX_DEVICES; i++) {
+ 		struct ata_device *dev = &ap->device[i];
+ 		if (ata_dev_enabled(dev) && !dev->sdev) {
+-			queue_delayed_work(ata_aux_wq, &ap->hotplug_task, HZ);
++			queue_delayed_work(ata_aux_wq, &ap->hotplug_task,
++				round_jiffies_relative(HZ));
+ 			break;
  		}
  	}
-+#endif
+Index: linux-2.6.19-rc1-git6/net/core/dst.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/net/core/dst.c
++++ linux-2.6.19-rc1-git6/net/core/dst.c
+@@ -99,7 +99,14 @@ static void dst_run_gc(unsigned long dum
+ 	printk("dst_total: %d/%d %ld\n",
+ 	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
+ #endif
+-	mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
++	/* if the next desired timer is more than 4 seconds in the future
++	 * then round the timer to whole seconds
++	 */
++	if (dst_gc_timer_expires > 4*HZ)
++		mod_timer(&dst_gc_timer,
++			round_jiffies(jiffies + dst_gc_timer_expires));
++	else
++		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
  
- err_exit:
- 	rtnl_unlock();
-@@ -1993,6 +2001,7 @@ int addrconf_del_ifaddr(void __user *arg
- 	return err;
+ out:
+ 	spin_unlock(&dst_lock);
+Index: linux-2.6.19-rc1-git6/net/core/neighbour.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/net/core/neighbour.c
++++ linux-2.6.19-rc1-git6/net/core/neighbour.c
+@@ -695,7 +695,10 @@ next_elt:
+ 	if (!expire)
+ 		expire = 1;
+ 
+- 	mod_timer(&tbl->gc_timer, now + expire);
++	if (expire>HZ)
++		mod_timer(&tbl->gc_timer, round_jiffies(now + expire));
++	else
++	 	mod_timer(&tbl->gc_timer, now + expire);
+ 
+ 	write_unlock(&tbl->lock);
  }
- 
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- static void sit_add_v4_addrs(struct inet6_dev *idev)
- {
- 	struct inet6_ifaddr * ifp;
-@@ -2061,6 +2070,7 @@ static void sit_add_v4_addrs(struct inet
+Index: linux-2.6.19-rc1-git6/net/sched/sch_generic.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/net/sched/sch_generic.c
++++ linux-2.6.19-rc1-git6/net/sched/sch_generic.c
+@@ -209,7 +209,7 @@ static void dev_watchdog(unsigned long a
+ 				       dev->name);
+ 				dev->tx_timeout(dev);
+ 			}
+-			if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
++			if (!mod_timer(&dev->watchdog_timer, round_jiffies(jiffies + dev->watchdog_timeo)))
+ 				dev_hold(dev);
  		}
-         }
- }
-+#endif
+ 	}
+Index: linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
+@@ -483,7 +483,7 @@ e1000_up(struct e1000_adapter *adapter)
  
- static void init_loopback(struct net_device *dev)
- {
-@@ -2124,6 +2134,7 @@ static void addrconf_dev_config(struct n
- 		addrconf_add_linklocal(idev, &addr);
+ 	clear_bit(__E1000_DOWN, &adapter->flags);
+ 
+-	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
++	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+ 	return 0;
  }
  
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- static void addrconf_sit_config(struct net_device *dev)
- {
- 	struct inet6_dev *idev;
-@@ -2149,6 +2160,7 @@ static void addrconf_sit_config(struct n
- 	} else
- 		sit_route_add(dev);
- }
-+#endif
+@@ -2493,7 +2493,7 @@ e1000_watchdog(unsigned long data)
  
- static inline int
- ipv6_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_dev)
-@@ -2243,9 +2255,11 @@ static int addrconf_notify(struct notifi
+ 			netif_carrier_on(netdev);
+ 			netif_wake_queue(netdev);
+-			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
++			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+ 			adapter->smartspeed = 0;
  		}
+ 	} else {
+@@ -2503,7 +2503,7 @@ e1000_watchdog(unsigned long data)
+ 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
+-			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
++			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
  
- 		switch(dev->type) {
-+#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
- 		case ARPHRD_SIT:
- 			addrconf_sit_config(dev);
- 			break;
-+#endif
- 		case ARPHRD_TUNNEL6:
- 			addrconf_ip6_tnl_config(dev);
- 			break;
+ 			/* 80003ES2LAN workaround--
+ 			 * For packet buffer work-around on link down event;
+@@ -2568,7 +2568,7 @@ e1000_watchdog(unsigned long data)
+ 		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
+ 
+ 	/* Reset the timer */
+-	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
++	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+ }
+ 
+ #define E1000_TX_FLAGS_CSUM		0x00000001
 
---7ZAtKRhVyVSsbBD2--
