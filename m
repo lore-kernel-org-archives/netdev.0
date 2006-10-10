@@ -1,7 +1,7 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 8/21]: Spidernet stop queue when queue is full.
-Date: Tue, 10 Oct 2006 16:04:00 -0500
-Message-ID: <20061010210400.GE4381@austin.ibm.com>
+Subject: [PATCH 9/21]: powerpc/cell spidernet bogus rx interrupt bit
+Date: Tue, 10 Oct 2006 16:05:00 -0500
+Message-ID: <20061010210459.GF4381@austin.ibm.com>
 References: <20061010204946.GW4381@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,9 +9,9 @@ Cc: jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
 	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
 	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:48307 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1030383AbWJJVEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:04:02 -0400
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:11186 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1030362AbWJJVFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:05:06 -0400
 To: akpm@osdl.org
 Content-Disposition: inline
 In-Reply-To: <20061010204946.GW4381@austin.ibm.com>
@@ -19,78 +19,30 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This patch adds a call to netif_stop_queue() when there is
-no more room for more packets on the transmit queue.
+The current receive interrupt mask sets a bogus bit that doesn't even
+belong to the definition of this register. Remove it.
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 Cc: James K Lewis <jklewis@us.ibm.com>
 Cc: Arnd Bergmann <arnd@arndb.de>
 
 ----
- drivers/net/spider_net.c |   33 ++++++++++-----------------------
- 1 file changed, 10 insertions(+), 23 deletions(-)
+ drivers/net/spider_net.h |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Index: linux-2.6.18-mm2/drivers/net/spider_net.c
+Index: linux-2.6.18-mm2/drivers/net/spider_net.h
 ===================================================================
---- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-10 12:51:26.000000000 -0500
-+++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-10 12:52:42.000000000 -0500
-@@ -823,39 +823,25 @@ spider_net_xmit(struct sk_buff *skb, str
- 	struct spider_net_descr_chain *chain = &card->tx_chain;
- 	struct spider_net_descr *descr = chain->head;
- 	unsigned long flags;
--	int result;
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.h	2006-10-10 12:51:26.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.h	2006-10-10 12:54:06.000000000 -0500
+@@ -332,9 +332,8 @@ enum spider_net_int2_status {
+ 				  (1 << SPIDER_NET_GDTDCEINT) | \
+ 				  (1 << SPIDER_NET_GDTFDCINT) )
  
- 	spin_lock_irqsave(&chain->lock, flags);
+-/* we rely on flagged descriptor interrupts*/
+-#define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) | \
+-				  (1 << SPIDER_NET_GRMFLLINT) )
++/* We rely on flagged descriptor interrupts */
++#define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) )
  
- 	spider_net_release_tx_chain(card, 0);
- 
--	if (chain->head->next == chain->tail->prev) {
--		card->netdev_stats.tx_dropped++;
--		result = NETDEV_TX_LOCKED;
--		goto out;
--	}
-+	if ((chain->head->next == chain->tail->prev) ||
-+	   (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE) ||
-+	   (spider_net_prepare_tx_descr(card, skb) != 0)) {
- 
--	if (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE) {
- 		card->netdev_stats.tx_dropped++;
--		result = NETDEV_TX_LOCKED;
--		goto out;
-+		spin_unlock_irqrestore(&chain->lock, flags);
-+		netif_stop_queue(netdev);
-+		return NETDEV_TX_BUSY;
- 	}
- 
--	if (spider_net_prepare_tx_descr(card, skb) != 0) {
--		card->netdev_stats.tx_dropped++;
--		result = NETDEV_TX_BUSY;
--		goto out;
--	}
--
--	result = NETDEV_TX_OK;
--
- 	spider_net_kick_tx_dma(card);
- 	card->tx_chain.head = card->tx_chain.head->next;
--
--out:
- 	spin_unlock_irqrestore(&chain->lock, flags);
--	netif_wake_queue(netdev);
--	return result;
-+	return NETDEV_TX_OK;
- }
- 
- /**
-@@ -874,9 +860,10 @@ spider_net_cleanup_tx_ring(struct spider
- 	spin_lock_irqsave(&card->tx_chain.lock, flags);
- 
- 	if ((spider_net_release_tx_chain(card, 0) != 0) &&
--	    (card->netdev->flags & IFF_UP))
-+	    (card->netdev->flags & IFF_UP)) {
- 		spider_net_kick_tx_dma(card);
--
-+		netif_wake_queue(card->netdev);
-+	}
- 	spin_unlock_irqrestore(&card->tx_chain.lock, flags);
- }
- 
+ #define SPIDER_NET_ERRINT	( 0xffffffff & \
+ 				  (~SPIDER_NET_TXINT) & \
