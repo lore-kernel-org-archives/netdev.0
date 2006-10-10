@@ -1,56 +1,36 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 4/21]: powerpc/cell spidernet force-end fix
-Date: Tue, 10 Oct 2006 16:00:04 -0500
-Message-ID: <20061010210004.GA4381@austin.ibm.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH 0/21]: powerpc/cell spidernet bugfixes, etc.
+Date: Tue, 10 Oct 2006 14:00:37 -0700
+Message-ID: <20061010140037.274d2c6f.akpm@osdl.org>
 References: <20061010204946.GW4381@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	James K Lewis <jklewis@us.ibm.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:58065 "EHLO
-	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030367AbWJJVAL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 17:00:11 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:48268 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030369AbWJJVBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:01:17 -0400
+To: linas@austin.ibm.com (Linas Vepstas)
 In-Reply-To: <20061010204946.GW4381@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 10 Oct 2006 15:49:47 -0500
+linas@austin.ibm.com (Linas Vepstas) wrote:
 
-Bugfix: when cleaning up the transmit queue upon device close,
-be sure to walk the entire queue.
+> 
+> Andrew, please apply/forward upstream.
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: James K Lewis <jklewis@us.ibm.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
+s/Andrew/Jeff/;)
 
-----
- drivers/net/spider_net.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+> I tried to base these on linux-2.6.19-rc1-mm1 but hit a 
+> kernel BUG in copy_fdtable at fs/file.c:138! 
+> (reported earlire today by Olof)
 
-Index: linux-2.6.18-mm2/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-10 12:21:40.000000000 -0500
-+++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-10 12:22:49.000000000 -0500
-@@ -699,6 +699,8 @@ spider_net_release_tx_descr(struct spide
- 
- 	/* unmap the skb */
- 	skb = descr->skb;
-+	if (!skb)
-+		return;
- 	pci_unmap_single(card->pdev, descr->buf_addr, skb->len,
- 			PCI_DMA_TODEVICE);
- 	dev_kfree_skb_any(skb);
-@@ -751,7 +753,8 @@ spider_net_release_tx_chain(struct spide
- 
- 		default:
- 			card->netdev_stats.tx_dropped++;
--			return 1;
-+			if (!brutal)
-+				return 1;
- 		}
- 		spider_net_release_tx_descr(card);
- 	}
+yup,
+ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.19-rc1/2.6.19-rc1-mm1/hot-fixes/
+holds what should be a fix.
+
