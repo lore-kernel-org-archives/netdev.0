@@ -1,39 +1,25 @@
-From: akpm@osdl.org
-Subject: [patch 6/7] pci_module_init() convertion in olympic.c
-Date: Tue, 10 Oct 2006 14:33:29 -0700
-Message-ID: <200610102133.k9ALXT9n024977@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, henne@nachtwindheim.de,
-	alan@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56985 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030448AbWJJVdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:33:43 -0400
-To: jeff@garzik.org
-Sender: netdev-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/02 V3] net/ipv6: seperate sit driver to extra module
+Date: Tue, 10 Oct 2006 14:47:53 -0700 (PDT)
+Message-ID: <20061010.144753.57160083.davem@davemloft.net>
+References: <20061010153745.GA27455@zlug.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030507AbWJJVsE@vger.kernel.org>
+To: joro-lkml@zlug.org
+In-Reply-To: <20061010153745.GA27455@zlug.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Henrik Kretzschmar <henne@nachtwindheim.de>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Date: Tue, 10 Oct 2006 17:37:45 +0200
 
-pci_module_init() convertion in olympic.c
+> This patch removes the driver of the IPv6-in-IPv4 tunnel driver (sit)
+> from the IPv6 module. It adds an option to Kconfig which makes it
+> possible to compile it as a seperate module.
+> 
+> Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
 
-Signed-off-by: Henrik Kretzschmar <henne@nachtwindheim.de>
-Acked-by: Alan Cox <alan@redhat.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- drivers/net/tokenring/olympic.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN drivers/net/tokenring/olympic.c~pci_module_init-convertion-in-olympicc drivers/net/tokenring/olympic.c
---- a/drivers/net/tokenring/olympic.c~pci_module_init-convertion-in-olympicc
-+++ a/drivers/net/tokenring/olympic.c
-@@ -1771,7 +1771,7 @@ static struct pci_driver olympic_driver 
- 
- static int __init olympic_pci_init(void) 
- {
--	return pci_module_init (&olympic_driver) ; 
-+	return pci_register_driver(&olympic_driver) ;
- }
- 
- static void __exit olympic_pci_cleanup(void)
-_
+Applied, thanks.
