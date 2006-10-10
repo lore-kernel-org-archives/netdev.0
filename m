@@ -1,66 +1,67 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: Request to postpone WE-21
-Date: Tue, 10 Oct 2006 13:28:03 -0700
-Message-ID: <20061010202803.GA17177@bougret.hpl.hp.com>
-References: <20061005163113.GB6510@bougret.hpl.hp.com> <20061005204949.GF18408@tuxdriver.com> <20061005221246.GB7533@bougret.hpl.hp.com> <20061010193959.GC5728@tuxdriver.com>
-Reply-To: jt@hpl.hp.com
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 0/21]: powerpc/cell spidernet bugfixes, etc.
+Date: Tue, 10 Oct 2006 15:49:47 -0500
+Message-ID: <20061010204946.GW4381@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jouni Malinen <jkm@devicescape.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, jeff@garzik.org
+Cc: jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
+	James K Lewis <jklewis@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:3307 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1030289AbWJJU2w
+Received: from e34.co.us.ibm.com ([32.97.110.152]:36005 "EHLO
+	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030341AbWJJUtt
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 16:28:52 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+	Tue, 10 Oct 2006 16:49:49 -0400
+To: akpm@osdl.org
 Content-Disposition: inline
-In-Reply-To: <20061010193959.GC5728@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2006 at 03:40:04PM -0400, John W. Linville wrote:
-> 
-> I think this patch still has two problems.  One is that the length
-> modification does not happen until after the "Check what user space
-> is giving us" clause.  So, max length requests will fail.  (Did you
-> check SIOCGIWESSID w/ WE-20 tools?  Or am I missing something?
-> SIOCGIWESSID and SIOCGIWNICN do not have IW_DESCR_FLAG_NOMAX set.)
 
-	Yes, I can see that SET with 32 char would get rejected. I did
-not check 32 char with WE-20 tools. I don't know how widely 32 char
-ESSID are used in the real world.
+Andrew, please apply/forward upstream.
 
-	Over the week end, I tought about another potential gotcha,
-however I don't think it would happen in practice. A tool could send a
-non NUL terminated ESSID with WE-20, just adding a dummy char at the
-end of the ESSID. That would work with most drivers.
+The following set of 21 patches (!) are all aimed at the the 
+spidernet ethernet device driver. The spidernet is an etherenet
+controller built into the Toshiba southbridge for the PowerPC Cell
+processor. (This is the only device in existance that with this
+ethernet hardware in it).
 
-> Since I think we have to account for the gets as well as the sets,
-> then we have to restore the length value in the ifreq to be compatible
-> with userland, just in case they reuse the data structure.
+These patches re-package/re-order/re-cleanup a previous
+set of patches I've previously mailed. Thus, some have
+been previously Acked-by lines, most do not. Most of
+these patches are tiny, and handle problems that cropped
+up during testing. Sorry about there being so many of them.
 
-	The GET API change *already* happened last January. It's
-already a reality, and WE-21 did not really change anything about
-that. This means that it's already included in "2.6.16", which is the
-"somewhat more stable" kernel, and widely diffused.
-	There was userspace issues with that. Those have been fixed a
-long time ago. I don't see the point of carrying code for those cases.
+The first set of 12 patches fix a large variety of mostly 
+minor bugs. 
 
-> I think the main issues with my patch were an off-by-one in the length
-> for checking for \0, and a failure to account for a length of zero.
-> I have attempted to correct those in my patch below.  What do you
-> think?
-> 
-> John
-> 
-> P.S.  Again, this is an untested patch...
+The important patches are 13 through 17: these overcome a 
+debilitating performance problem on transmit (6 megabits
+per second !!) on transmit of patches 500 bytes or larger.
+After applying these, I am able to get the following:
 
-	Compile Wireless Tools 27 with a static iwlib (top of
-Makefile) to do your testing, so that you can run without having to
-install it. And use a driver that care about the ending NUL, such as
-the Broadcom or IPW2x00.
+pkt sz   speed (100K buffs)       speed (4M buffs)
+------   -----------------        ----------------
+1500     700 Mbits/sec            951 Mbits/sec
+1000     658 Mbits/sec            770
+800      600                      648
+500      500                      500
+300      372                      372
+60        70                       70
 
-	Have fun...
+Above buf size refers to /proc/sys/net/core/wmem_default
 
-	Jean
+----
+
+I'm not planning on any further patches for a long while.
+I tried to do som RX work, but gave up. RX performance could 
+be improved.
+
+FYI, Christoph Hellwig's node-aware patches seem to make no
+difference at all any more.
+
+I tried to base these on linux-2.6.19-rc1-mm1 but hit a 
+kernel BUG in copy_fdtable at fs/file.c:138! 
+(reported earlire today by Olof)
+
+--linas
