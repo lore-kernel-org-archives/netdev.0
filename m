@@ -1,42 +1,96 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [patch 2/3] d80211: remove poorly documented ieee80211_hw extra_hdr_room flag
-Date: Tue, 10 Oct 2006 23:04:05 +0200
-Message-ID: <200610102304.05291.mb@bu3sch.de>
-References: <20061009170159.804032000@devicescape.com> <200610101200.12454.mb@bu3sch.de> <20061010134533.GB4518@devicescape.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 8/21]: Spidernet stop queue when queue is full.
+Date: Tue, 10 Oct 2006 16:04:00 -0500
+Message-ID: <20061010210400.GE4381@austin.ibm.com>
+References: <20061010204946.GW4381@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:59366
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030384AbWJJVEe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 17:04:34 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061010134533.GB4518@devicescape.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:48307 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1030383AbWJJVEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:04:02 -0400
+To: akpm@osdl.org
 Content-Disposition: inline
+In-Reply-To: <20061010204946.GW4381@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 10 October 2006 15:45, David Kimdon wrote:
-> On Tue, Oct 10, 2006 at 12:00:12PM +0200, Michael Buesch wrote:
-> > On Monday 09 October 2006 19:03, David Kimdon wrote:
-> > > This flag is unused by all in tree drivers.  Furthermore, the way that
-> > > it is documented is not consistent with the way it is actually used by
-> > > ieee80211.c.  The original attempt appears to be something to do with
-> > > adding extra header room for low-level drivers which need to pad the
-> > > IEEE 802.11 header (example: Atheros).
-> > 
-> > What about not removing it, but extending it.
-> 
-> Sure, I would be happy with that.  For Atheros it will be '2' to
-> ensure that we can properly align the packet in the tx path without
-> needing to realloc. 
 
-Ok, nice. Do you want to do a patch or should I do?
+This patch adds a call to netif_stop_queue() when there is
+no more room for more packets on the transmit queue.
 
--- 
-Greetings Michael.
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: James K Lewis <jklewis@us.ibm.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+
+----
+ drivers/net/spider_net.c |   33 ++++++++++-----------------------
+ 1 file changed, 10 insertions(+), 23 deletions(-)
+
+Index: linux-2.6.18-mm2/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.18-mm2.orig/drivers/net/spider_net.c	2006-10-10 12:51:26.000000000 -0500
++++ linux-2.6.18-mm2/drivers/net/spider_net.c	2006-10-10 12:52:42.000000000 -0500
+@@ -823,39 +823,25 @@ spider_net_xmit(struct sk_buff *skb, str
+ 	struct spider_net_descr_chain *chain = &card->tx_chain;
+ 	struct spider_net_descr *descr = chain->head;
+ 	unsigned long flags;
+-	int result;
+ 
+ 	spin_lock_irqsave(&chain->lock, flags);
+ 
+ 	spider_net_release_tx_chain(card, 0);
+ 
+-	if (chain->head->next == chain->tail->prev) {
+-		card->netdev_stats.tx_dropped++;
+-		result = NETDEV_TX_LOCKED;
+-		goto out;
+-	}
++	if ((chain->head->next == chain->tail->prev) ||
++	   (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE) ||
++	   (spider_net_prepare_tx_descr(card, skb) != 0)) {
+ 
+-	if (spider_net_get_descr_status(descr) != SPIDER_NET_DESCR_NOT_IN_USE) {
+ 		card->netdev_stats.tx_dropped++;
+-		result = NETDEV_TX_LOCKED;
+-		goto out;
++		spin_unlock_irqrestore(&chain->lock, flags);
++		netif_stop_queue(netdev);
++		return NETDEV_TX_BUSY;
+ 	}
+ 
+-	if (spider_net_prepare_tx_descr(card, skb) != 0) {
+-		card->netdev_stats.tx_dropped++;
+-		result = NETDEV_TX_BUSY;
+-		goto out;
+-	}
+-
+-	result = NETDEV_TX_OK;
+-
+ 	spider_net_kick_tx_dma(card);
+ 	card->tx_chain.head = card->tx_chain.head->next;
+-
+-out:
+ 	spin_unlock_irqrestore(&chain->lock, flags);
+-	netif_wake_queue(netdev);
+-	return result;
++	return NETDEV_TX_OK;
+ }
+ 
+ /**
+@@ -874,9 +860,10 @@ spider_net_cleanup_tx_ring(struct spider
+ 	spin_lock_irqsave(&card->tx_chain.lock, flags);
+ 
+ 	if ((spider_net_release_tx_chain(card, 0) != 0) &&
+-	    (card->netdev->flags & IFF_UP))
++	    (card->netdev->flags & IFF_UP)) {
+ 		spider_net_kick_tx_dma(card);
+-
++		netif_wake_queue(card->netdev);
++	}
+ 	spin_unlock_irqrestore(&card->tx_chain.lock, flags);
+ }
+ 
