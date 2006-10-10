@@ -1,61 +1,106 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Tue, 10 Oct 2006 16:43:30 +0200
-Message-ID: <20061010144330.GA28175@mellanox.co.il>
-References: <20061009095051.38ed9f22@freekitty>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Subject: [PATCH 01/02 V3] net/ipv6: seperate sit driver to extra module
+Date: Tue, 10 Oct 2006 17:37:45 +0200
+Message-ID: <20061010153745.GA27455@zlug.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	Roland Dreier <rolandd@cisco.com>
+Content-Type: multipart/mixed; boundary="mYCpIKhGyMATD0i+"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dev.mellanox.co.il ([194.90.237.44]:58753 "EHLO
-	dev.mellanox.co.il") by vger.kernel.org with ESMTP id S932130AbWJJOn6
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 10:43:58 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:15168 "EHLO
+	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
+	id S1750877AbWJJPht (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 11:37:49 -0400
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20061009095051.38ed9f22@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. Stephen Hemminger <shemminger@osdl.org>:
-> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-> 
-> On Mon, 9 Oct 2006 19:47:05 +0200
-> "Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
-> 
-> > Hi!
-> > I'm trying to build a network device driver supporting a very large MTU (around 64K)
-> > on top of an infiniband connection, and I've hit a couple of issues I'd
-> > appreciate some feedback on:
-> > 
-> > 1. On the send side,
-> >    I've set NETIF_F_SG, but hardware does not support checksum offloading,
-> >    and I see "dropping NETIF_F_SG since no checksum feature" warning,
-> >    and I seem to be getting large packets all in one chunk.
-> >    The reason I've set NETIF_F_SG, is because I'm concerned that under real life
-> >    stress Linux won't be able to allocate 64K of continuous memory.
-> > 
-> >    Is this concern of mine valid? I saw in-tree drivers allocating at least 8K.
-> >    What's the best way to enable S/G on send side?
-> >    Is checksum offloading really required for S/G?
-> 
-> Yes, in the current implementation, Linux needs checksum offload. But there
-> is no reason, your driver can't compute the checksum in software.
 
-Are there drivers that do this already? Couldn't find any such beast ...
+--mYCpIKhGyMATD0i+
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I'm worried whether an extra pass over data won't eat up all of
-the performance gains I get from the large MTU ...
+This patch removes the driver of the IPv6-in-IPv4 tunnel driver (sit)
+from the IPv6 module. It adds an option to Kconfig which makes it
+possible to compile it as a seperate module.
 
-> >    What are the helpers legal for fragmented skb?
+Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
 
-BTW, I found skb_put_frags in sky2 which seems generic enough - I even wander
-why isn't this in net/core.
+--mYCpIKhGyMATD0i+
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=patch_sit_as_module
 
-Thanks!
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/af_inet6.c linux-2.6.18/net/ipv6/af_inet6.c
+--- linux-2.6.18-vanilla/net/ipv6/af_inet6.c	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/af_inet6.c	2006-10-05 16:55:02.000000000 +0200
+@@ -849,7 +849,6 @@ static int __init inet6_init(void)
+ 	err = addrconf_init();
+ 	if (err)
+ 		goto addrconf_fail;
+-	sit_init();
+ 
+ 	/* Init v6 extension headers. */
+ 	ipv6_rthdr_init();
+@@ -920,7 +919,6 @@ static void __exit inet6_exit(void)
+  	raw6_proc_exit();
+ #endif
+ 	/* Cleanup code parts. */
+-	sit_cleanup();
+ 	ip6_flowlabel_cleanup();
+ 	addrconf_cleanup();
+ 	ip6_route_cleanup();
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/Kconfig linux-2.6.18/net/ipv6/Kconfig
+--- linux-2.6.18-vanilla/net/ipv6/Kconfig	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/Kconfig	2006-10-09 11:16:37.000000000 +0200
+@@ -126,6 +126,19 @@ config INET6_XFRM_MODE_TUNNEL
+ 
+ 	  If unsure, say Y.
+ 
++config IPV6_SIT
++	tristate "IPv6: IPv6-in-IPv4 tunnel (SIT driver)"
++	depends on IPV6
++	default y
++	---help---
++	  Tunneling means encapsulating data of one protocol type within
++	  another protocol and sending it over a channel that understands the
++	  encapsulating protocol. This driver implements encapsulation of IPv6
++	  into IPv4 packets. This is useful if you want to connect two IPv6
++	  networks over an IPv4-only path.
++
++	  Saying M here will produce a module called sit.ko. If unsure, say Y.
++
+ config IPV6_TUNNEL
+ 	tristate "IPv6: IPv6-in-IPv6 tunnel"
+ 	select INET6_TUNNEL
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/Makefile linux-2.6.18/net/ipv6/Makefile
+--- linux-2.6.18-vanilla/net/ipv6/Makefile	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/Makefile	2006-10-05 17:10:42.000000000 +0200
+@@ -4,7 +4,7 @@
+ 
+ obj-$(CONFIG_IPV6) += ipv6.o
+ 
+-ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o sit.o \
++ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
+ 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o raw.o \
+ 		protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
+ 		exthdrs.o sysctl_net_ipv6.o datagram.o proc.o \
+@@ -24,6 +24,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) 
+ obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
+ obj-$(CONFIG_NETFILTER)	+= netfilter/
+ 
++obj-$(CONFIG_IPV6_SIT) += sit.o
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+ 
+ obj-y += exthdrs_core.o
+diff -upr -X linux-2.6.18/Documentation/dontdiff linux-2.6.18-vanilla/net/ipv6/sit.c linux-2.6.18/net/ipv6/sit.c
+--- linux-2.6.18-vanilla/net/ipv6/sit.c	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18/net/ipv6/sit.c	2006-10-05 16:55:02.000000000 +0200
+@@ -850,3 +850,6 @@ int __init sit_init(void)
+ 	inet_del_protocol(&sit_protocol, IPPROTO_IPV6);
+ 	goto out;
+ }
++
++module_init(sit_init);
++module_exit(sit_cleanup);
 
--- 
-MST
+--mYCpIKhGyMATD0i+--
