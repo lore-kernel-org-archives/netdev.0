@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2][SCTP]: Fix the RX queue size shown in
- /proc/net/sctp/assocs output.
-Date: Mon, 09 Oct 2006 21:34:49 -0700 (PDT)
-Message-ID: <20061009.213449.89037922.davem@davemloft.net>
-References: <1160440992.27455.6.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: [PATCH 01/02 V2] net/ipv6: seperate sit driver to extra module
+Date: Mon, 09 Oct 2006 21:38:56 -0700 (PDT)
+Message-ID: <20061009.213856.28787525.davem@davemloft.net>
+References: <20061009093416.GA11901@zlug.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28570
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31386
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964965AbWJJEeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 00:34:50 -0400
-To: sri@us.ibm.com
-In-Reply-To: <1160440992.27455.6.camel@w-sridhar2.beaverton.ibm.com>
+	id S964967AbWJJEi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 00:38:57 -0400
+To: joro-lkml@zlug.org
+In-Reply-To: <20061009093416.GA11901@zlug.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Mon, 09 Oct 2006 17:43:12 -0700
+From: Joerg Roedel <joro-lkml@zlug.org>
+Date: Mon, 9 Oct 2006 11:34:16 +0200
 
-> [SCTP]: Fix the RX queue size shown in /proc/net/sctp/assocs output.
+> This is the changed version of the patch making the sit driver
+> configurable as a seperate module.
 > 
-> Show the true receive buffer usage.
-> 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Changes:
+> - spelling fixes in Kconfig
+> - changed "If unsure, say N" to "If unsure, say Y" for consistency
 
-Also applied, thanks a lot.
+Joerg, when you make resubmissions, please always restate the full
+changelog and all signed-off-by lines.
+
+If you want to say "Changed since last version" do that seperately
+at the top of the email, right before the main changelog entry and
+the patch itself.
+
+I wanted to apply this latest version of these two patches, but I
+cannot because the full changelog isn't here.  Please get this
+into a mergable form for me.
+
+Thanks a lot.
+
