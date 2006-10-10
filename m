@@ -1,70 +1,60 @@
 From: akpm@osdl.org
-Subject: [patch 5/7] 8139too: force media setting cleanup
-Date: Tue, 10 Oct 2006 14:33:28 -0700
-Message-ID: <200610102133.k9ALXTd0024974@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, leewkb@yahoo.com
+Subject: [patch 1/7] Update smc91x driver with ARM Versatile board info
+Date: Tue, 10 Oct 2006 14:33:22 -0700
+Message-ID: <200610102133.k9ALXNI5024946@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, dsaxena@plexity.net,
+	nico@cam.org, rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:51353 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030445AbWJJVdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:33:35 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:63385 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030451AbWJJVd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 17:33:56 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernard Lee <leewkb@yahoo.com>
+From: Deepak Saxena <dsaxena@plexity.net>
 
-Setting bit 4 & 5 alone in 8139too module media option does not really
-force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
-8139too module does not force media setting.  Therefore, bit 0-3 requires
-to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
-stated in module description.
+We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
+generic IRQ layer will complain thusly:
 
-It can be fixed by changing rtl8139_private structure default_port bitfield
-from 4-bit to 6-bit.
+No IRQF_TRIGGER set_type function for IRQ 25 (<NULL>)
 
-Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
-suggested that bit 9 is freed.  A remark is added to module description
-that bit 0 can be used to force setting.  It helps to clarify 10Mbps
-half-duplex mode.
-
-Signed-off-by: Bernard Lee <leewkb@yahoo.com>
+Signed-off-by: Deepak Saxena <dsaxena@plexity.net>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Russell King <rmk@arm.linux.org.uk>
+Cc: Nicolas Pitre <nico@cam.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/8139too.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/smc91x.h |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
---- a/drivers/net/8139too.c~8139too-force-media-setting-fix
-+++ a/drivers/net/8139too.c
-@@ -586,7 +586,7 @@ struct rtl8139_private {
- 	signed char phys[4];		/* MII device addresses. */
- 	char twistie, twist_row, twist_col;	/* Twister tune state. */
- 	unsigned int watchdog_fired : 1;
--	unsigned int default_port : 4;	/* Last dev->if_port value. */
-+	unsigned int default_port : 6;	/* Last dev->if_port value. */
- 	unsigned int have_thread : 1;
- 	spinlock_t lock;
- 	spinlock_t rx_lock;
-@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
- module_param(debug, int, 0);
- MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
--MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
-+MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
+diff -puN drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info drivers/net/smc91x.h
+--- a/drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info
++++ a/drivers/net/smc91x.h
+@@ -398,6 +398,24 @@ static inline void LPD7_SMC_outsw (unsig
  
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
-@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
- 	/* The lower four bits are the media type. */
- 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
- 	if (option > 0) {
--		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
--		tp->default_port = option & 0xFF;
-+		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
-+		tp->default_port = option & 0x3F;
- 		if (tp->default_port)
- 			tp->mii.force_media = 1;
- 	}
+ #define SMC_IRQ_FLAGS		(0)
+ 
++#elif	defined(CONFIG_ARCH_VERSATILE)
++
++#define SMC_CAN_USE_8BIT	1
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	1
++#define SMC_NOWAIT		1
++
++#define SMC_inb(a, r)		readb((a) + (r))
++#define SMC_inw(a, r)		readw((a) + (r))
++#define SMC_inl(a, r)		readl((a) + (r))
++#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)	writew(v, (a) + (r))
++#define SMC_outl(v, a, r)	writel(v, (a) + (r))
++#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
++#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
++
++#define SMC_IRQ_FLAGS		(0)
++
+ #else
+ 
+ #define SMC_CAN_USE_8BIT	1
 _
