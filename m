@@ -1,35 +1,66 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 5/5] d80211: allow wireless vlan interface to
-	havesameMAC an AP interface
-Date: Tue, 10 Oct 2006 15:47:57 +0200
-Message-ID: <1160488077.2727.14.camel@ux156>
-References: <20061003181118.537800000@devicescape.com>
-	 <20061003181233.GE19403@devicescape.com>
-	 <1160343128.4701.6.camel@johannes.berg>
-	 <20061009213807.GH26254@instant802.com> <1160477427.2727.8.camel@ux156>
-	 <20061010134226.GA4518@devicescape.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [patch 2/3] d80211: remove poorly documented ieee80211_hw extra_hdr_room flag
+Date: Tue, 10 Oct 2006 10:30:36 -0400
+Message-ID: <200610101030.41213.flamingice@sourmilk.net>
+References: <20061009170159.804032000@devicescape.com> <200610101200.12454.mb@bu3sch.de> <20061010134533.GB4518@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart3017823.ex0XT4a9Gq";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org,
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:38092 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750791AbWJJNrJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 09:47:09 -0400
+Received: from smtp.rutgers.edu ([128.6.72.243]:59684 "EHLO
+	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
+	id S1750826AbWJJObl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 10:31:41 -0400
 To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061010134226.GA4518@devicescape.com>
+In-Reply-To: <20061010134533.GB4518@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-10-10 at 06:42 -0700, David Kimdon wrote:
+--nextPart3017823.ex0XT4a9Gq
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> no, still broadcasts, but in a typical deployment some for of encryption
-> is used.  Each vlan has a unique broadcast key so stations on one vlan
-> cannot decrypt packets from another vlan. 
+On Tuesday 10 October 2006 09:45, David Kimdon wrote:
+> On Tue, Oct 10, 2006 at 12:00:12PM +0200, Michael Buesch wrote:
+> > On Monday 09 October 2006 19:03, David Kimdon wrote:
+> > > This flag is unused by all in tree drivers.  Furthermore, the way that
+> > > it is documented is not consistent with the way it is actually used by
+> > > ieee80211.c.  The original attempt appears to be something to do with
+> > > adding extra header room for low-level drivers which need to pad the
+> > > IEEE 802.11 header (example: Atheros).
+> >
+> > What about not removing it, but extending it.
+>
+> Sure, I would be happy with that.  For Atheros it will be '2' to
+> ensure that we can properly align the packet in the tx path without
+> needing to realloc.
+>
+adm8211 needs this too to avoid realloc and possibly failing and dropping t=
+he=20
+packet. (except adm8211 needs closer to about 30 bytes of extra room to fit=
+=20
+its hardware tx header)
 
-Oh ok, that makes sense. Thanks.
+Thanks,
+=2DMichael Wu
 
-johannes
+--nextPart3017823.ex0XT4a9Gq
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD4DBQBFK66RT3Oqt9AH4aERAiJgAJdCZMGevsgQZIRe8Kj8TZ2vjkO6AKDWeKT7
+KY94Qm4JcpFvhRjdWJpdHA==
+=8CRk
+-----END PGP SIGNATURE-----
+
+--nextPart3017823.ex0XT4a9Gq--
