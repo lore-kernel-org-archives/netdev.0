@@ -1,55 +1,39 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: What is current sundance.c status
-Date: Wed, 11 Oct 2006 19:55:40 -0700
-Message-ID: <20061011195540.06b2ef13.akpm@osdl.org>
-References: <004301c6eda6$437ac070$2d32fea9@icplus.com.tw>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG 2.6.18] unaligned access in ipvv6_rcv, nf_ip6_checksum,
+ tcp_error, __ipv6_addr_type, fib6_lookup_1
+Date: Mon, 09 Oct 2006 18:47:43 -0700 (PDT)
+Message-ID: <20061009.184743.112621206.davem@davemloft.net>
+References: <20060930202040.GF1083@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:43997 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422637AbWJLCzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 22:55:54 -0400
-To: "Jesse Huang" <jesse@icplus.com.tw>
-In-Reply-To: <004301c6eda6$437ac070$2d32fea9@icplus.com.tw>
-Sender: netdev-owner@vger.kernel.org
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+To: laforge@gnumonks.org
+In-Reply-To: <20060930202040.GF1083@sunbeam.de.gnumonks.org>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Oct 2006 10:29:37 +0800
-"Jesse Huang" <jesse@icplus.com.tw> wrote:
+From: Harald Welte <laforge@gnumonks.org>
+Date: Sat, 30 Sep 2006 22:20:40 +0200
 
->     Would you tell me what is the current IP100A status? Should I re-generate patches again. Would it put into kernel or not?
+> Kernel unaligned access at TPC[10022cf0] ipv6_rcv+0xb8/0x320 [ipv6]
+> Kernel unaligned access at TPC[10023800] __ipv6_addr_type+0x8/0x140 [ipv6]
+> Kernel unaligned access at TPC[1002fd64] fib6_lookup_1+0x2c/0x120 [ipv6]
+> Kernel unaligned access at TPC[10093878] tcp_error+0x40/0x2c0 [nf_conntrack]
+> Kernel unaligned access at TPC[1004ce54] nf_ip6_checksum+0x13c/0x1c0 [ipv6]
+> Kernel unaligned access at TPC[1004ce58] nf_ip6_checksum+0x140/0x1c0 [ipv6]
+> Kernel unaligned access at TPC[1004ce60] nf_ip6_checksum+0x148/0x1c0 [ipv6]
 
-I'm sitting on a copy of them.  I didn't send them to Jeff last time
-because:
+I think for all of these cases the IPv6 header is not 4-byte
+aligned in the SKB.  The first case is simply ipv6_hdr->version
+which GCC turns into a load of the first 4 byte word of the
+headers, then a mask+compare.  And this is fine becasue due
+to the "struct in6_addr", gcc may assume that the ipv6 header
+struct is at least 4 bytes aligned since in6_addr contains
+an array of u32[]'s.
 
-sundance-remove-txstartthresh-and-rxearlythresh.patch
-
- There's no description of what this patent issue is.
-
-sundance-fix-tx-pause-bug-reset_tx-intr_handler.patch
-
- There's no description of the bug which got fixed, nor how this patch
- fixes it.
-
-sundance-change-phy-address-search-from-phy=1-to-phy=0.patch
-
- There's a (small) possibility that this will break on hardware which
- _doesn't_ have a phy at address 0.
-
-sundance-correct-initial-and-close-hardware-step.patch
-
- There's no real description of the bug which is being fixed, nor of how
- this patch fixes it.
-
-sundance-solve-host-error-problem-in-low-performance-embedded.patch
-
- No description of what the "host error problem" is, nor of what causes
- it, nor of how this patch fixes it.
-
-
-So generally these patches are a bit worrying, and it is hard to gauge what
-their risk factor is.
-
+What kind of input path is this packet coming from?  Is it
+using some kind of encapsulation?  It's odd for it to not
+be 4 byte aligned, you would get the same kind of unaligned
+accesses for an ipv4 header if it were misaligned like this.
