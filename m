@@ -1,72 +1,59 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] ixgb: Delete IXGB_DBG() macro and call pr_debug() directly.
-Date: Tue, 10 Oct 2006 11:18:36 -0700
-Message-ID: <452BE3FC.5010001@intel.com>
-References: <Pine.LNX.4.64.0610100816440.7711@localhost.localdomain> <452BC6C9.3050902@intel.com> <Pine.LNX.4.64.0610101227170.9699@localhost.localdomain> <452BCF5C.2090407@intel.com> <Pine.LNX.4.64.0610101347270.10344@localhost.localdomain>
+From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Subject: Re: socket/IP on Linux
+Date: Tue, 10 Oct 2006 15:45:33 -0300
+Message-ID: <39e6f6c70610101145i4f23c67cn15b71432ceab7dc5@mail.gmail.com>
+References: <20061005211707.61196.qmail@web30514.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	trivial@kernel.org, NetDev <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965030AbWJJSXQ@vger.kernel.org>
-To: "Robert P. J. Day" <rpjday@mindspring.com>
-In-Reply-To: <Pine.LNX.4.64.0610101347270.10344@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.227]:8527 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1750750AbWJJSpf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 14:45:35 -0400
+Received: by wx-out-0506.google.com with SMTP id s14so1909697wxc
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2006 11:45:34 -0700 (PDT)
+To: "Jingping Lin" <jplin_99@yahoo.com>
+In-Reply-To: <20061005211707.61196.qmail@web30514.mail.mud.yahoo.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert P. J. Day wrote:
-> On Tue, 10 Oct 2006, Auke Kok wrote:
-> 
->> Robert P. J. Day wrote:
-> 
-> ... snip ...
-> 
->>>   if someone wants to tell me what, in the context of ixgb_main.c,
->>> i would use as that "dev" argument [for dev_dbg], i'm all for
->>> that.
->> (CC netdev since it's a network driver topic).
->>
->> all our macro's (e100, e1000, ixgb) use adapter->netdev->name
->> inserted through the DPRINTK macro.
->>
->> if you'd really want to clean it all up, you'd have to replace all
->> DPRINTK() calls with dev_dbg(adapter->netdev->name, ....) which
->> would just make it more lengthy and uncomfortable to read.
->>
->> which puts this in a bigger perspective. I suppose the nicest way to do
->> program these is to do something like this:
->>
->> #define ixgb_dbg(args...) dev_dbg(adapter->netdev->name, args)
->> #define ixgb_err(args...) dev_err(adapter->netdev->name, args)
->> #define ixgb_info(args...) dev_info(adapter->netdev->name, args)
->>
->> and use those consistently throughout the driver, ditto for e100/e1000.
->>
->> I'll look into it and see what I can do.
-> 
-> um, yeah.  i'm rapidly getting out of my comfort zone here.  this
-> seemed like such a simple submission six hours ago.  :-)  live and
-> learn.
+On 10/5/06, Jingping Lin <jplin_99@yahoo.com> wrote:
+> Hello, Linux Kernel:
+> For a project I will work on for mobile, I am looking
+> into the IP stacks on Linux.
+>
+> I have a few questions to bother you:
 
-digging into it much deeper, dev_dbg seems horribly unsuited for our needs as it prints 
-the pci bus address and al. That's a lot of information when we really only care about 
-'eth0: ' perhaps with 'ixgb: ' prepended to it.
+No bothering, so far, please see the below answers and try to check
+them all before "bothering" again 8)
 
-You end up with pretty much the same code that was there before - unless we make 
-something common for netdevices and use that instead:
+> 1. is "socket.c" the file handling the socket
+> interface?
 
-#define netdev_dbg(netdev, args...) pr_debug(netdev->name, args)
+One of them
 
-and then use this stacked in the driver:
+> 2. which function is for opening a socket?
+> It looks like "sock_map_fd()" is the one for
+> opening/creating a socket? Is that correct?
+> The "Linux IP Stacks Commentary" book suggested the
+> function is "int socket()" which I didn't find in
+> "socket.c" though.
 
-#define ixgb_dbg(args...) netdev_dbg(adapter->netdev, args)
+Perhaps it is suggesting that you create the socket in userspace using
+the libc socket(2) function (see 'man socket') and then passing it
+thru some ioctl if you want to use kernel_sendmsg (make tags ; vi -t
+kernel_sendmsg) from kernelspace?
 
-that would seem clean and appropriate, and since this bit of infrastructure is missing 
-from netdevice.h, explains the current situation in all netdrivers (chaos).
+> 3. Do you have documentations discussing in details
+> the implemented socket interfaces?
 
-of course, I'm completely not taking netif_msg_level into account yet here, which 
-probably makes it a bit more hairy.
+Humm, I guess you can grep the sources for in kernel socket usage?
 
+> Thanks a lot in advance for your help,
 
-Auke
+Best Regards,
+
+- Arnaldo
