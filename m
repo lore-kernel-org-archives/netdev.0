@@ -1,60 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG 2.6.18] unaligned access in ipvv6_rcv, nf_ip6_checksum,
- tcp_error, __ipv6_addr_type, fib6_lookup_1
-Date: Tue, 10 Oct 2006 15:27:29 -0700 (PDT)
-Message-ID: <20061010.152729.85819882.davem@davemloft.net>
-References: <20060930202040.GF1083@sunbeam.de.gnumonks.org>
-	<20061009.184743.112621206.davem@davemloft.net>
-	<20061010162803.GG6663@(none)>
+From: "Ronghua Zhang" <ronghuazhang@gmail.com>
+Subject: is each frag of a skb always less than 1 page?
+Date: Tue, 10 Oct 2006 15:37:04 -0700
+Message-ID: <ba020e9f0610101537m492a957fj982097c8d7f407e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36549
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030597AbWJJW1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 18:27:33 -0400
-To: laforge@gnumonks.org
-In-Reply-To: <20061010162803.GG6663@(none)>
+Received: from py-out-1112.google.com ([64.233.166.179]:27072 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1030608AbWJJWhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 18:37:05 -0400
+Received: by py-out-1112.google.com with SMTP id 57so22630pya
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2006 15:37:05 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@gnumonks.org>
-Date: Tue, 10 Oct 2006 18:28:03 +0200
+>From the code of tcp_sendmsg, it seems to me that each frag is at most
+one page. Is it a guaranteed property or the driver should not assume
+it? Thanks
 
-> The NIC in use is a tulip:
-> eth1: Digital DS21143 Tulip rev 65 at 000001ff00002000, 00:40:C7:97:6B:0D, IRQ 15.
-> 
-> Since there is no other tulip nic (only 3c59x and sunhme) in that box,
-> it might be a tulip driver bug.
-
-I don't see anything interesting in the tulip driver
-after scanning it's RX buffer handling code.
-
-Let's at least see if my theory is at least correct.
-Can you run the following little debug patch?
-
-It will print about 40 messages indicating the pointer
-value for the ipv6 header in ipv6_rcv().  This way
-we can see if it's really misaligned.
-
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 6b8e6d7..f08e5cd 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -90,6 +90,14 @@ int ipv6_rcv(struct sk_buff *skb, struct
- 		goto err;
- 
- 	hdr = skb->nh.ipv6h;
-+#if 1
-+	{
-+		static int times = 0;
-+
-+		if (++times < 40)
-+			printk("DEBUG: ipv6 header [%p]\n", hdr);
-+	}
-+#endif
- 
- 	if (hdr->version != 6)
- 		goto err;
+Ronghua
