@@ -1,157 +1,35 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [patch 2/3] d80211: remove poorly documented ieee80211_hw extra_hdr_room flag
-Date: Tue, 10 Oct 2006 06:45:33 -0700
-Message-ID: <20061010134533.GB4518@devicescape.com>
-References: <20061009170159.804032000@devicescape.com> <20061009170306.GB27239@devicescape.com> <200610101200.12454.mb@bu3sch.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 5/5] d80211: allow wireless vlan interface to
+	havesameMAC an AP interface
+Date: Tue, 10 Oct 2006 15:47:57 +0200
+Message-ID: <1160488077.2727.14.camel@ux156>
+References: <20061003181118.537800000@devicescape.com>
+	 <20061003181233.GE19403@devicescape.com>
+	 <1160343128.4701.6.camel@johannes.berg>
+	 <20061009213807.GH26254@instant802.com> <1160477427.2727.8.camel@ux156>
+	 <20061010134226.GA4518@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:4040 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1750785AbWJJNpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 09:45:39 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200610101200.12454.mb@bu3sch.de>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:38092 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750791AbWJJNrJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 09:47:09 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20061010134226.GA4518@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2006 at 12:00:12PM +0200, Michael Buesch wrote:
-> On Monday 09 October 2006 19:03, David Kimdon wrote:
-> > This flag is unused by all in tree drivers.  Furthermore, the way that
-> > it is documented is not consistent with the way it is actually used by
-> > ieee80211.c.  The original attempt appears to be something to do with
-> > adding extra header room for low-level drivers which need to pad the
-> > IEEE 802.11 header (example: Atheros).
-> 
-> What about not removing it, but extending it.
+On Tue, 2006-10-10 at 06:42 -0700, David Kimdon wrote:
 
-Sure, I would be happy with that.  For Atheros it will be '2' to
-ensure that we can properly align the packet in the tx path without
-needing to realloc. 
+> no, still broadcasts, but in a typical deployment some for of encryption
+> is used.  Each vlan has a unique broadcast key so stations on one vlan
+> cannot decrypt packets from another vlan. 
 
-> In the current form it's rather useless. But we could make extra_hdr_room
-> a value instead of a flag. Bcm43xx needs somewhere around 30bytes extra
-> header room. So every driver which does not need header room, sets this
-> to 0. Every other driver to the specific value.
-> 
-> We currently workaround the problem by using an extra DMA descriptor
-> just for the header. That's not really a problem, though. But it means
-> a little bit of additional overhead in the TX path. Well.
-> 
-> > Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
-> > 
-> > Index: wireless-dev/include/net/d80211.h
-> > ===================================================================
-> > --- wireless-dev.orig/include/net/d80211.h
-> > +++ wireless-dev/include/net/d80211.h
-> > @@ -476,10 +476,6 @@ struct ieee80211_hw {
-> >  	/* Force software encryption for TKIP packets if WMM is enabled. */
-> >  	unsigned int no_tkip_wmm_hwaccel:1;
-> >  
-> > -	/* set if the payload needs to be padded at even boundaries after the
-> > -	 * header */
-> > -	unsigned int extra_hdr_room:1;
-> > -
-> >  	/* Some devices handle Michael MIC internally and do not include MIC in
-> >  	 * the received packets passed up. device_strips_mic must be set
-> >  	 * for such devices. The 'encryption' frame control bit is expected to
-> > Index: wireless-dev/net/d80211/ieee80211.c
-> > ===================================================================
-> > --- wireless-dev.orig/net/d80211/ieee80211.c
-> > +++ wireless-dev/net/d80211/ieee80211.c
-> > @@ -1551,7 +1551,7 @@ static int ieee80211_subif_start_xmit(st
-> >  	 * build in headroom in __dev_alloc_skb() (linux/skbuff.h) and
-> >  	 * alloc_skb() (net/core/skbuff.c)
-> >  	 */
-> > -	head_need = hdrlen + encaps_len + (local->hw->extra_hdr_room ? 2 : 0);
-> > +	head_need = hdrlen + encaps_len;
-> >  	head_need -= skb_headroom(skb);
-> >  
-> >  	/* We are going to modify skb data, so make a copy of it if happens to
-> > Index: wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
-> > ===================================================================
-> > --- wireless-dev.orig/drivers/net/wireless/d80211/adm8211/adm8211.c
-> > +++ wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
-> > @@ -2018,7 +2018,6 @@ static int __devinit adm8211_probe(struc
-> >  	hw->wep_include_iv = 1;
-> >  	hw->data_nullfunc_ack = 0;
-> >  	hw->no_tkip_wmm_hwaccel = 1;
-> > -	hw->extra_hdr_room = 0;
-> >  	hw->device_strips_mic = 0;
-> >  	hw->monitor_during_oper = 0;
-> >  	hw->fraglist = 0;
-> > Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> > ===================================================================
-> > --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> > +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> > @@ -2578,7 +2578,6 @@ static int rt2400pci_init_hw(struct rt2x
-> >  	hw->wep_include_iv = 1;
-> >  	hw->data_nullfunc_ack = 1;
-> >  	hw->no_tkip_wmm_hwaccel = 1;
-> > -	hw->extra_hdr_room = 0;
-> >  	hw->device_strips_mic = 0;
-> >  	hw->monitor_during_oper = 1;
-> >  	hw->fraglist = 0;
-> > Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> > ===================================================================
-> > --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> > +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> > @@ -2732,7 +2732,6 @@ static int rt2500pci_init_hw(struct rt2x
-> >  	hw->wep_include_iv = 1;
-> >  	hw->data_nullfunc_ack = 1;
-> >  	hw->no_tkip_wmm_hwaccel = 1;
-> > -	hw->extra_hdr_room = 0;
-> >  	hw->device_strips_mic = 0;
-> >  	hw->monitor_during_oper = 1;
-> >  	hw->fraglist = 0;
-> > Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-> > ===================================================================
-> > --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-> > +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-> > @@ -2419,7 +2419,6 @@ static int rt2500usb_init_hw(struct rt2x
-> >  	hw->wep_include_iv = 1;
-> >  	hw->data_nullfunc_ack = 1;
-> >  	hw->no_tkip_wmm_hwaccel = 1;
-> > -	hw->extra_hdr_room = 0;
-> >  	hw->device_strips_mic = 0;
-> >  	hw->monitor_during_oper = 1;
-> >  	hw->fraglist = 0;
-> > Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> > ===================================================================
-> > --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> > +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> > @@ -3252,7 +3252,6 @@ static int rt61pci_init_hw(struct rt2x00
-> >  	hw->wep_include_iv = 1;
-> >  	hw->data_nullfunc_ack = 1;
-> >  	hw->no_tkip_wmm_hwaccel = 1;
-> > -	hw->extra_hdr_room = 0;
-> >  	hw->device_strips_mic = 0;
-> >  	hw->monitor_during_oper = 1;
-> >  	hw->fraglist = 0;
-> > Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-> > ===================================================================
-> > --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-> > +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-> > @@ -2792,7 +2792,6 @@ static int rt73usb_init_hw(struct rt2x00
-> >  	hw->wep_include_iv = 1;
-> >  	hw->data_nullfunc_ack = 1;
-> >  	hw->no_tkip_wmm_hwaccel = 1;
-> > -	hw->extra_hdr_room = 0;
-> >  	hw->device_strips_mic = 0;
-> >  	hw->monitor_during_oper = 1;
-> >  	hw->fraglist = 0;
-> > 
-> > --
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> 
-> -- 
-> Greetings Michael.
+Oh ok, that makes sense. Thanks.
+
+johannes
