@@ -1,40 +1,35 @@
-From: "Jory A. Pratt" <anarchy@nctv.com>
-Subject: bcm43xx scan oops!!!
-Date: Mon, 09 Oct 2006 22:14:29 -0500
-Message-ID: <452B1015.6040104@nctv.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2][SCTP]: Fix receive buffer accounting.
+Date: Mon, 09 Oct 2006 21:34:12 -0700 (PDT)
+Message-ID: <20061009.213412.75429116.davem@davemloft.net>
+References: <1160440989.27455.5.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxo6.broadbandsupport.net ([209.55.3.86]:51266 "EHLO
-	mxo6.broadbandsupport.net") by vger.kernel.org with ESMTP
-	id S964955AbWJJDS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Oct 2006 23:18:56 -0400
-Received: from [192.168.1.100] (host-64-139-229-13.nctv.com [64.139.229.13])
-	by mxo6.broadbandsupport.net (Postfix) with ESMTP id 62E772E0146
-	for <netdev@vger.kernel.org>; Mon,  9 Oct 2006 23:14:34 -0400 (EDT)
-To: netdev@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31433
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964963AbWJJEeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 00:34:13 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1160440989.27455.5.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(gdb) list *bcm43xx_dma_handle_xmitstatus+0xbd
-0x3ad is in bcm43xx_dma_handle_xmitstatus (include/asm/dma-mapping.h:91).
-86    static inline void
-87    dma_unmap_single(struct device *dev, dma_addr_t addr,size_t size,
-88             int direction)
-89    {
-90        BUG_ON(!valid_dma_direction(direction));
-91        dma_ops->unmap_single(dev, addr, size, direction);
-92    }
-93    
-94    #define dma_map_page(dev,page,offset,size,dir) \
-95        dma_map_single((dev), page_address(page)+(offset), (size), (dir))
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Mon, 09 Oct 2006 17:43:09 -0700
 
+> [SCTP]: Fix receive buffer accounting.
+> 
+> When doing receiver buffer accounting, we always used skb->truesize.
+> This is problematic when processing bundled DATA chunks because for
+> every DATA chunk that could be small part of one large skb, we would
+> charge the size of the entire skb.  The new approach is to store the
+> size of the DATA chunk we are accounting for in the sctp_ulpevent
+> structure and use that stored value for accounting.
+> 
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-http://home.nctv.com/anarchy/dscape-clean.jpg
-
-bcm43xx causes kernel oops on 4318 with latest wireless-dev git.
-
-Jory
-
-
+Applied.
