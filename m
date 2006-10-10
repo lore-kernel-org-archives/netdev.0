@@ -1,109 +1,57 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] ixgb: Delete IXGB_DBG() macro and call pr_debug() directly.
-Date: Tue, 10 Oct 2006 09:50:36 -0700
-Message-ID: <452BCF5C.2090407@intel.com>
-References: <Pine.LNX.4.64.0610100816440.7711@localhost.localdomain> <452BC6C9.3050902@intel.com> <Pine.LNX.4.64.0610101227170.9699@localhost.localdomain>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: [patch 2/2] round_jiffies users
+Date: Tue, 10 Oct 2006 18:59:50 +0200
+Message-ID: <1160499590.3000.323.camel@laptopd505.fenrus.org>
+References: <1160496165.3000.308.camel@laptopd505.fenrus.org>
+	 <1160496210.3000.310.camel@laptopd505.fenrus.org>
+	 <1160496263.3000.312.camel@laptopd505.fenrus.org>
+	 <200610101847.39604.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	trivial@kernel.org, NetDev <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, akpm@osdl.org, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58125 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1030210AbWJJQwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2006 12:52:47 -0400
-To: "Robert P. J. Day" <rpjday@mindspring.com>
-In-Reply-To: <Pine.LNX.4.64.0610101227170.9699@localhost.localdomain>
+Received: from a222036.upc-a.chello.nl ([62.163.222.36]:33486 "EHLO
+	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
+	id S1750921AbWJJRBC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 13:01:02 -0400
+To: Ingo Oeser <netdev@axxeo.de>
+In-Reply-To: <200610101847.39604.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert P. J. Day wrote:
-> On Tue, 10 Oct 2006, Auke Kok wrote:
+On Tue, 2006-10-10 at 18:47 +0200, Ingo Oeser wrote:
+> Hi Arjan,
 > 
->> Robert P. J. Day wrote:
->>> Delete the minimally-useful IXGB_DBG() macro and call pr_debug()
->>> directly from the main routine.
->>>
->>> Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
->>> ---
->>> diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
->>> index 50ffe90..fb9fde5 100644
->>> --- a/drivers/net/ixgb/ixgb.h
->>> +++ b/drivers/net/ixgb/ixgb.h
->>> @@ -77,12 +77,6 @@ #include "ixgb_hw.h"
->>>  #include "ixgb_ee.h"
->>>  #include "ixgb_ids.h"
->>>
->>> -#ifdef _DEBUG_DRIVER_
->>> -#define IXGB_DBG(args...) printk(KERN_DEBUG "ixgb: " args)
->>> -#else
->>> -#define IXGB_DBG(args...)
->>> -#endif
->>> -
->>>  #define PFX "ixgb: "
->>>  #define DPRINTK(nlevel, klevel, fmt, args...) \
->>>  	(void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
->>> diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
->>> index e09f575..eada685 100644
->>> --- a/drivers/net/ixgb/ixgb_main.c
->>> +++ b/drivers/net/ixgb/ixgb_main.c
->>> @@ -1948,7 +1948,7 @@ #endif
->>>
->>>  			/* All receives must fit into a single buffer */
->>>
->>> -			IXGB_DBG("Receive packet consumed multiple buffers "
->>> +			pr_debug("ixgb: Receive packet consumed multiple
->>> buffers "
->>>  					 "length<%x>\n", length);
->>>
->>>  			dev_kfree_skb_irq(skb);
->>>
->>> --
->>>
->>>   all right ... what did i mess up *this* time?  :-)  it's good
->>> practice.  that's my story and i'm sticking to it.
- >>
->> We should really use dev_dbg() instead, as it retains the 'ethX:'
->> annotation afaics.
+> Arjan van de Ven wrote:
+> > Index: linux-2.6.19-rc1-git6/mm/slab.c
+> > ===================================================================
+> > --- linux-2.6.19-rc1-git6.orig/mm/slab.c
+> > +++ linux-2.6.19-rc1-git6/mm/slab.c
+> > @@ -926,7 +926,7 @@ static void __devinit start_cpu_timer(in
+> >  	if (keventd_up() && reap_work->func == NULL) {
+> >  		init_reap_node(cpu);
+> >  		INIT_WORK(reap_work, cache_reap, NULL);
+> > -		schedule_delayed_work_on(cpu, reap_work, HZ + 3 * cpu);
+> > +		schedule_delayed_work_on(cpu, reap_work, __round_jiffies_relative(HZ, cpu));
+> >  	}
+> >  }
+> >  
 > 
-> i actually tried to use that first, but it wasn't clear to me what i
-> would use as that first argument to dev_dbg(), given the definitions
-> in include/linux/device.h:
-> 
-> #define dev_dbg(dev, format, arg...)            \
->         dev_printk(KERN_DEBUG , dev , format , ## arg)
-> 
-> #define dev_printk(level, dev, format, arg...)  \
->         printk(level "%s %s: " format , dev_driver_string(dev) ,
->         (dev)->bus_id , ## arg)
-> 
->   if someone wants to tell me what, in the context of ixgb_main.c, i
-> would use as that "dev" argument, i'm all for that.
+> Did you changed the behavior by intention?
+> You seem to miss the factor "3" here. This hunk should read:
 
-(CC netdev since it's a network driver topic).
+Hi,
+
+actually.. not really; the __round_jiffies_relative function just takes
+a CPU number, and internally takes care of spreading things around based
+on CPU number (eg it does the *3 internally); it's cleaner that way, the
+callers don't need to bother by how much to spread for each cpu etc
+etc... So the patch is correct as is.
 
 
-all our macro's (e100, e1000, ixgb) use adapter->netdev->name inserted through the 
-DPRINTK macro.
-
-if you'd really want to clean it all up, you'd have to replace all DPRINTK() calls with 
-dev_dbg(adapter->netdev->name, ....) which would just make it more lengthy and 
-uncomfortable to read.
-
-which puts this in a bigger perspective. I suppose the nicest way to do program these is 
-to do something like this:
-
-#define ixgb_dbg(args...) dev_dbg(adapter->netdev->name, args)
-#define ixgb_err(args...) dev_err(adapter->netdev->name, args)
-#define ixgb_info(args...) dev_info(adapter->netdev->name, args)
-
-and use those consistently throughout the driver, ditto for e100/e1000.
-
-I'll look into it and see what I can do.
-
-Cheers,
-
-Auke
+Greetings,
+   Arjan van de Ven
 
 
