@@ -1,57 +1,66 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 06/10] sky2: use duplex result bits
-Date: Wed, 11 Oct 2006 14:22:31 -0700
-Message-ID: <20061011212311.013625277@osdl.org>
+Subject: [PATCH 04/10] sky2: fiber pause bits
+Date: Wed, 11 Oct 2006 14:22:29 -0700
+Message-ID: <20061011212310.662760992@osdl.org>
 References: <20061011212225.941046083@osdl.org>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:52685 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422639AbWJKV1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 17:27:21 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:18381 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161490AbWJKV0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 17:26:11 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-duplex-result.patch
+Content-Disposition: inline; filename=sky2-fiber-pause-bits.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The result of duplex negotiation is avaliable in the phy status
-register, so use that to simplify code and avoid rereading the PHY.
+The advertisement bits for flow control are located in
+different location on fiber (1000baseX)
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
----
- drivers/net/sky2.c |   21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
 
---- sky2.orig/drivers/net/sky2.c	2006-10-11 11:43:47.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-10-11 11:43:50.000000000 -0700
-@@ -1714,26 +1714,7 @@
- 	}
- 
- 	sky2->speed = sky2_phy_speed(hw, aux);
--	if (sky2->speed == SPEED_1000) {
--		u16 ctl2 = gm_phy_read(hw, port, PHY_MARV_1000T_CTRL);
--		u16 lpa2 = gm_phy_read(hw, port, PHY_MARV_1000T_STAT);
--		if (lpa2  & PHY_B_1000S_MSF) {
--			printk(KERN_ERR PFX "%s: master/slave fault",
--			       sky2->netdev->name);
--			return -1;
+--- sky2.orig/drivers/net/sky2.c	2006-10-11 11:43:43.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-10-11 11:43:47.000000000 -0700
+@@ -384,20 +384,31 @@
+ 				adv |= PHY_M_AN_10_FD;
+ 			if (sky2->advertising & ADVERTISED_10baseT_Half)
+ 				adv |= PHY_M_AN_10_HD;
++
++			/* desired flow control */
++			if (sky2->tx_pause && sky2->rx_pause)	/* both */
++				adv |= PHY_M_AN_PC | PHY_M_AN_ASP;
++			else if (sky2->tx_pause)
++				adv |= PHY_M_AN_ASP;
++			else if (sky2->rx_pause)
++				adv |= PHY_M_AN_PC;
++
++
+ 		} else {	/* special defines for FIBER (88E1040S only) */
+ 			if (sky2->advertising & ADVERTISED_1000baseT_Full)
+ 				adv |= PHY_M_AN_1000X_AFD;
+ 			if (sky2->advertising & ADVERTISED_1000baseT_Half)
+ 				adv |= PHY_M_AN_1000X_AHD;
 -		}
--
--		if ((ctl2 & PHY_M_1000C_AFD) && (lpa2 & PHY_B_1000S_LP_FD))
--			sky2->duplex = DUPLEX_FULL;
--		else
--			sky2->duplex = DUPLEX_HALF;
--	} else {
--		u16 adv = gm_phy_read(hw, port, PHY_MARV_AUNE_ADV);
--		if ((aux & adv) & PHY_AN_FULL)
--			sky2->duplex = DUPLEX_FULL;
--		else
--			sky2->duplex = DUPLEX_HALF;
--	}
-+	sky2->duplex = (aux & PHY_M_PS_FULL_DUP) ? DUPLEX_FULL : DUPLEX_HALF;
  
- 	/* Pause bits are offset (9..8) */
- 	if (hw->chip_id == CHIP_ID_YUKON_XL || hw->chip_id == CHIP_ID_YUKON_EC_U)
+-		/* Set Flow-control capabilities */
+-		if (sky2->tx_pause && sky2->rx_pause)
+-			adv |= PHY_AN_PAUSE_CAP;	/* symmetric */
+-		else if (sky2->rx_pause && !sky2->tx_pause)
+-			adv |= PHY_AN_PAUSE_ASYM | PHY_AN_PAUSE_CAP;
+-		else if (!sky2->rx_pause && sky2->tx_pause)
+-			adv |= PHY_AN_PAUSE_ASYM;	/* local */
++			if (sky2->tx_pause && sky2->rx_pause)	/* both */
++ 				adv |= PHY_M_P_BOTH_MD_X;
++			else if (sky2->tx_pause)
++				adv |= PHY_M_P_ASYM_MD_X;
++			else if (sky2->rx_pause)
++ 				adv |= PHY_M_P_SYM_MD_X;
++			else
++				adv |= PHY_M_P_NO_PAUSE_X;
++		}
+ 
+ 		/* Restart Auto-negotiation */
+ 		ctrl |= PHY_CT_ANE | PHY_CT_RE_CFG;
 
 --
 Stephen Hemminger <shemminger@osdl.org>
