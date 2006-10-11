@@ -1,32 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Pull request for 'jg-20061009-00' tag
-Date: Wed, 11 Oct 2006 12:48:31 +0200
-Message-ID: <20061011104831.GA32027@electric-eye.fr.zoreil.com>
-References: <20061009202133.GA18466@electric-eye.fr.zoreil.com> <452CAFBE.9010603@garzik.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Bug ? IF_RUNNING/routing table updates
+Date: Wed, 11 Oct 2006 13:01:26 +0200
+Message-ID: <20061011110126.GB1671@ff.dom.local>
+References: <018201c6eb91$816764e0$8100a8c0@stealth00025>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	hchacha@users.sourceforge.net
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:62183 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751181AbWJKKwB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 06:52:01 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from mx10.go2.pl ([193.17.41.74]:24750 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1751192AbWJKK4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 06:56:38 -0400
+To: Shaun Kemp <shaun.kemp@stealthnet.net>
 Content-Disposition: inline
-In-Reply-To: <452CAFBE.9010603@garzik.org>
+In-Reply-To: <018201c6eb91$816764e0$8100a8c0@stealth00025>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(removed the forcedeth people from the Cc:)
+On 09-10-2006 12:55, Shaun Kemp wrote:
+...
+> An interface (+ connected IP network) which loses its IF_RUNNING flag (ie
+> unusable for routing) persists in the routing table as a kernel route.
+> Thus rather than responding to a dynamically announced route to this
+> connected network (the connected being unreachable due to the interface
+> being down, but the dynamic offering an alternate path), the box insists on
+> trying to route it out of the broken interface via this ?kernel? sourced
+> route.
+...
+> The path for 192.168.0.192 is learned via 192.168.0.130 (current ospf dr -
+> irrelevant), but it'll never use it presumably (from Cisco experience)
+> because of the kernel sourced directly connected route still sitting in
+> there. Furthermore, if I then IFDOWN eth1, everything is fine but I don't
+> want to do this manually everytime there's an interface problem because
+> that's why we run ospf ! =:D
+> 
+> Not sure whether this is a "driver tells the kernel" or a "kernel checks the
+> driver at {n} intervals" issue - I would suggest the former would be more
+> correct, but it is a problem regardless.
+> 
+> Maybe it's just these Intel drivers ? :/
 
-Jeff Garzik <jeff@garzik.org> :
-[...]
-> I merged the forcedeth change via another source.  Could I pull from a 
-> tag with just the r8169 change?
-
-Yes, you can pull from:
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git jg-20061011-00
-
--- 
-Ueimor
+IMHO it should be done by the same part which changed the
+flag - for this purpose routing frontend is listening for
+notify events.
+ 
+Jarek P.
