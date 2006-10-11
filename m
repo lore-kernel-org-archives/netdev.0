@@ -1,62 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 7278] New: forcedeth slowed down by traffic
- shaping
-Date: Wed, 11 Oct 2006 13:51:23 +0200
-Message-ID: <452CDABB.9050306@trash.net>
-References: <20061011114350.GA3947@ff.dom.local>
+From: Amol Lad <amol@verismonetworks.com>
+Subject: [KJ] [PATCH 4/4] drivers/net/sis900.c: Replacing yield() with a
+	better	alternative
+Date: Wed, 11 Oct 2006 18:37:38 +0530
+Message-ID: <1160572058.19143.340.camel@amol.verismonetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	kernel-bugzilla@future.shiny.co.il,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:9630 "EHLO stinky.trash.net")
-	by vger.kernel.org with ESMTP id S1161034AbWJKLt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 07:49:58 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061011114350.GA3947@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: kernel Janitors <kernel-janitors@lists.osdl.org>
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: netdev@vger.kernel.org
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On 07-10-2006 02:22, Andrew Morton wrote:
-> 
->>On Fri, 6 Oct 2006 17:18:13 -0700
->>bugme-daemon@bugzilla.kernel.org wrote:
->>
->>
->>>http://bugzilla.kernel.org/show_bug.cgi?id=7278
->>>
->>>           Summary: forcedeth slowed down by traffic shaping
->>>    Kernel Version: 2.6.16
->>>            Status: NEW
->>>          Severity: normal
->>>             Owner: jgarzik@pobox.com
->>>         Submitter: kernel-bugzilla@future.shiny.co.il
->>>
->>>
->>>When assigninig a simple Tocket Bucket Filter (TBF) classless trafic shaping
->>>policy to the eth0 device (provided by forcedeth), the device's upstream speed
->>>drops to ~12kbyte/s, regardless of the traffic limit I set in the shaping rule.
->>>In fact, the traffic limit values could be larger than the connection's
->>>throughput and it'll still limit to mere 12kbyte/s. Once I revert the rule to
->>>pfifo_fast, the rate resumes to the connection's real one (64kbyte/s).
->>>
->>>If I set the TBF lower than 96kbit on eth0, it indeed applies; in other words, I
->>>can make the connection slower than 12kbyte/s but not faster.
->>>
->>>If I assign the same rule to ppp0, it works just as intended, for rules higher
->>>than 12kbyte/s, leading me to believe forcedeth has something to do with it.
->>>
->>>(Is there any module parameter I can try tweaking?)
-> 
-> 
-> Isn't it to unpolite to expect from the submitter some details
-> like this tbf rule or testing with other kernel version?
+*Please check if timeout should be increased*
 
-
-The TBF command would be a good start to make sure its not a
-configuration error.
-
+Signed-off-by: Amol Lad <amol@verismonetworks.com>
+---
+diff -uprN -X linux-2.6.19-rc1-orig/Documentation/dontdiff linux-2.6.19-rc1=
+-orig/drivers/net/wireless/hostap/hostap_hw.c linux-2.6.19-rc1/drivers/net/=
+wireless/hostap/hostap_hw.c
+--- linux-2.6.19-rc1-orig/drivers/net/wireless/hostap/hostap_hw.c	2006-09-2=
+1 10:15:37.000000000 +0530
++++ linux-2.6.19-rc1/drivers/net/wireless/hostap/hostap_hw.c	2006-10-11 17:=
+41:25.000000000 +0530
+@@ -993,7 +993,7 @@ static u16 hfa384x_allocate_fid(struct n
+ 	delay =3D jiffies + HFA384X_ALLOC_COMPL_TIMEOUT;
+ 	while (!(HFA384X_INW(HFA384X_EVSTAT_OFF) & HFA384X_EV_ALLOC) &&
+ 	       time_before(jiffies, delay))
+-		yield();
++		schedule_timeout_interruptible(1);
+ 	if (!(HFA384X_INW(HFA384X_EVSTAT_OFF) & HFA384X_EV_ALLOC)) {
+ 		printk("%s: fid allocate, len=3D%d - timeout\n", dev->name, len);
+ 		return 0xffff;
+@@ -1333,7 +1333,7 @@ static int prism2_hw_init(struct net_dev
+ 	delay =3D jiffies + HFA384X_INIT_TIMEOUT;
+ 	while (!(HFA384X_INW(HFA384X_EVSTAT_OFF) & HFA384X_EV_CMD) &&
+ 	       time_before(jiffies, delay))
+-		yield();
++		schedule_timeout_interruptible(1);
+ 	if (!(HFA384X_INW(HFA384X_EVSTAT_OFF) & HFA384X_EV_CMD)) {
+ 		printk(KERN_DEBUG "%s: assuming no Primary image in "
+ 		       "flash - card initialization not completed\n",
