@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [TCP]: TCP MD5 Signature Option (RFC2385) Support.
-Date: Tue, 10 Oct 2006 19:43:18 -0700 (PDT)
-Message-ID: <20061010.194318.82102936.davem@davemloft.net>
-References: <20061011.113900.08679683.yoshfuji@linux-ipv6.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Tigon3 crash when used with any torrent app
+Date: Tue, 10 Oct 2006 19:52:06 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC093FBFF@NT-IRVA-0751.brcm.ad.broadcom.com>
+References: <200610102230.23700.sas@noend.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26305
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932414AbWJKCnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 22:43:15 -0400
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20061011.113900.08679683.yoshfuji@linux-ipv6.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:23304 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932425AbWJKCwX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 22:52:23 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <200610102230.23700.sas@noend.com>
+To: "Sebastian Alfredo Salvino" <sas@noend.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Wed, 11 Oct 2006 11:39:00 +0900 (JST)
+Sebastian Alfredo Salvino wrote:
 
->     [TCP]: Use TCPOLEN_TSTAMP_ALIGNED macro instead of magic number.
->     [NET]: Use hton{l,s}() for non-initializers.
->     [NET]: Use typesafe inet_twsk() inline function instead of cast.
->     [NET]: Introduce protocol-specific destructor for time-wait sockets.
+> However when I am booted up into 2.6.18 and try to connect to 
+> any p2p network 
+> via BitTorrent, KTorrent, etc., it just hang. 
+> 
 
-All 4 patches applied.
+Did the same setup work in 2.6.17?  If yes, can you bisect
+the tg3 patches between 2.6.17 and 2.6.18?
 
->     [TCP]: MD5 Signature Option (RFC2385) support.
+Looking at the patches between 2.6.17 and 2.6.18, nothing
+really jumps out, especially if you have already tried
+turning off TSO.
 
-And this one we can let sit for a while for review.  We can
-put it into net-2.6.20 once it is ready and I open up that
-tree.
-
-I do not intend to make a net-2.6.20 tree for a few weeks so
-people will concentrate on bug fixing for 2.6.19, so we have
-a lot of time for this :-)
