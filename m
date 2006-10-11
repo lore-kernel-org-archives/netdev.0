@@ -1,36 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Tigon3 crash when used with any torrent app
-Date: Wed, 11 Oct 2006 14:39:32 +1000
-Message-ID: <E1GXVsS-0001cd-00@gondolin.me.apana.org.au>
-References: <1551EAE59135BE47B544934E30FC4FC093FBFF@NT-IRVA-0751.brcm.ad.broadcom.com>
-Cc: sas@noend.com, netdev@vger.kernel.org
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 21/21]: powerpc/cell spidernet DMA coalescing
+Date: Wed, 11 Oct 2006 17:15:10 +1000
+Message-ID: <1160550910.6177.66.camel@localhost.localdomain>
+References: <20061010204946.GW4381@austin.ibm.com>
+	 <20061010212324.GR4381@austin.ibm.com>  <452C2AAA.5070001@austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linas Vepstas <linas@austin.ibm.com>, akpm@osdl.org,
+	jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55820 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030787AbWJKEkT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 00:40:19 -0400
-To: mchan@broadcom.com (Michael Chan)
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FBFF@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from gate.crashing.org ([63.228.1.57]:46057 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1030675AbWJKHQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 03:16:08 -0400
+To: jschopp <jschopp@austin.ibm.com>
+In-Reply-To: <452C2AAA.5070001@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan <mchan@broadcom.com> wrote:
-> Sebastian Alfredo Salvino wrote:
+On Tue, 2006-10-10 at 18:20 -0500, jschopp wrote:
+> Linas Vepstas wrote:
+> > The current driver code performs 512 DMA mappns of a bunch of 
+> > 32-byte structures. This is silly, as they are all in contiguous 
+> > memory. Ths patch changes the code to DMA map the entie area
+> > with just one call.
+> > 
+> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> > Cc: James K Lewis <jklewis@us.ibm.com>
+> > Cc: Arnd Bergmann <arnd@arndb.de>
 > 
->> However when I am booted up into 2.6.18 and try to connect to 
->> any p2p network 
->> via BitTorrent, KTorrent, etc., it just hang. 
-> 
-> Did the same setup work in 2.6.17?  If yes, can you bisect
-> the tg3 patches between 2.6.17 and 2.6.18?
+> The others look good, but this one complicates the code and doesn't have any benefit.  20 
+> for 21 isn't bad.
 
-Does ping still work? If so you might want to take a tcpdump
-as this indicates a TCP-level problem (window-scaling being
-the most likely cause).
+Hi Joel !
+
+I'm not sure what you mean here.... (especially your 20 to 21 comment).
+
+The patch looks perfectly fine to me, and in fact removes more lines of
+code than it adds :)
 
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben.
+
+
