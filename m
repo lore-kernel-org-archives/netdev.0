@@ -1,32 +1,45 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Tue, 10 Oct 2006 20:33:46 -0700
-Message-ID: <adar6xfbk6d.fsf@cisco.com>
+Date: Tue, 10 Oct 2006 20:36:24 -0700 (PDT)
+Message-ID: <20061010.203624.91207079.davem@davemloft.net>
 References: <adavemrbtcx.fsf@cisco.com>
 	<20061011002656.GB30093@mellanox.co.il>
+	<adar6xfbk6d.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	Roland Dreier <rolandd@cisco.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mst@mellanox.co.il, shemminger@osdl.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	openib-general@openib.org, rolandd@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:61786 "EHLO
-	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
-	id S1030499AbWJKDdt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 23:33:49 -0400
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20061011002656.GB30093@mellanox.co.il> (Michael S. Tsirkin's message of "Wed, 11 Oct 2006 02:26:56 +0200")
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57542
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030776AbWJKDgV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 23:36:21 -0400
+To: rdreier@cisco.com
+In-Reply-To: <adar6xfbk6d.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    Michael> My guess was, an extra pass over data is likely to be
-    Michael> expensive - dirtying the cache if nothing else. But I do
-    Michael> plan to measure that, and see.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 10 Oct 2006 20:33:46 -0700
 
-I don't get it -- where's the extra pass?  If you can't compute the
-checksum on the NIC then you have to compute sometime it on the CPU
-before passing the data to the NIC.
+>     Michael> My guess was, an extra pass over data is likely to be
+>     Michael> expensive - dirtying the cache if nothing else. But I do
+>     Michael> plan to measure that, and see.
+> 
+> I don't get it -- where's the extra pass?  If you can't compute the
+> checksum on the NIC then you have to compute sometime it on the CPU
+> before passing the data to the NIC.
 
- - R.
+Also, if you don't do checksumming on the card we MUST copy
+the data (be it from a user buffer, or from a filesystem page
+cache page) into a private buffer since if the data changes
+the checksum would become invalid, as I mentioned in another
+email earlier.
+
+Therefore, since we have to copy anyways, it always is better
+to checksum in parallel with the copy.
+
+So the whole idea of SG without hw-checksum support is without
+much merit at all.
