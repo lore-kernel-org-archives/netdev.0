@@ -1,60 +1,93 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 21/21]: powerpc/cell spidernet DMA coalescing
-Date: Thu, 12 Oct 2006 08:13:52 +1000
-Message-ID: <1160604832.4792.10.camel@localhost.localdomain>
-References: <20061010204946.GW4381@austin.ibm.com>
-	<20061010212324.GR4381@austin.ibm.com>
-	<452C2AAA.5070001@austin.ibm.com>
-	<452C4CE0.5010607@am.sony.com> <20061011152016.GU4381@austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20061011152016.GU4381@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+From: paul.moore@hp.com
+Subject: [PATCH 1/3] NetLabel: only deref the CIPSOv4 standard map fields when using standard mapping
+Date: Wed, 11 Oct 2006 19:10:47 -0400
+Message-ID: <20061011231356.095058000@hp.com>
+References: <20061011231046.825517000@hp.com>
+Cc: jmorris@namei.org, eparis@redhat.com,
+	Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel7.hp.com ([156.153.255.213]:39876 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S1161022AbWJKXN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 19:13:59 -0400
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=netlabel-cipso_mtypefix
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Paul Moore <paul.moore@hp.com>
 
-> I started writingthe patch thinking it will have some huge effect on
-> performance, based on a false assumption on how i/o was done on this
-> machine
-> 
-> *If* this were another pSeries system, then each call to 
-> pci_map_single() chews up an actual hardware "translation 
-> control entry" (TCE) that maps pci bus addresses into 
-> system RAM addresses. These are somewhat limited resources,
-> and so one shouldn't squander them.  Furthermore, I thouhght
-> TCE's have TLB's associated with them (similar to how virtual
-> memory page tables are backed by hardware page TLB's), of which 
-> there are even less of. I was thinking that TLB thrashing would 
-> have a big hit on performance. 
-> 
-> Turns out that there was no difference to performance at all, 
-> and a quick look at "cell_map_single()" in arch/powerpc/platforms/cell
-> made it clear why: there's no fancy i/o address mapping.
-> 
-> Thus, the patch has only mrginal benefit; I submit it only in the 
-> name of "its the right thing to do anyway".
+Fix several places in the CIPSO code where it was dereferencing fields which
+did not have valid pointers by moving those pointer dereferences into code
+blocks where the pointers are valid.
 
-Well, there is no fancy iommu mapping ... yet.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ net/ipv4/cipso_ipv4.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
 
-It's been implemented and is coming after we put together some
-workarounds for various other spider hardware issues that trigger when
-using it (bogus prefetches and bogus pci ordering).
+Index: net-2.6_bugfix_2/net/ipv4/cipso_ipv4.c
+===================================================================
+--- net-2.6_bugfix_2.orig/net/ipv4/cipso_ipv4.c
++++ net-2.6_bugfix_2/net/ipv4/cipso_ipv4.c
+@@ -773,13 +773,15 @@ static int cipso_v4_map_cat_rbm_valid(co
+ {
+ 	int cat = -1;
+ 	u32 bitmap_len_bits = bitmap_len * 8;
+-	u32 cipso_cat_size = doi_def->map.std->cat.cipso_size;
+-	u32 *cipso_array = doi_def->map.std->cat.cipso;
++	u32 cipso_cat_size;
++	u32 *cipso_array;
+ 
+ 	switch (doi_def->type) {
+ 	case CIPSO_V4_MAP_PASS:
+ 		return 0;
+ 	case CIPSO_V4_MAP_STD:
++		cipso_cat_size = doi_def->map.std->cat.cipso_size;
++		cipso_array = doi_def->map.std->cat.cipso;
+ 		for (;;) {
+ 			cat = cipso_v4_bitmap_walk(bitmap,
+ 						   bitmap_len_bits,
+@@ -825,8 +827,8 @@ static int cipso_v4_map_cat_rbm_hton(con
+ 	u32 net_spot_max = 0;
+ 	u32 host_clen_bits = host_cat_len * 8;
+ 	u32 net_clen_bits = net_cat_len * 8;
+-	u32 host_cat_size = doi_def->map.std->cat.local_size;
+-	u32 *host_cat_array = doi_def->map.std->cat.local;
++	u32 host_cat_size;
++	u32 *host_cat_array;
+ 
+ 	switch (doi_def->type) {
+ 	case CIPSO_V4_MAP_PASS:
+@@ -838,6 +840,8 @@ static int cipso_v4_map_cat_rbm_hton(con
+ 		memcpy(net_cat, host_cat, net_spot_max);
+ 		return net_spot_max;
+ 	case CIPSO_V4_MAP_STD:
++		host_cat_size = doi_def->map.std->cat.local_size;
++		host_cat_array = doi_def->map.std->cat.local;
+ 		for (;;) {
+ 			host_spot = cipso_v4_bitmap_walk(host_cat,
+ 							 host_clen_bits,
+@@ -893,8 +897,8 @@ static int cipso_v4_map_cat_rbm_ntoh(con
+ 	int net_spot = -1;
+ 	u32 net_clen_bits = net_cat_len * 8;
+ 	u32 host_clen_bits = host_cat_len * 8;
+-	u32 net_cat_size = doi_def->map.std->cat.cipso_size;
+-	u32 *net_cat_array = doi_def->map.std->cat.cipso;
++	u32 net_cat_size;
++	u32 *net_cat_array;
+ 
+ 	switch (doi_def->type) {
+ 	case CIPSO_V4_MAP_PASS:
+@@ -903,6 +907,8 @@ static int cipso_v4_map_cat_rbm_ntoh(con
+ 		memcpy(host_cat, net_cat, net_cat_len);
+ 		return net_cat_len;
+ 	case CIPSO_V4_MAP_STD:
++		net_cat_size = doi_def->map.std->cat.cipso_size;
++		net_cat_array = doi_def->map.std->cat.cipso;
+ 		for (;;) {
+ 			net_spot = cipso_v4_bitmap_walk(net_cat,
+ 							net_clen_bits,
 
-I think the hypervisor based platforms will be happy with that patch
-too.
-
-Ben.
+--
+paul moore
+linux security @ hp
