@@ -1,47 +1,36 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 21/21]: powerpc/cell spidernet DMA coalescing
-Date: Wed, 11 Oct 2006 17:15:10 +1000
-Message-ID: <1160550910.6177.66.camel@localhost.localdomain>
-References: <20061010204946.GW4381@austin.ibm.com>
-	 <20061010212324.GR4381@austin.ibm.com>  <452C2AAA.5070001@austin.ibm.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: is each frag of a skb always less than 1 page?
+Date: Wed, 11 Oct 2006 09:30:04 +0200
+Message-ID: <20061011073004.GA1671@ff.dom.local>
+References: <ba020e9f0610101626rf20ce7bg1c214f91f05fb975@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linas Vepstas <linas@austin.ibm.com>, akpm@osdl.org,
-	jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:46057 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1030675AbWJKHQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 03:16:08 -0400
-To: jschopp <jschopp@austin.ibm.com>
-In-Reply-To: <452C2AAA.5070001@austin.ibm.com>
+Received: from mx10.go2.pl ([193.17.41.74]:36740 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932462AbWJKHZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 03:25:18 -0400
+To: Ronghua Zhang <ronghuazhang@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <ba020e9f0610101626rf20ce7bg1c214f91f05fb975@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-10-10 at 18:20 -0500, jschopp wrote:
-> Linas Vepstas wrote:
-> > The current driver code performs 512 DMA mappns of a bunch of 
-> > 32-byte structures. This is silly, as they are all in contiguous 
-> > memory. Ths patch changes the code to DMA map the entie area
-> > with just one call.
-> > 
-> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-> > Cc: James K Lewis <jklewis@us.ibm.com>
-> > Cc: Arnd Bergmann <arnd@arndb.de>
+On 11-10-2006 01:26, Ronghua Zhang wrote:
+...
+> The reason I asked this is that I saw the following code in forthdeth 
+> drvier:
 > 
-> The others look good, but this one complicates the code and doesn't have any benefit.  20 
-> for 21 isn't bad.
+> #define NV_TX2_TSO_MAX_SHIFT) 14
+> /* add fragments to entries count */
+> for (i = 0; i < fragments; i++) {
+>    entries += (skb_shinfo(skb)->frags[i].size >> NV_TX2_TSO_MAX_SHIFT) +
+>                    ((skb_shinfo(skb)->frags[i].size &
+> (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
+> }
+> 
+> This looks unnecessary if each frag is guaranteed not to span pages.
 
-Hi Joel !
+Even if PAGE_SIZE > NV_TX2_TSO_MAX_SIZE?
 
-I'm not sure what you mean here.... (especially your 20 to 21 comment).
-
-The patch looks perfectly fine to me, and in fact removes more lines of
-code than it adds :)
-
-Cheers,
-Ben.
-
-
+Jarek P.
