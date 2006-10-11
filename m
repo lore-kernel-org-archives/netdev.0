@@ -1,47 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 21/21]: powerpc/cell spidernet DMA coalescing
-Date: Wed, 11 Oct 2006 11:25:09 +0200
-Message-ID: <200610111125.10902.arnd@arndb.de>
-References: <20061010204946.GW4381@austin.ibm.com> <452C2AAA.5070001@austin.ibm.com> <452C4CE0.5010607@am.sony.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+Date: Wed, 11 Oct 2006 11:46:49 +0200
+Message-ID: <20061011094649.GD2701@mellanox.co.il>
+References: <20061011.022015.63051509.davem@davemloft.net>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jschopp <jschopp@austin.ibm.com>,
-	Linas Vepstas <linas@austin.ibm.com>, akpm@osdl.org,
-	jeff@garzik.org, netdev@vger.kernel.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:54776 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1750785AbWJKJZb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 05:25:31 -0400
-To: Geoff Levand <geoffrey.levand@am.sony.com>
-In-Reply-To: <452C4CE0.5010607@am.sony.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, openib-general@openib.org,
+	rolandd@cisco.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932168AbWJKJrb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061011.022015.63051509.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 11 October 2006 03:46, Geoff Levand wrote:
-> >=20
-> > The others look good, but this one complicates the code and doesn't=
- have any benefit. =C2=A020=20
-> > for 21 isn't bad.
->=20
-> Is the motivation for this change to improve performance by reducing =
-the overhead
-> of the mapping calls? =C2=A0If so, there may be some benefit for some=
- systems. =C2=A0Could
-> you please elaborate?
->=20
+Quoting r. David Miller <davem@davemloft.net>:
+> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+> 
+> From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+> Date: Wed, 11 Oct 2006 11:05:04 +0200
+> 
+> > So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
+> > data will be copied over rather than sent directly.
+> > So why does dev.c have to force set NETIF_F_SG to off then?
+> 
+> Because it's more efficient to copy into a linear destination
+> buffer of an SKB than page sub-chunks when doing checksum+copy.
+> 
 
-=46rom what I understand, this patch drastically reduces the number of
-I/O PTEs that are needed in the iommu. With the current static IOMMU
-mapping, it should only make a difference during initialization, but
-any platform that uses a dynamic mapping of iommu entries will benefit
-a lot from it, because:
+Thanks for the explanation.
+Obviously its true as long as you can allocate the skb that big.
+I think you won't realistically be able to get 64K in a
+linear SKB on a busy system, though, is not that right?
 
-- the card can do better prefetching of consecutive memory
-- there are more I/O ptes available for other drivers.
+OTOH, having large MTU (e.g. 64K) helps performance a lot since it
+reduces receive side processing overhead.
 
-	Arnd <><
+So, if I understand what you are saying correctly,
+things do work correctly (just slower for small skb) if NETIF_F_SG is set bug
+clear, it seems that all we need to do is drop the following in dev.c:
+
+        /* Fix illegal SG+CSUM combinations. */
+        if ((dev->features & NETIF_F_SG) &&
+            !(dev->features & NETIF_F_ALL_CSUM)) {
+                printk(KERN_NOTICE "%s: Dropping NETIF_F_SG since no checksum feature.\n",
+                       dev->name);
+                dev->features &= ~NETIF_F_SG;
+        }
+
+is that right?
+
+-- 
+MST
