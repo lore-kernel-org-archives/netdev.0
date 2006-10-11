@@ -1,67 +1,48 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Customizable TCP backoff patch
-Date: Wed, 11 Oct 2006 10:59:03 +0900 (JST)
-Message-ID: <20061011.105903.124167527.yoshfuji@linux-ipv6.org>
-References: <4522A88E.2070200@redhat.com>
-	<20061004.000722.99203823.davem@davemloft.net>
-	<452C4D12.9060102@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: is each frag of a skb always less than 1 page?
+Date: Tue, 10 Oct 2006 19:10:37 -0700 (PDT)
+Message-ID: <20061010.191037.108807611.davem@davemloft.net>
+References: <ba020e9f0610101537m492a957fj982097c8d7f407e0@mail.gmail.com>
+	<20061010.154732.110906680.davem@davemloft.net>
+	<ba020e9f0610101626rf20ce7bg1c214f91f05fb975@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, mgrondona@llnl.gov,
-	behlendorf1@llnl.gov, yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59407 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1030758AbWJKB4j
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 21:56:39 -0400
-To: woodard@redhat.com
-In-Reply-To: <452C4D12.9060102@redhat.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28339
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932140AbWJKCKf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 22:10:35 -0400
+To: ronghuazhang@gmail.com
+In-Reply-To: <ba020e9f0610101626rf20ce7bg1c214f91f05fb975@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <452C4D12.9060102@redhat.com> (at Tue, 10 Oct 2006 18:46:58 -0700), Ben Woodard <woodard@redhat.com> says:
+From: "Ronghua Zhang" <ronghuazhang@gmail.com>
+Date: Tue, 10 Oct 2006 16:26:58 -0700
 
-> diff -ru linux-2.6.18/net/ipv4/tcp.c linux-2.6.18.new/net/ipv4/tcp.c
-> --- linux-2.6.18/net/ipv4/tcp.c	2006-09-19 20:42:06.000000000 -0700
-> +++ linux-2.6.18.new/net/ipv4/tcp.c	2006-10-10 18:37:40.000000000 -0700
-> @@ -1939,6 +1941,21 @@
->  		}
->  		break;
->  
-> +        case TCP_BACKOFF_MAX:
-> +                if (val < 1 || val > TCP_BACKOFF_MAXVAL)
-> +                        err = -EINVAL;
-> +                else
-> +                        tp->rto_max = val;
-> +                break;
-> + 
-> +        case TCP_BACKOFF_INIT:
-> +                if (val < 1 || val > TCP_BACKOFF_MAXVAL)
-> +                        err = -EINVAL;
-> +                else
-> +                        tp->rto_init = val;
-> +                break;
-> + 
-> + 
->  	default:
->  		err = -ENOPROTOOPT;
->  		break;
-> @@ -2110,6 +2127,12 @@
->  		if (copy_to_user(optval, icsk->icsk_ca_ops->name, len))
->  			return -EFAULT;
->  		return 0;
-> +        case TCP_BACKOFF_MAX:
-> +	        val = tcp_rto_max(tp)*1000/HZ;
-> +                break;
-> +        case TCP_BACKOFF_INIT:
-> +	        val = tcp_rto_init(tp)*1000/HZ;
-> +                break;
->  	default:
->  		return -ENOPROTOOPT;
->  	};
+> Thank you for your explanation, David.
+> 
+> But pci_map_page should work fine if we have multiple contiguous pages
+> in one frag that are allocated using alloc_pages, ie:
+> 
+>   frag->page = alloc_pages(GFP_KERNEL, 2); // get 4 pages
+>   frag->page_offset = 0;
+>   frag->size = 4 * PAGE_SIZE;
+> 
+>   dma_addr = pci_map_page(frag->page, frag->page_offset, frag->size, ..);
 
-They look very inconsistent.  Please use tp->rto_max / tp->rto_init.
+You should look at the implementation of pci_map_page() on
+some interesting architectures such as sparc64 and powerpc
+where an IOMMU is used to map the pages into DMA space on the
+PCI bus.
 
---yoshfuji
+Those implementations (rightly) assume only a single page needs
+to be mapped.
+
+If you assume that multiple pages would get mapped properly by
+such a call, things would fail.  You might even get a PCI Master
+ABORT after crossing past the end of the first page in that
+multi-page chunk since the IOMMU will not have a DMA translation.
+
