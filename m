@@ -1,50 +1,31 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Tue, 10 Oct 2006 20:42:20 -0700
-Message-ID: <adak637bjs3.fsf@cisco.com>
-References: <adavemrbtcx.fsf@cisco.com>
-	<20061011002656.GB30093@mellanox.co.il> <adar6xfbk6d.fsf@cisco.com>
+Date: Tue, 10 Oct 2006 20:45:28 -0700 (PDT)
+Message-ID: <20061010.204528.90823856.davem@davemloft.net>
+References: <adar6xfbk6d.fsf@cisco.com>
 	<20061010.203624.91207079.davem@davemloft.net>
+	<adak637bjs3.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: mst@mellanox.co.il, shemminger@osdl.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	openib-general@openib.org, rolandd@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:38759 "EHLO
-	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
-	id S1030769AbWJKDmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 23:42:22 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061010.203624.91207079.davem@davemloft.net> (David Miller's message of "Tue, 10 Oct 2006 20:36:24 -0700 (PDT)")
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14027
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030781AbWJKDpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 23:45:25 -0400
+To: rdreier@cisco.com
+In-Reply-To: <adak637bjs3.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    David> Also, if you don't do checksumming on the card we MUST copy
-    David> the data (be it from a user buffer, or from a filesystem
-    David> page cache page) into a private buffer since if the data
-    David> changes the checksum would become invalid, as I mentioned
-    David> in another email earlier.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 10 Oct 2006 20:42:20 -0700
 
-Yes, I get that now -- I replied to Michael's email before I read yours.
+> On the other hand I'm not sure how useful such a netdevice would be --
+> will non-sendfile() paths generate big packets even if the MTU is 64KB?
 
-    David> Therefore, since we have to copy anyways, it always is
-    David> better to checksum in parallel with the copy.
-
-Yes.
-
-    David> So the whole idea of SG without hw-checksum support is
-    David> without much merit at all.
-
-Well, on IB it is possible to implement a netdevice (IPoIB connected
-mode, I assume that's what Michael is working on) with a large MTU
-(64KB is a number thrown around, but really there's not any limit) but
-no HW checksum capability.  Doing that in a practical way means we
-need to allow non-linear skbs to be passed in.
-
-On the other hand I'm not sure how useful such a netdevice would be --
-will non-sendfile() paths generate big packets even if the MTU is 64KB?
-
-Maybe GSO gives us all the real advantages of this anyway?
-
- - R.
+non-sendfile() paths will generate big packets just fine, as long
+as the application is providing that much data.
