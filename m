@@ -1,56 +1,68 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Wed, 11 Oct 2006 11:46:49 +0200
-Message-ID: <20061011094649.GD2701@mellanox.co.il>
-References: <20061011.022015.63051509.davem@davemloft.net>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] d80211: extend extra_hdr_room to be a bytecount
+Date: Wed, 11 Oct 2006 11:58:28 +0200
+Message-ID: <200610111158.28434.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	rolandd@cisco.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932168AbWJKJrb@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Kimdon <david.kimdon@devicescape.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42657
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751068AbWJKJ7E
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Oct 2006 05:59:04 -0400
+To: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
-In-Reply-To: <20061011.022015.63051509.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. David Miller <davem@davemloft.net>:
-> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-> 
-> From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-> Date: Wed, 11 Oct 2006 11:05:04 +0200
-> 
-> > So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
-> > data will be copied over rather than sent directly.
-> > So why does dev.c have to force set NETIF_F_SG to off then?
-> 
-> Because it's more efficient to copy into a linear destination
-> buffer of an SKB than page sub-chunks when doing checksum+copy.
-> 
+Extend ieee80211_hw's extra_hdr_room to be a bytecount for
+a device specific TX header instead of being a hardcoded
+0/2 byte choice.
 
-Thanks for the explanation.
-Obviously its true as long as you can allocate the skb that big.
-I think you won't realistically be able to get 64K in a
-linear SKB on a busy system, though, is not that right?
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-OTOH, having large MTU (e.g. 64K) helps performance a lot since it
-reduces receive side processing overhead.
+diff --git a/include/net/d80211.h b/include/net/d80211.h
+index a80f48b..9e9709f 100644
+--- a/include/net/d80211.h
++++ b/include/net/d80211.h
+@@ -476,10 +476,6 @@ struct ieee80211_hw {
+ 	/* Force software encryption for TKIP packets if WMM is enabled. */
+ 	unsigned int no_tkip_wmm_hwaccel:1;
+ 
+-	/* set if the payload needs to be padded at even boundaries after the
+-	 * header */
+-	unsigned int extra_hdr_room:1;
+-
+ 	/* Some devices handle Michael MIC internally and do not include MIC in
+ 	 * the received packets passed up. device_strips_mic must be set
+ 	 * for such devices. The 'encryption' frame control bit is expected to
+@@ -496,6 +492,9 @@ struct ieee80211_hw {
+ 	 * i.e. more than one skb per frame */
+ 	unsigned int fraglist:1;
+ 
++	/* Set to the size of a needed device specific skb headroom for TX skbs. */
++	unsigned int extra_hdr_room;
++
+         /* This is the time in us to change channels
+          */
+         int channel_change_time;
+diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+index 1ef2707..7d52c3b 100644
+--- a/net/d80211/ieee80211.c
++++ b/net/d80211/ieee80211.c
+@@ -1551,7 +1551,7 @@ static int ieee80211_subif_start_xmit(st
+ 	 * build in headroom in __dev_alloc_skb() (linux/skbuff.h) and
+ 	 * alloc_skb() (net/core/skbuff.c)
+ 	 */
+-	head_need = hdrlen + encaps_len + (local->hw->extra_hdr_room ? 2 : 0);
++	head_need = hdrlen + encaps_len + local->hw->extra_hdr_room;
+ 	head_need -= skb_headroom(skb);
+ 
+ 	/* We are going to modify skb data, so make a copy of it if happens to
 
-So, if I understand what you are saying correctly,
-things do work correctly (just slower for small skb) if NETIF_F_SG is set bug
-clear, it seems that all we need to do is drop the following in dev.c:
-
-        /* Fix illegal SG+CSUM combinations. */
-        if ((dev->features & NETIF_F_SG) &&
-            !(dev->features & NETIF_F_ALL_CSUM)) {
-                printk(KERN_NOTICE "%s: Dropping NETIF_F_SG since no checksum feature.\n",
-                       dev->name);
-                dev->features &= ~NETIF_F_SG;
-        }
-
-is that right?
 
 -- 
-MST
+Greetings Michael.
