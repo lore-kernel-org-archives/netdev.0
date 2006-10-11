@@ -1,36 +1,45 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: is each frag of a skb always less than 1 page?
-Date: Wed, 11 Oct 2006 09:30:04 +0200
-Message-ID: <20061011073004.GA1671@ff.dom.local>
-References: <ba020e9f0610101626rf20ce7bg1c214f91f05fb975@mail.gmail.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH-update][RFC] net: consolidated UDP / UDP-Lite code
+Date: Wed, 11 Oct 2006 08:40:24 +0100
+Message-ID: <200610110840.24515@strip-the-willow>
+References: <20060727.223010.63131639.davem@davemloft.net> <200610091051.45021@strip-the-willow> <20061010.193828.10132678.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:36740 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S932462AbWJKHZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 03:25:18 -0400
-To: Ronghua Zhang <ronghuazhang@gmail.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47744 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1030676AbWJKHkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 03:40:42 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061010.193828.10132678.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <ba020e9f0610101626rf20ce7bg1c214f91f05fb975@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11-10-2006 01:26, Ronghua Zhang wrote:
-...
-> The reason I asked this is that I saw the following code in forthdeth 
-> drvier:
-> 
-> #define NV_TX2_TSO_MAX_SHIFT) 14
-> /* add fragments to entries count */
-> for (i = 0; i < fragments; i++) {
->    entries += (skb_shinfo(skb)->frags[i].size >> NV_TX2_TSO_MAX_SHIFT) +
->                    ((skb_shinfo(skb)->frags[i].size &
-> (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
-> }
-> 
-> This looks unnecessary if each frag is guaranteed not to span pages.
+|  >  csum_copy_err:
+|  > -	UDP_INC_STATS_BH(UDP_MIB_INERRORS);
+|  > +	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
+|  > +	UDP_DEC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
+|  
+|  I'm not a big fan at all of these "statistic corrections"
+|  we're starting to place in various spots.
+I am not really fond of this solution either. It evolved via discussion, from a
+previous suggestion to place the increment of InDatagrams into udp_recvmsg(). 
+The problem with that alternative was in dealing with applications which use the
+data_ready handler (such as sunrpc).
 
-Even if PAGE_SIZE > NV_TX2_TSO_MAX_SIZE?
+|  I really don't think it's the end of the world if we count as
+|  INDATAGRAMS a packet that we later discover has a bad checksum.
+It would have been nice to say "all these counters count correctly". Maybe that 
+has been over-ambitious - in  tcp_ipv4.c I found that tcp_v4_rcv also counts 
+incoming segments even if they are bad.
 
-Jarek P.
+I will restore the original state and remove the counter decrements in the
+next upcoming version of the patch.
+
+
+Thank you,
+
+-- Gerrit
