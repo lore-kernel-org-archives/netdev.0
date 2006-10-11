@@ -1,35 +1,34 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Tigon3 crash when used with any torrent app
-Date: Tue, 10 Oct 2006 19:52:06 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC093FBFF@NT-IRVA-0751.brcm.ad.broadcom.com>
-References: <200610102230.23700.sas@noend.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Customizable TCP backoff patch
+Date: Tue, 10 Oct 2006 19:53:41 -0700 (PDT)
+Message-ID: <20061010.195341.32721754.davem@davemloft.net>
+References: <4522A88E.2070200@redhat.com>
+	<20061004.000722.99203823.davem@davemloft.net>
+	<452C4D12.9060102@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mgrondona@llnl.gov, behlendorf1@llnl.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:23304 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932425AbWJKCwX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 22:52:23 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <200610102230.23700.sas@noend.com>
-To: "Sebastian Alfredo Salvino" <sas@noend.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48042
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932427AbWJKCxj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Oct 2006 22:53:39 -0400
+To: woodard@redhat.com
+In-Reply-To: <452C4D12.9060102@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Alfredo Salvino wrote:
+From: Ben Woodard <woodard@redhat.com>
+Date: Tue, 10 Oct 2006 18:46:58 -0700
 
-> However when I am booted up into 2.6.18 and try to connect to 
-> any p2p network 
-> via BitTorrent, KTorrent, etc., it just hang. 
-> 
+> @@ -257,6 +259,8 @@
+>  	__u8	frto_counter;	/* Number of new acks after RTO */
+>  	__u8	nonagle;	/* Disable Nagle algorithm?             */
+>  	__u8	keepalive_probes; /* num of allowed keep alive probes	*/
+> +        __u16   rto_max;        /* Maximum backoff value in ms          */
+> +        __u16   rto_init;       /* Initial backoff value in ms          */
 
-Did the same setup work in 2.6.17?  If yes, can you bisect
-the tg3 patches between 2.6.17 and 2.6.18?
-
-Looking at the patches between 2.6.17 and 2.6.18, nothing
-really jumps out, especially if you have already tried
-turning off TSO.
-
+The existing struct members are properly indented using tabs,
+your patch adds members which are indented using spaces.  Please
+fix this, thanks a lot.
