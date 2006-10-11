@@ -1,36 +1,61 @@
-From: Amol Lad <amol@verismonetworks.com>
-Subject: [PATCH 3/4] drivers/net/sis900.c: Replacing yield() with a better
-	alternative
-Date: Wed, 11 Oct 2006 18:37:39 +0530
-Message-ID: <1160572059.19143.341.camel@amol.verismonetworks.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [RFC] Question about potential problem in net/ipv4/route.c
+Date: Wed, 11 Oct 2006 15:11:18 +0200
+Message-ID: <200610111511.19028.dada1@cosmosbay.com>
+References: <20061010.191547.83619974.davem@davemloft.net> <20061011090504.GC2938@mellanox.co.il> <20061011.022015.63051509.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kernel Janitors <kernel-janitors@lists.osdl.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01.verismonetworks.com ([164.164.99.228]:7661 "EHLO
-	mail01.verismonetworks.com") by vger.kernel.org with ESMTP
-	id S1751259AbWJKNES (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 09:04:18 -0400
-To: netdev@vger.kernel.org
+Received: from pfx2.jmh.fr ([194.153.89.55]:6869 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1751276AbWJKNLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 09:11:17 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061011.022015.63051509.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-*Please check if the timout value is ok or it should be increased*
+Hi David
 
-Signed-off-by: Amol Lad <amol@verismonetworks.com>
----
-diff -uprN -X linux-2.6.19-rc1-orig/Documentation/dontdiff linux-2.6.19-rc1-orig/drivers/net/sis900.c linux-2.6.19-rc1/drivers/net/sis900.c
---- linux-2.6.19-rc1-orig/drivers/net/sis900.c	2006-10-05 14:00:48.000000000 +0530
-+++ linux-2.6.19-rc1/drivers/net/sis900.c	2006-10-11 17:57:02.000000000 +0530
-@@ -664,7 +664,7 @@ static int __init sis900_mii_probe(struc
- 
- 	if(status & MII_STAT_LINK){
- 		while (poll_bit) {
--			yield();
-+			schedule_timeout_interruptible(1);
- 
- 			poll_bit ^= (mdio_read(net_dev, sis_priv->cur_phy, MII_STATUS) & poll_bit);
- 			if (time_after_eq(jiffies, timeout)) {
+While browsing net/ipv4/route.c  I discovered compare_keys() function, and a 
+potential bug in it.
 
+static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
+{
+        return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, 
+sizeof(fl1->nl_u.ip4_u)) == 0 &&
+               fl1->oif     == fl2->oif &&
+               fl1->iif     == fl2->iif;
+}
+
+
+Using memcmp(ptr1, ptr2, sizeof(SOMEFIELD)) is dangerous because 
+sizeof(SOMEFIELD) can be larger than the underlying object, because of 
+alignment constraints.
+
+In this case, sizeof(fl1->nl_u.ip4_u) is 16, while fl1->nl_u.ip4_u is :
+
+                struct {
+                        __u32                   daddr;
+                        __u32                   saddr;
+                        __u32                   fwmark;
+                        __u8                    tos;
+                        __u8                    scope;
+                } ip4_u;
+
+So 14 bytes are really initialized, and 2 padding bytes might contain random 
+values...
+
+So at the very minimum, we should avoid doing the memcmp() including those 
+last two bytes : It would be less bugy, and faster too...  (But to get really 
+fast comparison, we should do some clever long/int XOR operations to avoid 
+many test/branches, like the optim we did in compare_ether_addr())
+
+As shown in profiles, "repz cmpsb" is really a dog... (and its use of 
+esi/edi/ecx registers a high pressure for the compiler/optimizer)
+
+Eric
 
