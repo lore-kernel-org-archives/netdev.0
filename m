@@ -1,9 +1,9 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Tue, 10 Oct 2006 17:15:26 -0700
-Message-ID: <adavemrbtcx.fsf@cisco.com>
-References: <20061010104315.61540986@freekitty>
-	<20061011001338.GA30093@mellanox.co.il>
+Date: Wed, 11 Oct 2006 02:26:56 +0200
+Message-ID: <20061011002656.GB30093@mellanox.co.il>
+References: <adavemrbtcx.fsf@cisco.com>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Stephen Hemminger <shemminger@osdl.org>,
@@ -11,24 +11,28 @@ Cc: Stephen Hemminger <shemminger@osdl.org>,
 	netdev@vger.kernel.org, openib-general@openib.org,
 	Roland Dreier <rolandd@cisco.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:63916 "EHLO
-	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
-	id S932168AbWJKAPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 20:15:32 -0400
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20061011001338.GA30093@mellanox.co.il> (Michael S. Tsirkin's message of "Wed, 11 Oct 2006 02:13:38 +0200")
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030724AbWJKA1X@vger.kernel.org>
+To: Roland Dreier <rdreier@cisco.com>
+Content-Disposition: inline
+In-Reply-To: <adavemrbtcx.fsf@cisco.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    Michael> Maybe I can patch linux to allow SG without checksum?
-    Michael> Dave, maybe you could drop a hint or two on whether this
-    Michael> is worthwhile and what are the issues that need
-    Michael> addressing to make this work?
+Quoting r. Roland Dreier <rdreier@cisco.com>:
+> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+> 
+>     Michael> Maybe I can patch linux to allow SG without checksum?
+>     Michael> Dave, maybe you could drop a hint or two on whether this
+>     Michael> is worthwhile and what are the issues that need
+>     Michael> addressing to make this work?
+> 
+> What do you really gain by allowing SG without checksum?  Someone has
+> to do the checksum anyway, so I don't see that much difference between
+> doing it in the networking core before passing the data to/from the
+> driver, or down in the driver itself.
 
-What do you really gain by allowing SG without checksum?  Someone has
-to do the checksum anyway, so I don't see that much difference between
-doing it in the networking core before passing the data to/from the
-driver, or down in the driver itself.
+My guess was, an extra pass over data is likely to be expensive - dirtying the
+cache if nothing else. But I do plan to measure that, and see.
 
- - R.
+-- 
+MST
