@@ -1,229 +1,87 @@
-From: James K Lewis <jklewis@us.ibm.com>
-Subject: Re: [PATCH 0/21]: powerpc/cell spidernet bugfixes, etc.
-Date: Wed, 11 Oct 2006 11:42:51 -0500
-Message-ID: <OF15EAE7E2.A99D8025-ON87257204.005AF2CA-86257204.005BD035@us.ibm.com>
-References: <200610111802.43996.arnd@arndb.de>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: [PATCH] e1000: Real time packets and bytes statistics
+Date: Wed, 11 Oct 2006 10:44:12 -0700
+Message-ID: <4807377b0610111044u5eced127od8272797e63743a7@mail.gmail.com>
+References: <20061011133557.8a404e24.khali@linux-fr.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0851811298=="
-Cc: akpm@osdl.org, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200610111802.43996.arnd@arndb.de>
-To: Arnd Bergmann <arnd@arndb.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.172]:49450 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1161163AbWJKRoO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Oct 2006 13:44:14 -0400
+Received: by ug-out-1314.google.com with SMTP id o38so161598ugd
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2006 10:44:13 -0700 (PDT)
+To: "Jean Delvare" <khali@linux-fr.org>
+In-Reply-To: <20061011133557.8a404e24.khali@linux-fr.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in MIME format.
---===============0851811298==
-Content-Type: multipart/alternative; boundary="=_alternative 005BD03086257204_="
+On 10/11/06, Jean Delvare <khali@linux-fr.org> wrote:
+> Hi all,
+>
+> This patch is posted for review and comments.
+>
+> Let the e1000 driver report the most important statistics (rx/tx_bytes
+> and rx/tx_packets) in real time, rather than every other second. This
+> is similar to what the e100 driver is doing.
+>
+> The current asynchronous statistics refresh model makes it impossible
+> to monitor the network traffic with an interval which isn't a multiple
+> of 2 seconds. For example, an interval of 5 seconds would result in a
+> sawtooth diagram (+20%, -20%) for a constant transfer rate. With a 1
+> second interval it's even worse (0, 200%) of course. This has been
+> annoying users for years, but was never actually fixed:
 
-This is a multipart message in MIME format.
---=_alternative 005BD03086257204_=
-Content-Type: text/plain; charset="US-ASCII"
+I think the idea is good, however, see below.
 
-  Please don't be confused by the numbers in the 4M column, they don't 
-mean anything to the end user. We had a bit better performance (approx. 
-720 Mbps) at one time but at 100% CPU usage. These new patches lower the 
-max. to about 700 Mbps but decrease CPU usage down to about 30% which I 
-think will help all around. I have been testing this driver all night and 
-have not found a problem yet. Consider this my Acked-by:  for all these 
-patches.
+<snip
+> rx/tx_bytes will show slightly lower values than before, because the
+> hardware appears to include the 4-byte ethernet frame CRC into the
+> frame length, while the driver doesn't. It's probably OK as the
+> e100, 3c59x and 8139too drivers don't include it either.
 
-Jim Lewis
-Advisory Software Engineer
-IBM Linux Technology Center
-512-838-7754
+this is okay.
 
+> I additionally noted a difference of 6 bytes on some TX frames, which
+> I am not able to explain. It's probably small and rare enough not to
+> be considered a problem, but if someone can explain it, I would be
+> grateful.
 
+now, that sounds odd, however, once again, see below.
 
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> ---
+>  drivers/net/e1000/e1000_main.c |   14 ++++++++++----
+>  1 file changed, 10 insertions(+), 4 deletions(-)
+>
+> --- linux-2.6.19-rc1.orig/drivers/net/e1000/e1000_main.c        2006-10-11 10:53:49.000000000 +0200
+> +++ linux-2.6.19-rc1/drivers/net/e1000/e1000_main.c     2006-10-11 11:34:41.000000000 +0200
+> @@ -3118,6 +3118,8 @@
+>                        e1000_tx_map(adapter, tx_ring, skb, first,
+>                                     max_per_txd, nr_frags, mss));
+>
+> +       adapter->net_stats.tx_packets++;
+> +       adapter->net_stats.tx_bytes += skb->len;
+>         netdev->trans_start = jiffies;
 
+this is the part I'm most worried about.  as I believe it to be
+incorrect for TSO packets.  Maybe something like?
++       if (skb_shinfo(skb)->gso_segs)
++              adapter->net_stats.tx_packets += skb_shinfo(skb)->gso_segs;
++       else
++              adapter->net_stats.tx_packets++;
++       adapter->net_stats.tx_bytes += skb->len;
+        netdev->trans_start = jiffies;
 
+skb len will still be off by some amount, because the skb->data
+(header) is replicated across each gso segment but only counted once
+this way, but hopefully someone will pipe up with a good way to
+compute that.
 
-Arnd Bergmann <arnd@arndb.de> 
-10/11/2006 11:02 AM
+The rest of the patch seems fine, barring any other comments.
 
-To
-Linas Vepstas <linas@austin.ibm.com>
-cc
-akpm@osdl.org, jeff@garzik.org, James K Lewis/Austin/IBM@ibmus, 
-netdev@vger.kernel.org, linux-kernel@vger.kernel.org, 
-linuxppc-dev@ozlabs.org
-Subject
-Re: [PATCH 0/21]: powerpc/cell spidernet bugfixes, etc.
-
-
-
-
-
-
-On Tuesday 10 October 2006 22:49, Linas Vepstas wrote:
-> Andrew, please apply/forward upstream.
-> 
-> The following set of 21 patches (!) are all aimed at the the 
-> spidernet ethernet device driver. The spidernet is an etherenet
-> controller built into the Toshiba southbridge for the PowerPC Cell
-> processor. (This is the only device in existance that with this
-> ethernet hardware in it).
-> 
-> These patches re-package/re-order/re-cleanup a previous
-> set of patches I've previously mailed. Thus, some have
-> been previously Acked-by lines, most do not. Most of
-> these patches are tiny, and handle problems that cropped
-> up during testing. Sorry about there being so many of them.
-> 
-> The first set of 12 patches fix a large variety of mostly 
-> minor bugs. 
-> 
-> The important patches are 13 through 17: these overcome a 
-> debilitating performance problem on transmit (6 megabits
-> per second !!) on transmit of patches 500 bytes or larger.
-> After applying these, I am able to get the following:
-> 
-> pkt sz   speed (100K buffs)       speed (4M buffs)
-> ------   -----------------        ----------------
-> 1500     700 Mbits/sec            951 Mbits/sec
-> 1000     658 Mbits/sec            770
-> 800      600                      648
-> 500      500                      500
-> 300      372                      372
-> 60        70                       70
-> 
-> Above buf size refers to /proc/sys/net/core/wmem_default
-
-Excellent work! I guess this the best tx performance we've
-seen so far on this hardware.
-
-Consider this as an Acked-by: for all the patches, I'll save
-the effort of replying to each one of them separately.
-
-Jeff, do you plan on merging these fixes for 2.6.19?
-
-                 Arnd <><
-
-
---=_alternative 005BD03086257204_=
-Content-Type: text/html; charset="US-ASCII"
-
-
-<br><font size=2 face="sans-serif">&nbsp; Please don't be confused by the
-numbers in the 4M column, they don't mean anything to the end user. We
-had a bit better performance (approx. 720 Mbps) at one time but at 100%
-CPU usage. These new patches lower the max. to about 700 Mbps but decrease
-CPU usage down to about 30% which I think will help all around. I have
-been testing this driver all night and have not found a problem yet. Consider
-this my Acked-by: &nbsp;for all these patches.</font>
-<br><font size=2 face="sans-serif"><br>
-Jim Lewis<br>
-Advisory Software Engineer<br>
-IBM Linux Technology Center<br>
-512-838-7754<br>
-<br>
-<br>
-</font>
-<br>
-<br>
-<br>
-<table width=100%>
-<tr valign=top>
-<td width=40%><font size=1 face="sans-serif"><b>Arnd Bergmann &lt;arnd@arndb.de&gt;</b>
-</font>
-<p><font size=1 face="sans-serif">10/11/2006 11:02 AM</font>
-<td width=59%>
-<table width=100%>
-<tr valign=top>
-<td>
-<div align=right><font size=1 face="sans-serif">To</font></div>
-<td><font size=1 face="sans-serif">Linas Vepstas &lt;linas@austin.ibm.com&gt;</font>
-<tr valign=top>
-<td>
-<div align=right><font size=1 face="sans-serif">cc</font></div>
-<td><font size=1 face="sans-serif">akpm@osdl.org, jeff@garzik.org, James
-K Lewis/Austin/IBM@ibmus, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-linuxppc-dev@ozlabs.org</font>
-<tr valign=top>
-<td>
-<div align=right><font size=1 face="sans-serif">Subject</font></div>
-<td><font size=1 face="sans-serif">Re: [PATCH 0/21]: powerpc/cell spidernet
-bugfixes, etc.</font></table>
-<br>
-<table>
-<tr valign=top>
-<td>
-<td></table>
-<br></table>
-<br>
-<br>
-<br><tt><font size=2>On Tuesday 10 October 2006 22:49, Linas Vepstas wrote:<br>
-&gt; Andrew, please apply/forward upstream.<br>
-&gt; <br>
-&gt; The following set of 21 patches (!) are all aimed at the the <br>
-&gt; spidernet ethernet device driver. The spidernet is an etherenet<br>
-&gt; controller built into the Toshiba southbridge for the PowerPC Cell<br>
-&gt; processor. (This is the only device in existance that with this<br>
-&gt; ethernet hardware in it).<br>
-&gt; <br>
-&gt; These patches re-package/re-order/re-cleanup a previous<br>
-&gt; set of patches I've previously mailed. Thus, some have<br>
-&gt; been previously Acked-by lines, most do not. Most of<br>
-&gt; these patches are tiny, and handle problems that cropped<br>
-&gt; up during testing. Sorry about there being so many of them.<br>
-&gt; <br>
-&gt; The first set of 12 patches fix a large variety of mostly <br>
-&gt; minor bugs. <br>
-&gt; <br>
-&gt; The important patches are 13 through 17: these overcome a <br>
-&gt; debilitating performance problem on transmit (6 megabits<br>
-&gt; per second !!) on transmit of patches 500 bytes or larger.<br>
-&gt; After applying these, I am able to get the following:<br>
-&gt; <br>
-&gt; pkt sz &nbsp; speed (100K buffs) &nbsp; &nbsp; &nbsp; speed (4M buffs)<br>
-&gt; ------ &nbsp; ----------------- &nbsp; &nbsp; &nbsp; &nbsp;----------------<br>
-&gt; 1500 &nbsp; &nbsp; 700 Mbits/sec &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp;951 Mbits/sec<br>
-&gt; 1000 &nbsp; &nbsp; 658 Mbits/sec &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp;770<br>
-&gt; 800 &nbsp; &nbsp; &nbsp;600 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;648<br>
-&gt; 500 &nbsp; &nbsp; &nbsp;500 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;500<br>
-&gt; 300 &nbsp; &nbsp; &nbsp;372 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;372<br>
-&gt; 60 &nbsp; &nbsp; &nbsp; &nbsp;70 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 70<br>
-&gt; <br>
-&gt; Above buf size refers to /proc/sys/net/core/wmem_default<br>
-<br>
-Excellent work! I guess this the best tx performance we've<br>
-seen so far on this hardware.<br>
-<br>
-Consider this as an Acked-by: for all the patches, I'll save<br>
-the effort of replying to each one of them separately.<br>
-<br>
-Jeff, do you plan on merging these fixes for 2.6.19?<br>
-<br>
- &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-Arnd &lt;&gt;&lt;<br>
-</font></tt>
-<br>
---=_alternative 005BD03086257204_=--
-
---===============0851811298==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
---===============0851811298==--
+Jesse
