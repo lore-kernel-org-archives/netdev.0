@@ -1,87 +1,70 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: [PATCH] e1000: Real time packets and bytes statistics
-Date: Wed, 11 Oct 2006 10:44:12 -0700
-Message-ID: <4807377b0610111044u5eced127od8272797e63743a7@mail.gmail.com>
-References: <20061011133557.8a404e24.khali@linux-fr.org>
+From: Michael Krause <krause@cup.hp.com>
+Subject: Re: [openib-general] Dropping NETIF_F_SG since no checksum
+  feature.
+Date: Wed, 11 Oct 2006 11:21:43 -0700
+Message-ID: <6.2.0.14.2.20061011111146.03292b50@esmail.cup.hp.com>
+References: <20061011.022015.63051509.davem@davemloft.net>
+ <20061011094649.GD2701@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: netdev@vger.kernel.org, openib-general@openib.org,
+	linux-kernel@vger.kernel.org, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:49450 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1161163AbWJKRoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 13:44:14 -0400
-Received: by ug-out-1314.google.com with SMTP id o38so161598ugd
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2006 10:44:13 -0700 (PDT)
-To: "Jean Delvare" <khali@linux-fr.org>
-In-Reply-To: <20061011133557.8a404e24.khali@linux-fr.org>
-Content-Disposition: inline
+Received: from palrel10.hp.com ([156.153.255.245]:3780 "EHLO palrel10.hp.com")
+	by vger.kernel.org with ESMTP id S1161138AbWJKSYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 14:24:43 -0400
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>,
+	"David Miller" <davem@davemloft.net>
+In-Reply-To: <20061011094649.GD2701@mellanox.co.il>
+References: <20061011.022015.63051509.davem@davemloft.net>
+ <20061011094649.GD2701@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/11/06, Jean Delvare <khali@linux-fr.org> wrote:
-> Hi all,
+At 02:46 AM 10/11/2006, Michael S. Tsirkin wrote:
+>Quoting r. David Miller <davem@davemloft.net>:
+> > Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+> >
+> > From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+> > Date: Wed, 11 Oct 2006 11:05:04 +0200
+> >
+> > > So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
+> > > data will be copied over rather than sent directly.
+> > > So why does dev.c have to force set NETIF_F_SG to off then?
+> >
+> > Because it's more efficient to copy into a linear destination
+> > buffer of an SKB than page sub-chunks when doing checksum+copy.
+> >
 >
-> This patch is posted for review and comments.
+>Thanks for the explanation.
+>Obviously its true as long as you can allocate the skb that big.
+>I think you won't realistically be able to get 64K in a
+>linear SKB on a busy system, though, is not that right?
 >
-> Let the e1000 driver report the most important statistics (rx/tx_bytes
-> and rx/tx_packets) in real time, rather than every other second. This
-> is similar to what the e100 driver is doing.
->
-> The current asynchronous statistics refresh model makes it impossible
-> to monitor the network traffic with an interval which isn't a multiple
-> of 2 seconds. For example, an interval of 5 seconds would result in a
-> sawtooth diagram (+20%, -20%) for a constant transfer rate. With a 1
-> second interval it's even worse (0, 200%) of course. This has been
-> annoying users for years, but was never actually fixed:
+>OTOH, having large MTU (e.g. 64K) helps performance a lot since it reduces 
+>receive side processing overhead.
 
-I think the idea is good, however, see below.
+One thing to keep in mind is while it may help performance in a 
+micro-benchmark, the system performance or the QoS impacts to other flows 
+can be negatively impacted depending upon implementation.  For example, 
+consider multiple messages interleaving (heaven help implementations that 
+are not able to interleave multiple messages) on either the transmit or 
+receive HCA / RNIC and how the time-to-completion of any message is 
+extended out in time as a result of the interleave.  The effective 
+throughput in terms of useful units of work can be lower as a result.   The 
+same effect can be observed when there are a significant number connections 
+in a device being simultaneously processed.
 
-<snip
-> rx/tx_bytes will show slightly lower values than before, because the
-> hardware appears to include the 4-byte ethernet frame CRC into the
-> frame length, while the driver doesn't. It's probably OK as the
-> e100, 3c59x and 8139too drivers don't include it either.
+Also, if the copy-checksum is not performed on the processor where the 
+application resides, then the performance can also be negatively impacted 
+(want to have the right cache hot when initiated or concluded).  While the 
+aggregate computational performance of systems may be increasing at a 
+significant rate (set aside the per core vs. aggregate core debate), the 
+memory performance gains are much less.  If you examine the longer term 
+trends, there may be a flattening out of memory performance improvements by 
+2009/10 without some major changes in the way controllers and subsystems 
+are designed.
 
-this is okay.
+Mike 
 
-> I additionally noted a difference of 6 bytes on some TX frames, which
-> I am not able to explain. It's probably small and rare enough not to
-> be considered a problem, but if someone can explain it, I would be
-> grateful.
 
-now, that sounds odd, however, once again, see below.
-
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
-> ---
->  drivers/net/e1000/e1000_main.c |   14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
->
-> --- linux-2.6.19-rc1.orig/drivers/net/e1000/e1000_main.c        2006-10-11 10:53:49.000000000 +0200
-> +++ linux-2.6.19-rc1/drivers/net/e1000/e1000_main.c     2006-10-11 11:34:41.000000000 +0200
-> @@ -3118,6 +3118,8 @@
->                        e1000_tx_map(adapter, tx_ring, skb, first,
->                                     max_per_txd, nr_frags, mss));
->
-> +       adapter->net_stats.tx_packets++;
-> +       adapter->net_stats.tx_bytes += skb->len;
->         netdev->trans_start = jiffies;
-
-this is the part I'm most worried about.  as I believe it to be
-incorrect for TSO packets.  Maybe something like?
-+       if (skb_shinfo(skb)->gso_segs)
-+              adapter->net_stats.tx_packets += skb_shinfo(skb)->gso_segs;
-+       else
-+              adapter->net_stats.tx_packets++;
-+       adapter->net_stats.tx_bytes += skb->len;
-        netdev->trans_start = jiffies;
-
-skb len will still be off by some amount, because the skb->data
-(header) is replicated across each gso segment but only counted once
-this way, but hopefully someone will pipe up with a good way to
-compute that.
-
-The rest of the patch seems fine, barring any other comments.
-
-Jesse
