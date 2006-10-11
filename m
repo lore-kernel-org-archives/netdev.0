@@ -1,80 +1,67 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Wed, 11 Oct 2006 17:01:03 +0200
-Message-ID: <20061011150103.GF4888@mellanox.co.il>
-References: <20061011090926.GA15393@fogou.chygwyn.com>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 21/21]: powerpc/cell spidernet DMA coalescing
+Date: Wed, 11 Oct 2006 10:20:17 -0500
+Message-ID: <20061011152016.GU4381@austin.ibm.com>
+References: <20061010204946.GW4381@austin.ibm.com>
+	<20061010212324.GR4381@austin.ibm.com>
+	<452C2AAA.5070001@austin.ibm.com> <452C4CE0.5010607@am.sony.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	openib-general@openib.org, rolandd@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dev.mellanox.co.il ([194.90.237.44]:50562 "EHLO
-	dev.mellanox.co.il") by vger.kernel.org with ESMTP id S965184AbWJKPCJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 11:02:09 -0400
-To: Steven Whitehouse <steve@chygwyn.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, jeff@garzik.org, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Geoff Levand <geoffrey.levand@am.sony.com>
 Content-Disposition: inline
-In-Reply-To: <20061011090926.GA15393@fogou.chygwyn.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <452C4CE0.5010607@am.sony.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Steven Whitehouse <steve@chygwyn.com>:
-> > ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
-> >                      size_t size, int flags)
-> > {
-> >         ssize_t res;
-> >         struct sock *sk = sock->sk;
-> > 
-> >         if (!(sk->sk_route_caps & NETIF_F_SG) ||
-> >             !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
-> >                 return sock_no_sendpage(sock, page, offset, size, flags);
-> > 
-> > 
-> > So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
-> > data will be copied over rather than sent directly.
-> > So why does dev.c have to force set NETIF_F_SG to off then?
-> >
-> I agree with that analysis,
+On Tue, Oct 10, 2006 at 06:46:08PM -0700, Geoff Levand wrote:
+> > Linas Vepstas wrote:
+> >> The current driver code performs 512 DMA mappns of a bunch of 
+> >> 32-byte structures. This is silly, as they are all in contiguous 
+> >> memory. Ths patch changes the code to DMA map the entie area
+> >> with just one call.
+> 
+> Linas, 
+> 
+> Is the motivation for this change to improve performance by reducing the overhead
+> of the mapping calls?  
 
-So, would you Ack something like the following then?
+Yes.
 
-======================
+> If so, there may be some benefit for some systems.  Could
+> you please elaborate?
 
-Enabling NETIF_F_SG without NETIF_F_ALL_CSUM actually seems to work fine by
-doing an old-fashioned data copy in tcp_sendpage.
-And for devices that do not calculate IP checksum in hardware (e.g. InfiniBand)
-calculating the checksum for all packets in network driver is worse than have
-the CPU piggyback the checksum compitation with the copy process.
-Finally, note that NETIF_F_SG is necessary to be able to allocate skbs >
-PAGE_SIZE on busy systems.
+I started writingthe patch thinking it will have some huge effect on
+performance, based on a false assumption on how i/o was done on this
+machine
 
-So, let's allow that combination, again, for drivers that want it.
+*If* this were another pSeries system, then each call to 
+pci_map_single() chews up an actual hardware "translation 
+control entry" (TCE) that maps pci bus addresses into 
+system RAM addresses. These are somewhat limited resources,
+and so one shouldn't squander them.  Furthermore, I thouhght
+TCE's have TLB's associated with them (similar to how virtual
+memory page tables are backed by hardware page TLB's), of which 
+there are even less of. I was thinking that TLB thrashing would 
+have a big hit on performance. 
 
-Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
+Turns out that there was no difference to performance at all, 
+and a quick look at "cell_map_single()" in arch/powerpc/platforms/cell
+made it clear why: there's no fancy i/o address mapping.
 
----
+Thus, the patch has only mrginal benefit; I submit it only in the 
+name of "its the right thing to do anyway".
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d4a1ec3..2d731a0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2930,14 +2930,6 @@ #endif
- 		}
-  	}
- 
--	/* Fix illegal SG+CSUM combinations. */
--	if ((dev->features & NETIF_F_SG) &&
--	    !(dev->features & NETIF_F_ALL_CSUM)) {
--		printk(KERN_NOTICE "%s: Dropping NETIF_F_SG since no checksum feature.\n",
--		       dev->name);
--		dev->features &= ~NETIF_F_SG;
--	}
--
- 	/* TSO requires that SG is present as well. */
- 	if ((dev->features & NETIF_F_TSO) &&
- 	    !(dev->features & NETIF_F_SG)) {
-
--- 
-MST
+--linas
