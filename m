@@ -1,32 +1,54 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] d80211: extend extra_hdr_room to be a bytecount
-Date: Wed, 11 Oct 2006 22:43:34 +0200
-Message-ID: <200610112243.34877.mb@bu3sch.de>
-References: <200610111158.28434.mb@bu3sch.de> <20061011145923.GA6785@devicescape.com>
+From: "David Miller" <davem@davemloft.net>
+Subject: Re: Dropping NETIF_F_SG since no checksum
+ feature.
+Date: Wed, 11 Oct 2006 13:52:01 -0700 (PDT)
+Message-ID: <20061011.135201.15405152.davem@davemloft.net>
+References: <20061011090926.GA15393@fogou.chygwyn.com>
+ <20061011150103.GF4888@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:31435
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1161261AbWJKUoD
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 16:44:03 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061011145923.GA6785@devicescape.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org,
+	steve@chygwyn.com,
+	shemminger@osdl.org
+Return-path: <openib-general-bounces@openib.org>
+To: mst@mellanox.co.il
+In-Reply-To: <20061011150103.GF4888@mellanox.co.il>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 11 October 2006 16:59, David Kimdon wrote:
-> Perhaps rename it to extra_tx_headroom?
->  - existing users would then need to take notice of the change
->  - the name 'extra_tx_headroom' is more descriptive of what it actually is
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Date: Wed, 11 Oct 2006 17:01:03 +0200
 
-Oh, yeah. This was lazyman's solution ;)
-I will send an updated patch.
+> Quoting Steven Whitehouse <steve@chygwyn.com>:
+> > > ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
+> > >                      size_t size, int flags)
+> > > {
+> > >         ssize_t res;
+> > >         struct sock *sk = sock->sk;
+> > > 
+> > >         if (!(sk->sk_route_caps & NETIF_F_SG) ||
+> > >             !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
+> > >                 return sock_no_sendpage(sock, page, offset, size, flags);
+> > > 
+> > > 
+> > > So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
+> > > data will be copied over rather than sent directly.
+> > > So why does dev.c have to force set NETIF_F_SG to off then?
+> > >
+> > I agree with that analysis,
+> 
+> So, would you Ack something like the following then?
 
--- 
-Greetings Michael.
+I certainly don't.
