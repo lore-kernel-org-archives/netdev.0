@@ -1,45 +1,48 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH-update][RFC] net: consolidated UDP / UDP-Lite code
-Date: Wed, 11 Oct 2006 08:40:24 +0100
-Message-ID: <200610110840.24515@strip-the-willow>
-References: <20060727.223010.63131639.davem@davemloft.net> <200610091051.45021@strip-the-willow> <20061010.193828.10132678.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Pull request for 'jg-20061009-00' tag
+Date: Wed, 11 Oct 2006 04:47:58 -0400
+Message-ID: <452CAFBE.9010603@garzik.org>
+References: <20061009202133.GA18466@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, dragoran@feuerpokemon.de,
+	ranma+kernel@tdiedrich.de, hchacha@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47744 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S1030676AbWJKHkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 03:40:42 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061010.193828.10132678.davem@davemloft.net>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:12929 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965180AbWJKIsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 04:48:07 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20061009202133.GA18466@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-|  >  csum_copy_err:
-|  > -	UDP_INC_STATS_BH(UDP_MIB_INERRORS);
-|  > +	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
-|  > +	UDP_DEC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
-|  
-|  I'm not a big fan at all of these "statistic corrections"
-|  we're starting to place in various spots.
-I am not really fond of this solution either. It evolved via discussion, from a
-previous suggestion to place the increment of InDatagrams into udp_recvmsg(). 
-The problem with that alternative was in dealing with applications which use the
-data_ready handler (such as sunrpc).
+Francois Romieu wrote:
+> Please pull from tag 'jg-20061009-00' in repository
+>  
+> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git jg-20061009-00
+> 
+> to get the changes below.
+> 
+> Distance from 'upstream-fixes'
+> -----------------------------
+> 
+> $ git rev-list 2f614fe04f4463ff22234133319067d7361f54e5..jg-20061009-00
+> 91a6ba7162852092080b0e710dc0ba0f35496308
+> 73f5e28b336772c4b08ee82e5bf28ab872898ee1
+> 
+> Diffstat
+> --------
+> 
+>  drivers/net/forcedeth.c |   43 +++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/r8169.c     |    1 +
+>  2 files changed, 44 insertions(+), 0 deletions(-)
 
-|  I really don't think it's the end of the world if we count as
-|  INDATAGRAMS a packet that we later discover has a bad checksum.
-It would have been nice to say "all these counters count correctly". Maybe that 
-has been over-ambitious - in  tcp_ipv4.c I found that tcp_v4_rcv also counts 
-incoming segments even if they are bad.
+I merged the forcedeth change via another source.  Could I pull from a 
+tag with just the r8169 change?
 
-I will restore the original state and remove the counter decrements in the
-next upcoming version of the patch.
+	Jeff
 
 
-Thank you,
 
--- Gerrit
