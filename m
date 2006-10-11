@@ -1,70 +1,38 @@
-From: Michael Krause <krause@cup.hp.com>
-Subject: Re: [openib-general] Dropping NETIF_F_SG since no checksum
-  feature.
-Date: Wed, 11 Oct 2006 11:21:43 -0700
-Message-ID: <6.2.0.14.2.20061011111146.03292b50@esmail.cup.hp.com>
-References: <20061011.022015.63051509.davem@davemloft.net>
- <20061011094649.GD2701@mellanox.co.il>
+From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
+Subject: RE: [PATCH 00/11] The _entire_ secid reconciliation patchset (tada!)
+Date: Wed, 11 Oct 2006 14:20:07 -0500
+Message-ID: <001101c6ed6a$43ae71e0$cc0a010a@tcssec.com>
+References: <Pine.LNX.4.64.0610091612140.31187@d.namei>
+Reply-To: <vyekkirala@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: netdev@vger.kernel.org, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, shemminger@osdl.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	"Venkat Yekkirala" <vyekkirala@tcsfw4.tcs-sec.com>,
+	"Stephen Smalley" <sds@tycho.nsa.gov>,
+	"Eric Paris" <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:3780 "EHLO palrel10.hp.com")
-	by vger.kernel.org with ESMTP id S1161138AbWJKSYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 14:24:43 -0400
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>,
-	"David Miller" <davem@davemloft.net>
-In-Reply-To: <20061011094649.GD2701@mellanox.co.il>
-References: <20061011.022015.63051509.davem@davemloft.net>
- <20061011094649.GD2701@mellanox.co.il>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:34609 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161354AbWJKTUz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Oct 2006 15:20:55 -0400
+To: "'James Morris'" <jmorris@namei.org>,
+	"Paul Moore" <paul.moore@hp.com>,
+	"David S. Miller" <davem@davemloft.net>
+In-Reply-To: <Pine.LNX.4.64.0610091612140.31187@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-At 02:46 AM 10/11/2006, Michael S. Tsirkin wrote:
->Quoting r. David Miller <davem@davemloft.net>:
-> > Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-> >
-> > From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-> > Date: Wed, 11 Oct 2006 11:05:04 +0200
-> >
-> > > So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
-> > > data will be copied over rather than sent directly.
-> > > So why does dev.c have to force set NETIF_F_SG to off then?
-> >
-> > Because it's more efficient to copy into a linear destination
-> > buffer of an SKB than page sub-chunks when doing checksum+copy.
-> >
->
->Thanks for the explanation.
->Obviously its true as long as you can allocate the skb that big.
->I think you won't realistically be able to get 64K in a
->linear SKB on a busy system, though, is not that right?
->
->OTOH, having large MTU (e.g. 64K) helps performance a lot since it reduces 
->receive side processing overhead.
-
-One thing to keep in mind is while it may help performance in a 
-micro-benchmark, the system performance or the QoS impacts to other flows 
-can be negatively impacted depending upon implementation.  For example, 
-consider multiple messages interleaving (heaven help implementations that 
-are not able to interleave multiple messages) on either the transmit or 
-receive HCA / RNIC and how the time-to-completion of any message is 
-extended out in time as a result of the interleave.  The effective 
-throughput in terms of useful units of work can be lower as a result.   The 
-same effect can be observed when there are a significant number connections 
-in a device being simultaneously processed.
-
-Also, if the copy-checksum is not performed on the processor where the 
-application resides, then the performance can also be negatively impacted 
-(want to have the right cache hot when initiated or concluded).  While the 
-aggregate computational performance of systems may be increasing at a 
-significant rate (set aside the per core vs. aggregate core debate), the 
-memory performance gains are much less.  If you examine the longer term 
-trends, there may be a flattening out of memory performance improvements by 
-2009/10 without some major changes in the way controllers and subsystems 
-are designed.
-
-Mike 
-
-
+> From an initial review of this patchset, it doesn't look 
+> quite ready to 
+> queue for 2.6.20 (which I plan to to via git once it is).
+> 
+> Outstanding items include resolving the igmp skb hook issue 
+> generally, 
+> testing to verify both the design and implementation, and 
+> ensuring that 
+> all the related policy changes are merged upstream first.
+> 
+Regarding the igmp hook issue, we could do a generic hook
+like Paul suggested. Would that be more palatable you think?
