@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Tue, 10 Oct 2006 20:50:49 -0700 (PDT)
-Message-ID: <20061010.205049.132929620.davem@davemloft.net>
-References: <adak637bjs3.fsf@cisco.com>
-	<20061010.204528.90823856.davem@davemloft.net>
-	<adafydvbjgq.fsf@cisco.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mst@mellanox.co.il, shemminger@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	openib-general@openib.org, rolandd@cisco.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Tigon3 crash when used with any torrent app
+Date: Wed, 11 Oct 2006 14:39:32 +1000
+Message-ID: <E1GXVsS-0001cd-00@gondolin.me.apana.org.au>
+References: <1551EAE59135BE47B544934E30FC4FC093FBFF@NT-IRVA-0751.brcm.ad.broadcom.com>
+Cc: sas@noend.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47043
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030783AbWJKDuq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Oct 2006 23:50:46 -0400
-To: rdreier@cisco.com
-In-Reply-To: <adafydvbjgq.fsf@cisco.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:55820 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030787AbWJKEkT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Oct 2006 00:40:19 -0400
+To: mchan@broadcom.com (Michael Chan)
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FBFF@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 10 Oct 2006 20:49:09 -0700
-
->     David> non-sendfile() paths will generate big packets just fine,
->     David> as long as the application is providing that much data.
+Michael Chan <mchan@broadcom.com> wrote:
+> Sebastian Alfredo Salvino wrote:
 > 
-> OK, cool.  Will the big packets be non-linear skbs?
+>> However when I am booted up into 2.6.18 and try to connect to 
+>> any p2p network 
+>> via BitTorrent, KTorrent, etc., it just hang. 
+> 
+> Did the same setup work in 2.6.17?  If yes, can you bisect
+> the tg3 patches between 2.6.17 and 2.6.18?
 
-If you had SG enabled (and thus checksumming offload too) then yes
-you'll get a non-linear SKB.  Otherwise, without SG, you'll get a
-fully linear SKB.
+Does ping still work? If so you might want to take a tcpdump
+as this indicates a TCP-level problem (window-scaling being
+the most likely cause).
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
