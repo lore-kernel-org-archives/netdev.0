@@ -1,31 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Wed, 11 Oct 2006 02:20:15 -0700 (PDT)
-Message-ID: <20061011.022015.63051509.davem@davemloft.net>
-References: <20061010.191547.83619974.davem@davemloft.net>
-	<20061011090504.GC2938@mellanox.co.il>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 21/21]: powerpc/cell spidernet DMA coalescing
+Date: Wed, 11 Oct 2006 11:25:09 +0200
+Message-ID: <200610111125.10902.arnd@arndb.de>
+References: <20061010204946.GW4381@austin.ibm.com> <452C2AAA.5070001@austin.ibm.com> <452C4CE0.5010607@am.sony.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	rolandd@cisco.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jschopp <jschopp@austin.ibm.com>,
+	Linas Vepstas <linas@austin.ibm.com>, akpm@osdl.org,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23435
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965216AbWJKJUM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Oct 2006 05:20:12 -0400
-To: mst@mellanox.co.il
-In-Reply-To: <20061011090504.GC2938@mellanox.co.il>
+Received: from moutng.kundenserver.de ([212.227.126.183]:54776 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S1750785AbWJKJZb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 05:25:31 -0400
+To: Geoff Levand <geoffrey.levand@am.sony.com>
+In-Reply-To: <452C4CE0.5010607@am.sony.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Date: Wed, 11 Oct 2006 11:05:04 +0200
+On Wednesday 11 October 2006 03:46, Geoff Levand wrote:
+> >=20
+> > The others look good, but this one complicates the code and doesn't=
+ have any benefit. =C2=A020=20
+> > for 21 isn't bad.
+>=20
+> Is the motivation for this change to improve performance by reducing =
+the overhead
+> of the mapping calls? =C2=A0If so, there may be some benefit for some=
+ systems. =C2=A0Could
+> you please elaborate?
+>=20
 
-> So, it seems that if I set NETIF_F_SG but clear NETIF_F_ALL_CSUM,
-> data will be copied over rather than sent directly.
-> So why does dev.c have to force set NETIF_F_SG to off then?
+=46rom what I understand, this patch drastically reduces the number of
+I/O PTEs that are needed in the iommu. With the current static IOMMU
+mapping, it should only make a difference during initialization, but
+any platform that uses a dynamic mapping of iommu entries will benefit
+a lot from it, because:
 
-Because it's more efficient to copy into a linear destination
-buffer of an SKB than page sub-chunks when doing checksum+copy.
+- the card can do better prefetching of consecutive memory
+- there are more I/O ptes available for other drivers.
+
+	Arnd <><
