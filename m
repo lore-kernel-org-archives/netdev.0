@@ -1,151 +1,76 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] Customizable TCP backoff patch
-Date: Wed, 11 Oct 2006 10:01:47 -0400
-Message-ID: <452CF94B.9000309@hp.com>
-References: <451AC889.5000407@redhat.com>	<20060927.161638.62343616.davem@davemloft.net>	<4522A88E.2070200@redhat.com> <20061004.000722.99203823.davem@davemloft.net> <452C4D12.9060102@redhat.com>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [PATCH] d80211: extend extra_hdr_room to be a bytecount
+Date: Wed, 11 Oct 2006 07:59:23 -0700
+Message-ID: <20061011145923.GA6785@devicescape.com>
+References: <200610111158.28434.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mgrondona@llnl.gov, behlendorf1@llnl.gov
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	David Kimdon <david.kimdon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:6087 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1030208AbWJKOB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 10:01:56 -0400
-To: Ben Woodard <woodard@redhat.com>
-In-Reply-To: <452C4D12.9060102@redhat.com>
+Received: from mail.devicescape.com ([207.138.119.2]:40112 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1161071AbWJKO7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Oct 2006 10:59:35 -0400
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200610111158.28434.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Woodard wrote:
- ------------------------------------------------------------------------
-> diff -ru linux-2.6.18/include/net/tcp.h linux-2.6.18.new/include/net/tcp.h
-> --- linux-2.6.18/include/net/tcp.h	2006-09-19 20:42:06.000000000 -0700
-> +++ linux-2.6.18.new/include/net/tcp.h	2006-10-10 18:42:00.000000000 -0700
-> @@ -227,11 +227,23 @@
->  extern int sysctl_tcp_base_mss;
->  extern int sysctl_tcp_workaround_signed_windows;
->  extern int sysctl_tcp_slow_start_after_idle;
-> +extern unsigned long sysctl_tcp_rto_max;
-> +extern unsigned long sysctl_tcp_rto_init;
->  
->  extern atomic_t tcp_memory_allocated;
->  extern atomic_t tcp_sockets_allocated;
->  extern int tcp_memory_pressure;
->  
-> +static inline unsigned long tcp_rto_max(struct tcp_sock *tp)
-> +{
-> +        return tp->rto_max ? tp->rto_max*HZ/1000 : sysctl_tcp_rto_max;
-                                ^^^^^^^^^^^^^^^^^^^
-That should probably be msecs_to_jiffies(tp->rto_max)
+Perhaps rename it to extra_tx_headroom?
+ - existing users would then need to take notice of the change
+ - the name 'extra_tx_headroom' is more descriptive of what it actually is
 
-> +}
+-David
+
+On Wed, Oct 11, 2006 at 11:58:28AM +0200, Michael Buesch wrote:
+> Extend ieee80211_hw's extra_hdr_room to be a bytecount for
+> a device specific TX header instead of being a hardcoded
+> 0/2 byte choice.
+> 
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> 
+> diff --git a/include/net/d80211.h b/include/net/d80211.h
+> index a80f48b..9e9709f 100644
+> --- a/include/net/d80211.h
+> +++ b/include/net/d80211.h
+> @@ -476,10 +476,6 @@ struct ieee80211_hw {
+>  	/* Force software encryption for TKIP packets if WMM is enabled. */
+>  	unsigned int no_tkip_wmm_hwaccel:1;
+>  
+> -	/* set if the payload needs to be padded at even boundaries after the
+> -	 * header */
+> -	unsigned int extra_hdr_room:1;
+> -
+>  	/* Some devices handle Michael MIC internally and do not include MIC in
+>  	 * the received packets passed up. device_strips_mic must be set
+>  	 * for such devices. The 'encryption' frame control bit is expected to
+> @@ -496,6 +492,9 @@ struct ieee80211_hw {
+>  	 * i.e. more than one skb per frame */
+>  	unsigned int fraglist:1;
+>  
+> +	/* Set to the size of a needed device specific skb headroom for TX skbs. */
+> +	unsigned int extra_hdr_room;
 > +
-> +static inline unsigned long tcp_rto_init(struct tcp_sock *tp)
-> +{
-> +        return tp->rto_init ? tp->rto_init*HZ/1000 : sysctl_tcp_rto_init;
-
-Ditto.
-
-> +}
-> +
->  /*
->   * The next routines deal with comparing 32 bit unsigned ints
->   * and worry about wraparound (automatic with unsigned arithmetic).
-> diff -ru linux-2.6.18/net/ipv4/sysctl_net_ipv4.c linux-2.6.18.new/net/ipv4/sysctl_net_ipv4.c
-> --- linux-2.6.18/net/ipv4/sysctl_net_ipv4.c	2006-09-19 20:42:06.000000000 -0700
-> +++ linux-2.6.18.new/net/ipv4/sysctl_net_ipv4.c	2006-10-10 16:32:08.000000000 -0700
-> @@ -128,6 +128,8 @@
->  	return ret;
->  }
+>          /* This is the time in us to change channels
+>           */
+>          int channel_change_time;
+> diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+> index 1ef2707..7d52c3b 100644
+> --- a/net/d80211/ieee80211.c
+> +++ b/net/d80211/ieee80211.c
+> @@ -1551,7 +1551,7 @@ static int ieee80211_subif_start_xmit(st
+>  	 * build in headroom in __dev_alloc_skb() (linux/skbuff.h) and
+>  	 * alloc_skb() (net/core/skbuff.c)
+>  	 */
+> -	head_need = hdrlen + encaps_len + (local->hw->extra_hdr_room ? 2 : 0);
+> +	head_need = hdrlen + encaps_len + local->hw->extra_hdr_room;
+>  	head_need -= skb_headroom(skb);
 >  
-> +static unsigned long tcp_rto_min=0;
-> +static unsigned long tcp_rto_max=65535;
->  
->  ctl_table ipv4_table[] = {
->          {
-> @@ -697,6 +699,26 @@
->  		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec
->  	},
-> +	{
-> +	        .ctl_name       = NET_TCP_RTO_MAX,
-> +		.procname       = "tcp_rto_max",
-> +		.data           = &sysctl_tcp_rto_max,
-> +		.maxlen         = sizeof(unsigned),
-> +		.mode           = 0644,
-> +		.proc_handler   = &proc_doulongvec_ms_jiffies,
-> +		.extra1         = &tcp_rto_min_constant,
-> +		.extra2         = &tcp_rto_max_constant,
-> +	},
-> +	{
-> +	        .ctl_name       = NET_TCP_RTO_INIT,
-> +		.procname       = "tcp_rto_init",
-> +		.data           = &sysctl_tcp_rto_init,
-> +		.maxlen         = sizeof(unsigned),
-> +		.mode           = 0644,
-> +		.proc_handler   = &proc_doulongvec_ms_jiffies,
-> +		.extra1         = &tcp_rto_min_constant,
-> +		.extra2         = &tcp_rto_max_constant,
-> +	},
->  	{ .ctl_name = 0 }
->  };
-
-Try as I might, I can't find proc_doulongvec_ms_jiffies() anywhere.  I think
-you meant proc_doulongvec_ms_jiffies_minmax()?
-
-Also, this function has a bug in that it doesn't do corrections for potentially different
-HZ values.  Look at the msecs_to_jiffies...  When I've used proc_doulongvec_ms_jiffies_minmax()
-before, I would seen rather interesting truncation errors such that sysctl input didn't match
-sysctl output.
-
->  
-> diff -ru linux-2.6.18/net/ipv4/tcp.c linux-2.6.18.new/net/ipv4/tcp.c
-> --- linux-2.6.18/net/ipv4/tcp.c	2006-09-19 20:42:06.000000000 -0700
-> +++ linux-2.6.18.new/net/ipv4/tcp.c	2006-10-10 18:37:40.000000000 -0700
-> @@ -1764,6 +1764,8 @@
->  	return err;
->  }
->  
-> +#define TCP_BACKOFF_MAXVAL 65535
-> +
->  /*
->   *	Socket option code for TCP.
->   */
-> @@ -1939,6 +1941,21 @@
->  		}
->  		break;
->  
-> +        case TCP_BACKOFF_MAX:
-> +                if (val < 1 || val > TCP_BACKOFF_MAXVAL)
-> +                        err = -EINVAL;
-> +                else
-> +                        tp->rto_max = val;
-> +                break;
-> + 
-> +        case TCP_BACKOFF_INIT:
-> +                if (val < 1 || val > TCP_BACKOFF_MAXVAL)
-> +                        err = -EINVAL;
-> +                else
-> +                        tp->rto_init = val;
-> +                break;
-> + 
-> + 
->  	default:
->  		err = -ENOPROTOOPT;
->  		break;
-> @@ -2110,6 +2127,12 @@
->  		if (copy_to_user(optval, icsk->icsk_ca_ops->name, len))
->  			return -EFAULT;
->  		return 0;
-> +        case TCP_BACKOFF_MAX:
-> +	        val = tcp_rto_max(tp)*1000/HZ;
-> +                break;
-> +        case TCP_BACKOFF_INIT:
-> +	        val = tcp_rto_init(tp)*1000/HZ;
-
-The two divisions above introduce truncation errors such the input doesn't
-match the output.  Better to use jiffies_to_msecs().
-
-Regards
--vlad
+>  	/* We are going to modify skb data, so make a copy of it if happens to
+> 
+> 
+> -- 
+> Greetings Michael.
