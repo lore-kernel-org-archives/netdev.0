@@ -1,61 +1,151 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [RFC] Question about potential problem in net/ipv4/route.c
-Date: Wed, 11 Oct 2006 15:11:18 +0200
-Message-ID: <200610111511.19028.dada1@cosmosbay.com>
-References: <20061010.191547.83619974.davem@davemloft.net> <20061011090504.GC2938@mellanox.co.il> <20061011.022015.63051509.davem@davemloft.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] Customizable TCP backoff patch
+Date: Wed, 11 Oct 2006 10:01:47 -0400
+Message-ID: <452CF94B.9000309@hp.com>
+References: <451AC889.5000407@redhat.com>	<20060927.161638.62343616.davem@davemloft.net>	<4522A88E.2070200@redhat.com> <20061004.000722.99203823.davem@davemloft.net> <452C4D12.9060102@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mgrondona@llnl.gov, behlendorf1@llnl.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:6869 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1751276AbWJKNLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 09:11:17 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061011.022015.63051509.davem@davemloft.net>
-Content-Disposition: inline
+Received: from atlrel6.hp.com ([156.153.255.205]:6087 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1030208AbWJKOB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2006 10:01:56 -0400
+To: Ben Woodard <woodard@redhat.com>
+In-Reply-To: <452C4D12.9060102@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David
+Ben Woodard wrote:
+ ------------------------------------------------------------------------
+> diff -ru linux-2.6.18/include/net/tcp.h linux-2.6.18.new/include/net/tcp.h
+> --- linux-2.6.18/include/net/tcp.h	2006-09-19 20:42:06.000000000 -0700
+> +++ linux-2.6.18.new/include/net/tcp.h	2006-10-10 18:42:00.000000000 -0700
+> @@ -227,11 +227,23 @@
+>  extern int sysctl_tcp_base_mss;
+>  extern int sysctl_tcp_workaround_signed_windows;
+>  extern int sysctl_tcp_slow_start_after_idle;
+> +extern unsigned long sysctl_tcp_rto_max;
+> +extern unsigned long sysctl_tcp_rto_init;
+>  
+>  extern atomic_t tcp_memory_allocated;
+>  extern atomic_t tcp_sockets_allocated;
+>  extern int tcp_memory_pressure;
+>  
+> +static inline unsigned long tcp_rto_max(struct tcp_sock *tp)
+> +{
+> +        return tp->rto_max ? tp->rto_max*HZ/1000 : sysctl_tcp_rto_max;
+                                ^^^^^^^^^^^^^^^^^^^
+That should probably be msecs_to_jiffies(tp->rto_max)
 
-While browsing net/ipv4/route.c  I discovered compare_keys() function, and a 
-potential bug in it.
+> +}
+> +
+> +static inline unsigned long tcp_rto_init(struct tcp_sock *tp)
+> +{
+> +        return tp->rto_init ? tp->rto_init*HZ/1000 : sysctl_tcp_rto_init;
 
-static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
-{
-        return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, 
-sizeof(fl1->nl_u.ip4_u)) == 0 &&
-               fl1->oif     == fl2->oif &&
-               fl1->iif     == fl2->iif;
-}
+Ditto.
 
+> +}
+> +
+>  /*
+>   * The next routines deal with comparing 32 bit unsigned ints
+>   * and worry about wraparound (automatic with unsigned arithmetic).
+> diff -ru linux-2.6.18/net/ipv4/sysctl_net_ipv4.c linux-2.6.18.new/net/ipv4/sysctl_net_ipv4.c
+> --- linux-2.6.18/net/ipv4/sysctl_net_ipv4.c	2006-09-19 20:42:06.000000000 -0700
+> +++ linux-2.6.18.new/net/ipv4/sysctl_net_ipv4.c	2006-10-10 16:32:08.000000000 -0700
+> @@ -128,6 +128,8 @@
+>  	return ret;
+>  }
+>  
+> +static unsigned long tcp_rto_min=0;
+> +static unsigned long tcp_rto_max=65535;
+>  
+>  ctl_table ipv4_table[] = {
+>          {
+> @@ -697,6 +699,26 @@
+>  		.mode		= 0644,
+>  		.proc_handler	= &proc_dointvec
+>  	},
+> +	{
+> +	        .ctl_name       = NET_TCP_RTO_MAX,
+> +		.procname       = "tcp_rto_max",
+> +		.data           = &sysctl_tcp_rto_max,
+> +		.maxlen         = sizeof(unsigned),
+> +		.mode           = 0644,
+> +		.proc_handler   = &proc_doulongvec_ms_jiffies,
+> +		.extra1         = &tcp_rto_min_constant,
+> +		.extra2         = &tcp_rto_max_constant,
+> +	},
+> +	{
+> +	        .ctl_name       = NET_TCP_RTO_INIT,
+> +		.procname       = "tcp_rto_init",
+> +		.data           = &sysctl_tcp_rto_init,
+> +		.maxlen         = sizeof(unsigned),
+> +		.mode           = 0644,
+> +		.proc_handler   = &proc_doulongvec_ms_jiffies,
+> +		.extra1         = &tcp_rto_min_constant,
+> +		.extra2         = &tcp_rto_max_constant,
+> +	},
+>  	{ .ctl_name = 0 }
+>  };
 
-Using memcmp(ptr1, ptr2, sizeof(SOMEFIELD)) is dangerous because 
-sizeof(SOMEFIELD) can be larger than the underlying object, because of 
-alignment constraints.
+Try as I might, I can't find proc_doulongvec_ms_jiffies() anywhere.  I think
+you meant proc_doulongvec_ms_jiffies_minmax()?
 
-In this case, sizeof(fl1->nl_u.ip4_u) is 16, while fl1->nl_u.ip4_u is :
+Also, this function has a bug in that it doesn't do corrections for potentially different
+HZ values.  Look at the msecs_to_jiffies...  When I've used proc_doulongvec_ms_jiffies_minmax()
+before, I would seen rather interesting truncation errors such that sysctl input didn't match
+sysctl output.
 
-                struct {
-                        __u32                   daddr;
-                        __u32                   saddr;
-                        __u32                   fwmark;
-                        __u8                    tos;
-                        __u8                    scope;
-                } ip4_u;
+>  
+> diff -ru linux-2.6.18/net/ipv4/tcp.c linux-2.6.18.new/net/ipv4/tcp.c
+> --- linux-2.6.18/net/ipv4/tcp.c	2006-09-19 20:42:06.000000000 -0700
+> +++ linux-2.6.18.new/net/ipv4/tcp.c	2006-10-10 18:37:40.000000000 -0700
+> @@ -1764,6 +1764,8 @@
+>  	return err;
+>  }
+>  
+> +#define TCP_BACKOFF_MAXVAL 65535
+> +
+>  /*
+>   *	Socket option code for TCP.
+>   */
+> @@ -1939,6 +1941,21 @@
+>  		}
+>  		break;
+>  
+> +        case TCP_BACKOFF_MAX:
+> +                if (val < 1 || val > TCP_BACKOFF_MAXVAL)
+> +                        err = -EINVAL;
+> +                else
+> +                        tp->rto_max = val;
+> +                break;
+> + 
+> +        case TCP_BACKOFF_INIT:
+> +                if (val < 1 || val > TCP_BACKOFF_MAXVAL)
+> +                        err = -EINVAL;
+> +                else
+> +                        tp->rto_init = val;
+> +                break;
+> + 
+> + 
+>  	default:
+>  		err = -ENOPROTOOPT;
+>  		break;
+> @@ -2110,6 +2127,12 @@
+>  		if (copy_to_user(optval, icsk->icsk_ca_ops->name, len))
+>  			return -EFAULT;
+>  		return 0;
+> +        case TCP_BACKOFF_MAX:
+> +	        val = tcp_rto_max(tp)*1000/HZ;
+> +                break;
+> +        case TCP_BACKOFF_INIT:
+> +	        val = tcp_rto_init(tp)*1000/HZ;
 
-So 14 bytes are really initialized, and 2 padding bytes might contain random 
-values...
+The two divisions above introduce truncation errors such the input doesn't
+match the output.  Better to use jiffies_to_msecs().
 
-So at the very minimum, we should avoid doing the memcmp() including those 
-last two bytes : It would be less bugy, and faster too...  (But to get really 
-fast comparison, we should do some clever long/int XOR operations to avoid 
-many test/branches, like the optim we did in compare_ether_addr())
-
-As shown in profiles, "repz cmpsb" is really a dog... (and its use of 
-esi/edi/ecx registers a high pressure for the compiler/optimizer)
-
-Eric
-
+Regards
+-vlad
