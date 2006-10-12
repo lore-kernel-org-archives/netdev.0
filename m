@@ -1,43 +1,30 @@
-From: James Morris <jmorris@namei.org>
-Subject: RE: [PATCH 00/11] The _entire_ secid reconciliation patchset (tada!)
-Date: Thu, 12 Oct 2006 03:26:53 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0610120321200.25038@d.namei>
-References: <001101c6ed6a$43ae71e0$cc0a010a@tcssec.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] NET/bluetooth: handle sysfs errors
+Date: Thu, 12 Oct 2006 09:34:49 +0200
+Message-ID: <1160638489.3843.5.camel@localhost>
+References: <20061012015316.GA13305@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Moore <paul.moore@hp.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov,
-	Venkat Yekkirala <vyekkirala@tcsfw4.tcs-sec.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Eric Paris <eparis@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: maxk@qualcomm.com, Andrew Morton <akpm@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:25308 "EHLO
-	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1030693AbWJLH05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 03:26:57 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <001101c6ed6a$43ae71e0$cc0a010a@tcssec.com>
+Received: from coyote.holtmann.net ([217.160.111.169]:19340 "EHLO
+	mail.holtmann.net") by vger.kernel.org with ESMTP id S1422649AbWJLHfk
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 03:35:40 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <20061012015316.GA13305@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Oct 2006, Venkat Yekkirala wrote:
+Hi Jeff,
 
-> > Outstanding items include resolving the igmp skb hook issue 
-> > generally, 
-> > testing to verify both the design and implementation, and 
-> > ensuring that 
-> > all the related policy changes are merged upstream first.
-> > 
-> Regarding the igmp hook issue, we could do a generic hook
-> like Paul suggested. Would that be more palatable you think?
+thanks for the patch, but I already have one that fixes this and it will
+go to David Miller for inclusion soon.
 
-It needs to be investigated to see if anything else in the kernel is doing 
-the same thing, and then most likely, a generic hook for 
-classifying non-socket packets (you could pass the protocol as a hook 
-parameter).
+Regards
+
+Marcel
 
 
--- 
-James Morris
-<jmorris@namei.org>
