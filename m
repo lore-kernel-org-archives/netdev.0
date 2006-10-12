@@ -1,79 +1,94 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [RFC] Question about potential problem in net/ipv4/route.c
-Date: Wed, 11 Oct 2006 23:25:16 -0700 (PDT)
-Message-ID: <20061011.232516.81465088.davem@davemloft.net>
-References: <452DD724.4030502@cosmosbay.com>
-	<20061011.230233.122062793.davem@davemloft.net>
-	<452DDC63.2030707@trash.net>
+Date: Thu, 12 Oct 2006 08:35:47 +0200
+Message-ID: <452DE243.7050903@cosmosbay.com>
+References: <200610111511.19028.dada1@cosmosbay.com>
+ <20061011.220506.76273501.davem@davemloft.net>
+ <452DD724.4030502@cosmosbay.com>
+ <20061011.230233.122062793.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33460
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932496AbWJLGZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 02:25:09 -0400
-To: kaber@trash.net
-In-Reply-To: <452DDC63.2030707@trash.net>
+Received: from sp604003mt.neufgp.fr ([84.96.92.56]:25243 "EHLO smTp.neuf.fr")
+	by vger.kernel.org with ESMTP id S932483AbWJLGfn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 02:35:43 -0400
+Received: from [192.168.30.203] ([88.137.140.131]) by sp604003mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0J70009S4FNIYY00@sp604003mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Thu, 12 Oct 2006 08:35:42 +0200 (CEST)
+In-reply-to: <20061011.230233.122062793.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 12 Oct 2006 08:10:43 +0200
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Thu, 12 Oct 2006 07:48:20 +0200
+>=20
+>> Not on my gcc here (gcc version 3.4.4) : It wont zeros out the paddi=
+ng bytes
+>=20
+> Patrick just proved this too :)
+>=20
+>> Well, on this machine I have these oprofile numbers :
+>>
+>> <rt_intern_hash>: /* rt_intern_hash total: 993464  0.3619 */
+>>
+>>   31751  0.0116 :ffffffff803e8d26:   repz cmpsb %es:(%rdi),%ds:(%rsi=
+)
+>> 433438  0.1579 :ffffffff803e8d28:   jne    ffffffff803e8f80 <rt_inte=
+rn_hash+0x310>
+>=20
+> Indeed, numbers talk bullshit walks :)
+>=20
+> How about something like this as a start?
+>=20
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index c41ddba..4d4b1bd 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -566,9 +566,13 @@ static inline u32 rt_score(struct rtable
+> =20
+>  static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
+>  {
+> -	return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, sizeof(fl1->nl_u.=
+ip4_u)) =3D=3D 0 &&
+> -	       fl1->oif     =3D=3D fl2->oif &&
+> -	       fl1->iif     =3D=3D fl2->iif;
+> +	return ((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.daddr) |
+> +		(fl1->nl_u.ip4_u.saddr ^ fl2->nl_u.ip4_u.saddr) |
+> +		(fl1->nl_u.ip4_u.fwmark ^ fl2->nl_u.ip4_u.fwmark) |
+> +		(*(u16 *)&fl1->nl_u.ip4_u.tos ^
+> +		 *(u16 *)&fl2->nl_u.ip4_u.tos) |
+> +		(fl1->oif ^ fl2->oif) |
+> +		(fl1->iif ^ fl2->iif)) =3D=3D 0;
+>  }
+> =20
+>  #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
+>=20
+>=20
 
-> David Miller wrote:
-> > Indeed, numbers talk bullshit walks :)
-> 
-> :)
-> 
-> > How about something like this as a start?
-> > 
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> 
-> The same problem is also present in dn_route.c (3 uninitialized
-> bytes in dn_u).
+Yes it seems a nice start :)
 
-This should take care of that case too:
+How about avoiding the fwmark thing if !CONFIG_IP_ROUTE_FWMARK
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index dd0761e..33ccc56 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -267,9 +267,12 @@ static void dn_dst_link_failure(struct s
- 
- static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
- {
--	return memcmp(&fl1->nl_u.dn_u, &fl2->nl_u.dn_u, sizeof(fl1->nl_u.dn_u)) == 0 &&
--		fl1->oif == fl2->oif &&
--		fl1->iif == fl2->iif;
-+	return ((fl1->nl_u.dn_u.daddr ^ fl2->nl_u.dn_u.daddr) |
-+		(fl1->nl_u.dn_u.saddr ^ fl2->nl_u.dn_u.saddr) |
-+		(fl1->nl_u.dn_u.fwmark ^ fl2->nl_u.dn_u.fwmark) |
-+		(fl1->nl_u.dn_u.scope ^ fl2->nl_u.dn_u.scope) |
-+		(fl1->oif ^ fl2->oif) |
-+		(fl1->iif ^ fl2->iif)) == 0;
- }
- 
- static int dn_insert_route(struct dn_route *rt, unsigned hash, struct dn_route **rp)
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c41ddba..4d4b1bd 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -566,9 +566,13 @@ static inline u32 rt_score(struct rtable
- 
- static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
- {
--	return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, sizeof(fl1->nl_u.ip4_u)) == 0 &&
--	       fl1->oif     == fl2->oif &&
--	       fl1->iif     == fl2->iif;
-+	return ((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.daddr) |
-+		(fl1->nl_u.ip4_u.saddr ^ fl2->nl_u.ip4_u.saddr) |
-+		(fl1->nl_u.ip4_u.fwmark ^ fl2->nl_u.ip4_u.fwmark) |
-+		(*(u16 *)&fl1->nl_u.ip4_u.tos ^
-+		 *(u16 *)&fl2->nl_u.ip4_u.tos) |
-+		(fl1->oif ^ fl2->oif) |
-+		(fl1->iif ^ fl2->iif)) == 0;
- }
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
+ > +	return ((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.daddr) |
+ > +		(fl1->nl_u.ip4_u.saddr ^ fl2->nl_u.ip4_u.saddr) |
+
+#ifdef CONFIG_IP_ROUTE_FWMARK
+
+ > +		(fl1->nl_u.ip4_u.fwmark ^ fl2->nl_u.ip4_u.fwmark) |
+
+#endif
+
+ > +		(*(u16 *)&fl1->nl_u.ip4_u.tos ^
+ > +		 *(u16 *)&fl2->nl_u.ip4_u.tos) |
+ > +		(fl1->oif ^ fl2->oif) |
+ > +		(fl1->iif ^ fl2->iif)) =3D=3D 0;
+
+
+Eric
+
