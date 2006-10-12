@@ -1,61 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [RTNETLINK]: Fix use of wrong skb in do_getlink()
-Date: Thu, 12 Oct 2006 08:40:57 +0200
-Message-ID: <452DE379.6010807@trash.net>
+From: James Morris <jmorris@namei.org>
+Subject: RE: [PATCH 00/11] The _entire_ secid reconciliation patchset (tada!)
+Date: Thu, 12 Oct 2006 03:26:53 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0610120321200.25038@d.namei>
+References: <001101c6ed6a$43ae71e0$cc0a010a@tcssec.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080100040905080903030505"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Moore <paul.moore@hp.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov,
+	Venkat Yekkirala <vyekkirala@tcsfw4.tcs-sec.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55263 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932505AbWJLGjb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 02:39:31 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:25308 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030693AbWJLH05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 03:26:57 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <001101c6ed6a$43ae71e0$cc0a010a@tcssec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080100040905080903030505
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Wed, 11 Oct 2006, Venkat Yekkirala wrote:
+
+> > Outstanding items include resolving the igmp skb hook issue 
+> > generally, 
+> > testing to verify both the design and implementation, and 
+> > ensuring that 
+> > all the related policy changes are merged upstream first.
+> > 
+> Regarding the igmp hook issue, we could do a generic hook
+> like Paul suggested. Would that be more palatable you think?
+
+It needs to be investigated to see if anything else in the kernel is doing 
+the same thing, and then most likely, a generic hook for 
+classifying non-socket packets (you could pass the protocol as a hook 
+parameter).
 
 
---------------080100040905080903030505
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[RTNETLINK]: Fix use of wrong skb in do_getlink()
-
-skb is the netlink query, nskb is the reply message.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 7d6fc0796ea33cd86cf20ccd51c351538903dcd9
-tree 15bd1793a030f471f4a70762b079cf187bca8207
-parent 587b522ced8a8ca3bddc99b05ec5118f11cfe164
-author Patrick McHardy <kaber@trash.net> Thu, 12 Oct 2006 08:38:03 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 12 Oct 2006 08:38:03 +0200
-
- net/core/rtnetlink.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 221e403..02f3c79 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -602,7 +602,7 @@ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK 
- 		goto errout;
- 	}
- 
--	err = rtnl_unicast(skb, NETLINK_CB(skb).pid);
-+	err = rtnl_unicast(nskb, NETLINK_CB(skb).pid);
- errout:
- 	kfree(iw_buf);
- 	dev_put(dev);
-
---------------080100040905080903030505--
+-- 
+James Morris
+<jmorris@namei.org>
