@@ -1,54 +1,73 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] bridge: flush forwarding table when device carrier off
-Date: Thu, 12 Oct 2006 17:30:33 -0400
-Message-ID: <1160688633.5047.5.camel@jzny2>
-References: <20061012112431.0550b252@dxpl.pdx.osdl.net>
-	 <20061012201043.GA29253@gospo.rdu.redhat.com>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] e1000: Real time packets and bytes statistics
+Date: Thu, 12 Oct 2006 14:29:43 -0700
+Message-ID: <20061012142943.2a93893e@freekitty>
+References: <20061011133557.8a404e24.khali@linux-fr.org>
+	<4807377b0610111044u5eced127od8272797e63743a7@mail.gmail.com>
+	<20061012103006.1367693a@freekitty>
+	<20061012230252.8b5a1ebb.khali@linux-fr.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@osdl.org
+Cc: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:19681 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751056AbWJLVag
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 17:30:36 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1GY88W-0006M5-2e
-	for netdev@vger.kernel.org; Thu, 12 Oct 2006 17:30:40 -0400
-To: Andy Gospodarek <andy@greyhouse.net>
-In-Reply-To: <20061012201043.GA29253@gospo.rdu.redhat.com>
+Received: from smtp.osdl.org ([65.172.181.4]:52409 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751039AbWJLVaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 17:30:00 -0400
+To: Jean Delvare <khali@linux-fr.org>
+In-Reply-To: <20061012230252.8b5a1ebb.khali@linux-fr.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-12-10 at 16:10 -0400, Andy Gospodarek wrote:
-> On Thu, Oct 12, 2006 at 11:24:31AM -0700, Stephen Hemminger wrote:
-> > Flush the forwarding table when carrier is lost. This helps for
-> > availability because we don't want to forward to a downed device and
-> > new packets may come in on other links.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> > 
+On Thu, 12 Oct 2006 23:02:52 +0200
+Jean Delvare <khali@linux-fr.org> wrote:
+
+> Hi Stephen,
 > 
-> Stephen,
+> On 10/11/06, Stephen Hemminger wrote:
+> > On Wed, 11 Oct 2006, Jesse Brandeburg wrote:
+> > > On 10/11/06, Jean Delvare wrote:
+> > > > Let the e1000 driver report the most important statistics (rx/tx_bytes
+> > > > and rx/tx_packets) in real time, rather than every other second. This
+> > > > is similar to what the e100 driver is doing.
+> > > > (...)
+> > > > --- linux-2.6.19-rc1.orig/drivers/net/e1000/e1000_main.c        2006-10-11 10:53:49.000000000 +0200
+> > > > +++ linux-2.6.19-rc1/drivers/net/e1000/e1000_main.c     2006-10-11 11:34:41.000000000 +0200
+> > > > @@ -3118,6 +3118,8 @@
+> > > >                        e1000_tx_map(adapter, tx_ring, skb, first,
+> > > >                                     max_per_txd, nr_frags, mss));
+> > > >
+> > > > +       adapter->net_stats.tx_packets++;
+> > > > +       adapter->net_stats.tx_bytes += skb->len;
+> > > >         netdev->trans_start = jiffies;
+> > > 
+> > > this is the part I'm most worried about.  as I believe it to be
+> > > incorrect for TSO packets.  Maybe something like?
+> > > +       if (skb_shinfo(skb)->gso_segs)
+> > > +              adapter->net_stats.tx_packets += skb_shinfo(skb)->gso_segs;
+> > > +       else
+> > > +              adapter->net_stats.tx_packets++;
+> > > +       adapter->net_stats.tx_bytes += skb->len;
+> > >         netdev->trans_start = jiffies;
+> > > 
+> > > skb len will still be off by some amount, because the skb->data
+> > > (header) is replicated across each gso segment but only counted once
+> > > this way, but hopefully someone will pipe up with a good way to
+> > > compute that.
+> > 
+> > You might want to put the tx values in a per-cpu structure and
+> > sum later.  Incrementing statistics can actually be a performance
+> > bottleneck on SMP tests, because it causes lots of cache thrashing.
 > 
-> This is an excellent idea 
+> I don't really see how this would be implemented. Can you please point
+> me to other drivers which do it that way?
+> 
+> Thanks,
 
-I am on the other extreme - this is problematic if you have a large
-table already learnt. Agrevate that with an unstable link and it gets a
-lot worse. Both of which dont sound unrealistic in say a wireless AP.
+Loopback (drivers/net/loopback.c) does it, but it is simpler since it doesn't
+have to support multiple interfaces. In a normal driver you would have to use
+indirection and alloc_percpu() like af_inet.c does.
 
-A more sane policy i have seen is a timer that flushes the table after a
-programmed period; this way you counter a flipflop-ing link.
-IOW, the best place is to have this in some user space daemon. If it has
-to be in the kernel, can you add a systcl to disable it?
-
-cheers,
-jamal
-
-
-
+-- 
+Stephen Hemminger <shemminger@osdl.org>
