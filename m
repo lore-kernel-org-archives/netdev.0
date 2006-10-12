@@ -1,83 +1,65 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Pull request for 'jg-20061012-00' tag
-Date: Thu, 12 Oct 2006 22:30:46 +0200
-Message-ID: <20061012203046.GA7227@electric-eye.fr.zoreil.com>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: Re: [PATCH] e1000: Real time packets and bytes statistics
+Date: Thu, 12 Oct 2006 23:02:52 +0200
+Message-ID: <20061012230252.8b5a1ebb.khali@linux-fr.org>
+References: <20061011133557.8a404e24.khali@linux-fr.org>
+	<4807377b0610111044u5eced127od8272797e63743a7@mail.gmail.com>
+	<20061012103006.1367693a@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	hchacha@users.sourceforge.net, Arnaud Patard <apatard@mandriva.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:52138 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750783AbWJLUbP
+Received: from smtp-104-thursday.noc.nerim.net ([62.4.17.104]:34309 "EHLO
+	mallaury.nerim.net") by vger.kernel.org with ESMTP id S1750804AbWJLVCs
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 16:31:15 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
+	Thu, 12 Oct 2006 17:02:48 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061012103006.1367693a@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please pull from tag 'jg-20061012-00' in repository
+Hi Stephen,
 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git jg-20061012-00
+On 10/11/06, Stephen Hemminger wrote:
+> On Wed, 11 Oct 2006, Jesse Brandeburg wrote:
+> > On 10/11/06, Jean Delvare wrote:
+> > > Let the e1000 driver report the most important statistics (rx/tx_bytes
+> > > and rx/tx_packets) in real time, rather than every other second. This
+> > > is similar to what the e100 driver is doing.
+> > > (...)
+> > > --- linux-2.6.19-rc1.orig/drivers/net/e1000/e1000_main.c        2006-10-11 10:53:49.000000000 +0200
+> > > +++ linux-2.6.19-rc1/drivers/net/e1000/e1000_main.c     2006-10-11 11:34:41.000000000 +0200
+> > > @@ -3118,6 +3118,8 @@
+> > >                        e1000_tx_map(adapter, tx_ring, skb, first,
+> > >                                     max_per_txd, nr_frags, mss));
+> > >
+> > > +       adapter->net_stats.tx_packets++;
+> > > +       adapter->net_stats.tx_bytes += skb->len;
+> > >         netdev->trans_start = jiffies;
+> > 
+> > this is the part I'm most worried about.  as I believe it to be
+> > incorrect for TSO packets.  Maybe something like?
+> > +       if (skb_shinfo(skb)->gso_segs)
+> > +              adapter->net_stats.tx_packets += skb_shinfo(skb)->gso_segs;
+> > +       else
+> > +              adapter->net_stats.tx_packets++;
+> > +       adapter->net_stats.tx_bytes += skb->len;
+> >         netdev->trans_start = jiffies;
+> > 
+> > skb len will still be off by some amount, because the skb->data
+> > (header) is replicated across each gso segment but only counted once
+> > this way, but hopefully someone will pipe up with a good way to
+> > compute that.
+> 
+> You might want to put the tx values in a per-cpu structure and
+> sum later.  Incrementing statistics can actually be a performance
+> bottleneck on SMP tests, because it causes lots of cache thrashing.
 
-to get the changes below.
+I don't really see how this would be implemented. Can you please point
+me to other drivers which do it that way?
 
-Distance from 'upstream-fixes'
------------------------------
-
-733b736c91dd2c556f35dffdcf77e667cf10cefc
-73f5e28b336772c4b08ee82e5bf28ab872898ee1
-
-Diffstat
---------
-
- drivers/net/r8169.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
-
-Shortlog
---------
-
-Andrew Morton:
-      r8169: PCI ID for Corega Gigabit network card
-
-Arnaud Patard:
-      r8169: fix infinite loop during hotplug
-
-Patch
------
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 4c47c5b..c2c9a86 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -214,6 +214,7 @@ static struct pci_device_id rtl8169_pci_
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8168), 0, 0, RTL_CFG_2 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), 0, 0, RTL_CFG_0 },
-+	{ PCI_DEVICE(0x1259,			0xc107), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(0x16ec,			0x0116), 0, 0, RTL_CFG_0 },
- 	{ PCI_VENDOR_ID_LINKSYS,		0x1032,
- 		PCI_ANY_ID, 0x0024, 0, 0, RTL_CFG_0 },
-@@ -2701,6 +2702,7 @@ static void rtl8169_down(struct net_devi
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	unsigned int poll_locked = 0;
-+	unsigned int intrmask;
- 
- 	rtl8169_delete_timer(dev);
- 
-@@ -2739,8 +2741,11 @@ core_down:
- 	 * 2) dev->change_mtu
- 	 *    -> rtl8169_poll can not be issued again and re-enable the
- 	 *       interruptions. Let's simply issue the IRQ down sequence again.
-+	 *
-+	 * No loop if hotpluged or major error (0xffff).
- 	 */
--	if (RTL_R16(IntrMask))
-+	intrmask = RTL_R16(IntrMask);
-+	if (intrmask && (intrmask != 0xffff))
- 		goto core_down;
- 
- 	rtl8169_tx_clear(tp);
+Thanks,
 -- 
-Ueimor
+Jean Delvare
