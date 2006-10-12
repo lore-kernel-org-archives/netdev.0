@@ -1,42 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] rules: Use RT6_LOOKUP_F_HAS_SADDR and fix source based
- selectors
-Date: Thu, 12 Oct 2006 18:55:51 +0900 (JST)
-Message-ID: <20061012.185551.31808845.yoshfuji@linux-ipv6.org>
-References: <20061012094124.GH12964@postel.suug.ch>
+From: "Martin Schiller" <mschiller@tdt.de>
+Subject: RE: Suppress / delay SYN-ACK
+Date: Thu, 12 Oct 2006 12:13:26 +0200
+Message-ID: <000201c6ede7$0ef3e110$1a04010a@V505CP>
+References: <200610121038.18309.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	kim.nordlund@nokia.com, yoshfuji@linux-ipv6.org
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:26635 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1161546AbWJLJxY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 05:53:24 -0400
-To: tgraf@suug.ch, vnuorval@tcs.hut.fi
-In-Reply-To: <20061012094124.GH12964@postel.suug.ch>
+Received: from ns.tdt.de ([195.243.126.82]:25001 "EHLO ns.tdt.de")
+	by vger.kernel.org with ESMTP id S965067AbWJLKNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 06:13:25 -0400
+Received: from ns (root@localhost)
+	by ns.tdt.de (8.11.6/8.11.6/SuSE Linux 0.5) with SMTP id k9CADNt05958
+	for <netdev@vger.kernel.org>; Thu, 12 Oct 2006 12:13:23 +0200
+To: "'Eric Dumazet'" <dada1@cosmosbay.com>
+In-Reply-To: <200610121038.18309.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20061012094124.GH12964@postel.suug.ch> (at Thu, 12 Oct 2006 11:41:24 +0200), Thomas Graf <tgraf@suug.ch> says:
+On Thursday, October 12, 2006 10:38 AM, Eric Dumazet wrote:
+>
+> Well, it is already possible to delay the 'third packet' of an
+> outgoing connection with a litle hack. But AFAIK not the SYNACK of
+> incoming connection. It could be cool. Maybe some new syscalls are
+> needed:   
+> 
+> int syn_recv(int socklisten, ...);
+> /* give to user app the SYN packet */
+> int syn_ack(int socklisten, ...);
+> /* User app has the ability to ask kernel tcp stack to :
+>     DROP this packet.
+>     REJECT the attempt
+>     ACCEPT the attempt (sending a SYN/ACK) */
+> 
 
-> Fixes rt6_lookup() to provide the source address in the flow
-> and sets RT6_LOOKUP_F_HAS_SADDR whenever it is present in
-> the flow.
-> 
-> Avoids unnecessary prefix comparisons by checking for a prefix
-> length first.
-> 
-> Fixes the rule logic to not match packets if a source selector
-> has been specified but no source address is available.
-> 
-> Thanks to Kim Nordlund <kim.nordlund@nokia.com> for working
-> on this patch with me.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+So, when do you mean the user-space application should run this syscalls?
+After the call to listen()?
 
-I tend to agree.  Ville, do you agree?
+Another problem with this solution might be, that I don't want to block the
+listening socket with the processing of one request, because there could be
+a lot of simultaneous requests. 
 
---yoshfuji
+
