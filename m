@@ -1,62 +1,28 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Suppress / delay SYN-ACK
-Date: Thu, 12 Oct 2006 10:38:18 +0200
-Message-ID: <200610121038.18309.dada1@cosmosbay.com>
-References: <000101c6edd5$a880d430$1a04010a@V505CP>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sfuzz hanging on 2.6.18
+Date: Thu, 12 Oct 2006 01:49:57 -0700 (PDT)
+Message-ID: <20061012.014957.104033840.davem@davemloft.net>
+References: <20061012073720.GB9274@redhat.com>
+	<452DF2E7.5060501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: davej@redhat.com, netdev@vger.kernel.org, patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:44176 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1422835AbWJLIiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 04:38:16 -0400
-To: "Martin Schiller" <mschiller@tdt.de>
-In-Reply-To: <000101c6edd5$a880d430$1a04010a@V505CP>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58048
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1422824AbWJLIt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 04:49:58 -0400
+To: kaber@trash.net
+In-Reply-To: <452DF2E7.5060501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 12 October 2006 10:08, Martin Schiller wrote:
-> Hi!
->
-> I'm searching for a solution to suppress / delay the SYN-ACK packet of a
-> listening server (-application) until he has decided (e.g. analysed the
-> requesting ip-address or checked if the corresponding other end of a
-> connection is available) if he wants to accept the connect request of the
-> client. If not, it should be possible to reject the connect request.
->
-> My idea is to add two ioctl's:
-> 	- One to set the listening socket into "delay_synack" mode.
-> 	- And one to send the synack packet, if the connection should be
-> accepted.
->
-> If the "delay_synack" mode is not enabled, the connection should just work
-> as usual.
->
-> I had a look at the tcp/ipv4 stack for a while and have found out, that
-> this three-way-handshake is already done before anything comes up to
-> user-space when I am doing a call to accept(). So I think it wouldn't be
-> possible to add this feature with "a little hack".
->
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 12 Oct 2006 09:46:47 +0200
 
-Well, it is already possible to delay the 'third packet' of an outgoing 
-connection with a litle hack. But AFAIK not the SYNACK of incoming 
-connection. It could be cool. Maybe some new syscalls are needed:
+> Looks like unbalanced locking.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-int syn_recv(int socklisten, ...);
-/* give to user app the SYN packet */
-int syn_ack(int socklisten, ...);
-/* User app has the ability to ask kernel tcp stack to :
-    DROP this packet.
-    REJECT the attempt
-    ACCEPT the attempt (sending a SYN/ACK)
-*/
-
-Maybe NETLINK (netfilter) is able to meet your need.
-
-> Does anybody have any hints for me where I should start to work?
->
-> Regards,
-> Martin Schiller
+Applied and pushed to -stable, thanks Patrick.
