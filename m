@@ -1,45 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Suppress / delay SYN-ACK
-Date: Thu, 12 Oct 2006 18:12:11 -0400
-Message-ID: <1160691131.5047.52.camel@jzny2>
-References: <000101c6edd5$a880d430$1a04010a@V505CP>
-	 <452E69B2.4030306@hp.com>
-	 <469958e00610121458h45581840ke0367647a735c635@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] reduce sizeof(struct inet_peer), cleanup, change
+ in peer_check_expire()
+Date: Thu, 12 Oct 2006 15:15:29 -0700 (PDT)
+Message-ID: <20061012.151529.95506153.davem@davemloft.net>
+References: <43CCBF3D.2070900@cosmosbay.com>
+	<4415A4C1.1030906@cosmosbay.com>
+	<452EA214.7080905@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Martin Schiller <mschiller@tdt.de>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:54451 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751178AbWJLWMP
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 18:12:15 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1GY8mp-0001UY-Oq
-	for netdev@vger.kernel.org; Thu, 12 Oct 2006 18:12:19 -0400
-To: Caitlin Bestler <caitlin.bestler@gmail.com>
-In-Reply-To: <469958e00610121458h45581840ke0367647a735c635@mail.gmail.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:697
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751191AbWJLWP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 18:15:29 -0400
+To: dada1@cosmosbay.com
+In-Reply-To: <452EA214.7080905@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-12-10 at 14:58 -0700, Caitlin Bestler wrote:
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 12 Oct 2006 22:14:12 +0200
 
-> That would seem to limit the usefullness to scenarios where a given
-> remote IP address *might* be accepted based on total traffic load,
-> number of other connections from the same IP address, etc.  If
-> *all* requests from that IP address are going to be rejected, why
-> not use netfilter?
+> 1) shrink struct inet_peer on 64 bits platforms.
+> ------------------------------------------------
+> I noticed sizeof(struct inet_peer) was 64+8 on x86_64
+> 
+> As we dont really need 64 bits timestamps (we only care for garbage 
+> collection), we can use 32bits ones and reduce sizeof(struct inet_peer) to 64 
+> bytes : Because of SLAB_HWCACHE_ALIGN constraint, final allocation is 64 bytes 
+> instead of 128 bytes per inet_peer structure.
 
-Netfilter or ingress tc may both work; 
-I have a feeling that the poster needs to consult some policy+state in
-the application first which is more complex than what rate control or
-number of connections provide (DOS detection?)- in which case, theyd
-have to write a netfilter target.
+I'm not convinced this is %100 correct.  There are wrapping
+cases that I think aren't covered.
 
-cheers,
-jamal
+Consider an entry that lives long enough for the lower 32-bits
+of jiffies to wrap, then we kill it, but we won't purge it
+properly if the wrapped jiffie is close to dtime.
 
+I'm sure there are other similar cases as well.
 
+> 2) Cleanup
+> ----------
+>   inet_putpeer() is not anymore inlined in inetpeer.h, as this is not called 
+> in fast paths, to reduce text size. Some exports are not anymore needed 
+> (inet_peer_unused_lock, inet_peer_unused_tailp) and can be declared static.
+> 
+> 3) No more hard limit (PEER_MAX_CLEANUP_WORK = 30)
+> --------------------------------------------------
+>   peer_check_expire() try to delete entries for at most one timer tick. CPUS 
+> are going faster, hard limits are becoming useless... Similar thing is done in 
+> net/ipv4/route.c garbage collector.
+
+These parts are fine.
