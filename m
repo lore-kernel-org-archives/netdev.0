@@ -1,105 +1,66 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Dropping NETIF_F_SG since no checksum
- feature.
-Date: Thu, 12 Oct 2006 21:12:06 +0200
-Message-ID: <20061012191206.GA16516@mellanox.co.il>
-References: <20061011.144137.18281355.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] bridge: flush forwarding table when device
+	carrier off
+Date: Thu, 12 Oct 2006 13:31:23 -0700
+Message-ID: <20061012133123.0a37c77d@freekitty>
+References: <20061012112431.0550b252@dxpl.pdx.osdl.net>
+	<20061012201043.GA29253@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org,
-	steve@chygwyn.com,
-	shemminger@osdl.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20061011.144137.18281355.davem@davemloft.net>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
-Content-Disposition: inline
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, bridge@osdl.org,
+   "David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.osdl.org>
+To: Andy Gospodarek <andy@greyhouse.net>
+In-Reply-To: <20061012201043.GA29253@gospo.rdu.redhat.com>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.osdl.org>
+List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
+Sender: bridge-bounces@lists.osdl.org
+Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. David Miller <davem@davemloft.net>:
-> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-> 
-> From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-> Date: Wed, 11 Oct 2006 23:23:39 +0200
-> 
-> > With my patch, there is a huge performance gain by increasing MTU to 64K.
-> > And it seems the only way to do this is by S/G.
-> 
-> Numbers?
-> 
+On Thu, 12 Oct 2006 16:10:44 -0400
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
-I created two subnets on top of the same pair infiniband HCAs:
+> On Thu, Oct 12, 2006 at 11:24:31AM -0700, Stephen Hemminger wrote:
+> > Flush the forwarding table when carrier is lost. This helps for
+> > availability because we don't want to forward to a downed device and
+> > new packets may come in on other links.
+> > =
 
-root@sw069 ~]# ifconfig ib0
-ib0       Link encap:UNSPEC  HWaddr
-00-00-04-04-FE-80-00-00-00-00-00-00-00-00-00-00
-          inet addr:12.4.3.69  Bcast:12.255.255.255  Mask:255.0.0.0
-          inet6 addr: fe80::202:c902:20:ee45/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:2044  Metric:1
-          RX packets:1382531 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:2725206 errors:0 dropped:5 overruns:0 carrier:0
-          collisions:0 txqueuelen:128
-          RX bytes:71892772 (68.5 MiB)  TX bytes:5290011992 (4.9 GiB)
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> > =
 
-[root@sw069 ~]# ifconfig ibc0
-ibc0      Link encap:UNSPEC  HWaddr
-00-03-04-06-FE-80-00-00-00-00-00-00-00-00-00-00
-          inet addr:11.4.3.69  Bcast:11.255.255.255  Mask:255.0.0.0
-          inet6 addr: fe80::202:c902:20:ee45/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:65484  Metric:1
-          RX packets:115647 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:253403 errors:0 dropped:4 overruns:0 carrier:0
-          collisions:0 txqueuelen:128
-          RX bytes:6014720 (5.7 MiB)  TX bytes:16589589008 (15.4 GiB)
+> =
 
-The other side was configured with 12.4.3.68 for MTU 65484
-and 11.4.3.68 for MTU 2044. 
+> Stephen,
+> =
 
-And then I just run netperf:
-[root@sw069 ~]#
-[root@sw069 ~]# /mswg/work/mst/netperf-2.4.2/src/netperf -f M -H 12.4.3.68 -c -C
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 12.4.3.68 (12.4.3.68)
-port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    MBytes  /s  % S      % S      us/KB   us/KB
+> This is an excellent idea and all looks good except this check
+> =
 
- 87380  16384  16384    10.00       286.45   40.20    25.28    5.482   3.448
+> +			if (f->is_static & !do_all)
+> +				continue;
+> =
 
-[root@sw069 ~]# /mswg/work/mst/netperf-2.4.2/src/netperf -f M -H 11.4.3.68
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 11.4.3.68 (11.4.3.68)
-port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    MBytes/sec
+> should be this: =
 
- 87380  16384  16384    10.01     782.55
+> =
 
-This is all very preliminary - but I hope you get the idea -
-increasing MTU is very helpful for infiniband, and infiniband adapters
-handle large S/G lists without problems, but the verbs
-do not include support for IP checksums, so these must be done in software.
+> +			if (f->is_static && !do_all)
+> +				continue;
+> =
 
-So what we would like, is for the infiniband network device to say
-"I don't support checksums, I only support S/G" and then for
-network layer to do the checksumming for us piggybacking on data copy
-at least for cases where it does perform the copy.
 
-Does this makes sense now?
+Agreed, but it probably worked during testing because both flags
+are strict booleans (ie 0/1)
 
--- 
-MST
+
+-- =
+
+Stephen Hemminger <shemminger@osdl.org>
