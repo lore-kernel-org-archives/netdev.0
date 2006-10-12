@@ -1,125 +1,105 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: user of the jiffies rounding code: Networking
-Date: Thu, 12 Oct 2006 20:56:02 +0200
-Message-ID: <1160679363.3000.461.camel@laptopd505.fenrus.org>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: Dropping NETIF_F_SG since no checksum
+ feature.
+Date: Thu, 12 Oct 2006 21:12:06 +0200
+Message-ID: <20061012191206.GA16516@mellanox.co.il>
+References: <20061011.144137.18281355.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a222036.upc-a.chello.nl ([62.163.222.36]:39393 "EHLO
-	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
-	id S1750859AbWJLS4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 14:56:11 -0400
-To: akpm@osdl.org
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org,
+	steve@chygwyn.com,
+	shemminger@osdl.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20061011.144137.18281355.davem@davemloft.net>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: round_jiffies users
-CC: jgarzik@pobox.com
-CC: netdev@vger.kernel.org
+Quoting r. David Miller <davem@davemloft.net>:
+> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+> 
+> From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+> Date: Wed, 11 Oct 2006 23:23:39 +0200
+> 
+> > With my patch, there is a huge performance gain by increasing MTU to 64K.
+> > And it seems the only way to do this is by S/G.
+> 
+> Numbers?
+> 
 
-This patch introduces users of the round_jiffies() function in the networking code.
+I created two subnets on top of the same pair infiniband HCAs:
 
-These timers all were of the "about once a second" or "about once every X seconds" 
-variety and several showed up in the "what wakes the cpu up" profiles that
-the tickless patches provide. Some timers are highly dynamic based on network load; but 
-even on low activity systems they still show up so the rounding is done only in cases of
-low activity, allowing higher frequency timers in the high activity case.
+root@sw069 ~]# ifconfig ib0
+ib0       Link encap:UNSPEC  HWaddr
+00-00-04-04-FE-80-00-00-00-00-00-00-00-00-00-00
+          inet addr:12.4.3.69  Bcast:12.255.255.255  Mask:255.0.0.0
+          inet6 addr: fe80::202:c902:20:ee45/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:2044  Metric:1
+          RX packets:1382531 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:2725206 errors:0 dropped:5 overruns:0 carrier:0
+          collisions:0 txqueuelen:128
+          RX bytes:71892772 (68.5 MiB)  TX bytes:5290011992 (4.9 GiB)
 
-The various hardware watchdogs are an obvious case; they run every 2 seconds but aren't otherwise
-specific of exactly when they need to run.
+[root@sw069 ~]# ifconfig ibc0
+ibc0      Link encap:UNSPEC  HWaddr
+00-03-04-06-FE-80-00-00-00-00-00-00-00-00-00-00
+          inet addr:11.4.3.69  Bcast:11.255.255.255  Mask:255.0.0.0
+          inet6 addr: fe80::202:c902:20:ee45/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:65484  Metric:1
+          RX packets:115647 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:253403 errors:0 dropped:4 overruns:0 carrier:0
+          collisions:0 txqueuelen:128
+          RX bytes:6014720 (5.7 MiB)  TX bytes:16589589008 (15.4 GiB)
 
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+The other side was configured with 12.4.3.68 for MTU 65484
+and 11.4.3.68 for MTU 2044. 
 
-Index: linux-2.6.19-rc1-git6/net/core/dst.c
-===================================================================
---- linux-2.6.19-rc1-git6.orig/net/core/dst.c
-+++ linux-2.6.19-rc1-git6/net/core/dst.c
-@@ -99,7 +99,14 @@ static void dst_run_gc(unsigned long dum
- 	printk("dst_total: %d/%d %ld\n",
- 	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
- #endif
--	mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
-+	/* if the next desired timer is more than 4 seconds in the future
-+	 * then round the timer to whole seconds
-+	 */
-+	if (dst_gc_timer_expires > 4*HZ)
-+		mod_timer(&dst_gc_timer,
-+			round_jiffies(jiffies + dst_gc_timer_expires));
-+	else
-+		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
- 
- out:
- 	spin_unlock(&dst_lock);
-Index: linux-2.6.19-rc1-git6/net/core/neighbour.c
-===================================================================
---- linux-2.6.19-rc1-git6.orig/net/core/neighbour.c
-+++ linux-2.6.19-rc1-git6/net/core/neighbour.c
-@@ -695,7 +695,10 @@ next_elt:
- 	if (!expire)
- 		expire = 1;
- 
-- 	mod_timer(&tbl->gc_timer, now + expire);
-+	if (expire>HZ)
-+		mod_timer(&tbl->gc_timer, round_jiffies(now + expire));
-+	else
-+	 	mod_timer(&tbl->gc_timer, now + expire);
- 
- 	write_unlock(&tbl->lock);
- }
-Index: linux-2.6.19-rc1-git6/net/sched/sch_generic.c
-===================================================================
---- linux-2.6.19-rc1-git6.orig/net/sched/sch_generic.c
-+++ linux-2.6.19-rc1-git6/net/sched/sch_generic.c
-@@ -209,7 +209,7 @@ static void dev_watchdog(unsigned long a
- 				       dev->name);
- 				dev->tx_timeout(dev);
- 			}
--			if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
-+			if (!mod_timer(&dev->watchdog_timer, round_jiffies(jiffies + dev->watchdog_timeo)))
- 				dev_hold(dev);
- 		}
- 	}
-Index: linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux-2.6.19-rc1-git6.orig/drivers/net/e1000/e1000_main.c
-+++ linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
-@@ -483,7 +483,7 @@ e1000_up(struct e1000_adapter *adapter)
- 
- 	clear_bit(__E1000_DOWN, &adapter->flags);
- 
--	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
-+	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
- 	return 0;
- }
- 
-@@ -2493,7 +2493,7 @@ e1000_watchdog(unsigned long data)
- 
- 			netif_carrier_on(netdev);
- 			netif_wake_queue(netdev);
--			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
-+			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
- 			adapter->smartspeed = 0;
- 		}
- 	} else {
-@@ -2503,7 +2503,7 @@ e1000_watchdog(unsigned long data)
- 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
- 			netif_carrier_off(netdev);
- 			netif_stop_queue(netdev);
--			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
-+			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
- 
- 			/* 80003ES2LAN workaround--
- 			 * For packet buffer work-around on link down event;
-@@ -2568,7 +2568,7 @@ e1000_watchdog(unsigned long data)
- 		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
- 
- 	/* Reset the timer */
--	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
-+	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
- }
- 
- #define E1000_TX_FLAGS_CSUM		0x00000001
+And then I just run netperf:
+[root@sw069 ~]#
+[root@sw069 ~]# /mswg/work/mst/netperf-2.4.2/src/netperf -f M -H 12.4.3.68 -c -C
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 12.4.3.68 (12.4.3.68)
+port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    MBytes  /s  % S      % S      us/KB   us/KB
 
+ 87380  16384  16384    10.00       286.45   40.20    25.28    5.482   3.448
+
+[root@sw069 ~]# /mswg/work/mst/netperf-2.4.2/src/netperf -f M -H 11.4.3.68
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 11.4.3.68 (11.4.3.68)
+port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    MBytes/sec
+
+ 87380  16384  16384    10.01     782.55
+
+This is all very preliminary - but I hope you get the idea -
+increasing MTU is very helpful for infiniband, and infiniband adapters
+handle large S/G lists without problems, but the verbs
+do not include support for IP checksums, so these must be done in software.
+
+So what we would like, is for the infiniband network device to say
+"I don't support checksums, I only support S/G" and then for
+network layer to do the checksumming for us piggybacking on data copy
+at least for cases where it does perform the copy.
+
+Does this makes sense now?
+
+-- 
+MST
