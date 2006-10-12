@@ -1,56 +1,56 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
-Date: Thu, 12 Oct 2006 15:13:56 -0700
-Message-ID: <20061012151356.4a3a4096@freekitty>
-References: <D9055C0A0A86BD4E89AD96A89EA767DBA6AEBE@ALA-MAIL03.corp.ad.wrs.com>
+Subject: Re: [PATCH] sk98lin: handle pci_enable_device() return value in
+ skge_resume() properly
+Date: Thu, 12 Oct 2006 15:25:12 -0700
+Message-ID: <20061012152512.66f147b8@freekitty>
+References: <Pine.LNX.4.64.0610130002320.29022@twin.jikos.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: mlindner@syskonnect.de, rroesler@syskonnect.de,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jeff@garzik.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:49613 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751184AbWJLWN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 18:13:59 -0400
-To: "Yang, Steve" <steve.yang@windriver.com>
-In-Reply-To: <D9055C0A0A86BD4E89AD96A89EA767DBA6AEBE@ALA-MAIL03.corp.ad.wrs.com>
+Received: from smtp.osdl.org ([65.172.181.4]:59089 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751219AbWJLW2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 18:28:08 -0400
+To: Jiri Kosina <jikos@jikos.cz>
+In-Reply-To: <Pine.LNX.4.64.0610130002320.29022@twin.jikos.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Oct 2006 14:54:33 -0700
-"Yang, Steve" <steve.yang@windriver.com> wrote:
+On Fri, 13 Oct 2006 00:17:50 +0200 (CEST)
+Jiri Kosina <jikos@jikos.cz> wrote:
 
-> FYI ...
+> [PATCH] sk98lin: handle pci_enable_device() return value in skge_resume() properly
 > 
-> Regards, 
-> Steve Yang
+> Fix missing handling of pci_enable_device() return value in skge_resume() 
 > 
-> -----Original Message-----
-> From: Yang, Steve 
-> Sent: Monday, September 25, 2006 3:50 PM
-> To: 'linux-mips@linux-mips.org'
-> Cc: 'ralf@linux-mips.org'; 'Mark E Mason'
-> Subject: Performance enhancement patches for SB1250 MAC
+> Signed-off-by: Jiri Kosina <jikos@jikos.cz>
 > 
-> Hi,
+> --- 
 > 
-> The attached are two network performance enhancement patches for SB1250
-> MAC. The NAPI patch applies first. Followed by the "skb cache" patch.
-> They applied and builds cleanly on 2.6.18 kernel for the following
-> kernel option combinations:
+>  drivers/net/sk98lin/skge.c |    6 +++++-
+>  1 files changed, 5 insertions(+), 1 deletions(-)
 > 
-> SBMAC_NAPI	no	yes	yes
-> SKB_CACHE	no	no	yes
+> diff --git a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+> index 99e9262..e12fb62 100644
+> --- a/drivers/net/sk98lin/skge.c
+> +++ b/drivers/net/sk98lin/skge.c
+> @@ -5070,7 +5070,11 @@ static int skge_resume(struct pci_dev *p
 >  
-> Regards,
-> Steve Yang
-> 
+>  	pci_set_power_state(pdev, PCI_D0);
+>  	pci_restore_state(pdev);
+> -	pci_enable_device(pdev);
+> +	if ((ret = pci_enable_device(pdev))) {
+> +		printk(KERN_ERR "sk98lin: Cannot enable PCI device during resume\n");
+> +		unregister_netdev(dev);
+>
 
-NAK on the SKB_CACHE it is idea that just ends up favoring your
-driver at the expense of the rest of the system. Also, there are
-resource/memory starvation issues and probably other races as well.
+Having the device unregister seems harsh.
+Why put condtional on same line?
+Why not print device name dev->name.
 
-I bet it makes your benchmark run faster, but it doesn't belong in
-normal kernel
 
 -- 
 Stephen Hemminger <shemminger@osdl.org>
