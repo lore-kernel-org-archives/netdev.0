@@ -1,93 +1,125 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] bridge: flush forwarding table when device carrier off
-Date: Thu, 12 Oct 2006 11:24:31 -0700
-Message-ID: <20061012112431.0550b252@dxpl.pdx.osdl.net>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: user of the jiffies rounding code: Networking
+Date: Thu, 12 Oct 2006 20:56:02 +0200
+Message-ID: <1160679363.3000.461.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@osdl.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:46298 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750744AbWJLSYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 14:24:32 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from a222036.upc-a.chello.nl ([62.163.222.36]:39393 "EHLO
+	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
+	id S1750859AbWJLS4L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 14:56:11 -0400
+To: akpm@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Flush the forwarding table when carrier is lost. This helps for
-availability because we don't want to forward to a downed device and
-new packets may come in on other links.
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: round_jiffies users
+CC: jgarzik@pobox.com
+CC: netdev@vger.kernel.org
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/bridge/br_fdb.c     |    7 ++++++-
- net/bridge/br_if.c      |    4 ++--
- net/bridge/br_private.h |    2 +-
- net/bridge/br_stp_if.c  |    2 ++
- 4 files changed, 11 insertions(+), 4 deletions(-)
+This patch introduces users of the round_jiffies() function in the networking code.
 
---- bridge.orig/net/bridge/br_fdb.c
-+++ bridge/net/bridge/br_fdb.c
-@@ -128,7 +128,10 @@ void br_fdb_cleanup(unsigned long _data)
- 	mod_timer(&br->gc_timer, jiffies + HZ/10);
+These timers all were of the "about once a second" or "about once every X seconds" 
+variety and several showed up in the "what wakes the cpu up" profiles that
+the tickless patches provide. Some timers are highly dynamic based on network load; but 
+even on low activity systems they still show up so the rounding is done only in cases of
+low activity, allowing higher frequency timers in the high activity case.
+
+The various hardware watchdogs are an obvious case; they run every 2 seconds but aren't otherwise
+specific of exactly when they need to run.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+
+Index: linux-2.6.19-rc1-git6/net/core/dst.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/net/core/dst.c
++++ linux-2.6.19-rc1-git6/net/core/dst.c
+@@ -99,7 +99,14 @@ static void dst_run_gc(unsigned long dum
+ 	printk("dst_total: %d/%d %ld\n",
+ 	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
+ #endif
+-	mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
++	/* if the next desired timer is more than 4 seconds in the future
++	 * then round the timer to whole seconds
++	 */
++	if (dst_gc_timer_expires > 4*HZ)
++		mod_timer(&dst_gc_timer,
++			round_jiffies(jiffies + dst_gc_timer_expires));
++	else
++		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+ 
+ out:
+ 	spin_unlock(&dst_lock);
+Index: linux-2.6.19-rc1-git6/net/core/neighbour.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/net/core/neighbour.c
++++ linux-2.6.19-rc1-git6/net/core/neighbour.c
+@@ -695,7 +695,10 @@ next_elt:
+ 	if (!expire)
+ 		expire = 1;
+ 
+- 	mod_timer(&tbl->gc_timer, now + expire);
++	if (expire>HZ)
++		mod_timer(&tbl->gc_timer, round_jiffies(now + expire));
++	else
++	 	mod_timer(&tbl->gc_timer, now + expire);
+ 
+ 	write_unlock(&tbl->lock);
+ }
+Index: linux-2.6.19-rc1-git6/net/sched/sch_generic.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/net/sched/sch_generic.c
++++ linux-2.6.19-rc1-git6/net/sched/sch_generic.c
+@@ -209,7 +209,7 @@ static void dev_watchdog(unsigned long a
+ 				       dev->name);
+ 				dev->tx_timeout(dev);
+ 			}
+-			if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
++			if (!mod_timer(&dev->watchdog_timer, round_jiffies(jiffies + dev->watchdog_timeo)))
+ 				dev_hold(dev);
+ 		}
+ 	}
+Index: linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.19-rc1-git6.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
+@@ -483,7 +483,7 @@ e1000_up(struct e1000_adapter *adapter)
+ 
+ 	clear_bit(__E1000_DOWN, &adapter->flags);
+ 
+-	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
++	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+ 	return 0;
  }
  
--void br_fdb_delete_by_port(struct net_bridge *br, struct net_bridge_port *p)
-+
-+void br_fdb_delete_by_port(struct net_bridge *br,
-+			   const struct net_bridge_port *p,
-+			   int do_all)
- {
- 	int i;
+@@ -2493,7 +2493,7 @@ e1000_watchdog(unsigned long data)
  
-@@ -142,6 +145,8 @@ void br_fdb_delete_by_port(struct net_br
- 			if (f->dst != p) 
- 				continue;
+ 			netif_carrier_on(netdev);
+ 			netif_wake_queue(netdev);
+-			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
++			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+ 			adapter->smartspeed = 0;
+ 		}
+ 	} else {
+@@ -2503,7 +2503,7 @@ e1000_watchdog(unsigned long data)
+ 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
+-			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
++			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
  
-+			if (f->is_static & !do_all)
-+				continue;
- 			/*
- 			 * if multiple ports all have the same device address
- 			 * then when one port is deleted, assign
---- bridge.orig/net/bridge/br_if.c
-+++ bridge/net/bridge/br_if.c
-@@ -163,7 +163,7 @@ static void del_nbp(struct net_bridge_po
- 	br_stp_disable_port(p);
- 	spin_unlock_bh(&br->lock);
+ 			/* 80003ES2LAN workaround--
+ 			 * For packet buffer work-around on link down event;
+@@ -2568,7 +2568,7 @@ e1000_watchdog(unsigned long data)
+ 		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
  
--	br_fdb_delete_by_port(br, p);
-+	br_fdb_delete_by_port(br, p, 1);
+ 	/* Reset the timer */
+-	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
++	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+ }
  
- 	list_del_rcu(&p->list);
- 
-@@ -448,7 +448,7 @@ int br_add_if(struct net_bridge *br, str
- 
- 	return 0;
- err2:
--	br_fdb_delete_by_port(br, p);
-+	br_fdb_delete_by_port(br, p, 1);
- err1:
- 	kobject_del(&p->kobj);
- err0:
---- bridge.orig/net/bridge/br_private.h
-+++ bridge/net/bridge/br_private.h
-@@ -143,7 +143,7 @@ extern void br_fdb_changeaddr(struct net
- 			      const unsigned char *newaddr);
- extern void br_fdb_cleanup(unsigned long arg);
- extern void br_fdb_delete_by_port(struct net_bridge *br,
--			   struct net_bridge_port *p);
-+				  const struct net_bridge_port *p, int do_all);
- extern struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
- 						 const unsigned char *addr);
- extern struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br,
---- bridge.orig/net/bridge/br_stp_if.c
-+++ bridge/net/bridge/br_stp_if.c
-@@ -113,6 +113,8 @@ void br_stp_disable_port(struct net_brid
- 	del_timer(&p->forward_delay_timer);
- 	del_timer(&p->hold_timer);
- 
-+	br_fdb_delete_by_port(br, p, 0);
-+
- 	br_configuration_update(br);
- 
- 	br_port_state_selection(br);
+ #define E1000_TX_FLAGS_CSUM		0x00000001
+
