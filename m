@@ -1,163 +1,138 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] [NET] reduce sizeof(struct inet_peer), cleanup,
- change in peer_check_expire()
-Date: Thu, 12 Oct 2006 22:14:12 +0200
-Message-ID: <452EA214.7080905@cosmosbay.com>
-References: <20051217071029.GY23384@wotan.suse.de>
- <20051216.231517.68922847.davem@davemloft.net>
- <43A3EE8A.5020907@cosmosbay.com> <43CCBF3D.2070900@cosmosbay.com>
- <4415A4C1.1030906@cosmosbay.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: user of the jiffies rounding code: Networking
+Date: Thu, 12 Oct 2006 13:06:29 -0700
+Message-ID: <452EA045.4080907@intel.com>
+References: <1160679363.3000.461.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_1FGYHykOkDxT3R8vlGePng)"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604005mt.neufgp.fr ([84.96.92.11]:63470 "EHLO smtp.Neuf.fr")
-	by vger.kernel.org with ESMTP id S1750856AbWJLUZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 16:25:13 -0400
-Received: from [192.168.30.203] ([88.137.140.131]) by sp604005mt.gpm.neuf.ld
- (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
- with ESMTP id <0J7100N48HJI3L50@sp604005mt.gpm.neuf.ld> for
- netdev@vger.kernel.org; Thu, 12 Oct 2006 22:14:06 +0200 (CEST)
-In-reply-to: <4415A4C1.1030906@cosmosbay.com>
-To: "David S. Miller" <davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:45185 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1750699AbWJLUIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 16:08:22 -0400
+To: Arjan van de Ven <arjan@linux.intel.com>
+In-Reply-To: <1160679363.3000.461.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Arjan van de Ven wrote:
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Subject: round_jiffies users
+> CC: jgarzik@pobox.com
+> CC: netdev@vger.kernel.org
+> 
+> This patch introduces users of the round_jiffies() function in the networking code.
+> 
+> These timers all were of the "about once a second" or "about once every X seconds" 
+> variety and several showed up in the "what wakes the cpu up" profiles that
+> the tickless patches provide. Some timers are highly dynamic based on network load; but 
+> even on low activity systems they still show up so the rounding is done only in cases of
+> low activity, allowing higher frequency timers in the high activity case.
+> 
+> The various hardware watchdogs are an obvious case; they run every 2 seconds but aren't otherwise
+> specific of exactly when they need to run.
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> 
+> Index: linux-2.6.19-rc1-git6/net/core/dst.c
+> ===================================================================
+> --- linux-2.6.19-rc1-git6.orig/net/core/dst.c
+> +++ linux-2.6.19-rc1-git6/net/core/dst.c
+> @@ -99,7 +99,14 @@ static void dst_run_gc(unsigned long dum
+>  	printk("dst_total: %d/%d %ld\n",
+>  	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
+>  #endif
+> -	mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+> +	/* if the next desired timer is more than 4 seconds in the future
+> +	 * then round the timer to whole seconds
+> +	 */
+> +	if (dst_gc_timer_expires > 4*HZ)
+> +		mod_timer(&dst_gc_timer,
+> +			round_jiffies(jiffies + dst_gc_timer_expires));
+> +	else
+> +		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+>  
+>  out:
+>  	spin_unlock(&dst_lock);
+> Index: linux-2.6.19-rc1-git6/net/core/neighbour.c
+> ===================================================================
+> --- linux-2.6.19-rc1-git6.orig/net/core/neighbour.c
+> +++ linux-2.6.19-rc1-git6/net/core/neighbour.c
+> @@ -695,7 +695,10 @@ next_elt:
+>  	if (!expire)
+>  		expire = 1;
+>  
+> - 	mod_timer(&tbl->gc_timer, now + expire);
+> +	if (expire>HZ)
+> +		mod_timer(&tbl->gc_timer, round_jiffies(now + expire));
+> +	else
+> +	 	mod_timer(&tbl->gc_timer, now + expire);
+>  
+>  	write_unlock(&tbl->lock);
+>  }
+> Index: linux-2.6.19-rc1-git6/net/sched/sch_generic.c
+> ===================================================================
+> --- linux-2.6.19-rc1-git6.orig/net/sched/sch_generic.c
+> +++ linux-2.6.19-rc1-git6/net/sched/sch_generic.c
+> @@ -209,7 +209,7 @@ static void dev_watchdog(unsigned long a
+>  				       dev->name);
+>  				dev->tx_timeout(dev);
+>  			}
+> -			if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
+> +			if (!mod_timer(&dev->watchdog_timer, round_jiffies(jiffies + dev->watchdog_timeo)))
+>  				dev_hold(dev);
+>  		}
+>  	}
+> Index: linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
+> ===================================================================
+> --- linux-2.6.19-rc1-git6.orig/drivers/net/e1000/e1000_main.c
+> +++ linux-2.6.19-rc1-git6/drivers/net/e1000/e1000_main.c
+> @@ -483,7 +483,7 @@ e1000_up(struct e1000_adapter *adapter)
+>  
+>  	clear_bit(__E1000_DOWN, &adapter->flags);
+>  
+> -	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
+> +	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+>  	return 0;
+>  }
+>  
+> @@ -2493,7 +2493,7 @@ e1000_watchdog(unsigned long data)
+>  
+>  			netif_carrier_on(netdev);
+>  			netif_wake_queue(netdev);
+> -			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
+> +			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+>  			adapter->smartspeed = 0;
+>  		}
+>  	} else {
+> @@ -2503,7 +2503,7 @@ e1000_watchdog(unsigned long data)
+>  			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+>  			netif_carrier_off(netdev);
+>  			netif_stop_queue(netdev);
+> -			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
+> +			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+>  
+>  			/* 80003ES2LAN workaround--
+>  			 * For packet buffer work-around on link down event;
+> @@ -2568,7 +2568,7 @@ e1000_watchdog(unsigned long data)
+>  		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
+>  
+>  	/* Reset the timer */
+> -	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
+> +	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+>  }
+>  
+>  #define E1000_TX_FLAGS_CSUM		0x00000001
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
---Boundary_(ID_1FGYHykOkDxT3R8vlGePng)
-Content-type: text/plain; charset=ISO-8859-1; format=flowed
-Content-transfer-encoding: 7BIT
 
-Hi David
+For the e1000 parts, but in general too:
 
-Please find this patch against include/net/inetpeer.h and net/ipv4/inetpeer.c
+Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-1) shrink struct inet_peer on 64 bits platforms.
-------------------------------------------------
-I noticed sizeof(struct inet_peer) was 64+8 on x86_64
-
-As we dont really need 64 bits timestamps (we only care for garbage 
-collection), we can use 32bits ones and reduce sizeof(struct inet_peer) to 64 
-bytes : Because of SLAB_HWCACHE_ALIGN constraint, final allocation is 64 bytes 
-instead of 128 bytes per inet_peer structure.
-
-2) Cleanup
-----------
-  inet_putpeer() is not anymore inlined in inetpeer.h, as this is not called 
-in fast paths, to reduce text size. Some exports are not anymore needed 
-(inet_peer_unused_lock, inet_peer_unused_tailp) and can be declared static.
-
-3) No more hard limit (PEER_MAX_CLEANUP_WORK = 30)
---------------------------------------------------
-  peer_check_expire() try to delete entries for at most one timer tick. CPUS 
-are going faster, hard limits are becoming useless... Similar thing is done in 
-net/ipv4/route.c garbage collector.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-
---Boundary_(ID_1FGYHykOkDxT3R8vlGePng)
-Content-type: text/plain; name=peer.patch
-Content-transfer-encoding: 7BIT
-Content-disposition: inline; filename=peer.patch
-
---- linux-2.6.18/include/net/inetpeer.h	Wed Sep 20 05:42:06 2006
-+++ linux-2.6.18-ed/include/net/inetpeer.h	Thu Oct 12 21:40:28 2006
-@@ -19,7 +19,7 @@
- {
- 	struct inet_peer	*avl_left, *avl_right;
- 	struct inet_peer	*unused_next, **unused_prevp;
--	unsigned long		dtime;		/* the time of last use of not
-+	__u32			dtime;		/* the time of last use of not
- 						 * referenced entries */
- 	atomic_t		refcnt;
- 	__u32			v4daddr;	/* peer's address */
-@@ -35,21 +35,8 @@
- /* can be called with or without local BH being disabled */
- struct inet_peer	*inet_getpeer(__u32 daddr, int create);
- 
--extern spinlock_t inet_peer_unused_lock;
--extern struct inet_peer **inet_peer_unused_tailp;
- /* can be called from BH context or outside */
--static inline void	inet_putpeer(struct inet_peer *p)
--{
--	spin_lock_bh(&inet_peer_unused_lock);
--	if (atomic_dec_and_test(&p->refcnt)) {
--		p->unused_prevp = inet_peer_unused_tailp;
--		p->unused_next = NULL;
--		*inet_peer_unused_tailp = p;
--		inet_peer_unused_tailp = &p->unused_next;
--		p->dtime = jiffies;
--	}
--	spin_unlock_bh(&inet_peer_unused_lock);
--}
-+extern void inet_putpeer(struct inet_peer *p);
- 
- extern spinlock_t inet_peer_idlock;
- /* can be called with or without local BH being disabled */
---- linux-2.6.18/net/ipv4/inetpeer.c	Wed Sep 20 05:42:06 2006
-+++ linux-2.6.18-ed/net/ipv4/inetpeer.c	Thu Oct 12 21:55:23 2006
-@@ -94,10 +94,8 @@
- int inet_peer_maxttl = 10 * 60 * HZ;	/* usual time to live: 10 min */
- 
- static struct inet_peer *inet_peer_unused_head;
--/* Exported for inet_putpeer inline function.  */
--struct inet_peer **inet_peer_unused_tailp = &inet_peer_unused_head;
--DEFINE_SPINLOCK(inet_peer_unused_lock);
--#define PEER_MAX_CLEANUP_WORK 30
-+static struct inet_peer **inet_peer_unused_tailp = &inet_peer_unused_head;
-+static DEFINE_SPINLOCK(inet_peer_unused_lock);
- 
- static void peer_check_expire(unsigned long dummy);
- static DEFINE_TIMER(peer_periodic_timer, peer_check_expire, 0, 0);
-@@ -343,7 +341,8 @@
- 	spin_lock_bh(&inet_peer_unused_lock);
- 	p = inet_peer_unused_head;
- 	if (p != NULL) {
--		if (time_after(p->dtime + ttl, jiffies)) {
-+		__u32 delta = (__u32)jiffies - p->dtime;
-+		if (delta < ttl) {
- 			/* Do not prune fresh entries. */
- 			spin_unlock_bh(&inet_peer_unused_lock);
- 			return -1;
-@@ -435,7 +434,7 @@
- /* Called with local BH disabled. */
- static void peer_check_expire(unsigned long dummy)
- {
--	int i;
-+	unsigned long now = jiffies;
- 	int ttl;
- 
- 	if (peer_total >= inet_peer_threshold)
-@@ -444,7 +443,10 @@
- 		ttl = inet_peer_maxttl
- 				- (inet_peer_maxttl - inet_peer_minttl) / HZ *
- 					peer_total / inet_peer_threshold * HZ;
--	for (i = 0; i < PEER_MAX_CLEANUP_WORK && !cleanup_once(ttl); i++);
-+	while (!cleanup_once(ttl)) {
-+		if (jiffies != now)
-+			break;
-+	}
- 
- 	/* Trigger the timer after inet_peer_gc_mintime .. inet_peer_gc_maxtime
- 	 * interval depending on the total number of entries (more entries,
-@@ -458,3 +460,16 @@
- 				peer_total / inet_peer_threshold * HZ;
- 	add_timer(&peer_periodic_timer);
- }
-+
-+void inet_putpeer(struct inet_peer *p)
-+{
-+	spin_lock_bh(&inet_peer_unused_lock);
-+	if (atomic_dec_and_test(&p->refcnt)) {
-+		p->unused_prevp = inet_peer_unused_tailp;
-+		p->unused_next = NULL;
-+		*inet_peer_unused_tailp = p;
-+		inet_peer_unused_tailp = &p->unused_next;
-+		p->dtime = (__u32)jiffies;
-+	}
-+	spin_unlock_bh(&inet_peer_unused_lock);
-+}
-
---Boundary_(ID_1FGYHykOkDxT3R8vlGePng)--
+Cheers
