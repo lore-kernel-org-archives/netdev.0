@@ -1,39 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG 2.6.18] unaligned access in ipvv6_rcv, nf_ip6_checksum,
- tcp_error, __ipv6_addr_type, fib6_lookup_1
-Date: Mon, 09 Oct 2006 18:47:43 -0700 (PDT)
-Message-ID: <20061009.184743.112621206.davem@davemloft.net>
-References: <20060930202040.GF1083@sunbeam.de.gnumonks.org>
+Subject: Re: [RFC] Question about potential problem in net/ipv4/route.c
+Date: Wed, 11 Oct 2006 22:05:06 -0700 (PDT)
+Message-ID: <20061011.220506.76273501.davem@davemloft.net>
+References: <20061011090504.GC2938@mellanox.co.il>
+	<20061011.022015.63051509.davem@davemloft.net>
+	<200610111511.19028.dada1@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <sparclinux-owner@vger.kernel.org>
-To: laforge@gnumonks.org
-In-Reply-To: <20060930202040.GF1083@sunbeam.de.gnumonks.org>
-Sender: sparclinux-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2759
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965269AbWJLFE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 01:04:59 -0400
+To: dada1@cosmosbay.com
+In-Reply-To: <200610111511.19028.dada1@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@gnumonks.org>
-Date: Sat, 30 Sep 2006 22:20:40 +0200
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 11 Oct 2006 15:11:18 +0200
 
-> Kernel unaligned access at TPC[10022cf0] ipv6_rcv+0xb8/0x320 [ipv6]
-> Kernel unaligned access at TPC[10023800] __ipv6_addr_type+0x8/0x140 [ipv6]
-> Kernel unaligned access at TPC[1002fd64] fib6_lookup_1+0x2c/0x120 [ipv6]
-> Kernel unaligned access at TPC[10093878] tcp_error+0x40/0x2c0 [nf_conntrack]
-> Kernel unaligned access at TPC[1004ce54] nf_ip6_checksum+0x13c/0x1c0 [ipv6]
-> Kernel unaligned access at TPC[1004ce58] nf_ip6_checksum+0x140/0x1c0 [ipv6]
-> Kernel unaligned access at TPC[1004ce60] nf_ip6_checksum+0x148/0x1c0 [ipv6]
+> Using memcmp(ptr1, ptr2, sizeof(SOMEFIELD)) is dangerous because 
+> sizeof(SOMEFIELD) can be larger than the underlying object, because of 
+> alignment constraints.
+> 
+> In this case, sizeof(fl1->nl_u.ip4_u) is 16, while fl1->nl_u.ip4_u is :
+> 
+>                 struct {
+>                         __u32                   daddr;
+>                         __u32                   saddr;
+>                         __u32                   fwmark;
+>                         __u8                    tos;
+>                         __u8                    scope;
+>                 } ip4_u;
+> 
+> So 14 bytes are really initialized, and 2 padding bytes might contain random 
+> values...
 
-I think for all of these cases the IPv6 header is not 4-byte
-aligned in the SKB.  The first case is simply ipv6_hdr->version
-which GCC turns into a load of the first 4 byte word of the
-headers, then a mask+compare.  And this is fine becasue due
-to the "struct in6_addr", gcc may assume that the ipv6 header
-struct is at least 4 bytes aligned since in6_addr contains
-an array of u32[]'s.
+We always explicitly initialize the flows, and even for local stack
+assignment based initialization, gcc zeros out the padding bytes
+always.  For non-stack-local cases we do explicit memset()'s over the
+entire object.  So I think while not perfect, we're very much safe
+here.
 
-What kind of input path is this packet coming from?  Is it
-using some kind of encapsulation?  It's odd for it to not
-be 4 byte aligned, you would get the same kind of unaligned
-accesses for an ipv4 header if it were misaligned like this.
+> fast comparison, we should do some clever long/int XOR operations to avoid 
+> many test/branches, like the optim we did in compare_ether_addr())
+> 
+> As shown in profiles, "repz cmpsb" is really a dog... (and its use of 
+> esi/edi/ecx registers a high pressure for the compiler/optimizer)
+
+Yes, for the fast comparisons it is almost certainly worth it to do
+something saner in compare_keys().
+
+But looking at this further, compare_keys() is only used in hotpath
+situations where we are optimizing for a miss, such as during hash
+insert.  The optimization therefore might be less justified as a
+result.
