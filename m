@@ -1,56 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] reduce sizeof(struct inet_peer), cleanup, change
- in peer_check_expire()
-Date: Thu, 12 Oct 2006 15:15:29 -0700 (PDT)
-Message-ID: <20061012.151529.95506153.davem@davemloft.net>
-References: <43CCBF3D.2070900@cosmosbay.com>
-	<4415A4C1.1030906@cosmosbay.com>
-	<452EA214.7080905@cosmosbay.com>
+From: Jiri Kosina <jikos@jikos.cz>
+Subject: [PATCH] sk98lin: handle pci_enable_device() return value in
+ skge_resume() properly
+Date: Fri, 13 Oct 2006 00:17:50 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0610130002320.29022@twin.jikos.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:697
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751191AbWJLWP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Oct 2006 18:15:29 -0400
-To: dada1@cosmosbay.com
-In-Reply-To: <452EA214.7080905@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751207AbWJLWTs@vger.kernel.org>
+To: mlindner@syskonnect.de, rroesler@syskonnect.de,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jeff@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 12 Oct 2006 22:14:12 +0200
+[PATCH] sk98lin: handle pci_enable_device() return value in skge_resume() properly
 
-> 1) shrink struct inet_peer on 64 bits platforms.
-> ------------------------------------------------
-> I noticed sizeof(struct inet_peer) was 64+8 on x86_64
-> 
-> As we dont really need 64 bits timestamps (we only care for garbage 
-> collection), we can use 32bits ones and reduce sizeof(struct inet_peer) to 64 
-> bytes : Because of SLAB_HWCACHE_ALIGN constraint, final allocation is 64 bytes 
-> instead of 128 bytes per inet_peer structure.
+Fix missing handling of pci_enable_device() return value in skge_resume() 
 
-I'm not convinced this is %100 correct.  There are wrapping
-cases that I think aren't covered.
+Signed-off-by: Jiri Kosina <jikos@jikos.cz>
 
-Consider an entry that lives long enough for the lower 32-bits
-of jiffies to wrap, then we kill it, but we won't purge it
-properly if the wrapped jiffie is close to dtime.
+--- 
 
-I'm sure there are other similar cases as well.
+ drivers/net/sk98lin/skge.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-> 2) Cleanup
-> ----------
->   inet_putpeer() is not anymore inlined in inetpeer.h, as this is not called 
-> in fast paths, to reduce text size. Some exports are not anymore needed 
-> (inet_peer_unused_lock, inet_peer_unused_tailp) and can be declared static.
-> 
-> 3) No more hard limit (PEER_MAX_CLEANUP_WORK = 30)
-> --------------------------------------------------
->   peer_check_expire() try to delete entries for at most one timer tick. CPUS 
-> are going faster, hard limits are becoming useless... Similar thing is done in 
-> net/ipv4/route.c garbage collector.
+diff --git a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+index 99e9262..e12fb62 100644
+--- a/drivers/net/sk98lin/skge.c
++++ b/drivers/net/sk98lin/skge.c
+@@ -5070,7 +5070,11 @@ static int skge_resume(struct pci_dev *p
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+-	pci_enable_device(pdev);
++	if ((ret = pci_enable_device(pdev))) {
++		printk(KERN_ERR "sk98lin: Cannot enable PCI device during resume\n");
++		unregister_netdev(dev);
++		return ret;
++	}
+ 	pci_set_master(pdev);
+ 	if (pAC->GIni.GIMacsFound == 2)
+ 		ret = request_irq(dev->irq, SkGeIsr, IRQF_SHARED, "sk98lin", dev);
 
-These parts are fine.
+-- 
+Jiri Kosina
