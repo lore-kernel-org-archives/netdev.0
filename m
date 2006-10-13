@@ -1,44 +1,97 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Suppress / delay SYN-ACK
-Date: Thu, 12 Oct 2006 17:57:20 -0700
-Message-ID: <20061012175720.004e82b9@localhost.localdomain>
-References: <000101c6edd5$a880d430$1a04010a@V505CP>
-	<452E69B2.4030306@hp.com>
-	<469958e00610121458h45581840ke0367647a735c635@mail.gmail.com>
-	<452EC7B9.2030801@hp.com>
+From: Jiri Kosina <jikos@jikos.cz>
+Subject: Re: [PATCH] sk98lin: handle pci_enable_device() return value in
+ skge_resume() properly
+Date: Fri, 13 Oct 2006 03:12:55 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0610130310120.29022@twin.jikos.cz>
+References: <Pine.LNX.4.64.0610130002320.29022@twin.jikos.cz>
+ <20061012152512.66f147b8@freekitty> <Pine.LNX.4.64.0610130028450.29022@twin.jikos.cz>
+ <20061012154714.6924f465@freekitty> <Pine.LNX.4.64.0610130052440.29022@twin.jikos.cz>
+ <20061012175013.87564a57.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Martin Schiller <mschiller@tdt.de>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>, mlindner@syskonnect.de,
+	rroesler@syskonnect.de, Jeff Garzik <jeff@garzik.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18838 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751366AbWJMA5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 20:57:32 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <452EC7B9.2030801@hp.com>
+Received: from twin.jikos.cz ([213.151.79.26]:3302 "EHLO twin.jikos.cz")
+	by vger.kernel.org with ESMTP id S1750711AbWJMBNV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 21:13:21 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061012175013.87564a57.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Oct 2006 15:54:49 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+On Thu, 12 Oct 2006, Andrew Morton wrote:
 
-> > More to the point, on what basis would the application be rejecting a
-> > connection request based solely on the SYN?
-> 
-> True, it isn't like there would suddenly be any call user data as in XTI/TLI.
-> 
-> > There are only two pieces of information available: the remote IP
-> > address and port, and the total number of pending requests. The
-> > latter is already addressed through the backlog size, and netfilter
-> > rules can already be used to reject based on IP address.
-> 
-> It would though allow an application to have an even more restricted set of 
-> allowed IP's than was set in netfilter.  Rather like allowing the application to 
-> set socket buffer sizes rather than relying on the system's default.
->
+> >  	pci_set_power_state(pdev, PCI_D0);
+> >  	pci_restore_state(pdev);
+> > -	pci_enable_device(pdev);
+> > +	ret = pci_enable_device(pdev);
+> > +	if (ret) {
+> > +		printk(KERN_ERR "sk98lin: Cannot enable PCI device %s during resume\n", 
+> > +				dev->name);
+> > +		unregister_netdev(dev);
+> This looks rather wrong - skge_exit() will run unregister_netdev() again.
 
-Some version of BSD sockets had this behaviour, perhaps you should use
-the same model.  It was some socket option, I can't remember; what ever
-it wasn't widely adopted. Nothing says you can't just use shutdown() to
-force a RST on the addresses you don't want to talk to.
+You are of course right (the problem was also spotted by Russell King). 
+This I believe is the correct one for the sk98lin case.
+
+[PATCH] fix sk98lin driver, ignoring return value from pci_enable_device()
+
+add check of return value to _resume() function of sk98lin driver.
+
+Signed-off-by: Jiri Kosina <jikos@jikos.cz>
+
+---
+
+ drivers/net/sk98lin/skge.c |   20 +++++++++++++++-----
+ 1 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+index d4913c3..3a9323d 100644
+--- a/drivers/net/sk98lin/skge.c
++++ b/drivers/net/sk98lin/skge.c
+@@ -5070,7 +5070,12 @@ static int skge_resume(struct pci_dev *p
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+-	pci_enable_device(pdev);
++	ret = pci_enable_device(pdev);
++	if (ret) {
++		printk(KERN_WARNING "sk98lin: unable to enable device %s in resume\n",
++				dev->name);
++		goto out_err;
++	}	
+ 	pci_set_master(pdev);
+ 	if (pAC->GIni.GIMacsFound == 2)
+ 		ret = request_irq(dev->irq, SkGeIsr, IRQF_SHARED, "sk98lin", dev);
+@@ -5078,10 +5083,8 @@ static int skge_resume(struct pci_dev *p
+ 		ret = request_irq(dev->irq, SkGeIsrOnePort, IRQF_SHARED, "sk98lin", dev);
+ 	if (ret) {
+ 		printk(KERN_WARNING "sk98lin: unable to acquire IRQ %d\n", dev->irq);
+-		pAC->AllocFlag &= ~SK_ALLOC_IRQ;
+-		dev->irq = 0;
+-		pci_disable_device(pdev);
+-		return -EBUSY;
++		ret = -EBUSY;
++		goto out_err;
+ 	}
+ 
+ 	netif_device_attach(dev);
+@@ -5098,6 +5101,13 @@ static int skge_resume(struct pci_dev *p
+ 	}
+ 
+ 	return 0;
++out_err:
++	pAC->AllocFlag &= ~SK_ALLOC_IRQ;
++	dev->irq = 0;
++	pci_disable_device(pdev);
++
++	return ret;
++
+ }
+ #else
+ #define skge_suspend NULL
+
+-- 
+Jiri Kosina
