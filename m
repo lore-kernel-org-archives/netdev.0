@@ -1,42 +1,33 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Suppress / delay SYN-ACK
-Date: Fri, 13 Oct 2006 09:39:57 -0700
-Message-ID: <452FC15D.7030902@hp.com>
-References: <000101c6edd5$a880d430$1a04010a@V505CP> <452E69B2.4030306@hp.com>	<469958e00610121458h45581840ke0367647a735c635@mail.gmail.com>	<452EC7B9.2030801@hp.com> <452F11E4.8050508@cosmosbay.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: Hardware bug or kernel bug?
+Date: Fri, 13 Oct 2006 18:11:51 +0100
+Message-ID: <1160759511.25218.65.camel@localhost.localdomain>
+References: <20061013085605.GA1690@ff.dom.local>
+	 <200610131256.54546.dj@david-web.co.uk>
+	 <20061013130648.GC1690@ff.dom.local>
+	 <200610131724.40631.dj@david-web.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Martin Schiller <mschiller@tdt.de>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:31404 "EHLO palrel12.hp.com")
-	by vger.kernel.org with ESMTP id S1751684AbWJMQkB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 12:40:01 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <452F11E4.8050508@cosmosbay.com>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:5802 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
+	id S1751352AbWJMQpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 12:45:19 -0400
+To: David Johnson <dj@david-web.co.uk>
+In-Reply-To: <200610131724.40631.dj@david-web.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Rick Jones a =E9crit :
->=20
->>> More to the point, on what basis would the application be rejecting=
- a
->>> connection request based solely on the SYN?
->>
->>
->> True, it isn't like there would suddenly be any call user data as in=
-=20
->> XTI/TLI.
->=20
->=20
-> DATA payload could be included in the SYN packet. TCP specs allow thi=
-s=20
-> AFAIK.
+Ar Gwe, 2006-10-13 am 17:24 +0100, ysgrifennodd David Johnson:
+> IDE controller, then continuing. Could the same thing be happening in Linux? 
+> If Linux can't talk to the IDE controller when trying to write to disk, how 
+> does it handle that?
 
-Yes, but it isn't supposed to be delivered until the 3-way handshake is=
- complete=20
-right?
+It will timeout and then retry the command. It's not the most ideal
+situation to end up in but I'd expect to see a DMA timeout and a retry
+or two in the log not a crash.
 
-rick jones
