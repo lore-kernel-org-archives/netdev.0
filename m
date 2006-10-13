@@ -1,181 +1,206 @@
 From: Per Liden <per.liden@ericsson.com>
-Subject: [PATCH 8/14] [TIPC] Fix socket receive queue NULL pointer dereference on SMP systems
-Date: Fri, 13 Oct 2006 13:37:49 +0200
-Message-ID: <1160739475921-git-send-email-per.liden@ericsson.com>
+Subject: [PATCH 12/14] [TIPC] Added subscription cancellation capability
+Date: Fri, 13 Oct 2006 13:37:53 +0200
+Message-ID: <11607394754005-git-send-email-per.liden@ericsson.com>
 References: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Reply-To: Per Liden <per.liden@ericsson.com>
-Cc: netdev@vger.kernel.org, P Litov <xpl@amln.net>
+Cc: netdev@vger.kernel.org, Lijun Chen <chenli@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:44960 "EHLO
+Received: from mailgw4.ericsson.se ([193.180.251.62]:49824 "EHLO
 	mailgw4.ericsson.se") by vger.kernel.org with ESMTP
-	id S1751383AbWJMLiB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 07:38:01 -0400
+	id S1751401AbWJMLiC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 07:38:02 -0400
 To: David Miller <davem@davemloft.net>
 In-Reply-To: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: P Litov <xpl@amln.net>
+From: Lijun Chen <chenli@nortel.com>
 
-This patch corrects an SMP system-specific race condition which allowed
-TIPC to prematurely dereference the first sk_buff in a socket receive
-queue that was changing from empty to non-empty state.
+This patch allows a TIPC application to cancel an existing
+topology service subscription by re-requesting the subscription
+with the TIPC_SUB_CANCEL filter bit set.  (All other bits of
+the cancel request must match the original subscription request.)
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Per Liden <per.liden@ericsson.com>
 ---
- net/tipc/socket.c |   40 ++++++++++++++++++++++++++--------------
- 1 files changed, 26 insertions(+), 14 deletions(-)
+ include/linux/tipc.h |    1 +
+ net/tipc/subscr.c    |   99 ++++++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 85 insertions(+), 15 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 2a6a5a6..827f204 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -82,6 +82,18 @@ static int sockets_enabled = 0;
- static atomic_t tipc_queue_size = ATOMIC_INIT(0);
+diff --git a/include/linux/tipc.h b/include/linux/tipc.h
+index 243a15f..bea4694 100644
+--- a/include/linux/tipc.h
++++ b/include/linux/tipc.h
+@@ -129,6 +129,7 @@ #define TIPC_CONN_SHUTDOWN	5
  
+ #define TIPC_SUB_PORTS     	0x01  	/* filter for port availability */
+ #define TIPC_SUB_SERVICE     	0x02  	/* filter for service availability */
++#define TIPC_SUB_CANCEL         0x04    /* cancel a subscription */
+ #if 0
+ /* The following filter options are not currently implemented */
+ #define TIPC_SUB_NO_BIND_EVTS	0x04	/* filter out "publish" events */
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index c51600b..77a87c2 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -155,7 +155,7 @@ void tipc_subscr_report_overlap(struct s
+ 	    sub->seq.upper, found_lower, found_upper);
+ 	if (!tipc_subscr_overlap(sub, found_lower, found_upper))
+ 		return;
+-	if (!must && (sub->filter != TIPC_SUB_PORTS))
++	if (!must && !(sub->filter & TIPC_SUB_PORTS))
+ 		return;
+ 	subscr_send_event(sub, found_lower, found_upper, event, port_ref, node);
+ }
+@@ -176,6 +176,13 @@ static void subscr_timeout(struct subscr
+ 	if (subscriber == NULL)
+ 		return;
  
-+/*
-+ * Notes on receive queue locking:
++	/* Validate timeout (in case subscription is being cancelled) */
++
++	if (sub->timeout == TIPC_WAIT_FOREVER) {
++		tipc_ref_unlock(subscriber_ref);
++		return;
++	}
++
+ 	/* Unlink subscription from name table */
+ 
+ 	tipc_nametbl_unsubscribe(sub);
+@@ -199,6 +206,20 @@ static void subscr_timeout(struct subscr
+ }
+ 
+ /**
++ * subscr_del - delete a subscription within a subscription list
 + *
-+ * 1) Routines called from an application thread that examine the socket 
-+ * receive queue must typically use skb_queue_empty() rather than
-+ * skb_queue_len() to determine if the queue has a message in it; otherwise,
-+ * a race condition can arise on SMP systems wherein skb_queue_len() indicates
-+ * the presence of a message that is not yet on the queue.  (This race could
-+ * be avoided by taking the queue lock before examining the queue, but this
-+ * would complicate the code and impact performance.)
++ * Called with subscriber locked.
 + */
 +
- /* 
-  * sock_lock(): Lock a port/socket pair. lock_sock() can 
-  * not be used here, since the same lock must protect ports 
-@@ -123,7 +135,7 @@ static u32 pollmask(struct socket *sock)
++static void subscr_del(struct subscription *sub)
++{
++	tipc_nametbl_unsubscribe(sub);
++	list_del(&sub->subscription_list);
++	kfree(sub);
++	atomic_dec(&topsrv.subscription_count);
++}
++
++/**
+  * subscr_terminate - terminate communication with a subscriber
+  * 
+  * Called with subscriber locked.  Routine must temporarily release this lock
+@@ -227,12 +248,9 @@ static void subscr_terminate(struct subs
+ 			k_cancel_timer(&sub->timer);
+ 			k_term_timer(&sub->timer);
+ 		}
+-		tipc_nametbl_unsubscribe(sub);
+-		list_del(&sub->subscription_list);
+-		dbg("Term: Removed sub %u,%u,%u from subscriber %x list\n",
++		dbg("Term: Removing sub %u,%u,%u from subscriber %x list\n",
+ 		    sub->seq.type, sub->seq.lower, sub->seq.upper, subscriber);
+-		kfree(sub);
+-		atomic_dec(&topsrv.subscription_count);
++		subscr_del(sub);
+ 	}
+ 
+ 	/* Sever connection to subscriber */
+@@ -253,6 +271,49 @@ static void subscr_terminate(struct subs
+ }
+ 
+ /**
++ * subscr_cancel - handle subscription cancellation request
++ * 
++ * Called with subscriber locked.  Routine must temporarily release this lock
++ * to enable the subscription timeout routine to finish without deadlocking; 
++ * the lock is then reclaimed to allow caller to release it upon return.
++ * 
++ * Note that fields of 's' use subscriber's endianness! 
++ */
++
++static void subscr_cancel(struct tipc_subscr *s,
++			  struct subscriber *subscriber)
++{
++	struct subscription *sub;
++	struct subscription *sub_temp;
++	int found = 0;
++
++	/* Find first matching subscription, exit if not found */
++	
++	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
++				 subscription_list) {
++		if (!memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr))) {
++			found = 1;
++			break;
++		}
++	}
++	if (!found)
++		return;
++
++	/* Cancel subscription timer (if used), then delete subscription */
++
++	if (sub->timeout != TIPC_WAIT_FOREVER) {
++		sub->timeout = TIPC_WAIT_FOREVER;
++		spin_unlock_bh(subscriber->lock);
++		k_cancel_timer(&sub->timer);
++		k_term_timer(&sub->timer);
++		spin_lock_bh(subscriber->lock);
++	}
++	dbg("Cancel: removing sub %u,%u,%u from subscriber %x list\n",
++	    sub->seq.type, sub->seq.lower, sub->seq.upper, subscriber);
++	subscr_del(sub);
++}
++
++/**
+  * subscr_subscribe - create subscription for subscriber
+  * 
+  * Called with subscriber locked
+@@ -263,6 +324,21 @@ static void subscr_subscribe(struct tipc
  {
- 	u32 mask;
+ 	struct subscription *sub;
  
--	if ((skb_queue_len(&sock->sk->sk_receive_queue) != 0) ||
-+	if (!skb_queue_empty(&sock->sk->sk_receive_queue) ||
- 	    (sock->state == SS_UNCONNECTED) ||
- 	    (sock->state == SS_DISCONNECTING))
- 		mask = (POLLRDNORM | POLLIN);
-@@ -809,7 +821,7 @@ static int recv_msg(struct kiocb *iocb, 
- 	struct tipc_sock *tsock = tipc_sk(sock->sk);
- 	struct sk_buff *buf;
- 	struct tipc_msg *msg;
--	unsigned int q_len;
-+	int q_empty;
- 	unsigned int sz;
- 	u32 err;
- 	int res;
-@@ -828,7 +840,7 @@ static int recv_msg(struct kiocb *iocb, 
- 		if (unlikely(sock->state == SS_UNCONNECTED))
- 			return -ENOTCONN;
- 		if (unlikely((sock->state == SS_DISCONNECTING) && 
--			     (skb_queue_len(&sock->sk->sk_receive_queue) == 0)))
-+			     (skb_queue_empty(&sock->sk->sk_receive_queue))))
- 		       	return -ENOTCONN;
++	/* Determine/update subscriber's endianness */
++
++	if (s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE))
++		subscriber->swap = 0;
++	else
++		subscriber->swap = 1;
++
++	/* Detect & process a subscription cancellation request */
++
++	if (s->filter & htohl(TIPC_SUB_CANCEL, subscriber->swap)) {
++		s->filter &= ~htohl(TIPC_SUB_CANCEL, subscriber->swap);
++		subscr_cancel(s, subscriber);
++		return;
++	}
++
+ 	/* Refuse subscription if global limit exceeded */
+ 
+ 	if (atomic_read(&topsrv.subscription_count) >= tipc_max_subscriptions) {
+@@ -281,13 +357,6 @@ static void subscr_subscribe(struct tipc
+ 		return;
  	}
  
-@@ -838,7 +850,7 @@ static int recv_msg(struct kiocb *iocb, 
- 		return -ERESTARTSYS;
+-	/* Determine/update subscriber's endianness */
+-
+-	if ((s->filter == TIPC_SUB_PORTS) || (s->filter == TIPC_SUB_SERVICE))
+-		subscriber->swap = 0;
+-	else
+-		subscriber->swap = 1;
+-
+ 	/* Initialize subscription object */
  
- restart:
--	if (unlikely((skb_queue_len(&sock->sk->sk_receive_queue) == 0) &&
-+	if (unlikely(skb_queue_empty(&sock->sk->sk_receive_queue) &&
- 		     (flags & MSG_DONTWAIT))) {
- 		res = -EWOULDBLOCK;
- 		goto exit;
-@@ -846,7 +858,7 @@ restart:
- 
- 	if ((res = wait_event_interruptible(
- 		*sock->sk->sk_sleep, 
--		((q_len = skb_queue_len(&sock->sk->sk_receive_queue)) ||
-+		(!(q_empty = skb_queue_empty(&sock->sk->sk_receive_queue)) ||
- 		 (sock->state == SS_DISCONNECTING))) )) {
- 		goto exit;
- 	}
-@@ -854,7 +866,7 @@ restart:
- 	/* Catch attempt to receive on an already terminated connection */
- 	/* [THIS CHECK MAY OVERLAP WITH AN EARLIER CHECK] */
- 
--	if (!q_len) {
-+	if (q_empty) {
- 		res = -ENOTCONN;
- 		goto exit;
- 	}
-@@ -941,7 +953,7 @@ static int recv_stream(struct kiocb *ioc
- 	struct tipc_sock *tsock = tipc_sk(sock->sk);
- 	struct sk_buff *buf;
- 	struct tipc_msg *msg;
--	unsigned int q_len;
-+	int q_empty;
- 	unsigned int sz;
- 	int sz_to_copy;
- 	int sz_copied = 0;
-@@ -962,7 +974,7 @@ static int recv_stream(struct kiocb *ioc
- 		return -EINVAL;
- 
- 	if (unlikely(sock->state == SS_DISCONNECTING)) {
--		if (skb_queue_len(&sock->sk->sk_receive_queue) == 0)
-+		if (skb_queue_empty(&sock->sk->sk_receive_queue))
- 			return -ENOTCONN;
- 	} else if (unlikely(sock->state != SS_CONNECTED))
- 		return -ENOTCONN;
-@@ -973,7 +985,7 @@ static int recv_stream(struct kiocb *ioc
- 		return -ERESTARTSYS;
- 
- restart:
--	if (unlikely((skb_queue_len(&sock->sk->sk_receive_queue) == 0) &&
-+	if (unlikely(skb_queue_empty(&sock->sk->sk_receive_queue) &&
- 		     (flags & MSG_DONTWAIT))) {
- 		res = -EWOULDBLOCK;
- 		goto exit;
-@@ -981,7 +993,7 @@ restart:
- 
- 	if ((res = wait_event_interruptible(
- 		*sock->sk->sk_sleep, 
--		((q_len = skb_queue_len(&sock->sk->sk_receive_queue)) ||
-+		(!(q_empty = skb_queue_empty(&sock->sk->sk_receive_queue)) ||
- 		 (sock->state == SS_DISCONNECTING))) )) {
- 		goto exit;
- 	}
-@@ -989,7 +1001,7 @@ restart:
- 	/* Catch attempt to receive on an already terminated connection */
- 	/* [THIS CHECK MAY OVERLAP WITH AN EARLIER CHECK] */
- 
--	if (!q_len) {
-+	if (q_empty) {
- 		res = -ENOTCONN;
- 		goto exit;
- 	}
-@@ -1287,7 +1299,7 @@ static int connect(struct socket *sock, 
-    /* Wait for destination's 'ACK' response */
- 
-    res = wait_event_interruptible_timeout(*sock->sk->sk_sleep,
--                                          skb_queue_len(&sock->sk->sk_receive_queue),
-+                                          (!skb_queue_empty(&sock->sk->sk_receive_queue)),
- 					  sock->sk->sk_rcvtimeo);
-    buf = skb_peek(&sock->sk->sk_receive_queue);
-    if (res > 0) {
-@@ -1349,7 +1361,7 @@ static int accept(struct socket *sock, s
- 	if (sock->state != SS_LISTENING)
- 		return -EINVAL;
- 	
--	if (unlikely((skb_queue_len(&sock->sk->sk_receive_queue) == 0) && 
-+	if (unlikely(skb_queue_empty(&sock->sk->sk_receive_queue) && 
- 		     (flags & O_NONBLOCK)))
- 		return -EWOULDBLOCK;
- 
-@@ -1357,7 +1369,7 @@ static int accept(struct socket *sock, s
- 		return -ERESTARTSYS;
- 
- 	if (wait_event_interruptible(*sock->sk->sk_sleep, 
--				     skb_queue_len(&sock->sk->sk_receive_queue))) {
-+				     (!skb_queue_empty(&sock->sk->sk_receive_queue)))) {
- 		res = -ERESTARTSYS;
- 		goto exit;
- 	}
+ 	memset(sub, 0, sizeof(*sub));
+@@ -296,8 +365,8 @@ static void subscr_subscribe(struct tipc
+ 	sub->seq.upper = htohl(s->seq.upper, subscriber->swap);
+ 	sub->timeout = htohl(s->timeout, subscriber->swap);
+ 	sub->filter = htohl(s->filter, subscriber->swap);
+-	if ((((sub->filter != TIPC_SUB_PORTS) 
+-	      && (sub->filter != TIPC_SUB_SERVICE)))
++	if ((!(sub->filter & TIPC_SUB_PORTS)
++	     == !(sub->filter & TIPC_SUB_SERVICE))
+ 	    || (sub->seq.lower > sub->seq.upper)) {
+ 		warn("Subscription rejected, illegal request\n");
+ 		kfree(sub);
 -- 
 1.4.1
 
