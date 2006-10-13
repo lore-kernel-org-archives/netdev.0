@@ -1,16 +1,16 @@
 From: Per Liden <per.liden@ericsson.com>
-Subject: [PATCH 6/14] [TIPC] Remove code bloat introduced by print buffer rework
-Date: Fri, 13 Oct 2006 13:37:47 +0200
-Message-ID: <1160739475673-git-send-email-per.liden@ericsson.com>
+Subject: [PATCH 11/14] [TIPC] Can now list multicast link on an isolated network node
+Date: Fri, 13 Oct 2006 13:37:52 +0200
+Message-ID: <11607394753889-git-send-email-per.liden@ericsson.com>
 References: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Reply-To: Per Liden <per.liden@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:41888 "EHLO
-	mailgw4.ericsson.se") by vger.kernel.org with ESMTP
-	id S1751385AbWJMLiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 07:38:00 -0400
+Received: from mailgw3.ericsson.se ([193.180.251.60]:56972 "EHLO
+	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
+	id S1751407AbWJMLiD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 07:38:03 -0400
 To: David Miller <davem@davemloft.net>
 In-Reply-To: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
@@ -18,72 +18,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-This patch allows the compiler to optimize out any code that tries to
-send debugging output to the null print buffer (TIPC_NULL), a capability
-that was unintentionally broken during the recent print buffer rework.
+This patch fixes a minor bug that prevents "tipc-config -l" from
+displaying the multicast link if a TIPC node has never successfully
+established at least one unicast link.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Per Liden <per.liden@ericsson.com>
 ---
- net/tipc/core.h |    6 +++---
- net/tipc/link.c |    8 ++++----
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ net/tipc/node.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 31331e8..e3a74a3 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -83,9 +83,9 @@ #define err(fmt, arg...)  tipc_printf(TI
- #define warn(fmt, arg...) tipc_printf(TIPC_OUTPUT, KERN_WARNING "TIPC: " fmt, ## arg)
- #define info(fmt, arg...) tipc_printf(TIPC_OUTPUT, KERN_NOTICE "TIPC: " fmt, ## arg)
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index fc6d096..886bda5 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -648,7 +648,7 @@ struct sk_buff *tipc_node_get_links(cons
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (network address)");
  
--#define dbg(fmt, arg...)  do {if (DBG_OUTPUT) tipc_printf(DBG_OUTPUT, fmt, ## arg);} while(0)
--#define msg_dbg(msg, txt) do {if (DBG_OUTPUT) tipc_msg_print(DBG_OUTPUT, msg, txt);} while(0)
--#define dump(fmt, arg...) do {if (DBG_OUTPUT) tipc_dump(DBG_OUTPUT, fmt, ##arg);} while(0)
-+#define dbg(fmt, arg...)  do {if (DBG_OUTPUT != TIPC_NULL) tipc_printf(DBG_OUTPUT, fmt, ## arg);} while(0)
-+#define msg_dbg(msg, txt) do {if (DBG_OUTPUT != TIPC_NULL) tipc_msg_print(DBG_OUTPUT, msg, txt);} while(0)
-+#define dump(fmt, arg...) do {if (DBG_OUTPUT != TIPC_NULL) tipc_dump(DBG_OUTPUT, fmt, ##arg);} while(0)
- 
- 
- /*	
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 53bc8cb..1bb983c 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -132,7 +132,7 @@ static void link_print(struct link *l_pt
-  * allow the output from multiple links to be intermixed.  For this reason
-  * routines of the form "dbg_link_XXX()" have been created that will capture
-  * debug info into a link's personal print buffer, which can then be dumped
-- * into the TIPC system log (LOG) upon request.
-+ * into the TIPC system log (TIPC_LOG) upon request.
-  *
-  * To enable per-link debugging, use LINK_LOG_BUF_SIZE to specify the size
-  * of the print buffer used by each link.  If LINK_LOG_BUF_SIZE is set to 0,
-@@ -141,7 +141,7 @@ static void link_print(struct link *l_pt
-  * when there is only a single link in the system being debugged.
-  *
-  * Notes:
-- * - When enabled, LINK_LOG_BUF_SIZE should be set to at least 1000 (bytes)
-+ * - When enabled, LINK_LOG_BUF_SIZE should be set to at least TIPC_PB_MIN_SIZE
-  * - "l_ptr" must be valid when using dbg_link_XXX() macros  
-  */
- 
-@@ -159,13 +159,13 @@ #define dbg_link_dump() do { \
- 
- static void dbg_print_link(struct link *l_ptr, const char *str)
- {
--	if (DBG_OUTPUT)
-+	if (DBG_OUTPUT != TIPC_NULL)
- 		link_print(l_ptr, DBG_OUTPUT, str);
- }
- 
- static void dbg_print_buf_chain(struct sk_buff *root_buf)
- {
--	if (DBG_OUTPUT) {
-+	if (DBG_OUTPUT != TIPC_NULL) {
- 		struct sk_buff *buf = root_buf;
- 
- 		while (buf) {
+-        if (!tipc_nodes)
++        if (tipc_mode != TIPC_NET_MODE)
+                 return tipc_cfg_reply_none();
+ 	
+ 	/* Get space for all unicast links + multicast link */
 -- 
 1.4.1
 
