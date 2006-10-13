@@ -1,16 +1,16 @@
 From: Per Liden <per.liden@ericsson.com>
-Subject: [PATCH 5/14] [TIPC] Optimize wakeup logic when socket has no waiting processes
-Date: Fri, 13 Oct 2006 13:37:46 +0200
-Message-ID: <11607394752213-git-send-email-per.liden@ericsson.com>
+Subject: [PATCH 7/14] [TIPC] Add support for Ethernet VLANs
+Date: Fri, 13 Oct 2006 13:37:48 +0200
+Message-ID: <11607394753517-git-send-email-per.liden@ericsson.com>
 References: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Reply-To: Per Liden <per.liden@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:41120 "EHLO
+Received: from mailgw4.ericsson.se ([193.180.251.62]:42656 "EHLO
 	mailgw4.ericsson.se") by vger.kernel.org with ESMTP
-	id S1751384AbWJMLiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 07:38:00 -0400
+	id S1751375AbWJMLiB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 07:38:01 -0400
 To: David Miller <davem@davemloft.net>
 In-Reply-To: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
@@ -18,39 +18,50 @@ List-Id: netdev.vger.kernel.org
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-This patch adds a simple test so TIPC doesn't try waking up processes
-waiting on a socket if there are none waiting.
+This patch enhances TIPC's Ethernet support to include VLAN interfaces.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Per Liden <per.liden@ericsson.com>
 ---
- net/tipc/socket.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ net/tipc/core.c |    2 +-
+ net/tipc/core.h |    8 ++++++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index ed900fe..2a6a5a6 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1208,7 +1208,8 @@ static u32 dispatch(struct tipc_port *tp
- 	atomic_inc(&tipc_queue_size);
- 	skb_queue_tail(&sock->sk->sk_receive_queue, buf);
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 0539a83..7f3f693 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -90,7 +90,7 @@ int tipc_random;
+ atomic_t tipc_user_count = ATOMIC_INIT(0);
  
--        wake_up_interruptible(sock->sk->sk_sleep);
-+	if (waitqueue_active(sock->sk->sk_sleep))
-+		wake_up_interruptible(sock->sk->sk_sleep);
- 	return TIPC_OK;
- }
+ const char tipc_alphabet[] = 
+-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
++	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.";
  
-@@ -1223,7 +1224,8 @@ static void wakeupdispatch(struct tipc_p
- {
- 	struct tipc_sock *tsock = (struct tipc_sock *)tport->usr_handle;
+ /* configurable TIPC parameters */
  
--        wake_up_interruptible(tsock->sk.sk_sleep);
-+	if (waitqueue_active(tsock->sk.sk_sleep))
-+		wake_up_interruptible(tsock->sk.sk_sleep);
- }
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index e3a74a3..a0cc1d2 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -275,11 +275,15 @@ static inline void k_term_timer(struct t
+ /*
+  * TIPC message buffer code
+  *
+- * TIPC message buffer headroom leaves room for 14 byte Ethernet header, 
++ * TIPC message buffer headroom reserves space for a link-level header
++ * (in case the message is sent off-node), 
+  * while ensuring TIPC header is word aligned for quicker access
++ *
++ * The largest header currently supported is 18 bytes, which is used when
++ * the standard 14 byte Ethernet header has 4 added bytes for VLAN info
+  */
  
- /**
+-#define BUF_HEADROOM 16u 
++#define BUF_HEADROOM 20u
+ 
+ struct tipc_skb_cb {
+ 	void *handle;
 -- 
 1.4.1
 
