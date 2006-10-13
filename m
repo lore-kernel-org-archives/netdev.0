@@ -1,81 +1,83 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-Date: Fri, 13 Oct 2006 08:17:25 +0200
-Message-ID: <20061013061725.GB12571@mellanox.co.il>
-References: <20061012.212240.26278742.davem@davemloft.net>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: "Martin Schiller" <mschiller@tdt.de>
+Subject: RE: Suppress / delay SYN-ACK
+Date: Fri, 13 Oct 2006 08:28:55 +0200
+Message-ID: <000f01c6ee90$dc5ef5f0$1a04010a@V505CP>
+References: <17711.10017.437640.120171@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, steve@chygwyn.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	openib-general@openib.org, rolandd@cisco.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Caitlin Bestler'" <caitlin.bestler@gmail.com>,
+	"'Rick Jones'" <rick.jones2@hp.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dev.mellanox.co.il ([194.90.237.44]:35203 "EHLO
-	dev.mellanox.co.il") by vger.kernel.org with ESMTP id S1751009AbWJMGRz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 02:17:55 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061012.212240.26278742.davem@davemloft.net>
+Received: from ns.tdt.de ([195.243.126.82]:33978 "EHLO ns.tdt.de")
+	by vger.kernel.org with ESMTP id S1750711AbWJMG2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 02:28:54 -0400
+Received: from ns (root@localhost)
+	by ns.tdt.de (8.11.6/8.11.6/SuSE Linux 0.5) with SMTP id k9D6Srf30173
+	for <netdev@vger.kernel.org>; Fri, 13 Oct 2006 08:28:53 +0200
+To: "'Stephen J. Bevan'" <stephen@dino.dnsalias.com>
+In-Reply-To: <17711.10017.437640.120171@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. David Miller <davem@davemloft.net>:
-> Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+On Friday, October 13, 2006 7:42 AM, Stephen J. Bevan wrote:
+
+> Say you are writing a transparent proxy i.e. when a TCP connection is
+> made through the box, rather than forwarding the TCP SYN, it is
+> delivered locally where it accepted and then the proxy makes a
+> separate TCP connection to original IP address.  Thus all traffic
+> flows through a user-space proxy that can cache, log, virus scan, ...
+> etc. the traffic.  Say also that the proxy is for a protocol that can
+> mediate peer<->peer connections via a server (e.g. most IM
+> protocols).  Furher still assume that the client has the property
+> that if while trying to establish a peer<->peer connection it will
+> back off and use the server if it does not manage to establish the
+> peer<->peer TCP connection but if it does establish the connection
+> then it will not back off to use the server.  Thus if a client is
+> behind the transparent proxy the proxy terminates the TCP connection
+> locally and at that point the client thinks it has connected to the
+> peer even though the proxy has yet to establish a connection to the
+> peer.               
 > 
-> From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-> Date: Thu, 12 Oct 2006 21:12:06 +0200
+> Should the proxy fail to do so all it can do is drop the
+> client<->proxy connection at which point the client does not connect
+> via the server and the user of the client is not happy since if the
+> proxy wasn't there everything would have worked just fine.  So, if
+> the proxy could delay the SYN/ACK until it has determined whether it
+> can really connect to the IP address in the SYN, then it can decide
+> whether to SYN/ACK or just not respond.      
 > 
-> > Quoting r. David Miller <davem@davemloft.net>:
-> > > Subject: Re: Dropping NETIF_F_SG since no checksum feature.
-> > > 
-> > > Numbers?
-> > 
-> > I created two subnets on top of the same pair infiniband HCAs:
-> 
-> I was asking for SG vs. non-SG numbers so I could see proof
-> that it really does help like you say it will.
-> 
+> Of course, the much simpler solution is to fix the client program so
+> that it will still back off to the server even if it does manage to
+> make a TCP connection.  However, fixing other people's software is
+> easier said than done.  So if you are trying to $ell a tranparent
+> proxy solution, you need to handle it somehow.  Delayed SYN/ACK is
+> one such way, though not necessarily the best way. -    
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org More majordomo
+> info at  http://vger.kernel.org/majordomo-info.html  
 
-Dave, thanks for the clarification.
-Please note that ib0 is a non-SG device with MTU 2K,
-sorry that I forgot to mention that.
+That's nearly exactly what our situation is:
+
+The machine on which the SYN-ACK-feature should be implemented is a
+TCP-to-X.25 Gateway. There are really stupid TCP terminals out there which
+connects to the Gateway and simply start sending their data after the
+connection between them and the Gateway is established.
+
+The Gateway otherwise has to check its internal routing-table, which X.25
+Number should be called for the requesting TCP terminal and establish this
+X.25 connection.
+
+And now here is the point:
+If, why ever, the X.25 connection can't be established, the TCP-connection
+to the terminal has to be closed, or even better: NOT been established at
+all, so that the terminal can't send any data.
+
+So if you ask me, how often the connections should be rejected, i have to
+say: "Hopefully never", but so long as this stupid terminals will be very
+confused if the connection is firstly established and than suddenly closed,
+I think I can't resign this feature.
 
 
-so, to summarize my previous mail:
 
-
-interface   flags      mtu    bandwidth
-ib0         linear(0)  2044   286.45
-ibc0        _F_SG      65484  782.55
-
-
-
-If I will set both ib0 and ibc0 to 64K MTU, then
-benchmark-mode with the same MTU SG is somewhat slower than non-SG 
-(I tested this at some point, by some 10%, don't have the numbers at the moment -
-do you want to see them?).  I did not claim it is faster to do SG with same MTU
-and it is I think clear why linear should be faster for copy *with the same MTU*.
-But do you really think that we will be able to allocate
-even a single 64K linear skb after the machine has been active for a while?
-
-My assumption is that if I want to reliably get MTU > PAGE_SIZE I must support SG.
-Is it the wrong one?
-
-If this assumption is correct, then below is my line of thinking:
-- with infiniband we provably get a 2.5x speedup with MTU of 64K vs to 2K.
-- to get packets of that size reliably we must declare S/G support
-- infiniband verbs do not support IP checksumming
-- per network algorithmics, it is better to piggyback checksum calculation
-  on copying if copying takes place
-
-For this reason, I would like to define the meaning of S/G set when checksum
-bits are all clear as "we support S/G but not checksum, please checksum
-for us if you copy data anyway". Alternatively, add a new
-NETIF_F_??_CSUM bit to mean this capability.
-Does this make sense?
-
-Thanks,
-
--- 
-MST
