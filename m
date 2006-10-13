@@ -1,108 +1,72 @@
-From: Ryan Nowakowski <ryan@britestream.com>
-Subject: [PATCH] ipvs loopback connection
-Date: Fri, 13 Oct 2006 15:12:41 -0500
-Message-ID: <20061013201241.GD14789@britestream.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Suppress / delay SYN-ACK
+Date: Fri, 13 Oct 2006 22:13:45 +0200
+Message-ID: <452FF379.2080600@cosmosbay.com>
+References: <000101c6edd5$a880d430$1a04010a@V505CP> <452E69B2.4030306@hp.com>
+ <469958e00610121458h45581840ke0367647a735c635@mail.gmail.com>
+ <452EC7B9.2030801@hp.com> <452F11E4.8050508@cosmosbay.com>
+ <452FC15D.7030902@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="DO5DiztRLs659m5i"
-Cc: lvs-users@LinuxVirtualServer.org, clozano@andago.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Caitlin Bestler <caitlin.bestler@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.britestream.com ([207.191.53.98]:22300 "EHLO
-	gateway.layern.com") by vger.kernel.org with ESMTP id S1751873AbWJMUND
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 16:13:03 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from sp604002mt.neufgp.fr ([84.96.92.61]:49883 "EHLO sMtp.neuf.fr")
+	by vger.kernel.org with ESMTP id S1751877AbWJMUNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 16:13:46 -0400
+Received: from [192.168.30.203] ([88.137.140.131]) by sp604002mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0J7300N89C6X2320@sp604002mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Fri, 13 Oct 2006 22:13:45 +0200 (CEST)
+In-reply-to: <452FC15D.7030902@hp.com>
+To: Rick Jones <rick.jones2@hp.com>, Martin Schiller <mschiller@tdt.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Rick Jones a =E9crit :
+> Eric Dumazet wrote:
+>> Rick Jones a =E9crit :
+>>
+>>>> More to the point, on what basis would the application be rejectin=
+g a
+>>>> connection request based solely on the SYN?
+>>>
+>>>
+>>> True, it isn't like there would suddenly be any call user data as i=
+n=20
+>>> XTI/TLI.
+>>
+>>
+>> DATA payload could be included in the SYN packet. TCP specs allow th=
+is=20
+>> AFAIK.
+>=20
+> Yes, but it isn't supposed to be delivered until the 3-way handshake =
+is=20
+> complete right?
 
---DO5DiztRLs659m5i
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Are you speaking of 20 years old BSD API ? :)
 
-This is a port of Carlos Lozano's 2.4 patch[1] to 2.6.16.  I believe
-Carlos's comments about the original 2.4 patch still pertain here:
+Martin, I played with libnetfilter_queue=20
+(http://www.netfilter.org/projects/libnetfilter_queue/index.html)
 
-	We have a machine that must be both a client and director. The
-	two problems to solve are:
-		* ipvs doesn't handle loopback packets
-		* the return packets are handled by ip_vs_in, and not
-		  by ip_vs_out.
+With this single iptables rules, I was able to do what you want : trans=
+mit the=20
+SYN message to a user application, that may DROP this packet or let it =
+pass=20
+normal TCP stack.
 
-With kernel 2.6 there's an additional problem to solve:
-  * there's a shortcut used to recompute the tcp checksum that doesn't
-    work in this case
+iptables -A INPUT -p tcp --dport 333 --syn -j QUEUE
 
-The attached patch fixes the problems listed above.
+Then hack nfqnl_test.c to meet your needs (see nfq_set_verdict(),=20
+nfq_get_payload())
 
-1. http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.LVS-NAT.html#carlos_solution
+Be prepared to receive the 'same SYN' several time if your X.25 call at=
+tempt=20
+is too long.
 
---DO5DiztRLs659m5i
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="ipvs_loopback.patch"
+(You have to be root unfortunatly)
 
-diff -Naur linux-source-2.6.16/net/ipv4/ipvs/ip_vs_core.c linux-source-2.6.16-ipvs_loopback/net/ipv4/ipvs/ip_vs_core.c
---- linux-source-2.6.16/net/ipv4/ipvs/ip_vs_core.c	2006-03-19 23:53:29.000000000 -0600
-+++ linux-source-2.6.16-ipvs_loopback/net/ipv4/ipvs/ip_vs_core.c	2006-10-02 17:28:18.000000000 -0500
-@@ -953,7 +953,7 @@
- 	 *	... don't know why 1st test DOES NOT include 2nd (?)
- 	 */
- 	if (unlikely(skb->pkt_type != PACKET_HOST
--		     || skb->dev == &loopback_dev || skb->sk)) {
-+		     || skb->sk)) {
- 		IP_VS_DBG(12, "packet type=%d proto=%d daddr=%d.%d.%d.%d ignored\n",
- 			  skb->pkt_type,
- 			  skb->nh.iph->protocol,
-@@ -978,6 +978,14 @@
- 
- 	ihl = iph->ihl << 2;
- 
-+	cp = pp->conn_out_get(skb, pp, iph, ihl, 0);
-+
-+	if (cp) {
-+		__ip_vs_conn_put(cp);
-+
-+		return (ip_vs_out(hooknum,pskb,in,out,okfn));
-+	}
-+
- 	/*
- 	 * Check if the packet belongs to an existing connection entry
- 	 */
-diff -Naur linux-source-2.6.16/net/ipv4/ipvs/ip_vs_proto_tcp.c linux-source-2.6.16-ipvs_loopback/net/ipv4/ipvs/ip_vs_proto_tcp.c
---- linux-source-2.6.16/net/ipv4/ipvs/ip_vs_proto_tcp.c	2006-03-19 23:53:29.000000000 -0600
-+++ linux-source-2.6.16-ipvs_loopback/net/ipv4/ipvs/ip_vs_proto_tcp.c	2006-10-02 17:27:08.000000000 -0500
-@@ -200,23 +200,15 @@
- 	/*
- 	 *	Adjust TCP checksums
- 	 */
--	if (!cp->app) {
--		/* Only port and addr are changed, do fast csum update */
--		tcp_fast_csum_update(tcph, cp->vaddr, cp->daddr,
--				     cp->vport, cp->dport);
--		if ((*pskb)->ip_summed == CHECKSUM_HW)
--			(*pskb)->ip_summed = CHECKSUM_NONE;
--	} else {
--		/* full checksum calculation */
--		tcph->check = 0;
--		(*pskb)->csum = skb_checksum(*pskb, tcphoff,
--					     (*pskb)->len - tcphoff, 0);
--		tcph->check = csum_tcpudp_magic(cp->caddr, cp->daddr,
--						(*pskb)->len - tcphoff,
--						cp->protocol,
--						(*pskb)->csum);
--		(*pskb)->ip_summed = CHECKSUM_UNNECESSARY;
--	}
-+	/* full checksum calculation */
-+	tcph->check = 0;
-+	(*pskb)->csum = skb_checksum(*pskb, tcphoff,
-+						 (*pskb)->len - tcphoff, 0);
-+	tcph->check = csum_tcpudp_magic(cp->caddr, cp->daddr,
-+					(*pskb)->len - tcphoff,
-+					cp->protocol,
-+					(*pskb)->csum);
-+	(*pskb)->ip_summed = CHECKSUM_UNNECESSARY;
- 	return 1;
- }
- 
+Eric
 
---DO5DiztRLs659m5i--
