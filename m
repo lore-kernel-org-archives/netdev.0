@@ -1,44 +1,141 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATCH 01/02 V3] net/ipv6: seperate sit driver to extra module
-Date: Fri, 13 Oct 2006 21:17:45 +0200
-Message-ID: <20061013191744.GA30089@zlug.org>
-References: <20061010153745.GA27455@zlug.org> <452FD6F6.3090907@l4x.org>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [patch 3/5] d80211: remove bitfields from ieee80211_key_conf
+Date: Fri, 13 Oct 2006 12:21:01 -0700
+Message-ID: <20061013192101.GD18694@devicescape.com>
+References: <20061013191910.297963000@devicescape.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751818AbWJMTRs@vger.kernel.org>
-To: Jan Dittmer <jdi@l4x.org>
-Content-Disposition: inline
-In-Reply-To: <452FD6F6.3090907@l4x.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	David Kimdon <david.kimdon@devicescape.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.devicescape.com ([207.138.119.2]:28394 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751838AbWJMTVC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 15:21:02 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="key_conf_bitfields.patch"
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 13, 2006 at 08:12:06PM +0200, Jan Dittmer wrote:
-> This is missing the MODULE_LICENSE statements and taints the kernel upon
-> loading. License is obvious from the beginning of the file.
+All three one-bit bitfields have been subsumed into the new 'flags'
+structure member and the new IEEE80211_KEY_* definitions. The 8 bit
+keyidx bitfield is converted to type s8.
 
-Ah, ok. I forgot that. Thanks for the fix.
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-> Joerg Roedel wrote:
-> > --- linux-2.6.18-vanilla/net/ipv6/sit.c	2006-09-20 05:42:06.000000000 +0200
-> > +++ linux-2.6.18/net/ipv6/sit.c	2006-10-05 16:55:02.000000000 +0200
-> > @@ -850,3 +850,6 @@ int __init sit_init(void)
-> >  	inet_del_protocol(&sit_protocol, IPPROTO_IPV6);
-> >  	goto out;
-> >  }
-> > +
-> > +module_init(sit_init);
-> > +module_exit(sit_cleanup);
-> 
-> Signed-off-by: Jan Dittmer <jdi@l4x.org>
-Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -3634,8 +3634,8 @@ static int bcm43xx_net_set_key(struct ne
+ 		if (err)
+ 			goto out_unlock;
+ 		key->hw_key_idx = index;
+-		key->force_sw_encrypt = 0;
+-		if (key->default_tx_key)
++		key->flags &= ~IEEE80211_KEY_FORCE_SW_ENCRYPT;
++		if (key->flags & IEEE80211_KEY_DEFAULT_TX_KEY)
+ 			bcm->default_key_idx = index;
+ 		bcm->key[index].enabled = 1;
+ 		break;
+Index: wireless-dev/include/net/d80211.h
+===================================================================
+--- wireless-dev.orig/include/net/d80211.h
++++ wireless-dev/include/net/d80211.h
+@@ -389,13 +389,19 @@ struct ieee80211_key_conf {
+ 	ieee80211_key_alg alg;
+ 	int keylen;
+ 
+-	unsigned int force_sw_encrypt:1;/* to be cleared by low-level driver */
+-	int keyidx:8;			/* WEP key index */
+-	unsigned int default_tx_key:1;	/* This key is the new default TX key
+-			       		 * (used only for broadcast keys). */
+-	unsigned int default_wep_only:1;/* static WEP is the only configured security
+-					 * policy; this allows some low-level drivers
+-					 * to determine when hwaccel can be used */
++#define IEEE80211_KEY_FORCE_SW_ENCRYPT (1<<0) /* to be cleared by low-level
++						 driver */
++#define IEEE80211_KEY_DEFAULT_TX_KEY   (1<<1) /* This key is the new default TX
++						 key (used only for broadcast
++						 keys). */
++#define IEEE80211_KEY_DEFAULT_WEP_ONLY (1<<2) /* static WEP is the only
++						 configured security policy;
++						 this allows some low-level
++						 drivers to determine when
++						 hwaccel can be used */
++	u32 flags; /* key configuration flags defined above */
++
++	s8 keyidx;			/* WEP key index */
+         u8 key[0];
+ };
+ 
+Index: wireless-dev/net/d80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/d80211/ieee80211.c
++++ wireless-dev/net/d80211/ieee80211.c
+@@ -74,10 +74,14 @@ ieee80211_key_data2conf(struct ieee80211
+ 	conf->hw_key_idx = data->hw_key_idx;
+ 	conf->alg = data->alg;
+ 	conf->keylen = data->keylen;
+-	conf->force_sw_encrypt = data->force_sw_encrypt;
++	conf->flags = 0;
++       if (data->force_sw_encrypt)
++		conf->flags |= IEEE80211_KEY_FORCE_SW_ENCRYPT;
+ 	conf->keyidx = data->keyidx;
+-	conf->default_tx_key = data->default_tx_key;
+-	conf->default_wep_only = local->default_wep_only;
++	if (data->default_tx_key)
++		conf->flags |= IEEE80211_KEY_DEFAULT_TX_KEY;
++	if (local->default_wep_only)
++		conf->flags |= IEEE80211_KEY_DEFAULT_WEP_ONLY;
+ 	memcpy(conf->key, data->key, data->keylen);
+ 
+ 	return conf;
+Index: wireless-dev/net/d80211/ieee80211_ioctl.c
+===================================================================
+--- wireless-dev.orig/net/d80211/ieee80211_ioctl.c
++++ wireless-dev/net/d80211/ieee80211_ioctl.c
+@@ -326,7 +326,7 @@ static int ieee80211_ioctl_add_sta(struc
+ 		memset(&conf, 0, sizeof(conf));
+ 		conf.hw_key_idx = HW_KEY_IDX_INVALID;
+ 		conf.alg = ALG_NULL;
+-		conf.force_sw_encrypt = 1;
++		conf.flags |= IEEE80211_KEY_FORCE_SW_ENCRYPT;
+ 		if (local->hw->set_key(dev, SET_KEY, sta->addr, &conf,
+ 				       sta->aid)) {
+ 			sta->key_idx_compression = HW_KEY_IDX_INVALID;
+@@ -496,7 +496,7 @@ int ieee80211_set_hw_encryption(struct n
+ 			key->hw_key_idx = HW_KEY_IDX_INVALID;
+ 		} else {
+ 			key->force_sw_encrypt =
+-				keyconf->force_sw_encrypt;
++				!!(keyconf->flags & IEEE80211_KEY_FORCE_SW_ENCRYPT);
+ 			key->hw_key_idx =
+ 				keyconf->hw_key_idx;
+ 
+@@ -2289,7 +2289,8 @@ static void ieee80211_key_enable_hwaccel
+ 	keyconf = ieee80211_key_data2conf(local, key);
+ 	if (keyconf && local->hw->set_key &&
+ 	    local->hw->set_key(local->mdev, SET_KEY, addr, keyconf, 0) == 0) {
+-		key->force_sw_encrypt = keyconf->force_sw_encrypt;
++		key->force_sw_encrypt =
++			!!(keyconf->flags & IEEE80211_KEY_FORCE_SW_ENCRYPT);
+ 		key->hw_key_idx = keyconf->hw_key_idx;
+ 	}
+ 	kfree(keyconf);
+Index: wireless-dev/net/d80211/sta_info.c
+===================================================================
+--- wireless-dev.orig/net/d80211/sta_info.c
++++ wireless-dev/net/d80211/sta_info.c
+@@ -255,7 +255,7 @@ void sta_info_free(struct sta_info *sta,
+ 		memset(&conf, 0, sizeof(conf));
+ 		conf.hw_key_idx = sta->key_idx_compression;
+ 		conf.alg = ALG_NULL;
+-		conf.force_sw_encrypt = 1;
++		conf.flags |= IEEE80211_KEY_FORCE_SW_ENCRYPT;
+ 		local->hw->set_key(local->mdev, DISABLE_KEY, sta->addr, &conf,
+ 				   sta->aid);
+ 		sta->key_idx_compression = HW_KEY_IDX_INVALID;
 
-> 
-> --- linux-2.6-amd64/net/ipv6/sit.c~	2006-10-13 17:39:45.000000000 +0200
-> +++ linux-2.6-amd64/net/ipv6/sit.c	2006-10-13 17:39:49.000000000 +0200
-> @@ -853,3 +853,4 @@ int __init sit_init(void)
-> 
->  module_init(sit_init);
->  module_exit(sit_cleanup);
-> +MODULE_LICENSE("GPL");
+--
