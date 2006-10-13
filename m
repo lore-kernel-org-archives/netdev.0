@@ -1,8 +1,7 @@
 From: Misha Tomushev <misha@fabric7.com>
-Subject: Re: [PATCH 6/10] VIOC: New Network Device Driver
-Date: Fri, 13 Oct 2006 10:51:07 -0700
-Message-ID: <200610131051.07557.misha@fabric7.com>
-References: <200610051105.51259.misha@fabric7.com> <200610091109.39793.misha@fabric7.com> <20061009120324.56bac955@freekitty>
+Subject: [PATCH] VIOC: Ethtool
+Date: Fri, 13 Oct 2006 10:56:28 -0700
+Message-ID: <200610131056.28563.misha@fabric7.com>
 Reply-To: misha@fabric7.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -10,50 +9,94 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 Cc: KERNEL Linux <linux-kernel@vger.kernel.org>,
 	NETDEV Linux <netdev@vger.kernel.org>,
-	"Sriram Chidambaram" <schidambaram@fabric7.com>,
-	Pavel Machek <pavel@ucw.cz>
+	"Sriram Chidambaram" <schidambaram@fabric7.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext-103.mv.fabric7.com ([68.120.107.103]:53771 "EHLO
-	corp.fabric7.com") by vger.kernel.org with ESMTP id S1751768AbWJMR75
+Received: from ext-103.mv.fabric7.com ([68.120.107.103]:51980 "EHLO
+	corp.fabric7.com") by vger.kernel.org with ESMTP id S1751308AbWJMSFT
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 13:59:57 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061009120324.56bac955@freekitty>
+	Fri, 13 Oct 2006 14:05:19 -0400
+To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 09 October 2006 12:03 pm, Stephen Hemminger wrote:
-> On Mon, 9 Oct 2006 11:09:39 -0700
->
-> Misha Tomushev <misha@fabric7.com> wrote:
-> > On Sunday 08 October 2006 12:27 am, Pavel Machek wrote:
-> > > Hi!
-> > >
-> > > > +	ecmd->phy_address = 0;	/* !!! Stole from e1000 */
-> > > > +	ecmd->speed = 3;	/* !!! Stole from e1000 */
-> > >
-> > > Eh?
-> >
-> > You are right. Will fix.
-> >
-> > > > +static void vnic_get_regs(struct net_device *netdev,
-> > > > +			  struct ethtool_regs *regs, void *p)
-> > > > +{
-> > > > +	struct vnic_device *vnicdev = netdev->priv;
-> > > > +	struct vioc_device *viocdev = vnicdev->viocdev;
-
-> > >
-> > > This looks ugly. What interface is that?
-
-> Please just dump binary like other drivers.  The code for ethtool allows
-> per device decode. Move the decode to there.
->
-> Yes, ethtool source does need a more generic register description language.
+The following is the ethtool patch for  VIOC Device Driver.
 
 Signed-off-by: Misha Tomushev  <misha@fabric7.com>
 
-Please pull the patch from ftp://ftp.fabric7.com/VIOC/vioc_patch.2006-10-12-17-40
+diff -uprN ethtool-5/Makefile.am ethtool-5.vioc/Makefile.am
+--- ethtool-5/Makefile.am	2006-08-23 23:53:06.000000000 -0700
++++ ethtool-5.vioc/Makefile.am	2006-10-12 18:26:22.000000000 -0700
+@@ -7,7 +7,7 @@ sbin_PROGRAMS = ethtool
+ ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
+ 		  amd8111e.c de2104x.c e100.c e1000.c		\
+ 		  fec_8xx.c ibm_emac.c natsemi.c pcnet32.c	\
+-		  realtek.c tg3.c skge.c
++		  realtek.c tg3.c skge.c vioc.c
+ 
+ dist-hook:
+ 	cp $(top_srcdir)/ethtool.spec $(distdir)
+diff -uprN ethtool-5/ethtool-util.h ethtool-5.vioc/ethtool-util.h
+--- ethtool-5/ethtool-util.h	2006-08-23 23:53:06.000000000 -0700
++++ ethtool-5.vioc/ethtool-util.h	2006-10-12 18:27:23.000000000 -0700
+@@ -48,4 +48,7 @@ int tg3_dump_regs(struct ethtool_drvinfo
+ /* SysKonnect Gigabit (Genesis and Yukon) */
+ int skge_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ 
++/* VIOC */
++int vioc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
++
+ #endif
+diff -uprN ethtool-5/ethtool.c ethtool-5.vioc/ethtool.c
+--- ethtool-5/ethtool.c	2006-08-23 23:53:16.000000000 -0700
++++ ethtool-5.vioc/ethtool.c	2006-10-12 18:28:06.000000000 -0700
+@@ -945,6 +945,7 @@ static struct {
+ 	{ "ibm_emac", ibm_emac_dump_regs },
+ 	{ "tg3", tg3_dump_regs },
+ 	{ "skge", skge_dump_regs },
++	{ "vioc", vioc_dump_regs },
+ };
+ 
+ static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+diff -uprN ethtool-5/vioc.c ethtool-5.vioc/vioc.c
+--- ethtool-5/vioc.c	1969-12-31 16:00:00.000000000 -0800
++++ ethtool-5.vioc/vioc.c	2006-10-12 18:41:58.000000000 -0700
+@@ -0,0 +1,35 @@
++/* Copyright 2006 Fabric7 Systems, Inc */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include "ethtool-util.h"
++
++struct regs_line {
++		u32	addr;
++		u32	data;
++};
++
++#define VIOC_REGS_LINE_SIZE	sizeof(struct regs_line)	
++
++int vioc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++{
++	unsigned int	i;
++	unsigned int	num_regs;
++	struct regs_line *reg_info = (struct regs_line *) regs->data;
++
++	printf("%s: Enter\n", __FUNCTION__);
++
++	printf("ethtool_regs\n"
++		"%-20s = %04x\n"
++		"%-20s = %04x\n",
++		"cmd", regs->cmd,
++		"version", regs->version);
++
++	num_regs = regs->len/VIOC_REGS_LINE_SIZE;
++
++	for (i = 0; i < num_regs; i++){
++		printf("%08x = %08x\n", reg_info[i].addr, reg_info[i].data);
++	}
++
++	return 0;
++}
 
 
 -- 
