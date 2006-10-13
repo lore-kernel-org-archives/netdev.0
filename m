@@ -1,18 +1,28 @@
-From: listguru@fatcity.com
-Subject: Response to your ListGuru session [MsgId AA20061013.005301.3]
-Date: Fri, 13 Oct 2006 00:53:01 -0700
-Message-ID: <1160725981@fatcity.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.fatcity.com ([66.27.56.211]:53775 "HELO fatcity.com")
-	by vger.kernel.org with SMTP id S1750785AbWJMH6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 03:58:45 -0400
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+From: Dag Arne Osvik <da@osvik.no>
+Subject: Re: [FYI]: Introduction of the support for RFC4312(The Camellia Cipher
+ Algorithm)
+Date: Fri, 13 Oct 2006 10:07:03 +0200
+Message-ID: <452F4927.1090707@osvik.no>
+References: <20061013.143608.304095551.takamiya@po.ntts.co.jp>	<452F4506.50403@osvik.no> <20061013.165909.831838596.takamiya@po.ntts.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+To: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+In-Reply-To: <20061013.165909.831838596.takamiya@po.ntts.co.jp>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---  
- 
->>>> Please see the movie document. 
-Unrecognized command -- skipping.  Use HELP for assistance. 
- 
+Noriaki TAKAMIYA wrote:
+>   I sent the collect URL. The following URL is correct.
+> 
+>   https://info.isl.ntt.co.jp/crypt/eng/camellia/source_s.html 
 
+Thank you,
+
+I'm cc'ing linux-crypto and netdev so you don't get more questions about
+this.
+
+Regards,
+  Dag Arne Osvik
