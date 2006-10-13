@@ -1,35 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] sotftmac: fix a slab corruption in WEP restricted key
-	association
-Date: Fri, 13 Oct 2006 11:04:51 +0200
-Message-ID: <1160730291.2697.10.camel@ux156>
-References: <452D6D80.3020005@free.fr>  <452D8D83.60908@gentoo.org>
+From: Per Liden <per.liden@ericsson.com>
+Subject: [PATCH 0/14] TIPC updates
+Date: Fri, 13 Oct 2006 13:37:23 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Laurent Riffard <laurent.riffard@free.fr>, linville@tuxdriver.com,
-	netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Per Liden <per.liden@ericsson.com>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:4227 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750943AbWJMJEI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 05:04:08 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <452D8D83.60908@gentoo.org>
+Received: from mailgw3.ericsson.se ([193.180.251.60]:63371 "EHLO
+	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
+	id S1751373AbWJMLh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 07:37:27 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-11 at 20:34 -0400, Daniel Drake wrote:
+Hi David,
 
-> > -        is_shared_response ? 0 : 1 + 1 + net->challenge_len
-> > +        (is_shared_response ? 1 + 1 + net->challenge_len : 0)
+This patch set includes a number TIPC fixes/cleanups. Please see each 
+individual patch for further description.
 
-Good catch. We should send this to -stable too I think. Mind reposting
-the patch in an applicable format to Daniel, netdev, john, -stable (and
-possibly me)? Quoted isn't too useful :)
+Please pull from:
 
-Oh and you can add
+ git://tipc.cslab.ericsson.net/pub/git/tipc.git
 
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
+ (rebased on linux/kernel/git/davem/net-2.6.git)
 
-johannes
+Summary:
+
+ include/linux/tipc.h  |    1 
+ net/tipc/bearer.c     |    8 +--
+ net/tipc/config.c     |    5 +-
+ net/tipc/core.c       |    4 +
+ net/tipc/core.h       |   30 ++++++-----
+ net/tipc/dbg.c        |  136 ++++++++++++++++++++++++++++++++-----------------
+ net/tipc/dbg.h        |   15 +++++
+ net/tipc/discover.c   |   39 +++++++++++++-
+ net/tipc/link.c       |    8 +--
+ net/tipc/name_distr.c |    2 -
+ net/tipc/node.c       |    2 -
+ net/tipc/port.c       |    7 ++-
+ net/tipc/socket.c     |   53 +++++++++++++------
+ net/tipc/subscr.c     |   99 ++++++++++++++++++++++++++++++------
+ 14 files changed, 296 insertions(+), 113 deletions(-)
+
+Allan Stephens:
+      [TIPC] Add missing unlock in port timeout code.
+      [TIPC] Debug print buffer enhancements and fixes
+      [TIPC] Stream socket can now send > 66000 bytes at a time
+      [TIPC] Added duplicate node address detection capability
+      [TIPC] Optimize wakeup logic when socket has no waiting processes
+      [TIPC] Remove code bloat introduced by print buffer rework
+      [TIPC] Add support for Ethernet VLANs
+      [TIPC] Name publication events now delivered in chronological order
+      [TIPC] Fixed slow link reactivation when link tolerance is large
+      [TIPC] Can now list multicast link on an isolated network node
+      [TIPC] Unrecognized configuration command now returns error message
+      [TIPC] Updated TIPC version number to 1.6.2
+
+Lijun Chen:
+      [TIPC] Added subscription cancellation capability
+
+P Litov:
+      [TIPC] Fix socket receive queue NULL pointer dereference on SMP systems
+
+/Per
