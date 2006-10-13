@@ -1,69 +1,29 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: What is current sundance.c status
-Date: Fri, 13 Oct 2006 09:14:30 +0800
-Message-ID: <00ac01c6ee64$ef637210$2d32fea9@icplus.com.tw>
-References: <004301c6eda6$437ac070$2d32fea9@icplus.com.tw> <20061011195540.06b2ef13.akpm@osdl.org>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<jgarzik@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPv6] rules: Use RT6_LOOKUP_F_HAS_SADDR and fix source based
+ selectors
+Date: Thu, 12 Oct 2006 19:16:30 -0700 (PDT)
+Message-ID: <20061012.191630.35017097.davem@davemloft.net>
+References: <20061012094124.GH12964@postel.suug.ch>
+	<20061012.185551.31808845.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	kim.nordlund@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr4.hinet.net ([168.95.4.104]:15316 "EHLO msr4.hinet.net")
-	by vger.kernel.org with ESMTP id S1751438AbWJMBOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2006 21:14:41 -0400
-To: "Andrew Morton" <akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7332
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751488AbWJMCQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Oct 2006 22:16:29 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20061012.185551.31808845.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ok, I will generate those again with descriptions.
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 12 Oct 2006 18:55:51 +0900 (JST)
 
-Thank you!
+> I tend to agree.  Ville, do you agree?
 
-Best Regards,
-Jesse Huang.
-
------ Original Message ----- 
-From: "Andrew Morton" <akpm@osdl.org>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<jgarzik@pobox.com>
-Sent: Thursday, October 12, 2006 10:55 AM
-Subject: Re: What is current sundance.c status
-
-
-On Thu, 12 Oct 2006 10:29:37 +0800
-"Jesse Huang" <jesse@icplus.com.tw> wrote:
-
->     Would you tell me what is the current IP100A status? Should I
-re-generate patches again. Would it put into kernel or not?
-
-I'm sitting on a copy of them.  I didn't send them to Jeff last time
-because:
-
-sundance-remove-txstartthresh-and-rxearlythresh.patch
-
- There's no description of what this patent issue is.
-
-sundance-fix-tx-pause-bug-reset_tx-intr_handler.patch
-
- There's no description of the bug which got fixed, nor how this patch
- fixes it.
-
-sundance-change-phy-address-search-from-phy=1-to-phy=0.patch
-
- There's a (small) possibility that this will break on hardware which
- _doesn't_ have a phy at address 0.
-
-sundance-correct-initial-and-close-hardware-step.patch
-
- There's no real description of the bug which is being fixed, nor of how
- this patch fixes it.
-
-sundance-solve-host-error-problem-in-low-performance-embedded.patch
-
- No description of what the "host error problem" is, nor of what causes
- it, nor of how this patch fixes it.
-
-
-So generally these patches are a bit worrying, and it is hard to gauge what
-their risk factor is.
-
-
+I'll wait for Ville's response before applying this.
+Otherwise, I think the change looks fine.
