@@ -1,46 +1,36 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Suppress / delay SYN-ACK
-Date: Fri, 13 Oct 2006 06:11:16 +0200
-Message-ID: <452F11E4.8050508@cosmosbay.com>
-References: <000101c6edd5$a880d430$1a04010a@V505CP> <452E69B2.4030306@hp.com>
- <469958e00610121458h45581840ke0367647a735c635@mail.gmail.com>
- <452EC7B9.2030801@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] reduce sizeof(struct inet_peer), cleanup, change
+ in peer_check_expire()
+Date: Thu, 12 Oct 2006 21:18:43 -0700 (PDT)
+Message-ID: <20061012.211843.15264081.davem@davemloft.net>
+References: <452EA214.7080905@cosmosbay.com>
+	<20061012.151529.95506153.davem@davemloft.net>
+	<452F0E7B.3010701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Martin Schiller <mschiller@tdt.de>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604003mt.neufgp.fr ([84.96.92.56]:16515 "EHLO smTp.neuf.fr")
-	by vger.kernel.org with ESMTP id S1751615AbWJMELm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 00:11:42 -0400
-Received: from [192.168.30.203] ([88.137.140.131]) by sp604003mt.gpm.neuf.ld
- (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
- with ESMTP id <0J7200MIS3MNKHR0@sp604003mt.gpm.neuf.ld> for
- netdev@vger.kernel.org; Fri, 13 Oct 2006 06:11:12 +0200 (CEST)
-In-reply-to: <452EC7B9.2030801@hp.com>
-To: Rick Jones <rick.jones2@hp.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:42421
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751616AbWJMESm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 00:18:42 -0400
+To: dada1@cosmosbay.com
+In-Reply-To: <452F0E7B.3010701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones a =E9crit :
->> More to the point, on what basis would the application be rejecting =
-a
->> connection request based solely on the SYN?
->=20
-> True, it isn't like there would suddenly be any call user data as in=20
-> XTI/TLI.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 13 Oct 2006 05:56:43 +0200
 
-DATA payload could be included in the SYN packet. TCP specs allow this =
-AFAIK.
+> 2^31 is 2147483648
+> 
+> Thats a *lot* of timer ticks, an inet_peer entry should not stay in 
+> unused_list for more than 10 minutes.
 
-About iptables rules added on the fly by an application that want to pr=
-otect=20
-its listen queue from random sources of 'blacklisted' peers, this has t=
-he=20
-limitation of granting sufficient rights to the user running the applic=
-ation.
+My bad, I thought the time was compared to the creation time
+not the time at which it was added to the unused list.
 
-Eric
+I like your patch and I'll apply it.
 
+Thanks Eric.
