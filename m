@@ -1,488 +1,885 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCHv4 3/3] net: UDP-Lite misc files
-Date: Fri, 13 Oct 2006 16:14:38 +0100
-Message-ID: <200610131614.38430@strip-the-willow>
+Subject: [PATCHv4 2/3] net/ipv6: v6-side of UDP-Lite
+Date: Fri, 13 Oct 2006 16:14:29 +0100
+Message-ID: <200610131614.29880@strip-the-willow>
 References: <200609190825.23709@strip-the-willow> <200610120849.19984@strip-the-willow> <20061012.020140.39159089.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:22989 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S1751160AbWJMPOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 11:14:54 -0400
-To: David Miller <davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:22733 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1751156AbWJMPOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 11:14:53 -0400
+To: "YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
+	<yoshfuji@linux-ipv6.org>
 In-Reply-To: <20061012.020140.39159089.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Miscellaneous files to support UDP-Lite, including basic
-xfrm and netfilter support.
+This provides consolidated UDP-Lite support over IPv6.
+Changes to net/ipv6/udp.c reflect those in net/ipv4/udp.c. 
+
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- Documentation/networking/udplite.txt |  291 +++++++++++++++++++++++++++++++++++
- include/net/xfrm.h                   |    2
- net/ipv4/netfilter/ipt_LOG.c         |   11 -
- net/ipv4/xfrm4_policy.c              |    1
- net/ipv6/netfilter/ip6t_LOG.c        |   10 -
- net/ipv6/xfrm6_policy.c              |    1
- net/netfilter/xt_multiport.c         |    5
- net/netfilter/xt_tcpudp.c            |   20 ++
- 8 files changed, 332 insertions(+), 9 deletions(-)
+ include/net/ipv6.h      |   10 +
+ include/net/transp_v6.h |    3
+ net/ipv6/af_inet6.c     |    3
+ net/ipv6/proc.c         |   11 +
+ net/ipv6/udp.c          |  333 ++++++++++++++++++++++++++++--------------------
+ net/ipv6/udplite.c      |  131 ++++++++++++++++++
+ 6 files changed, 350 insertions(+), 141 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 737fdb2..70a8d2d 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -468,6 +468,7 @@ __be16 xfrm_flowi_sport(struct flowi *fl
- 	switch(fl->proto) {
- 	case IPPROTO_TCP:
- 	case IPPROTO_UDP:
-+	case IPPROTO_UDPLITE:
- 	case IPPROTO_SCTP:
- 		port = fl->fl_ip_sport;
- 		break;
-@@ -493,6 +494,7 @@ __be16 xfrm_flowi_dport(struct flowi *fl
- 	switch(fl->proto) {
- 	case IPPROTO_TCP:
- 	case IPPROTO_UDP:
-+	case IPPROTO_UDPLITE:
- 	case IPPROTO_SCTP:
- 		port = fl->fl_ip_dport;
- 		break;
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 1bed0cd..af6867f 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -199,6 +199,7 @@ _decode_session4(struct sk_buff *skb, st
- 	if (!(iph->frag_off & htons(IP_MF | IP_OFFSET))) {
- 		switch (iph->protocol) {
- 		case IPPROTO_UDP:
-+		case IPPROTO_UDPLITE:
- 		case IPPROTO_TCP:
- 		case IPPROTO_SCTP:
- 		case IPPROTO_DCCP:
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 73cee2e..8a25db1 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -272,6 +272,7 @@ _decode_session6(struct sk_buff *skb, st
- 			break;
+diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
+index 61f724c..d5a337d 100644
+--- a/include/net/transp_v6.h
++++ b/include/net/transp_v6.h
+@@ -11,6 +11,7 @@ #ifdef __KERNEL__
  
- 		case IPPROTO_UDP:
-+		case IPPROTO_UDPLITE:
- 		case IPPROTO_TCP:
- 		case IPPROTO_SCTP:
- 		case IPPROTO_DCCP:
-diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
-index d3aefd3..c3b4bc0 100644
---- a/net/netfilter/xt_multiport.c
-+++ b/net/netfilter/xt_multiport.c
-@@ -1,5 +1,5 @@
--/* Kernel module to match one of a list of TCP/UDP/SCTP/DCCP ports: ports are in
--   the same place so we can treat them as equal. */
-+/* Kernel module to match one of a list of TCP/UDP(-Lite)/SCTP/DCCP ports:
-+   ports are in the same place so we can treat them as equal. */
+ extern struct proto rawv6_prot;
+ extern struct proto udpv6_prot;
++extern struct proto udplitev6_prot;
+ extern struct proto tcpv6_prot;
  
- /* (C) 1999-2001 Paul `Rusty' Russell
-  * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
-@@ -162,6 +162,7 @@ check(u_int16_t proto,
+ struct flowi;
+@@ -24,6 +25,8 @@ extern void				ipv6_destopt_init(void);
+ /* transport protocols */
+ extern void				rawv6_init(void);
+ extern void				udpv6_init(void);
++extern void 				udplitev6_init(void);
++extern void 				udplitev6_cleanup(void);
+ extern void				tcpv6_init(void);
+ 
+ extern int				udpv6_connect(struct sock *sk,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index e0c3934..72f3d69 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -49,6 +49,7 @@ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
+ #include <net/ip.h>
+ #include <net/udp.h>
++#include <net/udplite.h>
+ #include <net/raw.h>
+ #include <net/inet_common.h>
+ #include <net/tcp_states.h>
+@@ -66,23 +67,9 @@ static inline int udp_v6_get_port(struct
+ 	return udp_get_port(sk, snum, ipv6_rcv_saddr_equal);
+ }
+ 
+-static void udp_v6_hash(struct sock *sk)
+-{
+-	BUG();
+-}
+-
+-static void udp_v6_unhash(struct sock *sk)
+-{
+- 	write_lock_bh(&udp_hash_lock);
+-	if (sk_del_node_init(sk)) {
+-		inet_sk(sk)->num = 0;
+-		sock_prot_dec_use(sk->sk_prot);
+-	}
+-	write_unlock_bh(&udp_hash_lock);
+-}
+-
+-static struct sock *udp_v6_lookup(struct in6_addr *saddr, u16 sport,
+-				  struct in6_addr *daddr, u16 dport, int dif)
++static struct sock *__udp6_lib_lookup(struct in6_addr *saddr, __be16 sport,
++				      struct in6_addr *daddr, __be16 dport,
++				      int dif, struct hlist_head udptable[])
  {
- 	/* Must specify supported protocol, no unknown flags or bad count */
- 	return (proto == IPPROTO_TCP || proto == IPPROTO_UDP
-+		|| proto == IPPROTO_UDPLITE
- 		|| proto == IPPROTO_SCTP || proto == IPPROTO_DCCP)
- 		&& !(ip_invflags & XT_INV_PROTO)
- 		&& (match_flags == XT_MULTIPORT_SOURCE
-diff --git a/net/netfilter/xt_tcpudp.c b/net/netfilter/xt_tcpudp.c
-index e76a68e..46414b5 100644
---- a/net/netfilter/xt_tcpudp.c
-+++ b/net/netfilter/xt_tcpudp.c
-@@ -10,7 +10,7 @@ #include <linux/netfilter/xt_tcpudp.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
- #include <linux/netfilter_ipv6/ip6_tables.h>
+ 	struct sock *sk, *result = NULL;
+ 	struct hlist_node *node;
+@@ -90,7 +77,7 @@ static struct sock *udp_v6_lookup(struct
+ 	int badness = -1;
  
--MODULE_DESCRIPTION("x_tables match for TCP and UDP, supports IPv4 and IPv6");
-+MODULE_DESCRIPTION("x_tables match for TCP and UDP(-Lite), supports IPv4 and IPv6");
- MODULE_LICENSE("GPL");
- MODULE_ALIAS("xt_tcp");
- MODULE_ALIAS("xt_udp");
-@@ -234,6 +234,24 @@ static struct xt_match xt_tcpudp_match[]
- 		.proto		= IPPROTO_UDP,
- 		.me		= THIS_MODULE,
- 	},
-+	{
-+		.name		= "udplite",
-+		.family		= AF_INET,
-+		.checkentry	= udp_checkentry,
-+		.match		= udp_match,
-+		.matchsize	= sizeof(struct xt_udp),
-+		.proto		= IPPROTO_UDPLITE,
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "udplite",
-+		.family		= AF_INET6,
-+		.checkentry	= udp_checkentry,
-+		.match		= udp_match,
-+		.matchsize	= sizeof(struct xt_udp),
-+		.proto		= IPPROTO_UDPLITE,
-+		.me		= THIS_MODULE,
-+	},
+  	read_lock(&udp_hash_lock);
+-	sk_for_each(sk, node, &udp_hash[hnum & (UDP_HTABLE_SIZE - 1)]) {
++	sk_for_each(sk, node, &udptable[hnum & (UDP_HTABLE_SIZE - 1)]) {
+ 		struct inet_sock *inet = inet_sk(sk);
+ 
+ 		if (inet->num == hnum && sk->sk_family == PF_INET6) {
+@@ -131,13 +118,11 @@ static struct sock *udp_v6_lookup(struct
+ 	return result;
+ }
+ 
+-/*
+- *
+- */
+-
+-static void udpv6_close(struct sock *sk, long timeout)
++static __inline__ struct sock *udp_v6_lookup(struct in6_addr *saddr, __be16 sport,
++				  	     struct in6_addr *daddr, __be16 dport,
++					     int dif)
+ {
+-	sk_common_release(sk);
++	return __udp6_lib_lookup(saddr, sport, daddr, dport, dif, udp_hash);
+ }
+ 
+ /*
+@@ -153,7 +138,7 @@ static int udpv6_recvmsg(struct kiocb *i
+ 	struct inet_sock *inet = inet_sk(sk);
+   	struct sk_buff *skb;
+ 	size_t copied;
+-  	int err;
++	int err, copy_only, is_udplite = IS_UDPLITE(sk);
+ 
+   	if (addr_len)
+   		*addr_len=sizeof(struct sockaddr_in6);
+@@ -172,15 +157,21 @@ try_again:
+   		msg->msg_flags |= MSG_TRUNC;
+   	}
+ 
+-	if (skb->ip_summed==CHECKSUM_UNNECESSARY) {
+-		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov,
+-					      copied);
+-	} else if (msg->msg_flags&MSG_TRUNC) {
+-		if (__skb_checksum_complete(skb))
++	/*
++	 * 	Decide whether to checksum and/or copy data.
++	 */
++	copy_only = (skb->ip_summed==CHECKSUM_UNNECESSARY);
++
++	if (is_udplite  ||  (!copy_only  &&  msg->msg_flags&MSG_TRUNC)) {
++		if (__udp_lib_checksum_complete(skb))
+ 			goto csum_copy_err;
+-		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov,
+-					      copied);
+-	} else {
++		copy_only = 1;
++	}
++
++	if (copy_only)
++		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
++					      msg->msg_iov, copied       );
++	else {
+ 		err = skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov);
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+@@ -231,14 +222,15 @@ csum_copy_err:
+ 	skb_kill_datagram(sk, skb, flags);
+ 
+ 	if (flags & MSG_DONTWAIT) {
+-		UDP6_INC_STATS_USER(UDP_MIB_INERRORS);
++		UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
+ 		return -EAGAIN;
+ 	}
+ 	goto try_again;
+ }
+ 
+-static void udpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+-	       int type, int code, int offset, __u32 info)
++static void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++			   int type, int code, int offset, __u32 info,
++			   struct hlist_head udptable[]                    )
+ {
+ 	struct ipv6_pinfo *np;
+ 	struct ipv6hdr *hdr = (struct ipv6hdr*)skb->data;
+@@ -249,8 +241,8 @@ static void udpv6_err(struct sk_buff *sk
+ 	struct sock *sk;
+ 	int err;
+ 
+-	sk = udp_v6_lookup(daddr, uh->dest, saddr, uh->source, dev->ifindex);
+-   
++	sk = __udp6_lib_lookup(daddr, uh->dest,
++			       saddr, uh->source, dev->ifindex, udptable);
+ 	if (sk == NULL)
+ 		return;
+ 
+@@ -271,31 +263,56 @@ out:
+ 	sock_put(sk);
+ }
+ 
+-static inline int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
++static __inline__ void udpv6_err(struct sk_buff *skb,
++				 struct inet6_skb_parm *opt, int type,
++				 int code, int offset, __u32 info     )
+ {
++	return __udp6_lib_err(skb, opt, type, code, offset, info, udp_hash);
++}
++
++static int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
++{
++	struct udp_sock *up = udp_sk(sk);
+ 	int rc;
+ 
+-	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb)) {
+-		kfree_skb(skb);
+-		return -1;
+-	}
++	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
++		goto drop;
+ 
+-	if (skb_checksum_complete(skb)) {
+-		UDP6_INC_STATS_BH(UDP_MIB_INERRORS);
+-		kfree_skb(skb);
+-		return 0;
++	/*
++	 * 	UDP-Lite specific tests, ignored on UDP sockets.
++	 *      For comments on these cases, see net/ipv4/udp.c
++	 */
++	if ((up->pcflag & UDPLITE_RECV_CC)  &&  UDP_SKB_CB(skb)->partial_cov) {
++
++		if (up->pcrlen == 0) {          /* full coverage was set  */
++			LIMIT_NETDEBUG(KERN_WARNING "UDPLITE6: partial coverage"
++				" %d while full coverage %d requested\n",
++				UDP_SKB_CB(skb)->cscov, skb->len);
++			goto drop;
++		}
++		if (UDP_SKB_CB(skb)->cscov  <  up->pcrlen) {
++			LIMIT_NETDEBUG(KERN_WARNING "UDPLITE6: coverage %d "
++						    "too small, need min %d\n",
++				       UDP_SKB_CB(skb)->cscov, up->pcrlen);
++			goto drop;
++		}
+ 	}
+ 
++	if (__udp_lib_checksum_complete(skb))
++		goto drop;
++
+ 	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+ 		/* Note that an ENOMEM error is charged twice */
+ 		if (rc == -ENOMEM)
+-			UDP6_INC_STATS_BH(UDP_MIB_RCVBUFERRORS);
+-		UDP6_INC_STATS_BH(UDP_MIB_INERRORS);
+-		kfree_skb(skb);
+-		return 0;
++			UDP6_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
++		goto drop;
+ 	}
+-	UDP6_INC_STATS_BH(UDP_MIB_INDATAGRAMS);
++	UDP6_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
+ 	return 0;
++drop:
++	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, up->pcflag);
++	kfree_skb(skb);
++	return -1;
+ }
+ 
+ static struct sock *udp_v6_mcast_next(struct sock *sk,
+@@ -339,15 +356,15 @@ static struct sock *udp_v6_mcast_next(st
+  * Note: called only from the BH handler context,
+  * so we don't need to lock the hashes.
+  */
+-static void udpv6_mcast_deliver(struct udphdr *uh,
+-				struct in6_addr *saddr, struct in6_addr *daddr,
+-				struct sk_buff *skb)
++static int __udp6_lib_mcast_deliver(struct sk_buff *skb, struct in6_addr *saddr,
++		           struct in6_addr *daddr, struct hlist_head udptable[])
+ {
+ 	struct sock *sk, *sk2;
++  	const struct udphdr *uh = skb->h.uh;
+ 	int dif;
+ 
+ 	read_lock(&udp_hash_lock);
+-	sk = sk_head(&udp_hash[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
++	sk = sk_head(&udptable[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
+ 	dif = skb->dev->ifindex;
+ 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	if (!sk) {
+@@ -365,9 +382,34 @@ static void udpv6_mcast_deliver(struct u
+ 	udpv6_queue_rcv_skb(sk, skb);
+ out:
+ 	read_unlock(&udp_hash_lock);
++	return 0;
++}
++
++static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh)
++
++{
++	if (uh->check == 0) {
++		/* RFC 2460 section 8.1 says that we SHOULD log
++		   this error. Well, it is reasonable.
++		 */
++		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0\n");
++		return 1;
++	}
++	if (skb->ip_summed == CHECKSUM_COMPLETE &&
++	    !csum_ipv6_magic(&skb->nh.ipv6h->saddr, &skb->nh.ipv6h->daddr,
++		    	     skb->len, IPPROTO_UDP, skb->csum             ))
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++	if (skb->ip_summed != CHECKSUM_UNNECESSARY)
++		skb->csum = ~csum_ipv6_magic(&skb->nh.ipv6h->saddr,
++					     &skb->nh.ipv6h->daddr,
++					     skb->len, IPPROTO_UDP, 0);
++
++	return (UDP_SKB_CB(skb)->partial_cov = 0);
+ }
+ 
+-static int udpv6_rcv(struct sk_buff **pskb)
++static int __udp6_lib_rcv(struct sk_buff **pskb,
++			  struct hlist_head udptable[], int is_udplite)
+ {
+ 	struct sk_buff *skb = *pskb;
+ 	struct sock *sk;
+@@ -384,44 +426,39 @@ static int udpv6_rcv(struct sk_buff **ps
+ 	uh = skb->h.uh;
+ 
+ 	ulen = ntohs(uh->len);
++	if (ulen > skb->len)
++		goto short_packet;
+ 
+-	/* Check for jumbo payload */
+-	if (ulen == 0)
+-		ulen = skb->len;
++	if(! is_udplite ) {		/* UDP validates ulen. */
+ 
+-	if (ulen > skb->len || ulen < sizeof(*uh))
+-		goto short_packet;
++		/* Check for jumbo payload */
++		if (ulen == 0)
++			ulen = skb->len;
+ 
+-	if (uh->check == 0) {
+-		/* RFC 2460 section 8.1 says that we SHOULD log
+-		   this error. Well, it is reasonable.
+-		 */
+-		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0\n");
+-		goto discard;
+-	}
++		if (ulen < sizeof(*uh))
++			goto short_packet;
+ 
+-	if (ulen < skb->len) {
+-		if (pskb_trim_rcsum(skb, ulen))
+-			goto discard;
+-		saddr = &skb->nh.ipv6h->saddr;
+-		daddr = &skb->nh.ipv6h->daddr;
+-		uh = skb->h.uh;
+-	}
++		if (ulen < skb->len) {
++			if (pskb_trim_rcsum(skb, ulen))
++				goto short_packet;
++			saddr = &skb->nh.ipv6h->saddr;
++			daddr = &skb->nh.ipv6h->daddr;
++			uh = skb->h.uh;
++		}
+ 
+-	if (skb->ip_summed == CHECKSUM_COMPLETE &&
+-	    !csum_ipv6_magic(saddr, daddr, ulen, IPPROTO_UDP, skb->csum))
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		if (udp6_csum_init(skb, uh))
++			goto discard;
+ 
+-	if (skb->ip_summed != CHECKSUM_UNNECESSARY)
+-		skb->csum = ~csum_ipv6_magic(saddr, daddr, ulen, IPPROTO_UDP, 0);
++	} else 	{			/* UDP-Lite validates cscov. */
++		if (udplite6_csum_init(skb, uh))
++			goto discard;
++	}
+ 
+ 	/* 
+ 	 *	Multicast receive code 
+ 	 */
+-	if (ipv6_addr_is_multicast(daddr)) {
+-		udpv6_mcast_deliver(uh, saddr, daddr, skb);
+-		return 0;
+-	}
++	if (ipv6_addr_is_multicast(daddr))
++		return __udp6_lib_mcast_deliver(skb, saddr, daddr, udptable);
+ 
+ 	/* Unicast */
+ 
+@@ -429,15 +466,16 @@ static int udpv6_rcv(struct sk_buff **ps
+ 	 * check socket cache ... must talk to Alan about his plans
+ 	 * for sock caches... i'll skip this for now.
+ 	 */
+-	sk = udp_v6_lookup(saddr, uh->source, daddr, uh->dest, dev->ifindex);
++	sk = __udp6_lib_lookup(saddr, uh->source,
++			       daddr, uh->dest, dev->ifindex, udptable);
+ 
+ 	if (sk == NULL) {
+ 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 			goto discard;
+ 
+-		if (skb_checksum_complete(skb))
++		if (__udp_lib_checksum_complete(skb))
+ 			goto discard;
+-		UDP6_INC_STATS_BH(UDP_MIB_NOPORTS);
++		UDP6_INC_STATS_BH(UDP_MIB_NOPORTS, is_udplite);
+ 
+ 		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0, dev);
+ 
+@@ -452,14 +490,20 @@ static int udpv6_rcv(struct sk_buff **ps
+ 	return(0);
+ 
+ short_packet:	
+-	if (net_ratelimit())
+-		printk(KERN_DEBUG "UDP: short packet: %d/%u\n", ulen, skb->len);
++	LIMIT_NETDEBUG(KERN_DEBUG "UDP%sv6: short packet: %d/%u\n",
++		       is_udplite? "-Lite" : "",  ulen, skb->len);
+ 
+ discard:
+-	UDP6_INC_STATS_BH(UDP_MIB_INERRORS);
++	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
+ 	kfree_skb(skb);
+ 	return(0);	
+ }
++
++static __inline__ int udpv6_rcv(struct sk_buff **pskb)
++{
++	return __udp6_lib_rcv(pskb, udp_hash, 0);
++}
++
+ /*
+  * Throw away all pending data and cancel the corking. Socket is locked.
+  */
+@@ -485,6 +529,7 @@ static int udp_v6_push_pending_frames(st
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct flowi *fl = &inet->cork.fl;
+ 	int err = 0;
++	u32 csum = 0;
+ 
+ 	/* Grab the skbuff where UDP header space exists. */
+ 	if ((skb = skb_peek(&sk->sk_write_queue)) == NULL)
+@@ -499,35 +544,17 @@ static int udp_v6_push_pending_frames(st
+ 	uh->len = htons(up->len);
+ 	uh->check = 0;
+ 
+-	if (sk->sk_no_check == UDP_CSUM_NOXMIT) {
+-		skb->ip_summed = CHECKSUM_NONE;
+-		goto send;
+-	}
++	if (up->pcflag)
++		csum = udplite_csum_outgoing(sk, skb);
++	 else
++		csum = udp_csum_outgoing(sk, skb);
+ 
+-	if (skb_queue_len(&sk->sk_write_queue) == 1) {
+-		skb->csum = csum_partial((char *)uh,
+-				sizeof(struct udphdr), skb->csum);
+-		uh->check = csum_ipv6_magic(&fl->fl6_src,
+-					    &fl->fl6_dst,
+-					    up->len, fl->proto, skb->csum);
+-	} else {
+-		u32 tmp_csum = 0;
+-
+-		skb_queue_walk(&sk->sk_write_queue, skb) {
+-			tmp_csum = csum_add(tmp_csum, skb->csum);
+-		}
+-		tmp_csum = csum_partial((char *)uh,
+-				sizeof(struct udphdr), tmp_csum);
+-                tmp_csum = csum_ipv6_magic(&fl->fl6_src,
+-					   &fl->fl6_dst,
+-					   up->len, fl->proto, tmp_csum);
+-                uh->check = tmp_csum;
+-
+-	}
++	/* add protocol-dependent pseudo-header */
++	uh->check = csum_ipv6_magic(&fl->fl6_src, &fl->fl6_dst,
++				    up->len, fl->proto, csum   );
+ 	if (uh->check == 0)
+ 		uh->check = -1;
+ 
+-send:
+ 	err = ip6_push_pending_frames(sk);
+ out:
+ 	up->len = 0;
+@@ -555,6 +582,8 @@ static int udpv6_sendmsg(struct kiocb *i
+ 	int corkreq = up->corkflag || msg->msg_flags&MSG_MORE;
+ 	int err;
+ 	int connected = 0;
++	int is_udplite = up->pcflag;
++	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
+ 
+ 	/* destination address check */
+ 	if (sin6) {
+@@ -695,7 +724,7 @@ do_udp_sendmsg:
+ 		opt = fl6_merge_options(&opt_space, flowlabel, opt);
+ 	opt = ipv6_fixup_options(&opt_space, opt);
+ 
+-	fl.proto = IPPROTO_UDP;
++	fl.proto = sk->sk_protocol,
+ 	ipv6_addr_copy(&fl.fl6_dst, daddr);
+ 	if (ipv6_addr_any(&fl.fl6_src) && !ipv6_addr_any(&np->saddr))
+ 		ipv6_addr_copy(&fl.fl6_src, &np->saddr);
+@@ -762,7 +791,8 @@ back_from_confirm:
+ 
+ do_append_data:
+ 	up->len += ulen;
+-	err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov, ulen,
++	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
++	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
+ 		sizeof(struct udphdr), hlimit, tclass, opt, &fl,
+ 		(struct rt6_info*)dst,
+ 		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+@@ -794,7 +824,7 @@ #endif
+ out:
+ 	fl6_sock_release(flowlabel);
+ 	if (!err) {
+-		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS);
++		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS, is_udplite);
+ 		return len;
+ 	}
+ 	/*
+@@ -805,7 +835,7 @@ out:
+ 	 * seems like overkill.
+ 	 */
+ 	if (err == -ENOBUFS || test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
+-		UDP6_INC_STATS_USER(UDP_MIB_SNDBUFERRORS);
++		UDP6_INC_STATS_USER(UDP_MIB_SNDBUFERRORS, is_udplite);
+ 	}
+ 	return err;
+ 
+@@ -855,7 +885,7 @@ static int do_udpv6_setsockopt(struct so
+ 			release_sock(sk);
+ 		}
+ 		break;
+-		
++
+ 	case UDP_ENCAP:
+ 		switch (val) {
+ 		case 0:
+@@ -866,6 +896,24 @@ static int do_udpv6_setsockopt(struct so
+ 			break;
+ 		}
+ 		break;
++
++	case UDPLITE_SEND_CSCOV:
++		if (!up->pcflag)         /* Disable the option on UDP sockets */
++			return -ENOPROTOOPT;
++		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
++			val = 8;
++		up->pcslen = val;
++		up->pcflag |= UDPLITE_SEND_CC;
++		break;
++
++	case UDPLITE_RECV_CSCOV:
++		if (!up->pcflag)         /* Disable the option on UDP sockets */
++			return -ENOPROTOOPT;
++		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
++			val = 8;
++		up->pcrlen = val;
++		up->pcflag |= UDPLITE_RECV_CC;
++		break;
+ 
+ 	default:
+ 		err = -ENOPROTOOPT;
+@@ -878,19 +926,18 @@ static int do_udpv6_setsockopt(struct so
+ static int udpv6_setsockopt(struct sock *sk, int level, int optname,
+ 			  char __user *optval, int optlen)
+ {
+-	if (level != SOL_UDP)
+-		return ipv6_setsockopt(sk, level, optname, optval, optlen);
+-	return do_udpv6_setsockopt(sk, level, optname, optval, optlen);
++	if (level == SOL_UDP  ||  level == SOL_UDPLITE)
++		return do_udpv6_setsockopt(sk, level, optname, optval, optlen);
++	return ipv6_setsockopt(sk, level, optname, optval, optlen);
+ }
+ 
+ #ifdef CONFIG_COMPAT
+ static int compat_udpv6_setsockopt(struct sock *sk, int level, int optname,
+ 				   char __user *optval, int optlen)
+ {
+-	if (level != SOL_UDP)
+-		return compat_ipv6_setsockopt(sk, level, optname,
+-					      optval, optlen);
+-	return do_udpv6_setsockopt(sk, level, optname, optval, optlen);
++	if (level == SOL_UDP  ||  level == SOL_UDPLITE)
++		return do_udpv6_setsockopt(sk, level, optname, optval, optlen);
++	return compat_ipv6_setsockopt(sk, level, optname, optval, optlen);
+ }
+ #endif
+ 
+@@ -917,6 +964,14 @@ static int do_udpv6_getsockopt(struct so
+ 		val = up->encap_type;
+ 		break;
+ 
++	case UDPLITE_SEND_CSCOV:
++		val = up->pcslen;
++		break;
++
++	case UDPLITE_RECV_CSCOV:
++		val = up->pcrlen;
++		break;
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	};
+@@ -931,19 +986,18 @@ static int do_udpv6_getsockopt(struct so
+ static int udpv6_getsockopt(struct sock *sk, int level, int optname,
+ 			  char __user *optval, int __user *optlen)
+ {
+-	if (level != SOL_UDP)
+-		return ipv6_getsockopt(sk, level, optname, optval, optlen);
+-	return do_udpv6_getsockopt(sk, level, optname, optval, optlen);
++	if (level == SOL_UDP  ||  level == SOL_UDPLITE)
++		return do_udpv6_getsockopt(sk, level, optname, optval, optlen);
++	return ipv6_getsockopt(sk, level, optname, optval, optlen);
+ }
+ 
+ #ifdef CONFIG_COMPAT
+ static int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
+ 				   char __user *optval, int __user *optlen)
+ {
+-	if (level != SOL_UDP)
+-		return compat_ipv6_getsockopt(sk, level, optname,
+-					      optval, optlen);
+-	return do_udpv6_getsockopt(sk, level, optname, optval, optlen);
++	if (level == SOL_UDP  ||  level == SOL_UDPLITE)
++		return do_udpv6_getsockopt(sk, level, optname, optval, optlen);
++	return compat_ipv6_getsockopt(sk, level, optname, optval, optlen);
+ }
+ #endif
+ 
+@@ -1003,6 +1057,7 @@ static struct udp_seq_afinfo udp6_seq_af
+ 	.owner		= THIS_MODULE,
+ 	.name		= "udp6",
+ 	.family		= AF_INET6,
++	.hashtable	= udp_hash,
+ 	.seq_show	= udp6_seq_show,
+ 	.seq_fops	= &udp6_seq_fops,
+ };
+@@ -1022,7 +1077,7 @@ #endif /* CONFIG_PROC_FS */
+ struct proto udpv6_prot = {
+ 	.name		   = "UDPv6",
+ 	.owner		   = THIS_MODULE,
+-	.close		   = udpv6_close,
++	.close		   = udp_lib_close,
+ 	.connect	   = ip6_datagram_connect,
+ 	.disconnect	   = udp_disconnect,
+ 	.ioctl		   = udp_ioctl,
+@@ -1032,8 +1087,8 @@ struct proto udpv6_prot = {
+ 	.sendmsg	   = udpv6_sendmsg,
+ 	.recvmsg	   = udpv6_recvmsg,
+ 	.backlog_rcv	   = udpv6_queue_rcv_skb,
+-	.hash		   = udp_v6_hash,
+-	.unhash		   = udp_v6_unhash,
++	.hash		   = udp_lib_hash,
++	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v6_get_port,
+ 	.obj_size	   = sizeof(struct udp6_sock),
+ #ifdef CONFIG_COMPAT
+@@ -1059,3 +1114,5 @@ void __init udpv6_init(void)
+ 		printk(KERN_ERR "udpv6_init: Could not register protocol\n");
+ 	inet6_register_protosw(&udpv6_protosw);
+ }
++/* the extensions for UDP-Lite (RFC 3828) */
++#include "udplite.c"
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+new file mode 100644
+index 0000000..ee410f7
+--- /dev/null
++++ b/net/ipv6/udplite.c
+@@ -0,0 +1,131 @@
++/*
++ *  UDPLITEv6   An implementation of the UDP-Lite protocol over IPv6.
++ *              See also net/ipv4/udplite.c
++ *
++ *  Version:    $Id: udplite.c,v 1.8 2006/07/14 09:06:24 gerrit Exp gerrit $
++ *
++ *  Authors:    Gerrit Renker       <gerrit@erg.abdn.ac.uk>
++ *
++ *  Changes:
++ *  Fixes:
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ */
++DEFINE_SNMP_STAT(struct udp_mib, udplite_stats_in6) __read_mostly;
++
++static __inline__ int udplite6_mib_init(void)
++{
++	return snmp6_mib_init((void **)udplite_stats_in6,
++			      sizeof(struct udp_mib),
++			      __alignof__(struct udp_mib) );
++}
++
++static __inline__ int udplite_v6_get_port(struct sock *sk, unsigned short snum)
++{
++	return udplite_get_port(sk, snum, ipv6_rcv_saddr_equal);
++}
++
++static __inline__ struct sock *udplite_v6_lookup(struct in6_addr *saddr, __be16 sport,
++				  		 struct in6_addr *daddr, __be16 dport,
++						 int dif)
++{
++	return __udp6_lib_lookup(saddr, sport, daddr, dport, dif, udplite_hash);
++}
++
++static __inline__ int udplitev6_rcv(struct sk_buff **pskb)
++{
++	return __udp6_lib_rcv(pskb, udplite_hash, 1);
++}
++
++static __inline__ void udplitev6_err(struct sk_buff *skb,
++				     struct inet6_skb_parm *opt, int type,
++				     int code, int offset, __u32 info     )
++{
++	return __udp6_lib_err(skb, opt, type, code, offset, info, udplite_hash);
++}
++
++static struct inet6_protocol udplitev6_protocol = {
++	.handler	=	udplitev6_rcv,
++	.err_handler	=	udplitev6_err,
++	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
++};
++
++struct proto udplitev6_prot = {
++	.name		   = "UDPLITEv6",
++	.owner		   = THIS_MODULE,
++	.close		   = udp_lib_close,
++	.connect	   = ip6_datagram_connect,
++	.disconnect	   = udp_disconnect,
++	.ioctl		   = udp_ioctl,
++	.init		   = udplite_sk_init,
++	.destroy	   = udpv6_destroy_sock,
++	.setsockopt	   = udpv6_setsockopt,
++	.getsockopt	   = udpv6_getsockopt,
++	.sendmsg	   = udpv6_sendmsg,
++	.recvmsg	   = udpv6_recvmsg,
++	.backlog_rcv	   = udpv6_queue_rcv_skb,
++	.hash		   = udp_lib_hash,
++	.unhash		   = udp_lib_unhash,
++	.get_port	   = udplite_v6_get_port,
++	.obj_size	   = sizeof(struct udp6_sock),
++#ifdef CONFIG_COMPAT
++	.compat_setsockopt = compat_udpv6_setsockopt,
++	.compat_getsockopt = compat_udpv6_getsockopt,
++#endif
++};
++
++static struct inet_protosw udplite6_protosw = {
++	.type		= SOCK_DGRAM,
++	.protocol	= IPPROTO_UDPLITE,
++	.prot		= &udplitev6_prot,
++	.ops		= &inet6_dgram_ops,
++	.capability	= -1,
++	.no_check	= 0,
++	.flags		= INET_PROTOSW_PERMANENT,
++};
++
++#ifdef CONFIG_PROC_FS
++static struct file_operations udplite6_seq_fops;
++static struct udp_seq_afinfo udplite6_seq_afinfo = {
++	.owner		= THIS_MODULE,
++	.name		= "udplite6",
++	.family		= AF_INET6,
++	.hashtable	= udplite_hash,
++	.seq_show	= udp6_seq_show,
++	.seq_fops	= &udplite6_seq_fops,
++};
++#endif
++
++void __init udplitev6_init(void)
++{
++	if (proto_register(&udplitev6_prot, 1))
++		goto out_register_err;
++
++	if (inet6_add_protocol(&udplitev6_protocol, IPPROTO_UDPLITE) < 0)
++		goto out_unregister_proto;
++
++	inet6_register_protosw(&udplite6_protosw);
++
++        if(udplite6_mib_init() < 0)
++		printk(KERN_ERR "%s: Can not add MIB support.\n", __FUNCTION__);
++
++#ifdef CONFIG_PROC_FS
++	if (udp_proc_register(&udplite6_seq_afinfo))
++		printk(KERN_ERR "%s: Cannot register /proc!\n", __FUNCTION__);
++#endif
++	return;
++
++out_unregister_proto:
++	proto_unregister(&udplitev6_prot);
++out_register_err:
++	printk(KERN_ERR "%s: Could not register.\n", __FUNCTION__);
++}
++
++void __exit udplitev6_cleanup(void)
++{
++	snmp6_mib_free((void **)udplite_stats_in6);
++	proto_unregister(&udplitev6_prot);
++}
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8223c44..60cbe35 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -143,9 +143,13 @@ #define ICMP6_INC_STATS_OFFSET_BH(idev, 
+ 	SNMP_INC_STATS_OFFSET_BH(icmpv6_statistics, field, _offset);    	\
+ })
+ DECLARE_SNMP_STAT(struct udp_mib, udp_stats_in6);
+-#define UDP6_INC_STATS(field)		SNMP_INC_STATS(udp_stats_in6, field)
+-#define UDP6_INC_STATS_BH(field)	SNMP_INC_STATS_BH(udp_stats_in6, field)
+-#define UDP6_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(udp_stats_in6, field)
++DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
++#define UDP6_INC_STATS_BH(field, is_udplite) 			      do  {  \
++	if (is_udplite) SNMP_INC_STATS_BH(udplite_stats_in6, field);         \
++	else		SNMP_INC_STATS_BH(udp_stats_in6, field);    } while(0)
++#define UDP6_INC_STATS_USER(field, is_udplite)			       do {    \
++	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
++	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
+ 
+ int snmp6_register_dev(struct inet6_dev *idev);
+ int snmp6_unregister_dev(struct inet6_dev *idev);
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index efee7a6..d72b36e 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -49,6 +49,8 @@ static int sockstat6_seq_show(struct seq
+ 		       fold_prot_inuse(&tcpv6_prot));
+ 	seq_printf(seq, "UDP6: inuse %d\n",
+ 		       fold_prot_inuse(&udpv6_prot));
++	seq_printf(seq, "UDPLITE6: inuse %d\n",
++		        fold_prot_inuse(&udplitev6_prot));
+ 	seq_printf(seq, "RAW6: inuse %d\n",
+ 		       fold_prot_inuse(&rawv6_prot));
+ 	seq_printf(seq, "FRAG6: inuse %d memory %d\n",
+@@ -133,6 +135,14 @@ static struct snmp_mib snmp6_udp6_list[]
+ 	SNMP_MIB_SENTINEL
  };
  
- static int __init xt_tcpudp_init(void)
-diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
-index 7dc820d..46eee64 100644
---- a/net/ipv4/netfilter/ipt_LOG.c
-+++ b/net/ipv4/netfilter/ipt_LOG.c
-@@ -171,11 +171,15 @@ static void dump_packet(const struct nf_
- 		}
- 		break;
++static struct snmp_mib snmp6_udplite6_list[] = {
++	SNMP_MIB_ITEM("UdpLite6InDatagrams", UDP_MIB_INDATAGRAMS),
++	SNMP_MIB_ITEM("UdpLite6NoPorts", UDP_MIB_NOPORTS),
++	SNMP_MIB_ITEM("UdpLite6InErrors", UDP_MIB_INERRORS),
++	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
++	SNMP_MIB_SENTINEL
++};
++
+ static unsigned long
+ fold_field(void *mib[], int offt)
+ {
+@@ -166,6 +176,7 @@ static int snmp6_seq_show(struct seq_fil
+ 		snmp6_seq_show_item(seq, (void **)ipv6_statistics, snmp6_ipstats_list);
+ 		snmp6_seq_show_item(seq, (void **)icmpv6_statistics, snmp6_icmp6_list);
+ 		snmp6_seq_show_item(seq, (void **)udp_stats_in6, snmp6_udp6_list);
++		snmp6_seq_show_item(seq, (void **)udplite_stats_in6, snmp6_udplite6_list);
  	}
--	case IPPROTO_UDP: {
-+	case IPPROTO_UDP:
-+	case IPPROTO_UDPLITE: {
- 		struct udphdr _udph, *uh;
+ 	return 0;
+ }
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 858cae2..fdc7bef 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -49,6 +49,7 @@ #include <linux/netfilter_ipv6.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
+ #include <net/udp.h>
++#include <net/udplite.h>
+ #include <net/tcp.h>
+ #include <net/ipip.h>
+ #include <net/protocol.h>
+@@ -862,6 +863,7 @@ #endif
  
--		/* Max length: 10 "PROTO=UDP " */
--		printk("PROTO=UDP ");
-+		if (ih->protocol == IPPROTO_UDP)
-+			/* Max length: 10 "PROTO=UDP "     */
-+			printk("PROTO=UDP " );
-+		else	/* Max length: 14 "PROTO=UDPLITE " */
-+			printk("PROTO=UDPLITE ");
+ 	/* Init v6 transport protocols. */
+ 	udpv6_init();
++	udplitev6_init();
+ 	tcpv6_init();
  
- 		if (ntohs(ih->frag_off) & IP_OFFSET)
- 			break;
-@@ -341,6 +345,7 @@ static void dump_packet(const struct nf_
- 	/* IP:      40+46+6+11+127 = 230 */
- 	/* TCP:     10+max(25,20+30+13+9+32+11+127) = 252 */
- 	/* UDP:     10+max(25,20) = 35 */
-+	/* UDPLITE: 14+max(25,20) = 39 */
- 	/* ICMP:    11+max(25, 18+25+max(19,14,24+3+n+10,3+n+10)) = 91+n */
- 	/* ESP:     10+max(25)+15 = 50 */
- 	/* AH:      9+max(25)+15 = 49 */
-diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
-index 0cf537d..3cb6bb7 100644
---- a/net/ipv6/netfilter/ip6t_LOG.c
-+++ b/net/ipv6/netfilter/ip6t_LOG.c
-@@ -270,11 +270,15 @@ static void dump_packet(const struct nf_
- 		}
- 		break;
- 	}
--	case IPPROTO_UDP: {
-+	case IPPROTO_UDP:
-+	case IPPROTO_UDPLITE: {
- 		struct udphdr _udph, *uh;
- 
--		/* Max length: 10 "PROTO=UDP " */
--		printk("PROTO=UDP ");
-+		if (currenthdr == IPPROTO_UDP)
-+			/* Max length: 10 "PROTO=UDP "     */
-+			printk("PROTO=UDP " );
-+		else	/* Max length: 14 "PROTO=UDPLITE " */
-+			printk("PROTO=UDPLITE ");
- 
- 		if (fragment)
- 			break;
-diff --git a/Documentation/networking/udplite.txt b/Documentation/networking/udplite.txt
-new file mode 100644
-index 0000000..a899fa1
---- /dev/null
-+++ b/Documentation/networking/udplite.txt
-@@ -0,0 +1,291 @@
-+  ===========================================================================
-+                      The UDP-Lite protocol (RFC 3828)
-+  ===========================================================================
-+  last modified: 	Mon 18th September 2006
-+
-+
-+  UDP-Lite is a Standards-Track IETF transport protocol whose characteristic
-+  is a variable-length checksum. This has advantages for transport of multimedia
-+  (video, VoIP) over wireless networks, as partly damaged packets can still be
-+  fed into the codec instead of being discarded due to a failed checksum test.
-+
-+  This file briefly describes the existing kernel support and the socket API.
-+  For in-depth information, you can consult:
-+
-+   o The UDP-Lite Homepage: http://www.erg.abdn.ac.uk/users/gerrit/udp-lite/
-+       Fom here you can always also download the latest patch for the stable
-+       kernel tree and some example application source code.
-+
-+   o The UDP-Lite HOWTO on
-+       http://www.erg.abdn.ac.uk/users/gerrit/udp-lite/files/UDP-Lite-HOWTO.txt
-+
-+   o The Wireshark UDP-Lite WiKi (with capture files):
-+       http://wiki.wireshark.org/Lightweight_User_Datagram_Protocol
-+
-+   o The Protocol Spec, RFC 3828, on  http://www.ietf.org/rfc/rfc3828.txt
-+
-+
-+  I) APPLICATIONS
-+
-+  Several applications have been ported successfully to UDP-Lite. Ethereal
-+  (now called wireshark) has UDP-Litev4/v6 support by default. The tarball on
-+
-+   http://www.erg.abdn.ac.uk/users/gerrit/udp-lite/files/udplite_linux.tar.gz
-+
-+  has source code for several v4/v6 client-server and network testing examples.
-+
-+  Porting applications to UDP-Lite is straightforward: only socket level and
-+  IPPROTO need to be changed; senders additionally set the checksum coverage
-+  length (default = header length = 8). Details are in the next section.
-+  UDP-Lite is not enabled per default: set CONFIG_IP_UDPLITE=y to support it.
-+
-+
-+  II) PROGRAMMING API
-+
-+  UDP-Lite provides a connectionless, unreliable datagram service and hence
-+  uses the same socket type as UDP. In fact, porting from UDP to UDP-Lite is
-+  dead easy: simply add `IPPROTO_UDPLITE' as the last argument of the socket(2)
-+  call so that the statement looks like:
-+
-+      s = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
-+
-+                      or, respectively,
-+
-+      s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_UDPLITE);
-+
-+  Since both UDP-Litev4 and UDP-Litev6 are supported, the porting process is the
-+  same in both occasions. With just this change you are able to run UDP-Lite
-+  services or connect to UDP-Lite servers. The kernel will assume that you are
-+  not interested in using partial checksum coverage and so emulate UDP mode.
-+
-+  To make use of the partial checksum coverage facilities requires setting just
-+  one socket option which takes an integer specifying the coverage length:
-+
-+    * Sender checksum coverage: UDPLITE_SEND_CSCOV
-+
-+      For example,
-+
-+        int val = 20;
-+        setsockopt(s, SOL_UDPLITE, UDPLITE_SEND_CSCOV, &val, sizeof(int));
-+
-+      sets the checksum coverage length to 20 bytes (12b data + 8b header).
-+      Of each packet only the first 20 bytes (plus the pseudo-header) will be
-+      checksummed. This is useful for RTP applications which have a 12-byte
-+      base header.
-+
-+
-+    * Receiver checksum coverage: UDPLITE_RECV_CSCOV
-+
-+      This option is the receiver-side analogue. It is truly optional, i.e. not
-+      required to enable traffic with partial checksum coverage. Its function is
-+      that of a traffic filter: when enabled, it instructs the kernel to drop
-+      all packets which have a coverage _less_ than this value. For example, if
-+      RTP and UDP headers are to be protected, a receiver can enforce that only
-+      packets with a minimum coverage of 20 are admitted:
-+
-+        int min = 20;
-+        setsockopt(s, SOL_UDPLITE, UDPLITE_RECV_CSCOV, &min, sizeof(int));
-+
-+  The calls to getsockopt(2) are analogous. Being an extension and not a stand-
-+  alone protocol, all socket options known from UDP can be used in exactly the
-+  same manner as before, e.g. UDP_CORK or UDP_ENCAP.
-+
-+  A detailed discussion of UDP-Lite checksum coverage options is in section IV.
-+
-+
-+
-+  III) HEADER FILES
-+
-+  The socket API requires support through header files in /usr/include:
-+
-+    * /usr/include/netinet/in.h
-+        to define IPPROTO_UDPLITE
-+
-+    * /usr/include/netinet/udplite.h
-+        for UDP-Lite header fields and protocol constants
-+
-+  For testing purposes, the following can serve as a `mini' header file:
-+
-+    #define IPPROTO_UDPLITE       136
-+    #define SOL_UDPLITE           136
-+    #define UDPLITE_SEND_CSCOV     10
-+    #define UDPLITE_RECV_CSCOV     11
-+
-+  Ready-made header files for various distros are in the UDP-Lite tarball.
-+
-+
-+
-+  IV) KERNEL BEHAVIOUR WITH REGARD TO THE VARIOUS SOCKET OPTIONS
-+
-+  To enable debugging messages, the log level must be set to 8, as most
-+  messages use the KERN_DEBUG level (7).
-+
-+
-+  1) Sender Socket Options
-+
-+  If the sender specifies a value of 0 as coverage length, the module
-+  assumes full coverage, transmits a packet with coverage length of 0
-+  and according checksum.  If the sender specifies a coverage < 8 and
-+  different from 0, the kernel assumes 8 as default value.  Finally,
-+  if the specified coverage length exceeds the packet length, the packet
-+  length is used instead as coverage length.
-+
-+
-+  2) Receiver Socket Options
-+
-+  The receiver specifies the minimum value of the coverage length it
-+  is willing to accept.  A value of 0 here indicates that the receiver
-+  always wants the whole of the packet covered. In this case, all
-+  partially covered packets are dropped and an error is logged.
-+
-+  It is not possible to specify illegal values (<0 and <8); in these
-+  cases the default of 8 is assumed.
-+
-+  All packets arriving with a coverage value less than the specified
-+  threshold are discarded, these events are also logged.
-+
-+
-+  3) Disabling the Checksum Computation
-+
-+  On both sender and receiver, checksumming will always be performed
-+  and can not be disabled using SO_NO_CHECK. Thus
-+
-+        setsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK,  ... );
-+
-+  will always will be ignored, while the value of
-+
-+        getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
-+
-+  is meaningless (as in TCP). Packets with a zero checksum field are
-+  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
-+
-+
-+  4) Fragmentation
-+
-+  The checksum computation respects both buffersize and MTU. The size
-+  of UDP-Lite packets is determined by the size of the send buffer. The
-+  minimum size of the send buffer is 2048 (defined as SOCK_MIN_SNDBUF
-+  in include/net/sock.h), the default value is configurable as
-+  net.core.wmem_default or via setting the SO_SNDBUF socket(7)
-+  option. The maximum upper bound for the send buffer is determined
-+  by net.core.wmem_max.
-+
-+  Given a payload size larger than the send buffer size, UDP-Lite will
-+  split the payload into several individual packets, filling up the
-+  send buffer size in each case.
-+
-+  The precise value also depends on the interface MTU. The interface MTU,
-+  in turn, may trigger IP fragmentation. In this case, the generated
-+  UDP-Lite packet is split into several IP packets, of which only the
-+  first one contains the L4 header.
-+
-+  The send buffer size has implications on the checksum coverage length.
-+  Consider the following example:
-+
-+  Payload: 1536 bytes          Send Buffer:     1024 bytes
-+  MTU:     1500 bytes          Coverage Length:  856 bytes
-+
-+  UDP-Lite will ship the 1536 bytes in two separate packets:
-+
-+  Packet 1: 1024 payload + 8 byte header + 20 byte IP header = 1052 bytes
-+  Packet 2:  512 payload + 8 byte header + 20 byte IP header =  540 bytes
-+
-+  The coverage packet covers the UDP-Lite header and 848 bytes of the
-+  payload in the first packet, the second packet is fully covered. Note
-+  that for the second packet, the coverage length exceeds the packet
-+  length. The kernel always re-adjusts the coverage length to the packet
-+  length in such cases.
-+
-+  As an example of what happens when one UDP-Lite packet is split into
-+  several tiny fragments, consider the following example.
-+
-+  Payload: 1024 bytes            Send buffer size: 1024 bytes
-+  MTU:      300 bytes            Coverage length:   575 bytes
-+
-+  +-+-----------+--------------+--------------+--------------+
-+  |8|    272    |      280     |     280      |     280      |
-+  +-+-----------+--------------+--------------+--------------+
-+               280            560            840           1032
-+                                    ^
-+  *****checksum coverage*************
-+
-+  The UDP-Lite module generates one 1032 byte packet (1024 + 8 byte
-+  header). According to the interface MTU, these are split into 4 IP
-+  packets (280 byte IP payload + 20 byte IP header). The kernel module
-+  sums the contents of the entire first two packets, plus 15 bytes of
-+  the last packet before releasing the fragments to the IP module.
-+
-+  To see the analogous case for IPv6 fragmentation, consider a link
-+  MTU of 1280 bytes and a write buffer of 3356 bytes. If the checksum
-+  coverage is less than 1232 bytes (MTU minus IPv6/fragment header
-+  lengths), only the first fragment needs to be considered. When using
-+  larger checksum coverage lengths, each eligible fragment needs to be
-+  checksummed. Suppose we have a checksum coverage of 3062. The buffer
-+  of 3356 bytes will be split into the following fragments:
-+
-+    Fragment 1: 1280 bytes carrying  1232 bytes of UDP-Lite data
-+    Fragment 2: 1280 bytes carrying  1232 bytes of UDP-Lite data
-+    Fragment 3:  948 bytes carrying   900 bytes of UDP-Lite data
-+
-+  The first two fragments have to be checksummed in full, of the last
-+  fragment only 598 (= 3062 - 2*1232) bytes are checksummed.
-+
-+  While it is important that such cases are dealt with correctly, they
-+  are (annoyingly) rare: UDP-Lite is designed for optimising multimedia
-+  performance over wireless (or generally noisy) links and thus smaller
-+  coverage lenghts are likely to be expected.
-+
-+
-+  V) UDP-LITE RUNTIME STATISTICS AND THEIR MEANING
-+
-+  Exceptional and error conditions are logged to syslog at the KERN_DEBUG
-+  level.  Live statistics about UDP-Lite are available in /proc/net/snmp
-+  and can (with newer versions of netstat) be viewed using
-+
-+                            netstat -svu
-+
-+  This displays UDP-Lite statistics variables, whose meaning is as follows.
-+
-+   InDatagrams:     Total number of received datagrams.
-+
-+   NoPorts:         Number of packets received to an unknown port.
-+                    These cases are counted separately (not as InErrors).
-+
-+   InErrors:        Number of erroneous UDP-Lite packets. Errors include:
-+                      * internal socket queue receive errors
-+                      * packet too short (less than 8 bytes or stated
-+                        coverage length exceeds received length)
-+                      * xfrm4_policy_check() returned with error
-+                      * application has specified larger min. coverage
-+                        length than that of incoming packet
-+                      * checksum coverage violated
-+                      * bad checksum
-+
-+   OutDatagrams:    Total number of sent datagrams.
-+
-+   These statistics derive from the UDP MIB (RFC 2013).
-+
-+
-+  VI) IPTABLES
-+
-+  There is packet match support for UDP-Lite as well as support for the LOG target.
-+  If you copy and paste the following line into /etc/protcols,
-+
-+  udplite 136     UDP-Lite        # UDP-Lite [RFC 3828]
-+
-+  then
-+              iptables -A INPUT -p udplite -j LOG
-+
-+  will produce logging output to syslog. Dropping and rejecting packets also works.
-+
-+
-+  VII) MAINTAINER ADDRESS
-+
-+  The UDP-Lite patch was developed at
-+                    University of Aberdeen
-+                    Electronics Research Group
-+                    Department of Engineering
-+                    Fraser Noble Building
-+                    Aberdeen AB24 3UE; UK
-+  The current maintainer is Gerrit Renker, <gerrit@erg.abdn.ac.uk>. Initial
-+  code had been developed by William  Stanislaus, <william@erg.abdn.ac.uk>.
+ 	ipv6_packet_init();
+@@ -926,6 +928,7 @@ #ifdef CONFIG_IPV6_MIP6
+ 	mip6_fini();
+ #endif
+ 	/* Cleanup code parts. */
++	udplitev6_cleanup();
+ 	ip6_flowlabel_cleanup();
+ 	addrconf_cleanup();
+ 	ip6_route_cleanup();
+
