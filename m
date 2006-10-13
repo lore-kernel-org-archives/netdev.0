@@ -1,29 +1,42 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: use of tx_timeout in enet driver?
-Date: Fri, 13 Oct 2006 11:19:19 -0500
-Message-ID: <E654CD0D-77A4-4B12-B2D5-FCB9ACFC191B@kernel.crashing.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: David Johnson <dj@david-web.co.uk>
+Subject: Re: Hardware bug or kernel bug?
+Date: Fri, 13 Oct 2006 17:24:39 +0100
+Message-ID: <200610131724.40631.dj@david-web.co.uk>
+References: <20061013085605.GA1690@ff.dom.local> <200610131256.54546.dj@david-web.co.uk> <20061013130648.GC1690@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:48364 "EHLO
-	nommos.sslcatacombnetworking.com") by vger.kernel.org with ESMTP
-	id S1751666AbWJMQTK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 12:19:10 -0400
-Received: from cpe-66-69-212-100.austin.res.rr.com ([66.69.212.100] helo=[192.168.1.100])
-	by nommos.sslcatacombnetworking.com with esmtp (Exim 4.52)
-	id 1GYPkb-0003dJ-BX
-	for netdev@vger.kernel.org; Fri, 13 Oct 2006 11:19:09 -0500
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751731AbWJMQYq@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20061013130648.GC1690@ff.dom.local>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm working on a enet driver and trying to figure out what I should  
-do in the tx_timeout function.  The device I have doesn't interrupt  
-on tx completions so I already have a timer loop to check to see if  
-there have been any completions by looking at the ring pointers.
+On Friday 13 October 2006 14:06, Jarek Poplawski wrote:
+>
+> Probably - but only with networking. So I'd try with this debugging
+> like in my first reply plus maybe 2.6.19-rc1 (e1000 - btw. I hope
+> this other tested card was different model - and locking improved)
+> and resend conclusions to netdev@vger.kernel.org.
+>
 
-So should I do something like e100 does in using a work_queue to  
-effectively reset the card if we get a tx_timeout?
+OK I built a 2.6.19-rc1 kernel with a minimal config as you describe and I 
+cannot reproduce the reboots with this kernel. My .config:
+http://www.david-web.co.uk/download/config
 
-- kumar
+The other NIC I tried was a D-Link DL10050-based card which I think uses the 
+dl2k module.
+
+I tried to reproduce the problem under Windows (2k), which didn't reboot but 
+did still suffer from it I believe. Randomly during an scp transfer (using 
+the PuTTY scp client) Windows will lock-up for about 30 seconds, making an 
+entry in the event log indicating that there was a time-out talking to the 
+IDE controller, then continuing. Could the same thing be happening in Linux? 
+If Linux can't talk to the IDE controller when trying to write to disk, how 
+does it handle that?
+
+Regards,
+David.
