@@ -1,38 +1,48 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH wireless-dev] Remove struct pt_regs * from d80211 drivers
-Date: Fri, 13 Oct 2006 22:45:34 +0200
-Message-ID: <200610132245.34637.IvDoorn@gmail.com>
-References: <200610131601.54254.flamingice@sourmilk.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: getaddrinfo - should accept IPPROTO_SCTP no?
+Date: Fri, 13 Oct 2006 14:30:12 -0700
+Message-ID: <45300564.2050504@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Michael Buesch <mb@bu3sch.de>,
-	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:54761 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751895AbWJMUqh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 16:46:37 -0400
-Received: by nf-out-0910.google.com with SMTP id x30so1092950nfb
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2006 13:46:35 -0700 (PDT)
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200610131601.54254.flamingice@sourmilk.net>
-Content-Disposition: inline
+Received: from palrel13.hp.com ([156.153.255.238]:18093 "EHLO palrel13.hp.com")
+	by vger.kernel.org with ESMTP id S932082AbWJMVaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2006 17:30:14 -0400
+Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
+	by palrel13.hp.com (Postfix) with ESMTP id B0A5936F4C
+	for <netdev@vger.kernel.org>; Fri, 13 Oct 2006 14:30:19 -0700 (PDT)
+Received: from [127.0.0.1] (localhost [127.0.0.1])
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id OAA18558
+	for <netdev@vger.kernel.org>; Fri, 13 Oct 2006 14:30:12 -0700 (PDT)
+To: Linux Network Development list <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 13 October 2006 22:01, Michael Wu wrote:
-> Remove struct pt_regs * from d80211 drivers
-> 
-> This patch will be necessary once wireless-dev pulls the 2.6.19-rc2 changes 
-> which include the removal of the struct pt_regs * argument in interrupt 
-> handler callbacks. Thanks to Johannes Berg <johannes@sipsolutions.net> for 
-> finding a spot in the bcm43xx driver that called the irq handler manually.
-> 
-> Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+I made some recent changes to netperf to workaround what is IMO a bug in the 
+Solaris getaddrinfo() where it will clear the ai_protocol field even when one 
+gives it a protocol in the hints.
 
-Patch looks good for rt2x00. :)
+[If you happen to be trying to use the test-specific -D to set TCP_NODELAY in 
+netperf on Solaris, you might want to grab netperf TOT to get this workaround as 
+it relates to issues with setting TCP_NODELAY - modulo what it will do to being 
+able to run the netperf SCTP tests on Linux...]
 
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+In the process though I have stumbled across what appears to be a bug (?) in 
+"Linux" getaddrinfo() - returning a -7 EAI_SOCKTYPE if given as hints 
+SOCK_STREAM and IPPROTO_SCTP - this on a system that ostensibly supports SCTP. 
+I've seen this on RHAS4U4 as well as another less well known distro.
+
+I'm about to see about concocting an additional workaround in netperf for this, 
+but thought I'd ask if my assumption - that getaddrinfo() returning -7 when 
+given IPPROTO_SCTP - is indeed a bug in getaddrinfo().  Or am I just woefully 
+behind in patches or completely offbase on what is correct behaviour for 
+getaddrinfo and hints?
+
+FWIW, which may not be much, Solaris 10 06/06 seems content to accept 
+IPPROTO_SCTP in the hints.
+
+thanks,
+
+rick jones
+http://www.netperf.org/svn/netperf2/trunk/
