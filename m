@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] reduce sizeof(struct inet_peer), cleanup, change
- in peer_check_expire()
-Date: Thu, 12 Oct 2006 21:18:43 -0700 (PDT)
-Message-ID: <20061012.211843.15264081.davem@davemloft.net>
-References: <452EA214.7080905@cosmosbay.com>
-	<20061012.151529.95506153.davem@davemloft.net>
-	<452F0E7B.3010701@cosmosbay.com>
+Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+Date: Thu, 12 Oct 2006 21:22:40 -0700 (PDT)
+Message-ID: <20061012.212240.26278742.davem@davemloft.net>
+References: <20061011.144137.18281355.davem@davemloft.net>
+	<20061012191206.GA16516@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: shemminger@osdl.org, steve@chygwyn.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	openib-general@openib.org, rolandd@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:42421
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43701
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751616AbWJMESm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Oct 2006 00:18:42 -0400
-To: dada1@cosmosbay.com
-In-Reply-To: <452F0E7B.3010701@cosmosbay.com>
+	id S1751620AbWJMEWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Oct 2006 00:22:38 -0400
+To: mst@mellanox.co.il
+In-Reply-To: <20061012191206.GA16516@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 13 Oct 2006 05:56:43 +0200
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Date: Thu, 12 Oct 2006 21:12:06 +0200
 
-> 2^31 is 2147483648
+> Quoting r. David Miller <davem@davemloft.net>:
+> > Subject: Re: Dropping NETIF_F_SG since no checksum feature.
+> > 
+> > Numbers?
 > 
-> Thats a *lot* of timer ticks, an inet_peer entry should not stay in 
-> unused_list for more than 10 minutes.
+> I created two subnets on top of the same pair infiniband HCAs:
 
-My bad, I thought the time was compared to the creation time
-not the time at which it was added to the unused list.
-
-I like your patch and I'll apply it.
-
-Thanks Eric.
+I was asking for SG vs. non-SG numbers so I could see proof
+that it really does help like you say it will.
