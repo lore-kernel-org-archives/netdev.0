@@ -1,45 +1,32 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [PATCH 01/02 V3] net/ipv6: seperate sit driver to extra module
-Date: Sat, 14 Oct 2006 11:32:55 +0200
-Message-ID: <20061014093255.GA4646@zlug.org>
-References: <20061010153745.GA27455@zlug.org> <452FD6F6.3090907@l4x.org> <20061013191744.GA30089@zlug.org> <20061013.150608.63128976.davem@davemloft.net> <45301CB3.4060803@l4x.org>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [patch 1/7] Update smc91x driver with ARM Versatile board info
+Date: Sat, 14 Oct 2006 12:02:39 +0100
+Message-ID: <20061014110239.GC15908@flint.arm.linux.org.uk>
+References: <200610102133.k9ALXNI5024946@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org, dsaxena@plexity.net,
+	nico@cam.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:44892 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S1161086AbWJNJc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Oct 2006 05:32:59 -0400
-To: Jan Dittmer <jdi@l4x.org>
+Received: from caramon.arm.linux.org.uk ([217.147.92.249]:39692 "EHLO
+	caramon.arm.linux.org.uk") by vger.kernel.org with ESMTP
+	id S1752151AbWJNLCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Oct 2006 07:02:50 -0400
+To: akpm@osdl.org
 Content-Disposition: inline
-In-Reply-To: <45301CB3.4060803@l4x.org>
+In-Reply-To: <200610102133.k9ALXNI5024946@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 14, 2006 at 01:09:39AM +0200, Jan Dittmer wrote:
-> David Miller wrote:
-> > From: Joerg Roedel <joro-lkml@zlug.org>
-> > Date: Fri, 13 Oct 2006 21:17:45 +0200
-> > 
-> >> On Fri, Oct 13, 2006 at 08:12:06PM +0200, Jan Dittmer wrote:
-> >>> This is missing the MODULE_LICENSE statements and taints the kernel upon
-> >>> loading. License is obvious from the beginning of the file.
-> >  ...
-> >>> Signed-off-by: Jan Dittmer <jdi@l4x.org>
-> >> Signed-off-by: Joerg Roedel <joro-lkml@zlug.org>
-> > 
-> > Applied, thanks for catching this Jan.
-> > 
+On Tue, Oct 10, 2006 at 02:33:22PM -0700, akpm@osdl.org wrote:
+> From: Deepak Saxena <dsaxena@plexity.net>
 > 
-> Btw. is there any way to autoload the sit module or is this the
-> task of the distribution tools? Debian etch at least does not
-> automatically probe the module when trying to bring up a 6to4 tunnel.
+> We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
+> generic IRQ layer will complain thusly:
 
-AFAIK there is no way to automatically load the driver from the kernel
-space. The configuration of the tunnel devices requires the sit0 device.
-But this device is installed by the sit driver. I mailed a bug report to
-the Debian people and informed them about the change.
+Or a far better solution would be to arrange to pass the IRQ flags via
+the platform device IRQ resource rather than continually having to add
+to the ifdef mess in smc91x.h for every machine type we come across.
 
-Joerg
+-- 
+Russell King
