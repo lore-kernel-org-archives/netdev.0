@@ -1,137 +1,99 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATHC] e100: fix reboot -f with netconsole enabled
-Date: Sat, 14 Oct 2006 10:00:28 -0700
-Message-ID: <453117AC.90906@intel.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
+Date: Sat, 14 Oct 2006 13:48:55 -0700
+Message-ID: <20061014134855.b66d7e65.akpm@osdl.org>
+References: <1160161519800-git-send-email-matthew@wil.cx>
+	<20061013214135.8fbc9f04.akpm@osdl.org>
+	<20061014140249.GL11633@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	NetDev <netdev@vger.kernel.org>
+Cc: Val Henson <val_henson@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42125 "EHLO mga09.intel.com")
-	by vger.kernel.org with ESMTP id S1422732AbWJNRBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2006 13:01:46 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from smtp.osdl.org ([65.172.181.4]:36782 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030407AbWJNUtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2006 16:49:06 -0400
+To: Matthew Wilcox <matthew@wil.cx>
+In-Reply-To: <20061014140249.GL11633@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 14 Oct 2006 08:02:49 -0600
+Matthew Wilcox <matthew@wil.cx> wrote:
 
-e100: FIX: fix netconsole fast reboot attached to e100
+> On Fri, Oct 13, 2006 at 09:41:35PM -0700, Andrew Morton wrote:
+> > Bisection shows that this patch
+> > (pci-check-that-mwi-bit-really-did-get-set.patch in Greg's PCI tree) breaks
+> > suspend-to-disk on my Vaio.  It writes the suspend image and gets to the
+> > point where it's supposed to power down, but doesn't.
+> 
+> How odd.  What driver is calling pci_set_mwi() on the suspend path?
 
-When rebooting with netconsole over e100, the driver shutdown code
-would deadlock with netpoll. Reduce shutdown code to a bare minimum
-while retaining WoL and suspend functionality.
+ehci_pci_reinit().  I stuck a dump_stack() in there.  See
+http://userweb.kernel.org/~akpm/s5000342.jpg
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+> What drivers do you have loaded on the Vaio?
 
-  drivers/net/e100.c |   50 ++++++++++++++++++++++++++-----------------
-  1 file changed, 31 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 27d5d2f..a3a08a5 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2039,7 +2039,6 @@ static int e100_change_mtu(struct net_de
-  	return 0;
-  }
-
--#ifdef CONFIG_PM
-  static int e100_asf(struct nic *nic)
-  {
-  	/* ASF can be enabled from eeprom */
-@@ -2048,7 +2047,6 @@ static int e100_asf(struct nic *nic)
-  	   !(nic->eeprom[eeprom_config_asf] & eeprom_gcl) &&
-  	   ((nic->eeprom[eeprom_smbus_addr] & 0xFF) != 0xFE));
-  }
--#endif
-
-  static int e100_up(struct nic *nic)
-  {
-@@ -2715,34 +2713,32 @@ static void __devexit e100_remove(struct
-  	}
-  }
-
-+#ifdef CONFIG_PM
-  static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-  {
-  	struct net_device *netdev = pci_get_drvdata(pdev);
-  	struct nic *nic = netdev_priv(netdev);
-
--	if (netif_running(netdev))
--		e100_down(nic);
--	e100_hw_reset(nic);
--	netif_device_detach(netdev);
-+	netif_poll_disable(nic->netdev);
-+	del_timer_sync(&nic->watchdog);
-+	netif_carrier_off(nic->netdev);
-
--#ifdef CONFIG_PM
-  	pci_save_state(pdev);
--	if (nic->flags & (wol_magic | e100_asf(nic)))
--#else
--	if (nic->flags & (wol_magic))
--#endif
--		pci_enable_wake(pdev, pci_choose_state(pdev, state), 1);
--	else
--		/* disable PME */
--		pci_enable_wake(pdev, 0, 0);
-+
-+	if ((nic->flags & wol_magic) | e100_asf(nic)) {
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
-+	} else {
-+		pci_enable_wake(pdev, PCI_D3hot, 0);
-+		pci_enable_wake(pdev, PCI_D3cold, 0);
-+	}
-
-  	pci_disable_device(pdev);
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+	pci_set_power_state(pdev, PCI_D3hot);
-
-  	return 0;
-  }
-
--#ifdef CONFIG_PM
-  static int e100_resume(struct pci_dev *pdev)
-  {
-  	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -2764,7 +2760,23 @@ #endif /* CONFIG_PM */
-
-  static void e100_shutdown(struct pci_dev *pdev)
-  {
--	e100_suspend(pdev, PMSG_SUSPEND);
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct nic *nic = netdev_priv(netdev);
-+
-+	netif_poll_disable(nic->netdev);
-+	del_timer_sync(&nic->watchdog);
-+	netif_carrier_off(nic->netdev);
-+
-+	if ((nic->flags & wol_magic) | e100_asf(nic)) {
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
-+	} else {
-+		pci_enable_wake(pdev, PCI_D3hot, 0);
-+		pci_enable_wake(pdev, PCI_D3cold, 0);
-+	}
-+
-+	pci_disable_device(pdev);
-+	pci_set_power_state(pdev, PCI_D3hot);
-  }
-
-  /* ------------------ PCI Error Recovery infrastructure  -------------- */
-@@ -2848,9 +2860,9 @@ static struct pci_driver e100_driver = {
-  	.id_table =     e100_id_table,
-  	.probe =        e100_probe,
-  	.remove =       __devexit_p(e100_remove),
-+#ifdef CONFIG_PM
-  	/* Power Management hooks */
-  	.suspend =      e100_suspend,
--#ifdef CONFIG_PM
-  	.resume =       e100_resume,
-  #endif
-  	.shutdown =     e100_shutdown,
+sony:/home/akpm> lsmod
+Module                  Size  Used by
+ipw2200               163184  0 
+sonypi                 21484  0 
+autofs4                19908  1 
+hidp                   16192  2 
+l2cap                  21764  5 hidp
+bluetooth              49060  2 hidp,l2cap
+sunrpc                154172  1 
+ip_conntrack_netbios_ns     3328  0 
+ipt_REJECT              4736  1 
+xt_state                2496  2 
+ip_conntrack           51020  2 ip_conntrack_netbios_ns,xt_state
+nfnetlink               7128  1 ip_conntrack
+xt_tcpudp               3392  4 
+iptable_filter          3264  1 
+ip_tables              12616  1 iptable_filter
+x_tables               15428  4 ipt_REJECT,xt_state,xt_tcpudp,ip_tables
+video                  16836  0 
+sony_acpi               7312  0 
+sbs                    15968  0 
+i2c_ec                  5504  1 sbs
+button                  7184  0 
+battery                10692  0 
+asus_acpi              17564  0 
+backlight               6464  2 sony_acpi,asus_acpi
+ac                      5636  0 
+nvram                   8072  0 
+ohci1394               33264  0 
+ehci_hcd               30088  0 
+ieee1394              291896  1 ohci1394
+uhci_hcd               22092  0 
+sg                     33628  0 
+joydev                  9920  0 
+evbug                   3392  0 
+snd_hda_intel          18968  0 
+snd_hda_codec         161536  1 snd_hda_intel
+snd_seq_dummy           4228  0 
+snd_seq_oss            31744  0 
+snd_seq_midi_event      7360  1 snd_seq_oss
+snd_seq                48208  5 snd_seq_dummy,snd_seq_oss,snd_seq_midi_event
+snd_seq_device          8524  3 snd_seq_dummy,snd_seq_oss,snd_seq
+ieee80211              30920  1 ipw2200
+snd_pcm_oss            41504  0 
+snd_mixer_oss          16640  1 snd_pcm_oss
+ieee80211_crypt         6016  1 ieee80211
+snd_pcm                74632  3 snd_hda_intel,snd_hda_codec,snd_pcm_oss
+snd_timer              21316  2 snd_seq,snd_pcm
+snd                    50980  9 snd_hda_intel,snd_hda_codec,snd_seq_oss,snd_seq,snd_seq_device,snd_pcm_oss,snd_mixer_oss,snd_pcm,snd_timer
+soundcore               7968  1 snd
+snd_page_alloc         10376  2 snd_hda_intel,snd_pcm
+piix                    9604  0 [permanent]
+i2c_i801                7820  0 
+pcspkr                  3136  0 
+i2c_core               21840  2 i2c_ec,i2c_i801
+generic                 5252  0 [permanent]
+ext3                  127688  1 
+jbd                    52712  1 ext3
+ide_disk               16000  0 
+ide_core              114780  3 piix,generic,ide_disk
