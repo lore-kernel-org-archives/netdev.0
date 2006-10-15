@@ -1,48 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
-Date: Sun, 15 Oct 2006 10:47:38 -0700
-Message-ID: <20061015104738.28a9709d.akpm@osdl.org>
-References: <1160161519800-git-send-email-matthew@wil.cx>
-	<20061013214135.8fbc9f04.akpm@osdl.org>
-	<20061014140249.GL11633@parisc-linux.org>
-	<20061014134855.b66d7e65.akpm@osdl.org>
-	<20061015032000.GP11633@parisc-linux.org>
-	<20061014235359.6d65647d.akpm@osdl.org>
-	<20061015135441.GC22289@parisc-linux.org>
+From: Joan Raventos <jraventos@yahoo.com>
+Subject: Re: poll problem with PF_PACKET when using PACKET_RX_RING
+Date: Sun, 15 Oct 2006 11:10:59 -0700 (PDT)
+Message-ID: <20061015181059.8920.qmail@web50601.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Val Henson <val_henson@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:50638 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422641AbWJORrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2006 13:47:45 -0400
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20061015135441.GC22289@parisc-linux.org>
+Received: from web50601.mail.yahoo.com ([206.190.38.88]:2733 "HELO
+	web50601.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S1422661AbWJOSLB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2006 14:11:01 -0400
+To: Patrick McHardy <kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 15 Oct 2006 07:54:41 -0600
-Matthew Wilcox <matthew@wil.cx> wrote:
+Hi Patrick,
 
-> On Sat, Oct 14, 2006 at 11:53:59PM -0700, Andrew Morton wrote:
-> > It seems to have stopped happening.  I don't know why.
-> 
-> Argh.  Possibly a mistake during the bisect procedure?
+Thx for your prompt reply! Plz see some comments inline.
 
-I don't think so - I spent a lot of time fiddling with that because it was
-so bizarre to have two patches each of which caused the same failure.
+>> 
+>> Is this a bug in PF_PACKET? Should the socket queue be
+>> emptied by packet_set_ring (called via setsockopt when
+>> PACKET_RX_RING is used) so the above cannot happen?
+>> Should the user-space app drain the socket queue with
+>> recvfrom prior to (4) -quite unlikely in practice-?
 
-Something has changed, perhaps config: the failure is a bit different now
-(happens earlier).
 
-> > gregkh-pci-pci-prevent-user-config-space-access-during-power-state-transitions.patch
-> > still breaks suspend though: http://userweb.kernel.org/~akpm/s5000349.jpg
-> 
-> I believe that; I was going to generate a new patch for that yesterday,
-> but got distracted trying to debug your other problem.  I'll put out a
-> new version of that patch later today.
+> I guess the best way is not to bind the socket before having
+> completed setup. We could still flush the queue to make life
+> easier for userspace, not sure about that ..
 
-ok..  Add plenty of debug printks to it.
+Even w/o bind, packet_create is doing a dev_add_pack, which I think will make pkts arrive to that socket (ie. in netif_receive_skb one can see the loops over the rcu for both ptype_all and type-specific which seem match whenever !ptype->dev || ptype->dev==skb->dev).
+
+Also the packet_mmap.txt doc does not mention bind, which probably is more a mechanism to closely specify a dev than to signal socket readiness.
+
+Salu2,
+J.
+
+
+
+
