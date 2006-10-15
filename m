@@ -1,92 +1,62 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Sun, 15 Oct 2006 15:43:39 -0700
-Message-ID: <4532B99B.9030403@redhat.com>
-References: <115a6230591036@2ka.mipt.ru> <11587449471424@2ka.mipt.ru> <20060927150957.GA18116@2ka.mipt.ru> <a36005b50610032150x8233feqe556fd93bcb5dc73@mail.gmail.com> <20061004045527.GB32267@2ka.mipt.ru> <452363C5.1020505@redhat.com> <20061004074821.GA22688@2ka.mipt.ru> <4523ED6C.9080902@redhat.com> <20061005090214.GB1015@2ka.mipt.ru> <45251A83.9060901@redhat.com> <20061006083620.GA28009@2ka.mipt.ru>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
+Date: Sun, 15 Oct 2006 15:45:58 -0700
+Message-ID: <200610151545.59477.david-b@pacbell.net>
+References: <1160161519800-git-send-email-matthew@wil.cx> <20061015191631.DE49D19FEC8@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061015123432.4c6b7f15.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alan@lxorguk.ukuu.org.uk, matthew@wil.cx,
+	val_henson@linux.intel.com, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
+	gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:11983 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S932174AbWJOWpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2006 18:45:05 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061006083620.GA28009@2ka.mipt.ru>
+Received: from smtp102.sbc.mail.mud.yahoo.com ([68.142.198.201]:29355 "HELO
+	smtp102.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S932193AbWJOWqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Oct 2006 18:46:12 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061015123432.4c6b7f15.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> In context you have cut, one updated signal mask between calls to eve=
-nt
-> delivery mechanism (using for example signal()), so it has exactly th=
-e
-> same price.
+> > Most drivers should be able to say "enable MWI if possible, but
+> > don't worry if it's not possible".  Only a few controllers need
+> > additional setup to make MWI actually work ... if they couldn't
+> > do that setup, that'd be worth a warning before they backed off
+> > to run in a non-MWI mode.
+> > 
+> 
+> So the semantics of pci_set_mwi() are "try to set MWI if this
+> platform/device supports it".
 
-No, it does not.  If the signal mask is recomputed by the program for=20
-each new wait call then you have a lot more work to do when the signal=20
-mask is implicitly specified.
-
-
-> I created it just because I think that POSIX workaround to add signal=
-s
-> into the syscall parameters is not good enough.
-
-Not good enough?  It does exactly what it is supposed to do.  What can=20
-there be "not good enough"?
+Not what I said ... that's what the _driver_ usually wants to do,
+which is different from the step implemented by set_mwi(). 
 
 
-> You again cut my explanation on why just pure timeout is used.
-> We start a syscall, which can block forever, so we want to limit it's
-> time, and we add special parameter to show how long this syscall shou=
-ld
-> run. Timeout is not about how long we should sleep (which indeed can =
-be
-> absolute), but how long syscall should run - which is related to the=20
-> time syscall started.
+What Alan Cox said is a better paraphrase:
 
-I know very well what a timeout is.  But the way the timeout can be=20
-specified can vary.  It is often useful (as for select, poll) to specif=
-y=20
-relative timeouts.
+> MWI is an "extra cheese" option not a "no pizza" case
 
-But there are equally useful uses where the timeout is needed at a=20
-specific point in time.  Without a syscall interface which can have a=20
-absolute timeout parameter we'd have to write as a poor approximation a=
-t=20
-userlever
-
-     clock_gettime (CLOCK_REALTIME, &ts);
-     struct timespec rel;
-     rel.tv_sec =3D abstmo.tv_sec - ts.tv_sec;
-     rel.tv_nsec =3D abstmo.tv_sec - ts.tv_nsec;
-     if (rel.tv_nsec < 0) {
-       rel.tv_nsec +=3D 1000000000;
-       --rel.tv_sec;
-     }
-     if (rel.tv_sec < 0)
-       inttmo =3D -1;  // or whatever is used for return immediately
-     else
-       inttmo =3D rel.tv_sec * UINT64_C(1000000000) + rel.tv_nsec;
-
-      wait(..., inttmo, ...)
+Or "sorry, that car is not available in olive, just burgundy."
 
 
-Not only is this much more expensive to do at userlevel, it is also=20
-inadequate because calls to settimeofday() do  not cause a recomputatio=
-n=20
-of the timeout.
+Not:
 
-See Ingo's RT futex stuff as an example for a kernel interface which=20
-does it right.
+> In that case its interface is misdesigned, because it doesn't discriminate
+> between "yes-it-does/no-it-doesn't" (which we don't want to report, because
+> either is expected and legitimate) and "something screwed up", which we do
+> want to report, because it is always unexpected.
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+You mis-understand.  It's completely legit for the driver not to care.
+
+I agree that set_mwo() should set MWI if possible, and fail cleanly
+if it couldn't (for whatever reason).  Thing is, choosing to treat
+that as an error must be the _driver's_ choice ... it'd be wrong to force
+that policy into the _interface_ by forcing must_check etc.
+
+- Dave
+
+
