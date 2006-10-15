@@ -1,58 +1,57 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
-Date: Sun, 15 Oct 2006 16:18:34 -0700
-Message-ID: <20061015161834.f96a0761.akpm@osdl.org>
-References: <1160161519800-git-send-email-matthew@wil.cx>
-	<20061015191631.DE49D19FEC8@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
-	<20061015123432.4c6b7f15.akpm@osdl.org>
-	<200610151545.59477.david-b@pacbell.net>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Sun, 15 Oct 2006 16:22:45 -0700
+Message-ID: <4532C2C5.6080908@redhat.com>
+References: <11587449471424@2ka.mipt.ru> <200610051245.03880.dada1@cosmosbay.com> <20061005105536.GA4838@2ka.mipt.ru> <200610051409.31826.dada1@cosmosbay.com> <20061005123715.GA7475@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, matthew@wil.cx,
-	val_henson@linux.intel.com, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
-	gregkh@suse.de
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25268 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751250AbWJOXWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2006 19:22:00 -0400
-To: David Brownell <david-b@pacbell.net>
-In-Reply-To: <200610151545.59477.david-b@pacbell.net>
+Received: from mx1.redhat.com ([66.187.233.31]:60904 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932144AbWJOXYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2006 19:24:22 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061005123715.GA7475@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 15 Oct 2006 15:45:58 -0700
-David Brownell <david-b@pacbell.net> wrote:
+Evgeniy Polyakov wrote:
+> Existing design does not allow overflow.
 
-> > In that case its interface is misdesigned, because it doesn't discriminate
-> > between "yes-it-does/no-it-doesn't" (which we don't want to report, because
-> > either is expected and legitimate) and "something screwed up", which we do
-> > want to report, because it is always unexpected.
-> 
-> You mis-understand.  It's completely legit for the driver not to care.
-> 
-> I agree that set_mwo() should set MWI if possible, and fail cleanly
-> if it couldn't (for whatever reason).  Thing is, choosing to treat
-> that as an error must be the _driver's_ choice ... it'd be wrong to force
-> that policy into the _interface_ by forcing must_check etc.
+And I've pointed out a number of times that this is not practical at=20
+best.  There are event sources which can create events which cannot be=20
+coalesced into one single event as it would be required with your desig=
+n.
 
-No.  If pci_set_mwi() detects an unexpected error then the driver should
-take some action: report it, recover from it, fail to load, etc.  If the
-driver fails to do any of this then it's a buggy driver.
+Signals are one example, specifically realtime signals.  If we do not=20
+want the design to be limited from the start this approach has to be=20
+thought over.
 
-You, the driver author _do not know_ what pci_set_mwi() does at present, on
-all platforms, nor do you know what it does in the future.  For you the
-driver author to make assumptions about what's happening inside
-pci_set_mwi() is a layering violation.  Maybe the bridge got hot-unplugged.
- Maybe the attempt to set MWI caused some synchronous PCI error.  For
-example, take a look at the various implementations of pci_ops.read()
-around the place - various of them can fail for various reasons.  
 
-Now it could be that an appropriate solution is to make pci_set_mwi()
-return only 0 or 1, and to generate a warning from within pci_set_mwi()
-if some unexpected error happens.  In which case it is legitimate for
-callers to not check for errors.
+>> So zap mmap() support completely, since it is not usable at all. We =
+wont=20
+>> discuss on it.
+>=20
+> Initial implementation did not have it.
+> But I was requested to do it, and it is ready now.
+> No one likes it, but no one provides an alternative implementation.
+> We are stuck.
 
-This is not a terribly important issue, and it is far from the worst case
-of missed error-checking which we have in there. 
+We need the mapped ring buffer.  The current design (before it was=20
+removed) was broken but this does not mean it shouldn't be implemented.=
+=20
+  We just need more time to figure out how to implement it correctly.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
