@@ -1,48 +1,55 @@
-From: Dawid Ciezarkiewicz <dpc@asn.pl>
-Subject: Re: [RFC] wrr (weighted round-robin) bonding
-Date: Mon, 16 Oct 2006 21:07:57 +0200
-Message-ID: <200610162107.57477.dpc@asn.pl>
-References: <200610162021.12884.dpc@asn.pl> <200610162027.15100.dpc@asn.pl> <200610161850.k9GIogZt028527@death.nxdomain.ibm.com>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [patch 1/5] d80211: remove bitfields from ieee80211_tx_control
+Date: Mon, 16 Oct 2006 12:34:07 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F01851A93@dhost002-46.dex002.intermedia.net>
+References: <200610161807.25261.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from apollo.asn.pl ([85.14.104.1]:1221 "HELO apollo.asn.pl")
-	by vger.kernel.org with SMTP id S1422835AbWJPTIE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 15:08:04 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200610161850.k9GIogZt028527@death.nxdomain.ibm.com>
-Content-Disposition: inline
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:12070 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1422855AbWJPTd5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 15:33:57 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <200610161807.25261.mb@bu3sch.de>
+To: "Michael Buesch" <mb@bu3sch.de>,
+	"David Kimdon" <dwhedon@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, 16 October 2006 20:50, you wrote:
-> 
-> Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
-> [...]
-> >+	weighted-rr or 7
-> >+
-> >+		Weighted round-robin bonding. In this mode bonding
-> >+		interface will use weights assigned to it's slaves.
-> >+
-> >+		Each slave can have weight assigned via ioctl (ifenslave).
-> >+		These values will be used at the start of each "cycle".
-> >+		Each slave will have token counter restored to it's weight.
-> >+		Then using round-robin mechanism those tokens are "used"
-> >+		to pay for emitted frames. When all token counters are
-> >+		zeroed - new "cycle" begins.
-> 
-> 	Before getting into the technical bits of the patch, what's the
-> reason for wanting to do this, and why is this rather complex manual
-> weight assignment better than an automatic system based on, e.g., link
-> speed of the slaves?
+Removing the bitfields makes the code much harder to read and maintain.
+Here we are working around a problem with the compiler by making the
+code ugly - rather than fixing the compiler. The compilers are getting
+better and better (GCC 4 has much better handling of this type of
+optimization) but the code will remain ugly for ever.
 
-In short:
-It was designed as a solution for wireless links bonding - where link quality 
-can change rather quickly in time. By using wrr bonding, userspace tools can 
-measure current bandwidth and change bonding slave weights in realtime.
+Simon
 
-It was written for Lintrack, and you can read about it's usage here:
-http://lintrack.org/index.php/about/advantage
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Michael Buesch
+Sent: Monday, October 16, 2006 9:07 AM
+To: David Kimdon
+Cc: netdev@vger.kernel.org; John W. Linville; Jiri Benc
+Subject: Re: [patch 1/5] d80211: remove bitfields from
+ieee80211_tx_control
+
+On Friday 13 October 2006 21:20, David Kimdon wrote:
+> All one-bit bitfields have been subsumed into the new 'flags'
+> structure member and the new IEEE80211_TXCTL_* definitions.  The 
+> multiple bit members were converted to u8, s8 or u16 as appropriate.
+
+And, eh, did this increase or decrease the struct size?
+Does this generate better or worse code?
+
+--
+Greetings Michael.
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body of a message to majordomo@vger.kernel.org More majordomo info at
+http://vger.kernel.org/majordomo-info.html
