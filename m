@@ -1,39 +1,53 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx-softmac: add PCI-E code
-Date: Mon, 16 Oct 2006 15:29:45 +0200
-Message-ID: <200610161529.45369.mb@bu3sch.de>
-References: <45330803.mail261110C22@lwfinger.net>
+From: David Johnson <dj@david-web.co.uk>
+Subject: Re: Hardware bug or kernel bug?
+Date: Mon, 16 Oct 2006 15:32:38 +0100
+Message-ID: <200610161532.38663.dj@david-web.co.uk>
+References: <20061013085605.GA1690@ff.dom.local> <200610131724.40631.dj@david-web.co.uk> <20061016102500.GA1709@ff.dom.local>
+Reply-To: dj@david-web.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-In-Reply-To: <45330803.mail261110C22-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rutherford.zen.co.uk ([212.23.3.142]:15829 "EHLO
+	rutherford.zen.co.uk") by vger.kernel.org with ESMTP
+	id S1750732AbWJPOcm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Oct 2006 10:32:42 -0400
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20061016102500.GA1709@ff.dom.local>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 16 October 2006 06:18, Larry Finger wrote:
-> From: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>
-> 
-> The current bcm43xx driver does not contain code to handle PCI-E interfaces
-> such as the BCM4311 and BCM4312. This patch, originally written by Stefano
-> Brivio adds the necessary code to enable these interfaces. 
-> 
-> Signed-off-by: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+On Monday 16 October 2006 11:25, Jarek Poplawski wrote:
+>
+> Was this lock-up effect visible during above 2.6.19-rc1 tests?
 
-This patch should be OK. Please merge for 2.6.19.
+No, I've not seen anything in Linux other than the reboots, which are instant 
+without any preceding lock-up.
 
--- 
-Greetings Michael.
+> If not I'd try to continue linux debbuging:
+> - is 2.6.19-rc1 working with "normal" config (use make oldconfig
+> to "upgrade" .config),
+
+With 2.6.19-rc1 and a normal config, I get the reboots as usual.
+
+> - is 2.6.17 working with "minimal" config (use make oldconfig),
+
+Yes.
+
+> - changing one or two options at a time try to find which one makes
+> the effect returns (acpi, smp...).
+
+I've found the culprit - CPU Frequency Scaling.
+With it enabled I get the reboots, with it disabled I don't. That's the same 
+with every kernel version I've tried (2.6.19-rc1+rc2, 2.6.17.13 & Centos' 
+2.6.9) The system was using the p4-clockmod driver and the ondemand governor.
+
+I'm still not sure exactly what the problem is - the reboots only happen in 
+the circumstances I've mentioned and are not triggered by changes in clock 
+speed alone - but disabling cpufreq seems to make it go away...
+
+Thanks for your help,
+David.
