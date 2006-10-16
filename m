@@ -1,68 +1,56 @@
-From: Per Liden <per.liden@ericsson.com>
-Subject: Re: [PATCH 9/14] [TIPC] Name publication events now delivered in
- chronological order
-Date: Mon, 16 Oct 2006 10:50:40 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0610161046160.17974@ulinpc219.uab.ericsson.se>
-References: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
- <1160739475953-git-send-email-per.liden@ericsson.com>
- <20061013191337.cdee991b.billfink@mindspring.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] NET : Suspicious locking in reqsk_queue_hash_req()
+Date: Mon, 16 Oct 2006 11:00:22 +0200
+Message-ID: <200610161100.22549.dada1@cosmosbay.com>
+References: <20061010.191547.83619974.davem@davemloft.net> <20061011.022015.63051509.davem@davemloft.net> <200610111511.19028.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Allan Stephens <allan.stephens@windriver.com>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_mo0MF167VGA/wgl"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw3.ericsson.se ([193.180.251.60]:63469 "EHLO
-	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
-	id S1161224AbWJPIuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Oct 2006 04:50:44 -0400
-To: Bill Fink <billfink@mindspring.com>
-In-Reply-To: <20061013191337.cdee991b.billfink@mindspring.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:4232 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1161228AbWJPJA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 05:00:27 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <200610111511.19028.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm fairly sure this is a problem on your side. I received patch 10/14 
-from the netdev list and the two list archives I checked also had it.
+--Boundary-00=_mo0MF167VGA/wgl
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-/Per
+Hi David
 
-On Fri, 13 Oct 2006, Bill Fink wrote:
+While browsing include/net/request_sock.h I found this suspicious locking 
+protecting the SYN table hash table. I think this patch is necessary.
 
-> FYI,
-> 
-> At least here, I received two copies of patch 9/14 and no copy
-> of patch 10/14.
-> 
-> 						-Bill
-> 
-> 
-> 
-> On Fri, 13 Oct 2006 13:37:50 +0200, Per Liden wrote:
-> 
-> > From: Allan Stephens <allan.stephens@windriver.com>
-> > 
-> > This patch tivially re-orders the entries in TIPC's list of local
-> > publications so that applications will receive publication events
-> > in the order they were published.
-> > 
-> > Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-> > Signed-off-by: Per Liden <per.liden@ericsson.com>
-> > ---
-> >  net/tipc/name_distr.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-> > index f0b063b..03bd659 100644
-> > --- a/net/tipc/name_distr.c
-> > +++ b/net/tipc/name_distr.c
-> > @@ -122,7 +122,7 @@ void tipc_named_publish(struct publicati
-> >  	struct sk_buff *buf;
-> >  	struct distr_item *item;
-> >  
-> > -	list_add(&publ->local_list, &publ_root);
-> > +	list_add_tail(&publ->local_list, &publ_root);
-> >  	publ_cnt++;
-> >  
-> >  	buf = named_prepare_buf(PUBLICATION, ITEM_SIZE, 0);
-> > -- 
-> > 1.4.1
-> 
+Thank you
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary-00=_mo0MF167VGA/wgl
+Content-Type: text/plain;
+  charset="iso-8859-1";
+  name="reqsk_queue_hash_req.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="reqsk_queue_hash_req.patch"
+
+--- linux-2.6.18/include/net/request_sock.h.orig	2006-10-16 10:53:11.000000000 +0200
++++ linux-2.6.18-ed/include/net/request_sock.h	2006-10-16 10:53:24.000000000 +0200
+@@ -251,9 +251,9 @@
+ 	req->expires = jiffies + timeout;
+ 	req->retrans = 0;
+ 	req->sk = NULL;
+-	req->dl_next = lopt->syn_table[hash];
+ 
+ 	write_lock(&queue->syn_wait_lock);
++	req->dl_next = lopt->syn_table[hash];
+ 	lopt->syn_table[hash] = req;
+ 	write_unlock(&queue->syn_wait_lock);
+ }
+
+--Boundary-00=_mo0MF167VGA/wgl--
