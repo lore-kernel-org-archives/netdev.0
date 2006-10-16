@@ -1,114 +1,48 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
-Date: Mon, 16 Oct 2006 12:06:53 -0700
-Message-ID: <20061016120653.9a70135d.akpm@osdl.org>
-References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
-	<20061005234310.6c8042b5.akpm@osdl.org>
-	<Pine.LNX.4.64N.0610061152340.22053@blysk.ds.pg.gda.pl>
-	<20061006080323.185f2b58.akpm@osdl.org>
-	<Pine.LNX.4.64N.0610161442010.28780@blysk.ds.pg.gda.pl>
+From: Dawid Ciezarkiewicz <dpc@asn.pl>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Mon, 16 Oct 2006 21:07:57 +0200
+Message-ID: <200610162107.57477.dpc@asn.pl>
+References: <200610162021.12884.dpc@asn.pl> <200610162027.15100.dpc@asn.pl> <200610161850.k9GIogZt028527@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-In-Reply-To: <Pine.LNX.4.64N.0610161442010.28780@blysk.ds.pg.gda.pl>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from apollo.asn.pl ([85.14.104.1]:1221 "HELO apollo.asn.pl")
+	by vger.kernel.org with SMTP id S1422835AbWJPTIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 15:08:04 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200610161850.k9GIogZt028527@death.nxdomain.ibm.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Oct 2006 15:50:55 +0100 (BST)
-"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
+On Monday, 16 October 2006 20:50, you wrote:
+> 
+> Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
+> [...]
+> >+	weighted-rr or 7
+> >+
+> >+		Weighted round-robin bonding. In this mode bonding
+> >+		interface will use weights assigned to it's slaves.
+> >+
+> >+		Each slave can have weight assigned via ioctl (ifenslave).
+> >+		These values will be used at the start of each "cycle".
+> >+		Each slave will have token counter restored to it's weight.
+> >+		Then using round-robin mechanism those tokens are "used"
+> >+		to pay for emitted frames. When all token counters are
+> >+		zeroed - new "cycle" begins.
+> 
+> 	Before getting into the technical bits of the patch, what's the
+> reason for wanting to do this, and why is this rather complex manual
+> weight assignment better than an automatic system based on, e.g., link
+> speed of the slaves?
 
-> Andrew,
-> 
-> > I don't get it.  If some code does
-> > 
-> > 	rtnl_lock();
-> > 	flush_scheduled_work();
-> > 
-> > and there's some work scheduled which does rtnl_lock() then it'll deadlock.
-> > 
-> > But it'll deadlock whether or not the caller of flush_scheduled_work() is
-> > keventd.
-> > 
-> > Calling flush_scheduled_work() under locks is generally a bad idea.
-> 
->  Indeed -- this is why I avoid it.
-> 
-> > I'd have thought that was still deadlockable.  Could you describe the
-> > deadlock more completely please?
-> 
->  The simplest sequence of calls that prevents races here is as follows:
-> 
-> unregister_netdev();
->   rtnl_lock();
->   unregister_netdevice();
->     dev_close();
->       sbmac_close();
->         phy_stop();
->         phy_disconnect();
->           phy_stop_interrupts();
->             phy_disable_interrupts();
->             flush_scheduled_work();
->             free_irq();
->           phy_detach();
->         mdiobus_unregister();
->   rtnl_unlock();
-> 
-> We want to call flush_scheduled_work() from phy_stop_interrupts(), because 
-> there may still be calls to phy_change() waiting for the keventd to 
-> process and mdiobus_unregister() frees structures needed by phy_change().  
-> This may deadlock because of the call to rtnl_lock() though.
-> 
->  So the modified sequence I have implemented is as follows:
-> 
-> unregister_netdev();
->   rtnl_lock();
->   unregister_netdevice();
->     dev_close();
->       sbmac_close();
->         phy_stop();
->         schedule_work(); [sbmac_phy_disconnect()]
->   rtnl_unlock();
-> 
-> and then:
-> 
-> sbmac_phy_disconnect();
->   phy_disconnect();
->     phy_stop_interrupts();
->       phy_disable_interrupts();
->       free_irq();
->     phy_detach();
->   mdiobus_unregister();
-> 
-> This guarantees calls to phy_change() for this PHY unit will not be run 
-> after mdiobus_unregister(), because any such calls have been placed in the 
-> queue before sbmac_phy_disconnect() (phy_stop() prevents the interrupt 
-> handler from issuing new calls to phy_change()).
-> 
->  We still need flush_scheduled_work() to be called from 
-> phy_stop_interrupts() though, in case some other MAC driver calls 
-> phy_disconnect() (or phy_stop_interrupts(), depending on the abstraction 
-> layer of phylib used) directly rather than using keventd.  This is 
-> possible if phy_disconnect() is called from the driver's module_exit() 
-> call, which may make sense for devices that are known not to have their 
-> MII interface available as an external connector.  Hence the:
-> 
-> if (!current_is_keventd())
->   flush_scheduled_work();
-> 
-> sequence in phy_stop_interrupts().  Of course, we can force all drivers 
-> using phylib (in the interrupt mode) to call phy_disconnect() through 
-> keventd instead.
-> 
->  Does it sound clearer?
-> 
+In short:
+It was designed as a solution for wireless links bonding - where link quality 
+can change rather quickly in time. By using wrr bonding, userspace tools can 
+measure current bandwidth and change bonding slave weights in realtime.
 
-Vaguely.  Why doesn't it deadlock if !current_is_keventd()?  I mean,
-whether or not the caller is keventd, the flush_scheduled_work() caller
-will still be dependent upon rtnl_lock() being acquirable.
+It was written for Lintrack, and you can read about it's usage here:
+http://lintrack.org/index.php/about/advantage
