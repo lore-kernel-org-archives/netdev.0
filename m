@@ -1,49 +1,44 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] wrr (weighted round-robin) bonding
-Date: Mon, 16 Oct 2006 11:50:42 -0700
-Message-ID: <200610161850.k9GIogZt028527@death.nxdomain.ibm.com>
-References: <200610162021.12884.dpc@asn.pl> <200610162027.15100.dpc@asn.pl>
-Cc: netdev@vger.kernel.org
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Mon, 16 Oct 2006 11:55:16 -0700
+Message-ID: <4533D594.2070908@intel.com>
+References: <44AC05A8.9030503@intel.com>	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>	 <1152191018.5103.48.camel@jzny2>	 <20060706.235909.78729229.davem@davemloft.net> <1152275283.5341.144.camel@jzny2>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
+	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
+	olel@ans.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:62879 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1422796AbWJPSup
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Oct 2006 14:50:45 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k9GIoiAx023891
-	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 14:50:44 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9GIoi7m241716
-	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 12:50:44 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9GIoh0m000880
-	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 12:50:44 -0600
-To: Dawid Ciezarkiewicz <dpc@asn.pl>
-In-reply-to: <200610162027.15100.dpc@asn.pl> 
+Received: from mga01.intel.com ([192.55.52.88]:2333 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1422819AbWJPS5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 14:57:22 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1152275283.5341.144.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> On Thu, 2006-06-07 at 23:59 -0700, David Miller wrote:
+> 
+>> It's autonegotiated, check you kernel message logs when the link
+>> came up, you'll see this:
+>>
+>> tg3: eth0: Flow control is on for TX and on for RX.
+>>
+> 
+> yikes - yes, this would be it.
+> 
+> I  could be wrong and i will double check:
+> I think when the e1000 says via ethtool "rx is on" - it means that it 
+> is _advertising_ flow control as opposed to detecting partner has flow
+> control capability.
+> Auke, can you also check this as well?
 
-Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
-[...]
->+	weighted-rr or 7
->+
->+		Weighted round-robin bonding. In this mode bonding
->+		interface will use weights assigned to it's slaves.
->+
->+		Each slave can have weight assigned via ioctl (ifenslave).
->+		These values will be used at the start of each "cycle".
->+		Each slave will have token counter restored to it's weight.
->+		Then using round-robin mechanism those tokens are "used"
->+		to pay for emitted frames. When all token counters are
->+		zeroed - new "cycle" begins.
+Just found this in my todo box - a bit late :(
 
-	Before getting into the technical bits of the patch, what's the
-reason for wanting to do this, and why is this rather complex manual
-weight assignment better than an automatic system based on, e.g., link
-speed of the slaves?
+yes, that appears to be the correct interpretation: we never read back the detected FC 
+state from the hardware.
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Auke
