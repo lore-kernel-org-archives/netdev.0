@@ -1,34 +1,43 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [RFC] wrr (weighted round-robin) bonding
-Date: Mon, 16 Oct 2006 17:30:54 -0400
-Message-ID: <20061016213053.GA16231@gospo.rdu.redhat.com>
-References: <200610162021.12884.dpc@asn.pl> <200610162027.15100.dpc@asn.pl> <200610161850.k9GIogZt028527@death.nxdomain.ibm.com> <200610162107.57477.dpc@asn.pl>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2/2] sky2: don't process pause frames in recveiver.
+Date: Mon, 16 Oct 2006 13:52:17 -0700
+Message-ID: <20061016135217.5526382b@freekitty>
+References: <20061011212225.941046083@osdl.org>
+	<20061011212311.715010657@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:32999 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1161093AbWJPVbL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 17:31:11 -0400
-To: Dawid Ciezarkiewicz <dpc@asn.pl>
-Content-Disposition: inline
-In-Reply-To: <200610162107.57477.dpc@asn.pl>
+Received: from smtp.osdl.org ([65.172.181.4]:17573 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161137AbWJPWKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 18:10:53 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20061011212311.715010657@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2006 at 09:07:57PM +0200, Dawid Ciezarkiewicz wrote:
-> > 
-> > 	Before getting into the technical bits of the patch, what's the
-> > reason for wanting to do this, and why is this rather complex manual
-> > weight assignment better than an automatic system based on, e.g., link
-> > speed of the slaves?
-> 
-> In short:
-> It was designed as a solution for wireless links bonding - where link quality 
-> can change rather quickly in time. By using wrr bonding, userspace tools can 
-> measure current bandwidth and change bonding slave weights in realtime.
+This reverts earlier change that attempted to fix flow control; but was
+broken.
 
-Since this is so similar to mode 0, it would seem there would be a way
-to extend it rather than creating yet another mode that is so similar.
-What would be the reason not to enhance that mode?
+Device needs to discard pause frames at the receive DMA engine, otherwise
+the pause frames get received and passed up the stack!
 
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+
+---
+ drivers/net/sky2.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- sky2.orig/drivers/net/sky2.h	2006-10-16 09:44:46.000000000 -0700
++++ sky2/drivers/net/sky2.h	2006-10-16 09:50:07.000000000 -0700
+@@ -1576,7 +1576,7 @@
+ 
+ 	GMR_FS_ANY_ERR	= GMR_FS_RX_FF_OV | GMR_FS_CRC_ERR |
+ 			  GMR_FS_FRAGMENT | GMR_FS_LONG_ERR |
+-		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC |
++		  	  GMR_FS_MII_ERR | GMR_FS_GOOD_FC | GMR_FS_BAD_FC |
+ 			  GMR_FS_UN_SIZE | GMR_FS_JABBER,
+ };
+ 
