@@ -1,53 +1,108 @@
-From: David Johnson <dj@david-web.co.uk>
-Subject: Re: Hardware bug or kernel bug?
-Date: Mon, 16 Oct 2006 15:32:38 +0100
-Message-ID: <200610161532.38663.dj@david-web.co.uk>
-References: <20061013085605.GA1690@ff.dom.local> <200610131724.40631.dj@david-web.co.uk> <20061016102500.GA1709@ff.dom.local>
-Reply-To: dj@david-web.co.uk
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
+Date: Mon, 16 Oct 2006 15:50:55 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0610161442010.28780@blysk.ds.pg.gda.pl>
+References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
+ <20061005234310.6c8042b5.akpm@osdl.org> <Pine.LNX.4.64N.0610061152340.22053@blysk.ds.pg.gda.pl>
+ <20061006080323.185f2b58.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rutherford.zen.co.uk ([212.23.3.142]:15829 "EHLO
-	rutherford.zen.co.uk") by vger.kernel.org with ESMTP
-	id S1750732AbWJPOcm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Oct 2006 10:32:42 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061016102500.GA1709@ff.dom.local>
-Content-Disposition: inline
+Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:19466 "EHLO
+	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP id S932102AbWJPOvA
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Oct 2006 10:51:00 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061006080323.185f2b58.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 16 October 2006 11:25, Jarek Poplawski wrote:
->
-> Was this lock-up effect visible during above 2.6.19-rc1 tests?
+Andrew,
 
-No, I've not seen anything in Linux other than the reboots, which are instant 
-without any preceding lock-up.
+> I don't get it.  If some code does
+> 
+> 	rtnl_lock();
+> 	flush_scheduled_work();
+> 
+> and there's some work scheduled which does rtnl_lock() then it'll deadlock.
+> 
+> But it'll deadlock whether or not the caller of flush_scheduled_work() is
+> keventd.
+> 
+> Calling flush_scheduled_work() under locks is generally a bad idea.
 
-> If not I'd try to continue linux debbuging:
-> - is 2.6.19-rc1 working with "normal" config (use make oldconfig
-> to "upgrade" .config),
+ Indeed -- this is why I avoid it.
 
-With 2.6.19-rc1 and a normal config, I get the reboots as usual.
+> I'd have thought that was still deadlockable.  Could you describe the
+> deadlock more completely please?
 
-> - is 2.6.17 working with "minimal" config (use make oldconfig),
+ The simplest sequence of calls that prevents races here is as follows:
 
-Yes.
+unregister_netdev();
+  rtnl_lock();
+  unregister_netdevice();
+    dev_close();
+      sbmac_close();
+        phy_stop();
+        phy_disconnect();
+          phy_stop_interrupts();
+            phy_disable_interrupts();
+            flush_scheduled_work();
+            free_irq();
+          phy_detach();
+        mdiobus_unregister();
+  rtnl_unlock();
 
-> - changing one or two options at a time try to find which one makes
-> the effect returns (acpi, smp...).
+We want to call flush_scheduled_work() from phy_stop_interrupts(), because 
+there may still be calls to phy_change() waiting for the keventd to 
+process and mdiobus_unregister() frees structures needed by phy_change().  
+This may deadlock because of the call to rtnl_lock() though.
 
-I've found the culprit - CPU Frequency Scaling.
-With it enabled I get the reboots, with it disabled I don't. That's the same 
-with every kernel version I've tried (2.6.19-rc1+rc2, 2.6.17.13 & Centos' 
-2.6.9) The system was using the p4-clockmod driver and the ondemand governor.
+ So the modified sequence I have implemented is as follows:
 
-I'm still not sure exactly what the problem is - the reboots only happen in 
-the circumstances I've mentioned and are not triggered by changes in clock 
-speed alone - but disabling cpufreq seems to make it go away...
+unregister_netdev();
+  rtnl_lock();
+  unregister_netdevice();
+    dev_close();
+      sbmac_close();
+        phy_stop();
+        schedule_work(); [sbmac_phy_disconnect()]
+  rtnl_unlock();
 
-Thanks for your help,
-David.
+and then:
+
+sbmac_phy_disconnect();
+  phy_disconnect();
+    phy_stop_interrupts();
+      phy_disable_interrupts();
+      free_irq();
+    phy_detach();
+  mdiobus_unregister();
+
+This guarantees calls to phy_change() for this PHY unit will not be run 
+after mdiobus_unregister(), because any such calls have been placed in the 
+queue before sbmac_phy_disconnect() (phy_stop() prevents the interrupt 
+handler from issuing new calls to phy_change()).
+
+ We still need flush_scheduled_work() to be called from 
+phy_stop_interrupts() though, in case some other MAC driver calls 
+phy_disconnect() (or phy_stop_interrupts(), depending on the abstraction 
+layer of phylib used) directly rather than using keventd.  This is 
+possible if phy_disconnect() is called from the driver's module_exit() 
+call, which may make sense for devices that are known not to have their 
+MII interface available as an external connector.  Hence the:
+
+if (!current_is_keventd())
+  flush_scheduled_work();
+
+sequence in phy_stop_interrupts().  Of course, we can force all drivers 
+using phylib (in the interrupt mode) to call phy_disconnect() through 
+keventd instead.
+
+ Does it sound clearer?
+
+  Maciej
