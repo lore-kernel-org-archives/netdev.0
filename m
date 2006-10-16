@@ -1,147 +1,189 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 0/4] kevent: Generic event handling mechanism.
-Date: Mon, 16 Oct 2006 14:38:48 +0400
-Message-ID: <20061016103848.GE17735@2ka.mipt.ru>
-References: <20061004045527.GB32267@2ka.mipt.ru> <452363C5.1020505@redhat.com> <20061004074821.GA22688@2ka.mipt.ru> <4523ED6C.9080902@redhat.com> <20061005090214.GB1015@2ka.mipt.ru> <45251A83.9060901@redhat.com> <20061006083620.GA28009@2ka.mipt.ru> <4532B99B.9030403@redhat.com> <20061016072321.GA17735@2ka.mipt.ru> <45335814.6000903@redhat.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Mon, 16 Oct 2006 15:23:03 +0400
+Message-ID: <20061016112303.GF17735@2ka.mipt.ru>
+References: <11587449471424@2ka.mipt.ru> <200610051245.03880.dada1@cosmosbay.com> <20061005105536.GA4838@2ka.mipt.ru> <200610051409.31826.dada1@cosmosbay.com> <20061005123715.GA7475@2ka.mipt.ru> <4532C2C5.6080908@redhat.com> <20061016073348.GB17735@2ka.mipt.ru> <45335BEF.7010405@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@gmail.com>,
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
 	lkml <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>,
 	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:61917 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751493AbWJPKjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 06:39:49 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:4779 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751520AbWJPLYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 07:24:06 -0400
 To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <45335814.6000903@redhat.com>
+In-Reply-To: <45335BEF.7010405@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2006 at 02:59:48AM -0700, Ulrich Drepper (drepper@redha=
+On Mon, Oct 16, 2006 at 03:16:15AM -0700, Ulrich Drepper (drepper@redha=
 t.com) wrote:
 > Evgeniy Polyakov wrote:
-> >One can set number of events before the syscall and do not remove th=
-em
-> >after syscall. It can be updated if there is need for that.
+> >The whole idea of mmap buffer seems to be broken, since those who as=
+ked
+> >for creation do not like existing design and do not show theirs...
 >=20
-> Nobody doubts that it is possible.  But it is
+> What kind of argumentation is that?
 >=20
-> a) potentially much expensive
+>    "Because my attempt to implement it doesn't work and nobody right
+>     away has a better suggestion this means the idea is broken."
 >=20
-> and
->=20
-> b) an alien concept
->=20
-> to have the signal mask to set during the wait call implicitly.=20
-> Conceptually it doesn't even make sense.  This is no event to wait fo=
-r.=20
->  It a parameter for the specific wait call, just like the timeout.  A=
-nd=20
-> I fortunately haven't seen you proposing to pass the timeout value=20
-> implicitly.
+> Nonsense.
 
-Because timeout has it's meaning for syscall processing, but signals ar=
-e
-completely separated objects. Why do you want to allow to queue signals
-_and_ add 'temporal' signal mask for syscall? Just use one way - queue
-them all.
+Ok, let's reformulate:
+My attempt works, but nobody around likes it, I remove it and wait unti=
+l
+some other implement it.
+
+> It just means that time should be spend on thinking about this.  You =
+cut=20
+> all this short by rushing out your attempt without any discussions.=20
+> Unfortunately nobody else really looked at the approach so it lingere=
+d=20
+> around for some weeks.  Well, now it is clear that it is not the righ=
+t=20
+> approach and we can start thinking about it again.
+
+I talked about it in the last 13 releases of the kevent, and _noone_
+said at least some comments. And now I get - 'it is broken, it does not
+work, there are problems, we do not want it' and the like. I tried
+hardly to show that it does work and problems shown can not happen, but
+noone still hears me. Since I think it is not that interface which is
+100% required for correct functionality, I removed it. When there are
+better suggestions and implementation we can return to them of course.
+
+> >You seems to not checked the code - each event can be marked as read=
+y=20
+> >only one time, which means only one copy and so on.
+> >It was done _specially_. And it is not limitation, but "new" approac=
+h.
+>=20
+> I know that it is done deliberately and I tell you that this is wrong=
 =20
-> >>Not good enough?  It does exactly what it is supposed to do.  What =
-can=20
-> >>there be "not good enough"?
-> >
-> >Not to move signals into special case of events. If poll() can not w=
-ork
-> >with them it does not mean, that they need to be specified as additi=
-onal
-> >syscall parameter, instead change poll() to work with them, which ca=
-n be
-> >easily done with kevents.
+> and unacceptable.  Realtime signals are one event which need to have=20
+> more than one event queued.  This is no description of what you have=20
+> implemented, it's a description of the reality of realtime signals.
 >=20
-> You still seem to be completely missing the point.  The signal mask i=
-s=20
-> no event to wait for.  It has nothing to do with this that ppoll() ta=
-kes=20
-> the signal mask as a parameter.  The signal mask is a parameter for t=
-he=20
-> wait call just like the timeout, not more and not less.
+> RT signals are queued.  They carry a data value (the sigval_t object)=
+=20
+> which can be unique for each signal delivery.  Coalescing the signal=20
+> events therefore leads to information loss.
+>=20
+> Therefore, at the very least for signal we need to have the ability t=
+o=20
+> queue more than one event for each event source.  Not having this=20
+> functionality means that signals and likely other types of events can=
+not=20
+> be implemented using kevent queues.
 
-That's where we have different opinioins (among others places :) - I do
-not agree that signals are parameters for syscall, I insist that is is
-usual events. ppoll() shows us that there is no difference between
-signal reported as usual user - syscall returns and we can check if
-something was changed (signal was delivered or even was fired), it does
-not differ from the case when syscall returns and we check what event i=
+Well, my point about rt-signals is that they do not deserve to be
+resurrected, but it is only my point :)
+In case it is still used, each signal setup should create event - many
+signals means many events, each signal can be sent with different
+parameters - each event should correspond to one unique case.
+
+> >Queue of the same signals or any other events has fundamental flawne=
+ss
+> >(as any other ring buffer implementation, which has queue size)  -
+> >it's size of the queue and extremely bad case of the overflow.
+>=20
+> Of course there are additional problems.  Overflows need to be handle=
+d.=20
+>  But this is nothing which is unsolvable.
+
+I strongly disagree that having design which allows overflows is
+acceptible - do we really want rt-signals queue overflow problems in ne=
+w
+place? Instead some complex allocation scheme can be created.
+
+> >So, the same event may not be ready several times. Any design which
+> >allows to create infinite number of events generated for the same ca=
+se
+> >is broken, since consumer can be in situation, when it can not handl=
+e
+> >that flow.
+>=20
+> That's complete nonsense.  Again, for RT signals it is very reasonabl=
+e=20
+> and not "broken" to have multiple outstanding signals.
+
+The same signal with different payload is acceptible, but when number o=
+f
+them increases ulimit and they are started to be forgotten - that's wha=
 t
-reports first - ready signal or some other event.
-=20
-> >Do not mix warm and soft - waiting for some period is not equal to
-> >syscall timeout. Waiting is possible with timer kevent user (althoug=
-h
-> >only relative timeout, can be changed to support both, not a big
-> >problem).
->=20
-> That's what I'm saying all the time.  Of course it can be supported.=20
-> But for this the timeout parameter must be a timespec pointer.  Whate=
-ver=20
-> you could possibly mean by "do not mix warm and soft" I cannot possib=
-ly=20
-> imagine.  Fact is that both relative and absolute timeouts are useful=
-=2E=20
-> And that for absolute timeouts the change of the clock has to be take=
-n=20
-> into account.
+I call broken design.
 
-They are usefull for special waiting, but not for waiting when syscall
-is called. The former is supported by timer notifications, the latter -
-by syscall parameter. We can add support for absolute timer
-notifications as addon to relative ones. But using there timeval
-structure is not accessible, since it has different sizes on different
-arches, so there will be problems with 32/64 arches like x86_64.
-Instead it is possible to use u32/u32 structure for sec/nsec, like what
-is used for relative timeouts.
-=20
-> >I'm quite sure that absolute timeouts are very usefull, but not as i=
-n
-> >the case of waiting for syscall completeness. In any way, kevent can=
- be
-> >extended to support absolute timeouts in it's timer notifications.
+> >That is why poll() returns only POLLIN when data is ready in
+> >network stack, but is not trying to generate some kind of a signal f=
+or=20
+> >each byte/packet/MTU/MSS received.
 >=20
-> That's not the same.  If you argue that then the syscall should have =
-no=20
-> timeout parameter at all.  Fact is that setting up a timer is not for=
-=20
-> free.  Since the timeout is used all the time having a timeout parame=
-ter=20
-> is the right answer.  And if you do this then do it right just like=20
-> every other syscall other than poll: use a timespec object.  This giv=
-es=20
-> flexibility without measurable cost.
+> It makes no sense to drag poll() into this discussion.  poll() is a v=
+ery=20
+> limited interface.  The new event handling is supposed to be the=20
+> opposite, namely, usable for all kinds of events.  Arguing that becau=
+se=20
+> poll() does it like this just means you don't see what big step is=20
+> needed to get to the goal of a unified event handling.  The shackles =
+of=20
+> poll() must be left behind.
 
-It does not introduce any flexibility, since syscall does not have a
-parameter to specify absolute or relative timeout has been provided.
-That's one.
-I do argue that syscall must have timout parameter, since it is related
-to syscall behaviour but not to events syscall is working with - which =
-is
-completely different things: syscall must be interrupted after some tim=
+Kevent is that subsystem, and for now it works quite good.
+
+> >RT signals have design problems, and I will not repeate the same err=
+or
+> >with similar limits in kevent.
+>=20
+> I don't know what to say.  You claim to be the source of all wisdom i=
+s=20
+> OS design.  Maybe you should design your own OS, from ground up.  I=20
+> wonder how many people would like that since all your arguments are=20
+> squarely geared towards optimizing the implementation.  But: the=20
+> implementation is irrelevant without users.  The functionality users =
+(=3D=20
+> programmers) want and need is what must drive the implementation.  An=
+d=20
+> RT signals are definitely heavily used and liked by programmers.  You=
+=20
+> have to accept that you try to modify an OS which has that functional=
+ity=20
+> regardless of how much you hate it and want to fight it.
+
+No problem, but I hope you agree that they have major problem related t=
+o
+queue length? And I want to design interface which will not have that
+problem, so I do not introduce situation which allows to create infinit=
 e
-to allow to fail operation or perform other tasks, but timer event can
-be fired in any time in the future, syscall should not care about
-underlaying events. That's two.
-You say "every other syscall other than poll" - but even aio_suspend()
-and friends use relative timeouts (although glibc converts them into=20
-absolute to be used with pthread_cond_timedwait), so why do you propose=
-=20
-to use wariable sized structure (even if it is transferred almost for=20
-free in syscall) instead of usual timeout specified in=20
-seconds/nanoseconds/anything? That's three.
+number of events when receiving side can not handle them.
+
+> >Mmap implementation can be added separately, since it does not affec=
+t
+> >kevent core.
+>=20
+> That I doubt very much and it is why I would not want the kevent stuf=
+f=20
+> go into any released kernel until that "detail" is resolved.
+
+I see you point :)
+
+But talk is cheap, and no code has been released by people who argue
+against kevent, only existing ring buffer implementation.
+I have only two arms and one brain, which unfortunately is not capable
+to remotely read mental waves about possible design of ring buffer, so
+I'm waiting.
+
+I expect no one will release new code (soon), so it is possible that=20
+kevent will wait forever...
+If you do argue for that, I can only say that we are on the different
+sides - one on the ship, and other on the coast.
 
 > --=20
 > =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
