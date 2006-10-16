@@ -1,96 +1,49 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: [PATCH] d80211: remove unused Super AG definitions, purge comment
-Date: Mon, 16 Oct 2006 11:39:35 -0700
-Message-ID: <20061016183935.GA2488@devicescape.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	David Kimdon <david.kimdon@devicescape.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Mon, 16 Oct 2006 11:50:42 -0700
+Message-ID: <200610161850.k9GIogZt028527@death.nxdomain.ibm.com>
+References: <200610162021.12884.dpc@asn.pl> <200610162027.15100.dpc@asn.pl>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:18562 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1422704AbWJPSjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Oct 2006 14:39:39 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename="superag-removal.patch"
+Received: from e33.co.us.ibm.com ([32.97.110.151]:62879 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1422796AbWJPSup
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Oct 2006 14:50:45 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k9GIoiAx023891
+	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 14:50:44 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9GIoi7m241716
+	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 12:50:44 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9GIoh0m000880
+	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 12:50:44 -0600
+To: Dawid Ciezarkiewicz <dpc@asn.pl>
+In-reply-to: <200610162027.15100.dpc@asn.pl> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove unused Super AG structure members, enums.
 
-In struct ieee80211_tx_status the queue_length and queue_number could
-be useful outside the context of Super AG, so remove the comment and
-leave the members.
+Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
+[...]
+>+	weighted-rr or 7
+>+
+>+		Weighted round-robin bonding. In this mode bonding
+>+		interface will use weights assigned to it's slaves.
+>+
+>+		Each slave can have weight assigned via ioctl (ifenslave).
+>+		These values will be used at the start of each "cycle".
+>+		Each slave will have token counter restored to it's weight.
+>+		Then using round-robin mechanism those tokens are "used"
+>+		to pay for emitted frames. When all token counters are
+>+		zeroed - new "cycle" begins.
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
+	Before getting into the technical bits of the patch, what's the
+reason for wanting to do this, and why is this rather complex manual
+weight assignment better than an automatic system based on, e.g., link
+speed of the slaves?
 
-Index: wireless-dev/include/net/d80211.h
-===================================================================
---- wireless-dev.orig/include/net/d80211.h
-+++ wireless-dev/include/net/d80211.h
-@@ -159,12 +159,6 @@ struct ieee80211_tx_control {
- 	unsigned int requeue:1;
- 	unsigned int first_fragment:1;	/* This is a first fragment of the
- 					 * frame */
--	 /* following three flags are only used with Atheros Super A/G */
--	unsigned int compress:1;
--	unsigned int turbo_prime_notify:1; /* notify HostAPd after frame
--					    * transmission */
--	unsigned int fast_frame:1;
--
-         unsigned int power_level:8; /* per-packet transmit power level, in dBm
- 				     */
- 	unsigned int antenna_sel:4; /* 0 = default/diversity,
-@@ -219,7 +213,6 @@ struct ieee80211_tx_status {
- 	int excessive_retries;
- 	int retry_count;
- 
--	/* following two fields are only used with Atheros Super A/G */
- 	int queue_length;      /* information about TX queue */
- 	int queue_number;
- };
-@@ -265,13 +258,6 @@ struct ieee80211_conf {
-         int antenna_def;
-         int antenna_mode;
- 
--	int atheros_super_ag_compression;
--	int atheros_super_ag_fast_frame;
--	int atheros_super_ag_burst;
--	int atheros_super_ag_wme_ele;
--	int atheros_super_ag_turbo_g;
--	int atheros_super_ag_turbo_prime;
--
- 	/* Following five fields are used for IEEE 802.11H */
- 	unsigned int radar_detect;
- 	unsigned int spect_mgmt;
-Index: wireless-dev/net/d80211/hostapd_ioctl.h
-===================================================================
---- wireless-dev.orig/net/d80211/hostapd_ioctl.h
-+++ wireless-dev/net/d80211/hostapd_ioctl.h
-@@ -182,10 +182,6 @@ struct prism2_hostapd_param {
- 			u16 aid;
- 			u16 capability;
- 			u8 supp_rates[32];
--			/* atheros_super_ag and enc_flags are only used with
--			 * IEEE80211_ATHEROS_SUPER_AG
--			 */
--			u8 atheros_super_ag;
- 			u8 wds_flags;
- #define IEEE80211_STA_DYNAMIC_ENC BIT(0)
- 			u8 enc_flags;
-Index: wireless-dev/include/net/d80211_shared.h
-===================================================================
---- wireless-dev.orig/include/net/d80211_shared.h
-+++ wireless-dev/include/net/d80211_shared.h
-@@ -19,8 +19,6 @@ enum {
- 	MODE_ATHEROS_TURBO = 2 /* Atheros Turbo mode (2x.11a at 5 GHz) */,
- 	MODE_IEEE80211G = 3 /* IEEE 802.11g (and 802.11b compatibility) */,
- 	MODE_ATHEROS_TURBOG = 4 /* Atheros Turbo mode (2x.11g at 2.4 GHz) */,
--	MODE_ATHEROS_PRIME = 5 /* Atheros Dynamic Turbo mode */,
--	MODE_ATHEROS_PRIMEG = 6 /* Atheros Dynamic Turbo mode G */,
- 	NUM_IEEE80211_MODES = 7
- };
- 
+	-J
 
---
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
