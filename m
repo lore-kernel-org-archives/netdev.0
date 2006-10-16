@@ -1,94 +1,145 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] NET : Suspicious locking in reqsk_queue_hash_req()
-Date: Mon, 16 Oct 2006 19:39:32 +0200
-Message-ID: <200610161939.32769.dada1@cosmosbay.com>
-References: <20061010.191547.83619974.davem@davemloft.net> <39e6f6c70610160916x36c86453pa128950896cfc17d@mail.gmail.com> <200610161856.03334.dada1@cosmosbay.com>
+From: Vivek Goyal <vgoyal@in.ibm.com>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Mon, 16 Oct 2006 14:16:13 -0400
+Message-ID: <20061016181613.GA30090@in.ibm.com>
+References: <200610052105.00359.ak@suse.de> <1160080954.29690.44.camel@flooterbu> <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com> <20061006171105.GC9881@skynet.ie> <1160157830.29690.66.camel@flooterbu> <20061006200436.GG19756@in.ibm.com> <Pine.LNX.4.64.0610091049390.30765@skynet.skynet.ie>
+Reply-To: vgoyal@in.ibm.com
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_UP8MF2ng6NxlixI"
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Fox <drfickle@us.ibm.com>, Andi Kleen <ak@suse.de>,
+	Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>,
+	Adrian Bunk <bunk@stusta.de>, Mel Gorman <mel@csn.ul.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:64677 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1161012AbWJPRjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 13:39:37 -0400
-To: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-In-Reply-To: <200610161856.03334.dada1@cosmosbay.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:43431 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1422740AbWJPSQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 14:16:46 -0400
+To: Morton Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0610091049390.30765@skynet.skynet.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_UP8MF2ng6NxlixI
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-On Monday 16 October 2006 18:56, Eric Dumazet wrote:
-> On Monday 16 October 2006 18:16, Arnaldo Carvalho de Melo wrote:
-> > On 10/16/06, Eric Dumazet <dada1@cosmosbay.com> wrote:
-> > > (Sorry, patch inlined this time)
-> > >
-> > > Hi David
-> > >
-> > > While browsing include/net/request_sock.h I found this suspicious
-> > > locking protecting the SYN table hash table. I think this patch is
-> > > necessary.
-> > >
-> > > Thank you
+On Mon, Oct 09, 2006 at 10:53:58AM +0100, Mel Gorman wrote:
+> On Fri, 6 Oct 2006, Vivek Goyal wrote:
+> 
+> >On Fri, Oct 06, 2006 at 01:03:50PM -0500, Steve Fox wrote:
+> >>On Fri, 2006-10-06 at 18:11 +0100, Mel Gorman wrote:
+> >>>On (06/10/06 11:36), Vivek Goyal didst pronounce:
+> >>>>Where is bss placed in physical memory? I guess bss_start and bss_stop
+> >>>>from System.map will tell us. That will confirm that above memset step 
+> >>>>is
+> >>>>stomping over bss. Then we have to just find that somewhere probably
+> >>>>we allocated wrong physical memory area for bootmem allocator map.
+> >>>>
+> >>>
+> >>>BSS is at 0x643000 -> 0x777BC4
+> >>>init_bootmem wipes from 0x777000 -> 0x8F7000
+> >>>
+> >>>So the BSS bytes from 0x777000 ->0x777BC4 (which looks very suspiciously
+> >>>pile a page alignment of addr & PAGE_MASK) gets set to 0xFF. One possible
+> >>>fix is below. It adds a check in bad_addr() to see if the BSS section is
+> >>>about to be used for bootmap. It Seems To Work For Me (tm) and 
+> >>>illustrates
+> >>>the source of the problem even if it's not the 100% correct fix.
+> >>
+> >>I was able to boot the machine with Mel's patch applied on top of
+> >>-git22.
 > >
-> > Interesting, just checked and it was there before I moved this out of tcp
-> > land:
+> >
+> >Please have a look at the attached patch. Does it make some sense.
+> >
+> 
+> It makes some sense. As you state, it wastes memory but that is better 
+> than breaking.
+> 
+> >Steve, can you please give this patch a try if it fixes the problem?
+> >
+> 
+> I boottested the patch on the same machine as Steve was using and it 
+> completed successfully.
 >
-> Well, the bug was there before you put your hands on the code (I checked
-> linux-2.4.33 & linux-2.4.1 , bug present on both versions)
 
-Well, 'bug' is not appropriate in fact. Overkill maybe ? 
+Hi Andrew,
 
-The comment from include/net/request_sock.h explain the thing...
+Can you please have a look at the attached patch and include it in -mm.
+This fixes the issue for steve. It also figures in the list of Adrian Bunk
+of known regressions.
 
- * %syn_wait_lock is necessary only to avoid proc interface having to grab the 
-main
- * lock sock while browsing the listening hash (otherwise it's deadlock 
-prone).
- *
- * This lock is acquired in read mode only from listening_get_next() seq_file
- * op and it's acquired in write mode _only_ from code that is actively
- * changing rskq_accept_head. All readers that are holding the master sock 
-lock
- * don't need to grab this lock in read mode too as rskq_accept_head. writes
- * are always protected from the main sock lock.
+Subject    : oops in xfrm_register_mode
+References : http://lkml.org/lkml/2006/10/4/170
+Submitter  : Steve Fox <drfickle@us.ibm.com>
+Handled-By : Vivek Goyal <vgoyal@in.ibm.com>
+Status     : patch available
 
-I bet a more appropriate code (and less prone to reading errors for kernel 
-gurus/newbies) would be :
 
-What do you think ?
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+o Currently some code pieces assume that address returned by find_e820_area()
+  are page aligned. But looks like find_e820_area() had no such intention
+  and hence one might end up stomping over some of the data. One such
+  case is bootmem allocator initialization code stomped over bss.
 
---Boundary-00=_UP8MF2ng6NxlixI
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="reqsk_queue_hash_req.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="reqsk_queue_hash_req.patch"
+o This patch modified find_e820_area() to return page aligned address. This
+  might be little wasteful of memory but at the same time probably it is
+  easier to handle page aligned memory. 
 
---- linux-2.6.19-rc2/include/net/request_sock.h	2006-10-13 18:25:04.000000000 +0200
-+++ linux-2.6.19-rc2-ed/include/net/request_sock.h	2006-10-16 19:34:19.000000000 +0200
-@@ -254,9 +254,13 @@
- 	req->sk = NULL;
- 	req->dl_next = lopt->syn_table[hash];
+Signed-off-by: Vivek Goyal <vgoyal@in.ibm.com>
+---
+
+ arch/x86_64/kernel/e820.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff -puN arch/x86_64/kernel/e820.c~x86_64-return-page-aligned-phy-addr-from-find-e820-area arch/x86_64/kernel/e820.c
+--- linux-2.6.19-rc1-1M/arch/x86_64/kernel/e820.c~x86_64-return-page-aligned-phy-addr-from-find-e820-area	2006-10-06 15:28:13.000000000 -0400
++++ linux-2.6.19-rc1-1M-root/arch/x86_64/kernel/e820.c	2006-10-06 15:44:45.000000000 -0400
+@@ -54,13 +54,13 @@ static inline int bad_addr(unsigned long
  
--	write_lock(&queue->syn_wait_lock);
-+	/*
-+	 * We want previous writes being commited before doing this change,
-+	 * so that readers of the chain are not confused.
-+	 */
-+	smp_mb();
-+
- 	lopt->syn_table[hash] = req;
--	write_unlock(&queue->syn_wait_lock);
- }
+ 	/* various gunk below that needed for SMP startup */
+ 	if (addr < 0x8000) { 
+-		*addrp = 0x8000;
++		*addrp = PAGE_ALIGN(0x8000);
+ 		return 1; 
+ 	}
  
- #endif /* _REQUEST_SOCK_H */
-
---Boundary-00=_UP8MF2ng6NxlixI--
+ 	/* direct mapping tables of the kernel */
+ 	if (last >= table_start<<PAGE_SHIFT && addr < table_end<<PAGE_SHIFT) { 
+-		*addrp = table_end << PAGE_SHIFT; 
++		*addrp = PAGE_ALIGN(table_end << PAGE_SHIFT);
+ 		return 1;
+ 	} 
+ 
+@@ -68,18 +68,18 @@ static inline int bad_addr(unsigned long
+ #ifdef CONFIG_BLK_DEV_INITRD
+ 	if (LOADER_TYPE && INITRD_START && last >= INITRD_START && 
+ 	    addr < INITRD_START+INITRD_SIZE) { 
+-		*addrp = INITRD_START + INITRD_SIZE; 
++		*addrp = PAGE_ALIGN(INITRD_START + INITRD_SIZE);
+ 		return 1;
+ 	} 
+ #endif
+ 	/* kernel code */
+-	if (last >= __pa_symbol(&_text) && last < __pa_symbol(&_end)) {
+-		*addrp = __pa_symbol(&_end);
++	if (last >= __pa_symbol(&_text) && addr < __pa_symbol(&_end)) {
++		*addrp = PAGE_ALIGN(__pa_symbol(&_end));
+ 		return 1;
+ 	}
+ 
+ 	if (last >= ebda_addr && addr < ebda_addr + ebda_size) {
+-		*addrp = ebda_addr + ebda_size;
++		*addrp = PAGE_ALIGN(ebda_addr + ebda_size);
+ 		return 1;
+ 	}
+ 
+@@ -152,7 +152,7 @@ unsigned long __init find_e820_area(unsi
+ 			continue; 
+ 		while (bad_addr(&addr, size) && addr+size <= ei->addr+ei->size)
+ 			;
+-		last = addr + size;
++		last = PAGE_ALIGN(addr) + size;
+ 		if (last > ei->addr + ei->size)
+ 			continue;
+ 		if (last > end) 
+_
