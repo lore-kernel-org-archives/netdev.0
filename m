@@ -1,73 +1,40 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 1/5] remove TxStartThresh and RxEarlyThresh
-Date: Sun, 15 Oct 2006 21:39:38 -0400
-Message-ID: <200610160139.k9G1dds0012638@turing-police.cc.vt.edu>
-References: <1160855725.2266.1.camel@localhost.localdomain>
-            <1160947597.22522.3.camel@localhost.localdomain>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
+Date: Sun, 15 Oct 2006 19:07:08 -0700
+Message-ID: <200610151907.09991.david-b@pacbell.net>
+References: <1160161519800-git-send-email-matthew@wil.cx> <17714.54766.390707.532248@cargo.ozlabs.ibm.com> <20061015181044.ec414e4f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1160962778_4950P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Huang <jesse@icplus.com.tw>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com
+Cc: Paul Mackerras <paulus@samba.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, matthew@wil.cx,
+	val_henson@linux.intel.com, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
+	gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-72-66-199-112.ronkva.east.verizon.net ([72.66.199.112]:11973
-	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
-	id S1751298AbWJPBkJ (ORCPT <RFC822;netdev@vger.kernel.org>);
-	Sun, 15 Oct 2006 21:40:09 -0400
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: Your message of "Mon, 16 Oct 2006 07:26:37 +1000."
-             <1160947597.22522.3.camel@localhost.localdomain>
+Received: from smtp101.sbc.mail.mud.yahoo.com ([68.142.198.200]:42649 "HELO
+	smtp101.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1751298AbWJPCHO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Oct 2006 22:07:14 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061015181044.ec414e4f.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1160962778_4950P
-Content-Type: text/plain; charset=us-ascii
+On Sunday 15 October 2006 6:10 pm, Andrew Morton wrote:
 
-On Mon, 16 Oct 2006 07:26:37 +1000, Benjamin Herrenschmidt said:
-> Somebody patented FIFO thresholds ? Gack ?
+> - A printk if something went bad
 
-The US PTO is fundamentally busticated.
+Where "bad" would I hope exclude cases where the device
+doesn't support MWI ... that is, the "go faster if you can"
+advice from the driver, where it isn't an error to run into
+the common case of _this_ implementation not happening to
+be able to issue MWI cycles.
 
-http://www.engadget.com/2006/10/14/cisco-patents-the-triple-play/
+The other cases, where something actually went wrong, would
+be reasonable for emitting KERN_ERR or KERN_WARNING messages.
 
-Cisco got a patent on the concept of delivering voice, internet, and
-cable TV over one cable.  Now admittedly, when they applied for it in 2000,
-it wasn't a buzzword yet - but I'm pretty sure that there was prior art.
+- Dave
 
-Back to the case at hand...
-
-In the case of the TxStartThresh and RxEarlyThresh, I don't think it's
-FIFO thresholds per se that are a problem - the note specifically mentioned
-cut-through, which is a specific technique of starting to deal with the
-alread-arrived head end of the packet *before* the tail end has arrived
-yet. e.g. if you read a packet that has 16 bytes of control info followed
-by 64 bytes of data, you have finished parsing the first 16 and have set
-stuff up by the time the 64 bytes starts arriving - even though you only
-started *one* read of 80 bytes).
-
-Of course, even *that* is an old technique - I remember discussion (and
-possibly implementation) of being able to read the front of an Ethernet
-packet, and do the routing table lookup fast enough so that you could start
-transmitting the packet on the outbound interface before it had finished
-arriving on the inbound.  Of course, this was back when Proteon and Bay
-were start-ups, nobody did IP option fields or router ACLs or stuff like
-that, and level-3 routers were not much smarter (and perhaps stupider) than
-today's level-2 switches that filter/route based on MAC address...
-
-Maybe the patent is on the fact that you can't do cut-through routing well
-without enforcing certain relationships on the Rx and Tx FIFO thresholds...
-
---==_Exmh_1160962778_4950P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFFMuLacC3lWbTT17ARAt/cAKDiQBdeCijkYUsjchqsyE9XM4og0QCeODTu
-MyEdOzs93nRFWCm291gzNQo=
-=yAFu
------END PGP SIGNATURE-----
-
---==_Exmh_1160962778_4950P--
