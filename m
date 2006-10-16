@@ -1,34 +1,48 @@
 From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [PATCH 0/13] [RFC] Fix problems with IPv6 routing subtrees and source
- address selection
-Date: Tue, 17 Oct 2006 02:52:19 +0300
-Message-ID: <45341B33.7080801@tcs.hut.fi>
+Subject: [PATCH 1/13] [IPV6] Remove struct pol_chain.
+Date: Tue, 17 Oct 2006 02:54:27 +0300
+Message-ID: <45341BB3.6090907@tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Thomas Graf <tgraf@suug.ch>, kim.nordlund@nokia.com,
-	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neon.tcs.hut.fi ([130.233.215.20]:47889 "EHLO neon.tcs.hut.fi")
-	by vger.kernel.org with ESMTP id S1422946AbWJPXwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 19:52:21 -0400
+Received: from neon.tcs.hut.fi ([130.233.215.20]:50449 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1422950AbWJPXy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 19:54:29 -0400
 To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Struct pol_chain has existed since at least the 2.2 kernel, but isn't used
+anymore. As the IPv6 policy routing is implemented in a totally different
+way in the current kernel, just get rid of it.
 
-here are a bunch of more or less related patches having to do with fixing the IPv6 routing
-subtrees and source address selection. Most of the code is a cleaned up version of what
-I've written earlier for MIPL 2, where it has worked pretty well for a couple of years now.
+Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
+---
+ include/net/ip6_route.h |    7 -------
+ 1 files changed, 0 insertions(+), 7 deletions(-)
 
-The SCTP code, however, turned out to be messier and more difficult to fix than I had
-originally thought. As I'm not that familiar with SCTP and don't really have an
-opportunity to test the code I'm especially grateful for any comments regarding those
-parts of the code.
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 6ca6b71..c14b70e 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -36,13 +36,6 @@ #define RT6_LOOKUP_F_IFACE	0x1
+ #define RT6_LOOKUP_F_REACHABLE	0x2
+ #define RT6_LOOKUP_F_HAS_SADDR	0x4
 
-I've tried to split up the changes into logical parts to help digest them. Please comment!
+-struct pol_chain {
+-	int			type;
+-	int			priority;
+-	struct fib6_node	*rules;
+-	struct pol_chain	*next;
+-};
+-
+ extern struct rt6_info	ip6_null_entry;
 
-Regards,
-Ville
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+-- 
+1.4.2.3
+
