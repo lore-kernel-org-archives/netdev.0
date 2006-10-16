@@ -1,82 +1,73 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
-Date: Sun, 15 Oct 2006 18:10:44 -0700
-Message-ID: <20061015181044.ec414e4f.akpm@osdl.org>
-References: <1160161519800-git-send-email-matthew@wil.cx>
-	<20061015191631.DE49D19FEC8@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
-	<20061015123432.4c6b7f15.akpm@osdl.org>
-	<200610151545.59477.david-b@pacbell.net>
-	<20061015161834.f96a0761.akpm@osdl.org>
-	<1160956960.5732.99.camel@localhost.localdomain>
-	<20061015164402.f9b8b4d2.akpm@osdl.org>
-	<17714.54766.390707.532248@cargo.ozlabs.ibm.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 1/5] remove TxStartThresh and RxEarlyThresh
+Date: Sun, 15 Oct 2006 21:39:38 -0400
+Message-ID: <200610160139.k9G1dds0012638@turing-police.cc.vt.edu>
+References: <1160855725.2266.1.camel@localhost.localdomain>
+            <1160947597.22522.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1160962778_4950P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	David Brownell <david-b@pacbell.net>, matthew@wil.cx,
-	val_henson@linux.intel.com, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
-	gregkh@suse.de
+Cc: Jesse Huang <jesse@icplus.com.tw>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:32203 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751191AbWJPBK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2006 21:10:58 -0400
-To: Paul Mackerras <paulus@samba.org>
-In-Reply-To: <17714.54766.390707.532248@cargo.ozlabs.ibm.com>
+Received: from pool-72-66-199-112.ronkva.east.verizon.net ([72.66.199.112]:11973
+	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
+	id S1751298AbWJPBkJ (ORCPT <RFC822;netdev@vger.kernel.org>);
+	Sun, 15 Oct 2006 21:40:09 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: Your message of "Mon, 16 Oct 2006 07:26:37 +1000."
+             <1160947597.22522.3.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Oct 2006 10:44:30 +1000
-Paul Mackerras <paulus@samba.org> wrote:
+--==_Exmh_1160962778_4950P
+Content-Type: text/plain; charset=us-ascii
 
-> Andrew Morton writes:
-> 
-> > Let me restore the words from my earlier email which you removed so that
-> > you could say that:
-> > 
-> >   For you the driver author to make assumptions about what's happening
-> >   inside pci_set_mwi() is a layering violation.  Maybe the bridge got
-> >   hot-unplugged.  Maybe the attempt to set MWI caused some synchronous PCI
-> >   error.  For example, take a look at the various implementations of
-> >   pci_ops.read() around the place - various of them can fail for various
-> >   reasons.  
-> 
-> Maybe aliens are firing a ray-gun at the card.  I think it's
-> fundamentally wrong for the driver to deny service completely because
-> of a maybe.
-> 
-> Either there was a transient error that only affected the attempt to
-> set MWI, in which case a printk (inside pci_set_mwi!) is appropriate,
-> and we carry on.  Or there is a persistent error condition, in which
-> case the driver will see something else fail soon enough - something
-> that the driver actually needs to have working in order to operate -
-> and fail at that point.
-> 
-> For the driver to stop and refuse to go any further because of an
-> error in pci_set_mwi has far more disadvantages than advantages.
-> 
+On Mon, 16 Oct 2006 07:26:37 +1000, Benjamin Herrenschmidt said:
+> Somebody patented FIFO thresholds ? Gack ?
 
-Sure.
+The US PTO is fundamentally busticated.
 
-So I think what we're needing in this case is:
+http://www.engadget.com/2006/10/14/cisco-patents-the-triple-play/
 
-- A modified version of Willy's patch which returns 0 if MWI was enabled,
-  1 if MWI isn't available.
+Cisco got a patent on the concept of delivering voice, internet, and
+cable TV over one cable.  Now admittedly, when they applied for it in 2000,
+it wasn't a buzzword yet - but I'm pretty sure that there was prior art.
 
-- A printk if something went bad
+Back to the case at hand...
 
-  It appears that the various functions which try to match the line sizes
-  already have printks if something went wrong, but they're using
-  KERN_DEBUG facility level and that warning would dupliate the new one in
-  pci_set_mwi().
+In the case of the TxStartThresh and RxEarlyThresh, I don't think it's
+FIFO thresholds per se that are a problem - the note specifically mentioned
+cut-through, which is a specific technique of starting to deal with the
+alread-arrived head end of the packet *before* the tail end has arrived
+yet. e.g. if you read a packet that has 16 bytes of control info followed
+by 64 bytes of data, you have finished parsing the first 16 and have set
+stuff up by the time the 64 bytes starts arriving - even though you only
+started *one* read of 80 bytes).
 
-  And although the various implementations of pci_read_config_foo() and
-  pci_write_config_foo() can return error codes, we have so many instances
-  where we're not checking it, I don't think it's practical to try to start
-  doing that everywhere.
+Of course, even *that* is an old technique - I remember discussion (and
+possibly implementation) of being able to read the front of an Ethernet
+packet, and do the routing table lookup fast enough so that you could start
+transmitting the packet on the outbound interface before it had finished
+arriving on the inbound.  Of course, this was back when Proteon and Bay
+were start-ups, nobody did IP option fields or router ACLs or stuff like
+that, and level-3 routers were not much smarter (and perhaps stupider) than
+today's level-2 switches that filter/route based on MAC address...
 
-- drop the __must_check.
+Maybe the patent is on the fact that you can't do cut-through routing well
+without enforcing certain relationships on the Rx and Tx FIFO thresholds...
 
-Question is, should pci_set_mwi() ever return -EFOO?  I guess it should, in
-the case where setting the line size didn't work out.
+--==_Exmh_1160962778_4950P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFFMuLacC3lWbTT17ARAt/cAKDiQBdeCijkYUsjchqsyE9XM4og0QCeODTu
+MyEdOzs93nRFWCm291gzNQo=
+=yAFu
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1160962778_4950P--
