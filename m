@@ -1,44 +1,114 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [e1000]: flow control on by default - good idea really?
-Date: Mon, 16 Oct 2006 11:55:16 -0700
-Message-ID: <4533D594.2070908@intel.com>
-References: <44AC05A8.9030503@intel.com>	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>	 <1152191018.5103.48.camel@jzny2>	 <20060706.235909.78729229.davem@davemloft.net> <1152275283.5341.144.camel@jzny2>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
+Date: Mon, 16 Oct 2006 12:06:53 -0700
+Message-ID: <20061016120653.9a70135d.akpm@osdl.org>
+References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
+	<20061005234310.6c8042b5.akpm@osdl.org>
+	<Pine.LNX.4.64N.0610061152340.22053@blysk.ds.pg.gda.pl>
+	<20061006080323.185f2b58.akpm@osdl.org>
+	<Pine.LNX.4.64N.0610161442010.28780@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
-	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
-	olel@ans.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:2333 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1422819AbWJPS5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 14:57:22 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1152275283.5341.144.camel@jzny2>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
+In-Reply-To: <Pine.LNX.4.64N.0610161442010.28780@blysk.ds.pg.gda.pl>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Thu, 2006-06-07 at 23:59 -0700, David Miller wrote:
-> 
->> It's autonegotiated, check you kernel message logs when the link
->> came up, you'll see this:
->>
->> tg3: eth0: Flow control is on for TX and on for RX.
->>
-> 
-> yikes - yes, this would be it.
-> 
-> I  could be wrong and i will double check:
-> I think when the e1000 says via ethtool "rx is on" - it means that it 
-> is _advertising_ flow control as opposed to detecting partner has flow
-> control capability.
-> Auke, can you also check this as well?
+On Mon, 16 Oct 2006 15:50:55 +0100 (BST)
+"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
-Just found this in my todo box - a bit late :(
+> Andrew,
+> 
+> > I don't get it.  If some code does
+> > 
+> > 	rtnl_lock();
+> > 	flush_scheduled_work();
+> > 
+> > and there's some work scheduled which does rtnl_lock() then it'll deadlock.
+> > 
+> > But it'll deadlock whether or not the caller of flush_scheduled_work() is
+> > keventd.
+> > 
+> > Calling flush_scheduled_work() under locks is generally a bad idea.
+> 
+>  Indeed -- this is why I avoid it.
+> 
+> > I'd have thought that was still deadlockable.  Could you describe the
+> > deadlock more completely please?
+> 
+>  The simplest sequence of calls that prevents races here is as follows:
+> 
+> unregister_netdev();
+>   rtnl_lock();
+>   unregister_netdevice();
+>     dev_close();
+>       sbmac_close();
+>         phy_stop();
+>         phy_disconnect();
+>           phy_stop_interrupts();
+>             phy_disable_interrupts();
+>             flush_scheduled_work();
+>             free_irq();
+>           phy_detach();
+>         mdiobus_unregister();
+>   rtnl_unlock();
+> 
+> We want to call flush_scheduled_work() from phy_stop_interrupts(), because 
+> there may still be calls to phy_change() waiting for the keventd to 
+> process and mdiobus_unregister() frees structures needed by phy_change().  
+> This may deadlock because of the call to rtnl_lock() though.
+> 
+>  So the modified sequence I have implemented is as follows:
+> 
+> unregister_netdev();
+>   rtnl_lock();
+>   unregister_netdevice();
+>     dev_close();
+>       sbmac_close();
+>         phy_stop();
+>         schedule_work(); [sbmac_phy_disconnect()]
+>   rtnl_unlock();
+> 
+> and then:
+> 
+> sbmac_phy_disconnect();
+>   phy_disconnect();
+>     phy_stop_interrupts();
+>       phy_disable_interrupts();
+>       free_irq();
+>     phy_detach();
+>   mdiobus_unregister();
+> 
+> This guarantees calls to phy_change() for this PHY unit will not be run 
+> after mdiobus_unregister(), because any such calls have been placed in the 
+> queue before sbmac_phy_disconnect() (phy_stop() prevents the interrupt 
+> handler from issuing new calls to phy_change()).
+> 
+>  We still need flush_scheduled_work() to be called from 
+> phy_stop_interrupts() though, in case some other MAC driver calls 
+> phy_disconnect() (or phy_stop_interrupts(), depending on the abstraction 
+> layer of phylib used) directly rather than using keventd.  This is 
+> possible if phy_disconnect() is called from the driver's module_exit() 
+> call, which may make sense for devices that are known not to have their 
+> MII interface available as an external connector.  Hence the:
+> 
+> if (!current_is_keventd())
+>   flush_scheduled_work();
+> 
+> sequence in phy_stop_interrupts().  Of course, we can force all drivers 
+> using phylib (in the interrupt mode) to call phy_disconnect() through 
+> keventd instead.
+> 
+>  Does it sound clearer?
+> 
 
-yes, that appears to be the correct interpretation: we never read back the detected FC 
-state from the hardware.
-
-Auke
+Vaguely.  Why doesn't it deadlock if !current_is_keventd()?  I mean,
+whether or not the caller is keventd, the flush_scheduled_work() caller
+will still be dependent upon rtnl_lock() being acquirable.
