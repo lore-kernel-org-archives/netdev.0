@@ -1,85 +1,142 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/2] sky2: multicast pause frame receive
-Date: Mon, 16 Oct 2006 13:50:03 -0700
-Message-ID: <20061016135003.5698e718@freekitty>
-References: <20061011212225.941046083@osdl.org>
-	<20061011212311.715010657@osdl.org>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: [PATCH REPOST 1/2] NET: Accurate packet scheduling for ATM/ADSL
+	(kernel)
+Date: Tue, 17 Oct 2006 09:34:37 +1000
+Message-ID: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	Patrick McHardy <kaber@trash.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29349 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161139AbWJPWLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 18:11:37 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20061011212311.715010657@osdl.org>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:14992 "EHLO
+	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
+	id S1750805AbWJPXg0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Oct 2006 19:36:26 -0400
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using flow control, the PHY needs to accept multicast pause frames.
-Without this fix, these frames were getting discarded by the PHY before
-doing any flow control. 
+The Linux traffic's control engine inaccurately calculates
+transmission times for packets sent over ADSL links.  For
+some packet sizes the error rises to over 50%.  This occurs
+because ADSL uses ATM as its link layer transport, and ATM
+transmits packets in fixed sized 53 byte cells.
 
-This maybe related to http://bugzilla.kernel.org/show_bug.cgi?id=6839
+This changes the kernel rate table lookup, to be able to lookup
+packet transmission times over all ATM links, including ADSL,
+with perfect accuracy. The accuracy is dependent on the rate
+table that is calculated in userspace by iproute2 command tc.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+A longer presentation of the patch, its rational, what it
+does and how to use it can be found here:
+   http://www.stuart.id.au/russell/files/tc/tc-atm/
 
+A earlier version of the patch, and a _detailed_ empirical
+investigation of its effects can be found here:
+   http://www.adsl-optimizer.dk/
+
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+Signed-off-by: Russell Stuart <russell-tcatm@stuart.id.au>
 ---
- drivers/net/sky2.c |   24 ++++++++++++++++++------
- 1 file changed, 18 insertions(+), 6 deletions(-)
 
---- sky2.orig/drivers/net/sky2.c	2006-10-16 08:38:24.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-10-16 09:48:28.000000000 -0700
-@@ -2850,6 +2850,14 @@
- 	return 0;
+diff -Nurp kernel-source-2.6.16.orig/include/linux/pkt_sched.h kernel-source-2.6.16/include/linux/pkt_sched.h
+--- kernel-source-2.6.16.orig/include/linux/pkt_sched.h	2006-03-20 15:53:29.000000000 +1000
++++ kernel-source-2.6.16/include/linux/pkt_sched.h	2006-06-13 11:42:12.000000000 +1000
+@@ -77,8 +77,9 @@ struct tc_ratespec
+ {
+ 	unsigned char	cell_log;
+ 	unsigned char	__reserved;
+-	unsigned short	feature;
+-	short		addend;
++	unsigned short	feature;	/* Always 0 in pre-atm patch kernels */
++	char		cell_align;	/* Always 0 in pre-atm patch kernels */
++	unsigned char	__unused;
+ 	unsigned short	mpu;
+ 	__u32		rate;
+ };
+diff -Nurp kernel-source-2.6.16.orig/include/net/sch_generic.h kernel-source-2.6.16/include/net/sch_generic.h
+--- kernel-source-2.6.16.orig/include/net/sch_generic.h	2006-03-20 15:53:29.000000000 +1000
++++ kernel-source-2.6.16/include/net/sch_generic.h	2006-06-13 11:42:12.000000000 +1000
+@@ -307,4 +307,18 @@ drop:
+ 	return NET_XMIT_DROP;
  }
  
-+static void inline sky2_add_filter(u8 filter[8], const u8 *addr)
++/* Lookup a qdisc_rate_table to determine how long it will take to send a
++   packet given its size.
++ */
++static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
 +{
-+	u32 bit;
-+
-+	bit = ether_crc(ETH_ALEN, addr) & 63;
-+	filter[bit >> 3] |= 1 << (bit & 7);
++	int slot = pktlen + rtab->rate.cell_align;
++	if (slot < 0)
++	  	slot = 0;
++	slot >>= rtab->rate.cell_log;
++	if (slot > 255)
++		return rtab->data[255] + 1;
++	return rtab->data[slot];
 +}
 +
- static void sky2_set_multicast(struct net_device *dev)
+ #endif
+diff -Nurp kernel-source-2.6.16.orig/net/sched/act_police.c kernel-source-2.6.16/net/sched/act_police.c
+--- kernel-source-2.6.16.orig/net/sched/act_police.c	2006-03-20 15:53:29.000000000 +1000
++++ kernel-source-2.6.16/net/sched/act_police.c	2006-06-13 11:42:12.000000000 +1000
+@@ -33,8 +33,8 @@
+ #include <net/sock.h>
+ #include <net/act_api.h>
+ 
+-#define L2T(p,L)   ((p)->R_tab->data[(L)>>(p)->R_tab->rate.cell_log])
+-#define L2T_P(p,L) ((p)->P_tab->data[(L)>>(p)->P_tab->rate.cell_log])
++#define L2T(p,L)   qdisc_l2t((p)->R_tab,L)
++#define L2T_P(p,L) qdisc_l2t((p)->P_tab,L)
+ #define PRIV(a) ((struct tcf_police *) (a)->priv)
+ 
+ /* use generic hash table */
+diff -Nurp kernel-source-2.6.16.orig/net/sched/sch_cbq.c kernel-source-2.6.16/net/sched/sch_cbq.c
+--- kernel-source-2.6.16.orig/net/sched/sch_cbq.c	2006-03-20 15:53:29.000000000 +1000
++++ kernel-source-2.6.16/net/sched/sch_cbq.c	2006-06-13 11:42:12.000000000 +1000
+@@ -193,7 +193,7 @@ struct cbq_sched_data
+ };
+ 
+
+-#define L2T(cl,len)	((cl)->R_tab->data[(len)>>(cl)->R_tab->rate.cell_log])
++#define L2T(cl,len)	qdisc_l2t((cl)->R_tab,len)
+ 
+
+ static __inline__ unsigned cbq_hash(u32 h)
+diff -Nurp kernel-source-2.6.16.orig/net/sched/sch_htb.c kernel-source-2.6.16/net/sched/sch_htb.c
+--- kernel-source-2.6.16.orig/net/sched/sch_htb.c	2006-03-20 15:53:29.000000000 +1000
++++ kernel-source-2.6.16/net/sched/sch_htb.c	2006-06-13 11:42:12.000000000 +1000
+@@ -206,12 +206,10 @@ struct htb_class
+ static __inline__ long L2T(struct htb_class *cl,struct qdisc_rate_table *rate,
+ 	int size)
+ { 
+-    int slot = size >> rate->rate.cell_log;
+-    if (slot > 255) {
++    long result = qdisc_l2t(rate, size);
++    if (result > rate->data[255])
+ 	cl->xstats.giants++;
+-	slot = 255;
+-    }
+-    return rate->data[slot];
++    return result;
+ }
+ 
+ struct htb_sched
+diff -Nurp kernel-source-2.6.16.orig/net/sched/sch_tbf.c kernel-source-2.6.16/net/sched/sch_tbf.c
+--- kernel-source-2.6.16.orig/net/sched/sch_tbf.c	2006-03-20 15:53:29.000000000 +1000
++++ kernel-source-2.6.16/net/sched/sch_tbf.c	2006-06-13 11:42:12.000000000 +1000
+@@ -132,8 +132,8 @@ struct tbf_sched_data
+ 	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+ };
+ 
+-#define L2T(q,L)   ((q)->R_tab->data[(L)>>(q)->R_tab->rate.cell_log])
+-#define L2T_P(q,L) ((q)->P_tab->data[(L)>>(q)->P_tab->rate.cell_log])
++#define L2T(q,L)   qdisc_l2t((q)->R_tab,L)
++#define L2T_P(q,L) qdisc_l2t((q)->P_tab,L)
+ 
+ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
  {
- 	struct sky2_port *sky2 = netdev_priv(dev);
-@@ -2858,7 +2866,10 @@
- 	struct dev_mc_list *list = dev->mc_list;
- 	u16 reg;
- 	u8 filter[8];
-+	int rx_pause;
-+	static const u8 pause_mc_addr[ETH_ALEN] = { 0x1, 0x80, 0xc2, 0x0, 0x0, 0x1 };
- 
-+	rx_pause = (sky2->flow_status == FC_RX || sky2->flow_status == FC_BOTH);
- 	memset(filter, 0, sizeof(filter));
- 
- 	reg = gma_read16(hw, port, GM_RX_CTRL);
-@@ -2866,18 +2877,19 @@
- 
- 	if (dev->flags & IFF_PROMISC)	/* promiscuous */
- 		reg &= ~(GM_RXCR_UCF_ENA | GM_RXCR_MCF_ENA);
--	else if ((dev->flags & IFF_ALLMULTI) || dev->mc_count > 16)	/* all multicast */
-+	else if (dev->flags & IFF_ALLMULTI)
- 		memset(filter, 0xff, sizeof(filter));
--	else if (dev->mc_count == 0)	/* no multicast */
-+	else if (dev->mc_count == 0 && !rx_pause)
- 		reg &= ~GM_RXCR_MCF_ENA;
- 	else {
- 		int i;
- 		reg |= GM_RXCR_MCF_ENA;
- 
--		for (i = 0; list && i < dev->mc_count; i++, list = list->next) {
--			u32 bit = ether_crc(ETH_ALEN, list->dmi_addr) & 0x3f;
--			filter[bit / 8] |= 1 << (bit % 8);
--		}
-+		if (rx_pause)
-+			sky2_add_filter(filter, pause_mc_addr);
-+
-+		for (i = 0; list && i < dev->mc_count; i++, list = list->next)
-+			sky2_add_filter(filter, list->dmi_addr);
- 	}
- 
- 	gma_write16(hw, port, GM_MC_ADDR_H1,
+
+
+
