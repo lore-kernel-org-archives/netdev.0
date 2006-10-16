@@ -1,55 +1,60 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [patch 1/5] d80211: remove bitfields from ieee80211_tx_control
-Date: Mon, 16 Oct 2006 12:34:07 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F01851A93@dhost002-46.dex002.intermedia.net>
-References: <200610161807.25261.mb@bu3sch.de>
+From: Joan Raventos <jraventos@yahoo.com>
+Subject: Re: poll problem with PF_PACKET when using PACKET_RX_RING
+Date: Mon, 16 Oct 2006 12:39:00 -0700 (PDT)
+Message-ID: <20061016193900.96651.qmail@web50610.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ascii
 Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jiri Benc" <jbenc@suse.cz>
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:12070 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1422855AbWJPTd5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 15:33:57 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <200610161807.25261.mb@bu3sch.de>
-To: "Michael Buesch" <mb@bu3sch.de>,
-	"David Kimdon" <dwhedon@devicescape.com>
+Received: from web50610.mail.yahoo.com ([206.190.38.249]:5526 "HELO
+	web50610.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S1422860AbWJPTjC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 15:39:02 -0400
+To: Patrick McHardy <kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Removing the bitfields makes the code much harder to read and maintain.
-Here we are working around a problem with the compiler by making the
-code ugly - rather than fixing the compiler. The compilers are getting
-better and better (GCC 4 has much better handling of this type of
-optimization) but the code will remain ugly for ever.
+>>>>Is this a bug in PF_PACKET? Should the socket queue be
+>>>>emptied by packet_set_ring (called via setsockopt when
+>>>>PACKET_RX_RING is used) so the above cannot happen?
+>>>>Should the user-space app drain the socket queue with
+>>>>recvfrom prior to (4) -quite unlikely in practice-?
+>> 
+>>
+>>>I guess the best way is not to bind the socket before having
+>>>completed setup. We could still flush the queue to make life
+>>>easier for userspace, not sure about that ..
+> 
+> 
+>> Even w/o bind, packet_create is doing a dev_add_pack, which I think will make pkts arrive to that socket (ie. in netif_receive_skb one can see the loops over the rcu for both ptype_all and type-specific which seem match whenever !ptype->dev || ptype->dev==skb->dev).
+>> 
+>> Also the packet_mmap.txt doc does not mention bind, which probably is more a mechanism to closely specify a dev than to signal socket readiness.
 
-Simon
+> packet_create only calls dev_add_pack if a protocol is given.
+> You can use a protocol number of 0 and then bind the socket
+> after setting it up properly.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Michael Buesch
-Sent: Monday, October 16, 2006 9:07 AM
-To: David Kimdon
-Cc: netdev@vger.kernel.org; John W. Linville; Jiri Benc
-Subject: Re: [patch 1/5] d80211: remove bitfields from
-ieee80211_tx_control
+Currently I'm using ETH_P_ALL on the socket call. If I understand your proposal correctly you suggest to pass 0 on the socket call, so dev_add_pack is not called, and afterwards use a sockaddr_ll with bind to set the sll_protocol to whatever value (ETH_P_ALL in my case). Correct?
 
-On Friday 13 October 2006 21:20, David Kimdon wrote:
-> All one-bit bitfields have been subsumed into the new 'flags'
-> structure member and the new IEEE80211_TXCTL_* definitions.  The 
-> multiple bit members were converted to u8, s8 or u16 as appropriate.
+> According to your description, you first used setsockopt(...,
+> PACKET_RX_RING), then mmap. In that case the receive queue
+> should already get flushed by packet_set_ring (about line 1710).
 
-And, eh, did this increase or decrease the struct size?
-Does this generate better or worse code?
+Ok, I see... I guess if mmap has not been issued by the time setsockopt is called then po->mapped == 0 and the code you point out is triggered, specifically skb_queue_purge.
 
---
-Greetings Michael.
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of a message to majordomo@vger.kernel.org More majordomo info at
-http://vger.kernel.org/majordomo-info.html
+> How did you verify that the receive queue still contains packets?
+
+You are totally right! non-block recv to the descriptor returns EAGAIN, so the queues are empty. After further instrumentation of the ring code, I'm suspecting of an issue with the ring read index at the user-space app...
+
+Nevertheless the whole ring communication between kernel and user-space seems to be based on marking pkts via a flag in each pkt slot in the ring (tp_status). I guess it works fine because the assignments are atomic (like the one on af_packet.c:671). Correct?
+BTW what's the purpose of mb() and why is it exactly needed in that position in the code?
+
+Thx again!
+
+Salu2,
+J.
+
+
+
