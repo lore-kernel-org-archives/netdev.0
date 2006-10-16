@@ -1,57 +1,38 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Hardware bug or kernel bug?
-Date: Mon, 16 Oct 2006 12:25:00 +0200
-Message-ID: <20061016102500.GA1709@ff.dom.local>
-References: <20061013085605.GA1690@ff.dom.local> <200610131256.54546.dj@david-web.co.uk> <20061013130648.GC1690@ff.dom.local> <200610131724.40631.dj@david-web.co.uk>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 1/2] [PCI] Check that MWI bit really did get set
+Date: Mon, 16 Oct 2006 11:58:15 +0100
+Message-ID: <1160996295.24237.15.camel@localhost.localdomain>
+References: <1160161519800-git-send-email-matthew@wil.cx>
+	 <20061015191631.DE49D19FEC8@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+	 <20061015123432.4c6b7f15.akpm@osdl.org>
+	 <200610151545.59477.david-b@pacbell.net>
+	 <20061015161834.f96a0761.akpm@osdl.org>
+	 <1160956960.5732.99.camel@localhost.localdomain>
+	 <20061015164402.f9b8b4d2.akpm@osdl.org>
+	 <17714.54766.390707.532248@cargo.ozlabs.ibm.com>
+	 <20061015181044.ec414e4f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Paul Mackerras <paulus@samba.org>,
+	David Brownell <david-b@pacbell.net>, matthew@wil.cx,
+	val_henson@linux.intel.com, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
+	gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.go2.pl ([193.17.41.41]:40654 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1030224AbWJPKUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 06:20:03 -0400
-To: David Johnson <dj@david-web.co.uk>
-Content-Disposition: inline
-In-Reply-To: <200610131724.40631.dj@david-web.co.uk>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:54234 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
+	id S1030348AbWJPKbo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Oct 2006 06:31:44 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061015181044.ec414e4f.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 13, 2006 at 05:24:39PM +0100, David Johnson wrote:
-> On Friday 13 October 2006 14:06, Jarek Poplawski wrote:
-> >
-> > Probably - but only with networking. So I'd try with this debugging
-> > like in my first reply plus maybe 2.6.19-rc1 (e1000 - btw. I hope
-> > this other tested card was different model - and locking improved)
-> > and resend conclusions to netdev@vger.kernel.org.
-> >
-> 
-> OK I built a 2.6.19-rc1 kernel with a minimal config as you describe and I 
-> cannot reproduce the reboots with this kernel. My .config:
-> http://www.david-web.co.uk/download/config
+Ar Sul, 2006-10-15 am 18:10 -0700, ysgrifennodd Andrew Morton:
+> Question is, should pci_set_mwi() ever return -EFOO?  I guess it should, in
+> the case where setting the line size didn't work out.
 
-I've seen more minimal minimal configs but if it works
-it is 50% of success. 
+It does no harm, no driver will ever check anything but 0 v !0 because
+the handling is no different in either case.
 
-> The other NIC I tried was a D-Link DL10050-based card which I think uses the 
-> dl2k module.
-> 
-> I tried to reproduce the problem under Windows (2k), which didn't reboot but 
-> did still suffer from it I believe. Randomly during an scp transfer (using 
-> the PuTTY scp client) Windows will lock-up for about 30 seconds, making an 
-> entry in the event log indicating that there was a time-out talking to the 
-> IDE controller, then continuing. Could the same thing be happening in Linux? 
-> If Linux can't talk to the IDE controller when trying to write to disk, how 
-> does it handle that?
-
-Was this lock-up effect visible during above 2.6.19-rc1 tests?
-If not I'd try to continue linux debbuging:
-- is 2.6.19-rc1 working with "normal" config (use make oldconfig
-to "upgrade" .config),
-- is 2.6.17 working with "minimal" config (use make oldconfig),
-- changing one or two options at a time try to find which one makes
-the effect returns (acpi, smp...). 
-
-Regards,
-Jarek P.
-
-PS: Sorry for late reply - I was offline.
