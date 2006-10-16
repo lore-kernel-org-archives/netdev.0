@@ -1,59 +1,39 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Patch to remove masq/NAT in description of IP6_NF_IPTABLES in ipv6/netfilter/Kconfig
-Date: Mon, 16 Oct 2006 09:01:25 +0200
-Message-ID: <45332E45.10207@bieringer.de>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: Suppress / delay SYN-ACK
+Date: Mon, 16 Oct 2006 09:02:12 +0200
+Message-ID: <20061016070212.GB22667@xi.wantstofly.org>
+References: <000101c6edd5$a880d430$1a04010a@V505CP>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090702030200020808000006"
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-relay.aerasec.de ([212.18.21.179]:17106 "EHLO
-	smtp4.aerasec.de") by vger.kernel.org with ESMTP id S1751484AbWJPHBd
+Received: from alephnull.demon.nl ([83.160.184.112]:9628 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1030311AbWJPHCO
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Oct 2006 03:01:33 -0400
-Received: from [IPv6:2001:a60:f011:f101::11] (unknown [IPv6:2001:a60:f011:f101::11])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp4.aerasec.de (Postfix) with ESMTP id D7B74BBE2
-	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 09:01:30 +0200 (CEST)
-To: Maillist netdev <netdev@vger.kernel.org>
+	Mon, 16 Oct 2006 03:02:14 -0400
+To: Martin Schiller <mschiller@tdt.de>
+Content-Disposition: inline
+In-Reply-To: <000101c6edd5$a880d430$1a04010a@V505CP>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090702030200020808000006
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Thu, Oct 12, 2006 at 10:08:53AM +0200, Martin Schiller wrote:
 
-Hi,
+> I'm searching for a solution to suppress / delay the SYN-ACK packet of a
+> listening server (-application) until he has decided (e.g. analysed the
+> requesting ip-address or checked if the corresponding other end of a
+> connection is available) if he wants to accept the connect request of the
+> client. If not, it should be possible to reject the connect request.
 
-afaik, NAT (and therefore masquerading also) is left out by design in
-IPv6, looks like a copy&paste issue.
+I wrote something like this a couple of years ago:
 
-Patch attached to fix this.
+	http://marc.theaimsgroup.com/?l=linux-netdev&m=103666165629419&w=2
+	http://marc.theaimsgroup.com/?l=linux-netdev&m=106089519611631&w=2
 
-	Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+There wasn't a whole lot of external interest, and my need for it
+disappeared, so I never really finished it, and there's a couple of
+unfixed bugs,
 
---------------090702030200020808000006
-Content-Type: text/x-patch;
- name="Kconfig-netfilter-ipv6.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="Kconfig-netfilter-ipv6.diff"
 
---- linux-2.6.18.1/net/ipv6/netfilter/Kconfig.orig	2006-10-16 08:56:43.000000000 +0200
-+++ linux-2.6.18.1/net/ipv6/netfilter/Kconfig	2006-10-16 08:56:55.000000000 +0200
-@@ -40,7 +40,7 @@
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
- config IP6_NF_IPTABLES
--	tristate "IP6 tables support (required for filtering/masq/NAT)"
-+	tristate "IP6 tables support (required for filtering)"
- 	depends on NETFILTER_XTABLES
- 	help
- 	  ip6tables is a general, extensible packet identification framework.
-
---------------090702030200020808000006--
+cheers,
+Lennert
