@@ -1,46 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: poll problem with PF_PACKET when using PACKET_RX_RING
-Date: Mon, 16 Oct 2006 08:18:17 +0200
-Message-ID: <45332429.3090000@trash.net>
-References: <20061015181059.8920.qmail@web50601.mail.yahoo.com>
+From: "Martin Schiller" <mschiller@tdt.de>
+Subject: RE: Suppress / delay SYN-ACK
+Date: Mon, 16 Oct 2006 08:52:06 +0200
+Message-ID: <004001c6f0ef$97e82020$1a04010a@V505CP>
+References: <452FF379.2080600@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:19361 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1030306AbWJPGSV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Oct 2006 02:18:21 -0400
-To: Joan Raventos <jraventos@yahoo.com>
-In-Reply-To: <20061015181059.8920.qmail@web50601.mail.yahoo.com>
+Received: from ns.tdt.de ([195.243.126.82]:48855 "EHLO ns.tdt.de")
+	by vger.kernel.org with ESMTP id S1751480AbWJPGwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 02:52:00 -0400
+Received: from ns (root@localhost)
+	by ns.tdt.de (8.11.6/8.11.6/SuSE Linux 0.5) with SMTP id k9G6pwC08614
+	for <netdev@vger.kernel.org>; Mon, 16 Oct 2006 08:51:58 +0200
+To: "'Eric Dumazet'" <dada1@cosmosbay.com>
+In-Reply-To: <452FF379.2080600@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joan Raventos wrote:
->>>Is this a bug in PF_PACKET? Should the socket queue be
->>>emptied by packet_set_ring (called via setsockopt when
->>>PACKET_RX_RING is used) so the above cannot happen?
->>>Should the user-space app drain the socket queue with
->>>recvfrom prior to (4) -quite unlikely in practice-?
-> 
+On Friday, October 13, 2006 10:14 PM, Eric Dumazet wrote:
 >
->>I guess the best way is not to bind the socket before having
->>completed setup. We could still flush the queue to make life
->>easier for userspace, not sure about that ..
+> Martin, I played with libnetfilter_queue
+> (http://www.netfilter.org/projects/libnetfilter_queue/index.html)
 > 
+> With this single iptables rules, I was able to do what you want :
+> transmit the SYN message to a user application, that may DROP this
+> packet or let it pass normal TCP stack.  
 > 
-> Even w/o bind, packet_create is doing a dev_add_pack, which I think will make pkts arrive to that socket (ie. in netif_receive_skb one can see the loops over the rcu for both ptype_all and type-specific which seem match whenever !ptype->dev || ptype->dev==skb->dev).
+> iptables -A INPUT -p tcp --dport 333 --syn -j QUEUE
 > 
-> Also the packet_mmap.txt doc does not mention bind, which probably is more a mechanism to closely specify a dev than to signal socket readiness.
+> Then hack nfqnl_test.c to meet your needs (see nfq_set_verdict(),
+> nfq_get_payload())
+> 
+> Be prepared to receive the 'same SYN' several time if your X.25 call
+> attempt is too long. 
+> 
+> (You have to be root unfortunatly)
+> 
+> Eric
 
-packet_create only calls dev_add_pack if a protocol is given.
-You can use a protocol number of 0 and then bind the socket
-after setting it up properly.
+Thanks, this sounds very interesting. I will have a closer look at that.
 
-According to your description, you first used setsockopt(...,
-PACKET_RX_RING), then mmap. In that case the receive queue
-should already get flushed by packet_set_ring (about line 1710).
-How did you verify that the receive queue still contains packets?
+Martin
+
 
