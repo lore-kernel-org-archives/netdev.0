@@ -1,40 +1,53 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [patch 1/5] d80211: remove bitfields from ieee80211_tx_control
-Date: Tue, 17 Oct 2006 10:19:51 -0700
-Message-ID: <20061017171951.GA13701@devicescape.com>
-References: <20061013191910.297963000@devicescape.com> <20061013192053.GB18694@devicescape.com> <200610161807.25261.mb@bu3sch.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Tue, 17 Oct 2006 10:18:54 -0700
+Message-ID: <4535107E.9010609@intel.com>
+References: <44AC05A8.9030503@intel.com>	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>	 <1152191018.5103.48.camel@jzny2>	 <20060706.235909.78729229.davem@davemloft.net>	 <1152275283.5341.144.camel@jzny2>  <4533D594.2070908@intel.com> <1161090331.5555.10.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
+	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
+	olel@ans.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:20161 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751342AbWJQRTx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 13:19:53 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200610161807.25261.mb@bu3sch.de>
+Received: from mga01.intel.com ([192.55.52.88]:12320 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1751343AbWJQRXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 13:23:33 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1161090331.5555.10.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2006 at 06:07:25PM +0200, Michael Buesch wrote:
-> On Friday 13 October 2006 21:20, David Kimdon wrote:
-> > All one-bit bitfields have been subsumed into the new 'flags'
-> > structure member and the new IEEE80211_TXCTL_* definitions.  The
-> > multiple bit members were converted to u8, s8 or u16 as appropriate.
-
-I'll answer based on take1, which I just sent to the list.
-
+jamal wrote:
+> On Mon, 2006-16-10 at 11:55 -0700, Auke Kok wrote:
+>> jamal wrote:
 > 
-> And, eh, did this increase or decrease the struct size?
+>>> I think when the e1000 says via ethtool "rx is on" - it means that it 
+>>> is _advertising_ flow control as opposed to detecting partner has flow
+>>> control capability.
+>>> Auke, can you also check this as well?
+>> Just found this in my todo box - a bit late :(
+>>
+>> yes, that appears to be the correct interpretation: we never read back the 
+>> detected FC  state from the hardware.
+> 
+> It sounds to me that ethttool needs to have this semantic fix.
+> IOW, ethttool doesnt differentiate the two items:
+> a) advertised parameters.
+> b) link partner negotiated parameters.
+> 
+> and instead #a becomes #b after negotiation.
 
-structure sizes did not change.
+that's odd and confusing, we should keep them separate.
 
-> Does this generate better or worse code?
+> methinks this needs fixing. Dave? Jeff?
 
-It generates slightly smaller code with gcc 4.1.2.
+Alternatively, we can report in the driver at link up time what FC settings were 
+succesfull using printk. The output of `eththool eth0` would be the best place to put 
+this output as well since that displays "status" and not "settings" which are displayed 
+with '-a|-A' options of ethtool. Lets keep `-a|-A` the same and work on showing 
+negotiated FC parameters in `ethtool ethX` instead.
 
--David
+Auke
+
