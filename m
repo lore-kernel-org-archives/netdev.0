@@ -1,49 +1,55 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] Bound TSO defer time (resend)
-Date: Tue, 17 Oct 2006 08:22:11 -0400
-Message-ID: <4534CAF3.5000505@psc.edu>
-References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu>	<20061016202035.6d55b96e@localhost.localdomain>	<45345999.4000300@psc.edu> <20061016.223513.35356292.davem@davemloft.net>
+From: "Eric Barton" <eeb@bartonsoftware.com>
+Subject: RE: PATCH zero-copy send completion callback
+Date: Tue, 17 Oct 2006 13:23:10 +0100
+Message-ID: <020d01c6f1e7$029beb70$0281a8c0@ebpc>
+References: <200610171101.38690.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: "'David Miller'" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:59095 "EHLO mailer2.psc.edu")
-	by vger.kernel.org with ESMTP id S1750749AbWJQMWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 08:22:25 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061016.223513.35356292.davem@davemloft.net>
+Received: from smtp-out2.blueyonder.co.uk ([195.188.213.5]:22996 "EHLO
+	smtp-out2.blueyonder.co.uk") by vger.kernel.org with ESMTP
+	id S1750780AbWJQMXG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 08:23:06 -0400
+To: "'Eric Dumazet'" <dada1@cosmosbay.com>
+In-Reply-To: <200610171101.38690.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: John Heffner <jheffner@psc.edu>
-> Date: Tue, 17 Oct 2006 00:18:33 -0400
+> > Also, (please correct me if I'm wrong) I didn't
+> > think this would push the allocation over to the next entry in
+> > 'malloc_sizes'.
 > 
->> Stephen Hemminger wrote:
->>> On Mon, 16 Oct 2006 20:53:20 -0400 (EDT)
->>> John Heffner <jheffner@psc.edu> wrote:
->>>> This patch limits the amount of time you will defer sending a TSO segment
->>>> to less than two clock ticks, or the time between two acks, whichever is
->>>> longer.
->>> Okay, but doing any timing on clock ticks makes the behavior dependent
->>> on the value of HZ which doesn't seem desirable. Should this be based
->>> on RTT or a real-time values?
->> It would be nice to use a high res clock so you don't depend on HZ, but 
->> this is still expensive on most SMP arch's as I understand it.
-> 
-> Right so we do need to use a jiffies based solution.
-> 
-> Since HZ is variable, I have a feeling that the thing to do here
-> is pick some timeout in msec.  Then replace the "2 clock ticks"
-> with some msec_to_jiffies() calls, bottoming out at 1 jiffie.
-> 
-> How does that sound?
+> Well, skbuff heads are allocated from dedicated kmem_cache 
+> (skbuff_fclone_cache & skbuff_head_cache), and these caches are not 
+> constrained by the sizes available in malloc_sizes. Their 
+> size are a multiple 
+> of L1 CACHE size, which is 64 bytes for most common machines.
 
-That's actually how I originally coded it. :)  But then it occurred to 
-me that if you've already been waiting for a full clock tick, the 
-marginal CPU savings of waiting longer will not be great.  Which is why 
-I chose the value of 2 ticks so you're guaranteed to have waited at 
-least one full tick.
+Indeed, struct skbuff is so allocated.  But I added the callback
+pointers to struct skb_shared_info where the page pointers are stored,
+and this struct is allocated along with the packet header using kmalloc.
 
-   -John
+> Even if your two pointers addition (16 bytes on x86_64) 
+> doesnt cross a 64bytes 
+> line (I didn't checked), they are going to be set to NULL 
+> each time a skbuff 
+> is allocated , and checked against NULL each time a skbuff is 
+> destroyed.
+
+Indeed.  Do you think that's significant?
+
+                Cheers,
+                        Eric
+
+---------------------------------------------------
+|Eric Barton        Barton Software               |
+|9 York Gardens     Tel:    +44 (117) 330 1575    |
+|Clifton            Mobile: +44 (7909) 680 356    |
+|Bristol BS8 4LL    Fax:    call first            |
+|United Kingdom     E-Mail: eeb@bartonsoftware.com|
+---------------------------------------------------
+
+
