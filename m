@@ -1,52 +1,49 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Tue, 17 Oct 2006 14:18:36 +0200
-Message-ID: <20061017121836.GI30596@stusta.de>
-References: <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com> <20061006171105.GC9881@skynet.ie> <1160157830.29690.66.camel@flooterbu> <20061006200436.GG19756@in.ibm.com> <Pine.LNX.4.64.0610091049390.30765@skynet.skynet.ie> <20061016181613.GA30090@in.ibm.com> <20061016165814.13b99e5e.akpm@osdl.org>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH] Bound TSO defer time (resend)
+Date: Tue, 17 Oct 2006 08:22:11 -0400
+Message-ID: <4534CAF3.5000505@psc.edu>
+References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu>	<20061016202035.6d55b96e@localhost.localdomain>	<45345999.4000300@psc.edu> <20061016.223513.35356292.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vgoyal@in.ibm.com, Steve Fox <drfickle@us.ibm.com>,
-	Andi Kleen <ak@suse.de>, Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>,
-	Mel Gorman <mel@csn.ul.ie>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:36878 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1750783AbWJQMSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 08:18:40 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061016165814.13b99e5e.akpm@osdl.org>
+Received: from mailer2.psc.edu ([128.182.66.106]:59095 "EHLO mailer2.psc.edu")
+	by vger.kernel.org with ESMTP id S1750749AbWJQMWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 08:22:25 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061016.223513.35356292.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2006 at 04:58:14PM -0700, Andrew Morton wrote:
-> On Mon, 16 Oct 2006 14:16:13 -0400
-> Vivek Goyal <vgoyal@in.ibm.com> wrote:
+David Miller wrote:
+> From: John Heffner <jheffner@psc.edu>
+> Date: Tue, 17 Oct 2006 00:18:33 -0400
 > 
-> > 
-> > Can you please have a look at the attached patch
+>> Stephen Hemminger wrote:
+>>> On Mon, 16 Oct 2006 20:53:20 -0400 (EDT)
+>>> John Heffner <jheffner@psc.edu> wrote:
+>>>> This patch limits the amount of time you will defer sending a TSO segment
+>>>> to less than two clock ticks, or the time between two acks, whichever is
+>>>> longer.
+>>> Okay, but doing any timing on clock ticks makes the behavior dependent
+>>> on the value of HZ which doesn't seem desirable. Should this be based
+>>> on RTT or a real-time values?
+>> It would be nice to use a high res clock so you don't depend on HZ, but 
+>> this is still expensive on most SMP arch's as I understand it.
 > 
-> Looks like a fine patch to me, although it could benefit from a comment
-> explaining why all those PAGE_ALIGN()s are in there.
+> Right so we do need to use a jiffies based solution.
 > 
-> > and include it in -mm.
+> Since HZ is variable, I have a feeling that the thing to do here
+> is pick some timeout in msec.  Then replace the "2 clock ticks"
+> with some msec_to_jiffies() calls, bottoming out at 1 jiffie.
 > 
-> Does it fix a patch in -mm or is it needed in mainline?
+> How does that sound?
 
-The bug in my list was reported to be present in mainline [1].
+That's actually how I originally coded it. :)  But then it occurred to 
+me that if you've already been waiting for a full clock tick, the 
+marginal CPU savings of waiting longer will not be great.  Which is why 
+I chose the value of 2 ticks so you're guaranteed to have waited at 
+least one full tick.
 
-cu
-Adrian
-
-[1] http://lkml.org/lkml/2006/10/4/394
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+   -John
