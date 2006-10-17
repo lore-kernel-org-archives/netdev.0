@@ -1,42 +1,226 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 13/13] [RFC] [IPV6] Fix source prefix routing problems
- when source address undefined.
-Date: Wed, 18 Oct 2006 01:49:59 +0900 (JST)
-Message-ID: <20061018.014959.18582506.yoshfuji@linux-ipv6.org>
-References: <20061017113511.GN12964@postel.suug.ch>
-	<20061017.211730.51920084.yoshfuji@linux-ipv6.org>
-	<20061017123415.GO12964@postel.suug.ch>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [take1 2/5] d80211: remove bitfields from ieee80211_tx_status
+Date: Tue, 17 Oct 2006 10:17:20 -0700
+Message-ID: <20061017171720.GC13669@devicescape.com>
+References: <20061017171624.299590000@devicescape.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vnuorval@tcs.hut.fi, davem@davemloft.net, kim.nordlund@nokia.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	David Kimdon <david.kimdon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:49677 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751318AbWJQQr0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 12:47:26 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20061017123415.GO12964@postel.suug.ch>
+Received: from mail.devicescape.com ([207.138.119.2]:49088 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751338AbWJQRRV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 13:17:21 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="tx_status_bitfields.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20061017123415.GO12964@postel.suug.ch> (at Tue, 17 Oct 2006 14:34:15 +0200), Thomas Graf <tgraf@suug.ch> says:
+Both one-bit bitfields have been subsumed into the new 'flags'
+structure member and the new IEEE80211_TX_STATUS_* definitions. 
 
-> Right, that works as well but duplicating the rule for every
-> interface is not very practical.
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-Though I think it is, but we could have "non-local" flag or such.
+Index: wireless-dev/include/net/d80211.h
+===================================================================
+--- wireless-dev.orig/include/net/d80211.h
++++ wireless-dev/include/net/d80211.h
+@@ -209,8 +209,10 @@ struct ieee80211_tx_status {
+ 	/* copied ieee80211_tx_control structure */
+ 	struct ieee80211_tx_control control;
+ 
+-	unsigned int tx_filtered:1;
+-	unsigned int ack:1; /* whether the TX frame was ACKed */
++#define IEEE80211_TX_STATUS_TX_FILTERED	(1<<0)
++#define IEEE80211_TX_STATUS_ACK		(1<<1) /* whether the TX frame was ACKed */
++	u32 flags;		/* tx staus flags defined above */
++
+ 	int ack_signal; /* measured signal strength of the ACK frame */
+ 	int excessive_retries;
+ 	int retry_count;
+Index: wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/adm8211/adm8211.c
++++ wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
+@@ -427,12 +427,14 @@ static void adm8211_interrupt_tci(struct
+ 
+ 		if (status & TDES0_STATUS_ES) {
+ 			stats->tx_errors++;
+-			priv->tx_buffers[entry].tx_status.ack = 0;
++			priv->tx_buffers[entry].tx_status.flags &=
++						~IEEE80211_TX_STATUS_ACK;
+ 
+ 			if (status & (TDES0_STATUS_TUF | TDES0_STATUS_TRO))
+ 				stats->tx_fifo_errors++;
+ 		} else
+-			priv->tx_buffers[entry].tx_status.ack = 1;
++			priv->tx_buffers[entry].tx_status.flags |=
++						IEEE80211_TX_STATUS_ACK;
+ 
+ 		pci_unmap_single(priv->pdev, priv->tx_buffers[entry].mapping,
+ 				 priv->tx_buffers[entry].skb->len, PCI_DMA_TODEVICE);
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+@@ -1079,7 +1079,8 @@ void bcm43xx_dma_handle_xmitstatus(struc
+ 			 * status of the transmission.
+ 			 * Some fields of txstat are already filled in dma_tx().
+ 			 */
+-			meta->txstat.ack = !!(status->flags & BCM43xx_TXSTAT_FLAG_ACK);
++			if (status->flags & BCM43xx_TXSTAT_FLAG_ACK)
++				meta->txstat.flags |= IEEE80211_TX_STATUS_ACK;
+ 			meta->txstat.retry_count = status->cnt2 - 1;
+ 			ieee80211_tx_status_irqsafe(bcm->net_dev, meta->skb, &(meta->txstat));
+ 			/* skb is freed by ieee80211_tx_status_irqsafe() */
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c
+@@ -477,7 +477,8 @@ void bcm43xx_pio_handle_xmitstatus(struc
+ 	queue->tx_devq_packets--;
+ 	queue->tx_devq_used -= (packet->skb->len + sizeof(struct bcm43xx_txhdr));
+ 
+-	packet->txstat.ack = !!(status->flags & BCM43xx_TXSTAT_FLAG_ACK);
++	if (status->flags & BCM43xx_TXSTAT_FLAG_ACK)
++		packet->txstat.flags |= IEEE80211_TX_STATUS_ACK;
+ 	packet->txstat.retry_count = status->cnt2 - 1;
+ 	ieee80211_tx_status_irqsafe(bcm->net_dev, packet->skb,
+ 				    &(packet->txstat));
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+@@ -1741,10 +1741,11 @@ static void rt2400pci_txdone(void *data)
+ 
+ 		ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
+ 
++		entry->tx_status.flags  = 0;
+ 		/*
+-		 * TODO: How can te below field be set correctly?
++		 * TODO: How can bit IEEE80211_TX_STATUS_TX_FILTERED of
++		 * entry->tx_status.flags be set correctly?
+ 		 */
+-		entry->tx_status.tx_filtered = 0;
+ 
+ 		entry->tx_status.queue_length = ring->stats.limit;
+ 		entry->tx_status.queue_number = entry->tx_status.control.queue;
+@@ -1756,11 +1757,10 @@ static void rt2400pci_txdone(void *data)
+ 		 * was succesfull.
+ 		 */
+ 		tx_status = rt2x00_get_field32(txd->word0, TXD_W0_RESULT);
+-		entry->tx_status.ack = 0;
+ 		entry->tx_status.excessive_retries = 0;
+ 		if (ack && (tx_status == TX_SUCCESS ||
+ 		    tx_status == TX_SUCCESS_RETRY))
+-			entry->tx_status.ack = 1;
++			entry->tx_status.flags |= IEEE80211_TX_STATUS_ACK;
+ 		else if (ack && tx_status == TX_FAIL_RETRY) {
+ 			rt2x00dev->low_level_stats.dot11ACKFailureCount++;
+ 			entry->tx_status.excessive_retries = 1;
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+@@ -1890,10 +1890,11 @@ static void rt2500pci_txdone(void *data)
+ 
+ 		ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
+ 
++		entry->tx_status.flags = 0;
+ 		/*
+-		 * TODO: How can te below field be set correctly?
++		 * TODO: How can the IEEE80211_TX_STATUS_TX_FILTERED bit of
++		 * entry->tx_status.flags be set correctly?
+ 		 */
+-		entry->tx_status.tx_filtered = 0;
+ 
+ 		entry->tx_status.queue_length = ring->stats.limit;
+ 		entry->tx_status.queue_number = entry->tx_status.control.queue;
+@@ -1905,11 +1906,10 @@ static void rt2500pci_txdone(void *data)
+ 		 * was succesfull.
+ 		 */
+ 		tx_status = rt2x00_get_field32(txd->word0, TXD_W0_RESULT);
+-		entry->tx_status.ack = 0;
+ 		entry->tx_status.excessive_retries = 0;
+ 		if (ack && (tx_status == TX_SUCCESS ||
+ 		    tx_status == TX_SUCCESS_RETRY))
+-			entry->tx_status.ack = 1;
++			entry->tx_status.flags |= IEEE80211_TX_STATUS_ACK;
+ 		else if (ack && tx_status == TX_FAIL_RETRY) {
+ 			rt2x00dev->low_level_stats.dot11ACKFailureCount++;
+ 			entry->tx_status.excessive_retries = 1;
+Index: wireless-dev/net/d80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/d80211/ieee80211.c
++++ wireless-dev/net/d80211/ieee80211.c
+@@ -4043,13 +4043,13 @@ void ieee80211_tx_status(struct net_devi
+ 				 * that this TX packet failed because of that.
+ 				 */
+ 				status->excessive_retries = 0;
+-				status->tx_filtered = 1;
++				status->flags |= IEEE80211_TX_STATUS_TX_FILTERED;
+ 			}
+ 			sta_info_put(sta);
+ 		}
+ 	}
+ 
+-	if (status->tx_filtered) {
++	if (status->flags & IEEE80211_TX_STATUS_TX_FILTERED) {
+ 		struct sta_info *sta;
+ 		sta = sta_info_get(local, hdr->addr1);
+ 		if (sta) {
+@@ -4111,7 +4111,7 @@ void ieee80211_tx_status(struct net_devi
+ 	frag = le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_FRAG;
+ 	type = le16_to_cpu(hdr->frame_control) & IEEE80211_FCTL_FTYPE;
+ 
+-        if (status->ack) {
++        if (status->flags & IEEE80211_TX_STATUS_ACK) {
+ 		if (frag == 0) {
+ 			local->dot11TransmittedFrameCount++;
+ 			if (is_multicast_ether_addr(hdr->addr1))
+@@ -4140,8 +4140,8 @@ void ieee80211_tx_status(struct net_devi
+ 		return;
+ 	}
+ 
+-	msg_type = status->ack ? ieee80211_msg_tx_callback_ack :
+-		ieee80211_msg_tx_callback_fail;
++	msg_type = (status->flags & IEEE80211_TX_STATUS_ACK) ?
++	       	ieee80211_msg_tx_callback_ack : ieee80211_msg_tx_callback_fail;
+ 
+ 	/* skb was the original skb used for TX. Clone it and give the clone
+ 	 * to netif_rx(). Free original skb. */
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+@@ -2326,10 +2326,11 @@ static void rt61pci_txdone_entry(struct 
+ 
+ 	ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
+ 
++	entry->tx_status.flags = 0;
+ 	/*
+-	 * TODO: How can te below field be set correctly?
++	 * TODO: How can the IEEE80211_TX_STATUS_TX_FILTERED bit of
++	 * entry->tx_status.flags be set correctly?
+ 	 */
+-	entry->tx_status.tx_filtered = 0;
+ 
+ 	entry->tx_status.queue_length = entry->ring->stats.limit;
+ 	entry->tx_status.queue_number = entry->tx_status.control.queue;
+@@ -2341,11 +2342,10 @@ static void rt61pci_txdone_entry(struct 
+ 	 * was succesfull.
+ 	 */
+ 	tx_status = rt2x00_get_field32(sta_csr4, STA_CSR4_TX_RESULT);
+-	entry->tx_status.ack = 0;
+ 	entry->tx_status.excessive_retries = 0;
+ 	if (ack && (tx_status == TX_SUCCESS ||
+ 	    tx_status == TX_SUCCESS_RETRY))
+-		entry->tx_status.ack = 1;
++		entry->tx_status.flags |= IEEE80211_TX_STATUS_ACK;
+ 	else if (ack && tx_status == TX_FAIL_RETRY) {
+ 		rt2x00dev->low_level_stats.dot11ACKFailureCount++;
+ 		entry->tx_status.excessive_retries = 1;
 
-> Anyways, the point is that the proposed change to modify the
-> source prefix matching logic is not acceptable and other way
-> has to be found.
-
-I still do not agree.
-
-The "reject" case that you told me can also be solved using netfilter.
-On the other side,  the source address selection can not be solved in
-other way.  The stack is broken without the proposed patch.
-
---yoshfuji
+--
