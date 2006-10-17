@@ -1,57 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling for
-	ATM/ADSL (kernel)
-Date: Tue, 17 Oct 2006 09:07:24 -0400
-Message-ID: <1161090444.5555.13.camel@jzny2>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
-Reply-To: hadi@cyberus.ca
+From: Chase Venters <chase.venters@clientec.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Tue, 17 Oct 2006 08:12:04 -0500
+Message-ID: <200610170812.28027.chase.venters@clientec.com>
+References: <11587449471424@2ka.mipt.ru> <200610170100.10500.chase.venters@clientec.com> <20061017104242.GB19246@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: Johann Borck <johann.borck@densedata.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:30114 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750872AbWJQNH1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 09:07:27 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1GZofJ-0006R3-40
-	for netdev@vger.kernel.org; Tue, 17 Oct 2006 09:07:29 -0400
-To: Russell Stuart <russell-tcatm@stuart.id.au>
-In-Reply-To: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+Received: from relay01.pair.com ([209.68.5.15]:43017 "HELO relay01.pair.com")
+	by vger.kernel.org with SMTP id S1750880AbWJQNMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:12:41 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061017104242.GB19246@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-17-10 at 09:34 +1000, Russell Stuart wrote:
-> The Linux traffic's control engine inaccurately calculates
-> transmission times for packets sent over ADSL links.  For
-> some packet sizes the error rises to over 50%.  This occurs
-> because ADSL uses ATM as its link layer transport, and ATM
-> transmits packets in fixed sized 53 byte cells.
-> 
-> This changes the kernel rate table lookup, to be able to lookup
-> packet transmission times over all ATM links, including ADSL,
-> with perfect accuracy. The accuracy is dependent on the rate
-> table that is calculated in userspace by iproute2 command tc.
-> 
-> A longer presentation of the patch, its rational, what it
-> does and how to use it can be found here:
->    http://www.stuart.id.au/russell/files/tc/tc-atm/
-> 
-> A earlier version of the patch, and a _detailed_ empirical
-> investigation of its effects can be found here:
->    http://www.adsl-optimizer.dk/
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
-> Signed-off-by: Russell Stuart <russell-tcatm@stuart.id.au>
+On Tuesday 17 October 2006 05:42, Evgeniy Polyakov wrote:
+> On Tue, Oct 17, 2006 at 12:59:47AM -0500, Chase Venters 
+(chase.venters@clientec.com) wrote:
+> > On Tuesday 17 October 2006 00:09, Johann Borck wrote:
+> > > Regarding mukevent I'm thinking of a event-type specific struct, that
+> > > is filled by the originating code, and placed into a per-event-type
+> > > ring buffer (which  requires modification of kevent_wait).
+> >
+> > I'd personally worry about an implementation that used a per-event-type
+> > ring buffer, because you're still left having to hack around starvation
+> > issues in user-space. It is of course possible under the current model
+> > for anyone who wants per-event-type ring buffers to have them - just make
+> > separate kevent sets.
+> >
+> > I haven't thought this through all the way yet, but why not have variable
+> > length event structures and have the kernel fill in a "next" pointer in
+> > each one? This could even be used to keep backwards binary compatibility
+> > while
+>
+> Why do we want variable size structures in mmap ring buffer?
 
-ACKed-by: Jamal Hadi Salim
+Flexibility primarily. So when we all decide to add a new event type six 
+months from now, or add more information to an existing one, we don't run the 
+risk that the existing mukevent isn't big enough.
 
-When Patrick has his patch ready after this goes in we can revisit.
+> > adding additional fields to the structures over time, though no space
+> > would be wasted on modern programs. You still end up with a question of
+> > what to do in case of overflow, but I'm thinking the thing to do in that
+> > case might be to start pushing overflow events onto a linked list which
+> > can be written back into the ring buffer when space becomes available.
+> > The appropriate behavior would be to throw new events on the linked list
+> > if the linked list had any events, so that things are delivered in order,
+> > but write to the mapped buffer directly otherwise.
+>
+> I think in a similar way.
+> Kevent actually do not require such list, since it has already queue of
+> the ready events.
 
-cheers,
-jamal
+The current event types coalesce if there are multiple events, correct? It 
+sounds like there may be other event types where coalescing multiple events 
+is not the correct approach.
 
+Thanks,
+Chase
