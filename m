@@ -1,112 +1,129 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [PATCH] d80211: remove unused Super AG definitions, purgecomment
-Date: Tue, 17 Oct 2006 08:07:57 -0700
-Message-ID: <20061017150757.GA9188@devicescape.com>
-References: <20061016183935.GA2488@devicescape.com> <1161068354.2735.0.camel@ux156>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Tue, 17 Oct 2006 19:09:30 +0400
+Message-ID: <20061017150929.GA2288@2ka.mipt.ru>
+References: <11587449471424@2ka.mipt.ru> <200610171552.35470.dada1@cosmosbay.com> <20061017140740.GA20686@2ka.mipt.ru> <200610171625.00515.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=koi8-r
+Cc: Johann Borck <johann.borck@densedata.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:54439 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751114AbWJQPIC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 11:08:02 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:16573 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751119AbWJQPKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 11:10:17 -0400
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <1161068354.2735.0.camel@ux156>
+In-Reply-To: <200610171625.00515.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2006 at 08:59:13AM +0200, Johannes Berg wrote:
-> On Mon, 2006-10-16 at 11:39 -0700, David Kimdon wrote:
-> You want to adjust that last constant there too, I guess. 
+On Tue, Oct 17, 2006 at 04:25:00PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> On Tuesday 17 October 2006 16:07, Evgeniy Polyakov wrote:
+> > On Tue, Oct 17, 2006 at 03:52:34PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
+> wrote:
+> > > > What about the case, which I described in other e-mail, when in case of
+> > > > the full ring buffer, no new events are written there, and when
+> > > > userspace commits (i.e. marks as ready to be freed or requeued by
+> > > > kernel) some events, new ones will be copied from ready queue into the
+> > > > buffer?
+> > >
+> > > Then, user might receive 'false events', exactly like
+> > > poll()/select()/epoll() can do sometime. IE a 'ready' indication while
+> > > there is no current event available on a particular fd / event_source.
+> >
+> > Only if user simultaneously uses oth interfaces and remove even from the
+> > queue when it's copy was in mapped buffer, but in that case it's user's
+> > problem (and if we do want, we can store pointer/index of the ring
+> > buffer entry, so when event is removed from the ready queue (using
+> > kevent_get_events()), appropriate entry in the ring buffer will be
+> > updated to show that it is no longer valid.
+> >
+> > > This should be safe, since those programs already ignore read()
+> > > returns -EAGAIN and other similar things.
+> > >
+> > > Programmer prefers to receive two 'event available' indications than ZERO
+> > > (and be stuck for infinite time). Of course, hot path (normal cases)
+> > > should return one 'event' only.
+> > >
+> > > In order words, being ultra fast 99.99 % of the time, but being able to
+> > > block forever once in a while is not an option.
+> >
+> > Have I missed something? It looks like the only problematic situation is
+> > described above when user simultaneously uses both interfaces.
+> 
+> In my point of view, user of the 'mmaped ring buffer' should be prepared to 
+> use both interfaces. Or else you are forced to presize the ring buffer to 
+> insane limits.
+> 
+> That is :
+> - Most of the time, we expect consuming events via mmaped ring buffer and no 
+> syscalls.
+> - In case we notice a 'mmaped ring buffer overflow', syscalls to get/consume 
+> events that could not be stored in mmaped buffer (but queued by kevent 
+> subsystem). If not stored by kevent subsystem (memory failure ?), revert to 
+> poll() to fetch all 'missed fds' in one row. Go back to normal mode.
 
-Indeed, updated patch inline.
+kevent uses smaller amount of memory than epoll() per event, so it is very
+unlikely that it will be impossible to store new event there and epoll()
+will succeed. The same can be applied to poll(), which allocates the
+whole table in syscall.
 
-> Why is it an
-> enum anyway if things are assigned statically?
+> - In case of empty ring buffer (or no mmap support at all, because this app 
+> doesnt expect lot of events per time unit, or because kevent dont have mmap 
+> support) : Be able to syscall and wait for an event.
 
-I don't have a good answer for that.
+So the most complex case is when user is going to use both interfaces,
+and it's steps when mapped ring buffer has overflow.
+In that case user can either read and mark some events as ready in ring
+buffer (the latter is being done through special syscall), so kevent
+core will put there new ready events.
+User can also get events using usual syscall, in that case events in
+ring buffer must be updated - and actually I implemented mapped buffer
+in the way which allows to remove events from the queue - queue is a
+FIFO, and the first entry to be obtained through syscall is _always_ the
+first entry in the ring buffer.
 
--David
+So when user reads event through syscall (no matter if we are in overflow
+case or not), even being read is easily accessible in the ring buffer.
 
-Remove unused Super AG structure members, enums.
+So I propose following design for ring buffer (quite simple):
+kernelspace maintains two indexes - to the first and the last events in
+the ring buffer (and maximum size of the buffer of course).
+When new event is marked as ready, some info is being copied into ring
+buffer and index of the last entry is increased.
+When event is being read through syscall it is _guaranteed_ that that 
+event will be at the position pointed by the index of the first
+element, that index is then increased (thus opening new slot in the
+buffer).
+If index of the last entry reaches (with possible wrapping) index of the
+first entry, that means that overflow has happend. In this case no new
+events can be copied into ring buffer, so they are only placed into
+ready queue (accessible through syscall kevent_get_events()).
 
-In struct ieee80211_tx_status the queue_length and queue_number could
-be useful outside the context of Super AG, so remove the comment and
-leave the members.
+When user calls kevent_get_events() it will obtain the first element
+(pointed by index of the first element in the ring buffer), and if there
+is ready event, which is not placed into the ring buffer, it is
+copied (with appropriate update of the last index and new overflow
+condition).
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
+When userspace calls kevent_wait(num), it means that userspace marks as
+ready first (from index of the first element) $num elements, which thus
+can be removed (or requeued) and replaced by pending ready events.
 
-Index: wireless-dev/include/net/d80211.h
-===================================================================
---- wireless-dev.orig/include/net/d80211.h
-+++ wireless-dev/include/net/d80211.h
-@@ -159,12 +159,6 @@ struct ieee80211_tx_control {
- 	unsigned int requeue:1;
- 	unsigned int first_fragment:1;	/* This is a first fragment of the
- 					 * frame */
--	 /* following three flags are only used with Atheros Super A/G */
--	unsigned int compress:1;
--	unsigned int turbo_prime_notify:1; /* notify HostAPd after frame
--					    * transmission */
--	unsigned int fast_frame:1;
--
-         unsigned int power_level:8; /* per-packet transmit power level, in dBm
- 				     */
- 	unsigned int antenna_sel:4; /* 0 = default/diversity,
-@@ -219,7 +213,6 @@ struct ieee80211_tx_status {
- 	int excessive_retries;
- 	int retry_count;
- 
--	/* following two fields are only used with Atheros Super A/G */
- 	int queue_length;      /* information about TX queue */
- 	int queue_number;
- };
-@@ -265,13 +258,6 @@ struct ieee80211_conf {
-         int antenna_def;
-         int antenna_mode;
- 
--	int atheros_super_ag_compression;
--	int atheros_super_ag_fast_frame;
--	int atheros_super_ag_burst;
--	int atheros_super_ag_wme_ele;
--	int atheros_super_ag_turbo_g;
--	int atheros_super_ag_turbo_prime;
--
- 	/* Following five fields are used for IEEE 802.11H */
- 	unsigned int radar_detect;
- 	unsigned int spect_mgmt;
-Index: wireless-dev/net/d80211/hostapd_ioctl.h
-===================================================================
---- wireless-dev.orig/net/d80211/hostapd_ioctl.h
-+++ wireless-dev/net/d80211/hostapd_ioctl.h
-@@ -182,10 +182,6 @@ struct prism2_hostapd_param {
- 			u16 aid;
- 			u16 capability;
- 			u8 supp_rates[32];
--			/* atheros_super_ag and enc_flags are only used with
--			 * IEEE80211_ATHEROS_SUPER_AG
--			 */
--			u8 atheros_super_ag;
- 			u8 wds_flags;
- #define IEEE80211_STA_DYNAMIC_ENC BIT(0)
- 			u8 enc_flags;
-Index: wireless-dev/include/net/d80211_shared.h
-===================================================================
---- wireless-dev.orig/include/net/d80211_shared.h
-+++ wireless-dev/include/net/d80211_shared.h
-@@ -19,9 +19,7 @@ enum {
- 	MODE_ATHEROS_TURBO = 2 /* Atheros Turbo mode (2x.11a at 5 GHz) */,
- 	MODE_IEEE80211G = 3 /* IEEE 802.11g (and 802.11b compatibility) */,
- 	MODE_ATHEROS_TURBOG = 4 /* Atheros Turbo mode (2x.11g at 2.4 GHz) */,
--	MODE_ATHEROS_PRIME = 5 /* Atheros Dynamic Turbo mode */,
--	MODE_ATHEROS_PRIMEG = 6 /* Atheros Dynamic Turbo mode G */,
--	NUM_IEEE80211_MODES = 7
-+	NUM_IEEE80211_MODES = 5
- };
- 
- #define IEEE80211_CHAN_W_SCAN 0x00000001
+Does it sound like clawing over the glass or much better?
+
+> Eric
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-- 
+	Evgeniy Polyakov
