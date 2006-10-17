@@ -1,56 +1,56 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [e1000]: flow control on by default - good idea really?
-Date: Tue, 17 Oct 2006 09:05:31 -0400
-Message-ID: <1161090331.5555.10.camel@jzny2>
-References: <44AC05A8.9030503@intel.com>
-	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
-	 <1152191018.5103.48.camel@jzny2>
-	 <20060706.235909.78729229.davem@davemloft.net>
-	 <1152275283.5341.144.camel@jzny2>  <4533D594.2070908@intel.com>
+Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling for
+	ATM/ADSL (kernel)
+Date: Tue, 17 Oct 2006 09:07:24 -0400
+Message-ID: <1161090444.5555.13.camel@jzny2>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
-	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
-	olel@ans.pl
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:39561 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750847AbWJQNFq
+Received: from mx02.cybersurf.com ([209.197.145.105]:30114 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750872AbWJQNH1
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 09:05:46 -0400
+	Tue, 17 Oct 2006 09:07:27 -0400
 Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GZodW-0006aG-Th
-	for netdev@vger.kernel.org; Tue, 17 Oct 2006 09:05:38 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <4533D594.2070908@intel.com>
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GZofJ-0006R3-40
+	for netdev@vger.kernel.org; Tue, 17 Oct 2006 09:07:29 -0400
+To: Russell Stuart <russell-tcatm@stuart.id.au>
+In-Reply-To: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-16-10 at 11:55 -0700, Auke Kok wrote:
-> jamal wrote:
-
-> > I think when the e1000 says via ethtool "rx is on" - it means that it 
-> > is _advertising_ flow control as opposed to detecting partner has flow
-> > control capability.
-> > Auke, can you also check this as well?
+On Tue, 2006-17-10 at 09:34 +1000, Russell Stuart wrote:
+> The Linux traffic's control engine inaccurately calculates
+> transmission times for packets sent over ADSL links.  For
+> some packet sizes the error rises to over 50%.  This occurs
+> because ADSL uses ATM as its link layer transport, and ATM
+> transmits packets in fixed sized 53 byte cells.
 > 
-> Just found this in my todo box - a bit late :(
+> This changes the kernel rate table lookup, to be able to lookup
+> packet transmission times over all ATM links, including ADSL,
+> with perfect accuracy. The accuracy is dependent on the rate
+> table that is calculated in userspace by iproute2 command tc.
 > 
-> yes, that appears to be the correct interpretation: we never read back the 
-> detected FC  state from the hardware.
+> A longer presentation of the patch, its rational, what it
+> does and how to use it can be found here:
+>    http://www.stuart.id.au/russell/files/tc/tc-atm/
 > 
+> A earlier version of the patch, and a _detailed_ empirical
+> investigation of its effects can be found here:
+>    http://www.adsl-optimizer.dk/
+> 
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> Signed-off-by: Russell Stuart <russell-tcatm@stuart.id.au>
 
-It sounds to me that ethttool needs to have this semantic fix.
-IOW, ethttool doesnt differentiate the two items:
-a) advertised parameters.
-b) link partner negotiated parameters.
+ACKed-by: Jamal Hadi Salim
 
-and instead #a becomes #b after negotiation.
-
-methinks this needs fixing. Dave? Jeff?
+When Patrick has his patch ready after this goes in we can revisit.
 
 cheers,
 jamal
