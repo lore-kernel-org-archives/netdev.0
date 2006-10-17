@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH zero-copy send completion callback
-Date: Tue, 17 Oct 2006 14:45:03 -0700 (PDT)
-Message-ID: <20061017.144503.91315349.davem@davemloft.net>
-References: <200610171101.38690.dada1@cosmosbay.com>
-	<020d01c6f1e7$029beb70$0281a8c0@ebpc>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Tue, 17 Oct 2006 14:46:34 -0700 (PDT)
+Message-ID: <20061017.144634.45875814.davem@davemloft.net>
+References: <1152275283.5341.144.camel@jzny2>
+	<4533D594.2070908@intel.com>
+	<1161090331.5555.10.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
+	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
+	olel@ans.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:62910
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63678
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750884AbWJQVo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 17:44:59 -0400
-To: eeb@bartonsoftware.com
-In-Reply-To: <020d01c6f1e7$029beb70$0281a8c0@ebpc>
+	id S1750900AbWJQVq3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 17:46:29 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1161090331.5555.10.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Eric Barton" <eeb@bartonsoftware.com>
-Date: Tue, 17 Oct 2006 13:23:10 +0100
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 17 Oct 2006 09:05:31 -0400
 
-> > Even if your two pointers addition (16 bytes on x86_64) 
-> > doesnt cross a 64bytes 
-> > line (I didn't checked), they are going to be set to NULL 
-> > each time a skbuff 
-> > is allocated , and checked against NULL each time a skbuff is 
-> > destroyed.
+> It sounds to me that ethttool needs to have this semantic fix.
+> IOW, ethttool doesnt differentiate the two items:
+> a) advertised parameters.
+> b) link partner negotiated parameters.
 > 
-> Indeed.  Do you think that's significant?
+> and instead #a becomes #b after negotiation.
+> 
+> methinks this needs fixing. Dave? Jeff?
 
-On a machine routing a million packets per second, it
-definitely is.  It is the most crucial data structure
-for performance in all of the networking.
+The way I understand it the ethernet autonegotiation mechanisms don't
+really give you a way to seperate these two things.
+
+Either you negotiate the link and flow control settings, or nothing.
