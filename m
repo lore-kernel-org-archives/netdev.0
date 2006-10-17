@@ -1,84 +1,92 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: PATCH zero-copy send completion callback
-Date: Tue, 17 Oct 2006 17:13:46 +0400
-Message-ID: <20061017131345.GA20225@2ka.mipt.ru>
-References: <021a01c6f1ea$c45e1820$0281a8c0@ebpc>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Tue, 17 Oct 2006 15:19:36 +0200
+Message-ID: <200610171519.37051.dada1@cosmosbay.com>
+References: <11587449471424@2ka.mipt.ru> <453465B6.1000401@densedata.com> <20061017103940.GA19246@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "'David Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: Johann Borck <johann.borck@densedata.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37029 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750890AbWJQNNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:13:51 -0400
-To: Eric Barton <eeb@bartonsoftware.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:979 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1750897AbWJQNTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:19:37 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061017103940.GA19246@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <021a01c6f1ea$c45e1820$0281a8c0@ebpc>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2006 at 01:50:04PM +0100, Eric Barton (eeb@bartonsoftware.com) wrote:
-> Evgeniy,
-> 
-> > You can use existing skb destructor and appropriate reference
-> > counter is already there. In your own destructor you need to
-> > call old one of course, and it's type can be determined from
-> > the analysis of the headers and skb itself (there are not so
-> > much destructor's types actually).  If that level of
-> > abstraction is not enough, it is possible to change
-> > skb_release_data()/__kfree_skb() so that it would be possible
-> > in skb->destructor() to determine if attached pages will be
-> > freed or not.
-> 
-> Yes absolutely.  My first thought was to use the skbuf destructor
-> but I was paranoid I might screw up the destructor stacking.
-> Maybe I should have been braver?
+On Tuesday 17 October 2006 12:39, Evgeniy Polyakov wrote:
 
-It depends on the results quality...
+> I can add such notification, but its existense _is_ the broken design.
+> After such condition happend, all new events will dissapear (although
+> they are still accessible through usual queue) from mapped buffer.
+>
+> While writing this I have come to the idea on how to imrove the case of
+> the size of mapped buffer - we can make it with limited size, and when
+> it is full, some bit will be set in the shared area and obviously no new
+> events can be added there, but when user commits some events from that
+> buffer (i.e. says to kernel that appropriate kevents can be freed or
+> requeued according to theirs flags), new ready events from ready queue
+> can be copied into mapped buffer.
+>
+> It still does not solve (and I do insist that it is broken behaviour)
+> the case when kernel is going to generate infinite number of events for
+> one requested by userspace (as in case of generating new 'data_has_arrived'
+> event when new byte has been received).
 
-> Since the callback descriptor needs to track the pages in
-> skb_shinfo() rather than the skbuf itself, it seemed "natural"
-> to make skb_release_data() the trigger.
-> 
-> > Existing sendfile() implementation is synchronous, it does not
-> > require async callback. 
-> 
-> Is it not true that you cannot know when it is safe to overwrite
-> pages sent in this way?
+Behavior is not broken. It's quite usefull and works 99.9999% of time.
 
-There are tricks all over the place in sendfile. First one is sendpage()
-imeplementation, which copies data if hardware does not support
-checksumming and scater-gather, and simultaneous writing is "protected" in
-the higher layer (check do_generic_mapping_read()). We do not care about
-'later' writing, i.e. while skb was in some queue on the local machine,
-since new data will be transferred in that case.
-truncation is also protected by the fact, that page's reference counter
-is increased, so the same page can not be freed and reused.
+I was trying to suggest you but you missed my point.
 
-It was design decision not to care about page overwrites (and thus no
-page locking) - either smart hardware transfers new data, or we do copy 
-and send old data.
+You dont want to use a bit, but a full sequence counter, 32bits.
 
-> > skbs are allocated from own cache, and the smaller it is, the better.
-> 
-> As I mentioned in another reply, skbs are indeed allocated from
-> their own cache, but skb_shinfo() is allocated contiguously with
-> the packet header using kmalloc.
+A program may handle XXX.XXX handles, but use a 4096 entries ring 
+buffer 'only'.
 
-Yes, skb itself is not touched.
+The user program keeps a local copy of a special word 
+named 'ring_buffer_full_counter'
 
-You probably saw a lot of discussions about problems with e1000
-hardware, memory fragmentation and jumbo frames.
-Since skb_shared_info is added to the actual data, it frequently forces
-next order allocations, so one of the solution is to put skb_shared_info
-into separate allocations in some cases, although those discussions are
-sleeping right now, problem still exists and if your current needs can
-be handled within existing interfaces it should be tried first.
+Each time the kernel cannot queue an event in the ring buffer, it increase 
+the "ring_buffer_was_full_counter" (exported to user app in the mmap view)
 
-> -- 
-> 
->                 Cheers,
->                         Eric
-> 
+When the user application notice the kernel 
+changed "ring_buffer_was_full_counter" it does a full scan of all file 
+handles (preferably using poll() to get all relevant info in one syscall) :
 
--- 
-	Evgeniy Polyakov
+do {
+   if (read_event_from_mmap()) {handle_event(fd); continue;}
+   /* ring buffer is empty, check if we missed some events */
+   if (unlikely(mmap->ring_buffer_full_counter !=  
+my_ring_buffer_full_counter)) {
+	my_ring_buffer_full_counter = mmap->ring_buffer_full_counter;
+	/* slow PATH */
+	/* can use a big poll() for example, or just a loop without poll() */
+	for_all_file_desc_do() {
+		check if some event/data is waiting on THIS fd
+		}
+	/* 
+	}
+    else  syscall_wait_for_one_available_kevent(queue)
+}
+
+This is how a program can recover. If ring buffer has a reasonable size, this 
+kind of event should not happen very frequently. If it does (because events 
+continue to fill ring_buffer during recovery and might hit FULL again), maybe 
+a smart program is able to resize the ring_buffer, and start using it after 
+yet another recovery pass.
+If not, we dont care, because a big poll() give us many ready file-descriptors 
+in one syscall, and maybe this is much better than kevent/epoll when XX.XXX 
+events are ready.
+
+Eric
