@@ -1,44 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 13/13] [RFC] [IPV6] Fix source prefix routing problems when source address undefined.
-Date: Tue, 17 Oct 2006 14:34:15 +0200
-Message-ID: <20061017123415.GO12964@postel.suug.ch>
-References: <20061017101402.GM12964@postel.suug.ch> <20061017.200005.70903049.yoshfuji@linux-ipv6.org> <20061017113511.GN12964@postel.suug.ch> <20061017.211730.51920084.yoshfuji@linux-ipv6.org>
+From: "Eric Barton" <eeb@bartonsoftware.com>
+Subject: RE: PATCH zero-copy send completion callback
+Date: Tue, 17 Oct 2006 13:50:04 +0100
+Message-ID: <021a01c6f1ea$c45e1820$0281a8c0@ebpc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vnuorval@tcs.hut.fi, davem@davemloft.net, kim.nordlund@nokia.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'David Miller'" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:23783 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1750738AbWJQMdz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 08:33:55 -0400
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20061017.211730.51920084.yoshfuji@linux-ipv6.org>
+Received: from smtp-out4.blueyonder.co.uk ([195.188.213.7]:1720 "EHLO
+	smtp-out4.blueyonder.co.uk") by vger.kernel.org with ESMTP
+	id S1750738AbWJQMuH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 08:50:07 -0400
+To: "'Evgeniy Polyakov'" <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org> 2006-10-17 21:17
-> In article <20061017113511.GN12964@postel.suug.ch> (at Tue, 17 Oct 2006 13:35:11 +0200), Thomas Graf <tgraf@suug.ch> says:
-> 
-> :
-> > different logic. In order to solve this, rules must be restricted to
-> > one of these paths, i.e. a rule intending to make certain prefixes
-> > unreachable may not apply to the source selection logic. This can be
-> > achieved using the 'reason' field I proposed in my netconf slides, it
-> > would allow turning the first rule example into
-> > 
-> > 	rule add from 2001::1/128 for INPUT unreachable
-> > 
-> > which would no longer apply when looking up the source address or
-> > deciding the outgoing route.
-> 
-> And/or, to take into account input interface, we could do
-> 	rule add from 2001::1/128 in eth0 unreachable
-> maybe.
+Evgeniy,
 
-Right, that works as well but duplicating the rule for every
-interface is not very practical.
+> You can use existing skb destructor and appropriate reference
+> counter is already there. In your own destructor you need to
+> call old one of course, and it's type can be determined from
+> the analysis of the headers and skb itself (there are not so
+> much destructor's types actually).  If that level of
+> abstraction is not enough, it is possible to change
+> skb_release_data()/__kfree_skb() so that it would be possible
+> in skb->destructor() to determine if attached pages will be
+> freed or not.
 
-Anyways, the point is that the proposed change to modify the
-source prefix matching logic is not acceptable and other way
-has to be found.
+Yes absolutely.  My first thought was to use the skbuf destructor
+but I was paranoid I might screw up the destructor stacking.
+Maybe I should have been braver?
+
+Since the callback descriptor needs to track the pages in
+skb_shinfo() rather than the skbuf itself, it seemed "natural"
+to make skb_release_data() the trigger.
+
+> Existing sendfile() implementation is synchronous, it does not
+> require async callback. 
+
+Is it not true that you cannot know when it is safe to overwrite
+pages sent in this way?
+
+> skbs are allocated from own cache, and the smaller it is, the better.
+
+As I mentioned in another reply, skbs are indeed allocated from
+their own cache, but skb_shinfo() is allocated contiguously with
+the packet header using kmalloc.
+
+-- 
+
+                Cheers,
+                        Eric
+
+
