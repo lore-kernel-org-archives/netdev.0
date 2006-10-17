@@ -1,72 +1,84 @@
-From: Chase Venters <chase.venters@clientec.com>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Tue, 17 Oct 2006 08:12:04 -0500
-Message-ID: <200610170812.28027.chase.venters@clientec.com>
-References: <11587449471424@2ka.mipt.ru> <200610170100.10500.chase.venters@clientec.com> <20061017104242.GB19246@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: PATCH zero-copy send completion callback
+Date: Tue, 17 Oct 2006 17:13:46 +0400
+Message-ID: <20061017131345.GA20225@2ka.mipt.ru>
+References: <021a01c6f1ea$c45e1820$0281a8c0@ebpc>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: Johann Borck <johann.borck@densedata.com>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: "'David Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay01.pair.com ([209.68.5.15]:43017 "HELO relay01.pair.com")
-	by vger.kernel.org with SMTP id S1750880AbWJQNMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:12:41 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061017104242.GB19246@2ka.mipt.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37029 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750890AbWJQNNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:13:51 -0400
+To: Eric Barton <eeb@bartonsoftware.com>
 Content-Disposition: inline
+In-Reply-To: <021a01c6f1ea$c45e1820$0281a8c0@ebpc>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 October 2006 05:42, Evgeniy Polyakov wrote:
-> On Tue, Oct 17, 2006 at 12:59:47AM -0500, Chase Venters 
-(chase.venters@clientec.com) wrote:
-> > On Tuesday 17 October 2006 00:09, Johann Borck wrote:
-> > > Regarding mukevent I'm thinking of a event-type specific struct, that
-> > > is filled by the originating code, and placed into a per-event-type
-> > > ring buffer (which  requires modification of kevent_wait).
-> >
-> > I'd personally worry about an implementation that used a per-event-type
-> > ring buffer, because you're still left having to hack around starvation
-> > issues in user-space. It is of course possible under the current model
-> > for anyone who wants per-event-type ring buffers to have them - just make
-> > separate kevent sets.
-> >
-> > I haven't thought this through all the way yet, but why not have variable
-> > length event structures and have the kernel fill in a "next" pointer in
-> > each one? This could even be used to keep backwards binary compatibility
-> > while
->
-> Why do we want variable size structures in mmap ring buffer?
+On Tue, Oct 17, 2006 at 01:50:04PM +0100, Eric Barton (eeb@bartonsoftware.com) wrote:
+> Evgeniy,
+> 
+> > You can use existing skb destructor and appropriate reference
+> > counter is already there. In your own destructor you need to
+> > call old one of course, and it's type can be determined from
+> > the analysis of the headers and skb itself (there are not so
+> > much destructor's types actually).  If that level of
+> > abstraction is not enough, it is possible to change
+> > skb_release_data()/__kfree_skb() so that it would be possible
+> > in skb->destructor() to determine if attached pages will be
+> > freed or not.
+> 
+> Yes absolutely.  My first thought was to use the skbuf destructor
+> but I was paranoid I might screw up the destructor stacking.
+> Maybe I should have been braver?
 
-Flexibility primarily. So when we all decide to add a new event type six 
-months from now, or add more information to an existing one, we don't run the 
-risk that the existing mukevent isn't big enough.
+It depends on the results quality...
 
-> > adding additional fields to the structures over time, though no space
-> > would be wasted on modern programs. You still end up with a question of
-> > what to do in case of overflow, but I'm thinking the thing to do in that
-> > case might be to start pushing overflow events onto a linked list which
-> > can be written back into the ring buffer when space becomes available.
-> > The appropriate behavior would be to throw new events on the linked list
-> > if the linked list had any events, so that things are delivered in order,
-> > but write to the mapped buffer directly otherwise.
->
-> I think in a similar way.
-> Kevent actually do not require such list, since it has already queue of
-> the ready events.
+> Since the callback descriptor needs to track the pages in
+> skb_shinfo() rather than the skbuf itself, it seemed "natural"
+> to make skb_release_data() the trigger.
+> 
+> > Existing sendfile() implementation is synchronous, it does not
+> > require async callback. 
+> 
+> Is it not true that you cannot know when it is safe to overwrite
+> pages sent in this way?
 
-The current event types coalesce if there are multiple events, correct? It 
-sounds like there may be other event types where coalescing multiple events 
-is not the correct approach.
+There are tricks all over the place in sendfile. First one is sendpage()
+imeplementation, which copies data if hardware does not support
+checksumming and scater-gather, and simultaneous writing is "protected" in
+the higher layer (check do_generic_mapping_read()). We do not care about
+'later' writing, i.e. while skb was in some queue on the local machine,
+since new data will be transferred in that case.
+truncation is also protected by the fact, that page's reference counter
+is increased, so the same page can not be freed and reused.
 
-Thanks,
-Chase
+It was design decision not to care about page overwrites (and thus no
+page locking) - either smart hardware transfers new data, or we do copy 
+and send old data.
+
+> > skbs are allocated from own cache, and the smaller it is, the better.
+> 
+> As I mentioned in another reply, skbs are indeed allocated from
+> their own cache, but skb_shinfo() is allocated contiguously with
+> the packet header using kmalloc.
+
+Yes, skb itself is not touched.
+
+You probably saw a lot of discussions about problems with e1000
+hardware, memory fragmentation and jumbo frames.
+Since skb_shared_info is added to the actual data, it frequently forces
+next order allocations, so one of the solution is to put skb_shared_info
+into separate allocations in some cases, although those discussions are
+sleeping right now, problem still exists and if your current needs can
+be handled within existing interfaces it should be tried first.
+
+> -- 
+> 
+>                 Cheers,
+>                         Eric
+> 
+
+-- 
+	Evgeniy Polyakov
