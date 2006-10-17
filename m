@@ -1,59 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 13/13] [RFC] [IPV6] Fix source prefix routing problems when source address undefined.
-Date: Tue, 17 Oct 2006 12:14:02 +0200
-Message-ID: <20061017101402.GM12964@postel.suug.ch>
-References: <4534237B.9090205@tcs.hut.fi>
+From: Mitsuru Chinen <mitch@jp.ibm.com>
+Subject: Re: [PATCH 7/13] [RFC] [IPV6] Move source address selection into
+ route lookup.
+Date: Tue, 17 Oct 2006 19:14:00 +0900
+Message-ID: <4534ACE8.3070806@jp.ibm.com>
+References: <4534201D.7070002@tcs.hut.fi>	<20061016.222223.26532234.davem@davemloft.net>	<45348DD4.4000600@6wind.com> <20061017.175231.45194288.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	kim.nordlund@nokia.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jean-mickael.guerin@6wind.com, davem@davemloft.net,
+	vnuorval@tcs.hut.fi, tgraf@suug.ch, kim.nordlund@nokia.com,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:36325 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932173AbWJQKNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 06:13:41 -0400
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Content-Disposition: inline
-In-Reply-To: <4534237B.9090205@tcs.hut.fi>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:28651 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932179AbWJQKOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 06:14:16 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k9HAEFGN000994
+	for <netdev@vger.kernel.org>; Tue, 17 Oct 2006 06:14:15 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9HAEFOT127828
+	for <netdev@vger.kernel.org>; Tue, 17 Oct 2006 06:14:15 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9HAEE81002738
+	for <netdev@vger.kernel.org>; Tue, 17 Oct 2006 06:14:15 -0400
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061017.175231.45194288.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Ville Nuorvala <vnuorval@tcs.hut.fi> 2006-10-17 03:27
-> @@ -123,7 +111,7 @@ static int fib6_rule_match(struct fib_ru
->  		return 0;
-> 
->  	if (r->src.plen) {
-> -		if (!(flags & RT6_LOOKUP_F_HAS_SADDR) ||
-> +		if (flags & RT6_LOOKUP_F_HAS_SADDR &&
->  		    !ipv6_prefix_equal(&fl->fl6_src, &r->src.addr, r->src.plen))
->  			return 0;
->  	}
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <45348DD4.4000600@6wind.com> (at Tue, 17 Oct 2006 10:01:24=
+ +0200), Jean-Mickael Guerin <jean-mickael.guerin@6wind.com> says:
+>=20
+>>> Although this conversion is very clean and the next patch
+>>> is very logic, I'm going to hold on all patches from 7 onward
+>>> so there is some time for some discussion of the RFC'ness
+>>> of them :-)
+>>>
+>> With regard to RFC'ness, passing self tests TAHI "Ready Logo 2" with=
+=20
+>> SUBTREE
+>> turned on could be a valuable feedback.
+>=20
+> Have you done it?
+>=20
+> We've been trying to pass that, but we failed to compile;
+> we probably used wrong tree...
 
-This is wrong, rules matching on a source prefix must fail if no
-source address is available.
+Excuse me. I overlooked an error message from patch command.
+When I appiled the patch manually, we could compile them.
 
->  static struct rt6_info *ip6_pol_route_output(struct fib6_table *table,
-> -					     struct flowi *fl, int flags)
-> +					     struct flowi *fl, int flags,
-> +					     struct fib6_rule *rule)
->  {
->  	struct fib6_node *fn;
->  	struct rt6_info *rt, *nrt;
-> @@ -730,6 +733,16 @@ static struct rt6_info *ip6_pol_route_ou
->  	struct in6_addr saddr;
-> 
->  	ipv6_addr_copy(&saddr, &fl->fl6_src);
-> +#ifdef CONFIG_IPV6_SUBTREES
-> +	if (!has_saddr && rule->src.plen > 0) {
-> +		/* a source prefix specific policy rule has to override the
-> +		   normal source address selection process */
-> +		if (ipv6_get_saddr(fl->oif, &fl->fl6_dst, &rule->src, &saddr))
-> +			goto no_saddr;
-> +		has_saddr = RT6_LOOKUP_F_HAS_SADDR;
-> +		ipv6_addr_copy(&fl->fl6_src, &saddr);
-> +	}
-> +#endif
->  relookup:
->  	read_lock_bh(&table->tb6_lock);
+We will double-check these patches with TAHI, either.
+And then, we will report the results.
 
-I can see why you want the above change but we have to find another way.
+Best Regards,
+--=20
+Mitsuru Chinen <mitch@jp.ibm.com>
+
