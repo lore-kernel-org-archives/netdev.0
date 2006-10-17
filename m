@@ -1,47 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Bound TSO defer time (resend)
-Date: Mon, 16 Oct 2006 22:35:13 -0700 (PDT)
-Message-ID: <20061016.223513.35356292.davem@davemloft.net>
-References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu>
-	<20061016202035.6d55b96e@localhost.localdomain>
-	<45345999.4000300@psc.edu>
+From: Chase Venters <chase.venters@clientec.com>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Tue, 17 Oct 2006 00:59:47 -0500
+Message-ID: <200610170100.10500.chase.venters@clientec.com>
+References: <11587449471424@2ka.mipt.ru> <4532C2C5.6080908@redhat.com> <453465B6.1000401@densedata.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16833
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423115AbWJQFfM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 01:35:12 -0400
-To: jheffner@psc.edu
-In-Reply-To: <45345999.4000300@psc.edu>
-Sender: netdev-owner@vger.kernel.org
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423126AbWJQGAY@vger.kernel.org>
+To: Johann Borck <johann.borck@densedata.com>
+In-Reply-To: <453465B6.1000401@densedata.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Tue, 17 Oct 2006 00:18:33 -0400
+On Tuesday 17 October 2006 00:09, Johann Borck wrote:
+> Regarding mukevent I'm thinking of a event-type specific struct, that is
+> filled by the originating code, and placed into a per-event-type ring
+> buffer (which  requires modification of kevent_wait).
 
-> Stephen Hemminger wrote:
-> > On Mon, 16 Oct 2006 20:53:20 -0400 (EDT)
-> > John Heffner <jheffner@psc.edu> wrote:
-> 
-> >> This patch limits the amount of time you will defer sending a TSO segment
-> >> to less than two clock ticks, or the time between two acks, whichever is
-> >> longer.
-> 
-> > 
-> > Okay, but doing any timing on clock ticks makes the behavior dependent
-> > on the value of HZ which doesn't seem desirable. Should this be based
-> > on RTT or a real-time values?
-> 
-> It would be nice to use a high res clock so you don't depend on HZ, but 
-> this is still expensive on most SMP arch's as I understand it.
+I'd personally worry about an implementation that used a per-event-type ring 
+buffer, because you're still left having to hack around starvation issues in 
+user-space. It is of course possible under the current model for anyone who 
+wants per-event-type ring buffers to have them - just make separate kevent 
+sets.
 
-Right so we do need to use a jiffies based solution.
+I haven't thought this through all the way yet, but why not have variable 
+length event structures and have the kernel fill in a "next" pointer in each 
+one? This could even be used to keep backwards binary compatibility while 
+adding additional fields to the structures over time, though no space would 
+be wasted on modern programs. You still end up with a question of what to do 
+in case of overflow, but I'm thinking the thing to do in that case might be 
+to start pushing overflow events onto a linked list which can be written back 
+into the ring buffer when space becomes available. The appropriate behavior 
+would be to throw new events on the linked list if the linked list had any 
+events, so that things are delivered in order, but write to the mapped buffer 
+directly otherwise.
 
-Since HZ is variable, I have a feeling that the thing to do here
-is pick some timeout in msec.  Then replace the "2 clock ticks"
-with some msec_to_jiffies() calls, bottoming out at 1 jiffie.
+Deciding when to do that is tricky, and I haven't thought through the 
+implications fully when I say this, but what about activating a bottom half 
+when more space becomes available, and let that drain overflowed events back 
+into the mapped buffer? Or perhaps the time to do it would be in the next 
+blocking wait, when the queue emptied? 
 
-How does that sound?
+I think it is very important to avoid any limits that can not be adjusted on 
+the fly at run-time by CAP_SYS_ADMIN or what have you. Doing it this way may 
+have other problems I've ignored but at least the big one - compile-time 
+capacity limits in the year 2006 - would be largely avoided :P
+
+Nothing real solid yet, just some electrical storms in the grey matter...
+
+Thanks,
+Chase
