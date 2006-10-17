@@ -1,57 +1,97 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH wireless-dev] add p54 driver
-Date: Tue, 17 Oct 2006 11:51:15 -0400
-Message-ID: <200610171151.20363.flamingice@sourmilk.net>
-References: <200610171105.34912.flamingice@sourmilk.net> <1161099828.5668.7.camel@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Tue, 17 Oct 2006 20:01:55 +0400
+Message-ID: <20061017160155.GA18522@2ka.mipt.ru>
+References: <11587449471424@2ka.mipt.ru> <200610171625.00515.dada1@cosmosbay.com> <20061017150929.GA2288@2ka.mipt.ru> <200610171732.28640.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1978242.maHBl908WG";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:56162 "EHLO
-	annwn13.rutgers.edu") by vger.kernel.org with ESMTP
-	id S1751134AbWJQPwW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 11:52:22 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1161099828.5668.7.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Johann Borck <johann.borck@densedata.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751267AbWJQQDK@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Disposition: inline
+In-Reply-To: <200610171732.28640.dada1@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1978242.maHBl908WG
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Tue, Oct 17, 2006 at 05:32:28PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> > So the most complex case is when user is going to use both interfaces,
+> > and it's steps when mapped ring buffer has overflow.
+> > In that case user can either read and mark some events as ready in ring
+> > buffer (the latter is being done through special syscall), so kevent
+> > core will put there new ready events.
+> > User can also get events using usual syscall, in that case events in
+> > ring buffer must be updated - and actually I implemented mapped buffer
+> > in the way which allows to remove events from the queue - queue is a
+> > FIFO, and the first entry to be obtained through syscall is _always_ the
+> > first entry in the ring buffer.
+> >
+> > So when user reads event through syscall (no matter if we are in overflow
+> > case or not), even being read is easily accessible in the ring buffer.
+> >
+> > So I propose following design for ring buffer (quite simple):
+> > kernelspace maintains two indexes - to the first and the last events in
+> > the ring buffer (and maximum size of the buffer of course).
+> > When new event is marked as ready, some info is being copied into ring
+> > buffer and index of the last entry is increased.
+> > When event is being read through syscall it is _guaranteed_ that that
+> > event will be at the position pointed by the index of the first
+> > element, that index is then increased (thus opening new slot in the
+> > buffer).
+> > If index of the last entry reaches (with possible wrapping) index of the
+> > first entry, that means that overflow has happend. In this case no new
+> > events can be copied into ring buffer, so they are only placed into
+> > ready queue (accessible through syscall kevent_get_events()).
+> >
+> > When user calls kevent_get_events() it will obtain the first element
+> > (pointed by index of the first element in the ring buffer), and if there
+> > is ready event, which is not placed into the ring buffer, it is
+> > copied (with appropriate update of the last index and new overflow
+> > condition).
+> 
+> Well, I'm not sure its good to do this 'move one event from ready list to slot 
+> X', one by one, because this event will likely be flushed out of processor 
+> cache (because we will have to consume 4096 events before reaching this one). 
+> I think its better to batch this kind of 'push XX events' later, XX being 
+> small enough not to waste CPU cache, and when ring buffer is empty again.
 
-On Tuesday 17 October 2006 11:43, Dan Williams wrote:
-> On Tue, 2006-10-17 at 11:05 -0400, Michael Wu wrote:
-> > The attached patch adds support for 3887 based prism54 usb wireless
-> > adaptors. It is partially based on the islsm driver by Jean-Baptiste
-> > Note, but most of the code is new (and uses d80211 instead of madwifi).
-> > It doesn't work perfectly yet, but it can connect to an unsecure AP and
-> > send/receive packets as long as you don't hit the tx code too hard.
-> > Further hardware support for pci and net2280 usb will follow later. Also,
-> > I am unable to make it crash. Thus, it should be in a suitable state for
-> > other developers to hack on.
->
-> I'm assuming this is for the softmac prism54 chipset, right?
->
-Yes.
+Ok, that's possible.
 
--Michael Wu
+> mmap buffer is good for latency and minimum synchro between user thread and 
+> kernel producer. But once we hit an 'overflow', it is better to revert to a 
+> mode feeding XX events per syscall, to be sure it fits CPU caches : The user 
+> thread will do the copy between kernel memory to user memory, and this thread 
+> will shortly use those events in user land.
 
---nextPart1978242.maHBl908WG
-Content-Type: application/pgp-signature
+User can do both - either get events through syscall, or get them from
+mapped ring buffer when it is refilled.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+> BTW, maintaining coherency on mmap buffer is expensive : once a event is 
+> copied to mmap buffer, kernel has to issue a smp_mb() before updating the 
+> index, so that a user thread wont start to consume an event with random 
+> values because its CPU see the update on index before updates on data.
 
-iD8DBQBFNPv4T3Oqt9AH4aERAn3sAJ9ZFknHbc/FrN0WWeN2NDIYqGV+LACeMm/e
-WIEuFDNfG3+nvUgpJQYUuxQ=
-=EE7/
------END PGP SIGNATURE-----
+There will be some tricks with barriers indeed.
 
---nextPart1978242.maHBl908WG--
+> Once all the queue is flushed in efficient way, we can switch to mmap mode 
+> again.
+> 
+> Eric
+
+Ok, there is one apologist for mmap buffer implementation, who forced me
+to create first implementation, which was dropped due to absense of
+remote mental reading abilities. 
+Ulrich, does above approach sound good for you? 
+I actually do not want to reimplement something, that will be
+pointed to with words 'no matter what you say, it is broken and I do not 
+want it' again :).
+
+-- 
+	Evgeniy Polyakov
