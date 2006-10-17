@@ -1,52 +1,58 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 3/8] e1000: FIX: fix wrong txdctl threshold bitmasks
-Date: Tue, 17 Oct 2006 12:02:39 -0700
-Message-ID: <20061017190239.4194.37827.stgit@gitlost.site>
-References: <20061017190139.4194.20128.stgit@gitlost.site>
+Subject: [PATCH 0/8] e100, e1000: Fixes for netdev-2.6#upstream-fixes
+Date: Tue, 17 Oct 2006 12:01:39 -0700
+Message-ID: <20061017190139.4194.20128.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kok, Auke" <auke-jan.h.kok@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:16910 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1751433AbWJQSxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 14:53:53 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:14862 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751427AbWJQSxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 14:53:46 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20061017190139.4194.20128.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Threshold bitmasks for prefetch, host and writeback were clearing
-bits that they were not supposed to. The leftmost 2 bits in the byte
-for each threshold are reserved.
+Hi,
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+The following fixes targeted to netdev-2.6#upstream-fixes are available
+through git:
+
+git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
+
+And apply against 4a1d2d81fa327d095a0a8a1f961bace5b0a2f7da
+
+Cheers,
+
+Auke
+
+
 ---
 
- drivers/net/e1000/e1000_hw.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Jesse Brandeburg <jesse.brandeburg@intel.com>:
+     e1000: FIX: don't poke at manageability registers for incompatible adapters
+     e1000: FIX: disable LPE for IPV6, only enable for jumbo frames
+     e1000: FIX: Don't limit descriptor size to 4kb for PCI-E adapters
+     e1000: FIX: move length adjustment due to crc stripping disabled.
 
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index 112447f..449a603 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -1961,9 +1961,9 @@ struct e1000_hw {
- #define E1000_RXDCTL_GRAN    0x01000000 /* RXDCTL Granularity */
- 
- /* Transmit Descriptor Control */
--#define E1000_TXDCTL_PTHRESH 0x000000FF /* TXDCTL Prefetch Threshold */
--#define E1000_TXDCTL_HTHRESH 0x0000FF00 /* TXDCTL Host Threshold */
--#define E1000_TXDCTL_WTHRESH 0x00FF0000 /* TXDCTL Writeback Threshold */
-+#define E1000_TXDCTL_PTHRESH 0x0000003F /* TXDCTL Prefetch Threshold */
-+#define E1000_TXDCTL_HTHRESH 0x00003F00 /* TXDCTL Host Threshold */
-+#define E1000_TXDCTL_WTHRESH 0x003F0000 /* TXDCTL Writeback Threshold */
- #define E1000_TXDCTL_GRAN    0x01000000 /* TXDCTL Granularity */
- #define E1000_TXDCTL_LWTHRESH 0xFE000000 /* TXDCTL Low Threshold */
- #define E1000_TXDCTL_FULL_TX_DESC_WB 0x01010000 /* GRAN=1, WTHRESH=1 */
+Bruce Allan <bruce.w.allan@intel.com>:
+     e1000: FIX: fix wrong txdctl threshold bitmasks
 
+Auke Kok <auke-jan.h.kok@intel.com>:
+     e1000: FIX: 82542 doesn't support WoL
+     e1000: Increment version to 7.2.9-k4
+     e100: FIX: fix netconsole fast reboot attached to e100
+
+---
+
+ drivers/net/e100.c                |   52 +++++++++++++++++++++++---------------
+ drivers/net/e1000/e1000_ethtool.c |    4 ++
+ drivers/net/e1000/e1000_hw.h      |    6 ++--
+ drivers/net/e1000/e1000_main.c    |   41 ++++++++++++++++++++---------
+ 4 files changed, 66 insertions(+), 37 deletions(-)
 
 
 ---
