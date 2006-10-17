@@ -1,1116 +1,1847 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Please pull 'upstream-fixes' branch of wireless-2.6
-Date: Tue, 17 Oct 2006 17:34:18 -0400
-Message-ID: <20061017213412.GD32614@tuxdriver.com>
+Subject: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 17 Oct 2006 17:35:57 -0400
+Message-ID: <20061017213557.GE32614@tuxdriver.com>
+References: <20061017213412.GD32614@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:14091 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1750765AbWJQVfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 17:35:37 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:14859 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1750787AbWJQVgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 17:36:54 -0400
 To: jeff@garzik.org
 Content-Disposition: inline
+In-Reply-To: <20061017213412.GD32614@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 51018b0a3160d253283173c2f54f16746cee5852:
-  Ulrich Drepper:
-        make UML compile (FC6/x86-64)
+The following changes since commit 41072a1be57f63bf83afc31c44d72de018d800fa:
+  John W. Linville:
+        zd1211rw: fix build-break caused by association race fix
 
 are found in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
 
-Dave Kleikamp:
-      airo: check if need to freeze
+Alexey Dobriyan:
+      prism54: use BUILD_BUG_ON
 
-Eric Sesterhenn:
-      zd1201: Possible NULL dereference
+Daniel Drake:
+      zd1211rw: Add 3 more device IDs
+      ieee80211: Move IV/ICV stripping into ieee80211_rx
 
-Florin Malita:
-      airo.c: check returned values
+Dmitry Torokhov:
+      atmel: save on array initialization
+      atmel: use ARRAY_SIZE()
+      atmel: whitespace cleanup
+      prism54: fix potential race in reset scheduling
+      prism54: whitespace cleanup
 
-Jean Tourrilhes:
-      orinoco: fix WE-21 buffer overflow
-      wireless: More WE-21 potential overflows...
-
-John W. Linville:
-      zd1211rw: fix build-break caused by association race fix
+Holden Karau:
+      atmel: output signal strength information
 
 Larry Finger:
-      bcm43xx-softmac: check returned value from pci_enable_device
-      bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
+      bcm43xx: output proper link quality with scans
+      ieee80211: Drop and count duplicate data frames to remove 'replay detected' log messages
 
-Laurent Riffard:
-      sotftmac: fix a slab corruption in WEP restricted key association
+matthieu castet:
+      ieee80211: allow mtu bigger than 1500
 
-Michael Buesch:
-      bcm43xx: fix race condition in periodic work handler
-      softmac: Fix WX and association related races
+Stefano Brivio:
+      bcm43xx: add PCI-E code
 
- drivers/net/wireless/airo.c                     |  105 +++++++++++++++++------
- drivers/net/wireless/atmel.c                    |    2 
- drivers/net/wireless/bcm43xx/bcm43xx_dma.c      |   28 +++++-
- drivers/net/wireless/bcm43xx/bcm43xx_dma.h      |   17 ++++
- drivers/net/wireless/bcm43xx/bcm43xx_leds.c     |    2 
- drivers/net/wireless/bcm43xx/bcm43xx_main.c     |   34 +++----
- drivers/net/wireless/bcm43xx/bcm43xx_wx.c       |    2 
- drivers/net/wireless/orinoco.c                  |   16 ++--
- drivers/net/wireless/ray_cs.c                   |    1 
- drivers/net/wireless/zd1201.c                   |    6 -
- drivers/net/wireless/zd1211rw/zd_mac.c          |    2 
- include/net/ieee80211softmac.h                  |   35 ++++----
- net/ieee80211/softmac/ieee80211softmac_assoc.c  |   56 ++++++------
- net/ieee80211/softmac/ieee80211softmac_io.c     |   11 ++
- net/ieee80211/softmac/ieee80211softmac_module.c |    1 
- net/ieee80211/softmac/ieee80211softmac_wx.c     |   71 ++++++++++------
- 16 files changed, 238 insertions(+), 151 deletions(-)
+ drivers/net/wireless/atmel.c                  |   36 ++++--
+ drivers/net/wireless/atmel_cs.c               |   74 ++++++-------
+ drivers/net/wireless/atmel_pci.c              |   10 +-
+ drivers/net/wireless/bcm43xx/bcm43xx.h        |   32 ++++++
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c   |  145 +++++++++++++++++++------
+ drivers/net/wireless/bcm43xx/bcm43xx_power.c  |   28 ++++-
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.c     |    4 -
+ drivers/net/wireless/bcm43xx/bcm43xx_xmit.c   |   19 ---
+ drivers/net/wireless/prism54/isl_38xx.c       |   17 +--
+ drivers/net/wireless/prism54/isl_38xx.h       |    7 +
+ drivers/net/wireless/prism54/isl_ioctl.c      |   61 +++++------
+ drivers/net/wireless/prism54/isl_ioctl.h      |    1 
+ drivers/net/wireless/prism54/isl_oid.h        |   48 ++++----
+ drivers/net/wireless/prism54/islpci_dev.c     |   13 +-
+ drivers/net/wireless/prism54/islpci_dev.h     |   11 +-
+ drivers/net/wireless/prism54/islpci_eth.c     |   30 +++--
+ drivers/net/wireless/prism54/islpci_eth.h     |    1 
+ drivers/net/wireless/prism54/islpci_hotplug.c |   23 ++--
+ drivers/net/wireless/prism54/islpci_mgt.c     |    3 -
+ drivers/net/wireless/prism54/islpci_mgt.h     |    5 -
+ drivers/net/wireless/prism54/oid_mgt.c        |    6 +
+ drivers/net/wireless/prism54/prismcompat.h    |    4 -
+ drivers/net/wireless/zd1211rw/zd_usb.c        |    3 +
+ include/net/ieee80211.h                       |    6 +
+ net/ieee80211/ieee80211_module.c              |    9 ++
+ net/ieee80211/ieee80211_rx.c                  |   61 +++++++++--
+ 26 files changed, 409 insertions(+), 248 deletions(-)
 
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index 0a33c8a..efcdaf1 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -2897,6 +2897,8 @@ static struct net_device *_init_airo_car
- 		goto err_out_map;
- 	}
- 	ai->wifidev = init_wifidev(ai, dev);
-+	if (!ai->wifidev)
-+		goto err_out_reg;
- 
- 	set_bit(FLAG_REGISTERED,&ai->flags);
- 	airo_print_info(dev->name, "MAC enabled %x:%x:%x:%x:%x:%x",
-@@ -2908,11 +2910,18 @@ static struct net_device *_init_airo_car
- 		for( i = 0; i < MAX_FIDS; i++ )
- 			ai->fids[i] = transmit_allocate(ai,AIRO_DEF_MTU,i>=MAX_FIDS/2);
- 
--	setup_proc_entry( dev, dev->priv ); /* XXX check for failure */
-+	if (setup_proc_entry(dev, dev->priv) < 0)
-+		goto err_out_wifi;
-+
- 	netif_start_queue(dev);
- 	SET_MODULE_OWNER(dev);
- 	return dev;
- 
-+err_out_wifi:
-+	unregister_netdev(ai->wifidev);
-+	free_netdev(ai->wifidev);
-+err_out_reg:
-+	unregister_netdev(dev);
- err_out_map:
- 	if (test_bit(FLAG_MPI,&ai->flags) && pci) {
- 		pci_free_consistent(pci, PCI_SHARED_LEN, ai->shared, ai->shared_dma);
-@@ -3089,7 +3098,8 @@ static int airo_thread(void *data) {
- 						set_bit(JOB_AUTOWEP, &ai->jobs);
- 						break;
- 					}
--					if (!kthread_should_stop()) {
-+					if (!kthread_should_stop() &&
-+					    !freezing(current)) {
- 						unsigned long wake_at;
- 						if (!ai->expires || !ai->scan_timeout) {
- 							wake_at = max(ai->expires,
-@@ -3101,7 +3111,8 @@ static int airo_thread(void *data) {
- 						schedule_timeout(wake_at - jiffies);
- 						continue;
- 					}
--				} else if (!kthread_should_stop()) {
-+				} else if (!kthread_should_stop() &&
-+					   !freezing(current)) {
- 					schedule();
- 					continue;
- 				}
-@@ -4495,91 +4506,128 @@ static int setup_proc_entry( struct net_
- 	apriv->proc_entry = create_proc_entry(apriv->proc_name,
- 					      S_IFDIR|airo_perm,
- 					      airo_entry);
--        apriv->proc_entry->uid = proc_uid;
--        apriv->proc_entry->gid = proc_gid;
--        apriv->proc_entry->owner = THIS_MODULE;
-+	if (!apriv->proc_entry)
-+		goto fail;
-+	apriv->proc_entry->uid = proc_uid;
-+	apriv->proc_entry->gid = proc_gid;
-+	apriv->proc_entry->owner = THIS_MODULE;
- 
- 	/* Setup the StatsDelta */
- 	entry = create_proc_entry("StatsDelta",
- 				  S_IFREG | (S_IRUGO&proc_perm),
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_stats_delta;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_statsdelta_ops);
- 
- 	/* Setup the Stats */
- 	entry = create_proc_entry("Stats",
- 				  S_IFREG | (S_IRUGO&proc_perm),
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_stats;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_stats_ops);
- 
- 	/* Setup the Status */
- 	entry = create_proc_entry("Status",
- 				  S_IFREG | (S_IRUGO&proc_perm),
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_status;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_status_ops);
- 
- 	/* Setup the Config */
- 	entry = create_proc_entry("Config",
- 				  S_IFREG | proc_perm,
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_config;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_config_ops);
- 
- 	/* Setup the SSID */
- 	entry = create_proc_entry("SSID",
- 				  S_IFREG | proc_perm,
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_ssid;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_SSID_ops);
- 
- 	/* Setup the APList */
- 	entry = create_proc_entry("APList",
- 				  S_IFREG | proc_perm,
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_aplist;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_APList_ops);
- 
- 	/* Setup the BSSList */
- 	entry = create_proc_entry("BSSList",
- 				  S_IFREG | proc_perm,
- 				  apriv->proc_entry);
-+	if (!entry)
-+		goto fail_bsslist;
- 	entry->uid = proc_uid;
- 	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_BSSList_ops);
- 
- 	/* Setup the WepKey */
- 	entry = create_proc_entry("WepKey",
- 				  S_IFREG | proc_perm,
- 				  apriv->proc_entry);
--        entry->uid = proc_uid;
--        entry->gid = proc_gid;
-+	if (!entry)
-+		goto fail_wepkey;
-+	entry->uid = proc_uid;
-+	entry->gid = proc_gid;
- 	entry->data = dev;
--        entry->owner = THIS_MODULE;
-+	entry->owner = THIS_MODULE;
- 	SETPROC_OPS(entry, proc_wepkey_ops);
- 
- 	return 0;
-+
-+fail_wepkey:
-+	remove_proc_entry("BSSList", apriv->proc_entry);
-+fail_bsslist:
-+	remove_proc_entry("APList", apriv->proc_entry);
-+fail_aplist:
-+	remove_proc_entry("SSID", apriv->proc_entry);
-+fail_ssid:
-+	remove_proc_entry("Config", apriv->proc_entry);
-+fail_config:
-+	remove_proc_entry("Status", apriv->proc_entry);
-+fail_status:
-+	remove_proc_entry("Stats", apriv->proc_entry);
-+fail_stats:
-+	remove_proc_entry("StatsDelta", apriv->proc_entry);
-+fail_stats_delta:
-+	remove_proc_entry(apriv->proc_name, airo_entry);
-+fail:
-+	return -ENOMEM;
- }
- 
- static int takedown_proc_entry( struct net_device *dev,
-@@ -5924,7 +5972,6 @@ static int airo_get_essid(struct net_dev
- 
- 	/* Get the current SSID */
- 	memcpy(extra, status_rid.SSID, status_rid.SSIDlen);
--	extra[status_rid.SSIDlen] = '\0';
- 	/* If none, we may want to get the one that was set */
- 
- 	/* Push it out ! */
 diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
-index 31eed85..0c07b8b 100644
+index 0c07b8b..10bcb48 100644
 --- a/drivers/net/wireless/atmel.c
 +++ b/drivers/net/wireless/atmel.c
-@@ -1678,11 +1678,9 @@ static int atmel_get_essid(struct net_de
- 	/* Get the current SSID */
- 	if (priv->new_SSID_size != 0) {
- 		memcpy(extra, priv->new_SSID, priv->new_SSID_size);
--		extra[priv->new_SSID_size] = '\0';
- 		dwrq->length = priv->new_SSID_size;
- 	} else {
- 		memcpy(extra, priv->SSID, priv->SSID_size);
--		extra[priv->SSID_size] = '\0';
- 		dwrq->length = priv->SSID_size;
- 	}
+@@ -595,7 +595,7 @@ static void atmel_join_bss(struct atmel_
+ static void atmel_smooth_qual(struct atmel_private *priv);
+ static void atmel_writeAR(struct net_device *dev, u16 data);
+ static int probe_atmel_card(struct net_device *dev);
+-static int reset_atmel_card(struct net_device *dev );
++static int reset_atmel_card(struct net_device *dev);
+ static void atmel_enter_state(struct atmel_private *priv, int new_state);
+ int atmel_open (struct net_device *dev);
  
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-index 76e3aed..978ed09 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-@@ -705,11 +705,30 @@ int bcm43xx_dma_init(struct bcm43xx_priv
- 	struct bcm43xx_dmaring *ring;
- 	int err = -ENOMEM;
- 	int dma64 = 0;
--	u32 sbtmstatehi;
-+	u64 mask = bcm43xx_get_supported_dma_mask(bcm);
-+	int nobits;
+@@ -784,11 +784,11 @@ static void tx_update_descriptor(struct 
  
--	sbtmstatehi = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
--	if (sbtmstatehi & BCM43xx_SBTMSTATEHIGH_DMA64BIT)
-+	if (mask == DMA_64BIT_MASK) {
- 		dma64 = 1;
-+		nobits = 64;
-+	} else if (mask == DMA_32BIT_MASK)
-+		nobits = 32;
-+	else
-+		nobits = 30;
-+	err = pci_set_dma_mask(bcm->pci_dev, mask);
-+	err |= pci_set_consistent_dma_mask(bcm->pci_dev, mask);
-+	if (err) {
-+#ifdef CONFIG_BCM43XX_PIO
-+		printk(KERN_WARNING PFX "DMA not supported on this device."
-+					" Falling back to PIO.\n");
-+		bcm->__using_pio = 1;
-+		return -ENOSYS;
-+#else
-+		printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
-+				    "Please recompile the driver with PIO support.\n");
-+		return -ENODEV;
-+#endif /* CONFIG_BCM43XX_PIO */
-+	}
- 
- 	/* setup TX DMA channels. */
- 	ring = bcm43xx_setup_dmaring(bcm, 0, 1, dma64);
-@@ -755,8 +774,7 @@ int bcm43xx_dma_init(struct bcm43xx_priv
- 		dma->rx_ring3 = ring;
- 	}
- 
--	dprintk(KERN_INFO PFX "%s DMA initialized\n",
--			dma64 ? "64-bit" : "32-bit");
-+	dprintk(KERN_INFO PFX "%d-bit DMA initialized\n", nobits);
- 	err = 0;
- out:
- 	return err;
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_dma.h b/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
-index e04bcad..ea16078 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
-@@ -314,6 +314,23 @@ int bcm43xx_dma_tx(struct bcm43xx_privat
- 		   struct ieee80211_txb *txb);
- void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring);
- 
-+/* Helper function that returns the dma mask for this device. */
-+static inline
-+u64 bcm43xx_get_supported_dma_mask(struct bcm43xx_private *bcm)
-+{
-+	int dma64 = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH) &
-+				   BCM43xx_SBTMSTATEHIGH_DMA64BIT;
-+	u16 mmio_base = bcm43xx_dmacontroller_base(dma64, 0);
-+	u32 mask = BCM43xx_DMA32_TXADDREXT_MASK;
-+
-+	if (dma64)
-+		return DMA_64BIT_MASK;
-+	bcm43xx_write32(bcm, mmio_base + BCM43xx_DMA32_TXCTL, mask);
-+	if (bcm43xx_read32(bcm, mmio_base + BCM43xx_DMA32_TXCTL) & mask)
-+		return DMA_32BIT_MASK;
-+	return DMA_30BIT_MASK;
-+}
-+
- #else /* CONFIG_BCM43XX_DMA */
- 
- 
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_leds.c b/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
-index c3f90c8..2ddbec6 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
-@@ -242,7 +242,7 @@ void bcm43xx_leds_update(struct bcm43xx_
- 			//TODO
- 			break;
- 		case BCM43xx_LED_ASSOC:
--			if (bcm->softmac->associated)
-+			if (bcm->softmac->associnfo.associated)
- 				turn_on = 1;
- 			break;
- #ifdef CONFIG_BCM43XX_DEBUG
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-index bad3452..a94c6d8 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -2925,10 +2925,13 @@ static int bcm43xx_wireless_core_init(st
- 		bcm43xx_write16(bcm, 0x043C, 0x000C);
- 
- 	if (active_wlcore) {
--		if (bcm43xx_using_pio(bcm))
-+		if (bcm43xx_using_pio(bcm)) {
- 			err = bcm43xx_pio_init(bcm);
--		else
-+		} else {
- 			err = bcm43xx_dma_init(bcm);
-+			if (err == -ENOSYS)
-+				err = bcm43xx_pio_init(bcm);
-+		}
- 		if (err)
- 			goto err_chip_cleanup;
- 	}
-@@ -3164,12 +3167,12 @@ static void bcm43xx_periodic_work_handle
- 	u32 savedirqs = 0;
- 	int badness;
- 
-+	mutex_lock(&bcm->mutex);
- 	badness = estimate_periodic_work_badness(bcm->periodic_state);
- 	if (badness > BADNESS_LIMIT) {
- 		/* Periodic work will take a long time, so we want it to
- 		 * be preemtible.
- 		 */
--		mutex_lock(&bcm->mutex);
- 		netif_tx_disable(bcm->net_dev);
- 		spin_lock_irqsave(&bcm->irq_lock, flags);
- 		bcm43xx_mac_suspend(bcm);
-@@ -3182,7 +3185,6 @@ static void bcm43xx_periodic_work_handle
- 		/* Periodic work should take short time, so we want low
- 		 * locking overhead.
- 		 */
--		mutex_lock(&bcm->mutex);
- 		spin_lock_irqsave(&bcm->irq_lock, flags);
- 	}
- 
-@@ -3993,8 +3995,6 @@ static int bcm43xx_init_private(struct b
- 				struct net_device *net_dev,
- 				struct pci_dev *pci_dev)
+ static int start_tx(struct sk_buff *skb, struct net_device *dev)
  {
--	int err;
--
- 	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
- 	bcm->ieee = netdev_priv(net_dev);
- 	bcm->softmac = ieee80211_priv(net_dev);
-@@ -4012,22 +4012,8 @@ static int bcm43xx_init_private(struct b
- 		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
- 		     (unsigned long)bcm);
- 	tasklet_disable_nosync(&bcm->isr_tasklet);
--	if (modparam_pio) {
-+	if (modparam_pio)
- 		bcm->__using_pio = 1;
--	} else {
--		err = pci_set_dma_mask(pci_dev, DMA_30BIT_MASK);
--		err |= pci_set_consistent_dma_mask(pci_dev, DMA_30BIT_MASK);
--		if (err) {
--#ifdef CONFIG_BCM43XX_PIO
--			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
--			bcm->__using_pio = 1;
--#else
--			printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
--					    "Recompile the driver with PIO support, please.\n");
--			return -ENODEV;
--#endif /* CONFIG_BCM43XX_PIO */
--		}
--	}
- 	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
- 
- 	/* default to sw encryption for now */
-@@ -4208,7 +4194,11 @@ static int bcm43xx_resume(struct pci_dev
- 	dprintk(KERN_INFO PFX "Resuming...\n");
- 
- 	pci_set_power_state(pdev, 0);
--	pci_enable_device(pdev);
-+	err = pci_enable_device(pdev);
-+	if (err) {
-+		printk(KERN_ERR PFX "Failure with pci_enable_device!\n");
-+		return err;
-+	}
- 	pci_restore_state(pdev);
- 
- 	bcm43xx_chipset_attach(bcm);
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-index 9b7b15c..d27016f 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-@@ -847,7 +847,7 @@ static struct iw_statistics *bcm43xx_get
++	static const u8 SNAP_RFC1024[6] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+ 	struct atmel_private *priv = netdev_priv(dev);
+ 	struct ieee80211_hdr_4addr header;
  	unsigned long flags;
+ 	u16 buff, frame_ctl, len = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
+-	u8 SNAP_RFC1024[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
  
- 	wstats = &bcm->stats.wstats;
--	if (!mac->associated) {
-+	if (!mac->associnfo.associated) {
- 		wstats->miss.beacon = 0;
- //		bcm->ieee->ieee_stats.tx_retry_limit_exceeded = 0; // FIXME: should this be cleared here?
- 		wstats->discard.retries = 0;
-diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
-index b779c7d..336caba 100644
---- a/drivers/net/wireless/orinoco.c
-+++ b/drivers/net/wireless/orinoco.c
-@@ -2457,6 +2457,7 @@ void free_orinocodev(struct net_device *
- /* Wireless extensions                                              */
- /********************************************************************/
+ 	if (priv->card && priv->present_callback &&
+ 	    !(*priv->present_callback)(priv->card)) {
+@@ -1193,7 +1193,7 @@ static irqreturn_t service_interrupt(int
  
-+/* Return : < 0 -> error code ; >= 0 -> length */
- static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
- 				char buf[IW_ESSID_MAX_SIZE+1])
- {
-@@ -2501,9 +2502,9 @@ static int orinoco_hw_get_essid(struct o
- 	len = le16_to_cpu(essidbuf.len);
- 	BUG_ON(len > IW_ESSID_MAX_SIZE);
+ 		atmel_set_gcr(dev, GCR_ACKINT); /* acknowledge interrupt */
  
--	memset(buf, 0, IW_ESSID_MAX_SIZE+1);
-+	memset(buf, 0, IW_ESSID_MAX_SIZE);
- 	memcpy(buf, p, len);
--	buf[len] = '\0';
-+	err = len;
+-		for (i = 0; i < sizeof(irq_order)/sizeof(u8); i++)
++		for (i = 0; i < ARRAY_SIZE(irq_order); i++)
+ 			if (isr & irq_order[i])
+ 				break;
  
-  fail_unlock:
- 	orinoco_unlock(priv, &flags);
-@@ -3027,17 +3028,18 @@ static int orinoco_ioctl_getessid(struct
- 
- 	if (netif_running(dev)) {
- 		err = orinoco_hw_get_essid(priv, &active, essidbuf);
--		if (err)
-+		if (err < 0)
- 			return err;
-+		erq->length = err;
+@@ -1345,10 +1345,10 @@ int atmel_open(struct net_device *dev)
+ 		atmel_set_mib8(priv, Phy_Mib_Type, PHY_MIB_REG_DOMAIN_POS, priv->reg_domain);
  	} else {
- 		if (orinoco_lock(priv, &flags) != 0)
- 			return -EBUSY;
--		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE + 1);
-+		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE);
-+		erq->length = strlen(priv->desired_essid);
- 		orinoco_unlock(priv, &flags);
- 	}
+ 		priv->reg_domain = atmel_get_mib8(priv, Phy_Mib_Type, PHY_MIB_REG_DOMAIN_POS);
+-		for (i = 0; i < sizeof(channel_table)/sizeof(channel_table[0]); i++)
++		for (i = 0; i < ARRAY_SIZE(channel_table); i++)
+ 			if (priv->reg_domain == channel_table[i].reg_domain)
+ 				break;
+-		if (i == sizeof(channel_table)/sizeof(channel_table[0])) {
++		if (i == ARRAY_SIZE(channel_table)) {
+ 			priv->reg_domain = REG_DOMAIN_MKK1;
+ 			printk(KERN_ALERT "%s: failed to get regulatory domain: assuming MKK1.\n", dev->name);
+ 		}
+@@ -1393,7 +1393,7 @@ static int atmel_validate_channel(struct
+ 	   else return suitable default channel */
+ 	int i;
  
- 	erq->flags = 1;
--	erq->length = strlen(essidbuf);
+-	for (i = 0; i < sizeof(channel_table)/sizeof(channel_table[0]); i++)
++	for (i = 0; i < ARRAY_SIZE(channel_table); i++)
+ 		if (priv->reg_domain == channel_table[i].reg_domain) {
+ 			if (channel >= channel_table[i].min &&
+ 			    channel <= channel_table[i].max)
+@@ -1437,7 +1437,7 @@ static int atmel_proc_output (char *buf,
+ 		}
  
- 	return 0;
- }
-@@ -3075,10 +3077,10 @@ static int orinoco_ioctl_getnick(struct 
- 	if (orinoco_lock(priv, &flags) != 0)
- 		return -EBUSY;
+ 		r = "<unknown>";
+-		for (i = 0; i < sizeof(channel_table)/sizeof(channel_table[0]); i++)
++		for (i = 0; i < ARRAY_SIZE(channel_table); i++)
+ 			if (priv->reg_domain == channel_table[i].reg_domain)
+ 				r = channel_table[i].name;
  
--	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE+1);
-+	memcpy(nickbuf, priv->nick, IW_ESSID_MAX_SIZE);
- 	orinoco_unlock(priv, &flags);
+@@ -1736,7 +1736,7 @@ static int atmel_set_encode(struct net_d
+ 				/* Disable the key */
+ 				priv->wep_key_len[index] = 0;
+ 		/* Check if the key is not marked as invalid */
+-		if(!(dwrq->flags & IW_ENCODE_NOKEY)) {
++		if (!(dwrq->flags & IW_ENCODE_NOKEY)) {
+ 			/* Cleanup */
+ 			memset(priv->wep_keys[index], 0, 13);
+ 			/* Copy the key in the driver */
+@@ -1907,7 +1907,7 @@ static int atmel_get_encodeext(struct ne
  
--	nrq->length = strlen(nickbuf);
-+	nrq->length = strlen(priv->nick);
- 
- 	return 0;
- }
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 0b381d7..7fbfc9e 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -1198,7 +1198,6 @@ static int ray_get_essid(struct net_devi
- 
- 	/* Get the essid that was set */
- 	memcpy(extra, local->sparm.b5.a_current_ess_id, IW_ESSID_MAX_SIZE);
--	extra[IW_ESSID_MAX_SIZE] = '\0';
- 
- 	/* Push it out ! */
- 	dwrq->length = strlen(extra);
-diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
-index 30057a3..36b29ff 100644
---- a/drivers/net/wireless/zd1201.c
-+++ b/drivers/net/wireless/zd1201.c
-@@ -193,10 +193,8 @@ static void zd1201_usbrx(struct urb *urb
- 	struct sk_buff *skb;
- 	unsigned char type;
- 
--	if (!zd) {
--		free = 1;
--		goto exit;
--	}
-+	if (!zd)
-+		return;
- 
- 	switch(urb->status) {
- 		case -EILSEQ:
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index 2d12837..a7d29bd 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -1099,7 +1099,7 @@ static void link_led_handler(void *p)
- 	int r;
- 
- 	spin_lock_irq(&mac->lock);
--	is_associated = sm->associated != 0;
-+	is_associated = sm->associnfo.associated != 0;
- 	spin_unlock_irq(&mac->lock);
- 
- 	r = zd_chip_control_leds(chip,
-diff --git a/include/net/ieee80211softmac.h b/include/net/ieee80211softmac.h
-index 425b3a5..617b672 100644
---- a/include/net/ieee80211softmac.h
-+++ b/include/net/ieee80211softmac.h
-@@ -63,13 +63,11 @@ struct ieee80211softmac_wpa {
- 
- /*
-  * Information about association
-- *
-- * Do we need a lock for this?
-- * We only ever use this structure inlined
-- * into our global struct. I've used its lock,
-- * but maybe we need a local one here?
-  */
- struct ieee80211softmac_assoc_info {
+ 	encoding->flags = idx + 1;
+ 	memset(ext, 0, sizeof(*ext));
+-	
 +
-+	struct mutex mutex;
+ 	if (!priv->wep_is_on) {
+ 		ext->alg = IW_ENCODE_ALG_NONE;
+ 		ext->key_len = 0;
+@@ -2343,6 +2343,14 @@ static int atmel_get_scan(struct net_dev
+ 		iwe.u.freq.e = 0;
+ 		current_ev = iwe_stream_add_event(current_ev, extra + IW_SCAN_MAX_DATA, &iwe, IW_EV_FREQ_LEN);
+ 
++		/* Add quality statistics */
++		iwe.cmd = IWEVQUAL;
++		iwe.u.qual.level = priv->BSSinfo[i].RSSI;
++		iwe.u.qual.qual  = iwe.u.qual.level;
++		/* iwe.u.qual.noise  = SOMETHING */
++		current_ev = iwe_stream_add_event(current_ev, extra + IW_SCAN_MAX_DATA , &iwe, IW_EV_QUAL_LEN);
++
++
+ 		iwe.cmd = SIOCGIWENCODE;
+ 		if (priv->BSSinfo[i].UsingWEP)
+ 			iwe.u.data.flags = IW_ENCODE_ENABLED | IW_ENCODE_NOKEY;
+@@ -2373,7 +2381,7 @@ static int atmel_get_range(struct net_de
+ 	range->min_nwid = 0x0000;
+ 	range->max_nwid = 0x0000;
+ 	range->num_channels = 0;
+-	for (j = 0; j < sizeof(channel_table)/sizeof(channel_table[0]); j++)
++	for (j = 0; j < ARRAY_SIZE(channel_table); j++)
+ 		if (priv->reg_domain == channel_table[j].reg_domain) {
+ 			range->num_channels = channel_table[j].max - channel_table[j].min + 1;
+ 			break;
+@@ -2579,9 +2587,9 @@ static const struct iw_priv_args atmel_p
+ 
+ static const struct iw_handler_def atmel_handler_def =
+ {
+-	.num_standard	= sizeof(atmel_handler)/sizeof(iw_handler),
+-	.num_private	= sizeof(atmel_private_handler)/sizeof(iw_handler),
+-	.num_private_args = sizeof(atmel_private_args)/sizeof(struct iw_priv_args),
++	.num_standard	= ARRAY_SIZE(atmel_handler),
++	.num_private	= ARRAY_SIZE(atmel_private_handler),
++	.num_private_args = ARRAY_SIZE(atmel_private_args),
+ 	.standard	= (iw_handler *) atmel_handler,
+ 	.private	= (iw_handler *) atmel_private_handler,
+ 	.private_args	= (struct iw_priv_args *) atmel_private_args,
+@@ -2645,7 +2653,7 @@ static int atmel_ioctl(struct net_device
+ 
+ 		domain[REGDOMAINSZ] = 0;
+ 		rc = -EINVAL;
+-		for (i = 0; i < sizeof(channel_table)/sizeof(channel_table[0]); i++) {
++		for (i = 0; i < ARRAY_SIZE(channel_table); i++) {
+ 			/* strcasecmp doesn't exist in the library */
+ 			char *a = channel_table[i].name;
+ 			char *b = domain;
+diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
+index 7856640..5c41098 100644
+--- a/drivers/net/wireless/atmel_cs.c
++++ b/drivers/net/wireless/atmel_cs.c
+@@ -5,12 +5,12 @@
+         Copyright 2000-2001 ATMEL Corporation.
+         Copyright 2003 Simon Kelley.
+ 
+-    This code was developed from version 2.1.1 of the Atmel drivers, 
+-    released by Atmel corp. under the GPL in December 2002. It also 
+-    includes code from the Linux aironet drivers (C) Benjamin Reed, 
+-    and the Linux PCMCIA package, (C) David Hinds. 
++    This code was developed from version 2.1.1 of the Atmel drivers,
++    released by Atmel corp. under the GPL in December 2002. It also
++    includes code from the Linux aironet drivers (C) Benjamin Reed,
++    and the Linux PCMCIA package, (C) David Hinds.
+ 
+-    For all queries about this code, please contact the current author, 
++    For all queries about this code, please contact the current author,
+     Simon Kelley <simon@thekelleys.org.uk> and not Atmel Corporation.
+ 
+     This program is free software; you can redistribute it and/or modify
+@@ -87,7 +87,7 @@ MODULE_SUPPORTED_DEVICE("Atmel at76c50x 
+    event is received.  The config() and release() entry points are
+    used to configure or release a socket, in response to card
+    insertion and ejection events.  They are invoked from the atmel_cs
+-   event handler. 
++   event handler.
+ */
+ 
+ static int atmel_config(struct pcmcia_device *link);
+@@ -133,22 +133,22 @@ static void atmel_detach(struct pcmcia_d
+    device IO routines can use a flag like this to throttle IO to a
+    card that is not ready to accept it.
+ */
+-   
++
+ typedef struct local_info_t {
+ 	dev_node_t	node;
+ 	struct net_device *eth_dev;
+ } local_info_t;
+ 
+ /*======================================================================
+-  
++
+   atmel_attach() creates an "instance" of the driver, allocating
+   local data structures for one device.  The device is registered
+   with Card Services.
+-  
++
+   The dev_link structure is initialized, but we don't actually
+   configure the card at this point -- we wait until we receive a
+   card insertion event.
+-  
++
+   ======================================================================*/
+ 
+ static int atmel_probe(struct pcmcia_device *p_dev)
+@@ -184,12 +184,12 @@ static int atmel_probe(struct pcmcia_dev
+ } /* atmel_attach */
+ 
+ /*======================================================================
+-  
++
+   This deletes a driver "instance".  The device is de-registered
+   with Card Services.  If it has been released, all local data
+   structures are freed.  Otherwise, the structures will be freed
+   when the device is released.
+-  
++
+   ======================================================================*/
+ 
+ static void atmel_detach(struct pcmcia_device *link)
+@@ -202,11 +202,11 @@ static void atmel_detach(struct pcmcia_d
+ }
+ 
+ /*======================================================================
+-  
++
+   atmel_config() is scheduled to run after a CARD_INSERTION event
+   is received, to configure the PCMCIA socket, and to make the
+   device available to the system.
+-  
++
+   ======================================================================*/
+ 
+ #define CS_CHECK(fn, ret) \
+@@ -237,12 +237,12 @@ static int atmel_config(struct pcmcia_de
+ 	did = handle_to_dev(link).driver_data;
+ 
+ 	DEBUG(0, "atmel_config(0x%p)\n", link);
+-	
++
+ 	tuple.Attributes = 0;
+ 	tuple.TupleData = buf;
+ 	tuple.TupleDataMax = sizeof(buf);
+ 	tuple.TupleOffset = 0;
+-	
 +
  	/*
- 	 * This is the requested ESSID. It is written
- 	 * only by the WX handlers.
-@@ -99,12 +97,13 @@ struct ieee80211softmac_assoc_info {
- 	 *
- 	 * bssfixed is used for SIOCSIWAP.
- 	 */
--	u8 static_essid:1,
--	   short_preamble_available:1,
--	   associating:1,
--	   assoc_wait:1,
--	   bssvalid:1,
--	   bssfixed:1;
-+	u8 static_essid;
-+	u8 short_preamble_available;
-+	u8 associating;
-+	u8 associated;
-+	u8 assoc_wait;
-+	u8 bssvalid;
-+	u8 bssfixed;
+ 	  This reads the card's CONFIG tuple to find its configuration
+ 	  registers.
+@@ -258,7 +258,7 @@ static int atmel_config(struct pcmcia_de
+ 	  In this loop, we scan the CIS for configuration table entries,
+ 	  each of which describes a valid card configuration, including
+ 	  voltage, IO window, memory window, and interrupt settings.
+-	  
++
+ 	  We make no assumptions about the card to be configured: we use
+ 	  just the information available in the CIS.  In an ideal world,
+ 	  this would work for any PCMCIA card, but it requires a complete
+@@ -274,17 +274,17 @@ static int atmel_config(struct pcmcia_de
+ 		if (pcmcia_get_tuple_data(link, &tuple) != 0 ||
+ 				pcmcia_parse_tuple(link, &tuple, &parse) != 0)
+ 			goto next_entry;
+-		
++
+ 		if (cfg->flags & CISTPL_CFTABLE_DEFAULT) dflt = *cfg;
+ 		if (cfg->index == 0) goto next_entry;
+ 		link->conf.ConfigIndex = cfg->index;
+-		
++
+ 		/* Does this card need audio output? */
+ 		if (cfg->flags & CISTPL_CFTABLE_AUDIO) {
+ 			link->conf.Attributes |= CONF_ENABLE_SPKR;
+ 			link->conf.Status = CCSR_AUDIO_ENA;
+ 		}
+-		
++
+ 		/* Use power settings for Vcc and Vpp if present */
+ 		/*  Note that the CIS values need to be rescaled */
+ 		if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM))
+@@ -293,11 +293,11 @@ static int atmel_config(struct pcmcia_de
+ 		else if (dflt.vpp1.present & (1<<CISTPL_POWER_VNOM))
+ 			link->conf.Vpp =
+ 				dflt.vpp1.param[CISTPL_POWER_VNOM]/10000;
+-		
++
+ 		/* Do we need to allocate an interrupt? */
+ 		if (cfg->irq.IRQInfo1 || dflt.irq.IRQInfo1)
+ 			link->conf.Attributes |= CONF_ENABLE_IRQ;
+-		
++
+ 		/* IO window settings */
+ 		link->io.NumPorts1 = link->io.NumPorts2 = 0;
+ 		if ((cfg->io.nwin > 0) || (dflt.io.nwin > 0)) {
+@@ -315,18 +315,18 @@ static int atmel_config(struct pcmcia_de
+ 				link->io.NumPorts2 = io->win[1].len;
+ 			}
+ 		}
+-		
++
+ 		/* This reserves IO space but doesn't actually enable it */
+ 		if (pcmcia_request_io(link, &link->io) != 0)
+ 			goto next_entry;
  
- 	/* Scan retries remaining */
- 	int scan_retry;
-@@ -229,12 +228,10 @@ struct ieee80211softmac_device {
- 	/* private stuff follows */
- 	/* this lock protects this structure */
- 	spinlock_t lock;
--	
--	/* couple of flags */
--	u8 scanning:1, /* protects scanning from being done multiple times at once */
--	   associated:1,
--	   running:1;
+ 		/* If we got this far, we're cool! */
+ 		break;
+-		
++
+ 	next_entry:
+ 		CS_CHECK(GetNextTuple, pcmcia_get_next_tuple(link, &tuple));
+ 	}
 -	
 +
-+	u8 running; /* SoftMAC started? */
-+	u8 scanning;
+ 	/*
+ 	  Allocate an interrupt line.  Note that this does not assign a
+ 	  handler to the interrupt, unless the 'Handler' member of the
+@@ -334,31 +334,31 @@ static int atmel_config(struct pcmcia_de
+ 	*/
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		CS_CHECK(RequestIRQ, pcmcia_request_irq(link, &link->irq));
+-	
 +
- 	struct ieee80211softmac_scaninfo *scaninfo;
- 	struct ieee80211softmac_assoc_info associnfo;
- 	struct ieee80211softmac_bss_info bssinfo;
-@@ -250,7 +247,7 @@ struct ieee80211softmac_device {
+ 	/*
+ 	  This actually configures the PCMCIA socket -- setting up
+ 	  the I/O windows and the interrupt mapping, and putting the
+ 	  card and host interface into "Memory and IO" mode.
+ 	*/
+ 	CS_CHECK(RequestConfiguration, pcmcia_request_configuration(link, &link->conf));
+-	
++
+ 	if (link->irq.AssignedIRQ == 0) {
+-		printk(KERN_ALERT 
++		printk(KERN_ALERT
+ 		       "atmel: cannot assign IRQ: check that CONFIG_ISA is set in kernel config.");
+ 		goto cs_failed;
+ 	}
+-       
+-	((local_info_t*)link->priv)->eth_dev = 
++
++	((local_info_t*)link->priv)->eth_dev =
+ 		init_atmel_card(link->irq.AssignedIRQ,
+ 				link->io.BasePort1,
+ 				did ? did->driver_info : ATMEL_FW_TYPE_NONE,
+ 				&handle_to_dev(link),
+-				card_present, 
++				card_present,
+ 				link);
+-	if (!((local_info_t*)link->priv)->eth_dev) 
++	if (!((local_info_t*)link->priv)->eth_dev)
+ 			goto cs_failed;
+-	
+-	
++
++
+ 	/*
+ 	  At this point, the dev_node_t structure(s) need to be
+ 	  initialized and arranged in a linked list at link->dev_node.
+@@ -376,11 +376,11 @@ static int atmel_config(struct pcmcia_de
+ }
  
- 	/* we need to keep a list of network structs we copied */
- 	struct list_head network_list;
--	
+ /*======================================================================
+-  
 +
- 	/* This must be the last item so that it points to the data
- 	 * allocated beyond this structure by alloc_ieee80211 */
- 	u8 priv[0];
-@@ -295,7 +292,7 @@ static inline u8 ieee80211softmac_sugges
+   After a card is removed, atmel_release() will unregister the
+   device, and release the PCMCIA configuration.  If the device is
+   still open, this will be postponed until it is closed.
+-  
++
+   ======================================================================*/
+ 
+ static void atmel_release(struct pcmcia_device *link)
+@@ -517,7 +517,7 @@ static void atmel_cs_cleanup(void)
+     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+     STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+     IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-    POSSIBILITY OF SUCH DAMAGE.    
++    POSSIBILITY OF SUCH DAMAGE.
+ */
+ 
+ module_init(atmel_cs_init);
+diff --git a/drivers/net/wireless/atmel_pci.c b/drivers/net/wireless/atmel_pci.c
+index 3bfa791..92f87fb 100644
+--- a/drivers/net/wireless/atmel_pci.c
++++ b/drivers/net/wireless/atmel_pci.c
+@@ -53,18 +53,18 @@ static int __devinit atmel_pci_probe(str
+ 				     const struct pci_device_id *pent)
  {
- 	struct ieee80211softmac_txrates *txrates = &mac->txrates;
+ 	struct net_device *dev;
+-		
++
+ 	if (pci_enable_device(pdev))
+ 		return -ENODEV;
+-	
++
+ 	pci_set_master(pdev);
+-	
+-	dev = init_atmel_card(pdev->irq, pdev->resource[1].start, 
++
++	dev = init_atmel_card(pdev->irq, pdev->resource[1].start,
+ 			      ATMEL_FW_TYPE_506,
+ 			      &pdev->dev, NULL, NULL);
+ 	if (!dev)
+ 		return -ENODEV;
+-	
++
+ 	pci_set_drvdata(pdev, dev);
+ 	return 0;
+ }
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx.h b/drivers/net/wireless/bcm43xx/bcm43xx.h
+index d6a8bf0..94dfb92 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ b/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -159,6 +159,7 @@ #define BCM43xx_MACFILTER_ASSOC		0x0003
  
--	if (!mac->associated)
-+	if (!mac->associnfo.associated)
- 		return txrates->mgt_mcast_rate;
+ /* Chipcommon registers. */
+ #define BCM43xx_CHIPCOMMON_CAPABILITIES 	0x04
++#define BCM43xx_CHIPCOMMON_CTL			0x28
+ #define BCM43xx_CHIPCOMMON_PLLONDELAY		0xB0
+ #define BCM43xx_CHIPCOMMON_FREFSELDELAY		0xB4
+ #define BCM43xx_CHIPCOMMON_SLOWCLKCTL		0xB8
+@@ -172,6 +173,33 @@ #define BCM43xx_PCICORE_SBTOPCI2	0x108
+ /* SBTOPCI2 values. */
+ #define BCM43xx_SBTOPCI2_PREFETCH	0x4
+ #define BCM43xx_SBTOPCI2_BURST		0x8
++#define BCM43xx_SBTOPCI2_MEMREAD_MULTI	0x20
++
++/* PCI-E core registers. */
++#define BCM43xx_PCIECORE_REG_ADDR      0x0130
++#define BCM43xx_PCIECORE_REG_DATA      0x0134
++#define BCM43xx_PCIECORE_MDIO_CTL      0x0128
++#define BCM43xx_PCIECORE_MDIO_DATA     0x012C
++
++/* PCI-E registers. */
++#define BCM43xx_PCIE_TLP_WORKAROUND    0x0004
++#define BCM43xx_PCIE_DLLP_LINKCTL      0x0100
++
++/* PCI-E MDIO bits. */
++#define BCM43xx_PCIE_MDIO_ST   0x40000000
++#define BCM43xx_PCIE_MDIO_WT   0x10000000
++#define BCM43xx_PCIE_MDIO_DEV  22
++#define BCM43xx_PCIE_MDIO_REG  18
++#define BCM43xx_PCIE_MDIO_TA   0x00020000
++#define BCM43xx_PCIE_MDIO_TC   0x0100
++
++/* MDIO devices. */
++#define BCM43xx_MDIO_SERDES_RX	0x1F
++
++/* SERDES RX registers. */
++#define BCM43xx_SERDES_RXTIMER	0x2
++#define BCM43xx_SERDES_CDR	0x6
++#define BCM43xx_SERDES_CDR_BW	0x7
  
- 	/* We are associated, sending unicast frame */
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index 589f6d2..cf51c87 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -48,7 +48,7 @@ ieee80211softmac_assoc(struct ieee80211s
- 	dprintk(KERN_INFO PFX "sent association request!\n");
+ /* Chipcommon capabilities. */
+ #define BCM43xx_CAPABILITIES_PCTL		0x00040000
+@@ -221,6 +249,7 @@ #define BCM43xx_COREID_USB11_DEV        
+ #define BCM43xx_COREID_USB20_HOST       0x819
+ #define BCM43xx_COREID_USB20_DEV        0x81a
+ #define BCM43xx_COREID_SDIO_HOST        0x81b
++#define BCM43xx_COREID_PCIE		0x820
  
- 	spin_lock_irqsave(&mac->lock, flags);
--	mac->associated = 0; /* just to make sure */
-+	mac->associnfo.associated = 0; /* just to make sure */
+ /* Core Information Registers */
+ #define BCM43xx_CIR_BASE		0xf00
+@@ -365,6 +394,9 @@ #define BCM43xx_DEFAULT_RTS_THRESHOLD		B
+ #define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
+ #define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
  
- 	/* Set a timer for timeout */
- 	/* FIXME: make timeout configurable */
-@@ -62,24 +62,22 @@ ieee80211softmac_assoc_timeout(void *d)
++/* FIXME: the next line is a guess as to what the maximum RSSI value might be */
++#define RX_RSSI_MAX				60
++
+ /* Max size of a security key */
+ #define BCM43xx_SEC_KEYSIZE			16
+ /* Security algorithms. */
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index a94c6d8..78db999 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -130,6 +130,10 @@ #endif /* CONFIG_BCM43XX_DEBUG*/
+ 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	/* Broadcom 4307 802.11b */
+ 	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	/* Broadcom 4311 802.11(a)/b/g */
++	{ PCI_VENDOR_ID_BROADCOM, 0x4311, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	/* Broadcom 4312 802.11a/b/g */
++	{ PCI_VENDOR_ID_BROADCOM, 0x4312, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	/* Broadcom 4318 802.11b/g */
+ 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	/* Broadcom 4319 802.11a/b/g */
+@@ -2583,8 +2587,9 @@ static int bcm43xx_probe_cores(struct bc
+ 	/* fetch sb_id_hi from core information registers */
+ 	sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
+ 
+-	core_id = (sb_id_hi & 0xFFF0) >> 4;
+-	core_rev = (sb_id_hi & 0xF);
++	core_id = (sb_id_hi & 0x8FF0) >> 4;
++	core_rev = (sb_id_hi & 0x7000) >> 8;
++	core_rev |= (sb_id_hi & 0xF);
+ 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+ 
+ 	/* if present, chipcommon is always core 0; read the chipid from it */
+@@ -2694,6 +2699,7 @@ #endif
+ 		core = NULL;
+ 		switch (core_id) {
+ 		case BCM43xx_COREID_PCI:
++		case BCM43xx_COREID_PCIE:
+ 			core = &bcm->core_pci;
+ 			if (core->available) {
+ 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
+@@ -2732,12 +2738,12 @@ #endif
+ 			case 6:
+ 			case 7:
+ 			case 9:
++			case 10:
+ 				break;
+ 			default:
+-				printk(KERN_ERR PFX "Error: Unsupported 80211 core revision %u\n",
++				printk(KERN_WARNING PFX
++				       "Unsupported 80211 core revision %u\n",
+ 				       core_rev);
+-				err = -ENODEV;
+-				goto out;
+ 			}
+ 			bcm->nr_80211_available++;
+ 			core->priv = ext_80211;
+@@ -2851,16 +2857,11 @@ static int bcm43xx_wireless_core_init(st
+ 	u32 sbimconfiglow;
+ 	u8 limit;
+ 
+-	if (bcm->chip_rev < 5) {
++	if (bcm->core_pci.rev <= 5 && bcm->core_pci.id != BCM43xx_COREID_PCIE) {
+ 		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+ 		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+ 		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+-		if (bcm->bustype == BCM43xx_BUSTYPE_PCI)
+-			sbimconfiglow |= 0x32;
+-		else if (bcm->bustype == BCM43xx_BUSTYPE_SB)
+-			sbimconfiglow |= 0x53;
+-		else
+-			assert(0);
++		sbimconfiglow |= 0x32;
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
+ 	}
+ 
+@@ -2987,22 +2988,64 @@ static void bcm43xx_pcicore_broadcast_va
+ 
+ static int bcm43xx_pcicore_commit_settings(struct bcm43xx_private *bcm)
  {
- 	struct ieee80211softmac_device *mac = (struct ieee80211softmac_device *)d;
- 	struct ieee80211softmac_network *n;
--	unsigned long flags;
+-	int err;
+-	struct bcm43xx_coreinfo *old_core;
++	int err = 0;
  
--	spin_lock_irqsave(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
- 	/* we might race against ieee80211softmac_handle_assoc_response,
- 	 * so make sure only one of us does something */
--	if (!mac->associnfo.associating) {
--		spin_unlock_irqrestore(&mac->lock, flags);
--		return;
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_pci);
+-	if (err)
+-		goto out;
++	bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+ 
+-	bcm43xx_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
++	if (bcm->core_chipcommon.available) {
++		err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
++		if (err)
++			goto out;
++
++		bcm43xx_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
++
++		/* this function is always called when a PCI core is mapped */
++		err = bcm43xx_switch_core(bcm, &bcm->core_pci);
++		if (err)
++			goto out;
++	} else
++		bcm43xx_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
++
++	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
+ 
+-	bcm43xx_switch_core(bcm, old_core);
+-	assert(err == 0);
+ out:
+ 	return err;
+ }
+ 
++static u32 bcm43xx_pcie_reg_read(struct bcm43xx_private *bcm, u32 address)
++{
++	bcm43xx_write32(bcm, BCM43xx_PCIECORE_REG_ADDR, address);
++	return bcm43xx_read32(bcm, BCM43xx_PCIECORE_REG_DATA);
++}
++
++static void bcm43xx_pcie_reg_write(struct bcm43xx_private *bcm, u32 address,
++				    u32 data)
++{
++	bcm43xx_write32(bcm, BCM43xx_PCIECORE_REG_ADDR, address);
++	bcm43xx_write32(bcm, BCM43xx_PCIECORE_REG_DATA, data);
++}
++
++static void bcm43xx_pcie_mdio_write(struct bcm43xx_private *bcm, u8 dev, u8 reg,
++				    u16 data)
++{
++	int i;
++
++	bcm43xx_write32(bcm, BCM43xx_PCIECORE_MDIO_CTL, 0x0082);
++	bcm43xx_write32(bcm, BCM43xx_PCIECORE_MDIO_DATA, BCM43xx_PCIE_MDIO_ST |
++			BCM43xx_PCIE_MDIO_WT | (dev << BCM43xx_PCIE_MDIO_DEV) |
++			(reg << BCM43xx_PCIE_MDIO_REG) | BCM43xx_PCIE_MDIO_TA |
++			data);
++	udelay(10);
++
++	for (i = 0; i < 10; i++) {
++		if (bcm43xx_read32(bcm, BCM43xx_PCIECORE_MDIO_CTL) &
++		    BCM43xx_PCIE_MDIO_TC)
++			break;
++		msleep(1);
++	}
++	bcm43xx_write32(bcm, BCM43xx_PCIECORE_MDIO_CTL, 0);
++}
++
+ /* Make an I/O Core usable. "core_mask" is the bitmask of the cores to enable.
+  * To enable core 0, pass a core_mask of 1<<0
+  */
+@@ -3022,7 +3065,8 @@ static int bcm43xx_setup_backplane_pci_c
+ 	if (err)
+ 		goto out;
+ 
+-	if (bcm->core_pci.rev < 6) {
++	if (bcm->current_core->rev < 6 ||
++		bcm->current_core->id == BCM43xx_COREID_PCI) {
+ 		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
+ 		value |= (1 << backplane_flag_nr);
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
+@@ -3040,21 +3084,46 @@ static int bcm43xx_setup_backplane_pci_c
+ 		}
+ 	}
+ 
+-	value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
+-	value |= BCM43xx_SBTOPCI2_PREFETCH | BCM43xx_SBTOPCI2_BURST;
+-	bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
+-
+-	if (bcm->core_pci.rev < 5) {
+-		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+-		value |= (2 << BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_SHIFT)
+-			 & BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+-		value |= (3 << BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_SHIFT)
+-			 & BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, value);
+-		err = bcm43xx_pcicore_commit_settings(bcm);
+-		assert(err == 0);
++	if (bcm->current_core->id == BCM43xx_COREID_PCI) {
++		value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
++		value |= BCM43xx_SBTOPCI2_PREFETCH | BCM43xx_SBTOPCI2_BURST;
++		bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
++
++		if (bcm->current_core->rev < 5) {
++			value = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
++			value |= (2 << BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_SHIFT)
++				 & BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
++			value |= (3 << BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_SHIFT)
++				 & BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
++			bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, value);
++			err = bcm43xx_pcicore_commit_settings(bcm);
++			assert(err == 0);
++		} else if (bcm->current_core->rev >= 11) {
++			value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
++			value |= BCM43xx_SBTOPCI2_MEMREAD_MULTI;
++			bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
++		}
++	} else {
++		if (bcm->current_core->rev == 0 || bcm->current_core->rev == 1) {
++			value = bcm43xx_pcie_reg_read(bcm, BCM43xx_PCIE_TLP_WORKAROUND);
++			value |= 0x8;
++			bcm43xx_pcie_reg_write(bcm, BCM43xx_PCIE_TLP_WORKAROUND,
++					       value);
++		}
++		if (bcm->current_core->rev == 0) {
++			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
++						BCM43xx_SERDES_RXTIMER, 0x8128);
++			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
++						BCM43xx_SERDES_CDR, 0x0100);
++			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
++						BCM43xx_SERDES_CDR_BW, 0x1466);
++		} else if (bcm->current_core->rev == 1) {
++			value = bcm43xx_pcie_reg_read(bcm, BCM43xx_PCIE_DLLP_LINKCTL);
++			value |= 0x40;
++			bcm43xx_pcie_reg_write(bcm, BCM43xx_PCIE_DLLP_LINKCTL,
++					       value);
++		}
+ 	}
+-
+ out_switch_back:
+ 	err = bcm43xx_switch_core(bcm, old_core);
+ out:
+@@ -3644,7 +3713,7 @@ static int bcm43xx_read_phyinfo(struct b
+ 		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
+ 		break;
+ 	case BCM43xx_PHYTYPE_G:
+-		if (phy_rev > 7)
++		if (phy_rev > 8)
+ 			phy_rev_ok = 0;
+ 		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION |
+ 					IEEE80211_CCK_MODULATION;
+@@ -3656,6 +3725,8 @@ static int bcm43xx_read_phyinfo(struct b
+ 		       phy_type);
+ 		return -ENODEV;
+ 	};
++	bcm->ieee->perfect_rssi = RX_RSSI_MAX;
++	bcm->ieee->worst_rssi = 0;
+ 	if (!phy_rev_ok) {
+ 		printk(KERN_WARNING PFX "Invalid PHY Revision %x\n",
+ 		       phy_rev);
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_power.c b/drivers/net/wireless/bcm43xx/bcm43xx_power.c
+index 6569da3..7e774f4 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_power.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_power.c
+@@ -153,8 +153,6 @@ int bcm43xx_pctl_init(struct bcm43xx_pri
+ 	int err, maxfreq;
+ 	struct bcm43xx_coreinfo *old_core;
+ 
+-	if (!(bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL))
+-		return 0;
+ 	old_core = bcm->current_core;
+ 	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+ 	if (err == -ENODEV)
+@@ -162,11 +160,27 @@ int bcm43xx_pctl_init(struct bcm43xx_pri
+ 	if (err)
+ 		goto out;
+ 
+-	maxfreq = bcm43xx_pctl_clockfreqlimit(bcm, 1);
+-	bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_PLLONDELAY,
+-			(maxfreq * 150 + 999999) / 1000000);
+-	bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_FREFSELDELAY,
+-			(maxfreq * 15 + 999999) / 1000000);
++	if (bcm->chip_id == 0x4321) {
++		if (bcm->chip_rev == 0)
++			bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_CTL, 0x03A4);
++		if (bcm->chip_rev == 1)
++			bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_CTL, 0x00A4);
++	}
++
++	if (bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL) {
++		if (bcm->current_core->rev >= 10) {
++			/* Set Idle Power clock rate to 1Mhz */
++			bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_SYSCLKCTL,
++				       (bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_SYSCLKCTL)
++				       & 0x0000FFFF) | 0x40000);
++		} else {
++			maxfreq = bcm43xx_pctl_clockfreqlimit(bcm, 1);
++			bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_PLLONDELAY,
++				       (maxfreq * 150 + 999999) / 1000000);
++			bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_FREFSELDELAY,
++				       (maxfreq * 15 + 999999) / 1000000);
++		}
++	}
+ 
+ 	err = bcm43xx_switch_core(bcm, old_core);
+ 	assert(err == 0);
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+index d27016f..a659442 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -47,9 +47,6 @@ #include "bcm43xx_phy.h"
+ #define BCM43xx_WX_VERSION	18
+ 
+ #define MAX_WX_STRING		80
+-/* FIXME: the next line is a guess as to what the maximum RSSI value might be */
+-#define RX_RSSI_MAX		60
+-
+ 
+ static int bcm43xx_wx_get_name(struct net_device *net_dev,
+                                struct iw_request_info *info,
+@@ -693,6 +690,7 @@ static int bcm43xx_wx_set_swencryption(s
+ 	bcm->ieee->host_encrypt = !!on;
+ 	bcm->ieee->host_decrypt = !!on;
+ 	bcm->ieee->host_build_iv = !on;
++	bcm->ieee->host_strip_iv_icv = !on;
+ 	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+ 	mutex_unlock(&bcm->mutex);
+ 
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c b/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+index 0159e4e..a957bc8 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+@@ -543,25 +543,6 @@ int bcm43xx_rx(struct bcm43xx_private *b
+ 		break;
+ 	}
+ 
+-	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
+-	if ((frame_ctl & IEEE80211_FCTL_PROTECTED) && !bcm->ieee->host_decrypt) {
+-		frame_ctl &= ~IEEE80211_FCTL_PROTECTED;
+-		wlhdr->frame_ctl = cpu_to_le16(frame_ctl);		
+-		/* trim IV and ICV */
+-		/* FIXME: this must be done only for WEP encrypted packets */
+-		if (skb->len < 32) {
+-			dprintkl(KERN_ERR PFX "RX packet dropped (PROTECTED flag "
+-					      "set and length < 32)\n");
+-			return -EINVAL;
+-		} else {		
+-			memmove(skb->data + 4, skb->data, 24);
+-			skb_pull(skb, 4);
+-			skb_trim(skb, skb->len - 4);
+-			stats.len -= 8;
+-		}
+-		wlhdr = (struct ieee80211_hdr_4addr *)(skb->data);
 -	}
-+	if (!mac->associnfo.associating)
-+		goto out;
- 	mac->associnfo.associating = 0;
- 	mac->associnfo.bssvalid = 0;
--	mac->associated = 0;
-+	mac->associnfo.associated = 0;
+-	
+ 	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
+ 	case IEEE80211_FTYPE_MGMT:
+ 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
+diff --git a/drivers/net/wireless/prism54/isl_38xx.c b/drivers/net/wireless/prism54/isl_38xx.c
+index 23deee6..02fc67b 100644
+--- a/drivers/net/wireless/prism54/isl_38xx.c
++++ b/drivers/net/wireless/prism54/isl_38xx.c
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2003-2004 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>_
+  *
+@@ -38,7 +37,7 @@ #include "islpci_mgt.h"
+  * isl38xx_disable_interrupts - disable all interrupts
+  * @device: pci memory base address
+  *
+- *  Instructs the device to disable all interrupt reporting by asserting 
++ *  Instructs the device to disable all interrupt reporting by asserting
+  *  the IRQ line. New events may still show up in the interrupt identification
+  *  register located at offset %ISL38XX_INT_IDENT_REG.
+  */
+@@ -204,17 +203,19 @@ #endif
+ 	/* enable the interrupt for detecting initialization */
  
- 	n = ieee80211softmac_get_network_by_bssid_locked(mac, mac->associnfo.bssid);
--	spin_unlock_irqrestore(&mac->lock, flags);
- 
- 	dprintk(KERN_INFO PFX "assoc request timed out!\n");
- 	ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT, n);
-+out:
-+	mutex_unlock(&mac->associnfo.mutex);
+ 	/* Note: Do not enable other interrupts here. We want the
+-	 * device to have come up first 100% before allowing any other 
++	 * device to have come up first 100% before allowing any other
+ 	 * interrupts. */
+ 	isl38xx_w32_flush(device_base, ISL38XX_INT_IDENT_INIT, ISL38XX_INT_EN_REG);
+ 	udelay(ISL38XX_WRITEIO_DELAY);  /* allow complete full reset */
  }
  
  void
-@@ -93,7 +91,7 @@ ieee80211softmac_disassoc(struct ieee802
- 
- 	netif_carrier_off(mac->dev);
- 
--	mac->associated = 0;
-+	mac->associnfo.associated = 0;
- 	mac->associnfo.bssvalid = 0;
- 	mac->associnfo.associating = 0;
- 	ieee80211softmac_init_bss(mac);
-@@ -107,7 +105,7 @@ ieee80211softmac_send_disassoc_req(struc
- {
- 	struct ieee80211softmac_network *found;
- 
--	if (mac->associnfo.bssvalid && mac->associated) {
-+	if (mac->associnfo.bssvalid && mac->associnfo.associated) {
- 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);
- 		if (found)
- 			ieee80211softmac_send_mgt_frame(mac, found, IEEE80211_STYPE_DISASSOC, reason);
-@@ -196,17 +194,18 @@ ieee80211softmac_assoc_work(void *d)
- 	int bssvalid;
- 	unsigned long flags;
- 
-+	mutex_lock(&mac->associnfo.mutex);
+-isl38xx_enable_common_interrupts(void __iomem *device_base) {
++isl38xx_enable_common_interrupts(void __iomem *device_base)
++{
+ 	u32 reg;
+-	reg = ( ISL38XX_INT_IDENT_UPDATE | 
+-			ISL38XX_INT_IDENT_SLEEP | ISL38XX_INT_IDENT_WAKEUP);
 +
-+	if (!mac->associnfo.associating)
-+		goto out;
++	reg = ISL38XX_INT_IDENT_UPDATE | ISL38XX_INT_IDENT_SLEEP |
++	      ISL38XX_INT_IDENT_WAKEUP;
+ 	isl38xx_w32_flush(device_base, reg, ISL38XX_INT_EN_REG);
+ 	udelay(ISL38XX_WRITEIO_DELAY);
+ }
+@@ -234,23 +235,21 @@ isl38xx_in_queue(isl38xx_control_block *
+ 		/* send queues */
+ 	case ISL38XX_CB_TX_MGMTQ:
+ 		BUG_ON(delta > ISL38XX_CB_MGMT_QSIZE);
 +
- 	/* ieee80211_disassoc might clear this */
- 	bssvalid = mac->associnfo.bssvalid;
+ 	case ISL38XX_CB_TX_DATA_LQ:
+ 	case ISL38XX_CB_TX_DATA_HQ:
+ 		BUG_ON(delta > ISL38XX_CB_TX_QSIZE);
+ 		return delta;
+-		break;
  
- 	/* meh */
--	if (mac->associated)
-+	if (mac->associnfo.associated)
- 		ieee80211softmac_send_disassoc_req(mac, WLAN_REASON_DISASSOC_STA_HAS_LEFT);
+ 		/* receive queues */
+ 	case ISL38XX_CB_RX_MGMTQ:
+ 		BUG_ON(delta > ISL38XX_CB_MGMT_QSIZE);
+ 		return ISL38XX_CB_MGMT_QSIZE - delta;
+-		break;
  
--	spin_lock_irqsave(&mac->lock, flags);
--	mac->associnfo.associating = 1;
--	spin_unlock_irqrestore(&mac->lock, flags);
--
- 	/* try to find the requested network in our list, if we found one already */
- 	if (bssvalid || mac->associnfo.bssfixed)
- 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);	
-@@ -260,10 +259,8 @@ ieee80211softmac_assoc_work(void *d)
+ 	case ISL38XX_CB_RX_DATA_LQ:
+ 	case ISL38XX_CB_RX_DATA_HQ:
+ 		BUG_ON(delta > ISL38XX_CB_RX_QSIZE);
+ 		return ISL38XX_CB_RX_QSIZE - delta;
+-		break;
+ 	}
+ 	BUG();
+ 	return 0;
+diff --git a/drivers/net/wireless/prism54/isl_38xx.h b/drivers/net/wireless/prism54/isl_38xx.h
+index 8af2098..3fadcb6 100644
+--- a/drivers/net/wireless/prism54/isl_38xx.h
++++ b/drivers/net/wireless/prism54/isl_38xx.h
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *
+  *  This program is free software; you can redistribute it and/or modify
+@@ -67,10 +66,10 @@ #define ISL38XX_PCI_POSTING_FLUSH		ISL38
+  * @base: (host) memory base address of the device
+  * @val: 32bit value (host order) to write
+  * @offset: byte offset into @base to write value to
+- * 
++ *
+  *  This helper takes care of writing a 32bit datum to the
+- *  specified offset into the device's pci memory space, and making sure 
+- *  the pci memory buffers get flushed by performing one harmless read 
++ *  specified offset into the device's pci memory space, and making sure
++ *  the pci memory buffers get flushed by performing one harmless read
+  *  from the %ISL38XX_PCI_POSTING_FLUSH offset.
+  */
+ static inline void
+diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
+index 286325c..4a20e45 100644
+--- a/drivers/net/wireless/prism54/isl_ioctl.c
++++ b/drivers/net/wireless/prism54/isl_ioctl.c
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *            (C) 2003,2004 Aurelien Alleaume <slts@free.fr>
+  *            (C) 2003 Herbert Valerio Riedel <hvr@gnu.org>
+@@ -55,12 +54,12 @@ static const unsigned char scan_rate_lis
+  * prism54_mib_mode_helper - MIB change mode helper function
+  * @mib: the &struct islpci_mib object to modify
+  * @iw_mode: new mode (%IW_MODE_*)
+- * 
++ *
+  *  This is a helper function, hence it does not lock. Make sure
+- *  caller deals with locking *if* necessary. This function sets the 
+- *  mode-dependent mib values and does the mapping of the Linux 
+- *  Wireless API modes to Device firmware modes. It also checks for 
+- *  correct valid Linux wireless modes. 
++ *  caller deals with locking *if* necessary. This function sets the
++ *  mode-dependent mib values and does the mapping of the Linux
++ *  Wireless API modes to Device firmware modes. It also checks for
++ *  correct valid Linux wireless modes.
+  */
+ static int
+ prism54_mib_mode_helper(islpci_private *priv, u32 iw_mode)
+@@ -118,7 +117,7 @@ prism54_mib_mode_helper(islpci_private *
+  *
+  *  this function initializes the struct given as @mib with defaults,
+  *  of which many are retrieved from the global module parameter
+- *  variables.  
++ *  variables.
+  */
  
- 	if (!found) {
- 		if (mac->associnfo.scan_retry > 0) {
--			spin_lock_irqsave(&mac->lock, flags);
- 			mac->associnfo.scan_retry--;
--			spin_unlock_irqrestore(&mac->lock, flags);
+ void
+@@ -134,7 +133,7 @@ prism54_mib_init(islpci_private *priv)
+ 	authen = CARD_DEFAULT_AUTHEN;
+ 	wep = CARD_DEFAULT_WEP;
+ 	filter = CARD_DEFAULT_FILTER; /* (0) Do not filter un-encrypted data */
+-	dot1x = CARD_DEFAULT_DOT1X; 
++	dot1x = CARD_DEFAULT_DOT1X;
+ 	mlme = CARD_DEFAULT_MLME_MODE;
+ 	conformance = CARD_DEFAULT_CONFORMANCE;
+ 	power = 127;
+@@ -228,7 +227,7 @@ prism54_get_wireless_stats(struct net_de
+ 	} else
+ 		priv->iwstatistics.qual.updated = 0;
+ 
+-	/* Update our wireless stats, but do not schedule to often 
++	/* Update our wireless stats, but do not schedule to often
+ 	 * (max 1 HZ) */
+ 	if ((priv->stats_timestamp == 0) ||
+ 	    time_after(jiffies, priv->stats_timestamp + 1 * HZ)) {
+@@ -705,7 +704,7 @@ prism54_get_scan(struct net_device *ndev
+ 	* Starting with WE-17, the buffer can be as big as needed.
+ 	* But the device won't repport anything if you change the value
+ 	* of IWMAX_BSS=24. */
+-	
++
+ 	rvalue |= mgt_get_request(priv, DOT11_OID_BSSLIST, 0, NULL, &r);
+ 	bsslist = r.ptr;
+ 
+@@ -785,7 +784,7 @@ prism54_get_essid(struct net_device *nde
+ 	return rvalue;
+ }
+ 
+-/* Provides no functionality, just completes the ioctl. In essence this is a 
++/* Provides no functionality, just completes the ioctl. In essence this is a
+  * just a cosmetic ioctl.
+  */
+ static int
+@@ -1104,7 +1103,7 @@ prism54_set_encode(struct net_device *nd
+ 					    &key);
+ 		}
+ 		/*
+-		 * If a valid key is set, encryption should be enabled 
++		 * If a valid key is set, encryption should be enabled
+ 		 * (user may turn it off later).
+ 		 * This is also how "iwconfig ethX key on" works
+ 		 */
+@@ -1126,7 +1125,7 @@ prism54_set_encode(struct net_device *nd
+ 	}
+ 	/* now read the flags */
+ 	if (dwrq->flags & IW_ENCODE_DISABLED) {
+-		/* Encoding disabled, 
++		/* Encoding disabled,
+ 		 * authen = DOT11_AUTH_OS;
+ 		 * invoke = 0;
+ 		 * exunencrypt = 0; */
+@@ -1214,7 +1213,7 @@ prism54_get_txpower(struct net_device *n
+ 	vwrq->value = (s32) r.u / 4;
+ 	vwrq->fixed = 1;
+ 	/* radio is not turned of
+-	 * btw: how is possible to turn off only the radio 
++	 * btw: how is possible to turn off only the radio
+ 	 */
+ 	vwrq->disabled = 0;
+ 
+@@ -2354,17 +2353,17 @@ prism54_process_trap_helper(islpci_priva
+ 		handle_request(priv, mlme, oid);
+ 		send_formatted_event(priv, "Authenticate request (ex)", mlme, 1);
+ 
+-		if (priv->iw_mode != IW_MODE_MASTER 
++		if (priv->iw_mode != IW_MODE_MASTER
+ 				&& mlmeex->state != DOT11_STATE_AUTHING)
+ 			break;
+ 
+ 		confirm = kmalloc(sizeof(struct obj_mlmeex) + 6, GFP_ATOMIC);
+ 
+-		if (!confirm) 
++		if (!confirm)
+ 			break;
+ 
+ 		memcpy(&confirm->address, mlmeex->address, ETH_ALEN);
+-		printk(KERN_DEBUG "Authenticate from: address:\t%02x:%02x:%02x:%02x:%02x:%02x\n", 
++		printk(KERN_DEBUG "Authenticate from: address:\t%02x:%02x:%02x:%02x:%02x:%02x\n",
+ 				mlmeex->address[0],
+ 				mlmeex->address[1],
+ 				mlmeex->address[2],
+@@ -2398,10 +2397,10 @@ prism54_process_trap_helper(islpci_priva
+ 		handle_request(priv, mlme, oid);
+ 		send_formatted_event(priv, "Associate request (ex)", mlme, 1);
+ 
+-		if (priv->iw_mode != IW_MODE_MASTER 
++		if (priv->iw_mode != IW_MODE_MASTER
+ 				&& mlmeex->state != DOT11_STATE_ASSOCING)
+ 			break;
 -		
 +
- 			/* We know of no such network. Let's scan. 
- 			 * NB: this also happens if we had no memory to copy the network info...
- 			 * Maybe we can hope to have more memory after scanning finishes ;)
-@@ -272,19 +269,17 @@ ieee80211softmac_assoc_work(void *d)
- 			ieee80211softmac_notify(mac->dev, IEEE80211SOFTMAC_EVENT_SCAN_FINISHED, ieee80211softmac_assoc_notify_scan, NULL);
- 			if (ieee80211softmac_start_scan(mac))
- 				dprintk(KERN_INFO PFX "Associate: failed to initiate scan. Is device up?\n");
--			return;
-+			goto out;
- 		} else {
--			spin_lock_irqsave(&mac->lock, flags);
- 			mac->associnfo.associating = 0;
--			mac->associated = 0;
--			spin_unlock_irqrestore(&mac->lock, flags);
-+			mac->associnfo.associated = 0;
+ 		confirm = kmalloc(sizeof(struct obj_mlmeex), GFP_ATOMIC);
  
- 			dprintk(KERN_INFO PFX "Unable to find matching network after scan!\n");
- 			/* reset the retry counter for the next user request since we
- 			 * break out and don't reschedule ourselves after this point. */
- 			mac->associnfo.scan_retry = IEEE80211SOFTMAC_ASSOC_SCAN_RETRY_LIMIT;
- 			ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_NET_NOT_FOUND, NULL);
--			return;
-+			goto out;
+ 		if (!confirm)
+@@ -2417,7 +2416,7 @@ prism54_process_trap_helper(islpci_priva
+ 
+ 		if (!wpa_ie_len) {
+ 			printk(KERN_DEBUG "No WPA IE found from "
+-					"address:\t%02x:%02x:%02x:%02x:%02x:%02x\n", 
++					"address:\t%02x:%02x:%02x:%02x:%02x:%02x\n",
+ 				mlmeex->address[0],
+ 				mlmeex->address[1],
+ 				mlmeex->address[2],
+@@ -2435,14 +2434,14 @@ prism54_process_trap_helper(islpci_priva
+ 		mgt_set_varlen(priv, oid, confirm, wpa_ie_len);
+ 
+ 		kfree(confirm);
+-		
++
+ 		break;
+ 
+ 	case DOT11_OID_REASSOCIATEEX:
+ 		handle_request(priv, mlme, oid);
+ 		send_formatted_event(priv, "Reassociate request (ex)", mlme, 1);
+ 
+-		if (priv->iw_mode != IW_MODE_MASTER 
++		if (priv->iw_mode != IW_MODE_MASTER
+ 				&& mlmeex->state != DOT11_STATE_ASSOCING)
+ 			break;
+ 
+@@ -2461,7 +2460,7 @@ prism54_process_trap_helper(islpci_priva
+ 
+ 		if (!wpa_ie_len) {
+ 			printk(KERN_DEBUG "No WPA IE found from "
+-					"address:\t%02x:%02x:%02x:%02x:%02x:%02x\n", 
++					"address:\t%02x:%02x:%02x:%02x:%02x:%02x\n",
+ 				mlmeex->address[0],
+ 				mlmeex->address[1],
+ 				mlmeex->address[2],
+@@ -2473,13 +2472,13 @@ prism54_process_trap_helper(islpci_priva
+ 			break;
  		}
- 	}
  
-@@ -297,7 +292,7 @@ ieee80211softmac_assoc_work(void *d)
- 	/* copy the ESSID for displaying it */
- 	mac->associnfo.associate_essid.len = found->essid.len;
- 	memcpy(mac->associnfo.associate_essid.data, found->essid.data, IW_ESSID_MAX_SIZE + 1);
--	
+-		confirm->size = wpa_ie_len; 
++		confirm->size = wpa_ie_len;
+ 		memcpy(&confirm->data, wpa_ie, wpa_ie_len);
+ 
+ 		mgt_set_varlen(priv, oid, confirm, wpa_ie_len);
+ 
+ 		kfree(confirm);
+-		
 +
- 	/* we found a network! authenticate (if necessary) and associate to it. */
- 	if (found->authenticating) {
- 		dprintk(KERN_INFO PFX "Already requested authentication, waiting...\n");
-@@ -305,7 +300,7 @@ ieee80211softmac_assoc_work(void *d)
- 			mac->associnfo.assoc_wait = 1;
- 			ieee80211softmac_notify_internal(mac, IEEE80211SOFTMAC_EVENT_ANY, found, ieee80211softmac_assoc_notify_auth, NULL, GFP_KERNEL);
- 		}
--		return;
-+		goto out;
- 	}
- 	if (!found->authenticated && !found->authenticating) {
- 		/* This relies on the fact that _auth_req only queues the work,
-@@ -321,11 +316,14 @@ ieee80211softmac_assoc_work(void *d)
- 			mac->associnfo.assoc_wait = 0;
- 			ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_FAILED, found);
- 		}
--		return;
-+		goto out;
- 	}
- 	/* finally! now we can start associating */
- 	mac->associnfo.assoc_wait = 0;
- 	ieee80211softmac_assoc(mac, found);
-+
-+out:
-+	mutex_unlock(&mac->associnfo.mutex);
- }
+ 		break;
  
- /* call this to do whatever is necessary when we're associated */
-@@ -341,7 +339,7 @@ ieee80211softmac_associated(struct ieee8
- 	mac->bssinfo.supported_rates = net->supported_rates;
- 	ieee80211softmac_recalc_txrates(mac);
- 
--	mac->associated = 1;
-+	mac->associnfo.associated = 1;
- 
- 	mac->associnfo.short_preamble_available =
- 		(cap & WLAN_CAPABILITY_SHORT_PREAMBLE) != 0;
-@@ -421,7 +419,7 @@ ieee80211softmac_handle_assoc_response(s
- 			dprintk(KERN_INFO PFX "associating failed (reason: 0x%x)!\n", status);
- 			mac->associnfo.associating = 0;
- 			mac->associnfo.bssvalid = 0;
--			mac->associated = 0;
-+			mac->associnfo.associated = 0;
- 			ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_FAILED, network);
- 	}
- 	
-diff --git a/net/ieee80211/softmac/ieee80211softmac_io.c b/net/ieee80211/softmac/ieee80211softmac_io.c
-index 82bfddb..b969310 100644
---- a/net/ieee80211/softmac/ieee80211softmac_io.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_io.c
-@@ -304,7 +304,7 @@ ieee80211softmac_auth(struct ieee80211_a
- 		2 +		/* Auth Transaction Seq */
- 		2 +		/* Status Code */
- 		 /* Challenge Text IE */
--		is_shared_response ? 0 : 1 + 1 + net->challenge_len
-+		(is_shared_response ? 1 + 1 + net->challenge_len : 0)
- 	);
- 	if (unlikely((*pkt) == NULL))
- 		return 0;
-@@ -475,8 +475,13 @@ int ieee80211softmac_handle_beacon(struc
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
- 
--	if (mac->associated && memcmp(network->bssid, mac->associnfo.bssid, ETH_ALEN) == 0)
--		ieee80211softmac_process_erp(mac, network->erp_value);
-+	/* This might race, but we don't really care and it's not worth
-+	 * adding heavyweight locking in this fastpath.
-+	 */
-+	if (mac->associnfo.associated) {
-+		if (memcmp(network->bssid, mac->associnfo.bssid, ETH_ALEN) == 0)
-+			ieee80211softmac_process_erp(mac, network->erp_value);
-+	}
- 
- 	return 0;
- }
-diff --git a/net/ieee80211/softmac/ieee80211softmac_module.c b/net/ieee80211/softmac/ieee80211softmac_module.c
-index addea1c..33aff4f 100644
---- a/net/ieee80211/softmac/ieee80211softmac_module.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_module.c
-@@ -57,6 +57,7 @@ struct net_device *alloc_ieee80211softma
- 	INIT_LIST_HEAD(&softmac->network_list);
- 	INIT_LIST_HEAD(&softmac->events);
- 
-+	mutex_init(&softmac->associnfo.mutex);
- 	INIT_WORK(&softmac->associnfo.work, ieee80211softmac_assoc_work, softmac);
- 	INIT_WORK(&softmac->associnfo.timeout, ieee80211softmac_assoc_timeout, softmac);
- 	softmac->start_scan = ieee80211softmac_start_scan_implementation;
-diff --git a/net/ieee80211/softmac/ieee80211softmac_wx.c b/net/ieee80211/softmac/ieee80211softmac_wx.c
-index 2aa779d..23068a8 100644
---- a/net/ieee80211/softmac/ieee80211softmac_wx.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_wx.c
-@@ -73,13 +73,14 @@ ieee80211softmac_wx_set_essid(struct net
- 	struct ieee80211softmac_network *n;
- 	struct ieee80211softmac_auth_queue_item *authptr;
- 	int length = 0;
--	unsigned long flags;
-+
-+	mutex_lock(&sm->associnfo.mutex);
- 
- 	/* Check if we're already associating to this or another network
- 	 * If it's another network, cancel and start over with our new network
- 	 * If it's our network, ignore the change, we're already doing it!
- 	 */
--	if((sm->associnfo.associating || sm->associated) &&
-+	if((sm->associnfo.associating || sm->associnfo.associated) &&
- 	   (data->essid.flags && data->essid.length)) {
- 		/* Get the associating network */
- 		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
-@@ -87,10 +88,9 @@ ieee80211softmac_wx_set_essid(struct net
- 		   !memcmp(n->essid.data, extra, n->essid.len)) {
- 			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
- 				MAC_ARG(sm->associnfo.bssid));
--			return 0;
-+			goto out;
- 		} else {
- 			dprintk(KERN_INFO PFX "Canceling existing associate request!\n");
--			spin_lock_irqsave(&sm->lock,flags);
- 			/* Cancel assoc work */
- 			cancel_delayed_work(&sm->associnfo.work);
- 			/* We don't have to do this, but it's a little cleaner */
-@@ -98,14 +98,13 @@ ieee80211softmac_wx_set_essid(struct net
- 				cancel_delayed_work(&authptr->work);
- 			sm->associnfo.bssvalid = 0;
- 			sm->associnfo.bssfixed = 0;
--			spin_unlock_irqrestore(&sm->lock,flags);
- 			flush_scheduled_work();
-+			sm->associnfo.associating = 0;
-+			sm->associnfo.associated = 0;
- 		}
- 	}
- 
- 
--	spin_lock_irqsave(&sm->lock, flags);
--
- 	sm->associnfo.static_essid = 0;
- 	sm->associnfo.assoc_wait = 0;
- 
-@@ -121,10 +120,12 @@ ieee80211softmac_wx_set_essid(struct net
- 	 * If applicable, we have already copied the data in */
- 	sm->associnfo.req_essid.len = length;
- 
-+	sm->associnfo.associating = 1;
- 	/* queue lower level code to do work (if necessary) */
- 	schedule_work(&sm->associnfo.work);
-+out:
-+	mutex_unlock(&sm->associnfo.mutex);
- 
--	spin_unlock_irqrestore(&sm->lock, flags);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_essid);
-@@ -136,10 +137,8 @@ ieee80211softmac_wx_get_essid(struct net
- 			      char *extra)
- {
- 	struct ieee80211softmac_device *sm = ieee80211_priv(net_dev);
--	unsigned long flags;
- 
--	/* avoid getting inconsistent information */
--	spin_lock_irqsave(&sm->lock, flags);
-+	mutex_lock(&sm->associnfo.mutex);
- 	/* If all fails, return ANY (empty) */
- 	data->essid.length = 0;
- 	data->essid.flags = 0;  /* active */
-@@ -152,12 +151,13 @@ ieee80211softmac_wx_get_essid(struct net
- 	}
- 	
- 	/* If we're associating/associated, return that */
--	if (sm->associated || sm->associnfo.associating) {
-+	if (sm->associnfo.associated || sm->associnfo.associating) {
- 		data->essid.length = sm->associnfo.associate_essid.len;
- 		data->essid.flags = 1;  /* active */
- 		memcpy(extra, sm->associnfo.associate_essid.data, sm->associnfo.associate_essid.len);
- 	}
--	spin_unlock_irqrestore(&sm->lock, flags);
-+	mutex_unlock(&sm->associnfo.mutex);
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_essid);
-@@ -322,15 +322,15 @@ ieee80211softmac_wx_get_wap(struct net_d
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(net_dev);
- 	int err = 0;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
- 	if (mac->associnfo.bssvalid)
- 		memcpy(data->ap_addr.sa_data, mac->associnfo.bssid, ETH_ALEN);
- 	else
- 		memset(data->ap_addr.sa_data, 0xff, ETH_ALEN);
- 	data->ap_addr.sa_family = ARPHRD_ETHER;
--	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_unlock(&mac->associnfo.mutex);
-+
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_wap);
-@@ -342,28 +342,27 @@ ieee80211softmac_wx_set_wap(struct net_d
- 			    char *extra)
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(net_dev);
--	unsigned long flags;
- 
- 	/* sanity check */
- 	if (data->ap_addr.sa_family != ARPHRD_ETHER) {
- 		return -EINVAL;
- 	}
- 
--	spin_lock_irqsave(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
- 	if (is_broadcast_ether_addr(data->ap_addr.sa_data)) {
- 		/* the bssid we have is not to be fixed any longer,
- 		 * and we should reassociate to the best AP. */
- 		mac->associnfo.bssfixed = 0;
- 		/* force reassociation */
- 		mac->associnfo.bssvalid = 0;
--		if (mac->associated)
-+		if (mac->associnfo.associated)
- 			schedule_work(&mac->associnfo.work);
- 	} else if (is_zero_ether_addr(data->ap_addr.sa_data)) {
- 		/* the bssid we have is no longer fixed */
- 		mac->associnfo.bssfixed = 0;
-         } else {
- 		if (!memcmp(mac->associnfo.bssid, data->ap_addr.sa_data, ETH_ALEN)) {
--			if (mac->associnfo.associating || mac->associated) {
-+			if (mac->associnfo.associating || mac->associnfo.associated) {
- 			/* bssid unchanged and associated or associating - just return */
- 				goto out;
- 			}
-@@ -378,7 +377,8 @@ ieee80211softmac_wx_set_wap(struct net_d
-         }
- 
-  out:
--	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_unlock(&mac->associnfo.mutex);
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_wap);
-@@ -394,7 +394,8 @@ ieee80211softmac_wx_set_genie(struct net
- 	int err = 0;
- 	char *buf;
- 	int i;
--	
-+
-+	mutex_lock(&mac->associnfo.mutex);
- 	spin_lock_irqsave(&mac->lock, flags);
- 	/* bleh. shouldn't be locked for that kmalloc... */
- 
-@@ -432,6 +433,8 @@ ieee80211softmac_wx_set_genie(struct net
- 
-  out:	
- 	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_unlock(&mac->associnfo.mutex);
-+
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_genie);
-@@ -446,7 +449,8 @@ ieee80211softmac_wx_get_genie(struct net
- 	unsigned long flags;
- 	int err = 0;
- 	int space = wrqu->data.length;
--	
-+
-+	mutex_lock(&mac->associnfo.mutex);
- 	spin_lock_irqsave(&mac->lock, flags);
- 	
- 	wrqu->data.length = 0;
-@@ -459,6 +463,8 @@ ieee80211softmac_wx_get_genie(struct net
- 			err = -E2BIG;
- 	}
- 	spin_unlock_irqrestore(&mac->lock, flags);
-+	mutex_lock(&mac->associnfo.mutex);
-+
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_genie);
-@@ -473,10 +479,13 @@ ieee80211softmac_wx_set_mlme(struct net_
- 	struct iw_mlme *mlme = (struct iw_mlme *)extra;
- 	u16 reason = cpu_to_le16(mlme->reason_code);
- 	struct ieee80211softmac_network *net;
-+	int err = -EINVAL;
-+
-+	mutex_lock(&mac->associnfo.mutex);
- 
- 	if (memcmp(mac->associnfo.bssid, mlme->addr.sa_data, ETH_ALEN)) {
- 		printk(KERN_DEBUG PFX "wx_set_mlme: requested operation on net we don't use\n");
--		return -EINVAL;
-+		goto out;
- 	}
- 
- 	switch (mlme->cmd) {
-@@ -484,14 +493,22 @@ ieee80211softmac_wx_set_mlme(struct net_
- 		net = ieee80211softmac_get_network_by_bssid_locked(mac, mlme->addr.sa_data);
- 		if (!net) {
- 			printk(KERN_DEBUG PFX "wx_set_mlme: we should know the net here...\n");
--			return -EINVAL;
-+			goto out;
- 		}
- 		return ieee80211softmac_deauth_req(mac, net, reason);
- 	case IW_MLME_DISASSOC:
- 		ieee80211softmac_send_disassoc_req(mac, reason);
--		return 0;
-+		mac->associnfo.associated = 0;
-+		mac->associnfo.associating = 0;
-+		err = 0;
-+		goto out;
  	default:
--		return -EOPNOTSUPP;
-+		err = -EOPNOTSUPP;
+@@ -2545,10 +2544,10 @@ #define PRISM2_HOSTAPD_MAX_BUF_SIZE 1024
+ #define PRISM2_HOSTAPD_GENERIC_ELEMENT_HDR_LEN \
+ ((int) (&((struct prism2_hostapd_param *) 0)->u.generic_elem.data))
+ 
+-/* Maximum length for algorithm names (-1 for nul termination) 
++/* Maximum length for algorithm names (-1 for nul termination)
+  * used in ioctl() */
+ #define HOSTAP_CRYPT_ALG_NAME_LEN 16
+-	
++
+ struct prism2_hostapd_param {
+ 	u32 cmd;
+ 	u8 sta_addr[ETH_ALEN];
+@@ -2621,7 +2620,7 @@ prism2_ioctl_set_encryption(struct net_d
+ 					    &key);
+ 		}
+ 		/*
+-		 * If a valid key is set, encryption should be enabled 
++		 * If a valid key is set, encryption should be enabled
+ 		 * (user may turn it off later).
+ 		 * This is also how "iwconfig ethX key on" works
+ 		 */
+@@ -2643,7 +2642,7 @@ prism2_ioctl_set_encryption(struct net_d
  	}
-+
-+out:
-+	mutex_unlock(&mac->associnfo.mutex);
-+
-+	return err;
+ 	/* now read the flags */
+ 	if (param->u.crypt.flags & IW_ENCODE_DISABLED) {
+-		/* Encoding disabled, 
++		/* Encoding disabled,
+ 		 * authen = DOT11_AUTH_OS;
+ 		 * invoke = 0;
+ 		 * exunencrypt = 0; */
+@@ -2710,7 +2709,7 @@ #define WLAN_FC_STYPE_REASSOC_REQ 2
+ 
+ 	       ret = mgt_set_varlen(priv, DOT11_OID_ATTACHMENT, attach, len);
+ 
+-	       if (ret == 0) 
++	       if (ret == 0)
+ 		       printk(KERN_DEBUG "%s: WPA IE Attachment was set\n",
+ 				       ndev->name);
+        }
+@@ -2870,7 +2869,7 @@ prism54_set_wpa(struct net_device *ndev,
+ 			mlme = DOT11_MLME_AUTO;
+ 			printk("%s: Disabling WPA\n", ndev->name);
+ 			break;
+-		case 2: 
++		case 2:
+ 		case 1: /* WPA */
+ 			printk("%s: Enabling WPA\n", ndev->name);
+ 			break;
+diff --git a/drivers/net/wireless/prism54/isl_ioctl.h b/drivers/net/wireless/prism54/isl_ioctl.h
+index 65f33ac..e8183d3 100644
+--- a/drivers/net/wireless/prism54/isl_ioctl.h
++++ b/drivers/net/wireless/prism54/isl_ioctl.h
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *            (C) 2003 Aurelien Alleaume <slts@free.fr>
+  *            (C) 2003 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
+diff --git a/drivers/net/wireless/prism54/isl_oid.h b/drivers/net/wireless/prism54/isl_oid.h
+index 419edf7..b7534c2 100644
+--- a/drivers/net/wireless/prism54/isl_oid.h
++++ b/drivers/net/wireless/prism54/isl_oid.h
+@@ -1,6 +1,4 @@
+ /*
+- *
+- *  
+  *  Copyright (C) 2003 Herbert Valerio Riedel <hvr@gnu.org>
+  *  Copyright (C) 2004 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
+  *  Copyright (C) 2004 Aurelien Alleaume <slts@free.fr>
+@@ -23,7 +21,7 @@
+ #if !defined(_ISL_OID_H)
+ #define _ISL_OID_H
+ 
+-/* 
++/*
+  * MIB related constant and structure definitions for communicating
+  * with the device firmware
+  */
+@@ -99,21 +97,21 @@ struct obj_attachment {
+ 	char data[0];
+ } __attribute__((packed));
+ 
+-/* 
++/*
+  * in case everything's ok, the inlined function below will be
+  * optimized away by the compiler...
+  */
+ static inline void
+ __bug_on_wrong_struct_sizes(void)
+ {
+-	BUG_ON(sizeof (struct obj_ssid) != 34);
+-	BUG_ON(sizeof (struct obj_key) != 34);
+-	BUG_ON(sizeof (struct obj_mlme) != 12);
+-	BUG_ON(sizeof (struct obj_mlmeex) != 14);
+-	BUG_ON(sizeof (struct obj_buffer) != 8);
+-	BUG_ON(sizeof (struct obj_bss) != 60);
+-	BUG_ON(sizeof (struct obj_bsslist) != 4);
+-	BUG_ON(sizeof (struct obj_frequencies) != 2);
++	BUILD_BUG_ON(sizeof (struct obj_ssid) != 34);
++	BUILD_BUG_ON(sizeof (struct obj_key) != 34);
++	BUILD_BUG_ON(sizeof (struct obj_mlme) != 12);
++	BUILD_BUG_ON(sizeof (struct obj_mlmeex) != 14);
++	BUILD_BUG_ON(sizeof (struct obj_buffer) != 8);
++	BUILD_BUG_ON(sizeof (struct obj_bss) != 60);
++	BUILD_BUG_ON(sizeof (struct obj_bsslist) != 4);
++	BUILD_BUG_ON(sizeof (struct obj_frequencies) != 2);
  }
- EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_mlme);
+ 
+ enum dot11_state_t {
+@@ -154,13 +152,13 @@ enum dot11_priv_t {
+ 
+ /* Prism "Nitro" / Frameburst / "Packet Frame Grouping"
+  * Value is in microseconds. Represents the # microseconds
+- * the firmware will take to group frames before sending out then out 
++ * the firmware will take to group frames before sending out then out
+  * together with a CSMA contention. Without this all frames are
+- * sent with a CSMA contention. 
+- * Bibliography: 
++ * sent with a CSMA contention.
++ * Bibliography:
+  * http://www.hpl.hp.com/personal/Jean_Tourrilhes/Papers/Packet.Frame.Grouping.html
+  */
+-enum dot11_maxframeburst_t { 
++enum dot11_maxframeburst_t {
+ 	/* Values for DOT11_OID_MAXFRAMEBURST */
+ 	DOT11_MAXFRAMEBURST_OFF = 0, /* Card firmware default */
+ 	DOT11_MAXFRAMEBURST_MIXED_SAFE = 650, /* 802.11 a,b,g safe */
+@@ -176,9 +174,9 @@ enum dot11_maxframeburst_t { 
+ /* Support for 802.11 long and short frame preambles.
+  * Long	 preamble uses 128-bit sync field, 8-bit  CRC
+  * Short preamble uses 56-bit  sync field, 16-bit CRC
+- * 
++ *
+  * 802.11a -- not sure, both optionally ?
+- * 802.11b supports long and optionally short 
++ * 802.11b supports long and optionally short
+  * 802.11g supports both */
+ enum dot11_preamblesettings_t {
+ 	DOT11_PREAMBLESETTING_LONG = 0,
+@@ -194,7 +192,7 @@ enum dot11_preamblesettings_t {
+  * Long uses 802.11a slot timing  (9 usec ?)
+  * Short uses 802.11b slot timing (20 use ?) */
+ enum dot11_slotsettings_t {
+-	DOT11_SLOTSETTINGS_LONG = 0, 
++	DOT11_SLOTSETTINGS_LONG = 0,
+ 		/* Allows *only* long 802.11b slot timing */
+ 	DOT11_SLOTSETTINGS_SHORT = 1,
+ 		/* Allows *only* long 802.11a slot timing */
+@@ -203,7 +201,7 @@ enum dot11_slotsettings_t {
+ };
+ 
+ /* All you need to know, ERP is "Extended Rate PHY".
+- * An Extended Rate PHY (ERP) STA or AP shall support three different 
++ * An Extended Rate PHY (ERP) STA or AP shall support three different
+  * preamble and header formats:
+  * Long  preamble (refer to above)
+  * Short preamble (refer to above)
+@@ -221,7 +219,7 @@ enum do11_nonerpstatus_t {
+ /* (ERP is "Extended Rate PHY") Way to read NONERP is NON-ERP-*
+  * The key here is DOT11 NON ERP NEVER protects against
+  * NON ERP STA's. You *don't* want this unless
+- * you know what you are doing. It means you will only 
++ * you know what you are doing. It means you will only
+  * get Extended Rate capabilities */
+ enum dot11_nonerpprotection_t {
+ 	DOT11_NONERP_NEVER = 0,
+@@ -229,13 +227,13 @@ enum dot11_nonerpprotection_t {
+ 	DOT11_NONERP_DYNAMIC = 2
+ };
+ 
+-/* Preset OID configuration for 802.11 modes 
+- * Note: DOT11_OID_CW[MIN|MAX] hold the values of the 
++/* Preset OID configuration for 802.11 modes
++ * Note: DOT11_OID_CW[MIN|MAX] hold the values of the
+  * DCS MIN|MAX backoff used */
+ enum dot11_profile_t { /* And set/allowed values */
+ 	/* Allowed values for DOT11_OID_PROFILES */
+ 	DOT11_PROFILE_B_ONLY = 0,
+-		/* DOT11_OID_RATES: 1, 2, 5.5, 11Mbps 
++		/* DOT11_OID_RATES: 1, 2, 5.5, 11Mbps
+ 		 * DOT11_OID_PREAMBLESETTINGS: DOT11_PREAMBLESETTING_DYNAMIC
+ 		 * DOT11_OID_CWMIN: 31
+ 		 * DOT11_OID_NONEPROTECTION: DOT11_NOERP_DYNAMIC
+@@ -275,7 +273,7 @@ enum oid_inl_conformance_t {
+ 	OID_INL_CONFORMANCE_NONE = 0,	/* Perform active scanning */
+ 	OID_INL_CONFORMANCE_STRICT = 1,	/* Strictly adhere to 802.11d */
+ 	OID_INL_CONFORMANCE_FLEXIBLE = 2,	/* Use passed 802.11d info to
+-		* determine channel AND/OR just make assumption that active 
++		* determine channel AND/OR just make assumption that active
+ 		* channels are valid  channels */
+ };
+ 
+diff --git a/drivers/net/wireless/prism54/islpci_dev.c b/drivers/net/wireless/prism54/islpci_dev.c
+index ec1c00f..1e0603c 100644
+--- a/drivers/net/wireless/prism54/islpci_dev.c
++++ b/drivers/net/wireless/prism54/islpci_dev.c
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2003 Herbert Valerio Riedel <hvr@gnu.org>
+  *  Copyright (C) 2003 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
+@@ -413,7 +412,7 @@ prism54_bring_down(islpci_private *priv)
+ 	islpci_set_state(priv, PRV_STATE_PREBOOT);
+ 
+ 	/* disable all device interrupts in case they weren't */
+-	isl38xx_disable_interrupts(priv->device_base);  
++	isl38xx_disable_interrupts(priv->device_base);
+ 
+ 	/* For safety reasons, we may want to ensure that no DMA transfer is
+ 	 * currently in progress by emptying the TX and RX queues. */
+@@ -480,7 +479,7 @@ islpci_reset_if(islpci_private *priv)
+ 
+ 	DEFINE_WAIT(wait);
+ 	prepare_to_wait(&priv->reset_done, &wait, TASK_UNINTERRUPTIBLE);
+-	
++
+ 	/* now the last step is to reset the interface */
+ 	isl38xx_interface_reset(priv->device_base, priv->device_host_address);
+ 	islpci_set_state(priv, PRV_STATE_PREINIT);
+@@ -488,7 +487,7 @@ islpci_reset_if(islpci_private *priv)
+         for(count = 0; count < 2 && result; count++) {
+ 		/* The software reset acknowledge needs about 220 msec here.
+ 		 * Be conservative and wait for up to one second. */
+-	
++
+ 		remaining = schedule_timeout_uninterruptible(HZ);
+ 
+ 		if(remaining > 0) {
+@@ -496,7 +495,7 @@ islpci_reset_if(islpci_private *priv)
+ 			break;
+ 		}
+ 
+-		/* If we're here it's because our IRQ hasn't yet gone through. 
++		/* If we're here it's because our IRQ hasn't yet gone through.
+ 		 * Retry a bit more...
+ 		 */
+ 		printk(KERN_ERR "%s: no 'reset complete' IRQ seen - retrying\n",
+@@ -514,7 +513,7 @@ islpci_reset_if(islpci_private *priv)
+ 
+ 	/* Now that the device is 100% up, let's allow
+ 	 * for the other interrupts --
+-	 * NOTE: this is not *yet* true since we've only allowed the 
++	 * NOTE: this is not *yet* true since we've only allowed the
+ 	 * INIT interrupt on the IRQ line. We can perhaps poll
+ 	 * the IRQ line until we know for sure the reset went through */
+ 	isl38xx_enable_common_interrupts(priv->device_base);
+@@ -716,7 +715,7 @@ #endif
+ 
+ 	prism54_acl_init(&priv->acl);
+ 	prism54_wpa_bss_ie_init(priv);
+-	if (mgt_init(priv)) 
++	if (mgt_init(priv))
+ 		goto out_free;
+ 
+ 	return 0;
+diff --git a/drivers/net/wireless/prism54/islpci_dev.h b/drivers/net/wireless/prism54/islpci_dev.h
+index 2f7e525..a9aa166 100644
+--- a/drivers/net/wireless/prism54/islpci_dev.h
++++ b/drivers/net/wireless/prism54/islpci_dev.h
+@@ -1,6 +1,5 @@
+ /*
+- *  
+- *  Copyright (C) 2002 Intersil Americas Inc. 
++ *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2003 Herbert Valerio Riedel <hvr@gnu.org>
+  *  Copyright (C) 2003 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
+  *  Copyright (C) 2003 Aurelien Alleaume <slts@free.fr>
+@@ -72,12 +71,12 @@ struct islpci_bss_wpa_ie {
+ 	u8 bssid[ETH_ALEN];
+ 	u8 wpa_ie[MAX_WPA_IE_LEN];
+ 	size_t wpa_ie_len;
+-	
++
+ };
+ 
+ typedef struct {
+ 	spinlock_t slock;	/* generic spinlock; */
+-	
++
+ 	u32 priv_oid;
+ 
+ 	/* our mib cache */
+@@ -85,7 +84,7 @@ typedef struct {
+         struct rw_semaphore mib_sem;
+ 	void **mib;
+ 	char nickname[IW_ESSID_MAX_SIZE+1];
+-	
++
+ 	/* Take care of the wireless stats */
+ 	struct work_struct stats_work;
+ 	struct semaphore stats_sem;
+@@ -120,7 +119,7 @@ typedef struct {
+ 	struct net_device *ndev;
+ 
+ 	/* device queue interface members */
+-	struct isl38xx_cb *control_block;	/* device control block 
++	struct isl38xx_cb *control_block;	/* device control block
+ 							   (== driver_mem_address!) */
+ 
+ 	/* Each queue has three indexes:
+diff --git a/drivers/net/wireless/prism54/islpci_eth.c b/drivers/net/wireless/prism54/islpci_eth.c
+index a8261d8..676d838 100644
+--- a/drivers/net/wireless/prism54/islpci_eth.c
++++ b/drivers/net/wireless/prism54/islpci_eth.c
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2004 Aurelien Alleaume <slts@free.fr>
+  *  This program is free software; you can redistribute it and/or modify
+@@ -48,7 +47,7 @@ islpci_eth_cleanup_transmit(islpci_priva
+ 		/* read the index of the first fragment to be freed */
+ 		index = priv->free_data_tx % ISL38XX_CB_TX_QSIZE;
+ 
+-		/* check for holes in the arrays caused by multi fragment frames 
++		/* check for holes in the arrays caused by multi fragment frames
+ 		 * searching for the last fragment of a frame */
+ 		if (priv->pci_map_tx_address[index] != (dma_addr_t) NULL) {
+ 			/* entry is the last fragment of a frame
+@@ -253,6 +252,7 @@ islpci_monitor_rx(islpci_private *priv, 
+ 	 * header and without the FCS. But there a is a bit that
+ 	 * indicates if the packet is corrupted :-) */
+ 	struct rfmon_header *hdr = (struct rfmon_header *) (*skb)->data;
++
+ 	if (hdr->flags & 0x01)
+ 		/* This one is bad. Drop it ! */
+ 		return -1;
+@@ -284,7 +284,7 @@ islpci_monitor_rx(islpci_private *priv, 
+ 		    (struct avs_80211_1_header *) skb_push(*skb,
+ 							   sizeof (struct
+ 								   avs_80211_1_header));
+-		
++
+ 		avs->version = cpu_to_be32(P80211CAPTURE_VERSION);
+ 		avs->length = cpu_to_be32(sizeof (struct avs_80211_1_header));
+ 		avs->mactime = cpu_to_be64(le64_to_cpu(clock));
+@@ -390,7 +390,7 @@ #endif
+ 			struct rx_annex_header *annex =
+ 			    (struct rx_annex_header *) skb->data;
+ 			wstats.level = annex->rfmon.rssi;
+-			/* The noise value can be a bit outdated if nobody's 
++			/* The noise value can be a bit outdated if nobody's
+ 			 * reading wireless stats... */
+ 			wstats.noise = priv->local_iwstatistics.qual.noise;
+ 			wstats.qual = wstats.level - wstats.noise;
+@@ -464,10 +464,8 @@ #endif
+ 			break;
+ 		}
+ 		/* update the fragment address */
+-		control_block->rx_data_low[index].address = cpu_to_le32((u32)
+-									priv->
+-									pci_map_rx_address
+-									[index]);
++		control_block->rx_data_low[index].address =
++			cpu_to_le32((u32)priv->pci_map_rx_address[index]);
+ 		wmb();
+ 
+ 		/* increment the driver read pointer */
+@@ -484,10 +482,12 @@ #endif
+ void
+ islpci_do_reset_and_wake(void *data)
+ {
+-	islpci_private *priv = (islpci_private *) data;
++	islpci_private *priv = data;
++
+ 	islpci_reset(priv, 1);
+-	netif_wake_queue(priv->ndev);
+ 	priv->reset_task_pending = 0;
++	smp_wmb();
++	netif_wake_queue(priv->ndev);
+ }
+ 
+ void
+@@ -499,12 +499,14 @@ islpci_eth_tx_timeout(struct net_device 
+ 	/* increment the transmit error counter */
+ 	statistics->tx_errors++;
+ 
+-	printk(KERN_WARNING "%s: tx_timeout", ndev->name);
+ 	if (!priv->reset_task_pending) {
+-		priv->reset_task_pending = 1;
+-		printk(", scheduling a reset");
++		printk(KERN_WARNING
++			"%s: tx_timeout, scheduling reset", ndev->name);
+ 		netif_stop_queue(ndev);
++		priv->reset_task_pending = 1;
+ 		schedule_work(&priv->reset_task);
++	} else {
++		printk(KERN_WARNING
++			"%s: tx_timeout, waiting for reset", ndev->name);
+ 	}
+-	printk("\n");
+ }
+diff --git a/drivers/net/wireless/prism54/islpci_eth.h b/drivers/net/wireless/prism54/islpci_eth.h
+index bc9d7a6..2678945 100644
+--- a/drivers/net/wireless/prism54/islpci_eth.h
++++ b/drivers/net/wireless/prism54/islpci_eth.h
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *
+  *  This program is free software; you can redistribute it and/or modify
+diff --git a/drivers/net/wireless/prism54/islpci_hotplug.c b/drivers/net/wireless/prism54/islpci_hotplug.c
+index f692dcc..f6354b1 100644
+--- a/drivers/net/wireless/prism54/islpci_hotplug.c
++++ b/drivers/net/wireless/prism54/islpci_hotplug.c
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2003 Herbert Valerio Riedel <hvr@gnu.org>
+  *
+@@ -40,8 +39,8 @@ static int	init_pcitm = 0;
+ module_param(init_pcitm, int, 0);
+ 
+ /* In this order: vendor, device, subvendor, subdevice, class, class_mask,
+- * driver_data 
+- * If you have an update for this please contact prism54-devel@prism54.org 
++ * driver_data
++ * If you have an update for this please contact prism54-devel@prism54.org
+  * The latest list can be found at http://prism54.org/supported_cards.php */
+ static const struct pci_device_id prism54_id_tbl[] = {
+ 	/* Intersil PRISM Duette/Prism GT Wireless LAN adapter */
+@@ -132,15 +131,15 @@ #endif
+ 
+ 	/* 0x40 is the programmable timer to configure the response timeout (TRDY_TIMEOUT)
+ 	 * 0x41 is the programmable timer to configure the retry timeout (RETRY_TIMEOUT)
+-	 * 	The RETRY_TIMEOUT is used to set the number of retries that the core, as a
+-	 * 	Master, will perform before abandoning a cycle. The default value for
+-	 * 	RETRY_TIMEOUT is 0x80, which far exceeds the PCI 2.1 requirement for new
+-	 * 	devices. A write of zero to the RETRY_TIMEOUT register disables this
+-	 * 	function to allow use with any non-compliant legacy devices that may
+-	 * 	execute more retries.
++	 *	The RETRY_TIMEOUT is used to set the number of retries that the core, as a
++	 *	Master, will perform before abandoning a cycle. The default value for
++	 *	RETRY_TIMEOUT is 0x80, which far exceeds the PCI 2.1 requirement for new
++	 *	devices. A write of zero to the RETRY_TIMEOUT register disables this
++	 *	function to allow use with any non-compliant legacy devices that may
++	 *	execute more retries.
+ 	 *
+-	 * 	Writing zero to both these two registers will disable both timeouts and
+-	 * 	*can* solve problems caused by devices that are slow to respond.
++	 *	Writing zero to both these two registers will disable both timeouts and
++	 *	*can* solve problems caused by devices that are slow to respond.
+ 	 *	Make this configurable - MSW
+ 	 */
+ 	if ( init_pcitm >= 0 ) {
+@@ -241,7 +240,7 @@ prism54_remove(struct pci_dev *pdev)
+ 		isl38xx_disable_interrupts(priv->device_base);
+ 		islpci_set_state(priv, PRV_STATE_OFF);
+ 		/* This bellow causes a lockup at rmmod time. It might be
+-		 * because some interrupts still linger after rmmod time, 
++		 * because some interrupts still linger after rmmod time,
+ 		 * see bug #17 */
+ 		/* pci_set_power_state(pdev, 3);*/	/* try to power-off */
+ 	}
+diff --git a/drivers/net/wireless/prism54/islpci_mgt.c b/drivers/net/wireless/prism54/islpci_mgt.c
+index 2e061a8..036a875 100644
+--- a/drivers/net/wireless/prism54/islpci_mgt.c
++++ b/drivers/net/wireless/prism54/islpci_mgt.c
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright 2004 Jens Maurer <Jens.Maurer@gmx.net>
+  *
+@@ -502,7 +501,7 @@ islpci_mgt_transaction(struct net_device
+ 	printk(KERN_WARNING "%s: timeout waiting for mgmt response\n",
+ 	       ndev->name);
+ 
+-	/* TODO: we should reset the device here */     
++	/* TODO: we should reset the device here */
+  out:
+ 	finish_wait(&priv->mgmt_wqueue, &wait);
+ 	up(&priv->mgmt_sem);
+diff --git a/drivers/net/wireless/prism54/islpci_mgt.h b/drivers/net/wireless/prism54/islpci_mgt.h
+index 2982be3..fc53b58 100644
+--- a/drivers/net/wireless/prism54/islpci_mgt.h
++++ b/drivers/net/wireless/prism54/islpci_mgt.h
+@@ -1,5 +1,4 @@
+ /*
+- *  
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2003 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
+  *
+@@ -36,8 +35,8 @@ #define init_wds 0	/* help compiler opti
+ 
+ 
+ /* General driver definitions */
+-#define PCIDEVICE_LATENCY_TIMER_MIN 		0x40
+-#define PCIDEVICE_LATENCY_TIMER_VAL 		0x50
++#define PCIDEVICE_LATENCY_TIMER_MIN		0x40
++#define PCIDEVICE_LATENCY_TIMER_VAL		0x50
+ 
+ /* Debugging verbose definitions */
+ #define SHOW_NOTHING                            0x00	/* overrules everything */
+diff --git a/drivers/net/wireless/prism54/oid_mgt.c b/drivers/net/wireless/prism54/oid_mgt.c
+index ebb2387..fbc52b6 100644
+--- a/drivers/net/wireless/prism54/oid_mgt.c
++++ b/drivers/net/wireless/prism54/oid_mgt.c
+@@ -1,4 +1,4 @@
+-/*   
++/*
+  *  Copyright (C) 2003,2004 Aurelien Alleaume <slts@free.fr>
+  *
+  *  This program is free software; you can redistribute it and/or modify
+@@ -503,7 +503,7 @@ mgt_set_varlen(islpci_private *priv, enu
+ 		}
+ 		if (ret || response_op == PIMFOR_OP_ERROR)
+ 			ret = -EIO;
+-	} else 
++	} else
+ 		ret = -EIO;
+ 
+ 	/* re-set given data to what it was */
+@@ -727,7 +727,7 @@ mgt_commit(islpci_private *priv)
+  * MEDIUMLIMIT,BEACONPERIOD,DTIMPERIOD,ATIMWINDOW,LISTENINTERVAL
+  * FREQUENCY,EXTENDEDRATES.
+  *
+- * The way to do this is to set ESSID. Note though that they may get 
++ * The way to do this is to set ESSID. Note though that they may get
+  * unlatch before though by setting another OID. */
+ #if 0
+ void
+diff --git a/drivers/net/wireless/prism54/prismcompat.h b/drivers/net/wireless/prism54/prismcompat.h
+index d71eca5..aa1d174 100644
+--- a/drivers/net/wireless/prism54/prismcompat.h
++++ b/drivers/net/wireless/prism54/prismcompat.h
+@@ -1,4 +1,4 @@
+-/*  
++/*
+  *  (C) 2004 Margit Schubert-While <margitsw@t-online.de>
+  *
+  *  This program is free software; you can redistribute it and/or modify
+@@ -16,7 +16,7 @@
+  *
+  */
+ 
+-/*  
++/*
+  *	Compatibility header file to aid support of different kernel versions
+  */
+ 
+diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
+index 3faaeb2..005ca7a 100644
+--- a/drivers/net/wireless/zd1211rw/zd_usb.c
++++ b/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -47,6 +47,9 @@ static struct usb_device_id usb_ids[] = 
+ 	{ USB_DEVICE(0x0586, 0x3402), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0b3b, 0x5630), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0b05, 0x170c), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x1435, 0x0711), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x0586, 0x3409), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x0b3b, 0x1630), .driver_info = DEVICE_ZD1211 },
+ 	/* ZD1211B */
+ 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
+diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
+index b174ebb..e6af381 100644
+--- a/include/net/ieee80211.h
++++ b/include/net/ieee80211.h
+@@ -1037,6 +1037,10 @@ struct ieee80211_device {
+ 	/* host performs multicast decryption */
+ 	int host_mc_decrypt;
+ 
++	/* host should strip IV and ICV from protected frames */
++	/* meaningful only when hardware decryption is being used */
++	int host_strip_iv_icv;
++
+ 	int host_open_frag;
+ 	int host_build_iv;
+ 	int ieee802_1x;		/* is IEEE 802.1X used */
+@@ -1076,6 +1080,8 @@ struct ieee80211_device {
+ 	int perfect_rssi;
+ 	int worst_rssi;
+ 
++	u16 prev_seq_ctl;	/* used to drop duplicate frames */
++
+ 	/* Callback functions */
+ 	void (*set_security) (struct net_device * dev,
+ 			      struct ieee80211_security * sec);
+diff --git a/net/ieee80211/ieee80211_module.c b/net/ieee80211/ieee80211_module.c
+index 13b1e5f..2b14c2f 100644
+--- a/net/ieee80211/ieee80211_module.c
++++ b/net/ieee80211/ieee80211_module.c
+@@ -118,6 +118,14 @@ static void ieee80211_networks_initializ
+ 			      &ieee->network_free_list);
+ }
+ 
++static int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if ((new_mtu < 68) || (new_mtu > IEEE80211_DATA_LEN))
++		return -EINVAL;
++	dev->mtu = new_mtu;
++	return 0;
++}
++
+ struct net_device *alloc_ieee80211(int sizeof_priv)
+ {
+ 	struct ieee80211_device *ieee;
+@@ -133,6 +141,7 @@ struct net_device *alloc_ieee80211(int s
+ 	}
+ 	ieee = netdev_priv(dev);
+ 	dev->hard_start_xmit = ieee80211_xmit;
++	dev->change_mtu = ieee80211_change_mtu;
+ 
+ 	ieee->dev = dev;
+ 
+diff --git a/net/ieee80211/ieee80211_rx.c b/net/ieee80211/ieee80211_rx.c
+index 7707041..50699b5 100644
+--- a/net/ieee80211/ieee80211_rx.c
++++ b/net/ieee80211/ieee80211_rx.c
+@@ -415,17 +415,16 @@ #endif
+ 	    ieee->host_mc_decrypt : ieee->host_decrypt;
+ 
+ 	if (can_be_decrypted) {
+-		int idx = 0;
+ 		if (skb->len >= hdrlen + 3) {
+ 			/* Top two-bits of byte 3 are the key index */
+-			idx = skb->data[hdrlen + 3] >> 6;
++			keyidx = skb->data[hdrlen + 3] >> 6;
+ 		}
+ 
+-		/* ieee->crypt[] is WEP_KEY (4) in length.  Given that idx
+-		 * is only allowed 2-bits of storage, no value of idx can
+-		 * be provided via above code that would result in idx
++		/* ieee->crypt[] is WEP_KEY (4) in length.  Given that keyidx
++		 * is only allowed 2-bits of storage, no value of keyidx can
++		 * be provided via above code that would result in keyidx
+ 		 * being out of range */
+-		crypt = ieee->crypt[idx];
++		crypt = ieee->crypt[keyidx];
+ 
+ #ifdef NOT_YET
+ 		sta = NULL;
+@@ -479,6 +478,11 @@ #ifdef NOT_YET
+ 			goto rx_exit;
+ 	}
+ #endif
++	/* drop duplicate 802.11 retransmissions (IEEE 802.11 Chap. 9.29) */
++	if (sc == ieee->prev_seq_ctl)
++		goto rx_dropped;
++	else
++		ieee->prev_seq_ctl = sc;
+ 
+ 	/* Data frame - extract src/dst addresses */
+ 	if (skb->len < IEEE80211_3ADDR_LEN)
+@@ -655,6 +659,51 @@ #endif
+ 		goto rx_dropped;
+ 	}
+ 
++	/* If the frame was decrypted in hardware, we may need to strip off
++	 * any security data (IV, ICV, etc) that was left behind */
++	if (!can_be_decrypted && (fc & IEEE80211_FCTL_PROTECTED) &&
++	    ieee->host_strip_iv_icv) {
++	    	int trimlen = 0;
++
++		/* Top two-bits of byte 3 are the key index */
++		if (skb->len >= hdrlen + 3)
++			keyidx = skb->data[hdrlen + 3] >> 6;
++
++		/* To strip off any security data which appears before the
++		 * payload, we simply increase hdrlen (as the header gets
++		 * chopped off immediately below). For the security data which
++		 * appears after the payload, we use skb_trim. */
++
++		switch (ieee->sec.encode_alg[keyidx]) {
++		case SEC_ALG_WEP:
++			/* 4 byte IV */
++			hdrlen += 4;
++			/* 4 byte ICV */
++			trimlen = 4;
++			break;
++		case SEC_ALG_TKIP:
++			/* 4 byte IV, 4 byte ExtIV */
++			hdrlen += 8;
++			/* 8 byte MIC, 4 byte ICV */
++			trimlen = 12;
++			break;
++		case SEC_ALG_CCMP:
++			/* 8 byte CCMP header */
++			hdrlen += 8;
++			/* 8 byte MIC */
++			trimlen = 8;
++			break;
++		}
++
++		if (skb->len < trimlen)
++			goto rx_dropped;
++
++		__skb_trim(skb, skb->len - trimlen);
++
++		if (skb->len < hdrlen)
++			goto rx_dropped;
++	}
++
+ 	/* skb: hdr + (possible reassembled) full plaintext payload */
+ 
+ 	payload = skb->data + hdrlen;
 -- 
 John W. Linville
 linville@tuxdriver.com
