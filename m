@@ -1,102 +1,38 @@
-From: Hans Henrik Happe <hhh@imada.sdu.dk>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Tue, 17 Oct 2006 17:33:30 +0200
-Message-ID: <200610171733.31710.hhh@imada.sdu.dk>
-References: <11587449471424@2ka.mipt.ru> <20061017140740.GA20686@2ka.mipt.ru> <200610171625.00515.dada1@cosmosbay.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH wireless-dev] add p54 driver
+Date: Tue, 17 Oct 2006 11:43:48 -0400
+Message-ID: <1161099828.5668.7.camel@localhost.localdomain>
+References: <200610171105.34912.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Johann Borck <johann.borck@densedata.com>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from berlioz.imada.sdu.dk ([130.225.128.12]:18678 "EHLO
-	berlioz.imada.sdu.dk") by vger.kernel.org with ESMTP
-	id S1751139AbWJQPdi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 11:33:38 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <200610171625.00515.dada1@cosmosbay.com>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:59571 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751148AbWJQPlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 11:41:36 -0400
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200610171105.34912.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 October 2006 16:25, Eric Dumazet wrote:
-> On Tuesday 17 October 2006 16:07, Evgeniy Polyakov wrote:
-> > On Tue, Oct 17, 2006 at 03:52:34PM +0200, Eric Dumazet 
-(dada1@cosmosbay.com) 
-> wrote:
-> > > > What about the case, which I described in other e-mail, when in case 
-of
-> > > > the full ring buffer, no new events are written there, and when
-> > > > userspace commits (i.e. marks as ready to be freed or requeued by
-> > > > kernel) some events, new ones will be copied from ready queue into the
-> > > > buffer?
-> > >
-> > > Then, user might receive 'false events', exactly like
-> > > poll()/select()/epoll() can do sometime. IE a 'ready' indication while
-> > > there is no current event available on a particular fd / event_source.
-> >
-> > Only if user simultaneously uses oth interfaces and remove even from the
-> > queue when it's copy was in mapped buffer, but in that case it's user's
-> > problem (and if we do want, we can store pointer/index of the ring
-> > buffer entry, so when event is removed from the ready queue (using
-> > kevent_get_events()), appropriate entry in the ring buffer will be
-> > updated to show that it is no longer valid.
-> >
-> > > This should be safe, since those programs already ignore read()
-> > > returns -EAGAIN and other similar things.
-> > >
-> > > Programmer prefers to receive two 'event available' indications than 
-ZERO
-> > > (and be stuck for infinite time). Of course, hot path (normal cases)
-> > > should return one 'event' only.
-> > >
-> > > In order words, being ultra fast 99.99 % of the time, but being able to
-> > > block forever once in a while is not an option.
-> >
-> > Have I missed something? It looks like the only problematic situation is
-> > described above when user simultaneously uses both interfaces.
+On Tue, 2006-10-17 at 11:05 -0400, Michael Wu wrote:
+> (originally sent to John Linville, forgot to CC netdev..)
 > 
-> In my point of view, user of the 'mmaped ring buffer' should be prepared to 
-> use both interfaces. Or else you are forced to presize the ring buffer to 
-> insane limits.
-
-I don't see why overflow couldn't be handle by a syscall telling the kernel 
-that the buffer is ready for new events. As mentioned most of the time 
-overflow should not happend and if it does the syscall should be amortized 
-nicely by the number of events.
-
-> That is :
-> - Most of the time, we expect consuming events via mmaped ring buffer and no 
-> syscalls.
-> - In case we notice a 'mmaped ring buffer overflow', syscalls to get/consume 
-> events that could not be stored in mmaped buffer (but queued by kevent 
-> subsystem). If not stored by kevent subsystem (memory failure ?), revert to 
-> poll() to fetch all 'missed fds' in one row. Go back to normal mode.
+> Hi,
 > 
-> - In case of empty ring buffer (or no mmap support at all, because this app 
-> doesnt expect lot of events per time unit, or because kevent dont have mmap 
-> support) : Be able to syscall and wait for an event.
+> The attached patch adds support for 3887 based prism54 usb wireless adaptors. 
+> It is partially based on the islsm driver by Jean-Baptiste Note, but most of 
+> the code is new (and uses d80211 instead of madwifi). It doesn't work 
+> perfectly yet, but it can connect to an unsecure AP and send/receive packets 
+> as long as you don't hit the tx code too hard. Further hardware support for 
+> pci and net2280 usb will follow later. Also, I am unable to make it crash. 
+> Thus, it should be in a suitable state for other developers to hack on.
 
-As I see it there are two main problems with a mmapped ring buffer (correct me 
-if I'm wrong):
+I'm assuming this is for the softmac prism54 chipset, right?
 
-1. Overflow.
-2. Handle multiple kernel event that only needs one  user event. I.e. multiple 
-packet arriving at the same socket. The user should only see one IN event at 
-the time he is ready to handle it.
+Dan
 
-In an earlier post I suggested a scheme that solves these issues. It was based 
-on the assumption that kernel and user-space share index variables and can 
-read/update them atomically without much overhead. Only in cases where the 
-buffer is empty and full system call would be required.
+> Thanks,
+> -Michael Wu
 
-Hans Henrik Happe
