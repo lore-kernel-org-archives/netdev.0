@@ -1,47 +1,82 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.18-mm2 boot failure on x86-64
-Date: Mon, 16 Oct 2006 16:58:14 -0700
-Message-ID: <20061016165814.13b99e5e.akpm@osdl.org>
-References: <200610052105.00359.ak@suse.de>
-	<1160080954.29690.44.camel@flooterbu>
-	<200610052250.55146.ak@suse.de>
-	<1160101394.29690.48.camel@flooterbu>
-	<20061006143312.GB9881@skynet.ie>
-	<20061006153629.GA19756@in.ibm.com>
-	<20061006171105.GC9881@skynet.ie>
-	<1160157830.29690.66.camel@flooterbu>
-	<20061006200436.GG19756@in.ibm.com>
-	<Pine.LNX.4.64.0610091049390.30765@skynet.skynet.ie>
-	<20061016181613.GA30090@in.ibm.com>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [PATCH 3/13] [IPV6] Make sure error handling is done when calling
+ ip6_route_output().
+Date: Tue, 17 Oct 2006 03:04:08 +0300
+Message-ID: <45341DF8.90104@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Steve Fox <drfickle@us.ibm.com>, Andi Kleen <ak@suse.de>,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Martin Bligh <mbligh@mbligh.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>,
-	Adrian Bunk <bunk@stusta.de>, Mel Gorman <mel@csn.ul.ie>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Thomas Graf <tgraf@suug.ch>, kim.nordlund@nokia.com,
+	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:59588 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422953AbWJQABw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 20:01:52 -0400
-To: vgoyal@in.ibm.com
-In-Reply-To: <20061016181613.GA30090@in.ibm.com>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:58897 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1422949AbWJQAEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2006 20:04:10 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Oct 2006 14:16:13 -0400
-Vivek Goyal <vgoyal@in.ibm.com> wrote:
 
-> 
-> Can you please have a look at the attached patch
+As ip6_route_output() never returns NULL, error checking must be done by
+looking at dst->error in stead of comparing dst against NULL.
 
-Looks like a fine patch to me, although it could benefit from a comment
-explaining why all those PAGE_ALIGN()s are in there.
+Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
+---
+ net/ipv6/xfrm6_policy.c |   12 +++++++-----
+ net/sctp/ipv6.c         |   10 +++++-----
+ 2 files changed, 12 insertions(+), 10 deletions(-)
 
-> and include it in -mm.
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 6a252e2..db2d55c 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -25,12 +25,14 @@ #endif
+ static struct dst_ops xfrm6_dst_ops;
+ static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
 
-Does it fix a patch in -mm or is it needed in mainline?
+-static int xfrm6_dst_lookup(struct xfrm_dst **dst, struct flowi *fl)
++static int xfrm6_dst_lookup(struct xfrm_dst **xdst, struct flowi *fl)
+ {
+-	int err = 0;
+-	*dst = (struct xfrm_dst*)ip6_route_output(NULL, fl);
+-	if (!*dst)
+-		err = -ENETUNREACH;
++	struct dst_entry *dst = ip6_route_output(NULL, fl);
++	int err = dst->error;
++	if (!err)
++		*xdst = (struct xfrm_dst *) dst;
++	else
++		dst_release(dst);
+ 	return err;
+ }
 
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 249e503..78071c6 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -215,17 +215,17 @@ static struct dst_entry *sctp_v6_get_dst
+ 	}
 
+ 	dst = ip6_route_output(NULL, &fl);
+-	if (dst) {
++	if (!dst->error) {
+ 		struct rt6_info *rt;
+ 		rt = (struct rt6_info *)dst;
+ 		SCTP_DEBUG_PRINTK(
+ 			"rt6_dst:" NIP6_FMT " rt6_src:" NIP6_FMT "\n",
+ 			NIP6(rt->rt6i_dst.addr), NIP6(rt->rt6i_src.addr));
+-	} else {
+-		SCTP_DEBUG_PRINTK("NO ROUTE\n");
++		return dst;
+ 	}
+-
+-	return dst;
++	SCTP_DEBUG_PRINTK("NO ROUTE\n");
++	dst_release(dst);
++	return NULL;
+ }
+
+ /* Returns the number of consecutive initial bits that match in the 2 ipv6
+-- 
+1.4.2.3
