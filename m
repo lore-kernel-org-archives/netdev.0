@@ -1,43 +1,52 @@
-From: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
-Subject: Re: [PATCH 7/13] [RFC] [IPV6] Move source address selection into
- route lookup.
-Date: Tue, 17 Oct 2006 10:01:24 +0200
-Message-ID: <45348DD4.4000600@6wind.com>
-References: <4534201D.7070002@tcs.hut.fi> <20061016.222223.26532234.davem@davemloft.net>
+From: Dawid Ciezarkiewicz <dpc@asn.pl>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Tue, 17 Oct 2006 10:16:21 +0200
+Message-ID: <200610171016.21964.dpc@asn.pl>
+References: <200610162021.12884.dpc@asn.pl> <200610162107.57477.dpc@asn.pl> <20061016213053.GA16231@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: vnuorval@tcs.hut.fi, yoshfuji@linux-ipv6.org, tgraf@suug.ch,
-	kim.nordlund@nokia.com, netdev@vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:13843 "EHLO
-	proxy.6wind.com") by vger.kernel.org with ESMTP id S932223AbWJQIBm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 04:01:42 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061016.222223.26532234.davem@davemloft.net>
+Received: from apollo.asn.pl ([85.14.104.1]:59081 "HELO apollo.asn.pl")
+	by vger.kernel.org with SMTP id S1422961AbWJQIQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 04:16:29 -0400
+To: Andy Gospodarek <andy@greyhouse.net>
+In-Reply-To: <20061016213053.GA16231@gospo.rdu.redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-> Date: Tue, 17 Oct 2006 03:13:17 +0300
->
->> This patch moves the normal source address selection from
->> ip6_dst_lookup() into ip6_pol_route_output(), but shouldn't
->> change the routing or source address selection behavior in
->> any way.
->>
->> Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
->
-> Although this conversion is very clean and the next patch
-> is very logic, I'm going to hold on all patches from 7 onward
-> so there is some time for some discussion of the RFC'ness
-> of them :-)
->
-With regard to RFC'ness, passing self tests TAHI "Ready Logo 2" with 
-SUBTREE
-turned on could be a valuable feedback.
+On Monday, 16 October 2006 23:30, Andy Gospodarek wrote:
+> On Mon, Oct 16, 2006 at 09:07:57PM +0200, Dawid Ciezarkiewicz wrote:
+> > > 
+> > > 	Before getting into the technical bits of the patch, what's the
+> > > reason for wanting to do this, and why is this rather complex manual
+> > > weight assignment better than an automatic system based on, e.g., link
+> > > speed of the slaves?
+> > 
+> > In short:
+> > It was designed as a solution for wireless links bonding - where link 
+quality 
+> > can change rather quickly in time. By using wrr bonding, userspace tools 
+can 
+> > measure current bandwidth and change bonding slave weights in realtime.
+> 
+> Since this is so similar to mode 0, it would seem there would be a way
+> to extend it rather than creating yet another mode that is so similar.
+> What would be the reason not to enhance that mode?
 
-Jean-Mickael
+In fact - as default weight is being set to 1, without changing it wrr bonding 
+mode works like plain round-robin one. But it have little more overhead 
+(recharging tokens), and code is a bit more complicated. I was not sure if 
+some tools could assume that in mode 0 all interfaces work with same weights 
+and because of that behave strange with this patch in use. 
 
+It was written as a solution for some problem, and I'm still not sure if such 
+change will always be patch to linux kernel or may some day go into mainline. 
+For compatibility I've decided to have those modes separated.
+
+Because of that I haven't replaced mode 0. If this patch will be considered 
+useful, and my concerns are not a problem - I'd like to replace 0 mode if 
+possible.
