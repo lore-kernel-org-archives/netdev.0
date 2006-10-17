@@ -1,114 +1,101 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [take19 1/4] kevent: Core files.
-Date: Tue, 17 Oct 2006 17:35:16 +0400
-Message-ID: <20061017133516.GB20225@2ka.mipt.ru>
-References: <11587449471424@2ka.mipt.ru> <200610170100.10500.chase.venters@clientec.com> <20061017104242.GB19246@2ka.mipt.ru> <200610170812.28027.chase.venters@clientec.com>
+Date: Tue, 17 Oct 2006 17:42:07 +0400
+Message-ID: <20061017134206.GC20225@2ka.mipt.ru>
+References: <11587449471424@2ka.mipt.ru> <453465B6.1000401@densedata.com> <20061017103940.GA19246@2ka.mipt.ru> <200610171519.37051.dada1@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: Johann Borck <johann.borck@densedata.com>,
 	Ulrich Drepper <drepper@redhat.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
 	Ulrich Drepper <drepper@gmail.com>,
 	lkml <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:22180 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750843AbWJQNgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:36:24 -0400
-To: Chase Venters <chase.venters@clientec.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54223 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750943AbWJQNmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 09:42:43 -0400
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <200610170812.28027.chase.venters@clientec.com>
+In-Reply-To: <200610171519.37051.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2006 at 08:12:04AM -0500, Chase Venters (chase.venters@clientec.com) wrote:
-> > > > Regarding mukevent I'm thinking of a event-type specific struct, that
-> > > > is filled by the originating code, and placed into a per-event-type
-> > > > ring buffer (which  requires modification of kevent_wait).
-> > >
-> > > I'd personally worry about an implementation that used a per-event-type
-> > > ring buffer, because you're still left having to hack around starvation
-> > > issues in user-space. It is of course possible under the current model
-> > > for anyone who wants per-event-type ring buffers to have them - just make
-> > > separate kevent sets.
-> > >
-> > > I haven't thought this through all the way yet, but why not have variable
-> > > length event structures and have the kernel fill in a "next" pointer in
-> > > each one? This could even be used to keep backwards binary compatibility
-> > > while
-> >
-> > Why do we want variable size structures in mmap ring buffer?
+On Tue, Oct 17, 2006 at 03:19:36PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> On Tuesday 17 October 2006 12:39, Evgeniy Polyakov wrote:
 > 
-> Flexibility primarily. So when we all decide to add a new event type six 
-> months from now, or add more information to an existing one, we don't run the 
-> risk that the existing mukevent isn't big enough.
-
-Do we need such flexibility, when we have unique id attached to each
-event? User can store any information in own buffers, which are indexed
-by that id.
-
-> > > adding additional fields to the structures over time, though no space
-> > > would be wasted on modern programs. You still end up with a question of
-> > > what to do in case of overflow, but I'm thinking the thing to do in that
-> > > case might be to start pushing overflow events onto a linked list which
-> > > can be written back into the ring buffer when space becomes available.
-> > > The appropriate behavior would be to throw new events on the linked list
-> > > if the linked list had any events, so that things are delivered in order,
-> > > but write to the mapped buffer directly otherwise.
+> > I can add such notification, but its existense _is_ the broken design.
+> > After such condition happend, all new events will dissapear (although
+> > they are still accessible through usual queue) from mapped buffer.
 > >
-> > I think in a similar way.
-> > Kevent actually do not require such list, since it has already queue of
-> > the ready events.
+> > While writing this I have come to the idea on how to imrove the case of
+> > the size of mapped buffer - we can make it with limited size, and when
+> > it is full, some bit will be set in the shared area and obviously no new
+> > events can be added there, but when user commits some events from that
+> > buffer (i.e. says to kernel that appropriate kevents can be freed or
+> > requeued according to theirs flags), new ready events from ready queue
+> > can be copied into mapped buffer.
+> >
+> > It still does not solve (and I do insist that it is broken behaviour)
+> > the case when kernel is going to generate infinite number of events for
+> > one requested by userspace (as in case of generating new 'data_has_arrived'
+> > event when new byte has been received).
 > 
-> The current event types coalesce if there are multiple events, correct? It 
-> sounds like there may be other event types where coalescing multiple events 
-> is not the correct approach.
+> Behavior is not broken. It's quite usefull and works 99.9999% of time.
+>
+> I was trying to suggest you but you missed my point.
+> 
+> You dont want to use a bit, but a full sequence counter, 32bits.
+> 
+> A program may handle XXX.XXX handles, but use a 4096 entries ring 
+> buffer 'only'.
+> 
+> The user program keeps a local copy of a special word 
+> named 'ring_buffer_full_counter'
+> 
+> Each time the kernel cannot queue an event in the ring buffer, it increase 
+> the "ring_buffer_was_full_counter" (exported to user app in the mmap view)
+> 
+> When the user application notice the kernel 
+> changed "ring_buffer_was_full_counter" it does a full scan of all file 
+> handles (preferably using poll() to get all relevant info in one syscall) :
 
-There is no events coalescing, I think that it is even incorrect to say, that
-something is being coalesced in kevents.
+I.e. to scan the rest of the xxx.xxx events?
 
-There is 'new' (which is well forgotten old) approach - user _asks_ kernel 
-about some information, and kernel says when it is ready. Kernel does not 
-say: part of the info is ready, part of the info is ready and so on, it 
-just marks user's request as ready - that means that it is possible that
-there were zillions of events, each one could mark the _same_ userspace
-request as ready, and exactly what user requested is transferred back. 
-Thus it is very fast and is correct way to deal with problem of pipes of 
-different diameters.
+> do {
+>    if (read_event_from_mmap()) {handle_event(fd); continue;}
+>    /* ring buffer is empty, check if we missed some events */
+>    if (unlikely(mmap->ring_buffer_full_counter !=  
+> my_ring_buffer_full_counter)) {
+> 	my_ring_buffer_full_counter = mmap->ring_buffer_full_counter;
+> 	/* slow PATH */
+> 	/* can use a big poll() for example, or just a loop without poll() */
+> 	for_all_file_desc_do() {
+> 		check if some event/data is waiting on THIS fd
+> 		}
+> 	/* 
+> 	}
+>     else  syscall_wait_for_one_available_kevent(queue)
+> }
+> 
+> This is how a program can recover. If ring buffer has a reasonable size, this 
+> kind of event should not happen very frequently. If it does (because events 
+> continue to fill ring_buffer during recovery and might hit FULL again), maybe 
+> a smart program is able to resize the ring_buffer, and start using it after 
+> yet another recovery pass.
+> If not, we dont care, because a big poll() give us many ready file-descriptors 
+> in one syscall, and maybe this is much better than kevent/epoll when XX.XXX 
+> events are ready.
 
-Kernel does not generate events - only user creates requests, which are
-marked as ready.
+What about the case, which I described in other e-mail, when in case of
+the full ring buffer, no new events are written there, and when
+userspace commits (i.e. marks as ready to be freed or requeued by kernel) 
+some events, new ones will be copied from ready queue into the buffer?
 
-I made that decision to remove _any_ kind of possible overflows from
-kernel side - if user was scheduled away, or has unsufficient space or
-bad mood, to not introduce any kind of ugly priorities (higher one 
-could fill the whole pipe while lower could not even send a single event). 
-Instead kernel does just what it was requested to do, and it can provide 
-some hints on how that process happend (for example how many sockets are 
-ready for accept(), or how many bytes are in the receiving queue).
-
-And that approach does solve the problem of the cases when it looks like
-it is logical to _generate_ event - for example in inotify case, where
-new event is _generated_ each time requested case happens. For example
-the case when new files are created in the directory - it is possible
-that there will be queue overflow (btw, watch for each file in the kernel 
-tree takes about 2gb of kernel mem), if many files were created, so
-userspace must rescan the whole directory to check missed files, so why
-is it needed at all to generate info about first two or ten files,
-instead userspace asks kernel to notify it when directory has changed or
-some new files were created, and kernelspace will answer when directory
-has been changed or new files were created (with some hint with number
-of them).
-
-Likely request for generation of events in kernel is a workaround for 
-some other problems, which in long term will hit us with new troubles -
-queue length and overflows.
-
-> Thanks,
-> Chase
+> Eric
 
 -- 
 	Evgeniy Polyakov
