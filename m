@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 5/8] e1000: FIX: Don't limit descriptor size to 4kb for PCI-E adapters
-Date: Tue, 17 Oct 2006 12:02:43 -0700
-Message-ID: <20061017190243.4194.40205.stgit@gitlost.site>
+Subject: [PATCH 7/8] e1000: Increment version to 7.2.9-k4
+Date: Tue, 17 Oct 2006 12:02:48 -0700
+Message-ID: <20061017190248.4194.28896.stgit@gitlost.site>
 References: <20061017190139.4194.20128.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,41 +9,36 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:19470 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1751438AbWJQSyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 14:54:52 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:20494 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751442AbWJQSyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 14:54:54 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20061017190139.4194.20128.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-82571 and newer chispets don't need to limit desc. length to 4kb and can
-handle 8kb sizes.
+Significant fixes -> increment driver version.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/e1000/e1000_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index f19b43c..95bbb2d 100644
+index 89ab34d..8c84863 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -2992,6 +2992,11 @@ e1000_xmit_frame(struct sk_buff *skb, st
- 		return NETDEV_TX_OK;
- 	}
+@@ -35,7 +35,7 @@ static char e1000_driver_string[] = "Int
+ #else
+ #define DRIVERNAPI "-NAPI"
+ #endif
+-#define DRV_VERSION "7.2.9-k2"DRIVERNAPI
++#define DRV_VERSION "7.2.9-k4"DRIVERNAPI
+ char e1000_driver_version[] = DRV_VERSION;
+ static char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
  
-+	/* 82571 and newer doesn't need the workaround that limited descriptor
-+	 * length to 4kB */
-+	if (adapter->hw.mac_type >= e1000_82571)
-+		max_per_txd = 8192;
-+
- #ifdef NETIF_F_TSO
- 	mss = skb_shinfo(skb)->gso_size;
- 	/* The controller does a simple calculation to
 
 
 
