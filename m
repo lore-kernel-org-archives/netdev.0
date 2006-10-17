@@ -1,42 +1,52 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
-Date: Tue, 17 Oct 2006 13:18:12 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0610171306560.27348@blysk.ds.pg.gda.pl>
-References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
- <20061005234310.6c8042b5.akpm@osdl.org> <Pine.LNX.4.64N.0610061152340.22053@blysk.ds.pg.gda.pl>
- <20061006080323.185f2b58.akpm@osdl.org> <Pine.LNX.4.64N.0610161442010.28780@blysk.ds.pg.gda.pl>
- <20061016120653.9a70135d.akpm@osdl.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Tue, 17 Oct 2006 14:18:36 +0200
+Message-ID: <20061017121836.GI30596@stusta.de>
+References: <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu> <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com> <20061006171105.GC9881@skynet.ie> <1160157830.29690.66.camel@flooterbu> <20061006200436.GG19756@in.ibm.com> <Pine.LNX.4.64.0610091049390.30765@skynet.skynet.ie> <20061016181613.GA30090@in.ibm.com> <20061016165814.13b99e5e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
+Cc: vgoyal@in.ibm.com, Steve Fox <drfickle@us.ibm.com>,
+	Andi Kleen <ak@suse.de>, Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>,
+	Mel Gorman <mel@csn.ul.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:23813 "EHLO
-	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP
-	id S1750741AbWJQMSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 08:18:16 -0400
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:36878 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1750783AbWJQMSk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 08:18:40 -0400
 To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061016120653.9a70135d.akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061016165814.13b99e5e.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Oct 2006, Andrew Morton wrote:
+On Mon, Oct 16, 2006 at 04:58:14PM -0700, Andrew Morton wrote:
+> On Mon, 16 Oct 2006 14:16:13 -0400
+> Vivek Goyal <vgoyal@in.ibm.com> wrote:
+> 
+> > 
+> > Can you please have a look at the attached patch
+> 
+> Looks like a fine patch to me, although it could benefit from a comment
+> explaining why all those PAGE_ALIGN()s are in there.
+> 
+> > and include it in -mm.
+> 
+> Does it fix a patch in -mm or is it needed in mainline?
 
-> Vaguely.  Why doesn't it deadlock if !current_is_keventd()?  I mean,
-> whether or not the caller is keventd, the flush_scheduled_work() caller
-> will still be dependent upon rtnl_lock() being acquirable.
+The bug in my list was reported to be present in mainline [1].
 
- This !current_is_keventd() condition is just what it is, i.e. a check 
-whether phy_stop_interrupts() has been scheduled through keventd or not.  
-If it has, then flush_scheduled_work() cannot be called; it is not needed 
-anyway.  Otherwise phy_stop_interrupts() has to make sure no deferred 
-calls to phy_change() will be made once it has finished.
+cu
+Adrian
 
- In all cases the assumption is the caller has made sure rtnl_lock() is 
-not held at the time phy_stop_interrupts() is called.  That's the very 
-reason for scheduling phy_disconnect() (and hence phy_stop_interrupts()) 
-through keventd.
+[1] http://lkml.org/lkml/2006/10/4/394
 
-  Maciej
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
