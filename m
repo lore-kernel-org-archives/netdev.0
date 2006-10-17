@@ -1,53 +1,43 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [e1000]: flow control on by default - good idea really?
-Date: Tue, 17 Oct 2006 10:18:54 -0700
-Message-ID: <4535107E.9010609@intel.com>
-References: <44AC05A8.9030503@intel.com>	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>	 <1152191018.5103.48.camel@jzny2>	 <20060706.235909.78729229.davem@davemloft.net>	 <1152275283.5341.144.camel@jzny2>  <4533D594.2070908@intel.com> <1161090331.5555.10.camel@jzny2>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [patch 1/5] d80211: remove bitfields from ieee80211_tx_control
+Date: Tue, 17 Oct 2006 10:26:55 -0700
+Message-ID: <20061017172655.GB13701@devicescape.com>
+References: <200610161807.25261.mb@bu3sch.de> <C86180A8C204554D8A3323D8F6B0A29F01851A93@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
-	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
-	olel@ans.pl
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12320 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1751343AbWJQRXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 13:23:33 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1161090331.5555.10.camel@jzny2>
+Received: from mail.devicescape.com ([207.138.119.2]:49090 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751345AbWJQR05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 13:26:57 -0400
+To: Simon Barber <simon@devicescape.com>
+Content-Disposition: inline
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F01851A93@dhost002-46.dex002.intermedia.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2006-16-10 at 11:55 -0700, Auke Kok wrote:
->> jamal wrote:
-> 
->>> I think when the e1000 says via ethtool "rx is on" - it means that it 
->>> is _advertising_ flow control as opposed to detecting partner has flow
->>> control capability.
->>> Auke, can you also check this as well?
->> Just found this in my todo box - a bit late :(
->>
->> yes, that appears to be the correct interpretation: we never read back the 
->> detected FC  state from the hardware.
-> 
-> It sounds to me that ethttool needs to have this semantic fix.
-> IOW, ethttool doesnt differentiate the two items:
-> a) advertised parameters.
-> b) link partner negotiated parameters.
-> 
-> and instead #a becomes #b after negotiation.
 
-that's odd and confusing, we should keep them separate.
+I am not particularily attached to bitfields or no bitfields.  I am
+interested in getting d80211 merged.  Bitfields have been discussed
+as an important TODO.  Perhaps this can serve as a starting point for
+discussion of the tasks to complete before d80211 is merged?
 
-> methinks this needs fixing. Dave? Jeff?
+On Mon, Oct 16, 2006 at 12:34:07PM -0700, Simon Barber wrote:
+> Removing the bitfields makes the code much harder to read and maintain.
 
-Alternatively, we can report in the driver at link up time what FC settings were 
-succesfull using printk. The output of `eththool eth0` would be the best place to put 
-this output as well since that displays "status" and not "settings" which are displayed 
-with '-a|-A' options of ethtool. Lets keep `-a|-A` the same and work on showing 
-negotiated FC parameters in `ethtool ethX` instead.
+I agree that we end up with more characters in the file, the bitfield
+syntax is more concise.  However, I don't find it 'much' harder to
+read or maintain, it is a matter of taste.
 
-Auke
+> Here we are working around a problem with the compiler by making the
+> code ugly - rather than fixing the compiler. The compilers are getting
+> better and better (GCC 4 has much better handling of this type of
+> optimization) but the code will remain ugly for ever.
 
+Well at least as far as code size goes gcc 4.1.2 still produces
+slightly larger code with the bitfields.
+
+-David
