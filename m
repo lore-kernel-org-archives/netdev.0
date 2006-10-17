@@ -1,39 +1,59 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: PATCH zero-copy send completion callback
-Date: Tue, 17 Oct 2006 11:01:38 +0200
-Message-ID: <200610171101.38690.dada1@cosmosbay.com>
-References: <019c01c6f186$99d0d6b0$0281a8c0@ebpc>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 13/13] [RFC] [IPV6] Fix source prefix routing problems when source address undefined.
+Date: Tue, 17 Oct 2006 12:14:02 +0200
+Message-ID: <20061017101402.GM12964@postel.suug.ch>
+References: <4534237B.9090205@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "'David Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	kim.nordlund@nokia.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:40648 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1423170AbWJQJBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 05:01:41 -0400
-To: "Eric Barton" <eeb@bartonsoftware.com>
-In-Reply-To: <019c01c6f186$99d0d6b0$0281a8c0@ebpc>
+Received: from postel.suug.ch ([194.88.212.233]:36325 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932173AbWJQKNl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 06:13:41 -0400
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
 Content-Disposition: inline
+In-Reply-To: <4534237B.9090205@tcs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 October 2006 02:53, Eric Barton wrote:
-> If so, do you have any ideas about how to do it more economically?  It's 2
-> pointers rather than 1 to avoid forcing an unnecessary packet boundary
-> between successive zero-copy sends.  But I guess that might not be hugely
-> significant since you're generally sending many pages when zero-copy is
-> needed for performance.  Also, (please correct me if I'm wrong) I didn't
-> think this would push the allocation over to the next entry in
-> 'malloc_sizes'.
+* Ville Nuorvala <vnuorval@tcs.hut.fi> 2006-10-17 03:27
+> @@ -123,7 +111,7 @@ static int fib6_rule_match(struct fib_ru
+>  		return 0;
+> 
+>  	if (r->src.plen) {
+> -		if (!(flags & RT6_LOOKUP_F_HAS_SADDR) ||
+> +		if (flags & RT6_LOOKUP_F_HAS_SADDR &&
+>  		    !ipv6_prefix_equal(&fl->fl6_src, &r->src.addr, r->src.plen))
+>  			return 0;
+>  	}
 
-Well, skbuff heads are allocated from dedicated kmem_cache 
-(skbuff_fclone_cache & skbuff_head_cache), and these caches are not 
-constrained by the sizes available in malloc_sizes. Their size are a multiple 
-of L1 CACHE size, which is 64 bytes for most common machines.
+This is wrong, rules matching on a source prefix must fail if no
+source address is available.
 
-Even if your two pointers addition (16 bytes on x86_64) doesnt cross a 64bytes 
-line (I didn't checked), they are going to be set to NULL each time a skbuff 
-is allocated , and checked against NULL each time a skbuff is destroyed.
+>  static struct rt6_info *ip6_pol_route_output(struct fib6_table *table,
+> -					     struct flowi *fl, int flags)
+> +					     struct flowi *fl, int flags,
+> +					     struct fib6_rule *rule)
+>  {
+>  	struct fib6_node *fn;
+>  	struct rt6_info *rt, *nrt;
+> @@ -730,6 +733,16 @@ static struct rt6_info *ip6_pol_route_ou
+>  	struct in6_addr saddr;
+> 
+>  	ipv6_addr_copy(&saddr, &fl->fl6_src);
+> +#ifdef CONFIG_IPV6_SUBTREES
+> +	if (!has_saddr && rule->src.plen > 0) {
+> +		/* a source prefix specific policy rule has to override the
+> +		   normal source address selection process */
+> +		if (ipv6_get_saddr(fl->oif, &fl->fl6_dst, &rule->src, &saddr))
+> +			goto no_saddr;
+> +		has_saddr = RT6_LOOKUP_F_HAS_SADDR;
+> +		ipv6_addr_copy(&fl->fl6_src, &saddr);
+> +	}
+> +#endif
+>  relookup:
+>  	read_lock_bh(&table->tb6_lock);
 
-Eric
+I can see why you want the above change but we have to find another way.
