@@ -1,149 +1,66 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 8/8] e100: FIX: fix netconsole fast reboot attached to e100
-Date: Tue, 17 Oct 2006 12:02:50 -0700
-Message-ID: <20061017190250.4194.70575.stgit@gitlost.site>
-References: <20061017190139.4194.20128.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH 13/13] [RFC] [IPV6] Fix source prefix routing problems
+ when source address undefined.
+Date: Tue, 17 Oct 2006 23:11:02 +0300
+Message-ID: <453538D6.1000808@tcs.hut.fi>
+References: <4534237B.9090205@tcs.hut.fi> <20061017101402.GM12964@postel.suug.ch> <20061017.200005.70903049.yoshfuji@linux-ipv6.org> <20061017113511.GN12964@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, davem@davemloft.net,
+	kim.nordlund@nokia.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:20238 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1751443AbWJQSyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 14:54:54 -0400
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20061017190139.4194.20128.stgit@gitlost.site>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:9483 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1751253AbWJQULE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 16:11:04 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061017113511.GN12964@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 10/17/06 14:35, Thomas Graf wrote:
 
-When rebooting with netconsole over e100, the driver shutdown code
-would deadlock with netpoll. Reduce shutdown code to a bare minimum
-while retaining WoL functionality.
+Hi Thomas,
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+> Because otherwise a rule containing only a source prefix match is
+> equivalent to a catch-all rule for all lookups not providing a
+> source address. An example: Someone adding the rule
+> 
+> 	ip rule add from 2001::1/128 unreachable
+> 
+> results in _all_ lookups not providing a source address to
+> resolve to unreachable which means that all source address
+> lookups will fail.
 
- drivers/net/e100.c |   52 ++++++++++++++++++++++++++++++++--------------------
- 1 files changed, 32 insertions(+), 20 deletions(-)
+one quick but ugly hack would be to handle FR_ACT_TO_TBL rules
+differently than the others in fib6_rule_match(). I don't necessarily
+recommend this approach, but it could work. What do you say?
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 27d5d2f..d4a2572 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -159,7 +159,7 @@
- 
- #define DRV_NAME		"e100"
- #define DRV_EXT			"-NAPI"
--#define DRV_VERSION		"3.5.17-k2"DRV_EXT
-+#define DRV_VERSION		"3.5.17-k4"DRV_EXT
- #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
- #define DRV_COPYRIGHT		"Copyright(c) 1999-2006 Intel Corporation"
- #define PFX			DRV_NAME ": "
-@@ -2039,7 +2039,6 @@ static int e100_change_mtu(struct net_de
- 	return 0;
- }
- 
--#ifdef CONFIG_PM
- static int e100_asf(struct nic *nic)
- {
- 	/* ASF can be enabled from eeprom */
-@@ -2048,7 +2047,6 @@ static int e100_asf(struct nic *nic)
- 	   !(nic->eeprom[eeprom_config_asf] & eeprom_gcl) &&
- 	   ((nic->eeprom[eeprom_smbus_addr] & 0xFF) != 0xFE));
- }
--#endif
- 
- static int e100_up(struct nic *nic)
- {
-@@ -2715,34 +2713,32 @@ static void __devexit e100_remove(struct
- 	}
- }
- 
-+#ifdef CONFIG_PM
- static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct nic *nic = netdev_priv(netdev);
- 
--	if (netif_running(netdev))
--		e100_down(nic);
--	e100_hw_reset(nic);
--	netif_device_detach(netdev);
-+	netif_poll_disable(nic->netdev);
-+	del_timer_sync(&nic->watchdog);
-+	netif_carrier_off(nic->netdev);
- 
--#ifdef CONFIG_PM
- 	pci_save_state(pdev);
--	if (nic->flags & (wol_magic | e100_asf(nic)))
--#else
--	if (nic->flags & (wol_magic))
--#endif
--		pci_enable_wake(pdev, pci_choose_state(pdev, state), 1);
--	else
--		/* disable PME */
--		pci_enable_wake(pdev, 0, 0);
-+
-+	if ((nic->flags & wol_magic) | e100_asf(nic)) {
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
-+	} else {
-+		pci_enable_wake(pdev, PCI_D3hot, 0);
-+		pci_enable_wake(pdev, PCI_D3cold, 0);
-+	}
- 
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+	pci_set_power_state(pdev, PCI_D3hot);
- 
- 	return 0;
- }
- 
--#ifdef CONFIG_PM
- static int e100_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -2764,7 +2760,23 @@ static int e100_resume(struct pci_dev *p
- 
- static void e100_shutdown(struct pci_dev *pdev)
- {
--	e100_suspend(pdev, PMSG_SUSPEND);
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct nic *nic = netdev_priv(netdev);
-+
-+	netif_poll_disable(nic->netdev);
-+	del_timer_sync(&nic->watchdog);
-+	netif_carrier_off(nic->netdev);
-+
-+	if ((nic->flags & wol_magic) | e100_asf(nic)) {
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
-+	} else {
-+		pci_enable_wake(pdev, PCI_D3hot, 0);
-+		pci_enable_wake(pdev, PCI_D3cold, 0);
-+	}
-+
-+	pci_disable_device(pdev);
-+	pci_set_power_state(pdev, PCI_D3hot);
- }
- 
- /* ------------------ PCI Error Recovery infrastructure  -------------- */
-@@ -2848,9 +2860,9 @@ static struct pci_driver e100_driver = {
- 	.id_table =     e100_id_table,
- 	.probe =        e100_probe,
- 	.remove =       __devexit_p(e100_remove),
-+#ifdef CONFIG_PM
- 	/* Power Management hooks */
- 	.suspend =      e100_suspend,
--#ifdef CONFIG_PM
- 	.resume =       e100_resume,
- #endif
- 	.shutdown =     e100_shutdown,
+> The problem starts that both the routing decision and source address
+> selection is both a routing decision sharing the same logic which
+> are now conflicting as the behaviour for a "from ANY" requires
+> different logic. In order to solve this, rules must be restricted to
+> one of these paths, i.e. a rule intending to make certain prefixes
+> unreachable may not apply to the source selection logic. This can be
+> achieved using the 'reason' field I proposed in my netconf slides, it
+> would allow turning the first rule example into
+> 
+> 	rule add from 2001::1/128 for INPUT unreachable
+> 
+> which would no longer apply when looking up the source address or
+> deciding the outgoing route.
 
+Is there any reason we couldn't implement this?
 
+BTW I will not really able to participate in this discussion until
+Thursday, but please continue! Hopefully someone has a working solution
+that everyone is ok with by then ;-)
 
----
-Auke Kok <auke-jan.h.kok@intel.com>
+I'm currently cooking something up, but I'm not yet sure what will
+become of it. It might not work at all. It will also change quite a lot
+of things, so there might be less invasive and cleaner solutions. Let's
+just say rt6_lookup(), which appears to cause most of these problems,
+will not be the same...
+
+Regards,
+Ville
