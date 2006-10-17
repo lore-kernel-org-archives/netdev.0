@@ -1,52 +1,46 @@
-From: Dawid Ciezarkiewicz <dpc@asn.pl>
-Subject: Re: [RFC] wrr (weighted round-robin) bonding
-Date: Tue, 17 Oct 2006 10:16:21 +0200
-Message-ID: <200610171016.21964.dpc@asn.pl>
-References: <200610162021.12884.dpc@asn.pl> <200610162107.57477.dpc@asn.pl> <20061016213053.GA16231@gospo.rdu.redhat.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Linux 2.6.17.14
+Date: Tue, 17 Oct 2006 10:41:57 +0200
+Message-ID: <20061017084157.GC1742@ff.dom.local>
+References: <20061016220426.GA9194@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from apollo.asn.pl ([85.14.104.1]:59081 "HELO apollo.asn.pl")
-	by vger.kernel.org with SMTP id S1422961AbWJQIQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 04:16:29 -0400
-To: Andy Gospodarek <andy@greyhouse.net>
-In-Reply-To: <20061016213053.GA16231@gospo.rdu.redhat.com>
+Received: from poczta.o2.pl ([193.17.41.142]:28035 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1423167AbWJQIg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 04:36:56 -0400
+To: Greg KH <gregkh@suse.de>
 Content-Disposition: inline
+In-Reply-To: <20061016220426.GA9194@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, 16 October 2006 23:30, Andy Gospodarek wrote:
-> On Mon, Oct 16, 2006 at 09:07:57PM +0200, Dawid Ciezarkiewicz wrote:
-> > > 
-> > > 	Before getting into the technical bits of the patch, what's the
-> > > reason for wanting to do this, and why is this rather complex manual
-> > > weight assignment better than an automatic system based on, e.g., link
-> > > speed of the slaves?
-> > 
-> > In short:
-> > It was designed as a solution for wireless links bonding - where link 
-quality 
-> > can change rather quickly in time. By using wrr bonding, userspace tools 
-can 
-> > measure current bandwidth and change bonding slave weights in realtime.
-> 
-> Since this is so similar to mode 0, it would seem there would be a way
-> to extend it rather than creating yet another mode that is so similar.
-> What would be the reason not to enhance that mode?
+On 17-10-2006 00:04, Greg KH wrote:
+...
+> diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+> index dfb300b..0f42544 100644
+> --- a/net/sched/cls_basic.c
+> +++ b/net/sched/cls_basic.c
+> @@ -197,7 +197,7 @@ static int basic_change(struct tcf_proto
+>  	if (handle)
+>  		f->handle = handle;
+>  	else {
+> -		int i = 0x80000000;
+> +		unsigned int i = 0x80000000;
+>  		do {
+>  			if (++head->hgenerator == 0x7FFFFFFF)
+>  				head->hgenerator = 1;
 
-In fact - as default weight is being set to 1, without changing it wrr bonding 
-mode works like plain round-robin one. But it have little more overhead 
-(recharging tokens), and code is a bit more complicated. I was not sure if 
-some tools could assume that in mode 0 all interfaces work with same weights 
-and because of that behave strange with this patch in use. 
+		} while (--i > 0 && basic_get(tp, head->hgenerator));
 
-It was written as a solution for some problem, and I'm still not sure if such 
-change will always be patch to linux kernel or may some day go into mainline. 
-For compatibility I've decided to have those modes separated.
+		if (i <= 0) {
+...
 
-Because of that I haven't replaced mode 0. If this patch will be considered 
-useful, and my concerns are not a problem - I'd like to replace 0 mode if 
-possible.
+I know it should be seen earlier but maybe somebody
+should make it less funny at a next chance:
+
+		if (i == 0) {
+ 
+Jarek P.
