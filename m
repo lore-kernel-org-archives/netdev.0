@@ -1,36 +1,29 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] Bound TSO defer time (resend)
-Date: Tue, 17 Oct 2006 00:18:33 -0400
-Message-ID: <45345999.4000300@psc.edu>
-References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <20061016202035.6d55b96e@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/14] [TIPC] Add missing unlock in port timeout code.
+Date: Mon, 16 Oct 2006 21:39:24 -0700 (PDT)
+Message-ID: <20061016.213924.75430200.davem@davemloft.net>
+References: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
+	<11607394751193-git-send-email-per.liden@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:55008 "EHLO mailer2.psc.edu")
-	by vger.kernel.org with ESMTP id S1161139AbWJQESm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 00:18:42 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061016202035.6d55b96e@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9129
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1423038AbWJQEjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 00:39:24 -0400
+To: per.liden@ericsson.com
+In-Reply-To: <11607394751193-git-send-email-per.liden@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 16 Oct 2006 20:53:20 -0400 (EDT)
-> John Heffner <jheffner@psc.edu> wrote:
+From: Per Liden <per.liden@ericsson.com>
+Date: Fri, 13 Oct 2006 13:37:42 +0200
 
->> This patch limits the amount of time you will defer sending a TSO segment
->> to less than two clock ticks, or the time between two acks, whichever is
->> longer.
-
+> From: Allan Stephens <allan.stephens@windriver.com>
 > 
-> Okay, but doing any timing on clock ticks makes the behavior dependent
-> on the value of HZ which doesn't seem desirable. Should this be based
-> on RTT or a real-time values?
+> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+> Signed-off-by: Per Liden <per.liden@ericsson.com>
 
-It would be nice to use a high res clock so you don't depend on HZ, but 
-this is still expensive on most SMP arch's as I understand it.
-
-   -John
-
+Applied, thanks.
