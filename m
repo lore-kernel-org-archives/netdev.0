@@ -1,67 +1,42 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Tue, 17 Oct 2006 18:45:54 +0200
-Message-ID: <200610171845.54719.dada1@cosmosbay.com>
-References: <11587449471424@2ka.mipt.ru> <200610171826.05028.dada1@cosmosbay.com> <20061017163536.GA17692@2ka.mipt.ru>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 13/13] [RFC] [IPV6] Fix source prefix routing problems
+ when source address undefined.
+Date: Wed, 18 Oct 2006 01:49:59 +0900 (JST)
+Message-ID: <20061018.014959.18582506.yoshfuji@linux-ipv6.org>
+References: <20061017113511.GN12964@postel.suug.ch>
+	<20061017.211730.51920084.yoshfuji@linux-ipv6.org>
+	<20061017123415.GO12964@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Johann Borck <johann.borck@densedata.com>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Cc: vnuorval@tcs.hut.fi, davem@davemloft.net, kim.nordlund@nokia.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:55260 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1751302AbWJQQpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 12:45:55 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061017163536.GA17692@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:49677 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751318AbWJQQr0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 12:47:26 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20061017123415.GO12964@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 October 2006 18:35, Evgeniy Polyakov wrote:
-> On Tue, Oct 17, 2006 at 06:26:04PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
-wrote:
-> > On Tuesday 17 October 2006 18:01, Evgeniy Polyakov wrote:
-> > > Ok, there is one apologist for mmap buffer implementation, who forced
-> > > me to create first implementation, which was dropped due to absense of
-> > > remote mental reading abilities.
-> > > Ulrich, does above approach sound good for you?
-> > > I actually do not want to reimplement something, that will be
-> > > pointed to with words 'no matter what you say, it is broken and I do
-> > > not want it' again :).
-> >
-> > In my humble opinion, you should first write a 'real application', to
-> > show how the mmap buffer and kevent syscalls would be used (fast path and
-> > slow/recovery paths). I am sure it would be easier for everybody to agree
-> > on the API *before* you start coding a *lot* of hard (kernel) stuff : It
-> > would certainly save your mental CPU cycles (and ours too :) )
-> >
-> > This 'real application' could be  the event loop of a simple HTTP server,
-> > or a basic 'echo all' server. Adding the bits about timers events and
-> > signals should be done too.
->
-> I wrote one with previous ring buffer implementation - it used timers
-> and echoed when they fired, it was even described in details in one of the
-> lwn.net articles.
->
-> I'm not going to waste others and my time implementing feature requests
-> without at least _some_ feedback from those who asked them.
-> In case when person, originally requested some feature, does not answer
-> and there are other opinions, only they will be get into account of
-> course.
+In article <20061017123415.GO12964@postel.suug.ch> (at Tue, 17 Oct 2006 14:34:15 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-I am not sure I understand what you wrote, English is not our native language.
+> Right, that works as well but duplicating the rule for every
+> interface is not very practical.
 
-I think many people gave you feedbacks. I feel that all feedback on this 
-mailing list is constructive. Many posts/patches on this list are never 
-commented at all.
+Though I think it is, but we could have "non-local" flag or such.
 
-Eric
+> Anyways, the point is that the proposed change to modify the
+> source prefix matching logic is not acceptable and other way
+> has to be found.
+
+I still do not agree.
+
+The "reject" case that you told me can also be solved using netfilter.
+On the other side,  the source address selection can not be solved in
+other way.  The stack is broken without the proposed patch.
+
+--yoshfuji
