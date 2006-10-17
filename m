@@ -1,42 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 7/13] [RFC] [IPV6] Move source address selection into
- route lookup.
-Date: Tue, 17 Oct 2006 17:52:31 +0900 (JST)
-Message-ID: <20061017.175231.45194288.yoshfuji@linux-ipv6.org>
-References: <4534201D.7070002@tcs.hut.fi>
-	<20061016.222223.26532234.davem@davemloft.net>
-	<45348DD4.4000600@6wind.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: PATCH zero-copy send completion callback
+Date: Tue, 17 Oct 2006 11:01:38 +0200
+Message-ID: <200610171101.38690.dada1@cosmosbay.com>
+References: <019c01c6f186$99d0d6b0$0281a8c0@ebpc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, vnuorval@tcs.hut.fi, tgraf@suug.ch,
-	kim.nordlund@nokia.com, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org
+Cc: "'David Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:41741 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1423175AbWJQIuB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 04:50:01 -0400
-To: jean-mickael.guerin@6wind.com
-In-Reply-To: <45348DD4.4000600@6wind.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:40648 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1423170AbWJQJBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2006 05:01:41 -0400
+To: "Eric Barton" <eeb@bartonsoftware.com>
+In-Reply-To: <019c01c6f186$99d0d6b0$0281a8c0@ebpc>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <45348DD4.4000600@6wind.com> (at Tue, 17 Oct 2006 10:01:24 +0200), Jean-Mickael Guerin <jean-mickael.guerin@6wind.com> says:
+On Tuesday 17 October 2006 02:53, Eric Barton wrote:
+> If so, do you have any ideas about how to do it more economically?  It's 2
+> pointers rather than 1 to avoid forcing an unnecessary packet boundary
+> between successive zero-copy sends.  But I guess that might not be hugely
+> significant since you're generally sending many pages when zero-copy is
+> needed for performance.  Also, (please correct me if I'm wrong) I didn't
+> think this would push the allocation over to the next entry in
+> 'malloc_sizes'.
 
-> > Although this conversion is very clean and the next patch
-> > is very logic, I'm going to hold on all patches from 7 onward
-> > so there is some time for some discussion of the RFC'ness
-> > of them :-)
-> >
-> With regard to RFC'ness, passing self tests TAHI "Ready Logo 2" with 
-> SUBTREE
-> turned on could be a valuable feedback.
+Well, skbuff heads are allocated from dedicated kmem_cache 
+(skbuff_fclone_cache & skbuff_head_cache), and these caches are not 
+constrained by the sizes available in malloc_sizes. Their size are a multiple 
+of L1 CACHE size, which is 64 bytes for most common machines.
 
-Have you done it?
+Even if your two pointers addition (16 bytes on x86_64) doesnt cross a 64bytes 
+line (I didn't checked), they are going to be set to NULL each time a skbuff 
+is allocated , and checked against NULL each time a skbuff is destroyed.
 
-We've been trying to pass that, but we failed to compile;
-we probably used wrong tree...
-
---yoshfuji
+Eric
