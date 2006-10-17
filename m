@@ -1,43 +1,49 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [patch 1/5] d80211: remove bitfields from ieee80211_tx_control
-Date: Tue, 17 Oct 2006 10:26:55 -0700
-Message-ID: <20061017172655.GB13701@devicescape.com>
-References: <200610161807.25261.mb@bu3sch.de> <C86180A8C204554D8A3323D8F6B0A29F01851A93@dhost002-46.dex002.intermedia.net>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: 2.6.18-mm2 boot failure on x86-64
+Date: Tue, 17 Oct 2006 18:32:46 +0100 (IST)
+Message-ID: <Pine.LNX.4.64.0610171832160.2318@skynet.skynet.ie>
+References: <200610052250.55146.ak@suse.de> <1160101394.29690.48.camel@flooterbu>
+ <20061006143312.GB9881@skynet.ie> <20061006153629.GA19756@in.ibm.com>
+ <20061006171105.GC9881@skynet.ie> <1160157830.29690.66.camel@flooterbu>
+ <20061006200436.GG19756@in.ibm.com> <Pine.LNX.4.64.0610091049390.30765@skynet.skynet.ie>
+ <20061016181613.GA30090@in.ibm.com> <20061016165814.13b99e5e.akpm@osdl.org>
+ <20061017121836.GI30596@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:49090 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751345AbWJQR05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 13:26:57 -0400
-To: Simon Barber <simon@devicescape.com>
-Content-Disposition: inline
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F01851A93@dhost002-46.dex002.intermedia.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andrew Morton <akpm@osdl.org>, vgoyal@in.ibm.com,
+	Steve Fox <drfickle@us.ibm.com>, Andi Kleen <ak@suse.de>,
+	Badari Pulavarty <pbadari@us.ibm.com>,
+	Martin Bligh <mbligh@mbligh.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kmannth@us.ibm.com, Andy Whitcroft <apw@shadowen.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751353AbWJQRcu@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061017121836.GI30596@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 17 Oct 2006, Adrian Bunk wrote:
 
-I am not particularily attached to bitfields or no bitfields.  I am
-interested in getting d80211 merged.  Bitfields have been discussed
-as an important TODO.  Perhaps this can serve as a starting point for
-discussion of the tasks to complete before d80211 is merged?
+> On Mon, Oct 16, 2006 at 04:58:14PM -0700, Andrew Morton wrote:
+>> On Mon, 16 Oct 2006 14:16:13 -0400
+>> Vivek Goyal <vgoyal@in.ibm.com> wrote:
+>>
+>>>
+>>> Can you please have a look at the attached patch
+>>
+>> Looks like a fine patch to me, although it could benefit from a comment
+>> explaining why all those PAGE_ALIGN()s are in there.
+>>
+>>> and include it in -mm.
+>>
+>> Does it fix a patch in -mm or is it needed in mainline?
+>
+> The bug in my list was reported to be present in mainline [1].
+>
 
-On Mon, Oct 16, 2006 at 12:34:07PM -0700, Simon Barber wrote:
-> Removing the bitfields makes the code much harder to read and maintain.
+Confirmed. This bug is present in 2.6.19-rc2
 
-I agree that we end up with more characters in the file, the bitfield
-syntax is more concise.  However, I don't find it 'much' harder to
-read or maintain, it is a matter of taste.
-
-> Here we are working around a problem with the compiler by making the
-> code ugly - rather than fixing the compiler. The compilers are getting
-> better and better (GCC 4 has much better handling of this type of
-> optimization) but the code will remain ugly for ever.
-
-Well at least as far as code size goes gcc 4.1.2 still produces
-slightly larger code with the bitfields.
-
--David
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
