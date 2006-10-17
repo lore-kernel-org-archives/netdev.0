@@ -1,141 +1,40 @@
 From: David Kimdon <david.kimdon@devicescape.com>
-Subject: [take1 3/5] d80211: remove bitfields from ieee80211_key_conf
-Date: Tue, 17 Oct 2006 10:17:24 -0700
-Message-ID: <20061017171724.GD13669@devicescape.com>
-References: <20061017171624.299590000@devicescape.com>
+Subject: Re: [patch 1/5] d80211: remove bitfields from ieee80211_tx_control
+Date: Tue, 17 Oct 2006 10:19:51 -0700
+Message-ID: <20061017171951.GA13701@devicescape.com>
+References: <20061013191910.297963000@devicescape.com> <20061013192053.GB18694@devicescape.com> <200610161807.25261.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	David Kimdon <david.kimdon@devicescape.com>
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:51648 "EHLO
+Received: from mail.devicescape.com ([207.138.119.2]:20161 "EHLO
 	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751340AbWJQRRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 13:17:25 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename="key_conf_bitfields.patch"
+	id S1751342AbWJQRTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 13:19:53 -0400
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200610161807.25261.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All three one-bit bitfields have been subsumed into the new 'flags'
-structure member and the new IEEE80211_KEY_* definitions. The 8 bit
-keyidx bitfield is converted to type s8.
+On Mon, Oct 16, 2006 at 06:07:25PM +0200, Michael Buesch wrote:
+> On Friday 13 October 2006 21:20, David Kimdon wrote:
+> > All one-bit bitfields have been subsumed into the new 'flags'
+> > structure member and the new IEEE80211_TXCTL_* definitions.  The
+> > multiple bit members were converted to u8, s8 or u16 as appropriate.
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
+I'll answer based on take1, which I just sent to the list.
 
-Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-+++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -3634,8 +3634,8 @@ static int bcm43xx_net_set_key(struct ne
- 		if (err)
- 			goto out_unlock;
- 		key->hw_key_idx = index;
--		key->force_sw_encrypt = 0;
--		if (key->default_tx_key)
-+		key->flags &= ~IEEE80211_KEY_FORCE_SW_ENCRYPT;
-+		if (key->flags & IEEE80211_KEY_DEFAULT_TX_KEY)
- 			bcm->default_key_idx = index;
- 		bcm->key[index].enabled = 1;
- 		break;
-Index: wireless-dev/include/net/d80211.h
-===================================================================
---- wireless-dev.orig/include/net/d80211.h
-+++ wireless-dev/include/net/d80211.h
-@@ -366,13 +366,19 @@ struct ieee80211_key_conf {
- 	ieee80211_key_alg alg;
- 	int keylen;
- 
--	unsigned int force_sw_encrypt:1;/* to be cleared by low-level driver */
--	int keyidx:8;			/* WEP key index */
--	unsigned int default_tx_key:1;	/* This key is the new default TX key
--			       		 * (used only for broadcast keys). */
--	unsigned int default_wep_only:1;/* static WEP is the only configured security
--					 * policy; this allows some low-level drivers
--					 * to determine when hwaccel can be used */
-+#define IEEE80211_KEY_FORCE_SW_ENCRYPT (1<<0) /* to be cleared by low-level
-+						 driver */
-+#define IEEE80211_KEY_DEFAULT_TX_KEY   (1<<1) /* This key is the new default TX
-+						 key (used only for broadcast
-+						 keys). */
-+#define IEEE80211_KEY_DEFAULT_WEP_ONLY (1<<2) /* static WEP is the only
-+						 configured security policy;
-+						 this allows some low-level
-+						 drivers to determine when
-+						 hwaccel can be used */
-+	u8 flags; /* key configuration flags defined above */
-+
-+	s8 keyidx;			/* WEP key index */
-         u8 key[0];
- };
- 
-Index: wireless-dev/net/d80211/ieee80211.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211.c
-+++ wireless-dev/net/d80211/ieee80211.c
-@@ -74,10 +74,14 @@ ieee80211_key_data2conf(struct ieee80211
- 	conf->hw_key_idx = data->hw_key_idx;
- 	conf->alg = data->alg;
- 	conf->keylen = data->keylen;
--	conf->force_sw_encrypt = data->force_sw_encrypt;
-+	conf->flags = 0;
-+       if (data->force_sw_encrypt)
-+		conf->flags |= IEEE80211_KEY_FORCE_SW_ENCRYPT;
- 	conf->keyidx = data->keyidx;
--	conf->default_tx_key = data->default_tx_key;
--	conf->default_wep_only = local->default_wep_only;
-+	if (data->default_tx_key)
-+		conf->flags |= IEEE80211_KEY_DEFAULT_TX_KEY;
-+	if (local->default_wep_only)
-+		conf->flags |= IEEE80211_KEY_DEFAULT_WEP_ONLY;
- 	memcpy(conf->key, data->key, data->keylen);
- 
- 	return conf;
-Index: wireless-dev/net/d80211/ieee80211_ioctl.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_ioctl.c
-+++ wireless-dev/net/d80211/ieee80211_ioctl.c
-@@ -326,7 +326,7 @@ static int ieee80211_ioctl_add_sta(struc
- 		memset(&conf, 0, sizeof(conf));
- 		conf.hw_key_idx = HW_KEY_IDX_INVALID;
- 		conf.alg = ALG_NULL;
--		conf.force_sw_encrypt = 1;
-+		conf.flags |= IEEE80211_KEY_FORCE_SW_ENCRYPT;
- 		if (local->hw->set_key(dev, SET_KEY, sta->addr, &conf,
- 				       sta->aid)) {
- 			sta->key_idx_compression = HW_KEY_IDX_INVALID;
-@@ -496,7 +496,7 @@ int ieee80211_set_hw_encryption(struct n
- 			key->hw_key_idx = HW_KEY_IDX_INVALID;
- 		} else {
- 			key->force_sw_encrypt =
--				keyconf->force_sw_encrypt;
-+				!!(keyconf->flags & IEEE80211_KEY_FORCE_SW_ENCRYPT);
- 			key->hw_key_idx =
- 				keyconf->hw_key_idx;
- 
-@@ -2289,7 +2289,8 @@ static void ieee80211_key_enable_hwaccel
- 	keyconf = ieee80211_key_data2conf(local, key);
- 	if (keyconf && local->hw->set_key &&
- 	    local->hw->set_key(local->mdev, SET_KEY, addr, keyconf, 0) == 0) {
--		key->force_sw_encrypt = keyconf->force_sw_encrypt;
-+		key->force_sw_encrypt =
-+			!!(keyconf->flags & IEEE80211_KEY_FORCE_SW_ENCRYPT);
- 		key->hw_key_idx = keyconf->hw_key_idx;
- 	}
- 	kfree(keyconf);
-Index: wireless-dev/net/d80211/sta_info.c
-===================================================================
---- wireless-dev.orig/net/d80211/sta_info.c
-+++ wireless-dev/net/d80211/sta_info.c
-@@ -255,7 +255,7 @@ void sta_info_free(struct sta_info *sta,
- 		memset(&conf, 0, sizeof(conf));
- 		conf.hw_key_idx = sta->key_idx_compression;
- 		conf.alg = ALG_NULL;
--		conf.force_sw_encrypt = 1;
-+		conf.flags |= IEEE80211_KEY_FORCE_SW_ENCRYPT;
- 		local->hw->set_key(local->mdev, DISABLE_KEY, sta->addr, &conf,
- 				   sta->aid);
- 		sta->key_idx_compression = HW_KEY_IDX_INVALID;
+> 
+> And, eh, did this increase or decrease the struct size?
 
---
+structure sizes did not change.
+
+> Does this generate better or worse code?
+
+It generates slightly smaller code with gcc 4.1.2.
+
+-David
