@@ -1,68 +1,46 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
-Date: Wed, 18 Oct 2006 15:32:22 +0200
-Message-ID: <200610181532.22979.dada1@cosmosbay.com>
-References: <4535B6B7.4070107@cosmosbay.com> <200610181055.32102.dada1@cosmosbay.com> <20061018124202.GA31981@fogou.chygwyn.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 2/7] d80211: add support for SIOCSIWRATE and SIOCGIWRATE
+Date: Wed, 18 Oct 2006 15:34:13 +0200
+Message-ID: <20061018153413.216957b8@griffin.suse.cz>
+References: <44F355EE.3090607@linux.intel.com>
+	<20060830171919.GC18041@instant802.com>
+	<20060921184021.1fb7fa6e@logostar.upir.cz>
+	<4512C4FB.5010704@linux.intel.com>
+	<20060928133824.0cb2aa78@logostar.upir.cz>
+	<452EC34F.2010309@linux.intel.com>
+	<20061018145947.74c1aceb@griffin.suse.cz>
+	<1161176552.5575.17.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: mabbas <mabbas@linux.intel.com>,
+	Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:20632 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1751479AbWJRNcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 09:32:23 -0400
-To: Steven Whitehouse <steve@chygwyn.com>
-In-Reply-To: <20061018124202.GA31981@fogou.chygwyn.com>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:64223 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1161000AbWJRNeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 09:34:16 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1161176552.5575.17.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 18 October 2006 14:42, Steven Whitehouse wrote:
-> Hi,
->
-> > > Its not used at the moment[*], but would be required for any kind of
-> > > flow tracking. The objnum field, could be folded into the objname field
-> > > I guess on the basis that objnamel == 0 means objname[0] represents the
-> > > objnum, but that doesn't really buy much.
-> >
-> > Well, as I privately said to David, objnamel is used, at least on 2.6.18
-> > tree ( net/decnet/dn_route.c function compare_keys()
-> > memcmp() will read this field and check before comparing objname[]
-> >
-> > So it is set by dn_sk_ports_copy(), and used by compare_keys()
->
-> It is set by dn_sk_ports_copy() as you say, but the obj[num|name|namel]
-> fields are not used as a key in compare_keys() at the moment, although
-> all the other fields are used there.
->
-> Since the recent bug fix to this area of the code (memcmp was
-> comparing uninitialised padding) its easier to see what is
-> being compared.
->
+On Wed, 18 Oct 2006 15:02:32 +0200, Johannes Berg wrote:
+> On Wed, 2006-10-18 at 14:59 +0200, Jiri Benc wrote:
+> > But we will have to convert d80211 to cfg80211 anyway,
+> > so it will depend on the way rate limiting is implemented in cfg80211
+> > in the end.
+> 
+> I'd think it should be more the other way round with d80211/cfg80211
+> doing whatever makes most sense...
 
-Oh, I see, you are referring to 2.6.19-rc2, I was referring to 2.6.18 (what I 
-call current linux version)
+Current WE implementation of rate limiting (SIOCSIWRATE) doesn't make
+much sense with d80211. Hopefully we'll invent a better solution for
+cfg80211. Then we will probably need to put some constraints on
+SIOCSIWRATE emulation (like "rate limiting is lost when you are
+disassociated") - hence the comment.
 
-> In fact I suspect the reason that the obj fields were not put
-> in the dn_u where they'd take up a lot less room was
-> because the memcmp covered only dn_u and not the rest of the
-> structure. It was a while ago that I wrote this and my memory
-> is failing me as to the exact reason I did it like that.
->
-> > > Looking at the rearrangement option, and the relative lengths of
-> > > ipv6 and DECnet node addresses, dn_u is a lot smaller than ip6_u and
-> > > thus the obj[num|name|namel] fields could be moved into that structure.
-> > > Even after doing this, dn_u would still be shorter than ip6_u, although
-> > > 12 bytes longer than ip4_u (if my counting is correct). Is that an
-> > > acceptable solution?
-> >
-> > Well, most of my machines dont use IPV6 nor DECNET :)
->
-> Its still an improvement over the current situation, even though
-> it might be (probably is) possible to improve it further,
+ Jiri
 
-OK then. Even on a distro kernel (allyesconfig), size(flow) would shrink by 20 
-bytes.
-
-Thank you.
+-- 
+Jiri Benc
+SUSE Labs
