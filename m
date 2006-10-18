@@ -1,73 +1,90 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
-Date: Wed, 18 Oct 2006 07:42:17 +0200
-Message-ID: <4535BEB9.3010400@cosmosbay.com>
-References: <4415A4C1.1030906@cosmosbay.com> <452EA214.7080905@cosmosbay.com>
- <4535B6B7.4070107@cosmosbay.com>
- <20061017.222709.130237201.davem@davemloft.net>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [Madwifi-devel] d80211: ANNOUNCE: DadWifi, a port of
+	MadWifi	to d80211
+Date: Wed, 18 Oct 2006 02:20:27 -0400
+Message-ID: <1161152427.3922.23.camel@portland>
+References: <20061018001403.GA22990@devicescape.com>
+	 <20061017185116.1f14bd86@dads-laptop> <1161145560.2285.32.camel@portland>
+	 <20061017215532.3d3c769a@dads-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604002mt.neufgp.fr ([84.96.92.61]:36278 "EHLO sMtp.neuf.fr")
-	by vger.kernel.org with ESMTP id S1751376AbWJRFmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 01:42:18 -0400
-Received: from [192.168.30.203] ([88.137.140.131]) by sp604002mt.gpm.neuf.ld
- (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
- with ESMTP id <0J7B009JMH6HJU63@sp604002mt.gpm.neuf.ld> for
- netdev@vger.kernel.org; Wed, 18 Oct 2006 07:42:17 +0200 (CEST)
-In-reply-to: <20061017.222709.130237201.davem@davemloft.net>
-To: David Miller <davem@davemloft.net>
+Received: from c60.cesmail.net ([216.154.195.49]:48517 "EHLO c60.cesmail.net")
+	by vger.kernel.org with ESMTP id S1751081AbWJRGUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 02:20:37 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061017215532.3d3c769a@dads-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 18 Oct 2006 07:08:07 +0200
->=20
->> Each route entry includes a 'struct flow'. This structure has a
->> current size of 80 bytes. This patch makes a size reduction
->> depending on
->> CONFIG_IPV6/CONFIG_IPV6_MODULE/CONFIG_DECNET/CONFIG_IP_ROUTE_FWMARK
->> For a platform doing IPV4 only, the new size is 36 bytes (instead of
->> 80) As many routers are base on PIII (L1_CACHE_SIZE=3D32), this save=
-s
->> one cache line per rtable entry.
->=20
-> I don't like these kinds of patches because %99 of people will never
-> ever realize the "savings" because distribution vendors will always,
-> unlaterally, enable everything.
->=20
-> For example, I'm still pending to cut the patch that kills the "struc=
-t
-> flow" from inet_sock's cork area since it really isn't needed.
->=20
-> I'd rather do things that get rid of the size in a way that benefits
-> everyone, regardless of kernel config.  I also would totally support
-> a patch that got rid of all the config ifdefs used in struct sk_buff.
+On Tue, 2006-10-17 at 21:55 -0700, Stephen Hemminger wrote:
+> > On Tue, 2006-10-17 at 18:51 -0700, Stephen Hemminger wrote:
+> > > I would consider this a BAD thing. You are creating a derived work
+> > > out of GPL and non-GPL software. This actually will hurt the possible acceptance
+> > > of the d80211 stack into the mainline kernel.
+> > 
+> > On the contrary, I think this effort with spur interest in d80211,
+> > Atheros hardware and stimulate development of OpenHAL.  It will also put
+> > additional pressure on Atheros to open HAL sources.
+> 
+> HAL's are bad as well. You want a real driver, not one that has multiple
+> layers of indirection.
 
-I agree with you David (I dont like these patches as well), but I know =
-a lot=20
-of sysadmins who recompile themselves their kernels because they have o=
-ld=20
-machines and/or want optimized kernels, not 'big bloated kernels' from =
-distro=20
-guys running the very latest intel/amd bomb.
+I think "dissolving" HAL once its open is much easier than porting the
+driver from one 802.11 stack to another.  The former is just a matter of
+moving functions around, making some of them inline, renaming constants,
+fixing some ugly code.  It's a set of simple operations, each of which
+keeps the driver functional.  If anything breaks, it's easy to track
+back to the minor change that broke it.
 
-As long the #ifdefs are in .h files, I do think the pain is small.
+Porting to another 802.11 stack is a quantum leap that can only be done
+in one step and that could break lots of things at once.  It could also
+reveal limitations of the new stack that need to be fixed.  It's so
+commendable that somebody is trying to do the hardest part.
 
-=46act is linux has many CONFIG_XXXX things, and as many possible binar=
-y=20
-versions for a single linux-2.6.XX version as atoms in the universe... =
-A=20
-distro cannot provides all version and just provide the largest possibl=
-e one,=20
-containing many obsolete/funny features.
+> > The technical ability of d80211 to handle a popular chipset would hardly
+> > undermine its chances to be included into the kernel.  It takes more
+> > that one step to achieve free in-kernel support for Atheros chipsets.
+> > DadWifi may be one of those steps, OpenHAL or open-sourcing the Atheros
+> > HAL would be the other.
+> 
+> If Atheros does open source their existing driver. Someone will need to
+> do a new driver that gets rid of the HAL layer.
 
-How many people are using DECNET and want to pay the price of this 20 b=
-ytes=20
-dnports structure ?
+Yes, but this can be evolutionary.  Some code from HAL could actually
+migrate into the kernel or to a userspace utility.  We still want
+country-specific limitations, at least by default, so that users don't
+break local regulations unknowingly.
 
-Eric
+And even if the complete rewrite is needed, d80211 will be prepared to
+deal with Atheros cards, because the responsibilities of the firmware
+and the host software won't change.
+
+> > Should d80211 be merged with the existing 802.11 stack in the kernel,
+> > users of DadWifi would be among the testers, and they will ensure that
+> > useful features of d80211 are not lost.
+> 
+> As a test or transition vehicle it is a DadWifi is good, but hopefully it
+> won't slow the progress to a real open source solution
+
+I think it may speed things up.  Once the kernel integration is in
+sight, OpenHAL developers would have a stronger motivation to produce a
+working and copyright-clean product.
+
+> > Unless I'm missing something obvious, I don't see absolutely anything
+> > that could harm the chances of d80211 to make it to the mainline
+> > kernel.
+> 
+> Christoph et. all will insist that everything be EXPORT_SYMBOL_GPL.
+
+That shouldn't be an issue at all.  HAL does not and can not call any
+Linux functions directly.  It can only communicate to the kernel through
+a wrapper that will be under GPL.  Note that it's not circumvention of
+EXPORT_SYMBOL_GPL.  It's a direct consequence of the fact that HAL is
+indeed not derived from Linux.
+
+-- 
+Regards,
+Pavel Roskin
