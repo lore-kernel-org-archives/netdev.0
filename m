@@ -1,44 +1,41 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] Bound TSO defer time (resend)
-Date: Wed, 18 Oct 2006 17:37:36 +0200
-Message-ID: <200610181737.36135.ak@suse.de>
-References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <20061016202035.6d55b96e@localhost.localdomain> <45345999.4000300@psc.edu>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 3/3] d80211: silence sparse warning: bad constant
+ expression
+Date: Wed, 18 Oct 2006 17:40:38 +0200
+Message-ID: <20061018174038.32530e64@griffin.suse.cz>
+References: <20061009201102.GA10661@devicescape.com>
+	<20061018155607.2320a5fa@griffin.suse.cz>
+	<20061018151227.GA9777@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:3008 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1161167AbWJRPhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 11:37:42 -0400
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <45345999.4000300@psc.edu>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:43651 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1161037AbWJRPkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 11:40:43 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20061018151227.GA9777@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 October 2006 06:18, John Heffner wrote:
-> Stephen Hemminger wrote:
-> > On Mon, 16 Oct 2006 20:53:20 -0400 (EDT)
-> > John Heffner <jheffner@psc.edu> wrote:
-> 
-> >> This patch limits the amount of time you will defer sending a TSO segment
-> >> to less than two clock ticks, or the time between two acks, whichever is
-> >> longer.
-> 
-> > 
-> > Okay, but doing any timing on clock ticks makes the behavior dependent
-> > on the value of HZ which doesn't seem desirable. Should this be based
-> > on RTT or a real-time values?
-> 
-> It would be nice to use a high res clock so you don't depend on HZ, but 
-> this is still expensive on most SMP arch's as I understand it.
+On Wed, 18 Oct 2006 08:12:27 -0700, David Kimdon wrote:
+> I actually think the code reads slightly cleaner using num_algs, but
+> don't have a strong preference.  I'd be happy to make the change if
+> removing num_algs is preferred.
 
-You can always use xtime. It doesn't have better solution than jiffies
-though, but it gives you real time.
+Don't know. But nobody except me objected for more than a week so I've
+applied the patch to my tree.
 
-Drawback is that there is some work towards tickless kernels and with
-that xtime will be more expensive again. But hopefully not by that much.
+I've also applied the following patches from you:
+d80211: use FCS_LEN instead of hardcoded number.
+d80211: remove unused Super AG definitions, purge comment (the second
+version of the patch)
 
--Andi
+Thanks for the patches,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
