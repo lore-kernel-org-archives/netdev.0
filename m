@@ -1,70 +1,54 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH,RFC] bridge: call eth_type_trans() in br_pass_frame_up()
-Date: Wed, 18 Oct 2006 09:37:30 -0700
-Message-ID: <20061018093730.3bc5b433@freekitty>
-References: <20061018091445.GB18850@xi.wantstofly.org>
+Subject: Re: [PATCH] Bound TSO defer time (resend)
+Date: Wed, 18 Oct 2006 09:40:23 -0700
+Message-ID: <20061018094023.1be31440@freekitty>
+References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu>
+	<20061016202035.6d55b96e@localhost.localdomain>
+	<45345999.4000300@psc.edu>
+	<200610181737.36135.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tbillman@gmail.com
+Cc: John Heffner <jheffner@psc.edu>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:9666 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161231AbWJRQhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 12:37:34 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20061018091445.GB18850@xi.wantstofly.org>
+Received: from smtp.osdl.org ([65.172.181.4]:25540 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422675AbWJRQkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 12:40:42 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200610181737.36135.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Oct 2006 11:14:45 +0200
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+On Wed, 18 Oct 2006 17:37:36 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-> Hi,
+> On Tuesday 17 October 2006 06:18, John Heffner wrote:
+> > Stephen Hemminger wrote:
+> > > On Mon, 16 Oct 2006 20:53:20 -0400 (EDT)
+> > > John Heffner <jheffner@psc.edu> wrote:
+> > 
+> > >> This patch limits the amount of time you will defer sending a TSO segment
+> > >> to less than two clock ticks, or the time between two acks, whichever is
+> > >> longer.
+> > 
+> > > 
+> > > Okay, but doing any timing on clock ticks makes the behavior dependent
+> > > on the value of HZ which doesn't seem desirable. Should this be based
+> > > on RTT or a real-time values?
+> > 
+> > It would be nice to use a high res clock so you don't depend on HZ, but 
+> > this is still expensive on most SMP arch's as I understand it.
 > 
-> I've been seeing a failure to reply to incoming ARP packets on a bridge
-> interface until after the first few packets have been transmitted over
-> that interface, and the patch below seems to fix the issue, the 'issue'
-> being that the incoming ARP packets are marked with PACKET_OTHERHOST,
-> and there not being anything to set that back to PACKET_HOST even if
-> the destination MAC address matches the bridge interface's MAC address.
+> You can always use xtime. It doesn't have better solution than jiffies
+> though, but it gives you real time.
 > 
-> If this looks good, I'll prepare a proper commit message.
+> Drawback is that there is some work towards tickless kernels and with
+> that xtime will be more expensive again. But hopefully not by that much.
 > 
-> 
-> cheers,
-> Lennert
-> 
-> Signed-off-by: Tom Billman <tbillman@gmail.com>
-> Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-> 
-> --- linux-2.6.19-rc2.orig/net/bridge/br_input.c	2006-10-18 11:11:08.000000000 +0200
-> +++ linux-2.6.19-rc2/net/bridge/br_input.c	2006-10-18 11:10:08.000000000 +0200
-> @@ -32,6 +32,9 @@
->  	indev = skb->dev;
->  	skb->dev = br->dev;
->  
-> +	skb_push(skb, ETH_HLEN);
-> +	skb->protocol = eth_type_trans(skb, skb->dev);
-> +
->  	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
->  		netif_receive_skb);
->  }
+> -Andi
 
-No, this will cause packets coming in from other interfaces to be incorrectly
-marked as OTHERHOST. Think of the following:
-
-
-	eth0:  00:11:11:0:1:2
-	eth1:  00:11:11:0:1:3
-	br0:   00:11:11:0:1:2
-
-If packet arrives with Destination Address (DA) of 00:11:11:0:1:3 on eth1
-then your change will mark it as OTHERHOST.
-
-The case you are trying to fix is an ARP packet arriving on eth1 with
-the DA of eth0. That implies some sort of mismatch or cycle in your topology,
-it is not clear if the packet should just be dropped.
-
+Actually the thing to use now is ktime.  It would then be compatiable
+with hrtimers. But it seems a bit of overkill in this case.
 
 -- 
 Stephen Hemminger <shemminger@osdl.org>
