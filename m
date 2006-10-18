@@ -1,119 +1,61 @@
-From: Andi Kleen <ak@suse.de>
-Subject: 2.6.19rc2 XFRM does too large direct mapping allocations for hashes
-Date: Wed, 18 Oct 2006 13:50:22 +0200
-Message-ID: <200610181350.22049.ak@suse.de>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
+Date: Wed, 18 Oct 2006 13:42:02 +0100
+Message-ID: <20061018124202.GA31981@fogou.chygwyn.com>
+References: <4535B6B7.4070107@cosmosbay.com> <20061017.235336.30182405.davem@davemloft.net> <20061018082002.GA21120@fogou.chygwyn.com> <200610181055.32102.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38557 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1030247AbWJRLu1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 07:50:27 -0400
-Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id C861D20CD1
-	for <netdev@vger.kernel.org>; Wed, 18 Oct 2006 13:50:25 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from fogou.chygwyn.com ([195.171.2.24]:32999 "EHLO fogou.chygwyn.com")
+	by vger.kernel.org with ESMTP id S1030196AbWJRMsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 08:48:19 -0400
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
+In-Reply-To: <200610181055.32102.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-I got this while restarting ipsec on a 2.6.19rc2 system that was
-up for a few days.
+> >
+> > Its not used at the moment[*], but would be required for any kind of flow
+> > tracking. The objnum field, could be folded into the objname field I
+> > guess on the basis that objnamel == 0 means objname[0] represents the
+> > objnum, but that doesn't really buy much.
+> 
+> Well, as I privately said to David, objnamel is used, at least on 2.6.18 tree
+> ( net/decnet/dn_route.c function compare_keys() 
+> memcmp() will read this field and check before comparing objname[]
+> 
+> So it is set by dn_sk_ports_copy(), and used by compare_keys()
+>
+It is set by dn_sk_ports_copy() as you say, but the obj[num|name|namel]
+fields are not used as a key in compare_keys() at the moment, although
+all the other fields are used there.
 
-Order 8 is really a bit big to get from the direct mapping after
-boot.
+Since the recent bug fix to this area of the code (memcmp was
+comparing uninitialised padding) its easier to see what is
+being compared.
 
-Should the hash allocation fall back to vmalloc?
+In fact I suspect the reason that the obj fields were not put
+in the dn_u where they'd take up a lot less room was
+because the memcmp covered only dn_u and not the rest of the
+structure. It was a while ago that I wrote this and my memory
+is failing me as to the exact reason I did it like that.
+ 
+> >
+> > Looking at the rearrangement option, and the relative lengths of
+> > ipv6 and DECnet node addresses, dn_u is a lot smaller than ip6_u and thus
+> > the obj[num|name|namel] fields could be moved into that structure.
+> > Even after doing this, dn_u would still be shorter than ip6_u, although
+> > 12 bytes longer than ip4_u (if my counting is correct). Is that an
+> > acceptable solution?
+> 
+> Well, most of my machines dont use IPV6 nor DECNET :)
+> 
+Its still an improvement over the current situation, even though
+it might be (probably is) possible to improve it further,
 
--Andi
+Steve.
 
-Initializing XFRM netlink socket
-events/0: page allocation failure. order:8, mode:0xd0
-
-Call Trace:
- [<ffffffff8024be30>] __alloc_pages+0x297/0x2ae
- [<ffffffff804a3127>] xfrm_hash_resize+0x0/0x27e
- [<ffffffff8024c301>] __get_free_pages+0x33/0x6d
- [<ffffffff804a4a21>] xfrm_hash_alloc+0x56/0x6d
- [<ffffffff804a3185>] xfrm_hash_resize+0x5e/0x27e
- [<ffffffff804a3127>] xfrm_hash_resize+0x0/0x27e
- [<ffffffff802369ca>] run_workqueue+0x92/0xe3
- [<ffffffff80236ab9>] worker_thread+0x0/0x119
- [<ffffffff80236ba0>] worker_thread+0xe7/0x119
- [<ffffffff80224a6e>] default_wake_function+0x0/0xe
- [<ffffffff80239900>] kthread+0xcb/0xf5
- [<ffffffff8020a1c5>] child_rip+0xa/0x15
- [<ffffffff80239835>] kthread+0x0/0xf5
- [<ffffffff8020a1bb>] child_rip+0x0/0x15
-
-Mem-info:
-DMA per-cpu:
-CPU    0: Hot: hi:    0, btch:   1 usd:   0   Cold: hi:    0, btch:   1 usd:   0
-CPU    1: Hot: hi:    0, btch:   1 usd:   0   Cold: hi:    0, btch:   1 usd:   0
-DMA32 per-cpu:
-CPU    0: Hot: hi:  186, btch:  31 usd: 168   Cold: hi:   62, btch:  15 usd:  51
-CPU    1: Hot: hi:  186, btch:  31 usd:  14   Cold: hi:   62, btch:  15 usd:  58
-Active:293384 inactive:157186 Initializing XFRM netlink socket
-events/0: page allocation failure. order:8, mode:0xd0
-
-Call Trace:
- [<ffffffff8024be30>] __alloc_pages+0x297/0x2ae
- [<ffffffff804a3127>] xfrm_hash_resize+0x0/0x27e
- [<ffffffff8024c301>] __get_free_pages+0x33/0x6d
- [<ffffffff804a4a21>] xfrm_hash_alloc+0x56/0x6d
- [<ffffffff804a3185>] xfrm_hash_resize+0x5e/0x27e
- [<ffffffff804a3127>] xfrm_hash_resize+0x0/0x27e
- [<ffffffff802369ca>] run_workqueue+0x92/0xe3
- [<ffffffff80236ab9>] worker_thread+0x0/0x119
- [<ffffffff80236ba0>] worker_thread+0xe7/0x119
- [<ffffffff80224a6e>] default_wake_function+0x0/0xe
- [<ffffffff80239900>] kthread+0xcb/0xf5
- [<ffffffff8020a1c5>] child_rip+0xa/0x15
- [<ffffffff80239835>] kthread+0x0/0xf5
- [<ffffffff8020a1bb>] child_rip+0x0/0x15
-
-Mem-info:
-DMA per-cpu:
-CPU    0: Hot: hi:    0, btch:   1 usd:   0   Cold: hi:    0, btch:   1 usd:   0
-CPU    1: Hot: hi:    0, btch:   1 usd:   0   Cold: hi:    0, btch:   1 usd:   0
-DMA32 per-cpu:
-CPU    0: Hot: hi:  186, btch:  31 usd: 168   Cold: hi:   62, btch:  15 usd:  51
-CPU    1: Hot: hi:  186, btch:  31 usd:  14   Cold: hi:   62, btch:  15 usd:  58
-Active:293384 inactive:157186 dirty:94 writeback:0 unstable:0 free:10372 slab:46328 mapped:18292 pagetables:1952
-DMA free:8040kB min:28kB low:32kB high:40kB active:2720kB inactive:40kB present:10396kB pages_scanned:32 all_unreclaimable? no
-lowmem_reserve[]: 0 2002 2002
-DMA32 free:33448kB min:5708kB low:7132kB high:8560kB active:1170816kB inactive:628704kB present:2050208kB pages_scanned:152 all_unreclaimable? no
-lowmem_reserve[]: 0 0 0
-DMA: 0*4kB 1*8kB 0*16kB 1*32kB 1*64kB 0*128kB 1*256kB 1*512kB 1*1024kB 1*2048kB 1*4096kB = 8040kB
-DMA32: 6862*4kB 260*8kB 41*16kB 18*32kB 10*64kB 2*128kB 1*256kB 1*512kB 1*1024kB 0*2048kB 0*4096kB = 33448kB
-Swap cache: add 92, delete 92, find 27/32, race 0+0
-Free swap  = 987988kB
-Total swap = 987988kB
-Free swap:       987988kB
-524032 pages of RAM
-9689 reserved pages
-260692 pages shared
-0 pages swap cached
-events/0: page allocation failure. order:8, mode:0xd0
-dirty:94 writeback:0 unstable:0 free:10372 slab:46328 mapped:18292 pagetables:1952
-DMA free:8040kB min:28kB low:32kB high:40kB active:2720kB inactive:40kB present:10396kB pages_scanned:32 all_unreclaimable? no
-lowmem_reserve[]: 0 2002 2002
-DMA32 free:33448kB min:5708kB low:7132kB high:8560kB active:1170816kB inactive:628704kB present:2050208kB pages_scanned:152 all_unreclaimable? no
-lowmem_reserve[]: 0 0 0
-DMA: 0*4kB 1*8kB 0*16kB 1*32kB 1*64kB 0*128kB 1*256kB 1*512kB 1*1024kB 1*2048kB 1*4096kB = 8040kB
-DMA32: 6862*4kB 260*8kB 41*16kB 18*32kB 10*64kB 2*128kB 1*256kB 1*512kB 1*1024kB 0*2048kB 0*4096kB = 33448kB
-Swap cache: add 92, delete 92, find 27/32, race 0+0
-Free swap  = 987988kB
-Total swap = 987988kB
-Free swap:       987988kB
-524032 pages of RAM
-9689 reserved pages
-260692 pages shared
-0 pages swap cached
-events/0: page allocation failure. order:8, mode:0xd0
-
-... repeated a few times with the same backtrace ...
