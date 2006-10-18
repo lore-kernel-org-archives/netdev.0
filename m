@@ -1,61 +1,111 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH] rt2x00: Remove xr_end references
-Date: Wed, 18 Oct 2006 18:07:11 +0200
-Message-ID: <200610181807.11677.IvDoorn@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] [NET] reduce per cpu ram used for loopback stats
+Date: Wed, 18 Oct 2006 18:35:48 +0200
+Message-ID: <200610181835.48744.dada1@cosmosbay.com>
+References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <200610171458.37636.dada1@cosmosbay.com> <200610180938.39175.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_kflNFOx4zx5vdAC"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:52204 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161225AbWJRQIt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 12:08:49 -0400
-Received: by nf-out-0910.google.com with SMTP id c2so712238nfe
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2006 09:08:48 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from pfx2.jmh.fr ([194.153.89.55]:22176 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1161205AbWJRQfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 12:35:50 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <200610180938.39175.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This removes the xr_end references from rt2500usb and rt71usb.
-The rt2x00 pci drivers were already fixed by David Kimdon.
+--Boundary-00=_kflNFOx4zx5vdAC
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+We dont need a full struct net_device_stats (currently 23 long : 184 bytes on 
+x86_64) per possible CPU, but only two counters : bytes and packets
 
----
+We save few CPU cycles too in loopback_xmit() not updating 4 fields, but 2. 
 
-diff --git a/drivers/net/wireless/d80211/rt2x00/rt2500usb.c b/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-index 5d119cd..a181829 100644
---- a/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-+++ b/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-@@ -2676,11 +2676,6 @@ static int rt2500usb_init_hw_modes(struc
- 	rt2500usb_init_hw_channels(rt2x00dev, hw->modes[0].channels);
- 	rt2500usb_init_hw_rates(rt2x00dev, hw->modes[0].rates);
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary-00=_kflNFOx4zx5vdAC
+Content-Type: text/plain;
+  charset="utf-8";
+  name="loopback.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="loopback.patch"
+
+--- linux/drivers/net/loopback.c	2006-10-18 17:28:20.000000000 +0200
++++ linux-eddrivers/net/loopback.c	2006-10-18 18:26:41.000000000 +0200
+@@ -58,7 +58,11 @@
+ #include <linux/tcp.h>
+ #include <linux/percpu.h>
  
--	/*
--	 * xr_end is only used on Atheros cards.
--	 */
--	hw->modes->xr_end = 0;
+-static DEFINE_PER_CPU(struct net_device_stats, loopback_stats);
++struct pcpu_lstats {
++	unsigned long packets;
++	unsigned long bytes;
++};
++static DEFINE_PER_CPU(struct pcpu_lstats, pcpu_lstats);
+ 
+ #define LOOPBACK_OVERHEAD (128 + MAX_HEADER + 16 + 16)
+ 
+@@ -128,7 +132,7 @@
+  */
+ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *lb_stats;
++	struct pcpu_lstats *lb_stats;
+ 
+ 	skb_orphan(skb);
+ 
+@@ -149,11 +153,9 @@
+ #endif
+ 	dev->last_rx = jiffies;
+ 
+-	lb_stats = &per_cpu(loopback_stats, get_cpu());
+-	lb_stats->rx_bytes += skb->len;
+-	lb_stats->tx_bytes = lb_stats->rx_bytes;
+-	lb_stats->rx_packets++;
+-	lb_stats->tx_packets = lb_stats->rx_packets;
++	lb_stats = &per_cpu(pcpu_lstats, get_cpu());
++	lb_stats->bytes += skb->len;
++	lb_stats->packets++;
+ 	put_cpu();
+ 
+ 	netif_rx(skb);
+@@ -166,20 +168,21 @@
+ static struct net_device_stats *get_stats(struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = &loopback_stats;
++	unsigned long bytes = 0;
++	unsigned long packets = 0;
+ 	int i;
+ 
+-	memset(stats, 0, sizeof(struct net_device_stats));
 -
- 	return ieee80211_update_hw(net_dev, hw);
+ 	for_each_possible_cpu(i) {
+-		struct net_device_stats *lb_stats;
++		const struct pcpu_lstats *lb_stats;
  
- exit_free_channels:
-diff --git a/drivers/net/wireless/d80211/rt2x00/rt73usb.c b/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-index a3b0996..12407d3 100644
---- a/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-+++ b/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-@@ -3037,11 +3037,6 @@ static int rt73usb_init_hw_modes(struct 
- 	rt73usb_init_hw_channels(rt2x00dev, hw->modes[0].channels);
- 	rt73usb_init_hw_rates(rt2x00dev, hw->modes[0].rates);
- 
--	/*
--	 * xr_end is only used on Atheros cards.
--	 */
--	hw->modes->xr_end = 0;
+-		lb_stats = &per_cpu(loopback_stats, i);
+-		stats->rx_bytes   += lb_stats->rx_bytes;
+-		stats->tx_bytes   += lb_stats->tx_bytes;
+-		stats->rx_packets += lb_stats->rx_packets;
+-		stats->tx_packets += lb_stats->tx_packets;
++		lb_stats = &per_cpu(pcpu_lstats, i);
++		bytes   += lb_stats->bytes;
++		packets += lb_stats->packets;
+ 	}
 -
- 	return ieee80211_update_hw(net_dev, hw);
++	stats->rx_packets = packets;
++	stats->tx_packets = packets;
++	stats->rx_bytes = bytes;
++	stats->tx_bytes = bytes;
+ 	return stats;
+ }
  
- exit_free_channels:
+
+--Boundary-00=_kflNFOx4zx5vdAC--
