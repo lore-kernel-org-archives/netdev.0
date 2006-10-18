@@ -1,61 +1,44 @@
-From: Steven Whitehouse <steve@chygwyn.com>
-Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
-Date: Wed, 18 Oct 2006 13:42:02 +0100
-Message-ID: <20061018124202.GA31981@fogou.chygwyn.com>
-References: <4535B6B7.4070107@cosmosbay.com> <20061017.235336.30182405.davem@davemloft.net> <20061018082002.GA21120@fogou.chygwyn.com> <200610181055.32102.dada1@cosmosbay.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 2/7] d80211: add support for SIOCSIWRATE and SIOCGIWRATE
+Date: Wed, 18 Oct 2006 14:59:47 +0200
+Message-ID: <20061018145947.74c1aceb@griffin.suse.cz>
+References: <44F355EE.3090607@linux.intel.com>
+	<20060830171919.GC18041@instant802.com>
+	<20060921184021.1fb7fa6e@logostar.upir.cz>
+	<4512C4FB.5010704@linux.intel.com>
+	<20060928133824.0cb2aa78@logostar.upir.cz>
+	<452EC34F.2010309@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fogou.chygwyn.com ([195.171.2.24]:32999 "EHLO fogou.chygwyn.com")
-	by vger.kernel.org with ESMTP id S1030196AbWJRMsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 08:48:19 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
-Content-Disposition: inline
-In-Reply-To: <200610181055.32102.dada1@cosmosbay.com>
+Received: from styx.suse.cz ([82.119.242.94]:14299 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1030229AbWJRM7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 08:59:51 -0400
+To: mabbas <mabbas@linux.intel.com>
+In-Reply-To: <452EC34F.2010309@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 12 Oct 2006 15:35:59 -0700, mabbas wrote:
+> Should I add the new field to sta_info or to ieee80211_sub_if_data. If 
+> we added to sta_info then it wont be persistent.
+> We will loose SIOCSIWRATE restriction once we associate with new AP. 
+> Then in 3
+> we bitmask sta->curr_rates with ieee80211_sub_if_data::allowed_rates and 
+> this will solve the problem for IBSS as well.
 
-> >
-> > Its not used at the moment[*], but would be required for any kind of flow
-> > tracking. The objnum field, could be folded into the objname field I
-> > guess on the basis that objnamel == 0 means objname[0] represents the
-> > objnum, but that doesn't really buy much.
-> 
-> Well, as I privately said to David, objnamel is used, at least on 2.6.18 tree
-> ( net/decnet/dn_route.c function compare_keys() 
-> memcmp() will read this field and check before comparing objname[]
-> 
-> So it is set by dn_sk_ports_copy(), and used by compare_keys()
->
-It is set by dn_sk_ports_copy() as you say, but the obj[num|name|namel]
-fields are not used as a key in compare_keys() at the moment, although
-all the other fields are used there.
+Fine with me. Though I'm not sure that Jouni will agree :-)
 
-Since the recent bug fix to this area of the code (memcmp was
-comparing uninitialised padding) its easier to see what is
-being compared.
+On the other hand, as WE are considered obsolete now, it's more
+important to have a nice design than to support all WE calls in an
+intuitive way. But we will have to convert d80211 to cfg80211 anyway,
+so it will depend on the way rate limiting is implemented in cfg80211
+in the end.
 
-In fact I suspect the reason that the obj fields were not put
-in the dn_u where they'd take up a lot less room was
-because the memcmp covered only dn_u and not the rest of the
-structure. It was a while ago that I wrote this and my memory
-is failing me as to the exact reason I did it like that.
- 
-> >
-> > Looking at the rearrangement option, and the relative lengths of
-> > ipv6 and DECnet node addresses, dn_u is a lot smaller than ip6_u and thus
-> > the obj[num|name|namel] fields could be moved into that structure.
-> > Even after doing this, dn_u would still be shorter than ip6_u, although
-> > 12 bytes longer than ip4_u (if my counting is correct). Is that an
-> > acceptable solution?
-> 
-> Well, most of my machines dont use IPV6 nor DECNET :)
-> 
-Its still an improvement over the current situation, even though
-it might be (probably is) possible to improve it further,
+ Jiri
 
-Steve.
-
+-- 
+Jiri Benc
+SUSE Labs
