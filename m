@@ -1,80 +1,71 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Wed, 18 Oct 2006 08:10:14 +0400
-Message-ID: <20061018041014.GA14588@2ka.mipt.ru>
-References: <11587449471424@2ka.mipt.ru> <200610171826.05028.dada1@cosmosbay.com> <20061017163536.GA17692@2ka.mipt.ru> <200610171845.54719.dada1@cosmosbay.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: d80211: ANNOUNCE: DadWifi,
+	a port of MadWifi	to d80211
+Date: Wed, 18 Oct 2006 00:26:00 -0400
+Message-ID: <1161145560.2285.32.camel@portland>
+References: <20061018001403.GA22990@devicescape.com>
+	<20061017185116.1f14bd86@dads-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Johann Borck <johann.borck@densedata.com>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:29336 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751361AbWJRELL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 00:11:11 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
-Content-Disposition: inline
-In-Reply-To: <200610171845.54719.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061017185116.1f14bd86@dads-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2006 at 06:45:54PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> On Tuesday 17 October 2006 18:35, Evgeniy Polyakov wrote:
-> > On Tue, Oct 17, 2006 at 06:26:04PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
-> wrote:
-> > > On Tuesday 17 October 2006 18:01, Evgeniy Polyakov wrote:
-> > > > Ok, there is one apologist for mmap buffer implementation, who forced
-> > > > me to create first implementation, which was dropped due to absense of
-> > > > remote mental reading abilities.
-> > > > Ulrich, does above approach sound good for you?
-> > > > I actually do not want to reimplement something, that will be
-> > > > pointed to with words 'no matter what you say, it is broken and I do
-> > > > not want it' again :).
-> > >
-> > > In my humble opinion, you should first write a 'real application', to
-> > > show how the mmap buffer and kevent syscalls would be used (fast path and
-> > > slow/recovery paths). I am sure it would be easier for everybody to agree
-> > > on the API *before* you start coding a *lot* of hard (kernel) stuff : It
-> > > would certainly save your mental CPU cycles (and ours too :) )
-> > >
-> > > This 'real application' could be  the event loop of a simple HTTP server,
-> > > or a basic 'echo all' server. Adding the bits about timers events and
-> > > signals should be done too.
-> >
-> > I wrote one with previous ring buffer implementation - it used timers
-> > and echoed when they fired, it was even described in details in one of the
-> > lwn.net articles.
-> >
-> > I'm not going to waste others and my time implementing feature requests
-> > without at least _some_ feedback from those who asked them.
-> > In case when person, originally requested some feature, does not answer
-> > and there are other opinions, only they will be get into account of
-> > course.
-> 
-> I am not sure I understand what you wrote, English is not our native language.
-> 
-> I think many people gave you feedbacks. I feel that all feedback on this 
-> mailing list is constructive. Many posts/patches on this list are never 
-> commented at all.
+Hello!
 
-And I do greatly appreciate feedback from those people!
+On Tue, 2006-10-17 at 18:51 -0700, Stephen Hemminger wrote:
+> I would consider this a BAD thing. You are creating a derived work
+> out of GPL and non-GPL software. This actually will hurt the possible acceptance
+> of the d80211 stack into the mainline kernel.
 
-But I do not understand why I never got feedback on initial design and
-implementation (and then created as far as I recall at least 10
-releases) from Ulrich, who first asked for such a feture. 
-So right now I'm waiting for his opinion on that problem, even if it will 
-be 'it sucks' again, but at least in that case I will not waste people's time.
+On the contrary, I think this effort with spur interest in d80211,
+Atheros hardware and stimulate development of OpenHAL.  It will also put
+additional pressure on Atheros to open HAL sources.
 
-Ulrich, could you please comment on design notes sent couple of mail
-above?
+The technical ability of d80211 to handle a popular chipset would hardly
+undermine its chances to be included into the kernel.  It takes more
+that one step to achieve free in-kernel support for Atheros chipsets.
+DadWifi may be one of those steps, OpenHAL or open-sourcing the Atheros
+HAL would be the other.
 
-> Eric
+If DadWifi succeeds at supplanting MadWifi, it will reduce the
+proliferation of incompatible 802.11 stacks for Linux.  The FreeBSD
+stack included in MadWifi will become obsolete.
+
+There are many great ideas involving meshing networks that require
+support at the 802.11 MAC layer because they are tied to the WDS
+implementation.  Those efforts can be shared if the MAC layer is shared.
+A company doing mesh networking on Atheros today could switch to
+Broadcom tomorrow if Broadcom makes better chips, or vice versa.  
+Users of DadWifi would contribute fixes that would affect users of other
+chipsets.
+
+Should d80211 be merged with the existing 802.11 stack in the kernel,
+users of DadWifi would be among the testers, and they will ensure that
+useful features of d80211 are not lost.
+
+Unless I'm missing something obvious, I don't see absolutely anything
+that could harm the chances of d80211 to make it to the mainline
+kernel.
 
 -- 
-	Evgeniy Polyakov
+Regards,
+Pavel Roskin
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
