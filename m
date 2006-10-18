@@ -1,68 +1,63 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: [PATCH 4/4] add the algorithm to IPsec
-Date: Wed, 18 Oct 2006 11:26:23 +0900
-Message-ID: <20061018112623.29ed9324.kazunori@miyazawa.org>
+From: stephen@dino.dnsalias.com (Stephen J. Bevan)
+Subject: [RFC] Ethernet Cheap Cryptography
+Date: Tue, 17 Oct 2006 20:21:46 -0700
+Message-ID: <17717.40394.531846.695392@localhost.localdomain>
+References: <200610151820.22867.dpc@asn.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 221x116x13x66.ap221.ftth.ucom.ne.jp ([221.116.13.66]:58859 "EHLO
-	miyazawa.org") by vger.kernel.org with ESMTP id S1751185AbWJRC0Z
+Received: from S010600014e000000.vc.shawcable.net ([70.79.40.36]:61990 "EHLO
+	dino.dnsalias.com") by vger.kernel.org with ESMTP id S1751188AbWJRDWt
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 22:26:25 -0400
-To: davem@davemloft.net, herbert@gondor.apana.org.au
+	Tue, 17 Oct 2006 23:22:49 -0400
+To: Dawid Ciezarkiewicz <dpc@asn.pl>
+In-Reply-To: <200610151820.22867.dpc@asn.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The glue of xfrm.
+Dawid Ciezarkiewicz writes:
+ >  I'd be thankful for your opinions about that idea. Please forgive me any
+ > nuances that I didn't know about.
 
-Signed-off-by: Kazunori MIYAZAWA <miyazawa@linux-ipv6.org>
----
- include/linux/pfkeyv2.h |    1 +
- net/xfrm/xfrm_algo.c    |   18 ++++++++++++++++++
- 2 files changed, 19 insertions(+), 0 deletions(-)
+* I suggest extending the documentation with some motivating examples
+  of why someone would want to use this rather than IPsec for IP
+  and/or in what scenarios you'd envisage someone wanting to encrypt
+  ARP, PPPoE, ... etc.  Perhaps, you can somehow mesh it with 802.1x
+  to provide link-level encryption to augment 802.1x link-level
+  authentication?
 
-diff --git a/include/linux/pfkeyv2.h b/include/linux/pfkeyv2.h
-index d5dd471..636e0fb 100644
---- a/include/linux/pfkeyv2.h
-+++ b/include/linux/pfkeyv2.h
-@@ -285,6 +285,7 @@ #define SADB_X_AALG_SHA2_256HMAC	5
- #define SADB_X_AALG_SHA2_384HMAC	6
- #define SADB_X_AALG_SHA2_512HMAC	7
- #define SADB_X_AALG_RIPEMD160HMAC	8
-+#define SADB_X_AALG_AES_XCBC_MAC	9
- #define SADB_X_AALG_NULL		251	/* kame */
- #define SADB_AALG_MAX			251
- 
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index 5a0dbeb..e03eadd 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -119,6 +119,24 @@ static struct xfrm_algo_desc aalg_list[]
- 		.sadb_alg_maxbits = 160
- 	}
- },
-+{
-+	.name = "xcbc(aes)",
-+	.compat = "aes_xcbc_128",
-+
-+	.uinfo = {
-+		.auth = {
-+			.icv_truncbits = 96,
-+			.icv_fullbits = 128,
-+		}
-+	},
-+
-+	.desc = {
-+		.sadb_alg_id = SADB_X_AALG_AES_XCBC_MAC,
-+		.sadb_alg_ivlen = 0,
-+		.sadb_alg_minbits = 128,
-+		.sadb_alg_maxbits = 128
-+	}
-+},
- };
- 
- static struct xfrm_algo_desc ealg_list[] = {
--- 
-1.4.2
+* Your implementation allows the key to be changed but not in a way
+  that allows both sides to do so without disrupting traffic i.e. you
+  don't have something akin to IKE phase2 re-keying.  Without that
+  then if someone can sniff the traffic long enough they are going to
+  get a big sample of data to try and crack the keys with.
+  
+* You write "frames will be delivered in order, so on the other side
+  IV can be always in sync."  If any switches between the two linux
+  boxes are running any kind of link aggregation then you can't
+  guarantee that the frames will be delivered in order.  IEEE 802.3ad
+  requires that packets belonging to the same session travel down the
+  same port to avoid re-ordering but implementations vary as to
+  whether they actually guarantee it or not since most higher level
+  protcols can survive some re-ordering.
+
+* Given your desire not to change the size of the payload you have no
+  space for MAC.  This makes it easier (but by no means easy) to alter
+  the payload in such a way that it is still decrypted and considered
+  valid.
+
+* For the same reason as above you don't have a sequence number.  This
+  combined with the lack of MAC weakens the defense against replay
+  attacks i.e. where third party captures a packet and then re-sends
+  it at a later time.  The fact that IVs must be in sync for the
+  packet to be accepted makes it harder for an attacker but since they
+  know how the IV is calculated they know what message to look for
+  before replaying a packet.
+
+* A variation of the above is that the attacker doesn't care about
+  injecting packets per se, rather they use the above to cause packet
+  loss by causing the receiver to update its IV based on a replayed
+  packet thereby causing the next "real" packet to be dropped because
+  the IV is out of sync.
