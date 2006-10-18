@@ -1,58 +1,55 @@
-From: Per Liden <per.liden@ericsson.com>
-Subject: Re: [PATCH 0/14] TIPC updates
-Date: Wed, 18 Oct 2006 10:24:26 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0610181012110.16574@ulinpc219.uab.ericsson.se>
-References: <Pine.LNX.4.64.0610131330350.30166@ulinpc219.uab.ericsson.se>
- <20061016.220428.55725878.davem@davemloft.net>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
+Date: Wed, 18 Oct 2006 09:20:02 +0100
+Message-ID: <20061018082002.GA21120@fogou.chygwyn.com>
+References: <4535B6B7.4070107@cosmosbay.com> <20061017.222709.130237201.davem@davemloft.net> <4535BEB9.3010400@cosmosbay.com> <20061017.235336.30182405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw3.ericsson.se ([193.180.251.60]:63723 "EHLO
-	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
-	id S1750882AbWJRIYa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 04:24:30 -0400
+Received: from fogou.chygwyn.com ([195.171.2.24]:63665 "EHLO fogou.chygwyn.com")
+	by vger.kernel.org with ESMTP id S932098AbWJRI0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 04:26:16 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061016.220428.55725878.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061017.235336.30182405.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Oct 2006, David Miller wrote:
+Hi,
 
-> From: Per Liden <per.liden@ericsson.com>
-> Date: Fri, 13 Oct 2006 13:37:23 +0200 (CEST)
+On Tue, Oct 17, 2006 at 11:53:36PM -0700, David Miller wrote:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 18 Oct 2006 07:42:17 +0200
 > 
-> > This patch set includes a number TIPC fixes/cleanups. Please see each 
-> > individual patch for further description.
-> > 
-> > Please pull from:
-> > 
-> >  git://tipc.cslab.ericsson.net/pub/git/tipc.git
-> > 
-> >  (rebased on linux/kernel/git/davem/net-2.6.git)
+> > How many people are using DECNET and want to pay the price of this
+> > 20 bytes dnports structure ?
 > 
-> I applied everything except patch 8/14, you really need to
-> add proper SKB queue locking to handle that race.  I think
-> the "performance cost" of taking that lock is much overstated,
-> you should never have contention on that lock at all.
+Point taken :-) Eric, you also need to add a || defined(CONFIG_DECNET_MODULE)
+I think in your patch, if you want to make this optional.
 
-Ok, we'll take your advice on this.
-
-> Secondly, I never pull from your trees because I still have
-> to make many fixups to your patches:
+> I bet you could make that cost get hidden by careful rearrangement
+> of the struct flow, or adjustment of the implementation.
 > 
-> 1) Please add a proper colon to your changeset header lines,
->    it should be "[TIPC]: ", not "[TIPC] ".
->
-> 2) Please check for trailing whitespace added by your patches.
->    I've given you the command you can use in another email to
->    check this for yourselve before submission.
-> 
-> 3) Please get full proper signed-off-by lines from patch submitters,
->    especially when the patch is more than a trivial 1 or 2 liner.
+> BTW, I see assignments to these fields, and as a specific example
+> uli_u.dnports.objnamel but no use of it.  Perhaps much of dnports can
+> even be deleted outright. :-)
+> -
 
-Thanks a lot for the feedback. We'll do our best to assure that we follow 
-these rules in the future.
+Its not used at the moment[*], but would be required for any kind of flow
+tracking. The objnum field, could be folded into the objname field I
+guess on the basis that objnamel == 0 means objname[0] represents the objnum,
+but that doesn't really buy much.
 
-/Per
+Looking at the rearrangement option, and the relative lengths of
+ipv6 and DECnet node addresses, dn_u is a lot smaller than ip6_u and thus
+the obj[num|name|namel] fields could be moved into that structure.
+Even after doing this, dn_u would still be shorter than ip6_u, although
+12 bytes longer than ip4_u (if my counting is correct). Is that an
+acceptable solution?
+
+[*] By which I mean, as you've already alluded to, that its set up correctly
+but not currently read/tested by anything yet.
+
+Steve.
+
