@@ -1,87 +1,36 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Fix of a locking bug
-Date: Wed, 18 Oct 2006 00:17:15 +0100 (BST)
-Message-ID: <20061017231715.E931A7B40A0@zog.reactivated.net>
-Cc: netdev@vger.kernel.org
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: d80211: ANNOUNCE: DadWifi, a port of MadWifi to d80211
+Date: Tue, 17 Oct 2006 17:14:29 -0700
+Message-ID: <20061018001403.GA22990__17721.0974311039$1161134077$gmane$org@devicescape.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: madwifi-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:12006 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1751084AbWJQXRK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 19:17:10 -0400
-To: linville@tuxdriver.com
-Cc: kune@deine-taler.de
+Received: from mail.devicescape.com ([207.138.119.2]:18087 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751286AbWJRAOa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Oct 2006 20:14:30 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Kunitz <kune@deine-taler.de>
+Hi,
 
-This patch fixes the bug as reported in the kernel bug tracker
-under the id 7244. The bug was simply that the interrupt lock has
-been locked outside an interrupt without blocking the interrupt.
+DadWifi is a port of MadWifi to the d80211 stack.  It works now in
+managed and monitor mode, lightly tested.  Any card supported by
+MadWifi should be supported by DadWifi [1].  This allows a large
+number of cards to now take advantage of the d80211 stack.
 
-Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
----
+DadWifi uses the same (binary only) hal as MadWifi and reuses much of
+the initialization, descriptor and interrupt processing code.
 
-This is suitable for 2.6.19
+There is a subversion repository and mailing list available [2] for
+those wishing to try it out or help with development.
 
-Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -369,15 +369,6 @@ error:
- 	return r;
- }
- 
--static void disable_read_regs_int(struct zd_usb *usb)
--{
--	struct zd_usb_interrupt *intr = &usb->intr;
--
--	spin_lock(&intr->lock);
--	intr->read_regs_enabled = 0;
--	spin_unlock(&intr->lock);
--}
--
- #define urb_dev(urb) (&(urb)->dev->dev)
- 
- static inline void handle_regs_int(struct urb *urb)
-@@ -1159,10 +1150,19 @@ static void prepare_read_regs_int(struct
- {
- 	struct zd_usb_interrupt *intr = &usb->intr;
- 
--	spin_lock(&intr->lock);
-+	spin_lock_irq(&intr->lock);
- 	intr->read_regs_enabled = 1;
- 	INIT_COMPLETION(intr->read_regs.completion);
--	spin_unlock(&intr->lock);
-+	spin_unlock_irq(&intr->lock);
-+}
-+
-+static void disable_read_regs_int(struct zd_usb *usb)
-+{
-+	struct zd_usb_interrupt *intr = &usb->intr;
-+
-+	spin_lock_irq(&intr->lock);
-+	intr->read_regs_enabled = 0;
-+	spin_unlock_irq(&intr->lock);
- }
- 
- static int get_results(struct zd_usb *usb, u16 *values,
-@@ -1174,7 +1174,7 @@ static int get_results(struct zd_usb *us
- 	struct read_regs_int *rr = &intr->read_regs;
- 	struct usb_int_regs *regs = (struct usb_int_regs *)rr->buffer;
- 
--	spin_lock(&intr->lock);
-+	spin_lock_irq(&intr->lock);
- 
- 	r = -EIO;
- 	/* The created block size seems to be larger than expected.
-@@ -1207,7 +1207,7 @@ static int get_results(struct zd_usb *us
- 
- 	r = 0;
- error_unlock:
--	spin_unlock(&intr->lock);
-+	spin_unlock_irq(&intr->lock);
- 	return r;
- }
- 
+-David
+
+
+[1] : http://madwifi.org/wiki/Compatibility
+[2] : https://devicescape.org/projects/dadwifi/
+
