@@ -1,56 +1,83 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [take1 0/5] d80211 patches
-Date: Wed, 18 Oct 2006 10:38:10 -0700
-Message-ID: <20061018173810.GA30457@devicescape.com>
-References: <20061017171713.GA13669@devicescape.com> <20061018180131.556fe5bc@griffin.suse.cz> <20061018172009.GA25808@devicescape.com> <200610181923.14370.IvDoorn@gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2/3] ethtool: sky2 more decode
+Date: Wed, 18 Oct 2006 10:47:44 -0700
+Message-ID: <20061018104744.2ef54f21@freekitty>
+References: <20061018104632.27a37d75@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:37027 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751495AbWJRRiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 13:38:16 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200610181923.14370.IvDoorn@gmail.com>
+Received: from smtp.osdl.org ([65.172.181.4]:54238 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751486AbWJRRvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 13:51:04 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20061018104632.27a37d75@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2006 at 07:23:14PM +0200, Ivo van Doorn wrote:
-> On Wednesday 18 October 2006 19:20, David Kimdon wrote:
-> > On Wed, Oct 18, 2006 at 06:01:31PM +0200, Jiri Benc wrote:
-> > > On Tue, 17 Oct 2006 10:17:13 -0700, David Kimdon wrote:
-> > > > Continue d80211 bitfield removal.  In general, compilers have
-> > > > difficulty generating efficient code for bitfields.  This patchset
-> > > > removes all bitfields from include/net/d80211.h.
-> > > 
-> > > Thanks for the patches! At first I intended to ask you to split d80211
-> > > and drivers parts of the patches, but your way is better I think - it
-> > > doesn't break git-bisect.
-> > > 
-> > > John, if you agree with these patches, could you apply them after you
-> > > pull from my tree?
-> > 
-> > hold that thought, I missed updating rt73usb.c and rt2500usb.c.  New
-> > patchset on its way.
-> 
-> Hi,
-> 
-> That patch was send 2 hours ago by me to this list. :)
-> "[PATCH] rt2x00: Remove xr_end references"
-> That patch only fixed rt2500usb and rt73usb, so it can be applied safely
-> after your patch to fix the rt2x00 PCI drivers. 
+Dump even more GMAC/GPHY state
 
-Sorry, to be clear, I am talking about the bitfield removal from
-d80211.h patches.  Actually, your patch to remove the xr references
-from the usb drivers is what made me notice I had forgotten them from
-the bitfield removal patches.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+---
+ marvell.c |   16 ++++++++++++----
+ 1 files changed, 12 insertions(+), 4 deletions(-)
 
-hmm, I have a bad subject to the first mail in my post, my posting
-script set the initial 0/5 message subject as 'd80211 patches', should
-probably be a bit more specific :-)
+diff --git a/marvell.c b/marvell.c
+index 244bb69..e867521 100644
+--- a/marvell.c
++++ b/marvell.c
+@@ -113,7 +113,7 @@ static void dump_fifo(const char *name, 
+ 	dump_timer("LED", p + 0x20);
+ }
+ 
+-static void dump_gmac_fifo(const void *p)
++static void dump_gmac_fifo(const char *name, const void *p)
+ {
+ 	const u32 *r = p;
+ 	int i;
+@@ -133,6 +133,7 @@ static void dump_gmac_fifo(const void *p
+ 		"FIFO Read Level",
+ 	};
+ 
++	printf("\n%s\n", name);
+ 	for (i = 0; i < sizeof(regs)/sizeof(regs[0]); ++i)
+ 		printf("%-32s 0x%08X\n", regs[i], r[i]);
+ 
+@@ -319,8 +320,6 @@ int sky2_dump_regs(struct ethtool_drvinf
+ 	}
+ 
+ 	dump_mac(regs->data);
+-	dump_gmac("GMAC 1", regs->data + 0x2800);
+-	dump_gmac_fifo(regs->data + 0xc40);
+ 
+ 	printf("\nStatus BMU:\n-----------\n");
+ 	printf("Control                                0x%08X\n",
+@@ -350,6 +349,14 @@ int sky2_dump_regs(struct ethtool_drvinf
+ 	dump_timer("TX status", regs->data + 0xec0);
+ 	dump_timer("ISR", regs->data + 0xed0);
+ 
++	printf("\nGMAC control             0x%04X\n", *(u32 *)(regs->data + 0xf00));
++	printf("GPHY control             0x%04X\n", *(u32 *)(regs->data + 0xf04));
++	printf("LINK control             0x%02hX\n", *(u16 *)(regs->data + 0xf10));
++
++	dump_gmac("GMAC 1", regs->data + 0x2800);
++	dump_gmac_fifo("Rx GMAC 1", regs->data + 0xc40);
++	dump_gmac_fifo("Tx GMAC 1", regs->data + 0xd40);
++
+ 	dump_queue2("Receive Queue 1", regs->data +0x400, 1);
+ 	dump_queue("Sync Transmit Queue 1", regs->data +0x600, 0);
+ 	dump_queue2("Async Transmit Queue 1", regs->data +0x680, 0);
+@@ -364,7 +371,8 @@ int sky2_dump_regs(struct ethtool_drvinf
+ 		dump_ram("Sync Transmit RAMbuffer 2", regs->data+0xb00);
+ 		dump_ram("Async Transmit RAMbuffer 21", regs->data+0xb80);
+ 		dump_gmac("GMAC 2", regs->data + 0x3800);
+-		dump_gmac_fifo(regs->data + 0xc40 + 128);
++		dump_gmac_fifo("Rx GMAC 2", regs->data + 0xc40 + 128);
++		dump_gmac_fifo("Tx GMAC 2", regs->data + 0xd40 + 128);
+ 	}
+ 
+ 	return 0;
+-- 
+1.4.1
 
--David
