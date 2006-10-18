@@ -1,55 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: 80211 questions
-Date: Wed, 18 Oct 2006 15:29:38 +0200
-Message-ID: <1161178178.5575.24.camel@ux156>
-References: <19EFC4D481EBF849B14F91557CA737B54A6838@dile02.ent.ti.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
+Date: Wed, 18 Oct 2006 15:32:22 +0200
+Message-ID: <200610181532.22979.dada1@cosmosbay.com>
+References: <4535B6B7.4070107@cosmosbay.com> <200610181055.32102.dada1@cosmosbay.com> <20061018124202.GA31981@fogou.chygwyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:51385 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161010AbWJRN2q
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 09:28:46 -0400
-To: "Bar, Eitan" <eitanb@ti.com>
-In-Reply-To: <19EFC4D481EBF849B14F91557CA737B54A6838@dile02.ent.ti.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:20632 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1751479AbWJRNcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 09:32:23 -0400
+To: Steven Whitehouse <steve@chygwyn.com>
+In-Reply-To: <20061018124202.GA31981@fogou.chygwyn.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wednesday 18 October 2006 14:42, Steven Whitehouse wrote:
+> Hi,
+>
+> > > Its not used at the moment[*], but would be required for any kind of
+> > > flow tracking. The objnum field, could be folded into the objname field
+> > > I guess on the basis that objnamel == 0 means objname[0] represents the
+> > > objnum, but that doesn't really buy much.
+> >
+> > Well, as I privately said to David, objnamel is used, at least on 2.6.18
+> > tree ( net/decnet/dn_route.c function compare_keys()
+> > memcmp() will read this field and check before comparing objname[]
+> >
+> > So it is set by dn_sk_ports_copy(), and used by compare_keys()
+>
+> It is set by dn_sk_ports_copy() as you say, but the obj[num|name|namel]
+> fields are not used as a key in compare_keys() at the moment, although
+> all the other fields are used there.
+>
+> Since the recent bug fix to this area of the code (memcmp was
+> comparing uninitialised padding) its easier to see what is
+> being compared.
+>
 
-> I'm working on adding WE (wireless extensions) support to a WLAN
-> driver, and have recently bumped into references of nl80211, cfg80211
-> and d80211.
-> 
-> My questions:
-> - Can someone please shortly describe each term? 
+Oh, I see, you are referring to 2.6.19-rc2, I was referring to 2.6.18 (what I 
+call current linux version)
 
-d80211: wireless stack slated to replace the current ieee80211 subsystem
-in the kernel, includes very advanced functionality and can drives
-softmac chipsets like bcm43xx.
+> In fact I suspect the reason that the obj fields were not put
+> in the dn_u where they'd take up a lot less room was
+> because the memcmp covered only dn_u and not the rest of the
+> structure. It was a while ago that I wrote this and my memory
+> is failing me as to the exact reason I did it like that.
+>
+> > > Looking at the rearrangement option, and the relative lengths of
+> > > ipv6 and DECnet node addresses, dn_u is a lot smaller than ip6_u and
+> > > thus the obj[num|name|namel] fields could be moved into that structure.
+> > > Even after doing this, dn_u would still be shorter than ip6_u, although
+> > > 12 bytes longer than ip4_u (if my counting is correct). Is that an
+> > > acceptable solution?
+> >
+> > Well, most of my machines dont use IPV6 nor DECNET :)
+>
+> Its still an improvement over the current situation, even though
+> it might be (probably is) possible to improve it further,
 
-cfg80211: my proposal for the in-kernel wireless configuration interface
-replacing WE
+OK then. Even on a distro kernel (allyesconfig), size(flow) would shrink by 20 
+bytes.
 
-nl80211: tightly tied to cfg80211, this exports the cfg80211 interface
-over netlink to userspace
-
-There's also a compat interface so drivers can use cfg80211 but
-userspace can continue to use WE.
-
-> - Other than reading the source code and searching in news-groups, is
-> there any serious source of information regarding any of the above?
-
-not really, sorry. What specifically do you need? Also, what driver are
-you adding support for? Could it make sense to make said driver use
-d80211, or is it for a fullmac chipset?
-
-> p.s: while I'm at it -> any good documentation on WE itself other than
-> wireless.20.h ?
-
-None as far as I know. Jean recommends reading the userspace tools
-source code (which from my POV shows just /how/ broken WE is).
-
-johannes
+Thank you.
