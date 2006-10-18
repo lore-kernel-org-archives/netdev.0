@@ -1,82 +1,220 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: d80211: ANNOUNCE: DadWifi,
- a port of MadWifi	to d80211
-Date: Tue, 17 Oct 2006 21:55:32 -0700
-Message-ID: <20061017215532.3d3c769a@dads-laptop>
-References: <20061018001403.GA22990@devicescape.com>
-	<20061017185116.1f14bd86@dads-laptop>
-	<1161145560.2285.32.camel@portland>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] [NET] reduce sizeof(struct flow)
+Date: Wed, 18 Oct 2006 07:08:07 +0200
+Message-ID: <4535B6B7.4070107@cosmosbay.com>
+References: <20051217071029.GY23384@wotan.suse.de>
+ <20051216.231517.68922847.davem@davemloft.net>
+ <43A3EE8A.5020907@cosmosbay.com> <43CCBF3D.2070900@cosmosbay.com>
+ <4415A4C1.1030906@cosmosbay.com> <452EA214.7080905@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
-Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
-To: Pavel Roskin <proski@gnu.org>
-In-Reply-To: <1161145560.2285.32.camel@portland>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
-	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
-List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
-List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
-	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: madwifi-devel-bounces@lists.sourceforge.net
-Errors-To: madwifi-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/mixed; boundary="Boundary_(ID_+uL22LpEjySJagYT8wJrXw)"
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sp604005mt.neufgp.fr ([84.96.92.11]:27279 "EHLO smtp.Neuf.fr")
+	by vger.kernel.org with ESMTP id S1751376AbWJRFIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 01:08:07 -0400
+Received: from [192.168.30.203] ([88.137.140.131]) by sp604005mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0J7B00EDTFLI9TE1@sp604005mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Wed, 18 Oct 2006 07:08:06 +0200 (CEST)
+In-reply-to: <452EA214.7080905@cosmosbay.com>
+To: "David S. Miller" <davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Oct 2006 00:26:00 -0400
-Pavel Roskin <proski@gnu.org> wrote:
+This is a multi-part message in MIME format.
 
-> Hello!
-> 
-> On Tue, 2006-10-17 at 18:51 -0700, Stephen Hemminger wrote:
-> > I would consider this a BAD thing. You are creating a derived work
-> > out of GPL and non-GPL software. This actually will hurt the possible acceptance
-> > of the d80211 stack into the mainline kernel.
-> 
-> On the contrary, I think this effort with spur interest in d80211,
-> Atheros hardware and stimulate development of OpenHAL.  It will also put
-> additional pressure on Atheros to open HAL sources.
+--Boundary_(ID_+uL22LpEjySJagYT8wJrXw)
+Content-type: text/plain; charset=ISO-8859-1; format=flowed
+Content-transfer-encoding: 7BIT
 
-HAL's are bad as well. You want a real driver, not one that has multiple
-layers of indirection.
+Hi David
 
-> The technical ability of d80211 to handle a popular chipset would hardly
-> undermine its chances to be included into the kernel.  It takes more
-> that one step to achieve free in-kernel support for Atheros chipsets.
-> DadWifi may be one of those steps, OpenHAL or open-sourcing the Atheros
-> HAL would be the other.
+Each route entry includes a 'struct flow'. This structure has a current size 
+of 80 bytes. This patch makes a size reduction depending on 
+CONFIG_IPV6/CONFIG_IPV6_MODULE/CONFIG_DECNET/CONFIG_IP_ROUTE_FWMARK
 
-If Atheros does open source their existing driver. Someone will need to
-do a new driver that gets rid of the HAL layer.
+For a platform doing IPV4 only, the new size is 36 bytes (instead of 80)
+As many routers are base on PIII (L1_CACHE_SIZE=32), this saves one cache line 
+per rtable entry.
 
-> If DadWifi succeeds at supplanting MadWifi, it will reduce the
-> proliferation of incompatible 802.11 stacks for Linux.  The FreeBSD
-> stack included in MadWifi will become obsolete.
-> 
-> There are many great ideas involving meshing networks that require
-> support at the 802.11 MAC layer because they are tied to the WDS
-> implementation.  Those efforts can be shared if the MAC layer is shared.
-> A company doing mesh networking on Atheros today could switch to
-> Broadcom tomorrow if Broadcom makes better chips, or vice versa.  
-> Users of DadWifi would contribute fixes that would affect users of other
-> chipsets.
-> 
-> Should d80211 be merged with the existing 802.11 stack in the kernel,
-> users of DadWifi would be among the testers, and they will ensure that
-> useful features of d80211 are not lost.
+Thank you
 
-As a test or transition vehicle it is a DadWifi is good, but hopefully it
-won't slow the progress to a real open source solution
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-> Unless I'm missing something obvious, I don't see absolutely anything
-> that could harm the chances of d80211 to make it to the mainline
-> kernel.
 
-Christoph et. all will insist that everything be EXPORT_SYMBOL_GPL.
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+--Boundary_(ID_+uL22LpEjySJagYT8wJrXw)
+Content-type: text/plain; name=shrink_flow.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline; filename=shrink_flow.patch
+
+--- linux-2.6.19-rc2/include/net/flow.h	2006-10-18 06:03:08.000000000 +0200
++++ linux-2.6.19-rc2-ed/include/net/flow.h	2006-10-18 06:56:37.000000000 +0200
+@@ -18,17 +18,21 @@
+ 		struct {
+ 			__be32			daddr;
+ 			__be32			saddr;
++#if defined(CONFIG_IP_ROUTE_FWMARK)
+ 			__u32			fwmark;
++#endif
+ 			__u8			tos;
+ 			__u8			scope;
+ 		} ip4_u;
+ 		
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		struct {
+ 			struct in6_addr		daddr;
+ 			struct in6_addr		saddr;
+ 			__u32			fwmark;
+ 			__u32			flowlabel;
+ 		} ip6_u;
++#endif
+ 
+ 		struct {
+ 			__le16			daddr;
+@@ -65,6 +69,7 @@
+ 			__u8	code;
+ 		} icmpt;
+ 
++#if defined(CONFIG_DECNET)
+ 		struct {
+ 			__le16	sport;
+ 			__le16	dport;
+@@ -72,6 +77,7 @@
+ 			__u8	objnamel; /* Not 16 bits since max val is 16 */
+ 			__u8	objname[16]; /* Not zero terminated */
+ 		} dnports;
++#endif
+ 
+ 		__be32		spi;
+ 
+--- linux-2.6.19-rc2/include/net/xfrm.h	2006-10-18 06:21:19.000000000 +0200
++++ linux-2.6.19-rc2-ed/include/net/xfrm.h	2006-10-18 06:53:41.000000000 +0200
+@@ -517,6 +517,7 @@
+ 		(fl->oif == sel->ifindex || !sel->ifindex);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ static inline int
+ __xfrm6_selector_match(struct xfrm_selector *sel, struct flowi *fl)
+ {
+@@ -527,6 +528,7 @@
+ 		(fl->proto == sel->proto || !sel->proto) &&
+ 		(fl->oif == sel->ifindex || !sel->ifindex);
+ }
++#endif
+ 
+ static inline int
+ xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
+@@ -535,8 +537,10 @@
+ 	switch (family) {
+ 	case AF_INET:
+ 		return __xfrm4_selector_match(sel, fl);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return __xfrm6_selector_match(sel, fl);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -577,7 +581,9 @@
+ 		struct xfrm_dst		*next;
+ 		struct dst_entry	dst;
+ 		struct rtable		rt;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		struct rt6_info		rt6;
++#endif
+ 	} u;
+ 	struct dst_entry *route;
+ 	u32 genid;
+@@ -650,12 +656,14 @@
+ 		 tmpl->saddr.a4 != x->props.saddr.a4);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ static inline int
+ __xfrm6_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x)
+ {
+ 	return	(!ipv6_addr_any((struct in6_addr*)&tmpl->saddr) &&
+ 		 ipv6_addr_cmp((struct in6_addr *)&tmpl->saddr, (struct in6_addr*)&x->props.saddr));
+ }
++#endif
+ 
+ static inline int
+ xfrm_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x, unsigned short family)
+@@ -663,8 +671,10 @@
+ 	switch (family) {
+ 	case AF_INET:
+ 		return __xfrm4_state_addr_cmp(tmpl, x);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return __xfrm6_state_addr_cmp(tmpl, x);
++#endif
+ 	}
+ 	return !0;
+ }
+@@ -762,8 +772,10 @@
+ 	switch (family){
+ 	case AF_INET:
+ 		return (xfrm_address_t *)&fl->fl4_dst;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return (xfrm_address_t *)&fl->fl6_dst;
++#endif
+ 	}
+ 	return NULL;
+ }
+@@ -774,8 +786,10 @@
+ 	switch (family){
+ 	case AF_INET:
+ 		return (xfrm_address_t *)&fl->fl4_src;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return (xfrm_address_t *)&fl->fl6_src;
++#endif
+ 	}
+ 	return NULL;
+ }
+@@ -790,6 +804,7 @@
+ 	return 0;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ static __inline__ int
+ __xfrm6_state_addr_check(struct xfrm_state *x,
+ 			 xfrm_address_t *daddr, xfrm_address_t *saddr)
+@@ -801,6 +816,7 @@
+ 		return 1;
+ 	return 0;
+ }
++#endif
+ 
+ static __inline__ int
+ xfrm_state_addr_check(struct xfrm_state *x,
+@@ -810,8 +826,10 @@
+ 	switch (family) {
+ 	case AF_INET:
+ 		return __xfrm4_state_addr_check(x, daddr, saddr);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return __xfrm6_state_addr_check(x, daddr, saddr);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -825,10 +843,12 @@
+ 		return __xfrm4_state_addr_check(x,
+ 						(xfrm_address_t *)&fl->fl4_dst,
+ 						(xfrm_address_t *)&fl->fl4_src);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return __xfrm6_state_addr_check(x,
+ 						(xfrm_address_t *)&fl->fl6_dst,
+ 						(xfrm_address_t *)&fl->fl6_src);
++#endif
+ 	}
+ 	return 0;
+ }
+
+--Boundary_(ID_+uL22LpEjySJagYT8wJrXw)--
