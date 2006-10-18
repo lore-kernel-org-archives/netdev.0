@@ -1,63 +1,82 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take19 1/4] kevent: Core files.
-Date: Wed, 18 Oct 2006 06:45:35 +0200
-Message-ID: <4535B16F.7080208@cosmosbay.com>
-References: <11587449471424@2ka.mipt.ru>
- <200610171826.05028.dada1@cosmosbay.com> <20061017163536.GA17692@2ka.mipt.ru>
- <200610171845.54719.dada1@cosmosbay.com> <20061018041014.GA14588@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: d80211: ANNOUNCE: DadWifi,
+ a port of MadWifi	to d80211
+Date: Tue, 17 Oct 2006 21:55:32 -0700
+Message-ID: <20061017215532.3d3c769a@dads-laptop>
+References: <20061018001403.GA22990@devicescape.com>
+	<20061017185116.1f14bd86@dads-laptop>
+	<1161145560.2285.32.camel@portland>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Johann Borck <johann.borck@densedata.com>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604002mt.neufgp.fr ([84.96.92.61]:50609 "EHLO sMtp.neuf.fr")
-	by vger.kernel.org with ESMTP id S932078AbWJREpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 00:45:36 -0400
-In-reply-to: <20061018041014.GA14588@2ka.mipt.ru>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+To: Pavel Roskin <proski@gnu.org>
+In-Reply-To: <1161145560.2285.32.camel@portland>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov a e'crit :
-> On Tue, Oct 17, 2006 at 06:45:54PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
->> I am not sure I understand what you wrote, English is not our native language.
->>
->> I think many people gave you feedbacks. I feel that all feedback on this 
->> mailing list is constructive. Many posts/patches on this list are never 
->> commented at all.
+On Wed, 18 Oct 2006 00:26:00 -0400
+Pavel Roskin <proski@gnu.org> wrote:
+
+> Hello!
 > 
-> And I do greatly appreciate feedback from those people!
+> On Tue, 2006-10-17 at 18:51 -0700, Stephen Hemminger wrote:
+> > I would consider this a BAD thing. You are creating a derived work
+> > out of GPL and non-GPL software. This actually will hurt the possible acceptance
+> > of the d80211 stack into the mainline kernel.
 > 
-> But I do not understand why I never got feedback on initial design and
-> implementation (and then created as far as I recall at least 10
-> releases) from Ulrich, who first asked for such a feture. 
-> So right now I'm waiting for his opinion on that problem, even if it will 
-> be 'it sucks' again, but at least in that case I will not waste people's time.
+> On the contrary, I think this effort with spur interest in d80211,
+> Atheros hardware and stimulate development of OpenHAL.  It will also put
+> additional pressure on Atheros to open HAL sources.
+
+HAL's are bad as well. You want a real driver, not one that has multiple
+layers of indirection.
+
+> The technical ability of d80211 to handle a popular chipset would hardly
+> undermine its chances to be included into the kernel.  It takes more
+> that one step to achieve free in-kernel support for Atheros chipsets.
+> DadWifi may be one of those steps, OpenHAL or open-sourcing the Atheros
+> HAL would be the other.
+
+If Atheros does open source their existing driver. Someone will need to
+do a new driver that gets rid of the HAL layer.
+
+> If DadWifi succeeds at supplanting MadWifi, it will reduce the
+> proliferation of incompatible 802.11 stacks for Linux.  The FreeBSD
+> stack included in MadWifi will become obsolete.
 > 
-> Ulrich, could you please comment on design notes sent couple of mail
-> above?
+> There are many great ideas involving meshing networks that require
+> support at the 802.11 MAC layer because they are tied to the WDS
+> implementation.  Those efforts can be shared if the MAC layer is shared.
+> A company doing mesh networking on Atheros today could switch to
+> Broadcom tomorrow if Broadcom makes better chips, or vice versa.  
+> Users of DadWifi would contribute fixes that would affect users of other
+> chipsets.
+> 
+> Should d80211 be merged with the existing 802.11 stack in the kernel,
+> users of DadWifi would be among the testers, and they will ensure that
+> useful features of d80211 are not lost.
 
+As a test or transition vehicle it is a DadWifi is good, but hopefully it
+won't slow the progress to a real open source solution
 
-Ulrich is a very busy man. We have to live with that.
+> Unless I'm missing something obvious, I don't see absolutely anything
+> that could harm the chances of d80211 to make it to the mainline
+> kernel.
 
-<rant_mode>
-For example, I *complained* one day, that each glibc fopen()/fread()/fclose() 
-pass does a mmap()/munmap() to obtain a single 4KB of memory, without any 
-cache mechanism. This badly hurts performance of multi-threaded programs as we 
-know mmap()/munmap() has to down_write(&mm->mmap_sem); and play VM games.
+Christoph et. all will insist that everything be EXPORT_SYMBOL_GPL.
 
-So to avoid this, I manually call setvbuf() in my own programs, to provide a 
-suitable buffer to glibc, because of its suboptimal default allocation, 
-vestige of an old epoch...
-</rant_mode>
-
-Eric
-
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
