@@ -1,158 +1,141 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 9/18] d80211: rate_control: do not use atomic allocations when not necessary
-Date: Wed, 18 Oct 2006 17:49:32 +0200 (CEST)
-Message-ID: <20061018154932.CFF0447F84@silver.suse.cz>
+Subject: [PATCH 13/18] d80211: retain PS frames for at least STA listen interval
+Date: Wed, 18 Oct 2006 17:49:36 +0200 (CEST)
+Message-ID: <20061018154936.00E3647FB0@silver.suse.cz>
 References: <20061018174838.116675768.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:15010 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S1161204AbWJRPtH (ORCPT
+Received: from styx.suse.cz ([82.119.242.94]:13474 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S1161205AbWJRPtH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 11:49:07 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20061018174838.116675768.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow GFP_KERNEL to be used for allocations of sta entries triggered from
-the user space.
+From: Jouni Malinen <jkm@devicescape.com>
 
+Start using 2 * listen_int * beacon_int as a timeout for PS buffered
+unicast frames if that is longer than 10 seconds. Previously, we used
+fixed 10 second limit regardless of the listen interval.
+
+This fixes power saving for STAs that request very long listen
+interval (over 10 seconds).
+
+This was reported by UNH IOL 802.11 AP Base MAC Test Suite v2.4
+Test #1.3.2 Part e.
+
+While we are at it, remove the station from the TIM when the PS buffer is
+empty.
+
+Signed-off-by: Jouni Malinen <jkm@devicescape.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211_ioctl.c |    2 +-
- net/d80211/ieee80211_rate.h  |    7 ++++---
- net/d80211/ieee80211_sta.c   |    4 ++--
- net/d80211/rc80211_simple.c  |    4 ++--
- net/d80211/sta_info.c        |    8 +++-----
- net/d80211/sta_info.h        |    2 +-
- 6 files changed, 13 insertions(+), 14 deletions(-)
+ net/d80211/hostapd_ioctl.h   |    1 +
+ net/d80211/ieee80211_ioctl.c |    1 +
+ net/d80211/sta_info.c        |   24 ++++++++++++++++--------
+ net/d80211/sta_info.h        |    5 ++++-
+ 4 files changed, 22 insertions(+), 9 deletions(-)
 
-034b87e99c85b243b94c6955bbdce94825dd6b1f
+a1db08ff39daef9a57d50d737bdbb91f8a5e0592
+diff --git a/net/d80211/hostapd_ioctl.h b/net/d80211/hostapd_ioctl.h
+index 73d54b7..003f371 100644
+--- a/net/d80211/hostapd_ioctl.h
++++ b/net/d80211/hostapd_ioctl.h
+@@ -189,6 +189,7 @@ struct prism2_hostapd_param {
+ 			u8 wds_flags;
+ #define IEEE80211_STA_DYNAMIC_ENC BIT(0)
+ 			u8 enc_flags;
++			u16 listen_interval;
+ 		} add_sta;
+ 		struct {
+ 			u32 inactive_msec;
 diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index ff6718b..cded685 100644
+index 1fb2dfd..29fb230 100644
 --- a/net/d80211/ieee80211_ioctl.c
 +++ b/net/d80211/ieee80211_ioctl.c
-@@ -277,7 +277,7 @@ static int ieee80211_ioctl_add_sta(struc
- 	sta = sta_info_get(local, param->sta_addr);
+@@ -300,6 +300,7 @@ static int ieee80211_ioctl_add_sta(struc
+ 	sta->aid = param->u.add_sta.aid;
+ 	if (sta->aid > IEEE80211_MAX_AID)
+ 		sta->aid = 0;
++	sta->listen_interval = param->u.add_sta.listen_interval;
  
- 	if (!sta) {
--		sta = sta_info_add(local, dev, param->sta_addr);
-+		sta = sta_info_add(local, dev, param->sta_addr, GFP_KERNEL);
- 		if (!sta)
- 			return -ENOMEM;
-         }
-diff --git a/net/d80211/ieee80211_rate.h b/net/d80211/ieee80211_rate.h
-index 60e4879..04c7465 100644
---- a/net/d80211/ieee80211_rate.h
-+++ b/net/d80211/ieee80211_rate.h
-@@ -52,7 +52,7 @@ struct rate_control_ops {
- 
- 	void *(*alloc)(struct ieee80211_local *local);
- 	void (*free)(void *priv);
--	void *(*alloc_sta)(void *priv);
-+	void *(*alloc_sta)(void *priv, gfp_t gfp);
- 	void (*free_sta)(void *priv, void *priv_sta);
- 
- 	int (*add_attrs)(void *priv, struct kobject *kobj);
-@@ -112,9 +112,10 @@ static inline void rate_control_clear(st
- 	ref->ops->clear(ref->priv);
- }
- 
--static inline void *rate_control_alloc_sta(struct rate_control_ref *ref)
-+static inline void *rate_control_alloc_sta(struct rate_control_ref *ref,
-+					   gfp_t gfp)
- {
--	return ref->ops->alloc_sta(ref->priv);
-+	return ref->ops->alloc_sta(ref->priv, gfp);
- }
- 
- static inline void rate_control_free_sta(struct rate_control_ref *ref,
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index ed6747a..480e9c9 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -1158,7 +1158,7 @@ static void ieee80211_rx_mgmt_assoc_resp
- 	/* Add STA entry for the AP */
- 	sta = sta_info_get(local, ifsta->bssid);
- 	if (!sta) {
--		sta = sta_info_add(local, dev, ifsta->bssid);
-+		sta = sta_info_add(local, dev, ifsta->bssid, GFP_ATOMIC);
- 		if (!sta) {
- 			printk(KERN_DEBUG "%s: failed to add STA entry for the"
- 			       " AP\n", dev->name);
-@@ -2832,7 +2832,7 @@ struct sta_info * ieee80211_ibss_add_sta
- 	printk(KERN_DEBUG "%s: Adding new IBSS station " MAC_FMT " (dev=%s)\n",
- 	       dev->name, MAC_ARG(addr), sta_dev->name);
- 
--	sta = sta_info_add(local, dev, addr);
-+	sta = sta_info_add(local, dev, addr, GFP_ATOMIC);
- 	if (!sta)
- 		return NULL;
- 
-diff --git a/net/d80211/rc80211_simple.c b/net/d80211/rc80211_simple.c
-index 055a167..3634d00 100644
---- a/net/d80211/rc80211_simple.c
-+++ b/net/d80211/rc80211_simple.c
-@@ -305,11 +305,11 @@ static void rate_control_simple_clear(vo
- }
- 
- 
--static void * rate_control_simple_alloc_sta(void *priv)
-+static void * rate_control_simple_alloc_sta(void *priv, gfp_t gfp)
- {
- 	struct sta_rate_control *rctrl;
- 
--	rctrl = kzalloc(sizeof(*rctrl), GFP_ATOMIC);
-+	rctrl = kzalloc(sizeof(*rctrl), gfp);
- 
- 	return rctrl;
- }
+ 	rates = 0;
+ 	for (i = 0; i < sizeof(param->u.add_sta.supp_rates); i++) {
 diff --git a/net/d80211/sta_info.c b/net/d80211/sta_info.c
-index a177d2f..c18365b 100644
+index c18365b..17f4b92 100644
 --- a/net/d80211/sta_info.c
 +++ b/net/d80211/sta_info.c
-@@ -130,16 +130,14 @@ void sta_info_release(struct kobject *ko
+@@ -269,18 +269,24 @@ void sta_info_free(struct sta_info *sta,
+ }
  
  
- struct sta_info * sta_info_add(struct ieee80211_local *local,
--			       struct net_device *dev, u8 *addr)
-+			       struct net_device *dev, u8 *addr, gfp_t gfp)
+-static inline int sta_info_buffer_expired(struct sk_buff *skb)
++static inline int sta_info_buffer_expired(struct ieee80211_local *local,
++					  struct sta_info *sta,
++					  struct sk_buff *skb)
  {
- 	struct sta_info *sta;
+         struct ieee80211_tx_packet_data *pkt_data;
++	int timeout;
++
+ 	if (!skb)
+ 		return 0;
  
--	sta = kmalloc(sizeof(*sta), GFP_ATOMIC);
-+	sta = kzalloc(sizeof(*sta), gfp);
- 	if (!sta)
- 		return NULL;
- 
--	memset(sta, 0, sizeof(*sta));
+-	/* TODO: this could be improved by passing STA listen interval into
+-	 * the kernel driver and expiring frames after 2 x listen_interval x
+-         * beacon interval */
 -
- 	if (kobject_set_name(&sta->kobj, MAC_FMT, MAC_ARG(addr))) {
- 		kfree(sta);
- 		return NULL;
-@@ -148,7 +146,7 @@ struct sta_info * sta_info_add(struct ie
- 	kobject_init(&sta->kobj);
+         pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+-	return time_after(jiffies, pkt_data->jiffies + STA_TX_BUFFER_EXPIRE);
++
++	/* Timeout: (2 * listen_interval * beacon_int * 1024 / 1000000) sec */
++	timeout = (sta->listen_interval * local->conf.beacon_int * 32 /
++		   15625) * HZ;
++	if (timeout < STA_TX_BUFFER_EXPIRE)
++		timeout = STA_TX_BUFFER_EXPIRE;
++	return time_after(jiffies, pkt_data->jiffies + timeout);
+ }
  
- 	sta->rate_ctrl = rate_control_get(local->rate_ctrl);
--	sta->rate_ctrl_priv = rate_control_alloc_sta(sta->rate_ctrl);
-+	sta->rate_ctrl_priv = rate_control_alloc_sta(sta->rate_ctrl, gfp);
- 	if (!sta->rate_ctrl_priv) {
- 		rate_control_put(sta->rate_ctrl);
- 		kobject_put(&sta->kobj);
+ 
+@@ -296,9 +302,11 @@ static void sta_info_cleanup_expire_buff
+ 	for (;;) {
+ 		spin_lock_irqsave(&sta->ps_tx_buf.lock, flags);
+ 		skb = skb_peek(&sta->ps_tx_buf);
+-		if (sta_info_buffer_expired(skb))
++		if (sta_info_buffer_expired(local, sta, skb)) {
+ 			skb = __skb_dequeue(&sta->ps_tx_buf);
+-		else
++			if (skb_queue_empty(&sta->ps_tx_buf))
++				sta->flags &= ~WLAN_STA_TIM;
++		} else
+ 			skb = NULL;
+ 		spin_unlock_irqrestore(&sta->ps_tx_buf.lock, flags);
+ 
 diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
-index 9bd7e0d..ed1a104 100644
+index 44a532e..821645e 100644
 --- a/net/d80211/sta_info.h
 +++ b/net/d80211/sta_info.h
-@@ -133,7 +133,7 @@ struct sta_info * sta_info_get(struct ie
- int sta_info_min_txrate_get(struct ieee80211_local *local);
- void sta_info_put(struct sta_info *sta);
- struct sta_info * sta_info_add(struct ieee80211_local *local,
--			       struct net_device *dev, u8 *addr);
-+			       struct net_device *dev, u8 *addr, gfp_t gfp);
- void sta_info_free(struct sta_info *sta, int locked);
- void sta_info_release(struct kobject *kobj);
- void sta_info_init(struct ieee80211_local *local);
+@@ -108,6 +108,8 @@ #ifdef CONFIG_D80211_DEBUG_COUNTERS
+ #endif /* CONFIG_D80211_DEBUG_COUNTERS */
+ 
+ 	int vlan_id;
++
++	u16 listen_interval;
+ };
+ 
+ 
+@@ -121,7 +123,8 @@ #define STA_HASH(sta) (sta[5])
+ /* Maximum number of frames to buffer per power saving station */
+ #define STA_MAX_TX_BUFFER 128
+ 
+-/* Buffered frame expiry time */
++/* Minimum buffered frame expiry time. If STA uses listen interval that is
++ * smaller than this value, the minimum value here is used instead. */
+ #define STA_TX_BUFFER_EXPIRE (10 * HZ)
+ 
+ /* How often station data is cleaned up (e.g., expiration of buffered frames)
 -- 
 1.3.0
 
