@@ -1,45 +1,115 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: BCM5461 phy issue in 10M/Full duplex
-Date: Wed, 18 Oct 2006 09:53:57 -0700
-Message-ID: <45365C25.9070601@hp.com>
-References: <BD5AE82A-22F1-4813-A350-42532AB9A920@kernel.crashing.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH, resent] [NET] reduce per cpu ram used for loopback stats
+Date: Wed, 18 Oct 2006 19:00:03 +0200
+Message-ID: <200610181900.03583.dada1@cosmosbay.com>
+References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <200610180938.39175.dada1@cosmosbay.com> <200610181835.48744.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_T2lNFbY3GQMOgRO"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:55719 "EHLO palrel12.hp.com")
-	by vger.kernel.org with ESMTP id S1422684AbWJRQx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 12:53:59 -0400
-To: Kumar Gala <galak@kernel.crashing.org>
-In-Reply-To: <BD5AE82A-22F1-4813-A350-42532AB9A920@kernel.crashing.org>
+Received: from pfx2.jmh.fr ([194.153.89.55]:37793 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1422694AbWJRRAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 13:00:04 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <200610181835.48744.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kumar Gala wrote:
-> I was wondering if anyone has had any issues when trying to force a  
-> BCM5461 phy into 10M/full duplex.  I seem to be having an issue in  the 
-> two managed switches I've tried this on but autoneg to 10/half.   This 
-> causes a problem in that I start seeing a large number of frame  errors.
-> 
-> I believe, but need to double check, that if I leave the BCM5461 in  
-> autoneg, and foce the switch to 10M/full that the BCM5461 will  autoneg 
-> at 10M/half duplex.
+--Boundary-00=_T2lNFbY3GQMOgRO
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Indeed, if one side is hardcoded, autoneg will "fail" and the side trying to 
-autoneg is required by the specs (not that I know chapter and verse to quote 
-from the IEE stuff :( to go into half-duplex.
+Sorry David, the previous attachment had a missing / in one filename
 
-Was 10M/Fullduplex ever standardized?  If not I could see where kit might not be 
-willing/able to autoneg to that.
+[NET] reduce per cpu ram used for loopback device stats
 
-> Just wondering if anyone else has seen similar behavior with this PHY.
-> 
-> thanks
-> 
-> - kumar
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We dont need a full struct net_device_stats (currently 23 long : 184 bytes on 
+x86_64) per possible CPU, but only two counters : bytes and packets
 
+We save few CPU cycles too in loopback_xmit() not updating 4 fields, but 2. 
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary-00=_T2lNFbY3GQMOgRO
+Content-Type: text/plain;
+  charset="utf-8";
+  name="loopback.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="loopback.patch"
+
+--- linux/drivers/net/loopback.c	2006-10-18 17:28:20.000000000 +0200
++++ linux-ed/drivers/net/loopback.c	2006-10-18 18:26:41.000000000 +0200
+@@ -58,7 +58,11 @@
+ #include <linux/tcp.h>
+ #include <linux/percpu.h>
+ 
+-static DEFINE_PER_CPU(struct net_device_stats, loopback_stats);
++struct pcpu_lstats {
++	unsigned long packets;
++	unsigned long bytes;
++};
++static DEFINE_PER_CPU(struct pcpu_lstats, pcpu_lstats);
+ 
+ #define LOOPBACK_OVERHEAD (128 + MAX_HEADER + 16 + 16)
+ 
+@@ -128,7 +132,7 @@
+  */
+ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *lb_stats;
++	struct pcpu_lstats *lb_stats;
+ 
+ 	skb_orphan(skb);
+ 
+@@ -149,11 +153,9 @@
+ #endif
+ 	dev->last_rx = jiffies;
+ 
+-	lb_stats = &per_cpu(loopback_stats, get_cpu());
+-	lb_stats->rx_bytes += skb->len;
+-	lb_stats->tx_bytes = lb_stats->rx_bytes;
+-	lb_stats->rx_packets++;
+-	lb_stats->tx_packets = lb_stats->rx_packets;
++	lb_stats = &per_cpu(pcpu_lstats, get_cpu());
++	lb_stats->bytes += skb->len;
++	lb_stats->packets++;
+ 	put_cpu();
+ 
+ 	netif_rx(skb);
+@@ -166,20 +168,21 @@
+ static struct net_device_stats *get_stats(struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = &loopback_stats;
++	unsigned long bytes = 0;
++	unsigned long packets = 0;
+ 	int i;
+ 
+-	memset(stats, 0, sizeof(struct net_device_stats));
+-
+ 	for_each_possible_cpu(i) {
+-		struct net_device_stats *lb_stats;
++		const struct pcpu_lstats *lb_stats;
+ 
+-		lb_stats = &per_cpu(loopback_stats, i);
+-		stats->rx_bytes   += lb_stats->rx_bytes;
+-		stats->tx_bytes   += lb_stats->tx_bytes;
+-		stats->rx_packets += lb_stats->rx_packets;
+-		stats->tx_packets += lb_stats->tx_packets;
++		lb_stats = &per_cpu(pcpu_lstats, i);
++		bytes   += lb_stats->bytes;
++		packets += lb_stats->packets;
+ 	}
+-
++	stats->rx_packets = packets;
++	stats->tx_packets = packets;
++	stats->rx_bytes = bytes;
++	stats->tx_bytes = bytes;
+ 	return stats;
+ }
+ 
+
+--Boundary-00=_T2lNFbY3GQMOgRO--
