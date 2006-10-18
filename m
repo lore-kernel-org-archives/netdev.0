@@ -1,31 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Ethernet Cheap Cryptography
-Date: Tue, 17 Oct 2006 20:25:44 -0700 (PDT)
-Message-ID: <20061017.202544.74747614.davem@davemloft.net>
-References: <200610151820.22867.dpc@asn.pl>
-	<17717.40394.531846.695392@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take19 1/4] kevent: Core files.
+Date: Wed, 18 Oct 2006 08:10:14 +0400
+Message-ID: <20061018041014.GA14588@2ka.mipt.ru>
+References: <11587449471424@2ka.mipt.ru> <200610171826.05028.dada1@cosmosbay.com> <20061017163536.GA17692@2ka.mipt.ru> <200610171845.54719.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dpc@asn.pl, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Johann Borck <johann.borck@densedata.com>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:46276
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932066AbWJRDZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Oct 2006 23:25:39 -0400
-To: stephen@dino.dnsalias.com
-In-Reply-To: <17717.40394.531846.695392@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:29336 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751361AbWJRELL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 00:11:11 -0400
+To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Disposition: inline
+In-Reply-To: <200610171845.54719.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: stephen@dino.dnsalias.com (Stephen J. Bevan)
-Date: Tue, 17 Oct 2006 20:21:46 -0700
+On Tue, Oct 17, 2006 at 06:45:54PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> On Tuesday 17 October 2006 18:35, Evgeniy Polyakov wrote:
+> > On Tue, Oct 17, 2006 at 06:26:04PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
+> wrote:
+> > > On Tuesday 17 October 2006 18:01, Evgeniy Polyakov wrote:
+> > > > Ok, there is one apologist for mmap buffer implementation, who forced
+> > > > me to create first implementation, which was dropped due to absense of
+> > > > remote mental reading abilities.
+> > > > Ulrich, does above approach sound good for you?
+> > > > I actually do not want to reimplement something, that will be
+> > > > pointed to with words 'no matter what you say, it is broken and I do
+> > > > not want it' again :).
+> > >
+> > > In my humble opinion, you should first write a 'real application', to
+> > > show how the mmap buffer and kevent syscalls would be used (fast path and
+> > > slow/recovery paths). I am sure it would be easier for everybody to agree
+> > > on the API *before* you start coding a *lot* of hard (kernel) stuff : It
+> > > would certainly save your mental CPU cycles (and ours too :) )
+> > >
+> > > This 'real application' could be  the event loop of a simple HTTP server,
+> > > or a basic 'echo all' server. Adding the bits about timers events and
+> > > signals should be done too.
+> >
+> > I wrote one with previous ring buffer implementation - it used timers
+> > and echoed when they fired, it was even described in details in one of the
+> > lwn.net articles.
+> >
+> > I'm not going to waste others and my time implementing feature requests
+> > without at least _some_ feedback from those who asked them.
+> > In case when person, originally requested some feature, does not answer
+> > and there are other opinions, only they will be get into account of
+> > course.
+> 
+> I am not sure I understand what you wrote, English is not our native language.
+> 
+> I think many people gave you feedbacks. I feel that all feedback on this 
+> mailing list is constructive. Many posts/patches on this list are never 
+> commented at all.
 
-> * You write "frames will be delivered in order, so on the other side
->   IV can be always in sync."
+And I do greatly appreciate feedback from those people!
 
-In fact, in addition to your comments, Linux can reorder packets
-locally within the system even within traffic for the same link.
+But I do not understand why I never got feedback on initial design and
+implementation (and then created as far as I recall at least 10
+releases) from Ulrich, who first asked for such a feture. 
+So right now I'm waiting for his opinion on that problem, even if it will 
+be 'it sucks' again, but at least in that case I will not waste people's time.
 
-Any technology which absolutely requires in order packet delivery
-isn't going to work very well.
+Ulrich, could you please comment on design notes sent couple of mail
+above?
+
+> Eric
+
+-- 
+	Evgeniy Polyakov
