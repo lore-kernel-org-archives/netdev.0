@@ -1,110 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [IPv6] route: Fix prohibit and blackhole routing decision
-Date: Wed, 18 Oct 2006 12:06:19 +0200
-Message-ID: <20061018100619.GR12964@postel.suug.ch>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: d80211: ANNOUNCE: DadWifi,
+	a port of MadWifi to d80211
+Date: Wed, 18 Oct 2006 11:16:05 +0100
+Message-ID: <20061018101605.GA1767@infradead.org>
+References: <20061018001403.GA22990@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:19850 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932143AbWJRKF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 06:05:59 -0400
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+To: David Kimdon <david.kimdon@devicescape.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061018001403.GA22990@devicescape.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Lookups resolving to ip6_blk_hole_entry must result in silently
-discarding the packets whereas an ip6_pkt_prohibit_entry is
-supposed to cause an ICMPV6_ADM_PROHIBITED message to be sent.
+On Tue, Oct 17, 2006 at 05:14:29PM -0700, David Kimdon wrote:
+> Hi,
+> 
+> DadWifi is a port of MadWifi to the d80211 stack.  It works now in
+> managed and monitor mode, lightly tested.  Any card supported by
+> MadWifi should be supported by DadWifi [1].  This allows a large
+> number of cards to now take advantage of the d80211 stack.
+> 
+> DadWifi uses the same (binary only) hal as MadWifi and reuses much of
+> the initialization, descriptor and interrupt processing code.
 
-Thanks to Kim Nordlund <kim.nordlund@nokia.com> for noticing
-this bug.
+Guys, why do you waste your time on doing stuff that's useless for most
+of us, and that people can't even legally redistribute.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Please switch to openhal or the openbsd code and we all owe you a lot of
+beer at the next conference :)
 
-Index: net-2.6/net/ipv6/route.c
-===================================================================
---- net-2.6.orig/net/ipv6/route.c	2006-10-18 11:06:45.000000000 +0200
-+++ net-2.6/net/ipv6/route.c	2006-10-18 11:48:27.000000000 +0200
-@@ -94,6 +94,9 @@
- 
- static int		ip6_pkt_discard(struct sk_buff *skb);
- static int		ip6_pkt_discard_out(struct sk_buff *skb);
-+static int		ip6_pkt_prohibit(struct sk_buff *skb);
-+static int		ip6_pkt_prohibit_out(struct sk_buff *skb);
-+static int		ip6_pkt_blk_hole(struct sk_buff *skb);
- static void		ip6_link_failure(struct sk_buff *skb);
- static void		ip6_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
- 
-@@ -150,8 +153,8 @@
- 			.obsolete	= -1,
- 			.error		= -EACCES,
- 			.metrics	= { [RTAX_HOPLIMIT - 1] = 255, },
--			.input		= ip6_pkt_discard,
--			.output		= ip6_pkt_discard_out,
-+			.input		= ip6_pkt_prohibit,
-+			.output		= ip6_pkt_prohibit_out,
- 			.ops		= &ip6_dst_ops,
- 			.path		= (struct dst_entry*)&ip6_prohibit_entry,
- 		}
-@@ -170,8 +173,8 @@
- 			.obsolete	= -1,
- 			.error		= -EINVAL,
- 			.metrics	= { [RTAX_HOPLIMIT - 1] = 255, },
--			.input		= ip6_pkt_discard,
--			.output		= ip6_pkt_discard_out,
-+			.input		= ip6_pkt_blk_hole,
-+			.output		= ip6_pkt_blk_hole,
- 			.ops		= &ip6_dst_ops,
- 			.path		= (struct dst_entry*)&ip6_blk_hole_entry,
- 		}
-@@ -1743,24 +1746,46 @@
-  *	Drop the packet on the floor
-  */
- 
--static int ip6_pkt_discard(struct sk_buff *skb)
-+static inline int ip6_pkt_drop(struct sk_buff *skb, int code)
- {
- 	int type = ipv6_addr_type(&skb->nh.ipv6h->daddr);
- 	if (type == IPV6_ADDR_ANY || type == IPV6_ADDR_RESERVED)
- 		IP6_INC_STATS(IPSTATS_MIB_INADDRERRORS);
- 
- 	IP6_INC_STATS(IPSTATS_MIB_OUTNOROUTES);
--	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_NOROUTE, 0, skb->dev);
-+	icmpv6_send(skb, ICMPV6_DEST_UNREACH, code, 0, skb->dev);
- 	kfree_skb(skb);
- 	return 0;
- }
- 
-+static int ip6_pkt_discard(struct sk_buff *skb)
-+{
-+	return ip6_pkt_drop(skb, ICMPV6_NOROUTE);
-+}
-+
- static int ip6_pkt_discard_out(struct sk_buff *skb)
- {
- 	skb->dev = skb->dst->dev;
- 	return ip6_pkt_discard(skb);
- }
- 
-+static int ip6_pkt_prohibit(struct sk_buff *skb)
-+{
-+	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED);
-+}
-+
-+static int ip6_pkt_prohibit_out(struct sk_buff *skb)
-+{
-+	skb->dev = skb->dst->dev;
-+	return ip6_pkt_prohibit(skb);
-+}
-+
-+static int ip6_pkt_blk_hole(struct sk_buff *skb)
-+{
-+	kfree_skb(skb);
-+	return 0;
-+}
-+
- /*
-  *	Allocate a dst for local (unicast / anycast) address.
-  */
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
