@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Ethernet Cheap Cryptography
-Date: Wed, 18 Oct 2006 03:16:29 -0700 (PDT)
-Message-ID: <20061018.031629.88703132.davem@davemloft.net>
-References: <17717.40394.531846.695392@localhost.localdomain>
-	<20061017.202544.74747614.davem@davemloft.net>
-	<200610181151.46506.dpc@asn.pl>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
+Date: Wed, 18 Oct 2006 13:33:50 +0200
+Message-ID: <200610181333.50953.netdev@axxeo.de>
+References: <4415A4C1.1030906@cosmosbay.com> <4535B6B7.4070107@cosmosbay.com> <20061017.222709.130237201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@dino.dnsalias.com, netdev@vger.kernel.org
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31633
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030177AbWJRKQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 06:16:22 -0400
-To: dpc@asn.pl
-In-Reply-To: <200610181151.46506.dpc@asn.pl>
+Received: from mail.axxeo.de ([82.100.226.146]:20133 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1030238AbWJRLeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 07:34:08 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061017.222709.130237201.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dawid Ciezarkiewicz <dpc@asn.pl>
-Date: Wed, 18 Oct 2006 11:51:46 +0200
+Hi David,
 
-> I've tried to put ccrypt handlers as close to hardware xmit and recv as 
-> possible so local reorder doesn't matter. Medium doesn't reorder frames and 
-> switches, bridges shouldn't do that neither (but as Stephen J. Bevan said 
-> this may not be always true).
+David Miller schrieb:
+> I don't like these kinds of patches because %99 of people will never
+> ever realize the "savings" because distribution vendors will always,
+> unlaterally, enable everything.
 
-You can put it all the way in netif_receive_skb() and you still
-can see reordering of receive packets on an SMP system.
+People producing Linux Appliances DO compile their own kernels.
+
+And some distribution vendors are still at 2.6.8-$WHACKY_PATCHES
+or similiar, which is not usable for many things 
+(e.g. IPsec, SIP behind NAT etc.).
+
+But I agree that workings towards smaller size in "make allyesconfig"
+is much better :-)
+
+
+Regards
+
+Ingo Oeser
