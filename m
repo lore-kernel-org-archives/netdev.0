@@ -1,70 +1,47 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] [NET] reduce sizeof(struct flow)
-Date: Wed, 18 Oct 2006 10:55:31 +0200
-Message-ID: <200610181055.32102.dada1@cosmosbay.com>
-References: <4535B6B7.4070107@cosmosbay.com> <20061017.235336.30182405.davem@davemloft.net> <20061018082002.GA21120@fogou.chygwyn.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH,RFC] bridge: call eth_type_trans() in br_pass_frame_up()
+Date: Wed, 18 Oct 2006 11:14:45 +0200
+Message-ID: <20061018091445.GB18850@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tbillman@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:37773 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S932138AbWJRIzc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 04:55:32 -0400
-To: Steven Whitehouse <steve@chygwyn.com>
-In-Reply-To: <20061018082002.GA21120@fogou.chygwyn.com>
+Received: from alephnull.demon.nl ([83.160.184.112]:40124 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S932142AbWJRJOr
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Oct 2006 05:14:47 -0400
+To: shemminger@osdl.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 18 October 2006 10:20, Steven Whitehouse wrote:
-> Hi,
->
-> On Tue, Oct 17, 2006 at 11:53:36PM -0700, David Miller wrote:
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Wed, 18 Oct 2006 07:42:17 +0200
-> >
-> > > How many people are using DECNET and want to pay the price of this
-> > > 20 bytes dnports structure ?
->
-> Point taken :-) Eric, you also need to add a ||
-> defined(CONFIG_DECNET_MODULE) I think in your patch, if you want to make
-> this optional.
->
+Hi,
 
-Yes, thank you :)
+I've been seeing a failure to reply to incoming ARP packets on a bridge
+interface until after the first few packets have been transmitted over
+that interface, and the patch below seems to fix the issue, the 'issue'
+being that the incoming ARP packets are marked with PACKET_OTHERHOST,
+and there not being anything to set that back to PACKET_HOST even if
+the destination MAC address matches the bridge interface's MAC address.
 
-> > I bet you could make that cost get hidden by careful rearrangement
-> > of the struct flow, or adjustment of the implementation.
-> >
-> > BTW, I see assignments to these fields, and as a specific example
-> > uli_u.dnports.objnamel but no use of it.  Perhaps much of dnports can
-> > even be deleted outright. :-)
-> > -
->
-> Its not used at the moment[*], but would be required for any kind of flow
-> tracking. The objnum field, could be folded into the objname field I
-> guess on the basis that objnamel == 0 means objname[0] represents the
-> objnum, but that doesn't really buy much.
+If this looks good, I'll prepare a proper commit message.
 
-Well, as I privately said to David, objnamel is used, at least on 2.6.18 tree
-( net/decnet/dn_route.c function compare_keys() 
-memcmp() will read this field and check before comparing objname[]
 
-So it is set by dn_sk_ports_copy(), and used by compare_keys()
+cheers,
+Lennert
 
->
-> Looking at the rearrangement option, and the relative lengths of
-> ipv6 and DECnet node addresses, dn_u is a lot smaller than ip6_u and thus
-> the obj[num|name|namel] fields could be moved into that structure.
-> Even after doing this, dn_u would still be shorter than ip6_u, although
-> 12 bytes longer than ip4_u (if my counting is correct). Is that an
-> acceptable solution?
+Signed-off-by: Tom Billman <tbillman@gmail.com>
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-Well, most of my machines dont use IPV6 nor DECNET :)
-
->
-> [*] By which I mean, as you've already alluded to, that its set up
-> correctly but not currently read/tested by anything yet.
->
+--- linux-2.6.19-rc2.orig/net/bridge/br_input.c	2006-10-18 11:11:08.000000000 +0200
++++ linux-2.6.19-rc2/net/bridge/br_input.c	2006-10-18 11:10:08.000000000 +0200
+@@ -32,6 +32,9 @@
+ 	indev = skb->dev;
+ 	skb->dev = br->dev;
+ 
++	skb_push(skb, ETH_HLEN);
++	skb->protocol = eth_type_trans(skb, skb->dev);
++
+ 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
+ 		netif_receive_skb);
+ }
