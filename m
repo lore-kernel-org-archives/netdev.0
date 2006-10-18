@@ -1,129 +1,86 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 3/3] ethtool: dump_registers post mortem
-Date: Wed, 18 Oct 2006 10:50:22 -0700
-Message-ID: <20061018105022.57b57b6a@freekitty>
-References: <20061018104632.27a37d75@freekitty>
+Subject: [PATCH 1/3] ethtool: sky2 GMAC decode
+Date: Wed, 18 Oct 2006 10:46:32 -0700
+Message-ID: <20061018104632.27a37d75@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:46047 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751508AbWJRRwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 13:52:01 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:36582 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161257AbWJRSJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 14:09:02 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20061018104632.27a37d75@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch allows:
-	ethtool -d eth0 raw on >saved_regs
-and later
-	ethtool -d eth0 file saved_regs
-
-Selfish motive is to be able to take register dumps from users and
-and decode later, possibly adding more output as needed.
+Add decoding of GMAC bits.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 ---
- ethtool.c |   39 ++++++++++++++++++++++++++++++++++-----
- 1 files changed, 34 insertions(+), 5 deletions(-)
+ marvell.c |   28 ++++++++++++++++++++++++++++
+ 1 files changed, 28 insertions(+), 0 deletions(-)
 
-diff --git a/ethtool.c b/ethtool.c
-index b783248..7861990 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -29,7 +29,9 @@ #endif
- #include <sys/types.h>
- #include <string.h>
- #include <stdlib.h>
-+#include <sys/types.h>
- #include <sys/ioctl.h>
-+#include <sys/stat.h>
- #include <stdio.h>
- #include <string.h>
- #include <errno.h>
-@@ -251,6 +253,7 @@ static int msglvl_wanted = -1;
- static int phys_id_time = 0;
- static int gregs_changed = 0;
- static int gregs_dump_raw = 0;
-+static char *gregs_dump_file = NULL;
- static int geeprom_changed = 0;
- static int geeprom_dump_raw = 0;
- static int geeprom_offset = 0;
-@@ -268,6 +271,7 @@ typedef enum {
- 	CMDL_NONE,
- 	CMDL_BOOL,
- 	CMDL_INT,
-+	CMDL_STR,
- } cmdline_type_t;
+diff --git a/marvell.c b/marvell.c
+index 16147a9..244bb69 100644
+--- a/marvell.c
++++ b/marvell.c
+@@ -113,6 +113,31 @@ static void dump_fifo(const char *name, 
+ 	dump_timer("LED", p + 0x20);
+ }
  
- struct cmdline_info {
-@@ -279,6 +283,7 @@ struct cmdline_info {
++static void dump_gmac_fifo(const void *p)
++{
++	const u32 *r = p;
++	int i;
++	static const char *regs[] = {
++		"End Address",
++		"Almost Full Thresh",
++		"Control/Test",
++		"FIFO Flush Mask",
++		"FIFO Flush Threshold",
++		"Truncation Threshold",
++		"Upper Pause Threshold",
++		"Lower Pause Threshold",
++		"VLAN Tag",
++		"FIFO Write Pointer",
++		"FIFO Write Level",
++		"FIFO Read Pointer",
++		"FIFO Read Level",
++	};
++
++	for (i = 0; i < sizeof(regs)/sizeof(regs[0]); ++i)
++		printf("%-32s 0x%08X\n", regs[i], r[i]);
++
++}
++
+ static void dump_mac(const u8 *r)
+ {
+ 	printf("\nMAC Addresses\n");
+@@ -143,6 +168,7 @@ static void dump_gma(const char *name, c
+ static void dump_gmac(const char *name, const u8 *data)
+ {
+ 	printf("\n%s\n", name);
++
+ 	printf("Status                       0x%04X\n", *(u16 *) data);
+ 	printf("Control                      0x%04X\n", *(u16 *) (data + 4));
+ 	printf("Transmit                     0x%04X\n", *(u16 *) (data + 8));
+@@ -294,6 +320,7 @@ int sky2_dump_regs(struct ethtool_drvinf
  
- static struct cmdline_info cmdline_gregs[] = {
- 	{ "raw", CMDL_BOOL, &gregs_dump_raw, NULL },
-+	{ "file", CMDL_STR, &gregs_dump_file, NULL },
- };
+ 	dump_mac(regs->data);
+ 	dump_gmac("GMAC 1", regs->data + 0x2800);
++	dump_gmac_fifo(regs->data + 0xc40);
  
- static struct cmdline_info cmdline_geeprom[] = {
-@@ -355,20 +360,28 @@ static void parse_generic_cmdline(int ar
- 				if (i >= argc)
- 					show_usage(1);
- 				p = info[idx].wanted_val;
--				if (info[idx].type == CMDL_BOOL) {
-+				switch (info[idx].type) {
-+				case CMDL_BOOL:
- 					if (!strcmp(argp[i], "on"))
- 						*p = 1;
- 					else if (!strcmp(argp[i], "off"))
- 						*p = 0;
- 					else
- 						show_usage(1);
--				} else if (info[idx].type == CMDL_INT) {
--					long v;
--					v = strtol(argp[i], NULL, 0);
-+					break;
-+				case CMDL_INT: {
-+					long v = strtol(argp[i], NULL, 0);
- 					if (v < 0)
- 						show_usage(1);
- 					*p = (int) v;
--				} else {
-+					break;
-+				}
-+				case CMDL_STR: {
-+					char **s = info[idx].wanted_val;
-+					*s = strdup(argp[i]);
-+					break;
-+				}
-+				default:
- 					show_usage(1);
- 				}
- 			}
-@@ -969,6 +982,22 @@ static int dump_regs(struct ethtool_drvi
- 		return 0;
+ 	printf("\nStatus BMU:\n-----------\n");
+ 	printf("Control                                0x%08X\n",
+@@ -337,6 +364,7 @@ int sky2_dump_regs(struct ethtool_drvinf
+ 		dump_ram("Sync Transmit RAMbuffer 2", regs->data+0xb00);
+ 		dump_ram("Async Transmit RAMbuffer 21", regs->data+0xb80);
+ 		dump_gmac("GMAC 2", regs->data + 0x3800);
++		dump_gmac_fifo(regs->data + 0xc40 + 128);
  	}
  
-+	if (gregs_dump_file) {
-+		FILE *f = fopen(gregs_dump_file, "r");
-+		struct stat st;
-+
-+		if (!f || fstat(fileno(f), &st) < 0) {
-+			fprintf(stderr, "Can't open '%s': %s\n",
-+				gregs_dump_file, strerror(errno));
-+			return -1;
-+		}
-+		
-+		regs = realloc(regs, sizeof(*regs) + st.st_size);
-+		regs->len = st.st_size;
-+		fread(regs->data, regs->len, 1, f);
-+		fclose(f);
-+	}
-+
- 	for (i = 0; i < ARRAY_SIZE(driver_list); i++)
- 		if (!strncmp(driver_list[i].name, info->driver,
- 			     ETHTOOL_BUSINFO_LEN))
+ 	return 0;
 -- 
 1.4.1
 
