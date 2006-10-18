@@ -1,46 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: 80211 questions
-Date: Wed, 18 Oct 2006 15:50:41 +0200
-Message-ID: <1161179441.5575.31.camel@ux156>
-References: <19EFC4D481EBF849B14F91557CA737B54A6839@dile02.ent.ti.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 3/3] d80211: silence sparse warning: bad constant
+ expression
+Date: Wed, 18 Oct 2006 15:56:07 +0200
+Message-ID: <20061018155607.2320a5fa@griffin.suse.cz>
+References: <20061009170159.804032000@devicescape.com>
+	<20061009170345.GC27239@devicescape.com>
+	<20061009201102.GA10661@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:11236 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030269AbWJRNto
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 09:49:44 -0400
-To: "Bar, Eitan" <eitanb@ti.com>
-In-Reply-To: <19EFC4D481EBF849B14F91557CA737B54A6839@dile02.ent.ti.com>
+Received: from styx.suse.cz ([82.119.242.94]:14307 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1750730AbWJRN4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 09:56:09 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20061009201102.GA10661@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-18 at 15:45 +0200, Bar, Eitan wrote:
+On Mon, 9 Oct 2006 13:11:02 -0700, David Kimdon wrote:
+> --- wireless-dev.orig/net/d80211/ieee80211_sta.c
+> +++ wireless-dev/net/d80211/ieee80211_sta.c
+> @@ -930,8 +930,8 @@ static void ieee80211_rx_mgmt_auth(struc
+>  		printk(KERN_DEBUG "%s: AP denied authentication (auth_alg=%d "
+>  		       "code=%d)\n", dev->name, ifsta->auth_alg, status_code);
+>  		if (status_code == WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG) {
+> -			const int num_algs = 3;
+> -			u8 algs[num_algs];
+> +			u8 algs[3];
+> +			const int num_algs = ARRAY_SIZE(algs);
 
-> [Eitan Bar] I was actually looking for any kind of design document, or
-> anything related to the concept behind it.
+Wouldn't it be better just to use ARRAY_SIZE(algs) and get rid of
+num_algs completely?
 
-As for cfg80211/nl80211 it was mostly discussed here on netdev and I
-haven't written up anything.
+Thanks,
 
-> I'm adding WE support for a Texas Instruments driver for future
-> chipsets. The driver is, at the moment, entirely proprietary (including
-> user-mode API).
+ Jiri
 
-Heh, ok. I'm just wondering whether it would make sense for you to
-provide a d80211 driver for that chipset instead. If you could tell me
-(even in private if you wish) some details about what your hardware does
-in firmware and what it does in the driver, I could help you make that
-decision.
-
-> [Eitan Bar] I see. Can you please point out if there's any driver
-> currently supporting cfg80211 or nl80211 for reference? (which one are
-> you using for testing?)
-
-I have provided some code (very little actually) to make d80211 use
-cfg80211 (and you can't do much with nl80211 yet), but no driver
-implements it yet directly.
-
-johannes
+-- 
+Jiri Benc
+SUSE Labs
