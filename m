@@ -1,211 +1,849 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 12/18] d80211: remove rate limit code
-Date: Wed, 18 Oct 2006 17:49:35 +0200 (CEST)
-Message-ID: <20061018154935.EAA7D47F59@silver.suse.cz>
+Subject: [PATCH 6/18] d80211: rename rate_control.c to rc80211_simple.c
+Date: Wed, 18 Oct 2006 17:49:29 +0200 (CEST)
+Message-ID: <20061018154929.AB39D47F63@silver.suse.cz>
 References: <20061018174838.116675768.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from styx.suse.cz ([82.119.242.94]:14754 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S1161200AbWJRPtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 11:49:06 -0400
+	by vger.kernel.org with ESMTP id S1161194AbWJRPtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 11:49:04 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20061018174838.116675768.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Elliot Schwartz <elliot.schwartz@devicescape.com>
+To support changing of the rate control modules on the fly we need
+well-defined names of the modules.
 
-Remove unused and more or less pointless rate limiting code. This
-would have just dropped multicast frames arbitrarily when the limit is
-reached which is quite useless and does not really belong to 802.11
-code.
+Let it be rc80211_*. Rename the only one rate control module
+(rate_control.c) into rc80211_simple.c. The module alias for the default
+module is changed to rc80211_default.
 
-Signed-off-by: Elliot Schwartz <elliot.schwartz@devicescape.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/hostapd_ioctl.h   |    4 ++--
- net/d80211/ieee80211.c       |   38 --------------------------------------
- net/d80211/ieee80211_i.h     |    5 -----
- net/d80211/ieee80211_ioctl.c |   27 ---------------------------
- net/d80211/ieee80211_sysfs.c |    2 --
- 5 files changed, 2 insertions(+), 74 deletions(-)
+ net/d80211/Makefile         |    2 
+ net/d80211/rate_control.c   |  395 -------------------------------------------
+ net/d80211/rc80211_simple.c |  395 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 396 insertions(+), 396 deletions(-)
+ delete mode 100644 net/d80211/rate_control.c
+ create mode 100644 net/d80211/rc80211_simple.c
 
-e57d91e2de0ac577bce30aa6c752627ad735bd4f
-diff --git a/net/d80211/hostapd_ioctl.h b/net/d80211/hostapd_ioctl.h
-index fbd1088..73d54b7 100644
---- a/net/d80211/hostapd_ioctl.h
-+++ b/net/d80211/hostapd_ioctl.h
-@@ -58,8 +58,8 @@ enum {
- 	PRISM2_PARAM_CTS_PROTECT_ERP_FRAMES = 1001,
- 	PRISM2_PARAM_DROP_UNENCRYPTED = 1002,
- 	PRISM2_PARAM_PREAMBLE = 1003,
--	PRISM2_PARAM_RATE_LIMIT = 1004,
--	PRISM2_PARAM_RATE_LIMIT_BURST = 1005,
-+	PRISM2_PARAM_RATE_LIMIT = 1004, /* no longer used */
-+	PRISM2_PARAM_RATE_LIMIT_BURST = 1005,  /* no longer used */
- 	PRISM2_PARAM_SHORT_SLOT_TIME = 1006,
- 	PRISM2_PARAM_TEST_MODE = 1007,
- 	PRISM2_PARAM_NEXT_MODE = 1008,
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 6847610..2614514 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -834,38 +834,6 @@ ieee80211_tx_h_misc(struct ieee80211_txr
- }
+4bef5903c5a0b05778d31f605668b6d8576b40d8
+diff --git a/net/d80211/Makefile b/net/d80211/Makefile
+index 27d90e5..d5d4d41 100644
+--- a/net/d80211/Makefile
++++ b/net/d80211/Makefile
+@@ -1,4 +1,4 @@
+-obj-$(CONFIG_D80211) += 80211.o rate_control.o
++obj-$(CONFIG_D80211) += 80211.o rc80211_simple.o
  
+ 80211-objs-$(CONFIG_D80211_LEDS) += ieee80211_led.o
  
--static void ieee80211_rate_limit(unsigned long data)
--{
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
+diff --git a/net/d80211/rate_control.c b/net/d80211/rate_control.c
+deleted file mode 100644
+index 6703931..0000000
+--- a/net/d80211/rate_control.c
++++ /dev/null
+@@ -1,395 +0,0 @@
+-/*
+- * Copyright 2002-2005, Instant802 Networks, Inc.
+- * Copyright 2005, Devicescape Software, Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
 -
--	if (local->rate_limit) {
--                local->rate_limit_bucket += local->rate_limit;
--                if (local->rate_limit_bucket > local->rate_limit_burst)
--                        local->rate_limit_bucket = local->rate_limit_burst;
--		local->rate_limit_timer.expires = jiffies + HZ;
--		add_timer(&local->rate_limit_timer);
+-#include <linux/module.h>
+-#include <linux/init.h>
+-#include <linux/netdevice.h>
+-#include <linux/types.h>
+-#include <linux/slab.h>
+-#include <linux/skbuff.h>
+-#include <linux/compiler.h>
+-
+-#include <net/d80211.h>
+-#include "ieee80211_i.h"
+-#include "ieee80211_rate.h"
+-
+-
+-/* This is a minimal implementation of TX rate controlling that can be used
+- * as the default when no improved mechanisms are available. */
+-
+-
+-#define RATE_CONTROL_EMERG_DEC 2
+-#define RATE_CONTROL_INTERVAL (HZ / 20)
+-#define RATE_CONTROL_MIN_TX 10
+-
+-MODULE_ALIAS("rc80211_default");
+-
+-static void rate_control_rate_inc(struct ieee80211_local *local,
+-				  struct sta_info *sta)
+-{
+-        struct ieee80211_sub_if_data *sdata;
+-	int i = sta->txrate;
+-	int maxrate;
+-
+-        sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
+-	if (sdata->bss && sdata->bss->force_unicast_rateidx > -1) {
+-		/* forced unicast rate - do not change STA rate */
+-		return;
+-	}
+-
+-	maxrate = sdata->bss ? sdata->bss->max_ratectrl_rateidx : -1;
+-
+-	if (i > local->num_curr_rates)
+-		i = local->num_curr_rates - 2;
+-
+-	while (i + 1 < local->num_curr_rates) {
+-		i++;
+-		if (sta->supp_rates & BIT(i) &&
+-		    local->curr_rates[i].flags & IEEE80211_RATE_SUPPORTED &&
+-		    (maxrate < 0 || i <= maxrate)) {
+-			sta->txrate = i;
+-			break;
+-		}
 -	}
 -}
 -
 -
--static ieee80211_txrx_result
--ieee80211_tx_h_rate_limit(struct ieee80211_txrx_data *tx)
+-static void rate_control_rate_dec(struct ieee80211_local *local,
+-				  struct sta_info *sta)
 -{
+-        struct ieee80211_sub_if_data *sdata;
+-	int i = sta->txrate;
 -
--	if (likely(!tx->local->rate_limit || tx->u.tx.unicast))
--                return TXRX_CONTINUE;
+-        sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
+-	if (sdata->bss && sdata->bss->force_unicast_rateidx > -1) {
+-		/* forced unicast rate - do not change STA rate */
+-		return;
+-	}
 -
--	/* rate limit */
--        if (tx->local->rate_limit_bucket) {
--                tx->local->rate_limit_bucket--;
--                return TXRX_CONTINUE;
--        }
+-	if (i > local->num_curr_rates)
+-		i = local->num_curr_rates;
 -
--	I802_DEBUG_INC(tx->local->tx_handlers_drop_rate_limit);
--	return TXRX_DROP;
+-	while (i > 0) {
+-		i--;
+-		if (sta->supp_rates & BIT(i) &&
+-		    local->curr_rates[i].flags & IEEE80211_RATE_SUPPORTED) {
+-			sta->txrate = i;
+-			break;
+-		}
+-	}
 -}
 -
 -
- static ieee80211_txrx_result
- ieee80211_tx_h_check_assoc(struct ieee80211_txrx_data *tx)
- {
-@@ -4203,7 +4171,6 @@ static ieee80211_rx_handler ieee80211_rx
- 
- static ieee80211_tx_handler ieee80211_tx_handlers[] =
- {
--	ieee80211_tx_h_rate_limit,
- 	ieee80211_tx_h_check_assoc,
- 	ieee80211_tx_h_ps_buf,
- 	ieee80211_tx_h_select_key,
-@@ -4416,9 +4383,6 @@ struct net_device *ieee80211_alloc_hw(si
-         init_timer(&local->scan.timer); /* clear it out */
- 
-         spin_lock_init(&local->generic_lock);
--	init_timer(&local->rate_limit_timer);
--	local->rate_limit_timer.function = ieee80211_rate_limit;
--	local->rate_limit_timer.data = (unsigned long) local;
- 	init_timer(&local->stat_timer);
- 	local->stat_timer.function = ieee80211_stat_refresh;
- 	local->stat_timer.data = (unsigned long) local;
-@@ -4626,8 +4590,6 @@ void ieee80211_unregister_hw(struct net_
- 
- 	rtnl_unlock();
- 
--	if (local->rate_limit)
--		del_timer_sync(&local->rate_limit_timer);
- 	if (local->stat_time)
- 		del_timer_sync(&local->stat_timer);
- 	if (local->scan_work.data) {
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index 314235b..89666ec 100644
---- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -469,10 +469,6 @@ #endif
-         u32 stat_time;
-         struct timer_list stat_timer;
- 
--        struct timer_list rate_limit_timer;
--        u32 rate_limit;
--        u32 rate_limit_burst;
--        u32 rate_limit_bucket;
-         struct proc_dir_entry *proc, *proc_sta, *proc_iface;
- 
- 	struct work_struct sta_proc_add;
-@@ -492,7 +488,6 @@ #ifdef CONFIG_D80211_DEBUG_COUNTERS
- 	unsigned int tx_handlers_drop_unencrypted;
- 	unsigned int tx_handlers_drop_fragment;
- 	unsigned int tx_handlers_drop_wep;
--	unsigned int tx_handlers_drop_rate_limit;
- 	unsigned int tx_handlers_drop_not_assoc;
- 	unsigned int tx_handlers_drop_unauth_port;
- 	unsigned int rx_handlers_drop;
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index cded685..1fb2dfd 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -2409,25 +2409,6 @@ static int ieee80211_ioctl_prism2_param(
- 		local->short_preamble = value;
- 		break;
- 
--	case PRISM2_PARAM_RATE_LIMIT_BURST:
--		local->rate_limit_burst = value;
--                local->rate_limit_bucket = value;
--		break;
+-static struct ieee80211_rate *
+-rate_control_lowest_rate(struct ieee80211_local *local)
+-{
+-	int i;
 -
--	case PRISM2_PARAM_RATE_LIMIT:
--		/* number of packets (tokens) allowed per second */
--		if (!local->rate_limit && value) {
--                        if (!local->rate_limit_burst) local->rate_limit_burst =
--				value;
--                        local->rate_limit_bucket = local->rate_limit_burst;
--			local->rate_limit_timer.expires = jiffies + HZ;
--			add_timer(&local->rate_limit_timer);
--		} else if (local->rate_limit && !value) {
--			del_timer_sync(&local->rate_limit_timer);
+-	for (i = 0; i < local->num_curr_rates; i++) {
+-		struct ieee80211_rate *rate = &local->curr_rates[i];
+-
+-		if (rate->flags & IEEE80211_RATE_SUPPORTED
+-			)
+-			return rate;
+-	}
+-
+-	printk(KERN_DEBUG "rate_control_lowest_rate - no supported rates "
+-	       "found\n");
+-	return &local->curr_rates[0];
+-}
+-
+-
+-struct global_rate_control {
+-	int dummy;
+-};
+-
+-struct sta_rate_control {
+-        unsigned long last_rate_change;
+-        u32 tx_num_failures;
+-        u32 tx_num_xmit;
+-
+-        unsigned long avg_rate_update;
+-        u32 tx_avg_rate_sum;
+-        u32 tx_avg_rate_num;
+-};
+-
+-
+-static void rate_control_simple_tx_status(struct net_device *dev,
+-					  struct sk_buff *skb,
+-					  struct ieee80211_tx_status *status)
+-{
+-	struct ieee80211_local *local = dev->ieee80211_ptr;
+-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+-	struct sta_info *sta;
+-	struct sta_rate_control *srctrl;
+-
+-        sta = sta_info_get(local, hdr->addr1);
+-
+-	if (!sta)
+-            return;
+-
+-	srctrl = sta->rate_ctrl_priv;
+-	srctrl->tx_num_xmit++;
+-	if (status->excessive_retries) {
+-		sta->antenna_sel = sta->antenna_sel == 1 ? 2 : 1;
+-		if (local->sta_antenna_sel == STA_ANTENNA_SEL_SW_CTRL_DEBUG) {
+-			printk(KERN_DEBUG "%s: " MAC_FMT " TX antenna --> %d "
+-			       "(@%lu)\n",
+-			       dev->name, MAC_ARG(hdr->addr1),
+-			       sta->antenna_sel, jiffies);
 -		}
--		local->rate_limit = value;
--		break;
+-		srctrl->tx_num_failures++;
+-		sta->tx_retry_failed++;
+-		sta->tx_num_consecutive_failures++;
+-		sta->tx_num_mpdu_fail++;
+-	} else {
+-		sta->last_ack_rssi[0] = sta->last_ack_rssi[1];
+-		sta->last_ack_rssi[1] = sta->last_ack_rssi[2];
+-		sta->last_ack_rssi[2] = status->ack_signal;
+-		sta->tx_num_consecutive_failures = 0;
+-		sta->tx_num_mpdu_ok++;
+-	}
+-	sta->tx_retry_count += status->retry_count;
+-	sta->tx_num_mpdu_fail += status->retry_count;
 -
-         case PRISM2_PARAM_STAT_TIME:
-                 if (!local->stat_time && value) {
-                         local->stat_timer.expires = jiffies + HZ * value / 100;
-@@ -2660,14 +2641,6 @@ static int ieee80211_ioctl_get_prism2_pa
- 		*param = local->short_preamble;
- 		break;
- 
--	case PRISM2_PARAM_RATE_LIMIT_BURST:
--		*param = local->rate_limit_burst;
--		break;
+-	if (time_after(jiffies,
+-		       srctrl->last_rate_change + RATE_CONTROL_INTERVAL) &&
+-		srctrl->tx_num_xmit > RATE_CONTROL_MIN_TX) {
+-		u32 per_failed;
+-		srctrl->last_rate_change = jiffies;
 -
--	case PRISM2_PARAM_RATE_LIMIT:
--		*param = local->rate_limit;
--		break;
+-		per_failed = (100 * sta->tx_num_mpdu_fail) /
+-			(sta->tx_num_mpdu_fail + sta->tx_num_mpdu_ok);
+-		/* TODO: calculate average per_failed to make adjusting
+-		 * parameters easier */
+-#if 0
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "MPDU fail=%d ok=%d per_failed=%d\n",
+-			       sta->tx_num_mpdu_fail, sta->tx_num_mpdu_ok,
+-			       per_failed);
+-		}
+-#endif
 -
-         case PRISM2_PARAM_STAT_TIME:
-                 *param = local->stat_time;
-                 break;
-diff --git a/net/d80211/ieee80211_sysfs.c b/net/d80211/ieee80211_sysfs.c
-index 2b74a7a..545dc6e 100644
---- a/net/d80211/ieee80211_sysfs.c
-+++ b/net/d80211/ieee80211_sysfs.c
-@@ -258,7 +258,6 @@ IEEE80211_LOCAL_ATTR(tx_handlers_queued,
- IEEE80211_LOCAL_ATTR(tx_handlers_drop_unencrypted, tx_handlers_drop_unencrypted, "%u");
- IEEE80211_LOCAL_ATTR(tx_handlers_drop_fragment, tx_handlers_drop_fragment, "%u");
- IEEE80211_LOCAL_ATTR(tx_handlers_drop_wep, tx_handlers_drop_wep, "%u");
--IEEE80211_LOCAL_ATTR(tx_handlers_drop_rate_limit, tx_handlers_drop_rate_limit, "%u");
- IEEE80211_LOCAL_ATTR(tx_handlers_drop_not_assoc, tx_handlers_drop_not_assoc, "%u");
- IEEE80211_LOCAL_ATTR(tx_handlers_drop_unauth_port, tx_handlers_drop_unauth_port, "%u");
- IEEE80211_LOCAL_ATTR(rx_handlers_drop, rx_handlers_drop, "%u");
-@@ -369,7 +368,6 @@ #ifdef CONFIG_D80211_DEBUG_COUNTERS
- 	&class_device_attr_tx_handlers_drop_unencrypted.attr,
- 	&class_device_attr_tx_handlers_drop_fragment.attr,
- 	&class_device_attr_tx_handlers_drop_wep.attr,
--	&class_device_attr_tx_handlers_drop_rate_limit.attr,
- 	&class_device_attr_tx_handlers_drop_not_assoc.attr,
- 	&class_device_attr_tx_handlers_drop_unauth_port.attr,
- 	&class_device_attr_rx_handlers_drop.attr,
+-		if (per_failed > local->rate_ctrl_num_down) {
+-			rate_control_rate_dec(local, sta);
+-		} else if (per_failed < local->rate_ctrl_num_up) {
+-			rate_control_rate_inc(local, sta);
+-		}
+-		srctrl->tx_avg_rate_sum += local->curr_rates[sta->txrate].rate;
+-		srctrl->tx_avg_rate_num++;
+-		srctrl->tx_num_failures = 0;
+-		srctrl->tx_num_xmit = 0;
+-	} else if (sta->tx_num_consecutive_failures >=
+-		   RATE_CONTROL_EMERG_DEC) {
+-		rate_control_rate_dec(local, sta);
+-	}
+-
+-	if (srctrl->avg_rate_update + 60 * HZ < jiffies) {
+-		srctrl->avg_rate_update = jiffies;
+-		if (srctrl->tx_avg_rate_num > 0) {
+-#ifdef CONFIG_D80211_VERBOSE_DEBUG
+-			printk(KERN_DEBUG "%s: STA " MAC_FMT " Average rate: "
+-			       "%d (%d/%d)\n",
+-			       dev->name, MAC_ARG(sta->addr),
+-			       srctrl->tx_avg_rate_sum /
+-			       srctrl->tx_avg_rate_num,
+-			       srctrl->tx_avg_rate_sum,
+-			       srctrl->tx_avg_rate_num);
+-#endif /* CONFIG_D80211_VERBOSE_DEBUG */
+-			srctrl->tx_avg_rate_sum = 0;
+-			srctrl->tx_avg_rate_num = 0;
+-		}
+-	}
+-
+-	sta_info_put(sta);
+-}
+-
+-
+-static struct ieee80211_rate *
+-rate_control_simple_get_rate(struct net_device *dev, struct sk_buff *skb,
+-			     struct rate_control_extra *extra)
+-{
+-	struct ieee80211_local *local = dev->ieee80211_ptr;
+-	struct ieee80211_sub_if_data *sdata;
+-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+-	struct sta_info *sta;
+-	int rateidx, nonerp_idx;
+-	u16 fc;
+-
+-	memset(extra, 0, sizeof(*extra));
+-
+-	fc = le16_to_cpu(hdr->frame_control);
+-	if ((fc & IEEE80211_FCTL_FTYPE) != IEEE80211_FTYPE_DATA ||
+-	    (hdr->addr1[0] & 0x01)) {
+-		/* Send management frames and broadcast/multicast data using
+-		 * lowest rate. */
+-		/* TODO: this could probably be improved.. */
+-		return rate_control_lowest_rate(local);
+-	}
+-
+-	sta = sta_info_get(local, hdr->addr1);
+-
+-	if (!sta)
+-		return rate_control_lowest_rate(local);
+-
+-	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-	if (sdata->bss && sdata->bss->force_unicast_rateidx > -1)
+-		sta->txrate = sdata->bss->force_unicast_rateidx;
+-
+-	rateidx = sta->txrate;
+-
+-	if (rateidx >= local->num_curr_rates)
+-		rateidx = local->num_curr_rates - 1;
+-
+-	sta->last_txrate = rateidx;
+-	nonerp_idx = rateidx;
+-	while (nonerp_idx > 0 &&
+-	       ((local->curr_rates[nonerp_idx].flags & IEEE80211_RATE_ERP) ||
+-		!(local->curr_rates[nonerp_idx].flags &
+-		  IEEE80211_RATE_SUPPORTED) ||
+-		!(sta->supp_rates & BIT(nonerp_idx))))
+-		nonerp_idx--;
+-	extra->nonerp_idx = nonerp_idx;
+-	extra->nonerp = &local->curr_rates[extra->nonerp_idx];
+-
+-	sta_info_put(sta);
+-
+-	return &local->curr_rates[rateidx];
+-}
+-
+-
+-static void rate_control_simple_rate_init(struct ieee80211_local *local,
+-					  struct sta_info *sta)
+-{
+-	int i;
+-	sta->txrate = 0;
+-	/* TODO: what is a good starting rate for STA? About middle? Maybe not
+-	 * the lowest or the highest rate.. Could consider using RSSI from
+-	 * previous packets? Need to have IEEE 802.1X auth succeed immediately
+-	 * after assoc.. */
+-	for (i = 0; i < local->num_curr_rates; i++) {
+-		if ((sta->supp_rates & BIT(i)) &&
+-		    (local->curr_rates[i].flags & IEEE80211_RATE_SUPPORTED))
+-			sta->txrate = i;
+-	}
+-}
+-
+-
+-static void * rate_control_simple_alloc(struct ieee80211_local *local)
+-{
+-	struct global_rate_control *rctrl;
+-
+-	rctrl = kzalloc(sizeof(*rctrl), GFP_ATOMIC);
+-
+-	return rctrl;
+-}
+-
+-
+-static void rate_control_simple_free(void *priv)
+-{
+-	struct global_rate_control *rctrl = priv;
+-	kfree(rctrl);
+-}
+-
+-
+-static void rate_control_simple_clear(void *priv)
+-{
+-}
+-
+-
+-static void * rate_control_simple_alloc_sta(void)
+-{
+-	struct sta_rate_control *rctrl;
+-
+-	rctrl = kzalloc(sizeof(*rctrl), GFP_ATOMIC);
+-
+-	return rctrl;
+-}
+-
+-
+-static void rate_control_simple_free_sta(void *priv)
+-{
+-	struct sta_rate_control *rctrl = priv;
+-	kfree(rctrl);
+-}
+-
+-static ssize_t show_sta_tx_avg_rate_sum(const struct sta_info *sta, char *buf)
+-{
+-	struct sta_rate_control *srctrl = sta->rate_ctrl_priv;
+-
+-	return sprintf(buf, "%d\n", srctrl->tx_avg_rate_sum);
+-}
+-
+-static ssize_t show_sta_tx_avg_rate_num(const struct sta_info *sta, char *buf)
+-{
+-	struct sta_rate_control *srctrl = sta->rate_ctrl_priv;
+-
+-	return sprintf(buf, "%d\n", srctrl->tx_avg_rate_num);
+-}
+-
+-static struct sta_attribute sta_attr_tx_avg_rate_sum =
+-	__ATTR(tx_avg_rate_sum, S_IRUSR, show_sta_tx_avg_rate_sum, NULL);
+-static struct sta_attribute sta_attr_tx_avg_rate_num =
+-	__ATTR(tx_avg_rate_num, S_IRUSR, show_sta_tx_avg_rate_num, NULL);
+-
+-static struct attribute *rate_control_simple_sta_attrs[] = {
+-	&sta_attr_tx_avg_rate_sum.attr,
+-	&sta_attr_tx_avg_rate_num.attr,
+-	NULL,
+-};
+-
+-static struct attribute_group rate_control_simple_sta_group = {
+-	.name = "rate_control_simple",
+-	.attrs = rate_control_simple_sta_attrs,
+-};
+-
+-static int rate_control_simple_add_sta_attrs(void *priv, struct kobject *kobj)
+-{
+-	return sysfs_create_group(kobj, &rate_control_simple_sta_group);
+-}
+-
+-static void rate_control_simple_remove_sta_attrs(void *priv,
+-						 struct kobject *kobj)
+-{
+-	sysfs_remove_group(kobj, &rate_control_simple_sta_group);
+-}
+-
+-static struct rate_control_ops rate_control_simple = {
+-	.module = THIS_MODULE,
+-	.name = "simple",
+-	.tx_status = rate_control_simple_tx_status,
+-	.get_rate = rate_control_simple_get_rate,
+-	.rate_init = rate_control_simple_rate_init,
+-	.clear = rate_control_simple_clear,
+-	.alloc = rate_control_simple_alloc,
+-	.free = rate_control_simple_free,
+-	.alloc_sta = rate_control_simple_alloc_sta,
+-	.free_sta = rate_control_simple_free_sta,
+-	.add_sta_attrs = rate_control_simple_add_sta_attrs,
+-	.remove_sta_attrs = rate_control_simple_remove_sta_attrs,
+-};
+-
+-
+-static int __init rate_control_simple_init(void)
+-{
+-	return ieee80211_rate_control_register(&rate_control_simple);
+-}
+-
+-
+-static void __exit rate_control_simple_exit(void)
+-{
+-	ieee80211_rate_control_unregister(&rate_control_simple);
+-}
+-
+-
+-module_init(rate_control_simple_init);
+-module_exit(rate_control_simple_exit);
+-
+-MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
+-MODULE_LICENSE("GPL");
+diff --git a/net/d80211/rc80211_simple.c b/net/d80211/rc80211_simple.c
+new file mode 100644
+index 0000000..6703931
+--- /dev/null
++++ b/net/d80211/rc80211_simple.c
+@@ -0,0 +1,395 @@
++/*
++ * Copyright 2002-2005, Instant802 Networks, Inc.
++ * Copyright 2005, Devicescape Software, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/skbuff.h>
++#include <linux/compiler.h>
++
++#include <net/d80211.h>
++#include "ieee80211_i.h"
++#include "ieee80211_rate.h"
++
++
++/* This is a minimal implementation of TX rate controlling that can be used
++ * as the default when no improved mechanisms are available. */
++
++
++#define RATE_CONTROL_EMERG_DEC 2
++#define RATE_CONTROL_INTERVAL (HZ / 20)
++#define RATE_CONTROL_MIN_TX 10
++
++MODULE_ALIAS("rc80211_default");
++
++static void rate_control_rate_inc(struct ieee80211_local *local,
++				  struct sta_info *sta)
++{
++        struct ieee80211_sub_if_data *sdata;
++	int i = sta->txrate;
++	int maxrate;
++
++        sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
++	if (sdata->bss && sdata->bss->force_unicast_rateidx > -1) {
++		/* forced unicast rate - do not change STA rate */
++		return;
++	}
++
++	maxrate = sdata->bss ? sdata->bss->max_ratectrl_rateidx : -1;
++
++	if (i > local->num_curr_rates)
++		i = local->num_curr_rates - 2;
++
++	while (i + 1 < local->num_curr_rates) {
++		i++;
++		if (sta->supp_rates & BIT(i) &&
++		    local->curr_rates[i].flags & IEEE80211_RATE_SUPPORTED &&
++		    (maxrate < 0 || i <= maxrate)) {
++			sta->txrate = i;
++			break;
++		}
++	}
++}
++
++
++static void rate_control_rate_dec(struct ieee80211_local *local,
++				  struct sta_info *sta)
++{
++        struct ieee80211_sub_if_data *sdata;
++	int i = sta->txrate;
++
++        sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
++	if (sdata->bss && sdata->bss->force_unicast_rateidx > -1) {
++		/* forced unicast rate - do not change STA rate */
++		return;
++	}
++
++	if (i > local->num_curr_rates)
++		i = local->num_curr_rates;
++
++	while (i > 0) {
++		i--;
++		if (sta->supp_rates & BIT(i) &&
++		    local->curr_rates[i].flags & IEEE80211_RATE_SUPPORTED) {
++			sta->txrate = i;
++			break;
++		}
++	}
++}
++
++
++static struct ieee80211_rate *
++rate_control_lowest_rate(struct ieee80211_local *local)
++{
++	int i;
++
++	for (i = 0; i < local->num_curr_rates; i++) {
++		struct ieee80211_rate *rate = &local->curr_rates[i];
++
++		if (rate->flags & IEEE80211_RATE_SUPPORTED
++			)
++			return rate;
++	}
++
++	printk(KERN_DEBUG "rate_control_lowest_rate - no supported rates "
++	       "found\n");
++	return &local->curr_rates[0];
++}
++
++
++struct global_rate_control {
++	int dummy;
++};
++
++struct sta_rate_control {
++        unsigned long last_rate_change;
++        u32 tx_num_failures;
++        u32 tx_num_xmit;
++
++        unsigned long avg_rate_update;
++        u32 tx_avg_rate_sum;
++        u32 tx_avg_rate_num;
++};
++
++
++static void rate_control_simple_tx_status(struct net_device *dev,
++					  struct sk_buff *skb,
++					  struct ieee80211_tx_status *status)
++{
++	struct ieee80211_local *local = dev->ieee80211_ptr;
++	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
++	struct sta_info *sta;
++	struct sta_rate_control *srctrl;
++
++        sta = sta_info_get(local, hdr->addr1);
++
++	if (!sta)
++            return;
++
++	srctrl = sta->rate_ctrl_priv;
++	srctrl->tx_num_xmit++;
++	if (status->excessive_retries) {
++		sta->antenna_sel = sta->antenna_sel == 1 ? 2 : 1;
++		if (local->sta_antenna_sel == STA_ANTENNA_SEL_SW_CTRL_DEBUG) {
++			printk(KERN_DEBUG "%s: " MAC_FMT " TX antenna --> %d "
++			       "(@%lu)\n",
++			       dev->name, MAC_ARG(hdr->addr1),
++			       sta->antenna_sel, jiffies);
++		}
++		srctrl->tx_num_failures++;
++		sta->tx_retry_failed++;
++		sta->tx_num_consecutive_failures++;
++		sta->tx_num_mpdu_fail++;
++	} else {
++		sta->last_ack_rssi[0] = sta->last_ack_rssi[1];
++		sta->last_ack_rssi[1] = sta->last_ack_rssi[2];
++		sta->last_ack_rssi[2] = status->ack_signal;
++		sta->tx_num_consecutive_failures = 0;
++		sta->tx_num_mpdu_ok++;
++	}
++	sta->tx_retry_count += status->retry_count;
++	sta->tx_num_mpdu_fail += status->retry_count;
++
++	if (time_after(jiffies,
++		       srctrl->last_rate_change + RATE_CONTROL_INTERVAL) &&
++		srctrl->tx_num_xmit > RATE_CONTROL_MIN_TX) {
++		u32 per_failed;
++		srctrl->last_rate_change = jiffies;
++
++		per_failed = (100 * sta->tx_num_mpdu_fail) /
++			(sta->tx_num_mpdu_fail + sta->tx_num_mpdu_ok);
++		/* TODO: calculate average per_failed to make adjusting
++		 * parameters easier */
++#if 0
++		if (net_ratelimit()) {
++			printk(KERN_DEBUG "MPDU fail=%d ok=%d per_failed=%d\n",
++			       sta->tx_num_mpdu_fail, sta->tx_num_mpdu_ok,
++			       per_failed);
++		}
++#endif
++
++		if (per_failed > local->rate_ctrl_num_down) {
++			rate_control_rate_dec(local, sta);
++		} else if (per_failed < local->rate_ctrl_num_up) {
++			rate_control_rate_inc(local, sta);
++		}
++		srctrl->tx_avg_rate_sum += local->curr_rates[sta->txrate].rate;
++		srctrl->tx_avg_rate_num++;
++		srctrl->tx_num_failures = 0;
++		srctrl->tx_num_xmit = 0;
++	} else if (sta->tx_num_consecutive_failures >=
++		   RATE_CONTROL_EMERG_DEC) {
++		rate_control_rate_dec(local, sta);
++	}
++
++	if (srctrl->avg_rate_update + 60 * HZ < jiffies) {
++		srctrl->avg_rate_update = jiffies;
++		if (srctrl->tx_avg_rate_num > 0) {
++#ifdef CONFIG_D80211_VERBOSE_DEBUG
++			printk(KERN_DEBUG "%s: STA " MAC_FMT " Average rate: "
++			       "%d (%d/%d)\n",
++			       dev->name, MAC_ARG(sta->addr),
++			       srctrl->tx_avg_rate_sum /
++			       srctrl->tx_avg_rate_num,
++			       srctrl->tx_avg_rate_sum,
++			       srctrl->tx_avg_rate_num);
++#endif /* CONFIG_D80211_VERBOSE_DEBUG */
++			srctrl->tx_avg_rate_sum = 0;
++			srctrl->tx_avg_rate_num = 0;
++		}
++	}
++
++	sta_info_put(sta);
++}
++
++
++static struct ieee80211_rate *
++rate_control_simple_get_rate(struct net_device *dev, struct sk_buff *skb,
++			     struct rate_control_extra *extra)
++{
++	struct ieee80211_local *local = dev->ieee80211_ptr;
++	struct ieee80211_sub_if_data *sdata;
++	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
++	struct sta_info *sta;
++	int rateidx, nonerp_idx;
++	u16 fc;
++
++	memset(extra, 0, sizeof(*extra));
++
++	fc = le16_to_cpu(hdr->frame_control);
++	if ((fc & IEEE80211_FCTL_FTYPE) != IEEE80211_FTYPE_DATA ||
++	    (hdr->addr1[0] & 0x01)) {
++		/* Send management frames and broadcast/multicast data using
++		 * lowest rate. */
++		/* TODO: this could probably be improved.. */
++		return rate_control_lowest_rate(local);
++	}
++
++	sta = sta_info_get(local, hdr->addr1);
++
++	if (!sta)
++		return rate_control_lowest_rate(local);
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	if (sdata->bss && sdata->bss->force_unicast_rateidx > -1)
++		sta->txrate = sdata->bss->force_unicast_rateidx;
++
++	rateidx = sta->txrate;
++
++	if (rateidx >= local->num_curr_rates)
++		rateidx = local->num_curr_rates - 1;
++
++	sta->last_txrate = rateidx;
++	nonerp_idx = rateidx;
++	while (nonerp_idx > 0 &&
++	       ((local->curr_rates[nonerp_idx].flags & IEEE80211_RATE_ERP) ||
++		!(local->curr_rates[nonerp_idx].flags &
++		  IEEE80211_RATE_SUPPORTED) ||
++		!(sta->supp_rates & BIT(nonerp_idx))))
++		nonerp_idx--;
++	extra->nonerp_idx = nonerp_idx;
++	extra->nonerp = &local->curr_rates[extra->nonerp_idx];
++
++	sta_info_put(sta);
++
++	return &local->curr_rates[rateidx];
++}
++
++
++static void rate_control_simple_rate_init(struct ieee80211_local *local,
++					  struct sta_info *sta)
++{
++	int i;
++	sta->txrate = 0;
++	/* TODO: what is a good starting rate for STA? About middle? Maybe not
++	 * the lowest or the highest rate.. Could consider using RSSI from
++	 * previous packets? Need to have IEEE 802.1X auth succeed immediately
++	 * after assoc.. */
++	for (i = 0; i < local->num_curr_rates; i++) {
++		if ((sta->supp_rates & BIT(i)) &&
++		    (local->curr_rates[i].flags & IEEE80211_RATE_SUPPORTED))
++			sta->txrate = i;
++	}
++}
++
++
++static void * rate_control_simple_alloc(struct ieee80211_local *local)
++{
++	struct global_rate_control *rctrl;
++
++	rctrl = kzalloc(sizeof(*rctrl), GFP_ATOMIC);
++
++	return rctrl;
++}
++
++
++static void rate_control_simple_free(void *priv)
++{
++	struct global_rate_control *rctrl = priv;
++	kfree(rctrl);
++}
++
++
++static void rate_control_simple_clear(void *priv)
++{
++}
++
++
++static void * rate_control_simple_alloc_sta(void)
++{
++	struct sta_rate_control *rctrl;
++
++	rctrl = kzalloc(sizeof(*rctrl), GFP_ATOMIC);
++
++	return rctrl;
++}
++
++
++static void rate_control_simple_free_sta(void *priv)
++{
++	struct sta_rate_control *rctrl = priv;
++	kfree(rctrl);
++}
++
++static ssize_t show_sta_tx_avg_rate_sum(const struct sta_info *sta, char *buf)
++{
++	struct sta_rate_control *srctrl = sta->rate_ctrl_priv;
++
++	return sprintf(buf, "%d\n", srctrl->tx_avg_rate_sum);
++}
++
++static ssize_t show_sta_tx_avg_rate_num(const struct sta_info *sta, char *buf)
++{
++	struct sta_rate_control *srctrl = sta->rate_ctrl_priv;
++
++	return sprintf(buf, "%d\n", srctrl->tx_avg_rate_num);
++}
++
++static struct sta_attribute sta_attr_tx_avg_rate_sum =
++	__ATTR(tx_avg_rate_sum, S_IRUSR, show_sta_tx_avg_rate_sum, NULL);
++static struct sta_attribute sta_attr_tx_avg_rate_num =
++	__ATTR(tx_avg_rate_num, S_IRUSR, show_sta_tx_avg_rate_num, NULL);
++
++static struct attribute *rate_control_simple_sta_attrs[] = {
++	&sta_attr_tx_avg_rate_sum.attr,
++	&sta_attr_tx_avg_rate_num.attr,
++	NULL,
++};
++
++static struct attribute_group rate_control_simple_sta_group = {
++	.name = "rate_control_simple",
++	.attrs = rate_control_simple_sta_attrs,
++};
++
++static int rate_control_simple_add_sta_attrs(void *priv, struct kobject *kobj)
++{
++	return sysfs_create_group(kobj, &rate_control_simple_sta_group);
++}
++
++static void rate_control_simple_remove_sta_attrs(void *priv,
++						 struct kobject *kobj)
++{
++	sysfs_remove_group(kobj, &rate_control_simple_sta_group);
++}
++
++static struct rate_control_ops rate_control_simple = {
++	.module = THIS_MODULE,
++	.name = "simple",
++	.tx_status = rate_control_simple_tx_status,
++	.get_rate = rate_control_simple_get_rate,
++	.rate_init = rate_control_simple_rate_init,
++	.clear = rate_control_simple_clear,
++	.alloc = rate_control_simple_alloc,
++	.free = rate_control_simple_free,
++	.alloc_sta = rate_control_simple_alloc_sta,
++	.free_sta = rate_control_simple_free_sta,
++	.add_sta_attrs = rate_control_simple_add_sta_attrs,
++	.remove_sta_attrs = rate_control_simple_remove_sta_attrs,
++};
++
++
++static int __init rate_control_simple_init(void)
++{
++	return ieee80211_rate_control_register(&rate_control_simple);
++}
++
++
++static void __exit rate_control_simple_exit(void)
++{
++	ieee80211_rate_control_unregister(&rate_control_simple);
++}
++
++
++module_init(rate_control_simple_init);
++module_exit(rate_control_simple_exit);
++
++MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
++MODULE_LICENSE("GPL");
 -- 
 1.3.0
 
