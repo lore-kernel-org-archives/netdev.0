@@ -1,111 +1,70 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] [NET] reduce per cpu ram used for loopback stats
-Date: Wed, 18 Oct 2006 18:35:48 +0200
-Message-ID: <200610181835.48744.dada1@cosmosbay.com>
-References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <200610171458.37636.dada1@cosmosbay.com> <200610180938.39175.dada1@cosmosbay.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH,RFC] bridge: call eth_type_trans() in br_pass_frame_up()
+Date: Wed, 18 Oct 2006 09:37:30 -0700
+Message-ID: <20061018093730.3bc5b433@freekitty>
+References: <20061018091445.GB18850@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_kflNFOx4zx5vdAC"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tbillman@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:22176 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1161205AbWJRQfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 12:35:50 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <200610180938.39175.dada1@cosmosbay.com>
+Received: from smtp.osdl.org ([65.172.181.4]:9666 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161231AbWJRQhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 12:37:34 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20061018091445.GB18850@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_kflNFOx4zx5vdAC
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Wed, 18 Oct 2006 11:14:45 +0200
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
 
-We dont need a full struct net_device_stats (currently 23 long : 184 bytes on 
-x86_64) per possible CPU, but only two counters : bytes and packets
+> Hi,
+> 
+> I've been seeing a failure to reply to incoming ARP packets on a bridge
+> interface until after the first few packets have been transmitted over
+> that interface, and the patch below seems to fix the issue, the 'issue'
+> being that the incoming ARP packets are marked with PACKET_OTHERHOST,
+> and there not being anything to set that back to PACKET_HOST even if
+> the destination MAC address matches the bridge interface's MAC address.
+> 
+> If this looks good, I'll prepare a proper commit message.
+> 
+> 
+> cheers,
+> Lennert
+> 
+> Signed-off-by: Tom Billman <tbillman@gmail.com>
+> Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+> 
+> --- linux-2.6.19-rc2.orig/net/bridge/br_input.c	2006-10-18 11:11:08.000000000 +0200
+> +++ linux-2.6.19-rc2/net/bridge/br_input.c	2006-10-18 11:10:08.000000000 +0200
+> @@ -32,6 +32,9 @@
+>  	indev = skb->dev;
+>  	skb->dev = br->dev;
+>  
+> +	skb_push(skb, ETH_HLEN);
+> +	skb->protocol = eth_type_trans(skb, skb->dev);
+> +
+>  	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
+>  		netif_receive_skb);
+>  }
 
-We save few CPU cycles too in loopback_xmit() not updating 4 fields, but 2. 
+No, this will cause packets coming in from other interfaces to be incorrectly
+marked as OTHERHOST. Think of the following:
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
---Boundary-00=_kflNFOx4zx5vdAC
-Content-Type: text/plain;
-  charset="utf-8";
-  name="loopback.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="loopback.patch"
+	eth0:  00:11:11:0:1:2
+	eth1:  00:11:11:0:1:3
+	br0:   00:11:11:0:1:2
 
---- linux/drivers/net/loopback.c	2006-10-18 17:28:20.000000000 +0200
-+++ linux-eddrivers/net/loopback.c	2006-10-18 18:26:41.000000000 +0200
-@@ -58,7 +58,11 @@
- #include <linux/tcp.h>
- #include <linux/percpu.h>
- 
--static DEFINE_PER_CPU(struct net_device_stats, loopback_stats);
-+struct pcpu_lstats {
-+	unsigned long packets;
-+	unsigned long bytes;
-+};
-+static DEFINE_PER_CPU(struct pcpu_lstats, pcpu_lstats);
- 
- #define LOOPBACK_OVERHEAD (128 + MAX_HEADER + 16 + 16)
- 
-@@ -128,7 +132,7 @@
-  */
- static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *lb_stats;
-+	struct pcpu_lstats *lb_stats;
- 
- 	skb_orphan(skb);
- 
-@@ -149,11 +153,9 @@
- #endif
- 	dev->last_rx = jiffies;
- 
--	lb_stats = &per_cpu(loopback_stats, get_cpu());
--	lb_stats->rx_bytes += skb->len;
--	lb_stats->tx_bytes = lb_stats->rx_bytes;
--	lb_stats->rx_packets++;
--	lb_stats->tx_packets = lb_stats->rx_packets;
-+	lb_stats = &per_cpu(pcpu_lstats, get_cpu());
-+	lb_stats->bytes += skb->len;
-+	lb_stats->packets++;
- 	put_cpu();
- 
- 	netif_rx(skb);
-@@ -166,20 +168,21 @@
- static struct net_device_stats *get_stats(struct net_device *dev)
- {
- 	struct net_device_stats *stats = &loopback_stats;
-+	unsigned long bytes = 0;
-+	unsigned long packets = 0;
- 	int i;
- 
--	memset(stats, 0, sizeof(struct net_device_stats));
--
- 	for_each_possible_cpu(i) {
--		struct net_device_stats *lb_stats;
-+		const struct pcpu_lstats *lb_stats;
- 
--		lb_stats = &per_cpu(loopback_stats, i);
--		stats->rx_bytes   += lb_stats->rx_bytes;
--		stats->tx_bytes   += lb_stats->tx_bytes;
--		stats->rx_packets += lb_stats->rx_packets;
--		stats->tx_packets += lb_stats->tx_packets;
-+		lb_stats = &per_cpu(pcpu_lstats, i);
-+		bytes   += lb_stats->bytes;
-+		packets += lb_stats->packets;
- 	}
--
-+	stats->rx_packets = packets;
-+	stats->tx_packets = packets;
-+	stats->rx_bytes = bytes;
-+	stats->tx_bytes = bytes;
- 	return stats;
- }
- 
+If packet arrives with Destination Address (DA) of 00:11:11:0:1:3 on eth1
+then your change will mark it as OTHERHOST.
 
---Boundary-00=_kflNFOx4zx5vdAC--
+The case you are trying to fix is an ARP packet arriving on eth1 with
+the DA of eth0. That implies some sort of mismatch or cycle in your topology,
+it is not clear if the packet should just be dropped.
+
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
