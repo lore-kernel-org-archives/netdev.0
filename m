@@ -1,119 +1,286 @@
 From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Subject: [PATCH 0/6] Changeset of Camellia cipher algorithm.
-Date: Wed, 18 Oct 2006 16:15:10 +0900 (JST)
-Message-ID: <20061018.161510.796986352.takamiya@po.ntts.co.jp>
+Subject: [PATCH 3/6] [CRYPTO] added the testing code of Camellia cipher
+ algorithm.
+Date: Wed, 18 Oct 2006 16:17:08 +0900 (JST)
+Message-ID: <20061018.161708.102577121.takamiya@po.ntts.co.jp>
+References: <20061018.161510.796986352.takamiya@po.ntts.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, takamiya@po.ntts.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ics.ntts.co.jp ([202.32.24.42]:52891 "EHLO
-	mail2.ics.ntts.co.jp") by vger.kernel.org with ESMTP
-	id S1750983AbWJRHUt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 03:20:49 -0400
+Return-path: <linux-crypto-owner@vger.kernel.org>
 To: linux-crypto@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061018.161510.796986352.takamiya@po.ntts.co.jp>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-  This set of the patches enables to use of the Camellia cipher
-  algorithm for the ESP encryption.
+This patch adds the code of Camellia code for testing module.
 
-  Git tree is also available on camellia20061017 branch at:
-  git://git.skbuff.net/gitroot/takamiya/camellia20061017
+Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
 
-  The following patches are available for the top of davem's net-2.6
-  and herbert's cryptodev-2.6 trees.
+---
 
-  Thank you.
+ crypto/tcrypt.c |   43 ++++++++++++++
+ crypto/tcrypt.h |  165 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 207 insertions(+), 1 deletions(-)
 
-HEADLINES
----------
-
-[PATCH 1/6] [CRYPTO] added Kconfig entry for Camellia.
-[PATCH 2/6] [CRYPTO] added the code of Camellia cipher algorithm.
-[PATCH 3/6] [CRYPTO] added the testing code of Camellia cipher algorithm.
-[PATCH 4/6] [IPSEC] added the definition of Camellia cipher algorithm.
-[PATCH 5/6] [IPSEC] added the entry of Camellia cipher algorithm to ealg_list[].
-[PATCH 6/6] [CRYPTO] added the developer of Camellia cipher algorithm.
-
-DIFFSTAT
---------
-
- Documentation/crypto/api-intro.txt |    5 
- crypto/Kconfig                     |   15 
- crypto/Makefile                    |    1 
- crypto/camellia.c                  | 1802 ++++++++++++++++++++++++++++++++++++-
- crypto/tcrypt.c                    |   43 
- crypto/tcrypt.h                    |  166 +++
- include/linux/pfkeyv2.h            |    2 
- net/xfrm/xfrm_algo.c               |   18 
- 8 files changed, 2045 insertions(+), 7 deletions(-)
-
-CHANGESETS
-----------
-
-commit 80a5df8127311212e99bd64103771de19c5908dd
-Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date:   Tue Oct 17 01:51:40 2006 +0900
-
-    [CRYPTO] added the developer of Camellia cipher algorithm.
-    
-    This patch adds the developer of Camellia cipher algorithm.
-    
-    Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
-commit 2253254f5a802c1cc8a5fc367fae911172f28846
-Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date:   Tue Oct 17 01:47:32 2006 +0900
-
-    [IPSEC] added the entry of Camellia cipher algorithm to ealg_list[].
-    
-    This patch adds the entry of Camellia cipher algorithm to ealg_list[].
-    
-    Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
-commit 1b6712cdb8fd31482d7e7da56e5f602357ec4aa4
-Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date:   Tue Oct 17 01:45:24 2006 +0900
-
-    [IPSEC] added the definition of Camellia cipher algorithm.
-    
-    This patch adds the definitions used by pfkeyv2 interface for Camellia cipher
-    algorithm.
-    
-    Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
-commit e86050d8fbd04b1ace9c121ce90799c8210925be
-Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date:   Tue Oct 17 01:43:14 2006 +0900
-
-    [CRYPTO] added the testing code of Camellia cipher algorithm.
-    
-    This patch adds the code of Camellia code for testing module.
-    
-    Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
-commit db41e54cb7081b4cd034378f17b8f8225586e2e2
-Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date:   Tue Oct 17 01:34:15 2006 +0900
-
-    [CRYPTO] added the code of Camellia cipher algorithm.
-    
-    This patch adds the main code of Camellia cipher algorithm.
-    
-    Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
-commit 01b0c3898fdf1cb4da8cdf5577e58328ecb11e4e
-Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date:   Tue Oct 17 01:31:35 2006 +0900
-
-    [CRYPTO] added Kconfig entry for Camellia.
-    
-    This patch adds the Kconfig entry for Camellia.
-    
-    Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
---
+e86050d8fbd04b1ace9c121ce90799c8210925be
+diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
+index b48d011..a9976a0 100644
+--- a/crypto/tcrypt.c
++++ b/crypto/tcrypt.c
+@@ -71,7 +71,8 @@ static char *check[] = {
+ 	"des", "md5", "des3_ede", "rot13", "sha1", "sha256", "blowfish",
+ 	"twofish", "serpent", "sha384", "sha512", "md4", "aes", "cast6",
+ 	"arc4", "michael_mic", "deflate", "crc32c", "tea", "xtea",
+-	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta", NULL
++	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta", "camellia", 
++	NULL
+ };
+ 
+ static void hexdump(unsigned char *buf, unsigned int len)
+@@ -960,6 +961,20 @@ static void do_test(void)
+ 		test_cipher("ecb(xeta)", DECRYPT, xeta_dec_tv_template,
+ 			    XETA_DEC_TEST_VECTORS);
+ 
++		//CAMELLIA
++		test_cipher ("ecb(camellia)", ENCRYPT,
++			     camellia_enc_tv_template,
++			     CAMELLIA_ENC_TEST_VECTORS);
++		test_cipher ("ecb(camellia)", DECRYPT,
++			     camellia_dec_tv_template,
++			     CAMELLIA_DEC_TEST_VECTORS);
++		test_cipher ("cbc(camellia)", ENCRYPT,
++			     camellia_cbc_enc_tv_template,
++			     CAMELLIA_CBC_ENC_TEST_VECTORS);
++		test_cipher ("cbc(camellia)", DECRYPT,
++			     camellia_cbc_dec_tv_template,
++			     CAMELLIA_CBC_DEC_TEST_VECTORS);
++
+ 		test_hash("sha384", sha384_tv_template, SHA384_TEST_VECTORS);
+ 		test_hash("sha512", sha512_tv_template, SHA512_TEST_VECTORS);
+ 		test_hash("wp512", wp512_tv_template, WP512_TEST_VECTORS);
+@@ -1166,6 +1181,21 @@ static void do_test(void)
+ 			    XETA_DEC_TEST_VECTORS);
+ 		break;
+ 
++	case 31:
++		test_cipher ("ecb(camellia)", ENCRYPT,
++			     camellia_enc_tv_template,
++			     CAMELLIA_ENC_TEST_VECTORS);
++		test_cipher ("ecb(camellia)", DECRYPT,
++			     camellia_dec_tv_template,
++			     CAMELLIA_DEC_TEST_VECTORS);
++		test_cipher ("cbc(camellia)", ENCRYPT,
++			     camellia_cbc_enc_tv_template,
++			     CAMELLIA_CBC_ENC_TEST_VECTORS);
++		test_cipher ("cbc(camellia)", DECRYPT,
++			     camellia_cbc_dec_tv_template,
++			     CAMELLIA_CBC_DEC_TEST_VECTORS);
++		break;
++
+ 	case 100:
+ 		test_hash("hmac(md5)", hmac_md5_tv_template,
+ 			  HMAC_MD5_TEST_VECTORS);
+@@ -1245,6 +1275,17 @@ static void do_test(void)
+ 				  des_speed_template);
+ 		break;
+ 
++	case 205:
++		test_cipher_speed("ecb(camellia)", ENCRYPT, sec, NULL, 0,
++				camellia_speed_template);
++		test_cipher_speed("ecb(camellia)", DECRYPT, sec, NULL, 0,
++				camellia_speed_template);
++		test_cipher_speed("cbc(camellia)", ENCRYPT, sec, NULL, 0,
++				camellia_speed_template);
++		test_cipher_speed("cbc(camellia)", DECRYPT, sec, NULL, 0,
++				camellia_speed_template);
++		break;
++
+ 	case 300:
+ 		/* fall through */
+ 
+diff --git a/crypto/tcrypt.h b/crypto/tcrypt.h
+index a40c441..3c7d46f 100644
+--- a/crypto/tcrypt.h
++++ b/crypto/tcrypt.h
+@@ -2744,6 +2744,150 @@ static struct cipher_testvec xeta_dec_tv
+ };
+ 
+ /*
++ * CAMELLIA test vectors.
++ */
++#define CAMELLIA_ENC_TEST_VECTORS 3
++#define CAMELLIA_DEC_TEST_VECTORS 3
++#define CAMELLIA_CBC_ENC_TEST_VECTORS 2
++#define CAMELLIA_CBC_DEC_TEST_VECTORS 2
++
++static struct cipher_testvec camellia_enc_tv_template[] = {
++	{ 
++		.key	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.klen	= 16,
++		.input	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.ilen	= 16,
++		.result	= { 0x67, 0x67, 0x31, 0x38, 0x54, 0x96, 0x69, 0x73,
++			    0x08, 0x57, 0x06, 0x56, 0x48, 0xea, 0xbe, 0x43 },
++		.rlen	= 16,
++	}, {
++		.key	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
++			    0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 },
++		.klen	= 24,
++		.input	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.ilen	= 16,
++		.result	= { 0xb4, 0x99, 0x34, 0x01, 0xb3, 0xe9, 0x96, 0xf8,
++			    0x4e, 0xe5, 0xce, 0xe7, 0xd7, 0x9b, 0x09, 0xb9 },
++		.rlen	= 16,
++	}, {
++		.key	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
++			    0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
++			    0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff }, 
++		.klen	= 32,
++		.input	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.ilen	= 16,
++		.result	= { 0x9a, 0xcc, 0x23, 0x7d, 0xff, 0x16, 0xd7, 0x6c,
++			    0x20, 0xef, 0x7c, 0x91, 0x9e, 0x3a, 0x75, 0x09 },
++		.rlen	= 16,
++	},
++};
++
++static struct cipher_testvec camellia_dec_tv_template[] = {
++	{ 
++		.key	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.klen	= 16,
++		.input	= { 0x67, 0x67, 0x31, 0x38, 0x54, 0x96, 0x69, 0x73,
++			    0x08, 0x57, 0x06, 0x56, 0x48, 0xea, 0xbe, 0x43 },
++		.ilen	= 16,
++		.result	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.rlen	= 16,
++	}, {
++		.key	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
++			    0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 },
++		.klen	= 24,
++		.input	= { 0xb4, 0x99, 0x34, 0x01, 0xb3, 0xe9, 0x96, 0xf8,
++			    0x4e, 0xe5, 0xce, 0xe7, 0xd7, 0x9b, 0x09, 0xb9 },
++		.ilen	= 16,
++		.result	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.rlen	= 16,
++	}, {
++		.key	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
++			    0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
++			    0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff }, 
++		.klen	= 32,
++		.input	= { 0x9a, 0xcc, 0x23, 0x7d, 0xff, 0x16, 0xd7, 0x6c,
++			    0x20, 0xef, 0x7c, 0x91, 0x9e, 0x3a, 0x75, 0x09 },
++		.ilen	= 16,
++		.result	= { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
++			    0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.rlen	= 16,
++	},
++};
++
++static struct cipher_testvec camellia_cbc_enc_tv_template[] = {
++	{
++		.key    = { 0x06, 0xa9, 0x21, 0x40, 0x36, 0xb8, 0xa1, 0x5b,
++			    0x51, 0x2e, 0x03, 0xd5, 0x34, 0x12, 0x00, 0x06 },
++		.klen   = 16,
++		.iv	= { 0x3d, 0xaf, 0xba, 0x42, 0x9d, 0x9e, 0xb4, 0x30,
++			    0xb4, 0x22, 0xda, 0x80, 0x2c, 0x9f, 0xac, 0x41 },
++		.input	= { "Single block msg" },
++		.ilen   = 16,
++		.result = { 0xea, 0x32, 0x12, 0x76, 0x3b, 0x50, 0x10, 0xe7,
++			    0x18, 0xf6, 0xfd, 0x5d, 0xf6, 0x8f, 0x13, 0x51 },
++		.rlen   = 16,
++	}, {
++		.key    = { 0xc2, 0x86, 0x69, 0x6d, 0x88, 0x7c, 0x9a, 0xa0,
++			    0x61, 0x1b, 0xbb, 0x3e, 0x20, 0x25, 0xa4, 0x5a },
++		.klen   = 16,
++		.iv     = { 0x56, 0x2e, 0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28,
++			    0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f, 0x58 },
++		.input  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++			    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
++			    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
++			    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f },
++		.ilen   = 32,
++		.result = { 0xa5, 0xdf, 0x6e, 0x50, 0xda, 0x70, 0x6c, 0x01,
++			    0x4a, 0xab, 0xf3, 0xf2, 0xd6, 0xfc, 0x6c, 0xfd,
++			    0x19, 0xb4, 0x3e, 0x57, 0x1c, 0x02, 0x5e, 0xa0,
++			    0x15, 0x78, 0xe0, 0x5e, 0xf2, 0xcb, 0x87, 0x16 },
++		.rlen   = 32,
++	},
++};
++
++static struct cipher_testvec camellia_cbc_dec_tv_template[] = {
++	{
++		.key    = { 0x06, 0xa9, 0x21, 0x40, 0x36, 0xb8, 0xa1, 0x5b,
++			    0x51, 0x2e, 0x03, 0xd5, 0x34, 0x12, 0x00, 0x06 },
++		.klen   = 16,
++		.iv	= { 0x3d, 0xaf, 0xba, 0x42, 0x9d, 0x9e, 0xb4, 0x30,
++			    0xb4, 0x22, 0xda, 0x80, 0x2c, 0x9f, 0xac, 0x41 },
++		.input	= { 0xea, 0x32, 0x12, 0x76, 0x3b, 0x50, 0x10, 0xe7,
++			    0x18, 0xf6, 0xfd, 0x5d, 0xf6, 0x8f, 0x13, 0x51 },
++		.ilen   = 16,
++		.result = { "Single block msg" },
++		.rlen   = 16,
++	}, {
++		.key    = { 0xc2, 0x86, 0x69, 0x6d, 0x88, 0x7c, 0x9a, 0xa0,
++			    0x61, 0x1b, 0xbb, 0x3e, 0x20, 0x25, 0xa4, 0x5a },
++		.klen   = 16,
++		.iv     = { 0x56, 0x2e, 0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28,
++			    0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f, 0x58 },
++		.input = { 0xa5, 0xdf, 0x6e, 0x50, 0xda, 0x70, 0x6c, 0x01,
++			    0x4a, 0xab, 0xf3, 0xf2, 0xd6, 0xfc, 0x6c, 0xfd,
++			    0x19, 0xb4, 0x3e, 0x57, 0x1c, 0x02, 0x5e, 0xa0,
++			    0x15, 0x78, 0xe0, 0x5e, 0xf2, 0xcb, 0x87, 0x16 },
++		.ilen   = 32,
++		.result = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++			    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
++			    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
++			    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f },
++		.rlen   = 32,
++	},
++};
++
++/*
+  * Compression stuff.
+  */
+ #define COMP_BUF_SIZE           512
+@@ -3175,4 +3319,25 @@ static struct hash_speed generic_hash_sp
+ 	{  .blen = 0,	.plen = 0, }
+ };
+ 
++static struct cipher_speed camellia_speed_template[] = {
++      { .klen = 16, .blen = 16, },
++      { .klen = 16, .blen = 64, },
++      { .klen = 16, .blen = 256, },
++      { .klen = 16, .blen = 1024, },
++      { .klen = 16, .blen = 8192, },
++      { .klen = 24, .blen = 16, },
++      { .klen = 24, .blen = 64, },
++      { .klen = 24, .blen = 256, },
++      { .klen = 24, .blen = 1024, },
++      { .klen = 24, .blen = 8192, },
++      { .klen = 32, .blen = 16, },
++      { .klen = 32, .blen = 64, },
++      { .klen = 32, .blen = 256, },
++      { .klen = 32, .blen = 1024, },
++      { .klen = 32, .blen = 8192, },
++
++      /* End marker */
++      {  .klen = 0, .blen = 0, }
++};
++
+ #endif	/* _CRYPTO_TCRYPT_H */
+-- 
 Noriaki TAKAMIYA
