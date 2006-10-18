@@ -1,36 +1,61 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [patch] d80211: remove initialization of unused xr structure members
-Date: Wed, 18 Oct 2006 18:03:58 +0200
-Message-ID: <200610181803.58946.IvDoorn@gmail.com>
-References: <20061013193457.GA24280@devicescape.com> <20061018175525.2f946baa@griffin.suse.cz>
+Subject: [PATCH] rt2x00: Remove xr_end references
+Date: Wed, 18 Oct 2006 18:07:11 +0200
+Message-ID: <200610181807.11677.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:25054 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.187]:52204 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161221AbWJRQFl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 12:05:41 -0400
-Received: by nf-out-0910.google.com with SMTP id c2so711469nfe
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2006 09:05:40 -0700 (PDT)
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061018175525.2f946baa@griffin.suse.cz>
+	id S1161225AbWJRQIt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Oct 2006 12:08:49 -0400
+Received: by nf-out-0910.google.com with SMTP id c2so712238nfe
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2006 09:08:48 -0700 (PDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This removes the xr_end references from rt2500usb and rt71usb.
+The rt2x00 pci drivers were already fixed by David Kimdon.
 
-> > The structure member xr_end was removed from d80211.h.
-> 
-> John, please apply this after you pull from my tree (perhaps with a
-> rt2x00 prefix in the subject instead of d80211?).
+Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-The patch itself looked good, but it doesn't fix rt2500usb and rt73usb,
-I will send a patch to fix the rt2x00 USB drivers shortly.
+---
 
-Ivo
+diff --git a/drivers/net/wireless/d80211/rt2x00/rt2500usb.c b/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+index 5d119cd..a181829 100644
+--- a/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
++++ b/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+@@ -2676,11 +2676,6 @@ static int rt2500usb_init_hw_modes(struc
+ 	rt2500usb_init_hw_channels(rt2x00dev, hw->modes[0].channels);
+ 	rt2500usb_init_hw_rates(rt2x00dev, hw->modes[0].rates);
+ 
+-	/*
+-	 * xr_end is only used on Atheros cards.
+-	 */
+-	hw->modes->xr_end = 0;
+-
+ 	return ieee80211_update_hw(net_dev, hw);
+ 
+ exit_free_channels:
+diff --git a/drivers/net/wireless/d80211/rt2x00/rt73usb.c b/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+index a3b0996..12407d3 100644
+--- a/drivers/net/wireless/d80211/rt2x00/rt73usb.c
++++ b/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+@@ -3037,11 +3037,6 @@ static int rt73usb_init_hw_modes(struct 
+ 	rt73usb_init_hw_channels(rt2x00dev, hw->modes[0].channels);
+ 	rt73usb_init_hw_rates(rt2x00dev, hw->modes[0].rates);
+ 
+-	/*
+-	 * xr_end is only used on Atheros cards.
+-	 */
+-	hw->modes->xr_end = 0;
+-
+ 	return ieee80211_update_hw(net_dev, hw);
+ 
+ exit_free_channels:
