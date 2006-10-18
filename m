@@ -1,55 +1,56 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH wireless-2.6] ieee80211: don't flood log with errors
-Date: Wed, 18 Oct 2006 19:34:40 +0200
-Message-ID: <20061018193440.001465a3@griffin.suse.cz>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [take1 0/5] d80211 patches
+Date: Wed, 18 Oct 2006 10:38:10 -0700
+Message-ID: <20061018173810.GA30457@devicescape.com>
+References: <20061017171713.GA13669@devicescape.com> <20061018180131.556fe5bc@griffin.suse.cz> <20061018172009.GA25808@devicescape.com> <200610181923.14370.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, yi.zhu@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:56972 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1161154AbWJRReq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 13:34:46 -0400
-To: NetDev <netdev@vger.kernel.org>
+Received: from mail.devicescape.com ([207.138.119.2]:37027 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751495AbWJRRiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Oct 2006 13:38:16 -0400
+To: Ivo van Doorn <ivdoorn@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <200610181923.14370.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The "ieee80211: Workaround malformed 802.11 frames from AP" patch (see
-http://kernel.org/git/?p=linux/kernel/git/linville/wireless-2.6.git;a=commit;h=f09fc44d8c25f22c4d985bb93857338ed02feac6 )
-fixes the problem with some buggy APs but also converts debug message into
-an error one. This floods the log with errors when you are near such AP (you
-get a message for every beacon). This patch reverts the error message back
-to the debug one.
+On Wed, Oct 18, 2006 at 07:23:14PM +0200, Ivo van Doorn wrote:
+> On Wednesday 18 October 2006 19:20, David Kimdon wrote:
+> > On Wed, Oct 18, 2006 at 06:01:31PM +0200, Jiri Benc wrote:
+> > > On Tue, 17 Oct 2006 10:17:13 -0700, David Kimdon wrote:
+> > > > Continue d80211 bitfield removal.  In general, compilers have
+> > > > difficulty generating efficient code for bitfields.  This patchset
+> > > > removes all bitfields from include/net/d80211.h.
+> > > 
+> > > Thanks for the patches! At first I intended to ask you to split d80211
+> > > and drivers parts of the patches, but your way is better I think - it
+> > > doesn't break git-bisect.
+> > > 
+> > > John, if you agree with these patches, could you apply them after you
+> > > pull from my tree?
+> > 
+> > hold that thought, I missed updating rt73usb.c and rt2500usb.c.  New
+> > patchset on its way.
+> 
+> Hi,
+> 
+> That patch was send 2 hours ago by me to this list. :)
+> "[PATCH] rt2x00: Remove xr_end references"
+> That patch only fixed rt2500usb and rt73usb, so it can be applied safely
+> after your patch to fix the rt2x00 PCI drivers. 
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+Sorry, to be clear, I am talking about the bitfield removal from
+d80211.h patches.  Actually, your patch to remove the xr references
+from the usb drivers is what made me notice I had forgotten them from
+the bitfield removal patches.
 
----
- net/ieee80211/ieee80211_rx.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+hmm, I have a bad subject to the first mail in my post, my posting
+script set the initial 0/5 message subject as 'd80211 patches', should
+probably be a bit more specific :-)
 
---- a/net/ieee80211/ieee80211_rx.c
-+++ b/net/ieee80211/ieee80211_rx.c
-@@ -1078,12 +1078,12 @@ static int ieee80211_parse_info_param(st
- 
- 	while (length >= sizeof(*info_element)) {
- 		if (sizeof(*info_element) + info_element->len > length) {
--			IEEE80211_ERROR("Info elem: parse failed: "
--					"info_element->len + 2 > left : "
--					"info_element->len+2=%zd left=%d, id=%d.\n",
--					info_element->len +
--					sizeof(*info_element),
--					length, info_element->id);
-+			IEEE80211_DEBUG_MGMT("Info elem: parse failed: "
-+					     "info_element->len + 2 > left : "
-+					     "info_element->len+2=%zd left=%d, id=%d.\n",
-+					     info_element->len +
-+					     sizeof(*info_element),
-+					     length, info_element->id);
- 			/* We stop processing but don't return an error here
- 			 * because some misbehaviour APs break this rule. ie.
- 			 * Orinoco AP1000. */
-
-
--- 
-Jiri Benc
-SUSE Labs
+-David
