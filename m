@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] inet_peer : group together avl_left, avl_right,
- v4daddr to speedup lookups on some CPUS
-Date: Wed, 18 Oct 2006 20:44:20 -0700 (PDT)
-Message-ID: <20061018.204420.118952167.davem@davemloft.net>
-References: <20061016.223513.35356292.davem@davemloft.net>
-	<200610171458.37636.dada1@cosmosbay.com>
-	<200610180938.39175.dada1@cosmosbay.com>
+Subject: Re: [DECNET] Fix input routing bug
+Date: Wed, 18 Oct 2006 20:45:44 -0700 (PDT)
+Message-ID: <20061018.204544.107942856.davem@davemloft.net>
+References: <20061018083817.GA26179@fogou.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: patrick@tykepenguin.com, alan.kemmerer@mittalsteel.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15503
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16783
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423240AbWJSDoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 23:44:10 -0400
-To: dada1@cosmosbay.com
-In-Reply-To: <200610180938.39175.dada1@cosmosbay.com>
+	id S1423242AbWJSDpf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Oct 2006 23:45:35 -0400
+To: steve@chygwyn.com
+In-Reply-To: <20061018083817.GA26179@fogou.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 18 Oct 2006 09:38:38 +0200
+From: Steven Whitehouse <steve@chygwyn.com>
+Date: Wed, 18 Oct 2006 09:38:17 +0100
 
-> Lot of routers still use CPUS with 32 bytes cache lines. (Intel PIII)
-> It make sense to make sure fields used at lookup time are in the same cache 
-> line, to reduce cache footprint and speedup lookups.
+> This patch fixes a silly bug that has been in the input routing code
+> for some time. It results in trying to send to a node directly when
+> the origin of the packet is via the default router.
 > 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Its been tested by Alan Kemmerer <alan.kemmerer@mittalsteel.com> who
+> reported the bug and its a fairly obvious fix for a typo.
+> 
+> Signed-off-by: Steven Whitehouse <swhiteho@redhat.com>
+> Signed-off-by: Patrick Caulfield <patrick@tykepenguin.com>
 
-Looks fine but patch doesn't apply:
-
--	__u32			v4daddr;	/* peer's address */
-
-in my tree v4daddr is a __be32, not a __u32.
+Applied, thanks a lot.
