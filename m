@@ -1,65 +1,43 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] [NET] inet_peer : group together avl_left, avl_right, v4daddr to speedup lookups on some CPUS
-Date: Thu, 19 Oct 2006 12:57:42 +0200
-Message-ID: <200610191257.42549.dada1@cosmosbay.com>
-References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <200610171458.37636.dada1@cosmosbay.com> <200610180938.39175.dada1@cosmosbay.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: revert mv643xx change from ubuntu tree
+Date: Thu, 19 Oct 2006 14:18:36 +0200
+Message-ID: <20061019121836.GA26319@aepfle.de>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_mo1NFYJg+GqKuJ+"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:63689 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1422865AbWJSK5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 06:57:42 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <200610180938.39175.dada1@cosmosbay.com>
+Received: from natblert.rzone.de ([81.169.145.181]:65000 "EHLO
+	natblert.rzone.de") by vger.kernel.org with ESMTP id S1423324AbWJSMUO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Oct 2006 08:20:14 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@osdl.org>,
+	Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_mo1NFYJg+GqKuJ+
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-Hi David
+Somehow the Ubuntu guys managed to sneak this compile error into the
+tree:
 
-Lot of routers/embedded devices still use CPUS with 16/32 bytes cache lines. 
-(486, Pentium, ...  PIII)
-It makes sense to group together fields used at lookup time so they fit in one 
-cache line.
-This reduce cache footprint and speedup lookups.
+commit ce9e3d9953c8cb67001719b5516da2928e956be4
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+      [mv643xx] Add pci device table for auto module loading.
 
---Boundary-00=_mo1NFYJg+GqKuJ+
-Content-Type: text/plain;
-  charset="utf-8";
-  name="inetpeer_speedup.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="inetpeer_speedup.patch"
+drivers/net/mv643xx_eth.c:1560: error: array type has incomplete elemen=
+t type
+drivers/net/mv643xx_eth.c:1561: warning: implicit declaration of functi=
+on =E2=80=98PCI_DEVICE=E2=80=99
+drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_VENDOR_ID_MARVELL=E2=
+=80=99 undeclared here (not in a function)
+drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_DEVICE_ID_MARVELL_M=
+V64360=E2=80=99 undeclared here (not in a function)
 
---- net-2.6/include/net/inetpeer.h	2006-10-19 12:50:29.000000000 +0200
-+++ net-2.6-ed/include/net/inetpeer.h	2006-10-19 12:52:08.000000000 +0200
-@@ -17,14 +17,15 @@
- 
- struct inet_peer
- {
-+	/* group together avl_left,avl_right,v4daddr to speedup lookups */
- 	struct inet_peer	*avl_left, *avl_right;
-+	__be32			v4daddr;	/* peer's address */
-+	__u16			avl_height;
-+	__u16			ip_id_count;	/* IP ID for the next packet */
- 	struct inet_peer	*unused_next, **unused_prevp;
- 	__u32			dtime;		/* the time of last use of not
- 						 * referenced entries */
- 	atomic_t		refcnt;
--	__be32			v4daddr;	/* peer's address */
--	__u16			avl_height;
--	__u16			ip_id_count;	/* IP ID for the next packet */
- 	atomic_t		rid;		/* Frag reception counter */
- 	__u32			tcp_ts;
- 	unsigned long		tcp_ts_stamp;
 
---Boundary-00=_mo1NFYJg+GqKuJ+--
+This change is also wrong, the autoloading works perfect with 2.6.18,
+no need to add random PCI ids.
+
+http://ozlabs.org/pipermail/linuxppc-dev/2006-October/026544.html
+
+Please revert this change and route changes via jgarzik etc...
