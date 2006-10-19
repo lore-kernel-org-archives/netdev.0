@@ -1,26 +1,67 @@
-From: Alexander Wirt <formorer@debian.org>
-Subject: Re: [IPROUTE] manpage for ss
-Date: Thu, 19 Oct 2006 22:07:02 +0200
-Message-ID: <20061019200702.GT4602@ned.snow-crash.org>
-References: <20061019044330.GA2936@formorer.de> <20061019130527.2bcd5696@freekitty>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH 4/6] net: use bitrev8
+Date: Thu, 19 Oct 2006 13:39:51 -0700
+Message-ID: <20061019133951.1d463173.akpm@osdl.org>
+References: <20061018164647.GD21820@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Mirko Lindner <mlindner@syskonnect.de>,
+	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadowland.snow-crash.org ([80.190.250.253]:18646 "EHLO
-	ned.snow-crash.org") by vger.kernel.org with ESMTP id S1946423AbWJSUHE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 16:07:04 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061019130527.2bcd5696@freekitty>
+Received: from smtp.osdl.org ([65.172.181.4]:51094 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1423253AbWJSUvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 16:51:48 -0400
+To: Akinobu Mita <akinobu.mita@gmail.com>
+In-Reply-To: <20061018164647.GD21820@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger schrieb am Donnerstag, den 19. Oktober 2006:
+On Thu, 19 Oct 2006 01:46:47 +0900
+Akinobu Mita <akinobu.mita@gmail.com> wrote:
 
-> Revised version now in iproute2 repository.
-Great, thank you very much. 
+> Use bitrev8 for bmac, mace, macmace, macsonic, and skfp drivers.
+> 
+> Cc: Jeff Garzik <jgarzik@pobox.com>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: Mirko Lindner <mlindner@syskonnect.de>
+> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> 
+>  drivers/net/Kconfig        |    1 
+>  drivers/net/bmac.c         |   20 ++--------
+>  drivers/net/mace.c         |   16 +-------
+>  drivers/net/macmace.c      |   18 +--------
+>  drivers/net/macsonic.c     |    6 ---
+>  drivers/net/skfp/can.c     |   83 ---------------------------------------------
+>  drivers/net/skfp/drvfbi.c  |   21 ++++-------
+>  drivers/net/skfp/fplustm.c |    4 +-
+>  drivers/net/skfp/smt.c     |    7 +--
 
-Alex
+A bunch of drivers.
+
+> ===================================================================
+> --- work-fault-inject.orig/drivers/net/Kconfig
+> +++ work-fault-inject/drivers/net/Kconfig
+> @@ -2500,6 +2500,7 @@ config DEFXX
+>  config SKFP
+>  	tristate "SysKonnect FDDI PCI support"
+>  	depends on FDDI && PCI
+> +	select BITREVERSE
+>  	---help---
+>  	  Say Y here if you have a SysKonnect FDDI PCI adapter.
+>  	  The following adapters are supported by this driver:
+
+But only one of them selects the library.
+
+The patchset adds a large number of `select' statements.  afaict everything
+_seems_ to work OK with that (as long as all the needed selects are there).
+
+But select is problematic and I do wonder whether it'd be simpler to just
+link the thing into vmlinux.
+
+Oh well, we'll see how it goes.
 
