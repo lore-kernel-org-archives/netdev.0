@@ -1,43 +1,53 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: revert mv643xx change from ubuntu tree
-Date: Thu, 19 Oct 2006 14:18:36 +0200
-Message-ID: <20061019121836.GA26319@aepfle.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling for	ATM/ADSL
+ (kernel)
+Date: Thu, 19 Oct 2006 16:38:27 +0200
+Message-ID: <45378DE3.8080700@trash.net>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube> <1161090444.5555.13.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Russell Stuart <russell-tcatm@stuart.id.au>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natblert.rzone.de ([81.169.145.181]:65000 "EHLO
-	natblert.rzone.de") by vger.kernel.org with ESMTP id S1423324AbWJSMUO
+Received: from stinky.trash.net ([213.144.137.162]:27340 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1946094AbWJSOim
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 08:20:14 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@osdl.org>,
-	Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
+	Thu, 19 Oct 2006 10:38:42 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1161090444.5555.13.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> ACKed-by: Jamal Hadi Salim
+> 
+> When Patrick has his patch ready after this goes in we can revisit.
 
-Somehow the Ubuntu guys managed to sneak this compile error into the
-tree:
+NACK.
 
-commit ce9e3d9953c8cb67001719b5516da2928e956be4
+I still think this patch shouldn't go in. There's no point in doing the
+same thing twice, and I haven't heard a compelling argument why it has
+to be done in a way that only helps qdiscs using rtabs while ignoring
+statistics and estimators (I even provided a patch to show how to do
+it without these limitations).
 
-      [mv643xx] Add pci device table for auto module loading.
+Besides that:
 
-drivers/net/mv643xx_eth.c:1560: error: array type has incomplete elemen=
-t type
-drivers/net/mv643xx_eth.c:1561: warning: implicit declaration of functi=
-on =E2=80=98PCI_DEVICE=E2=80=99
-drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_VENDOR_ID_MARVELL=E2=
-=80=99 undeclared here (not in a function)
-drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_DEVICE_ID_MARVELL_M=
-V64360=E2=80=99 undeclared here (not in a function)
++static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
++{
++	int slot = pktlen + rtab->rate.cell_align;
++	if (slot < 0)
++	  	slot = 0;
 
+Why would it go negative? A negative cell_align doesn't make sense I
+guess.
 
-This change is also wrong, the autoloading works perfect with 2.6.18,
-no need to add random PCI ids.
++	slot >>= rtab->rate.cell_log;
++	if (slot > 255)
++		return rtab->data[255] + 1;
 
-http://ozlabs.org/pipermail/linuxppc-dev/2006-October/026544.html
+Whats the point of this? Is it just to keep htb giant statistics
+working?
 
-Please revert this change and route changes via jgarzik etc...
