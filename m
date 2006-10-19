@@ -1,29 +1,29 @@
-From: Alexander Wirt <formorer@formorer.de>
-Subject: Re: [IPROUTE] 2nd try
-Date: Thu, 19 Oct 2006 07:03:07 +0200
-Message-ID: <20061019050307.GN4602@ned.snow-crash.org>
-References: <20061019044554.GB2936@formorer.de> <4537054D.1050607@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] Size listen hash tables using backlog hint
+Date: Wed, 18 Oct 2006 22:08:37 -0700 (PDT)
+Message-ID: <20061018.220837.74746240.davem@davemloft.net>
+References: <200610171458.37636.dada1@cosmosbay.com>
+	<20061018.203109.63997999.davem@davemloft.net>
+	<453704F0.4010707@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadowland.snow-crash.org ([80.190.250.253]:34012 "EHLO
-	ned.snow-crash.org") by vger.kernel.org with ESMTP id S1423141AbWJSFDI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 01:03:08 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <4537054D.1050607@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:1931
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1422800AbWJSFJX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Oct 2006 01:09:23 -0400
+To: shemminger@osdl.org
+In-Reply-To: <453704F0.4010707@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger schrieb am Mittwoch, den 18. Oktober 2006:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 18 Oct 2006 21:54:08 -0700
 
-> Alexander Wirt wrote:
-> >I need more sleep this time hopefully with the manpage attached. 
- 
-> Amusing but hardly in keeping with the style and tone of other man pages.
-Much better than nothing - just my 2 cent. 
+> Reminds me, anyone know why GCC is too stupid to convert modulus of a 
+> constant power of 2 into a mask operation?
 
-Alex
-
+If the computation ends up being signed it can't perform this
+optimization.
