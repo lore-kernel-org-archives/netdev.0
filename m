@@ -1,109 +1,41 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH wireless-dev] p54: fix stalling in TX queue
-Date: Thu, 19 Oct 2006 02:22:38 -0400
-Message-ID: <200610190222.43399.flamingice@sourmilk.net>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: (usagi-core 31424) Re: [PATCH 7/13] [RFC] [IPV6] Move source
+ address selection into route lookup.
+Date: Thu, 19 Oct 2006 09:28:14 +0300
+Message-ID: <45371AFE.9030704@tcs.hut.fi>
+References: <20061016.222223.26532234.davem@davemloft.net>	<45348DD4.4000600@6wind.com>	<20061017.175231.45194288.yoshfuji@linux-ipv6.org> <20061018.230850.91573842.yoshfuji@linux-ipv6.org> <4536E279.1090003@jp.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2458614.4h5U19AnSe";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: developers@islsm.org, netdev@vger.kernel.org
+Cc: usagi-core@linux-ipv6.org, davem@davemloft.net, tgraf@suug.ch,
+	kim.nordlund@nokia.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, jean-mickael.guerin@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:64708 "EHLO
-	annwn13.rutgers.edu") by vger.kernel.org with ESMTP
-	id S1423257AbWJSGXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 02:23:48 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:31240 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1161289AbWJSG2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 02:28:18 -0400
+To: Mitsuru Chinen <mitch@jp.ibm.com>
+In-Reply-To: <4536E279.1090003@jp.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2458614.4h5U19AnSe
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On 10/19/06 05:27, Mitsuru Chinen wrote:
 
-p54: fix stalling in TX queue
+Hello Mitsuru-san,
 
-This patch makes the p54 TX queue not stall anymore. Probably not the most=
-=20
-efficient thing to do, but it's better than stalling.
+> At the first Echo Request, its source address is a global address.
+> 
+> | # ping6 -n -c 1 -i 1 -s 1452 -p 00 -w 2 -I eth1 FF1E: :1:2
+> | PATTERN: 0x00
+> | PING FF1E::1:2(ff1e::1:2) from 3ffe:501:ffff:100:2d0:b7ff:fe9a:455b eth1: 1452 data bytes
+> |
+> | --- FF1E::1:2 ping statistics ---
+> | 3 packets transmitted, 0 received, 100% loss, time 1999ms
+> 
+> However, after receiving a Too Big message, the source address
+> of Echo Request is changed to :: at the failure case.
 
-It also adds a small comment to prism54common.h about the origin of the pda=
-=20
-definitions and inserts a missing verb in the comment for p54_assign_addres=
-s.
+thank you for the thorough test report! I'll try to track down the reason.
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-
-=2D--
-
- drivers/net/wireless/d80211/p54/prism54common.c |   10 +++++-----
- drivers/net/wireless/d80211/p54/prism54common.h |    2 ++
- 2 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wireless/d80211/p54/prism54common.c=20
-b/drivers/net/wireless/d80211/p54/prism54common.c
-index 34bccee..6f4cb5f 100644
-=2D-- a/drivers/net/wireless/d80211/p54/prism54common.c
-+++ b/drivers/net/wireless/d80211/p54/prism54common.c
-@@ -261,8 +261,8 @@ static void p54_rx_frame_sent(struct net
- 		entry =3D entry->next;
- 	}
- 	=09
-=2D	if (freed < IEEE80211_MAX_RTS_THRESHOLD + 0x170 + sizeof(struct=20
-p54_control_hdr))
-=2D		ieee80211_wake_queue(dev, 0);=09
-+	if (skb_queue_empty(&priv->tx_queue))
-+		ieee80211_wake_queue(dev, 0);
- }
-=20
- static void p54_rx_control(struct net_device *dev, struct sk_buff *skb)
-@@ -308,9 +308,9 @@ EXPORT_SYMBOL_GPL(p54_rx);
- /*
-  * So, the firmware is somewhat stupid and doesn't know what places in its
-  * memory incoming data should go to. By poking around in the firmware, we
-=2D * can some unused memory to upload our packets to. However, data that w=
-e=20
-want
-=2D * the card to TX needs to stay intact until the card has told us that i=
-t is
-=2D * done with it. This function finds empty places we can upload to and
-+ * can find some unused memory to upload our packets to. However, data tha=
-t=20
-we
-+ * want the card to TX needs to stay intact until the card has told us that
-+ * it is done with it. This function finds empty places we can upload to a=
-nd
-  * marks allocated areas as reserved if necessary. p54_rx_frame_sent frees
-  * allocated areas.
-  */
-diff --git a/drivers/net/wireless/d80211/p54/prism54common.h=20
-b/drivers/net/wireless/d80211/p54/prism54common.h
-index e2c1ff4..15199f6 100644
-=2D-- a/drivers/net/wireless/d80211/p54/prism54common.h
-+++ b/drivers/net/wireless/d80211/p54/prism54common.h
-@@ -43,6 +43,8 @@ #define FW_LM86 0x4c4d3836
- #define FW_LM87 0x4c4d3837
- #define FW_LM20 0x4c4d3230
-=20
-+/* PDA defines are Copyright (C) 2005 Nokia Corporation (taken from=20
-islsm_pda.h) */
-+
- struct pda_entry {
- 	u16 len;	/* includes both code and data */
- 	u16 code;
-
---nextPart2458614.4h5U19AnSe
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFNxmzT3Oqt9AH4aERAikYAJwOIAqTopiW6aasl/9Iikh+XRT1RACgrKrU
-JqiBSKAgruZDg/qvPELTrb0=
-=174h
------END PGP SIGNATURE-----
-
---nextPart2458614.4h5U19AnSe--
+Regards,
+Ville
