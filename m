@@ -1,39 +1,46 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] [NET] Size listen hash tables using backlog hint
-Date: Wed, 18 Oct 2006 21:54:08 -0700
-Message-ID: <453704F0.4010707@osdl.org>
-References: <45345999.4000300@psc.edu>	<20061016.223513.35356292.davem@davemloft.net>	<200610171458.37636.dada1@cosmosbay.com> <20061018.203109.63997999.davem@davemloft.net>
+Subject: Re: [IPROUTE] 2nd try
+Date: Wed, 18 Oct 2006 21:55:41 -0700
+Message-ID: <4537054D.1050607@osdl.org>
+References: <20061019044554.GB2936@formorer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:39124 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030299AbWJSEyl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 00:54:41 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061018.203109.63997999.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:4565 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422774AbWJSEzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 00:55:46 -0400
+To: Alexander Wirt <formorer@debian.org>
+In-Reply-To: <20061019044554.GB2936@formorer.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Eric Dumazet Hi <dada1@cosmosbay.com>
-> Date: Tue, 17 Oct 2006 14:58:37 +0200
+Alexander Wirt wrote:
+> I need more sleep this time hopefully with the manpage attached. 
+>
+> Alex
 >
 >   
->> reqsk_queue_alloc() goal is to use a power of two size for the whole
->> listen_sock structure, to avoid wasting memory for large backlogs,
->> meaning the hash table nr_table_entries is not anymore a power of
->> two. (Hence one AND (nr_table_entries - 1) must be replaced by
->> MODULO nr_table_entries)
->>     
+> ------------------------------------------------------------------------
 >
-> Modulus can be very expensive for some small/slow cpus.  Please round
-> down to a power-of-2 instead of up if you think the wastage really
-> matters.
+> .TH SS 8
+> .SH NAME
+> ss \- another utility to investigate sockets
+> .SH SYNOPSIS
+> .B ss
+> .RI [ options ] " [ FILTER ]"
+> .SH DESCRIPTION
+> This manual page documents briefly the
+> .B ss
+> command.
+> .PP
+> \fBss\fP is another utility to investigate sockets. Functionally it is
+> NOT better than netstat combined with some perl/awk scripts and though it is
+> surely faster it is not enough to make it much better. :-) So, stop reading
+> this now and do not waste your time. Well, certainly, it proposes some
+> functionality, which current netstat is still not able to do, but surely will
+> soon.
 >   
 
-Reminds me, anyone know why GCC is too stupid to convert modulus of a 
-constant power of 2
-into a mask operation?
-
+Amusing but hardly in keeping with the style and tone of other man pages.
