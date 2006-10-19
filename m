@@ -1,73 +1,112 @@
-From: Matt Brown <matt@mattb.net.nz>
-Subject: Re: [Madwifi-devel] d80211: ANNOUNCE: DadWifi,	a port of MadWifi
- to d80211
-Date: Thu, 19 Oct 2006 14:18:29 +1300
-Message-ID: <4536D265.3090307@mattb.net.nz>
-References: <20061018001403.GA22990@devicescape.com> <20061018101605.GA1767@infradead.org>
+From: Kai Engert <kengert@redhat.com>
+Subject: [patch] Add ethtool -i interface to Prism54
+Date: Thu, 19 Oct 2006 03:33:34 +0200
+Message-ID: <4536D5EE.4060405@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig482EE4716ADE3E02B0F76929"
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Content-Type: multipart/mixed;
+ boundary="------------080503040608000603070702"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from carbon.meta.net.nz ([219.88.251.16]:52931 "EHLO
-	carbon.meta.net.nz") by vger.kernel.org with ESMTP id S1945953AbWJSBTE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 21:19:04 -0400
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20061018101605.GA1767@infradead.org>
+Received: from mx1.redhat.com ([66.187.233.31]:21655 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1945955AbWJSBdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2006 21:33:33 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id k9J1XWQl026127
+	for <netdev@vger.kernel.org>; Wed, 18 Oct 2006 21:33:32 -0400
+Received: from pobox.stuttgart.redhat.com (pobox.stuttgart.redhat.com [172.16.2.10])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id k9J1XVus012412
+	for <netdev@vger.kernel.org>; Wed, 18 Oct 2006 21:33:31 -0400
+Received: from [10.32.4.10] (vpn-4-10.str.redhat.com [10.32.4.10])
+	by pobox.stuttgart.redhat.com (8.12.8/8.12.8) with ESMTP id k9J1XUtc015409
+	for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 03:33:31 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig482EE4716ADE3E02B0F76929
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+This is a multi-part message in MIME format.
+--------------080503040608000603070702
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Christoph Hellwig wrote:
+Attached is a small patch that will add support for
+  ethtool -i
+to the prism54 driver.
 
-> Guys, why do you waste your time on doing stuff that's useless for most=
+ethtool -i queries the specified ethernet device for associated driver 
+information.
 
-> of us, and that people can't even legally redistribute.
+This helps tools like Fedora's system-config-network to provide GUI 
+management of network devices.
+I learned how to write this patch by reading the ipw2100 driver code.
 
-Well that may be your opinion, but it's certainly not mine. We had just
-discussed starting an in-house project to port the HAL to the d80211
-stack when David made his announcement.
-
-The reason? While we'd obviously prefer that the HAL didn't exist, if
-it's going to exist we would far rather that it had a common 80211 stack
-on top of it, so that we can easily switch to other chipsets and retain
-the same featureset.
-
-Reducing the number of 80211 stacks in use in Linux is a great thing.
-
-> Please switch to openhal or the openbsd code and we all owe you a lot o=
-f
-> beer at the next conference :)
-
-I'll be very happy to provide beer for any devicescape employee I meet,
-simply based on the initial release of dadwifi.
-
-Cheers
-
---
-Matt Brown
-matt@mattb.net.nz
-Mob +64 21 611 544 www.mattb.net.nz
+Thanks for considering to take it.
+Kai
 
 
---------------enig482EE4716ADE3E02B0F76929
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+--------------080503040608000603070702
+Content-Type: text/plain;
+ name="prism54ethtool"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="prism54ethtool"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
+--- linux-2.6.16/drivers/net/wireless/prism54/islpci_dev.h.preke	2006-03-20 06:53:29.000000000 +0100
++++ linux-2.6.16/drivers/net/wireless/prism54/islpci_dev.h	2006-04-12 15:12:30.000000000 +0200
+@@ -210,4 +210,8 @@
+ 
+ int islpci_free_memory(islpci_private *);
+ struct net_device *islpci_setup(struct pci_dev *);
++
++#define DRV_NAME	"prism54"
++#define DRV_VERSION	"1.2"
++
+ #endif				/* _ISLPCI_DEV_H */
+--- linux-2.6.16/drivers/net/wireless/prism54/islpci_dev.c.preke	2006-04-12 14:56:12.000000000 +0200
++++ linux-2.6.16/drivers/net/wireless/prism54/islpci_dev.c	2006-04-13 01:39:27.000000000 +0200
+@@ -22,6 +22,7 @@
+ #include <linux/module.h>
+ 
+ #include <linux/netdevice.h>
++#include <linux/ethtool.h>
+ #include <linux/pci.h>
+ #include <linux/etherdevice.h>
+ #include <linux/delay.h>
+@@ -788,6 +789,17 @@
+ }
+ #endif
+ 
++static void islpci_ethtool_get_drvinfo(struct net_device *dev,
++                                       struct ethtool_drvinfo *info)
++{
++	strcpy(info->driver, DRV_NAME);
++	strcpy(info->version, DRV_VERSION);
++}
++
++static struct ethtool_ops islpci_ethtool_ops = {
++	.get_drvinfo = islpci_ethtool_get_drvinfo,
++};
++
+ struct net_device *
+ islpci_setup(struct pci_dev *pdev)
+ {
+@@ -814,6 +826,7 @@
+ 	ndev->do_ioctl = &prism54_ioctl;
+ 	ndev->wireless_handlers =
+ 	    (struct iw_handler_def *) &prism54_handler_def;
++	ndev->ethtool_ops = &islpci_ethtool_ops;
+ 
+ 	ndev->hard_start_xmit = &islpci_eth_transmit;
+ 	/* ndev->set_multicast_list = &islpci_set_multicast_list; */
+--- linux-2.6.16/drivers/net/wireless/prism54/islpci_hotplug.c.preke	2006-04-12 14:56:22.000000000 +0200
++++ linux-2.6.16/drivers/net/wireless/prism54/islpci_hotplug.c	2006-04-12 15:14:16.000000000 +0200
+@@ -28,9 +28,6 @@
+ #include "islpci_mgt.h"		/* for pc_debug */
+ #include "isl_oid.h"
+ 
+-#define DRV_NAME	"prism54"
+-#define DRV_VERSION	"1.2"
+-
+ MODULE_AUTHOR("[Intersil] R.Bastings and W.Termorshuizen, The prism54.org Development Team <prism54-devel@prism54.org>");
+ MODULE_DESCRIPTION("The Prism54 802.11 Wireless LAN adapter");
+ MODULE_LICENSE("GPL");
 
-iD8DBQFFNtJp/pqN2EBUqwgRAhWeAJwLsLX1bFrugnz6IEwuskmzrkuPhQCfSHmZ
-TYfQHtW2lV2IIot9KpAi8Pg=
-=zb+c
------END PGP SIGNATURE-----
-
---------------enig482EE4716ADE3E02B0F76929--
+--------------080503040608000603070702--
