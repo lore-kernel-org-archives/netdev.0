@@ -1,53 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling for	ATM/ADSL
- (kernel)
-Date: Thu, 19 Oct 2006 16:38:27 +0200
-Message-ID: <45378DE3.8080700@trash.net>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube> <1161090444.5555.13.camel@jzny2>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx: Drain TX status before starting IRQs
+Date: Thu, 19 Oct 2006 17:29:34 +0200
+Message-ID: <200610191729.35402.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Russell Stuart <russell-tcatm@stuart.id.au>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:27340 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1946094AbWJSOim
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27069
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1946106AbWJSPaa
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 10:38:42 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1161090444.5555.13.camel@jzny2>
+	Thu, 19 Oct 2006 11:30:30 -0400
+To: linville@tuxdriver.com, Larry Finger <Larry.Finger@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> ACKed-by: Jamal Hadi Salim
-> 
-> When Patrick has his patch ready after this goes in we can revisit.
+Drain the Microcode TX-status-FIFO before we enable IRQs.
+This is required, because the FIFO may still have entries left
+from a previous run. Those would immediately fire after enabling
+IRQs and would lead to an oops in the DMA TXstatus handling code.
 
-NACK.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-I still think this patch shouldn't go in. There's no point in doing the
-same thing twice, and I haven't heard a compelling argument why it has
-to be done in a way that only helps qdiscs using rtabs while ignoring
-statistics and estimators (I even provided a patch to show how to do
-it without these limitations).
+--
 
-Besides that:
+Please consider also pushing this into the -stable tree.
+The bug is not likely to trigger, but at least ben
+triggered it in the past. Anyway, it can't hurt much to
+drain the FIFO before running the device.
 
-+static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
+Note that this is diffed against 2.6.18.1 and not 2.6.18
+as the diff prolog suggests. I just forgot to rename
+the directory. ;)
+
+
+Index: linux-2.6.18/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.18.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-10-15 21:10:37.000000000 +0200
++++ linux-2.6.18/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-10-19 17:17:16.000000000 +0200
+@@ -1463,6 +1463,21 @@ static void handle_irq_transmit_status(s
+ 	}
+ }
+ 
++static void drain_txstatus_queue(struct bcm43xx_private *bcm)
 +{
-+	int slot = pktlen + rtab->rate.cell_align;
-+	if (slot < 0)
-+	  	slot = 0;
++	u32 dummy;
++
++	/* Read all entries from the microcode TXstatus FIFO
++	 * and throw them away.
++	 */
++	while (1) {
++		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
++		if (!dummy)
++			break;
++		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
++	}
++}
++
+ static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
+ {
+ 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
+@@ -3509,6 +3524,7 @@ int bcm43xx_select_wireless_core(struct 
+ 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
+ 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
+ 	bcm43xx_security_init(bcm);
++	drain_txstatus_queue(bcm);
+ 	ieee80211softmac_start(bcm->net_dev);
+ 
+ 	/* Let's go! Be careful after enabling the IRQs.
 
-Why would it go negative? A negative cell_align doesn't make sense I
-guess.
 
-+	slot >>= rtab->rate.cell_log;
-+	if (slot > 255)
-+		return rtab->data[255] + 1;
-
-Whats the point of this? Is it just to keep htb giant statistics
-working?
-
+-- 
+Greetings Michael.
