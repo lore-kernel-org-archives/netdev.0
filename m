@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Bound TSO defer time (resend)
-Date: Wed, 18 Oct 2006 20:39:24 -0700 (PDT)
-Message-ID: <20061018.203924.38710018.davem@davemloft.net>
-References: <45345999.4000300@psc.edu>
-	<20061016.223513.35356292.davem@davemloft.net>
-	<4534CAF3.5000505@psc.edu>
+Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling for
+ ATM/ADSL (kernel)
+Date: Wed, 18 Oct 2006 20:41:30 -0700 (PDT)
+Message-ID: <20061018.204130.35016271.davem@davemloft.net>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	<1161090444.5555.13.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: russell-tcatm@stuart.id.au, netdev@vger.kernel.org,
+	kaber@trash.net, hawk@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48015
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49295
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423237AbWJSDjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Oct 2006 23:39:16 -0400
-To: jheffner@psc.edu
-In-Reply-To: <4534CAF3.5000505@psc.edu>
+	id S1423239AbWJSDlW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Oct 2006 23:41:22 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1161090444.5555.13.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Tue, 17 Oct 2006 08:22:11 -0400
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 17 Oct 2006 09:07:24 -0400
 
-> That's actually how I originally coded it. :)  But then it occurred to 
-> me that if you've already been waiting for a full clock tick, the 
-> marginal CPU savings of waiting longer will not be great.  Which is why 
-> I chose the value of 2 ticks so you're guaranteed to have waited at 
-> least one full tick.
+> ACKed-by: Jamal Hadi Salim
+> 
+> When Patrick has his patch ready after this goes in we can revisit.
 
-Fair enough, patch applied, thanks.
-
-BTW, like some other's using Thunderbird to send patches,
-lines with nothing but spaces are being corrupted into
-fully empty lines.
-
-In fact, in your patch some trailing whitespace of existing
-code lines were also eliminated by Thunderbird, further
-corrupting the patch.
-
-I fixed this all up by hand, but please try to get this fixed
-up for future submissions.
-
-Thanks.
+If anything it's too late to put this into 2.6.19 so I'll likely
+therefore toss it into net-2.6.20 whenever I open that tree up.
