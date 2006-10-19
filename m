@@ -1,60 +1,41 @@
-From: Michael Prokop <mika@grml.org>
-Subject: Re: [IPROUTE] 2nd try
-Date: Thu, 19 Oct 2006 08:00:57 +0200
-Message-ID: <2006-10-19T07-55-16@devnull.michael-prokop.at>
-References: <20061019044554.GB2936@formorer.de> <4537054D.1050607@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET] Size listen hash tables using backlog hint
+Date: Wed, 18 Oct 2006 23:12:18 -0700 (PDT)
+Message-ID: <20061018.231218.74744257.davem@davemloft.net>
+References: <200610171458.37636.dada1@cosmosbay.com>
+	<20061018.203109.63997999.davem@davemloft.net>
+	<4537095A.9010705@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:63691 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1030305AbWJSGFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 02:05:06 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1GaR1a-0003St-AH
-	for netdev@vger.kernel.org; Thu, 19 Oct 2006 08:05:02 +0200
-Received: from mika.vc-graz.ac.at ([193.171.126.55])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 08:05:02 +0200
-Received: from mika by mika.vc-graz.ac.at with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 08:05:02 +0200
-To: netdev@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13249
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030310AbWJSGNE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Oct 2006 02:13:04 -0400
+To: dada1@cosmosbay.com
+In-Reply-To: <4537095A.9010705@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Note: I'm the contributor of the manpage]
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 19 Oct 2006 07:12:58 +0200
 
-* Stephen Hemminger <shemminger@osdl.org> wrote:
-> Alexander Wirt wrote:
+> A 66 MHz 486 can perform 1.000.000 divisions per second. Is it a 'slow' cpu ?
 
-[manpage for ss]
+Sparc and some other embedded chips have no division/modulus integer
+instruction and do it in software.
 
->> \fBss\fP is another utility to investigate sockets. Functionally it =
-is
->> NOT better than netstat combined with some perl/awk scripts and thou=
-gh it is
->> surely faster it is not enough to make it much better. :-) So, stop =
-reading
->> this now and do not waste your time. Well, certainly, it proposes so=
-me
->> functionality, which current netstat is still not able to do, but su=
-rely will
->> soon.
+> So... what do you prefer :
+> 
+> 1) Keep the modulus
+> 2) allocate two blocks of ram (powser-of -two hash size, but one extra 
+> indirection)
+> 3) waste near half of ram because one block allocated, and power-of-two hash size.
 
-> Amusing but hardly in keeping with the style and tone of other man pa=
-ges.
-
-The lines above are a 1:1 copy of the text by Alexey Kuznetosv I found =
-in
-the iproute-doc package at /usr/share/doc/iproute-doc/ss.html
-[see http://www.math.ias.edu/doc/iproute-2.6.9/ss.ps].
-Of course feel free to drop/replace the lines.
-
--mika-
---=20
- ,'"`.         http://www.michael-prokop.at/
-(  grml.org -=BB Linux Live-CD for texttool-users and sysadmins
- `._,'         http://www.grml.org/
-
+I thought the problem was that you use a modulus and non-power-of-2
+hash table size because rounding up to the next power of 2 wastes
+a lot of space?  Given that, my suggestion is simply to not round
+up to the next power-of-2, or only do so when we are very very close
+to that next power-of-2.
