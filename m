@@ -1,55 +1,65 @@
-From: Mitsuru Chinen <mitch@jp.ibm.com>
-Subject: Re: (usagi-core 31424) Re: [PATCH 7/13] [RFC] [IPV6] Move source
- address selection into route lookup.
-Date: Thu, 19 Oct 2006 19:25:21 +0900
-Message-ID: <45375291.4080607@jp.ibm.com>
-References: <20061016.222223.26532234.davem@davemloft.net>	<45348DD4.4000600@6wind.com>	<20061017.175231.45194288.yoshfuji@linux-ipv6.org> <20061018.230850.91573842.yoshfuji@linux-ipv6.org> <4536E279.1090003@jp.ibm.com> <453743C0.4000701@tcs.hut.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] [NET] inet_peer : group together avl_left, avl_right, v4daddr to speedup lookups on some CPUS
+Date: Thu, 19 Oct 2006 12:57:42 +0200
+Message-ID: <200610191257.42549.dada1@cosmosbay.com>
+References: <Pine.LNX.4.58.0610162051170.12462@dexter.psc.edu> <200610171458.37636.dada1@cosmosbay.com> <200610180938.39175.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, davem@davemloft.net, tgraf@suug.ch,
-	kim.nordlund@nokia.com, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, jean-mickael.guerin@6wind.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_mo1NFYJg+GqKuJ+"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:61150 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1161384AbWJSKZf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 06:25:35 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k9JAPWXG005884
-	for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 06:25:32 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9JAPVwD513646
-	for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 04:25:31 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9JAPUcl028720
-	for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 04:25:31 -0600
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <453743C0.4000701@tcs.hut.fi>
+Received: from pfx2.jmh.fr ([194.153.89.55]:63689 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1422865AbWJSK5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 06:57:42 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <200610180938.39175.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Ville,
+--Boundary-00=_mo1NFYJg+GqKuJ+
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Ville Nuorvala wrote:
-> Mitsuru-san,
-> 
-> could you apply patch #12 and rerun the test? I think this particular
-> problem is caused by the routing cache entry not having a valid source
-> address in the first place. As ip6_dst_lookup() doesn't do the source
-> address lookup anymore, it is critical that we only store cache entries
-> with complete address data for both destination and source.
-> 
-> These two patches apparently shouldn't have been split in the first
-> place. Sorry!
+Hi David
 
-I'm afraid patch #12 doesn't work for this issue.
+Lot of routers/embedded devices still use CPUS with 16/32 bytes cache lines. 
+(486, Pentium, ...  PIII)
+It makes sense to group together fields used at lookup time so they fit in one 
+cache line.
+This reduce cache footprint and speedup lookups.
 
-Although I applied patch #12, I still got fails.
-The test log is the same as the last one.
-When I applied all patches, I got fails, either.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Best Regards,
--- 
-Mitsuru Chinen <mitch@jp.ibm.com>
+--Boundary-00=_mo1NFYJg+GqKuJ+
+Content-Type: text/plain;
+  charset="utf-8";
+  name="inetpeer_speedup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="inetpeer_speedup.patch"
 
+--- net-2.6/include/net/inetpeer.h	2006-10-19 12:50:29.000000000 +0200
++++ net-2.6-ed/include/net/inetpeer.h	2006-10-19 12:52:08.000000000 +0200
+@@ -17,14 +17,15 @@
+ 
+ struct inet_peer
+ {
++	/* group together avl_left,avl_right,v4daddr to speedup lookups */
+ 	struct inet_peer	*avl_left, *avl_right;
++	__be32			v4daddr;	/* peer's address */
++	__u16			avl_height;
++	__u16			ip_id_count;	/* IP ID for the next packet */
+ 	struct inet_peer	*unused_next, **unused_prevp;
+ 	__u32			dtime;		/* the time of last use of not
+ 						 * referenced entries */
+ 	atomic_t		refcnt;
+-	__be32			v4daddr;	/* peer's address */
+-	__u16			avl_height;
+-	__u16			ip_id_count;	/* IP ID for the next packet */
+ 	atomic_t		rid;		/* Frag reception counter */
+ 	__u32			tcp_ts;
+ 	unsigned long		tcp_ts_stamp;
+
+--Boundary-00=_mo1NFYJg+GqKuJ+--
