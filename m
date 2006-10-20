@@ -1,45 +1,60 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 14:41:53 -0700
-Message-ID: <20061020144153.2bbeaf9d@dxpl.pdx.osdl.net>
-References: <20061020.134209.85688168.davem@davemloft.net>
-	<200610202301.29859.ak@suse.de>
-	<20061020.140859.95896187.davem@davemloft.net>
-	<200610202316.03940.ak@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: akpm@osdl.org
+Subject: [patch 1/8] Update smc91x driver with ARM Versatile board info
+Date: Fri, 20 Oct 2006 14:42:04 -0700
+Message-ID: <200610202142.k9KLg4om003709@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, dsaxena@plexity.net,
+	nico@cam.org, rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:3972 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S2992753AbWJTVmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:42:14 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200610202316.03940.ak@suse.de>
+Received: from smtp.osdl.org ([65.172.181.4]:14980 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S2992753AbWJTVmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:42:43 -0400
+To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Oct 2006 23:16:03 +0200
-Andi Kleen <ak@suse.de> wrote:
+From: Deepak Saxena <dsaxena@plexity.net>
 
-> On Friday 20 October 2006 23:08, David Miller wrote:
-> > From: Andi Kleen <ak@suse.de>
-> > Date: Fri, 20 Oct 2006 23:01:29 +0200
-> > 
-> > > netpoll always played a little fast'n'lose with various locking rules.
-> > 
-> > The current code is fine, it never reenters ->poll, because it
-> > maintains a "->poll_owner" which it checks in netpoll_send_skb()
-> > before trying to call back into ->poll.
-> 
-> I was more thinking of reentry of the interrupt handler in 
-> the driver etc. A lot of them also do printk, but that is fortunately
-> caught higher level.
-> 
-> -Andi
+We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
+generic IRQ layer will complain thusly:
 
-One problem is that with netconsole the NAPI poll routine can be
-called with IRQ's disabled. This means that calls to dev_kfree_skb()
-are incorrect in this context. The driver would have to use dev_kfree_skb_any()
-instead.
+No IRQF_TRIGGER set_type function for IRQ 25 (<NULL>)
+
+Signed-off-by: Deepak Saxena <dsaxena@plexity.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Russell King <rmk@arm.linux.org.uk>
+Cc: Nicolas Pitre <nico@cam.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ drivers/net/smc91x.h |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+)
+
+diff -puN drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info drivers/net/smc91x.h
+--- a/drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info
++++ a/drivers/net/smc91x.h
+@@ -416,6 +416,24 @@ static inline void LPD7_SMC_outsw (unsig
+ 
+ #define SMC_IRQ_FLAGS		(0)
+ 
++#elif	defined(CONFIG_ARCH_VERSATILE)
++
++#define SMC_CAN_USE_8BIT	1
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	1
++#define SMC_NOWAIT		1
++
++#define SMC_inb(a, r)		readb((a) + (r))
++#define SMC_inw(a, r)		readw((a) + (r))
++#define SMC_inl(a, r)		readl((a) + (r))
++#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)	writew(v, (a) + (r))
++#define SMC_outl(v, a, r)	writel(v, (a) + (r))
++#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
++#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
++
++#define SMC_IRQ_FLAGS		(0)
++
+ #else
+ 
+ #define SMC_CAN_USE_8BIT	1
+_
