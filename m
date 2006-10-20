@@ -1,7 +1,7 @@
 From: Hong Liu <hong.liu@intel.com>
 Subject: [patch 2/2] d80211: fix wep_tfm race
-Date: Fri, 20 Oct 2006 17:20:34 +0800
-Message-ID: <1161335977.21402.13.camel@devlinux-hong>
+Date: Fri, 20 Oct 2006 17:20:36 +0800
+Message-ID: <1161336034.21402.15.camel@devlinux-hong>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,8 +9,8 @@ Cc: "John W. Linville" <linville@tuxdriver.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:56915 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S932237AbWJTJ1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 05:27:09 -0400
+	by vger.kernel.org with ESMTP id S932241AbWJTJ1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 05:27:11 -0400
 To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
