@@ -1,50 +1,38 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH 4/6] net: use bitrev8
-Date: Fri, 20 Oct 2006 11:50:45 +0900
-Message-ID: <20061020025045.GB6344@localhost>
-References: <20061018164647.GD21820@localhost> <20061019133951.1d463173.akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] Ethernet Cheap Cryptography
+Date: Thu, 19 Oct 2006 19:59:21 -0700 (PDT)
+Message-ID: <20061019.195921.31639913.davem@davemloft.net>
+References: <17718.63424.509719.492216@localhost.localdomain>
+	<eh87aq$71t$1@sea.gmane.org>
+	<17720.12801.843076.819750@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Mirko Lindner <mlindner@syskonnect.de>,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pjf@asn.pl, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:15265 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S2992439AbWJTCtz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 22:49:55 -0400
-Received: by nf-out-0910.google.com with SMTP id c2so1256900nfe
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2006 19:49:54 -0700 (PDT)
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061019133951.1d463173.akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20148
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S2992440AbWJTC7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Oct 2006 22:59:20 -0400
+To: stephen@dino.dnsalias.com
+In-Reply-To: <17720.12801.843076.819750@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2006 at 01:39:51PM -0700, Andrew Morton wrote:
+From: stephen@dino.dnsalias.com (Stephen J. Bevan)
+Date: Thu, 19 Oct 2006 19:18:41 -0700
 
-> A bunch of drivers.
+> Pawel Foremski writes:
+>  > Secondly, IPsec won't decrease MSS in TCP encapsulated in PPPoE
+>  > traffic, for example. 
 > 
-> > ===================================================================
-> > --- work-fault-inject.orig/drivers/net/Kconfig
-> > +++ work-fault-inject/drivers/net/Kconfig
-> > @@ -2500,6 +2500,7 @@ config DEFXX
-> >  config SKFP
-> >  	tristate "SysKonnect FDDI PCI support"
-> >  	depends on FDDI && PCI
-> > +	select BITREVERSE
-> >  	---help---
-> >  	  Say Y here if you have a SysKonnect FDDI PCI adapter.
-> >  	  The following adapters are supported by this driver:
-> 
-> But only one of them selects the library.
+> Various, commercial, IPsec products decrease the MSS for TCP
+> encapsulated in PPPoE.  I've not checked the Linux 2.6 IPsec code to
+> see if it does or if it can easily be made to.
 
-Other drivers already select CRC32 and CRC32 selects BITREVERSE.
+Linux will for local TCP connections over IPSEC transports since it
+knows the path MTU, for IPSEC gateways the source system will adjust
+the MSS after it notes via path-MTU what the decreased MTU is.
 
-> But select is problematic and I do wonder whether it'd be simpler to just
-> link the thing into vmlinux.
-
-OK. I'll try.
-
+I think this is just a big list of excuses for not using IPSEC as the
+solution for whatever problem is trying to be solved.
