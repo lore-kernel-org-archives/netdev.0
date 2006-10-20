@@ -1,35 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling	for	ATM/ADSL
- (kernel)
-Date: Fri, 20 Oct 2006 10:54:00 +0200
-Message-ID: <45388EA8.3090103@trash.net>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net> <1161305354.5034.50.camel@jzny2>
+From: =?iso-8859-2?B?TWljaGFsIFL5vmnoa2E=?= <michal.ruzicka@comstar.cz>
+Subject: Re: AF_KEY extended xfrm_state selector handling
+Date: Fri, 20 Oct 2006 10:56:13 +0200
+Message-ID: <00b501c6f425$a0325be0$2303a8c0@mruzicka>
+References: <200610191626.k9JGQ7x4014606@gateplz.comstar.cz> <1161305972.5034.58.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-2";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: Russell Stuart <russell-tcatm@stuart.id.au>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39819 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932208AbWJTIyQ
+Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:60893 "EHLO
+	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S2992585AbWJTI6N
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 04:54:16 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1161305354.5034.50.camel@jzny2>
+	Fri, 20 Oct 2006 04:58:13 -0400
+To: <hadi@cyberus.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> The poor guy has been persistent and has some good ideas and we need to
-> encourage him to stick around.  Why dont you help him get the patch in
-> the shape you think is reasonable? I know you are busy elsewhere and
-> your patch has been a while since you last promised. I will try to help
-> as well. 
 
-I have explained what I would like to see several times and sent
-a patch to demonstrate it. I'd be happy to help further (I would
-like to see this go in eventually), but there's nothing I can do
-besides repeating myself as long as we only get to see the same
-patch again and again.
+>
+> BTW, why not use xfrm instead? Then you dont have to worry about racoon.
+
+What do you mean by this?
+- Do you suggest that there is another IKE implemetation for Linux 2.6 IPSec 
+stack which uses netlink socket (XFRM) for kernel communication? If so, 
+would you please point me to it?
+Or
+- Do you mean to make racoon use the netlink socket (XFRM) instead of PF_KEY 
+for the kernel communication? (Well I'm not brave enough to tackle that.)
+Or
+- Do you mean something completely else?
+
+> Unless you care about running this in some other OS (I suspect these
+> OSes probably have made use of SADB_EXT_ADDRESS_PROXY so that may be a
+> futile effort in any case).
+
+I can see this might be problem, but a conditional compilation of the 
+relevant bits of racoon should be enough to cope with that.
+
+>
+>
+> cheers,
+> jamal
+>
+> PS:- Nothing stands out for me in your patch, so i have no comment; i
+
+
+OK, could you please apply it then?
+
+> wasnt sure if the concept of tcp/udp port meant much to the concept of a
+> security association
+
+It is crucial for the multiple clients behind the same NAT scenario.
+
+>
+>
+
+Regards Michal 
 
