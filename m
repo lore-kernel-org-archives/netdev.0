@@ -1,57 +1,57 @@
 From: akpm@osdl.org
-Subject: [patch 3/9] drivers/atm: No need to return void
-Date: Fri, 20 Oct 2006 14:43:03 -0700
-Message-ID: <200610202143.k9KLh3b1003768@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, tklauser@distanz.ch,
-	chas@cmf.nrl.navy.mil
+Subject: [patch 6/9] NET/atm: handle sysfs errors
+Date: Fri, 20 Oct 2006 14:43:16 -0700
+Message-ID: <200610202143.k9KLhG0p003801@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:60804 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S2992763AbWJTVoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:44:01 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:63108 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S2992765AbWJTVoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:44:03 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
+From: Jeff Garzik <jeff@garzik.org>
 
-The module_exit function has return-type void and pci_unregister_driver()
-returns void anyway.
-
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-Cc: chas williams <chas@cmf.nrl.navy.mil>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/atm/ambassador.c |    4 ++--
- drivers/atm/horizon.c    |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/atm/atm_sysfs.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
 
-diff -puN drivers/atm/ambassador.c~drivers-atm-no-need-to-return-void drivers/atm/ambassador.c
---- a/drivers/atm/ambassador.c~drivers-atm-no-need-to-return-void
-+++ a/drivers/atm/ambassador.c
-@@ -2452,8 +2452,8 @@ static int __init amb_module_init (void)
- static void __exit amb_module_exit (void)
+diff -puN net/atm/atm_sysfs.c~net-atm-handle-sysfs-errors net/atm/atm_sysfs.c
+--- a/net/atm/atm_sysfs.c~net-atm-handle-sysfs-errors
++++ a/net/atm/atm_sysfs.c
+@@ -141,7 +141,7 @@ static struct class atm_class = {
+ int atm_register_sysfs(struct atm_dev *adev)
  {
-   PRINTD (DBG_FLOW|DBG_INIT, "cleanup_module");
--  
--  return pci_unregister_driver(&amb_driver);
+ 	struct class_device *cdev = &adev->class_dev;
+-	int i, err;
++	int i, j, err;
+ 
+ 	cdev->class = &atm_class;
+ 	class_set_devdata(cdev, adev);
+@@ -151,10 +151,19 @@ int atm_register_sysfs(struct atm_dev *a
+ 	if (err < 0)
+ 		return err;
+ 
+-	for (i = 0; atm_attrs[i]; i++)
+-		class_device_create_file(cdev, atm_attrs[i]);
++	for (i = 0; atm_attrs[i]; i++) {
++		err = class_device_create_file(cdev, atm_attrs[i]);
++		if (err)
++			goto err_out;
++	}
+ 
+ 	return 0;
 +
-+  pci_unregister_driver(&amb_driver);
++err_out:
++	for (j = 0; j < i; j++)
++		class_device_remove_file(cdev, atm_attrs[j]);
++	class_device_del(cdev);
++	return err;
  }
  
- module_init(amb_module_init);
-diff -puN drivers/atm/horizon.c~drivers-atm-no-need-to-return-void drivers/atm/horizon.c
---- a/drivers/atm/horizon.c~drivers-atm-no-need-to-return-void
-+++ a/drivers/atm/horizon.c
-@@ -2932,8 +2932,8 @@ static int __init hrz_module_init (void)
- 
- static void __exit hrz_module_exit (void) {
-   PRINTD (DBG_FLOW, "cleanup_module");
--  
--  return pci_unregister_driver(&hrz_driver);
-+
-+  pci_unregister_driver(&hrz_driver);
- }
- 
- module_init(hrz_module_init);
+ void atm_unregister_sysfs(struct atm_dev *adev)
 _
