@@ -1,37 +1,40 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: Please pull 'we21-fix' branch of wireless-2.6.git
-Date: Thu, 19 Oct 2006 15:10:59 -0700
-Message-ID: <20061019221059.GC9966@bougret.hpl.hp.com>
-References: <20061005163113.GB6510@bougret.hpl.hp.com> <20061005204949.GF18408@tuxdriver.com> <20061005221246.GB7533@bougret.hpl.hp.com> <20061010193959.GC5728@tuxdriver.com> <20061010202803.GA17177@bougret.hpl.hp.com> <20061019215647.GA18217@tuxdriver.com>
-Reply-To: jt@hpl.hp.com
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: Drain TX status before starting IRQs
+Date: Fri, 20 Oct 2006 10:25:53 +1000
+Message-ID: <1161303953.10524.81.camel@localhost.localdomain>
+References: <200610191729.35402.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, Jouni Malinen <jkm@devicescape.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:64740 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S1946570AbWJSWNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2006 18:13:41 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
-In-Reply-To: <20061019215647.GA18217@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+In-Reply-To: <200610191729.35402.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2006 at 05:56:53PM -0400, John W. Linville wrote:
-> Jeff,
+On Thu, 2006-10-19 at 17:29 +0200, Michael Buesch wrote:
+> Drain the Microcode TX-status-FIFO before we enable IRQs.
+> This is required, because the FIFO may still have entries left
+> from a previous run. Those would immediately fire after enabling
+> IRQs and would lead to an oops in the DMA TXstatus handling code.
 > 
-> Here is my ugly patch to fix userland ABI compatibility for WE-21.
-> It tries to detect WE <= 20 by the request length or the inclusion of
-> '\0' in the length for the ESSID and NICKN ioctls.  If it finds that,
-> it temporarily adjusts the length value and puts it back before
-> reporting back to userland.
-> 
-> It is possible that there are more elegant solutions that work, but
-> I'm not totally convinced that they truly preserve the ABI as desired.
-> Please see the discussion earlier in this thread if you are interested.
+> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 
-	I agree that this is a good compromise.
-	Thanks a lot for your work, John !
+Great, thanks. Note that I haven't yet hit the bug since I updated the
+firmware, so it could be a mix of firmware and that problem, though it's
+not been long enough to be a clear results.
 
-	Jean
+In any case, that patch should go in.
+
+Cheers,
+Ben.
