@@ -1,60 +1,77 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [IPv6] fib: initialize tb6_lock in common place to give lockdep a key
-Date: Fri, 20 Oct 2006 14:42:04 +0200
-Message-ID: <20061020124204.GW12964@postel.suug.ch>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] [NET] reduce sizeof(struct flowi) by 20 bytes
+Date: Fri, 20 Oct 2006 15:55:33 +0200
+Message-ID: <200610201555.33736.dada1@cosmosbay.com>
+References: <4535B6B7.4070107@cosmosbay.com> <200610181055.32102.dada1@cosmosbay.com> <20061018124202.GA31981@fogou.chygwyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_VVNOFZHnQfQVJgf"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:37039 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751652AbWJTMln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 08:41:43 -0400
-To: davem@davemloft.net
-Content-Disposition: inline
+Received: from pfx2.jmh.fr ([194.153.89.55]:14498 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S2992615AbWJTNzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 09:55:33 -0400
+To: Steven Whitehouse <steve@chygwyn.com>,
+	David Miller <davem@davemloft.net>
+In-Reply-To: <20061018124202.GA31981@fogou.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--Boundary-00=_VVNOFZHnQfQVJgf
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Hi all
 
-Index: net-2.6/net/ipv6/ip6_fib.c
-===================================================================
---- net-2.6.orig/net/ipv6/ip6_fib.c	2006-10-20 12:33:57.000000000 +0200
-+++ net-2.6/net/ipv6/ip6_fib.c	2006-10-20 12:39:13.000000000 +0200
-@@ -169,7 +169,6 @@
- 
- static struct fib6_table fib6_main_tbl = {
- 	.tb6_id		= RT6_TABLE_MAIN,
--	.tb6_lock	= RW_LOCK_UNLOCKED,
- 	.tb6_root	= {
- 		.leaf		= &ip6_null_entry,
- 		.fn_flags	= RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO,
-@@ -187,6 +186,12 @@
+As suggested by David, just kill off some unused fields in dnports to reduce 
+sizef(struct flowi). If they come back, they should be moved to nl_u.dn_u in 
+order not to enlarge again struct flowi
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary-00=_VVNOFZHnQfQVJgf
+Content-Type: text/plain;
+  charset="iso-8859-1";
+  name="shrink_flowi.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="shrink_flowi.patch"
+
+diff --git a/include/net/dn.h b/include/net/dn.h
+index 465b783..c39385b 100644
+--- a/include/net/dn.h
++++ b/include/net/dn.h
+@@ -199,11 +199,13 @@ static inline void dn_sk_ports_copy(stru
  {
- 	unsigned int h;
- 
-+	/*
-+	 * Initialize table lock at a single place to give lockdep a key,
-+	 * tables aren't visible prior to being linked to the list.
-+	 */
-+	rwlock_init(&tb->tb6_lock);
-+
- 	h = tb->tb6_id & (FIB_TABLE_HASHSZ - 1);
- 
- 	/*
-@@ -199,7 +204,6 @@
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- static struct fib6_table fib6_local_tbl = {
- 	.tb6_id		= RT6_TABLE_LOCAL,
--	.tb6_lock	= RW_LOCK_UNLOCKED,
- 	.tb6_root 	= {
- 		.leaf		= &ip6_null_entry,
- 		.fn_flags	= RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO,
-@@ -213,7 +217,6 @@
- 	table = kzalloc(sizeof(*table), GFP_ATOMIC);
- 	if (table != NULL) {
- 		table->tb6_id = id;
--		table->tb6_lock = RW_LOCK_UNLOCKED;
- 		table->tb6_root.leaf = &ip6_null_entry;
- 		table->tb6_root.fn_flags = RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
+ 	fl->uli_u.dnports.sport = scp->addrloc;
+ 	fl->uli_u.dnports.dport = scp->addrrem;
++#if 0 /* not yet used */
+ 	fl->uli_u.dnports.objnum = scp->addr.sdn_objnum;
+ 	if (fl->uli_u.dnports.objnum == 0) {
+ 		fl->uli_u.dnports.objnamel = (__u8)dn_ntohs(scp->addr.sdn_objnamel);
+ 		memcpy(fl->uli_u.dnports.objname, scp->addr.sdn_objname, 16);
  	}
++#endif
+ }
+ 
+ extern unsigned dn_mss_from_pmtu(struct net_device *dev, int mtu);
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 3b44d72..bdc0e49 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -68,9 +68,11 @@ #define FLOWI_FLAG_MULTIPATHOLDROUTE 0x0
+ 		struct {
+ 			__le16	sport;
+ 			__le16	dport;
++#if 0 /* not yet used, should move to nl_u.dn_u */
+ 			__u8	objnum;
+ 			__u8	objnamel; /* Not 16 bits since max val is 16 */
+ 			__u8	objname[16]; /* Not zero terminated */
++#endif
+ 		} dnports;
+ 
+ 		__be32		spi;
+
+--Boundary-00=_VVNOFZHnQfQVJgf--
