@@ -1,78 +1,102 @@
 From: akpm@osdl.org
-Subject: [patch 7/8] subdance: solve host error problem in low performance embedded system when continune down and up
-Date: Fri, 20 Oct 2006 14:42:13 -0700
-Message-ID: <200610202142.k9KLgDHx003732@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jesse@icplus.com.tw
+Subject: [patch 5/9] WAN/pc300: handle, propagate minor errors
+Date: Fri, 20 Oct 2006 14:43:15 -0700
+Message-ID: <200610202143.k9KLhFNL003798@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jeff@garzik.org,
+	khc@pm.waw.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:24964 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S2992754AbWJTVnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:43:02 -0400
-To: jeff@garzik.org
+Received: from smtp.osdl.org ([65.172.181.4]:4997 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S2992762AbWJTVoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:44:19 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Huang <jesse@icplus.com.tw>
+From: Jeff Garzik <jeff@garzik.org>
 
-Solve host error problem in low performance embedded system when continune
-down and up.  It will cause IP100A DMA TargetAbort.  So we need more safe
-process to up and down IP100A with wait hardware completely stop and software
-cur_tx/ dirty_tx/cur_task/last_tx be clear.
+- move definition of 'tmc' and 'br' locals closer to usage
 
-Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
+- handle clock_rate_calc() error
+
+- propagate errors back to upper level open routine
+
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/sundance.c |   26 +++++++++++++++++++++++---
- 1 files changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/wan/pc300_drv.c |   24 +++++++++++++++++++-----
+ 1 files changed, 19 insertions(+), 5 deletions(-)
 
-diff -puN drivers/net/sundance.c~sundance-solve-host-error-problem-in-low-performance-embedded drivers/net/sundance.c
---- a/drivers/net/sundance.c~sundance-solve-host-error-problem-in-low-performance-embedded
-+++ a/drivers/net/sundance.c
-@@ -1643,6 +1643,14 @@ static int netdev_close(struct net_devic
- 	struct sk_buff *skb;
- 	int i;
- 
-+	/* Wait and kill tasklet */
-+	tasklet_kill(&np->rx_tasklet);
-+	tasklet_kill(&np->tx_tasklet);
-+	np->cur_tx = 0;
-+	np->dirty_tx = 0;
-+	np->cur_task = 0;
-+	np->last_tx = 0;
+diff -puN drivers/net/wan/pc300_drv.c~wan-pc300-handle-propagate-minor-errors drivers/net/wan/pc300_drv.c
+--- a/drivers/net/wan/pc300_drv.c~wan-pc300-handle-propagate-minor-errors
++++ a/drivers/net/wan/pc300_drv.c
+@@ -2867,7 +2867,6 @@ static int ch_config(pc300dev_t * d)
+ 	uclong clktype = chan->conf.phys_settings.clock_type;
+ 	ucshort encoding = chan->conf.proto_settings.encoding;
+ 	ucshort parity = chan->conf.proto_settings.parity;   
+-	int tmc, br;
+ 	ucchar md0, md2;
+     
+ 	/* Reset the channel */
+@@ -2940,8 +2939,12 @@ static int ch_config(pc300dev_t * d)
+ 		case PC300_RSV:
+ 		case PC300_X21:
+ 			if (clktype == CLOCK_INT || clktype == CLOCK_TXINT) {
++				int tmc, br;
 +
- 	netif_stop_queue(dev);
+ 				/* Calculate the clkrate parameters */
+ 				tmc = clock_rate_calc(clkrate, card->hw.clock, &br);
++				if (tmc < 0)
++					return -EIO;
+ 				cpc_writeb(scabase + M_REG(TMCT, ch), tmc);
+ 				cpc_writeb(scabase + M_REG(TXS, ch),
+ 					   (TXS_DTRXC | TXS_IBRG | br));
+@@ -3097,14 +3100,16 @@ static int cpc_attach(struct net_device 
+ 	return 0;
+ }
  
- 	if (netif_msg_ifdown(np)) {
-@@ -1663,9 +1671,20 @@ static int netdev_close(struct net_devic
- 	/* Stop the chip's Tx and Rx processes. */
- 	iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
+-static void cpc_opench(pc300dev_t * d)
++static int cpc_opench(pc300dev_t * d)
+ {
+ 	pc300ch_t *chan = (pc300ch_t *) d->chan;
+ 	pc300_t *card = (pc300_t *) chan->card;
+-	int ch = chan->channel;
++	int ch = chan->channel, rc;
+ 	void __iomem *scabase = card->hw.scabase;
  
--	/* Wait and kill tasklet */
--	tasklet_kill(&np->rx_tasklet);
--	tasklet_kill(&np->tx_tasklet);
-+    	for (i = 2000; i > 0; i--) {
-+ 		if ((ioread32(ioaddr + DMACtrl) & 0xc000) == 0)
-+			break;
-+		mdelay(1);
-+    	}
+-	ch_config(d);
++	rc = ch_config(d);
++	if (rc)
++		return rc;
+ 
+ 	rx_config(d);
+ 
+@@ -3113,6 +3118,8 @@ static void cpc_opench(pc300dev_t * d)
+ 	/* Assert RTS and DTR */
+ 	cpc_writeb(scabase + M_REG(CTL, ch),
+ 		   cpc_readb(scabase + M_REG(CTL, ch)) & ~(CTL_RTS | CTL_DTR));
 +
-+    	iowrite16(GlobalReset | DMAReset | FIFOReset | NetworkReset,
-+			ioaddr +ASICCtrl + 2);
-+
-+    	for (i = 2000; i > 0; i--) {
-+ 		if ((ioread16(ioaddr + ASICCtrl +2) & ResetBusy) == 0)
-+			break;
-+		mdelay(1);
-+    	}
++	return 0;
+ }
  
- #ifdef __i386__
- 	if (netif_msg_hw(np)) {
-@@ -1703,6 +1722,7 @@ static int netdev_close(struct net_devic
- 		}
+ static void cpc_closech(pc300dev_t * d)
+@@ -3168,9 +3175,16 @@ int cpc_open(struct net_device *dev)
  	}
- 	for (i = 0; i < TX_RING_SIZE; i++) {
-+		np->tx_ring[i].next_desc = 0;
- 		skb = np->tx_skbuff[i];
- 		if (skb) {
- 			pci_unmap_single(np->pci_dev,
+ 
+ 	sprintf(ifr.ifr_name, "%s", dev->name);
+-	cpc_opench(d);
++	result = cpc_opench(d);
++	if (result)
++		goto err_out;
++
+ 	netif_start_queue(dev);
+ 	return 0;
++
++err_out:
++	hdlc_close(dev);
++	return result;
+ }
+ 
+ static int cpc_close(struct net_device *dev)
 _
