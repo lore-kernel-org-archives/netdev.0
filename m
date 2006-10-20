@@ -1,53 +1,45 @@
 From: akpm@osdl.org
-Subject: [patch 4/9] atm/firestream: handle thrown error
-Date: Fri, 20 Oct 2006 14:43:14 -0700
-Message-ID: <200610202143.k9KLhEFH003795@shell0.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jeff@garzik.org,
-	chas@cmf.nrl.navy.mil
+Subject: [patch 8/8] e1000: Reset all functions after a PCI error
+Date: Fri, 20 Oct 2006 14:42:14 -0700
+Message-ID: <200610202142.k9KLgEcZ003738@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, linas@austin.ibm.com,
+	auke-jan.h.kok@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:14725 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S2992766AbWJTVo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:44:28 -0400
-To: davem@davemloft.net
+Received: from smtp.osdl.org ([65.172.181.4]:28294 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S2992773AbWJTVsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:48:22 -0400
+To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Jeff Garzik <jeff@garzik.org>
+From: Linas Vepstas <linas@austin.ibm.com>
 
-gcc emits the following warning:
+During the handling of the PCI error recovery sequence, the current e1000
+driver erroneously blocks a device reset for any but the first PCI
+function.  It shouldn't -- this is a cut-n-paste error from a different
+driver (which tolerated only one hardware reset per hardware card).
 
-drivers/atm/firestream.c: In function =E2=80=98fs_open=E2=80=99:
-drivers/atm/firestream.c:870: warning: =E2=80=98tmc0=E2=80=99 may be us=
-ed uninitialized in this function
-
-This indicates a real bug.  We should check make_rate() return value fo=
-r
-potential errors.
-
-Signed-off-by: Jeff Garzik <jeff@garzik.org>
-Cc: chas williams <chas@cmf.nrl.navy.mil>
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/atm/firestream.c |    4 ++++
- 1 files changed, 4 insertions(+)
+ drivers/net/e1000/e1000_main.c |    4 ----
+ 1 files changed, 4 deletions(-)
 
-diff -puN drivers/atm/firestream.c~atm-firestream-handle-thrown-error d=
-rivers/atm/firestream.c
---- a/drivers/atm/firestream.c~atm-firestream-handle-thrown-error
-+++ a/drivers/atm/firestream.c
-@@ -1002,6 +1002,10 @@ static int fs_open(struct atm_vcc *atm_v
- 					r =3D ROUND_UP;
- 				}
- 				error =3D make_rate (pcr, r, &tmc0, NULL);
-+				if (error) {
-+					kfree(tc);
-+					return error;
-+				}
- 			}
- 			fs_dprintk (FS_DEBUG_OPEN, "pcr =3D %d.\n", pcr);
- 		}
+diff -puN drivers/net/e1000/e1000_main.c~e1000-reset-all-functions-after-a-pci-error drivers/net/e1000/e1000_main.c
+--- a/drivers/net/e1000/e1000_main.c~e1000-reset-all-functions-after-a-pci-error
++++ a/drivers/net/e1000/e1000_main.c
+@@ -4914,10 +4914,6 @@ static pci_ers_result_t e1000_io_slot_re
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+-	/* Perform card reset only on one instance of the card */
+-	if (PCI_FUNC (pdev->devfn) != 0)
+-		return PCI_ERS_RESULT_RECOVERED;
+-
+ 	e1000_reset(adapter);
+ 	E1000_WRITE_REG(&adapter->hw, WUS, ~0);
+ 
 _
