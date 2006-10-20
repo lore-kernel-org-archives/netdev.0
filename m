@@ -1,145 +1,124 @@
 From: Hong Liu <hong.liu@intel.com>
-Subject: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Fri, 20 Oct 2006 17:19:36 +0800
-Message-ID: <1161335976.21402.11.camel@devlinux-hong>
+Subject: [patch 2/2] d80211: fix wep_tfm race
+Date: Fri, 20 Oct 2006 17:20:34 +0800
+Message-ID: <1161335977.21402.13.camel@devlinux-hong>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "John W. Linville" <linville@tuxdriver.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:19464 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S932209AbWJTJ0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 05:26:13 -0400
+Received: from mga02.intel.com ([134.134.136.20]:56915 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S932237AbWJTJ1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 05:27:09 -0400
 To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ipw3945 TKIP hwcrypto only support RC4 encryption,
-so the stack needs to pre compute the michael MIC and the RC4key
-for it.
+The TX/RX path all use the local->wep_tfm to encrypt and decrypt
+packets. Each {en|de}crypt operation need set a new RC4key,
+this may corrupt the previous set key that is still being used.
+Thus cause a lot of decrypton error or encryption with the wrong key.
+Use two tfm (tx_tfm and rx_tfm) to avoid this race.
 
 Signed-off-by: Hong Liu <hong.liu@intel.com>
 
 ---
 
- include/net/d80211.h |    7 +++++++
- net/d80211/tkip.c    |   25 +++++++++++++++----------
- net/d80211/tkip.h    |    2 ++
- net/d80211/wpa.c     |   10 +++++++++-
- 4 files changed, 33 insertions(+), 11 deletions(-)
+ net/d80211/ieee80211_i.h |    3 ++-
+ net/d80211/wep.c         |   18 +++++++++++++-----
+ net/d80211/wpa.c         |    6 ++++--
+ 3 files changed, 19 insertions(+), 8 deletions(-)
 
-a759f6251a0a5c7a8529c2ebd579acd6f0183cb4
-diff --git a/include/net/d80211.h b/include/net/d80211.h
-index a80f48b..48e1e01 100644
---- a/include/net/d80211.h
-+++ b/include/net/d80211.h
-@@ -176,6 +176,7 @@ struct ieee80211_tx_control {
- 			*/
- 	int icv_len:8; /* Length of the ICV/MIC field in octets */
- 	int iv_len:8; /* Length of the IV field in octets */
-+	u8 rc4key[16]; /* generated RC4 key for hw TKIP */
- 	unsigned int queue:4; /* hardware queue to use for this frame;
- 		      * 0 = highest, hw->queues-1 = lowest */
- 	unsigned int sw_retry_attempt:4; /* no. of times hw has tried to
-@@ -476,6 +477,12 @@ struct ieee80211_hw {
- 	/* Force software encryption for TKIP packets if WMM is enabled. */
- 	unsigned int no_tkip_wmm_hwaccel:1;
+634c9615ce3cd06dc7f6aff05e43e61490a53472
+diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
+index 425fc9b..152b41a 100644
+--- a/net/d80211/ieee80211_i.h
++++ b/net/d80211/ieee80211_i.h
+@@ -402,7 +402,8 @@ #define IEEE80211_IRQSAFE_QUEUE_LIMIT 12
+ 	int long_retry_limit; /* dot11LongRetryLimit */
+ 	int short_preamble; /* use short preamble with IEEE 802.11b */
  
-+	/* Do TKIP key mixing in stack, send the generated RC4 key with
-+	 * with each TX frame */
-+	unsigned int tkip_include_rc4key:1;
-+	/* calculate michael MIC in stack */
-+	unsigned int tkip_include_mmic:1;
+-	struct crypto_tfm *wep_tfm;
++	struct crypto_tfm *wep_tx_tfm;
++	struct crypto_tfm *wep_rx_tfm;
+ 	u32 wep_iv;
+ 	int key_tx_rx_threshold; /* number of times any key can be used in TX
+ 				  * or RX before generating a rekey
+diff --git a/net/d80211/wep.c b/net/d80211/wep.c
+index 22c2e53..06e0230 100644
+--- a/net/d80211/wep.c
++++ b/net/d80211/wep.c
+@@ -26,16 +26,23 @@ int ieee80211_wep_init(struct ieee80211_
+ 	/* start WEP IV from a random value */
+ 	get_random_bytes(&local->wep_iv, WEP_IV_LEN);
+ 
+-	local->wep_tfm = crypto_alloc_tfm("arc4", 0);
+-	if (!local->wep_tfm)
++	local->wep_tx_tfm = crypto_alloc_tfm("arc4", 0);
++	if (!local->wep_tx_tfm)
+ 		return -ENOMEM;
+ 
++	local->wep_rx_tfm = crypto_alloc_tfm("arc4", 0);
++	if (!local->wep_rx_tfm) {
++		crypto_free_tfm(local->wep_tx_tfm);
++		return -ENOMEM;
++	}
 +
- 	/* set if the payload needs to be padded at even boundaries after the
- 	 * header */
- 	unsigned int extra_hdr_room:1;
-diff --git a/net/d80211/tkip.c b/net/d80211/tkip.c
-index 7e3665a..c031814 100644
---- a/net/d80211/tkip.c
-+++ b/net/d80211/tkip.c
-@@ -190,17 +190,9 @@ u8 * ieee80211_tkip_add_iv(u8 *pos, stru
- 	return pos;
+ 	return 0;
  }
  
--
--/* Encrypt packet payload with TKIP using @key. @pos is a pointer to the
-- * beginning of the buffer containing payload. This payload must include
-- * headroom of eight octets for IV and Ext. IV and taildroom of four octets
-- * for ICV. @payload_len is the length of payload (_not_ including extra
-- * headroom and tailroom). @ta is the transmitter addresses. */
--void ieee80211_tkip_encrypt_data(struct crypto_tfm *tfm, struct ieee80211_key *key,
--				 u8 *pos, size_t payload_len, u8 *ta)
-+void ieee80211_tkip_gen_rc4key(struct ieee80211_key *key,
-+			       u8 *rc4key, u8* ta)
+ void ieee80211_wep_free(struct ieee80211_local *local)
  {
--	u8 rc4key[16];
--
- 	/* Calculate per-packet key */
- 	if (key->u.tkip.iv16 == 0 || !key->u.tkip.tx_initialized) {
- 		/* IV16 wrapped around - perform TKIP phase 1 */
-@@ -212,6 +204,19 @@ void ieee80211_tkip_encrypt_data(struct 
- 	tkip_mixing_phase2(key->u.tkip.p1k, &key->key[ALG_TKIP_TEMP_ENCR_KEY],
- 			   key->u.tkip.iv16, rc4key);
- 
-+}
-+
-+/* Encrypt packet payload with TKIP using @key. @pos is a pointer to the
-+ * beginning of the buffer containing payload. This payload must include
-+ * headroom of eight octets for IV and Ext. IV and taildroom of four octets
-+ * for ICV. @payload_len is the length of payload (_not_ including extra
-+ * headroom and tailroom). @ta is the transmitter addresses. */
-+void ieee80211_tkip_encrypt_data(struct crypto_tfm *tfm, struct ieee80211_key *key,
-+				 u8 *pos, size_t payload_len, u8 *ta)
-+{
-+	u8 rc4key[16];
-+
-+	ieee80211_tkip_gen_rc4key(key, rc4key, ta);
- 	pos = ieee80211_tkip_add_iv(pos, key, rc4key[0], rc4key[1], rc4key[2]);
- 	ieee80211_wep_encrypt_data(tfm, rc4key, 16, pos, payload_len);
+-	crypto_free_tfm(local->wep_tfm);
++	crypto_free_tfm(local->wep_tx_tfm);
++	crypto_free_tfm(local->wep_rx_tfm);
  }
-diff --git a/net/d80211/tkip.h b/net/d80211/tkip.h
-index e36b85c..407556b 100644
---- a/net/d80211/tkip.h
-+++ b/net/d80211/tkip.h
-@@ -15,6 +15,8 @@ #include "ieee80211_key.h"
  
- u8 * ieee80211_tkip_add_iv(u8 *pos, struct ieee80211_key *key,
- 			   u8 iv0, u8 iv1, u8 iv2);
-+void ieee80211_tkip_gen_rc4key(struct ieee80211_key *key,
-+			       u8 *rc4key, u8* ta);
- void ieee80211_tkip_encrypt_data(struct crypto_tfm *tfm, struct ieee80211_key *key,
- 				 u8 *pos, size_t payload_len, u8 *ta);
- enum {
+ static inline int ieee80211_wep_weak_iv(u32 iv, int keylen)
+@@ -172,7 +179,8 @@ int ieee80211_wep_encrypt(struct ieee802
+ 	/* Add room for ICV */
+ 	skb_put(skb, WEP_ICV_LEN);
+ 
+-	ieee80211_wep_encrypt_data(local->wep_tfm, rc4key, klen, iv + WEP_IV_LEN, len);
++	ieee80211_wep_encrypt_data(local->wep_tx_tfm, rc4key, klen,
++				   iv + WEP_IV_LEN, len);
+ 
+ 	kfree(rc4key);
+ 
+@@ -252,7 +260,7 @@ int ieee80211_wep_decrypt(struct ieee802
+ 	/* Copy rest of the WEP key (the secret part) */
+ 	memcpy(rc4key + 3, key->key, key->keylen);
+ 
+-	if (ieee80211_wep_decrypt_data(local->wep_tfm, rc4key, klen,
++	if (ieee80211_wep_decrypt_data(local->wep_rx_tfm, rc4key, klen,
+ 				       skb->data + hdrlen + WEP_IV_LEN,
+ 				       len)) {
+ 		printk(KERN_DEBUG "WEP decrypt failed (ICV)\n");
 diff --git a/net/d80211/wpa.c b/net/d80211/wpa.c
-index 31abf9b..5e62464 100644
+index 5e62464..ef707ad 100644
 --- a/net/d80211/wpa.c
 +++ b/net/d80211/wpa.c
-@@ -104,7 +104,8 @@ #ifdef CONFIG_HOSTAPD_WPA_TESTING
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+@@ -352,7 +352,8 @@ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+ 	skb_put(skb, TKIP_ICV_LEN);
  
- 	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
--	    !tx->fragmented && !wpa_test) {
-+	    !tx->fragmented && !tx->local->hw->tkip_include_mmic &&
-+	    !wpa_test) {
- 		/* hwaccel - with no need for preallocated room for Michael MIC
- 		 */
- 		return TXRX_CONTINUE;
-@@ -336,6 +337,13 @@ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
- 					    0x7f),
- 				      (u8) key->u.tkip.iv16);
+ 	hdr = (struct ieee80211_hdr *) skb->data;
+-	ieee80211_tkip_encrypt_data(tx->local->wep_tfm, key, pos, len, hdr->addr2);
++	ieee80211_tkip_encrypt_data(tx->local->wep_tx_tfm,
++				    key, pos, len, hdr->addr2);
+ 	return 0;
+ }
  
-+		if (tx->local->hw->tkip_include_rc4key) {
-+			hdr = (struct ieee80211_hdr *)skb->data;
-+			ieee80211_tkip_gen_rc4key(key,
-+						  tx->u.tx.control->rc4key,
-+						  hdr->addr2);
-+		}
-+
- 		tx->u.tx.control->key_idx = tx->key->hw_key_idx;
- 		return 0;
+@@ -495,7 +496,8 @@ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+ 		hwaccel = 1;
  	}
+ 
+-	res = ieee80211_tkip_decrypt_data(rx->local->wep_tfm, key, skb->data + hdrlen,
++	res = ieee80211_tkip_decrypt_data(rx->local->wep_rx_tfm,
++					  key, skb->data + hdrlen,
+ 					  skb->len - hdrlen, rx->sta->addr,
+ 					  hwaccel, rx->u.rx.queue);
+ 	if (res != TKIP_DECRYPT_OK || wpa_test) {
 -- 
 1.3.3
 
