@@ -1,36 +1,31 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 23:16:03 +0200
-Message-ID: <200610202316.03940.ak@suse.de>
-References: <20061020.134209.85688168.davem@davemloft.net> <200610202301.29859.ak@suse.de> <20061020.140859.95896187.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Fri, 20 Oct 2006 17:35:55 -0400
+Message-ID: <20061020213555.GA25860@gospo.rdu.redhat.com>
+References: <200610162021.12884.dpc@asn.pl> <200610202141.15140.dpc@asn.pl> <200610201953.k9KJr2Zt000305@death.nxdomain.ibm.com> <200610202252.01390.dpc@asn.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:38366 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S2992708AbWJTVQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:16:10 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061020.140859.95896187.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:60058 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1030205AbWJTVhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:37:20 -0400
+To: Dawid Ciezarkiewicz <dpc@asn.pl>
 Content-Disposition: inline
+In-Reply-To: <200610202252.01390.dpc@asn.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 20 October 2006 23:08, David Miller wrote:
-> From: Andi Kleen <ak@suse.de>
-> Date: Fri, 20 Oct 2006 23:01:29 +0200
+On Fri, Oct 20, 2006 at 10:52:00PM +0200, Dawid Ciezarkiewicz wrote:
 > 
-> > netpoll always played a little fast'n'lose with various locking rules.
-> 
-> The current code is fine, it never reenters ->poll, because it
-> maintains a "->poll_owner" which it checks in netpoll_send_skb()
-> before trying to call back into ->poll.
+> Oh. I'm quite puzzled here. What is current policy? I'd like sysfs interfaces 
+> better than ioctl - they are much cleaner etc. - but I thought ioctl will be 
+> better here because current bonding control uses ioctl and extending it is 
+> much simpler.
 
-I was more thinking of reentry of the interrupt handler in 
-the driver etc. A lot of them also do printk, but that is fortunately
-caught higher level.
+I can't tell you for sure if there is a 'policy' about this, but I would
+encourage you to focus energy on sysfs rather than the ioctl interface.
+In the future I would guess more will begin to use sysfs rather than
+ifenslave.
 
--Andi
+
