@@ -1,57 +1,53 @@
 From: akpm@osdl.org
-Subject: [patch 6/9] NET/atm: handle sysfs errors
-Date: Fri, 20 Oct 2006 14:43:16 -0700
-Message-ID: <200610202143.k9KLhG0p003801@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jeff@garzik.org
+Subject: [patch 4/9] atm/firestream: handle thrown error
+Date: Fri, 20 Oct 2006 14:43:14 -0700
+Message-ID: <200610202143.k9KLhEFH003795@shell0.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jeff@garzik.org,
+	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:63108 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S2992765AbWJTVoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:44:03 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:14725 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S2992766AbWJTVo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:44:28 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
+=46rom: Jeff Garzik <jeff@garzik.org>
+
+gcc emits the following warning:
+
+drivers/atm/firestream.c: In function =E2=80=98fs_open=E2=80=99:
+drivers/atm/firestream.c:870: warning: =E2=80=98tmc0=E2=80=99 may be us=
+ed uninitialized in this function
+
+This indicates a real bug.  We should check make_rate() return value fo=
+r
+potential errors.
 
 Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Cc: chas williams <chas@cmf.nrl.navy.mil>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- net/atm/atm_sysfs.c |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
+ drivers/atm/firestream.c |    4 ++++
+ 1 files changed, 4 insertions(+)
 
-diff -puN net/atm/atm_sysfs.c~net-atm-handle-sysfs-errors net/atm/atm_sysfs.c
---- a/net/atm/atm_sysfs.c~net-atm-handle-sysfs-errors
-+++ a/net/atm/atm_sysfs.c
-@@ -141,7 +141,7 @@ static struct class atm_class = {
- int atm_register_sysfs(struct atm_dev *adev)
- {
- 	struct class_device *cdev = &adev->class_dev;
--	int i, err;
-+	int i, j, err;
- 
- 	cdev->class = &atm_class;
- 	class_set_devdata(cdev, adev);
-@@ -151,10 +151,19 @@ int atm_register_sysfs(struct atm_dev *a
- 	if (err < 0)
- 		return err;
- 
--	for (i = 0; atm_attrs[i]; i++)
--		class_device_create_file(cdev, atm_attrs[i]);
-+	for (i = 0; atm_attrs[i]; i++) {
-+		err = class_device_create_file(cdev, atm_attrs[i]);
-+		if (err)
-+			goto err_out;
-+	}
- 
- 	return 0;
-+
-+err_out:
-+	for (j = 0; j < i; j++)
-+		class_device_remove_file(cdev, atm_attrs[j]);
-+	class_device_del(cdev);
-+	return err;
- }
- 
- void atm_unregister_sysfs(struct atm_dev *adev)
+diff -puN drivers/atm/firestream.c~atm-firestream-handle-thrown-error d=
+rivers/atm/firestream.c
+--- a/drivers/atm/firestream.c~atm-firestream-handle-thrown-error
++++ a/drivers/atm/firestream.c
+@@ -1002,6 +1002,10 @@ static int fs_open(struct atm_vcc *atm_v
+ 					r =3D ROUND_UP;
+ 				}
+ 				error =3D make_rate (pcr, r, &tmc0, NULL);
++				if (error) {
++					kfree(tc);
++					return error;
++				}
+ 			}
+ 			fs_dprintk (FS_DEBUG_OPEN, "pcr =3D %d.\n", pcr);
+ 		}
 _
