@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 14:08:59 -0700 (PDT)
-Message-ID: <20061020.140859.95896187.davem@davemloft.net>
-References: <20061020.134209.85688168.davem@davemloft.net>
-	<20061020134826.75dd1cba@freekitty>
-	<200610202301.29859.ak@suse.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e100_shutdown: netif_poll_disable hang
+Date: Fri, 20 Oct 2006 14:09:31 -0700
+Message-ID: <45393B0B.8090301@intel.com>
+References: <20061020182820.978932000@mvista.com> <453936E0.1010204@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Daniel Walker <dwalker@mvista.com>, Andrew Morton <akpm@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11969
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423232AbWJTVI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 17:08:58 -0400
-To: ak@suse.de
-In-Reply-To: <200610202301.29859.ak@suse.de>
+Received: from mga01.intel.com ([192.55.52.88]:9373 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1423236AbWJTVLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:11:23 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <453936E0.1010204@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Fri, 20 Oct 2006 23:01:29 +0200
+Auke Kok wrote:
+> Daniel Walker wrote:
+>> My machine annoyingly hangs while rebooting. I tracked it down
+>> to e100-fix-reboot-f-with-netconsole-enabled.patch in 2.6.18-rc2-mm2
+>>
+>> I review the changes and it seemed to be calling netif_poll_disable
+>> one too many time. Once in e100_down(), and again in e100_shutdown().
+>>
+>> The second one in e100_shutdown() caused the hang. So this patch
+>> removes it.
 
-> netpoll always played a little fast'n'lose with various locking rules.
+it doesn't even do harm to netif_poll_disable() twice as far as I can see, as it merely 
+calls test_and_set_bit(), which will instantly succeed on the first attempt if the bit 
+was already set.
 
-The current code is fine, it never reenters ->poll, because it
-maintains a "->poll_owner" which it checks in netpoll_send_skb()
-before trying to call back into ->poll.
+did this change actually fix it for you? I'm wondering if the netif_carrier_off might 
+not be the culprit here...
 
-Every call to ->poll first sets ->poll_owner to the current cpu id.
-netpoll_send_skb() aborts and does a drop if ->poll_owner is set to
-the current smp_processor_id().
-
-I sometimes feel like I'm the only person actually reading the sources
-and past threads on this topic before replying.
+Auke
