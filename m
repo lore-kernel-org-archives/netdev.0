@@ -1,49 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 12:31:37 -0700
-Message-ID: <20061020123137.3cd765af@freekitty>
-References: <20061019171814.281988608@osdl.org>
-	<20061020.001530.35664340.davem@davemloft.net>
-	<20061020084015.5c559326@localhost.localdomain>
-	<20061020.122753.45515833.davem@davemloft.net>
+From: Dawid Ciezarkiewicz <dpc@asn.pl>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Fri, 20 Oct 2006 21:41:14 +0200
+Message-ID: <200610202141.15140.dpc@asn.pl>
+References: <200610162021.12884.dpc@asn.pl> <200610171016.21964.dpc@asn.pl> <20061019190407.GA23446@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:48329 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S2992738AbWJTTbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 15:31:41 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061020.122753.45515833.davem@davemloft.net>
+Received: from apollo.asn.pl ([85.14.104.1]:21124 "HELO apollo.asn.pl")
+	by vger.kernel.org with SMTP id S1422748AbWJTTl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 15:41:26 -0400
+To: Andy Gospodarek <andy@greyhouse.net>
+In-Reply-To: <20061019190407.GA23446@gospo.rdu.redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Oct 2006 12:27:53 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Thursday, 19 October 2006 21:04, Andy Gospodarek wrote:
+> It would seem to me that extending an existing mode would be more
+> desirable than adding yet another mode to worry about.  I don't even
+> like the fact that there are as many as there are, but I understand why
+> they are there.  
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Fri, 20 Oct 2006 08:40:15 -0700
-> 
-> > The only user of the drop hook was netconsole, and I fixed that path.
-> > This probably breaks netdump, but that is out of tree, so it needs
-> > to fix itself.
-> 
-> I believe that netdump needs to requeue things because dropping the
-> packet is simply not allowed, and the ->drop callback gives the
-> netdump code a way to handle things without actually dropping the
-> packet.  If that's true, you can't just free the SKB on it.
-> 
-> Are you sure your new TX strategy can avoid such drops properly?
+Ack. I will probably update wrr bonding patch to replace rr mode.
 
-Yes, it has a queue. if it can't send it waits and retries.
+> I recently extended rr mode to allow an additional parameter called that
+> rr_repeat that would allow someone to send more than a single frame out
+> of each device before moving to the next one.  It seemed this could be
+> helpful when dealing with switches that constantly re-learned source MAC
+> addresses.  Network performance would suffer whenever rr_repeat was >1,
+> but box performance might be better if there weren't so many locks
+> taken.
 
-> 
-> Please take a quick peek at the netdump code, it's available, and make
-> some reasonable effort to determine whether it can still work with
-> your new code.
-
-Where, I'm not digging in side some RHEL rpm patch pile to find it.
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Thanks. I'll consider adding such functionality.
