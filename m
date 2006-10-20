@@ -1,35 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/4][CRYPTO][IPsec] support XCBC
-Date: Fri, 20 Oct 2006 13:02:35 +1000
-Message-ID: <20061020030235.GA20438@gondor.apana.org.au>
-References: <20061018112555.6ad5f1f0.kazunori@miyazawa.org>
+From: Ben Collins <ben.collins@ubuntu.com>
+Subject: Re: revert mv643xx change from ubuntu tree
+Date: Fri, 20 Oct 2006 00:35:01 -0400
+Message-ID: <1161318901.31915.21.camel@gullible>
+References: <20061019121836.GA26319@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@osdl.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11020 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S2992464AbWJTDDf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 23:03:35 -0400
-To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Content-Disposition: inline
-In-Reply-To: <20061018112555.6ad5f1f0.kazunori@miyazawa.org>
+Received: from www.swissdisk.com ([216.66.254.197]:40578 "EHLO
+	swissweb.swissdisk.com") by vger.kernel.org with ESMTP
+	id S1161021AbWJTEfS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 00:35:18 -0400
+To: Olaf Hering <olaf@aepfle.de>
+In-Reply-To: <20061019121836.GA26319@aepfle.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2006 at 11:25:55AM +0900, Kazunori MIYAZAWA wrote:
-> 
-> I send patches to support XCBC mode of IPsec.
-> This patch is for linux-2.6.19-rc2. I checked to also apply
-> this to net-2.6.
+On Thu, 2006-10-19 at 14:18 +0200, Olaf Hering wrote:
+> Somehow the Ubuntu guys managed to sneak this compile error into the
+> tree:
+>=20
+> commit ce9e3d9953c8cb67001719b5516da2928e956be4
+>=20
+>       [mv643xx] Add pci device table for auto module loading.
+>=20
+> drivers/net/mv643xx_eth.c:1560: error: array type has incomplete elem=
+ent type
+> drivers/net/mv643xx_eth.c:1561: warning: implicit declaration of func=
+tion =E2=80=98PCI_DEVICE=E2=80=99
+> drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_VENDOR_ID_MARVELL=
+=E2=80=99 undeclared here (not in a function)
+> drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_DEVICE_ID_MARVELL=
+_MV64360=E2=80=99 undeclared here (not in a function)
 
-Thanks a lot for the patches Miyazawa-san.  I'll put them into
-cryptodev-2.6 for 2.6.20.
+Correct, I missed the include for linux/pci.h.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This patch has been trailing our tree since 2.6.12. Could you help me t=
+o
+understand what in this driver will cause it to be autoloaded by udev
+when compiled as a module?
