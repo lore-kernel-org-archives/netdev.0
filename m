@@ -1,57 +1,49 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling
-	for	ATM/ADSL (kernel)
-Date: Thu, 19 Oct 2006 20:49:14 -0400
-Message-ID: <1161305354.5034.50.camel@jzny2>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
-	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+Subject: Re: AF_KEY extended xfrm_state selector handling
+Date: Thu, 19 Oct 2006 20:59:32 -0400
+Message-ID: <1161305972.5034.58.camel@jzny2>
+References: <200610191626.k9JGQ7x4014606@gateplz.comstar.cz>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Russell Stuart <russell-tcatm@stuart.id.au>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:39832 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1751635AbWJTAtT
+Received: from mx02.cybersurf.com ([209.197.145.105]:19330 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1946774AbWJTA7g
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 20:49:19 -0400
+	Thu, 19 Oct 2006 20:59:36 -0400
 Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GaiZh-00082f-Ce
-	for netdev@vger.kernel.org; Thu, 19 Oct 2006 20:49:25 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <45378DE3.8080700@trash.net>
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1Gaijd-00048b-7S
+	for netdev@vger.kernel.org; Thu, 19 Oct 2006 20:59:41 -0400
+To: Michal Ruzicka <michal.ruzicka@comstar.cz>
+In-Reply-To: <200610191626.k9JGQ7x4014606@gateplz.comstar.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-19-10 at 16:38 +0200, Patrick McHardy wrote:
-> jamal wrote:
-> > ACKed-by: Jamal Hadi Salim
-> > 
-> > When Patrick has his patch ready after this goes in we can revisit.
+On Thu, 2006-19-10 at 18:26 +0100, Michal Ruzicka wrote:
+> Hello
 > 
-> NACK.
-> 
-> I still think this patch shouldn't go in. There's no point in doing the
-> same thing twice, and I haven't heard a compelling argument why it has
-> to be done in a way that only helps qdiscs using rtabs while ignoring
-> statistics and estimators (I even provided a patch to show how to do
-> it without these limitations).
+> In an effort to configure an L2TP/IPsec server on Linux capable of supporting
+> multiple clients behind a single NAT device I ran into difficulties with pf_key
+> protocol implementation not being able to exploit all the information
+> passed to it as a SADB_EXT_ADDRESS_PROXY info. Perhaps as the original source
+> suggested (/* Nobody uses this, but we try. */) this info has never been used
+> before.
 
-The poor guy has been persistent and has some good ideas and we need to
-encourage him to stick around.  Why dont you help him get the patch in
-the shape you think is reasonable? I know you are busy elsewhere and
-your patch has been a while since you last promised. I will try to help
-as well. 
 
-> Besides that:
+BTW, why not use xfrm instead? Then you dont have to worry about racoon.
+Unless you care about running this in some other OS (I suspect these
+OSes probably have made use of SADB_EXT_ADDRESS_PROXY so that may be a
+futile effort in any case).
 
-I will let Russell respond to the critique (As well as the concept of
-stats and estimator); Russell please try to be brief and to the point (I
-still have to learn that lesson myself ;->).
 
 cheers,
 jamal
+
+PS:- Nothing stands out for me in your patch, so i have no comment; i
+wasnt sure if the concept of tcp/udp port meant much to the concept of a
+security association
+
 
