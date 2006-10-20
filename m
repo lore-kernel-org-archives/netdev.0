@@ -1,49 +1,36 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: [PATCH] hostap_plx: fix CIS verification
-Date: Fri, 20 Oct 2006 18:20:15 -0400
-Message-ID: <1161382815.5803.2.camel@dv>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: wake on LAN with sky2
+Date: Sat, 21 Oct 2006 00:24:00 +0200
+Message-ID: <20061020222400.GA32616@dose.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hostap@shmoo.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c60.cesmail.net ([216.154.195.49]:16453 "EHLO c60.cesmail.net")
-	by vger.kernel.org with ESMTP id S2992715AbWJTWUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 18:20:17 -0400
+Received: from eazy.amigager.de ([213.239.192.238]:14480 "EHLO
+	eazy.amigager.de") by vger.kernel.org with ESMTP id S2992739AbWJTWYE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Oct 2006 18:24:04 -0400
+Received: from dose.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
+	by eazy.amigager.de (Postfix) with ESMTP id EDA0B25C1F0
+	for <netdev@vger.kernel.org>; Sat, 21 Oct 2006 00:24:01 +0200 (CEST)
+Received: from scorpion by dose.home.local with local (Exim 4.63)
+	(envelope-from <tino.keitel@tikei.de>)
+	id 1Gb2mW-0008UG-8B
+	for netdev@vger.kernel.org; Sat, 21 Oct 2006 00:24:00 +0200
 To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hostap_plx: fix CIS verification
+Hi folks,
 
-The record length for numerical manufacturer ID should be at least 4
-bytes (two 16-bit words).  The code required 5 bytes, which would break
-for most (if not all) cards.  Reported by ph35sm@free.fr
+I saw that the wake on LAN function was removed from sky2 in kernel
+2.6.17. It was also mentioned that this happened because it didn't work
+and also couldn't be tested but that it will be put back later.
 
-Signed-off-by: Pavel Roskin <proski@gnu.org>
----
-This is an small fix with significant impact.
-hostap_plx is currently broken, and this patch fixes it.
-Please forward this patch to 2.6.x.y kernels.
+Is there some progress regarding this? I have a Mac mini core duo that
+can do suspend to RAM so that wake on LAN can be used to wake it up
+again, at least with MacOS X. I would be happy to help testing this
+with the sky2 driver.
 
- drivers/net/wireless/hostap/hostap_plx.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_plx.c b/drivers/net/wireless/hostap/hostap_plx.c
-index 6dfa041..b5b72db 100644
---- a/drivers/net/wireless/hostap/hostap_plx.c
-+++ b/drivers/net/wireless/hostap/hostap_plx.c
-@@ -391,7 +391,7 @@ #define CIS_MAX_LEN 256
- 			break;
- 
- 		case CISTPL_MANFID:
--			if (cis[pos + 1] < 5)
-+			if (cis[pos + 1] < 4)
- 				goto cis_error;
- 			manfid1 = cis[pos + 2] + (cis[pos + 3] << 8);
- 			manfid2 = cis[pos + 4] + (cis[pos + 5] << 8);
-
--- 
 Regards,
-Pavel Roskin
-
+Tino
