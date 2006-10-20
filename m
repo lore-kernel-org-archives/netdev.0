@@ -1,48 +1,104 @@
-From: Dawid Ciezarkiewicz <dpc@asn.pl>
-Subject: Re: [RFC] wrr (weighted round-robin) bonding
-Date: Fri, 20 Oct 2006 22:52:00 +0200
-Message-ID: <200610202252.01390.dpc@asn.pl>
-References: <200610162021.12884.dpc@asn.pl> <200610202141.15140.dpc@asn.pl> <200610201953.k9KJr2Zt000305@death.nxdomain.ibm.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e100_shutdown: netif_poll_disable hang
+Date: Fri, 20 Oct 2006 13:51:44 -0700
+Message-ID: <453936E0.1010204@intel.com>
+References: <20061020182820.978932000@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from apollo.asn.pl ([85.14.104.1]:4997 "HELO apollo.asn.pl")
-	by vger.kernel.org with SMTP id S1030259AbWJTUwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 16:52:20 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200610201953.k9KJr2Zt000305@death.nxdomain.ibm.com>
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:26235 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1946497AbWJTUxh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 16:53:37 -0400
+To: Daniel Walker <dwalker@mvista.com>, Andrew Morton <akpm@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20061020182820.978932000@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, 20 October 2006 21:53, Jay Vosburgh wrote:
-> Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
+Daniel Walker wrote:
+> My machine annoyingly hangs while rebooting. I tracked it down
+> to e100-fix-reboot-f-with-netconsole-enabled.patch in 2.6.18-rc2-mm2
 > 
-> >On Thursday, 19 October 2006 21:04, Andy Gospodarek wrote:
-> >> It would seem to me that extending an existing mode would be more
-> >> desirable than adding yet another mode to worry about.  I don't even
-> >> like the fact that there are as many as there are, but I understand why
-> >> they are there.  
-> >
-> >Ack. I will probably update wrr bonding patch to replace rr mode.
+> I review the changes and it seemed to be calling netif_poll_disable
+> one too many time. Once in e100_down(), and again in e100_shutdown().
 > 
-> 	Also, if acceptance into the mainline is your ultimate goal, the
-> ioctl control interface will be a very difficult sell.  You'd want to
-> look into some other control mechanism, most likely an additional sysfs
-> entry.
+> The second one in e100_shutdown() caused the hang. So this patch
+> removes it. 
+> 
+> Signed-Off-By: Daniel Walker <dwalker@mvista.com>
+> 
+> ---
+>  drivers/net/e100.c |    1 -
+>  1 files changed, 1 deletion(-)
+> 
+> Index: linux-2.6.18/drivers/net/e100.c
+> ===================================================================
+> --- linux-2.6.18.orig/drivers/net/e100.c
+> +++ linux-2.6.18/drivers/net/e100.c
+> @@ -2709,7 +2709,6 @@ static void e100_shutdown(struct pci_dev
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct nic *nic = netdev_priv(netdev);
+>  
+> -	netif_poll_disable(nic->netdev);
+>  	del_timer_sync(&nic->watchdog);
+>  	netif_carrier_off(nic->netdev);
+>  
+> --
 
-Oh. I'm quite puzzled here. What is current policy? I'd like sysfs interfaces 
-better than ioctl - they are much cleaner etc. - but I thought ioctl will be 
-better here because current bonding control uses ioctl and extending it is 
-much simpler.
+this won't help netconsole shutdown/reboot -f, probably locking it up again!
 
-More generally: should I use sysfs always when adding anything to kernel and 
-use it even when extending older functionality?
+NAK
 
-If wrr bonding have chances for inclusion into mainline I'll do any necessary 
-changes to let it meet requirements. I'd like to know if functionality from 
-Andy's patch is desired to be a part of such round-robin bonding extension. I 
-think I could easily integrate it with wrr.
+Also missing is the NAPI conditional, which I left out. Also missing is the same code 
+for suspend.
+
+Here's a better approach, allowing both normal shutdown code path and reboot -f to 
+disable polling.
+
+Cheers,
+
+Auke
+---
+
+e100: disable polling only when up during suspend and shutdown
+
+Signed-off-by: Auke Kok <auke-jan.h.kok>
+Cc: Daniel Walker <dwalker@mvista.com>
+Cc: Andrew Morton <akpm@osdl.org>
+
+---
+  drivers/net/e100.c |   10 ++++++++--
+  1 file changed, 8 insertions(+), 2 deletions(-)
+
+---
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index d4a2572..815eb29 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2719,7 +2719,10 @@ static int e100_suspend(struct pci_dev *
+  	struct net_device *netdev = pci_get_drvdata(pdev);
+  	struct nic *nic = netdev_priv(netdev);
+
+-	netif_poll_disable(nic->netdev);
++#ifdef CONFIG_E100_NAPI
++	if (netif_running(netdev))
++		netif_poll_disable(nic->netdev);
++#endif
+  	del_timer_sync(&nic->watchdog);
+  	netif_carrier_off(nic->netdev);
+
+@@ -2763,7 +2766,10 @@ static void e100_shutdown(struct pci_dev
+  	struct net_device *netdev = pci_get_drvdata(pdev);
+  	struct nic *nic = netdev_priv(netdev);
+
+-	netif_poll_disable(nic->netdev);
++#ifdef CONFIG_E100_NAPI
++	if (netif_running(netdev))
++		netif_poll_disable(nic->netdev);
++#endif
+  	del_timer_sync(&nic->watchdog);
+  	netif_carrier_off(nic->netdev);
