@@ -1,237 +1,77 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 08:40:15 -0700
-Message-ID: <20061020084015.5c559326@localhost.localdomain>
-References: <20061019171541.062261760@osdl.org>
-	<20061019171814.281988608@osdl.org>
-	<20061020.001530.35664340.davem@davemloft.net>
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx-softmac: add PCI-E code
+Date: Fri, 20 Oct 2006 11:46:55 -0400
+Message-ID: <4538EF6F.3030305@gentoo.org>
+References: <45330803.mail261110C22@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53740 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1946447AbWJTPkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 11:40:21 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061020.001530.35664340.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+In-Reply-To: <45330803.mail261110C22-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Change netpoll to use a skb queue for transmit. This solves problems
-where there are two tx paths that can cause things to get out of order
-and different semantics when netconsole output goes through fast and
-slow paths.
+Hi Larry,
 
-The only user of the drop hook was netconsole, and I fixed that path.
-This probably breaks netdump, but that is out of tree, so it needs
-to fix itself.
+Larry Finger wrote:
+> From: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>
+> 
+> The current bcm43xx driver does not contain code to handle PCI-E interfaces
+> such as the BCM4311 and BCM4312. This patch, originally written by Stefano
+> Brivio adds the necessary code to enable these interfaces. 
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- drivers/net/netconsole.c |    1 
- include/linux/netpoll.h  |    3 +
- net/core/netpoll.c       |  109 ++++++++++++----------------------------------
- 3 files changed, 31 insertions(+), 82 deletions(-)
+I am testing this on a Compaq VS6120US laptop. This is my first 
+experience with using bcm43xx. I'm connecting to a WPA network.
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index bf58db2..fad5bf2 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -60,7 +60,6 @@ static struct netpoll np = {
- 	.local_port = 6665,
- 	.remote_port = 6666,
- 	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
--	.drop = netpoll_queue,
- };
- static int configured = 0;
- 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 1efe60c..835ca0d 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -27,11 +27,12 @@ struct netpoll {
- struct netpoll_info {
- 	spinlock_t poll_lock;
- 	int poll_owner;
--	int tries;
- 	int rx_flags;
- 	spinlock_t rx_lock;
- 	struct netpoll *rx_np; /* netpoll that registered an rx_hook */
- 	struct sk_buff_head arp_tx; /* list of arp requests to reply to */
-+	struct sk_buff_head tx_q;
-+	struct tasklet_struct tx_task;
- };
- 
- void netpoll_poll(struct netpoll *np);
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 9308af0..22332fd 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -40,10 +40,6 @@ static DEFINE_SPINLOCK(skb_list_lock);
- static int nr_skbs;
- static struct sk_buff *skbs;
- 
--static DEFINE_SPINLOCK(queue_lock);
--static int queue_depth;
--static struct sk_buff *queue_head, *queue_tail;
--
- static atomic_t trapped;
- 
- #define NETPOLL_RX_ENABLED  1
-@@ -56,50 +52,31 @@ #define MAX_SKB_SIZE \
- static void zap_completion_queue(void);
- static void arp_reply(struct sk_buff *skb);
- 
--static void queue_process(void *p)
-+static void netpoll_run(unsigned long arg)
- {
--	unsigned long flags;
-+	struct net_device *dev = (struct net_device *) arg;
-+	struct netpoll_info *npinfo = dev->npinfo;
- 	struct sk_buff *skb;
- 
--	while (queue_head) {
--		spin_lock_irqsave(&queue_lock, flags);
--
--		skb = queue_head;
--		queue_head = skb->next;
--		if (skb == queue_tail)
--			queue_head = NULL;
--
--		queue_depth--;
-+	while ((skb = skb_dequeue(&npinfo->tx_q))) {
-+		if (!netif_running(dev) || !netif_device_present(dev)) {
-+			__kfree_skb(skb);
-+			continue;
-+		}
- 
--		spin_unlock_irqrestore(&queue_lock, flags);
-+		netif_tx_lock(dev);
-+		if (netif_queue_stopped(dev) ||
-+		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
-+			skb_queue_head(&npinfo->tx_q, skb);
-+			netif_tx_unlock(dev);
-+			tasklet_schedule(&npinfo->tx_task);
-+			return;
-+		}
- 
--		dev_queue_xmit(skb);
-+		netif_tx_unlock(dev);
- 	}
- }
- 
--static DECLARE_WORK(send_queue, queue_process, NULL);
--
--void netpoll_queue(struct sk_buff *skb)
--{
--	unsigned long flags;
--
--	if (queue_depth == MAX_QUEUE_DEPTH) {
--		__kfree_skb(skb);
--		return;
--	}
--
--	spin_lock_irqsave(&queue_lock, flags);
--	if (!queue_head)
--		queue_head = skb;
--	else
--		queue_tail->next = skb;
--	queue_tail = skb;
--	queue_depth++;
--	spin_unlock_irqrestore(&queue_lock, flags);
--
--	schedule_work(&send_queue);
--}
--
- static int checksum_udp(struct sk_buff *skb, struct udphdr *uh,
- 			     unsigned short ulen, u32 saddr, u32 daddr)
- {
-@@ -270,50 +247,17 @@ repeat:
- 
- static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- {
--	int status;
--	struct netpoll_info *npinfo;
--
--	if (!np || !np->dev || !netif_running(np->dev)) {
--		__kfree_skb(skb);
--		return;
--	}
-+	struct net_device *dev = np->dev;
-+	struct netpoll_info *npinfo = dev->npinfo;
- 
--	npinfo = np->dev->npinfo;
-+	skb_queue_tail(&npinfo->tx_q, skb);
- 
- 	/* avoid recursion */
- 	if (npinfo->poll_owner == smp_processor_id() ||
--	    np->dev->xmit_lock_owner == smp_processor_id()) {
--		if (np->drop)
--			np->drop(skb);
--		else
--			__kfree_skb(skb);
-+	    dev->xmit_lock_owner == smp_processor_id())
- 		return;
--	}
- 
--	do {
--		npinfo->tries--;
--		netif_tx_lock(np->dev);
--
--		/*
--		 * network drivers do not expect to be called if the queue is
--		 * stopped.
--		 */
--		status = NETDEV_TX_BUSY;
--		if (!netif_queue_stopped(np->dev))
--			status = np->dev->hard_start_xmit(skb, np->dev);
--
--		netif_tx_unlock(np->dev);
--
--		/* success */
--		if(!status) {
--			npinfo->tries = MAX_RETRIES; /* reset */
--			return;
--		}
--
--		/* transmit busy */
--		netpoll_poll(np);
--		udelay(50);
--	} while (npinfo->tries > 0);
-+	netpoll_run((unsigned long) dev);
- }
- 
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
-@@ -666,9 +610,10 @@ int netpoll_setup(struct netpoll *np)
- 		npinfo->rx_np = NULL;
- 		spin_lock_init(&npinfo->poll_lock);
- 		npinfo->poll_owner = -1;
--		npinfo->tries = MAX_RETRIES;
- 		spin_lock_init(&npinfo->rx_lock);
- 		skb_queue_head_init(&npinfo->arp_tx);
-+		skb_queue_head_init(&npinfo->tx_q);
-+		tasklet_init(&npinfo->tx_task, netpoll_run, (unsigned long) ndev);
- 	} else
- 		npinfo = ndev->npinfo;
- 
-@@ -776,6 +721,11 @@ void netpoll_cleanup(struct netpoll *np)
- 			npinfo->rx_np = NULL;
- 			npinfo->rx_flags &= ~NETPOLL_RX_ENABLED;
- 			spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-+
-+			skb_queue_purge(&npinfo->arp_tx);
-+			skb_queue_purge(&npinfo->tx_q);
-+
-+			tasklet_kill(&npinfo->tx_task);
- 		}
- 		dev_put(np->dev);
- 	}
-@@ -803,4 +753,3 @@ EXPORT_SYMBOL(netpoll_setup);
- EXPORT_SYMBOL(netpoll_cleanup);
- EXPORT_SYMBOL(netpoll_send_udp);
- EXPORT_SYMBOL(netpoll_poll);
--EXPORT_SYMBOL(netpoll_queue);
--- 
-1.4.2.4
+bcm43xx: Chip ID 0x4311, rev 0x1
+bcm43xx: Number of cores: 4
+bcm43xx: Core 0: ID 0x800, rev 0x11, vendor 0x4243, enabled
+bcm43xx: Core 1: ID 0x812, rev 0xa, vendor 0x4243, disabled
+bcm43xx: Core 2: ID 0x817, rev 0x3, vendor 0x4243, disabled
+bcm43xx: Core 3: ID 0x820, rev 0x1, vendor 0x4243, enabled
+bcm43xx: PHY connected
+bcm43xx: Detected PHY: Version: 4, Type 2, Revision 8
+bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
 
+Most of the time, it doesn't work. wpa_supplicant scans, gets scan 
+results, tries to associate, and then things stop there. Sometimes the 
+association completes but the WPA PSK stuff times out, sometimes the WPA 
+PSK stuff completes and it gets an IP, but doesn't get any further.
+
+After bringing down the interface, it cannot be brought up again:
+
+bcm43xx: Radio turned off
+bcm43xx: DMA-32 0x0200 (RX) max used slots: 7/64
+bcm43xx: DMA-32 0x02A0 (TX) max used slots: 0/512
+bcm43xx: DMA-32 0x0280 (TX) max used slots: 0/512
+bcm43xx: DMA-32 0x0260 (TX) max used slots: 0/512
+bcm43xx: DMA-32 0x0240 (TX) max used slots: 0/512
+bcm43xx: DMA-32 0x0220 (TX) max used slots: 7/512
+bcm43xx: DMA-32 0x0200 (TX) max used slots: 0/512
+bcm43xx: ASSERTION FAILED (bcm43xx_status(bcm) == 
+BCM43xx_STAT_INITIALIZED) at: 
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:1852:bcm43xx_interrupt_handler()
+bcm43xx: IRQ_READY timeout
+bcm43xx: core_up for active 802.11 core failed (-19)
+
+Unloading and reloading the driver allows the interface to come up again.
+
+Approximately 1 in 5 times it does get an IP and I can connect to stuff.
+
+I realise this report probably isn't all that useful, but this laptop is 
+going to be out of the office for a while, I guess I'll just lend him a 
+ZD1211 if he needs wireless.
+
+Daniel
