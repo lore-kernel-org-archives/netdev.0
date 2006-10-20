@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Ethernet Cheap Cryptography
-Date: Thu, 19 Oct 2006 19:59:21 -0700 (PDT)
-Message-ID: <20061019.195921.31639913.davem@davemloft.net>
-References: <17718.63424.509719.492216@localhost.localdomain>
-	<eh87aq$71t$1@sea.gmane.org>
-	<17720.12801.843076.819750@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/4][CRYPTO][IPsec] support XCBC
+Date: Fri, 20 Oct 2006 13:02:35 +1000
+Message-ID: <20061020030235.GA20438@gondor.apana.org.au>
+References: <20061018112555.6ad5f1f0.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pjf@asn.pl, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20148
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S2992440AbWJTC7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Oct 2006 22:59:20 -0400
-To: stephen@dino.dnsalias.com
-In-Reply-To: <17720.12801.843076.819750@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:11020 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S2992464AbWJTDDf
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Oct 2006 23:03:35 -0400
+To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Content-Disposition: inline
+In-Reply-To: <20061018112555.6ad5f1f0.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: stephen@dino.dnsalias.com (Stephen J. Bevan)
-Date: Thu, 19 Oct 2006 19:18:41 -0700
-
-> Pawel Foremski writes:
->  > Secondly, IPsec won't decrease MSS in TCP encapsulated in PPPoE
->  > traffic, for example. 
+On Wed, Oct 18, 2006 at 11:25:55AM +0900, Kazunori MIYAZAWA wrote:
 > 
-> Various, commercial, IPsec products decrease the MSS for TCP
-> encapsulated in PPPoE.  I've not checked the Linux 2.6 IPsec code to
-> see if it does or if it can easily be made to.
+> I send patches to support XCBC mode of IPsec.
+> This patch is for linux-2.6.19-rc2. I checked to also apply
+> this to net-2.6.
 
-Linux will for local TCP connections over IPSEC transports since it
-knows the path MTU, for IPSEC gateways the source system will adjust
-the MSS after it notes via path-MTU what the decreased MTU is.
+Thanks a lot for the patches Miyazawa-san.  I'll put them into
+cryptodev-2.6 for 2.6.20.
 
-I think this is just a big list of excuses for not using IPSEC as the
-solution for whatever problem is trying to be solved.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
