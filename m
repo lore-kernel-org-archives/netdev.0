@@ -1,38 +1,58 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Subject: Re: [patch 1/8] Update smc91x driver with ARM Versatile board info
-Date: Fri, 20 Oct 2006 22:50:40 +0100
-Message-ID: <20061020215039.GI8894@flint.arm.linux.org.uk>
-References: <200610202142.k9KLg4om003709@shell0.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, dsaxena@plexity.net,
-	nico@cam.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Fri, 20 Oct 2006 14:55:17 -0700
+Message-ID: <200610202155.k9KLtHZt027739@death.nxdomain.ibm.com>
+References: <200610162021.12884.dpc@asn.pl> <200610202141.15140.dpc@asn.pl> <200610201953.k9KJr2Zt000305@death.nxdomain.ibm.com> <200610202252.01390.dpc@asn.pl>
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([217.147.92.249]:24338 "EHLO
-	caramon.arm.linux.org.uk") by vger.kernel.org with ESMTP
-	id S2992599AbWJTVuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 17:50:50 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200610202142.k9KLg4om003709@shell0.pdx.osdl.net>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:59057 "EHLO e5.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S2992768AbWJTVzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 17:55:20 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k9KLtJlg005321
+	for <netdev@vger.kernel.org>; Fri, 20 Oct 2006 17:55:19 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9KLtJb8129148
+	for <netdev@vger.kernel.org>; Fri, 20 Oct 2006 17:55:19 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9KLtJgJ008516
+	for <netdev@vger.kernel.org>; Fri, 20 Oct 2006 17:55:19 -0400
+To: Dawid Ciezarkiewicz <dpc@asn.pl>
+In-reply-to: <200610202252.01390.dpc@asn.pl> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2006 at 02:42:04PM -0700, akpm@osdl.org wrote:
-> We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
-> generic IRQ layer will complain thusly:
+Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
+[...]
+>Oh. I'm quite puzzled here. What is current policy? I'd like sysfs interfaces 
+>better than ioctl - they are much cleaner etc. - but I thought ioctl will be 
+>better here because current bonding control uses ioctl and extending it is 
+>much simpler.
 
-I don't think I heard anything back from my previous suggestion that
-the IRQ flags are passed through the platform device IRQ resource.
+	The bonding control stuff is (slowly but surely) moving to
+sysfs.  There really isn't anything you can't do to bonding via sysfs
+now; the only real issue is that it's difficult to get success / failure
+status from a sysfs request.
 
-Doing so would avoid adding yet another platform specific block into
-the file.
+>More generally: should I use sysfs always when adding anything to kernel and 
+>use it even when extending older functionality?
 
-BTW, Integrator platforms will also suffer from this, which will add
-another ifdef to this header.
+	Well, I can't speak for the kernel as a whole, but for bonding,
+I see no reason to add any new functionality to ifenslave at this point
+in time, including new ioctl paths into the driver.
 
-Let's do it right and arrange to pass these flags from the platform
-code.  It's not like they're in a critical path.
+>If wrr bonding have chances for inclusion into mainline I'll do any necessary 
+>changes to let it meet requirements. I'd like to know if functionality from 
+>Andy's patch is desired to be a part of such round-robin bonding extension. I 
+>think I could easily integrate it with wrr.
 
--- 
-Russell King
+	I'm unfamiliar with Andy's patch (other than his description).
+If there's interest in, and justification for, functionality to
+manipulate the way the round-robin mode doles out packets it would be
+best to have a single, generic dingus rather that two special-purpose
+thingies.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
