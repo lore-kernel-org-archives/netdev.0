@@ -1,52 +1,32 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: revert mv643xx change from ubuntu tree
-Date: Fri, 20 Oct 2006 07:38:56 +0200
-Message-ID: <20061020053856.GA3277@aepfle.de>
-References: <20061019121836.GA26319@aepfle.de> <1161318901.31915.21.camel@gullible>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH 0/3] netpoll/netconsole fixes
+Date: Thu, 19 Oct 2006 23:57:19 -0700
+Message-ID: <20061019235719.5b30c5d3.akpm@osdl.org>
+References: <20061019171541.062261760@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@osdl.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natklopstock.rzone.de ([81.169.145.174]:48261 "EHLO
-	natklopstock.rzone.de") by vger.kernel.org with ESMTP
-	id S2992502AbWJTFjW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 01:39:22 -0400
-To: Ben Collins <ben.collins@ubuntu.com>
-Content-Disposition: inline
-In-Reply-To: <1161318901.31915.21.camel@gullible>
+Received: from smtp.osdl.org ([65.172.181.4]:2524 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1946253AbWJTG5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 02:57:23 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061019171541.062261760@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, Ben Collins wrote:
+On Thu, 19 Oct 2006 10:15:41 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> On Thu, 2006-10-19 at 14:18 +0200, Olaf Hering wrote:
-> > Somehow the Ubuntu guys managed to sneak this compile error into th=
-e
-> > tree:
-> >=20
-> > commit ce9e3d9953c8cb67001719b5516da2928e956be4
-> >=20
-> >       [mv643xx] Add pci device table for auto module loading.
-> >=20
-> > drivers/net/mv643xx_eth.c:1560: error: array type has incomplete el=
-ement type
-> > drivers/net/mv643xx_eth.c:1561: warning: implicit declaration of fu=
-nction =E2=80=98PCI_DEVICE=E2=80=99
-> > drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_VENDOR_ID_MARVE=
-LL=E2=80=99 undeclared here (not in a function)
-> > drivers/net/mv643xx_eth.c:1561: error: =E2=80=98PCI_DEVICE_ID_MARVE=
-LL_MV64360=E2=80=99 undeclared here (not in a function)
->=20
-> Correct, I missed the include for linux/pci.h.
->=20
-> This patch has been trailing our tree since 2.6.12. Could you help me=
- to
-> understand what in this driver will cause it to be autoloaded by udev
-> when compiled as a module?
+> The netpoll transmit skb management is a mess, it has two
+> paths and it's on Txq. These patches try and clean this up.
+> 
 
-See commit ce9e3d9953c8cb67001719b5516da2928e956be4, platform devices
-have now a modalias entry in sysfs. The network card is not a PCI
-device.
+I got a reject storm when applying the third patch then screwed it up
+rather than fixing it up.
+
+A rediff and resend is needed, please.  Make sure it's against the latest
+-linus or -davem, thanks.
+
