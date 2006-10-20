@@ -1,78 +1,48 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 13:48:26 -0700
-Message-ID: <20061020134826.75dd1cba@freekitty>
-References: <20061019171814.281988608@osdl.org>
-	<20061020.001530.35664340.davem@davemloft.net>
-	<20061020084015.5c559326@localhost.localdomain>
-	<20061020.134209.85688168.davem@davemloft.net>
+From: Dawid Ciezarkiewicz <dpc@asn.pl>
+Subject: Re: [RFC] wrr (weighted round-robin) bonding
+Date: Fri, 20 Oct 2006 22:52:00 +0200
+Message-ID: <200610202252.01390.dpc@asn.pl>
+References: <200610162021.12884.dpc@asn.pl> <200610202141.15140.dpc@asn.pl> <200610201953.k9KJr2Zt000305@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:32480 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1946457AbWJTUsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 16:48:30 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061020.134209.85688168.davem@davemloft.net>
+Received: from apollo.asn.pl ([85.14.104.1]:4997 "HELO apollo.asn.pl")
+	by vger.kernel.org with SMTP id S1030259AbWJTUwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 16:52:20 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200610201953.k9KJr2Zt000305@death.nxdomain.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Oct 2006 13:42:09 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Fri, 20 Oct 2006 08:40:15 -0700
+On Friday, 20 October 2006 21:53, Jay Vosburgh wrote:
+> Dawid Ciezarkiewicz <dpc@asn.pl> wrote:
 > 
-> > -static void queue_process(void *p)
-> > +static void netpoll_run(unsigned long arg)
-> >  {
->  ...
-> > -		spin_unlock_irqrestore(&queue_lock, flags);
-> > +		netif_tx_lock(dev);
-> > +		if (netif_queue_stopped(dev) ||
-> > +		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
-> > +			skb_queue_head(&npinfo->tx_q, skb);
-> > +			netif_tx_unlock(dev);
-> > +			tasklet_schedule(&npinfo->tx_task);
-> > +			return;
-> > +		}
+> >On Thursday, 19 October 2006 21:04, Andy Gospodarek wrote:
+> >> It would seem to me that extending an existing mode would be more
+> >> desirable than adding yet another mode to worry about.  I don't even
+> >> like the fact that there are as many as there are, but I understand why
+> >> they are there.  
+> >
+> >Ack. I will probably update wrr bonding patch to replace rr mode.
 > 
-> We really can't handle TX stopped this way from the netpoll_send_skb()
-> path.  All that old retry logic in netpoll_send_skb() is really
-> necessary.
-> 
-> If we are in deep IRQ context, took an OOPS, and are trying to get a
-> netpoll packet out for the kernel log message, we have to try as hard
-> as possible to get the packet out then and there, even if that means
-> waiting some amount of time for netif_queue_stopped() to become false.
-> 
+> 	Also, if acceptance into the mainline is your ultimate goal, the
+> ioctl control interface will be a very difficult sell.  You'd want to
+> look into some other control mechanism, most likely an additional sysfs
+> entry.
 
-But, it also violates the assumptions of the network devices.
-It calls NAPI poll back with IRQ's disabled and potentially doesn't
-obey the semantics about only running on the same CPU as the
-received packet.
+Oh. I'm quite puzzled here. What is current policy? I'd like sysfs interfaces 
+better than ioctl - they are much cleaner etc. - but I thought ioctl will be 
+better here because current bonding control uses ioctl and extending it is 
+much simpler.
 
-> That is what the existing code is trying to do.
-> 
-> If you defer to a tasklet, the kernel state from the OOPS can be so
-> corrupted that the tasklet will never run and we'll never get the
-> netconsole message needed to debug the problem.
+More generally: should I use sysfs always when adding anything to kernel and 
+use it even when extending older functionality?
 
-So we can try once and if that fails we have to defer to tasklet.
-We can't call NAPI, we can't try and cleanup the device will need
-an IRQ to get unblocked.  
-
-Or add another device callback that just to handle that case.
-
-> Also, if we tasklet schedule from the tasklet, we'll just keep looping
-> in the tasklet and never leave softirq context, which is also bad
-> behavior.  Even in the tasklet, we should spin and poll when possible
-> like the current netpoll_send_skb() code does.
-> 
-> So we really can't apply this patch.
-
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+If wrr bonding have chances for inclusion into mainline I'll do any necessary 
+changes to let it meet requirements. I'd like to know if functionality from 
+Andy's patch is desired to be a part of such round-robin bonding extension. I 
+think I could easily integrate it with wrr.
