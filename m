@@ -1,37 +1,59 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 13:25:32 -0700
-Message-ID: <20061020132532.65a3e655@dxpl.pdx.osdl.net>
-References: <20061020081857.743b5eb7@localhost.localdomain>
-	<20061020.122427.55507415.davem@davemloft.net>
-	<20061020122527.56292b56@dxpl.pdx.osdl.net>
-	<20061020.125226.59656580.davem@davemloft.net>
+Date: Fri, 20 Oct 2006 13:42:09 -0700 (PDT)
+Message-ID: <20061020.134209.85688168.davem@davemloft.net>
+References: <20061019171814.281988608@osdl.org>
+	<20061020.001530.35664340.davem@davemloft.net>
+	<20061020084015.5c559326@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:63960 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422820AbWJTUZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 16:25:36 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061020.125226.59656580.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27282
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1946480AbWJTUmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Oct 2006 16:42:09 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20061020084015.5c559326@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Oct 2006 12:52:26 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 20 Oct 2006 08:40:15 -0700
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Fri, 20 Oct 2006 12:25:27 -0700
-> 
-> > Sorry, but why should we treat out-of-tree vendor code any
-> > differently than out-of-tree other code.
-> 
-> I think what netdump was trying to do, provide a way to
-> requeue instead of fully drop the SKB, is quite reasonable.
-> Don't you think?
+> -static void queue_process(void *p)
+> +static void netpoll_run(unsigned long arg)
+>  {
+ ...
+> -		spin_unlock_irqrestore(&queue_lock, flags);
+> +		netif_tx_lock(dev);
+> +		if (netif_queue_stopped(dev) ||
+> +		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
+> +			skb_queue_head(&npinfo->tx_q, skb);
+> +			netif_tx_unlock(dev);
+> +			tasklet_schedule(&npinfo->tx_task);
+> +			return;
+> +		}
 
+We really can't handle TX stopped this way from the netpoll_send_skb()
+path.  All that old retry logic in netpoll_send_skb() is really
+necessary.
 
-Netdump doesn't even exist in the current Fedora source rpm.
-I think Dave dropped it.
+If we are in deep IRQ context, took an OOPS, and are trying to get a
+netpoll packet out for the kernel log message, we have to try as hard
+as possible to get the packet out then and there, even if that means
+waiting some amount of time for netif_queue_stopped() to become false.
+
+That is what the existing code is trying to do.
+
+If you defer to a tasklet, the kernel state from the OOPS can be so
+corrupted that the tasklet will never run and we'll never get the
+netconsole message needed to debug the problem.
+
+Also, if we tasklet schedule from the tasklet, we'll just keep looping
+in the tasklet and never leave softirq context, which is also bad
+behavior.  Even in the tasklet, we should spin and poll when possible
+like the current netpoll_send_skb() code does.
+
+So we really can't apply this patch.
