@@ -1,89 +1,89 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch 1/1] r8169 driver: corega support
-Date: Sat, 21 Oct 2006 00:44:38 +0200
-Message-ID: <20061020224438.GA1794@electric-eye.fr.zoreil.com>
-References: <200610202144.k9KLid8a003945@shell0.pdx.osdl.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] sky2: 88E803X transmit lockup
+Date: Fri, 20 Oct 2006 17:06:11 -0700
+Message-ID: <20061020170611.1766ae82@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hchacha@users.sourceforge.net, jeff@garzik.org,
-	Darren Salt <linux@youmustbejoking.demon.co.uk>,
-	syed.azam@hp.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:30676 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S2992527AbWJTWsp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 18:48:45 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200610202144.k9KLid8a003945@shell0.pdx.osdl.net>
+Received: from smtp.osdl.org ([65.172.181.4]:15528 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422984AbWJUAGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 20:06:16 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org <akpm@osdl.org> :
-[Corega adapter support]
+The reason sky2 driver was locking up on transmit on the Yukon-FE chipset
+is that it was misconfiguring the internal RAM buffer so the transmitter
+and receiver were sharing the same space. 
 
-It's queued in the r8169 branch at:
+The code assumed there was 16K of RAM on Yukon-FE (taken from vendor driver
+sk98lin which is even more f*cked up on this). Then it assigned based on that.
+The giveaway was that the registers would only hold 9bits so both RX/TX
+had 0..1ff for space. It is a wonder it worked at all!
 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git r8169
+This patch addresses this, and fixes an easily reproducible hang on Transmit.
+Only the Yukon-FE chip is Marvell 88E803X (10/100 only) are affected.
 
-I have sent Jeff a pull request for it (and I'll probably send one
-more for the patch below).
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Darren, can you check if the patch below fixes you link detection
-issue ?
-
->From 6c94bf2ee2c932418bfe95d18460fb503f549659 Mon Sep 17 00:00:00 2001
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 20 Oct 2006 23:10:14 +0200
-Subject: [PATCH] r8169: perform a PHY reset before any other operation at boot time
-
-Realtek's 8139/810x (0x8136) PCI-E comes with a touchy PHY.
-A big heavy reset seems to calm it down.
-
-Fix for http://bugzilla.kernel.org/show_bug.cgi?id=7378.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/r8169.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c2c9a86..e3d0679 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1442,6 +1442,23 @@ static void rtl8169_release_board(struct
- 	free_netdev(dev);
+--- sky2.orig/drivers/net/sky2.c	2006-10-20 16:37:56.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-10-20 16:38:16.000000000 -0700
+@@ -699,16 +699,10 @@
+ 
  }
  
-+static void rtl8169_phy_reset(struct net_device *dev,
-+			      struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	int i;
-+
-+	tp->phy_reset_enable(ioaddr);
-+	for (i = 0; i < 100; i++) {
-+		if (!tp->phy_reset_pending(ioaddr)) {
-+			printk(KERN_INFO "%s: PHY reset done.\n", dev->name);
-+			break;
-+		}
-+		msleep(1);
-+	}
-+	printk(KERN_ERR "%s: PHY reset failed.\n", dev->name);
-+}
-+
- static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+-/* Assign Ram Buffer allocation.
+- * start and end are in units of 4k bytes
+- * ram registers are in units of 64bit words
+- */
+-static void sky2_ramset(struct sky2_hw *hw, u16 q, u8 startk, u8 endk)
++/* Assign Ram Buffer allocation in units of 64bit (8 bytes) */
++static void sky2_ramset(struct sky2_hw *hw, u16 q, u32 start, u32 end)
  {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -1470,6 +1487,8 @@ static void rtl8169_init_phy(struct net_
+-	u32 start, end;
+-
+-	start = startk * 4096/8;
+-	end = (endk * 4096/8) - 1;
++	pr_debug(PFX "q %d %#x %#x\n", q, start, end);
  
- 	rtl8169_link_option(board_idx, &autoneg, &speed, &duplex);
+ 	sky2_write8(hw, RB_ADDR(q, RB_CTRL), RB_RST_CLR);
+ 	sky2_write32(hw, RB_ADDR(q, RB_START), start);
+@@ -717,7 +711,7 @@
+ 	sky2_write32(hw, RB_ADDR(q, RB_RP), start);
  
-+	rtl8169_phy_reset(dev, tp);
-+
- 	rtl8169_set_speed(dev, autoneg, speed, duplex);
+ 	if (q == Q_R1 || q == Q_R2) {
+-		u32 space = (endk - startk) * 4096/8;
++		u32 space = end - start + 1;
+ 		u32 tp = space - space/4;
  
- 	if ((RTL_R8(PHYstatus) & TBI_Enable) && netif_msg_link(tp))
--- 
-1.4.2.3
-
+ 		/* On receive queue's set the thresholds
+@@ -1199,19 +1193,16 @@
+ 
+ 	sky2_mac_init(hw, port);
+ 
+-	/* Determine available ram buffer space (in 4K blocks).
+-	 * Note: not sure about the FE setting below yet
+-	 */
+-	if (hw->chip_id == CHIP_ID_YUKON_FE)
+-		ramsize = 4;
+-	else
+-		ramsize = sky2_read8(hw, B2_E_0);
++	/* Determine available ram buffer space in qwords.  */
++	ramsize = sky2_read8(hw, B2_E_0) * 4096/8;
+ 
+-	/* Give transmitter one third (rounded up) */
+-	rxspace = ramsize - (ramsize + 2) / 3;
++	if (ramsize > 6*1024/8)
++		rxspace = ramsize - (ramsize + 2) / 3;
++	else
++		rxspace = ramsize / 2;
+ 
+-	sky2_ramset(hw, rxqaddr[port], 0, rxspace);
+-	sky2_ramset(hw, txqaddr[port], rxspace, ramsize);
++	sky2_ramset(hw, rxqaddr[port], 0, rxspace-1);
++	sky2_ramset(hw, txqaddr[port], rxspace, ramsize-1);
+ 
+ 	/* Make sure SyncQ is disabled */
+ 	sky2_write8(hw, RB_ADDR(port == 0 ? Q_XS1 : Q_XS2, RB_CTRL),
