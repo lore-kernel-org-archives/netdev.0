@@ -1,34 +1,58 @@
-From: "Matthieu CASTET" <castet.matthieu@free.fr>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Sat, 21 Oct 2006 21:10:19 +0000 (UTC)
-Message-ID: <ehe2br$u1n$1@sea.gmane.org>
-References: <1161335976.21402.11.camel@devlinux-hong>
+From: Norbert Preining <preining@logic.at>
+Subject: Re: tg3 kernel bug in 2.6.18-mm3 and 2.6.19-rc2-mm2
+Date: Sun, 22 Oct 2006 01:41:07 +0200
+Message-ID: <20061021234107.GA12918@gamma.logic.tuwien.ac.at>
+References: <20061021132239.GA29288@gamma.logic.tuwien.ac.at> <20061021.123814.106436476.davem@davemloft.net> <20061021132239.GA29288@gamma.logic.tuwien.ac.at> <20061021100207.fdc240e0.akpm@osdl.org> <200610211918.30616.rjw@sisk.pl> <20061021132239.GA29288@gamma.logic.tuwien.ac.at> <20061021100207.fdc240e0.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:17868 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1161025AbWJUVKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 17:10:30 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1GbO6r-00028z-RW
-	for netdev@vger.kernel.org; Sat, 21 Oct 2006 23:10:25 +0200
-Received: from cac94-1-81-57-151-96.fbx.proxad.net ([81.57.151.96])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2006 23:10:25 +0200
-Received: from castet.matthieu by cac94-1-81-57-151-96.fbx.proxad.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2006 23:10:25 +0200
-To: netdev@vger.kernel.org
+Received: from alpha.logic.tuwien.ac.at ([128.130.175.20]:15586 "EHLO
+	alpha.logic.tuwien.ac.at") by vger.kernel.org with ESMTP
+	id S1161160AbWJUXl6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Oct 2006 19:41:58 -0400
+To: Andrew Morton <akpm@osdl.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061021.123814.106436476.davem@davemloft.net> <200610211918.30616.rjw@sisk.pl> <20061021100207.fdc240e0.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Oct 2006 17:19:36 +0800, Hong Liu wrote:
+Hi Andrew, hi all!
 
-> ipw3945 TKIP hwcrypto only support RC4 encryption,
-> so the stack needs to pre compute the michael MIC and the RC4key
-> for it.
-I suppose the hw doesn't do any hardware mic for the RX path.
-It believe it should be also added.
+On Sam, 21 Okt 2006, Andrew Morton wrote:
+> Can you test 2.6.19-rc2 plus the below?
 
+2.6.19-rc2	works
+2.6.19-rc2+patch does not work
+
+So it is this patch.
+
+hw:
+Acer TravelMate 3012WMi
+03:00.0 Ethernet controller: Broadcom Corporation NetLink BCM5789 Gigab=
+it Ethernet PCI Express (rev 11)
+
+If you need dmesg, .config, something else, no problem.
+
+Best wishes
+
+Norbert
+
+-----------------------------------------------------------------------=
+--------
+Dr. Norbert Preining <preining@logic.at>                    Universit=E0=
+ di Siena
+Debian Developer <preining@debian.org>                         Debian T=
+eX Group
+gpg DSA: 0x09C5B094      fp: 14DF 2E6C 0307 BE6D AD76  A9C0 D2BF 4AA3 0=
+9C5 B094
+-----------------------------------------------------------------------=
+--------
+DITHERINGTON (n)
+Sudden access to panic experienced by one who realises that he is
+being drawn inexorably into a clabby (q.v.) conversion, i.e. one he
+has no hope of enjoying, benefiting from or understanding.
+			--- Douglas Adams, The Meaning of Liff
