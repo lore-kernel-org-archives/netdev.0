@@ -1,59 +1,58 @@
 From: stephen@dino.dnsalias.com (Stephen J. Bevan)
 Subject: Re: [RFC] Ethernet Cheap Cryptography
-Date: Fri, 20 Oct 2006 18:58:01 -0700
-Message-ID: <17721.32425.591879.97484@localhost.localdomain>
-References: <200610151820.22867.dpc@asn.pl>
-	<17717.40394.531846.695392@localhost.localdomain>
-	<200610181115.12471.dpc@asn.pl>
-	<17718.63424.509719.492216@localhost.localdomain>
+Date: Fri, 20 Oct 2006 19:17:42 -0700
+Message-ID: <17721.33606.219025.313449@localhost.localdomain>
+References: <17718.63424.509719.492216@localhost.localdomain>
 	<eh87aq$71t$1@sea.gmane.org>
 	<17720.12801.843076.819750@localhost.localdomain>
-	<ehbava$iia$1@sea.gmane.org>
+	<20061019.195921.31639913.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: stephen@dino.dnsalias.com, pjf@asn.pl, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from S010600014e000000.vc.shawcable.net ([70.79.40.36]:51469 "EHLO
-	dino.dnsalias.com") by vger.kernel.org with ESMTP id S2992784AbWJUB7F
+Received: from S010600014e000000.vc.shawcable.net ([70.79.40.36]:51251 "EHLO
+	dino.dnsalias.com") by vger.kernel.org with ESMTP id S1030380AbWJUCSp
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 21:59:05 -0400
-To: Pawel Foremski <pjf@asn.pl>
-In-Reply-To: <ehbava$iia$1@sea.gmane.org>
+	Fri, 20 Oct 2006 22:18:45 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061019.195921.31639913.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pawel Foremski writes:
- > Consider such an example: our task is to bridge two LANs managed by a
- > third-party ISP over a wireless link, with the highest performance possible
- > for such medium. The ISP has its clients on one LAN and a PPPoE
- > concentrator on the second one.  Because the ISP doesn't trust us
- > or is not aware of our bridge, it uses MPPE to secure PPP. We
- > cannot enforce any changes to the way the ISP provides services to
- > its end users.  
+David Miller writes:
+ > From: stephen@dino.dnsalias.com (Stephen J. Bevan)
+ > Date: Thu, 19 Oct 2006 19:18:41 -0700
  > 
- > In ASCII art, that would be:
+ > > Pawel Foremski writes:
+ > >  > Secondly, IPsec won't decrease MSS in TCP encapsulated in PPPoE
+ > >  > traffic, for example. 
+ > > 
+ > > Various, commercial, IPsec products decrease the MSS for TCP
+ > > encapsulated in PPPoE.  I've not checked the Linux 2.6 IPsec code to
+ > > see if it does or if it can easily be made to.
  > 
- > [PPPoE server]---[Linux#1]--ccrypt--[dumb WiFi bridge] )))  \/
- >                                                             ||
- > [PPPoE client]---[Linux#2]--ccrypt--[dumb WiFi bridge] ((( <=/
- > 
- > Obviously, the dumb WiFi bridge cannot speak anything other than 1500-byte,
- > plain (not encrypted) Ethernet.
+ > Linux will for local TCP connections over IPSEC transports since it
+ > knows the path MTU, for IPSEC gateways the source system will adjust
+ > the MSS after it notes via path-MTU what the decreased MTU is.
 
-Since there was no mention of bridging in the ccrypt documentation or
-previously in the email thread I (incorrectly) assumed that PPPoE was
-terminating on the Linux box.  Thus the IP traffic would be visible
-and hence IPsec could be used.  Clearly if the Linux box is bridging
-PPPoE as you note above then IPsec is not viable.  Thus the addition
-of the above scenario to the ccrypt documentation help would avoid
-getting questions about why you can't use IPsec :-)
+path-MTU gets interesting[1] in the context of an an IPsec gateway
+(i.e. tunnel mode IPsec) and there is definitely variability as to how
+reliably an ICMP will be returned in the case that the MTU is exceeded
+somewhere between the two endpoints.  Throw in port/protocol based
+selectors[2] or IPv4(IPv6) traffic encrypted with an IPv6(IPv4)
+header[3] and the chances of success go down.
 
-However, in the above you note that MPPE is being used.  I take this
-to mean that all the PPP traffic between the PPPoE client and PPPoE
-server is encrypted.  However, if that's the case then I don't
-understand why there is a need to use ccrypt for the wireless link
-between the two Linux boxes.  Thus perhaps I misunderstood where MPPE
-is being used?  Or perhaps you meant this is only one example and in
-other scenarios MPPE is not used and so in that case the wireless
-traffic does need encrypting?
+Users ussually don't tend to care whose IPsec is at fault, they just
+want things to work.  Thus, having tunnel mode IPsec alter the MSS (of
+non-local traffic) to take account of the encryption (or PPPoE,
+... etc.) overhead smooths over most fragmentation issues.
+
+----------
+[1] as detailed in the length Appendix B of RFC 2401.
+
+[2] some IPsec implementation won't correctly match an ICMP up against
+    port/protocol based selectors and so the ICMP is lost.
+
+[3] mapping the DF bit is left to implementations, some reset the DF
+    bit and so just fragment.
