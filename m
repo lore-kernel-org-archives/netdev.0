@@ -1,48 +1,62 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e100_shutdown: netif_poll_disable hang
-Date: Sat, 21 Oct 2006 10:54:02 -0700
-Message-ID: <453A5EBA.5050701@intel.com>
-References: <20061020182820.978932000@mvista.com> <453936E0.1010204@intel.com>	<45393B0B.8090301@intel.com> <87slhh1s90.fsf@brouette.noos.fr>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Please pull 'we21-fix' branch of wireless-2.6.git
+Date: Sat, 21 Oct 2006 14:12:34 -0400
+Message-ID: <453A6312.3030207@garzik.org>
+References: <20061005163113.GB6510@bougret.hpl.hp.com> <20061005204949.GF18408@tuxdriver.com> <20061005221246.GB7533@bougret.hpl.hp.com> <20061010193959.GC5728@tuxdriver.com> <20061010202803.GA17177@bougret.hpl.hp.com> <20061019215647.GA18217@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Walker <dwalker@mvista.com>, Andrew Morton <akpm@osdl.org>,
-	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	NetDev <netdev@vger.kernel.org>
+Cc: Jouni Malinen <jkm@devicescape.com>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56244 "EHLO mga09.intel.com")
-	by vger.kernel.org with ESMTP id S2993143AbWJURzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 13:55:18 -0400
-To: Damien Wyart <damien.wyart@free.fr>
-In-Reply-To: <87slhh1s90.fsf@brouette.noos.fr>
+Received: from srv5.dvmed.net ([207.36.208.214]:63723 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964773AbWJUSMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:12:52 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20061019215647.GA18217@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Damien Wyart wrote:
->>>> My machine annoyingly hangs while rebooting. I tracked it down to
->>>> e100-fix-reboot-f-with-netconsole-enabled.patch in 2.6.18-rc2-mm2
->>>> I review the changes and it seemed to be calling
->>>> netif_poll_disable one too many time. Once in e100_down(), and
->>>> again in e100_shutdown().
->>>> The second one in e100_shutdown() caused the hang. So this patch
->>>> removes it.
+John W. Linville wrote:
+> Jeff,
 > 
-> * Auke Kok <auke-jan.h.kok@intel.com> [061020 23:09]:
->> it doesn't even do harm to netif_poll_disable() twice as far as I can
->> see, as it merely calls test_and_set_bit(), which will instantly
->> succeed on the first attempt if the bit was already set.
+> Here is my ugly patch to fix userland ABI compatibility for WE-21.
+> It tries to detect WE <= 20 by the request length or the inclusion of
+> '\0' in the length for the ESSID and NICKN ioctls.  If it finds that,
+> it temporarily adjusts the length value and puts it back before
+> reporting back to userland.
 > 
->> did this change actually fix it for you? I'm wondering if the
->> netif_carrier_off might not be the culprit here...
+> It is possible that there are more elegant solutions that work, but
+> I'm not totally convinced that they truly preserve the ABI as desired.
+> Please see the discussion earlier in this thread if you are interested.
 > 
-> I can confirm the proposed original change of D. Walker fixed the
-> problem for me. I did not test the change you proposed as a followup.
+> I'm aware that checking for '\0' is problematic, since that technically
+> is a valid SSID character even at the end of the SSID.  I'm afraid
+> we will just have to live with that limitation.
+> 
+> I have the single patch on its own "clean" branch from Linus's tree of
+> a few days ago.  That way you can pull just this fix without concern
+> about picking-up the other fixes which I posted a few days ago,
+> in case you haven't reviewed them yet.
+> 
+> Obviously, this is intended for 2.6.19.
+> 
+> Thanks,
+> 
+> John
+> ---
+> 
+> The following changes since commit 51018b0a3160d253283173c2f54f16746cee5852:
+>   Ulrich Drepper:
+>         make UML compile (FC6/x86-64)
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/wireless-2.6.git we21-fix
 
-his change breaks something else (a reboot with netconsole, possibly suspend). Please 
-give the latest version I sent a try. Daniel confirmed me that it works, but it's always 
-nice to hear it from more people.
+pulled, after adding "git/linville/" to the URL...
 
-Thanks
+	Jeff
 
-Auke
+
+
