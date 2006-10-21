@@ -1,45 +1,59 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [PATCH] hostap_plx: fix CIS verification
-Date: Fri, 20 Oct 2006 18:19:43 -0700
-Message-ID: <20061021011943.GC6140@jm.kir.nu>
-References: <1161382815.5803.2.camel@dv>
+From: stephen@dino.dnsalias.com (Stephen J. Bevan)
+Subject: Re: [RFC] Ethernet Cheap Cryptography
+Date: Fri, 20 Oct 2006 18:58:01 -0700
+Message-ID: <17721.32425.591879.97484@localhost.localdomain>
+References: <200610151820.22867.dpc@asn.pl>
+	<17717.40394.531846.695392@localhost.localdomain>
+	<200610181115.12471.dpc@asn.pl>
+	<17718.63424.509719.492216@localhost.localdomain>
+	<eh87aq$71t$1@sea.gmane.org>
+	<17720.12801.843076.819750@localhost.localdomain>
+	<ehbava$iia$1@sea.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hostap@shmoo.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.genealogia.fi ([194.100.116.229]:19614 "EHLO
-	mail2.genealogia.fi") by vger.kernel.org with ESMTP
-	id S2992770AbWJUBVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 21:21:13 -0400
-To: Pavel Roskin <proski@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1161382815.5803.2.camel@dv>
+Received: from S010600014e000000.vc.shawcable.net ([70.79.40.36]:51469 "EHLO
+	dino.dnsalias.com") by vger.kernel.org with ESMTP id S2992784AbWJUB7F
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Oct 2006 21:59:05 -0400
+To: Pawel Foremski <pjf@asn.pl>
+In-Reply-To: <ehbava$iia$1@sea.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2006 at 06:20:15PM -0400, Pavel Roskin wrote:
+Pawel Foremski writes:
+ > Consider such an example: our task is to bridge two LANs managed by a
+ > third-party ISP over a wireless link, with the highest performance possible
+ > for such medium. The ISP has its clients on one LAN and a PPPoE
+ > concentrator on the second one.  Because the ISP doesn't trust us
+ > or is not aware of our bridge, it uses MPPE to secure PPP. We
+ > cannot enforce any changes to the way the ISP provides services to
+ > its end users.  
+ > 
+ > In ASCII art, that would be:
+ > 
+ > [PPPoE server]---[Linux#1]--ccrypt--[dumb WiFi bridge] )))  \/
+ >                                                             ||
+ > [PPPoE client]---[Linux#2]--ccrypt--[dumb WiFi bridge] ((( <=/
+ > 
+ > Obviously, the dumb WiFi bridge cannot speak anything other than 1500-byte,
+ > plain (not encrypted) Ethernet.
 
-> The record length for numerical manufacturer ID should be at least 4
-> bytes (two 16-bit words).  The code required 5 bytes, which would break
-> for most (if not all) cards.  Reported by ph35sm@free.fr
+Since there was no mention of bridging in the ccrypt documentation or
+previously in the email thread I (incorrectly) assumed that PPPoE was
+terminating on the Linux box.  Thus the IP traffic would be visible
+and hence IPsec could be used.  Clearly if the Linux box is bridging
+PPPoE as you note above then IPsec is not viable.  Thus the addition
+of the above scenario to the ccrypt documentation help would avoid
+getting questions about why you can't use IPsec :-)
 
->  		case CISTPL_MANFID:
-> -			if (cis[pos + 1] < 5)
-> +			if (cis[pos + 1] < 4)
-
-Hmm.. Interesting. I think this was changed from 4 to 5 due to a
-potential buffer overflow as reported by Coverity tools.. In addition, I
-think that I spent long time trying to understand why it could be a
-buffer overflow and since it was changed, likely finally figured out an
-example case.. Alas, I don't remember what exactly this was anymore.
-
-It looks like the comparison of the length field to be <5 was incorrect,
-but in order to avoid re-introducing any potential buffer overflows,
-that condition could be extended to verify that pos is small enough..
-Something like (cis[pos + 1] < 4 && pos + 5 < CIS_MAX_LEN) could be a
-better fix here. I don't have easy access to PLX cards anymore, so this
-is untested and I'm too lazy to copy this function into a separate
-program to run it against CIS dumps.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+However, in the above you note that MPPE is being used.  I take this
+to mean that all the PPP traffic between the PPPoE client and PPPoE
+server is encrypted.  However, if that's the case then I don't
+understand why there is a need to use ccrypt for the wireless link
+between the two Linux boxes.  Thus perhaps I misunderstood where MPPE
+is being used?  Or perhaps you meant this is only one example and in
+other scenarios MPPE is not used and so in that case the wireless
+traffic does need encrypting?
