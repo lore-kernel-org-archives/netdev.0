@@ -1,30 +1,34 @@
-From: Damien Wyart <damien.wyart@free.fr>
-Subject: Re: [PATCH] e100_shutdown: netif_poll_disable hang
-Date: Sat, 21 Oct 2006 22:55:57 +0200
-Message-ID: <20061021205557.GA2836@localhost.localdomain>
-References: <20061020182820.978932000@mvista.com> <453936E0.1010204@intel.com> <45393B0B.8090301@intel.com> <87slhh1s90.fsf@brouette.noos.fr> <453A5EBA.5050701@intel.com>
+From: "Matthieu CASTET" <castet.matthieu@free.fr>
+Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
+Date: Sat, 21 Oct 2006 21:10:19 +0000 (UTC)
+Message-ID: <ehe2br$u1n$1@sea.gmane.org>
+References: <1161335976.21402.11.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	linux-kernel@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pm-mx5.mgn.net ([195.46.220.209]:30961 "EHLO pm-mx5.mgn.net")
-	by vger.kernel.org with ESMTP id S1161032AbWJUU4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 16:56:00 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Content-Disposition: inline
-In-Reply-To: <453A5EBA.5050701@intel.com>
+Received: from main.gmane.org ([80.91.229.2]:17868 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1161025AbWJUVKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 17:10:30 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1GbO6r-00028z-RW
+	for netdev@vger.kernel.org; Sat, 21 Oct 2006 23:10:25 +0200
+Received: from cac94-1-81-57-151-96.fbx.proxad.net ([81.57.151.96])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2006 23:10:25 +0200
+Received: from castet.matthieu by cac94-1-81-57-151-96.fbx.proxad.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2006 23:10:25 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Auke Kok <auke-jan.h.kok@intel.com> [2006-10-21 10:54]: his change
-> breaks something else (a reboot with netconsole, possibly suspend).
-> Please give the latest version I sent a try. Daniel confirmed me that
-> it works, but it's always nice to hear it from more people.
+On Fri, 20 Oct 2006 17:19:36 +0800, Hong Liu wrote:
 
-Yes, your version works here too.
+> ipw3945 TKIP hwcrypto only support RC4 encryption,
+> so the stack needs to pre compute the michael MIC and the RC4key
+> for it.
+I suppose the hw doesn't do any hardware mic for the RX path.
+It believe it should be also added.
 
--- 
-Damien Wyart
