@@ -1,38 +1,28 @@
-From: Dave Jones <davej@redhat.com>
+From: Daniel Drake <dsd@gentoo.org>
 Subject: Re: [PATCH] bcm43xx: Readd dropped assignment
-Date: Fri, 20 Oct 2006 23:29:00 -0400
-Message-ID: <20061021032900.GB17706@redhat.com>
-References: <20061017231212.A73D77B40A0@zog.reactivated.net> <200610181640.01140.mb@bu3sch.de>
+Date: Fri, 20 Oct 2006 23:42:46 -0400
+Message-ID: <45399736.1050709@gentoo.org>
+References: <20061017231212.A73D77B40A0@zog.reactivated.net> <200610181640.01140.mb@bu3sch.de> <20061021032900.GB17706@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, Daniel Drake <dsd@gentoo.org>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>, linville@tuxdriver.com,
 	Larry.Finger@lwfinger.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:13463 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S2992822AbWJUDa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 23:30:27 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200610181640.01140.mb@bu3sch.de>
+Received: from smtp151.iad.emailsrvr.com ([207.97.245.151]:16279 "EHLO
+	smtp151.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S1751107AbWJUDnk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Oct 2006 23:43:40 -0400
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20061021032900.GB17706@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2006 at 04:40:00PM +0200, Michael Buesch wrote:
- > On Wednesday 18 October 2006 01:12, Daniel Drake wrote:
- > > Larry Finger pointed out a problem with my ieee80211 IV/ICV stripping patch,
- > > which I forgot about. Sorry about that.
- > > 
- > > The patch readds the frame_ctl assignment which was accidently dropped.
- > > 
- > > Signed-off-by: Daniel Drake <dsd@gentoo.org>
- > 
- > Whoops. Please merge this as fast as possible, John.
- > That's a real bug which prevents RX from working.
+Dave Jones wrote:
+> Is that one for -stable too? That file looks similar enough
+> between .18.1 and .19rc that it should be the case ?
 
-Is that one for -stable too? That file looks similar enough
-between .18.1 and .19rc that it should be the case ?
+No. The IV/ICV stripping change was only merged into John's tree very 
+recently (the day I sent the fix).
 
-	Dave
-
--- 
-http://www.codemonkey.org.uk
+Daniel
