@@ -1,57 +1,37 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream-fixes' branch of wireless-2.6
-Date: Sat, 21 Oct 2006 14:22:37 -0400
-Message-ID: <453A656D.7090706@garzik.org>
-References: <20061017213412.GD32614@tuxdriver.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 0/8] e100, e1000: Fixes for netdev-2.6#upstream-fixes
+Date: Sat, 21 Oct 2006 14:31:05 -0400
+Message-ID: <453A6769.4000305@pobox.com>
+References: <20061017190139.4194.20128.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39404 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1766642AbWJUSWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:22:39 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061017213412.GD32614@tuxdriver.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:51692 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S2993159AbWJUSbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:31:13 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20061017190139.4194.20128.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit 51018b0a3160d253283173c2f54f16746cee5852:
->   Ulrich Drepper:
->         make UML compile (FC6/x86-64)
+Kok, Auke wrote:
+> Hi,
 > 
-> are found in the git repository at:
+> The following fixes targeted to netdev-2.6#upstream-fixes are available
+> through git:
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
-> 
-> Dave Kleikamp:
->       airo: check if need to freeze
-> 
-> Eric Sesterhenn:
->       zd1201: Possible NULL dereference
-> 
-> Florin Malita:
->       airo.c: check returned values
-> 
-> Jean Tourrilhes:
->       orinoco: fix WE-21 buffer overflow
->       wireless: More WE-21 potential overflows...
-> 
-> John W. Linville:
->       zd1211rw: fix build-break caused by association race fix
-> 
-> Larry Finger:
->       bcm43xx-softmac: check returned value from pci_enable_device
->       bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
-> 
-> Laurent Riffard:
->       sotftmac: fix a slab corruption in WEP restricted key association
-> 
-> Michael Buesch:
->       bcm43xx: fix race condition in periodic work handler
->       softmac: Fix WX and association related races
+> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
 
-pulled
+hrm.  since another e100 fixes got applied, can you either (a) update 
+the above URL for that change, or (b) provide separate e100 and e1000 
+pull urls?
+
+	Jeff
+
 
 
