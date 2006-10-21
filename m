@@ -1,37 +1,113 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/8] e100, e1000: Fixes for netdev-2.6#upstream-fixes
-Date: Sat, 21 Oct 2006 14:31:05 -0400
-Message-ID: <453A6769.4000305@pobox.com>
-References: <20061017190139.4194.20128.stgit@gitlost.site>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes
+Date: Sat, 21 Oct 2006 14:38:34 -0400
+Message-ID: <20061021183834.GA27990@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51692 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S2993159AbWJUSbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:31:13 -0400
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20061017190139.4194.20128.stgit@gitlost.site>
+Received: from havoc.gtf.org ([69.61.125.42]:15306 "EHLO havoc.gtf.org")
+	by vger.kernel.org with ESMTP id S1766641AbWJUSii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:38:38 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Hi,
-> 
-> The following fixes targeted to netdev-2.6#upstream-fixes are available
-> through git:
-> 
-> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
+[just sent this upstream]
 
-hrm.  since another e100 fixes got applied, can you either (a) update 
-the above URL for that change, or (b) provide separate e100 and e1000 
-pull urls?
+Please pull from 'upstream-linus' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
 
-	Jeff
+to receive the following updates:
 
+ drivers/net/Kconfig                             |    2 
+ drivers/net/e1000/e1000_main.c                  |    4 
+ drivers/net/ibmveth.c                           |   10 
+ drivers/net/ioc3-eth.c                          |    4 
+ drivers/net/r8169.c                             |    7 
+ drivers/net/sb1250-mac.c                        |    2 
+ drivers/net/sky2.c                              |   33 -
+ drivers/net/smc91x.h                            |   18 +
+ drivers/net/ucc_geth.c                          |  633 ++++++++++++-----------
+ drivers/net/ucc_geth.h                          |  248 ++++-----
+ drivers/net/ucc_geth_phy.c                      |   26 -
+ drivers/net/ucc_geth_phy.h                      |    2 
+ drivers/net/wan/pc300_drv.c                     |   24 +
+ drivers/net/wireless/airo.c                     |  105 +++-
+ drivers/net/wireless/atmel.c                    |    2 
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.c      |   28 +
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.h      |   17 +
+ drivers/net/wireless/bcm43xx/bcm43xx_leds.c     |    2 
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c     |   34 -
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.c       |    2 
+ drivers/net/wireless/orinoco.c                  |   16 -
+ drivers/net/wireless/ray_cs.c                   |    1 
+ drivers/net/wireless/zd1201.c                   |    6 
+ drivers/net/wireless/zd1211rw/zd_mac.c          |    2 
+ include/net/ieee80211softmac.h                  |   35 +
+ net/core/wireless.c                             |   33 +
+ net/ieee80211/softmac/ieee80211softmac_assoc.c  |   56 +-
+ net/ieee80211/softmac/ieee80211softmac_io.c     |   11 
+ net/ieee80211/softmac/ieee80211softmac_module.c |    1 
+ net/ieee80211/softmac/ieee80211softmac_wx.c     |   71 ++-
+ 30 files changed, 809 insertions(+), 626 deletions(-)
 
+Andrew Morton:
+      r8169: PCI ID for Corega Gigabit network card
+
+Arnaud Patard:
+      r8169: fix infinite loop during hotplug
+
+Dave Jones:
+      Remove useless comment from sb1250
+
+Dave Kleikamp:
+      airo: check if need to freeze
+
+David Gibson:
+      ibmveth: Fix index increment calculation
+
+Deepak Saxena:
+      Update smc91x driver with ARM Versatile board info
+
+Eric Sesterhenn:
+      zd1201: Possible NULL dereference
+
+Florin Malita:
+      airo.c: check returned values
+
+Jean Tourrilhes:
+      orinoco: fix WE-21 buffer overflow
+      wireless: More WE-21 potential overflows...
+
+Jeff Garzik:
+      WAN/pc300: handle, propagate minor errors
+
+John W. Linville:
+      zd1211rw: fix build-break caused by association race fix
+      wireless: WE-20 compatibility for ESSID and NICKN ioctls
+
+Larry Finger:
+      bcm43xx-softmac: check returned value from pci_enable_device
+      bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
+
+Laurent Riffard:
+      sotftmac: fix a slab corruption in WEP restricted key association
+
+Li Yang:
+      ucc_geth: changes to ucc_geth driver as a result of qe_lib changes and bugfixes
+
+Linas Vepstas:
+      e1000: Reset all functions after a PCI error
+
+Michael Buesch:
+      bcm43xx: fix race condition in periodic work handler
+      softmac: Fix WX and association related races
+
+Ralf Baechle:
+      Fix timer race
+
+Stephen Hemminger:
+      sky2: 88E803X transmit lockup
 
