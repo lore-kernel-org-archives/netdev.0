@@ -1,56 +1,57 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Sat, 21 Oct 2006 14:22:21 -0400
-Message-ID: <453A655D.2030407@garzik.org>
-References: <20061017213412.GD32614@tuxdriver.com> <20061017213557.GE32614@tuxdriver.com>
+Subject: Re: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Sat, 21 Oct 2006 14:22:37 -0400
+Message-ID: <453A656D.7090706@garzik.org>
+References: <20061017213412.GD32614@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36844 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1766623AbWJUSWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:22:23 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:39404 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1766642AbWJUSWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:22:39 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061017213557.GE32614@tuxdriver.com>
+In-Reply-To: <20061017213412.GD32614@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 John W. Linville wrote:
-> The following changes since commit 41072a1be57f63bf83afc31c44d72de018d800fa:
->   John W. Linville:
->         zd1211rw: fix build-break caused by association race fix
+> The following changes since commit 51018b0a3160d253283173c2f54f16746cee5852:
+>   Ulrich Drepper:
+>         make UML compile (FC6/x86-64)
 > 
 > are found in the git repository at:
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
 > 
-> Alexey Dobriyan:
->       prism54: use BUILD_BUG_ON
+> Dave Kleikamp:
+>       airo: check if need to freeze
 > 
-> Daniel Drake:
->       zd1211rw: Add 3 more device IDs
->       ieee80211: Move IV/ICV stripping into ieee80211_rx
+> Eric Sesterhenn:
+>       zd1201: Possible NULL dereference
 > 
-> Dmitry Torokhov:
->       atmel: save on array initialization
->       atmel: use ARRAY_SIZE()
->       atmel: whitespace cleanup
->       prism54: fix potential race in reset scheduling
->       prism54: whitespace cleanup
+> Florin Malita:
+>       airo.c: check returned values
 > 
-> Holden Karau:
->       atmel: output signal strength information
+> Jean Tourrilhes:
+>       orinoco: fix WE-21 buffer overflow
+>       wireless: More WE-21 potential overflows...
+> 
+> John W. Linville:
+>       zd1211rw: fix build-break caused by association race fix
 > 
 > Larry Finger:
->       bcm43xx: output proper link quality with scans
->       ieee80211: Drop and count duplicate data frames to remove 'replay detected' log messages
+>       bcm43xx-softmac: check returned value from pci_enable_device
+>       bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
 > 
-> matthieu castet:
->       ieee80211: allow mtu bigger than 1500
+> Laurent Riffard:
+>       sotftmac: fix a slab corruption in WEP restricted key association
 > 
-> Stefano Brivio:
->       bcm43xx: add PCI-E code
+> Michael Buesch:
+>       bcm43xx: fix race condition in periodic work handler
+>       softmac: Fix WX and association related races
 
 pulled
+
 
