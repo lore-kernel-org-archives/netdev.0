@@ -1,113 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver fixes
-Date: Sat, 21 Oct 2006 14:38:34 -0400
-Message-ID: <20061021183834.GA27990@havoc.gtf.org>
+Subject: Re: [PATCH] VIOC: Ethtool
+Date: Sat, 21 Oct 2006 15:25:23 -0400
+Message-ID: <453A7423.5080107@garzik.org>
+References: <200610131056.28563.misha@fabric7.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: KERNEL Linux <linux-kernel@vger.kernel.org>,
+	NETDEV Linux <netdev@vger.kernel.org>,
+	Sriram Chidambaram <schidambaram@fabric7.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:15306 "EHLO havoc.gtf.org")
-	by vger.kernel.org with ESMTP id S1766641AbWJUSii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 14:38:38 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:640 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1422793AbWJUTZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2006 15:25:26 -0400
+To: misha@fabric7.com
+In-Reply-To: <200610131056.28563.misha@fabric7.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[just sent this upstream]
+Misha Tomushev wrote:
+> The following is the ethtool patch for  VIOC Device Driver.
+> 
+> Signed-off-by: Misha Tomushev  <misha@fabric7.com>
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
+ACK but does not apply to ethtool.git:
 
-to receive the following updates:
 
- drivers/net/Kconfig                             |    2 
- drivers/net/e1000/e1000_main.c                  |    4 
- drivers/net/ibmveth.c                           |   10 
- drivers/net/ioc3-eth.c                          |    4 
- drivers/net/r8169.c                             |    7 
- drivers/net/sb1250-mac.c                        |    2 
- drivers/net/sky2.c                              |   33 -
- drivers/net/smc91x.h                            |   18 +
- drivers/net/ucc_geth.c                          |  633 ++++++++++++-----------
- drivers/net/ucc_geth.h                          |  248 ++++-----
- drivers/net/ucc_geth_phy.c                      |   26 -
- drivers/net/ucc_geth_phy.h                      |    2 
- drivers/net/wan/pc300_drv.c                     |   24 +
- drivers/net/wireless/airo.c                     |  105 +++-
- drivers/net/wireless/atmel.c                    |    2 
- drivers/net/wireless/bcm43xx/bcm43xx_dma.c      |   28 +
- drivers/net/wireless/bcm43xx/bcm43xx_dma.h      |   17 +
- drivers/net/wireless/bcm43xx/bcm43xx_leds.c     |    2 
- drivers/net/wireless/bcm43xx/bcm43xx_main.c     |   34 -
- drivers/net/wireless/bcm43xx/bcm43xx_wx.c       |    2 
- drivers/net/wireless/orinoco.c                  |   16 -
- drivers/net/wireless/ray_cs.c                   |    1 
- drivers/net/wireless/zd1201.c                   |    6 
- drivers/net/wireless/zd1211rw/zd_mac.c          |    2 
- include/net/ieee80211softmac.h                  |   35 +
- net/core/wireless.c                             |   33 +
- net/ieee80211/softmac/ieee80211softmac_assoc.c  |   56 +-
- net/ieee80211/softmac/ieee80211softmac_io.c     |   11 
- net/ieee80211/softmac/ieee80211softmac_module.c |    1 
- net/ieee80211/softmac/ieee80211softmac_wx.c     |   71 ++-
- 30 files changed, 809 insertions(+), 626 deletions(-)
+Applying 'add VIOC support'
 
-Andrew Morton:
-      r8169: PCI ID for Corega Gigabit network card
-
-Arnaud Patard:
-      r8169: fix infinite loop during hotplug
-
-Dave Jones:
-      Remove useless comment from sb1250
-
-Dave Kleikamp:
-      airo: check if need to freeze
-
-David Gibson:
-      ibmveth: Fix index increment calculation
-
-Deepak Saxena:
-      Update smc91x driver with ARM Versatile board info
-
-Eric Sesterhenn:
-      zd1201: Possible NULL dereference
-
-Florin Malita:
-      airo.c: check returned values
-
-Jean Tourrilhes:
-      orinoco: fix WE-21 buffer overflow
-      wireless: More WE-21 potential overflows...
-
-Jeff Garzik:
-      WAN/pc300: handle, propagate minor errors
-
-John W. Linville:
-      zd1211rw: fix build-break caused by association race fix
-      wireless: WE-20 compatibility for ESSID and NICKN ioctls
-
-Larry Finger:
-      bcm43xx-softmac: check returned value from pci_enable_device
-      bcm43xx-softmac: Fix system hang for x86-64 with >1GB RAM
-
-Laurent Riffard:
-      sotftmac: fix a slab corruption in WEP restricted key association
-
-Li Yang:
-      ucc_geth: changes to ucc_geth driver as a result of qe_lib changes and bugfixes
-
-Linas Vepstas:
-      e1000: Reset all functions after a PCI error
-
-Michael Buesch:
-      bcm43xx: fix race condition in periodic work handler
-      softmac: Fix WX and association related races
-
-Ralf Baechle:
-      Fix timer race
-
-Stephen Hemminger:
-      sky2: 88E803X transmit lockup
+Adds trailing whitespace.
+.dotest/patch:50:#define VIOC_REGS_LINE_SIZE    sizeof(struct regs_line)
+error: patch failed: Makefile.am:7
+error: Makefile.am: patch does not apply
+error: patch failed: ethtool-util.h:48
+error: ethtool-util.h: patch does not apply
+error: patch failed: ethtool.c:945
+error: ethtool.c: patch does not apply
 
