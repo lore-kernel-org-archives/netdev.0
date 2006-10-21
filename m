@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] netpoll: rework skb transmit queue
-Date: Fri, 20 Oct 2006 23:38:50 -0700 (PDT)
-Message-ID: <20061020.233850.02297930.davem@davemloft.net>
-References: <20061020.125226.59656580.davem@davemloft.net>
-	<20061020132532.65a3e655@dxpl.pdx.osdl.net>
-	<20061021050016.GD21948@redhat.com>
+From: "Yanaa" <allendavisjr@btopenworld.com>
+Subject: Re[2]: to U:)
+Date: Sat, 21 Oct 2006 16:00:48 +0300
+Message-ID: <00b401c6f510$eb252600$0601000a__26439.5517450341$1161437948$gmane$org@190-49-15-221.speedy.com.ar>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="windows-1251"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13805
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751752AbWJUGis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Oct 2006 02:38:48 -0400
-To: davej@redhat.com
-In-Reply-To: <20061021050016.GD21948@redhat.com>
+Received: from 190-49-15-221.speedy.com.ar ([190.49.15.221]:40713 "EHLO
+	190-49-15-221.speedy.com.ar") by vger.kernel.org with ESMTP
+	id S2993016AbWJUNiy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Oct 2006 09:38:54 -0400
+To: "Torsten" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Sat, 21 Oct 2006 01:00:16 -0400
+Hi, Torsten
 
-> Practically no-one cared about it, so it bit-rotted really fast
-> after we shipped RHEL4.  That, along with the focus shifting to
-> making kdump work seemed to kill it off over the last 12 months.
+I think we had correspondence a long time ago if it was not you I am sorry.
+If it was I could not answer you because my Mozilla mail manager was down for a 
+long time and I could not fix it only with my friend's help I got the emails 
+address out for me ..:)
+I hope it was whom we were corresponded with you are still interested, as I am, 
+though I realize much time has passed since then...
+I really don't know where to start ....
+Maybe you could tell me a little about yourself since I lost our early letters, 
+your appearance,age , hobbies, and are you still in the search?
+If it was you I wrote to and you are interested to get to know me better, I have 
+a profile at :
+http://findsomelove.com/myhoney
 
-Then we can truly kill off the ->drop() callback as part
-of Stephen's patches.
+Don't really know what else to say for now I hope this is the right address
 
-Stephen, I'll review your new set over the weekend.
+Let me know if you are interested, And I hope
+you won't run when you see my picture :-)
+
+ta-ta,
+Yanochka
+
+
