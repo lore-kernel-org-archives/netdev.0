@@ -1,32 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/9] IPv6/DCCP: fix memory leak in dccp_v6_do_rcv()
-Date: Fri, 20 Oct 2006 19:25:08 -0700 (PDT)
-Message-ID: <20061020.192508.38711169.davem@davemloft.net>
-References: <200610202143.k9KLh25B003765@shell0.pdx.osdl.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] Ethernet Cheap Cryptography
+Date: Fri, 20 Oct 2006 19:28:26 -0700
+Message-ID: <20061020192826.7ed05816@localhost.localdomain>
+References: <200610151820.22867.dpc@asn.pl>
+	<17717.40394.531846.695392@localhost.localdomain>
+	<200610181115.12471.dpc@asn.pl>
+	<17718.63424.509719.492216@localhost.localdomain>
+	<eh87aq$71t$1@sea.gmane.org>
+	<17720.12801.843076.819750@localhost.localdomain>
+	<ehbava$iia$1@sea.gmane.org>
+	<17721.32425.591879.97484@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesper.juhl@gmail.com
+Cc: Pawel Foremski <pjf@asn.pl>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28308
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S2992785AbWJUCZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Oct 2006 22:25:07 -0400
-To: akpm@osdl.org
-In-Reply-To: <200610202143.k9KLh25B003765@shell0.pdx.osdl.net>
+Received: from smtp.osdl.org ([65.172.181.4]:49344 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S2992790AbWJUC2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 22:28:36 -0400
+To: stephen@dino.dnsalias.com (Stephen J. Bevan)
+In-Reply-To: <17721.32425.591879.97484@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@osdl.org
-Date: Fri, 20 Oct 2006 14:43:02 -0700
+Ethernet encrypted bridging is old stuff:
+http://kerneltrap.org/node/167
+http://www.arnor.net/encryptingbridge/
 
-> (akpm: does opt_skb actually do anything?)
-
-This is a clone of similar code in net/ipv6/tcp_ipv6.c, it's just
-missing the bits at label "ipv6_pktoptions:" :-)
-
-No offence to the original patch, it's correct, but I'm going to fix
-this by making the dccp ipv6 logic match the code it was copied from
-in tcp_ipv6.c as much as possible.
-
-Thanks a lot for finding this leak Jesper.
+It never got accepted, mostly for the same reasons this proposal
+is a dead end.
