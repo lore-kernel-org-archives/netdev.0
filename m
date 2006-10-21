@@ -1,89 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: 88E803X transmit lockup
-Date: Fri, 20 Oct 2006 17:06:11 -0700
-Message-ID: <20061020170611.1766ae82@freekitty>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] hostap_plx: fix CIS verification
+Date: Fri, 20 Oct 2006 18:19:43 -0700
+Message-ID: <20061021011943.GC6140@jm.kir.nu>
+References: <1161382815.5803.2.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, hostap@shmoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15528 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422984AbWJUAGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2006 20:06:16 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from mail2.genealogia.fi ([194.100.116.229]:19614 "EHLO
+	mail2.genealogia.fi") by vger.kernel.org with ESMTP
+	id S2992770AbWJUBVN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Oct 2006 21:21:13 -0400
+To: Pavel Roskin <proski@gnu.org>
+Content-Disposition: inline
+In-Reply-To: <1161382815.5803.2.camel@dv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The reason sky2 driver was locking up on transmit on the Yukon-FE chipset
-is that it was misconfiguring the internal RAM buffer so the transmitter
-and receiver were sharing the same space. 
+On Fri, Oct 20, 2006 at 06:20:15PM -0400, Pavel Roskin wrote:
 
-The code assumed there was 16K of RAM on Yukon-FE (taken from vendor driver
-sk98lin which is even more f*cked up on this). Then it assigned based on that.
-The giveaway was that the registers would only hold 9bits so both RX/TX
-had 0..1ff for space. It is a wonder it worked at all!
+> The record length for numerical manufacturer ID should be at least 4
+> bytes (two 16-bit words).  The code required 5 bytes, which would break
+> for most (if not all) cards.  Reported by ph35sm@free.fr
 
-This patch addresses this, and fixes an easily reproducible hang on Transmit.
-Only the Yukon-FE chip is Marvell 88E803X (10/100 only) are affected.
+>  		case CISTPL_MANFID:
+> -			if (cis[pos + 1] < 5)
+> +			if (cis[pos + 1] < 4)
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Hmm.. Interesting. I think this was changed from 4 to 5 due to a
+potential buffer overflow as reported by Coverity tools.. In addition, I
+think that I spent long time trying to understand why it could be a
+buffer overflow and since it was changed, likely finally figured out an
+example case.. Alas, I don't remember what exactly this was anymore.
 
---- sky2.orig/drivers/net/sky2.c	2006-10-20 16:37:56.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-10-20 16:38:16.000000000 -0700
-@@ -699,16 +699,10 @@
- 
- }
- 
--/* Assign Ram Buffer allocation.
-- * start and end are in units of 4k bytes
-- * ram registers are in units of 64bit words
-- */
--static void sky2_ramset(struct sky2_hw *hw, u16 q, u8 startk, u8 endk)
-+/* Assign Ram Buffer allocation in units of 64bit (8 bytes) */
-+static void sky2_ramset(struct sky2_hw *hw, u16 q, u32 start, u32 end)
- {
--	u32 start, end;
--
--	start = startk * 4096/8;
--	end = (endk * 4096/8) - 1;
-+	pr_debug(PFX "q %d %#x %#x\n", q, start, end);
- 
- 	sky2_write8(hw, RB_ADDR(q, RB_CTRL), RB_RST_CLR);
- 	sky2_write32(hw, RB_ADDR(q, RB_START), start);
-@@ -717,7 +711,7 @@
- 	sky2_write32(hw, RB_ADDR(q, RB_RP), start);
- 
- 	if (q == Q_R1 || q == Q_R2) {
--		u32 space = (endk - startk) * 4096/8;
-+		u32 space = end - start + 1;
- 		u32 tp = space - space/4;
- 
- 		/* On receive queue's set the thresholds
-@@ -1199,19 +1193,16 @@
- 
- 	sky2_mac_init(hw, port);
- 
--	/* Determine available ram buffer space (in 4K blocks).
--	 * Note: not sure about the FE setting below yet
--	 */
--	if (hw->chip_id == CHIP_ID_YUKON_FE)
--		ramsize = 4;
--	else
--		ramsize = sky2_read8(hw, B2_E_0);
-+	/* Determine available ram buffer space in qwords.  */
-+	ramsize = sky2_read8(hw, B2_E_0) * 4096/8;
- 
--	/* Give transmitter one third (rounded up) */
--	rxspace = ramsize - (ramsize + 2) / 3;
-+	if (ramsize > 6*1024/8)
-+		rxspace = ramsize - (ramsize + 2) / 3;
-+	else
-+		rxspace = ramsize / 2;
- 
--	sky2_ramset(hw, rxqaddr[port], 0, rxspace);
--	sky2_ramset(hw, txqaddr[port], rxspace, ramsize);
-+	sky2_ramset(hw, rxqaddr[port], 0, rxspace-1);
-+	sky2_ramset(hw, txqaddr[port], rxspace, ramsize-1);
- 
- 	/* Make sure SyncQ is disabled */
- 	sky2_write8(hw, RB_ADDR(port == 0 ? Q_XS1 : Q_XS2, RB_CTRL),
+It looks like the comparison of the length field to be <5 was incorrect,
+but in order to avoid re-introducing any potential buffer overflows,
+that condition could be extended to verify that pos is small enough..
+Something like (cis[pos + 1] < 4 && pos + 5 < CIS_MAX_LEN) could be a
+better fix here. I don't have easy access to PLX cards anymore, so this
+is untested and I'm too lazy to copy this function into a separate
+program to run it against CIS dumps.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
