@@ -1,92 +1,59 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 7398] New: Preferred source address selection
- ("src" field) broken with multicast addresses
-Date: Sun, 22 Oct 2006 11:40:20 -0700
-Message-ID: <20061022114020.3b5a6042.akpm@osdl.org>
+From: "Martin J. Bligh" <mbligh@google.com>
+Subject: Strange errors from e1000 driver (2.6.18)
+Date: Sun, 22 Oct 2006 11:46:54 -0700
+Message-ID: <453BBC9E.4040300@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, linkfanel@yahoo.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:47082 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750782AbWJVSka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2006 14:40:30 -0400
-To: netdev@vger.kernel.org
+Received: from smtp-out.google.com ([216.239.45.12]:55373 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1750773AbWJVSs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Oct 2006 14:48:58 -0400
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I'm getting a lot of these type of errors if I run 2.6.18. If
+I run the standard Ubuntu Dapper kernel, I don't get them.
+What do they indicate?
 
-
-Begin forwarded message:
-
-Date: Sun, 22 Oct 2006 05:28:33 -0700
-From: bugme-daemon@bugzilla.kernel.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 7398] New: Preferred source address selection ("src" field) broken with multicast addresses
-
-
-http://bugzilla.kernel.org/show_bug.cgi?id=7398
-
-           Summary: Preferred source address selection ("src" field) broken
-                    with multicast addresses
-    Kernel Version: 2.6.18
-            Status: NEW
-          Severity: low
-             Owner: shemminger@osdl.org
-         Submitter: linkfanel@yahoo.fr
-
-
-Most recent kernel where this bug did not occur: unchecked
-Distribution: Debian (unstable)
-Hardware Environment: Pentium IV/M/MMX
-Software Environment: iproute2-ss060323, VLC 0.8.6 Janus
-
-Problem Description:
-Output packets to a multicast destination address are not routed properly if 
-the matched route features a preferred source address "src" field: packets are 
-output through the device corresponding to the "src" field, instead of the 
-device that would normally be used.
-
-Steps to reproduce:
-(0. Assume eth0 is up and working.)
-1. Set up another interface, for instance:
-modprobe dummy
-ip ad add 10.0.0.1 dummy0
-ip link set dummy0 up
-2. Set up a route with source address preference:
-ip ro add 239.255.1.2 dev eth0 src 10.0.0.1
-3. Send packets to multicast address, for instance:
-vlc -Irc la_question.mp3 --sout '#std{access=udp,mux=ts,dst=239.255.1.2:1234}'
-
-Packets will go out through dummy0 instead of expected eth0.
-
-Interestingly enough, net/ipv4/route.c contains the following (from line 2419):
-
-        if (oldflp->oif == 0
-            && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == 0xFFFFFFFF)) {
-            /* Special hack: user can direct multicasts
-               and limited broadcast via necessary interface
-               without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-               This hack is not just for fun, it allows
-               vic,vat and friends to work.
-               They bind socket to loopback, set ttl to zero
-               and expect that it will work.
-               From the viewpoint of routing cache they are broken,
-               because we are not allowed to build multicast path
-               with loopback source addr (look, routing cache
-               cannot know, that ttl is zero, so that packet
-               will not leave this host and route is valid).
-               Luckily, this hack is good workaround.
-             */
-
-            fl.oif = dev_out->ifindex;
-            goto make_route;
-        }
-
-Commenting that code out gets the kernel to route packets back in the expected 
-way (that is, in the previous example, through eth0 with source address 
-10.0.0.1).
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+Oct 21 18:48:28 localhost kernel: buffer_info[next_to_clean]
+Oct 21 18:48:28 localhost kernel:   time_stamp           <7b79d33>
+Oct 21 18:48:28 localhost kernel:   next_to_watch        <3d>
+Oct 21 18:48:28 localhost kernel:   jiffies              <7b7a0c1>
+Oct 21 18:48:28 localhost kernel:   next_to_watch.status <0>
+Oct 21 18:48:30 localhost kernel:   Tx Queue             <0>
+Oct 21 18:48:30 localhost kernel:   TDH                  <3d>
+Oct 21 18:48:30 localhost kernel:   TDT                  <44>
+Oct 21 18:48:30 localhost kernel:   next_to_use          <44>
+Oct 21 18:48:30 localhost kernel:   next_to_clean        <39>
+Oct 21 18:48:30 localhost kernel: buffer_info[next_to_clean]
+Oct 21 18:48:30 localhost kernel:   time_stamp           <7b79d33>
+Oct 21 18:48:30 localhost kernel:   next_to_watch        <3d>
+Oct 21 18:48:30 localhost kernel:   jiffies              <7b7a2b5>
+Oct 21 18:48:30 localhost kernel:   next_to_watch.status <0>
+Oct 21 18:48:32 localhost kernel:   Tx Queue             <0>
+Oct 21 18:48:32 localhost kernel:   TDH                  <3d>
+Oct 21 18:48:32 localhost kernel:   TDT                  <44>
+Oct 21 18:48:32 localhost kernel:   next_to_use          <44>
+Oct 21 18:48:32 localhost kernel:   next_to_clean        <39>
+Oct 21 18:48:32 localhost kernel: buffer_info[next_to_clean]
+Oct 21 18:48:32 localhost kernel:   time_stamp           <7b79d33>
+Oct 21 18:48:32 localhost kernel:   next_to_watch        <3d>
+Oct 21 18:48:32 localhost kernel:   jiffies              <7b7a4a9>
+Oct 21 18:48:32 localhost kernel:   next_to_watch.status <0>
+Oct 21 18:48:34 localhost kernel:   Tx Queue             <0>
+Oct 21 18:48:34 localhost kernel:   TDH                  <3d>
+Oct 21 18:48:34 localhost kernel:   TDT                  <44>
+Oct 21 18:48:34 localhost kernel:   next_to_use          <44>
+Oct 21 18:48:34 localhost kernel:   next_to_clean        <39>
+Oct 21 18:48:34 localhost kernel: buffer_info[next_to_clean]
+Oct 21 18:48:34 localhost kernel:   time_stamp           <7b79d33>
+Oct 21 18:48:34 localhost kernel:   next_to_watch        <3d>
+Oct 21 18:48:34 localhost kernel:   jiffies              <7b7a69d>
+Oct 21 18:48:34 localhost kernel:   next_to_watch.status <0>
+Oct 21 18:48:35 localhost kernel: NETDEV WATCHDOG: eth0: transmit timed out
+Oct 21 18:48:36 localhost kernel: e1000: eth0: e1000_watchdog: NIC Link 
+is Up 100 Mbps Full Duplex
