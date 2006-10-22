@@ -1,59 +1,171 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: Re: [patch 3/8] sundance: remove TxStartThresh and RxEarlyThresh
-Date: Mon, 23 Oct 2006 00:05:52 +0200
-Message-ID: <20061022220552.GA1122@ingate.macqel.be>
-References: <200610202142.k9KLg5W6003719@shell0.pdx.osdl.net>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: Strange errors from e1000 driver (2.6.18)
+Date: Sun, 22 Oct 2006 15:15:27 -0700
+Message-ID: <4807377b0610221515m42e638c3pfb461fbb7133845e@mail.gmail.com>
+References: <453BBC9E.4040300@google.com> <453BC0E7.1060308@mbligh.org>
+	 <4807377b0610221321i62455faende025f88142dd087@mail.gmail.com>
+	 <453BD41B.4010007@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, jesse@icplus.com.tw
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Martin J. Bligh" <mbligh@mbligh.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.macqel.be ([194.78.208.39]:42019 "EHLO mail.macqel.be")
-	by vger.kernel.org with ESMTP id S1750725AbWJVWFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2006 18:05:53 -0400
-To: akpm@osdl.org
+Received: from ug-out-1314.google.com ([66.249.92.169]:55939 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1750719AbWJVWP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Oct 2006 18:15:29 -0400
+Received: by ug-out-1314.google.com with SMTP id o38so1114477ugd
+        for <netdev@vger.kernel.org>; Sun, 22 Oct 2006 15:15:27 -0700 (PDT)
+To: "Martin J. Bligh" <mbligh@google.com>
+In-Reply-To: <453BD41B.4010007@google.com>
 Content-Disposition: inline
-In-Reply-To: <200610202142.k9KLg5W6003719@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2006 at 02:42:05PM -0700, akpm@osdl.org wrote:
-> From: Jesse Huang <jesse@icplus.com.tw>
-> For patent issue need to remove TxStartThresh and RxEarlyThresh.  This patent
-> is cut-through patent.  If use this function, Tx will start to transmit after
-> few data be move in to Tx FIFO.  We are not allow to use those function in
-> DFE530/DFE550/DFE580/DL10050/IP100/IP100A.  It will decrease a little
-> performance.
-[...]
-> @@ -1111,6 +1109,7 @@ static irqreturn_t intr_handler(int irq,
->  	int tx_cnt;
->  	int tx_status;
->  	int handled = 0;
-> +	int i;
+Analysis follows, but I wanted to ask you to bisect back if you can to
+find the apparent patch to make the difference.  Basically at this
+point I'd say its not likely to be an e1000 issue, but I'd like to
+follow up and make sure.
 
-What the use here of adding this variable ? Is that actually a part of another
-patch ?
+On 10/22/06, Martin J. Bligh <mbligh@google.com> wrote:
+> 0000:00:0a.0 Ethernet controller: Intel Corporation 82546EB Gigabit
+> Ethernet Con
+> troller (Copper) (rev 01)
+>          Latency: 32 (63750ns min), Cache Line Size: 0x08 (32 bytes)
+>          Interrupt: pin A routed to IRQ 5
+>          Region 0: Memory at ef020000 (64-bit, non-prefetchable) [size=128K]
+>          Region 4: I/O ports at a000 [size=64]
+>          Capabilities: [dc] Power Management version 2
+>                  Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA
+> PME(D0+,D1-,D2-,D3hot
+> +,D3cold+)
+>                  Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+>          Capabilities: [e4]      Capabilities: [f0] Message Signalled
+> Interrupts:
+>   64bit+ Queue=0/0 Enable-
+>                  Address: 0000000000000000  Data: 0000
+>
+> 0000:00:0a.1 Ethernet controller: Intel Corporation 82546EB Gigabit
+> Ethernet Con
+> troller (Copper) (rev 01)
+>          Subsystem: Intel Corporation PRO/1000 MT Dual Port Server Adapter
+>          Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+> ParErr- Step
+> ping- SERR- FastB2B-
+>          Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium
+>  >TAbort- <TAbort
+> - <MAbort- >SERR- <PERR-
+>          Latency: 32 (63750ns min), Cache Line Size: 0x08 (32 bytes)
+>          Interrupt: pin B routed to IRQ 11
+>          Region 0: Memory at ef000000 (64-bit, non-prefetchable) [size=128K]
+>          Region 4: I/O ports at a400 [size=64]
+>          Capabilities: [dc] Power Management version 2
+>                  Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA
+> PME(D0+,D1-,D2-,D3hot
+> +,D3cold+)
+>                  Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+>          Capabilities: [e4]      Capabilities: [f0] Message Signalled
+> Interrupts:
+>   64bit+ Queue=0/0 Enable-
+>                  Address: 0000000000000000  Data: 0000
 
->  
->  
->  	do {
-> @@ -1153,17 +1152,14 @@ static irqreturn_t intr_handler(int irq,
->  						np->stats.tx_fifo_errors++;
->  					if (tx_status & 0x02)
->  						np->stats.tx_window_errors++;
-> +
->  					/*
->  					** This reset has been verified on
->  					** DFE-580TX boards ! phdm@macqel.be.
->  					*/
->  					if (tx_status & 0x10) {	/* TxUnderrun */
-> -						unsigned short txthreshold;
-> -
-> -						txthreshold = ioread16 (ioaddr + TxStartThresh);
->  						/* Restart Tx FIFO and transmitter */
->  						sundance_reset(dev, (NetworkReset|FIFOReset|TxReset) << 16);
-> -						iowrite16 (txthreshold, ioaddr + TxStartThresh);
+Nothing seems out of order, but the latency may be low, I'd be curious
+what these looked like before with the old kernel.  Some of the other
+things to compare would have been the lspci -vv output from your
+chipset with old/new kernel, in case the bridge/system configuration
+changed.  There are no known problems right now with this chipset
+82546EB
 
-I must be dense, but I do not understand how merely preserving the value of
-a register across a reset can infringe on any patent
+> > cat /proc/interrupts,
+>
+>             CPU0
+>    5:    1975991          XT-PIC  ehci_hcd:usb2, VIA8237, eth0
+> NMI:          0
+> LOC:  146264664
+> ERR:      52805
 
-Philippe
+shared int, fine, but whats with the ERR: ?
+
+> > dmesg
+>
+> Did that bit already.
+
+except you didn't include any of the e1000 load information nor the
+system's boot information as it came up.
+
+> > ethtool -e eth0,
+>
+> root@titus:/usr/local/autotest/bin # ethtool -e eth0
+> Offset          Values
+> ------          ------
+> 0x0000          00 07 e9 09 0b 08 30 05 ff ff ff ff ff ff ff ff
+> 0x0010          44 a9 03 98 0b 46 11 10 86 80 10 10 86 80 68 34
+> 0x0020          0c 00 10 10 00 00 02 21 c8 18 ff ff ff ff ff ff
+> 0x0030          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 0x0040          0c c3 61 78 04 50 02 21 c8 08 ff ff ff ff ff ff
+> 0x0050          ff ff ff ff ff ff ff ff ff ff ff ff ff ff 02 06
+> 0x0060          2c 00 00 40 07 11 00 00 2c 00 00 40 ff ff ff ff
+nothing out of order here that I can see immediately.
+
+> > and maybe output of
+> > dmidecode, etc.
+>
+> Attached.
+>
+> > only a little.  There are so many different pieces of e1000 hardware
+> > and so few specifics in this report that I'll be able to tell you lots
+> > more when you get us the info requested.
+>
+> Thanks. Not sure if the bug wasn't there in earlier kernels, or if we
+> just weren't printing anything.
+
+I think it may not have been in earlier kernels, but I also don't
+think this is an e1000 problem, at least initially.
+
+<snip>
+> BIOS Information
+>         Vendor: Phoenix Technologies, LTD
+>         Version: 6.00 PG
+>         Release Date: 09/13/2004
+>         Address: 0xE0000
+>         Runtime Size: 128 kB
+>         ROM Size: 256 kB
+<snip>
+
+> Handle 0x0001, DMI type 1, 25 bytes.
+> System Information
+>         Manufacturer: VIA Technologies, Inc.
+>         Product Name: KT600-8237
+>
+> Handle 0x0002, DMI type 2, 8 bytes.
+> Base Board Information
+>         Manufacturer:
+>         Product Name: KT600-8237
+>         Version:
+>         Serial Number:
+
+This chipset is one of the most frequent common elements in problem
+reports of TX hangs for e1000.  My current theory (we've bought a
+bunch of these systems and never reproduced the issue) is that there
+is something either design specific or BIOS specific that causes this
+chipset to interact very badly with e1000 hardware.  Some systems have
+the issue and some don't.  If you could bisect back to a working point
+it would be interesting to see where that pointed.
+
+> Handle 0x0004, DMI type 4, 32 bytes.
+> Processor Information
+>         Socket Designation: Socket A
+>         Type: Central Processor
+>         Family: Athlon XP
+>         Manufacturer: AMD
+>         ID: A0 06 00 00 FF FB 83 03
+>         Signature: Family 6, Model A, Stepping 0
+>         Version: AMD Athlon(tm) XP
+>         Voltage: 1.5 V
+>         External Clock: 100 MHz
+>         Max Speed: 3000 MHz
+>         Current Speed: 1100 MHz
+
+doesn't seem you're overclocked.  Good.
