@@ -1,64 +1,38 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: tg3 kernel bug in 2.6.18-mm3 and 2.6.19-rc2-mm2
-Date: Sat, 21 Oct 2006 23:36:10 -0700
-Message-ID: <20061021233610.f190e0a8.akpm@osdl.org>
-References: <20061021132239.GA29288@gamma.logic.tuwien.ac.at>
-	<20061021.123814.106436476.davem@davemloft.net>
+From: Darren Salt <linux@youmustbejoking.demon.co.uk>
+Subject: Re: [patch 1/1] r8169 driver: corega support
+Date: Sun, 22 Oct 2006 16:14:41 +0100
+Message-ID: <4E79DBAA03%linux@youmustbejoking.demon.co.uk>
+References: <20061020224438.GA1794@electric-eye.fr.zoreil.com> <4E79505750%linux@youmustbejoking.demon.co.uk>
+ <20061021201533.GA31768@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: preining@logic.at, linux-kernel@vger.kernel.org,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, hchacha@users.sourceforge.net, jeff@garzik.org,
+	syed.azam@hp.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:14276 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1423045AbWJVGgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2006 02:36:46 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061021.123814.106436476.davem@davemloft.net>
+Received: from anchor-post-31.mail.demon.net ([194.217.242.89]:54792 "EHLO
+	anchor-post-31.mail.demon.net") by vger.kernel.org with ESMTP
+	id S1750808AbWJVPRg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Oct 2006 11:17:36 -0400
+To: romieu@fr.zoreil.com
+In-Reply-To: <20061021201533.GA31768@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 21 Oct 2006 12:38:14 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+I demand that Francois Romieu may or may not have written...
 
-> From: Norbert Preining <preining@logic.at>
-> Date: Sat, 21 Oct 2006 15:22:39 +0200
-> 
-> >  [<c010469d>] dump_stack+0x12/0x14
-> >  [<c0141cb3>] softlockup_tick+0xaa/0xc1
-> >  [<c0129bad>] update_process_times+0x3b/0x5e
-> >  [<c01362a1>] handle_update_profile+0x14/0x1e
-> >  [<c0115956>] smp_apic_timer_interrupt+0x49/0x5b
-> >  [<c0103998>] apic_timer_interrupt+0x28/0x30
-> > DWARF2 unwinder stuck at apic_timer_interrupt+0x28/0x30
-> > Leftover inexact backtrace:
-> >  [<c01d03af>] delay_tsc+0xb/0x13
-> >  [<c01d03e0>] __delay+0x6/0x7
-> 
-> It's OOPS'ing by softlockup'ing in udelay() and then we get a corrupt
-> backtrace.
+> Darren Salt <linux@youmustbejoking.demon.co.uk> :
+> [...]
+>> It does, but the patch causes the module to report that the reset failed
+>> even after reporting that it's done. A fix for this is attached.
 
-The unwinder-based backtrace is screwed up (yet again) but the old-style
-backtrace is there, in all its messy glory.
+> Oops. Ok with the one below?
 
-Weeding out the crap, I think it's this:
+Yes.
 
- [<c01d03af>] delay_tsc+0xb/0x13
- [<c01d03e0>] __delay+0x6/0x7
- [<c022c240>] _tw32_flush+0x3f/0x51
- [<c022da97>] tg3_switch_clocks+0x8f/0x93
+[snip patch]
+-- 
+| Darren Salt    | linux or ds at              | nr. Ashington, | Toon
+| RISC OS, Linux | youmustbejoking,demon,co,uk | Northumberland | Army
+| + Output less CO2 => avoid massive flooding.    TIME IS RUNNING OUT *FAST*.
 
- <I assume tg3_init_hw() got inlined>
-
- [<c0237673>] tg3_open+0x250/0x520
- [<c02d3263>] dev_open+0x2b/0x62
- [<c02d1dd8>] dev_change_flags+0x47/0xe4
- [<c0307fcc>] devinet_ioctl+0x252/0x556
- [<c02d2e5a>] dev_ifsioc+0x113/0x38d
- [<c02d29c4>] dev_load+0x24/0x4b
- [<c02c9265>] sock_ioctl+0x19e/0x1c2
-
-It's strange that the post-2.6.19-rc2 changes triggered this - that code
-won't have run yet.
-
-Norbert, are you really sure?
+Wagner's music is better than it sounds.
