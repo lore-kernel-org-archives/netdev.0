@@ -1,38 +1,47 @@
-From: Darren Salt <linux@youmustbejoking.demon.co.uk>
-Subject: Re: [patch 1/1] r8169 driver: corega support
-Date: Sun, 22 Oct 2006 16:14:41 +0100
-Message-ID: <4E79DBAA03%linux@youmustbejoking.demon.co.uk>
-References: <20061020224438.GA1794@electric-eye.fr.zoreil.com> <4E79505750%linux@youmustbejoking.demon.co.uk>
- <20061021201533.GA31768@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, hchacha@users.sourceforge.net, jeff@garzik.org,
-	syed.azam@hp.com, netdev@vger.kernel.org
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [PATCH 1/1] net: correct-Traffic-shaper-Kconfig
+Date: Sun, 22 Oct 2006 17:40:06 +0200 (CEST)
+Message-ID: <43123154321532@wsc.cz>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchor-post-31.mail.demon.net ([194.217.242.89]:54792 "EHLO
-	anchor-post-31.mail.demon.net") by vger.kernel.org with ESMTP
-	id S1750808AbWJVPRg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Oct 2006 11:17:36 -0400
-To: romieu@fr.zoreil.com
-In-Reply-To: <20061021201533.GA31768@electric-eye.fr.zoreil.com>
+Received: from cacti.profiwh.com ([85.93.165.66]:64734 "EHLO cacti.profiwh.com")
+	by vger.kernel.org with ESMTP id S1750928AbWJVPj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2006 11:39:59 -0400
+To: Andrew Morton <akpm@osdl.org>
+Cc: <netdev@vger.kernel.org>, <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I demand that Francois Romieu may or may not have written...
+kconfig, correct traffic shaper
 
-> Darren Salt <linux@youmustbejoking.demon.co.uk> :
-> [...]
->> It does, but the patch causes the module to report that the reset failed
->> even after reporting that it's done. A fix for this is attached.
+CBQ is no longer experimental and is located in other subtree.
 
-> Oops. Ok with the one below?
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
 
-Yes.
+---
+commit 5ee1f6ff7e1f03ed8edb2461612346e9964b745d
+tree debfe70d8c8338adb5ef1d860b07e4a00e760081
+parent a3d771ef92954ce81363af9e0252490e2741fc21
+author Jiri Slaby <ku@bellona.localdomain> Sun, 22 Oct 2006 17:34:59 +0159
+committer Jiri Slaby <ku@bellona.localdomain> Sun, 22 Oct 2006 17:34:59 +0159
 
-[snip patch]
--- 
-| Darren Salt    | linux or ds at              | nr. Ashington, | Toon
-| RISC OS, Linux | youmustbejoking,demon,co,uk | Northumberland | Army
-| + Output less CO2 => avoid massive flooding.    TIME IS RUNNING OUT *FAST*.
+ drivers/net/Kconfig |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Wagner's music is better than it sounds.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0a999a8..e845df9 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2842,9 +2842,9 @@ config SHAPER
+ 	  these virtual devices. See
+ 	  <file:Documentation/networking/shaper.txt> for more information.
+ 
+-	  An alternative to this traffic shaper is the experimental
+-	  Class-Based Queuing (CBQ) scheduling support which you get if you
+-	  say Y to "QoS and/or fair queuing" above.
++	  An alternative to this traffic shaper is the Class-Based Queuing
++	  (CBQ) scheduling support which you get if you say Y to
++	  "QoS and/or fair queuing" in "Networking options".
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called shaper.  If unsure, say N.
