@@ -1,40 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] netpoll: use sk_buff_head for txq
-Date: Sun, 22 Oct 2006 20:42:20 -0700 (PDT)
-Message-ID: <20061022.204220.78710782.davem@davemloft.net>
-References: <20061020134826.75dd1cba@freekitty>
-	<20061020.140149.125893169.davem@davemloft.net>
-	<20061020153027.3bed8c86@dxpl.pdx.osdl.net>
+Subject: Re: TCP socket buffer autotuning
+Date: Sun, 22 Oct 2006 20:51:25 -0700 (PDT)
+Message-ID: <20061022.205125.21596474.davem@davemloft.net>
+References: <45398FD3.8050003@psc.edu>
+	<20061020.234228.68158300.davem@davemloft.net>
+	<20061021123608.495a9dba@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14026
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751401AbWJWDmS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Oct 2006 23:42:18 -0400
+Cc: jheffner@psc.edu, hkjerry.chu@gmail.com, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
 To: shemminger@osdl.org
-In-Reply-To: <20061020153027.3bed8c86@dxpl.pdx.osdl.net>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061021123608.495a9dba@localhost.localdomain>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 20 Oct 2006 15:30:27 -0700
+Date: Sat, 21 Oct 2006 12:36:08 -0700
 
-> +		spin_lock_irqsave(&netpoll_txq.lock, flags);
-> +		for (skb = (struct sk_buff *)netpoll_txq.next;
-> +		     skb != (struct sk_buff *)&netpoll_txq; skb = next) {
-> +			next = skb->next;
-> +			if (skb->dev == dev)
-> +				skb_unlink(skb, &netpoll_txq);
-> +		}
-> +		spin_unlock_irqrestore(&netpoll_txq.lock, flags);
->  	}
+> On Fri, 20 Oct 2006 23:42:28 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > @@ -170,6 +170,8 @@ static int netem_enqueue(struct sk_buff 
+> >  		return NET_XMIT_BYPASS;
+> >  	}
+> >  
+> > +	skb_orphan(skb);
+> > +
+ ...
+> Yeah, that's good. I run netem on an intermediate machine (bridge or router)
+> when running tests to avoid this and other local feedback scenario's.
 
-All SKBs removed here will be leaked, nothing frees them up.
+I'll put this into 2.6.19 as a fix for now, but I am so tempted
+to just kill off that skb_set_owner_w() call in tcp_transmit_skb().
 
-Since #2 and #3 depend upon this patch, I'll hold off on those
-until you fix this bug.
+That call is totally pointless, even for the case where we pskb_copy()
+a data SKB at the beginning of tcp_transmit_skb().  The socket is
+charged for the memory, and the SKB clone itself is transient and
+owned by entirely the IP{4,6} output path, queueing layer, and device.
 
-Thanks.
+We have discussed before how it probably makes sense for UDP, which
+is in a similar situation, because otherwise a very aggressive
+UDP socket can essentially flood the device without letting other
+sockets to send traffic.
+
+But here in this TCP clone situation, that doesn't apply.  The socket
+has already had the data charged to it properly.
+
+It is something to seriously consider for 2.6.20, anyways, because it
+would kill off some expensive atomics and accounting in our TCP
+transmit path as well.
