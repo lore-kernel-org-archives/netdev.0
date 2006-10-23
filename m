@@ -1,217 +1,201 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/3] ethtool: marvell register dump
-Date: Mon, 23 Oct 2006 10:51:42 -0700
-Message-ID: <20061023105142.13b507a7@dxpl.pdx.osdl.net>
-References: <20061018104632.27a37d75@freekitty>
-	<20061018105022.57b57b6a@freekitty>
-	<453A63AF.1010505@pobox.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [patch 3/6] 2.6.18: sb1250-mac: Phylib IRQ handling fixes
+Date: Mon, 23 Oct 2006 19:02:12 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0610231752440.4426@blysk.ds.pg.gda.pl>
+References: <Pine.LNX.4.64N.0610031509380.4642@blysk.ds.pg.gda.pl>
+ <E2ACBAE3-B0E1-4D90-BF25-6981543090C4@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:39048 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964972AbWJWRw0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2006 13:52:26 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <453A63AF.1010505@pobox.com>
+Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:51212 "EHLO
+	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP id S964983AbWJWSCP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 14:02:15 -0400
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <E2ACBAE3-B0E1-4D90-BF25-6981543090C4@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a consolidation of earlier marvell register decode patches to ethtool.
+On Fri, 20 Oct 2006, Andy Fleming wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- marvell.c |  106 ++++++++++++++++++++++++++++++++++++++++++++-----------------
- 1 files changed, 77 insertions(+), 29 deletions(-)
+> I've been trying to figure out this problem since you posted this, and I'm not
+> sure I understand it fully (And I apologize profusely for the horror that is
+> the PHY interrupt handling code.  I'd love to rewrite it if there's some
 
-diff --git a/marvell.c b/marvell.c
-index 244bb69..b73addc 100644
---- a/marvell.c
-+++ b/marvell.c
-@@ -88,10 +88,12 @@ static void dump_ram(const char *name, c
- 	printf("End Address                      0x%08X\n", r[1]);
- 	printf("Write Pointer                    0x%08X\n", r[2]);
- 	printf("Read Pointer                     0x%08X\n", r[3]);
--	printf("Upper Threshold/Pause Packets    0x%08X\n", r[4]);
--	printf("Lower Threshold/Pause Packets    0x%08X\n", r[5]);
--	printf("Upper Threshold/High Priority    0x%08X\n", r[6]);
--	printf("Lower Threshold/High Priority    0x%08X\n", r[7]);
-+	if (*name == 'R') {
-+		printf("Upper Threshold/Pause Packets    0x%08X\n", r[4]);
-+		printf("Lower Threshold/Pause Packets    0x%08X\n", r[5]);
-+		printf("Upper Threshold/High Priority    0x%08X\n", r[6]);
-+		printf("Lower Threshold/High Priority    0x%08X\n", r[7]);
-+	}
- 	printf("Packet Counter                   0x%08X\n", r[8]);
- 	printf("Level                            0x%08X\n", r[9]);
- 	printf("Test                             0x%08X\n", r[10]);
-@@ -113,7 +115,7 @@ static void dump_fifo(const char *name, 
- 	dump_timer("LED", p + 0x20);
- }
- 
--static void dump_gmac_fifo(const void *p)
-+static void dump_gmac_fifo(const char *name, const void *p)
- {
- 	const u32 *r = p;
- 	int i;
-@@ -133,6 +135,7 @@ static void dump_gmac_fifo(const void *p
- 		"FIFO Read Level",
- 	};
- 
-+	printf("\n%s\n", name);
- 	for (i = 0; i < sizeof(regs)/sizeof(regs[0]); ++i)
- 		printf("%-32s 0x%08X\n", regs[i], r[i]);
- 
-@@ -140,6 +143,8 @@ static void dump_gmac_fifo(const void *p
- 
- static void dump_mac(const u8 *r)
- {
-+	u8 id;
-+
- 	printf("\nMAC Addresses\n");
- 	printf("---------------\n");
- 	dump_addr(1, r + 0x100);
-@@ -147,10 +152,30 @@ static void dump_mac(const u8 *r)
- 	dump_addr(3, r + 0x110);
- 	printf("\n");
- 
--	printf("Connector type               0x%02X\n", r[0x118]);
--	printf("PMD type                     0x%02X\n", r[0x119]);
--	printf("Configuration                0x%02X\n", r[0x11a]);
--	printf("Chip Revision                0x%02X\n", r[0x11b]);
-+	printf("Connector type               0x%02X (%c)\n", 
-+	       r[0x118], (char)r[0x118]);
-+	printf("PMD type                     0x%02X (%c)\n",
-+	       r[0x119], (char)r[0x119]);
-+	printf("PHY type                     0x%02X\n", r[0x11d]);
-+
-+	id = r[0x11b];
-+	printf("Chip Id                      0x%02X ", id);
-+	switch (id) {
-+	case 0x0a:	puts("Genesis");	break;
-+	case 0xb0:	puts("Yukon");	break;
-+	case 0xb1:	puts("Yukon-Lite");	break;
-+	case 0xb2:	puts("Yukon-LP");	break;
-+	case 0xb3:	puts("Yukon-2 XL");	break;
-+	case 0xb4:	puts("Yukon-2 EC Ultra");	break;
-+	case 0xb6:	puts("Yukon-2 EC");	break;
-+ 	case 0xb7:	puts("Yukon-2 FE");	break;
-+	default:	puts("Unknown");
-+	}
-+
-+	printf(" (rev %d)\n", r[0x11a] & 0xf);
-+
-+	printf("Ram Buffer                   0x%02X\n", r[0x11c]);
-+	       
- }
- 	
- static void dump_gma(const char *name, const u8 *r)
-@@ -181,21 +206,43 @@ static void dump_gmac(const char *name, 
- 	dump_gma("Physical", data + 0x28);
- }
- 
-+static void dump_pci(const u8 *cfg)
-+{
-+	int i;
-+
-+	printf("\nPCI config\n----------\n");
-+	for(i = 0; i < 0x80; i++) {
-+		if (!(i & 15))
-+			printf("%02x:", i);
-+		printf(" %02x", cfg[i]);
-+		if ((i & 15) == 15)
-+			putchar('\n');
-+	}
-+	putchar('\n');
-+}
-+
-+static void dump_control(u8 *r)
-+{
-+	printf("Control Registers\n");
-+	printf("-----------------\n");
-+
-+	printf("Register Access Port             0x%02X\n", *r);
-+	printf("LED Control/Status               0x%08X\n", *(u32 *) (r + 4));
-+
-+	printf("Interrupt Source                 0x%08X\n", *(u32 *) (r + 8));
-+	printf("Interrupt Mask                   0x%08X\n", *(u32 *) (r + 0xc));
-+	printf("Interrupt Hardware Error Source  0x%08X\n", *(u32 *) (r + 0x10));
-+	printf("Interrupt Hardware Error Mask    0x%08X\n", *(u32 *) (r + 0x14));
-+}
-+
- int skge_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- {
- 	const u32 *r = (const u32 *) regs->data;
- 	int dual = !(regs->data[0x11a] & 1);
- 
--	printf("Control Registers\n");
--	printf("-----------------\n");
-+	dump_pci(regs->data + 0x380);
- 
--	printf("Register Access Port             0x%08X\n", r[0]);
--	printf("LED Control/Status               0x%08X\n", r[1]);
--	printf("Interrupt Source                 0x%08X\n", r[2]);
--	printf("Interrupt Mask                   0x%08X\n", r[3]);
--	printf("Interrupt Hardware Error Source  0x%08X\n", r[4]);
--	printf("Interrupt Hardware Error Mask    0x%08X\n", r[5]);
--	printf("Special Interrupt Source         0x%08X\n", r[6]);
-+	dump_control(regs->data);
- 
- 	printf("\nBus Management Unit\n");
- 	printf("-------------------\n");
-@@ -295,15 +342,9 @@ int sky2_dump_regs(struct ethtool_drvinf
- 	const u32 *r = (const u32 *) regs->data;
- 	int dual;
- 
--	printf("Control Registers\n");
--	printf("-----------------\n");
-+	dump_pci(regs->data + 0x1c00);
- 
--	printf("Control/Status                   0x%08X\n", r[1]);
--	printf("Interrupt Source                 0x%08X\n", r[2]);
--	printf("Interrupt Mask                   0x%08X\n", r[3]);
--	printf("Interrupt Hardware Error Source  0x%08X\n", r[4]);
--	printf("Interrupt Hardware Error Mask    0x%08X\n", r[5]);
--	printf("Special Interrupt Source         0x%08X\n", r[6]);
-+	dump_control(regs->data);
- 
- 	printf("\nBus Management Unit\n");
- 	printf("-------------------\n");
-@@ -319,8 +360,6 @@ int sky2_dump_regs(struct ethtool_drvinf
- 	}
- 
- 	dump_mac(regs->data);
--	dump_gmac("GMAC 1", regs->data + 0x2800);
--	dump_gmac_fifo(regs->data + 0xc40);
- 
- 	printf("\nStatus BMU:\n-----------\n");
- 	printf("Control                                0x%08X\n",
-@@ -350,6 +389,14 @@ int sky2_dump_regs(struct ethtool_drvinf
- 	dump_timer("TX status", regs->data + 0xec0);
- 	dump_timer("ISR", regs->data + 0xed0);
- 
-+	printf("\nGMAC control             0x%04X\n", *(u32 *)(regs->data + 0xf00));
-+	printf("GPHY control             0x%04X\n", *(u32 *)(regs->data + 0xf04));
-+	printf("LINK control             0x%02hX\n", *(u16 *)(regs->data + 0xf10));
-+
-+	dump_gmac("GMAC 1", regs->data + 0x2800);
-+	dump_gmac_fifo("Rx GMAC 1", regs->data + 0xc40);
-+	dump_gmac_fifo("Tx GMAC 1", regs->data + 0xd40);
-+
- 	dump_queue2("Receive Queue 1", regs->data +0x400, 1);
- 	dump_queue("Sync Transmit Queue 1", regs->data +0x600, 0);
- 	dump_queue2("Async Transmit Queue 1", regs->data +0x680, 0);
-@@ -364,7 +411,8 @@ int sky2_dump_regs(struct ethtool_drvinf
- 		dump_ram("Sync Transmit RAMbuffer 2", regs->data+0xb00);
- 		dump_ram("Async Transmit RAMbuffer 21", regs->data+0xb80);
- 		dump_gmac("GMAC 2", regs->data + 0x3800);
--		dump_gmac_fifo(regs->data + 0xc40 + 128);
-+		dump_gmac_fifo("Rx GMAC 2", regs->data + 0xc40 + 128);
-+		dump_gmac_fifo("Tx GMAC 2", regs->data + 0xd40 + 128);
- 	}
- 
- 	return 0;
--- 
-1.4.2.3
+ First of all I don't see much of the need to use soft timers with an 
+interrupt-driven PHY.  Most of the state changes could be invoked straight 
+from phy_change(), perhaps with an exception for the autonegotiation 
+timeout.
 
+> cleaner way.).  But let me see if I can follow the chain of reasoning that led
+> to this patch, and see if we can figure out a solution that doesn't involve
+> creating a work queue just for bringing down the PHY.
+
+ Avoiding a separate work queue was my intent as well.
+
+> 1) Invoking phy_stop is meant to stop the system from looking for PHY status
+> updates.  Currently, another PHY sharing the interrupt can cause the HALTED
+> PHY to reenable interrupts.  Checking for HALTED in the interrupt handler
+> fixes this, but it's incorrect.  The phy_interrupt handler does not grab the
+> lock, and so you could get this:
+> 
+> phy_stop
+> 	lock
+> 	clear any pending interrupts
+> 	disable interrupts on this PHY
+> ---> interrupt from another PHY causes this PHY's interrupt handler to be
+> invoked
+> 	HALTED isn't set, so phy_change is scheduled
+> <--- set HALTED, unlock
+> 
+> scheduled work is done:
+> 	interrupt is reenabled
+> 
+> Sadly, I think the only way to fix this problem is to have phy_change check
+> for HALTED, and react appropriately.
+
+ Please have a look at how I have rewritten phy_stop() to avoid this 
+problem with no need for a lock -- HALTED is set first and only then 
+interrupts are masked and cleared for this PHY.  It can be done without 
+locking because the interrupt handler is strictly a consumer and 
+phy_stop() is strictly a producer and we do not care about any other 
+transitions [1].
+
+> 2) The PHY lib doesn't clear out remaining work in the work queue when it's
+> bringing down a PHY.  This is clearly wrong, but I'm confused how *any* driver
+> does this?  It seems to me that any network driver which has a work queue is
+> going to be unable to flush the pending work when it is brought down.  So
+> what's the solution to this?
+
+ The only driver that seems to care is tg3.c and it gets away by other 
+means.  Note that network drivers can quite easily handle and ignore 
+deferred interrupt work as long as it arrives before they are removed from 
+memory.  All that is required is calling flush_scheduled_work() from their 
+module_exit() call at the very latest.
+
+> I'm not too enthusiastic about requiring the ethernet drivers to call
+> phy_disconnect in a separate thread after "close" is called.  Assuming there's
+> not some sort of "squash work queue" function that can be invoked with
+> rtnl_lock held, I think phy_disconnect should schedule itself to flush the
+> queue.  This would also require that mdiobus_unregister hold off on freeing
+> phydevs if any of the phys were still waiting for pending flush_pending calls
+> to finish.  Which would, in turn, require mdiobus_unregister to schedule
+> cleaning up memory for some later time.
+
+ This could work, indeed.
+
+> I'm not enthusiastic about that implementation, either, but it maintains the
+> abstractions I consider important for this code.  The ethernet driver should
+> not need to know what structures the PHY lib uses to implement its interrupt
+> handling, and how to work around their failings, IMHO.
+
+ Agreed.
+
+> >@@ -484,6 +487,9 @@ static irqreturn_t phy_interrupt(int irq
+> > {
+> >  struct phy_device *phydev = phy_dat;
+> >
+> >+	if (PHY_HALTED == phydev->state)
+> >+		return IRQ_NONE;		/* It can't be ours.  */
+> >+
+> 
+> 
+> As I mentioned, this doesn't protect it, since it doesn't grab the lock.  And
+> it can't grab the lock, or we'd have to disable interrupts while doing phy
+> transactions.  And we can't do that, because one design goal is to allow some
+> bus drivers to use interrupts to signal that the transaction has completed.
+> Admittedly, this is still quite broken right now.  I'm looking into using
+> semaphores, on the theory that I can sleep when I grab them.  But that would
+> still prevent taking the semaphore in the interrupt controller.  This needs to
+> be moved to phy_change (which you have done, anyway), and we just have to let
+> the actual handler figure out whether it's safe to do anything.
+
+ There is no problem with accessing the state here -- see above[1] and
+below[2].
+
+> >@@ -577,6 +583,13 @@ int phy_stop_interrupts(struct phy_devic
+> >  if (err)
+> >   phy_error(phydev);
+> >
+> >+	/*
+> >+	 * Finish any pending work; we might have been scheduled
+> >+	 * to be called from keventd ourselves, though.
+> >+	 */
+> >+	if (!current_is_keventd())
+> >+		flush_scheduled_work();
+> >+
+> 
+> 
+> And this is what is making you move your call to phy_disconnect to a work
+> queue function, right?  Does this make it so phy_stop_interrupts (and anything
+> that calls it) can't be called with rtnl_lock held?  I'd like to avoid that
+> requirement, if at all possible.
+
+ Yes.  I would like just to call flush_scheduled_work() here.  But as you 
+have noticed, this will most likely lock up if called with rtnl_lock held.  
+So the *assumption* here is the caller took care of scheduling this call 
+through keventd if rtnl_lock was held at the point phy_stop_interrupts() 
+should have been called *or* if the lock was not held and the caller 
+decided to call this function directly for simplicity, then the 
+flush_scheduled_work() indeed has to be called.
+
+> >@@ -603,7 +616,8 @@ static void phy_change(void *data)
+> >  enable_irq(phydev->irq);
+> >
+> >	/* Reenable interrupts */
+> >-	err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
+> >+	if (PHY_HALTED != phydev->state)
+> >+		err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
+> 
+> 
+> Eek!  You're checking the phydev->state outside of a lock.  That's very
+> unsafe.
+
+ Hmm, it could just be an omission -- I'll try to recall whether I did it 
+for any specific reason or not.
+
+> >@@ -624,18 +638,24 @@ void phy_stop(struct phy_device *phydev)
+> >  if (PHY_HALTED == phydev->state)
+> >   goto out_unlock;
+> >
+> >-	if (phydev->irq != PHY_POLL) {
+> >-		/* Clear any pending interrupts */
+> >-		phy_clear_interrupt(phydev);
+> >+	phydev->state = PHY_HALTED;
+> >
+> >+	if (phydev->irq != PHY_POLL) {
+> >   /* Disable PHY Interrupts */
+> >   phy_config_interrupt(phydev, PHY_INTERRUPT_DISABLED);
+> >-	}
+> >
+> >-	phydev->state = PHY_HALTED;
+> >+		/* Clear any pending interrupts */
+> >+		phy_clear_interrupt(phydev);
+> >+	}
+> 
+> 
+> This all seems good.  I was just thinking a few minutes ago that disabling the
+> interrupts should be done before clearing the interrupts.  And setting HALTED
+> first should mean that we can move the unlock call up.
+
+ HALTED is set first, so no race with the interrupt handler[2].
+
+> > out_unlock:
+> >	spin_unlock(&phydev->lock);
+> >+
+> >+	/*
+> >+	 * Cannot call flush_scheduled_work() here as desired because
+> >+	 * of rtnl_lock(), but PHY_HALTED shall guarantee phy_change()
+> >+	 * will not reenable interrupts.
+> >+	 */
+> 
+> 
+> Yeah, I don't think we need the comment, necessarily; phy_change will be
+> protected (as long as the HALTED check is moved inside a lock).
+
+ As you prefer. ;-)
+
+  Maciej
