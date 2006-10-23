@@ -1,28 +1,40 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 2.6.18] defxx: Big-endian hosts support
-Date: Mon, 23 Oct 2006 15:48:44 +0100
-Message-ID: <20061023144844.GA30864@infradead.org>
-References: <Pine.LNX.4.64N.0610231330190.4426@blysk.ds.pg.gda.pl>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.18.1 hangs after resuming from apm suspend
+Date: Mon, 23 Oct 2006 16:49:49 +0200
+Message-ID: <200610231649.50077.rjw@sisk.pl>
+References: <1381032543@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:26569 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S964901AbWJWOsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 10:48:55 -0400
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:60860 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S964892AbWJWOuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2006 10:50:16 -0400
+To: Christian stahl <stahl23@web.de>
+In-Reply-To: <1381032543@web.de>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64N.0610231330190.4426@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 23, 2006 at 01:53:17PM +0100, Maciej W. Rozycki wrote:
-> +	data = cpu_to_le32(data);
+On Monday, 23 October 2006 09:47, Christian stahl wrote:
+> After upgrading from 2.6.16.20 to 2.6.18.1 my Siemens Scenic
+> Mobile 750AGP Notebook hangs after resuming from suspend.
+> 
+> However resuming from suspend works properly if:
+> 
+> - the prism 2.5 WLAN card is removed before suspending
+> - the prism 2.5 WLAN is removed after resuming
 
-This is rather ugly and not provable by static typechecking.  Please
-always use spearate variables/structs for device and host endian values,
-and run the resulting driver through sparse to make sure everything is
-correct.
+This probably is a regression in the prism driver.
 
+Well, it looks like you need to file a bug report at bugzilla.kernel.org.
+
+Greetings,
+Rafael
+
+
+-- 
+You never change things by fighting the existing reality.
+		R. Buckminster Fuller
