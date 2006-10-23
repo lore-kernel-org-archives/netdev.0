@@ -1,41 +1,70 @@
-From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Subject: Re: [PATCH 2/6] [CRYPTO] added the code of Camellia cipher
- algorithm.
-Date: Mon, 23 Oct 2006 11:33:10 +0900 (JST)
-Message-ID: <20061023.113310.796983746.takamiya@po.ntts.co.jp>
-References: <20061018.161510.796986352.takamiya@po.ntts.co.jp>
-	<20061018.161647.1044955937.takamiya@po.ntts.co.jp>
-	<20061022050954.GA24183@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] skge, sky2, et all. gplv2 only
+Date: Sun, 22 Oct 2006 20:16:57 -0700
+Message-ID: <20061022201657.2c458632@dads-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20061022050954.GA24183@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:40160 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751300AbWJWDRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2006 23:17:19 -0400
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I don't want my code to downgraded to GPLv3 because of
+cut-n-pasted the comments. These files which I hold copyright
+on were started before it was clear what GPLv3 was going to be.
 
->> Sun, 22 Oct 2006 15:09:54 +1000
->> [Subject: Re: [PATCH 2/6] [CRYPTO] added the code of Camellia cipher algorithm.]
->> Herbert Xu <herbert@gondor.apana.org.au> wrote...
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-> On Wed, Oct 18, 2006 at 07:16:47AM +0000, Noriaki TAKAMIYA wrote:
-> >
-> > +static int
-> > +camellia_set_key(struct crypto_tfm *tfm, const u8 *in_key,
-> > +		 unsigned int key_len, u32 *flags)
-> 
-> Ugh, this doesn't compile with the current tree since the flags
-> field no longer exists for set_key.  I've fixed it up in my tree.
-
-  The tree I referred might be little bit old...
-
-  Thank you for your fix.
-
-  Regards,
-
---
-Noriaki TAKAMIYA
+--- linux-2.6.orig/drivers/net/irda/stir4200.c	2006-10-22 20:12:25.000000000 -0700
++++ linux-2.6/drivers/net/irda/stir4200.c	2006-10-22 20:12:33.000000000 -0700
+@@ -15,8 +15,7 @@
+ *
+ *	This program is free software; you can redistribute it and/or modify
+ *	it under the terms of the GNU General Public License as published by
+-*	the Free Software Foundation; either version 2 of the License, or
+-*	(at your option) any later version.
++*	the Free Software Foundation; either version 2 of the License.
+ *
+ *	This program is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+--- linux-2.6.orig/drivers/net/skge.c	2006-10-22 20:11:36.000000000 -0700
++++ linux-2.6/drivers/net/skge.c	2006-10-22 20:11:50.000000000 -0700
+@@ -11,8 +11,7 @@
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
++ * the Free Software Foundation; either version 2 of the License.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+--- linux-2.6.orig/drivers/net/sky2.c	2006-10-22 20:11:14.000000000 -0700
++++ linux-2.6/drivers/net/sky2.c	2006-10-22 20:11:31.000000000 -0700
+@@ -10,8 +10,7 @@
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
++ * the Free Software Foundation; either version 2 of the License.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+--- linux-2.6.orig/net/sched/sch_netem.c	2006-10-22 20:12:04.000000000 -0700
++++ linux-2.6/net/sched/sch_netem.c	2006-10-22 20:12:11.000000000 -0700
+@@ -4,7 +4,7 @@
+  * 		This program is free software; you can redistribute it and/or
+  * 		modify it under the terms of the GNU General Public License
+  * 		as published by the Free Software Foundation; either version
+- * 		2 of the License, or (at your option) any later version.
++ * 		2 of the License.
+  *
+  *  		Many of the algorithms and ideas for this came from
+  *		NIST Net which is not copyrighted. 
