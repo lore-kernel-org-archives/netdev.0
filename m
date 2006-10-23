@@ -1,98 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6.19-rc2] [REVISED] net/ipv4/multipath_wrandom.c: check
- kmalloc() return value.
-Date: Mon, 23 Oct 2006 13:17:54 +0200
-Message-ID: <453CA4E2.4080704@trash.net>
-References: <20061022235958.b31d7529.amit2030@gmail.com>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling
+	for	ATM/ADSL (kernel)
+Date: Mon, 23 Oct 2006 21:22:06 +1000
+Message-ID: <1161602527.5502.155.camel@ras.pc.stuart.local>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050006010508040401060609"
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, akpm@osdl.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40837 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751911AbWJWLR5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 07:17:57 -0400
-To: Amit Choudhary <amit2030@gmail.com>
-In-Reply-To: <20061022235958.b31d7529.amit2030@gmail.com>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:58542 "EHLO
+	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
+	id S1751917AbWJWLWd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 07:22:33 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45378DE3.8080700@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050006010508040401060609
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Thu, 2006-10-19 at 16:38 +0200, Patrick McHardy wrote:
+> I still think this patch shouldn't go in. There's no point in doing the
+> same thing twice, and I haven't heard a compelling argument why it has
+> to be done in a way that only helps qdiscs using rtabs while ignoring
+> statistics and estimators (I even provided a patch to show how to do
+> it without these limitations).
 
-Amit Choudhary wrote:
-> Description: Check the return value of kmalloc() in function wrandom_set_nhinfo(), in file net/ipv4/multipath_wrandom.c.
+As far as I can see one patch changes the way the 
+kernel calculates packet lengths, and the other modifies 
+RTAB.  I can not see the significant overlap between the 
+patches that you talk about.
+
+As for why haven't got a new patch from me that addresses 
+the "doing the same thing twice" issue - it is because I
+can see no such issue.  I have asked you repeatedly to
+explain it further, but you have not done so.
+
+As for "providing a patch" - I believe at the time you
+called it something you were working on.  As far as I
+know you still are working on it.  Besides, even if you
+did intend me to take it further, I am not particularly 
+interested in the packet length issue as it does not 
+effect the real world performance of any of the qdiscs 
+I use.
+
+> Besides that:
 > 
-> Signed-off-by: Amit Choudhary <amit2030@gmail.com>
+> +static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
+> +{
+> +	int slot = pktlen + rtab->rate.cell_align;
+> +	if (slot < 0)
+> +	  	slot = 0;
 > 
-> diff --git a/net/ipv4/multipath_wrandom.c b/net/ipv4/multipath_wrandom.c
-> index 92b0482..bcdb1f1 100644
-> --- a/net/ipv4/multipath_wrandom.c
-> +++ b/net/ipv4/multipath_wrandom.c
-> @@ -242,6 +242,9 @@ static void wrandom_set_nhinfo(__be32 ne
->  		target_route = (struct multipath_route *)
->  			kmalloc(size_rt, GFP_ATOMIC);
->  
-> +		if (!target_route)
-> +			goto error;
-> +
->  		target_route->gw = nh->nh_gw;
->  		target_route->oif = nh->nh_oif;
->  		memset(&target_route->rcu, 0, sizeof(struct rcu_head));
-> @@ -263,6 +266,9 @@ static void wrandom_set_nhinfo(__be32 ne
->  		target_dest = (struct multipath_dest*)
->  			kmalloc(size_dst, GFP_ATOMIC);
->  
-> +		if (!target_dest)
-> +			goto error;
-> +
->
->  		target_dest->nh_info = nh;
->  		target_dest->network = network;
->  		target_dest->netmask = netmask;
-> @@ -275,6 +281,7 @@ static void wrandom_set_nhinfo(__be32 ne
->  	 * we are finished
->  	 */
->  
-> + error:
->  	spin_unlock_bh(&state[state_idx].lock);
->  }
+> Why would it go negative? A negative cell_align doesn't make sense I
+> guess.
 
+A negative cell align is possible, and in fact is typical.
+If slot ended up being less than 0 then the configuration
+parameters passed to "tc" would of been wrong - they could
+not of matched the actual traffic.  The error can't be 
+detected in "tc", but it can't be allowed to cause the
+kernel to index off the end of an array either.
 
-Thats slightly better than before, but since no errors are propagated
-back to the routing code I think it would still crash later on.
-A better idea would be to mark this crap BROKEN until it is really
-fixed, so people won't accidentally enable it (which is enough
-to cause problems).
+> +	slot >>= rtab->rate.cell_log;
+> +	if (slot > 255)
+> +		return rtab->data[255] + 1;
+> 
+> Whats the point of this? Is it just to keep htb giant statistics
+> working?
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Yes.
 
-
---------------050006010508040401060609
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 5572071..9ff5616 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -124,8 +124,8 @@ config IP_ROUTE_MULTIPATH
- 	  if a matching packet arrives.
- 
- config IP_ROUTE_MULTIPATH_CACHED
--	bool "IP: equal cost multipath with caching support (EXPERIMENTAL)"
--	depends on IP_ROUTE_MULTIPATH
-+	bool "IP: equal cost multipath with caching support (BROKEN)"
-+	depends on IP_ROUTE_MULTIPATH && BROKEN
- 	help
- 	  Normally, equal cost multipath routing is not supported by the
- 	  routing cache. If you say Y here, alternative routes are cached
-
---------------050006010508040401060609--
