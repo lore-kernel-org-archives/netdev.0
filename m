@@ -1,45 +1,49 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Mon, 23 Oct 2006 08:29:31 -0700
-Message-ID: <20061023152931.GB22485@devicescape.com>
-References: <1161335976.21402.11.camel@devlinux-hong> <20061023144028.629dc5d8@griffin.suse.cz>
+From: "Randy.Dunlap" <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] atm: fix horizon init section usage
+Date: Mon, 23 Oct 2006 09:31:50 -0700
+Message-ID: <453CEE76.6080700@oracle.com>
+References: <20061022191309.73e3eacd.randy.dunlap@oracle.com>	<20061022.203922.130845181.davem@davemloft.net>	<453C45D4.6080904@oracle.com> <20061022.213955.85411282.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hong Liu <hong.liu@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:37061 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S964939AbWJWP3n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 11:29:43 -0400
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20061023144028.629dc5d8@griffin.suse.cz>
+Received: from rgminet01.oracle.com ([148.87.113.118]:1014 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1751993AbWJWQab (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 12:30:31 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061022.213955.85411282.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 23, 2006 at 02:40:28PM +0200, Jiri Benc wrote:
-> On Fri, 20 Oct 2006 17:19:36 +0800, Hong Liu wrote:
-> > --- a/include/net/d80211.h
-> > +++ b/include/net/d80211.h
-> > @@ -176,6 +176,7 @@ struct ieee80211_tx_control {
-> >  			*/
-> >  	int icv_len:8; /* Length of the ICV/MIC field in octets */
-> >  	int iv_len:8; /* Length of the IV field in octets */
-> > +	u8 rc4key[16]; /* generated RC4 key for hw TKIP */
+David Miller wrote:
+> From: "Randy.Dunlap" <randy.dunlap@oracle.com>
+> Date: Sun, 22 Oct 2006 21:32:20 -0700
 > 
-> I don't like extending ieee80211_tx_control by 16 more bytes. The
-> driver is required to store a copy of each ieee80211_tx_control
-> (because it's copied to ieee80211_tx_status). I don't have a better
-> idea, though. Anybody?
+>> David Miller wrote:
+>>> From: Randy Dunlap <randy.dunlap@oracle.com>
+>>> Date: Sun, 22 Oct 2006 19:13:09 -0700
+>>>
+>>>> From: Randy Dunlap <randy.dunlap@oracle.com>
+>>>>
+>>>> hrz_init() is called from the probe function, which is __devinit
+>>>> and could be called after init.
+>>>>
+>>>> WARNING: drivers/atm/horizon.o - Section mismatch: reference to .init.text:.hrz_init from .text between '.hrz_probe' (at offset 0x4054) and '.hrz_remove_one'
+>>>>
+>>>> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+>>> It is only called from hrz_init() and thus shouldn't it be
+>>> thus marked __devinit as well?  That seems to be the right
+>>> way to fix this one.
+>> Oops, I agree.  Want me to send another patch?
+> 
+> No need, I'll take care of it, thanks Randy.
 
-We could be more selective about what the driver is required to return
-in ieee80211_tx_status, the rc4key isn't particularily interesting to
-ieee80211_tx_status().  I expect there are other uninteresting fields
-(tx_rate, rts_cts_rate, come to mind, for example).  We could put the
-fields we are interested in directly in ieee80211_tx_status, or have a
-new structure rather than re-using ieee80211_tx_control inside
-ieee80211_tx_status.
+David,
 
--David
+FYI:  read_bia() also needs to be changed from __init to __devinit
+since it's called from hrz_init().
+
+-- 
+~Randy
