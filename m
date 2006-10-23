@@ -1,87 +1,84 @@
-From: "Holden Karau" <holden@pigscanfly.ca>
-Subject: [PATCH] wireless-2.6 zd1211rw check against regulatory domain rather than hardcoded value of 11
-Date: Mon, 23 Oct 2006 14:21:32 -0400
-Message-ID: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 4/5] netpoll: move drop hook inline
+Date: Mon, 23 Oct 2006 12:02:45 -0700
+Message-ID: <20061023120245.0699aa69@dxpl.pdx.osdl.net>
+References: <20061020134826.75dd1cba@freekitty>
+	<20061020.140149.125893169.davem@davemloft.net>
+	<20061020153027.3bed8c86@dxpl.pdx.osdl.net>
+	<20061022.204220.78710782.davem@davemloft.net>
+	<20061023115337.1f636ffb@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, holdenk@xandros.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:43890 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S964991AbWJWSVe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 14:21:34 -0400
-Received: by ug-out-1314.google.com with SMTP id q2so1464273uge
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 11:21:33 -0700 (PDT)
-To: zd1211-devs@lists.sourceforge.net
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:48549 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965062AbWJWTEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2006 15:04:47 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061023115337.1f636ffb@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Holden Karau <holden@pigscanfly.ca> http://www.holdenkarau.com
+Rather than have separate drop callback hook, just put
+the logic inline in netpoll.  The code is cleaner and netconsole
+is the only user of netpoll.
 
-I have made a small patch for the zd1211rw driver which uses the
-boundry channels of the regulatory domain, rather than the hard coded
-values of 1 & 11.
-Signed-off-by: Holden Karau <holden@pigscanfly.ca> http://www.holdenkarau.com
----
-I'm not entirely sure how useful this patch is, but it seems like a
-good idea. If its totally misguided, let me know :-) In case the patch
-gets mangled I've put it up at
-http://www.holdenkarau.com/~holden/projects/zd1211rw/zd1211rw-use-geo-for-channels.patch
-And now for the patch:
---- a/drivers/net/wireless/zd1211rw/zd_chip.c	2006-10-23
-10:07:39.000000000 -0400
-+++ b/drivers/net/wireless/zd1211rw/zd_chip.c	2006-10-23
-10:41:51.000000000 -0400
-@@ -38,6 +38,8 @@ void zd_chip_init(struct zd_chip *chip,
- 	mutex_init(&chip->mutex);
- 	zd_usb_init(&chip->usb, netdev, intf);
- 	zd_rf_init(&chip->rf);
-+	/* The chip needs to know which geo it is in */
-+	chip->geo = ieee80211_get_geo(zd_mac_to_ieee80211(zd_netdev_mac(netdev)));
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+--- netpoll.orig/drivers/net/netconsole.c
++++ netpoll/drivers/net/netconsole.c
+@@ -60,7 +60,6 @@ static struct netpoll np = {
+ 	.local_port = 6665,
+ 	.remote_port = 6666,
+ 	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+-	.drop = netpoll_queue,
+ };
+ static int configured = 0;
+ 
+--- netpoll.orig/include/linux/netpoll.h
++++ netpoll/include/linux/netpoll.h
+@@ -18,7 +18,6 @@ struct netpoll {
+ 	struct net_device *dev;
+ 	char dev_name[16], *name;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+-	void (*drop)(struct sk_buff *skb);
+ 	u32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+ 	unsigned char local_mac[6], remote_mac[6];
+--- netpoll.orig/net/core/netpoll.c
++++ netpoll/net/core/netpoll.c
+@@ -91,13 +91,6 @@ static void queue_purge(struct net_devic
+ 	spin_unlock_irqrestore(&netpoll_txq.lock, flags);
  }
-
- void zd_chip_clear(struct zd_chip *chip)
-@@ -606,14 +608,17 @@ static int patch_6m_band_edge(struct zd_
- 		{ CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
- 		{ CR47,  0x1e },
- 	};
-+	struct ieee80211_geo *geo = chip->geo;
-
- 	if (!chip->patch_6m_band_edge || !chip->rf.patch_6m_band_edge)
- 		return 0;
-
--	/* FIXME: Channel 11 is not the edge for all regulatory domains. */
--	if (channel == 1 || channel == 11)
-+	/* Checks the channel boundry of the region */
-+	dev_dbg_f("checking boundry == %d || %d\n" , 1 , geo->bg_channels);
-+	if (channel == 1 || channel == geo->bg_channels)
- 		ioreqs[0].value = 0x12;
-
+ 
+-void netpoll_queue(struct sk_buff *skb)
+-{
+-	skb_queue_tail(&netpoll_txq, skb);
+-
+-	schedule_work(&send_queue);
+-}
+-
+ static int checksum_udp(struct sk_buff *skb, struct udphdr *uh,
+ 			     unsigned short ulen, u32 saddr, u32 daddr)
+ {
+@@ -282,10 +275,10 @@ static void netpoll_send_skb(struct netp
+ 		udelay(50);
+ 	} while (--tries > 0);
+ 
+-	if (np->drop)
+-		np->drop(skb);
+-	else
+-		__kfree_skb(skb);
++	/* if transmitter is busy, try send later. */
++	skb_queue_tail(&netpoll_txq, skb);
 +
- 	dev_dbg_f(zd_chip_dev(chip), "patching for channel %d\n", channel);
- 	return zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
++	schedule_work(&send_queue);
  }
---- a/drivers/net/wireless/zd1211rw/zd_chip.h	2006-10-23
-10:07:39.000000000 -0400
-+++ b/drivers/net/wireless/zd1211rw/zd_chip.h	2006-10-23
-10:39:08.000000000 -0400
-@@ -21,6 +21,8 @@
- #include "zd_types.h"
- #include "zd_rf.h"
- #include "zd_usb.h"
-+#include "zd_ieee80211.h"
-+#include <linux/wireless.h>
-
- /* Header for the Media Access Controller (MAC) and the Baseband Processor
-  * (BBP). It appears that the ZD1211 wraps the old ZD1205 with USB glue and
-@@ -669,6 +671,7 @@ struct zd_chip {
- 	/* SetPointOFDM in the vendor driver */
- 	u8 ofdm_cal_values[3][E2P_CHANNEL_COUNT];
- 	u16 link_led;
-+  	struct ieee80211_geo* geo;
- 	unsigned int pa_type:4,
- 		patch_cck_gain:1, patch_cr157:1, patch_6m_band_edge:1,
- 		new_phy_layout:1,
+ 
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+@@ -784,4 +777,3 @@ EXPORT_SYMBOL(netpoll_setup);
+ EXPORT_SYMBOL(netpoll_cleanup);
+ EXPORT_SYMBOL(netpoll_send_udp);
+ EXPORT_SYMBOL(netpoll_poll);
+-EXPORT_SYMBOL(netpoll_queue);
