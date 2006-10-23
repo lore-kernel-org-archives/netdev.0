@@ -1,84 +1,115 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [RFC] [PATCH 3/3] Kconfig update for regulatory domain
-Date: Mon, 23 Oct 2006 18:51:42 -0400
-Message-ID: <43e72e890610231551w5f5e947ena6d9a5d6f9a70ad9@mail.gmail.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] wireless-2.6 zd1211rw check against regulatory domain
+ rather than hardcoded value of 11
+Date: Mon, 23 Oct 2006 18:57:41 -0400
+Message-ID: <453D48E5.8040100@gentoo.org>
+References: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_138940_25646741.1161643902339"
-Cc: "Jiri Benc" <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jean Tourrilhes" <jt@hpl.hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.230]:50058 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1752028AbWJWWvo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 18:51:44 -0400
-Received: by wr-out-0506.google.com with SMTP id i7so395411wra
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 15:51:43 -0700 (PDT)
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: zd1211-devs@lists.sourceforge.net, linville@tuxdriver.com,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	holdenk@xandros.com, Ulrich Kunitz <kune@deine-taler.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932292AbWJWW67@vger.kernel.org>
+To: Holden Karau <holden@pigscanfly.ca>
+In-Reply-To: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_138940_25646741.1161643902339
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Holden Karau wrote:
+> From: Holden Karau <holden@pigscanfly.ca> http://www.holdenkarau.com
+> 
+> I have made a small patch for the zd1211rw driver which uses the
+> boundry channels of the regulatory domain, rather than the hard coded
+> values of 1 & 11.
+> Signed-off-by: Holden Karau <holden@pigscanfly.ca> 
+> http://www.holdenkarau.com
 
-These are the current Kconfig changes needed to introduce
-ieee80211_regdomains to d80211. Each in-kernel regulatory domain is
-made available as optional. Each country which currently complies to
-each regulatory domain is listed on the help menu for each available
-regulatory domain. The mapping between regulatory domains and
-iso3166-1 alpha3 country code are kept within ieee80211_regdomains.
+Thanks for the patch! Please always look up the MAINTAINERS entry for 
+the code you are modifying and CC the developers on patches.
 
-  Luis
+Comments below, all minor points.
 
-------=_Part_138940_25646741.1161643902339
-Content-Type: text/x-patch; name=patch-03-d80211-regdomains.diff;
-	charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_etngoezf
-Content-Disposition: attachment; filename="patch-03-d80211-regdomains.diff"
+> I'm not entirely sure how useful this patch is, but it seems like a
+> good idea. If its totally misguided, let me know :-) In case the patch
+> gets mangled I've put it up at
+> http://www.holdenkarau.com/~holden/projects/zd1211rw/zd1211rw-use-geo-for-channels.patch 
 
-ZGlmZiAtTmF1cnAgd2lyZWxlc3MtZGV2LW9sZC9uZXQvZDgwMjExL0tjb25maWcgd2lyZWxlc3Mt
-ZGV2L25ldC9kODAyMTEvS2NvbmZpZwotLS0gd2lyZWxlc3MtZGV2LW9sZC9uZXQvZDgwMjExL0tj
-b25maWcJMjAwNi0xMC0yMyAxMzo1NjoxMS4wMDAwMDAwMDAgLTA0MDAKKysrIHdpcmVsZXNzLWRl
-di9uZXQvZDgwMjExL0tjb25maWcJMjAwNi0xMC0yMyAxNzowNDoxMi4wMDAwMDAwMDAgLTA0MDAK
-QEAgLTcsNiArNyw4MCBAQCBjb25maWcgRDgwMjExCiAJVGhpcyBvcHRpb24gZW5hYmxlcyB0aGUg
-aGFyZHdhcmUgaW5kZXBlbmRlbnQgSUVFRSA4MDIuMTEKIAluZXR3b3JraW5nIHN0YWNrLgogCitj
-b21tZW50ICJJRUVFODAyMTEgLSBSZWd1bGF0b3J5IERvbWFpbiBTdXBwb3J0IgorCitjb25maWcg
-RDgwMjExX1JFR0RPTUFJTl9FVFNJCisJYm9vbCAiRVRTSSBSZWd1bGF0b3J5IERvbWFpbiIKKwlk
-ZXBlbmRzIG9uIEQ4MDIxMQorCS0tLWhlbHAtLS0KKwkgIFRoaXMgb3B0aW9uIGVuYWJsZXMgRVRT
-SSByZWd1bGF0b3J5IGRvbWFpbiBzdXBwb3J0IHRvIGJlCisJICBidWlsdCBpbnRvIHRoZSBrZXJu
-ZWwuIElmIHlvdSBsaXZlIGluIGFueSBvZiB0aGUgZm9sbG93aW5nIGNvdW50cmllcworCSAgeW91
-IHdhbnQgdGhpczoKKwkgIAorCSAgKiBEZW5tYXJrCisJICAqIEVzdG9uaWEKKwkgICogRmlubGFu
-ZAorCSAgKiBHZXJtYW55CisJICAqIEljZWxhbmQKKwkgICogSXJlbGFuZAorCSAgKiBJdGFseQor
-CSAgKiBMaXRodWFuaWEKKwkgICogTHV4ZW1ib3VyZworCSAgKiBOZXRoZXJsYW5kcworCSAgKiBO
-b3J3YXkKKwkgICogUG9sYW5kCisJICAqIFBvcnR1Z2FsCisJICAqIFNsb3ZlbmlhCisJICAqIFNv
-dXRoIEFmcmljYQorCSAgKiBTd2VkZW4KKwkgICogVW5pdGVkIEtpbmdkb20KKwkgICogRnJhbmNl
-CisJICAqIFNwYWluCisKK2NvbmZpZyBEODAyMTFfUkVHRE9NQUlOX0ZDQworCWJvb2wgIkZDQyBS
-ZWd1bGF0b3J5IERvbWFpbiIKKwlkZXBlbmRzIG9uIEQ4MDIxMQorCS0tLWhlbHAtLS0KKwkgIFRo
-aXMgb3B0aW9uIGVuYWJsZXMgRkNDIHJlZ3VsYXRvcnkgZG9tYWluIHN1cHBvcnQgdG8gYmUgCisJ
-ICBidWlsdCBpbnRvIHRoZSBrZXJuZWwuIElmIHlvdSBsaXZlIGluIGFueSBvZiB0aGUgZm9sbG93
-aW5nIGNvdW50cmllcworCSAgeW91IHdhbnQgdGhpczoKKwkgIAorCSAgKiBVbml0ZWQgU3RhdGVz
-CisJICAqIENvbG9tYmlhCisJICAqIERvbWluaWNhbiBSZXB1YmxpYworCSAgKiBHdWF0ZW1hbGEK
-KwkgICogTWV4aWNvCisJICAqIFBhbmFtYQorCSAgKiBQdWVydG8gUmljbworCitjb25maWcgRDgw
-MjExX1JFR0RPTUFJTl9JQworCWJvb2wgIklDIFJlZ3VsYXRvcnkgRG9tYWluIgorCWRlcGVuZHMg
-b24gRDgwMjExCisJLS0taGVscC0tLQorCSAgVGhpcyBvcHRpb24gZW5hYmxlcyBJQyByZWd1bGF0
-b3J5IGRvbWFpbiBzdXBwb3J0IHRvIGJlIAorCSAgYnVpbHQgaW50byB0aGUga2VybmVsLiBJZiB5
-b3UgbGl2ZSBpbiBhbnkgb2YgdGhlIGZvbGxvd2luZyBjb3VudHJpZXMKKwkgIHlvdSB3YW50IHRo
-aXM6CisJICAKKwkgICogQ2FuYWRhCisKK2NvbmZpZyBEODAyMTFfUkVHRE9NQUlOX01LSworCWJv
-b2wgIk1LSyBSZWd1bGF0b3J5IERvbWFpbiIKKwlkZXBlbmRzIG9uIEQ4MDIxMQorCS0tLWhlbHAt
-LS0KKwkgIFRoaXMgb3B0aW9uIGVuYWJsZXMgTUtLIHJlZ3VsYXRvcnkgZG9tYWluIHN1cHBvcnQg
-dG8gYmUgCisJICBidWlsdCBpbnRvIHRoZSBrZXJuZWwuIElmIHlvdSBsaXZlIGluIGFueSBvZiB0
-aGUgZm9sbG93aW5nIGNvdW50cmllcworCSAgeW91IHdhbnQgdGhpczoKKwkgIAorCSAgKiBKYXBh
-bgorY29tbWVudCAiIgorCisjY29uZmlnIEQ4MDIxMV9SRUdVTEFUT1JZX1VTRVIKKyMJYm9vbCAi
-UmVndWxhdG9yeSBkb21haW4gdXNlcnNwYWNlIHN1cHBvcnQiCisjCWRlcGVuZHMgb24gRDgwMjEx
-CisjCS0tLWhlbHAtLS0KKyMJICBUaGlzIG9wdGlvbiBlbmFibGVzIHVwZGF0aW5nIG9mIHJlZ3Vs
-YXRvcnkgZG9tYWluIGRhdGFiYXNlCisjCSAgdGhyb3VnaCB1c2Vyc3BhY2UuCisKIGNvbmZpZyBE
-ODAyMTFfTEVEUwogCWJvb2wgIkVuYWJsZSBMRUQgdHJpZ2dlcnMiCiAJZGVwZW5kcyBvbiBEODAy
-MTEKQEAgLTE2LDggKzkwLDYgQEAgY29uZmlnIEQ4MDIxMV9MRURTCiAJVGhpcyBvcHRpb24gZW5h
-YmxlcyBhIGZldyBMRUQgdHJpZ2dlcnMgZm9yIGRpZmZlcmVudAogCXBhY2tldCByZWNlaXZlL3Ry
-YW5zbWl0IGV2ZW50cy4KIAotY29uZmlnIEQ4MDIxMV8KLQogY29uZmlnIEQ4MDIxMV9ERUJVRwog
-CWJvb2wgIkVuYWJsZSBkZWJ1Z2dpbmcgb3V0cHV0IgogCWRlcGVuZHMgb24gRDgwMjExCg==
-------=_Part_138940_25646741.1161643902339--
+Your mailer ate tabs and wrapped long lines. You're going to need to fix 
+that.
+
+> --- a/drivers/net/wireless/zd1211rw/zd_chip.c    2006-10-23
+> 10:07:39.000000000 -0400
+> +++ b/drivers/net/wireless/zd1211rw/zd_chip.c    2006-10-23
+> 10:41:51.000000000 -0400
+> @@ -38,6 +38,8 @@ void zd_chip_init(struct zd_chip *chip,
+>     mutex_init(&chip->mutex);
+>     zd_usb_init(&chip->usb, netdev, intf);
+>     zd_rf_init(&chip->rf);
+> +    /* The chip needs to know which geo it is in */
+> +    chip->geo = 
+> ieee80211_get_geo(zd_mac_to_ieee80211(zd_netdev_mac(netdev)));
+
+There is no need to store a geo reference here. You can use 
+zd_chip_to_mac() to go from chip to mac, then mac-to-ieee80211 is easy.
+
+> }
+> 
+> void zd_chip_clear(struct zd_chip *chip)
+> @@ -606,14 +608,17 @@ static int patch_6m_band_edge(struct zd_
+>         { CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
+>         { CR47,  0x1e },
+>     };
+> +    struct ieee80211_geo *geo = chip->geo;
+> 
+>     if (!chip->patch_6m_band_edge || !chip->rf.patch_6m_band_edge)
+>         return 0;
+> 
+> -    /* FIXME: Channel 11 is not the edge for all regulatory domains. */
+> -    if (channel == 1 || channel == 11)
+> +    /* Checks the channel boundry of the region */
+> +    dev_dbg_f("checking boundry == %d || %d\n" , 1 , geo->bg_channels);
+> +    if (channel == 1 || channel == geo->bg_channels)
+
+Typo, you mean boundary. Also, I think the debug message can go once 
+you're confident it's working correctly.
+
+>         ioreqs[0].value = 0x12;
+> 
+> +
+
+This added line could go as well.
+
+>     dev_dbg_f(zd_chip_dev(chip), "patching for channel %d\n", channel);
+>     return zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
+> }
+
+I think that after the above changes, your modifications to zd_chip.h 
+can be removed.
+
+> --- a/drivers/net/wireless/zd1211rw/zd_chip.h    2006-10-23
+> 10:07:39.000000000 -0400
+> +++ b/drivers/net/wireless/zd1211rw/zd_chip.h    2006-10-23
+> 10:39:08.000000000 -0400
+> @@ -21,6 +21,8 @@
+> #include "zd_types.h"
+> #include "zd_rf.h"
+> #include "zd_usb.h"
+> +#include "zd_ieee80211.h"
+> +#include <linux/wireless.h>
+> 
+> /* Header for the Media Access Controller (MAC) and the Baseband Processor
+>  * (BBP). It appears that the ZD1211 wraps the old ZD1205 with USB glue and
+> @@ -669,6 +671,7 @@ struct zd_chip {
+>     /* SetPointOFDM in the vendor driver */
+>     u8 ofdm_cal_values[3][E2P_CHANNEL_COUNT];
+>     u16 link_led;
+> +      struct ieee80211_geo* geo;
+>     unsigned int pa_type:4,
+>         patch_cck_gain:1, patch_cr157:1, patch_6m_band_edge:1,
+>         new_phy_layout:1,
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
