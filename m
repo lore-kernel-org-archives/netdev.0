@@ -1,33 +1,64 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] bcm43xx-softmac: add PCI-E code
-Date: Mon, 23 Oct 2006 12:36:32 -0400
-Message-ID: <453CEF90.1090403@gentoo.org>
-References: <45330803.mail261110C22@lwfinger.net> <200610231529.05471.mb@bu3sch.de> <453CD325.3020003@gentoo.org> <200610231641.45011.mb@bu3sch.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PKT_SCHED] netem: Orphan SKB when adding to queue.
+Date: Mon, 23 Oct 2006 19:08:17 +0200
+Message-ID: <453CF701.2000807@trash.net>
+References: <200610231700.k9NH0Dck016668@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>,
-	Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp121.iad.emailsrvr.com ([207.97.245.121]:21647 "EHLO
-	smtp121.iad.emailsrvr.com") by vger.kernel.org with ESMTP
-	id S1751998AbWJWQhh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 12:37:37 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200610231641.45011.mb@bu3sch.de>
+Received: from stinky.trash.net ([213.144.137.162]:21921 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S964896AbWJWRIU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 13:08:20 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <200610231700.k9NH0Dck016668@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> Yes. 2.6.19-rc is still older code than 2.6.18.1.
-> The stuff from 2.6.18.1 (which is the same as wireless-2.6)
-> will be merged into 2.6.19-rc soon.
+Linux Kernel Mailing List wrote:
+> commit 4e8a5201506423e0241202de1349422af4260296
+> tree e562a6cdbee37e3805551af92b264fa93d722c4b
+> parent 6a43487f43fbd4e03c606dcb62b98374a3af88fc
+> author David S. Miller <davem@sunset.davemloft.net> 1161576033 -0700
+> committer David S. Miller <davem@sunset.davemloft.net> 1161576033 -0700
+> 
+> [PKT_SCHED] netem: Orphan SKB when adding to queue.
+> 
+> The networking emulator can queue SKBs for a very long
+> time, so if you're using netem on the sender side for
+> large bandwidth/delay product testing, the SKB socket
+> send queue sizes become artificially larger.
+> 
+> Correct this by calling skb_orphan() in netem_enqueue().
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+>  drivers/pci/quirks.c  |    4 ++--
+>  net/sched/sch_netem.c |    2 ++
+>  2 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index e8a7f1b..ecf8e4d 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -1634,7 +1634,7 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_N
+>   * is marked here since the boot video device will be the only enabled
+>   * video device at this point.
+>   */
+> -
+> +#if 0
+>  static void __devinit fixup_video(struct pci_dev *pdev)
+>  {
+>  	struct pci_dev *bridge;
+> @@ -1663,7 +1663,7 @@ static void __devinit fixup_video(struct
+>  	}
+>  }
+>  DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, fixup_video);
+> -
+> +#endif
 
-2.6.18.1 produced the oops in the earlier mail
-wireless-2.6 did *not* produce the oops, instead I get the behavior of
-plain 2.6.19-rc2 plus PCI-E patch (i.e. _almost_ works)
 
-Daniel
-
+This part looks like you accidentally committed it.
 
