@@ -1,42 +1,67 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: [PATCH] sky2: 88E803X transmit lockup
-Date: Mon, 23 Oct 2006 20:20:26 +0100
-Message-ID: <6278d2220610231220r7cfd95b4ueac267e511162e0e@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] r8169: perform a PHY reset before any other operation at boot time
+Date: Mon, 23 Oct 2006 22:25:19 +0200
+Message-ID: <20061023202519.GA1580@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:63204 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S965055AbWJWTU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 15:20:28 -0400
-Received: by ug-out-1314.google.com with SMTP id q2so1481119uge
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 12:20:27 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:22720 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750820AbWJWU25
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 16:28:57 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The reason sky2 driver was locking up on transmit on the Yukon-FE chipset
-> is that it was misconfiguring the internal RAM buffer so the transmitter
-> and receiver were sharing the same space.
->
-> The code assumed there was 16K of RAM on Yukon-FE (taken from vendor driver
-> sk98lin which is even more f*cked up on this). Then it assigned based on that.
-> The giveaway was that the registers would only hold 9bits so both RX/TX
-> had 0..1ff for space. It is a wonder it worked at all!
->
-> This patch addresses this, and fixes an easily reproducible hang on Transmit.
-> Only the Yukon-FE chip is Marvell 88E803X (10/100 only) are affected.
-[snip]
+Realtek's 8139/810x (0x8136) PCI-E comes with a touchy PHY.
+A big heavy reset seems to calm it down.
 
-This patch works great - without it, I get only a few minutes of use
-from my home dir over NFS4 before the NIC stops transmitting. This is
-on a recent Yonah Sony VGN-SZ notebook w/ 88E8036 Marvel Sk-Y2.
+Fix for http://bugzilla.kernel.org/show_bug.cgi?id=7378.
 
-Thanks again Stephen!
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Darren Salt <linux@youmustbejoking.demon.co.uk>
+---
+ drivers/net/r8169.c |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index c2c9a86..03c0dc5 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1442,6 +1442,22 @@ static void rtl8169_release_board(struct
+ 	free_netdev(dev);
+ }
+ 
++static void rtl8169_phy_reset(struct net_device *dev,
++			      struct rtl8169_private *tp)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++	int i;
++
++	tp->phy_reset_enable(ioaddr);
++	for (i = 0; i < 100; i++) {
++		if (!tp->phy_reset_pending(ioaddr))
++			return;
++		msleep(1);
++	}
++	if (netif_msg_link(tp))
++		printk(KERN_ERR "%s: PHY reset failed.\n", dev->name);
++}
++
+ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -1470,6 +1486,8 @@ static void rtl8169_init_phy(struct net_
+ 
+ 	rtl8169_link_option(board_idx, &autoneg, &speed, &duplex);
+ 
++	rtl8169_phy_reset(dev, tp);
++
+ 	rtl8169_set_speed(dev, autoneg, speed, duplex);
+ 
+ 	if ((RTL_R8(PHYstatus) & TBI_Enable) && netif_msg_link(tp))
 -- 
-Daniel J Blueman
+1.4.2.3
+
