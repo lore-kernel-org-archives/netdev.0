@@ -1,105 +1,100 @@
-From: Russell Stuart <russell-tcatm@stuart.id.au>
-Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet
-	scheduling	for	ATM/ADSL (kernel)
-Date: Tue, 24 Oct 2006 07:54:04 +1000
-Message-ID: <1161640444.5502.214.camel@ras.pc.stuart.local>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
-	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
-	 <1161602527.5502.155.camel@ras.pc.stuart.local>
-	 <453CB801.4010902@trash.net>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Mon, 23 Oct 2006 18:41:27 -0400
+Message-ID: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jean Tourrilhes" <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:2795 "EHLO
-	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
-	id S1752026AbWJWVyg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 17:54:36 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <453CB801.4010902@trash.net>
+Received: from wr-out-0506.google.com ([64.233.184.237]:53117 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1752052AbWJWWl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 18:41:29 -0400
+Received: by wr-out-0506.google.com with SMTP id i7so392457wra
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 15:41:28 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-10-23 at 14:39 +0200, Patrick McHardy wrote:
-> The implementation may be different, but the intention and the
-> result is the same. I probably would mind less if it wouldn't
-> affect userspace compatibility, but we need to carry this stuff
-> for ever even if we add another implementation that covers all
-> qdiscs.
+The following patches extend 802.11 regulatory domain support of the
+d80211 wireless stack through two modules:
 
-So where is the overlap?  Your patch will make qdiscs
-that use packet length work with ATM.  Ours makes the
-rest, ie those that use Alexy's RTAB, work with ATM.
-They would probably both apply with minimal conflicts.
-You have previously said you have no intention of 
-changing the current RTAB implantation with your STAB
-patch.
+1. ieee80211_regdomains
+2. iso3166-1
 
-As an aside non-work conserving qdisc's that do 
-scheduling are the real targets of ATM patch.  The 
-rest are not effected by ATM overly.  The only one 
-of those that doesn't use Alexy's RTAB is the one you 
-introduced - HFSC.  You are the best person to fix
-things so HFSC does work with ATM, and that is what
-I thought you were doing with the STAB patch.
+These modules provide an interface for management of regulatory
+domains. Stack support has not been completed as it requires changes
+which should be discussed here first. The hopes of extending
+regulatory domains is so we have a consistant method by which all
+drivers access valid channels and power restrictions which strictly
+adhere to local regulatory domain constraints. Additionally if
+in-kernel support of regulatory domains suffices for regulatory
+agencies this should clear vendors from supporting FOSS wireless
+drivers as this is the most common excuse not to so.
 
-> What do I need to explain further? As I stated several times,
-> I would like to see a patch that handles all qdiscs. And it
-> should probably not have hardcoded ATM values, there is other
-> media that behaves similar.
+---
 
-I am not aware of other media that behaves in a similar
-way, although I am no expert.  What have I missed?  The
-hard coded ATM values don't effect this patch btw, they
-are a user space thing only.
+Details:
 
-> >>Besides that:
-> >>
-> >>+static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
-> >>+{
-> >>+	int slot = pktlen + rtab->rate.cell_align;
-> >>+	if (slot < 0)
-> >>+	  	slot = 0;
-> >>
-> >>Why would it go negative? A negative cell_align doesn't make sense I
-> >>guess.
-> > 
-> > 
-> > A negative cell align is possible, and in fact is typical.
-> > If slot ended up being less than 0 then the configuration
-> > parameters passed to "tc" would of been wrong - they could
-> > not of matched the actual traffic.  The error can't be 
-> > detected in "tc", but it can't be allowed to cause the
-> > kernel to index off the end of an array either.
-> 
-> I'm not sure I understand what you're saying here. The transmission
-> time gets _smaller_ by transmitting over ATM? Does this have anything
-> to do with the off-by-one during rate table calculation you or
-> Jesper noticed?
 
-There is nothing I would describe as an "off-by-one
-error" in the RTAB calculation, so I can't be sure
-what you are referring to.  The packetisation done
-by ATM does introduce rounding / truncation errors
-of up to ((1 << cell_log) - 1).  Negative cell 
-alignments is the easiest way to fix that.
+1. ieee80211_regdomains
 
-> >>+	slot >>= rtab->rate.cell_log;
-> >>+	if (slot > 255)
-> >>+		return rtab->data[255] + 1;
-> >>
-> >>Whats the point of this? Is it just to keep htb giant statistics
-> >>working?
-> > 
-> > 
-> > Yes.
-> 
-> TBF and policers already make sure this can never happen, this is
-> what HTB should do as well. If it is also needed for CBQ it is
-> a bugfix and should be done seperately.
+Breaks down regulatory domains into data structures which allow
+drivers to share channel and power contraints based on stack
+regulatory domain. This driver adds in-kernel support for common
+regulatory domains (such as FCC and ETSI), makes updating the
+regulatory domain database through userspace completely optional which
+should make it easier to introduce, and adds support for PtMP (Point
+to MultiPoint) and PtP (Point to Point) type restrictions.
 
-OK.  I will change it.
+2. iso3166-1
 
+ISO 3166-1, as part of the ISO 3166 standard, provides codes for the names
+of countries and dependent areas. It was first published in 1974 by
+the International Organization for Standardization (ISO) and defines three
+different codes for each area:
+
+    * ISO 3166-1 alpha-2, a two-letter system with many applications,
+      most notably the Internet top-level domains (ccTLD) for countries.
+    * ISO 3166-1 alpha-3, a three-letter system.
+    * ISO 3166-1 numeric, a three-digit numerical system, which is
+    identical to that defined by the United Nations Statistical Division.
+
+Although this would usually be only used in userspace IEEE-802.11d
+has made use of ISO-3166-1 alpha 3. This mapping was added
+to enhance stack support for IEEE-802.11d and 802.11 Regulatory
+Domain control. ieee80211_regdomains makes use of this module
+by creating a map of iso3166 alpha3 country code to stack
+regulatory domain.
+
+--
+
+Things which need review:
+
+Current regulatory domain support is provided statically in
+ieee80211_ioctl.c through ieee80211_regdom module parameter. This is
+used to mask channels for scanning through ieee80211_init_client(),
+which gets called during ieee80211_update_hw() which itself gets
+called in ieee80211_register_hw(). Note that d80211.h also introduces
+an unsigned int regulatory_domain in ieee80211_conf struct, this
+however is never used even by current drivers or stack code.
+
+The current setup on d80211.h makes regulatory domains device
+specific. I believe this should be changed to be stack-specific --
+that is, all drivers adhere to the restrictions set by the stack's
+current regulatory domain. To enforce this though we'd need some
+central stack-specific structure with stack-speficic settings. Are
+there other parameters which can be stack-specific and configurable
+which can be used to introduce a new structure which defines how the
+stack behaves at a certain point in time? Should we take this approach
+ieee80211_ioctl.c can then just query the stack regulatory domain
+instead of a module_param.
+
+Comments and patches are more than welcomed. Certain regulatory
+domains are still being ironed out.
+
+  Luis
