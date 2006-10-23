@@ -1,104 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH REPOST 1/2] NET: Accurate packet scheduling	for	ATM/ADSL
- (kernel)
-Date: Mon, 23 Oct 2006 14:39:29 +0200
-Message-ID: <453CB801.4010902@trash.net>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net> <1161602527.5502.155.camel@ras.pc.stuart.local>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
+Date: Mon, 23 Oct 2006 14:40:28 +0200
+Message-ID: <20061023144028.629dc5d8@griffin.suse.cz>
+References: <1161335976.21402.11.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:20363 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751937AbWJWMjc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 08:39:32 -0400
-To: Russell Stuart <russell-tcatm@stuart.id.au>
-In-Reply-To: <1161602527.5502.155.camel@ras.pc.stuart.local>
+Received: from styx.suse.cz ([82.119.242.94]:62428 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751938AbWJWMka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2006 08:40:30 -0400
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1161335976.21402.11.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Russell Stuart wrote:
-> On Thu, 2006-10-19 at 16:38 +0200, Patrick McHardy wrote:
-> 
->>I still think this patch shouldn't go in. There's no point in doing the
->>same thing twice, and I haven't heard a compelling argument why it has
->>to be done in a way that only helps qdiscs using rtabs while ignoring
->>statistics and estimators (I even provided a patch to show how to do
->>it without these limitations).
-> 
-> 
-> As far as I can see one patch changes the way the 
-> kernel calculates packet lengths, and the other modifies 
-> RTAB.  I can not see the significant overlap between the 
-> patches that you talk about.
+On Fri, 20 Oct 2006 17:19:36 +0800, Hong Liu wrote:
+> --- a/include/net/d80211.h
+> +++ b/include/net/d80211.h
+> @@ -176,6 +176,7 @@ struct ieee80211_tx_control {
+>  			*/
+>  	int icv_len:8; /* Length of the ICV/MIC field in octets */
+>  	int iv_len:8; /* Length of the IV field in octets */
+> +	u8 rc4key[16]; /* generated RC4 key for hw TKIP */
 
-The implementation may be different, but the intention and the
-result is the same. I probably would mind less if it wouldn't
-affect userspace compatibility, but we need to carry this stuff
-for ever even if we add another implementation that covers all
-qdiscs.
+I don't like extending ieee80211_tx_control by 16 more bytes. The
+driver is required to store a copy of each ieee80211_tx_control
+(because it's copied to ieee80211_tx_status). I don't have a better
+idea, though. Anybody?
 
-> As for why haven't got a new patch from me that addresses 
-> the "doing the same thing twice" issue - it is because I
-> can see no such issue.  I have asked you repeatedly to
-> explain it further, but you have not done so.
+> @@ -476,6 +477,12 @@ struct ieee80211_hw {
+>  	/* Force software encryption for TKIP packets if WMM is enabled. */
+>  	unsigned int no_tkip_wmm_hwaccel:1;
+>  
+> +	/* Do TKIP key mixing in stack, send the generated RC4 key with
+> +	 * with each TX frame */
+> +	unsigned int tkip_include_rc4key:1;
+> +	/* calculate michael MIC in stack */
+> +	unsigned int tkip_include_mmic:1;
 
-What do I need to explain further? As I stated several times,
-I would like to see a patch that handles all qdiscs. And it
-should probably not have hardcoded ATM values, there is other
-media that behaves similar.
+Please write more descriptive comments (e.g. there should be stated
+that tkip_include_mmic is relevant only when using hw crypto).
 
-> As for "providing a patch" - I believe at the time you
-> called it something you were working on.  As far as I
-> know you still are working on it.  Besides, even if you
-> did intend me to take it further, I am not particularly 
-> interested in the packet length issue as it does not 
-> effect the real world performance of any of the qdiscs 
-> I use.
+Also, it would help if you don't use bitfileds and rebase your patch
+on top of http://www.spinics.net/lists/netdev/msg17316.html and
+http://www.spinics.net/lists/netdev/msg17314.html; but I can do it for
+you when applying the patch.
 
-No, I'm not working on it currently, it was more meant for
-demonstration purposes. If you're not interested in taking
-the opinion of people working on the code into account thats
-your problem.
+> +void ieee80211_tkip_gen_rc4key(struct ieee80211_key *key,
+> +			       u8 *rc4key, u8* ta)
 
->>Besides that:
->>
->>+static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
->>+{
->>+	int slot = pktlen + rtab->rate.cell_align;
->>+	if (slot < 0)
->>+	  	slot = 0;
->>
->>Why would it go negative? A negative cell_align doesn't make sense I
->>guess.
-> 
-> 
-> A negative cell align is possible, and in fact is typical.
-> If slot ended up being less than 0 then the configuration
-> parameters passed to "tc" would of been wrong - they could
-> not of matched the actual traffic.  The error can't be 
-> detected in "tc", but it can't be allowed to cause the
-> kernel to index off the end of an array either.
+Put the destination buffer (rc4key) as the last parameter.
 
-I'm not sure I understand what you're saying here. The transmission
-time gets _smaller_ by transmitting over ATM? Does this have anything
-to do with the off-by-one during rate table calculation you or
-Jesper noticed?
+Thanks,
 
->>+	slot >>= rtab->rate.cell_log;
->>+	if (slot > 255)
->>+		return rtab->data[255] + 1;
->>
->>Whats the point of this? Is it just to keep htb giant statistics
->>working?
-> 
-> 
-> Yes.
+ Jiri
 
-TBF and policers already make sure this can never happen, this is
-what HTB should do as well. If it is also needed for CBQ it is
-a bugfix and should be done seperately.
-
+-- 
+Jiri Benc
+SUSE Labs
