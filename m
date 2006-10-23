@@ -1,81 +1,87 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 3/3] ethtool: allow force hex in register dump
-Date: Mon, 23 Oct 2006 10:58:37 -0700
-Message-ID: <20061023105837.4102f0af@dxpl.pdx.osdl.net>
-References: <20061018104632.27a37d75@freekitty>
-	<20061018105022.57b57b6a@freekitty>
-	<453A63AF.1010505@pobox.com>
-	<20061023105142.13b507a7@dxpl.pdx.osdl.net>
+From: "Holden Karau" <holden@pigscanfly.ca>
+Subject: [PATCH] wireless-2.6 zd1211rw check against regulatory domain rather than hardcoded value of 11
+Date: Mon, 23 Oct 2006 14:21:32 -0400
+Message-ID: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, holdenk@xandros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:31629 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964985AbWJWSEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2006 14:04:36 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20061023105142.13b507a7@dxpl.pdx.osdl.net>
+Received: from ug-out-1314.google.com ([66.249.92.175]:43890 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S964991AbWJWSVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 14:21:34 -0400
+Received: by ug-out-1314.google.com with SMTP id q2so1464273uge
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 11:21:33 -0700 (PDT)
+To: zd1211-devs@lists.sourceforge.net
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sometimes the device decode logic just gets in the way
-so add a "force hex" option to register dump.
+From: Holden Karau <holden@pigscanfly.ca> http://www.holdenkarau.com
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+I have made a small patch for the zd1211rw driver which uses the
+boundry channels of the regulatory domain, rather than the hard coded
+values of 1 & 11.
+Signed-off-by: Holden Karau <holden@pigscanfly.ca> http://www.holdenkarau.com
 ---
- ethtool.8 |    1 +
- ethtool.c |   11 +++++++----
- 2 files changed, 8 insertions(+), 4 deletions(-)
+I'm not entirely sure how useful this patch is, but it seems like a
+good idea. If its totally misguided, let me know :-) In case the patch
+gets mangled I've put it up at
+http://www.holdenkarau.com/~holden/projects/zd1211rw/zd1211rw-use-geo-for-channels.patch
+And now for the patch:
+--- a/drivers/net/wireless/zd1211rw/zd_chip.c	2006-10-23
+10:07:39.000000000 -0400
++++ b/drivers/net/wireless/zd1211rw/zd_chip.c	2006-10-23
+10:41:51.000000000 -0400
+@@ -38,6 +38,8 @@ void zd_chip_init(struct zd_chip *chip,
+ 	mutex_init(&chip->mutex);
+ 	zd_usb_init(&chip->usb, netdev, intf);
+ 	zd_rf_init(&chip->rf);
++	/* The chip needs to know which geo it is in */
++	chip->geo = ieee80211_get_geo(zd_mac_to_ieee80211(zd_netdev_mac(netdev)));
+ }
 
-diff --git a/ethtool.8 b/ethtool.8
-index bffde30..d247d51 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -126,6 +126,7 @@ ethtool \- Display or change ethernet ca
- .B ethtool \-d|\-\-register\-dump
- .I ethX
- .B2 raw on off
-+.B2 hex on off
- .RB [ file 
- .IR name ]
- 
-diff --git a/ethtool.c b/ethtool.c
-index f004d54..06e3675 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -255,6 +255,7 @@ static int msglvl_wanted = -1;
- static int phys_id_time = 0;
- static int gregs_changed = 0;
- static int gregs_dump_raw = 0;
-+static int gregs_dump_hex = 0;
- static char *gregs_dump_file = NULL;
- static int geeprom_changed = 0;
- static int geeprom_dump_raw = 0;
-@@ -285,6 +286,7 @@ struct cmdline_info {
- 
- static struct cmdline_info cmdline_gregs[] = {
- 	{ "raw", CMDL_BOOL, &gregs_dump_raw, NULL },
-+	{ "hex", CMDL_BOOL, &gregs_dump_hex, NULL },
- 	{ "file", CMDL_STR, &gregs_dump_file, NULL },
- };
- 
-@@ -1000,10 +1002,11 @@ static int dump_regs(struct ethtool_drvi
- 		fclose(f);
- 	}
- 
--	for (i = 0; i < ARRAY_SIZE(driver_list); i++)
--		if (!strncmp(driver_list[i].name, info->driver,
--			     ETHTOOL_BUSINFO_LEN))
--			return driver_list[i].func(info, regs);
-+	if (!gregs_dump_hex)
-+		for (i = 0; i < ARRAY_SIZE(driver_list); i++)
-+			if (!strncmp(driver_list[i].name, info->driver,
-+				     ETHTOOL_BUSINFO_LEN))
-+				return driver_list[i].func(info, regs);
- 
- 	fprintf(stdout, "Offset\tValues\n");
- 	fprintf(stdout, "--------\t-----");
--- 
-1.4.2.3
+ void zd_chip_clear(struct zd_chip *chip)
+@@ -606,14 +608,17 @@ static int patch_6m_band_edge(struct zd_
+ 		{ CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
+ 		{ CR47,  0x1e },
+ 	};
++	struct ieee80211_geo *geo = chip->geo;
 
+ 	if (!chip->patch_6m_band_edge || !chip->rf.patch_6m_band_edge)
+ 		return 0;
+
+-	/* FIXME: Channel 11 is not the edge for all regulatory domains. */
+-	if (channel == 1 || channel == 11)
++	/* Checks the channel boundry of the region */
++	dev_dbg_f("checking boundry == %d || %d\n" , 1 , geo->bg_channels);
++	if (channel == 1 || channel == geo->bg_channels)
+ 		ioreqs[0].value = 0x12;
+
++
+ 	dev_dbg_f(zd_chip_dev(chip), "patching for channel %d\n", channel);
+ 	return zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
+ }
+--- a/drivers/net/wireless/zd1211rw/zd_chip.h	2006-10-23
+10:07:39.000000000 -0400
++++ b/drivers/net/wireless/zd1211rw/zd_chip.h	2006-10-23
+10:39:08.000000000 -0400
+@@ -21,6 +21,8 @@
+ #include "zd_types.h"
+ #include "zd_rf.h"
+ #include "zd_usb.h"
++#include "zd_ieee80211.h"
++#include <linux/wireless.h>
+
+ /* Header for the Media Access Controller (MAC) and the Baseband Processor
+  * (BBP). It appears that the ZD1211 wraps the old ZD1205 with USB glue and
+@@ -669,6 +671,7 @@ struct zd_chip {
+ 	/* SetPointOFDM in the vendor driver */
+ 	u8 ofdm_cal_values[3][E2P_CHANNEL_COUNT];
+ 	u16 link_led;
++  	struct ieee80211_geo* geo;
+ 	unsigned int pa_type:4,
+ 		patch_cck_gain:1, patch_cr157:1, patch_6m_band_edge:1,
+ 		new_phy_layout:1,
