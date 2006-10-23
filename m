@@ -1,53 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP socket buffer autotuning
-Date: Sun, 22 Oct 2006 20:51:25 -0700 (PDT)
-Message-ID: <20061022.205125.21596474.davem@davemloft.net>
-References: <45398FD3.8050003@psc.edu>
-	<20061020.234228.68158300.davem@davemloft.net>
-	<20061021123608.495a9dba@localhost.localdomain>
+From: "Randy.Dunlap" <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] atm: fix horizon init section usage
+Date: Sun, 22 Oct 2006 21:32:20 -0700
+Message-ID: <453C45D4.6080904@oracle.com>
+References: <20061022191309.73e3eacd.randy.dunlap@oracle.com> <20061022.203922.130845181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, hkjerry.chu@gmail.com, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: shemminger@osdl.org
-In-Reply-To: <20061021123608.495a9dba@localhost.localdomain>
-Sender: linux-net-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rgminet01.oracle.com ([148.87.113.118]:48301 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1751274AbWJWEbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Oct 2006 00:31:00 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061022.203922.130845181.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Sat, 21 Oct 2006 12:36:08 -0700
-
-> On Fri, 20 Oct 2006 23:42:28 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+David Miller wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> Date: Sun, 22 Oct 2006 19:13:09 -0700
 > 
-> > @@ -170,6 +170,8 @@ static int netem_enqueue(struct sk_buff 
-> >  		return NET_XMIT_BYPASS;
-> >  	}
-> >  
-> > +	skb_orphan(skb);
-> > +
- ...
-> Yeah, that's good. I run netem on an intermediate machine (bridge or router)
-> when running tests to avoid this and other local feedback scenario's.
+>> From: Randy Dunlap <randy.dunlap@oracle.com>
+>>
+>> hrz_init() is called from the probe function, which is __devinit
+>> and could be called after init.
+>>
+>> WARNING: drivers/atm/horizon.o - Section mismatch: reference to .init.text:.hrz_init from .text between '.hrz_probe' (at offset 0x4054) and '.hrz_remove_one'
+>>
+>> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> It is only called from hrz_init() and thus shouldn't it be
+> thus marked __devinit as well?  That seems to be the right
+> way to fix this one.
 
-I'll put this into 2.6.19 as a fix for now, but I am so tempted
-to just kill off that skb_set_owner_w() call in tcp_transmit_skb().
+Oops, I agree.  Want me to send another patch?
 
-That call is totally pointless, even for the case where we pskb_copy()
-a data SKB at the beginning of tcp_transmit_skb().  The socket is
-charged for the memory, and the SKB clone itself is transient and
-owned by entirely the IP{4,6} output path, queueing layer, and device.
-
-We have discussed before how it probably makes sense for UDP, which
-is in a similar situation, because otherwise a very aggressive
-UDP socket can essentially flood the device without letting other
-sockets to send traffic.
-
-But here in this TCP clone situation, that doesn't apply.  The socket
-has already had the data charged to it properly.
-
-It is something to seriously consider for 2.6.20, anyways, because it
-would kill off some expensive atomics and accounting in our TCP
-transmit path as well.
+-- 
+~Randy
