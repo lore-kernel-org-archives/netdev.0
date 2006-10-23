@@ -1,46 +1,37 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] atm: fix horizon init section usage
-Date: Sun, 22 Oct 2006 19:13:09 -0700
-Message-ID: <20061022191309.73e3eacd.randy.dunlap@oracle.com>
+From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+Subject: Re: [PATCH 0/6] Changeset of Camellia cipher algorithm.
+Date: Mon, 23 Oct 2006 11:31:55 +0900 (JST)
+Message-ID: <20061023.113155.1025210243.takamiya@po.ntts.co.jp>
+References: <20061018.161510.796986352.takamiya@po.ntts.co.jp>
+	<20061022050747.GA28796@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:1068 "EHLO
-	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1751169AbWJWCLv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Oct 2006 22:11:51 -0400
-To: netdev <netdev@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20061022050747.GA28796@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+Hi,
 
-hrz_init() is called from the probe function, which is __devinit
-and could be called after init.
+>> Sun, 22 Oct 2006 15:07:47 +1000
+>> [Subject: Re: [PATCH 0/6] Changeset of Camellia cipher algorithm.]
+>> Herbert Xu <herbert@gondor.apana.org.au> wrote....
 
-WARNING: drivers/atm/horizon.o - Section mismatch: reference to .init.text:.hrz_init from .text between '.hrz_probe' (at offset 0x4054) and '.hrz_remove_one'
+> On Wed, Oct 18, 2006 at 07:15:10AM +0000, Noriaki TAKAMIYA wrote:
+> > 
+> > [PATCH 1/6] [CRYPTO] added Kconfig entry for Camellia.
+> > [PATCH 2/6] [CRYPTO] added the code of Camellia cipher algorithm.
+> > [PATCH 3/6] [CRYPTO] added the testing code of Camellia cipher algorithm.
+> > [PATCH 4/6] [IPSEC] added the definition of Camellia cipher algorithm.
+> > [PATCH 5/6] [IPSEC] added the entry of Camellia cipher algorithm to ealg_list[].
+> > [PATCH 6/6] [CRYPTO] added the developer of Camellia cipher algorithm.
+> 
+> I've applied all the patches to cryptodev-2.6.  Thanks!
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
+  Thank you!
 
- drivers/atm/horizon.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
-
-diff -Naurp linux-2619-rc2g4/drivers/atm/horizon.c~atm_hrz_section linux-2619-rc2g4/drivers/atm/horizon.c
---- linux-2619-rc2g4/drivers/atm/horizon.c~atm_hrz_section	2006-10-20 17:37:52.822837000 -0700
-+++ linux-2619-rc2g4/drivers/atm/horizon.c	2006-10-21 22:36:53.373243000 -0700
-@@ -1845,7 +1845,8 @@ static u16 __init read_bia (const hrz_de
- 
- /********** initialise a card **********/
- 
--static int __init hrz_init (hrz_dev * dev) {
-+static int hrz_init (hrz_dev * dev)
-+{
-   int onefivefive;
-   
-   u16 chan;
-
-
----
+--
+Noriaki TAKAMIYA
