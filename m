@@ -1,53 +1,45 @@
-From: Hong Liu <hong.liu@intel.com>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Tue, 24 Oct 2006 16:20:53 +0800
-Message-ID: <1161678053.7083.7.camel@devlinux-hong>
-References: <1161335976.21402.11.camel@devlinux-hong>
-	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
-	 <20061023145646.32bbd59f@griffin.suse.cz>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] [PATCH 1/3] adds iso3166-1 support
+Date: Tue, 24 Oct 2006 10:30:17 +0200
+Message-ID: <1161678617.2840.5.camel@ux156>
+References: <43e72e890610231545n389d8a6dy89bb476101953234@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
+	Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4943 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S965102AbWJXI1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 04:27:48 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061023145646.32bbd59f@griffin.suse.cz>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:21729 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965108AbWJXI3Q
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 04:29:16 -0400
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890610231545n389d8a6dy89bb476101953234@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-10-23 at 20:56, Jiri Benc wrote:
-> On Mon, 23 Oct 2006 14:48:00 +0200, Johannes Berg wrote:
-> > On Mon, 2006-10-23 at 14:40 +0200, Jiri Benc wrote:
-> > > I don't like extending ieee80211_tx_control by 16 more bytes. The
-> > > driver is required to store a copy of each ieee80211_tx_control
-> > > (because it's copied to ieee80211_tx_status). I don't have a better
-> > > idea, though. Anybody?
-> > 
-> > A pointer that goes somewhere else? I suppose it could even be in the
-> > skb's cb field.
-> 
-> Yes, that could work. Thanks!
-> 
-> > Also, something I just came to think of, bcm43xx does phase2 mixing in
-> > hw and requires phase1 in software. Do we handle that with or without
-> > this patch? If not, it'd be nice to fix it up together.
-> 
-> It's not supported now. And it's really a good idea to extend the patch
-> to support the bcm43xx case as well.
-> 
->  Jiri
-
-It's really strange bcm43xx only does phase2 mixing in hw. With all the
-code that does phase2 mixing, doing phase1 mixing is very cheap.
-
-With Jiri's ieee80211_tx_ctrl_common patch, I think we can put the
-rc4key or phase1 key in ieee80211_tx_control with each TX packet.
 
 
-Thanks,
-Hong
+> +static int load_iso3166_1(void) {
+> +       int r = 0;
+> +       r |= iso3166_1_add(4, "AF", "AFG", 
+> +               "Afghanistan");
+[...]
+
+Why don't you make the table a static array, then you can use ARRAY_SIZE
+and get rid of the whole list_head, not have it eat up code size and
+mark it as read-only static data.
+
+> +EXPORT_SYMBOL(iso3166_1_list);
+
+Why export the list?
+
+> +EXPORT_SYMBOL(get_iso3166_1_numeric);
+> +EXPORT_SYMBOL(get_iso3166_1_alpha2);
+> +EXPORT_SYMBOL(get_iso3166_1_alpha3);
+> +EXPORT_SYMBOL(iso3166_1_exists);
+
+Also, please put these along with the function.
+
+johannes
