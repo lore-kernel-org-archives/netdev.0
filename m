@@ -1,49 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/5] netpoll: use sk_buff_head for txq
-Date: Tue, 24 Oct 2006 07:51:30 -0700
-Message-ID: <20061024075130.6e4cf8d2@dads-laptop>
-References: <20061020153027.3bed8c86@dxpl.pdx.osdl.net>
-	<20061022.204220.78710782.davem@davemloft.net>
-	<20061023120253.5dd146d2@dxpl.pdx.osdl.net>
-	<20061023.230350.05157566.davem@davemloft.net>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] wireless-2.6 zd1211rw check against
+ regulatory domain rather than hardcoded value of 11
+Date: Tue, 24 Oct 2006 11:09:14 -0400
+Message-ID: <453E2C9A.7010604@gentoo.org>
+References: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>	
+	<453D48E5.8040100@gentoo.org>
+	<f46018bb0610240709y203d8cdbw95cdf66db23aa1ce@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:8116 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932295AbWJXOvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 10:51:37 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061023.230350.05157566.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: holdenk@xandros.com, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, linville@tuxdriver.com,
+	zd1211-devs@lists.sourceforge.net,
+	Ulrich Kunitz <kune@deine-taler.de>
+Return-path: <zd1211-devs-bounces@lists.sourceforge.net>
+To: Holden Karau <holden@pigscanfly.ca>
+In-Reply-To: <f46018bb0610240709y203d8cdbw95cdf66db23aa1ce@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
+	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=zd1211-devs>
+List-Post: <mailto:zd1211-devs@lists.sourceforge.net>
+List-Help: <mailto:zd1211-devs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
+	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=subscribe>
+Sender: zd1211-devs-bounces@lists.sourceforge.net
+Errors-To: zd1211-devs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Oct 2006 23:03:50 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Holden Karau wrote:
+> I've changed the patch based on your suggestions :-)
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Mon, 23 Oct 2006 12:02:53 -0700
-> 
-> > +	spin_lock_irqsave(&netpoll_txq.lock, flags);
-> > +	for (skb = (struct sk_buff *)netpoll_txq.next;
-> > +	     skb != (struct sk_buff *)&netpoll_txq; skb = next) {
-> > +		next = skb->next;
-> > +		if (skb->dev == dev) {
-> > +			skb_unlink(skb, &netpoll_txq);
-> > +			kfree_skb(skb);
-> > +		}
-> >  	}
-> > +	spin_unlock_irqrestore(&netpoll_txq.lock, flags);
-> 
-> IRQ's are disabled, I think we can't call kfree_skb() in such a
-> context.
+Thanks, looks fine. Let's just wait for an OK from Ulrich, then you can 
+send it to John, without broken tabs/lines, with signoff and description.
 
-It is save since the skb's only come from this code (no destructors).
+Daniel
 
-> 
-> That's why zap_completion_queue() has all of these funny
-> skb->destructor checks and such, all of this stuff potentially runs in
-> IRQ context.
 
-It should use __kfree_skb in the purge routine (like other places).
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
