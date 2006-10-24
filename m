@@ -1,64 +1,67 @@
 From: "Luis R. Rodriguez" <mcgrof@gmail.com>
 Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Tue, 24 Oct 2006 13:31:26 -0400
-Message-ID: <43e72e890610241031q41e7303bgb63786995f5c28d6@mail.gmail.com>
+Date: Tue, 24 Oct 2006 13:41:12 -0400
+Message-ID: <43e72e890610241041l5d442753xd6cef0bca789db33@mail.gmail.com>
 References: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
-	 <1161678344.2840.2.camel@ux156>
+	 <1161646361.3942.21.camel@johannes.berg>
+	 <43e72e890610232233t14ee98f6j5d5facf1b7aab08b@mail.gmail.com>
+	 <20061024120303.GB30724@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jean Tourrilhes" <jt@hpl.hp.com>,
-	LKML <linux-kernel@vger.kernel.org>
+Cc: "Johannes Berg" <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+	"Jean Tourrilhes" <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:55529 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.174]:15402 "EHLO
 	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1030449AbWJXRbi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 13:31:38 -0400
-Received: by ug-out-1314.google.com with SMTP id 32so271258ugm
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 10:31:26 -0700 (PDT)
-To: "Johannes Berg" <johannes@sipsolutions.net>
-In-Reply-To: <1161678344.2840.2.camel@ux156>
+	id S1161112AbWJXRlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 13:41:18 -0400
+Received: by ug-out-1314.google.com with SMTP id 32so274059ugm
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 10:41:12 -0700 (PDT)
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20061024120303.GB30724@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/24/06, Johannes Berg <johannes@sipsolutions.net> wrote:
-> Alright, here's more now that I can think clearly again :)
->
-> > ISO 3166-1, as part of the ISO 3166 standard, provides codes for the names
-> > of countries and dependent areas. It was first published in 1974 by
-> > the International Organization for Standardization (ISO) and defines three
-> > different codes for each area:
+On 10/24/06, John W. Linville <linville@tuxdriver.com> wrote:
+> On Tue, Oct 24, 2006 at 01:33:32AM -0400, Luis R. Rodriguez wrote:
+> > On 10/23/06, Johannes Berg <johannes@sipsolutions.net> wrote:
+> > >On Mon, 2006-10-23 at 18:41 -0400, Luis R. Rodriguez wrote:
+> > >
+> > >> The current setup on d80211.h makes regulatory domains device
+> > >> specific. I believe this should be changed to be stack-specific --
+> > >> that is, all drivers adhere to the restrictions set by the stack's
+> > >> current regulatory domain.
+> > >
+> > >There should be a way to have a certain device restrict that even
+> > >further, if the driver wants to allow operation only in a domain that
+> > >the device has been certified for (because it may malfunction otherwise,
+> > >for example).
 > >
-> >     * ISO 3166-1 alpha-2, a two-letter system with many applications,
-> >       most notably the Internet top-level domains (ccTLD) for countries.
-> >     * ISO 3166-1 alpha-3, a three-letter system.
-> >     * ISO 3166-1 numeric, a three-digit numerical system, which is
-> >     identical to that defined by the United Nations Statistical Division.
-> >
-> > Although this would usually be only used in userspace IEEE-802.11d
-> > has made use of ISO-3166-1 alpha 3. This mapping was added
-> > to enhance stack support for IEEE-802.11d and 802.11 Regulatory
-> > Domain control. ieee80211_regdomains makes use of this module
-> > by creating a map of iso3166 alpha3 country code to stack
-> > regulatory domain.
+> > Sure good idea -- we can provide a device specific regulatory domain
+> > if necessary. We can easily introduce a device_regdomains linked list
+> > on the ieee80211_conf which if not empty the driver will use it, else
+> > the stack regdomain is used. The ieee80211_regdomains module already
+> > provides the interfaces for the manipulation of such list. Pretty easy
+> > fix, fortunately.
 >
-> But if 802.11d only requires alpha 3, why put all the other stuff into
-> the kernel as well?
+> It might be nice if this could be a "logical AND" operation?  So if the
+> device was certified for X, Y, and Z and the current domain allows V,
+> W, and X then only X would be allowed.  Perhaps it is too complicated
+> to be worthwhile, but it seems doable and would be a nice flexibility.
 
-It would have been a half ass job for kernel iso3166-1 support, also
-though -- I feel we should leave this as-is until we have an ironed
-out userspace regulatory daemon. This would make regulatory
-domain/802.11d/MLME daemon optional to introduce for distributions
-until that part is done and distributions have happily adopted
-something. Since its a complete iso3166-1 db I wondered if any other
-modules would make use of it. An example of a similar db in the kernel
-is for Native Language Support (NLS) for filesystems. If no modules
-can make use of it the quicker this should be removed once we have a
-userspace API ready.
-
-CC'ing LKML to see if any other module can make use of this.
+Sure -- we can have on the ieee80211_conf struct an array of all
+regulatory domains stack values that the device supports
+(REGDOMAIN_FCC or 0x10 for FCC for example) if the developer agrees
+the device has been certified to match the regulatory domain
+restrictions as the stack defines it. I believe most modern devices
+adhere to the PtMP restrictions pretty loosely and the magic is left
+to the driver when the device is being certified so ultimately I see
+devices sharing regulatory domains restrictions rather than defining
+their own though. I'd consider defining your own device-specific
+regulatory domain would be more of an exception we'd have to deal with
+but that remains to be seen yet huh.
 
   Luis
