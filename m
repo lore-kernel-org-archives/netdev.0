@@ -1,35 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Tue, 24 Oct 2006 11:12:39 +0200
-Message-ID: <1161681159.2840.25.camel@ux156>
-References: <1161335976.21402.11.camel@devlinux-hong>
-	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
-	 <20061023145646.32bbd59f@griffin.suse.cz>
-	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
-	 <1161679134.7258.6.camel@devlinux-hong>  <1161681021.2840.23.camel@ux156>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: RFC:  Removing busy-spin in pktgen.
+Date: Tue, 24 Oct 2006 11:16:05 +0200
+Message-ID: <17725.55765.509953.762136@robur.slu.se>
+References: <453D582C.9020705@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>
+Cc: NetDev <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:56030 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030217AbWJXJLj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 05:11:39 -0400
-To: Hong Liu <hong.liu@intel.com>
-In-Reply-To: <1161681021.2840.23.camel@ux156>
+Received: from mx1.slu.se ([130.238.96.70]:47567 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S965117AbWJXJQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 05:16:07 -0400
+Received: from robur.slu.se (robur.slu.se [130.238.98.12])
+	by mx1.slu.se (8.13.7/8.13.6) with ESMTP id k9O9G5Fl020464
+	for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 11:16:06 +0200
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <453D582C.9020705@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-10-24 at 11:10 +0200, Johannes Berg wrote:
 
-> How about having the stack maintain
-> the IV *only*, 
+Ben Greear writes:
+ > I'm planning to re-merge my long-lost pktgen branch with the kernel
+ > tree's pktgen.
+ > 
+ > I believe the main difference is that my out-of-tree pktgen does not do the
+ > busy-spin, but waits on a queue for the net-device to wake it's tx-queue
+ > when over-driving a NIC.
+ > 
+ > To implement this, I added a hook in the netdev-wake-queue logic and let
+ > pktgen register itself as interested....
+ > 
+ > Is there any interest in adding this sort of feature to the official
+ > pktgen?
 
-The idea here is that even if not required by hw that does both, it's
-cheap to maintain this counter. Though for all I care the driver could
-do it too.
+ Hello!
 
-johannes
+ So question is, pktgen hooks in netif_wake_queue or let pktgen busy-spin?
+
+ My first instinct is to avoid the hook in general code and pktgen let spin 
+ to only affect testing.
+ 
+ Cheers.
+					--ro
