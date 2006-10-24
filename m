@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: Removing busy-spin in pktgen.
-Date: Tue, 24 Oct 2006 03:14:55 -0700 (PDT)
-Message-ID: <20061024.031455.55723788.davem@davemloft.net>
-References: <453D582C.9020705@candelatech.com>
-	<17725.55765.509953.762136@robur.slu.se>
+From: "Brigitte" <allenclan@btopenworld.com>
+Subject: Manuela
+Date: Tue, 24 Oct 2006 14:33:41 +0300
+Message-ID: <001401c6f760$37b27080$0100a8c0__20718.20686474$1161689397$gmane$org@219.64.65.53.HYD-CDMA.dialup.vsnl.net.in>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:38859
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965128AbWJXKOw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 06:14:52 -0400
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <17725.55765.509953.762136@robur.slu.se>
+Received: from 219.64.65.53.HYD-CDMA.dialup.vsnl.net.in ([219.64.65.53]:5383
+	"EHLO 219.64.65.53.HYD-CDMA.dialup.vsnl.net.in") by vger.kernel.org
+	with ESMTP id S1030359AbWJXL3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 07:29:14 -0400
+To: "David" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Tue, 24 Oct 2006 11:16:05 +0200
+Greeting!!!
 
->  My first instinct is to avoid the hook in general code and pktgen let spin 
->  to only affect testing.
+Adult entertainment.
+No where else will you get a show like this; only here.
+www.musicworld.cc
 
-Mine too.
 
-Why make everyone in the world make that check in netif_wake_queue(),
-or wherever, when %99.99999999999 of the time it'll never be used?
+ta-ta,
+Jessika
+
+
