@@ -1,44 +1,59 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] wireless-2.6 zd1211rw check against
- regulatory domain rather than hardcoded value of 11
-Date: Tue, 24 Oct 2006 11:09:14 -0400
-Message-ID: <453E2C9A.7010604@gentoo.org>
-References: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>	
-	<453D48E5.8040100@gentoo.org>
-	<f46018bb0610240709y203d8cdbw95cdf66db23aa1ce@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [RFC] [PATCH 1/3] adds iso3166-1 support
+Date: Tue, 24 Oct 2006 11:59:34 -0400
+Message-ID: <43e72e890610240859o39a42658p64d198a2130e3f87@mail.gmail.com>
+References: <43e72e890610231545n389d8a6dy89bb476101953234@mail.gmail.com>
+	 <1161678617.2840.5.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: holdenk@xandros.com, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	zd1211-devs@lists.sourceforge.net,
-	Ulrich Kunitz <kune@deine-taler.de>
-Return-path: <zd1211-devs-bounces@lists.sourceforge.net>
-To: Holden Karau <holden@pigscanfly.ca>
-In-Reply-To: <f46018bb0610240709y203d8cdbw95cdf66db23aa1ce@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
-	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=zd1211-devs>
-List-Post: <mailto:zd1211-devs@lists.sourceforge.net>
-List-Help: <mailto:zd1211-devs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
-	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=subscribe>
-Sender: zd1211-devs-bounces@lists.sourceforge.net
-Errors-To: zd1211-devs-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jean Tourrilhes" <jt@hpl.hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wr-out-0506.google.com ([64.233.184.227]:5909 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S965101AbWJXP7g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 11:59:36 -0400
+Received: by wr-out-0506.google.com with SMTP id i4so362227wra
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 08:59:35 -0700 (PDT)
+To: "Johannes Berg" <johannes@sipsolutions.net>
+In-Reply-To: <1161678617.2840.5.camel@ux156>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Holden Karau wrote:
-> I've changed the patch based on your suggestions :-)
+On 10/24/06, Johannes Berg <johannes@sipsolutions.net> wrote:
+>
+>
+> > +static int load_iso3166_1(void) {
+> > +       int r = 0;
+> > +       r |= iso3166_1_add(4, "AF", "AFG",
+> > +               "Afghanistan");
+> [...]
+>
+> Why don't you make the table a static array, then you can use ARRAY_SIZE
+> and get rid of the whole list_head, not have it eat up code size and
+> mark it as read-only static data.
 
-Thanks, looks fine. Let's just wait for an OK from Ulrich, then you can 
-send it to John, without broken tabs/lines, with signoff and description.
+This was how I had the original implementation, I moved it to linked
+lists thinking we'd update it frequently but obviously that's not the
+case. You are right, also if we index based on alpha3 we get O(1)
+access to the elements. Will make these changes.
 
-Daniel
+> > +EXPORT_SYMBOL(iso3166_1_list);
+>
+> Why export the list?
 
+No good reason -- will remove this, right again.
 
+> > +EXPORT_SYMBOL(get_iso3166_1_numeric);
+> > +EXPORT_SYMBOL(get_iso3166_1_alpha2);
+> > +EXPORT_SYMBOL(get_iso3166_1_alpha3);
+> > +EXPORT_SYMBOL(iso3166_1_exists);
+>
+> Also, please put these along with the function.
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+Sure.
+
+  Luis
