@@ -1,97 +1,97 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/1] Fabric7 VIOC: Ethtool
-Date: Tue, 24 Oct 2006 14:46:20 -0700
-Message-ID: <20061024144620.4c9892f6@dxpl.pdx.osdl.net>
-References: <1161725441.8112.11.camel@rh234.mv.fabric7.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: please pull from git://lost.foo-projects.org/~ahkok/git/netdev-2.6
+ upstream-fixes
+Date: Tue, 24 Oct 2006 14:43:55 -0700
+Message-ID: <453E891B.5030602@intel.com>
+References: <20061017190139.4194.20128.stgit@gitlost.site> <453A6769.4000305@pobox.com> <453CDC00.2020705@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: schidambaram@fabric7.com, Jeff Garzik <jeff@garzik.org>,
-	KERNEL Linux <linux-kernel@vger.kernel.org>,
-	NETDEV Linux <netdev@vger.kernel.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:33507 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422658AbWJXVqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 17:46:40 -0400
-To: driver-support@fabric7.com
-In-Reply-To: <1161725441.8112.11.camel@rh234.mv.fabric7.com>
+Received: from mga03.intel.com ([143.182.124.21]:29484 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S1422646AbWJXVqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 17:46:15 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <453CDC00.2020705@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Oct 2006 14:30:41 -0700
-Sriram Chidambaram <schidambaram@fabric7.com> wrote:
-
-> Ethtool patch for Fabric7 VIOC Device Driver.
+Auke Kok wrote:
+> Jeff Garzik wrote:
+>> Kok, Auke wrote:
+>>> Hi,
+>>>
+>>> The following fixes targeted to netdev-2.6#upstream-fixes are available
+>>> through git:
+>>>
+>>> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 
+>>> upstream-fixes
+>>
+>> hrm.  since another e100 fixes got applied, can you either (a) update 
+>> the above URL for that change, or (b) provide separate e100 and e1000 
+>> pull urls?
 > 
-> Signed-off-by: Fabric7 Driver-Support <driver-support@fabric7.com>
-> ---
->  Makefile.am    |    2 +-
->  ethtool-util.h |    2 ++
->  ethtool.c      |    1 +
->  vioc.c         |   35 +++++++++++++++++++++++++++++++++++
->  4 files changed, 39 insertions(+), 1 deletions(-)
-> 
-> diff --git a/Makefile.am b/Makefile.am
-> index 97ad512..240979e 100644
-> --- a/Makefile.am
-> +++ b/Makefile.am
-> @@ -7,7 +7,7 @@ sbin_PROGRAMS = ethtool
->  ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
->  		  amd8111e.c de2104x.c e100.c e1000.c		\
->  		  fec_8xx.c ibm_emac.c ixgb.c natsemi.c		\
-> -		  pcnet32.c realtek.c tg3.c marvell.c
-> +		  pcnet32.c realtek.c tg3.c marvell.c vioc.c
->  
->  dist-hook:
->  	cp $(top_srcdir)/ethtool.spec $(distdir)
-> diff --git a/ethtool-util.h b/ethtool-util.h
-> index 0909a5a..dcb0c1c 100644
-> --- a/ethtool-util.h
-> +++ b/ethtool-util.h
-> @@ -54,4 +54,6 @@ int skge_dump_regs(struct ethtool_drvinf
->  /* SysKonnect Gigabit (Yukon2) */
->  int sky2_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
->  
-> +/* Fabric7 VIOC */
-> +int vioc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
->  #endif
-> diff --git a/ethtool.c b/ethtool.c
-> index b783248..6e68009 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -958,6 +958,7 @@ static struct {
->  	{ "tg3", tg3_dump_regs },
->  	{ "skge", skge_dump_regs },
->  	{ "sky2", sky2_dump_regs },
-> +        { "vioc", vioc_dump_regs },
->  };
->  
->  static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
-> diff --git a/vioc.c b/vioc.c
-> new file mode 100644
-> index 0000000..b58dd40
-> --- /dev/null
-> +++ b/vioc.c
-> @@ -0,0 +1,35 @@
-> +/* Copyright 2006 Fabric7 Systems, Inc */
-> +
-> +#include <stdio.h>
-> +#include <stdlib.h>
-> +#include "ethtool-util.h"
-> +
-> +struct regs_line {
-> +		u32	addr;
-> +		u32	data;
-> +};
-> +
-> +#define VIOC_REGS_LINE_SIZE	sizeof(struct regs_line)
-> +
-> +int vioc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
-> +{
-> +	unsigned int	i;
-> +	unsigned int	num_regs;
-> +	struct regs_line *reg_info = (struct regs_line *) regs->data;
-> +
-> +	printf("%s: Enter\n", __FUNCTION__);
+> I dropped the e100 patch from the series, it now contains (at the above 
+> url) only the e1000 changes.
 
-Leftover debug?
+okay, I've rebased the trees on the latest upstream-fixes and master from netdev-2.6, 
+and on top of that added the latest e100 shutdown patch to it (see below).
+
+Jeff,
+
+Please pull from git://lost.foo-projects.org/~ahkok/git/netdev-2.6
+  upstream-fixes in to your #upstream-fixes or #upstream-linus branch so that these 
+fixes get into 2.6.19.
+
+Thanks.
+
+Auke
+
+
+---
+
+e100: account for closed interface when shutting down
+
+From: Auke Kok <auke-jan.h.kok@intel.com>
+
+Account for the interface being closed before disabling polling
+on a device, to fix shutdown on some systems that explcitly close
+the netdevice before calling shutdown.
+
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+  drivers/net/e100.c |   10 ++++++++--
+  1 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index a3a08a5..19ab344 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2719,7 +2719,10 @@ static int e100_suspend(struct pci_dev *
+  	struct net_device *netdev = pci_get_drvdata(pdev);
+  	struct nic *nic = netdev_priv(netdev);
+
+-	netif_poll_disable(nic->netdev);
++#ifdef CONFIG_E100_NAPI
++	if (netif_running(netdev))
++		netif_poll_disable(nic->netdev);
++#endif
+  	del_timer_sync(&nic->watchdog);
+  	netif_carrier_off(nic->netdev);
+
+@@ -2763,7 +2766,10 @@ static void e100_shutdown(struct pci_dev
+  	struct net_device *netdev = pci_get_drvdata(pdev);
+  	struct nic *nic = netdev_priv(netdev);
+
+-	netif_poll_disable(nic->netdev);
++#ifdef CONFIG_E100_NAPI
++	if (netif_running(netdev))
++		netif_poll_disable(nic->netdev);
++#endif
+  	del_timer_sync(&nic->watchdog);
+  	netif_carrier_off(nic->netdev);
