@@ -1,43 +1,78 @@
-From: Gavin McCullagh <gavin.mccullagh@nuim.ie>
-Subject: [PATCH] fix integer overflow in H-TCP congestion control
-Date: Tue, 24 Oct 2006 15:17:39 +0100
-Message-ID: <20061024141739.GB18364@nuim.ie>
-Reply-To: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Fwd: [PATCH] bcm43xx: (hopefully) fix watchdog timeouts.
+Date: Tue, 24 Oct 2006 16:31:18 +0200
+Message-ID: <200610241631.18911.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: Douglas Leith <doug.leith@nuim.ie>, Baruch Even <baruch@ev-en.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nuim.ie ([149.157.1.19]:2295 "EHLO LARCH.MAY.IE")
-	by vger.kernel.org with ESMTP id S1030397AbWJXOSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 10:18:11 -0400
-Received: from retina-bcl.hamilton.local ([149.157.192.252])
- by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01M8QQ0CFNNU017H37@NUIM.IE>
- for netdev@vger.kernel.org; Tue, 24 Oct 2006 15:17:53 +0000 (GMT)
-To: NetDev <netdev@vger.kernel.org>
-Content-disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+To: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	"John Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+This fixes a netdev watchdog timeout problem.
+The problem is caused by a needed netif_tx_disable
+in the hardware calibration code and can be shown by the
+following timegraph.
 
-When using H-TCP with a single flow on a 500Mbit connection (or less
-actually), alpha can exceed 65000, so alpha needs to be a u32.
+|---5secs - ~10 jiffies time---|---|OOPS
+^                              ^
+last real TX                   periodic work stops netif
 
-Signed-off-by: Gavin McCullagh <gavin.mccullagh@nuim.ie>
-Signed-off-by: Doug Leith <doug.leith@nuim.ie>
+At OOPS, the following happens:
+The watchdog timer triggers, because the timeout of 5secs
+is over. The watchdog first checks for stopped TX.
+_Usually_ TX is only stopped from the TX handler to indicate
+a full TX queue. But this is different. We need to stop TX here,
+regardless of the TX queue state. So the watchdog recognizes
+the stopped device and assumes it is stopped due to full
+TX queues (Which is a _wrong_ assumption in this case). It then
+tests how far the last TX has been in the past. If it's more than
+5secs (which is the case for low or no traffic), it will fire
+a TX timeout.
 
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 
-diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
-index 6edfe5e..8072b6d 100644
---- a/net/ipv4/tcp_htcp.c
-+++ b/net/ipv4/tcp_htcp.c
-@@ -23,7 +23,7 @@ module_param(use_bandwidth_switch, int, 
- MODULE_PARM_DESC(use_bandwidth_switch, "turn on/off bandwidth switcher");
+--
+
+John, please apply this bugfix to wireless-2.6.
+Greg, as the -stable maintainer, please consider putting this
+into 2.6.18.2
+
+Index: linux-2.6.18/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.18.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-10-19 21:30:42.000000000 +0200
++++ linux-2.6.18/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-10-19 21:33:28.000000000 +0200
+@@ -3165,7 +3165,15 @@ static void bcm43xx_periodic_work_handle
  
- struct htcp {
--       u16     alpha;          /* Fixed point arith, << 7 */
-+       u32     alpha;          /* Fixed point arith, << 7 */
-        u8      beta;           /* Fixed point arith, << 7 */
-        u8      modeswitch;     /* Delay modeswitch until we had at least one congestion event */
-        u32     last_cong;      /* Time since last congestion event end */
+ 	badness = estimate_periodic_work_badness(bcm->periodic_state);
+ 	mutex_lock(&bcm->mutex);
++
++	/* We must fake a started transmission here, as we are going to
++	 * disable TX. If we wouldn't fake a TX, it would be possible to
++	 * trigger the netdev watchdog, if the last real TX is already
++	 * some time on the past (slightly less than 5secs)
++	 */
++	bcm->net_dev->trans_start = jiffies;
+ 	netif_tx_disable(bcm->net_dev);
++
+ 	spin_lock_irqsave(&bcm->irq_lock, flags);
+ 	if (badness > BADNESS_LIMIT) {
+ 		/* Periodic work will take a long time, so we want it to
 
+
+
+-- 
+Greetings Michael.
