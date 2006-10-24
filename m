@@ -1,67 +1,64 @@
 From: "Luis R. Rodriguez" <mcgrof@gmail.com>
 Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Tue, 24 Oct 2006 13:41:12 -0400
-Message-ID: <43e72e890610241041l5d442753xd6cef0bca789db33@mail.gmail.com>
+Date: Tue, 24 Oct 2006 13:47:50 -0400
+Message-ID: <43e72e890610241047g119a4ef5h95969941aa4a80ed@mail.gmail.com>
 References: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
-	 <1161646361.3942.21.camel@johannes.berg>
-	 <43e72e890610232233t14ee98f6j5d5facf1b7aab08b@mail.gmail.com>
-	 <20061024120303.GB30724@tuxdriver.com>
+	 <20061024140212.GB17543@devicescape.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Johannes Berg" <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
 	"Jean Tourrilhes" <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:15402 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1161112AbWJXRlS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 13:41:18 -0400
-Received: by ug-out-1314.google.com with SMTP id 32so274059ugm
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 10:41:12 -0700 (PDT)
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061024120303.GB30724@tuxdriver.com>
+Received: from wr-out-0506.google.com ([64.233.184.231]:29816 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1161115AbWJXRrw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 13:47:52 -0400
+Received: by wr-out-0506.google.com with SMTP id i4so381804wra
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 10:47:51 -0700 (PDT)
+To: "David Kimdon" <david.kimdon@devicescape.com>
+In-Reply-To: <20061024140212.GB17543@devicescape.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/24/06, John W. Linville <linville@tuxdriver.com> wrote:
-> On Tue, Oct 24, 2006 at 01:33:32AM -0400, Luis R. Rodriguez wrote:
-> > On 10/23/06, Johannes Berg <johannes@sipsolutions.net> wrote:
-> > >On Mon, 2006-10-23 at 18:41 -0400, Luis R. Rodriguez wrote:
-> > >
-> > >> The current setup on d80211.h makes regulatory domains device
-> > >> specific. I believe this should be changed to be stack-specific --
-> > >> that is, all drivers adhere to the restrictions set by the stack's
-> > >> current regulatory domain.
-> > >
-> > >There should be a way to have a certain device restrict that even
-> > >further, if the driver wants to allow operation only in a domain that
-> > >the device has been certified for (because it may malfunction otherwise,
-> > >for example).
-> >
-> > Sure good idea -- we can provide a device specific regulatory domain
-> > if necessary. We can easily introduce a device_regdomains linked list
-> > on the ieee80211_conf which if not empty the driver will use it, else
-> > the stack regdomain is used. The ieee80211_regdomains module already
-> > provides the interfaces for the manipulation of such list. Pretty easy
-> > fix, fortunately.
+On 10/24/06, David Kimdon <david.kimdon@devicescape.com> wrote:
+> Hi,
 >
-> It might be nice if this could be a "logical AND" operation?  So if the
-> device was certified for X, Y, and Z and the current domain allows V,
-> W, and X then only X would be allowed.  Perhaps it is too complicated
-> to be worthwhile, but it seems doable and would be a nice flexibility.
+> > The following patches extend 802.11 regulatory domain support of the
+> > d80211 wireless stack through two modules:
+> >
+> > 1. ieee80211_regdomains
+> > 2. iso3166-1
+>
+> I am glad to see this work, this is something that we need a solution
+> for.  I do wonder if we can push most of this out of the kernel and
+> into userspace.  We could hard code a single set of constraints in the
+> kernel which may be used world wide (802.11b channels 1-11, is that
+> allowed everywhere?).
 
-Sure -- we can have on the ieee80211_conf struct an array of all
-regulatory domains stack values that the device supports
-(REGDOMAIN_FCC or 0x10 for FCC for example) if the developer agrees
-the device has been certified to match the regulatory domain
-restrictions as the stack defines it. I believe most modern devices
-adhere to the PtMP restrictions pretty loosely and the magic is left
-to the driver when the device is being certified so ultimately I see
-devices sharing regulatory domains restrictions rather than defining
-their own though. I'd consider defining your own device-specific
-regulatory domain would be more of an exception we'd have to deal with
-but that remains to be seen yet huh.
+Unforunatley there is no easy middle ground that will make everyone
+happy. What I defined as World is there just as most devices seem to
+have such regulatory domain and what I defined it as is a compromise
+in what seems to be the middle of all restrictions. There is no easy
+answer here but I think the best is to consider that there is just no
+"World" regulatory domain unless all regulatory domain agencies do
+come up with one. We should see if legal can work with a few
+regulatory agencies to see if at least a few will agree on one...
+
+> Then we have a userspace tool which passes
+> updated regulatory information into the kernel based on the user's
+> country input.
+
+Please see my more thorough reply to Johannes as he asked this first.
+But yes -- you are right. The main reason why this has been put in the
+kernel was to make a userspace daemon optional as it would allow us to
+easily introduce regulatory domain control without forcing
+distributions to use a new daemon immediately. Also we need to iron
+out userspace communication before even considering a userspace
+regulatory daemon. Keep in mind the Kconfig makes the regulatory
+domains defined optional except World compliant regulatory domain
+already.
 
   Luis
