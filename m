@@ -1,33 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: Fix xfrm_state accounting
-Date: Tue, 24 Oct 2006 15:34:22 -0700 (PDT)
-Message-ID: <20061024.153422.66059770.davem@davemloft.net>
-References: <453E8D1A.2040904@trash.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: rmmod bcm43xx-d80211 while keys set etc
+Date: Wed, 25 Oct 2006 00:39:24 +0200
+Message-ID: <1161729564.4044.0.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-GgsRijtwY4LIHNAro0s/"
+Cc: Jiri Benc <jbenc@suse.cz>, Michael Buesch <mbuesch@freenet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3794
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422754AbWJXWeR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 18:34:17 -0400
-To: kaber@trash.net
-In-Reply-To: <453E8D1A.2040904@trash.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:62183 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1422761AbWJXWkp
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 18:40:45 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 25 Oct 2006 00:00:58 +0200
 
-> [XFRM]: Fix xfrm_state accounting
-> 
-> xfrm_state_num needs to be increased for XFRM_STATE_ACQ states created
-> by xfrm_state_find() to prevent the counter from going negative when
-> the state is destroyed.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+--=-GgsRijtwY4LIHNAro0s/
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Good catch, we've had a few of these lately :-)
+resulted in this:
 
-Applied, thanks Patrick.
+[10261.556773] BUG: sleeping function called from invalid context at kernel=
+/mutex.c:86
+[10261.556777] in_atomic():1, irqs_disabled():0
+[10261.556780] Call Trace:
+[10261.556783] [C13CDC80] [C0008ED4] show_stack+0x3c/0x194 (unreliable)
+[10261.556799] [C13CDCB0] [C0025AE4] __might_sleep+0xd0/0xe4
+[10261.556810] [C13CDCC0] [C02B90F8] mutex_lock+0x24/0x3c
+[10261.556819] [C13CDCE0] [F290647C] bcm43xx_net_set_key+0xd0/0x2d0 [bcm43x=
+x_d80211]
+[10261.556854] [C13CDD10] [F248DEF4] sta_info_free+0x1b4/0x2c8 [80211]
+[10261.556906] [C13CDD50] [F248E078] sta_info_flush+0x70/0xa0 [80211]
+[10261.556918] [C13CDD70] [F2496728] ieee80211_if_reinit+0x10c/0x2cc [80211=
+]
+[10261.556931] [C13CDDA0] [F2496908] __ieee80211_if_del+0x20/0x4c [80211]
+[10261.556943] [C13CDDC0] [F2485428] ieee80211_unregister_hw+0x78/0x248 [80=
+211]
+[10261.556955] [C13CDDF0] [F29079F0] bcm43xx_remove_one+0x38/0x7c [bcm43xx_=
+d80211]
+[10261.556966] [C13CDE10] [C017958C] pci_device_remove+0x38/0x60
+[10261.556976] [C13CDE20] [C01CC59C] __device_release_driver+0x74/0xac
+[10261.556985] [C13CDE40] [C01CCCBC] driver_detach+0x110/0x140
+[10261.556991] [C13CDE60] [C01CC0B8] bus_remove_driver+0x8c/0xc8
+[10261.556996] [C13CDE80] [C01CCD44] driver_unregister+0x18/0x34
+[10261.557001] [C13CDEA0] [C0179608] pci_unregister_driver+0x1c/0x70
+[10261.557006] [C13CDEC0] [F291C9E0] bcm43xx_exit+0x18/0x3a90 [bcm43xx_d802=
+11]
+[10261.557015] [C13CDED0] [C004A31C] sys_delete_module+0x1ac/0x210
+[10261.557026] [C13CDF40] [C0010D20] ret_from_syscall+0x0/0x38
+[10261.557035] --- Exception: c01 at 0xff6c2b8
+[10261.557061]     LR =3D 0x1000100c
+[10261.557073] Badness in __mutex_lock_common at kernel/mutex.c:132
+[10261.557076] Call Trace:
+[10261.557078] [C13CDB50] [C0008ED4] show_stack+0x3c/0x194 (unreliable)
+[10261.557084] [C13CDB80] [C000FCA4] program_check_exception+0x47c/0x598
+[10261.557090] [C13CDBD0] [C001137C] ret_from_except_full+0x0/0x4c
+[10261.557094] --- Exception: 700 at __mutex_lock_slowpath+0x168/0x170
+[10261.557100]     LR =3D __mutex_lock_slowpath+0x160/0x170
+[10261.557103] [C13CDC90] [00000003] 0x3 (unreliable)
+[10261.557108] [C13CDCE0] [F290647C] bcm43xx_net_set_key+0xd0/0x2d0 [bcm43x=
+x_d80211]
+[10261.557118] [C13CDD10] [F248DEF4] sta_info_free+0x1b4/0x2c8 [80211]
+[10261.557133] [C13CDD50] [F248E078] sta_info_flush+0x70/0xa0 [80211]
+[10261.557144] [C13CDD70] [F2496728] ieee80211_if_reinit+0x10c/0x2cc [80211=
+]
+[10261.557156] [C13CDDA0] [F2496908] __ieee80211_if_del+0x20/0x4c [80211]
+[10261.557168] [C13CDDC0] [F2485428] ieee80211_unregister_hw+0x78/0x248 [80=
+211]
+[10261.557180] [C13CDDF0] [F29079F0] bcm43xx_remove_one+0x38/0x7c [bcm43xx_=
+d80211]
+[10261.557189] [C13CDE10] [C017958C] pci_device_remove+0x38/0x60
+[10261.557195] [C13CDE20] [C01CC59C] __device_release_driver+0x74/0xac
+[10261.557200] [C13CDE40] [C01CCCBC] driver_detach+0x110/0x140
+[10261.557205] [C13CDE60] [C01CC0B8] bus_remove_driver+0x8c/0xc8
+[10261.557210] [C13CDE80] [C01CCD44] driver_unregister+0x18/0x34
+[10261.557215] [C13CDEA0] [C0179608] pci_unregister_driver+0x1c/0x70
+[10261.557220] [C13CDEC0] [F291C9E0] bcm43xx_exit+0x18/0x3a90 [bcm43xx_d802=
+11]
+[10261.557229] [C13CDED0] [C004A31C] sys_delete_module+0x1ac/0x210
+[10261.557235] [C13CDF40] [C0010D20] ret_from_syscall+0x0/0x38
+[10261.557240] --- Exception: c01 at 0xff6c2b8
+[10261.557245]     LR =3D 0x1000100c
+[10261.557322] eth1: Removed STA 00:15:f2:3d:63:97
+[10261.623773] bcm43xx_d80211: Virtual interface removed (type: 0x00000002,=
+ ID: 24, MAC: 00:11:24:91:07:4d)
+
+
+--=-GgsRijtwY4LIHNAro0s/
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUART6WG6Vg1VMiehFYAQLiaRAAjN8ucayAOFIiXaRO1X4c1a60hRUs7a8l
+qERv7Vv3KiTzvUWU6O+JH0aRdsT8klyG+BAziqDBvGWkun3X/M2WoqeF/GNhCt53
+QNfSdysG1vb+IyK61Ar+IYPGPVEMxF1L5+0NkZJRAEPSXVc7RFDEyDrYbcHoh1eK
+UwTNL+8rNFdy7wV+V++0yKoG1Zke/irpKzcQIFt4DZKEbF2LajIjm7mbZyWQc9l5
+ETRcPjstCKM1yocGJGtgjYtd5DhUFi1MRj6/+dh1XNl0bkORT4I6hRsCWPAGP01B
+Fc9Mz59UVow/riK2xnDJvvj69xuQCQet2bZaIuwCXR7M3w2ocW+ugTRXRegDTukX
+rW00QquLM2uj/GG7zY1NIzd1F6zHpCPP9+lSbUqVXMXZsRLRgdThvPzWwgrrajjo
+Pqms7iLcLyBdAXHTOlKFOcwL36NaW+1EmHoD2FV240SLEMuKpkxecBLjeYmYTb0L
+glclK6Vb+oBhsXxtYJm4auvbnQYkBcI65G+Pl4mPr0d1VE9sjfWaL5JN9MBuvt0r
+xY+TryQU7Ta1dtk4D5BeHh3gOy7EPwCNKedwhBdq8EOCCgLuT86OyaUHb9WN2g8x
+amBAhXJkh2bmUVdzhepPlfNsPMfIfOkSE6ayd6Ujz7mzV7nTVF/1JfkvIzVoBynF
+Bgmz/QgYGtM=
+=gvN8
+-----END PGP SIGNATURE-----
+
+--=-GgsRijtwY4LIHNAro0s/--
+
