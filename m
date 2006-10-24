@@ -1,45 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Tue, 24 Oct 2006 10:25:44 +0200
-Message-ID: <1161678344.2840.2.camel@ux156>
-References: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
+From: Hong Liu <hong.liu@intel.com>
+Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
+Date: Tue, 24 Oct 2006 16:20:53 +0800
+Message-ID: <1161678053.7083.7.camel@devlinux-hong>
+References: <1161335976.21402.11.camel@devlinux-hong>
+	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
+	 <20061023145646.32bbd59f@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
+Cc: Johannes Berg <johannes@sipsolutions.net>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:44943 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S965101AbWJXIYo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 04:24:44 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:4943 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S965102AbWJXI1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 04:27:48 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061023145646.32bbd59f@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alright, here's more now that I can think clearly again :)
-
-> ISO 3166-1, as part of the ISO 3166 standard, provides codes for the names
-> of countries and dependent areas. It was first published in 1974 by
-> the International Organization for Standardization (ISO) and defines three
-> different codes for each area:
+On Mon, 2006-10-23 at 20:56, Jiri Benc wrote:
+> On Mon, 23 Oct 2006 14:48:00 +0200, Johannes Berg wrote:
+> > On Mon, 2006-10-23 at 14:40 +0200, Jiri Benc wrote:
+> > > I don't like extending ieee80211_tx_control by 16 more bytes. The
+> > > driver is required to store a copy of each ieee80211_tx_control
+> > > (because it's copied to ieee80211_tx_status). I don't have a better
+> > > idea, though. Anybody?
+> > 
+> > A pointer that goes somewhere else? I suppose it could even be in the
+> > skb's cb field.
 > 
->     * ISO 3166-1 alpha-2, a two-letter system with many applications,
->       most notably the Internet top-level domains (ccTLD) for countries.
->     * ISO 3166-1 alpha-3, a three-letter system.
->     * ISO 3166-1 numeric, a three-digit numerical system, which is
->     identical to that defined by the United Nations Statistical Division.
+> Yes, that could work. Thanks!
 > 
-> Although this would usually be only used in userspace IEEE-802.11d
-> has made use of ISO-3166-1 alpha 3. This mapping was added
-> to enhance stack support for IEEE-802.11d and 802.11 Regulatory
-> Domain control. ieee80211_regdomains makes use of this module
-> by creating a map of iso3166 alpha3 country code to stack
-> regulatory domain.
+> > Also, something I just came to think of, bcm43xx does phase2 mixing in
+> > hw and requires phase1 in software. Do we handle that with or without
+> > this patch? If not, it'd be nice to fix it up together.
+> 
+> It's not supported now. And it's really a good idea to extend the patch
+> to support the bcm43xx case as well.
+> 
+>  Jiri
 
-But if 802.11d only requires alpha 3, why put all the other stuff into
-the kernel as well?
+It's really strange bcm43xx only does phase2 mixing in hw. With all the
+code that does phase2 mixing, doing phase1 mixing is very cheap.
 
-johannes
+With Jiri's ieee80211_tx_ctrl_common patch, I think we can put the
+rc4key or phase1 key in ieee80211_tx_control with each TX packet.
+
+
+Thanks,
+Hong
