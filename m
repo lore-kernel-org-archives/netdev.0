@@ -1,46 +1,40 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: RFC:  Removing busy-spin in pktgen.
-Date: Tue, 24 Oct 2006 11:16:05 +0200
-Message-ID: <17725.55765.509953.762136@robur.slu.se>
-References: <453D582C.9020705@candelatech.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 2/3] ethtool: flie option to register dump
+Date: Tue, 24 Oct 2006 11:50:19 +0200
+Message-ID: <200610241150.19609.netdev@axxeo.de>
+References: <20061018104632.27a37d75@freekitty> <20061023105142.13b507a7@dxpl.pdx.osdl.net> <20061023105703.5f1e13eb@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:47567 "EHLO mx1.slu.se")
-	by vger.kernel.org with ESMTP id S965117AbWJXJQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 05:16:07 -0400
-Received: from robur.slu.se (robur.slu.se [130.238.98.12])
-	by mx1.slu.se (8.13.7/8.13.6) with ESMTP id k9O9G5Fl020464
-	for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 11:16:06 +0200
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <453D582C.9020705@candelatech.com>
+Received: from mail.axxeo.de ([82.100.226.146]:28387 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1030262AbWJXJul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 05:50:41 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061023105703.5f1e13eb@dxpl.pdx.osdl.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Stephen,
 
-Ben Greear writes:
- > I'm planning to re-merge my long-lost pktgen branch with the kernel
- > tree's pktgen.
- > 
- > I believe the main difference is that my out-of-tree pktgen does not do the
- > busy-spin, but waits on a queue for the net-device to wake it's tx-queue
- > when over-driving a NIC.
- > 
- > To implement this, I added a hook in the netdev-wake-queue logic and let
- > pktgen register itself as interested....
- > 
- > Is there any interest in adding this sort of feature to the official
- > pktgen?
+Stephen Hemminger schrieb:
+> Add ability to take old raw dumps from a file and decode them.
+> It is kind of limited because you still need to have same device
+> as the raw file, but useful for maintainers to decode raw dumps.
 
- Hello!
+What about putting the (Permanent) MAC into the first 4-6 octets 
+of the hexdump and decode+check+warn using this info first 
+to avoid mixing up files?
 
- So question is, pktgen hooks in netif_wake_queue or let pktgen busy-spin?
+Maybe only the first 4 octets to enhance privacy and still being able
+to detect known "bad" series.
 
- My first instinct is to avoid the hook in general code and pktgen let spin 
- to only affect testing.
- 
- Cheers.
-					--ro
+This might prevent user errors when sending such files
+to developers.
+
+Regards
+
+Ingo Oeser
