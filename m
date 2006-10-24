@@ -1,44 +1,72 @@
 From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: How to grab a block of binary data w/out using ioctls?
-Date: Mon, 23 Oct 2006 21:54:48 -0700
-Message-ID: <20061023215448.f4f6c95a.randy.dunlap@oracle.com>
-References: <453D61E8.8020400@candelatech.com>
+Subject: Re: [PKT_SCHED] netem: Orphan SKB when adding to queue.
+Date: Mon, 23 Oct 2006 21:56:09 -0700
+Message-ID: <20061023215609.d38e3f42.randy.dunlap@oracle.com>
+References: <200610231700.k9NH0Dck016668@hera.kernel.org>
+	<453CF701.2000807@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:4781 "EHLO
-	rgminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1752028AbWJXExM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 00:53:12 -0400
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <453D61E8.8020400@candelatech.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:15853 "EHLO
+	agminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1752037AbWJXEyk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 00:54:40 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <453CF701.2000807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Oct 2006 17:44:24 -0700 Ben Greear wrote:
+On Mon, 23 Oct 2006 19:08:17 +0200 Patrick McHardy wrote:
 
-> Since IOCTLs are out of favor these days, what would be
-> a preferred way to get a block of binary data out of the
-> kernel?
+> Linux Kernel Mailing List wrote:
+> > commit 4e8a5201506423e0241202de1349422af4260296
+> > tree e562a6cdbee37e3805551af92b264fa93d722c4b
+> > parent 6a43487f43fbd4e03c606dcb62b98374a3af88fc
+> > author David S. Miller <davem@sunset.davemloft.net> 1161576033 -0700
+> > committer David S. Miller <davem@sunset.davemloft.net> 1161576033 -0700
+> > 
+> > [PKT_SCHED] netem: Orphan SKB when adding to queue.
+> > 
+> > The networking emulator can queue SKBs for a very long
+> > time, so if you're using netem on the sender side for
+> > large bandwidth/delay product testing, the SKB socket
+> > send queue sizes become artificially larger.
+> > 
+> > Correct this by calling skb_orphan() in netem_enqueue().
+> > 
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> >  drivers/pci/quirks.c  |    4 ++--
+> >  net/sched/sch_netem.c |    2 ++
+> >  2 files changed, 4 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> > index e8a7f1b..ecf8e4d 100644
+> > --- a/drivers/pci/quirks.c
+> > +++ b/drivers/pci/quirks.c
+> > @@ -1634,7 +1634,7 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_N
+> >   * is marked here since the boot video device will be the only enabled
+> >   * video device at this point.
+> >   */
+> > -
+> > +#if 0
+> >  static void __devinit fixup_video(struct pci_dev *pdev)
+> >  {
+> >  	struct pci_dev *bridge;
+> > @@ -1663,7 +1663,7 @@ static void __devinit fixup_video(struct
+> >  	}
+> >  }
+> >  DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, fixup_video);
+> > -
+> > +#endif
 > 
-> I just want to grab a stats structure (well-aligned 32 and 64-bit counters
-> and fixed-length strings) for a pktgen interface.
 > 
-> Can you do this with seq-files somehow?
+> This part looks like you accidentally committed it.
 
-seq-files just use printk() for text output.  Not well-suited
-to binary output.
-
-Similarly, sysfs is desirable in some circumstances, but
-not for blocks of binary data.
-
-ioctls or netlink or debugfs or relay output (see how blktrace
-uses relay output) are your choices (I may have missed some. :)
-ioctls can be OK for some purposes.  If you want to avoid them,
-try debugfs or relay.  (I haven't looked at debugfs very much;
-it may be more text-oriented also...)
+yep, already noticed & corrected on lkml.
 
 ---
 ~Randy
