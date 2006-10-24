@@ -1,9 +1,9 @@
 From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [RFC] [PATCH 3/3] Kconfig update for regulatory domain
-Date: Tue, 24 Oct 2006 01:09:48 -0400
-Message-ID: <43e72e890610232209u70325843p897f286f9ab27e83@mail.gmail.com>
-References: <43e72e890610231551w5f5e947ena6d9a5d6f9a70ad9@mail.gmail.com>
-	 <20061024010455.GB3552@devicescape.com>
+Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Tue, 24 Oct 2006 01:33:32 -0400
+Message-ID: <43e72e890610232233t14ee98f6j5d5facf1b7aab08b@mail.gmail.com>
+References: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
+	 <1161646361.3942.21.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,36 +11,40 @@ Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	"Jean Tourrilhes" <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:29223 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.184]:21647 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1752006AbWJXFJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 01:09:50 -0400
-Received: by nf-out-0910.google.com with SMTP id c2so83884nfe
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 22:09:48 -0700 (PDT)
-To: "David Kimdon" <david.kimdon@devicescape.com>
-In-Reply-To: <20061024010455.GB3552@devicescape.com>
+	id S1752068AbWJXFde (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 01:33:34 -0400
+Received: by nf-out-0910.google.com with SMTP id c2so90480nfe
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2006 22:33:33 -0700 (PDT)
+To: "Johannes Berg" <johannes@sipsolutions.net>
+In-Reply-To: <1161646361.3942.21.camel@johannes.berg>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/23/06, David Kimdon <david.kimdon@devicescape.com> wrote:
-> This last chunk is broken:
-> . . .
-> Hunk #2 FAILED at 90.
+On 10/23/06, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Mon, 2006-10-23 at 18:41 -0400, Luis R. Rodriguez wrote:
+>
+> > The current setup on d80211.h makes regulatory domains device
+> > specific. I believe this should be changed to be stack-specific --
+> > that is, all drivers adhere to the restrictions set by the stack's
+> > current regulatory domain.
+>
+> There should be a way to have a certain device restrict that even
+> further, if the driver wants to allow operation only in a domain that
+> the device has been certified for (because it may malfunction otherwise,
+> for example).
 
-You can ignore this hunk.
+Sure good idea -- we can provide a device specific regulatory domain
+if necessary. We can easily introduce a device_regdomains linked list
+on the ieee80211_conf which if not empty the driver will use it, else
+the stack regdomain is used. The ieee80211_regdomains module already
+provides the interfaces for the manipulation of such list. Pretty easy
+fix, fortunately.
 
->
-> > --- wireless-dev-old/net/d80211/Kconfig       2006-10-23 13:56:11.000000000 -0400
-> > +++ wireless-dev/net/d80211/Kconfig   2006-10-23 17:04:12.000000000 -0400
-> > @@ -16,8 +90,6 @@ config D80211_LEDS
-> >       This option enables a few LED triggers for different
-> >       packet receive/transmit events.
-> >
-> > -config D80211_
-> > -
-> >  config D80211_DEBUG
-> >       bool "Enable debugging output"
-> >       depends on D80211
->
->
+> I'll probably have more comments later, really tired now though.
+
+Great, thanks.
+
+  Luis
