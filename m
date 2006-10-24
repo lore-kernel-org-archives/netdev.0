@@ -1,63 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] [PATCH 1/3] adds iso3166-1 support
-Date: Tue, 24 Oct 2006 18:08:14 +0200
-Message-ID: <1161706094.3942.24.camel@johannes.berg>
-References: <43e72e890610231545n389d8a6dy89bb476101953234@mail.gmail.com>
-	 <1161678617.2840.5.camel@ux156>
-	 <43e72e890610240859o39a42658p64d198a2130e3f87@mail.gmail.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Tue, 24 Oct 2006 09:15:07 -0700
+Message-ID: <453E3C0B.5030600@intel.com>
+References: <45375135.5050206@cj.jp.nec.com> <45379C14.5050901@foo-projects.org> <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-wCWqbU5bcYChSRg9Ba38"
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:23701 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030412AbWJXQJe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 12:09:34 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890610240859o39a42658p64d198a2130e3f87@mail.gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:49196 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S1030414AbWJXQRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 12:17:34 -0400
+To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+In-Reply-To: <453DD678.4010606@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Kenzo Iwami wrote:
+> Hi,
+> 
+> Thank you for your comment.
+> 
+>> This panic report falls in the category "how hard can I break my system as root". 
+>> Explicitly abusing the system performing restricted calls depletes resources and 
+>> harasses the sw lock (in this case). The reason that the driver attempts to wait that 
+>> long is that in the case of ESB2 systems, the SPI interface to the EEPROM can be slow, 
+>> thus taking a long time to complete certain commands.
+> 
+> This problem originally occurred in a very large cluster system using snmp
+> for server management. About two servers panicked each day. The program I sent
+> is to reproduce this problem in a very short time. It does occur under normal
+> load when there is a lot of servers.
 
---=-wCWqbU5bcYChSRg9Ba38
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+hmm, not good - does your snmp daemon use ethtool excessively? That would certainly be 
+painful to the driver (any driver!).
 
-On Tue, 2006-10-24 at 11:59 -0400, Luis R. Rodriguez wrote:
+Anyway as I said in the same e-mail, we're working on reducing the lock timeout to a 
+reasonable time. This will unfortunately take some time, as we need to change some major 
+components in the driver to make sure this doesn't happen.
 
-> also if we index based on alpha3 we get O(1)
-> access to the elements. Will make these changes.
+Cheers,
 
-I wouldn't do that, it's bound to make the array size explode because
-there'll be one country starting with A and one starting with Z.
-Probably better to do a binary search and make sure (by hand) it's
-sorted.
-
-johannes
-
---=-wCWqbU5bcYChSRg9Ba38
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUART46baVg1VMiehFYAQLzrw/5ARqQHi4kAXcYncRy9wET28LbSmJ86cwH
-B0gzhBVUf0dN9i5yMlj54n/aAhC8l5ceKABce2Z40AyzGiIBs5BcR79vlPw/4aek
-dXWUH3jTd1VsYbJqx9Z0ezhStFyOs3ozK8MYdhyoxHHpRf7qkZQEClNazSOyglWP
-MTcEax11hZJblHs0GECxaoHTqYv3xruBg8i2WT851TVMid6lc+Ug0bC4HuYzCly+
-9MKSkwtoKr9wyA2yBN2xDVpvE7NjATXTuOWmV3Sqko5M/FXXYotrU//qgI8/sCJP
-IuDqab9StlQMGlnGouq6lj4oulf2M8AKj/HZ7LfVs9p+AD1FvJ5XEeIFhoimUGCy
-o8fXsbOKM78uh0IrQf7J6d6U3Oqxm5eA3YwBBPcgtgb1Toqyt8biA/eLR6vXQcuO
-sNwAn0AqpF/bFKUtbczAnQQ1E7T+p+BvJYLSgpRLu7fVbFgcXwCvuyT/VUvhN9Hk
-pku8hHOpY3YXvOYXgIkPis6vgURGu3gC0buFwMON70LejBaomYzR9p9i3xe5I5KU
-Wl/Hh9wxpXs1UkW5KGsRWDA2J+BvfPcEtW4dC274wkTlIZhfK1KNf8M60+fKcjr5
-QXdol9PK04m2BhK7C0KIcLts+jvGavhRQneV3m+AC+Nj4F1N2w/2YXOMkTLaKIFL
-LmI9Uru9scg=
-=BGYL
------END PGP SIGNATURE-----
-
---=-wCWqbU5bcYChSRg9Ba38--
-
+Auke
