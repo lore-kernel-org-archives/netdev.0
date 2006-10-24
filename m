@@ -1,38 +1,44 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [RFC] [PATCH 3/3] Kconfig update for regulatory domain
-Date: Mon, 23 Oct 2006 18:04:55 -0700
-Message-ID: <20061024010455.GB3552@devicescape.com>
-References: <43e72e890610231551w5f5e947ena6d9a5d6f9a70ad9@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: How to grab a block of binary data w/out using ioctls?
+Date: Mon, 23 Oct 2006 21:54:48 -0700
+Message-ID: <20061023215448.f4f6c95a.randy.dunlap@oracle.com>
+References: <453D61E8.8020400@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:10183 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S964827AbWJXBE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Oct 2006 21:04:59 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <43e72e890610231551w5f5e947ena6d9a5d6f9a70ad9@mail.gmail.com>
+Received: from rgminet01.oracle.com ([148.87.113.118]:4781 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1752028AbWJXExM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 00:53:12 -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <453D61E8.8020400@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This last chunk is broken:
-. . .
-Hunk #2 FAILED at 90.
+On Mon, 23 Oct 2006 17:44:24 -0700 Ben Greear wrote:
 
+> Since IOCTLs are out of favor these days, what would be
+> a preferred way to get a block of binary data out of the
+> kernel?
+> 
+> I just want to grab a stats structure (well-aligned 32 and 64-bit counters
+> and fixed-length strings) for a pktgen interface.
+> 
+> Can you do this with seq-files somehow?
 
-> --- wireless-dev-old/net/d80211/Kconfig	2006-10-23 13:56:11.000000000 -0400
-> +++ wireless-dev/net/d80211/Kconfig	2006-10-23 17:04:12.000000000 -0400
-> @@ -16,8 +90,6 @@ config D80211_LEDS
->  	This option enables a few LED triggers for different
->  	packet receive/transmit events.
->  
-> -config D80211_
-> -
->  config D80211_DEBUG
->  	bool "Enable debugging output"
->  	depends on D80211
+seq-files just use printk() for text output.  Not well-suited
+to binary output.
 
+Similarly, sysfs is desirable in some circumstances, but
+not for blocks of binary data.
+
+ioctls or netlink or debugfs or relay output (see how blktrace
+uses relay output) are your choices (I may have missed some. :)
+ioctls can be OK for some purposes.  If you want to avoid them,
+try debugfs or relay.  (I haven't looked at debugfs very much;
+it may be more text-oriented also...)
+
+---
+~Randy
