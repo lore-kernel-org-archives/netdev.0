@@ -1,28 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bridge] [PATCH] bridge: flush forwarding table when device
- carrier off
-Date: Tue, 24 Oct 2006 01:29:42 -0700 (PDT)
-Message-ID: <20061024.012942.51841474.davem@davemloft.net>
-References: <20061012112431.0550b252@dxpl.pdx.osdl.net>
-	<37933.195.55.244.106.1161675548.squirrel@www.arcoscom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] [PATCH 2/3] adds ieee80211_regdomains support
+Date: Tue, 24 Oct 2006 10:33:17 +0200
+Message-ID: <1161678798.2840.9.camel@ux156>
+References: <43e72e890610231547k3cf6c590r4abd0a6fe7965fda@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org, bridge@osdl.org
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63692
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965111AbWJXI3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 04:29:39 -0400
-To: linux@arcoscom.com
-In-Reply-To: <37933.195.55.244.106.1161675548.squirrel@www.arcoscom.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:26303 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965110AbWJXIcP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 04:32:15 -0400
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890610231547k3cf6c590r4abd0a6fe7965fda@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "ArcosCom Linux User" <linux@arcoscom.com>
-Date: Tue, 24 Oct 2006 09:39:08 +0200 (CEST)
 
-> Is this patch submitted into kernel tree? What version of kernel will have
-> this patch applied (thinking on 2.6.x and 2.4.x branchs)?
+> and adds support for PtMP (Point
+> to MultiPoint) and PtP (Point to Point) type restrictions.
 
-2.6.19 and later will have the patch.
+What are those restrictions?
+
+Similar comments here, why do you build the list at module init time
+instead of having it static?
+
+Also, do we really need all this data in the kernel?
+
+johannes
