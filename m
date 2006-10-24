@@ -1,48 +1,38 @@
-From: Hong Liu <hong.liu@intel.com>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Tue, 24 Oct 2006 16:38:54 +0800
-Message-ID: <1161679134.7258.6.camel@devlinux-hong>
-References: <1161335976.21402.11.camel@devlinux-hong>
-	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
-	 <20061023145646.32bbd59f@griffin.suse.cz>
-	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
+From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Tue, 24 Oct 2006 18:01:44 +0900
+Message-ID: <453DD678.4010606@cj.jp.nec.com>
+References: <45375135.5050206@cj.jp.nec.com> <45379C14.5050901@foo-projects.org> <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42091 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1030223AbWJXIpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 04:45:44 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1161678908.2840.12.camel@ux156>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:21944 "EHLO
+	tyo201.gate.nec.co.jp") by vger.kernel.org with ESMTP
+	id S1030238AbWJXJBv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 05:01:51 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <4538F080.5020003@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-10-24 at 16:35, Johannes Berg wrote:
-> On Tue, 2006-10-24 at 16:20 +0800, Hong Liu wrote:
-> 
-> > It's really strange bcm43xx only does phase2 mixing in hw. With all the
-> > code that does phase2 mixing, doing phase1 mixing is very cheap.
-> 
-> Yeah, well, they have the tkip sbox in hw.
-> 
-> > With Jiri's ieee80211_tx_ctrl_common patch, I think we can put the
-> > rc4key or phase1 key in ieee80211_tx_control with each TX packet.
-> 
-> No, the phase1 key is not dependent on the packet so it should not be
-> there. It should be set via the regular key setting mechanism, instead
-> of the TKIP key the driver would be given the phase1 key if required.
-> 
-> johannes
+Hi,
 
-The first time when we set the TKIP key, we can set the phase1 key if
-the driver requires.
-The problem is when IV16 wraps, who will generate the new phase1 key?
-If the stack need to do this, then we will need to call set_key in the
-packet TX path which I think may not be appropriate.
+Thank you for your comment.
 
-Thanks,
-Hong
+> This panic report falls in the category "how hard can I break my system as root". 
+> Explicitly abusing the system performing restricted calls depletes resources and 
+> harasses the sw lock (in this case). The reason that the driver attempts to wait that 
+> long is that in the case of ESB2 systems, the SPI interface to the EEPROM can be slow, 
+> thus taking a long time to complete certain commands.
+
+This problem originally occurred in a very large cluster system using snmp
+for server management. About two servers panicked each day. The program I sent
+is to reproduce this problem in a very short time. It does occur under normal
+load when there is a lot of servers.
+
+-- 
+  Kenzo Iwami (k-iwami@cj.jp.nec.com)
