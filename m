@@ -1,38 +1,58 @@
-From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
-Subject: Re: watchdog timeout panic in e1000 driver
-Date: Tue, 24 Oct 2006 18:01:44 +0900
-Message-ID: <453DD678.4010606@cj.jp.nec.com>
-References: <45375135.5050206@cj.jp.nec.com> <45379C14.5050901@foo-projects.org> <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
+Date: Tue, 24 Oct 2006 11:10:21 +0200
+Message-ID: <1161681021.2840.23.camel@ux156>
+References: <1161335976.21402.11.camel@devlinux-hong>
+	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
+	 <20061023145646.32bbd59f@griffin.suse.cz>
+	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
+	 <1161679134.7258.6.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:21944 "EHLO
-	tyo201.gate.nec.co.jp") by vger.kernel.org with ESMTP
-	id S1030238AbWJXJBv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 05:01:51 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <4538F080.5020003@intel.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:38023 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1030251AbWJXJJZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 05:09:25 -0400
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1161679134.7258.6.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 2006-10-24 at 16:38 +0800, Hong Liu wrote:
 
-Thank you for your comment.
+> The first time when we set the TKIP key, we can set the phase1 key if
+> the driver requires.
 
-> This panic report falls in the category "how hard can I break my system as root". 
-> Explicitly abusing the system performing restricted calls depletes resources and 
-> harasses the sw lock (in this case). The reason that the driver attempts to wait that 
-> long is that in the case of ESB2 systems, the SPI interface to the EEPROM can be slow, 
-> thus taking a long time to complete certain commands.
+Right.
 
-This problem originally occurred in a very large cluster system using snmp
-for server management. About two servers panicked each day. The program I sent
-is to reproduce this problem in a very short time. It does occur under normal
-load when there is a lot of servers.
+> The problem is when IV16 wraps, who will generate the new phase1 key?
 
--- 
-  Kenzo Iwami (k-iwami@cj.jp.nec.com)
+Ok, I was confused for a moment, but yes, when the 16-bit part of the IV
+wraps then the upper part changes and hence you need to regenerate the
+phase1 key. 
+
+> If the stack need to do this, then we will need to call set_key in the
+> packet TX path which I think may not be appropriate.
+
+Well, I checked again and found that bcm34xx requires the IV (48) to be
+maintained by software, iow with each packet you tell the hardware what
+the IV16 should be. Hence you know when it has wrapped and thus (before
+submitting the DMA for the packet) you can regenerate the phase1 key in
+software and upload it to the hardware key memory.
+
+This is getting quite complicated. How about having the stack maintain
+the IV *only*, and adding helper functions for
+ * generating the phase 1 key
+ * generating the phase 2 key based on the phase 1 key
+that the drivers can use as required?
+
+ipw3945 would call both key generation functions as required, and
+bcm43xx would just call the phase 1 function when a key is uploaded and
+when the iv16 wraps, not using the phase 2 function at all.
+
+johannes
