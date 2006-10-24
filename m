@@ -1,117 +1,45 @@
-From: "ArcosCom Linux User" <linux@arcoscom.com>
-Subject: Re: [Bridge] [PATCH] bridge: flush forwarding table when device
-     carrier off
-Date: Tue, 24 Oct 2006 09:39:08 +0200 (CEST)
-Message-ID: <37933.195.55.244.106.1161675548.squirrel@www.arcoscom.com>
-References: <20061012112431.0550b252@dxpl.pdx.osdl.net>
-Reply-To: linux@arcoscom.com
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Tue, 24 Oct 2006 10:25:44 +0200
+Message-ID: <1161678344.2840.2.camel@ux156>
+References: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@osdl.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 58.Red-80-32-61.staticIP.rima-tde.net ([80.32.61.58]:8878 "EHLO
-	smtp.arcoscom.com") by vger.kernel.org with ESMTP id S1752101AbWJXHjO
+Received: from crystal.sipsolutions.net ([195.210.38.204]:44943 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965101AbWJXIYo
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 03:39:14 -0400
-In-Reply-To: <20061012112431.0550b252@dxpl.pdx.osdl.net>
-To: "Stephen Hemminger" <shemminger@osdl.org>
+	Tue, 24 Oct 2006 04:24:44 -0400
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890610231541k2e8e6dcbq98f58a77aa8a52d7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Is this patch submitted into kernel tree? What version of kernel will h=
-ave
-this patch applied (thinking on 2.6.x and 2.4.x branchs)?
+Alright, here's more now that I can think clearly again :)
 
-Thanks
+> ISO 3166-1, as part of the ISO 3166 standard, provides codes for the names
+> of countries and dependent areas. It was first published in 1974 by
+> the International Organization for Standardization (ISO) and defines three
+> different codes for each area:
+> 
+>     * ISO 3166-1 alpha-2, a two-letter system with many applications,
+>       most notably the Internet top-level domains (ccTLD) for countries.
+>     * ISO 3166-1 alpha-3, a three-letter system.
+>     * ISO 3166-1 numeric, a three-digit numerical system, which is
+>     identical to that defined by the United Nations Statistical Division.
+> 
+> Although this would usually be only used in userspace IEEE-802.11d
+> has made use of ISO-3166-1 alpha 3. This mapping was added
+> to enhance stack support for IEEE-802.11d and 802.11 Regulatory
+> Domain control. ieee80211_regdomains makes use of this module
+> by creating a map of iso3166 alpha3 country code to stack
+> regulatory domain.
 
-El Jue, 12 de Octubre de 2006, 20:24, Stephen Hemminger escribi=F3:
-> Flush the forwarding table when carrier is lost. This helps for
-> availability because we don't want to forward to a downed device and
-> new packets may come in on other links.
->
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> ---
->  net/bridge/br_fdb.c     |    7 ++++++-
->  net/bridge/br_if.c      |    4 ++--
->  net/bridge/br_private.h |    2 +-
->  net/bridge/br_stp_if.c  |    2 ++
->  4 files changed, 11 insertions(+), 4 deletions(-)
->
-> --- bridge.orig/net/bridge/br_fdb.c
-> +++ bridge/net/bridge/br_fdb.c
-> @@ -128,7 +128,10 @@ void br_fdb_cleanup(unsigned long _data)
->  	mod_timer(&br->gc_timer, jiffies + HZ/10);
->  }
->
-> -void br_fdb_delete_by_port(struct net_bridge *br, struct net_bridge_=
-port
-> *p)
-> +
-> +void br_fdb_delete_by_port(struct net_bridge *br,
-> +			   const struct net_bridge_port *p,
-> +			   int do_all)
->  {
->  	int i;
->
-> @@ -142,6 +145,8 @@ void br_fdb_delete_by_port(struct net_br
->  			if (f->dst !=3D p)
->  				continue;
->
-> +			if (f->is_static & !do_all)
-> +				continue;
->  			/*
->  			 * if multiple ports all have the same device address
->  			 * then when one port is deleted, assign
-> --- bridge.orig/net/bridge/br_if.c
-> +++ bridge/net/bridge/br_if.c
-> @@ -163,7 +163,7 @@ static void del_nbp(struct net_bridge_po
->  	br_stp_disable_port(p);
->  	spin_unlock_bh(&br->lock);
->
-> -	br_fdb_delete_by_port(br, p);
-> +	br_fdb_delete_by_port(br, p, 1);
->
->  	list_del_rcu(&p->list);
->
-> @@ -448,7 +448,7 @@ int br_add_if(struct net_bridge *br, str
->
->  	return 0;
->  err2:
-> -	br_fdb_delete_by_port(br, p);
-> +	br_fdb_delete_by_port(br, p, 1);
->  err1:
->  	kobject_del(&p->kobj);
->  err0:
-> --- bridge.orig/net/bridge/br_private.h
-> +++ bridge/net/bridge/br_private.h
-> @@ -143,7 +143,7 @@ extern void br_fdb_changeaddr(struct net
->  			      const unsigned char *newaddr);
->  extern void br_fdb_cleanup(unsigned long arg);
->  extern void br_fdb_delete_by_port(struct net_bridge *br,
-> -			   struct net_bridge_port *p);
-> +				  const struct net_bridge_port *p, int do_all);
->  extern struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *=
-br,
->  						 const unsigned char *addr);
->  extern struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br=
-,
-> --- bridge.orig/net/bridge/br_stp_if.c
-> +++ bridge/net/bridge/br_stp_if.c
-> @@ -113,6 +113,8 @@ void br_stp_disable_port(struct net_brid
->  	del_timer(&p->forward_delay_timer);
->  	del_timer(&p->hold_timer);
->
-> +	br_fdb_delete_by_port(br, p, 0);
-> +
->  	br_configuration_update(br);
->
->  	br_port_state_selection(br);
-> _______________________________________________
-> Bridge mailing list
-> Bridge@lists.osdl.org
-> https://lists.osdl.org/mailman/listinfo/bridge
->
+But if 802.11d only requires alpha 3, why put all the other stuff into
+the kernel as well?
 
-
+johannes
