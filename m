@@ -1,93 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Fix xfrm_state accounting
-Date: Wed, 25 Oct 2006 00:00:58 +0200
-Message-ID: <453E8D1A.2040904@trash.net>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Tue, 24 Oct 2006 18:03:18 -0400
+Message-ID: <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
+References: <20061024140212.GB17543@devicescape.com>
+	 <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020602070703080306060003"
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David Kimdon" <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jean Tourrilhes" <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:23437 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1422708AbWJXWBV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 18:01:21 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.174]:11765 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1422710AbWJXWDU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 18:03:20 -0400
+Received: by ug-out-1314.google.com with SMTP id 32so344514ugm
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2006 15:03:18 -0700 (PDT)
+To: "Simon Barber" <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020602070703080306060003
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On 10/24/06, Simon Barber <simon@devicescape.com> wrote:
+> The Client MLME code in the kernel was only ever written to be used for
+> quick testing. It does not have good roaming performance, and was never
+> intended to be a complete client. The right place for the Client MLME is
+> in userspace, where it can be closely coupled with the supplicant, and
+> better scanning and roaming decisions can be made. If the Client MLME is
+> removed from the kernel, then a userspace part is always required in
+> order for 802.11 to be used at all. (It's already required in order to
+> use any of the recent security modes, or have automatic network
+> selection, or decent roaming). In this case the regulatory constraints
+> can be set in a privileged userspace deamon.
 
+We also have to take into consideration FullMAC devices where we don't
+need an MLME implemented in kernel/userspace and how regulatory domain
+control will dictate their behaviour. My approach here was to support
+a map between stack regulatory domain values and device regulatory
+domain values. This is currently provided by ieee80211_regdomains. We
+can add to ieee80211_conf a ieee80211_regulatory_map and if defined
+d80211 will simply call the the stack's set regdomain which the device
+implements and sets the regdomain internally to whatever the device
+should have.
 
---------------020602070703080306060003
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Mind you I realize most new devices are taking the SoftMAC design
+approach and while these vary ultimately I do agree with your point.
 
-[XFRM]: Fix xfrm_state accounting
+All that said though:
 
-xfrm_state_num needs to be increased for XFRM_STATE_ACQ states created
-by xfrm_state_find() to prevent the counter from going negative when
-the state is destroyed.
+1. Anyone working on completing FullMAC support on d80211?
+2. Who's working on a userspace MLME replacement for d80211 and where
+are we with that?
+3. Who's doing the endianness/smp testing of d80211 and how far are we
+with that?
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Lastly, as I have said in previous e-mails -- I agree with a userspace
+daemon but where is it and how long before its ready.. also it may be
+difficult to introduce as a requirement for distributions and for this
+reason I am suggesting going with in-kernel regulatory domain control
+and now perhaps in-kernel MLME for a first stable push of d80211,
+specially since only... 3 in-kernel drivers currently use d80211!
 
----
-commit d514f03d17b5f7615a549fbe2eb7b57a15aff609
-tree 08a95a113236a858dafd3e57afcb959232164cac
-parent 5c8ca15198f39a6d346f7573405dcff5c365805e
-author Patrick McHardy <kaber@trash.net> Wed, 25 Oct 2006 00:00:03 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 25 Oct 2006 00:00:03 +0200
-
- net/xfrm/xfrm_state.c |   18 ++++++++++--------
- 1 files changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 84bbf84..899de9e 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -505,6 +505,14 @@ __xfrm_state_locate(struct xfrm_state *x
- 						  x->id.proto, family);
- }
- 
-+static void xfrm_hash_grow_check(int have_hash_collision)
-+{
-+	if (have_hash_collision &&
-+	    (xfrm_state_hmask + 1) < xfrm_state_hashmax &&
-+	    xfrm_state_num > xfrm_state_hmask)
-+		schedule_work(&xfrm_hash_work);
-+}
-+
- struct xfrm_state *
- xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 		struct flowi *fl, struct xfrm_tmpl *tmpl,
-@@ -598,6 +606,8 @@ xfrm_state_find(xfrm_address_t *daddr, x
- 			x->lft.hard_add_expires_seconds = XFRM_ACQ_EXPIRES;
- 			x->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
- 			add_timer(&x->timer);
-+			xfrm_state_num++;
-+			xfrm_hash_grow_check(x->bydst.next != NULL);
- 		} else {
- 			x->km.state = XFRM_STATE_DEAD;
- 			xfrm_state_put(x);
-@@ -614,14 +624,6 @@ out:
- 	return x;
- }
- 
--static void xfrm_hash_grow_check(int have_hash_collision)
--{
--	if (have_hash_collision &&
--	    (xfrm_state_hmask + 1) < xfrm_state_hashmax &&
--	    xfrm_state_num > xfrm_state_hmask)
--		schedule_work(&xfrm_hash_work);
--}
--
- static void __xfrm_state_insert(struct xfrm_state *x)
- {
- 	unsigned int h;
-
---------------020602070703080306060003--
+  Luis
