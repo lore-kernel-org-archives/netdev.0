@@ -1,155 +1,93 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH] s2io: add PCI error recovery support
-Date: Tue, 24 Oct 2006 16:54:41 -0500
-Message-ID: <20061024215441.GD6360@austin.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [XFRM]: Fix xfrm_state accounting
+Date: Wed, 25 Oct 2006 00:00:58 +0200
+Message-ID: <453E8D1A.2040904@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@osdl.org>
+Content-Type: multipart/mixed;
+ boundary="------------020602070703080306060003"
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:64944 "EHLO e6.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1422669AbWJXVyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 17:54:43 -0400
-To: Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Ananda Raju <Ananda.Raju@neterion.com>,
-	Wen Xiong <wenxiong@us.ibm.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:23437 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1422708AbWJXWBV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 18:01:21 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------020602070703080306060003
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Koushik, Raju,
-Please review, comment, and if you find this acceptable, 
-please forward upstream.
 
---linas
+--------------020602070703080306060003
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-This patch adds PCI error recovery support to the 
-s2io 10-Gigabit ethernet device driver.
+[XFRM]: Fix xfrm_state accounting
 
-Tested, seems to work well.
+xfrm_state_num needs to be increased for XFRM_STATE_ACQ states created
+by xfrm_state_find() to prevent the counter from going negative when
+the state is destroyed.
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
-Cc: Ananda Raju <Ananda.Raju@neterion.com>
-Cc: Wen Xiong <wenxiong@us.ibm.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-----
- drivers/net/s2io.c |   77 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/s2io.h |    5 +++
- 2 files changed, 82 insertions(+)
+---
+commit d514f03d17b5f7615a549fbe2eb7b57a15aff609
+tree 08a95a113236a858dafd3e57afcb959232164cac
+parent 5c8ca15198f39a6d346f7573405dcff5c365805e
+author Patrick McHardy <kaber@trash.net> Wed, 25 Oct 2006 00:00:03 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 25 Oct 2006 00:00:03 +0200
 
-Index: linux-2.6.19-rc1-git11/drivers/net/s2io.c
-===================================================================
---- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.c	2006-10-20 12:24:17.000000000 -0500
-+++ linux-2.6.19-rc1-git11/drivers/net/s2io.c	2006-10-24 16:19:49.000000000 -0500
-@@ -434,11 +434,18 @@ static struct pci_device_id s2io_tbl[] _
- 
- MODULE_DEVICE_TABLE(pci, s2io_tbl);
- 
-+static struct pci_error_handlers s2io_err_handler = {
-+	.error_detected = s2io_io_error_detected,
-+	.slot_reset = s2io_io_slot_reset,
-+	.resume = s2io_io_resume,
-+};
-+
- static struct pci_driver s2io_driver = {
-       .name = "S2IO",
-       .id_table = s2io_tbl,
-       .probe = s2io_init_nic,
-       .remove = __devexit_p(s2io_rem_nic),
-+      .err_handler = &s2io_err_handler,
- };
- 
- /* A simplifier macro used both by init and free shared_mem Fns(). */
-@@ -7564,3 +7571,73 @@ static void lro_append_pkt(nic_t *sp, lr
- 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
- 	return;
+ net/xfrm/xfrm_state.c |   18 ++++++++++--------
+ 1 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 84bbf84..899de9e 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -505,6 +505,14 @@ __xfrm_state_locate(struct xfrm_state *x
+ 						  x->id.proto, family);
  }
-+
-+/**
-+ * s2io_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci conneection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	netif_device_detach(netdev);
-+
-+	if (netif_running(netdev)) {
-+		/* Reset card */
-+		s2io_card_down(sp);
-+		sp->device_close_flag = TRUE;	/* Device is shut down. */
-+	}
-+	pci_disable_device(pdev);
-+
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * s2io_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ */
-+static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	if (pci_enable_device(pdev)) {
-+		printk(KERN_ERR "s2io: Cannot re-enable PCI device after reset.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+
-+	pci_set_master(pdev);
-+	s2io_reset(sp);
-+
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * s2io_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation.
-+ */
-+static void s2io_io_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	if (netif_running(netdev)) {
-+		if (s2io_card_up(sp)) {
-+			printk(KERN_ERR "s2io: can't bring device back up after reset\n");
-+			return;
-+		}
-+	}
-+
-+	netif_device_attach(netdev);
-+	netif_wake_queue(netdev);
-+}
-Index: linux-2.6.19-rc1-git11/drivers/net/s2io.h
-===================================================================
---- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.h	2006-10-20 12:24:17.000000000 -0500
-+++ linux-2.6.19-rc1-git11/drivers/net/s2io.h	2006-10-20 12:41:39.000000000 -0500
-@@ -1013,6 +1013,11 @@ static void queue_rx_frame(struct sk_buf
- static void update_L3L4_header(nic_t *sp, lro_t *lro);
- static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb, u32 tcp_len);
  
-+static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
-+					                      pci_channel_state_t state);
-+static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
-+static void s2io_io_resume(struct pci_dev *pdev);
++static void xfrm_hash_grow_check(int have_hash_collision)
++{
++	if (have_hash_collision &&
++	    (xfrm_state_hmask + 1) < xfrm_state_hashmax &&
++	    xfrm_state_num > xfrm_state_hmask)
++		schedule_work(&xfrm_hash_work);
++}
 +
- #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
+ struct xfrm_state *
+ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
+ 		struct flowi *fl, struct xfrm_tmpl *tmpl,
+@@ -598,6 +606,8 @@ xfrm_state_find(xfrm_address_t *daddr, x
+ 			x->lft.hard_add_expires_seconds = XFRM_ACQ_EXPIRES;
+ 			x->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
+ 			add_timer(&x->timer);
++			xfrm_state_num++;
++			xfrm_hash_grow_check(x->bydst.next != NULL);
+ 		} else {
+ 			x->km.state = XFRM_STATE_DEAD;
+ 			xfrm_state_put(x);
+@@ -614,14 +624,6 @@ out:
+ 	return x;
+ }
+ 
+-static void xfrm_hash_grow_check(int have_hash_collision)
+-{
+-	if (have_hash_collision &&
+-	    (xfrm_state_hmask + 1) < xfrm_state_hashmax &&
+-	    xfrm_state_num > xfrm_state_hmask)
+-		schedule_work(&xfrm_hash_work);
+-}
+-
+ static void __xfrm_state_insert(struct xfrm_state *x)
+ {
+ 	unsigned int h;
+
+--------------020602070703080306060003--
