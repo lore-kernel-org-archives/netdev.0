@@ -1,101 +1,85 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Tue, 24 Oct 2006 18:52:52 -0400
-Message-ID: <200610241853.03135.flamingice@sourmilk.net>
-References: <20061024140212.GB17543@devicescape.com> <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net> <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Tue, 24 Oct 2006 15:56:16 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018523F7@dhost002-46.dex002.intermedia.net>
+References: <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart17605571.cZ7oibVg2U";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: "Simon Barber" <simon@devicescape.com>,
-	"David Kimdon" <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>,
+	"Jiri Benc" <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	"Jean Tourrilhes" <jt@hpl.hp.com>
+	"Jean Tourrilhes" <jt@hpl.hp.com>,
+	"Jouni Malinen" <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:64668 "EHLO
-	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
-	id S1422767AbWJXWyG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 18:54:06 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:16946 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1422767AbWJXW4G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 18:56:06 -0400
+Content-class: urn:content-classes:message
 In-Reply-To: <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart17605571.cZ7oibVg2U
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Hi Luis,
 
-On Tuesday 24 October 2006 18:03, Luis R. Rodriguez wrote:
-> 1. Anyone working on completing FullMAC support on d80211?
-That doesn't really make sense. Fullmac devices should just use WE or cfg80=
-211=20
-because they, for the most part, do what d80211 does in firmware. There are=
-=20
-also strange hybrid devices like ipw2100/ipw2200, but IMHO, it's not worth=
-=20
-trying to bolt d80211 onto those devices unless saner firmware becomes=20
-available.
+The CVS version of wpa_supplicant implements a user space Client MLME.
 
-> 2. Who's working on a userspace MLME replacement for d80211 and where
-> are we with that?
-I think HostAP can handle authentication/association.. or was it=20
-wpa-supplicant? Maybe both..
+Are there any FullMAC clients that do not also do regulatory in the
+hardware? (Intel 2100/2200?)
 
-> 3. Who's doing the endianness/smp testing of d80211 and how far are we
-> with that?
-The endianness issues seemed fine the last time I checked, and people do se=
-em=20
-to be testing BE enough that to uncover an endianness regression I introduc=
-ed=20
-when converting WEP code to use crypto api. As for SMP/locking, I think Jir=
-i=20
-Benc knows how to deal with this.
+Simon
+ 
 
->
-> Lastly, as I have said in previous e-mails -- I agree with a userspace
-> daemon but where is it and how long before its ready.. also it may be
-> difficult to introduce as a requirement for distributions and for this
-> reason I am suggesting going with in-kernel regulatory domain control
-> and now perhaps in-kernel MLME for a first stable push of d80211,
-> specially since only... 3 in-kernel drivers currently use d80211!
->
-4 once p54 is merged, and more to come as I get to them.
+-----Original Message-----
+From: Luis R. Rodriguez [mailto:mcgrof@gmail.com] 
+Sent: Tuesday, October 24, 2006 3:03 PM
+To: Simon Barber
+Cc: David Kimdon; netdev@vger.kernel.org; Jiri Benc; John W. Linville;
+Jean Tourrilhes
+Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
 
-/me pokes Linville.
+On 10/24/06, Simon Barber <simon@devicescape.com> wrote:
+> The Client MLME code in the kernel was only ever written to be used 
+> for quick testing. It does not have good roaming performance, and was 
+> never intended to be a complete client. The right place for the Client
 
-I think time working on the in-kernel MLME is well worth it since I would l=
-ike=20
-softmac drivers to have feature parity with fullmac drivers. Anything beyon=
-d=20
-that can go to userspace as far as I'm concerned. (so transitioning to d802=
-11=20
-based drivers won't involve too much pain unless you really want to take=20
-advantage of new features)
+> MLME is in userspace, where it can be closely coupled with the 
+> supplicant, and better scanning and roaming decisions can be made. If 
+> the Client MLME is removed from the kernel, then a userspace part is 
+> always required in order for 802.11 to be used at all. (It's already 
+> required in order to use any of the recent security modes, or have 
+> automatic network selection, or decent roaming). In this case the 
+> regulatory constraints can be set in a privileged userspace deamon.
 
-Having some basic regulatory domain control in d80211 in the kernel should =
-be=20
-okay for now just to make sure all drivers like the api presented. Working=
-=20
-out the details of how to move the d80211 side stuff to userspace should be=
-=20
-orthogonal to the driver interface and can be dealt with later, IMHO.=20
+We also have to take into consideration FullMAC devices where we don't
+need an MLME implemented in kernel/userspace and how regulatory domain
+control will dictate their behaviour. My approach here was to support a
+map between stack regulatory domain values and device regulatory domain
+values. This is currently provided by ieee80211_regdomains. We can add
+to ieee80211_conf a ieee80211_regulatory_map and if defined
+d80211 will simply call the the stack's set regdomain which the device
+implements and sets the regdomain internally to whatever the device
+should have.
 
-=2DMichael Wu
+Mind you I realize most new devices are taking the SoftMAC design
+approach and while these vary ultimately I do agree with your point.
 
---nextPart17605571.cZ7oibVg2U
-Content-Type: application/pgp-signature
+All that said though:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+1. Anyone working on completing FullMAC support on d80211?
+2. Who's working on a userspace MLME replacement for d80211 and where
+are we with that?
+3. Who's doing the endianness/smp testing of d80211 and how far are we
+with that?
 
-iD8DBQBFPplOT3Oqt9AH4aERAluGAJ9Sl+ogeSQ13RBC0/GpI+tJ1GbofgCfRh8y
-klRBc2uojemOkUGZslZWJjc=
-=uoGk
------END PGP SIGNATURE-----
+Lastly, as I have said in previous e-mails -- I agree with a userspace
+daemon but where is it and how long before its ready.. also it may be
+difficult to introduce as a requirement for distributions and for this
+reason I am suggesting going with in-kernel regulatory domain control
+and now perhaps in-kernel MLME for a first stable push of d80211,
+specially since only... 3 in-kernel drivers currently use d80211!
 
---nextPart17605571.cZ7oibVg2U--
+  Luis
