@@ -1,113 +1,101 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: rmmod bcm43xx-d80211 while keys set etc
-Date: Wed, 25 Oct 2006 00:39:24 +0200
-Message-ID: <1161729564.4044.0.camel@johannes.berg>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Tue, 24 Oct 2006 18:52:52 -0400
+Message-ID: <200610241853.03135.flamingice@sourmilk.net>
+References: <20061024140212.GB17543@devicescape.com> <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net> <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-GgsRijtwY4LIHNAro0s/"
-Cc: Jiri Benc <jbenc@suse.cz>, Michael Buesch <mbuesch@freenet.de>
+Content-Type: multipart/signed;
+  boundary="nextPart17605571.cZ7oibVg2U";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: "Simon Barber" <simon@devicescape.com>,
+	"David Kimdon" <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jean Tourrilhes" <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:62183 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1422761AbWJXWkp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Oct 2006 18:40:45 -0400
-To: netdev@vger.kernel.org
+Received: from smtp.rutgers.edu ([128.6.72.243]:64668 "EHLO
+	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
+	id S1422767AbWJXWyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Oct 2006 18:54:06 -0400
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-GgsRijtwY4LIHNAro0s/
-Content-Type: text/plain
+--nextPart17605571.cZ7oibVg2U
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-resulted in this:
+On Tuesday 24 October 2006 18:03, Luis R. Rodriguez wrote:
+> 1. Anyone working on completing FullMAC support on d80211?
+That doesn't really make sense. Fullmac devices should just use WE or cfg80=
+211=20
+because they, for the most part, do what d80211 does in firmware. There are=
+=20
+also strange hybrid devices like ipw2100/ipw2200, but IMHO, it's not worth=
+=20
+trying to bolt d80211 onto those devices unless saner firmware becomes=20
+available.
 
-[10261.556773] BUG: sleeping function called from invalid context at kernel=
-/mutex.c:86
-[10261.556777] in_atomic():1, irqs_disabled():0
-[10261.556780] Call Trace:
-[10261.556783] [C13CDC80] [C0008ED4] show_stack+0x3c/0x194 (unreliable)
-[10261.556799] [C13CDCB0] [C0025AE4] __might_sleep+0xd0/0xe4
-[10261.556810] [C13CDCC0] [C02B90F8] mutex_lock+0x24/0x3c
-[10261.556819] [C13CDCE0] [F290647C] bcm43xx_net_set_key+0xd0/0x2d0 [bcm43x=
-x_d80211]
-[10261.556854] [C13CDD10] [F248DEF4] sta_info_free+0x1b4/0x2c8 [80211]
-[10261.556906] [C13CDD50] [F248E078] sta_info_flush+0x70/0xa0 [80211]
-[10261.556918] [C13CDD70] [F2496728] ieee80211_if_reinit+0x10c/0x2cc [80211=
-]
-[10261.556931] [C13CDDA0] [F2496908] __ieee80211_if_del+0x20/0x4c [80211]
-[10261.556943] [C13CDDC0] [F2485428] ieee80211_unregister_hw+0x78/0x248 [80=
-211]
-[10261.556955] [C13CDDF0] [F29079F0] bcm43xx_remove_one+0x38/0x7c [bcm43xx_=
-d80211]
-[10261.556966] [C13CDE10] [C017958C] pci_device_remove+0x38/0x60
-[10261.556976] [C13CDE20] [C01CC59C] __device_release_driver+0x74/0xac
-[10261.556985] [C13CDE40] [C01CCCBC] driver_detach+0x110/0x140
-[10261.556991] [C13CDE60] [C01CC0B8] bus_remove_driver+0x8c/0xc8
-[10261.556996] [C13CDE80] [C01CCD44] driver_unregister+0x18/0x34
-[10261.557001] [C13CDEA0] [C0179608] pci_unregister_driver+0x1c/0x70
-[10261.557006] [C13CDEC0] [F291C9E0] bcm43xx_exit+0x18/0x3a90 [bcm43xx_d802=
-11]
-[10261.557015] [C13CDED0] [C004A31C] sys_delete_module+0x1ac/0x210
-[10261.557026] [C13CDF40] [C0010D20] ret_from_syscall+0x0/0x38
-[10261.557035] --- Exception: c01 at 0xff6c2b8
-[10261.557061]     LR =3D 0x1000100c
-[10261.557073] Badness in __mutex_lock_common at kernel/mutex.c:132
-[10261.557076] Call Trace:
-[10261.557078] [C13CDB50] [C0008ED4] show_stack+0x3c/0x194 (unreliable)
-[10261.557084] [C13CDB80] [C000FCA4] program_check_exception+0x47c/0x598
-[10261.557090] [C13CDBD0] [C001137C] ret_from_except_full+0x0/0x4c
-[10261.557094] --- Exception: 700 at __mutex_lock_slowpath+0x168/0x170
-[10261.557100]     LR =3D __mutex_lock_slowpath+0x160/0x170
-[10261.557103] [C13CDC90] [00000003] 0x3 (unreliable)
-[10261.557108] [C13CDCE0] [F290647C] bcm43xx_net_set_key+0xd0/0x2d0 [bcm43x=
-x_d80211]
-[10261.557118] [C13CDD10] [F248DEF4] sta_info_free+0x1b4/0x2c8 [80211]
-[10261.557133] [C13CDD50] [F248E078] sta_info_flush+0x70/0xa0 [80211]
-[10261.557144] [C13CDD70] [F2496728] ieee80211_if_reinit+0x10c/0x2cc [80211=
-]
-[10261.557156] [C13CDDA0] [F2496908] __ieee80211_if_del+0x20/0x4c [80211]
-[10261.557168] [C13CDDC0] [F2485428] ieee80211_unregister_hw+0x78/0x248 [80=
-211]
-[10261.557180] [C13CDDF0] [F29079F0] bcm43xx_remove_one+0x38/0x7c [bcm43xx_=
-d80211]
-[10261.557189] [C13CDE10] [C017958C] pci_device_remove+0x38/0x60
-[10261.557195] [C13CDE20] [C01CC59C] __device_release_driver+0x74/0xac
-[10261.557200] [C13CDE40] [C01CCCBC] driver_detach+0x110/0x140
-[10261.557205] [C13CDE60] [C01CC0B8] bus_remove_driver+0x8c/0xc8
-[10261.557210] [C13CDE80] [C01CCD44] driver_unregister+0x18/0x34
-[10261.557215] [C13CDEA0] [C0179608] pci_unregister_driver+0x1c/0x70
-[10261.557220] [C13CDEC0] [F291C9E0] bcm43xx_exit+0x18/0x3a90 [bcm43xx_d802=
-11]
-[10261.557229] [C13CDED0] [C004A31C] sys_delete_module+0x1ac/0x210
-[10261.557235] [C13CDF40] [C0010D20] ret_from_syscall+0x0/0x38
-[10261.557240] --- Exception: c01 at 0xff6c2b8
-[10261.557245]     LR =3D 0x1000100c
-[10261.557322] eth1: Removed STA 00:15:f2:3d:63:97
-[10261.623773] bcm43xx_d80211: Virtual interface removed (type: 0x00000002,=
- ID: 24, MAC: 00:11:24:91:07:4d)
+> 2. Who's working on a userspace MLME replacement for d80211 and where
+> are we with that?
+I think HostAP can handle authentication/association.. or was it=20
+wpa-supplicant? Maybe both..
 
+> 3. Who's doing the endianness/smp testing of d80211 and how far are we
+> with that?
+The endianness issues seemed fine the last time I checked, and people do se=
+em=20
+to be testing BE enough that to uncover an endianness regression I introduc=
+ed=20
+when converting WEP code to use crypto api. As for SMP/locking, I think Jir=
+i=20
+Benc knows how to deal with this.
 
---=-GgsRijtwY4LIHNAro0s/
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+>
+> Lastly, as I have said in previous e-mails -- I agree with a userspace
+> daemon but where is it and how long before its ready.. also it may be
+> difficult to introduce as a requirement for distributions and for this
+> reason I am suggesting going with in-kernel regulatory domain control
+> and now perhaps in-kernel MLME for a first stable push of d80211,
+> specially since only... 3 in-kernel drivers currently use d80211!
+>
+4 once p54 is merged, and more to come as I get to them.
+
+/me pokes Linville.
+
+I think time working on the in-kernel MLME is well worth it since I would l=
+ike=20
+softmac drivers to have feature parity with fullmac drivers. Anything beyon=
+d=20
+that can go to userspace as far as I'm concerned. (so transitioning to d802=
+11=20
+based drivers won't involve too much pain unless you really want to take=20
+advantage of new features)
+
+Having some basic regulatory domain control in d80211 in the kernel should =
+be=20
+okay for now just to make sure all drivers like the api presented. Working=
+=20
+out the details of how to move the d80211 side stuff to userspace should be=
+=20
+orthogonal to the driver interface and can be dealt with later, IMHO.=20
+
+=2DMichael Wu
+
+--nextPart17605571.cZ7oibVg2U
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-iQIVAwUART6WG6Vg1VMiehFYAQLiaRAAjN8ucayAOFIiXaRO1X4c1a60hRUs7a8l
-qERv7Vv3KiTzvUWU6O+JH0aRdsT8klyG+BAziqDBvGWkun3X/M2WoqeF/GNhCt53
-QNfSdysG1vb+IyK61Ar+IYPGPVEMxF1L5+0NkZJRAEPSXVc7RFDEyDrYbcHoh1eK
-UwTNL+8rNFdy7wV+V++0yKoG1Zke/irpKzcQIFt4DZKEbF2LajIjm7mbZyWQc9l5
-ETRcPjstCKM1yocGJGtgjYtd5DhUFi1MRj6/+dh1XNl0bkORT4I6hRsCWPAGP01B
-Fc9Mz59UVow/riK2xnDJvvj69xuQCQet2bZaIuwCXR7M3w2ocW+ugTRXRegDTukX
-rW00QquLM2uj/GG7zY1NIzd1F6zHpCPP9+lSbUqVXMXZsRLRgdThvPzWwgrrajjo
-Pqms7iLcLyBdAXHTOlKFOcwL36NaW+1EmHoD2FV240SLEMuKpkxecBLjeYmYTb0L
-glclK6Vb+oBhsXxtYJm4auvbnQYkBcI65G+Pl4mPr0d1VE9sjfWaL5JN9MBuvt0r
-xY+TryQU7Ta1dtk4D5BeHh3gOy7EPwCNKedwhBdq8EOCCgLuT86OyaUHb9WN2g8x
-amBAhXJkh2bmUVdzhepPlfNsPMfIfOkSE6ayd6Ujz7mzV7nTVF/1JfkvIzVoBynF
-Bgmz/QgYGtM=
-=gvN8
+iD8DBQBFPplOT3Oqt9AH4aERAluGAJ9Sl+ogeSQ13RBC0/GpI+tJ1GbofgCfRh8y
+klRBc2uojemOkUGZslZWJjc=
+=uoGk
 -----END PGP SIGNATURE-----
 
---=-GgsRijtwY4LIHNAro0s/--
-
+--nextPart17605571.cZ7oibVg2U--
