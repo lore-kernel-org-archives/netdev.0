@@ -1,97 +1,155 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: please pull from git://lost.foo-projects.org/~ahkok/git/netdev-2.6
- upstream-fixes
-Date: Tue, 24 Oct 2006 14:43:55 -0700
-Message-ID: <453E891B.5030602@intel.com>
-References: <20061017190139.4194.20128.stgit@gitlost.site> <453A6769.4000305@pobox.com> <453CDC00.2020705@intel.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH] s2io: add PCI error recovery support
+Date: Tue, 24 Oct 2006 16:54:41 -0500
+Message-ID: <20061024215441.GD6360@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:29484 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1422646AbWJXVqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 17:46:15 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <453CDC00.2020705@intel.com>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:64944 "EHLO e6.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1422669AbWJXVyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 17:54:43 -0400
+To: Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Ananda Raju <Ananda.Raju@neterion.com>,
+	Wen Xiong <wenxiong@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> Jeff Garzik wrote:
->> Kok, Auke wrote:
->>> Hi,
->>>
->>> The following fixes targeted to netdev-2.6#upstream-fixes are available
->>> through git:
->>>
->>> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 
->>> upstream-fixes
->>
->> hrm.  since another e100 fixes got applied, can you either (a) update 
->> the above URL for that change, or (b) provide separate e100 and e1000 
->> pull urls?
-> 
-> I dropped the e100 patch from the series, it now contains (at the above 
-> url) only the e1000 changes.
 
-okay, I've rebased the trees on the latest upstream-fixes and master from netdev-2.6, 
-and on top of that added the latest e100 shutdown patch to it (see below).
+Koushik, Raju,
+Please review, comment, and if you find this acceptable, 
+please forward upstream.
 
-Jeff,
+--linas
 
-Please pull from git://lost.foo-projects.org/~ahkok/git/netdev-2.6
-  upstream-fixes in to your #upstream-fixes or #upstream-linus branch so that these 
-fixes get into 2.6.19.
+This patch adds PCI error recovery support to the 
+s2io 10-Gigabit ethernet device driver.
 
-Thanks.
+Tested, seems to work well.
 
-Auke
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
+Cc: Ananda Raju <Ananda.Raju@neterion.com>
+Cc: Wen Xiong <wenxiong@us.ibm.com>
 
+----
+ drivers/net/s2io.c |   77 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/s2io.h |    5 +++
+ 2 files changed, 82 insertions(+)
 
----
-
-e100: account for closed interface when shutting down
-
-From: Auke Kok <auke-jan.h.kok@intel.com>
-
-Account for the interface being closed before disabling polling
-on a device, to fix shutdown on some systems that explcitly close
-the netdevice before calling shutdown.
-
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
-  drivers/net/e100.c |   10 ++++++++--
-  1 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index a3a08a5..19ab344 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2719,7 +2719,10 @@ static int e100_suspend(struct pci_dev *
-  	struct net_device *netdev = pci_get_drvdata(pdev);
-  	struct nic *nic = netdev_priv(netdev);
-
--	netif_poll_disable(nic->netdev);
-+#ifdef CONFIG_E100_NAPI
-+	if (netif_running(netdev))
-+		netif_poll_disable(nic->netdev);
-+#endif
-  	del_timer_sync(&nic->watchdog);
-  	netif_carrier_off(nic->netdev);
-
-@@ -2763,7 +2766,10 @@ static void e100_shutdown(struct pci_dev
-  	struct net_device *netdev = pci_get_drvdata(pdev);
-  	struct nic *nic = netdev_priv(netdev);
-
--	netif_poll_disable(nic->netdev);
-+#ifdef CONFIG_E100_NAPI
-+	if (netif_running(netdev))
-+		netif_poll_disable(nic->netdev);
-+#endif
-  	del_timer_sync(&nic->watchdog);
-  	netif_carrier_off(nic->netdev);
+Index: linux-2.6.19-rc1-git11/drivers/net/s2io.c
+===================================================================
+--- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.c	2006-10-20 12:24:17.000000000 -0500
++++ linux-2.6.19-rc1-git11/drivers/net/s2io.c	2006-10-24 16:19:49.000000000 -0500
+@@ -434,11 +434,18 @@ static struct pci_device_id s2io_tbl[] _
+ 
+ MODULE_DEVICE_TABLE(pci, s2io_tbl);
+ 
++static struct pci_error_handlers s2io_err_handler = {
++	.error_detected = s2io_io_error_detected,
++	.slot_reset = s2io_io_slot_reset,
++	.resume = s2io_io_resume,
++};
++
+ static struct pci_driver s2io_driver = {
+       .name = "S2IO",
+       .id_table = s2io_tbl,
+       .probe = s2io_init_nic,
+       .remove = __devexit_p(s2io_rem_nic),
++      .err_handler = &s2io_err_handler,
+ };
+ 
+ /* A simplifier macro used both by init and free shared_mem Fns(). */
+@@ -7564,3 +7571,73 @@ static void lro_append_pkt(nic_t *sp, lr
+ 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
+ 	return;
+ }
++
++/**
++ * s2io_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci conneection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	netif_device_detach(netdev);
++
++	if (netif_running(netdev)) {
++		/* Reset card */
++		s2io_card_down(sp);
++		sp->device_close_flag = TRUE;	/* Device is shut down. */
++	}
++	pci_disable_device(pdev);
++
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * s2io_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ */
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	if (pci_enable_device(pdev)) {
++		printk(KERN_ERR "s2io: Cannot re-enable PCI device after reset.\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++
++	pci_set_master(pdev);
++	s2io_reset(sp);
++
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * s2io_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation.
++ */
++static void s2io_io_resume(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	if (netif_running(netdev)) {
++		if (s2io_card_up(sp)) {
++			printk(KERN_ERR "s2io: can't bring device back up after reset\n");
++			return;
++		}
++	}
++
++	netif_device_attach(netdev);
++	netif_wake_queue(netdev);
++}
+Index: linux-2.6.19-rc1-git11/drivers/net/s2io.h
+===================================================================
+--- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.h	2006-10-20 12:24:17.000000000 -0500
++++ linux-2.6.19-rc1-git11/drivers/net/s2io.h	2006-10-20 12:41:39.000000000 -0500
+@@ -1013,6 +1013,11 @@ static void queue_rx_frame(struct sk_buf
+ static void update_L3L4_header(nic_t *sp, lro_t *lro);
+ static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb, u32 tcp_len);
+ 
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
++					                      pci_channel_state_t state);
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
++static void s2io_io_resume(struct pci_dev *pdev);
++
+ #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
