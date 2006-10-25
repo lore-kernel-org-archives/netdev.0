@@ -1,196 +1,55 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] s2io: add PCI error recovery support
-Date: Wed, 25 Oct 2006 15:55:29 -0500
-Message-ID: <20061025205529.GG6360@austin.ibm.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77DC1C9B@nekter> <20061025151123.GF6360@austin.ibm.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: e100: Wait for PHY reset to complete?
+Date: Wed, 25 Oct 2006 14:26:15 -0700
+Message-ID: <453FD677.7060405@intel.com>
+References: <453F9D4A.8090306@users.sourceforge.net> <20061025185656.GA19037@electric-eye.fr.zoreil.com> <453FC693.10705@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wen Xiong <wenxiong@us.ibm.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:34715 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1161387AbWJYUzz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 16:55:55 -0400
-To: Ananda Raju <Ananda.Raju@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <20061025151123.GF6360@austin.ibm.com>
+Received: from mga01.intel.com ([192.55.52.88]:831 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1030385AbWJYV2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 17:28:18 -0400
+To: Anders Grafstrom <grfstrm@users.sourceforge.net>
+In-Reply-To: <453FC693.10705@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 25, 2006 at 10:11:24AM -0500, Linas Vepstas wrote:
+Auke Kok wrote:
+> Francois Romieu wrote:
+>> Anders Grafstrom <grfstrm@users.sourceforge.net> :
+>> [...]
+>>> I'm thinking something like this patch.
+>>
+>> I do not have the spec for the max duration at hand but it makes sense.
+>>
+>> Can you:
+>> - decrease the duration of each sleep and increase the count of 
+>> iterations
+>> - put the break on a line of its own
+>> - add a Signed-off-by: Foo Bar <baz@nit.fol> line
+>> - Cc: jeff@garzik.org and Auke Kok <auke-jan.h.kok@intel.com>
 > 
-> > Also we have to add following if statement in beginning of s2io_isr().
+> I'm already checking out specs, which, for 8255x devices, are available 
+> on http://e1000.sf.net/ .
 
-Done, below,
+okay, I don't think this is needed at all:
 
-> > If it is ok to do BAR0 read/write in error_detected() then patch is OK. 
+Allthough the spec itself didn't talk about phy reset times, I've ran this patch with 
+some debugging output on a few boxes and did some speed/duplex settings, and the PHY 
+reset returned succesfull after the very first mdio_read, which is before any msleep(10) 
+is executed. That is also expected behaviour.
 
-I re-wrote that section to avoid doing I/O. It seems to work well,
-and generates a few less messages in the process.  New, improved patch
-below, please ack and send upstream if you like it.
+I think you might be confusing this with a MAC reset, which has a documented 10usec 
+timeout (see 8255x developers manual). The driver already adheres to this by doing a 
+20usec delay after software/selective resets.
 
---linas
+which gets us back to the original problem: how did your driver end up in loopback mode? 
+(and, how did you figure out that it did??).
 
-This patch adds PCI error recovery support to the 
-s2io 10-Gigabit ethernet device driver.
+Cheers,
 
-Tested, seems to work well.
-
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
-Cc: Ananda Raju <Ananda.Raju@neterion.com>
-Cc: Wen Xiong <wenxiong@us.ibm.com>
-
-----
- drivers/net/s2io.c |  103 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/s2io.h |    5 ++
- 2 files changed, 108 insertions(+)
-
-Index: linux-2.6.19-rc1-git11/drivers/net/s2io.c
-===================================================================
---- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.c	2006-10-25 14:09:47.000000000 -0500
-+++ linux-2.6.19-rc1-git11/drivers/net/s2io.c	2006-10-25 15:18:25.000000000 -0500
-@@ -434,11 +434,18 @@ static struct pci_device_id s2io_tbl[] _
- 
- MODULE_DEVICE_TABLE(pci, s2io_tbl);
- 
-+static struct pci_error_handlers s2io_err_handler = {
-+	.error_detected = s2io_io_error_detected,
-+	.slot_reset = s2io_io_slot_reset,
-+	.resume = s2io_io_resume,
-+};
-+
- static struct pci_driver s2io_driver = {
-       .name = "S2IO",
-       .id_table = s2io_tbl,
-       .probe = s2io_init_nic,
-       .remove = __devexit_p(s2io_rem_nic),
-+      .err_handler = &s2io_err_handler,
- };
- 
- /* A simplifier macro used both by init and free shared_mem Fns(). */
-@@ -4171,6 +4178,11 @@ static irqreturn_t s2io_isr(int irq, voi
- 	mac_info_t *mac_control;
- 	struct config_param *config;
- 
-+	if ((sp->pdev->error_state != pci_channel_io_normal) &&
-+		 (sp->pdev->error_state != 0)) {
-+		return IRQ_HANDLED;
-+	}
-+
- 	atomic_inc(&sp->isr_cnt);
- 	mac_control = &sp->mac_control;
- 	config = &sp->config;
-@@ -7564,3 +7576,94 @@ static void lro_append_pkt(nic_t *sp, lr
- 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
- 	return;
- }
-+
-+/**
-+ * s2io_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci conneection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	netif_device_detach(netdev);
-+
-+	if (netif_running(netdev)) {
-+		unsigned long flags;
-+
-+		/* The folowing is an abreviated subset of the
-+		 * steps taken by s2io_card_down(), avoiding
-+		 * steps that touch the card itself.
-+		 */
-+		del_timer_sync(&sp->alarm_timer);
-+		atomic_set(&sp->card_state, CARD_DOWN);
-+
-+		/* Kill tasklet. */
-+		tasklet_kill(&sp->task);
-+
-+		/* Free all Tx buffers */
-+		spin_lock_irqsave(&sp->tx_lock, flags);
-+		free_tx_buffers(sp);
-+		spin_unlock_irqrestore(&sp->tx_lock, flags);
-+
-+		/* Free all Rx buffers */
-+		spin_lock_irqsave(&sp->rx_lock, flags);
-+		free_rx_buffers(sp);
-+		spin_unlock_irqrestore(&sp->rx_lock, flags);
-+	
-+		clear_bit(0, &(sp->link_state));
-+		sp->device_close_flag = TRUE;	/* Device is shut down. */
-+	}
-+	pci_disable_device(pdev);
-+
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * s2io_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ */
-+static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	if (pci_enable_device(pdev)) {
-+		printk(KERN_ERR "s2io: Cannot re-enable PCI device after reset.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+
-+	pci_set_master(pdev);
-+	s2io_reset(sp);
-+
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * s2io_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation.
-+ */
-+static void s2io_io_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	if (netif_running(netdev)) {
-+		if (s2io_card_up(sp)) {
-+			printk(KERN_ERR "s2io: can't bring device back up after reset\n");
-+			return;
-+		}
-+	}
-+
-+	netif_device_attach(netdev);
-+	netif_wake_queue(netdev);
-+}
-Index: linux-2.6.19-rc1-git11/drivers/net/s2io.h
-===================================================================
---- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.h	2006-10-25 14:09:47.000000000 -0500
-+++ linux-2.6.19-rc1-git11/drivers/net/s2io.h	2006-10-25 14:11:05.000000000 -0500
-@@ -1013,6 +1013,11 @@ static void queue_rx_frame(struct sk_buf
- static void update_L3L4_header(nic_t *sp, lro_t *lro);
- static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb, u32 tcp_len);
- 
-+static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
-+                                               pci_channel_state_t state);
-+static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
-+static void s2io_io_resume(struct pci_dev *pdev);
-+
- #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
-
+Auke
