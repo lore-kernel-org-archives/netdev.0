@@ -1,62 +1,63 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [RFC] [PATCH 2/3] adds ieee80211_regdomains support
-Date: Wed, 25 Oct 2006 11:16:42 -0400
-Message-ID: <43e72e890610250816p4305d79epe3acf7fe3ff680d4@mail.gmail.com>
-References: <43e72e890610231547k3cf6c590r4abd0a6fe7965fda@mail.gmail.com>
-	 <ehmgs7$cba$1@sea.gmane.org>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: about 802.11i IBSS support
+Date: Wed, 25 Oct 2006 08:48:15 -0700
+Message-ID: <20061025154815.GA15348@instant802.com>
+References: <1161766481.8668.38.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:30056 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1030471AbWJYPQo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 11:16:44 -0400
-Received: by ug-out-1314.google.com with SMTP id 32so122318ugm
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 08:16:42 -0700 (PDT)
-To: "Anand Kumria" <wildfire@progsoc.org>
-In-Reply-To: <ehmgs7$cba$1@sea.gmane.org>
+Received: from dhost002-27.dex002.intermedia.net ([64.78.21.112]:30621 "EHLO
+	dhost002-27.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751725AbWJYPsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 11:48:30 -0400
+To: Hong Liu <hong.liu@intel.com>
 Content-Disposition: inline
+In-Reply-To: <1161766481.8668.38.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/24/06, Anand Kumria <wildfire@progsoc.org> wrote:
-> On Mon, 23 Oct 2006 18:47:25 -0400, Luis R. Rodriguez wrote:
->
-> > ieee80211_regdomains
-> >
-> > Breaks down regulatory domains into data structures which allow
-> > drivers to share channel and power contraints based on stack
-> > regulatory domain. This driver adds in-kernel support for common
-> > regulatory domains (such as FCC and ETSI), makes updating the
->
-> [snip]
->
-> +/* Stack regulatory domain values. Atheros seems to have started this
-> + * convention and most  hardware vendors followed their example.
-> + * Although these are *very* common we allow for a hw-specific
-> + * map between stack and device regdomain values. */
-> +enum stack_regdomain {
-> +       REGDOMAIN_WORLD         = 0x00, /* World compliance, minimum set */
-> +       REGDOMAIN_FCC           = 0x10, /* USA */
-> +       REGDOMAIN_IC            = 0x20, /* Canada */
-> +       REGDOMAIN_ETSI          = 0x30, /* Europe */
-> +       REGDOMAIN_SPAIN         = 0x31, /* Spain */
-> +       REGDOMAIN_FRANCE        = 0x32, /* France */
-> +       REGDOMAIN_MKK           = 0x40, /* Japan */
-> +};
-> +
->
-> Why not pick either the country name or the organisation within the country
-> that determines the frequency guidelines?
+On Wed, Oct 25, 2006 at 04:54:41PM +0800, Hong Liu wrote:
 
-Ultimately I think this is the way this should work and this is why I
-provide a alpha3 country code --> stack regulatory domain map.
-Userpace should just let the user pick the country at say,
-distribution install time, and the map then used to determine the
-regulatory domain. Regulatory domains are what dictate the subband
-restrictions and as such these are ultimately what we need in the
-stack to decide what goes and what doesn't.
+> I am reading the 802.11i IBSS spec and
+> trying to find if it is OK to add patches to d80211 to support this feature.
 
-  Luis
+Large parts of this will be outside d80211, but yes, I think d80211
+should be made ready to support this (mainly in the multiple group keys
+area).
+
+> When a STA (say S1) joins in an IBSS network with N STAs,
+> it must negotiate keys with all N STAs.
+
+I don't think it is required to negotiate keys with all STAs of the
+network unless it actually needs to communicate with them, i.e., there
+may be cases where it is not needed to send or receive data from some of
+the nodes.
+
+> We need the following parts to make 802.11i IBSS work:
+> 
+> 1. for the d80211 part: I don't think there will be much efforts.
+>    We may add a group key to each sta_info for decrypting multicast data from that STA.
+>    And in RX path, we need to add code to select the correct group key for decryption.
+>    And also we need to store our own group key used to send multicast data to others.
+
+This will also include looking into how different WLAN chipsets
+have implemented (or will implement) hardware acceleration for such a
+case.
+
+In addition, there will likely be need for some new kernel-to-userspace
+events to notify supplicant/authenticator that communication with a new
+target is needed. I don't think the standard has strict requirements on
+how this is done and there may be different preferences based on the
+application, so adding a generic mechanism for this would be nice.
+
+> 2. wpa_supplicant: this is the big part, we need to implement the authenticator
+>    in it. Not sure how much efforts needed?
+
+This is on my to-do list for wpa_supplicant/hostapd 0.6 branch where it
+will be possible to link in part of wpa_supplicant and hostapd together
+into a single program. In other words, the authenticator code (both IEEE
+802.1X/EAPOL and WPA/WPA2) will be available from hostapd.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
