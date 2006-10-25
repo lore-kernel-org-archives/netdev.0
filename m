@@ -1,56 +1,83 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
- qdisc
-Date: Thu, 26 Oct 2006 01:29:27 +0200
-Message-ID: <453FF357.6060007@trash.net>
-References: <20061025220406.GA5413@devicescape.com>
+From: Anders =?iso-8859-1?Q?Grafstr=F6m?=
+	<grfstrm@users.sourceforge.net>
+Subject: Re: e100: Wait for PHY reset to complete?
+Date: Thu, 26 Oct 2006 01:36:26 +0200 (CEST)
+Message-ID: <3699.82.182.159.28.1161819386.squirrel@webmail.sys.kth.se>
+References: <453F9D4A.8090306@users.sourceforge.net>
+    <20061025185656.GA19037@electric-eye.fr.zoreil.com>
+    <453FC693.10705@intel.com> <453FD677.7060405@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:26604 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751116AbWJYX3a
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 19:29:30 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061025220406.GA5413@devicescape.com>
+Received: from mx3.kth.se ([130.237.48.97]:15274 "EHLO mx3.kth.se")
+	by vger.kernel.org with ESMTP id S1751116AbWJYXg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 19:36:29 -0400
+In-Reply-To: <453FD677.7060405@intel.com>
+To: "Auke Kok" <auke-jan.h.kok@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Kimdon wrote:
-> wme.c needs a generic fifo qdisc for each hardware queue.  Switch 
-> wme.c to use the generic fifo qdisc in net/sched/sch_fifo.c.  This allows
-> removal of net/d80211/fifo_qdisc.c which isn't particularily tied to
-> IEEE 802.11 in any way.
-> 
-> -#define CHILD_QDISC_OPS pfifo_qdisc_ops
-> -
->  static inline int WLAN_FC_IS_QOS_DATA(u16 fc)
->  {
->  	return (fc & 0x8C) == 0x88;
-> @@ -433,7 +431,7 @@ static int wme_qdiscop_init(struct Qdisc
->  	/* create child queues */
->  	for (i = 0; i < queues; i++) {
->  		skb_queue_head_init(&q->requeued[i]);
-> -		q->queues[i] = qdisc_create_dflt(qd->dev, &CHILD_QDISC_OPS);
-> +		q->queues[i] = qdisc_create_dflt(qd->dev, &pfifo_qdisc_ops);
->  		if (q->queues[i] == 0) {
->  			q->queues[i] = &noop_qdisc;
->  			printk(KERN_ERR "%s child qdisc %i creation failed", dev->name, i);
-> Index: wireless-dev/net/d80211/Kconfig
-> ===================================================================
-> --- wireless-dev.orig/net/d80211/Kconfig
-> +++ wireless-dev/net/d80211/Kconfig
-> @@ -3,6 +3,7 @@ config D80211
->  	select CRYPTO
->  	select CRYPTO_ARC4
->  	select CRYPTO_AES
-> +	select NET_SCHED
+Auke Kok wrote:
+> Allthough the spec itself didn't talk about phy reset times, I've ran this
+> patch with
+> some debugging output on a few boxes and did some speed/duplex settings,
+> and the PHY
+> reset returned succesfull after the very first mdio_read, which is before
+> any msleep(10)
+> is executed. That is also expected behaviour.
+>
+> I think you might be confusing this with a MAC reset, which has a
+> documented 10usec
+> timeout (see 8255x developers manual). The driver already adheres to this
+> by doing a
+> 20usec delay after software/selective resets.
+>
+> which gets us back to the original problem: how did your driver end up in
+> loopback mode?
+> (and, how did you figure out that it did??).
 
 
-pfifo_fast is available even without CONFIG_NET_SCHED, maybe
-thats a better choice to avoid unnecessary bloat.
+This is what the 2.4.33.3 driver does:
+
+void
+e100_phy_reset(struct e100_private *bdp)
+{
+        u16 ctrl_reg;
+        ctrl_reg = BMCR_RESET;
+        e100_mdi_write(bdp, MII_BMCR, bdp->phy_addr, ctrl_reg);
+        /* ieee 802.3 : The reset process shall be completed       */
+        /* within 0.5 seconds from the settting of PHY reset bit.  */
+        set_current_state(TASK_UNINTERRUPTIBLE);
+        schedule_timeout(HZ / 2);
+}
+
+And here
+http://www.cs.helsinki.fi/linux/linux-kernel/2003-23/1245.html
+I found this entry:
+
+<scott.feldman@intel.com> (03/06/08 1.1218)
+[e100] misc
+<...>
+* Add 1/2 second delay after PHY reset to allow link partner to
+see and respond to reset, per IEEE 802.3.
+
+
+I ran mii-diag when the LEDs went out and the register dump
+said it was in loopback. It is somewhat difficult reproduce.
+It seems to be timing dependent, something else has to occur
+at the same time.
+I must confess I have only seen it with the 2.6.13 kernel.
+I have not been able to reproduce it with 2.6.18.
+But I have found no change in the driver that would fix it so
+I suspect the problem is still there.
+
+I have tried adding debug output to see if I can read back the
+RESET bit in set state, but then the problem refuses to show
+so I don't think I can rule out an unfinished PHY reset.
+
+Anders
+
 
