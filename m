@@ -1,65 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tcp: cubic scaling error
-Date: Wed, 25 Oct 2006 10:52:29 -0700
-Message-ID: <20061025105229.3b93aa17@freekitty>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] tcp: setsockopt congestion control autoload
+Date: Thu, 26 Oct 2006 01:21:46 +0200
+Message-ID: <453FF18A.6000107@trash.net>
+References: <20061025110843.0cbd18a7@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Douglas Leith <doug.leith@nuim.ie>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:65484 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1422747AbWJYXCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 19:02:43 -0400
-Received: from smtp.osdl.org (smtp.osdl.org [65.172.181.4])
-	by zeus1.kernel.org (8.13.7/8.13.1) with ESMTP id k9PN2Sqc000484
-	for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 23:02:41 GMT
-To: "David S. Miller" <davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:65515 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1422766AbWJYXVu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 19:21:50 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061025110843.0cbd18a7@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Doug Leith observed a discrepancy between the version of CUBIC described
-in the papers and the version in 2.6.18. A math error related to scaling
-causes Cubic to grow too slowly.
+Stephen Hemminger wrote:
+> If user asks for a congestion control type with setsockopt() then it
+> may be available as a module not included in the kernel already. 
+> It should be autoloaded if needed.  This is done already when
+> the default selection is change with sysctl, but not when application
+> requests via sysctl.
+> 
+> Only reservation is are there any bad security implications from this?
 
-Patch is from "Sangtae Ha" <sha2@ncsu.edu>. I validated that
-it does fix the problems.
+There are already a quite large number of precedents for this, I think
+this is one of the less questionable ones, the potential for (local)
+damage is limited to minimal tcp_ca_find performance impact if I don't
+miss anything (assuming no bugs in the modules that cause crashes
+or something like that).
 
-See the following to show behavior over 500ms 100 Mbit link.
+The in my opinion most questionable autoloading is in af_netlink BTW,
+it will autoload any netlink provider with an appropriate module alias,
+which could be just about anything (examples include conntrack, which
+has performance and other side-effects, ULOG, which in turn loads
+iptables, xfrm_user, connector, ...). Other autoloading is usually
+limited to a clear scope of what might be affected.
 
-Sender (2.6.19-rc3) ---  Bridge (2.6.18-rt7) ------- Receiver (2.6.19-rc3)
-                    1G      [netem]           100M
-
-	http://developer.osdl.org/shemminger/tcp/2.6.19-rc3/cubic-orig.png
-	http://developer.osdl.org/shemminger/tcp/2.6.19-rc3/cubic-fix.png
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
---- a/net/ipv4/tcp_cubic.c	2006-09-25 16:25:43.000000000 -0700
-+++ b/net/ipv4/tcp_cubic.c	2006-10-25 09:17:28.000000000 -0700
-@@ -190,7 +190,7 @@
-          */
- 
- 	/* change the unit from HZ to bictcp_HZ */
--        t = ((tcp_time_stamp + ca->delay_min - ca->epoch_start)
-+        t = ((tcp_time_stamp + (ca->delay_min>>3) - ca->epoch_start)
- 	     << BICTCP_HZ) / HZ;
- 
-         if (t < ca->bic_K)		/* t - K */
-@@ -259,7 +259,7 @@
- 	    (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
- 		return;
- 
--	delay = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
-+	delay = (tcp_time_stamp - tp->rx_opt.rcv_tsecr)<<3;
- 	if (delay == 0)
- 		delay = 1;
- 
-@@ -366,7 +366,7 @@
- 
- 	beta_scale = 8*(BICTCP_BETA_SCALE+beta)/ 3 / (BICTCP_BETA_SCALE - beta);
- 
--	cube_rtt_scale = (bic_scale << 3) / 10;	/* 1024*c/rtt */
-+	cube_rtt_scale = (bic_scale * 10);	/* 1024*c/rtt */
- 
- 	/* calculate the "K" for (wmax-cwnd) = c/rtt * K^3
- 	 *  so K = cubic_root( (wmax-cwnd)*rtt/c )
