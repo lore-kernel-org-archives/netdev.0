@@ -1,54 +1,48 @@
-From: Hong Liu <hong.liu@intel.com>
-Subject: about 802.11i IBSS support
-Date: Wed, 25 Oct 2006 16:54:41 +0800
-Message-ID: <1161766481.8668.38.camel@devlinux-hong>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: Fwd: [PATCH] bcm43xx: (hopefully) fix watchdog timeouts.
+Date: Wed, 25 Oct 2006 11:38:38 +0200
+Message-ID: <200610251138.39036.mb@bu3sch.de>
+References: <200610241631.18911.mb@bu3sch.de>
+	<20061025003726.GC7340@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:44292 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1423135AbWJYJBf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 05:01:35 -0400
-To: Jouni Malinen <jkm@devicescape.com>, Jiri Benc <jbenc@suse.cz>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <20061025003726.GC7340-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I am reading the 802.11i IBSS spec and
-trying to find if it is OK to add patches to d80211 to support this feature.
+On Wednesday 25 October 2006 02:37, John W. Linville wrote:
+> Michael,
+> 
+> It looks like you have a patch that I don't have, one that moves the
+> netif_tx_disable and spin_lock_irqsave outside of the "if (badness >
+> BADNESS_LIMIT)" conditional.
+> 
+> Could you pass that one along as well, or correct this patch to match
+> what is in Linus' tree?
 
-For 802.11i IBSS to work, each STA assumes two roles: supplicant + authenticator.
-Usually in BSS network, authenticator is in AP.
-The problem is the distribution of group keys.
-The group key is used for one-to-many communication.
-In BSS, the one is the AP, so the AP is responsible for the distribution of the group key.
-In IBSS, every STA has its own group key, used to broadcast data to other STAs.
+Well, I'm not sure who moved the tx_disable outside of the
+conditional. It is not needed. We only need to disable TX on
+the slowpath (the first branch of the if condition). It does not
+hurt to disable it always, though.
+But I will send a new patch against wireless-2.6, which only disables
+TX for the slowpath and fakes a TX there.
 
-When a STA (say S1) joins in an IBSS network with N STAs,
-it must negotiate keys with all N STAs.
-The process for negotiation with one STA is as follows:
-1. S1 init a 4-way handshake with one STA (say S2),
-   to derive the pairwise key between them and then S1 sends its group key to S2,
-   let S2 can decrypt s1's broadcast data.
-2. S2 init the second 4-way handshake with S1, the main purpose for this 4-way handshake
-   is for S2 to send its group key to S1, although this will also derive a second pairwise key.
-3. Because in an IBSS there are two 4-Way Handshakes between 
-   any two STA Supplicants and Authenticators, the pairwise key used between any two STAs
-   is from the 4-Way Handshake initiated by the STA Authenticator with the higher MAC address.
-So any STA in an IBSS network with N STAs must keep 2N-1 keys (N-1 for pairwise key and N for group key).
+But for Greg, the original patch is ok.
+How was the stable mailing list again? stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org seems to bounce.
 
-We need the following parts to make 802.11i IBSS work:
-
-1. for the d80211 part: I don't think there will be much efforts.
-   We may add a group key to each sta_info for decrypting multicast data from that STA.
-   And in RX path, we need to add code to select the correct group key for decryption.
-   And also we need to store our own group key used to send multicast data to others.
-
-   It should not be difficult because the infrastructures are all there in the dscape stack.
-
-2. wpa_supplicant: this is the big part, we need to implement the authenticator
-   in it. Not sure how much efforts needed?
-
-Thanks,
-Hong
+-- 
+Greetings Michael.
