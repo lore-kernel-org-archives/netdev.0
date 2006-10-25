@@ -1,48 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFC] tcp: setsockopt congestion control autoload
-Date: Wed, 25 Oct 2006 11:08:43 -0700
-Message-ID: <20061025110843.0cbd18a7@freekitty>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] !CONFIG_NET_ETHERNET unsets CONFIG_PHYLIB, but
+ CONFIG_USB_USBNET also needs CONFIG_PHYLIB
+Date: Wed, 25 Oct 2006 15:27:09 -0700
+Message-ID: <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org>
+ <20061025201341.GH21200@miggy.org>
+ <20061025151737.1bf4898c.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: zippel@linux-m68k.org, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org, dbrownell@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27600 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964897AbWJYWTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 18:19:12 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from smtp110.sbc.mail.mud.yahoo.com ([68.142.198.209]:26448 "HELO
+	smtp110.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S965239AbWJYW1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 18:27:16 -0400
+To: toralf.foerster@gmx.de, randy.dunlap@oracle.com,
+	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	link@miggy.org, greg@kroah.com, akpm@osdl.org
+In-Reply-To: <20061025151737.1bf4898c.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If user asks for a congestion control type with setsockopt() then it
-may be available as a module not included in the kernel already. 
-It should be autoloaded if needed.  This is done already when
-the default selection is change with sysctl, but not when application
-requests via sysctl.
+> @@ -94,6 +95,7 @@ config USB_RTL8150
+>  
+>  config USB_USBNET
+>  	tristate "Multi-purpose USB Networking Framework"
+> +	select MII
+>  	---help---
+>  	  This driver supports several kinds of network links over USB,
+>  	  with "minidrivers" built around a common network driver core
 
-Only reservation is are there any bad security implications from this?
+The other parts are right, this isn't.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Instead, "usbnet.c" should #ifdef the relevant ethtool hooks
+according to CONFIG_MII ... since it's completely legit to
+use usbnet with peripherals that don't need MII.
 
---- orig/net/ipv4/tcp_cong.c	2006-10-25 13:55:34.000000000 -0700
-+++ new/net/ipv4/tcp_cong.c	2006-10-25 13:58:39.000000000 -0700
-@@ -153,9 +153,19 @@
- 
- 	rcu_read_lock();
- 	ca = tcp_ca_find(name);
-+	/* no change asking for existing value */
- 	if (ca == icsk->icsk_ca_ops)
- 		goto out;
- 
-+#ifdef CONFIG_KMOD
-+	/* not found attempt to autoload module */
-+	if (!ca) {
-+		rcu_read_unlock();
-+		request_module("tcp_%s", name);
-+		rcu_read_lock();
-+		ca = tcp_ca_find(name);
-+	}
-+#endif
- 	if (!ca)
- 		err = -ENOENT;
- 
