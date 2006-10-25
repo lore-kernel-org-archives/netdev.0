@@ -1,38 +1,62 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [PATCH] hostap_plx: fix CIS verification
-Date: Tue, 24 Oct 2006 18:44:48 -0700
-Message-ID: <20061025014447.GA6121@jm.kir.nu>
-References: <1161382815.5803.2.camel@dv> <20061021011943.GC6140@jm.kir.nu>
-	<20061025003707.GB7340@tuxdriver.com> <1161737289.29298.6.camel@dv>
+From: "Anand Kumria" <wildfire@progsoc.org>
+Subject: Re: [RFC] [PATCH 1/3] adds iso3166-1 support
+Date: Wed, 25 Oct 2006 01:44:52 +0000 (UTC)
+Message-ID: <ehmfij$99h$1@sea.gmane.org>
+References: <43e72e890610231545n389d8a6dy89bb476101953234@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hostap@shmoo.com,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: Pavel Roskin <proski@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1161737289.29298.6.camel@dv>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://lists.shmoo.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:61909 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1161330AbWJYBz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 21:55:57 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1GcXu4-0007Si-GQ
+	for netdev@vger.kernel.org; Wed, 25 Oct 2006 03:50:23 +0200
+Received: from 88-110-175-230.dynamic.dsl.as9105.com ([88.110.175.230])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 03:50:00 +0200
+Received: from wildfire by 88-110-175-230.dynamic.dsl.as9105.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 03:50:00 +0200
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 24, 2006 at 08:48:09PM -0400, Pavel Roskin wrote:
+On Mon, 23 Oct 2006 18:45:23 -0400, Luis R. Rodriguez wrote:
 
-> I don't have Coverity to check, and I think the results of Coverity were
-> misinterpreted.  It doesn't know anything about CIS structure.  Anyway,
-> let me just check Jouni's suggestion on a real PLX card.
+> iso3166-1
+> 
+> ISO 3166-1, as part of the ISO 3166 standard, provides codes for the names
+> of countries and dependent areas. It was first published in 1974 by
+> the International Organization for Standardization (ISO) and defines three
+> different codes for each area:
 
-It doesn't need to know anything about the CIS structure. The driver
-must not be allowed to run over a buffer even if given an invalid CIS
-data.
- 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+[snip]
+
++	r |= iso3166_1_add(887, "YE", "YEM", 
++		"Yemen");
++	r |= iso3166_1_add(891, "CS", "SCG", 
++		"Serbia and Montenegro");
++	r |= iso3166_1_add(894, "ZM", "ZMB", 
++		"Zambia");
+
+
+According to the ISO, at:
+
+<http://www.iso.org/iso/en/commcentre/pressreleases/2006/Ref1031.html>
+
+and
+
+<http://www.iso.org/iso/en/prods-services/iso3166ma/03updates-on-iso-3166/nlv12-div.html>
+
+Serbia and Montenegro have been allocated new codes, RS and ME respectively.
+
+Is this ISO3166 stuff supposed to track the standard? If so, what happens when a country splits or two join together?
+
+Will that require lock-step updates to user-space, or will it be insulated byt this changes?
+
+Regards,
+Anand
+
