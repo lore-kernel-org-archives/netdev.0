@@ -1,7 +1,7 @@
 From: David Kimdon <david.kimdon@devicescape.com>
-Subject: [take3 4/5] d80211: remove bitfields from ieee80211_hw
-Date: Wed, 25 Oct 2006 11:43:03 -0700
-Message-ID: <20061025184303.GE30046@devicescape.com>
+Subject: [take3 5/5] d80211: remove bitfields from ieee80211_conf
+Date: Wed, 25 Oct 2006 11:43:08 -0700
+Message-ID: <20061025184308.GF30046@devicescape.com>
 References: <20061025184235.502701000@devicescape.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,580 +9,391 @@ Cc: "John W. Linville" <linville@tuxdriver.com>,
 	Jiri Benc <jbenc@suse.cz>,
 	David Kimdon <david.kimdon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:20381 "EHLO
+Received: from mail.devicescape.com ([207.138.119.2]:22429 "EHLO
 	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S932457AbWJYSnE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 14:43:04 -0400
+	id S1160995AbWJYSnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 14:43:09 -0400
 To: netdev@vger.kernel.org
-Content-Disposition: inline; filename="ieee80211_hw_bitfields.patch"
+Content-Disposition: inline; filename="ieee80211_conf_bitfields.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All twelve one-bit bitfields have been subsumed into the new 'flags'
-structure member and the new IEEE80211_HW_* definitions. 
+All four one-bit bitfields have been subsumed into the new 'flags'
+structure member and the new IEEE80211_CONF_* definitions. 
 
 Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-Index: wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
-===================================================================
---- wireless-dev.orig/drivers/net/wireless/d80211/adm8211/adm8211.c
-+++ wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
-@@ -2012,17 +2012,9 @@ static int __devinit adm8211_probe(struc
- 
- 	hw->version = 2;
- 	hw->name = "adm8211";
--	hw->host_gen_beacon = 0;
--	hw->device_hides_wep = 0;
--	hw->rx_includes_fcs = 0;	// however, FCS is kept in promisc mode
--	hw->host_broadcast_ps_buffering = 0;
--	hw->wep_include_iv = 1;
--	hw->data_nullfunc_ack = 0;
--	hw->no_tkip_wmm_hwaccel = 1;
--	hw->extra_hdr_room = 0;
--	hw->device_strips_mic = 0;
--	hw->monitor_during_oper = 0;
--	hw->fraglist = 0;
-+	hw->flags = IEEE80211_HW_WEP_INCLUDE_IV | IEEE80211_HW_NO_TKIP_WMM_HWACCEL;
-+	// however, IEEE80211_HW_RX_INCLUDES_FCS in promisc mode
-+
- 	hw->channel_change_time = 1000;
- 
- 	hw->num_modes = 1;
 Index: wireless-dev/include/net/d80211.h
 ===================================================================
 --- wireless-dev.orig/include/net/d80211.h
 +++ wireless-dev/include/net/d80211.h
-@@ -437,19 +437,19 @@ struct ieee80211_hw {
- 	 * configure the upper layer IEEE 802.11 module to generate beacons.
- 	 * The low-level driver can use ieee80211_beacon_get() to fetch the
- 	 * next beacon frame. */
--	unsigned int host_gen_beacon:1;
-+#define IEEE80211_HW_HOST_GEN_BEACON (1<<0)
+@@ -240,12 +240,12 @@ struct ieee80211_conf {
  
- 	/* The device needs to be supplied with a beacon template only. */
--	unsigned int host_gen_beacon_template:1;
-+#define IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE (1<<1)
+         int beacon_int;
  
- 	/* Some devices handle decryption internally and do not
- 	 * indicate whether the frame was encrypted (unencrypted frames
- 	 * will be dropped by the hardware, unless specifically allowed
- 	 * through) */
--	unsigned int device_hides_wep:1;
-+#define IEEE80211_HW_DEVICE_HIDES_WEP (1<<2)
+-	/* Bitfields, grouped together */
+-
+-	unsigned int sw_encrypt:1;
+-	unsigned int sw_decrypt:1;
+-	unsigned int short_slot_time:1;	/* use IEEE 802.11g Short Slot Time */
+-	unsigned int ssid_hidden:1;	/* do not broadcast the ssid */
++#define IEEE80211_CONF_SW_ENCRYPT	(1<<0)
++#define IEEE80211_CONF_SW_DECRYPT	(1<<1)
++#define IEEE80211_CONF_SHORT_SLOT_TIME	(1<<2) /* use IEEE 802.11g Short Slot
++						* Time */
++#define IEEE80211_CONF_SSID_HIDDEN	(1<<3) /* do not broadcast the ssid */
++	u32 flags;			/* configuration flags defined above */
  
- 	/* Whether RX frames passed to ieee80211_rx() include FCS in the end */
--	unsigned int rx_includes_fcs:1;
-+#define IEEE80211_HW_RX_INCLUDES_FCS (1<<3)
- 
- 	/* Some wireless LAN chipsets buffer broadcast/multicast frames for
- 	 * power saving stations in the hardware/firmware and others rely on
-@@ -457,18 +457,19 @@ struct ieee80211_hw {
- 	 * configure the IEEE 802.11 upper layer to buffer broadcast/multicast
- 	 * frames when there are power saving stations so that low-level driver
- 	 * can fetch them with ieee80211_get_buffered_bc(). */
--	unsigned int host_broadcast_ps_buffering:1;
-+#define IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING (1<<4)
- 
--	unsigned int wep_include_iv:1;
--	unsigned int data_nullfunc_ack:1; /* will data nullfunc frames get proper
--					   * TX status callback */
-+#define IEEE80211_HW_WEP_INCLUDE_IV (1<<5)
-+
-+	/* will data nullfunc frames get proper TX status callback */
-+#define IEEE80211_HW_DATA_NULLFUNC_ACK (1<<6)
- 
- 	/* Force software encryption for TKIP packets if WMM is enabled. */
--	unsigned int no_tkip_wmm_hwaccel:1;
-+#define IEEE80211_HW_NO_TKIP_WMM_HWACCEL (1<<7)
- 
- 	/* set if the payload needs to be padded at even boundaries after the
- 	 * header */
--	unsigned int extra_hdr_room:1;
-+#define IEEE80211_HW_EXTRA_HDR_ROOM (1<<8)
- 
- 	/* Some devices handle Michael MIC internally and do not include MIC in
- 	 * the received packets passed up. device_strips_mic must be set
-@@ -476,15 +477,17 @@ struct ieee80211_hw {
- 	 * be still set in the IEEE 802.11 header with this option unlike with
- 	 * the device_hides_wep configuration option.
- 	 */
--	unsigned int device_strips_mic:1;
-+#define IEEE80211_HW_DEVICE_STRIPS_MIC (1<<9)
- 
- 	/* Device is capable of performing full monitor mode even during
- 	 * normal operation. */
--	unsigned int monitor_during_oper:1;
-+#define IEEE80211_HW_MONITOR_DURING_OPER (1<<10)
- 
- 	/* Set if the low-level driver supports skb fraglist (NETIF_F_FRAGLIST),
- 	 * i.e. more than one skb per frame */
--	unsigned int fraglist:1;
-+#define IEEE80211_HW_FRAGLIST (1<<11)
-+
-+	u32 flags;			/* hardware flags defined above */
- 
-         /* This is the time in us to change channels
-          */
+         u8 power_level;			/* transmit power limit for current
+ 					 * regulatory domain; in dBm */
 Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
 ===================================================================
 --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
 +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -3838,9 +3838,10 @@ static int __devinit bcm43xx_init_one(st
- 		goto out;
- 	ieee->version = IEEE80211_VERSION;
- 	ieee->name = KBUILD_MODNAME;
--	ieee->host_gen_beacon_template = 1;
--	ieee->rx_includes_fcs = 1;
--	ieee->monitor_during_oper = 1;
-+	ieee->flags = IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
-+		      IEEE80211_HW_RX_INCLUDES_FCS |
-+		      IEEE80211_HW_MONITOR_DURING_OPER |
-+		      IEEE80211_HW_WEP_INCLUDE_IV;
- 	ieee->tx = bcm43xx_net_hard_start_xmit;
- 	ieee->open = bcm43xx_net_open;
- 	ieee->stop = bcm43xx_net_stop;
-@@ -3855,7 +3856,6 @@ static int __devinit bcm43xx_init_one(st
- 	ieee->queues = 1;
- 	ieee->get_tx_stats = bcm43xx_net_get_tx_stats;
- 	ieee->conf_tx = bcm43xx_net_conf_tx;
--	ieee->wep_include_iv = 1;
+@@ -3480,9 +3480,9 @@ static int bcm43xx_net_config(struct net
+ 		bcm43xx_radio_selectchannel(bcm, conf->channel_val, 0);
  
- 	net_dev = ieee80211_alloc_hw(sizeof(*bcm), bcm43xx_netdev_setup);
- 	if (!net_dev) {
+ 	/* Enable/Disable ShortSlot timing. */
+-	if (conf->short_slot_time != bcm->short_slot) {
++	if (!!(conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME) != bcm->short_slot) {
+ 		assert(phy->type == BCM43xx_PHYTYPE_G);
+-		if (conf->short_slot_time)
++		if (conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME)
+ 			bcm43xx_short_slot_timing_enable(bcm);
+ 		else
+ 			bcm43xx_short_slot_timing_disable(bcm);
+@@ -3495,7 +3495,7 @@ static int bcm43xx_net_config(struct net
+ 	}
+ 
+ 	/* Hide/Show the SSID (AP mode only). */
+-	if (conf->ssid_hidden) {
++	if (conf->flags & IEEE80211_CONF_SSID_HIDDEN) {
+ 		bcm43xx_write32(bcm->wlcore, BCM43xx_MMIO_STATUS_BITFIELD,
+ 				bcm43xx_read32(bcm->wlcore, BCM43xx_MMIO_STATUS_BITFIELD)
+ 				| BCM43xx_SBF_NO_SSID_BCAST);
 Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
 ===================================================================
 --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
 +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-@@ -2570,18 +2570,12 @@ static int rt2400pci_init_hw(struct rt2x
- 	 */
- 	hw->version = IEEE80211_VERSION;
- 	hw->name = DRV_NAME;
--	hw->host_gen_beacon = 1;
--	hw->host_gen_beacon_template = 0;
--	hw->device_hides_wep = 0;
--	hw->rx_includes_fcs = 0;
--	hw->host_broadcast_ps_buffering = 1;
--	hw->wep_include_iv = 1;
--	hw->data_nullfunc_ack = 1;
--	hw->no_tkip_wmm_hwaccel = 1;
--	hw->extra_hdr_room = 0;
--	hw->device_strips_mic = 0;
--	hw->monitor_during_oper = 1;
--	hw->fraglist = 0;
-+	hw->flags = IEEE80211_HW_HOST_GEN_BEACON |
-+		    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
-+		    IEEE80211_HW_WEP_INCLUDE_IV |
-+		    IEEE80211_HW_DATA_NULLFUNC_ACK |
-+		    IEEE80211_HW_NO_TKIP_WMM_HWACCEL |
-+		    IEEE80211_HW_MONITOR_DURING_OPER;
+@@ -742,7 +742,8 @@ static void rt2400pci_config_rate(struct
+ 
+ 	rt2x00_register_read(rt2x00dev, TXCSR1, &reg[0]);
+ 	value = SIFS + PLCP
+-		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
++		+ (2 * ((conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME) ?
++			SHORT_SLOT_TIME : SLOT_TIME))
+ 		+ preamble
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field32(&reg[0], TXCSR1_ACK_TIMEOUT, value);
+@@ -2080,7 +2081,8 @@ static int rt2400pci_config(struct net_d
+ 		conf->channel_val, conf->channel, conf->freq);
+ 	rt2400pci_config_txpower(rt2x00dev, conf->power_level);
+ 	rt2400pci_config_antenna(rt2x00dev, conf->antenna_sel);
+-	rt2400pci_config_duration(rt2x00dev, conf->short_slot_time);
++	rt2400pci_config_duration(rt2x00dev,
++				  conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
+ 	rt2400pci_config_phymode(rt2x00dev, conf->phymode);
  
  	/*
- 	 * We have 2 TX queues: TX and PRIO.
 Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
 ===================================================================
 --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
 +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-@@ -2724,18 +2724,12 @@ static int rt2500pci_init_hw(struct rt2x
- 	 */
- 	hw->version = IEEE80211_VERSION;
- 	hw->name = DRV_NAME;
--	hw->host_gen_beacon = 1;
--	hw->host_gen_beacon_template = 0;
--	hw->device_hides_wep = 0;
--	hw->rx_includes_fcs = 0;
--	hw->host_broadcast_ps_buffering = 1;
--	hw->wep_include_iv = 1;
--	hw->data_nullfunc_ack = 1;
--	hw->no_tkip_wmm_hwaccel = 1;
--	hw->extra_hdr_room = 0;
--	hw->device_strips_mic = 0;
--	hw->monitor_during_oper = 1;
--	hw->fraglist = 0;
-+	hw->flags = IEEE80211_HW_HOST_GEN_BEACON |
-+		    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
-+		    IEEE80211_HW_WEP_INCLUDE_IV |
-+		    IEEE80211_HW_DATA_NULLFUNC_ACK |
-+		    IEEE80211_HW_NO_TKIP_WMM_HWACCEL |
-+		    IEEE80211_HW_MONITOR_DURING_OPER;
+@@ -808,7 +808,8 @@ static void rt2500pci_config_rate(struct
+ 
+ 	rt2x00_register_read(rt2x00dev, TXCSR1, &reg[0]);
+ 	value = SIFS + PLCP
+-		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
++		+ (2 * ((conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME) ?
++			SHORT_SLOT_TIME : SLOT_TIME))
+ 		+ preamble
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field32(&reg[0], TXCSR1_ACK_TIMEOUT, value);
+@@ -2230,7 +2231,8 @@ static int rt2500pci_config(struct net_d
+ 		conf->power_level);
+ 	rt2500pci_config_txpower(rt2x00dev, conf->power_level);
+ 	rt2500pci_config_antenna(rt2x00dev, conf->antenna_sel);
+-	rt2500pci_config_duration(rt2x00dev, conf->short_slot_time);
++	rt2500pci_config_duration(rt2x00dev,
++				  conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
+ 	rt2500pci_config_phymode(rt2x00dev, conf->phymode);
  
  	/*
- 	 * We have 2 TX queues: TX and PRIO.
 Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
 ===================================================================
 --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
 +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-@@ -3244,18 +3244,12 @@ static int rt61pci_init_hw(struct rt2x00
- 	 */
- 	hw->version = IEEE80211_VERSION;
- 	hw->name = DRV_NAME;
--	hw->host_gen_beacon = 1;
--	hw->host_gen_beacon_template = 0;
--	hw->device_hides_wep = 0;
--	hw->rx_includes_fcs = 0;
--	hw->host_broadcast_ps_buffering = 1;
--	hw->wep_include_iv = 1;
--	hw->data_nullfunc_ack = 1;
--	hw->no_tkip_wmm_hwaccel = 1;
--	hw->extra_hdr_room = 0;
--	hw->device_strips_mic = 0;
--	hw->monitor_during_oper = 1;
--	hw->fraglist = 0;
-+	hw->flags = IEEE80211_HW_HOST_GEN_BEACON |
-+		    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
-+		    IEEE80211_HW_WEP_INCLUDE_IV |
-+		    IEEE80211_HW_DATA_NULLFUNC_ACK |
-+		    IEEE80211_HW_NO_TKIP_WMM_HWACCEL |
-+		    IEEE80211_HW_MONITOR_DURING_OPER;
+@@ -1033,7 +1033,8 @@ static void rt61pci_config_rate(struct r
+ 
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+ 	value = SIFS + PLCP
+-		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
++		+ (2 * ((conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME) ?
++			SHORT_SLOT_TIME : SLOT_TIME))
+ 		+ preamble
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field32(&reg, TXRX_CSR0_RX_ACK_TIMEOUT, value);
+@@ -2705,7 +2706,8 @@ static int rt61pci_config(struct net_dev
+ 		conf->power_level);
+ 	rt61pci_config_txpower(rt2x00dev, conf->power_level);
+ 	rt61pci_config_antenna(rt2x00dev, conf->antenna_sel, conf->phymode);
+-	rt61pci_config_duration(rt2x00dev, conf->short_slot_time);
++	rt61pci_config_duration(rt2x00dev,
++				conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
+ 	rt61pci_config_phymode(rt2x00dev, conf->phymode);
  
  	/*
- 	 * We have full WMM capabilities.
 Index: wireless-dev/net/d80211/ieee80211.c
 ===================================================================
 --- wireless-dev.orig/net/d80211/ieee80211.c
 +++ wireless-dev/net/d80211/ieee80211.c
-@@ -515,7 +515,7 @@ static int wep_encrypt_skb(struct ieee80
+@@ -510,7 +510,8 @@ ieee80211_tx_h_fragment(struct ieee80211
+ 
+ static int wep_encrypt_skb(struct ieee80211_txrx_data *tx, struct sk_buff *skb)
+ {
+-	if (tx->key->force_sw_encrypt || tx->local->conf.sw_encrypt) {
++	if (tx->key->force_sw_encrypt ||
++	    (tx->local->conf.flags & IEEE80211_CONF_SW_ENCRYPT)) {
+ 		if (ieee80211_wep_encrypt(tx->local, skb, tx->key))
  			return -1;
  	} else {
- 		tx->u.tx.control->key_idx = tx->key->hw_key_idx;
--		if (tx->local->hw->wep_include_iv) {
-+		if (tx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) {
- 			if (ieee80211_wep_add_iv(tx->local, skb, tx->key) ==
- 			    NULL)
- 				return -1;
-@@ -951,7 +951,7 @@ ieee80211_tx_h_multicast_ps_buf(struct i
- 	/* broadcast/multicast frame */
- 	/* If any of the associated stations is in power save mode,
- 	 * the frame is buffered to be sent after DTIM beacon frame */
--	if (tx->local->hw->host_broadcast_ps_buffering &&
-+	if ((tx->local->hw->flags & IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING) &&
- 	    tx->sdata->type != IEEE80211_IF_TYPE_WDS &&
- 	    tx->sdata->bss && atomic_read(&tx->sdata->bss->num_sta_ps) &&
- 	    !(tx->fc & IEEE80211_FCTL_ORDER)) {
-@@ -1526,7 +1526,8 @@ static int ieee80211_subif_start_xmit(st
- 	 * build in headroom in __dev_alloc_skb() (linux/skbuff.h) and
- 	 * alloc_skb() (net/core/skbuff.c)
- 	 */
--	head_need = hdrlen + encaps_len + (local->hw->extra_hdr_room ? 2 : 0);
-+	head_need = hdrlen + encaps_len +
-+		    (local->hw->flags & IEEE80211_HW_EXTRA_HDR_ROOM ? 2 : 0);
- 	head_need -= skb_headroom(skb);
- 
- 	/* We are going to modify skb data, so make a copy of it if happens to
-@@ -1896,7 +1897,7 @@ int ieee80211_if_config_beacon(struct ne
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 
--	if (!local->hw->host_gen_beacon_template)
-+	if (!(local->hw->flags & IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE))
- 		return 0;
- 	skb = ieee80211_beacon_get(local->mdev, dev->ifindex, NULL);
- 	if (!skb)
-@@ -2169,7 +2170,8 @@ static inline void ieee80211_start_soft_
- 	struct ieee80211_if_init_conf conf;
- 
- 	if (local->open_count && local->open_count == local->monitors &&
--	    !local->hw->monitor_during_oper && local->hw->remove_interface) {
-+	    !(local->hw->flags & IEEE80211_HW_MONITOR_DURING_OPER) &&
-+	    local->hw->remove_interface) {
- 		conf.if_id = -1;
- 		conf.type = IEEE80211_IF_TYPE_MNTR;
- 		conf.mac_addr = NULL;
-@@ -2184,7 +2186,8 @@ static void ieee80211_start_hard_monitor
- 	struct ieee80211_if_init_conf conf;
- 
- 	if (local->open_count && local->open_count == local->monitors &&
--	    !local->hw->monitor_during_oper && local->hw->add_interface) {
-+	    !(local->hw->flags & IEEE80211_HW_MONITOR_DURING_OPER) &&
-+	    local->hw->add_interface) {
- 		conf.if_id = -1;
- 		conf.type = IEEE80211_IF_TYPE_MNTR;
- 		conf.mac_addr = NULL;
-@@ -2215,7 +2218,7 @@ static int ieee80211_open(struct net_dev
- 		return -ENOLINK;
- 
- 	if (sdata->type == IEEE80211_IF_TYPE_MNTR && local->open_count &&
--	    !local->hw->monitor_during_oper) {
-+	    !(local->hw->flags & IEEE80211_HW_MONITOR_DURING_OPER)) {
- 		/* run the interface in a "soft monitor" mode */
- 		local->monitors++;
- 		local->open_count++;
-@@ -2279,7 +2282,8 @@ static int ieee80211_stop(struct net_dev
- 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
- 
- 	if (sdata->type == IEEE80211_IF_TYPE_MNTR &&
--	    local->open_count > 1 && !local->hw->monitor_during_oper) {
-+	    local->open_count > 1 &&
-+	    !(local->hw->flags & IEEE80211_HW_MONITOR_DURING_OPER)) {
- 		/* remove "soft monitor" interface */
- 		local->open_count--;
- 		local->monitors--;
-@@ -3034,7 +3038,8 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 			rx->sta->last_seq_ctrl[rx->u.rx.queue] = hdr->seq_ctrl;
- 	}
- 
--	if (rx->local->hw->rx_includes_fcs && rx->skb->len > FCS_LEN)
-+	if ((rx->local->hw->flags & IEEE80211_HW_RX_INCLUDES_FCS) &&
-+	    rx->skb->len > FCS_LEN)
- 		skb_trim(rx->skb, rx->skb->len - FCS_LEN);
- 
- 	if (unlikely(rx->skb->len < 16)) {
-@@ -3094,7 +3099,7 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 		else
- 			rx->key = rx->sdata->default_key;
- 
--		if (rx->local->hw->wep_include_iv &&
-+		if ((rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) &&
- 		    rx->fc & IEEE80211_FCTL_PROTECTED) {
- 			int keyidx = ieee80211_wep_get_keyidx(rx->skb);
- 
-@@ -3203,7 +3208,7 @@ ieee80211_rx_h_wep_weak_iv_detection(str
- 		return TXRX_CONTINUE;
+@@ -3209,7 +3210,8 @@ ieee80211_rx_h_wep_weak_iv_detection(str
  
  	/* Check for weak IVs, if hwaccel did not remove IV from the frame */
--	if (rx->local->hw->wep_include_iv ||
-+	if ((rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) ||
- 	    rx->key->force_sw_encrypt || rx->local->conf.sw_decrypt) {
+ 	if ((rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) ||
+-	    rx->key->force_sw_encrypt || rx->local->conf.sw_decrypt) {
++	    rx->key->force_sw_encrypt ||
++	    (rx->local->conf.flags & IEEE80211_CONF_SW_ENCRYPT)) {
  		u8 *iv = ieee80211_wep_is_weak_iv(rx->skb, rx->key);
  		if (iv) {
-@@ -3219,7 +3224,7 @@ static ieee80211_txrx_result
- ieee80211_rx_h_wep_decrypt(struct ieee80211_txrx_data *rx)
- {
- 	/* If the device handles decryption totally, skip this test */
--	if (rx->local->hw->device_hides_wep)
-+	if (rx->local->hw->flags & IEEE80211_HW_DEVICE_HIDES_WEP)
- 		return TXRX_CONTINUE;
- 
- 	if ((rx->key && rx->key->alg != ALG_WEP) ||
-@@ -3242,7 +3247,7 @@ ieee80211_rx_h_wep_decrypt(struct ieee80
- 			       "failed\n", rx->dev->name);
- 			return TXRX_DROP;
- 		}
--	} else if (rx->local->hw->wep_include_iv) {
-+	} else if (rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) {
- 		ieee80211_wep_remove_iv(rx->local, rx->skb, rx->key);
- 		/* remove ICV */
- 		skb_trim(rx->skb, rx->skb->len - 4);
-@@ -3287,7 +3292,7 @@ static ieee80211_txrx_result
- ieee80211_rx_h_drop_unencrypted(struct ieee80211_txrx_data *rx)
- {
- 	/*  If the device handles decryption totally, skip this test */
--	if (rx->local->hw->device_hides_wep)
-+	if (rx->local->hw->flags & IEEE80211_HW_DEVICE_HIDES_WEP)
- 		return TXRX_CONTINUE;
- 
- 	/* Drop unencrypted frames if key is set. */
-@@ -3356,7 +3361,7 @@ ieee80211_rx_h_passive_scan(struct ieee8
- 			local->scan.rx_beacon++;
- 			/* Need to trim FCS here because it is normally
- 			 * removed only after this passive scan handler. */
--			if (rx->local->hw->rx_includes_fcs &&
-+			if ((rx->local->hw->flags & IEEE80211_HW_RX_INCLUDES_FCS) &&
- 			    rx->skb->len > FCS_LEN)
- 				skb_trim(rx->skb, rx->skb->len - FCS_LEN);
- 
-@@ -3449,7 +3454,7 @@ static void ieee80211_rx_michael_mic_rep
- 		goto ignore;
+ 			rx->sta->wep_weak_iv_count++;
+@@ -3241,7 +3243,8 @@ ieee80211_rx_h_wep_decrypt(struct ieee80
  	}
  
--	if (rx->local->hw->wep_include_iv &&
-+	if ((rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) &&
- 	    rx->sdata->type == IEEE80211_IF_TYPE_AP) {
- 		int keyidx = ieee80211_wep_get_keyidx(rx->skb);
- 		/* AP with Pairwise keys support should never receive Michael
-@@ -4496,7 +4501,7 @@ int ieee80211_register_hw(struct net_dev
- 	if (result < 0)
- 		goto fail_sta_info;
- 
--	if (hw->fraglist)
-+	if (hw->flags & IEEE80211_HW_FRAGLIST)
- 		dev->features |= NETIF_F_FRAGLIST;
- 	rtnl_lock();
- 	result = dev_alloc_name(dev, dev->name);
+ 	if (!(rx->u.rx.status->flag & RX_FLAG_DECRYPTED) ||
+-	    rx->key->force_sw_encrypt || rx->local->conf.sw_decrypt) {
++	    rx->key->force_sw_encrypt ||
++	    (rx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT)) {
+ 		if (ieee80211_wep_decrypt(rx->local, rx->skb, rx->key)) {
+ 			printk(KERN_DEBUG "%s: RX WEP frame, decrypt "
+ 			       "failed\n", rx->dev->name);
 Index: wireless-dev/net/d80211/ieee80211_ioctl.c
 ===================================================================
 --- wireless-dev.orig/net/d80211/ieee80211_ioctl.c
 +++ wireless-dev/net/d80211/ieee80211_ioctl.c
-@@ -126,7 +126,7 @@ static int ieee80211_ioctl_get_hw_featur
- 	struct ieee80211_channel_data *chan;
+@@ -492,7 +492,8 @@ int ieee80211_set_hw_encryption(struct n
+ 		key->force_sw_encrypt = 1;
  
- 	param->u.hw_features.flags = 0;
--	if (local->hw->data_nullfunc_ack)
-+	if (local->hw->flags & IEEE80211_HW_DATA_NULLFUNC_ACK)
- 		param->u.hw_features.flags |= HOSTAP_HW_FLAG_NULLFUNC_OK;
+ 	if (key && local->hw->set_key &&
+-	    (!local->conf.sw_encrypt || !local->conf.sw_decrypt) &&
++	    (!(local->conf.flags & IEEE80211_CONF_SW_ENCRYPT) ||
++	     !(local->conf.flags & IEEE80211_CONF_SW_DECRYPT)) &&
+ 	    (keyconf = ieee80211_key_data2conf(local, key)) != NULL) {
+ 		if (local->hw->set_key(dev, SET_KEY, addr,
+ 				       keyconf, sta ? sta->aid : 0)) {
+@@ -2422,7 +2423,10 @@ static int ieee80211_ioctl_prism2_param(
+                 local->stat_time = value;
+                 break;
+ 	case PRISM2_PARAM_SHORT_SLOT_TIME:
+-		local->conf.short_slot_time = value;
++		if (value)
++			local->conf.flags |= IEEE80211_CONF_SHORT_SLOT_TIME;
++		else
++			local->conf.flags &= ~IEEE80211_CONF_SHORT_SLOT_TIME;
+ 		if (ieee80211_hw_config(dev))
+ 			ret = -EINVAL;
+ 		break;
+@@ -2469,8 +2473,10 @@ static int ieee80211_ioctl_prism2_param(
+ 	case PRISM2_PARAM_BROADCAST_SSID:
+ 		if ((value < 0) || (value > 1))
+ 			ret = -EINVAL;
++		else if (value)
++			local->conf.flags |= IEEE80211_CONF_SSID_HIDDEN;
+ 		else
+-			local->conf.ssid_hidden = value;
++			local->conf.flags &= ~IEEE80211_CONF_SSID_HIDDEN;
+ 		break;
  
- 	param->u.hw_features.num_modes = local->hw->num_modes;
-@@ -594,14 +594,15 @@ static int ieee80211_set_encryption(stru
- 		try_hwaccel = 0;
- 	}
+ 	case PRISM2_PARAM_STA_ANTENNA_SEL:
+@@ -2648,7 +2654,7 @@ static int ieee80211_ioctl_get_prism2_pa
+                 *param = local->stat_time;
+                 break;
+ 	case PRISM2_PARAM_SHORT_SLOT_TIME:
+-		*param = local->conf.short_slot_time;
++		*param = !!(local->conf.flags & IEEE80211_CONF_SHORT_SLOT_TIME);
+ 		break;
  
--	if (local->hw->device_hides_wep) {
-+	if (local->hw->flags & IEEE80211_HW_DEVICE_HIDES_WEP) {
- 		/* Software encryption cannot be used with devices that hide
- 		 * encryption from the host system, so always try to use
- 		 * hardware acceleration with such devices. */
- 		try_hwaccel = 1;
- 	}
+ 	case PRISM2_PARAM_NEXT_MODE:
+@@ -2668,7 +2674,7 @@ static int ieee80211_ioctl_get_prism2_pa
+ 		break;
  
--	if (local->hw->no_tkip_wmm_hwaccel && alg == ALG_TKIP) {
-+	if ((local->hw->flags & IEEE80211_HW_NO_TKIP_WMM_HWACCEL) &&
-+	    alg == ALG_TKIP) {
- 		if (sta && (sta->flags & WLAN_STA_WME)) {
- 		/* Hardware does not support hwaccel with TKIP when using WMM.
- 		 */
-@@ -2287,7 +2288,7 @@ static void ieee80211_key_enable_hwaccel
- 	u8 addr[ETH_ALEN];
+ 	case PRISM2_PARAM_BROADCAST_SSID:
+-		*param = local->conf.ssid_hidden;
++		*param = !!(local->conf.flags & IEEE80211_CONF_SSID_HIDDEN);
+ 		break;
  
- 	if (!key || key->alg != ALG_WEP || !key->force_sw_encrypt ||
--	    local->hw->device_hides_wep)
-+	    (local->hw->flags & IEEE80211_HW_DEVICE_HIDES_WEP))
- 		return;
- 
- 	memset(addr, 0xff, ETH_ALEN);
-@@ -2309,7 +2310,7 @@ static void ieee80211_key_disable_hwacce
- 	u8 addr[ETH_ALEN];
- 
- 	if (!key || key->alg != ALG_WEP || key->force_sw_encrypt ||
--	    local->hw->device_hides_wep)
-+	    (local->hw->flags & IEEE80211_HW_DEVICE_HIDES_WEP))
- 		return;
- 
- 	memset(addr, 0xff, ETH_ALEN);
+ 	case PRISM2_PARAM_STA_ANTENNA_SEL:
 Index: wireless-dev/net/d80211/wpa.c
 ===================================================================
 --- wireless-dev.orig/net/d80211/wpa.c
 +++ wireless-dev/net/d80211/wpa.c
-@@ -168,8 +168,8 @@ ieee80211_rx_h_michael_mic_verify(struct
- 	fc = rx->fc;
- 
- 	/* If device handles decryption totally, skip this check */
--	if (rx->local->hw->device_hides_wep ||
--	    rx->local->hw->device_strips_mic)
-+	if ((rx->local->hw->flags & IEEE80211_HW_DEVICE_HIDES_WEP) ||
-+	    (rx->local->hw->flags & IEEE80211_HW_DEVICE_STRIPS_MIC))
- 		return TXRX_CONTINUE;
- 
- 	if (!rx->key || rx->key->alg != ALG_TKIP ||
-@@ -184,7 +184,7 @@ ieee80211_rx_h_michael_mic_verify(struct
- 
- 	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
- 	    !rx->key->force_sw_encrypt && !rx->local->conf.sw_decrypt) {
--		if (rx->local->hw->wep_include_iv) {
-+		if (rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) {
- 			if (skb->len < MICHAEL_MIC_LEN)
- 				return TXRX_DROP;
- 		}
-@@ -399,7 +399,8 @@ ieee80211_tx_h_tkip_encrypt(struct ieee8
+@@ -103,7 +103,8 @@ ieee80211_tx_h_michael_mic_add(struct ie
+ 	}
  #endif /* CONFIG_HOSTAPD_WPA_TESTING */
  
- 	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
--	    !tx->local->hw->wep_include_iv && !wpa_test) {
-+	    !(tx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) &&
-+	    !wpa_test) {
- 		/* hwaccel - with no need for preallocated room for IV/ICV */
- 		tx->u.tx.control->key_idx = tx->key->hw_key_idx;
- 		return TXRX_CONTINUE;
-@@ -477,7 +478,7 @@ ieee80211_rx_h_tkip_decrypt(struct ieee8
+-	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
++	if (!tx->key->force_sw_encrypt &&
++	    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT) &&
+ 	    !tx->fragmented && !wpa_test) {
+ 		/* hwaccel - with no need for preallocated room for Michael MIC
+ 		 */
+@@ -183,7 +184,8 @@ ieee80211_rx_h_michael_mic_verify(struct
+ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
  
  	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
- 	    !rx->key->force_sw_encrypt && !rx->local->conf.sw_decrypt) {
--		if (!rx->local->hw->wep_include_iv) {
-+		if (!(rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV)) {
+-	    !rx->key->force_sw_encrypt && !rx->local->conf.sw_decrypt) {
++	    !rx->key->force_sw_encrypt &&
++	    !(rx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT)) {
+ 		if (rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) {
+ 			if (skb->len < MICHAEL_MIC_LEN)
+ 				return TXRX_DROP;
+@@ -290,7 +292,8 @@ static int tkip_encrypt_skb(struct ieee8
+ 	hdrlen = ieee80211_get_hdrlen(fc);
+ 	len = skb->len - hdrlen;
+ 
+-	tailneed = (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt)
++	tailneed = (!tx->key->force_sw_encrypt &&
++		    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT))
+ 		? 0 : TKIP_ICV_LEN;
+ 	if ((skb_headroom(skb) < TKIP_IV_LEN ||
+ 	     skb_tailroom(skb) < tailneed)) {
+@@ -323,7 +326,8 @@ iv_inc:
+ skip_iv_inc:
+ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+ 
+-	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt
++	if (!tx->key->force_sw_encrypt &&
++	    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT)
+ #ifdef CONFIG_HOSTAPD_WPA_TESTING
+ 	    && !tx->wpa_test
+ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+@@ -398,7 +402,8 @@ ieee80211_tx_h_tkip_encrypt(struct ieee8
+ 	}
+ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+ 
+-	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
++	if (!tx->key->force_sw_encrypt &&
++	    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT) &&
+ 	    !(tx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV) &&
+ 	    !wpa_test) {
+ 		/* hwaccel - with no need for preallocated room for IV/ICV */
+@@ -477,7 +482,8 @@ ieee80211_rx_h_tkip_decrypt(struct ieee8
+ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+ 
+ 	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
+-	    !rx->key->force_sw_encrypt && !rx->local->conf.sw_decrypt) {
++	    !rx->key->force_sw_encrypt &&
++	    !(rx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT)) {
+ 		if (!(rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV)) {
  			/* Hardware takes care of all processing, including
  			 * replay protection, so no need to continue here. */
- 			return TXRX_CONTINUE;
-@@ -715,7 +716,7 @@ ieee80211_tx_h_ccmp_encrypt(struct ieee8
+@@ -620,7 +626,8 @@ static int ccmp_encrypt_skb(struct ieee8
+ 	hdrlen = ieee80211_get_hdrlen(fc);
+ 	len = skb->len - hdrlen;
+ 
+-	tailneed = (!key->force_sw_encrypt && !tx->local->conf.sw_decrypt)
++	tailneed = (!key->force_sw_encrypt &&
++		    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT))
+ 		? 0 : CCMP_MIC_LEN;
+ 
+ 	if ((skb_headroom(skb) < CCMP_HDR_LEN ||
+@@ -661,7 +668,8 @@ skip_pn_inc:
+ 
+ 	ccmp_pn2hdr(pos, pn, key->keyidx);
+ 
+-	if (!key->force_sw_encrypt && !tx->local->conf.sw_decrypt) {
++	if (!key->force_sw_encrypt &&
++	    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT)) {
+ 		/* hwaccel - with preallocated room for CCMP header */
+ 		tx->u.tx.control->key_idx = key->hw_key_idx;
+ 		return 0;
+@@ -715,7 +723,8 @@ ieee80211_tx_h_ccmp_encrypt(struct ieee8
+ 	tx->u.tx.control->iv_len = CCMP_HDR_LEN;
  	ieee80211_tx_set_iswep(tx);
  
- 	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
--	    !tx->local->hw->wep_include_iv) {
-+	    !(tx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV)) {
+-	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
++	if (!tx->key->force_sw_encrypt &&
++	    !(tx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT) &&
+ 	    !(tx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV)) {
  		/* hwaccel - with no need for preallocated room for CCMP "
  		 * header or MIC fields */
- 		tx->u.tx.control->key_idx = tx->key->hw_key_idx;
-@@ -767,7 +768,7 @@ ieee80211_rx_h_ccmp_decrypt(struct ieee8
+@@ -767,7 +776,8 @@ ieee80211_rx_h_ccmp_decrypt(struct ieee8
+ 		return TXRX_DROP;
  
  	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
- 	    !key->force_sw_encrypt && !rx->local->conf.sw_decrypt &&
--	    !rx->local->hw->wep_include_iv)
-+	    !(rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV))
+-	    !key->force_sw_encrypt && !rx->local->conf.sw_decrypt &&
++	    !key->force_sw_encrypt &&
++	    !(rx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT) &&
+ 	    !(rx->local->hw->flags & IEEE80211_HW_WEP_INCLUDE_IV))
  		return TXRX_CONTINUE;
  
- 	(void) ccmp_hdr2pn(pn, skb->data + hdrlen);
-Index: wireless-dev/net/d80211/ieee80211_sysfs.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_sysfs.c
-+++ wireless-dev/net/d80211/ieee80211_sysfs.c
-@@ -530,9 +530,10 @@ static ssize_t ieee80211_if_fmt_mode(con
- {
- 	struct ieee80211_local *local = sdata->local;
+@@ -788,7 +798,8 @@ ieee80211_rx_h_ccmp_decrypt(struct ieee8
+ 	}
  
--	return sprintf(buf, "%s\n", (local->hw->monitor_during_oper ||
--				     local->open_count == local->monitors) ?
--				    "hard" : "soft");
-+	return sprintf(buf, "%s\n",
-+		       ((local->hw->flags & IEEE80211_HW_MONITOR_DURING_OPER) ||
-+			local->open_count == local->monitors) ?
-+		       "hard" : "soft");
- }
- __IEEE80211_IF_SHOW(mode);
- 
+ 	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
+-	    !key->force_sw_encrypt && !rx->local->conf.sw_decrypt) {
++	    !key->force_sw_encrypt &&
++	    !(rx->local->conf.flags & IEEE80211_CONF_SW_DECRYPT)) {
+ 		/* hwaccel has already decrypted frame and verified MIC */
+ 	} else {
+ 		u8 *scratch, *b_0, *aad;
 Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
 ===================================================================
 --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
 +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-@@ -2412,18 +2412,12 @@ static int rt2500usb_init_hw(struct rt2x
- 	 */
- 	hw->version = IEEE80211_VERSION;
- 	hw->name = DRV_NAME;
--	hw->host_gen_beacon = 1;
--	hw->host_gen_beacon_template = 0;
--	hw->device_hides_wep = 0;
--	hw->rx_includes_fcs = 0;
--	hw->host_broadcast_ps_buffering = 1;
--	hw->wep_include_iv = 1;
--	hw->data_nullfunc_ack = 1;
--	hw->no_tkip_wmm_hwaccel = 1;
--	hw->extra_hdr_room = 0;
--	hw->device_strips_mic = 0;
--	hw->monitor_during_oper = 1;
--	hw->fraglist = 0;
-+	hw->flags = IEEE80211_HW_HOST_GEN_BEACON |
-+		    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
-+		    IEEE80211_HW_WEP_INCLUDE_IV |
-+		    IEEE80211_HW_DATA_NULLFUNC_ACK |
-+		    IEEE80211_HW_NO_TKIP_WMM_HWACCEL |
-+		    IEEE80211_HW_MONITOR_DURING_OPER;
+@@ -657,7 +657,8 @@ static void rt2500usb_config_rate(struct
+ 
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR1, &reg);
+ 	value = SIFS + PLCP
+-		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
++		+ (2 * ((conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME) ?
++			SHORT_SLOT_TIME : SLOT_TIME))
+ 		+ preamble
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field16_nb(&reg, TXRX_CSR1_ACK_TIMEOUT, value);
+@@ -1963,7 +1964,8 @@ static int rt2500usb_config(struct net_d
+ 		conf->power_level);
+ 	rt2500usb_config_txpower(rt2x00dev, conf->power_level);
+ 	rt2500usb_config_antenna(rt2x00dev, conf->antenna_sel);
+-	rt2500usb_config_duration(rt2x00dev, conf->short_slot_time);
++	rt2500usb_config_duration(rt2x00dev,
++				  conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
+ 	rt2500usb_config_phymode(rt2x00dev, conf->phymode);
  
  	/*
- 	 * We have 2 TX queues: TX and PRIO.
 Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
 ===================================================================
 --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
 +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-@@ -2785,18 +2785,12 @@ static int rt73usb_init_hw(struct rt2x00
- 	 */
- 	hw->version = IEEE80211_VERSION;
- 	hw->name = DRV_NAME;
--	hw->host_gen_beacon = 1;
--	hw->host_gen_beacon_template = 0;
--	hw->device_hides_wep = 0;
--	hw->rx_includes_fcs = 0;
--	hw->host_broadcast_ps_buffering = 1;
--	hw->wep_include_iv = 1;
--	hw->data_nullfunc_ack = 1;
--	hw->no_tkip_wmm_hwaccel = 1;
--	hw->extra_hdr_room = 0;
--	hw->device_strips_mic = 0;
--	hw->monitor_during_oper = 1;
--	hw->fraglist = 0;
-+	hw->flags = IEEE80211_HW_HOST_GEN_BEACON |
-+		    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
-+		    IEEE80211_HW_WEP_INCLUDE_IV |
-+		    IEEE80211_HW_DATA_NULLFUNC_ACK |
-+		    IEEE80211_HW_NO_TKIP_WMM_HWACCEL |
-+		    IEEE80211_HW_MONITOR_DURING_OPER;
+@@ -771,7 +771,8 @@ static void rt73usb_config_rate(struct r
+ 
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+ 	value = SIFS + PLCP
+-		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
++		+ (2 * ((conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME) ?
++			SHORT_SLOT_TIME : SLOT_TIME))
+ 		+ preamble
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field32(&reg, TXRX_CSR0_RX_ACK_TIMEOUT, value);
+@@ -2252,7 +2253,8 @@ static int rt73usb_config(struct net_dev
+ 		conf->power_level);
+ 	rt73usb_config_txpower(rt2x00dev, conf->power_level);
+ 	rt73usb_config_antenna(rt2x00dev, conf->antenna_sel, conf->phymode);
+-	rt73usb_config_duration(rt2x00dev, conf->short_slot_time);
++	rt73usb_config_duration(rt2x00dev,
++				conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
+ 	rt73usb_config_phymode(rt2x00dev, conf->phymode);
  
  	/*
- 	 * We have full WMM capabilities.
 
 --
