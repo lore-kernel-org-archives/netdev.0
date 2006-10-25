@@ -1,112 +1,180 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Thu, 26 Oct 2006 00:00:28 +0200
-Message-ID: <1161813628.8884.14.camel@johannes.berg>
-References: <20061024140212.GB17543@devicescape.com>
-	 <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net>
-	 <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
-	 <200610241853.03135.flamingice@sourmilk.net>
-	 <43e72e890610251043y22fb9ce6ne5e036dd58f36505@mail.gmail.com>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
+Date: Wed, 25 Oct 2006 15:04:06 -0700
+Message-ID: <20061025220406.GA5413@devicescape.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-+rB8hQbpOIBq5uIwH6Rn"
-Cc: Michael Wu <flamingice@sourmilk.net>,
-	Simon Barber <simon@devicescape.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>, Hong Liu <hong.liu@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	David Kimdon <david.kimdon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:32451 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751215AbWJYWBs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 18:01:48 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890610251043y22fb9ce6ne5e036dd58f36505@mail.gmail.com>
+Received: from mail.devicescape.com ([207.138.119.2]:18883 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751698AbWJYWEL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 18:04:11 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="remove_d80211_fifo_qdisc.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+wme.c needs a generic fifo qdisc for each hardware queue.  Switch 
+wme.c to use the generic fifo qdisc in net/sched/sch_fifo.c.  This allows
+removal of net/d80211/fifo_qdisc.c which isn't particularily tied to
+IEEE 802.11 in any way.
 
---=-+rB8hQbpOIBq5uIwH6Rn
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-On Wed, 2006-10-25 at 13:43 -0400, Luis R. Rodriguez wrote:
+Index: wireless-dev/net/d80211/Makefile
+===================================================================
+--- wireless-dev.orig/net/d80211/Makefile
++++ wireless-dev/net/d80211/Makefile
+@@ -21,6 +21,3 @@ obj-$(CONFIG_D80211) += 80211.o rc80211_
+ 	wme.o \
+ 	$(80211-objs-y)
+ 
+-ifeq ($(CONFIG_NET_SCHED),)
+-  80211-objs += fifo_qdisc.o
+-endif
+Index: wireless-dev/net/d80211/wme.c
+===================================================================
+--- wireless-dev.orig/net/d80211/wme.c
++++ wireless-dev/net/d80211/wme.c
+@@ -18,8 +18,6 @@
+ #include "ieee80211_i.h"
+ #include "wme.h"
+ 
+-#define CHILD_QDISC_OPS pfifo_qdisc_ops
+-
+ static inline int WLAN_FC_IS_QOS_DATA(u16 fc)
+ {
+ 	return (fc & 0x8C) == 0x88;
+@@ -433,7 +431,7 @@ static int wme_qdiscop_init(struct Qdisc
+ 	/* create child queues */
+ 	for (i = 0; i < queues; i++) {
+ 		skb_queue_head_init(&q->requeued[i]);
+-		q->queues[i] = qdisc_create_dflt(qd->dev, &CHILD_QDISC_OPS);
++		q->queues[i] = qdisc_create_dflt(qd->dev, &pfifo_qdisc_ops);
+ 		if (q->queues[i] == 0) {
+ 			q->queues[i] = &noop_qdisc;
+ 			printk(KERN_ERR "%s child qdisc %i creation failed", dev->name, i);
+Index: wireless-dev/net/d80211/fifo_qdisc.c
+===================================================================
+--- wireless-dev.orig/net/d80211/fifo_qdisc.c
++++ /dev/null
+@@ -1,102 +0,0 @@
+-/*
+- * Copyright 2005, Devicescape Software, Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * If building without CONFIG_NET_SCHED we need a simple
+- * fifo qdisc to install by default as the sub-qdisc.
+- * This is a simple replacement for sch_fifo.
+- */
+-
+-#include <linux/skbuff.h>
+-#include <net/pkt_sched.h>
+-#include <net/d80211.h>
+-#include "ieee80211_i.h"
+-#include "wme.h"
+-
+-static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc* qd)
+-{
+-	struct sk_buff_head *q = qdisc_priv(qd);
+-
+-	if (skb_queue_len(q) > qd->dev->tx_queue_len) {
+-		qd->qstats.drops++;
+-		kfree_skb(skb);
+-		return NET_XMIT_DROP;
+-	}
+-
+-	skb_queue_tail(q, skb);
+-	qd->q.qlen++;
+-	qd->bstats.bytes += skb->len;
+-	qd->bstats.packets++;
+-
+-	return NET_XMIT_SUCCESS;
+-}
+-
+-
+-static int pfifo_requeue(struct sk_buff *skb, struct Qdisc* qd)
+-{
+-	struct sk_buff_head *q = qdisc_priv(qd);
+-
+-	skb_queue_head(q, skb);
+-	qd->q.qlen++;
+-	qd->bstats.bytes += skb->len;
+-	qd->bstats.packets++;
+-
+-	return NET_XMIT_SUCCESS;
+-}
+-
+-
+-static struct sk_buff *pfifo_dequeue(struct Qdisc* qd)
+-{
+-	struct sk_buff_head *q = qdisc_priv(qd);
+-
+-	return skb_dequeue(q);
+-}
+-
+-
+-static int pfifo_init(struct Qdisc* qd, struct rtattr *opt)
+-{
+-	struct sk_buff_head *q = qdisc_priv(qd);
+-
+-	skb_queue_head_init(q);
+-	return 0;
+-}
+-
+-
+-static void pfifo_reset(struct Qdisc* qd)
+-{
+-	struct sk_buff_head *q = qdisc_priv(qd);
+-
+-	skb_queue_purge(q);
+-	qd->q.qlen = 0;
+-}
+-
+-
+-static int pfifo_dump(struct Qdisc *qd, struct sk_buff *skb)
+-{
+-	return skb->len;
+-}
+-
+-
+-struct Qdisc_ops pfifo_qdisc_ops =
+-{
+-	.next = NULL,
+-	.cl_ops = NULL,
+-	.id = "ieee80211_pfifo",
+-	.priv_size = sizeof(struct sk_buff_head),
+-
+-	.enqueue = pfifo_enqueue,
+-	.dequeue = pfifo_dequeue,
+-	.requeue = pfifo_requeue,
+-	.drop = NULL,
+-
+-	.init = pfifo_init,
+-	.reset = pfifo_reset,
+-	.destroy = NULL,
+-	.change = NULL,
+-
+-	.dump = pfifo_dump,
+-};
+-
+Index: wireless-dev/net/d80211/Kconfig
+===================================================================
+--- wireless-dev.orig/net/d80211/Kconfig
++++ wireless-dev/net/d80211/Kconfig
+@@ -3,6 +3,7 @@ config D80211
+ 	select CRYPTO
+ 	select CRYPTO_ARC4
+ 	select CRYPTO_AES
++	select NET_SCHED
+ 	---help---
+ 	This option enables the hardware independent IEEE 802.11
+ 	networking stack.
 
-> I guess my hope was that d80211 would just be more than a softmac
-> implementation. When I hear wireless stack I don't think "softmac
-> implementation", I think a robust set of headers and device
-> definitions which all wireless devices can share.
-
-Not just that, a bunch of library functions for example for crypto would
-be nice too. That's part of why I've been proposing that the tkip stuff
-be library functions that the drivers can call if required, instead of
-the bitfields.
-
-Currently, there's lot of top-down stuff in d80211, it does things which
-depend on flags and then instructs the driver to do something. This is
-good for a bunch of things, but in some cases where devices vary wildly
-it may be better to go for library functions instead. IMHO the TKIP key
-computation is such a case, it's trivial for a driver to call phase1 and
-phase2 when required.
-
-> Also I thought we'd ditch WE as it seems we keep fixing it with gum
-> (as seen by Linville's latest ABI compatibility fix).=20
-
-Well, that was sort of necessary.
-
-> If that wasn't
-> the case then I'm suggesting it -- can we consider ditching WE?
-
-Well, no. We can make it a second-class citizen like I did with the
-cfg80211 work where I made it just one userspace interface for cfg80211
-which admittedly sometimes strange behaviour, but it's still there and
-current operations should still work with it (and I'd consider not
-working a bug except if userspace never calls 'commit' and expects
-things to work)
-
-> I'd say lets just go for a
-> userspace MLME as its already written but I seriously think we need to
-> ditch replace WE first.
-
-It seems no one has a plan on what to do though.
-
- - Jiri's trying to fix the SMP issues. That's great.
- - Jiri also would like to expand ieee80211_conf.c, the stuff I
-   started for cfg80211
- - I'd like to see a header cleanup, it's necessary. Part of the problem
-   here is all the sub-ioctl WE foo. Clean that up by moving them into
-   cfg80211 as required, there's basically one user, wpa_supplicant (and
-   maybe hostapd), screw the others if there are any
- - fix people's minds to not expect a perfect solution immediately but
-   accept something that can be expanded on later. I think we need to
-   accept some breakage in our development trees to get anywhere at all.
-
-Actually, the last point should be first.
-
-Enough rant from me for today,
-johannes
-
---=-+rB8hQbpOIBq5uIwH6Rn
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUART/ee6Vg1VMiehFYAQJLPhAAkPp4cV5ZmJrJrUJliXBnkKy5KvLBvWJK
-Ewt0aLQbcStuQ0yHf8rGPDGKAyHNnPXz8doVRTBCGn7OzcM2xgTtJjat8FvXaG8E
-FPOcrbGbZl+D/vybLZmA4eX/6qEEs4sS7csDZMThzCRl5gxDENJZpFXbXD5lW4wM
-CqIRZYo31qWbzCN+mC6UrxzhHcn7dB+MIAd8+bdWazFg7hduQxmBGrK4BsSZ628v
-MKA3YjV6Um++zIpQW9aY1H5PTibKeRs1XeaYO/W1i5GxQCaz+treqRsqRpWrbhC6
-yhaaEzgQf4MbVcHiHuqBa/5aEmhBombxyWcYU1oPjDUuGqcg146aPr0zu8qA8R8z
-w2/YJJu+nA2anz+MFtoYBWR7C5Auziu1laJ7K7sazgZFf57Q4b42J6y0JjN0dz5Z
-4sY1rd9FMv+2fMVoNJt5uoY5f8FMJg3JxUSaJjOOKFxt35FmSKFTsVs2mGG4UQFB
-plmWF4mB+UkxWgsMVsSNr8TiSzPoNLTRAu+3dtiCb5fhGE/eYdBQh6/JVYw+U72J
-g5LkbMAQxfYfiv83gTL2GSdIq2vBDaJULG8kK0Bb0hZvWDdNOfZ262ftuwz/N504
-tuvRpOfSpCRTluwNbJnqLy+YWxD5OkRmRmRlK+4YobpL/97ZIxTM7CAi2yxvBO1K
-xnFW687jeG0=
-=J1/l
------END PGP SIGNATURE-----
-
---=-+rB8hQbpOIBq5uIwH6Rn--
-
+--
