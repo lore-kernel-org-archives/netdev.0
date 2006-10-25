@@ -1,46 +1,79 @@
-From: Gavin McCullagh <gavin.mccullagh@nuim.ie>
-Subject: Re: [PATCH] fix integer overflow in H-TCP congestion control
-Date: Wed, 25 Oct 2006 09:47:26 +0100
-Message-ID: <20061025084726.GE18364@nuim.ie>
-References: <20061024141739.GB18364@nuim.ie>
- <20061024.153023.131917915.davem@davemloft.net>
-Reply-To: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
+Date: Wed, 25 Oct 2006 10:50:45 +0200
+Message-ID: <1161766245.2767.17.camel@ux156>
+References: <1161335976.21402.11.camel@devlinux-hong>
+	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
+	 <20061023145646.32bbd59f@griffin.suse.cz>
+	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
+	 <1161679134.7258.6.camel@devlinux-hong>  <1161681021.2840.23.camel@ux156>
+	 <1161764889.8668.13.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, doug.leith@nuim.ie, baruch@ev-en.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nuim.ie ([149.157.1.19]:13053 "EHLO LARCH.MAY.IE")
-	by vger.kernel.org with ESMTP id S1423047AbWJYIr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 04:47:28 -0400
-Received: from retina-bcl.hamilton.local ([149.157.192.252])
- by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01M8RSRB5A7K018PMS@NUIM.IE>
- for netdev@vger.kernel.org; Wed, 25 Oct 2006 09:47:41 +0000 (GMT)
-In-reply-to: <20061024.153023.131917915.davem@davemloft.net>
-To: David Miller <davem@davemloft.net>
-Content-disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:14477 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1423104AbWJYItr
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 04:49:47 -0400
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1161764889.8668.13.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2006-10-25 at 16:28 +0800, Hong Liu wrote:
 
-When using H-TCP with a single flow on a 500Mbit connection (or less
-actually), alpha can exceed 65000, so alpha needs to be a u32.
+> I'd prefer to let the stack tell the driver when there is new phase1 key
+> generated.
 
-Signed-off-by: Gavin McCullagh <gavin.mccullagh@nuim.ie>
-Signed-off-by: Doug Leith <doug.leith@nuim.ie>
+Fine too, I guess.
 
+> +	u8 tkip_keylen;
 
-diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
-index 6edfe5e..8072b6d 100644
---- a/net/ipv4/tcp_htcp.c
-+++ b/net/ipv4/tcp_htcp.c
-@@ -23,7 +23,7 @@ module_param(use_bandwidth_switch, int, 
- MODULE_PARM_DESC(use_bandwidth_switch, "turn on/off bandwidth switcher");
+What do you need that for? The driver should know whether it requested a
+phase 1 or phase 2 key.
+
+> +	u8 tkip_key[16];/* generated RC4/phase1 key for hw TKIP */
+
+Do we really have to stick this into this structure? But I'll let Jiri
+figure out how to remove the structure bloat :)
  
- struct htcp {
--	u16	alpha;		/* Fixed point arith, << 7 */
-+	u32	alpha;		/* Fixed point arith, << 7 */
- 	u8	beta;           /* Fixed point arith, << 7 */
- 	u8	modeswitch;     /* Delay modeswitch until we had at least one congestion event */
- 	u32	last_cong;	/* Time since last congestion event end */
+> +	/* calculate Michael MIC for an MSDU when doing hwcrypto */
+> +#define IEEE80211_HW_TKIP_INCLUDE_MMIC (1<<12)
+> +	/* Do TKIP phase1 key mixing in stack to support cards only do
+> +	 * phase2 key mixing when doing hwcrypto */
+> +#define IEEE80211_HW_TKIP_REQ_PHASE1_KEY (1<<13)
+> +	/* Do TKIP phase1 and phase2 key mixing in stack and send the generated
+> +	 * per-packet RC4 key with each TX frame when doing hwcrypto */
+> +#define IEEE80211_HW_TKIP_REQ_PHASE2_KEY (1<<14)
 
+Maybe a comment indicating that you must not set both of these flags
+would be good. Or (see below)
+
+Should there be some flag indicating if the hw/firmware checked the MIC
+on reception? The current code has bad assumptions there:
+
+(from the pre-flags version)
+
+        /* Some devices handle Michael MIC internally and do not include MIC in
+         * the received packets passed up. device_strips_mic must be set
+         * for such devices. The 'encryption' frame control bit is expected to
+         * be still set in the IEEE 802.11 header with this option unlike with
+         * the device_hides_wep configuration option.
+         */
+        unsigned int device_strips_mic:1;
+
+What if the devices leaves the MIC there but indicates if it was checked?
+ 
+> +		if (flags & IEEE80211_HW_TKIP_REQ_PHASE1_KEY) {
+...
+> +		} else if (flags & IEEE80211_HW_TKIP_REQ_PHASE2_KEY) {
+...
+
+if you change the order of these tests then setting both flags will be
+fine.
+
+johannes
