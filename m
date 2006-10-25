@@ -1,44 +1,57 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: [PATCH 2.6.19-rc3 2/2] ehea: 64K page support fix
-Date: Thu, 26 Oct 2006 02:21:27 +1000
-Message-ID: <20061025162126.GB25324@krispykreme>
-References: <200610251312.01235.ossthema@de.ibm.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: How to grab a block of binary data w/out using ioctls?
+Date: Wed, 25 Oct 2006 09:30:02 -0700
+Message-ID: <453F910A.3040801@candelatech.com>
+References: <453D61E8.8020400@candelatech.com> <20061023215448.f4f6c95a.randy.dunlap@oracle.com> <20061024050014.GC12506@havoc.gtf.org> <453ECB2C.3070202@candelatech.com> <20061025024718.GB23769@havoc.gtf.org> <20061024213549.92cbbeb0.randy.dunlap@oracle.com> <20061025044621.GA32486@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <tklein@de.ibm.com>, Jeff Garzik <jeff@garzik.org>,
-	Jan-Bernd Themann <themann@de.ibm.com>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200610251312.01235.ossthema@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:16274 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1423163AbWJYQdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 12:33:49 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <20061025044621.GA32486@havoc.gtf.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik wrote:
+> On Tue, Oct 24, 2006 at 09:35:49PM -0700, Randy Dunlap wrote:
+>   
+>>> Please grep for sysfs_create_bin_file, you will find plenty of examples.
+>>>       
+>> Hm, I thought that sysfs binary files were supposed to be
+>> for "transparent" blobs of data, not for structured data.
+>> E.g., a "firmware" blob would be OK.
+>>     
+>
+> Depends.  Normally ASCII is greatly preferred, but passing in/out big
+> data structures can be a huge pain, thunking to/from ASCII.
+>   
+This is my scenario exactly.  It is also much easier to make sure the 
+data is
+coherent if I can grab it all at once.
 
-Hi,
+In my case, I'm wanting to add this to the pktgen module, for reporting 
+stats.  But,
+it seems sysfs is designed mostly for drivers with some sort of 'object' 
+behind it.
 
-> +#ifdef CONFIG_PPC_64K_PAGES
-> +	/* To support 64k pages we must round to 64k page boundary */
-> +	epas->kernel.addr =
-> +		ioremap((paddr_kernel & 0xFFFFFFFFFFFF0000), PAGE_SIZE) +
-> +		(paddr_kernel & 0xFFFF);
-> +#else
->  	epas->kernel.addr = ioremap(paddr_kernel, PAGE_SIZE);
-> +#endif
+Would I need to create some faked out dummy object in order to use sysfs 
+with
+pktgen?
 
-Cant you just use PAGE_MASK, ~PAGE_MASK and remove the ifdefs
-completely?
+I also notice there is already a /sys/modules/pktgen node in sysfs..is 
+there any easy way to
+stick my binary file interface in that directory?
 
-Anton
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
