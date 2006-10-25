@@ -1,77 +1,73 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH] ucc_geth: change to use generic address mapping routine
-Date: Wed, 25 Oct 2006 19:11:14 +0800
-Message-ID: <453F4652.2070805@freescale.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 2.6.19-rc3 1/2] ehea: kzalloc GFP_ATOMIC fix
+Date: Wed, 25 Oct 2006 13:11:42 +0200
+Message-ID: <200610251311.43009.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: jgarzik@pobox.com
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:37830 "EHLO
+	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1423340AbWJYMBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 08:01:15 -0400
+Content-Disposition: inline
+To: Jeff Garzik <jeff@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Private address mapping routine immrbar_virt_to_phys() is removed
-from qe_lib. The patch changes ucc_geth driver to use generic routine
-iopa().
+This patch fixes kzalloc parameters (GFP_ATOMIC instead of GFP_KERNEL)
 
-Signed-off-by: Li Yang <leoli@freescale.com>
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 ---
- drivers/net/ucc_geth.c |   29 ++++++-----------------------
- 1 files changed, 6 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index b378880..8eb1e94 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3062,21 +3062,11 @@ static int ucc_geth_startup(struct ucc_g
- 		endOfRing =
- 		    ugeth->p_tx_bd_ring[i] + (ug_info->bdRingLenTx[i] -
- 					      1) * sizeof(struct qe_bd);
--		if (ugeth->ug_info->uf_info.bd_mem_part == MEM_PART_SYSTEM) {
--			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
--				 (u32) virt_to_phys(ugeth->p_tx_bd_ring[i]));
--			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
-+		out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-+				iopa((unsigned long)ugeth->p_tx_bd_ring[i]));
-+		out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
- 				 last_bd_completed_address,
--				 (u32) virt_to_phys(endOfRing));
--		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
--			   MEM_PART_MURAM) {
--			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
--				 (u32) immrbar_virt_to_phys(ugeth->
--							    p_tx_bd_ring[i]));
--			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
--				 last_bd_completed_address,
--				 (u32) immrbar_virt_to_phys(endOfRing));
--		}
-+				iopa((unsigned long)endOfRing));
- 	}
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index eb7d44d..4538c99 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -586,8 +586,8 @@ int ehea_sense_port_attr(struct ehea_por
+ 	u64 hret;
+ 	struct hcp_ehea_port_cb0 *cb0;
  
- 	/* schedulerbasepointer */
-@@ -3328,15 +3318,8 @@ static int ucc_geth_startup(struct ucc_g
- 	/* Setup the table */
- 	/* Assume BD rings are already established */
- 	for (i = 0; i < ug_info->numQueuesRx; i++) {
--		if (ugeth->ug_info->uf_info.bd_mem_part == MEM_PART_SYSTEM) {
--			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
--				 (u32) virt_to_phys(ugeth->p_rx_bd_ring[i]));
--		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
--			   MEM_PART_MURAM) {
--			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
--				 (u32) immrbar_virt_to_phys(ugeth->
--							    p_rx_bd_ring[i]));
--		}
-+		out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-+			 iopa((unsigned long)ugeth->p_rx_bd_ring[i]));
- 		/* rest of fields handled by QE */
- 	}
+-	cb0 = kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+-	if (!cb0) {
++	cb0 = kzalloc(H_CB_ALIGNMENT, GFP_ATOMIC);   /* May be called via */
++	if (!cb0) {                                  /* ehea_neq_tasklet() */
+ 		ehea_error("no mem for cb0");
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -765,8 +765,7 @@ static void ehea_parse_eqe(struct ehea_a
+ 
+ 		if (EHEA_BMASK_GET(NEQE_PORT_UP, eqe)) {
+ 			if (!netif_carrier_ok(port->netdev)) {
+-				ret = ehea_sense_port_attr(
+-					port);
++				ret = ehea_sense_port_attr(port);
+ 				if (ret) {
+ 					ehea_error("failed resensing port "
+ 						   "attributes");
+@@ -1502,7 +1501,7 @@ static void ehea_promiscuous(struct net_
+ 	if ((enable && port->promisc) || (!enable && !port->promisc))
+ 		return;
+ 
+-	cb7 = kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
++	cb7 = kzalloc(H_CB_ALIGNMENT, GFP_ATOMIC);
+ 	if (!cb7) {
+ 		ehea_error("no mem for cb7");
+ 		goto out;
+@@ -1606,7 +1605,7 @@ static void ehea_add_multicast_entry(str
+ 	struct ehea_mc_list *ehea_mcl_entry;
+ 	u64 hret;
+ 
+-	ehea_mcl_entry = kzalloc(sizeof(*ehea_mcl_entry), GFP_KERNEL);
++	ehea_mcl_entry = kzalloc(sizeof(*ehea_mcl_entry), GFP_ATOMIC);
+ 	if (!ehea_mcl_entry) {
+ 		ehea_error("no mem for mcl_entry");
+ 		return;
