@@ -1,61 +1,56 @@
 From: "Anand Kumria" <wildfire@progsoc.org>
-Subject: Re: [RFC] [PATCH 1/3] adds iso3166-1 support
-Date: Wed, 25 Oct 2006 01:44:52 +0000 (UTC)
-Message-ID: <ehmfij$99h$1@sea.gmane.org>
-References: <43e72e890610231545n389d8a6dy89bb476101953234@mail.gmail.com>
+Subject: Re: [RFC] [PATCH 2/3] adds ieee80211_regdomains support
+Date: Wed, 25 Oct 2006 02:07:03 +0000 (UTC)
+Message-ID: <ehmgs7$cba$1@sea.gmane.org>
+References: <43e72e890610231547k3cf6c590r4abd0a6fe7965fda@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:61909 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1161330AbWJYBz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 21:55:57 -0400
+Received: from main.gmane.org ([80.91.229.2]:14034 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1422732AbWJYCIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 22:08:39 -0400
 Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1GcXu4-0007Si-GQ
-	for netdev@vger.kernel.org; Wed, 25 Oct 2006 03:50:23 +0200
+	id 1GcYBY-0004OO-2R
+	for netdev@vger.kernel.org; Wed, 25 Oct 2006 04:08:04 +0200
 Received: from 88-110-175-230.dynamic.dsl.as9105.com ([88.110.175.230])
         by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
         id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 03:50:00 +0200
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 04:08:04 +0200
 Received: from wildfire by 88-110-175-230.dynamic.dsl.as9105.com with local (Gmexim 0.1 (Debian))
         id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 03:50:00 +0200
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 04:08:04 +0200
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Oct 2006 18:45:23 -0400, Luis R. Rodriguez wrote:
+On Mon, 23 Oct 2006 18:47:25 -0400, Luis R. Rodriguez wrote:
 
-> iso3166-1
+> ieee80211_regdomains
 > 
-> ISO 3166-1, as part of the ISO 3166 standard, provides codes for the names
-> of countries and dependent areas. It was first published in 1974 by
-> the International Organization for Standardization (ISO) and defines three
-> different codes for each area:
+> Breaks down regulatory domains into data structures which allow
+> drivers to share channel and power contraints based on stack
+> regulatory domain. This driver adds in-kernel support for common
+> regulatory domains (such as FCC and ETSI), makes updating the
 
 [snip]
 
-+	r |= iso3166_1_add(887, "YE", "YEM", 
-+		"Yemen");
-+	r |= iso3166_1_add(891, "CS", "SCG", 
-+		"Serbia and Montenegro");
-+	r |= iso3166_1_add(894, "ZM", "ZMB", 
-+		"Zambia");
++/* Stack regulatory domain values. Atheros seems to have started this 
++ * convention and most  hardware vendors followed their example.
++ * Although these are *very* common we allow for a hw-specific
++ * map between stack and device regdomain values. */
++enum stack_regdomain {
++	REGDOMAIN_WORLD		= 0x00, /* World compliance, minimum set */
++	REGDOMAIN_FCC		= 0x10, /* USA */
++	REGDOMAIN_IC		= 0x20, /* Canada */
++	REGDOMAIN_ETSI		= 0x30, /* Europe */
++	REGDOMAIN_SPAIN		= 0x31, /* Spain */
++	REGDOMAIN_FRANCE	= 0x32, /* France */
++	REGDOMAIN_MKK		= 0x40, /* Japan */
++};
++
 
-
-According to the ISO, at:
-
-<http://www.iso.org/iso/en/commcentre/pressreleases/2006/Ref1031.html>
-
-and
-
-<http://www.iso.org/iso/en/prods-services/iso3166ma/03updates-on-iso-3166/nlv12-div.html>
-
-Serbia and Montenegro have been allocated new codes, RS and ME respectively.
-
-Is this ISO3166 stuff supposed to track the standard? If so, what happens when a country splits or two join together?
-
-Will that require lock-step updates to user-space, or will it be insulated byt this changes?
+Why not pick either the country name or the organisation within the country that determines the frequency guidelines?
 
 Regards,
 Anand
