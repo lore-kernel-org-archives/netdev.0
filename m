@@ -1,57 +1,78 @@
-From: "Anand Kumria" <wildfire@progsoc.org>
-Subject: Re: [RFC] [PATCH 2/3] adds ieee80211_regdomains support
-Date: Wed, 25 Oct 2006 02:07:03 +0000 (UTC)
-Message-ID: <ehmgs7$cba$1@sea.gmane.org>
-References: <43e72e890610231547k3cf6c590r4abd0a6fe7965fda@mail.gmail.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH] hostap_plx: fix CIS verification
+Date: Tue, 24 Oct 2006 22:12:24 -0400
+Message-ID: <1161742344.29939.6.camel@dv>
+References: <1161382815.5803.2.camel@dv>  <20061021011943.GC6140@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hostap@shmoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:14034 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1422732AbWJYCIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 22:08:39 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1GcYBY-0004OO-2R
-	for netdev@vger.kernel.org; Wed, 25 Oct 2006 04:08:04 +0200
-Received: from 88-110-175-230.dynamic.dsl.as9105.com ([88.110.175.230])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 04:08:04 +0200
-Received: from wildfire by 88-110-175-230.dynamic.dsl.as9105.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 04:08:04 +0200
-To: netdev@vger.kernel.org
+Received: from c60.cesmail.net ([216.154.195.49]:34479 "EHLO c60.cesmail.net")
+	by vger.kernel.org with ESMTP id S1422763AbWJYCMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 22:12:25 -0400
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20061021011943.GC6140@jm.kir.nu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Oct 2006 18:47:25 -0400, Luis R. Rodriguez wrote:
+Hello, Jouni!
 
-> ieee80211_regdomains
+On Fri, 2006-10-20 at 18:19 -0700, Jouni Malinen wrote: 
+> On Fri, Oct 20, 2006 at 06:20:15PM -0400, Pavel Roskin wrote:
 > 
-> Breaks down regulatory domains into data structures which allow
-> drivers to share channel and power contraints based on stack
-> regulatory domain. This driver adds in-kernel support for common
-> regulatory domains (such as FCC and ETSI), makes updating the
+> > The record length for numerical manufacturer ID should be at least 4
+> > bytes (two 16-bit words).  The code required 5 bytes, which would break
+> > for most (if not all) cards.  Reported by ph35sm@free.fr
+> 
+> >  		case CISTPL_MANFID:
+> > -			if (cis[pos + 1] < 5)
+> > +			if (cis[pos + 1] < 4)
+> 
+> Hmm.. Interesting. I think this was changed from 4 to 5 due to a
+> potential buffer overflow as reported by Coverity tools.. In addition, I
+> think that I spent long time trying to understand why it could be a
+> buffer overflow and since it was changed, likely finally figured out an
+> example case.. Alas, I don't remember what exactly this was anymore.
 
-[snip]
+Coverity has no means to interpret CIS.  However, it may understand
+kmalloc, which allocates CIS_MAX_LEN for the CIS copy.
 
-+/* Stack regulatory domain values. Atheros seems to have started this 
-+ * convention and most  hardware vendors followed their example.
-+ * Although these are *very* common we allow for a hw-specific
-+ * map between stack and device regdomain values. */
-+enum stack_regdomain {
-+	REGDOMAIN_WORLD		= 0x00, /* World compliance, minimum set */
-+	REGDOMAIN_FCC		= 0x10, /* USA */
-+	REGDOMAIN_IC		= 0x20, /* Canada */
-+	REGDOMAIN_ETSI		= 0x30, /* Europe */
-+	REGDOMAIN_SPAIN		= 0x31, /* Spain */
-+	REGDOMAIN_FRANCE	= 0x32, /* France */
-+	REGDOMAIN_MKK		= 0x40, /* Japan */
-+};
-+
+The value of cis[pos + 1] has no bearing on the validity of the access
+to cis[pos + 5] from the point of view of a checking tool.
 
-Why not pick either the country name or the organisation within the country that determines the frequency guidelines?
+> It looks like the comparison of the length field to be <5 was incorrect,
+> but in order to avoid re-introducing any potential buffer overflows,
+> that condition could be extended to verify that pos is small enough..
 
+pos is already checked in the beginning of the loop to be small enough,
+but the check is not strong enough.  The next tuple starts at (pos +
+cis[pos + 1] + 2), and we want that to be at most CIS_MAX_LEN.
+
+That's something Coverity could have found.
+
+So, the right fix would be:
+
+diff --git a/drivers/net/wireless/hostap/hostap_plx.c b/drivers/net/wireless/hostap/hostap_plx.c
+index b5b72db..bc81b13 100644
+--- a/drivers/net/wireless/hostap/hostap_plx.c
++++ b/drivers/net/wireless/hostap/hostap_plx.c
+@@ -364,7 +364,7 @@ #define CIS_MAX_LEN 256
+ 
+ 	pos = 0;
+ 	while (pos < CIS_MAX_LEN - 1 && cis[pos] != CISTPL_END) {
+-		if (pos + cis[pos + 1] >= CIS_MAX_LEN)
++		if (pos + 2 + cis[pos + 1] > CIS_MAX_LEN)
+ 			goto cis_error;
+ 
+ 		switch (cis[pos]) {
+
+I'm rewriting this with "<" because it's easier to read.  Next tuple at
+exactly CIS_MEX_LEN is fine - we just stop precessing at that point.
+
+I'm going to combine this with my previous fix and resend.
+
+-- 
 Regards,
-Anand
+Pavel Roskin
 
