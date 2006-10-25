@@ -1,51 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/3] ethtool: flie option to register dump
-Date: Mon, 23 Oct 2006 13:06:46 -0700
-Message-ID: <20061023130646.43860b79@freekitty>
-References: <20061018104632.27a37d75@freekitty>
-	<20061023105142.13b507a7@dxpl.pdx.osdl.net>
-	<20061023105703.5f1e13eb@dxpl.pdx.osdl.net>
-	<200610241150.19609.netdev@axxeo.de>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH 2.6.19-rc3 2/2] ehea: 64K page support fix
+Date: Thu, 26 Oct 2006 02:21:27 +1000
+Message-ID: <20061025162126.GB25324@krispykreme>
+References: <200610251312.01235.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:5065 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422800AbWJYQW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 12:22:56 -0400
-To: Ingo Oeser <netdev@axxeo.de>
-In-Reply-To: <200610241150.19609.netdev@axxeo.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: Thomas Klein <tklein@de.ibm.com>, Jeff Garzik <jeff@garzik.org>,
+	Jan-Bernd Themann <themann@de.ibm.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <200610251312.01235.ossthema@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Oct 2006 11:50:19 +0200
-Ingo Oeser <netdev@axxeo.de> wrote:
 
-> Hi Stephen,
-> 
-> Stephen Hemminger schrieb:
-> > Add ability to take old raw dumps from a file and decode them.
-> > It is kind of limited because you still need to have same device
-> > as the raw file, but useful for maintainers to decode raw dumps.
-> 
-> What about putting the (Permanent) MAC into the first 4-6 octets 
-> of the hexdump and decode+check+warn using this info first 
-> to avoid mixing up files?
-> 
-> Maybe only the first 4 octets to enhance privacy and still being able
-> to detect known "bad" series.
-> 
-> This might prevent user errors when sending such files
-> to developers.
-> 
-> Regards
-> 
-> Ingo Oeser
+Hi,
 
+> +#ifdef CONFIG_PPC_64K_PAGES
+> +	/* To support 64k pages we must round to 64k page boundary */
+> +	epas->kernel.addr =
+> +		ioremap((paddr_kernel & 0xFFFFFFFFFFFF0000), PAGE_SIZE) +
+> +		(paddr_kernel & 0xFFFF);
+> +#else
+>  	epas->kernel.addr = ioremap(paddr_kernel, PAGE_SIZE);
+> +#endif
 
-The existing output format for raw is fine for piping into utilities
-like hexdump
+Cant you just use PAGE_MASK, ~PAGE_MASK and remove the ifdefs
+completely?
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Anton
