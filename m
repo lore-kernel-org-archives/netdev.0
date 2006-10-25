@@ -1,41 +1,44 @@
-From: "Randy.Dunlap" <randy.dunlap@oracle.com>
-Subject: Re: How to grab a block of binary data w/out using ioctls?
-Date: Tue, 24 Oct 2006 22:07:11 -0700
-Message-ID: <453EF0FF.3070508@oracle.com>
-References: <453D61E8.8020400@candelatech.com> <20061023215448.f4f6c95a.randy.dunlap@oracle.com> <20061024050014.GC12506@havoc.gtf.org> <453ECB2C.3070202@candelatech.com> <20061025024718.GB23769@havoc.gtf.org> <20061024213549.92cbbeb0.randy.dunlap@oracle.com> <20061025044621.GA32486@havoc.gtf.org> <453EED7F.2010806@oracle.com> <20061025050154.GC32486@havoc.gtf.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] bridge: correct print message typo
+Date: Tue, 24 Oct 2006 22:49:09 -0700
+Message-ID: <453EFAD5.60707@osdl.org>
+References: <20061024212458.58a36232.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	NetDev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:45237 "EHLO
-	rgminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1161338AbWJYFFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 01:05:42 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <20061025050154.GC32486@havoc.gtf.org>
+Received: from smtp.osdl.org ([65.172.181.4]:43655 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1423018AbWJYFtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 01:49:50 -0400
+To: Randy Dunlap <randy.dunlap@oracle.com>
+In-Reply-To: <20061024212458.58a36232.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> On Tue, Oct 24, 2006 at 09:52:15PM -0700, Randy.Dunlap wrote:
->> Thanks.  It's not the only one like that.  Also these 3 uses are incorrect 
->> AFAICT:
->>
->> ./drivers/firmware/dell_rbu.c:721:	rc = 
->> sysfs_create_bin_file(&rbu_device->dev.kobj, &rbu_data_attr);
-> 
-> this is ok
-
-ack, thanks for looking.
-
->> ./drivers/firmware/dell_rbu.c:724:	rc = 
->> sysfs_create_bin_file(&rbu_device->dev.kobj, &rbu_image_type_attr);
->> ./drivers/firmware/dell_rbu.c:727:	rc = 
->> sysfs_create_bin_file(&rbu_device->dev.kobj,
-> 
-> these appear to be incorrect
-
--- 
-~Randy
+Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+>
+> Correct message typo/spello.
+>
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> ---
+>  net/bridge/br_sysfs_br.c |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+>
+> --- linux-2619-rc3-pv.orig/net/bridge/br_sysfs_br.c
+> +++ linux-2619-rc3-pv/net/bridge/br_sysfs_br.c
+> @@ -376,7 +376,7 @@ int br_sysfs_addbr(struct net_device *de
+>  
+>  	err = sysfs_create_bin_file(brobj, &bridge_forward);
+>  	if (err) {
+> -		pr_info("%s: can't create attribue file %s/%s\n",
+> +		pr_info("%s: can't create attribute file %s/%s\n",
+>  			__FUNCTION__, dev->name, bridge_forward.attr.name);
+>  		goto out2;
+>  	}
+>
+>
+> ---
+>   
+no problemo.
