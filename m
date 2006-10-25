@@ -1,79 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Wed, 25 Oct 2006 10:50:45 +0200
-Message-ID: <1161766245.2767.17.camel@ux156>
-References: <1161335976.21402.11.camel@devlinux-hong>
-	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
-	 <20061023145646.32bbd59f@griffin.suse.cz>
-	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
-	 <1161679134.7258.6.camel@devlinux-hong>  <1161681021.2840.23.camel@ux156>
-	 <1161764889.8668.13.camel@devlinux-hong>
+From: Hong Liu <hong.liu@intel.com>
+Subject: about 802.11i IBSS support
+Date: Wed, 25 Oct 2006 16:54:41 +0800
+Message-ID: <1161766481.8668.38.camel@devlinux-hong>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>
+Cc: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:14477 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1423104AbWJYItr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 04:49:47 -0400
-To: Hong Liu <hong.liu@intel.com>
-In-Reply-To: <1161764889.8668.13.camel@devlinux-hong>
+Received: from mga02.intel.com ([134.134.136.20]:44292 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S1423135AbWJYJBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 05:01:35 -0400
+To: Jouni Malinen <jkm@devicescape.com>, Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-25 at 16:28 +0800, Hong Liu wrote:
+Hi,
+I am reading the 802.11i IBSS spec and
+trying to find if it is OK to add patches to d80211 to support this feature.
 
-> I'd prefer to let the stack tell the driver when there is new phase1 key
-> generated.
+For 802.11i IBSS to work, each STA assumes two roles: supplicant + authenticator.
+Usually in BSS network, authenticator is in AP.
+The problem is the distribution of group keys.
+The group key is used for one-to-many communication.
+In BSS, the one is the AP, so the AP is responsible for the distribution of the group key.
+In IBSS, every STA has its own group key, used to broadcast data to other STAs.
 
-Fine too, I guess.
+When a STA (say S1) joins in an IBSS network with N STAs,
+it must negotiate keys with all N STAs.
+The process for negotiation with one STA is as follows:
+1. S1 init a 4-way handshake with one STA (say S2),
+   to derive the pairwise key between them and then S1 sends its group key to S2,
+   let S2 can decrypt s1's broadcast data.
+2. S2 init the second 4-way handshake with S1, the main purpose for this 4-way handshake
+   is for S2 to send its group key to S1, although this will also derive a second pairwise key.
+3. Because in an IBSS there are two 4-Way Handshakes between 
+   any two STA Supplicants and Authenticators, the pairwise key used between any two STAs
+   is from the 4-Way Handshake initiated by the STA Authenticator with the higher MAC address.
+So any STA in an IBSS network with N STAs must keep 2N-1 keys (N-1 for pairwise key and N for group key).
 
-> +	u8 tkip_keylen;
+We need the following parts to make 802.11i IBSS work:
 
-What do you need that for? The driver should know whether it requested a
-phase 1 or phase 2 key.
+1. for the d80211 part: I don't think there will be much efforts.
+   We may add a group key to each sta_info for decrypting multicast data from that STA.
+   And in RX path, we need to add code to select the correct group key for decryption.
+   And also we need to store our own group key used to send multicast data to others.
 
-> +	u8 tkip_key[16];/* generated RC4/phase1 key for hw TKIP */
+   It should not be difficult because the infrastructures are all there in the dscape stack.
 
-Do we really have to stick this into this structure? But I'll let Jiri
-figure out how to remove the structure bloat :)
- 
-> +	/* calculate Michael MIC for an MSDU when doing hwcrypto */
-> +#define IEEE80211_HW_TKIP_INCLUDE_MMIC (1<<12)
-> +	/* Do TKIP phase1 key mixing in stack to support cards only do
-> +	 * phase2 key mixing when doing hwcrypto */
-> +#define IEEE80211_HW_TKIP_REQ_PHASE1_KEY (1<<13)
-> +	/* Do TKIP phase1 and phase2 key mixing in stack and send the generated
-> +	 * per-packet RC4 key with each TX frame when doing hwcrypto */
-> +#define IEEE80211_HW_TKIP_REQ_PHASE2_KEY (1<<14)
+2. wpa_supplicant: this is the big part, we need to implement the authenticator
+   in it. Not sure how much efforts needed?
 
-Maybe a comment indicating that you must not set both of these flags
-would be good. Or (see below)
-
-Should there be some flag indicating if the hw/firmware checked the MIC
-on reception? The current code has bad assumptions there:
-
-(from the pre-flags version)
-
-        /* Some devices handle Michael MIC internally and do not include MIC in
-         * the received packets passed up. device_strips_mic must be set
-         * for such devices. The 'encryption' frame control bit is expected to
-         * be still set in the IEEE 802.11 header with this option unlike with
-         * the device_hides_wep configuration option.
-         */
-        unsigned int device_strips_mic:1;
-
-What if the devices leaves the MIC there but indicates if it was checked?
- 
-> +		if (flags & IEEE80211_HW_TKIP_REQ_PHASE1_KEY) {
-...
-> +		} else if (flags & IEEE80211_HW_TKIP_REQ_PHASE2_KEY) {
-...
-
-if you change the order of these tests then setting both flags will be
-fine.
-
-johannes
+Thanks,
+Hong
