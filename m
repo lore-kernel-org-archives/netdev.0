@@ -1,149 +1,197 @@
-From: "XP Software" <duplicates@raveloop.com>
-Subject: New software uploaded by Roy on Oct 25 02:10:00 -4 2006
-Date: Wed, 25 Oct 2006 02:25:57 -0600
-Message-ID: <000001c6f7fd$8cf08f80$0100007f@localhost>
+From: "Ananda Raju" <Ananda.Raju@neterion.com>
+Subject: RE: [PATCH] s2io: add PCI error recovery support
+Date: Wed, 25 Oct 2006 02:29:33 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77DC1C9B@nekter>
+Mime-Version: 1.0
 Content-Type: text/plain;
-    charset="us-ascii"
-    Content-Transfer-Encoding: 7bit
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>,
+	<linux-pci@atrey.karlin.mff.cuni.cz>, <netdev@vger.kernel.org>,
+	"Jeff Garzik" <jgarzik@pobox.com>, "Andrew Morton" <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-68-238-200-110.phil.east.verizon.net ([68.238.200.110]:65475
-	"helo localhost") by vger.kernel.org with SMTP id S1161360AbWJYG0A
+Received: from barracuda.s2io.com ([72.1.205.138]:62138 "EHLO
+	barracuda.s2io.com") by vger.kernel.org with ESMTP id S1423058AbWJYGc7 convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 02:26:00 -0400
-To: <netdev@vger.kernel.org>
+	Wed, 25 Oct 2006 02:32:59 -0400
+Content-class: urn:content-classes:message
+To: "Linas Vepstas" <linas@austin.ibm.com>,
+	"Wen Xiong" <wenxiong@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi, 
 
-Roy has uploaded some new software for you!
+s2io_card_down() will do few BAR0 read/write. As per
+pci-error-recovery.txt Documentation we are not supposed to do any new
+IO in error_detected(). 
+
+Can you try using 
+
+atomic_set(&sp->card_state, CARD_DOWN); 
+
+instead of s2io_card_down().
+
+Also we have to add following if statement in beginning of s2io_isr().
+
+if (atomic_read(&nic->card_state) == CARD_DOWN)
+	return IRQ_NOTHANDLED.
+
+If it is ok to do BAR0 read/write in error_detected() then patch is OK. 
+
+Ananda 
+-----Original Message-----
+From: Linas Vepstas [mailto:linas@austin.ibm.com] 
+Sent: Tuesday, October 24, 2006 2:55 PM
+To: Raghavendra Koushik; Ananda Raju; Wen Xiong
+Cc: linux-kernel@vger.kernel.org; linux-pci@atrey.karlin.mff.cuni.cz;
+netdev@vger.kernel.org; Jeff Garzik; Andrew Morton
+Subject: [PATCH] s2io: add PCI error recovery support
 
 
-Click here to view available updated software:
-http://oemkon.com/?Roy
+Koushik, Raju,
+Please review, comment, and if you find this acceptable, 
+please forward upstream.
 
+--linas
 
-well?
-firewall, so large ftp/http transfers, etc, will really slow
-filter for a Hewlett Packard LaserJet III-Si printer:
-10.4.9.4.5.
-	  3.00 orchid:mary
-prompt, we use a trusted machine and the `key' program.  (There are
-	other things, all of the kernel messages from every successful
-first disk.  If the disklabel was damaged, use disklabel(8) to re-
-ESDI is an acronym that means Enhanced Small Device Interface.  It is
-	that they be distributed as source code, not binaries.
-PATH=/usr/X11R6/bin:$PATH; export PATH
-type (in most cases this is drive type 47).
-lurking there, you may be disappointed by the one or two rather
-``links''), and ethernet hardware addresses.
-		      state one more more times since the last
-provider's IP address) to use in talking to it.  If you do not know
-the official standard at hand:
-it can generate large amounts of log data as one log line
-``contrib'' subdirectory.  In this case, we could now retrieve the
-adapters around that gratuitously generate a BREAK condition for
-sio0: type 16550A
-10.4.2.2.2.  Differential buses
-$Id: submitters.sgml,v 1.2.4.5 1996/07/16 16:01:35 jkh Exp $
-	bus like it normally does.  Instead, the DMA only asserts the
-For example, on a sample FreeBSD 1.1.5.1 system, /etc/rc.serial reads:
-This is the easiest kind of change to make as it does not involve any
-kernel.
-2. Drivers built into the kernel that use the BIOS call mechanism to
-signal, or in the case of the floppy disk controller, -DACK2 is
-set send pack 1024
-cd /freebsd/distdir
-printed by users, and charge for usage.  Then you truncate all the
-software to use the printer.	It teaches the basics:
-pppd can work in two modes:
-	utilities inoperative.	The second part of the line specifies
-preemption).
-release, read ``about the current release''.	If you're interested in
-computer industry.  The foundation of the SCSI standard was laid by
-On modern devices, sometimes integrated terminators are used. These
-mkdir /mnt/etc
-Makefile.
-capability to the /etc/printcap file.  When users submit jobs with the
-time. In this case the route will be automatically deleted. These
-		      categories have priorities, so if
-When you go to do the installation, you should also make sure that you
-host.  Then, you set up LPD to enable access to the printer from
-		      # assigned to the remote machine
-lo0   65535 <Link>			     79     0	    79	   0	 0
-		  UART.)
-/etc/syslog.conf to see to which files syslogd is logging).
-:of=/usr/local/libexec/ofhp:
-one of the supported PCMCIA ethernet cards, also be sure that it is
-on the bus, a discussion follows) must supply terminator power. All
-The following tips and tricks may help you turn a failing (or failed)
-assembled, and ACKNOWLEDGED as a unit.  The high-performance
-may have better performance characteristics.
-o  Support Advansys SCSI controller products.  Coordinator: Justin T.
-tell it to look somewhere else by doing
-	chip, you can comment this line out.
-Include any additional customization commands to your configure script
-oval hole in it which the drive uses to "hook" the tape.  The take-up
-10.4.5.7.22.
-include <bsd.port.mk>
-	commonly-used by devices that cannot transfer the entire block
-printer's entry in /etc/printcap).
-			   Date: Sun Sep 17 11:04:58 1995
-Destination      Gateway		 Flags	   Refs     Use  IfaceMTU    Rtt
-^D
-(text+data+bss+proc0 stuff+other misc) is made available in the form
-and madrigal.fishbaum.de.	If any other host tries to access rose's
-If another word is ready for transmission, the Start Bit for the new
-% mkdir Mathematica
-disk	       wd3     at wdc1 drive 1
-The typical /etc/sliphome/slip.login file looks like this:
-pid=`ps ax |grep kermit |grep -v grep|awk '{print $1;}'`
-your printers, usage patterns, and maintenance fees and have come up
-Once you've picked a base delta to start from, you will also need all
-needed.  The DMA will de-assert the -DACK2 signal, so that the FDC
-	 ;;
-0x12 read -
-setting up SLIP are described in this chapter.
-streams well.  And, of course, you can use any other filter program
-by default).
-by 386BSD and the Free Software Foundation.  It was a fairly
-o  Costales, Brian, et al.  Sendmail. O'Reilly & Associates, Inc.,
-In modern systems there are two types of Break signals.  If the Break
-simple.
-# cd /dev
-/project
-1. Review the ``supported    configurations'' section of this
-product work?  You will find us receptive to your requests, given that
-%  That is it
-an alternate using the dumpon(8) command.  Dumps to non-swap devices,
-ISBN 1-55558-051-3
-Note that psof does not charge for header pages.
-This cache is able to keep the tape streaming in almost any
-o  It will take less time to boot because it does not have to spend
-7    5    AV	 102  SG/GND	---  Signal Ground
-overridden on the command line to utilize the capacity of current tape
-		      more important events first and the host
-So, what can you do?
-10.4.5.7.
-<URL:ftp.FreeBSD/pub/FreeBSD/FreeBSD-
-communications rate than 19.2 Kbps.  Here is an example of a gettytab
-Associates, Inc., 1993.
-Stay away from low-level formatters that mark all sectors of a track
-		      If Bit 0 is set to "1" (FIFOs enabled),
-# reset ppp interface
-Recognizing your `crypt' mechanism
-software, please DO NOT get it from a USA or Canada site.  You will
-Sweden
-Use the dumpon(8) command to tell the kernel where to dump to (note
-	    # it will be used to route packets via PPP link
-Many of the differences COMTEST reports have to do with timing.  In
-Attributes [ 0 ] ?
-SCSI harddisks to a SCSI bus (e.g. an Emulex MD21 found in old Sun
-#  at the end to eject the last page.
-10.4.6.  * CD-ROM drives
-trees, though other people may find it useful for other purposes as
-	sio(4) for more information on the proper values for these
-on the inner workings of the ports collection.
-it if it is not found.
-routing protocols (RIP/OSPF/BGP/EGP) to tell other routers about your
+This patch adds PCI error recovery support to the 
+s2io 10-Gigabit ethernet device driver.
 
+Tested, seems to work well.
+
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
+Cc: Ananda Raju <Ananda.Raju@neterion.com>
+Cc: Wen Xiong <wenxiong@us.ibm.com>
+
+----
+ drivers/net/s2io.c |   77
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/s2io.h |    5 +++
+ 2 files changed, 82 insertions(+)
+
+Index: linux-2.6.19-rc1-git11/drivers/net/s2io.c
+===================================================================
+--- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.c	2006-10-20
+12:24:17.000000000 -0500
++++ linux-2.6.19-rc1-git11/drivers/net/s2io.c	2006-10-24
+16:19:49.000000000 -0500
+@@ -434,11 +434,18 @@ static struct pci_device_id s2io_tbl[] _
+ 
+ MODULE_DEVICE_TABLE(pci, s2io_tbl);
+ 
++static struct pci_error_handlers s2io_err_handler = {
++	.error_detected = s2io_io_error_detected,
++	.slot_reset = s2io_io_slot_reset,
++	.resume = s2io_io_resume,
++};
++
+ static struct pci_driver s2io_driver = {
+       .name = "S2IO",
+       .id_table = s2io_tbl,
+       .probe = s2io_init_nic,
+       .remove = __devexit_p(s2io_rem_nic),
++      .err_handler = &s2io_err_handler,
+ };
+ 
+ /* A simplifier macro used both by init and free shared_mem Fns(). */
+@@ -7564,3 +7571,73 @@ static void lro_append_pkt(nic_t *sp, lr
+ 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
+ 	return;
+ }
++
++/**
++ * s2io_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci conneection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
+pci_channel_state_t state)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	netif_device_detach(netdev);
++
++	if (netif_running(netdev)) {
++		/* Reset card */
++		s2io_card_down(sp);
++		sp->device_close_flag = TRUE;	/* Device is shut down.
+*/
++	}
++	pci_disable_device(pdev);
++
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * s2io_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ */
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	if (pci_enable_device(pdev)) {
++		printk(KERN_ERR "s2io: Cannot re-enable PCI device after
+reset.\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++
++	pci_set_master(pdev);
++	s2io_reset(sp);
++
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * s2io_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation.
++ */
++static void s2io_io_resume(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	if (netif_running(netdev)) {
++		if (s2io_card_up(sp)) {
++			printk(KERN_ERR "s2io: can't bring device back
+up after reset\n");
++			return;
++		}
++	}
++
++	netif_device_attach(netdev);
++	netif_wake_queue(netdev);
++}
+Index: linux-2.6.19-rc1-git11/drivers/net/s2io.h
+===================================================================
+--- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.h	2006-10-20
+12:24:17.000000000 -0500
++++ linux-2.6.19-rc1-git11/drivers/net/s2io.h	2006-10-20
+12:41:39.000000000 -0500
+@@ -1013,6 +1013,11 @@ static void queue_rx_frame(struct sk_buf
+ static void update_L3L4_header(nic_t *sp, lro_t *lro);
+ static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb,
+u32 tcp_len);
+ 
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
++
+pci_channel_state_t state);
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
++static void s2io_io_resume(struct pci_dev *pdev);
++
+ #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
 
