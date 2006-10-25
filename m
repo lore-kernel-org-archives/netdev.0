@@ -1,63 +1,58 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: about 802.11i IBSS support
-Date: Wed, 25 Oct 2006 08:48:15 -0700
-Message-ID: <20061025154815.GA15348@instant802.com>
-References: <1161766481.8668.38.camel@devlinux-hong>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Network virtualization/isolation
+Date: Wed, 25 Oct 2006 17:51:28 +0200
+Message-ID: <453F8800.9070603@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-27.dex002.intermedia.net ([64.78.21.112]:30621 "EHLO
-	dhost002-27.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751725AbWJYPsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 11:48:30 -0400
-To: Hong Liu <hong.liu@intel.com>
-Content-Disposition: inline
-In-Reply-To: <1161766481.8668.38.camel@devlinux-hong>
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:30096 "EHLO
+	mtagate4.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1751213AbWJYPv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 11:51:29 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k9PFpSnh243300
+	for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 15:51:28 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9PFs37t2441320
+	for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 16:54:03 +0100
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9PFpRT3032326
+	for <netdev@vger.kernel.org>; Wed, 25 Oct 2006 16:51:28 +0100
+To: shemminger@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 25, 2006 at 04:54:41PM +0800, Hong Liu wrote:
+Hi Stephen,
 
-> I am reading the 802.11i IBSS spec and
-> trying to find if it is OK to add patches to d80211 to support this feature.
+currently the work to make the container enablement into the kernel is 
+doing good progress. The ipc, pid, utsname and filesystem system 
+ressources are isolated/virtualized relying on the namespaces concept.
 
-Large parts of this will be outside d80211, but yes, I think d80211
-should be made ready to support this (mainly in the multiple group keys
-area).
+But, there is missing the network virtualization/isolation. Two 
+approaches are proposed: doing the isolation at the layer 2 and at the 
+layer 3.
 
-> When a STA (say S1) joins in an IBSS network with N STAs,
-> it must negotiate keys with all N STAs.
+The first one instanciate a network device by namespace and add a peer 
+network device into the "root namespace", all the routing ressources are 
+   relative to the namespace. This work is done by Andrey Savochkin from 
+the openvz project.
 
-I don't think it is required to negotiate keys with all STAs of the
-network unless it actually needs to communicate with them, i.e., there
-may be cases where it is not needed to send or receive data from some of
-the nodes.
+The second relies on the routes and associates the network namespace 
+pointer with each route. When the traffic is incoming, the packet 
+follows an input route and retrieve the associated network namespace. 
+When the traffic is outgoing, the packet, identified from the network 
+namespace is coming from, follows only the routes matching the same 
+network namespace. This work is made by me.
 
-> We need the following parts to make 802.11i IBSS work:
-> 
-> 1. for the d80211 part: I don't think there will be much efforts.
->    We may add a group key to each sta_info for decrypting multicast data from that STA.
->    And in RX path, we need to add code to select the correct group key for decryption.
->    And also we need to store our own group key used to send multicast data to others.
+IMHO, we need the two approach, the layer-2 to be able to bring *very* 
+strong isolation for system container with a performance cost and a 
+layer-3 to be able to have good isolation for lightweight container or 
+application container when performances are more important.
 
-This will also include looking into how different WLAN chipsets
-have implemented (or will implement) hardware acceleration for such a
-case.
+Do you have some suggestions ? What is your point of view on that ?
 
-In addition, there will likely be need for some new kernel-to-userspace
-events to notify supplicant/authenticator that communication with a new
-target is needed. I don't think the standard has strict requirements on
-how this is done and there may be different preferences based on the
-application, so adding a generic mechanism for this would be nice.
+Thanks in advance.
 
-> 2. wpa_supplicant: this is the big part, we need to implement the authenticator
->    in it. Not sure how much efforts needed?
-
-This is on my to-do list for wpa_supplicant/hostapd 0.6 branch where it
-will be possible to link in part of wpa_supplicant and hostapd together
-into a single program. In other words, the authenticator code (both IEEE
-802.1X/EAPOL and WPA/WPA2) will be available from hostapd.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+   -- Daniel
