@@ -1,21 +1,27 @@
-From: "John W. Linville" <linville@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Subject: Re: Fwd: [PATCH] bcm43xx: (hopefully) fix watchdog timeouts.
-Date: Tue, 24 Oct 2006 20:37:26 -0400
-Message-ID: <20061025003726.GC7340@tuxdriver.com>
+Date: Tue, 24 Oct 2006 20:28:14 -0400
+Message-ID: <20061025002806.GC2843@tuxdriver.com>
 References: <200610241631.18911.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>, stable@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:7177 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1161310AbWJYAh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2006 20:37:56 -0400
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <200610241631.18911.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200610241631.18911.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 Michael,
@@ -53,7 +59,7 @@ On Tue, Oct 24, 2006 at 04:31:18PM +0200, Michael Buesch wrote:
 > 5secs (which is the case for low or no traffic), it will fire
 > a TX timeout.
 > 
-> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 > 
 > --
 > 
