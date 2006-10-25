@@ -1,56 +1,51 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] s2io: add PCI error recovery support
-Date: Wed, 25 Oct 2006 10:11:24 -0500
-Message-ID: <20061025151123.GF6360@austin.ibm.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77DC1C9B@nekter>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Wed, 25 Oct 2006 08:09:19 -0700
+Message-ID: <453F7E1F.4020406@intel.com>
+References: <45375135.5050206@cj.jp.nec.com> <45379C14.5050901@foo-projects.org> <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wen Xiong <wenxiong@us.ibm.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:44257 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S932439AbWJYPL1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 11:11:27 -0400
-To: Ananda Raju <Ananda.Raju@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77DC1C9B@nekter>
+Received: from mga03.intel.com ([143.182.124.21]:45176 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S932452AbWJYPLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 11:11:42 -0400
+To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+In-Reply-To: <453F6983.6020307@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 25, 2006 at 02:29:33AM -0400, Ananda Raju wrote:
-> Hi, 
+Kenzo Iwami wrote:
+> Hi,
 > 
-> s2io_card_down() will do few BAR0 read/write. As per
-> pci-error-recovery.txt Documentation we are not supposed to do any new
-> IO in error_detected(). 
-
-Hmm, actually, its harmless to do further i/o. The s2io driver barks
-(as it should) because the result of reads is always 0xffffffff.
-
-> Can you try using 
+>>> This problem originally occurred in a very large cluster system using snmp
+>>> for server management. About two servers panicked each day. The program I sent
+>>> is to reproduce this problem in a very short time. It does occur under normal
+>>> load when there is a lot of servers.
+>> hmm, not good - does your snmp daemon use ethtool excessively? That would certainly be 
+>> painful to the driver (any driver!).
 > 
-> atomic_set(&sp->card_state, CARD_DOWN); 
+> I only looked at the panic message after this problem occurred.
+> I could tell that the snmp daemon caused the panic while trying to process
+> the ethtool's ioctl, but I don't know how often this was called.
+> However, it shouldn't be excessively called because it occurred on a production
+> system while it was idle.
 > 
-> instead of s2io_card_down().
-
-I will try that. I was mostly concerned that s2io_card_down()
-also may do some other "important" things with regards to the driver
-state, things which might be needed to keep the down-up sequence
-symmetrical. I wasn't sure, so I took the conservative route.
-
-> Also we have to add following if statement in beginning of s2io_isr().
+>> Anyway as I said in the same e-mail, we're working on reducing the lock timeout to a 
+>> reasonable time. This will unfortunately take some time, as we need to change some major 
+>> components in the driver to make sure this doesn't happen.
 > 
-> if (atomic_read(&nic->card_state) == CARD_DOWN)
-> 	return IRQ_NOTHANDLED.
+> How about the following approach?
+> If acquiring semaphore fails inside the interrupt handler, acquiring semaphore
+> is abandoned immediately without waiting for timeout.
+> However, I don't know whether this method affects other processes.
 
-Right! Will revise this patch shortly.
+with the current hardware being accessed simultaneously from several users in the 
+kernel, that would lead to large problems - the watchdog task accesses it every 2 
+seconds as it reads the PHY link status, so when one of those fails the driver would 
+have no choice but to reset the entire device.
 
-> If it is ok to do BAR0 read/write in error_detected() then patch is OK. 
-
-Its OK on pSeries, and I beleive it will be OK on PCIE, but I do
-not quite know enough about actual PCIE chipsets.
-
---linas
-
+Auke
