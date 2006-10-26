@@ -1,54 +1,111 @@
-From: "Randy.Dunlap" <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
-Date: Thu, 26 Oct 2006 08:51:09 -0700
-Message-ID: <4540D96D.601@oracle.com>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025201341.GH21200@miggy.org> <20061025151737.1bf4898c.randy.dunlap@oracle.com> <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061025165858.b76b4fd8.randy.dunlap@oracle.com> <20061026154635.GK27968@stusta.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Network virtualization/isolation
+Date: Thu, 26 Oct 2006 08:56:59 -0700
+Message-ID: <20061026085659.33b4c6dd@freekitty>
+References: <453F8800.9070603@fr.ibm.com>
+	<20061023130113.1430b95d@freekitty>
+	<45408397.8070404@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>, toralf.foerster@gmx.de,
-	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
-	link@miggy.org, greg@kroah.com, akpm@osdl.org,
-	zippel@linux-m68k.org, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org, dbrownell@users.sourceforge.net,
-	Arnd Bergmann <arnd@arndb.de>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:9576 "EHLO
-	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1423464AbWJZPxg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 11:53:36 -0400
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20061026154635.GK27968@stusta.de>
+Received: from smtp.osdl.org ([65.172.181.4]:142 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161397AbWJZQCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 12:02:42 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <45408397.8070404@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Wed, Oct 25, 2006 at 04:58:58PM -0700, Randy Dunlap wrote:
->> ...
->> Build tested with CONFIG_MII=y, m, n.
->> ...
->> --- linux-2619-rc3-pv.orig/drivers/usb/net/usbnet.c
->> +++ linux-2619-rc3-pv/drivers/usb/net/usbnet.c
->> @@ -47,6 +47,12 @@
->>  
->>  #define DRIVER_VERSION		"22-Aug-2005"
->>  
->> +#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
->> +#define HAVE_MII		1
->> +#else
->> +#define HAVE_MII		0
->> +#endif
->> ...
-> 
-> I'm too lame to test it, but I bet this will break with
-> CONFIG_USB_USBNET=y, CONFIG_MII=m, and you'll actually need
-> 
->   #if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
-> 
-> And then there's the question whether this amount of #ifdef's is 
-> actually worth avoiding the "select MII"...
+On Thu, 26 Oct 2006 11:44:55 +0200
+Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
 
-Thanks, but that's OK, David posted a different patch for it.
+> Stephen Hemminger wrote:
+> > On Wed, 25 Oct 2006 17:51:28 +0200
+> > Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
+> > 
+> > 
+> >>Hi Stephen,
+> >>
+> >>currently the work to make the container enablement into the kernel is 
+> >>doing good progress. The ipc, pid, utsname and filesystem system 
+> >>ressources are isolated/virtualized relying on the namespaces concept.
+> >>
+> >>But, there is missing the network virtualization/isolation. Two 
+> >>approaches are proposed: doing the isolation at the layer 2 and at the 
+> >>layer 3.
+> >>
+> >>The first one instanciate a network device by namespace and add a peer 
+> >>network device into the "root namespace", all the routing ressources are 
+> >>   relative to the namespace. This work is done by Andrey Savochkin from 
+> >>the openvz project.
+> >>
+> >>The second relies on the routes and associates the network namespace 
+> >>pointer with each route. When the traffic is incoming, the packet 
+> >>follows an input route and retrieve the associated network namespace. 
+> >>When the traffic is outgoing, the packet, identified from the network 
+> >>namespace is coming from, follows only the routes matching the same 
+> >>network namespace. This work is made by me.
+> >>
+> >>IMHO, we need the two approach, the layer-2 to be able to bring *very* 
+> >>strong isolation for system container with a performance cost and a 
+> >>layer-3 to be able to have good isolation for lightweight container or 
+> >>application container when performances are more important.
+> >>
+> >>Do you have some suggestions ? What is your point of view on that ?
+> >>
+> >>Thanks in advance.
+> >>
+> >>   -- Daniel
+> > 
+> > 
+> > Any solution should allow both and it should build on the existing netfilter infrastructure.
+> > 
+> > 
+> 
+> The problem is netfilter can not give a good isolation, eg. how can be 
+> handled netstat command ? or avoid to see IP addresses assigned to 
+> another container when doing ifconfig ? Furthermore, one of the biggest 
+> interest of the network isolation is to bring mobility with a container 
+> and that can only be done if the network ressources inside the kernel 
+> can be identified by container in order to checkpoint/restart them.
+> 
+> The all-in-namespace solution, ie. at layer 2, is very good in terms of 
+> isolation but it adds an non-negligeable overhead. The layer 3 isolation 
+>   has an insignifiant overhead, a good isolation perfectly adapted for 
+> applications containers.
+> 
+> Unfortunatly, from the point of view of implementation, layer 3 can not 
+> be a subset of layer 2 isolation when using "all-in-namespace" and layer 
+> 2 isolation can not be a extension of the layer 3 isolation.
+> 
+> I think the layer 2 and the layer 3 implementations can coexists. You 
+> can for example create a system container with a layer 2 isolation and 
+> inside it add a layer 3 isolation.
+> 
+> Does that make sense ?
+> 
+> 	-- Daniel
+
+Assuming you are talking about pseudo-virtualized environments,
+there are several different discussions.
+
+1. How should the namespace be isolated for the virtualized containered
+   applications?
+
+2. How should traffic be restricted into/out of those containers. This
+   is where existing netfilter, classification, etc, should be used.
+   The network code is overly rich as it is, we don't need another
+   abstraction.
+
+3. Can the virtualized containers be secure? No. we really can't keep
+   hostile root in a container from killing system without going to
+   a hypervisor.
+
+
+
+
 
 -- 
-~Randy
+Stephen Hemminger <shemminger@osdl.org>
