@@ -1,32 +1,40 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC] tcp: setsockopt congestion control autoload
-Date: Thu, 26 Oct 2006 09:22:53 +0400
-Message-ID: <20061026052253.GA10188@2ka.mipt.ru>
-References: <20061025110843.0cbd18a7@freekitty>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 1/2] !CONFIG_NET_ETHERNET unsets CONFIG_PHYLIB, but  CONFIG_USB_USBNET also needs CONFIG_PHYLIB
+Date: Wed, 25 Oct 2006 22:24:27 -0700
+Message-ID: <200610252224.28300.david-b@pacbell.net>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <200610251924.04321.david-b@pacbell.net> <45404237.3070307@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org,
+	linux-usb-devel@lists.sourceforge.net, link@miggy.org,
+	greg@kroah.com, akpm@osdl.org, zippel@linux-m68k.org,
+	torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	dbrownell@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:14253 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1423410AbWJZFYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 01:24:00 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from smtp109.sbc.mail.mud.yahoo.com ([68.142.198.208]:52355 "HELO
+	smtp109.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1423406AbWJZFYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 01:24:32 -0400
+To: "Randy.Dunlap" <randy.dunlap@oracle.com>
+In-Reply-To: <45404237.3070307@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <20061025110843.0cbd18a7@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 25, 2006 at 11:08:43AM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
-> If user asks for a congestion control type with setsockopt() then it
-> may be available as a module not included in the kernel already. 
-> It should be autoloaded if needed.  This is done already when
-> the default selection is change with sysctl, but not when application
-> requests via sysctl.
+On Wednesday 25 October 2006 10:05 pm, Randy.Dunlap wrote:
+
+> > 
+> > ... MII should still depend on ETHERNET, right?
+> > Just not limited to 10/100 Ethernet.
 > 
-> Only reservation is are there any bad security implications from this?
+> There is no such config symbol.  NET_ETHERNET means 10/100 ethernet.
+> Gigabit ethernet doesn't use the ETHERNET symbol (and doesn't use
+> this flavor of MII IIRC).
 
-What if system is badly configured, so it is possible to load malicious
-module by kernel?
+Ah, you're right -- sorry.  Only Kconfig and net/ipv4/arp.c even
+look for that config symbol.
 
--- 
-	Evgeniy Polyakov
+- Dave
+
