@@ -1,51 +1,54 @@
-From: Hong Liu <hong.liu@intel.com>
-Subject: Re: about 802.11i IBSS support
-Date: Thu, 26 Oct 2006 10:47:24 +0800
-Message-ID: <1161830844.9670.13.camel@devlinux-hong>
-References: <1161766481.8668.38.camel@devlinux-hong>
-	 <20061025154815.GA15348@instant802.com>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
+Date: Wed, 25 Oct 2006 20:17:04 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B54EF@dhost002-46.dex002.intermedia.net>
+References: <45401435.3080407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:29367 "EHLO mga09.intel.com")
-	by vger.kernel.org with ESMTP id S1161113AbWJZCyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 22:54:23 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20061025154815.GA15348@instant802.com>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:27822 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1422886AbWJZDQu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 23:16:50 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <45401435.3080407@trash.net>
+To: "Patrick McHardy" <kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-10-25 at 23:48, Jouni Malinen wrote:
-> On Wed, Oct 25, 2006 at 04:54:41PM +0800, Hong Liu wrote:
-> 
-> > I am reading the 802.11i IBSS spec and
-> > trying to find if it is OK to add patches to d80211 to support this feature.
-> 
-> Large parts of this will be outside d80211, but yes, I think d80211
-> should be made ready to support this (mainly in the multiple group keys
-> area).
-> 
-> > When a STA (say S1) joins in an IBSS network with N STAs,
-> > it must negotiate keys with all N STAs.
-> 
-> I don't think it is required to negotiate keys with all STAs of the
-> network unless it actually needs to communicate with them, i.e., there
-> may be cases where it is not needed to send or receive data from some of
-> the nodes.
+The Wi-Fi alliance's test plans for their WMM specification are written
+assuming you use certain specific DSCP values. Since WMM is the only QoS
+mechanism that is widely used with 802.11 I followed the WMM values in
+the default 802.11 qdisc implementation. Most windows 802.11 drivers do
+the same thing.
 
-This may add complexity to the implementation.
+Simon
+ 
 
-If the STA wants to send broadcast data, it must distribute its group
-key to all other STAs, and then it can send out the packet.
+-----Original Message-----
+From: Patrick McHardy [mailto:kaber@trash.net] 
+Sent: Wednesday, October 25, 2006 6:50 PM
+To: Simon Barber
+Cc: David Kimdon; netdev@vger.kernel.org; John W. Linville; Jiri Benc
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
+d80211-specific qdisc
 
-For RX, if it receives data from other STA it needs to find out whether it
-has finished key negotiation with that STA. And it can not decrypt the data
-until key negotiation is finished.
+Simon Barber wrote:
+> Pfifo_fast does not make sense because the 802.11 qdisc already 
+> categorizes the frames based on DSCP. The better thing would be to 
+> extract the pfifo qdisc so that it does not require NET_SCHED, but 
+> this is more work.
 
-If we negotiate keys at the beginning, things will be simple.
-But the cost is we may negotiating keys with STAs we may not communicate with.
+It wouldn't really hurt though since all frames queued to a band already
+have the same priority, so pfifo_fast behaves similar to fifo.
 
-Thanks,
-Hong
+BTW, is there a specific reason for using DSCP? Normally Linux uses
+rt_tos2priority and prio2band for determining a priority for IP packets.
+I don't want to argue that one is better than the other, but there is
+some value in keeping things consistent ..
+
