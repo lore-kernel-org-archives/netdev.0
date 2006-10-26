@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: cubic scaling error
-Date: Wed, 25 Oct 2006 23:04:25 -0700 (PDT)
-Message-ID: <20061025.230425.126576070.davem@davemloft.net>
-References: <20061025105229.3b93aa17@freekitty>
+Subject: Re: [PATCH] fix integer overflow in H-TCP congestion control
+Date: Wed, 25 Oct 2006 23:06:15 -0700 (PDT)
+Message-ID: <20061025.230615.92585270.davem@davemloft.net>
+References: <20061024141739.GB18364@nuim.ie>
+	<20061024.153023.131917915.davem@davemloft.net>
+	<20061025084726.GE18364@nuim.ie>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: doug.leith@nuim.ie, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, doug.leith@nuim.ie, baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:24746
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26026
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423422AbWJZGE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 02:04:29 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20061025105229.3b93aa17@freekitty>
+	id S1423432AbWJZGGT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 02:06:19 -0400
+To: gavin.mccullagh@nuim.ie
+In-Reply-To: <20061025084726.GE18364@nuim.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 25 Oct 2006 10:52:29 -0700
+From: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+Date: Wed, 25 Oct 2006 09:47:26 +0100
 
-> Doug Leith observed a discrepancy between the version of CUBIC described
-> in the papers and the version in 2.6.18. A math error related to scaling
-> causes Cubic to grow too slowly.
+> When using H-TCP with a single flow on a 500Mbit connection (or less
+> actually), alpha can exceed 65000, so alpha needs to be a u32.
 > 
-> Patch is from "Sangtae Ha" <sha2@ncsu.edu>. I validated that
-> it does fix the problems.
-> 
-> See the following to show behavior over 500ms 100 Mbit link.
-> 
-> Sender (2.6.19-rc3) ---  Bridge (2.6.18-rt7) ------- Receiver (2.6.19-rc3)
->                     1G      [netem]           100M
-> 
-> 	http://developer.osdl.org/shemminger/tcp/2.6.19-rc3/cubic-orig.png
-> 	http://developer.osdl.org/shemminger/tcp/2.6.19-rc3/cubic-fix.png
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+> Signed-off-by: Doug Leith <doug.leith@nuim.ie>
 
-Applied, thanks a lot Stephen.
+Applied, thank you.
