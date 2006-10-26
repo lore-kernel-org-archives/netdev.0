@@ -1,73 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Thu, 26 Oct 2006 16:43:35 +0200
-Message-ID: <1161873815.2866.39.camel@ux156>
-References: <20061024140212.GB17543@devicescape.com>
-	 <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net>
-	 <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
-	 <200610241853.03135.flamingice@sourmilk.net>
-	 <43e72e890610251043y22fb9ce6ne5e036dd58f36505@mail.gmail.com>
-	 <1161813628.8884.14.camel@johannes.berg>
-	 <1161873333.2927.9.camel@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC] tcp: setsockopt congestion control autoload
+Date: Thu, 26 Oct 2006 18:57:13 +0400
+Message-ID: <20061026145712.GA11062@2ka.mipt.ru>
+References: <20061025110843.0cbd18a7@freekitty> <20061026052253.GA10188@2ka.mipt.ru> <4540C791.5060200@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Simon Barber <simon@devicescape.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>, Hong Liu <hong.liu@intel.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:44194 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1423539AbWJZOmo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 10:42:44 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1161873333.2927.9.camel@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:1991 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1423541AbWJZO5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 10:57:17 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <4540C791.5060200@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-10-26 at 10:35 -0400, Dan Williams wrote:
+On Thu, Oct 26, 2006 at 07:34:57AM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
+> Evgeniy Polyakov wrote:
+> >On Wed, Oct 25, 2006 at 11:08:43AM -0700, Stephen Hemminger 
+> >(shemminger@osdl.org) wrote:
+> >  
+> >>If user asks for a congestion control type with setsockopt() then it
+> >>may be available as a module not included in the kernel already. 
+> >>It should be autoloaded if needed.  This is done already when
+> >>the default selection is change with sysctl, but not when application
+> >>requests via sysctl.
+> >>
+> >>Only reservation is are there any bad security implications from this?
+> >>    
+> >
+> >What if system is badly configured, so it is possible to load malicious
+> >module by kernel?
+> >
+> The kernel module loader has a fixed path. So one would have to be able 
+> to create a module
+> in /lib/modules/<kernel release> in order to get the malicious code 
+> loaded.  If the intruder could
+> put a module there, it would be just as easy to patch an existing module 
+> and have the
+> hack available on reboot.
 
-> >  - I'd like to see a header cleanup, it's necessary. Part of the problem
-> >    here is all the sub-ioctl WE foo. Clean that up by moving them into
-> >    cfg80211 as required, there's basically one user, wpa_supplicant (and
-> >    maybe hostapd), screw the others if there are any
+It just calls /sbin/modprobe, which in turn runs tons of scripts in
+/etc/hotplug, modprobe and other places...
+In the paranoid case we should not allow any user to load kernel
+modules, even known ones. Should this option be guarded by some
+capability check?
 
-Oh, right, by sub-ioctl I was referring to the mess of the private
-ioctls d80211 has for WE, including sub-items again.
-
-> While wpa_supplicant is certainly the main client for stuff directly
-> related to setting up a connection, there are quite a few other users of
-> general WE calls to pull information out of the card, or to receive scan
-> events. 
-
-Of course.
-
-> So if you want maximum compatibility for a limited amount of
-> work, you can probably consider wpa_supplicant the only client of
-> 
-> (s = set, g = get)
-> 
-> 1) [s|g] ENCODEEXT
-> 2) [s|g] AUTH
-> 3) [s|g] MLME
-> 4) [s] RATE
-> 5) [s] FREQ
-> 6) [s] SENS
-> 7) [s] AP
-> 8) [s|g] RTS
-> 9) [s|g] FRAG
-> 10)[s|g] GENIE
-> 11)[s|g] PMKSA
-
-Sounds about right to me. I did actually intend to keep these intact but
-drop the private ones with the 10xx sub-numbers.
-
-> 4) [s|g] POWER (power management does this, not wpa_supplicant)
-
-Does it work for any card?
-
-johannes
+-- 
+	Evgeniy Polyakov
