@@ -1,95 +1,68 @@
-From: neologix@free.fr
-Subject: [SOFTMAC] - level of verbosity
-Date: Thu, 26 Oct 2006 19:46:48 +0200
-Message-ID: <1161884808.4540f488d02d4@imp3-g19.free.fr>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [RFC] tcp: setsockopt congestion control autoload
+Date: Thu, 26 Oct 2006 13:29:26 -0400
+Message-ID: <4540F076.70801@psc.edu>
+References: <20061025110843.0cbd18a7@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:43410 "EHLO smtp5-g19.free.fr")
-	by vger.kernel.org with ESMTP id S1423643AbWJZRW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 13:22:57 -0400
-Received: from imp3-g19.free.fr (imp3-g19.free.fr [212.27.42.3])
-	by smtp5-g19.free.fr (Postfix) with ESMTP id 1EFB727BAF
-	for <netdev@vger.kernel.org>; Thu, 26 Oct 2006 19:22:56 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from mailer1.psc.edu ([128.182.58.100]:8391 "EHLO mailer1.psc.edu")
+	by vger.kernel.org with ESMTP id S1945906AbWJZR3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 13:29:48 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061025110843.0cbd18a7@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
-I'd just like to know whether it is be possible to reduce the verbosity level of
-softmac.
-My wireless is working fine, but my logs are polluted by:
+My reservation in doing this would be that as an administrator, I may 
+want to choose exactly what congestion control is available any any 
+given time.  The different congestion control algorithms are not 
+necessarily fair to each other.
 
-/* LOG */
+If the modules are autoloaded, I could still enforce this by moving the 
+modules out of /lib/modules, but I think it's cleaner to do it by 
+loading/unloading modules as appropriate.
 
-printk: 20 messages suppressed.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
-network is unknown.
-SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
-network is unknown.
-SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
-item exists.
-SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
-item exists.
-SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
-item exists.
-SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
-item exists.
-SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
-item exists.
-SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
-item exists.
-SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
-item exists.
-SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
-item exists.
-SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
-item exists.
-SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
-network is unknown.
-
-/* LOG */
-
-It's kinda polluting the interesting parts of logs, and furthermore, when it's
-actually written to the file, it provokes regular disk activity, which is
-really annoying.
-
-It built my kernel without the softmac debugging option:
-
-$ cat .config | grep SOFTMAC
-CONFIG_IEEE80211_SOFTMAC=y
-# CONFIG_IEEE80211_SOFTMAC_DEBUG is not set
-
-but it's still really talkative :-)
-
-So, is there anyway to get rid of this?
-
-Anyway, thanks for your work,
-
-cheers,
-
-cf
+   -John
 
 
+Stephen Hemminger wrote:
+> If user asks for a congestion control type with setsockopt() then it
+> may be available as a module not included in the kernel already. 
+> It should be autoloaded if needed.  This is done already when
+> the default selection is change with sysctl, but not when application
+> requests via sysctl.
+> 
+> Only reservation is are there any bad security implications from this?
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> --- orig/net/ipv4/tcp_cong.c	2006-10-25 13:55:34.000000000 -0700
+> +++ new/net/ipv4/tcp_cong.c	2006-10-25 13:58:39.000000000 -0700
+> @@ -153,9 +153,19 @@
+>  
+>  	rcu_read_lock();
+>  	ca = tcp_ca_find(name);
+> +	/* no change asking for existing value */
+>  	if (ca == icsk->icsk_ca_ops)
+>  		goto out;
+>  
+> +#ifdef CONFIG_KMOD
+> +	/* not found attempt to autoload module */
+> +	if (!ca) {
+> +		rcu_read_unlock();
+> +		request_module("tcp_%s", name);
+> +		rcu_read_lock();
+> +		ca = tcp_ca_find(name);
+> +	}
+> +#endif
+>  	if (!ca)
+>  		err = -ENOENT;
+>  
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
