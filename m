@@ -1,68 +1,32 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [RFC] tcp: setsockopt congestion control autoload
-Date: Thu, 26 Oct 2006 13:29:26 -0400
-Message-ID: <4540F076.70801@psc.edu>
-References: <20061025110843.0cbd18a7@freekitty>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: TCP congestion graphs
+Date: Thu, 26 Oct 2006 20:50:19 +0200
+Message-ID: <20061026185019.GA32054@c3po.0xdef.net>
+References: <20061025110207.78d38779@freekitty> <000701c6f885$b57aa390$4a580e98@ncsu2cc0c3fa00> <20061025183025.7c4f9d66@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Injong Rhee <rhee@eos.ncsu.edu>, Sangtae Ha <sha2@ncsu.edu>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:8391 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S1945906AbWJZR3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 13:29:48 -0400
+Received: from c3po.0xdef.net ([217.172.181.57]:27153 "EHLO c3po.0xdef.net")
+	by vger.kernel.org with ESMTP id S1423722AbWJZSuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 14:50:20 -0400
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061025110843.0cbd18a7@freekitty>
+Content-Disposition: inline
+In-Reply-To: <20061025183025.7c4f9d66@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My reservation in doing this would be that as an administrator, I may 
-want to choose exactly what congestion control is available any any 
-given time.  The different congestion control algorithms are not 
-necessarily fair to each other.
+Hi Stephen,
 
-If the modules are autoloaded, I could still enforce this by moving the 
-modules out of /lib/modules, but I think it's cleaner to do it by 
-loading/unloading modules as appropriate.
+is your rt-patch to netem public available?
 
-   -John
+Best regards
+
+HGN
 
 
-Stephen Hemminger wrote:
-> If user asks for a congestion control type with setsockopt() then it
-> may be available as a module not included in the kernel already. 
-> It should be autoloaded if needed.  This is done already when
-> the default selection is change with sysctl, but not when application
-> requests via sysctl.
-> 
-> Only reservation is are there any bad security implications from this?
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> --- orig/net/ipv4/tcp_cong.c	2006-10-25 13:55:34.000000000 -0700
-> +++ new/net/ipv4/tcp_cong.c	2006-10-25 13:58:39.000000000 -0700
-> @@ -153,9 +153,19 @@
->  
->  	rcu_read_lock();
->  	ca = tcp_ca_find(name);
-> +	/* no change asking for existing value */
->  	if (ca == icsk->icsk_ca_ops)
->  		goto out;
->  
-> +#ifdef CONFIG_KMOD
-> +	/* not found attempt to autoload module */
-> +	if (!ca) {
-> +		rcu_read_unlock();
-> +		request_module("tcp_%s", name);
-> +		rcu_read_lock();
-> +		ca = tcp_ca_find(name);
-> +	}
-> +#endif
->  	if (!ca)
->  		err = -ENOENT;
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+-- 
+Signed and/or encrypted mails preferd. Key-Id = 0x98350C22
+Fingerprint = 490F 557B 6C48 6D7E 5706  2EA2 4A22 8D45 9835 0C22 
+Key available under: www.jauu.net/download/gnupg_key 
