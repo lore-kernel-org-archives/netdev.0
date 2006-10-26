@@ -1,70 +1,113 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 5/8] netpoll deferred transmit path
-Date: Thu, 26 Oct 2006 15:46:53 -0700
-Message-ID: <20061026225646.186971212@osdl.org>
+Subject: [PATCH 7/8] netpoll queue cleanup
+Date: Thu, 26 Oct 2006 15:46:55 -0700
+Message-ID: <20061026225646.542975736@osdl.org>
 References: <20061026225535.443288276@osdl.org>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:12730 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1945981AbWJZXAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 19:00:00 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:13499 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1423683AbWJZXBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 19:01:03 -0400
 To: David Miller <davem@davemloft.net>
-Content-Disposition: inline; filename=netpoll-defer-tx.patch
+Content-Disposition: inline; filename=netpoll-queue-clean.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the netpoll beast got busy, he tended to babble.
-Instead of talking out of his large mouth as normal,
-he tended to try to snort out other orifices. This lead
-to words (skbs) ending up in odd places (like NIT) that
-he did not intend.
+The beast had a long and not very happy history. At one
+point, a friend (netdump) had asked that he open up a little.
+Well, the friend was long gone now, and the beast had
+this dangling piece hanging (netpoll_queue).
 
-The normal way of talking wouldn't work, but he could
-at least change to using the same tone all the time.
+It wasn't hard to stitch the netpoll_queue back in
+where it belonged and make everything tidy.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 ---
- net/core/netpoll.c |   21 +++++++++++++++++++--
- 1 file changed, 19 insertions(+), 2 deletions(-)
+ drivers/net/netconsole.c |    1 -
+ include/linux/netpoll.h  |    4 ++--
+ net/core/netpoll.c       |   23 +++--------------------
+ 3 files changed, 5 insertions(+), 23 deletions(-)
 
+--- linux-2.6.orig/drivers/net/netconsole.c
++++ linux-2.6/drivers/net/netconsole.c
+@@ -60,7 +60,6 @@ static struct netpoll np = {
+ 	.local_port = 6665,
+ 	.remote_port = 6666,
+ 	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+-	.drop = netpoll_queue,
+ };
+ static int configured = 0;
+ 
+--- linux-2.6.orig/include/linux/netpoll.h
++++ linux-2.6/include/linux/netpoll.h
+@@ -18,7 +18,7 @@ struct netpoll {
+ 	struct net_device *dev;
+ 	char dev_name[16], *name;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+-	void (*drop)(struct sk_buff *skb);
++
+ 	u32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+ 	unsigned char local_mac[6], remote_mac[6];
+@@ -44,7 +44,7 @@ int netpoll_trap(void);
+ void netpoll_set_trap(int trap);
+ void netpoll_cleanup(struct netpoll *np);
+ int __netpoll_rx(struct sk_buff *skb);
+-void netpoll_queue(struct sk_buff *skb);
++
+ 
+ #ifdef CONFIG_NETPOLL
+ static inline int netpoll_rx(struct sk_buff *skb)
 --- linux-2.6.orig/net/core/netpoll.c
 +++ linux-2.6/net/core/netpoll.c
-@@ -55,9 +55,25 @@ static void queue_process(void *p)
- 	struct netpoll_info *npinfo = p;
- 	struct sk_buff *skb;
- 
--	while ((skb = skb_dequeue(&npinfo->txq)))
--		dev_queue_xmit(skb);
-+	while ((skb = skb_dequeue(&npinfo->txq))) {
-+		struct net_device *dev = skb->dev;
- 
-+		if (!netif_device_present(dev) || !netif_running(dev)) {
-+			__kfree_skb(skb);
-+			continue;
-+		}
-+
-+		netif_tx_lock_bh(dev);
-+		if (netif_queue_stopped(dev) ||
-+		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
-+			skb_queue_head(&npinfo->txq, skb);
-+			netif_tx_unlock_bh(dev);
-+
-+			schedule_delayed_work(&npinfo->tx_work, HZ/10);
-+			return;
-+		}
-+		netif_tx_unlock_bh(dev);
-+	}
+@@ -77,19 +77,6 @@ static void queue_process(void *p)
+ 	}
  }
  
- void netpoll_queue(struct sk_buff *skb)
-@@ -756,6 +772,7 @@ void netpoll_cleanup(struct netpoll *np)
- 			if (atomic_dec_and_test(&npinfo->refcnt)) {
- 				skb_queue_purge(&npinfo->arp_tx);
-  				skb_queue_purge(&npinfo->txq);
-+				cancel_rearming_delayed_work(&npinfo->tx_work);
-  				flush_scheduled_work();
+-void netpoll_queue(struct sk_buff *skb)
+-{
+-	struct net_device *dev = skb->dev;
+-	struct netpoll_info *npinfo = dev->npinfo;
+-
+-	if (!npinfo)
+-		kfree_skb(skb);
+-	else {
+-		skb_queue_tail(&npinfo->txq, skb);
+-		schedule_work(&npinfo->tx_work);
+-	}
+-}
+-
+ static int checksum_udp(struct sk_buff *skb, struct udphdr *uh,
+ 			     unsigned short ulen, u32 saddr, u32 daddr)
+ {
+@@ -253,7 +240,7 @@ static void netpoll_send_skb(struct netp
+  	}
  
- 				kfree(npinfo);
+ 	/* don't get messages out of order, and no recursion */
+-	if ( !(np->drop == netpoll_queue && skb_queue_len(&npinfo->txq))
++	if ( skb_queue_len(&npinfo->txq) == 0
+ 	     && npinfo->poll_owner != smp_processor_id()
+ 	     && netif_tx_trylock(dev)) {
+ 
+@@ -274,11 +261,8 @@ static void netpoll_send_skb(struct netp
+ 	}
+ 
+ 	if (status != NETDEV_TX_OK) {
+-		/* requeue for later */
+-		if (np->drop)
+-			np->drop(skb);
+-		else
+-			__kfree_skb(skb);
++		skb_queue_tail(&npinfo->txq, skb);
++		schedule_work(&npinfo->tx_work);
+ 	}
+ }
+ 
+@@ -800,4 +784,3 @@ EXPORT_SYMBOL(netpoll_setup);
+ EXPORT_SYMBOL(netpoll_cleanup);
+ EXPORT_SYMBOL(netpoll_send_udp);
+ EXPORT_SYMBOL(netpoll_poll);
+-EXPORT_SYMBOL(netpoll_queue);
 
 --
 Stephen Hemminger <shemminger@osdl.org>
