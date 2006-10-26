@@ -1,128 +1,88 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: e100: Wait for PHY reset to complete?
-Date: Wed, 25 Oct 2006 18:07:57 -0700
-Message-ID: <45400A6D.4020704@intel.com>
-References: <453F9D4A.8090306@users.sourceforge.net>    <20061025185656.GA19037@electric-eye.fr.zoreil.com>    <453FC693.10705@intel.com> <453FD677.7060405@intel.com> <3699.82.182.159.28.1161819386.squirrel@webmail.sys.kth.se>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
+ qdisc
+Date: Thu, 26 Oct 2006 03:21:10 +0200
+Message-ID: <45400D86.70406@trash.net>
+References: <20061025220406.GA5413@devicescape.com> <453FF357.6060007@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28531 "EHLO mga09.intel.com")
-	by vger.kernel.org with ESMTP id S1422778AbWJZBKR convert rfc822-to-8bit
+Received: from stinky.trash.net ([213.144.137.162]:42738 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S965251AbWJZBVP
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 21:10:17 -0400
-To: =?ISO-8859-1?Q?Anders_Grafstr=F6m?= <grfstrm@users.sourceforge.net>
-In-Reply-To: <3699.82.182.159.28.1161819386.squirrel@webmail.sys.kth.se>
+	Wed, 25 Oct 2006 21:21:15 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <453FF357.6060007@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anders Grafstr=F6m wrote:
-> Auke Kok wrote:
->> Allthough the spec itself didn't talk about phy reset times, I've ra=
-n this
->> patch with
->> some debugging output on a few boxes and did some speed/duplex setti=
-ngs,
->> and the PHY
->> reset returned succesfull after the very first mdio_read, which is b=
-efore
->> any msleep(10)
->> is executed. That is also expected behaviour.
+Patrick McHardy wrote:
+> David Kimdon wrote:
+> 
+>>wme.c needs a generic fifo qdisc for each hardware queue.  Switch 
+>>wme.c to use the generic fifo qdisc in net/sched/sch_fifo.c.  This allows
+>>removal of net/d80211/fifo_qdisc.c which isn't particularily tied to
+>>IEEE 802.11 in any way.
 >>
->> I think you might be confusing this with a MAC reset, which has a
->> documented 10usec
->> timeout (see 8255x developers manual). The driver already adheres to=
- this
->> by doing a
->> 20usec delay after software/selective resets.
->>
->> which gets us back to the original problem: how did your driver end =
-up in
->> loopback mode?
->> (and, how did you figure out that it did??).
->=20
->=20
-> This is what the 2.4.33.3 driver does:
->=20
-> void
-> e100_phy_reset(struct e100_private *bdp)
-> {
->         u16 ctrl_reg;
->         ctrl_reg =3D BMCR_RESET;
->         e100_mdi_write(bdp, MII_BMCR, bdp->phy_addr, ctrl_reg);
->         /* ieee 802.3 : The reset process shall be completed       */
->         /* within 0.5 seconds from the settting of PHY reset bit.  */
->         set_current_state(TASK_UNINTERRUPTIBLE);
->         schedule_timeout(HZ / 2);
-> }
->=20
-> And here
-> http://www.cs.helsinki.fi/linux/linux-kernel/2003-23/1245.html
-> I found this entry:
->=20
-> <scott.feldman@intel.com> (03/06/08 1.1218)
-> [e100] misc
-> <...>
-> * Add 1/2 second delay after PHY reset to allow link partner to
-> see and respond to reset, per IEEE 802.3.
->=20
->=20
-> I ran mii-diag when the LEDs went out and the register dump
-> said it was in loopback. It is somewhat difficult reproduce.
-> It seems to be timing dependent, something else has to occur
-> at the same time.
-> I must confess I have only seen it with the 2.6.13 kernel.
-> I have not been able to reproduce it with 2.6.18.
-> But I have found no change in the driver that would fix it so
-> I suspect the problem is still there.
->=20
-> I have tried adding debug output to see if I can read back the
-> RESET bit in set state, but then the problem refuses to show
-> so I don't think I can rule out an unfinished PHY reset.
+>>-#define CHILD_QDISC_OPS pfifo_qdisc_ops
+>>-
+>> static inline int WLAN_FC_IS_QOS_DATA(u16 fc)
+>> {
+>> 	return (fc & 0x8C) == 0x88;
+>>@@ -433,7 +431,7 @@ static int wme_qdiscop_init(struct Qdisc
+>> 	/* create child queues */
+>> 	for (i = 0; i < queues; i++) {
+>> 		skb_queue_head_init(&q->requeued[i]);
+>>-		q->queues[i] = qdisc_create_dflt(qd->dev, &CHILD_QDISC_OPS);
+>>+		q->queues[i] = qdisc_create_dflt(qd->dev, &pfifo_qdisc_ops);
+>> 		if (q->queues[i] == 0) {
+>> 			q->queues[i] = &noop_qdisc;
+>> 			printk(KERN_ERR "%s child qdisc %i creation failed", dev->name, i);
+>>Index: wireless-dev/net/d80211/Kconfig
+>>===================================================================
+>>--- wireless-dev.orig/net/d80211/Kconfig
+>>+++ wireless-dev/net/d80211/Kconfig
+>>@@ -3,6 +3,7 @@ config D80211
+>> 	select CRYPTO
+>> 	select CRYPTO_ARC4
+>> 	select CRYPTO_AES
+>>+	select NET_SCHED
+> 
+> 
+> 
+> pfifo_fast is available even without CONFIG_NET_SCHED, maybe
+> thats a better choice to avoid unnecessary bloat.
 
-theoretically, yes, the ieee spec PHY reset timeout is kind of silly: i=
-n no way do we=20
-assume that we have re-negotiated link after 1/2 a second! Other code i=
-n the driver=20
-should take care of that, and since it works I'll assume it does ;)
+BTW, I noticed a few bugs while looking at the qdisc handling in
+wireless-dev:
 
-the mdio_read probably acts as a flush to the hardware too - masqueradi=
-ng problems, more=20
-goodness. Perhaps we should do a single read in all cases and forget ab=
-out the timeout=20
-(is there an mdio_write_flush?)
+- wme_qdiscop_enqueue doesn't increment q.qlen for packets queued
+  to q->requeued[], which might cause upper layer code to stop
+  dequeueing if q.qlen reaches zero.
 
-Basically the timeout is wrong: a LINK reset is not a PHY reset. The PH=
-Y is back online=20
-and ready to respond in (probably) a single clock cycle. The link can t=
-ake up to 3=20
-seconds in normal cases. Waiting for 1/2 a second does not fix anything=
- there. Here's=20
-where the 8255x (PHY part) spec abandons us: I don't read anything abou=
-t PHY reset=20
-timeouts in it.
+- classify_1d doesn't care about tc_classify return values.
+  tc_classify may decide to steal packets, drop them, etc. In case
+  of stolen packets this causes use-after-free, otherwise just
+  malfunctions.
 
-Can you try to debug if your while () timeout loop is actually waiting =
-for a significant=20
-amount? something like adding a printk(KERN_ERR "counted down to %d0 ms=
-ec\n", counter);=20
-after the entire while{} loop should show you if there is variation in =
-the PHY reset=20
-time needed for the PHY to be back online.
+- classify_1d returns res.class if it is != -1, which can never happen
+  (except with an empty classifier list because of the explicit
+  initialization, but you should check the return code) since ->get()
+  and ->bind_tcf() both return 0 for invalid classes and the classid
+  otherwise. There's also an off-by-one, classids start at one, so it
+  should return res.class - 1 (or better res.classid - 1, which is
+  meant to be a numerical identifier).
 
-running mii-diag before the link comes back up might be causing the iss=
-ue in the first=20
-place, and certainly suggests a small race.
+- wme_discop_destroy leaks classifier module references and memory
+  when destroying classifiers, it should use tcf_destroy()
 
-Have you tried to run the e100-sbit branch from jgarzik's netdev-2.6 tr=
-ee? We're still=20
-looking into merging this and I guess I should push it to -mm to have i=
-t receive some=20
-testing....
+Considering that it is possibly and may be desirable to attach a
+different qdisc than the built-in multiband qdisc, it might also
+make sense to split the 80211 specific classification in a seperate
+classifier module to allow simple classification of management traffic
+with other qdiscs.
 
-Cheers,
-
-Auke
