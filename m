@@ -1,33 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] tcp: setsockopt congestion control autoload
-Date: Thu, 26 Oct 2006 19:05:03 +0200
-Message-ID: <4540EABF.9020207@trash.net>
-References: <20061025110843.0cbd18a7@freekitty>	<20061026052253.GA10188@2ka.mipt.ru>	<4540C791.5060200@osdl.org>	<20061026145712.GA11062@2ka.mipt.ru> <20061026082314.1dcea52c@freekitty>
+From: neologix@free.fr
+Subject: [SOFTMAC] - level of verbosity
+Date: Thu, 26 Oct 2006 19:46:48 +0200
+Message-ID: <1161884808.4540f488d02d4@imp3-g19.free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44719 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1161435AbWJZRFH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 13:05:07 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061026082314.1dcea52c@freekitty>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:43410 "EHLO smtp5-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1423643AbWJZRW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 13:22:57 -0400
+Received: from imp3-g19.free.fr (imp3-g19.free.fr [212.27.42.3])
+	by smtp5-g19.free.fr (Postfix) with ESMTP id 1EFB727BAF
+	for <netdev@vger.kernel.org>; Thu, 26 Oct 2006 19:22:56 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> No capability check needed. Any additional paranoia belongs in /sbin/modprobe.
-> 
-> There seems to be lots of existing usage where a user can cause a module
-> to be loaded (see bin_fmt, xtables, etc).
+Hi.
+I'd just like to know whether it is be possible to reduce the verbosity level of
+softmac.
+My wireless is working fine, but my logs are polluted by:
+
+/* LOG */
+
+printk: 20 messages suppressed.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
+network is unknown.
+SoftMAC: Received deauthentication packet from 00:14:bf:03:40:68, but that
+network is unknown.
+SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
+item exists.
+SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
+item exists.
+SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
+item exists.
+SoftMAC: Authentication response received from 00:14:bf:03:40:68 but no queue
+item exists.
+SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
+item exists.
+SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
+item exists.
+SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
+item exists.
+SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
+item exists.
+SoftMAC: Authentication response received from 00:0f:66:b9:3d:4c but no queue
+item exists.
+SoftMAC: Received deauthentication packet from 00:0a:79:52:84:6c, but that
+network is unknown.
+
+/* LOG */
+
+It's kinda polluting the interesting parts of logs, and furthermore, when it's
+actually written to the file, it provokes regular disk activity, which is
+really annoying.
+
+It built my kernel without the softmac debugging option:
+
+$ cat .config | grep SOFTMAC
+CONFIG_IEEE80211_SOFTMAC=y
+# CONFIG_IEEE80211_SOFTMAC_DEBUG is not set
+
+but it's still really talkative :-)
+
+So, is there anyway to get rid of this?
+
+Anyway, thanks for your work,
+
+cheers,
+
+cf
 
 
-x_tables is restricted to CAP_NET_ADMIN, but in net/ alone we have
-__sock_create (loads protocol families), sock_ioctl (loads bridge,
-vlan or dlci), the already mentioned netlink case, inet_create
-(loads IP protocols), inet6_create (similar to inet_create), and
-a few more.
 
