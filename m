@@ -1,54 +1,77 @@
 From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
-Date: Wed, 25 Oct 2006 20:17:04 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B54EF@dhost002-46.dex002.intermedia.net>
-References: <45401435.3080407@trash.net>
+Subject: RE: about 802.11i IBSS support
+Date: Wed, 25 Oct 2006 20:26:43 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B54F2@dhost002-46.dex002.intermedia.net>
+References: <1161830844.9670.13.camel@devlinux-hong>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jiri Benc" <jbenc@suse.cz>
+Cc: "Jiri Benc" <jbenc@suse.cz>, "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:27822 "EHLO
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:25524 "EHLO
 	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1422886AbWJZDQu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 23:16:50 -0400
+	id S1422888AbWJZD03 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 23:26:29 -0400
 Content-class: urn:content-classes:message
-In-Reply-To: <45401435.3080407@trash.net>
-To: "Patrick McHardy" <kaber@trash.net>
+In-Reply-To: <1161830844.9670.13.camel@devlinux-hong>
+To: "Hong Liu" <hong.liu@intel.com>,
+	"Jouni Malinen" <jkm@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Wi-Fi alliance's test plans for their WMM specification are written
-assuming you use certain specific DSCP values. Since WMM is the only QoS
-mechanism that is widely used with 802.11 I followed the WMM values in
-the default 802.11 qdisc implementation. Most windows 802.11 drivers do
-the same thing.
+It's not possible to 'negotiate keys at the beginning' - since there is
+no indication of a new station joining an IBSS. The first you ever know
+about a station joining an IBSS is when you receive a frame from that
+station.
 
 Simon
  
 
 -----Original Message-----
-From: Patrick McHardy [mailto:kaber@trash.net] 
-Sent: Wednesday, October 25, 2006 6:50 PM
-To: Simon Barber
-Cc: David Kimdon; netdev@vger.kernel.org; John W. Linville; Jiri Benc
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
-d80211-specific qdisc
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Hong Liu
+Sent: Wednesday, October 25, 2006 7:47 PM
+To: Jouni Malinen
+Cc: Jiri Benc; netdev
+Subject: Re: about 802.11i IBSS support
 
-Simon Barber wrote:
-> Pfifo_fast does not make sense because the 802.11 qdisc already 
-> categorizes the frames based on DSCP. The better thing would be to 
-> extract the pfifo qdisc so that it does not require NET_SCHED, but 
-> this is more work.
+On Wed, 2006-10-25 at 23:48, Jouni Malinen wrote:
+> On Wed, Oct 25, 2006 at 04:54:41PM +0800, Hong Liu wrote:
+> 
+> > I am reading the 802.11i IBSS spec and trying to find if it is OK to
 
-It wouldn't really hurt though since all frames queued to a band already
-have the same priority, so pfifo_fast behaves similar to fifo.
+> > add patches to d80211 to support this feature.
+> 
+> Large parts of this will be outside d80211, but yes, I think d80211 
+> should be made ready to support this (mainly in the multiple group 
+> keys area).
+> 
+> > When a STA (say S1) joins in an IBSS network with N STAs, it must 
+> > negotiate keys with all N STAs.
+> 
+> I don't think it is required to negotiate keys with all STAs of the 
+> network unless it actually needs to communicate with them, i.e., there
 
-BTW, is there a specific reason for using DSCP? Normally Linux uses
-rt_tos2priority and prio2band for determining a priority for IP packets.
-I don't want to argue that one is better than the other, but there is
-some value in keeping things consistent ..
+> may be cases where it is not needed to send or receive data from some 
+> of the nodes.
 
+This may add complexity to the implementation.
+
+If the STA wants to send broadcast data, it must distribute its group
+key to all other STAs, and then it can send out the packet.
+
+For RX, if it receives data from other STA it needs to find out whether
+it has finished key negotiation with that STA. And it can not decrypt
+the data until key negotiation is finished.
+
+If we negotiate keys at the beginning, things will be simple.
+But the cost is we may negotiating keys with STAs we may not communicate
+with.
+
+Thanks,
+Hong
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body of a message to majordomo@vger.kernel.org More majordomo info at
+http://vger.kernel.org/majordomo-info.html
