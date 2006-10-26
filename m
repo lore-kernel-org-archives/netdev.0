@@ -1,51 +1,117 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: watchdog timeout panic in e1000 driver
-Date: Thu, 26 Oct 2006 07:34:13 -0700
-Message-ID: <4540C765.4000800@intel.com>
-References: <45375135.5050206@cj.jp.nec.com> <45379C14.5050901@foo-projects.org> <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com> <453F7E1F.4020406@intel.com> <45408F7B.3050209@cj.jp.nec.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
+Date: Thu, 26 Oct 2006 10:35:33 -0400
+Message-ID: <1161873333.2927.9.camel@localhost.localdomain>
+References: <20061024140212.GB17543@devicescape.com>
+	 <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net>
+	 <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
+	 <200610241853.03135.flamingice@sourmilk.net>
+	 <43e72e890610251043y22fb9ce6ne5e036dd58f36505@mail.gmail.com>
+	 <1161813628.8884.14.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Simon Barber <simon@devicescape.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jean Tourrilhes <jt@hpl.hp.com>, Hong Liu <hong.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:22792 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1423529AbWJZOgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 10:36:48 -0400
-To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
-In-Reply-To: <45408F7B.3050209@cj.jp.nec.com>
+Received: from mx1.redhat.com ([66.187.233.31]:44735 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1423352AbWJZOgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 10:36:39 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1161813628.8884.14.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kenzo Iwami wrote:
-> Hi,
+On Thu, 2006-10-26 at 00:00 +0200, Johannes Berg wrote:
+> On Wed, 2006-10-25 at 13:43 -0400, Luis R. Rodriguez wrote:
 > 
-> Thank you for your comment.
+> > I guess my hope was that d80211 would just be more than a softmac
+> > implementation. When I hear wireless stack I don't think "softmac
+> > implementation", I think a robust set of headers and device
+> > definitions which all wireless devices can share.
 > 
->>>> Anyway as I said in the same e-mail, we're working on reducing the lock timeout to a 
->>>> reasonable time. This will unfortunately take some time, as we need to change some major 
->>>> components in the driver to make sure this doesn't happen.
->>> How about the following approach?
->>> If acquiring semaphore fails inside the interrupt handler, acquiring semaphore
->>> is abandoned immediately without waiting for timeout.
->>> However, I don't know whether this method affects other processes.
->> with the current hardware being accessed simultaneously from several users in the 
->> kernel, that would lead to large problems - the watchdog task accesses it every 2 
->> seconds as it reads the PHY link status, so when one of those fails the driver would 
->> have no choice but to reset the entire device.
+> Not just that, a bunch of library functions for example for crypto would
+> be nice too. That's part of why I've been proposing that the tkip stuff
+> be library functions that the drivers can call if required, instead of
+> the bitfields.
 > 
-> This problem occurs because interrupt handler is executed while the
-> interrupted code is still holding the semaphore. Acquiring the semaphore
-> fails regardless of the timeout period.
+> Currently, there's lot of top-down stuff in d80211, it does things which
+> depend on flags and then instructs the driver to do something. This is
+> good for a bunch of things, but in some cases where devices vary wildly
+> it may be better to go for library functions instead. IMHO the TKIP key
+> computation is such a case, it's trivial for a driver to call phase1 and
+> phase2 when required.
 > 
-> I think the watchdog task will fail trying to read the PHY link status,
-> even if the lock timeout period has been reduced.
+> > Also I thought we'd ditch WE as it seems we keep fixing it with gum
+> > (as seen by Linville's latest ABI compatibility fix). 
+> 
+> Well, that was sort of necessary.
+> 
+> > If that wasn't
+> > the case then I'm suggesting it -- can we consider ditching WE?
+> 
+> Well, no. We can make it a second-class citizen like I did with the
+> cfg80211 work where I made it just one userspace interface for cfg80211
+> which admittedly sometimes strange behaviour, but it's still there and
+> current operations should still work with it (and I'd consider not
+> working a bug except if userspace never calls 'commit' and expects
+> things to work)
+> 
+> > I'd say lets just go for a
+> > userspace MLME as its already written but I seriously think we need to
+> > ditch replace WE first.
+> 
+> It seems no one has a plan on what to do though.
+> 
+>  - Jiri's trying to fix the SMP issues. That's great.
+>  - Jiri also would like to expand ieee80211_conf.c, the stuff I
+>    started for cfg80211
+>  - I'd like to see a header cleanup, it's necessary. Part of the problem
+>    here is all the sub-ioctl WE foo. Clean that up by moving them into
+>    cfg80211 as required, there's basically one user, wpa_supplicant (and
+>    maybe hostapd), screw the others if there are any
 
-correct, we're not looking into reducing the lock timeout but towards reducing the total 
-lock time. Once we have reduced that to something acceptable, we can reduce the timout 
-accordingly.
+While wpa_supplicant is certainly the main client for stuff directly
+related to setting up a connection, there are quite a few other users of
+general WE calls to pull information out of the card, or to receive scan
+events.  So if you want maximum compatibility for a limited amount of
+work, you can probably consider wpa_supplicant the only client of
 
-Cheers,
+(s = set, g = get)
 
-Auke
+1) [s|g] ENCODEEXT
+2) [s|g] AUTH
+3) [s|g] MLME
+4) [s] RATE
+5) [s] FREQ
+6) [s] SENS
+7) [s] AP
+8) [s|g] RTS
+9) [s|g] FRAG
+10)[s|g] GENIE
+11)[s|g] PMKSA
+
+Notable exceptions:
+1) [s|g] ENCODE
+2) [s|g] MODE (other stuff turns on promiscuous mode)
+3) [s|g] SCAN (other stuff needs to do this too)
+4) [s|g] POWER (power management does this, not wpa_supplicant)
+
+Of course lots of stuff needs to get RATE, ESSID, AP, FREQ, etc.
+
+Dan
+
+>  - fix people's minds to not expect a perfect solution immediately but
+>    accept something that can be expanded on later. I think we need to
+>    accept some breakage in our development trees to get anywhere at all.
+> 
+> Actually, the last point should be first.
+> 
+> Enough rant from me for today,
+> johannes
+
