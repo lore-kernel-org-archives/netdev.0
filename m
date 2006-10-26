@@ -1,94 +1,92 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
- qdisc
-Date: Thu, 26 Oct 2006 04:04:28 +0200
-Message-ID: <454017AC.7010009@trash.net>
-References: <C86180A8C204554D8A3323D8F6B0A29F018B54D4@dhost002-46.dex002.intermedia.net>
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: [RFC PATCH 0/11] pcmcia: bugfixes for 2.6.19-rc3
+Date: Wed, 25 Oct 2006 22:10:27 -0400
+Message-ID: <20061026021027.GA20473@dominikbrodowski.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090606080207060806000102"
-Cc: David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zYM0uCDKw75PZbzx"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	hostap@shmoo.com, linville@tuxdriver.com, jkmaline@cc.hut.fi,
+	proski@gnu.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65012 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965261AbWJZCEy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 22:04:54 -0400
-To: Simon Barber <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F018B54D4@dhost002-46.dex002.intermedia.net>
+Received: from isilmar.linta.de ([213.239.214.66]:40415 "EHLO linta.de")
+	by vger.kernel.org with ESMTP id S1161074AbWJZCTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 22:19:18 -0400
+To: linux-pcmcia@lists.infradead.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090606080207060806000102
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
 
-Simon Barber wrote:
-> Pfifo_fast does not make sense because the 802.11 qdisc already
-> categorizes the frames based on DSCP. The better thing would be to
-> extract the pfifo qdisc so that it does not require NET_SCHED, but this
-> is more work.
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-This patch should be enough to use it without NET_SCHED. You could of
-course also allow modular build.
+Hi,
+
+The following eleven patches have all been queued in -mm for quite some
+time; the only change is that one suggestion by Pavel Roskin (to remove the
+"RevA" part of the new ID for hostap_cs.c) is implemented. Please let me
+know if there are any objections to any of these patches; if not, I'll
+submit them to Linus really soon now.
+
+Thanks,
+	Dominik
 
 
---------------090606080207060806000102
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+ drivers/net/wireless/hostap/hostap_cs.c |    7 +++++++
+ drivers/pcmcia/at91_cf.c                |   28 +++++++++-------------------
+ drivers/pcmcia/au1000_generic.c         |   25 +++++++++++++++++++------
+ drivers/pcmcia/ds.c                     |   29 ++++++++++++++++++++++++-----
+ drivers/pcmcia/i82092.c                 |    9 +++++----
+ drivers/pcmcia/m8xx_pcmcia.c            |   12 ++++++++----
+ drivers/pcmcia/omap_cf.c                |    3 ++-
+ drivers/pcmcia/pcmcia_ioctl.c           |   11 ++++++++---
+ drivers/pcmcia/pcmcia_resource.c        |    2 +-
+ drivers/pcmcia/pd6729.c                 |    4 ++++
+ drivers/pcmcia/soc_common.c             |    1 +
+ drivers/pcmcia/yenta_socket.c           |   22 +++++++++++++++++-----
+ 12 files changed, 105 insertions(+), 48 deletions(-)
+----
+Alexey Dobriyan (2):
+      CONFIG_PM=n slim: drivers/pcmcia/*
+      i82092: wire up errors from pci_register_driver()
 
-diff --git a/net/d80211/Kconfig b/net/d80211/Kconfig
-index 0f07d41..2cb79c1 100644
---- a/net/d80211/Kconfig
-+++ b/net/d80211/Kconfig
-@@ -3,6 +3,7 @@ config D80211
- 	select CRYPTO
- 	select CRYPTO_ARC4
- 	select CRYPTO_AES
-+	select NET_SCH_FIFO
- 	---help---
- 	This option enables the hardware independent IEEE 802.11
- 	networking stack.
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 8298ea9..1d8b0dc 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -40,6 +40,10 @@ config NET_SCHED
- 	  The available schedulers are listed in the following questions; you
- 	  can say Y to as many as you like. If unsure, say N now.
- 
-+config NET_SCH_FIFO
-+	bool
-+	default y if NET_SCHED=y
-+
- if NET_SCHED
- 
- choice
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 0f06aec..ff2d6e5 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -4,7 +4,7 @@ #
- 
- obj-y	:= sch_generic.o
- 
--obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_fifo.o sch_blackhole.o
-+obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_blackhole.o
- obj-$(CONFIG_NET_CLS)		+= cls_api.o
- obj-$(CONFIG_NET_CLS_ACT)	+= act_api.o
- obj-$(CONFIG_NET_ACT_POLICE)	+= act_police.o
-@@ -14,6 +14,7 @@ obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirr
- obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
- obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
- obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
-+obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
- obj-$(CONFIG_NET_SCH_HPFQ)	+= sch_hpfq.o
+Amol Lad (1):
+      ioremap balanced with iounmap for drivers/pcmcia
 
---------------090606080207060806000102--
+David Brownell (1):
+      pcmcia: at91_cf update
+
+Dominik Brodowski (2):
+      pcmcia: add more IDs to hostap_cs.c
+      PCMCIA: fix __must_check warnings
+
+Jeff Garzik (1):
+      PCMCIA: handle sysfs, PCI errors
+
+Jonathan McDowell (1):
+      Export soc_common_drv_pcmcia_remove to allow modular PCMCIA.
+
+Kaustav Majumdar (1):
+      pcmcia: update alloc_io_space for conflict checking for multifunction PC card
+
+Om Narasimhan (1):
+      pcmcia: au1000_generic fix
+
+Randy Dunlap (1):
+      pcmcia/ds: driver layer error checking
+
+--zYM0uCDKw75PZbzx
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFFQBkSZ8MDCHJbN8YRAhERAKCbHS1CoOqUMwY/LXwIrpWDxcpWlwCgidAd
+HwsksV4YKuZ5IzjHdbVyIfI=
+=WoOT
+-----END PGP SIGNATURE-----
+
+--zYM0uCDKw75PZbzx--
