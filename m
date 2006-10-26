@@ -1,96 +1,82 @@
-From: "Randy.Dunlap" <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 1/2] !CONFIG_NET_ETHERNET unsets CONFIG_PHYLIB, but  CONFIG_USB_USBNET
- also needs CONFIG_PHYLIB
-Date: Wed, 25 Oct 2006 22:05:59 -0700
-Message-ID: <45404237.3070307@oracle.com>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061025165957.4c390137.randy.dunlap@oracle.com> <200610251924.04321.david-b@pacbell.net>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
+Date: Wed, 25 Oct 2006 22:15:23 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
+References: <20061026050416.GB14199@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net, link@miggy.org,
-	greg@kroah.com, akpm@osdl.org, zippel@linux-m68k.org,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	dbrownell@users.sourceforge.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:13810 "EHLO
-	rgminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1423403AbWJZFEz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 01:04:55 -0400
-To: David Brownell <david-b@pacbell.net>
-In-Reply-To: <200610251924.04321.david-b@pacbell.net>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:796 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1423398AbWJZFPK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 01:15:10 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20061026050416.GB14199@havoc.gtf.org>
+To: "Jeff Garzik" <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Brownell wrote:
-> On Wednesday 25 October 2006 4:59 pm, Randy Dunlap wrote:
->> On Wed, 25 Oct 2006 15:27:09 -0700 David Brownell wrote:
->>
->>> The other parts are right, this isn't.
->>>
->>> Instead, "usbnet.c" should #ifdef the relevant ethtool hooks
->>> according to CONFIG_MII ... since it's completely legit to
->>> use usbnet with peripherals that don't need MII.
->> Ugh.  OK.  How's this?  (2 patches)
-> 
-> Looks about right, but ...
-> 
-> 
->> However, the MII config symbol should not be in the 10/100 Ethernet
->> menu, so that other drivers can use (enable) it or so that users
->> can enable it without needing to enable 10/100 Ethernet.
-> 
-> ... MII should still depend on ETHERNET, right?
-> Just not limited to 10/100 Ethernet.
+Re: registering as a real protocol - yes this I have been going on about
+for a while. This needs a few changes in how things work:
 
-There is no such config symbol.  NET_ETHERNET means 10/100 ethernet.
-Gigabit ethernet doesn't use the ETHERNET symbol (and doesn't use
-this flavor of MII IIRC).
-And all of this config space is surrounded by:
+1. Register as a real protocol.
+2. Change drivers to use netif_rx to receive frames (will also be more
+efficient)
 
-# All the following symbols are dependent on NETDEVICES - do not repeat
-# that for each of the symbols.
-if NETDEVICES
+I would also like to see:
 
-so it is actually
-config MII
-	depends on NETDEVICES
+Drivers to use register_netdev - not special ieee80211 register to
+register themselves
+Drivers to use a normal hard_start_xmit function
+- need to move 802.11 pre xmit frame processing into the qdisc dequeue
+function
+Get rid of gunky beacon & multicast buffered frame handling - make them
+into normal queues like everything else (so same hard_start_xmit can be
+used).
 
-What do you suggest?
-
->> --- linux-2619-rc3-pv.orig/drivers/net/Kconfig
->> +++ linux-2619-rc3-pv/drivers/net/Kconfig
->> @@ -145,6 +145,13 @@ config NET_SB1000
->>  
->>  source "drivers/net/arcnet/Kconfig"
->>  
->> +config MII
->> +	tristate "Generic Media Independent Interface device support"
->> +	help
->> +	  Most ethernet controllers have MII transceiver either as an external
->> +	  or internal device.  It is safe to say Y or M here even if your
->> +	  ethernet card lacks MII.
->> +
->>  source "drivers/net/phy/Kconfig"
->>  
->>  #
->> @@ -180,14 +187,6 @@ config NET_ETHERNET
->>  	  kernel: saying N will just cause the configurator to skip all
->>  	  the questions about Ethernet network cards. If unsure, say N.
->>  
->> -config MII
->> -	tristate "Generic Media Independent Interface device support"
->> -	depends on NET_ETHERNET
->> -	help
->> -	  Most ethernet controllers have MII transceiver either as an external
->> -	  or internal device.  It is safe to say Y or M here even if your
->> -	  ethernet card lack MII.
->> -
->>  source "drivers/net/arm/Kconfig"
->>  
->>  config MACE
->>
+Simon
 
 
--- 
-~Randy
+-----Original Message-----
+From: Jeff Garzik [mailto:jeff@garzik.org] 
+Sent: Wednesday, October 25, 2006 10:04 PM
+To: Simon Barber
+Cc: Patrick McHardy; David Kimdon; netdev@vger.kernel.org; John W.
+Linville; Jiri Benc
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
+d80211-specific qdisc
+
+On Wed, Oct 25, 2006 at 08:37:04PM -0700, Simon Barber wrote:
+> Doing this will slow down the qdisc - it does already run an external 
+> classifier first if you install one. On typical laptops performance is
+
+> not a problem, but one common usage does have problems. The 
+> performance of a wireless home gateway based on a simple linux kernel 
+> configuration (NAT, iptables, bridging) is significantly slower than a
+
+> VxWorks based one. With the arrival of 802.11n improving the 
+> performance of the stack is very important. The VxWorks solution may 
+> be less flexible in terms of what it can do, but it will allow the 
+> full 802.11n bandwidth to be achieved on slower embedded CPUs than 
+> Linux does. How to improve the linux kernel networking to improve it's
+
+> efficiency here is a hard problem.
+
+First do it right, then tune performance.  If you aren't doing it right,
+then who cares about VxWorks.
+
+We also need 802.11 to register as a real protocol, rather than faking
+ethernet.  David Miller did an example stub:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/dave
+m-p80211.tar.bz2
+
+	Jeff
+
+
+
