@@ -1,43 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Rewrite e100_phys_id
-Date: Thu, 26 Oct 2006 15:19:37 -0400
-Message-ID: <20061026191937.GB11312@havoc.gtf.org>
-References: <20061026191154.GG5591@parisc-linux.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP congestion graphs
+Date: Thu, 26 Oct 2006 12:36:06 -0700
+Message-ID: <20061026123606.15219bc7@freekitty>
+References: <20061025110207.78d38779@freekitty>
+	<000701c6f885$b57aa390$4a580e98@ncsu2cc0c3fa00>
+	<20061025183025.7c4f9d66@localhost.localdomain>
+	<20061026185019.GA32054@c3po.0xdef.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, auke-jan.h.kok@intel.com,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Injong Rhee <rhee@eos.ncsu.edu>, Sangtae Ha <sha2@ncsu.edu>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:16049 "EHLO havoc.gtf.org")
-	by vger.kernel.org with ESMTP id S932274AbWJZTTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 15:19:43 -0400
-To: Matthew Wilcox <matthew@wil.cx>
-Content-Disposition: inline
-In-Reply-To: <20061026191154.GG5591@parisc-linux.org>
+Received: from smtp.osdl.org ([65.172.181.4]:36822 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422818AbWJZTgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 15:36:22 -0400
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+In-Reply-To: <20061026185019.GA32054@c3po.0xdef.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2006 at 01:11:55PM -0600, Matthew Wilcox wrote:
+On Thu, 26 Oct 2006 20:50:19 +0200
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+
+> Hi Stephen,
 > 
-> The motivator for this was to fix the sparse warning:
+> is your rt-patch to netem public available?
 > 
-> drivers/net/e100.c:2418:48: warning: cast truncates bits from constant
-> value (83126e978d4fdf becomes 978d4fdf)
-> drivers/net/e100.c:2419:37: warning: cast truncates bits from constant
-> value (83126e978d4fdf becomes 978d4fdf)
+> Best regards
 > 
-> Initially, I tried a quick fix, but when it ran into difficulties, I
-> looked at tg3.c to see how it does it.  I liked their way better, so I
-> rewrote e100.c to be similar.  It shaves ~700 bytes off the size of the
-> driver, and a few bytes off the size of struct nic, so I think it's a
-> win all round.  Tested on the internal interface of an HP Integrity rx2600.
+> HGN
 > 
-> Signed-off-by: Matthew Wilcox <matthew@wil.cx>
 
-Seems sane to me...  I'll pick it up, if Auke doesn't...
+The tools are in the tcp directory
 
-	Jeff
-
+http://developer.osdl.org/shemminger/tcp/netem-2.6.18-rt.patch
 
 
+-- 
+Stephen Hemminger <shemminger@osdl.org>
