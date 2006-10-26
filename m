@@ -1,47 +1,51 @@
-From: Zang Roy-r61911 <tie-fei.zang@freescale.com>
-Subject: Re: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
-Date: 26 Oct 2006 10:50:26 +0800
-Message-ID: <1161831025.20631.1.camel@localhost.localdomain>
-References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>
-	 <1157962200.10526.10.camel@localhost.localdomain>
-	 <1158051351.14448.97.camel@localhost.localdomain>
-	 <ada3bax2lzw.fsf@cisco.com>  <4506C789.4050404@pobox.com>
-	 <1158749825.7973.9.camel@localhost.localdomain>
-	 <45121924.4000200@pobox.com>
-	 <1161569363.23698.4.camel@localhost.localdomain>
+From: Hong Liu <hong.liu@intel.com>
+Subject: Re: about 802.11i IBSS support
+Date: Thu, 26 Oct 2006 10:47:24 +0800
+Message-ID: <1161830844.9670.13.camel@devlinux-hong>
+References: <1161766481.8668.38.camel@devlinux-hong>
+	 <20061025154815.GA15348@instant802.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"Alexandre.Bounine@tundra.com" <Alexandre.Bounine@tundra.com>
+Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:47093 "EHLO
-	de01egw02.freescale.net") by vger.kernel.org with ESMTP
-	id S1422825AbWJZCtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 22:49:53 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <1161569363.23698.4.camel@localhost.localdomain>
+Received: from mga09.intel.com ([134.134.136.24]:29367 "EHLO mga09.intel.com")
+	by vger.kernel.org with ESMTP id S1161113AbWJZCyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 22:54:23 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20061025154815.GA15348@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-10-23 at 10:09, Zang Roy-r61911 wrote:
-> On Thu, 2006-09-21 at 12:46, Jeff Garzik wrote:
+On Wed, 2006-10-25 at 23:48, Jouni Malinen wrote:
+> On Wed, Oct 25, 2006 at 04:54:41PM +0800, Hong Liu wrote:
 > 
-> > you should have a chip structure, that contains two structs (one for 
-> > each interface/port)
-> > 
-> Jeff,
+> > I am reading the 802.11i IBSS spec and
+> > trying to find if it is OK to add patches to d80211 to support this feature.
 > 
-> I updated the code according to all your feedback and post it here
+> Large parts of this will be outside d80211, but yes, I think d80211
+> should be made ready to support this (mainly in the multiple group keys
+> area).
 > 
-> http://www.spinics.net/lists/netdev/msg17120.html
+> > When a STA (say S1) joins in an IBSS network with N STAs,
+> > it must negotiate keys with all N STAs.
 > 
-> Any comment?
-> 
-> Roy
+> I don't think it is required to negotiate keys with all STAs of the
+> network unless it actually needs to communicate with them, i.e., there
+> may be cases where it is not needed to send or receive data from some of
+> the nodes.
 
-Jeff
-	How about it? What's your comment?
-Roy
+This may add complexity to the implementation.
 
+If the STA wants to send broadcast data, it must distribute its group
+key to all other STAs, and then it can send out the packet.
+
+For RX, if it receives data from other STA it needs to find out whether it
+has finished key negotiation with that STA. And it can not decrypt the data
+until key negotiation is finished.
+
+If we negotiate keys at the beginning, things will be simple.
+But the cost is we may negotiating keys with STAs we may not communicate with.
+
+Thanks,
+Hong
