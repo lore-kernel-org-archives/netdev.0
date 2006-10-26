@@ -1,54 +1,59 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFC] [PATCH 0/3] Add Regulatory Domain support to d80211
-Date: Thu, 26 Oct 2006 11:33:03 -0400
-Message-ID: <1161876783.2927.37.camel@localhost.localdomain>
-References: <20061024140212.GB17543@devicescape.com>
-	 <C86180A8C204554D8A3323D8F6B0A29F018523A5@dhost002-46.dex002.intermedia.net>
-	 <43e72e890610241503r692975dfx65b2eab987ffbb3d@mail.gmail.com>
-	 <200610241853.03135.flamingice@sourmilk.net>
-	 <43e72e890610251043y22fb9ce6ne5e036dd58f36505@mail.gmail.com>
-	 <1161813628.8884.14.camel@johannes.berg>
-	 <1161873333.2927.9.camel@localhost.localdomain>
-	 <43e72e890610260804q28505f71v6053f8dbbd457ac7@mail.gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
+Date: Thu, 26 Oct 2006 17:46:36 +0200
+Message-ID: <20061026154635.GK27968@stusta.de>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025201341.GH21200@miggy.org> <20061025151737.1bf4898c.randy.dunlap@oracle.com> <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061025165858.b76b4fd8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Simon Barber <simon@devicescape.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>, Hong Liu <hong.liu@intel.com>,
-	Jouni Malinen <jkmaline@cc.hut.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Brownell <david-b@pacbell.net>, toralf.foerster@gmx.de,
+	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	link@miggy.org, greg@kroah.com, akpm@osdl.org,
+	zippel@linux-m68k.org, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org, dbrownell@users.sourceforge.net,
+	Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:7838 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1423571AbWJZPds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 11:33:48 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890610260804q28505f71v6053f8dbbd457ac7@mail.gmail.com>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:3847 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1423559AbWJZPqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 11:46:39 -0400
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Content-Disposition: inline
+In-Reply-To: <20061025165858.b76b4fd8.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-10-26 at 11:04 -0400, Luis R. Rodriguez wrote:
-> On 10/26/06, Dan Williams <dcbw@redhat.com> wrote:
-> > While wpa_supplicant is certainly the main client for stuff directly
-> > related to setting up a connection, there are quite a few other users of
-> > general WE calls to pull information out of the card, or to receive scan
-> > events.
-> 
-> How about we just ditch iwconfig completely and move on to
-> wpa_supplicant/wpa_cli as our next userspace application with
-> nl80211/cg80211 as our new API for usersapce-->kernel communication?
-> As you point out, wpa_supplicant already does a lot for us -- and
-> several distributions already rely on it. Some work is required but I
-> think its worth it. If we do a complete move from WE to nl80211 it
-> would be transparent to the users too.
+On Wed, Oct 25, 2006 at 04:58:58PM -0700, Randy Dunlap wrote:
+>...
+> Build tested with CONFIG_MII=y, m, n.
+>...
+> --- linux-2619-rc3-pv.orig/drivers/usb/net/usbnet.c
+> +++ linux-2619-rc3-pv/drivers/usb/net/usbnet.c
+> @@ -47,6 +47,12 @@
+>  
+>  #define DRIVER_VERSION		"22-Aug-2005"
+>  
+> +#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
+> +#define HAVE_MII		1
+> +#else
+> +#define HAVE_MII		0
+> +#endif
+>...
 
-The one blocker I can think of here is startup scripts on various
-distributions.  Most of those are shell, and they usually rely on
-iwconfig quite heavily.  Getting those converted to wpa_supplicant
-wouldn't be a trivial amount of work, but it wouldn't be a ton either.
+I'm too lame to test it, but I bet this will break with
+CONFIG_USB_USBNET=y, CONFIG_MII=m, and you'll actually need
 
-Dan
+  #if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
+
+And then there's the question whether this amount of #ifdef's is 
+actually worth avoiding the "select MII"...
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
