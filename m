@@ -1,41 +1,51 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] tcp: setsockopt congestion control autoload
-Date: Thu, 26 Oct 2006 07:34:57 -0700
-Message-ID: <4540C791.5060200@osdl.org>
-References: <20061025110843.0cbd18a7@freekitty> <20061026052253.GA10188@2ka.mipt.ru>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Thu, 26 Oct 2006 07:34:13 -0700
+Message-ID: <4540C765.4000800@intel.com>
+References: <45375135.5050206@cj.jp.nec.com> <45379C14.5050901@foo-projects.org> <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com> <453F7E1F.4020406@intel.com> <45408F7B.3050209@cj.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:14303 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1423360AbWJZOfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 10:35:10 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061026052253.GA10188@2ka.mipt.ru>
+Received: from mga01.intel.com ([192.55.52.88]:22792 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1423529AbWJZOgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 10:36:48 -0400
+To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+In-Reply-To: <45408F7B.3050209@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Wed, Oct 25, 2006 at 11:08:43AM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
->   
->> If user asks for a congestion control type with setsockopt() then it
->> may be available as a module not included in the kernel already. 
->> It should be autoloaded if needed.  This is done already when
->> the default selection is change with sysctl, but not when application
->> requests via sysctl.
->>
->> Only reservation is are there any bad security implications from this?
->>     
->
-> What if system is badly configured, so it is possible to load malicious
-> module by kernel?
->
->   
-The kernel module loader has a fixed path. So one would have to be able 
-to create a module
-in /lib/modules/<kernel release> in order to get the malicious code 
-loaded.  If the intruder could
-put a module there, it would be just as easy to patch an existing module 
-and have the
-hack available on reboot.
+Kenzo Iwami wrote:
+> Hi,
+> 
+> Thank you for your comment.
+> 
+>>>> Anyway as I said in the same e-mail, we're working on reducing the lock timeout to a 
+>>>> reasonable time. This will unfortunately take some time, as we need to change some major 
+>>>> components in the driver to make sure this doesn't happen.
+>>> How about the following approach?
+>>> If acquiring semaphore fails inside the interrupt handler, acquiring semaphore
+>>> is abandoned immediately without waiting for timeout.
+>>> However, I don't know whether this method affects other processes.
+>> with the current hardware being accessed simultaneously from several users in the 
+>> kernel, that would lead to large problems - the watchdog task accesses it every 2 
+>> seconds as it reads the PHY link status, so when one of those fails the driver would 
+>> have no choice but to reset the entire device.
+> 
+> This problem occurs because interrupt handler is executed while the
+> interrupted code is still holding the semaphore. Acquiring the semaphore
+> fails regardless of the timeout period.
+> 
+> I think the watchdog task will fail trying to read the PHY link status,
+> even if the lock timeout period has been reduced.
+
+correct, we're not looking into reducing the lock timeout but towards reducing the total 
+lock time. Once we have reduced that to something acceptable, we can reduce the timout 
+accordingly.
+
+Cheers,
+
+Auke
