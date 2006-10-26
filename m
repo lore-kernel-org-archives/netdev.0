@@ -1,60 +1,53 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [IPROUTE] manpage for lnstat
-Date: Thu, 26 Oct 2006 22:58:17 +0200
-Message-ID: <20061026205816.GW6264@sunbeam.de.gnumonks.org>
-References: <2006-10-26T22-36-55@devnull.michael-prokop.at>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] sealevel: uses arp_broken_ops
+Date: Thu, 26 Oct 2006 14:08:08 -0700
+Message-ID: <20061026140809.9b0c8a01.randy.dunlap@oracle.com>
+References: <200610251803.15280.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="tzZdJ4yHDV5r1Akt"
-Cc: netdev@vger.kernel.org, shemminger@osdl.org,
-	Alexander Wirt <formorer@debian.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, akpm <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:59285 "EHLO
-	ganesha.gnumonks.org") by vger.kernel.org with ESMTP
-	id S1423660AbWJZU6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 16:58:23 -0400
-To: Michael Prokop <mika@grml.org>
-Content-Disposition: inline
-In-Reply-To: <2006-10-26T22-36-55@devnull.michael-prokop.at>
+Received: from agminet01.oracle.com ([141.146.126.228]:32064 "EHLO
+	agminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1423545AbWJZVGr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 17:06:47 -0400
+To: Toralf =?ISO-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>,
+	alan@lxorguk.ukuu.org.uk
+In-Reply-To: <200610251803.15280.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 25 Oct 2006 18:03:13 +0200 Toralf F=F6rster wrote:
 
---tzZdJ4yHDV5r1Akt
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, Oct 26, 2006 at 10:41:26PM +0200, Michael Prokop wrote:
-> Hello,
+> WARNING: "arp_broken_ops" [drivers/net/wan/sealevel.ko] undefined!
+> make[1]: *** [__modpost] Error 1
+> make: *** [modules] Error 2
 >=20
-> I wrote a manpage for lnstat, would be great if it could be applied
-> to the next release.
+> Here's the config:
+=2E..
+> # CONFIG_INET is not set
+> CONFIG_SEALEVEL_4021=3Dm
 
-Stephen: Please include it into your next release, looks fine to me.
+---
+=46rom: Randy Dunlap <randy.dunlap@oracle.com>
 
-> @Harald, I'm following your 'If somebody wants to do a manpage, feel
-> free to send me a patch :)' of lnstat's README. :)
+Sealevel uses arp_broken_ops so it needs to depend on INET.
 
-thanks a lot!
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-We all know Linux is great...it does infinite loops in 5 seconds. -- Linus
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/wan/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---tzZdJ4yHDV5r1Akt
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQFFQSFoXaXGVTD0i/8RAiRKAKCKHQ2vm/CCMgVfK3gmgCHrpO+fCACgiYRg
-AadhxHxqyEH3urwqfuSAs6o=
-=z9YF
------END PGP SIGNATURE-----
-
---tzZdJ4yHDV5r1Akt--
+--- linux-2619-rc3-pv.orig/drivers/net/wan/Kconfig
++++ linux-2619-rc3-pv/drivers/net/wan/Kconfig
+@@ -127,7 +127,7 @@ config LANMEDIA
+ # There is no way to detect a Sealevel board. Force it modular
+ config SEALEVEL_4021
+ 	tristate "Sealevel Systems 4021 support"
+-	depends on WAN && ISA && m && ISA_DMA_API
++	depends on WAN && ISA && m && ISA_DMA_API && INET
+ 	help
+ 	  This is a driver for the Sealevel Systems ACB 56 serial I/O adapter=
+=2E
+=20
