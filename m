@@ -1,51 +1,32 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH] myri10ge: ServerWorks HT2000 PCI id is already defined in
- pci_ids.h
-Date: Thu, 26 Oct 2006 22:51:33 +0200
-Message-ID: <45411FD5.3050408@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] tcp: setsockopt congestion control autoload
+Date: Thu, 26 Oct 2006 13:55:47 -0700 (PDT)
+Message-ID: <20061026.135547.88476649.davem@davemloft.net>
+References: <20061026052253.GA10188@2ka.mipt.ru>
+	<4540C791.5060200@osdl.org>
+	<20061026145712.GA11062@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:61896 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1423648AbWJZUwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 16:52:34 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65465
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1423642AbWJZUzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 16:55:46 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20061026145712.GA11062@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH] myri10ge: ServerWorks HT2000 PCI id is already defined in pci_ids.h
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 26 Oct 2006 18:57:13 +0400
 
-No need to keep defining PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE
-in the driver code since it is now defined in pci_ids.h.
+> It just calls /sbin/modprobe, which in turn runs tons of scripts in
+> /etc/hotplug, modprobe and other places...
+> In the paranoid case we should not allow any user to load kernel
+> modules, even known ones. Should this option be guarded by some
+> capability check?
 
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- drivers/net/myri10ge/myri10ge.c |    1 -
- 1 file changed, 1 deletion(-)
-
-
-
-Please apply for 2.6.19 since PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE has been
-added to pci_ids.h in -rc1 (commit 6397c75cbc4d7dbc3d07278b57c82a47dafb21b5).
-
-Thanks,
-Brice
-
-
-
-Index: linux-rc/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2006-10-26 22:18:53.000000000 +0200
-+++ linux-rc/drivers/net/myri10ge/myri10ge.c	2006-10-26 22:19:05.000000000 +0200
-@@ -2410,7 +2410,6 @@
-  * firmware image, and set tx.boundary to 4KB.
-  */
- 
--#define PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE	0x0132
- #define PCI_DEVICE_ID_INTEL_E5000_PCIE23 0x25f7
- #define PCI_DEVICE_ID_INTEL_E5000_PCIE47 0x25fa
- 
-
-
+Do you realize that sys_socket() already makes this kind of
+thing happen already?
