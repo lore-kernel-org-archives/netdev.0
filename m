@@ -1,33 +1,54 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: [Announce] Netchannels ported to the latest git tree. Gigabit benchmark. Complete rout.
-Date: Thu, 26 Oct 2006 15:44:37 +0200
-Message-ID: <20061026134436.GA22407@outpost.ds9a.nl>
-References: <20061020095304.GA22445@2ka.mipt.ru> <20061026105151.GA8325@2ka.mipt.ru>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH 2.6.19-rc3 2/2] ehea: 64K page support fix
+Date: Thu, 26 Oct 2006 15:00:20 +0200
+Message-ID: <200610261500.20898.ossthema@de.ibm.com>
+References: <200610251312.01235.ossthema@de.ibm.com>
+	<20061025162126.GB25324@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([213.244.168.210]:9432 "EHLO outpost.ds9a.nl")
-	by vger.kernel.org with ESMTP id S1161154AbWJZNok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 09:44:40 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Klein <tklein@de.ibm.com>, Jeff Garzik <jeff@garzik.org>,
+	Jan-Bernd Themann <themann@de.ibm.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20061025162126.GB25324@krispykreme>
 Content-Disposition: inline
-In-Reply-To: <20061026105151.GA8325@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2006 at 02:51:51PM +0400, Evgeniy Polyakov wrote:
+Hi,
 
-> Benchmark uses 128 bytes sending/receiving per syscall (no latency
-> checks, only throughput.
-> Receiving CPU usage is 3 times less (90% socket code vs. 30%
-> Sending CPU usage is 5 times less (upto 50% vs. upto 10%).
+that is right, I'll send a new patch
 
-Wow. I currently lack the hardware to reproduce your measurements, do you
-have any idea of how these numbers would be with 1024 byte "system calls"?
+Thanks,
+Jan-Bernd
 
-Thanks.
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+On Wednesday 25 October 2006 18:21, Anton Blanchard wrote:
+> 
+> Hi,
+> 
+> > +#ifdef CONFIG_PPC_64K_PAGES
+> > +	/* To support 64k pages we must round to 64k page boundary */
+> > +	epas->kernel.addr =
+> > +		ioremap((paddr_kernel & 0xFFFFFFFFFFFF0000), PAGE_SIZE) +
+> > +		(paddr_kernel & 0xFFFF);
+> > +#else
+> >  	epas->kernel.addr = ioremap(paddr_kernel, PAGE_SIZE);
+> > +#endif
+> 
+> Cant you just use PAGE_MASK, ~PAGE_MASK and remove the ifdefs
+> completely?
+> 
+> Anton
+> 
