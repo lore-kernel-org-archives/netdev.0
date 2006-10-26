@@ -1,100 +1,58 @@
-From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
-Subject: [PATCH 1/9] NetEffect 10Gb RNIC Driver: kernel Kconfig and makefiles
-Date: Thu, 26 Oct 2006 18:45:39 -0500
-Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EAF@venom2>
-Reply-To: <glenng@neteffect.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH] Check if user has CAP_NET_ADMIN to change congestion control algorithm
+Date: Fri, 27 Oct 2006 01:52:56 +0200
+Message-ID: <20061026235256.GB2018@c3po.0xdef.net>
+References: <20061025110843.0cbd18a7@freekitty> <4540F076.70801@psc.edu> <20061026224407.GA2018@c3po.0xdef.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.neteffect.com ([204.57.75.68]:26332 "EHLO
-	mail2.neteffect.com") by vger.kernel.org with ESMTP
-	id S1946024AbWJZXpn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 19:45:43 -0400
-Content-class: urn:content-classes:message
-To: <openib-general@openib.org>
+Received: from c3po.0xdef.net ([217.172.181.57]:42246 "EHLO c3po.0xdef.net")
+	by vger.kernel.org with ESMTP id S1423529AbWJZXw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 19:52:57 -0400
+To: Hagen Paul Pfeifer <hagen@jauu.net>,
+	John Heffner <jheffner@psc.edu>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20061026224407.GA2018@c3po.0xdef.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following set of patches contain the source code for the NetEffect
-NE010 iWarp adapter running under the OpenFabrics Alliance software
-stack.  This is a repost.
 
-Signed-off-by: Glenn Grundstrom <glenng@neteffect.com>
+Check if user has CAP_NET_ADMIN capability to change congestion control
+algorithm.
 
-======================================================
+Under normal circumstances a application programmer doesn't have enough
+information to choose the "right" algorithm (expect he is the pchar/pathchar
+maintainer). At 99.9% only the local host administrator has the knowledge to
+select a proper standard, system-wide algorithm (the remaining 0.1% are
+for testing purpose). If we let the user select an alternative algorithm we
+introduce one potential weak spot - so we ban this eventuality.
 
-diff -ruNp old/drivers/infiniband/Kconfig new/drivers/infiniband/Kconfig
---- old/drivers/infiniband/Kconfig	2006-10-25 09:57:43.000000000
--0500
-+++ new/drivers/infiniband/Kconfig	2006-10-25 10:48:40.000000000
--0500
-@@ -41,6 +41,8 @@ source "drivers/infiniband/hw/ehca/Kconf
- 
- source "drivers/infiniband/hw/amso1100/Kconfig"
- 
-+source "drivers/infiniband/hw/nes/Kconfig"
-+
- source "drivers/infiniband/hw/cxgb3/Kconfig"
- 
- source "drivers/infiniband/ulp/ipoib/Kconfig"
-diff -ruNp old/drivers/infiniband/hw/nes/Kconfig
-new/drivers/infiniband/hw/nes/Kconfig
---- old/drivers/infiniband/hw/nes/Kconfig	1969-12-31
-18:00:00.000000000 -0600
-+++ new/drivers/infiniband/hw/nes/Kconfig	2006-10-25
-10:50:18.000000000 -0500
-@@ -0,0 +1,15 @@
-+config INFINIBAND_NES
-+	tristate "NetEffect RNIC support"
-+	depends on PCI && INET && INFINIBAND
-+	---help---
-+	  This is a low-level driver for NetEffect RDMA enabled
-+	  Network Interface Cards (RNIC).
-+
-+config INFINIBAND_NES_DEBUG
-+	bool "Verbose debugging output"
-+	depends on INFINIBAND_NES
-+	default n
-+	---help---
-+	  This option causes the NetEffect RNIC driver to produce debug
-+	  messages.  Select this if you are developing the driver
-+	  or trying to diagnose a problem.
-diff -ruNp old/drivers/infiniband/hw/nes/Makefile
-new/drivers/infiniband/hw/nes/Makefile
---- old/drivers/infiniband/hw/nes/Makefile	1969-12-31
-18:00:00.000000000 -0600
-+++ new/drivers/infiniband/hw/nes/Makefile	2006-10-25
-11:10:26.000000000 -0500
-@@ -0,0 +1,27 @@
-+EXTRA_CFLAGS += -Idrivers/infiniband/include
--Idrivers/infiniband/hw/nes/nes_tcpip/include
-+
-+ifdef CONFIG_INFINIBAND_NES_DEBUG
-+EXTRA_CFLAGS += -DNES_DEBUG
-+endif
-+
-+ifneq ($(KERNELRELEASE),)
-+	obj-$(CONFIG_INFINIBAND_NES) += iw_nes.o	
-+
-+	iw_nes-objs := \
-+		nes.o \
-+		nes_hw.o \
-+		nes_nic.o \
-+		nes_cm.o \
-+		nes_utils.o \
-+		nes_verbs.o 
-+else
-+	KERNELDIR ?= /usr/src/linux
-+	PWD := $(shell pwd)
-+
-+default:
-+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
-+
-+clean:
-+	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
-+
-+endif
+HGN
 
+
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index af0aca1..c1ae2e9 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -10,6 +10,7 @@ #include <linux/module.h>
+ #include <linux/mm.h>
+ #include <linux/types.h>
+ #include <linux/list.h>
++#include <linux/capability.h>
+ #include <net/tcp.h>
+
+ static DEFINE_SPINLOCK(tcp_cong_list_lock);
+@@ -151,6 +152,9 @@ int tcp_set_congestion_control(struct so
+        struct tcp_congestion_ops *ca;
+        int err = 0;
+
++       if (!capable(CAP_NET_ADMIN))
++               return -EPERM;
++
+        rcu_read_lock();
+        ca = tcp_ca_find(name);
+        if (ca == icsk->icsk_ca_ops)
