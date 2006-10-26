@@ -1,105 +1,45 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] s2io: add PCI error recovery support
-Date: Thu, 26 Oct 2006 17:51:55 -0500
-Message-ID: <20061026225155.GH6360@austin.ibm.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77DC1ED7@nekter>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [RFC] tcp: setsockopt congestion control autoload
+Date: Thu, 26 Oct 2006 18:53:27 -0400
+Message-ID: <45413C67.3090105@psc.edu>
+References: <20061025110843.0cbd18a7@freekitty> <4540F076.70801@psc.edu> <20061026224407.GA2018@c3po.0xdef.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wen Xiong <wenxiong@us.ibm.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:6530 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1161465AbWJZWv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 18:51:58 -0400
-To: Ananda Raju <Ananda.Raju@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77DC1ED7@nekter>
+Received: from mailer1.psc.edu ([128.182.58.100]:1531 "EHLO mailer1.psc.edu")
+	by vger.kernel.org with ESMTP id S1945962AbWJZWxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 18:53:43 -0400
+To: Hagen Paul Pfeifer <hagen@jauu.net>,
+	John Heffner <jheffner@psc.edu>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+In-Reply-To: <20061026224407.GA2018@c3po.0xdef.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
-
-On Thu, Oct 26, 2006 at 05:56:34AM -0400, Ananda Raju wrote:
-> Hi, 
-> Can you try attached patch. The attached patch is simple. We set card
-> state as down in error_detecct() so that all entry points return error
-> and don't proceed further.
+Hagen Paul Pfeifer wrote:
+> * John Heffner | 2006-10-26 13:29:26 [-0400]:
 > 
-> In slot_reset() we do s2io_card_down() will reset adapter. 
-> In io_resume() we bringup the driver. 
+>> My reservation in doing this would be that as an administrator, I may 
+>> want to choose exactly what congestion control is available any any 
+>> given time.  The different congestion control algorithms are not 
+>> necessarily fair to each other.
+> 
+> ACK, completely right. A user without CAP_NET_ADMIN MUST NOT changed the
+> algorithm.  We know that there are some unfairness out there. And maybe some
+> time ago someone introduce a satellite-algorithm which is per definition
+> completely unfair to vanilla tcp.
+> We should guard this with a CAP_NET_ADMIN capability so that built-in modules
+> also shouldn't be enabled.
 
-Simplicity is always better. However, some questions/comments:
+I don't know if I'd want to go that far.  For example, there's a nice 
+protocol TCP-LP which is by design unfair in the other direction -- it 
+yields to other traffic so that you can basically run a scavenger service.
 
-> @@ -4175,6 +4186,10 @@ static irqreturn_t s2io_isr(int irq, voi
->  	mac_info_t *mac_control;
->  	struct config_param *config;
->  
-> +	if (atomic_read(&sp->card_state) == CARD_DOWN) {
-> +		return IRQ_NONE;
-> +	}
+If you really care about this, you could try to rank protocols based on 
+aggressiveness (note this is not trivial) and do something like 'nice' 
+where mortals can only nice up not down.  Practically speaking, I'm not 
+sure this is necessary (worth the effort).
 
-I used 
-
-    if ((sp->pdev->error_state != pci_channel_io_normal)
-
-here for a reason: the pdev->error_state is set even in an interrupt
-context, that is, it gets set even if interrups are disabled, and
-so it represents the actual state immediately. By contrast, the
-error callbacks do not get called until possibly much later, 
-and so sp->card_state = CARD_DOWN might not get set for a while.
-
-If, for any reason, e.g. some obscure corner case, the s2io 
-generates zillions of interupts, this could result in a soft-lockup.
-I actually saw this in the symbios device driver, which will
-regenerate an interrupt until its acknowledged -- and so it 
-sat there, spinning. :-(
-
-I was returning IRQ_HANDLED instead of IRQ_NONE, so as to avoid
-falling into handle_bad_irq() or report_bad_irq(). I haven't 
-seen this happen on s2io, but thought it would still be wise.
-
-If this can't happen, then there's no problem here.
-
-> +/**
-> + * s2io_io_slot_reset - called after the pci bus has been reset.
-> + * @pdev: Pointer to PCI device
-> + *
-> + * Restart the card from scratch, as if from a cold-boot.
-> + */
-> +static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
-> +{
-
-At this point, the card has just experienced a hardware reset,
-(the #RST wire was held low for 250 millisecs, followed by
-a settle time of 2 seconds, followed by whatever BIOS thinks
-it needed to do, followed by a restore of the pci config space
-to what it was after a cold boot. So the card is in a "fresh"
-state; in theory its identitcal to a cold boot. So ... 
-are you sure you want to "down" at this point? 
-
-> +		s2io_card_down(sp);
-> +		sp->device_close_flag = TRUE;	/* Device is shut down. */
-
-
-One problem I'm having is that the watchdog timer sometimes
-pops and tries to reset the card before s2io_card_down()
-has a chance to run. I fixed this ... 
-
-======================
-So -- just for grins, I thought to myself, "Maybe I can make 
-s2io be the first adapter ever to fully recover without 
-a hard reset of the card."
-
-The idea is simple: 
-
-1) enable MMIO,
-2) call s2io_card_down()
-3) enable DMA
-4) cal s2io_card_up()
-
-I have a patch that does this, but then hit a few more snags.
-I haven't yet nailed down all the trouble spots, maybe tommorrow.
-
---linas
-
+   -John
