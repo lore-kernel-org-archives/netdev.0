@@ -1,34 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
-Date: Wed, 25 Oct 2006 22:38:38 -0400
-Message-ID: <20061026023838.GA6032@havoc.gtf.org>
-References: <20061025220406.GA5413@devicescape.com> <453FF357.6060007@trash.net> <45400D86.70406@trash.net>
+From: Zang Roy-r61911 <tie-fei.zang@freescale.com>
+Subject: Re: [patch 3/3] Add tsi108 On Chip Ethernet device driver support
+Date: 26 Oct 2006 10:50:26 +0800
+Message-ID: <1161831025.20631.1.camel@localhost.localdomain>
+References: <A0CDBA58F226D911B202000BDBAD46730A1B1410@zch01exm23.fsl.freescale.net>
+	 <1157962200.10526.10.camel@localhost.localdomain>
+	 <1158051351.14448.97.camel@localhost.localdomain>
+	 <ada3bax2lzw.fsf@cisco.com>  <4506C789.4050404@pobox.com>
+	 <1158749825.7973.9.camel@localhost.localdomain>
+	 <45121924.4000200@pobox.com>
+	 <1161569363.23698.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"Alexandre.Bounine@tundra.com" <Alexandre.Bounine@tundra.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:31897 "EHLO havoc.gtf.org")
-	by vger.kernel.org with ESMTP id S932222AbWJZCik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2006 22:38:40 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <45400D86.70406@trash.net>
+Received: from de01egw02.freescale.net ([192.88.165.103]:47093 "EHLO
+	de01egw02.freescale.net") by vger.kernel.org with ESMTP
+	id S1422825AbWJZCtx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 22:49:53 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <1161569363.23698.4.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2006 at 03:21:10AM +0200, Patrick McHardy wrote:
-> Considering that it is possibly and may be desirable to attach a
-> different qdisc than the built-in multiband qdisc, it might also
-> make sense to split the 80211 specific classification in a seperate
-> classifier module to allow simple classification of management traffic
-> with other qdiscs.
+On Mon, 2006-10-23 at 10:09, Zang Roy-r61911 wrote:
+> On Thu, 2006-09-21 at 12:46, Jeff Garzik wrote:
+> 
+> > you should have a chip structure, that contains two structs (one for 
+> > each interface/port)
+> > 
+> Jeff,
+> 
+> I updated the code according to all your feedback and post it here
+> 
+> http://www.spinics.net/lists/netdev/msg17120.html
+> 
+> Any comment?
+> 
+> Roy
 
-I've been telling the wireless people this for ages...
-
-	Jeff
-
-
+Jeff
+	How about it? What's your comment?
+Roy
 
