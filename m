@@ -1,104 +1,41 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH 1/2] !CONFIG_NET_ETHERNET unsets CONFIG_PHYLIB, but
- CONFIG_USB_USBNET also needs CONFIG_PHYLIB
-Date: Wed, 25 Oct 2006 16:59:57 -0700
-Message-ID: <20061025165957.4c390137.randy.dunlap@oracle.com>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org>
-	<20061025201341.GH21200@miggy.org>
-	<20061025151737.1bf4898c.randy.dunlap@oracle.com>
-	<20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] d80211: switch crypto to use block ciphers
+Date: Thu, 26 Oct 2006 10:06:24 +1000
+Message-ID: <20061026000624.GA29389@gondor.apana.org.au>
+References: <20061025224150.GA7364@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net, link@miggy.org,
-	greg@kroah.com, akpm@osdl.org, zippel@linux-m68k.org,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	dbrownell@users.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:37816 "EHLO
-	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S965237AbWJYX7S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Oct 2006 19:59:18 -0400
-To: David Brownell <david-b@pacbell.net>
-In-Reply-To: <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:41223 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932212AbWJZAGo
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Oct 2006 20:06:44 -0400
+To: David Kimdon <david.kimdon@devicescape.com>
+Content-Disposition: inline
+In-Reply-To: <20061025224150.GA7364@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Oct 2006 15:27:09 -0700 David Brownell wrote:
-
-> The other parts are right, this isn't.
+On Wed, Oct 25, 2006 at 03:41:50PM -0700, David Kimdon wrote:
 > 
-> Instead, "usbnet.c" should #ifdef the relevant ethtool hooks
-> according to CONFIG_MII ... since it's completely legit to
-> use usbnet with peripherals that don't need MII.
+> I don't actually know the implications of that first hunk where we do
+> "arc4" -> "ecb(arc4)".  I look though the various commits by Herbert
+> Xu and that appeared to be the right thing.
 
-Ugh.  OK.  How's this?  (2 patches)
+Basically if you encrypt/decrypt more than a block at a time and you're
+using ECB then ecb(arc4) is right.  So the changes to net/d80211/wep.c
+are good.
 
-(oh, OP mentioned CONFIG_PHYLIB but it's actually CONFIG_MII AFAIK)
+If you're only encrypting/decrypting a single block then you should
+use the cipher interface.  So net/d80211/aes_ccm.c should do that
+instead.  See drivers/net/wirless/airo.c for an example of that.
 
----
-From: Randy Dunlap <randy.dunlap@oracle.com>
-
-pegasus and mcs7830 drivers use MII interfaces and should
-select MII in the same way that drivers/net/ drivers do.
-
-However, the MII config symbol should not be in the 10/100 Ethernet
-menu, so that other drivers can use (enable) it or so that users
-can enable it without needing to enable 10/100 Ethernet.
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/Kconfig     |   15 +++++++--------
- drivers/usb/net/Kconfig |    2 ++
- 2 files changed, 9 insertions(+), 8 deletions(-)
-
---- linux-2619-rc3-pv.orig/drivers/usb/net/Kconfig
-+++ linux-2619-rc3-pv/drivers/usb/net/Kconfig
-@@ -84,6 +84,7 @@ config USB_PEGASUS
- config USB_RTL8150
- 	tristate "USB RTL8150 based ethernet device support (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL
-+	select MII
- 	help
- 	  Say Y here if you have RTL8150 based usb-ethernet adapter.
- 	  Send me <petkan@users.sourceforge.net> any comments you may have.
-@@ -210,6 +211,7 @@ config USB_NET_PLUSB
- config USB_NET_MCS7830
- 	tristate "MosChip MCS7830 based Ethernet adapters"
- 	depends on USB_USBNET
-+	select MII
- 	help
- 	  Choose this option if you're using a 10/100 Ethernet USB2
- 	  adapter based on the MosChip 7830 controller. This includes
---- linux-2619-rc3-pv.orig/drivers/net/Kconfig
-+++ linux-2619-rc3-pv/drivers/net/Kconfig
-@@ -145,6 +145,13 @@ config NET_SB1000
- 
- source "drivers/net/arcnet/Kconfig"
- 
-+config MII
-+	tristate "Generic Media Independent Interface device support"
-+	help
-+	  Most ethernet controllers have MII transceiver either as an external
-+	  or internal device.  It is safe to say Y or M here even if your
-+	  ethernet card lacks MII.
-+
- source "drivers/net/phy/Kconfig"
- 
- #
-@@ -180,14 +187,6 @@ config NET_ETHERNET
- 	  kernel: saying N will just cause the configurator to skip all
- 	  the questions about Ethernet network cards. If unsure, say N.
- 
--config MII
--	tristate "Generic Media Independent Interface device support"
--	depends on NET_ETHERNET
--	help
--	  Most ethernet controllers have MII transceiver either as an external
--	  or internal device.  It is safe to say Y or M here even if your
--	  ethernet card lack MII.
--
- source "drivers/net/arm/Kconfig"
- 
- config MACE
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
