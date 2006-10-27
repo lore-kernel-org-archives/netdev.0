@@ -1,48 +1,117 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.18 forcedeth GSO panic on send
-Date: Fri, 27 Oct 2006 13:58:58 +1000
-Message-ID: <20061027035858.GA11129@gondor.apana.org.au>
-References: <200610270117.57877.vda.linux@googlemail.com>
+From: Dmitry Mishin <dim@openvz.org>
+Subject: Re: Network virtualization/isolation
+Date: Fri, 27 Oct 2006 11:34:56 +0400
+Message-ID: <200610271134.56830.dim@openvz.org>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com> <20061026085659.33b4c6dd@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11015 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1423748AbWJ0D7h
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 23:59:37 -0400
-To: Denis Vlasenko <vda.linux@googlemail.com>
+Received: from mailhub.sw.ru ([195.214.233.200]:18264 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1946203AbWJ0Hf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 03:35:26 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061026085659.33b4c6dd@freekitty>
 Content-Disposition: inline
-In-Reply-To: <200610270117.57877.vda.linux@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2006 at 11:17:57PM +0000, Denis Vlasenko wrote:
-> 
-> I am using an AMD64 box with 32bit userspace / 64bit kernel.
-> 
-> Kernels 2.6.18 and 2.6.18.1 semi-randomly hang when I upload stuff
-> over the net - for example, "svn commit", scp are affected.
-> 2.6.17.11 does not seem to be affected.
-> 
-> Unfortunately even 60-line screen is not big enough
-> to catch whole trace. There are at least two traces,
-> and first scrolls off. I have a photo at
-> http://busybox.net/~vda/gso_panic/forcedeth_gso_panic.jpg
+On Thursday 26 October 2006 19:56, Stephen Hemminger wrote:
+> On Thu, 26 Oct 2006 11:44:55 +0200
+>
+> Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
+> > Stephen Hemminger wrote:
+> > > On Wed, 25 Oct 2006 17:51:28 +0200
+> > >
+> > > Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
+> > >>Hi Stephen,
+> > >>
+> > >>currently the work to make the container enablement into the kernel is
+> > >>doing good progress. The ipc, pid, utsname and filesystem system
+> > >>ressources are isolated/virtualized relying on the namespaces concept.
+> > >>
+> > >>But, there is missing the network virtualization/isolation. Two
+> > >>approaches are proposed: doing the isolation at the layer 2 and at the
+> > >>layer 3.
+> > >>
+> > >>The first one instanciate a network device by namespace and add a peer
+> > >>network device into the "root namespace", all the routing ressources
+> > >> are relative to the namespace. This work is done by Andrey Savochkin
+> > >> from the openvz project.
+> > >>
+> > >>The second relies on the routes and associates the network namespace
+> > >>pointer with each route. When the traffic is incoming, the packet
+> > >>follows an input route and retrieve the associated network namespace.
+> > >>When the traffic is outgoing, the packet, identified from the network
+> > >>namespace is coming from, follows only the routes matching the same
+> > >>network namespace. This work is made by me.
+> > >>
+> > >>IMHO, we need the two approach, the layer-2 to be able to bring *very*
+> > >>strong isolation for system container with a performance cost and a
+> > >>layer-3 to be able to have good isolation for lightweight container or
+> > >>application container when performances are more important.
+> > >>
+> > >>Do you have some suggestions ? What is your point of view on that ?
+> > >>
+> > >>Thanks in advance.
+> > >>
+> > >>   -- Daniel
+> > >
+> > > Any solution should allow both and it should build on the existing
+> > > netfilter infrastructure.
+> >
+> > The problem is netfilter can not give a good isolation, eg. how can be
+> > handled netstat command ? or avoid to see IP addresses assigned to
+> > another container when doing ifconfig ? Furthermore, one of the biggest
+> > interest of the network isolation is to bring mobility with a container
+> > and that can only be done if the network ressources inside the kernel
+> > can be identified by container in order to checkpoint/restart them.
+> >
+> > The all-in-namespace solution, ie. at layer 2, is very good in terms of
+> > isolation but it adds an non-negligeable overhead. The layer 3 isolation
+> >   has an insignifiant overhead, a good isolation perfectly adapted for
+> > applications containers.
+> >
+> > Unfortunatly, from the point of view of implementation, layer 3 can not
+> > be a subset of layer 2 isolation when using "all-in-namespace" and layer
+> > 2 isolation can not be a extension of the layer 3 isolation.
+> >
+> > I think the layer 2 and the layer 3 implementations can coexists. You
+> > can for example create a system container with a layer 2 isolation and
+> > inside it add a layer 3 isolation.
+> >
+> > Does that make sense ?
+> >
+> > 	-- Daniel
+>
+> Assuming you are talking about pseudo-virtualized environments,
+> there are several different discussions.
+>
+> 1. How should the namespace be isolated for the virtualized containered
+>    applications?
+>
+> 2. How should traffic be restricted into/out of those containers. This
+>    is where existing netfilter, classification, etc, should be used.
+>    The network code is overly rich as it is, we don't need another
+>    abstraction.
+>
+> 3. Can the virtualized containers be secure? No. we really can't keep
+>    hostile root in a container from killing system without going to
+>    a hypervisor.
+Stephen, 
 
-Looks like a network stack bug rather than a driver problem.
-However, I'd really like to see the first oops including the
-print out from skb_over_panic.
+Virtualized container can be secure, if it is complete system virtualization, 
+not just an application container. OpenVZ implements such and it is used hard 
+over the world. And of course, we care a lot to keep hostile root from
+killing whole system.
+ 
+OpenVZ uses virtualization on IP level (implemented by Andrey Savochkin, 
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115572448503723), with all
+necessary network objects isolated/virtualized, such as sockets, devices, 
+routes, netfilters, etc.
 
-Could you try booting with pause_on_oops=1 or perhaps use a
-serial console?
-
-Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Dmitry.
