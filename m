@@ -1,62 +1,40 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] Check if user has CAP_NET_ADMIN to change congestion control algorithm
-Date: Fri, 27 Oct 2006 12:43:11 +0200
-Message-ID: <20061027104311.GB3967@c3po.0xdef.net>
-References: <4540F076.70801@psc.edu> <20061026224407.GA2018@c3po.0xdef.net> <20061026235256.GB2018@c3po.0xdef.net> <20061026.170221.99202188.davem@davemloft.net>
+From: Christoph Raisch <RAISCH@de.ibm.com>
+Subject: Re: [PATCH 2.6.19-rc3 1/2] ehea: kzalloc GFP_ATOMIC fix
+Date: Fri, 27 Oct 2006 13:17:51 +0200
+Message-ID: <OF9B06F6DE.7191F185-ONC1257214.003DB403-C1257214.003DD10C@de.ibm.com>
+References: <20061026201313.9c831fc9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: hagen@jauu.net, jheffner@psc.edu, shemminger@osdl.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: Jan-Bernd Themann <themann@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>, ossthema@de.ibm.com,
+	Thomas Q Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c3po.0xdef.net ([217.172.181.57]:43023 "EHLO c3po.0xdef.net")
-	by vger.kernel.org with ESMTP id S1946267AbWJ0KnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 06:43:12 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061026.170221.99202188.davem@davemloft.net>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:54569 "EHLO
+	mtagate3.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1946401AbWJ0LPS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Oct 2006 07:15:18 -0400
+In-Reply-To: <20061026201313.9c831fc9.akpm@osdl.org>
+To: Andrew Morton <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller | 2006-10-26 17:02:21 [-0700]:
 
->Your email client turned the tabs into spaces in the patch making it
->useless.
+Andrew Morton <akpm@osdl.org> wrote on 27.10.2006 05:13:13:
 
-Sorry my mistake! I am en route and I paste the patch into my editor, who eat
-all tabs. One more time: sorry!
-
-
-Check if user has CAP_NET_ADMIN capability to change
-congestion control algorithm.
+> On Wed, 25 Oct 2006 13:11:42 +0200
+> Jan-Bernd Themann <ossthema@de.ibm.com> wrote:
+>
+> > This patch fixes kzalloc parameters (GFP_ATOMIC instead of GFP_KERNEL)
+>
+> why?
 
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+these few kcallocs run in atomic context in some situations.
+therefore GFP_KERNEL is no good idea.
 
----
- net/ipv4/tcp_cong.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Christoph R.
 
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index af0aca1..c1ae2e9 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -10,6 +10,7 @@ #include <linux/module.h>
- #include <linux/mm.h>
- #include <linux/types.h>
- #include <linux/list.h>
-+#include <linux/capability.h>
- #include <net/tcp.h>
- 
- static DEFINE_SPINLOCK(tcp_cong_list_lock);
-@@ -151,6 +152,9 @@ int tcp_set_congestion_control(struct so
- 	struct tcp_congestion_ops *ca;
- 	int err = 0;
- 
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
- 	rcu_read_lock();
- 	ca = tcp_ca_find(name);
- 	if (ca == icsk->icsk_ca_ops)
--- 
-1.4.1.1
