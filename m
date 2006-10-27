@@ -1,68 +1,68 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] tcp: don't allow unfair congestion control to be built
- without warning
-Date: Fri, 27 Oct 2006 13:43:08 -0400
-Message-ID: <4542452C.6050209@psc.edu>
-References: <4540F076.70801@psc.edu>	<20061026224407.GA2018@c3po.0xdef.net>	<20061026235256.GB2018@c3po.0xdef.net>	<20061026.170221.99202188.davem@davemloft.net>	<20061027104311.GB3967@c3po.0xdef.net>	<20061027074102.2a6fef4b@localhost.localdomain>	<20061027152157.GB4632@c3po.0xdef.net>	<45422A31.7070806@osdl.org> <20061027103016.3e8514d7@freekitty>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] tcp: allow restricting congestion control choices
+Date: Fri, 27 Oct 2006 10:59:00 -0700
+Message-ID: <20061027105900.758e78b9@freekitty>
+References: <4540F076.70801@psc.edu>
+	<20061026224407.GA2018@c3po.0xdef.net>
+	<20061026235256.GB2018@c3po.0xdef.net>
+	<20061026.170221.99202188.davem@davemloft.net>
+	<20061027104311.GB3967@c3po.0xdef.net>
+	<20061027074102.2a6fef4b@localhost.localdomain>
+	<20061027152157.GB4632@c3po.0xdef.net>
+	<45422A31.7070806@osdl.org>
+	<20061027103016.3e8514d7@freekitty>
+	<4542452C.6050209@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:5847 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S1752363AbWJ0Rn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 13:43:29 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061027103016.3e8514d7@freekitty>
+Received: from smtp.osdl.org ([65.172.181.4]:14212 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752370AbWJ0R7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 13:59:45 -0400
+To: John Heffner <jheffner@psc.edu>,
+	"David S. Miller" <davem@davemloft.net>
+In-Reply-To: <4542452C.6050209@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I think "unfair" is a difficult word.  Unfair to what?  It's true that 
-Scalable TCP is unfair to itself in that flows with unequal shares do 
-not converge, but it's not clear what its interactions are with other 
-congestion control algorithms.  It's not clear to me that it's 
-significantly more unfair wrt. reno than BIC, etc.  "Known to be broken" 
-might be more correct language. :)
+Here is an alternative that allows runtime based restriction on some
+TCP congestion control choices. 
 
-One thought would be to use a module parameter that sets one bit of 
-state: allow unprivileged use.  Each module could have a sensible 
-default value.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-   -John
+---
+ include/net/tcp.h   |    1 +
+ net/ipv4/tcp_cong.c |    4 ++++
+ 2 files changed, 5 insertions(+)
 
-
-Stephen Hemminger wrote:
-> My proposed method restricting TCP choices to fair algorithms.
-> This a net wide, not system wide issue, it should not be done
-> by kernel policy choice (capability), but by a build choice.
-> 
-> --- sky2.orig/net/ipv4/Kconfig	2006-10-27 10:10:47.000000000 -0700
-> +++ sky2/net/ipv4/Kconfig	2006-10-27 10:15:56.000000000 -0700
-> @@ -470,6 +470,16 @@
->  
->  if TCP_CONG_ADVANCED
->  
-> +config TCP_CONG_UNFAIR
-> +        bool "Allow unfair congestion control algorithms"
-> +	depends on EXPERIMENTAL
-> +        ---help---
-> +	  Some of the congestion control algorithms are for testing
-> +	  and research purposes and should not deployed on public
-> +	  networks because of the possiblity of unfair behavior.
-> +	  These algorithms may be useful for future development
-> +	  or comparison purposes.
-> +
->  config TCP_CONG_BIC
->  	tristate "Binary Increase Congestion (BIC) control"
->  	default m
-> @@ -551,7 +561,7 @@
->  
->  config TCP_CONG_SCALABLE
->  	tristate "Scalable TCP"
-> -	depends on EXPERIMENTAL
-> +	depends on TCP_CONG_UNFAIR
->  	default n
->  	---help---
->  	Scalable TCP is a sender-side only change to TCP which uses a
-
+--- sky2.orig/include/net/tcp.h	2006-10-27 10:46:19.000000000 -0700
++++ sky2/include/net/tcp.h	2006-10-27 10:46:55.000000000 -0700
+@@ -651,6 +651,7 @@
+ 
+ 	char 		name[TCP_CA_NAME_MAX];
+ 	struct module 	*owner;
++	int		restricted;	/* NET_ADMIN only */
+ };
+ 
+ extern int tcp_register_congestion_control(struct tcp_congestion_ops *type);
+--- sky2.orig/net/ipv4/tcp_cong.c	2006-10-27 10:51:47.000000000 -0700
++++ sky2/net/ipv4/tcp_cong.c	2006-10-27 10:56:36.000000000 -0700
+@@ -10,6 +10,7 @@
+ #include <linux/mm.h>
+ #include <linux/types.h>
+ #include <linux/list.h>
++#include <linux/capability.h>
+ #include <net/tcp.h>
+ 
+ static DEFINE_SPINLOCK(tcp_cong_list_lock);
+@@ -159,6 +160,9 @@
+ 	if (!ca)
+ 		err = -ENOENT;
+ 
++	else if (ca->restricted && !capable(CAP_NET_ADMIN))
++		err = -EPERM;
++
+ 	else if (!try_module_get(ca->owner))
+ 		err = -EBUSY;
+ 
