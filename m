@@ -1,131 +1,78 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 2/9] NetEffect 10Gb RNIC Driver: main kernel driver c file
-Date: Thu, 26 Oct 2006 17:19:17 -0700
-Message-ID: <adaslha6262.fsf@cisco.com>
-References: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EB6@venom2>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH] Check if user has CAP_NET_ADMIN to change congestion control algorithm
+Date: Fri, 27 Oct 2006 13:20:28 +1300
+Message-ID: <5640c7e00610261720p272fc4c2k52e062c060d8744b@mail.gmail.com>
+References: <20061026224407.GA2018@c3po.0xdef.net>
+	 <20061026235256.GB2018@c3po.0xdef.net>
+	 <5640c7e00610261659g5816942ndaf4e09eb8110c9e@mail.gmail.com>
+	 <20061026.170732.26277153.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <openib-general@openib.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hagen@jauu.net, jheffner@psc.edu, shemminger@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:54052 "EHLO
-	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
-	id S1946053AbWJ0ATT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 20:19:19 -0400
-To: <glenng@NetEffect.com>
-In-Reply-To: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EB6@venom2> (Glenn Grundstrom's message of "Thu, 26 Oct 2006 18:54:18 -0500")
+Received: from ug-out-1314.google.com ([66.249.92.168]:10045 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1946052AbWJ0AUa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 20:20:30 -0400
+Received: by ug-out-1314.google.com with SMTP id 32so549789ugm
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2006 17:20:29 -0700 (PDT)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20061026.170732.26277153.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > +static int nes_device_event(struct notifier_block *notifier, unsigned
- > long event, void *ptr);
- > +static int nes_inetaddr_event(struct notifier_block *notifier, unsigned
- > long event, void *ptr);
- > +static void nes_print_macaddr(struct net_device *netdev);
- > +static irqreturn_t nes_interrupt(int, void *, struct pt_regs *);
- > +static int __devinit nes_probe(struct pci_dev *, const struct
- > pci_device_id *);
- > +static int nes_suspend(struct pci_dev *, pm_message_t);
- > +static int nes_resume(struct pci_dev *);
- > +static void __devexit nes_remove(struct pci_dev *);
- > +static int __init nes_init_module(void);
- > +static void __exit nes_exit_module(void);
+On 10/27/06, David Miller <davem@davemloft.net> wrote:
+> From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+> Date: Fri, 27 Oct 2006 12:59:30 +1300
+>
+> > I don't agree with this at all. I would love Firefox, BitTorrent etc
+> > to implement usage of TCP-LP for example so they use "unused"
+> > bandwidth only.
+> >
+> > With this change applications can't do this.
+> >
+> > If we are going to restrict by capabilities then I think we should
+> > only restrict module loading - this way the admin of the box can
+> > decide what algorithms can be used.
+>
+> You are using an example of a (supposedly) safe case of this
+> as a justification for allowing all cases.
+>
+> It is bad, very bad, to allow arbitrary users to select arbitrary
+> congestion control algorithms.  It is just as bad as allowing them to
+> disable congestion control completely if that were an option.
 
-Some of these declarations are already unneeded (eg at least
-nes_init_module and nes_exit_module), and it would be good to
-rearrange your code so that the rest can be removed too.
+OK understand your point here but I think low priority TCP has its
+use. Don't agree it is just as bad, but it is bad under the wrong
+circumstances - it's still better than UDP which has no congestion
+control...
 
- > +// _the_ function interface handle to nes_tcpip module
+Don't want to make it over complicated though.
 
-We prefer /* */ style comments
+I think the most sense would be to restrict it as shown as tcp-lp is
+the exception and allow tcp-lp via another mechanism. That is a
+situation where the user could specify how low priority they want the
+traffic to be... If I ever get enough time I'll have a go at it but
+can't see it this year :-(
 
- > +static struct notifier_block nes_dev_notifier = {
- > +	notifier_call:  nes_device_event
- > +};
-
-Standard C syntax (rather than gcc extension is preferred), like:
-
-static struct notifier_block nes_dev_notifier = {
-	.notifier_call = nes_device_event
-};
-
- > +/**
- > + * nes_device_event
- > + * 
- > + * @param notifier
- > + * @param event
- > + * @param ptr
- > + * 
- > + * @return int
- > + */
-
-There's no point to comments like this.  I can read the function
-declaration just fine, so save the screen real estate unless you have
-something more to say.
-
- > +	unsigned long reg0_start, reg0_flags, reg0_len;
- > +	unsigned long reg1_start, reg1_flags, reg1_len;
-
-PCI bars are type resource_size_t, which can be bigger than long...
-
- > +	assert(pcidev != NULL);
- > +	assert(ent != NULL);
-
-BUG_ON() is more idiomatic.  But this looks kind of useless anyway --
-you'll get a nice enough oops if they are NULL.
-
- > +	/* Enable PCI device */
- > +	ret = pci_enable_device(pcidev);
-
-This isn't major, but comments like this just waste screen space.  I
-mean, someone who can't guess what pci_enable_device() does is
-probably not going to be helped by the comment either.
-
- > +	/* pci tweaks */
- > +	pci_write_config_word(pcidev, 0x000c, 0xfc10);
- > +	pci_write_config_dword(pcidev, 0x0048, 0x00480007);
-
-Looks rather magic and fragile.  Register 0xc is the cacheline size
-and latency, right?  Why are you tweaking that?
-
-And I assume 0x48 is somewhere in a capability structure.  It's much
-better to use pci_find_capability() in that case.  That way when the
-hardware guys tell you they have to rearrange the PCI header in the
-next rev of the chip, you don't have to touch the chip.  However this
-tweaking probably needs to be justified too.
-
- > +/**
- > + * nes_suspend - power management
- > + */
- > +static int nes_suspend(struct pci_dev *pcidev, pm_message_t state)
- > +{
- > +	dprintk("pcidev=%p\n", pcidev);
- > +
- > +	return (0);
- > +}
- > 
-
-Umm, just don't have suspend/resume methods if you don't support it.
-
- > +	nes_adapter_free(nesdev->nesadapter);
- > +	
- > +	dprintk("nes_remove: calling iounmap.\n");
- > +	/* Unmap adapter PA space */
- > +	iounmap(nesdev->regs);
- > +
- > +	/* Unregister with OpenFabrics */
- > +	if (nesdev->of_device_registered) {
- > +		dprintk("nes_remove: calling nes_unregister_device.\n");
- > +		nes_unregister_device(nesdev);
- > +	}
-
-You can still have upper layers calling into you until
-ib_unregister_device() returns, so it looks bogus to do things like
-iounmap before then.  I think your cleanup needs to be reordered.
-
-And I don't think you're unregistering with OpenFabrics -- you're just
-unregistering with the RDMA midlayer.
-
- > +	return (pci_module_init(&nes_pci_driver));
-
-Just use pci_register_driver().
- - R.
+It actually makes more sense to tie the congestion control algorithm
+to the route/destination IP if we are going to change it but that is a
+whole another exercise in itself.
+>
+> If someone, for example, builds all the algorithms statically into
+> their kernel, for testing as root, this lets all users on the machine
+> do the same which is not right.
+>
+This is the state at present as I understand it. However that doesn't
+make it right.
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
