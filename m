@@ -1,179 +1,219 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH 9/13] [SCTP] Merge IPv4 and IPv6 versions of
-	get_saddr() with their corresponding get_dst().
-Date: Fri, 27 Oct 2006 10:47:35 -0700
-Message-ID: <1161971255.5820.13.camel@w-sridhar2.beaverton.ibm.com>
-References: <453421AD.1010906@tcs.hut.fi>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] s2io: add PCI error recovery support
+Date: Fri, 27 Oct 2006 14:32:31 -0500
+Message-ID: <20061027193231.GI6360@austin.ibm.com>
+References: <78C9135A3D2ECE4B8162EBDCE82CAD77DC20B7@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Thomas Graf <tgraf@suug.ch>, kim.nordlund@nokia.com,
-	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:12758 "EHLO e1.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1750708AbWJ0SbA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 14:31:00 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k9RIUwHV018044
-	for <netdev@vger.kernel.org>; Fri, 27 Oct 2006 14:30:58 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9RIUx64235068
-	for <netdev@vger.kernel.org>; Fri, 27 Oct 2006 14:30:59 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9RIUsJ8007464
-	for <netdev@vger.kernel.org>; Fri, 27 Oct 2006 14:30:55 -0400
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <453421AD.1010906@tcs.hut.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wen Xiong <wenxiong@us.ibm.com>, linux-kernel@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752437AbWJ0TdY@vger.kernel.org>
+To: Ananda Raju <Ananda.Raju@neterion.com>
+Content-Disposition: inline
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77DC20B7@nekter>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-10-17 at 03:19 +0300, Ville Nuorvala wrote:
-> As the IPv6 route lookup now also returns the selected source address
-> there is no need for a separate source address lookup. In fact, the
-> source address selection needs to be moved to get_dst() because the
-> selected IPv6 source address isn't always stored in the route.
-> Sometimes this makes it impossible to guess the correct address later on.
-> 
+On Fri, Oct 27, 2006 at 07:35:18AM -0400, Ananda Raju wrote:
+> Looking at all scenarios I feel the first patch is OK. Can you add the
+> watchdog timer fix to first initial patch and resubmit. 
 
-Ville,
+Appended below.
 
-Overall the patch looks pretty good. I found only 1 issue in 
-sctp_v6_get_dst(). See below.
+> So -- just for grins, I thought to myself, "Maybe I can make 
+> s2io be the first adapter ever to fully recover without 
+> a hard reset of the card."
 
+... I couldn't quite make this work. Since the patch below
+already works, I didn't see much point exterting myself further.
 
-<snip>
+--linas
 
+This patch adds PCI error recovery support to the 
+s2io 10-Gigabit ethernet device driver. Third revision,
+blocks interrupts and the watchdog.
 
-> 
-> +/* Returns the dst cache entry for the given source and destination ip
-> + * addresses.
-> + */
-> +static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
-> +					 union sctp_addr *daddr,
-> +					 union sctp_addr *saddr)
-> +{
-> +	struct dst_entry *dst;
-> +	struct flowi fl;
-> +	struct sctp_bind_addr *bp;
-> +	rwlock_t *addr_lock;
-> +	struct sctp_sockaddr_entry *laddr;
-> +	struct list_head *pos;
-> +	struct rt6_info *rt;
-> +	union sctp_addr baddr;
-> +	sctp_scope_t scope;
-> +	__u8 matchlen = 0;
-> +	__u8 bmatchlen;
-> +
-> +	memset(&fl, 0, sizeof(fl));
-> +	ipv6_addr_copy(&fl.fl6_dst, &daddr->v6.sin6_addr);
-> +	if (ipv6_addr_type(&daddr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
-> +		fl.oif = daddr->v6.sin6_scope_id;
-> +
-> +	ipv6_addr_copy(&fl.fl6_src, &saddr->v6.sin6_addr);
-> +	SCTP_DEBUG_PRINTK("%s: DST=" NIP6_FMT " SRC=" NIP6_FMT " ",
-> +			  __FUNCTION__, NIP6(fl.fl6_dst), NIP6(fl.fl6_src));
-> +
-> +	dst = ip6_route_output(NULL, &fl);
-> +	if (dst->error) {
-> +		dst_release(dst);
-> +		dst = NULL;
-> +	}
-> +	if (!ipv6_addr_any(&saddr->v6.sin6_addr))
-> +		goto out;
-> +	if (!asoc) {
-> +		if (dst)
-> +			ipv6_addr_copy(&saddr->v6.sin6_addr, &fl.fl6_src);
-> +		goto out;
-> +	}
-> +	bp = &asoc->base.bind_addr;
-> +	addr_lock = &asoc->base.addr_lock;
-> +
-> +	if (dst) {
-> +		/* Walk through the bind address list and look for a bind
-> +		 * address that matches the source address of the returned rt.
-> +		 */
-> +		sctp_v6_fl_saddr(&baddr, &fl, bp->port);
-Here we are checking if the source address returned in the dst matches one of
-the address in the bind address list of the association. Not the source address
-that is passed to this routine(it could be INADDRY_ANY).
-So this should be changed back to sctp_v6_dst_saddr().
+Tested, seems to work well.
 
-Thanks
-Sridhar
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
+Cc: Ananda Raju <Ananda.Raju@neterion.com>
+Cc: Wen Xiong <wenxiong@us.ibm.com>
 
-> +		sctp_read_lock(addr_lock);
-> +		list_for_each(pos, &bp->address_list) {
-> +			laddr = list_entry(pos, struct sctp_sockaddr_entry,
-> +					   list);
-> +			if (!laddr->use_as_src)
-> +				continue;
-> +			if (sctp_v6_cmp_addr(&baddr, &laddr->a))
-> +				goto init_saddr;
-> +		}
-> +		sctp_read_unlock(addr_lock);
-> +
-> +		/* Invalid rt or none of the bound addresses match the source
-> +		 * address. So release it.
-> +		 */
-> +		dst_release(dst);
-> +		dst = NULL;
-> +	}
-> +
-> +	/* Go through the bind address list and find the best source address
-> +	 * that matches the scope of the destination address.
-> +	 */
-> +	memset(&baddr, 0, sizeof(union sctp_addr));
-> +	scope = sctp_scope(daddr);
-> +	sctp_read_lock(addr_lock);
-> +	list_for_each(pos, &bp->address_list) {
-> +		laddr = list_entry(pos, struct sctp_sockaddr_entry, list);
-> +		
-> +		if (!laddr->use_as_src ||
-> +		    laddr->a.sa.sa_family != AF_INET6 ||
-> +		    scope > sctp_scope(&laddr->a) ||
-> +		    (ipv6_addr_type(&laddr->a.v6.sin6_addr) &
-> +		     IPV6_ADDR_LINKLOCAL &&
-> +		     laddr->a.v6.sin6_scope_id != fl.oif))
-> +			continue;
-> +
-> +		bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
-> +		if (!dst || (matchlen < bmatchlen)) {
-> +			struct dst_entry *dst2;
-> +			ipv6_addr_copy(&fl.fl6_src, &laddr->a.v6.sin6_addr);
-> +			dst2 = ip6_route_output(NULL, &fl);
-> +			if (dst2->error) {
-> +				dst_release(dst2);
-> +				dst2 = NULL;
-> +				continue;
-> +			}
-> +			dst_release(dst);
-> +			dst = dst2;
-> +			memcpy(&baddr, &laddr->a, sizeof(union sctp_addr));
-> +			matchlen = bmatchlen;
-> +		}
-> +	}
-> +	if (dst)
-> +		goto init_saddr;
-> +out_unlock:
-> +	sctp_read_unlock(addr_lock);
-> +out:
-> +	if (dst) {
-> +		rt = (struct rt6_info *) dst;
-> +		SCTP_DEBUG_PRINTK("SRC=" NIP6_FMT
-> +				  " rt6_dst=" NIP6_FMT
-> +				  " rt6_src=" NIP6_FMT "\n",
-> +				  NIP6(saddr->v6.sin6_addr),
-> +				  NIP6(rt->rt6i_dst.addr),
-> +				  NIP6(rt->rt6i_src.addr));
-> +	} else
-> +		SCTP_DEBUG_PRINTK("NO ROUTE\n");
-> +	return dst;
-> +init_saddr:
-> +	memcpy(saddr, &baddr, sizeof(union sctp_addr));
-> +	goto out_unlock;
-> +}
+----
+ drivers/net/s2io.c |  121 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/s2io.h |    5 ++
+ 2 files changed, 126 insertions(+)
 
-
-
+Index: linux-2.6.19-rc1-git11/drivers/net/s2io.c
+===================================================================
+--- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.c	2006-10-27 10:49:07.000000000 -0500
++++ linux-2.6.19-rc1-git11/drivers/net/s2io.c	2006-10-27 13:55:01.000000000 -0500
+@@ -434,11 +434,18 @@ static struct pci_device_id s2io_tbl[] _
+ 
+ MODULE_DEVICE_TABLE(pci, s2io_tbl);
+ 
++static struct pci_error_handlers s2io_err_handler = {
++	.error_detected = s2io_io_error_detected,
++	.slot_reset = s2io_io_slot_reset,
++	.resume = s2io_io_resume,
++};
++
+ static struct pci_driver s2io_driver = {
+       .name = "S2IO",
+       .id_table = s2io_tbl,
+       .probe = s2io_init_nic,
+       .remove = __devexit_p(s2io_rem_nic),
++      .err_handler = &s2io_err_handler,
+ };
+ 
+ /* A simplifier macro used both by init and free shared_mem Fns(). */
+@@ -3159,6 +3166,11 @@ static void alarm_intr_handler(struct s2
+ 	register u64 val64 = 0, err_reg = 0;
+ 	u64 cnt;
+ 	int i;
++
++	if ((nic->pdev->error_state != pci_channel_io_normal) &&
++		 (nic->pdev->error_state != 0))
++		return;
++
+ 	nic->mac_control.stats_info->sw_stat.ring_full_cnt = 0;
+ 	/* Handling the XPAK counters update */
+ 	if(nic->mac_control.stats_info->xpak_stat.xpak_timer_count < 72000) {
+@@ -4171,6 +4183,11 @@ static irqreturn_t s2io_isr(int irq, voi
+ 	mac_info_t *mac_control;
+ 	struct config_param *config;
+ 
++	/* Pretend we handled any irq's from a disconnected card */
++	if ((sp->pdev->error_state != pci_channel_io_normal) &&
++		 (sp->pdev->error_state != 0))
++		return IRQ_HANDLED;
++
+ 	atomic_inc(&sp->isr_cnt);
+ 	mac_control = &sp->mac_control;
+ 	config = &sp->config;
+@@ -7564,3 +7581,107 @@ static void lro_append_pkt(nic_t *sp, lr
+ 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
+ 	return;
+ }
++
++/**
++ * s2io_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci conneection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
++                                               pci_channel_state_t state)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	netif_device_detach(netdev);
++
++	if (netif_running(netdev)) {
++		unsigned long flags;
++
++		/* The folowing is an abreviated subset of the
++		 * steps taken by s2io_card_down(), avoiding
++		 * steps that touch the card itself.
++		 */
++		del_timer_sync(&sp->alarm_timer);
++		atomic_set(&sp->card_state, CARD_DOWN);
++
++		/* Kill tasklet. */
++		tasklet_kill(&sp->task);
++
++		/* Free all Tx buffers */
++		spin_lock_irqsave(&sp->tx_lock, flags);
++		free_tx_buffers(sp);
++		spin_unlock_irqrestore(&sp->tx_lock, flags);
++
++		/* Free all Rx buffers */
++		spin_lock_irqsave(&sp->rx_lock, flags);
++		free_rx_buffers(sp);
++		spin_unlock_irqrestore(&sp->rx_lock, flags);
++
++		clear_bit(0, &(sp->link_state));
++		sp->device_close_flag = TRUE;	/* Device is shut down. */
++	}
++	pci_disable_device(pdev);
++
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * s2io_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ * At this point, the card has exprienced a hard reset,
++ * followed by fixups by BIOS, and has its config space
++ * set up identically to what it was at cold boot.
++ */
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	if (pci_enable_device(pdev)) {
++		printk(KERN_ERR "s2io: "
++		       "Cannot re-enable PCI device after reset.\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++
++	pci_set_master(pdev);
++	s2io_reset(sp);
++
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * s2io_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells
++ * us that its OK to resume normal operation.
++ */
++static void s2io_io_resume(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	nic_t *sp = netdev->priv;
++
++	if (netif_running(netdev)) {
++		if (s2io_card_up(sp)) {
++			printk(KERN_ERR "s2io: "
++			       "Can't bring device back up after reset.\n");
++			return;
++		}
++
++		if (s2io_set_mac_addr(netdev, netdev->dev_addr) == FAILURE) {
++			s2io_card_down(sp);
++			printk(KERN_ERR "s2io: "
++			       "Can't resetore mac addr after reset.\n");
++			return;
++		}
++	}
++
++	netif_device_attach(netdev);
++	netif_wake_queue(netdev);
++}
+Index: linux-2.6.19-rc1-git11/drivers/net/s2io.h
+===================================================================
+--- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.h	2006-10-27 10:49:07.000000000 -0500
++++ linux-2.6.19-rc1-git11/drivers/net/s2io.h	2006-10-27 10:50:53.000000000 -0500
+@@ -1013,6 +1013,11 @@ static void queue_rx_frame(struct sk_buf
+ static void update_L3L4_header(nic_t *sp, lro_t *lro);
+ static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb, u32 tcp_len);
+ 
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
++					                      pci_channel_state_t state);
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
++static void s2io_io_resume(struct pci_dev *pdev);
++
+ #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
