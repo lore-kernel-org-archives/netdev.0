@@ -1,58 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 7421] New: Oops, EIP is at atalk_sendmsg
-Date: Thu, 26 Oct 2006 17:26:20 -0700 (PDT)
-Message-ID: <20061026.172620.02298797.davem@davemloft.net>
-References: <200610261108.k9QB8a2Q009544@fire-2.osdl.org>
-	<20061026094438.48c57c48.akpm@osdl.org>
+From: netdev@sc-software.com
+Subject: ethernet mac filter configuration
+Date: Thu, 26 Oct 2006 17:32:20 -0700 (PDT)
+Message-ID: <Pine.LNX.4.63.0610261722220.14561@sc-software.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	rose@sj.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: John Heil <netdev@sc-software.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:25831
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1946058AbWJ0A0n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Oct 2006 20:26:43 -0400
-To: akpm@osdl.org
-In-Reply-To: <20061026094438.48c57c48.akpm@osdl.org>
+Received: from scsoftware.csnc.net ([205.214.229.65]:32953 "EHLO
+	sc-software.com") by vger.kernel.org with ESMTP id S1946059AbWJ0A1x
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 20:27:53 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 26 Oct 2006 09:44:38 -0700
 
-> > Oct 26 10:01:07 localhost kernel: EIP is at atalk_sendmsg+0x15b/0x4e4 [appletalk]
-> > Oct 26 10:01:07 localhost kernel: eax: 00000000   ebx: 0000002f   ecx: 00000000   \
-> >                 edx: 00000000
-> > Oct 26 10:01:07 localhost kernel: esi: cadcb600   edi: 00000000   ebp: cc9d7eec   \
-> >                 esp: cc9d7d6c
+Probably dumb Q/wrong place, but...
 
-Does this make the bug go away?
+What, if any, user space command is available/recommended
+for adding/deleting MAC addresses and masks to hardware
+based ARC/CAM/MAC address filter memory on chip.
 
-This code has been like this for a long time, I'm surprised
-it never triggered before.  We properly set "dev = rt->dev"
-right after the "if (!rt)" check, so the two settings removed
-by this patch were not only OOPS-prone, they were also
-superfluous.
+I've done a driver for a new 10/100 MAC/PHY combo (currently
+running on ARM) that has on chip memory and logic for
+this kind of filtration.
 
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index 708e2e0..485e35c 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -1584,7 +1584,6 @@ #endif
- 
- 	if (usat->sat_addr.s_net || usat->sat_addr.s_node == ATADDR_ANYNODE) {
- 		rt = atrtr_find(&usat->sat_addr);
--		dev = rt->dev;
- 	} else {
- 		struct atalk_addr at_hint;
- 
-@@ -1592,7 +1591,6 @@ #endif
- 		at_hint.s_net  = at->src_net;
- 
- 		rt = atrtr_find(&at_hint);
--		dev = rt->dev;
- 	}
- 	if (!rt)
- 		return -ENETUNREACH;
+I'm aware of the kernel multicast support and I've tied
+my set_multicast_list() function to needed chip interface
+but can't find a standard user space command to instantiate
+the list with MAC addresses/masks.
+
+
+Thnx v much,
+johnh
+
+
+.
+===========================================================
+John Heil
+South Coast Software
+Custom firmware, device drivers and board bring up services
+Ph: 1-714-774-6952
+Fx: 1-714-774-7053
+www.sc-software.com
+email: johnhscs@sc-software.com
+===========================================================
+
