@@ -1,219 +1,203 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] s2io: add PCI error recovery support
-Date: Fri, 27 Oct 2006 14:32:31 -0500
-Message-ID: <20061027193231.GI6360@austin.ibm.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77DC20B7@nekter>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: [PATCH 2.6.19-rc3 1/2] amso1100 - Use
+ dma_alloc_coherent instead of kmalloc/dma_map_single.
+Date: Fri, 27 Oct 2006 15:58:19 -0500
+Message-ID: <20061027205819.8511.85102.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wen Xiong <wenxiong@us.ibm.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752437AbWJ0TdY@vger.kernel.org>
-To: Ananda Raju <Ananda.Raju@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77DC20B7@nekter>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: rdreier@cisco.com
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2006 at 07:35:18AM -0400, Ananda Raju wrote:
-> Looking at all scenarios I feel the first patch is OK. Can you add the
-> watchdog timer fix to first initial patch and resubmit. 
 
-Appended below.
+The Ammasso driver needs to use dma_alloc_coherent() for 
+allocating memory that will be used by the HW for dma.
 
-> So -- just for grins, I thought to myself, "Maybe I can make 
-> s2io be the first adapter ever to fully recover without 
-> a hard reset of the card."
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
 
-... I couldn't quite make this work. Since the patch below
-already works, I didn't see much point exterting myself further.
+ drivers/infiniband/hw/amso1100/c2_alloc.c |   13 +++----
+ drivers/infiniband/hw/amso1100/c2_cq.c    |   14 ++------
+ drivers/infiniband/hw/amso1100/c2_rnic.c  |   52 ++++++++++++-----------------
+ 3 files changed, 31 insertions(+), 48 deletions(-)
 
---linas
-
-This patch adds PCI error recovery support to the 
-s2io 10-Gigabit ethernet device driver. Third revision,
-blocks interrupts and the watchdog.
-
-Tested, seems to work well.
-
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
-Cc: Ananda Raju <Ananda.Raju@neterion.com>
-Cc: Wen Xiong <wenxiong@us.ibm.com>
-
-----
- drivers/net/s2io.c |  121 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/s2io.h |    5 ++
- 2 files changed, 126 insertions(+)
-
-Index: linux-2.6.19-rc1-git11/drivers/net/s2io.c
-===================================================================
---- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.c	2006-10-27 10:49:07.000000000 -0500
-+++ linux-2.6.19-rc1-git11/drivers/net/s2io.c	2006-10-27 13:55:01.000000000 -0500
-@@ -434,11 +434,18 @@ static struct pci_device_id s2io_tbl[] _
- 
- MODULE_DEVICE_TABLE(pci, s2io_tbl);
- 
-+static struct pci_error_handlers s2io_err_handler = {
-+	.error_detected = s2io_io_error_detected,
-+	.slot_reset = s2io_io_slot_reset,
-+	.resume = s2io_io_resume,
-+};
-+
- static struct pci_driver s2io_driver = {
-       .name = "S2IO",
-       .id_table = s2io_tbl,
-       .probe = s2io_init_nic,
-       .remove = __devexit_p(s2io_rem_nic),
-+      .err_handler = &s2io_err_handler,
- };
- 
- /* A simplifier macro used both by init and free shared_mem Fns(). */
-@@ -3159,6 +3166,11 @@ static void alarm_intr_handler(struct s2
- 	register u64 val64 = 0, err_reg = 0;
- 	u64 cnt;
+diff --git a/drivers/infiniband/hw/amso1100/c2_alloc.c b/drivers/infiniband/hw/amso1100/c2_alloc.c
+index 028a60b..1d30ef7 100644
+--- a/drivers/infiniband/hw/amso1100/c2_alloc.c
++++ b/drivers/infiniband/hw/amso1100/c2_alloc.c
+@@ -42,13 +42,14 @@ static int c2_alloc_mqsp_chunk(struct c2
+ {
  	int i;
-+
-+	if ((nic->pdev->error_state != pci_channel_io_normal) &&
-+		 (nic->pdev->error_state != 0))
-+		return;
-+
- 	nic->mac_control.stats_info->sw_stat.ring_full_cnt = 0;
- 	/* Handling the XPAK counters update */
- 	if(nic->mac_control.stats_info->xpak_stat.xpak_timer_count < 72000) {
-@@ -4171,6 +4183,11 @@ static irqreturn_t s2io_isr(int irq, voi
- 	mac_info_t *mac_control;
- 	struct config_param *config;
+ 	struct sp_chunk *new_head;
++	dma_addr_t dma_addr;
  
-+	/* Pretend we handled any irq's from a disconnected card */
-+	if ((sp->pdev->error_state != pci_channel_io_normal) &&
-+		 (sp->pdev->error_state != 0))
-+		return IRQ_HANDLED;
-+
- 	atomic_inc(&sp->isr_cnt);
- 	mac_control = &sp->mac_control;
- 	config = &sp->config;
-@@ -7564,3 +7581,107 @@ static void lro_append_pkt(nic_t *sp, lr
- 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
- 	return;
+-	new_head = (struct sp_chunk *) __get_free_page(gfp_mask);
++	new_head = dma_alloc_coherent(&c2dev->pcidev->dev, PAGE_SIZE, 
++				      &dma_addr, gfp_mask); 
+ 	if (new_head == NULL)
+ 		return -ENOMEM;
+ 
+-	new_head->dma_addr = dma_map_single(c2dev->ibdev.dma_device, new_head,
+-					    PAGE_SIZE, DMA_FROM_DEVICE);
++	new_head->dma_addr = dma_addr;
+ 	pci_unmap_addr_set(new_head, mapping, new_head->dma_addr);
+ 
+ 	new_head->next = NULL;
+@@ -80,10 +81,8 @@ void c2_free_mqsp_pool(struct c2_dev *c2
+ 
+ 	while (root) {
+ 		next = root->next;
+-		dma_unmap_single(c2dev->ibdev.dma_device,
+-				 pci_unmap_addr(root, mapping), PAGE_SIZE,
+-			         DMA_FROM_DEVICE);
+-		__free_page((struct page *) root);
++		dma_free_coherent(&c2dev->pcidev->dev, PAGE_SIZE, root, 
++				  pci_unmap_addr(root, mapping));
+ 		root = next;
+ 	}
  }
-+
-+/**
-+ * s2io_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci conneection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
-+                                               pci_channel_state_t state)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	netif_device_detach(netdev);
-+
-+	if (netif_running(netdev)) {
-+		unsigned long flags;
-+
-+		/* The folowing is an abreviated subset of the
-+		 * steps taken by s2io_card_down(), avoiding
-+		 * steps that touch the card itself.
-+		 */
-+		del_timer_sync(&sp->alarm_timer);
-+		atomic_set(&sp->card_state, CARD_DOWN);
-+
-+		/* Kill tasklet. */
-+		tasklet_kill(&sp->task);
-+
-+		/* Free all Tx buffers */
-+		spin_lock_irqsave(&sp->tx_lock, flags);
-+		free_tx_buffers(sp);
-+		spin_unlock_irqrestore(&sp->tx_lock, flags);
-+
-+		/* Free all Rx buffers */
-+		spin_lock_irqsave(&sp->rx_lock, flags);
-+		free_rx_buffers(sp);
-+		spin_unlock_irqrestore(&sp->rx_lock, flags);
-+
-+		clear_bit(0, &(sp->link_state));
-+		sp->device_close_flag = TRUE;	/* Device is shut down. */
-+	}
-+	pci_disable_device(pdev);
-+
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * s2io_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ * At this point, the card has exprienced a hard reset,
-+ * followed by fixups by BIOS, and has its config space
-+ * set up identically to what it was at cold boot.
-+ */
-+static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	if (pci_enable_device(pdev)) {
-+		printk(KERN_ERR "s2io: "
-+		       "Cannot re-enable PCI device after reset.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+
-+	pci_set_master(pdev);
-+	s2io_reset(sp);
-+
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * s2io_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells
-+ * us that its OK to resume normal operation.
-+ */
-+static void s2io_io_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	nic_t *sp = netdev->priv;
-+
-+	if (netif_running(netdev)) {
-+		if (s2io_card_up(sp)) {
-+			printk(KERN_ERR "s2io: "
-+			       "Can't bring device back up after reset.\n");
-+			return;
-+		}
-+
-+		if (s2io_set_mac_addr(netdev, netdev->dev_addr) == FAILURE) {
-+			s2io_card_down(sp);
-+			printk(KERN_ERR "s2io: "
-+			       "Can't resetore mac addr after reset.\n");
-+			return;
-+		}
-+	}
-+
-+	netif_device_attach(netdev);
-+	netif_wake_queue(netdev);
-+}
-Index: linux-2.6.19-rc1-git11/drivers/net/s2io.h
-===================================================================
---- linux-2.6.19-rc1-git11.orig/drivers/net/s2io.h	2006-10-27 10:49:07.000000000 -0500
-+++ linux-2.6.19-rc1-git11/drivers/net/s2io.h	2006-10-27 10:50:53.000000000 -0500
-@@ -1013,6 +1013,11 @@ static void queue_rx_frame(struct sk_buf
- static void update_L3L4_header(nic_t *sp, lro_t *lro);
- static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb, u32 tcp_len);
+diff --git a/drivers/infiniband/hw/amso1100/c2_cq.c b/drivers/infiniband/hw/amso1100/c2_cq.c
+index 9d7bcc5..9b7af81 100644
+--- a/drivers/infiniband/hw/amso1100/c2_cq.c
++++ b/drivers/infiniband/hw/amso1100/c2_cq.c
+@@ -246,11 +246,8 @@ int c2_arm_cq(struct ib_cq *ibcq, enum i
  
-+static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
-+					                      pci_channel_state_t state);
-+static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
-+static void s2io_io_resume(struct pci_dev *pdev);
+ static void c2_free_cq_buf(struct c2_dev *c2dev, struct c2_mq *mq)
+ {
+-
+-	dma_unmap_single(c2dev->ibdev.dma_device, pci_unmap_addr(mq, mapping),
+-			 mq->q_size * mq->msg_size, DMA_FROM_DEVICE);
+-	free_pages((unsigned long) mq->msg_pool.host,
+-		   get_order(mq->q_size * mq->msg_size));
++	dma_free_coherent(&c2dev->pcidev->dev, mq->q_size * mq->msg_size,
++			  mq->msg_pool.host, pci_unmap_addr(mq, mapping));
+ }
+ 
+ static int c2_alloc_cq_buf(struct c2_dev *c2dev, struct c2_mq *mq, int q_size,
+@@ -258,8 +255,8 @@ static int c2_alloc_cq_buf(struct c2_dev
+ {
+ 	unsigned long pool_start;
+ 
+-	pool_start = __get_free_pages(GFP_KERNEL,
+-				      get_order(q_size * msg_size));
++	pool_start = dma_alloc_coherent(&c2dev->pcidev->dev, q_size * msg_size,
++					&mq->host_dma, GFP_KERNEL);
+ 	if (!pool_start)
+ 		return -ENOMEM;
+ 
+@@ -271,9 +268,6 @@ static int c2_alloc_cq_buf(struct c2_dev
+ 		       NULL,	/* peer (currently unknown) */
+ 		       C2_MQ_HOST_TARGET);
+ 
+-	mq->host_dma = dma_map_single(c2dev->ibdev.dma_device,
+-				      (void *)pool_start,
+-				      q_size * msg_size, DMA_FROM_DEVICE);
+ 	pci_unmap_addr_set(mq, mapping, mq->host_dma);
+ 
+ 	return 0;
+diff --git a/drivers/infiniband/hw/amso1100/c2_rnic.c b/drivers/infiniband/hw/amso1100/c2_rnic.c
+index 30409e1..6d82464 100644
+--- a/drivers/infiniband/hw/amso1100/c2_rnic.c
++++ b/drivers/infiniband/hw/amso1100/c2_rnic.c
+@@ -517,14 +517,12 @@ int c2_rnic_init(struct c2_dev *c2dev)
+ 	/* Initialize the Verbs Reply Queue */
+ 	qsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q1_QSIZE));
+ 	msgsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q1_MSGSIZE));
+-	q1_pages = kmalloc(qsize * msgsize, GFP_KERNEL);
++	q1_pages = dma_alloc_coherent(&c2dev->pcidev->dev, qsize * msgsize,
++				      &c2dev->rep_vq.host_dma, GFP_KERNEL);
+ 	if (!q1_pages) {
+ 		err = -ENOMEM;
+ 		goto bail1;
+ 	}
+-	c2dev->rep_vq.host_dma = dma_map_single(c2dev->ibdev.dma_device,
+-					        (void *)q1_pages, qsize * msgsize,
+-				      		DMA_FROM_DEVICE);
+ 	pci_unmap_addr_set(&c2dev->rep_vq, mapping, c2dev->rep_vq.host_dma);
+ 	pr_debug("%s rep_vq va %p dma %llx\n", __FUNCTION__, q1_pages,
+ 		 (unsigned long long) c2dev->rep_vq.host_dma);
+@@ -540,14 +538,12 @@ int c2_rnic_init(struct c2_dev *c2dev)
+ 	/* Initialize the Asynchronus Event Queue */
+ 	qsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q2_QSIZE));
+ 	msgsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q2_MSGSIZE));
+-	q2_pages = kmalloc(qsize * msgsize, GFP_KERNEL);
++	q2_pages = dma_alloc_coherent(&c2dev->pcidev->dev, qsize * msgsize,
++				      &c2dev->aeq.host_dma, GFP_KERNEL);
+ 	if (!q2_pages) {
+ 		err = -ENOMEM;
+ 		goto bail2;
+ 	}
+-	c2dev->aeq.host_dma = dma_map_single(c2dev->ibdev.dma_device,
+-					        (void *)q2_pages, qsize * msgsize,
+-				      		DMA_FROM_DEVICE);
+ 	pci_unmap_addr_set(&c2dev->aeq, mapping, c2dev->aeq.host_dma);
+ 	pr_debug("%s aeq va %p dma %llx\n", __FUNCTION__, q1_pages,
+ 		 (unsigned long long) c2dev->rep_vq.host_dma);
+@@ -597,17 +593,13 @@ int c2_rnic_init(struct c2_dev *c2dev)
+       bail4:
+ 	vq_term(c2dev);
+       bail3:
+-	dma_unmap_single(c2dev->ibdev.dma_device,
+-			 pci_unmap_addr(&c2dev->aeq, mapping),
+-			 c2dev->aeq.q_size * c2dev->aeq.msg_size,
+-		  	 DMA_FROM_DEVICE);
+-	kfree(q2_pages);
++	dma_free_coherent(&c2dev->pcidev->dev, 
++			  c2dev->aeq.q_size * c2dev->aeq.msg_size,
++			  q2_pages, pci_unmap_addr(&c2dev->aeq, mapping));
+       bail2:
+-	dma_unmap_single(c2dev->ibdev.dma_device,
+-			 pci_unmap_addr(&c2dev->rep_vq, mapping),
+-			 c2dev->rep_vq.q_size * c2dev->rep_vq.msg_size,
+-		  	 DMA_FROM_DEVICE);
+-	kfree(q1_pages);
++	dma_free_coherent(&c2dev->pcidev->dev, 
++			  c2dev->rep_vq.q_size * c2dev->rep_vq.msg_size,
++			  q1_pages, pci_unmap_addr(&c2dev->rep_vq, mapping));
+       bail1:
+ 	c2_free_mqsp_pool(c2dev, c2dev->kern_mqsp_pool);
+       bail0:
+@@ -640,19 +632,17 @@ void c2_rnic_term(struct c2_dev *c2dev)
+ 	/* Free the verbs request allocator */
+ 	vq_term(c2dev);
+ 
+-	/* Unmap and free the asynchronus event queue */
+-	dma_unmap_single(c2dev->ibdev.dma_device,
+-			 pci_unmap_addr(&c2dev->aeq, mapping),
+-			 c2dev->aeq.q_size * c2dev->aeq.msg_size,
+-		  	 DMA_FROM_DEVICE);
+-	kfree(c2dev->aeq.msg_pool.host);
+-
+-	/* Unmap and free the verbs reply queue */
+-	dma_unmap_single(c2dev->ibdev.dma_device,
+-			 pci_unmap_addr(&c2dev->rep_vq, mapping),
+-			 c2dev->rep_vq.q_size * c2dev->rep_vq.msg_size,
+-		  	 DMA_FROM_DEVICE);
+-	kfree(c2dev->rep_vq.msg_pool.host);
++	/* Free the asynchronus event queue */
++	dma_free_coherent(&c2dev->pcidev->dev, 
++			  c2dev->aeq.q_size * c2dev->aeq.msg_size,
++			  c2dev->aeq.msg_pool.host,
++			  pci_unmap_addr(&c2dev->aeq, mapping));
 +
- #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
++	/* Free the verbs reply queue */
++	dma_free_coherent(&c2dev->pcidev->dev, 
++			  c2dev->rep_vq.q_size * c2dev->rep_vq.msg_size,
++			  c2dev->rep_vq.msg_pool.host,
++			  pci_unmap_addr(&c2dev->rep_vq, mapping));
+ 
+ 	/* Free the MQ shared pointer pool */
+ 	c2_free_mqsp_pool(c2dev, c2dev->kern_mqsp_pool);
