@@ -1,16 +1,21 @@
-From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
-Subject: [PATCH 9/9] NetEffect 10Gb RNIC Driver:
- openfabrics verbs header file
-Date: Thu, 26 Oct 2006 19:33:13 -0500
-Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EC7@venom2>
+From: "Roland Dreier" <rdreier@cisco.com>
+Subject: Re: [PATCH 4 of 9] NetEffect 10Gb RNIC Driver:
+ kernel driver header files
+Date: Thu, 26 Oct 2006 17:33:44 -0700
+Message-ID: <adafyda61hz.fsf@cisco.com>
+References: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EBD@venom2>
+ <20061026.171657.43852974.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	ggrundstrom@NetEffect.com,
+	openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-Content-class: urn:content-classes:message
-To: openib-general@openib.org
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20061026.171657.43852974.davem@davemloft.net> (David
+ Miller's message of "Thu, 26 Oct 2006 17:16:57 -0700 (PDT)")
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
  <mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -22,162 +27,11 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Kernel driver patch 9 of 9.
+ > I fear this is exactly the kind of stuff that we didn't want
+ > to see start going into the kernel, and we've resisted the
+ > TCP/IP stack offload stuff in the infiniband layer exactly
+ > for this reason.
 
-Signed-off-by: Glenn Grundstrom <glenng@neteffect.com>
+We're definitely not going to merge a second TCP stack in any form.
 
-======================================================
-
-diff -ruNp old/drivers/infiniband/hw/nes/nes_verbs.h
-new/drivers/infiniband/hw/nes/nes_verbs.h
---- old/drivers/infiniband/hw/nes/nes_verbs.h	1969-12-31
-18:00:00.000000000 -0600
-+++ new/drivers/infiniband/hw/nes/nes_verbs.h	2006-10-25
-10:15:52.000000000 -0500
-@@ -0,0 +1,144 @@
-+/*
-+ * Copyright (c) 2006 NetEffect, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef NES_VERBS_H
-+#define NES_VERBS_H
-+
-+struct nes_dev;
-+
-+#define NES_MAX_USER_DB_REGIONS  4096
-+#define NES_MAX_USER_WQ_REGIONS  4096
-+
-+struct nes_ucontext {
-+	struct ib_ucontext ibucontext;
-+	struct nes_dev *nesdev;
-+	/* need to track mmapped areas, start with bit vector? */
-+	unsigned long mmap_wq_offset;
-+	unsigned long mmap_cq_offset; /* to be removed */
-+	int index;		/* rnic index (minor) */
-+	unsigned long
-allocated_doorbells[BITS_TO_LONGS(NES_MAX_USER_DB_REGIONS)];	
-+	u16 mmap_db_index[NES_MAX_USER_DB_REGIONS];	 
-+	u16 first_free_db;
-+	unsigned long
-allocated_wqs[BITS_TO_LONGS(NES_MAX_USER_WQ_REGIONS)];  
-+	struct nes_qp * mmap_nesqp[NES_MAX_USER_WQ_REGIONS];  
-+	u16 first_free_wq;
-+	struct list_head cq_reg_mem_list;
-+};
-+
-+struct nes_pd {
-+	struct ib_pd ibpd;
-+	u16 pd_id;
-+	atomic_t sqp_count;
-+	u16 mmap_db_index;
-+};
-+
-+struct nes_mr {
-+	struct ib_mr ibmr;
-+	u16 pbls_used;
-+	u8 mode;
-+	u8 pbl_4k; 
-+};
-+
-+struct nes_hw_pb {
-+	u32 pa_low;
-+	u32 pa_high;
-+};
-+
-+struct nes_vpbl {
-+	dma_addr_t pbl_pbase;
-+	struct nes_hw_pb *pbl_vbase;
-+};
-+
-+struct nes_root_vpbl {
-+	dma_addr_t pbl_pbase;
-+	struct nes_hw_pb *pbl_vbase;
-+	struct nes_vpbl *leaf_vpbl;
-+};
-+
-+struct nes_av;
-+
-+struct nes_cq {
-+	struct ib_cq ibcq;
-+	struct nes_hw_cq hw_cq;
-+	u32 polled_completions;
-+	u32 cq_mem_size;
-+	spinlock_t lock;
-+	u8 virtual_cq;
-+	u8 pad[3];
-+};
-+
-+struct nes_wq {
-+	spinlock_t lock;
-+};
-+
-+struct iw_cm_id;
-+
-+struct nes_qp {
-+	struct ib_qp ibqp;
-+	enum ib_qp_state    ibqp_state;
-+	u32 iwarp_state;
-+	void * allocated_buffer;
-+	struct iw_cm_id *cm_id;
-+	struct workqueue_struct *wq;
-+	struct workqueue_struct *aewq;
-+	struct socket *ksock;
-+	struct nes_cq *nesscq;
-+	struct nes_cq *nesrcq;
-+	struct nes_pd *nespd;
-+    struct ietf_mpa_req_resp_frame *ietf_frame;
-+    dma_addr_t ietf_frame_pbase;
-+	wait_queue_head_t state_waitq;
-+	unsigned long socket;
-+	struct nes_hw_qp hwqp;
-+	struct work_struct work;
-+	struct work_struct ae_work;
-+	u32 hte_index;
-+	u32 last_aeq;
-+	u32 qp_mem_size;
-+	atomic_t refcount;
-+	u32 mmap_sq_db_index;
-+	u32 mmap_rq_db_index;
-+    spinlock_t lock;
-+	/* TODO: should move these two to the hw qp? */
-+	struct nes_qp_context *nesqp_context;
-+	dma_addr_t nesqp_context_pbase;
-+	u32 bytes_sent;
-+    u16 private_data_len;
-+    u8 active_conn;
-+    u8 skip_lsmm;
-+    u8 user_mode;
-+	u8 hte_added;
-+};
-+
-+#endif				/* NES_VERBS_H */
+ - R.
