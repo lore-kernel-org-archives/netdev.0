@@ -1,50 +1,35 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH 2.6.19-rc3 2/2] amso1100 - Fix
- incorrect pr_debug().
-Date: Fri, 27 Oct 2006 15:58:39 -0500
-Message-ID: <20061027205839.8511.84399.stgit@dell3.ogc.int>
-References: <20061027205819.8511.85102.stgit@dell3.ogc.int>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: don't allow unfair congestion control to be built
+ without warning
+Date: Fri, 27 Oct 2006 14:17:49 -0700 (PDT)
+Message-ID: <20061027.141749.41635827.davem@davemloft.net>
+References: <20061027152157.GB4632@c3po.0xdef.net>
+	<45422A31.7070806@osdl.org>
+	<20061027103016.3e8514d7@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com
-In-Reply-To: <20061027205819.8511.85102.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: hagen@jauu.net, jheffner@psc.edu, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30663
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1752458AbWJ0VRs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Oct 2006 17:17:48 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20061027103016.3e8514d7@freekitty>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 27 Oct 2006 10:30:16 -0700
 
-pr_debug() was printing the wrong stuff.
+> My proposed method restricting TCP choices to fair algorithms.
+> This a net wide, not system wide issue, it should not be done
+> by kernel policy choice (capability), but by a build choice.
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+I think this sucks even worse than the current situation.
 
- drivers/infiniband/hw/amso1100/c2_rnic.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/infiniband/hw/amso1100/c2_rnic.c b/drivers/infiniband/hw/amso1100/c2_rnic.c
-index 6d82464..e1d31fb 100644
---- a/drivers/infiniband/hw/amso1100/c2_rnic.c
-+++ b/drivers/infiniband/hw/amso1100/c2_rnic.c
-@@ -545,8 +545,8 @@ int c2_rnic_init(struct c2_dev *c2dev)
- 		goto bail2;
- 	}
- 	pci_unmap_addr_set(&c2dev->aeq, mapping, c2dev->aeq.host_dma);
--	pr_debug("%s aeq va %p dma %llx\n", __FUNCTION__, q1_pages,
--		 (unsigned long long) c2dev->rep_vq.host_dma);
-+	pr_debug("%s aeq va %p dma %llx\n", __FUNCTION__, q2_pages,
-+		 (unsigned long long) c2dev->aeq.host_dma);
- 	c2_mq_rep_init(&c2dev->aeq,
- 		       2,
- 		       qsize,
+How difficult is it to understand that an administrator might
+like to be able to build in and experiment with some congestion
+control algorithms, yet still be able to keep his normal users
+from using them?
