@@ -1,34 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Check if user has CAP_NET_ADMIN to change congestion
- control algorithm
-Date: Fri, 27 Oct 2006 14:22:06 -0700 (PDT)
-Message-ID: <20061027.142206.104034351.davem@davemloft.net>
-References: <20061026.170221.99202188.davem@davemloft.net>
-	<20061027104311.GB3967@c3po.0xdef.net>
-	<20061027074102.2a6fef4b@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: don't allow unfair congestion control to be built
+ without warning
+Date: Fri, 27 Oct 2006 14:24:02 -0700
+Message-ID: <20061027142402.07a47f3f@freekitty>
+References: <20061027152157.GB4632@c3po.0xdef.net>
+	<45422A31.7070806@osdl.org>
+	<20061027103016.3e8514d7@freekitty>
+	<20061027.141749.41635827.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: hagen@jauu.net, jheffner@psc.edu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5272
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752469AbWJ0VWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Oct 2006 17:22:05 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20061027074102.2a6fef4b@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:55759 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752474AbWJ0VYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 17:24:20 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061027.141749.41635827.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 27 Oct 2006 07:41:02 -0700
+On Fri, 27 Oct 2006 14:17:49 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Please no, it makes the socket option useless.
-> If you want to tag some "bad apples" thats okay, but would need
-> some more infrastructure.
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Fri, 27 Oct 2006 10:30:16 -0700
+> 
+> > My proposed method restricting TCP choices to fair algorithms.
+> > This a net wide, not system wide issue, it should not be done
+> > by kernel policy choice (capability), but by a build choice.
+> 
+> I think this sucks even worse than the current situation.
+> 
+> How difficult is it to understand that an administrator might
+> like to be able to build in and experiment with some congestion
+> control algorithms, yet still be able to keep his normal users
+> from using them?
 
-The behavior of the TCP stack is a system wide decision.
+Only some (very few) have any bad consequences. So the typical
+distribution should be able to switch with most available for everyone,
+and only a few needing special privileges.
 
-If anything it should be "everything besides the default
-and Reno are offlimits to unprivileged users" with an
-administrative method to override that.
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
