@@ -1,42 +1,45 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] Check if user has CAP_NET_ADMIN to change congestion
- control algorithm
-Date: Thu, 26 Oct 2006 18:03:29 -0700
-Message-ID: <20061026180329.571de4c8@localhost.localdomain>
-References: <20061025110843.0cbd18a7@freekitty>
-	<4540F076.70801@psc.edu>
-	<20061026224407.GA2018@c3po.0xdef.net>
-	<20061026235256.GB2018@c3po.0xdef.net>
+Subject: Re: [PATCH 1/8] netpoll: skb private pool management
+Date: Thu, 26 Oct 2006 18:04:02 -0700
+Message-ID: <20061026180402.32c1c511@localhost.localdomain>
+References: <20061026225535.443288276@osdl.org>
+	<20061026225645.482978803@osdl.org>
+	<20061026.171247.133285493.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	John Heffner <jheffner@psc.edu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:6368 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1946067AbWJ0BDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 21:03:55 -0400
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-In-Reply-To: <20061026235256.GB2018@c3po.0xdef.net>
+Received: from smtp.osdl.org ([65.172.181.4]:10720 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1946074AbWJ0BEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 21:04:07 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061026.171247.133285493.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Oct 2006 01:52:56 +0200
-Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+On Thu, 26 Oct 2006 17:12:47 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Thu, 26 Oct 2006 15:46:49 -0700
 > 
-> Check if user has CAP_NET_ADMIN capability to change congestion control
-> algorithm.
+> > @@ -188,19 +186,14 @@ void netpoll_poll(struct netpoll *np)
+> >  static void refill_skbs(void)
+> >  {
+> >  	struct sk_buff *skb;
+> > -	unsigned long flags;
+> >  
+> > -	spin_lock_irqsave(&skb_list_lock, flags);
+> > -	while (nr_skbs < MAX_SKBS) {
+> > +	while (skb_queue_len(&skb_pool) < MAX_SKBS) {
 > 
-> Under normal circumstances a application programmer doesn't have enough
-> information to choose the "right" algorithm (expect he is the pchar/pathchar
-> maintainer). At 99.9% only the local host administrator has the knowledge to
-> select a proper standard, system-wide algorithm (the remaining 0.1% are
-> for testing purpose). If we let the user select an alternative algorithm we
-> introduce one potential weak spot - so we ban this eventuality.
+> Previously, the lock actually protected nr_skbs from going over
+> MAX_SKBS properly, but the new code does not.  skb_queue_len()
+> is lockless.
 > 
-> HGN
+> Stephen, I really appreciate your efforts to clean up netpoll,
+> but on every iteration I am finding simple errors on the first
+> patch every time.
 
-If you aren't doing experiments don't compile it in your kernel.
-If distro's are including "unfair" congestion control file a bug report.
+racing over by one is not a big issue.
