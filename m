@@ -1,119 +1,60 @@
-From: Michael Prokop <mika@grml.org>
-Subject: [IPROUTE] manpage for rtmon
-Date: Fri, 27 Oct 2006 19:22:11 +0200
-Message-ID: <2006-10-27T19-06-18@devnull.michael-prokop.at>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] tcp: don't allow unfair congestion control to be built
+ without warning
+Date: Fri, 27 Oct 2006 10:30:16 -0700
+Message-ID: <20061027103016.3e8514d7@freekitty>
+References: <4540F076.70801@psc.edu>
+	<20061026224407.GA2018@c3po.0xdef.net>
+	<20061026235256.GB2018@c3po.0xdef.net>
+	<20061026.170221.99202188.davem@davemloft.net>
+	<20061027104311.GB3967@c3po.0xdef.net>
+	<20061027074102.2a6fef4b@localhost.localdomain>
+	<20061027152157.GB4632@c3po.0xdef.net>
+	<45422A31.7070806@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xdFnWCcMW4kMaGnb"
-Cc: Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>, jheffner@psc.edu,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-184-147.clients.your-server.de ([88.198.184.147]:3006
-	"EHLO mail.michael-prokop.at") by vger.kernel.org with ESMTP
-	id S1751312AbWJ0RWO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Oct 2006 13:22:14 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:2792 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752325AbWJ0Raw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 13:30:52 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <45422A31.7070806@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+My proposed method restricting TCP choices to fair algorithms.
+This a net wide, not system wide issue, it should not be done
+by kernel policy choice (capability), but by a build choice.
 
---xdFnWCcMW4kMaGnb
-Content-Type: multipart/mixed; boundary="ICzQLVUlUjFtnNCj"
-Content-Disposition: inline
-
-
---ICzQLVUlUjFtnNCj
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hello,
-
-another manpage, this time for rtmon. Would be great if it could be
-applied to the next release too.
-
-regards,
--mika-
---=20
- ,'"`.         http://www.michael-prokop.at/
-(  grml.org -=BB Linux Live-CD for texttool-users and sysadmins
- `._,'         http://www.grml.org/
-
---ICzQLVUlUjFtnNCj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="rtmon.8"
-
-.TH RTMON 8
-.SH NAME
-rtmon \- listens to and monitors RTnetlink
-.SH SYNOPSIS
-.B rtmon
-.RI "[ options ] file FILE [ all | LISTofOBJECTS ]"
-.SH DESCRIPTION
-This manual page documents briefly the
-.B rtmon
-command.
-.PP
-\fBrtmon\fP is a RTnetlink listener. RTnetlink allows the kernel's routing tables to be read and altered.
-
-rtmon should be started before the first network configuration command is issued. For example if you insert:
-
- rtmon file /var/log/rtmon.log
-
-in a startup script, you will be able to view the full history later.
-Certainly, it is possible to start rtmon at any time. It prepends the history with the state snapshot dumped at the moment of starting.
-.SH OPTIONS
-rtmon supports the following options:
-.TP
-.B \-Version
-Print version and exit.
-.TP
-.B help
-Show summary of options.
-.TP
-.B file FILE [ all | LISTofOBJECTS ]
-Log output to FILE. LISTofOBJECTS is the list of object types that we want to monitor.
-It may contain 'link', 'address', 'route' and 'all'. 'link' specifies the network device, 'address'
-the protocol (IP or IPv6) address on a device, 'route' the routing table entry and 'all' does what the name says.
-.TP
-.B \-family [ inet | inet6 | link | help ]
-Specify protocol family. 'inet' is IPv4, 'inet6' is IPv6, 'link' means that no networking protocol is involved and 'help' prints usage information.
-.TP
-.B \-4
-Use IPv4. Shortcut for -family inet.
-.TP
-.B \-6
-Use IPv6. Shortcut for -family inet6.
-.TP
-.B \-0
-Use a special family identifier meaning that no networking protocol is involved. Shortcut for -family link.
-.SH USAGE EXAMPLES
-.TP
-.B # rtmon file /var/log/rtmon.log
-Log to file /var/log/rtmon.log, then run:
-.TP
-.B # ip monitor file /var/log/rtmon.log
-to display logged output from file.
-.SH SEE ALSO
-.BR ip (8)
-.SH AUTHOR
-rtmon was written by Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>.
-.PP
-This manual page was written by Michael Prokop <mika@grml.org>,
-for the Debian project (but may be used by others).
-
---ICzQLVUlUjFtnNCj--
-
---xdFnWCcMW4kMaGnb
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQFFQkBD2N9T+zficugRAm8lAJoDUkc2CVoTUGft1ZXuc+01D15p8gCeKc0O
-0+fxvu41yo8R2WlxP90H0KQ=
-=iHPR
------END PGP SIGNATURE-----
-
---xdFnWCcMW4kMaGnb--
+--- sky2.orig/net/ipv4/Kconfig	2006-10-27 10:10:47.000000000 -0700
++++ sky2/net/ipv4/Kconfig	2006-10-27 10:15:56.000000000 -0700
+@@ -470,6 +470,16 @@
+ 
+ if TCP_CONG_ADVANCED
+ 
++config TCP_CONG_UNFAIR
++        bool "Allow unfair congestion control algorithms"
++	depends on EXPERIMENTAL
++        ---help---
++	  Some of the congestion control algorithms are for testing
++	  and research purposes and should not deployed on public
++	  networks because of the possiblity of unfair behavior.
++	  These algorithms may be useful for future development
++	  or comparison purposes.
++
+ config TCP_CONG_BIC
+ 	tristate "Binary Increase Congestion (BIC) control"
+ 	default m
+@@ -551,7 +561,7 @@
+ 
+ config TCP_CONG_SCALABLE
+ 	tristate "Scalable TCP"
+-	depends on EXPERIMENTAL
++	depends on TCP_CONG_UNFAIR
+ 	default n
+ 	---help---
+ 	Scalable TCP is a sender-side only change to TCP which uses a
