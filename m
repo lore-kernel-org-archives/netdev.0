@@ -1,298 +1,212 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] Rewrite e100_phys_id
-Date: Fri, 27 Oct 2006 07:44:18 -0700
-Message-ID: <45421B42.60405@intel.com>
-References: <20061026191154.GG5591@parisc-linux.org> <20061026191937.GB11312@havoc.gtf.org> <454114D0.6050900@intel.com> <20061027025148.GI5591@parisc-linux.org>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: [openib-general] [PATCH 3/9] NetEffect 10Gb RNIC Driver:
+	openfabrics connection manager c file
+Date: Fri, 27 Oct 2006 10:12:31 -0500
+Message-ID: <1161961951.2748.22.camel@trinity.ogc.int>
+References: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EB8@venom2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, Jeff Garzik <jeff@garzik.org>,
-	john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+Cc: openib-general@openib.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:15765 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1752199AbWJ0Oqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 10:46:50 -0400
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20061027025148.GI5591@parisc-linux.org>
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:61925 "EHLO
+	smtp.opengridcomputing.com") by vger.kernel.org with ESMTP
+	id S1752262AbWJ0PMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Oct 2006 11:12:25 -0400
+To: Glenn Grundstrom <ggrundstrom@NetEffect.com>
+In-Reply-To: <5E701717F2B2ED4EA60F87C8AA57B7CC064C9EB8@venom2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Thu, Oct 26, 2006 at 01:04:32PM -0700, Auke Kok wrote:
->> no objections, so I'll ACK it with the notion that I'm going to let our 
->> labs do some more testing on it with all the latest changes to it.
-> 
-> Thanks, Auke.  Here's the equivalent patch for e1000.  I don't have a
-> convenient machine to test it on, but it reduces the size of the driver
-> by 1.5k.
 
-this is a bit (!) more complex than e100, so I'm going to take a bit of time to review 
-this patch.
+[...snip...]
+> +extern void set_interface(
+> +				   UINT32    ip_addr,
 
-thanks,
+These should probably be the standard linux types u32, or uint32
 
-Auke
+> +				   UINT32    mask,
+> +				   UINT32    bcastaddr,
+> +				   UINT32    type
+> +				  );
 
+[...snip...]
 
+> +	struct NES_sockaddr_in  inet_addr;
+> +	struct sockaddr_in  kinet_addr;
 
-> 
-> diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-> index 7ecce43..1e22da6 100644
-> --- a/drivers/net/e1000/e1000.h
-> +++ b/drivers/net/e1000/e1000.h
-> @@ -257,9 +257,6 @@ #endif
->  	struct work_struct reset_task;
->  	uint8_t fc_autoneg;
->  
-> -	struct timer_list blink_timer;
-> -	unsigned long led_status;
-> -
->  	/* TX */
->  	struct e1000_tx_ring *tx_ring;      /* One per active queue */
->  	unsigned long tx_queue_len;
-> diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
-> index 773821e..620afa5 100644
-> --- a/drivers/net/e1000/e1000_ethtool.c
-> +++ b/drivers/net/e1000/e1000_ethtool.c
-> @@ -1819,61 +1819,15 @@ e1000_set_wol(struct net_device *netdev,
->  	return 0;
->  }
->  
-> -/* toggle LED 4 times per second = 2 "blinks" per second */
-> -#define E1000_ID_INTERVAL	(HZ/4)
-> -
-> -/* bit defines for adapter->led_status */
-> -#define E1000_LED_ON		0
-> -
-> -static void
-> -e1000_led_blink_callback(unsigned long data)
-> -{
-> -	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
-> -
-> -	if (test_and_change_bit(E1000_LED_ON, &adapter->led_status))
-> -		e1000_led_off(&adapter->hw);
-> -	else
-> -		e1000_led_on(&adapter->hw);
-> -
-> -	mod_timer(&adapter->blink_timer, jiffies + E1000_ID_INTERVAL);
-> -}
-> -
->  static int
->  e1000_phys_id(struct net_device *netdev, uint32_t data)
->  {
->  	struct e1000_adapter *adapter = netdev_priv(netdev);
->  
-> -	if (!data || data > (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ))
-> -		data = (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ);
-> -
-> -	if (adapter->hw.mac_type < e1000_82571) {
-> -		if (!adapter->blink_timer.function) {
-> -			init_timer(&adapter->blink_timer);
-> -			adapter->blink_timer.function = e1000_led_blink_callback;
-> -			adapter->blink_timer.data = (unsigned long) adapter;
-> -		}
-> -		e1000_setup_led(&adapter->hw);
-> -		mod_timer(&adapter->blink_timer, jiffies);
-> -		msleep_interruptible(data * 1000);
-> -		del_timer_sync(&adapter->blink_timer);
-> -	} else if (adapter->hw.phy_type == e1000_phy_ife) {
-> -		if (!adapter->blink_timer.function) {
-> -			init_timer(&adapter->blink_timer);
-> -			adapter->blink_timer.function = e1000_led_blink_callback;
-> -			adapter->blink_timer.data = (unsigned long) adapter;
-> -		}
-> -		mod_timer(&adapter->blink_timer, jiffies);
-> -		msleep_interruptible(data * 1000);
-> -		del_timer_sync(&adapter->blink_timer);
-> -		e1000_write_phy_reg(&(adapter->hw), IFE_PHY_SPECIAL_CONTROL_LED, 0);
-> -	} else {
-> -		e1000_blink_led_start(&adapter->hw);
-> -		msleep_interruptible(data * 1000);
-> -	}
-> +	if (data == 0)
-> +		data = 2;
->  
-> -	e1000_led_off(&adapter->hw);
-> -	clear_bit(E1000_LED_ON, &adapter->led_status);
-> -	e1000_cleanup_led(&adapter->hw);
-> +	e1000_blink_led(&adapter->hw, data);
->  
->  	return 0;
->  }
-> diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-> index 65077f3..db5e999 100644
-> --- a/drivers/net/e1000/e1000_hw.c
-> +++ b/drivers/net/e1000/e1000_hw.c
-> @@ -6071,7 +6071,7 @@ e1000_id_led_init(struct e1000_hw * hw)
->   *
->   * hw - Struct containing variables accessed by shared code
->   *****************************************************************************/
-> -int32_t
-> +static int32_t
->  e1000_setup_led(struct e1000_hw *hw)
->  {
->      uint32_t ledctl;
-> @@ -6123,50 +6123,11 @@ e1000_setup_led(struct e1000_hw *hw)
->  
->  
->  /******************************************************************************
-> - * Used on 82571 and later Si that has LED blink bits.
-> - * Callers must use their own timer and should have already called
-> - * e1000_id_led_init()
-> - * Call e1000_cleanup led() to stop blinking
-> - *
-> - * hw - Struct containing variables accessed by shared code
-> - *****************************************************************************/
-> -int32_t
-> -e1000_blink_led_start(struct e1000_hw *hw)
-> -{
-> -    int16_t  i;
-> -    uint32_t ledctl_blink = 0;
-> -
-> -    DEBUGFUNC("e1000_id_led_blink_on");
-> -
-> -    if (hw->mac_type < e1000_82571) {
-> -        /* Nothing to do */
-> -        return E1000_SUCCESS;
-> -    }
-> -    if (hw->media_type == e1000_media_type_fiber) {
-> -        /* always blink LED0 for PCI-E fiber */
-> -        ledctl_blink = E1000_LEDCTL_LED0_BLINK |
-> -                     (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED0_MODE_SHIFT);
-> -    } else {
-> -        /* set the blink bit for each LED that's "on" (0x0E) in ledctl_mode2 */
-> -        ledctl_blink = hw->ledctl_mode2;
-> -        for (i=0; i < 4; i++)
-> -            if (((hw->ledctl_mode2 >> (i * 8)) & 0xFF) ==
-> -                E1000_LEDCTL_MODE_LED_ON)
-> -                ledctl_blink |= (E1000_LEDCTL_LED0_BLINK << (i * 8));
-> -    }
-> -
-> -    E1000_WRITE_REG(hw, LEDCTL, ledctl_blink);
-> -
-> -    return E1000_SUCCESS;
-> -}
-> -
-> -/******************************************************************************
->   * Restores the saved state of the SW controlable LED.
->   *
->   * hw - Struct containing variables accessed by shared code
->   *****************************************************************************/
-> -int32_t
-> -e1000_cleanup_led(struct e1000_hw *hw)
-> +static int32_t e1000_cleanup_led(struct e1000_hw *hw)
->  {
->      int32_t ret_val = E1000_SUCCESS;
->  
-> @@ -6207,8 +6168,7 @@ e1000_cleanup_led(struct e1000_hw *hw)
->   *
->   * hw - Struct containing variables accessed by shared code
->   *****************************************************************************/
-> -int32_t
-> -e1000_led_on(struct e1000_hw *hw)
-> +static int32_t e1000_led_on(struct e1000_hw *hw)
->  {
->      uint32_t ctrl = E1000_READ_REG(hw, CTRL);
->  
-> @@ -6258,8 +6218,7 @@ e1000_led_on(struct e1000_hw *hw)
->   *
->   * hw - Struct containing variables accessed by shared code
->   *****************************************************************************/
-> -int32_t
-> -e1000_led_off(struct e1000_hw *hw)
-> +static int32_t e1000_led_off(struct e1000_hw *hw)
->  {
->      uint32_t ctrl = E1000_READ_REG(hw, CTRL);
->  
-> @@ -6304,6 +6263,69 @@ e1000_led_off(struct e1000_hw *hw)
->      return E1000_SUCCESS;
->  }
->  
-> +static void e1000_blink_led_auto(struct e1000_hw *hw, unsigned int seconds)
+Is there some reason why you need your own sockaddr and sockaddr_in
+structures? 
+
+[...snip...]
+> +
+> +/**
+> + * nes_disconnect
+> + * 
+> + * @param cm_id
+> + * @param abrupt
+> + * 
+> + * @return int
+> + */
+> +int nes_disconnect(struct iw_cm_id *cm_id, int abrupt)
 > +{
-> +    int16_t  i;
-> +    uint32_t ledctl_blink = 0;
+> +	struct ib_qp_attr attr;
+> +	struct ib_qp *ibqp;
+> +	struct nes_qp *nesqp;
+> +	struct nes_dev *nesdev = to_nesdev(cm_id->device);
+> +	int err = 0;
+> +	u8 u8temp;
 > +
-> +    DEBUGFUNC("e1000_blink_led");
+> +	dprintk("%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
+> +	dprintk("%s: netdev refcnt = %u.\n", __FUNCTION__,
+> atomic_read(&nesdev->netdev->refcnt));
 > +
-> +    if (hw->media_type == e1000_media_type_fiber) {
-> +        /* always blink LED0 for PCI-E fiber */
-> +        ledctl_blink = E1000_LEDCTL_LED0_BLINK |
-> +                     (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED0_MODE_SHIFT);
-> +    } else {
-> +        /* set the blink bit for each LED that's "on" (0x0E) in ledctl_mode2 */
-> +        ledctl_blink = hw->ledctl_mode2;
-> +        for (i=0; i < 4; i++)
-> +            if (((hw->ledctl_mode2 >> (i * 8)) & 0xFF) ==
-> +                E1000_LEDCTL_MODE_LED_ON)
-> +                ledctl_blink |= (E1000_LEDCTL_LED0_BLINK << (i * 8));
+> +	/* If the qp was already destroyed, then there's no QP */
+> +	if (cm_id->provider_data == 0)
+> +		return 0;
+> +
+> +	nesqp = (struct nes_qp *)cm_id->provider_data;
+> +	ibqp = &nesqp->ibqp;
+> +
+> +	/* Disassociate the QP from this cm_id */
+> +	cm_id->provider_data = 0;
+> +	cm_id->rem_ref(cm_id);
+> +	nesqp->cm_id = 0;
+> +
+> +	stack_ops_p->decelerate_socket(nesqp->socket, 
+> +                                (struct nes_uploaded_qp_context *)
+> +                                nesqp->nesqp_context);
+> +  
+> +	if (nesqp->active_conn) {
+> +	  u8temp = 1 << (ntohs(cm_id->local_addr.sin_port)&7);
+> +	  nesdev->apbv_table[ntohs(cm_id->local_addr.sin_port)>>3] &=
+> ~(u8temp);
+> +	} else {
+> +		dev_put(nesdev->netdev);
+> +        /* Need to free the Last Streaming Mode Message */
+> +        pci_free_consistent(nesdev->pcidev, 
+> +
+> nesqp->private_data_len+sizeof(*nesqp->ietf_frame), 
+> +                            nesqp->ietf_frame,
+> +                            nesqp->ietf_frame_pbase);
+
+This is mailer perversion. You need to turn off wrapping in your mailer.
+It makes it hard to review the patch never mind apply it.
+
 > +    }
 > +
-> +    E1000_WRITE_REG(hw, LEDCTL, ledctl_blink);
-> +
-> +    msleep_interruptible(seconds * HZ);
-> +
-> +    e1000_led_off(hw);
-> +    e1000_cleanup_led(hw);
-> +}
-> +
-> +static void e1000_blink_led_manually(struct e1000_hw *hw, unsigned int seconds)
-> +{
-> +	unsigned int i;
-> +	e1000_setup_led(hw);
-> +
-> +	for (i = 0; i < (seconds * 4); i++) {
-> +		if (i & 1)
-> +			e1000_led_off(hw);
-> +		else
-> +			e1000_led_on(hw);
-> +		if (msleep_interruptible(250))
-> +			break;
+> +	if (nesqp->ksock) sock_release(nesqp->ksock);
+> +	stack_ops_p->sock_ops_p->close( nesqp->socket );
+> +	nesqp->ksock = 0;
+> +	nesqp->socket = 0;
+> +	if (nesqp->wq) {
+> +		destroy_workqueue(nesqp->wq);
+
+This will deadlock if this function is called from a workqueue thread
+and CONFIG_HOTPLUG_CPU is enabled. 
+
+> +		nesqp->wq = NULL;
 > +	}
 > +
-> +	e1000_led_off(hw);
-> +	e1000_cleanup_led(hw);
+> +	memset(&attr, 0, sizeof(struct ib_qp_attr));
+> +	if (abrupt)
+> +		attr.qp_state = IB_QPS_ERR;
+> +	else
+> +		attr.qp_state = IB_QPS_SQD;
+> +
+> +	return err;
 > +}
 > +
-> +/******************************************************************************
-> + * Blink the LED for the given number of seconds. 
-> + *
-> + * hw - Struct containing variables accessed by shared code
-> + * seconds - Length of time to blink LED for
-> + *****************************************************************************/
-> +void e1000_blink_led(struct e1000_hw *hw, unsigned int seconds)
+> +
+> +/**
+> + * nes_accept
+> + * 
+> + * @param cm_id
+> + * @param conn_param
+> + * 
+> + * @return int
+> + */
+> +int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param
+> *conn_param)
 > +{
-> +	if (hw->mac_type < e1000_82571) {
-> +		e1000_blink_led_manually(hw, seconds);
-> +	} else if (hw->phy_type == e1000_phy_ife) {
-> +		e1000_blink_led_manually(hw, seconds);
-> +	} else {
-> +		e1000_blink_led_auto(hw, seconds);
-> +	}
-> +}
+> +	struct nes_qp *nesqp;
+> +	struct nes_dev *nesdev;
+> +	struct nes_adapter *nesadapter;
+> +	struct ib_qp *ibqp;
+> +    struct nes_hw_qp_wqe *wqe;
+> +	struct nes_v4_quad nes_quad;
+> +	struct ib_qp_attr attr;
+> +    struct iw_cm_event cm_event;
 > +
->  /******************************************************************************
->   * Clears all hardware statistics counters.
->   *
-> diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-> index 112447f..1efedb7 100644
-> --- a/drivers/net/e1000/e1000_hw.h
-> +++ b/drivers/net/e1000/e1000_hw.h
-> @@ -404,11 +404,7 @@ void e1000_rar_set(struct e1000_hw *hw, 
->  void e1000_write_vfta(struct e1000_hw *hw, uint32_t offset, uint32_t value);
->  
->  /* LED functions */
-> -int32_t e1000_setup_led(struct e1000_hw *hw);
-> -int32_t e1000_cleanup_led(struct e1000_hw *hw);
-> -int32_t e1000_led_on(struct e1000_hw *hw);
-> -int32_t e1000_led_off(struct e1000_hw *hw);
-> -int32_t e1000_blink_led_start(struct e1000_hw *hw);
-> +void e1000_blink_led(struct e1000_hw *hw, unsigned int seconds);
->  
->  /* Adaptive IFS Functions */
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	dprintk("%s:%s:%u: data len = %u\n", 
+> +			__FILE__, __FUNCTION__, __LINE__,
+> conn_param->private_data_len);
+> +
+> +	ibqp = nes_get_qp(cm_id->device, conn_param->qpn);
+> +	if (!ibqp)
+> +		return -EINVAL;
+> +	nesqp = to_nesqp(ibqp);
+> +	nesdev = to_nesdev(nesqp->ibqp.device);
+> +	nesadapter = nesdev->nesadapter;
+> +	dprintk("%s: netdev refcnt = %u.\n", __FUNCTION__,
+> atomic_read(&nesdev->netdev->refcnt));
+> +
+> +    nesqp->ietf_frame = pci_alloc_consistent(nesdev->pcidev, 
+> +
+> sizeof(*nesqp->ietf_frame)+conn_param->private_data_len,
+> +                                             &nesqp->ietf_frame_pbase);
+> +    if (!nesqp->ietf_frame) {
+> +        dprintk(KERN_ERR PFX "%s: Unable to allocate memory for private
+> data\n", __FUNCTION__);
+> +        return -ENOMEM;
+> +    }
+> +    dprintk(PFX "%s: PCI consistent memory for "
+> +            "private data located @ %p (pa = 0x%08lX.) size = %u.\n", 
+> +            __FUNCTION__, nesqp->ietf_frame, (unsigned
+> long)nesqp->ietf_frame_pbase,
+> +            conn_param->private_data_len+sizeof(*nesqp->ietf_frame));
+> +    nesqp->private_data_len = conn_param->private_data_len;
+> +
+> +    strcpy(&nesqp->ietf_frame->key[0], IEFT_MPA_KEY_REP);
+> +    memcpy(&nesqp->ietf_frame->private_data, conn_param->private_data,
+> conn_param->private_data_len);
+> +    nesqp->ietf_frame->private_data_size =
+> cpu_to_be16(conn_param->private_data_len);
+> +    nesqp->ietf_frame->rev = mpa_version;
+> +    nesqp->ietf_frame->flags = IETF_MPA_FLAGS_CRC;
+> +
+> +    wqe = &nesqp->hwqp.sq_vbase[0];
+> +    *((struct nes_qp
+> **)&wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX]) = nesqp;
+> +	*((u64 *)&wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX]) |=
+> NES_SW_CONTEXT_ALIGN>>1;
+> +    wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] =
+> cpu_to_le32(NES_IWARP_SQ_WQE_STREAMING); 
+> +    wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] =
+> cpu_to_le32(conn_param->private_data_len+sizeof(*nesqp->ietf_frame));
+> +    wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX] =
+> cpu_to_le32((u32)nesqp->ietf_frame_pbase);
+> +    wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX] =
+> cpu_to_le32((u32)((u64)nesqp->ietf_frame_pbase>>32));
+> +    wqe->wqe_words[NES_IWARP_SQ_WQE_LENGTH0_IDX] =
+> cpu_to_le32(conn_param->private_data_len+sizeof(*nesqp->ietf_frame));
+
+These are way over 80 columns wide.
+
+> +    wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX] = 0;
+> +
+> +	nesqp->nesqp_context->ird_ord_sizes |=
+> NES_QPCONTEXT_ORDIRD_LSMM_PRESENT | NES_QPCONTEXT_ORDIRD_WRPDU;
+> +    nesqp->skip_lsmm = 1;
+> +
+> +	/* Cache the cm_id in the qp */
+> +	nesqp->cm_id = cm_id;
+
+This should all be reformatted with standard 8 character wide tabs. I
+think these were formatted with ts=4
+
+> +	nesqp->socket = (u32)cm_id->provider_data;
+
+[...snip...]
+
+
