@@ -1,117 +1,61 @@
-From: Dmitry Mishin <dim@openvz.org>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
 Subject: Re: Network virtualization/isolation
-Date: Fri, 27 Oct 2006 11:34:56 +0400
-Message-ID: <200610271134.56830.dim@openvz.org>
-References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com> <20061026085659.33b4c6dd@freekitty>
+Date: Fri, 27 Oct 2006 11:10:12 +0200
+Message-ID: <4541CCF4.4050306@fr.ibm.com>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com> <20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:18264 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S1946203AbWJ0Hf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 03:35:26 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061026085659.33b4c6dd@freekitty>
-Content-Disposition: inline
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:65414 "EHLO
+	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1946256AbWJ0JKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Oct 2006 05:10:13 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id k9R9AB2j271374
+	for <netdev@vger.kernel.org>; Fri, 27 Oct 2006 09:10:11 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k9R9Cltp413916
+	for <netdev@vger.kernel.org>; Fri, 27 Oct 2006 10:12:47 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k9R9AA4j014193
+	for <netdev@vger.kernel.org>; Fri, 27 Oct 2006 10:10:11 +0100
+To: Dmitry Mishin <dim@openvz.org>
+In-Reply-To: <200610271134.56830.dim@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 26 October 2006 19:56, Stephen Hemminger wrote:
-> On Thu, 26 Oct 2006 11:44:55 +0200
->
-> Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
-> > Stephen Hemminger wrote:
-> > > On Wed, 25 Oct 2006 17:51:28 +0200
-> > >
-> > > Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
-> > >>Hi Stephen,
-> > >>
-> > >>currently the work to make the container enablement into the kernel is
-> > >>doing good progress. The ipc, pid, utsname and filesystem system
-> > >>ressources are isolated/virtualized relying on the namespaces concept.
-> > >>
-> > >>But, there is missing the network virtualization/isolation. Two
-> > >>approaches are proposed: doing the isolation at the layer 2 and at the
-> > >>layer 3.
-> > >>
-> > >>The first one instanciate a network device by namespace and add a peer
-> > >>network device into the "root namespace", all the routing ressources
-> > >> are relative to the namespace. This work is done by Andrey Savochkin
-> > >> from the openvz project.
-> > >>
-> > >>The second relies on the routes and associates the network namespace
-> > >>pointer with each route. When the traffic is incoming, the packet
-> > >>follows an input route and retrieve the associated network namespace.
-> > >>When the traffic is outgoing, the packet, identified from the network
-> > >>namespace is coming from, follows only the routes matching the same
-> > >>network namespace. This work is made by me.
-> > >>
-> > >>IMHO, we need the two approach, the layer-2 to be able to bring *very*
-> > >>strong isolation for system container with a performance cost and a
-> > >>layer-3 to be able to have good isolation for lightweight container or
-> > >>application container when performances are more important.
-> > >>
-> > >>Do you have some suggestions ? What is your point of view on that ?
-> > >>
-> > >>Thanks in advance.
-> > >>
-> > >>   -- Daniel
-> > >
-> > > Any solution should allow both and it should build on the existing
-> > > netfilter infrastructure.
-> >
-> > The problem is netfilter can not give a good isolation, eg. how can be
-> > handled netstat command ? or avoid to see IP addresses assigned to
-> > another container when doing ifconfig ? Furthermore, one of the biggest
-> > interest of the network isolation is to bring mobility with a container
-> > and that can only be done if the network ressources inside the kernel
-> > can be identified by container in order to checkpoint/restart them.
-> >
-> > The all-in-namespace solution, ie. at layer 2, is very good in terms of
-> > isolation but it adds an non-negligeable overhead. The layer 3 isolation
-> >   has an insignifiant overhead, a good isolation perfectly adapted for
-> > applications containers.
-> >
-> > Unfortunatly, from the point of view of implementation, layer 3 can not
-> > be a subset of layer 2 isolation when using "all-in-namespace" and layer
-> > 2 isolation can not be a extension of the layer 3 isolation.
-> >
-> > I think the layer 2 and the layer 3 implementations can coexists. You
-> > can for example create a system container with a layer 2 isolation and
-> > inside it add a layer 3 isolation.
-> >
-> > Does that make sense ?
-> >
-> > 	-- Daniel
->
-> Assuming you are talking about pseudo-virtualized environments,
-> there are several different discussions.
->
-> 1. How should the namespace be isolated for the virtualized containered
->    applications?
->
-> 2. How should traffic be restricted into/out of those containers. This
->    is where existing netfilter, classification, etc, should be used.
->    The network code is overly rich as it is, we don't need another
->    abstraction.
->
-> 3. Can the virtualized containers be secure? No. we really can't keep
->    hostile root in a container from killing system without going to
->    a hypervisor.
-Stephen, 
 
-Virtualized container can be secure, if it is complete system virtualization, 
-not just an application container. OpenVZ implements such and it is used hard 
-over the world. And of course, we care a lot to keep hostile root from
-killing whole system.
- 
-OpenVZ uses virtualization on IP level (implemented by Andrey Savochkin, 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115572448503723), with all
-necessary network objects isolated/virtualized, such as sockets, devices, 
-routes, netfilters, etc.
+[ ... ]
 
--- 
-Thanks,
-Dmitry.
+Dmitry Mishin wrote:
+> Stephen, 
+> 
+> Virtualized container can be secure, if it is complete system virtualization, 
+> not just an application container. OpenVZ implements such and it is used hard 
+> over the world. And of course, we care a lot to keep hostile root from
+> killing whole system.
+
+OpenVZ power !!
+
+> OpenVZ uses virtualization on IP level (implemented by Andrey Savochkin, 
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=115572448503723), with all
+> necessary network objects isolated/virtualized, such as sockets, devices, 
+> routes, netfilters, etc.
+
+No, it uses virtualization at layer 2 and I had already mention it 
+before (see the first email of the thread), but thank you for the email 
+thread pointer.
+
+The discussion is not to convince Stephen that layer 2 or layer 3 is the 
+best but to present the pros and the cons of each solution and to have a 
+point of view from a network gourou guy.
+
+Regards.
+
+	-- Daniel
+
+
+
+
