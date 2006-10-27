@@ -1,136 +1,284 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/8] netpoll: skb private pool management
-Date: Thu, 26 Oct 2006 19:29:34 -0700
-Message-ID: <20061026192934.58c20e2a@localhost.localdomain>
-References: <20061026225645.482978803@osdl.org>
-	<20061026.171247.133285493.davem@davemloft.net>
-	<20061026180402.32c1c511@localhost.localdomain>
-	<20061026.180812.34605098.davem@davemloft.net>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [PATCH] Rewrite e100_phys_id
+Date: Thu, 26 Oct 2006 20:51:48 -0600
+Message-ID: <20061027025148.GI5591@parisc-linux.org>
+References: <20061026191154.GG5591@parisc-linux.org> <20061026191937.GB11312@havoc.gtf.org> <454114D0.6050900@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:49547 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1946124AbWJ0CaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2006 22:30:21 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061026.180812.34605098.davem@davemloft.net>
+Received: from palinux.external.hp.com ([192.25.206.14]:44509 "EHLO
+	mail.parisc-linux.org") by vger.kernel.org with ESMTP
+	id S1161471AbWJ0Cvt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Oct 2006 22:51:49 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Disposition: inline
+In-Reply-To: <454114D0.6050900@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It was a dark and stormy night when Steve first saw the
-netpoll beast. The beast was odd, and misshapen but not
-extremely ugly.
+On Thu, Oct 26, 2006 at 01:04:32PM -0700, Auke Kok wrote:
+> no objections, so I'll ACK it with the notion that I'm going to let our 
+> labs do some more testing on it with all the latest changes to it.
 
-"Let me take off one of your warts" he said. This wart
-is where you tried to make an skb list yourself. If the
-beast had ever run out of memory, he would have stupefied
-himself unnecessarily.
+Thanks, Auke.  Here's the equivalent patch for e1000.  I don't have a
+convenient machine to test it on, but it reduces the size of the driver
+by 1.5k.
 
-The first try was painful, so he tried again till the bleeding
-stopped.
-
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/core/netpoll.c |   53 +++++++++++++++++++++--------------------------------
- 1 file changed, 21 insertions(+), 32 deletions(-)
-
---- netpoll.orig/net/core/netpoll.c	2006-10-26 19:12:36.000000000 -0700
-+++ netpoll/net/core/netpoll.c	2006-10-26 19:16:05.000000000 -0700
-@@ -36,9 +36,7 @@
- #define MAX_QUEUE_DEPTH (MAX_SKBS / 2)
- #define MAX_RETRIES 20000
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index 7ecce43..1e22da6 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -257,9 +257,6 @@ #endif
+ 	struct work_struct reset_task;
+ 	uint8_t fc_autoneg;
  
--static DEFINE_SPINLOCK(skb_list_lock);
--static int nr_skbs;
--static struct sk_buff *skbs;
-+static struct sk_buff_head skb_pool;
- 
- static DEFINE_SPINLOCK(queue_lock);
- static int queue_depth;
-@@ -190,17 +188,15 @@
- 	struct sk_buff *skb;
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&skb_list_lock, flags);
--	while (nr_skbs < MAX_SKBS) {
-+	spin_lock_irqsave(&skb_pool->lock, flags);
-+	while (skb_pool.qlen < MAX_SKBS) {
- 		skb = alloc_skb(MAX_SKB_SIZE, GFP_ATOMIC);
- 		if (!skb)
- 			break;
- 
--		skb->next = skbs;
--		skbs = skb;
--		nr_skbs++;
-+		__skb_queue_tail(&skb_pool, skb);
- 	}
--	spin_unlock_irqrestore(&skb_list_lock, flags);
-+	spin_unlock_irqrestore(&skb_pool->lock, flags);
- }
- 
- static void zap_completion_queue(void)
-@@ -229,38 +225,25 @@
- 	put_cpu_var(softnet_data);
- }
- 
--static struct sk_buff * find_skb(struct netpoll *np, int len, int reserve)
-+static struct sk_buff *find_skb(struct netpoll *np, int len, int reserve)
- {
--	int once = 1, count = 0;
--	unsigned long flags;
--	struct sk_buff *skb = NULL;
-+	int count = 0;
-+	struct sk_buff *skb;
- 
- 	zap_completion_queue();
-+	refill_skbs();
- repeat:
--	if (nr_skbs < MAX_SKBS)
--		refill_skbs();
- 
- 	skb = alloc_skb(len, GFP_ATOMIC);
+-	struct timer_list blink_timer;
+-	unsigned long led_status;
 -
--	if (!skb) {
--		spin_lock_irqsave(&skb_list_lock, flags);
--		skb = skbs;
--		if (skb) {
--			skbs = skb->next;
--			skb->next = NULL;
--			nr_skbs--;
--		}
--		spin_unlock_irqrestore(&skb_list_lock, flags);
--	}
-+	if (!skb)
-+		skb = skb_dequeue(&skb_pool);
- 
- 	if(!skb) {
--		count++;
--		if (once && (count == 1000000)) {
--			printk("out of netpoll skbs!\n");
--			once = 0;
-+		if (++count < 10) {
-+			netpoll_poll(np);
-+			goto repeat;
- 		}
--		netpoll_poll(np);
--		goto repeat;
-+		return NULL;
- 	}
- 
- 	atomic_set(&skb->users, 1);
-@@ -764,6 +747,12 @@
- 	return -1;
+ 	/* TX */
+ 	struct e1000_tx_ring *tx_ring;      /* One per active queue */
+ 	unsigned long tx_queue_len;
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+index 773821e..620afa5 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -1819,61 +1819,15 @@ e1000_set_wol(struct net_device *netdev,
+ 	return 0;
  }
  
-+static int __init netpoll_init(void) {
-+	skb_queue_head_init(&skb_pool);
-+	return 0;
-+}
-+core_initcall(netpoll_init);
-+
- void netpoll_cleanup(struct netpoll *np)
+-/* toggle LED 4 times per second = 2 "blinks" per second */
+-#define E1000_ID_INTERVAL	(HZ/4)
+-
+-/* bit defines for adapter->led_status */
+-#define E1000_LED_ON		0
+-
+-static void
+-e1000_led_blink_callback(unsigned long data)
+-{
+-	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
+-
+-	if (test_and_change_bit(E1000_LED_ON, &adapter->led_status))
+-		e1000_led_off(&adapter->hw);
+-	else
+-		e1000_led_on(&adapter->hw);
+-
+-	mod_timer(&adapter->blink_timer, jiffies + E1000_ID_INTERVAL);
+-}
+-
+ static int
+ e1000_phys_id(struct net_device *netdev, uint32_t data)
  {
- 	struct netpoll_info *npinfo;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (!data || data > (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ))
+-		data = (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ);
+-
+-	if (adapter->hw.mac_type < e1000_82571) {
+-		if (!adapter->blink_timer.function) {
+-			init_timer(&adapter->blink_timer);
+-			adapter->blink_timer.function = e1000_led_blink_callback;
+-			adapter->blink_timer.data = (unsigned long) adapter;
+-		}
+-		e1000_setup_led(&adapter->hw);
+-		mod_timer(&adapter->blink_timer, jiffies);
+-		msleep_interruptible(data * 1000);
+-		del_timer_sync(&adapter->blink_timer);
+-	} else if (adapter->hw.phy_type == e1000_phy_ife) {
+-		if (!adapter->blink_timer.function) {
+-			init_timer(&adapter->blink_timer);
+-			adapter->blink_timer.function = e1000_led_blink_callback;
+-			adapter->blink_timer.data = (unsigned long) adapter;
+-		}
+-		mod_timer(&adapter->blink_timer, jiffies);
+-		msleep_interruptible(data * 1000);
+-		del_timer_sync(&adapter->blink_timer);
+-		e1000_write_phy_reg(&(adapter->hw), IFE_PHY_SPECIAL_CONTROL_LED, 0);
+-	} else {
+-		e1000_blink_led_start(&adapter->hw);
+-		msleep_interruptible(data * 1000);
+-	}
++	if (data == 0)
++		data = 2;
+ 
+-	e1000_led_off(&adapter->hw);
+-	clear_bit(E1000_LED_ON, &adapter->led_status);
+-	e1000_cleanup_led(&adapter->hw);
++	e1000_blink_led(&adapter->hw, data);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index 65077f3..db5e999 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -6071,7 +6071,7 @@ e1000_id_led_init(struct e1000_hw * hw)
+  *
+  * hw - Struct containing variables accessed by shared code
+  *****************************************************************************/
+-int32_t
++static int32_t
+ e1000_setup_led(struct e1000_hw *hw)
+ {
+     uint32_t ledctl;
+@@ -6123,50 +6123,11 @@ e1000_setup_led(struct e1000_hw *hw)
+ 
+ 
+ /******************************************************************************
+- * Used on 82571 and later Si that has LED blink bits.
+- * Callers must use their own timer and should have already called
+- * e1000_id_led_init()
+- * Call e1000_cleanup led() to stop blinking
+- *
+- * hw - Struct containing variables accessed by shared code
+- *****************************************************************************/
+-int32_t
+-e1000_blink_led_start(struct e1000_hw *hw)
+-{
+-    int16_t  i;
+-    uint32_t ledctl_blink = 0;
+-
+-    DEBUGFUNC("e1000_id_led_blink_on");
+-
+-    if (hw->mac_type < e1000_82571) {
+-        /* Nothing to do */
+-        return E1000_SUCCESS;
+-    }
+-    if (hw->media_type == e1000_media_type_fiber) {
+-        /* always blink LED0 for PCI-E fiber */
+-        ledctl_blink = E1000_LEDCTL_LED0_BLINK |
+-                     (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED0_MODE_SHIFT);
+-    } else {
+-        /* set the blink bit for each LED that's "on" (0x0E) in ledctl_mode2 */
+-        ledctl_blink = hw->ledctl_mode2;
+-        for (i=0; i < 4; i++)
+-            if (((hw->ledctl_mode2 >> (i * 8)) & 0xFF) ==
+-                E1000_LEDCTL_MODE_LED_ON)
+-                ledctl_blink |= (E1000_LEDCTL_LED0_BLINK << (i * 8));
+-    }
+-
+-    E1000_WRITE_REG(hw, LEDCTL, ledctl_blink);
+-
+-    return E1000_SUCCESS;
+-}
+-
+-/******************************************************************************
+  * Restores the saved state of the SW controlable LED.
+  *
+  * hw - Struct containing variables accessed by shared code
+  *****************************************************************************/
+-int32_t
+-e1000_cleanup_led(struct e1000_hw *hw)
++static int32_t e1000_cleanup_led(struct e1000_hw *hw)
+ {
+     int32_t ret_val = E1000_SUCCESS;
+ 
+@@ -6207,8 +6168,7 @@ e1000_cleanup_led(struct e1000_hw *hw)
+  *
+  * hw - Struct containing variables accessed by shared code
+  *****************************************************************************/
+-int32_t
+-e1000_led_on(struct e1000_hw *hw)
++static int32_t e1000_led_on(struct e1000_hw *hw)
+ {
+     uint32_t ctrl = E1000_READ_REG(hw, CTRL);
+ 
+@@ -6258,8 +6218,7 @@ e1000_led_on(struct e1000_hw *hw)
+  *
+  * hw - Struct containing variables accessed by shared code
+  *****************************************************************************/
+-int32_t
+-e1000_led_off(struct e1000_hw *hw)
++static int32_t e1000_led_off(struct e1000_hw *hw)
+ {
+     uint32_t ctrl = E1000_READ_REG(hw, CTRL);
+ 
+@@ -6304,6 +6263,69 @@ e1000_led_off(struct e1000_hw *hw)
+     return E1000_SUCCESS;
+ }
+ 
++static void e1000_blink_led_auto(struct e1000_hw *hw, unsigned int seconds)
++{
++    int16_t  i;
++    uint32_t ledctl_blink = 0;
++
++    DEBUGFUNC("e1000_blink_led");
++
++    if (hw->media_type == e1000_media_type_fiber) {
++        /* always blink LED0 for PCI-E fiber */
++        ledctl_blink = E1000_LEDCTL_LED0_BLINK |
++                     (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED0_MODE_SHIFT);
++    } else {
++        /* set the blink bit for each LED that's "on" (0x0E) in ledctl_mode2 */
++        ledctl_blink = hw->ledctl_mode2;
++        for (i=0; i < 4; i++)
++            if (((hw->ledctl_mode2 >> (i * 8)) & 0xFF) ==
++                E1000_LEDCTL_MODE_LED_ON)
++                ledctl_blink |= (E1000_LEDCTL_LED0_BLINK << (i * 8));
++    }
++
++    E1000_WRITE_REG(hw, LEDCTL, ledctl_blink);
++
++    msleep_interruptible(seconds * HZ);
++
++    e1000_led_off(hw);
++    e1000_cleanup_led(hw);
++}
++
++static void e1000_blink_led_manually(struct e1000_hw *hw, unsigned int seconds)
++{
++	unsigned int i;
++	e1000_setup_led(hw);
++
++	for (i = 0; i < (seconds * 4); i++) {
++		if (i & 1)
++			e1000_led_off(hw);
++		else
++			e1000_led_on(hw);
++		if (msleep_interruptible(250))
++			break;
++	}
++
++	e1000_led_off(hw);
++	e1000_cleanup_led(hw);
++}
++
++/******************************************************************************
++ * Blink the LED for the given number of seconds. 
++ *
++ * hw - Struct containing variables accessed by shared code
++ * seconds - Length of time to blink LED for
++ *****************************************************************************/
++void e1000_blink_led(struct e1000_hw *hw, unsigned int seconds)
++{
++	if (hw->mac_type < e1000_82571) {
++		e1000_blink_led_manually(hw, seconds);
++	} else if (hw->phy_type == e1000_phy_ife) {
++		e1000_blink_led_manually(hw, seconds);
++	} else {
++		e1000_blink_led_auto(hw, seconds);
++	}
++}
++
+ /******************************************************************************
+  * Clears all hardware statistics counters.
+  *
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 112447f..1efedb7 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -404,11 +404,7 @@ void e1000_rar_set(struct e1000_hw *hw, 
+ void e1000_write_vfta(struct e1000_hw *hw, uint32_t offset, uint32_t value);
+ 
+ /* LED functions */
+-int32_t e1000_setup_led(struct e1000_hw *hw);
+-int32_t e1000_cleanup_led(struct e1000_hw *hw);
+-int32_t e1000_led_on(struct e1000_hw *hw);
+-int32_t e1000_led_off(struct e1000_hw *hw);
+-int32_t e1000_blink_led_start(struct e1000_hw *hw);
++void e1000_blink_led(struct e1000_hw *hw, unsigned int seconds);
+ 
+ /* Adaptive IFS Functions */
+ 
