@@ -1,30 +1,42 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: 2.4/2.6 share in linux routers ?
-Date: Sat, 28 Oct 2006 10:52:07 +0200
-Message-ID: <20061028085207.GA28123@xi.wantstofly.org>
-References: <f36b08ee0610271447s32f0c7bfk862d04e4bb826bbd@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [take21 2/4] kevent: poll/select() notifications.
+Date: Sat, 28 Oct 2006 12:04:10 +0200
+Message-ID: <45432B1A.8020503@cosmosbay.com>
+References: <11619654012104@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:25510 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1752010AbWJ1IwK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Oct 2006 04:52:10 -0400
-To: Yakov Lerner <iler.ml@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <f36b08ee0610271447s32f0c7bfk862d04e4bb826bbd@mail.gmail.com>
+Received: from sp604003mt.neufgp.fr ([84.96.92.56]:34742 "EHLO smTp.neuf.fr")
+	by vger.kernel.org with ESMTP id S1752041AbWJ1KEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2006 06:04:10 -0400
+In-reply-to: <11619654012104@2ka.mipt.ru>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2006 at 11:47:52PM +0200, Yakov Lerner wrote:
+Evgeniy Polyakov a =E9crit :
 
-> I'd like to find/gather estimates about 2.4 vs 2.6 share in  [small]
-> linux routers in 2006. Can anyone offer estimates and/or references ?
+> +	file =3D fget(k->event.id.raw[0]);
+> +	if (!file)
+> +		return -ENODEV;
 
-For ARM devices, 2.4 is still definitely in the majority.
+Please, do us a favor, and use EBADF instead of ENODEV.
 
-The reason for that appears to be that embedded linux distro vendors
-like locking their customers into their own patched-to-hell once-looked-
-like-something-2.4-ish kernels, under the guise of a load of "2.6 is too
-unstable" FUD.
+EBADF : /* Bad file number */
+
+ENODEV : /* No such device */
+
+You have many ENODEV uses in your patches and that really hurts.
+
+Eric
+
