@@ -1,175 +1,120 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take21 1/4] kevent: Core files.
-Date: Sat, 28 Oct 2006 14:53:40 +0400
-Message-ID: <20061028105340.GC15038@2ka.mipt.ru>
-References: <11619654011980@2ka.mipt.ru> <454330BC.9000108@cosmosbay.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
+Date: Sat, 28 Oct 2006 12:21:22 +0100
+Message-ID: <20061028112122.GA14316@infradead.org>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025201341.GH21200@miggy.org> <20061025151737.1bf4898c.randy.dunlap@oracle.com> <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061025165858.b76b4fd8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Brownell <david-b@pacbell.net>, toralf.foerster@gmx.de,
+	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	link@miggy.org, greg@kroah.com, akpm@osdl.org,
+	zippel@linux-m68k.org, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org, dbrownell@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37824 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1752115AbWJ1KyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2006 06:54:15 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:64707 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1752133AbWJ1LV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Oct 2006 07:21:28 -0400
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <454330BC.9000108@cosmosbay.com>
+In-Reply-To: <20061025165858.b76b4fd8.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 28, 2006 at 12:28:12PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> +/*
-> + * Called under kevent_user->ready_lock, so updates are always protected.
-> + */
-> +int kevent_user_ring_add_event(struct kevent *k)
-> +{
-> +	unsigned int pidx, off;
-> +	struct kevent_mring *ring, *copy_ring;
-> +	
-> +	ring = k->user->pring[0];
-> +
-> +	if ((ring->kidx + 1 == ring->uidx) ||
-> +			((ring->kidx + 1 == KEVENT_MAX_EVENTS) && ring->uidx 
-> == 0)) {
-> +		if (k->user->overflow_kevent == NULL)
-> +			k->user->overflow_kevent = k;
-> +		return -EAGAIN;
-> +	}
-> +
+On Wed, Oct 25, 2006 at 04:58:58PM -0700, Randy Dunlap wrote:
+> On Wed, 25 Oct 2006 15:27:09 -0700 David Brownell wrote:
 > 
+> > Instead, "usbnet.c" should #ifdef the relevant ethtool hooks
+> > according to CONFIG_MII ... since it's completely legit to
+> > use usbnet with peripherals that don't need MII.
 > 
-> I really dont understand how you manage to queue multiple kevents in the 
-> 'overflow list'. You just queue one kevent at most. What am I missing ?
+> ---
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> usbnet driver should use mii_*() interfaces if they are available
+> in the kernel (config enabled) but usbnet does not require or depend
+> on these interfaces.
+> 
+> Build tested with CONFIG_MII=y, m, n.
 
-There is no overflow list - it is a pointer to the first kevent in the
-ready queue, which was not put into ring buffer. It is an optimisation, 
-which allows to not search for that position each time new event should 
-be placed into the buffer, when it starts to have an empty slot.
- 
+This is really awkward and against what we do in any other driver.
+Lots of PCI ethernet drivers use the MII code but have non-MII variants,
+and I'd expect usb code to do the same.  If you really need to squeeze
+the last bytes out of usbnet for some embedded thing add a CONFIG_USB_NET_MII
+opention and explain in the help text which devices require it.  Otherwise
+a normal user has no way to find out why his mii-requiring usb device
+randomly stopped working.
+
 > 
-> >+
-> >+	for (i=0; i<KEVENT_MAX_PAGES; ++i) {
-> >+		u->pring[i] = (struct kevent_mring 
-> >*)__get_free_page(GFP_KERNEL);
-> >+		if (!u->pring[i])
-> >+			break;
-> >+	}
-> >+
-> >+	if (i != KEVENT_MAX_PAGES)
-> >+		goto err_out_free;
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> ---
+>  drivers/usb/net/usbnet.c |   18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
 > 
-> Why dont you use goto directly ?
-> 
-> 	if (!u->pring[i])
-> 		goto err_out_free;
-> 
- 
-I used a fallback mode here which allowed to use smaller number of pages
-for kevent ring buffer, but then decided to drop it.
-So it is possible to use goto directly.
- 
-> >+
-> >+	u->pring[0]->uidx = u->pring[0]->kidx = 0;
-> >+
-> >+	return 0;
-> >+
-> >+err_out_free:
-> >+	for (i=0; i<KEVENT_MAX_PAGES; ++i) {
-> >+		if (!u->pring[i])
-> >+			break;
-> >+
-> >+		free_page((unsigned long)u->pring[i]);
-> >+	}
-> >+	return k;
-> >+}
-> >+
-> 
-> 
-> 
-> 
-> >+static int kevent_user_ctl_add(struct kevent_user *u, unsigned int num, 
-> >void __user *arg)
-> >+{
-> >+	int err, cerr = 0, knum = 0, rnum = 0, i;
-> >+	void __user *orig = arg;
-> >+	struct ukevent uk;
-> >+
-> >+	mutex_lock(&u->ctl_mutex);
-> >+
-> >+	err = -EINVAL;
-> >+	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-> >+		struct ukevent *ukev;
-> >+
-> >+		ukev = kevent_get_user(num, arg);
-> >+		if (ukev) {
-> >+			for (i = 0; i < num; ++i) {
-> >+				err = kevent_user_add_ukevent(&ukev[i], u);
-> >+				if (err) {
-> >+					kevent_stat_im(u);
-> >+					if (i != rnum)
-> >+						memcpy(&ukev[rnum], 
-> >&ukev[i], sizeof(struct ukevent));
-> >+					rnum++;
-> >+				} else
-> >+					knum++;
-> 
-> 
-> Why are you using/counting knum ?
- 
-It should go avay. 
- 
-> >+			}
-> >+			if (copy_to_user(orig, ukev, rnum*sizeof(struct 
-> >ukevent)))
-> >+				cerr = -EFAULT;
-> >+			kfree(ukev);
-> >+			goto out_setup;
-> >+		}
-> >+	}
-> >+
-> >+	for (i = 0; i < num; ++i) {
-> >+		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-> >+			cerr = -EFAULT;
-> >+			break;
-> >+		}
-> >+		arg += sizeof(struct ukevent);
-> >+
-> >+		err = kevent_user_add_ukevent(&uk, u);
-> >+		if (err) {
-> >+			kevent_stat_im(u);
-> >+			if (copy_to_user(orig, &uk, sizeof(struct ukevent))) 
-> >{
-> >+				cerr = -EFAULT;
-> >+				break;
-> >+			}
-> >+			orig += sizeof(struct ukevent);
-> >+			rnum++;
-> >+		} else
-> >+			knum++;
-> >+	}
-> >+
-> >+out_setup:
-> >+	if (cerr < 0) {
-> >+		err = cerr;
-> >+		goto out_remove;
-> >+	}
-> >+
-> >+	err = rnum;
-> >+out_remove:
-> >+	mutex_unlock(&u->ctl_mutex);
-> >+
-> >+	return err;
-> >+}
+> --- linux-2619-rc3-pv.orig/drivers/usb/net/usbnet.c
+> +++ linux-2619-rc3-pv/drivers/usb/net/usbnet.c
+> @@ -47,6 +47,12 @@
+>  
+>  #define DRIVER_VERSION		"22-Aug-2005"
+>  
+> +#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
+> +#define HAVE_MII		1
+> +#else
+> +#define HAVE_MII		0
+> +#endif
+> +
+>  
+>  /*-------------------------------------------------------------------------*/
+>  
+> @@ -676,7 +682,10 @@ int usbnet_get_settings (struct net_devi
+>  	if (!dev->mii.mdio_read)
+>  		return -EOPNOTSUPP;
+>  
+> +#if HAVE_MII
+>  	return mii_ethtool_gset(&dev->mii, cmd);
+> +#endif
+> +	return -EOPNOTSUPP;
+>  }
+>  EXPORT_SYMBOL_GPL(usbnet_get_settings);
+>  
+> @@ -688,7 +697,11 @@ int usbnet_set_settings (struct net_devi
+>  	if (!dev->mii.mdio_write)
+>  		return -EOPNOTSUPP;
+>  
+> +#if HAVE_MII
+>  	retval = mii_ethtool_sset(&dev->mii, cmd);
+> +#else
+> +	retval = -EOPNOTSUPP;
+> +#endif
+>  
+>  	/* link speed/duplex might have changed */
+>  	if (dev->driver_info->link_reset)
+> @@ -721,9 +734,11 @@ u32 usbnet_get_link (struct net_device *
+>  	if (dev->driver_info->check_connect)
+>  		return dev->driver_info->check_connect (dev) == 0;
+>  
+> +#if HAVE_MII
+>  	/* if the device has mii operations, use those */
+>  	if (dev->mii.mdio_read)
+>  		return mii_link_ok(&dev->mii);
+> +#endif
+>  
+>  	/* Otherwise, say we're up (to avoid breaking scripts) */
+>  	return 1;
+> @@ -753,7 +768,10 @@ int usbnet_nway_reset(struct net_device 
+>  	if (!dev->mii.mdio_write)
+>  		return -EOPNOTSUPP;
+>  
+> +#if HAVE_MII
+>  	return mii_nway_restart(&dev->mii);
+> +#endif
+> +	return -EOPNOTSUPP;
+>  }
+>  EXPORT_SYMBOL_GPL(usbnet_nway_reset);
+>  
 > -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-	Evgeniy Polyakov
+> Please read the FAQ at  http://www.tux.org/lkml/
+---end quoted text---
