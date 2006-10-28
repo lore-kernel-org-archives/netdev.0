@@ -1,90 +1,53 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Please pull bcm43xx-d80211 bugfixes
-Date: Sat, 28 Oct 2006 17:41:43 +0200
-Message-ID: <200610281741.44236.mb@bu3sch.de>
+From: Willy Tarreau <w@1wt.eu>
+Subject: SKGE backport to 2.4 : success
+Date: Sat, 28 Oct 2006 22:57:07 +0200
+Message-ID: <20061028205707.GA722@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jeff Williams <jeff-+Shh3Y/l6y5dz2imjWt+ww@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:20996 "EHLO 1wt.eu")
+	by vger.kernel.org with ESMTP id S1751414AbWJ1U5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2006 16:57:30 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+Hi Stephen,
 
-Please
-git pull http://bu3sch.de/git/wireless-dev.git for-linville
+In my own kernels, I've added your backport of SKGE to 2.4 that I found
+here :
 
-This will pull the following things since my last
-pull request:
+   http://developer.osdl.org/shemminger/releases/skge-sky2-backport.tar.bz2
 
-Michael Buesch:
-      bcm43xx-d80211: Fix DMA engine TX buffer unmap crash.
-      bcm43xx-d80211: Don't ignore return value of pci_enable_device()
+It seems to work pretty well compared to the original syskonnect driver
+(up to and including 8.36). Several people around me have reported very
+slow NFS operations with the official driver, which I finally attributed
+to a strange effect of UDP packets not going out after a while until they
+get "pushed" by a TCP packet. I even noticed the problem at the company
+and we turned the NFS server to an unused 100 Mbps card to workaround the
+problem before being able to fully ananlyze the problem.
 
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |    7 ++++++-
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    6 ++++--
- 2 files changed, 10 insertions(+), 3 deletions(-)
+It seems your driver is getting mature and its performance is very close to
+the official one, while its code is smaller and apparently more reliable. I
+was thinking about merging it in mainline 2.4 as a fix for people having
+trouble with the syskonnect driver. It might also be easier to backport fixes
+from 2.6 to 2.4 when the driver is the same.
 
+I don't think we risk any regression because it won't replace an existing
+driver, but will provide one to people who are used to download new versions
+from an external tree.
 
-diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-index ac7b734..24fc47d 100644
---- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-+++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-@@ -1102,6 +1102,7 @@ void bcm43xx_dma_handle_txstatus(struct 
- 				 const struct bcm43xx_txstatus *status)
- {
- 	const struct bcm43xx_dma_ops *ops;
-+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
- 	struct bcm43xx_dmaring *ring;
- 	struct bcm43xx_dmadesc_generic *desc;
- 	struct bcm43xx_dmadesc_meta *meta;
-@@ -1116,7 +1117,11 @@ void bcm43xx_dma_handle_txstatus(struct 
- 		assert(slot >= 0 && slot < ring->nr_slots);
- 		desc = ops->idx2desc(ring, slot, &meta);
- 
--		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
-+		if (meta->skb)
-+			unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
-+		else
-+			unmap_descbuffer(ring, meta->dmaaddr, phy->txhdr_size, 1);
-+
- 		if (meta->is_last_fragment) {
- 			/* Call back to inform the ieee80211 subsystem about the
- 			 * status of the transmission.
-diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-index 1e857ca..813112e 100644
---- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-+++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -4129,12 +4129,14 @@ static int bcm43xx_resume(struct pci_dev
- {
- 	struct net_device *net_dev = pci_get_drvdata(pdev);
- 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
--	int err = 0;
-+	int err;
- 
- 	dprintk(KERN_INFO PFX "Resuming...\n");
- 
- 	pci_set_power_state(pdev, 0);
--	pci_enable_device(pdev);
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		return err;
- 	pci_restore_state(pdev);
- 
- 	bcm43xx_chipset_attach(bcm);
+Also, I'm not yet sure whether I would also backport the sky2 driver, because
+I know about a handful boxes running in production with the official one with
+88E8053 chips at high packet rates with no trouble at all. Anyway, as long as
+the backport does not prevent them from using the external driver, there
+should be no problem.
 
+I'd like to get your opinion on this matter, and of course, Jeff's and Davem's.
 
--- 
-Greetings Michael.
+Thanks in advance,
+Willy
+
