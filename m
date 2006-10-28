@@ -1,165 +1,90 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take21 1/4] kevent: Core files.
-Date: Sat, 28 Oct 2006 17:47:32 +0400
-Message-ID: <20061028134732.GA27013@2ka.mipt.ru>
-References: <11619654011980@2ka.mipt.ru> <454330BC.9000108@cosmosbay.com> <20061028105340.GC15038@2ka.mipt.ru> <45434ECF.4090209@cosmosbay.com> <20061028130350.GA18737@2ka.mipt.ru> <454359DC.4020905@cosmosbay.com> <20061028132816.GA25452@2ka.mipt.ru> <45435C7C.10705@cosmosbay.com>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Please pull bcm43xx-d80211 bugfixes
+Date: Sat, 28 Oct 2006 17:41:43 +0200
+Message-ID: <200610281741.44236.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752486AbWJ1NsN@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jeff Williams <jeff-+Shh3Y/l6y5dz2imjWt+ww@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <45435C7C.10705@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 28, 2006 at 03:34:52PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> >>>+	list_del(&k->ready_entry);
-> >>Arg... no
-> >>
-> >>You cannot call list_del() , then check overflow_kevent.
-> >>
-> >>I you call list_del on what happens to be the kevent pointed by 
-> >>overflow_kevent, you loose...
-> >
-> >This function is always called from appropriate context, where it is
-> >guaranteed that it is safe to call list_del:
-> >1. when kevent is removed. It is called after check, that given kevent 
-> >is in the ready queue.
-> >2. when dequeued from ready queue, which means that it can be removed
-> >from that queue.
-> >
-> 
-> Could you please check the list_del() function ?
-> 
-> file include/linux/list.h
-> 
-> static inline void list_del(struct list_head *entry)
-> {
->   __list_del(entry->prev, entry->next);
->   entry->next = LIST_POISON1;
->   entry->prev = LIST_POISON2;
-> }
-> 
-> So, after calling list_del(&k->read_entry);
-> next and prev are basically destroyed.
-> 
-> So when you write later :
-> 
-> +        if (!err || u->overflow_kevent == k) {
-> +            if (u->overflow_kevent->ready_entry.next == &u->ready_list)
-> +                u->overflow_kevent = NULL;
-> +            else
-> +                u->overflow_kevent = + 
-> list_entry(u->overflow_kevent->ready_entry.next, + 
-> struct kevent, ready_entry);
-> +        }
-> 
-> 
-> then you have a problem, since
-> 
-> list_entry(k->ready_entry.next, struct kevent, ready_entry);
-> 
-> will give you garbage.
+Hi John,
 
-Ok, I understand you now.
-To remove this issue we can delete entry from the list after all checks
-with overflow_kevent pointer are completed, i.e. have something like
-this:
+Please
+git pull http://bu3sch.de/git/wireless-dev.git for-linville
 
-diff --git a/kernel/kevent/kevent_user.c b/kernel/kevent/kevent_user.c
-index 711a8a8..f3fec9b 100644
---- a/kernel/kevent/kevent_user.c
-+++ b/kernel/kevent/kevent_user.c
-@@ -235,6 +235,36 @@ static void kevent_free_rcu(struct rcu_h
- }
- 
- /*
-+ * Must be called under u->ready_lock.
-+ * This function removes kevent from ready queue and 
-+ * tries to add new kevent into ring buffer.
-+ */
-+static void kevent_remove_ready(struct kevent *k)
-+{
-+	struct kevent_user *u = k->user;
-+
-+	if (++u->pring[0]->uidx == KEVENT_MAX_EVENTS)
-+		u->pring[0]->uidx = 0;
-+
-+	if (u->overflow_kevent) {
-+		int err;
-+
-+		err = kevent_user_ring_add_event(u->overflow_kevent);
-+		if (!err || u->overflow_kevent == k) {
-+			if (u->overflow_kevent->ready_entry.next == &u->ready_list)
-+				u->overflow_kevent = NULL;
-+			else
-+				u->overflow_kevent = 
-+					list_entry(u->overflow_kevent->ready_entry.next, 
-+							struct kevent, ready_entry);
-+		}
-+	}
-+	list_del(&k->ready_entry);
-+	k->flags &= ~KEVENT_READY;
-+	u->ready_num--;
-+}
-+
-+/*
-  * Complete kevent removing - it dequeues kevent from storage list
-  * if it is requested, removes kevent from ready list, drops userspace
-  * control block reference counter and schedules kevent freeing through RCU.
-@@ -248,11 +278,8 @@ static void kevent_finish_user_complete(
- 		kevent_dequeue(k);
- 
- 	spin_lock_irqsave(&u->ready_lock, flags);
--	if (k->flags & KEVENT_READY) {
--		list_del(&k->ready_entry);
--		k->flags &= ~KEVENT_READY;
--		u->ready_num--;
--	}
-+	if (k->flags & KEVENT_READY)
-+		kevent_remove_ready(k);
- 	spin_unlock_irqrestore(&u->ready_lock, flags);
- 
- 	kevent_user_put(u);
-@@ -303,25 +330,7 @@ static struct kevent *kqueue_dequeue_rea
- 	spin_lock_irqsave(&u->ready_lock, flags);
- 	if (u->ready_num && !list_empty(&u->ready_list)) {
- 		k = list_entry(u->ready_list.next, struct kevent, ready_entry);
--		list_del(&k->ready_entry);
--		k->flags &= ~KEVENT_READY;
--		u->ready_num--;
--		if (++u->pring[0]->uidx == KEVENT_MAX_EVENTS)
--			u->pring[0]->uidx = 0;
--		
--		if (u->overflow_kevent) {
--			int err;
--
--			err = kevent_user_ring_add_event(u->overflow_kevent);
--			if (!err) {
--				if (u->overflow_kevent->ready_entry.next == &u->ready_list)
--					u->overflow_kevent = NULL;
--				else
--					u->overflow_kevent = 
--						list_entry(u->overflow_kevent->ready_entry.next, 
--								struct kevent, ready_entry);
--			}
--		}
-+		kevent_remove_ready(k);
- 	}
- 	spin_unlock_irqrestore(&u->ready_lock, flags);
- 
+This will pull the following things since my last
+pull request:
 
-Thanks.
+Michael Buesch:
+      bcm43xx-d80211: Fix DMA engine TX buffer unmap crash.
+      bcm43xx-d80211: Don't ignore return value of pci_enable_device()
 
-> Eric
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |    7 ++++++-
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    6 ++++--
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+index ac7b734..24fc47d 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+@@ -1102,6 +1102,7 @@ void bcm43xx_dma_handle_txstatus(struct 
+ 				 const struct bcm43xx_txstatus *status)
+ {
+ 	const struct bcm43xx_dma_ops *ops;
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	struct bcm43xx_dmaring *ring;
+ 	struct bcm43xx_dmadesc_generic *desc;
+ 	struct bcm43xx_dmadesc_meta *meta;
+@@ -1116,7 +1117,11 @@ void bcm43xx_dma_handle_txstatus(struct 
+ 		assert(slot >= 0 && slot < ring->nr_slots);
+ 		desc = ops->idx2desc(ring, slot, &meta);
+ 
+-		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
++		if (meta->skb)
++			unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
++		else
++			unmap_descbuffer(ring, meta->dmaaddr, phy->txhdr_size, 1);
++
+ 		if (meta->is_last_fragment) {
+ 			/* Call back to inform the ieee80211 subsystem about the
+ 			 * status of the transmission.
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+index 1e857ca..813112e 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -4129,12 +4129,14 @@ static int bcm43xx_resume(struct pci_dev
+ {
+ 	struct net_device *net_dev = pci_get_drvdata(pdev);
+ 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+-	int err = 0;
++	int err;
+ 
+ 	dprintk(KERN_INFO PFX "Resuming...\n");
+ 
+ 	pci_set_power_state(pdev, 0);
+-	pci_enable_device(pdev);
++	err = pci_enable_device(pdev);
++	if (err)
++		return err;
+ 	pci_restore_state(pdev);
+ 
+ 	bcm43xx_chipset_attach(bcm);
+
 
 -- 
-	Evgeniy Polyakov
+Greetings Michael.
