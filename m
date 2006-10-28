@@ -1,24 +1,40 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 2.6.19-rc3  v2 1/2] amso1100 -  Use dma_alloc_coherent instead of kmalloc/dma_map_single.
-Date: Fri, 27 Oct 2006 16:35:06 -0700
-Message-ID: <adar6wt1get.fsf@cisco.com>
-References: <20061027222835.10329.14982.stgit@dell3.ogc.int>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: don't allow unfair congestion control to be built
+ without warning
+Date: Fri, 27 Oct 2006 17:48:16 -0700
+Message-ID: <20061027174816.29bd6563@localhost.localdomain>
+References: <20061027145913.04dc0e5f@dxpl.pdx.osdl.net>
+	<20061027.151238.59655130.davem@davemloft.net>
+	<20061027152149.42bcb539@dxpl.pdx.osdl.net>
+	<20061027.152444.48528262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@opengridcomputing.com, netdev@vger.kernel.org,
-	openib-general@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hagen@jauu.net, jheffner@psc.edu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:16031 "EHLO
-	sj-iport-2.cisco.com") by vger.kernel.org with ESMTP
-	id S1750893AbWJ0XfI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Oct 2006 19:35:08 -0400
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <20061027222835.10329.14982.stgit@dell3.ogc.int> (Steve Wise's message of "Fri, 27 Oct 2006 17:28:35 -0500")
+Received: from smtp.osdl.org ([65.172.181.4]:51597 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751437AbWJ1Ast (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2006 20:48:49 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061027.152444.48528262.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-tsk, tsk:
+How about another way of controlling this via sysctl.
 
-fatal: 7 lines add trailing whitespaces.
+First, add code to for read only:
+	/proc/sys/net/ipv4/tcp_available_congestion_control  (or shorter name)
+this will show all things compiled in (even if not loaded yet). Similar
+to /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies
 
-applied to for-2.6.19 anyway, thanks.
+Second, add flag (allowed) to the tcp_congestion structure [inverse of
+earlier restricted]
+
+Third, add read-write
+	/proc/sys/net/ipv4/tcp_allowed_congestion_control
+to show and set/clear the allowed flag. Default value would be
+"reno xxx" where xxx is what ever the default value from the kernel
+config is (currently cubic).
+
+I would use sysfs for this, but it make sense not to spread TCP stuff into
+both sysctl and sysfs.
