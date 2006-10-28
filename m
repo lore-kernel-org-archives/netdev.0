@@ -1,53 +1,156 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: SKGE backport to 2.4 : success
-Date: Sat, 28 Oct 2006 22:57:07 +0200
-Message-ID: <20061028205707.GA722@1wt.eu>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
+Date: Sat, 28 Oct 2006 14:10:09 -0700
+Message-ID: <200610281410.13679.david-b@pacbell.net>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025165858.b76b4fd8.randy.dunlap@oracle.com> <20061028112122.GA14316@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, toralf.foerster@gmx.de,
+	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	link@miggy.org, greg@kroah.com, akpm@osdl.org,
+	zippel@linux-m68k.org, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:20996 "EHLO 1wt.eu")
-	by vger.kernel.org with ESMTP id S1751414AbWJ1U5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2006 16:57:30 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from smtp108.sbc.mail.mud.yahoo.com ([68.142.198.207]:8271 "HELO
+	smtp108.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S964842AbWJ1VKS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Oct 2006 17:10:18 -0400
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20061028112122.GA14316@infradead.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+On Saturday 28 October 2006 4:21 am, Christoph Hellwig wrote:
 
-In my own kernels, I've added your backport of SKGE to 2.4 that I found
-here :
+> This is really awkward and against what we do in any other driver.
 
-   http://developer.osdl.org/shemminger/releases/skge-sky2-backport.tar.bz2
+Awkward, yes -- which is why I posted the non-awkward version,
+which is repeated below.  (No thanks to "diff" for making the
+patch ugly though; the resulting code is clean and non-awkward,
+moving that function helped.)
 
-It seems to work pretty well compared to the original syskonnect driver
-(up to and including 8.36). Several people around me have reported very
-slow NFS operations with the official driver, which I finally attributed
-to a strange effect of UDP packets not going out after a while until they
-get "pushed" by a TCP packet. I even noticed the problem at the company
-and we turned the NFS server to an unused 100 Mbps card to workaround the
-problem before being able to fully ananlyze the problem.
+Against what other drivers do?  Since "usbnet.c" is infrastructure
+code, not a driver, your comment can't apply.  Infrastructure uses
+conditional compilation routinely in such cases.
 
-It seems your driver is getting mature and its performance is very close to
-the official one, while its code is smaller and apparently more reliable. I
-was thinking about merging it in mainline 2.4 as a fix for people having
-trouble with the syskonnect driver. It might also be easier to backport fixes
-from 2.6 to 2.4 when the driver is the same.
+But remember that the actual drivers follow the standard convention
+("select MII") given Randy's patch #1 of 2.
 
-I don't think we risk any regression because it won't replace an existing
-driver, but will provide one to people who are used to download new versions
-from an external tree.
+- Dave
 
-Also, I'm not yet sure whether I would also backport the sky2 driver, because
-I know about a handful boxes running in production with the official one with
-88E8053 chips at high packet rates with no trouble at all. Anyway, as long as
-the backport does not prevent them from using the external driver, there
-should be no problem.
 
-I'd like to get your opinion on this matter, and of course, Jeff's and Davem's.
+-------------------------
+The usbnet infrastructure must not reference MII symbols unless they're
+provided in the kernel being built.  This extends also to the ethtool
+hooks that reference those symbols.
 
-Thanks in advance,
-Willy
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
 
+Index: g26/drivers/usb/net/usbnet.c
+===================================================================
+--- g26.orig/drivers/usb/net/usbnet.c	2006-10-24 18:29:28.000000000 -0700
++++ g26/drivers/usb/net/usbnet.c	2006-10-25 19:07:16.000000000 -0700
+@@ -669,6 +669,9 @@ done:
+  * they'll probably want to use this base set.
+  */
+ 
++#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
++#define HAVE_MII
++
+ int usbnet_get_settings (struct net_device *net, struct ethtool_cmd *cmd)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+@@ -699,20 +702,6 @@ int usbnet_set_settings (struct net_devi
+ }
+ EXPORT_SYMBOL_GPL(usbnet_set_settings);
+ 
+-
+-void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
+-{
+-	struct usbnet *dev = netdev_priv(net);
+-
+-	/* REVISIT don't always return "usbnet" */
+-	strncpy (info->driver, driver_name, sizeof info->driver);
+-	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+-	strncpy (info->fw_version, dev->driver_info->description,
+-		sizeof info->fw_version);
+-	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
+-}
+-EXPORT_SYMBOL_GPL(usbnet_get_drvinfo);
+-
+ u32 usbnet_get_link (struct net_device *net)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+@@ -730,40 +719,57 @@ u32 usbnet_get_link (struct net_device *
+ }
+ EXPORT_SYMBOL_GPL(usbnet_get_link);
+ 
+-u32 usbnet_get_msglevel (struct net_device *net)
++int usbnet_nway_reset(struct net_device *net)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+ 
+-	return dev->msg_enable;
++	if (!dev->mii.mdio_write)
++		return -EOPNOTSUPP;
++
++	return mii_nway_restart(&dev->mii);
+ }
+-EXPORT_SYMBOL_GPL(usbnet_get_msglevel);
++EXPORT_SYMBOL_GPL(usbnet_nway_reset);
+ 
+-void usbnet_set_msglevel (struct net_device *net, u32 level)
++#endif	/* HAVE_MII */
++
++void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+ 
+-	dev->msg_enable = level;
++	/* REVISIT don't always return "usbnet" */
++	strncpy (info->driver, driver_name, sizeof info->driver);
++	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
++	strncpy (info->fw_version, dev->driver_info->description,
++		sizeof info->fw_version);
++	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
+ }
+-EXPORT_SYMBOL_GPL(usbnet_set_msglevel);
++EXPORT_SYMBOL_GPL(usbnet_get_drvinfo);
+ 
+-int usbnet_nway_reset(struct net_device *net)
++u32 usbnet_get_msglevel (struct net_device *net)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+ 
+-	if (!dev->mii.mdio_write)
+-		return -EOPNOTSUPP;
++	return dev->msg_enable;
++}
++EXPORT_SYMBOL_GPL(usbnet_get_msglevel);
+ 
+-	return mii_nway_restart(&dev->mii);
++void usbnet_set_msglevel (struct net_device *net, u32 level)
++{
++	struct usbnet *dev = netdev_priv(net);
++
++	dev->msg_enable = level;
+ }
+-EXPORT_SYMBOL_GPL(usbnet_nway_reset);
++EXPORT_SYMBOL_GPL(usbnet_set_msglevel);
+ 
+ /* drivers may override default ethtool_ops in their bind() routine */
+ static struct ethtool_ops usbnet_ethtool_ops = {
++#ifdef	HAVE_MII
+ 	.get_settings		= usbnet_get_settings,
+ 	.set_settings		= usbnet_set_settings,
+-	.get_drvinfo		= usbnet_get_drvinfo,
+ 	.get_link		= usbnet_get_link,
+ 	.nway_reset		= usbnet_nway_reset,
++#endif
++	.get_drvinfo		= usbnet_get_drvinfo,
+ 	.get_msglevel		= usbnet_get_msglevel,
+ 	.set_msglevel		= usbnet_set_msglevel,
+ };
