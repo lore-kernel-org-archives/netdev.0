@@ -1,46 +1,138 @@
-From: Ray Lehtiniemi <rayl@mail.com>
-Subject: Re: [PATCH 3/3] ep93xx_eth: don't report RX FIFO overrun errors
-Date: Sun, 29 Oct 2006 11:41:00 -0700
-Message-ID: <200610291141.00866.rayl@mail.com>
-References: <20061029130649.GD6900@xi.wantstofly.org>
- <200610291115.29428.rayl@mail.com> <20061029182253.GE7055@xi.wantstofly.org>
+From: Denis Vlasenko <vda.linux@googlemail.com>
+Subject: Re: 2.6.18 forcedeth GSO panic on send
+Date: Sun, 29 Oct 2006 22:45:40 +0100
+Message-ID: <200610292245.40702.vda.linux@googlemail.com>
+References: <200610270117.57877.vda.linux@googlemail.com> <200610291355.56196.vda.linux@googlemail.com> <20061029141029.GA5084@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Herbert Valerio Riedel <hvr@gnu.org>
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shawidc-mo1.cg.shawcable.net ([24.71.223.10]:22147 "EHLO
-	pd4mo3so.prod.shaw.ca") by vger.kernel.org with ESMTP
-	id S932407AbWJ2SmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Oct 2006 13:42:09 -0500
-Received: from pd5mr5so.prod.shaw.ca
- (pd5mr5so-qfe3.prod.shaw.ca [10.0.141.181]) by l-daemon
- (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
- with ESMTP id <0J7W001PIUKF5300@l-daemon> for netdev@vger.kernel.org; Sun,
- 29 Oct 2006 11:41:03 -0700 (MST)
-Received: from pn2ml5so.prod.shaw.ca ([10.0.121.149])
- by pd5mr5so.prod.shaw.ca (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar
- 15 2004)) with ESMTP id <0J7W006EVUKE3YS0@pd5mr5so.prod.shaw.ca> for
- netdev@vger.kernel.org; Sun, 29 Oct 2006 11:41:03 -0700 (MST)
-Received: from ray.lehtiniemi.com ([68.147.121.172])
- by l-daemon (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
- with ESMTP id <0J7W00IHHUKE1G84@l-daemon> for netdev@vger.kernel.org; Sun,
- 29 Oct 2006 11:41:02 -0700 (MST)
-In-reply-to: <20061029182253.GE7055@xi.wantstofly.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Content-disposition: inline
+Received: from ug-out-1314.google.com ([66.249.92.169]:8296 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1030208AbWJ2Urn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Oct 2006 15:47:43 -0500
+Received: by ug-out-1314.google.com with SMTP id 32so1011647ugm
+        for <netdev@vger.kernel.org>; Sun, 29 Oct 2006 12:47:42 -0800 (PST)
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20061029141029.GA5084@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 29 October 2006 11:22, Lennert Buytenhek wrote:
+On Sunday 29 October 2006 15:10, Herbert Xu wrote:
+> On Sun, Oct 29, 2006 at 01:55:56PM +0100, Denis Vlasenko wrote:
+> > 
+> > With "echo 1 >/proc/sys/kernel/panic_on_oops" I've got
+> > what you're requested. See screenshot:
+> > 
+> > http://busybox.net/~vda/gso_panic/forcedeth_gso_panic2.jpg
+> 
+> Thanks!
+> 
+> Please let me know if this patch fixes it:
+> 
+> [NET]: Fix segmentation of linear packets
 
-> > Also, is it possible for any other error bits to be set at the same
-> > time as OE?  such bits would not be printed to the log in this case.
->
-> Not sure, but arguably, this wouldn't be very interesting.  Actually,
-> now I'm wondering whether we should just remove the printk altogether.
+Okay, will test now.
 
-i don't see why we need a printk... the error counters _should_ be sufficient.
+> The fact that you're triggering this bug at all means that
+> something else has gone wrong.  First of all your picture
+> shows a device setting of "lo".  This does not tally with
+> the fact that the BUG was triggered by ssh.  Do you have
+> any idea why this is the case? Do you have any netfilter
+> rules that might cause this?
 
-ray
+Yes, I have netfilter rules which redirect all outgoing
+port 22 connections to local port 2222. I run tcpserver
+on 2222 which spawns hose for each connection.
+
+All this ugliness is required to get ssh working across
+buggy D-Link router. It chokes on nagle-disabled sessions,
+I think.
+
+The rules:
+
+# iptables -t nat -N redir22
+# iptables -t nat -A redir22 -d 192.168.1.111 -j RETURN
+# iptables -t nat -A redir22 -d 127.0.0.1 -j RETURN
+# iptables -t nat -A redir22 --match owner --uid-owner daemon -j RETURN
+# iptables -t nat -A redir22 -p tcp -j REDIRECT --to 2222
+# iptables -t nat -A OUTPUT -p tcp --dport 22 -j redir22
+
+---FILTER--
+Chain INPUT (policy ACCEPT 20 packets, 1360 bytes)
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+Chain OUTPUT (policy ACCEPT 2 packets, 100 bytes)
+---NAT-----
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+Chain POSTROUTING (policy ACCEPT 1 packets, 60 bytes)
+Chain OUTPUT (policy ACCEPT 1 packets, 60 bytes)
+       0        0 redir22    tcp  --  *      *       0.0.0.0/0            0.0.0.0/0           tcp dpt:22
+Chain redir22 (1 references)
+       0        0 RETURN     all  --  *      *       0.0.0.0/0            192.168.1.111
+       0        0 RETURN     all  --  *      *       0.0.0.0/0            127.0.0.1
+       0        0 RETURN     all  --  *      *       0.0.0.0/0            0.0.0.0/0           OWNER UID match 50
+       0        0 REDIRECT   tcp  --  *      *       0.0.0.0/0            0.0.0.0/0           redir ports 2222
+---MANGLE--
+Chain PREROUTING (policy ACCEPT 2 packets, 100 bytes)
+Chain INPUT (policy ACCEPT 2 packets, 100 bytes)
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+Chain OUTPUT (policy ACCEPT 2 packets, 100 bytes)
+Chain POSTROUTING (policy ACCEPT 2 packets, 100 bytes)
+
+On port 2222 I have the following running:
+
+run:
+====
+ip=0.0.0.0
+port=2222
+user=daemon
+maxconn=100
+# envuidgid $user tcpserver -U:
+# run tcpserver as $user
+exec \
+env - \
+softlimit \
+envuidgid $user \
+tcpserver \
+    -U \
+    -v -R -H -l 0 -c $maxconn \
+    $ip $port \
+./startproxy22
+
+startproxy22
+============
+targetip="$TCPORIGDSTIP"
+targetport=22
+# Loop prevention
+if test "$TCPLOCALIP" = "$targetip"; then
+    if test "$TCPLOCALPORT" = "$targetport"; then
+        env >loop.detected
+        exit 0
+    fi
+fi
+# netcat rulez... however hose of netpipes fame
+# is still better because --netslave properly closes
+# connection on input EOF.
+exec env - hose "$targetip" "$targetport" --netslave
+
+> If it is indeed lo, could you please check the ethtool -k
+> setting on it? Also what is the ethtool -k setting on the
+> interface where you expect ssh to go out?
+
+# ethtool -k lo
+Offload parameters for lo:
+Cannot get device rx csum settings: Operation not supported
+Cannot get device tx csum settings: Operation not supported
+Cannot get device scatter-gather settings: Operation not supported
+rx-checksumming: off
+tx-checksumming: off
+scatter-gather: off
+tcp segmentation offload: off
+--
+vda
