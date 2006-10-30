@@ -1,37 +1,50 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [patch 1/1] NetLabel: protect the CIPSOv4 socket option from
- setsockopt()
-Date: Mon, 30 Oct 2006 13:58:35 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0610301357590.8348@d.namei>
-References: <20061030180331.404950000@hp.com> <20061030180801.641867000@hp.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 1/2] forcedeth: add new NVIDIA pci ids
+Date: Mon, 30 Oct 2006 17:37:48 -0500
+Message-ID: <45467EBC.2020709@nvidia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@redhat.com,
-	sds@epoch.ncsc.mil, eparis@redhat.com
+Content-Type: multipart/mixed;
+ boundary="------------050408090503080906070301"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:44947 "EHLO
-	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1161374AbWJ3S6h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Oct 2006 13:58:37 -0500
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <20061030180801.641867000@hp.com>
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:10275 "EHLO
+	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
+	id S1161371AbWJ3S4i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Oct 2006 13:56:38 -0500
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Oct 2006, paul.moore@hp.com wrote:
+This is a multi-part message in MIME format.
+--------------050408090503080906070301
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> From: Paul Moore <paul.moore@hp.com>
-> 
-> This patch makes two changes to protect applications from either removing or
-> tampering with the CIPSOv4 IP option on a socket. 
+This patch adds pci device ids for the NVIDIA MCP67 chip.
 
-Thanks.  Applied to:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-net-2.6.git
+Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
+--------------050408090503080906070301
+Content-Type: text/plain;
+ name="patch_pci_ids_mcp67"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch_pci_ids_mcp67"
 
+--- a/include/linux/pci_ids.h	2006-10-30 17:22:09.000000000 -0500
++++ b/include/linux/pci_ids.h	2006-10-30 17:22:17.000000000 -0500
+@@ -1213,6 +1213,10 @@
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_21              0x0451
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_22              0x0452
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_23              0x0453
++#define PCI_DEVICE_ID_NVIDIA_NVENET_24              0x054C
++#define PCI_DEVICE_ID_NVIDIA_NVENET_25              0x054D
++#define PCI_DEVICE_ID_NVIDIA_NVENET_26              0x054E
++#define PCI_DEVICE_ID_NVIDIA_NVENET_27              0x054F
+ 
+ #define PCI_VENDOR_ID_IMS		0x10e0
+ #define PCI_DEVICE_ID_IMS_TT128		0x9128
 
--- 
-James Morris
-<jmorris@namei.org>
+--------------050408090503080906070301--
