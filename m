@@ -1,57 +1,174 @@
-From: "Holden Karau" <holden@pigscanfly.ca>
-Subject: Re: [PATCH] wireless-2.6 zd1211rw check against regulatory domain rather than hardcoded value of 11
-Date: Mon, 30 Oct 2006 12:49:57 -0500
-Message-ID: <f46018bb0610300949i59476730q989c51d1c90e2633@mail.gmail.com>
-References: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>
-	 <453D48E5.8040100@gentoo.org>
-	 <f46018bb0610240709y203d8cdbw95cdf66db23aa1ce@mail.gmail.com>
-	 <453E2C9A.7010604@gentoo.org> <4544CBC8.5090305@deine-taler.de>
-	 <1162197749.2854.5.camel@ux156>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Daniel Drake" <dsd@gentoo.org>, zd1211-devs@lists.sourceforge.net,
-	linville@tuxdriver.com, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, holdenk@xandros.com,
-	"Johannes Berg" <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161252AbWJ3RuB@vger.kernel.org>
-To: kune@deine-taler.de
-In-Reply-To: <1162197749.2854.5.camel@ux156>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: paul.moore@hp.com
+Subject: [patch 1/1] NetLabel: protect the CIPSOv4 socket option from setsockopt()
+Date: Mon, 30 Oct 2006 13:03:32 -0500
+Message-ID: <20061030180801.641867000@hp.com>
+References: <20061030180331.404950000@hp.com>
+Cc: jmorris@redhat.com, sds@epoch.ncsc.mil, eparis@redhat.com,
+	Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel6.hp.com ([156.153.255.205]:39909 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S932466AbWJ3SIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2006 13:08:04 -0500
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=netlabel-sockopts
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ulrich,
+From: Paul Moore <paul.moore@hp.com>
 
-I'm fairly certain the patch is safe, even for non-US regulatory domains.
+This patch makes two changes to protect applications from either removing or
+tampering with the CIPSOv4 IP option on a socket.  The first is the requirement
+that applications have the CAP_NET_RAW capability to set an IPOPT_CIPSO option
+on a socket; this prevents untrusted applications from setting their own
+CIPSOv4 security attributes on the packets they send.  The second change is to
+SELinux and it prevents applications from setting any IPv4 options when there
+is an IPOPT_CIPSO option already present on the socket; this prevents
+applications from removing CIPSOv4 security attributes from the packets they
+send.
 
-Looking at the zd1211rw code the highest channel in the geo object
-would appear to be set in zd_geo_init as determined by
-zd_channel_range which just does a simple look up in channel_ranges[],
-so if this code behaves correctly [and there is no indication it does
-not], then setting the upper channel to be that in the geo object
-would appear to be safe for any of the supported regulatory domains.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ net/ipv4/cipso_ipv4.c                       |    7 ++---
+ net/ipv4/ip_options.c                       |    2 -
+ security/selinux/hooks.c                    |    8 +++++-
+ security/selinux/include/selinux_netlabel.h |   10 +++++++
+ security/selinux/ss/services.c              |   37 ++++++++++++++++++++++++++++
+ 5 files changed, 58 insertions(+), 6 deletions(-)
 
-Cheers,
+Index: net-2.6_sockopt/net/ipv4/cipso_ipv4.c
+===================================================================
+--- net-2.6_sockopt.orig/net/ipv4/cipso_ipv4.c
++++ net-2.6_sockopt/net/ipv4/cipso_ipv4.c
+@@ -1307,7 +1307,8 @@ int cipso_v4_socket_setattr(const struct
+ 
+ 	/* We can't use ip_options_get() directly because it makes a call to
+ 	 * ip_options_get_alloc() which allocates memory with GFP_KERNEL and
+-	 * we can't block here. */
++	 * we won't always have CAP_NET_RAW even though we _always_ want to
++	 * set the IPOPT_CIPSO option. */
+ 	opt_len = (buf_len + 3) & ~3;
+ 	opt = kzalloc(sizeof(*opt) + opt_len, GFP_ATOMIC);
+ 	if (opt == NULL) {
+@@ -1317,11 +1318,9 @@ int cipso_v4_socket_setattr(const struct
+ 	memcpy(opt->__data, buf, buf_len);
+ 	opt->optlen = opt_len;
+ 	opt->is_data = 1;
++	opt->cipso = sizeof(struct iphdr);
+ 	kfree(buf);
+ 	buf = NULL;
+-	ret_val = ip_options_compile(opt, NULL);
+-	if (ret_val != 0)
+-		goto socket_setattr_failure;
+ 
+ 	sk_inet = inet_sk(sk);
+ 	if (sk_inet->is_icsk) {
+Index: net-2.6_sockopt/net/ipv4/ip_options.c
+===================================================================
+--- net-2.6_sockopt.orig/net/ipv4/ip_options.c
++++ net-2.6_sockopt/net/ipv4/ip_options.c
+@@ -443,7 +443,7 @@ int ip_options_compile(struct ip_options
+ 				opt->router_alert = optptr - iph;
+ 			break;
+ 		      case IPOPT_CIPSO:
+-		        if (opt->cipso) {
++			if ((!skb && !capable(CAP_NET_RAW)) || opt->cipso) {
+ 				pp_ptr = optptr;
+ 				goto error;
+ 			}
+Index: net-2.6_sockopt/security/selinux/hooks.c
+===================================================================
+--- net-2.6_sockopt.orig/security/selinux/hooks.c
++++ net-2.6_sockopt/security/selinux/hooks.c
+@@ -3313,7 +3313,13 @@ static int selinux_socket_getpeername(st
+ 
+ static int selinux_socket_setsockopt(struct socket *sock,int level,int optname)
+ {
+-	return socket_has_perm(current, sock, SOCKET__SETOPT);
++	int err;
++
++	err = socket_has_perm(current, sock, SOCKET__SETOPT);
++	if (err)
++		return err;
++
++	return selinux_netlbl_socket_setsockopt(sock, level, optname);
+ }
+ 
+ static int selinux_socket_getsockopt(struct socket *sock, int level,
+Index: net-2.6_sockopt/security/selinux/include/selinux_netlabel.h
+===================================================================
+--- net-2.6_sockopt.orig/security/selinux/include/selinux_netlabel.h
++++ net-2.6_sockopt/security/selinux/include/selinux_netlabel.h
+@@ -53,6 +53,9 @@ void selinux_netlbl_sk_security_init(str
+ void selinux_netlbl_sk_clone_security(struct sk_security_struct *ssec,
+ 				      struct sk_security_struct *newssec);
+ int selinux_netlbl_inode_permission(struct inode *inode, int mask);
++int selinux_netlbl_socket_setsockopt(struct socket *sock,
++				     int level,
++				     int optname);
+ #else
+ static inline void selinux_netlbl_cache_invalidate(void)
+ {
+@@ -114,6 +117,13 @@ static inline int selinux_netlbl_inode_p
+ {
+ 	return 0;
+ }
++
++static inline int selinux_netlbl_socket_setsockopt(struct socket *sock,
++						   int level,
++						   int optname)
++{
++	return 0;
++}
+ #endif /* CONFIG_NETLABEL */
+ 
+ #endif
+Index: net-2.6_sockopt/security/selinux/ss/services.c
+===================================================================
+--- net-2.6_sockopt.orig/security/selinux/ss/services.c
++++ net-2.6_sockopt/security/selinux/ss/services.c
+@@ -2682,4 +2682,41 @@ u32 selinux_netlbl_socket_getpeersec_dgr
+ 
+ 	return peer_sid;
+ }
++
++/**
++ * selinux_netlbl_socket_setsockopt - Do not allow users to remove a NetLabel
++ * @sock: the socket
++ * @level: the socket level or protocol
++ * @optname: the socket option name
++ *
++ * Description:
++ * Check the setsockopt() call and if the user is trying to replace the IP
++ * options on a socket and a NetLabel is in place for the socket deny the
++ * access; otherwise allow the access.  Returns zero when the access is
++ * allowed, -EACCES when denied, and other negative values on error.
++ *
++ */
++int selinux_netlbl_socket_setsockopt(struct socket *sock,
++				     int level,
++				     int optname)
++{
++	int rc = 0;
++	struct inode *inode = SOCK_INODE(sock);
++	struct sk_security_struct *sksec = sock->sk->sk_security;
++	struct inode_security_struct *isec = inode->i_security;
++	struct netlbl_lsm_secattr secattr;
++
++	mutex_lock(&isec->lock);
++	if (level == IPPROTO_IP && optname == IP_OPTIONS &&
++	    sksec->nlbl_state == NLBL_LABELED) {
++		netlbl_secattr_init(&secattr);
++		rc = netlbl_socket_getattr(sock, &secattr);
++		if (rc == 0 && (secattr.cache || secattr.mls_lvl_vld))
++			rc = -EACCES;
++		netlbl_secattr_destroy(&secattr);
++	}
++	mutex_unlock(&isec->lock);
++
++	return rc;
++}
+ #endif /* CONFIG_NETLABEL */
 
-Holden :-)
-
-On 10/30/06, Johannes Berg <johannes@sipsolutions.net> wrote:
->
-> > I'm not so sure about this. This patching might be US-specific and we
-> > cannot simply apply the setting for top channel of another domain
-> > instead of channel 11. One option would be to set the value only under
-> > the US regulatory domain.
->
-> ??
-> What the patch does is replace the top channel which is hardcoded to 11
-> by the top channel given by the current regulatory domain. How can that
-> be wrong? Except that you may want to init the regulatory domain from
-> the EEPROM but I'm not sure how the ieee80211 code works wrt. that.
->
-> johannes
->
-
-
--- 
-Cell: 613-276-1645
+--
+paul moore
+linux security @ hp
