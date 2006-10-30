@@ -1,46 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Any strong reason why socket dentries are hashed in
- global d_hash table ?
-Date: Mon, 30 Oct 2006 14:15:27 -0800 (PST)
-Message-ID: <20061030.141527.74717587.davem@davemloft.net>
-References: <20061029132440.4bb93676.randy.dunlap@oracle.com>
-	<20061029.160402.92581862.davem@davemloft.net>
-	<45466EFF.5060108@cosmosbay.com>
+From: Uli Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH] wireless-2.6 zd1211rw check against regulatory domain
+ rather than hardcoded value of 11
+Date: Mon, 30 Oct 2006 23:59:29 +0100
+Message-ID: <454683D1.4030200@deine-taler.de>
+References: <f46018bb0610231121s4fb48f88l28a6e7d4f31d40bb@mail.gmail.com>	 <453D48E5.8040100@gentoo.org>	 <f46018bb0610240709y203d8cdbw95cdf66db23aa1ce@mail.gmail.com>	 <453E2C9A.7010604@gentoo.org>  <4544CBC8.5090305@deine-taler.de> <1162197749.2854.5.camel@ux156>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Daniel Drake <dsd@gentoo.org>, Holden Karau <holden@pigscanfly.ca>,
+	zd1211-devs@lists.sourceforge.net, linville@tuxdriver.com,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	holdenk@xandros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56786
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422690AbWJ3WPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Oct 2006 17:15:32 -0500
-To: dada1@cosmosbay.com
-In-Reply-To: <45466EFF.5060108@cosmosbay.com>
+Received: from deine-taler.de ([217.160.107.63]:52178 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1161353AbWJ3W7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Oct 2006 17:59:33 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1162197749.2854.5.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 30 Oct 2006 22:30:39 +0100
+Johannes Berg wrote:
+>> I'm not so sure about this. This patching might be US-specific and we 
+>> cannot simply apply the setting for top channel of another domain 
+>> instead of channel 11. One option would be to set the value only under 
+>> the US regulatory domain.
+> 
+> ??
+> What the patch does is replace the top channel which is hardcoded to 11
+> by the top channel given by the current regulatory domain. How can that
+> be wrong? Except that you may want to init the regulatory domain from
+> the EEPROM but I'm not sure how the ieee80211 code works wrt. that.
+> 
+> johannes
 
-> In sock_attach_fd(), we are currently using
-> 
-> d_add(file->f_dentry, SOCK_INODE(sock));
-> 
-> This has the effect to insert the dentry into the dentry_hashtable.
-> 
-> I was wondering if it is really necessary : On a machine with many sockets, 
-> the dentry_hashtable lookups may be slowed down for no good reason. (sockets 
-> are not accessable by other means than socket() syscall, and not subject to 
-> 'unuse and LRU freeable syndrom').
-> 
-> If we replace d_add(file->f_dentry, SOCK_INODE(sock)) call by
-> d_instantiate(file->f_dentry, SOCK_INODE(sock)), we also avoid using rcu 
-> callback when socket is closed. (We would have to not provide a d_op->d_delete 
-> () method in sockfs_dentry_operations)
+The problem is not so much that I don't trust the geo code, but whether
+setting the register to that band-edge value for a higher channel is
+the right thing to do. It looks like that this is a hack for FFC
+compliance. Therefore I suggest to patch CR128 only
+for the US regulatory domain.
 
-Sounds like a useful optimization for sure.
+Here is the code from the GPL vendor driver (zdhw.c):
 
-You can't mount sockfs on the filesystem, but they are visible
-via /proc/${pid}/fd/, I wonder if the dentry hashing is required
-just to make those nodes visible properly?
+    if (pObj->HWFeature & BIT_21)  //6321 for FCC regulation, enabled HWFeature 6M band edge bit (for AL2230, AL2230S)
+     {
+         if (ChannelNo == 1 || ChannelNo == 11)  //MARK_003, band edge, these may depend on PCB layout
+         {
+             pObj->SetReg(reg, ZD_CR128, 0x12);
+             pObj->SetReg(reg, ZD_CR129, 0x12);
+             pObj->SetReg(reg, ZD_CR130, 0x10);
+             pObj->SetReg(reg, ZD_CR47, 0x1E);
+         }
+         else //(ChannelNo 2 ~ 10, 12 ~ 14)
+         {
+             pObj->SetReg(reg, ZD_CR128, 0x14);
+             pObj->SetReg(reg, ZD_CR129, 0x12);
+             pObj->SetReg(reg, ZD_CR130, 0x10);
+             pObj->SetReg(reg, ZD_CR47, 0x1E);
+         }
+     }
+
+The patch from Holden would set ZD_CR128 to 0x12 for the highest channel,
+which would not reflect the logic of the vendor driver.
+
+Kind regards,
+
+Uli
+
+-- 
+Uli Kunitz (kune@deine-taler.de)
