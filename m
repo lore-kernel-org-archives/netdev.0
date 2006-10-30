@@ -1,111 +1,43 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [patch 1/1] NetLabel: protect the CIPSOv4 socket option from
- setsockopt()
-Date: Mon, 30 Oct 2006 15:58:43 -0500
-Message-ID: <45466783.6020301@hp.com>
-References: <20061030180331.404950000@hp.com>	 <20061030180801.641867000@hp.com> <1162240306.20103.8.camel@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [RFC] Any strong reason why socket dentries are hashed in global
+ d_hash table ?
+Date: Mon, 30 Oct 2006 22:30:39 +0100
+Message-ID: <45466EFF.5060108@cosmosbay.com>
+References: <20061029132440.4bb93676.randy.dunlap@oracle.com>
+ <20061029.160402.92581862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@redhat.com,
-	sds@epoch.ncsc.mil
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:53642 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1161460AbWJ3U6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2006 15:58:47 -0500
-To: Eric Paris <eparis@redhat.com>
-In-Reply-To: <1162240306.20103.8.camel@localhost.localdomain>
+Received: from sp604003mt.neufgp.fr ([84.96.92.56]:5069 "EHLO smTp.neuf.fr")
+	by vger.kernel.org with ESMTP id S1161396AbWJ3VeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2006 16:34:24 -0500
+Received: from [192.168.30.203] ([84.7.15.81]) by sp604003mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0J7Y005RVX32U9W0@sp604003mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Mon, 30 Oct 2006 22:30:40 +0100 (CET)
+In-reply-to: <20061029.160402.92581862.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Paris wrote:
-> On Mon, 2006-10-30 at 13:03 -0500, paul.moore@hp.com wrote:
-> 
->>plain text document attachment (netlabel-sockopts)
->>From: Paul Moore <paul.moore@hp.com>
->>
->>This patch makes two changes to protect applications from either removing or
->>tampering with the CIPSOv4 IP option on a socket.  The first is the requirement
->>that applications have the CAP_NET_RAW capability to set an IPOPT_CIPSO option
->>on a socket; this prevents untrusted applications from setting their own
->>CIPSOv4 security attributes on the packets they send.  The second change is to
->>SELinux and it prevents applications from setting any IPv4 options when there
->>is an IPOPT_CIPSO option already present on the socket; this prevents
->>applications from removing CIPSOv4 security attributes from the packets they
->>send.
-> 
-> 
->>--- net-2.6_sockopt.orig/security/selinux/ss/services.c
->>+++ net-2.6_sockopt/security/selinux/ss/services.c
->>@@ -2682,4 +2682,41 @@ u32 selinux_netlbl_socket_getpeersec_dgr
->> 
->> 	return peer_sid;
->> }
->>+
->>+/**
->>+ * selinux_netlbl_socket_setsockopt - Do not allow users to remove a NetLabel
->>+ * @sock: the socket
->>+ * @level: the socket level or protocol
->>+ * @optname: the socket option name
->>+ *
->>+ * Description:
->>+ * Check the setsockopt() call and if the user is trying to replace the IP
->>+ * options on a socket and a NetLabel is in place for the socket deny the
->>+ * access; otherwise allow the access.  Returns zero when the access is
->>+ * allowed, -EACCES when denied, and other negative values on error.
->>+ *
->>+ */
->>+int selinux_netlbl_socket_setsockopt(struct socket *sock,
->>+				     int level,
->>+				     int optname)
->>+{
->>+	int rc = 0;
->>+	struct inode *inode = SOCK_INODE(sock);
->>+	struct sk_security_struct *sksec = sock->sk->sk_security;
->>+	struct inode_security_struct *isec = inode->i_security;
->>+	struct netlbl_lsm_secattr secattr;
->>+
->>+	mutex_lock(&isec->lock);
->>+	if (level == IPPROTO_IP && optname == IP_OPTIONS &&
->>+	    sksec->nlbl_state == NLBL_LABELED) {
->>+		netlbl_secattr_init(&secattr);
->>+		rc = netlbl_socket_getattr(sock, &secattr);
->>+		if (rc == 0 && (secattr.cache || secattr.mls_lvl_vld))
->>+			rc = -EACCES;
->>+		netlbl_secattr_destroy(&secattr);
->>+	}
->>+	mutex_unlock(&isec->lock);
->>+
->>+	return rc;
->>+}
->> #endif /* CONFIG_NETLABEL */
-> 
-> I probably should have ask this a while back but both here and in
-> selinux_netlbl_socket_setsid() you are taking the isec->lock.  As I
-> originally understood the isec->lock it was just supposed to just
-> prevent multiple tasks from initializing the isec information
-> simultaneously while the isec information could be in an inconsistent
-> state.  After isec->initialized was set we didn't use the lock any more
-> (as typically the only change inside the isec was the ->sid which
-> couldn't even be 'in the middle').  I'm wondering what you are hoping to
-> protect taking this lock.  It doesn't seem like it would hurt anything,
-> but i'd like to hear what you see it's purpose as being...   (Then again
-> it's just as unlikely that I understood what it was being used for
-> pre-netlabel)
+In sock_attach_fd(), we are currently using
 
-Fair question.  It was discussed a while back on either the SELinux or LSPP
-mailing list, I don't have a link handy but I'm sure you could find it with your
-favorite search engine (it was discussed back when it was a semaphore); I might
-be wrong but I think it was Stephen Smalley that suggested using the isec
-semaphore/mutex.  Basically, inode_security_struct mutex also protects the
-sk_security_struct->nlbl_state field.  You will see some cases where the
-nlbl_state field is set/checked without holding the mutex but in those cases
-only one thread should have access to the sock.
+d_add(file->f_dentry, SOCK_INODE(sock));
 
-Perhaps at some point it would make sense to protect this with some other
-locking mechanism (rcu might make the most sense) but considering the stage that
-2.6.19 is at right now I think we should probably leave it alone right now.
+This has the effect to insert the dentry into the dentry_hashtable.
 
--- 
-paul moore
-linux security @ hp
+I was wondering if it is really necessary : On a machine with many sockets, 
+the dentry_hashtable lookups may be slowed down for no good reason. (sockets 
+are not accessable by other means than socket() syscall, and not subject to 
+'unuse and LRU freeable syndrom').
+
+If we replace d_add(file->f_dentry, SOCK_INODE(sock)) call by
+d_instantiate(file->f_dentry, SOCK_INODE(sock)), we also avoid using rcu 
+callback when socket is closed. (We would have to not provide a d_op->d_delete 
+() method in sockfs_dentry_operations)
+
+Maybe I just provide a patch instead of just talking ? :)
+
+Eric
