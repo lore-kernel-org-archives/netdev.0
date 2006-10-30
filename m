@@ -1,39 +1,37 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH,try3 3/3] ep93xx_eth: don't report RX errors
-Date: Mon, 30 Oct 2006 19:54:08 +0100
-Message-ID: <20061030185408.GD14805@xi.wantstofly.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [patch 1/1] NetLabel: protect the CIPSOv4 socket option from
+ setsockopt()
+Date: Mon, 30 Oct 2006 13:58:35 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0610301357590.8348@d.namei>
+References: <20061030180331.404950000@hp.com> <20061030180801.641867000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ray Lehtiniemi <rayl@mail.com>,
-	Herbert Valerio Riedel <hvr@gnu.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@redhat.com,
+	sds@epoch.ncsc.mil, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:49331 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1161356AbWJ3SyJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Oct 2006 13:54:09 -0500
-To: jeff@garzik.org
-Content-Disposition: inline
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:44947 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1161374AbWJ3S6h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Oct 2006 13:58:37 -0500
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <20061030180801.641867000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Flooding the console with error messages for every RX FIFO overrun,
-checksum error and framing error isn't very sensible.  Each of these
-errors can occur during normal operation, so stop printk'ing error
-messages for RX errors at all.
+On Mon, 30 Oct 2006, paul.moore@hp.com wrote:
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+> From: Paul Moore <paul.moore@hp.com>
+> 
+> This patch makes two changes to protect applications from either removing or
+> tampering with the CIPSOv4 IP option on a socket. 
 
-Index: linux-2.6.19-rc3/drivers/net/arm/ep93xx_eth.c
-===================================================================
---- linux-2.6.19-rc3.orig/drivers/net/arm/ep93xx_eth.c
-+++ linux-2.6.19-rc3/drivers/net/arm/ep93xx_eth.c
-@@ -230,9 +230,6 @@ static int ep93xx_rx(struct net_device *
- 					 " %.8x %.8x\n", rstat0, rstat1);
- 
- 		if (!(rstat0 & RSTAT0_RWE)) {
--			printk(KERN_NOTICE "ep93xx_rx: receive error "
--					 " %.8x %.8x\n", rstat0, rstat1);
--
- 			ep->stats.rx_errors++;
- 			if (rstat0 & RSTAT0_OE)
- 				ep->stats.rx_fifo_errors++;
+Thanks.  Applied to:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-net-2.6.git
+
+
+
+
+-- 
+James Morris
+<jmorris@namei.org>
