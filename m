@@ -1,84 +1,205 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [SCTP]: Always linearise packet on input
-Date: Tue, 31 Oct 2006 13:46:03 -0500
-Message-ID: <454799EB.7040800@hp.com>
-References: <20061030071128.GA15715@gondor.apana.org.au>	 <20061029.234619.112618588.davem@davemloft.net>	 <1162258285.22597.33.camel@w-sridhar2.beaverton.ibm.com>	 <20061031030110.GA27427@gondor.apana.org.au>  <45475F86.6050309@hp.com> <1162318708.3884.17.camel@w-sridhar2.beaverton.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [RFC, PATCH] dont insert sockets/pipes dentries into dentry_hashtable.
+Date: Tue, 31 Oct 2006 19:48:48 +0100
+Message-ID: <200610311948.48970.dada1@cosmosbay.com>
+References: <20061024141739.GB18364@nuim.ie> <20061025084726.GE18364@nuim.ie> <20061025.230615.92585270.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_Qq5RFLe4+Q1s5vf"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:7075 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1423784AbWJaSqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 13:46:07 -0500
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <1162318708.3884.17.camel@w-sridhar2.beaverton.ibm.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:18394 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1423790AbWJaSsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 13:48:50 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061025.230615.92585270.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sridhar Samudrala wrote:
-> On Tue, 2006-10-31 at 09:36 -0500, Vlad Yasevich wrote:
->> Herbert Xu wrote:
->>> Hi Sridhar:
->>>
->>> On Mon, Oct 30, 2006 at 05:31:24PM -0800, Sridhar Samudrala wrote:
->>>> I think we currently assume atleast the SCTP header and the data
->>>> chunk header to be in the skb head.
->>>> But we do handle skbs with data in the frag_list.
->>>> Not sure about skb's with paged fragments.
->>> You can't assume the chunk header to be in the head.  Think about what
->>> happens when some malicious person sends you a fragmented SCTP packet.
->>>
->>>> Does XEN use frag_list or frags array?
->>> Xen creates paged frags in domU=>dom0 or domU=>domU traffic.
->>> Of course frag_list can always occur as a result of IP fragmentation.
->>>
->>>> Is there a simple way to simulate incoming packets with transport
->>>> headers and data in skb's frag_list/pages without having to use XEN.
->>> You can use IP fragments to create them.
->>>
->>> But the important thing is to work through the code.  Basically wherever
->>> you see things like skb_pull/skb->data without a preceding pskb_may_pull
->>> call, then you have a problem.
->> Wouldn't this in the end be equivalent to skb_linearize()?  I am trying to
->> think of a way do things without reallocating too much memory.
-> It will be equivalent only if you pass a skb->data_len as the length to 
-> pskb_may_pull(). However, pskb_may_pull() is generally called with much 
-> smaller lengths equal to a specific header length and it tries to copy
-> the header from the fragments to skb->tail if there is enough room.
+--Boundary-00=_Qq5RFLe4+Q1s5vf
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Well, this stuff accumulates eventually.  Also what happens if the multiple
-chunks are bundled and fragmented?  You end up doing pskb_may_pull() on
-the whole first chunk which can cause reallocation, which gets very expensive.
+Hi David
 
-> 
->> Yes, SCTP is really broken with regard to fragmented skbs.  In fact, I
->> have a test case that will crash the lksctp at will when receiving an IP fragmented
->> message.
-> 
-> Because we support path mtu, we should not see ip fragmentation in general although 
-> it is possible if there is a change in path mtu during a transfer. So i guess you may
-> be trying your test with path mtu disabled and with very small MTUs(< 500) or 
-> a packet with bundled chunks.
+Here is the patch I cooked after our mail exchange. (was [RFC] Any strong 
+reason why socket dentries are hashed in global dentry_hashtable )
 
-The problem happens with the MTU of 512.  If I run over loopback, I can get it to happen
-when dropping mtu to 1500.   The test simulates real world wireless network used between
-cellular towers.
+If necessary, I could split this patch in 4 elementary patches. I chose to 
+sent it as one patch for initial discussion.
 
-> 
->> The reason pskb_may_pull() is not a great solution IMO, is because we
->> may end up doing very large orders of allocations if someone decided to use 9000 MTU
->> on the first hop.  I can see things going bad on loopback with 16K MTU as well.
-> pskb_may_pull() should be used only to pull in the headers, not the
-> entire message to the skb head. But with small messages that are
-> bundled, this may get complicated.
+[RFC, PATCH] dont insert sockets/pipes dentries into dentry_hashtable.
 
-Yes,  this is the problem that I can reproduce.  If I end up bundling multiple
-messages, at the same time as IP mtu drops, we end up with IP fragmentation and
-a crash on the receiver.
+We currently insert sockets/pipes dentries into the global dentry hashtable.
+This is *useless* because there is currently no way these entries can be used 
+for a lookup(). (/proc/xxx/fd/xxx uses a different mechanism)
 
-My temporary solution has also been a skb_linearize(), but I've been trying to
-get away from that.
+Machines with a lot of sockets/pipes might suffer from longer chains in dentry 
+hashtable.
 
--vlad
+The goals of this patch are :
+
+[0] No more insertion in hashtable of sockets/pipes dentries.
+
+[1] Introduction of a DENTRY_DELETED flag, that can distinguish dentries that 
+were deleted and others in d_path(). (previous code was using d_unhashed())
+
+[2] Small optimization to bypass RCU freeing in d_free() for dentries that 
+were never hashed (like sockets and pipes). Such dentries dont have to wait a 
+RCU grace period.
+
+[3] Plug socket code to use d_instantiate() instead of d_hash()
+   (No more need for a private d_delete function, and dentry_operations)
+
+[4] Plug pipe code to use d_instantiate() instead of d_hash()
+   (No more need for a private d_delete function, and dentry_operations)
+
+Another step would be to eliminate dentries for sockets/pipes, but that's 
+another story. (Or at least allocate them from a separate kmem_cache_t as 
+they are not reclaimable, and they might be smaller than a full dentry)
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary-00=_Qq5RFLe4+Q1s5vf
+Content-Type: text/plain;
+  charset="iso-8859-1";
+  name="dcache.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="dcache.patch"
+
+--- linux-2.6.19-rc4/include/linux/dcache.h	2006-10-31 17:38:09.000000000 +0100
++++ linux-2.6.19-rc4-ed/include/linux/dcache.h	2006-10-31 17:39:15.000000000 +0100
+@@ -175,6 +175,7 @@
+ #define DCACHE_UNHASHED		0x0010	
+ 
+ #define DCACHE_INOTIFY_PARENT_WATCHED	0x0020 /* Parent inode is watched */
++#define DCACHE_DELETED		0x0040 /* dentry was deleted */
+ 
+ extern spinlock_t dcache_lock;
+ 
+--- linux-2.6.19-rc4/fs/dcache.c	2006-10-31 17:39:25.000000000 +0100
++++ linux-2.6.19-rc4-ed/fs/dcache.c	2006-10-31 18:37:26.000000000 +0100
+@@ -68,15 +68,19 @@
+ 	.age_limit = 45,
+ };
+ 
+-static void d_callback(struct rcu_head *head)
++static void __d_free(struct dentry *dentry)
+ {
+-	struct dentry * dentry = container_of(head, struct dentry, d_u.d_rcu);
+-
+ 	if (dname_external(dentry))
+ 		kfree(dentry->d_name.name);
+ 	kmem_cache_free(dentry_cache, dentry); 
+ }
+ 
++static void d_callback(struct rcu_head *head)
++{
++	struct dentry * dentry = container_of(head, struct dentry, d_u.d_rcu);
++	__d_free(dentry);
++}
++
+ /*
+  * no dcache_lock, please.  The caller must decrement dentry_stat.nr_dentry
+  * inside dcache_lock.
+@@ -85,7 +89,11 @@
+ {
+ 	if (dentry->d_op && dentry->d_op->d_release)
+ 		dentry->d_op->d_release(dentry);
+- 	call_rcu(&dentry->d_u.d_rcu, d_callback);
++	/* if dentry was never inserted into hash, immediate free is OK */
++	if (dentry->d_hash.pprev == NULL)
++		__d_free(dentry);
++	else
++		call_rcu(&dentry->d_u.d_rcu, d_callback);
+ }
+ 
+ /*
+@@ -1376,6 +1384,7 @@
+ 		return;
+ 	}
+ 
++	dentry->d_flags |= DCACHE_DELETED;
+ 	if (!d_unhashed(dentry))
+ 		__d_drop(dentry);
+ 
+@@ -1749,7 +1758,7 @@
+ 
+ 	*--end = '\0';
+ 	buflen--;
+-	if (!IS_ROOT(dentry) && d_unhashed(dentry)) {
++	if (!IS_ROOT(dentry) && (dentry->d_flags & DCACHE_DELETED)) {
+ 		buflen -= 10;
+ 		end -= 10;
+ 		if (buflen < 0)
+--- linux-2.6.19-rc4/net/socket.c	2006-10-31 17:53:34.000000000 +0100
++++ linux-2.6.19-rc4-ed/net/socket.c	2006-10-31 18:39:06.000000000 +0100
+@@ -304,13 +304,6 @@
+ 	.kill_sb =	kill_anon_super,
+ };
+ 
+-static int sockfs_delete_dentry(struct dentry *dentry)
+-{
+-	return 1;
+-}
+-static struct dentry_operations sockfs_dentry_operations = {
+-	.d_delete = sockfs_delete_dentry,
+-};
+ 
+ /*
+  *	Obtains the first available file descriptor and sets it up for use.
+@@ -360,8 +353,9 @@
+ 	if (unlikely(!file->f_dentry))
+ 		return -ENOMEM;
+ 
+-	file->f_dentry->d_op = &sockfs_dentry_operations;
+-	d_add(file->f_dentry, SOCK_INODE(sock));
++	/* Dont insert socket dentry into global dentry hashtable */
++	d_instantiate(file->f_dentry, SOCK_INODE(sock));
++
+ 	file->f_vfsmnt = mntget(sock_mnt);
+ 	file->f_mapping = file->f_dentry->d_inode->i_mapping;
+ 
+--- linux-2.6.19-rc4/fs/pipe.c	2006-10-31 18:53:21.000000000 +0100
++++ linux-2.6.19-rc4-ed/fs/pipe.c	2006-10-31 18:55:20.000000000 +0100
+@@ -828,14 +828,6 @@
+ }
+ 
+ static struct vfsmount *pipe_mnt __read_mostly;
+-static int pipefs_delete_dentry(struct dentry *dentry)
+-{
+-	return 1;
+-}
+-
+-static struct dentry_operations pipefs_dentry_operations = {
+-	.d_delete	= pipefs_delete_dentry,
+-};
+ 
+ static struct inode * get_pipe_inode(void)
+ {
+@@ -891,17 +883,15 @@
+ 	if (!inode)
+ 		goto err_file;
+ 
+-	sprintf(name, "[%lu]", inode->i_ino);
++	this.len = sprintf(name, "[%lu]", inode->i_ino);
+ 	this.name = name;
+-	this.len = strlen(name);
+ 	this.hash = inode->i_ino; /* will go */
+ 	err = -ENOMEM;
+ 	dentry = d_alloc(pipe_mnt->mnt_sb->s_root, &this);
+ 	if (!dentry)
+ 		goto err_inode;
+-
+-	dentry->d_op = &pipefs_dentry_operations;
+-	d_add(dentry, inode);
++	/* Dont insert pipe dentry into global dentry hashtable */
++	d_instantiate(dentry, inode);
+ 	f->f_vfsmnt = mntget(pipe_mnt);
+ 	f->f_dentry = dentry;
+ 	f->f_mapping = inode->i_mapping;
+
+--Boundary-00=_Qq5RFLe4+Q1s5vf--
