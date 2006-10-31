@@ -1,47 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: pktgen patch available for perusal.
-Date: Mon, 30 Oct 2006 15:47:58 -0800
-Message-ID: <45468F2E.4060809@candelatech.com>
+From: James Morris <jmorris@namei.org>
+Subject: [PATCH] ipv6: return EINVAL for invalid address with flowlabel lease
+ request
+Date: Mon, 30 Oct 2006 19:31:31 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0610301914230.10915@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:680 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1422748AbWJ3XsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2006 18:48:05 -0500
-To: NetDev <netdev@vger.kernel.org>
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:60824 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1161481AbWJaAbd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Oct 2006 19:31:33 -0500
+To: =?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=B5=C8=C6=A3=B1=D1=CC=C0?=
+	<yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've completed the first pass of my changes to pktgen in 2.6.18.
-Many of these features are probably DOA based on previous conversations,
-but perhaps this will help someone....
+Currently, when an application requests a lease for a flowlabel via the 
+IPV6_FLOWLABEL_MGR socket option, no error is returned if an invalid type 
+of destination address is supplied as part of the request, leading to a 
+silent failure.  This patch ensures that EINVAL is returned to the 
+application in this case.
 
-Changes:
-* use a nano-second timer based on the scheduler timer (TSC) for relative times, instead of get_time_of_day.
-* Don't busy-spin:
-    * add hook to netdevice wake tx queue to re-start when queue was stopped.
-    * add logic to pktgen to register/unregister this hook.
-    * accumulate delay and sleep interruptible on a queue when 1ms of sleep has accumulated
-      or when the associated netdev tx-queues for pktgen devices needing to transmit are asleep.
-    (This all assumes that HZ is 1000, could probably work with other HZ with minor work.)
-* Add receive logic to dev.c so that pktgen can receive packets and report on various stats
-   including latency, packet loss, jitter, etc.
-* Remove the if-lock, primarily by making the 'add-interface' logic deferred to the
-   thread's main loop.  It's likely I missed a corner case or two here, hopefully I'll
-   find them all in testing...
-* Add ioctl to grab all of the pktgen stats in one call.
+Please apply.
 
-The pktgen.[ch] patch is here:  http://www.candelatech.com/oss/pktgen.patch
+Signed-off-by: James Morris <jmorris@namei.org>
 
-The full patch, including the callback hooks (and several other features)
-is located here:  http://www.candelatech.com/oss/candela_2.6.18.patch
+---
 
-Thanks,
-Ben
+ net/ipv6/ip6_flowlabel.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+diff -purN -X dontdiff linux-2.6.p/net/ipv6/ip6_flowlabel.c linux-2.6.w/net/ipv6/ip6_flowlabel.c
+--- linux-2.6.p/net/ipv6/ip6_flowlabel.c	2006-10-30 18:30:34.000000000 -0500
++++ linux-2.6.w/net/ipv6/ip6_flowlabel.c	2006-10-30 18:57:33.000000000 -0500
+@@ -330,8 +330,10 @@ fl_create(struct in6_flowlabel_req *freq
+ 	fl->share = freq->flr_share;
+ 	addr_type = ipv6_addr_type(&freq->flr_dst);
+ 	if ((addr_type&IPV6_ADDR_MAPPED)
+-	    || addr_type == IPV6_ADDR_ANY)
++	    || addr_type == IPV6_ADDR_ANY) {
++		err = -EINVAL;
+ 		goto done;
++	}
+ 	ipv6_addr_copy(&fl->dst, &freq->flr_dst);
+ 	atomic_set(&fl->users, 1);
+ 	switch (fl->share) {
