@@ -1,86 +1,57 @@
-From: James Morris <jmorris@namei.org>
-Subject: [PATCH] ipv6: fix flowlabel seqfile handling
-Date: Tue, 31 Oct 2006 01:20:21 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0610310034500.14627@d.namei>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 hang.
+Date: Mon, 30 Oct 2006 22:24:18 -0800
+Message-ID: <4546EC12.1060808@osdl.org>
+References: <20061031061144.GA1562@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:21400 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1422644AbWJaGUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Oct 2006 01:20:24 -0500
-To: =?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=B5=C8=C6=A3=B1=D1=CC=C0?=
-	<yoshfuji@linux-ipv6.org>
+Received: from smtp.osdl.org ([65.172.181.4]:15328 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161617AbWJaGYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 01:24:52 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061031061144.GA1562@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There's a bug in the seqfile show operation for flowlabel objects, where 
-each hash chain is traversed cumulatively for each element.  The following 
-function is called for each element of each chain:
-
-static void ip6fl_fl_seq_show(struct seq_file *seq, struct ip6_flowlabel *fl)
-{
-        while(fl) {
-                seq_printf...
-		
-		fl = fl->next;
-	}
-}
-
-Thus, objects can appear mutliple times when reading 
-/proc/net/ip6_flowlabel, as the above is called for each element in the 
-chain.
-
-The solution is to remove the while() loop from the above, and traverse 
-each chain exactly once, per the patch below.  This also removes the 
-ip6fl_fl_seq_show() function, which does nothing else.
-
-Please apply.
-
-Signed-off-by: James Morris <jmorris@namei.org>
-
----
-
- net/ipv6/ip6_flowlabel.c |   18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
-
-
-diff -purN --minimal -X dontdiff linux-2.6.p/net/ipv6/ip6_flowlabel.c linux-2.6.w/net/ipv6/ip6_flowlabel.c
---- linux-2.6.p/net/ipv6/ip6_flowlabel.c	2006-10-30 23:11:02.000000000 -0500
-+++ linux-2.6.w/net/ipv6/ip6_flowlabel.c	2006-10-31 00:18:11.000000000 -0500
-@@ -627,9 +627,13 @@ static void ip6fl_seq_stop(struct seq_fi
- 	read_unlock_bh(&ip6_fl_lock);
- }
- 
--static void ip6fl_fl_seq_show(struct seq_file *seq, struct ip6_flowlabel *fl)
-+static int ip6fl_seq_show(struct seq_file *seq, void *v)
- {
--	while(fl) {
-+	if (v == SEQ_START_TOKEN)
-+		seq_printf(seq, "%-5s %-1s %-6s %-6s %-6s %-8s %-32s %s\n",
-+			   "Label", "S", "Owner", "Users", "Linger", "Expires", "Dst", "Opt");
-+	else {
-+		struct ip6_flowlabel *fl = v;
- 		seq_printf(seq,
- 			   "%05X %-1d %-6d %-6d %-6ld %-8ld " NIP6_SEQFMT " %-4d\n",
- 			   (unsigned)ntohl(fl->label),
-@@ -640,17 +644,7 @@ static void ip6fl_fl_seq_show(struct seq
- 			   (long)(fl->expires - jiffies)/HZ,
- 			   NIP6(fl->dst),
- 			   fl->opt ? fl->opt->opt_nflen : 0);
--		fl = fl->next;
- 	}
--}
--
--static int ip6fl_seq_show(struct seq_file *seq, void *v)
--{
--	if (v == SEQ_START_TOKEN)
--		seq_printf(seq, "%-5s %-1s %-6s %-6s %-6s %-8s %-32s %s\n",
--			   "Label", "S", "Owner", "Users", "Linger", "Expires", "Dst", "Opt");
--	else
--		ip6fl_fl_seq_show(seq, v);
- 	return 0;
- }
- 
-
+Evgeniy Polyakov wrote:
+> sky2 from debian etch kernel (2.6.17-2) has stopped today after quite
+> big amount of traffic transferred (30MB/sec for about 3-4 hours).
+> rmmod/insmod does not help, reboot required.
+>
+> Here is dmesg output:
+>
+> Oct 31 06:40:07 kano kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Oct 31 06:40:07 kano kernel: sky2 eth0: tx timeout
+> Oct 31 06:40:07 kano kernel: sky2 eth0: transmit ring 198 .. 175 report=221 done=221
+> Oct 31 06:40:07 kano kernel: sky2 status report lost?
+> Oct 31 06:40:42 kano kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Oct 31 06:40:42 kano kernel: sky2 eth0: tx timeout
+> Oct 31 06:40:42 kano kernel: sky2 eth0: transmit ring 221 .. 198 report=221 done=221
+> Oct 31 06:40:42 kano kernel: sky2 hardware hung? flushing
+> Oct 31 06:54:07 kano kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Oct 31 06:54:07 kano kernel: sky2 eth0: tx timeout
+> Oct 31 06:54:07 kano kernel: sky2 eth0: transmit ring 198 .. 175 report=221 done=221
+> Oct 31 06:54:07 kano kernel: sky2 status report lost?
+> Oct 31 06:54:42 kano kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Oct 31 06:54:42 kano kernel: sky2 eth0: tx timeout
+> Oct 31 06:54:42 kano kernel: sky2 eth0: transmit ring 221 .. 198 report=221 done=221
+> Oct 31 06:54:42 kano kernel: sky2 hardware hung? flushing
+>
+> And here is rmmod/insmod dmesg:
+>
+> Oct 31 08:58:19 kano kernel: sky2 eth0: disabling interface
+> Oct 31 08:59:00 kano kernel: ACPI: PCI interrupt for device 0000:05:00.0 disabled
+> Oct 31 08:59:21 kano kernel: ACPI: PCI Interrupt 0000:05:00.0[A] -> Link [LNKD] -> GSI 18 (level, low) -> IRQ 98
+> Oct 31 08:59:21 kano kernel: PCI: Setting latency timer of device 0000:05:00.0 to 64
+> Oct 31 08:59:21 kano kernel: sky2 v1.6.1 addr 0xfbefc000 irq 98 Yukon-EC (0xb6) rev 2
+> Oct 31 08:59:21 kano kernel: sky2 eth0: addr 00:17:31:9a:e5:be
+> Oct 31 08:59:21 kano kernel: sky2 eth0: enabling interface
+> Oct 31 08:59:21 kano kernel: ADDRCONF(NETDEV_UP): eth0: link is not ready
+> Oct 31 08:59:23 kano kernel: sky2 eth0: Link is up at 1000 Mbps, full duplex, flow control both
+> Oct 31 08:59:23 kano kernel: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>
+>   
+Run 2.6.19-rc3 or 2.6.18.2 or dig out the patch from last week.
