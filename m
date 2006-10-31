@@ -1,51 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Thousands of interfaces
-Date: Tue, 31 Oct 2006 07:55:04 -0800
-Message-ID: <454771D8.9080307@candelatech.com>
-References: <20061031092550.GA8201@tufnell.london.poggs.net> <20061031.013154.122620846.davem@davemloft.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac
+	cards
+Date: Tue, 31 Oct 2006 11:05:54 -0500
+Message-ID: <1162310754.3155.18.camel@localhost.localdomain>
+References: <200610031457.33215.chunkeey@web.de>
+	 <20061017213229.GC32614@tuxdriver.com> <200610291335.07729.chunkeey@web.de>
+	 <43e72e890610301217g28d169eeu448944e170153948@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: peter.hicks@poggs.co.uk, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: "chunkeey@web.de" <chunkeey@web.de>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:4320 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1422840AbWJaPxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 10:53:49 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061031.013154.122620846.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:6815 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1423517AbWJaQEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 11:04:33 -0500
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890610301217g28d169eeu448944e170153948@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Peter Hicks <peter.hicks@poggs.co.uk>
-> Date: Tue, 31 Oct 2006 09:25:50 +0000
->
-> [ Discussion belongs on netdev@vger.kernel.org, added to CC: ]
->
->   
->> I have a dual 3GHz Xeon machine with a 2.4.21 kernel and thousands (15k+) of
->> ipip tunnel interfaces.  These are being used to tunnel traffic from remote
->> routers, over a private network, and handed off to a third party.
->>     
->  ...
->   
->> Is it possible to speed up creation of the interfaces?  Currently it takes
->> around 24 hours.  Is there are more efficient way to handle a very large
->> number of IP-IP tunnels?  Would upgrading to a 2.6 kernel be of use?
->>     
->
->   
-2.6 (and the associated 'ip' tool) does have some improvements for 
-showing very
-large numbers of interfaces.  I haven't tried more than a few thousand 
-though...
+On Mon, 2006-10-30 at 15:17 -0500, Luis R. Rodriguez wrote:
+> On 10/29/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> > This patch completes WPA/RSN with TKIP support for all fullmac prism54 cards.
+> > I removed all parts which are not relevant for wpa_supplicant (managed mode).
+> 
+> This is great effort and thanks for it! My only concern with the patch
+> is breaking compatiblity with 2.4 but then again I'm tired of having
+> to keep this compat work up too and soon, after d80211 full force push
+> it may not be possible. So I ACK it.
 
-Ben
+I'd like to test it a bit first with my fullmac card before it gets
+committed/added...  But it's great to get some movement on this
+card/driver!
 
+Dan
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
+>   Luis
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
