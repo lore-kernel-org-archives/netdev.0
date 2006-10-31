@@ -1,37 +1,37 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: ipw3945?
-Date: Tue, 31 Oct 2006 16:58:05 -0500
-Message-ID: <20061031215759.GF9101@tuxdriver.com>
-References: <45464A55.20803@feuerpokemon.de> <1162262662.15085.59.camel@debian.sh.intel.com> <20061031123337.GA9101@tuxdriver.com>
+From: netdev@weary.nl
+Subject: sendmsg, descriptors and no content
+Date: Tue, 31 Oct 2006 23:01:01 +0100
+Message-ID: <20061031220101.GA3545@colo.weary.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dragoran <dragoran@feuerpokemon.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:19 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1423670AbWJaV6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 16:58:25 -0500
-To: Zhu Yi <yi.zhu@intel.com>
+Received: from [72.9.228.82] ([72.9.228.82]:61927 "EHLO the.weary.nl")
+	by vger.kernel.org with ESMTP id S1423675AbWJaWBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 17:01:04 -0500
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20061031123337.GA9101@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 31, 2006 at 07:33:43AM -0500, John W. Linville wrote:
-> On Tue, Oct 31, 2006 at 10:44:21AM +0800, Zhu Yi wrote:
-> > On Mon, 2006-10-30 at 19:54 +0100, dragoran wrote:
-> > > Can this be used to make the driver work without the daemon?
-> > 
-> > Yup. And we have already successfully put the daemon's work into the
-> > firmware/ucode. The new firmware will be released soon. Stay tuned.
-> 
-> Please define "soon".  I am a bit tired of hearing about how this is
-> just around the corner, only to find-out that it is months away.
+Hi,
 
-For the record, my "months away" comment seems to have been based
-on a misunderstanding of some prior postings.  I apologize for any
-confusion or embarassment which I might have caused.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+When I use sendmsg to send descriptors from one process to another using
+unix-sockets I need to include at least one byte of normal data for the
+descriptors to be send (using the iovec structure). The same code worked
+fine on openbsd (ie. filedescriptors could be send without normal data).
+If no normal data is included sendmsg will return 0, as if all data is
+send correctly.
+
+
+Is this difference on purpose? If so, why?
+
+
+Regards,
+Hylke
+
+
+ps.
+The current behaviour is because unix_stream_sendmsg in af_unix.c will
+not do anything if len=0.
+
