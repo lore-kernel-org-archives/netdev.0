@@ -1,51 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [SCTP]: Always linearise packet on input
-Date: Tue, 31 Oct 2006 14:01:10 +1100
-Message-ID: <20061031030110.GA27427@gondor.apana.org.au>
-References: <20061030071128.GA15715@gondor.apana.org.au> <20061029.234619.112618588.davem@davemloft.net> <1162258285.22597.33.camel@w-sridhar2.beaverton.ibm.com>
+From: Shaw Vrana <shaw@vranix.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Mon, 30 Oct 2006 19:22:18 -0800
+Message-ID: <20061031032218.GA7804@gmail.com>
+References: <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com> <453F7E1F.4020406@intel.com> <45408F7B.3050209@cj.jp.nec.com> <4540C765.4000800@intel.com> <4545E3A4.9090004@cj.jp.nec.com> <454636B0.1010004@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Kenzo Iwami <k-iwami@cj.jp.nec.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:13329 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1752025AbWJaDBW
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Oct 2006 22:01:22 -0500
-To: Sridhar Samudrala <sri@us.ibm.com>
+Received: from ug-out-1314.google.com ([66.249.92.169]:8023 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1161549AbWJaDWY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Oct 2006 22:22:24 -0500
+Received: by ug-out-1314.google.com with SMTP id 32so1346342ugm
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2006 19:22:23 -0800 (PST)
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Content-Disposition: inline
-In-Reply-To: <1162258285.22597.33.camel@w-sridhar2.beaverton.ibm.com>
+In-Reply-To: <454636B0.1010004@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sridhar:
-
-On Mon, Oct 30, 2006 at 05:31:24PM -0800, Sridhar Samudrala wrote:
+On Mon, Oct 30, 2006 at 09:30:24AM -0800, Auke Kok wrote:
+> >Even if the total lock time can be reduced, it's possible that interrupt
+> >handler is executed while the interrupted code is still holding the 
+> >semaphore.
+> >I think your method only decrease the frequency of this problem.
+> >Why does reducing the lock time solve this problem?
 > 
-> I think we currently assume atleast the SCTP header and the data
-> chunk header to be in the skb head.
-> But we do handle skbs with data in the frag_list.
-> Not sure about skb's with paged fragments.
+> there are several problems here that need addressing. It's not acceptable 
+> for our driver to wait up to 15 seconds, and we can (presumably) reduce it 
+> to milliseconds, so that would help a lot. We should in no case at all hold 
+> it for any period longer than (give or take) half a second, so working 
+> towards that is a very good step in the right direction.
+> 
+> Adding the timer task back may also help, as we are no longer trying to 
+> aqcuire the sw_fw_semaphore in interrupt context, but we removed it for a 
+> reason, and I need to dig up what reason this exactly was before we can 
+> revert it. Jesse might know, so I'll talk to him. But this will not fix the 
+> fact that the semaphore is held for a long time :)
 
-You can't assume the chunk header to be in the head.  Think about what
-happens when some malicious person sends you a fragmented SCTP packet.
 
-> Does XEN use frag_list or frags array?
+Timer tasks that reschedule themselves are a pain.  The watchdog timer task
+had a couple of race conditions that were thought to be better fixed by
+removing it all together.  Please, let's not go down that road again!
 
-Xen creates paged frags in domU=>dom0 or domU=>domU traffic.
-Of course frag_list can always occur as a result of IP fragmentation.
+Check out what you have to say about it, Auke. ;)
+http://www.spinics.net/lists/netdev/msg03656.html
 
-> Is there a simple way to simulate incoming packets with transport
-> headers and data in skb's frag_list/pages without having to use XEN.
 
-You can use IP fragments to create them.
-
-But the important thing is to work through the code.  Basically wherever
-you see things like skb_pull/skb->data without a preceding pskb_may_pull
-call, then you have a problem.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Shaw
