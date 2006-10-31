@@ -1,85 +1,116 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] 2.6.19-rc4 - netlink messages created with bad flags in soft_irq context
-Date: Tue, 31 Oct 2006 17:06:00 -0500
-Message-ID: <20061031220559.GA10119@gospo.rdu.redhat.com>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: sendmsg, descriptors and no content
+Date: Tue, 31 Oct 2006 23:43:45 +0100
+Message-ID: <20061031224345.GA7033@outpost.ds9a.nl>
+References: <20061031220101.GA3545@colo.weary.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60089 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1946047AbWJaWGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 17:06:01 -0500
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Received: from outpost.ds9a.nl ([213.244.168.210]:53643 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1946060AbWJaWnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 17:43:47 -0500
+To: netdev@weary.nl
 Content-Disposition: inline
+In-Reply-To: <20061031220101.GA3545@colo.weary.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've got a kernel built where 
+On Tue, Oct 31, 2006 at 11:01:01PM +0100, netdev@weary.nl wrote:
+> When I use sendmsg to send descriptors from one process to another using
+> unix-sockets I need to include at least one byte of normal data for the
+> descriptors to be send (using the iovec structure). The same code worked
 
-CONFIG_DEBUG_SPINLOCK_SLEEP=y
+W. R. Stevens, Unix Network Programming (2nd ed), vol 1, p. 389 recommends
+sending at least a byte anyhow, which allows you to detect EOF.
 
-is in the config and I've noticed some interesting behavior when
-bringing up bonds in balance-alb mode.  When I start to enslave devices
-to a bond I get the following in the ring buffer:
+Also see
+http://www.cs-ipv6.lancs.ac.uk/ipv6/mail-archive/LinuxNetdev/1998-03/0144.html 
+however.
 
-BUG: sleeping function called from invalid context at mm/slab.c:3007
-in_atomic():1, irqs_disabled():0
+I've attached an example that appears to work.
 
-along with a nice backtrace of the error that pointed to the cause of
-this message.  The bonding code was calling for the device to set its
-MAC address and the netlink message that would be send as a result of
-this notification was being created with the flag GFP_KERNEL instead of
-GFP_ATOMIC.  
+	Bert
 
-After I did this, I noticed I didn't completely clear the error (since
-this call eventually tries to talk the rtnl_lock), but it gets us
-closer.  I'm still trying to decide how best to approach the remaining
-problem and will hopefully post a solution soon, but I wanted to get
-this in and/or get some feedback on this patch/direction first.
+#include <sys/socket.h>
+#include <stdio.h>
 
+int sfd(int passfd, int fd, int data)
+{
+    char cbuf[CMSG_SPACE(sizeof(int))];
+    struct msghdr mh = { 0 };
+    struct cmsghdr *cm;
+    int *dp;
+    struct iovec iov;
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
+    if (fd >= 0) {
+	mh.msg_control = cbuf;
+	mh.msg_controllen = sizeof cbuf;
+	cm = CMSG_FIRSTHDR(&mh);
+	cm->cmsg_len = CMSG_LEN(sizeof(int));
+	cm->cmsg_level = SOL_SOCKET;
+	cm->cmsg_type = SCM_RIGHTS;
 
- rtnetlink.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+	dp = CMSG_DATA(cm);
+	*dp = fd;
+    }
+    if (data != 0) {
+	iov.iov_base = &data;
+	iov.iov_len = sizeof data;
+	mh.msg_iov = &iov;
+	mh.msg_iovlen = 1;
+    }
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 221e403..93d6fb3 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -159,7 +159,7 @@ int rtnetlink_send(struct sk_buff *skb, 
- 	NETLINK_CB(skb).dst_group = group;
- 	if (echo)
- 		atomic_inc(&skb->users);
--	netlink_broadcast(rtnl, skb, pid, group, GFP_KERNEL);
-+	netlink_broadcast(rtnl, skb, pid, group, GFP_ATOMIC);
- 	if (echo)
- 		err = netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
- 	return err;
-@@ -589,7 +589,7 @@ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK 
- 
- 	payload = NLMSG_ALIGN(sizeof(struct ifinfomsg) +
- 			      nla_total_size(iw_buf_len));
--	nskb = nlmsg_new(nlmsg_total_size(payload), GFP_KERNEL);
-+	nskb = nlmsg_new(nlmsg_total_size(payload), GFP_ATOMIC);
- 	if (nskb == NULL) {
- 		err = -ENOBUFS;
- 		goto errout;
-@@ -639,7 +639,7 @@ void rtmsg_ifinfo(int type, struct net_d
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
- 
--	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-+	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
- 	if (skb == NULL)
- 		goto errout;
- 
-@@ -649,7 +649,7 @@ void rtmsg_ifinfo(int type, struct net_d
- 		goto errout;
- 	}
- 
--	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
-+	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
- errout:
- 	if (err < 0)
- 		rtnl_set_sk_err(RTNLGRP_LINK, err);
+    return sendmsg(passfd, &mh, 0);
+}
+
+/* Only prepared to rcv one fd per message */
+int rcvfd(int passfd, int *data, int *datalen)
+{
+    char cbuf[CMSG_SPACE(sizeof(int))];
+    struct msghdr mh = { 0 };
+    struct cmsghdr *cm;
+    int *dp, ret;
+    struct iovec iov;
+
+    if (data) {
+	mh.msg_iov = &iov;
+	mh.msg_iovlen = 1;
+	iov.iov_base = &data;
+	iov.iov_len = sizeof(int);
+    }
+
+    mh.msg_control = cbuf;
+    mh.msg_controllen = sizeof cbuf;
+    cm = CMSG_FIRSTHDR(&mh);
+    cm->cmsg_len = CMSG_LEN(sizeof(int));
+    cm->cmsg_level = SOL_SOCKET;
+    cm->cmsg_type = SCM_RIGHTS;
+
+    *datalen = 0;
+    ret = recvmsg(passfd, &mh, 0);
+    if (ret < 0)
+	return ret;
+    if (datalen)
+	*datalen = ret;
+
+    dp = CMSG_DATA(cm);
+    return *dp;
+}
+
+int main()
+{
+  int fd[2];
+  int datalen;
+
+  socketpair(AF_UNIX, SOCK_DGRAM, 0, fd);
+
+  printf("Sending returned status: %d\n", sfd(fd[0], 0, 1));
+  
+  printf("Received fd: %d\n", rcvfd(fd[1], 0, &datalen));
+  
+}
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
