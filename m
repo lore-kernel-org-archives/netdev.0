@@ -1,37 +1,85 @@
-From: netdev@weary.nl
-Subject: sendmsg, descriptors and no content
-Date: Tue, 31 Oct 2006 23:01:01 +0100
-Message-ID: <20061031220101.GA3545@colo.weary.nl>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH] 2.6.19-rc4 - netlink messages created with bad flags in soft_irq context
+Date: Tue, 31 Oct 2006 17:06:00 -0500
+Message-ID: <20061031220559.GA10119@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [72.9.228.82] ([72.9.228.82]:61927 "EHLO the.weary.nl")
-	by vger.kernel.org with ESMTP id S1423675AbWJaWBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 17:01:04 -0500
-To: netdev@vger.kernel.org
+Received: from mx1.redhat.com ([66.187.233.31]:60089 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1946047AbWJaWGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 17:06:01 -0500
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I've got a kernel built where 
+
+CONFIG_DEBUG_SPINLOCK_SLEEP=y
+
+is in the config and I've noticed some interesting behavior when
+bringing up bonds in balance-alb mode.  When I start to enslave devices
+to a bond I get the following in the ring buffer:
+
+BUG: sleeping function called from invalid context at mm/slab.c:3007
+in_atomic():1, irqs_disabled():0
+
+along with a nice backtrace of the error that pointed to the cause of
+this message.  The bonding code was calling for the device to set its
+MAC address and the netlink message that would be send as a result of
+this notification was being created with the flag GFP_KERNEL instead of
+GFP_ATOMIC.  
+
+After I did this, I noticed I didn't completely clear the error (since
+this call eventually tries to talk the rtnl_lock), but it gets us
+closer.  I'm still trying to decide how best to approach the remaining
+problem and will hopefully post a solution soon, but I wanted to get
+this in and/or get some feedback on this patch/direction first.
 
 
-When I use sendmsg to send descriptors from one process to another using
-unix-sockets I need to include at least one byte of normal data for the
-descriptors to be send (using the iovec structure). The same code worked
-fine on openbsd (ie. filedescriptors could be send without normal data).
-If no normal data is included sendmsg will return 0, as if all data is
-send correctly.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
 
+ rtnetlink.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Is this difference on purpose? If so, why?
-
-
-Regards,
-Hylke
-
-
-ps.
-The current behaviour is because unix_stream_sendmsg in af_unix.c will
-not do anything if len=0.
-
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 221e403..93d6fb3 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -159,7 +159,7 @@ int rtnetlink_send(struct sk_buff *skb, 
+ 	NETLINK_CB(skb).dst_group = group;
+ 	if (echo)
+ 		atomic_inc(&skb->users);
+-	netlink_broadcast(rtnl, skb, pid, group, GFP_KERNEL);
++	netlink_broadcast(rtnl, skb, pid, group, GFP_ATOMIC);
+ 	if (echo)
+ 		err = netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
+ 	return err;
+@@ -589,7 +589,7 @@ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK 
+ 
+ 	payload = NLMSG_ALIGN(sizeof(struct ifinfomsg) +
+ 			      nla_total_size(iw_buf_len));
+-	nskb = nlmsg_new(nlmsg_total_size(payload), GFP_KERNEL);
++	nskb = nlmsg_new(nlmsg_total_size(payload), GFP_ATOMIC);
+ 	if (nskb == NULL) {
+ 		err = -ENOBUFS;
+ 		goto errout;
+@@ -639,7 +639,7 @@ void rtmsg_ifinfo(int type, struct net_d
+ 	struct sk_buff *skb;
+ 	int err = -ENOBUFS;
+ 
+-	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+@@ -649,7 +649,7 @@ void rtmsg_ifinfo(int type, struct net_d
+ 		goto errout;
+ 	}
+ 
+-	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
++	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+ 		rtnl_set_sk_err(RTNLGRP_LINK, err);
