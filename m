@@ -1,39 +1,37 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: sky2 hang.
-Date: Tue, 31 Oct 2006 10:33:32 +0300
-Message-ID: <20061031073332.GA20607@2ka.mipt.ru>
-References: <20061031061144.GA1562@2ka.mipt.ru> <4546EC12.1060808@osdl.org> <20061031070405.GA19344@2ka.mipt.ru> <20061031070812.GK15787@ned.snow-crash.org>
+From: dragoran <dragoran@feuerpokemon.de>
+Subject: Re: ipw3945?
+Date: Tue, 31 Oct 2006 08:59:39 +0100
+Message-ID: <4547026B.5090009@feuerpokemon.de>
+References: <45464A55.20803@feuerpokemon.de> <1162262662.15085.59.camel@debian.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36822 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1161413AbWJaHdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 02:33:31 -0500
-To: Alexander Wirt <formorer@debian.org>
-Content-Disposition: inline
-In-Reply-To: <20061031070812.GK15787@ned.snow-crash.org>
+Received: from dd6424.kasserver.com ([85.13.131.51]:35528 "EHLO
+	dd6424.kasserver.com") by vger.kernel.org with ESMTP
+	id S1422795AbWJaH7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Oct 2006 02:59:34 -0500
+To: Zhu Yi <yi.zhu@intel.com>
+In-Reply-To: <1162262662.15085.59.camel@debian.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 31, 2006 at 08:08:12AM +0100, Alexander Wirt (formorer@debian.org) wrote:
-> > > Run 2.6.19-rc3 or 2.6.18.2 or dig out the patch from last week.
-> > 
-> > Thanks.
-> > I hope debian maintainers will rebase it's tree eventually.
-> Then please take sure that there is a bug report describing 
-> ther problem (maybe with a patch?).
-> 
-> Alex
-> 
-> P.S. No I don't have anything to do with the kernel team :). 
- 
-I've created one using reportbug (even not created, but provided as
-additional info to some other bug), hope it is correct.
-It's number is 396185.
+Zhu Yi wrote:
+> On Mon, 2006-10-30 at 19:54 +0100, dragoran wrote:
+>   
+>> Can this be used to make the driver work without the daemon?
+>>     
+>
+> Yup. And we have already successfully put the daemon's work into the
+> firmware/ucode. The new firmware will be released soon. Stay tuned.
+>
+>   
+ok thx fro the info
+does this mean that after the daemon is no longer required this driver 
+can be included in the upstream kernel?
+> Thanks,
+> -yi
+>
+>   
 
-P.S. IMHO Debian bug reporting tool is the most unconvenient thing in 
-the whole distro :)
-
--- 
-	Evgeniy Polyakov
