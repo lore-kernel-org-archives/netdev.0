@@ -1,44 +1,85 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac
-	cards
-Date: Tue, 31 Oct 2006 11:05:54 -0500
-Message-ID: <1162310754.3155.18.camel@localhost.localdomain>
-References: <200610031457.33215.chunkeey@web.de>
-	 <20061017213229.GC32614@tuxdriver.com> <200610291335.07729.chunkeey@web.de>
-	 <43e72e890610301217g28d169eeu448944e170153948@mail.gmail.com>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [patch] make sch_fifo.o available when CONFIG_NET_SCHED is not set
+Date: Tue, 31 Oct 2006 08:53:24 -0800
+Message-ID: <20061031165324.GA20271@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "chunkeey@web.de" <chunkeey@web.de>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:6815 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1423517AbWJaQEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 11:04:33 -0500
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890610301217g28d169eeu448944e170153948@mail.gmail.com>
+Received: from mail.devicescape.com ([207.138.119.2]:40137 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1423565AbWJaQx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Oct 2006 11:53:26 -0500
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="config_net_sch_fifo.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-10-30 at 15:17 -0500, Luis R. Rodriguez wrote:
-> On 10/29/06, chunkeey@web.de <chunkeey@web.de> wrote:
-> > This patch completes WPA/RSN with TKIP support for all fullmac prism54 cards.
-> > I removed all parts which are not relevant for wpa_supplicant (managed mode).
-> 
-> This is great effort and thanks for it! My only concern with the patch
-> is breaking compatiblity with 2.4 but then again I'm tired of having
-> to keep this compat work up too and soon, after d80211 full force push
-> it may not be possible. So I ACK it.
+You may see this discussion for more info:
+http://marc.theaimsgroup.com/?t=116181395100002&r=1&w=2
 
-I'd like to test it a bit first with my fullmac card before it gets
-committed/added...  But it's great to get some movement on this
-card/driver!
+----
+Based on a patch by Patrick McHardy.
 
-Dan
+Add a new option, NET_SCH_FIFO, which provides a simple fifo qdisc
+without requiring CONFIG_NET_SCHED.
 
->   Luis
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The d80211 stack needs a generic fifo qdisc for WME.  At present it
+uses net/d80211/fifo_qdisc.c which is functionally equivalent to
+sch_fifo.c.  This patch will allow the d80211 stack to remove
+net/d80211/fifo_qdisc.c and use sch_fifo.c instead. 
 
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
+
+Index: wireless-dev/net/sched/Kconfig
+===================================================================
+--- wireless-dev.orig/net/sched/Kconfig
++++ wireless-dev/net/sched/Kconfig
+@@ -6,6 +6,7 @@ menu "QoS and/or fair queueing"
+ 
+ config NET_SCHED
+ 	bool "QoS and/or fair queueing"
++	select NET_SCH_FIFO
+ 	---help---
+ 	  When the kernel has several packets to send out over a network
+ 	  device, it has to decide which ones to send first, which ones to
+@@ -40,6 +41,15 @@ config NET_SCHED
+ 	  The available schedulers are listed in the following questions; you
+ 	  can say Y to as many as you like. If unsure, say N now.
+ 
++config NET_SCH_FIFO
++	tristate "Simple Fifo Qdisc (PFIFO, BFIFO)"
++	---help---
++	  Say Y here if you want to use the simple pfifo or bfifo
++	  packet scheduling algorithms.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called sch_fifo.
++
+ if NET_SCHED
+ 
+ choice
+Index: wireless-dev/net/sched/Makefile
+===================================================================
+--- wireless-dev.orig/net/sched/Makefile
++++ wireless-dev/net/sched/Makefile
+@@ -4,7 +4,7 @@
+ 
+ obj-y	:= sch_generic.o
+ 
+-obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_fifo.o sch_blackhole.o
++obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_blackhole.o
+ obj-$(CONFIG_NET_CLS)		+= cls_api.o
+ obj-$(CONFIG_NET_CLS_ACT)	+= act_api.o
+ obj-$(CONFIG_NET_ACT_POLICE)	+= act_police.o
+@@ -14,6 +14,7 @@ obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirr
+ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
+ obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
+ obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
++obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
+ obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
+ obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
+ obj-$(CONFIG_NET_SCH_HPFQ)	+= sch_hpfq.o
+
+--
