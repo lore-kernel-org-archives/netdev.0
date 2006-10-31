@@ -1,56 +1,31 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: Lost packets after switching Wi-Fi AP
-Date: Tue, 31 Oct 2006 09:46:19 +0100
-Message-ID: <45470D5B.5010105@bull.net>
-References: <4546127D.10403@bull.net> <20061030211923.79292f8d@griffin.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix flowlabel seqfile handling
+Date: Tue, 31 Oct 2006 00:44:31 -0800 (PST)
+Message-ID: <20061031.004431.63126878.davem@davemloft.net>
+References: <Pine.LNX.4.64.0610310034500.14627@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:4807 "EHLO
-	ecfrec.frec.bull.fr") by vger.kernel.org with ESMTP
-	id S1422881AbWJaInA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Oct 2006 03:43:00 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061030211923.79292f8d@griffin.suse.cz>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58088
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1422888AbWJaIod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Oct 2006 03:44:33 -0500
+To: jmorris@namei.org
+In-Reply-To: <Pine.LNX.4.64.0610310034500.14627@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Benc wrote:
-> On Mon, 30 Oct 2006 15:55:57 +0100, Benjamin Thery wrote:
->> When I switch my Mobile Node between 2 Wi-Fi Access Points, there is a 
->> period of time where all the packets I send are lost, although I got 
->> the netlink event SIOCGIWAP 'up' for the new AP. The device is 
->> supposed to be ready, but the packets are lost.
-> 
-> Which wireless card are you using? Which version of the kernel?
+From: James Morris <jmorris@namei.org>
+Date: Tue, 31 Oct 2006 01:20:21 -0500 (EST)
 
-Hi Jiri,
+> There's a bug in the seqfile show operation for flowlabel objects, where 
+> each hash chain is traversed cumulatively for each element.  The following 
+> function is called for each element of each chain:
 
-The kernel version is 2.6.16.20 (the latest kernel version officially 
-supported by MIPv6). I'd like to use a 2.6.19 but unfortunately not 
-all the IPv6 mobility patches are in.
+Wow, there are tons of bugs in the flowlabel code, at least
+judging by the number of them you've found in the past few
+days :-)
 
-I reproduced the problem with an Intel Pro Wireless 2200 (latest 
-driver version: 1.2.0) and a pcmcia "D-Link Airplus G+ DWL-G650+" 
-using the ndiswrapper version 1.25.
-
-But I'm not sure the problem is wireless-specific.
-
-And as I wrote in my first message I'm also surprised that when 
-noop_enqueue() is used, the return code is NET_XMIT_CN, whereas the 
-packet seems to be dropped.
-
-Thanks for your help.
-
-Benjamin
-
->  Jiri
-> 
-
-
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
-
-    http://www.bull.com
+Applied, thanks a lot for all of these fixes James.
