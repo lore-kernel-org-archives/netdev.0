@@ -1,59 +1,54 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [linux-usb-devel] [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
-Date: Tue, 31 Oct 2006 19:07:12 +0100
-Message-ID: <20061031180712.GQ27968@stusta.de>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <200610281410.13679.david-b@pacbell.net> <20061028213918.GE27968@stusta.de> <200610310940.16619.david-b@pacbell.net>
+From: Anders =?iso-8859-1?Q?Grafstr=F6m?=
+	<grfstrm@users.sourceforge.net>
+Subject: Re: e100: Wait for PHY reset to complete?
+Date: Tue, 31 Oct 2006 19:10:43 +0100 (CET)
+Message-ID: <28176.212.247.11.6.1162318243.squirrel@webmail.sys.kth.se>
+References: <453F9D4A.8090306@users.sourceforge.net>   
+    <20061025185656.GA19037@electric-eye.fr.zoreil.com>   
+    <453FC693.10705@intel.com> <453FD677.7060405@intel.com>
+    <3699.82.182.159.28.1161819386.squirrel@webmail.sys.kth.se>
+    <45400A6D.4020704@intel.com> <45464D0D.50802@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb-devel@lists.sourceforge.net,
-	Randy Dunlap <randy.dunlap@oracle.com>, akpm@osdl.org,
-	zippel@linux-m68k.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, link@miggy.org,
-	Christoph Hellwig <hch@infradead.org>, torvalds@osdl.org,
-	greg@kroah.com, toralf.foerster@gmx.de
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:9999 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1423724AbWJaSHN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Oct 2006 13:07:13 -0500
-To: David Brownell <david-b@pacbell.net>
-Content-Disposition: inline
-In-Reply-To: <200610310940.16619.david-b@pacbell.net>
+Received: from mx3.kth.se ([130.237.48.97]:12420 "EHLO mx3.kth.se")
+	by vger.kernel.org with ESMTP id S1423728AbWJaSKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 13:10:49 -0500
+In-Reply-To: <45464D0D.50802@intel.com>
+To: "Auke Kok" <auke-jan.h.kok@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 31, 2006 at 10:40:15AM -0700, David Brownell wrote:
-> 
-> > > +#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
-> > > +#define HAVE_MII
-> > >...
-> > 
-> > This seems to cause a CONFIG_USB_USBNET=y, CONFIG_MII=m breakage
-> > (as already described earlier in this thread)?
-> 
-> Well, "alluded to" not described.  Fixable by the equivalent of
-> 
-> 	config USB_USBNET
-> 		...
-> 		depends on MII if MII != n
-> 
-> except that Kconfig doesn't comprehend conditionals like that.
+>> Anders Grafstr=F6m wrote:
+>>> I ran mii-diag when the LEDs went out and the register dump
+>>> said it was in loopback. It is somewhat difficult reproduce.
+>>> It seems to be timing dependent, something else has to occur
+>>> at the same time.
+>>> I must confess I have only seen it with the 2.6.13 kernel.
+>>> I have not been able to reproduce it with 2.6.18.
+>>> But I have found no change in the driver that would fix it so
+>>> I suspect the problem is still there.
 
-You can express this in Kconfig:
-	depends MII || MII=n
+Now looking at mdio_ctrl(), which implements mdio_write() and mdio_read=
+(),
+I see that this patch
+http://kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.15/2.6.1=
+5-mm3/broken-out/corruption-during-e100-mdi-register-access.patch
+most likely fixed the problem that I have experienced.
 
-But my suggestion was:
-#if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
+"although access to the MDI registers involves
+multiple steps which must not be intermixed, nothing was defending agai=
+nst
+two or more threads attempting simultaneous access.  The most obvious
+situation where such interference could occur involves the watchdog ver=
+sus
+ioctl paths"
 
-Or simply select MII ...
+Sorry for the noise.
+Thanks,
+Anders
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
