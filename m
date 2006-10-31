@@ -1,37 +1,55 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch] make sch_fifo.o available when CONFIG_NET_SCHED is not set
-Date: Wed, 1 Nov 2006 00:24:01 +0100
-Message-ID: <20061031232400.GE12964@postel.suug.ch>
-References: <20061031165324.GA20271@devicescape.com>
+From: "Xiaoliang (David) Wei" <davidwei79@gmail.com>
+Subject: Re: TCP congestion graphs (2.6.19-rc4)
+Date: Tue, 31 Oct 2006 15:25:16 -0800
+Message-ID: <7335583a0610311525h10cf4e75x42e421d3eb6f53aa@mail.gmail.com>
+References: <20061025110207.78d38779@freekitty>
+	 <000701c6f885$b57aa390$4a580e98@ncsu2cc0c3fa00>
+	 <20061031120016.75dc4c3c@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Injong Rhee" <rhee@eos.ncsu.edu>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Sangtae Ha" <sha2@ncsu.edu>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:40607 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1946148AbWJaXXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 18:23:41 -0500
-To: David Kimdon <david.kimdon@devicescape.com>
+Received: from nz-out-0102.google.com ([64.233.162.198]:8883 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1946155AbWJaXZR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Oct 2006 18:25:17 -0500
+Received: by nz-out-0102.google.com with SMTP id z3so1601474nzf
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2006 15:25:16 -0800 (PST)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+In-Reply-To: <20061031120016.75dc4c3c@freekitty>
 Content-Disposition: inline
-In-Reply-To: <20061031165324.GA20271@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Kimdon <david.kimdon@devicescape.com> 2006-10-31 08:53
-> You may see this discussion for more info:
-> http://marc.theaimsgroup.com/?t=116181395100002&r=1&w=2
-> 
-> ----
-> Based on a patch by Patrick McHardy.
-> 
-> Add a new option, NET_SCH_FIFO, which provides a simple fifo qdisc
-> without requiring CONFIG_NET_SCHED.
-> 
-> The d80211 stack needs a generic fifo qdisc for WME.  At present it
-> uses net/d80211/fifo_qdisc.c which is functionally equivalent to
-> sch_fifo.c.  This patch will allow the d80211 stack to remove
-> net/d80211/fifo_qdisc.c and use sch_fifo.c instead. 
+On 10/31/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+> I reran the tests, this time using my DSL line to home (80ms 1Mbit/sec).
+>         http://developer.osdl.org/shemminger/tcp/2.6.19-rc4/dsl
+>
+> The only obvious problem is Vegas looks broken.
 
-I think NET_SCH_FIFO doesn't need a help text, should be invisible
-to the user. Just select it from NET_SCHED and d80211.
+Thanks, Stephen.
 
+It seems that the default Vegas alpha parameter in the rc4 is 1...
+
+I observed similar situation with the NS2Linux simulator (with 2.6.16
+code) and found that if alpha=1, delayed ack will make it broken
+(keeping cwnd very low without real congestion)
+
+See details at http://www.cs.caltech.edu/%7Eweixl/technical/ns2linux/known_linux/index.html#vegas
+
+(Basically alpha==1 means Vegas seeks to see a delay of about 1 packet
+worth. With delayed ack, 1 packet worth of delay is common even with
+no congestion.)
+
+To make Vegas work, I'd suggest to raise alpha to at least 2 or 3.
+(and beta has to be at least as large as alpha.)
+
+-David
+
+-- 
+Xiaoliang (David) Wei      Graduate Student, CS@Caltech
+http://davidwei.org
+***********************************************
