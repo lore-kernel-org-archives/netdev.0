@@ -1,79 +1,126 @@
-From: Athanasius <link@miggy.org>
-Subject: CONFIG_USB_USBNET and mii_* (was Re: Linux 2.6.19-rc4)
-Date: Tue, 31 Oct 2006 17:02:09 +0000
-Message-ID: <20061031170209.GN21200@miggy.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: CONFIG_USB_USBNET and mii_* (was Re: Linux 2.6.19-rc4)
+Date: Tue, 31 Oct 2006 09:11:55 -0800
+Message-ID: <20061031091155.d0242262.randy.dunlap@oracle.com>
 References: <Pine.LNX.4.64.0610302019560.25218@g5.osdl.org>
+	<20061031170209.GN21200@miggy.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="nO3oAMapP4dBpMZi"
-Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net, link@miggy.org,
-	greg@kroah.com, akpm@osdl.org, zippel@linux-m68k.org,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@osdl.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	toralf.foerster@gmx.de, netdev@vger.kernel.org,
+	linux-usb-devel@lists.sourceforge.net, greg@kroah.com,
+	akpm@osdl.org, zippel@linux-m68k.org,
 	dbrownell@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fysh.org ([83.170.75.51]:2993 "EHLO bowl.fysh.org")
-	by vger.kernel.org with ESMTP id S1423408AbWJaRCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 12:02:16 -0500
-To: Linus Torvalds <torvalds@osdl.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0610302019560.25218@g5.osdl.org>
+Received: from rgminet01.oracle.com ([148.87.113.118]:59339 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1423687AbWJaRRR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Oct 2006 12:17:17 -0500
+To: Athanasius <link@miggy.org>
+In-Reply-To: <20061031170209.GN21200@miggy.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 31 Oct 2006 17:02:09 +0000 Athanasius wrote:
 
---nO3oAMapP4dBpMZi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Mon, Oct 30, 2006 at 08:27:17PM -0800, Linus Torvalds wrote:
+> > Before I forget, I'd like to thank Adrian Bunk for his regressions 
+> > listings, and ask people who are involved with those (both on the blamer 
+> > and blamee sides) to follow them, and keep making sure that we get them 
+> > resolved - if only by reminding people about the issues, and testing that 
+> > things that are claimed to be resolved really are.
+> 
+>   In that light, although it's not being counted as a regression, my
+> report about CONFIG_USB_USBNET stuff starting to make use of mii_* stuff
+> in 19-rc3, without making SURE it's available is still outstanding,
+> unfixed, in 19-rc4 (checked just now by untarring a fresh 2.6.18 copy,
+> applying the rc4 patch, copying in the known-broken .config from rc3,
+> make oldconfig, then my usual make bzImage && make modules).
+>   I've pootled around 'make menuconfig' as well, 'N' and then re-Y/M'ing
+> USBNET things and it has no effect on the PHYLIB stuff.
 
-On Mon, Oct 30, 2006 at 08:27:17PM -0800, Linus Torvalds wrote:
-> Before I forget, I'd like to thank Adrian Bunk for his regressions=20
-> listings, and ask people who are involved with those (both on the blamer=
-=20
-> and blamee sides) to follow them, and keep making sure that we get them=
-=20
-> resolved - if only by reminding people about the issues, and testing that=
-=20
-> things that are claimed to be resolved really are.
+It's actually CONFIG_MII, not PHYLIB.
 
-  In that light, although it's not being counted as a regression, my
-report about CONFIG_USB_USBNET stuff starting to make use of mii_* stuff
-in 19-rc3, without making SURE it's available is still outstanding,
-unfixed, in 19-rc4 (checked just now by untarring a fresh 2.6.18 copy,
-applying the rc4 patch, copying in the known-broken .config from rc3,
-make oldconfig, then my usual make bzImage && make modules).
-  I've pootled around 'make menuconfig' as well, 'N' and then re-Y/M'ing
-USBNET things and it has no effect on the PHYLIB stuff.
+Probably David B. needs to resend patch 2/2.
+They seem to have been lost in the noise^W recent travel.
 
-  I know patches were flying around in the discussion, have none of them
-been shaken down sufficiently for inclusion or has the final patch
-simply not been pushed to/seen by Linus yet?
+Patch 1/2 is below.
 
-  'Ironically' I don't actually _use_ the usbnet stuff, I'd only enabled
-it in case my gf pestered me to test her bluetooth dongle for some
-reason.  Thus I'm only likely to keep tabs on this if I specifically
-think to, it won't show up in my normal usage patterns.
 
--Ath
---=20
-- Athanasius =3D Athanasius(at)miggy.org / http://www.miggy.org/
-                  Finger athan(at)fysh.org for PGP key
-	   "And it's me who is my enemy. Me who beats me up.
-Me who makes the monsters. Me who strips my confidence." Paula Cole - ME
+>   I know patches were flying around in the discussion, have none of them
+> been shaken down sufficiently for inclusion or has the final patch
+> simply not been pushed to/seen by Linus yet?
+> 
+>   'Ironically' I don't actually _use_ the usbnet stuff, I'd only enabled
+> it in case my gf pestered me to test her bluetooth dongle for some
+> reason.  Thus I'm only likely to keep tabs on this if I specifically
+> think to, it won't show up in my normal usage patterns.
 
---nO3oAMapP4dBpMZi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+---
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
+pegasus and mcs7830 drivers use MII interfaces and should
+select MII in the same way that drivers/net/ drivers do.
 
-iD8DBQFFR4GQIr2uvLNOS8MRAv2pAJ4jiQktkev8xwk/+J1IaPl49c4L9QCcCYUO
-ecvhd1uCu+fW56rEkZ8oQIA=
-=QlQn
------END PGP SIGNATURE-----
+However, the MII config symbol should not be in the 10/100 Ethernet
+menu, so that other drivers can use (enable) it or so that users
+can enable it without needing to enable 10/100 Ethernet.
 
---nO3oAMapP4dBpMZi--
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/Kconfig     |   15 +++++++--------
+ drivers/usb/net/Kconfig |    2 ++
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+--- linux-2619-rc3-pv.orig/drivers/usb/net/Kconfig
++++ linux-2619-rc3-pv/drivers/usb/net/Kconfig
+@@ -84,6 +84,7 @@ config USB_PEGASUS
+ config USB_RTL8150
+ 	tristate "USB RTL8150 based ethernet device support (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL
++	select MII
+ 	help
+ 	  Say Y here if you have RTL8150 based usb-ethernet adapter.
+ 	  Send me <petkan@users.sourceforge.net> any comments you may have.
+@@ -210,6 +211,7 @@ config USB_NET_PLUSB
+ config USB_NET_MCS7830
+ 	tristate "MosChip MCS7830 based Ethernet adapters"
+ 	depends on USB_USBNET
++	select MII
+ 	help
+ 	  Choose this option if you're using a 10/100 Ethernet USB2
+ 	  adapter based on the MosChip 7830 controller. This includes
+--- linux-2619-rc3-pv.orig/drivers/net/Kconfig
++++ linux-2619-rc3-pv/drivers/net/Kconfig
+@@ -145,6 +145,13 @@ config NET_SB1000
+ 
+ source "drivers/net/arcnet/Kconfig"
+ 
++config MII
++	tristate "Generic Media Independent Interface device support"
++	help
++	  Most ethernet controllers have MII transceiver either as an external
++	  or internal device.  It is safe to say Y or M here even if your
++	  ethernet card lacks MII.
++
+ source "drivers/net/phy/Kconfig"
+ 
+ #
+@@ -180,14 +187,6 @@ config NET_ETHERNET
+ 	  kernel: saying N will just cause the configurator to skip all
+ 	  the questions about Ethernet network cards. If unsure, say N.
+ 
+-config MII
+-	tristate "Generic Media Independent Interface device support"
+-	depends on NET_ETHERNET
+-	help
+-	  Most ethernet controllers have MII transceiver either as an external
+-	  or internal device.  It is safe to say Y or M here even if your
+-	  ethernet card lack MII.
+-
+ source "drivers/net/arm/Kconfig"
+ 
+ config MACE
+
