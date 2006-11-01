@@ -1,67 +1,54 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: fix unexpected LED control values in BCM4303
-	sprom
-Date: Wed, 1 Nov 2006 08:12:53 -0500
-Message-ID: <20061101131246.GA21668@tuxdriver.com>
-References: <4535AFC2.mail3S81JGSDJ@lwfinger.net>
-	<200610181637.08698.mb@bu3sch.de>
-	<20061101034936.GD9309@tuxdriver.com>
-	<454823CC.9070808@lwfinger.net>
+From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Wed, 01 Nov 2006 22:21:29 +0900
+Message-ID: <45489F59.6030102@cj.jp.nec.com>
+References: <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com> <453F7E1F.4020406@intel.com> <45408F7B.3050209@cj.jp.nec.com> <4540C765.4000800@intel.com> <4545E3A4.9090004@cj.jp.nec.com> <454636B0.1010004@intel.com> <20061031032218.GA7804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <454823CC.9070808-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:39392 "EHLO
+	tyo202.gate.nec.co.jp") by vger.kernel.org with ESMTP
+	id S1752166AbWKANVp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 08:21:45 -0500
+To: Shaw Vrana <shaw@vranix.com>
+In-Reply-To: <20061031032218.GA7804@gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 31, 2006 at 10:34:20PM -0600, Larry Finger wrote:
-> John W. Linville wrote:
-> >On Wed, Oct 18, 2006 at 04:37:08PM +0200, Michael Buesch wrote:
-> >
-> >>>@@ -257,7 +263,11 @@ void bcm43xx_leds_update(struct bcm43xx_
-> >>> 			continue;
-> >>> #endif /* CONFIG_BCM43XX_DEBUG */
-> >>> 		default:
-> >>>-			assert(0);
-> >>>+			if (bcm43xx_max_led_err) {
-> >>>+				printkl(KERN_INFO PFX "Bad value in 
-> >>>leds_update,"
-> >>>+					" led->behaviour: 0x%x\n", 
-> >>>led->behaviour);
-> >>>+				--bcm43xx_max_led_err;
-> >>>+			}
-> >>I'd call this message bloat. ;) This is the first time the assertion
-> >>triggers since it was added.
-> >>You could instead remove the assert(), remove bcm43xx_max_led_err
-> >>and use dprintkl instead of printkl.
-> 
-> I disagree with part of Michael's comments. I think we should have a 
-> dprintk, rather than dprintkl, so that we get printouts from all four of 
-> the sprom values. That way the user will be able to report the numbers we 
-> need. As this would not limit the log entries and potentially generate 
-> thousands, there should be a variable like bcm43xx_max_led_err to limit the 
-> number of log entries.
-> 
-> I will propose a new patch once I get the data for the second case. In the 
-> meantime, the patch you have pushed upstream will fix the BCM4303 led 
-> assertions.
+Hi,
 
-OK, cool.  I'm happy for you to send another patch.
+>>> Even if the total lock time can be reduced, it's possible that interrupt
+>>> handler is executed while the interrupted code is still holding the 
+>>> semaphore.
+>>> I think your method only decrease the frequency of this problem.
+>>> Why does reducing the lock time solve this problem?
+>> there are several problems here that need addressing. It's not acceptable 
+>> for our driver to wait up to 15 seconds, and we can (presumably) reduce it 
+>> to milliseconds, so that would help a lot. We should in no case at all hold 
+>> it for any period longer than (give or take) half a second, so working 
+>> towards that is a very good step in the right direction.
+>>
+>> Adding the timer task back may also help, as we are no longer trying to 
+>> aqcuire the sw_fw_semaphore in interrupt context, but we removed it for a 
+>> reason, and I need to dig up what reason this exactly was before we can 
+>> revert it. Jesse might know, so I'll talk to him. But this will not fix the 
+>> fact that the semaphore is held for a long time :)
+> 
+> Timer tasks that reschedule themselves are a pain.  The watchdog timer task
+> had a couple of race conditions that were thought to be better fixed by
+> removing it all together.  Please, let's not go down that road again!
 
-John
+I understand that the watchdog_task could cause a race when the timer task
+and e1000_down runs concurrently, resulting in memory double free.
+
+I think this problem occurs because interrupt handler is executed in same
+CPU as process that acquires semaphore.
+How about disabling interrupt while the process is holding the semaphore?
+I think this is possible, if the total lock time has been reduced.
+
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+  Kenzi Iwami (k-iwami@cj.jp.nec.com)
