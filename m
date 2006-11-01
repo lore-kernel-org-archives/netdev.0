@@ -1,38 +1,65 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH,try2 1/3] ep93xx_eth: fix RX/TXstatus ring full handling
-Date: Tue, 31 Oct 2006 20:21:03 -0500
-Message-ID: <4547F67F.5090806@garzik.org>
-References: <20061030185231.GB14805@xi.wantstofly.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [linux-usb-devel] [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
+Date: Wed, 1 Nov 2006 02:23:46 +0100
+Message-ID: <20061101012346.GB27968@stusta.de>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <200610310940.16619.david-b@pacbell.net> <20061031180712.GQ27968@stusta.de> <200610311136.54058.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ray Lehtiniemi <rayl@mail.com>,
-	Herbert Valerio Riedel <hvr@gnu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43987 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1945969AbWKABVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:21:06 -0500
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20061030185231.GB14805@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb-devel@lists.sourceforge.net,
+	Randy Dunlap <randy.dunlap@oracle.com>, akpm@osdl.org,
+	zippel@linux-m68k.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, link@miggy.org,
+	Christoph Hellwig <hch@infradead.org>, torvalds@osdl.org,
+	greg@kroah.com, toralf.foerster@gmx.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946062AbWKABXt@vger.kernel.org>
+To: David Brownell <david-b@pacbell.net>
+Content-Disposition: inline
+In-Reply-To: <200610311136.54058.david-b@pacbell.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> Ray Lehtiniemi reported that an incoming UDP packet flood can lock up
-> the ep93xx ethernet driver.  Herbert Valerio Riedel noted that due to
-> the way ep93xx_eth manages the RX/TXstatus rings, it cannot distinguish
-> a full ring from an empty one, and correctly suggested that this was
-> likely to be causing this lockup to occur.
+On Tue, Oct 31, 2006 at 11:36:52AM -0800, David Brownell wrote:
 > 
-> Instead of looking at the hardware's RX/TXstatus ring write pointers
-> to determine when to stop reading from those rings, we should just check
-> every individual RX/TXstatus descriptor's valid bit instead, since there
-> is no other way to distinguish an empty ring from a full ring, and if
-> there is a descriptor waiting, we take the hit of reading the descriptor
-> from memory anyway.
+> > > 		...
+> > > 		depends on MII if MII != n
+> > > 
+> > > except that Kconfig doesn't comprehend conditionals like that.
+> > 
+> > You can express this in Kconfig:
+> > 	depends MII || MII=n
 > 
-> Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+> Except that:
+> 
+> Warning! Found recursive dependency: USB_USBNET USB_NET_AX8817X MII USB_USBNET
+> 
+> I think this is another case where Kconfig gets in the way and forces
+> introduction of a pseudovariable.  I'll give that a try.
+> 
+> > But my suggestion was:
+> > #if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
+> >
+> > Or simply select MII ...
+> 
+> Nope; those both prevent completely legit configurations.
+> MII is not required, except for those two adapter options.
 
-applied 1-3
+What should work (with the USB_NET_MCS7830 part from Randy's patch 
+removed) together with your patch and the
+  #if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
+is:
 
+config USB_USBNET
+        tristate "Multi-purpose USB Networking Framework"
+        select MII if USB_NET_AX8817X!=n || USB_NET_MCS7830!=n
+	---help---
+	  ...
 
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
