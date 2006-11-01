@@ -1,46 +1,74 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] 2.6.19-rc4 - netlink messages created with bad flags in soft_irq context
-Date: Wed, 01 Nov 2006 14:50:57 +1100
-Message-ID: <E1Gf77x-0002Qt-00@gondolin.me.apana.org.au>
-References: <20061031220559.GA10119@gospo.rdu.redhat.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47883 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1423933AbWKADvO
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Oct 2006 22:51:14 -0500
-To: andy@greyhouse.net (Andy Gospodarek)
-In-Reply-To: <20061031220559.GA10119@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: fix unexpected LED control values in BCM4303
+	sprom
+Date: Tue, 31 Oct 2006 22:49:42 -0500
+Message-ID: <20061101034936.GD9309@tuxdriver.com>
+References: <4535AFC2.mail3S81JGSDJ@lwfinger.net>
+	<200610181637.08698.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200610181637.08698.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
-> I've got a kernel built where 
-> 
-> CONFIG_DEBUG_SPINLOCK_SLEEP=y
-> 
-> is in the config and I've noticed some interesting behavior when
-> bringing up bonds in balance-alb mode.  When I start to enslave devices
-> to a bond I get the following in the ring buffer:
-> 
-> BUG: sleeping function called from invalid context at mm/slab.c:3007
-> in_atomic():1, irqs_disabled():0
-> 
-> along with a nice backtrace of the error that pointed to the cause of
-> this message.  The bonding code was calling for the device to set its
-> MAC address and the netlink message that would be send as a result of
-> this notification was being created with the flag GFP_KERNEL instead of
-> GFP_ATOMIC.  
+On Wed, Oct 18, 2006 at 04:37:08PM +0200, Michael Buesch wrote:
 
-The bonding driver is known to be broken in places where it tries to
-call into the network stack in atomic contexts where it shouldn't.
+> > @@ -257,7 +263,11 @@ void bcm43xx_leds_update(struct bcm43xx_
+> >  			continue;
+> >  #endif /* CONFIG_BCM43XX_DEBUG */
+> >  		default:
+> > -			assert(0);
+> > +			if (bcm43xx_max_led_err) {
+> > +				printkl(KERN_INFO PFX "Bad value in leds_update,"
+> > +					" led->behaviour: 0x%x\n", led->behaviour);
+> > +				--bcm43xx_max_led_err;
+> > +			}
+> 
+> I'd call this message bloat. ;) This is the first time the assertion
+> triggers since it was added.
+> You could instead remove the assert(), remove bcm43xx_max_led_err
+> and use dprintkl instead of printkl.
+> 
+> >  		};
+> >  
+> >  		if (led->activelow)
+> > Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.h
+> > ===================================================================
+> > --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_leds.h
+> > +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.h
+> > @@ -24,6 +24,10 @@ struct bcm43xx_led {
+> >  
+> >  #define BCM43xx_LED_BEHAVIOUR		0x7F
+> >  #define BCM43xx_LED_ACTIVELOW		0x80
+> > +#define BCM43xx_LED_BCM4303_0		0x2B
+> > +#define BCM43xx_LED_BCM4303_1		0x78
+> > +#define BCM43xx_LED_BCM4303_2		0x2E
+> > +#define BCM43xx_LED_BCM4303_3		0x19
+> 
+> Add these to the enum below, instead, please.
+> The defines above are masks and not the behaviour values.
+> 
+> >  enum { /* LED behaviour values */
+> >  	BCM43xx_LED_OFF,
+> >  	BCM43xx_LED_ON,
 
-So please verify whether this is the case here before changing netlink.
+I took Michael's suggestions before merging your patch...FYI! :-)
 
-Thanks,
+John
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
