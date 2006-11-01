@@ -1,62 +1,65 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC, PATCH] dont insert sockets/pipes dentries into
- dentry_hashtable.
-Date: Wed, 01 Nov 2006 10:04:20 +0100
-Message-ID: <45486314.3020300@cosmosbay.com>
-References: <20061025084726.GE18364@nuim.ie>
- <20061025.230615.92585270.davem@davemloft.net>
- <200610311948.48970.dada1@cosmosbay.com>
- <20061031.231954.23010447.davem@davemloft.net>
- <454858F2.5020206@cosmosbay.com> <20061101083811.GS29920@ftp.linux.org.uk>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
+ qdisc
+Date: Wed, 1 Nov 2006 11:28:05 +0100
+Message-ID: <20061101112805.246e1b3b@griffin.suse.cz>
+References: <20061026050416.GB14199@havoc.gtf.org>
+	<C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jeff@garzik.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604002mt.neufgp.fr ([84.96.92.61]:18566 "EHLO sMtp.neuf.fr")
-	by vger.kernel.org with ESMTP id S1423959AbWKAJEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 04:04:20 -0500
-In-reply-to: <20061101083811.GS29920@ftp.linux.org.uk>
-To: Al Viro <viro@ftp.linux.org.uk>
+Received: from styx.suse.cz ([82.119.242.94]:11704 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1946597AbWKAK2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 05:28:08 -0500
+To: "Simon Barber" <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Al Viro a =E9crit :
-> On Wed, Nov 01, 2006 at 09:21:06AM +0100, Eric Dumazet wrote:
->=20
->> And " (deleted)" is correctly added to deleted files.
->=20
-> The hell it will.
->=20
-> touch a
-> touch b
-> exec 5<a
-> mv b a
-> ls -l /proc/$$/fd/5
->=20
-> With your patch and without it, please.
+On Wed, 25 Oct 2006 22:15:23 -0700, Simon Barber wrote:
+> Re: registering as a real protocol - yes this I have been going on about
+> for a while. This needs a few changes in how things work:
+> 
+> 1. Register as a real protocol.
+> 2. Change drivers to use netif_rx to receive frames (will also be more
+> efficient)
 
-Yes I will do, thanks.
+This is something I really want too.
 
->=20
-> PS: getting rid of socket dentries is a bad idea with the capital "Fu=
-ck, No".
-> For those who want to see where does that path lead and are attracted=
- to
-> trainwrecks in general I can recommend *BSD socket handling.  They ha=
-ve
-> paid quite painfully for lack of proper vnodes.  It's simply not wort=
-h
-> the resulting trouble.
+However, the biggest problem is bridging. A lot of people bridge their
+ethernet and wifi interfaces together. We'll need to change the
+bridging code to make it possible again.
 
-I have one server with one million sockets, wasting 210 MB of ram for d=
-entries=20
-that are only used when some guy does some /proc/$pid/fd work
+> I would also like to see:
+> 
+> Drivers to use register_netdev - not special ieee80211 register to
+> register themselves
 
-Socket hot path already dont use anymore dentries, thanks to file->priv=
-ate_data
+I don't see a benefit in this, but well, let's consider it when there
+is a patch.
 
-Eric
+> Drivers to use a normal hard_start_xmit function
+> - need to move 802.11 pre xmit frame processing into the qdisc dequeue
+> function
 
+Agreed. It's not a priority, though.
+
+> Get rid of gunky beacon & multicast buffered frame handling - make them
+> into normal queues like everything else (so same hard_start_xmit can be
+> used).
+
+I'm not sure about beacons here - don't some drivers need to handle
+them specially?
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
