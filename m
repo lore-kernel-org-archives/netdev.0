@@ -1,67 +1,136 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
- qdisc
-Date: Wed, 01 Nov 2006 10:31:19 -0800
-Message-ID: <4548E7F7.7030100@linux.intel.com>
-References: <20061026050416.GB14199@havoc.gtf.org> <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net> <20061101112805.246e1b3b@griffin.suse.cz> <20061101142022.GC21668@tuxdriver.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 1 Nov 2006 21:57:46 +0300
+Message-ID: <20061101185745.GA12440@2ka.mipt.ru>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, Simon Barber <simon@devicescape.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Oleg Verych <olecom@flower.upol.cz>, Pavel Machek <pavel@ucw.cz>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:36213 "EHLO mga09.intel.com")
-	by vger.kernel.org with ESMTP id S1752279AbWKASa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 13:30:57 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061101142022.GC21668@tuxdriver.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:30685 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750838AbWKATBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 14:01:22 -0500
+To: LKML <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <slrnekhpbr.2j1.olecom@flower.upol.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Wed, Nov 01, 2006 at 11:28:05AM +0100, Jiri Benc wrote:
->> On Wed, 25 Oct 2006 22:15:23 -0700, Simon Barber wrote:
->>> Re: registering as a real protocol - yes this I have been going on about
->>> for a while. This needs a few changes in how things work:
->>>
->>> 1. Register as a real protocol.
->>> 2. Change drivers to use netif_rx to receive frames (will also be more
->>> efficient)
->> This is something I really want too.
+On Wed, Nov 01, 2006 at 06:20:43PM +0000, Oleg Verych (olecom@flower.upol.cz) wrote:
 > 
-> I see Simon's suggestions in the category of making wireless devices
-> "1st class citizens".  I mostly agree with his suggestions, and they
-> are "on my list".  Do we see these as merge requirements?  
+> Hallo, Evgeniy Polyakov.
 
-The only merge requirement should be that merging d80211 doesn't break
-existing in-tree wireless drivers.  We have that today -- you can have
-both stacks in the tree and running in parallel.  With that, we have the
-ability to migrate over time.
+Hello, Oleg.
 
-The other 'merge requirements' are functionally irrelevant.  We know the
-d80211 stack is where wireless on Linux is going -- the sooner steps are
-taken to get that stack out to the masses the faster it can be adopted
-and improved.
+> On 2006-11-01, you wrote:
+> []
+> >> Quantifying "how much more scalable" would be nice, as would be some
+> >> example where it is useful. ("It makes my webserver twice as fast on
+> >> monster 64-cpu box").
+> >
+> > Trivial kevent web-server can handle 3960+ req/sec on Xeon 2.4Ghz with
+> [...]
+> 
+> Seriously. I'm seeing that patches also. New, shiny, always ready "for
+> inclusion". But considering kernel (linux in this case) as not thing
+> for itself, i want to ask following question.
+> 
+> Where's real-life application to do configure && make && make install?
 
-The agreement to switch to d80211 was reached back in April -- its been
-six months and there still doesn't appear to be traction at putting in
-action the decisions reached at that time.
+Your real life or mine as developer?
+I fortunately do not know anything about your real life, but my real life
+applications can be found on project's homepage.
+There is a link to archive there, where you can find plenty of sources.
+You likely do not know, but it is a bit risky business to patch all
+existing applications to show that approach is correct, if
+implementation is not completed.
+You likely do not know, but after I first time announced kevents in
+February I changed interfaces 4 times - and it is just interfaces, not
+including numerous features added/removed by developer's requests.
 
-If people have issues with with specific components of d80211 prior to
-its merging, stand up and state what they are and how not fixing them
-would negatively impact people that aren't using the d80211 subsystem.
+> There were some comments about laking much of such programs, answers were
+> "was in prev. e-mail", "need to update them", something like that.
+> "Trivial web server" sources url, mentioned in benchmark isn't pointed
+> in patch advertisement. If it was, should i actually try that new
+> *trivial* wheel?
 
-Don't take the above as me saying there aren't items that need to be
-fixed/improved in d80211 -- there is work to be done.  But that
-shouldn't stop it from being merged w/ the EXPERIMENTAL flag set.
+Answer is trivial - there is archive where one can find a source code
+(filenames are posted regulary). Should I create a rpm? For what glibc
+version?
 
-> Is this agreeable?  Or do we think this needs to happen before a
-> merge to -mm?
+> Saying that, i want to give you some short examples, i know.
+> *Linux kernel <-> userspace*:
+> o Alexey Kuznetsov  networking     <-> (excellent) iproute set of utilities;
 
-We reached the point where we should be in -mm a long time ago as soon
-as both stacks could exist concurrently.  d80211 should have been in
-Linus' tree a long time ago.
+iproute documentation was way too bad when Alexey presented it first 
+time :)
 
-James
+> o Maxim Krasnyansky tun net driver <-> vtun daemon application;
+>
+> *Glibc with mister Drepper* has huge set of tests, please search for
+> `tst*' files in the sources.
+
+Btw, show me splice() 'shiny' application? Does lighttpd use it?
+Or move_pages().
+
+> To make a little hint to you, Evgeniy, why don't you find a little
+> animal in the open source zoo to implement little interface to
+> proposed kernel subsystem and then show it to The Big Jury (not me),
+> we have here? And i can not see, how you've managed to implement
+> something like that having almost nothing on the test basket.
+> Very *suspicious* ch.
+
+There are always people who do not like something, what can I do with
+it? I present the code, we discuss it, I ask for inclusion (since it is
+the only way to get feedback), something requires changes, it is changed
+and so on - it is development process.
+I created 'little animal in the open source zoo' by myself to show how
+simple kevents are.
+
+> One, that comes in mind is lighthttpd <http://www.lighttpd.net/>.
+> It had sub-interface for event systems like select,poll,epoll, when i
+> checked its sources last time. And it is mature, btw.
+
+As I already told several times, I changed only interfaces 4 times
+already, since no one seems to know what we really want and how
+interface should look like. You suggest to patch lighttpd? Well, it is
+doable, but then I will be asked to change apache and nginx. And then
+someone will suggest to change order of parameters. Will you help me
+rewrite userspace? No, you will not. You asks for something without
+providing anything back (not getting into account code, but discussion,
+ideas, testing time, nothing), and you do it in ultimate manner.
+Btw, kevent also support AIO notifications - do you suggest to patch
+reactor/proactor for tests?
+It supports network AIO - do you suggest to write support for that into
+apache?
+What about timers? It is possible to rewrite all POSIX timers users to
+usem instead.
+There is feature request for userspace events and singal delivery - what
+to do with that?
+
+I created trivial web servers, which send single static page and use
+various event handling schemes, and I test new subsystem with new tools,
+when tests are completed and all requested features are implemented it
+is time to work on different more complex users.
+
+So let's at least complete what we have right now, so no developer's
+efforts could be wasted writing empty chars in various places.
+
+> Cheers.
+> 
+> [ -*- OT -*-                                                           ]
+> [ I wouldn't write all this, unless saw your opinion about the         ]
+> [ reportbug (part of the Debian Bug Tracking System) this week.        ]
+> [ While i'm nobody here, imho, the first thing about good programmer   ]
+> [ must be, that he is excellent user.                                  ]
+> ____
+
+-- 
+	Evgeniy Polyakov
