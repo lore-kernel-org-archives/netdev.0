@@ -1,79 +1,45 @@
-From: Florian Westphal <fw-kernel@strlen.de>
-Subject: [patch] net/tipc: sprintf/strcpy conversion
-Date: Wed, 1 Nov 2006 15:06:24 +0100
-Message-ID: <20061101140624.GA7694@Chamillionaire.breakpoint.cc>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
+Date: Wed, 1 Nov 2006 09:20:28 -0500
+Message-ID: <20061101142022.GC21668@tuxdriver.com>
+References: <20061026050416.GB14199@havoc.gtf.org> <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net> <20061101112805.246e1b3b@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: Simon Barber <simon@devicescape.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:35718 "EHLO
-	Chamillionaire.breakpoint.cc") by vger.kernel.org with ESMTP
-	id S1946885AbWKAOG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 09:06:57 -0500
-To: kernel-janitors@lists.osdl.org
+Received: from ra.tuxdriver.com ([70.61.120.52]:8718 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1946900AbWKAOW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 09:22:56 -0500
+To: Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
+In-Reply-To: <20061101112805.246e1b3b@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+On Wed, Nov 01, 2006 at 11:28:05AM +0100, Jiri Benc wrote:
+> On Wed, 25 Oct 2006 22:15:23 -0700, Simon Barber wrote:
+> > Re: registering as a real protocol - yes this I have been going on about
+> > for a while. This needs a few changes in how things work:
+> > 
+> > 1. Register as a real protocol.
+> > 2. Change drivers to use netif_rx to receive frames (will also be more
+> > efficient)
+> 
+> This is something I really want too.
 
-convert sprintf(a,b) to strcpy(a,b). Make tipc_bclink_name[] const.
+I see Simon's suggestions in the category of making wireless devices
+"1st class citizens".  I mostly agree with his suggestions, and they
+are "on my list".  Do we see these as merge requirements?  I have them
+as a lower priority than locking analysis/fixes, cfg80211 migration,
+fullmac support, and driver porting.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Is this agreeable?  Or do we think this needs to happen before a
+merge to -mm?
 
----
-
-compile tested; diffed against davem/net-2.6.
-
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -119,7 +119,7 @@ static struct bclink *bclink = NULL;
- static struct link *bcl = NULL;
- static DEFINE_SPINLOCK(bc_lock);
- 
--char tipc_bclink_name[] = "multicast-link";
-+const char tipc_bclink_name[] = "multicast-link";
- 
- 
- static u32 buf_seqno(struct sk_buff *buf)
-@@ -790,7 +790,7 @@ int tipc_bclink_init(void)
- 	INIT_LIST_HEAD(&bcbearer->bearer.cong_links);
- 	bcbearer->bearer.media = &bcbearer->media;
- 	bcbearer->media.send_msg = tipc_bcbearer_send;
--	sprintf(bcbearer->media.name, "tipc-multicast");
-+	strcpy(bcbearer->media.name, "tipc-multicast");
- 
- 	bcl = &bclink->link;
- 	memset(bclink, 0, sizeof(struct bclink));
-@@ -802,7 +802,7 @@ int tipc_bclink_init(void)
- 	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
- 	bcl->b_ptr = &bcbearer->bearer;
- 	bcl->state = WORKING_WORKING;
--	sprintf(bcl->name, tipc_bclink_name);
-+	strcpy(bcl->name, tipc_bclink_name);
- 
- 	if (BCLINK_LOG_BUF_SIZE) {
- 		char *pb = kmalloc(BCLINK_LOG_BUF_SIZE, GFP_ATOMIC);
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -70,7 +70,7 @@ struct port_list {
- 
- struct node;
- 
--extern char tipc_bclink_name[];
-+extern const char tipc_bclink_name[];
- 
- 
- /**
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -667,7 +667,7 @@ struct sk_buff *tipc_node_get_links(cons
-         link_info.dest = tipc_own_addr & 0xfffff00;
- 	link_info.dest = htonl(link_info.dest);
-         link_info.up = htonl(1);
--        sprintf(link_info.str, tipc_bclink_name);
-+        strcpy(link_info.str, tipc_bclink_name);
- 	tipc_cfg_append_tlv(buf, TIPC_TLV_LINK_INFO, &link_info, sizeof(link_info));
- 
- 	/* Add TLVs for any other links in scope */
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
