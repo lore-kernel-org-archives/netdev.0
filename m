@@ -1,41 +1,43 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 1 Nov 2006 14:06:14 +0100
-Message-ID: <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
-References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] 2.6.19-rc4 - netlink messages created with bad flags in soft_irq context
+Date: Wed, 1 Nov 2006 08:10:25 -0500
+Message-ID: <20061101131024.GA11316@gospo.rdu.redhat.com>
+References: <20061031220559.GA10119@gospo.rdu.redhat.com> <20061031.220047.08324824.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org
+Cc: andy@greyhouse.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:60110 "EHLO
-	atrey.karlin.mff.cuni.cz") by vger.kernel.org with ESMTP
-	id S1752120AbWKANGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 08:06:15 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from mx1.redhat.com ([66.187.233.31]:56005 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1752140AbWKANKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 08:10:32 -0500
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1162380963981@2ka.mipt.ru>
+In-Reply-To: <20061031.220047.08324824.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> Generic event handling mechanism.
+On Tue, Oct 31, 2006 at 10:00:47PM -0800, David Miller wrote:
+> From: Andy Gospodarek <andy@greyhouse.net>
+> Date: Tue, 31 Oct 2006 17:06:00 -0500
 > 
-> Consider for inclusion.
+> > I've got a kernel built where 
+> > 
+> > CONFIG_DEBUG_SPINLOCK_SLEEP=y
+> > 
+> > is in the config and I've noticed some interesting behavior when
+> > bringing up bonds in balance-alb mode.  When I start to enslave devices
+> > to a bond I get the following in the ring buffer:
+> > 
+> > BUG: sleeping function called from invalid context at mm/slab.c:3007
+> > in_atomic():1, irqs_disabled():0
 > 
-> Changes from 'take21' patchset:
+> As Herbert mentioned, the bonding layer calls into the networking
+> in atomic contexts when that is illegal.
+> -
 
-We are not interrested in how many times you spammed us, nor we want
-to know what was wrong in previous versions. It would be nice to have
-short summary of what this is good for, instead.
+Thanks for the feedback.  If it seems the bonding driver is one of the
+only culprits, I'll investigate a solution that is specific to bonding
+(maybe a workqueue for such calls...) rather that one that effects the
+entire stack.
 
-								Pavel
--- 
-Thanks, Sharp!
