@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/tipc/port.c: fix NULL dereference
-Date: Tue, 31 Oct 2006 16:59:46 -0800 (PST)
-Message-ID: <20061031.165946.126763326.davem@davemloft.net>
-References: <20061101004037.GZ27968@stusta.de>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sky2: netpoll on dual port cards
+Date: Tue, 31 Oct 2006 20:19:19 -0500
+Message-ID: <4547F617.6050106@pobox.com>
+References: <20061018133928.60052617@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: per.liden@ericsson.com, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:60585
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1945968AbWKAA7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Oct 2006 19:59:46 -0500
-To: bunk@stusta.de
-In-Reply-To: <20061101004037.GZ27968@stusta.de>
+Received: from srv5.dvmed.net ([207.36.208.214]:22483 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1423911AbWKABTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:19:23 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061018133928.60052617@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Wed, 1 Nov 2006 01:40:37 +0100
-
-> The correct order is: NULL check before dereference
+Stephen Hemminger wrote:
+> The sky2 driver uses a single NAPI poll routine for both ports on dual ported
+> cards (because there is a single IRQ and status ring). Netpoll makes assumptions
+> about the relationship between network device and NAPI that aren't correct
+> on the second port, this will cause the port to never clear work.
 > 
-> Spotted by the Coverity checker.
+> Most systems, just have single port, so not a big issue.
+> The easy fix is just make the second port, not netpoll capable.
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied, thanks Adrian.
+applied to #upstream-fixes
+
+
