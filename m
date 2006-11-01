@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] tcp: set default congestion control when no sysctl
-Date: Tue, 31 Oct 2006 17:31:47 -0800 (PST)
-Message-ID: <20061031.173147.115639064.davem@davemloft.net>
-References: <20061031230140.191929094@osdl.org>
-	<20061031230213.529807216@osdl.org>
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: ipw3945?
+Date: Tue, 31 Oct 2006 17:40:49 -0800
+Message-ID: <4547FB21.3050509@linux.intel.com>
+References: <45464A2C.5090402@feuerpokemon.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37773
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423639AbWKABbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Oct 2006 20:31:46 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061031230213.529807216@osdl.org>
+Received: from mga09.intel.com ([134.134.136.24]:30052 "EHLO mga09.intel.com")
+	by vger.kernel.org with ESMTP id S1945988AbWKABk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:40:28 -0500
+To: dragoran <dragoran@feuerpokemon.de>
+In-Reply-To: <45464A2C.5090402@feuerpokemon.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 31 Oct 2006 15:01:41 -0800
+dragoran wrote:
+...
+> It seems that the development of the driver has stopped since july,
+> maybe because it never will get merged and intel decided to stop working
+> on it?
 
-> The setting of the default congestion control was buried in
-> the sysctl code so it would not be done properly if SYSCTL was
-> not enabled.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Development hasn't stopped, I'm just a slacker ;).  I was away from work
+for a while, and on return I was sucked into various issues that have
+now (hopefully) all been resolved (or routed to /dev/null).
 
-Good catch, applied for 2.6.19, thanks Stephen.
+We have several patches that have backed up in our bug database
+(http://bughost.org/cover/ and click on 'tested patches') that I'll be
+pushing to our GIT tree as well as releasing a new snapshot to SF.
+
+We've also been working on some new code internally we're putting
+through some testing before we push out.  Expect some good things in the
+coming weeks.
+
+> If this is true it could mean that feature intel wlan chips will end up
+> with no linux drivers :(
+
+We do what we can internally to ensure that is never the case.
+
+James
