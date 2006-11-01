@@ -1,35 +1,38 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.19-rc3 1/2] ehea: kzalloc GFP_ATOMIC fix
-Date: Tue, 31 Oct 2006 20:20:06 -0500
-Message-ID: <4547F646.2080000@garzik.org>
-References: <200610251311.43009.ossthema@de.ibm.com>
+Subject: Re: [PATCH,try2 1/3] ep93xx_eth: fix RX/TXstatus ring full handling
+Date: Tue, 31 Oct 2006 20:21:03 -0500
+Message-ID: <4547F67F.5090806@garzik.org>
+References: <20061030185231.GB14805@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Cc: netdev@vger.kernel.org, Ray Lehtiniemi <rayl@mail.com>,
+	Herbert Valerio Riedel <hvr@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:28627 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1423918AbWKABUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:20:19 -0500
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-Reply-To: <200610251311.43009.ossthema@de.ibm.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:43987 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1945969AbWKABVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:21:06 -0500
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20061030185231.GB14805@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan-Bernd Themann wrote:
-> This patch fixes kzalloc parameters (GFP_ATOMIC instead of GFP_KERNEL)
+Lennert Buytenhek wrote:
+> Ray Lehtiniemi reported that an incoming UDP packet flood can lock up
+> the ep93xx ethernet driver.  Herbert Valerio Riedel noted that due to
+> the way ep93xx_eth manages the RX/TXstatus rings, it cannot distinguish
+> a full ring from an empty one, and correctly suggested that this was
+> likely to be causing this lockup to occur.
 > 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+> Instead of looking at the hardware's RX/TXstatus ring write pointers
+> to determine when to stop reading from those rings, we should just check
+> every individual RX/TXstatus descriptor's valid bit instead, since there
+> is no other way to distinguish an empty ring from a full ring, and if
+> there is a descriptor waiting, we take the hit of reading the descriptor
+> from memory anyway.
+> 
+> Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-applied to #upstream-fixes
-
-In the future, please include a description of -why- patches like this 
-are needed (I got the info from your replies in this case)
+applied 1-3
 
 
