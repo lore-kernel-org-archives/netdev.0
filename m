@@ -1,65 +1,34 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [linux-usb-devel] [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
-Date: Wed, 1 Nov 2006 02:23:46 +0100
-Message-ID: <20061101012346.GB27968@stusta.de>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <200610310940.16619.david-b@pacbell.net> <20061031180712.GQ27968@stusta.de> <200610311136.54058.david-b@pacbell.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/1] Fabric7 VIOC: Ethtool
+Date: Tue, 31 Oct 2006 20:30:01 -0500
+Message-ID: <4547F899.2070708@garzik.org>
+References: <1161725441.8112.11.camel@rh234.mv.fabric7.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb-devel@lists.sourceforge.net,
-	Randy Dunlap <randy.dunlap@oracle.com>, akpm@osdl.org,
-	zippel@linux-m68k.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, link@miggy.org,
-	Christoph Hellwig <hch@infradead.org>, torvalds@osdl.org,
-	greg@kroah.com, toralf.foerster@gmx.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946062AbWKABXt@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
-Content-Disposition: inline
-In-Reply-To: <200610311136.54058.david-b@pacbell.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: KERNEL Linux <linux-kernel@vger.kernel.org>,
+	NETDEV Linux <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:12244 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1946263AbWKABaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:30:03 -0500
+To: driver-support@fabric7.com
+In-Reply-To: <1161725441.8112.11.camel@rh234.mv.fabric7.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 31, 2006 at 11:36:52AM -0800, David Brownell wrote:
+Sriram Chidambaram wrote:
+> Ethtool patch for Fabric7 VIOC Device Driver.
 > 
-> > > 		...
-> > > 		depends on MII if MII != n
-> > > 
-> > > except that Kconfig doesn't comprehend conditionals like that.
-> > 
-> > You can express this in Kconfig:
-> > 	depends MII || MII=n
+> Signed-off-by: Fabric7 Driver-Support <driver-support@fabric7.com>
+> ---
+>  Makefile.am    |    2 +-
+>  ethtool-util.h |    2 ++
+>  ethtool.c      |    1 +
+>  vioc.c         |   35 +++++++++++++++++++++++++++++++++++
+>  4 files changed, 39 insertions(+), 1 deletions(-)
 > 
-> Except that:
-> 
-> Warning! Found recursive dependency: USB_USBNET USB_NET_AX8817X MII USB_USBNET
-> 
-> I think this is another case where Kconfig gets in the way and forces
-> introduction of a pseudovariable.  I'll give that a try.
-> 
-> > But my suggestion was:
-> > #if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
-> >
-> > Or simply select MII ...
-> 
-> Nope; those both prevent completely legit configurations.
-> MII is not required, except for those two adapter options.
 
-What should work (with the USB_NET_MCS7830 part from Randy's patch 
-removed) together with your patch and the
-  #if defined(CONFIG_MII) || (defined(CONFIG_MII_MODULE) && defined(MODULE))
-is:
+applied
 
-config USB_USBNET
-        tristate "Multi-purpose USB Networking Framework"
-        select MII if USB_NET_AX8817X!=n || USB_NET_MCS7830!=n
-	---help---
-	  ...
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
