@@ -1,62 +1,37 @@
-From: Libor =?utf-8?q?Klep=C3=A1=C4=8D?= <libor.klepac@bcom.cz>
-Subject: Re: r8169 and region #2 not an MMIO resource
-Date: Wed, 1 Nov 2006 23:36:19 +0100
-Message-ID: <200611012336.22546.libor.klepac@bcom.cz>
-References: <200611012221.46981.libor.klepac@bcom.cz> <20061101220036.GA3260@electric-eye.fr.zoreil.com> <20061101221337.GB3260@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [KJ] [patch] net/tipc: sprintf/strcpy conversion
+Date: Wed, 01 Nov 2006 15:19:17 -0800 (PST)
+Message-ID: <20061101.151917.133285028.davem@davemloft.net>
+References: <20061101140624.GA7694@Chamillionaire.breakpoint.cc>
+	<454913D2.9050608@bfs.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart12778424.Eqctpp8EIv";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@lists.osdl.org,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.webx.cz ([82.208.12.1]:34994 "EHLO mail.webx.cz")
-	by vger.kernel.org with ESMTP id S1752541AbWKAWsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 17:48:55 -0500
-Received: from localhost (ns.webx.cz [127.0.0.1])
-	by mail.webx.cz (Postfix) with ESMTP id 7AFDD41C1CC
-	for <netdev@vger.kernel.org>; Wed,  1 Nov 2006 23:48:54 +0100 (CET)
-Received: from mail.webx.cz ([127.0.0.1])
-	by localhost (ns.webx.cz [127.0.0.1]) (amavisd-new, port 10042)
-	with ESMTP id 6z8dDVv9p4EH for <netdev@vger.kernel.org>;
-	Wed,  1 Nov 2006 23:48:54 +0100 (CET)
-Received: from leviathan.mugn.local (76-82-244-84.zapcechy.adsl-llu.static.bluetone.cz [84.244.82.76])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.webx.cz (Postfix) with ESMTP id 2B7E241C222
-	for <netdev@vger.kernel.org>; Wed,  1 Nov 2006 23:36:46 +0100 (CET)
-To: netdev@vger.kernel.org
-In-Reply-To: <20061101221337.GB3260@electric-eye.fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18857
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751004AbWKAXTM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 18:19:12 -0500
+To: wharms@bfs.de
+In-Reply-To: <454913D2.9050608@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart12778424.Eqctpp8EIv
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+From: walter harms <wharms@bfs.de>
+Date: Wed, 01 Nov 2006 22:38:26 +0100
 
-Dne st=C5=99eda 01 listopad 2006 23:13 Francois Romieu napsal(a):
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
->
-> > Please send lspci -vvx, I need the hexadecimal ID.
->
-> Actually, no. This is a 8167, 2.6.19-rc4 includes the correct code for it.
+> These line
+> +	strcpy(bcbearer->media.name, "tipc-multicast");
+> 
+> i gues that means tipc_bclink_name ?
 
-ok, thanks, i'll try this version
+Why?  The original code used "tipc-multicast" which is a
+different string than tipc_bclink_name which is "multicast-link".
 
-libor
+> > -	sprintf(bcbearer->media.name, "tipc-multicast");
+> > +	strcpy(bcbearer->media.name, "tipc-multicast");
 
---nextPart12778424.Eqctpp8EIv
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQBFSSFmhMrxGRe1HmERAp9pAKC0KM5u4bM3fzBauhXusTSA77ywlACeJdGv
-MHvjox65g202zBw0GWfcWY4=
-=QJT4
------END PGP SIGNATURE-----
-
---nextPart12778424.Eqctpp8EIv--
+If you are arguing that it should be changed, that's a different
+changeset to discuss.
