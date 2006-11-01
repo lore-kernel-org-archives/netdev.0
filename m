@@ -1,37 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: TCP congestion graphs (2.6.19-rc4)
-Date: Tue, 31 Oct 2006 21:58:48 -0800
-Message-ID: <20061031215848.7588d5f0@localhost.localdomain>
-References: <20061031120016.75dc4c3c@freekitty>
-	<7335583a0610311525h10cf4e75x42e421d3eb6f53aa@mail.gmail.com>
-	<20061031161007.0fdf5c63@freekitty>
-	<20061031.173028.118970335.davem@davemloft.net>
-	<20061101052500.GA19676@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 2.6.19-rc4 - netlink messages created with bad flags
+ in soft_irq context
+Date: Tue, 31 Oct 2006 22:00:47 -0800 (PST)
+Message-ID: <20061031.220047.08324824.davem@davemloft.net>
+References: <20061031220559.GA10119@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, davidwei79@gmail.com,
-	rhee@eos.ncsu.edu, sha2@ncsu.edu, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62387 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1946582AbWKAF7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 00:59:07 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061101052500.GA19676@2ka.mipt.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:179
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1946596AbWKAGAo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 01:00:44 -0500
+To: andy@greyhouse.net
+In-Reply-To: <20061031220559.GA10119@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Nov 2006 08:25:00 +0300
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Tue, 31 Oct 2006 17:06:00 -0500
 
-> On Tue, Oct 31, 2006 at 05:30:28PM -0800, David Miller (davem@davemloft.net) wrote:
-> > BTW, Stephen, can you give a short HOWTO on how you generate those
-> > graphs, given a tcpdump trace?  Thanks a lot.
+> I've got a kernel built where 
 > 
-> That would be great.
-> Please also describe your setup so others algos could be tested too.
-> Thank you.
+> CONFIG_DEBUG_SPINLOCK_SLEEP=y
 > 
+> is in the config and I've noticed some interesting behavior when
+> bringing up bonds in balance-alb mode.  When I start to enslave devices
+> to a bond I get the following in the ring buffer:
+> 
+> BUG: sleeping function called from invalid context at mm/slab.c:3007
+> in_atomic():1, irqs_disabled():0
 
-Some basic stuff is on the parent page
-	http://developer.osdl.org/shemminger/tcp
+As Herbert mentioned, the bonding layer calls into the networking
+in atomic contexts when that is illegal.
