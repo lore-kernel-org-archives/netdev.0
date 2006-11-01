@@ -1,74 +1,64 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: fix unexpected LED control values in BCM4303
-	sprom
-Date: Tue, 31 Oct 2006 22:49:42 -0500
-Message-ID: <20061101034936.GD9309@tuxdriver.com>
-References: <4535AFC2.mail3S81JGSDJ@lwfinger.net>
-	<200610181637.08698.mb@bu3sch.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'upstream' branch of wireless-2.6.git
+Date: Tue, 31 Oct 2006 22:48:35 -0500
+Message-ID: <20061101034835.GC9309@tuxdriver.com>
+References: <20061101034715.GB9309@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:64521 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1423941AbWKAEAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 23:00:15 -0500
+To: jeff@garzik.org
 Content-Disposition: inline
-In-Reply-To: <200610181637.08698.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <20061101034715.GB9309@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2006 at 04:37:08PM +0200, Michael Buesch wrote:
+The following changes since commit ff584489917961599b9044584bb8ba6fd5d8f11b:
+  John W. Linville:
+        Merge branch 'upstream-fixes' into upstream
 
-> > @@ -257,7 +263,11 @@ void bcm43xx_leds_update(struct bcm43xx_
-> >  			continue;
-> >  #endif /* CONFIG_BCM43XX_DEBUG */
-> >  		default:
-> > -			assert(0);
-> > +			if (bcm43xx_max_led_err) {
-> > +				printkl(KERN_INFO PFX "Bad value in leds_update,"
-> > +					" led->behaviour: 0x%x\n", led->behaviour);
-> > +				--bcm43xx_max_led_err;
-> > +			}
-> 
-> I'd call this message bloat. ;) This is the first time the assertion
-> triggers since it was added.
-> You could instead remove the assert(), remove bcm43xx_max_led_err
-> and use dprintkl instead of printkl.
-> 
-> >  		};
-> >  
-> >  		if (led->activelow)
-> > Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.h
-> > ===================================================================
-> > --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_leds.h
-> > +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.h
-> > @@ -24,6 +24,10 @@ struct bcm43xx_led {
-> >  
-> >  #define BCM43xx_LED_BEHAVIOUR		0x7F
-> >  #define BCM43xx_LED_ACTIVELOW		0x80
-> > +#define BCM43xx_LED_BCM4303_0		0x2B
-> > +#define BCM43xx_LED_BCM4303_1		0x78
-> > +#define BCM43xx_LED_BCM4303_2		0x2E
-> > +#define BCM43xx_LED_BCM4303_3		0x19
-> 
-> Add these to the enum below, instead, please.
-> The defines above are masks and not the behaviour values.
-> 
-> >  enum { /* LED behaviour values */
-> >  	BCM43xx_LED_OFF,
-> >  	BCM43xx_LED_ON,
+are found in the git repository at:
 
-I took Michael's suggestions before merging your patch...FYI! :-)
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
 
-John
+Christian Lamparter:
+      wext: extend MLME support
+
+Daniel Drake:
+      zd1211rw: Add ID for ZyXEL G-220
+
+ drivers/net/wireless/zd1211rw/zd_usb.c |    1 +
+ include/linux/wireless.h               |    2 ++
+ 2 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
+index 005ca7a..5cc99b5 100644
+--- a/drivers/net/wireless/zd1211rw/zd_usb.c
++++ b/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -50,6 +50,7 @@ static struct usb_device_id usb_ids[] = 
+ 	{ USB_DEVICE(0x1435, 0x0711), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0586, 0x3409), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0b3b, 0x1630), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x0586, 0x3401), .driver_info = DEVICE_ZD1211 },
+ 	/* ZD1211B */
+ 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
+diff --git a/include/linux/wireless.h b/include/linux/wireless.h
+index a50a013..7c269f4 100644
+--- a/include/linux/wireless.h
++++ b/include/linux/wireless.h
+@@ -546,6 +546,8 @@ #define IW_GENERIC_IE_MAX	1024
+ /* MLME requests (SIOCSIWMLME / struct iw_mlme) */
+ #define IW_MLME_DEAUTH		0
+ #define IW_MLME_DISASSOC	1
++#define IW_MLME_AUTH		2
++#define IW_MLME_ASSOC		3
+ 
+ /* SIOCSIWAUTH/SIOCGIWAUTH struct iw_param flags */
+ #define IW_AUTH_INDEX		0x0FFF
 -- 
 John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+linville@tuxdriver.com
