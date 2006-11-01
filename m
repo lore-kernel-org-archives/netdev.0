@@ -1,62 +1,214 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 1 Nov 2006 16:25:07 +0300
-Message-ID: <20061101132506.GA6433@2ka.mipt.ru>
-References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC, PATCH] dont insert sockets/pipes dentries into
+ dentry_hashtable.
+Date: Wed, 01 Nov 2006 14:54:56 +0100
+Message-ID: <4548A730.8060507@cosmosbay.com>
+References: <20061025084726.GE18364@nuim.ie>
+ <20061025.230615.92585270.davem@davemloft.net>
+ <200610311948.48970.dada1@cosmosbay.com>
+ <20061031.231954.23010447.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="Boundary_(ID_Bbnpg4e8BNkq2p3HegTRqA)"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer.campus.mipt.ru ([194.85.82.4]:57543 "EHLO
-	mailer.campus.mipt.ru") by vger.kernel.org with ESMTP
-	id S1750906AbWKANuS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 08:50:18 -0500
-To: Pavel Machek <pavel@ucw.cz>
-Content-Disposition: inline
-In-Reply-To: <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
+Received: from sp604005mt.neufgp.fr ([84.96.92.11]:49304 "EHLO smtp.Neuf.fr")
+	by vger.kernel.org with ESMTP id S1946881AbWKANzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 08:55:01 -0500
+In-reply-to: <20061031.231954.23010447.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>, Al Viro <viro@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 01, 2006 at 02:06:14PM +0100, Pavel Machek (pavel@ucw.cz) wrote:
-> Hi!
+This is a multi-part message in MIME format.
+
+--Boundary_(ID_Bbnpg4e8BNkq2p3HegTRqA)
+Content-type: text/plain; charset=ISO-8859-1; format=flowed
+Content-transfer-encoding: 8BIT
+
+David Miller a écrit :
+> It turns out that while procfs uses a different "mechanism", those
+> procfs symlinks do point to the real socket dentry, so when you
+> readlink() on it you do d_path() on the real socket dentry.
 > 
-> > Generic event handling mechanism.
-> > 
-> > Consider for inclusion.
-> > 
-> > Changes from 'take21' patchset:
+> Al Viro just suggested a way around this to me:
 > 
-> We are not interrested in how many times you spammed us, nor we want
-> to know what was wrong in previous versions. It would be nice to have
-> short summary of what this is good for, instead.
+> 1) Just mark the dentry HASHED by hand in the dentry flags, but don't
+>    actually hash it.
+> 
+> 2) Create a special dentry->d_deleted method for sockets that returns
+>    0 and clears by hand the HASHED flag bit in the dentry (see what
+>    dput() does when this happens).
+> 
+> It's an abuse but it will work.
+> 
 
-Let me guess, short explaination in subsequent emails is not enough...
-If changelog will be removed, then how people will detect what happend 
-after previous release?
 
-Kevent is a generic subsytem which allows to handle event notifications.
-It supports both level and edge triggered events. It is similar to
-poll/epoll in some cases, but it is more scalable, it is faster and
-allows to work with essentially eny kind of events.
+Thank you David and Al for the feedback.
 
-Events are provided into kernel through control syscall and can be read
-back through mmaped ring or syscall.
-Kevent update (i.e. readiness switching) happens directly from internals
-of the appropriate state machine of the underlying subsytem (like
-network, filesystem, timer or any other).
+Here is a new version of the patch with your suggestions included.
 
-I will put that text into introduction message.
+If necessary, I could split this patch in 3 elementary patches. I chose to
+sent it as one patch for ease of discussion.
 
-> 								Pavel
-> -- 
-> Thanks, Sharp!
+[RFC, PATCH] dont insert sockets/pipes dentries into dentry_hashtable.
 
--- 
-	Evgeniy Polyakov
+We currently insert sockets/pipes dentries into the global dentry hashtable.
+This is *useless* because there is currently no way these entries can be used
+for a lookup(). (/proc/xxx/fd/xxx uses a different mechanism)
+
+Machines with a lot of sockets/pipes might suffer from longer chains in dentry
+hashtable.
+
+Since dentries an unhashed dentry means __dpath() adds a " (deleted)", the 
+trick for socket/pipe dentries is to :
+
+- Right after d_alloc(), pretend they are hashed by clearing the 
+DCACHE_UNHASHED bit. __dpath() & friends work as intended.
+
+- Call d_instantiate() instead of d_add() : dentry is not inserted in hash table.
+
+- Once dput() must clear the dentry, setting again DCACHE_UNHASHED bit inside 
+the custom d_delete() function provided by socket/pipe code.
+
+
+[patch 1/3] Small optimization to bypass RCU freeing in d_free() for dentries 
+that were never hashed (like sockets and pipes). Such dentries dont have to 
+wait a RCU grace period.
+
+[patch 2/3] Change socket code to use d_instantiate() instead of d_add()
+
+[patch 3/3] Change pipe code to use d_instantiate() instead of d_add()
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary_(ID_Bbnpg4e8BNkq2p3HegTRqA)
+Content-type: text/plain; name=donthash.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline; filename=donthash.patch
+
+--- linux-2.6.19-rc4/fs/dcache.c	2006-11-01 12:38:23.000000000 +0100
++++ linux-2.6.19-rc4-ed/fs/dcache.c	2006-11-01 13:22:44.000000000 +0100
+@@ -68,15 +68,19 @@
+ 	.age_limit = 45,
+ };
+ 
+-static void d_callback(struct rcu_head *head)
++static void __d_free(struct dentry *dentry)
+ {
+-	struct dentry * dentry = container_of(head, struct dentry, d_u.d_rcu);
+-
+ 	if (dname_external(dentry))
+ 		kfree(dentry->d_name.name);
+ 	kmem_cache_free(dentry_cache, dentry); 
+ }
+ 
++static void d_callback(struct rcu_head *head)
++{
++	struct dentry * dentry = container_of(head, struct dentry, d_u.d_rcu);
++	__d_free(dentry);
++}
++
+ /*
+  * no dcache_lock, please.  The caller must decrement dentry_stat.nr_dentry
+  * inside dcache_lock.
+@@ -85,7 +89,11 @@
+ {
+ 	if (dentry->d_op && dentry->d_op->d_release)
+ 		dentry->d_op->d_release(dentry);
+- 	call_rcu(&dentry->d_u.d_rcu, d_callback);
++	/* if dentry was never inserted into hash, immediate free is OK */
++	if (dentry->d_hash.pprev == NULL)
++		__d_free(dentry);
++	else
++		call_rcu(&dentry->d_u.d_rcu, d_callback);
+ }
+ 
+ /*
+--- linux-2.6.19-rc4/net/socket.c	2006-11-01 12:40:27.000000000 +0100
++++ linux-2.6.19-rc4-ed/net/socket.c	2006-11-01 14:33:18.000000000 +0100
+@@ -306,7 +306,14 @@
+ 
+ static int sockfs_delete_dentry(struct dentry *dentry)
+ {
+-	return 1;
++	/*
++	 * At creation time, we pretended this dentry was hashed
++	 * (by clearing DCACHE_UNHASHED bit in d_flags)
++	 * At delete time, we restore the truth : not hashed.
++	 * (so that dput() can proceed correctly)
++	 */
++	dentry->d_flags |= DCACHE_UNHASHED;
++	return 0;
+ }
+ static struct dentry_operations sockfs_dentry_operations = {
+ 	.d_delete = sockfs_delete_dentry,
+@@ -354,14 +361,20 @@
+ 
+ 	this.len = sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
+ 	this.name = name;
+-	this.hash = SOCK_INODE(sock)->i_ino;
++	this.hash = 0;
+ 
+ 	file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
+ 	if (unlikely(!file->f_dentry))
+ 		return -ENOMEM;
+ 
+ 	file->f_dentry->d_op = &sockfs_dentry_operations;
+-	d_add(file->f_dentry, SOCK_INODE(sock));
++	/*
++	 * We dont want to push this dentry into global dentry hash table. 
++	 * We pretend dentry is already hashed, by unsetting DCACHE_UNHASHED
++	 * This hack permits a working /proc/$pid/fd/XXX on sockets
++	 */
++	file->f_dentry->d_flags &= ~DCACHE_UNHASHED;
++	d_instantiate(file->f_dentry, SOCK_INODE(sock));
+ 	file->f_vfsmnt = mntget(sock_mnt);
+ 	file->f_mapping = file->f_dentry->d_inode->i_mapping;
+ 
+--- linux-2.6.19-rc4/fs/pipe.c	2006-11-01 12:56:05.000000000 +0100
++++ linux-2.6.19-rc4-ed/fs/pipe.c	2006-11-01 14:33:18.000000000 +0100
+@@ -830,7 +830,14 @@
+ static struct vfsmount *pipe_mnt __read_mostly;
+ static int pipefs_delete_dentry(struct dentry *dentry)
+ {
+-	return 1;
++	/*
++	 * At creation time, we pretended this dentry was hashed
++	 * (by clearing DCACHE_UNHASHED bit in d_flags)
++	 * At delete time, we restore the truth : not hashed.
++	 * (so that dput() can proceed correctly)
++	 */
++	dentry->d_flags |= DCACHE_UNHASHED;
++	return 0;
+ }
+ 
+ static struct dentry_operations pipefs_dentry_operations = {
+@@ -891,17 +898,22 @@
+ 	if (!inode)
+ 		goto err_file;
+ 
+-	sprintf(name, "[%lu]", inode->i_ino);
++	this.len = sprintf(name, "[%lu]", inode->i_ino);
+ 	this.name = name;
+-	this.len = strlen(name);
+-	this.hash = inode->i_ino; /* will go */
++	this.hash = 0;
+ 	err = -ENOMEM;
+ 	dentry = d_alloc(pipe_mnt->mnt_sb->s_root, &this);
+ 	if (!dentry)
+ 		goto err_inode;
+ 
+ 	dentry->d_op = &pipefs_dentry_operations;
+-	d_add(dentry, inode);
++	/*
++	 * We dont want to push this dentry into global dentry hash table. 
++	 * We pretend dentry is already hashed, by unsetting DCACHE_UNHASHED
++	 * This hack permits a working /proc/$pid/fd/XXX on pipes
++	 */
++	dentry->d_flags &= ~DCACHE_UNHASHED;
++	d_instantiate(dentry, inode);
+ 	f->f_vfsmnt = mntget(pipe_mnt);
+ 	f->f_dentry = dentry;
+ 	f->f_mapping = inode->i_mapping;
+
+--Boundary_(ID_Bbnpg4e8BNkq2p3HegTRqA)--
