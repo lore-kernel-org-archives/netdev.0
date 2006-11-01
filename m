@@ -1,29 +1,25 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] myri10ge: ServerWorks HT2000 PCI id is already defined
- in pci_ids.h
-Date: Tue, 31 Oct 2006 20:20:16 -0500
-Message-ID: <4547F650.2050302@garzik.org>
-References: <45411FD5.3050408@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sky2: not experimental
+Date: Tue, 31 Oct 2006 20:20:23 -0500
+Message-ID: <4547F657.4040002@pobox.com>
+References: <20061027102210.29739a22@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:27091 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1423917AbWKABUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:20:18 -0500
-To: Brice Goglin <brice@myri.com>
-In-Reply-To: <45411FD5.3050408@myri.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:31187 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1423919AbWKABUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:20:25 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061027102210.29739a22@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> [PATCH] myri10ge: ServerWorks HT2000 PCI id is already defined in pci_ids.h
+Stephen Hemminger wrote:
+> The sky2 driver is no longer in experimental state.
 > 
-> No need to keep defining PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE
-> in the driver code since it is now defined in pci_ids.h.
-> 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 applied
 
