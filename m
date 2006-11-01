@@ -1,29 +1,25 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: netpoll on dual port cards
-Date: Tue, 31 Oct 2006 20:19:19 -0500
-Message-ID: <4547F617.6050106@pobox.com>
-References: <20061018133928.60052617@freekitty>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] skge, sky2, et all. gplv2 only
+Date: Tue, 31 Oct 2006 20:19:30 -0500
+Message-ID: <4547F622.9090709@garzik.org>
+References: <20061022201657.2c458632@dads-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:22483 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1423911AbWKABTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:19:23 -0500
+Received: from srv5.dvmed.net ([207.36.208.214]:24531 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1423623AbWKABTg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:19:36 -0500
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061018133928.60052617@freekitty>
+In-Reply-To: <20061022201657.2c458632@dads-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Stephen Hemminger wrote:
-> The sky2 driver uses a single NAPI poll routine for both ports on dual ported
-> cards (because there is a single IRQ and status ring). Netpoll makes assumptions
-> about the relationship between network device and NAPI that aren't correct
-> on the second port, this will cause the port to never clear work.
-> 
-> Most systems, just have single port, so not a big issue.
-> The easy fix is just make the second port, not netpoll capable.
+> I don't want my code to downgraded to GPLv3 because of
+> cut-n-pasted the comments. These files which I hold copyright
+> on were started before it was clear what GPLv3 was going to be.
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
