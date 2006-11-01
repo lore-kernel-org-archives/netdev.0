@@ -1,40 +1,64 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: radvd 1.0 released
-Date: Wed, 1 Nov 2006 17:23:46 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0611011720510.20570@netcore.fi>
-Reply-To: radvd-devel-l@litech.org
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 1 Nov 2006 17:05:51 +0100
+Message-ID: <20061101160551.GA2598@elf.ucw.cz>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: radvd-devel-l@litech.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:18154 "EHLO netcore.fi")
-	by vger.kernel.org with ESMTP id S1946896AbWKAPXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 10:23:51 -0500
-To: netdev@vger.kernel.org, radvd-announce-l@litech.org
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:1006 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1423941AbWKAQG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 11:06:28 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20061101132506.GA6433@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi!
 
-A new version of radvd has been released.  There hasn't been any very 
-major changes, just regular maintenance and a one new experimental 
-feature (RDNSS option).
+> > > Generic event handling mechanism.
+> > > 
+> > > Consider for inclusion.
+> > > 
+> > > Changes from 'take21' patchset:
+> > 
+> > We are not interrested in how many times you spammed us, nor we want
+> > to know what was wrong in previous versions. It would be nice to have
+> > short summary of what this is good for, instead.
+> 
+> Let me guess, short explaination in subsequent emails is not
+> enough...
 
-Get it at: http://www.litech.org/radvd/
+Yes.
 
-Changes since 0.9.1:
-    * Fix AdvDefaultLifetime initalization, broken in 0.9.1.
-    * Fix STDERR+syslog logging, don't try STDERR after forking.
-    * Implement RDNSS draft with (non-allocated) ND type code 25.
-    * Redefined IgnoreIfMissing: failed interfaces are now 
-      reinitialized by default. IgnoreIfMissing only omits warnings 
-      about these.
-    * Unblock SIGALRM at startup.
-    * Implement MAX_INITIAL_RTR_ADVERT_INTERVAL handling.
-    * Perform some dynamic/static code audit, fix some minor bugs and 
-      do cleanup as a result.
+> Kevent is a generic subsytem which allows to handle event notifications.
+> It supports both level and edge triggered events. It is similar to
+> poll/epoll in some cases, but it is more scalable, it is faster and
+> allows to work with essentially eny kind of events.
 
+Quantifying "how much more scalable" would be nice, as would be some
+example where it is useful. ("It makes my webserver twice as fast on
+monster 64-cpu box").
+
+> Events are provided into kernel through control syscall and can be read
+> back through mmaped ring or syscall.
+> Kevent update (i.e. readiness switching) happens directly from internals
+> of the appropriate state machine of the underlying subsytem (like
+> network, filesystem, timer or any other).
+> 
+> I will put that text into introduction message.
+
+Thanks.
+									Pavel
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
