@@ -1,34 +1,67 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] Fabric7 VIOC: Ethtool
-Date: Tue, 31 Oct 2006 20:30:01 -0500
-Message-ID: <4547F899.2070708@garzik.org>
-References: <1161725441.8112.11.camel@rh234.mv.fabric7.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP congestion graphs (2.6.19-rc4)
+Date: Tue, 31 Oct 2006 17:30:28 -0800 (PST)
+Message-ID: <20061031.173028.118970335.davem@davemloft.net>
+References: <20061031120016.75dc4c3c@freekitty>
+	<7335583a0610311525h10cf4e75x42e421d3eb6f53aa@mail.gmail.com>
+	<20061031161007.0fdf5c63@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: KERNEL Linux <linux-kernel@vger.kernel.org>,
-	NETDEV Linux <netdev@vger.kernel.org>
+Cc: davidwei79@gmail.com, rhee@eos.ncsu.edu, sha2@ncsu.edu,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:12244 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1946263AbWKABaD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2006 20:30:03 -0500
-To: driver-support@fabric7.com
-In-Reply-To: <1161725441.8112.11.camel@rh234.mv.fabric7.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64422
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1946262AbWKABa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Oct 2006 20:30:28 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061031161007.0fdf5c63@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sriram Chidambaram wrote:
-> Ethtool patch for Fabric7 VIOC Device Driver.
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 31 Oct 2006 16:10:07 -0800
+
+> On Tue, 31 Oct 2006 15:25:16 -0800
+> "Xiaoliang (David) Wei" <davidwei79@gmail.com> wrote:
 > 
-> Signed-off-by: Fabric7 Driver-Support <driver-support@fabric7.com>
-> ---
->  Makefile.am    |    2 +-
->  ethtool-util.h |    2 ++
->  ethtool.c      |    1 +
->  vioc.c         |   35 +++++++++++++++++++++++++++++++++++
->  4 files changed, 39 insertions(+), 1 deletions(-)
+> > It seems that the default Vegas alpha parameter in the rc4 is 1...
+> > 
+> > I observed similar situation with the NS2Linux simulator (with 2.6.16
+> > code) and found that if alpha=1, delayed ack will make it broken
+> > (keeping cwnd very low without real congestion)
+> > 
+> > See details at http://www.cs.caltech.edu/%7Eweixl/technical/ns2linux/known_linux/index.html#vegas
+> > 
+> > (Basically alpha==1 means Vegas seeks to see a delay of about 1 packet
+> > worth. With delayed ack, 1 packet worth of delay is common even with
+> > no congestion.)
+> > 
+> > To make Vegas work, I'd suggest to raise alpha to at least 2 or 3.
+> > (and beta has to be at least as large as alpha.)
+> > 
+> > -David
+> > 
 > 
+> I ran with the current default:
+> 	alpha = 1 (scaled 2)
+> 	beta  = 3 (scaled 6)
+> 	gamma = 1 (scaled 2)
 
-applied
+Testing with alpha=2 and beta=4 would be interesting.
 
+Brakmo and Peterson don't see this delayed ACK behavior in their tests
+in the original Vegas paper.  I read through it a few times and I see
+no explicit mention of whether they had delayed ACKs enabled or not in
+any of there tests.
 
+I seem to recall that it was very popular around that time to analyze
+TCP changes with delayed ACKs disabled since it made the results
+easier to analyze (which in my opinion invalidates any such results,
+since in the real world you never run with delayed ACKs off).  So
+perhaps the Vegas folks were doing something similar and just didn't
+think it was worth mentioning :-)
+
+BTW, Stephen, can you give a short HOWTO on how you generate those
+graphs, given a tcpdump trace?  Thanks a lot.
