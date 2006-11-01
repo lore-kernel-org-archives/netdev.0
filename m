@@ -1,158 +1,61 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 15/18] e1000: add dynamic generic MSI interrupt routine
-Date: Wed, 01 Nov 2006 09:52:03 -0800
-Message-ID: <20061101175203.2356.42891.stgit@gitlost.site>
-References: <20061101175043.2356.13659.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:24080 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1946979AbWKARqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 12:46:19 -0500
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20061101175043.2356.13659.stgit@gitlost.site>
-Sender: netdev-owner@vger.kernel.org
+From: Oleg Verych <olecom@flower.upol.cz>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 1 Nov 2006 18:13:52 +0000 (UTC)
+Message-ID: <slrnekhpbr.2j1.olecom@flower.upol.cz>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru>
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752252AbWKASPn@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hallo, Evgeniy Polyakov.
 
-Add a generic MSI interrupt routine that is IO read-free, speeding up
-MSI interrupt handling.
+On 2006-11-01, you wrote:
+[]
+>> Quantifying "how much more scalable" would be nice, as would be some
+>> example where it is useful. ("It makes my webserver twice as fast on
+>> monster 64-cpu box").
+>
+> Trivial kevent web-server can handle 3960+ req/sec on Xeon 2.4Ghz with
+[...]
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+Seriously. I'm seeing that patches also. New, shiny, always ready "for
+inclusion". But considering kernel (linux in this case) as not thing
+for itself, i want to ask following question.
 
- drivers/net/e1000/e1000_main.c |   90 +++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 88 insertions(+), 2 deletions(-)
+Where's real-life application to do configure && make && make install?
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index db933bf..b05871a 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -157,6 +157,9 @@ static struct net_device_stats * e1000_g
- static int e1000_change_mtu(struct net_device *netdev, int new_mtu);
- static int e1000_set_mac(struct net_device *netdev, void *p);
- static irqreturn_t e1000_intr(int irq, void *data);
-+#ifdef CONFIG_PCI_MSI
-+static irqreturn_t e1000_intr_msi(int irq, void *data);
-+#endif
- static boolean_t e1000_clean_tx_irq(struct e1000_adapter *adapter,
-                                     struct e1000_tx_ring *tx_ring);
- #ifdef CONFIG_E1000_NAPI
-@@ -288,7 +291,7 @@ static int e1000_request_irq(struct e100
- 
- 	flags = IRQF_SHARED;
- #ifdef CONFIG_PCI_MSI
--	if (adapter->hw.mac_type > e1000_82547_rev_2) {
-+	if (adapter->hw.mac_type >= e1000_82571) {
- 		adapter->have_msi = TRUE;
- 		if ((err = pci_enable_msi(adapter->pdev))) {
- 			DPRINTK(PROBE, ERR,
-@@ -296,8 +299,14 @@ static int e1000_request_irq(struct e100
- 			adapter->have_msi = FALSE;
- 		}
- 	}
--	if (adapter->have_msi)
-+	if (adapter->have_msi) {
- 		flags &= ~IRQF_SHARED;
-+		err = request_irq(adapter->pdev->irq, &e1000_intr_msi, flags,
-+		                  netdev->name, netdev);
-+		if (err)
-+			DPRINTK(PROBE, ERR,
-+			       "Unable to allocate interrupt Error: %d\n", err);
-+	} else
- #endif
- 	if ((err = request_irq(adapter->pdev->irq, &e1000_intr, flags,
- 	                       netdev->name, netdev)))
-@@ -3466,6 +3475,83 @@ e1000_update_stats(struct e1000_adapter 
- 
- 	spin_unlock_irqrestore(&adapter->stats_lock, flags);
- }
-+#ifdef CONFIG_PCI_MSI
-+
-+/**
-+ * e1000_intr_msi - Interrupt Handler
-+ * @irq: interrupt number
-+ * @data: pointer to a network interface device structure
-+ **/
-+
-+static
-+irqreturn_t e1000_intr_msi(int irq, void *data)
-+{
-+	struct net_device *netdev = data;
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+#ifndef CONFIG_E1000_NAPI
-+	int i;
-+#endif
-+
-+	/* this code avoids the read of ICR but has to get 1000 interrupts
-+	 * at every link change event before it will notice the change */
-+	if (++adapter->detect_link >= 1000) {
-+		uint32_t icr = E1000_READ_REG(hw, ICR);
-+#ifdef CONFIG_E1000_NAPI
-+		/* read ICR disables interrupts using IAM, so keep up with our
-+		 * enable/disable accounting */
-+		atomic_inc(&adapter->irq_sem);
-+#endif
-+		adapter->detect_link = 0;
-+		if ((icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) &&
-+		    (icr & E1000_ICR_INT_ASSERTED)) {
-+			hw->get_link_status = 1;
-+			/* 80003ES2LAN workaround--
-+			* For packet buffer work-around on link down event;
-+			* disable receives here in the ISR and
-+			* reset adapter in watchdog
-+			*/
-+			if (netif_carrier_ok(netdev) &&
-+			    (adapter->hw.mac_type == e1000_80003es2lan)) {
-+				/* disable receives */
-+				uint32_t rctl = E1000_READ_REG(hw, RCTL);
-+				E1000_WRITE_REG(hw, RCTL, rctl & ~E1000_RCTL_EN);
-+			}
-+			/* guard against interrupt when we're going down */
-+			if (!test_bit(__E1000_DOWN, &adapter->flags))
-+				mod_timer(&adapter->watchdog_timer,
-+				          jiffies + 1);
-+		}
-+	} else {
-+		E1000_WRITE_REG(hw, ICR, (0xffffffff & ~(E1000_ICR_RXSEQ |
-+		                                         E1000_ICR_LSC)));
-+		/* bummer we have to flush here, but things break otherwise as
-+		 * some event appears to be lost or delayed and throughput
-+		 * drops.  In almost all tests this flush is un-necessary */
-+		E1000_WRITE_FLUSH(hw);
-+#ifdef CONFIG_E1000_NAPI
-+		/* Interrupt Auto-Mask (IAM)...upon writing ICR, interrupts are
-+		 * masked.  No need for the IMC write, but it does mean we
-+		 * should account for it ASAP. */
-+		atomic_inc(&adapter->irq_sem);
-+#endif
-+	}
-+
-+#ifdef CONFIG_E1000_NAPI
-+	if (likely(netif_rx_schedule_prep(netdev)))
-+		__netif_rx_schedule(netdev);
-+	else
-+		e1000_irq_enable(adapter);
-+#else
-+	for (i = 0; i < E1000_MAX_INTR; i++)
-+		if (unlikely(!adapter->clean_rx(adapter, adapter->rx_ring) &
-+		   !e1000_clean_tx_irq(adapter, adapter->tx_ring)))
-+			break;
-+#endif
-+
-+	return IRQ_HANDLED;
-+}
-+#endif
- 
- /**
-  * e1000_intr - Interrupt Handler
+There were some comments about laking much of such programs, answers were
+"was in prev. e-mail", "need to update them", something like that.
+"Trivial web server" sources url, mentioned in benchmark isn't pointed
+in patch advertisement. If it was, should i actually try that new
+*trivial* wheel?
 
+Saying that, i want to give you some short examples, i know.
+*Linux kernel <-> userspace*:
+o Alexey Kuznetsov  networking     <-> (excellent) iproute set of utilities;
+o Maxim Krasnyansky tun net driver <-> vtun daemon application;
 
+*Glibc with mister Drepper* has huge set of tests, please search for
+`tst*' files in the sources.
 
----
-Auke Kok <auke-jan.h.kok@intel.com>
+To make a little hint to you, Evgeniy, why don't you find a little
+animal in the open source zoo to implement little interface to
+proposed kernel subsystem and then show it to The Big Jury (not me),
+we have here? And i can not see, how you've managed to implement
+something like that having almost nothing on the test basket.
+Very *suspicious* ch.
+
+One, that comes in mind is lighthttpd <http://www.lighttpd.net/>.
+It had sub-interface for event systems like select,poll,epoll, when i
+checked its sources last time. And it is mature, btw.
+
+Cheers.
+
+[ -*- OT -*-                                                           ]
+[ I wouldn't write all this, unless saw your opinion about the         ]
+[ reportbug (part of the Debian Bug Tracking System) this week.        ]
+[ While i'm nobody here, imho, the first thing about good programmer   ]
+[ must be, that he is excellent user.                                  ]
+____
