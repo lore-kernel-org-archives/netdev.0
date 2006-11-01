@@ -1,71 +1,301 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx: fix unexpected LED control values in BCM4303 sprom
-Date: Wed, 1 Nov 2006 12:27:22 +0100
-Message-ID: <200611011227.23315.mb@bu3sch.de>
-References: <4535AFC2.mail3S81JGSDJ@lwfinger.net> <20061101034936.GD9309@tuxdriver.com> <454823CC.9070808@lwfinger.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take22 2/4] kevent: poll/select() notifications.
+Date: Wed, 1 Nov 2006 14:36:03 +0300
+Message-ID: <11623809631966@2ka.mipt.ru>
+References: <11623809632360@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56549
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1946794AbWKAL2j
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 06:28:39 -0500
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <454823CC.9070808@lwfinger.net>
-Content-Disposition: inline
+Received: from dea.vocord.ru ([217.67.177.50]:49837 "EHLO
+	kano.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S1423648AbWKALgj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 06:36:39 -0500
+In-Reply-To: <11623809632360@2ka.mipt.ru>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 01 November 2006 05:34, Larry Finger wrote:
-> John,
-> 
-> I had not responded to Michael's comments as I heard from another user with thousands of these 
-> assertions in his logs, and I have been waiting for his sprom values and hoped to make a single 
-> patch. It is good, however, that you pushed the patch upstream.
-> 
-> John W. Linville wrote:
-> > On Wed, Oct 18, 2006 at 04:37:08PM +0200, Michael Buesch wrote:
-> > 
-> >>> @@ -257,7 +263,11 @@ void bcm43xx_leds_update(struct bcm43xx_
-> >>>  			continue;
-> >>>  #endif /* CONFIG_BCM43XX_DEBUG */
-> >>>  		default:
-> >>> -			assert(0);
-> >>> +			if (bcm43xx_max_led_err) {
-> >>> +				printkl(KERN_INFO PFX "Bad value in leds_update,"
-> >>> +					" led->behaviour: 0x%x\n", led->behaviour);
-> >>> +				--bcm43xx_max_led_err;
-> >>> +			}
-> >> I'd call this message bloat. ;) This is the first time the assertion
-> >> triggers since it was added.
-> >> You could instead remove the assert(), remove bcm43xx_max_led_err
-> >> and use dprintkl instead of printkl.
-> 
-> I disagree with part of Michael's comments. I think we should have a dprintk, rather than dprintkl, 
 
-An unlimited printk will hang the system on UP.
+poll/select() notifications.
 
-> so that we get printouts from all four of the sprom values.
+This patch includes generic poll/select notifications.
+kevent_poll works simialr to epoll and has the same issues (callback
+is invoked not from internal state machine of the caller, but through
+process awake, a lot of allocations and so on).
 
-I don't really think that dprintkl will prevent this.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
 
-> That way the user will be able to report  
-> the numbers we need. As this would not limit the log entries and potentially generate thousands, 
-> there should be a variable like bcm43xx_max_led_err to limit the number of log entries.
-> 
-> I will propose a new patch once I get the data for the second case. In the meantime, the patch you 
-> have pushed upstream will fix the BCM4303 led assertions.
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 5baf3a1..f81299f 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -276,6 +276,7 @@ #include <linux/prio_tree.h>
+ #include <linux/init.h>
+ #include <linux/sched.h>
+ #include <linux/mutex.h>
++#include <linux/kevent.h>
+ 
+ #include <asm/atomic.h>
+ #include <asm/semaphore.h>
+@@ -586,6 +587,10 @@ #ifdef CONFIG_INOTIFY
+ 	struct mutex		inotify_mutex;	/* protects the watches list */
+ #endif
+ 
++#ifdef CONFIG_KEVENT_SOCKET
++	struct kevent_storage	st;
++#endif
++
+ 	unsigned long		i_state;
+ 	unsigned long		dirtied_when;	/* jiffies of first dirtying */
+ 
+@@ -739,6 +744,9 @@ #ifdef CONFIG_EPOLL
+ 	struct list_head	f_ep_links;
+ 	spinlock_t		f_ep_lock;
+ #endif /* #ifdef CONFIG_EPOLL */
++#ifdef CONFIG_KEVENT_POLL
++	struct kevent_storage	st;
++#endif
+ 	struct address_space	*f_mapping;
+ };
+ extern spinlock_t files_lock;
+diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
+new file mode 100644
+index 0000000..94facbb
+--- /dev/null
++++ b/kernel/kevent/kevent_poll.c
+@@ -0,0 +1,222 @@
++/*
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/timer.h>
++#include <linux/file.h>
++#include <linux/kevent.h>
++#include <linux/poll.h>
++#include <linux/fs.h>
++
++static kmem_cache_t *kevent_poll_container_cache;
++static kmem_cache_t *kevent_poll_priv_cache;
++
++struct kevent_poll_ctl
++{
++	struct poll_table_struct 	pt;
++	struct kevent			*k;
++};
++
++struct kevent_poll_wait_container
++{
++	struct list_head		container_entry;
++	wait_queue_head_t		*whead;
++	wait_queue_t			wait;
++	struct kevent			*k;
++};
++
++struct kevent_poll_private
++{
++	struct list_head		container_list;
++	spinlock_t			container_lock;
++};
++
++static int kevent_poll_enqueue(struct kevent *k);
++static int kevent_poll_dequeue(struct kevent *k);
++static int kevent_poll_callback(struct kevent *k);
++
++static int kevent_poll_wait_callback(wait_queue_t *wait,
++		unsigned mode, int sync, void *key)
++{
++	struct kevent_poll_wait_container *cont =
++		container_of(wait, struct kevent_poll_wait_container, wait);
++	struct kevent *k = cont->k;
++	struct file *file = k->st->origin;
++	u32 revents;
++
++	revents = file->f_op->poll(file, NULL);
++
++	kevent_storage_ready(k->st, NULL, revents);
++
++	return 0;
++}
++
++static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead,
++		struct poll_table_struct *poll_table)
++{
++	struct kevent *k =
++		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
++	struct kevent_poll_private *priv = k->priv;
++	struct kevent_poll_wait_container *cont;
++	unsigned long flags;
++
++	cont = kmem_cache_alloc(kevent_poll_container_cache, SLAB_KERNEL);
++	if (!cont) {
++		kevent_break(k);
++		return;
++	}
++
++	cont->k = k;
++	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
++	cont->whead = whead;
++
++	spin_lock_irqsave(&priv->container_lock, flags);
++	list_add_tail(&cont->container_entry, &priv->container_list);
++	spin_unlock_irqrestore(&priv->container_lock, flags);
++
++	add_wait_queue(whead, &cont->wait);
++}
++
++static int kevent_poll_enqueue(struct kevent *k)
++{
++	struct file *file;
++	int err, ready = 0;
++	unsigned int revents;
++	struct kevent_poll_ctl ctl;
++	struct kevent_poll_private *priv;
++
++	file = fget(k->event.id.raw[0]);
++	if (!file)
++		return -EBADF;
++
++	err = -EINVAL;
++	if (!file->f_op || !file->f_op->poll)
++		goto err_out_fput;
++
++	err = -ENOMEM;
++	priv = kmem_cache_alloc(kevent_poll_priv_cache, SLAB_KERNEL);
++	if (!priv)
++		goto err_out_fput;
++
++	spin_lock_init(&priv->container_lock);
++	INIT_LIST_HEAD(&priv->container_list);
++
++	k->priv = priv;
++
++	ctl.k = k;
++	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
++
++	err = kevent_storage_enqueue(&file->st, k);
++	if (err)
++		goto err_out_free;
++
++	revents = file->f_op->poll(file, &ctl.pt);
++	if (revents & k->event.event) {
++		ready = 1;
++		kevent_poll_dequeue(k);
++	}
++
++	return ready;
++
++err_out_free:
++	kmem_cache_free(kevent_poll_priv_cache, priv);
++err_out_fput:
++	fput(file);
++	return err;
++}
++
++static int kevent_poll_dequeue(struct kevent *k)
++{
++	struct file *file = k->st->origin;
++	struct kevent_poll_private *priv = k->priv;
++	struct kevent_poll_wait_container *w, *n;
++	unsigned long flags;
++
++	kevent_storage_dequeue(k->st, k);
++
++	spin_lock_irqsave(&priv->container_lock, flags);
++	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
++		list_del(&w->container_entry);
++		remove_wait_queue(w->whead, &w->wait);
++		kmem_cache_free(kevent_poll_container_cache, w);
++	}
++	spin_unlock_irqrestore(&priv->container_lock, flags);
++
++	kmem_cache_free(kevent_poll_priv_cache, priv);
++	k->priv = NULL;
++
++	fput(file);
++
++	return 0;
++}
++
++static int kevent_poll_callback(struct kevent *k)
++{
++	struct file *file = k->st->origin;
++	unsigned int revents = file->f_op->poll(file, NULL);
++
++	k->event.ret_data[0] = revents & k->event.event;
++
++	return (revents & k->event.event);
++}
++
++static int __init kevent_poll_sys_init(void)
++{
++	struct kevent_callbacks pc = {
++		.callback = &kevent_poll_callback,
++		.enqueue = &kevent_poll_enqueue,
++		.dequeue = &kevent_poll_dequeue};
++
++	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache",
++			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
++	if (!kevent_poll_container_cache) {
++		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
++		return -ENOMEM;
++	}
++
++	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache",
++			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
++	if (!kevent_poll_priv_cache) {
++		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
++		kmem_cache_destroy(kevent_poll_container_cache);
++		kevent_poll_container_cache = NULL;
++		return -ENOMEM;
++	}
++
++	kevent_add_callbacks(&pc, KEVENT_POLL);
++
++	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
++	return 0;
++}
++
++static struct lock_class_key kevent_poll_key;
++
++void kevent_poll_reinit(struct file *file)
++{
++	lockdep_set_class(&file->st.lock, &kevent_poll_key);
++}
++
++static void __exit kevent_poll_sys_fini(void)
++{
++	kmem_cache_destroy(kevent_poll_priv_cache);
++	kmem_cache_destroy(kevent_poll_container_cache);
++}
++
++module_init(kevent_poll_sys_init);
++module_exit(kevent_poll_sys_fini);
 
-I still think it's a waste to add a variable, a printk and a long string which
-all eat unswappable kernel memory for this cornercase.
-I don't think it's really hard to tell somebody to execute "iwpriv ethX read_sprom"
-when he reports the assert() is triggering.
-You must communicate with him anyway to find out how the LEDs are mapped
-to the physical descriptions on the device case.
-
--- 
-Greetings Michael.
