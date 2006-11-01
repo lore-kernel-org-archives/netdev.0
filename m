@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 2.6.19-rc4 - netlink messages created with bad flags
- in soft_irq context
-Date: Tue, 31 Oct 2006 22:00:47 -0800 (PST)
-Message-ID: <20061031.220047.08324824.davem@davemloft.net>
-References: <20061031220559.GA10119@gospo.rdu.redhat.com>
+From: dragoran <dragoran@feuerpokemon.de>
+Subject: Re: ipw3945?
+Date: Wed, 01 Nov 2006 08:06:51 +0100
+Message-ID: <4548478B.2020007@feuerpokemon.de>
+References: <45464A2C.5090402@feuerpokemon.de> <4547FB21.3050509@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:179
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1946596AbWKAGAo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 01:00:44 -0500
-To: andy@greyhouse.net
-In-Reply-To: <20061031220559.GA10119@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946652AbWKAHGx@vger.kernel.org>
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <4547FB21.3050509@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Tue, 31 Oct 2006 17:06:00 -0500
-
-> I've got a kernel built where 
-> 
-> CONFIG_DEBUG_SPINLOCK_SLEEP=y
-> 
-> is in the config and I've noticed some interesting behavior when
-> bringing up bonds in balance-alb mode.  When I start to enslave devices
-> to a bond I get the following in the ring buffer:
-> 
-> BUG: sleeping function called from invalid context at mm/slab.c:3007
-> in_atomic():1, irqs_disabled():0
-
-As Herbert mentioned, the bonding layer calls into the networking
-in atomic contexts when that is illegal.
+James Ketrenos wrote:
+> dragoran wrote:
+> ...
+>   
+>> It seems that the development of the driver has stopped since july,
+>> maybe because it never will get merged and intel decided to stop working
+>> on it?
+>>     
+>
+> Development hasn't stopped, I'm just a slacker ;).  I was away from work
+> for a while, and on return I was sucked into various issues that have
+> now (hopefully) all been resolved (or routed to /dev/null).
+>
+> We have several patches that have backed up in our bug database
+> (http://bughost.org/cover/ and click on 'tested patches') that I'll be
+> pushing to our GIT tree as well as releasing a new snapshot to SF.
+>
+> We've also been working on some new code internally we're putting
+> through some testing before we push out.  Expect some good things in the
+> coming weeks.
+>
+>   
+ok thx for the info :)
+>> If this is true it could mean that feature intel wlan chips will end up
+>> with no linux drivers :(
+>>     
+>
+> We do what we can internally to ensure that is never the case.
+>
+>   
+:)
+> James
+>
+>   
