@@ -1,11 +1,13 @@
-From: Pavel Machek <pavel@ucw.cz>
+From: James Morris <jmorris@namei.org>
 Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 1 Nov 2006 17:05:51 +0100
-Message-ID: <20061101160551.GA2598@elf.ucw.cz>
-References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru>
+Date: Wed, 1 Nov 2006 11:07:58 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0611011105270.6253@d.namei>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru>
+ <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
 	Ulrich Drepper <drepper@redhat.com>,
 	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>,
@@ -14,51 +16,36 @@ Cc: David Miller <davem@davemloft.net>,
 	Johann Borck <johann.borck@densedata.com>,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:1006 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S1423941AbWKAQG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 11:06:28 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20061101132506.GA6433@2ka.mipt.ru>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:4838 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1423941AbWKAQIB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 11:08:01 -0500
+To: Pavel Machek <pavel@ucw.cz>
+In-Reply-To: <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Wed, 1 Nov 2006, Pavel Machek wrote:
 
-> > > Generic event handling mechanism.
-> > > 
-> > > Consider for inclusion.
-> > > 
-> > > Changes from 'take21' patchset:
+> Hi!
+> 
+> > Generic event handling mechanism.
 > > 
-> > We are not interrested in how many times you spammed us, nor we want
-> > to know what was wrong in previous versions. It would be nice to have
-> > short summary of what this is good for, instead.
+> > Consider for inclusion.
+> > 
+> > Changes from 'take21' patchset:
 > 
-> Let me guess, short explaination in subsequent emails is not
-> enough...
+> We are not interrested in how many times you spammed us, nor we want
+> to know what was wrong in previous versions. It would be nice to have
+> short summary of what this is good for, instead.
 
-Yes.
+I'm interested in knowing which version the patches belong to and what has 
+changed (geez, it's rare enough that someone actually bothers to do this 
+with an updated patchset, and to complain about it?)
 
-> Kevent is a generic subsytem which allows to handle event notifications.
-> It supports both level and edge triggered events. It is similar to
-> poll/epoll in some cases, but it is more scalable, it is faster and
-> allows to work with essentially eny kind of events.
 
-Quantifying "how much more scalable" would be nice, as would be some
-example where it is useful. ("It makes my webserver twice as fast on
-monster 64-cpu box").
 
-> Events are provided into kernel through control syscall and can be read
-> back through mmaped ring or syscall.
-> Kevent update (i.e. readiness switching) happens directly from internals
-> of the appropriate state machine of the underlying subsytem (like
-> network, filesystem, timer or any other).
-> 
-> I will put that text into introduction message.
-
-Thanks.
-									Pavel
+- James
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+James Morris
+<jmorris@namei.org>
