@@ -1,54 +1,62 @@
-From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
-Subject: Re: watchdog timeout panic in e1000 driver
-Date: Wed, 01 Nov 2006 22:21:29 +0900
-Message-ID: <45489F59.6030102@cj.jp.nec.com>
-References: <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com> <453F7E1F.4020406@intel.com> <45408F7B.3050209@cj.jp.nec.com> <4540C765.4000800@intel.com> <4545E3A4.9090004@cj.jp.nec.com> <454636B0.1010004@intel.com> <20061031032218.GA7804@gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 1 Nov 2006 16:25:07 +0300
+Message-ID: <20061101132506.GA6433@2ka.mipt.ru>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:39392 "EHLO
-	tyo202.gate.nec.co.jp") by vger.kernel.org with ESMTP
-	id S1752166AbWKANVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 08:21:45 -0500
-To: Shaw Vrana <shaw@vranix.com>
-In-Reply-To: <20061031032218.GA7804@gmail.com>
+Received: from mailer.campus.mipt.ru ([194.85.82.4]:57543 "EHLO
+	mailer.campus.mipt.ru") by vger.kernel.org with ESMTP
+	id S1750906AbWKANuS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 08:50:18 -0500
+To: Pavel Machek <pavel@ucw.cz>
+Content-Disposition: inline
+In-Reply-To: <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
->>> Even if the total lock time can be reduced, it's possible that interrupt
->>> handler is executed while the interrupted code is still holding the 
->>> semaphore.
->>> I think your method only decrease the frequency of this problem.
->>> Why does reducing the lock time solve this problem?
->> there are several problems here that need addressing. It's not acceptable 
->> for our driver to wait up to 15 seconds, and we can (presumably) reduce it 
->> to milliseconds, so that would help a lot. We should in no case at all hold 
->> it for any period longer than (give or take) half a second, so working 
->> towards that is a very good step in the right direction.
->>
->> Adding the timer task back may also help, as we are no longer trying to 
->> aqcuire the sw_fw_semaphore in interrupt context, but we removed it for a 
->> reason, and I need to dig up what reason this exactly was before we can 
->> revert it. Jesse might know, so I'll talk to him. But this will not fix the 
->> fact that the semaphore is held for a long time :)
+On Wed, Nov 01, 2006 at 02:06:14PM +0100, Pavel Machek (pavel@ucw.cz) wrote:
+> Hi!
 > 
-> Timer tasks that reschedule themselves are a pain.  The watchdog timer task
-> had a couple of race conditions that were thought to be better fixed by
-> removing it all together.  Please, let's not go down that road again!
+> > Generic event handling mechanism.
+> > 
+> > Consider for inclusion.
+> > 
+> > Changes from 'take21' patchset:
+> 
+> We are not interrested in how many times you spammed us, nor we want
+> to know what was wrong in previous versions. It would be nice to have
+> short summary of what this is good for, instead.
 
-I understand that the watchdog_task could cause a race when the timer task
-and e1000_down runs concurrently, resulting in memory double free.
+Let me guess, short explaination in subsequent emails is not enough...
+If changelog will be removed, then how people will detect what happend 
+after previous release?
 
-I think this problem occurs because interrupt handler is executed in same
-CPU as process that acquires semaphore.
-How about disabling interrupt while the process is holding the semaphore?
-I think this is possible, if the total lock time has been reduced.
+Kevent is a generic subsytem which allows to handle event notifications.
+It supports both level and edge triggered events. It is similar to
+poll/epoll in some cases, but it is more scalable, it is faster and
+allows to work with essentially eny kind of events.
+
+Events are provided into kernel through control syscall and can be read
+back through mmaped ring or syscall.
+Kevent update (i.e. readiness switching) happens directly from internals
+of the appropriate state machine of the underlying subsytem (like
+network, filesystem, timer or any other).
+
+I will put that text into introduction message.
+
+> 								Pavel
+> -- 
+> Thanks, Sharp!
 
 -- 
-  Kenzi Iwami (k-iwami@cj.jp.nec.com)
+	Evgeniy Polyakov
