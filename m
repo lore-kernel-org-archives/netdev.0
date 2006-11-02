@@ -1,43 +1,59 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
-Date: Thu, 2 Nov 2006 09:06:54 -0500
-Message-ID: <20061102140648.GA32377@tuxdriver.com>
-References: <20061026050416.GB14199@havoc.gtf.org> <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net> <20061101112805.246e1b3b@griffin.suse.cz> <20061101142022.GC21668@tuxdriver.com> <4548E7F7.7030100@linux.intel.com> <20061102121657.GA13468@infradead.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel
+ found
+Date: Thu, 02 Nov 2006 23:18:10 +0900 (JST)
+Message-ID: <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
+References: <4549D8E7.1040409@tcs.hut.fi>
+	<20061102.215900.15793371.yoshfuji@linux-ipv6.org>
+	<4549EFA7.50004@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Ketrenos <jketreno@linux.intel.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	Simon Barber <simon@devicescape.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:49418 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1752897AbWKBOKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 09:10:17 -0500
-To: Christoph Hellwig <hch@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20061102121657.GA13468@infradead.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:13067 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752558AbWKBOPZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 09:15:25 -0500
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <4549EFA7.50004@tcs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 02, 2006 at 12:16:57PM +0000, Christoph Hellwig wrote:
+In article <4549EFA7.50004@tcs.hut.fi> (at Thu, 02 Nov 2006 15:16:23 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 
-> The most important merge requirement is to not break userspace.  That means
-> proper support of WE (hopefully via cfg80211), and a single ethX network
-> device.  The second most important is proper smp support, or good code
-> quality in general.  We can't afford to merge buggy code.  Third most
-> important is to make sure it's a full replacment for the current ieee80211
-> code - for the softmac cards that's mostly trivial, but the half-hard mac
-> old intel cards are hard.  That's where intel comes into play because you
-> support that hardware _and_ are pushing for d80211.  That makes your team
-> pretty much volunteer to fix that up in my eyes.
+> On 11/02/06 14:59, YOSHIFUJI Hideaki wrote:
+> > In article <4549D8E7.1040409@tcs.hut.fi> (at Thu, 02 Nov 2006 13:39:19 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+> > 
+> >>  	read_unlock(&ip6ip6_lock);
+> >> -	return 1;
+> >> -
+> >> +	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
+> >> +		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
+> >>  discard:
+> > 
+> > I'd argue this.  We probably should not send back any ICMPv6 packets 
+> > to the original sender in this case to avoid DoS.
+> 
+> Sorry, I don't follow you. I don't see the DoS scenario here (after we
+> apply the patch, that is ;-).
 
-+1
+Well, leaving aside whether sending icmpv6 is good thing (*),
+the code for sending icmpv6 was moved from ip6_tunnel.c
+to tunnel6.c by commit-id 50fba2aa7cefa6b0e1768cb350c9e69042320c03
+by Herbert.
 
-This aligns very well with my position.
+The ip6_tunnel.c change that Herbert made does not seem consistent
+with ipip.c change.  To fix your issue the appropriate change is just
+fall through to discard section, as we're doing for ipip.c.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Please do not re-add sending icmpv6 logic here.
+If you DO think it is appropriate, please fix other codes
+such as ipip.c, and your comment.
+
+*: As far as I remember, *BSD*s do not send icmpv6
+   in this case.
+   Anyway, I'd talk to people at ietf next week.
+
+--yoshfuji
