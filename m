@@ -1,99 +1,112 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [airo.c bug] Couldn't allocate RX FID / Max tries exceeded
-	when issueing command
-Date: Thu, 02 Nov 2006 14:11:19 -0500
-Message-ID: <1162494679.3347.8.camel@localhost.localdomain>
-References: <b5def3a40611011914v59ecd4c3xb6965591524aa11@mail.gmail.com>
-	 <1162483971.2646.9.camel@localhost.localdomain>
-	 <b5def3a40611021030s1b73daa1k2055e5f4373fa746@mail.gmail.com>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 2/4] bcm43xx-d80211: Add wireless statistics
+Date: Thu, 2 Nov 2006 20:05:35 +0100
+Message-ID: <200611022005.35682.mb@bu3sch.de>
+References: <454A3D18.mail4RZ1BSPL3@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	netdev@vger.kernel.org, breed@users.sourceforge.net,
-	achirica@users.sourceforge.net, jt@hpl.hp.com, fabrice@bellet.info
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:26291 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1752262AbWKBTM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 14:12:26 -0500
-To: Ivan Matveich <ivan.matveich@gmail.com>
-In-Reply-To: <b5def3a40611021030s1b73daa1k2055e5f4373fa746@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org,
+	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	rt2400-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <454A3D18.mail4RZ1BSPL3-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-02 at 13:30 -0500, Ivan Matveich wrote:
-> On 11/2/06, Dan Williams <dcbw@redhat.com> wrote:
-> > It appears that the driver cannot talk to your card; see the "max tries
-> > exceeded when issueing command".  Did this card work previously with a
-> > kernel?  Can narrow down which kernels have problems and which don't?
+On Thursday 02 November 2006 19:46, Larry Finger wrote:
+> These patches modify bcm43xx-d80211 to use the wireless statics added in patch 1.
 > 
-> It spontaneously stopped working about a week after I bought the
+> Signed-Off-By: Larry Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-That does not bode well for the card itself.
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 
-> laptop and installed Linux. I tried kernel 2.6.12 and it had the same
-> problem. (Let me know if you'd like me to try a specific version.)
-
-2.6.12 should be old enough, but maybe if you could try 2.6.9 that would
-definitely be old enough to rule out recent airo changes.
-
-> I'm hoping that the card has simply got itself into some kind of
-> invalid state, and not failed altogether.
+> ---
 > 
-> > It's a bit hard to figure out what firmware you have because the driver
-> > can't talk to the card; can you boot under Windows and determine that
-> > using the Cisco wireless utility?  You also need to flash the card under
-> > Windows, not Linux, ideally to a version of firmware greater than
-> > 5.60.08.
+> Please apply to wireless-dev
 > 
-> I haven't run Windows in many years, so that's problematic. What's the
-> most straightforward way to boot into a Windows environment sufficient
-> to run the Cisco wireless utility?
-
-You get to either install windows on your laptop, or pull the card
-(pcmcia or minipci, either way) and put it into a windows computer.
-
-> > reloading the driver (rmmod airo; modprobe airo) should reset the card.
 > 
-> Yeah, it unfortunately doesn't help. (Nor does rebooting or resetting
-> the bios.) I noticed a suspiciously relevant commit in the airo.c git
-> log:
+> Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+> ===================================================================
+> --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+> +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+> @@ -27,6 +27,8 @@
+>  
+>  #define BCM43xx_IO_SIZE			8192
+>  
+> +#define BCM43xx_RX_MAX_SSI		60
+> +
+>  /* MMIO offsets */
+>  #define BCM43xx_MMIO_DMA0_REASON	0x20
+>  #define BCM43xx_MMIO_DMA0_IRQ_MASK	0x24
+> @@ -610,7 +612,7 @@ struct bcm43xx_noise_calculation {
+>  };
+>  
+>  struct bcm43xx_stats {
+> -	u8 link_quality;
+> +	u8 link_noise;
+>  	/* Store the last TX/RX times here for updating the leds. */
+>  	unsigned long last_tx;
+>  	unsigned long last_rx;
+> Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+> ===================================================================
+> --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+> +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+> @@ -1199,15 +1199,7 @@ static void handle_irq_noise(struct bcm4
+>  		else
+>  			average -= 48;
+>  
+> -		if (average > -65)
+> -			bcm->stats.link_quality = 0;
+> -		else if (average > -75)
+> -			bcm->stats.link_quality = 1;
+> -		else if (average > -85)
+> -			bcm->stats.link_quality = 2;
+> -		else
+> -			bcm->stats.link_quality = 3;
+> -//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
+> +		bcm->stats.link_noise = average;
+>  drop_calculation:
+>  		bcm->noisecalc.calculation_running = 0;
+>  		return;
+> @@ -3981,6 +3973,7 @@ static int __devinit bcm43xx_init_one(st
+>  	ieee->host_gen_beacon_template = 1;
+>  	ieee->rx_includes_fcs = 0;
+>  	ieee->monitor_during_oper = 1;
+> +	ieee->maxssi = BCM43xx_RX_MAX_SSI;
+>  	ieee->tx = bcm43xx_net_hard_start_xmit;
+>  	ieee->open = bcm43xx_net_open;
+>  	ieee->stop = bcm43xx_net_stop;
+> Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+> ===================================================================
+> --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+> +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+> @@ -678,10 +678,12 @@ void bcm43xx_rx(struct bcm43xx_private *
+>  		status.flag |= RX_FLAG_DECRYPTED;
+>  	}
+>  
+> -	status.ssi = bcm43xx_rssi_postprocess(bcm, jssi,
+> +	status.signal = bcm43xx_rssi_postprocess(bcm, jssi,
+>  					      (phystat0 & BCM43xx_RX_PHYST0_OFDM),
+>  					      (phystat0 & BCM43xx_RX_PHYST0_GAINCTL),
+>  					      (phystat3 & BCM43xx_RX_PHYST3_TRSTATE));
+> +	status.noise = bcm->stats.link_noise;
+> +	status.ssi = jssi;
+>  	if (phystat0 & BCM43xx_RX_PHYST0_OFDM)
+>  		status.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
+>  	else
 > 
->     [wireless airo] reset card in init
-> 
->     without this patch after an rmmod, modprobe the card won't work anymore
->     until the next reboot.
-> 
->     This patch seem safe to apply for all cards as the bsd driver already do
->     that.
-> 
->     I had to add a timeout because strange things happen (issuecommand will
->     fail) if the card is already reseted (after a reboot).
-> 
->     PS : it seems there are missing reset when leaving monitor mode...
-> 
->     Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
 
-Do you know which kernel version that patch first appeared in?
-
-> and that makes me wonder if there might be some kind of subtle bug in
-> the card initialization sequence that manifests itself with my
-> particular card/firmware.
-
-Could be, it would be quite helpful to get the version of firmware you
-are using.  Versions earlier than 5.30.17 are known not be flaky or even
-not work with newer Linux kernel drivers since Cisco changed the
-firmware interface in that version.  That said, I've seen cards in the
-5.00.xx range work with the latest drivers, but not well.  These older
-firmware versions sometimes lock up sponaneously and require a reboot,
-updating to later firmware post-5.30.17 fixes that problem.
-
-> I think I'll burn a freebsd livecd today and see if their kernel works.
-
-That would be a great idea, let us know what the results are, especially
-if you cna figure out which firmware version you have, or if the card
-itself is really just dead.
-
-Thanks,
-Dan
-
+-- 
+Greetings Michael.
