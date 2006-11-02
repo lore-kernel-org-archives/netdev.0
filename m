@@ -1,190 +1,64 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/4] d80211: Add wireless statistics
-Date: Thu, 02 Nov 2006 12:45:43 -0600
-Message-ID: <454A3CD7.mail4R91A9NUC@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 3/4] adm8211-d80211: Add wireless statistics (compile
+	tested only)
+Date: Thu, 02 Nov 2006 12:47:40 -0600
+Message-ID: <454A3D4C.mail4SI11B3NB@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: rt2400-devel@lists.sourceforge.net, flamingice@sourmilk.net,
-	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-01.rdc-kc.rr.com ([24.94.166.115]:47865 "EHLO
-	ms-smtp-01.rdc-kc.rr.com") by vger.kernel.org with ESMTP
-	id S1752028AbWKBSqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 13:46:38 -0500
-To: John Linville <linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	rt2400-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch modifies d80211 to support wireless statistics.
+These patches modify adm8211-d80211 to use the wireless statics added in patch 1.
 
-Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
----
-
-John,
-
-Please add to wireless-dev.
-
-Larry
-
-Index: wireless-dev/include/net/d80211.h
+Signed-Off-By: Larry Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Index: wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
 ===================================================================
---- wireless-dev.orig/include/net/d80211.h
-+++ wireless-dev/include/net/d80211.h
-@@ -195,6 +195,8 @@ struct ieee80211_rx_status {
-         int channel;
-         int phymode;
-         int ssi;
-+	int signal;
-+	int noise;
-         int antenna;
-         int rate;
-         int flag;
-@@ -479,6 +481,8 @@ struct ieee80211_hw {
-         /* This is the time in us to change channels
-          */
-         int channel_change_time;
-+	/* This is maximum value for rssi reported by this device */
-+	int maxssi;
+--- wireless-dev.orig/drivers/net/wireless/d80211/adm8211/adm8211.c
++++ wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
+@@ -73,6 +73,8 @@ ADM8211_IER_TDUIE | ADM8211_IER_GPTIE)
+ #define PLCP_SIGNAL_5M5		0x37
+ #define PLCP_SIGNAL_11M		0x6e
  
- 	int num_modes;
- 	struct ieee80211_hw_modes *modes;
-Index: wireless-dev/net/d80211/ieee80211.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211.c
-+++ wireless-dev/net/d80211/ieee80211.c
-@@ -3152,6 +3152,8 @@ ieee80211_rx_h_sta_process(struct ieee80
- 	sta->rx_fragments++;
- 	sta->rx_bytes += rx->skb->len;
- 	sta->last_rssi = rx->u.rx.status->ssi;
-+	sta->last_signal = rx->u.rx.status->signal;
-+	sta->last_noise = rx->u.rx.status->noise;
- 
- 	if (!(rx->fc & IEEE80211_FCTL_MOREFRAGS)) {
- 		/* Change STA power saving mode only in the end of a frame
-Index: wireless-dev/net/d80211/ieee80211_i.h
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_i.h
-+++ wireless-dev/net/d80211/ieee80211_i.h
-@@ -336,6 +336,7 @@ struct ieee80211_local {
- 	struct net_device *apdev; /* wlan#ap - management frames (hostapd) */
- 	int open_count;
- 	int monitors;
-+	struct iw_statistics wstats;
- 	struct ieee80211_conf conf;
- 
- 	int dev_index;
-Index: wireless-dev/net/d80211/ieee80211_ioctl.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_ioctl.c
-+++ wireless-dev/net/d80211/ieee80211_ioctl.c
-@@ -1586,6 +1586,16 @@ static int ieee80211_ioctl_giwrange(stru
- 	range->min_frag = 256;
- 	range->max_frag = 2346;
- 
-+	range->max_qual.qual = 100;
-+	range->max_qual.level = 146;  /* set floor at -110 dBm (146 - 256) */
-+	range->max_qual.noise = 146;
-+	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
++#define ADM8211_RX_MAX_SSI	100
 +
-+	range->avg_qual.qual = 50;
-+	range->avg_qual.level = 0;
-+	range->avg_qual.noise = 0;
-+	range->avg_qual.updated = IW_QUAL_ALL_UPDATED;
+ struct adm8211_tx_hdr {
+ 	u8 da[6];
+ 	u8 signal; /* PLCP signal / TX rate in 100 Kbps */
+@@ -557,6 +559,14 @@ static void adm8211_interrupt_rci(struct
+ 			if (dev->flags & IFF_PROMISC)
+ 				skb_trim(skb, skb->len - FCS_LEN);
+ 
 +
- 	return 0;
- }
- 
-@@ -2973,6 +2983,39 @@ static int ieee80211_ioctl_siwauth(struc
- 	return ret;
- }
- 
-+/* Get wireless statistics.  Called by /proc/net/wireless and by SIOCGIWSTATS */
-+static struct iw_statistics *ieee80211_get_wireless_stats(struct net_device *net_dev)
-+{
-+	struct ieee80211_local *local = net_dev->ieee80211_ptr;
-+	struct iw_statistics * wstats = &local->wstats;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(net_dev);
-+	struct sta_info *sta;
-+	static int tmp_level = 0;
-+	static int tmp_qual = 0;
++/* FIXME: The following set of assignments supply additional data for wireless statistics. The
++	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
++	  The present code supplies dummy values for these quantities. */
 +
-+	sta = sta_info_get(local, sdata->u.sta.bssid);
-+	if (!sta) {
-+		wstats->discard.fragment = 0;
-+		wstats->discard.misc = 0;
-+		wstats->qual.qual = 0;
-+		wstats->qual.level = 0;
-+		wstats->qual.noise = 0;
-+		wstats->qual.updated = IW_QUAL_ALL_INVALID;
-+	} else {
-+		if (!tmp_level) {	/* get initial values */
-+			tmp_level = sta->last_signal;
-+			tmp_qual = sta->last_rssi;
-+		} else {		/* smooth results */
-+			tmp_level = (15 * tmp_level + sta->last_signal)/16;
-+			tmp_qual = (15 * tmp_qual + sta->last_rssi)/16;
-+		}
-+		wstats->qual.level = tmp_level;
-+		wstats->qual.qual = 100*tmp_qual/local->hw->maxssi;
-+		wstats->qual.noise = sta->last_noise;
-+		wstats->qual.updated = IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
-+	}
-+	return wstats;
-+}
++			rx_status.noise = -85;   /* FIXME */
++			rx_status.signal = rx_status.ssi - ADM8211_RX_MAX_SSI; /* FIXME */
++
+ 			ieee80211_rx_irqsafe(dev, skb, &rx_status);
+ 		}
  
- static int ieee80211_ioctl_giwauth(struct net_device *dev,
- 				   struct iw_request_info *info,
-@@ -3162,6 +3205,7 @@ const struct iw_handler_def ieee80211_iw
- 	.standard	= (iw_handler *) ieee80211_handler,
- 	.private	= (iw_handler *) ieee80211_private_handler,
- 	.private_args	= (struct iw_priv_args *) ieee80211_ioctl_priv,
-+	.get_wireless_stats = ieee80211_get_wireless_stats,
- };
+@@ -2045,6 +2055,7 @@ static int __devinit adm8211_probe(struc
+ 	hw->get_tsf = adm8211_get_tsft;
+ 	hw->get_tx_stats = adm8211_get_tx_stats;
+ 	hw->queues = 1;		// ADM8211C supports more, maybe ADM8211B
++	hw->maxssi = ADM8211_RX_MAX_SSI;// FIXME - This is an approximation
  
- /* Wireless handlers for master interface */
-Index: wireless-dev/net/d80211/ieee80211_sysfs_sta.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_sysfs_sta.c
-+++ wireless-dev/net/d80211/ieee80211_sysfs_sta.c
-@@ -48,7 +48,7 @@ static ssize_t show_sta_##name(const str
- 
- #define __STA_ATTR(name)						\
- static struct sta_attribute sta_attr_##name =				\
--	__ATTR(name, S_IRUSR, show_sta_##name, NULL)
-+	__ATTR(name, S_IRUGO, show_sta_##name, NULL)
- 
- #define STA_ATTR(name, field, format)					\
- 		STA_SHOW_##format(name, field)				\
-@@ -72,6 +72,8 @@ STA_ATTR(last_txrate, last_txrate, RATE)
- STA_ATTR(tx_retry_failed, tx_retry_failed, LU);
- STA_ATTR(tx_retry_count, tx_retry_count, LU);
- STA_ATTR(last_rssi, last_rssi, D);
-+STA_ATTR(last_signal, last_signal, D);
-+STA_ATTR(last_noise, last_noise, D);
- STA_ATTR(channel_use, channel_use, D);
- STA_ATTR(wep_weak_iv_count, wep_weak_iv_count, D);
- 
-@@ -174,6 +176,8 @@ static struct attribute *sta_ktype_attrs
- 	&sta_attr_tx_retry_failed.attr,
- 	&sta_attr_tx_retry_count.attr,
- 	&sta_attr_last_rssi.attr,
-+	&sta_attr_last_signal.attr,
-+	&sta_attr_last_noise.attr,
- 	&sta_attr_channel_use.attr,
- 	&sta_attr_wep_weak_iv_count.attr,
- 
-Index: wireless-dev/net/d80211/sta_info.h
-===================================================================
---- wireless-dev.orig/net/d80211/sta_info.h
-+++ wireless-dev/net/d80211/sta_info.h
-@@ -82,6 +82,8 @@ struct sta_info {
- 	unsigned long rx_dropped; /* number of dropped MPDUs from this STA */
- 
- 	int last_rssi; /* RSSI of last received frame from this STA */
-+	int last_signal; /* signal of last received frame from this STA */
-+	int last_noise; /* noise of last received frame from this STA */
- 	int last_ack_rssi[3]; /* RSSI of last received ACKs from this STA */
- 	unsigned long last_ack;
-         int channel_use;
+ 	priv->retry_limit = 3;
+ 	priv->ant_power = 0x40;
