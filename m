@@ -1,79 +1,86 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
-Date: Thu, 2 Nov 2006 13:27:59 -0800
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B5E78@dhost002-46.dex002.intermedia.net>
-References: <20061102193839.4884ae56@logostar.upir.cz>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: Fw: [Bugme-new] [Bug 7450] New: e1000: eth0: e1000_clean_tx_irq:
+ Detected Tx Unit Hang
+Date: Thu, 02 Nov 2006 13:48:48 -0800
+Message-ID: <454A67C0.6040201@intel.com>
+References: <20061102112015.d4f5c60e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Christoph Hellwig" <hch@infradead.org>,
-	"James Ketrenos" <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, pstaszewski@artcom.pl,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:23833 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1752640AbWKBV1y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 16:27:54 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20061102193839.4884ae56@logostar.upir.cz>
-To: "Jiri Benc" <jbenc@suse.cz>, "Sven-Haegar Koch" <haegar@sdinet.de>
+Received: from mga01.intel.com ([192.55.52.88]:5706 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1752633AbWKBVsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 16:48:54 -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061102112015.d4f5c60e.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Perhaps the solution is to allow the prefix to be a kernel configuration
-item?
+Andrew Morton wrote:
+> 
+> Begin forwarded message:
+> 
+> Date: Thu, 2 Nov 2006 06:41:04 -0800
+> From: bugme-daemon@bugzilla.kernel.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 7450] New: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+> 
+> 
+> http://bugzilla.kernel.org/show_bug.cgi?id=7450
+> 
+>            Summary: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>     Kernel Version: 2.6.19-rc3
+>             Status: NEW
+>           Severity: normal
+>              Owner: acme@conectiva.com.br
+>          Submitter: pstaszewski@artcom.pl
+> 
+> 
+> Most recent kernel where this bug did not occur: not known
+> Distribution: Gentoo Linux x86_64
+> Hardware Environment: 
+> lspci
+> 00:00.0 Host bridge: Intel Corporation E7230/3000/3010 Memory Controller Hub
+> (rev c0)
+> 00:01.0 PCI bridge: Intel Corporation E7230/3000/3010 PCI Express Root Port (rev c0)
+> 00:1c.0 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express Port 1
+> (rev 01)
+> 00:1c.4 PCI bridge: Intel Corporation 82801GR/GH/GHM (ICH7 Family) PCI Express
+> Port 5 (rev 01)
+> 00:1c.5 PCI bridge: Intel Corporation 82801GR/GH/GHM (ICH7 Family) PCI Express
+> Port 6 (rev 01)
+> 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev e1)
+> 00:1f.0 ISA bridge: Intel Corporation 82801GB/GR (ICH7 Family) LPC Interface
+> Bridge (rev 01)
+> 00:1f.2 SATA controller: Intel Corporation 82801GR/GH (ICH7 Family) Serial ATA
+> Storage Controller AHCI (rev 01)
+> 00:1f.3 SMBus: Intel Corporation 82801G (ICH7 Family) SMBus Controller (rev 01)
+> 01:00.0 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge A (rev 09)
+> 01:00.1 PIC: Intel Corporation 6700/6702PXH I/OxAPIC Interrupt Controller A (rev 09)
+> 01:00.2 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge B (rev 09)
+> 01:00.3 PIC: Intel Corporation 6700PXH I/OxAPIC Interrupt Controller B (rev 09)
+> 0d:00.0 Ethernet controller: Intel Corporation 82573E Gigabit Ethernet
+> Controller (Copper) (rev 03)
+> 0e:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet Controller
+> 0f:04.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev 02)
+> 
+> Software Environment: Iptables/Iproute2
+> 
+> Problem Description:
+> e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>   Tx Queue             <0>
+>   TDH                  <31>
+>   TDT                  <31>
 
-Simon 
+the hang is caused by a bad eeprom bit. A script that fixes it for 82573-series with 
+eeproms that need this bit fixed is attached to the bugreport. It detects the proper 
+chipset and patches if required (uses ethtool).
 
------Original Message-----
-From: Jiri Benc [mailto:jbenc@suse.cz] 
-Sent: Thursday, November 02, 2006 10:39 AM
-To: Sven-Haegar Koch
-Cc: Christoph Hellwig; James Ketrenos; John W. Linville; Simon Barber;
-Jeff Garzik; Patrick McHardy; David Kimdon; netdev@vger.kernel.org
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
-d80211-specific qdisc
+hth,
 
-On Thu, 2 Nov 2006 17:09:24 +0100 (CET), Sven-Haegar Koch wrote:
-> At least the ones used on my machines all do.
-> (Debian Sarge, Etch and Unstable)
-> The configfiles can be changed without problems to use any device 
-> name, but needing to edit various files just for a kernel update would
-
-> inhibt me from just trying a new version until I really know I would 
-> not need to go back to the old version again.
-
-Then your config scripts don't work with Prism and Zydas cards.
-Something is broken with your setup.
-
-> (Switching wireless from eth1 to eth2 after copying the harddisk 
-> contents to a new laptop was work enough, but at least expected with a
-
-> new machine and changed hardware)
-
-Because nobody can guarantee you even the order of your Ethernet
-interfaces with newer kernels (e.g. your eth0 Ethernet card may become
-eth1 at any
-time) and it will become even worse with the parallel device discovery,
-your setup is going to explode anyway.
-
-Sorry, I can't take this as an argument. Using your argumentation, we
-must preserve wlan0 name because scripts of zd1201 users will break
-otherwise.
-Or - wait a moment - no no, we must preserve ath0 name because of
-madwifi users - and oh, we must preserve eth1 (not ethX because the
-scripts cannot deal with it) because of ipw users. And we must
-definitely ensure that card numbers won't ever change. Even if you uplug
-them and replug to another slots in a different order.
-
-Sorry, that cannot work.
-
- Jiri
-
---
-Jiri Benc
-SUSE Labs
+Auke
