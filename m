@@ -1,44 +1,79 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [airo.c bug] Couldn't allocate RX FID / Max tries exceeded when issueing command
-Date: Thu, 2 Nov 2006 13:26:28 -0800
-Message-ID: <20061102212628.GA6235@bougret.hpl.hp.com>
-References: <b5def3a40611011914v59ecd4c3xb6965591524aa11@mail.gmail.com> <1162483971.2646.9.camel@localhost.localdomain> <b5def3a40611021030s1b73daa1k2055e5f4373fa746@mail.gmail.com> <1162494679.3347.8.camel@localhost.localdomain> <b5def3a40611021321h22ec79c3x51a54ec7d5b07b3@mail.gmail.com>
-Reply-To: jt@hpl.hp.com
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
+Date: Thu, 2 Nov 2006 13:27:59 -0800
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B5E78@dhost002-46.dex002.intermedia.net>
+References: <20061102193839.4884ae56@logostar.upir.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, linux-kernel@vger.kernel.org,
-	linville@tuxdriver.com, netdev@vger.kernel.org,
-	breed@users.sourceforge.net, achirica@users.sourceforge.net,
-	fabrice@bellet.info
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Christoph Hellwig" <hch@infradead.org>,
+	"James Ketrenos" <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:31212 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S1752628AbWKBV1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 16:27:17 -0500
-To: Ivan Matveich <ivan.matveich@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <b5def3a40611021321h22ec79c3x51a54ec7d5b07b3@mail.gmail.com>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:23833 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1752640AbWKBV1y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 16:27:54 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20061102193839.4884ae56@logostar.upir.cz>
+To: "Jiri Benc" <jbenc@suse.cz>, "Sven-Haegar Koch" <haegar@sdinet.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 02, 2006 at 04:21:16PM -0500, Ivan Matveich wrote:
-> On 11/2/06, Dan Williams <dcbw@redhat.com> wrote:
-> >Do you know which kernel version that patch first appeared in?
-> 
-> It was committed on 1 Dec 2005, and 2.6.15 was released on 3 Jan 2006.
-> 
-> >That would be a great idea, let us know what the results are, especially
-> >if you cna figure out which firmware version you have, or if the card
-> >itself is really just dead.
-> 
-> No luck with freebsd: error resetting card.
-> 
-> I'll try my luck with Cisco's Windows utility---probably
-> tomorrow---but I'd now wager that my card has simply croaked. (I've
-> even taken it out and re-seated it in its slot, just in case that
-> helped.) In any case, thanks for the help.
+Perhaps the solution is to allow the prefix to be a kernel configuration
+item?
 
-	Just remembered... Check the IRQ allocation. I remmeber having
-issues with the BIOS not doing the right stuff.
+Simon 
 
-	Jean
+-----Original Message-----
+From: Jiri Benc [mailto:jbenc@suse.cz] 
+Sent: Thursday, November 02, 2006 10:39 AM
+To: Sven-Haegar Koch
+Cc: Christoph Hellwig; James Ketrenos; John W. Linville; Simon Barber;
+Jeff Garzik; Patrick McHardy; David Kimdon; netdev@vger.kernel.org
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
+d80211-specific qdisc
 
+On Thu, 2 Nov 2006 17:09:24 +0100 (CET), Sven-Haegar Koch wrote:
+> At least the ones used on my machines all do.
+> (Debian Sarge, Etch and Unstable)
+> The configfiles can be changed without problems to use any device 
+> name, but needing to edit various files just for a kernel update would
+
+> inhibt me from just trying a new version until I really know I would 
+> not need to go back to the old version again.
+
+Then your config scripts don't work with Prism and Zydas cards.
+Something is broken with your setup.
+
+> (Switching wireless from eth1 to eth2 after copying the harddisk 
+> contents to a new laptop was work enough, but at least expected with a
+
+> new machine and changed hardware)
+
+Because nobody can guarantee you even the order of your Ethernet
+interfaces with newer kernels (e.g. your eth0 Ethernet card may become
+eth1 at any
+time) and it will become even worse with the parallel device discovery,
+your setup is going to explode anyway.
+
+Sorry, I can't take this as an argument. Using your argumentation, we
+must preserve wlan0 name because scripts of zd1201 users will break
+otherwise.
+Or - wait a moment - no no, we must preserve ath0 name because of
+madwifi users - and oh, we must preserve eth1 (not ethX because the
+scripts cannot deal with it) because of ipw users. And we must
+definitely ensure that card numbers won't ever change. Even if you uplug
+them and replug to another slots in a different order.
+
+Sorry, that cannot work.
+
+ Jiri
+
+--
+Jiri Benc
+SUSE Labs
