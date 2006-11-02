@@ -1,42 +1,56 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
-Date: Wed, 1 Nov 2006 23:15:07 -0800
-Message-ID: <20061102071507.GB28382@kroah.com>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061025165858.b76b4fd8.randy.dunlap@oracle.com> <200610251922.09692.david-b@pacbell.net>
+From: Meelis Roos <mroos@linux.ee>
+Subject: [PATCH] warning in SCTP
+Date: Thu, 2 Nov 2006 09:29:16 +0200 (EET)
+Message-ID: <Pine.SOC.4.61.0611020925530.1919@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <randy.dunlap@oracle.com>, toralf.foerster@gmx.de,
-	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
-	link@miggy.org, akpm@osdl.org, zippel@linux-m68k.org,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kroah.org ([69.55.234.183]:32733 "EHLO perch.kroah.org")
-	by vger.kernel.org with ESMTP id S1752705AbWKBHWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 02:22:38 -0500
-To: David Brownell <david-b@pacbell.net>
-Content-Disposition: inline
-In-Reply-To: <200610251922.09692.david-b@pacbell.net>
+Received: from math.ut.ee ([193.40.36.2]:29406 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S1752709AbWKBH33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 02:29:29 -0500
+To: netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	lksctp-developers@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 25, 2006 at 07:22:08PM -0700, David Brownell wrote:
-> On Wednesday 25 October 2006 4:58 pm, Randy Dunlap wrote:
-> > On Wed, 25 Oct 2006 15:27:09 -0700 David Brownell wrote:
-> > 
-> > > Instead, "usbnet.c" should #ifdef the relevant ethtool hooks
-> > > according to CONFIG_MII ... since it's completely legit to
-> > > use usbnet with peripherals that don't need MII.
-> 
-> I had in mind something simpler -- #ifdeffing the entire functions,
-> as in this patch.  It looks more complicated than it is, because
-> "diff" gets confused by moving two functions earlier in the file.
-> 
-> (Thanks for starting this, Randy ... these two patches should be merged
-> before RC4 ships.)
 
-Argh, there were just too many different versions of these patches
-floating around.  Can you resend the final versions please?
+   CC [M]  net/sctp/sm_make_chunk.o
+net/sctp/sm_make_chunk.c: In function 'sctp_unpack_cookie':
+net/sctp/sm_make_chunk.c:1358: warning: initialization discards qualifiers from pointer target type
 
-thanks,
+The reason is that sctp_unpack_cookie() takes a const struct 
+sctp_endpoint and modifies the digest in it (digest being embedded in 
+the struct, not a pointer). So sctp_unpack_cookie really does not use 
+the argument as const, mark it as such.
 
-greg k-h
+Signed-off-by: Meelis Roos <mroos@linux.ee>
+
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index de313de..ef80489 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -272,7 +272,7 @@ void sctp_generate_heartbeat_event(unsig
+
+  void sctp_ootb_pkt_free(struct sctp_packet *);
+
+-struct sctp_association *sctp_unpack_cookie(const struct sctp_endpoint *,
++struct sctp_association *sctp_unpack_cookie(struct sctp_endpoint *,
+  				       const struct sctp_association *,
+  				       struct sctp_chunk *,
+  				       gfp_t gfp, int *err,
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 507dff7..3d41a9c 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1346,7 +1346,7 @@ nodata:
+
+  /* Unpack the cookie from COOKIE ECHO chunk, recreating the association.  */
+  struct sctp_association *sctp_unpack_cookie(
+-	const struct sctp_endpoint *ep,
++	struct sctp_endpoint *ep,
+  	const struct sctp_association *asoc,
+  	struct sctp_chunk *chunk, gfp_t gfp,
+  	int *error, struct sctp_chunk **errp)
+
+-- 
+Meelis Roos (mroos@linux.ee)
