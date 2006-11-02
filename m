@@ -1,69 +1,101 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
- qdisc
-Date: Thu, 2 Nov 2006 19:38:39 +0100
-Message-ID: <20061102193839.4884ae56@logostar.upir.cz>
-References: <20061026050416.GB14199@havoc.gtf.org>
-	<C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
-	<20061101112805.246e1b3b@griffin.suse.cz>
-	<20061101142022.GC21668@tuxdriver.com>
-	<4548E7F7.7030100@linux.intel.com>
-	<20061102121657.GA13468@infradead.org>
-	<20061102150550.5c30f704@midnight>
-	<20061102141815.GA1795@infradead.org>
-	<20061102164213.19bc6176@griffin.suse.cz>
-	<Pine.LNX.4.64.0611021703230.2999@mercury.sdinet.de>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 2/4] bcm43xx-d80211: Add wireless statistics
+Date: Thu, 02 Nov 2006 12:46:48 -0600
+Message-ID: <454A3D18.mail4RZ1BSPL3@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:37014 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751894AbWKBSit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 13:38:49 -0500
-To: Sven-Haegar Koch <haegar@sdinet.de>
-In-Reply-To: <Pine.LNX.4.64.0611021703230.2999@mercury.sdinet.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	rt2400-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Nov 2006 17:09:24 +0100 (CET), Sven-Haegar Koch wrote:
-> At least the ones used on my machines all do.
-> (Debian Sarge, Etch and Unstable)
-> The configfiles can be changed without problems to use any device name, 
-> but needing to edit various files just for a kernel update would inhibt me 
-> from just trying a new version until I really know I would not need to go 
-> back to the old version again.
+These patches modify bcm43xx-d80211 to use the wireless statics added in patch 1.
 
-Then your config scripts don't work with Prism and Zydas cards. Something
-is broken with your setup.
+Signed-Off-By: Larry Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-> (Switching wireless from eth1 to eth2 after copying the harddisk contents 
-> to a new laptop was work enough, but at least expected with a new machine 
-> and changed hardware)
+Please apply to wireless-dev
 
-Because nobody can guarantee you even the order of your Ethernet interfaces
-with newer kernels (e.g. your eth0 Ethernet card may become eth1 at any
-time) and it will become even worse with the parallel device discovery,
-your setup is going to explode anyway.
 
-Sorry, I can't take this as an argument. Using your argumentation, we must
-preserve wlan0 name because scripts of zd1201 users will break otherwise.
-Or - wait a moment - no no, we must preserve ath0 name because of madwifi
-users - and oh, we must preserve eth1 (not ethX because the scripts cannot
-deal with it) because of ipw users. And we must definitely ensure that card
-numbers won't ever change. Even if you uplug them and replug to another
-slots in a different order.
-
-Sorry, that cannot work.
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+@@ -27,6 +27,8 @@
+ 
+ #define BCM43xx_IO_SIZE			8192
+ 
++#define BCM43xx_RX_MAX_SSI		60
++
+ /* MMIO offsets */
+ #define BCM43xx_MMIO_DMA0_REASON	0x20
+ #define BCM43xx_MMIO_DMA0_IRQ_MASK	0x24
+@@ -610,7 +612,7 @@ struct bcm43xx_noise_calculation {
+ };
+ 
+ struct bcm43xx_stats {
+-	u8 link_quality;
++	u8 link_noise;
+ 	/* Store the last TX/RX times here for updating the leds. */
+ 	unsigned long last_tx;
+ 	unsigned long last_rx;
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -1199,15 +1199,7 @@ static void handle_irq_noise(struct bcm4
+ 		else
+ 			average -= 48;
+ 
+-		if (average > -65)
+-			bcm->stats.link_quality = 0;
+-		else if (average > -75)
+-			bcm->stats.link_quality = 1;
+-		else if (average > -85)
+-			bcm->stats.link_quality = 2;
+-		else
+-			bcm->stats.link_quality = 3;
+-//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
++		bcm->stats.link_noise = average;
+ drop_calculation:
+ 		bcm->noisecalc.calculation_running = 0;
+ 		return;
+@@ -3981,6 +3973,7 @@ static int __devinit bcm43xx_init_one(st
+ 	ieee->host_gen_beacon_template = 1;
+ 	ieee->rx_includes_fcs = 0;
+ 	ieee->monitor_during_oper = 1;
++	ieee->maxssi = BCM43xx_RX_MAX_SSI;
+ 	ieee->tx = bcm43xx_net_hard_start_xmit;
+ 	ieee->open = bcm43xx_net_open;
+ 	ieee->stop = bcm43xx_net_stop;
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+@@ -678,10 +678,12 @@ void bcm43xx_rx(struct bcm43xx_private *
+ 		status.flag |= RX_FLAG_DECRYPTED;
+ 	}
+ 
+-	status.ssi = bcm43xx_rssi_postprocess(bcm, jssi,
++	status.signal = bcm43xx_rssi_postprocess(bcm, jssi,
+ 					      (phystat0 & BCM43xx_RX_PHYST0_OFDM),
+ 					      (phystat0 & BCM43xx_RX_PHYST0_GAINCTL),
+ 					      (phystat3 & BCM43xx_RX_PHYST3_TRSTATE));
++	status.noise = bcm->stats.link_noise;
++	status.ssi = jssi;
+ 	if (phystat0 & BCM43xx_RX_PHYST0_OFDM)
+ 		status.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
+ 	else
