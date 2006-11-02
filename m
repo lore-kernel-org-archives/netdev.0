@@ -1,52 +1,53 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
-Date: Thu, 2 Nov 2006 14:18:15 +0000
-Message-ID: <20061102141815.GA1795@infradead.org>
-References: <20061026050416.GB14199@havoc.gtf.org> <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net> <20061101112805.246e1b3b@griffin.suse.cz> <20061101142022.GC21668@tuxdriver.com> <4548E7F7.7030100@linux.intel.com> <20061102121657.GA13468@infradead.org> <20061102150550.5c30f704@midnight>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel
+ found
+Date: Thu, 02 Nov 2006 16:22:07 +0200
+Message-ID: <4549FF0F.6020705@tcs.hut.fi>
+References: <4549D8E7.1040409@tcs.hut.fi>	<20061102.215900.15793371.yoshfuji@linux-ipv6.org>	<4549EFA7.50004@tcs.hut.fi> <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:2984 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1750705AbWKBOTC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 09:19:02 -0500
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20061102150550.5c30f704@midnight>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:7052 "EHLO mail.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1750735AbWKBOWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 09:22:15 -0500
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 02, 2006 at 03:05:50PM +0100, Jiri Benc wrote:
-> On Thu, 2 Nov 2006 12:16:57 +0000
-> Christoph Hellwig <hch@infradead.org> wrote:
-> > The most important merge requirement is to not break userspace.  That means
-> > proper support of WE (hopefully via cfg80211), and a single ethX network
-> > device.
+On 11/02/06 16:18, YOSHIFUJI Hideaki wrote:
+> In article <4549EFA7.50004@tcs.hut.fi> (at Thu, 02 Nov 2006 15:16:23 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 > 
-> Sounds reasonable. Though:
-> - I don't think ethX is the appropriate name. It's not an ethernet
->   device and many wireless drivers currently use wlanX name. I think
->   the current wlanX name is a better choice here.
+>> On 11/02/06 14:59, YOSHIFUJI Hideaki wrote:
+>>> In article <4549D8E7.1040409@tcs.hut.fi> (at Thu, 02 Nov 2006 13:39:19 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+>>>
+>>>>  	read_unlock(&ip6ip6_lock);
+>>>> -	return 1;
+>>>> -
+>>>> +	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
+>>>> +		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
+>>>>  discard:
+>>> I'd argue this.  We probably should not send back any ICMPv6 packets 
+>>> to the original sender in this case to avoid DoS.
+>> Sorry, I don't follow you. I don't see the DoS scenario here (after we
+>> apply the patch, that is ;-).
+> 
+> Well, leaving aside whether sending icmpv6 is good thing (*),
+> the code for sending icmpv6 was moved from ip6_tunnel.c
+> to tunnel6.c by commit-id 50fba2aa7cefa6b0e1768cb350c9e69042320c03
+> by Herbert.
+> 
+> The ip6_tunnel.c change that Herbert made does not seem consistent
+> with ipip.c change.  To fix your issue the appropriate change is just
+> fall through to discard section, as we're doing for ipip.c.
+> 
+> Please do not re-add sending icmpv6 logic here.
+> If you DO think it is appropriate, please fix other codes
+> such as ipip.c, and your comment.
 
-This is not about the name that makes sense.  I think using ethX names
-for wireless devices is utterly stupid, but it's what all current upstream
-drivers do, and at least for WE compat we'll have to stick to it.
+Ok, I'll resubmit a patch doesn't send an ICMPv6 error message.
 
-> - Single device is not as easy as it sounds. It would require rather
->   invasive changes in the networking core or ugly hacks in d80211. I'm
->   afraid this is something not achievable in a near future with current
->   number of people working on d80211. But in general, it's doable and
->   desirable, yes.
-
-Again, I'm not sure it's even desirable in the end.  We do however need
-a mode in which you can configure a single ethX device with WE and it'll
-just work.  It's entirely reasonable to only support a subset of the
-functionality that way (no 802.11n, no AP mode, etc)
-
+Regards,
+Ville
