@@ -1,85 +1,47 @@
-From: "Horvath, Elmer" <Elmer.Horvath@windriver.com>
-Subject: RE: [tipc-discussion] [KJ] [patch] net/tipc:sprintf/strcpy	conversion
-Date: Thu, 2 Nov 2006 07:25:01 -0800
-Message-ID: <F6AE8F99CFBB884E9681D609D859BAD324D63D@ala-mail02.corp.ad.wrs.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
+ qdisc
+Date: Thu, 2 Nov 2006 16:42:13 +0100
+Message-ID: <20061102164213.19bc6176@griffin.suse.cz>
+References: <20061026050416.GB14199@havoc.gtf.org>
+	<C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
+	<20061101112805.246e1b3b@griffin.suse.cz>
+	<20061101142022.GC21668@tuxdriver.com>
+	<4548E7F7.7030100@linux.intel.com>
+	<20061102121657.GA13468@infradead.org>
+	<20061102150550.5c30f704@midnight>
+	<20061102141815.GA1795@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:13504 "EHLO mail.wrs.com")
-	by vger.kernel.org with ESMTP id S1751380AbWKBPZm convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 10:25:42 -0500
-Content-class: urn:content-classes:message
-To: <wharms@bfs.de>, <tipc-discussion@lists.sourceforge.net>,
-	<kernel-janitors@lists.osdl.org>, <netdev@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:56704 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751392AbWKBPmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 10:42:16 -0500
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20061102141815.GA1795@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2 Nov 2006 14:18:15 +0000, Christoph Hellwig wrote:
+> This is not about the name that makes sense.  I think using ethX names
+> for wireless devices is utterly stupid, but it's what all current upstream
+> drivers do, and at least for WE compat we'll have to stick to it.
 
-Florian Westphal wrote:
->> walter harms <wharms@bfs.de> wrote:
->>> These line
->>> +       strcpy(bcbearer->media.name, "tipc-multicast");
->>> i gues that means tipc_bclink_name ?
->> 
->> The idea was to change how things are done, not _what_ is being done.
->> 
->>> an even more secure version could be like this:
->>>
->>>
-strncpy(bcbearer->media.name,sizeof(bcbearer->media.name),tipc_bclink_na
-me);
->> 
->> Ugh, please, no. The size of src is known in all cases; there is
->> absoluty no point in using str(n|l)cpy here.
->> 
->>> (in case someone ever changes the size of cbearer->media.name or
-tipc_bclink_name and the >hope
->>> that wchat_t will never reach the kernel)
->>> 
->> In this case 'someone' should be really hurt, don't you think?
->> 
->
->hi florian,
->i am on the side of error, the code increase is marginal and the speed
-penalty also, so why not ?
->you make sure that an overflow may never happen, and the rest in name
-gets zeroed.
->
->The problem is that when the error occurs it may be later than the
-actual changeset.
->NTL it is an hint, and if you feel ok with it and the maintainer has no
-objects i have no >problems either.
+That's not true. Look at hostap or zd1201, for example. Also, ethX name
+is not needed for WE compatibility. And because of various names used
+by various drivers (madwifi uses ath0, for example) config scripts
+don't depend on ethX name today anyway.
 
->re,
-> wh
+ Jiri
 
-This objection I would have here is that you have would have to use
-strlcpy or you must explicitly set the last byte to '\0'.  strncpy()
-will not guarnatee a null-terminated string.  Also, str(n|l)cpy always
-writes 'n' bytes whereas strcpy() will only write as many bytes as
-required stopping at the null.  This is inefficient.
-
-It would be better to ensure that the sting being copied is correctly
-sized when first accepted if this is possible.  I didn't trace the
-usage, but it has likely already been checked for size.  No?
-
-Elmer
-
-
-------------------------------------------------------------------------
--
-Using Tomcat but need to do more? Need to support web services,
-security?
-Get stuff done quickly with pre-integrated technology to make your job
-easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache
-Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
-_______________________________________________
-tipc-discussion mailing list
-tipc-discussion@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/tipc-discussion
+-- 
+Jiri Benc
+SUSE Labs
