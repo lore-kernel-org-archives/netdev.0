@@ -1,80 +1,78 @@
-From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
-Subject: IPv6 and rt6_lookup()
-Date: Thu, 02 Nov 2006 17:25:27 +0100
-Message-ID: <454A1BF7.6030500@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather thand80211-specific qdisc
+Date: Thu, 2 Nov 2006 08:33:57 -0800
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B5DE3@dhost002-46.dex002.intermedia.net>
+References: <1162477358.10786.4.camel@ux156>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080401000603060800060101"
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "James Ketrenos" <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01.net-streams.fr ([62.23.133.110]:58125 "EHLO
-	net-streams.fr") by vger.kernel.org with ESMTP id S1751931AbWKBQXc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 11:23:32 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:8226 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751981AbWKBQdn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 11:33:43 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <1162477358.10786.4.camel@ux156>
+To: "Johannes Berg" <johannes@sipsolutions.net>,
+	"Christoph Hellwig" <hch@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080401000603060800060101
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+There are many reasons to have the master device - and many reasons not
+to get rid of it. The only excpetion is when using a limited fullmac
+card.  Some fullmac cards only support a single ethernet interface, so
+for these cards a single device may be OK, if we want to allow multiple
+different appearences for different types of card (a bad thing in my
+book). (Note - older prism 54g fullmac cards support WDS, hence need
+multiple interfaces).
 
-Hello,
+The master interface represents the physical networking device that
+works using native 802.11 frames. The qdisc works on 802.11 frames - not
+ethernet, and it can change how 802.11 management frames are queued. It
+can only be got rid of in the case of a fullmac card with only a single
+interface, where all management frames are processed in the card.
 
-Suppose that a host has autoconfiguration enabled. It will take RA to
-autoconfigure an IPv6 address. For example, 
-2001:0db8:3008:c1ca:2d0:b7ff:febb:4aee/64.
-This host will create a route entry for this onlink prefix (dst: 
-2001:0db8:3008:c1ca::/64)
-in the MAIN table with the lifetime present in prefix option in RA.
-Each time this host will receive a RA, it will update this lifetime. To 
-do this,
-it will call rt6_lookup() (in addrconf_prefix_rcv()) to find the entry.
+In addition as we move to make 802.11 devices native (i.e. create an
+802.11 protocol) the 802.11 master interface will be essential.
 
-Now, suppose that our host joins this anycast group: 
-"2001:0db8:3008:c1ca::0". A route
-entry will be added in the LOCAL table (see addrconf_join_anycast()).
-Problem is that, next time our host will receive a RA and will perform a 
-rt6_lookup(),
-this function will return the local entry (LOCAL table), and not the 
-"dynamic" entry
-(MAIN table). Consequence is that the lifetime of the dynamic entry will 
-never been updated,
-and so will expire, whereas the host will keep the corresponding address.
+I don't see the problem with 802.11 master devices - they are not
+ethernet devices, and should not confuse any user space. Any user space
+that gets confused by netdevices with arp-hdr types that they do not
+recognise is broken, and needs to be fixed.
 
-Maybe, when strict is set to 1 in rt6_lookup(), kernel must not return 
-an anycast route.
-What about this patch ?
+Simon
 
 
-Regards,
-Nicolas
+-----Original Message-----
+From: Johannes Berg [mailto:johannes@sipsolutions.net] 
+Sent: Thursday, November 02, 2006 6:23 AM
+To: Christoph Hellwig
+Cc: James Ketrenos; John W. Linville; Simon Barber; Jeff Garzik; Patrick
+McHardy; David Kimdon; netdev@vger.kernel.org
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather
+thand80211-specific qdisc
 
-[IPv6] Don't return anycast route when strict is enable
+On Thu, 2006-11-02 at 15:05 +0100, Jiri Benc wrote:
+> - Single device is not as easy as it sounds. It would require rather
+>   invasive changes in the networking core or ugly hacks in d80211. I'm
+>   afraid this is something not achievable in a near future with
+current
+>   number of people working on d80211. But in general, it's doable and
+>   desirable, yes.
 
-Signed-off-by: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+Actually, just as a note to all the others (talked to Jiri about it
+already), I think it's easier than thought since the code is so
+convoluted. The only purpose of the wmaster device appears to be to have
+an outgoing frame queue through the qdisc. Since we require the 802.11
+qdisc to be installed at the root for all netdevices anyway, we could
+just as well hand the frame to it right away.
 
+I'll look into that later today.
 
---------------080401000603060800060101
-Content-Type: text/x-patch;
- name="ra.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ra.diff"
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c953466..51a8c1d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -248,6 +248,8 @@ static __inline__ struct rt6_info *rt6_d
- 			if (dev->ifindex == oif)
- 				return sprt;
- 			if (dev->flags & IFF_LOOPBACK) {
-+				if (strict && sprt->rt6i_flags & RTF_ANYCAST)
-+					continue;
- 				if (sprt->rt6i_idev == NULL ||
- 				    sprt->rt6i_idev->dev->ifindex != oif) {
- 					if (strict && oif)
-
---------------080401000603060800060101--
+johannes
