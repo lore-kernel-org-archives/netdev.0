@@ -1,34 +1,68 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 0/4] d80211: Add wireless statistics
-Date: Thu, 02 Nov 2006 12:12:25 -0600
-Message-ID: <454A3509.9000306@lwfinger.net>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] warning in SCTP
+Date: Thu, 02 Nov 2006 10:29:49 -0800
+Message-ID: <1162492190.9660.28.camel@w-sridhar2.beaverton.ibm.com>
+References: <Pine.SOC.4.61.0611020925530.1919@math.ut.ee>
+	 <20061102.001643.30183952.davem@davemloft.net>
+	 <20061102.003953.55508453.davem@davemloft.net>
+	 <Pine.SOC.4.61.0611021119560.1919@math.ut.ee>  <454A1836.9010709@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, rt2400-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Broadcom Linux <bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Meelis Roos <mroos@linux.ee>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:41195 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751482AbWKBSaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 13:30:00 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kA2ITqpt006550
+	for <netdev@vger.kernel.org>; Thu, 2 Nov 2006 13:29:52 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kA2ITpLY248094
+	for <netdev@vger.kernel.org>; Thu, 2 Nov 2006 13:29:52 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kA2ITpGr010972
+	for <netdev@vger.kernel.org>; Thu, 2 Nov 2006 13:29:51 -0500
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+In-Reply-To: <454A1836.9010709@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This set of patches modifies the d80211 stack and the drivers that use it to support wireless 
-statistics.
+On Thu, 2006-11-02 at 11:09 -0500, Vlad Yasevich wrote:
+> Meelis Roos wrote:
+> >> Actually, I'm backing this one out, it creates new warnings because
+> >> callers of this function pass in a "const" pointer.
+> > 
+> > Yes, it now seems it's not so simple. Marking it non-const there would
+> > mark the it non-const in the whole family of sctp_state_fn_t and I'm not
+> > sure that's the best thing to do. I guess the maintainer has better
+> > bases for deciding what to do about it.
+> > 
+> 
+> An alternate solution would be to make the digest a pointer, allocate
+> it in sctp_endpoint_init() and free it in sctp_endpoint_destroy().
 
-1. Adds the necessary data and code to the d80211 routines.
+I agree that this is a better solution.
 
-2. Modifies bcm43xx-d80211 to conform.
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-3. Modifies adm8211-d80211 to conform.
+Thanks
+Sridhar
 
-4. Modifies the rt2x00-d80211 drivers to conform.
+> 
+> I guess I should have originally done it this way...
+> 
+> 
+>   CC [M]  net/sctp/sm_make_chunk.o
+> net/sctp/sm_make_chunk.c: In function 'sctp_unpack_cookie':
+> net/sctp/sm_make_chunk.c:1358: warning: initialization discards qualifiers from pointer target type
+> 
+> The reason is that sctp_unpack_cookie() takes a const struct sctp_endpoint and modifies the digest in it
+> (digest being embedded in the struct, not a pointer).  Make digest a pointer to fix this warning.
+> 
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com> 
+> 
+> 
+> 
 
-Larry
