@@ -1,73 +1,69 @@
-From: "Ivan Matveich" <ivan.matveich@gmail.com>
-Subject: Re: [airo.c bug] Couldn't allocate RX FID / Max tries exceeded when issueing command
-Date: Thu, 2 Nov 2006 13:30:34 -0500
-Message-ID: <b5def3a40611021030s1b73daa1k2055e5f4373fa746@mail.gmail.com>
-References: <b5def3a40611011914v59ecd4c3xb6965591524aa11@mail.gmail.com>
-	 <1162483971.2646.9.camel@localhost.localdomain>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
+ qdisc
+Date: Thu, 2 Nov 2006 19:38:39 +0100
+Message-ID: <20061102193839.4884ae56@logostar.upir.cz>
+References: <20061026050416.GB14199@havoc.gtf.org>
+	<C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
+	<20061101112805.246e1b3b@griffin.suse.cz>
+	<20061101142022.GC21668@tuxdriver.com>
+	<4548E7F7.7030100@linux.intel.com>
+	<20061102121657.GA13468@infradead.org>
+	<20061102150550.5c30f704@midnight>
+	<20061102141815.GA1795@infradead.org>
+	<20061102164213.19bc6176@griffin.suse.cz>
+	<Pine.LNX.4.64.0611021703230.2999@mercury.sdinet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	netdev@vger.kernel.org, breed@users.sourceforge.net,
-	achirica@users.sourceforge.net, jt@hpl.hp.com, fabrice@bellet.info
+Cc: Christoph Hellwig <hch@infradead.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:18454 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1751900AbWKBSao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 13:30:44 -0500
-Received: by py-out-1112.google.com with SMTP id a73so147395pye
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2006 10:30:35 -0800 (PST)
-To: "Dan Williams" <dcbw@redhat.com>
-In-Reply-To: <1162483971.2646.9.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:37014 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751894AbWKBSit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 13:38:49 -0500
+To: Sven-Haegar Koch <haegar@sdinet.de>
+In-Reply-To: <Pine.LNX.4.64.0611021703230.2999@mercury.sdinet.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/2/06, Dan Williams <dcbw@redhat.com> wrote:
-> It appears that the driver cannot talk to your card; see the "max tries
-> exceeded when issueing command".  Did this card work previously with a
-> kernel?  Can narrow down which kernels have problems and which don't?
+On Thu, 2 Nov 2006 17:09:24 +0100 (CET), Sven-Haegar Koch wrote:
+> At least the ones used on my machines all do.
+> (Debian Sarge, Etch and Unstable)
+> The configfiles can be changed without problems to use any device name, 
+> but needing to edit various files just for a kernel update would inhibt me 
+> from just trying a new version until I really know I would not need to go 
+> back to the old version again.
 
-It spontaneously stopped working about a week after I bought the
-laptop and installed Linux. I tried kernel 2.6.12 and it had the same
-problem. (Let me know if you'd like me to try a specific version.)
+Then your config scripts don't work with Prism and Zydas cards. Something
+is broken with your setup.
 
-I'm hoping that the card has simply got itself into some kind of
-invalid state, and not failed altogether.
+> (Switching wireless from eth1 to eth2 after copying the harddisk contents 
+> to a new laptop was work enough, but at least expected with a new machine 
+> and changed hardware)
 
-> It's a bit hard to figure out what firmware you have because the driver
-> can't talk to the card; can you boot under Windows and determine that
-> using the Cisco wireless utility?  You also need to flash the card under
-> Windows, not Linux, ideally to a version of firmware greater than
-> 5.60.08.
+Because nobody can guarantee you even the order of your Ethernet interfaces
+with newer kernels (e.g. your eth0 Ethernet card may become eth1 at any
+time) and it will become even worse with the parallel device discovery,
+your setup is going to explode anyway.
 
-I haven't run Windows in many years, so that's problematic. What's the
-most straightforward way to boot into a Windows environment sufficient
-to run the Cisco wireless utility?
+Sorry, I can't take this as an argument. Using your argumentation, we must
+preserve wlan0 name because scripts of zd1201 users will break otherwise.
+Or - wait a moment - no no, we must preserve ath0 name because of madwifi
+users - and oh, we must preserve eth1 (not ethX because the scripts cannot
+deal with it) because of ipw users. And we must definitely ensure that card
+numbers won't ever change. Even if you uplug them and replug to another
+slots in a different order.
 
-> reloading the driver (rmmod airo; modprobe airo) should reset the card.
+Sorry, that cannot work.
 
-Yeah, it unfortunately doesn't help. (Nor does rebooting or resetting
-the bios.) I noticed a suspiciously relevant commit in the airo.c git
-log:
+ Jiri
 
-    [wireless airo] reset card in init
-
-    without this patch after an rmmod, modprobe the card won't work anymore
-    until the next reboot.
-
-    This patch seem safe to apply for all cards as the bsd driver already do
-    that.
-
-    I had to add a timeout because strange things happen (issuecommand will
-    fail) if the card is already reseted (after a reboot).
-
-    PS : it seems there are missing reset when leaving monitor mode...
-
-    Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
-
-and that makes me wonder if there might be some kind of subtle bug in
-the card initialization sequence that manifests itself with my
-particular card/firmware.
-
-I think I'll burn a freebsd livecd today and see if their kernel works.
+-- 
+Jiri Benc
+SUSE Labs
