@@ -1,35 +1,33 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel
- found
-Date: Thu, 02 Nov 2006 21:59:00 +0900 (JST)
-Message-ID: <20061102.215900.15793371.yoshfuji@linux-ipv6.org>
-References: <4549D8E7.1040409@tcs.hut.fi>
+Subject: Re: [PATCH 0/6] IPv6: IPv6 tunnel fixes
+Date: Thu, 02 Nov 2006 22:01:07 +0900 (JST)
+Message-ID: <20061102.220107.119433076.yoshfuji@linux-ipv6.org>
+References: <4549D609.8060202@tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:523 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752129AbWKBM4M
+Received: from yue.linux-ipv6.org ([203.178.140.15]:2315 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752132AbWKBM6T
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 07:56:12 -0500
+	Thu, 2 Nov 2006 07:58:19 -0500
 To: vnuorval@tcs.hut.fi
-In-Reply-To: <4549D8E7.1040409@tcs.hut.fi>
+In-Reply-To: <4549D609.8060202@tcs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <4549D8E7.1040409@tcs.hut.fi> (at Thu, 02 Nov 2006 13:39:19 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+In article <4549D609.8060202@tcs.hut.fi> (at Thu, 02 Nov 2006 13:27:05 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 
->  	read_unlock(&ip6ip6_lock);
-> -	return 1;
-> -
-> +	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
-> +		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
->  discard:
+> the following incremental patches contain several fixes to ip6_tunnel.c.
+> They are in chronological order, so the most critical one is
+> unfortunately last. Many thanks to Tero Kauppinen for reporting that one!
 
-I'd argue this.  We probably should not send back any ICMPv6 packets 
-to the original sender in this case to avoid DoS.
+I ack all patches except for the last one.
 
---yoshfuji.
+Note: they are in the branch of
+        git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-fix/
+
+--yoshfuji
