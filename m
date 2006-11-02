@@ -1,39 +1,41 @@
-From: Florian Westphal <fw-kernel@strlen.de>
-Subject: Re: [tipc-discussion] [KJ] [patch] net/tipc: sprintf/strcpy conversion
-Date: Thu, 2 Nov 2006 07:26:56 +0100
-Message-ID: <20061102062656.GA8339@Chamillionaire.breakpoint.cc>
-References: <20061101140624.GA7694@Chamillionaire.breakpoint.cc> <454913D2.9050608@bfs.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Thu, 2 Nov 2006 09:21:58 +0300
+Message-ID: <20061102062158.GC5552@2ka.mipt.ru>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz> <20061101185745.GA12440@2ka.mipt.ru> <5c49b0ed0611011812w8813df3p830e44b6e87f09f4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:3246 "EHLO
-	Chamillionaire.breakpoint.cc") by vger.kernel.org with ESMTP
-	id S1752309AbWKBG13 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 01:27:29 -0500
-To: tipc-discussion@lists.sourceforge.net,
-	kernel-janitors@lists.osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Oleg Verych <olecom@flower.upol.cz>,
+	Pavel Machek <pavel@ucw.cz>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750943AbWKBGeT@vger.kernel.org>
+To: Nate Diller <nate.diller@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <454913D2.9050608@bfs.de>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <5c49b0ed0611011812w8813df3p830e44b6e87f09f4@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-walter harms <wharms@bfs.de> wrote:
-> These line
->+       strcpy(bcbearer->media.name, "tipc-multicast");
-> i gues that means tipc_bclink_name ?
+On Wed, Nov 01, 2006 at 06:12:41PM -0800, Nate Diller (nate.diller@gmail.com) wrote:
+> Indesiciveness has certainly been an issue here, but I remember akpm
+> and Ulrich both giving concrete suggestions.  I was particularly
+> interested in Andrew's request to explain and justify the differences
+> between kevent and BSD's kqueue interface.  Was there a discussion
+> that I missed?  I am very interested to see your work on this
+> mechanism merged, because you've clearly emphasized performance and
+> shown impressive results.  But it seems like we lose out on a lot by
+> throwing out all the applications that already use kqueue.
 
-The idea was to change how things are done, not _what_ is being done.
+It looks you missed that discussion - freebsd kqueue has fields in the 
+kevent structure which have diffent sizes in 32 and 64 bit environments.
 
-> an even more secure version could be like this:
-> 
-> 	strncpy(bcbearer->media.name,sizeof(bcbearer->media.name),tipc_bclink_name);
+> NATE
 
-Ugh, please, no. The size of src is known in all cases; there is
-absoluty no point in using str(n|l)cpy here.
-
-> (in case someone ever changes the size of cbearer->media.name or tipc_bclink_name and the hope
-> that wchat_t will never reach the kernel)
-
-In this case 'someone' should be really hurt, don't you think?
-
-Florian
+-- 
+	Evgeniy Polyakov
