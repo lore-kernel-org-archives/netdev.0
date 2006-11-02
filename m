@@ -1,41 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: (usagi-core 31424) Re: [PATCH 7/13] [RFC] [IPV6] Move source
- address selection into route lookup.
-Date: Thu, 02 Nov 2006 22:13:39 +0900 (JST)
-Message-ID: <20061102.221339.102356265.yoshfuji@linux-ipv6.org>
-References: <20061018.230850.91573842.yoshfuji@linux-ipv6.org>
-	<4536E279.1090003@jp.ibm.com>
-	<4549E8B3.4070601@tcs.hut.fi>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific
+ qdisc
+Date: Thu, 2 Nov 2006 15:05:50 +0100
+Message-ID: <20061102150550.5c30f704@midnight>
+References: <20061026050416.GB14199@havoc.gtf.org>
+	<C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
+	<20061101112805.246e1b3b@griffin.suse.cz>
+	<20061101142022.GC21668@tuxdriver.com>
+	<4548E7F7.7030100@linux.intel.com>
+	<20061102121657.GA13468@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mitch@jp.ibm.com, usagi-core@linux-ipv6.org, davem@davemloft.net,
-	tgraf@suug.ch, kim.nordlund@nokia.com, netdev@vger.kernel.org,
-	jean-mickael.guerin@6wind.com, yoshfuji@linux-ipv6.org
+Cc: James Ketrenos <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:9995 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752771AbWKBNKv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 08:10:51 -0500
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <4549E8B3.4070601@tcs.hut.fi>
+Received: from styx.suse.cz ([82.119.242.94]:49555 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1752444AbWKBODN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 09:03:13 -0500
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20061102121657.GA13468@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <4549E8B3.4070601@tcs.hut.fi> (at Thu, 02 Nov 2006 14:46:43 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+On Thu, 2 Nov 2006 12:16:57 +0000
+Christoph Hellwig <hch@infradead.org> wrote:
+> The most important merge requirement is to not break userspace.  That means
+> proper support of WE (hopefully via cfg80211), and a single ethX network
+> device.
 
-> > http://testlab.linux-ipv6.org/tahi-autorun.2/net-2.6_20061018/
-> 
-> The host testlab.linux-ipv6.org doesn't seem to be visible to the
-> outside world so could you post the results somewhere where I could take
-> a closer look at the results?
+Sounds reasonable. Though:
+- I don't think ethX is the appropriate name. It's not an ethernet
+  device and many wireless drivers currently use wlanX name. I think
+  the current wlanX name is a better choice here.
+- Single device is not as easy as it sounds. It would require rather
+  invasive changes in the networking core or ugly hacks in d80211. I'm
+  afraid this is something not achievable in a near future with current
+  number of people working on d80211. But in general, it's doable and
+  desirable, yes.
 
-It is visible world-wide, assuming you have IPv6 connection.
+> The second most important is proper smp support, or good code
+> quality in general.  We can't afford to merge buggy code.
 
-> Could you actually also send me the configuration files for the TAHI
-> test, so I could try to set up an identical test environment?
+I definitely agree here.
 
-Nothing special.
+> Third most
+> important is to make sure it's a full replacment for the current ieee80211
+> code - for the softmac cards that's mostly trivial, but the half-hard mac
+> old intel cards are hard.  That's where intel comes into play because you
+> support that hardware _and_ are pushing for d80211.  That makes your team
+> pretty much volunteer to fix that up in my eyes.
 
---yoshfuji
+Let's see...
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
