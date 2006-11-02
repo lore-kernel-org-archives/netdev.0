@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Crash in ip_conntrack on shutdown
-Date: Wed, 01 Nov 2006 17:49:31 -0800 (PST)
-Message-ID: <20061101.174931.66061218.davem@davemloft.net>
-References: <45494243.20001@dslnorthwest.net>
+Subject: Re: [PATCH] silence a warning in ebtables
+Date: Wed, 01 Nov 2006 18:07:57 -0800 (PST)
+Message-ID: <20061101.180757.94889727.davem@davemloft.net>
+References: <Pine.SOC.4.61.0611011857340.11421@math.ut.ee>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43964
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31385
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752463AbWKBBtZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Nov 2006 20:49:25 -0500
-To: shemminger@dslnorthwest.net
-In-Reply-To: <45494243.20001@dslnorthwest.net>
+	id S1751537AbWKBCHw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 21:07:52 -0500
+To: mroos@linux.ee
+In-Reply-To: <Pine.SOC.4.61.0611011857340.11421@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@dslnorthwest.net>
-Date: Wed, 01 Nov 2006 16:56:35 -0800
+From: Meelis Roos <mroos@linux.ee>
+Date: Wed, 1 Nov 2006 19:01:14 +0200 (EET)
 
-> My desktop machine (Fedora Core 6) crashed on during shutdown when 
-> running latest
-> 2.6.19-rc4 kernel. Machine is UP Amd64.
+> net/bridge/netfilter/ebtables.c: In function 'ebt_dev_check':
+> net/bridge/netfilter/ebtables.c:89: warning: initialization discards qualifiers from pointer target type
 > 
-> It looks like a null dereference in ip_conntrack. See screenshot.
->   
-> http://picasaweb.google.com/stephen.hemminger/LinuxCrashes/photo#4992593950061821970
+> So make the char* a const char * and the warning is gone.
+> 
+> Signed-off-by: Meelis Roos <mroos@linux.ee>
 
-Can some x86_64 expert decode this?  I'm trying to figure out what
-object is being NULL defer'd, and after taking a quick look at
-this dump I can't figure it out.
-
-I suspect there may also be a OOPS right before this one, I also
-wonder if this was actually a BUG_ON() trigger.
+Applied, thanks a lot.
