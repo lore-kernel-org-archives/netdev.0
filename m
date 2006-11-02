@@ -1,46 +1,32 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Big Endian PCI driver
-Date: Wed, 1 Nov 2006 21:15:58 -0800
-Message-ID: <20061101211558.3da6fccd@localhost.localdomain>
-References: <B2EAB41A1AF603458C6A01E3CC809C44027F009F@dbde01.ent.ti.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: How about current IP100A status? 10/31/2006
+Date: Thu, 02 Nov 2006 00:21:01 -0500
+Message-ID: <4549803D.5020302@pobox.com>
+References: <002101c6fe3e$369ca1e0$4964a8c0@icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=Big5
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:58076 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751063AbWKBFQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 00:16:21 -0500
-To: "Patel, Shalin" <shalinip@ti.com>
-In-Reply-To: <B2EAB41A1AF603458C6A01E3CC809C44027F009F@dbde01.ent.ti.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:50853 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1752650AbWKBFVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 00:21:07 -0500
+To: Jesse Huang <jesse@icplus.com.tw>
+In-Reply-To: <002101c6fe3e$369ca1e0$4964a8c0@icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Nov 2006 10:37:20 +0530
-"Patel, Shalin" <shalinip@ti.com> wrote:
+Jesse Huang wrote:
+> Dear All:
+> 
+> How about current IP100A, sundance.c status? Should it be put into kernel or
+> not?
+> Is there any sentence should I need to modify?
 
-> 
-> Hi, 
-> 
-> I am trying to run PCI based Ethernet card (RTL 8139) on a big endian
-> host. 
-> 
-> The pci controller that I have does not have any mechanism for swapping
-> the Big Endian data to Little Endian. While running the 8139too.c driver
-> I see that the data generated on the line is Endian swapped. 
-> 
-> In the data sheet of RTL 8139 I could not find any BSWAP bit neither the
-> 8139too.c driver does any swapping of data while transmitting or
-> receiving. However, if I change the driver to swap data before
-> transmitting and after receiving I am able to get it working.
-> 
-> Does the RTL 8139 driver in 2.6.10 support Big Endian? Is there any
-> other Ethernet card driver which supports big endian host (with a PCI
-> controller which does not support byte swapping)?
-> 
-> Thanks,
-> Shalin Patel
+It's in my queue.  We are in a bug fix-only cycle right now, so it has
+been a bit lower priority, but I will queue it for 2.6.20.
 
-Skge does the byte swapping in hardware on the card.
-Sky2 it was easier to do the byte swapping in software. It isn't hard
-to do it in software.
+	Jeff
+
+
+
