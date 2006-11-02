@@ -1,33 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP congestion graphs (2.6.19-rc4)
-Date: Wed, 01 Nov 2006 21:44:18 -0800 (PST)
-Message-ID: <20061101.214418.74747744.davem@davemloft.net>
-References: <20061031.173028.118970335.davem@davemloft.net>
-	<20061101052500.GA19676@2ka.mipt.ru>
-	<20061031215848.7588d5f0@localhost.localdomain>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] bcm43xx: Drain TX status before starting IRQs
+Date: Wed, 01 Nov 2006 23:46:27 -0600
+Message-ID: <45498633.7040808@lwfinger.net>
+References: <200610191729.35402.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, davidwei79@gmail.com, rhee@eos.ncsu.edu,
-	sha2@ncsu.edu, netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56536
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752676AbWKBFot (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 00:44:49 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061031215848.7588d5f0@localhost.localdomain>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:39163 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1752684AbWKBFqo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 00:46:44 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200610191729.35402.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 31 Oct 2006 21:58:48 -0800
+Michael Buesch wrote:
+> Drain the Microcode TX-status-FIFO before we enable IRQs.
+> This is required, because the FIFO may still have entries left
+> from a previous run. Those would immediately fire after enabling
+> IRQs and would lead to an oops in the DMA TXstatus handling code.
+> 
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> 
+> --
+> 
+> Please consider also pushing this into the -stable tree.
+> The bug is not likely to trigger, but at least ben
+> triggered it in the past. Anyway, it can't hurt much to
+> drain the FIFO before running the device.
+> 
+> Note that this is diffed against 2.6.18.1 and not 2.6.18
+> as the diff prolog suggests. I just forgot to rename
+> the directory. ;)
 
-> Some basic stuff is on the parent page
-> 	http://developer.osdl.org/shemminger/tcp
+Has anyone used this patch, particularly with WPA encryption? When I try it, wpa_supplicant 
+immediately uses 90+% of the cpu and never actually authenticates with my AP. I wonder if it is 
+something with my system.
 
-Are you using tcptrace to generate those plots?
-If so are you using xplot or gnuplot to build those
-image files?
+Thanks,
 
-Thanks.
+Larry
+
