@@ -1,98 +1,42 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC] networking structure holes
-Date: Thu, 02 Nov 2006 07:55:59 +0100
-Message-ID: <4549967F.7050505@cosmosbay.com>
-References: <20061031203430.GF5319@mandriva.com>
- <4547BA54.5090709@cosmosbay.com>
- <39e6f6c70611011831m3521599boa5a6a77957d143a8@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 2/2] usbnet: use MII hooks only if CONFIG_MII is enabled
+Date: Wed, 1 Nov 2006 23:15:07 -0800
+Message-ID: <20061102071507.GB28382@kroah.com>
+References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <20061025222709.A13681C5E0B@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20061025165858.b76b4fd8.randy.dunlap@oracle.com> <200610251922.09692.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, toralf.foerster@gmx.de,
+	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	link@miggy.org, akpm@osdl.org, zippel@linux-m68k.org,
+	torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604002mt.neufgp.fr ([84.96.92.61]:37280 "EHLO sMtp.neuf.fr")
-	by vger.kernel.org with ESMTP id S1750698AbWKBG4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 01:56:00 -0500
-Received: from [192.168.30.203] ([84.7.143.198]) by sp604002mt.gpm.neuf.ld
- (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
- with ESMTP id <0J8300GE9CLB0HH1@sp604002mt.gpm.neuf.ld> for
- netdev@vger.kernel.org; Thu, 02 Nov 2006 07:55:59 +0100 (CET)
-In-reply-to: <39e6f6c70611011831m3521599boa5a6a77957d143a8@mail.gmail.com>
-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Received: from mail.kroah.org ([69.55.234.183]:32733 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S1752705AbWKBHWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 02:22:38 -0500
+To: David Brownell <david-b@pacbell.net>
+Content-Disposition: inline
+In-Reply-To: <200610251922.09692.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo a =E9crit :
-> On 10/31/06, Eric Dumazet <dada1@cosmosbay.com> wrote:
->> Arnaldo Carvalho de Melo a =E9crit :
->> > Hi,
->> >
->> >       I've been working on some DWARF2 utilities and one of them,
->> > pahole (Poke-a-Hole) can be used to find holes due to alignment ru=
-les
->> > in structs, the full output of:
->> >
->> > [acme@newtoy net-2.6]$ pahole net/ipv4/tcp.o
->> >
->> >       is available at:
->> >
->> > http://oops.merseine.nu:81/acme/net.ipv4.tcp.o.pahole
->> >
->> >       Just to show what we can find with this tool here is the lay=
-out
->> > of struct net_device, that barring any cacheline locality optimiza=
-tion
->> > has 4 bytes to harvest, David, do you think reordering those field=
-s to
->> > get 4 byts back is ok?
->>
->> I just want to bring your attention this net_device structure was=20
->> re-ordered
->> (by me :)) so that separate cache lines are used on SMP machines.
->>
->> If you select CONFIG_SMP , you'll probably notice far more holes. Bu=
-t=20
->> it was a
->> feature, not lazyness.
->=20
-> Thanks for commenting on this case!
->=20
->> We can probably move some fields, but very carefully :)
->=20
-> Of course, in time I probably will try to combine valgrind's
-> cachegrind or some new tool using the same principles I used in OSTRA
-> to find out working sets of struct members to do automatic
-> "suggestions" on how to reorder structs to avoid holes while keeping
-> the relevant struct members close together as to exploit cacheline
-> locality effects, like you do so well manually :-)
->=20
-> - Arnaldo
->=20
-> PS.: While we don't have tools to check out that the holes are not a
-> problem because we want to exploit cacheline locality effects... what
-> about some comments on the structs to explain that such holes are not
-> a problem? :-)
+On Wed, Oct 25, 2006 at 07:22:08PM -0700, David Brownell wrote:
+> On Wednesday 25 October 2006 4:58 pm, Randy Dunlap wrote:
+> > On Wed, 25 Oct 2006 15:27:09 -0700 David Brownell wrote:
+> > 
+> > > Instead, "usbnet.c" should #ifdef the relevant ethtool hooks
+> > > according to CONFIG_MII ... since it's completely legit to
+> > > use usbnet with peripherals that don't need MII.
+> 
+> I had in mind something simpler -- #ifdeffing the entire functions,
+> as in this patch.  It looks more complicated than it is, because
+> "diff" gets confused by moving two functions earlier in the file.
+> 
+> (Thanks for starting this, Randy ... these two patches should be merged
+> before RC4 ships.)
 
-I am all for automatic tools, if they can convince human beings :)
+Argh, there were just too many different versions of these patches
+floating around.  Can you resend the final versions please?
 
-=46or example, I am using an optimization that is quite simple but whic=
-h was not=20
-accepted by netdev community :
+thanks,
 
-- Moving the struct flowi directly into "struct dst_entry", right after=
- the=20
-'struct dst_entry *next;' pointer.
-
-
-AFAIK all objects that include a 'struct dst_entry' also include a 'str=
-uct=20
-flowi', so this is just a small violation of layering.
-
-This really helps because lookups now touch only one cache line per cha=
-ined=20
-item instead of two/three. On loaded routers with 8 items per chain, th=
-ats 8=20
-or 16 cache lines CPU dont have to bring in its cache per IP packet.
-
-Eric
+greg k-h
