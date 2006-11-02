@@ -1,74 +1,108 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Crash in ip_conntrack on shutdown
-Date: Wed, 1 Nov 2006 18:48:56 -0800
-Message-ID: <20061101184856.429dbde1@localhost.localdomain>
-References: <45494243.20001@dslnorthwest.net>
-	<20061101.174931.66061218.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: d80211 merge (was Re: [patch] d80211: use pfifo_qdisc_ops rather
+ than d80211-specific qdisc)
+Date: Wed, 01 Nov 2006 21:55:35 -0500
+Message-ID: <45495E27.6090500@garzik.org>
+References: <20061026050416.GB14199@havoc.gtf.org> <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net> <20061101112805.246e1b3b@griffin.suse.cz> <20061101142022.GC21668@tuxdriver.com> <4548E7F7.7030100@linux.intel.com> <45493C09.9050707@garzik.org> <45494E51.7070707@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@dslnorthwest.net, netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Simon Barber <simon@devicescape.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>,
+	Linus Torvalds <torvalds@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27315 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751256AbWKBCt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 21:49:28 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061101.174931.66061218.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:2209 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751627AbWKBCz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 21:55:59 -0500
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <45494E51.7070707@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 01 Nov 2006 17:49:31 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <shemminger@dslnorthwest.net>
-> Date: Wed, 01 Nov 2006 16:56:35 -0800
+James Ketrenos wrote:
+> Jeff Garzik wrote:
+>> James Ketrenos wrote:
+>>> If people have issues with with specific components of d80211 prior to
+>>> its merging, stand up and state what they are and how not fixing them
+>>> would negatively impact people that aren't using the d80211 subsystem.
+>>>
+>>> Don't take the above as me saying there aren't items that need to be
+>>> fixed/improved in d80211 -- there is work to be done.  But that
+>>> shouldn't stop it from being merged w/ the EXPERIMENTAL flag set.
+>>> We reached the point where we should be in -mm a long time ago as soon
+>>> as both stacks could exist concurrently.  d80211 should have been in
+>>> Linus' tree a long time ago.
+>> d80211 merge stoppers:
+>> - SMP issues (lack of locking, and overlocking via use of Big Network Lock)
 > 
-> > My desktop machine (Fedora Core 6) crashed on during shutdown when 
-> > running latest
-> > 2.6.19-rc4 kernel. Machine is UP Amd64.
-> > 
-> > It looks like a null dereference in ip_conntrack. See screenshot.
-> >   
-> > http://picasaweb.google.com/stephen.hemminger/LinuxCrashes/photo#4992593950061821970
-> 
-> Can some x86_64 expert decode this?  I'm trying to figure out what
-> object is being NULL defer'd, and after taking a quick look at
-> this dump I can't figure it out.
-> 
-> I suspect there may also be a OOPS right before this one, I also
-> wonder if this was actually a BUG_ON() trigger.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> So we can set BROKEN_ON_SMP on it and we're good.  The entire
+> description of EXPERIMENTAL in init/Kconfig matches perfectly what we
+> want -- bug reports, wider exposure, and a clear articulation that the
+> feature is unstable.
 
-Instruction decode of ip_conntrack:destroy_conntrack+0xfc = 0x21ce
+heh, no, we don't merge stuff that's obviously incomplete or broken. 
+BROKEN_ON_SMP is one step before driver death, not the first baby step 
+of a driver.
 
-    2177:       75 0a                   jne    2183 <destroy_conntrack+0xb1>
-    2179:       0f 0b                   ud2a
-    217b:       68 00 00 00 00          pushq  $0x0
-    2180:       c2 56 01                retq   $0x156
-    2183:       48 8b 41 08             mov    0x8(%rcx),%rax
-    2187:       48 89 42 08             mov    %rax,0x8(%rdx)
-    218b:       48 89 10                mov    %rdx,(%rax)
-    218e:       48 c7 41 08 00 02 20    movq   $0x200200,0x8(%rcx)
-    2195:       00
-    2196:       48 c7 83 f8 00 00 00    movq   $0x100100,0xf8(%rbx)
-    219d:       00 01 10 00
-    21a1:       ff 05 00 00 00 00       incl   0(%rip)        # 21a7 <destroy_conntrack+0xd5>
-    21a7:       bf 01 00 00 00          mov    $0x1,%edi
-    21ac:       e8 00 00 00 00          callq  21b1 <destroy_conntrack+0xdf>
-    21b1:       e8 00 00 00 00          callq  21b6 <destroy_conntrack+0xe4>
-    21b6:       48 8b 53 58             mov    0x58(%rbx),%rdx
-    21ba:       48 85 d2                test   %rdx,%rdx
-    21bd:       74 0f                   je     21ce <destroy_conntrack+0xfc>
-    21bf:       ff 0a                   decl   (%rdx)
-    21c1:       0f 94 c0                sete   %al
-    21c4:       84 c0                   test   %al,%al
-    21c6:       74 06                   je     21ce <destroy_conntrack+0xfc>
-    21c8:       48 89 d7                mov    %rdx,%rdi
-    21cb:       ff 52 08                callq  *0x8(%rdx)
-    21ce:       48 89 df                mov    %rbx,%rdi  <--- last visible spot in back trace
-    21d1:       5b                      pop    %rbx
-    21d2:       e9 00 00 00 00          jmpq   21d7 <invert_tuplepr>
+
+>> - userspace ABI
+> 
+> What's the requirement on the userspace ABI?  That the existing wireless
+> extension interface needs to work, or ?
+
+The requirement is that code should not go upstream if its userspace 
+interface is highly likely to change.  ABI mistakes are locked in stone 
+once they hit the upstream kernel, for the most part.
+
+As long as the userspace ABI is "baked" and generally agreed upon, then 
+the requirement is satisfied.
+
+Speaking specifically, Linus noted recently d80211 should maintain 
+backwards compatibility with the WE userspace ABI, so that existing 
+wireless tools keep working, and I definitely agree.  For additional 
+functionality/flexibility, I presume there will be some sort of netlink 
+extensible interface (cfg80211 I think?) that newer wireless tools will 
+use.  In time, the WE back-compat ABI could become an optional module 
+that users can disable.
+
+
+> How will merging with the existing locking problems or ABI issue
+> negatively impact people that aren't using the d80211 subsystem anyway?
+
+Irrelevant.
+
+We don't merge code with obvious bugs, especially when the justification 
+is "merging means the bugs will be fixed."
+
+If a codebase isn't getting bugs fixed as it is, that is a strong reason 
+AGAINST merging it.
+
+
+> If having the code there doesn't hurt anyone, why not get it out for
+> wider adoption, exposure, and contribution?
+> 
+> Why is there such a hesitation to merge this stack and help to
+> accelerate the set of functionality available with wireless on Linux?
+
+A codebase has to have developers who will put in the minimum effort to 
+make sure it is completely SMP safe, and that the ABI issues are handled 
+in the way they are handled throughout the rest of the kernel.
+
+"Wider participation" is not a blank check to merge every half-baked 
+codebase out there.  One of the things that's nice about git is that 
+things enter the kernel MORE baked than in the past, because distributed 
+development means stuff occurs in parallel.
+
+"Getting is upstream" is the eventual goal, NOT a magic panacea that 
+wipes away existing ills.
+
+	Jeff, who, just like you, wants to see d80211 merged
+
+
+
 
