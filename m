@@ -1,198 +1,99 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [Rt2400-devel] [PATCH 4/4] rt2x00-d80211: Add wireless statistics (compile tested only)
-Date: Thu, 2 Nov 2006 20:10:30 +0100
-Message-ID: <200611022010.30463.IvDoorn@gmail.com>
-References: <454A3D6B.mail4SV1NEUKH@lwfinger.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [airo.c bug] Couldn't allocate RX FID / Max tries exceeded
+	when issueing command
+Date: Thu, 02 Nov 2006 14:11:19 -0500
+Message-ID: <1162494679.3347.8.camel@localhost.localdomain>
+References: <b5def3a40611011914v59ecd4c3xb6965591524aa11@mail.gmail.com>
+	 <1162483971.2646.9.camel@localhost.localdomain>
+	 <b5def3a40611021030s1b73daa1k2055e5f4373fa746@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	John Linville <linville@tuxdriver.com>,
-	flamingice@sourmilk.net, Stefano Brivio <st3@riseup.net>,
-	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de
+Cc: linux-kernel@vger.kernel.org, linville@tuxdriver.com,
+	netdev@vger.kernel.org, breed@users.sourceforge.net,
+	achirica@users.sourceforge.net, jt@hpl.hp.com, fabrice@bellet.info
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:6013 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1752267AbWKBTKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 14:10:37 -0500
-Received: by nf-out-0910.google.com with SMTP id o60so1006803nfa
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2006 11:10:36 -0800 (PST)
-To: rt2400-devel@lists.sourceforge.net
-In-Reply-To: <454A3D6B.mail4SV1NEUKH@lwfinger.net>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:26291 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1752262AbWKBTM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 14:12:26 -0500
+To: Ivan Matveich <ivan.matveich@gmail.com>
+In-Reply-To: <b5def3a40611021030s1b73daa1k2055e5f4373fa746@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 02 November 2006 19:48, Larry Finger wrote:
-> These patches modify the rt2x00-d80211 family of drivers to use
-> the wireless statics added in patch 1.
+On Thu, 2006-11-02 at 13:30 -0500, Ivan Matveich wrote:
+> On 11/2/06, Dan Williams <dcbw@redhat.com> wrote:
+> > It appears that the driver cannot talk to your card; see the "max tries
+> > exceeded when issueing command".  Did this card work previously with a
+> > kernel?  Can narrow down which kernels have problems and which don't?
 > 
-> Signed-Off-By: Larry Finger@lwfinger.net>
+> It spontaneously stopped working about a week after I bought the
 
-I will put the search for the correct values on my TODO list,
-but that needs some heavy legacy driver research.
-But these values seem sane enough for me. ;)
+That does not bode well for the card itself.
 
-Signed-Off-By: Ivo van Doorn <IvDoorn@gmail.com>
+> laptop and installed Linux. I tried kernel 2.6.12 and it had the same
+> problem. (Let me know if you'd like me to try a specific version.)
 
-> Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> ===================================================================
-> --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> @@ -1695,6 +1695,14 @@ static void rt2400pci_rxdone(void *data)
->  			rt2x00dev->rx_params.ssi =
->  				rt2x00_get_field32(rxd->word2, RXD_W2_RSSI);
->  
-> +/* FIXME: The following set of assignments supply additional data for wireless statistics. The
-> +          necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
-> +          The present code supplies dummy values for these quantities. */
-> +
-> +			rt2x00dev->rx_params.noise = -85;   /* FIXME */
-> +			rt2x00dev->rx_params.signal =
-> +				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
-> +
->  			__ieee80211_rx(ring->net_dev,
->  				skb, &rt2x00dev->rx_params);
->  		}
-> @@ -2581,6 +2589,7 @@ static int rt2400pci_init_hw(struct rt2x
->  	hw->device_strips_mic = 0;
->  	hw->monitor_during_oper = 1;
->  	hw->fraglist = 0;
-> +	hw->maxssi = RT2X00_RX_MAX_SSI;
->  
->  	/*
->  	 * We have 2 TX queues: TX and PRIO.
-> Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> ===================================================================
-> --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> @@ -1841,6 +1841,14 @@ static void rt2500pci_rxdone(void *data)
->  			rt2x00dev->rx_params.ssi =
->  				rt2x00_get_field32(rxd->word2, RXD_W2_RSSI);
->  
-> +/* FIXME: The following set of assignments supply additional data for wireless statistics. The
-> +          necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
-> +          The present code supplies dummy values for these quantities. */
-> +
-> +			rt2x00dev->rx_params.noise = -85;   /* FIXME */
-> +			rt2x00dev->rx_params.signal =
-> +				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
-> +
->  			__ieee80211_rx(ring->net_dev,
->  				skb, &rt2x00dev->rx_params);
->  
-> @@ -2735,6 +2743,7 @@ static int rt2500pci_init_hw(struct rt2x
->  	hw->device_strips_mic = 0;
->  	hw->monitor_during_oper = 1;
->  	hw->fraglist = 0;
-> +	hw->maxssi = RT2X00_RX_MAX_SSI;
->  
->  	/*
->  	 * We have 2 TX queues: TX and PRIO.
-> Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-> ===================================================================
-> --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-> +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-> @@ -1627,6 +1627,14 @@ static void rt2500usb_rxdone(void *data)
->  			rt2x00dev->rx_params.ssi =
->  				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
->  
-> +/* FIXME: The following set of assignments supply additional data for wireless statistics. The
-> +	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
-> +	  The present code supplies dummy values for these quantities. */
-> +
-> +			rt2x00dev->rx_params.noise = -85;   /* FIXME */
-> +			rt2x00dev->rx_params.signal =
-> +				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
-> +
->  			__ieee80211_rx(ring->net_dev,
->  				skb, &rt2x00dev->rx_params);
->  
-> @@ -2423,6 +2431,7 @@ static int rt2500usb_init_hw(struct rt2x
->  	hw->device_strips_mic = 0;
->  	hw->monitor_during_oper = 1;
->  	hw->fraglist = 0;
-> +	hw->maxssi = RT2X00_RX_MAX_SSI;
->  
->  	/*
->  	 * We have 2 TX queues: TX and PRIO.
-> Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h
-> ===================================================================
-> --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2x00.h
-> +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h
-> @@ -850,6 +850,8 @@ struct rt2x00_dev {
->  #define CONFIG_DOUBLE_ANTENNA		0x00010000
->  #define CONFIG_DISABLE_BBP_TUNING	0x00020000
->  
-> +#define RT2X00_RX_MAX_SSI		100
-> +
->  	/*
->  	 * Chipset identification.
->  	 */
-> Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> ===================================================================
-> --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> @@ -2285,6 +2285,14 @@ static void rt61pci_rxdone(void *data)
->  			rt2x00dev->rx_params.ssi =
->  				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
->  
-> +/* FIXME: The following set of assignments supply additional data for wireless statistics. The
-> +	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
-> +	  The present code supplies dummy values for these quantities. */
-> +
-> +			rt2x00dev->rx_params.noise = -85;   /* FIXME */
-> +			rt2x00dev->rx_params.signal =
-> +				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
-> +
->  			__ieee80211_rx(ring->net_dev,
->  				skb, &rt2x00dev->rx_params);
->  
-> @@ -3255,6 +3263,7 @@ static int rt61pci_init_hw(struct rt2x00
->  	hw->device_strips_mic = 0;
->  	hw->monitor_during_oper = 1;
->  	hw->fraglist = 0;
-> +	hw->maxssi = RT2X00_RX_MAX_SSI;
->  
->  	/*
->  	 * We have full WMM capabilities.
-> Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-> ===================================================================
-> --- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-> +++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-> @@ -1917,6 +1917,14 @@ static void rt73usb_rxdone(void *data)
->  			rt2x00dev->rx_params.ssi =
->  				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
->  
-> +/* FIXME: The following set of assignments supply additional data for wireless statistics. The
-> +	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
-> +	  The present code supplies dummy values for these quantities. */
-> +
-> +			rt2x00dev->rx_params.noise = -85;   /* FIXME */
-> +			rt2x00dev->rx_params.signal =
-> +				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
-> +
->  			__ieee80211_rx(ring->net_dev,
->  				skb, &rt2x00dev->rx_params);
->  
-> @@ -2796,6 +2804,7 @@ static int rt73usb_init_hw(struct rt2x00
->  	hw->device_strips_mic = 0;
->  	hw->monitor_during_oper = 1;
->  	hw->fraglist = 0;
-> +	hw->maxssi = RT2X00_RX_MAX_SSI;
->  
->  	/*
->  	 * We have full WMM capabilities.
+2.6.12 should be old enough, but maybe if you could try 2.6.9 that would
+definitely be old enough to rule out recent airo changes.
+
+> I'm hoping that the card has simply got itself into some kind of
+> invalid state, and not failed altogether.
 > 
-> -------------------------------------------------------------------------
-> Using Tomcat but need to do more? Need to support web services, security?
-> Get stuff done quickly with pre-integrated technology to make your job easier
-> Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-> http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
-> _______________________________________________
-> Rt2400-devel mailing list
-> Rt2400-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/rt2400-devel
+> > It's a bit hard to figure out what firmware you have because the driver
+> > can't talk to the card; can you boot under Windows and determine that
+> > using the Cisco wireless utility?  You also need to flash the card under
+> > Windows, not Linux, ideally to a version of firmware greater than
+> > 5.60.08.
 > 
+> I haven't run Windows in many years, so that's problematic. What's the
+> most straightforward way to boot into a Windows environment sufficient
+> to run the Cisco wireless utility?
+
+You get to either install windows on your laptop, or pull the card
+(pcmcia or minipci, either way) and put it into a windows computer.
+
+> > reloading the driver (rmmod airo; modprobe airo) should reset the card.
+> 
+> Yeah, it unfortunately doesn't help. (Nor does rebooting or resetting
+> the bios.) I noticed a suspiciously relevant commit in the airo.c git
+> log:
+> 
+>     [wireless airo] reset card in init
+> 
+>     without this patch after an rmmod, modprobe the card won't work anymore
+>     until the next reboot.
+> 
+>     This patch seem safe to apply for all cards as the bsd driver already do
+>     that.
+> 
+>     I had to add a timeout because strange things happen (issuecommand will
+>     fail) if the card is already reseted (after a reboot).
+> 
+>     PS : it seems there are missing reset when leaving monitor mode...
+> 
+>     Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
+
+Do you know which kernel version that patch first appeared in?
+
+> and that makes me wonder if there might be some kind of subtle bug in
+> the card initialization sequence that manifests itself with my
+> particular card/firmware.
+
+Could be, it would be quite helpful to get the version of firmware you
+are using.  Versions earlier than 5.30.17 are known not be flaky or even
+not work with newer Linux kernel drivers since Cisco changed the
+firmware interface in that version.  That said, I've seen cards in the
+5.00.xx range work with the latest drivers, but not well.  These older
+firmware versions sometimes lock up sponaneously and require a reboot,
+updating to later firmware post-5.30.17 fixes that problem.
+
+> I think I'll burn a freebsd livecd today and see if their kernel works.
+
+That would be a great idea, let us know what the results are, especially
+if you cna figure out which firmware version you have, or if the card
+itself is really just dead.
+
+Thanks,
+Dan
+
