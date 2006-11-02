@@ -1,86 +1,63 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: Fw: [Bugme-new] [Bug 7450] New: e1000: eth0: e1000_clean_tx_irq:
- Detected Tx Unit Hang
-Date: Thu, 02 Nov 2006 13:48:48 -0800
-Message-ID: <454A67C0.6040201@intel.com>
-References: <20061102112015.d4f5c60e.akpm@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather thand80211-specific
+ qdisc
+Date: Thu, 2 Nov 2006 14:34:21 -0800
+Message-ID: <20061102143421.1f6c8ba3@freekitty>
+References: <C86180A8C204554D8A3323D8F6B0A29F018B5DE3@dhost002-46.dex002.intermedia.net>
+	<1162485837.16971.5.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, pstaszewski@artcom.pl,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
+Cc: Simon Barber <simon@devicescape.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:5706 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1752633AbWKBVsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 16:48:54 -0500
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061102112015.d4f5c60e.akpm@osdl.org>
+Received: from smtp.osdl.org ([65.172.181.4]:36815 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751429AbWKBWjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 17:39:42 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1162485837.16971.5.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> 
-> Begin forwarded message:
-> 
-> Date: Thu, 2 Nov 2006 06:41:04 -0800
-> From: bugme-daemon@bugzilla.kernel.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 7450] New: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-> 
-> 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7450
-> 
->            Summary: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
->     Kernel Version: 2.6.19-rc3
->             Status: NEW
->           Severity: normal
->              Owner: acme@conectiva.com.br
->          Submitter: pstaszewski@artcom.pl
-> 
-> 
-> Most recent kernel where this bug did not occur: not known
-> Distribution: Gentoo Linux x86_64
-> Hardware Environment: 
-> lspci
-> 00:00.0 Host bridge: Intel Corporation E7230/3000/3010 Memory Controller Hub
-> (rev c0)
-> 00:01.0 PCI bridge: Intel Corporation E7230/3000/3010 PCI Express Root Port (rev c0)
-> 00:1c.0 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express Port 1
-> (rev 01)
-> 00:1c.4 PCI bridge: Intel Corporation 82801GR/GH/GHM (ICH7 Family) PCI Express
-> Port 5 (rev 01)
-> 00:1c.5 PCI bridge: Intel Corporation 82801GR/GH/GHM (ICH7 Family) PCI Express
-> Port 6 (rev 01)
-> 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev e1)
-> 00:1f.0 ISA bridge: Intel Corporation 82801GB/GR (ICH7 Family) LPC Interface
-> Bridge (rev 01)
-> 00:1f.2 SATA controller: Intel Corporation 82801GR/GH (ICH7 Family) Serial ATA
-> Storage Controller AHCI (rev 01)
-> 00:1f.3 SMBus: Intel Corporation 82801G (ICH7 Family) SMBus Controller (rev 01)
-> 01:00.0 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge A (rev 09)
-> 01:00.1 PIC: Intel Corporation 6700/6702PXH I/OxAPIC Interrupt Controller A (rev 09)
-> 01:00.2 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge B (rev 09)
-> 01:00.3 PIC: Intel Corporation 6700PXH I/OxAPIC Interrupt Controller B (rev 09)
-> 0d:00.0 Ethernet controller: Intel Corporation 82573E Gigabit Ethernet
-> Controller (Copper) (rev 03)
-> 0e:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet Controller
-> 0f:04.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev 02)
-> 
-> Software Environment: Iptables/Iproute2
-> 
-> Problem Description:
-> e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
->   Tx Queue             <0>
->   TDH                  <31>
->   TDT                  <31>
+On Thu, 02 Nov 2006 17:43:57 +0100
+Johannes Berg <johannes@sipsolutions.net> wrote:
 
-the hang is caused by a bad eeprom bit. A script that fixes it for 82573-series with 
-eeproms that need this bit fixed is attached to the bugreport. It detects the proper 
-chipset and patches if required (uses ethtool).
+> On Thu, 2006-11-02 at 08:33 -0800, Simon Barber wrote:
+> > There are many reasons to have the master device - and many reasons not
+> > to get rid of it. The only excpetion is when using a limited fullmac
+> > card.  Some fullmac cards only support a single ethernet interface, so
+> > for these cards a single device may be OK, if we want to allow multiple
+> > different appearences for different types of card (a bad thing in my
+> > book). (Note - older prism 54g fullmac cards support WDS, hence need
+> > multiple interfaces).
+> > 
+> > The master interface represents the physical networking device that
+> > works using native 802.11 frames. The qdisc works on 802.11 frames - not
+> > ethernet, and it can change how 802.11 management frames are queued. It
+> > can only be got rid of in the case of a fullmac card with only a single
+> > interface, where all management frames are processed in the card.
+> > 
+> > In addition as we move to make 802.11 devices native (i.e. create an
+> > 802.11 protocol) the 802.11 master interface will be essential.
+> 
+> While these are good points, I don't believe having the master interface
+> as a *netdev* is essential. In fact, it now has no functionality as a
+> netdev, if you try routing packets over it they're simply dropped.
 
-hth,
+It makes 802.11 packet capture easier as well.  Please don't invent yet
+another network access object for the master device.
 
-Auke
+> Of course we need some notion of the wireless PHY and cfg80211
+> explicitly represents that by assigning a wiphy index, but there's no
+> need for it to be a netdev.
+> 
+> johannes
+
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
