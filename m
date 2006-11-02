@@ -1,27 +1,35 @@
-From: Stephen Hemminger <shemminger@dslnorthwest.net>
-Subject: Crash in ip_conntrack on shutdown
-Date: Wed, 01 Nov 2006 16:56:35 -0800
-Message-ID: <45494243.20001@dslnorthwest.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.4] bridge netfilter deadlock
+Date: Wed, 01 Nov 2006 17:29:52 -0800 (PST)
+Message-ID: <20061101.172952.101869474.davem@davemloft.net>
+References: <20061101114550.459eead0@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15761 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1752380AbWKBA4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2006 19:56:38 -0500
-Received: from [192.168.0.110] (069-064-229-129.pdx.net [69.64.229.129])
-	(authenticated bits=0)
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id kA20uZPn019980
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 1 Nov 2006 16:56:36 -0800
-To: netdev@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59610
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751482AbWKBB3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Nov 2006 20:29:47 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061101114550.459eead0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My desktop machine (Fedora Core 6) crashed on during shutdown when 
-running latest
-2.6.19-rc4 kernel. Machine is UP Amd64.
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 1 Nov 2006 11:45:50 -0800
 
-It looks like a null dereference in ip_conntrack. See screenshot.
-  
-http://picasaweb.google.com/stephen.hemminger/LinuxCrashes/photo#4992593950061821970
+> A deadlock was found in bridge netfilter code (2.4 only), when a device is removed.
+> The device removal path causes a BPDU to be generated and ends up
+> self deadlocking on the BR lock.
+> 
+> Simple fix would be to avoid generating config bpdu's
+> immediately when becoming root bridge, and just let the first hello
+> timer tick do that.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+Applied, I'll push this to Willy.
+
+Thanks Stephen.
