@@ -1,69 +1,52 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel found
-Date: Thu, 02 Nov 2006 13:39:19 +0200
-Message-ID: <4549D8E7.1040409@tcs.hut.fi>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: cfg80211/nl80211/WE (was: Re: d80211 merge)
+Date: Thu, 02 Nov 2006 13:03:04 +0100
+Message-ID: <1162468984.9431.1.camel@ux156>
+References: <20061026050416.GB14199@havoc.gtf.org>
+	 <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
+	 <20061101112805.246e1b3b@griffin.suse.cz>
+	 <20061101142022.GC21668@tuxdriver.com> <4548E7F7.7030100@linux.intel.com>
+	 <45493C09.9050707@garzik.org> <45494E51.7070707@linux.intel.com>
+	 <45495E27.6090500@garzik.org> <1162457341.3241.15.camel@ux156>
+	 <20061102105639.GA714@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030400080504010906010702"
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Simon Barber <simon@devicescape.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>,
+	Linus Torvalds <torvalds@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neon.tcs.hut.fi ([130.233.215.20]:60553 "EHLO mail.tcs.hut.fi")
-	by vger.kernel.org with ESMTP id S1750830AbWKBLj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 06:39:28 -0500
-To: "David S. Miller" <davem@davemloft.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:47766 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1752135AbWKBMGQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 07:06:16 -0500
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20061102105639.GA714@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030400080504010906010702
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Thu, 2006-11-02 at 10:56 +0000, Christoph Hellwig wrote:
 
+> Yes, that is exatly the right way to go forward.  The userspace interface
+> is however more than just the WE ioctls.  It's also that for every wireless
+> card one single ethX device appears and not multiple devices with other
+> names.  This might sound like nitpicking, but without this all kinds of
+> scripts break.
 
---------------030400080504010906010702
-Content-Type: text/plain;
- name*0="0006-IPv6-Fix-infinite-loop-if-no-matching-IPv6-tunnel-found.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="0006-IPv6-Fix-infinite-loop-if-no-matching-IPv6-tunnel-found";
- filename*1=".txt"
+cfg80211 doesn't care about that, it only requires you to register one
+logical wiphy device. Whether it has more than one netdev or not isn't
+significant.
 
->From d9ecea2b1d88bc8702f70fbbca7cde2afb8312ee Mon Sep 17 00:00:00 2001
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Date: Thu, 2 Nov 2006 13:07:35 +0200
-Subject: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel found
+For d80211, however, trying to get rid of the wmasterX interface
+requires tighter integration in order to run a qdisc on a non-netdev
+wireless physical device. Which gets us back to how this thread
+started :)
 
-If no matching IPv6 tunnel was found ip6ip6_rcv() would cause
-ip6_input_finish() to resubmit the same skb to ip6ip6_rcv().
-
-Many thanks to Tero Kauppinen at Ericsson for reporting this issue.
-
-Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
----
- net/ipv6/ip6_tunnel.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 4f64ed7..603ed0d 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -565,11 +565,11 @@ ip6ip6_rcv(struct sk_buff *skb)
- 		return 0;
- 	}
- 	read_unlock(&ip6ip6_lock);
--	return 1;
--
-+	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
-+		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
- discard:
- 	kfree_skb(skb);
--	return 0;
-+	return -1;
- }
- 
- struct ipv6_tel_txoption {
--- 
-1.4.3.2
-
-
---------------030400080504010906010702--
+johannes
