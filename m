@@ -1,64 +1,172 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 3/4] adm8211-d80211: Add wireless statistics (compile
-	tested only)
-Date: Thu, 02 Nov 2006 12:47:40 -0600
-Message-ID: <454A3D4C.mail4SI11B3NB@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 4/4] rt2x00-d80211: Add wireless statistics (compile
+ tested only)
+Date: Thu, 02 Nov 2006 12:48:11 -0600
+Message-ID: <454A3D6B.mail4SV1NEUKH@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
-	rt2400-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: rt2400-devel@lists.sourceforge.net, flamingice@sourmilk.net,
+	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ms-smtp-04.rdc-kc.rr.com ([24.94.166.116]:17403 "EHLO
+	ms-smtp-04.rdc-kc.rr.com") by vger.kernel.org with ESMTP
+	id S1751344AbWKBSso (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 13:48:44 -0500
+To: John Linville <linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These patches modify adm8211-d80211 to use the wireless statics added in patch 1.
+These patches modify the rt2x00-d80211 family of drivers to use
+the wireless statics added in patch 1.
 
-Signed-Off-By: Larry Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Index: wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
+Signed-Off-By: Larry Finger@lwfinger.net>
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
 ===================================================================
---- wireless-dev.orig/drivers/net/wireless/d80211/adm8211/adm8211.c
-+++ wireless-dev/drivers/net/wireless/d80211/adm8211/adm8211.c
-@@ -73,6 +73,8 @@ ADM8211_IER_TDUIE | ADM8211_IER_GPTIE)
- #define PLCP_SIGNAL_5M5		0x37
- #define PLCP_SIGNAL_11M		0x6e
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+@@ -1695,6 +1695,14 @@ static void rt2400pci_rxdone(void *data)
+ 			rt2x00dev->rx_params.ssi =
+ 				rt2x00_get_field32(rxd->word2, RXD_W2_RSSI);
  
-+#define ADM8211_RX_MAX_SSI	100
++/* FIXME: The following set of assignments supply additional data for wireless statistics. The
++          necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
++          The present code supplies dummy values for these quantities. */
 +
- struct adm8211_tx_hdr {
- 	u8 da[6];
- 	u8 signal; /* PLCP signal / TX rate in 100 Kbps */
-@@ -557,6 +559,14 @@ static void adm8211_interrupt_rci(struct
- 			if (dev->flags & IFF_PROMISC)
- 				skb_trim(skb, skb->len - FCS_LEN);
++			rt2x00dev->rx_params.noise = -85;   /* FIXME */
++			rt2x00dev->rx_params.signal =
++				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
++
+ 			__ieee80211_rx(ring->net_dev,
+ 				skb, &rt2x00dev->rx_params);
+ 		}
+@@ -2581,6 +2589,7 @@ static int rt2400pci_init_hw(struct rt2x
+ 	hw->device_strips_mic = 0;
+ 	hw->monitor_during_oper = 1;
+ 	hw->fraglist = 0;
++	hw->maxssi = RT2X00_RX_MAX_SSI;
  
+ 	/*
+ 	 * We have 2 TX queues: TX and PRIO.
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+@@ -1841,6 +1841,14 @@ static void rt2500pci_rxdone(void *data)
+ 			rt2x00dev->rx_params.ssi =
+ 				rt2x00_get_field32(rxd->word2, RXD_W2_RSSI);
+ 
++/* FIXME: The following set of assignments supply additional data for wireless statistics. The
++          necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
++          The present code supplies dummy values for these quantities. */
 +
++			rt2x00dev->rx_params.noise = -85;   /* FIXME */
++			rt2x00dev->rx_params.signal =
++				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
++
+ 			__ieee80211_rx(ring->net_dev,
+ 				skb, &rt2x00dev->rx_params);
+ 
+@@ -2735,6 +2743,7 @@ static int rt2500pci_init_hw(struct rt2x
+ 	hw->device_strips_mic = 0;
+ 	hw->monitor_during_oper = 1;
+ 	hw->fraglist = 0;
++	hw->maxssi = RT2X00_RX_MAX_SSI;
+ 
+ 	/*
+ 	 * We have 2 TX queues: TX and PRIO.
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+@@ -1627,6 +1627,14 @@ static void rt2500usb_rxdone(void *data)
+ 			rt2x00dev->rx_params.ssi =
+ 				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
+ 
 +/* FIXME: The following set of assignments supply additional data for wireless statistics. The
 +	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
 +	  The present code supplies dummy values for these quantities. */
 +
-+			rx_status.noise = -85;   /* FIXME */
-+			rx_status.signal = rx_status.ssi - ADM8211_RX_MAX_SSI; /* FIXME */
++			rt2x00dev->rx_params.noise = -85;   /* FIXME */
++			rt2x00dev->rx_params.signal =
++				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
 +
- 			ieee80211_rx_irqsafe(dev, skb, &rx_status);
- 		}
+ 			__ieee80211_rx(ring->net_dev,
+ 				skb, &rt2x00dev->rx_params);
  
-@@ -2045,6 +2055,7 @@ static int __devinit adm8211_probe(struc
- 	hw->get_tsf = adm8211_get_tsft;
- 	hw->get_tx_stats = adm8211_get_tx_stats;
- 	hw->queues = 1;		// ADM8211C supports more, maybe ADM8211B
-+	hw->maxssi = ADM8211_RX_MAX_SSI;// FIXME - This is an approximation
+@@ -2423,6 +2431,7 @@ static int rt2500usb_init_hw(struct rt2x
+ 	hw->device_strips_mic = 0;
+ 	hw->monitor_during_oper = 1;
+ 	hw->fraglist = 0;
++	hw->maxssi = RT2X00_RX_MAX_SSI;
  
- 	priv->retry_limit = 3;
- 	priv->ant_power = 0x40;
+ 	/*
+ 	 * We have 2 TX queues: TX and PRIO.
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt2x00.h
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h
+@@ -850,6 +850,8 @@ struct rt2x00_dev {
+ #define CONFIG_DOUBLE_ANTENNA		0x00010000
+ #define CONFIG_DISABLE_BBP_TUNING	0x00020000
+ 
++#define RT2X00_RX_MAX_SSI		100
++
+ 	/*
+ 	 * Chipset identification.
+ 	 */
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+@@ -2285,6 +2285,14 @@ static void rt61pci_rxdone(void *data)
+ 			rt2x00dev->rx_params.ssi =
+ 				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
+ 
++/* FIXME: The following set of assignments supply additional data for wireless statistics. The
++	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
++	  The present code supplies dummy values for these quantities. */
++
++			rt2x00dev->rx_params.noise = -85;   /* FIXME */
++			rt2x00dev->rx_params.signal =
++				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
++
+ 			__ieee80211_rx(ring->net_dev,
+ 				skb, &rt2x00dev->rx_params);
+ 
+@@ -3255,6 +3263,7 @@ static int rt61pci_init_hw(struct rt2x00
+ 	hw->device_strips_mic = 0;
+ 	hw->monitor_during_oper = 1;
+ 	hw->fraglist = 0;
++	hw->maxssi = RT2X00_RX_MAX_SSI;
+ 
+ 	/*
+ 	 * We have full WMM capabilities.
+Index: wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
++++ wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+@@ -1917,6 +1917,14 @@ static void rt73usb_rxdone(void *data)
+ 			rt2x00dev->rx_params.ssi =
+ 				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
+ 
++/* FIXME: The following set of assignments supply additional data for wireless statistics. The
++	  necessary quantities are (1) the "noise" value in dBm, and (2) the "signal" value in dBm.
++	  The present code supplies dummy values for these quantities. */
++
++			rt2x00dev->rx_params.noise = -85;   /* FIXME */
++			rt2x00dev->rx_params.signal =
++				rt2x00dev->rx_params.ssi - RT2X00_RX_MAX_SSI; /* FIXME */
++
+ 			__ieee80211_rx(ring->net_dev,
+ 				skb, &rt2x00dev->rx_params);
+ 
+@@ -2796,6 +2804,7 @@ static int rt73usb_init_hw(struct rt2x00
+ 	hw->device_strips_mic = 0;
+ 	hw->monitor_during_oper = 1;
+ 	hw->fraglist = 0;
++	hw->maxssi = RT2X00_RX_MAX_SSI;
+ 
+ 	/*
+ 	 * We have full WMM capabilities.
