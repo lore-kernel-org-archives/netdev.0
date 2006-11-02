@@ -1,64 +1,46 @@
-From: "Nate Diller" <nate.diller@gmail.com>
-Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
-Date: Thu, 2 Nov 2006 11:40:43 -0800
-Message-ID: <5c49b0ed0611021140u360342f2v1e83c73d03eea329@mail.gmail.com>
-References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru>
-	 <20061101130614.GB7195@atrey.karlin.mff.cuni.cz>
-	 <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz>
-	 <20061101162403.GA29783@2ka.mipt.ru>
-	 <slrnekhpbr.2j1.olecom@flower.upol.cz>
-	 <20061101185745.GA12440@2ka.mipt.ru>
-	 <5c49b0ed0611011812w8813df3p830e44b6e87f09f4@mail.gmail.com>
-	 <20061102062158.GC5552@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP congestion graphs (2.6.19-rc4)
+Date: Thu, 2 Nov 2006 11:58:12 -0800
+Message-ID: <20061102115812.1ad27283@freekitty>
+References: <20061031.173028.118970335.davem@davemloft.net>
+	<20061101052500.GA19676@2ka.mipt.ru>
+	<20061031215848.7588d5f0@localhost.localdomain>
+	<20061101.214418.74747744.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Oleg Verych" <olecom@flower.upol.cz>,
-	"Pavel Machek" <pavel@ucw.cz>,
-	"David Miller" <davem@davemloft.net>,
-	"Ulrich Drepper" <drepper@redhat.com>,
-	"Andrew Morton" <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	"Zach Brown" <zach.brown@oracle.com>,
-	"Christoph Hellwig" <hch@infradead.org>,
-	"Chase Venters" <chase.venters@clientec.com>,
-	"Johann Borck" <johann.borck@densedata.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752451AbWKBTkq@vger.kernel.org>
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061102062158.GC5552@2ka.mipt.ru>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, davidwei79@gmail.com, rhee@eos.ncsu.edu,
+	sha2@ncsu.edu, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:31638 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752053AbWKBT6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 14:58:43 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061101.214418.74747744.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/1/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Wed, Nov 01, 2006 at 06:12:41PM -0800, Nate Diller (nate.diller@gmail.com) wrote:
-> > Indesiciveness has certainly been an issue here, but I remember akpm
-> > and Ulrich both giving concrete suggestions.  I was particularly
-> > interested in Andrew's request to explain and justify the differences
-> > between kevent and BSD's kqueue interface.  Was there a discussion
-> > that I missed?  I am very interested to see your work on this
-> > mechanism merged, because you've clearly emphasized performance and
-> > shown impressive results.  But it seems like we lose out on a lot by
-> > throwing out all the applications that already use kqueue.
->
-> It looks you missed that discussion - freebsd kqueue has fields in the
-> kevent structure which have diffent sizes in 32 and 64 bit environments.
+On Wed, 01 Nov 2006 21:44:18 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Are you saying that the *only* reason we choose not to be
-source-compatible with BSD is the 32 bit userland on 64 bit arch
-problem?  I've followed every thread that gmail 'kqueue' search
-returns, which thread are you referring to?  Nicholas Miell, in "The
-Proposed Linux kevent API" thread, seems to think that there are no
-advantages over kqueue to justify the incompatibility, an argument you
-made no effort to refute.  I've also read the Kevent wiki at
-linux-net.osdl.org, but it too is lacking in any direct comparisons
-(even theoretical, let alone benchmarks) of the flexibility,
-performance, etc. between the two.
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Tue, 31 Oct 2006 21:58:48 -0800
+> 
+> > Some basic stuff is on the parent page
+> > 	http://developer.osdl.org/shemminger/tcp
+> 
+> Are you using tcptrace to generate those plots?
+> If so are you using xplot or gnuplot to build those
+> image files?
+> 
 
-I'm not arguing that you've done a bad design, I'm asking you to brag
-about the things you improved on vs. kqueue.  Your emphasis on
-unifying all the different event types into one interface is really
-cool, fill me in on why that can't be effectively done with the kqueue
-compatability and I also will advocate for kevent inclusion.
+Description now up on linux-net
+	http://linux-net.osdl.org/index.php/TCP_testing
 
-NATE
+I use tcpprobe kernel module because you can't directly see congestion
+window from packet captures.
+
+
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
