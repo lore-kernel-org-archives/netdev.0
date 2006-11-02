@@ -1,33 +1,35 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 0/6] IPv6: IPv6 tunnel fixes
-Date: Thu, 02 Nov 2006 22:01:07 +0900 (JST)
-Message-ID: <20061102.220107.119433076.yoshfuji@linux-ipv6.org>
-References: <4549D609.8060202@tcs.hut.fi>
+Subject: Re: [PATCH 1/6] IPv6: Fix SIOCCHGTUNNEL bug in IPv6 tunnels
+Date: Thu, 02 Nov 2006 22:02:32 +0900 (JST)
+Message-ID: <20061102.220232.18232409.yoshfuji@linux-ipv6.org>
+References: <4549D69B.20903@tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:2315 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752132AbWKBM6T
+Received: from yue.linux-ipv6.org ([203.178.140.15]:3595 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752190AbWKBM7n
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 07:58:19 -0500
+	Thu, 2 Nov 2006 07:59:43 -0500
 To: vnuorval@tcs.hut.fi
-In-Reply-To: <4549D609.8060202@tcs.hut.fi>
+In-Reply-To: <4549D69B.20903@tcs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <4549D609.8060202@tcs.hut.fi> (at Thu, 02 Nov 2006 13:27:05 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+In article <4549D69B.20903@tcs.hut.fi> (at Thu, 02 Nov 2006 13:29:31 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 
-> the following incremental patches contain several fixes to ip6_tunnel.c.
-> They are in chronological order, so the most critical one is
-> unfortunately last. Many thanks to Tero Kauppinen for reporting that one!
+> >From f9812eb0349f44f6374910ce38524f0c6f7ce8f4 Mon Sep 17 00:00:00 2001
+> From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+> Date: Thu, 2 Nov 2006 12:40:38 +0200
+> Subject: [PATCH 1/6] IPv6: Fix SIOCCHGTUNNEL bug in IPv6 tunnels
+> 
+> A logic bug in tunnel lookup could result in duplicate tunnels
+> when changing an existing device.
+> 
+> Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
 
-I ack all patches except for the last one.
-
-Note: they are in the branch of
-        git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-fix/
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
 --yoshfuji
