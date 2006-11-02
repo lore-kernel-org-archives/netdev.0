@@ -1,81 +1,79 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather thand80211-specific
-	qdisc
-Date: Thu, 02 Nov 2006 17:43:57 +0100
-Message-ID: <1162485837.16971.5.camel@johannes.berg>
-References: <C86180A8C204554D8A3323D8F6B0A29F018B5DE3@dhost002-46.dex002.intermedia.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: IPv6 and rt6_lookup()
+Date: Thu, 02 Nov 2006 12:02:47 -0500
+Message-ID: <454A24B7.1010109@hp.com>
+References: <454A1BF7.6030500@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sQJykgStCQR/UCpYgn8m"
-Cc: Christoph Hellwig <hch@infradead.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:24997 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1752026AbWKBQpt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 11:45:49 -0500
-To: Simon Barber <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F018B5DE3@dhost002-46.dex002.intermedia.net>
+Received: from atlrel6.hp.com ([156.153.255.205]:43167 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1751477AbWKBRCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 12:02:48 -0500
+To: nicolas.dichtel@6wind.com
+In-Reply-To: <454A1BF7.6030500@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Nicolas DICHTEL wrote:
+> Hello,
+> 
+> Suppose that a host has autoconfiguration enabled. It will take RA to
+> autoconfigure an IPv6 address. For example,
+> 2001:0db8:3008:c1ca:2d0:b7ff:febb:4aee/64.
+> This host will create a route entry for this onlink prefix (dst:
+> 2001:0db8:3008:c1ca::/64)
+> in the MAIN table with the lifetime present in prefix option in RA.
+> Each time this host will receive a RA, it will update this lifetime. To
+> do this,
+> it will call rt6_lookup() (in addrconf_prefix_rcv()) to find the entry.
+> 
+> Now, suppose that our host joins this anycast group:
+> "2001:0db8:3008:c1ca::0". A route
 
---=-sQJykgStCQR/UCpYgn8m
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Hmm... you are configuring a subnet router anycast address on host and 
+the implementation lets you do it?  That's not good.  I don't think
+you sould be permitted to configure a subnet router anycast address
+on a host that autoconfigures it's interface.
 
-On Thu, 2006-11-02 at 08:33 -0800, Simon Barber wrote:
-> There are many reasons to have the master device - and many reasons not
-> to get rid of it. The only excpetion is when using a limited fullmac
-> card.  Some fullmac cards only support a single ethernet interface, so
-> for these cards a single device may be OK, if we want to allow multiple
-> different appearences for different types of card (a bad thing in my
-> book). (Note - older prism 54g fullmac cards support WDS, hence need
-> multiple interfaces).
->=20
-> The master interface represents the physical networking device that
-> works using native 802.11 frames. The qdisc works on 802.11 frames - not
-> ethernet, and it can change how 802.11 management frames are queued. It
-> can only be got rid of in the case of a fullmac card with only a single
-> interface, where all management frames are processed in the card.
->=20
-> In addition as we move to make 802.11 devices native (i.e. create an
-> 802.11 protocol) the 802.11 master interface will be essential.
+-vlad
 
-While these are good points, I don't believe having the master interface
-as a *netdev* is essential. In fact, it now has no functionality as a
-netdev, if you try routing packets over it they're simply dropped.
-
-Of course we need some notion of the wireless PHY and cfg80211
-explicitly represents that by assigning a wiphy index, but there's no
-need for it to be a netdev.
-
-johannes
-
---=-sQJykgStCQR/UCpYgn8m
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUARUogTKVg1VMiehFYAQLWvQ/+KAVshLFFiIQnlLEmjtMI4mt9Di6X9Hzh
-fJ3npkvxVibrem8fntYG9hvi1XnIntsPCHuNWvSCZUosGMo0chYRAnaJp8BfJV/B
-OHP5p1Zd0i0p9cjEAamscnsutjRBS9hEVCWs+PZcrPIRPX+QEsTVqB953g/IjxbN
-RF4vIq7JZ92a475s7jqKmxGEIqb+wzaHx/WYibnrNue0i2pkoFwjlPnokv+jlH1b
-UhlOyejw4WxivsQ6f1C59nT8z0pX5avdRaxc8JYfeRyIM38XRcpbr0hSquK54wKN
-vz7DXNZ4KeXjSePWZrftiJer1KHVzeobCT1g4alN+P0oDywDksn7pkjzWkbKiZM7
-qVKuvUA1OMYx8vG1FC+W+h1VFVuK5vDMfiCpJodnRlI6H1ss1QVrBS5zDDFZGFwl
-3Tfj9SZGOh4MLWd30UAJPnVg9fk5d/UoeAPtvV7MgqMkRwlXjX0nmt60tKFkJJ4S
-MtxM/cuQlPpiwDciQzvGOWret9Il6hK2YtKszqY3K39kZir5yRgrNSv2oNtnnQHy
-j6eGI66OBy4Yd8bqWOGDY3Jv4Iwi8ZNl8f9tZbYtUbjBtgc70Gf1FVs9IrA+rnln
-miLcahKvdn8YzXaLwCocPLD2fA4iEYuwkQ/3taT+A5UfvRFKQJFEx2dn1wDFP2Vz
-vJP7rkNpQyA=
-=mjK2
------END PGP SIGNATURE-----
-
---=-sQJykgStCQR/UCpYgn8m--
+> entry will be added in the LOCAL table (see addrconf_join_anycast()).
+> Problem is that, next time our host will receive a RA and will perform a
+> rt6_lookup(),
+> this function will return the local entry (LOCAL table), and not the
+> "dynamic" entry
+> (MAIN table). Consequence is that the lifetime of the dynamic entry will
+> never been updated,
+> and so will expire, whereas the host will keep the corresponding address.
+> 
+> Maybe, when strict is set to 1 in rt6_lookup(), kernel must not return
+> an anycast route.
+> What about this patch ?
+> 
+> 
+> Regards,
+> Nicolas
+> 
+> [IPv6] Don't return anycast route when strict is enable
+> 
+> Signed-off-by: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index c953466..51a8c1d 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -248,6 +248,8 @@ static __inline__ struct rt6_info *rt6_d
+>  			if (dev->ifindex == oif)
+>  				return sprt;
+>  			if (dev->flags & IFF_LOOPBACK) {
+> +				if (strict && sprt->rt6i_flags & RTF_ANYCAST)
+> +					continue;
+>  				if (sprt->rt6i_idev == NULL ||
+>  				    sprt->rt6i_idev->dev->ifindex != oif) {
+>  					if (strict && oif)
 
