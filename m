@@ -1,63 +1,85 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
-	d80211-specific qdisc
-Date: Thu, 02 Nov 2006 16:02:15 +0100
-Message-ID: <1162479735.10786.25.camel@ux156>
-References: <20061026050416.GB14199@havoc.gtf.org>
-	 <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
-	 <20061101112805.246e1b3b@griffin.suse.cz>
-	 <20061101142022.GC21668@tuxdriver.com> <4548E7F7.7030100@linux.intel.com>
-	 <20061102121657.GA13468@infradead.org> <20061102150550.5c30f704@midnight>
-	 <20061102141815.GA1795@infradead.org> <1162477954.10786.11.camel@ux156>
-	 <20061102144536.GA5352@infradead.org>
+From: "Horvath, Elmer" <Elmer.Horvath@windriver.com>
+Subject: RE: [tipc-discussion] [KJ] [patch] net/tipc:sprintf/strcpy	conversion
+Date: Thu, 2 Nov 2006 07:25:01 -0800
+Message-ID: <F6AE8F99CFBB884E9681D609D859BAD324D63D@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:8104 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750972AbWKBPBx
+Received: from mail.windriver.com ([147.11.1.11]:13504 "EHLO mail.wrs.com")
+	by vger.kernel.org with ESMTP id S1751380AbWKBPZm convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 10:01:53 -0500
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20061102144536.GA5352@infradead.org>
+	Thu, 2 Nov 2006 10:25:42 -0500
+Content-class: urn:content-classes:message
+To: <wharms@bfs.de>, <tipc-discussion@lists.sourceforge.net>,
+	<kernel-janitors@lists.osdl.org>, <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-02 at 14:45 +0000, Christoph Hellwig wrote:
+Hi,
 
-> I never said the name was related to WE - in fact there are tons of out of
-> tree drivers with different names.  The important bit is that upgrading a
-> kernel adn changing the wireless stack must not change the device name.
+Florian Westphal wrote:
+>> walter harms <wharms@bfs.de> wrote:
+>>> These line
+>>> +       strcpy(bcbearer->media.name, "tipc-multicast");
+>>> i gues that means tipc_bclink_name ?
+>> 
+>> The idea was to change how things are done, not _what_ is being done.
+>> 
+>>> an even more secure version could be like this:
+>>>
+>>>
+strncpy(bcbearer->media.name,sizeof(bcbearer->media.name),tipc_bclink_na
+me);
+>> 
+>> Ugh, please, no. The size of src is known in all cases; there is
+>> absoluty no point in using str(n|l)cpy here.
+>> 
+>>> (in case someone ever changes the size of cbearer->media.name or
+tipc_bclink_name and the >hope
+>>> that wchat_t will never reach the kernel)
+>>> 
+>> In this case 'someone' should be really hurt, don't you think?
+>> 
+>
+>hi florian,
+>i am on the side of error, the code increase is marginal and the speed
+penalty also, so why not ?
+>you make sure that an overflow may never happen, and the rest in name
+gets zeroed.
+>
+>The problem is that when the error occurs it may be later than the
+actual changeset.
+>NTL it is an hint, and if you feel ok with it and the maintainer has no
+objects i have no >problems either.
 
-Ah, but if that is your point then you should be arguing that the stack
-may not dictate the device name at all, in order to keep existing
-drivers able to keep whatever devicenames they were creating now...
+>re,
+> wh
 
-> All my scripts expect my bcm43xx card to be eth1 and not wifi0 or
-> wlansomething.  
+This objection I would have here is that you have would have to use
+strlcpy or you must explicitly set the last byte to '\0'.  strncpy()
+will not guarnatee a null-terminated string.  Also, str(n|l)cpy always
+writes 'n' bytes whereas strcpy() will only write as many bytes as
+required stopping at the null.  This is inefficient.
 
-But, but.. Kernel-assigned device names aren't really stable in
-practise, and in most distros udev will actually assign a stable name
-based on the mac address (which will, incidentally, apparently be ethX).
+It would be better to ensure that the sting being copied is correctly
+sized when first accepted if this is possible.  I didn't trace the
+usage, but it has likely already been checked for size.  No?
 
-Really though, I don't care about having it ethX, I rename it to
-whatever I want in userspace anyway.
+Elmer
 
-> There's in fact another much worse migration prblem
-> when we want to do wlan support correctly: the advertised frametype still
-> is 802.3 for all wlan devices (which make the current ethX names correct
-> in some obscure very technical way) and we need to make them raw 802.11
-> long-term.  It will probably make sense to do both migrations at the
-> same time and have a CONFIG_ option to force the old behaviour [1].
 
-Making it 802.11 will probably upset dhcp, I'd think. I have no idea how
-to handle that, at this time.
-
-johannes
+------------------------------------------------------------------------
+-
+Using Tomcat but need to do more? Need to support web services,
+security?
+Get stuff done quickly with pre-integrated technology to make your job
+easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache
+Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+_______________________________________________
+tipc-discussion mailing list
+tipc-discussion@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/tipc-discussion
