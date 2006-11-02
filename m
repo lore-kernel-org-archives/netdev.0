@@ -1,57 +1,80 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [airo.c bug] Couldn't allocate RX FID / Max tries exceeded
-	when issueing command
-Date: Thu, 02 Nov 2006 11:12:51 -0500
-Message-ID: <1162483971.2646.9.camel@localhost.localdomain>
-References: <b5def3a40611011914v59ecd4c3xb6965591524aa11@mail.gmail.com>
+From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+Subject: IPv6 and rt6_lookup()
+Date: Thu, 02 Nov 2006 17:25:27 +0100
+Message-ID: <454A1BF7.6030500@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	netdev@vger.kernel.org, breed@users.sourceforge.net,
-	achirica@users.sourceforge.net, jt@hpl.hp.com, fabrice@bellet.info
+Content-Type: multipart/mixed;
+ boundary="------------080401000603060800060101"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:36276 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751859AbWKBQN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 11:13:59 -0500
-To: Ivan Matveich <ivan.matveich@gmail.com>
-In-Reply-To: <b5def3a40611011914v59ecd4c3xb6965591524aa11@mail.gmail.com>
+Received: from mail01.net-streams.fr ([62.23.133.110]:58125 "EHLO
+	net-streams.fr") by vger.kernel.org with ESMTP id S1751931AbWKBQXc
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 11:23:32 -0500
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-01 at 22:14 -0500, Ivan Matveich wrote:
-> hardware: ibm thinkpad t30
-> kernel: 2.6.18
-> problem:
-> 
-> airo(): Probing for PCI adapters
-> ACPI: PCI Interrupt Link [LNKC] enabled at IRQ 11
-> ACPI: PCI Interrupt 0000:02:02.0[A] -> Link [LNKC] -> GSI 11 (level,
-> low) -> IRQ 11
-> airo(eth1): Found an MPI350 card
-> airo(eth1): Max tries exceeded when issueing command
-> airo(eth1): Couldn't allocate RX FID
-> airo(eth1): Could not map memory
-> airo(): Finished probing for PCI adapters
+This is a multi-part message in MIME format.
+--------------080401000603060800060101
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-It appears that the driver cannot talk to your card; see the "max tries
-exceeded when issueing command".  Did this card work previously with a
-kernel?  Can narrow down which kernels have problems and which don't?
+Hello,
 
-> Any ideas?
-> 
-> 1) Firmware upgrade/downgrade? (How?)
+Suppose that a host has autoconfiguration enabled. It will take RA to
+autoconfigure an IPv6 address. For example, 
+2001:0db8:3008:c1ca:2d0:b7ff:febb:4aee/64.
+This host will create a route entry for this onlink prefix (dst: 
+2001:0db8:3008:c1ca::/64)
+in the MAIN table with the lifetime present in prefix option in RA.
+Each time this host will receive a RA, it will update this lifetime. To 
+do this,
+it will call rt6_lookup() (in addrconf_prefix_rcv()) to find the entry.
 
-It's a bit hard to figure out what firmware you have because the driver
-can't talk to the card; can you boot under Windows and determine that
-using the Cisco wireless utility?  You also need to flash the card under
-Windows, not Linux, ideally to a version of firmware greater than
-5.60.08.
+Now, suppose that our host joins this anycast group: 
+"2001:0db8:3008:c1ca::0". A route
+entry will be added in the LOCAL table (see addrconf_join_anycast()).
+Problem is that, next time our host will receive a RA and will perform a 
+rt6_lookup(),
+this function will return the local entry (LOCAL table), and not the 
+"dynamic" entry
+(MAIN table). Consequence is that the lifetime of the dynamic entry will 
+never been updated,
+and so will expire, whereas the host will keep the corresponding address.
 
-> 2) Command sequence to better reset the card? Documentation?
-
-reloading the driver (rmmod airo; modprobe airo) should reset the card.
-
-Dan
+Maybe, when strict is set to 1 in rt6_lookup(), kernel must not return 
+an anycast route.
+What about this patch ?
 
 
+Regards,
+Nicolas
+
+[IPv6] Don't return anycast route when strict is enable
+
+Signed-off-by: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+
+
+--------------080401000603060800060101
+Content-Type: text/x-patch;
+ name="ra.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ra.diff"
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c953466..51a8c1d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -248,6 +248,8 @@ static __inline__ struct rt6_info *rt6_d
+ 			if (dev->ifindex == oif)
+ 				return sprt;
+ 			if (dev->flags & IFF_LOOPBACK) {
++				if (strict && sprt->rt6i_flags & RTF_ANYCAST)
++					continue;
+ 				if (sprt->rt6i_idev == NULL ||
+ 				    sprt->rt6i_idev->dev->ifindex != oif) {
+ 					if (strict && oif)
+
+--------------080401000603060800060101--
