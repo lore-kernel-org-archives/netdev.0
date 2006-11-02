@@ -1,53 +1,46 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel
- found
-Date: Thu, 02 Nov 2006 16:22:07 +0200
-Message-ID: <4549FF0F.6020705@tcs.hut.fi>
-References: <4549D8E7.1040409@tcs.hut.fi>	<20061102.215900.15793371.yoshfuji@linux-ipv6.org>	<4549EFA7.50004@tcs.hut.fi> <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than
+	d80211-specific qdisc
+Date: Thu, 02 Nov 2006 15:22:37 +0100
+Message-ID: <1162477358.10786.4.camel@ux156>
+References: <20061026050416.GB14199@havoc.gtf.org>
+	 <C86180A8C204554D8A3323D8F6B0A29F018B54FB@dhost002-46.dex002.intermedia.net>
+	 <20061101112805.246e1b3b@griffin.suse.cz>
+	 <20061101142022.GC21668@tuxdriver.com> <4548E7F7.7030100@linux.intel.com>
+	 <20061102121657.GA13468@infradead.org>  <20061102150550.5c30f704@midnight>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Cc: James Ketrenos <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neon.tcs.hut.fi ([130.233.215.20]:7052 "EHLO mail.tcs.hut.fi")
-	by vger.kernel.org with ESMTP id S1750735AbWKBOWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 09:22:15 -0500
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:7623 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750708AbWKBOWD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 09:22:03 -0500
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20061102150550.5c30f704@midnight>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/02/06 16:18, YOSHIFUJI Hideaki wrote:
-> In article <4549EFA7.50004@tcs.hut.fi> (at Thu, 02 Nov 2006 15:16:23 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
-> 
->> On 11/02/06 14:59, YOSHIFUJI Hideaki wrote:
->>> In article <4549D8E7.1040409@tcs.hut.fi> (at Thu, 02 Nov 2006 13:39:19 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
->>>
->>>>  	read_unlock(&ip6ip6_lock);
->>>> -	return 1;
->>>> -
->>>> +	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
->>>> +		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
->>>>  discard:
->>> I'd argue this.  We probably should not send back any ICMPv6 packets 
->>> to the original sender in this case to avoid DoS.
->> Sorry, I don't follow you. I don't see the DoS scenario here (after we
->> apply the patch, that is ;-).
-> 
-> Well, leaving aside whether sending icmpv6 is good thing (*),
-> the code for sending icmpv6 was moved from ip6_tunnel.c
-> to tunnel6.c by commit-id 50fba2aa7cefa6b0e1768cb350c9e69042320c03
-> by Herbert.
-> 
-> The ip6_tunnel.c change that Herbert made does not seem consistent
-> with ipip.c change.  To fix your issue the appropriate change is just
-> fall through to discard section, as we're doing for ipip.c.
-> 
-> Please do not re-add sending icmpv6 logic here.
-> If you DO think it is appropriate, please fix other codes
-> such as ipip.c, and your comment.
+On Thu, 2006-11-02 at 15:05 +0100, Jiri Benc wrote:
+> - Single device is not as easy as it sounds. It would require rather
+>   invasive changes in the networking core or ugly hacks in d80211. I'm
+>   afraid this is something not achievable in a near future with current
+>   number of people working on d80211. But in general, it's doable and
+>   desirable, yes.
 
-Ok, I'll resubmit a patch doesn't send an ICMPv6 error message.
+Actually, just as a note to all the others (talked to Jiri about it
+already), I think it's easier than thought since the code is so
+convoluted. The only purpose of the wmaster device appears to be to have
+an outgoing frame queue through the qdisc. Since we require the 802.11
+qdisc to be installed at the root for all netdevices anyway, we could
+just as well hand the frame to it right away.
 
-Regards,
-Ville
+I'll look into that later today.
+
+johannes
