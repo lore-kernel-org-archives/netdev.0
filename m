@@ -1,254 +1,190 @@
 From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [PATCH 1/6] IPv6: Fix SIOCCHGTUNNEL bug in IPv6 tunnels
-Date: Thu, 02 Nov 2006 13:29:31 +0200
-Message-ID: <4549D69B.20903@tcs.hut.fi>
+Subject: [PATCH 2/6] IPv6: Do mandatory IPv6 tunnel endpoint checks in realtime
+Date: Thu, 02 Nov 2006 13:31:34 +0200
+Message-ID: <4549D716.7090600@tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070805070405020906090009"
+ boundary="------------050803060401060703020803"
 Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neon.tcs.hut.fi ([130.233.215.20]:44937 "EHLO mail.tcs.hut.fi")
-	by vger.kernel.org with ESMTP id S1752857AbWKBL3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 06:29:40 -0500
+Received: from neon.tcs.hut.fi ([130.233.215.20]:46985 "EHLO mail.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1752536AbWKBLbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 06:31:43 -0500
 To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------070805070405020906090009
+--------------050803060401060703020803
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
 
---------------070805070405020906090009
+--------------050803060401060703020803
 Content-Type: text/plain;
- name="0001-IPv6-Fix-SIOCCHGTUNNEL-bug-in-IPv6-tunnels.txt"
+ name*0="0002-IPv6-Do-mandatory-ip6_tunnel-endpoint-checks-in-realtime.tx";
+ name*1="t"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="0001-IPv6-Fix-SIOCCHGTUNNEL-bug-in-IPv6-tunnels.txt"
+ filename*0="0002-IPv6-Do-mandatory-ip6_tunnel-endpoint-checks-in-realtim";
+ filename*1="e.txt"
 
->From f9812eb0349f44f6374910ce38524f0c6f7ce8f4 Mon Sep 17 00:00:00 2001
+>From e60ed41fb11793d16ffcbfd56b889e0bbf04ea88 Mon Sep 17 00:00:00 2001
 From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Date: Thu, 2 Nov 2006 12:40:38 +0200
-Subject: [PATCH 1/6] IPv6: Fix SIOCCHGTUNNEL bug in IPv6 tunnels
+Date: Thu, 2 Nov 2006 12:43:50 +0200
+Subject: [PATCH 2/6] IPv6: Do mandatory IPv6 tunnel endpoint checks in realtime
 
-A logic bug in tunnel lookup could result in duplicate tunnels
-when changing an existing device.
+Doing the mandatory tunnel endpoint checks when the tunnel is set up
+isn't enough as interfaces can go up or down and addresses can be
+added or deleted after this. The checks need to be done realtime when
+the tunnel is processing a packet.
 
 Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
 ---
- net/ipv6/ip6_tunnel.c |  111 ++++++++++++++++++++----------------------------
- 1 files changed, 46 insertions(+), 65 deletions(-)
+ net/ipv6/ip6_tunnel.c |   96 +++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 62 insertions(+), 34 deletions(-)
 
 diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 84d7ebd..e61458c 100644
+index e61458c..2467b04 100644
 --- a/net/ipv6/ip6_tunnel.c
 +++ b/net/ipv6/ip6_tunnel.c
-@@ -215,11 +215,10 @@ ip6ip6_tnl_unlink(struct ip6_tnl *t)
-  *   Create tunnel matching given parameters.
-  * 
-  * Return: 
-- *   0 on success
-+ *   created tunnel or NULL
-  **/
- 
--static int
--ip6_tnl_create(struct ip6_tnl_parm *p, struct ip6_tnl **pt)
-+static struct ip6_tnl *ip6_tnl_create(struct ip6_tnl_parm *p)
- {
- 	struct net_device *dev;
- 	struct ip6_tnl *t;
-@@ -236,11 +235,11 @@ ip6_tnl_create(struct ip6_tnl_parm *p, s
- 				break;
- 		}
- 		if (i == IP6_TNL_MAX) 
--			return -ENOBUFS;
-+			goto failed;
- 	}
- 	dev = alloc_netdev(sizeof (*t), name, ip6ip6_tnl_dev_setup);
- 	if (dev == NULL)
--		return -ENOMEM;
-+		goto failed;
- 
- 	t = netdev_priv(dev);
- 	dev->init = ip6ip6_tnl_dev_init;
-@@ -248,13 +247,13 @@ ip6_tnl_create(struct ip6_tnl_parm *p, s
- 
- 	if ((err = register_netdevice(dev)) < 0) {
- 		free_netdev(dev);
--		return err;
-+		goto failed;
- 	}
- 	dev_hold(dev);
--
- 	ip6ip6_tnl_link(t);
--	*pt = t;
--	return 0;
-+	return t;
-+failed:
-+	return NULL;
+@@ -494,6 +494,27 @@ static inline void ip6ip6_ecn_decapsulat
+ 	if (INET_ECN_is_ce(ipv6_get_dsfield(outer_iph)))
+ 		IP6_ECN_set_ce(inner_iph);
  }
- 
- /**
-@@ -268,32 +267,23 @@ ip6_tnl_create(struct ip6_tnl_parm *p, s
-  *   tunnel device is created and registered for use.
-  *
-  * Return:
-- *   0 if tunnel located or created,
-- *   -EINVAL if parameters incorrect,
-- *   -ENODEV if no matching tunnel available
-+ *   matching tunnel or NULL
-  **/
- 
--static int
--ip6ip6_tnl_locate(struct ip6_tnl_parm *p, struct ip6_tnl **pt, int create)
-+static struct ip6_tnl *ip6ip6_tnl_locate(struct ip6_tnl_parm *p, int create)
- {
- 	struct in6_addr *remote = &p->raddr;
- 	struct in6_addr *local = &p->laddr;
- 	struct ip6_tnl *t;
- 
--	if (p->proto != IPPROTO_IPV6)
--		return -EINVAL;
--
- 	for (t = *ip6ip6_bucket(p); t; t = t->next) {
- 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
--		    ipv6_addr_equal(remote, &t->parms.raddr)) {
--			*pt = t;
--			return (create ? -EEXIST : 0);
--		}
-+		    ipv6_addr_equal(remote, &t->parms.raddr))
-+			return t;
- 	}
- 	if (!create)
--		return -ENODEV;
--	
--	return ip6_tnl_create(p, pt);
-+		return NULL;
-+	return ip6_tnl_create(p);
- }
- 
- /**
-@@ -919,26 +909,20 @@ static int
- ip6ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	int err = 0;
--	int create;
- 	struct ip6_tnl_parm p;
- 	struct ip6_tnl *t = NULL;
- 
- 	switch (cmd) {
- 	case SIOCGETTUNNEL:
- 		if (dev == ip6ip6_fb_tnl_dev) {
--			if (copy_from_user(&p,
--					   ifr->ifr_ifru.ifru_data,
--					   sizeof (p))) {
-+			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof (p))) {
- 				err = -EFAULT;
- 				break;
- 			}
--			if ((err = ip6ip6_tnl_locate(&p, &t, 0)) == -ENODEV)
--				t = netdev_priv(dev);
--			else if (err)
--				break;
--		} else
-+			t = ip6ip6_tnl_locate(&p, 0);
-+		}
-+		if (t == NULL)
- 			t = netdev_priv(dev);
--
- 		memcpy(&p, &t->parms, sizeof (p));
- 		if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof (p))) {
- 			err = -EFAULT;
-@@ -947,35 +931,36 @@ ip6ip6_tnl_ioctl(struct net_device *dev,
- 	case SIOCADDTUNNEL:
- 	case SIOCCHGTUNNEL:
- 		err = -EPERM;
--		create = (cmd == SIOCADDTUNNEL);
- 		if (!capable(CAP_NET_ADMIN))
- 			break;
--		if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof (p))) {
--			err = -EFAULT;
-+		err = -EFAULT;
-+		if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof (p)))
- 			break;
--		}
--		if (!create && dev != ip6ip6_fb_tnl_dev) {
--			t = netdev_priv(dev);
--		}
--		if (!t && (err = ip6ip6_tnl_locate(&p, &t, create))) {
-+		err = -EINVAL;
-+		if (p.proto != IPPROTO_IPV6)
- 			break;
--		}
--		if (cmd == SIOCCHGTUNNEL) {
--			if (t->dev != dev) {
--				err = -EEXIST;
--				break;
--			}
-+		t = ip6ip6_tnl_locate(&p, cmd == SIOCADDTUNNEL);
-+		if (dev != ip6ip6_fb_tnl_dev && cmd == SIOCCHGTUNNEL) {
-+			if (t != NULL) {
-+				if (t->dev != dev) {
-+					err = -EEXIST;
-+					break;
-+				}
-+			} else
-+				t = netdev_priv(dev);
++static inline int ip6_tnl_rcv_ctl(struct ip6_tnl *t)
++{
++	struct ip6_tnl_parm *p = &t->parms;
++	int ret = 0;
 +
- 			ip6ip6_tnl_unlink(t);
- 			err = ip6ip6_tnl_change(t, &p);
- 			ip6ip6_tnl_link(t);
- 			netdev_state_change(dev);
- 		}
--		if (copy_to_user(ifr->ifr_ifru.ifru_data,
--				 &t->parms, sizeof (p))) {
--			err = -EFAULT;
--		} else {
-+		if (t) {
- 			err = 0;
--		}
-+			if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof (p)))
-+				err = -EFAULT;
-+			
-+		} else
-+			err = (cmd == SIOCADDTUNNEL ? -ENOBUFS : -ENOENT);
- 		break;
- 	case SIOCDELTUNNEL:
- 		err = -EPERM;
-@@ -983,22 +968,18 @@ ip6ip6_tnl_ioctl(struct net_device *dev,
- 			break;
++	if (p->flags & IP6_TNL_F_CAP_RCV) {
++    		struct net_device *ldev = NULL;
++
++		if (p->link)
++			ldev = dev_get_by_index(p->link);
++
++		if ((ipv6_addr_is_multicast(&p->laddr) ||
++		     likely(ipv6_chk_addr(&p->laddr, ldev, 0))) &&
++		    likely(!ipv6_chk_addr(&p->raddr, NULL, 0)))
++			ret = 1;
++
++		if (ldev)
++			dev_put(ldev);
++	}
++	return ret;
++}
  
- 		if (dev == ip6ip6_fb_tnl_dev) {
--			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data,
--					   sizeof (p))) {
--				err = -EFAULT;
-+			err = -EFAULT;
-+			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof (p)))
- 				break;
--			}
--			err = ip6ip6_tnl_locate(&p, &t, 0);
--			if (err)
-+			err = -ENOENT;
-+			if ((t = ip6ip6_tnl_locate(&p, 0)) == NULL)
- 				break;
--			if (t == netdev_priv(ip6ip6_fb_tnl_dev)) {
--				err = -EPERM;
-+			err = -EPERM;
-+			if (t->dev == ip6ip6_fb_tnl_dev)
- 				break;
--			}
--		} else {
--			t = netdev_priv(dev);
-+			dev = t->dev;
+ /**
+  * ip6ip6_rcv - decapsulate IPv6 packet and retransmit it locally
+@@ -518,7 +539,7 @@ ip6ip6_rcv(struct sk_buff *skb)
+ 			goto discard;
  		}
--		err = unregister_netdevice(t->dev);
-+		err = unregister_netdevice(dev);
- 		break;
- 	default:
- 		err = -EINVAL;
+ 
+-		if (!(t->parms.flags & IP6_TNL_F_CAP_RCV)) {
++		if (!ip6_tnl_rcv_ctl(t)) {
+ 			t->stat.rx_dropped++;
+ 			read_unlock(&ip6ip6_lock);
+ 			goto discard;
+@@ -596,6 +617,34 @@ ip6ip6_tnl_addr_conflict(struct ip6_tnl
+ 	return ipv6_addr_equal(&t->parms.raddr, &hdr->saddr);
+ }
+ 
++static inline int ip6_tnl_xmit_ctl(struct ip6_tnl *t)
++{
++	struct ip6_tnl_parm *p = &t->parms;
++	int ret = 0;
++
++ 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
++		struct net_device *ldev = NULL;
++
++		if (p->link)
++			ldev = dev_get_by_index(p->link);
++
++		if (unlikely(!ipv6_chk_addr(&p->laddr, ldev, 0)))
++			printk(KERN_WARNING
++			       "%s xmit: Local address not yet configured!\n",
++			       p->name);
++		else if (!ipv6_addr_is_multicast(&p->raddr) &&
++			 unlikely(ipv6_chk_addr(&p->raddr, NULL, 0)))
++			printk(KERN_WARNING
++			       "%s xmit: Routing loop! "
++			       "Remote address found on this node!\n",
++			       p->name);
++		else
++			ret = 1;
++		if (ldev)
++			dev_put(ldev);
++	}
++	return ret;
++}
+ /**
+  * ip6ip6_tnl_xmit - encapsulate packet and send 
+  *   @skb: the outgoing socket buffer
+@@ -633,10 +682,9 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+ 		goto tx_err;
+ 	}
+ 	if (skb->protocol != htons(ETH_P_IPV6) ||
+-	    !(t->parms.flags & IP6_TNL_F_CAP_XMIT) ||
+-	    ip6ip6_tnl_addr_conflict(t, ipv6h)) {
++	    !ip6_tnl_xmit_ctl(t) || ip6ip6_tnl_addr_conflict(t, ipv6h))
+ 		goto tx_err;
+-	}
++
+ 	if ((offset = parse_tlv_tnl_enc_lim(skb, skb->nh.raw)) > 0) {
+ 		struct ipv6_tlv_tnl_enc_lim *tel;
+ 		tel = (struct ipv6_tlv_tnl_enc_lim *) &skb->nh.raw[offset];
+@@ -767,39 +815,19 @@ tx_err:
+ static void ip6_tnl_set_cap(struct ip6_tnl *t)
+ {
+ 	struct ip6_tnl_parm *p = &t->parms;
+-	struct in6_addr *laddr = &p->laddr;
+-	struct in6_addr *raddr = &p->raddr;
+-	int ltype = ipv6_addr_type(laddr);
+-	int rtype = ipv6_addr_type(raddr);
++	int ltype = ipv6_addr_type(&p->laddr);
++	int rtype = ipv6_addr_type(&p->raddr);
+ 
+ 	p->flags &= ~(IP6_TNL_F_CAP_XMIT|IP6_TNL_F_CAP_RCV);
+ 
+-	if (ltype != IPV6_ADDR_ANY && rtype != IPV6_ADDR_ANY &&
+-	    ((ltype|rtype) &
+-	     (IPV6_ADDR_UNICAST|
+-	      IPV6_ADDR_LOOPBACK|IPV6_ADDR_LINKLOCAL|
+-	      IPV6_ADDR_MAPPED|IPV6_ADDR_RESERVED)) == IPV6_ADDR_UNICAST) {
+-		struct net_device *ldev = NULL;
+-		int l_ok = 1;
+-		int r_ok = 1;
+-
+-		if (p->link)
+-			ldev = dev_get_by_index(p->link);
+-		
+-		if (ltype&IPV6_ADDR_UNICAST && !ipv6_chk_addr(laddr, ldev, 0))
+-			l_ok = 0;
+-		
+-		if (rtype&IPV6_ADDR_UNICAST && ipv6_chk_addr(raddr, NULL, 0))
+-			r_ok = 0;
+-		
+-		if (l_ok && r_ok) {
+-			if (ltype&IPV6_ADDR_UNICAST)
+-				p->flags |= IP6_TNL_F_CAP_XMIT;
+-			if (rtype&IPV6_ADDR_UNICAST)
+-				p->flags |= IP6_TNL_F_CAP_RCV;
+-		}
+-		if (ldev)
+-			dev_put(ldev);
++	if (ltype & (IPV6_ADDR_UNICAST|IPV6_ADDR_MULTICAST) &&
++	    rtype & (IPV6_ADDR_UNICAST|IPV6_ADDR_MULTICAST) &&
++	    !((ltype|rtype) & IPV6_ADDR_LOOPBACK) &&
++	    !((ltype|rtype) & IPV6_ADDR_LINKLOCAL)) {
++		if (ltype&IPV6_ADDR_UNICAST)
++			p->flags |= IP6_TNL_F_CAP_XMIT;
++		if (rtype&IPV6_ADDR_UNICAST)
++			p->flags |= IP6_TNL_F_CAP_RCV;
+ 	}
+ }
+ 
 -- 
 1.4.3.2
 
 
---------------070805070405020906090009--
+--------------050803060401060703020803--
