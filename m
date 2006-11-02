@@ -1,43 +1,55 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather than d80211-specific qdisc
-Date: Thu, 2 Nov 2006 18:15:55 -0500
-Message-ID: <43e72e890611021515y6d705743t28fab2f4440d8a78@mail.gmail.com>
-References: <20061102193839.4884ae56@logostar.upir.cz>
-	 <C86180A8C204554D8A3323D8F6B0A29F018B5E78@dhost002-46.dex002.intermedia.net>
-	 <20061102144833.6a161b2b@freekitty>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH 0/6] rework d80211 cookie pointer
+Date: Thu, 2 Nov 2006 18:28:03 -0500
+Message-ID: <200611021828.08294.flamingice@sourmilk.net>
+References: <20061102223854.692274000@sipsolutions.net>>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart1484472.ITYqdfUM2s";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: "Simon Barber" <simon@devicescape.com>,
-	"Jiri Benc" <jbenc@suse.cz>, "Sven-Haegar Koch" <haegar@sdinet.de>,
-	"Christoph Hellwig" <hch@infradead.org>,
-	"James Ketrenos" <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"David Kimdon" <dwhedon@devicescape.com>, netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	John Linville <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:28861 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1752775AbWKBXQB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 18:16:01 -0500
-Received: by ug-out-1314.google.com with SMTP id m3so272292ugc
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2006 15:15:59 -0800 (PST)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20061102144833.6a161b2b@freekitty>
-Content-Disposition: inline
+Received: from smtp.rutgers.edu ([128.6.72.243]:44928 "EHLO
+	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
+	id S1752806AbWKBX2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 18:28:15 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <20061102223854.692274000@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/2/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+--nextPart1484472.ITYqdfUM2s
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Please have Ethernet (and wireless) devices show up as eth%d. For the
-> master device, choose something else (mac%d ?).
+On Thursday 02 November 2006 17:38, Johannes Berg wrote:
+> Now, I tried to update adm8211 and rt2x00 as well, but faced some
+> problems. adm8211 actually accesses the struct net_device and
+> calls it's open() call! This is broken.
+>
+Good catch. Looks like I never updated the suspend/resume code properly whe=
+n I=20
+ported to d80211. The fix is easy - the code just needs to call the=20
+adm8211_open/stop functions directly. I'll send a patch later tonight.
 
-If ultimately we're going to make wireless devices, as John puts it,
-"1st class citizens" by making 802.11 a full protocol we should just
-start sticking to a new convention. Before when we didn't have any
-softmac drivers in the kernel ethX made sense, with softmac this isn't
-so clear, but with 802.11 as a full protocol perhaps wlanX will
-finally make perfect sense. For the master device yes, how about mac%d
-as its there do 802.11 MAC management.
+=2DMichael Wu
+
+--nextPart1484472.ITYqdfUM2s
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFSn8IT3Oqt9AH4aERAm4iAKChzelpNcWHHDCY2vURJtnoTZYifgCeND0i
+txYHphUZBC7H82CDu3IM09c=
+=zSPw
+-----END PGP SIGNATURE-----
+
+--nextPart1484472.ITYqdfUM2s--
