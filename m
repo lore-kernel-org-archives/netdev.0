@@ -1,48 +1,39 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] bcm43xx: Drain TX status before starting IRQs
-Date: Wed, 01 Nov 2006 23:46:27 -0600
-Message-ID: <45498633.7040808@lwfinger.net>
-References: <200610191729.35402.mb@bu3sch.de>
+From: Florian Westphal <fw-kernel@strlen.de>
+Subject: Re: [tipc-discussion] [KJ] [patch] net/tipc: sprintf/strcpy conversion
+Date: Thu, 2 Nov 2006 07:26:56 +0100
+Message-ID: <20061102062656.GA8339@Chamillionaire.breakpoint.cc>
+References: <20061101140624.GA7694@Chamillionaire.breakpoint.cc> <454913D2.9050608@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:39163 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1752684AbWKBFqo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 00:46:44 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200610191729.35402.mb@bu3sch.de>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:3246 "EHLO
+	Chamillionaire.breakpoint.cc") by vger.kernel.org with ESMTP
+	id S1752309AbWKBG13 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 01:27:29 -0500
+To: tipc-discussion@lists.sourceforge.net,
+	kernel-janitors@lists.osdl.org, netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <454913D2.9050608@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> Drain the Microcode TX-status-FIFO before we enable IRQs.
-> This is required, because the FIFO may still have entries left
-> from a previous run. Those would immediately fire after enabling
-> IRQs and would lead to an oops in the DMA TXstatus handling code.
-> 
-> Signed-off-by: Michael Buesch <mb@bu3sch.de>
-> 
-> --
-> 
-> Please consider also pushing this into the -stable tree.
-> The bug is not likely to trigger, but at least ben
-> triggered it in the past. Anyway, it can't hurt much to
-> drain the FIFO before running the device.
-> 
-> Note that this is diffed against 2.6.18.1 and not 2.6.18
-> as the diff prolog suggests. I just forgot to rename
-> the directory. ;)
+walter harms <wharms@bfs.de> wrote:
+> These line
+>+       strcpy(bcbearer->media.name, "tipc-multicast");
+> i gues that means tipc_bclink_name ?
 
-Has anyone used this patch, particularly with WPA encryption? When I try it, wpa_supplicant 
-immediately uses 90+% of the cpu and never actually authenticates with my AP. I wonder if it is 
-something with my system.
+The idea was to change how things are done, not _what_ is being done.
 
-Thanks,
+> an even more secure version could be like this:
+> 
+> 	strncpy(bcbearer->media.name,sizeof(bcbearer->media.name),tipc_bclink_name);
 
-Larry
+Ugh, please, no. The size of src is known in all cases; there is
+absoluty no point in using str(n|l)cpy here.
 
+> (in case someone ever changes the size of cbearer->media.name or tipc_bclink_name and the hope
+> that wchat_t will never reach the kernel)
+
+In this case 'someone' should be really hurt, don't you think?
+
+Florian
