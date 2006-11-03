@@ -1,56 +1,39 @@
-From: Michael Wu <flamingice@sourmilk.net>
+From: "Johannes Berg" <johannes@sipsolutions.net>
 Subject: Re: [PATCH 0/6] rework d80211 cookie pointer
-Date: Fri, 3 Nov 2006 14:04:16 -0500
-Message-ID: <200611031404.32926.flamingice@sourmilk.net>
+Date: Fri, 3 Nov 2006 20:08:13 +0100 (CET)
+Message-ID: <19467.82.113.121.16.1162580893.squirrel@secure.sipsolutions.net>
 References: <20061102223854.692274000@sipsolutions.net>>
+    <200611031404.32926.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1318705.ux1KjfUkEo";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Ivo van Doorn <ivdoorn@gmail.com>,
-	John Linville <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Jiri Benc" <jbenc@suse.cz>, netdev@vger.kernel.org,
+	"Ivo van Doorn" <ivdoorn@gmail.com>,
+	"John Linville" <linville@tuxdriver.com>,
+	"Michael Buesch" <mb@bu3sch.de>, "Hong Liu" <hong.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:42277 "EHLO
-	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
-	id S1753456AbWKCTEr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 14:04:47 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20061102223854.692274000@sipsolutions.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:5034 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1753385AbWKCTOm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 14:14:42 -0500
+In-Reply-To: <200611031404.32926.flamingice@sourmilk.net>
+To: "Michael Wu" <flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1318705.ux1KjfUkEo
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Michael Wu wrote:
 
-On Thursday 02 November 2006 17:38, Johannes Berg wrote:
-> I'm sorry I didn't manage to update these drivers. As for out-of-tree
-> drivers, I obviously haven't updated them either. It *shouldn't*
-> be too hard as the net_dev shouldn't be used in many places.
+> So uh, what am I going to prefix all my printk messages with now that I
+> can't
+> access dev->name? It seems like the other d80211 drivers have a habit of
+> prefixing their messages with the driver name (wrong thing to do, IMHO),
+> which is different from pretty much all other network drivers.
 
-So uh, what am I going to prefix all my printk messages with now that I can=
-'t=20
-access dev->name? It seems like the other d80211 drivers have a habit of=20
-prefixing their messages with the driver name (wrong thing to do, IMHO),=20
-which is different from pretty much all other network drivers.
+Yeah, I thought about that and added that function to get the wiphy index.
+cfg80211 makes the wiphy index an actual identifier that you can use to
+enumerate all devices it has attached etc, so that makes sense. and d80211
+also puts it into sysfs.
 
-=2DMichael Wu
+Is that good enough?
 
---nextPart1318705.ux1KjfUkEo
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFS5LAT3Oqt9AH4aERAhRVAKC6sUdclhvBqvI4sEtKtp2IpVYStACgg498
-Y87RRRXkEnSbx1fM4dn4uRU=
-=xUaf
------END PGP SIGNATURE-----
-
---nextPart1318705.ux1KjfUkEo--
+johannes
