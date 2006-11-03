@@ -1,68 +1,95 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/6] d80211: change the cookie to be opaque
-Date: Fri, 03 Nov 2006 01:46:31 +0100
-Message-ID: <1162514791.3381.14.camel@johannes.berg>
-References: <20061102223854.692274000@sipsolutions.net> >
-	 <20061102230013.960383000@sipsolutions.net> >
-	  <1162513367.3381.11.camel@johannes.berg>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: [PATCH wireless-dev] adm8211: fix suspend code
+Date: Thu, 2 Nov 2006 21:01:23 -0500
+Message-ID: <200611022101.27562.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-2QCIAhctxuSpwYyI99mT"
-Cc: netdev@vger.kernel.org, Ivo van Doorn <ivdoorn@gmail.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	John Linville <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
+Content-Type: multipart/signed;
+  boundary="nextPart4544658.CWLGrMaTV0";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:38528 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1752748AbWKCArz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 19:47:55 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <1162513367.3381.11.camel@johannes.berg>
+Received: from smtp.rutgers.edu ([128.6.72.243]:47822 "EHLO
+	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
+	id S1752463AbWKCCBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 21:01:38 -0500
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-2QCIAhctxuSpwYyI99mT
-Content-Type: text/plain
+--nextPart4544658.CWLGrMaTV0
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
+adm8211: fix suspend code
 
-> Ok, that one was wrong. But what is it doing in the public API? We need
-> to remove it from the public API and leave struct net_device *dev as the
-> parameter. adm8211 actually uses it and increases the tx_fifo_error
-> counter, but that's a bit strange.
+Apparently, I forgot to port the suspend and resume code in the
+d80211 port of adm8211. Thanks to Johannes Berg for finding this.
 
-Fixed, and since, as always, netdev doesn't like my patches, they're
-here instead:
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
 
-http://johannes.sipsolutions.net/files/d80211-mdev-cleanup/
+=2D--
 
-I also added d80211-reduce-mdev.patch which reduces stupid mdev usage,
-but see the description in the patch itself.
+ drivers/net/wireless/d80211/adm8211/adm8211.c |   19 ++++++++++++-------
+ 1 files changed, 12 insertions(+), 7 deletions(-)
 
-johannes
+diff --git a/drivers/net/wireless/d80211/adm8211/adm8211.c=20
+b/drivers/net/wireless/d80211/adm8211/adm8211.c
+index bc0c8b6..fcfd05a 100644
+=2D-- a/drivers/net/wireless/d80211/adm8211/adm8211.c
++++ b/drivers/net/wireless/d80211/adm8211/adm8211.c
+@@ -2135,26 +2135,31 @@ #ifdef CONFIG_PM
+ static int adm8211_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+ 	struct net_device *dev =3D pci_get_drvdata(pdev);
+=2D	netif_device_detach(dev);
++	struct adm8211_priv *priv =3D ieee80211_dev_hw_data(dev);
+=20
+=2D	if (dev->flags & IFF_UP)
+=2D		dev->stop(dev);
++	if (priv->mode !=3D IEEE80211_IF_TYPE_MGMT) {
++		ieee80211_stop_queues(dev);
++		adm8211_stop(dev);
++	}
+=20
+ 	pci_save_state(pdev);
+=2D	pci_set_power_state(pdev, PCI_D3hot);
++	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+ 	return 0;
+ }
+=20
+ static int adm8211_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev =3D pci_get_drvdata(pdev);
++	struct adm8211_priv *priv =3D ieee80211_dev_hw_data(dev);
++
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+=20
+=2D	if (dev->flags & IFF_UP)
+=2D		dev->open(dev);
++	if (priv->mode !=3D IEEE80211_IF_TYPE_MGMT) {
++		adm8211_open(dev);
++		ieee80211_start_queues(dev);
++	}
+=20
+=2D	netif_device_attach(dev);
+ 	return 0;
+ }
+ #endif /* CONFIG_PM */
 
---=-2QCIAhctxuSpwYyI99mT
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+--nextPart4544658.CWLGrMaTV0
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-iQIVAwUARUqRZqVg1VMiehFYAQKFAxAAjG4EGT9Wr/e+sSMt0OH5ZcellaZpcXBm
-Kgb1QbjpJdR4ETatGcQnt5JCRHUwglNmlLWCZoDVYdCk/Q2ls5uSQZXNWpdkQpkn
-69m1oF7t8jp+G7EKtY7LtxKgiV4Z1Htpg73sCr462bT8luhURklMvEJjlEyNcYE8
-AdEsOl+KHR/XRW3F6xn3XImwFk3ymv45PgcylgpH/C6BsZnHznv7jRKB7z2WEboD
-s7phg3shy8KD4QdGIA1plgqNJvNJoFrUJK6Vs3QO1kzNP84MrkfN3qS3MgoZYWsO
-xA4Pf9ZMIdDN+xfrFL1VASJ5wPavZsP7/BgqPc80XcrhwZbp7lnHsHbc4PSFFuc5
-2iVLOBzobxiGAJM/g9TLBtm+bZzJ3/7ETdBrNFs1HE9SZi+i4qrJq7Mm1AbZW/HE
-Lfw0UdWOHCqicYrEc/x+0Fkjdh52YR3bG80Yk4jP/bthZ5ZH7Oq01qyxFrUj5UJa
-frGeNhusg26v1Xg38l36+smO2T0ow04DZkbsqf0EiIHUyZ4WQhA5ccrMkgRX4jN3
-791cYTuvV0ArmSlH0ROvQf76StiofyoeTqozaQChx6aOHFn75J40oUPE7rXeTrf9
-Si2lbztLRoabJC3r/0hyE5TCDrhJNVm2L4MfuXlKxq2f68GGDLoc8d5Le/ka435Y
-gtoPIKeCZSA=
-=Qmap
+iD8DBQBFSqL3T3Oqt9AH4aERAnZsAKC06pMj+q5zvBxCxxuayF2/JUZshQCgkrtN
+LKfMgBkl8GZz50nugoEfyiA=
+=ZRFT
 -----END PGP SIGNATURE-----
 
---=-2QCIAhctxuSpwYyI99mT--
-
+--nextPart4544658.CWLGrMaTV0--
