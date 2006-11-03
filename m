@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [TG3]: Fix 2nd ifup failure on 5752M.
-Date: Fri, 03 Nov 2006 01:01:21 -0800 (PST)
-Message-ID: <20061103.010121.85418862.davem@davemloft.net>
-References: <1162501349.3700.3.camel@rh4>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Fri, 03 Nov 2006 01:04:13 -0800 (PST)
+Message-ID: <20061103.010413.85690195.davem@davemloft.net>
+References: <5c49b0ed0611021140u360342f2v1e83c73d03eea329@mail.gmail.com>
+	<20061103084240.GB1184@2ka.mipt.ru>
+	<20061103085712.GA3725@elf.ucw.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, nate.diller@gmail.com,
+	linux-kernel@vger.kernel.org, olecom@flower.upol.cz,
+	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
+	zach.brown@oracle.com, hch@infradead.org,
+	chase.venters@clientec.com, johann.borck@densedata.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6286
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53678
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752637AbWKCJBS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 04:01:18 -0500
-To: mchan@broadcom.com
-In-Reply-To: <1162501349.3700.3.camel@rh4>
+	id S1752629AbWKCJEL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 04:04:11 -0500
+To: pavel@ucw.cz
+In-Reply-To: <20061103085712.GA3725@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 02 Nov 2006 13:02:29 -0800
+From: Pavel Machek <pavel@ucw.cz>
+Date: Fri, 3 Nov 2006 09:57:12 +0100
 
-> [TG3]: Fix 2nd ifup failure on 5752M.
-> 
-> This fixes a bug reported in:
-> 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7438
-> 
-> tg3_close() turns off the PHY if WoL and ASF are both disabled.  On
-> the next tg3_open(), some devices such as the 5752M will not be
-> brought up correctly without a PHY reset early in the reset sequence.
-> The PHY clock is needed for some internal MAC blocks to function
-> correctly.
-> 
-> This problem is fixed by always resetting the PHY early in
-> tg3_reset_hw() when it is called from tg3_open() or tg3_resume().
-> tg3_setup_phy() can then be called later in the sequence without the
-> reset_phy parameter set to 1, since the PHY reset is already done.
-> 
-> Update version to 3.68.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Not sure what you are smoking, but "there's unsigned long in *bsd
+> version, lets rewrite it from scratch" sounds like very bad idea. What
+> about fixing that one bit you don't like?
 
-Applied, thanks a lot Michael.
+I disagree, it's more like since we have to be structure incompatible
+anyways, let's design something superior if we can.
+
