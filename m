@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: Wake On Lan device semantics
-Date: Fri, 3 Nov 2006 15:48:20 -0800
-Message-ID: <20061103154820.37f05a13@freekitty>
+Date: Fri, 3 Nov 2006 15:50:06 -0800
+Message-ID: <20061103155006.68099f6e@freekitty>
 References: <20061103152025.5d27bd8d@freekitty>
 	<454BD44D.2060005@intel.com>
 Mime-Version: 1.0
@@ -10,9 +10,9 @@ Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:19421 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932498AbWKCXtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 18:49:33 -0500
+Received: from smtp.osdl.org ([65.172.181.4]:51933 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932495AbWKCXuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 18:50:55 -0500
 To: Auke Kok <auke-jan.h.kok@intel.com>
 In-Reply-To: <454BD44D.2060005@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -30,7 +30,8 @@ Auke Kok <auke-jan.h.kok@intel.com> wrote:
 > 
 > Auke
 
-It seems odd because that means you can never make a device fully deaf.
+Interestingly it looks like e100 is one of the ones that only wakes from suspend (not when down).
+
 
 -- 
 Stephen Hemminger <shemminger@osdl.org>
