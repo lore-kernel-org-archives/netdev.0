@@ -1,55 +1,58 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 0/6] rework d80211 cookie pointer
-Date: Thu, 2 Nov 2006 18:28:03 -0500
-Message-ID: <200611021828.08294.flamingice@sourmilk.net>
-References: <20061102223854.692274000@sipsolutions.net>>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [KJ] [patch] net/tipc: sprintf/strcpy conversion
+Date: Fri, 3 Nov 2006 03:09:05 +0300
+Message-ID: <20061103000905.GA4957@martell.zuzino.mipt.ru>
+References: <20061101140624.GA7694@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1484472.ITYqdfUM2s";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Ivo van Doorn <ivdoorn@gmail.com>,
-	John Linville <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:44928 "EHLO
-	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
-	id S1752806AbWKBX2P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 18:28:15 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20061102223854.692274000@sipsolutions.net>
+Received: from ug-out-1314.google.com ([66.249.92.173]:50857 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1752845AbWKCAJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 19:09:11 -0500
+Received: by ug-out-1314.google.com with SMTP id m3so282170ugc
+        for <netdev@vger.kernel.org>; Thu, 02 Nov 2006 16:09:10 -0800 (PST)
+To: kernel-janitors@lists.osdl.org,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20061101140624.GA7694@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1484472.ITYqdfUM2s
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, Nov 01, 2006 at 03:06:24PM +0100, Florian Westphal wrote:
+> convert sprintf(a,b) to strcpy(a,b). Make tipc_bclink_name[] const.
 
-On Thursday 02 November 2006 17:38, Johannes Berg wrote:
-> Now, I tried to update adm8211 and rt2x00 as well, but faced some
-> problems. adm8211 actually accesses the struct net_device and
-> calls it's open() call! This is broken.
+Ahhh, I missed the start of threads.
+
+Patch is useless because it changes one unbounded string function into
+another unbounded string function.
+
+> --- a/net/tipc/bcast.c
+> +++ b/net/tipc/bcast.c
+> @@ -790,7 +790,7 @@ int tipc_bclink_init(void)
+>  	INIT_LIST_HEAD(&bcbearer->bearer.cong_links);
+>  	bcbearer->bearer.media = &bcbearer->media;
+>  	bcbearer->media.send_msg = tipc_bcbearer_send;
+> -	sprintf(bcbearer->media.name, "tipc-multicast");
+> +	strcpy(bcbearer->media.name, "tipc-multicast");
 >
-Good catch. Looks like I never updated the suspend/resume code properly whe=
-n I=20
-ported to d80211. The fix is easy - the code just needs to call the=20
-adm8211_open/stop functions directly. I'll send a patch later tonight.
+>  	bcl = &bclink->link;
+>  	memset(bclink, 0, sizeof(struct bclink));
+> @@ -802,7 +802,7 @@ int tipc_bclink_init(void)
+>  	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
+>  	bcl->b_ptr = &bcbearer->bearer;
+>  	bcl->state = WORKING_WORKING;
+> -	sprintf(bcl->name, tipc_bclink_name);
+> +	strcpy(bcl->name, tipc_bclink_name);
+>
+>  	if (BCLINK_LOG_BUF_SIZE) {
+>  		char *pb = kmalloc(BCLINK_LOG_BUF_SIZE, GFP_ATOMIC);
+> --- a/net/tipc/node.c
+> +++ b/net/tipc/node.c
+> @@ -667,7 +667,7 @@ struct sk_buff *tipc_node_get_links(cons
+>          link_info.dest = tipc_own_addr & 0xfffff00;
+>  	link_info.dest = htonl(link_info.dest);
+>          link_info.up = htonl(1);
+> -        sprintf(link_info.str, tipc_bclink_name);
+> +        strcpy(link_info.str, tipc_bclink_name);
 
-=2DMichael Wu
-
---nextPart1484472.ITYqdfUM2s
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFSn8IT3Oqt9AH4aERAm4iAKChzelpNcWHHDCY2vURJtnoTZYifgCeND0i
-txYHphUZBC7H82CDu3IM09c=
-=zSPw
------END PGP SIGNATURE-----
-
---nextPart1484472.ITYqdfUM2s--
