@@ -1,36 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: New stuff in wireless-dev, wireless developers please pull...
-Date: Fri, 03 Nov 2006 10:07:52 +0100
-Message-ID: <1162544872.2923.18.camel@ux156>
-References: <20061103043024.GF2989@tuxdriver.com>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel
+ found
+Date: Fri, 03 Nov 2006 11:08:52 +0200
+Message-ID: <454B0724.1070609@tcs.hut.fi>
+References: <4549D8E7.1040409@tcs.hut.fi>	<20061102.215900.15793371.yoshfuji@linux-ipv6.org>	<4549EFA7.50004@tcs.hut.fi> <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:51850 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1752705AbWKCJGw
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 04:06:52 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061103043024.GF2989@tuxdriver.com>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:11158 "EHLO mail.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1752721AbWKCJIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 04:08:54 -0500
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-02 at 23:30 -0500, John W. Linville wrote:
+YOSHIFUJI Hideaki wrote:
+> In article <4549EFA7.50004@tcs.hut.fi> (at Thu, 02 Nov 2006 15:16:23 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+> 
+>> On 11/02/06 14:59, YOSHIFUJI Hideaki wrote:
+>>> In article <4549D8E7.1040409@tcs.hut.fi> (at Thu, 02 Nov 2006 13:39:19 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+>>>
+>>>>  	read_unlock(&ip6ip6_lock);
+>>>> -	return 1;
+>>>> -
+>>>> +	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
+>>>> +		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
+>>>>  discard:
+>>> I'd argue this.  We probably should not send back any ICMPv6 packets 
+>>> to the original sender in this case to avoid DoS.
+>> Sorry, I don't follow you. I don't see the DoS scenario here (after we
+>> apply the patch, that is ;-).
+> 
+> Well, leaving aside whether sending icmpv6 is good thing (*),
+> the code for sending icmpv6 was moved from ip6_tunnel.c
+> to tunnel6.c by commit-id 50fba2aa7cefa6b0e1768cb350c9e69042320c03
+> by Herbert.
+> 
+> The ip6_tunnel.c change that Herbert made does not seem consistent
+> with ipip.c change.  To fix your issue the appropriate change is just
+> fall through to discard section, as we're doing for ipip.c.
 
-> I've also added a 'pending' branch, with similar policies to the
-> 'pending' branch in wireless-2.6 (i.e it means I've got the patch,
-> but I'm waiting on some feedback or changes, etc).
+Ah, I hadn't noticed Herbert's patch. It actually appears to fix the
+problem I was trying to fix here. AFAIK Tero experienced the infinite
+loop on a 2.6.16 kernel.
 
-Note that the d80211: change the cookie to be opaque as committed is
-actually slightly buggy as I pointed out in a follow-up mail, the quilt
-dir that's up on my homepage (which is now accessible too...) contains
-the fixed version.
+Regards,
+Ville
 
-> One big addition is the cfg80211/nl80211 stuff from Johannes.  I'm not
-> quite confident that the Kconfig stuff is right, but the code is there.
 
-Nice :)
-
-johannes
