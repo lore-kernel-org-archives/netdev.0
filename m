@@ -1,60 +1,67 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: New stuff in wireless-dev, wireless developers please pull...
-Date: Thu, 2 Nov 2006 23:30:30 -0500
-Message-ID: <20061103043024.GF2989@tuxdriver.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: New stuff in wireless-dev, wireless developers please pull...
+Date: Fri, 3 Nov 2006 01:42:03 -0500
+Message-ID: <200611030142.09303.flamingice@sourmilk.net>
+References: <20061103043024.GF2989@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart3344189.VuyZcQvr8K";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:18705 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751453AbWKCEyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2006 23:54:10 -0500
-Received: from ra.tuxdriver.com (ra.tuxdriver.com [127.0.0.1])
-	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id kA34rxR4031728
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 2 Nov 2006 23:54:04 -0500
-Received: (from uucp@localhost)
-	by ra.tuxdriver.com (8.13.7/8.13.6/Submit) with UUCP id kA34Vnsb031516
-	for netdev@vger.kernel.org; Thu, 2 Nov 2006 23:31:49 -0500
-Received: from laptop (localhost.localdomain [127.0.0.1])
-	by laptop (8.13.7/8.13.7) with ESMTP id kA34UU5U015814
-	for <netdev@vger.kernel.org>; Thu, 2 Nov 2006 23:30:30 -0500
-Received: (from linville@localhost)
-	by laptop (8.13.7/8.13.7/Submit) id kA34UUoo015812
-	for netdev@vger.kernel.org; Thu, 2 Nov 2006 23:30:30 -0500
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from smtp.rutgers.edu ([128.6.72.243]:14641 "EHLO
+	annwn13.rutgers.edu") by vger.kernel.org with ESMTP
+	id S1753158AbWKCGmR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 01:42:17 -0500
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20061103043024.GF2989@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm basically caught-up on merging for wireless-dev.  Here is the URL,
-just in case you forgot... :-)
+--nextPart3344189.VuyZcQvr8K
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
+On Thursday 02 November 2006 23:30, John W. Linville wrote:
+> One big addition is the cfg80211/nl80211 stuff from Johannes.  I'm not
+> quite confident that the Kconfig stuff is right, but the code is there.
+It doesn't seem to compile on my system:
 
-This includes a pull from Michael Buesch for bcm43xx stuff, a fresh
-pull from Jiri for stack stuff, the addition of the p54 driver from
-Michael Wu, Larry's wireless stats patches, and some misc patches
-from (or through) David Kimdon and others.  I apologize if I've left
-anyone out.  You'll still be in the changelogs... :-)
+net/built-in.o: In function `iw_send_thrspy_event':
+wext-old.c:(.text+0x67672): undefined reference to `wireless_send_event'
+net/built-in.o: In function `ioctl_standard_call':
+wext-old.c:(.text+0x677bf): undefined reference to `standard_ioctl_num'
+wext-old.c:(.text+0x677ea): undefined reference to `standard_ioctl'
+wext-old.c:(.text+0x677f1): undefined reference to `standard_ioctl'
+wext-old.c:(.text+0x679b9): undefined reference to `wireless_send_event'
+wext-old.c:(.text+0x679f0): undefined reference to `wireless_send_event'
+wext-old.c:(.text+0x67abf): undefined reference to `wireless_send_event'
+net/built-in.o: In function `iw_handler_get_iwstats':
+wext-old.c:(.text+0x67f67): undefined reference to `get_wireless_stats'
+net/built-in.o: In function `net_dev_init':
+dev.c:(.init.text+0x28e): undefined reference to `wireless_proc_init'
+net/built-in.o:(__ksymtab+0x1248): undefined reference to=20
+`wireless_send_event'
+make: *** [.tmp_vmlinux1] Error 1
 
-I've also added a 'pending' branch, with similar policies to the
-'pending' branch in wireless-2.6 (i.e it means I've got the patch,
-but I'm waiting on some feedback or changes, etc).
+This is with cfg80211 turned off.=20
 
-One big addition is the cfg80211/nl80211 stuff from Johannes.  I'm not
-quite confident that the Kconfig stuff is right, but the code is there.
-This is our WE successor, so driver authors please take notice and
-plan for your driver's migration to the new configuration regime.
+Thanks,
+=2DMichael Wu
 
-Please pull the tree and check things out.  If you sent a patch more
-than a few days ago and it isn't in there, I've probably missed it
-or discarded it for some reason.  Please feel free to resubmit any
-missing patches.
+--nextPart3344189.VuyZcQvr8K
+Content-Type: application/pgp-signature
 
-Thanks for your support, and for all the great patches!  Keep 'em
-coming! :-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+iD8DBQBFSuTBT3Oqt9AH4aERAi/hAJ9SdQ/7z7OEKtH9ZPC2vw4aGX7UnwCaApx/
+37IrMN5vYJCGqBQno0Sb/B8=
+=ooce
+-----END PGP SIGNATURE-----
+
+--nextPart3344189.VuyZcQvr8K--
