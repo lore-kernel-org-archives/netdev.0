@@ -1,63 +1,62 @@
 From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 3/6] d80211: add a perm_addr hardware property
-Date: Fri, 3 Nov 2006 16:49:27 -0500
-Message-ID: <200611031649.32739.flamingice@sourmilk.net>
-References: <20061102223854.692274000@sipsolutions.net> <20061102223854.692274000@sipsolutions.net>> <20061102230015.186648000@sipsolutions.net>>
+Subject: Re: [PATCH 0/6] rework d80211 cookie pointer
+Date: Fri, 3 Nov 2006 17:14:06 -0500
+Message-ID: <200611031714.55463.flamingice@sourmilk.net>
+References: <20061102223854.692274000@sipsolutions.net> <200611031404.32926.flamingice@sourmilk.net> <19467.82.113.121.16.1162580893.squirrel@secure.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart1364916.xAZYnupU7a";
+  boundary="nextPart15929488.Ua2nhmjX3D";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Ivo van Doorn <ivdoorn@gmail.com>,
-	John Linville <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
+Cc: "Jiri Benc" <jbenc@suse.cz>, netdev@vger.kernel.org,
+	"Ivo van Doorn" <ivdoorn@gmail.com>,
+	"John Linville" <linville@tuxdriver.com>,
+	"Michael Buesch" <mb@bu3sch.de>, "Hong Liu" <hong.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:1357 "EHLO annwn13.rutgers.edu")
-	by vger.kernel.org with ESMTP id S932160AbWKCVtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 16:49:52 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20061102230015.186648000@sipsolutions.net>
+Received: from smtp.rutgers.edu ([128.6.72.243]:19607 "EHLO
+	annwn14.rutgers.edu") by vger.kernel.org with ESMTP
+	id S1753492AbWKCWPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 17:15:11 -0500
+To: "Johannes Berg" <johannes@sipsolutions.net>
+In-Reply-To: <19467.82.113.121.16.1162580893.squirrel@secure.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1364916.xAZYnupU7a
+--nextPart15929488.Ua2nhmjX3D
 Content-Type: text/plain;
   charset="iso-8859-15"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-On Thursday 02 November 2006 17:38, Johannes Berg wrote:
-> After removing knowledge of the master net_dev from drivers,
-> they'll still need a way to tell us which MAC address they have.
-> This is that way, the perm_addr is initially used for all devices.
+On Friday 03 November 2006 14:08, Johannes Berg wrote:
+> Yeah, I thought about that and added that function to get the wiphy index.
+> cfg80211 makes the wiphy index an actual identifier that you can use to
+> enumerate all devices it has attached etc, so that makes sense. and d80211
+> also puts it into sysfs.
 >
-Shouldn't you add something to ieee80211_set_mac_address so the driver/d802=
-11=20
-can find out what MAC address the user actually wants?
+> Is that good enough?
+>
+I still prefer obtaining the name of the master interface because well.. al=
+l=20
+other network drivers prefix their messages with the name of their interfac=
+e.
 
-Might be easier to just point perm_addr to dev_addr, but that would make it=
+The master interface name should be as good as the wiphy index to enumerate=
 =20
-obvious that perm_addr is a bit messy. A wrapper for drivers that returns a=
-=20
-pointer to dev_addr might be a better idea.
-
-Also, do we need to update interfaces associated with the master interface=
-=20
-when the master MAC address changes?
+attached devices.
 
 =2DMichael Wu
 
---nextPart1364916.xAZYnupU7a
+--nextPart15929488.Ua2nhmjX3D
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBFS7lsT3Oqt9AH4aERAllzAKDGoHCBK6egm7rCL2m84p9iheqmxwCfa46e
-FplUrz1RCUyT545lbrhJ2uE=
-=VrBP
+iD4DBQBFS79fT3Oqt9AH4aERAnYJAJICNE3Y9RtBQBcUB4LDFsN4YmbGAJ90V41b
+F18qf4AqcMlW5kOBmnlEJA==
+=Hx9U
 -----END PGP SIGNATURE-----
 
---nextPart1364916.xAZYnupU7a--
+--nextPart15929488.Ua2nhmjX3D--
