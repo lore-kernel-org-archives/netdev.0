@@ -1,44 +1,75 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: pktgen patch available for perusal.
-Date: Fri, 3 Nov 2006 21:24:39 +0100
-Message-ID: <17739.42375.80475.907057@robur.slu.se>
-References: <45468F2E.4060809@candelatech.com>
-	<17736.54766.657083.873206@robur.slu.se>
-	<4548F166.1020001@candelatech.com>
-	<17739.9326.620495.394705@robur.slu.se>
-	<454B6F9D.8030300@candelatech.com>
+Date: Fri, 03 Nov 2006 12:41:59 -0800
+Message-ID: <454BA997.1060401@candelatech.com>
+References: <45468F2E.4060809@candelatech.com>	<17736.54766.657083.873206@robur.slu.se>	<4548F166.1020001@candelatech.com>	<17739.9326.620495.394705@robur.slu.se>	<454B6F9D.8030300@candelatech.com> <17739.42375.80475.907057@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	NetDev <netdev@vger.kernel.org>
+Cc: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:57248 "EHLO mx1.slu.se")
-	by vger.kernel.org with ESMTP id S932083AbWKCUYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 15:24:43 -0500
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <454B6F9D.8030300@candelatech.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:64182 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S932085AbWKCUmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 15:42:02 -0500
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <17739.42375.80475.907057@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Robert Olsson wrote:
+> Ben Greear writes:
+> 
+>  > It requires a hook in dev.c, or at least that is the only way I can 
+>  > think to implement it.
+> 
+> Well the hook be placed along the packet path even in drivers. In tulip I didn't 
+> even take packet of the ring in some experiments. 
+> 
+> And there plenty of existing hooks already i.e PRE_ROUTE?
 
-Ben Greear writes:
+For my particular application the hook needs to be right
+after the bridge hook.  My dev.c hook looks like this:
 
- > It requires a hook in dev.c, or at least that is the only way I can 
- > think to implement it.
+#if defined(CONFIG_NET_PKTGEN) || defined(CONFIG_NET_PKTGEN_MODULE)
+#include "pktgen.h"
 
-Well the hook be placed along the packet path even in drivers. In tulip I didn't 
-even take packet of the ring in some experiments. 
+#warning "Compiling dev.c for pktgen.";
 
-And there plenty of existing hooks already i.e PRE_ROUTE?
+int (*handle_pktgen_hook)(struct sk_buff *skb) = NULL;
+EXPORT_SYMBOL(handle_pktgen_hook);
 
- > I don't think that hook is going to be allowed into the kernel, so the 
- > best I was hoping for  was to have the code in pktgen with #if 0 and let 
- > users patch their kernel to add the hook...
+static __inline__ int handle_pktgen_rcv(struct sk_buff* skb) {
+	if (handle_pktgen_hook) {
+		return handle_pktgen_hook(skb);
+	}
+	return -1;
+}
+#endif
 
-Right so what I was trying to say was rather having #if 0 and dead code in 
-pktgen it could be kept separate. 
+.....
 
-Cheers.
-						--ro
+#if defined(CONFIG_NET_PKTGEN) || defined(CONFIG_NET_PKTGEN_MODULE)
+	if ((skb->dev->pkt_dev) &&
+	    (handle_pktgen_rcv(skb) >= 0)) {
+		/* Pktgen may consume the packet, no need to send
+		 * to further protocols.
+		 */
+		goto out;
+	}
+#endif
+
+
+If the rx-hook logic is already in pktgen module, and it's symbol
+exported, perhaps a second hook module could be written that
+would just be the bridge between a driver or a PRE-ROUTE hook
+and pktgen?  The hook module would probably not be much larger
+than the code above...
+
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
