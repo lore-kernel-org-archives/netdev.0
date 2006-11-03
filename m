@@ -1,86 +1,77 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 3/6] d80211: add a perm_addr hardware property
-Date: Sat, 04 Nov 2006 00:19:33 +0100
-Message-ID: <1162595973.24673.13.camel@johannes.berg>
+Subject: Re: [PATCH 4/6] d80211: add a struct device* hardware property
+Date: Sat, 04 Nov 2006 00:21:14 +0100
+Message-ID: <1162596074.24673.16.camel@johannes.berg>
 References: <20061102223854.692274000@sipsolutions.net>
 	 <20061102223854.692274000@sipsolutions.net> >
-	 <20061102230015.186648000@sipsolutions.net> >
-	  <200611031649.32739.flamingice@sourmilk.net>
+	 <20061102230015.555750000@sipsolutions.net> >
+	  <200611031727.41131.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sR/RQ+h/7un3orLCykj8"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-+S4s+KdH8SJ92jL9S/96"
 Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
 	Ivo van Doorn <ivdoorn@gmail.com>,
 	John Linville <linville@tuxdriver.com>,
 	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:19646 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932291AbWKCXVC
+Received: from crystal.sipsolutions.net ([195.210.38.204]:33726 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932496AbWKCXWi
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 18:21:02 -0500
+	Fri, 3 Nov 2006 18:22:38 -0500
 To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200611031649.32739.flamingice@sourmilk.net>
+In-Reply-To: <200611031727.41131.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-sR/RQ+h/7un3orLCykj8
+--=-+S4s+KdH8SJ92jL9S/96
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2006-11-03 at 16:49 -0500, Michael Wu wrote:
-
-> Shouldn't you add something to ieee80211_set_mac_address so the driver/d8=
-0211=20
-> can find out what MAC address the user actually wants?
-
-Hmm? d80211 already handles the case of the user changing a net_dev's
-mac address fine. And it'll tell your driver about it whenever it
-matters, at the time the user tries to UP that interface. And other than
-that, the driver doesn't care.
-
-> Might be easier to just point perm_addr to dev_addr, but that would make =
+On Fri, 2006-11-03 at 17:27 -0500, Michael Wu wrote:
+> On Thursday 02 November 2006 17:38, Johannes Berg wrote:
+> > +	/* hardware device */
+> > +	struct device *dev;
+> > +
+> Can we just pass this in as an argument instead? No one is gonna look at =
 it=20
-> obvious that perm_addr is a bit messy. A wrapper for drivers that returns=
- a=20
-> pointer to dev_addr might be a better idea.
+> ever again after ieee80211_register_hw, so I don't think it's worth putti=
+ng=20
+> in struct ieee80211_hw.
 
-I don't understand this. perm_addr is a field in the ieee80211_hw struct
-reflecting the permanent mac address of the card. What's wrong with
-that?
+Actually, it is used for all new devices as well. Yeah, we could pull it
+out of the mdev again, but it feels stupid to go to so many
+indirections. The code is already barely understandable. I had a hard
+time cleaning up the places where struct net_device * is passed, but the
+only thing it's ever used for is deref'ing ->ieee80211_ptr to get local.
 
-> Also, do we need to update interfaces associated with the master interfac=
-e=20
-> when the master MAC address changes?
+> > +	local->mdev->class_dev.dev =3D hw->dev;
+> Why not use SET_NETDEV_DEV?
 
-No. The interfaces are allowed to have differing mac addresses. But I
-think they should all start out with the permanent mac address which is
-why I put that field there. I guess you could argue for always using the
-master's mac address. I would prefer new devices to start out with the
-permanent mac address, but we can change that.
+You're right, it should use that.
 
 johannes
 
---=-sR/RQ+h/7un3orLCykj8
+--=-+S4s+KdH8SJ92jL9S/96
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUARUvOhKVg1VMiehFYAQJvMA//XnjM7LHs8e4ASYrLwmYf0z6zLkPgUphW
-7lewa2Jl1JmQPhTE0QYHi3VcmsXzvq1DA8ecv2LYY0RrePj+n5HDQsJmvOd3FQG2
-f5xwQwFZ033QYPFf8XwFRUdMZfFubT5DkJDE3HSgXuzrq0Q92xaOzu5m7UMTiVlh
-pEH+mEb6HWNED+QIN2SZvvbb+r0akOtIWHKyiU0PzeRHf0CXcSuzSIi51z8OjrKC
-uaNhBIvioOjbwTB2ZivQys6o12NrAWs0jq40MBS9dopTm/3bCf7kFbs8f8Vs/z1d
-m76erkjGHMaJXCMfTPoLXIu91k+x4QlrfaqKdtaiMGsYqbXQmJ/2ZSEweYFXZ9qZ
-HbAvOZDJpH4r8ks5g+0ppOfbRG7W+bpEmGlzsKDSOIl5Ou4Ss2QB+3LHSofSTHCi
-4MXUfEuyiAH3HQla8NbQpinI3lPTXsjHVXRDryEDKELlVJny7kQ7VoKrBbXwOpF4
-f+ahqTONQ0EayNeHxRbx5U2MVxPw71KeYeBhEGYNYXBIepiv+bXDfYSqSvqkIhHB
-xeuoUErrLS8ftNs8uiSby0BUHqYna03HXwpUKmFgnwvaghdWjhkjXf5doBbR1Cxg
-IVkwf39wFDRCO2OMaY2pkHMol+xD1+58ykkS0VBU8Yfx2+0W+rr2pKYULOKweK0O
-zo9QokjW69s=
-=pdxS
+iQIUAwUARUvO6aVg1VMiehFYAQKPEQ/2Ji74CYUDPAo6mwTBDDt4HNWN8dfyhCYL
+8l7yw08fBixuTs1Qou2y7rmiV3aZL71VjmPc6INlng/Q2a1MP1xM52pXwOVvja/b
+jRyjGyNqzHxSrtzqjKx9KvbxVKMkoiuTpctAbYuyeBRBFvP3gChbdn2AFTz/geHG
+VGLhkZACMpJ9rBS9awoAZVxK633Y+OE0CxYGutE6KhDtWYjenIOx6JYEvEIoA32q
+t0OQ9ONnoKmxsXl67/dgTH0iLPC2pMO59hnw5671Cu3prqC1bpWY36mTwsifG71A
+5xNpZ6EDF9gfxg+phgbbCMFvkQCzF4WBFPgm/APGC15WnS5qIzJD7S+zXNb7acsP
+ndj0HhBPy4ajkHgMXPJYNOiKpt+NRxmZz5f0uNwgx7HOprCSnvlFr4pmVE35WJPM
+PDRNM9O2iWq2+jOeHCgqxlGN3fZvbNJrvO6GaTGOj6YX9xU7DCxlBhk+URvAunKh
+YBkAETOTXt6c6zx276gOScy0P0HRBt4HlE4X964lvmRMzwa55G7Z+jpi5LdtKklg
+QneE9K8QRrpyQyg4uYg5dqadCt9EdApPgACzMHey1m3ncudmNnS9MUYYaS1eiElq
+D5fXYJTL5LoGorT/TB6WY9xM2JmYO6QeyXNmWeJ/PyUMeFZhNSQ7FosJ7s7v41KF
+gZnA83EZaA==
+=l/jg
 -----END PGP SIGNATURE-----
 
---=-sR/RQ+h/7un3orLCykj8--
+--=-+S4s+KdH8SJ92jL9S/96--
 
