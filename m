@@ -1,58 +1,65 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [KJ] [patch] net/tipc: sprintf/strcpy conversion
-Date: Fri, 3 Nov 2006 03:09:05 +0300
-Message-ID: <20061103000905.GA4957@martell.zuzino.mipt.ru>
-References: <20061101140624.GA7694@Chamillionaire.breakpoint.cc>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/6] d80211: change the cookie to be opaque
+Date: Fri, 03 Nov 2006 01:22:47 +0100
+Message-ID: <1162513367.3381.11.camel@johannes.berg>
+References: <20061102223854.692274000@sipsolutions.net> >
+	  <20061102230013.960383000@sipsolutions.net>>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3b6uy4Ida8dhir8Tng/W"
+Cc: netdev@vger.kernel.org, Ivo van Doorn <ivdoorn@gmail.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	John Linville <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:50857 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1752845AbWKCAJL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Nov 2006 19:09:11 -0500
-Received: by ug-out-1314.google.com with SMTP id m3so282170ugc
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2006 16:09:10 -0800 (PST)
-To: kernel-janitors@lists.osdl.org,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061101140624.GA7694@Chamillionaire.breakpoint.cc>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:25220 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1752871AbWKCAYO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Nov 2006 19:24:14 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061102230013.960383000@sipsolutions.net>>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 01, 2006 at 03:06:24PM +0100, Florian Westphal wrote:
-> convert sprintf(a,b) to strcpy(a,b). Make tipc_bclink_name[] const.
 
-Ahhh, I missed the start of threads.
+--=-3b6uy4Ida8dhir8Tng/W
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Patch is useless because it changes one unbounded string function into
-another unbounded string function.
+On Fri, 2006-11-03 at 00:09 +0100, Johannes Berg wrote:
 
-> --- a/net/tipc/bcast.c
-> +++ b/net/tipc/bcast.c
-> @@ -790,7 +790,7 @@ int tipc_bclink_init(void)
->  	INIT_LIST_HEAD(&bcbearer->bearer.cong_links);
->  	bcbearer->bearer.media = &bcbearer->media;
->  	bcbearer->media.send_msg = tipc_bcbearer_send;
-> -	sprintf(bcbearer->media.name, "tipc-multicast");
-> +	strcpy(bcbearer->media.name, "tipc-multicast");
->
->  	bcl = &bclink->link;
->  	memset(bclink, 0, sizeof(struct bclink));
-> @@ -802,7 +802,7 @@ int tipc_bclink_init(void)
->  	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
->  	bcl->b_ptr = &bcbearer->bearer;
->  	bcl->state = WORKING_WORKING;
-> -	sprintf(bcl->name, tipc_bclink_name);
-> +	strcpy(bcl->name, tipc_bclink_name);
->
->  	if (BCLINK_LOG_BUF_SIZE) {
->  		char *pb = kmalloc(BCLINK_LOG_BUF_SIZE, GFP_ATOMIC);
-> --- a/net/tipc/node.c
-> +++ b/net/tipc/node.c
-> @@ -667,7 +667,7 @@ struct sk_buff *tipc_node_get_links(cons
->          link_info.dest = tipc_own_addr & 0xfffff00;
->  	link_info.dest = htonl(link_info.dest);
->          link_info.up = htonl(1);
-> -        sprintf(link_info.str, tipc_bclink_name);
-> +        strcpy(link_info.str, tipc_bclink_name);
+>  /* Return a pointer to network statistics data area for the given device=
+. */
+> -void * ieee80211_dev_stats(struct net_device *dev);
+> +void *ieee80211_dev_stats(struct ieee80211_local *ieee80211_ptr);
+
+Ok, that one was wrong. But what is it doing in the public API? We need
+to remove it from the public API and leave struct net_device *dev as the
+parameter. adm8211 actually uses it and increases the tx_fifo_error
+counter, but that's a bit strange.
+
+johannes
+
+--=-3b6uy4Ida8dhir8Tng/W
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUARUqL1qVg1VMiehFYAQLJVA//YrxFenX4wELLjp/lmLsHjUUCYRL5MIfk
+Wj6T9C6GVPEqbHOYiFeO/cAIbDc5Dxk/5u69l98rWim06Y6UBjeBNDrPIzzIRDnt
+oqf2xMyuz7c8nEdLNxKzcL7HCogdMxQZeCucazP8qlvC0SuUQ8yZ0OumMkimkCoO
+/gdmJcNIUC2OyreLxsUEsQqO/O2LWM+z66HKsi+i/FXDvWNGSvy58fG8egowQQmu
+CMfy3OevodSiYI+qgCpxhCUwMuFbIalYM1CbpWReIFrjL47N2Vd7ZNUsOvXv7Uvw
+wNmIR+iPExU/TNFMsXX86a+gZHLAfcDtjwaXYM4Q2fzk8p+QjbPlo75PUq4aUqFj
+46AIVAcfRNkJvSKLPwo3ztg9sK3CRyZ2A0rRiSjQhfMiF3bSW1AhYO0/LzeXkCdM
+r9v+bRlPQUrLNxftaPZLJAKQeJAPvLUM6+oQl4KGD6MjnE7wdtFv8Lpzxe4WUGk0
+S9nDnkkK42kRdpZzlxta21m4DkiPfTOfBIqQ4j4Hwn1jRIem6mLAaW2NB26epfWu
+7TsgFAe/Vic5aJTov/wW1mUAyJ1IM6i4ths/YZaeH1U+ri8ovzRNJS3vY9QqbpqB
+eQrnxuZ7EdSIRmF2yt4iyWV2DYIO6/lC+XpR/0f8edOucjnQTANZ8oktF1mT9sby
+/irphEnkoWo=
+=aBac
+-----END PGP SIGNATURE-----
+
+--=-3b6uy4Ida8dhir8Tng/W--
 
