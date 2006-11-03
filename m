@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
-Date: Fri, 03 Nov 2006 01:04:13 -0800 (PST)
-Message-ID: <20061103.010413.85690195.davem@davemloft.net>
-References: <5c49b0ed0611021140u360342f2v1e83c73d03eea329@mail.gmail.com>
-	<20061103084240.GB1184@2ka.mipt.ru>
-	<20061103085712.GA3725@elf.ucw.cz>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: New stuff in wireless-dev, wireless developers please pull...
+Date: Fri, 03 Nov 2006 10:06:22 +0100
+Message-ID: <1162544782.2923.15.camel@ux156>
+References: <20061103043024.GF2989@tuxdriver.com>
+	 <200611030142.09303.flamingice@sourmilk.net>
+	 <1162543492.2923.6.camel@ux156>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, nate.diller@gmail.com,
-	linux-kernel@vger.kernel.org, olecom@flower.upol.cz,
-	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org,
-	chase.venters@clientec.com, johann.borck@densedata.com
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53678
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752629AbWKCJEL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 04:04:11 -0500
-To: pavel@ucw.cz
-In-Reply-To: <20061103085712.GA3725@elf.ucw.cz>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:48806 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1752644AbWKCJFT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 04:05:19 -0500
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <1162543492.2923.6.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Machek <pavel@ucw.cz>
-Date: Fri, 3 Nov 2006 09:57:12 +0100
 
-> Not sure what you are smoking, but "there's unsigned long in *bsd
-> version, lets rewrite it from scratch" sounds like very bad idea. What
-> about fixing that one bit you don't like?
+> It doesn't seem to compile on my system:
+> 
+> net/built-in.o: In function `iw_send_thrspy_event':
+> wext-old.c:(.text+0x67672): undefined reference to `wireless_send_event'
 
-I disagree, it's more like since we have to be structure incompatible
-anyways, let's design something superior if we can.
+Uh, common is missing. Adjust net/wireless/Makefile like this:
+
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+I'd be surprised if that patch applies. I generated it by hand :P
+What would be cool if I could go to gitweb, edit the file and get a diff
+out :) gitwiki.
+
+--- a/net/wireless/Makefile
++++ b/net/wireless/Makefile
+@@ -12,6 +12,6 @@
+ 
+ # this needs to be compiled in...
+ obj-$(CONFIG_CFG80211_WEXT_COMPAT) += wext-compat.o
+-obj-$(CONFIG_CFG80211_WEXTNL_COMPAT)$(CONFIG_NET_WIRELESS_RTNETLINK) += wext-common.o
++obj-$(CONFIG_CFG80211_WEXTNL_COMPAT)$(CONFIG_NET_WIRELESS) += wext-common.o
+ obj-y += $(obj-yy) $(obj-yn) $(obj-ny)
+
 
