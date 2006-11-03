@@ -1,67 +1,33 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: New stuff in wireless-dev, wireless developers please pull...
-Date: Fri, 3 Nov 2006 01:42:03 -0500
-Message-ID: <200611030142.09303.flamingice@sourmilk.net>
-References: <20061103043024.GF2989@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 7450] New: e1000: eth0: e1000_clean_tx_irq:
+ Detected Tx Unit Hang
+Date: Thu, 02 Nov 2006 23:13:05 -0800 (PST)
+Message-ID: <20061102.231305.74560981.davem@davemloft.net>
+References: <20061102112015.d4f5c60e.akpm@osdl.org>
+	<454A67C0.6040201@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3344189.VuyZcQvr8K";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>
+Cc: akpm@osdl.org, jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	pstaszewski@artcom.pl, bugme-daemon@bugzilla.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:14641 "EHLO
-	annwn13.rutgers.edu") by vger.kernel.org with ESMTP
-	id S1753158AbWKCGmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 01:42:17 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061103043024.GF2989@tuxdriver.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5306
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1753177AbWKCHNY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 02:13:24 -0500
+To: auke-jan.h.kok@intel.com
+In-Reply-To: <454A67C0.6040201@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3344189.VuyZcQvr8K
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Date: Thu, 02 Nov 2006 13:48:48 -0800
 
-On Thursday 02 November 2006 23:30, John W. Linville wrote:
-> One big addition is the cfg80211/nl80211 stuff from Johannes.  I'm not
-> quite confident that the Kconfig stuff is right, but the code is there.
-It doesn't seem to compile on my system:
+> the hang is caused by a bad eeprom bit. A script that fixes it for
+> 82573-series with eeproms that need this bit fixed is attached to
+> the bugreport. It detects the proper chipset and patches if required
+> (uses ethtool).
 
-net/built-in.o: In function `iw_send_thrspy_event':
-wext-old.c:(.text+0x67672): undefined reference to `wireless_send_event'
-net/built-in.o: In function `ioctl_standard_call':
-wext-old.c:(.text+0x677bf): undefined reference to `standard_ioctl_num'
-wext-old.c:(.text+0x677ea): undefined reference to `standard_ioctl'
-wext-old.c:(.text+0x677f1): undefined reference to `standard_ioctl'
-wext-old.c:(.text+0x679b9): undefined reference to `wireless_send_event'
-wext-old.c:(.text+0x679f0): undefined reference to `wireless_send_event'
-wext-old.c:(.text+0x67abf): undefined reference to `wireless_send_event'
-net/built-in.o: In function `iw_handler_get_iwstats':
-wext-old.c:(.text+0x67f67): undefined reference to `get_wireless_stats'
-net/built-in.o: In function `net_dev_init':
-dev.c:(.init.text+0x28e): undefined reference to `wireless_proc_init'
-net/built-in.o:(__ksymtab+0x1248): undefined reference to=20
-`wireless_send_event'
-make: *** [.tmp_vmlinux1] Error 1
+Those third party card makers, they always mess up the eeprom
+making things hard to support. :-)
 
-This is with cfg80211 turned off.=20
-
-Thanks,
-=2DMichael Wu
-
---nextPart3344189.VuyZcQvr8K
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFSuTBT3Oqt9AH4aERAi/hAJ9SdQ/7z7OEKtH9ZPC2vw4aGX7UnwCaApx/
-37IrMN5vYJCGqBQno0Sb/B8=
-=ooce
------END PGP SIGNATURE-----
-
---nextPart3344189.VuyZcQvr8K--
