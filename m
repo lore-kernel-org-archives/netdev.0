@@ -1,74 +1,42 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather thand80211-specificqdisc
-Date: Fri, 3 Nov 2006 11:29:33 -0800
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B5FB0@dhost002-46.dex002.intermedia.net>
-References: <C86180A8C204554D8A3323D8F6B0A29F018B5FAE@dhost002-46.dex002.intermedia.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather thand80211-specificqdisc
+Date: Fri, 3 Nov 2006 14:39:20 -0500
+Message-ID: <20061103193906.GB3286@tuxdriver.com>
+References: <C86180A8C204554D8A3323D8F6B0A29F018B5FAE@dhost002-46.dex002.intermedia.net> <C86180A8C204554D8A3323D8F6B0A29F018B5FB0@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Christoph Hellwig" <hch@infradead.org>,
-	"James Ketrenos" <jketreno@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Kimdon <dwhedon@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:36240 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1753486AbWKCT3R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 14:29:17 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F018B5FAE@dhost002-46.dex002.intermedia.net>
-To: "Simon Barber" <simon@devicescape.com>,
-	"Johannes Berg" <johannes@sipsolutions.net>,
-	"Stephen Hemminger" <shemminger@osdl.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:45329 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1753501AbWKCToD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 14:44:03 -0500
+To: Simon Barber <simon@devicescape.com>
+Content-Disposition: inline
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F018B5FB0@dhost002-46.dex002.intermedia.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I should elaborate - if 802.11 is made into a real protocol - then raw
-packet capture works correctly on the master device. (raw sockets opened
-on the device see all frames before they are passed to the protocol).
-This is the right way to go.
+On Fri, Nov 03, 2006 at 11:29:33AM -0800, Simon Barber wrote:
+> I should elaborate - if 802.11 is made into a real protocol - then raw
+> packet capture works correctly on the master device. (raw sockets opened
+> on the device see all frames before they are passed to the protocol).
+> This is the right way to go.
 
-Simon 
+There is some merit to this idea.  Then we could attach IBSS, WDS,
+STA, or AP sub-interfaces (with or without ethernet encapsulation) in
+a manner similar to how VLAN sub-interfaces are attached to ethernet
+devices today.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Simon Barber
-Sent: Friday, November 03, 2006 11:24 AM
-To: Johannes Berg; Stephen Hemminger
-Cc: Christoph Hellwig; James Ketrenos; John W. Linville; Jeff Garzik;
-Patrick McHardy; David Kimdon; netdev@vger.kernel.org
-Subject: RE: [patch] d80211: use pfifo_qdisc_ops rather
-thand80211-specificqdisc
+Of course, I seem to remember ranting against that model a few
+months ago.  I'll just wave my hands and call it pragmatism... :-)
 
-I'm not sure why we don't use the master device for packet capture - I
-can't think of any good reason for requiring a separate device. I would
-think the master device is the perfect place to do packet capture, and
-raw packet transmission.
-
-Simon 
-
------Original Message-----
-From: Johannes Berg [mailto:johannes@sipsolutions.net]
-Sent: Thursday, November 02, 2006 2:57 PM
-To: Stephen Hemminger
-Cc: Simon Barber; Christoph Hellwig; James Ketrenos; John W. Linville;
-Jeff Garzik; Patrick McHardy; David Kimdon; netdev@vger.kernel.org
-Subject: Re: [patch] d80211: use pfifo_qdisc_ops rather
-thand80211-specificqdisc
-
-On Thu, 2006-11-02 at 14:34 -0800, Stephen Hemminger wrote:
-
-> It makes 802.11 packet capture easier as well.  Please don't invent 
-> yet another network access object for the master device.
-
-Oh, but the master device doesn't get any packets you could capture. For
-that, you need to add a monitor interface.
-
-johannes
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of a message to majordomo@vger.kernel.org More majordomo info at
-http://vger.kernel.org/majordomo-info.html
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
