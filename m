@@ -1,53 +1,50 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH 6/6] IPv6: Fix infinite loop if no matching IPv6 tunnel
- found
-Date: Fri, 03 Nov 2006 11:08:52 +0200
-Message-ID: <454B0724.1070609@tcs.hut.fi>
-References: <4549D8E7.1040409@tcs.hut.fi>	<20061102.215900.15793371.yoshfuji@linux-ipv6.org>	<4549EFA7.50004@tcs.hut.fi> <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Fri, 3 Nov 2006 12:13:02 +0300
+Message-ID: <20061103091301.GC1184@2ka.mipt.ru>
+References: <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz> <20061101185745.GA12440@2ka.mipt.ru> <5c49b0ed0611011812w8813df3p830e44b6e87f09f4@mail.gmail.com> <20061102062158.GC5552@2ka.mipt.ru> <5c49b0ed0611021140u360342f2v1e83c73d03eea329@mail.gmail.com> <20061103084240.GB1184@2ka.mipt.ru> <20061103085712.GA3725@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Nate Diller <nate.diller@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Oleg Verych <olecom@flower.upol.cz>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neon.tcs.hut.fi ([130.233.215.20]:11158 "EHLO mail.tcs.hut.fi")
-	by vger.kernel.org with ESMTP id S1752721AbWKCJIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 04:08:54 -0500
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20061102.231810.119656005.yoshfuji@linux-ipv6.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:6584 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1753193AbWKCJNp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 04:13:45 -0500
+To: Pavel Machek <pavel@ucw.cz>
+Content-Disposition: inline
+In-Reply-To: <20061103085712.GA3725@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
-> In article <4549EFA7.50004@tcs.hut.fi> (at Thu, 02 Nov 2006 15:16:23 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+On Fri, Nov 03, 2006 at 09:57:12AM +0100, Pavel Machek (pavel@ucw.cz) wrote:
+> > So, kqueue API and structures can not be usd in Linux.
 > 
->> On 11/02/06 14:59, YOSHIFUJI Hideaki wrote:
->>> In article <4549D8E7.1040409@tcs.hut.fi> (at Thu, 02 Nov 2006 13:39:19 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
->>>
->>>>  	read_unlock(&ip6ip6_lock);
->>>> -	return 1;
->>>> -
->>>> +	icmpv6_send(skb, ICMPV6_DEST_UNREACH,
->>>> +		    ICMPV6_ADDR_UNREACH, 0, skb->dev);
->>>>  discard:
->>> I'd argue this.  We probably should not send back any ICMPv6 packets 
->>> to the original sender in this case to avoid DoS.
->> Sorry, I don't follow you. I don't see the DoS scenario here (after we
->> apply the patch, that is ;-).
-> 
-> Well, leaving aside whether sending icmpv6 is good thing (*),
-> the code for sending icmpv6 was moved from ip6_tunnel.c
-> to tunnel6.c by commit-id 50fba2aa7cefa6b0e1768cb350c9e69042320c03
-> by Herbert.
-> 
-> The ip6_tunnel.c change that Herbert made does not seem consistent
-> with ipip.c change.  To fix your issue the appropriate change is just
-> fall through to discard section, as we're doing for ipip.c.
+> Not sure what you are smoking, but "there's unsigned long in *bsd
+> version, lets rewrite it from scratch" sounds like very bad idea. What
+> about fixing that one bit you don't like?
 
-Ah, I hadn't noticed Herbert's patch. It actually appears to fix the
-problem I was trying to fix here. AFAIK Tero experienced the infinite
-loop on a 2.6.16 kernel.
+It is not about what I dislike, but about what is broken or not.
+Putting u64 instead of a long or some kind of that _is_ incompatible
+already, so why should we even use it?
+And, btw, what we are talking about? Is it about the whole kevent
+compared to kqueue in kernelspace, or just about what structure is being
+transferred between kernelspace and userspace?
+I'm sure, it was some kind of a joke to 'not rewrite *bsd from scratch
+and use kqueue in Linux kernel as is'.
 
-Regards,
-Ville
+> 								Pavel
+> -- 
+> (english) http://www.livejournal.com/~pavelmachek
+> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
 
-
+-- 
+	Evgeniy Polyakov
