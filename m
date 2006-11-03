@@ -1,42 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/6] d80211: change the cookie to be opaque
-Date: Fri, 03 Nov 2006 09:42:46 +0100
-Message-ID: <1162543366.2923.3.camel@ux156>
-References: <20061102223854.692274000@sipsolutions.net>
-	 <20061102230013.960383000@sipsolutions.net> >
-	 <1162513367.3381.11.camel@johannes.berg>
-	 <200611022128.29060.flamingice@sourmilk.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Fri, 3 Nov 2006 11:42:41 +0300
+Message-ID: <20061103084240.GB1184@2ka.mipt.ru>
+References: <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz> <20061101185745.GA12440@2ka.mipt.ru> <5c49b0ed0611011812w8813df3p830e44b6e87f09f4@mail.gmail.com> <20061102062158.GC5552@2ka.mipt.ru> <5c49b0ed0611021140u360342f2v1e83c73d03eea329@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Ivo van Doorn <ivdoorn@gmail.com>,
-	John Linville <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, Hong Liu <hong.liu@intel.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Oleg Verych <olecom@flower.upol.cz>,
+	Pavel Machek <pavel@ucw.cz>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:55244 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751352AbWKCIlm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 03:41:42 -0500
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200611022128.29060.flamingice@sourmilk.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:1998 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751641AbWKCInq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 03:43:46 -0500
+To: Nate Diller <nate.diller@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <5c49b0ed0611021140u360342f2v1e83c73d03eea329@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-02 at 21:28 -0500, Michael Wu wrote:
+On Thu, Nov 02, 2006 at 11:40:43AM -0800, Nate Diller (nate.diller@gmail.com) wrote:
+> Are you saying that the *only* reason we choose not to be
+> source-compatible with BSD is the 32 bit userland on 64 bit arch
+> problem?  I've followed every thread that gmail 'kqueue' search
 
-> That's because TX might fail for reasons other than not getting an ACK. I 
-> can't say I've actually seen this happen, so it might just be something left 
-> over from tulip that doesn't need to be there now. (or perhaps it only 
-> happens when there's something really bad going on) However, what's so bad 
-> about letting drivers update some statistics if it is possible? If you remove 
-> ieee80211_dev_stats, please provide some other way for drivers to access 
-> struct net_device_stats.
+I.e. do you want that generic event handling mechanism would not work on
+x86_64? I doubt you do.
 
-Well, you were only changing the master netdev's stats, which isn't
-really useful because you want to change the device that transmitted the
-frame. But you cannot, because you don't have access to it. In general,
-the stack should be doing this, so if some other tx errors are possible
-maybe we should add a flag to the tx status.
+> returns, which thread are you referring to?  Nicholas Miell, in "The
+> Proposed Linux kevent API" thread, seems to think that there are no
+> advantages over kqueue to justify the incompatibility, an argument you
+> made no effort to refute.  I've also read the Kevent wiki at
+> linux-net.osdl.org, but it too is lacking in any direct comparisons
+> (even theoretical, let alone benchmarks) of the flexibility,
+> performance, etc. between the two.
+> 
+> I'm not arguing that you've done a bad design, I'm asking you to brag
+> about the things you improved on vs. kqueue.  Your emphasis on
+> unifying all the different event types into one interface is really
+> cool, fill me in on why that can't be effectively done with the kqueue
+> compatability and I also will advocate for kevent inclusion.
 
-johannes
+kqueue just can not be used as is in Linux (_maybe_ *bsd has different
+types, not those which I found in /usr/include in my FC5 and Debian
+distro). It will not work on x86_64 for example. Some kind of a pointer
+or unsigned long in structures which are transferred between kernelspace
+and userspace is so much questionable, than it is much better even do
+not see there... (if I would not have so political correctness, I would
+describe it in a much different words actually).
+So, kqueue API and structures can not be usd in Linux.
+
+> NATE
+
+-- 
+	Evgeniy Polyakov
