@@ -1,19 +1,19 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
 Subject: Re: Wake On Lan device semantics
-Date: Fri, 03 Nov 2006 17:35:59 -0800
-Message-ID: <454BEE7F.2020607@intel.com>
-References: <20061103152025.5d27bd8d@freekitty>	<454BD44D.2060005@intel.com> <20061103154820.37f05a13@freekitty>
+Date: Fri, 03 Nov 2006 17:36:45 -0800
+Message-ID: <454BEEAD.70108@intel.com>
+References: <20061103152025.5d27bd8d@freekitty>	<454BD44D.2060005@intel.com> <20061103155006.68099f6e@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:54935 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1752549AbWKDBgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 20:36:04 -0500
+Received: from mga03.intel.com ([143.182.124.21]:40880 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S1753557AbWKDBgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 20:36:47 -0500
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061103154820.37f05a13@freekitty>
+In-Reply-To: <20061103155006.68099f6e@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -29,8 +29,9 @@ Stephen Hemminger wrote:
 >>
 >> Auke
 > 
-> It seems odd because that means you can never make a device fully deaf.
+> Interestingly it looks like e100 is one of the ones that only wakes from suspend (not when down).
 
-sure you can, just turn off WoL and e1000 will really shutdown (at least, I hope :))
+that would be a bug, I'll have to get that checked especially after the latest changes 
+to it.
 
 Auke
