@@ -1,52 +1,63 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: Wake On Lan device semantics
-Date: Fri, 03 Nov 2006 17:53:08 -0800
-Message-ID: <454BF284.8020009@intel.com>
-References: <20061103152025.5d27bd8d@freekitty>	<454BD5FD.2030502@pobox.com>	<20061103.160230.71088561.davem@davemloft.net> <20061103161121.7533b32c@freekitty>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: [patch] d80211: use pfifo_qdisc_ops ratherthand80211-specificqdisc
+Date: Fri, 3 Nov 2006 18:20:35 -0800
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F018B603D@dhost002-46.dex002.intermedia.net>
+References: <1162595228.24673.1.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Stephen Hemminger" <shemminger@osdl.org>,
+	"Christoph Hellwig" <hch@infradead.org>,
+	"James Ketrenos" <jketreno@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"David Kimdon" <dwhedon@devicescape.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36451 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1753569AbWKDBxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 20:53:09 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061103161121.7533b32c@freekitty>
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:52390 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751408AbWKDCUT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 21:20:19 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <1162595228.24673.1.camel@johannes.berg>
+To: "Johannes Berg" <johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Fri, 03 Nov 2006 16:02:30 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> From: Jeff Garzik <jgarzik@pobox.com>
->> Date: Fri, 03 Nov 2006 18:51:25 -0500
->>
->>> The purpose of WOL is being able to turn on a system remotely, if it is 
->>> in a power-off or sleep state.
->>>
->>> So, if the system is -on- and the interface is down and/or driver is 
->>> unloaded, are you saying WOL is a problem somehow?
->> Stephen is saying that if you down an interface, it should disable
->> that WoL functionality.
->>
->> I guess you can argue that, like IP addresses, this WoL thing is an
->> attribute of the "system".
-> 
-> Looking harder. The semantic needs to be WOL is okay if driver is loaded
-> and device is up or down. But the default for WOL should be disabled until
-> enabled by ethtool (or parameter).
+I guess right now when you transmit on the master device frames are only
+accepted with a cookie and all that info in the CB. It would work just
+as well to move that info from the CB and into a protocol header. It
+would also make it easier to expand the info without the size constraint
+of the CB. Same could apply on receive.
 
-Since this is enabled already in the BIOSes for most systems (or disabled, and 
-switcheable by the user), I'd say we can let the driver handle the default (on for most 
-cards) already. The BIOS can also handle a WoL call after a (long) powerfailure, before 
-the OS boots, so disabling it in the OS would be quite useless in that case: the BIOS 
-would override it anyway.
+Simon 
 
-Doesn't sound like a problem you can solve in the driver layer...
+-----Original Message-----
+From: Johannes Berg [mailto:johannes@sipsolutions.net] 
+Sent: Friday, November 03, 2006 3:07 PM
+To: Simon Barber
+Cc: Stephen Hemminger; Christoph Hellwig; James Ketrenos; John W.
+Linville; Jeff Garzik; Patrick McHardy; David Kimdon;
+netdev@vger.kernel.org
+Subject: RE: [patch] d80211: use pfifo_qdisc_ops
+ratherthand80211-specificqdisc
 
-Cheers,
+On Fri, 2006-11-03 at 11:23 -0800, Simon Barber wrote:
+> I would
+> think the master device is the perfect place to do packet capture,
 
-Auke
+Sort of. Since it'll be an 802.11 protocol thing, you won't be getting
+any signal strength information etc. You really do need that.
+
+>  and
+> raw packet transmission.
+
+Same here, you really do want to be able to submit a frame with the
+bitrate to use etc. All not part of 802.11.
+
+All the meta info you want from RX or need for proper TX cannot be
+transported over that master netdev since it'll have a proper 802.11
+protocol, so it's pretty much useless.
+
+johannes
