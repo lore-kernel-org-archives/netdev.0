@@ -1,60 +1,47 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] USB_RTL8150 must select MII
-Date: Sat, 4 Nov 2006 03:51:46 +0100
-Message-ID: <20061104025145.GL13381@stusta.de>
-References: <Pine.LNX.4.64.0610231618510.3962@g5.osdl.org> <200611021229.17324.david-b@pacbell.net> <20061103022726.GF13381@stusta.de> <200611021847.21817.david-b@pacbell.net>
+From: "Udayan Singh" <udayan.singh@gmail.com>
+Subject: [Info]d80211 : Understanding d80211
+Date: Sat, 4 Nov 2006 09:13:10 +0530
+Message-ID: <d9a09df00611031943n41cf27beu566383b0e1c96197@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Randy Dunlap <randy.dunlap@oracle.com>,
-	toralf.foerster@gmx.de, netdev@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net, link@miggy.org,
-	akpm@osdl.org, zippel@linux-m68k.org, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Udayan Singh" <udayan.singh@tcs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:43013 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1751679AbWKDCvq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 21:51:46 -0500
-To: David Brownell <david-b@pacbell.net>
+Received: from wx-out-0506.google.com ([66.249.82.238]:36873 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1752499AbWKDDnL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Nov 2006 22:43:11 -0500
+Received: by wx-out-0506.google.com with SMTP id s14so572015wxc
+        for <netdev@vger.kernel.org>; Fri, 03 Nov 2006 19:43:10 -0800 (PST)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <200611021847.21817.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 02, 2006 at 06:47:15PM -0800, David Brownell wrote:
-> On Thursday 02 November 2006 6:27 pm, Adrian Bunk wrote:
-> 
-> > It seems to lack the "select MII" at the USB_RTL8150 option that was in 
-> > Randy's first patch?
-> 
-> I was just addressing the usbnet issues ... that driver doesn't
-> use the usbnet framework.
+Hi,
 
-OK, the patch for this driver is below.
+I wanted to understand the code of d80211 (thanks to James Ketrenos
+for the info he provided) and also work in it.
 
-> - Dave
+I found that I can get the latest patches regarding the same from :
 
-cu
-Adrian
+http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
 
+Also, in the main kernel tree the development for 802.11 is in
+"drivers/net/wireless/*" .
 
-<--  snip  -->
+Well, I did not find any reference of d80211 in lk 2.6.18.1, though a
+few places I read that the possible merger would be in lk 2.6.19. I
+hope I got it right ?
 
+Any docs that I can read through that you would recommend from where I
+can start up ?
 
-USB_RTL8150 must select MII to avoid link errors.
+Is there any place where I can download the code in a similar pattern
+as we do from kernel.org for the mainstream kernel ?
 
-Stolen from a patch by Randy Dunlap.
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2619-rc3-pv.orig/drivers/usb/net/Kconfig
-+++ linux-2619-rc3-pv/drivers/usb/net/Kconfig
-@@ -84,6 +84,7 @@ config USB_PEGASUS
- config USB_RTL8150
- 	tristate "USB RTL8150 based ethernet device support (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL
-+	select MII
- 	help
- 	  Say Y here if you have RTL8150 based usb-ethernet adapter.
- 	  Send me <petkan@users.sourceforge.net> any comments you may have.
-
+tia,
+Udayan
+Tata Consultancy Services
+India
+www.tcs.com
