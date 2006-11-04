@@ -1,60 +1,152 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [Info]d80211 : Understanding d80211
-Date: Fri, 03 Nov 2006 22:15:59 -0600
-Message-ID: <454C13FF.6070902@lwfinger.net>
-References: <d9a09df00611031943n41cf27beu566383b0e1c96197@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Sat, 4 Nov 2006 13:24:23 +0300
+Message-ID: <20061104102423.GA4780@2ka.mipt.ru>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz> <20061101185745.GA12440@2ka.mipt.ru> <20061103184916.GA17142@flower.upol.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:10449 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1752742AbWKDEQf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Nov 2006 23:16:35 -0500
-To: Udayan Singh <udayan.singh@gmail.com>
-In-Reply-To: <d9a09df00611031943n41cf27beu566383b0e1c96197@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: LKML <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965230AbWKDKZT@vger.kernel.org>
+To: Oleg Verych <olecom@flower.upol.cz>
+Content-Disposition: inline
+In-Reply-To: <20061103184916.GA17142@flower.upol.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Udayan Singh wrote:
-> Hi,
+On Fri, Nov 03, 2006 at 07:49:16PM +0100, Oleg Verych (olecom@flower.upol.cz) wrote:
+> > applications can be found on project's homepage.
+> > There is a link to archive there, where you can find plenty of sources.
 > 
-> I wanted to understand the code of d80211 (thanks to James Ketrenos
-> for the info he provided) and also work in it.
+> But no single makefile. Or what CC and options do not mater really?
+> You can easily find in your server's apache logs, my visit of that
+> archive in the day of my message (today i just confirmed my assertions):
+> browser lynx, host flower.upol.cz.
+
+If you can not compile that sources, than you should not use kevent for
+a while. Definitely.
+Options are pretty simple: -W -Wall -I$(path_to_kernel_tree)/include
+
+> > You likely do not know, but it is a bit risky business to patch all
+> > existing applications to show that approach is correct, if
+> > implementation is not completed.
 > 
-> I found that I can get the latest patches regarding the same from :
+> Fortunately to me, `lighthttpd' is real-life *and* in the benchmark
+> area also. Just see that site how much there was measured: different OSes,
+> special tunning. *That* is i'm talking about. Epoll _wrapper_ there,
+> is 3461 byte long, your answer to _me_ 2580. People are bringing you a
+> test bed, with all set up ready to use; need less code, go on, comment
+> needless out!
+
+So what?
+People bring me tons of various stuff, and I prefer to use my own for
+tests. If _you_ need it, _you_ can always patch any sources you like.
+
+> > You likely do not know, but after I first time announced kevents in
+> > February I changed interfaces 4 times - and it is just interfaces, not
+> > including numerous features added/removed by developer's requests.
 > 
-> http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+> I think that called open source, linux kernel case.
 
-Wireless-2.6 contains the developmental version of wireless code _NOT_ using d80211. The d80211 
-development version is at git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git 
-and must be downloaded with git, not ftp or http.
+You missed the point - I'm not going to patch tons of existing
+applications when I'm asked to change an interface once per month.
+
+When all requested features are implemented I definitely with patch some
+popular web-server to show how kevent is used.
+
+> > > There were some comments about laking much of such programs, answers were
+> > > "was in prev. e-mail", "need to update them", something like that.
+> > > "Trivial web server" sources url, mentioned in benchmark isn't pointed
+> > > in patch advertisement. If it was, should i actually try that new
+> > > *trivial* wheel?
+> > 
+> > Answer is trivial - there is archive where one can find a source code
+> > (filenames are posted regulary). Should I create a rpm? For what glibc
+> > version?
 > 
-> Also, in the main kernel tree the development for 802.11 is in
-> "drivers/net/wireless/*" .
-
-The d80211 drivers are in drivers/net/wireless/d80211/*. The drivers in drivers/net/wireless/* do 
-not use d80211.
-
+> Hmm. Let me answer on that "dup" with stuff from LKML archive. That
+> will reveal, that my guesses were told by The Big Jury to you already:
 > 
-> Well, I did not find any reference of d80211 in lk 2.6.18.1, though a
-> few places I read that the possible merger would be in lk 2.6.19. I
-> hope I got it right ?
+> [^0] Message-ID: 44CA66D8.3010404@oracle.com
+> [^1] Message-ID: 20060818104120.GA20816@infradead.org,
+>      Message-ID: 20060816133014.GB32499@infradead.org
+> 
+> more than 10 takes ago.
 
-The merger of d80211 with mainline kernel will occur with 2.6.21 or later. At the moment, there are 
-several reasons for it not to be included in the mainline kernel. The stable kernels (2.6.18.X and 
-earlier), and the mainline developmental kernel (2.6.19-rcX) do not include the d80211 code.
+And? Please provide a link to archive.
 
-> Any docs that I can read through that you would recommend from where I
-> can start up ?
+> > > Saying that, i want to give you some short examples, i know.
+> > > *Linux kernel <-> userspace*:
+> > > o Alexey Kuznetsov  networking     <-> (excellent) iproute set of utilities;
+> > 
+> > iproute documentation was way too bad when Alexey presented it first 
+> > time :)
+> 
+> As example, after have read some books on TCP/IP and Ethernet, internal
+> help of `ip' was all i needed to know.
 
-Only the code AFAIK.
+:)) i.e. it is ok for you to 'read some books on TCP/IP and Ethernet' to
+understand how utility works, and it is not ok to determine how to
+compile my sources? Do not compile my sources.
 
-> Is there any place where I can download the code in a similar pattern
-> as we do from kernel.org for the mainstream kernel ?
+> > Btw, show me splice() 'shiny' application? Does lighttpd use it?
+> > Or move_pages().
+> 
+> You know who proposed that, and you know how many (few) releases ago.
 
-See the previous git reference.
+And why lighttpd still do not use it?
+You should start to blame authors of the splice() for that.
+You will not? Then I can not consider your words in my direction as
+serious.
 
-Larry
+> > > To make a little hint to you, Evgeniy, why don't you find a little
+> > > animal in the open source zoo to implement little interface to
+> > > proposed kernel subsystem and then show it to The Big Jury (not me),
+> > > we have here? And i can not see, how you've managed to implement
+> > > something like that having almost nothing on the test basket.
+> > > Very *suspicious* ch.
+> > 
+> > There are always people who do not like something, what can I do with
+> 
+> I didn't think, that my message was offensive. Also i didn't even say,
+> that you have not bothered feed your code to "scripts/Lindent".
 
+You do not use kevent, why do you care about indent of the userspace
+tools?
+
+> []
+> > I created trivial web servers, which send single static page and use
+> > various event handling schemes, and I test new subsystem with new tools,
+> > when tests are completed and all requested features are implemented it
+> > is time to work on different more complex users.
+> 
+> Please, see [^0],
+> 
+> > So let's at least complete what we have right now, so no developer's
+> > efforts could be wasted writing empty chars in various places.
+> 
+> and [^1].
+> 
+> [ Please do not answer just to answer, cc list is big, no one from       ]
+> [ The Big Jury seems to care. (well, Jonathan does, but he wasn't in cc) ]
+
+This thread is just to answer for the sake of answers - there is
+completely no sense in it.
+You blame me that I did not create some benchmarks you like, but I do not
+care about it. I created usefull patch and test is in the way I like,
+because it is much more productive, than spending a lot of time
+detemining how different sources work with appropriate loads.
+When there will be strong requirement to perform additional tests, I
+will do them.
+
+> Friendly, Oleg.
+> ____
+
+-- 
+	Evgeniy Polyakov
