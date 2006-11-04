@@ -1,80 +1,63 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: [PATCH 1/1] Net: kconfig, correct traffic shaper
-Date: Sat,  4 Nov 2006 21:52:12 +0100 (CET)
-Message-ID: <1202725131414221392@wsc.cz>
-References: <453BA26D.9010504@trash.net>, <43123154321532@wsc.cz>
-Cc: <linux-kernel@vger.kernel.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: SKGE backport to 2.4 : success
+Date: Sat, 4 Nov 2006 22:08:55 +0100
+Message-ID: <20061104210855.GB4778@1wt.eu>
+References: <20061028205707.GA722@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cacti2.profiwh.com ([85.93.165.64]:58053 "EHLO
-	cacti.profiwh.com") by vger.kernel.org with ESMTP id S965685AbWKDUwC
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Nov 2006 15:52:02 -0500
-In-reply-to: <453BA26D.9010504@trash.net>
-To: Andrew Morton <akpm@osdl.org>
-Cc: Alan Cox <alan@redhat.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: <netdev@vger.kernel.org>
-Cc: <jgarzik@pobox.com>
+Received: from 1wt.eu ([62.212.114.60]:37892 "EHLO 1wt.eu")
+	by vger.kernel.org with ESMTP id S965694AbWKDVJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Nov 2006 16:09:32 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061028205707.GA722@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
-> While you're at it .. CBQ is actually not a very good alternative
-> since it doesn't work properly on top of virtual network devices.
-> The closest match for an alternative would be TBF, but HTB and
-> HFSC also do fine. Maybe just point to the traffic schedulers in
-> general. I think you could also change EXPERIMENTAL to OBSOLETE
-> for the shaper device, the traffic schedulers are a lot more
-> flexible.
+Hi Stephen,
 
-Ok, thanks for comments. Here it comes, please (n)ack it:
+I don't know if you received my mail since I got no reply.
 
---
+Thanks in advance for your comments,
+Willy
 
-kconfig, correct traffic shaper
-
-As Patrick McHardy <kaber@trash.net> suggested, Traffic Shaper is
-now obsolete and alternative to it is no longer CBQ, since its problems with
-virtual devices, alter Kconfig text to reflect this -- put a link to the
-traffic schedulers as a whole.
-
-Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-Cc: Alan Cox <alan@redhat.com>
-Cc: Patrick McHardy <kaber@trash.net>
-
----
-commit 95045e128e4db8cc07b9a616e6c1f3606b3b499f
-tree 3e924080ba76042c93e687a156483d6279e961ed
-parent 7e8fb7980d776e6a7c0bd84cc48b1cb9de139b8f
-author Jiri Slaby <jirislaby@gmail.com> Sat, 04 Nov 2006 21:41:33 +0059
-committer Jiri Slaby <jirislaby@gmail.com> Sat, 04 Nov 2006 21:41:33 +0059
-
- drivers/net/Kconfig |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ee5ce6b..2ede616 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2847,7 +2847,7 @@ config NET_FC
- 	  "SCSI generic support".
- 
- config SHAPER
--	tristate "Traffic Shaper (EXPERIMENTAL)"
-+	tristate "Traffic Shaper (OBSOLETE)"
- 	depends on EXPERIMENTAL
- 	---help---
- 	  The traffic shaper is a virtual network device that allows you to
-@@ -2856,9 +2856,9 @@ config SHAPER
- 	  these virtual devices. See
- 	  <file:Documentation/networking/shaper.txt> for more information.
- 
--	  An alternative to this traffic shaper is the experimental
--	  Class-Based Queuing (CBQ) scheduling support which you get if you
--	  say Y to "QoS and/or fair queuing" above.
-+	  An alternative to this traffic shaper are traffic schedulers which
-+	  you'll get if you say Y to "QoS and/or fair queuing" in
-+	  "Networking options".
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called shaper.  If unsure, say N.
+On Sat, Oct 28, 2006 at 10:57:07PM +0200, Willy Tarreau wrote:
+> Hi Stephen,
+> 
+> In my own kernels, I've added your backport of SKGE to 2.4 that I found
+> here :
+> 
+>    http://developer.osdl.org/shemminger/releases/skge-sky2-backport.tar.bz2
+> 
+> It seems to work pretty well compared to the original syskonnect driver
+> (up to and including 8.36). Several people around me have reported very
+> slow NFS operations with the official driver, which I finally attributed
+> to a strange effect of UDP packets not going out after a while until they
+> get "pushed" by a TCP packet. I even noticed the problem at the company
+> and we turned the NFS server to an unused 100 Mbps card to workaround the
+> problem before being able to fully ananlyze the problem.
+> 
+> It seems your driver is getting mature and its performance is very close to
+> the official one, while its code is smaller and apparently more reliable. I
+> was thinking about merging it in mainline 2.4 as a fix for people having
+> trouble with the syskonnect driver. It might also be easier to backport fixes
+> from 2.6 to 2.4 when the driver is the same.
+> 
+> I don't think we risk any regression because it won't replace an existing
+> driver, but will provide one to people who are used to download new versions
+> from an external tree.
+> 
+> Also, I'm not yet sure whether I would also backport the sky2 driver, because
+> I know about a handful boxes running in production with the official one with
+> 88E8053 chips at high packet rates with no trouble at all. Anyway, as long as
+> the backport does not prevent them from using the external driver, there
+> should be no problem.
+> 
+> I'd like to get your opinion on this matter, and of course, Jeff's and Davem's.
+> 
+> Thanks in advance,
+> Willy
+> 
