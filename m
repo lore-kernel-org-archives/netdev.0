@@ -1,86 +1,80 @@
-From: Nicolas Kaiser <nikai@nikai.net>
-Subject: [PATCH][TRIVIAL] drivers/net: endif comment fixes
-Date: Sat, 4 Nov 2006 20:58:32 +0100
-Message-ID: <20061104205832.51caff06@lucky.kitzblitz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andi Drebes <lists-receive@programmierforen.de>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [PATCH 1/1] Net: kconfig, correct traffic shaper
+Date: Sat,  4 Nov 2006 21:52:12 +0100 (CET)
+Message-ID: <1202725131414221392@wsc.cz>
+References: <453BA26D.9010504@trash.net>, <43123154321532@wsc.cz>
+Cc: <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ensim03.ffm.m2soft.com ([195.38.20.12]:53483 "EHLO
-	ensim03.ffm.m2soft.com") by vger.kernel.org with ESMTP
-	id S965588AbWKDUAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Nov 2006 15:00:23 -0500
-To: netdev@vger.kernel.org
+Received: from cacti2.profiwh.com ([85.93.165.64]:58053 "EHLO
+	cacti.profiwh.com") by vger.kernel.org with ESMTP id S965685AbWKDUwC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Nov 2006 15:52:02 -0500
+In-reply-to: <453BA26D.9010504@trash.net>
+To: Andrew Morton <akpm@osdl.org>
+Cc: Alan Cox <alan@redhat.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: <netdev@vger.kernel.org>
+Cc: <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-endif comments should match their corresponding if(n)defs.
+Patrick McHardy <kaber@trash.net> wrote:
+> While you're at it .. CBQ is actually not a very good alternative
+> since it doesn't work properly on top of virtual network devices.
+> The closest match for an alternative would be TBF, but HTB and
+> HFSC also do fine. Maybe just point to the traffic schedulers in
+> general. I think you could also change EXPERIMENTAL to OBSOLETE
+> for the shaper device, the traffic schedulers are a lot more
+> flexible.
 
-Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
+Ok, thanks for comments. Here it comes, please (n)ack it:
+
+--
+
+kconfig, correct traffic shaper
+
+As Patrick McHardy <kaber@trash.net> suggested, Traffic Shaper is
+now obsolete and alternative to it is no longer CBQ, since its problems with
+virtual devices, alter Kconfig text to reflect this -- put a link to the
+traffic schedulers as a whole.
+
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+Cc: Alan Cox <alan@redhat.com>
+Cc: Patrick McHardy <kaber@trash.net>
+
 ---
+commit 95045e128e4db8cc07b9a616e6c1f3606b3b499f
+tree 3e924080ba76042c93e687a156483d6279e961ed
+parent 7e8fb7980d776e6a7c0bd84cc48b1cb9de139b8f
+author Jiri Slaby <jirislaby@gmail.com> Sat, 04 Nov 2006 21:41:33 +0059
+committer Jiri Slaby <jirislaby@gmail.com> Sat, 04 Nov 2006 21:41:33 +0059
 
- drivers/net/gianfar_mii.h                 |    2 +-
- drivers/net/sk98lin/h/skgei2c.h           |    2 +-
- drivers/net/sk98lin/h/ski2c.h             |    2 +-
- drivers/net/skfp/h/targetos.h             |    2 +-
- drivers/net/slip.h                        |    2 +-
- drivers/net/wireless/prism54/islpci_eth.h |    2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/Kconfig |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff -uprN a/drivers/net/gianfar_mii.h b/drivers/net/gianfar_mii.h
---- a/drivers/net/gianfar_mii.h	2006-09-20 05:42:06.000000000 +0200
-+++ b/drivers/net/gianfar_mii.h	2006-11-04 20:32:43.000000000 +0100
-@@ -43,4 +43,4 @@ int gfar_mdio_read(struct mii_bus *bus, 
- int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
- int __init gfar_mdio_init(void);
- void __exit gfar_mdio_exit(void);
--#endif /* GIANFAR_PHY_H */
-+#endif /* __GIANFAR_MII_H */
-diff -uprN a/drivers/net/sk98lin/h/skgei2c.h b/drivers/net/sk98lin/h/skgei2c.h
---- a/drivers/net/sk98lin/h/skgei2c.h	2006-09-20 05:42:06.000000000 +0200
-+++ b/drivers/net/sk98lin/h/skgei2c.h	2006-11-04 20:35:22.000000000 +0100
-@@ -207,4 +207,4 @@
- #define	SK_SEN_DYN_INIT_VAUX		11  /* Init VAUX with new thresholds */
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ee5ce6b..2ede616 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2847,7 +2847,7 @@ config NET_FC
+ 	  "SCSI generic support".
  
- extern	int SkLm80ReadSensor(SK_AC *pAC, SK_IOC IoC, SK_SENSOR *pSen);
--#endif	/* n_INC_SKGEI2C_H */
-+#endif	/* _INC_SKGEI2C_H_ */
-diff -uprN a/drivers/net/sk98lin/h/ski2c.h b/drivers/net/sk98lin/h/ski2c.h
---- a/drivers/net/sk98lin/h/ski2c.h	2006-09-20 05:42:06.000000000 +0200
-+++ b/drivers/net/sk98lin/h/ski2c.h	2006-11-04 20:34:16.000000000 +0100
-@@ -170,5 +170,5 @@ extern int SkI2cEvent(SK_AC *pAC, SK_IOC
- extern void SkI2cWaitIrq(SK_AC *pAC, SK_IOC IoC);
- extern void SkI2cIsr(SK_AC *pAC, SK_IOC IoC);
- #endif /* !SK_DIAG */
--#endif /* n_SKI2C_H */
-+#endif /* _SKI2C_H_ */
+ config SHAPER
+-	tristate "Traffic Shaper (EXPERIMENTAL)"
++	tristate "Traffic Shaper (OBSOLETE)"
+ 	depends on EXPERIMENTAL
+ 	---help---
+ 	  The traffic shaper is a virtual network device that allows you to
+@@ -2856,9 +2856,9 @@ config SHAPER
+ 	  these virtual devices. See
+ 	  <file:Documentation/networking/shaper.txt> for more information.
  
-diff -uprN a/drivers/net/skfp/h/targetos.h b/drivers/net/skfp/h/targetos.h
---- a/drivers/net/skfp/h/targetos.h	2006-09-20 05:42:06.000000000 +0200
-+++ b/drivers/net/skfp/h/targetos.h	2006-11-04 20:32:15.000000000 +0100
-@@ -162,4 +162,4 @@ struct s_smt_os {
+-	  An alternative to this traffic shaper is the experimental
+-	  Class-Based Queuing (CBQ) scheduling support which you get if you
+-	  say Y to "QoS and/or fair queuing" above.
++	  An alternative to this traffic shaper are traffic schedulers which
++	  you'll get if you say Y to "QoS and/or fair queuing" in
++	  "Networking options".
  
- typedef struct s_smt_os skfddi_priv;
- 
--#endif	 // _TARGETOS_
-+#endif	 // _TARGETOS_H
-diff -uprN a/drivers/net/slip.h b/drivers/net/slip.h
---- a/drivers/net/slip.h	2006-09-20 05:42:06.000000000 +0200
-+++ b/drivers/net/slip.h	2006-11-04 20:36:08.000000000 +0100
-@@ -117,4 +117,4 @@ struct slip {
- 
- #define SLIP_MAGIC 0x5302
- 
--#endif	/* _LINUX_SLIP.H */
-+#endif	/* _LINUX_SLIP_H */
-diff -uprN a/drivers/net/wireless/prism54/islpci_eth.h b/drivers/net/wireless/prism54/islpci_eth.h
---- a/drivers/net/wireless/prism54/islpci_eth.h	2006-09-20 05:42:06.000000000 +0200
-+++ b/drivers/net/wireless/prism54/islpci_eth.h	2006-11-04 20:37:20.000000000 +0100
-@@ -70,4 +70,4 @@ int islpci_eth_receive(islpci_private *)
- void islpci_eth_tx_timeout(struct net_device *);
- void islpci_do_reset_and_wake(void *data);
- 
--#endif				/* _ISL_GEN_H */
-+#endif				/* _ISLPCI_ETH_H */
-
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called shaper.  If unsure, say N.
