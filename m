@@ -1,57 +1,195 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: Drain TX status before starting IRQs
-Date: Sat, 04 Nov 2006 10:38:06 -0600
-Message-ID: <454CC1EE.7020708@lwfinger.net>
-References: <200610191729.35402.mb@bu3sch.de> <45498633.7040808@lwfinger.net>
-	<1162457146.3241.13.camel@ux156>
-	<20061103165627.GC16894@instant802.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: pktgen patch available for perusal.
+Date: Sat, 04 Nov 2006 09:29:04 -0800
+Message-ID: <454CCDE0.5040109@candelatech.com>
+References: <45468F2E.4060809@candelatech.com>	 <17736.54766.657083.873206@robur.slu.se> <4548F166.1020001@candelatech.com> <1162643532.5166.34.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
-In-Reply-To: <20061103165627.GC16894-T6t7IcXamKWaos4igUoMUw@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:43946 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S965561AbWKDR1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Nov 2006 12:27:44 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1162643532.5166.34.camel@jzny2>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jouni Malinen wrote:
-> On Thu, Nov 02, 2006 at 09:45:46AM +0100, Johannes Berg wrote:
->> On Wed, 2006-11-01 at 23:46 -0600, Larry Finger wrote:
->>> Has anyone used this patch, particularly with WPA encryption? When I try it, wpa_supplicant 
->>> immediately uses 90+% of the cpu and never actually authenticates with my AP. I wonder if it is 
->>> something with my system.
-> 
-> What does wpa_supplicant do here? Have you looked at the debug log? Is
-> it in some kind of busy loop doing something?
+jamal wrote:
+> On Wed, 2006-01-11 at 11:11 -0800, Ben Greear wrote:
+>
+>   
+>> I'd be thrilled to have the receive logic go into pktgen, even if 
+>> it was #if 0 with a comment
+>> showing how to patch dev.c to get it working.  It would make my 
+>> out-of-tree patch smaller
+>> and should help others who are doing research and driver development...
+>>
+>>     
+>
+> I use pktgen extensively these days for ipsec testing. I also record
+> stats for pkts i receive using a tc action drop. Very simple and works
+> great.  
+> Ben, you keep insisting on doing this hook (every 3 months) because you
+> dont want to invest time to do it with netlink (I thought you sold this
+> as part of your product - the investment of your time is really not that
+> high). If you tell me what the packet trigger is, I will send you a
+> script ;->
+>   
+Please do send a script.  I match based on this method below.   Probably 
+you only
+need the part that checks for the MAGIC, the rest can be in a method 
+called after
+you match in your script?
 
-I started wpa_supplicant in the foreground with the -w and -ddd options. When the BCM4306 card was 
-plugged in, the following was output (this is hand transcribed and may not be exact):
+/* Returns < 0 if the skb is not a pktgen buffer. */
+int pktgen_receive(struct sk_buff* skb) {
+        /* See if we have a pktgen packet */
+    /* TODO:  Add support for detecting IPv6, TCP packets too.  This 
+will only
+     * catch UDP at the moment. --Ben
+     */
+    /*printk("pktgen-rcv, skb->len: %d\n", skb->len);*/
+   
+        if ((skb->len >= (20 + 8 + sizeof(struct pktgen_hdr))) &&
+            (skb->protocol == __constant_htons(ETH_P_IP))) {
+        struct pktgen_hdr* pgh;
+               
+                /* It's IP, and long enough, lets check the magic number.
+                 * TODO:  This is a hack not always guaranteed to catch 
+the right
+                 * packets.
+                 */
+       
+        /*printk("Length & protocol passed, skb->data: %p, raw: %p\n",
+          skb->data, skb->h.raw);*/
+      
+                pgh = (struct pktgen_hdr*)(skb->data + 20 + 8);
+       
+                /*
+                tmp = (char*)(skb->data);
+                for (i = 0; i<90; i++) {
+                        printk("%02hx ", tmp[i]);
+                        if (((i + 1) % 15) == 0) {
+                                printk("\n");
+                        }
+                }
+                printk("\n");
+                */
+               
+                if (pgh->pgh_magic == __constant_ntohl(PKTGEN_MAGIC)) {
+                        struct net_device* dev = skb->dev;
+                        struct pktgen_dev* pkt_dev;
+                        __u32 seq = ntohl(pgh->seq_num);
 
-Added interface wlan0
-Ignore event for foreign ifindex 8
-l2_packet_receive - recvfrom: Network is down
-Ignore event for foreign ifindex 8
-State: DISCONNECTED -> SCANNING
-Starting AP scan (specific SSID)
-Scan SSID - hexdump_ascii (len = 6)
-         6c 77 66 64 6a 66               lwfdjf
-ioctl[SIOGSIWSCAN]: No such device
-Failed to initiate AP scan.
-Setting scan request: 10 sec 0 usec
-Ignore event for foreign ifindex 8
+            // TODO:  Need lock..maybe
+            pkt_dev = dev->pkt_dev;
+                       
+                        if (!pkt_dev) {
+                return -1;
+                        }
 
-At this point, the system was in the state described earlier. I could not kill wpa_supplicant nor do 
-anything else, and had to power off to recover.
+                        pkt_dev->pkts_rcvd++;
+                        pkt_dev->bytes_rcvd += ((skb->tail - 
+skb->mac.raw) + 4); /* +4 for the checksum */
+                       
+                        /* Check for out-of-sequence packets */
+                        if (pkt_dev->last_seq_rcvd == seq) {
+                                pkt_dev->dup_rcvd++;
+                                pkt_dev->dup_since_incr++;
+                        }
+                        else {
+                                __s64 rx;
+                                __s64 tx;
+                                struct timeval txtv;
+                if (skb->tstamp.off_sec || skb->tstamp.off_usec) {
+                    skb_get_timestamp(skb, &txtv);
+                }
+                else {
+                    do_gettimeofday(&txtv);
+                    skb_set_timestamp(skb, &txtv);
+                }
+                                rx = tv_to_us(&txtv);
 
-Larry
+                                txtv.tv_usec = ntohl(pgh->tv_usec);
+                                txtv.tv_sec = ntohl(pgh->tv_sec);
+                                tx = tv_to_us(&txtv);
+                                record_latency(pkt_dev, rx - tx);
+                               
+                                if ((pkt_dev->last_seq_rcvd + 1) == seq) {
+                                        if ((pkt_dev->peer_clone_skb > 1) &&
+                                            (pkt_dev->peer_clone_skb > 
+(pkt_dev->dup_since_incr + 1))) {
+                                               
+                                                pkt_dev->seq_gap_rcvd += 
+(pkt_dev->peer_clone_skb -
+                                                                       
+pkt_dev->dup_since_incr - 1);
+                                        }
+                                        /* Great, in order...all is well */
+                                }
+                                else if (pkt_dev->last_seq_rcvd < seq) {
+                                        /* sequence gap, means we 
+dropped a pkt most likely */
+                                        if (pkt_dev->peer_clone_skb > 1) {
+                                                /* We dropped more than 
+one sequence number's worth,
+                                                 * and if we're using 
+clone_skb, then this is quite
+                                                 * a few.  This number 
+still will not be exact, but
+                                                 * it will be closer.
+                                                 */
+                                                pkt_dev->seq_gap_rcvd += 
+(((seq - pkt_dev->last_seq_rcvd) *
+                                                                        
+pkt_dev->peer_clone_skb) -
+                                                                       
+pkt_dev->dup_since_incr);
+                                        }
+                                        else {
+                                                pkt_dev->seq_gap_rcvd += 
+(seq - pkt_dev->last_seq_rcvd - 1);
+                                        }
+                                }
+                                else {
+                                        pkt_dev->ooo_rcvd++; /* 
+out-of-order */
+                                }
+                               
+                                pkt_dev->dup_since_incr = 0;
+                        }
+                        pkt_dev->last_seq_rcvd = seq;
+                        kfree_skb(skb);
+                        if (debug > 1) {
+                                printk("done with pktgen_receive, free'd 
+pkt\n");
+                        }
+                        return 0;
+                }
+        }
+        return -1; /* Let another protocol handle it, it's not for us! */
+}/* pktgen_receive */
+
+> Robert, I have started writing some generic netlink messaging to replace
+> the /proc that i will send your way. I need to get consensus on some
+> tunnel-mode IPSEC patches first then i will send the about three
+> patchsets your way (to replace the old ones i sent earlier).
+>
+> cheers,
+> jamal
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
+
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
