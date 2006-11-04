@@ -1,48 +1,51 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
 Subject: Re: Wake On Lan device semantics
-Date: Fri, 03 Nov 2006 17:44:30 -0800
-Message-ID: <454BF07E.2070207@intel.com>
-References: <20061103152025.5d27bd8d@freekitty>	<454BD44D.2060005@intel.com>	<20061103155006.68099f6e@freekitty>	<454BEEAD.70108@intel.com> <20061103173751.581ca5ab@localhost.localdomain>
+Date: Fri, 03 Nov 2006 17:53:08 -0800
+Message-ID: <454BF284.8020009@intel.com>
+References: <20061103152025.5d27bd8d@freekitty>	<454BD5FD.2030502@pobox.com>	<20061103.160230.71088561.davem@davemloft.net> <20061103161121.7533b32c@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36170 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1753169AbWKDBom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 20:44:42 -0500
+Received: from mga02.intel.com ([134.134.136.20]:36451 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S1753569AbWKDBxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Nov 2006 20:53:09 -0500
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061103173751.581ca5ab@localhost.localdomain>
+In-Reply-To: <20061103161121.7533b32c@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Stephen Hemminger wrote:
-> On Fri, 03 Nov 2006 17:36:45 -0800
-> Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> On Fri, 03 Nov 2006 16:02:30 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
 > 
->> Stephen Hemminger wrote:
->>> On Fri, 03 Nov 2006 15:44:13 -0800
->>> Auke Kok <auke-jan.h.kok@intel.com> wrote:
->>>
->>>> Stephen Hemminger wrote:
->>>>> It doesn't seem like a good idea for a network device to wake the system
->>>>> if it is down.
->>>> before suspend existed this was the only useful case for WoL. Why does it not seem a 
->>>> good idea to wake up a machine that was shutdown (and thus the interface `downed`) ?
->>>>
->>>> Auke
->>> Interestingly it looks like e100 is one of the ones that only wakes from suspend (not when down).
->> that would be a bug, I'll have to get that checked especially after the latest changes 
->> to it.
+>> From: Jeff Garzik <jgarzik@pobox.com>
+>> Date: Fri, 03 Nov 2006 18:51:25 -0500
 >>
+>>> The purpose of WOL is being able to turn on a system remotely, if it is 
+>>> in a power-off or sleep state.
+>>>
+>>> So, if the system is -on- and the interface is down and/or driver is 
+>>> unloaded, are you saying WOL is a problem somehow?
+>> Stephen is saying that if you down an interface, it should disable
+>> that WoL functionality.
+>>
+>> I guess you can argue that, like IP addresses, this WoL thing is an
+>> attribute of the "system".
 > 
-> Sorry, my bad my test machine was not setup properly.
+> Looking harder. The semantic needs to be WOL is okay if driver is loaded
+> and device is up or down. But the default for WOL should be disabled until
+> enabled by ethtool (or parameter).
 
-I don't blame you, WoL is one of the hardest features to get right, especially with all 
-the various e100{,0} hardware and options that influence it (manageability, eeproms, etc).
+Since this is enabled already in the BIOSes for most systems (or disabled, and 
+switcheable by the user), I'd say we can let the driver handle the default (on for most 
+cards) already. The BIOS can also handle a WoL call after a (long) powerfailure, before 
+the OS boots, so disabling it in the OS would be quite useless in that case: the BIOS 
+would override it anyway.
 
-On top of that there's this blob called BIOS messing it all up after a powercycle :)
+Doesn't sound like a problem you can solve in the driver layer...
 
 Cheers,
 
