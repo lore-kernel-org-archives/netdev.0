@@ -1,104 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: pktgen patch available for perusal.
-Date: Sat, 04 Nov 2006 13:10:55 -0500
-Message-ID: <1162663855.6237.116.camel@jzny2>
-References: <45468F2E.4060809@candelatech.com>
-	 <17736.54766.657083.873206@robur.slu.se> <4548F166.1020001@candelatech.com>
-	 <1162643532.5166.34.camel@jzny2>  <454CCDE0.5040109@candelatech.com>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	NetDev <netdev@vger.kernel.org>
+From: linux@horizon.com
+Subject: "uli526x: I/O base is zero"
+Date: 4 Nov 2006 13:26:40 -0500
+Message-ID: <20061104182640.11073.qmail@science.horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:19158 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S965584AbWKDSK6
+Received: from science.horizon.com ([192.35.100.1]:11572 "HELO
+	science.horizon.com") by vger.kernel.org with SMTP id S965587AbWKDS0l
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Nov 2006 13:10:58 -0500
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1GgPyv-000594-Mz
-	for netdev@vger.kernel.org; Sat, 04 Nov 2006 13:11:01 -0500
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <454CCDE0.5040109@candelatech.com>
+	Sat, 4 Nov 2006 13:26:41 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-04-11 at 09:29 -0800, Ben Greear wrote:
-> jamal wrote:
-   
-> Please do send a script.  I match based on this method below.   Probably 
-> you only
-> need the part that checks for the MAGIC, 
+I've got a rather awkward debugging situation.
 
-What i do in my case is send to the SUT to UDP port 9. The SUT loops
-back the packet to me after processing and i just have a simple check in
-the traffic generator of:
+I helped a friend in another city set up a dual-boot Linux/Windows box
+a while ago, and it just got a motherboard upgrade.  Unfortunately, I
+had followed my usual instincts and built a custom kernel which didn't
+include the new motherboard's drivers.  If I can just get the network
+working, I can log in remotely and get everything else going, but until
+then, I have to instruct someone in kernel debugging over the telephone.
 
-a) Packet = IPV4, IP address matches what i want, port =9, 
-b) If this matches i  account and drop it. This means all other traffic
-(like ssh etc goes through fine).
+The motherboard is an MSI K9NU Neo-V ULi M1697 AM2 motherboard,
+and PCI device 0000:00:12.0 is an M5263 Ethernet controller,
+10b9:5263(rev 60).
 
-I dont really need to check for length because _i know_ udp port 9 to
-the SUT is test traffic.
+It's an older but not ancient 2.6 kernel.  2.6.14, I think, although I
+can't seem to find where I wrote it down.  The previous system, which
+I set up and was running fine, was a single-core K8, socket 939, with
+an nForce4 chipset.  The new one is dual-core and ULi M1697.  So there
+are a lot of similarities.
 
-For such a setup, the script would be as simple as (assuming SUT hooked
-to eth0):
+Anyway, we got SMP enabled, and the uli526x driver enabled.  But the
+network still didn't work.
 
---
-#interested in incoming packets on eth0
-tc qdisc add dev eth0 ingress
-#interested in packets coming from SUT(10.0.0.21) on UDP port 9
-tc filter add dev eth0 parent ffff: protocol ip prio 6 u32 \
-match ip src 10.0.0.21/32 \
-match udp port 9 0xffff \
-flowid 1:16 \
-action drop
----
+Booting with uli526x.debug=1 produced 
 
-When you do a listing of this filter you will see accounting info.
-You list by saying:
----
-tc -s filter ls dev eth0 parent ffff:
----
+uli526x: uli526x_init_one() 0
+ACPI: PCI interrupt 0000:00:12.0[A]->GFI 20(level,low)->IRQ 50
+uli526x: I/O base is zero
 
-You can ofcourse add many of these based on other header info.
+Where I'm confused is the "I/O base is zero" message.  Obviously,
+this is a fatal error to the device initialization, but I'm not sure
+what causes it.  The obvious "type the error message into google" only
+produces a couple of disk images in Romania.
 
-It seems to me your magic header is inside the UDP packet, correct?
-In that case you will have to play with matches since you can specify
-arbitraty offsets and values inside the packet.
+The next step is probably to make and use a more recent boot CD.
+But just in case, can I ask:
 
-Of course you can do this from your application instead of using tc.
-I think that will be the best place to control this and sync with
-pktgen sending.
+Can any psychic wizard here suggest, from this very fragmentaty
+information, some simple thing I have overlooked that would cause this
+problem?
 
-> the rest can be in a method 
-> called after you match in your script?
-> 
-
-If the packet/byte counters that the drop action provides are not good
-enough, you can write yourself a little module that will do the
-accounting the way you want it. For example this will be necessary to
-the out-of-sequence cheques below. Timestamps are already being updated
-Look at net/sched/act_simple.c and its associated user space code in
-iproute2.
-
-Now, Ben - are you listening really this time or am i wasting my time
-for the nth time giving you all these details? ;->
-
-If you are listening then start with:
-
-1) Do a simple test with just udp traffic as above, doing simple
-accounting. This helps you to get a feel on how things work.
-2) modify the matching rules to match your magic cookie
-3) write a simple action invoked by your matching rules and use tc to
-add it to the policy.
-4) integrate in your app now that you know what you are doing.
-
-If you follow these steps or a variant-of i will spend time and help.
-
-cheers,
-jamal
-
-
+Thank you!
