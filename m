@@ -1,74 +1,86 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] ieee80211softmac: fix verbosity when debug disabled
-Date: Sat, 04 Nov 2006 13:29:50 -0600
-Message-ID: <454CEA2E.mail3QE112KF3@lwfinger.net>
+From: Nicolas Kaiser <nikai@nikai.net>
+Subject: [PATCH][TRIVIAL] drivers/net: endif comment fixes
+Date: Sat, 4 Nov 2006 20:58:32 +0100
+Message-ID: <20061104205832.51caff06@lucky.kitzblitz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
+Cc: Andi Drebes <lists-receive@programmierforen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-03.rdc-kc.rr.com ([24.94.166.129]:24786 "EHLO
-	ms-smtp-03.rdc-kc.rr.com") by vger.kernel.org with ESMTP
-	id S1753680AbWKDTaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Nov 2006 14:30:46 -0500
-To: John Linville <linville@tuxdriver.com>
+Received: from ensim03.ffm.m2soft.com ([195.38.20.12]:53483 "EHLO
+	ensim03.ffm.m2soft.com") by vger.kernel.org with ESMTP
+	id S965588AbWKDUAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Nov 2006 15:00:23 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SoftMAC contains a number of debug-type messages that continue to print
-even when debugging is turned off. This patch substitutes dprintkl for
-printkl for those lines.
+endif comments should match their corresponding if(n)defs.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
 ---
 
+ drivers/net/gianfar_mii.h                 |    2 +-
+ drivers/net/sk98lin/h/skgei2c.h           |    2 +-
+ drivers/net/sk98lin/h/ski2c.h             |    2 +-
+ drivers/net/skfp/h/targetos.h             |    2 +-
+ drivers/net/slip.h                        |    2 +-
+ drivers/net/wireless/prism54/islpci_eth.h |    2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_auth.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_auth.c
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_auth.c
-@@ -158,7 +158,7 @@ ieee80211softmac_auth_resp(struct net_de
- 	/* Make sure that we've got an auth queue item for this request */
- 	if(aq == NULL)
- 	{
--		printkl(KERN_DEBUG PFX "Authentication response received from "MAC_FMT" but no queue item exists.\n", MAC_ARG(auth->header.addr2));
-+		dprintkl(KERN_DEBUG PFX "Authentication response received from "MAC_FMT" but no queue item exists.\n", MAC_ARG(auth->header.addr2));
- 		/* Error #? */
- 		return -1;
- 	}			
-@@ -166,7 +166,7 @@ ieee80211softmac_auth_resp(struct net_de
- 	/* Check for out of order authentication */
- 	if(!net->authenticating)
- 	{
--		printkl(KERN_DEBUG PFX "Authentication response received from "MAC_FMT" but did not request authentication.\n",MAC_ARG(auth->header.addr2));
-+		dprintkl(KERN_DEBUG PFX "Authentication response received from "MAC_FMT" but did not request authentication.\n",MAC_ARG(auth->header.addr2));
- 		return -1;
- 	}
+diff -uprN a/drivers/net/gianfar_mii.h b/drivers/net/gianfar_mii.h
+--- a/drivers/net/gianfar_mii.h	2006-09-20 05:42:06.000000000 +0200
++++ b/drivers/net/gianfar_mii.h	2006-11-04 20:32:43.000000000 +0100
+@@ -43,4 +43,4 @@ int gfar_mdio_read(struct mii_bus *bus, 
+ int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
+ int __init gfar_mdio_init(void);
+ void __exit gfar_mdio_exit(void);
+-#endif /* GIANFAR_PHY_H */
++#endif /* __GIANFAR_MII_H */
+diff -uprN a/drivers/net/sk98lin/h/skgei2c.h b/drivers/net/sk98lin/h/skgei2c.h
+--- a/drivers/net/sk98lin/h/skgei2c.h	2006-09-20 05:42:06.000000000 +0200
++++ b/drivers/net/sk98lin/h/skgei2c.h	2006-11-04 20:35:22.000000000 +0100
+@@ -207,4 +207,4 @@
+ #define	SK_SEN_DYN_INIT_VAUX		11  /* Init VAUX with new thresholds */
  
-@@ -342,7 +342,7 @@ ieee80211softmac_deauth_req(struct ieee8
- 	/* Make sure the network is authenticated */
- 	if (!net->authenticated)
- 	{
--		printkl(KERN_DEBUG PFX "Can't send deauthentication packet, network is not authenticated.\n");
-+		dprintkl(KERN_DEBUG PFX "Can't send deauthentication packet, network is not authenticated.\n");
- 		/* Error okay? */
- 		return -EPERM;
- 	}
-@@ -376,7 +376,7 @@ ieee80211softmac_deauth_resp(struct net_
- 	net = ieee80211softmac_get_network_by_bssid(mac, deauth->header.addr2);
- 	
- 	if (net == NULL) {
--		printkl(KERN_DEBUG PFX "Received deauthentication packet from "MAC_FMT", but that network is unknown.\n",
-+		dprintkl(KERN_DEBUG PFX "Received deauthentication packet from "MAC_FMT", but that network is unknown.\n",
- 			MAC_ARG(deauth->header.addr2));
- 		return 0;
- 	}
-@@ -384,7 +384,7 @@ ieee80211softmac_deauth_resp(struct net_
- 	/* Make sure the network is authenticated */
- 	if(!net->authenticated)
- 	{
--		printkl(KERN_DEBUG PFX "Can't perform deauthentication, network is not authenticated.\n");
-+		dprintkl(KERN_DEBUG PFX "Can't perform deauthentication, network is not authenticated.\n");
- 		/* Error okay? */
- 		return -EPERM;
- 	}
+ extern	int SkLm80ReadSensor(SK_AC *pAC, SK_IOC IoC, SK_SENSOR *pSen);
+-#endif	/* n_INC_SKGEI2C_H */
++#endif	/* _INC_SKGEI2C_H_ */
+diff -uprN a/drivers/net/sk98lin/h/ski2c.h b/drivers/net/sk98lin/h/ski2c.h
+--- a/drivers/net/sk98lin/h/ski2c.h	2006-09-20 05:42:06.000000000 +0200
++++ b/drivers/net/sk98lin/h/ski2c.h	2006-11-04 20:34:16.000000000 +0100
+@@ -170,5 +170,5 @@ extern int SkI2cEvent(SK_AC *pAC, SK_IOC
+ extern void SkI2cWaitIrq(SK_AC *pAC, SK_IOC IoC);
+ extern void SkI2cIsr(SK_AC *pAC, SK_IOC IoC);
+ #endif /* !SK_DIAG */
+-#endif /* n_SKI2C_H */
++#endif /* _SKI2C_H_ */
+ 
+diff -uprN a/drivers/net/skfp/h/targetos.h b/drivers/net/skfp/h/targetos.h
+--- a/drivers/net/skfp/h/targetos.h	2006-09-20 05:42:06.000000000 +0200
++++ b/drivers/net/skfp/h/targetos.h	2006-11-04 20:32:15.000000000 +0100
+@@ -162,4 +162,4 @@ struct s_smt_os {
+ 
+ typedef struct s_smt_os skfddi_priv;
+ 
+-#endif	 // _TARGETOS_
++#endif	 // _TARGETOS_H
+diff -uprN a/drivers/net/slip.h b/drivers/net/slip.h
+--- a/drivers/net/slip.h	2006-09-20 05:42:06.000000000 +0200
++++ b/drivers/net/slip.h	2006-11-04 20:36:08.000000000 +0100
+@@ -117,4 +117,4 @@ struct slip {
+ 
+ #define SLIP_MAGIC 0x5302
+ 
+-#endif	/* _LINUX_SLIP.H */
++#endif	/* _LINUX_SLIP_H */
+diff -uprN a/drivers/net/wireless/prism54/islpci_eth.h b/drivers/net/wireless/prism54/islpci_eth.h
+--- a/drivers/net/wireless/prism54/islpci_eth.h	2006-09-20 05:42:06.000000000 +0200
++++ b/drivers/net/wireless/prism54/islpci_eth.h	2006-11-04 20:37:20.000000000 +0100
+@@ -70,4 +70,4 @@ int islpci_eth_receive(islpci_private *)
+ void islpci_eth_tx_timeout(struct net_device *);
+ void islpci_do_reset_and_wake(void *data);
+ 
+-#endif				/* _ISL_GEN_H */
++#endif				/* _ISLPCI_ETH_H */
+
