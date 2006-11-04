@@ -1,35 +1,26 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: "uli526x: I/O base is zero"
-Date: Sat, 4 Nov 2006 23:14:22 +0100
-Message-ID: <20061104221422.GA27752@electric-eye.fr.zoreil.com>
-References: <20061104182640.11073.qmail@science.horizon.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 2/3] add dev_to_node()
+Date: Sun, 5 Nov 2006 00:09:16 +0100
+Message-ID: <20061104230916.GA32188@lst.de>
+References: <20061030141501.GC7164@lst.de> <20061030.143357.130208425.davem@davemloft.net> <20061104225629.GA31437@lst.de> <20061104230648.GB640@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:22415 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S965715AbWKDWQS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Nov 2006 17:16:18 -0500
-To: linux@horizon.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965737AbWKDXJ3@vger.kernel.org>
+To: Dave Jones <davej@redhat.com>, Christoph Hellwig <hch@lst.de>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org
 Content-Disposition: inline
-In-Reply-To: <20061104182640.11073.qmail@science.horizon.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061104230648.GB640@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-linux@horizon.com <linux@horizon.com> :
-[...]
-> uli526x: uli526x_init_one() 0
-> ACPI: PCI interrupt 0000:00:12.0[A]->GFI 20(level,low)->IRQ 50
-> uli526x: I/O base is zero
+On Sat, Nov 04, 2006 at 06:06:48PM -0500, Dave Jones wrote:
+> On Sat, Nov 04, 2006 at 11:56:29PM +0100, Christoph Hellwig wrote:
+> 
+> This will break the compile for !NUMA if someone ends up doing a bisect
+> and lands here as a bisect point.
+> 
+> You introduce this nice wrapper..
 
-The PCI base address register used by the device is not set. Weird.
-
-<wet finger>
-It may be that the driver does not use the adequate BAR (gross).
-lspci -vx may give some hint. Otherwise ACPI, bios or PCI bridge
-are the usual suspects.  
-</wet finger>
-
--- 
-Ueimor
+Yes, I'm stupid :)  Updated version will follow ASAP.
