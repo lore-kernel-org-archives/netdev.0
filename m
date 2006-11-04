@@ -1,69 +1,57 @@
-From: "Udayan Singh" <udayan.singh@gmail.com>
-Subject: Re: [Info]d80211 : Understanding d80211
-Date: Sat, 4 Nov 2006 21:11:06 +0530
-Message-ID: <d9a09df00611040741s7612c79fu4122faf64da48a21@mail.gmail.com>
-References: <d9a09df00611031943n41cf27beu566383b0e1c96197@mail.gmail.com>
-	 <454C13FF.6070902@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: Drain TX status before starting IRQs
+Date: Sat, 04 Nov 2006 10:38:06 -0600
+Message-ID: <454CC1EE.7020708@lwfinger.net>
+References: <200610191729.35402.mb@bu3sch.de> <45498633.7040808@lwfinger.net>
+	<1162457146.3241.13.camel@ux156>
+	<20061103165627.GC16894@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, udayan.singh@tcs.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.229]:49283 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S965515AbWKDPlR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Nov 2006 10:41:17 -0500
-Received: by wx-out-0506.google.com with SMTP id s14so663713wxc
-        for <netdev@vger.kernel.org>; Sat, 04 Nov 2006 07:41:16 -0800 (PST)
-To: "Larry Finger" <Larry.Finger@lwfinger.net>
-In-Reply-To: <454C13FF.6070902@lwfinger.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
+In-Reply-To: <20061103165627.GC16894-T6t7IcXamKWaos4igUoMUw@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/4/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> Udayan Singh wrote:
-> > Hi,
-> >
-> > I wanted to understand the code of d80211 (thanks to James Ketrenos
-> > for the info he provided) and also work in it.
-> >
-> > I found that I can get the latest patches regarding the same from :
-> >
-> > http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
->
-> Wireless-2.6 contains the developmental version of wireless code _NOT_ using
-> d80211. The d80211
-> development version is at
-> git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
-> and must be downloaded with git, not ftp or http.
+Jouni Malinen wrote:
+> On Thu, Nov 02, 2006 at 09:45:46AM +0100, Johannes Berg wrote:
+>> On Wed, 2006-11-01 at 23:46 -0600, Larry Finger wrote:
+>>> Has anyone used this patch, particularly with WPA encryption? When I try it, wpa_supplicant 
+>>> immediately uses 90+% of the cpu and never actually authenticates with my AP. I wonder if it is 
+>>> something with my system.
+> 
+> What does wpa_supplicant do here? Have you looked at the debug log? Is
+> it in some kind of busy loop doing something?
 
-ok.
+I started wpa_supplicant in the foreground with the -w and -ddd options. When the BCM4306 card was 
+plugged in, the following was output (this is hand transcribed and may not be exact):
 
+Added interface wlan0
+Ignore event for foreign ifindex 8
+l2_packet_receive - recvfrom: Network is down
+Ignore event for foreign ifindex 8
+State: DISCONNECTED -> SCANNING
+Starting AP scan (specific SSID)
+Scan SSID - hexdump_ascii (len = 6)
+         6c 77 66 64 6a 66               lwfdjf
+ioctl[SIOGSIWSCAN]: No such device
+Failed to initiate AP scan.
+Setting scan request: 10 sec 0 usec
+Ignore event for foreign ifindex 8
 
-> > Any docs that I can read through that you would recommend from where I
-> > can start up ?
->
-> Only the code AFAIK.
->
+At this point, the system was in the state described earlier. I could not kill wpa_supplicant nor do 
+anything else, and had to power off to recover.
 
-referring to the standards might  be good i.e. 802.11 standards ??
-
-I intend to work in the manner:
-
-1. There are quite many standards that have already been implemented
-e.g. 802.11a/b/g in the kernel (here wireless-dev). If there is a new
-standard wrt. 802.11x coming in, then I can work on same.
-
-2. Work on an already implemented standard and try to add a missing
-feaature into it.
-
-Kindly let me know your opinions.
-
-tia,
-Udayan
-
->
-> Larry
->
->
+Larry
