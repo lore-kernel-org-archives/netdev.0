@@ -1,195 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: pktgen patch available for perusal.
-Date: Sat, 04 Nov 2006 09:29:04 -0800
-Message-ID: <454CCDE0.5040109@candelatech.com>
-References: <45468F2E.4060809@candelatech.com>	 <17736.54766.657083.873206@robur.slu.se> <4548F166.1020001@candelatech.com> <1162643532.5166.34.camel@jzny2>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
+Date: Sat, 4 Nov 2006 20:47:36 +0300
+Message-ID: <20061104174736.GB25263@2ka.mipt.ru>
+References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz> <20061101185745.GA12440@2ka.mipt.ru> <20061103184916.GA17142@flower.upol.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: LKML <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:43946 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S965561AbWKDR1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Nov 2006 12:27:44 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1162643532.5166.34.camel@jzny2>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:33709 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965571AbWKDRsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Nov 2006 12:48:14 -0500
+To: Oleg Verych <olecom@flower.upol.cz>
+Content-Disposition: inline
+In-Reply-To: <20061103184916.GA17142@flower.upol.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Wed, 2006-01-11 at 11:11 -0800, Ben Greear wrote:
->
->   
->> I'd be thrilled to have the receive logic go into pktgen, even if 
->> it was #if 0 with a comment
->> showing how to patch dev.c to get it working.  It would make my 
->> out-of-tree patch smaller
->> and should help others who are doing research and driver development...
->>
->>     
->
-> I use pktgen extensively these days for ipsec testing. I also record
-> stats for pkts i receive using a tc action drop. Very simple and works
-> great.  
-> Ben, you keep insisting on doing this hook (every 3 months) because you
-> dont want to invest time to do it with netlink (I thought you sold this
-> as part of your product - the investment of your time is really not that
-> high). If you tell me what the packet trigger is, I will send you a
-> script ;->
->   
-Please do send a script.  I match based on this method below.   Probably 
-you only
-need the part that checks for the MAGIC, the rest can be in a method 
-called after
-you match in your script?
+On Fri, Nov 03, 2006 at 07:49:16PM +0100, Oleg Verych (olecom@flower.upol.cz) wrote:
+> [ Please do not answer just to answer, cc list is big, no one from       ]
+> [ The Big Jury seems to care. (well, Jonathan does, but he wasn't in cc) ]
+> 
+> Friendly, Oleg.
 
-/* Returns < 0 if the skb is not a pktgen buffer. */
-int pktgen_receive(struct sk_buff* skb) {
-        /* See if we have a pktgen packet */
-    /* TODO:  Add support for detecting IPv6, TCP packets too.  This 
-will only
-     * catch UDP at the moment. --Ben
-     */
-    /*printk("pktgen-rcv, skb->len: %d\n", skb->len);*/
-   
-        if ((skb->len >= (20 + 8 + sizeof(struct pktgen_hdr))) &&
-            (skb->protocol == __constant_htons(ETH_P_IP))) {
-        struct pktgen_hdr* pgh;
-               
-                /* It's IP, and long enough, lets check the magic number.
-                 * TODO:  This is a hack not always guaranteed to catch 
-the right
-                 * packets.
-                 */
-       
-        /*printk("Length & protocol passed, skb->data: %p, raw: %p\n",
-          skb->data, skb->h.raw);*/
-      
-                pgh = (struct pktgen_hdr*)(skb->data + 20 + 8);
-       
-                /*
-                tmp = (char*)(skb->data);
-                for (i = 0; i<90; i++) {
-                        printk("%02hx ", tmp[i]);
-                        if (((i + 1) % 15) == 0) {
-                                printk("\n");
-                        }
-                }
-                printk("\n");
-                */
-               
-                if (pgh->pgh_magic == __constant_ntohl(PKTGEN_MAGIC)) {
-                        struct net_device* dev = skb->dev;
-                        struct pktgen_dev* pkt_dev;
-                        __u32 seq = ntohl(pgh->seq_num);
-
-            // TODO:  Need lock..maybe
-            pkt_dev = dev->pkt_dev;
-                       
-                        if (!pkt_dev) {
-                return -1;
-                        }
-
-                        pkt_dev->pkts_rcvd++;
-                        pkt_dev->bytes_rcvd += ((skb->tail - 
-skb->mac.raw) + 4); /* +4 for the checksum */
-                       
-                        /* Check for out-of-sequence packets */
-                        if (pkt_dev->last_seq_rcvd == seq) {
-                                pkt_dev->dup_rcvd++;
-                                pkt_dev->dup_since_incr++;
-                        }
-                        else {
-                                __s64 rx;
-                                __s64 tx;
-                                struct timeval txtv;
-                if (skb->tstamp.off_sec || skb->tstamp.off_usec) {
-                    skb_get_timestamp(skb, &txtv);
-                }
-                else {
-                    do_gettimeofday(&txtv);
-                    skb_set_timestamp(skb, &txtv);
-                }
-                                rx = tv_to_us(&txtv);
-
-                                txtv.tv_usec = ntohl(pgh->tv_usec);
-                                txtv.tv_sec = ntohl(pgh->tv_sec);
-                                tx = tv_to_us(&txtv);
-                                record_latency(pkt_dev, rx - tx);
-                               
-                                if ((pkt_dev->last_seq_rcvd + 1) == seq) {
-                                        if ((pkt_dev->peer_clone_skb > 1) &&
-                                            (pkt_dev->peer_clone_skb > 
-(pkt_dev->dup_since_incr + 1))) {
-                                               
-                                                pkt_dev->seq_gap_rcvd += 
-(pkt_dev->peer_clone_skb -
-                                                                       
-pkt_dev->dup_since_incr - 1);
-                                        }
-                                        /* Great, in order...all is well */
-                                }
-                                else if (pkt_dev->last_seq_rcvd < seq) {
-                                        /* sequence gap, means we 
-dropped a pkt most likely */
-                                        if (pkt_dev->peer_clone_skb > 1) {
-                                                /* We dropped more than 
-one sequence number's worth,
-                                                 * and if we're using 
-clone_skb, then this is quite
-                                                 * a few.  This number 
-still will not be exact, but
-                                                 * it will be closer.
-                                                 */
-                                                pkt_dev->seq_gap_rcvd += 
-(((seq - pkt_dev->last_seq_rcvd) *
-                                                                        
-pkt_dev->peer_clone_skb) -
-                                                                       
-pkt_dev->dup_since_incr);
-                                        }
-                                        else {
-                                                pkt_dev->seq_gap_rcvd += 
-(seq - pkt_dev->last_seq_rcvd - 1);
-                                        }
-                                }
-                                else {
-                                        pkt_dev->ooo_rcvd++; /* 
-out-of-order */
-                                }
-                               
-                                pkt_dev->dup_since_incr = 0;
-                        }
-                        pkt_dev->last_seq_rcvd = seq;
-                        kfree_skb(skb);
-                        if (debug > 1) {
-                                printk("done with pktgen_receive, free'd 
-pkt\n");
-                        }
-                        return 0;
-                }
-        }
-        return -1; /* Let another protocol handle it, it's not for us! */
-}/* pktgen_receive */
-
-> Robert, I have started writing some generic netlink messaging to replace
-> the /proc that i will send your way. I need to get consensus on some
-> tunnel-mode IPSEC patches first then i will send the about three
-> patchsets your way (to replace the old ones i sent earlier).
->
-> cheers,
-> jamal
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
-
+Just in case some misunderstanding happend: I do not want to insult
+anyone who is against kevent, I just do not understand cases, when
+people require me to do something to convince them in rude manner.
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+	Evgeniy Polyakov
