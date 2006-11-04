@@ -1,37 +1,104 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take22 0/4] kevent: Generic event handling mechanism.
-Date: Sat, 4 Nov 2006 20:47:36 +0300
-Message-ID: <20061104174736.GB25263@2ka.mipt.ru>
-References: <1154985aa0591036@2ka.mipt.ru> <1162380963981@2ka.mipt.ru> <20061101130614.GB7195@atrey.karlin.mff.cuni.cz> <20061101132506.GA6433@2ka.mipt.ru> <20061101160551.GA2598@elf.ucw.cz> <20061101162403.GA29783@2ka.mipt.ru> <slrnekhpbr.2j1.olecom@flower.upol.cz> <20061101185745.GA12440@2ka.mipt.ru> <20061103184916.GA17142@flower.upol.cz>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: pktgen patch available for perusal.
+Date: Sat, 04 Nov 2006 13:10:55 -0500
+Message-ID: <1162663855.6237.116.camel@jzny2>
+References: <45468F2E.4060809@candelatech.com>
+	 <17736.54766.657083.873206@robur.slu.se> <4548F166.1020001@candelatech.com>
+	 <1162643532.5166.34.camel@jzny2>  <454CCDE0.5040109@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: LKML <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33709 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S965571AbWKDRsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Nov 2006 12:48:14 -0500
-To: Oleg Verych <olecom@flower.upol.cz>
-Content-Disposition: inline
-In-Reply-To: <20061103184916.GA17142@flower.upol.cz>
+Received: from mx02.cybersurf.com ([209.197.145.105]:19158 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S965584AbWKDSK6
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Nov 2006 13:10:58 -0500
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GgPyv-000594-Mz
+	for netdev@vger.kernel.org; Sat, 04 Nov 2006 13:11:01 -0500
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <454CCDE0.5040109@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 03, 2006 at 07:49:16PM +0100, Oleg Verych (olecom@flower.upol.cz) wrote:
-> [ Please do not answer just to answer, cc list is big, no one from       ]
-> [ The Big Jury seems to care. (well, Jonathan does, but he wasn't in cc) ]
+On Sat, 2006-04-11 at 09:29 -0800, Ben Greear wrote:
+> jamal wrote:
+   
+> Please do send a script.  I match based on this method below.   Probably 
+> you only
+> need the part that checks for the MAGIC, 
+
+What i do in my case is send to the SUT to UDP port 9. The SUT loops
+back the packet to me after processing and i just have a simple check in
+the traffic generator of:
+
+a) Packet = IPV4, IP address matches what i want, port =9, 
+b) If this matches i  account and drop it. This means all other traffic
+(like ssh etc goes through fine).
+
+I dont really need to check for length because _i know_ udp port 9 to
+the SUT is test traffic.
+
+For such a setup, the script would be as simple as (assuming SUT hooked
+to eth0):
+
+--
+#interested in incoming packets on eth0
+tc qdisc add dev eth0 ingress
+#interested in packets coming from SUT(10.0.0.21) on UDP port 9
+tc filter add dev eth0 parent ffff: protocol ip prio 6 u32 \
+match ip src 10.0.0.21/32 \
+match udp port 9 0xffff \
+flowid 1:16 \
+action drop
+---
+
+When you do a listing of this filter you will see accounting info.
+You list by saying:
+---
+tc -s filter ls dev eth0 parent ffff:
+---
+
+You can ofcourse add many of these based on other header info.
+
+It seems to me your magic header is inside the UDP packet, correct?
+In that case you will have to play with matches since you can specify
+arbitraty offsets and values inside the packet.
+
+Of course you can do this from your application instead of using tc.
+I think that will be the best place to control this and sync with
+pktgen sending.
+
+> the rest can be in a method 
+> called after you match in your script?
 > 
-> Friendly, Oleg.
 
-Just in case some misunderstanding happend: I do not want to insult
-anyone who is against kevent, I just do not understand cases, when
-people require me to do something to convince them in rude manner.
+If the packet/byte counters that the drop action provides are not good
+enough, you can write yourself a little module that will do the
+accounting the way you want it. For example this will be necessary to
+the out-of-sequence cheques below. Timestamps are already being updated
+Look at net/sched/act_simple.c and its associated user space code in
+iproute2.
 
--- 
-	Evgeniy Polyakov
+Now, Ben - are you listening really this time or am i wasting my time
+for the nth time giving you all these details? ;->
+
+If you are listening then start with:
+
+1) Do a simple test with just udp traffic as above, doing simple
+accounting. This helps you to get a feel on how things work.
+2) modify the matching rules to match your magic cookie
+3) write a simple action invoked by your matching rules and use tc to
+add it to the policy.
+4) integrate in your app now that you know what you are doing.
+
+If you follow these steps or a variant-of i will spend time and help.
+
+cheers,
+jamal
+
+
