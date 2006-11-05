@@ -1,11 +1,11 @@
 From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
-Date: Sun, 05 Nov 2006 18:05:06 +0100
-Message-ID: <1162746306.24574.28.camel@johannes.berg>
+Date: Sun, 05 Nov 2006 18:06:44 +0100
+Message-ID: <1162746405.24574.31.camel@johannes.berg>
 References: <1162741174.24574.22.camel@johannes.berg>
 	 <200611051754.34099.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-V3YC6aNLnfYE4YZlUm1y"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rt1fZHbqq5HqCtuQSVWv"
 Cc: netdev <netdev@vger.kernel.org>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>,
@@ -16,17 +16,17 @@ Cc: netdev <netdev@vger.kernel.org>,
 	David Kimdon <david.kimdon@devicescape.com>,
 	James Ketrenos <jketreno@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:65156 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161352AbWKERGk
+Received: from crystal.sipsolutions.net ([195.210.38.204]:18053 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1161363AbWKERII
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Nov 2006 12:06:40 -0500
+	Sun, 5 Nov 2006 12:08:08 -0500
 To: Ivo van Doorn <ivdoorn@gmail.com>
 In-Reply-To: <200611051754.34099.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-V3YC6aNLnfYE4YZlUm1y
+--=-rt1fZHbqq5HqCtuQSVWv
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
@@ -53,29 +53,34 @@ Though for 802.11h the radio does need to be turned off in some cases
 regardless of the up/down state, so we'll have to think about that. Or
 we just force all interfaces down? Not sure yet.
 
+I confident we can work out these issues if we agree that converting it
+to a protocol is a good thing. After doing it, I'm personally pretty
+convinced that it is, some things just fell into place nicely and feel
+less hacky.
+
 johannes
 
---=-V3YC6aNLnfYE4YZlUm1y
+--=-rt1fZHbqq5HqCtuQSVWv
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUARU4ZwKVg1VMiehFYAQLgzRAAwJ3Ao4VDydrZf2tDdLm86AHg8cC12iOI
-JSb0Tl9OyVxDjNkPGWYdk9gxzIy8L28IhnqyiezRdUGLgs94L1Z8kwytCMr6wCRe
-nE3HxpllbfZRHJ8/W6hBBJlkjx0QkeL5G05oMsCb42i572f6hD5FGREr7YV1hCDP
-NcJprHGOQ6TTcluszY7/WbB8frGJXjePwFiAn/AvWAJjXOM9Qd3GEjcP6vFjZ+rs
-+lKCpzI7kyPVew/BcnzzRS4IURXTbk8uFIMRGlA2+ogKtQiwKh3bUO1OK+PkRTw8
-OW4r6iu7s7Rz6uIC7DhPf6We11tD4x5nFjvVH9Y549XH2B796joOYjUXo+ffD2yT
-P9zFpbySo/U6Xc4QNa3BS0qORfGStURfTazXS1B2mNZccFnf/rdyS+0LdK3cNLGD
-ukfOcHmm3golOQ6zRyQ0QhlMzBfykC3r5+9ap3TUUWj3G9YpuN+wDzry5B4g/T3a
-7GJksYFXXn1eUesEUQF9TkJ6LX8xv2ZRzMhBNdrDGrwZ5XXk7WSr1ZcTfOioc3vR
-84qc3vJc3AqDhVxQTXNBN8jMalTEGbE8HyNWewwIUZUjc9p8quJct/MYrLbTJ+NU
-Qrj+nICoFxv/DgKzMc/QAN9veOWrZyBliw+xe6F2wGGla9M7QUOklKYZXds6tyoM
-pIFYOYz6cRc=
-=anzQ
+iQIVAwUARU4aI6Vg1VMiehFYAQIBSxAAn4cOeCRdkDjwnJ3qdwqHSxe7B9Xae0Dx
+rorZGMaNqa16am1R+1+qDLC6QZBP2WT2JzBnCZzV5VBpD2Mptb0roz4dtML82yUq
+lwI1NzKaa8y6mf6vYMVp6mhi4lDSITSF12IF/PkGrNtx++4/iy5JElIxw+ucNe8J
+GDt6cTH6aUCfLiLxaFHovxKDcq9/3uJmaic0jFYtl/Un4NGXoHnpqu9uVKkZ+DkC
+dGFzj6XHZt4M4GDicYCevUGfBSscaDcBfze4sV1wDUiIV4uRYgWnuF7GEsunM5CB
+8VQeZElzN+0nxLke4k/9QZVIFcb5whWEkSkf+OImugMHgHne2v9sZ9VXsD9EErWU
+x11bDSn/wy5j14JPQ1lcxx+m05cWDozmAzA+uGDETiNgZz86xO9BnV8zWlriloe1
+aJrIQj5g2IVDkxPeNDnGkK+WUGrcqXuJuMMfsMjegQVxt9xQMnEHS6V/1zrZxdVs
+EYsPctVmpU62RAudpI2+gdyuXNHI9m0chfdeNNb+LNLR2pN7gUXWruub8WegeKRU
+kFpY2rSpOHfHM5XDp1YsczRJfsUP9FRsMQe85CPTMurvkq2rS7diJBkbIjt/molV
+d4NJWo8lmdkZWcz69NlGp5P4LWYR6ZmKXUXcekSNRtWdJEw15/dGCfVy4rYrLxac
+rhoSP5tYbIM=
+=u5He
 -----END PGP SIGNATURE-----
 
---=-V3YC6aNLnfYE4YZlUm1y--
+--=-rt1fZHbqq5HqCtuQSVWv--
 
