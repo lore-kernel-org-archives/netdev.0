@@ -1,67 +1,65 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] bcm43xx: Drain TX status before starting IRQs
-Date: Sun, 05 Nov 2006 15:34:36 -0600
-Message-ID: <454E58EC.mail20S110EOC@lwfinger.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 01/02 V3] net/ipv6: seperate sit driver to extra module
+Date: Sun, 05 Nov 2006 23:35:07 +0100
+Message-ID: <454E671B.2090302@trash.net>
+References: <20061010153745.GA27455@zlug.org> <452FD6F6.3090907@l4x.org> <20061013191744.GA30089@zlug.org> <20061013.150608.63128976.davem@davemloft.net> <45301CB3.4060803@l4x.org> <20061014093255.GA4646@zlug.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mb@bu3sch.de, greg@kroah.com
+Content-Type: multipart/mixed;
+ boundary="------------070107090809010407060109"
+Cc: Jan Dittmer <jdi@l4x.org>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-02.rdc-kc.rr.com ([24.94.166.122]:4065 "EHLO
-	ms-smtp-02.rdc-kc.rr.com") by vger.kernel.org with ESMTP
-	id S1422702AbWKEVfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Nov 2006 16:35:37 -0500
-To: stable@kernel.org
+Received: from stinky.trash.net ([213.144.137.162]:48042 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1422759AbWKEWfV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Nov 2006 17:35:21 -0500
+To: Joerg Roedel <joro-lkml@zlug.org>
+In-Reply-To: <20061014093255.GA4646@zlug.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Buesch <mb@bu3sch.de>
+This is a multi-part message in MIME format.
+--------------070107090809010407060109
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Drain the Microcode TX-status-FIFO before we enable IRQs.
-This is required, because the FIFO may still have entries left
-from a previous run. Those would immediately fire after enabling
-IRQs and would lead to an oops in the DMA TXstatus handling code.
-
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
-
-Index: linux-2.6.18/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- linux-2.6.18.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6.18/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -1463,6 +1463,23 @@ static void handle_irq_transmit_status(s
- 	}
- }
- 
-+static void drain_txstatus_queue(struct bcm43xx_private *bcm)
-+{
-+	u32 dummy;
-+
-+	if (bcm->current_core->rev < 5)
-+		return;
-+	/* Read all entries from the microcode TXstatus FIFO
-+	 * and throw them away.
-+	 */
-+	while (1) {
-+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
-+		if (!dummy)
-+			break;
-+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
-+	}
-+}
-+
- static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
- {
- 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
-@@ -3517,6 +3534,7 @@ int bcm43xx_select_wireless_core(struct 
- 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
- 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
- 	bcm43xx_security_init(bcm);
-+	drain_txstatus_queue(bcm);
- 	ieee80211softmac_start(bcm->net_dev);
- 
- 	/* Let's go! Be careful after enabling the IRQs.
+Joerg Roedel wrote:
+> On Sat, Oct 14, 2006 at 01:09:39AM +0200, Jan Dittmer wrote:
+> 
+>>Btw. is there any way to autoload the sit module or is this the
+>>task of the distribution tools? Debian etch at least does not
+>>automatically probe the module when trying to bring up a 6to4 tunnel.
+> 
+> 
+> AFAIK there is no way to automatically load the driver from the kernel
+> space. The configuration of the tunnel devices requires the sit0 device.
+> But this device is installed by the sit driver. I mailed a bug report to
+> the Debian people and informed them about the change.
 
 
+It would be nice to keep things working even with this built as a
+module, it took me some time to realize my IPv6 tunnel was broken
+because of the missing sit module. This module alias fixes things
+until distributions have added an appropriate alias to modprobe.conf.
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+
+--------------070107090809010407060109
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index b481a4d..be699f8 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -854,3 +854,4 @@ int __init sit_init(void)
+ module_init(sit_init);
+ module_exit(sit_cleanup);
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("sit0");
+
+--------------070107090809010407060109--
