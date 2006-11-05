@@ -1,11 +1,12 @@
 From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
-Date: Sun, 05 Nov 2006 18:06:44 +0100
-Message-ID: <1162746405.24574.31.camel@johannes.berg>
+Date: Sun, 05 Nov 2006 18:09:13 +0100
+Message-ID: <1162746553.24574.33.camel@johannes.berg>
 References: <1162741174.24574.22.camel@johannes.berg>
 	 <200611051754.34099.IvDoorn@gmail.com>
+	 <1162746306.24574.28.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rt1fZHbqq5HqCtuQSVWv"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-NISyVFcTBVqYdM28GnZq"
 Cc: netdev <netdev@vger.kernel.org>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>,
@@ -16,71 +17,48 @@ Cc: netdev <netdev@vger.kernel.org>,
 	David Kimdon <david.kimdon@devicescape.com>,
 	James Ketrenos <jketreno@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:18053 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161363AbWKERII
+Received: from crystal.sipsolutions.net ([195.210.38.204]:41093 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1161372AbWKERKj
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Nov 2006 12:08:08 -0500
+	Sun, 5 Nov 2006 12:10:39 -0500
 To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200611051754.34099.IvDoorn@gmail.com>
+In-Reply-To: <1162746306.24574.28.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-rt1fZHbqq5HqCtuQSVWv
+--=-NISyVFcTBVqYdM28GnZq
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-Hi,
+On Sun, 2006-11-05 at 18:05 +0100, Johannes Berg wrote:
 
-> Previously the open() and stop() methods in ieee80211_hw had been
-> deprecated and the driver should enable or disable the radio
-> based on the add_interface and remove_interface() functions.
-> Now that the driver should provide open() and stop() for the netdevice
-> structure does this mean that these 2 methods are back in control
-> for enabling and disabling the radio?
-
-Yeah, it'll have to, otherwise the device it created itself will be
-totally useless unless some other device is also open.
-
-> And if so what should the
-> add_interface and remove_interface, should they be only in charge of
-> triggering some configuration changes (like mode and mac address)?
-
-Mostly notably it's probably going to be used for the drivers to have
-veto powers, if they can't handle some specific combinations etc.
-
-Though for 802.11h the radio does need to be turned off in some cases
-regardless of the up/down state, so we'll have to think about that. Or
-we just force all interfaces down? Not sure yet.
-
-I confident we can work out these issues if we agree that converting it
-to a protocol is a good thing. After doing it, I'm personally pretty
-convinced that it is, some things just fell into place nicely and feel
-less hacky.
+hey, I thought I caught this one before it went out to add the last
+paragraph :/ sorry. the other one is the intended copy.
 
 johannes
 
---=-rt1fZHbqq5HqCtuQSVWv
+--=-NISyVFcTBVqYdM28GnZq
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUARU4aI6Vg1VMiehFYAQIBSxAAn4cOeCRdkDjwnJ3qdwqHSxe7B9Xae0Dx
-rorZGMaNqa16am1R+1+qDLC6QZBP2WT2JzBnCZzV5VBpD2Mptb0roz4dtML82yUq
-lwI1NzKaa8y6mf6vYMVp6mhi4lDSITSF12IF/PkGrNtx++4/iy5JElIxw+ucNe8J
-GDt6cTH6aUCfLiLxaFHovxKDcq9/3uJmaic0jFYtl/Un4NGXoHnpqu9uVKkZ+DkC
-dGFzj6XHZt4M4GDicYCevUGfBSscaDcBfze4sV1wDUiIV4uRYgWnuF7GEsunM5CB
-8VQeZElzN+0nxLke4k/9QZVIFcb5whWEkSkf+OImugMHgHne2v9sZ9VXsD9EErWU
-x11bDSn/wy5j14JPQ1lcxx+m05cWDozmAzA+uGDETiNgZz86xO9BnV8zWlriloe1
-aJrIQj5g2IVDkxPeNDnGkK+WUGrcqXuJuMMfsMjegQVxt9xQMnEHS6V/1zrZxdVs
-EYsPctVmpU62RAudpI2+gdyuXNHI9m0chfdeNNb+LNLR2pN7gUXWruub8WegeKRU
-kFpY2rSpOHfHM5XDp1YsczRJfsUP9FRsMQe85CPTMurvkq2rS7diJBkbIjt/molV
-d4NJWo8lmdkZWcz69NlGp5P4LWYR6ZmKXUXcekSNRtWdJEw15/dGCfVy4rYrLxac
-rhoSP5tYbIM=
-=u5He
+iQIVAwUARU4auKVg1VMiehFYAQKUqhAArYr9W1ynbQ8SnE/QVK64M6YNMQYGXcVe
+BoEchUO6Qak7PEjgeyvWom4XBl0owwJFOjCzrXsja1QSYHioHGBsrWaaM2S92SJq
+bMgsn7MT3a7Zq71i0C6bVhSNVsqifzEo1/eEri42w9b7cn3sjZTu4PQWlNyePZ6f
+EtYvPncy9UQaCGI3Djji8cIc8xY2cQvZC6yewj9ffAS8O1ChaE11uzi1JhEwmpm3
+kOJnGqkPloDVDd0+0dVHMQmvuaEP+q118GLvLtT4y/f5X0cOwo89c4uLOxMNnvhJ
+9p93k0PX+BNNZWyx8xOitBiBwNNDAx9e+pBbXnsTubGzFddqp70g0mZRuAfXgvaW
+TOPv3wUHjv0fea8ANImNWYKBeB+zqhXDTbm2lZbLgWLd7WW7B1I9+7soJzx5K6dt
+elf7KRSjlO6PCgfdqHCZNNDS6UXbAqpsVILqIJa29MKlawgQxeJ88gHM18AgmBP1
+YTueJmOAvmri6Cv5h3bdPH80VtIxxSSl0uxOtLu2i7+Cjz3wtXbYK+aTDn5I1Ajm
+arEdNq1AxAYAy8DxLLbFkqn8V+XNW6gwBc6493mqj0szAXv+3mNqwwe49Sy76wQP
+ZkuZG846DJBjtUnPuLgn48WUYxx4Hc/zp6WSd8LEiEb1xicZLxE2n9quaNApa5bm
+N4IimfibQms=
+=OV6t
 -----END PGP SIGNATURE-----
 
---=-rt1fZHbqq5HqCtuQSVWv--
+--=-NISyVFcTBVqYdM28GnZq--
 
