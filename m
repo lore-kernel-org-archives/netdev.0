@@ -1,64 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
-Date: Sun, 05 Nov 2006 18:09:13 +0100
-Message-ID: <1162746553.24574.33.camel@johannes.berg>
-References: <1162741174.24574.22.camel@johannes.berg>
-	 <200611051754.34099.IvDoorn@gmail.com>
-	 <1162746306.24574.28.camel@johannes.berg>
+From: "Eric Lemoine" <eric.lemoine@gmail.com>
+Subject: Re: [sungem] proposal for a new locking strategy
+Date: Sun, 5 Nov 2006 18:28:33 +0100
+Message-ID: <5cac192f0611050928w50127396l2a88978bf97b2bff@mail.gmail.com>
+References: <5cac192f0611050500m19f72209vc349f235680023a1@mail.gmail.com>
+	 <1162731940.28571.245.camel@localhost.localdomain>
+	 <5cac192f0611050517q297f5b04w7931788f6dfef3fc@mail.gmail.com>
+	 <20061105090254.66710154@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-NISyVFcTBVqYdM28GnZq"
-Cc: netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>,
-	Simon Barber <simon@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	James Ketrenos <jketreno@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:41093 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1161372AbWKERKj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Nov 2006 12:10:39 -0500
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <1162746306.24574.28.camel@johannes.berg>
+Received: from nf-out-0910.google.com ([64.233.182.187]:4283 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1161415AbWKER2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Nov 2006 12:28:35 -0500
+Received: by nf-out-0910.google.com with SMTP id c2so436404nfe
+        for <netdev@vger.kernel.org>; Sun, 05 Nov 2006 09:28:34 -0800 (PST)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+In-Reply-To: <20061105090254.66710154@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> You could also just use net_tx_lock() now.
 
---=-NISyVFcTBVqYdM28GnZq
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+You mean netif_tx_lock()?
 
-On Sun, 2006-11-05 at 18:05 +0100, Johannes Berg wrote:
+Thanks for letting me know about that function. Yes, I may need it.
+tg3 and bnx2 use it to wake up the transmit queue:
 
-hey, I thought I caught this one before it went out to add the last
-paragraph :/ sorry. the other one is the intended copy.
+         if (unlikely(netif_queue_stopped(tp->dev) &&
+                      (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH))) {
+                 netif_tx_lock(tp->dev);
+                 if (netif_queue_stopped(tp->dev) &&
+                     (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH))
+                         netif_wake_queue(tp->dev);
+                 netif_tx_unlock(tp->dev);
+         }
 
-johannes
+2.6.17 didn't use it. Was it a bug?
 
---=-NISyVFcTBVqYdM28GnZq
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUARU4auKVg1VMiehFYAQKUqhAArYr9W1ynbQ8SnE/QVK64M6YNMQYGXcVe
-BoEchUO6Qak7PEjgeyvWom4XBl0owwJFOjCzrXsja1QSYHioHGBsrWaaM2S92SJq
-bMgsn7MT3a7Zq71i0C6bVhSNVsqifzEo1/eEri42w9b7cn3sjZTu4PQWlNyePZ6f
-EtYvPncy9UQaCGI3Djji8cIc8xY2cQvZC6yewj9ffAS8O1ChaE11uzi1JhEwmpm3
-kOJnGqkPloDVDd0+0dVHMQmvuaEP+q118GLvLtT4y/f5X0cOwo89c4uLOxMNnvhJ
-9p93k0PX+BNNZWyx8xOitBiBwNNDAx9e+pBbXnsTubGzFddqp70g0mZRuAfXgvaW
-TOPv3wUHjv0fea8ANImNWYKBeB+zqhXDTbm2lZbLgWLd7WW7B1I9+7soJzx5K6dt
-elf7KRSjlO6PCgfdqHCZNNDS6UXbAqpsVILqIJa29MKlawgQxeJ88gHM18AgmBP1
-YTueJmOAvmri6Cv5h3bdPH80VtIxxSSl0uxOtLu2i7+Cjz3wtXbYK+aTDn5I1Ajm
-arEdNq1AxAYAy8DxLLbFkqn8V+XNW6gwBc6493mqj0szAXv+3mNqwwe49Sy76wQP
-ZkuZG846DJBjtUnPuLgn48WUYxx4Hc/zp6WSd8LEiEb1xicZLxE2n9quaNApa5bm
-N4IimfibQms=
-=OV6t
------END PGP SIGNATURE-----
-
---=-NISyVFcTBVqYdM28GnZq--
-
+Thanks,
+-- 
+Eric
