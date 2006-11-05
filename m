@@ -1,87 +1,67 @@
-From: "Eric Lemoine" <eric.lemoine@gmail.com>
-Subject: Re: [sungem] proposal for a new locking strategy
-Date: Sun, 5 Nov 2006 14:17:38 +0100
-Message-ID: <5cac192f0611050517q297f5b04w7931788f6dfef3fc@mail.gmail.com>
-References: <5cac192f0611050500m19f72209vc349f235680023a1@mail.gmail.com>
-	 <1162731940.28571.245.camel@localhost.localdomain>
+From: "Boris Sukholitko" <bobatonhu@gmail.com>
+Subject: [RFC, PATCH] Purging local routes on NETDEV_DOWN event
+Date: Sun, 5 Nov 2006 16:00:20 +0200
+Message-ID: <589170c50611050600r3d4bfaafvb2acd513ae695a96@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_Part_36453_20353469.1162735220015"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:12935 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.188]:39228 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S965879AbWKENRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Nov 2006 08:17:40 -0500
-Received: by nf-out-0910.google.com with SMTP id c2so374605nfe
-        for <netdev@vger.kernel.org>; Sun, 05 Nov 2006 05:17:39 -0800 (PST)
-To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>
-In-Reply-To: <1162731940.28571.245.camel@localhost.localdomain>
-Content-Disposition: inline
+	id S932689AbWKEOAW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Nov 2006 09:00:22 -0500
+Received: by nf-out-0910.google.com with SMTP id c2so384506nfe
+        for <netdev@vger.kernel.org>; Sun, 05 Nov 2006 06:00:20 -0800 (PST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/5/06, Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> On Sun, 2006-11-05 at 14:00 +0100, Eric Lemoine wrote:
-> > Hi!
-> >
-> > Some (long) time ago benh wrote a blaming comment in sungem.c about
-> > that driver's locking strategy. That comment basically says that we
-> > probably don't need two spinlocks.
->
-> Yeah :) Note that I mostly blamed myself there ... Just never found the
-> time to sit down a figure out a proper locking.
+------=_Part_36453_20353469.1162735220015
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I actually did introduce tx_lock! So you could well have blamed me :-)
+Hi,
 
+We've noticed that when taking network interface down the local route
+for its address is preserved. The following console session
+illustrates it:
 
->
-> > I agree!
-> >
-> > Proposal:
-> >
-> > Today's sungem effectively uses two spinlock's: "lock" and "tx_lock".
-> >
-> > "tx_lock" is held by the xmit function when sending out a packet. Lots
-> > of functions grab "tx_lock" not to mess up with xmit (gem_stop_phy(),
-> > gem_change_mtu(), etc.).
-> >
-> > All of these funcs also take "lock"!
-> >
-> > What we could do is remove "lx_lock", have the above functions take
-> > only "lock", and rely on dev->_xmit_lock to protect the xmit func from
-> > reentrance. In that case, obviously, the driver wouldn't feature LLTX
-> > anymore.
->
-> We could probably do even better but yeah, a single lock is a good
-> start. Overall, I'm unhappy with the infrastructure provided by the
-> network stack though. (Might be better nowadays, but last I looked, for
-> example, I couldn't properly do things like stopping  MAPI poll from
-> set_multicast etc... due to locks held by the upper level).
+# ip addr add 5.5.5.5 dev eth4
+# ip route list table all | grep eth4
+local 5.5.5.5 dev eth4  table 255  vrf 0  proto kernel  scope host  src 5.5.5.5
+# ip link set eth4 down
+local 5.5.5.5 dev eth4  table 255  vrf 0  proto kernel  scope host  src 5.5.5.5
 
-What you said in your comment is that set_multicast and change_mtu
-cannot schedule() because the upper layer holds a spinlock. This is
-still the case actually.
+There seems to be an asymmetry between NETDEV_UP and NETDEV_DOWN events
+in fib_netdev_event at net/ipv4/fib_frontend.c. On NETDEV_UP we are adding
+routes for interface addresses. However on NETDEV_DOWN we do not delete them.
 
->
-> > When (re-)configuring we'd now quiesce the device, with the new
-> > functions gem_netif_stop() and gem_full_lock(), in the same way as tg3
-> > does.
-> >
-> > gem_interrupt(), gem_poll(), and gem_start_xmit() could become lockless. Fast!
-> >
-> > Basically this proposal makes the data path faster, the control path
-> > slower, and simplifies the code by using one single spinlock within
-> > the driver.
-> >
-> > If the idea seems reasonable to you guys I can go ahead and cook up something...
->
-> I certainly does. Bring on the patch ! :-)
+The attached (for a fear of GMail tab munging :)) patch tries to change it.
 
-Will arrange some time to do it.
+What do you think?
 
-Thanks for your quick response.
+Thanks,
+Boris.
 
+------=_Part_36453_20353469.1162735220015
+Content-Type: text/x-patch; name=netdev-down.patch; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_eu5igqku
+Content-Disposition: attachment; filename="netdev-down.patch"
 
--- 
-Eric
+U2lnbmVkLW9mZi1ieTogQm9yaXMgU3VraG9saXRrbyAoYm9iYXRvbmh1QGdtYWlsLmNvbSkKLS0t
+CkluZGV4OiBsaW51eC0yLjYuMTgvbmV0L2lwdjQvZmliX2Zyb250ZW5kLmMKPT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQot
+LS0gbGludXgtMi42LjE4Lm9yaWcvbmV0L2lwdjQvZmliX2Zyb250ZW5kLmMJMjAwNi0xMS0wMSAx
+ODoxNTozMS4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4LTIuNi4xOC9uZXQvaXB2NC9maWJfZnJv
+bnRlbmQuYwkyMDA2LTExLTA1IDE1OjMyOjU2LjAwMDAwMDAwMCArMDIwMApAQCAtNzI3LDYgKzcy
+Nyw4IEBACiAJICovCiAKIAlmb3IgKGlmYTEgPSBpbl9kZXYtPmlmYV9saXN0OyBpZmExOyBpZmEx
+ID0gaWZhMS0+aWZhX25leHQpIHsKKwkJaWYgKGlmYSA9PSBpZmExKQorCQkJY29udGludWU7CiAJ
+CWlmIChpZmEtPmlmYV9sb2NhbCA9PSBpZmExLT5pZmFfbG9jYWwpCiAJCQlvayB8PSBMT0NBTF9P
+SzsKIAkJaWYgKGlmYS0+aWZhX2Jyb2FkY2FzdCA9PSBpZmExLT5pZmFfYnJvYWRjYXN0KQpAQCAt
+ODgwLDYgKzg4Miw5IEBACiAJCXJ0X2NhY2hlX2ZsdXNoKC0xKTsKIAkJYnJlYWs7CiAJY2FzZSBO
+RVRERVZfRE9XTjoKKwkJZm9yX2lmYShpbl9kZXYpIHsKKwkJCWZpYl9kZWxfaWZhZGRyKGlmYSk7
+CisJCX0gZW5kZm9yX2lmYShpbl9kZXYpOwogCQlmaWJfZGlzYWJsZV9pcChkZXYsIDApOwogCQli
+cmVhazsKIAljYXNlIE5FVERFVl9DSEFOR0VNVFU6Cg==
+------=_Part_36453_20353469.1162735220015--
