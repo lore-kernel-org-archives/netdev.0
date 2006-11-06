@@ -1,64 +1,43 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
-Date: Mon, 6 Nov 2006 14:33:50 +0100
-Message-ID: <200611061433.50912.dada1@cosmosbay.com>
-References: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com> <200611061022.57840.dada1@cosmosbay.com> <f55850a70611060146o1b2adcabq8c1313f6711f3f4e@mail.gmail.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: pktgen patch available for perusal.
+Date: Mon, 6 Nov 2006 15:06:23 +0100
+Message-ID: <17743.16735.391605.721451@robur.slu.se>
+References: <45468F2E.4060809@candelatech.com>
+	<17736.54766.657083.873206@robur.slu.se>
+	<4548F166.1020001@candelatech.com>
+	<1162643532.5166.34.camel@jzny2>
+	<454CCDE0.5040109@candelatech.com>
+	<1162663855.6237.116.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"Linux Netdev List" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753104AbWKFNdt@vger.kernel.org>
-To: "Zhao Xiaoming" <xiaoming.nj@gmail.com>
-In-Reply-To: <f55850a70611060146o1b2adcabq8c1313f6711f3f4e@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ben Greear <greearb@candelatech.com>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.slu.se ([130.238.96.70]:62388 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S1753163AbWKFOGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 09:06:39 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1162663855.6237.116.camel@jzny2>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 06 November 2006 10:46, Zhao Xiaoming wrote:
-> 2006/11/6, Eric Dumazet <dada1@cosmosbay.com>:
-> > On Monday 06 November 2006 09:59, Zhao Xiaoming wrote:
-> > > Thank you again for your help. To have more detailed statistic data, I
-> > > did another round of test and gathered some data.  I give the overall
-> > > description here and detailed /proc/net/sockstat, /proc/meminfo,
-> > > /proc/slabinfo and /proc/buddyinfo follows.
-> > > =====================================================
-> > >                            slab mem cost        tcp mem pages      
-> > > lowmem free with traffic:             254668KB                 34693
-> > >       38772KB
-> > > without traffic:       104080KB                           1
-> > >        702652KB
-> > > =====================================================
-> >
-> > Thank you for detailed infos.
-> >
-> > It appears you have an extensive use of threads (about 10000), since :
-> > > task_struct        10095  10095   1360    3    1 : tunables   24   12
-> > >   8 : slabdata   3365   3365      0
-> >
-> > Each thread has a kernel stack, 8KB (ie 2 pages, order-1 allocation),
-> > plus a user vma
-> >
-> > > vm_area_struct     21346  21504     92   42    1 : tunables  120   60
-> > >   8 : slabdata    512    512      0
-> >
-> > Most likely you dont need that much threads. A program with fewer threads
-> > will perform better and use less ram.
->
-> Thanks for the comments. I known the threads may cost many memory.
-> However, I already excluded them from the statistics. The 'after test'
-> info was gotten while the 10000 threads running but no traffics
-> relayed. You may look at the meminfo of 'after test', there is still
-> 104080 kB slab memory which should already included the thread kernel
-> memory cost (8K*10000=80MB). I know 10000 threads are not necessary
-> and just use the simple logic to do some test.
 
-In fact, your kernel has CONFIG_4KSTACKS, kernel thread stacks use 4K instead 
-of 8K.
+jamal writes:
 
-If you want to increase LOWMEM, (and keep 32bits kernel), you can chose a 
-2G/2G user/kernel split, instead of the 3G/1G default split.
-(see config : CONFIG_VMSPLIT_2G)
+ > If you are listening then start with:
+ > 
+ > 1) Do a simple test with just udp traffic as above, doing simple
+ > accounting. This helps you to get a feel on how things work.
+ > 2) modify the matching rules to match your magic cookie
+ > 3) write a simple action invoked by your matching rules and use tc to
+ > add it to the policy.
+ > 4) integrate in your app now that you know what you are doing.
 
-Eric
+ Yes. Sounds like simple and general solution. No call-backs, no #ifdef's
+ no extra modules. Just a little recipe in pktgen.txt
+
+ Cheers.
+					--ro
+ 
