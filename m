@@ -1,43 +1,55 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: pktgen patch available for perusal.
-Date: Mon, 6 Nov 2006 15:06:23 +0100
-Message-ID: <17743.16735.391605.721451@robur.slu.se>
+Date: Mon, 6 Nov 2006 15:14:56 +0100
+Message-ID: <17743.17248.185895.461854@robur.slu.se>
 References: <45468F2E.4060809@candelatech.com>
 	<17736.54766.657083.873206@robur.slu.se>
 	<4548F166.1020001@candelatech.com>
-	<1162643532.5166.34.camel@jzny2>
-	<454CCDE0.5040109@candelatech.com>
-	<1162663855.6237.116.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
 	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:62388 "EHLO mx1.slu.se")
-	by vger.kernel.org with ESMTP id S1753163AbWKFOGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 09:06:39 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1162663855.6237.116.camel@jzny2>
+Received: from mx1.slu.se ([130.238.96.70]:49077 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S1753201AbWKFOO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 09:14:59 -0500
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4548F166.1020001@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-jamal writes:
+Ben Greear writes:
+ > > Changes:
+ > > * use a nano-second timer based on the scheduler timer (TSC) for relative times, instead of get_time_of_day.
 
- > If you are listening then start with:
- > 
- > 1) Do a simple test with just udp traffic as above, doing simple
- > accounting. This helps you to get a feel on how things work.
- > 2) modify the matching rules to match your magic cookie
- > 3) write a simple action invoked by your matching rules and use tc to
- > add it to the policy.
- > 4) integrate in your app now that you know what you are doing.
+Seems I missed to set tsc as clocksource. It makes a difference. Performance is 
+normal and I'm less confused.
 
- Yes. Sounds like simple and general solution. No call-backs, no #ifdef's
- no extra modules. Just a little recipe in pktgen.txt
+e1000 82546GB @ 1.6 GHz Opteron. Kernel 2.6.19-rc1_Bifrost_-g18e199c6-dirty 
 
- Cheers.
-					--ro
- 
+echo acpi_pm    > /sys/devices/system/clocksource/clocksource0/current_clocksource   
+
+psize pps
+---------
+60  556333
+124  526942
+252  452981
+508  234996
+1020  119748
+1496  82248
+
+echo tsc        > /sys/devices/system/clocksource/clocksource0/current_clocksource 
+
+psize pps
+---------
+60  819914
+124  747286
+252  452975
+508  234993
+1020  119749
+1496  82247
+
+Cheers.	
+						--ro
