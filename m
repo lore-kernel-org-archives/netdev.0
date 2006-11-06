@@ -1,60 +1,64 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH] s2io ppc64 fix for readq/writeq
-Date: Mon, 06 Nov 2006 13:28:29 +1100
-Message-ID: <1162780109.28571.273.camel@localhost.localdomain>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: linux-2.6.19-rc4-g10b1fbdb build #114 failed
+Date: Sun, 5 Nov 2006 23:10:40 -0500
+Message-ID: <200611052310.40504.paul.moore@hp.com>
+References: <200611051943.27210.toralf.foerster@gmx.de> <Pine.LNX.4.64.0611051621450.30121@sockpuppet.zko.hp.com> <20061105.164518.104646198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:36537 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1422875AbWKFC2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Nov 2006 21:28:55 -0500
-To: netdev@vger.kernel.org
+Received: from mailhub.hp.com ([192.151.27.10]:50855 "EHLO mailhub.hp.com")
+	by vger.kernel.org with ESMTP id S1423351AbWKFEKt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Nov 2006 23:10:49 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061105.164518.104646198.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The s2io driver is redefining it's own readq/writeq based on
-readl/writel when the platform doesn't provide native ones. However, it
-currently does so by testing #ifndef readq. While that works for now, we
-are about to change ppc64 to use inline functions rather that macros for
-all those IO accessors which will break that test. This fixes it. I
-don't have anything less ugly at hand unfortunately.
+On Sunday 05 November 2006 7:45 pm, David Miller wrote:
+> From: Paul Moore <paul.moore@hp.com>
+> Date: Sun, 5 Nov 2006 16:24:07 -0500 (EST)
+>
+> > On Sun, 5 Nov 2006, Toralf F=F6rster wrote:
+> > > Hello,
+> > >
+> > > the build with the attached .config failed, make ends with:
+> > > ...
+> > >
+> > > : undefined reference to `cipso_v4_sock_getattr'
+> > >
+> > > net/built-in.o: In function `netlbl_socket_getattr':
+> >
+> > Ah ha!  Why did you have to go and build a kernel without TCP/IP
+> > networking ;)
+> >
+> > It looks like I was stupid and made NetLabel depend on CONFIG_NET a=
+nd not
+> > CONFIG_INET, the patch below should fix this by making NetLabel dep=
+end on
+> > CONFIG_INET and CONFIG_SECURITY.  Please review and apply for 2.6.1=
+9.
+> >
+> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+>
+> Applied, thanks Paul.
+>
+> What email client are you using?  There were a bunch of spacing
+> issues I had to correct in your patch before it would apply
+> cleanly.  (1) lines with only spaces were changed to empty lines
+> (2) Severl lines had an extra space added to the beginning.
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
+Sorry about that, that particular mail was sent with pine (I'm at home =
+right=20
+now and not at my work machine), usually I use quilt to send my patches=
+ out. =20
+I checked it briefly in pine to make sure the tabs didn't get converted=
+ into=20
+spaces but I guess I didn't check well enough.
 
-The patch changing ppc64 own definition is scheduled to go in 2.6.20 when
-the merge window opens, so it would be nice if this patch could go in a
-similar timeframe, provided that you agree with it of course. It can go
-earlier as it won't break current ppc64.
-
-Index: linux-cell/drivers/net/s2io.h
-===================================================================
---- linux-cell.orig/drivers/net/s2io.h	2006-10-13 17:23:49.000000000 +1000
-+++ linux-cell/drivers/net/s2io.h	2006-11-06 13:19:32.000000000 +1100
-@@ -862,8 +862,10 @@ struct s2io_nic {
- #define RESET_ERROR 1;
- #define CMD_ERROR   2;
- 
--/*  OS related system calls */
--#ifndef readq
-+/* OS related system calls. Note that ppc64 has readq defined as
-+ * an inline, not a macro
-+ */
-+#if !defined(CONFIG_PPC64) && !defined(readq)
- static inline u64 readq(void __iomem *addr)
- {
- 	u64 ret = 0;
-@@ -875,7 +877,7 @@ static inline u64 readq(void __iomem *ad
- }
- #endif
- 
--#ifndef writeq
-+#if !defined(CONFIG_PPC64) && !defined(writeq)
- static inline void writeq(u64 val, void __iomem *addr)
- {
- 	writel((u32) (val), addr);
-
-
-
+--=20
+paul moore
+linux security @ hp
