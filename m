@@ -1,36 +1,33 @@
-From: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
-Subject: Re: (usagi-core 31424) Re: [PATCH 7/13] [RFC] [IPV6] Move source
- address selection into route lookup.
-Date: Mon, 06 Nov 2006 10:37:44 +0100
-Message-ID: <454F0268.7030106@6wind.com>
-References: <20061018.230850.91573842.yoshfuji@linux-ipv6.org>	<4536E279.1090003@jp.ibm.com>	<4549E8B3.4070601@tcs.hut.fi> <20061102.221339.102356265.yoshfuji@linux-ipv6.org>
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
+Date: Mon, 6 Nov 2006 01:37:41 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611060137020.25218@g5.osdl.org>
+References: <1162780109.28571.273.camel@localhost.localdomain>
+ <454EE943.6000603@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vnuorval@tcs.hut.fi, mitch@jp.ibm.com, usagi-core@linux-ipv6.org,
-	davem@davemloft.net, tgraf@suug.ch, kim.nordlund@nokia.com,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:22541 "EHLO
-	proxy.6wind.com") by vger.kernel.org with ESMTP id S1423642AbWKFJh4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 04:37:56 -0500
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20061102.221339.102356265.yoshfuji@linux-ipv6.org>
+Received: from smtp.osdl.org ([65.172.181.4]:8399 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1423629AbWKFJiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 04:38:16 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <454EE943.6000603@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ reposted, with better subject ]
->>> http://testlab.linux-ipv6.org/tahi-autorun.2/net-2.6_20061018/
->> The host testlab.linux-ipv6.org doesn't seem to be visible to the
->> outside world so could you post the results somewhere where I could take
->> a closer look at the results?
+
+
+On Mon, 6 Nov 2006, Jeff Garzik wrote:
 >
-> It is visible world-wide, assuming you have IPv6 connection.
-With IPv4-only connection, one can try to append ".ipv4.sixxs.org":
+> This seems a bit ugly.  Could you add
+> 
+> 	#define readq readq
+> 
+> to your platform instead?
 
-http://testlab.linux-ipv6.org.ipv4.sixxs.org/tahi-autorun.2/net-2.6_20061018/ 
+Heartily agreed. MUCH better than adding unrelated #if defined() stuff, 
+whether arch-related or otherwise.
 
-
-Jean-Mickael
+		Linus
