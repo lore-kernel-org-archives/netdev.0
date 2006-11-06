@@ -1,43 +1,29 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] b44: change comment about irq mask register
-Date: Mon, 06 Nov 2006 23:17:20 +0100
-Message-ID: <1162851440.1412.31.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] Net: kconfig, correct traffic shaper
+Date: Mon, 06 Nov 2006 14:36:49 -0800 (PST)
+Message-ID: <20061106.143649.31640600.davem@davemloft.net>
+References: <43123154321532@wsc.cz>
+	<1202725131414221392@wsc.cz>
+	<454EE9A2.4060908@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com
+Cc: jirislaby@gmail.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	alan@redhat.com, kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:939 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1753869AbWKFWSr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 17:18:47 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63897
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1753886AbWKFWgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Nov 2006 17:36:50 -0500
+To: jgarzik@pobox.com
+In-Reply-To: <454EE9A2.4060908@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Through some experimentation with the similarly built bcm43xx I came to
-the conclusion that if the hw/firmware sets a bit in the interrupt
-register, an interrupt will only be raised if that bit is included in
-the interrupt mask. Hence, the interrupt mask is more like an interrupt
-control mask.
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Mon, 06 Nov 2006 02:52:02 -0500
 
-This patch changes the comment to reflect that.
+> ACK from me, though I think that since it relates to traffic schedulers 
+> I think this patch should be merged through DaveM...
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-
---- wireless-dev.orig/drivers/net/b44.c	2006-11-06 23:13:36.909597550 +0100
-+++ wireless-dev/drivers/net/b44.c	2006-11-06 23:14:21.949597550 +0100
-@@ -908,8 +908,9 @@ static irqreturn_t b44_interrupt(int irq
- 	istat = br32(bp, B44_ISTAT);
- 	imask = br32(bp, B44_IMASK);
- 
--	/* ??? What the fuck is the purpose of the interrupt mask
--	 * ??? register if we have to mask it out by hand anyways?
-+	/* The interrupt mask register controls which interrupt bits
-+	 * will actually raise an interrupt to the CPU when set by hw/firmware,
-+	 * but doesn't mask off the bits.
- 	 */
- 	istat &= imask;
- 	if (istat) {
-
-
+I've merged it into my tree, thanks everyone.
