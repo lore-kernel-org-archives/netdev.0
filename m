@@ -1,91 +1,75 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
-Date: Mon, 06 Nov 2006 08:34:24 +0100
-Message-ID: <454EE580.5040506@cosmosbay.com>
-References: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
+Date: Mon, 06 Nov 2006 02:50:27 -0500
+Message-ID: <454EE943.6000603@pobox.com>
+References: <1162780109.28571.273.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604001mt.neufgp.fr ([84.96.92.60]:51917 "EHLO Smtp.neuf.fr")
-	by vger.kernel.org with ESMTP id S932764AbWKFHeV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 02:34:21 -0500
-In-reply-to: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com>
-To: Zhao Xiaoming <xiaoming.nj@gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:58241 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932791AbWKFHua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 02:50:30 -0500
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1162780109.28571.273.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zhao Xiaoming a =E9crit :
-> Dears,
->    I'm running a linux box with kernel version 2.6.16. The hardware
-> has 2 Woodcrest Xeon CPUs (2 cores each) and 4G RAM. The NIC cards is
-> Intel 82571 on PCI-e bus.
->    The box is acting as ethernet bridge between 2 Gigabit Ethernets.
-> By configuring ebtables and iptables, an application is running as TC=
-P
-> proxy which will intercept all TCP connections requests from the
-> network and setup another TCP connection to the acture server.  The
-> TCP proxy then relays all traffics in both directions.
->    The problem is the memory. Since the box must support thousands of
-> concurrent connections, I know the memory size of ZONE_NORMAL would b=
-e
-> a bottleneck as TCP packets would need many buffers. After setting
-> upper limit of net.ipv4.tcp_rmem and net.ipv4.tcp_wmem to 32K bytes,
-> our test began.
->    My test scenario employs 2000 concurrent downloading connections
-> to a IIS server's port 80. The throughput is about 500~600 Mbps which
-> is limited by the capability of the client application. Because all
-> traffics are from server to client and the capability of client
-> machine is bottleneck, I believe the receiver side of the sockets
-> connected with server and the sender side of the sockets connected
-> with client should be filled with packets in correspondent windows.
-> Thus, roughly there should be about 32K * 2000+ 32K*2000 =3D 128M byt=
-es
-> memory occupied by TCP/IP stack for packet buffering. Data from
-> slabtop confermed it. it's about 140M bytes memory cost after I start
-> the traffic. That reasonablly matched with my estimation. However,
-> /proc/meminfo had a different story. The 'LowFree' dropped from about
-> 710M to 80M. In other words, there's addtional 500M memory in
-> ZONE_NORMAL allocated by someone other than the slab. Why?
+Benjamin Herrenschmidt wrote:
+> The s2io driver is redefining it's own readq/writeq based on
+> readl/writel when the platform doesn't provide native ones. However, it
+> currently does so by testing #ifndef readq. While that works for now, we
+> are about to change ppc64 to use inline functions rather that macros for
+> all those IO accessors which will break that test. This fixes it. I
+> don't have anything less ugly at hand unfortunately.
+> 
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> ---
+> 
+> The patch changing ppc64 own definition is scheduled to go in 2.6.20 when
+> the merge window opens, so it would be nice if this patch could go in a
+> similar timeframe, provided that you agree with it of course. It can go
+> earlier as it won't break current ppc64.
+> 
+> Index: linux-cell/drivers/net/s2io.h
+> ===================================================================
+> --- linux-cell.orig/drivers/net/s2io.h	2006-10-13 17:23:49.000000000 +1000
+> +++ linux-cell/drivers/net/s2io.h	2006-11-06 13:19:32.000000000 +1100
+> @@ -862,8 +862,10 @@ struct s2io_nic {
+>  #define RESET_ERROR 1;
+>  #define CMD_ERROR   2;
+>  
+> -/*  OS related system calls */
+> -#ifndef readq
+> +/* OS related system calls. Note that ppc64 has readq defined as
+> + * an inline, not a macro
+> + */
+> +#if !defined(CONFIG_PPC64) && !defined(readq)
+>  static inline u64 readq(void __iomem *addr)
+>  {
+>  	u64 ret = 0;
+> @@ -875,7 +877,7 @@ static inline u64 readq(void __iomem *ad
+>  }
+>  #endif
+>  
+> -#ifndef writeq
+> +#if !defined(CONFIG_PPC64) && !defined(writeq)
+>  static inline void writeq(u64 val, void __iomem *addr)
 
-We dont know. You might post some data so that we can have some ideas.
+This seems a bit ugly.  Could you add
 
-Also, these kind of question is better handled by linux netdev mailing =
-list,=20
-so I added a CC to this list.
+	#define readq readq
 
-cat /proc/slabinfo
-cat /proc/meminfo
-cat /proc/net/sockstat
-cat /proc/buddyinfo
+to your platform instead?
 
->   I also made another test that the upper limit of tcp_rmem and
-> tcp_wmem being set to 64K. After 2000 connections transfering a lot o=
-f
-> data for several seconds, the linux box showed some error messages
-> such as error allocating memory pages, etc. and became unstable.
->   My questions are:
->=20
-> 1. To calculate memory request of TCP sockets, is there any other
-> large amount of memory requested besides send and receive buffer?
-> 2. Is there any logics that emploied by TCP/IP stack that will
-> dynamically allocating memory pages directly instead of from slab?
+I generally think it's a bug in the kernel-wide API, if use of said API 
+requires arch-specific ifdefs.
 
-TCP stack is one thing, but other things may consume ram on your kernel=
-=2E
+Or maybe the problem could be solved another way, by guaranteeing that a 
+"good enough for drivers" readq() and writeq() exist on all platforms, 
+even 32-bit platforms where the operation isn't inherently atomic.
 
-Also, kernel memory allocation might use twice the ram you intend to us=
-e=20
-because of power of two alignments.
+	Jeff
 
-Are you using iptables connection tracking ?
-
-If you plan to use a lot of RAM in kernel, why dont you use a 64 bits k=
-ernel,=20
-so that all ram is available for kernel, not only 900 MB ?
-
-Eric
 
