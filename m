@@ -1,55 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Pull request for 'jg-20061103-00' tag
-Date: Mon, 06 Nov 2006 03:01:09 -0500
-Message-ID: <454EEBC5.3070408@garzik.org>
-References: <20061103205606.GA5723@electric-eye.fr.zoreil.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6.git
+Date: Mon, 06 Nov 2006 03:02:31 -0500
+Message-ID: <454EEC17.8000900@garzik.org>
+References: <20061101034715.GB9309@tuxdriver.com> <20061101034835.GC9309@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:32898 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1161198AbWKFIBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 03:01:11 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061103205606.GA5723@electric-eye.fr.zoreil.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:37506 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1423553AbWKFICc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 03:02:32 -0500
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20061101034835.GC9309@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Please pull from tag 'jg-20061103-00' in repository
+John W. Linville wrote:
+> The following changes since commit ff584489917961599b9044584bb8ba6fd5d8f11b:
+>   John W. Linville:
+>         Merge branch 'upstream-fixes' into upstream
 > 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git jg-20061103-00
+> are found in the git repository at:
 > 
-> to get the changes below.
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
 > 
-> Distance from 'upstream-fixes'
-> -----------------------------
+> Christian Lamparter:
+>       wext: extend MLME support
 > 
-> 17fddc34b36fc26aa8b5f130fe32b446d9d88fa2
-> 
-> Diffstat
-> --------
-> 
->  drivers/net/r8169.c |   22 ++++++++++++++++++++--
->  1 files changed, 20 insertions(+), 2 deletions(-)
-> 
-> Shortlog
-> --------
-> 
-> Francois Romieu:
->       r8169: perform a PHY reset before any other operation at boot time
+> Daniel Drake:
+>       zd1211rw: Add ID for ZyXEL G-220
 
-This warrants much more testing than pushing into 2.6.19-rc4 would give 
-us, so I'm pulling it into #upstream.
-
-In the past, with 10/100 hubs or ancient Cisco switches, we really 
-didn't want to reset the phy and restart autonegotiation, because that 
-might be problematic.
-
-In any case, this is a behavior change that may solve problems... but 
-also needs testing to insure that it doesn't also cause problems.
-
-	Jeff
+pulled
 
 
