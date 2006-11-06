@@ -1,64 +1,91 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: linux-2.6.19-rc4-g10b1fbdb build #114 failed
-Date: Sun, 5 Nov 2006 23:10:40 -0500
-Message-ID: <200611052310.40504.paul.moore@hp.com>
-References: <200611051943.27210.toralf.foerster@gmx.de> <Pine.LNX.4.64.0611051621450.30121@sockpuppet.zko.hp.com> <20061105.164518.104646198.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
+Date: Mon, 06 Nov 2006 08:34:24 +0100
+Message-ID: <454EE580.5040506@cosmosbay.com>
+References: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:50855 "EHLO mailhub.hp.com")
-	by vger.kernel.org with ESMTP id S1423351AbWKFEKt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Nov 2006 23:10:49 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061105.164518.104646198.davem@davemloft.net>
-Content-Disposition: inline
+Received: from sp604001mt.neufgp.fr ([84.96.92.60]:51917 "EHLO Smtp.neuf.fr")
+	by vger.kernel.org with ESMTP id S932764AbWKFHeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 02:34:21 -0500
+In-reply-to: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com>
+To: Zhao Xiaoming <xiaoming.nj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 05 November 2006 7:45 pm, David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Sun, 5 Nov 2006 16:24:07 -0500 (EST)
->
-> > On Sun, 5 Nov 2006, Toralf F=F6rster wrote:
-> > > Hello,
-> > >
-> > > the build with the attached .config failed, make ends with:
-> > > ...
-> > >
-> > > : undefined reference to `cipso_v4_sock_getattr'
-> > >
-> > > net/built-in.o: In function `netlbl_socket_getattr':
-> >
-> > Ah ha!  Why did you have to go and build a kernel without TCP/IP
-> > networking ;)
-> >
-> > It looks like I was stupid and made NetLabel depend on CONFIG_NET a=
-nd not
-> > CONFIG_INET, the patch below should fix this by making NetLabel dep=
-end on
-> > CONFIG_INET and CONFIG_SECURITY.  Please review and apply for 2.6.1=
-9.
-> >
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
->
-> Applied, thanks Paul.
->
-> What email client are you using?  There were a bunch of spacing
-> issues I had to correct in your patch before it would apply
-> cleanly.  (1) lines with only spaces were changed to empty lines
-> (2) Severl lines had an extra space added to the beginning.
+Zhao Xiaoming a =E9crit :
+> Dears,
+>    I'm running a linux box with kernel version 2.6.16. The hardware
+> has 2 Woodcrest Xeon CPUs (2 cores each) and 4G RAM. The NIC cards is
+> Intel 82571 on PCI-e bus.
+>    The box is acting as ethernet bridge between 2 Gigabit Ethernets.
+> By configuring ebtables and iptables, an application is running as TC=
+P
+> proxy which will intercept all TCP connections requests from the
+> network and setup another TCP connection to the acture server.  The
+> TCP proxy then relays all traffics in both directions.
+>    The problem is the memory. Since the box must support thousands of
+> concurrent connections, I know the memory size of ZONE_NORMAL would b=
+e
+> a bottleneck as TCP packets would need many buffers. After setting
+> upper limit of net.ipv4.tcp_rmem and net.ipv4.tcp_wmem to 32K bytes,
+> our test began.
+>    My test scenario employs 2000 concurrent downloading connections
+> to a IIS server's port 80. The throughput is about 500~600 Mbps which
+> is limited by the capability of the client application. Because all
+> traffics are from server to client and the capability of client
+> machine is bottleneck, I believe the receiver side of the sockets
+> connected with server and the sender side of the sockets connected
+> with client should be filled with packets in correspondent windows.
+> Thus, roughly there should be about 32K * 2000+ 32K*2000 =3D 128M byt=
+es
+> memory occupied by TCP/IP stack for packet buffering. Data from
+> slabtop confermed it. it's about 140M bytes memory cost after I start
+> the traffic. That reasonablly matched with my estimation. However,
+> /proc/meminfo had a different story. The 'LowFree' dropped from about
+> 710M to 80M. In other words, there's addtional 500M memory in
+> ZONE_NORMAL allocated by someone other than the slab. Why?
 
-Sorry about that, that particular mail was sent with pine (I'm at home =
-right=20
-now and not at my work machine), usually I use quilt to send my patches=
- out. =20
-I checked it briefly in pine to make sure the tabs didn't get converted=
- into=20
-spaces but I guess I didn't check well enough.
+We dont know. You might post some data so that we can have some ideas.
 
---=20
-paul moore
-linux security @ hp
+Also, these kind of question is better handled by linux netdev mailing =
+list,=20
+so I added a CC to this list.
+
+cat /proc/slabinfo
+cat /proc/meminfo
+cat /proc/net/sockstat
+cat /proc/buddyinfo
+
+>   I also made another test that the upper limit of tcp_rmem and
+> tcp_wmem being set to 64K. After 2000 connections transfering a lot o=
+f
+> data for several seconds, the linux box showed some error messages
+> such as error allocating memory pages, etc. and became unstable.
+>   My questions are:
+>=20
+> 1. To calculate memory request of TCP sockets, is there any other
+> large amount of memory requested besides send and receive buffer?
+> 2. Is there any logics that emploied by TCP/IP stack that will
+> dynamically allocating memory pages directly instead of from slab?
+
+TCP stack is one thing, but other things may consume ram on your kernel=
+=2E
+
+Also, kernel memory allocation might use twice the ram you intend to us=
+e=20
+because of power of two alignments.
+
+Are you using iptables connection tracking ?
+
+If you plan to use a lot of RAM in kernel, why dont you use a 64 bits k=
+ernel,=20
+so that all ram is available for kernel, not only 900 MB ?
+
+Eric
+
