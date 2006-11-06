@@ -1,62 +1,31 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: tg3_read_partno(): possible array overrun
-Date: Mon, 6 Nov 2006 10:45:28 +0100
-Message-ID: <20061106094527.GG5778@stusta.de>
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
+Date: Mon, 6 Nov 2006 01:50:08 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611060149120.25218@g5.osdl.org>
+References: <1162780109.28571.273.camel@localhost.localdomain>
+ <454EE943.6000603@pobox.com>  <Pine.LNX.4.64.0611060137020.25218@g5.osdl.org>
+ <1162806168.28571.309.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:61452 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1423659AbWKFJp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 04:45:28 -0500
-To: jgarzik@pobox.com, davem@davemloft.net
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:10194 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1423660AbWKFJuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 04:50:15 -0500
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1162806168.28571.309.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker noted the following in drivers/net/tg3.c:
 
-<--  snip  -->
 
-...
-static void __devinit tg3_read_partno(struct tg3 *tp)
-{
-        unsigned char vpd_data[256];
-        int i;
-...
-        /* Now parse and find the part number. */
-        for (i = 0; i < 256; ) {
-                unsigned char val = vpd_data[i];
-                int block_end;
+On Mon, 6 Nov 2006, Benjamin Herrenschmidt wrote:
+>
+> Anyway, what do you think of Jeff proposal to just implement them as two
+> 32 bits operations ? My arch guy side screams at the idea, but if,
+> indeed, drivers generally cope fine with it, I suppose that's ok.
 
-                if (val == 0x82 || val == 0x91) {
-                        i = (i + 3 +
-                             (vpd_data[i + 1] +
-                              (vpd_data[i + 2] << 8)));
-                        continue;
-                }
+Last I saw, that's how normal PCI will split the IO anyway, so I guess it 
+makes sense.
 
-                if (val != 0x90)
-                        goto out_not_found;
-
-                block_end = (i + 3 +
-                             (vpd_data[i + 1] +
-                              (vpd_data[i + 2] << 8)));
-                i += 3;
-...
-
-<--  snip  -->
-
-The problem is that vpd_data[i + 2] could be vpd_data[255 + 2].
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+		Linus
