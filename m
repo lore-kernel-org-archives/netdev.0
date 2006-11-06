@@ -1,84 +1,34 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] bcm43xx_sprom_write(): add error checks
-Date: Mon, 6 Nov 2006 15:21:46 +0100
-Message-ID: <20061106142146.GN5778@stusta.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 00/18] e1000: features, updates, documentation
+Date: Mon, 06 Nov 2006 07:23:59 -0800
+Message-ID: <454F538F.5040102@intel.com>
+References: <20061101175043.2356.13659.stgit@gitlost.site> <454EED69.9040809@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:18704 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1753204AbWKFOVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 09:21:45 -0500
-To: Larry.Finger@lwfinger.net, st3@riseup.net
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:60019 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1753237AbWKFPYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 10:24:01 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <454EED69.9040809@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker noted that these "if (err)"'s couldn't ever be 
-true.
+Jeff Garzik wrote:
+> pulled.
+> 
+> still waiting on those changes to better modularize the feature 
+> detection, etc.
 
-It seems the intention was to check the return values of the 
-bcm43xx_pci_write_config32()'s?
+that will start coming in early januari I think. We're currently validating all silicon 
+that the code supports against the old and new code, and that is going to take quite 
+some time to finish!
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Cheers,
 
----
-
- drivers/net/wireless/bcm43xx/bcm43xx_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c.old	2006-11-06 14:45:47.000000000 +0100
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-11-06 14:46:53.000000000 +0100
-@@ -737,47 +737,47 @@ int bcm43xx_sprom_write(struct bcm43xx_p
- 	crc = bcm43xx_sprom_crc(sprom);
- 	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
- 	if (crc != expected_crc) {
- 		printk(KERN_ERR PFX "SPROM input data: Invalid CRC\n");
- 		return -EINVAL;
- 	}
- 
- 	printk(KERN_INFO PFX "Writing SPROM. Do NOT turn off the power! Please stand by...\n");
- 	err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_SPROMCTL, &spromctl);
- 	if (err)
- 		goto err_ctlreg;
- 	spromctl |= 0x10; /* SPROM WRITE enable. */
--	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
-+	err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
- 	if (err)
- 		goto err_ctlreg;
- 	/* We must burn lots of CPU cycles here, but that does not
- 	 * really matter as one does not write the SPROM every other minute...
- 	 */
- 	printk(KERN_INFO PFX "[ 0%%");
- 	mdelay(500);
- 	for (i = 0; i < BCM43xx_SPROM_SIZE; i++) {
- 		if (i == 16)
- 			printk("25%%");
- 		else if (i == 32)
- 			printk("50%%");
- 		else if (i == 48)
- 			printk("75%%");
- 		else if (i % 2)
- 			printk(".");
- 		bcm43xx_write16(bcm, BCM43xx_SPROM_BASE + (i * 2), sprom[i]);
- 		mmiowb();
- 		mdelay(20);
- 	}
- 	spromctl &= ~0x10; /* SPROM WRITE enable. */
--	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
-+	err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
- 	if (err)
- 		goto err_ctlreg;
- 	mdelay(500);
- 	printk("100%% ]\n");
- 	printk(KERN_INFO PFX "SPROM written.\n");
- 	bcm43xx_controller_restart(bcm, "SPROM update");
- 
- 	return 0;
- err_ctlreg:
- 	printk(KERN_ERR PFX "Could not access SPROM control register.\n");
- 	return -ENODEV;
- }
-
+Auke
