@@ -1,40 +1,64 @@
-From: "Bud Rodrigues" <Lehman_colorado@catworld.net>
-Subject: BEST QUANLITY CIIALIIS SOFTTABS
-Date: Mon, 06 Nov 2006 07:42:56 -0500
-Message-ID: <010l142q.7738943__41879.0153380998$1162817012$gmane$org@jxm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
+Date: Mon, 6 Nov 2006 14:33:50 +0100
+Message-ID: <200611061433.50912.dada1@cosmosbay.com>
+References: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com> <200611061022.57840.dada1@cosmosbay.com> <f55850a70611060146o1b2adcabq8c1313f6711f3f4e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, linux-raid@vger.kernel.org,
-	netdev@vger.kernel.org, linux-smp@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 51.Red-83-61-100.dynamicIP.rima-tde.net ([83.61.100.51]:14867
-	"HELO 448C58D8") by vger.kernel.org with SMTP id S1752936AbWKFMm5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 07:42:57 -0500
-To: majordomo@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753104AbWKFNdt@vger.kernel.org>
+To: "Zhao Xiaoming" <xiaoming.nj@gmail.com>
+In-Reply-To: <f55850a70611060146o1b2adcabq8c1313f6711f3f4e@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Monday 06 November 2006 10:46, Zhao Xiaoming wrote:
+> 2006/11/6, Eric Dumazet <dada1@cosmosbay.com>:
+> > On Monday 06 November 2006 09:59, Zhao Xiaoming wrote:
+> > > Thank you again for your help. To have more detailed statistic data, I
+> > > did another round of test and gathered some data.  I give the overall
+> > > description here and detailed /proc/net/sockstat, /proc/meminfo,
+> > > /proc/slabinfo and /proc/buddyinfo follows.
+> > > =====================================================
+> > >                            slab mem cost        tcp mem pages      
+> > > lowmem free with traffic:             254668KB                 34693
+> > >       38772KB
+> > > without traffic:       104080KB                           1
+> > >        702652KB
+> > > =====================================================
+> >
+> > Thank you for detailed infos.
+> >
+> > It appears you have an extensive use of threads (about 10000), since :
+> > > task_struct        10095  10095   1360    3    1 : tunables   24   12
+> > >   8 : slabdata   3365   3365      0
+> >
+> > Each thread has a kernel stack, 8KB (ie 2 pages, order-1 allocation),
+> > plus a user vma
+> >
+> > > vm_area_struct     21346  21504     92   42    1 : tunables  120   60
+> > >   8 : slabdata    512    512      0
+> >
+> > Most likely you dont need that much threads. A program with fewer threads
+> > will perform better and use less ram.
+>
+> Thanks for the comments. I known the threads may cost many memory.
+> However, I already excluded them from the statistics. The 'after test'
+> info was gotten while the 10000 threads running but no traffics
+> relayed. You may look at the meminfo of 'after test', there is still
+> 104080 kB slab memory which should already included the thread kernel
+> memory cost (8K*10000=80MB). I know 10000 threads are not necessary
+> and just use the simple logic to do some test.
 
+In fact, your kernel has CONFIG_4KSTACKS, kernel thread stacks use 4K instead 
+of 8K.
 
+If you want to increase LOWMEM, (and keep 32bits kernel), you can chose a 
+2G/2G user/kernel split, instead of the 3G/1G default split.
+(see config : CONFIG_VMSPLIT_2G)
 
-
-http://www.google.com/url?q=%68%74%74%70%3A//admixture%2esubstancee%2ecom
-
-
-
-
-
-
-
-
-
-
-and I know hell die there   But for very shame of a wish that he should
-Ah amiable indeed Here she left off look wild
-
-
-
+Eric
