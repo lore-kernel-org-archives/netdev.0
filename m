@@ -1,55 +1,33 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: pktgen patch available for perusal.
-Date: Mon, 6 Nov 2006 15:14:56 +0100
-Message-ID: <17743.17248.185895.461854@robur.slu.se>
-References: <45468F2E.4060809@candelatech.com>
-	<17736.54766.657083.873206@robur.slu.se>
-	<4548F166.1020001@candelatech.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [RFC: 2.6 patch] hostap_80211_rx(): fix a use-after-free
+Date: Mon, 6 Nov 2006 15:21:48 +0100
+Message-ID: <20061106142148.GO5778@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:49077 "EHLO mx1.slu.se")
-	by vger.kernel.org with ESMTP id S1753201AbWKFOO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 09:14:59 -0500
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4548F166.1020001@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753103AbWKFOWN@vger.kernel.org>
+To: linville@tuxdriver.com
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch fixes a use-after-free for "skb" spotted by the Coverity 
+checker.
 
-Ben Greear writes:
- > > Changes:
- > > * use a nano-second timer based on the scheduler timer (TSC) for relative times, instead of get_time_of_day.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Seems I missed to set tsc as clocksource. It makes a difference. Performance is 
-normal and I'm less confused.
-
-e1000 82546GB @ 1.6 GHz Opteron. Kernel 2.6.19-rc1_Bifrost_-g18e199c6-dirty 
-
-echo acpi_pm    > /sys/devices/system/clocksource/clocksource0/current_clocksource   
-
-psize pps
----------
-60  556333
-124  526942
-252  452981
-508  234996
-1020  119748
-1496  82248
-
-echo tsc        > /sys/devices/system/clocksource/clocksource0/current_clocksource 
-
-psize pps
----------
-60  819914
-124  747286
-252  452975
-508  234993
-1020  119749
-1496  82247
-
-Cheers.	
-						--ro
+--- linux-2.6/drivers/net/wireless/hostap/hostap_80211_rx.c.old	2006-11-06 14:51:36.000000000 +0100
++++ linux-2.6/drivers/net/wireless/hostap/hostap_80211_rx.c	2006-11-06 14:52:16.000000000 +0100
+@@ -1004,10 +1004,10 @@ void hostap_80211_rx(struct net_device *
+ 			if (local->hostapd && local->apdev) {
+ 				/* Send IEEE 802.1X frames to the user
+ 				 * space daemon for processing */
+-				prism2_rx_80211(local->apdev, skb, rx_stats,
+-						PRISM2_RX_MGMT);
+ 				local->apdevstats.rx_packets++;
+ 				local->apdevstats.rx_bytes += skb->len;
++				prism2_rx_80211(local->apdev, skb, rx_stats,
++						PRISM2_RX_MGMT);
+ 				goto rx_exit;
+ 			}
+ 		} else if (!frame_authorized) {
