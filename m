@@ -1,54 +1,66 @@
-From: info@senzace.cz
-Subject: =?ISO-8859-2?Q?Sd=EClen=ED_v_souladu_se_z=E1konem_?=
- =?ISO-8859-2?Q?480=2F2004_Sb.?=
-Date: Mon, 6 Nov 2006 17:34:26 +0100
-Message-ID: <20061106163427.1B18F5C01B@out.smtp.cz>
-Mime-Version: 1.0 (produced by Synapse)
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bcm43xx: Add error checking in bcm43xx_sprom_write()
+Date: Mon, 6 Nov 2006 17:38:21 +0100
+Message-ID: <200611061738.21918.mb@bu3sch.de>
+References: <454F5960.mailHVB136L2I@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: John Linville <linville@tuxdriver.com>, bunk@stusta.de,
+	netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
+	Stefano Brivio <st3@riseup.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out.smtp.cz ([81.95.97.117]:2255 "EHLO out.smtp.cz")
-	by vger.kernel.org with ESMTP id S1753377AbWKFQec convert rfc822-to-8bit
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39335
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1753409AbWKFQjs
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 11:34:32 -0500
-Received: from vbmailshield.smtp.cz (jane.smtp.cz [81.95.97.121])
-	by out.smtp.cz (Postfix) with SMTP id 2FF925C01B
-	for <netdev@vger.kernel.org>; Mon,  6 Nov 2006 17:34:30 +0100 (CET)
-Received: from CSK (153.163.broadband7.iol.cz [88.102.163.153])
-	by out.smtp.cz (Postfix) with ESMTP id 1B18F5C01B
-	for <netdev@vger.kernel.org>; Mon,  6 Nov 2006 17:34:27 +0100 (CET)
-To: netdev@vger.kernel.org
-Content-Description: Message text
+	Mon, 6 Nov 2006 11:39:48 -0500
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <454F5960.mailHVB136L2I@lwfinger.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-V=E1=BEen=E1 pan=ED
-V=E1=BEen=FD pane
+On Monday 06 November 2006 16:48, Larry Finger wrote:
+> From: Adrian Bunk <bunk@stusta.de>
+> 
+> The Coverity checker noted that these "if (err)"'s couldn't ever be 
+> true.
+> 
+> It seems the intention was to check the return values of the 
+> bcm43xx_pci_write_config32()'s?
 
-Dovolujeme si V=E1s v souladu se z=E1konem zdvo=F8ile po=BE=E1dat o sou=
-hlas se zas=EDl=E1n=EDm ob=E8asn=FDch nez=E1vazn=FDch nab=EDdek. Zab=FD=
-v=E1me se po=E8=EDta=E8ovou v=FDukou ANGLI=C8TINY a N=CCM=C8INY, podpor=
-ou MIMO=A9KOLN=CD a =A9KOLN=CD V=DDUKY a dom=E1c=EDho opakov=E1n=ED FOR=
-MOU HRY, sebevzd=ECl=E1v=E1n=EDm d=ECt=ED i dosp=ECl=FDch, poskytov=E1n=
-=EDm CD a DVD se specializac=ED na interaktivn=ED v=FDuku MATEMATIKY, F=
-YZIKY, CHEMIE, =C8E=A9TINY, D=CCJEPISU, ZEM=CCPISU a t=E9matiku P=D8=CD=
-RODY, CESTOV=C1N=CD, HISTORIE, KULTURY a UM=CCN=CD, tvorbou z=E1bavn=ED=
-ch vzd=ECl=E1vac=EDch titul=F9 pro TELEVIZN=CD P=D8EHR=C1VA=C8E, videa,=
- hudebn=ED p=F8ehr=E1va=E8e, DOM=C1C=CD KINA, hern=ED konzole (playstat=
-ion) a MOBILY.
-Dom=E9nov=E9 jm=E9no: www.senzace.cz.=20
-Bezplatn=E1 linka k p=F8=EDpadn=E9mu ov=EC=F8en=ED t=ECchto skute=E8nos=
-t=ED: 800 331 134
+Whoops, I thought I had fixed this bug long time ago.
+The patch is correct.
 
-V p=F8=EDpad=EC, =BEe SOUHLAS=CDTE se zas=EDl=E1n=EDm na=B9ich el. obch=
-odn=EDch sd=EClen=ED, odpov=ECzte pros=EDm na tento email s p=F8edm=ECt=
-em "ANO"
-=20
-V p=F8=EDpad=EC, =BEe NESOUHLAS=CDTE se zas=EDl=E1n=EDm na=B9ich el. ob=
-chodn=EDch sd=EClen=ED, odpov=ECzte pros=EDm na tento email  s p=F8edm=EC=
-tem "NE"=20
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Sv=F9j souhlas se zas=EDl=E1n=EDm m=F9=BEete kdykoli v budoucnu odvolat=
- a k ni=E8emu dal=B9=EDmu se t=EDmto nezavazujete. Za Va=B9e laskav=E9 =
-pochopen=ED p=F8edem d=ECkujeme.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> ===================================================================
+> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> @@ -750,7 +750,7 @@ int bcm43xx_sprom_write(struct bcm43xx_p
+>  	if (err)
+>  		goto err_ctlreg;
+>  	spromctl |= 0x10; /* SPROM WRITE enable. */
+> -	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+> +	err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+>  	if (err)
+>  		goto err_ctlreg;
+>  	/* We must burn lots of CPU cycles here, but that does not
+> @@ -772,7 +772,7 @@ int bcm43xx_sprom_write(struct bcm43xx_p
+>  		mdelay(20);
+>  	}
+>  	spromctl &= ~0x10; /* SPROM WRITE enable. */
+> -	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+> +	err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+>  	if (err)
+>  		goto err_ctlreg;
+>  	mdelay(500);
+> 
+
+-- 
+Greetings Michael.
