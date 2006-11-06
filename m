@@ -1,75 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
-Date: Mon, 06 Nov 2006 08:36:19 -0800
-Message-ID: <454F6483.4010307@osdl.org>
-References: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com> <454EE580.5040506@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+From: info@senzace.cz
+Subject: =?ISO-8859-2?Q?Sd=EClen=ED_v_souladu_se_z=E1konem_?=
+ =?ISO-8859-2?Q?480=2F2004_Sb.?=
+Date: Mon, 6 Nov 2006 17:34:26 +0100
+Message-ID: <20061106163427.1B18F5C01B@out.smtp.cz>
+Mime-Version: 1.0 (produced by Synapse)
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Zhao Xiaoming <xiaoming.nj@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:51946 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1753393AbWKFQg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 11:36:27 -0500
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <454EE580.5040506@cosmosbay.com>
+Received: from out.smtp.cz ([81.95.97.117]:2255 "EHLO out.smtp.cz")
+	by vger.kernel.org with ESMTP id S1753377AbWKFQec convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Nov 2006 11:34:32 -0500
+Received: from vbmailshield.smtp.cz (jane.smtp.cz [81.95.97.121])
+	by out.smtp.cz (Postfix) with SMTP id 2FF925C01B
+	for <netdev@vger.kernel.org>; Mon,  6 Nov 2006 17:34:30 +0100 (CET)
+Received: from CSK (153.163.broadband7.iol.cz [88.102.163.153])
+	by out.smtp.cz (Postfix) with ESMTP id 1B18F5C01B
+	for <netdev@vger.kernel.org>; Mon,  6 Nov 2006 17:34:27 +0100 (CET)
+To: netdev@vger.kernel.org
+Content-Description: Message text
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Zhao Xiaoming a =E9crit :
->> Dears,
->>    I'm running a linux box with kernel version 2.6.16. The hardware
->> has 2 Woodcrest Xeon CPUs (2 cores each) and 4G RAM. The NIC cards i=
-s
->> Intel 82571 on PCI-e bus.
->>    The box is acting as ethernet bridge between 2 Gigabit Ethernets.
->> By configuring ebtables and iptables, an application is running as T=
-CP
->> proxy which will intercept all TCP connections requests from the
->> network and setup another TCP connection to the acture server.  The
->> TCP proxy then relays all traffics in both directions.
->>    The problem is the memory. Since the box must support thousands o=
-f
->> concurrent connections, I know the memory size of ZONE_NORMAL would =
-be
->> a bottleneck as TCP packets would need many buffers. After setting
->> upper limit of net.ipv4.tcp_rmem and net.ipv4.tcp_wmem to 32K bytes,
->> our test began.
->>    My test scenario employs 2000 concurrent downloading connections
->> to a IIS server's port 80. The throughput is about 500~600 Mbps whic=
-h
->> is limited by the capability of the client application. Because all
->> traffics are from server to client and the capability of client
->> machine is bottleneck, I believe the receiver side of the sockets
->> connected with server and the sender side of the sockets connected
->> with client should be filled with packets in correspondent windows.
->> Thus, roughly there should be about 32K * 2000+ 32K*2000 =3D 128M by=
-tes
->> memory occupied by TCP/IP stack for packet buffering. Data from
->> slabtop confermed it. it's about 140M bytes memory cost after I star=
-t
->> the traffic. That reasonablly matched with my estimation. However,
->> /proc/meminfo had a different story. The 'LowFree' dropped from abou=
-t
->> 710M to 80M. In other words, there's addtional 500M memory in
->> ZONE_NORMAL allocated by someone other than the slab. Why?
-The amount of memory per socket is controlled by the socket buffering.=20
-Your application
-could be setting the value by calling setsockopt(). Otherwise, the tcp=20
-memory is limited
-by the sysctl settings tcp_rmem (receiver) and tcp_wmem (sender).
+V=E1=BEen=E1 pan=ED
+V=E1=BEen=FD pane
 
-=46or example on this server:
-$ cat /proc/sys/net/ipv4/tcp_wmem
-4096    16384   131072
+Dovolujeme si V=E1s v souladu se z=E1konem zdvo=F8ile po=BE=E1dat o sou=
+hlas se zas=EDl=E1n=EDm ob=E8asn=FDch nez=E1vazn=FDch nab=EDdek. Zab=FD=
+v=E1me se po=E8=EDta=E8ovou v=FDukou ANGLI=C8TINY a N=CCM=C8INY, podpor=
+ou MIMO=A9KOLN=CD a =A9KOLN=CD V=DDUKY a dom=E1c=EDho opakov=E1n=ED FOR=
+MOU HRY, sebevzd=ECl=E1v=E1n=EDm d=ECt=ED i dosp=ECl=FDch, poskytov=E1n=
+=EDm CD a DVD se specializac=ED na interaktivn=ED v=FDuku MATEMATIKY, F=
+YZIKY, CHEMIE, =C8E=A9TINY, D=CCJEPISU, ZEM=CCPISU a t=E9matiku P=D8=CD=
+RODY, CESTOV=C1N=CD, HISTORIE, KULTURY a UM=CCN=CD, tvorbou z=E1bavn=ED=
+ch vzd=ECl=E1vac=EDch titul=F9 pro TELEVIZN=CD P=D8EHR=C1VA=C8E, videa,=
+ hudebn=ED p=F8ehr=E1va=E8e, DOM=C1C=CD KINA, hern=ED konzole (playstat=
+ion) a MOBILY.
+Dom=E9nov=E9 jm=E9no: www.senzace.cz.=20
+Bezplatn=E1 linka k p=F8=EDpadn=E9mu ov=EC=F8en=ED t=ECchto skute=E8nos=
+t=ED: 800 331 134
 
-Each sending socket would start with 16K of buffering, but could grow u=
-p=20
-to 128K based
-on TCP send autotuning.
+V p=F8=EDpad=EC, =BEe SOUHLAS=CDTE se zas=EDl=E1n=EDm na=B9ich el. obch=
+odn=EDch sd=EClen=ED, odpov=ECzte pros=EDm na tento email s p=F8edm=ECt=
+em "ANO"
+=20
+V p=F8=EDpad=EC, =BEe NESOUHLAS=CDTE se zas=EDl=E1n=EDm na=B9ich el. ob=
+chodn=EDch sd=EClen=ED, odpov=ECzte pros=EDm na tento email  s p=F8edm=EC=
+tem "NE"=20
 
-
+Sv=F9j souhlas se zas=EDl=E1n=EDm m=F9=BEete kdykoli v budoucnu odvolat=
+ a k ni=E8emu dal=B9=EDmu se t=EDmto nezavazujete. Za Va=B9e laskav=E9 =
+pochopen=ED p=F8edem d=ECkujeme.
