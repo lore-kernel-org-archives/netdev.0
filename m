@@ -1,67 +1,43 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [sungem] proposal for a new locking strategy
-Date: Mon, 6 Nov 2006 13:49:41 -0800
-Message-ID: <20061106134941.09a7d9bb@freekitty>
-References: <5cac192f0611050500m19f72209vc349f235680023a1@mail.gmail.com>
-	<20061105090254.66710154@localhost.localdomain>
-	<5cac192f0611050928w50127396l2a88978bf97b2bff@mail.gmail.com>
-	<20061105094136.75677aa4@localhost.localdomain>
-	<5cac192f0611050952w443e6042r11c6c66b0e84685d@mail.gmail.com>
-	<20061105104955.2d9a9473@localhost.localdomain>
-	<5cac192f0611051211t55e4c724w3eea5043dfc53db6@mail.gmail.com>
-	<20061106095551.18f9661c@freekitty>
-	<5cac192f0611061255hbe26632t8b605300e27bc1fa@mail.gmail.com>
-	<20061106125723.0fa9c5e6@freekitty>
-	<5cac192f0611061310o7b4d267eg37fef6a0cb81bd61@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] b44: change comment about irq mask register
+Date: Mon, 06 Nov 2006 23:17:20 +0100
+Message-ID: <1162851440.1412.31.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: zambrano@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:52427 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1753840AbWKFVtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 16:49:47 -0500
-To: "Eric Lemoine" <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f0611061310o7b4d267eg37fef6a0cb81bd61@mail.gmail.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:939 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1753869AbWKFWSr
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Nov 2006 17:18:47 -0500
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-O
-> > > > But the spin is still there, just more complex..
-> > > > In qdisc_restart() processing of NETDEV_TX_LOCKED causes:
-> > > >         spin_lock(dev->xmit_lock)
-> > > >
-> > > >         q->requeue()
-> > > >         netif_schedule(dev);
-> > > >
-> > > > SOFTIRQ:
-> > > >         net_tx_action()
-> > > >         qdisc_run() --> qdisc_restart()
-> > > >
-> > > > So instead of spinning in tight loop, you end up with a longer code
-> > > > path.
-> > >
-> > > Stephen, sorry for insisting a bit but I'm failing to see how B is
-> > > different from C in that respect. With method B, in qdisc_restart(),
-> > > if netif_tx_trylock() fails to acquire the lock then we also
-> > > requeue(), etc. Same long code path in case of contention.
-> > >
-> >
-> > Method C LLTX causes repeated softirq's which will be slower since the loop
-> > requires more instructions than a simple spin loop (Method B).
-> 
-> What I'm saying above is that Method B also causes repeated tx
-> softirqs in case of contention on netif_tx_lock. The code path is :
-> netif_tx_trylock() fails -> requeue() -> netif_schedule() ->
-> raise_softirq(NET_TX_SOFTIRQ). Am I missing anything?
-> 
+Through some experimentation with the similarly built bcm43xx I came to
+the conclusion that if the hw/firmware sets a bit in the interrupt
+register, an interrupt will only be raised if that bit is included in
+the interrupt mask. Hence, the interrupt mask is more like an interrupt
+control mask.
 
-Never mind, you right.  I think the netif_tx_trylock() there is a bad
-idea because of the long route as shown.  Trylock's are usually bad SMP
-design anyway. Not sure if it would be possible to change the locking
-in qdisc_restart() without causing collateral damage in network drivers.
+This patch changes the comment to reflect that.
+
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
+--- wireless-dev.orig/drivers/net/b44.c	2006-11-06 23:13:36.909597550 +0100
++++ wireless-dev/drivers/net/b44.c	2006-11-06 23:14:21.949597550 +0100
+@@ -908,8 +908,9 @@ static irqreturn_t b44_interrupt(int irq
+ 	istat = br32(bp, B44_ISTAT);
+ 	imask = br32(bp, B44_IMASK);
+ 
+-	/* ??? What the fuck is the purpose of the interrupt mask
+-	 * ??? register if we have to mask it out by hand anyways?
++	/* The interrupt mask register controls which interrupt bits
++	 * will actually raise an interrupt to the CPU when set by hw/firmware,
++	 * but doesn't mask off the bits.
+ 	 */
+ 	istat &= imask;
+ 	if (istat) {
 
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
