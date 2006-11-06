@@ -1,42 +1,62 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
-Date: Mon, 06 Nov 2006 20:42:47 +1100
-Message-ID: <1162806168.28571.309.camel@localhost.localdomain>
-References: <1162780109.28571.273.camel@localhost.localdomain>
-	 <454EE943.6000603@pobox.com>
-	 <Pine.LNX.4.64.0611060137020.25218@g5.osdl.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: tg3_read_partno(): possible array overrun
+Date: Mon, 6 Nov 2006 10:45:28 +0100
+Message-ID: <20061106094527.GG5778@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:31664 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1423645AbWKFJmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 04:42:55 -0500
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0611060137020.25218@g5.osdl.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:61452 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1423659AbWKFJp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Nov 2006 04:45:28 -0500
+To: jgarzik@pobox.com, davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-11-06 at 01:37 -0800, Linus Torvalds wrote:
-> 
-> On Mon, 6 Nov 2006, Jeff Garzik wrote:
-> >
-> > This seems a bit ugly.  Could you add
-> > 
-> > 	#define readq readq
-> > 
-> > to your platform instead?
-> 
-> Heartily agreed. MUCH better than adding unrelated #if defined() stuff, 
-> whether arch-related or otherwise.
+The Coverity checker noted the following in drivers/net/tg3.c:
 
-I agree it's less ugly, though I still don't like it much :-)
+<--  snip  -->
 
-Anyway, what do you think of Jeff proposal to just implement them as two
-32 bits operations ? My arch guy side screams at the idea, but if,
-indeed, drivers generally cope fine with it, I suppose that's ok.
+...
+static void __devinit tg3_read_partno(struct tg3 *tp)
+{
+        unsigned char vpd_data[256];
+        int i;
+...
+        /* Now parse and find the part number. */
+        for (i = 0; i < 256; ) {
+                unsigned char val = vpd_data[i];
+                int block_end;
 
-Ben.
+                if (val == 0x82 || val == 0x91) {
+                        i = (i + 3 +
+                             (vpd_data[i + 1] +
+                              (vpd_data[i + 2] << 8)));
+                        continue;
+                }
 
+                if (val != 0x90)
+                        goto out_not_found;
+
+                block_end = (i + 3 +
+                             (vpd_data[i + 1] +
+                              (vpd_data[i + 2] << 8)));
+                i += 3;
+...
+
+<--  snip  -->
+
+The problem is that vpd_data[i + 2] could be vpd_data[255 + 2].
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
