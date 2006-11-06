@@ -1,138 +1,148 @@
-From: "Eric Lemoine" <eric.lemoine@gmail.com>
-Subject: Re: [sungem] proposal for a new locking strategy
-Date: Mon, 6 Nov 2006 22:10:07 +0100
-Message-ID: <5cac192f0611061310o7b4d267eg37fef6a0cb81bd61@mail.gmail.com>
-References: <5cac192f0611050500m19f72209vc349f235680023a1@mail.gmail.com>
-	 <20061105090254.66710154@localhost.localdomain>
-	 <5cac192f0611050928w50127396l2a88978bf97b2bff@mail.gmail.com>
-	 <20061105094136.75677aa4@localhost.localdomain>
-	 <5cac192f0611050952w443e6042r11c6c66b0e84685d@mail.gmail.com>
-	 <20061105104955.2d9a9473@localhost.localdomain>
-	 <5cac192f0611051211t55e4c724w3eea5043dfc53db6@mail.gmail.com>
-	 <20061106095551.18f9661c@freekitty>
-	 <5cac192f0611061255hbe26632t8b605300e27bc1fa@mail.gmail.com>
-	 <20061106125723.0fa9c5e6@freekitty>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
+Date: Mon, 06 Nov 2006 22:09:54 +0100
+Message-ID: <1162847394.1412.17.camel@johannes.berg>
+References: <1162741174.24574.22.camel@johannes.berg>
+	 <20061106210145.6824bec6@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zz+FvG23KL+vD+5ZxCP5"
+Cc: netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Simon Barber <simon@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	James Ketrenos <jketreno@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:63505 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1753801AbWKFVKJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Nov 2006 16:10:09 -0500
-Received: by ug-out-1314.google.com with SMTP id m3so1008288ugc
-        for <netdev@vger.kernel.org>; Mon, 06 Nov 2006 13:10:08 -0800 (PST)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20061106125723.0fa9c5e6@freekitty>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:27087 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1753807AbWKFVLe
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Nov 2006 16:11:34 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061106210145.6824bec6@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/6/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> On Mon, 6 Nov 2006 21:55:20 +0100
-> "Eric Lemoine" <eric.lemoine@gmail.com> wrote:
->
-> > On 11/6/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> > > On Sun, 5 Nov 2006 21:11:34 +0100
-> > > "Eric Lemoine" <eric.lemoine@gmail.com> wrote:
-> > >
-> > > > On 11/5/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> > > > > On Sun, 5 Nov 2006 18:52:45 +0100
-> > > > > "Eric Lemoine" <eric.lemoine@gmail.com> wrote:
-> > > > >
-> > > > > > On 11/5/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> > > > > > > On Sun, 5 Nov 2006 18:28:33 +0100
-> > > > > > > "Eric Lemoine" <eric.lemoine@gmail.com> wrote:
-> > > > > > >
-> > > > > > > > > You could also just use net_tx_lock() now.
-> > > > > > > >
-> > > > > > > > You mean netif_tx_lock()?
-> > > > > > > >
-> > > > > > > > Thanks for letting me know about that function. Yes, I may need it.
-> > > > > > > > tg3 and bnx2 use it to wake up the transmit queue:
-> > > > > > > >
-> > > > > > > >          if (unlikely(netif_queue_stopped(tp->dev) &&
-> > > > > > > >                       (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH))) {
-> > > > > > > >                  netif_tx_lock(tp->dev);
-> > > > > > > >                  if (netif_queue_stopped(tp->dev) &&
-> > > > > > > >                      (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH))
-> > > > > > > >                          netif_wake_queue(tp->dev);
-> > > > > > > >                  netif_tx_unlock(tp->dev);
-> > > > > > > >          }
-> > > > > > > >
-> > > > > > > > 2.6.17 didn't use it. Was it a bug?
-> > > > > > > >
-> > > > > > > > Thanks,
-> > > > > > >
-> > > > > > > No, it was introduced in 2.6.18. The functions are just a wrapper
-> > > > > > > around the network device transmit lock that is normally held.
-> > > > > > >
-> > > > > > > If the device does not need to acquire the lock during IRQ, it
-> > > > > > > is a good alternative and avoids a second lock.
-> > > > > > >
-> > > > > > > For transmit locking there are three common alternatives:
-> > > > > > >
-> > > > > > > Method A: dev->queue_xmit_lock and per-device tx_lock
-> > > > > > >         send: dev->xmit_lock held by caller
-> > > > > > >             dev->hard_start_xmit acquires netdev_priv(dev)->tx_lock
-> > > > > > >
-> > > > > > >         irq:  netdev_priv(dev)->tx_lock acquired
-> > > > > > >
-> > > > > > > Method B: dev->queue_xmit_lock only
-> > > > > > >         send: dev->xmit_lock held by caller
-> > > > > > >         irq:  schedules softirq (NAPI)
-> > > > > > >         napi_poll: calls netif_tx_lock() which acquires dev->xmit_lock
-> > > > > > >
-> > > > > > > Method C: LLTX
-> > > > > > >         set dev->features LLTX
-> > > > > > >         send: no locks held by caller
-> > > > > > >                 dev->hard_start_xmit acquires netdev_priv(dev)->tx_lock
-> > > > > > >         irq: netdev_priv(dev)->tx_lock acquired
-> > > > > > >
-> > > > > > > Method A is the only one that works with 2.4 and early (2.6.8?) kernels.
-> > > > > > >
-> > > > > >
-> > > > > > Current sungem does Method C, and uses two locks: lock and tx_lock.
-> > > > > > What I was planning to do is Method B (which current tg3 uses). It
-> > > > > > seems to me that Method B is better than Method C. What do you think?
-> > > > >
-> > > > > B is better than C because the transmit logic doesn't have to
-> > > > > spin in the case of lock contention, but it is not a big difference.
-> > > >
-> > > > Current sungem does C but uses try_lock() to acquire its private
-> > > > tx_lock. So it doesn't spin either in case of contention.
-> > >
-> > >
-> > > But the spin is still there, just more complex..
-> > > In qdisc_restart() processing of NETDEV_TX_LOCKED causes:
-> > >         spin_lock(dev->xmit_lock)
-> > >
-> > >         q->requeue()
-> > >         netif_schedule(dev);
-> > >
-> > > SOFTIRQ:
-> > >         net_tx_action()
-> > >         qdisc_run() --> qdisc_restart()
-> > >
-> > > So instead of spinning in tight loop, you end up with a longer code
-> > > path.
-> >
-> > Stephen, sorry for insisting a bit but I'm failing to see how B is
-> > different from C in that respect. With method B, in qdisc_restart(),
-> > if netif_tx_trylock() fails to acquire the lock then we also
-> > requeue(), etc. Same long code path in case of contention.
-> >
->
-> Method C LLTX causes repeated softirq's which will be slower since the loop
-> requires more instructions than a simple spin loop (Method B).
 
-What I'm saying above is that Method B also causes repeated tx
-softirqs in case of contention on netif_tx_lock. The code path is :
-netif_tx_trylock() fails -> requeue() -> netif_schedule() ->
-raise_softirq(NET_TX_SOFTIRQ). Am I missing anything?
+--=-zz+FvG23KL+vD+5ZxCP5
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
+[reordering a bit]
 
--- 
-Eric
+> >    This changes the 'cookie' that d80211 returns from alloc_hw
+> >    to be an opaque value to the driver. Turned out that it wasn't
+> >    such a great idea but since it was generally a clean up I kept
+> >    this patch to base my other patches on.
+>=20
+> ACK.
+
+> What did happen with
+> d80211: add a function to get the wiphy index
+> d80211: add a perm_addr hardware property
+> d80211: add a struct device* hardware property
+> d80211: add a ethtool_ops hardware property
+> patches?
+
+Well after some chat with a few people I decided that it was stupid and
+not very maintainable to copy all the fields in net_device to a new
+structure.
+
+> > 009-d80211-convert-spaces.patch
+> >    d80211: convert leading spaces to tabs
+> >=20
+> >    I hated working on the code, so I did this. The next patch
+> >    breaks everything anyway.
+>=20
+> NAK. There are too many patches pending. Let's do this just before
+> merging.
+
+Oh come off it! It's really stupid to have to check all the tabs/spaces
+all the time. The patch changes 451 lines. And wiggle can handle that
+just fine. Besides, if you do
+s/^\+       /+\t/
+s/^-       /-\t/
+s/        /\t/
+on your patches, they'll be fine too.
+
+> This is too big patch for a review,=20
+
+Yeah. It's pretty bad actually, but I couldn't really find a good way to
+split it into logical chunks.
+
+> > * The mdev no longer has a sub_if_data attached (why ever did it??)
+> >   It's private area is for the driver since we don't create it but
+> >   the driver does. I did keep the notation of mdev/master all through,
+> >   but it's no longer the stacks device. Keep that in mind.
+>=20
+> This definitely breaks AP mode. In the code, there is heavily (ab)used
+> the fact that the master device is in fact an AP device. I tried to fix
+> that but it was so difficult I gave up. It is needed to rewrite the
+> whole RX path (and even that is probably not enough).
+
+Bugger. I didn't notice that. I'll have a look. That is indeed a
+showstopper.
+
+> As this will
+> be fixed for free when we have native 802.11 devices, I don't think we
+> need to do anything about it now.
+
+I don't think I understand this. I mean, my patch actually gives us
+native 802.11 devices by making the drivers register those and then
+handling them virtually similar to how 8021q handles ethernet devices. I
+honestly thought that this was the plan for said "native 802.11
+devices".
+
+> > * sysfs layout changed. There is no wiphy or an ieee80211 class any mor=
+e,
+> >   the attributes that used to be there are now in the net_device that
+> >   the driver registered, and our attributes are below the devices we cr=
+eated.
+>=20
+> You want an ieee80211 class. Once you get rid of a master interface you
+> need something with per-hardware information, statistics etc.
+
+Yeah, I gave up trying to get rid of the master interface in favour of
+having a native 802.11 device which is registered by the phy driver
+instead.
+
+> > * sysfs layout changed. There is no wiphy or an ieee80211 class any mor=
+e,
+> >   the attributes that used to be there are now in the net_device that
+> >   the driver registered, and our attributes are below the devices we cr=
+eated.
+>=20
+> Doesn't belong to this patch.
+
+Had to be here initially due to the way I did things, but ok, probably
+changeable.
+
+johannes
+
+--=-zz+FvG23KL+vD+5ZxCP5
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUARU+koKVg1VMiehFYAQJwChAAoHYPoXD/d4tKGSFRW1Vlw28sEjBoc1Yi
+EhqlUsiUhWfw0Z92hTcNV8630bmPwy8VzMj9Exfn8d3aKrIkiB7ZRyo2385Z1qC6
+v9JeeHbjRVuTO2uiDgClGpFPoBsr3nMD0ss7ksuyz/XXxJxg6mG64JwAka1dPKwl
+Xds/zTPjhkMJybxhh+TxcrQGG2uvaM3qpkTiieKAegCL8Ftd63JmiQdqloJLpQqj
+B5YvAxFp5Ak+4ATy1/cHb2wBFWNwvJM6WMmGxUGUDrFwH2vi8WFZSfRX3Xkj4ed8
+YQRp60SXJXinOI2Z0k2R9EpTmCYP522rx6VvCP5qwdVyUraRllgPSfqsZqOAwjh6
+tOXIinBalsJu1CIawcIT6c4IIA+j9esY6OLW8+/sueqP+yGJ69kMJDAYH1bW3dek
+F1A2Wnz38WEvHe01Zx0fGRouikPpKsckFetgnGjL+J6LcPZU9WAOwK8goWQhTgnV
+JMqCxSCpqrI/hQ+vghP+cKTCMgbnMcLkC5WVLS0IfoNMlOGp4nEjCLruzfIStKvG
+8FuC+mSbra957WaoZHFtEIvZVRqS/DkIh7NhY52+AxAnTB4rJFQPJQKTVWqihaxU
+r42Hh9Tsk3TNW1EOJH8+8H9Xk+R+kM62zpJBvN1FjV5R1Ohak9DUJYMaXhbPJ3mN
+Xqez7MWXaIE=
+=ZQeh
+-----END PGP SIGNATURE-----
+
+--=-zz+FvG23KL+vD+5ZxCP5--
+
