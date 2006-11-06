@@ -1,44 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
-Date: Mon, 06 Nov 2006 04:34:01 -0500
-Message-ID: <454F0189.7050008@pobox.com>
-References: <1162780109.28571.273.camel@localhost.localdomain>	 <454EE943.6000603@pobox.com>	 <1162800248.28571.296.camel@localhost.localdomain>	 <454EF07B.4010503@pobox.com> <1162803178.28571.300.camel@localhost.localdomain>
+From: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+Subject: Re: (usagi-core 31424) Re: [PATCH 7/13] [RFC] [IPV6] Move source
+ address selection into route lookup.
+Date: Mon, 06 Nov 2006 10:37:44 +0100
+Message-ID: <454F0268.7030106@6wind.com>
+References: <20061018.230850.91573842.yoshfuji@linux-ipv6.org>	<4536E279.1090003@jp.ibm.com>	<4549E8B3.4070601@tcs.hut.fi> <20061102.221339.102356265.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
+Cc: vnuorval@tcs.hut.fi, mitch@jp.ibm.com, usagi-core@linux-ipv6.org,
+	davem@davemloft.net, tgraf@suug.ch, kim.nordlund@nokia.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:31110 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1423616AbWKFJeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 04:34:04 -0500
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1162803178.28571.300.camel@localhost.localdomain>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:22541 "EHLO
+	proxy.6wind.com") by vger.kernel.org with ESMTP id S1423642AbWKFJh4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Nov 2006 04:37:56 -0500
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061102.221339.102356265.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
->> This is why I said "good enough for drivers".  This is _key_.
->>
->> I have run into several [PCI] devices with 64-bit registers, and 
->> __none__ of them had requirements such that the Linux platform code 
->> -must- provide an atomic readq/writeq.  Probably because everybody wants 
->> to support 32-bit platforms with their devices.
->>
->> What you call "fairly bogus" is precisely what drivers need.  These 
->> devices with 64-bit registers just don't need the atomicity that arch 
->> developers harp about :)
-> 
-> Is there any consistency in that case in which half need to be
-> read/written first ? Or none of these ever had side effects ?
+[ reposted, with better subject ]
+>>> http://testlab.linux-ipv6.org/tahi-autorun.2/net-2.6_20061018/
+>> The host testlab.linux-ipv6.org doesn't seem to be visible to the
+>> outside world so could you post the results somewhere where I could take
+>> a closer look at the results?
+>
+> It is visible world-wide, assuming you have IPv6 connection.
+With IPv4-only connection, one can try to append ".ipv4.sixxs.org":
 
-Generally the kernel code should write the two 32-bit chunks to the 
-memory-mapped region in order (low dword first), and let things take 
-care of themselves from there.
-
-That's pretty much the implementation that -every- driver copies, when 
-they need readq/writeq to work on a 32-bit platform.
-
-	Jeff
+http://testlab.linux-ipv6.org.ipv4.sixxs.org/tahi-autorun.2/net-2.6_20061018/ 
 
 
-
+Jean-Mickael
