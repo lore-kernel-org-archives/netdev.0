@@ -1,67 +1,71 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
-Date: Tue, 07 Nov 2006 11:17:39 +1100
-Message-ID: <1162858659.28571.380.camel@localhost.localdomain>
-References: <1162780109.28571.273.camel@localhost.localdomain>
-	 <454EE943.6000603@pobox.com>
-	 <1162800248.28571.296.camel@localhost.localdomain>
-	 <454EF07B.4010503@pobox.com>
-	 <1162803178.28571.300.camel@localhost.localdomain>
-	 <454F0189.7050008@pobox.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: [PATCH] don't use highmem in tcp hash size calculation
+Date: Mon, 06 Nov 2006 20:06:45 -0500
+Message-ID: <454FDC25.6090801@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
+Content-Type: multipart/mixed;
+ boundary="------------060209020305050509010508"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:47272 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1753876AbWKGAUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 19:20:11 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <454F0189.7050008@pobox.com>
+Received: from mailer2.psc.edu ([128.182.66.106]:33258 "EHLO mailer2.psc.edu")
+	by vger.kernel.org with ESMTP id S1753863AbWKGBGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 20:06:47 -0500
+Received: from [128.182.160.132] (ice.psc.edu [128.182.160.132])
+	by mailer2.psc.edu (8.13.8/8.13.3) with ESMTP id kA716kaB019901
+	for <netdev@vger.kernel.org>; Mon, 6 Nov 2006 20:06:46 -0500 (EST)
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> Generally the kernel code should write the two 32-bit chunks to the 
-> memory-mapped region in order (low dword first), and let things take 
-> care of themselves from there.
-> 
-> That's pretty much the implementation that -every- driver copies, when 
-> they need readq/writeq to work on a 32-bit platform.
-
-What do you mean by low dword first ? For example, the implementation
-in the s2io driver does:
-
-static inline u64 readq(void __iomem *addr)
-{
-	u64 ret = 0;
-	ret = readl(addr + 4);
-	ret <<= 32;
-	ret |= readl(addr);
-
-	return ret;
-}
-
-static inline void writeq(u64 val, void __iomem *addr)
-{
-	writel((u32) (val), addr);
-	writel((u32) (val >> 32), (addr + 4));
-}
-
-As you can see, it reads the -second- dword first (high order dword in
-little endian), but writes the first dword first (low order dword in
-little endian).
-
-If there is any logic here, it's card specific.
-
-Or is this really what PCI does when doing 64 bits accesses on a 32 bits
-PCI bus ? I would have expected the later (what write does) but this
-driver does it reverse on reads.
-
-I'm tempted to go to the simple
-
-#define readq readq for now until we clear that up.
- 
-Ben.
+This is a multi-part message in MIME format.
+--------------060209020305050509010508
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
 
+--------------060209020305050509010508
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="tcp_no_highmem.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tcp_no_highmem.patch"
+
+This patch removes consideration of high memory when determining TCP hash
+table sizes.  Taking into account high memory results in tcp_mem values that
+are too large.
+
+Signed-off-by: John Heffner <jheffner@psc.edu>
+
+---
+commit ea55b7c31b47edf90132baea9a088da3bbe2bb5c
+tree 82311e12d4e4e006fba1688cb537de06cf7a4e4b
+parent 4f6f9ba021f8a2149238f7c081cd7cf55c70c775
+author John Heffner <jheffner@psc.edu> Mon, 06 Nov 2006 20:03:01 -0500
+committer John Heffner <jheffner@psc.edu> Mon, 06 Nov 2006 20:03:01 -0500
+
+ net/ipv4/tcp.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 66e9a72..4322318 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2270,7 +2270,7 @@ void __init tcp_init(void)
+ 					thash_entries,
+ 					(num_physpages >= 128 * 1024) ?
+ 					13 : 15,
+-					HASH_HIGHMEM,
++					0,
+ 					&tcp_hashinfo.ehash_size,
+ 					NULL,
+ 					0);
+@@ -2286,7 +2286,7 @@ void __init tcp_init(void)
+ 					tcp_hashinfo.ehash_size,
+ 					(num_physpages >= 128 * 1024) ?
+ 					13 : 15,
+-					HASH_HIGHMEM,
++					0,
+ 					&tcp_hashinfo.bhash_size,
+ 					NULL,
+ 					64 * 1024);
+
+--------------060209020305050509010508--
