@@ -1,43 +1,73 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 4/4] skge: version 1.9
-Date: Tue, 07 Nov 2006 12:28:26 -0800
-Message-ID: <200611072028.kA7KSQZt032181@death.nxdomain.ibm.com>
-References: <20061005224949.456192755@osdl.org> <20061005225209.769741968@osdl.org> <20061107132506.GS2667@mathom.us>
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 3/3] mlsxfrm: Various fixes
+Date: Tue, 07 Nov 2006 15:29:24 -0500
+Message-ID: <4550ECA4.70909@hp.com>
+References: <4550BF9A.3040002@trustedcs.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:4254 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1753099AbWKGU3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 15:29:11 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kA7KT9OB027535
-	for <netdev@vger.kernel.org>; Tue, 7 Nov 2006 15:29:09 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kA7KSWwa099916
-	for <netdev@vger.kernel.org>; Tue, 7 Nov 2006 15:28:43 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kA7KSVi8017943
-	for <netdev@vger.kernel.org>; Tue, 7 Nov 2006 15:28:32 -0500
-To: Michael Stone <mstone@mathom.us>
-In-reply-to: <20061107132506.GS2667@mathom.us> 
+Received: from atlrel8.hp.com ([156.153.255.206]:35780 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1753132AbWKGU31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 15:29:27 -0500
+To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <4550BF9A.3040002@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Stone <mstone@mathom.us> wrote:
+Venkat Yekkirala wrote:
+> +/*
+> + * security_sid_compare() - compares two given sid contexts.
+> + * Returns 1 if they are equal, 0 otherwise.
+> + */
+> +int security_sid_compare(u32 sid1, u32 sid2)
+> +{
+> +	struct context *context1;
+> +	struct context *context2;
+> +	int rc;
+> +
+> +	if (!ss_initialized)
+> +		return 1;
+> +
+> +	if (sid1 == sid2)
+> +		return 1;
+> +	else if (sid1 > SECINITSID_NUM && sid2 > SECINITSID_NUM)
+> +		return 0;
+> +
+> +	/* explicit comparison in order */
+> +
+> +	POLICY_RDLOCK;
+> +	context1 = sidtab_search(&sidtab, sid1);
+> +	if (!context1) {
+> +		printk(KERN_ERR "security_sid_compare:  unrecognized SID "
+> +		       "%u\n", sid1);
+> +		rc = 0;
+> +		goto out_unlock;
+> +	}
+> +
+> +	context2 = sidtab_search(&sidtab, sid2);
+> +	if (!context2) {
+> +		printk(KERN_ERR "security_sid_compare:  unrecognized SID "
+> +		       "%u\n", sid2);
+> +		rc = 0;
+> +		goto out_unlock;
+> +	}
+> +
+> +	rc = context_cmp(context1, context2);
+> +
+> +out_unlock:
+> +	POLICY_RDUNLOCK;
+> +	return rc;
+> +}
 
->The skge 1.9 patch is looking good on older syskonnect fiber cards.
->Stability issues seem to be taken care of and performance is good. There
->are some strange interactions with bonding, however. If I try to put both
->interfaces of an sk-9844 into a bonded interface, I only see traffic from
->one of them. If I try to config the bonded interface down, the system
->hangs. If I tcpdump either of the individual interfaces (before bonding
->them) I see all the expected traffic.
+I understand wanting a generic LSM interface to do secid token comparisons, but
+in the SELinux implementation of this function I think we can get away with only
+a simple "sid1 == sid2" since the security server shouldn't be creating
+duplicate SID/secid values for identical contexts, I think.  Did you run into
+something in testing that would indicate otherwise?
 
-	Can you provide some bonding configuration details?  Which mode,
-options, etc, as well as the relevant bits from dmesg (you can send it
-to me privately if it's huge)?  I don't have any skge hardware, so I'm
-not able to test this locally.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-- 
+paul moore
+linux security @ hp
