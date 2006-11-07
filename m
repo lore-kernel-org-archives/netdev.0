@@ -1,139 +1,84 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] Rewrite e100_phys_id
-Date: Tue, 07 Nov 2006 10:33:14 -0800
-Message-ID: <4550D16A.1090008@intel.com>
-References: <20061026191154.GG5591@parisc-linux.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
+Date: Tue, 07 Nov 2006 19:52:02 +0100
+Message-ID: <1162925522.24531.4.camel@johannes.berg>
+References: <1162741174.24574.22.camel@johannes.berg>
+	 <20061106210145.6824bec6@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Be7RlITIhnLfyxf3iBEf"
+Cc: netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Simon Barber <simon@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	James Ketrenos <jketreno@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:22656 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1754260AbWKGSdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 13:33:23 -0500
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20061026191154.GG5591@parisc-linux.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59280 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1754278AbWKGS5q
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 13:57:46 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061106210145.6824bec6@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> The motivator for this was to fix the sparse warning:
-> 
-> drivers/net/e100.c:2418:48: warning: cast truncates bits from constant
-> value (83126e978d4fdf becomes 978d4fdf)
-> drivers/net/e100.c:2419:37: warning: cast truncates bits from constant
-> value (83126e978d4fdf becomes 978d4fdf)
-> 
-> Initially, I tried a quick fix, but when it ran into difficulties, I
-> looked at tg3.c to see how it does it.  I liked their way better, so I
-> rewrote e100.c to be similar.  It shaves ~700 bytes off the size of the
-> driver, and a few bytes off the size of struct nic, so I think it's a
-> win all round.  Tested on the internal interface of an HP Integrity rx2600.
 
-bad news, it's completely hosed. The adapter does some indistinguishable blinking for a 
-second, then stops blinking alltogether.
+--=-Be7RlITIhnLfyxf3iBEf
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I might revert the code to the old situation. I guess I should have tested it initially 
-right away.
+I've put a new patchset up at
 
-I'm not even going to touch the e1000 patch for now ;)
+http://johannes.sipsolutions.net/files/d80211-cleanup/
 
-Auke
+It now contains:
+001-cfg80211-fix-Makefile.patch
+002-cfg80211-wext-compat.patch
 
-> 
-> Signed-off-by: Matthew Wilcox <matthew@wil.cx>
-> 
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index a3a08a5..aade1e9 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -556,7 +556,6 @@ struct nic {
->  	struct params params;
->  	struct net_device_stats net_stats;
->  	struct timer_list watchdog;
-> -	struct timer_list blink_timer;
->  	struct mii_if_info mii;
->  	struct work_struct tx_timeout_task;
->  	enum loopback loopback;
-> @@ -581,7 +580,6 @@ struct nic {
->  	u32 rx_over_length_errors;
->  
->  	u8 rev_id;
-> -	u16 leds;
->  	u16 eeprom_wc;
->  	u16 eeprom[256];
->  	spinlock_t mdio_lock;
-> @@ -2168,23 +2166,6 @@ err_clean_rx:
->  	return err;
->  }
->  
-> -#define MII_LED_CONTROL	0x1B
-> -static void e100_blink_led(unsigned long data)
-> -{
-> -	struct nic *nic = (struct nic *)data;
-> -	enum led_state {
-> -		led_on     = 0x01,
-> -		led_off    = 0x04,
-> -		led_on_559 = 0x05,
-> -		led_on_557 = 0x07,
-> -	};
-> -
-> -	nic->leds = (nic->leds & led_on) ? led_off :
-> -		(nic->mac < mac_82559_D101M) ? led_on_557 : led_on_559;
-> -	mdio_write(nic->netdev, nic->mii.phy_id, MII_LED_CONTROL, nic->leds);
-> -	mod_timer(&nic->blink_timer, jiffies + HZ / 4);
-> -}
-> -
->  static int e100_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
->  {
->  	struct nic *nic = netdev_priv(netdev);
-> @@ -2411,16 +2392,32 @@ static void e100_diag_test(struct net_de
->  	msleep_interruptible(4 * 1000);
->  }
->  
-> +#define MII_LED_CONTROL	0x1B
->  static int e100_phys_id(struct net_device *netdev, u32 data)
->  {
->  	struct nic *nic = netdev_priv(netdev);
-> +	int i;
-> +
-> +	enum led_state {
-> +		led_off    = 0x04,
-> +		led_on_559 = 0x05,
-> +		led_on_557 = 0x07,
-> +	};
-> +	u16 leds = led_off;
-> +
-> +	if (data == 0)
-> +		data = 2;
-> +
-> +	for (i = 0; i < (data * 2); i++) {
-> +		leds = (leds == led_off) ?
-> +			(nic->mac < mac_82559_D101M) ? led_on_557 : led_on_559 :
-> +			led_off;
-> +		mdio_write(nic->netdev, nic->mii.phy_id, MII_LED_CONTROL, leds);
-> +		if (msleep_interruptible(500))
-> +			break;
-> +	}
->  
-> -	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
-> -		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
-> -	mod_timer(&nic->blink_timer, jiffies);
-> -	msleep_interruptible(data * 1000);
-> -	del_timer_sync(&nic->blink_timer);
-> -	mdio_write(netdev, nic->mii.phy_id, MII_LED_CONTROL, 0);
-> +	mdio_write(netdev, nic->mii.phy_id, MII_LED_CONTROL, led_off);
->  
->  	return 0;
->  }
-> @@ -2633,9 +2630,6 @@ #endif
->  	init_timer(&nic->watchdog);
->  	nic->watchdog.function = e100_watchdog;
->  	nic->watchdog.data = (unsigned long)nic;
-> -	init_timer(&nic->blink_timer);
-> -	nic->blink_timer.function = e100_blink_led;
-> -	nic->blink_timer.data = (unsigned long)nic;
->  
->  	INIT_WORK(&nic->tx_timeout_task,
->  		(void (*)(void *))e100_tx_timeout_task, netdev);
+as before.
+
+003-d80211-reduce-mdev-1.patch
+004-d80211-reduce-mdev-2.patch
+005-d80211-cleanup-rxmgmt.patch
+006-d80211-scan-sanity.patch
+
+similar to before, but modified to apply without the previous cookie
+patch.
+
+I decided to drop the cookie patch because it unnecessarily breaks
+drivers. We obviously haven't figured out what we want, so let's just go
+for the lowest common denominator.
+
+I think these are mostly cleanups and it all compiles fine after each
+one. No API changes. Haven't gotten around to testing it yet.
+
+johannes
+
+--=-Be7RlITIhnLfyxf3iBEf
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUARVDV0aVg1VMiehFYAQKVkg/+NqWtgx1xjEtBvmMqAIFnp+Wk97r5+BvQ
+1ocwePf3lu+5LMTfJx8HYm9k/JPBHdqzVYDKufRdUrev19pbnvSfSbztzknIHYjh
+mFOp6TVWGEL9abDgc66MzK/K/I9+Ftg9ukg3uNdMA32PglpcauM3mfkAEJBXe70p
+NRLHYeMsWv+tuASs53B/DEjHmucIvyxWWvU377Vh3cE0WdU1v2V48bSt4DeIsSMR
+fpk/mB8I3C+EvIZTj68UD5h+5Y4LB3EaBprxjXV1xGCFjT3sAlPauLGIZ4YQtDUb
+9i+fC9WXua2znnj2jvBAyyK9XitC1wnyG+/2P5pJuG0KOfnjEEJIqU/NvZ1gpAK2
+nmCxLT4KzhfnYhDDlknIy07JWJY7G9SZDbIca06e5ibdA+C4hV8i9AI1bLxEAvzB
+tPcT1SYc5etinTfAru9fInw7mj8jNSNExs6x3rnSJgzYD/qkHbtNy7+RbRmzsrcO
+tSJtludu8J+DPjNHRC3Nv9e31/2SPEy+DFJ8+XrDG7cIqa0FLdwX0ij/OMbgcvH4
+XHP60RDSYsTIPMIInrvsYtJqvOjF0/KQuLyzh2L7RcQLge9LH5MPY3luyPZ8DK34
+hW5uerENH+7bKbr6/C/BT6BpzsGkK6O24NM/d0QHE9c48Z0EfM7OQPnh1xmn4hfo
+k4FcgayXX3A=
+=IIlT
+-----END PGP SIGNATURE-----
+
+--=-Be7RlITIhnLfyxf3iBEf--
+
