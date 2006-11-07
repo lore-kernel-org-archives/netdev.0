@@ -1,43 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: SKB BUG: Invalid truesize, current git
-Date: Tue, 07 Nov 2006 14:57:24 -0800 (PST)
-Message-ID: <20061107.145724.129450194.davem@davemloft.net>
-References: <20061106190725.GW9057@kvack.org>
-	<20061106193620.GA1766@gondor.apana.org.au>
+Subject: Re: tg3_read_partno(): possible array overrun
+Date: Tue, 07 Nov 2006 14:58:09 -0800 (PST)
+Message-ID: <20061107.145809.132301902.davem@davemloft.net>
+References: <20061106094527.GG5778@stusta.de>
+	<1162843651.3409.5.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bcrl@kvack.org, netdev@vger.kernel.org
+Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47338
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48874
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1753821AbWKGW5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Nov 2006 17:57:24 -0500
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20061106193620.GA1766@gondor.apana.org.au>
+	id S1753822AbWKGW6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 17:58:09 -0500
+To: mchan@broadcom.com
+In-Reply-To: <1162843651.3409.5.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 7 Nov 2006 06:36:20 +1100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 06 Nov 2006 12:07:31 -0800
 
-> On Mon, Nov 06, 2006 at 07:07:26PM +0000, Benjamin LaHaise wrote:
+> On Mon, 2006-11-06 at 10:45 +0100, Adrian Bunk wrote:
+> > The Coverity checker noted the following in drivers/net/tg3.c:
 > > 
-> > I managed to get a backtrace for the Invalid truesize bug.  The trigger is 
-> > running LMbench2, but it's rater intermittent.  Traffic should be going 
-> > over the loopback interface, but the main nic on the machine is e1000.  
-> > Let me know if anyone has any ideas for things to try.
+> > <--  snip  -->
+> > 
+> > The problem is that vpd_data[i + 2] could be vpd_data[255 + 2].
 > 
-> OK, this should cure it.  BTW, this indicates that your app is
-> retransmitting unnecessarily which might be a problem in itself.
+> Thanks.  This should fix it:
 > 
-> This patch applies to all recent 2.6 kernels.
+> [TG3]: Fix array overrun in tg3_read_partno().
 > 
-> [NET]: Set truesize in pskb_copy
+> Use proper upper limits for the loops and check for all error
+> conditions.
 > 
-> Since pskb_copy tacks on the non-linear bits from the original
-> skb, it needs to count them in the truesize field of the new skb.
+> The problem was noticed by Adrian Bunk.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Michael Chan <mchan@broadcom.com> 
 
-Applied, thanks Herbert.
+Applied, thanks Michael.
