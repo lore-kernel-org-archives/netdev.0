@@ -1,50 +1,42 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: Zero checksum in netconsole/netdump packets
-Date: Tue, 7 Nov 2006 12:35:06 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0611071232450.10769@bizon.gios.gov.pl>
-References: <454FC80B.9090001@redhat.com> <200611071009.02424@strip-the-willow>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [take21 0/4] kevent: Generic event handling mechanism.
+Date: Tue, 07 Nov 2006 06:46:58 -0500
+Message-ID: <45507232.7010104@garzik.org>
+References: <11619654014077@2ka.mipt.ru> <45506D51.30604@garzik.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-237262693-1162899306=:10769"
-Cc: Chris Lalancette <clalance@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:16594 "EHLO
-	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S1754197AbWKGLfR
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Nov 2006 06:35:17 -0500
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-In-Reply-To: <200611071009.02424@strip-the-willow>
+Received: from srv5.dvmed.net ([207.36.208.214]:57784 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932127AbWKGLrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 06:47:11 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <45506D51.30604@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+At an aside...  This may be useful.  Or not.
 
----187430788-237262693-1162899306=:10769
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Al Viro had an interesting idea about kernel<->userspace data passing 
+interfaces.  He had suggested creating a task-specific filesystem 
+derived from ramfs.  Through the normal VFS/VM codepaths, the user can 
+easily create [subject to resource/priv checks] a buffer that is locked 
+into the pagecache.  Using mmap, read, write, whatever they prefer. 
+Derive from tmpfs, and the buffers are swappable.
+
+Then it would be a simple matter to associate a file stored in 
+"keventfs" with a ring buffer guaranteed to be pagecache-friendly.
+
+Heck, that might make zero-copy easier in some cases, too.  And using a 
+filesystem would mean that you could do all this without adding 
+syscalls, by using special (poll-able!) files in the filesystem for 
+control and notification purposes.
+
+	Jeff
 
 
 
-On Tue, 7 Nov 2006, Gerrit Renker wrote:
-
-> Quoting Chris Lalancette:
-> |  Hello,
-> |       I realized that all of the packets that go from the crashing mach=
-ine to the netdump server have a zero checksum.
-> <snip>
-> |       Assuming that this is just an oversight, attached is a simple pat=
-ch to compute the UDP checksum in netpoll_send_udp.
-> |
-> |  Signed-off-by: Chris Lalancette <clalance@redhat.com>
-> |
-> RFC 768 allows to not compute the checksum by leaving uh->check at 0 - he=
-nce it is not illegal.
-
-BTW: leaving UDP checksum at 0 is only valid for IPv4, with IPv6 we _have=
-=20
-to_ compute a checksum.
-
-Best regards,
-
- =09=09=09Krzysztof Ol=EAdzki
----187430788-237262693-1162899306=:10769--
