@@ -1,57 +1,67 @@
-From: Chris Lalancette <clalance@redhat.com>
-Subject: Zero checksum in netconsole/netdump packets
-Date: Mon, 06 Nov 2006 18:40:59 -0500
-Message-ID: <454FC80B.9090001@redhat.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] s2io ppc64 fix for readq/writeq
+Date: Tue, 07 Nov 2006 11:17:39 +1100
+Message-ID: <1162858659.28571.380.camel@localhost.localdomain>
+References: <1162780109.28571.273.camel@localhost.localdomain>
+	 <454EE943.6000603@pobox.com>
+	 <1162800248.28571.296.camel@localhost.localdomain>
+	 <454EF07B.4010503@pobox.com>
+	 <1162803178.28571.300.camel@localhost.localdomain>
+	 <454F0189.7050008@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030500050308070302010709"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:27098 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1753931AbWKFXlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 18:41:01 -0500
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id kA6Nf0wj000918
-	for <netdev@vger.kernel.org>; Mon, 6 Nov 2006 18:41:00 -0500
-Received: from pobox.corp.redhat.com (pobox.corp.redhat.com [10.11.255.20])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id kA6Nf0nv024088
-	for <netdev@vger.kernel.org>; Mon, 6 Nov 2006 18:41:00 -0500
-Received: from [172.16.81.47] (locutus.boston.redhat.com [172.16.81.47])
-	by pobox.corp.redhat.com (8.13.1/8.12.8) with ESMTP id kA6Nex8n019587
-	for <netdev@vger.kernel.org>; Mon, 6 Nov 2006 18:41:00 -0500
-To: netdev@vger.kernel.org
+Received: from gate.crashing.org ([63.228.1.57]:47272 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1753876AbWKGAUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Nov 2006 19:20:11 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <454F0189.7050008@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030500050308070302010709
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
 
-Hello,
-      I was reading some tcpdump's of netdump traffic today, and I realized that all of the packets that go from the crashing machine to the netdump server have a zero checksum.  Looking at the code, it looks like netconsole/netdump use the function netpoll_send_udp to send out the packets.  However, in netdump_send_udp, the checksum is set to 0, and never seems to be computed.  Is this intentional, or just an oversight?  I would think that we would always want to compute the UDP checksum, but there might be something I am overlooking.  Incidentally, it seems like the only user of netpoll_send_udp is netconsole (and netdump in RedHat kernels).
-     Assuming that this is just an oversight, attached is a simple patch to compute the UDP checksum in netpoll_send_udp.
+> Generally the kernel code should write the two 32-bit chunks to the 
+> memory-mapped region in order (low dword first), and let things take 
+> care of themselves from there.
+> 
+> That's pretty much the implementation that -every- driver copies, when 
+> they need readq/writeq to work on a 32-bit platform.
 
-Signed-off-by: Chris Lalancette <clalance@redhat.com>
+What do you mean by low dword first ? For example, the implementation
+in the s2io driver does:
 
---------------030500050308070302010709
-Content-Type: text/x-patch;
- name="linux-2.6.19-rc4-netpoll-udp-checksum.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="linux-2.6.19-rc4-netpoll-udp-checksum.patch"
+static inline u64 readq(void __iomem *addr)
+{
+	u64 ret = 0;
+	ret = readl(addr + 4);
+	ret <<= 32;
+	ret |= readl(addr);
 
---- linux-2.6/net/core/netpoll.c.orig	2006-11-06 18:16:58.000000000 -0500
-+++ linux-2.6/net/core/netpoll.c	2006-11-06 18:31:20.000000000 -0500
-@@ -356,6 +356,10 @@ void netpoll_send_udp(struct netpoll *np
- 	put_unaligned(htonl(np->remote_ip), &(iph->daddr));
- 	iph->check    = ip_fast_csum((unsigned char *)iph, iph->ihl);
+	return ret;
+}
+
+static inline void writeq(u64 val, void __iomem *addr)
+{
+	writel((u32) (val), addr);
+	writel((u32) (val >> 32), (addr + 4));
+}
+
+As you can see, it reads the -second- dword first (high order dword in
+little endian), but writes the first dword first (low order dword in
+little endian).
+
+If there is any logic here, it's card specific.
+
+Or is this really what PCI does when doing 64 bits accesses on a 32 bits
+PCI bus ? I would have expected the later (what write does) but this
+driver does it reverse on reads.
+
+I'm tempted to go to the simple
+
+#define readq readq for now until we clear that up.
  
-+	udph->check = csum_tcpudp_magic(iph->saddr, iph->daddr, udp_len,
-+					IPPROTO_UDP,
-+					csum_partial((unsigned char *)udph, udp_len, 0));
-+
- 	eth = (struct ethhdr *) skb_push(skb, ETH_HLEN);
- 	skb->mac.raw = skb->data;
- 	skb->protocol = eth->h_proto = htons(ETH_P_IP);
+Ben.
 
---------------030500050308070302010709--
+
