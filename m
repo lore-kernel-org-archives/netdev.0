@@ -1,32 +1,56 @@
-From: Michael Stone <mstone@mathom.us>
-Subject: Re: [PATCH 4/4] skge: version 1.9
-Date: Tue, 07 Nov 2006 13:58:31 -0500
-Message-ID: <20061107185830.GT2667@mathom.us>
-References: <20061005224949.456192755@osdl.org>
- <20061005225209.769741968@osdl.org> <20061107132506.GS2667@mathom.us>
- <20061107095104.734326cc@freekitty>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH 1/3] mlsxfrm: Various fixes
+Date: Tue, 07 Nov 2006 14:09:43 -0500
+Message-ID: <1162926583.3268.22.camel@localhost.localdomain>
+References: <4550BF91.6040906@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms040pub.verizon.net ([206.46.252.40]:4946 "EHLO
-	vms040pub.verizon.net") by vger.kernel.org with ESMTP
-	id S1751085AbWKGTJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Nov 2006 14:09:05 -0500
-Received: from osgiliath.mathom.us ([71.246.251.8])
- by vms040.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0J8D00LK9JDM3YI3@vms040.mailsrvcs.net> for
- netdev@vger.kernel.org; Tue, 07 Nov 2006 12:58:35 -0600 (CST)
-In-reply-to: <20061107095104.734326cc@freekitty>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:12470 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751678AbWKGTMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 14:12:00 -0500
+To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <4550BF91.6040906@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 07, 2006 at 09:51:04AM -0800, Stephen Hemminger wrote:
->Which form of bonding link checking are you using. It could be that
->bonding MII checking is confused.
+On Tue, 2006-11-07 at 11:17 -0600, Venkat Yekkirala wrote:
+>  int selinux_xfrm_policy_alloc(struct xfrm_policy *xp,
+> -		struct xfrm_user_sec_ctx *uctx, struct sock *sk)
+> +		struct xfrm_user_sec_ctx *uctx)
+>  {
+>  	int err;
+> -	u32 sid;
+>  
+> -	BUG_ON(!xp);
+> -	BUG_ON(uctx && sk);
+> -
+> -	if (sk) {
+> -		struct sk_security_struct *ssec = sk->sk_security;
+> -		sid = ssec->sid;
+> -	}
+> -	else
+> -		sid = SECSID_NULL;
+> +	BUG_ON(!xp || !uctx);
+>  
+> -	err = selinux_xfrm_sec_ctx_alloc(&xp->security, uctx, NULL, sid);
+> +	err = selinux_xfrm_sec_ctx_alloc(&xp->security, uctx, 0);
+>  	return err;
+>  }
 
-I'm not specifying anything, just "ifenslave bond0 eth2 eth3"
+BUG_ON() with an || makes this a slight bit trickier to debug if
+something goes wrong.  I'd have to dig around a little in the assembly
+and look at the registers in the back trace to know which of the 2 was
+the problem.  I personally would rather have a seperate
 
-Mike Stone
+BUG_ON(!xp);
+BUG_ON(!uctx);
+
+probably not worth resubmitting, but if you have to make another set of
+these....
+
+-Eric
+
