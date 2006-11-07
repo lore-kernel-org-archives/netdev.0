@@ -1,48 +1,45 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [take21 0/4] kevent: Generic event handling mechanism.
-Date: Tue, 7 Nov 2006 13:38:03 -0800
-Message-ID: <20061107133803.4487a666.akpm@osdl.org>
-References: <20061107115111.GA13028@2ka.mipt.ru>
-	<45507CD4.5030600@garzik.org>
-	<20061107113400.880e1ce9.akpm@osdl.org>
-	<20061107.125241.39157521.davem@davemloft.net>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Tue, 07 Nov 2006 16:50:33 -0500
+Message-ID: <4550FFA9.8040503@psc.edu>
+References: <1162924354.10806.172.camel@localhost.localdomain> <20061107.124557.21592397.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, johnpol@2ka.mipt.ru, drepper@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	torvalds@osdl.org
+Cc: tim.c.chen@linux.intel.com, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55767 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1753421AbWKGVjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 16:39:11 -0500
+Received: from mailer1.psc.edu ([128.182.58.100]:12996 "EHLO mailer1.psc.edu")
+	by vger.kernel.org with ESMTP id S1753196AbWKGVvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 16:51:16 -0500
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061107.125241.39157521.davem@davemloft.net>
+In-Reply-To: <20061107.124557.21592397.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Nov 2006 12:52:41 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+David Miller wrote:
+> If we don't ACK every two segments, stacks which grow the congestion
+> window based upon packet counting will not grow the congestion window
+> properly when they are sending smaller than MSS sized segments.
 
-> From: Andrew Morton <akpm@osdl.org>
-> Date: Tue, 7 Nov 2006 11:34:00 -0800
-> 
-> > What Evgeniy means here is that copy_to_user() is slower than memcpy() (on
-> > his machine, with his kernel config, at least).
-> > 
-> > Which is kinda weird and unexpected and is something which we should
-> > investigate independently from this project.  (Rather than simply going
-> > and bypassing it!)
-> 
-> It's straightforward to me. :-)
-> 
-> If the kerne memcpy()'s, it uses those nice 4MB PTE mappings to
-> the kernel pages.  With copy_to_user() you run through tiny
-> 4K or 8K PTE mappings which thrash the TLB.
-> 
-> The TLB is therefore able to hold more of the accessed state at
-> a time if you touch the pages on the kernel side.
+The only stack I know of that does this currently is linux, and in doing 
+so does not conform to the spec. ;)  Sending to a BSD receiver will 
+result in the same behavior, so the "right place" to fix this is on the 
+sending side.  (I know the issue of packet vs. byte counting has come up 
+many times over the last 10 years or so, and many arguments have been 
+made on either side... I don't mean this to be flame bait but it's clear 
+what will happen in this scenario.)
 
-Maybe.  Evgeniy tends to favour teeny microbenchmarks.  I'd also be
-suspecting the considerable setup code in the x86 uaccess funtions.  That
-would show up in a tight loop doing large numbers of small copies.
+One way of viewing the current situation is that linux's packet counting 
+plus ABC is more conservative than byte counting -- sometimes much more 
+so.  Packet counting without ABC may be more or less conservative than 
+byte counting, depending on segment sizes and receiver ACK strategy. 
+Without ABC, linux is vulnerable to aggressive ACKing to inflate the 
+cwnd.  This is a kind of ugly state of affairs.
+
+Unfortunately I see no clear way to reconcile these issues short of 
+switching to byte counting.  Obviously this would be a big change as 
+packet counting is deeply ingrained in not only the congestion control 
+but also the recovery code.
+
+   -John
