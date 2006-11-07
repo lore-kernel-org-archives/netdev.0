@@ -1,78 +1,90 @@
-From: Neil Brown <neilb@suse.de>
-Subject: TCP stack sometimes loses ACKs ... or something
-Date: Tue, 7 Nov 2006 17:36:44 +1100
-Message-ID: <17744.10620.389409.136737@cse.unsw.edu.au>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH 2.6.19-rc4-git10][PKT_SCHED] sch_htb: INIT_HLIST_NODE after hlist_del()
+Date: Tue, 7 Nov 2006 07:49:43 +0100
+Message-ID: <20061107064943.GA998@ff.dom.local>
+References: <20061106113353.GA4829@ff.dom.local> <20061106094449.3b8253b9@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S\. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:49072 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1754074AbWKGGgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 01:36:43 -0500
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Received: from mx10.go2.pl ([193.17.41.74]:16594 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932083AbWKGGnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 01:43:55 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061106094449.3b8253b9@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 06, 2006 at 09:44:49AM -0800, Stephen Hemminger wrote:
+> On Mon, 6 Nov 2006 12:33:53 +0100
+> Jarek Poplawski <jarkao2@o2.pl> wrote:
+> 
+> > After hlist_del() next and pprev pointers are not NULL
+> > so hlist_unhashed() doesn't work properly.
+> > 
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> > ---
+> > 
+> > 
+> > diff -Nurp linux-2.6.19-rc4-git10-/net/sched/sch_htb.c linux-2.6.19-rc4-git10/net/sched/sch_htb.c
+> > --- linux-2.6.19-rc4-git10-/net/sched/sch_htb.c	2006-11-06 11:42:41.000000000 +0100
+> > +++ linux-2.6.19-rc4-git10/net/sched/sch_htb.c	2006-11-06 11:53:15.000000000 +0100
+> > @@ -1284,8 +1284,10 @@ static void htb_destroy_class(struct Qdi
+> >  						  struct htb_class, sibling));
+> >  
+> >  	/* note: this delete may happen twice (see htb_delete) */
+> > -	if (!hlist_unhashed(&cl->hlist))
+> > +	if (!hlist_unhashed(&cl->hlist)) {
+> >  		hlist_del(&cl->hlist);
+> > +		INIT_HLIST_NODE(&cl->hlist);
+> > +	}
+> 
+> why not use hlist_del_init?
 
-I upgraded my notebook from 2.6.16 to 2.6.18 recently and noticed that
-I couldn't talk to my VOIP device (which has a WEB interface).
-Watching traffic I see the three-way-handshake working perfectly, and
-then the first data packet is sent (a partial HTTP request: 
-GET / HTTP/1.1 ....) and an ACK comes back from the device.
-Then the next data packet (remainder of the HTTP request) is sent, but
-tcpdump never sees the ACK, nor does the TCP stack.  So the data gets
-recent repeatedly.  No ack. Ever.
+Yes, this is the question!
 
-With 2.6.16, The ack comes back just fine and the connection proceeds
-as you would expect.
+As a matter of fact I expected another question. Yesterday
+I was short on time so I didn't describe the bug enough.
+I'm not sure if you know the problem, so here are more
+details (for me problem is 199% repeatable).
 
-As it was a very reproducible problem I decided to try "git bisect"
-and found 
+After something like this:
 
- bad: [7b4f4b5ebceab67ce440a61081a69f0265e17c2a] [TCP]: Set default max buffers from memory pool size
+# tc qdisc add dev lo root handle 1: htb
+# tc class add dev lo parent 1: classid 1:1 htb rate 200kbps
+# tc class del dev lo classid 1:1
 
-I double checked as this seemed a fairly unlikely patch to cause the
-problem, but this definitely is it.
-The net effect of this patch is to change the last of the three
-numbers in 
-    cat /proc/sys/net/ipv4/tcp_[rw]mem 
-from well below 2^20 to well above. 2^20 seems to be a significant
-number. I set tcp_wmem to that and the ACK was lost.  I set it to
-one less and the first ACK (at least) was accepted.
-I ended up setting both r and w to 100000 and everything is fine.
+enter the BUG...
 
-Exploring more deeply, and comparing:
-  - a failing connection (to VIOP box, [rw]mem large)
-  - a working connection to VOIP box ([rw]mem small)
-  - a working connection to another machine ([rw]mem irrelevant).
-I find:
+I've found the last command is the culprit and if you do:
 
-  The VIOP returns MSS=1360 in the SYN/ACK packet.  Other machine
-    returns MSS=1460
+# tc qdisc del dev lo root
+there is no problem.
 
-  The ack that is getting lost contains data as well as the
-  ACK. i.e. the same packet that ACKs at the TCP level includes the
-  HTTP level reply.
-  The matching ACK from the other machine (some Linux 2.6.8 I think)
-   is a data-less ACK followed very quickly by the HTTP reply in
-   a separate packet.
+And probably it is enough to do the change only in htb_delete
+- btw. is this hlist_del really needed there? and shouldn't
+all deletions be done after zeroing the refcount? - but you
+should know better. 
 
-  The 'Timestamps' option coming back from the VOIP box is a little
-  odd.  The Timestamp in the SYN/ACK is the same as the timestamp in
-  the next ACK (the ack for the first partial HTTP request).
-  The Timestamp in the next packet which is the one that gets lost has
-  exactly the same TSval as previous packets, and TSecr is one more
-  than in the previous packet.
+> 
+> >  	list_del(&cl->sibling);
+> >  
+> >  	if (cl->prio_activity)
+> > @@ -1333,8 +1335,10 @@ static int htb_delete(struct Qdisc *sch,
+> >  	sch_tree_lock(sch);
+> >  
+> >  	/* delete from hash and active; remainder in destroy_class */
+> > -	if (!hlist_unhashed(&cl->hlist))
+> > +	if (!hlist_unhashed(&cl->hlist)) {
+> >  		hlist_del(&cl->hlist);
+> > +		INIT_HLIST_NODE(&cl->hlist);
+> > +	}
+> >  
+> >  	if (cl->prio_activity)
+> >  		htb_deactivate(q, cl);
 
-I assume that one (or more) of these differences combined with the
-large tcp_[rw]mem value cause the packet loss, but I have no idea
-which.
+Best regards,
 
-Help?
-
-I can make the tcp traces available if needed, but these are really
-the only non-trivial differences.
-
-I'm willing to test patches.
-
-NeilBrown
+Jarek P.
