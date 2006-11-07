@@ -1,54 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Tue, 07 Nov 2006 12:45:57 -0800 (PST)
-Message-ID: <20061107.124557.21592397.davem@davemloft.net>
-References: <1162924354.10806.172.camel@localhost.localdomain>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH 3/3] mlsxfrm: Various fixes
+Date: Tue, 07 Nov 2006 15:48:40 -0500
+Message-ID: <1162932520.3009.58.camel@moss-spartans.epoch.ncsc.mil>
+References: <4550BF9A.3040002@trustedcs.com>  <4550ECA4.70909@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru
+Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11208
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751803AbWKGUp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Nov 2006 15:45:59 -0500
-To: tim.c.chen@linux.intel.com
-In-Reply-To: <1162924354.10806.172.camel@localhost.localdomain>
+Received: from mummy.ncsc.mil ([144.51.88.129]:10674 "EHLO jazzhorn.ncsc.mil")
+	by vger.kernel.org with ESMTP id S1753253AbWKGUto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 15:49:44 -0500
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <4550ECA4.70909@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Date: Tue, 07 Nov 2006 10:32:34 -0800
-
-[ Please bring up networking questions on "netdev@vger.kernel.org"
-  as that is the place where networking developers read bug reports
-  and questions, they by-in-large do not read linux-kernel at all. ]
-
-> [TCP]: Send ACKs each 2nd received segment
-> commit: 1ef9696c909060ccdae3ade245ca88692b49285b
-> http://kernel.org/git/?
-> p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1ef9696c909060ccdae3ade245ca88692b49285b
+On Tue, 2006-11-07 at 15:29 -0500, Paul Moore wrote:
+> Venkat Yekkirala wrote:
+> > +/*
+> > + * security_sid_compare() - compares two given sid contexts.
+> > + * Returns 1 if they are equal, 0 otherwise.
+> > + */
+> > +int security_sid_compare(u32 sid1, u32 sid2)
+> > +{
+> > +	struct context *context1;
+> > +	struct context *context2;
+> > +	int rc;
+> > +
+> > +	if (!ss_initialized)
+> > +		return 1;
+> > +
+> > +	if (sid1 == sid2)
+> > +		return 1;
+> > +	else if (sid1 > SECINITSID_NUM && sid2 > SECINITSID_NUM)
+> > +		return 0;
+> > +
+> > +	/* explicit comparison in order */
+> > +
+> > +	POLICY_RDLOCK;
+> > +	context1 = sidtab_search(&sidtab, sid1);
+> > +	if (!context1) {
+> > +		printk(KERN_ERR "security_sid_compare:  unrecognized SID "
+> > +		       "%u\n", sid1);
+> > +		rc = 0;
+> > +		goto out_unlock;
+> > +	}
+> > +
+> > +	context2 = sidtab_search(&sidtab, sid2);
+> > +	if (!context2) {
+> > +		printk(KERN_ERR "security_sid_compare:  unrecognized SID "
+> > +		       "%u\n", sid2);
+> > +		rc = 0;
+> > +		goto out_unlock;
+> > +	}
+> > +
+> > +	rc = context_cmp(context1, context2);
+> > +
+> > +out_unlock:
+> > +	POLICY_RDUNLOCK;
+> > +	return rc;
+> > +}
 > 
-> reduced Volanomark benchmark throughput by 10%.  
-> This is because Volanomark sends 
-> short message (<100 bytes) on its TCP
-> connections.  This patch increases the number of ACKs 
-> traffic by 3.5 times.  
-> 
-> By adopting this patch, we assume that with
-> small segment, having short delay is important 
-> enough that we are willing to reduce bandwidth 
-> with more ACKs.  
-> 
-> Is there any real application out there
-> that this new behavior could be a concern?
+> I understand wanting a generic LSM interface to do secid token comparisons, but
+> in the SELinux implementation of this function I think we can get away with only
+> a simple "sid1 == sid2" since the security server shouldn't be creating
+> duplicate SID/secid values for identical contexts, I think.  Did you run into
+> something in testing that would indicate otherwise?
 
-That's unfortunate, because without that patch connections can hang
-which is more important to fix than your performance test.  :-)
+Such duplication can occur among the initial SIDs.  Not sure though when
+that would apply here, and it would only apply if both SIDs were initial
+SIDs.
 
-If we don't ACK every two segments, stacks which grow the congestion
-window based upon packet counting will not grow the congestion window
-properly when they are sending smaller than MSS sized segments.
+-- 
+Stephen Smalley
+National Security Agency
 
-This topic has been discussed quite a bit, you may want to do some
-searching in the netdev archives to read some of that.
