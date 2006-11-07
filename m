@@ -1,34 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [take23 2/5] kevent: Core files.
-Date: Tue, 7 Nov 2006 14:16:57 -0800
-Message-ID: <20061107141657.b2378218.akpm@osdl.org>
-References: <1162918248891@2ka.mipt.ru>
-	<11629182482529@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Tue, 07 Nov 2006 14:22:00 -0800 (PST)
+Message-ID: <20061107.142200.115911407.davem@davemloft.net>
+References: <1162924354.10806.172.camel@localhost.localdomain>
+	<20061107.124557.21592397.davem@davemloft.net>
+	<4550FFA9.8040503@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753767AbWKGWTS@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11629182482529@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: tim.c.chen@linux.intel.com, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50839
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1753765AbWKGWWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 17:22:00 -0500
+To: jheffner@psc.edu
+In-Reply-To: <4550FFA9.8040503@psc.edu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Nov 2006 19:50:48 +0300
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+From: John Heffner <jheffner@psc.edu>
+Date: Tue, 07 Nov 2006 16:50:33 -0500
 
-> This patch includes core kevent files:
->  * userspace controlling
->  * kernelspace interfaces
->  * initialization
->  * notification state machines
+> The only stack I know of that does this currently is linux, and in doing 
+> so does not conform to the spec. ;)  Sending to a BSD receiver will 
+> result in the same behavior, so the "right place" to fix this is on the 
+> sending side.  (I know the issue of packet vs. byte counting has come up 
+> many times over the last 10 years or so, and many arguments have been 
+> made on either side... I don't mean this to be flame bait but it's clear 
+> what will happen in this scenario.)
 
-I fixed up all the rejects, but your syscall numbers changed.  Please
-always raise patches against the latest kernel.
+John, you cannot change the N-million existing Linux systems
+out there doing congestion control via byte counting.  You
+cannot do this no matter how much you wish it so :-)
