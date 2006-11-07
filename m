@@ -1,45 +1,33 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Tue, 07 Nov 2006 16:50:33 -0500
-Message-ID: <4550FFA9.8040503@psc.edu>
-References: <1162924354.10806.172.camel@localhost.localdomain> <20061107.124557.21592397.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take23 1/5] kevent: Description.
+Date: Tue, 7 Nov 2006 14:16:40 -0800
+Message-ID: <20061107141640.78a9b98c.akpm@osdl.org>
+References: <11629182482886@2ka.mipt.ru>
+	<1162918248891@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tim.c.chen@linux.intel.com, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:12996 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S1753196AbWKGVvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 16:51:16 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061107.124557.21592397.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:27268 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752942AbWKGWSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 17:18:38 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <1162918248891@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> If we don't ACK every two segments, stacks which grow the congestion
-> window based upon packet counting will not grow the congestion window
-> properly when they are sending smaller than MSS sized segments.
+On Tue, 7 Nov 2006 19:50:48 +0300
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-The only stack I know of that does this currently is linux, and in doing 
-so does not conform to the spec. ;)  Sending to a BSD receiver will 
-result in the same behavior, so the "right place" to fix this is on the 
-sending side.  (I know the issue of packet vs. byte counting has come up 
-many times over the last 10 years or so, and many arguments have been 
-made on either side... I don't mean this to be flame bait but it's clear 
-what will happen in this scenario.)
+> Description.
 
-One way of viewing the current situation is that linux's packet counting 
-plus ABC is more conservative than byte counting -- sometimes much more 
-so.  Packet counting without ABC may be more or less conservative than 
-byte counting, depending on segment sizes and receiver ACK strategy. 
-Without ABC, linux is vulnerable to aggressive ACKing to inflate the 
-cwnd.  This is a kind of ugly state of affairs.
-
-Unfortunately I see no clear way to reconcile these issues short of 
-switching to byte counting.  Obviously this would be a big change as 
-packet counting is deeply ingrained in not only the congestion control 
-but also the recovery code.
-
-   -John
+I converted this into Documentation/kevent.txt.  It looks like crap in an 80-col
+xterm btw.
