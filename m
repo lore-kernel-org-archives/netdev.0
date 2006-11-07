@@ -1,60 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Fw: 2.6.19-rc1: Volanomark slowdown
-Date: Tue, 7 Nov 2006 11:25:55 -0800
-Message-ID: <20061107112555.60b52715@freekitty>
-Reply-To: Tim Chen <tim.c.chen@linux.intel.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take21 0/4] kevent: Generic event handling mechanism.
+Date: Tue, 7 Nov 2006 11:34:00 -0800
+Message-ID: <20061107113400.880e1ce9.akpm@osdl.org>
+References: <11619654014077@2ka.mipt.ru>
+	<45506D51.30604@garzik.org>
+	<20061107115111.GA13028@2ka.mipt.ru>
+	<45507CD4.5030600@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20880 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1752449AbWKGT00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 14:26:26 -0500
-To: John Heffner <jheffner@psc.edu>,
-	"David S. Miller" <davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:18838 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752129AbWKGTfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 14:35:33 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45507CD4.5030600@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 07 Nov 2006 07:32:20 -0500
+Jeff Garzik <jeff@garzik.org> wrote:
 
+> Evgeniy Polyakov wrote:
+> > Mmap ring buffer implementation was stopped by Andrew Morton and Ulrich
+> > Drepper, process' memory is used instead. copy_to_user() is slower (and
+> > some times noticebly), but there are major advantages of such approach.
+> 
+> 
+> hmmmm.  I say there are advantages to both.
 
-Begin forwarded message:
+My problem with the old mmapped ringbuffer was that it permitted each user
+to pin (typically) 48MB of unswappable memory.  Plus this pinned-memory
+problem would put upper bounds on the ring size.
 
-Date: Tue, 07 Nov 2006 10:32:34 -0800
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Newsgroups: linux.dev.kernel
-Subject: 2.6.19-rc1: Volanomark slowdown
+> Perhaps create a "kevent_direct_limit" resource limit for each thread. 
+> By default, each thread could mmap $n pinned pagecache pages.  Sysadmin 
+> can tune certain app resource limits to permit more.
+> 
+> I would think that retaining the option to avoid copy_to_user() 
+> -somehow- in -some- cases would be wise.
 
+What Evgeniy means here is that copy_to_user() is slower than memcpy() (on
+his machine, with his kernel config, at least).
 
+Which is kinda weird and unexpected and is something which we should
+investigate independently from this project.  (Rather than simply going
+and bypassing it!)
 
-The patch
-
-[TCP]: Send ACKs each 2nd received segment
-commit: 1ef9696c909060ccdae3ade245ca88692b49285b
-http://kernel.org/git/?
-p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1ef9696c909060ccdae3ade245ca88692b49285b
-
-reduced Volanomark benchmark throughput by 10%.  
-This is because Volanomark sends 
-short message (<100 bytes) on its TCP
-connections.  This patch increases the number of ACKs 
-traffic by 3.5 times.  
-
-By adopting this patch, we assume that with
-small segment, having short delay is important 
-enough that we are willing to reduce bandwidth 
-with more ACKs.  
-
-Is there any real application out there
-that this new behavior could be a concern?
-
-Tim 
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
