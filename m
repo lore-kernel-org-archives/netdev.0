@@ -1,51 +1,39 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: "Zhao Xiaoming" <xiaoming.nj@gmail.com>
 Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
-Date: Tue, 07 Nov 2006 06:53:36 +0100
-Message-ID: <45501F60.4070606@cosmosbay.com>
+Date: Tue, 7 Nov 2006 14:00:00 +0800
+Message-ID: <f55850a70611062200x764bf09fkbbaeb61e66138c91@mail.gmail.com>
 References: <f55850a70611052207j384e1d3flaf40bb9dd74df7c5@mail.gmail.com>
- <200611061022.57840.dada1@cosmosbay.com>
- <f55850a70611060146o1b2adcabq8c1313f6711f3f4e@mail.gmail.com>
- <200611061433.50912.dada1@cosmosbay.com>
- <f55850a70611061848g5f316399oe877a38705e7f99b@mail.gmail.com>
+	 <454EE580.5040506@cosmosbay.com> <454F6483.4010307@osdl.org>
+	 <f55850a70611061850i47ca73adt6a5c71e6732db69e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604005mt.neufgp.fr ([84.96.92.11]:4844 "EHLO smtp.Neuf.fr")
-	by vger.kernel.org with ESMTP id S1754049AbWKGFxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 00:53:32 -0500
-In-reply-to: <f55850a70611061848g5f316399oe877a38705e7f99b@mail.gmail.com>
-To: Zhao Xiaoming <xiaoming.nj@gmail.com>
+Received: from nz-out-0102.google.com ([64.233.162.193]:21932 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1754050AbWKGGAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 01:00:01 -0500
+Received: by nz-out-0102.google.com with SMTP id z3so1036651nzf
+        for <netdev@vger.kernel.org>; Mon, 06 Nov 2006 22:00:00 -0800 (PST)
+To: linux-kernel@vger.kernel.org,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+In-Reply-To: <f55850a70611061850i47ca73adt6a5c71e6732db69e@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zhao Xiaoming a =E9crit :
-> On 11/6/06, Eric Dumazet <dada1@cosmosbay.com> wrote:
->> In fact, your kernel has CONFIG_4KSTACKS, kernel thread stacks use 4=
-K=20
->> instead
->> of 8K.
->>
->> If you want to increase LOWMEM, (and keep 32bits kernel), you can ch=
-ose a
->> 2G/2G user/kernel split, instead of the 3G/1G default split.
->> (see config : CONFIG_VMSPLIT_2G)
->>
->> Eric
+The latest update:
+    It seems that Linux kernel memory management mechanisms including
+buddy and slab algorisms are not very efficient under my test
+conditions that tcp stack requires a lot of (hundreds of MB) packet
+buffers and release them very frequently.
+    Here is the proof. After change my kernel configuration to support
+2/2 VM splition, LOMEM consumption reduced to 270M bytes compared with
+640M bytes of the 1/3 kernel. All test conditions are the same and
+memory pages allocated by TCP stack are also the same, 34K ~ 38K
+pages. In other words, 'lost' memory changed from ~500M to ~130M.
+Thus, I have nothing to do but guessing the much more free pages make
+the slab/buddy algorisms more efficient and waste less memory.
+    Finally I got what I want. Thank you all for your help and advices.
 
-> Thank you for your advice. I know increase LOMEM could be help, but
-> now my concern is why I lose my 500M bytes memory after excluding all
-> known memory cost.
-
-Unfortunatly you dont provide very much details.
-AFAIK you didnt even gave whcih version of linux you run, which program=
-s you=20
-run...
-You keep answering where you 'lost' your mem, it's quite buging.
-Maybe some Oracles on this list will see the light for you, before exch=
-anging=20
-100 mails with you ?
-
+Xiaoming.
