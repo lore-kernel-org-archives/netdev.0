@@ -1,39 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [XFRM/IPV6] fix next header offset in decode_session
-Date: Tue, 07 Nov 2006 01:48:24 -0800 (PST)
-Message-ID: <20061107.014824.50860428.yoshfuji@linux-ipv6.org>
-References: <20061107093002.GA6576@palpatine.dev.6wind.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: Zero checksum in netconsole/netdump packets
+Date: Tue, 7 Nov 2006 10:09:02 +0000
+Message-ID: <200611071009.02424@strip-the-willow>
+References: <454FC80B.9090001@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-6"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:35595 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1752936AbWKGJpe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Nov 2006 04:45:34 -0500
-To: jean-philippe.andriot@6WIND.com
-In-Reply-To: <20061107093002.GA6576@palpatine.dev.6wind.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62659 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1753914AbWKGKJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 05:09:29 -0500
+To: Chris Lalancette <clalance@redhat.com>
+In-Reply-To: <454FC80B.9090001@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20061107093002.GA6576@palpatine.dev.6wind.com> (at Tue, 7 Nov 2006 10:30:02 +0100), Jean-Philippe Andriot <jean-philippe.andriot@6WIND.com> says:
-
-> The way to get the next protocol number of an IPv6 tunnel changes
-> after introducing IP6CB, but I think we should go back to the
-> previous version here.
-:
->         struct ipv6_opt_hdr *exthdr;
-> -       u8 nexthdr = skb->nh.raw[IP6CB(skb)->nhoff];
-> +       u8 nexthdr = skb->nh.ipv6h->nexthdr;
->  
->         memset(fl, 0, sizeof(struct flowi));
-
-I disagree.
-
-If you do this, you refer to the first extension headers only.
-We need to skip preceding extension headers using IP6CB(skb)->nhoff,
-which holds the offset to the current nexthdr.
-
---yoshfuji
+Quoting Chris Lalancette:
+|  Hello,
+|       I realized that all of the packets that go from the crashing machine to the netdump server have a zero checksum. 
+<snip>
+|       Assuming that this is just an oversight, attached is a simple patch to compute the UDP checksum in netpoll_send_udp.
+|  
+|  Signed-off-by: Chris Lalancette <clalance@redhat.com>
+|  
+RFC 768 allows to not compute the checksum by leaving uh->check at 0 - hence it is not illegal.
+But without David's suggestion the code is not valid, since otherwise there is no way of 
+distinguishing a computed `0' from an ignored `0' field:
+ if ( udph->check == 0 )
+	udph->check = -1;
