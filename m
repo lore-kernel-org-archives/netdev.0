@@ -1,74 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [take21 0/4] kevent: Generic event handling mechanism.
-Date: Tue, 07 Nov 2006 06:26:09 -0500
-Message-ID: <45506D51.30604@garzik.org>
-References: <11619654014077@2ka.mipt.ru>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: Zero checksum in netconsole/netdump packets
+Date: Tue, 7 Nov 2006 12:35:06 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0611071232450.10769@bizon.gios.gov.pl>
+References: <454FC80B.9090001@redhat.com> <200611071009.02424@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-237262693-1162899306=:10769"
+Cc: Chris Lalancette <clalance@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:9400 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1754189AbWKGL03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 06:26:29 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11619654014077@2ka.mipt.ru>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:16594 "EHLO
+	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S1754197AbWKGLfR
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 06:35:17 -0500
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+In-Reply-To: <200611071009.02424@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Generic event handling mechanism.
-> 
-> Consider for inclusion.
-> 
-> Changes from 'take20' patchset:
->  * new ring buffer implementation
->  * removed artificial limit on possible number of kevents
-> With this release and fixed userspace web server it was possible to 
-> achive 3960+ req/s with client connection rate of 4000 con/s
-> over 100 Mbit lan, data IO over network was about 10582.7 KB/s, which
-> is too close to wire speed if we get into account headers and the like.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-OK, now that ring buffer is here, I definitely like the direction this 
-code is taking.  I just committed the patches to a local repo for a good 
-in-depth review.
-
-Could you write up a simple text file, documenting (a) your proposed 
-syscalls and (b) your ring buffer design?
+---187430788-237262693-1162899306=:10769
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
-Overall I have a Linux "design wish", that I hope kevent can fulfill:
 
-To develop completely async applications (generally network servers, in 
-Linux-land) and increase the chance of zero-copy I/O, network and file 
-I/O submission and completion should be as async as possible.
+On Tue, 7 Nov 2006, Gerrit Renker wrote:
 
-As such, syscalls themselves have come a serializing bottleneck that 
-isn't strictly necessary.  A fully-async application should be able to 
-submit file read, file write, and network write requests 
-asynchronously... in batches.  Network reads, and file I/O completions 
-should be received asynchronously, potentially in batches.
+> Quoting Chris Lalancette:
+> |  Hello,
+> |       I realized that all of the packets that go from the crashing mach=
+ine to the netdump server have a zero checksum.
+> <snip>
+> |       Assuming that this is just an oversight, attached is a simple pat=
+ch to compute the UDP checksum in netpoll_send_udp.
+> |
+> |  Signed-off-by: Chris Lalancette <clalance@redhat.com>
+> |
+> RFC 768 allows to not compute the checksum by leaving uh->check at 0 - he=
+nce it is not illegal.
 
-Even with epoll and AIO syscalls, Linux isn't quite up to the task.
+BTW: leaving UDP checksum at 0 is only valid for IPv4, with IPv6 we _have=
+=20
+to_ compute a checksum.
 
-So to me, the design of the userspace interface that solves this problem 
-is a fundamental issue.
+Best regards,
 
-My best guess at a solution would be two classes of mmap'd ring buffers, 
-request and response.  Let the app allocate one or more.  Then have two 
-hooks, (a) kick the kernel to read the request ring, and (b) kick the 
-app when one or more events have arrived on a ring.
-
-But that's just thinking out loud.  I welcome any solution that gives 
-userspace a fully-async submission/completion interface for both network 
-and file I/O.
-
-Setting the standard for a good interface here means Linux will kick ass 
-for decades more to come ;-)  This is IMO a Big Deal(tm).
-
-	Jeff
-
-
+ =09=09=09Krzysztof Ol=EAdzki
+---187430788-237262693-1162899306=:10769--
