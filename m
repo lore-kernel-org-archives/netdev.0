@@ -1,37 +1,60 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] Rewrite e100_phys_id
-Date: Tue, 07 Nov 2006 14:34:57 -0800
-Message-ID: <45510A11.9070803@intel.com>
-References: <20061026191154.GG5591@parisc-linux.org> <4550D16A.1090008@intel.com> <20061107190632.GW27140@parisc-linux.org>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [take23 3/5] kevent: poll/select() notifications.
+Date: Tue, 7 Nov 2006 14:53:33 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611071449410.17731@alien.or.mcafeemobile.com>
+References: <11629182482792@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45643 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1753781AbWKGWfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Nov 2006 17:35:05 -0500
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20061107190632.GW27140@parisc-linux.org>
+Received: from x35.xmailserver.org ([69.30.125.51]:47315 "EHLO
+	x35.xmailserver.org") by vger.kernel.org with ESMTP
+	id S1752916AbWKGWxk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 17:53:40 -0500
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
+	id <S1FBA03> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Tue, 7 Nov 2006 14:53:33 -0800
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <11629182482792@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Tue, Nov 07, 2006 at 10:33:14AM -0800, Auke Kok wrote:
->> Matthew Wilcox wrote:
->>> Tested on the internal interface of an HP Integrity rx2600.
->> bad news, it's completely hosed. The adapter does some indistinguishable 
->> blinking for a second, then stops blinking alltogether.
-> 
-> Weird.  I tested it on the only e100 I have access to, and it worked.
-> I've just reviewed the patch you quoted below, and I don't see what the
-> problem is.  
+On Tue, 7 Nov 2006, Evgeniy Polyakov wrote:
 
-I don't understand it either, and will dig into this after I get more coffee.
+> +static int kevent_poll_wait_callback(wait_queue_t *wait,
+> +		unsigned mode, int sync, void *key)
+> +{
+> +	struct kevent_poll_wait_container *cont =
+> +		container_of(wait, struct kevent_poll_wait_container, wait);
+> +	struct kevent *k = cont->k;
+> +	struct file *file = k->st->origin;
+> +	u32 revents;
+> +
+> +	revents = file->f_op->poll(file, NULL);
+> +
+> +	kevent_storage_ready(k->st, NULL, revents);
+> +
+> +	return 0;
+> +}
 
-point is that `ethtool -p` now exits immediately after 500ms. it should loop until ^C is 
-pressed. Somehow msleep_interruptable is always returning 0 on my platform? very strange.
+Are you sure you can safely call file->f_op->poll() from inside a callback 
+based wakeup? The low level driver may be calling the wakeup with one of 
+its locks held, and during the file->f_op->poll may be trying to acquire 
+the same lock. I remember there was a discussion about this, and assuming 
+the above not true, made epoll code more complex (and slower, since an 
+extra O(R) loop was needed to fetch events).
 
-Auke
+
+
+- Davide
+
+
