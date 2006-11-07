@@ -1,60 +1,30 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [take23 3/5] kevent: poll/select() notifications.
-Date: Tue, 7 Nov 2006 14:53:33 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611071449410.17731@alien.or.mcafeemobile.com>
-References: <11629182482792@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.19-rc4-git10][PKT_SCHED] sch_htb: INIT_HLIST_NODE
+ after hlist_del()
+Date: Tue, 07 Nov 2006 14:55:12 -0800 (PST)
+Message-ID: <20061107.145512.75430294.davem@davemloft.net>
+References: <20061106094449.3b8253b9@freekitty>
+	<20061107064943.GA998@ff.dom.local>
+	<20061107095007.71c11b47@freekitty>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@o2.pl, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([69.30.125.51]:47315 "EHLO
-	x35.xmailserver.org") by vger.kernel.org with ESMTP
-	id S1752916AbWKGWxk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Nov 2006 17:53:40 -0500
-Received: from alien.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
-	id <S1FBA03> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Tue, 7 Nov 2006 14:53:33 -0800
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11629182482792@2ka.mipt.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44483
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1753417AbWKGWzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 17:55:12 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061107095007.71c11b47@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Nov 2006, Evgeniy Polyakov wrote:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 7 Nov 2006 09:50:07 -0800
 
-> +static int kevent_poll_wait_callback(wait_queue_t *wait,
-> +		unsigned mode, int sync, void *key)
-> +{
-> +	struct kevent_poll_wait_container *cont =
-> +		container_of(wait, struct kevent_poll_wait_container, wait);
-> +	struct kevent *k = cont->k;
-> +	struct file *file = k->st->origin;
-> +	u32 revents;
-> +
-> +	revents = file->f_op->poll(file, NULL);
-> +
-> +	kevent_storage_ready(k->st, NULL, revents);
-> +
-> +	return 0;
-> +}
+> Your patch duplicated the code in hlist_del_init().  Why not do:
 
-Are you sure you can safely call file->f_op->poll() from inside a callback 
-based wakeup? The low level driver may be calling the wakeup with one of 
-its locks held, and during the file->f_op->poll may be trying to acquire 
-the same lock. I remember there was a discussion about this, and assuming 
-the above not true, made epoll code more complex (and slower, since an 
-extra O(R) loop was needed to fetch events).
+Indeed, this is the patch I will apply.
 
-
-
-- Davide
-
-
+Thanks Stephen.
