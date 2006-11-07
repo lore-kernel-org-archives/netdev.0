@@ -1,40 +1,41 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: ZONE_NORMAL memory exhausted by 4000 TCP sockets
-Date: Tue, 7 Nov 2006 11:06:53 +0300
-Message-ID: <200611071106.53975.a1426z@gawab.com>
+From: Jean-Philippe Andriot <jean-philippe.andriot@6WIND.com>
+Subject: [PATCH] [XFRM/IPV6] fix next header offset in decode_session
+Date: Tue, 7 Nov 2006 10:30:02 +0100
+Message-ID: <20061107093002.GA6576@palpatine.dev.6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:51723 "EHLO
+	proxy.6wind.com") by vger.kernel.org with ESMTP id S1753912AbWKGJaE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Nov 2006 04:30:04 -0500
+Received: from palpatine.dev.6wind.com (unknown [10.16.0.38])
+	by proxy.6wind.com (Postfix) with ESMTP id 30966525F84
+	for <netdev@vger.kernel.org>; Tue,  7 Nov 2006 10:30:03 +0100 (CET)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zhao Xiaoming wrote:
-> The latest update:
->     It seems that Linux kernel memory management mechanisms including
-> buddy and slab algorisms are not very efficient under my test
-> conditions that tcp stack requires a lot of (hundreds of MB) packet
-> buffers and release them very frequently.
->     Here is the proof. After change my kernel configuration to support
-> 2/2 VM splition, LOMEM consumption reduced to 270M bytes compared with
-> 640M bytes of the 1/3 kernel. All test conditions are the same and
-> memory pages allocated by TCP stack are also the same, 34K ~ 38K
-> pages. In other words, 'lost' memory changed from ~500M to ~130M.
-> Thus, I have nothing to do but guessing the much more free pages make
-> the slab/buddy algorisms more efficient and waste less memory.
 
-I kind of agree, and always compile for a 2G/2G VM split, as this also seems 
-to affect certain OOM conditions positively.
+The way to get the next protocol number of an IPv6 tunnel changes
+after introducing IP6CB, but I think we should go back to the
+previous version here.
+In our case I think there was a confusion between the pointer
+on the first byte of the next header and the value of the next
+header field.
 
-What isn't quite clear though, why is the 2G/2G VM split not the default?
+Signed-off-by: Andriot Jean-Philippe <jean-philippe.andriot@6wind.com>
 
-
-Thanks!
-
---
-Al
+--- xfrm6_policy.c.org  2006-11-07 09:45:47.000000000 +0100
++++ xfrm6_policy.c      2006-11-07 09:46:19.000000000 +0100
+@@ -255,7 +255,7 @@ _decode_session6(struct sk_buff *skb, st
+        u16 offset = skb->h.raw - skb->nh.raw;
+        struct ipv6hdr *hdr = skb->nh.ipv6h;
+        struct ipv6_opt_hdr *exthdr;
+-       u8 nexthdr = skb->nh.raw[IP6CB(skb)->nhoff];
++       u8 nexthdr = skb->nh.ipv6h->nexthdr;
+ 
+        memset(fl, 0, sizeof(struct flowi));
+        ipv6_addr_copy(&fl->fl6_dst, &hdr->daddr);
 
