@@ -1,109 +1,42 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
-Date: Thu, 09 Nov 2006 00:07:37 +0100
-Message-ID: <45526339.3040506@cosmosbay.com>
-References: <1154985aa0591036@2ka.mipt.ru>
- <20061107141718.f7414b31.akpm@osdl.org> <20061108082147.GA2447@2ka.mipt.ru>
- <200611081551.14671.dada1@cosmosbay.com>
- <20061108140307.da7d815f.akpm@osdl.org>
- <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 08 Nov 2006 14:32:08 -0800
+Message-ID: <1163025128.10806.217.camel@localhost.localdomain>
+References: <1162924354.10806.172.camel@localhost.localdomain>
+	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
+	 <20061108162955.GA4364@suse.de>
+	 <1163011132.10806.189.camel@localhost.localdomain>
+	 <20061108221028.GA16889@suse.de>
+	 <1163023652.10806.203.camel@localhost.localdomain>
+	 <20061108150007.49eaea68@freekitty>
+Reply-To: tim.c.chen@linux.intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Olaf Kirch <okir@suse.de>, Arjan van de Ven <arjan@infradead.org>,
+	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604005mt.neufgp.fr ([84.96.92.11]:65246 "EHLO smtp.Neuf.fr")
-	by vger.kernel.org with ESMTP id S1423926AbWKHXHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 18:07:30 -0500
-In-reply-to: <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
-To: Davide Libenzi <davidel@xmailserver.org>
+Received: from mga05.intel.com ([192.55.52.89]:63347 "EHLO
+	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1161709AbWKHXVh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 18:21:37 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061108150007.49eaea68@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Davide Libenzi a =E9crit :
-> On Wed, 8 Nov 2006, Andrew Morton wrote:
->=20
->> On Wed, 8 Nov 2006 15:51:13 +0100
->> Eric Dumazet <dada1@cosmosbay.com> wrote:
->>
->>> [PATCH] eventpoll : In case a fault occurs during copy_to_user(), w=
-e should=20
->>> report the count of events that were successfully copied into user =
-space,=20
->>> instead of EFAULT. That would be consistent with behavior of read/w=
-rite()=20
->>> syscalls for example.
->>>
->>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->>>
->>>
->>>
->>> [eventpoll.patch  text/plain (424B)]
->>> --- linux/fs/eventpoll.c	2006-11-08 15:37:36.000000000 +0100
->>> +++ linux/fs/eventpoll.c	2006-11-08 15:38:31.000000000 +0100
->>> @@ -1447,7 +1447,7 @@
->>>  				       &events[eventcnt].events) ||
->>>  			    __put_user(epi->event.data,
->>>  				       &events[eventcnt].data))
->>> -				return -EFAULT;
->>> +				return eventcnt ? eventcnt : -EFAULT;
->>>  			if (epi->event.events & EPOLLONESHOT)
->>>  				epi->event.events &=3D EP_PRIVATE_BITS;
->>>  			eventcnt++;
->>>
->> Definitely a better interface, but I wonder if it's too late to chan=
-ge it.
->>
->> An app which does
->>
->> 	if (epoll_wait(...) =3D=3D -1)
->> 		barf(errno);
->> 	else
->> 		assume_all_events_were_received();
->>
->> will now do the wrong thing.
->>
->> otoh, such an applciation basically _has_ to use the epoll_wait()
->> return value to work out how many events it received, so maybe it's =
-OK...
->=20
-> I don't care about both ways, but sys_poll() does the same thing epol=
-l=20
-> does right now, so I would not change epoll behaviour.
->=20
+On Wed, 2006-11-08 at 15:00 -0800, Stephen Hemminger wrote:
 
-Sure poll() cannot return a partial count, since its return value is :
+> 
+> Optimizing for loopback is perversion; perversion can be fun but it gets
+> to be a obsession then it's sick.
+> 
 
-On success, a positive number is returned, where the number returned is
-        the  number  of structures which have non-zero revents fields (=
-in other
-        words, those descriptors with events or errors reported).
+It is not my intention to optimize for this case, but rather to
+detect change in kernel behavior.
 
-poll() is non destructive (it doesnt change any state into kernel). Ret=
-urning=20
-EFAULT in case of an error in the very last bit of user area is mandato=
-ry.
+That's why in my original mail I ask if increase in ACKs could
+cause problem for any real application.  
 
-On the contrary :
-
-epoll_wait() does return a count of transfered events, and update some =
-state=20
-in kernel (it consume Edge Trigered events : They can be lost forever i=
-f not=20
-reported to user)
-
-So epoll_wait() is much more like read(), that also updates file state =
-in=20
-kernel (current file position)
-
+Tim
