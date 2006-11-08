@@ -1,60 +1,52 @@
-From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
-Subject: RE: [PATCH 3/3] mlsxfrm: Various fixes
-Date: Wed, 8 Nov 2006 13:17:05 -0600
-Message-ID: <000701c7036a$7b269010$cc0a010a@tcssec.com>
-References: <1163007248.12241.58.camel@moss-spartans.epoch.ncsc.mil>
-Reply-To: <vyekkirala@trustedcs.com>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 08 Nov 2006 10:38:52 -0800
+Message-ID: <1163011132.10806.189.camel@localhost.localdomain>
+References: <1162924354.10806.172.camel@localhost.localdomain>
+	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
+	 <20061108162955.GA4364@suse.de>
+Reply-To: tim.c.chen@linux.intel.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Paul Moore" <paul.moore@hp.com>, <netdev@vger.kernel.org>,
-	<selinux@tycho.nsa.gov>, <jmorris@namei.org>
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:63648 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161704AbWKHTRY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 14:17:24 -0500
-To: "'Stephen Smalley'" <sds@tycho.nsa.gov>,
-	"Venkat Yekkirala" <vyekkirala@tcsfw4.tcs-sec.com>
-In-Reply-To: <1163007248.12241.58.camel@moss-spartans.epoch.ncsc.mil>
+Received: from mga05.intel.com ([192.55.52.89]:53766 "EHLO
+	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1161694AbWKHT2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 14:28:21 -0500
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20061108162955.GA4364@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > >  Not sure
-> > > though when
-> > > that would apply here,
-> >
-> > It could apply to xfrms if they happen to be using the context
-> > represented by any of the initial SIDs.
->
-> Which would happen when?
+On Wed, 2006-11-08 at 17:29 +0100, Olaf Kirch wrote:
 
-If one were attempting to use a context pertaining to the unlabeled init
-sid in the SPD and/or the SAD. But would I be correct in assuming that the
-same sid (unlabeled init sid in all likelyhood) would end up being returned
-when the context is turned into a sid, resulting in the SPD and the SAD
-using
-the same init sid, thus making a full-context compare unnecessary?
+> Is it proven that the number of ACKs actually cause bandwidth problems?
+> I found Volanomark to exercise the scheduler more than anything else,
+> so maybe the slowdown, while triggered by an increased number of ACKs,
+> is caused by something else entirely.
+> 
 
->
-> > > and it would only apply if both SIDs
-> > > were initial
-> > > SIDs.
-> >
-> > OK. Will narrow the full context comparison to just this case.
->
-> What's the harm from just using the SID comparison and
-> allowing for the
-> possibility that there might be a few duplicates in rare
-> circumstances?
-> Does it break any assumptions in the rest of the logic?
+The patch in question affects purely TCP and not the scheduler.  I don't
+think the scheduler has anything to do with the slowdown seen after
+the patch is applied.
 
-The best I can think of is if the SA's sid doesn't match the
-socket's SID, IKE would come into play, if it's configured.
+The total number of messages being exchanged around the chatrooms in 
+Volanomark remain unchanged.  But ACKS increase by 3.5 times and
+segments received increase by 38% from netstat.  
 
-I also wanted to conversely ask what harm exists if we did
-a full-context compare in the event the sids didn't match?
+ACK is comparable in size to the actual Volanomark messages as 
+those are  pretty small (<100 byte).
 
-Are we just trying to generally avoid extra code?
+So I think it is reasonable to conclude that the increase in TCP traffic
+reduce the bandwidth and throughput in Volanomark.
 
+However, Volanomark is just a benchmark to alert us to changes.  
+If in real applications with small segment, this patch is 
+needed to fix congestion window adjustment as Dave pointed 
+out, and impact on bandwidth not as important, so be it.
+
+Tim
