@@ -1,114 +1,34 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: Intel 82559 NIC corrupted EEPROM
-Date: Wed, 08 Nov 2006 08:17:59 -0800
-Message-ID: <45520337.2070303@intel.com>
-References: <454B7C3A.3000308@privacy.net> <454BF0F1.5050700@zytor.com> <45506C9A.5010009@privacy.net> <4551B7B8.8080601@privacy.net>
+From: Olaf Kirch <okir@suse.de>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 8 Nov 2006 17:29:55 +0100
+Message-ID: <20061108162955.GA4364@suse.de>
+References: <1162924354.10806.172.camel@localhost.localdomain> <1163001318.3138.346.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	hpa@zytor.com, saw@saw.sw.com.sg
+Content-Type: text/plain; charset=us-ascii
+Cc: tim.c.chen@linux.intel.com, linux-kernel@vger.kernel.org,
+	davem@sunset.davemloft.net, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17190 "EHLO mga01.intel.com")
-	by vger.kernel.org with ESMTP id S1161107AbWKHQSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 11:18:39 -0500
-To: John <me@privacy.net>
-In-Reply-To: <4551B7B8.8080601@privacy.net>
+Received: from cantor2.suse.de ([195.135.220.15]:42730 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1161138AbWKHQaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 11:30:10 -0500
+To: Arjan van de Ven <arjan@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1163001318.3138.346.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John wrote:
-> I have a motherboard with three on-board 82559 NICs.
-> 
->  o eepro100.ko properly initializes all three NICs
->  o e100.ko fails to initialize one of them
-> 
-> NOTE: With kernel 2.6.14, e100.ko fails to initialize the NIC with MAC 
-> address 00:30:64:04:E6:E4. With kernel 2.6.18 e100.ko fails to 
-> initialize the NIC with MAC address 00:30:64:04:E6:E5.
-> 
-> The problem is not an incorrect checksum. (Donald Becker's dump utility 
-> reports a correct checksum for all three NICs.) The problem seems to be 
-> that e100.ko fails to read the contents of one of the EEPROMs.
+On Wed, Nov 08, 2006 at 04:55:18PM +0100, Arjan van de Ven wrote:
+> I wonder if it's an option to use low priority QoS fields for these acks
+> (heck I don't even know if ACKs have such fields in their packet) so
+> that they can get dropped if there are more packets then there is
+> bandwidth ....
 
-[snip]
+Is it proven that the number of ACKs actually cause bandwidth problems?
+I found Volanomark to exercise the scheduler more than anything else,
+so maybe the slowdown, while triggered by an increased number of ACKs,
+is caused by something else entirely.
 
-> 'insmod e100.ko eeprom_bad_csum_allow=1' reports:
-> 
-> e100: Intel(R) PRO/100 Network Driver, 3.5.10-k2-NAPI
-> e100: Copyright(c) 1999-2005 Intel Corporation
-> ACPI: PCI Interrupt Link [LNKA] enabled at IRQ 12
-> PCI: setting IRQ 12 as level-triggered
-> ACPI: PCI Interrupt 0000:00:08.0[A] -> Link [LNKA] -> GSI 12 (level, 
-> low) -> IRQ 12
-> e100: eth0: e100_probe: addr 0xe5300000, irq 12, MAC addr 00:30:64:04:E6:E4
-> ACPI: PCI Interrupt Link [LNKB] enabled at IRQ 10
-> PCI: setting IRQ 10 as level-triggered
-> ACPI: PCI Interrupt 0000:00:09.0[A] -> Link [LNKB] -> GSI 10 (level, 
-> low) -> IRQ 10
-> e100: 0000:00:09.0: e100_eeprom_load: EEPROM corrupted
-> e100: 0000:00:09.0: e100_probe: Invalid MAC address from EEPROM, aborting.
-> ACPI: PCI interrupt for device 0000:00:09.0 disabled
-> e100: probe of 0000:00:09.0 failed with error -11
-
-This is what I was afraid of: even though the code allows you to bypass the EEPROM 
-checksum, the probe fails on a further check to see if the MAC address is valid.
-
-Since something with this NIC specifically made the EEPROM return all 0xff's, the MAC 
-address is automatically invalid, and thus probe fails.
-
-It seems that the driver has more problems with this NIC than just the eeprom checksum 
-being bad. Needless to say this might need fixing.
-
-Can you load the eepro driver and send me the full eeprom dump? Perhaps I can duplicate 
-things over here.
-
-[snip]
-
-> On a related note, I am concerned by this message:
-> 
->    Sleep mode is enabled.  This is not recommended.
->    Under high load the card may not respond to
->    PCI requests, and thus cause a master abort.
->    To clear sleep mode use the '-G 0 -w -w -f' options.
-> 
-> Intel 82559 EEPROM Map and Programming Information (AP-394) states:
-> http://www.intel.com/design/network/applnots/ap394.htm
-> 
-> The Standby Enable bit enables the 82559 to enter standby mode. When 
-> this bit equals 1b, the 82559 is able to recognize an idle state and can 
-> enter standby mode (some internal clocks are stopped for power saving 
-> purposes). The 82559 does not require a PCI clock signal in standby 
-> mode. If this bit equals 0b, the idle recognition circuit is disabled 
-> and the 82559 always remains in an active state. Thus, the 82559 always 
-> requests PCI CLK using the Clockrun mechanism.
-> 
-> Auke, do you agree with Donald Becker's warning?
-
-If you are using the e100 in a performance situation, I would certainly switch it off :)
-
-> If I disable STB, the NICs will waste a bit more power when idle,
-> is that correct? Are there other implications?
-
-hm, I don't know the power specs of e100 that well, so I can't say that it saves 
-significant amounts of power, but I suspect it would.
-
-Power management on nics is hairy business. As suggested, it can take time before the 
-nic powers back up, performance can be impacted, and some commands might return an 
-invalid or unknown value. OTOH our labs here test these things pretty well before they 
-get send out to customers and resales agents, so Beckers cautious wording catches the 
-severity pretty well (recommended).
-
-I would say that under most circumstances, it's safe to enable STB, but you might want 
-to disable it for use in routing and other server applications, where most of the time 
-the NIC is active anyway.
-
-hth
-
-Auke
-
-
-> 
-> Thanks for reading this far!
-> 
-> John
+Olaf
+-- 
+Walks like a duck. Quacks like a duck. Must be a chicken.
