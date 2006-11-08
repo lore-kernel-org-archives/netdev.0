@@ -1,52 +1,50 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: RE: [PATCH 3/3] mlsxfrm: Various fixes
-Date: Wed, 08 Nov 2006 12:34:08 -0500
-Message-ID: <1163007248.12241.58.camel@moss-spartans.epoch.ncsc.mil>
-References: <000601c70343$02fa9fe0$cc0a010a@tcssec.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: e1000: include <net/ip6_checksum.h> for IA64
+Date: Wed, 08 Nov 2006 09:48:35 -0800
+Message-ID: <45521873.20402@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, jmorris@namei.org
+Cc: Andrew Morton <akpm@osdl.org>, NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zombie.ncsc.mil ([144.51.88.131]:46753 "EHLO jazzdrum.ncsc.mil")
-	by vger.kernel.org with ESMTP id S1754612AbWKHRgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 12:36:18 -0500
-To: vyekkirala@TrustedCS.com
-In-Reply-To: <000601c70343$02fa9fe0$cc0a010a@tcssec.com>
+Received: from mga02.intel.com ([134.134.136.20]:23858 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S1161382AbWKHRs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 12:48:59 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-08 at 08:34 -0600, Venkat Yekkirala wrote:
-> > Such duplication can occur among the initial SIDs.
-> 
-> For some reason I thought that could happen between an initial SID
-> and a non-initial SID.
+Here's a slightly better patch to fix ia64 not building atm.
 
-I think only in the case where a non-initial SID has been invalidated by
-policy reload that renders its context illegal and is thus remapped to
-the unlabeled SID.  
+Jeff, please apply this to netdev-2.6#upstream instead of akpm's patch that I acked earlier.
 
-> >  Not sure 
-> > though when
-> > that would apply here,
-> 
-> It could apply to xfrms if they happen to be using the context
-> represented by any of the initial SIDs.
+Of course, someone really should come up with an asm version for ia64 of the missing 
+function ;)
 
-Which would happen when?  
+Cheers,
 
-> > and it would only apply if both SIDs 
-> > were initial
-> > SIDs.
-> 
-> OK. Will narrow the full context comparison to just this case.
+Auke
 
-What's the harm from just using the SID comparison and allowing for the
-possibility that there might be a few duplicates in rare circumstances?
-Does it break any assumptions in the rest of the logic?
+---
 
--- 
-Stephen Smalley
-National Security Agency
+e1000: include <net/ip6_checksum.h> for IA64
 
+IA64 does not have an optimized asm version for ipv6 csum magic. Fall
+back to generic implementation.
+
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index f091042..26e7506 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -61,6 +61,7 @@
+  #include <linux/ip.h>
+  #ifdef NETIF_F_TSO6
+  #include <linux/ipv6.h>
++#include <net/ip6_checksum.h>
+  #endif
+  #include <linux/tcp.h>
+  #include <linux/udp.h>
