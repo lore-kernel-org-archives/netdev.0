@@ -1,42 +1,103 @@
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Wed, 08 Nov 2006 14:32:08 -0800
-Message-ID: <1163025128.10806.217.camel@localhost.localdomain>
-References: <1162924354.10806.172.camel@localhost.localdomain>
-	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
-	 <20061108162955.GA4364@suse.de>
-	 <1163011132.10806.189.camel@localhost.localdomain>
-	 <20061108221028.GA16889@suse.de>
-	 <1163023652.10806.203.camel@localhost.localdomain>
-	 <20061108150007.49eaea68@freekitty>
-Reply-To: tim.c.chen@linux.intel.com
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
+Date: Wed, 8 Nov 2006 15:56:28 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611081526350.23154@alien.or.mcafeemobile.com>
+References: <1154985aa0591036@2ka.mipt.ru> <20061107141718.f7414b31.akpm@osdl.org>
+ <20061108082147.GA2447@2ka.mipt.ru> <200611081551.14671.dada1@cosmosbay.com>
+ <20061108140307.da7d815f.akpm@osdl.org> <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
+ <45526339.3040506@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Olaf Kirch <okir@suse.de>, Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="1795850513-710282051-1163029622=:23154"
+Cc: Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:63347 "EHLO
-	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1161709AbWKHXVh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 18:21:37 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061108150007.49eaea68@freekitty>
+Received: from x35.xmailserver.org ([69.30.125.51]:47077 "EHLO
+	x35.xmailserver.org") by vger.kernel.org with ESMTP
+	id S1161759AbWKHX4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 18:56:31 -0500
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
+	id <S1FC0A6> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Wed, 8 Nov 2006 15:56:29 -0800
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <45526339.3040506@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-08 at 15:00 -0800, Stephen Hemminger wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> 
-> Optimizing for loopback is perversion; perversion can be fun but it gets
-> to be a obsession then it's sick.
-> 
+--1795850513-710282051-1163029622=:23154
+Content-Type: TEXT/PLAIN; CHARSET=X-UNKNOWN
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-It is not my intention to optimize for this case, but rather to
-detect change in kernel behavior.
+On Thu, 9 Nov 2006, Eric Dumazet wrote:
 
-That's why in my original mail I ask if increase in ACKs could
-cause problem for any real application.  
+> Davide Libenzi a =E9crit :
+> >=20
+> > I don't care about both ways, but sys_poll() does the same thing epoll =
+does
+> > right now, so I would not change epoll behaviour.
+> >=20
+>=20
+> Sure poll() cannot return a partial count, since its return value is :
+>=20
+> On success, a positive number is returned, where the number returned is
+>        the  number  of structures which have non-zero revents fields (in =
+other
+>        words, those descriptors with events or errors reported).
+>=20
+> poll() is non destructive (it doesnt change any state into kernel). Retur=
+ning
+> EFAULT in case of an error in the very last bit of user area is mandatory=
+=2E
+>=20
+> On the contrary :
+>=20
+> epoll_wait() does return a count of transfered events, and update some st=
+ate
+> in kernel (it consume Edge Trigered events : They can be lost forever if =
+not
+> reported to user)
+>=20
+> So epoll_wait() is much more like read(), that also updates file state in
+> kernel (current file position)
 
-Tim
+Lost forever means? If there are more processes watching some fd=20
+(external events), they all get their own copy of the events in their own=
+=20
+private epoll fd. It's not that we "steal" things out of the kernel, is=20
+not a 1:1 producer/consumer thing (one producer, 1 queue). It's one=20
+producer, broadcast to all listeners (consumers) thing. The only case=20
+where it'd matter is in the case of multiple threads sharing the same=20
+epoll fd.
+In general, I'd be more for having the userspace get his own SEGFAULT=20
+instead of letting it go with broken parameters. If I'm coding userspace,=
+=20
+and I'm doing something wrong, I like the kernel to let me know, instead=20
+of trying to fix things for me.
+Also, epoll can easily be fixed (add a param to ep_reinject_items() to=20
+re-inject items in case of error/EFAULT) to leave events in the ready-list=
+=20
+and let the EFAULT emerge.=20
+Anyone else has opinions about this?
+
+
+
+
+PS: Next time it'd be great if you Cc: me when posting epoll patches, so=20
+    you avoid Andrew the job of doing it.
+
+
+
+- Davide
+--1795850513-710282051-1163029622=:23154--
