@@ -1,41 +1,64 @@
-From: Ismail Donmez <ismail@pardus.org.tr>
-Subject: HTB warnings
-Date: Thu, 9 Nov 2006 00:16:41 +0200
-Message-ID: <200611090016.41479.ismail@pardus.org.tr>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: Re: why do we mangle checksums for v6 ICMP?
+Date: Wed, 8 Nov 2006 22:28:49 +0000
+Message-ID: <20061108222849.GJ29920@ftp.linux.org.uk>
+References: <20061108221332.GI29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:39578 "EHLO uludag.org.tr")
-	by vger.kernel.org with ESMTP id S1161745AbWKHWRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 17:17:12 -0500
-Received: from vaio.local (unknown [85.101.41.16])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by uludag.org.tr (Postfix) with ESMTP id D52022E2E4DE
-	for <netdev@vger.kernel.org>; Thu,  9 Nov 2006 00:17:06 +0200 (EET)
+Received: from zeniv.linux.org.uk ([195.92.253.2]:44471 "EHLO
+	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1423813AbWKHW2v
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 17:28:51 -0500
+Received: from viro by ZenIV.linux.org.uk with local (Exim 4.52 #1 (Red Hat Linux))
+	id 1Ghvub-0008AM-He
+	for netdev@vger.kernel.org; Wed, 08 Nov 2006 22:28:49 +0000
 To: netdev@vger.kernel.org
 Content-Disposition: inline
+In-Reply-To: <20061108221332.GI29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, Nov 08, 2006 at 10:13:32PM +0000, Al Viro wrote:
+> 	AFAICS, the rules are:
+> 
+> (1) checksum is 16-bit one's complement of the one's complement sum of
+> relevant 16bit words.
+> 
+> (2) for v4 UDP all-zeroes has special meaning - no checksum; if you get
+> it from (1), send all-ones instead.
+> 
+> (3) for v6 UDP we have the same remapping as in (2), but all-zeroes has
+> different meaning - not "ignore checksum" as in v4, but "reject the
+> packet".
+> 
+> (4) there is no (4).
+> 
+> 	IOW, nobody except UDP has any business doing that 0->0xffff
+> replacement.  However, we have
+>        if (icmp6h->icmp6_cksum == 0)
+>                icmp6h->icmp6_cksum = -1;
+> and similar in net/ipv6/raw.c
+> 
+> AFAICS, both went in with (commit ID by linux-hist repository)
+> commit 6bac90985c8b65ffc25839c001aa7ef4831d2915
+> Author: Kazunori Miyazawa <kazunori@miyazawa.org>
+> Date:   Mon May 12 00:21:19 2003 -0700
+> 
+>     [IPV4]: Introduce ip6_append_data.
+> 
+> That changeset has very similar changes done in udp.c, icmp.c and raw.c;
+> remapping of UDP checksum used to be in the area affected by the changeset
+> and it looks like it got not just preserved in udp.c (as it should), but
+> copied to icmp.c and raw.c instances.
+> 
+> So... is it really needed there?
 
-I use sabishape[1] to shape my traffic that I would normally do,
-
-sabishape -i eth1 -u 40 -d 240 for my 256/64 ADSL line , but recently in dmesg 
-I got following warnings:
-
-HTB: quantum of class 10031 is small. Consider r2q change.
-HTB: quantum of class 10032 is small. Consider r2q change.
-HTB: quantum of class 10033 is small. Consider r2q change.
-
-I thought sabishape might be buggy but wondershaper from LARTC gives the same 
-warnings. So I wonder if anyone have any ideas?
-
-[1]  http://sabi.co.uk/Proj/Small/sabishape-2.1.tar.gz
-
-
-Regards,
-ismail
+While we are at it, shouldn't ip_nat_mangle_udp_packet() do the same
+remapping in
+        } else
+                udph->check = nf_proto_csum_update(*pskb,
+                                                   htons(oldlen) ^ htons(0xFFFF),
+                                                   htons(datalen),
+                                                   udph->check, 1);
+branch?  Note that udp_manip_pkt() does it in the same situation...
