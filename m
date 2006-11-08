@@ -1,44 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take23 2/5] kevent: Core files.
-Date: Wed, 8 Nov 2006 11:24:44 +0300
-Message-ID: <20061108082444.GC2447@2ka.mipt.ru>
-References: <1162918248891@2ka.mipt.ru> <11629182482529@2ka.mipt.ru> <20061107141657.b2378218.akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: net-2.6.20 is up...
+Date: Wed, 08 Nov 2006 00:34:38 -0800 (PST)
+Message-ID: <20061108.003438.84977197.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:59557 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1754424AbWKHIZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 03:25:43 -0500
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061107141657.b2378218.akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11684
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1754431AbWKHIeg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 03:34:36 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 07, 2006 at 02:16:57PM -0800, Andrew Morton (akpm@osdl.org) wrote:
-> On Tue, 7 Nov 2006 19:50:48 +0300
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > This patch includes core kevent files:
-> >  * userspace controlling
-> >  * kernelspace interfaces
-> >  * initialization
-> >  * notification state machines
-> 
-> I fixed up all the rejects, but your syscall numbers changed.  Please
-> always raise patches against the latest kernel.
 
-Will do. NUmbers actually are the same, but added new syscall which was
-against old tree.
-Thanks Andrew.
+At:
 
--- 
-	Evgeniy Polyakov
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+
+I've integrated a series of endianness annotations from Al
+Viro to start things off.
+
+I have some things to review in my queue which I'll work on
+putting in there including:
+
+1) Stephen Hemminger's netpoll queueing cleanups and fixes
+
+2) The pending IPV6 tunnel work by Ville Nuorvala discussed
+   last week.  I have to review that thread carefully as
+   I think there are some semantic issues with those changes
+   which need to be fixed up first.
+
+3) Stephen Hemminger's socket based congestion control selection
+   semantic patches.
+
+There are some other small miscellaneous patches in my queue
+too, like an SCTP warning fix and stuff like that.
+
+Feel free to queue 2.6.20 networking stuff to me.
+
+Thanks.
