@@ -1,111 +1,59 @@
-From: Stephen Clark <Stephen.Clark@seclark.us>
-Subject: Re: New laptop - problems with linux
-Date: Wed, 08 Nov 2006 16:21:12 -0500
-Message-ID: <45524A48.7060703@seclark.us>
-References: <4551EC86.5010600@seclark.us> <4551F3A6.8040807@gmail.com>	 <4551F5B7.1050709@seclark.us>	 <20061108182658.GA21154@electric-eye.fr.zoreil.com>	 <45523289.2010002@seclark.us> <20061108122649.2f79ec1f@freekitty>	 <45523F3F.8010806@seclark.us> <9a8748490611081253y29eeda5fv69fb6109d9ac0867@mail.gmail.com>
-Reply-To: Stephen.Clark@seclark.us
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: RE: [PATCH 3/3] mlsxfrm: Various fixes
+Date: Wed, 08 Nov 2006 16:57:15 -0500
+Message-ID: <1163023035.12241.216.camel@moss-spartans.epoch.ncsc.mil>
+References: <000701c7036a$7b269010$cc0a010a@tcssec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932763AbWKHVVn@vger.kernel.org>
-To: Jesper Juhl <jesper.juhl@gmail.com>
-In-Reply-To: <9a8748490611081253y29eeda5fv69fb6109d9ac0867@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Venkat Yekkirala <vyekkirala@tcsfw4.tcs-sec.com>,
+	Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, jmorris@namei.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mummy.ncsc.mil ([144.51.88.129]:19950 "EHLO jazzhorn.ncsc.mil")
+	by vger.kernel.org with ESMTP id S965740AbWKHV6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 16:58:49 -0500
+To: vyekkirala@trustedcs.com
+In-Reply-To: <000701c7036a$7b269010$cc0a010a@tcssec.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl wrote:
+On Wed, 2006-11-08 at 13:17 -0600, Venkat Yekkirala wrote:
+> > > >  Not sure
+> > > > though when
+> > > > that would apply here,
+> > >
+> > > It could apply to xfrms if they happen to be using the context
+> > > represented by any of the initial SIDs.
+> >
+> > Which would happen when?
+> 
+> If one were attempting to use a context pertaining to the unlabeled init
+> sid in the SPD and/or the SAD. But would I be correct in assuming that the
+> same sid (unlabeled init sid in all likelyhood) would end up being returned
+> when the context is turned into a sid, resulting in the SPD and the SAD
+> using
+> the same init sid, thus making a full-context compare unnecessary?
 
->On 08/11/06, Stephen Clark <Stephen.Clark@seclark.us> wrote:
->  
->
->>Stephen Hemminger wrote:
->>
->>    
->>
->>>On Wed, 08 Nov 2006 14:39:53 -0500
->>>Stephen Clark <Stephen.Clark@seclark.us> wrote:
->>>
->>>
->>>      
->>>
->>>>03:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG
->>>>Network Connection (rev 02)
->>>>       Subsystem: Intel Corporation Unknown device 1000
->>>>
->>>>
->>>>
->>>>        
->>>>
->>>Use the ipw3945 driver and binary regulatory daemon from:
->>>      http://ipw3945.sourceforge.net/#downloads
->>>
->>>
->>>      
->>>
->>Thanks I have that working - I am now struggling with the disk being
->>slower than molasses ( high priority, 1.xx mb/sec  ) and the integrated
->>realtek ethernet
->>( low prioirty - since I got the wifi working ).
->>
->>    
->>
->As Stephen Hemminger wrote, getting your realtek card working should
->be a simple matter of either backporting the recent change that adds
->its PCI ID or simply run a 2.6.19-rc5 kernel that includes it.
->
->  
->
-Thanks Jesper.
- - I might do that - but I have to get the disk working the 1.xx mb/sec on
-my core 2 duo t5600 is killing me.
+Yes.
 
-I also want to thank everyone on this list for being so helpful.
+> > What's the harm from just using the SID comparison and
+> > allowing for the
+> > possibility that there might be a few duplicates in rare
+> > circumstances?
+> > Does it break any assumptions in the rest of the logic?
+> 
+> The best I can think of is if the SA's sid doesn't match the
+> socket's SID, IKE would come into play, if it's configured.
+> 
+> I also wanted to conversely ask what harm exists if we did
+> a full-context compare in the event the sids didn't match?
+> 
+> Are we just trying to generally avoid extra code?
 
-Steve
-
->>>>05:07.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169SC
->>>>Gigabit Ethernet (rev 10)
->>>>       Subsystem: ASUSTeK Computer Inc. Unknown device 1345
->>>>       Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
->>>>ParErr- Stepping- SERR- FastB2B-
->>>>       Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
->>>><TAbort- <MAbort- >SERR- <PERR-
->>>>       Latency: 64 (8000ns min, 16000ns max), Cache Line Size: 32 bytes
->>>>       Interrupt: pin A routed to IRQ 11
->>>>       Region 0: I/O ports at d800 [size=256]
->>>>       Region 1: Memory at fe8ffc00 (32-bit, non-prefetchable) [size=256]
->>>>       Expansion ROM at 80000000 [disabled] [size=128K]
->>>>       Capabilities: [dc] Power Management version 2
->>>>               Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
->>>>PME(D0-,D1+,D2+,D3hot+,D3cold+)
->>>>               Status: D0 PME-Enable- DSel=0 DScale=0 PME-
->>>>00: ec 10 67 81 17 00 b0 02 10 00 00 02 08 40 00 00
->>>>10: 01 d8 00 00 00 fc 8f fe 00 00 00 00 00 00 00 00
->>>>20: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 45 13
->>>>30: 00 00 8c fe dc 00 00 00 00 00 00 00 0b 01 20 40
->>>>
->>>>
->>>>
->>>>        
->>>>
->>>This PCI ID was added to 2.6.19.  You should run 2.6.19-rc5 or backport the changes.
->>>
->>>      
->>>
->
->  
->
-
+More complexity and overhead for no real gain.
 
 -- 
+Stephen Smalley
+National Security Agency
 
-"They that give up essential liberty to obtain temporary safety, 
-deserve neither liberty nor safety."  (Ben Franklin)
-
-"The course of history shows that as a government grows, liberty 
-decreases."  (Thomas Jefferson)
