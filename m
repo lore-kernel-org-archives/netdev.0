@@ -1,44 +1,52 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Wed, 8 Nov 2006 23:10:28 +0100
-Message-ID: <20061108221028.GA16889@suse.de>
-References: <1162924354.10806.172.camel@localhost.localdomain> <1163001318.3138.346.camel@laptopd505.fenrus.org> <20061108162955.GA4364@suse.de> <1163011132.10806.189.camel@localhost.localdomain>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: why do we mangle checksums for v6 ICMP?
+Date: Wed, 8 Nov 2006 22:13:32 +0000
+Message-ID: <20061108221332.GI29920@ftp.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423798AbWKHWKp@vger.kernel.org>
-To: Tim Chen <tim.c.chen@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:47259 "EHLO
+	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1161742AbWKHWNd
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 17:13:33 -0500
+Received: from viro by ZenIV.linux.org.uk with local (Exim 4.52 #1 (Red Hat Linux))
+	id 1Ghvfo-00085e-2P
+	for netdev@vger.kernel.org; Wed, 08 Nov 2006 22:13:32 +0000
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <1163011132.10806.189.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 08, 2006 at 10:38:52AM -0800, Tim Chen wrote:
-> The patch in question affects purely TCP and not the scheduler.  I don't
+	AFAICS, the rules are:
 
-I know.
+(1) checksum is 16-bit one's complement of the one's complement sum of
+relevant 16bit words.
 
-> think the scheduler has anything to do with the slowdown seen after
-> the patch is applied.
+(2) for v4 UDP all-zeroes has special meaning - no checksum; if you get
+it from (1), send all-ones instead.
 
-In fixing performance issues, the most obvious explanation isn't always
-the right one. It's quite possible you're right, sure.
+(3) for v6 UDP we have the same remapping as in (2), but all-zeroes has
+different meaning - not "ignore checksum" as in v4, but "reject the
+packet".
 
-What I'm saying though is that it doesn't rhyme with what I've seen of
-Volanomark - we ran 2.6.16 on a 4p Intel box for instance and it didn't
-come close to saturating a Gigabit pipe before it maxed out on CPU load.
+(4) there is no (4).
 
-> The total number of messages being exchanged around the chatrooms in 
-> Volanomark remain unchanged.  But ACKS increase by 3.5 times and
-> segments received increase by 38% from netstat.  
+	IOW, nobody except UDP has any business doing that 0->0xffff
+replacement.  However, we have
+       if (icmp6h->icmp6_cksum == 0)
+               icmp6h->icmp6_cksum = -1;
+and similar in net/ipv6/raw.c
 
-> So I think it is reasonable to conclude that the increase in TCP traffic
-> reduce the bandwidth and throughput in Volanomark.
+AFAICS, both went in with (commit ID by linux-hist repository)
+commit 6bac90985c8b65ffc25839c001aa7ef4831d2915
+Author: Kazunori Miyazawa <kazunori@miyazawa.org>
+Date:   Mon May 12 00:21:19 2003 -0700
 
-You could count the number of outbound packets dropped on the server.
+    [IPV4]: Introduce ip6_append_data.
 
-Olaf
--- 
-Walks like a duck. Quacks like a duck. Must be a chicken.
+That changeset has very similar changes done in udp.c, icmp.c and raw.c;
+remapping of UDP checksum used to be in the area affected by the changeset
+and it looks like it got not just preserved in udp.c (as it should), but
+copied to icmp.c and raw.c instances.
+
+So... is it really needed there?
