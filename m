@@ -1,15 +1,13 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
-Date: Wed, 08 Nov 2006 13:53:29 +0100
-Message-ID: <1162990409.7567.33.camel@ux156>
-References: <1162741174.24574.22.camel@johannes.berg>
-	 <20061106210145.6824bec6@griffin.suse.cz>
-	 <1162854394.1412.40.camel@johannes.berg>
-	 <20061108130933.7284558a@griffin.suse.cz>
+Date: Wed, 08 Nov 2006 08:36:04 -0500
+Message-ID: <4551DD44.7000004@garzik.org>
+References: <1162741174.24574.22.camel@johannes.berg>	<20061106210145.6824bec6@griffin.suse.cz>	<1162847394.1412.17.camel@johannes.berg> <20061108125844.46831cda@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Jouni Malinen <jkm@devicescape.com>,
 	Simon Barber <simon@devicescape.com>,
@@ -20,28 +18,33 @@ Cc: netdev <netdev@vger.kernel.org>,
 	David Kimdon <david.kimdon@devicescape.com>,
 	James Ketrenos <jketreno@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:10893 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S965613AbWKHMwZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 07:52:25 -0500
+Received: from srv5.dvmed.net ([207.36.208.214]:52357 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965753AbWKHNgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 08:36:17 -0500
 To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061108130933.7284558a@griffin.suse.cz>
+In-Reply-To: <20061108125844.46831cda@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-08 at 13:09 +0100, Jiri Benc wrote:
+Jiri Benc wrote:
+> On Mon, 06 Nov 2006 22:09:54 +0100, Johannes Berg wrote:
+>>> What did happen with
+>>> d80211: add a function to get the wiphy index
+>>> d80211: add a perm_addr hardware property
+>>> d80211: add a struct device* hardware property
+>>> d80211: add a ethtool_ops hardware property
+>>> patches?
+>> Well after some chat with a few people I decided that it was stupid and
+>> not very maintainable to copy all the fields in net_device to a new
+>> structure.
+> 
+> Ok. Personally, I don't care if we pass net_device or ieee80211_local
+> to drivers. I see pros and cons of both solutions.
 
-> Unfortunately, in case of broadcast and multicast frames, we probably
-> need to go through decryption handlers for each interface individually.
-> At least I wasn't able to find a solution which allows to perform
-> decryption only once for each frame. But theoretically it should be
-> possible but I'm afraid it would be less effective than the current
-> situation in the end.
+Agreed.  Though if using ieee80211_local, please remove the "_local".  A 
+better name is needed.
 
-Yeah, I can see the point, even though it seems that we can only decrypt
-a frame with a single key, everything else will be invalid.
+	Jeff
 
-Maybe we can filter somehow and find which key to use instead of
-filtering to the interface first... will need to think about it.
 
-johannes
+
