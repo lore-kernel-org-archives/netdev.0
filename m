@@ -1,69 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
-Date: Wed, 8 Nov 2006 14:03:07 -0800
-Message-ID: <20061108140307.da7d815f.akpm@osdl.org>
-References: <1154985aa0591036@2ka.mipt.ru>
-	<20061107141718.f7414b31.akpm@osdl.org>
-	<20061108082147.GA2447@2ka.mipt.ru>
-	<200611081551.14671.dada1@cosmosbay.com>
+From: Olaf Kirch <okir@suse.de>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 8 Nov 2006 23:10:28 +0100
+Message-ID: <20061108221028.GA16889@suse.de>
+References: <1162924354.10806.172.camel@localhost.localdomain> <1163001318.3138.346.camel@laptopd505.fenrus.org> <20061108162955.GA4364@suse.de> <1163011132.10806.189.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Davide Libenzi <davidel@xmailserver.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:52886 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161726AbWKHWId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 17:08:33 -0500
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <200611081551.14671.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423798AbWKHWKp@vger.kernel.org>
+To: Tim Chen <tim.c.chen@linux.intel.com>
+Content-Disposition: inline
+In-Reply-To: <1163011132.10806.189.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Nov 2006 15:51:13 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Wed, Nov 08, 2006 at 10:38:52AM -0800, Tim Chen wrote:
+> The patch in question affects purely TCP and not the scheduler.  I don't
 
-> [PATCH] eventpoll : In case a fault occurs during copy_to_user(), we should 
-> report the count of events that were successfully copied into user space, 
-> instead of EFAULT. That would be consistent with behavior of read/write() 
-> syscalls for example.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
-> 
-> 
-> [eventpoll.patch  text/plain (424B)]
-> --- linux/fs/eventpoll.c	2006-11-08 15:37:36.000000000 +0100
-> +++ linux/fs/eventpoll.c	2006-11-08 15:38:31.000000000 +0100
-> @@ -1447,7 +1447,7 @@
->  				       &events[eventcnt].events) ||
->  			    __put_user(epi->event.data,
->  				       &events[eventcnt].data))
-> -				return -EFAULT;
-> +				return eventcnt ? eventcnt : -EFAULT;
->  			if (epi->event.events & EPOLLONESHOT)
->  				epi->event.events &= EP_PRIVATE_BITS;
->  			eventcnt++;
-> 
+I know.
 
-Definitely a better interface, but I wonder if it's too late to change it.
+> think the scheduler has anything to do with the slowdown seen after
+> the patch is applied.
 
-An app which does
+In fixing performance issues, the most obvious explanation isn't always
+the right one. It's quite possible you're right, sure.
 
-	if (epoll_wait(...) == -1)
-		barf(errno);
-	else
-		assume_all_events_were_received();
+What I'm saying though is that it doesn't rhyme with what I've seen of
+Volanomark - we ran 2.6.16 on a 4p Intel box for instance and it didn't
+come close to saturating a Gigabit pipe before it maxed out on CPU load.
 
-will now do the wrong thing.
+> The total number of messages being exchanged around the chatrooms in 
+> Volanomark remain unchanged.  But ACKS increase by 3.5 times and
+> segments received increase by 38% from netstat.  
 
-otoh, such an applciation basically _has_ to use the epoll_wait()
-return value to work out how many events it received, so maybe it's OK...
+> So I think it is reasonable to conclude that the increase in TCP traffic
+> reduce the bandwidth and throughput in Volanomark.
+
+You could count the number of outbound packets dropped on the server.
+
+Olaf
+-- 
+Walks like a duck. Quacks like a duck. Must be a chicken.
