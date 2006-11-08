@@ -1,25 +1,40 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [take3 0/5] d80211: remove bitfields from include/net/d80211.h
-Date: Wed, 8 Nov 2006 07:39:44 -0800
-Message-ID: <20061108153944.GA26557@devicescape.com>
-References: <20061025184244.GA30046@devicescape.com> <20061025190129.GH19513@havoc.gtf.org> <20061025191702.GA32410@devicescape.com> <20061025192803.GJ19513@havoc.gtf.org> <20061103033049.GD2989@tuxdriver.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [DECnet] Don't clear memory twice.
+Date: Wed, 8 Nov 2006 15:45:07 +0000
+Message-ID: <20061108154506.GA20057@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
+Cc: SteveW@ACM.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:59855 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S965922AbWKHPkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 10:40:07 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from ftp.linux-mips.org ([194.74.144.162]:64736 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S965925AbWKHPoz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 10:44:55 -0500
+Received: from localhost.localdomain ([127.0.0.1]:33728 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20039772AbWKHPox (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 15:44:53 +0000
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20061103033049.GD2989@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 02, 2006 at 10:30:56PM -0500, John W. Linville wrote:
-> David, may I presume there will be a "take4"?
+When dn_neigh.c was converted from kmalloc to kzalloc in commit
+0da974f4f303a6842516b764507e3c0a03f41e5a it was missed that
+dn_neigh_seq_open was actually clearing the allocation twice was
+missed.
 
-yes, refreshing is in progress.
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index ff0ebe9..7322bb3 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -591,7 +591,6 @@ static int dn_neigh_seq_open(struct inod
+ 
+ 	seq          = file->private_data;
+ 	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+ out:
+ 	return rc;
+ out_kfree:
