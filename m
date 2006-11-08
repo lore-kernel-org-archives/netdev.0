@@ -1,40 +1,49 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [DECnet] Don't clear memory twice.
-Date: Wed, 8 Nov 2006 15:45:07 +0000
-Message-ID: <20061108154506.GA20057@linux-mips.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 08 Nov 2006 16:55:18 +0100
+Message-ID: <1163001318.3138.346.camel@laptopd505.fenrus.org>
+References: <1162924354.10806.172.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: SteveW@ACM.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:64736 "EHLO
-	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S965925AbWKHPoz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 10:44:55 -0500
-Received: from localhost.localdomain ([127.0.0.1]:33728 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20039772AbWKHPox (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 15:44:53 +0000
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Received: from pentafluge.infradead.org ([213.146.154.40]:45719 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S965932AbWKHPzX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 10:55:23 -0500
+To: tim.c.chen@linux.intel.com
+In-Reply-To: <1162924354.10806.172.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When dn_neigh.c was converted from kmalloc to kzalloc in commit
-0da974f4f303a6842516b764507e3c0a03f41e5a it was missed that
-dn_neigh_seq_open was actually clearing the allocation twice was
-missed.
+On Tue, 2006-11-07 at 10:32 -0800, Tim Chen wrote:
+> The patch
+> 
+> [TCP]: Send ACKs each 2nd received segment
+> commit: 1ef9696c909060ccdae3ade245ca88692b49285b
+> http://kernel.org/git/?
+> p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1ef9696c909060ccdae3ade245ca88692b49285b
+> 
+> reduced Volanomark benchmark throughput by 10%.  
+> This is because Volanomark sends 
+> short message (<100 bytes) on its TCP
+> connections.  This patch increases the number of ACKs 
+> traffic by 3.5 times.  
+> 
+> By adopting this patch, we assume that with
+> small segment, having short delay is important 
+> enough that we are willing to reduce bandwidth 
+> with more ACKs.  
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+I wonder if it's an option to use low priority QoS fields for these acks
+(heck I don't even know if ACKs have such fields in their packet) so
+that they can get dropped if there are more packets then there is
+bandwidth ....
 
-diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
-index ff0ebe9..7322bb3 100644
---- a/net/decnet/dn_neigh.c
-+++ b/net/decnet/dn_neigh.c
-@@ -591,7 +591,6 @@ static int dn_neigh_seq_open(struct inod
- 
- 	seq          = file->private_data;
- 	seq->private = s;
--	memset(s, 0, sizeof(*s));
- out:
- 	return rc;
- out_kfree:
+
+-- 
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+
