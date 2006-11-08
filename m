@@ -1,72 +1,25 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: Intel 82559 NIC corrupted EEPROM
-Date: Wed, 8 Nov 2006 09:26:56 -0800
-Message-ID: <4807377b0611080926x21bd6326xc5e7683100d20948@mail.gmail.com>
-References: <454B7C3A.3000308@privacy.net> <454BF0F1.5050700@zytor.com>
-	 <45506C9A.5010009@privacy.net> <4551B7B8.8080601@privacy.net>
+From: Roger While <simrw@sim-basis.de>
+Subject: Re. Please pull 'upstream' branch of wireless-2.6
+Date: Wed, 08 Nov 2006 18:27:54 +0100
+Message-ID: <6.1.1.1.2.20061108182728.02b11300@192.168.6.12>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hpa@zytor.com, saw@saw.sw.com.sg
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:39758 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1754604AbWKHR06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 12:26:58 -0500
-Received: by ug-out-1314.google.com with SMTP id m3so1584622ugc
-        for <netdev@vger.kernel.org>; Wed, 08 Nov 2006 09:26:57 -0800 (PST)
-To: John <me@privacy.net>
-In-Reply-To: <4551B7B8.8080601@privacy.net>
-Content-Disposition: inline
+Received: from mailout11.sul.t-online.com ([194.25.134.85]:44675 "EHLO
+	mailout11.sul.t-online.com") by vger.kernel.org with ESMTP
+	id S1754606AbWKHR2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 12:28:24 -0500
+Received: from simrog.sim-basis.de (simrog [192.168.6.50])
+	by simlinux.site (8.13.3/8.13.3/SuSE Linux 0.7) with ESMTP id kA8HRu06008805
+	for <netdev@vger.kernel.org>; Wed, 8 Nov 2006 18:28:00 +0100
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/8/06, John <me@privacy.net> wrote:
-> Hello all,
->
-> [ E-mail address is a bit-bucket. I *do* monitor the mailing lists. ]
->
-> I will try and summarize the problem as I understand it at this point.
->
-> I've written two messages so far:
-> http://groups.google.com/group/linux.kernel/msg/3a05d819c66474db
-> http://groups.google.com/group/linux.kernel/msg/391aebbb3dfd6039
->
-> And here is a link to the complete thread:
-> http://lkml.org/lkml/fancy/2006/11/3/124
->
-> I have a motherboard with three on-board 82559 NICs.
->
->   o eepro100.ko properly initializes all three NICs
->   o e100.ko fails to initialize one of them
->
-> NOTE: With kernel 2.6.14, e100.ko fails to initialize the NIC with MAC
-> address 00:30:64:04:E6:E4. With kernel 2.6.18 e100.ko fails to
-> initialize the NIC with MAC address 00:30:64:04:E6:E5.
->
-> The problem is not an incorrect checksum. (Donald Becker's dump utility
-> reports a correct checksum for all three NICs.) The problem seems to be
-> that e100.ko fails to read the contents of one of the EEPROMs.
+John, you just broke a considerable number of prism54 users.
+It is NOT an error if the MWI set fails. This is just a
+performance tweak and has NO effect on the driver working.
 
-<snip>
+Roger While
 
-Thanks for the report, I have some thoughts.
-I suspect that one reason beckers code works is that it uses IO based
-access (slower, and different method) to the adapter rather than
-memory mapped access.
 
-The second thought is that the adapter is in D3, and something about
-your kernel or the driver doesn't successfully wake it up to D0.  An
-indication of this would be looking at lspci -vv before/after loading
-the driver.  Also, after loading/unloading eepro100 does the e100
-driver work?
-
-A third idea is look for a master abort in lspci after e100 fails to load.
-
-And a last idea is for us to instrument the reads /writes from/to the
-device during init and see if everything is returning 0xffffffff, as
-that indicates the I/O and/or memory bar is not enabled, or the
-address returned from ioremap is invalid.
-
-Jesse
