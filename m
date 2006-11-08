@@ -1,84 +1,54 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
-Date: Wed, 8 Nov 2006 14:44:52 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
-References: <1154985aa0591036@2ka.mipt.ru> <20061107141718.f7414b31.akpm@osdl.org>
- <20061108082147.GA2447@2ka.mipt.ru> <200611081551.14671.dada1@cosmosbay.com>
- <20061108140307.da7d815f.akpm@osdl.org>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 08 Nov 2006 14:07:32 -0800
+Message-ID: <1163023652.10806.203.camel@localhost.localdomain>
+References: <1162924354.10806.172.camel@localhost.localdomain>
+	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
+	 <20061108162955.GA4364@suse.de>
+	 <1163011132.10806.189.camel@localhost.localdomain>
+	 <20061108221028.GA16889@suse.de>
+Reply-To: tim.c.chen@linux.intel.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([69.30.125.51]:40933 "EHLO
-	x35.xmailserver.org") by vger.kernel.org with ESMTP
-	id S1423843AbWKHWoz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 17:44:55 -0500
-Received: from alien.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
-	id <S1FC080> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Wed, 8 Nov 2006 14:44:53 -0800
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061108140307.da7d815f.akpm@osdl.org>
+Received: from mga06.intel.com ([134.134.136.21]:49336 "EHLO
+	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1423859AbWKHW5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 17:57:10 -0500
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20061108221028.GA16889@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Nov 2006, Andrew Morton wrote:
+On Wed, 2006-11-08 at 23:10 +0100, Olaf Kirch wrote:
 
-> On Wed, 8 Nov 2006 15:51:13 +0100
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
 > 
-> > [PATCH] eventpoll : In case a fault occurs during copy_to_user(), we should 
-> > report the count of events that were successfully copied into user space, 
-> > instead of EFAULT. That would be consistent with behavior of read/write() 
-> > syscalls for example.
-> > 
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> > 
-> > 
-> > 
-> > [eventpoll.patch  text/plain (424B)]
-> > --- linux/fs/eventpoll.c	2006-11-08 15:37:36.000000000 +0100
-> > +++ linux/fs/eventpoll.c	2006-11-08 15:38:31.000000000 +0100
-> > @@ -1447,7 +1447,7 @@
-> >  				       &events[eventcnt].events) ||
-> >  			    __put_user(epi->event.data,
-> >  				       &events[eventcnt].data))
-> > -				return -EFAULT;
-> > +				return eventcnt ? eventcnt : -EFAULT;
-> >  			if (epi->event.events & EPOLLONESHOT)
-> >  				epi->event.events &= EP_PRIVATE_BITS;
-> >  			eventcnt++;
-> > 
+> In fixing performance issues, the most obvious explanation isn't always
+> the right one. It's quite possible you're right, sure.
 > 
-> Definitely a better interface, but I wonder if it's too late to change it.
+> What I'm saying though is that it doesn't rhyme with what I've seen of
+> Volanomark - we ran 2.6.16 on a 4p Intel box for instance and it didn't
+> come close to saturating a Gigabit pipe before it maxed out on CPU load.
 > 
-> An app which does
-> 
-> 	if (epoll_wait(...) == -1)
-> 		barf(errno);
-> 	else
-> 		assume_all_events_were_received();
-> 
-> will now do the wrong thing.
-> 
-> otoh, such an applciation basically _has_ to use the epoll_wait()
-> return value to work out how many events it received, so maybe it's OK...
 
-I don't care about both ways, but sys_poll() does the same thing epoll 
-does right now, so I would not change epoll behaviour.
+I am running Volanomark in a loopback mode on a 2P woodcrest box 
+(4 cores).  So the configuration is a bit different.  
 
+In my testing, the CPU utilization is at 100%.  So
+increase in ACKs will cost CPU to devote more
+time to process those ACKs and reduce throughput.
 
+> 
+> You could count the number of outbound packets dropped on the server.
+> 
 
-- Davide
+As I'm running in loopback mode, there are no dropped packets.
 
+Thanks.
+
+Tim
 
