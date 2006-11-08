@@ -1,44 +1,40 @@
 From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
-Subject: RE: [PATCH 2/3] mlsxfrm: Various fixes
-Date: Wed, 8 Nov 2006 08:31:00 -0600
-Message-ID: <000501c70342$83b9df70$cc0a010a@tcssec.com>
-References: <Pine.LNX.4.64.0611071536300.20855@d.namei>
+Subject: RE: [PATCH 3/3] mlsxfrm: Various fixes
+Date: Wed, 8 Nov 2006 08:34:34 -0600
+Message-ID: <000601c70343$02fa9fe0$cc0a010a@tcssec.com>
+References: <1162932520.3009.58.camel@moss-spartans.epoch.ncsc.mil>
 Reply-To: <vyekkirala@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
-	<sds@tycho.nsa.gov>
+	<jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:35634 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1754585AbWKHOb1
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:33843 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S965804AbWKHOe7
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 09:31:27 -0500
-To: "'James Morris'" <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0611071536300.20855@d.namei>
+	Wed, 8 Nov 2006 09:34:59 -0500
+To: "'Stephen Smalley'" <sds@tycho.nsa.gov>,
+	"Paul Moore" <paul.moore@hp.com>
+In-Reply-To: <1162932520.3009.58.camel@moss-spartans.epoch.ncsc.mil>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > Fix SO_PEERSEC for tcp sockets to return the security context of
-> > the peer (as represented by the SA from the peer) as opposed to the
-> > SA used by the local/source socket.
->
-> What about the case of a localhost TCP connection not using
-> xfrm labeling?
->
-> Joe Nall raised this as an important requirement.
+> Such duplication can occur among the initial SIDs.
 
-Yes. We need to come up with some new ideas on this (the failed
-secid-recon patchset sought to do this using the secmark field
-on the skb).
+For some reason I thought that could happen between an initial SID
+and a non-initial SID.
 
-The scope of this patchset is to strictly fix things related to
-labeled-xfrm.
->
->
->
-> (Also, 'mlsxfrm' is MLS-specific).
+>  Not sure 
+> though when
+> that would apply here,
 
-Will switch to "labeled-ipsec".
+It could apply to xfrms if they happen to be using the context
+represented by any of the initial SIDs.
 
+> and it would only apply if both SIDs 
+> were initial
+> SIDs.
+
+OK. Will narrow the full context comparison to just this case.
