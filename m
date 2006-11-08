@@ -1,56 +1,63 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 2.6.19-rc4-git10][PKT_SCHED] sch_htb: INIT_HLIST_NODE after hlist_del()
-Date: Wed, 8 Nov 2006 07:36:45 +0100
-Message-ID: <20061108063645.GA984@ff.dom.local>
-References: <20061106113353.GA4829@ff.dom.local> <20061106094449.3b8253b9@freekitty> <20061107064943.GA998@ff.dom.local> <20061107095007.71c11b47@freekitty>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [BUG] [2.6.19-rc4-mm2] can't compile
+ drivers/acpi/processor_idle.c
+Date: Tue, 7 Nov 2006 22:52:59 -0800
+Message-ID: <20061107225259.0eff22d2.akpm@osdl.org>
+References: <20061108150141.b792fbdb.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S\. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-ia64@vger.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:2971 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1754369AbWKHGaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 01:30:55 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061107095007.71c11b47@freekitty>
+Received: from smtp.osdl.org ([65.172.181.4]:10682 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1754374AbWKHGxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 01:53:45 -0500
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20061108150141.b792fbdb.kamezawa.hiroyu@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 07, 2006 at 09:50:07AM -0800, Stephen Hemminger wrote:
-> On Tue, 7 Nov 2006 07:49:43 +0100
-> Jarek Poplawski <jarkao2@o2.pl> wrote:
+On Wed, 8 Nov 2006 15:01:41 +0900
+KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
+
+> 
+> While compiling 2.6.19-rc4-mm2 on ia64, I met this compile error.
+> ==
+>   CC [M]  drivers/acpi/processor_idle.o
+> drivers/acpi/processor_idle.c:43:22: asm/apic.h: No such file or directory
+> drivers/acpi/processor_idle.c: In function `acpi_processor_power_seq_show':
+> drivers/acpi/processor_idle.c:1202: warning: long long unsigned int format, u64 arg (arg 5)
+> ==
+> 
+> This is because of acpi-include-apic-h.patch, maybe.
+> ia64 doesn't have asm/acpi.h
+
+That got fixed (by ugly means).
+
+> my .config is attached.
+
+But rc5-mm1 remains broken with that .config:
+
+arch/ia64/pci/pci.c: In function `pci_acpi_scan_root':
+arch/ia64/pci/pci.c:354: warning: implicit declaration of function `pxm_to_node'
 ...
-> Your patch duplicated the code in hlist_del_init().  Why not do:
-> 
-> --- a/net/sched/sch_htb.c	2006-11-07 09:48:22.000000000 -0800
-> +++ b/net/sched/sch_htb.c	2006-11-07 09:49:01.000000000 -0800
-> @@ -1284,8 +1284,7 @@
->  						  struct htb_class, sibling));
->  
->  	/* note: this delete may happen twice (see htb_delete) */
-> -	if (!hlist_unhashed(&cl->hlist))
-> -		hlist_del(&cl->hlist);
-> +	hlist_del_init(&cl->hlist);
->  	list_del(&cl->sibling);
->  
->  	if (cl->prio_activity)
-> @@ -1333,8 +1332,7 @@
->  	sch_tree_lock(sch);
->  
->  	/* delete from hash and active; remainder in destroy_class */
-> -	if (!hlist_unhashed(&cl->hlist))
-> -		hlist_del(&cl->hlist);
-> +	hlist_del_init(&cl->hlist);
->  
->  	if (cl->prio_activity)
->  		htb_deactivate(q, cl);
-> 
+arch/ia64/pci/built-in.o(.text+0xe92): In function `pci_acpi_scan_root':
+: undefined reference to `pxm_to_node'
 
-I've understood you first suggestion. But after sending
-my patch I've found it is also hiding a real problem
-of excessive deletion in one and possibly more places.
-So probably this should be done the right way and this
-hlist_unhashed testing left in BUG_ON only... 
+This bug exists in mainline.
 
-Cheers,
-Jarek P. 
+
+
+
+Also,
+
+drivers/built-in.o(.text+0xd9a72): In function `e1000_xmit_frame':
+: undefined reference to `csum_ipv6_magic'
+
+I don't know how this got broken.  ia64 seems to be the only architecture
+which doesn't have an implementation of csum_ipv6_magic().  This bug
+appears to be introduced by git-netdev-all.patch.
+
