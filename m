@@ -1,39 +1,31 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Wed, 08 Nov 2006 20:44:13 +0100
-Message-ID: <1163015053.3138.378.camel@laptopd505.fenrus.org>
-References: <1162924354.10806.172.camel@localhost.localdomain>
-	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
-	 <20061108162955.GA4364@suse.de>
-	 <1163011132.10806.189.camel@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Re. Please pull 'upstream' branch of wireless-2.6
+Date: Wed, 8 Nov 2006 14:46:00 -0500
+Message-ID: <20061108194554.GA25484@tuxdriver.com>
+References: <6.1.1.1.2.20061108182728.02b11300@192.168.6.12>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Olaf Kirch <okir@suse.de>, linux-kernel@vger.kernel.org,
-	davem@sunset.davemloft.net, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:24722 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1422691AbWKHToT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 14:44:19 -0500
-To: tim.c.chen@linux.intel.com
-In-Reply-To: <1163011132.10806.189.camel@localhost.localdomain>
+Received: from ra.tuxdriver.com ([70.61.120.52]:38409 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1753472AbWKHTq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 14:46:26 -0500
+To: Roger While <simrw@sim-basis.de>
+Content-Disposition: inline
+In-Reply-To: <6.1.1.1.2.20061108182728.02b11300@192.168.6.12>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 08, 2006 at 06:27:54PM +0100, Roger While wrote:
+> John, you just broke a considerable number of prism54 users.
+> It is NOT an error if the MWI set fails. This is just a
+> performance tweak and has NO effect on the driver working.
 
-> However, Volanomark is just a benchmark to alert us to changes.  
-> If in real applications with small segment, this patch is 
-> needed to fix congestion window adjustment as Dave pointed 
-> out, and impact on bandwidth not as important, so be it.
-> 
-> Tim
+Yeah, looks like I was a bit overzealous on the warning squelch...
 
-if we can get the best of both worlds (by having the extra acks drop on
-congestion) it's of course nicer ;)
+I'll cook-up a new patch that doesn't error-out.
 
+John
 -- 
-if you want to mail me at work (you don't), use arjan (at) linux.intel.com
-Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
-
+John W. Linville
+linville@tuxdriver.com
