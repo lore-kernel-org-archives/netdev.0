@@ -1,269 +1,277 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 1/3] labeled-ipsec: Various fixes
-Date: Wed, 08 Nov 2006 17:03:44 -0600
-Message-ID: <45526250.2030206@trustedcs.com>
+Subject: [PATCH 2/3] labeled-ipsec: Return correct context for SO_PEERSEC
+Date: Wed, 08 Nov 2006 17:04:09 -0600
+Message-ID: <45526269.4010809@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:25497 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1423881AbWKHXEI
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:59153 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1423908AbWKHXEZ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 18:04:08 -0500
+	Wed, 8 Nov 2006 18:04:25 -0500
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since the upstreaming of the mlsxfrm modification a few months back,
-testing has resulted in the identification of the following issues/bugs that
-are resolved in this patch set.
-
-1. Fix the security context used in the IKE negotiation to be the context
-   of the socket as opposed to the context of the SPD rule.
-
-2. Fix SO_PEERSEC for tcp sockets to return the security context of
-   the peer as opposed to the source.
-
-3. Fix the selection of an SA for an outgoing packet to be at the same
-   context as the originating socket/flow.
-
-The following would be the result of applying this patchset:
-
-- SO_PEERSEC will now correctly return the peer's context.
-
-- IKE deamons will receive the context of the source socket/flow
-  as opposed to the SPD rule's context so that the negotiated SA
-  will be at the same context as the source socket/flow.
-
-- The SELinux policy will require one or more of the
-  following for a socket to be able to communicate with/without SAs:
-
-  1. To enable a socket to communicate without using labeled-IPSec SAs:
-
-     allow socket_t unlabeled_t:association { sendto recvfrom }
-
-  2. To enable a socket to communicate with labeled-IPSec SAs:
-
-     allow socket_t self:association { sendto };
-     allow socket_t peer_sa_t:association { recvfrom };
-
-
-This Patch: Pass correct security context to IKE for use in negotiation
-
-Fix the security context passed to IKE for use in negotiation to be the
-context of the socket as opposed to the context of the SPD rule so that
-the SA carries the label of the originating socket/flow.
+Fix SO_PEERSEC for tcp sockets to return the security context of
+the peer (as represented by the SA from the peer) as opposed to the
+SA used by the local/source socket.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- include/linux/security.h        |   21 ++++++++----------
- security/dummy.c                |    4 +--
- security/selinux/include/xfrm.h |    4 +--
- security/selinux/xfrm.c         |   35 +++++++-----------------------
- 4 files changed, 23 insertions(+), 41 deletions(-)
+ include/linux/security.h        |   14 ++++++++++
+ include/net/request_sock.h      |    1 
+ net/ipv4/tcp_input.c            |    2 +
+ security/dummy.c                |    6 ++++
+ security/selinux/hooks.c        |   21 ++++++++++++---
+ security/selinux/include/xfrm.h |   12 ++++-----
+ security/selinux/xfrm.c         |   40 ++----------------------------
+ 7 files changed, 49 insertions(+), 47 deletions(-)
 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index b200b98..a509329 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -836,10 +836,8 @@ #ifdef CONFIG_SECURITY
-  *	used by the XFRM system.
-  *	@sec_ctx contains the security context information being provided by
-  *	the user-level policy update program (e.g., setkey).
-- *	@sk refers to the sock from which to derive the security context.
-  *	Allocate a security structure to the xp->security field; the security
-- *	field is initialized to NULL when the xfrm_policy is allocated. Only
-- *	one of sec_ctx or sock can be specified.
-+ *	field is initialized to NULL when the xfrm_policy is allocated.
-  *	Return 0 if operation was successful (memory to allocate, legal context)
-  * @xfrm_policy_clone_security:
-  *	@old contains an existing xfrm_policy in the SPD.
-@@ -858,9 +856,6 @@ #ifdef CONFIG_SECURITY
-  *	Database by the XFRM system.
-  *	@sec_ctx contains the security context information being provided by
-  *	the user-level SA generation program (e.g., setkey or racoon).
-- *	@polsec contains the security context information associated with a xfrm
-- *	policy rule from which to take the base context. polsec must be NULL
-- *	when sec_ctx is specified.
-  *	@secid contains the secid from which to take the mls portion of the context.
-  *	Allocate a security structure to the x->security field; the security
-  *	field is initialized to NULL when the xfrm_state is allocated. Set the
-@@ -1378,12 +1373,12 @@ #endif	/* CONFIG_SECURITY_NETWORK */
+--- net-2.6.lx1/include/linux/security.h	2006-11-08 09:40:42.000000000 -0600
++++ net-2.6/include/linux/security.h	2006-11-08 09:47:42.000000000 -0600
+@@ -826,6 +826,8 @@ struct request_sock;
+  *	Sets the openreq's sid to socket's sid with MLS portion taken from peer sid.
+  * @inet_csk_clone:
+  *	Sets the new child socket's sid to the openreq sid.
++ * @inet_conn_established:
++ *     Sets the connection's peersid to the secmark on skb.
+  * @req_classify_flow:
+  *	Sets the flow's sid to the openreq sid.
+  *
+@@ -1368,6 +1370,7 @@ struct security_operations {
+ 	int (*inet_conn_request)(struct sock *sk, struct sk_buff *skb,
+ 					struct request_sock *req);
+ 	void (*inet_csk_clone)(struct sock *newsk, const struct request_sock *req);
++	void (*inet_conn_established)(struct sock *sk, struct sk_buff *skb);
+ 	void (*req_classify_flow)(const struct request_sock *req, struct flowi *fl);
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+@@ -2961,6 +2964,12 @@ static inline void security_inet_csk_clo
+ {
+ 	security_ops->inet_csk_clone(newsk, req);
+ }
++
++static inline void security_inet_conn_established(struct sock *sk,
++			struct sk_buff *skb)
++{
++	security_ops->inet_conn_established(sk, skb);
++}
+ #else	/* CONFIG_SECURITY_NETWORK */
+ static inline int security_unix_stream_connect(struct socket * sock,
+ 					       struct socket * other, 
+@@ -3110,6 +3119,11 @@ static inline void security_inet_csk_clo
+ 			const struct request_sock *req)
+ {
+ }
++
++static inline void security_inet_conn_established(struct sock *sk,
++			struct sk_buff *skb)
++{
++}
+ #endif	/* CONFIG_SECURITY_NETWORK */
  
  #ifdef CONFIG_SECURITY_NETWORK_XFRM
- 	int (*xfrm_policy_alloc_security) (struct xfrm_policy *xp,
--			struct xfrm_user_sec_ctx *sec_ctx, struct sock *sk);
-+			struct xfrm_user_sec_ctx *sec_ctx);
- 	int (*xfrm_policy_clone_security) (struct xfrm_policy *old, struct xfrm_policy *new);
- 	void (*xfrm_policy_free_security) (struct xfrm_policy *xp);
- 	int (*xfrm_policy_delete_security) (struct xfrm_policy *xp);
- 	int (*xfrm_state_alloc_security) (struct xfrm_state *x,
--		struct xfrm_user_sec_ctx *sec_ctx, struct xfrm_sec_ctx *polsec,
-+		struct xfrm_user_sec_ctx *sec_ctx,
- 		u32 secid);
- 	void (*xfrm_state_free_security) (struct xfrm_state *x);
- 	int (*xfrm_state_delete_security) (struct xfrm_state *x);
-@@ -3120,7 +3115,7 @@ #endif	/* CONFIG_SECURITY_NETWORK */
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
- static inline int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
+--- net-2.6.lx1/include/net/request_sock.h	2006-11-08 09:38:06.000000000 -0600
++++ net-2.6/include/net/request_sock.h	2006-11-08 09:47:42.000000000 -0600
+@@ -54,6 +54,7 @@ struct request_sock {
+ 	struct request_sock_ops		*rsk_ops;
+ 	struct sock			*sk;
+ 	u32				secid;
++	u32				peer_secid;
+ };
+ 
+ static inline struct request_sock *reqsk_alloc(struct request_sock_ops *ops)
+--- net-2.6.lx1/net/ipv4/tcp_input.c	2006-11-08 09:38:06.000000000 -0600
++++ net-2.6/net/ipv4/tcp_input.c	2006-11-08 09:47:42.000000000 -0600
+@@ -4230,6 +4230,8 @@ static int tcp_rcv_synsent_state_process
+ 		mb();
+ 		tcp_set_state(sk, TCP_ESTABLISHED);
+ 
++		security_inet_conn_established(sk, skb);
++
+ 		/* Make sure socket is routed, for correct metrics.  */
+ 		icsk->icsk_af_ops->rebuild_header(sk);
+ 
+--- net-2.6.lx1/security/dummy.c	2006-11-08 09:40:42.000000000 -0600
++++ net-2.6/security/dummy.c	2006-11-08 09:47:42.000000000 -0600
+@@ -828,6 +828,11 @@ static inline void dummy_inet_csk_clone(
  {
--	return security_ops->xfrm_policy_alloc_security(xp, sec_ctx, NULL);
-+	return security_ops->xfrm_policy_alloc_security(xp, sec_ctx);
  }
  
- static inline int security_xfrm_policy_clone(struct xfrm_policy *old, struct xfrm_policy *new)
-@@ -3141,7 +3136,7 @@ static inline int security_xfrm_policy_d
- static inline int security_xfrm_state_alloc(struct xfrm_state *x,
- 			struct xfrm_user_sec_ctx *sec_ctx)
++static inline void dummy_inet_conn_established(struct sock *sk,
++			struct sk_buff *skb)
++{
++}
++
+ static inline void dummy_req_classify_flow(const struct request_sock *req,
+ 			struct flowi *fl)
  {
--	return security_ops->xfrm_state_alloc_security(x, sec_ctx, NULL, 0);
-+	return security_ops->xfrm_state_alloc_security(x, sec_ctx, 0);
+@@ -1108,6 +1113,7 @@ void security_fixup_ops (struct security
+ 	set_to_dummy_if_null(ops, sock_graft);
+ 	set_to_dummy_if_null(ops, inet_conn_request);
+ 	set_to_dummy_if_null(ops, inet_csk_clone);
++	set_to_dummy_if_null(ops, inet_conn_established);
+ 	set_to_dummy_if_null(ops, req_classify_flow);
+  #endif	/* CONFIG_SECURITY_NETWORK */
+ #ifdef  CONFIG_SECURITY_NETWORK_XFRM
+--- net-2.6.lx1/security/selinux/include/xfrm.h	2006-11-08 09:40:42.000000000 -0600
++++ net-2.6/security/selinux/include/xfrm.h	2006-11-08 09:47:42.000000000 -0600
+@@ -39,7 +39,6 @@ int selinux_xfrm_sock_rcv_skb(u32 sid, s
+ 			struct avc_audit_data *ad);
+ int selinux_xfrm_postroute_last(u32 isec_sid, struct sk_buff *skb,
+ 			struct avc_audit_data *ad);
+-u32 selinux_socket_getpeer_stream(struct sock *sk);
+ u32 selinux_socket_getpeer_dgram(struct sk_buff *skb);
+ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall);
+ #else
+@@ -55,11 +54,6 @@ static inline int selinux_xfrm_postroute
+ 	return 0;
  }
  
- static inline int security_xfrm_state_alloc_acquire(struct xfrm_state *x,
-@@ -3149,7 +3144,11 @@ static inline int security_xfrm_state_al
+-static inline int selinux_socket_getpeer_stream(struct sock *sk)
+-{
+-	return SECSID_NULL;
+-}
+-
+ static inline int selinux_socket_getpeer_dgram(struct sk_buff *skb)
  {
- 	if (!polsec)
+ 	return SECSID_NULL;
+@@ -71,4 +65,10 @@ static inline int selinux_xfrm_decode_se
+ }
+ #endif
+ 
++static inline void selinux_skb_xfrm_sid(struct sk_buff *skb, u32 *sid)
++{
++	int err = selinux_xfrm_decode_session(skb, sid, 0);
++	BUG_ON(err);
++}
++
+ #endif /* _SELINUX_XFRM_H_ */
+--- net-2.6.lx1/security/selinux/hooks.c	2006-11-08 09:38:06.000000000 -0600
++++ net-2.6/security/selinux/hooks.c	2006-11-08 09:47:42.000000000 -0600
+@@ -3534,8 +3534,10 @@ static int selinux_socket_getpeersec_str
+ 	}
+ 	else if (isec->sclass == SECCLASS_TCP_SOCKET) {
+ 		peer_sid = selinux_netlbl_socket_getpeersec_stream(sock);
+-		if (peer_sid == SECSID_NULL)
+-			peer_sid = selinux_socket_getpeer_stream(sock->sk);
++		if (peer_sid == SECSID_NULL) {
++			ssec = sock->sk->sk_security;
++			peer_sid = ssec->peer_sid;
++		}
+ 		if (peer_sid == SECSID_NULL) {
+ 			err = -ENOPROTOOPT;
+ 			goto out;
+@@ -3646,11 +3648,11 @@ static int selinux_inet_conn_request(str
  		return 0;
--	return security_ops->xfrm_state_alloc_security(x, NULL, polsec, secid);
-+	/*
-+	 * We want the context to be taken from secid which is usually
-+	 * from the sock.
-+	 */
-+	return security_ops->xfrm_state_alloc_security(x, NULL, secid);
+ 	}
+ 
+-	err = selinux_xfrm_decode_session(skb, &peersid, 0);
+-	BUG_ON(err);
++	selinux_skb_xfrm_sid(skb, &peersid);
+ 
+ 	if (peersid == SECSID_NULL) {
+ 		req->secid = sksec->sid;
++		req->peer_secid = 0;
+ 		return 0;
+ 	}
+ 
+@@ -3659,6 +3661,7 @@ static int selinux_inet_conn_request(str
+ 		return err;
+ 
+ 	req->secid = newsid;
++	req->peer_secid = peersid;
+ 	return 0;
  }
  
- static inline int security_xfrm_state_delete(struct xfrm_state *x)
-diff --git a/security/dummy.c b/security/dummy.c
-index 43874c1..838d844 100644
---- a/security/dummy.c
-+++ b/security/dummy.c
-@@ -836,7 +836,7 @@ #endif	/* CONFIG_SECURITY_NETWORK */
+@@ -3668,6 +3671,7 @@ static void selinux_inet_csk_clone(struc
+ 	struct sk_security_struct *newsksec = newsk->sk_security;
+ 
+ 	newsksec->sid = req->secid;
++	newsksec->peer_sid = req->peer_secid;
+ 	/* NOTE: Ideally, we should also get the isec->sid for the
+ 	   new socket in sync, but we don't have the isec available yet.
+ 	   So we will wait until sock_graft to do it, by which
+@@ -3676,6 +3680,14 @@ static void selinux_inet_csk_clone(struc
+ 	selinux_netlbl_sk_security_init(newsksec, req->rsk_ops->family);
+ }
+ 
++static void selinux_inet_conn_established(struct sock *sk,
++				struct sk_buff *skb)
++{
++	struct sk_security_struct *sksec = sk->sk_security;
++
++	selinux_skb_xfrm_sid(skb, &sksec->peer_sid);
++}
++
+ static void selinux_req_classify_flow(const struct request_sock *req,
+ 				      struct flowi *fl)
+ {
+@@ -4738,6 +4750,7 @@ static struct security_operations selinu
+ 	.sock_graft =			selinux_sock_graft,
+ 	.inet_conn_request =		selinux_inet_conn_request,
+ 	.inet_csk_clone =		selinux_inet_csk_clone,
++	.inet_conn_established =	selinux_inet_conn_established,
+ 	.req_classify_flow =		selinux_req_classify_flow,
  
  #ifdef CONFIG_SECURITY_NETWORK_XFRM
- static int dummy_xfrm_policy_alloc_security(struct xfrm_policy *xp,
--		struct xfrm_user_sec_ctx *sec_ctx, struct sock *sk)
-+		struct xfrm_user_sec_ctx *sec_ctx)
- {
- 	return 0;
- }
-@@ -856,7 +856,7 @@ static int dummy_xfrm_policy_delete_secu
+--- net-2.6.lx1/security/selinux/xfrm.c	2006-11-08 09:40:42.000000000 -0600
++++ net-2.6/security/selinux/xfrm.c	2006-11-08 09:47:42.000000000 -0600
+@@ -184,7 +184,8 @@ int selinux_xfrm_flow_state_match(struct
  }
  
- static int dummy_xfrm_state_alloc_security(struct xfrm_state *x,
--	struct xfrm_user_sec_ctx *sec_ctx, struct xfrm_sec_ctx *pol, u32 secid)
-+	struct xfrm_user_sec_ctx *sec_ctx, u32 secid)
- {
- 	return 0;
- }
-diff --git a/security/selinux/include/xfrm.h b/security/selinux/include/xfrm.h
-index 526b280..8e329dd 100644
---- a/security/selinux/include/xfrm.h
-+++ b/security/selinux/include/xfrm.h
-@@ -8,12 +8,12 @@ #ifndef _SELINUX_XFRM_H_
- #define _SELINUX_XFRM_H_
- 
- int selinux_xfrm_policy_alloc(struct xfrm_policy *xp,
--		struct xfrm_user_sec_ctx *sec_ctx, struct sock *sk);
-+		struct xfrm_user_sec_ctx *sec_ctx);
- int selinux_xfrm_policy_clone(struct xfrm_policy *old, struct xfrm_policy *new);
- void selinux_xfrm_policy_free(struct xfrm_policy *xp);
- int selinux_xfrm_policy_delete(struct xfrm_policy *xp);
- int selinux_xfrm_state_alloc(struct xfrm_state *x,
--	struct xfrm_user_sec_ctx *sec_ctx, struct xfrm_sec_ctx *pol, u32 secid);
-+	struct xfrm_user_sec_ctx *sec_ctx, u32 secid);
- void selinux_xfrm_state_free(struct xfrm_state *x);
- int selinux_xfrm_state_delete(struct xfrm_state *x);
- int selinux_xfrm_policy_lookup(struct xfrm_policy *xp, u32 fl_secid, u8 dir);
-diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
-index 675b995..4d5a043 100644
---- a/security/selinux/xfrm.c
-+++ b/security/selinux/xfrm.c
-@@ -226,16 +226,15 @@ int selinux_xfrm_decode_session(struct s
-  * CTX does not have a meaningful value on input
+ /*
+- * LSM hook implementation that determines the sid for the session.
++ * LSM hook implementation that checks and/or returns the xfrm sid for the
++ * incoming packet.
   */
- static int selinux_xfrm_sec_ctx_alloc(struct xfrm_sec_ctx **ctxp,
--	struct xfrm_user_sec_ctx *uctx, struct xfrm_sec_ctx *pol, u32 sid)
-+	struct xfrm_user_sec_ctx *uctx, u32 sid)
- {
- 	int rc = 0;
- 	struct task_security_struct *tsec = current->security;
- 	struct xfrm_sec_ctx *ctx = NULL;
- 	char *ctx_str = NULL;
- 	u32 str_len;
--	u32 ctx_sid;
  
--	BUG_ON(uctx && pol);
-+	BUG_ON(uctx && sid);
+ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
+@@ -403,43 +404,8 @@ void selinux_xfrm_state_free(struct xfrm
+ }
  
- 	if (!uctx)
- 		goto not_from_user;
-@@ -279,15 +278,7 @@ static int selinux_xfrm_sec_ctx_alloc(st
- 	return rc;
- 
- not_from_user:
--	if (pol) {
--		rc = security_sid_mls_copy(pol->ctx_sid, sid, &ctx_sid);
--		if (rc)
--			goto out;
--	}
--	else
--		ctx_sid = sid;
+ /*
+- * SELinux internal function to retrieve the context of a connected
+- * (sk->sk_state == TCP_ESTABLISHED) TCP socket based on its security
+- * association used to connect to the remote socket.
+- *
+- * Retrieve via getsockopt SO_PEERSEC.
+- */
+-u32 selinux_socket_getpeer_stream(struct sock *sk)
+-{
+-	struct dst_entry *dst, *dst_test;
+-	u32 peer_sid = SECSID_NULL;
 -
--	rc = security_sid_to_context(ctx_sid, &ctx_str, &str_len);
-+	rc = security_sid_to_context(sid, &ctx_str, &str_len);
- 	if (rc)
- 		goto out;
- 
-@@ -302,7 +293,7 @@ not_from_user:
- 
- 	ctx->ctx_doi = XFRM_SC_DOI_LSM;
- 	ctx->ctx_alg = XFRM_SC_ALG_SELINUX;
--	ctx->ctx_sid = ctx_sid;
-+	ctx->ctx_sid = sid;
- 	ctx->ctx_len = str_len;
- 	memcpy(ctx->ctx_str,
- 	       ctx_str,
-@@ -323,22 +314,14 @@ out2:
-  * xfrm_policy.
-  */
- int selinux_xfrm_policy_alloc(struct xfrm_policy *xp,
--		struct xfrm_user_sec_ctx *uctx, struct sock *sk)
-+		struct xfrm_user_sec_ctx *uctx)
- {
- 	int err;
--	u32 sid;
- 
- 	BUG_ON(!xp);
--	BUG_ON(uctx && sk);
+-	if (sk->sk_state != TCP_ESTABLISHED)
+-		goto out;
 -
--	if (sk) {
--		struct sk_security_struct *ssec = sk->sk_security;
--		sid = ssec->sid;
+-	dst = sk_dst_get(sk);
+-	if (!dst)
+-		goto out;
+-
+- 	for (dst_test = dst; dst_test != 0;
+-      	     dst_test = dst_test->child) {
+-		struct xfrm_state *x = dst_test->xfrm;
+-
+- 		if (x && selinux_authorizable_xfrm(x)) {
+-	 	 	struct xfrm_sec_ctx *ctx = x->security;
+-			peer_sid = ctx->ctx_sid;
+-			break;
+-		}
 -	}
--	else
--		sid = SECSID_NULL;
-+	BUG_ON(!uctx);
- 
--	err = selinux_xfrm_sec_ctx_alloc(&xp->security, uctx, NULL, sid);
-+	err = selinux_xfrm_sec_ctx_alloc(&xp->security, uctx, 0);
- 	return err;
- }
- 
-@@ -399,13 +382,13 @@ int selinux_xfrm_policy_delete(struct xf
-  * xfrm_state.
-  */
- int selinux_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *uctx,
--		struct xfrm_sec_ctx *pol, u32 secid)
-+		u32 secid)
- {
- 	int err;
- 
- 	BUG_ON(!x);
- 
--	err = selinux_xfrm_sec_ctx_alloc(&x->security, uctx, pol, secid);
-+	err = selinux_xfrm_sec_ctx_alloc(&x->security, uctx, secid);
- 	return err;
- }
- 
+-	dst_release(dst);
+-
+-out:
+-	return peer_sid;
+-}
+-
+-/*
+  * SELinux internal function to retrieve the context of a UDP packet
+- * based on its security association used to connect to the remote socket.
++ * based on its security association.
+  *
+  * Retrieve via setsockopt IP_PASSSEC and recvmsg with control message
+  * type SCM_SECURITY.
