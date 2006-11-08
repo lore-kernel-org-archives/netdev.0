@@ -1,63 +1,60 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: e1000: include <net/ip6_checksum.h> for IA64
-Date: Wed, 8 Nov 2006 11:06:01 -0800
-Message-ID: <20061108110601.01d9a4f4.akpm@osdl.org>
-References: <45521873.20402@intel.com>
+From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
+Subject: RE: [PATCH 3/3] mlsxfrm: Various fixes
+Date: Wed, 8 Nov 2006 13:17:05 -0600
+Message-ID: <000701c7036a$7b269010$cc0a010a@tcssec.com>
+References: <1163007248.12241.58.camel@moss-spartans.epoch.ncsc.mil>
+Reply-To: <vyekkirala@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: "Paul Moore" <paul.moore@hp.com>, <netdev@vger.kernel.org>,
+	<selinux@tycho.nsa.gov>, <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:48826 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161692AbWKHTG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 14:06:59 -0500
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45521873.20402@intel.com>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:63648 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161704AbWKHTRY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 14:17:24 -0500
+To: "'Stephen Smalley'" <sds@tycho.nsa.gov>,
+	"Venkat Yekkirala" <vyekkirala@tcsfw4.tcs-sec.com>
+In-Reply-To: <1163007248.12241.58.camel@moss-spartans.epoch.ncsc.mil>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Nov 2006 09:48:35 -0800
-Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> > >  Not sure
+> > > though when
+> > > that would apply here,
+> >
+> > It could apply to xfrms if they happen to be using the context
+> > represented by any of the initial SIDs.
+>
+> Which would happen when?
 
-> Here's a slightly better patch to fix ia64 not building atm.
+If one were attempting to use a context pertaining to the unlabeled init
+sid in the SPD and/or the SAD. But would I be correct in assuming that the
+same sid (unlabeled init sid in all likelyhood) would end up being returned
+when the context is turned into a sid, resulting in the SPD and the SAD
+using
+the same init sid, thus making a full-context compare unnecessary?
 
-fsvo "better".
+>
+> > > and it would only apply if both SIDs
+> > > were initial
+> > > SIDs.
+> >
+> > OK. Will narrow the full context comparison to just this case.
+>
+> What's the harm from just using the SID comparison and
+> allowing for the
+> possibility that there might be a few duplicates in rare
+> circumstances?
+> Does it break any assumptions in the rest of the logic?
 
-> Jeff, please apply this to netdev-2.6#upstream instead of akpm's patch that I acked earlier.
-> 
-> Of course, someone really should come up with an asm version for ia64 of the missing 
-> function ;)
-> 
-> Cheers,
-> 
-> Auke
-> 
-> ---
-> 
-> e1000: include <net/ip6_checksum.h> for IA64
-> 
-> IA64 does not have an optimized asm version for ipv6 csum magic. Fall
-> back to generic implementation.
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
-> diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-> index f091042..26e7506 100644
-> --- a/drivers/net/e1000/e1000.h
-> +++ b/drivers/net/e1000/e1000.h
-> @@ -61,6 +61,7 @@
->   #include <linux/ip.h>
->   #ifdef NETIF_F_TSO6
->   #include <linux/ipv6.h>
-> +#include <net/ip6_checksum.h>
->   #endif
->   #include <linux/tcp.h>
->   #include <linux/udp.h>
+The best I can think of is if the SA's sid doesn't match the
+socket's SID, IKE would come into play, if it's configured.
 
-It is noxious of e1000 to do a #include <everything.h> from its driver-wide
-header file and I refused to be a party to such a thing!
+I also wanted to conversely ask what harm exists if we did
+a full-context compare in the event the sids didn't match?
 
-Jeff probably won't be able to apply this because, like your other patches,
-it is space-stuffed.  Then again, maybe git understands format=flowed, dunno.
+Are we just trying to generally avoid extra code?
+
