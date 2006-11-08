@@ -1,58 +1,26 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Wed, 8 Nov 2006 15:00:07 -0800
-Message-ID: <20061108150007.49eaea68@freekitty>
-References: <1162924354.10806.172.camel@localhost.localdomain>
-	<1163001318.3138.346.camel@laptopd505.fenrus.org>
-	<20061108162955.GA4364@suse.de>
-	<1163011132.10806.189.camel@localhost.localdomain>
-	<20061108221028.GA16889@suse.de>
-	<1163023652.10806.203.camel@localhost.localdomain>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: [PATCH 0/3] labeled-ipsec: Repost patchset with updates [Originally:
+ mlsxfrm: Various Fixes]
+Date: Wed, 08 Nov 2006 17:03:29 -0600
+Message-ID: <45526241.10805@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Olaf Kirch <okir@suse.de>, Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21167 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1423864AbWKHXBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 18:01:08 -0500
-To: tim.c.chen@linux.intel.com
-In-Reply-To: <1163023652.10806.203.camel@localhost.localdomain>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:45074 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1423875AbWKHXDu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 18:03:50 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Nov 2006 14:07:32 -0800
-Tim Chen <tim.c.chen@linux.intel.com> wrote:
+This patchset is against davem's net-2.6.git. Please apply to 2.6.19.
 
-> On Wed, 2006-11-08 at 23:10 +0100, Olaf Kirch wrote:
-> 
-> > 
-> > In fixing performance issues, the most obvious explanation isn't always
-> > the right one. It's quite possible you're right, sure.
-> > 
-> > What I'm saying though is that it doesn't rhyme with what I've seen of
-> > Volanomark - we ran 2.6.16 on a 4p Intel box for instance and it didn't
-> > come close to saturating a Gigabit pipe before it maxed out on CPU load.
-> > 
-> 
-> I am running Volanomark in a loopback mode on a 2P woodcrest box 
-> (4 cores).  So the configuration is a bit different.  
-> 
-> In my testing, the CPU utilization is at 100%.  So
-> increase in ACKs will cost CPU to devote more
-> time to process those ACKs and reduce throughput.
-> 
-> > 
-> > You could count the number of outbound packets dropped on the server.
-> > 
-> 
-> As I'm running in loopback mode, there are no dropped packets.
-> 
+The following are the changes since the previous post of this patchset:
 
-Optimizing for loopback is perversion; perversion can be fun but it gets
-to be a obsession then it's sick.
+1. Separate BUG_ON usage per Eric's suggestion.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+2. Replace security_sid_compare with a simple sid compare check per
+   a suggestion from Paul/Stephen.
