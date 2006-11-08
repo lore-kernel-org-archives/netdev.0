@@ -1,50 +1,75 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/11] convert d80211 to a proper protocol
-Date: Wed, 08 Nov 2006 08:36:04 -0500
-Message-ID: <4551DD44.7000004@garzik.org>
-References: <1162741174.24574.22.camel@johannes.berg>	<20061106210145.6824bec6@griffin.suse.cz>	<1162847394.1412.17.camel@johannes.berg> <20061108125844.46831cda@griffin.suse.cz>
+From: "Udayan Singh" <udayan.singh@gmail.com>
+Subject: Re: [Info]d80211 : Understanding d80211
+Date: Wed, 8 Nov 2006 19:14:21 +0530
+Message-ID: <d9a09df00611080544t12534f88k9a116b4becb86b3d@mail.gmail.com>
+References: <d9a09df00611031943n41cf27beu566383b0e1c96197@mail.gmail.com>
+	 <454C13FF.6070902@lwfinger.net>
+	 <d9a09df00611040741s7612c79fu4122faf64da48a21@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Simon Barber <simon@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	Ivo van Doorn <ivdoorn@gmail.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	James Ketrenos <jketreno@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52357 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965753AbWKHNgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 08:36:17 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061108125844.46831cda@griffin.suse.cz>
+Received: from wx-out-0506.google.com ([66.249.82.228]:12870 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S965757AbWKHNoW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 08:44:22 -0500
+Received: by wx-out-0506.google.com with SMTP id s14so1764576wxc
+        for <netdev@vger.kernel.org>; Wed, 08 Nov 2006 05:44:21 -0800 (PST)
+To: "Larry Finger" <Larry.Finger@lwfinger.net>
+In-Reply-To: <d9a09df00611040741s7612c79fu4122faf64da48a21@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Benc wrote:
-> On Mon, 06 Nov 2006 22:09:54 +0100, Johannes Berg wrote:
->>> What did happen with
->>> d80211: add a function to get the wiphy index
->>> d80211: add a perm_addr hardware property
->>> d80211: add a struct device* hardware property
->>> d80211: add a ethtool_ops hardware property
->>> patches?
->> Well after some chat with a few people I decided that it was stupid and
->> not very maintainable to copy all the fields in net_device to a new
->> structure.
-> 
-> Ok. Personally, I don't care if we pass net_device or ieee80211_local
-> to drivers. I see pros and cons of both solutions.
+thanks larry for the initial info..
+pls reply..
 
-Agreed.  Though if using ieee80211_local, please remove the "_local".  A 
-better name is needed.
+On 11/4/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
+> Udayan Singh wrote:
+> > Hi,
+> >
+> > I wanted to understand the code of d80211 (thanks to James Ketrenos
+> > for the info he provided) and also work in it.
+> >
+> > I found that I can get the latest patches regarding the same from :
+> >
+> > http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+>
+> Wireless-2.6 contains the developmental version of wireless code _NOT_ using
+> d80211. The d80211
+> development version is at
+> git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
+> and must be downloaded with git, not ftp or http.
 
-	Jeff
+
+ok.
 
 
 
+> > Any docs that I can read through that you would recommend from where I
+> > can start up ?
+>
+> Only the code AFAIK.
+>
+
+
+referring to the standards might  be good i.e. 802.11 standards ??
+
+I intend to work in the manner:
+
+1. There are quite many standards that have already been implemented
+e.g. 802.11a/b/g in the kernel (here wireless-dev). If there is a new
+standard wrt. 802.11x coming in, then I can work on same.
+
+2. Work on an already implemented standard and try to add a missing
+feaature into it.
+
+Kindly let me know your opinions.
+
+tia,
+Udayan
+
+>
+> Larry
+>
+>
