@@ -1,77 +1,25 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
-Date: Wed, 8 Nov 2006 15:51:13 +0100
-Message-ID: <200611081551.14671.dada1@cosmosbay.com>
-References: <1154985aa0591036@2ka.mipt.ru> <20061107141718.f7414b31.akpm@osdl.org> <20061108082147.GA2447@2ka.mipt.ru>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [take3 0/5] d80211: remove bitfields from include/net/d80211.h
+Date: Wed, 8 Nov 2006 07:39:44 -0800
+Message-ID: <20061108153944.GA26557@devicescape.com>
+References: <20061025184244.GA30046@devicescape.com> <20061025190129.GH19513@havoc.gtf.org> <20061025191702.GA32410@devicescape.com> <20061025192803.GJ19513@havoc.gtf.org> <20061103033049.GD2989@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_i7eUF/uHD39geVt"
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965893AbWKHOvO@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061108082147.GA2447@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.devicescape.com ([207.138.119.2]:59855 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S965922AbWKHPkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 10:40:07 -0500
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20061103033049.GD2989@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_i7eUF/uHD39geVt
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Thu, Nov 02, 2006 at 10:30:56PM -0500, John W. Linville wrote:
+> David, may I presume there will be a "take4"?
 
-On Wednesday 08 November 2006 09:21, Evgeniy Polyakov wrote:
-> On Tue, Nov 07, 2006 at 02:17:18PM -0800, Andrew Morton (akpm@osdl.org) 
-wrote:
-> > From: Andrew Morton <akpm@osdl.org>
-> >
-> > If kevent_user_wait() gets -EFAULT on the attempt to copy the first
-> > event, it will return 0, which is indistinguishable from "no events
-> > pending".
-> >
-> > It can and should return EFAULT in this case.
->
-> Correct, I missed that.
-> Thanks Andrew, I will put into my tree, -mm seems to have it already.
-
-I believe eventpoll has a similar problem. Not a big problem, but we can be 
-cleaner. Normally, the access_ok() done in sys_epoll_wait() should catch non 
-writeable user area, unless another thread play VM game (the thread in 
-sys_epoll_wait() can sleep)
-
-[PATCH] eventpoll : In case a fault occurs during copy_to_user(), we should 
-report the count of events that were successfully copied into user space, 
-instead of EFAULT. That would be consistent with behavior of read/write() 
-syscalls for example.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-
---Boundary-00=_i7eUF/uHD39geVt
-Content-Type: text/plain;
-  charset="koi8-r";
-  name="eventpoll.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="eventpoll.patch"
-
---- linux/fs/eventpoll.c	2006-11-08 15:37:36.000000000 +0100
-+++ linux/fs/eventpoll.c	2006-11-08 15:38:31.000000000 +0100
-@@ -1447,7 +1447,7 @@
- 				       &events[eventcnt].events) ||
- 			    __put_user(epi->event.data,
- 				       &events[eventcnt].data))
--				return -EFAULT;
-+				return eventcnt ? eventcnt : -EFAULT;
- 			if (epi->event.events & EPOLLONESHOT)
- 				epi->event.events &= EP_PRIVATE_BITS;
- 			eventcnt++;
-
---Boundary-00=_i7eUF/uHD39geVt--
+yes, refreshing is in progress.
