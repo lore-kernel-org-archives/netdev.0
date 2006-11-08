@@ -1,34 +1,48 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Wed, 8 Nov 2006 17:29:55 +0100
-Message-ID: <20061108162955.GA4364@suse.de>
-References: <1162924354.10806.172.camel@localhost.localdomain> <1163001318.3138.346.camel@laptopd505.fenrus.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take23 3/5] kevent: poll/select() notifications.
+Date: Wed, 8 Nov 2006 20:03:59 +0300
+Message-ID: <20061108170358.GA27557@2ka.mipt.ru>
+References: <11629182482792@2ka.mipt.ru> <Pine.LNX.4.64.0611071449410.17731@alien.or.mcafeemobile.com> <20061108084554.GD2447@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tim.c.chen@linux.intel.com, linux-kernel@vger.kernel.org,
-	davem@sunset.davemloft.net, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42730 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1161138AbWKHQaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 11:30:10 -0500
-To: Arjan van de Ven <arjan@infradead.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:17301 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1753271AbWKHRGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 12:06:11 -0500
+To: Davide Libenzi <davidel@xmailserver.org>
 Content-Disposition: inline
-In-Reply-To: <1163001318.3138.346.camel@laptopd505.fenrus.org>
+In-Reply-To: <20061108084554.GD2447@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 08, 2006 at 04:55:18PM +0100, Arjan van de Ven wrote:
-> I wonder if it's an option to use low priority QoS fields for these acks
-> (heck I don't even know if ACKs have such fields in their packet) so
-> that they can get dropped if there are more packets then there is
-> bandwidth ....
+On Wed, Nov 08, 2006 at 11:45:54AM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > Are you sure you can safely call file->f_op->poll() from inside a callback 
+> > based wakeup? The low level driver may be calling the wakeup with one of 
+> > its locks held, and during the file->f_op->poll may be trying to acquire 
+> > the same lock. I remember there was a discussion about this, and assuming 
+> > the above not true, made epoll code more complex (and slower, since an 
+> > extra O(R) loop was needed to fetch events).
+> 
+> Indeed, I have not paid too much attention to poll/select notifications in 
+> kevent actually. As far as I recall it should be called on behalf of process 
+> doing kevent_get_event(). I will check and fix if that is not correct.
+> Thanks Davide.
 
-Is it proven that the number of ACKs actually cause bandwidth problems?
-I found Volanomark to exercise the scheduler more than anything else,
-so maybe the slowdown, while triggered by an increased number of ACKs,
-is caused by something else entirely.
+Indeed there was a bug.
+Actually poll/select patch was broken quite noticebly - patchset did not
+include major changes I made for it.
+I will put them all into next release.
 
-Olaf
+Thanks again Davide for pointing that out.
+
 -- 
-Walks like a duck. Quacks like a duck. Must be a chicken.
+	Evgeniy Polyakov
