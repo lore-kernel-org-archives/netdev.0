@@ -1,64 +1,84 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: why do we mangle checksums for v6 ICMP?
-Date: Wed, 8 Nov 2006 22:28:49 +0000
-Message-ID: <20061108222849.GJ29920@ftp.linux.org.uk>
-References: <20061108221332.GI29920@ftp.linux.org.uk>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
+Date: Wed, 8 Nov 2006 14:44:52 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
+References: <1154985aa0591036@2ka.mipt.ru> <20061107141718.f7414b31.akpm@osdl.org>
+ <20061108082147.GA2447@2ka.mipt.ru> <200611081551.14671.dada1@cosmosbay.com>
+ <20061108140307.da7d815f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:44471 "EHLO
-	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1423813AbWKHW2v
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 17:28:51 -0500
-Received: from viro by ZenIV.linux.org.uk with local (Exim 4.52 #1 (Red Hat Linux))
-	id 1Ghvub-0008AM-He
-	for netdev@vger.kernel.org; Wed, 08 Nov 2006 22:28:49 +0000
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061108221332.GI29920@ftp.linux.org.uk>
+Received: from x35.xmailserver.org ([69.30.125.51]:40933 "EHLO
+	x35.xmailserver.org") by vger.kernel.org with ESMTP
+	id S1423843AbWKHWoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 17:44:55 -0500
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
+	id <S1FC080> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Wed, 8 Nov 2006 14:44:53 -0800
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061108140307.da7d815f.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 08, 2006 at 10:13:32PM +0000, Al Viro wrote:
-> 	AFAICS, the rules are:
-> 
-> (1) checksum is 16-bit one's complement of the one's complement sum of
-> relevant 16bit words.
-> 
-> (2) for v4 UDP all-zeroes has special meaning - no checksum; if you get
-> it from (1), send all-ones instead.
-> 
-> (3) for v6 UDP we have the same remapping as in (2), but all-zeroes has
-> different meaning - not "ignore checksum" as in v4, but "reject the
-> packet".
-> 
-> (4) there is no (4).
-> 
-> 	IOW, nobody except UDP has any business doing that 0->0xffff
-> replacement.  However, we have
->        if (icmp6h->icmp6_cksum == 0)
->                icmp6h->icmp6_cksum = -1;
-> and similar in net/ipv6/raw.c
-> 
-> AFAICS, both went in with (commit ID by linux-hist repository)
-> commit 6bac90985c8b65ffc25839c001aa7ef4831d2915
-> Author: Kazunori Miyazawa <kazunori@miyazawa.org>
-> Date:   Mon May 12 00:21:19 2003 -0700
-> 
->     [IPV4]: Introduce ip6_append_data.
-> 
-> That changeset has very similar changes done in udp.c, icmp.c and raw.c;
-> remapping of UDP checksum used to be in the area affected by the changeset
-> and it looks like it got not just preserved in udp.c (as it should), but
-> copied to icmp.c and raw.c instances.
-> 
-> So... is it really needed there?
+On Wed, 8 Nov 2006, Andrew Morton wrote:
 
-While we are at it, shouldn't ip_nat_mangle_udp_packet() do the same
-remapping in
-        } else
-                udph->check = nf_proto_csum_update(*pskb,
-                                                   htons(oldlen) ^ htons(0xFFFF),
-                                                   htons(datalen),
-                                                   udph->check, 1);
-branch?  Note that udp_manip_pkt() does it in the same situation...
+> On Wed, 8 Nov 2006 15:51:13 +0100
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+> 
+> > [PATCH] eventpoll : In case a fault occurs during copy_to_user(), we should 
+> > report the count of events that were successfully copied into user space, 
+> > instead of EFAULT. That would be consistent with behavior of read/write() 
+> > syscalls for example.
+> > 
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > 
+> > 
+> > 
+> > [eventpoll.patch  text/plain (424B)]
+> > --- linux/fs/eventpoll.c	2006-11-08 15:37:36.000000000 +0100
+> > +++ linux/fs/eventpoll.c	2006-11-08 15:38:31.000000000 +0100
+> > @@ -1447,7 +1447,7 @@
+> >  				       &events[eventcnt].events) ||
+> >  			    __put_user(epi->event.data,
+> >  				       &events[eventcnt].data))
+> > -				return -EFAULT;
+> > +				return eventcnt ? eventcnt : -EFAULT;
+> >  			if (epi->event.events & EPOLLONESHOT)
+> >  				epi->event.events &= EP_PRIVATE_BITS;
+> >  			eventcnt++;
+> > 
+> 
+> Definitely a better interface, but I wonder if it's too late to change it.
+> 
+> An app which does
+> 
+> 	if (epoll_wait(...) == -1)
+> 		barf(errno);
+> 	else
+> 		assume_all_events_were_received();
+> 
+> will now do the wrong thing.
+> 
+> otoh, such an applciation basically _has_ to use the epoll_wait()
+> return value to work out how many events it received, so maybe it's OK...
+
+I don't care about both ways, but sys_poll() does the same thing epoll 
+does right now, so I would not change epoll behaviour.
+
+
+
+- Davide
+
+
