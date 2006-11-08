@@ -1,25 +1,52 @@
-From: Roger While <simrw@sim-basis.de>
-Subject: Re. Please pull 'upstream' branch of wireless-2.6
-Date: Wed, 08 Nov 2006 18:27:54 +0100
-Message-ID: <6.1.1.1.2.20061108182728.02b11300@192.168.6.12>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: RE: [PATCH 3/3] mlsxfrm: Various fixes
+Date: Wed, 08 Nov 2006 12:34:08 -0500
+Message-ID: <1163007248.12241.58.camel@moss-spartans.epoch.ncsc.mil>
+References: <000601c70343$02fa9fe0$cc0a010a@tcssec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout11.sul.t-online.com ([194.25.134.85]:44675 "EHLO
-	mailout11.sul.t-online.com") by vger.kernel.org with ESMTP
-	id S1754606AbWKHR2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 12:28:24 -0500
-Received: from simrog.sim-basis.de (simrog [192.168.6.50])
-	by simlinux.site (8.13.3/8.13.3/SuSE Linux 0.7) with ESMTP id kA8HRu06008805
-	for <netdev@vger.kernel.org>; Wed, 8 Nov 2006 18:28:00 +0100
-To: netdev@vger.kernel.org
+Received: from zombie.ncsc.mil ([144.51.88.131]:46753 "EHLO jazzdrum.ncsc.mil")
+	by vger.kernel.org with ESMTP id S1754612AbWKHRgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 12:36:18 -0500
+To: vyekkirala@TrustedCS.com
+In-Reply-To: <000601c70343$02fa9fe0$cc0a010a@tcssec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John, you just broke a considerable number of prism54 users.
-It is NOT an error if the MWI set fails. This is just a
-performance tweak and has NO effect on the driver working.
+On Wed, 2006-11-08 at 08:34 -0600, Venkat Yekkirala wrote:
+> > Such duplication can occur among the initial SIDs.
+> 
+> For some reason I thought that could happen between an initial SID
+> and a non-initial SID.
 
-Roger While
+I think only in the case where a non-initial SID has been invalidated by
+policy reload that renders its context illegal and is thus remapped to
+the unlabeled SID.  
 
+> >  Not sure 
+> > though when
+> > that would apply here,
+> 
+> It could apply to xfrms if they happen to be using the context
+> represented by any of the initial SIDs.
+
+Which would happen when?  
+
+> > and it would only apply if both SIDs 
+> > were initial
+> > SIDs.
+> 
+> OK. Will narrow the full context comparison to just this case.
+
+What's the harm from just using the SID comparison and allowing for the
+possibility that there might be a few duplicates in rare circumstances?
+Does it break any assumptions in the rest of the logic?
+
+-- 
+Stephen Smalley
+National Security Agency
 
