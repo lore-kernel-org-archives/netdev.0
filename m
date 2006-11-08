@@ -1,81 +1,83 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: General network driver suspend/resume (was e1000 carrier related)
-Date: Wed, 8 Nov 2006 11:54:14 -0800
-Message-ID: <20061108115414.7e089a58@freekitty>
-References: <20061106013153.GN15897@curie-int.orbis-terrarum.net>
-	<20061107071449.GB21655@elf.ucw.cz>
-	<4550AB7A.10508@intel.com>
-	<20061108120407.GA9506@elf.ucw.cz>
+Subject: Re: New laptop - problems with linux
+Date: Wed, 8 Nov 2006 12:26:49 -0800
+Message-ID: <20061108122649.2f79ec1f@freekitty>
+References: <4551EC86.5010600@seclark.us>
+	<4551F3A6.8040807@gmail.com>
+	<4551F5B7.1050709@seclark.us>
+	<20061108182658.GA21154@electric-eye.fr.zoreil.com>
+	<45523289.2010002@seclark.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:12747 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1754660AbWKHTyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 14:54:31 -0500
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20061108120407.GA9506@elf.ucw.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:42454 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422863AbWKHU1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 15:27:14 -0500
+To: Stephen.Clark@seclark.us
+In-Reply-To: <45523289.2010002@seclark.us>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Nov 2006 13:04:07 +0100
-Pavel Machek <pavel@ucw.cz> wrote:
+On Wed, 08 Nov 2006 14:39:53 -0500
+Stephen Clark <Stephen.Clark@seclark.us> wrote:
 
-> Hi!
+> Francois Romieu wrote:
 > 
-> > >>This behavior differs from every other network card, and is also present 
-> > >>in the
-> > >>7.3* version of the driver from sourceforge.
-> > >>
-> > >>I think the e1000 should try to raise the link during the probe, so that 
-> > >>it
-> > >>works properly, without having to set ifconfig ethX up first.
-> > >
-> > >I think you should cc e1000 maintainers, and perhaps provide a patch....
-> > 
-> > I've read it and not come up with an answer due to some other issues at 
-> > hand. E1000 hardware works differently and this has been asked before, but 
-> > the cards itself are in low power state when down. Changing this to bring 
-> > up the link would make the card start to consume lots more power, which 
-> > would automatically suck enormously for anyone using a laptop.
-> 
-> Well, maybe E1000 should behave as the other cards behave, and
-> different solution needs to be found for power saving? ifconfig eth0
-> suspend?
-> 
-> 									Pavel
->  
+> >Stephen Clark <Stephen.Clark@seclark.us> :
+> >[...]
+> >  
+> >
+> >>No it is not loaded - i did a modprobe on it and it loaded but still no 
+> >>ethx device.
+> >>    
+> >>
+> >
+> >Send complete 'dmesg' and 'lspci -vvx' (please Cc: netdev@vger.kernel.org)
+> >
+> >  
+> >
+> lspci and dmesg attached below:
+> Thanks, anything else I can do please let me know.
+
+> 03:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG 
+> Network Connection (rev 02)
+>         Subsystem: Intel Corporation Unknown device 1000
 > 
 
-The standard which all network drivers should use is:
+Use the ipw3945 driver and binary regulatory daemon from:
+	http://ipw3945.sourceforge.net/#downloads
 
-module insertion:
-	start in initial powerdown state
+ 
+> 05:07.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169SC 
+> Gigabit Ethernet (rev 10)
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 1345
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- 
+> ParErr- Stepping- SERR- FastB2B-
+>         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
+> <TAbort- <MAbort- >SERR- <PERR-
+>         Latency: 64 (8000ns min, 16000ns max), Cache Line Size: 32 bytes
+>         Interrupt: pin A routed to IRQ 11
+>         Region 0: I/O ports at d800 [size=256]
+>         Region 1: Memory at fe8ffc00 (32-bit, non-prefetchable) [size=256]
+>         Expansion ROM at 80000000 [disabled] [size=128K]
+>         Capabilities: [dc] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
+> PME(D0-,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 00: ec 10 67 81 17 00 b0 02 10 00 00 02 08 40 00 00
+> 10: 01 d8 00 00 00 fc 8f fe 00 00 00 00 00 00 00 00
+> 20: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 45 13
+> 30: 00 00 8c fe dc 00 00 00 00 00 00 00 0b 01 20 40
+> 
 
-open:
-	power up, bring up link
-
-stop:
-	bring down link
-	return to powerdown state unless WOL is set.
-	if doing WOL go to lowest power sensing state
-
-suspend:
-	same as stop
-
-resume:
-	same as open
-
-module removal:
-	stop already called so device should be in power down state.
+This PCI ID was added to 2.6.19.  You should run 2.6.19-rc5 or backport the changes.
 
 
-Since suspend is basically same as stop, and resume is open
-I am going to investigate doing suspend/resume in the network device layer
-(unless subclassed by driver), so we can rip out the suspend/resume hook
-from many network drivers. There will still be boards like sky2
-that need own suspend/resume to deal with dual port etc.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+
+
