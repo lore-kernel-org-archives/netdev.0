@@ -1,63 +1,38 @@
-From: Andrew Morton <akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [BUG] [2.6.19-rc4-mm2] can't compile
  drivers/acpi/processor_idle.c
-Date: Tue, 7 Nov 2006 22:52:59 -0800
-Message-ID: <20061107225259.0eff22d2.akpm@osdl.org>
+Date: Tue, 07 Nov 2006 23:02:52 -0800 (PST)
+Message-ID: <20061107.230252.38711277.davem@davemloft.net>
 References: <20061108150141.b792fbdb.kamezawa.hiroyu@jp.fujitsu.com>
+	<20061107225259.0eff22d2.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-ia64@vger.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jeff@garzik.org>
+Cc: kamezawa.hiroyu@jp.fujitsu.com, tglx@linutronix.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-ia64@vger.kernel.org, auke-jan.h.kok@intel.com,
+	jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:10682 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1754374AbWKHGxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 01:53:45 -0500
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20061108150141.b792fbdb.kamezawa.hiroyu@jp.fujitsu.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16829
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1753781AbWKHHCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Nov 2006 02:02:52 -0500
+To: akpm@osdl.org
+In-Reply-To: <20061107225259.0eff22d2.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Nov 2006 15:01:41 +0900
-KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
+From: Andrew Morton <akpm@osdl.org>
+Date: Tue, 7 Nov 2006 22:52:59 -0800
 
+> Also,
 > 
-> While compiling 2.6.19-rc4-mm2 on ia64, I met this compile error.
-> ==
->   CC [M]  drivers/acpi/processor_idle.o
-> drivers/acpi/processor_idle.c:43:22: asm/apic.h: No such file or directory
-> drivers/acpi/processor_idle.c: In function `acpi_processor_power_seq_show':
-> drivers/acpi/processor_idle.c:1202: warning: long long unsigned int format, u64 arg (arg 5)
-> ==
+> drivers/built-in.o(.text+0xd9a72): In function `e1000_xmit_frame':
+> : undefined reference to `csum_ipv6_magic'
 > 
-> This is because of acpi-include-apic-h.patch, maybe.
-> ia64 doesn't have asm/acpi.h
+> I don't know how this got broken.  ia64 seems to be the only architecture
+> which doesn't have an implementation of csum_ipv6_magic().  This bug
+> appears to be introduced by git-netdev-all.patch.
 
-That got fixed (by ugly means).
-
-> my .config is attached.
-
-But rc5-mm1 remains broken with that .config:
-
-arch/ia64/pci/pci.c: In function `pci_acpi_scan_root':
-arch/ia64/pci/pci.c:354: warning: implicit declaration of function `pxm_to_node'
-...
-arch/ia64/pci/built-in.o(.text+0xe92): In function `pci_acpi_scan_root':
-: undefined reference to `pxm_to_node'
-
-This bug exists in mainline.
-
-
-
-
-Also,
-
-drivers/built-in.o(.text+0xd9a72): In function `e1000_xmit_frame':
-: undefined reference to `csum_ipv6_magic'
-
-I don't know how this got broken.  ia64 seems to be the only architecture
-which doesn't have an implementation of csum_ipv6_magic().  This bug
-appears to be introduced by git-netdev-all.patch.
-
+There is a generic version, which e1000 would get if it included
+the net/ip_checksum.h header file.
