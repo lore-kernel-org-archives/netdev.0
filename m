@@ -1,33 +1,63 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: SKB BUG: Invalid truesize, current git
-Date: Wed, 8 Nov 2006 13:39:39 -0500
-Message-ID: <20061108183939.GI31439@kvack.org>
-References: <20061106190725.GW9057@kvack.org> <20061106193620.GA1766@gondor.apana.org.au> <20061107.145724.129450194.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: e1000: include <net/ip6_checksum.h> for IA64
+Date: Wed, 8 Nov 2006 11:06:01 -0800
+Message-ID: <20061108110601.01d9a4f4.akpm@osdl.org>
+References: <45521873.20402@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:27585 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1161463AbWKHSjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 13:39:49 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061107.145724.129450194.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:48826 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161692AbWKHTG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 14:06:59 -0500
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <45521873.20402@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 07, 2006 at 02:57:24PM -0800, David Miller wrote:
-> > Since pskb_copy tacks on the non-linear bits from the original
-> > skb, it needs to count them in the truesize field of the new skb.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Wed, 08 Nov 2006 09:48:35 -0800
+Auke Kok <auke-jan.h.kok@intel.com> wrote:
+
+> Here's a slightly better patch to fix ia64 not building atm.
+
+fsvo "better".
+
+> Jeff, please apply this to netdev-2.6#upstream instead of akpm's patch that I acked earlier.
 > 
-> Applied, thanks Herbert.
+> Of course, someone really should come up with an asm version for ia64 of the missing 
+> function ;)
+> 
+> Cheers,
+> 
+> Auke
+> 
+> ---
+> 
+> e1000: include <net/ip6_checksum.h> for IA64
+> 
+> IA64 does not have an optimized asm version for ipv6 csum magic. Fall
+> back to generic implementation.
+> 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+> index f091042..26e7506 100644
+> --- a/drivers/net/e1000/e1000.h
+> +++ b/drivers/net/e1000/e1000.h
+> @@ -61,6 +61,7 @@
+>   #include <linux/ip.h>
+>   #ifdef NETIF_F_TSO6
+>   #include <linux/ipv6.h>
+> +#include <net/ip6_checksum.h>
+>   #endif
+>   #include <linux/tcp.h>
+>   #include <linux/udp.h>
 
-This seems to work -- I haven't been able to trigger the message with the 
-patch applied now.
+It is noxious of e1000 to do a #include <everything.h> from its driver-wide
+header file and I refused to be a party to such a thing!
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+Jeff probably won't be able to apply this because, like your other patches,
+it is space-stuffed.  Then again, maybe git understands format=flowed, dunno.
