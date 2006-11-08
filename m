@@ -1,29 +1,35 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Re. Please pull 'upstream' branch of wireless-2.6
-Date: Wed, 8 Nov 2006 14:46:00 -0500
-Message-ID: <20061108194554.GA25484@tuxdriver.com>
-References: <6.1.1.1.2.20061108182728.02b11300@192.168.6.12>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Wed, 8 Nov 2006 14:48:43 -0500
+Message-ID: <20061108194837.GB25484@tuxdriver.com>
+References: <20061108045825.GA15272@tuxdriver.com> <20061108045927.GB15272@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:38409 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1753472AbWKHTq0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 14:46:26 -0500
-To: Roger While <simrw@sim-basis.de>
+Received: from ra.tuxdriver.com ([70.61.120.52]:58379 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1754656AbWKHTvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 14:51:15 -0500
+To: jeff@garzik.org
 Content-Disposition: inline
-In-Reply-To: <6.1.1.1.2.20061108182728.02b11300@192.168.6.12>
+In-Reply-To: <20061108045927.GB15272@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 08, 2006 at 06:27:54PM +0100, Roger While wrote:
-> John, you just broke a considerable number of prism54 users.
-> It is NOT an error if the MWI set fails. This is just a
-> performance tweak and has NO effect on the driver working.
+On Tue, Nov 07, 2006 at 11:59:27PM -0500, John W. Linville wrote:
+> The following changes since commit d4f748365129ccfc9dadf6fb14331e45e33cc4ed:
+>   John W. Linville:
+>         Merge branch 'upstream-fixes' into upstream
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> 
+> John W. Linville:
+>       wireless: clean-up some "check return code" warnings
 
-Yeah, looks like I was a bit overzealous on the warning squelch...
-
-I'll cook-up a new patch that doesn't error-out.
+Jeff, hold-off on this pull.  You can still go ahead and pull the
+'upstream-fixes' branch at your pleasure.
 
 John
 -- 
