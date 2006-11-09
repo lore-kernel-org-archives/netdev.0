@@ -1,103 +1,48 @@
-From: akpm@osdl.org
-Subject: [patch 6/9] bnep endianness annotations
-Date: Wed, 08 Nov 2006 19:51:08 -0800
-Message-ID: <200611090351.kA93p8d0003693@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, viro@ftp.linux.org.uk,
-	marcel@holtmann.org, viro@zeniv.linux.org.uk
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 2/3] mlsxfrm: Various fixes
+Date: Wed, 08 Nov 2006 23:08:12 -0500
+Message-ID: <4552A9AC.3060708@hp.com>
+References: <000501c70342$83b9df70$cc0a010a@tcssec.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: 'James Morris' <jmorris@namei.org>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25007 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161804AbWKIDv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:26 -0500
-To: davem@davemloft.net
+Received: from mailhub.hp.com ([192.151.27.10]:26793 "EHLO mailhub.hp.com")
+	by vger.kernel.org with ESMTP id S1424036AbWKIEIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 23:08:14 -0500
+To: vyekkirala@TrustedCS.com
+In-Reply-To: <000501c70342$83b9df70$cc0a010a@tcssec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@ftp.linux.org.uk>
+Venkat Yekkirala wrote:
+>>>Fix SO_PEERSEC for tcp sockets to return the security context of
+>>>the peer (as represented by the SA from the peer) as opposed to the
+>>>SA used by the local/source socket.
+>>
+>>What about the case of a localhost TCP connection not using
+>>xfrm labeling?
+>>
+>>Joe Nall raised this as an important requirement.
+> 
+> Yes. We need to come up with some new ideas on this (the failed
+> secid-recon patchset sought to do this using the secmark field
+> on the skb).
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+You mentioned in an earlier thread that it may be possibile to enable XFRM for
+localhost via a sysctl variable; I would think this would make the most sense.
+I understand there is a performance hit due to IPsec being used, but I think
+this solution offers a few advantages:
 
- net/bluetooth/bnep/bnep.h |    4 ++--
- net/bluetooth/bnep/core.c |   12 ++++++------
- 2 files changed, 8 insertions(+), 8 deletions(-)
+1. Functionality is available right now, no additional kernel changes needed
+2. No special handling for localhost, I tend to like the idea of having
+consistent behavior for all addresses/interfaces
 
-diff -puN net/bluetooth/bnep/bnep.h~bnep-endianness-annotations net/bluetooth/bnep/bnep.h
---- a/net/bluetooth/bnep/bnep.h~bnep-endianness-annotations
-+++ a/net/bluetooth/bnep/bnep.h
-@@ -95,14 +95,14 @@ struct bnep_setup_conn_req {
- struct bnep_set_filter_req {
- 	__u8  type;
- 	__u8  ctrl;
--	__u16 len;
-+	__be16 len;
- 	__u8  list[0];
- } __attribute__((packed));
- 
- struct bnep_control_rsp {
- 	__u8  type;
- 	__u8  ctrl;
--	__u16 resp;
-+	__be16 resp;
- } __attribute__((packed));
- 
- struct bnep_ext_hdr {
-diff -puN net/bluetooth/bnep/core.c~bnep-endianness-annotations net/bluetooth/bnep/core.c
---- a/net/bluetooth/bnep/core.c~bnep-endianness-annotations
-+++ a/net/bluetooth/bnep/core.c
-@@ -128,7 +128,7 @@ static inline void bnep_set_default_prot
- }
- #endif
- 
--static int bnep_ctrl_set_netfilter(struct bnep_session *s, u16 *data, int len)
-+static int bnep_ctrl_set_netfilter(struct bnep_session *s, __be16 *data, int len)
- {
- 	int n;
- 
-@@ -180,7 +180,7 @@ static int bnep_ctrl_set_mcfilter(struct
- 	if (len < 2)
- 		return -EILSEQ;
- 
--	n = ntohs(get_unaligned((u16 *) data)); 
-+	n = ntohs(get_unaligned((__be16 *) data));
- 	data += 2; len -= 2;
- 
- 	if (len < n)
-@@ -332,7 +332,7 @@ static inline int bnep_rx_frame(struct b
- 	if (!skb_pull(skb, __bnep_rx_hlen[type & BNEP_TYPE_MASK]))
- 		goto badframe;
- 
--	s->eh.h_proto = get_unaligned((u16 *) (skb->data - 2));
-+	s->eh.h_proto = get_unaligned((__be16 *) (skb->data - 2));
- 
- 	if (type & BNEP_EXT_HEADER) {
- 		if (bnep_rx_extension(s, skb) < 0)
-@@ -343,7 +343,7 @@ static inline int bnep_rx_frame(struct b
- 	if (ntohs(s->eh.h_proto) == 0x8100) {
- 		if (!skb_pull(skb, 4))
- 			goto badframe;
--		s->eh.h_proto = get_unaligned((u16 *) (skb->data - 2));
-+		s->eh.h_proto = get_unaligned((__be16 *) (skb->data - 2));
- 	}
- 	
- 	/* We have to alloc new skb and copy data here :(. Because original skb
-@@ -365,7 +365,7 @@ static inline int bnep_rx_frame(struct b
- 	case BNEP_COMPRESSED_SRC_ONLY:
- 		memcpy(__skb_put(nskb, ETH_ALEN), s->eh.h_dest, ETH_ALEN);
- 		memcpy(__skb_put(nskb, ETH_ALEN), skb->mac.raw, ETH_ALEN);
--		put_unaligned(s->eh.h_proto, (u16 *) __skb_put(nskb, 2));
-+		put_unaligned(s->eh.h_proto, (__be16 *) __skb_put(nskb, 2));
- 		break;
- 
- 	case BNEP_COMPRESSED_DST_ONLY:
-@@ -375,7 +375,7 @@ static inline int bnep_rx_frame(struct b
- 
- 	case BNEP_GENERAL:
- 		memcpy(__skb_put(nskb, ETH_ALEN * 2), skb->mac.raw, ETH_ALEN * 2);
--		put_unaligned(s->eh.h_proto, (u16 *) __skb_put(nskb, 2));
-+		put_unaligned(s->eh.h_proto, (__be16 *) __skb_put(nskb, 2));
- 		break;
- 	}
- 
-_
+Besides the performance penalty of IPsec and the untested nature of this
+solution is there some gotcha here which would prevent this from working?
+
+-- 
+paul moore
+linux security @ hp
