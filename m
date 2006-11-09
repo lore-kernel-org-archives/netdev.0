@@ -1,43 +1,54 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH] mark non-compiling ISA network drivers i386 only
-Date: Fri, 10 Nov 2006 00:09:52 +0100 (MET)
-Message-ID: <20061109230953.GF28237@aepfle.de>
-References: <20061109184021.GA25691@aepfle.de> <20061109113542.7bbb232b@dxpl.pdx.osdl.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: why do we mangle checksums for v6 ICMP?
+Date: Thu, 09 Nov 2006 15:14:02 -0800 (PST)
+Message-ID: <20061109.151402.15590179.davem@davemloft.net>
+References: <20061108221332.GI29920@ftp.linux.org.uk>
+	<45536622.90708@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: viro@ftp.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p07-ob.rzone.de ([81.169.146.188]:26966 "EHLO
-	mo-p07-ob.rzone.de") by vger.kernel.org with ESMTP id S1424242AbWKIXMz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 18:12:55 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061109113542.7bbb232b@dxpl.pdx.osdl.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7854
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1424242AbWKIXNy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 18:13:54 -0500
+To: brian.haley@hp.com
+In-Reply-To: <45536622.90708@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 09, Stephen Hemminger wrote:
+From: Brian Haley <brian.haley@hp.com>
+Date: Thu, 09 Nov 2006 12:32:18 -0500
 
-> On Thu, 9 Nov 2006 19:40:21 +0100 (MET)
-> Olaf Hering <olaf@aepfle.de> wrote:
-> 
+> Al Viro wrote:
+> > 	AFAICS, the rules are:
 > > 
-> > Provide drivers for the old toys only on i386
-> > isa_bus_to_virt is defined only on i386, mips and arm
-> > isa_virt_to_bus is used for floppy.ko
+> > (1) checksum is 16-bit one's complement of the one's complement sum of
+> > relevant 16bit words.
+> > 
+> > (2) for v4 UDP all-zeroes has special meaning - no checksum; if you get
+> > it from (1), send all-ones instead.
+> > 
+> > (3) for v6 UDP we have the same remapping as in (2), but all-zeroes has
+> > different meaning - not "ignore checksum" as in v4, but "reject the
+> > packet".
+> > 
+> > (4) there is no (4).
+> > 
+> > 	IOW, nobody except UDP has any business doing that 0->0xffff
+> > replacement.  However, we have
+> >        if (icmp6h->icmp6_cksum == 0)
+> >                icmp6h->icmp6_cksum = -1;
 > 
-> Why not mark all of ISA as i386, mips, arm only?
+> This doesn't look necessary, RFCs 4443/2463 don't mention it being 
+> necessary, and BSD doesn't do it either.  I'll cook-up a patch to remove 
+> that since I was doing some other mods in that codepath.
 
-This patch is mainly for users of these 3 macros:
+This is how things look to me too.
 
-'(isa_virt_to_bus|isa_page_to_bus|isa_bus_to_virt)'
+> > and similar in net/ipv6/raw.c
+> 
+> Maybe here it only needs to be done if (fl->proto == IPPROTO_UDP)?
 
-3c505.c 3c515.c 3c523.c 3c527.c aha1542.c cs89x0.c esp.c ibmmca.c
-lance.c mca_53c9x.c ni52.c ni65.c ps2esdi.c ultrastor.c wd7000.c
-
-I did not enable all of them in a ppc32 pmac config.
-ppc32 PReP does have ISA slots on the motorola boards, no idea if anyone
-really cares about ISA cards today.
+Yes, I believe that is what is needed.
