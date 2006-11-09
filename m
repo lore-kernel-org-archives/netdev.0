@@ -1,99 +1,77 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 5/6] [NET] rules: Share common attribute validation policy
-Date: Thu, 09 Nov 2006 12:27:40 +0100
-Message-ID: <20061109113245.978740794@lsx.localdomain>
+Subject: [PATCH 6/6] [NET] rules: Add support to invert selectors
+Date: Thu, 09 Nov 2006 12:27:41 +0100
+Message-ID: <20061109113246.170519079@lsx.localdomain>
 References: <20061109112735.577771022@lsx.localdomain>
 Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:9424 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S965326AbWKILd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 06:33:57 -0500
+Received: from postel.suug.ch ([194.88.212.233]:10192 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965559AbWKILeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 06:34:02 -0500
 To: davem@davemloft.net
-Content-Disposition: inline; filename=rules_share_policy
+Content-Disposition: inline; filename=rules_invert
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the attribute policy for the non-specific attributes into
-net/fib_rules.h and include it in the respective protocols.
+Introduces a new flag FIB_RULE_INVERT causing rules to apply
+if the specified selector doesn't match.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.20/include/net/fib_rules.h
+Index: net-2.6.20/include/linux/fib_rules.h
 ===================================================================
---- net-2.6.20.orig/include/net/fib_rules.h	2006-11-08 23:32:35.000000000 +0100
-+++ net-2.6.20/include/net/fib_rules.h	2006-11-08 23:33:21.000000000 +0100
-@@ -59,6 +59,13 @@
- 	struct module		*owner;
- };
+--- net-2.6.20.orig/include/linux/fib_rules.h	2006-11-08 23:32:35.000000000 +0100
++++ net-2.6.20/include/linux/fib_rules.h	2006-11-08 23:34:13.000000000 +0100
+@@ -6,6 +6,7 @@
  
-+#define FRA_GENERIC_POLICY \
-+	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
-+	[FRA_PRIORITY]	= { .type = NLA_U32 }, \
-+	[FRA_FWMARK]	= { .type = NLA_U32 }, \
-+	[FRA_FWMASK]	= { .type = NLA_U32 }, \
-+	[FRA_TABLE]     = { .type = NLA_U32 }
-+
- static inline void fib_rule_get(struct fib_rule *rule)
+ /* rule is permanent, and cannot be deleted */
+ #define FIB_RULE_PERMANENT	1
++#define FIB_RULE_INVERT		2
+ 
+ struct fib_rule_hdr
  {
- 	atomic_inc(&rule->refcnt);
-Index: net-2.6.20/net/decnet/dn_rules.c
+Index: net-2.6.20/net/core/fib_rules.c
 ===================================================================
---- net-2.6.20.orig/net/decnet/dn_rules.c	2006-11-08 23:32:35.000000000 +0100
-+++ net-2.6.20/net/decnet/dn_rules.c	2006-11-08 23:33:21.000000000 +0100
-@@ -108,13 +108,9 @@
- }
+--- net-2.6.20.orig/net/core/fib_rules.c	2006-11-08 23:32:35.000000000 +0100
++++ net-2.6.20/net/core/fib_rules.c	2006-11-08 23:34:51.000000000 +0100
+@@ -107,6 +107,22 @@
  
- static struct nla_policy dn_fib_rule_policy[FRA_MAX+1] __read_mostly = {
--	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 },
--	[FRA_PRIORITY]	= { .type = NLA_U32 },
-+	FRA_GENERIC_POLICY,
- 	[FRA_SRC]	= { .type = NLA_U16 },
- 	[FRA_DST]	= { .type = NLA_U16 },
--	[FRA_FWMARK]	= { .type = NLA_U32 },
--	[FRA_FWMASK]	= { .type = NLA_U32 },
--	[FRA_TABLE]     = { .type = NLA_U32 },
- };
+ EXPORT_SYMBOL_GPL(fib_rules_unregister);
  
- static int dn_fib_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
-Index: net-2.6.20/net/ipv4/fib_rules.c
-===================================================================
---- net-2.6.20.orig/net/ipv4/fib_rules.c	2006-11-08 23:32:35.000000000 +0100
-+++ net-2.6.20/net/ipv4/fib_rules.c	2006-11-08 23:33:21.000000000 +0100
-@@ -170,14 +170,10 @@
- }
++static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
++			  struct flowi *fl, int flags)
++{
++	int ret = 0;
++
++	if (rule->ifindex && (rule->ifindex != fl->iif))
++		goto out;
++
++	if ((rule->mark ^ fl->mark) & rule->mark_mask)
++		goto out;
++
++	ret = ops->match(rule, fl, flags);
++out:
++	return (rule->flags & FIB_RULE_INVERT) ? !ret : ret;
++}
++
+ int fib_rules_lookup(struct fib_rules_ops *ops, struct flowi *fl,
+ 		     int flags, struct fib_lookup_arg *arg)
+ {
+@@ -116,13 +132,7 @@
+ 	rcu_read_lock();
  
- static struct nla_policy fib4_rule_policy[FRA_MAX+1] __read_mostly = {
--	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 },
--	[FRA_PRIORITY]	= { .type = NLA_U32 },
-+	FRA_GENERIC_POLICY,
- 	[FRA_SRC]	= { .type = NLA_U32 },
- 	[FRA_DST]	= { .type = NLA_U32 },
--	[FRA_FWMARK]	= { .type = NLA_U32 },
--	[FRA_FWMASK]	= { .type = NLA_U32 },
- 	[FRA_FLOW]	= { .type = NLA_U32 },
--	[FRA_TABLE]	= { .type = NLA_U32 },
- };
+ 	list_for_each_entry_rcu(rule, ops->rules_list, list) {
+-		if (rule->ifindex && (rule->ifindex != fl->iif))
+-			continue;
+-
+-		if ((rule->mark ^ fl->mark) & rule->mark_mask)
+-			continue;
+-
+-		if (!ops->match(rule, fl, flags))
++		if (!fib_rule_match(rule, ops, fl, flags))
+ 			continue;
  
- static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
-Index: net-2.6.20/net/ipv6/fib6_rules.c
-===================================================================
---- net-2.6.20.orig/net/ipv6/fib6_rules.c	2006-11-08 23:32:35.000000000 +0100
-+++ net-2.6.20/net/ipv6/fib6_rules.c	2006-11-08 23:33:21.000000000 +0100
-@@ -130,13 +130,9 @@
- }
- 
- static struct nla_policy fib6_rule_policy[FRA_MAX+1] __read_mostly = {
--	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 },
--	[FRA_PRIORITY]	= { .type = NLA_U32 },
-+	FRA_GENERIC_POLICY,
- 	[FRA_SRC]	= { .len = sizeof(struct in6_addr) },
- 	[FRA_DST]	= { .len = sizeof(struct in6_addr) },
--	[FRA_FWMARK]	= { .type = NLA_U32 },
--	[FRA_FWMASK]	= { .type = NLA_U32 },
--	[FRA_TABLE]	= { .type = NLA_U32 },
- };
- 
- static int fib6_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+ 		err = ops->action(rule, fl, flags, arg);
 
 --
 
