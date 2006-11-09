@@ -1,66 +1,138 @@
-From: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
-Subject: Linux-2.6.10 - Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
-Date: Thu, 9 Nov 2006 14:37:08 +0530
-Message-ID: <010C7BAE6783F34D9AC336EE5A01A08802BB2F20@dbde01.ent.ti.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [take24 3/6] kevent: poll/select() notifications.
+Date: Thu, 9 Nov 2006 10:08:44 +0100
+Message-ID: <200611091008.45227.dada1@cosmosbay.com>
+References: <11630606373650@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from soda.ext.ti.com ([198.47.26.145]:12676 "EHLO soda.ext.ti.com")
-	by vger.kernel.org with ESMTP id S1753456AbWKIJH0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 04:07:26 -0500
-Received: from dlep35.itg.ti.com ([157.170.170.118])
-	by soda.ext.ti.com (8.13.7/8.13.7) with ESMTP id kA9975Yb032063
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 03:07:15 -0600
-Received: from dlep95.itg.ti.com (localhost [127.0.0.1])
-	by dlep35.itg.ti.com (8.13.7/8.13.7) with ESMTP id kA9970O2015441
-	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 03:07:00 -0600 (CST)
-Received: from dbde01.ent.ti.com (localhost [127.0.0.1])
-	by dlep95.itg.ti.com (8.13.7/8.13.7) with ESMTP id kA996wr4007558
-	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 03:06:59 -0600 (CST)
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
+Received: from pfx2.jmh.fr ([194.153.89.55]:8879 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1753996AbWKIJIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 04:08:39 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <11630606373650@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All
+On Thursday 09 November 2006 09:23, Evgeniy Polyakov wrote:
+> poll/select() notifications.
+>
+> This patch includes generic poll/select notifications.
+> kevent_poll works simialr to epoll and has the same issues (callback
+> is invoked not from internal state machine of the caller, but through
+> process awake, a lot of allocations and so on).
+>
+> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
+>
+> diff --git a/fs/file_table.c b/fs/file_table.c
+> index bc35a40..0805547 100644
+> --- a/fs/file_table.c
+> +++ b/fs/file_table.c
+> @@ -20,6 +20,7 @@ #include <linux/capability.h>
+>  #include <linux/cdev.h>
+>  #include <linux/fsnotify.h>
+>  #include <linux/sysctl.h>
+> +#include <linux/kevent.h>
+>  #include <linux/percpu_counter.h>
+>
+>  #include <asm/atomic.h>
+> @@ -119,6 +120,7 @@ struct file *get_empty_filp(void)
+>  	f->f_uid = tsk->fsuid;
+>  	f->f_gid = tsk->fsgid;
+>  	eventpoll_init_file(f);
+> +	kevent_init_file(f);
+>  	/* f->f_version: 0 */
+>  	return f;
+>
+> @@ -164,6 +166,7 @@ void fastcall __fput(struct file *file)
+>  	 * in the file cleanup chain.
+>  	 */
+>  	eventpoll_release(file);
+> +	kevent_cleanup_file(file);
+>  	locks_remove_flock(file);
+>
+>  	if (file->f_op && file->f_op->release)
+> diff --git a/fs/inode.c b/fs/inode.c
+> index ada7643..6745c00 100644
+> --- a/fs/inode.c
+> +++ b/fs/inode.c
+> @@ -21,6 +21,7 @@ #include <linux/pagemap.h>
+>  #include <linux/cdev.h>
+>  #include <linux/bootmem.h>
+>  #include <linux/inotify.h>
+> +#include <linux/kevent.h>
+>  #include <linux/mount.h>
+>
+>  /*
+> @@ -164,12 +165,18 @@ #endif
+>  		}
+>  		inode->i_private = 0;
+>  		inode->i_mapping = mapping;
 
-I found an issue with Realtek 8139 driver (2.6.10 branch) at high
-bi-directional traffic. On transmit timeout, driver's timeout callback
-re-enables the receive interrupt. On the next receive interrupt, the ISR
-disables the receive interrupt "only" when the receive poll task is not
-active. But the poll task is actually active and hence it doesn't
-disable the receive interrupt. So the ISR returns without clearing the
-receive interrupt. This un-serviced receive interrupt brings the system
-into hung state.
+Here you test both KEVENT_SOCKET and KEVENT_PIPE
 
-My understanding here is, on receive interrupt the ISR should disable
-the receive interrupt irrespective of the polling task's state (active
-or inactive). I changed the code (as shown below) and it works
-perfectly. 
+> +#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
+> +		kevent_storage_init(inode, &inode->st);
+> +#endif
+>  	}
+>  	return inode;
+>  }
+>
+>  void destroy_inode(struct inode *inode)
+>  {
 
-Is this a known issue? If so, is there a fix already available?
+but here you test only KEVENT_SOCKET
 
-Also, we get frequent TX timeouts during high rate of traffic. What
-could be the reason for this frequent TX timeouts?
- 
+> +#if defined CONFIG_KEVENT_SOCKET
+> +	kevent_storage_fini(&inode->st);
+> +#endif
+>  	BUG_ON(inode_has_buffers(inode));
+>  	security_inode_free(inode);
+>  	if (inode->i_sb->s_op->destroy_inode)
+> diff --git a/include/linux/fs.h b/include/linux/fs.h
+> index 5baf3a1..c529723 100644
+> --- a/include/linux/fs.h
+> +++ b/include/linux/fs.h
+> @@ -276,6 +276,7 @@ #include <linux/prio_tree.h>
+>  #include <linux/init.h>
+>  #include <linux/sched.h>
+>  #include <linux/mutex.h>
+> +#include <linux/kevent_storage.h>
+>
+>  #include <asm/atomic.h>
+>  #include <asm/semaphore.h>
+> @@ -586,6 +587,10 @@ #ifdef CONFIG_INOTIFY
+>  	struct mutex		inotify_mutex;	/* protects the watches list */
+>  #endif
+>
 
---- old/8139too.c	2006-11-09 11:49:25.000000000 +0530
-+++ new/8139too.c	2006-11-09 11:50:02.000000000 +0530
-@@ -2200,8 +2200,8 @@
- 	/* Receive packets are processed by poll routine.
- 	   If not running start it now. */
- 	if (status & RxAckBits){
--		if (netif_rx_schedule_prep(dev)) {
- 			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
-+		if (netif_rx_schedule_prep(dev)) {
- 			__netif_rx_schedule (dev);
- 		}
- 	}
+Here you include a kevent_storage only if KEVENT_SOCKET
 
-
-Thanks
-Mansoor
+> +#ifdef CONFIG_KEVENT_SOCKET
+> +	struct kevent_storage	st;
+> +#endif
+> +
+>  	unsigned long		i_state;
+>  	unsigned long		dirtied_when;	/* jiffies of first dirtying */
+>
+> @@ -739,6 +744,9 @@ #ifdef CONFIG_EPOLL
+>  	struct list_head	f_ep_links;
+>  	spinlock_t		f_ep_lock;
+>  #endif /* #ifdef CONFIG_EPOLL */
+> +#ifdef CONFIG_KEVENT_POLL
+> +	struct kevent_storage	st;
+> +#endif
+>  	struct address_space	*f_mapping;
+>  };
+>  extern spinlock_t files_lock;
