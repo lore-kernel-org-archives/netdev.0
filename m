@@ -1,29 +1,96 @@
-From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
-Subject: RE: [PATCH 0/3] labeled-ipsec: Repost patchset with updates [Originally: mlsxfrm: Various Fixes]
-Date: Thu, 9 Nov 2006 08:14:31 -0600
-Message-ID: <000e01c70409$603521a0$cc0a010a@tcssec.com>
-References: <Pine.LNX.4.64.0611090124570.11016@d.namei>
-Reply-To: <vyekkirala@trustedcs.com>
+From: John <me@privacy.net>
+Subject: Re: Intel 82559 NIC corrupted EEPROM
+Date: Thu, 09 Nov 2006 15:15:29 +0100
+Message-ID: <45533801.7000809@privacy.net>
+References: <454B7C3A.3000308@privacy.net> <454BF0F1.5050700@zytor.com> <45506C9A.5010009@privacy.net> <4551B7B8.8080601@privacy.net> <4807377b0611080926x21bd6326xc5e7683100d20948@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
-	"Stephen Smalley" <sds@tycho.nsa.gov>
+Cc: auke-jan.h.kok@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, hpa@zytor.com, saw@saw.sw.com.sg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:60806 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S966017AbWKIOOp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 09:14:45 -0500
-To: "'James Morris'" <jmorris@namei.org>,
-	"Venkat Yekkirala" <vyekkirala@tcsfw4.tcs-sec.com>
-In-Reply-To: <Pine.LNX.4.64.0611090124570.11016@d.namei>
+Received: from SMT02002.global-sp.net ([193.168.50.254]:10194 "EHLO
+	SMT02002.global-sp.net") by vger.kernel.org with ESMTP
+	id S966018AbWKIOO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 09:14:59 -0500
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0611080926x21bd6326xc5e7683100d20948@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I think this should be aimed at 2.6.20, because we are at the last or 
-> second-last -rc currently, and I don't think these fixes are 
-> urgent enough 
-> to justify the risk at this stage.
+Jesse Brandeburg wrote:
 
-That makes sense. Thanks.
+> I suspect that one reason Becker's code works is that it uses IO
+> based access (slower, and different method) to the adapter rather
+> than memory mapped access.
+
+I've noticed this difference.
+
+> The second thought is that the adapter is in D3, and something about
+> your kernel or the driver doesn't successfully wake it up to D0.
+
+On my NICs, the EEPROM ID (Word 0Ah) is set to 0x40a2.
+Thus DDPD (bit 6) is set to 0.
+
+DDPD is the "Disable Deep Power Down while PME is disabled" bit.
+0 - Deep Power Down is enabled in D3 state while PME-disabled.
+1 - Deep Power Down disabled in D3 state while PME-disabled.
+This bit should be set to 1b if a TCO controller is being used via the 
+SMB because it requires receive functionality at all power states.
+
+Are you suggesting I try and set DDPD to 1?
+Or is this completely unrelated?
+
+> An indication of this would be looking at lspci -vv before/after
+> loading the driver.
+
+$ diff -u lspci_vv_before_e100.txt lspci_vv_after_e100.txt
+--- lspci_vv_before_e100.txt    2006-11-09 14:51:30.000000000 +0100
++++ lspci_vv_after_e100.txt     2006-11-09 14:51:30.000000000 +0100
+@@ -74,21 +74,20 @@
+         Expansion ROM at 20000000 [disabled] [size=1M]
+         Capabilities: [dc] Power Management version 2
+                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA 
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+-               Status: D0 PME-Enable+ DSel=0 DScale=2 PME-
++               Status: D0 PME-Enable- DSel=0 DScale=2 PME-
+
+  00:09.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 
+100] (rev 08)
+         Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
+-       Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
+ParErr- Stepping- SERR- FastB2B-
++       Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- 
+ParErr- Stepping- SERR- FastB2B-
+         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium 
+ >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+-       Latency: 32 (2000ns min, 14000ns max), cache line size 08
+         Interrupt: pin A routed to IRQ 10
+-       Region 0: Memory at e5302000 (32-bit, non-prefetchable) [size=4K]
+-       Region 1: I/O ports at dc00 [size=64]
+-       Region 2: Memory at e5100000 (32-bit, non-prefetchable) [size=1M]
++       Region 0: Memory at e5302000 (32-bit, non-prefetchable) 
+[disabled] [size=4K]
++       Region 1: I/O ports at dc00 [disabled] [size=64]
++       Region 2: Memory at e5100000 (32-bit, non-prefetchable) 
+[disabled] [size=1M]
+         Expansion ROM at 20100000 [disabled] [size=1M]
+         Capabilities: [dc] Power Management version 2
+                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA 
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+-               Status: D0 PME-Enable+ DSel=0 DScale=2 PME-
++               Status: D0 PME-Enable- DSel=0 DScale=2 PME-
+
+  00:0a.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 
+100] (rev 08)
+         Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
+
+> Also, after loading/unloading eepro100 does the e100 driver work?
+
+No.
+
+> A third idea is look for a master abort in lspci after e100 fails to
+> load.
+
+I don't understand that one.
+
