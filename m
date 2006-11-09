@@ -1,30 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [DECnet] Don't clear memory twice.
-Date: Wed, 08 Nov 2006 23:02:29 -0800 (PST)
-Message-ID: <20061108.230229.109882329.davem@davemloft.net>
-References: <20061108154506.GA20057@linux-mips.org>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: Re: [patch] fix up generic csum_ipv6_magic function prototype
+Date: Thu, 9 Nov 2006 07:22:16 +0000
+Message-ID: <20061109072216.GL29920@ftp.linux.org.uk>
+References: <000301c703a3$0eedb340$ff0da8c0@amr.corp.intel.com> <20061108.230059.57444310.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, SteveW@ACM.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kenneth.w.chen@intel.com, akpm@osdl.org, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50320
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1754356AbWKIHCY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 02:02:24 -0500
-To: ralf@linux-mips.org
-In-Reply-To: <20061108154506.GA20057@linux-mips.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:64464 "EHLO
+	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1753032AbWKIHWZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 02:22:25 -0500
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061108.230059.57444310.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Wed, 8 Nov 2006 15:45:07 +0000
-
-> When dn_neigh.c was converted from kmalloc to kzalloc in commit
-> 0da974f4f303a6842516b764507e3c0a03f41e5a it was missed that
-> dn_neigh_seq_open was actually clearing the allocation twice was
-> missed.
+On Wed, Nov 08, 2006 at 11:00:59PM -0800, David Miller wrote:
+> From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+> Date: Wed, 8 Nov 2006 18:02:06 -0800
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> > The generic version of csum_ipv6_magic has the len argument declared as
+> > __u16, while most arch dependent version declare it as __u32.  After
+> > looking at the call site of this function, I come up to a conclusion
+> > that __u32 is a better match with the actual usage.
+> > 
+> > Hence, patch to change argument type for greater consistency.
+> > 
+> > Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+> 
+> Architecture implementations such as the ones for m32r and parisc have
+> the same problem, so "for consistency" please fix them up as well.
+> 
+> Thanks a lot.
 
-Applied, thanks a lot Ralf.
+Please, hold.  One of the patches in my queue gets sanitized prototypes
+for all that stuff and it'll conflict like crazy.
+
+I haven't touch that argument yet; if there's an agreement as to what should
+we switch to, I'll do that.  So... does everyone agree that u32 is the way
+to go?
