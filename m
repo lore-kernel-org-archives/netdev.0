@@ -1,36 +1,30 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 2/3] mlsxfrm: Various fixes
-Date: Thu, 9 Nov 2006 02:02:14 -0500 (EST)
-Message-ID: <XMMS.LNX.4.64.0611090158550.11301@d.namei>
-References: <000501c70342$83b9df70$cc0a010a@tcssec.com> <4552A9AC.3060708@hp.com>
- <Pine.LNX.4.64.0611082337520.5916@d.namei> <4552B5C1.8040007@hp.com>
- <Pine.LNX.4.64.0611090109120.10907@d.namei> <4552CD3B.40809@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [DECnet] Don't clear memory twice.
+Date: Wed, 08 Nov 2006 23:02:29 -0800 (PST)
+Message-ID: <20061108.230229.109882329.davem@davemloft.net>
+References: <20061108154506.GA20057@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: vyekkirala@TrustedCS.com, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, sds@tycho.nsa.gov
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, SteveW@ACM.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:5100 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1754353AbWKIHCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 02:02:16 -0500
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <4552CD3B.40809@hp.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50320
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1754356AbWKIHCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 02:02:24 -0500
+To: ralf@linux-mips.org
+In-Reply-To: <20061108154506.GA20057@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Nov 2006, Paul Moore wrote:
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Wed, 8 Nov 2006 15:45:07 +0000
 
-> It sounds like you have an idea of how you would like to see this implemented,
-> can you give me a rough outline?  Is this the partitioned SECMARK field you
-> talked about earlier?
+> When dn_neigh.c was converted from kmalloc to kzalloc in commit
+> 0da974f4f303a6842516b764507e3c0a03f41e5a it was missed that
+> dn_neigh_seq_open was actually clearing the allocation twice was
+> missed.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-No, just the fact that you are in the same kernel address space and can 
-readily access the security context of the peer.
-
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Applied, thanks a lot Ralf.
