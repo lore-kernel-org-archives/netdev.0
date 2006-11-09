@@ -1,12 +1,12 @@
 From: akpm@osdl.org
-Subject: [patch 4/9] lockdep: annotate sk_lock nesting in AF_BLUETOOTH
-Date: Wed, 08 Nov 2006 19:51:05 -0800
-Message-ID: <200611090351.kA93p5R3003687@shell0.pdx.osdl.net>
+Subject: [patch 1/9] bonding: lockdep annotation
+Date: Wed, 08 Nov 2006 19:51:01 -0800
+Message-ID: <200611090351.kA93p1Kx003677@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@osdl.org, a.p.zijlstra@chello.nl,
-	marcel@holtmann.org
+	mingo@elte.hu, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:17327 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965943AbWKIDvS (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:16559 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965935AbWKIDvS (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:18 -0500
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
@@ -16,109 +16,76 @@ From: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
 =============================================
 [ INFO: possible recursive locking detected ]
-2.6.18-1.2726.fc6 #1
+2.6.17-1.2600.fc6 #1
 ---------------------------------------------
-hidd/2271 is trying to acquire lock:
- (sk_lock-AF_BLUETOOTH){--..}, at: [<f8d16241>] bt_accept_dequeue+0x26/0xc6
-[bluetooth]
+ifconfig/2411 is trying to acquire lock:
+ (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
 
 but task is already holding lock:
- (sk_lock-AF_BLUETOOTH){--..}, at: [<f8bce088>] l2cap_sock_accept+0x41/0x11e [l2cap]
+ (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
 
 other info that might help us debug this:
-1 lock held by hidd/2271:
- #0:  (sk_lock-AF_BLUETOOTH){--..}, at: [<f8bce088>]
-l2cap_sock_accept+0x41/0x11e [l2cap]
+3 locks held by ifconfig/2411:
+ #0:  (rtnl_mutex){--..}, at: [<ffffffff802664af>] mutex_lock+0x2a/0x2e
+ #1:  (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
+ #2:  (&bond->lock){-.-+}, at: [<ffffffff8831b7f7>] bond_set_multicast_list+0x2c/0x26a [bonding]
 
 stack backtrace:
- [<c04051ed>] show_trace_log_lvl+0x58/0x16a
- [<c04057fa>] show_trace+0xd/0x10
- [<c0405913>] dump_stack+0x19/0x1b
- [<c043b7dc>] __lock_acquire+0x6ea/0x90d
- [<c043bf70>] lock_acquire+0x4b/0x6b
- [<c05b203b>] lock_sock+0xac/0xbc
- [<f8d16241>] bt_accept_dequeue+0x26/0xc6 [bluetooth]
- [<f8bce129>] l2cap_sock_accept+0xe2/0x11e [l2cap]
- [<c05b142e>] sys_accept+0xd8/0x179
- [<c05b1576>] sys_socketcall+0xa7/0x186
- [<c0403fb7>] syscall_call+0x7/0xb
 
-classical case of nesting; bt_accept_dequeue() locks the children of the object
-locked by l2cap_sock_accept().
+Call Trace:
+ [<ffffffff8026e97d>] show_trace+0xae/0x319
+ [<ffffffff8026ebfd>] dump_stack+0x15/0x17
+ [<ffffffff802a839b>] __lock_acquire+0x135/0xa64
+ [<ffffffff802a926d>] lock_acquire+0x4b/0x69
+ [<ffffffff80267981>] _spin_lock_bh+0x2a/0x36
+ [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
+ [<ffffffff8831b903>] :bonding:bond_set_multicast_list+0x138/0x26a
+ [<ffffffff80429901>] __dev_mc_upload+0x22/0x24
+ [<ffffffff80429c74>] dev_mc_add+0x11a/0x15f
+ [<ffffffff8045d154>] igmp_group_added+0x55/0x10f
+ [<ffffffff8045d4ab>] ip_mc_inc_group+0x1d6/0x21a
+ [<ffffffff8045d535>] ip_mc_up+0x46/0x61
+ [<ffffffff804594b8>] inetdev_init+0x11c/0x136
+ [<ffffffff8045a0b7>] devinet_ioctl+0x3eb/0x5e9
+ [<ffffffff8045a56c>] inet_ioctl+0x71/0x8f
+ [<ffffffff8041ed74>] sock_ioctl+0x1e8/0x20a
+ [<ffffffff80243ae0>] do_ioctl+0x2a/0x77
+ [<ffffffff802325cc>] vfs_ioctl+0x25a/0x277
+ [<ffffffff8024ea4b>] sys_ioctl+0x5f/0x82
+ [<ffffffff8026060e>] system_call+0x7e/0x83
+
+The bonding driver nests other drivers, give the bonding driver its own
+lock class.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
+Acked-by: Ingo Molnar <mingo@elte.hu>
+Cc: Stephen Hemminger <shemminger@osdl.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- include/net/sock.h    |    8 +++++++-
- net/bluetooth/l2cap.c |    4 ++--
- net/core/sock.c       |    6 +++---
- 3 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff -puN include/net/sock.h~lockdep-annotate-sk_lock-nesting-in-af_bluetooth-v2 include/net/sock.h
---- a/include/net/sock.h~lockdep-annotate-sk_lock-nesting-in-af_bluetooth-v2
-+++ a/include/net/sock.h
-@@ -745,7 +745,13 @@ static inline int sk_stream_wmem_schedul
-  */
- #define sock_owned_by_user(sk)	((sk)->sk_lock.owner)
- 
--extern void FASTCALL(lock_sock(struct sock *sk));
-+extern void FASTCALL(lock_sock_nested(struct sock *sk, int subclass));
-+
-+static inline void lock_sock(struct sock *sk)
-+{
-+	lock_sock_nested(sk, 0);
-+}
-+
- extern void FASTCALL(release_sock(struct sock *sk));
- 
- /* BH context may only use the following locking interface. */
-diff -puN net/bluetooth/l2cap.c~lockdep-annotate-sk_lock-nesting-in-af_bluetooth-v2 net/bluetooth/l2cap.c
---- a/net/bluetooth/l2cap.c~lockdep-annotate-sk_lock-nesting-in-af_bluetooth-v2
-+++ a/net/bluetooth/l2cap.c
-@@ -770,7 +770,7 @@ static int l2cap_sock_accept(struct sock
- 	long timeo;
- 	int err = 0;
- 
--	lock_sock(sk);
-+	lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
- 
- 	if (sk->sk_state != BT_LISTEN) {
- 		err = -EBADFD;
-@@ -792,7 +792,7 @@ static int l2cap_sock_accept(struct sock
- 
- 		release_sock(sk);
- 		timeo = schedule_timeout(timeo);
--		lock_sock(sk);
-+		lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
- 
- 		if (sk->sk_state != BT_LISTEN) {
- 			err = -EBADFD;
-diff -puN net/core/sock.c~lockdep-annotate-sk_lock-nesting-in-af_bluetooth-v2 net/core/sock.c
---- a/net/core/sock.c~lockdep-annotate-sk_lock-nesting-in-af_bluetooth-v2
-+++ a/net/core/sock.c
-@@ -1527,7 +1527,7 @@ void sock_init_data(struct socket *sock,
- 	atomic_set(&sk->sk_refcnt, 1);
+diff -puN drivers/net/bonding/bond_main.c~bonding-lockdep-annotation drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c~bonding-lockdep-annotation
++++ a/drivers/net/bonding/bond_main.c
+@@ -4692,6 +4692,8 @@ static int bond_check_params(struct bond
+ 	return 0;
  }
  
--void fastcall lock_sock(struct sock *sk)
-+void fastcall lock_sock_nested(struct sock *sk, int subclass)
- {
- 	might_sleep();
- 	spin_lock_bh(&sk->sk_lock.slock);
-@@ -1538,11 +1538,11 @@ void fastcall lock_sock(struct sock *sk)
- 	/*
- 	 * The sk_lock has mutex_lock() semantics here:
- 	 */
--	mutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);
-+	mutex_acquire(&sk->sk_lock.dep_map, subclass, 0, _RET_IP_);
- 	local_bh_enable();
- }
++static struct lock_class_key bonding_netdev_xmit_lock_key;
++
+ /* Create a new bond based on the specified name and bonding parameters.
+  * Caller must NOT hold rtnl_lock; we need to release it here before we
+  * set up our sysfs entries.
+@@ -4727,6 +4729,9 @@ int bond_create(char *name, struct bond_
+ 	if (res < 0) {
+ 		goto out_bond;
+ 	}
++
++	lockdep_set_class(&bond_dev->_xmit_lock, &bonding_netdev_xmit_lock_key);
++
+ 	if (newbond)
+ 		*newbond = bond_dev->priv;
  
--EXPORT_SYMBOL(lock_sock);
-+EXPORT_SYMBOL(lock_sock_nested);
- 
- void fastcall release_sock(struct sock *sk)
- {
 _
