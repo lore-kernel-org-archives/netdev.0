@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take24 3/6] kevent: poll/select() notifications.
-Date: Thu, 9 Nov 2006 11:23:57 +0300
-Message-ID: <11630606373650@2ka.mipt.ru>
-References: <11630606372647@2ka.mipt.ru>
+Subject: [take24 1/6] kevent: Description.
+Date: Thu, 9 Nov 2006 11:23:56 +0300
+Message-ID: <1163060636219@2ka.mipt.ru>
+References: <11630606361046@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -18,349 +18,209 @@ Cc: David Miller <davem@davemloft.net>,
 	Johann Borck <johann.borck@densedata.com>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dea.vocord.ru ([217.67.177.50]:25577 "EHLO
+Received: from dea.vocord.ru ([217.67.177.50]:28649 "EHLO
 	kano.factory.vocord.ru") by vger.kernel.org with ESMTP
-	id S1754517AbWKIIYb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 03:24:31 -0500
-In-Reply-To: <11630606372647@2ka.mipt.ru>
+	id S1754709AbWKIIYe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 03:24:34 -0500
+In-Reply-To: <11630606361046@2ka.mipt.ru>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-poll/select() notifications.
+Description.
 
-This patch includes generic poll/select notifications.
-kevent_poll works simialr to epoll and has the same issues (callback
-is invoked not from internal state machine of the caller, but through
-process awake, a lot of allocations and so on).
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
-
-diff --git a/fs/file_table.c b/fs/file_table.c
-index bc35a40..0805547 100644
---- a/fs/file_table.c
-+++ b/fs/file_table.c
-@@ -20,6 +20,7 @@ #include <linux/capability.h>
- #include <linux/cdev.h>
- #include <linux/fsnotify.h>
- #include <linux/sysctl.h>
-+#include <linux/kevent.h>
- #include <linux/percpu_counter.h>
- 
- #include <asm/atomic.h>
-@@ -119,6 +120,7 @@ struct file *get_empty_filp(void)
- 	f->f_uid = tsk->fsuid;
- 	f->f_gid = tsk->fsgid;
- 	eventpoll_init_file(f);
-+	kevent_init_file(f);
- 	/* f->f_version: 0 */
- 	return f;
- 
-@@ -164,6 +166,7 @@ void fastcall __fput(struct file *file)
- 	 * in the file cleanup chain.
- 	 */
- 	eventpoll_release(file);
-+	kevent_cleanup_file(file);
- 	locks_remove_flock(file);
- 
- 	if (file->f_op && file->f_op->release)
-diff --git a/fs/inode.c b/fs/inode.c
-index ada7643..6745c00 100644
---- a/fs/inode.c
-+++ b/fs/inode.c
-@@ -21,6 +21,7 @@ #include <linux/pagemap.h>
- #include <linux/cdev.h>
- #include <linux/bootmem.h>
- #include <linux/inotify.h>
-+#include <linux/kevent.h>
- #include <linux/mount.h>
- 
- /*
-@@ -164,12 +165,18 @@ #endif
- 		}
- 		inode->i_private = 0;
- 		inode->i_mapping = mapping;
-+#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
-+		kevent_storage_init(inode, &inode->st);
-+#endif
- 	}
- 	return inode;
- }
- 
- void destroy_inode(struct inode *inode) 
- {
-+#if defined CONFIG_KEVENT_SOCKET
-+	kevent_storage_fini(&inode->st);
-+#endif
- 	BUG_ON(inode_has_buffers(inode));
- 	security_inode_free(inode);
- 	if (inode->i_sb->s_op->destroy_inode)
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 5baf3a1..c529723 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -276,6 +276,7 @@ #include <linux/prio_tree.h>
- #include <linux/init.h>
- #include <linux/sched.h>
- #include <linux/mutex.h>
-+#include <linux/kevent_storage.h>
- 
- #include <asm/atomic.h>
- #include <asm/semaphore.h>
-@@ -586,6 +587,10 @@ #ifdef CONFIG_INOTIFY
- 	struct mutex		inotify_mutex;	/* protects the watches list */
- #endif
- 
-+#ifdef CONFIG_KEVENT_SOCKET
-+	struct kevent_storage	st;
-+#endif
-+
- 	unsigned long		i_state;
- 	unsigned long		dirtied_when;	/* jiffies of first dirtying */
- 
-@@ -739,6 +744,9 @@ #ifdef CONFIG_EPOLL
- 	struct list_head	f_ep_links;
- 	spinlock_t		f_ep_lock;
- #endif /* #ifdef CONFIG_EPOLL */
-+#ifdef CONFIG_KEVENT_POLL
-+	struct kevent_storage	st;
-+#endif
- 	struct address_space	*f_mapping;
- };
- extern spinlock_t files_lock;
-diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
+diff --git a/Documentation/kevent.txt b/Documentation/kevent.txt
 new file mode 100644
-index 0000000..7030d21
+index 0000000..ca49e4b
 --- /dev/null
-+++ b/kernel/kevent/kevent_poll.c
-@@ -0,0 +1,228 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
++++ b/Documentation/kevent.txt
+@@ -0,0 +1,186 @@
++Description.
 +
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <linux/file.h>
-+#include <linux/kevent.h>
-+#include <linux/poll.h>
-+#include <linux/fs.h>
++int kevent_ctl(int fd, unsigned int cmd, unsigned int num, struct ukevent *arg);
 +
-+static kmem_cache_t *kevent_poll_container_cache;
-+static kmem_cache_t *kevent_poll_priv_cache;
++fd - is the file descriptor referring to the kevent queue to manipulate. 
++It is created by opening "/dev/kevent" char device, which is created with 
++dynamic minor number and major number assigned for misc devices. 
 +
-+struct kevent_poll_ctl
-+{
-+	struct poll_table_struct 	pt;
-+	struct kevent			*k;
-+};
++cmd - is the requested operation. It can be one of the following:
++    KEVENT_CTL_ADD - add event notification 
++    KEVENT_CTL_REMOVE - remove event notification 
++    KEVENT_CTL_MODIFY - modify existing notification 
 +
-+struct kevent_poll_wait_container
-+{
-+	struct list_head		container_entry;
-+	wait_queue_head_t		*whead;
-+	wait_queue_t			wait;
-+	struct kevent			*k;
-+};
++num - number of struct ukevent in the array pointed to by arg 
++arg - array of struct ukevent
 +
-+struct kevent_poll_private
-+{
-+	struct list_head		container_list;
-+	spinlock_t			container_lock;
-+};
++When called, kevent_ctl will carry out the operation specified in the 
++cmd parameter.
++-------------------------------------------------------------------------------
 +
-+static int kevent_poll_enqueue(struct kevent *k);
-+static int kevent_poll_dequeue(struct kevent *k);
-+static int kevent_poll_callback(struct kevent *k);
++ int kevent_get_events(int ctl_fd, unsigned int min_nr, unsigned int max_nr, 
++ 			__u64 timeout, struct ukevent *buf, unsigned flags)
 +
-+static int kevent_poll_wait_callback(wait_queue_t *wait,
-+		unsigned mode, int sync, void *key)
-+{
-+	struct kevent_poll_wait_container *cont =
-+		container_of(wait, struct kevent_poll_wait_container, wait);
-+	struct kevent *k = cont->k;
++ctl_fd - file descriptor referring to the kevent queue 
++min_nr - minimum number of completed events that kevent_get_events will block 
++	 waiting for 
++max_nr - number of struct ukevent in buf 
++timeout - number of nanoseconds to wait before returning less than min_nr 
++	  events. If this is -1, then wait forever. 
++buf - pointer to an array of struct ukevent. 
++flags - unused 
 +
-+	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
-+	return 0;
-+}
++kevent_get_events will wait timeout milliseconds for at least min_nr completed 
++events, copying completed struct ukevents to buf and deleting any 
++KEVENT_REQ_ONESHOT event requests. In nonblocking mode it returns as many 
++events as possible, but not more than max_nr. In blocking mode it waits until 
++timeout or if at least min_nr events are ready.
++-------------------------------------------------------------------------------
 +
-+static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead,
-+		struct poll_table_struct *poll_table)
-+{
-+	struct kevent *k =
-+		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *cont;
-+	unsigned long flags;
++ int kevent_wait(int ctl_fd, unsigned int num, __u64 timeout)
 +
-+	cont = kmem_cache_alloc(kevent_poll_container_cache, GFP_KERNEL);
-+	if (!cont) {
-+		kevent_break(k);
-+		return;
-+	}
++ctl_fd - file descriptor referring to the kevent queue 
++num - number of processed kevents 
++timeout - this timeout specifies number of nanoseconds to wait until there is 
++		free space in kevent queue 
 +
-+	cont->k = k;
-+	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
-+	cont->whead = whead;
++This syscall waits until either timeout expires or at least one event becomes 
++ready. It also copies that num events into special ring buffer and requeues 
++them (or removes depending on flags). 
++-------------------------------------------------------------------------------
 +
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_add_tail(&cont->container_entry, &priv->container_list);
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
++ int kevent_ring_init(int ctl_fd, struct kevent_ring *ring, unsigned int num)
 +
-+	add_wait_queue(whead, &cont->wait);
-+}
++ctl_fd - file descriptor referring to the kevent queue 
++num - size of the ring buffer in events 
 +
-+static int kevent_poll_enqueue(struct kevent *k)
-+{
-+	struct file *file;
-+	int err;
-+	unsigned int revents;
-+	unsigned long flags;
-+	struct kevent_poll_ctl ctl;
-+	struct kevent_poll_private *priv;
++ struct kevent_ring
++ {
++   unsigned int ring_kidx;
++   struct ukevent event[0];
++ }
 +
-+	file = fget(k->event.id.raw[0]);
-+	if (!file)
-+		return -EBADF;
-+	
-+	err = -EINVAL;
-+	if (!file->f_op || !file->f_op->poll)
-+		goto err_out_fput;
-+	
-+	err = -ENOMEM;
-+	priv = kmem_cache_alloc(kevent_poll_priv_cache, GFP_KERNEL);
-+	if (!priv)
-+		goto err_out_fput;
++ring_kidx - is an index in the ring buffer where kernel will put new events 
++		when kevent_wait() or kevent_get_events() is called 
 +
-+	spin_lock_init(&priv->container_lock);
-+	INIT_LIST_HEAD(&priv->container_list);
++Example userspace code (ring_buffer.c) can be found on project's homepage.
 +
-+	k->priv = priv;
++Each kevent syscall can be so called cancellation point in glibc, i.e. when 
++thread has been cancelled in kevent syscall, thread can be safely removed 
++and no events will be lost, since each syscall (kevent_wait() or 
++kevent_get_events()) will copy event into special ring buffer, accessible 
++from other threads or even processes (if shared memory is used).
 +
-+	ctl.k = k;
-+	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
-+	
-+	err = kevent_storage_enqueue(&file->st, k);
-+	if (err)
-+		goto err_out_free;
++When kevent is removed (not dequeued when it is ready, but just removed), 
++even if it was ready, it is not copied into ring buffer, since if it is 
++removed, no one cares about it (otherwise user would wait until it becomes 
++ready and got it through usual way using kevent_get_events() or kevent_wait()) 
++and thus no need to copy it to the ring buffer.
 +
-+	revents = file->f_op->poll(file, &ctl.pt);
-+	if (revents & k->event.event) {
-+		err = 1;
-+		goto out_dequeue;
-+	}
++It is possible with userspace ring buffer, that events in the ring buffer 
++can be replaced without knowledge for the thread currently reading them 
++(when other thread calls kevent_get_events() or kevent_wait()), so appropriate 
++locking between threads or processes, which can simultaneously access the same 
++ring buffer, is required.
++-------------------------------------------------------------------------------
 +
-+	spin_lock_irqsave(&k->ulock, flags);
-+	k->event.req_flags |= KEVENT_REQ_LAST_CHECK;
-+	spin_unlock_irqrestore(&k->ulock, flags);
++The bulk of the interface is entirely done through the ukevent struct. 
++It is used to add event requests, modify existing event requests, 
++specify which event requests to remove, and return completed events.
 +
-+	return 0;
++struct ukevent contains the following members:
 +
-+out_dequeue:
-+	kevent_storage_dequeue(k->st, k);
-+err_out_free:
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+err_out_fput:
-+	fput(file);
-+	return err;
-+}
++struct kevent_id id
++    Id of this request, e.g. socket number, file descriptor and so on 
++__u32 type
++    Event type, e.g. KEVENT_SOCK, KEVENT_INODE, KEVENT_TIMER and so on 
++__u32 event
++    Event itself, e.g. SOCK_ACCEPT, INODE_CREATED, TIMER_FIRED 
++__u32 req_flags
++    Per-event request flags,
 +
-+static int kevent_poll_dequeue(struct kevent *k)
-+{
-+	struct file *file = k->st->origin;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *w, *n;
-+	unsigned long flags;
++    KEVENT_REQ_ONESHOT
++        event will be removed when it is ready 
 +
-+	kevent_storage_dequeue(k->st, k);
++    KEVENT_REQ_WAKEUP_ONE
++        When several threads wait on the same kevent queue and requested the 
++	same event, for example 'wake me up when new client has connected, 
++	so I could call accept()', then all threads will be awakened when new 
++	client has connected, but only one of them can process the data. This 
++	problem is known as thundering nerd problem. Events which have this 
++	flag set will not be marked as ready (and appropriate threads will 
++	not be awakened) if at least one event has been already marked. 
 +
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
-+		list_del(&w->container_entry);
-+		remove_wait_queue(w->whead, &w->wait);
-+		kmem_cache_free(kevent_poll_container_cache, w);
-+	}
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
++    KEVENT_REQ_ET
++        Edge Triggered behaviour. It is an optimisation which allows to move 
++	ready and dequeued (i.e. copied to userspace) event to move into set 
++	of interest for given storage (socket, inode and so on) again. It is 
++	very usefull for cases when the same event should be used many times 
++	(like reading from pipe). It is similar to epoll()'s EPOLLET flag. 
 +
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+	k->priv = NULL;
++    KEVENT_REQ_LAST_CHECK
++        if set allows to perform the last check on kevent (call appropriate 
++	callback) when kevent is marked as ready and has been removed from 
++	ready queue. If it will be confirmed that kevent is ready 
++	(k->callbacks.callback(k) returns true) then kevent will be copied 
++	to userspace, otherwise it will be requeued back to storage. 
++	Second (checking) call is performed with this bit cleared, so callback 
++	can detect when it was called from kevent_storage_ready() - bit is set, 
++	or kevent_dequeue_ready() - bit is cleared. If kevent will be requeued, 
++	bit will be set again.
 +
-+	fput(file);
++__u32 ret_flags
++    Per-event return flags
 +
-+	return 0;
-+}
++    KEVENT_RET_BROKEN
++        Kevent is broken 
 +
-+static int kevent_poll_callback(struct kevent *k)
-+{
-+	if (k->event.req_flags & KEVENT_REQ_LAST_CHECK) {
-+		return 1;
-+	} else {
-+		struct file *file = k->st->origin;
-+		unsigned int revents = file->f_op->poll(file, NULL);
++    KEVENT_RET_DONE
++        Kevent processing was finished successfully 
 +
-+		k->event.ret_data[0] = revents & k->event.event;
-+		
-+		return (revents & k->event.event);
-+	}
-+}
++    KEVENT_RET_COPY_FAILED
++        Kevent was not copied into ring buffer due to some error conditions. 
 +
-+static int __init kevent_poll_sys_init(void)
-+{
-+	struct kevent_callbacks pc = {
-+		.callback = &kevent_poll_callback,
-+		.enqueue = &kevent_poll_enqueue,
-+		.dequeue = &kevent_poll_dequeue};
++__u32 ret_data
++    Event return data. Event originator fills it with anything it likes 
++    (for example timer notifications put number of milliseconds when timer 
++    has fired 
++union { __u32 user[2]; void *ptr; }
++    User's data. It is not used, just copied to/from user. The whole structure 
++    is aligned to 8 bytes already, so the last union is aligned properly. 
 +
-+	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache",
-+			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
-+	if (!kevent_poll_container_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
-+		return -ENOMEM;
-+	}
++-------------------------------------------------------------------------------
 +
-+	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache",
-+			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
-+	if (!kevent_poll_priv_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
-+		kmem_cache_destroy(kevent_poll_container_cache);
-+		kevent_poll_container_cache = NULL;
-+		return -ENOMEM;
-+	}
++Usage
 +
-+	kevent_add_callbacks(&pc, KEVENT_POLL);
++For KEVENT_CTL_ADD, all fields relevant to the event type must be filled 
++(id, type, possibly event, req_flags). 
++After kevent_ctl(..., KEVENT_CTL_ADD, ...) returns each struct's ret_flags 
++should be checked to see if the event is already broken or done.
 +
-+	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
-+	return 0;
-+}
++For KEVENT_CTL_MODIFY, the id, req_flags, and user and event fields must be 
++set and an existing kevent request must have matching id and user fields. If 
++match is found, req_flags and event are replaced with the newly supplied 
++values and requeueing is started, so modified kevent can be checked and 
++probably marked as ready immediately. If a match can't be found, the 
++passed in ukevent's ret_flags has KEVENT_RET_BROKEN set. KEVENT_RET_DONE is 
++always set.
 +
-+static struct lock_class_key kevent_poll_key;
++For KEVENT_CTL_REMOVE, the id and user fields must be set and an existing 
++kevent request must have matching id and user fields. If a match is found, 
++the kevent request is removed. If a match can't be found, the passed in 
++ukevent's ret_flags has KEVENT_RET_BROKEN set. KEVENT_RET_DONE is always set.
 +
-+void kevent_poll_reinit(struct file *file)
-+{
-+	lockdep_set_class(&file->st.lock, &kevent_poll_key);
-+}
++For kevent_get_events, the entire structure is returned.
 +
-+static void __exit kevent_poll_sys_fini(void)
-+{
-+	kmem_cache_destroy(kevent_poll_priv_cache);
-+	kmem_cache_destroy(kevent_poll_container_cache);
-+}
++-------------------------------------------------------------------------------
 +
-+module_init(kevent_poll_sys_init);
-+module_exit(kevent_poll_sys_fini);
++Usage cases
++
++kevent_timer
++struct ukevent should contain following fields:
++    type - KEVENT_TIMER 
++    event - KEVENT_TIMER_FIRED 
++    req_flags - KEVENT_REQ_ONESHOT if you want to fire that timer only once 
++    id.raw[0] - number of seconds after commit when this timer shout expire 
++    id.raw[0] - additional to number of seconds number of nanoseconds 
 
