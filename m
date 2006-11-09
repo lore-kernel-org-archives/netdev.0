@@ -1,53 +1,116 @@
 From: akpm@osdl.org
-Subject: [patch 2/9] com20020 build fix
-Date: Wed, 08 Nov 2006 19:51:03 -0800
-Message-ID: <200611090351.kA93p3Vw003681@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, randy.dunlap@oracle.com,
-	toralf.foerster@gmx.de
+Subject: [patch 9/9] net: uninline xfrm_selector_match()
+Date: Wed, 08 Nov 2006 19:51:10 -0800
+Message-ID: <200611090351.kA93pBEl003702@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, acme@mandriva.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:12463 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965928AbWKIDvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:13 -0500
+Received: from smtp.osdl.org ([65.172.181.4]:16303 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965754AbWKIDvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:17 -0500
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: Andrew Morton <akpm@osdl.org>
 
-com20020.c needs to export functions if either of the ISA or PCI modules
-are built as loadable modules.  Or they could always be exported.
+Six callsites, huge.
 
-WARNING: "com20020_found" [drivers/net/arcnet/com20020-pci.ko] undefined!
-WARNING: "com20020_check" [drivers/net/arcnet/com20020-pci.ko] undefined!
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: Toralf Forster <toralf.foerster@gmx.de>
+Cc: Arnaldo Carvalho de Melo <acme@mandriva.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/arcnet/com20020.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ include/net/xfrm.h     |   36 ++----------------------------------
+ net/xfrm/xfrm_policy.c |   34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+), 34 deletions(-)
 
-diff -puN drivers/net/arcnet/com20020.c~com20020-build-fix drivers/net/arcnet/com20020.c
---- a/drivers/net/arcnet/com20020.c~com20020-build-fix
-+++ a/drivers/net/arcnet/com20020.c
-@@ -337,13 +337,16 @@ static void com20020_set_mc_list(struct 
- 	}
+diff -puN include/net/xfrm.h~net-uninline-xfrm_selector_match include/net/xfrm.h
+--- a/include/net/xfrm.h~net-uninline-xfrm_selector_match
++++ a/include/net/xfrm.h
+@@ -506,40 +506,8 @@ __be16 xfrm_flowi_dport(struct flowi *fl
+ 	return port;
  }
  
--#ifdef MODULE
+-static inline int
+-__xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
+-{
+-	return  addr_match(&fl->fl4_dst, &sel->daddr, sel->prefixlen_d) &&
+-		addr_match(&fl->fl4_src, &sel->saddr, sel->prefixlen_s) &&
+-		!((xfrm_flowi_dport(fl) ^ sel->dport) & sel->dport_mask) &&
+-		!((xfrm_flowi_sport(fl) ^ sel->sport) & sel->sport_mask) &&
+-		(fl->proto == sel->proto || !sel->proto) &&
+-		(fl->oif == sel->ifindex || !sel->ifindex);
+-}
 -
-+#if defined(CONFIG_ARCNET_COM20020_PCI_MODULE) || \
-+    defined(CONFIG_ARCNET_COM20020_ISA_MODULE)
- EXPORT_SYMBOL(com20020_check);
- EXPORT_SYMBOL(com20020_found);
-+#endif
+-static inline int
+-__xfrm6_selector_match(struct xfrm_selector *sel, struct flowi *fl)
+-{
+-	return  addr_match(&fl->fl6_dst, &sel->daddr, sel->prefixlen_d) &&
+-		addr_match(&fl->fl6_src, &sel->saddr, sel->prefixlen_s) &&
+-		!((xfrm_flowi_dport(fl) ^ sel->dport) & sel->dport_mask) &&
+-		!((xfrm_flowi_sport(fl) ^ sel->sport) & sel->sport_mask) &&
+-		(fl->proto == sel->proto || !sel->proto) &&
+-		(fl->oif == sel->ifindex || !sel->ifindex);
+-}
+-
+-static inline int
+-xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
+-		    unsigned short family)
+-{
+-	switch (family) {
+-	case AF_INET:
+-		return __xfrm4_selector_match(sel, fl);
+-	case AF_INET6:
+-		return __xfrm6_selector_match(sel, fl);
+-	}
+-	return 0;
+-}
++int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
++		    unsigned short family);
  
- MODULE_LICENSE("GPL");
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ /*	If neither has a context --> match
+diff -puN net/xfrm/xfrm_policy.c~net-uninline-xfrm_selector_match net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c~net-uninline-xfrm_selector_match
++++ a/net/xfrm/xfrm_policy.c
+@@ -50,6 +50,40 @@ static void xfrm_policy_put_afinfo(struc
+ static struct xfrm_policy_afinfo *xfrm_policy_lock_afinfo(unsigned int family);
+ static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo);
  
-+#ifdef MODULE
++static inline int
++__xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
++{
++	return  addr_match(&fl->fl4_dst, &sel->daddr, sel->prefixlen_d) &&
++		addr_match(&fl->fl4_src, &sel->saddr, sel->prefixlen_s) &&
++		!((xfrm_flowi_dport(fl) ^ sel->dport) & sel->dport_mask) &&
++		!((xfrm_flowi_sport(fl) ^ sel->sport) & sel->sport_mask) &&
++		(fl->proto == sel->proto || !sel->proto) &&
++		(fl->oif == sel->ifindex || !sel->ifindex);
++}
 +
- int init_module(void)
++static inline int
++__xfrm6_selector_match(struct xfrm_selector *sel, struct flowi *fl)
++{
++	return  addr_match(&fl->fl6_dst, &sel->daddr, sel->prefixlen_d) &&
++		addr_match(&fl->fl6_src, &sel->saddr, sel->prefixlen_s) &&
++		!((xfrm_flowi_dport(fl) ^ sel->dport) & sel->dport_mask) &&
++		!((xfrm_flowi_sport(fl) ^ sel->sport) & sel->sport_mask) &&
++		(fl->proto == sel->proto || !sel->proto) &&
++		(fl->oif == sel->ifindex || !sel->ifindex);
++}
++
++int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
++		    unsigned short family)
++{
++	switch (family) {
++	case AF_INET:
++		return __xfrm4_selector_match(sel, fl);
++	case AF_INET6:
++		return __xfrm6_selector_match(sel, fl);
++	}
++	return 0;
++}
++
+ int xfrm_register_type(struct xfrm_type *type, unsigned short family)
  {
- 	BUGLVL(D_NORMAL) printk(VERSION);
+ 	struct xfrm_policy_afinfo *afinfo = xfrm_policy_lock_afinfo(family);
 _
