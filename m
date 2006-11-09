@@ -1,54 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: why do we mangle checksums for v6 ICMP?
-Date: Thu, 09 Nov 2006 15:14:02 -0800 (PST)
-Message-ID: <20061109.151402.15590179.davem@davemloft.net>
-References: <20061108221332.GI29920@ftp.linux.org.uk>
-	<45536622.90708@hp.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
+Date: Thu, 9 Nov 2006 18:16:04 -0500
+Message-ID: <43e72e890611091516q7bc8f1f0gc0619edda2c389d5@mail.gmail.com>
+References: <200610031457.33215.chunkeey@web.de>
+	 <43e72e890611031041x1e07306cwbb16bcfa0fd782a7@mail.gmail.com>
+	 <20061108003934.GB2964@tuxdriver.com>
+	 <200611091838.33252.chunkeey@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: viro@ftp.linux.org.uk, netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7854
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1424242AbWKIXNy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 18:13:54 -0500
-To: brian.haley@hp.com
-In-Reply-To: <45536622.90708@hp.com>
+Received: from nf-out-0910.google.com ([64.233.182.191]:10064 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1424250AbWKIXQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 18:16:08 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so1185187nfa
+        for <netdev@vger.kernel.org>; Thu, 09 Nov 2006 15:16:05 -0800 (PST)
+To: "chunkeey@web.de" <chunkeey@web.de>
+In-Reply-To: <200611091838.33252.chunkeey@web.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Thu, 09 Nov 2006 12:32:18 -0500
+On 11/9/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> Am Mittwoch, 8. November 2006 01:39 schrieben Sie:
+> > On Fri, Nov 03, 2006 at 01:41:46PM -0500, Luis R. Rodriguez wrote:
+> > > On 11/3/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> > > >yes, especially mgt_commit_list caused alot headaches, until I removed
+> > > >DOT11_OID_PSM from the cache list.
+> > > >Now, I can "hammer" it with ping -f for hours.
+> > >
+> > > nice, perhaps that's been the culprit all along... going to dig to see
+> > > if I find a fullmac prism card. Will like to get this merged in.
+> >
+> > Any resolution on this?
+>
+> no replies.
+> Seems like it works for just fine for everybody. ;)
 
-> Al Viro wrote:
-> > 	AFAICS, the rules are:
-> > 
-> > (1) checksum is 16-bit one's complement of the one's complement sum of
-> > relevant 16bit words.
-> > 
-> > (2) for v4 UDP all-zeroes has special meaning - no checksum; if you get
-> > it from (1), send all-ones instead.
-> > 
-> > (3) for v6 UDP we have the same remapping as in (2), but all-zeroes has
-> > different meaning - not "ignore checksum" as in v4, but "reject the
-> > packet".
-> > 
-> > (4) there is no (4).
-> > 
-> > 	IOW, nobody except UDP has any business doing that 0->0xffff
-> > replacement.  However, we have
-> >        if (icmp6h->icmp6_cksum == 0)
-> >                icmp6h->icmp6_cksum = -1;
-> 
-> This doesn't look necessary, RFCs 4443/2463 don't mention it being 
-> necessary, and BSD doesn't do it either.  I'll cook-up a patch to remove 
-> that since I was doing some other mods in that codepath.
+I found a card, I just need time to test it. Dan didn't you say you
+ran into issues with the patch on your card?
 
-This is how things look to me too.
-
-> > and similar in net/ipv6/raw.c
-> 
-> Maybe here it only needs to be done if (fl->proto == IPPROTO_UDP)?
-
-Yes, I believe that is what is needed.
+  Luis
