@@ -1,70 +1,53 @@
 From: akpm@osdl.org
-Subject: [patch 1/5] 8139too: force media setting cleanup
-Date: Wed, 08 Nov 2006 19:49:09 -0800
-Message-ID: <200611090349.kA93n9YT003591@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, leewkb@yahoo.com
+Subject: [patch 2/9] com20020 build fix
+Date: Wed, 08 Nov 2006 19:51:03 -0800
+Message-ID: <200611090351.kA93p3Vw003681@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, randy.dunlap@oracle.com,
+	toralf.foerster@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:38318 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965737AbWKIDtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:49:51 -0500
-To: jeff@garzik.org
+Received: from smtp.osdl.org ([65.172.181.4]:12463 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965928AbWKIDvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:13 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernard Lee <leewkb@yahoo.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Setting bit 4 & 5 alone in 8139too module media option does not really
-force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
-8139too module does not force media setting.  Therefore, bit 0-3 requires
-to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
-stated in module description.
+com20020.c needs to export functions if either of the ISA or PCI modules
+are built as loadable modules.  Or they could always be exported.
 
-It can be fixed by changing rtl8139_private structure default_port bitfield
-from 4-bit to 6-bit.
+WARNING: "com20020_found" [drivers/net/arcnet/com20020-pci.ko] undefined!
+WARNING: "com20020_check" [drivers/net/arcnet/com20020-pci.ko] undefined!
 
-Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
-suggested that bit 9 is freed.  A remark is added to module description
-that bit 0 can be used to force setting.  It helps to clarify 10Mbps
-half-duplex mode.
-
-Signed-off-by: Bernard Lee <leewkb@yahoo.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Toralf Forster <toralf.foerster@gmx.de>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/8139too.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/arcnet/com20020.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
---- a/drivers/net/8139too.c~8139too-force-media-setting-fix
-+++ a/drivers/net/8139too.c
-@@ -586,7 +586,7 @@ struct rtl8139_private {
- 	signed char phys[4];		/* MII device addresses. */
- 	char twistie, twist_row, twist_col;	/* Twister tune state. */
- 	unsigned int watchdog_fired : 1;
--	unsigned int default_port : 4;	/* Last dev->if_port value. */
-+	unsigned int default_port : 6;	/* Last dev->if_port value. */
- 	unsigned int have_thread : 1;
- 	spinlock_t lock;
- 	spinlock_t rx_lock;
-@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
- module_param(debug, int, 0);
- MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
--MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
-+MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
- 
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
-@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
- 	/* The lower four bits are the media type. */
- 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
- 	if (option > 0) {
--		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
--		tp->default_port = option & 0xFF;
-+		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
-+		tp->default_port = option & 0x3F;
- 		if (tp->default_port)
- 			tp->mii.force_media = 1;
+diff -puN drivers/net/arcnet/com20020.c~com20020-build-fix drivers/net/arcnet/com20020.c
+--- a/drivers/net/arcnet/com20020.c~com20020-build-fix
++++ a/drivers/net/arcnet/com20020.c
+@@ -337,13 +337,16 @@ static void com20020_set_mc_list(struct 
  	}
+ }
+ 
+-#ifdef MODULE
+-
++#if defined(CONFIG_ARCNET_COM20020_PCI_MODULE) || \
++    defined(CONFIG_ARCNET_COM20020_ISA_MODULE)
+ EXPORT_SYMBOL(com20020_check);
+ EXPORT_SYMBOL(com20020_found);
++#endif
+ 
+ MODULE_LICENSE("GPL");
+ 
++#ifdef MODULE
++
+ int init_module(void)
+ {
+ 	BUGLVL(D_NORMAL) printk(VERSION);
 _
