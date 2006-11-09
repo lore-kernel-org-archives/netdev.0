@@ -1,50 +1,41 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: e1000 driver 2.6.18 - how to waste processor cycles
-Date: Wed, 8 Nov 2006 17:01:44 -0800
-Message-ID: <4807377b0611081701i26ee7ce0k1f822dbbe52c2c8@mail.gmail.com>
-References: <45524E3A.7080301@soleranetworks.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: 2.6.19-rc1: Volanomark slowdown
+Date: Wed, 08 Nov 2006 17:08:47 -0800
+Message-ID: <1163034527.5931.56.camel@raj-laptop>
+References: <1162924354.10806.172.camel@localhost.localdomain>
+	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
+	 <20061108162955.GA4364@suse.de>
+	 <1163011132.10806.189.camel@localhost.localdomain>
+	 <20061108221028.GA16889@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Linux kernel" <linux-kernel@vger.kernel.org>,
-	"NetDEV list" <netdev@vger.kernel.org>
+Cc: Tim Chen <tim.c.chen@linux.intel.com>,
+	Arjan van de Ven <arjan@infradead.org>,
+	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:49822 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1422893AbWKIBBq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 20:01:46 -0500
-Received: by ug-out-1314.google.com with SMTP id m3so78543ugc
-        for <netdev@vger.kernel.org>; Wed, 08 Nov 2006 17:01:44 -0800 (PST)
-To: "Jeff V. Merkey" <jmerkey@soleranetworks.com>
-In-Reply-To: <45524E3A.7080301@soleranetworks.com>
-Content-Disposition: inline
+Received: from palrel11.hp.com ([156.153.255.246]:8339 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S1423982AbWKIBIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 20:08:47 -0500
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20061108221028.GA16889@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-included netdev...
+On Wed, 2006-11-08 at 23:10 +0100, Olaf Kirch wrote:
+> What I'm saying though is that it doesn't rhyme with what I've seen of
+> Volanomark - we ran 2.6.16 on a 4p Intel box for instance and it didn't
+> come close to saturating a Gigabit pipe before it maxed out on CPU load.
 
-On 11/8/06, Jeff V. Merkey <jmerkey@soleranetworks.com> wrote:
->
-> Is there a good reason the skb refill routine in e1000_alloc_rx_buffers
-> needs to go and touch and remap skb memory
-> on already loaded descriptors/  This seems extremely wasteful of
-> processor cycles when refilling the ring buffer.
->
-> I note that the archtiecture has changed and is recycling buffers from
-> the rx_irq routine and when the routine is called
-> to refill the ring buffers, a lot of wasteful and needless calls for
-> map_skb is occurring.
+That actually supports the hypothesis doesn't it?  The issue being the
+increased number of ACKs causing additional CPU overhead not saturating
+a NIC if any involved.
 
-we have to unmap the descriptor (or at least do
-pci_dma_sync_single_for_cpu / pci_dma_sync_single_for_device) because
-the dma API says we can't be guaranteed the cacheable memory is
-consistent until we do one of the afore mentioned pci dma ops.
+One of these days I may have to try to look more closely at what volano
+does relative to netperf - I remember that someone tried very hard (was
+it you alexy?) to show a perfomance effect with netperf and it didn't do
+it :(
 
-we have to do *something* before we access it.  Simplest path is to
-unmap it and then recycle/map it.
+rick jones
 
-If you can show that it is faster to use pci_dma_sync_single_for_cpu
-and friends I'd be glad to take a patch.
-
-Hope this helps,
-  Jesse
