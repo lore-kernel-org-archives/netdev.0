@@ -1,42 +1,78 @@
 From: akpm@osdl.org
-Subject: [patch 5/5] drivers cris: return on NULL dev_alloc_skb()
-Date: Wed, 08 Nov 2006 19:49:15 -0800
-Message-ID: <200611090349.kA93nFUE003603@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, rientjes@cs.washington.edu,
-	starvik@axis.com
+Subject: [patch 3/5] sundance: solve host error problem in low performance embedded system when continune down and up
+Date: Wed, 08 Nov 2006 19:49:12 -0800
+Message-ID: <200611090349.kA93nCaI003597@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jesse@icplus.com.tw
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:37550 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965728AbWKIDtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:49:49 -0500
+Received: from smtp.osdl.org ([65.172.181.4]:36526 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965726AbWKIDtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:49:46 -0500
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Rientjes <rientjes@cs.washington.edu>
+From: Jesse Huang <jesse@icplus.com.tw>
 
-If the next descriptor array entry cannot be allocated by dev_alloc_skb(),
-return immediately so it is not dereferenced later.  We cannot register the
-device with a partial descriptor list.
+Solve host error problem in low performance embedded system when continune
+down and up.  It will cause IP100A DMA TargetAbort.  So we need more safe
+process to up and down IP100A with wait hardware completely stop and software
+cur_tx/ dirty_tx/cur_task/last_tx be clear.
 
-Cc: Mikael Starvik <starvik@axis.com>
-Signed-off-by: David Rientjes <rientjes@cs.washington.edu>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/cris/eth_v10.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/sundance.c |   26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
 
-diff -puN drivers/net/cris/eth_v10.c~drivers-cris-return-on-null-dev_alloc_skb drivers/net/cris/eth_v10.c
---- a/drivers/net/cris/eth_v10.c~drivers-cris-return-on-null-dev_alloc_skb
-+++ a/drivers/net/cris/eth_v10.c
-@@ -509,6 +509,8 @@ etrax_ethernet_init(void)
- 		 * does not share cacheline with any other data (to avoid cache bug)
- 		 */
- 		RxDescList[i].skb = dev_alloc_skb(MAX_MEDIA_DATA_SIZE + 2 * L1_CACHE_BYTES);
-+		if (!RxDescList[i].skb)
-+			return -ENOMEM;
- 		RxDescList[i].descr.ctrl   = 0;
- 		RxDescList[i].descr.sw_len = MAX_MEDIA_DATA_SIZE;
- 		RxDescList[i].descr.next   = virt_to_phys(&RxDescList[i + 1]);
+diff -puN drivers/net/sundance.c~sundance-solve-host-error-problem-in-low-performance-embedded drivers/net/sundance.c
+--- a/drivers/net/sundance.c~sundance-solve-host-error-problem-in-low-performance-embedded
++++ a/drivers/net/sundance.c
+@@ -1643,6 +1643,14 @@ static int netdev_close(struct net_devic
+ 	struct sk_buff *skb;
+ 	int i;
+ 
++	/* Wait and kill tasklet */
++	tasklet_kill(&np->rx_tasklet);
++	tasklet_kill(&np->tx_tasklet);
++	np->cur_tx = 0;
++	np->dirty_tx = 0;
++	np->cur_task = 0;
++	np->last_tx = 0;
++
+ 	netif_stop_queue(dev);
+ 
+ 	if (netif_msg_ifdown(np)) {
+@@ -1663,9 +1671,20 @@ static int netdev_close(struct net_devic
+ 	/* Stop the chip's Tx and Rx processes. */
+ 	iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
+ 
+-	/* Wait and kill tasklet */
+-	tasklet_kill(&np->rx_tasklet);
+-	tasklet_kill(&np->tx_tasklet);
++    	for (i = 2000; i > 0; i--) {
++ 		if ((ioread32(ioaddr + DMACtrl) & 0xc000) == 0)
++			break;
++		mdelay(1);
++    	}
++
++    	iowrite16(GlobalReset | DMAReset | FIFOReset | NetworkReset,
++			ioaddr +ASICCtrl + 2);
++
++    	for (i = 2000; i > 0; i--) {
++ 		if ((ioread16(ioaddr + ASICCtrl +2) & ResetBusy) == 0)
++			break;
++		mdelay(1);
++    	}
+ 
+ #ifdef __i386__
+ 	if (netif_msg_hw(np)) {
+@@ -1703,6 +1722,7 @@ static int netdev_close(struct net_devic
+ 		}
+ 	}
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
++		np->tx_ring[i].next_desc = 0;
+ 		skb = np->tx_skbuff[i];
+ 		if (skb) {
+ 			pci_unmap_single(np->pci_dev,
 _
