@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] fix up generic csum_ipv6_magic function prototype
-Date: Wed, 08 Nov 2006 23:00:59 -0800 (PST)
-Message-ID: <20061108.230059.57444310.davem@davemloft.net>
-References: <000301c703a3$0eedb340$ff0da8c0@amr.corp.intel.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 2/3] mlsxfrm: Various fixes
+Date: Thu, 9 Nov 2006 02:02:14 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0611090158550.11301@d.namei>
+References: <000501c70342$83b9df70$cc0a010a@tcssec.com> <4552A9AC.3060708@hp.com>
+ <Pine.LNX.4.64.0611082337520.5916@d.namei> <4552B5C1.8040007@hp.com>
+ <Pine.LNX.4.64.0611090109120.10907@d.namei> <4552CD3B.40809@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: vyekkirala@TrustedCS.com, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:24242
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1754341AbWKIHAy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 02:00:54 -0500
-To: kenneth.w.chen@intel.com
-In-Reply-To: <000301c703a3$0eedb340$ff0da8c0@amr.corp.intel.com>
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:5100 "EHLO
+	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1754353AbWKIHCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 02:02:16 -0500
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <4552CD3B.40809@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 8 Nov 2006 18:02:06 -0800
+On Thu, 9 Nov 2006, Paul Moore wrote:
 
-> The generic version of csum_ipv6_magic has the len argument declared as
-> __u16, while most arch dependent version declare it as __u32.  After
-> looking at the call site of this function, I come up to a conclusion
-> that __u32 is a better match with the actual usage.
-> 
-> Hence, patch to change argument type for greater consistency.
-> 
-> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+> It sounds like you have an idea of how you would like to see this implemented,
+> can you give me a rough outline?  Is this the partitioned SECMARK field you
+> talked about earlier?
 
-Architecture implementations such as the ones for m32r and parisc have
-the same problem, so "for consistency" please fix them up as well.
+No, just the fact that you are in the same kernel address space and can 
+readily access the security context of the peer.
 
-Thanks a lot.
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
