@@ -1,42 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3_close question
-Date: Thu, 9 Nov 2006 09:35:11 -0800
-Message-ID: <1551EAE59135BE47B544934E30FC4FC093FCD0@NT-IRVA-0751.brcm.ad.broadcom.com>
-References: <5cac192f0611090922x7b6f8369of5bf294e9768800d@mail.gmail.com>
+From: chunkeey@web.de
+Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
+Date: Thu, 9 Nov 2006 18:38:33 +0100
+Message-ID: <200611091838.33252.chunkeey@web.de>
+References: <200610031457.33215.chunkeey@web.de> <43e72e890611031041x1e07306cwbb16bcfa0fd782a7@mail.gmail.com> <20061108003934.GB2964@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:20489 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1424169AbWKIRfZ convert rfc822-to-8bit
+Received: from fmmailgate03.web.de ([217.72.192.234]:57240 "EHLO
+	fmmailgate03.web.de") by vger.kernel.org with ESMTP id S966046AbWKIRhb
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 12:35:25 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <5cac192f0611090922x7b6f8369of5bf294e9768800d@mail.gmail.com>
-To: "Eric Lemoine" <eric.lemoine@gmail.com>
+	Thu, 9 Nov 2006 12:37:31 -0500
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20061108003934.GB2964@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Lemoine wrote:
-
-> > On 11/9/06, Michael Chan <mchan@broadcom.com> wrote:
-> > > So it is not possible for tg3_poll() -> tg3_tx() to run any more
-> > > after tg3_close() is called.
+Am Mittwoch, 8. November 2006 01:39 schrieben Sie:
+> On Fri, Nov 03, 2006 at 01:41:46PM -0500, Luis R. Rodriguez wrote:
+> > On 11/3/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> > >yes, especially mgt_commit_list caused alot headaches, until I removed
+> > >DOT11_OID_PSM from the cache list.
+> > >Now, I can "hammer" it with ping -f for hours.
 > >
-> > But, while tg3_close() starts executing, an interrupt may 
-> > come in and
-> > schedule polling (set  __LINK_STATE_RX_SCHED). So tg3_poll() ->
-> > tg3_tx() may well occur.
-> 
-> Actually I don't understand the purpose of having dev_close() wait for
-> __LINK_STATE_RX_SCHED to be cleared. An interrupt may arrive at any
-> time after it's cleared, and reset __LINK_STATE_RX_SCHED. Can someone
-> explain please?
-> 
+> > nice, perhaps that's been the culprit all along... going to dig to see
+> > if I find a fullmac prism card. Will like to get this merged in.
+>
+> Any resolution on this?
 
-If netif_running() is cleared, netif_rx_schedule() will not schedule
-the ->poll().  So even if tg3 gets an interrupt after close,
-tg3_poll() will not be scheduled.
+no replies.
+Seems like it works for just fine for everybody. ;)
 
+Christian
