@@ -1,66 +1,78 @@
-From: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
-Subject: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
-Date: Thu, 9 Nov 2006 19:52:30 +0530
-Message-ID: <010C7BAE6783F34D9AC336EE5A01A08802BB30D7@dbde01.ent.ti.com>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: Re: [PATCHSET] packet mark & fib rules work
+Date: Thu, 9 Nov 2006 14:55:03 +0000
+Message-ID: <20061109145503.GA1546@fogou.chygwyn.com>
+References: <20061109112735.577771022@lsx.localdomain> <20061109114604.GA32395@fogou.chygwyn.com> <20061109124911.GB8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:63687 "EHLO bear.ext.ti.com")
-	by vger.kernel.org with ESMTP id S966029AbWKIOW2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 09:22:28 -0500
-Received: from dlep34.itg.ti.com ([157.170.170.115])
-	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id kA9EMN5u026908
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 08:22:28 -0600
-Received: from dlep95.itg.ti.com (localhost [127.0.0.1])
-	by dlep34.itg.ti.com (8.13.7/8.13.7) with ESMTP id kA9EMNEa027063
-	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 08:22:23 -0600 (CST)
-Received: from dbde01.ent.ti.com (localhost [127.0.0.1])
-	by dlep95.itg.ti.com (8.13.7/8.13.7) with ESMTP id kA9EMJrI000506
-	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 08:22:22 -0600 (CST)
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
+Received: from fogou.chygwyn.com ([195.171.2.24]:25574 "EHLO fogou.chygwyn.com")
+	by vger.kernel.org with ESMTP id S1423876AbWKIPB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 10:01:58 -0500
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20061109124911.GB8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All
+Hi,
 
-I found an issue with Realtek 8139 driver (2.6.10 branch) at high
-bi-directional traffic. On transmit timeout, driver's timeout callback
-re-enables the receive interrupt. On the next receive interrupt, the ISR
-disables the receive interrupt "only" when the receive poll task is not
-active. But the poll task is actually active and hence it doesn't
-disable the receive interrupt. So the ISR returns without clearing the
-receive interrupt. This un-serviced receive interrupt brings the system
-into hung state.
+On Thu, Nov 09, 2006 at 01:49:11PM +0100, Thomas Graf wrote:
+> * Steven Whitehouse <steve@chygwyn.com> 2006-11-09 11:46
+> > 
+> > so far as all the DECnet bits go. One question though... will you
+> > be adding later (as your slide #5 and #11 from your netconf presentation
+> > appear to imply) a way to set the mark from the routing table (presumably
+> > included in the nexthop info) ?
+> 
+> So far I haven't planned this, slide #11 describes that if I add an
+> address with a given mark the corresponding route will only apply
+> to packets with a matching mark. Slide #5 shows the idea of an ingress
+> classifier/action setting the mark field based on iif. I focus on
+> selecting routes based on marks, not the other way around but its
+> certainly a intersting idea if you can elaborate it further.
 
-My understanding here is, on receive interrupt the ISR should disable
-the receive interrupt irrespective of the polling task's state (active
-or inactive). I changed the code (as shown below) and it works
-perfectly. 
+So here is roughly what I was thinking... this comes from having
+spent a little while thinking about the best way to integrate
+MPLS into the network stack. An MPLS label is 32 bits in size
+which conviently matches the size of the packet mark.
 
-Is this a known issue? If so, is there a fix already available?
+So one thought was this (for MPLS edge routers). Add the ability to
+set a mark to the IP routing table. Something along the lines of:
 
-Also, we get frequent TX timeouts during high rate of traffic. What
-could be the reason for this frequent TX timeouts?
- 
+/sbin/ip route add 10.1.0.0/16 via 10.2.1.1 dev eth0 setmark 6
 
---- old/8139too.c	2006-11-09 11:49:25.000000000 +0530
-+++ new/8139too.c	2006-11-09 11:50:02.000000000 +0530
-@@ -2200,8 +2200,8 @@
- 	/* Receive packets are processed by poll routine.
- 	   If not running start it now. */
- 	if (status & RxAckBits){
--		if (netif_rx_schedule_prep(dev)) {
- 			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
-+		if (netif_rx_schedule_prep(dev)) {
- 			__netif_rx_schedule (dev);
- 		}
- 	}
+and then use the mark as the FEC (forwarding equivalence class)
+for MPLS (which is just an index, but in simple cases could
+contain a whole MPLS label). I was hoping that it might be possible
+to use the xfrm infrastructure to deal with the actual application
+of MPLS labels, but I'm not yet 100% certain that its a good fit.
 
+Either way, MPLS will require some kind of way to indicate the FEC
+for each route, so using the generic mark like this seems to me
+a reasonable solution on the basis that other uses might then be found for
+it as well.
 
-Thanks
-Mansoor
+Since MPLS labels are only a subset of the full 32 bits, being able
+to use a mask in conjunction with setting the mark might also be
+a useful feature, so that the logic (pseudo code) after route lookup
+might look something like:
+
+skb->mark &= ~nh->nh_setmask;
+skb->mark |= nh->nh_setmark; /* Assume mark only sets bits allowed by mask */
+
+The big question being, is this going to be a problem bearing in mind
+it would appear in the routing fast path?
+
+On the MPLS input side, packet marks would be set according to the
+incoming MPLS label and then work in just the same way that you propose
+using the marks to create separate routing for different VLANs for
+example.
+
+If people are generally happy with the idea, and since its not already
+part of your plans, then I'll try and put a patch together for it
+in the not too distant future,
+
+Steve.
+
