@@ -1,615 +1,609 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/6] [NET]: Rethink mark field in struct flowi
-Date: Thu, 09 Nov 2006 12:27:37 +0100
-Message-ID: <20061109113245.573179984@lsx.localdomain>
+Subject: [PATCH 1/6] [NET]: Turn nfmark into generic mark
+Date: Thu, 09 Nov 2006 12:27:36 +0100
+Message-ID: <20061109113245.439512828@lsx.localdomain>
 References: <20061109112735.577771022@lsx.localdomain>
 Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:5584 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932815AbWKILdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 06:33:42 -0500
+Received: from postel.suug.ch ([194.88.212.233]:3792 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932814AbWKILdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 06:33:37 -0500
 To: davem@davemloft.net
-Content-Disposition: inline; filename=cleanup_flowi
+Content-Disposition: inline; filename=rename_nfmark
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that all protocols have been made aware of the mark
-field it can be moved out of the union thus simplyfing
-its usage.
-
-The config options in the IPv4/IPv6/DECnet subsystems
-to enable respectively disable mark based routing only
-obfuscate the code with ifdefs, the cost for the
-additional comparison in the flow key is insignificant,
-and most distributions have all these options enabled
-by default anyway. Therefore it makes sense to remove
-the config options and enable mark based routing by
-default.
+nfmark is being used in various subsystems and has become
+the defacto mark field for all kinds of packets. Therefore
+it makes sense to rename it to `mark' and remove the
+dependency on CONFIG_NETFILTER.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.20/include/net/flow.h
+Index: net-2.6.20/include/linux/skbuff.h
 ===================================================================
---- net-2.6.20.orig/include/net/flow.h	2006-11-08 15:34:12.000000000 +0100
-+++ net-2.6.20/include/net/flow.h	2006-11-08 16:12:32.000000000 +0100
-@@ -18,7 +18,6 @@
- 		struct {
- 			__be32			daddr;
- 			__be32			saddr;
--			__u32			fwmark;
- 			__u8			tos;
- 			__u8			scope;
- 		} ip4_u;
-@@ -26,28 +25,23 @@
- 		struct {
- 			struct in6_addr		daddr;
- 			struct in6_addr		saddr;
--			__u32			fwmark;
- 			__be32			flowlabel;
- 		} ip6_u;
- 
- 		struct {
- 			__le16			daddr;
- 			__le16			saddr;
--			__u32			fwmark;
- 			__u8			scope;
- 		} dn_u;
- 	} nl_u;
- #define fld_dst		nl_u.dn_u.daddr
- #define fld_src		nl_u.dn_u.saddr
--#define fld_fwmark	nl_u.dn_u.fwmark
- #define fld_scope	nl_u.dn_u.scope
- #define fl6_dst		nl_u.ip6_u.daddr
- #define fl6_src		nl_u.ip6_u.saddr
--#define fl6_fwmark	nl_u.ip6_u.fwmark
- #define fl6_flowlabel	nl_u.ip6_u.flowlabel
- #define fl4_dst		nl_u.ip4_u.daddr
- #define fl4_src		nl_u.ip4_u.saddr
--#define fl4_fwmark	nl_u.ip4_u.fwmark
- #define fl4_tos		nl_u.ip4_u.tos
- #define fl4_scope	nl_u.ip4_u.scope
- 
-@@ -86,6 +80,7 @@
- #ifdef CONFIG_IPV6_MIP6
- #define fl_mh_type	uli_u.mht.type
+--- net-2.6.20.orig/include/linux/skbuff.h	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/include/linux/skbuff.h	2006-11-08 16:12:30.000000000 +0100
+@@ -216,7 +216,7 @@
+  *	@tail: Tail pointer
+  *	@end: End pointer
+  *	@destructor: Destruct function
+- *	@nfmark: Can be used for communication between hooks
++ *	@mark: Generic packet mark
+  *	@nfct: Associated connection, if any
+  *	@ipvs_property: skbuff is owned by ipvs
+  *	@nfctinfo: Relationship of this skb to the connection
+@@ -295,7 +295,6 @@
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	struct nf_bridge_info	*nf_bridge;
  #endif
-+	__u32		mark;
- 	__u32           secid;	/* used by xfrm; see secid.txt */
- } __attribute__((__aligned__(BITS_PER_LONG/8)));
+-	__u32			nfmark;
+ #endif /* CONFIG_NETFILTER */
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+@@ -310,6 +309,7 @@
+ 	__u32			secmark;
+ #endif
  
++	__u32			mark;
+ 
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+ 	unsigned int		truesize;
+Index: net-2.6.20/net/core/skbuff.c
+===================================================================
+--- net-2.6.20.orig/net/core/skbuff.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/core/skbuff.c	2006-11-08 16:12:30.000000000 +0100
+@@ -473,8 +473,8 @@
+ #endif
+ 	C(protocol);
+ 	n->destructor = NULL;
++	C(mark);
+ #ifdef CONFIG_NETFILTER
+-	C(nfmark);
+ 	C(nfct);
+ 	nf_conntrack_get(skb->nfct);
+ 	C(nfctinfo);
+@@ -534,8 +534,8 @@
+ 	new->pkt_type	= old->pkt_type;
+ 	new->tstamp	= old->tstamp;
+ 	new->destructor = NULL;
++	new->mark	= old->mark;
+ #ifdef CONFIG_NETFILTER
+-	new->nfmark	= old->nfmark;
+ 	new->nfct	= old->nfct;
+ 	nf_conntrack_get(old->nfct);
+ 	new->nfctinfo	= old->nfctinfo;
+Index: net-2.6.20/net/ipv4/netfilter/iptable_mangle.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/netfilter/iptable_mangle.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/netfilter/iptable_mangle.c	2006-11-08 16:12:30.000000000 +0100
+@@ -132,7 +132,7 @@
+ 	unsigned int ret;
+ 	u_int8_t tos;
+ 	__be32 saddr, daddr;
+-	unsigned long nfmark;
++	u_int32_t mark;
+ 
+ 	/* root is playing with raw sockets. */
+ 	if ((*pskb)->len < sizeof(struct iphdr)
+@@ -143,7 +143,7 @@
+ 	}
+ 
+ 	/* Save things which could affect route */
+-	nfmark = (*pskb)->nfmark;
++	mark = (*pskb)->mark;
+ 	saddr = (*pskb)->nh.iph->saddr;
+ 	daddr = (*pskb)->nh.iph->daddr;
+ 	tos = (*pskb)->nh.iph->tos;
+@@ -154,7 +154,7 @@
+ 	    && ((*pskb)->nh.iph->saddr != saddr
+ 		|| (*pskb)->nh.iph->daddr != daddr
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-		|| (*pskb)->nfmark != nfmark
++		|| (*pskb)->mark != mark
+ #endif
+ 		|| (*pskb)->nh.iph->tos != tos))
+ 		if (ip_route_me_harder(pskb, RTN_UNSPEC))
+Index: net-2.6.20/net/bridge/netfilter/ebt_mark.c
+===================================================================
+--- net-2.6.20.orig/net/bridge/netfilter/ebt_mark.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/bridge/netfilter/ebt_mark.c	2006-11-08 16:12:30.000000000 +0100
+@@ -25,13 +25,13 @@
+ 	int action = info->target & -16;
+ 
+ 	if (action == MARK_SET_VALUE)
+-		(*pskb)->nfmark = info->mark;
++		(*pskb)->mark = info->mark;
+ 	else if (action == MARK_OR_VALUE)
+-		(*pskb)->nfmark |= info->mark;
++		(*pskb)->mark |= info->mark;
+ 	else if (action == MARK_AND_VALUE)
+-		(*pskb)->nfmark &= info->mark;
++		(*pskb)->mark &= info->mark;
+ 	else
+-		(*pskb)->nfmark ^= info->mark;
++		(*pskb)->mark ^= info->mark;
+ 
+ 	return info->target | -16;
+ }
+Index: net-2.6.20/net/bridge/netfilter/ebt_mark_m.c
+===================================================================
+--- net-2.6.20.orig/net/bridge/netfilter/ebt_mark_m.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/bridge/netfilter/ebt_mark_m.c	2006-11-08 16:12:30.000000000 +0100
+@@ -19,8 +19,8 @@
+ 	struct ebt_mark_m_info *info = (struct ebt_mark_m_info *) data;
+ 
+ 	if (info->bitmask & EBT_MARK_OR)
+-		return !(!!(skb->nfmark & info->mask) ^ info->invert);
+-	return !(((skb->nfmark & info->mask) == info->mark) ^ info->invert);
++		return !(!!(skb->mark & info->mask) ^ info->invert);
++	return !(((skb->mark & info->mask) == info->mark) ^ info->invert);
+ }
+ 
+ static int ebt_mark_check(const char *tablename, unsigned int hookmask,
+Index: net-2.6.20/net/bridge/netfilter/ebt_ulog.c
+===================================================================
+--- net-2.6.20.orig/net/bridge/netfilter/ebt_ulog.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/bridge/netfilter/ebt_ulog.c	2006-11-08 16:12:30.000000000 +0100
+@@ -168,7 +168,7 @@
+ 	if (ub->qlen == 1)
+ 		skb_set_timestamp(ub->skb, &pm->stamp);
+ 	pm->data_len = copy_len;
+-	pm->mark = skb->nfmark;
++	pm->mark = skb->mark;
+ 	pm->hook = hooknr;
+ 	if (uloginfo->prefix != NULL)
+ 		strcpy(pm->prefix, uloginfo->prefix);
 Index: net-2.6.20/net/decnet/dn_route.c
 ===================================================================
---- net-2.6.20.orig/net/decnet/dn_route.c	2006-11-08 16:12:30.000000000 +0100
-+++ net-2.6.20/net/decnet/dn_route.c	2006-11-08 16:12:32.000000000 +0100
-@@ -269,9 +269,7 @@
- {
- 	return ((fl1->nl_u.dn_u.daddr ^ fl2->nl_u.dn_u.daddr) |
- 		(fl1->nl_u.dn_u.saddr ^ fl2->nl_u.dn_u.saddr) |
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--		(fl1->nl_u.dn_u.fwmark ^ fl2->nl_u.dn_u.fwmark) |
--#endif
-+		(fl1->mark ^ fl2->mark) |
- 		(fl1->nl_u.dn_u.scope ^ fl2->nl_u.dn_u.scope) |
- 		(fl1->oif ^ fl2->oif) |
- 		(fl1->iif ^ fl2->iif)) == 0;
-@@ -882,10 +880,8 @@
- 				      { .daddr = oldflp->fld_dst,
- 					.saddr = oldflp->fld_src,
- 					.scope = RT_SCOPE_UNIVERSE,
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--					.fwmark = oldflp->fld_fwmark
--#endif
- 				     } },
-+			    .mark = oldflp->mark,
- 			    .iif = loopback_dev.ifindex,
- 			    .oif = oldflp->oif };
- 	struct dn_route *rt = NULL;
-@@ -903,7 +899,7 @@
- 		       "dn_route_output_slow: dst=%04x src=%04x mark=%d"
- 		       " iif=%d oif=%d\n", dn_ntohs(oldflp->fld_dst),
- 		       dn_ntohs(oldflp->fld_src),
--                       oldflp->fld_fwmark, loopback_dev.ifindex, oldflp->oif);
-+                       oldflp->mark, loopback_dev.ifindex, oldflp->oif);
- 
- 	/* If we have an output interface, verify its a DECnet device */
- 	if (oldflp->oif) {
-@@ -1108,9 +1104,7 @@
- 	rt->fl.fld_dst    = oldflp->fld_dst;
- 	rt->fl.oif        = oldflp->oif;
- 	rt->fl.iif        = 0;
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--	rt->fl.fld_fwmark = oldflp->fld_fwmark;
--#endif
-+	rt->fl.mark       = oldflp->mark;
- 
- 	rt->rt_saddr      = fl.fld_src;
- 	rt->rt_daddr      = fl.fld_dst;
-@@ -1178,9 +1172,7 @@
- 			rt = rcu_dereference(rt->u.rt_next)) {
- 			if ((flp->fld_dst == rt->fl.fld_dst) &&
- 			    (flp->fld_src == rt->fl.fld_src) &&
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--			    (flp->fld_fwmark == rt->fl.fld_fwmark) &&
--#endif
-+			    (flp->mark == rt->fl.mark) &&
- 			    (rt->fl.iif == 0) &&
- 			    (rt->fl.oif == flp->oif)) {
- 				rt->u.dst.lastuse = jiffies;
-@@ -1235,10 +1227,8 @@
- 				     { .daddr = cb->dst,
+--- net-2.6.20.orig/net/decnet/dn_route.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/decnet/dn_route.c	2006-11-08 16:12:30.000000000 +0100
+@@ -1236,7 +1236,7 @@
  				       .saddr = cb->src,
  				       .scope = RT_SCOPE_UNIVERSE,
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--				       .fwmark = skb->mark
--#endif
+ #ifdef CONFIG_DECNET_ROUTE_FWMARK
+-				       .fwmark = skb->nfmark
++				       .fwmark = skb->mark
+ #endif
  				    } },
-+			    .mark = skb->mark,
  			    .iif = skb->dev->ifindex };
- 	struct dn_fib_res res = { .fi = NULL, .type = RTN_UNREACHABLE };
- 	int err = -EINVAL;
-@@ -1385,7 +1375,7 @@
- 	rt->fl.fld_dst    = cb->dst;
- 	rt->fl.oif        = 0;
- 	rt->fl.iif        = in_dev->ifindex;
--	rt->fl.fld_fwmark = fl.fld_fwmark;
-+	rt->fl.mark       = fl.mark;
- 
- 	rt->u.dst.flags = DST_HOST;
- 	rt->u.dst.neighbour = neigh;
-@@ -1457,9 +1447,7 @@
- 		if ((rt->fl.fld_src == cb->src) &&
+@@ -1458,7 +1458,7 @@
  	 	    (rt->fl.fld_dst == cb->dst) &&
  		    (rt->fl.oif == 0) &&
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--		    (rt->fl.fld_fwmark == skb->mark) &&
--#endif
-+		    (rt->fl.mark == skb->mark) &&
+ #ifdef CONFIG_DECNET_ROUTE_FWMARK
+-		    (rt->fl.fld_fwmark == skb->nfmark) &&
++		    (rt->fl.fld_fwmark == skb->mark) &&
+ #endif
  		    (rt->fl.iif == cb->iif)) {
  			rt->u.dst.lastuse = jiffies;
- 			dst_hold(&rt->u.dst);
-Index: net-2.6.20/net/decnet/dn_rules.c
+Index: net-2.6.20/net/ipv4/ip_output.c
 ===================================================================
---- net-2.6.20.orig/net/decnet/dn_rules.c	2006-11-08 15:34:12.000000000 +0100
-+++ net-2.6.20/net/decnet/dn_rules.c	2006-11-08 16:12:32.000000000 +0100
-@@ -45,10 +45,8 @@
- 	__le16			dstmask;
- 	__le16			srcmap;
- 	u8			flags;
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
- 	u32			fwmark;
- 	u32			fwmask;
--#endif
- };
+--- net-2.6.20.orig/net/ipv4/ip_output.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/ip_output.c	2006-11-08 16:12:30.000000000 +0100
+@@ -386,6 +386,7 @@
+ 	dst_release(to->dst);
+ 	to->dst = dst_clone(from->dst);
+ 	to->dev = from->dev;
++	to->mark = from->mark;
  
- static struct dn_fib_rule default_rule = {
-@@ -131,10 +129,8 @@
- 	    ((daddr ^ r->dst) & r->dstmask))
- 		return 0;
- 
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
--	if ((r->fwmark ^ fl->fld_fwmark) & r->fwmask)
-+	if ((r->fwmark ^ fl->mark) & r->fwmask)
- 		return 0;
--#endif
- 
- 	return 1;
- }
-@@ -169,7 +165,6 @@
- 	if (tb[FRA_DST])
- 		r->dst = nla_get_u16(tb[FRA_DST]);
- 
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK]) {
- 		r->fwmark = nla_get_u32(tb[FRA_FWMARK]);
- 		if (r->fwmark)
-@@ -181,7 +176,6 @@
- 
- 	if (tb[FRA_FWMASK])
- 		r->fwmask = nla_get_u32(tb[FRA_FWMASK]);
--#endif
- 
- 	r->src_len = frh->src_len;
- 	r->srcmask = dnet_make_mask(r->src_len);
-@@ -203,13 +197,11 @@
- 	if (frh->dst_len && (r->dst_len != frh->dst_len))
- 		return 0;
- 
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK] && (r->fwmark != nla_get_u32(tb[FRA_FWMARK])))
- 		return 0;
- 
- 	if (tb[FRA_FWMASK] && (r->fwmask != nla_get_u32(tb[FRA_FWMASK])))
- 		return 0;
--#endif
- 
- 	if (tb[FRA_SRC] && (r->src != nla_get_u16(tb[FRA_SRC])))
- 		return 0;
-@@ -248,12 +240,10 @@
- 	frh->src_len = r->src_len;
- 	frh->tos = 0;
- 
--#ifdef CONFIG_DECNET_ROUTE_FWMARK
- 	if (r->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMARK, r->fwmark);
- 	if (r->fwmask || r->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMASK, r->fwmask);
--#endif
- 	if (r->dst_len)
- 		NLA_PUT_U16(skb, FRA_DST, r->dst);
- 	if (r->src_len)
-Index: net-2.6.20/net/ipv6/fib6_rules.c
+ 	/* Copy the flags to each fragment. */
+ 	IPCB(to)->flags = IPCB(from)->flags;
+@@ -394,7 +395,6 @@
+ 	to->tc_index = from->tc_index;
+ #endif
+ #ifdef CONFIG_NETFILTER
+-	to->nfmark = from->nfmark;
+ 	/* Connection association is same as pre-frag packet */
+ 	nf_conntrack_put(to->nfct);
+ 	to->nfct = from->nfct;
+Index: net-2.6.20/net/ipv4/ipvs/ip_vs_proto_tcp.c
 ===================================================================
---- net-2.6.20.orig/net/ipv6/fib6_rules.c	2006-11-08 15:34:13.000000000 +0100
-+++ net-2.6.20/net/ipv6/fib6_rules.c	2006-11-08 16:12:32.000000000 +0100
-@@ -25,10 +25,8 @@
- 	struct fib_rule		common;
- 	struct rt6key		src;
- 	struct rt6key		dst;
--#ifdef CONFIG_IPV6_ROUTE_FWMARK
- 	u32			fwmark;
- 	u32			fwmask;
--#endif
- 	u8			tclass;
- };
+--- net-2.6.20.orig/net/ipv4/ipvs/ip_vs_proto_tcp.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/ipvs/ip_vs_proto_tcp.c	2006-11-08 16:12:30.000000000 +0100
+@@ -84,7 +84,7 @@
+ 	}
  
-@@ -130,10 +128,8 @@
- 	if (r->tclass && r->tclass != ((ntohl(fl->fl6_flowlabel) >> 20) & 0xff))
+ 	if (th->syn &&
+-	    (svc = ip_vs_service_get(skb->nfmark, skb->nh.iph->protocol,
++	    (svc = ip_vs_service_get(skb->mark, skb->nh.iph->protocol,
+ 				     skb->nh.iph->daddr, th->dest))) {
+ 		if (ip_vs_todrop()) {
+ 			/*
+Index: net-2.6.20/net/ipv4/ipvs/ip_vs_proto_udp.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/ipvs/ip_vs_proto_udp.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/ipvs/ip_vs_proto_udp.c	2006-11-08 16:12:30.000000000 +0100
+@@ -89,7 +89,7 @@
  		return 0;
+ 	}
  
--#ifdef CONFIG_IPV6_ROUTE_FWMARK
--	if ((r->fwmark ^ fl->fl6_fwmark) & r->fwmask)
-+	if ((r->fwmark ^ fl->mark) & r->fwmask)
- 		return 0;
--#endif
+-	if ((svc = ip_vs_service_get(skb->nfmark, skb->nh.iph->protocol,
++	if ((svc = ip_vs_service_get(skb->mark, skb->nh.iph->protocol,
+ 				     skb->nh.iph->daddr, uh->dest))) {
+ 		if (ip_vs_todrop()) {
+ 			/*
+Index: net-2.6.20/net/ipv4/netfilter.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/netfilter.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/netfilter.c	2006-11-08 16:12:30.000000000 +0100
+@@ -28,7 +28,7 @@
+ 		fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
+ 		fl.oif = (*pskb)->sk ? (*pskb)->sk->sk_bound_dev_if : 0;
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-		fl.nl_u.ip4_u.fwmark = (*pskb)->nfmark;
++		fl.nl_u.ip4_u.fwmark = (*pskb)->mark;
+ #endif
+ 		if (ip_route_output_key(&rt, &fl) != 0)
+ 			return -1;
+Index: net-2.6.20/net/ipv4/netfilter/ip_queue.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/netfilter/ip_queue.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/netfilter/ip_queue.c	2006-11-08 16:12:30.000000000 +0100
+@@ -243,7 +243,7 @@
+ 	pmsg->data_len        = data_len;
+ 	pmsg->timestamp_sec   = entry->skb->tstamp.off_sec;
+ 	pmsg->timestamp_usec  = entry->skb->tstamp.off_usec;
+-	pmsg->mark            = entry->skb->nfmark;
++	pmsg->mark            = entry->skb->mark;
+ 	pmsg->hook            = entry->info->hook;
+ 	pmsg->hw_protocol     = entry->skb->protocol;
+ 	
+Index: net-2.6.20/net/ipv4/netfilter/ipt_REJECT.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/netfilter/ipt_REJECT.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/netfilter/ipt_REJECT.c	2006-11-08 16:12:30.000000000 +0100
+@@ -76,7 +76,7 @@
  
- 	return 1;
- }
-@@ -177,7 +173,6 @@
- 		nla_memcpy(&rule6->dst.addr, tb[FRA_DST],
- 			   sizeof(struct in6_addr));
+ 	/* This packet will not be the same as the other: clear nf fields */
+ 	nf_reset(nskb);
+-	nskb->nfmark = 0;
++	nskb->mark = 0;
+ 	skb_init_secmark(nskb);
  
--#ifdef CONFIG_IPV6_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK]) {
- 		rule6->fwmark = nla_get_u32(tb[FRA_FWMARK]);
- 		if (rule6->fwmark) {
-@@ -192,7 +187,6 @@
+ 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
+Index: net-2.6.20/net/ipv4/netfilter/ipt_ULOG.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/netfilter/ipt_ULOG.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/netfilter/ipt_ULOG.c	2006-11-08 16:12:30.000000000 +0100
+@@ -239,7 +239,7 @@
+ 	pm->data_len = copy_len;
+ 	pm->timestamp_sec = skb->tstamp.off_sec;
+ 	pm->timestamp_usec = skb->tstamp.off_usec;
+-	pm->mark = skb->nfmark;
++	pm->mark = skb->mark;
+ 	pm->hook = hooknum;
+ 	if (prefix != NULL)
+ 		strncpy(pm->prefix, prefix, sizeof(pm->prefix));
+Index: net-2.6.20/net/ipv4/route.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/route.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv4/route.c	2006-11-08 16:12:30.000000000 +0100
+@@ -1644,7 +1644,7 @@
+ 	rth->rt_dst	= daddr;
+ 	rth->fl.fl4_tos	= tos;
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-	rth->fl.fl4_fwmark= skb->nfmark;
++	rth->fl.fl4_fwmark= skb->mark;
+ #endif
+ 	rth->fl.fl4_src	= saddr;
+ 	rth->rt_src	= saddr;
+@@ -1790,7 +1790,7 @@
+ 	rth->rt_dst	= daddr;
+ 	rth->fl.fl4_tos	= tos;
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-	rth->fl.fl4_fwmark= skb->nfmark;
++	rth->fl.fl4_fwmark= skb->mark;
+ #endif
+ 	rth->fl.fl4_src	= saddr;
+ 	rth->rt_src	= saddr;
+@@ -1921,7 +1921,7 @@
+ 					.tos = tos,
+ 					.scope = RT_SCOPE_UNIVERSE,
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-					.fwmark = skb->nfmark
++					.fwmark = skb->mark
+ #endif
+ 				      } },
+ 			    .iif = dev->ifindex };
+@@ -2035,7 +2035,7 @@
+ 	rth->rt_dst	= daddr;
+ 	rth->fl.fl4_tos	= tos;
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-	rth->fl.fl4_fwmark= skb->nfmark;
++	rth->fl.fl4_fwmark= skb->mark;
+ #endif
+ 	rth->fl.fl4_src	= saddr;
+ 	rth->rt_src	= saddr;
+@@ -2114,7 +2114,7 @@
+ 		    rth->fl.iif == iif &&
+ 		    rth->fl.oif == 0 &&
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-		    rth->fl.fl4_fwmark == skb->nfmark &&
++		    rth->fl.fl4_fwmark == skb->mark &&
+ #endif
+ 		    rth->fl.fl4_tos == tos) {
+ 			rth->u.dst.lastuse = jiffies;
+Index: net-2.6.20/net/ipv6/ip6_output.c
+===================================================================
+--- net-2.6.20.orig/net/ipv6/ip6_output.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv6/ip6_output.c	2006-11-08 16:12:30.000000000 +0100
+@@ -499,12 +499,12 @@
+ 	dst_release(to->dst);
+ 	to->dst = dst_clone(from->dst);
+ 	to->dev = from->dev;
++	to->mark = from->mark;
  
- 	if (tb[FRA_FWMASK])
- 		rule6->fwmask = nla_get_u32(tb[FRA_FWMASK]);
--#endif
+ #ifdef CONFIG_NET_SCHED
+ 	to->tc_index = from->tc_index;
+ #endif
+ #ifdef CONFIG_NETFILTER
+-	to->nfmark = from->nfmark;
+ 	/* Connection association is same as pre-frag packet */
+ 	nf_conntrack_put(to->nfct);
+ 	to->nfct = from->nfct;
+Index: net-2.6.20/net/ipv6/netfilter/ip6_queue.c
+===================================================================
+--- net-2.6.20.orig/net/ipv6/netfilter/ip6_queue.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv6/netfilter/ip6_queue.c	2006-11-08 16:12:30.000000000 +0100
+@@ -241,7 +241,7 @@
+ 	pmsg->data_len        = data_len;
+ 	pmsg->timestamp_sec   = entry->skb->tstamp.off_sec;
+ 	pmsg->timestamp_usec  = entry->skb->tstamp.off_usec;
+-	pmsg->mark            = entry->skb->nfmark;
++	pmsg->mark            = entry->skb->mark;
+ 	pmsg->hook            = entry->info->hook;
+ 	pmsg->hw_protocol     = entry->skb->protocol;
+ 	
+Index: net-2.6.20/net/ipv6/netfilter/ip6table_mangle.c
+===================================================================
+--- net-2.6.20.orig/net/ipv6/netfilter/ip6table_mangle.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv6/netfilter/ip6table_mangle.c	2006-11-08 16:12:30.000000000 +0100
+@@ -149,11 +149,10 @@
+ 		   int (*okfn)(struct sk_buff *))
+ {
  
- 	rule6->src.plen = frh->src_len;
- 	rule6->dst.plen = frh->dst_len;
-@@ -225,13 +219,11 @@
- 	    nla_memcmp(tb[FRA_DST], &rule6->dst.addr, sizeof(struct in6_addr)))
- 		return 0;
+-	unsigned long nfmark;
+ 	unsigned int ret;
+ 	struct in6_addr saddr, daddr;
+ 	u_int8_t hop_limit;
+-	u_int32_t flowlabel;
++	u_int32_t flowlabel, mark;
  
--#ifdef CONFIG_IPV6_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK] && (rule6->fwmark != nla_get_u32(tb[FRA_FWMARK])))
- 		return 0;
+ #if 0
+ 	/* root is playing with raw sockets. */
+@@ -165,10 +164,10 @@
+ 	}
+ #endif
  
- 	if (tb[FRA_FWMASK] && (rule6->fwmask != nla_get_u32(tb[FRA_FWMASK])))
- 		return 0;
--#endif
+-	/* save source/dest address, nfmark, hoplimit, flowlabel, priority,  */
++	/* save source/dest address, mark, hoplimit, flowlabel, priority,  */
+ 	memcpy(&saddr, &(*pskb)->nh.ipv6h->saddr, sizeof(saddr));
+ 	memcpy(&daddr, &(*pskb)->nh.ipv6h->daddr, sizeof(daddr));
+-	nfmark = (*pskb)->nfmark;
++	mark = (*pskb)->mark;
+ 	hop_limit = (*pskb)->nh.ipv6h->hop_limit;
  
- 	return 1;
- }
-@@ -254,13 +246,11 @@
- 		NLA_PUT(skb, FRA_SRC, sizeof(struct in6_addr),
- 			&rule6->src.addr);
- 
--#ifdef CONFIG_IPV6_ROUTE_FWMARK
- 	if (rule6->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMARK, rule6->fwmark);
- 
- 	if (rule6->fwmask || rule6->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMASK, rule6->fwmask);
--#endif
- 
- 	return 0;
+ 	/* flowlabel and prio (includes version, which shouldn't change either */
+@@ -179,7 +178,7 @@
+ 	if (ret != NF_DROP && ret != NF_STOLEN 
+ 		&& (memcmp(&(*pskb)->nh.ipv6h->saddr, &saddr, sizeof(saddr))
+ 		    || memcmp(&(*pskb)->nh.ipv6h->daddr, &daddr, sizeof(daddr))
+-		    || (*pskb)->nfmark != nfmark
++		    || (*pskb)->mark != mark
+ 		    || (*pskb)->nh.ipv6h->hop_limit != hop_limit))
+ 		return ip6_route_me_harder(*pskb) == 0 ? ret : NF_DROP;
  
 Index: net-2.6.20/net/ipv6/route.c
 ===================================================================
---- net-2.6.20.orig/net/ipv6/route.c	2006-11-08 16:12:30.000000000 +0100
-+++ net-2.6.20/net/ipv6/route.c	2006-11-08 16:12:32.000000000 +0100
-@@ -710,12 +710,10 @@
- 			.ip6_u = {
+--- net-2.6.20.orig/net/ipv6/route.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/ipv6/route.c	2006-11-08 16:12:30.000000000 +0100
+@@ -711,7 +711,7 @@
  				.daddr = iph->daddr,
  				.saddr = iph->saddr,
--#ifdef CONFIG_IPV6_ROUTE_FWMARK
--				.fwmark = skb->mark,
--#endif
+ #ifdef CONFIG_IPV6_ROUTE_FWMARK
+-				.fwmark = skb->nfmark,
++				.fwmark = skb->mark,
+ #endif
  				.flowlabel = (* (__be32 *) iph)&IPV6_FLOWINFO_MASK,
  			},
- 		},
-+ 		.mark = skb->mark,
- 		.proto = iph->nexthdr,
- 	};
- 
-Index: net-2.6.20/net/ipv4/route.c
+Index: net-2.6.20/net/netfilter/nfnetlink_log.c
 ===================================================================
---- net-2.6.20.orig/net/ipv4/route.c	2006-11-08 16:12:30.000000000 +0100
-+++ net-2.6.20/net/ipv4/route.c	2006-11-08 16:12:32.000000000 +0100
-@@ -568,9 +568,7 @@
- {
- 	return ((fl1->nl_u.ip4_u.daddr ^ fl2->nl_u.ip4_u.daddr) |
- 		(fl1->nl_u.ip4_u.saddr ^ fl2->nl_u.ip4_u.saddr) |
--#ifdef CONFIG_IP_ROUTE_FWMARK
--		(fl1->nl_u.ip4_u.fwmark ^ fl2->nl_u.ip4_u.fwmark) |
--#endif
-+		(fl1->mark ^ fl2->mark) |
- 		(*(u16 *)&fl1->nl_u.ip4_u.tos ^
- 		 *(u16 *)&fl2->nl_u.ip4_u.tos) |
- 		(fl1->oif ^ fl2->oif) |
-@@ -1643,9 +1641,7 @@
- 	rth->fl.fl4_dst	= daddr;
- 	rth->rt_dst	= daddr;
- 	rth->fl.fl4_tos	= tos;
--#ifdef CONFIG_IP_ROUTE_FWMARK
--	rth->fl.fl4_fwmark= skb->mark;
--#endif
-+	rth->fl.mark    = skb->mark;
- 	rth->fl.fl4_src	= saddr;
- 	rth->rt_src	= saddr;
- #ifdef CONFIG_NET_CLS_ROUTE
-@@ -1789,9 +1785,7 @@
- 	rth->fl.fl4_dst	= daddr;
- 	rth->rt_dst	= daddr;
- 	rth->fl.fl4_tos	= tos;
--#ifdef CONFIG_IP_ROUTE_FWMARK
--	rth->fl.fl4_fwmark= skb->mark;
--#endif
-+	rth->fl.mark    = skb->mark;
- 	rth->fl.fl4_src	= saddr;
- 	rth->rt_src	= saddr;
- 	rth->rt_gateway	= daddr;
-@@ -1920,10 +1914,8 @@
- 					.saddr = saddr,
- 					.tos = tos,
- 					.scope = RT_SCOPE_UNIVERSE,
--#ifdef CONFIG_IP_ROUTE_FWMARK
--					.fwmark = skb->mark
--#endif
- 				      } },
-+			    .mark = skb->mark,
- 			    .iif = dev->ifindex };
- 	unsigned	flags = 0;
- 	u32		itag = 0;
-@@ -2034,9 +2026,7 @@
- 	rth->fl.fl4_dst	= daddr;
- 	rth->rt_dst	= daddr;
- 	rth->fl.fl4_tos	= tos;
--#ifdef CONFIG_IP_ROUTE_FWMARK
--	rth->fl.fl4_fwmark= skb->mark;
--#endif
-+	rth->fl.mark    = skb->mark;
- 	rth->fl.fl4_src	= saddr;
- 	rth->rt_src	= saddr;
- #ifdef CONFIG_NET_CLS_ROUTE
-@@ -2113,9 +2103,7 @@
- 		    rth->fl.fl4_src == saddr &&
- 		    rth->fl.iif == iif &&
- 		    rth->fl.oif == 0 &&
--#ifdef CONFIG_IP_ROUTE_FWMARK
--		    rth->fl.fl4_fwmark == skb->mark &&
--#endif
-+		    rth->fl.mark == skb->mark &&
- 		    rth->fl.fl4_tos == tos) {
- 			rth->u.dst.lastuse = jiffies;
- 			dst_hold(&rth->u.dst);
-@@ -2239,9 +2227,7 @@
- 	rth->fl.fl4_tos	= tos;
- 	rth->fl.fl4_src	= oldflp->fl4_src;
- 	rth->fl.oif	= oldflp->oif;
--#ifdef CONFIG_IP_ROUTE_FWMARK
--	rth->fl.fl4_fwmark= oldflp->fl4_fwmark;
--#endif
-+	rth->fl.mark    = oldflp->mark;
- 	rth->rt_dst	= fl->fl4_dst;
- 	rth->rt_src	= fl->fl4_src;
- 	rth->rt_iif	= oldflp->oif ? : dev_out->ifindex;
-@@ -2385,10 +2371,8 @@
- 					.scope = ((tos & RTO_ONLINK) ?
- 						  RT_SCOPE_LINK :
- 						  RT_SCOPE_UNIVERSE),
--#ifdef CONFIG_IP_ROUTE_FWMARK
--					.fwmark = oldflp->fl4_fwmark
--#endif
- 				      } },
-+			    .mark = oldflp->mark,
- 			    .iif = loopback_dev.ifindex,
- 			    .oif = oldflp->oif };
- 	struct fib_result res;
-@@ -2583,9 +2567,7 @@
- 		    rth->fl.fl4_src == flp->fl4_src &&
- 		    rth->fl.iif == 0 &&
- 		    rth->fl.oif == flp->oif &&
--#ifdef CONFIG_IP_ROUTE_FWMARK
--		    rth->fl.fl4_fwmark == flp->fl4_fwmark &&
--#endif
-+		    rth->fl.mark == flp->mark &&
- 		    !((rth->fl.fl4_tos ^ flp->fl4_tos) &
- 			    (IPTOS_RT_MASK | RTO_ONLINK))) {
- 
-Index: net-2.6.20/net/ipv4/fib_frontend.c
-===================================================================
---- net-2.6.20.orig/net/ipv4/fib_frontend.c	2006-11-08 15:34:12.000000000 +0100
-+++ net-2.6.20/net/ipv4/fib_frontend.c	2006-11-08 16:12:32.000000000 +0100
-@@ -768,8 +768,8 @@
- {
- 	
- 	struct fib_result       res;
--	struct flowi            fl = { .nl_u = { .ip4_u = { .daddr = frn->fl_addr, 
--							    .fwmark = frn->fl_fwmark,
-+	struct flowi            fl = { .mark = frn->fl_fwmark,
-+				       .nl_u = { .ip4_u = { .daddr = frn->fl_addr,
- 							    .tos = frn->fl_tos,
- 							    .scope = frn->fl_scope } } };
- 	if (tb) {
-Index: net-2.6.20/net/ipv4/netfilter.c
-===================================================================
---- net-2.6.20.orig/net/ipv4/netfilter.c	2006-11-08 16:12:30.000000000 +0100
-+++ net-2.6.20/net/ipv4/netfilter.c	2006-11-08 16:12:32.000000000 +0100
-@@ -27,9 +27,7 @@
- 		fl.nl_u.ip4_u.saddr = iph->saddr;
- 		fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
- 		fl.oif = (*pskb)->sk ? (*pskb)->sk->sk_bound_dev_if : 0;
--#ifdef CONFIG_IP_ROUTE_FWMARK
--		fl.nl_u.ip4_u.fwmark = (*pskb)->mark;
--#endif
-+		fl.mark = (*pskb)->mark;
- 		if (ip_route_output_key(&rt, &fl) != 0)
- 			return -1;
- 
-Index: net-2.6.20/include/net/ip_mp_alg.h
-===================================================================
---- net-2.6.20.orig/include/net/ip_mp_alg.h	2006-11-08 15:34:12.000000000 +0100
-+++ net-2.6.20/include/net/ip_mp_alg.h	2006-11-08 16:12:32.000000000 +0100
-@@ -88,9 +88,7 @@
- 	return flp1->fl4_dst == flp2->fl4_dst &&
- 		flp1->fl4_src == flp2->fl4_src &&
- 		flp1->oif == flp2->oif &&
--#ifdef CONFIG_IP_ROUTE_FWMARK
--		flp1->fl4_fwmark == flp2->fl4_fwmark &&
--#endif
-+		flp1->mark == flp2->mark &&
- 		!((flp1->fl4_tos ^ flp2->fl4_tos) &
- 		  (IPTOS_RT_MASK | RTO_ONLINK));
- }
-Index: net-2.6.20/net/ipv4/fib_rules.c
-===================================================================
---- net-2.6.20.orig/net/ipv4/fib_rules.c	2006-11-08 15:34:12.000000000 +0100
-+++ net-2.6.20/net/ipv4/fib_rules.c	2006-11-08 16:12:32.000000000 +0100
-@@ -44,10 +44,8 @@
- 	__be32			srcmask;
- 	__be32			dst;
- 	__be32			dstmask;
--#ifdef CONFIG_IP_ROUTE_FWMARK
- 	u32			fwmark;
- 	u32			fwmask;
--#endif
- #ifdef CONFIG_NET_CLS_ROUTE
- 	u32			tclassid;
+--- net-2.6.20.orig/net/netfilter/nfnetlink_log.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/netfilter/nfnetlink_log.c	2006-11-08 16:12:30.000000000 +0100
+@@ -501,8 +501,8 @@
  #endif
-@@ -160,10 +158,8 @@
- 	if (r->tos && (r->tos != fl->fl4_tos))
- 		return 0;
+ 	}
  
--#ifdef CONFIG_IP_ROUTE_FWMARK
--	if ((r->fwmark ^ fl->fl4_fwmark) & r->fwmask)
-+	if ((r->fwmark ^ fl->mark) & r->fwmask)
- 		return 0;
--#endif
+-	if (skb->nfmark) {
+-		tmp_uint = htonl(skb->nfmark);
++	if (skb->mark) {
++		tmp_uint = htonl(skb->mark);
+ 		NFA_PUT(inst->skb, NFULA_MARK, sizeof(tmp_uint), &tmp_uint);
+ 	}
  
- 	return 1;
+Index: net-2.6.20/net/netfilter/nfnetlink_queue.c
+===================================================================
+--- net-2.6.20.orig/net/netfilter/nfnetlink_queue.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/netfilter/nfnetlink_queue.c	2006-11-08 16:12:30.000000000 +0100
+@@ -480,8 +480,8 @@
+ #endif
+ 	}
+ 
+-	if (entskb->nfmark) {
+-		tmp_uint = htonl(entskb->nfmark);
++	if (entskb->mark) {
++		tmp_uint = htonl(entskb->mark);
+ 		NFA_PUT(skb, NFQA_MARK, sizeof(u_int32_t), &tmp_uint);
+ 	}
+ 
+@@ -833,8 +833,8 @@
+ 	}
+ 
+ 	if (nfqa[NFQA_MARK-1])
+-		entry->skb->nfmark = ntohl(*(__be32 *)
+-		                           NFA_DATA(nfqa[NFQA_MARK-1]));
++		entry->skb->mark = ntohl(*(__be32 *)
++		                         NFA_DATA(nfqa[NFQA_MARK-1]));
+ 		
+ 	issue_verdict(entry, verdict);
+ 	instance_put(queue);
+Index: net-2.6.20/net/netfilter/xt_CONNMARK.c
+===================================================================
+--- net-2.6.20.orig/net/netfilter/xt_CONNMARK.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/netfilter/xt_CONNMARK.c	2006-11-08 16:12:30.000000000 +0100
+@@ -42,7 +42,7 @@
+ {
+ 	const struct xt_connmark_target_info *markinfo = targinfo;
+ 	u_int32_t diff;
+-	u_int32_t nfmark;
++	u_int32_t mark;
+ 	u_int32_t newmark;
+ 	u_int32_t ctinfo;
+ 	u_int32_t *ctmark = nf_ct_get_mark(*pskb, &ctinfo);
+@@ -62,7 +62,7 @@
+ 			break;
+ 		case XT_CONNMARK_SAVE:
+ 			newmark = (*ctmark & ~markinfo->mask) |
+-				  ((*pskb)->nfmark & markinfo->mask);
++				  ((*pskb)->mark & markinfo->mask);
+ 			if (*ctmark != newmark) {
+ 				*ctmark = newmark;
+ #if defined(CONFIG_IP_NF_CONNTRACK) || defined(CONFIG_IP_NF_CONNTRACK_MODULE)
+@@ -73,10 +73,10 @@
+ 			}
+ 			break;
+ 		case XT_CONNMARK_RESTORE:
+-			nfmark = (*pskb)->nfmark;
+-			diff = (*ctmark ^ nfmark) & markinfo->mask;
++			mark = (*pskb)->mark;
++			diff = (*ctmark ^ mark) & markinfo->mask;
+ 			if (diff != 0)
+-				(*pskb)->nfmark = nfmark ^ diff;
++				(*pskb)->mark = mark ^ diff;
+ 			break;
+ 		}
+ 	}
+Index: net-2.6.20/net/netfilter/xt_MARK.c
+===================================================================
+--- net-2.6.20.orig/net/netfilter/xt_MARK.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/netfilter/xt_MARK.c	2006-11-08 16:12:30.000000000 +0100
+@@ -31,8 +31,8 @@
+ {
+ 	const struct xt_mark_target_info *markinfo = targinfo;
+ 
+-	if((*pskb)->nfmark != markinfo->mark)
+-		(*pskb)->nfmark = markinfo->mark;
++	if((*pskb)->mark != markinfo->mark)
++		(*pskb)->mark = markinfo->mark;
+ 
+ 	return XT_CONTINUE;
  }
-@@ -220,7 +216,6 @@
- 	if (tb[FRA_DST])
- 		rule4->dst = nla_get_be32(tb[FRA_DST]);
+@@ -54,16 +54,16 @@
+ 		break;
+ 		
+ 	case XT_MARK_AND:
+-		mark = (*pskb)->nfmark & markinfo->mark;
++		mark = (*pskb)->mark & markinfo->mark;
+ 		break;
+ 		
+ 	case XT_MARK_OR:
+-		mark = (*pskb)->nfmark | markinfo->mark;
++		mark = (*pskb)->mark | markinfo->mark;
+ 		break;
+ 	}
  
--#ifdef CONFIG_IP_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK]) {
- 		rule4->fwmark = nla_get_u32(tb[FRA_FWMARK]);
- 		if (rule4->fwmark)
-@@ -232,7 +227,6 @@
+-	if((*pskb)->nfmark != mark)
+-		(*pskb)->nfmark = mark;
++	if((*pskb)->mark != mark)
++		(*pskb)->mark = mark;
  
- 	if (tb[FRA_FWMASK])
- 		rule4->fwmask = nla_get_u32(tb[FRA_FWMASK]);
--#endif
- 
- #ifdef CONFIG_NET_CLS_ROUTE
- 	if (tb[FRA_FLOW])
-@@ -264,13 +258,11 @@
- 	if (frh->tos && (rule4->tos != frh->tos))
- 		return 0;
- 
--#ifdef CONFIG_IP_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK] && (rule4->fwmark != nla_get_u32(tb[FRA_FWMARK])))
- 		return 0;
- 
- 	if (tb[FRA_FWMASK] && (rule4->fwmask != nla_get_u32(tb[FRA_FWMASK])))
- 		return 0;
--#endif
- 
- #ifdef CONFIG_NET_CLS_ROUTE
- 	if (tb[FRA_FLOW] && (rule4->tclassid != nla_get_u32(tb[FRA_FLOW])))
-@@ -296,13 +288,11 @@
- 	frh->src_len = rule4->src_len;
- 	frh->tos = rule4->tos;
- 
--#ifdef CONFIG_IP_ROUTE_FWMARK
- 	if (rule4->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMARK, rule4->fwmark);
- 
- 	if (rule4->fwmask || rule4->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMASK, rule4->fwmask);
--#endif
- 
- 	if (rule4->dst_len)
- 		NLA_PUT_BE32(skb, FRA_DST, rule4->dst);
-Index: net-2.6.20/net/ipv4/Kconfig
+ 	return XT_CONTINUE;
+ }
+Index: net-2.6.20/net/netfilter/xt_mark.c
 ===================================================================
---- net-2.6.20.orig/net/ipv4/Kconfig	2006-11-08 15:34:13.000000000 +0100
-+++ net-2.6.20/net/ipv4/Kconfig	2006-11-08 16:12:32.000000000 +0100
-@@ -104,13 +104,6 @@
+--- net-2.6.20.orig/net/netfilter/xt_mark.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/netfilter/xt_mark.c	2006-11-08 16:12:30.000000000 +0100
+@@ -31,7 +31,7 @@
+ {
+ 	const struct xt_mark_info *info = matchinfo;
  
- 	  If unsure, say N.
+-	return ((skb->nfmark & info->mask) == info->mark) ^ info->invert;
++	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
+ }
  
--config IP_ROUTE_FWMARK
--	bool "IP: use netfilter MARK value as routing key"
--	depends on IP_MULTIPLE_TABLES && NETFILTER
--	help
--	  If you say Y here, you will be able to specify different routes for
--	  packets with different mark values (see iptables(8), MARK target).
--
- config IP_ROUTE_MULTIPATH
- 	bool "IP: equal cost multipath"
- 	depends on IP_ADVANCED_ROUTER
-Index: net-2.6.20/net/ipv4/netfilter/iptable_mangle.c
+ static int
+Index: net-2.6.20/net/sched/Kconfig
 ===================================================================
---- net-2.6.20.orig/net/ipv4/netfilter/iptable_mangle.c	2006-11-08 16:12:30.000000000 +0100
-+++ net-2.6.20/net/ipv4/netfilter/iptable_mangle.c	2006-11-08 16:12:32.000000000 +0100
-@@ -153,9 +153,7 @@
- 	if (ret != NF_DROP && ret != NF_STOLEN && ret != NF_QUEUE
- 	    && ((*pskb)->nh.iph->saddr != saddr
- 		|| (*pskb)->nh.iph->daddr != daddr
--#ifdef CONFIG_IP_ROUTE_FWMARK
- 		|| (*pskb)->mark != mark
+--- net-2.6.20.orig/net/sched/Kconfig	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/sched/Kconfig	2006-11-08 16:12:30.000000000 +0100
+@@ -320,7 +320,7 @@
+ 
+ config CLS_U32_MARK
+ 	bool "Netfilter marks support"
+-	depends on NET_CLS_U32 && NETFILTER
++	depends on NET_CLS_U32
+ 	---help---
+ 	  Say Y here to be able to use netfilter marks as u32 key.
+ 
+Index: net-2.6.20/net/sched/cls_fw.c
+===================================================================
+--- net-2.6.20.orig/net/sched/cls_fw.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/sched/cls_fw.c	2006-11-08 16:12:30.000000000 +0100
+@@ -101,11 +101,7 @@
+ 	struct fw_head *head = (struct fw_head*)tp->root;
+ 	struct fw_filter *f;
+ 	int r;
+-#ifdef CONFIG_NETFILTER
+-	u32 id = skb->nfmark & head->mask;
+-#else
+-	u32 id = 0;
 -#endif
- 		|| (*pskb)->nh.iph->tos != tos))
- 		if (ip_route_me_harder(pskb, RTN_UNSPEC))
- 			ret = NF_DROP;
-Index: net-2.6.20/net/decnet/Kconfig
++	u32 id = skb->mark & head->mask;
+ 
+ 	if (head != NULL) {
+ 		for (f=head->ht[fw_hash(id)]; f; f=f->next) {
+Index: net-2.6.20/net/sched/cls_u32.c
 ===================================================================
---- net-2.6.20.orig/net/decnet/Kconfig	2006-11-08 15:34:12.000000000 +0100
-+++ net-2.6.20/net/decnet/Kconfig	2006-11-08 16:12:32.000000000 +0100
-@@ -41,11 +41,3 @@
+--- net-2.6.20.orig/net/sched/cls_u32.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/sched/cls_u32.c	2006-11-08 16:12:30.000000000 +0100
+@@ -143,7 +143,7 @@
+ #endif
  
- 	  See <file:Documentation/networking/decnet.txt> for more information.
- 
--config DECNET_ROUTE_FWMARK
--	bool "DECnet: use FWMARK value as routing key (EXPERIMENTAL)"
--	depends on DECNET_ROUTER && NETFILTER
--	help
--	  If you say Y here, you will be able to specify different routes for
--	  packets with different FWMARK ("firewalling mark") values
--	  (see ipchains(8), "-m" argument).
--
-Index: net-2.6.20/net/ipv6/Kconfig
+ #ifdef CONFIG_CLS_U32_MARK
+-		if ((skb->nfmark & n->mark.mask) != n->mark.val) {
++		if ((skb->mark & n->mark.mask) != n->mark.val) {
+ 			n = n->next;
+ 			goto next_knode;
+ 		} else {
+Index: net-2.6.20/net/sched/em_meta.c
 ===================================================================
---- net-2.6.20.orig/net/ipv6/Kconfig	2006-11-08 15:34:13.000000000 +0100
-+++ net-2.6.20/net/ipv6/Kconfig	2006-11-08 16:12:32.000000000 +0100
-@@ -196,10 +196,3 @@
+--- net-2.6.20.orig/net/sched/em_meta.c	2006-11-08 15:34:13.000000000 +0100
++++ net-2.6.20/net/sched/em_meta.c	2006-11-08 16:12:30.000000000 +0100
+@@ -208,13 +208,9 @@
+  * Netfilter
+  **************************************************************************/
  
- 	  If unsure, say N.
+-META_COLLECTOR(int_nfmark)
++META_COLLECTOR(int_mark)
+ {
+-#ifdef CONFIG_NETFILTER
+-	dst->value = skb->nfmark;
+-#else
+-	dst->value = 0;
+-#endif
++	dst->value = skb->mark;
+ }
  
--config IPV6_ROUTE_FWMARK
--	bool "IPv6: use netfilter MARK value as routing key"
--	depends on IPV6_MULTIPLE_TABLES && NETFILTER
--	---help---
--	  If you say Y here, you will be able to specify different routes for
--	  packets with different mark values (see iptables(8), MARK target).
--
+ /**************************************************************************
+@@ -490,7 +486,7 @@
+ 		[META_ID(PKTLEN)]		= META_FUNC(int_pktlen),
+ 		[META_ID(DATALEN)]		= META_FUNC(int_datalen),
+ 		[META_ID(MACLEN)]		= META_FUNC(int_maclen),
+-		[META_ID(NFMARK)]		= META_FUNC(int_nfmark),
++		[META_ID(NFMARK)]		= META_FUNC(int_mark),
+ 		[META_ID(TCINDEX)]		= META_FUNC(int_tcindex),
+ 		[META_ID(RTCLASSID)]		= META_FUNC(int_rtclassid),
+ 		[META_ID(RTIIF)]		= META_FUNC(int_rtiif),
 
 --
 
