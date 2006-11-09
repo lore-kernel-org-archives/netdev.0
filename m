@@ -1,78 +1,70 @@
 From: akpm@osdl.org
-Subject: [patch 3/5] sundance: solve host error problem in low performance embedded system when continune down and up
-Date: Wed, 08 Nov 2006 19:49:12 -0800
-Message-ID: <200611090349.kA93nCaI003597@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, jesse@icplus.com.tw
+Subject: [patch 1/5] 8139too: force media setting cleanup
+Date: Wed, 08 Nov 2006 19:49:09 -0800
+Message-ID: <200611090349.kA93n9YT003591@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, leewkb@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:36526 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965726AbWKIDtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:49:46 -0500
+Received: from smtp.osdl.org ([65.172.181.4]:38318 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965737AbWKIDtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:49:51 -0500
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Huang <jesse@icplus.com.tw>
+From: Bernard Lee <leewkb@yahoo.com>
 
-Solve host error problem in low performance embedded system when continune
-down and up.  It will cause IP100A DMA TargetAbort.  So we need more safe
-process to up and down IP100A with wait hardware completely stop and software
-cur_tx/ dirty_tx/cur_task/last_tx be clear.
+Setting bit 4 & 5 alone in 8139too module media option does not really
+force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
+8139too module does not force media setting.  Therefore, bit 0-3 requires
+to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
+stated in module description.
 
-Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
+It can be fixed by changing rtl8139_private structure default_port bitfield
+from 4-bit to 6-bit.
+
+Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
+suggested that bit 9 is freed.  A remark is added to module description
+that bit 0 can be used to force setting.  It helps to clarify 10Mbps
+half-duplex mode.
+
+Signed-off-by: Bernard Lee <leewkb@yahoo.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/sundance.c |   26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/8139too.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff -puN drivers/net/sundance.c~sundance-solve-host-error-problem-in-low-performance-embedded drivers/net/sundance.c
---- a/drivers/net/sundance.c~sundance-solve-host-error-problem-in-low-performance-embedded
-+++ a/drivers/net/sundance.c
-@@ -1643,6 +1643,14 @@ static int netdev_close(struct net_devic
- 	struct sk_buff *skb;
- 	int i;
+diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
+--- a/drivers/net/8139too.c~8139too-force-media-setting-fix
++++ a/drivers/net/8139too.c
+@@ -586,7 +586,7 @@ struct rtl8139_private {
+ 	signed char phys[4];		/* MII device addresses. */
+ 	char twistie, twist_row, twist_col;	/* Twister tune state. */
+ 	unsigned int watchdog_fired : 1;
+-	unsigned int default_port : 4;	/* Last dev->if_port value. */
++	unsigned int default_port : 6;	/* Last dev->if_port value. */
+ 	unsigned int have_thread : 1;
+ 	spinlock_t lock;
+ 	spinlock_t rx_lock;
+@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
+ MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
+-MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
++MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
+ MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
  
-+	/* Wait and kill tasklet */
-+	tasklet_kill(&np->rx_tasklet);
-+	tasklet_kill(&np->tx_tasklet);
-+	np->cur_tx = 0;
-+	np->dirty_tx = 0;
-+	np->cur_task = 0;
-+	np->last_tx = 0;
-+
- 	netif_stop_queue(dev);
- 
- 	if (netif_msg_ifdown(np)) {
-@@ -1663,9 +1671,20 @@ static int netdev_close(struct net_devic
- 	/* Stop the chip's Tx and Rx processes. */
- 	iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
- 
--	/* Wait and kill tasklet */
--	tasklet_kill(&np->rx_tasklet);
--	tasklet_kill(&np->tx_tasklet);
-+    	for (i = 2000; i > 0; i--) {
-+ 		if ((ioread32(ioaddr + DMACtrl) & 0xc000) == 0)
-+			break;
-+		mdelay(1);
-+    	}
-+
-+    	iowrite16(GlobalReset | DMAReset | FIFOReset | NetworkReset,
-+			ioaddr +ASICCtrl + 2);
-+
-+    	for (i = 2000; i > 0; i--) {
-+ 		if ((ioread16(ioaddr + ASICCtrl +2) & ResetBusy) == 0)
-+			break;
-+		mdelay(1);
-+    	}
- 
- #ifdef __i386__
- 	if (netif_msg_hw(np)) {
-@@ -1703,6 +1722,7 @@ static int netdev_close(struct net_devic
- 		}
+ static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
+@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
+ 	/* The lower four bits are the media type. */
+ 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
+ 	if (option > 0) {
+-		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
+-		tp->default_port = option & 0xFF;
++		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
++		tp->default_port = option & 0x3F;
+ 		if (tp->default_port)
+ 			tp->mii.force_media = 1;
  	}
- 	for (i = 0; i < TX_RING_SIZE; i++) {
-+		np->tx_ring[i].next_desc = 0;
- 		skb = np->tx_skbuff[i];
- 		if (skb) {
- 			pci_unmap_single(np->pci_dev,
 _
