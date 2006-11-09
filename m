@@ -1,31 +1,29 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/6] [NET]: Rethink mark field in struct flowi
-Date: Thu, 9 Nov 2006 14:34:03 +0100
-Message-ID: <20061109133403.GD8693@postel.suug.ch>
-References: <20061109112735.577771022@lsx.localdomain> <20061109113245.573179984@lsx.localdomain> <200611091423.02504.dada1@cosmosbay.com>
+From: "Eric Lemoine" <eric.lemoine@gmail.com>
+Subject: tg3_close question
+Date: Thu, 9 Nov 2006 14:44:10 +0100
+Message-ID: <5cac192f0611090544t18a28d0do943acacb8824df80@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:65233 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S965992AbWKINdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 08:33:42 -0500
-To: Eric Dumazet <dada1@cosmosbay.com>
+Received: from ug-out-1314.google.com ([66.249.92.173]:7778 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S965997AbWKINoM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 08:44:12 -0500
+Received: by ug-out-1314.google.com with SMTP id m3so218864ugc
+        for <netdev@vger.kernel.org>; Thu, 09 Nov 2006 05:44:11 -0800 (PST)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <200611091423.02504.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Eric Dumazet <dada1@cosmosbay.com> 2006-11-09 14:23
-> I give a big NACK to this patch.
-> 
-> By moving fwmark outside of union, you basically touch more cache lines in 
-> lookups. I have many machines doing XX.XXX of lookups per second, with long 
-> chains, already using 10% of CPU. I am sure a lot of other machines would 
-> suffer with this patch, especially machines with 32 bytes cache lines.
-> 
-> For IPV4 lookups, compare offset of fwmark before your patch and after.
-> The size of ip6_u is so large that moving fwmark after nl_u union is not an 
-> option. Many packets in flight on the Internet are still IPV4.
+Hi
 
-Would you be happy if mark is moved in front of the union after iif?
+Instead of tg3_netif_stop() tg3_close() uses netif_stop_queue() to
+stop xmit. This doesn't seem right to me. E.g. another CPU in tg3_tx()
+could do netif_wake_queue() just after tg3_close() did
+netif_stop_queue(). Isn't a bug?
+
+Thanks,
+-- 
+Eric
