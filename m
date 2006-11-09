@@ -1,85 +1,43 @@
-From: "Jeff V. Merkey" <jmerkey@wolfmountaingroup.com>
-Subject: Re: e1000 driver 2.6.18 - how to waste processor cycles
-Date: Thu, 09 Nov 2006 15:54:08 -0700
-Message-ID: <4553B190.2060700@wolfmountaingroup.com>
-References: <45524E3A.7080301@soleranetworks.com>	 <4807377b0611081701i26ee7ce0k1f822dbbe52c2c8@mail.gmail.com>	 <4552EAFC.5060400@soleranetworks.com> <4807377b0611091445s11575f5ej15c7bf7126bb5658@mail.gmail.com> <4553B07A.6050002@soleranetworks.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH] mark non-compiling ISA network drivers i386 only
+Date: Fri, 10 Nov 2006 00:09:52 +0100 (MET)
+Message-ID: <20061109230953.GF28237@aepfle.de>
+References: <20061109184021.GA25691@aepfle.de> <20061109113542.7bbb232b@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	NetDEV list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rwcrmhc13.comcast.net ([204.127.192.83]:3801 "EHLO
-	rwcrmhc13.comcast.net") by vger.kernel.org with ESMTP
-	id S1424240AbWKIXGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 18:06:33 -0500
-To: "Jeff V. Merkey" <jmerkey@soleranetworks.com>
-In-Reply-To: <4553B07A.6050002@soleranetworks.com>
+Received: from mo-p07-ob.rzone.de ([81.169.146.188]:26966 "EHLO
+	mo-p07-ob.rzone.de") by vger.kernel.org with ESMTP id S1424242AbWKIXMz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 18:12:55 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061109113542.7bbb232b@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff V. Merkey wrote:
+On Thu, Nov 09, Stephen Hemminger wrote:
 
-> Jesse Brandeburg wrote:
->
->> On 11/9/06, Jeffrey V. Merkey <jmerkey@soleranetworks.com> wrote:
->>
->>> In the case I am referring to, the memory is already mapped with a
->>> previous call, which means it may be getting
->>> mapped twice.
->>
->>
->>
->> I guess maybe I'm not keeping up with you.  This is what I see looking
->> in 2.6.18, i see e1000_clean_rx_irq:
->
->
->
-> Check e1000_alloc_rx_buffers:
->
-> if (skb already exists in ring buffer)
->  goto map_skb:
-> else
->   dev_alloc_skb
->  ( drop through to map_skb)
->
->
-> map_skb:
->  pci_map_single
->
-> Jeff
+> On Thu, 9 Nov 2006 19:40:21 +0100 (MET)
+> Olaf Hering <olaf@aepfle.de> wrote:
+> 
+> > 
+> > Provide drivers for the old toys only on i386
+> > isa_bus_to_virt is defined only on i386, mips and arm
+> > isa_virt_to_bus is used for floppy.ko
+> 
+> Why not mark all of ISA as i386, mips, arm only?
 
+This patch is mainly for users of these 3 macros:
 
->
->>
->> check done bit
->> pci_unmap_single
->> copybreak and recycle
->> OR
->> hand buffer up stack
->>
->> the only branch before the unmap is the napi break out, and in that
->> case we don't change any memory state, so alloc will not do anything.
->>
->> As for alloc rx, we always map, because we always unmapped.
->
-Unmapping every single buffer in rx_irq the remapping them in 
-alloc_rx_buffers is wasteful of cycles. 
+'(isa_virt_to_bus|isa_page_to_bus|isa_bus_to_virt)'
 
-Jeff
+3c505.c 3c515.c 3c523.c 3c527.c aha1542.c cs89x0.c esp.c ibmmca.c
+lance.c mca_53c9x.c ni52.c ni65.c ps2esdi.c ultrastor.c wd7000.c
 
->>
->> Did I miss something?  I would appreciate a more detailed explanation
->> of what you see going wrong.
->>
->>
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe 
-> linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
-
+I did not enable all of them in a ppc32 pmac config.
+ppc32 PReP does have ISA slots on the motorola boards, no idea if anyone
+really cares about ISA cards today.
