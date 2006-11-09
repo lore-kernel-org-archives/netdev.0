@@ -1,97 +1,61 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
-Date: Thu, 9 Nov 2006 09:12:55 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611090834050.25262@alien.or.mcafeemobile.com>
-References: <1154985aa0591036@2ka.mipt.ru> <20061107141718.f7414b31.akpm@osdl.org>
- <20061108082147.GA2447@2ka.mipt.ru> <200611081551.14671.dada1@cosmosbay.com>
- <20061108140307.da7d815f.akpm@osdl.org> <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
- <45526339.3040506@cosmosbay.com> <Pine.LNX.4.64.0611081526350.23154@alien.or.mcafeemobile.com>
- <4552D7A6.4060505@cosmosbay.com> <4552DE4D.7000007@cosmosbay.com>
+From: "Eric Lemoine" <eric.lemoine@gmail.com>
+Subject: Re: tg3_close question
+Date: Thu, 9 Nov 2006 18:22:45 +0100
+Message-ID: <5cac192f0611090922x7b6f8369of5bf294e9768800d@mail.gmail.com>
+References: <1551EAE59135BE47B544934E30FC4FC093FCCE@NT-IRVA-0751.brcm.ad.broadcom.com>
+	 <1551EAE59135BE47B544934E30FC4FC093FCCF@NT-IRVA-0751.brcm.ad.broadcom.com>
+	 <5cac192f0611090907v7b3f19m6916dcdba143996f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Davide Libenzi <davidel@xmailserver.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([69.30.125.51]:57834 "EHLO
-	x35.xmailserver.org") by vger.kernel.org with ESMTP
-	id S1424145AbWKIRNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 12:13:06 -0500
-Received: from alien.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
-	id <S1FC35A> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Thu, 9 Nov 2006 09:13:00 -0800
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <4552DE4D.7000007@cosmosbay.com>
+Received: from ug-out-1314.google.com ([66.249.92.168]:15320 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S966044AbWKIRWt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 12:22:49 -0500
+Received: by ug-out-1314.google.com with SMTP id m3so283363ugc
+        for <netdev@vger.kernel.org>; Thu, 09 Nov 2006 09:22:46 -0800 (PST)
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <5cac192f0611090907v7b3f19m6916dcdba143996f@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Nov 2006, Eric Dumazet wrote:
+On 11/9/06, Eric Lemoine <eric.lemoine@gmail.com> wrote:
+> On 11/9/06, Michael Chan <mchan@broadcom.com> wrote:
+> > Michael Chan wrote:
+> >
+> > > Eric Lemoine wrote:
+> > >
+> > > > Instead of tg3_netif_stop() tg3_close() uses netif_stop_queue()
+> > > > to stop xmit. This doesn't seem right to me. E.g. another CPU
+> > > > in tg3_tx()
+> > > > could do netif_wake_queue() just after tg3_close() did
+> > > > netif_stop_queue(). Isn't a bug?
+> > > >
+> > >
+> > > I think you're right.  It is more correct to call tg3_netif_stop().
+> > >
+> >
+> > I take it back.  Before ->stop() is called, netif_running is cleared,
+> > and it waits for __LINK_STATE_RX_SCHED to be cleared.  This means
+> > that it will wait for the last ->poll() to finish.
+>
+> Correct.
+>
+> > So it is not possible for tg3_poll() -> tg3_tx() to run any more
+> > after tg3_close() is called.
+>
+> But, while tg3_close() starts executing, an interrupt may come in and
+> schedule polling (set  __LINK_STATE_RX_SCHED). So tg3_poll() ->
+> tg3_tx() may well occur.
 
-> > > Lost forever means? If there are more processes watching some fd (external
-> > > events), they all get their own copy of the events in their own private
-> > > epoll fd. It's not that we "steal" things out of the kernel, is not a 1:1
-> > > producer/consumer thing (one producer, 1 queue). It's one producer,
-> > > broadcast to all listeners (consumers) thing. The only case where it'd
-> > > matter is in the case of multiple threads sharing the same epoll fd.
-> > 
-> > In my particular epoll application, the producer is tcp stack, and I have
-> > one consumer. If an network event is lost in the EFAULT handling, its lost
-> > forever. In any case, my application do provide a correct user area, so this
-> > problem is only theorical.
-> 
-> I realize I was not explicit, and dit not answer your question (Lost forever
-> means ?)
-> 
->                 if (epi->revents) {
->                         if (__put_user(epi->revents,
->                                        &events[eventcnt].events) ||
->                             __put_user(epi->event.data,
->                                        &events[eventcnt].data))
->                                 return -EFAULT;
-> >>                        if (epi->event.events & EPOLLONESHOT)
-> >>                                epi->event.events &= EP_PRIVATE_BITS;
->                         eventcnt++;
->                 }
-> 
-> If one EPOLLONESHOT event is correctly copied to user space, its status is
-> updated.
-> 
-> If other ready events in the same epoll_wait() call cannot be transferred
-> because of an EFAULT (we reach the real end of user provided area), this
-> EPOLLONESHOT event is lost forever, because it wont be requeued in ready list.
+Actually I don't understand the purpose of having dev_close() wait for
+__LINK_STATE_RX_SCHED to be cleared. An interrupt may arrive at any
+time after it's cleared, and reset __LINK_STATE_RX_SCHED. Can someone
+explain please?
 
-Your application is feeding crap to the kernel, because of programming 
-bugs. If that happens, I want an EFAULT and not a partially filled buffer. 
-And which buffer then? This could have been scribbled in userspace memory 
-(the pointer), and the try of the kernel to mask out bugs might create 
-even more subtle problems. Such bug will *never* show up in the up in case 
-the wrong buffer is partially valid (first part, that is the *only* case 
-where your fix would make a difference compared to the status quo), since 
-in case of no ready events we'll never hit it, and in case of some events 
-we'll always return few of them and never EFAULT. No, the more I think 
-about it, the more I personally disagree with the change.
-
-
-
-> Please dont slow the hot path for a basically "User Error". It's already 
-> tested in the transfert function, with two conditional 
-> branches for each transfered event.
-
-Ohh, if you think you can measure them from userspace, those can be turned 
-in 'err |= __put_user();' with err tested only out of the loop.
-
-
-
-- Davide
-
-
+Thanks,
+-- 
+Eric
