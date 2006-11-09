@@ -1,48 +1,55 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: Intel 82559 NIC corrupted EEPROM
-Date: Thu, 09 Nov 2006 09:03:34 -0800
-Message-ID: <45535F66.8010803@intel.com>
-References: <454B7C3A.3000308@privacy.net> <454BF0F1.5050700@zytor.com> <45506C9A.5010009@privacy.net> <4551B7B8.8080601@privacy.net> <45520337.2070303@intel.com> <45531C42.3070503@privacy.net>
+From: "Eric Lemoine" <eric.lemoine@gmail.com>
+Subject: Re: tg3_close question
+Date: Thu, 9 Nov 2006 18:07:10 +0100
+Message-ID: <5cac192f0611090907v7b3f19m6916dcdba143996f@mail.gmail.com>
+References: <1551EAE59135BE47B544934E30FC4FC093FCCE@NT-IRVA-0751.brcm.ad.broadcom.com>
+	 <1551EAE59135BE47B544934E30FC4FC093FCCF@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hpa@zytor.com, saw@saw.sw.com.sg
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55720 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1424134AbWKIREO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 12:04:14 -0500
-To: John <me@privacy.net>
-In-Reply-To: <45531C42.3070503@privacy.net>
+Received: from ug-out-1314.google.com ([66.249.92.175]:26232 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1424137AbWKIRHM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 12:07:12 -0500
+Received: by ug-out-1314.google.com with SMTP id m3so278848ugc
+        for <netdev@vger.kernel.org>; Thu, 09 Nov 2006 09:07:10 -0800 (PST)
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FCCF@NT-IRVA-0751.brcm.ad.broadcom.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John wrote:
-> Auke Kok wrote:
-> 
->> This is what I was afraid of: even though the code allows you to 
->> bypass the EEPROM checksum, the probe fails on a further check to see 
->> if the MAC address is valid.
->>
->> Since something with this NIC specifically made the EEPROM return all 
->> 0xff's, the MAC address is automatically invalid, and thus probe fails.
-> 
-> I don't understand why you think there is something wrong with a
-> specific NIC?
+On 11/9/06, Michael Chan <mchan@broadcom.com> wrote:
+> Michael Chan wrote:
+>
+> > Eric Lemoine wrote:
+> >
+> > > Instead of tg3_netif_stop() tg3_close() uses netif_stop_queue()
+> > > to stop xmit. This doesn't seem right to me. E.g. another CPU
+> > > in tg3_tx()
+> > > could do netif_wake_queue() just after tg3_close() did
+> > > netif_stop_queue(). Isn't a bug?
+> > >
+> >
+> > I think you're right.  It is more correct to call tg3_netif_stop().
+> >
+>
+> I take it back.  Before ->stop() is called, netif_running is cleared,
+> and it waits for __LINK_STATE_RX_SCHED to be cleared.  This means
+> that it will wait for the last ->poll() to finish.
 
-that was completely not my point - I was merely trying to point out that the original 
-problem causes a cascade of error events later on, and bypassing the eeprom check in 
-this case didn't help you at all. Something is wrong in the driver, but I don't 
-understand yet why it only affects one of the 3 nics in your system.
+Correct.
 
-> In 2.6.14.7, e100.ko fails to read the EEPROM on 0000:00:08.0 (eth0)
-> In 2.6.18.1, e100.ko fails to read the EEPROM on 0000:00:09.0 (eth1)
+> So it is not possible for tg3_poll() -> tg3_tx() to run any more
+> after tg3_close() is called.
 
-almost sounds like a bug got fixed and it introduced a regression. this wouldn't be the 
-right time to pull out git-bisect would it? even loading 2.6.15, 2.6.16, 2.6.17 on it 
-would give us some good information.
+But, while tg3_close() starts executing, an interrupt may come in and
+schedule polling (set  __LINK_STATE_RX_SCHED). So tg3_poll() ->
+tg3_tx() may well occur.
 
 
-Cheers,
 
-Auke
+-- 
+Eric
