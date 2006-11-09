@@ -1,96 +1,66 @@
-From: John <me@privacy.net>
-Subject: Re: Intel 82559 NIC corrupted EEPROM
-Date: Thu, 09 Nov 2006 15:15:29 +0100
-Message-ID: <45533801.7000809@privacy.net>
-References: <454B7C3A.3000308@privacy.net> <454BF0F1.5050700@zytor.com> <45506C9A.5010009@privacy.net> <4551B7B8.8080601@privacy.net> <4807377b0611080926x21bd6326xc5e7683100d20948@mail.gmail.com>
+From: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
+Subject: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
+Date: Thu, 9 Nov 2006 19:52:30 +0530
+Message-ID: <010C7BAE6783F34D9AC336EE5A01A08802BB30D7@dbde01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hpa@zytor.com, saw@saw.sw.com.sg
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMT02002.global-sp.net ([193.168.50.254]:10194 "EHLO
-	SMT02002.global-sp.net") by vger.kernel.org with ESMTP
-	id S966018AbWKIOO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 09:14:59 -0500
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0611080926x21bd6326xc5e7683100d20948@mail.gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:63687 "EHLO bear.ext.ti.com")
+	by vger.kernel.org with ESMTP id S966029AbWKIOW2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 09:22:28 -0500
+Received: from dlep34.itg.ti.com ([157.170.170.115])
+	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id kA9EMN5u026908
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 08:22:28 -0600
+Received: from dlep95.itg.ti.com (localhost [127.0.0.1])
+	by dlep34.itg.ti.com (8.13.7/8.13.7) with ESMTP id kA9EMNEa027063
+	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 08:22:23 -0600 (CST)
+Received: from dbde01.ent.ti.com (localhost [127.0.0.1])
+	by dlep95.itg.ti.com (8.13.7/8.13.7) with ESMTP id kA9EMJrI000506
+	for <netdev@vger.kernel.org>; Thu, 9 Nov 2006 08:22:22 -0600 (CST)
+Content-class: urn:content-classes:message
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg wrote:
+Hi All
 
-> I suspect that one reason Becker's code works is that it uses IO
-> based access (slower, and different method) to the adapter rather
-> than memory mapped access.
+I found an issue with Realtek 8139 driver (2.6.10 branch) at high
+bi-directional traffic. On transmit timeout, driver's timeout callback
+re-enables the receive interrupt. On the next receive interrupt, the ISR
+disables the receive interrupt "only" when the receive poll task is not
+active. But the poll task is actually active and hence it doesn't
+disable the receive interrupt. So the ISR returns without clearing the
+receive interrupt. This un-serviced receive interrupt brings the system
+into hung state.
 
-I've noticed this difference.
+My understanding here is, on receive interrupt the ISR should disable
+the receive interrupt irrespective of the polling task's state (active
+or inactive). I changed the code (as shown below) and it works
+perfectly. 
 
-> The second thought is that the adapter is in D3, and something about
-> your kernel or the driver doesn't successfully wake it up to D0.
+Is this a known issue? If so, is there a fix already available?
 
-On my NICs, the EEPROM ID (Word 0Ah) is set to 0x40a2.
-Thus DDPD (bit 6) is set to 0.
+Also, we get frequent TX timeouts during high rate of traffic. What
+could be the reason for this frequent TX timeouts?
+ 
 
-DDPD is the "Disable Deep Power Down while PME is disabled" bit.
-0 - Deep Power Down is enabled in D3 state while PME-disabled.
-1 - Deep Power Down disabled in D3 state while PME-disabled.
-This bit should be set to 1b if a TCO controller is being used via the 
-SMB because it requires receive functionality at all power states.
+--- old/8139too.c	2006-11-09 11:49:25.000000000 +0530
++++ new/8139too.c	2006-11-09 11:50:02.000000000 +0530
+@@ -2200,8 +2200,8 @@
+ 	/* Receive packets are processed by poll routine.
+ 	   If not running start it now. */
+ 	if (status & RxAckBits){
+-		if (netif_rx_schedule_prep(dev)) {
+ 			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
++		if (netif_rx_schedule_prep(dev)) {
+ 			__netif_rx_schedule (dev);
+ 		}
+ 	}
 
-Are you suggesting I try and set DDPD to 1?
-Or is this completely unrelated?
 
-> An indication of this would be looking at lspci -vv before/after
-> loading the driver.
-
-$ diff -u lspci_vv_before_e100.txt lspci_vv_after_e100.txt
---- lspci_vv_before_e100.txt    2006-11-09 14:51:30.000000000 +0100
-+++ lspci_vv_after_e100.txt     2006-11-09 14:51:30.000000000 +0100
-@@ -74,21 +74,20 @@
-         Expansion ROM at 20000000 [disabled] [size=1M]
-         Capabilities: [dc] Power Management version 2
-                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA 
-PME(D0+,D1+,D2+,D3hot+,D3cold+)
--               Status: D0 PME-Enable+ DSel=0 DScale=2 PME-
-+               Status: D0 PME-Enable- DSel=0 DScale=2 PME-
-
-  00:09.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 
-100] (rev 08)
-         Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
--       Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
-ParErr- Stepping- SERR- FastB2B-
-+       Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- 
-ParErr- Stepping- SERR- FastB2B-
-         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium 
- >TAbort- <TAbort- <MAbort- >SERR- <PERR-
--       Latency: 32 (2000ns min, 14000ns max), cache line size 08
-         Interrupt: pin A routed to IRQ 10
--       Region 0: Memory at e5302000 (32-bit, non-prefetchable) [size=4K]
--       Region 1: I/O ports at dc00 [size=64]
--       Region 2: Memory at e5100000 (32-bit, non-prefetchable) [size=1M]
-+       Region 0: Memory at e5302000 (32-bit, non-prefetchable) 
-[disabled] [size=4K]
-+       Region 1: I/O ports at dc00 [disabled] [size=64]
-+       Region 2: Memory at e5100000 (32-bit, non-prefetchable) 
-[disabled] [size=1M]
-         Expansion ROM at 20100000 [disabled] [size=1M]
-         Capabilities: [dc] Power Management version 2
-                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA 
-PME(D0+,D1+,D2+,D3hot+,D3cold+)
--               Status: D0 PME-Enable+ DSel=0 DScale=2 PME-
-+               Status: D0 PME-Enable- DSel=0 DScale=2 PME-
-
-  00:0a.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 
-100] (rev 08)
-         Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
-
-> Also, after loading/unloading eepro100 does the e100 driver work?
-
-No.
-
-> A third idea is look for a master abort in lspci after e100 fails to
-> load.
-
-I don't understand that one.
-
+Thanks
+Mansoor
