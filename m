@@ -1,91 +1,87 @@
 From: akpm@osdl.org
-Subject: [patch 1/9] bonding: lockdep annotation
-Date: Wed, 08 Nov 2006 19:51:01 -0800
-Message-ID: <200611090351.kA93p1Kx003677@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, a.p.zijlstra@chello.nl,
-	mingo@elte.hu, shemminger@osdl.org
+Subject: [patch 5/9] bnep endianness bug: filtering by packet type
+Date: Wed, 08 Nov 2006 19:51:07 -0800
+Message-ID: <200611090351.kA93p7gO003690@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, viro@ftp.linux.org.uk,
+	marcel@holtmann.org, viro@zeniv.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16559 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965935AbWKIDvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:18 -0500
+Received: from smtp.osdl.org ([65.172.181.4]:21935 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161318AbWKIDvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:23 -0500
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: Al Viro <viro@ftp.linux.org.uk>
 
-=============================================
-[ INFO: possible recursive locking detected ]
-2.6.17-1.2600.fc6 #1
----------------------------------------------
-ifconfig/2411 is trying to acquire lock:
- (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
+<= and => don't work well on net-endian...
 
-but task is already holding lock:
- (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
-
-other info that might help us debug this:
-3 locks held by ifconfig/2411:
- #0:  (rtnl_mutex){--..}, at: [<ffffffff802664af>] mutex_lock+0x2a/0x2e
- #1:  (&dev->_xmit_lock){-...}, at: [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
- #2:  (&bond->lock){-.-+}, at: [<ffffffff8831b7f7>] bond_set_multicast_list+0x2c/0x26a [bonding]
-
-stack backtrace:
-
-Call Trace:
- [<ffffffff8026e97d>] show_trace+0xae/0x319
- [<ffffffff8026ebfd>] dump_stack+0x15/0x17
- [<ffffffff802a839b>] __lock_acquire+0x135/0xa64
- [<ffffffff802a926d>] lock_acquire+0x4b/0x69
- [<ffffffff80267981>] _spin_lock_bh+0x2a/0x36
- [<ffffffff80429b9f>] dev_mc_add+0x45/0x15f
- [<ffffffff8831b903>] :bonding:bond_set_multicast_list+0x138/0x26a
- [<ffffffff80429901>] __dev_mc_upload+0x22/0x24
- [<ffffffff80429c74>] dev_mc_add+0x11a/0x15f
- [<ffffffff8045d154>] igmp_group_added+0x55/0x10f
- [<ffffffff8045d4ab>] ip_mc_inc_group+0x1d6/0x21a
- [<ffffffff8045d535>] ip_mc_up+0x46/0x61
- [<ffffffff804594b8>] inetdev_init+0x11c/0x136
- [<ffffffff8045a0b7>] devinet_ioctl+0x3eb/0x5e9
- [<ffffffff8045a56c>] inet_ioctl+0x71/0x8f
- [<ffffffff8041ed74>] sock_ioctl+0x1e8/0x20a
- [<ffffffff80243ae0>] do_ioctl+0x2a/0x77
- [<ffffffff802325cc>] vfs_ioctl+0x25a/0x277
- [<ffffffff8024ea4b>] sys_ioctl+0x5f/0x82
- [<ffffffff8026060e>] system_call+0x7e/0x83
-
-The bonding driver nests other drivers, give the bonding driver its own
-lock class.
-
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Acked-by: Ingo Molnar <mingo@elte.hu>
-Cc: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/bonding/bond_main.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ net/bluetooth/bnep/core.c   |   16 ++++++++--------
+ net/bluetooth/bnep/netdev.c |   11 ++++++-----
+ 2 files changed, 14 insertions(+), 13 deletions(-)
 
-diff -puN drivers/net/bonding/bond_main.c~bonding-lockdep-annotation drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c~bonding-lockdep-annotation
-+++ a/drivers/net/bonding/bond_main.c
-@@ -4692,6 +4692,8 @@ static int bond_check_params(struct bond
- 	return 0;
+diff -puN net/bluetooth/bnep/core.c~bnep-endianness-bug-filtering-by-packet-type net/bluetooth/bnep/core.c
+--- a/net/bluetooth/bnep/core.c~bnep-endianness-bug-filtering-by-packet-type
++++ a/net/bluetooth/bnep/core.c
+@@ -117,14 +117,14 @@ static int bnep_send_rsp(struct bnep_ses
+ static inline void bnep_set_default_proto_filter(struct bnep_session *s)
+ {
+ 	/* (IPv4, ARP)  */
+-	s->proto_filter[0].start = htons(0x0800);
+-	s->proto_filter[0].end   = htons(0x0806);
++	s->proto_filter[0].start = ETH_P_IP;
++	s->proto_filter[0].end   = ETH_P_ARP;
+ 	/* (RARP, AppleTalk) */
+-	s->proto_filter[1].start = htons(0x8035);
+-	s->proto_filter[1].end   = htons(0x80F3);
++	s->proto_filter[1].start = ETH_P_RARP;
++	s->proto_filter[1].end   = ETH_P_AARP;
+ 	/* (IPX, IPv6) */
+-	s->proto_filter[2].start = htons(0x8137);
+-	s->proto_filter[2].end   = htons(0x86DD);
++	s->proto_filter[2].start = ETH_P_IPX;
++	s->proto_filter[2].end   = ETH_P_IPV6;
+ }
+ #endif
+ 
+@@ -150,8 +150,8 @@ static int bnep_ctrl_set_netfilter(struc
+ 		int i;
+ 
+ 		for (i = 0; i < n; i++) {
+-			f[i].start = get_unaligned(data++);
+-			f[i].end   = get_unaligned(data++);
++			f[i].start = ntohs(get_unaligned(data++));
++			f[i].end   = ntohs(get_unaligned(data++));
+ 
+ 			BT_DBG("proto filter start %d end %d",
+ 				f[i].start, f[i].end);
+diff -puN net/bluetooth/bnep/netdev.c~bnep-endianness-bug-filtering-by-packet-type net/bluetooth/bnep/netdev.c
+--- a/net/bluetooth/bnep/netdev.c~bnep-endianness-bug-filtering-by-packet-type
++++ a/net/bluetooth/bnep/netdev.c
+@@ -158,14 +158,15 @@ static inline int bnep_net_mc_filter(str
+ static inline u16 bnep_net_eth_proto(struct sk_buff *skb)
+ {
+ 	struct ethhdr *eh = (void *) skb->data;
++	u16 proto = ntohs(eh->h_proto);
+ 	
+-	if (ntohs(eh->h_proto) >= 1536)
+-		return eh->h_proto;
++	if (proto >= 1536)
++		return proto;
+ 		
+-	if (get_unaligned((u16 *) skb->data) == 0xFFFF)
+-		return htons(ETH_P_802_3);
++	if (get_unaligned((__be16 *) skb->data) == htons(0xFFFF))
++		return ETH_P_802_3;
+ 		
+-	return htons(ETH_P_802_2);
++	return ETH_P_802_2;
  }
  
-+static struct lock_class_key bonding_netdev_xmit_lock_key;
-+
- /* Create a new bond based on the specified name and bonding parameters.
-  * Caller must NOT hold rtnl_lock; we need to release it here before we
-  * set up our sysfs entries.
-@@ -4727,6 +4729,9 @@ int bond_create(char *name, struct bond_
- 	if (res < 0) {
- 		goto out_bond;
- 	}
-+
-+	lockdep_set_class(&bond_dev->_xmit_lock, &bonding_netdev_xmit_lock_key);
-+
- 	if (newbond)
- 		*newbond = bond_dev->priv;
- 
+ static inline int bnep_net_proto_filter(struct sk_buff *skb, struct bnep_session *s)
 _
