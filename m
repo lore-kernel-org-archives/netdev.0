@@ -1,9 +1,9 @@
 From: Davide Libenzi <davidel@xmailserver.org>
 Subject: Re: [take24 3/6] kevent: poll/select() notifications.
-Date: Thu, 9 Nov 2006 11:42:49 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611091137290.25481@alien.or.mcafeemobile.com>
+Date: Thu, 9 Nov 2006 12:10:42 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611091207080.25481@alien.or.mcafeemobile.com>
 References: <11630606373650@2ka.mipt.ru> <Pine.LNX.4.64.0611091047120.25481@alien.or.mcafeemobile.com>
- <20061109191036.GA30138@2ka.mipt.ru>
+ <20061109191036.GA30138@2ka.mipt.ru> <Pine.LNX.4.64.0611091137290.25481@alien.or.mcafeemobile.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: David Miller <davem@davemloft.net>,
@@ -16,79 +16,86 @@ Cc: David Miller <davem@davemloft.net>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([69.30.125.51]:19436 "EHLO
+Received: from x35.xmailserver.org ([69.30.125.51]:22764 "EHLO
 	x35.xmailserver.org") by vger.kernel.org with ESMTP
-	id S1161783AbWKITmw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 14:42:52 -0500
+	id S1161825AbWKIUKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 15:10:45 -0500
 Received: from alien.or.mcafeemobile.com
 	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
-	id <S1FC3DA> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Thu, 9 Nov 2006 11:42:49 -0800
+	id <S1FC3F3> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Thu, 9 Nov 2006 12:10:42 -0800
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061109191036.GA30138@2ka.mipt.ru>
+In-Reply-To: <Pine.LNX.4.64.0611091137290.25481@alien.or.mcafeemobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Nov 2006, Evgeniy Polyakov wrote:
+On Thu, 9 Nov 2006, Davide Libenzi wrote:
 
-> On Thu, Nov 09, 2006 at 10:51:56AM -0800, Davide Libenzi (davidel@xmailserver.org) wrote:
-> > On Thu, 9 Nov 2006, Evgeniy Polyakov wrote:
-> > 
-> > > +static int kevent_poll_callback(struct kevent *k)
-> > > +{
-> > > +	if (k->event.req_flags & KEVENT_REQ_LAST_CHECK) {
-> > > +		return 1;
-> > > +	} else {
-> > > +		struct file *file = k->st->origin;
-> > > +		unsigned int revents = file->f_op->poll(file, NULL);
-> > > +
-> > > +		k->event.ret_data[0] = revents & k->event.event;
-> > > +		
-> > > +		return (revents & k->event.event);
-> > > +	}
-> > > +}
-> > 
-> > You need to be careful that file->f_op->poll is not called inside the 
-> > spin_lock_irqsave/spin_lock_irqrestore pair, since (even this came up 
-> > during epoll developemtn days) file->f_op->poll might do a simple 
-> > spin_lock_irq/spin_unlock_irq. This unfortunate constrain forced epoll to 
-> > have a suboptimal double O(R) loop to handle LT events.
->  
-> It is tricky - users call wake_up() from any context, which in turn ends
-> up calling kevent_storage_ready(), which calls kevent_poll_callback() with
-> KEVENT_REQ_LAST_CHECK bit set, which becomes almost empty call in fast
-> path. Since callback returns 1, kevent will be queued into ready queue,
-> which is processed on behalf of syscalls - in that case kevent will
-> check the flag and since KEVENT_REQ_LAST_CHECK is set, will call
-> callback again to check if kevent is correctly marked, but already
-> without that flag (it happens in syscall context, i.e. process context
-> without any locks held), so callback calls ->poll(), which can sleep,
-> but it is safe. If ->poll() returns 'ready' value, kevent is transfers
-> data into userspace, otherwise it is 'requeued' (just removed from
-> ready queue).
+> On Thu, 9 Nov 2006, Evgeniy Polyakov wrote:
+> 
+> > On Thu, Nov 09, 2006 at 10:51:56AM -0800, Davide Libenzi (davidel@xmailserver.org) wrote:
+> > > On Thu, 9 Nov 2006, Evgeniy Polyakov wrote:
+> > > 
+> > > > +static int kevent_poll_callback(struct kevent *k)
+> > > > +{
+> > > > +	if (k->event.req_flags & KEVENT_REQ_LAST_CHECK) {
+> > > > +		return 1;
+> > > > +	} else {
+> > > > +		struct file *file = k->st->origin;
+> > > > +		unsigned int revents = file->f_op->poll(file, NULL);
+> > > > +
+> > > > +		k->event.ret_data[0] = revents & k->event.event;
+> > > > +		
+> > > > +		return (revents & k->event.event);
+> > > > +	}
+> > > > +}
+> > > 
+> > > You need to be careful that file->f_op->poll is not called inside the 
+> > > spin_lock_irqsave/spin_lock_irqrestore pair, since (even this came up 
+> > > during epoll developemtn days) file->f_op->poll might do a simple 
+> > > spin_lock_irq/spin_unlock_irq. This unfortunate constrain forced epoll to 
+> > > have a suboptimal double O(R) loop to handle LT events.
+> >  
+> > It is tricky - users call wake_up() from any context, which in turn ends
+> > up calling kevent_storage_ready(), which calls kevent_poll_callback() with
+> > KEVENT_REQ_LAST_CHECK bit set, which becomes almost empty call in fast
+> > path. Since callback returns 1, kevent will be queued into ready queue,
+> > which is processed on behalf of syscalls - in that case kevent will
+> > check the flag and since KEVENT_REQ_LAST_CHECK is set, will call
+> > callback again to check if kevent is correctly marked, but already
+> > without that flag (it happens in syscall context, i.e. process context
+> > without any locks held), so callback calls ->poll(), which can sleep,
+> > but it is safe. If ->poll() returns 'ready' value, kevent is transfers
+> > data into userspace, otherwise it is 'requeued' (just removed from
+> > ready queue).
+> 
+> Oh, mine was only a general warn. I hadn't looked at the generic code 
+> before. But now that I poke on it, I see:
+> 
+> void kevent_requeue(struct kevent *k)
+> {
+>        unsigned long flags;
+> 
+>        spin_lock_irqsave(&k->st->lock, flags);
+>        __kevent_requeue(k, 0);
+>        spin_unlock_irqrestore(&k->st->lock, flags);
+> }
+> 
+> and then:
+> 
+> static int __kevent_requeue(struct kevent *k, u32 event)
+> {
+>        int ret, rem;
+>        unsigned long flags;
+> 
+>        ret = k->callbacks.callback(k);
+> 
+> Isn't the k->callbacks.callback() possibly end up calling f_op->poll?
 
-Oh, mine was only a general warn. I hadn't looked at the generic code 
-before. But now that I poke on it, I see:
-
-void kevent_requeue(struct kevent *k)
-{
-       unsigned long flags;
-
-       spin_lock_irqsave(&k->st->lock, flags);
-       __kevent_requeue(k, 0);
-       spin_unlock_irqrestore(&k->st->lock, flags);
-}
-
-and then:
-
-static int __kevent_requeue(struct kevent *k, u32 event)
-{
-       int ret, rem;
-       unsigned long flags;
-
-       ret = k->callbacks.callback(k);
-
-Isn't the k->callbacks.callback() possibly end up calling f_op->poll?
+Ack, there the check for KEVENT_REQ_LAST_CHECK inside the callback.
+The problem with f_op->poll was not that it can sleep (not excluded 
+though) but that some f_op->poll can do a simple spin_lock_irq/spin_unlock_irq.
+But for a quick peek your new code seems fine with that.
 
 
 
