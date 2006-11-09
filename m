@@ -1,31 +1,79 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Thu, 9 Nov 2006 10:21:31 +0100
-Message-ID: <20061109092131.GA19715@suse.de>
-References: <1162924354.10806.172.camel@localhost.localdomain> <1163001318.3138.346.camel@laptopd505.fenrus.org> <20061108162955.GA4364@suse.de> <1163011132.10806.189.camel@localhost.localdomain> <20061108221028.GA16889@suse.de> <1163023652.10806.203.camel@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take24 3/6] kevent: poll/select() notifications.
+Date: Thu, 9 Nov 2006 12:29:45 +0300
+Message-ID: <20061109092945.GA11382@2ka.mipt.ru>
+References: <11630606373650@2ka.mipt.ru> <200611091008.45227.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:35734 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1754798AbWKIJVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 04:21:41 -0500
-To: Tim Chen <tim.c.chen@linux.intel.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:1739 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1754803AbWKIJco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 04:32:44 -0500
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <1163023652.10806.203.camel@localhost.localdomain>
+In-Reply-To: <200611091008.45227.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 08, 2006 at 02:07:32PM -0800, Tim Chen wrote:
-> In my testing, the CPU utilization is at 100%.  So
-> increase in ACKs will cost CPU to devote more
-> time to process those ACKs and reduce throughput.
+On Thu, Nov 09, 2006 at 10:08:44AM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> Here you test both KEVENT_SOCKET and KEVENT_PIPE
+> 
+> > +#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
+> > +		kevent_storage_init(inode, &inode->st);
+> > +#endif
+> >  	}
+> >  	return inode;
+> >  }
+> >
+> >  void destroy_inode(struct inode *inode)
+> >  {
+> 
+> but here you test only KEVENT_SOCKET
+> 
+> > +#if defined CONFIG_KEVENT_SOCKET
+> > +	kevent_storage_fini(&inode->st);
+> > +#endif
 
-Oh, I see. I would test on a real network with real clients. I doubt
-you would observe a noticeable effect there.
+Indeed, it must be 
+#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
 
-Olaf
+> >  	BUG_ON(inode_has_buffers(inode));
+> >  	security_inode_free(inode);
+> >  	if (inode->i_sb->s_op->destroy_inode)
+> > diff --git a/include/linux/fs.h b/include/linux/fs.h
+> > index 5baf3a1..c529723 100644
+> > --- a/include/linux/fs.h
+> > +++ b/include/linux/fs.h
+> > @@ -276,6 +276,7 @@ #include <linux/prio_tree.h>
+> >  #include <linux/init.h>
+> >  #include <linux/sched.h>
+> >  #include <linux/mutex.h>
+> > +#include <linux/kevent_storage.h>
+> >
+> >  #include <asm/atomic.h>
+> >  #include <asm/semaphore.h>
+> > @@ -586,6 +587,10 @@ #ifdef CONFIG_INOTIFY
+> >  	struct mutex		inotify_mutex;	/* protects the watches list */
+> >  #endif
+> >
+> 
+> Here you include a kevent_storage only if KEVENT_SOCKET
+> 
+> > +#ifdef CONFIG_KEVENT_SOCKET
+> > +	struct kevent_storage	st;
+> > +#endif
+> > +
+
+It must be 
+#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
+
 -- 
-Walks like a duck. Quacks like a duck. Must be a chicken.
+	Evgeniy Polyakov
