@@ -1,41 +1,49 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 2.6.19-rc1: Volanomark slowdown
-Date: Wed, 08 Nov 2006 17:08:47 -0800
-Message-ID: <1163034527.5931.56.camel@raj-laptop>
-References: <1162924354.10806.172.camel@localhost.localdomain>
-	 <1163001318.3138.346.camel@laptopd505.fenrus.org>
-	 <20061108162955.GA4364@suse.de>
-	 <1163011132.10806.189.camel@localhost.localdomain>
-	 <20061108221028.GA16889@suse.de>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Subject: [patch] fix up generic csum_ipv6_magic function prototype
+Date: Wed, 8 Nov 2006 18:02:06 -0800
+Message-ID: <000301c703a3$0eedb340$ff0da8c0@amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Tim Chen <tim.c.chen@linux.intel.com>,
-	Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, davem@sunset.davemloft.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Cc: "'Linux Kernel Mailing List'" <linux-kernel@vger.kernel.org>,
+	"'NetDev'" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:8339 "EHLO palrel11.hp.com")
-	by vger.kernel.org with ESMTP id S1423982AbWKIBIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 20:08:47 -0500
-To: Olaf Kirch <okir@suse.de>
-In-Reply-To: <20061108221028.GA16889@suse.de>
+Received: from mga09.intel.com ([134.134.136.24]:31070 "EHLO mga09.intel.com")
+	by vger.kernel.org with ESMTP id S1161783AbWKICCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 21:02:08 -0500
+To: "'Andrew Morton'" <akpm@osdl.org>,
+	"'Jeff Garzik'" <jgarzik@pobox.com>, <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-08 at 23:10 +0100, Olaf Kirch wrote:
-> What I'm saying though is that it doesn't rhyme with what I've seen of
-> Volanomark - we ran 2.6.16 on a 4p Intel box for instance and it didn't
-> come close to saturating a Gigabit pipe before it maxed out on CPU load.
+The generic version of csum_ipv6_magic has the len argument declared as
+__u16, while most arch dependent version declare it as __u32.  After
+looking at the call site of this function, I come up to a conclusion
+that __u32 is a better match with the actual usage.
 
-That actually supports the hypothesis doesn't it?  The issue being the
-increased number of ACKs causing additional CPU overhead not saturating
-a NIC if any involved.
+Hence, patch to change argument type for greater consistency.
 
-One of these days I may have to try to look more closely at what volano
-does relative to netperf - I remember that someone tried very hard (was
-it you alexy?) to show a perfomance effect with netperf and it didn't do
-it :(
 
-rick jones
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+
+---
+
+asm-m32r and asm-parisc both have it declared as __u16. I think it is a
+copy-n-paste error and needs to be fixed by arch maintainer, I hope.
+
+
+
+--- ./include/net/ip6_checksum.h.orig	2006-11-08 18:49:50.000000000 -0800
++++ ./include/net/ip6_checksum.h	2006-11-08 18:50:04.000000000 -0800
+@@ -36,7 +36,7 @@
+ 
+ static __inline__ unsigned short int csum_ipv6_magic(struct in6_addr *saddr,
+ 						     struct in6_addr *daddr,
+-						     __u16 len,
++						     __u32 len,
+ 						     unsigned short proto,
+ 						     unsigned int csum) 
+ {
 
