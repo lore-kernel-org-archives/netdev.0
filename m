@@ -1,103 +1,121 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [take23 0/5] kevent: Generic event handling mechanism.
-Date: Wed, 8 Nov 2006 15:56:28 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611081526350.23154@alien.or.mcafeemobile.com>
-References: <1154985aa0591036@2ka.mipt.ru> <20061107141718.f7414b31.akpm@osdl.org>
- <20061108082147.GA2447@2ka.mipt.ru> <200611081551.14671.dada1@cosmosbay.com>
- <20061108140307.da7d815f.akpm@osdl.org> <Pine.LNX.4.64.0611081442420.23154@alien.or.mcafeemobile.com>
- <45526339.3040506@cosmosbay.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Subject: RE: e1000: include <net/ip6_checksum.h> for IA64
+Date: Wed, 8 Nov 2006 16:10:06 -0800
+Message-ID: <000001c70393$69ec5400$ff0da8c0@amr.corp.intel.com>
+References: <45521873.20402@intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1795850513-710282051-1163029622=:23154"
-Cc: Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([69.30.125.51]:47077 "EHLO
-	x35.xmailserver.org") by vger.kernel.org with ESMTP
-	id S1161759AbWKHX4b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Nov 2006 18:56:31 -0500
-Received: from alien.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.23 ESMTP Server]
-	id <S1FC0A6> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Wed, 8 Nov 2006 15:56:29 -0800
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <45526339.3040506@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@osdl.org>, "NetDev" <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Luck, Tony" <tony.luck@intel.com>, <linux-ia64@vger.kernel.org>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+To: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Jeff Garzik" <jgarzik@pobox.com>
+In-Reply-To: <45521873.20402@intel.com>
+Sender: linux-ia64-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Auke Kok wrote on Wednesday, November 08, 2006 9:49 AM
+> Of course, someone really should come up with an asm version for ia64 of the
+> missing function ;)
 
---1795850513-710282051-1163029622=:23154
-Content-Type: TEXT/PLAIN; CHARSET=X-UNKNOWN
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Sure, absolutely.  Here is an implementation for ia64.  Tested heavily. Tony, please merge.
 
-On Thu, 9 Nov 2006, Eric Dumazet wrote:
-
-> Davide Libenzi a =E9crit :
-> >=20
-> > I don't care about both ways, but sys_poll() does the same thing epoll =
-does
-> > right now, so I would not change epoll behaviour.
-> >=20
->=20
-> Sure poll() cannot return a partial count, since its return value is :
->=20
-> On success, a positive number is returned, where the number returned is
->        the  number  of structures which have non-zero revents fields (in =
-other
->        words, those descriptors with events or errors reported).
->=20
-> poll() is non destructive (it doesnt change any state into kernel). Retur=
-ning
-> EFAULT in case of an error in the very last bit of user area is mandatory=
-=2E
->=20
-> On the contrary :
->=20
-> epoll_wait() does return a count of transfered events, and update some st=
-ate
-> in kernel (it consume Edge Trigered events : They can be lost forever if =
-not
-> reported to user)
->=20
-> So epoll_wait() is much more like read(), that also updates file state in
-> kernel (current file position)
-
-Lost forever means? If there are more processes watching some fd=20
-(external events), they all get their own copy of the events in their own=
-=20
-private epoll fd. It's not that we "steal" things out of the kernel, is=20
-not a 1:1 producer/consumer thing (one producer, 1 queue). It's one=20
-producer, broadcast to all listeners (consumers) thing. The only case=20
-where it'd matter is in the case of multiple threads sharing the same=20
-epoll fd.
-In general, I'd be more for having the userspace get his own SEGFAULT=20
-instead of letting it go with broken parameters. If I'm coding userspace,=
-=20
-and I'm doing something wrong, I like the kernel to let me know, instead=20
-of trying to fix things for me.
-Also, epoll can easily be fixed (add a param to ep_reinject_items() to=20
-re-inject items in case of error/EFAULT) to leave events in the ready-list=
-=20
-and let the EFAULT emerge.=20
-Anyone else has opinions about this?
+- Ken
 
 
 
+[patch] implement csum_ipv6_magic for ia64. The asm version is 3.4 times faster than
+        the generic version.
 
-PS: Next time it'd be great if you Cc: me when posting epoll patches, so=20
-    you avoid Andrew the job of doing it.
-
-
-
-- Davide
---1795850513-710282051-1163029622=:23154--
+--- ./arch/ia64/lib/ip_fast_csum.S.orig	2006-11-08 12:26:28.000000000 -0800
++++ ./arch/ia64/lib/ip_fast_csum.S	2006-11-08 16:39:24.000000000 -0800
+@@ -8,8 +8,8 @@
+  *      in0: address of buffer to checksum (char *)
+  *      in1: length of the buffer (int)
+  *
+- * Copyright (C) 2002 Intel Corp.
+- * Copyright (C) 2002 Ken Chen <kenneth.w.chen@intel.com>
++ * Copyright (C) 2002, 2006 Intel Corp.
++ * Copyright (C) 2002, 2006 Ken Chen <kenneth.w.chen@intel.com>
+  */
+ 
+ #include <asm/asmmacro.h>
+@@ -25,6 +25,9 @@
+ 
+ #define in0	r32
+ #define in1	r33
++#define in2	r34
++#define in3	r35
++#define in4	r36
+ #define ret0	r8
+ 
+ GLOBAL_ENTRY(ip_fast_csum)
+@@ -88,3 +91,51 @@ GLOBAL_ENTRY(ip_fast_csum)
+ 	mov	b0=r34
+ 	br.ret.sptk.many b0
+ END(ip_fast_csum)
++
++GLOBAL_ENTRY(csum_ipv6_magic)
++	ld4	r20=[in0],4
++	ld4	r21=[in1],4
++	dep	r15=in2,in3,16,16
++	;;
++	ld4	r22=[in0],4
++	ld4	r23=[in1],4
++	mux1	r15=r15,@rev
++	;;
++	ld4	r24=[in0],4
++	ld4	r25=[in1],4
++	shr.u	r15=r15,32
++	add	r16=r20,r21
++	add	r17=r22,r23
++	;;
++	ld4	r26=[in0],4
++	ld4	r27=[in1],4
++	add	r18=r24,r25
++	add	r8=r16,r17
++	;;
++	add	r19=r26,r27
++	add	r8=r8,r18
++	;;
++	add	r8=r8,r19
++	add	r15=r15,in4
++	;;
++	add	r8=r8,r15
++	;;
++	shr.u	r10=r8,16	// now fold sum into short
++	zxt2	r11=r8
++	;;
++	add	r8=r10,r11
++	;;
++	shr.u	r10=r8,16	// yeah, keep it rolling
++	zxt2	r11=r8
++	;;
++	add	r8=r10,r11
++	;;
++	shr.u	r10=r8,16	// three times lucky
++	zxt2	r11=r8
++	;;
++	add	r8=r10,r11
++	mov	r9=0xffff
++	;;
++	andcm	r8=r9,r8
++	br.ret.sptk.many b0
++END(csum_ipv6_magic)
+--- ./include/asm-ia64/checksum.h.orig	2006-11-08 16:52:16.000000000 -0800
++++ ./include/asm-ia64/checksum.h	2006-11-08 17:01:09.000000000 -0800
+@@ -73,4 +73,10 @@ csum_fold (unsigned int sum)
+ 	return ~sum;
+ }
+ 
++#define _HAVE_ARCH_IPV6_CSUM	1
++struct in6_addr;
++extern unsigned short int csum_ipv6_magic(struct in6_addr *saddr,
++	struct in6_addr *daddr, __u32 len, unsigned short proto,
++	unsigned int csum);
++
+ #endif /* _ASM_IA64_CHECKSUM_H */
