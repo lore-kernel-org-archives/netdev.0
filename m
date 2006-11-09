@@ -1,41 +1,49 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/3] mlsxfrm: Various fixes
-Date: Thu, 09 Nov 2006 12:26:33 -0500
-Message-ID: <455364C9.6000701@hp.com>
-References: <000501c70342$83b9df70$cc0a010a@tcssec.com> <4552A9AC.3060708@hp.com> <Pine.LNX.4.64.0611082337520.5916@d.namei> <4552B5C1.8040007@hp.com> <Pine.LNX.4.64.0611090109120.10907@d.namei> <4552CD3B.40809@hp.com> <XMMS.LNX.4.64.0611090158550.11301@d.namei>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: why do we mangle checksums for v6 ICMP?
+Date: Thu, 09 Nov 2006 12:32:18 -0500
+Message-ID: <45536622.90708@hp.com>
+References: <20061108221332.GI29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vyekkirala@TrustedCS.com, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, sds@tycho.nsa.gov
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:9411 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S1424153AbWKIR0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 12:26:35 -0500
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <XMMS.LNX.4.64.0611090158550.11301@d.namei>
+Received: from atlrel6.hp.com ([156.153.255.205]:5355 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1424162AbWKIRcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Nov 2006 12:32:20 -0500
+To: Al Viro <viro@ftp.linux.org.uk>
+In-Reply-To: <20061108221332.GI29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> On Thu, 9 Nov 2006, Paul Moore wrote:
+Hi Al,
+
+Al Viro wrote:
+> 	AFAICS, the rules are:
 > 
->>It sounds like you have an idea of how you would like to see this implemented,
->>can you give me a rough outline?  Is this the partitioned SECMARK field you
->>talked about earlier?
+> (1) checksum is 16-bit one's complement of the one's complement sum of
+> relevant 16bit words.
 > 
-> No, just the fact that you are in the same kernel address space and can 
-> readily access the security context of the peer.
+> (2) for v4 UDP all-zeroes has special meaning - no checksum; if you get
+> it from (1), send all-ones instead.
+> 
+> (3) for v6 UDP we have the same remapping as in (2), but all-zeroes has
+> different meaning - not "ignore checksum" as in v4, but "reject the
+> packet".
+> 
+> (4) there is no (4).
+> 
+> 	IOW, nobody except UDP has any business doing that 0->0xffff
+> replacement.  However, we have
+>        if (icmp6h->icmp6_cksum == 0)
+>                icmp6h->icmp6_cksum = -1;
 
-For a minute I got all excited thinking that you had found a solution to this :)
+This doesn't look necessary, RFCs 4443/2463 don't mention it being 
+necessary, and BSD doesn't do it either.  I'll cook-up a patch to remove 
+that since I was doing some other mods in that codepath.
 
-The problem I keep running into is that it is not obvious to me how we can
-determine the security context of the sending socket on the receive side by
-looking at the skb.  I'm really hoping that it is just because I haven't looked
-at the code long enough, or thought about it hard enough.  It is just so
-frustrating because you are right - all the information is there, I just don't
-know how to get to it when we need it without using external labeling.
+> and similar in net/ipv6/raw.c
 
--- 
-paul moore
-linux security @ hp
+Maybe here it only needs to be done if (fl->proto == IPPROTO_UDP)?
+
+-Brian
