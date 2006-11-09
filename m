@@ -1,112 +1,100 @@
 From: akpm@osdl.org
-Subject: [patch 3/9] iPhase: 64bit cleanup
-Date: Wed, 08 Nov 2006 19:51:04 -0800
-Message-ID: <200611090351.kA93p4ho003684@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
-	alan@redhat.com
+Subject: [patch 8/9] rfcomm endianness bug: param_mask is little-endian on the wire
+Date: Wed, 08 Nov 2006 19:51:10 -0800
+Message-ID: <200611090351.kA93pApj003699@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, viro@ftp.linux.org.uk,
+	marcel@holtmann.org, viro@zeniv.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:24239 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161802AbWKIDvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:25 -0500
+Received: from smtp.osdl.org ([65.172.181.4]:21679 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161209AbWKIDvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Nov 2006 22:51:23 -0500
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Al Viro <viro@ftp.linux.org.uk>
 
-Signed-off-by: Alan Cox <alan@redhat.com>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/atm/Kconfig  |    2 +-
- drivers/atm/iphase.c |   23 ++++++++++-------------
- 2 files changed, 11 insertions(+), 14 deletions(-)
+ net/bluetooth/rfcomm/core.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff -puN drivers/atm/Kconfig~resend-iphase-64bit-cleanup drivers/atm/Kconfig
---- a/drivers/atm/Kconfig~resend-iphase-64bit-cleanup
-+++ a/drivers/atm/Kconfig
-@@ -289,7 +289,7 @@ config ATM_HORIZON_DEBUG
+diff -puN net/bluetooth/rfcomm/core.c~rfcomm-endianness-bug-param_mask-is-little-endian-on-the-wire net/bluetooth/rfcomm/core.c
+--- a/net/bluetooth/rfcomm/core.c~rfcomm-endianness-bug-param_mask-is-little-endian-on-the-wire
++++ a/net/bluetooth/rfcomm/core.c
+@@ -854,7 +854,7 @@ int rfcomm_send_rpn(struct rfcomm_sessio
+ 	rpn->flow_ctrl     = flow_ctrl_settings;
+ 	rpn->xon_char      = xon_char;
+ 	rpn->xoff_char     = xoff_char;
+-	rpn->param_mask    = param_mask;
++	rpn->param_mask    = cpu_to_le16(param_mask);
  
- config ATM_IA
- 	tristate "Interphase ATM PCI x575/x525/x531"
--	depends on PCI && ATM && !64BIT
-+	depends on PCI && ATM
- 	---help---
- 	  This is a driver for the Interphase (i)ChipSAR adapter cards
- 	  which include a variety of variants in term of the size of the
-diff -puN drivers/atm/iphase.c~resend-iphase-64bit-cleanup drivers/atm/iphase.c
---- a/drivers/atm/iphase.c~resend-iphase-64bit-cleanup
-+++ a/drivers/atm/iphase.c
-@@ -93,10 +93,6 @@ module_param(IADebugFlag, uint, 0644);
+ 	*ptr = __fcs(buf); ptr++;
  
- MODULE_LICENSE("GPL");
+@@ -1343,7 +1343,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 	/* Check for sane values, ignore/accept bit_rate, 8 bits, 1 stop bit,
+ 	 * no parity, no flow control lines, normal XON/XOFF chars */
  
--#if BITS_PER_LONG != 32
--#  error FIXME: this driver only works on 32-bit platforms
--#endif
--
- /**************************** IA_LIB **********************************/
- 
- static void ia_init_rtn_q (IARTN_Q *que) 
-@@ -1408,7 +1404,6 @@ static int rx_init(struct atm_dev *dev) 
- 	struct abr_vc_table  *abr_vc_table; 
- 	u16 *vc_table;  
- 	u16 *reass_table;  
--        u16 *ptr16;
- 	int i,j, vcsize_sel;  
- 	u_short freeq_st_adr;  
- 	u_short *freeq_start;  
-@@ -1423,14 +1418,15 @@ static int rx_init(struct atm_dev *dev) 
- 		printk(KERN_ERR DEV_LABEL "can't allocate DLEs\n");
- 		goto err_out;
+-	if (rpn->param_mask & RFCOMM_RPN_PM_BITRATE) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_BITRATE)) {
+ 		bit_rate = rpn->bit_rate;
+ 		if (bit_rate != RFCOMM_RPN_BR_115200) {
+ 			BT_DBG("RPN bit rate mismatch 0x%x", bit_rate);
+@@ -1352,7 +1352,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 		}
  	}
--	iadev->rx_dle_q.start = (struct dle*)dle_addr;  
-+	iadev->rx_dle_q.start = (struct dle *)dle_addr;
- 	iadev->rx_dle_q.read = iadev->rx_dle_q.start;  
- 	iadev->rx_dle_q.write = iadev->rx_dle_q.start;  
--	iadev->rx_dle_q.end = (struct dle*)((u32)dle_addr+sizeof(struct dle)*DLE_ENTRIES);  
-+	iadev->rx_dle_q.end = (struct dle*)((unsigned long)dle_addr+sizeof(struct dle)*DLE_ENTRIES);
- 	/* the end of the dle q points to the entry after the last  
- 	DLE that can be used. */  
-   
- 	/* write the upper 20 bits of the start address to rx list address register */  
-+	/* We know this is 32bit bus addressed so the following is safe */
- 	writel(iadev->rx_dle_dma & 0xfffff000,
- 	       iadev->dma + IPHASE5575_RX_LIST_ADDR);  
- 	IF_INIT(printk("Tx Dle list addr: 0x%08x value: 0x%0x\n", 
-@@ -1584,11 +1580,12 @@ static int rx_init(struct atm_dev *dev) 
- 	   Set Packet Aging Interval count register to overflow in about 4 us
-  	*/  
-         writew(0xF6F8, iadev->reass_reg+PKT_TM_CNT );
--        ptr16 = (u16*)j;
--        i = ((u32)ptr16 >> 6) & 0xff;
--	ptr16  += j - 1;
--	i |=(((u32)ptr16 << 2) & 0xff00);
-+
-+        i = (j >> 6) & 0xFF;
-+        j += 2 * (j - 1);
-+        i |= ((j << 2) & 0xFF00);
-         writew(i, iadev->reass_reg+TMOUT_RANGE);
-+
-         /* initiate the desc_tble */
-         for(i=0; i<iadev->num_tx_desc;i++)
-             iadev->desc_tbl[i].timestamp = 0;
-@@ -1911,7 +1908,7 @@ static int tx_init(struct atm_dev *dev) 
- 	iadev->tx_dle_q.start = (struct dle*)dle_addr;  
- 	iadev->tx_dle_q.read = iadev->tx_dle_q.start;  
- 	iadev->tx_dle_q.write = iadev->tx_dle_q.start;  
--	iadev->tx_dle_q.end = (struct dle*)((u32)dle_addr+sizeof(struct dle)*DLE_ENTRIES);  
-+	iadev->tx_dle_q.end = (struct dle*)((unsigned long)dle_addr+sizeof(struct dle)*DLE_ENTRIES);
  
- 	/* write the upper 20 bits of the start address to tx list address register */  
- 	writel(iadev->tx_dle_dma & 0xfffff000,
-@@ -2913,7 +2910,7 @@ static int ia_pkt_tx (struct atm_vcc *vc
-                  dev_kfree_skb_any(skb);
-           return 0;
-         }
--        if ((u32)skb->data & 3) {
-+        if ((unsigned long)skb->data & 3) {
-            printk("Misaligned SKB\n");
-            if (vcc->pop)
-                  vcc->pop(vcc, skb);
+-	if (rpn->param_mask & RFCOMM_RPN_PM_DATA) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_DATA)) {
+ 		data_bits = __get_rpn_data_bits(rpn->line_settings);
+ 		if (data_bits != RFCOMM_RPN_DATA_8) {
+ 			BT_DBG("RPN data bits mismatch 0x%x", data_bits);
+@@ -1361,7 +1361,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 		}
+ 	}
+ 
+-	if (rpn->param_mask & RFCOMM_RPN_PM_STOP) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_STOP)) {
+ 		stop_bits = __get_rpn_stop_bits(rpn->line_settings);
+ 		if (stop_bits != RFCOMM_RPN_STOP_1) {
+ 			BT_DBG("RPN stop bits mismatch 0x%x", stop_bits);
+@@ -1370,7 +1370,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 		}
+ 	}
+ 
+-	if (rpn->param_mask & RFCOMM_RPN_PM_PARITY) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_PARITY)) {
+ 		parity = __get_rpn_parity(rpn->line_settings);
+ 		if (parity != RFCOMM_RPN_PARITY_NONE) {
+ 			BT_DBG("RPN parity mismatch 0x%x", parity);
+@@ -1379,7 +1379,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 		}
+ 	}
+ 
+-	if (rpn->param_mask & RFCOMM_RPN_PM_FLOW) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_FLOW)) {
+ 		flow_ctrl = rpn->flow_ctrl;
+ 		if (flow_ctrl != RFCOMM_RPN_FLOW_NONE) {
+ 			BT_DBG("RPN flow ctrl mismatch 0x%x", flow_ctrl);
+@@ -1388,7 +1388,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 		}
+ 	}
+ 
+-	if (rpn->param_mask & RFCOMM_RPN_PM_XON) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_XON)) {
+ 		xon_char = rpn->xon_char;
+ 		if (xon_char != RFCOMM_RPN_XON_CHAR) {
+ 			BT_DBG("RPN XON char mismatch 0x%x", xon_char);
+@@ -1397,7 +1397,7 @@ static int rfcomm_recv_rpn(struct rfcomm
+ 		}
+ 	}
+ 
+-	if (rpn->param_mask & RFCOMM_RPN_PM_XOFF) {
++	if (rpn->param_mask & cpu_to_le16(RFCOMM_RPN_PM_XOFF)) {
+ 		xoff_char = rpn->xoff_char;
+ 		if (xoff_char != RFCOMM_RPN_XOFF_CHAR) {
+ 			BT_DBG("RPN XOFF char mismatch 0x%x", xoff_char);
 _
