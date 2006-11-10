@@ -1,53 +1,68 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/3] [NET]: Supporting UDP-Lite (RFC 3828) in Linux
-Date: Fri, 10 Nov 2006 14:48:49 -0800
-Message-ID: <20061110144849.207e814c@freekitty>
-References: <200611101609.21333@strip-the-willow>
-	<20061110093715.0aadd791@freekitty>
-	<20061110.143846.93212026.davem@davemloft.net>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
+Date: Fri, 10 Nov 2006 14:49:54 -0800
+Message-ID: <45550212.5060207@oracle.com>
+References: <45541757.90800@hp.com> <20061110102318.7b344d30.randy.dunlap@oracle.com> <20061110221219.GM8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org
+Cc: Paul Moore <paul.moore@hp.com>, hadi@cyberus.ca,
+	netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21399 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1424465AbWKJWtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 17:49:06 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061110.143846.93212026.davem@davemloft.net>
+Received: from rgminet01.oracle.com ([148.87.113.118]:14689 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1424454AbWKJWuY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 17:50:24 -0500
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061110221219.GM8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Nov 2006 14:38:46 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Thomas Graf wrote:
+> * Randy Dunlap <randy.dunlap@oracle.com> 2006-11-10 10:23
+>> On Fri, 10 Nov 2006 01:08:23 -0500 Paul Moore wrote:
+>>
+>>> An Introduction To Using Generic Netlink
+>>> ===============================================================================
+>>> 3.1.2. The genl_family Structure
+>>>
+>>> Generic Netlink services are defined by the genl_family structure, which is
+>>> shown below:
+>>>
+>>>   struct genl_family
+>>>   {
+>>>         unsigned int            id;
+>>>         unsigned int            hdrsize;
+>>>         char                    name[GENL_NAMSIZ];
+>>>         unsigned int            version;
+>>>         unsigned int            maxattr;
+>>>         struct nlattr **        attrbuf;
+>>>         struct list_head        ops_list;
+>>>         struct list_head        family_list;
+>>>   };
+>> Any alignment/packing concerns here?  or that is already
+>> handled, just not presented here?
+> 
+> I thought I chose GENL_NAMESIZ wisely but to be sure I checked
+> with Mr. Alignment himself, Arnaldo:
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Fri, 10 Nov 2006 09:37:15 -0800
-> 
-> > On Fri, 10 Nov 2006 16:09:20 +0000
-> > Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
-> > 
-> > > [NET/IPv4]: Support for the UDP-Lite protocol (RFC 3828)
-> > > 
-> > > This adds support for UDP-Lite to the IPv4 stack, provided as an extension
-> > > to the existing UDPv4 code:
-> > > 	* generic routines are all located in net/ipv4/udp.c
-> > > 	* UDP-Lite specific routines are in net/ipv4/udplite.c
-> > > 	* MIB/statistics support in /proc/net/snmp and /proc/net/udplite
-> > > 	* shared API with extensions for partial checksum coverage
-> > > 	* consolidation of shared code
-> > > 
-> > > 
-> > 
-> > This code is does too much inlining (like existing network code).
-> > Should it be made configurable?
-> 
-> It doesn't get built at all if you check his patches :-)
-> 
-> But once that's fixed up, I think we can fix that with a followon
-> patch.  We've put Gerrit through the ringer enough on this stuff.
+Hm, looks OK to me.  Am I missing something?
 
-Agreed.  But we can do some code rearranging/deinlining early in 2.6.20
+> struct genl_family {
+>         unsigned int               id;                   /* 0(0)     4 */
+>         unsigned int               hdrsize;              /* 4(0)     4 */
+>         char                       name[16];             /* 8(0)    16 */
+>         unsigned int               version;              /* 24(0)     4 */
+>         unsigned int               maxattr;              /* 28(0)     4 */
+>         /* ---------- cacheline 1 boundary ---------- */
+>         struct nlattr * *          attrbuf;              /* 32(0)     4 */
+>         struct list_head           ops_list;             /* 36(0)     8 */
+>         struct list_head           family_list;          /* 44(0)     8 */
+> }; /* size: 52 */
+
+How about field size issues?  Usually for int's etc. that are in
+userspace interfaces, we use __u32 etc.
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+~Randy
