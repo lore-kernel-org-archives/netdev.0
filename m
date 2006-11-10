@@ -1,39 +1,28 @@
-From: Paul Hampson <Paul.Hampson@Pobox.com>
-Subject: Re: bcm43xx-d80211 broadcast reception with WPA
-Date: Fri, 10 Nov 2006 09:24:05 +0000 (UTC)
-Message-ID: <loom.20061110T093933-257@post.gmane.org>
-References: <ej09qf$2nv$1@sea.gmane.org> <a32f33a40611100027y11e5a524j7ddae7776f3d040c@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
+Date: Fri, 10 Nov 2006 10:48:28 +0100
+Message-ID: <20061110094828.GF8693@postel.suug.ch>
+References: <45541757.90800@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:44952 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1946162AbWKJJY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 04:24:27 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1GiScQ-00056s-AN
-	for netdev@vger.kernel.org; Fri, 10 Nov 2006 10:24:17 +0100
-Received: from 202.55.154.140 ([202.55.154.140])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 10 Nov 2006 10:24:14 +0100
-Received: from Paul.Hampson by 202.55.154.140 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 10 Nov 2006 10:24:14 +0100
-To: netdev@vger.kernel.org
+Received: from postel.suug.ch ([194.88.212.233]:43233 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1946221AbWKJJsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 04:48:07 -0500
+To: Paul Moore <paul.moore@hp.com>
+Content-Disposition: inline
+In-Reply-To: <45541757.90800@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ivo Van Doorn <ivdoorn <at> gmail.com> writes:
-> > I've been backporting the bcm43xx-d80211 driver to whatever the released
-> > using the rt2x00 project's d80211 stack
+* Paul Moore <paul.moore@hp.com> 2006-11-10 01:08
 
-> Just a note about that stack, it should only be used on kernel 2.6.17
-> and higher.
+Excellent!
 
-Thanks, I've noted that at the berlios wiki.
+>    - u32 snd_pid
+> 
+>      This is the PID of the client which issued the request.
 
---
-Paul "TBBle" Hampson
-Paul.Hampson@Pobox.com
-
+In order to avoid confusion it might be better to call it
+"netlink PID" as it is not equal to the process ID.
