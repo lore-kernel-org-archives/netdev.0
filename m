@@ -1,68 +1,44 @@
 From: Paul Moore <paul.moore@hp.com>
 Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Fri, 10 Nov 2006 11:17:11 -0500
-Message-ID: <4554A607.3000800@hp.com>
-References: <45541757.90800@hp.com>	 <XMMS.LNX.4.64.0611100136350.7904@d.namei>  <4554201F.5080105@hp.com> <1163169264.5218.7.camel@jzny2>
+Date: Fri, 10 Nov 2006 11:20:10 -0500
+Message-ID: <4554A6BA.6040504@hp.com>
+References: <45541757.90800@hp.com> <45549F8D.7010902@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
-	Balbir Singh <balbir@in.ibm.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	James Morris <jmorris@namei.org>, tgraf@suug.ch,
-	netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:28620 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1946746AbWKJQRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 11:17:14 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1163169264.5218.7.camel@jzny2>
+Received: from atlrel9.hp.com ([156.153.255.214]:28379 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S1946753AbWKJQUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 11:20:12 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <45549F8D.7010902@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Fri, 2006-10-11 at 01:45 -0500, Paul Moore wrote:
+Stephen Hemminger wrote:
+> Paul Moore wrote:
 > 
->>James Morris wrote:
+>>A couple of months ago I promised Jamal and Thomas I would post some comments to
+>>Jamal's original genetlink how-to.  However, as I started to work on the
+>>document the diff from the original started to get a little ridiculous so
+>>instead of posting a patch against Jamal's original how-to I'm just posting the
+>>revised document in it's entirety.
 >>
->>>>An Introduction To Using Generic Netlink
->>>>===============================================================================
->>>
->>>
->>>Wow, this is great!
+>>In the document below I tried to summarize all of the things I learned while
+>>developing NetLabel.  Some of it came from Jamal's document, some the kernel
+>>code, and some from discussions with Thomas.  Hopefully this document will make
+>>it much easier for others to use genetlink in the future.
 >>
->>Thanks.  I consider it an act of penance for all of the evil things I did
->>with Netlink on my first few iterations of NetLabel ;)
+>>If this text below is acceptable to everyone, should this be added to the
+>>Documentation directory?
+>>  
 > 
-> 
-> Hey, theres more than one way to pay for your sins ;->
-> For example: Do you wanna take over maintainance of the doc? ;->
+> Mind if we put a wikified version on http://linux-net.osdl.org?
 
-There is a sucker born every minute. right? :)
-
-I'll make you a deal: I'll take over maintainance of the document as long as you
-promise to send me your feedback by Monday.
-
-> i.e it would make a lot of sense to finally submit it for inclusion.
-> Thanks for the effort.
-
-I think so too, I'm glad I was able to help out.
-
-> I havent read it - dont have the time till this weekend. I would like
-> to have input as well from the other folks who have opined in the past
-> (on CC list - they seemed to have strong opinions of what should be in
-> the doc).
-> 
-> This is also timely because this weekend i was going to work on a
-> presentation on this stuff for a conference ;-> So i will actually
-> have to read what you put together. I will have more comments later when
-> i am done reading.
-
-Okay, I've already made some changes based on other comments in this thread but
-I'll refrain from pushing out an updated version until early next week.  I'll
-also make the next version of the document a patch against net-2.6.20.
-
-Thanks.
+That sounds fine to me, although can we hold off for a little bit so I can
+collect some more comments?  Is the wiki open to anyone, i.e. can I add the
+document directly, or am I better off just letting you do it?
 
 -- 
 paul moore
