@@ -1,27 +1,34 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [RFT] mv643xxx_eth_start_xmit oops
-Date: 10 Nov 2006 20:53:27 -0000
-Message-ID: <20061110205327.19468.qmail@farnsworth.org>
-References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty>
+Date: Fri, 10 Nov 2006 22:03:43 +0100
+Message-ID: <20061110210343.GA9453@electric-eye.fr.zoreil.com>
+References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty> <20061110205327.19468.qmail@farnsworth.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:5647 "HELO farnsworth.org")
-	by vger.kernel.org with SMTP id S1424420AbWKJUxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 15:53:31 -0500
-To: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061110203009.GA9851@electric-eye.fr.zoreil.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56238 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1161909AbWKJVEm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 16:04:42 -0500
+To: Dale Farnsworth <dale@farnsworth.org>
+Content-Disposition: inline
+In-Reply-To: <20061110205327.19468.qmail@farnsworth.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20061110203009.GA9851@electric-eye.fr.zoreil.com> you write:
-Ueimor <romieu@fr.zoreil.com> wrote:
-> Stephen Hemminger <shemminger@osdl.org> :
-> [...]
-> > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> [...]
-> 
-> It seems to propagate a leak from the initial codebase.
+Dale Farnsworth <dale@farnsworth.org> :
+[...]
+> Can you provide more detail about the leak?
 
-Can you provide more detail about the leak?
++       if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
++               stats->tx_dropped++;
++               if (net_ratelimit())
++                       printk(KERN_DEBUG "%s: failed to linearize tiny "
++                              "unaligned fragment\n", dev->name);
++               return NETDEV_TX_OK;
 
--Dale
+Missing kfree_skb(skb) before returning NETDEV_TX_OK ?
+
+-- 
+Ueimor
