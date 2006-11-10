@@ -1,29 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] tcp: add tcp_available_congestion_control sysctl
-Date: Thu, 09 Nov 2006 16:32:19 -0800 (PST)
-Message-ID: <20061109.163219.101116872.davem@davemloft.net>
-References: <20061031230140.191929094@osdl.org>
-	<20061031230213.704489579@osdl.org>
+From: Michael Stone <mstone@mathom.us>
+Subject: Re: [PATCH 4/4] skge: version 1.9
+Date: Thu, 09 Nov 2006 19:34:50 -0500
+Message-ID: <20061110003448.GE2667@mathom.us>
+References: <20061005224949.456192755@osdl.org>
+ <20061005225209.769741968@osdl.org> <20061107132506.GS2667@mathom.us>
+ <200611072028.kA7KSQZt032181@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5764
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1424309AbWKJAca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 19:32:30 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061031230213.704489579@osdl.org>
+Received: from vms046pub.verizon.net ([206.46.252.46]:56992 "EHLO
+	vms046pub.verizon.net") by vger.kernel.org with ESMTP
+	id S1424314AbWKJAfN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 19:35:13 -0500
+Received: from osgiliath.mathom.us ([71.246.251.8])
+ by vms046.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0J8H009OHOA6GLXA@vms046.mailsrvcs.net> for
+ netdev@vger.kernel.org; Thu, 09 Nov 2006 18:34:54 -0600 (CST)
+In-reply-to: <200611072028.kA7KSQZt032181@death.nxdomain.ibm.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 31 Oct 2006 15:01:42 -0800
+On Tue, Nov 07, 2006 at 12:28:26PM -0800, Jay Vosburgh wrote:
+>	Can you provide some bonding configuration details?  Which mode,
+>options, etc, as well as the relevant bits from dmesg (you can send it
+>to me privately if it's huge)?  
 
-> Create /proc/sys/net/ipv4/tcp_available_congestion_control
-> that reflects currently available TCP choices.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+I think I sent another message that I'm just doing 
+ifenslave bond0 eth2
+ifenslave bond0 eth3
+with no particular options set. The application is a network sniffer, 
+and the cards are forced to 1000Mbps/full duplex because the other end 
+doesn't negotiate. What's the relevant part of dmesg?
 
-Applied, thanks Stephen.
+Mike Stone
