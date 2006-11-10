@@ -1,45 +1,63 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Fri, 10 Nov 2006 11:20:10 -0500
-Message-ID: <4554A6BA.6040504@hp.com>
-References: <45541757.90800@hp.com> <45549F8D.7010902@osdl.org>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] IPv6: only modify checksum for UDP
+Date: Fri, 10 Nov 2006 11:24:45 -0500
+Message-ID: <4554A7CD.6040907@hp.com>
+References: <20061108221332.GI29920@ftp.linux.org.uk>	<45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, tgraf@suug.ch, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------060506020208010303020208"
+Cc: viro@ftp.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:28379 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1946753AbWKJQUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 11:20:12 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <45549F8D.7010902@osdl.org>
+Received: from atlrel8.hp.com ([156.153.255.206]:56544 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1946723AbWKJQYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 11:24:48 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061109.151402.15590179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Paul Moore wrote:
-> 
->>A couple of months ago I promised Jamal and Thomas I would post some comments to
->>Jamal's original genetlink how-to.  However, as I started to work on the
->>document the diff from the original started to get a little ridiculous so
->>instead of posting a patch against Jamal's original how-to I'm just posting the
->>revised document in it's entirety.
->>
->>In the document below I tried to summarize all of the things I learned while
->>developing NetLabel.  Some of it came from Jamal's document, some the kernel
->>code, and some from discussions with Thomas.  Hopefully this document will make
->>it much easier for others to use genetlink in the future.
->>
->>If this text below is acceptable to everyone, should this be added to the
->>Documentation directory?
->>  
-> 
-> Mind if we put a wikified version on http://linux-net.osdl.org?
+This is a multi-part message in MIME format.
+--------------060506020208010303020208
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-That sounds fine to me, although can we hold off for a little bit so I can
-collect some more comments?  Is the wiki open to anyone, i.e. can I add the
-document directly, or am I better off just letting you do it?
+Only change upper-layer checksum from 0 to 0xFFFF for UDP (as RFC 768 
+states), not for others as RFC 4443 doesn't require it.
 
--- 
-paul moore
-linux security @ hp
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+
+--------------060506020208010303020208
+Content-Type: text/x-patch;
+ name="cksum.zero.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="cksum.zero.diff"
+
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 81bd45b..dbb9b1f 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -246,8 +246,6 @@ static int icmpv6_push_pending_frames(st
+ 					   len, fl->proto, tmp_csum);
+ 		icmp6h->icmp6_cksum = tmp_csum;
+ 	}
+-	if (icmp6h->icmp6_cksum == 0)
+-		icmp6h->icmp6_cksum = -1;
+ 	ip6_push_pending_frames(sk);
+ out:
+ 	return err;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 6bc6655..baf7b82 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -536,7 +536,7 @@ static int rawv6_push_pending_frames(str
+ 				   &fl->fl6_dst,
+ 				   total_len, fl->proto, tmp_csum);
+ 
+-	if (tmp_csum == 0)
++	if (tmp_csum == 0 && fl->proto == IPPROTO_UDP)
+ 		tmp_csum = -1;
+ 
+ 	csum = tmp_csum;
+
+--------------060506020208010303020208--
