@@ -1,28 +1,32 @@
-From: James Morris <jmorris@namei.org>
+From: Paul Moore <paul.moore@hp.com>
 Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Fri, 10 Nov 2006 01:37:00 -0500 (EST)
-Message-ID: <XMMS.LNX.4.64.0611100136350.7904@d.namei>
-References: <45541757.90800@hp.com>
+Date: Fri, 10 Nov 2006 01:45:51 -0500
+Message-ID: <4554201F.5080105@hp.com>
+References: <45541757.90800@hp.com> <XMMS.LNX.4.64.0611100136350.7904@d.namei>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: hadi@cyberus.ca, tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:40600 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1424375AbWKJGhC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 01:37:02 -0500
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <45541757.90800@hp.com>
+Received: from ccerelrim03.cce.hp.com ([161.114.21.24]:41013 "EHLO
+	ccerelrim03.cce.hp.com") by vger.kernel.org with ESMTP
+	id S1945985AbWKJGp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 01:45:59 -0500
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <XMMS.LNX.4.64.0611100136350.7904@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+James Morris wrote:
+>>An Introduction To Using Generic Netlink
+>>===============================================================================
+> 
+> 
+> Wow, this is great!
 
-> An Introduction To Using Generic Netlink
-> ===============================================================================
-
-Wow, this is great!
-
+Thanks.  I consider it an act of penance for all of the evil things I did
+with Netlink on my first few iterations of NetLabel ;)
 
 -- 
-James Morris
-<jmorris@namei.org>
+paul moore
+linux security @ hp
