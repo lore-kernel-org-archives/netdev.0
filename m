@@ -1,43 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK]: Do precise netlink message allocations where
- possible
-Date: Fri, 10 Nov 2006 14:10:33 -0800 (PST)
-Message-ID: <20061110.141033.55510094.davem@davemloft.net>
-References: <20061110121706.GH8693@postel.suug.ch>
-	<4554A2FE.2020405@hp.com>
+Subject: Re: [IPv6] rules: Remove bogus tos validation check
+Date: Fri, 10 Nov 2006 14:11:14 -0800 (PST)
+Message-ID: <20061110.141114.112624317.davem@davemloft.net>
+References: <20061110122838.GI8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
+Cc: viro@ftp.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18110
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19390
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S966111AbWKJWKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 17:10:32 -0500
-To: paul.moore@hp.com
-In-Reply-To: <4554A2FE.2020405@hp.com>
+	id S966124AbWKJWLN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 17:11:13 -0500
+To: tgraf@suug.ch
+In-Reply-To: <20061110122838.GI8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Fri, 10 Nov 2006 11:04:14 -0500
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 10 Nov 2006 13:28:38 +0100
 
-> Thomas Graf wrote:
-> > Account for the netlink message header size directly in nlmsg_new()
-> > instead of relying on the caller calculate it correctly.
-> > 
-> > Replaces error handling of message construction functions when
-> > constructing notifications with bug traps since a failure implies
-> > a bug in calculating the size of the skb.
-> > 
-> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
- ...
-> I like this approach, it makes much more sense to me then the previous
-> implementation which was a simple "alias" to alloc_skb().  Also, the NetLabel
-> relevant sections look fine to me.
+> Noticed by Al Viro:
+>      (frh->tos & ~IPV6_FLOWINFO_MASK))
+> where IPV6_FLOWINFO_MASK is htonl(0xfffffff) and frh->tos
+> is u8, which makes no sense here...
 > 
-> Acked-by: Paul Moore <paul.moore@hp.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-I like it a lot too.
-
-Applied, thanks Thomas.
+Applied, thanks a lot.
