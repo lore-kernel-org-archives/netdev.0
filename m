@@ -1,65 +1,86 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Questions regarding network drivers
-Date: Fri, 10 Nov 2006 13:00:06 +0300
-Message-ID: <20061110100004.GA18739@2ka.mipt.ru>
-References: <771883.63085.qm@web31512.mail.mud.yahoo.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: hostap_cs_{resume,suspend}(): inconsequent NULL checking
+Date: Fri, 10 Nov 2006 11:22:13 +0100
+Message-ID: <20061110102213.GY4729@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:31456 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932827AbWKJKAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 05:00:40 -0500
-To: Jonathan Day <imipak@yahoo.com>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:43524 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1946306AbWKJKWL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 05:22:11 -0500
+To: linville@tuxdriver.com
 Content-Disposition: inline
-In-Reply-To: <771883.63085.qm@web31512.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 09, 2006 at 07:06:00PM -0800, Jonathan Day (imipak@yahoo.com) wrote:
-> Hi,
-> 
-> I've got an interesting problem to contend with and
-> need some advice from the great wise ones here.
-> 
-> First of all, is it possible (and/or "reasonable
-> practice") when developing a network driver to do
-> zero-copy transfers between main memory and the
-> network device?
+The Coverity checker spotted the following in 
+drivers/net/wireless/hostap/hostap_cs.c:
 
-What do you mean?
-DMA from NIC memory into CPU memory?
+<--  snip  -->
 
-> Secondly, the network device is only designed to work
-> with short packets and I really want to keep the
-> throughput up. My thought was that if I fired off an
-> interrupt then transfer a page of data into an area I
-> know is safe, the kernel will have enough time to find
-> a new safe area and post the address before the next
-> page is ready to send.
-> 
-> Can anyone suggest why this wouldn't work or, assuming
-> it can work, why this would be a Bad Idea?
+...
+static int hostap_cs_suspend(struct pcmcia_device *link)
+{
+        struct net_device *dev = (struct net_device *) link->priv;
+        int dev_open = 0;
+        struct hostap_interface *iface = NULL;
 
-There should not be any kind of 'kernel will have enough time to do
-something', instead you must guarantee that there will not be any kind
-of races. You can either prealocate several buffers or allocate them on
-demand in interrupts.
+        if (dev)
+                iface = netdev_priv(dev);
 
-> Lastly, assuming my sanity lasts that long, would I be
-> correct in assuming that the first step in the process
-> of getting the driver peer-reviewed and accepted would
-> be to post the patches here?
+        PDEBUG(DEBUG_EXTRA, "%s: CS_EVENT_PM_SUSPEND\n", dev_info);
+        if (iface && iface->local)
+                dev_open = iface->local->num_dev_open > 0;
+        if (dev_open) {
+                netif_stop_queue(dev);
+                netif_device_detach(dev);
+        }
+        prism2_suspend(dev);
 
-Actually not, the first step in that process is learning jig dance and
-of course providing enough beer and other goodies to network maintainers.
+        return 0;
+}
 
-> Thanks for any help,
+static int hostap_cs_resume(struct pcmcia_device *link)
+{
+        struct net_device *dev = (struct net_device *) link->priv;
+        int dev_open = 0;
+        struct hostap_interface *iface = NULL;
 
-No problem, but to answer at least on of your question more
-information should be provided.
+        if (dev)
+                iface = netdev_priv(dev);
 
-> Jonathan Day
+        PDEBUG(DEBUG_EXTRA, "%s: CS_EVENT_PM_RESUME\n", dev_info);
+
+        if (iface && iface->local)
+                dev_open = iface->local->num_dev_open > 0;
+
+        prism2_hw_shutdown(dev, 1);
+        prism2_hw_config(dev, dev_open ? 0 : 1);
+        if (dev_open) {
+                netif_device_attach(dev);
+                netif_start_queue(dev);
+        }
+
+        return 0;
+}
+...
+
+<--  snip  -->
+
+The problem is that if the "if (dev)" is false, there's a guaranteed 
+NULL dereference later in the "prism2_suspend(dev)" resp.
+"prism2_hw_config(dev, dev_open ? 0 : 1)".
+
+cu
+Adrian
 
 -- 
-	Evgeniy Polyakov
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
