@@ -1,45 +1,56 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: bcm43xx-d80211 broadcast reception with WPA
-Date: Fri, 10 Nov 2006 21:12:32 +0100
-Message-ID: <200611102112.33050.mb@bu3sch.de>
-References: <ej09qf$2nv$1@sea.gmane.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT] mv643xxx_eth_start_xmit oops
+Date: Fri, 10 Nov 2006 21:30:09 +0100
+Message-ID: <20061110203009.GA9851@electric-eye.fr.zoreil.com>
+References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27541
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1753611AbWKJUOE
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50083 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1424405AbWKJUcg
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 15:14:04 -0500
-To: Paul Hampson <Paul.Hampson@pobox.com>
-In-Reply-To: <ej09qf$2nv$1@sea.gmane.org>
+	Fri, 10 Nov 2006 15:32:36 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20061110115444.07f58e40@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 09 November 2006 23:23, Paul Hampson wrote:
-> Hi,
-> 
-> Long time lurker, first time poster. ^_^
-> 
-> I've been backporting the bcm43xx-d80211 driver to whatever the released
-> 2.6 kernel was using the rt2x00 project's d80211 stack (equivalent to
-> current wireless-dev but with a workaround for not having a ieee80211_dev
-> pointer and still using the _tfm interface instead of the _cypher interface.)
-> 
-> As of last night's wireless-dev tree bcm43xx, everything seems to be
-> operating fine except incoming broadcast traffic is coming in 14 bytes too
-> long and scrambled. I presume this means it's not decrypting properly...
+Stephen Hemminger <shemminger@osdl.org> :
+[...]
+> diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+> index 9997081..4052bfe 100644
+> --- a/drivers/net/mv643xx_eth.c
+> +++ b/drivers/net/mv643xx_eth.c
+> @@ -1191,25 +1191,23 @@ static int mv643xx_eth_start_xmit(struct
+>  	struct net_device_stats *stats = &mp->stats;
+>  	unsigned long flags;
+>  
+> -	BUG_ON(netif_queue_stopped(dev));
+> -	BUG_ON(skb == NULL);
+> -
+> -	if (mp->tx_ring_size - mp->tx_desc_count < MAX_DESCS_PER_SKB) {
+> -		printk(KERN_ERR "%s: transmit with queue full\n", dev->name);
+> -		netif_stop_queue(dev);
+> -		return 1;
+> -	}
+> -
+> -	if (has_tiny_unaligned_frags(skb)) {
+> -		if (__skb_linearize(skb)) {
+> -			stats->tx_dropped++;
+> +	if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
+> +		stats->tx_dropped++;
+> +		if (net_ratelimit())
+>  			printk(KERN_DEBUG "%s: failed to linearize tiny "
+> -					"unaligned fragment\n", dev->name);
+> -			return 1;
+> -		}
+> +			       "unaligned fragment\n", dev->name);
+> +		return NETDEV_TX_OK;
+>  	}
 
-It sounds like a bug in the hardware decryption setup.
-Are you using TKIP or not?
-
-Incoming mcast frames are handled in a special way in hardware.
-The keyidx field of the packet is used to lookup the key, as
-far as I know. (Otherwise the MAC address is used).
-Can I see a full dmesg log and a capture log on the broken machine, please?
+It seems to propagate a leak from the initial codebase.
 
 -- 
-Greetings Michael.
+Ueimor
