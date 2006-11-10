@@ -1,54 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFT] mv643xxx_eth_start_xmit oops
-Date: Fri, 10 Nov 2006 13:35:55 -0800
-Message-ID: <20061110133555.7400e555@freekitty>
-References: <20061110191745.GA13783@codepoet.org>
-	<20061110115444.07f58e40@freekitty>
-	<20061110205327.19468.qmail@farnsworth.org>
-	<20061110210343.GA9453@electric-eye.fr.zoreil.com>
-	<20061110130715.5e99ce9f@freekitty>
-	<20061110213043.GB9453@electric-eye.fr.zoreil.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] IPv6: optimize echo reply checksum calculation
+Date: Fri, 10 Nov 2006 16:06:52 -0500
+Message-ID: <4554E9EC.1070803@hp.com>
+References: <20061108221332.GI29920@ftp.linux.org.uk> <45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net> <4554A811.5060402@hp.com> <20061110173422.GM29920@ftp.linux.org.uk> <4554BC17.8020809@hp.com> <20061110180534.GN29920@ftp.linux.org.uk> <20061110182031.GO29920@ftp.linux.org.uk> <4554CD40.3030801@hp.com> <20061110191715.GP29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27373 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S966111AbWKJVgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 16:36:00 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061110213043.GB9453@electric-eye.fr.zoreil.com>
+Received: from atlrel7.hp.com ([156.153.255.213]:23529 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S966118AbWKJVmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 16:42:52 -0500
+To: Al Viro <viro@ftp.linux.org.uk>
+In-Reply-To: <20061110191715.GP29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Nov 2006 22:30:43 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
-
-> Stephen Hemminger <shemminger@osdl.org> :
-> [...]
-> > skb_linearize is documented to free skb on failure.
+Al Viro wrote:
+> On Fri, Nov 10, 2006 at 02:04:32PM -0500, Brian Haley wrote:
+>> Al Viro wrote:
+>>> so -= 1 is broken even on ia64 and it's *always* broken on big-endian
+>>> boxen.
+>> It's not broken in ia64, I've tested that, just don't have an x86 for 
+>> testing right now.  Can you please apply these changes and prove it's 
+>> broken?  This little trick has been done in other UNIXes for years 
+>> without any problems.
 > 
-> __skb_linearize
-> -> __pskb_pull_tail
->    -> pskb_expand_head
->       [...]
->         data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
->         if (!data)
->                 goto nodata;
->       [...]
-> nodata:
->         return -ENOMEM;
-> 
-> I don't see where the skb is freed on this path.
-> 
-> Btw, the same __skb_linearize() is followed by a kfree_skb() in
-> drivers/net/via-velocity.c since 364c6badde0dd62a0a38e5ed67f85d87d6665780
-> 
-> I may be wrong but the source code does not seem completely right either.
+> Could you fscking read what you've replied to?  Your -=1 will turn 0
+> into 0xffff instead of correct 0xfffe.  IOW, it's broken in 1:65536
+> cases.
 
+I looked again at your previous email:
 
-Your correct, it does leave the skb alone. so it would be a leak.
-Better documentation in skb_linearize would help.
+> Note that even on little-endian you want
+> 	3 -> 2
+> 	2 -> 1
+> 	1 -> 0xffff
+> 	0 -> 0xfffe
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+That doesn't look right to me, but I'll take your word that there's one 
+edge case out there I don't see (even though this worked on Alpha). 
+Forget about the patch then.
+
+-Brian
