@@ -1,48 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] spidernet: fix transmit routine.
-Date: Fri, 10 Nov 2006 11:30:50 -0800
-Message-ID: <20061110113050.5689c226@freekitty>
-References: <20061110105038.200a74d0@freekitty>
-	<OFF9C5DB9C.8DD003F3-ON87257222.0068A615-86257222.006950CA@us.ibm.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
+Date: Fri, 10 Nov 2006 14:50:05 -0500
+Message-ID: <4554D7ED.4030802@hp.com>
+References: <45541757.90800@hp.com> <20061110102318.7b344d30.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	jim@jklewis.com, netdev <netdev@vger.kernel.org>
+Cc: hadi@cyberus.ca, tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:23749 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1946730AbWKJTbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 14:31:19 -0500
-To: James K Lewis <jklewis@us.ibm.com>
-In-Reply-To: <OFF9C5DB9C.8DD003F3-ON87257222.0068A615-86257222.006950CA@us.ibm.com>
+Received: from atlrel6.hp.com ([156.153.255.205]:25252 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1946783AbWKJTuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 14:50:07 -0500
+To: Randy Dunlap <randy.dunlap@oracle.com>
+In-Reply-To: <20061110102318.7b344d30.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Nov 2006 13:10:25 -0600
-James K Lewis <jklewis@us.ibm.com> wrote:
-
-> Stephen,
+Randy Dunlap wrote:
+> On Fri, 10 Nov 2006 01:08:23 -0500 Paul Moore wrote:
 > 
->   I had already tried that previously, the fail still occurred. Note that 
-> the skb_pad (or skb_padto) never actually fails. There is just something 
-> about calling it that causes the hang. Note too that I believe your patch 
-> is incorrect, you would still have to pci_unmap_single the correct length 
-> (skb_pad does not actually change skb->len which just seems plain wrong to 
-> me).
-
-Yeah, that was a bad choice not to set skb->len to start with. Too late
-now given how it might affect other drivers.
-
->   I checked, and none of our "mainstream" PPC ethernet drivers (e100, 
-> e1000, pcnet32, tg3) have this check in them. When I have time I may add 
-> the pad to pcnet32 (for example) to see if it fails.
-
-The hardware for all these drivers does padding.
-
-
-> Jim Lewis
-> Advisory Software Engineer
-> IBM Linux Technology Center
-> 512-838-7754
+>>An Introduction To Using Generic Netlink
+>>===============================================================================
+>>3.1.2. The genl_family Structure
+>>
+>>Generic Netlink services are defined by the genl_family structure, which is
+>>shown below:
+>>
+>>  struct genl_family
+>>  {
+>>        unsigned int            id;
+>>        unsigned int            hdrsize;
+>>        char                    name[GENL_NAMSIZ];
+>>        unsigned int            version;
+>>        unsigned int            maxattr;
+>>        struct nlattr **        attrbuf;
+>>        struct list_head        ops_list;
+>>        struct list_head        family_list;
+>>  };
 > 
+> Any alignment/packing concerns here?  or that is already
+> handled, just not presented here?
 > 
+> and same questions for other structs below (deleted).
+
+These structure contents/layout were taken straight from the code.
+
+> Typo patch attached.
+
+Applied, thanks.
+
+-- 
+paul moore
+linux security @ hp
