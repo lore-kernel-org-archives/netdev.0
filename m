@@ -1,38 +1,35 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Fri, 10 Nov 2006 11:08:59 -0500
-Message-ID: <4554A41B.50900@hp.com>
-References: <45541757.90800@hp.com> <20061110094828.GF8693@postel.suug.ch>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 2/9] com20020 build fix
+Date: Fri, 10 Nov 2006 11:09:44 -0500
+Message-ID: <4554A448.2070208@garzik.org>
+References: <200611090351.kA93p3Vw003681@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	randy.dunlap@oracle.com, toralf.foerster@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:10155 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1753611AbWKJQJA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 11:09:00 -0500
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20061110094828.GF8693@postel.suug.ch>
+Received: from srv5.dvmed.net ([207.36.208.214]:12932 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1946306AbWKJQJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 11:09:49 -0500
+To: akpm@osdl.org
+In-Reply-To: <200611090351.kA93p3Vw003681@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Paul Moore <paul.moore@hp.com> 2006-11-10 01:08
+akpm@osdl.org wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> Excellent!
-
-Thanks.
-
->>   - u32 snd_pid
->>
->>     This is the PID of the client which issued the request.
+> com20020.c needs to export functions if either of the ISA or PCI modules
+> are built as loadable modules.  Or they could always be exported.
 > 
-> In order to avoid confusion it might be better to call it
-> "netlink PID" as it is not equal to the process ID.
+> WARNING: "com20020_found" [drivers/net/arcnet/com20020-pci.ko] undefined!
+> WARNING: "com20020_check" [drivers/net/arcnet/com20020-pci.ko] undefined!
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Cc: Toralf Forster <toralf.foerster@gmx.de>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-Good point, I just made the change.  I'll push out another rev of the document
-once the rest of the group has had a chance to review the doc.
+applied; please CC me on this drivers/net stuff
 
--- 
-paul moore
-linux security @ hp
+
