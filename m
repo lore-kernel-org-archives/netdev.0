@@ -1,37 +1,65 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] IPv6: only modify checksum for UDP
-Date: Fri, 10 Nov 2006 09:54:58 -0800
-Message-ID: <OFF1265537.E903A772-ON88257222.006212AE-88257222.00626AB7@us.ibm.com>
-References: <4554A7CD.6040907@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Questions regarding network drivers
+Date: Fri, 10 Nov 2006 09:55:21 -0800
+Message-ID: <20061110095521.058b2014@freekitty>
+References: <20061110100004.GA18739@2ka.mipt.ru>
+	<661353.35559.qm@web31513.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:989 "EHLO e31.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1161909AbWKJRzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 12:55:07 -0500
-In-Reply-To: <4554A7CD.6040907@hp.com>
-To: Brian Haley <brian.haley@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:24230 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161911AbWKJRzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 12:55:32 -0500
+To: Jonathan Day <imipak@yahoo.com>
+In-Reply-To: <661353.35559.qm@web31513.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, I saw this discussion a little late...
+On Fri, 10 Nov 2006 09:34:33 -0800 (PST)
+Jonathan Day <imipak@yahoo.com> wrote:
 
-The Internet checksum is defined as a 1's-complement sum, so if  the
-alternate 0 does not have a special meaning in a protocol, then by
-1's-complement arithmetic, 0 == ~0.
-        So, it looks to me without the remapping that a valid checksum
-may also fail, if it is simply computed in a different way (or on a 
-different
-architecture) such that one gets 0 and one gets ~0 as un-modified answers.
-        Since we're checking for equality on 2's-complement machines,
-I think the easiest thing is to still re-map it. Otherwise, instead of 
-testing
-for 0, we have to test for both 0 and ~0 in the validity checks, right?
+> 
+> --- Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> 
+> > On Thu, Nov 09, 2006 at 07:06:00PM -0800, Jonathan
+> > Day (imipak@yahoo.com) wrote:
+> > > Hi,
+> > > 
+> > > I've got an interesting problem to contend with
+> > and
+> > > need some advice from the great wise ones here.
+> > > 
+> > > First of all, is it possible (and/or "reasonable
+> > > practice") when developing a network driver to do
+> > > zero-copy transfers between main memory and the
+> > > network device?
+> > 
+> > What do you mean?
+> > DMA from NIC memory into CPU memory?
+> 
+> Yes. I want to bypass the kernel altogether and think
+> there may be a way to do this, but want to make very
+> certain that I'm not going down the wrong track.
+> 
 
-        Disclaimer: I've just glanced through the discussion, so maybe
-I've misunderstood the point or effect of the patch...
+This is not normally possible because network data could be intended
+for multiple sockets. It is not possible to know where to DMA the
+data to until you have done all the necessary protocol demultiplexing
+and filtering. There has been talk of having really smart hardware
+to help.
 
-                                                +-DLS
+> The underlying problem is this. The group I'm working
+> with is messing about with building their own
+> networking device that will run at an equal speed to
+> the bus leading to the host (2.5 gigabits/second). The
+> device has its own DMA controller and can operate as
+> bus master.
+> 
+> It's my task to figure out how to get the data into
+> the host at near-100% bandwidth without dropping
+> anything, with minimal latency and real-time
+> characteristics.
 
+You might want to look at RDMA Infiniband model.
