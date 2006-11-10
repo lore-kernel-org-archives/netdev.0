@@ -1,56 +1,29 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT] mv643xxx_eth_start_xmit oops
-Date: Fri, 10 Nov 2006 21:30:09 +0100
-Message-ID: <20061110203009.GA9851@electric-eye.fr.zoreil.com>
-References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [patch sungem] improved locking
+Date: Sat, 11 Nov 2006 07:37:43 +1100
+Message-ID: <1163191063.4982.163.camel@localhost.localdomain>
+References: <5cac192f0611091333w5740810bhe1966d6391c6d46a@mail.gmail.com>
+	 <20061109.150436.94557169.davem@davemloft.net>
+	 <5cac192f0611100528r4a53498emc8d866955cc36c8d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50083 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1424405AbWKJUcg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 15:32:36 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061110115444.07f58e40@freekitty>
+Received: from gate.crashing.org ([63.228.1.57]:3271 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S966112AbWKJUhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 15:37:51 -0500
+To: Eric Lemoine <eric.lemoine@gmail.com>
+In-Reply-To: <5cac192f0611100528r4a53498emc8d866955cc36c8d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> :
-[...]
-> diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> index 9997081..4052bfe 100644
-> --- a/drivers/net/mv643xx_eth.c
-> +++ b/drivers/net/mv643xx_eth.c
-> @@ -1191,25 +1191,23 @@ static int mv643xx_eth_start_xmit(struct
->  	struct net_device_stats *stats = &mp->stats;
->  	unsigned long flags;
->  
-> -	BUG_ON(netif_queue_stopped(dev));
-> -	BUG_ON(skb == NULL);
-> -
-> -	if (mp->tx_ring_size - mp->tx_desc_count < MAX_DESCS_PER_SKB) {
-> -		printk(KERN_ERR "%s: transmit with queue full\n", dev->name);
-> -		netif_stop_queue(dev);
-> -		return 1;
-> -	}
-> -
-> -	if (has_tiny_unaligned_frags(skb)) {
-> -		if (__skb_linearize(skb)) {
-> -			stats->tx_dropped++;
-> +	if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
-> +		stats->tx_dropped++;
-> +		if (net_ratelimit())
->  			printk(KERN_DEBUG "%s: failed to linearize tiny "
-> -					"unaligned fragment\n", dev->name);
-> -			return 1;
-> -		}
-> +			       "unaligned fragment\n", dev->name);
-> +		return NETDEV_TX_OK;
->  	}
 
-It seems to propagate a leak from the initial codebase.
+> Yes, the bit 4 isn't used, but I assumed clearing it shouldn't be prolem.
 
--- 
-Ueimor
+Always leave reserved bits alone ... I agree it's very unlikely in this
+case that it could cause a problem but I've seen stranger things....
+
+Ben.
+
+
