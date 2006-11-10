@@ -1,103 +1,31 @@
-From: Jim Lewis <jim@jklewis.com>
-Subject: [PATCH] Spidernet - remove ETH_ZLEN check in earlier patch
-Date: Fri, 10 Nov 2006 11:50:46 -0600
-Message-ID: <1163181046.4422.11.camel@localhost.localdomain>
-Reply-To: jim@jklewis.com
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] IPv6: optimize echo reply checksum calculation
+Date: Fri, 10 Nov 2006 12:51:19 -0500
+Message-ID: <4554BC17.8020809@hp.com>
+References: <20061108221332.GI29920@ftp.linux.org.uk> <45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net> <4554A811.5060402@hp.com> <20061110173422.GM29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Work <jklewis@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from centrmmtao01.cox.net ([70.168.83.83]:28669 "EHLO
-	centrmmtao01.cox.net") by vger.kernel.org with ESMTP
-	id S1161905AbWKJRut (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 12:50:49 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from atlrel8.hp.com ([156.153.255.206]:33974 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1161906AbWKJRvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 12:51:21 -0500
+To: Al Viro <viro@ftp.linux.org.uk>
+In-Reply-To: <20061110173422.GM29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Subject: Spidernet - remove ETH_ZLEN check in earlier patch
-From: James K Lewis <jklewis@us.ibm.com>
+Al Viro wrote:
+> On Fri, Nov 10, 2006 at 11:25:53AM -0500, Brian Haley wrote:
+>> Since the only difference between echo requests and echo replies is the 
+>> ICMPv6 type value (which is a difference of 1), just subtracting one 
+>> from the request checksum will result in the correct checksum for the reply.
+> 
+> Um, no.  That will *not* result in correct checksum.  Please, RTFRFC 1071.
 
-In an earlier patch, code was added to pad packets that were less that
-ETH_ZLEN (60) bytes using the skb_pad function. This has caused hangs
-when accessing certain NFS mounted file systems. This patch removes the
-check and solves the NFS problem. The driver, with this patch, has been
-tested extensively. Please apply.
+I verified this works for echo request/reply on my IA64 box, 
+double-checked with ethereal/wireshark.  Is there something specific in 
+RFC 1071 that I should be looking for?
 
-
-Signed-off-by: James K Lewis <jklewis@us.ibm.com>
-
-
----
- drivers/net/spider_net.c |   17 ++++-------------
- drivers/net/spider_net.h |    2 +-
- 2 files changed, 5 insertions(+), 14 deletions(-)
-
-Index: linux-2.6.18/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.18.orig/drivers/net/spider_net.c	2006-11-04
-13:04:32.000000000 -0600
-+++ linux-2.6.18/drivers/net/spider_net.c	2006-11-04 13:10:00.000000000
--0600
-@@ -610,20 +610,12 @@ spider_net_prepare_tx_descr(struct spide
- 	struct spider_net_descr *descr;
- 	dma_addr_t buf;
- 	unsigned long flags;
--	int length;
- 
--	length = skb->len;
--	if (length < ETH_ZLEN) {
--		if (skb_pad(skb, ETH_ZLEN-length))
--			return 0;
--		length = ETH_ZLEN;
--	}
--
--	buf = pci_map_single(card->pdev, skb->data, length, PCI_DMA_TODEVICE);
-+	buf = pci_map_single(card->pdev, skb->data, skb->len,
-PCI_DMA_TODEVICE);
- 	if (pci_dma_mapping_error(buf)) {
- 		if (netif_msg_tx_err(card) && net_ratelimit())
- 			pr_err("could not iommu-map packet (%p, %i). "
--				  "Dropping packet\n", skb->data, length);
-+				  "Dropping packet\n", skb->data, skb->len);
- 		card->spider_stats.tx_iommu_map_error++;
- 		return -ENOMEM;
- 	}
-@@ -633,7 +625,7 @@ spider_net_prepare_tx_descr(struct spide
- 	card->tx_chain.head = descr->next;
- 
- 	descr->buf_addr = buf;
--	descr->buf_size = length;
-+	descr->buf_size = skb->len;
- 	descr->next_descr_addr = 0;
- 	descr->skb = skb;
- 	descr->data_status = 0;
-@@ -768,8 +760,7 @@ spider_net_release_tx_chain(struct spide
- 
- 		/* unmap the skb */
- 		if (skb) {
--			int len = skb->len < ETH_ZLEN ? ETH_ZLEN : skb->len;
--			pci_unmap_single(card->pdev, buf_addr, len, PCI_DMA_TODEVICE);
-+			pci_unmap_single(card->pdev, buf_addr, skb->len, PCI_DMA_TODEVICE);
- 			dev_kfree_skb(skb);
- 		}
- 	}
-Index: linux-2.6.18/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.18.orig/drivers/net/spider_net.h	2006-11-04
-13:03:58.000000000 -0600
-+++ linux-2.6.18/drivers/net/spider_net.h	2006-11-04 13:06:11.000000000
--0600
-@@ -24,7 +24,7 @@
- #ifndef _SPIDER_NET_H
- #define _SPIDER_NET_H
- 
--#define VERSION "1.1 A"
-+#define VERSION "1.5 A"
- 
- #include "sungem_phy.h"
- 
-
-
+-Brian
