@@ -1,78 +1,25 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Fri, 10 Nov 2006 08:59:36 -0800
-Message-ID: <20061110085936.36b9e82f.randy.dunlap@oracle.com>
-References: <45541757.90800@hp.com>
-	<XMMS.LNX.4.64.0611100136350.7904@d.namei>
-	<4554201F.5080105@hp.com>
-	<1163169264.5218.7.camel@jzny2>
-	<4554A607.3000800@hp.com>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: Re: [PATCH] IPv6: optimize echo reply checksum calculation
+Date: Fri, 10 Nov 2006 17:34:22 +0000
+Message-ID: <20061110173422.GM29920@ftp.linux.org.uk>
+References: <20061108221332.GI29920@ftp.linux.org.uk> <45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net> <4554A811.5060402@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, "Randy.Dunlap" <rdunlap@xenotime.net>,
-	Balbir Singh <balbir@in.ibm.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	James Morris <jmorris@namei.org>, tgraf@suug.ch,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:51018 "EHLO
-	rgminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1946782AbWKJRBu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 12:01:50 -0500
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <4554A607.3000800@hp.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:27275 "EHLO
+	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1161887AbWKJRe1
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 12:34:27 -0500
+To: Brian Haley <brian.haley@hp.com>
+Content-Disposition: inline
+In-Reply-To: <4554A811.5060402@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Nov 2006 11:17:11 -0500 Paul Moore wrote:
+On Fri, Nov 10, 2006 at 11:25:53AM -0500, Brian Haley wrote:
+> Since the only difference between echo requests and echo replies is the 
+> ICMPv6 type value (which is a difference of 1), just subtracting one 
+> from the request checksum will result in the correct checksum for the reply.
 
-> jamal wrote:
-> > On Fri, 2006-10-11 at 01:45 -0500, Paul Moore wrote:
-> > 
-> >>James Morris wrote:
-> >>
-> >>>>An Introduction To Using Generic Netlink
-> >>>>===============================================================================
-> >>>
-> >>>
-> >>>Wow, this is great!
-> >>
-> >>Thanks.  I consider it an act of penance for all of the evil things I did
-> >>with Netlink on my first few iterations of NetLabel ;)
-> > 
-> > 
-> > Hey, theres more than one way to pay for your sins ;->
-> > For example: Do you wanna take over maintainance of the doc? ;->
-> 
-> There is a sucker born every minute. right? :)
-> 
-> I'll make you a deal: I'll take over maintainance of the document as long as you
-> promise to send me your feedback by Monday.
-
-Jamal,
-Were my patches ever merged into your document?
-
-
-> > i.e it would make a lot of sense to finally submit it for inclusion.
-> > Thanks for the effort.
-> 
-> I think so too, I'm glad I was able to help out.
-> 
-> > I havent read it - dont have the time till this weekend. I would like
-> > to have input as well from the other folks who have opined in the past
-> > (on CC list - they seemed to have strong opinions of what should be in
-> > the doc).
-> > 
-> > This is also timely because this weekend i was going to work on a
-> > presentation on this stuff for a conference ;-> So i will actually
-> > have to read what you put together. I will have more comments later when
-> > i am done reading.
-> 
-> Okay, I've already made some changes based on other comments in this thread but
-> I'll refrain from pushing out an updated version until early next week.  I'll
-> also make the next version of the document a patch against net-2.6.20.
-
-
----
-~Randy
+Um, no.  That will *not* result in correct checksum.  Please, RTFRFC 1071.
