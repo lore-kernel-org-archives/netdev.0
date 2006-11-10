@@ -1,45 +1,49 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] IPv6: optimize echo reply checksum calculation
-Date: Fri, 10 Nov 2006 16:06:52 -0500
-Message-ID: <4554E9EC.1070803@hp.com>
-References: <20061108221332.GI29920@ftp.linux.org.uk> <45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net> <4554A811.5060402@hp.com> <20061110173422.GM29920@ftp.linux.org.uk> <4554BC17.8020809@hp.com> <20061110180534.GN29920@ftp.linux.org.uk> <20061110182031.GO29920@ftp.linux.org.uk> <4554CD40.3030801@hp.com> <20061110191715.GP29920@ftp.linux.org.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [NET] Update documentation of skb_linearize
+Date: Fri, 10 Nov 2006 23:03:55 +0100
+Message-ID: <20061110220355.GC9453@electric-eye.fr.zoreil.com>
+References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty> <20061110205327.19468.qmail@farnsworth.org> <20061110210343.GA9453@electric-eye.fr.zoreil.com> <20061110130715.5e99ce9f@freekitty> <20061110213043.GB9453@electric-eye.fr.zoreil.com> <20061110133555.7400e555@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:23529 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S966118AbWKJVmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 16:42:52 -0500
-To: Al Viro <viro@ftp.linux.org.uk>
-In-Reply-To: <20061110191715.GP29920@ftp.linux.org.uk>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:24789 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S966122AbWKJWEm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 17:04:42 -0500
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061110133555.7400e555@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Al Viro wrote:
-> On Fri, Nov 10, 2006 at 02:04:32PM -0500, Brian Haley wrote:
->> Al Viro wrote:
->>> so -= 1 is broken even on ia64 and it's *always* broken on big-endian
->>> boxen.
->> It's not broken in ia64, I've tested that, just don't have an x86 for 
->> testing right now.  Can you please apply these changes and prove it's 
->> broken?  This little trick has been done in other UNIXes for years 
->> without any problems.
-> 
-> Could you fscking read what you've replied to?  Your -=1 will turn 0
-> into 0xffff instead of correct 0xfffe.  IOW, it's broken in 1:65536
-> cases.
+The data is not released.
 
-I looked again at your previous email:
+drivers/net/mv643xx_eth.c apart, each current caller issues
+kfree_skb() when required.
 
-> Note that even on little-endian you want
-> 	3 -> 2
-> 	2 -> 1
-> 	1 -> 0xffff
-> 	0 -> 0xfffe
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-That doesn't look right to me, but I'll take your word that there's one 
-edge case out there I don't see (even though this worked on Alpha). 
-Forget about the patch then.
-
--Brian
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 85577a4..380e344 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1235,7 +1235,7 @@ static inline int __skb_linearize(struct
+  *	@skb: buffer to linarize
+  *
+  *	If there is no free memory -ENOMEM is returned, otherwise zero
+- *	is returned and the old skb data released.
++ *	is returned.
+  */
+ static inline int skb_linearize(struct sk_buff *skb)
+ {
+@@ -1247,7 +1247,7 @@ static inline int skb_linearize(struct s
+  *	@skb: buffer to process
+  *
+  *	If there is no free memory -ENOMEM is returned, otherwise zero
+- *	is returned and the old skb data released.
++ *	is returned.
+  */
+ static inline int skb_linearize_cow(struct sk_buff *skb)
+ {
