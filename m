@@ -1,45 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
-Date: Fri, 10 Nov 2006 00:46:04 +0100
-Message-ID: <20061109234604.GA17969@electric-eye.fr.zoreil.com>
-References: <010C7BAE6783F34D9AC336EE5A01A08802BB30D7@dbde01.ent.ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/9] bonding: lockdep annotation
+Date: Thu, 09 Nov 2006 16:05:10 -0800 (PST)
+Message-ID: <20061109.160510.109055404.davem@davemloft.net>
+References: <200611090351.kA93p1Kx003677@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, a.p.zijlstra@chello.nl, mingo@elte.hu,
+	shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:61125 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1424286AbWKIXt3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 18:49:29 -0500
-To: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
-Content-Disposition: inline
-In-Reply-To: <010C7BAE6783F34D9AC336EE5A01A08802BB30D7@dbde01.ent.ti.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3979
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1424259AbWKJAFC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 19:05:02 -0500
+To: akpm@osdl.org
+In-Reply-To: <200611090351.kA93p1Kx003677@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Basheer, Mansoor Ahamed <mansoor.ahamed@ti.com> :
-[...]
-> My understanding here is, on receive interrupt the ISR should disable
-> the receive interrupt irrespective of the polling task's state (active
-> or inactive).
+From: akpm@osdl.org
+Date: Wed, 08 Nov 2006 19:51:01 -0800
 
-Apparently it could happen even with 2.6.19-rc5, yes.
-
-> I changed the code (as shown below) and it works perfectly. 
-
-Afaics your change may disable the Rx irq right after the poll
-routine enabled it again. It will not always work either.
-
-The (slow) timeout watchdog could grab the poll handler and hack
-the irq mask depending on whether poll was scheduled or not.
-
-> Is this a known issue? If so, is there a fix already available?
+> The bonding driver nests other drivers, give the bonding driver its own
+> lock class.
 > 
-> Also, we get frequent TX timeouts during high rate of traffic. What
-> could be the reason for this frequent TX timeouts?
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Acked-by: Ingo Molnar <mingo@elte.hu>
+> Cc: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-No idea. Have you considered upgrading to a kernel which is not almost
-2 years old ?
-
--- 
-Ueimor
+Applied, thanks Peter.
