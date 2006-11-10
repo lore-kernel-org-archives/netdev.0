@@ -1,49 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [NET] Update documentation of skb_linearize
-Date: Fri, 10 Nov 2006 23:03:55 +0100
-Message-ID: <20061110220355.GC9453@electric-eye.fr.zoreil.com>
-References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty> <20061110205327.19468.qmail@farnsworth.org> <20061110210343.GA9453@electric-eye.fr.zoreil.com> <20061110130715.5e99ce9f@freekitty> <20061110213043.GB9453@electric-eye.fr.zoreil.com> <20061110133555.7400e555@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [TCP]: remove dead code in init_sequence
+Date: Fri, 10 Nov 2006 14:07:02 -0800 (PST)
+Message-ID: <20061110.140702.97293507.davem@davemloft.net>
+References: <200611101204.31644@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:24789 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S966122AbWKJWEm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 17:04:42 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061110133555.7400e555@freekitty>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30657
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S966122AbWKJWHB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 17:07:01 -0500
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200611101204.31644@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The data is not released.
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Fri, 10 Nov 2006 12:04:31 +0000
 
-drivers/net/mv643xx_eth.c apart, each current caller issues
-kfree_skb() when required.
+> This removes two redundancies:
+> 
+> 1) The test (skb->protocol == htons(ETH_P_IPV6) in tcp_v6_init_sequence()
+>    is always true, due to
+> 	* tcp_v6_conn_request() is the only function calling this one
+> 	* tcp_v6_conn_request() redirects all skb's with ETH_P_IP protocol to
+> 	  tcp_v4_conn_request() [ cf. top of tcp_v6_conn_request()]
+> 
+> 2) The first argument, `struct sock *sk' of tcp_v{4,6}_init_sequence() is 
+>    never used.
+> 
+> Patch has been tested.
+> 
+> 
+> Signed-off-by: Gerrit Renker  <gerrit@erg.abdn.ac.uk>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 85577a4..380e344 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1235,7 +1235,7 @@ static inline int __skb_linearize(struct
-  *	@skb: buffer to linarize
-  *
-  *	If there is no free memory -ENOMEM is returned, otherwise zero
-- *	is returned and the old skb data released.
-+ *	is returned.
-  */
- static inline int skb_linearize(struct sk_buff *skb)
- {
-@@ -1247,7 +1247,7 @@ static inline int skb_linearize(struct s
-  *	@skb: buffer to process
-  *
-  *	If there is no free memory -ENOMEM is returned, otherwise zero
-- *	is returned and the old skb data released.
-+ *	is returned.
-  */
- static inline int skb_linearize_cow(struct sk_buff *skb)
- {
+Looks good, patch applied, thanks Gerrit.
