@@ -1,44 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] warning in SCTP
-Date: Thu, 09 Nov 2006 16:30:13 -0800 (PST)
-Message-ID: <20061109.163013.115933634.davem@davemloft.net>
-References: <Pine.SOC.4.61.0611021119560.1919@math.ut.ee>
-	<454A1836.9010709@hp.com>
-	<1162492190.9660.28.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: [PATCH 2/5] tcp: add tcp_available_congestion_control sysctl
+Date: Thu, 09 Nov 2006 16:32:19 -0800 (PST)
+Message-ID: <20061109.163219.101116872.davem@davemloft.net>
+References: <20061031230140.191929094@osdl.org>
+	<20061031230213.704489579@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, mroos@linux.ee, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3232
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5764
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1424299AbWKJAaW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Nov 2006 19:30:22 -0500
-To: sri@us.ibm.com
-In-Reply-To: <1162492190.9660.28.camel@w-sridhar2.beaverton.ibm.com>
+	id S1424309AbWKJAca (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Nov 2006 19:32:30 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061031230213.704489579@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Thu, 02 Nov 2006 10:29:49 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 31 Oct 2006 15:01:42 -0800
 
-> On Thu, 2006-11-02 at 11:09 -0500, Vlad Yasevich wrote:
-> > Meelis Roos wrote:
-> > >> Actually, I'm backing this one out, it creates new warnings because
-> > >> callers of this function pass in a "const" pointer.
-> > > 
-> > > Yes, it now seems it's not so simple. Marking it non-const there would
-> > > mark the it non-const in the whole family of sctp_state_fn_t and I'm not
-> > > sure that's the best thing to do. I guess the maintainer has better
-> > > bases for deciding what to do about it.
-> > > 
-> > 
-> > An alternate solution would be to make the digest a pointer, allocate
-> > it in sctp_endpoint_init() and free it in sctp_endpoint_destroy().
+> Create /proc/sys/net/ipv4/tcp_available_congestion_control
+> that reflects currently available TCP choices.
 > 
-> I agree that this is a better solution.
-> 
-> Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied to net-2.6.20, thanks everyone.
+Applied, thanks Stephen.
