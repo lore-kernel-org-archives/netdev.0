@@ -1,58 +1,48 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [PATCH] IPv6: optimize echo reply checksum calculation
-Date: Fri, 10 Nov 2006 19:17:15 +0000
-Message-ID: <20061110191715.GP29920@ftp.linux.org.uk>
-References: <20061108221332.GI29920@ftp.linux.org.uk> <45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net> <4554A811.5060402@hp.com> <20061110173422.GM29920@ftp.linux.org.uk> <4554BC17.8020809@hp.com> <20061110180534.GN29920@ftp.linux.org.uk> <20061110182031.GO29920@ftp.linux.org.uk> <4554CD40.3030801@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] spidernet: fix transmit routine.
+Date: Fri, 10 Nov 2006 11:30:50 -0800
+Message-ID: <20061110113050.5689c226@freekitty>
+References: <20061110105038.200a74d0@freekitty>
+	<OFF9C5DB9C.8DD003F3-ON87257222.0068A615-86257222.006950CA@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+	jim@jklewis.com, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:60611 "EHLO
-	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1161497AbWKJTRS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 14:17:18 -0500
-To: Brian Haley <brian.haley@hp.com>
-Content-Disposition: inline
-In-Reply-To: <4554CD40.3030801@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:23749 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1946730AbWKJTbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 14:31:19 -0500
+To: James K Lewis <jklewis@us.ibm.com>
+In-Reply-To: <OFF9C5DB9C.8DD003F3-ON87257222.0068A615-86257222.006950CA@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 10, 2006 at 02:04:32PM -0500, Brian Haley wrote:
-> Al Viro wrote:
-> >so -= 1 is broken even on ia64 and it's *always* broken on big-endian
-> >boxen.
+On Fri, 10 Nov 2006 13:10:25 -0600
+James K Lewis <jklewis@us.ibm.com> wrote:
+
+> Stephen,
 > 
-> It's not broken in ia64, I've tested that, just don't have an x86 for 
-> testing right now.  Can you please apply these changes and prove it's 
-> broken?  This little trick has been done in other UNIXes for years 
-> without any problems.
+>   I had already tried that previously, the fail still occurred. Note that 
+> the skb_pad (or skb_padto) never actually fails. There is just something 
+> about calling it that causes the hang. Note too that I believe your patch 
+> is incorrect, you would still have to pci_unmap_single the correct length 
+> (skb_pad does not actually change skb->len which just seems plain wrong to 
+> me).
 
-Could you fscking read what you've replied to?  Your -=1 will turn 0
-into 0xffff instead of correct 0xfffe.  IOW, it's broken in 1:65536
-cases.
+Yeah, that was a bad choice not to set skb->len to start with. Too late
+now given how it might affect other drivers.
 
-On big-endian boxen (which x86 is not, BTW), it will *always* give the
-wrong result. -= htons(0x100) is better, but still fscks up in 1:256.
+>   I checked, and none of our "mainstream" PPC ethernet drivers (e100, 
+> e1000, pcnet32, tg3) have this check in them. When I have time I may add 
+> the pad to pcnet32 (for example) to see if it fails.
 
-You _can_ adjust the checksum; however it's not that trivial.  One working
-variant is
-	if (sum > htons(0x100)
-		sum -= htons(0x100);
-	else
-		sum += 0xffff - htons(0x100);
-In little-endian case it turns into
-	if (sum > 1)
-		sum--;
-	else
-		sum += 0xfffe;
-which is why your variant breaks rarely on itanic (or x86 - they are not
-different in that respect).  You still need to handle that corner case,
-though.
+The hardware for all these drivers does padding.
 
-As for the various Unices doing the same trick, I suggest you to check
-what they _really_ do and report bugs for those that have pure -- and
-nothing else.
 
-Again, the checksum is sum modulo 0xffff, *not* 0x10000.  And endianness
-matters, of course, since the packet type is either LSB or MSB, depending
-on it.
+> Jim Lewis
+> Advisory Software Engineer
+> IBM Linux Technology Center
+> 512-838-7754
+> 
+> 
