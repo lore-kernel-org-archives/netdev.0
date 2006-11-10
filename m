@@ -1,36 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/9] bonding: lockdep annotation
-Date: Fri, 10 Nov 2006 12:45:56 -0800 (PST)
-Message-ID: <20061110.124556.130237858.davem@davemloft.net>
-References: <200611090351.kA93p1Kx003677@shell0.pdx.osdl.net>
-	<4554A435.5070500@garzik.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
-	mingo@elte.hu, shemminger@osdl.org
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [RFT] mv643xxx_eth_start_xmit oops
+Date: 10 Nov 2006 20:53:27 -0000
+Message-ID: <20061110205327.19468.qmail@farnsworth.org>
+References: <20061110191745.GA13783@codepoet.org> <20061110115444.07f58e40@freekitty>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50824
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1424414AbWKJUp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 15:45:56 -0500
-To: jeff@garzik.org
-In-Reply-To: <4554A435.5070500@garzik.org>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:5647 "HELO farnsworth.org")
+	by vger.kernel.org with SMTP id S1424420AbWKJUxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Nov 2006 15:53:31 -0500
+To: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061110203009.GA9851@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 10 Nov 2006 11:09:25 -0500
-
-> akpm@osdl.org wrote:
-> > From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > 
-> > =============================================
-> > [ INFO: possible recursive locking detected ]
-> > 2.6.17-1.2600.fc6 #1
-> > ---------------------------------------------
+In article <20061110203009.GA9851@electric-eye.fr.zoreil.com> you write:
+Ueimor <romieu@fr.zoreil.com> wrote:
+> Stephen Hemminger <shemminger@osdl.org> :
+> [...]
+> > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+> [...]
 > 
-> applied; please CC me on this drivers/net stuff
+> It seems to propagate a leak from the initial codebase.
 
-Jeff, I put this one in my net-2.6.20 tree already.
+Can you provide more detail about the leak?
 
+-Dale
