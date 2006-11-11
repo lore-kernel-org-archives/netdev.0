@@ -1,51 +1,61 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: bcm43xx-d80211 broadcast reception with WPA
-Date: Sat, 11 Nov 2006 16:07:05 +0100
-Message-ID: <200611111607.05420.mb@bu3sch.de>
-References: <ej09qf$2nv$1@sea.gmane.org> <200611102112.33050.mb@bu3sch.de> <loom.20061111T070237-788@post.gmane.org>
+From: Joshua Brindle <jbrindle@tresys.com>
+Subject: Re: [PATCH 0/3] labeled-ipsec: Repost patchset with updates [Originally:
+ mlsxfrm: Various Fixes]
+Date: Sat, 11 Nov 2006 11:22:19 -0500
+Message-ID: <4555F8BB.30105@tresys.com>
+References: <45526241.10805@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:23486
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965695AbWKKPIu
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Nov 2006 10:08:50 -0500
-To: Paul Hampson <Paul.Hampson@pobox.com>
-In-Reply-To: <loom.20061111T070237-788@post.gmane.org>
-Content-Disposition: inline
+Received: from tresys.irides.com ([216.250.243.126]:19548 "HELO
+	exchange.columbia.tresys.com") by vger.kernel.org with SMTP
+	id S1424412AbWKKQWc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Nov 2006 11:22:32 -0500
+To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+In-Reply-To: <45526241.10805@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please _don't_ remove CCs.
+Venkat Yekkirala wrote:
+> This patchset is against davem's net-2.6.git. Please apply to 2.6.19.
+>
+> The following are the changes since the previous post of this patchset:
+>
+> 1. Separate BUG_ON usage per Eric's suggestion.
+>
+> 2. Replace security_sid_compare with a simple sid compare check per
+>    a suggestion from Paul/Stephen.
+>   
+I pulled in the lspp respin kernels and am checking the labeling 
+behavior now so I should have a full response later, however I ran into 
+one unexpected thing immediately on bootup with the new kernel:
 
-On Saturday 11 November 2006 07:32, Paul Hampson wrote:
-> Michael Buesch <mb <at> bu3sch.de> writes:
-> 
-> > On Thursday 09 November 2006 23:23, Paul Hampson wrote:
-> > > I've been backporting the bcm43xx-d80211 driver to whatever the released
-> > > 2.6 kernel was using the rt2x00 project's d80211 stack (equivalent to
-> > > current wireless-dev but with a workaround for not having a ieee80211_dev
-> > > pointer and still using the _tfm interface instead of the _cypher interface.)
-> 
-> > > As of last night's wireless-dev tree bcm43xx, everything seems to be
-> > > operating fine except incoming broadcast traffic is coming in 14 bytes too
-> > > long and scrambled. I presume this means it's not decrypting properly...
-> 
-> > It sounds like a bug in the hardware decryption setup.
-> > Are you using TKIP or not?
-> 
-> Yes, it's using TKIP. The router docs and the loading of the tkip module
-> when I use the softmac driver agree on this.
+audit(1163061323.188:197): avc:  denied  { send } for  pid=1676 
+comm="modprobe" daddr=ff02:0000:0000:0000:0000:0000:0000:0016 netif=eth0 
+scontext=system_u:system_r:kernel_t:s0 
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
+audit(1163061343.335:204): avc:  denied  { send } for  pid=1804 
+comm="avahi-daemon" saddr=fe80:0000:0000:0000:020c:29ff:fe72:2dd1 
+src=5353 daddr=ff02:0000:0000:0000:0000:0000:0000:00fb dest=5353 
+netif=eth0 scontext=system_u:system_r:avahi_t:s0 
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
+audit(1163061343.338:205): avc:  denied  { recv } for  pid=1804 
+comm="avahi-daemon" saddr=fe80:0000:0000:0000:020c:29ff:fe72:2dd1 
+src=5353 daddr=ff02:0000:0000:0000:0000:0000:0000:00fb dest=5353 
+netif=eth0 scontext=system_u:system_r:avahi_t:s0 
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
+audit(1163061346.139:210): avc:  denied  { send } for  pid=1856 
+comm="smartd-conf.py" saddr=fe80:0000:0000:0000:020c:29ff:fe72:2dd1 
+daddr=ff02:0000:0000:0000:0000:0000:0000:0016 netif=eth0 
+scontext=system_u:system_r:kernel_t:s0 
+tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
 
-TKIP is still software encryption. Did you try with WPA-AES, for example,
-which is hardware encryption?
+These denials come after iptables-restore sets up labeling in the mangle 
+table so I'm not sure why they are unlabeled.. They also don't say which 
+port they were using, perhaps is it a different protocol that our packet 
+labeling isn't covering yet? Is there any way we could get protocol 
+information in the denial?
 
-The problem might be that the card tries to decrypt mcast
-frames in the crypto hardware, although we did not set a key.
-So it uses a random key to decrypt. That obviously results in crap.
-
--- 
-Greetings Michael.
