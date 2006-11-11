@@ -1,57 +1,62 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [PATCH] IPv6: optimize echo reply checksum calculation
-Date: Sat, 11 Nov 2006 01:45:48 +0000
-Message-ID: <20061111014548.GQ29920@ftp.linux.org.uk>
-References: <45536622.90708@hp.com> <20061109.151402.15590179.davem@davemloft.net> <4554A811.5060402@hp.com> <20061110173422.GM29920@ftp.linux.org.uk> <4554BC17.8020809@hp.com> <20061110180534.GN29920@ftp.linux.org.uk> <20061110182031.GO29920@ftp.linux.org.uk> <4554CD40.3030801@hp.com> <20061110191715.GP29920@ftp.linux.org.uk> <4554E9EC.1070803@hp.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [NETLINK]: Do precise netlink message allocations where possible
+Date: Fri, 10 Nov 2006 23:06:31 -0500
+Message-ID: <45554C47.9020709@hp.com>
+References: <20061110121706.GH8693@postel.suug.ch> <4554A2FE.2020405@hp.com> <20061110221640.GN8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37318 "EHLO
-	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1946872AbWKKBpv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Nov 2006 20:45:51 -0500
-To: Brian Haley <brian.haley@hp.com>
-Content-Disposition: inline
-In-Reply-To: <4554E9EC.1070803@hp.com>
+Received: from smtp.cce.hp.com ([161.114.21.23]:6189 "EHLO
+	ccerelrim02.cce.hp.com") by vger.kernel.org with ESMTP
+	id S1947081AbWKKEHI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Nov 2006 23:07:08 -0500
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061110221640.GN8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 10, 2006 at 04:06:52PM -0500, Brian Haley wrote:
-> Al Viro wrote:
-> >On Fri, Nov 10, 2006 at 02:04:32PM -0500, Brian Haley wrote:
-> >>Al Viro wrote:
-> >>>so -= 1 is broken even on ia64 and it's *always* broken on big-endian
-> >>>boxen.
-> >>It's not broken in ia64, I've tested that, just don't have an x86 for 
-> >>testing right now.  Can you please apply these changes and prove it's 
-> >>broken?  This little trick has been done in other UNIXes for years 
-> >>without any problems.
-> >
-> >Could you fscking read what you've replied to?  Your -=1 will turn 0
-> >into 0xffff instead of correct 0xfffe.  IOW, it's broken in 1:65536
-> >cases.
+Thomas Graf wrote:
+> * Paul Moore <paul.moore@hp.com> 2006-11-10 11:04
 > 
-> I looked again at your previous email:
+>>I like this approach, it makes much more sense to me then the previous
+>>implementation which was a simple "alias" to alloc_skb().  Also, the NetLabel
+>>relevant sections look fine to me.
 > 
-> >Note that even on little-endian you want
-> >	3 -> 2
-> >	2 -> 1
-> >	1 -> 0xffff
-> >	0 -> 0xfffe
-> 
-> That doesn't look right to me, but I'll take your word that there's one 
-> edge case out there I don't see (even though this worked on Alpha). 
+> Question is wheter to do the same for genetlink and add genlmsg_new().
 
-Sigh...  Here's how the checksum is defined:
-	take array of bytes
-	pad it to even length with 0
-	split it into 16bit words
-define x # y as (x + y) < 0x10000 ? x + y: x + y - 0xffff
-	calculate sum = w0 # w1 # w2 # ..... # wn
-	take 0xffff - sum (aka ~sum)
-	store the resulting value in pair of bytes (with whatever
-endianness you used all along).
+If it makes sense to modify nlmsg_new() I think it makes sense modify
+genlmsg_new().  My vote is for "yes".
 
-Note that resulting pair of bytes does *not* depend on endianness.  See
-aforementioned RFC for proof and for more fun properties of that sucker.
+> I'm currently thinking about this and also about some _reply() function
+> which takes a struct genl_info so a genetlink module doesn't have to
+> know about how to address the client by pid anymore.
+
+Hmm, interesting idea.  I've only thought about it for a few minutes now but it
+might be nice to do something like the following:
+
+* genlmsg_put_reply()
+  - write the message headers using genlmsg_put()
+    + take the snd_pid and snd_seq from the genl_info struct
+    + ?lookup the hdrlen based on the genl family info in the message
+      headers in the genl_info struct?
+
+* genlmsg_new_reply()
+  - allocate a buffer using genlmsg_new()
+  - call genlmsg_put_reply()
+
+* genlmsg_{unicast,multicast}_reply()
+  - take the pid from the genl_info struct
+
+I think this would simply the genetlink handlers job a little bit.
+
+> Ideas or even patches very welcome.
+
+If that sounds reasonable I can put together a patch sometime next week,
+although it will probably be later in the week as I have some NetLabel stuff I
+want to get done for 2.6.20.
+
+-- 
+paul moore
+linux security @ hp
