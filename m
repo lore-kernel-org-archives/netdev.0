@@ -1,148 +1,102 @@
-From: "Macromedia Software" <cenogonous@jrockit.net>
-Subject: New software uploaded by Jennifer on Nov 12 01:40:01 MSK 2006
-Date: Sat, 11 Nov 2006 17:55:45 -0500
-Message-ID: <000001c705e3$ab1f0380$0100007f@localhost>
-Content-Type: text/plain;
-    charset="us-ascii"
-    Content-Transfer-Encoding: 7bit
+From: Jonathan Day <imipak@yahoo.com>
+Subject: Re: Questions regarding network drivers
+Date: Sat, 11 Nov 2006 15:21:17 -0800 (PST)
+Message-ID: <454688.85582.qm@web31512.mail.mud.yahoo.com>
+References: <20061111115449.GA22586@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c-24-128-246-90.hsd1.ma.comcast.net ([24.128.246.90]:14854 "helo
-	localhost") by vger.kernel.org with SMTP id S1754893AbWKKW4C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Nov 2006 17:56:02 -0500
-To: <netdev@vger.kernel.org>
+Received: from web31512.mail.mud.yahoo.com ([68.142.198.141]:54165 "HELO
+	web31512.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1754899AbWKKXVS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Nov 2006 18:21:18 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061111115449.GA22586@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Jennifer has uploaded some new software for you!
+--- Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> You can use netchannels, which were designed for
+> exactly that kind of
+> load.
+
+Actually, netchannels are a mechanism I've been
+looking at intensely, as a way to simplify this and
+keep it sane, without loosing performance.
+
+> You need to process some headers anyway - to select
+> appropriate socket
+> or netchannel or whatever.
+
+I was planning on cheating there. I've revised the
+method slightly, based on previous comments, so that
+I'm now doing the following:
+
+The master table has a set of pointers to tables. One
+group, one table - for groups in use. Unused groups
+have no associated table and the pointer is null.
+Pointers are always at (group number * pointer size)
+from the start of the table. There's a max of 4096
+groups in this system, or the hardware guys start
+shooting.
+
+Each group has a table that contains a set of pointers
+to buffers. Offset is always (node number * pointer
+size). Nodes that are active members have pointers to
+pinned, allocated and cleaned buffers. Nodes that
+aren't members get null pointers. There are 32 nodes
+in the current system.
+
+The packet header contains the group address at a
+fixed offset and the source node number at another
+fixed offset. The hardware can then grab these and do
+the necessary calculations. The hardware has a DMA
+controller which can get the group pointer from the
+master table then get the buffer pointer from the
+group table.
+
+(Essentially, I'm mimicking a primitive virtual memory
+system here.)
+
+The hardware then stores enough packet payloads to
+fill one page of memory (unless it gets an
+end-of-transmit signal before then) and then DMAs the
+page of data into the physical page in one shot.
+(Since I did the original design, I worked out that
+there's too much overhead in setting up a transmit to
+just do a single packet at a time.) The hardware is
+apparently smart enough to re-order packers if they
+come in out of sequence and to NACK anything that's
+missing.
+
+Once a page has been filled, the driver simply pushes
+the pointer onto a queue and then grabs a pointer to a
+fresh page.
 
 
-Click here to view available updated software:
-http://krugosoft.com/?Jennifer
+Based on what I'm hearing, I'll probably finish this
+driver simply to see what it does and post it up -
+it'll have educational value, whatever happens. I'll
+also work on a netchannels version which is less
+hardware-specific and more "normal".
+
+> > I can try getting beer. Oregon has some acceptable
+> > microbreweries, but I miss having a pint of
+> Hatters in
+> > England. Mead is easier. I brew mead. Strong, dry,
+> > rocket-fuel mead.
+> 
+> Then you definitely just need to send your driver to
+> netdev@.
+
+Sounds good to me. Liquid driver review aids will be prepared.
 
 
-your network. At a bare minimum it should contain entries for the
-edited to suit local needs.
-	   DEC DEFEA EISA FDDI adapter
-most other SCSI devices.  Make sure that you have enough SCSI cable to
-device	 sc0  at isa? port "IO_KBD" tty irq 1 vector scintr
-The first form will be accepted immediately after a breakpoint hit,
-Do not trust Factory Preformatted floppies!  Format them again
-o  Check if all devices to be used are powered up.
-regarding the SLIP subnet xxx.xxx.yy via RIP onto the Ethernet; if you
-${CATEGORIES}.  It is intended to make life easier for the user when
-assembles the bits into complete bytes.
-COM2 is located from 0x2f8 to 0x2ff and normally uses IRQ 3
-invisible to both applications and the operating systems, except for
-bus so that the DMA may use the bus.	The DMA requests the bus by
-#!/bin/sh
-software) to name just two of them).	What we can do with them vary a
-available disk space.
-o  ATAPI IDE interface (experimental and should be considered ALPHA
-	of simultaneous snoop sessions.  Optional.
-o  Adaptec 152x series ISA SCSI controllers
-code, try lpf.  You can also wrap lpf in a shell script to handle any
-		      A new word was received and there
-(Approved)
-o	ftp4.FreeBSD/pub/FreeBSD
-cause of a Framing Error is that the sender and receiver clocks were
-track. Typical is 35 sectors per track, high capacity drives I have
-Enter Kerberos master key:
-problems that can occur if getty mistakenly gives a login: prompt to a
-grunt# ext_srvtab grunt
-		      newly-arrived word in the shift
-Note: You must execute these and all of the following com-
-		      each data word.
-in:
-:lp=:rm=rose:rp=bamboo:sd=/var/spool/lpd/bamboo:
-mount -t msdos /dev/sd0s5 /dos_d
-	Compatibility with BSD 4.3.  Leave this in; some programs will
-another shell so that you can create them before you give them to the
-The boot message identifier for this drive is "XXX" "XXX"
-or
-range of tasks, from documentation, beta testing and presentation to
-base delta.
-2. Port AFS (Andrew File System) to FreeBSD  Coordinator: Alexander
-for all the distributions, you could replace the last line above with:
-relevant manual pages for a complete description.
-If your hardware is okay, check your floppies.  If you are using a
-portsFreeBSD>.  We will take a look, get back to you if neces-
-nameserver 158.152.1.65
-in some cases, the same topic may appear in more than one section
-at least one of these to support the device you boot from; typically
-what was, at the time, a completely unknown project, it is quite
-#
-After a low level format, a surface scan is done to find and flag bad
-	submit jobs if the queue's enabled.
-have more than one machine to administer then think of it not simply
-0xdc read -
-in the /dev directory.  These nodes look like regular files, but are
-ARC.NASA.GOV trident.arc.nasa.gov
-	Enable the queue for a printer.  Users can submit jobs but the
-s/key 100 kh94742
-To find out if the kernel you are currently using supports a serial
-18.2.5.8.  A Sample Makefile
-o  Q. I went to install the 'foo' port but the system suddenly stopped
-commands and enable logging in the kernel. This will allow you to
--5 VDC, but these values are still acceptable to a RS232-C receiver,
-	treat LF characters as a LF and CR; then it sends the job; then
-tun0: flags=51<UP,POINTOPOINT,RUNNING> mtu 1500
-#
-Linux-emulation up will vary slightly:
-provided below.
-It worked, after awhile; or, it did not eject a full sheet.
-maximum bus length. You might see names like SSA and Fiberchannel in
-Hayes ESP
-/Helvetica findfont 12 scalefont setfont
-		 Bit 7	   Divisor Latch Access Bit (DLAB)
-You are going to need the following information to hand:
-8mm (Exabyte)
-gmod1.4	      gmod-1.4	need hyphen after `<name>'
-6.2.2.  Insecure connection initialization
-rose:kelly  Job: outline  Date: Sun Sep 17 11:07:51 1995
-To test a printer on a parallel port:
-assert one of the interrupt signals to get the processors' attention.
-capability to the /etc/printcap file.  When users submit jobs with the
-/usr/local/Mathematica:
-filter is actually more complex in that it has to examine the byte
-ISBN 0131510517
-login program will turn echo on, so you can see what you are typing.
-On each command cable a maximum of 7 devices and 1 controller can be
-NS16550A-based EIA RS-232C (CCITT V.24) communications interfaces.
-The obvious drawback to a header page is that it is yet one more sheet
-grace period left.  Note the asterisk (*) which indicates that the
-install a conversion filter and specify its pathname in /etc/printcap.
-	This is the primary technical mailing list.  It is for
-authentication and to forward packets, possibly on a multi-homed
-So, you would like to try out FreeBSD on your system?  This section is
-nel'' section for more information on kernel configuration.
-	This is for using a CD-ROM as root filesystem.
-Parts in this section marked with an asterisk (*) are incomplete.
-transferred until the DMA controller is reprogrammed by the CPU.  This
-The EIA RS232-C specification (and the ITU equivalent, V.24) calls for
-	 Issued 	  Expires	   Principal
-up the user's machine ("Help, xinit does not run anymore after I
-	in either one of these files.  If not, LPD refuses the request.
-that subnet.	Then, you will probably either need to configure a
-18.2.5.8.  A Sample Makefile
-To the best of my knowledge PC ESDI controllers are limited to using a
-Reported by: Hellmuth Michaelis hmkts
-and DVI files, run the proper conversions, and print.
-o	Remote printer control functions
-willing to take on the task before we can accept delivery of them.
-its behavior. However, in this implementation PPP is done as
-control utility, ipfw(8). Together, they allow you to define and query
-FreeBSD core team to help in setting the project's overall directions
-bamboo|ps|PS|S|panasonic|Panasonic KX-P4455 PostScript v51.4:\
-		      Any word currently being assembled
-printers installed on your system.  Programs that interface to LPD to
-	to type in capitals, who is drinking too much coffee, where the
-	zero.  DRQ only needs to be asserted until -DACK is asserted.
-addresses etc must match the kernel config file. During system boot
-	treat LF characters as a LF and CR; then it sends the job; then
-While on the subject of translations, I have seen one controller type
-5:IdlePTD 1f3000
-used, and the user is authenticated if the hash of the user-provided
-/sbin/dmesg | grep 'sio'
-
-
+ 
+____________________________________________________________________________________
+Do you Yahoo!?
+Everyone is raving about the all-new Yahoo! Mail beta.
+http://new.mail.yahoo.com
