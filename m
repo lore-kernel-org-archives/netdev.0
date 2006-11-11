@@ -1,276 +1,148 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Sat, 11 Nov 2006 14:28:53 -0800
-Message-ID: <45564EA5.6020607@redhat.com>
-References: <11630606361046@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+From: "Macromedia Software" <cenogonous@jrockit.net>
+Subject: New software uploaded by Jennifer on Nov 12 01:40:01 MSK 2006
+Date: Sat, 11 Nov 2006 17:55:45 -0500
+Message-ID: <000001c705e3$ab1f0380$0100007f@localhost>
+Content-Type: text/plain;
+    charset="us-ascii"
+    Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40847 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1754879AbWKKWb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Nov 2006 17:31:56 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11630606361046@2ka.mipt.ru>
+Received: from c-24-128-246-90.hsd1.ma.comcast.net ([24.128.246.90]:14854 "helo
+	localhost") by vger.kernel.org with SMTP id S1754893AbWKKW4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Nov 2006 17:56:02 -0500
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Generic event handling mechanism.
-> [...]
 
-Sorry for the delay again.  Kernel work is simply not my highest priori=
-ty.
-
-I've collected my comments on some parts of the patch.  I haven't gone=20
-through every part of the patch yet.  Sorry for the length.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- basic ring buffer problem: the kevent_copy_ring_buffer function store=
-s
-   the event in the ring buffer without disregard of the current conten=
-t.
-
-   + if dequeued entries larger than number of ring buffer entries
-     events immediately get overwritten without passing anything to
-     userlevel
-
-   + as with the old approach, the ring buffer is basically unusable wi=
-th
-     multiple threads/processes.  A thread calling kevent_wait might
-     cause entries another thread is still working on to be overwritten=
-=2E
-
-Possible solution:
-
-a) it would be possible to have a "used" flag in each ring buffer entry=
-=2E
-    That's too expensive, I guess.
-
-b) kevent_wait needs another parameter which specifies the which is the
-    last (i.e., least recently added) entry in the ring buffer.
-    Everything between this entry and the current head (in ->kidx) is
-    occupied.  If multiple threads arrive in kevent_wait the highest id=
-x
-    (with wrap around possibly lowest) is used.
-
-    kevent_wait will not try to move more entries into the ring buffer
-    if ->kidx and the higest index passed in to any kevent_wait call
-    is equal (i.e., the ring buffer is full).
-
-    There is one issue, though, and that is that a system call is neede=
-d
-    to signal to the kernel that more entries in the ring buffer are
-    processed and that they can be refilled.  This goes against the
-    kernel filling the ring buffer automatically (see below)
+Jennifer has uploaded some new software for you!
 
 
-Threads should be able to (not necessarily forced to) use the
-interfaces like this:
-
-- by default all threads are "parked" in the kevent_wait syscall.
+Click here to view available updated software:
+http://krugosoft.com/?Jennifer
 
 
-- If an event occurs one thread might be woken (depending on the 'num'
-   parameter)
-
-- the woken thread(s) work on all the events in the ring buffer and
-   then call kevent_wait() again.
-
-This requires that the threads can independently call kevent_wait()
-and that they can independently retrieve events from the ring buffer
-without fear the entry gets overwritten before it is retrieved.
-Atomically retrieving entries from the ring buffer can be implemented
-at userlevel.  Either the ring buffer is writable and a field in each
-ring buffer entry can be used as a 'handled' flag.  Obviously this can
-be done with atomic compare-and-exchange.  If the ring buffer is not
-writable then, as part of the userlevel wrapper around the event
-handling interfaces, another array is created which contains the use
-flags for each ring buffer entry.  This is less elegant and probably
-slower.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- implementing the kevent_wait syscall the proposed way means we are
-   missing out on one possible optimization.  The ring buffer is
-   currently only filled on kevent_wait calls.  I expect that in really
-   high traffic situations requests are coming in at a higher rate than
-   the can be processed.  At least for periods of time.  If such
-   situations it would be nice to not have to call into the kernel at
-   all.  If the kernel would deliver into the ring buffer on its own
-   this would be possible.
-
-   If the argument against this is that kevent_get_event should be
-   possible the answer is...
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- the kevent_get_event syscall is not  needed at all.  All reporting
-   should be done using a ring buffer.  There really is not reason to
-   keep two interfaces around  which serve the same purpose.  Making
-   the argument the kevent_get_event is so much easier to use is not
-   valid.  The exposed interface to access the ring buffer will be easy=
-,
-   too.  In the OLS paper I more or wait hinted at the interfaces.  I
-   think they should be like this (names are irrelevant):
-
-ec_t ec_create(unsigned flags);
-int ec_destroy(ec_t ec);
-int ec_poll_event(ec_t ec, event_data_t *d);
-int ec_wait_event(ec_t ec, event_data_t *d);
-int ec_timedwait_event(ec_t ec, event_data_t *d, struct timespec *to);
-
-The latter three interfaces are the interesting ones.  We have to get
-the data out of the ring buffer as quickly as possible.  So the
-interfaces require passing in a reference to an object which can hold
-the data.  The 'poll' variant won't delay, the other two will.
-
-We need separate create and destroy functions since there will always
-be a userlevel component of the data structures.  The create variant
-can allocate the ring buffer and the other memory needed ('handled'
-flags, tail pointers, ...) and destroy free all resources.
-
-These interfaces are fast and easy to use.  At least as easy as the
-kevent_get_event syscall.  And all transparently implemented on top of
-the ring buffer.  So, please let's drop the unneeded syscall.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- another optimization I am thinking about is optimizing the thread
-   wakeup and ring buffer use for cache line use.  I.e., if we know
-   an event was queued on a specific CPU then the wakeup function
-   should take this into account.  I.e., if any of the threads
-   waiting was/will be scheduled on the same CPU it should be
-   preferred.
-
-   With the current simple form of a ring buffer this isn't sufficient,
-   though.  Reading all entries in the ring buffer until finding the
-   one written by the CPU in question is not helpful.  We'd need a
-   mechanism to point the thread to the entry in question.  One
-   possibility to do this is to return the ring buffer entry as the
-   return value of the kevent_wait() syscall.  This works fine if the
-   thread only works for one event (which I guess will be 99.999% of
-   all uses).  An extension could be to extend the ukevent structure to
-   contain an index of the next entry written the same CPU.
-
-   Another problem this entails is false sharing of the ring buffer
-   entries.  This would probably require to pad the ukevent structure
-   to 64 bytes.  It's not that much more, 40 bytes so far, it's
-   also more future-safe.  The alternative is to allocate have per-CPU
-   regions in the ring buffer.  With hotplug CPUs this is just plain
-   silly.
-
-   I think this optimization has the potential to help quite a bit,
-   especially for large machines.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- we absolutely need an interface to signal the kernel that a thread,
-   just woken from kevent_wait, cannot handle the events.  I.e., the
-   events are in the ring buffer but all the other threads are in the
-   kernel in their kevent_wait calls.  The new syscall would wake up
-   one or more threads to handle the events.
-
-   This syscall is for instance necessary if the thread calling
-   kevent_wait is canceled.  It might also be needed when a thread
-   requested more than one event and realizes processing an entry
-   takes a long time and that another thread might work on the other
-   items in the meantime.
-
-
-   Al Viro pointed out another possible solution which also could solve
-   the "handled" flag problem and concurrency in use of the ring buffer=
-=2E
-
-   The idea is to require the kevent_wait() syscall to signal which ent=
-ry
-   in the ring buffer is handled or not handled.  This means:
-
-   + the kernel knows at any time which entries in the buffer are free
-     and which are not
-
-   + concurrent filling of the ring buffer is no problem anymore since
-     entries are not discarded until told
-
-   + by not waiting for event (num parameter =3D=3D 0) the syscall can =
-be
-     used to discard entries to free up the ring buffer before continui=
-ng
-     to work on more entries.  And, as per the requirement above, it ca=
-n
-     be used to tell the kernel that certain entries are *NOT* handled
-     and need to be sent to another thread.  This would be useful in th=
-e
-     thread cancellation case.
-
-   This seems like a nice approach.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- why no syscall to create kevent queue?  With dynamic /dev this might
-   be a problem and it's really not much additional code.  What about
-   programs which want to use these interfaces before /dev is set up?
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- still: the syscall should use a struct timespec* timeout parameter
-   and not nanosecs.  There are at least three timeout modes which
-   are wanted:
-
-   + relative, unconditionally wait that long
-
-   + relative, aborted in case of large enough settimeofday() or NTP
-     adjustment
-
-   + absolute timeout.  Probably even with selecting which clock ot use=
-=2E
-     This mode requires a timespec value parameter
+your network. At a bare minimum it should contain entries for the
+edited to suit local needs.
+	   DEC DEFEA EISA FDDI adapter
+most other SCSI devices.  Make sure that you have enough SCSI cable to
+device	 sc0  at isa? port "IO_KBD" tty irq 1 vector scintr
+The first form will be accepted immediately after a breakpoint hit,
+Do not trust Factory Preformatted floppies!  Format them again
+o  Check if all devices to be used are powered up.
+regarding the SLIP subnet xxx.xxx.yy via RIP onto the Ethernet; if you
+${CATEGORIES}.  It is intended to make life easier for the user when
+assembles the bits into complete bytes.
+COM2 is located from 0x2f8 to 0x2ff and normally uses IRQ 3
+invisible to both applications and the operating systems, except for
+bus so that the DMA may use the bus.	The DMA requests the bus by
+#!/bin/sh
+software) to name just two of them).	What we can do with them vary a
+available disk space.
+o  ATAPI IDE interface (experimental and should be considered ALPHA
+	of simultaneous snoop sessions.  Optional.
+o  Adaptec 152x series ISA SCSI controllers
+code, try lpf.  You can also wrap lpf in a shell script to handle any
+		      A new word was received and there
+(Approved)
+o	ftp4.FreeBSD/pub/FreeBSD
+cause of a Framing Error is that the sender and receiver clocks were
+track. Typical is 35 sectors per track, high capacity drives I have
+Enter Kerberos master key:
+problems that can occur if getty mistakenly gives a login: prompt to a
+grunt# ext_srvtab grunt
+		      newly-arrived word in the shift
+Note: You must execute these and all of the following com-
+		      each data word.
+in:
+:lp=:rm=rose:rp=bamboo:sd=/var/spool/lpd/bamboo:
+mount -t msdos /dev/sd0s5 /dos_d
+	Compatibility with BSD 4.3.  Leave this in; some programs will
+another shell so that you can create them before you give them to the
+The boot message identifier for this drive is "XXX" "XXX"
+or
+range of tasks, from documentation, beta testing and presentation to
+base delta.
+2. Port AFS (Andrew File System) to FreeBSD  Coordinator: Alexander
+for all the distributions, you could replace the last line above with:
+relevant manual pages for a complete description.
+If your hardware is okay, check your floppies.  If you are using a
+portsFreeBSD>.  We will take a look, get back to you if neces-
+nameserver 158.152.1.65
+in some cases, the same topic may appear in more than one section
+at least one of these to support the device you boot from; typically
+what was, at the time, a completely unknown project, it is quite
+#
+After a low level format, a surface scan is done to find and flag bad
+	submit jobs if the queue's enabled.
+have more than one machine to administer then think of it not simply
+0xdc read -
+in the /dev directory.  These nodes look like regular files, but are
+ARC.NASA.GOV trident.arc.nasa.gov
+	Enable the queue for a printer.  Users can submit jobs but the
+s/key 100 kh94742
+To find out if the kernel you are currently using supports a serial
+18.2.5.8.  A Sample Makefile
+o  Q. I went to install the 'foo' port but the system suddenly stopped
+commands and enable logging in the kernel. This will allow you to
+-5 VDC, but these values are still acceptable to a RS232-C receiver,
+	treat LF characters as a LF and CR; then it sends the job; then
+tun0: flags=51<UP,POINTOPOINT,RUNNING> mtu 1500
+#
+Linux-emulation up will vary slightly:
+provided below.
+It worked, after awhile; or, it did not eject a full sheet.
+maximum bus length. You might see names like SSA and Fiberchannel in
+Hayes ESP
+/Helvetica findfont 12 scalefont setfont
+		 Bit 7	   Divisor Latch Access Bit (DLAB)
+You are going to need the following information to hand:
+8mm (Exabyte)
+gmod1.4	      gmod-1.4	need hyphen after `<name>'
+6.2.2.  Insecure connection initialization
+rose:kelly  Job: outline  Date: Sun Sep 17 11:07:51 1995
+To test a printer on a parallel port:
+assert one of the interrupt signals to get the processors' attention.
+capability to the /etc/printcap file.  When users submit jobs with the
+/usr/local/Mathematica:
+filter is actually more complex in that it has to examine the byte
+ISBN 0131510517
+login program will turn echo on, so you can see what you are typing.
+On each command cable a maximum of 7 devices and 1 controller can be
+NS16550A-based EIA RS-232C (CCITT V.24) communications interfaces.
+The obvious drawback to a header page is that it is yet one more sheet
+grace period left.  Note the asterisk (*) which indicates that the
+install a conversion filter and specify its pathname in /etc/printcap.
+	This is the primary technical mailing list.  It is for
+authentication and to forward packets, possibly on a multi-homed
+So, you would like to try out FreeBSD on your system?  This section is
+nel'' section for more information on kernel configuration.
+	This is for using a CD-ROM as root filesystem.
+Parts in this section marked with an asterisk (*) are incomplete.
+transferred until the DMA controller is reprogrammed by the CPU.  This
+The EIA RS232-C specification (and the ITU equivalent, V.24) calls for
+	 Issued 	  Expires	   Principal
+up the user's machine ("Help, xinit does not run anymore after I
+	in either one of these files.  If not, LPD refuses the request.
+that subnet.	Then, you will probably either need to configure a
+18.2.5.8.  A Sample Makefile
+To the best of my knowledge PC ESDI controllers are limited to using a
+Reported by: Hellmuth Michaelis hmkts
+and DVI files, run the proper conversions, and print.
+o	Remote printer control functions
+willing to take on the task before we can accept delivery of them.
+its behavior. However, in this implementation PPP is done as
+control utility, ipfw(8). Together, they allow you to define and query
+FreeBSD core team to help in setting the project's overall directions
+bamboo|ps|PS|S|panasonic|Panasonic KX-P4455 PostScript v51.4:\
+		      Any word currently being assembled
+printers installed on your system.  Programs that interface to LPD to
+	to type in capitals, who is drinking too much coffee, where the
+	zero.  DRQ only needs to be asserted until -DACK is asserted.
+addresses etc must match the kernel config file. During system boot
+	treat LF characters as a LF and CR; then it sends the job; then
+While on the subject of translations, I have seen one controller type
+5:IdlePTD 1f3000
+used, and the user is authenticated if the hash of the user-provided
+/sbin/dmesg | grep 'sio'
 
 
-   We have all this code already in the futex syscall.  It just needs t=
-o
-   be generalized or copied and adjusted.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- still: no signal mask parameter in the kevent_wait (and get_event)
-   syscall.  Regardless of what one thinks about signals, they are used
-   and integrating the kevent interface into existing code requires
-   this functionality.  And it's not only about receiving signals.
-   The signal mask parameter can also be used to _prevent_ signals from
-   being delivered in that time.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- the KEVENT_REQ_WAKEUP_ONE functionality is good and needed.  But I
-   would reverse the default.  I cannot see many places where you want
-   all threads to be woken.  Introduce KEVENT_REQ_WAKEUP_ALL instead.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-- there is really no reason to invent yet another timer implementation.
-   We have the POSIX timers which are feature rich and nicely
-   implemented.  All that is needed is to implement SIGEV_KEVENT as a
-   notification mechanism.  The timer is registered as part of the
-   timer_create() syscalls.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-
-I haven't yet looked at the other event sources.  I think the above is
-enough for now.
-
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
