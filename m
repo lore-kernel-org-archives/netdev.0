@@ -1,53 +1,41 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: airo driver: still can't deal with interface renames?
-Date: Sun, 12 Nov 2006 19:15:36 +0300
-Message-ID: <455748A8.2000205@tls.msk.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 1/9] bonding: lockdep annotation
+Date: Sun, 12 Nov 2006 11:40:02 -0500
+Message-ID: <45574E62.8010007@garzik.org>
+References: <200611090351.kA93p1Kx003677@shell0.pdx.osdl.net>	<4554A435.5070500@garzik.org> <20061110.124556.130237858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
+	mingo@elte.hu, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.94.6]:17249 "EHLO hobbit.corpit.ru")
-	by vger.kernel.org with ESMTP id S932950AbWKLQPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Nov 2006 11:15:41 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:27088 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1753734AbWKLQkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Nov 2006 11:40:07 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061110.124556.130237858.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A long time ago, in kernel-2.4 days, I noticed that
-airo module (for various aironet etc cards) can't
-handle interface renames (at that time, the kernel
-crashed after `ip link set eth1 name xxx' command
-and some packets going to/from the interface).
+David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Fri, 10 Nov 2006 11:09:25 -0500
+> 
+>> akpm@osdl.org wrote:
+>>> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+>>>
+>>> =============================================
+>>> [ INFO: possible recursive locking detected ]
+>>> 2.6.17-1.2600.fc6 #1
+>>> ---------------------------------------------
+>> applied; please CC me on this drivers/net stuff
+> 
+> Jeff, I put this one in my net-2.6.20 tree already.
 
-The problem seems to be that the driver uses some
-sort of private data in /proc/driver/airo/ethN/ which
-gets created when the driver discovers an interface
-and names it as usual, giving next available N in
-ethN scheme.
+Well, it was drivers/net/bonding/* which usually goes in through my 
+tree, what did you expect?  :)
 
-And currently (2.6.18) the situation is still similar.
-Well, it does not crashes, but still keeps the directory
-in /proc/driver/airo named after the automatic interface
-name, which leads to confusion at least, especially if
-i load airo.ko, rename the iface, and next load some other
-network driver module, which grabs THE SAME ethN as was
-first grabbed by airo.
+	Jeff
 
-The fix seems to be to follow interface renames with name
-change in /proc/driver/airo/.  Or, better longterm but
-leads to incompatibilities, switch to using sysfs interface,
-where the change will be made automagically.
 
-I don't understand all the driver internals to a level when
-I can fix the problem in the right way.  But I can fix it
-with a hack, which seems to be simple enouth and will suit
-at least my needs: by introducing another array of charp
-for module parameters, giving the name(s) of interface(s)
-it should create, just like currently it accepts "ssids"
-and "rates" parameters.
 
-Can someone comment on the situation, please?
-
-Thanks.
-
-/mjt
