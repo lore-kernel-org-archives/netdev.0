@@ -1,111 +1,30 @@
-From: Laurent Riffard <laurent.riffard@free.fr>
-Subject: [PATCH] bonding: fix an oops when slave device does not provide get_stats
-Date: Sat, 28 Oct 2006 23:56:35 +0200
-Message-ID: <20061028215635.581262368@calimero.antadix>
+From: Ismail Donmez <ismail@pardus.org.tr>
+Subject: Re: bcm43xx-d80211 broadcast reception with WPA
+Date: Sun, 12 Nov 2006 22:43:14 +0200
+Message-ID: <200611122243.14287.ismail@pardus.org.tr>
+References: <ej09qf$2nv$1@sea.gmane.org> <20061112012430.GA29648@keitarou> <200611120934.28133.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp18.orange.fr ([193.252.22.126]:26974 "EHLO
-	smtp-msa-out18.orange.fr") by vger.kernel.org with ESMTP
-	id S1752463AbWKLSln (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Nov 2006 13:41:43 -0500
-Received: from [192.168.1.9] (ALyon-251-1-44-68.w83-197.abo.wanadoo.fr [83.197.14.68])
-	by mwinf1804.orange.fr (SMTP Server) with ESMTP id 20CC170000A7
-	for <netdev@vger.kernel.org>; Sun, 12 Nov 2006 19:41:42 +0100 (CET)
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=bonding-fix-oops-when-slave-has-no-get_stats.patch
+Received: from ns2.uludag.org.tr ([193.140.100.220]:6082 "EHLO uludag.org.tr")
+	by vger.kernel.org with ESMTP id S1753159AbWKLUnR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Nov 2006 15:43:17 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200611120934.28133.mb@bu3sch.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bonding driver unconditionnaly dereference get_stats function pointer
-for each of its slave device. This patch 
-- adds a check for NULL dev->get_stats pointer in bond_get_stats
-- prints a notice when the bonding device enslave a device without
-  get_stats function.
+Hi,
+12 Kas 2006 Paz 10:34 tarihinde =C5=9Funlar=C4=B1 yazm=C4=B1=C5=9Ft=C4=B1=
+n=C4=B1z:
+> Ah, and also note that you _need_ firmware from a v4 binary driver
+> to have hardware encryption with bcm43xx.
 
-Signed-off-by: Laurent Riffard <laurent.riffard@free.fr>
----
- drivers/net/bonding/bond_main.c |   61 ++++++++++++++++++++++------------------
- 1 file changed, 35 insertions(+), 26 deletions(-)
+Last time I heard only v3 firmware was supported. Is that changed?
 
-Index: linux-2.6-mm/drivers/net/bonding/bond_main.c
-===================================================================
---- linux-2.6-mm.orig/drivers/net/bonding/bond_main.c
-+++ linux-2.6-mm/drivers/net/bonding/bond_main.c
-@@ -1336,6 +1336,13 @@ int bond_enslave(struct net_device *bond
- 		goto err_undo_flags;
- 	}
- 
-+	if (slave_dev->get_stats == NULL) {
-+		printk(KERN_NOTICE DRV_NAME
-+			": %s: the driver for slave device %s does not provide "
-+			"get_stats function, network statistics will be "
-+			"inaccurate.\n", bond_dev->name, slave_dev->name);
-+	}
-+
- 	new_slave = kmalloc(sizeof(struct slave), GFP_KERNEL);
- 	if (!new_slave) {
- 		res = -ENOMEM;
-@@ -3605,33 +3612,35 @@ static struct net_device_stats *bond_get
- 	read_lock_bh(&bond->lock);
- 
- 	bond_for_each_slave(bond, slave, i) {
--		sstats = slave->dev->get_stats(slave->dev);
-+		if (slave->dev->get_stats) {
-+			sstats = slave->dev->get_stats(slave->dev);
- 
--		stats->rx_packets += sstats->rx_packets;
--		stats->rx_bytes += sstats->rx_bytes;
--		stats->rx_errors += sstats->rx_errors;
--		stats->rx_dropped += sstats->rx_dropped;
--
--		stats->tx_packets += sstats->tx_packets;
--		stats->tx_bytes += sstats->tx_bytes;
--		stats->tx_errors += sstats->tx_errors;
--		stats->tx_dropped += sstats->tx_dropped;
--
--		stats->multicast += sstats->multicast;
--		stats->collisions += sstats->collisions;
--
--		stats->rx_length_errors += sstats->rx_length_errors;
--		stats->rx_over_errors += sstats->rx_over_errors;
--		stats->rx_crc_errors += sstats->rx_crc_errors;
--		stats->rx_frame_errors += sstats->rx_frame_errors;
--		stats->rx_fifo_errors += sstats->rx_fifo_errors;
--		stats->rx_missed_errors += sstats->rx_missed_errors;
--
--		stats->tx_aborted_errors += sstats->tx_aborted_errors;
--		stats->tx_carrier_errors += sstats->tx_carrier_errors;
--		stats->tx_fifo_errors += sstats->tx_fifo_errors;
--		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
--		stats->tx_window_errors += sstats->tx_window_errors;
-+			stats->rx_packets += sstats->rx_packets;
-+			stats->rx_bytes += sstats->rx_bytes;
-+			stats->rx_errors += sstats->rx_errors;
-+			stats->rx_dropped += sstats->rx_dropped;
-+
-+			stats->tx_packets += sstats->tx_packets;
-+			stats->tx_bytes += sstats->tx_bytes;
-+			stats->tx_errors += sstats->tx_errors;
-+			stats->tx_dropped += sstats->tx_dropped;
-+
-+			stats->multicast += sstats->multicast;
-+			stats->collisions += sstats->collisions;
-+
-+			stats->rx_length_errors += sstats->rx_length_errors;
-+			stats->rx_over_errors += sstats->rx_over_errors;
-+			stats->rx_crc_errors += sstats->rx_crc_errors;
-+			stats->rx_frame_errors += sstats->rx_frame_errors;
-+			stats->rx_fifo_errors += sstats->rx_fifo_errors;
-+			stats->rx_missed_errors += sstats->rx_missed_errors;
-+
-+			stats->tx_aborted_errors += sstats->tx_aborted_errors;
-+			stats->tx_carrier_errors += sstats->tx_carrier_errors;
-+			stats->tx_fifo_errors += sstats->tx_fifo_errors;
-+			stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
-+			stats->tx_window_errors += sstats->tx_window_errors;
-+		}
- 	}
- 
- 	read_unlock_bh(&bond->lock);
-
---
-
+Regards,
+ismail
