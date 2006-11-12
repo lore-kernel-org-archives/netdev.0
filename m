@@ -1,102 +1,74 @@
-From: Jonathan Day <imipak@yahoo.com>
-Subject: Re: Questions regarding network drivers
-Date: Sat, 11 Nov 2006 15:21:17 -0800 (PST)
-Message-ID: <454688.85582.qm@web31512.mail.mud.yahoo.com>
-References: <20061111115449.GA22586@2ka.mipt.ru>
+From: Paul TBBle Hampson <Paul.Hampson@Pobox.com>
+Subject: Re: bcm43xx-d80211 broadcast reception with WPA
+Date: Sun, 12 Nov 2006 12:24:30 +1100
+Message-ID: <20061112012430.GA29648@keitarou>
+References: <ej09qf$2nv$1@sea.gmane.org> <200611102112.33050.mb@bu3sch.de> <loom.20061111T070237-788@post.gmane.org> <200611111607.05420.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web31512.mail.mud.yahoo.com ([68.142.198.141]:54165 "HELO
-	web31512.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S1754899AbWKKXVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Nov 2006 18:21:18 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061111115449.GA22586@2ka.mipt.ru>
+Received: from betty.cbit.net.au ([202.55.154.10]:60827 "EHLO mail.cbit.net.au")
+	by vger.kernel.org with ESMTP id S1947388AbWKLBWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Nov 2006 20:22:47 -0500
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200611111607.05420.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, Nov 11, 2006 at 04:07:05PM +0100, Michael Buesch wrote:
+> Please _don't_ remove CCs.
 
---- Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> You can use netchannels, which were designed for
-> exactly that kind of
-> load.
+Sorry, I was sending via the gmane web interface, I guess it doesn't
+honour CCs.
 
-Actually, netchannels are a mechanism I've been
-looking at intensely, as a way to simplify this and
-keep it sane, without loosing performance.
+This one's via muttng's NNTP support to gmane, so I _think_ it's going
+to the right places.
 
-> You need to process some headers anyway - to select
-> appropriate socket
-> or netchannel or whatever.
+> On Saturday 11 November 2006 07:32, Paul Hampson wrote:
+>> Michael Buesch <mb <at> bu3sch.de> writes:
 
-I was planning on cheating there. I've revised the
-method slightly, based on previous comments, so that
-I'm now doing the following:
+> >> On Thursday 09 November 2006 23:23, Paul Hampson wrote:
+> > >> I've been backporting the bcm43xx-d80211 driver to whatever the released
+> > >> 2.6 kernel was using the rt2x00 project's d80211 stack (equivalent to
+> > >> current wireless-dev but with a workaround for not having a ieee80211_dev
+> > >> pointer and still using the _tfm interface instead of the _cypher interface.)
 
-The master table has a set of pointers to tables. One
-group, one table - for groups in use. Unused groups
-have no associated table and the pointer is null.
-Pointers are always at (group number * pointer size)
-from the start of the table. There's a max of 4096
-groups in this system, or the hardware guys start
-shooting.
+> > >> As of last night's wireless-dev tree bcm43xx, everything seems to be
+> > >> operating fine except incoming broadcast traffic is coming in 14 bytes too
+> > >> long and scrambled. I presume this means it's not decrypting properly...
 
-Each group has a table that contains a set of pointers
-to buffers. Offset is always (node number * pointer
-size). Nodes that are active members have pointers to
-pinned, allocated and cleaned buffers. Nodes that
-aren't members get null pointers. There are 32 nodes
-in the current system.
+> >> It sounds like a bug in the hardware decryption setup.
+> >> Are you using TKIP or not?
 
-The packet header contains the group address at a
-fixed offset and the source node number at another
-fixed offset. The hardware can then grab these and do
-the necessary calculations. The hardware has a DMA
-controller which can get the group pointer from the
-master table then get the buffer pointer from the
-group table.
+>> Yes, it's using TKIP. The router docs and the loading of the tkip module
+>> when I use the softmac driver agree on this.
 
-(Essentially, I'm mimicking a primitive virtual memory
-system here.)
+> TKIP is still software encryption. Did you try with WPA-AES, for example,
+> which is hardware encryption?
 
-The hardware then stores enough packet payloads to
-fill one page of memory (unless it gets an
-end-of-transmit signal before then) and then DMAs the
-page of data into the physical page in one shot.
-(Since I did the original design, I worked out that
-there's too much overhead in setting up a transmit to
-just do a single packet at a time.) The hardware is
-apparently smart enough to re-order packers if they
-come in out of sequence and to NACK anything that's
-missing.
+The router here only supports TKIP that I can see. There's another
+network I'll be on on Monday night which I might be able to throw into
+WPA2 mode... In fact, I was there yesterday and couldn't even get a
+DHCP IP address, but didn't have the time to diagnose it.
 
-Once a page has been filled, the driver simply pushes
-the pointer onto a queue and then grabs a pointer to a
-fresh page.
+> The problem might be that the card tries to decrypt mcast
+> frames in the crypto hardware, although we did not set a key.
+> So it uses a random key to decrypt. That obviously results in crap.
 
+Eww, yuck.
 
-Based on what I'm hearing, I'll probably finish this
-driver simply to see what it does and post it up -
-it'll have educational value, whatever happens. I'll
-also work on a netchannels version which is less
-hardware-specific and more "normal".
+-- 
+-----------------------------------------------------------
+Paul "TBBle" Hampson, B.Sc, LPI, MCSE
+On-hiatus Asian Studies student, ANU
+The Boss, Bubblesworth Pty Ltd (ABN: 51 095 284 361)
+Paul.Hampson@Pobox.Com
 
-> > I can try getting beer. Oregon has some acceptable
-> > microbreweries, but I miss having a pint of
-> Hatters in
-> > England. Mead is easier. I brew mead. Strong, dry,
-> > rocket-fuel mead.
-> 
-> Then you definitely just need to send your driver to
-> netdev@.
+Of course Pacman didn't influence us as kids. If it did,
+we'd be running around in darkened rooms, popping pills and
+listening to repetitive music.
+ -- Kristian Wilson, Nintendo, Inc, 1989
 
-Sounds good to me. Liquid driver review aids will be prepared.
-
-
- 
-____________________________________________________________________________________
-Do you Yahoo!?
-Everyone is raving about the all-new Yahoo! Mail beta.
-http://new.mail.yahoo.com
+License: http://creativecommons.org/licenses/by/2.1/au/
+-----------------------------------------------------------
