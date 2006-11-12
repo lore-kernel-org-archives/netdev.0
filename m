@@ -1,45 +1,61 @@
-From: Ismail Donmez <ismail@pardus.org.tr>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: bcm43xx-d80211 broadcast reception with WPA
-Date: Mon, 13 Nov 2006 00:41:59 +0200
-Message-ID: <200611130041.59754.ismail@pardus.org.tr>
-References: <ej09qf$2nv$1@sea.gmane.org> <200611122247.54388.mb@bu3sch.de> <200611130040.21977.ismail@pardus.org.tr>
+Date: Sun, 12 Nov 2006 23:54:38 +0100
+Message-ID: <1163372079.5399.9.camel@johannes.berg>
+References: <ej09qf$2nv$1@sea.gmane.org> <200611122247.54388.mb@bu3sch.de>
+	 <200611130040.21977.ismail@pardus.org.tr>
+	 <200611130041.59754.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Eb35dVO+RlB0dh1wfueb"
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:21708 "EHLO uludag.org.tr")
-	by vger.kernel.org with ESMTP id S1753418AbWKLWl7 convert rfc822-to-8bit
+Received: from crystal.sipsolutions.net ([195.210.38.204]:4274 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1753404AbWKLW4M
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Nov 2006 17:41:59 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200611130040.21977.ismail@pardus.org.tr>
-Content-Disposition: inline
+	Sun, 12 Nov 2006 17:56:12 -0500
+To: Ismail Donmez <ismail@pardus.org.tr>
+In-Reply-To: <200611130041.59754.ismail@pardus.org.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-13 Kas 2006 Pts 00:40 tarihinde =C5=9Funlar=C4=B1 yazm=C4=B1=C5=9Ft=C4=B1=
-n=C4=B1z:
-> 12 Kas 2006 Paz 23:47 tarihinde, Michael Buesch =C5=9Funlar=C4=B1 yaz=
-m=C4=B1=C5=9Ft=C4=B1:
-> > On Sunday 12 November 2006 21:43, Ismail Donmez wrote:
-> > > Hi,
-> > >
-> > > 12 Kas 2006 Paz 10:34 tarihinde =C5=9Funlar=C4=B1 yazm=C4=B1=C5=9F=
-t=C4=B1n=C4=B1z:
-> > > > Ah, and also note that you _need_ firmware from a v4 binary dri=
-ver
-> > > > to have hardware encryption with bcm43xx.
-> > >
-> > > Last time I heard only v3 firmware was supported. Is that changed=
-?
-> >
-> > Yes, wireless-dev supports v4 firmware (and even requires it for
-> > advanced features like hw encryption)
->
-> Thanks for information, this firmware would also solve the recent roo=
-thole.
 
-s/roothole/security vulnerability would be better =3D)
+--=-Eb35dVO+RlB0dh1wfueb
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-/ismail
+On Mon, 2006-11-13 at 00:41 +0200, Ismail Donmez wrote:
+
+> > Thanks for information, this firmware would also solve the recent rooth=
+ole.
+>=20
+> s/roothole/security vulnerability would be better =3D)
+
+Ummm, the problem was in the driver, not the firmware. You can't have
+security problems like that in the firmware.
+
+johannes
+
+--=-Eb35dVO+RlB0dh1wfueb
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUARVemLaVg1VMiehFYAQI8ag/9HdhtrB7EFirOZXEjdmfMkHj0w7m7n/Aj
+FdAS5Yc80aQ82n/u7hLBYhjmU4tpDS5XG2ToEcYMPL/aLILPIjbK5coHzFkA8hpo
+0vZ83suiIjZL6xsQPJ48Bf5Dc0DRxrbSXo5eOpzR5vBYTgThRFJCYHhsUH/KKNdZ
+txjWI8HliSZGu+qaznlwsEC03ahgn7727lc7xj06upuYeHViIycyP7BavBF+fZhp
+aj/k2xQon1OAtorS6QGym4Y68vfElo5u/0Mt/xRalBxdZAQ0QF7JUKQJhLQP5c0P
+ILxvkxb0EKYyGZ31f/RCNrwOl7F0+Wlu/5WoQtko5AiG3JVd82N/N2mAxJN6I+Tb
+RmWBJ1qW+pU1DxtKNplOcNP1R+NVad0eN1UNhkHg3NriRSdFyPemDnzwMKhtdspP
+wGBlAcG3addU7oI8gwQaC8I+bYsCdY4AtavJQQMmAYVogFkWI9/OepLwH3AjKvN9
+VKnG2FbVssTuI83NZdgbuBWLs4joAS1n4XtHf5PTFTm0u5GsFFQaWzzSGg3VARTQ
+nyyuQrNSH9W1EsixzzOjxjp7ZmJNb1FS/s/rMLZ2H4wPfju+6iz4+e+DJLAm3pql
+DVdPCypjTz0NK1AGOFmRuQeGZl76BXeqJtSuZ4OZO+z0DUr8DT2vRgRCUn4OK8SQ
+JlXf762yajM=
+=rYzN
+-----END PGP SIGNATURE-----
+
+--=-Eb35dVO+RlB0dh1wfueb--
+
