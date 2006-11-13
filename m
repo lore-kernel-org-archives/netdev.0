@@ -1,32 +1,164 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/9] bonding: lockdep annotation
-Date: Sun, 12 Nov 2006 17:46:31 -0800 (PST)
-Message-ID: <20061112.174631.130237477.davem@davemloft.net>
-References: <4554A435.5070500@garzik.org>
-	<20061110.124556.130237858.davem@davemloft.net>
-	<45574E62.8010007@garzik.org>
+From: Shu Qing Yang <sqy@vnet.ibm.com>
+Subject: Re: [Bugme-new] [Bug 7483] New: Unable to handle kernel paging
+	request for data at address 0x5a5a5a5a5a5a5a5a
+Date: Sun, 12 Nov 2006 22:03:10 -0500
+Message-ID: <20061112220310.lxj63zfd1wo0ckws@imap.linux.ibm.com>
+References: <200611100848.kAA8mVHR025316@fire-2.osdl.org>
+	<20061110010832.7cbc481e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
-	mingo@elte.hu, shemminger@osdl.org
+Content-Type: text/plain;
+	charset=GB2312;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 8BIT
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, netdev@vger.kernel.org,
+	Steven French <sfrench@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17297
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1753768AbWKMBq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Nov 2006 20:46:26 -0500
-To: jeff@garzik.org
-In-Reply-To: <45574E62.8010007@garzik.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:5260 "EHLO e5.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1753817AbWKMDDP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Nov 2006 22:03:15 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAD33EQL006781
+	for <netdev@vger.kernel.org>; Sun, 12 Nov 2006 22:03:14 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAD33BiH227610
+	for <netdev@vger.kernel.org>; Sun, 12 Nov 2006 22:03:14 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAD33ANT030293
+	for <netdev@vger.kernel.org>; Sun, 12 Nov 2006 22:03:11 -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061110010832.7cbc481e.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Sun, 12 Nov 2006 11:40:02 -0500
+Quoting Andrew Morton <akpm@osdl.org>:
 
-> David Miller wrote:
-> > Jeff, I put this one in my net-2.6.20 tree already.
-> 
-> Well, it was drivers/net/bonding/* which usually goes in through my 
-> tree, what did you expect?  :)
+>
+> (switching to email - please follow up via reply-to-all and not via bugzilla)
+>
+> On Fri, 10 Nov 2006 00:48:31 -0800
+> bugme-daemon@bugzilla.kernel.org wrote:
+>
+>> http://bugzilla.kernel.org/show_bug.cgi?id=7483
+>>
+>>            Summary: Unable to handle kernel paging request for data at
+>>                     address 0x5a5a5a5a5a5a5a5a
+>>     Kernel Version: 2.6.19-rc5
+>>             Status: NEW
+>>           Severity: normal
+>>              Owner: fs_cifs@kernel-bugs.osdl.org
+>
+> This could be a networking bug.
+>
+>>          Submitter: sqy@vnet.ibm.com
+>>                 CC: akpm@osdl.org,walkinair@cn.ibm.com
+>>
+>>
+>> Most recent kernel where this bug did not occur: 2.6.19-rc5
+>
+> You misunderstand.  We're asking what is the most recent version of the
+> kernel which *did not* have this bug.
+>
+Sorry.
+>> Distribution:  SLES10 GA
+>>
+>> Hardware Environment: IBM p-series server (POWER5+)
+>>
+>> Software Environment: SLES10 GA + 2.6.19-rc5
+>>
+>> Problem Description:
+>> I mount a local samba directory and run fsstress in it. Several   
+>> minutes later,
+>> the machine is no response and entered xmon(a debug mode in Power arch).
+>>
+>> Dmesg as following:
+>>
+>> CIFS VFS: close with pending writes
+>> CIFS VFS: No task to wake, unknown frame rcvd! NumMids 8
+>> Received Data is: : dump of 37 bytes of data at 0xc00000003a6d9300
+>>  0000003a ff534d42 32000000 008041c0 . . . : _ S M B 2 . . . . . A _
+>>  00000000 00000000 00000000 0100cf08 . . . . . . . . . . . . . . _ .
+>>  6400422f 0a020000 d . B / .
+>> CIFS VFS: No task to wake, unknown frame rcvd! NumMids
+>> ......
+>> CIFS VFS: close with pending writes.
+>> ......
+>> Unable to handle kernel paging request for data at address   
+>> 0x5a5a5a5a5a5a5a5a.
+>> Faulting instruction address: 0xc0000000000a2e04..
+>>
+>> xmon output:
+>>
+>> 5:mon> e
+>> cpu 0x5: Vector: 300 (Data Access) at [c0000000075b7470]
+>>     pc: c0000000000a2e04: .put_page+0x2c/0x16c
+>>     lr: c00000000042f238: .skb_release_data+0x84/0xe4
+>>     sp: c0000000075b76f0
+>>    msr: 8000000000009032
+>>    dar: 5a5a5a5a5a5a5a5a
+>>  dsisr: 40000000
+>>   current = 0xc000000003000ad0
+>>   paca    = 0xc00000000062ce00
+>>     pid   = 4419, comm = syslog-ng
+>> 5:mon> t
+>> [c0000000075b7790] c00000000042f238 .skb_release_data+0x84/0xe4
+>> [c0000000075b7820] c00000000042ef04 .kfree_skbmem+0x20/0xd4
+>> [c0000000075b78a0] c000000000431c48 .skb_free_datagram+0x14/0x28
+>> [c0000000075b7920] c0000000004a7018 .unix_dgram_recvmsg+0x238/0x294
+>> [c0000000075b7a10] c000000000427b4c .sock_recvmsg+0xd0/0x110
+>> [c0000000075b7c10] c000000000428e18 .sys_recvfrom+0xcc/0x14c
+>> [c0000000075b7d90] c00000000044784c .compat_sys_socketcall+0x194/0x214
+>> [c0000000075b7e30] c000000000008724 syscall_exit+0x0/0x40
+>> --- Exception: c01 (System Call) at 0000000007edffdc
+>> SP (fa4df720) is in userspace
+>> 5:mon> r
+>> R00 = c00000000042f238   R16 = 0000000010020000
+>> R01 = c0000000075b76f0   R17 = 0000000010020000
+>> R02 = c000000000848180   R18 = 0000000010010000
+>> R03 = 5a5a5a5a5a5a5a5a   R19 = 0000000000000003
+>> R04 = 0000000000000002   R20 = 00000000fbe5fe96
+>> R05 = 0000000000020002   R21 = 0000000010020000
+>> R06 = 0000000000000000   R22 = c000000003f184b0
+>> R07 = 0000000000000000   R23 = c000000003de96e8
+>> R08 = 3520336320633000   R24 = 0000000000000050
+>> R09 = c000000021f18e20   R25 = c000000003f181c8
+>> R10 = c0000000075bb8e8   R26 = 0000000000000040
+>> R11 = c000000021f18e20   R27 = c00000007b165e60
+>> R12 = fa4df78cfa4df788   R28 = c0000000075b7a80
+>> R13 = c00000000062ce00   R29 = c00000007b165e60
+>> R14 = 0000000000000000   R30 = c000000000662d10
+>> R15 = 0000000010020000   R31 = 5a5a5a5a5a5a5a5a
+>> pc  = c0000000000a2e04 .put_page+0x2c/0x16c
+>> lr  = c00000000042f238 .skb_release_data+0x84/0xe4
+>> msr = 8000000000009032   cr  = 24044884
+>> ctr = c0000000004a7cb4   xer = 0000000020000001   trap =  300
+>> dar = 5a5a5a5a5a5a5a5a   dsisr = 40000000
+>>
+>> Steps to reproduce:
+>>
+>> 1.mkfs.ext3 /dev/sdb1
+>> 2.mount /dev/sdb1 /home
+>> 3.mkdir /home/public
+>> 4.add entry "public" (export directory /home/public) to /etc/samba/smb.conf,
+>> then restart samba service
+>> 5.mount //localhost/public /mnt/test -o username=xxx,password=xxx
+>> 6.fsstress -l 500 -p 1000 -n 1000 -d /mnt/test
+>>
+>
+> I guess skb_release_data() ran off the end of the ->frags array and passed
+> uninitialised, kmalloced data to put_page().
+>
+> It's a pity that you're running both samba and the CIFS client on the same
+> machine.  If you were to run them on two separate machines across the
+> network then we might be able to eliminate CIFS.
+>
+I separate them and run the same test case. The problem still appears  
+on the client end. And it seems no related with samba server.
+> But it does look like CIFS is involved.
+>
 
-It's not problem, it will all come out in the wash :)
+
+
