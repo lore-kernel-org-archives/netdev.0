@@ -1,34 +1,39 @@
-From: Ismail Donmez <ismail@pardus.org.tr>
-Subject: Re: bcm43xx-d80211 broadcast reception with WPA
-Date: Mon, 13 Nov 2006 10:10:38 +0200
-Message-ID: <200611131010.38553.ismail@pardus.org.tr>
-References: <ej09qf$2nv$1@sea.gmane.org> <200611130041.59754.ismail@pardus.org.tr> <1163372079.5399.9.camel@johannes.berg>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/3] [NET]: Supporting UDP-Lite (RFC 3828) in Linux
+Date: Mon, 13 Nov 2006 08:32:44 +0000
+Message-ID: <200611130832.44409@strip-the-willow>
+References: <200611130734.49700@strip-the-willow> <200611130809.34613@strip-the-willow> <20061113.001615.74565996.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:50598 "EHLO uludag.org.tr")
-	by vger.kernel.org with ESMTP id S1754272AbWKMIKj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Nov 2006 03:10:39 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1163372079.5399.9.camel@johannes.berg>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:8364 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1750701AbWKMIcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 03:32:53 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061113.001615.74565996.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-13 Kas 2006 Pts 00:54 tarihinde =C5=9Funlar=C4=B1 yazm=C4=B1=C5=9Ft=C4=B1=
-n=C4=B1z:
-> On Mon, 2006-11-13 at 00:41 +0200, Ismail Donmez wrote:
-> > > Thanks for information, this firmware would also solve the recent
-> > > roothole.
-> >
-> > s/roothole/security vulnerability would be better =3D)
->
-> Ummm, the problem was in the driver, not the firmware. You can't have
-> security problems like that in the firmware.
+|  > It is not a huge problem to change this, but it will also mean a non-trivial redesign.
+|  > With regards to Stephen's email, can you/Stephen please indicate whether
+|  > 
+|  > 	(a) configurable or not (CONFIG_IP_UDPLITE)?
+|  > 	(b) re-design as separate object file or not?
+|  > 	(c) ... ?
+|  
+|  I don't think it needs to be configurable, and I also think the
+|  split-out is easy as you just need to un-static a few things, and put
+|  function declarations and perhaps a few inlines into a
+|  net/ipv{4,6}/udp_impl.h header file that both udp.c and udplite.c both
+|  include.
+If you give me time until tomorrow morning, I will re-submit the split version - I would
+like to take some time to go over it. I will use the filename as suggested for the header
+file, unless there is another suggestion (the only header file in net/ipv?/ so far is 
+fib_lookup.h).
 
-Ah then only ndiswrapper is problematic. Thanks for the insight.
-
-/ismail
+Thanking you,
+Gerrit
