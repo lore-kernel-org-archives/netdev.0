@@ -1,39 +1,40 @@
-From: Paul Moore <paul.moore@hp.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Mon, 13 Nov 2006 09:08:18 -0500
-Message-ID: <200611130908.18644.paul.moore@hp.com>
-References: <45541757.90800@hp.com> <20061110173642.GL8693@postel.suug.ch> <20061113072347.GB1892@ff.dom.local>
+Date: Mon, 13 Nov 2006 09:17:37 -0500
+Message-ID: <1163427457.6825.14.camel@jzny2>
+References: <45541757.90800@hp.com> <20061110173642.GL8693@postel.suug.ch>
+	 <20061113072347.GB1892@ff.dom.local> <200611130908.18644.paul.moore@hp.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@o2.pl>, Thomas Graf <tgraf@suug.ch>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:60135 "EHLO mailhub.hp.com")
-	by vger.kernel.org with ESMTP id S1754705AbWKMOIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 09:08:25 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061113072347.GB1892@ff.dom.local>
-Content-Disposition: inline
+Received: from mx02.cybersurf.com ([209.197.145.105]:36548 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1754731AbWKMORm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Nov 2006 09:17:42 -0500
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1Gjcd6-0004wh-1Y
+	for netdev@vger.kernel.org; Mon, 13 Nov 2006 09:17:44 -0500
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <200611130908.18644.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 November 2006 2:23 am, Jarek Poplawski wrote:
-> Sorry! Typo in @@ -436,20 part. Forget the earlier message.
+On Mon, 2006-13-11 at 09:08 -0500, Paul Moore wrote:
 
-No problem, my first draft was full of typos too ;)
+> I want to give Jamal a little bit longer 
+> to reply.
 
-> So there is more...
->
-> Jarek P.
->
-> PS: It is added to my first patch because I don't know
-> what is the current version.
+Sorry, family emergency - still ongoing today, so havent looked at
+anything (including presentation that was supposed to be done) ;-<
 
-Thanks.  I'm going to mail out the latest version (my first draft with 
-everybody's patches) later today - I want to give Jamal a little bit longer 
-to reply.
+Give me a day or two (I know i at least have to do the presentation or
+iam fscked ;->).
 
--- 
-paul moore
-linux security @ hp
+cheers,
+jamal
+
