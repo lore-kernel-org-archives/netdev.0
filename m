@@ -1,64 +1,119 @@
-From: "Joshua Brindle" <jbrindle@tresys.com>
-Subject: RE: [PATCH 0/3] labeled-ipsec: Repost patchset with updates [Originally: mlsxfrm: Various Fixes]
-Date: Mon, 13 Nov 2006 12:45:54 -0500
-Message-ID: <6FE441CD9F0C0C479F2D88F959B015885C777B@exchange.columbia.tresys.com>
-References: <000401c7073a$5a762be0$cc0a010a@tcssec.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] WAN: DSCC4 driver requires generic HDLC
+Date: Mon, 13 Nov 2006 19:48:54 +0100
+Message-ID: <m37ixz89nt.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
-	<jmorris@namei.org>, <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@cogenit.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tresys.irides.com ([216.250.243.126]:58856 "HELO
-	exchange.columbia.tresys.com") by vger.kernel.org with SMTP
-	id S932126AbWKMRpz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 12:45:55 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <000401c7073a$5a762be0$cc0a010a@tcssec.com>
-To: <vyekkirala@trustedcs.com>
+Received: from khc.piap.pl ([195.187.100.11]:38056 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1755321AbWKMSs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 13:48:56 -0500
+To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Venkat Yekkirala [mailto:vyekkirala@trustedcs.com] 
-> 
-> > I pulled in the lspp respin kernels and am checking the labeling 
-> > behavior now so I should have a full response later, however I ran 
-> > into one unexpected thing immediately on bootup with the new kernel:
-> 
-> Just FYI- The labeled-ipsec patch doesn't affect or influence 
-> the packet class handling in any manner.
-> 
-> > 
-> > audit(1163061323.188:197): avc:  denied  { send } for  pid=1676 
-> > comm="modprobe" daddr=ff02:0000:0000:0000:0000:0000:0000:0016
-> > netif=eth0
-> > scontext=system_u:system_r:kernel_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
-> > audit(1163061343.335:204): avc:  denied  { send } for  pid=1804 
-> > comm="avahi-daemon" saddr=fe80:0000:0000:0000:020c:29ff:fe72:2dd1
-> > src=5353 daddr=ff02:0000:0000:0000:0000:0000:0000:00fb dest=5353 
-> > netif=eth0 scontext=system_u:system_r:avahi_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
-> > audit(1163061343.338:205): avc:  denied  { recv } for  pid=1804 
-> > comm="avahi-daemon" saddr=fe80:0000:0000:0000:020c:29ff:fe72:2dd1
-> > src=5353 daddr=ff02:0000:0000:0000:0000:0000:0000:00fb dest=5353 
-> > netif=eth0 scontext=system_u:system_r:avahi_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
-> > audit(1163061346.139:210): avc:  denied  { send } for  pid=1856 
-> > comm="smartd-conf.py" saddr=fe80:0000:0000:0000:020c:29ff:fe72:2dd1
-> > daddr=ff02:0000:0000:0000:0000:0000:0000:0016 netif=eth0 
-> > scontext=system_u:system_r:kernel_t:s0
-> > tcontext=system_u:object_r:unlabeled_t:s0 tclass=packet
-> > 
-> > These denials come after iptables-restore sets up labeling in the 
-> > mangle table so I'm not sure why they are unlabeled..
-> 
-> Could you list the mangle table rules and see that the above 
-> IPv6 addresses are covered (i.e. labeled appropriately) or 
-> otherwise that your policy allows kernel_t to receive all 
-> packets (may or may not be desired/good, just thinking out loud).
-> 
+Another thing, reported recently to me by several people - DSCC4 WAN
+driver now (and perhaps for the last couple of years+) requires the
+generic HDLC. I've fixed the Kconfig and moved the DSCC4 option
+under CONFIG_HDLC so it's consistent visually.
 
-Oops, I don't have ipv6 rules (refpolicy doesn't generate them). I'm not
-even sure why it was on since I don't use ipv6 at all.. 
+Jeff, Francois, I think it's safe to apply. Thanks.
+
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+
+diff --git a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
+index b5d0d7f..d5ab9cf 100644
+--- a/drivers/net/wan/Kconfig
++++ b/drivers/net/wan/Kconfig
+@@ -57,44 +57,6 @@ config COSA
+ 	  The driver will be compiled as a module: the
+ 	  module will be called cosa.
+ 
+-config DSCC4
+-	tristate "Etinc PCISYNC serial board support"
+-	depends on WAN && PCI && m
+-	help
+-	  Driver for Etinc PCISYNC boards based on the Infineon (ex. Siemens)
+-	  DSCC4 chipset.
+-
+-	  This is supposed to work with the four port card. Take a look at
+-	  <http://www.cogenit.fr/dscc4/> for further information about the
+-	  driver.
+-
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called dscc4.
+-
+-config DSCC4_PCISYNC
+-	bool "Etinc PCISYNC features"
+-	depends on DSCC4
+-	help
+-	  Due to Etinc's design choice for its PCISYNC cards, some operations
+-	  are only allowed on specific ports of the DSCC4. This option is the
+-	  only way for the driver to know that it shouldn't return a success
+-	  code for these operations.
+-
+-	  Please say Y if your card is an Etinc's PCISYNC.
+-
+-config DSCC4_PCI_RST
+-	bool "Hard reset support"
+-	depends on DSCC4
+-	help
+-	  Various DSCC4 bugs forbid any reliable software reset of the ASIC.
+-	  As a replacement, some vendors provide a way to assert the PCI #RST
+-	  pin of DSCC4 through the GPIO port of the card. If you choose Y,
+-	  the driver will make use of this feature before module removal
+-	  (i.e. rmmod). The feature is known to be available on Commtech's
+-	  cards. Contact your manufacturer for details.
+-
+-	  Say Y if your card supports this feature.
+-
+ #
+ # Lan Media's board. Currently 1000, 1200, 5200, 5245
+ #
+@@ -323,6 +285,44 @@ config FARSYNC
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called farsync.
+ 
++config DSCC4
++	tristate "Etinc PCISYNC serial board support"
++	depends on HDLC && PCI && m
++	help
++	  Driver for Etinc PCISYNC boards based on the Infineon (ex. Siemens)
++	  DSCC4 chipset.
++
++	  This is supposed to work with the four port card. Take a look at
++	  <http://www.cogenit.fr/dscc4/> for further information about the
++	  driver.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called dscc4.
++
++config DSCC4_PCISYNC
++	bool "Etinc PCISYNC features"
++	depends on DSCC4
++	help
++	  Due to Etinc's design choice for its PCISYNC cards, some operations
++	  are only allowed on specific ports of the DSCC4. This option is the
++	  only way for the driver to know that it shouldn't return a success
++	  code for these operations.
++
++	  Please say Y if your card is an Etinc's PCISYNC.
++
++config DSCC4_PCI_RST
++	bool "Hard reset support"
++	depends on DSCC4
++	help
++	  Various DSCC4 bugs forbid any reliable software reset of the ASIC.
++	  As a replacement, some vendors provide a way to assert the PCI #RST
++	  pin of DSCC4 through the GPIO port of the card. If you choose Y,
++	  the driver will make use of this feature before module removal
++	  (i.e. rmmod). The feature is known to be available on Commtech's
++	  cards. Contact your manufacturer for details.
++
++	  Say Y if your card supports this feature.
++
+ config DLCI
+ 	tristate "Frame Relay DLCI support"
+ 	depends on WAN
