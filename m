@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [NET]: Supporting UDP-Lite (RFC 3828) in Linux
-Date: Mon, 13 Nov 2006 01:28:22 -0800 (PST)
-Message-ID: <20061113.012822.48527926.davem@davemloft.net>
-References: <200611130809.34613@strip-the-willow>
-	<20061113.001615.74565996.davem@davemloft.net>
-	<200611130832.44409@strip-the-willow>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [patch] fix up generic csum_ipv6_magic function prototype
+Date: 13 Nov 2006 10:37:03 +0100
+Message-ID: <p73y7qf3cxs.fsf@bingen.suse.de>
+References: <000301c703a3$0eedb340$ff0da8c0@amr.corp.intel.com>
+	<20061108.230059.57444310.davem@davemloft.net>
+	<20061109072216.GL29920@ftp.linux.org.uk>
+	<20061108.235548.12921799.davem@davemloft.net>
+	<20061113085223.GR29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kenneth.w.chen@intel.com, akpm@osdl.org, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44715
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751036AbWKMJ2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Nov 2006 04:28:16 -0500
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200611130832.44409@strip-the-willow>
+Received: from ns2.suse.de ([195.135.220.15]:63361 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1753768AbWKMJhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 04:37:13 -0500
+To: Al Viro <viro@ftp.linux.org.uk>
+In-Reply-To: <20061113085223.GR29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 13 Nov 2006 08:32:44 +0000
+Al Viro <viro@ftp.linux.org.uk> writes:
+> 
+> Incidentally, WTF is
+> define SK_CS_CALCULATE_CHECKSUM
+> #ifndef CONFIG_X86_64
+> #define SkCsCalculateChecksum(p,l)      ((~ip_compute_csum(p, l)) & 0xffff)
+> #else
+> #define SkCsCalculateChecksum(p,l)      ((~ip_fast_csum(p, l)) & 0xffff)   
+> #endif
+> in ./drivers/net/sk98lin/h/skdrv1st.h?
 
-> If you give me time until tomorrow morning, I will re-submit the
-> split version - I would like to take some time to go over it. I will
-> use the filename as suggested for the header file, unless there is
-> another suggestion (the only header file in net/ipv?/ so far is
-> fib_lookup.h).
+Looks totally bogus. The x86-64 ip_fast_csum is practically identical
+to the i386 version. Someone must have been asleep while reviewing
+that code.
 
-It should be fine as a name, and if you look at fib_lookup.h
-it's serving the same purpose the udp_impl.h file will, in
-that it provides interfaces for internals of the fib_*.c
-files.
+But AFAIK sk98lin is scheduled for deletion anyways, to be replaced by 
+sky*. Probably for good reasons. Hopefully soon.
+
+-Andi
