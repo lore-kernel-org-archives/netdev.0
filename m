@@ -1,111 +1,38 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Questions regarding network drivers
-Date: Mon, 13 Nov 2006 12:05:32 +0300
-Message-ID: <20061113090532.GA20664@2ka.mipt.ru>
-References: <20061111115449.GA22586@2ka.mipt.ru> <454688.85582.qm@web31512.mail.mud.yahoo.com>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [patch] fix up generic csum_ipv6_magic function prototype
+Date: Mon, 13 Nov 2006 09:12:22 +0000
+Message-ID: <20061113091222.GA26628@flint.arm.linux.org.uk>
+References: <000301c703a3$0eedb340$ff0da8c0@amr.corp.intel.com> <20061108.230059.57444310.davem@davemloft.net> <20061109072216.GL29920@ftp.linux.org.uk> <20061108.235548.12921799.davem@davemloft.net> <20061113085223.GR29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kenneth.w.chen@intel.com,
+	akpm@osdl.org, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:27800 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1753159AbWKMJFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 04:05:31 -0500
-To: Jonathan Day <imipak@yahoo.com>
+Received: from caramon.arm.linux.org.uk ([217.147.92.249]:2322 "EHLO
+	caramon.arm.linux.org.uk") by vger.kernel.org with ESMTP
+	id S1753482AbWKMJMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Nov 2006 04:12:48 -0500
+To: Al Viro <viro@ftp.linux.org.uk>
 Content-Disposition: inline
-In-Reply-To: <454688.85582.qm@web31512.mail.mud.yahoo.com>
+In-Reply-To: <20061113085223.GR29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 11, 2006 at 03:21:17PM -0800, Jonathan Day (imipak@yahoo.com) wrote:
+On Mon, Nov 13, 2006 at 08:52:23AM +0000, Al Viro wrote:
+> After doing the above we have the following:
 > 
-> --- Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > You can use netchannels, which were designed for
-> > exactly that kind of
-> > load.
-> 
-> Actually, netchannels are a mechanism I've been
-> looking at intensely, as a way to simplify this and
-> keep it sane, without loosing performance.
-> 
-> > You need to process some headers anyway - to select
-> > appropriate socket
-> > or netchannel or whatever.
-> 
-> I was planning on cheating there. I've revised the
-> method slightly, based on previous comments, so that
-> I'm now doing the following:
-> 
-> The master table has a set of pointers to tables. One
-> group, one table - for groups in use. Unused groups
-> have no associated table and the pointer is null.
-> Pointers are always at (group number * pointer size)
-> from the start of the table. There's a max of 4096
-> groups in this system, or the hardware guys start
-> shooting.
-> 
-> Each group has a table that contains a set of pointers
-> to buffers. Offset is always (node number * pointer
-> size). Nodes that are active members have pointers to
-> pinned, allocated and cleaned buffers. Nodes that
-> aren't members get null pointers. There are 32 nodes
-> in the current system.
-> 
-> The packet header contains the group address at a
-> fixed offset and the source node number at another
-> fixed offset. The hardware can then grab these and do
-> the necessary calculations. The hardware has a DMA
-> controller which can get the group pointer from the
-> master table then get the buffer pointer from the
-> group table.
-> 
-> (Essentially, I'm mimicking a primitive virtual memory
-> system here.)
+> Platform-dependent:
+> __wsum csum_tcpudp_nofold(__be32, __be32, T1, T2, __wsum);
+> On arm/arm26: T1 = unsigned short, T2 = unsigned int.
+> __sum16 csum_tcpudp_magic(__be32, __be32, unsigned short, T, __wsum);
+> On arm/arm26 T is unsigned int, elsewhere it's unsigned short.
 
-Do you have any benchmarks of that system, it looks quite complex to
-avoid some problems...
-
-> The hardware then stores enough packet payloads to
-> fill one page of memory (unless it gets an
-> end-of-transmit signal before then) and then DMAs the
-> page of data into the physical page in one shot.
-> (Since I did the original design, I worked out that
-> there's too much overhead in setting up a transmit to
-> just do a single packet at a time.) The hardware is
-> apparently smart enough to re-order packers if they
-> come in out of sequence and to NACK anything that's
-> missing.
-
-I.e. it supports TCP sequence number checks?
-In that case you store a set of flows in hardware, what happens when it
-overflows?
-
-> Once a page has been filled, the driver simply pushes
-> the pointer onto a queue and then grabs a pointer to a
-> fresh page.
-> 
-> 
-> Based on what I'm hearing, I'll probably finish this
-> driver simply to see what it does and post it up -
-> it'll have educational value, whatever happens. I'll
-> also work on a netchannels version which is less
-> hardware-specific and more "normal".
-
-That would be great.
-
-> > > I can try getting beer. Oregon has some acceptable
-> > > microbreweries, but I miss having a pint of
-> > Hatters in
-> > > England. Mead is easier. I brew mead. Strong, dry,
-> > > rocket-fuel mead.
-> > 
-> > Then you definitely just need to send your driver to
-> > netdev@.
-> 
-> Sounds good to me. Liquid driver review aids will be prepared.
- 
-That's good - send your dirver and some kind of benchmarks for
-throughput and latency tests. 
-  
+Could both become unsigned short or unsigned int.  Would prefer
+unsigned int on ARM, since otherwise the compiler generate code to
+truncate any variable "int"s to an unsigned short.
 
 -- 
-	Evgeniy Polyakov
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 Serial core
