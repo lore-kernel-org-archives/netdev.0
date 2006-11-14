@@ -1,50 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SELinux: Add support for DCCP
-Date: Mon, 13 Nov 2006 16:10:14 -0800 (PST)
-Message-ID: <20061113.161014.35469494.davem@davemloft.net>
-References: <XMMS.LNX.4.64.0611131612490.9577@d.namei>
+Subject: Re: [PATCH] ambassador,firestream: "-1 >>" is implementation
+ defined
+Date: Mon, 13 Nov 2006 16:12:34 -0800 (PST)
+Message-ID: <20061113.161234.88477152.davem@davemloft.net>
+References: <20061113202200.GA4971@martell.zuzino.mipt.ru>
+	<20061113202656.GT29920@ftp.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sds@tycho.nsa.gov, arnaldo.melo@gmail.com
+Cc: adobriyan@gmail.com, chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:25513
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27561
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933211AbWKNAKH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Nov 2006 19:10:07 -0500
-To: jmorris@namei.org
-In-Reply-To: <XMMS.LNX.4.64.0611131612490.9577@d.namei>
+	id S933212AbWKNAM0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Nov 2006 19:12:26 -0500
+To: viro@ftp.linux.org.uk
+In-Reply-To: <20061113202656.GT29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Mon, 13 Nov 2006 16:15:06 -0500 (EST)
+From: Al Viro <viro@ftp.linux.org.uk>
+Date: Mon, 13 Nov 2006 20:26:56 +0000
 
-> This patch implements SELinux kernel support for DCCP
-> (http://linux-net.osdl.org/index.php/DCCP), which is similar in operation
-> to TCP in terms of connected state between peers.
+> On Mon, Nov 13, 2006 at 11:22:00PM +0300, Alexey Dobriyan wrote:
+> > 6.5.7(5): The result of E1 >> E2 is E1 right-shifted E2 bit positions.
+> > 		...
+> > 	If E1 has a signed type and a negative value, the resulting value
+> > 	is implementation defined.
+> > 
+> > So, cast -1 to unsigned type to make result well-defined.
 > 
-> The SELinux support for DCCP is thus modeled on existing handling of TCP.
-> 
-> A new DCCP socket class is introduced, to allow protocol differentation.
-> The permissions for this class inherit all of the socket permissions, as
-> well as the current TCP permissions (node_bind, name_bind etc). IPv4 and
-> IPv6 are supported, although labeled networking is not, at this stage.
-> 
-> Patches for SELinux userspace are at:
-> http://people.redhat.com/jmorris/selinux/dccp/user/
-> 
-> I've performed some basic testing, and it seems to be working as expected.
-> Adding policy support is similar to TCP, the only real difference being
-> that it's a different protocol.
-> 
-> Please apply for 2.6.20.
-> 
-> Also available via git:
-> git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-net-2.6.20.git
-> 
-> Acked-by: Stephen Smalley <sds@tycho.nsa.gov>
-> Signed-off-by: James Morris <jmorris@namei.org>
+> Or just use ~0U and be done with that.
 
-Applied to net-2.6.20, thanks.
-
+I've modified the patch based upon Al's suggestion and applied
+it to 2.6.20, thanks everyone.
