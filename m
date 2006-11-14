@@ -1,29 +1,41 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] qla3xxx: Add support for Qlogic ISP4032 chip.
-Date: Tue, 14 Nov 2006 23:50:13 +0100
-Message-ID: <20061114225013.GA29574@electric-eye.fr.zoreil.com>
-References: <0BB3E5E7462EEA4295BC02D49691DC07557F08@AVEXCH1.qlogic.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: driver support for Chelsio T210 10Gb ethernet in 2.6.x
+Date: Tue, 14 Nov 2006 17:57:27 -0500
+Message-ID: <455A49D7.4050106@garzik.org>
+References: <Pine.LNX.4.64.0611131408010.32659@potato.cts.ucla.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56291 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S966427AbWKNWxA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 17:53:00 -0500
-To: Ron Mercer <ron.mercer@qlogic.com>
-Content-Disposition: inline
-In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC07557F08@AVEXCH1.qlogic.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:54482 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S966440AbWKNW5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 17:57:30 -0500
+To: Chris Stromsoe <cbs@cts.ucla.edu>
+In-Reply-To: <Pine.LNX.4.64.0611131408010.32659@potato.cts.ucla.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ron Mercer <ron.mercer@qlogic.com> :
-> oops, that patch is borked (line-wrapped). will resend ASAP.
+Chris Stromsoe wrote:
+> The in-kernel Chelsio cxgb driver in 2.6.19-rc5 is version 2.1.1 and 
+> only supports the N110 and N210 10Gb ethernet boards.  The current 
+> driver available from Chelsio[1] is 2.1.4a and supports the T110 and 
+> T210 series boards, but is only available against 2.6.16.  Any chance of 
+> an update to the in-kernel driver for 2.6.20 to support the T* series 
+> cards?
+> 
+> -Chris
+> 
+> 1. http://service.chelsio.com/drivers/linux/n210/cxgb-2.1.4a.tar.gz
 
-If you can isolate the support of the new chipset and the cleanups,
-it will make my life easier.
+A bit of history:  this driver was merged in March 2005 (submitted by 
+Chelsio), updated once in June 2005, and then the maintainers completely 
+disappeared.
 
-I have got some pending minor changes.
+So, you get what you get...  if someone wants to dig through the updated 
+cxgb driver and merge it with the kernel and test it... great.  But at 
+this point it is abandonware.
 
--- 
-Ueimor
+	Jeff
+
+
