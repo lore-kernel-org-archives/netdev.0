@@ -1,52 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch sungem] improved locking
-Date: Mon, 13 Nov 2006 16:46:22 -0800 (PST)
-Message-ID: <20061113.164622.28395064.davem@davemloft.net>
-References: <5cac192f0611100528r4a53498emc8d866955cc36c8d@mail.gmail.com>
-	<20061110.124246.41636039.davem@davemloft.net>
-	<5cac192f0611121511w6a8fec54pdf6124b5f2f79a08@mail.gmail.com>
+Subject: Re: [PATCH] dccp: remove module exit functions
+Date: Mon, 13 Nov 2006 16:49:09 -0800 (PST)
+Message-ID: <20061113.164909.35016870.davem@davemloft.net>
+References: <XMMS.LNX.4.64.0611101122520.15046@d.namei>
+	<XMMS.LNX.4.64.0611101126150.15046@d.namei>
+	<39e6f6c70611101032v5f0be644ta65069cf533b3385@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
+Cc: jmorris@namei.org, netdev@vger.kernel.org, dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41639
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34699
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933267AbWKNAqO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Nov 2006 19:46:14 -0500
-To: eric.lemoine@gmail.com
-In-Reply-To: <5cac192f0611121511w6a8fec54pdf6124b5f2f79a08@mail.gmail.com>
+	id S933270AbWKNAtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Nov 2006 19:49:01 -0500
+To: arnaldo.melo@gmail.com
+In-Reply-To: <39e6f6c70611101032v5f0be644ta65069cf533b3385@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Eric Lemoine" <eric.lemoine@gmail.com>
-Date: Mon, 13 Nov 2006 00:11:49 +0100
+From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Date: Fri, 10 Nov 2006 16:32:16 -0200
 
-> +#if GEM_INTERRUPT_LOCKLESS
-> +
-> +/* Bitmask representing the interrupt conditions that we clear using GREG_IACK.
-> + * We clear all the top-level interrupt conditions (bits 0 through 6) that we
-> + * handle.
-> + */
-> +#define GREG_STAT_IACK		(GREG_STAT_NAPI & 0x3f)
-> +#endif
+> On 11/10/06, James Morris <jmorris@namei.org> wrote:
+> > On Fri, 10 Nov 2006, James Morris wrote:
+> >
+> > > I wonder if this facility can be integrated more generally into the kernel
+> > > protocol which people are developing.
+> >
+> > Ugh, editor screwup.  That was meant to be
+> >
+> > I wonder if this facility can be integrated more generally into the kernel
+> > as a kernel hacking option, as this is not the only protocol which people
+> > are developing.
+> >
+> 
+> See:
+> http://www.erg.abdn.ac.uk/users/gerrit/dccp/patch-backlog/09a_release_ctl_socket_at_exit.diff
+> 
+> This one requires a bit more thinking, so I'm postponing it for now to
+> get the simple bits in Gerrit's patch queue cherrypicked and sent for
+> Dave.
 
-I'm asking for this a second time...  and to be honest I'm a little
-bit ticked off.
+One possible way to handle this is to flag certain sockets such that
+no refrence counting is done for them against the module.  It is
+an indication that the module will take care of such sockets on
+cleanup.
 
-Please spell out the explicit bits using the existing defines to
-create this mask.  Do not use this magic 0x3f magic number which
-contains bits which are undefined, so obtain this mask (as I asked the
-first time) like this:
-
-	(GREG_STAT_TXINTME | GREG_STAT_TXALL |
-	 GREG_STAT_TXDONE | GREG_STAT_RXDONE |
-	 GREG_STAT_RXNOBUF)
-
-I will not go through the effort a third time, instead I will simply
-ignore your patch submissions, it's that simple.  If you ignore me, I
-ignore you.
-
-You want me to review this patch and the locking bits, but you're
-never going to get to that point if you continually ignore the
-most simple requests I'm making of you. :-(
+It seems that this would limit the cost to a test at socket create
+and destroy time.
