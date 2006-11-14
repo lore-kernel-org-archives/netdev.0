@@ -1,40 +1,45 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: status of route matching work?
-Date: Tue, 14 Nov 2006 15:08:25 -0600
-Message-ID: <F8900C78-45E3-4818-B7EA-DF14516CF876@kernel.crashing.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [TG3]: Increase 5906 firmware poll time.
+Date: Tue, 14 Nov 2006 14:42:23 -0800
+Message-ID: <1163544143.4954.19.camel@rh4>
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:32232 "EHLO
-	nommos.sslcatacombnetworking.com") by vger.kernel.org with ESMTP
-	id S966059AbWKNVIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 16:08:13 -0500
-To: Thomas Graf <tgraf@suug.ch>
+Received: from mms2.broadcom.com ([216.31.210.18]:3845 "EHLO mms2.broadcom.com")
+	by vger.kernel.org with ESMTP id S966392AbWKNVtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 16:49:50 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas,
+[TG3]: Increase 5906 firmware poll time.
+From: Gary Zambrano <zambrano@broadcom.com>
 
-I came across this comment in DaveM's blog:
+Newer 5906 bootcode needs about 7ms to finish resetting so the poll
+firmware loop was changed to maximum 20ms.
 
-"Next he described a way to do route matching based upon branching  
-rules with a "GOTO" operation. Only forward GOTOs would be allowed in  
-the tree in order to prevent loops, but this would allow to match on  
-many key components and allow a high level of rule sharing.
+Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-One nice consequence of Thomas's work is that we can force packets  
-for a local address to still go over a real ethernet device. Some  
-people do this for testing and the current kernel cannot do this.  
-Continually a very ugly patch keeps getting submitted which allowed  
-this but broke a lot of other things. Thomas's ideas allow this to be  
-supported cleanly."
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 8f059b7..d4b211c 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4728,10 +4728,11 @@ static int tg3_poll_fw(struct tg3 *tp)
+ 	u32 val;
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+-		for (i = 0; i < 400; i++) {
++		/* Wait up to 20ms for init done. */
++		for (i = 0; i < 200; i++) {
+ 			if (tr32(VCPU_STATUS) & VCPU_STATUS_INIT_DONE)
+ 				return 0;
+-			udelay(10);
++			udelay(100);
+ 		}
+ 		return -ENODEV;
+ 	}
 
-And was wondering what the status of this work was.  I'm interested  
-in being able to force packets for a local address out a real  
-ethernet device.
 
-thanks
-
-- kumar
