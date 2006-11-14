@@ -1,47 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 14 Nov 2006 10:29:23 -0500
-Message-ID: <4559E0D3.2050306@garzik.org>
-References: <20061108045825.GA15272@tuxdriver.com> <20061108045927.GB15272@tuxdriver.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Add support for configuring the PHY connection interface
+Date: Tue, 14 Nov 2006 10:30:19 -0500
+Message-ID: <4559E10B.2030905@pobox.com>
+References: <Pine.LNX.4.61.0611080009010.6936@ld0175-tx32.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:14272 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965970AbWKNP30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 10:29:26 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061108045927.GB15272@tuxdriver.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:16064 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965983AbWKNPaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 10:30:21 -0500
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <Pine.LNX.4.61.0611080009010.6936@ld0175-tx32.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit d4f748365129ccfc9dadf6fb14331e45e33cc4ed:
->   John W. Linville:
->         Merge branch 'upstream-fixes' into upstream
+Andy Fleming wrote:
+> Most PHYs connect to an ethernet controller over a GMII or MII
+> interface.  However, a growing number are connected over
+> different interfaces, such as RGMII or SGMII.
 > 
-> are found in the git repository at:
+> The ethernet driver will tell the PHY what type of connection it
+> is by setting it manually, or passing it in through phy_connect
+> (or phy_attach).
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> Changes include:
+> * Updates to documentation
+> * Updates to other PHY Lib consumers
+> * Changes to PHY Lib to add interface support
+> * Some minor changes to whitespace in phy.h
+> * interface values now passed to gianfar
 > 
-> John W. Linville:
->       wireless: clean-up some "check return code" warnings
-> 
-> Larry Finger:
->       bcm43xx: remove badness variable and related routine
->       bcm43xx: Remove useless core enable/disable messages
->       ieee80211softmac: fix verbosity when debug disabled
-> 
->  drivers/net/wireless/bcm43xx/bcm43xx_main.c   |   56 +++++--------------------
->  drivers/net/wireless/hostap/hostap_pci.c      |    8 +++-
->  drivers/net/wireless/ipw2100.c                |    8 +++-
->  drivers/net/wireless/ipw2200.c                |    8 +++-
->  drivers/net/wireless/orinoco_pci.h            |    7 +++
->  drivers/net/wireless/prism54/islpci_hotplug.c |   20 +++++++--
->  net/ieee80211/softmac/ieee80211softmac_auth.c |   10 ++--
->  7 files changed, 60 insertions(+), 57 deletions(-)
+> Signed-off-by: Andrew Fleming <afleming@freescale.com>
 
-pulled
+ACK technical content, but
 
 
+
+Applying 'Add support for configuring the PHY connection interface'
+
+error: patch failed: arch/powerpc/sysdev/fsl_soc.c:211
+error: arch/powerpc/sysdev/fsl_soc.c: patch does not apply
