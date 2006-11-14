@@ -1,40 +1,37 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: driver support for Chelsio T210 10Gb ethernet in 2.6.x
-Date: Tue, 14 Nov 2006 17:57:27 -0500
-Message-ID: <455A49D7.4050106@garzik.org>
-References: <Pine.LNX.4.64.0611131408010.32659@potato.cts.ucla.edu>
+Subject: Re: [TG3]: Increase 5906 firmware poll time.
+Date: Tue, 14 Nov 2006 18:05:28 -0500
+Message-ID: <455A4BB8.8060301@garzik.org>
+References: <1163544143.4954.19.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev List <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, zambrano@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54482 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S966440AbWKNW5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 17:57:30 -0500
-To: Chris Stromsoe <cbs@cts.ucla.edu>
-In-Reply-To: <Pine.LNX.4.64.0611131408010.32659@potato.cts.ucla.edu>
+Received: from srv5.dvmed.net ([207.36.208.214]:20691 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965992AbWKNXFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 18:05:32 -0500
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1163544143.4954.19.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Stromsoe wrote:
-> The in-kernel Chelsio cxgb driver in 2.6.19-rc5 is version 2.1.1 and 
-> only supports the N110 and N210 10Gb ethernet boards.  The current 
-> driver available from Chelsio[1] is 2.1.4a and supports the T110 and 
-> T210 series boards, but is only available against 2.6.16.  Any chance of 
-> an update to the in-kernel driver for 2.6.20 to support the T* series 
-> cards?
+Michael Chan wrote:
+> [TG3]: Increase 5906 firmware poll time.
+> From: Gary Zambrano <zambrano@broadcom.com>
 > 
-> -Chris
+> Newer 5906 bootcode needs about 7ms to finish resetting so the poll
+> firmware loop was changed to maximum 20ms.
 > 
-> 1. http://service.chelsio.com/drivers/linux/n210/cxgb-2.1.4a.tar.gz
+> Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-A bit of history:  this driver was merged in March 2005 (submitted by 
-Chelsio), updated once in June 2005, and then the maintainers completely 
-disappeared.
+ACK, of course, but this brings up something else:  what's the status of 
+moving chip reset outside of a spinlock?
 
-So, you get what you get...  if someone wants to dig through the updated 
-cxgb driver and merge it with the kernel and test it... great.  But at 
-this point it is abandonware.
+Currently a reset during operation can trigger the CPU lockup detector 
+and other doo-dads, because you can easily spend a second or two with a 
+spinlock held (a loooooong time, to hold a spinlock)
 
 	Jeff
 
