@@ -1,140 +1,119 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [IPv6] iflink: Convert IPv6's RTM_GETLINK to use the new netlink api
-Date: Tue, 14 Nov 2006 15:27:14 +0100
-Message-ID: <20061114142714.GR8693@postel.suug.ch>
+Subject: [IPv6] prefix: Convert RTM_NEWPREFIX notifications to use the new netlink api
+Date: Tue, 14 Nov 2006 15:27:43 +0100
+Message-ID: <20061114142743.GS8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:42174 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S965862AbWKNO0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 09:26:54 -0500
+Received: from postel.suug.ch ([194.88.212.233]:43198 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965864AbWKNO1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 09:27:22 -0500
 To: davem@davemloft.net
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By replacing the current method of exporting the device configuration
-which included allocating a temporary buffer, copying ipv6_devconf
-into it and copying that buffer into the message with a method that
-uses nla_reserve() allowing to copy the device configuration directly
-into the skb data buffer, a GFP_ATOMIC allocation could be removed.
+RTM_GETPREFIX is completely unused and is thus removed.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 Index: net-2.6.20/net/ipv6/addrconf.c
 ===================================================================
---- net-2.6.20.orig/net/ipv6/addrconf.c	2006-11-14 11:52:24.000000000 +0100
-+++ net-2.6.20/net/ipv6/addrconf.c	2006-11-14 12:51:56.000000000 +0100
-@@ -3360,6 +3360,8 @@
- static void inline ipv6_store_devconf(struct ipv6_devconf *cnf,
- 				__s32 *array, int bytes)
+--- net-2.6.20.orig/net/ipv6/addrconf.c	2006-11-14 12:51:56.000000000 +0100
++++ net-2.6.20/net/ipv6/addrconf.c	2006-11-14 12:52:04.000000000 +0100
+@@ -3518,16 +3518,18 @@
+ }
+ 
+ static int inet6_fill_prefix(struct sk_buff *skb, struct inet6_dev *idev,
+-			struct prefix_info *pinfo, u32 pid, u32 seq, 
+-			int event, unsigned int flags)
++			     struct prefix_info *pinfo, u32 pid, u32 seq,
++			     int event, unsigned int flags)
  {
-+	BUG_ON(bytes < (DEVCONF_MAX * 4));
-+
- 	memset(array, 0, bytes);
- 	array[DEVCONF_FORWARDING] = cnf->forwarding;
- 	array[DEVCONF_HOPLIMIT] = cnf->hop_limit;
-@@ -3409,66 +3411,59 @@
- static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev, 
- 			     u32 pid, u32 seq, int event, unsigned int flags)
- {
--	struct net_device	*dev = idev->dev;
--	__s32			*array = NULL;
--	struct ifinfomsg	*r;
+-	struct prefixmsg	*pmsg;
 -	struct nlmsghdr 	*nlh;
 -	unsigned char		*b = skb->tail;
--	struct rtattr		*subattr;
--	__u32			mtu = dev->mtu;
--	struct ifla_cacheinfo	ci;
--
--	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*r), flags);
--	r = NLMSG_DATA(nlh);
--	r->ifi_family = AF_INET6;
--	r->__ifi_pad = 0;
--	r->ifi_type = dev->type;
--	r->ifi_index = dev->ifindex;
--	r->ifi_flags = dev_get_flags(dev);
--	r->ifi_change = 0;
-+	struct net_device *dev = idev->dev;
-+	struct nlattr *conf;
-+	struct ifinfomsg *hdr;
++	struct prefixmsg *pmsg;
 +	struct nlmsghdr *nlh;
-+	void *protoinfo;
-+	struct ifla_cacheinfo ci;
-+
-+	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*hdr), flags);
+ 	struct prefix_cacheinfo	ci;
+ 
+-	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*pmsg), flags);
+-	pmsg = NLMSG_DATA(nlh);
++	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*pmsg), flags);
 +	if (nlh == NULL)
 +		return -ENOBUFS;
 +
-+	hdr = nlmsg_data(nlh);
-+	hdr->ifi_family = AF_INET6;
-+	hdr->__ifi_pad = 0;
-+	hdr->ifi_type = dev->type;
-+	hdr->ifi_index = dev->ifindex;
-+	hdr->ifi_flags = dev_get_flags(dev);
-+	hdr->ifi_change = 0;
- 
--	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
-+	NLA_PUT_STRING(skb, IFLA_IFNAME, dev->name);
- 
- 	if (dev->addr_len)
--		RTA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
-+		NLA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
- 
--	RTA_PUT(skb, IFLA_MTU, sizeof(mtu), &mtu);
-+	NLA_PUT_U32(skb, IFLA_MTU, dev->mtu);
- 	if (dev->ifindex != dev->iflink)
--		RTA_PUT(skb, IFLA_LINK, sizeof(int), &dev->iflink);
--			
--	subattr = (struct rtattr*)skb->tail;
-+		NLA_PUT_U32(skb, IFLA_LINK, dev->iflink);
- 
--	RTA_PUT(skb, IFLA_PROTINFO, 0, NULL);
-+	protoinfo = nla_nest_start(skb, IFLA_PROTINFO);
-+	if (protoinfo == NULL)
-+		goto nla_put_failure;
- 
--	/* return the device flags */
--	RTA_PUT(skb, IFLA_INET6_FLAGS, sizeof(__u32), &idev->if_flags);
-+	NLA_PUT_U32(skb, IFLA_INET6_FLAGS, idev->if_flags);
- 
--	/* return interface cacheinfo */
- 	ci.max_reasm_len = IPV6_MAXPLEN;
- 	ci.tstamp = (__u32)(TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) / HZ * 100
- 		    + TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
- 	ci.reachable_time = idev->nd_parms->reachable_time;
- 	ci.retrans_time = idev->nd_parms->retrans_time;
--	RTA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
++	pmsg = nlmsg_data(nlh);
+ 	pmsg->prefix_family = AF_INET6;
+ 	pmsg->prefix_pad1 = 0;
+ 	pmsg->prefix_pad2 = 0;
+@@ -3535,26 +3537,22 @@
+ 	pmsg->prefix_len = pinfo->prefix_len;
+ 	pmsg->prefix_type = pinfo->type;
+ 	pmsg->prefix_pad3 = 0;
 -	
--	/* return the device sysctl params */
--	if ((array = kmalloc(DEVCONF_MAX * sizeof(*array), GFP_ATOMIC)) == NULL)
--		goto rtattr_failure;
--	ipv6_store_devconf(&idev->cnf, array, DEVCONF_MAX * sizeof(*array));
--	RTA_PUT(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(*array), array);
-+	NLA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
-+
-+	conf = nla_reserve(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(s32));
-+	if (conf == NULL)
-+		goto nla_put_failure;
-+	ipv6_store_devconf(&idev->cnf, nla_data(conf), nla_len(conf));
+ 	pmsg->prefix_flags = 0;
+ 	if (pinfo->onlink)
+ 		pmsg->prefix_flags |= IF_PREFIX_ONLINK;
+ 	if (pinfo->autoconf)
+ 		pmsg->prefix_flags |= IF_PREFIX_AUTOCONF;
  
- 	/* XXX - Statistics/MC not implemented */
--	subattr->rta_len = skb->tail - (u8*)subattr;
+-	RTA_PUT(skb, PREFIX_ADDRESS, sizeof(pinfo->prefix), &pinfo->prefix);
++	NLA_PUT(skb, PREFIX_ADDRESS, sizeof(pinfo->prefix), &pinfo->prefix);
+ 
+ 	ci.preferred_time = ntohl(pinfo->prefered);
+ 	ci.valid_time = ntohl(pinfo->valid);
+-	RTA_PUT(skb, PREFIX_CACHEINFO, sizeof(ci), &ci);
++	NLA_PUT(skb, PREFIX_CACHEINFO, sizeof(ci), &ci);
  
 -	nlh->nlmsg_len = skb->tail - b;
--	kfree(array);
 -	return skb->len;
-+	nla_nest_end(skb, protoinfo);
 +	return nlmsg_end(skb, nlh);
  
 -nlmsg_failure:
 -rtattr_failure:
--	kfree(array);
 -	skb_trim(skb, b - skb->data);
 -	return -1;
 +nla_put_failure:
 +	return nlmsg_cancel(skb, nlh);
  }
  
- static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ static void inet6_prefix_notify(int event, struct inet6_dev *idev, 
+Index: net-2.6.20/net/core/rtnetlink.c
+===================================================================
+--- net-2.6.20.orig/net/core/rtnetlink.c	2006-11-14 11:52:24.000000000 +0100
++++ net-2.6.20/net/core/rtnetlink.c	2006-11-14 12:52:04.000000000 +0100
+@@ -108,7 +108,6 @@
+ 	[RTM_FAM(RTM_NEWTCLASS)]    = NLMSG_LENGTH(sizeof(struct tcmsg)),
+ 	[RTM_FAM(RTM_NEWTFILTER)]   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+ 	[RTM_FAM(RTM_NEWACTION)]    = NLMSG_LENGTH(sizeof(struct tcamsg)),
+-	[RTM_FAM(RTM_NEWPREFIX)]    = NLMSG_LENGTH(sizeof(struct rtgenmsg)),
+ 	[RTM_FAM(RTM_GETMULTICAST)] = NLMSG_LENGTH(sizeof(struct rtgenmsg)),
+ 	[RTM_FAM(RTM_GETANYCAST)]   = NLMSG_LENGTH(sizeof(struct rtgenmsg)),
+ };
+Index: net-2.6.20/include/linux/rtnetlink.h
+===================================================================
+--- net-2.6.20.orig/include/linux/rtnetlink.h	2006-11-14 11:52:24.000000000 +0100
++++ net-2.6.20/include/linux/rtnetlink.h	2006-11-14 12:52:04.000000000 +0100
+@@ -81,8 +81,6 @@
+ 
+ 	RTM_NEWPREFIX	= 52,
+ #define RTM_NEWPREFIX	RTM_NEWPREFIX
+-	RTM_GETPREFIX	= 54,
+-#define RTM_GETPREFIX	RTM_GETPREFIX
+ 
+ 	RTM_GETMULTICAST = 58,
+ #define RTM_GETMULTICAST RTM_GETMULTICAST
+Index: net-2.6.20/security/selinux/nlmsgtab.c
+===================================================================
+--- net-2.6.20.orig/security/selinux/nlmsgtab.c	2006-11-14 11:52:24.000000000 +0100
++++ net-2.6.20/security/selinux/nlmsgtab.c	2006-11-14 12:52:04.000000000 +0100
+@@ -60,7 +60,6 @@
+ 	{ RTM_DELACTION,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+ 	{ RTM_GETACTION,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_NEWPREFIX,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+-	{ RTM_GETPREFIX,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_GETMULTICAST,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_GETANYCAST,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_GETNEIGHTBL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
