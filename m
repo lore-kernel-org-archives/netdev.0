@@ -1,42 +1,80 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
-Date: Tue, 14 Nov 2006 07:53:41 +0100
-Message-ID: <20061114065341.GA1006@ff.dom.local>
-References: <45541757.90800@hp.com> <20061110132450.GA4307@ff.dom.local> <20061110173642.GL8693@postel.suug.ch> <20061113072347.GB1892@ff.dom.local> <4558CE59.60907@hp.com>
+From: "Eric Lemoine" <eric.lemoine@gmail.com>
+Subject: Re: [patch sungem] improved locking
+Date: Tue, 14 Nov 2006 08:28:42 +0100
+Message-ID: <5cac192f0611132328i52d6d615g28d8c493dc028621@mail.gmail.com>
+References: <5cac192f0611100528r4a53498emc8d866955cc36c8d@mail.gmail.com>
+	 <20061110.124246.41636039.davem@davemloft.net>
+	 <5cac192f0611121511w6a8fec54pdf6124b5f2f79a08@mail.gmail.com>
+	 <20061113.164622.28395064.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:36001 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1755443AbWKNGrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 01:47:47 -0500
-To: Paul Moore <paul.moore@hp.com>
+Received: from nf-out-0910.google.com ([64.233.182.191]:28191 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S933244AbWKNH2o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Nov 2006 02:28:44 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so179467nfa
+        for <netdev@vger.kernel.org>; Mon, 13 Nov 2006 23:28:42 -0800 (PST)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20061113.164622.28395064.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4558CE59.60907@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 13, 2006 at 02:58:17PM -0500, Paul Moore wrote:
-> Jarek Poplawski wrote:
-> > @@ -586,7 +586,7 @@
-> >        goto failure;
-> >    }
-> >    /* add a DOC_EXMPL_A_MSG attribute */
-> > -  rc = nla_put_string(skb, DOC_EXMPL_A_MSG, "Generic Netlink Rocks");
-> > +  rc = nla_put_string(skb, DOC_EXMPL_A_MSG, "Justin Timberlake rocks");
-> >    if (rc != 0)
-> >        goto failure;
-> >    /* finalize the message */
-> 
-> So here I am applying this patch by hand because the diffs are a bit off and I
-> come across this ... I think I might have to nix this change on the basis of
-> rudimentary quality standards :)
-> 
-> Besides, *I* brought sexy back.
+On 11/14/06, David Miller <davem@davemloft.net> wrote:
+> From: "Eric Lemoine" <eric.lemoine@gmail.com>
+> Date: Mon, 13 Nov 2006 00:11:49 +0100
+>
+> > +#if GEM_INTERRUPT_LOCKLESS
+> > +
+> > +/* Bitmask representing the interrupt conditions that we clear using GREG_IACK.
+> > + * We clear all the top-level interrupt conditions (bits 0 through 6) that we
+> > + * handle.
+> > + */
+> > +#define GREG_STAT_IACK               (GREG_STAT_NAPI & 0x3f)
+> > +#endif
+>
+> I'm asking for this a second time...  and to be honest I'm a little
+> bit ticked off.
+>
+> Please spell out the explicit bits using the existing defines to
+> create this mask.  Do not use this magic 0x3f magic number which
+> contains bits which are undefined, so obtain this mask (as I asked the
+> first time) like this:
+>
+>         (GREG_STAT_TXINTME | GREG_STAT_TXALL |
+>          GREG_STAT_TXDONE | GREG_STAT_RXDONE |
+>          GREG_STAT_RXNOBUF)
+>
+> I will not go through the effort a third time, instead I will simply
+> ignore your patch submissions, it's that simple.  If you ignore me, I
+> ignore you.
 
-It's too late!
+Dave, please believe me, I'm not ignoring you at all! I'm just trying
+to make things better.
 
-"My Love" (clip) nixed all possible standards
-so you'll have to update it soon anyway...
+I had thought that:
 
-Jarek P.
+(GREG_STAT_NAPI & 0x3f)
+
+was better than
+
+(GREG_STAT_TXINTME | GREG_STAT_TXALL |
+ GREG_STAT_TXDONE | GREG_STAT_RXDONE |
+ GREG_STAT_RXNOBUF)
+
+because it makes it explicit that only bits 0 through 6 are taken into
+account when writing the IACK register. In addition,  GREG_STAT_IACK
+doesn't need to be changed if GREG_STAT_NAPI is changed. That's why I
+did it that way. And as opposed to what I did in the previous patch, I
+no longer set bits that don't exist with this new macro.
+
+If you don't like it, let's discuss, and I can change my mind. But
+again, please, do not think I'm ignoring your comments.
+
+Thanks,
+
+-- 
+Eric
