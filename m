@@ -1,62 +1,42 @@
-From: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
-Subject: RE: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
-Date: Tue, 14 Nov 2006 11:03:46 +0530
-Message-ID: <010C7BAE6783F34D9AC336EE5A01A08802BB3C0B@dbde01.ent.ti.com>
-References: <20061109234604.GA17969@electric-eye.fr.zoreil.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
+Date: Tue, 14 Nov 2006 07:53:41 +0100
+Message-ID: <20061114065341.GA1006@ff.dom.local>
+References: <45541757.90800@hp.com> <20061110132450.GA4307@ff.dom.local> <20061110173642.GL8693@postel.suug.ch> <20061113072347.GB1892@ff.dom.local> <4558CE59.60907@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from soda.ext.ti.com ([198.47.26.145]:46987 "EHLO soda.ext.ti.com")
-	by vger.kernel.org with ESMTP id S1755420AbWKNFei convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 00:34:38 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20061109234604.GA17969@electric-eye.fr.zoreil.com>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Received: from mx10.go2.pl ([193.17.41.74]:36001 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1755443AbWKNGrr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 01:47:47 -0500
+To: Paul Moore <paul.moore@hp.com>
+Content-Disposition: inline
+In-Reply-To: <4558CE59.60907@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-Francois Romieu [mailto:romieu@fr.zoreil.com] wrote:
-
-> Afaics your change may disable the Rx irq right after the poll
-> routine enabled it again. It will not always work either.
+On Mon, Nov 13, 2006 at 02:58:17PM -0500, Paul Moore wrote:
+> Jarek Poplawski wrote:
+> > @@ -586,7 +586,7 @@
+> >        goto failure;
+> >    }
+> >    /* add a DOC_EXMPL_A_MSG attribute */
+> > -  rc = nla_put_string(skb, DOC_EXMPL_A_MSG, "Generic Netlink Rocks");
+> > +  rc = nla_put_string(skb, DOC_EXMPL_A_MSG, "Justin Timberlake rocks");
+> >    if (rc != 0)
+> >        goto failure;
+> >    /* finalize the message */
 > 
-> The (slow) timeout watchdog could grab the poll handler and hack
-> the irq mask depending on whether poll was scheduled or not.
+> So here I am applying this patch by hand because the diffs are a bit off and I
+> come across this ... I think I might have to nix this change on the basis of
+> rudimentary quality standards :)
+> 
+> Besides, *I* brought sexy back.
 
-Based on your inputs I'm attaching below the updated patch.
+It's too late!
 
+"My Love" (clip) nixed all possible standards
+so you'll have to update it soon anyway...
 
-Signed-off-by: Mansoor Ahamed <mansoor.ahamed@ti.com>
-
---- old/8139too.c	2006-11-14 10:44:27.000000000 +0530
-+++ new/8139too.c	2006-11-14 10:44:18.000000000 +0530
-@@ -1438,8 +1438,18 @@
- 	if ((!(tmp & CmdRxEnb)) || (!(tmp & CmdTxEnb)))
- 		RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
- 
--	/* Enable all known interrupts by setting the interrupt mask. */
--	RTL_W16 (IntrMask, rtl8139_intr_mask);
-+	local_irq_disable();
-+	/* Don't enable RX if RX was already scheduled */
-+	if(test_bit(__LINK_STATE_START, &dev->state) &&
-+			test_bit(__LINK_STATE_RX_SCHED, &dev->state) ) {
-+		/* Enable all interrupts except RX by setting the
-interrupt mask. */
-+		RTL_W16 (IntrMask, rtl8139_norx_intr_mask);
-+	}
-+	else {
-+		/* Enable all known interrupts by setting the interrupt
-mask. */ 
-+		RTL_W16 (IntrMask, rtl8139_intr_mask);
-+	}
-+	local_irq_enable();
- }
-
-Thanks
-Mansoor
+Jarek P.
