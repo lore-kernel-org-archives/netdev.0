@@ -1,34 +1,45 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [PATCH] IPv6: only modify checksum for UDP
-Date: Tue, 14 Nov 2006 01:52:47 +0000
-Message-ID: <20061114015247.GW29920@ftp.linux.org.uk>
-References: <20061113.165058.15265737.davem@davemloft.net> <OF31924028.FDB731A2-ON88257226.0006F081-88257226.00098A71@us.ibm.com>
+From: "Michal Pokrywka" <mpokrywka@hoga.pl>
+Subject: Re: [Bugme-new] [Bug 7502] New: sunhme not working with 2.6.18 on x86
+Date: Tue, 14 Nov 2006 02:50:22 +0100
+Message-ID: <1170.20061114025022.mpokrywka@hoga.pl>
+References: <200611130048.kAD0mduX009385@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, brian.haley@hp.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, <netdev@vger.kernel.org>,
+	"Michal Pokrywka" <mpokrywka@hoga.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:44200 "EHLO
-	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S1755377AbWKNBwx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Nov 2006 20:52:53 -0500
-To: David Stevens <dlstevens@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF31924028.FDB731A2-ON88257226.0006F081-88257226.00098A71@us.ibm.com>
+Received: from output.infocity.pl ([212.244.112.51]:23157 "HELO pop3.hoga.pl")
+	by vger.kernel.org with SMTP id S1755375AbWKNBwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Nov 2006 20:52:06 -0500
+To: "David S. Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@osdl.org>
+In-Reply-To: <20061112213648.e4b91939.akpm@osdl.org>
+Content-Class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 13, 2006 at 05:44:12PM -0800, David Stevens wrote:
->         That's actually what I was suggesting. In 1's-complement,
-> ~0 == -0 which is still 0, so barring any special case (like UDP's
-> "0 means no checksum" rule), it should be equally valid for a
-> packet to have 0 or ~0 as the checksum (with otherwise identical
-> data)-- they are both correct, and equal to each other. That
-> extra 1's-complement 0 is, of course, why UDP can have the
-> special case of remapping 0->~0.
->         Since the patch was for output-side, it doesn't matter
-> whether you remap 0 to ~0 or not (except for the special case),
-> but a receiver technically should allow either.
+> I'd have expected that this would have been caused by i386 platform
+> borkage.  But in the debian bug report, Michal has fingered davem's
+> http://www.kernel.org/git/?p=linux/kernel/git/stable/linux-2.6.18.y.
+> git;a=commit;h=050bbb196392b9c178f82b1205a23dd2f915ee93
+> as the cause.
+> 
+> Michal, what makes you believe that this particualr patch is to
+> blame?
 
-Could you please take a break from your Richard B. Johnson imitations
-and read the fscking RFC?
+Sorry, I'm not git expert, I only browsed sunhme.c changes through
+http interface and I downloaded a11 driver revisions between what
+I considered 2.6.17 driver (by date) and latest revision.
+I compiled all revisions by hand and insmoded all these modules
+until driver worked. Probably I didn't mentioned it in bug report,
+but after loading working driver and kernel assigning correct
+interrupts as seen in dmesg, all driver revisions loaded afterwards
+worked, even those bad.
+>From my pov driver is broken, because older version works with
+2.6.18.
+
+Regards
+Michal Pokrywka
