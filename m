@@ -1,29 +1,38 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: Generic Netlink Updates
-Date: Tue, 14 Nov 2006 12:23:59 -0500
-Message-ID: <4559FBAF.2090004@hp.com>
-References: <20061114114628.033840590@lsx.localdomain>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Network virtualization/isolation
+Date: Tue, 14 Nov 2006 13:12:20 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0611141304330.22471@d.namei>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
+ <20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org>
+ <4541CCF4.4050306@fr.ibm.com> <1162391707.5251.78.camel@jzny2>
+ <4559DE01.5090109@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: hadi@cyberus.ca, Dmitry Mishin <dim@openvz.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:47771 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1755454AbWKNRYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Nov 2006 12:24:04 -0500
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20061114114628.033840590@lsx.localdomain>
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:29892 "EHLO
+	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S966243AbWKNSMW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Nov 2006 13:12:22 -0500
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <4559DE01.5090109@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> Various simplifications to the generic netlink interface partially
-> based on suggestions by Paul Moore.
+On Tue, 14 Nov 2006, Daniel Lezcano wrote:
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+> the attached document describes the network isolation at the layer 2 and at
+> the layer 3, it presents the pros and cons of the different approaches, their
+> common points and the impacted network code.
+> I hope it will be helpful :)
 
-These changes all look good to me.
+What about other network subsystems: xfrm, netfilter, iptables, netlink, 
+etc. ?
 
+
+
+- James
 -- 
-paul moore
-linux security @ hp
+James Morris
+<jmorris@namei.org>
