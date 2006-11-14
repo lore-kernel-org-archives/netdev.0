@@ -1,38 +1,35 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Network virtualization/isolation
-Date: Tue, 14 Nov 2006 13:12:20 -0500 (EST)
-Message-ID: <XMMS.LNX.4.64.0611141304330.22471@d.namei>
-References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
- <20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org>
- <4541CCF4.4050306@fr.ibm.com> <1162391707.5251.78.camel@jzny2>
- <4559DE01.5090109@fr.ibm.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: Netpoll client software?
+Date: Tue, 14 Nov 2006 11:38:58 -0800
+Message-ID: <F3EE2A9EB4576F40AFE238EC0AC04BC5099B8C7A@orsmsx402.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: hadi@cyberus.ca, Dmitry Mishin <dim@openvz.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:29892 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S966243AbWKNSMW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 13:12:22 -0500
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <4559DE01.5090109@fr.ibm.com>
+Received: from mga03.intel.com ([143.182.124.21]:33963 "EHLO mga03.intel.com")
+	by vger.kernel.org with ESMTP id S966299AbWKNTjC convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Nov 2006 14:39:02 -0500
+Content-class: urn:content-classes:message
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Nov 2006, Daniel Lezcano wrote:
+Hi folks, I'm looking for some suggestions for software that uses
+the kernel's netpoll interface to receive packets.  The only in-kernel
+application that uses netpoll right now is netconsole, and that only
+sends packets.
 
-> the attached document describes the network isolation at the layer 2 and at
-> the layer 3, it presents the pros and cons of the different approaches, their
-> common points and the impacted network code.
-> I hope it will be helpful :)
+Used to be, netdump would use the netpoll interface for both transmit
+and receive, but netdump is gone now, and won't even compile on any
+recent kernel.
 
-What about other network subsystems: xfrm, netfilter, iptables, netlink, 
-etc. ?
+I've made some changes to e1000's netpoll code to support some Top
+Secret Upcoming Hardware, and I would like to be able to validate
+my changes.
 
+Any suggestions?
 
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Thanks,
+Mitch
