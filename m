@@ -1,51 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dccp: remove module exit functions
-Date: Mon, 13 Nov 2006 16:49:09 -0800 (PST)
-Message-ID: <20061113.164909.35016870.davem@davemloft.net>
-References: <XMMS.LNX.4.64.0611101122520.15046@d.namei>
-	<XMMS.LNX.4.64.0611101126150.15046@d.namei>
-	<39e6f6c70611101032v5f0be644ta65069cf533b3385@mail.gmail.com>
+Subject: Re: [PATCH] IPv6: only modify checksum for UDP
+Date: Mon, 13 Nov 2006 16:50:58 -0800 (PST)
+Message-ID: <20061113.165058.15265737.davem@davemloft.net>
+References: <4554A7CD.6040907@hp.com>
+	<OFF1265537.E903A772-ON88257222.006212AE-88257222.00626AB7@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, netdev@vger.kernel.org, dccp@vger.kernel.org
+Cc: brian.haley@hp.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34699
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35979
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933270AbWKNAtB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Nov 2006 19:49:01 -0500
-To: arnaldo.melo@gmail.com
-In-Reply-To: <39e6f6c70611101032v5f0be644ta65069cf533b3385@mail.gmail.com>
+	id S933271AbWKNAuu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Nov 2006 19:50:50 -0500
+To: dlstevens@us.ibm.com
+In-Reply-To: <OFF1265537.E903A772-ON88257222.006212AE-88257222.00626AB7@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Date: Fri, 10 Nov 2006 16:32:16 -0200
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Fri, 10 Nov 2006 09:54:58 -0800
 
-> On 11/10/06, James Morris <jmorris@namei.org> wrote:
-> > On Fri, 10 Nov 2006, James Morris wrote:
-> >
-> > > I wonder if this facility can be integrated more generally into the kernel
-> > > protocol which people are developing.
-> >
-> > Ugh, editor screwup.  That was meant to be
-> >
-> > I wonder if this facility can be integrated more generally into the kernel
-> > as a kernel hacking option, as this is not the only protocol which people
-> > are developing.
-> >
-> 
-> See:
-> http://www.erg.abdn.ac.uk/users/gerrit/dccp/patch-backlog/09a_release_ctl_socket_at_exit.diff
-> 
-> This one requires a bit more thinking, so I'm postponing it for now to
-> get the simple bits in Gerrit's patch queue cherrypicked and sent for
-> Dave.
+> The Internet checksum is defined as a 1's-complement sum, so if  the
+> alternate 0 does not have a special meaning in a protocol, then by
+> 1's-complement arithmetic, 0 == ~0.
+>         So, it looks to me without the remapping that a valid checksum
+> may also fail, if it is simply computed in a different way (or on a 
+> different
+> architecture) such that one gets 0 and one gets ~0 as un-modified answers.
+>         Since we're checking for equality on 2's-complement machines,
+> I think the easiest thing is to still re-map it. Otherwise, instead of 
+> testing
+> for 0, we have to test for both 0 and ~0 in the validity checks, right?
 
-One possible way to handle this is to flag certain sockets such that
-no refrence counting is done for them against the module.  It is
-an indication that the module will take care of such sockets on
-cleanup.
-
-It seems that this would limit the cost to a test at socket create
-and destroy time.
+Puzzling :-)  Then why is the transformation only performed for
+UDP in the ipv4 stack?  It seems by your logic TCP would need
+to either do the "if (sum==0) sum=~0;"  thing or it would need
+to accept both "0" and "~0" in the checksum checking path.
