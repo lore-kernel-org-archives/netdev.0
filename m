@@ -1,68 +1,60 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: ANNOUNCE: SFLC helps developers assess ar5k (enabling free Atheros HAL)
-Date: Wed, 15 Nov 2006 19:42:14 +0100
-Message-ID: <200611151942.14596.mb@bu3sch.de>
-References: <20061115031025.GH3451@tuxdriver.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: wireless notes / pre d80211 merge
+Date: Wed, 15 Nov 2006 13:46:25 -0500
+Message-ID: <455B6081.2030003@pobox.com>
+References: <C86180A8C204554D8A3323D8F6B0A29F0192722C@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: madwifi-devel@lists.sourceforge.net, lwn@lwn.net, mcgrof@gmail.com,
-	david.kimdon@devicescape.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030855AbWKOSo7@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061115031025.GH3451@tuxdriver.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Daniel Drake <dsd@gentoo.org>, Hong Liu <hong.liu@intel.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	David Kimdon <dwhedon@devicescape.com>,
+	Udayan Singh <udayan.singh@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:17552 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030856AbWKOSqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 13:46:49 -0500
+To: Simon Barber <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0192722C@dhost002-46.dex002.intermedia.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 15 November 2006 04:10, John W. Linville wrote:
-> It is my pleasure to announce that the SFLC [1] has assisted the ar5k
-> developers in evaluating the development history of Reyk Floeter's
-> OpenBSD reverse-engineered Atheros HAL, ar5k [2].  SFLC's assessment
-> leads to the conclusion that free software developers should not be
-> worried about using/extending ar5k or porting ar5k to other platforms.
-> 
-> In the past there were serious questions raised and even dire warnings
-> made about ar5k's copyright status.  The purpose of this statement
-> is to refute those claims and to publicly clarify ar5k's status
-> to developers.
-> 
-> SFLC has made independent inquiries with the OpenBSD team regarding the
-> development history of ar5k source.  The responses received provide
-> a reasonable basis for SFLC to believe that the OpenBSD developers
-> who worked on ar5k did not misappropriate code, and that the ar5k
-> implementation is OpenBSD's original copyrighted work.
-> 
-> This announcement should serve to remove the cloud which has prevented
-> progress towards an in-kernel driver for Atheros hardware.  This should
-> be of particular interest to those involved with the DadWifi project [3].
-> 
-> I'd like to take this opportunity to thank the folks at the SFLC for
-> their hard work, and I'd also like to personally thank Luis Rodriguez
-> for the role he played in coordinating contact between the SFLC and
-> the community at large.
-> 
-> Thanks!
-> 
-> John
-> 
-> [1] http://www.softwarefreedom.org/
-> [2] http://team.vantronix.net/ar5k/
-> [3] http://marc.theaimsgroup.com/?l=linux-netdev&m=116113064513921&w=2
+Simon Barber wrote:
+> I disagree that the master device is a hack - I also disagree that we
+> should use 802.11 format frames anywhere but internally inside the
+> 802.11 stack. The 802.11 specification does not use 802.11 format frames
+> to communicate with the upper layers - it uses almost exactly the same
+> interface as 802.3 ethernet does. This is a 2 address interface. I
 
-So, who is finally going to _DO_ the work?
-Some of you know that I started an atheros driver at
-http://bu3sch.de/ath/atheros.git/
-It's not really a driver, yet, as nobody got to continue on the specification,
-so I was stuck.
+The 802.11 specification doesn't communicate with any layer :)  The 
+Linux kernel code in question does that.
 
-Now that it seems to be ok to use these openbsd sources, should I port
-them to my driver framework?
-I looked over the ar5k code and, well, I don't like it. ;)
-I don't really like having a HAL. I'd rather prefer a "real" driver
-without that HAL obfuscation.
+In Linux it is generally bad form to emulate something (802.3 ethernet, 
+in this case).  Overhead increases, performance decreases, and there are 
+inevitably emulation bugs.
 
--- 
-Greetings Michael.
+802.11 /is not ethernet/, and you are already breaking assumptions by 
+pretending that it is.
+
+
+> It is normal to have a single interface to represent the physical
+> hardware network interface. This is exactly the pattern that many other
+> physical network devices use. Things like sniffing should go on on this
+> physical interface - and the changes that johannes proposes are exactly
+> the right things to enable this.
+
+Sure... when it behaves like a normal interface.  Stuff like "TX goes 
+through the interface, but not RX" is definitely /not/ normal.
+
+	Jeff
+
+
