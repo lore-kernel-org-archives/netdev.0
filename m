@@ -1,14 +1,16 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: wireless notes / pre d80211 merge
-Date: Wed, 15 Nov 2006 11:03:10 +0100
-Message-ID: <1163584990.2705.32.camel@ux156>
-References: <C86180A8C204554D8A3323D8F6B0A29F0192722C@dhost002-46.dex002.intermedia.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: wireless notes / pre d80211 merge
+Date: Wed, 15 Nov 2006 11:05:49 +0100
+Message-ID: <20061115110549.2fa3866c@griffin.suse.cz>
+References: <1163542797.5399.106.camel@johannes.berg>
+	<20061115011123.0eb1eff6@logostar.upir.cz>
+	<1163582178.2705.16.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
+Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
 	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
 	Michael Buesch <mbuesch@freenet.de>,
 	Ivo van Doorn <ivdoorn@gmail.com>,
 	Michael Wu <flamingice@sourmilk.net>,
@@ -16,45 +18,79 @@ Cc: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>,
 	Daniel Drake <dsd@gentoo.org>, Hong Liu <hong.liu@intel.com>,
 	"Luis R. Rodriguez" <mcgrof@gmail.com>,
 	James Ketrenos <jketreno@linux.intel.com>,
-	David Kimdon <dwhedon@devicescape.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
 	Udayan Singh <udayan.singh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:49095 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S966732AbWKOKCF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Nov 2006 05:02:05 -0500
-To: Simon Barber <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0192722C@dhost002-46.dex002.intermedia.net>
+Received: from styx.suse.cz ([82.119.242.94]:41622 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S966727AbWKOKFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 05:05:54 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1163582178.2705.16.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 15 Nov 2006 10:16:18 +0100, Johannes Berg wrote:
+> > During the "tx handlers" phase that "copy of skb->cb" is extended quite a
+> > lot with other information determined in the tx handlers. The result is a
+> > structure that doesn't fit into cb anymore. This is a reason for not using
+> > cb to pass tx information to drivers.
+> 
+> Actually, no, it isn't :) The part that is passed to drivers does fit,
+> only the internal stuff doesn't.
 
-> I would go further - and perhaps move some of the meta-data that is in
-> the skb->cb into a d80211 specific hardware header. This would allow
-> sniffers to directly attach to the master device and both send and
-> receive frames complete with the meta data. It would also reduce the
-> amount of cb space we need. Virtual devices could be created in order to
-> use sniffers that use a different hardware header format (with a small
-> performance penalty when using those).
+Sorry, I was wrong here. I rechecked it now and starting from the last
+diet (made by me long time ago, grr) it fits.
 
-I'm not sure this is a good idea, it locks us in to some format because
-user-space uses it and we'd need to serialise to that format to be
-extensible.
+> > Please note that master interface has been always considered as a hack. Of
+> > course, this perception can be changed if it's desirable.
+> 
+> Has it? Simon seems to disagree ;)
 
-On the other hand, we could fix some part of the structure to be
-user-space visible, make it a real struct that just lives before the
-802.11 header and don't serialise like it would be necessary with
-something that is extensible. On RX, we could do the same.
+And I disagree with Simon :-)
 
-For TX, this would allow applications to control whatever we put into
-that struct (I would not, for example, allow tx status notifications to
-ever go over a netdev as we do now), while for RX it would allow apps to
-see almost everything.
+> > > The master netdev and wiphy create two orthogonal interfaces to
+> > > userspace that nonetheless pretty much represent the same thing---the
+> > > underlying hardware.
+> > 
+> > Yup.
+> 
+> You just say it like that. Aren't you unhappy about that at all?
 
-It might complicate code a bit because different things would come from
-different places (some things from a special header and some from
-skb->cb), but I don't think it would be bad.
+I wasn't in times when there was no cfg80211. But now... yes, you're
+right. The sysfs ieee80211 class exports just some interesting
+informations (we already agreed that add_interface and remove_interface
+would go away). Feel free to move it wherever you think is appropriate.
 
-Other than this, I agree with you.
+> I don't think the master interface matters here at all. It's just an
+> additional netdev that users previously didn't have, but so what?
 
-johannes
+As I said, my pre-cfg80211 arguments are not valid now.
+
+> Let me qualify to externally visible problems :)
+
+Okay :-)
+
+> I've never wanted to change the top part (so far anyway :) ). It's
+> orthogonal. And whether d80211 behaves as an 802.11 protocol is
+> something that's visible only in the RX path really, struct packet_type
+> and associated things.
+
+I just said it's a confusing term, nothing against the idea.
+
+> > >    it becomes too small, we could put a pointer into skb->cb instead and
+> > >    do lifetime management with an skb desctructor.
+> > 
+> > Not very effective but will work.
+> 
+> Not really less effective than copying it around all the time as we do
+> now and then kmalloc()ing it in some circumstances.
+
+That's true.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
