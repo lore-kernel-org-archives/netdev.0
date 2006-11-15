@@ -1,44 +1,41 @@
-From: "Ron Mercer" <ron.mercer@qlogic.com>
-Subject: RE: [PATCH] qla3xxx: Add support for Qlogic ISP4032 chip.
-Date: Tue, 14 Nov 2006 16:21:42 -0800
-Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07557F38@AVEXCH1.qlogic.org>
-References: <20061114225013.GA29574@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TG3]: Increase 5906 firmware poll time.
+Date: Tue, 14 Nov 2006 16:34:12 -0800 (PST)
+Message-ID: <20061114.163412.25474073.davem@davemloft.net>
+References: <1163544143.4954.19.camel@rh4>
+	<455A4BB8.8060301@garzik.org>
+	<1163549150.4954.25.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, zambrano@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:44387 "EHLO
-	avexch1.qlogic.com") by vger.kernel.org with ESMTP id S966509AbWKOAVn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 19:21:43 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20061114225013.GA29574@electric-eye.fr.zoreil.com>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16330
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S966539AbWKOAeL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Nov 2006 19:34:11 -0500
+To: mchan@broadcom.com
+In-Reply-To: <1163549150.4954.25.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I will do that.  You can expect the isolated chipset changes tomorrow.
-Cleanup will follow later.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 14 Nov 2006 16:05:50 -0800
 
-Regards, Ron 
+> On Tue, 2006-11-14 at 18:05 -0500, Jeff Garzik wrote:
+> 
+> > 
+> > ACK, of course, but this brings up something else:  what's the status of 
+> > moving chip reset outside of a spinlock?
+> > 
+> > Currently a reset during operation can trigger the CPU lockup detector 
+> > and other doo-dads, because you can easily spend a second or two with a 
+> > spinlock held (a loooooong time, to hold a spinlock)
+> > 
+> 
+> Yeah, I will put this in my queue.  I have done some of that in the PHY
+> routines and will continue to do more, as those are even worse.
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Tuesday, November 14, 2006 2:50 PM
-> To: Ron Mercer
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH] qla3xxx: Add support for Qlogic ISP4032 chip.
-> 
-> Ron Mercer <ron.mercer@qlogic.com> :
-> > oops, that patch is borked (line-wrapped). will resend ASAP.
-> 
-> If you can isolate the support of the new chipset and the 
-> cleanups, it will make my life easier.
-> 
-> I have got some pending minor changes.
-> 
-> --
-> Ueimor
-> 
+Great.
+
+I applied this patch, thanks everyone.
