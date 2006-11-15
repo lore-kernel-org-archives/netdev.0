@@ -1,48 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netpoll patches.
-Date: Tue, 14 Nov 2006 20:43:40 -0800 (PST)
-Message-ID: <20061114.204340.35016698.davem@davemloft.net>
-References: <20061026192934.58c20e2a@localhost.localdomain>
-	<20061113.170041.17866097.davem@davemloft.net>
-	<20061114135500.5c6b17bc@dxpl.pdx.osdl.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Netpoll client software?
+Date: Wed, 15 Nov 2006 07:27:52 +0100
+Message-ID: <200611150727.52828.ak@suse.de>
+References: <F3EE2A9EB4576F40AFE238EC0AC04BC5099B8C7A@orsmsx402.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3791
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S966635AbWKOEnj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 23:43:39 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061114135500.5c6b17bc@dxpl.pdx.osdl.net>
+Received: from mx1.suse.de ([195.135.220.2]:13791 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S966537AbWKOG2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 01:28:05 -0500
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+In-Reply-To: <F3EE2A9EB4576F40AFE238EC0AC04BC5099B8C7A@orsmsx402.amr.corp.intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 14 Nov 2006 13:55:00 -0800
+On Tuesday 14 November 2006 20:38, Williams, Mitch A wrote:
+> Hi folks, I'm looking for some suggestions for software that uses
+> the kernel's netpoll interface to receive packets.  The only in-kernel
+> application that uses netpoll right now is netconsole, and that only
+> sends packets.
 
-> The following changes since commit 5d1be92267c04a86232969710e32b6f99bb4ec12:
->   Peter Zijlstra:
->         [SCTP]: Cleanup of the sctp state table code.
-> 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/netpoll-2.6.20
-> 
-> Stephen Hemminger:
->       netpoll: private skb pool (rev3)
->       netpoll info leak
->       netpoll per device txq
->       netpoll setup error handling
->       netpoll deferred transmit path
->       netpoll retry cleanup
->       netpoll queue cleanup
->       netpoll header cleanup
+There are kgdb version that support debugging over ethernet. That requires
+sending and receiving. Not sure if it works right now with the version in 
+-mm* though.
 
-Pulled, thanks a lot Stephen.
-
-I made a small follow-on patch to tidy up some coding style
-things I noticed while re-reviewing this work.
-
-Thanks again for taming the beast :)
+-Andi
