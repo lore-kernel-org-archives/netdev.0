@@ -1,24 +1,27 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 0/3] node-aware skb allocations
-Date: Wed, 15 Nov 2006 18:36:43 +0100
-Message-ID: <20061115173643.GA17695@lst.de>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH] qla3xxx: Add support for Qlogic ISP4032 chip.
+Date: Wed, 15 Nov 2006 09:54:06 -0800
+Message-ID: <1163613246.29476.4.camel@linux-7mw0.site>
+References: <1090CAF73D6FFE4EA45395454C82937B052166CE@AVEXCH1.qlogic.org>
+	 <1163613103.29476.0.camel@linux-7mw0.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:48308 "EHLO mail.lst.de")
-	by vger.kernel.org with ESMTP id S1030757AbWKORhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 12:37:08 -0500
-To: akpm@osdl.org, davem@davemloft.net
-Content-Disposition: inline
+Received: from avexch1.qlogic.com ([198.70.193.115]:9311 "EHLO
+	avexch1.qlogic.com") by vger.kernel.org with ESMTP id S1030764AbWKORkh
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Nov 2006 12:40:37 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <1163613103.29476.0.camel@linux-7mw0.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the final version of the node-aware skb allocations,
-implementing davem's suggestion of storing the numa node in
-struct device.  I'd love to get this into 2.6.20 now that I
-don't hear negative comments about it anymre, but I wonder
-how.  The first patch toches mm/slab.c, the second struct device
-and assorted files and only the last one is actually in the networking
-code.  Should Dave push all this through net-2.6.20 or should we
-get it in purely through -mm?
+
+borked again.  Patch applied cleanly when I mailed it to myself, but not from list.  Third
+try all will be corrected.
+
+> >  oops, that patch is borked (line-wrapped). will resend ASAP.
+> > 
+> > Ron Mercer.
+> 
