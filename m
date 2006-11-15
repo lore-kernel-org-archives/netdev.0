@@ -1,16 +1,16 @@
-From: Jiri Benc <jbenc@suse.cz>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: wireless notes / pre d80211 merge
-Date: Wed, 15 Nov 2006 11:05:49 +0100
-Message-ID: <20061115110549.2fa3866c@griffin.suse.cz>
-References: <1163542797.5399.106.camel@johannes.berg>
-	<20061115011123.0eb1eff6@logostar.upir.cz>
-	<1163582178.2705.16.camel@ux156>
+Date: Wed, 15 Nov 2006 11:13:42 +0100
+Message-ID: <1163585622.2705.40.camel@ux156>
+References: <20061115011123.0eb1eff6@logostar.upir.cz>
+	 <C86180A8C204554D8A3323D8F6B0A29F0192722C@dhost002-46.dex002.intermedia.net>
+	 <20061115104359.3ce80e3b@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+Cc: Simon Barber <simon@devicescape.com>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
 	Michael Buesch <mbuesch@freenet.de>,
 	Ivo van Doorn <ivdoorn@gmail.com>,
 	Michael Wu <flamingice@sourmilk.net>,
@@ -18,79 +18,54 @@ Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
 	Daniel Drake <dsd@gentoo.org>, Hong Liu <hong.liu@intel.com>,
 	"Luis R. Rodriguez" <mcgrof@gmail.com>,
 	James Ketrenos <jketreno@linux.intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
+	David Kimdon <dwhedon@devicescape.com>,
 	Udayan Singh <udayan.singh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:41622 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S966727AbWKOKFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 05:05:54 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1163582178.2705.16.camel@ux156>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:8332 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S966736AbWKOKMd
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Nov 2006 05:12:33 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061115104359.3ce80e3b@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Nov 2006 10:16:18 +0100, Johannes Berg wrote:
-> > During the "tx handlers" phase that "copy of skb->cb" is extended quite a
-> > lot with other information determined in the tx handlers. The result is a
-> > structure that doesn't fit into cb anymore. This is a reason for not using
-> > cb to pass tx information to drivers.
-> 
-> Actually, no, it isn't :) The part that is passed to drivers does fit,
-> only the internal stuff doesn't.
+On Wed, 2006-11-15 at 10:43 +0100, Jiri Benc wrote:
 
-Sorry, I was wrong here. I rechecked it now and starting from the last
-diet (made by me long time ago, grr) it fits.
+> In particular:
+> - The operations that make sense for user to perform on wiphy/master
+>   interface are different than the ones on virtual interfaces. It isn't
+>   this way now.
 
-> > Please note that master interface has been always considered as a hack. Of
-> > course, this perception can be changed if it's desirable.
-> 
-> Has it? Simon seems to disagree ;)
+Which particular operations do you have in mind? Granted, you won't ever
+be able to specify the master device as the default route for IP, but
+hey. I'd almost bet there are other devices that you can't do this with.
 
-And I disagree with Simon :-)
+> - Why should master interface appear in ifconfig and similar tools the
+>   same way as "virtual" interfaces? If you want to know how users are
+>   confused by this, just search some forums.
 
-> > > The master netdev and wiphy create two orthogonal interfaces to
-> > > userspace that nonetheless pretty much represent the same thing---the
-> > > underlying hardware.
-> > 
-> > Yup.
-> 
-> You just say it like that. Aren't you unhappy about that at all?
+Because it manages the qdiscs and frames actually show up there. Even
+now, you can there see what you're transmitting :)
 
-I wasn't in times when there was no cfg80211. But now... yes, you're
-right. The sysfs ieee80211 class exports just some interesting
-informations (we already agreed that add_interface and remove_interface
-would go away). Feel free to move it wherever you think is appropriate.
+> - Does attaching of qdiscs to virtual interfaces make sense?
 
-> I don't think the master interface matters here at all. It's just an
-> additional netdev that users previously didn't have, but so what?
+Yes, I do think so. Why not?
 
-As I said, my pre-cfg80211 arguments are not valid now.
+> This is a different thing. See the difference between SOCK_RAW and
+> SOCK_DGRAM. The interface you are talking about is SOCK_DGRAM. Except
+> it supports only one address. The correct solution would be extending
+> sockaddr_ll (that's not possible, I know) or introduce a new
+> SOCK_SOMETHING type (not possible either, at least in a short term).
 
-> Let me qualify to externally visible problems :)
+I still haven't quite understood this argument. Could you elaborate?
 
-Okay :-)
+> Except that all other hardware doesn't need things that we need. They
+> need just one virtual interface - so their master and virtual interface
+> is merged. This is net_device. We need to split it into two things.
 
-> I've never wanted to change the top part (so far anyway :) ). It's
-> orthogonal. And whether d80211 behaves as an 802.11 protocol is
-> something that's visible only in the RX path really, struct packet_type
-> and associated things.
+That's not really true, if you have a 802.1q network then the raw netdev
+is useless without vlan virtuals above unless you unpack the vlan on the
+switch giving you a non-802.1q network again.
 
-I just said it's a confusing term, nothing against the idea.
-
-> > >    it becomes too small, we could put a pointer into skb->cb instead and
-> > >    do lifetime management with an skb desctructor.
-> > 
-> > Not very effective but will work.
-> 
-> Not really less effective than copying it around all the time as we do
-> now and then kmalloc()ing it in some circumstances.
-
-That's true.
-
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+johannes
