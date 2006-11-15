@@ -1,113 +1,35 @@
-From: "Nick Kossifidis" <mickflemm@gmail.com>
-Subject: Re: [Madwifi-devel] ANNOUNCE: SFLC helps developers assess ar5k (enabling free Atheros HAL)
-Date: Thu, 16 Nov 2006 12:07:51 +0200
-Message-ID: <40f31dec0611160207hcfd5069hc7763d1e99cccd7c@mail.gmail.com>
-References: <20061115031025.GH3451@tuxdriver.com>
-	 <20061115192054.GA10009@tuxdriver.com> <1163619541.19111.6.camel@dv>
-	 <200611152102.26681.mb@bu3sch.de> <455BF908.6090006@otaku42.de>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Sysctl syscall
+Date: Wed, 15 Nov 2006 21:05:52 +0200
+Message-ID: <200611152105.53391.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb@bu3sch.de>, "Pavel Roskin" <proski@gnu.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	madwifi-devel@lists.sourceforge.net, lwn@lwn.net,
-	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.229]:34472 "EHLO
-	qb-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1423165AbWKPKHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 05:07:52 -0500
-Received: by qb-out-0506.google.com with SMTP id z8so41176qbc
-        for <netdev@vger.kernel.org>; Thu, 16 Nov 2006 02:07:52 -0800 (PST)
-To: "Michael Renzmann" <madwifi@nospam.otaku42.de>
-In-Reply-To: <455BF908.6090006@otaku42.de>
+Received: from test.estpak.ee ([194.126.115.47]:9705 "EHLO devy.estpak.ee")
+	by vger.kernel.org with ESMTP id S1423742AbWKPKh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 05:37:59 -0500
+To: netdev@vger.kernel.org, lkml@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just in case you want to experiment, i have a working port of ar5k
-that works on madwifi-old before the BSD - HEAD merge...
+Compiling the program which uses a lot "sysctl" syscalls, gives me this 
+warning on Debian unstable:
 
-well i'm no good programmer (yet), i did what i could (i'm sure those
-define macros are nasty for most people :P) and hope that helps...
+"warning: the `sysctl' syscall has been removed from 2.6.18+ kernels, 
+direct access to `/proc/sys' should be used instead."
 
-you can git clone from the following link
-
-rsync://rsync.ath-driver.org/gnumonks_users/mb/openhal.git
-
-I'm working with the following madwifi revision...
-svn checkout http://svn.madwifi.org/branches/madwifi-old -r 1142 madwifi
-
-Don't forget to remove the ending ) in line 175 at
-net80211/ieee80211_radiotap.h ;-)
-
-Also you'll need to do some modifications to make it work with newer
-kernel versions (MODULE_PARM stuff in if_ath.c)...
-
-diff -Naurp madwifi-openhal/ath/if_ath.c madwifi-openhal-fixed/ath/if_ath.c
---- madwifi-openhal/ath/if_ath.c	2005-06-24 06:41:22.000000000 -0400
-+++ madwifi-openhal-fixed/ath/if_ath.c	2006-08-04 14:49:38.000000000 -0400
-@@ -245,13 +245,20 @@ enum {
- #endif
-
- static	int countrycode = -1;
--MODULE_PARM(countrycode, "i");
--MODULE_PARM_DESC(countrycode, "Override default country code");
- static	int outdoor = -1;
--MODULE_PARM(outdoor, "i");
--MODULE_PARM_DESC(outdoor, "Enable/disable outdoor use");
- static	int xchanmode = -1;
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,52))
-+MODULE_PARM(countrycode, "i");
-+MODULE_PARM(outdoor, "i");
- MODULE_PARM(xchanmode, "i");
-+#else
-+#include <linux/moduleparam.h>
-+module_param(countrycode, int, 0);
-+module_param(outdoor, int, 0);
-+module_param(xchanmode, int, 0);
-+#endif
-+MODULE_PARM_DESC(countrycode, "Override default country code");
-+MODULE_PARM_DESC(outdoor, "Enable/disable outdoor use");
- MODULE_PARM_DESC(xchanmode, "Enable/disable extended channel mode");
-
- int
-
-See README for more details
+Is it true? And what can be used as alternative which would work with both 
+2.4 and 2.6 kernels and would work with capabilities (sys/capability.h)?
+Accessing `/proc/sys' directly isn't such alternative as it doesn't work 
+with capabilities.
 
 
-I haven't looked much the MadWiFi code since then, perhaps you can
-help in making ar5k work with newer madwifi versions + improve it's
-functionality to help both linux and OpenBSD.
+regards,
 
-(The name OpenHAL came from John Bicket's initial port)
-
-
-Happy coding ;-)
-Nick
-
-2006/11/16, Michael Renzmann <madwifi@nospam.otaku42.de>:
-> Hi.
->
-> Michael Buesch wrote:
-> > Well, it never worked for me. But I gave up trying about
-> > half a year ago. But maybe it's just stupid me. ;)
->
-> Well, we have various support channels (an IRC channel besides two
-> mailing lists, for example) that you are welcome to make use of in case
-> of problems :)
->
-> Bye, Mike
->
->
->
-> -------------------------------------------------------------------------
-> Take Surveys. Earn Cash. Influence the Future of IT
-> Join SourceForge.net's Techsay panel and you'll get the chance to share your
-> opinions on IT & business topics through brief surveys - and earn cash
-> http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
-> _______________________________________________
-> Madwifi-devel mailing list
-> Madwifi-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/madwifi-devel
->
+-- 
+Hasso Tepper
+Elion Enterprises Ltd. [AS3249]
+Data Communication Network Administrator
