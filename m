@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 2/2]: net/ipv{4,6}: reduce code size by inlining
-Date: Tue, 14 Nov 2006 20:20:21 -0800 (PST)
-Message-ID: <20061114.202021.23014512.davem@davemloft.net>
-References: <200611140849.18324@strip-the-willow>
-	<200611141327.22170.ak@suse.de>
-	<200611141250.33918@strip-the-willow>
+Subject: Re: [PATCH] fix up sysctl_tcp_mem initialization
+Date: Tue, 14 Nov 2006 20:31:18 -0800 (PST)
+Message-ID: <20061114.203118.35665382.davem@davemloft.net>
+References: <455A20BD.6010508@psc.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20960
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16612
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S966571AbWKOEUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Nov 2006 23:20:20 -0500
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200611141250.33918@strip-the-willow>
+	id S966585AbWKOEbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Nov 2006 23:31:16 -0500
+To: jheffner@psc.edu
+In-Reply-To: <455A20BD.6010508@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Tue, 14 Nov 2006 12:50:33 +0000
+From: John Heffner <jheffner@psc.edu>
+Date: Tue, 14 Nov 2006 15:02:05 -0500
 
-> Quoting Andi Kleen:
-> |  On Tuesday 14 November 2006 09:49, Gerrit Renker wrote:
-> |  > [UDP]: Reduce size of shared code
-> |  > 
-> |  > This patch reduces size of source code files by moving
-> |  > some of the smaller functions shared by UDP and UDP-Lite
-> |  > into the header file udp_impl.h, and in-lining these.
-> |  > 
-> |  > It is an optimisation and applies on top of the previous
-> |  > UDP-Lite patch.
-> |  
-> |  Wouldn't it be better to just call them? They all don't 
-> |  particularly time critical.
-> This patch was sent as an optional add-on, it is not as important
-> as the other one. You are probably right - I also noted that the
-> gains (in terms of line numbers) are not as high as intended.
+> The initial values of sysctl_tcp_mem are sometimes greater than the 
+> total memory in the system (particularly on SMP systems).  This patch 
+> ensures that tcp_mem[2] is always <= 3/4 nr_kernel_pages.
 
-I'm not too sure on this one either, so I won't apply this one
-for now.
+This is a genuine bug fix so I'll apply this, thanks for taking
+care of these corner-case bugs in TCP sizing Jeff.
+
+> However, I wonder if we want to set this differently than the way this 
+> patch does it.  Depending on how far off the memory size is from a power 
+> of two (exactly equal to a power of two is the worst case), and if total 
+> memory <128M, it can be substantially less than 3/4.
+
+Longer term, yes, probably a better way exists.
+
+So you concern is that when we round to a power of 2 like we do
+now, we often mis-shoot?
+
