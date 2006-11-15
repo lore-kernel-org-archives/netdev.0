@@ -1,40 +1,39 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: Sysctl syscall
-Date: Wed, 15 Nov 2006 23:19:18 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0611152317120.12683@yvahk01.tjqt.qr>
-References: <200611160003.02681.hasso@estpak.ee>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 1/1] myri10ge: use physical pages for skb allocation
+Date: Wed, 15 Nov 2006 23:40:11 +0100
+Message-ID: <455B974B.9070302@myri.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailer.gwdg.de ([134.76.10.24]:59575 "EHLO emailer.gwdg.de")
-	by vger.kernel.org with ESMTP id S1161977AbWKOWUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 17:20:04 -0500
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200611160003.02681.hasso@estpak.ee>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:56992 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1162023AbWKOWli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 17:41:38 -0500
+To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Jeff,
 
-On Nov 16 2006 00:03, Hasso Tepper wrote:
+It looks like you didn't apply this patch to #upstream for 2.6.20 so far. We would really like to get ith in 2.6.20 (we already missed 2.6.19 by a couple days :)). But, I guess we need some testing in -mm first, so...
+
+thanks,
+Brice
+
+
+
+
+
+Brice Goglin wrote:
+> Physical pages are used instead of 16kB contiguous buffers for the
+> skb frags. And we also put as much fragments as possible in any page
+> so that we do not have to allocate a page for every fragments.
 >
->Compiling the program which uses a lot "sysctl" syscalls, gives me this 
->warning on Debian unstable:
->
->"warning: the `sysctl' syscall has been removed from 2.6.18+ kernels, 
->direct access to `/proc/sys' should be used instead."
->
->Is it true?
+> Signed-off-by: Brice Goglin <brice@myri.com>
+> Signed-off-by: Andrew J. Gallatin <gallatin@myri.com>
+> ---
+>  drivers/net/myri10ge/myri10ge.c |  499 ++++++++++++++++++++--------------------
+>  1 file changed, 254 insertions(+), 245 deletions(-)
+>   
 
-Well it was unobsoleted in 2.6.19 if I followed the list correctly.
-
->And what can be used as alternative which would work with both 
->2.4 and 2.6 kernels
->and would work with capabilities (sys/capability.h)?
->Accessing `/proc/sys' directly isn't such alternative as it doesn't work 
->with capabilities.
-
-
-
-	-`J'
--- 
