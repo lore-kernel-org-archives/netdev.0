@@ -1,33 +1,64 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 0/3] node-aware skb allocations
-Date: Wed, 15 Nov 2006 15:16:46 -0800
-Message-ID: <20061115151646.9c8a6936.akpm@osdl.org>
-References: <20061115173643.GA17695@lst.de>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [Madwifi-devel] ANNOUNCE: SFLC helps developers assessar5k	(enabling free Atheros HAL)
+Date: Wed, 15 Nov 2006 15:28:16 -0800
+Message-ID: <20061115232816.GA20849@devicescape.com>
+References: <20061115192054.GA10009@tuxdriver.com> <1163619541.19111.6.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>, lwn@lwn.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Buesch <mb@bu3sch.de>,
+	madwifi-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20407 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1162059AbWKOXQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 18:16:55 -0500
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20061115173643.GA17695@lst.de>
+Received: from mail.devicescape.com ([207.138.119.2]:37044 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1162041AbWKOX20 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Nov 2006 18:28:26 -0500
+To: Pavel Roskin <proski@gnu.org>
+Content-Disposition: inline
+In-Reply-To: <1163619541.19111.6.camel@dv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Nov 2006 18:36:43 +0100
-Christoph Hellwig <hch@lst.de> wrote:
+On Wed, Nov 15, 2006 at 02:39:01PM -0500, Pavel Roskin wrote:
+> On Wed, 2006-11-15 at 14:21 -0500, John W. Linville wrote:
+> > On Wed, Nov 15, 2006 at 07:42:14PM +0100, Michael Buesch wrote:
+> 
+> I said it before, and it's worth repeating.  Dissolving HAL in the
+> sources is easy.  It's just a matter of moving functions around without
+> serious chances of breaking anything as long as the source compiles.
+> The whole "HAL-based architecture" can be reshuffled and eliminated by
+> one person in a few days.
+> 
+> Making things work properly takes years.  That's what MadWifi has been
+> working on for a long time, using contributions and bug reports from
+> scores of users and developers.
+> 
+> Rejecting MadWifi because it's HAL based is like throwing away a diamond
+> ring because it's too narrow.
 
-> This is the final version of the node-aware skb allocations,
-> implementing davem's suggestion of storing the numa node in
-> struct device.  I'd love to get this into 2.6.20 now that I
-> don't hear negative comments about it anymre, but I wonder
-> how.  The first patch toches mm/slab.c, the second struct device
-> and assorted files and only the last one is actually in the networking
-> code.  Should Dave push all this through net-2.6.20 or should we
-> get it in purely through -mm?
+I completely agree.  The approach we are taking with dadwifi[1] is to
+use much of the existing code from madwifi and port it to the d80211
+stack.  Today dadwifi works in monitor, sta and ap mode.
 
-If Dave wants to nod at it then I can merge all of it, else I can hand
-patch 3/3 over to Dave once its prerequisites are in mainline.
+-David
 
+
+[1] http://madwifi.org/wiki/DadWifi
+
+> 
+> -- 
+> Regards,
+> Pavel Roskin
+> 
+> 
+> 
+> -------------------------------------------------------------------------
+> Take Surveys. Earn Cash. Influence the Future of IT
+> Join SourceForge.net's Techsay panel and you'll get the chance to share your
+> opinions on IT & business topics through brief surveys - and earn cash
+> http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+> _______________________________________________
+> Madwifi-devel mailing list
+> Madwifi-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/madwifi-devel
