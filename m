@@ -1,16 +1,16 @@
 From: Hasso Tepper <hasso@estpak.ee>
 Subject: Sysctl syscall
-Date: Wed, 15 Nov 2006 23:58:33 +0200
-Message-ID: <200611152358.33334.hasso@estpak.ee>
+Date: Thu, 16 Nov 2006 00:03:02 +0200
+Message-ID: <200611160003.02681.hasso@estpak.ee>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.neti.ee ([194.126.126.45]:39577 "EHLO smtp-out.neti.ee")
-	by vger.kernel.org with ESMTP id S1161781AbWKOV6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 16:58:37 -0500
-To: netdev@vger.kernel.org, lkml@vger.kernel.org
+Received: from smtp-out.neti.ee ([194.126.126.45]:46037 "EHLO smtp-out.neti.ee")
+	by vger.kernel.org with ESMTP id S1161824AbWKOWDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 17:03:05 -0500
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
