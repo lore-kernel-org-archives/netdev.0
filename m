@@ -1,29 +1,29 @@
-From: James Courtier-Dutton <James@superbug.co.uk>
-Subject: Max number of TCP sessions
-Date: Thu, 16 Nov 2006 20:23:37 +0000
-Message-ID: <455CC8C9.2050509@superbug.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.20 rebased
+Date: Thu, 16 Nov 2006 15:41:11 -0500 (EST)
+Message-ID: <20061116.154111.48531858.davem@davemloft.net>
+References: <20061116.055840.78704296.davem@davemloft.net>
+	<20061116120423.GF29920@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchor-post-33.mail.demon.net ([194.217.242.91]:30993 "EHLO
-	anchor-post-33.mail.demon.net") by vger.kernel.org with ESMTP
-	id S1424442AbWKPUXi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 15:23:38 -0500
-Received: from superbug.demon.co.uk ([80.176.146.252] helo=[192.168.0.10])
-	by anchor-post-33.mail.demon.net with esmtp (Exim 4.42)
-	id 1Gknlp-0006aH-Ai
-	for netdev@vger.kernel.org; Thu, 16 Nov 2006 20:23:37 +0000
-To: netdev@vger.kernel.org
+Received: from localhost.localdomain ([127.0.0.1]:38120 "EHLO localhost")
+	by vger.kernel.org with ESMTP id S1424471AbWKPUlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 15:41:11 -0500
+To: viro@ftp.linux.org.uk
+In-Reply-To: <20061116120423.GF29920@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Al Viro <viro@ftp.linux.org.uk>
+Date: Thu, 16 Nov 2006 12:04:23 +0000
 
-For a host using a Pentium 4 CPU at 2.8Mhz, what is a sensible max value 
-for number of TCP sessions this host could run under Linux?
-Bandwidth per TCP session is likely to be about 10kbytes/second.
+> FWIW, with these patches in we have net/ nearly endian-clean.  Two
+> major exceptions are ieee80211 and sctp.  I think I've got more or
+> less sane way to deal with the latter, it won't be fun (and yes,
+> that's the queue I'm currently getting into shape).  A bunch of
+> genuine bugs in there, too, especially when it comes to sctp+ipv6...
 
-Kind Regards
-
-James
+Looking forward to seeing that stuff Al.
