@@ -1,47 +1,28 @@
-From: Faidon Liambotis <paravoid@debian.org>
-Subject: [PATCH 2.6.19-rc6] netfilter: fix panic on ip_conntrack_h323 with CONFIG_IP_NF_CT_ACCT
-Date: Thu, 16 Nov 2006 12:47:10 +0200
-Message-ID: <20061116104419.GA8807@mail.cube.gr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] node-aware skb allocations
+Date: Thu, 16 Nov 2006 02:53:20 -0800 (PST)
+Message-ID: <20061116.025320.41632254.davem@davemloft.net>
+References: <20061115173643.GA17695@lst.de>
+	<20061115151646.9c8a6936.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hch@lst.de, netdev@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ulysses.noc.ntua.gr ([147.102.222.230]:15580 "EHLO
-	ulysses.noc.ntua.gr") by vger.kernel.org with ESMTP
-	id S1423750AbWKPKrz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 05:47:55 -0500
-To: coreteam@netfilter.org
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41141
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1423801AbWKPKxW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 05:53:22 -0500
+To: akpm@osdl.org
+In-Reply-To: <20061115151646.9c8a6936.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-H.323 connection tracking code calls ip_ct_refresh_acct() when
-processing RCFs and URQs but passes NULL as the skb.
-When CONFIG_IP_NF_CT_ACCT is enabled, the connection tracking core tries
-to derefence the skb, which results in an obvious panic.
-A similar fix was applied on the SIP connection tracking code some time
-ago.
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 15 Nov 2006 15:16:46 -0800
 
-Signed-off-by: Faidon Liambotis <paravoid@debian.org>
+> If Dave wants to nod at it then I can merge all of it, else I can hand
+> patch 3/3 over to Dave once its prerequisites are in mainline.
 
---- a/net/ipv4/netfilter/ip_conntrack_helper_h323.c	2006-11-15 19:07:50.000000000 +0200
-+++ b/net/ipv4/netfilter/ip_conntrack_helper_h323.c	2006-11-16 11:09:46.000000000 +0200
-@@ -1417,7 +1417,7 @@ static int process_rcf(struct sk_buff **
- 		DEBUGP
- 		    ("ip_ct_ras: set RAS connection timeout to %u seconds\n",
- 		     info->timeout);
--		ip_ct_refresh_acct(ct, ctinfo, NULL, info->timeout * HZ);
-+		ip_ct_refresh_acct(ct, ctinfo, *pskb, info->timeout * HZ);
- 
- 		/* Set expect timeout */
- 		read_lock_bh(&ip_conntrack_lock);
-@@ -1465,7 +1465,7 @@ static int process_urq(struct sk_buff **
- 	info->sig_port[!dir] = 0;
- 
- 	/* Give it 30 seconds for UCF or URJ */
--	ip_ct_refresh_acct(ct, ctinfo, NULL, 30 * HZ);
-+	ip_ct_refresh_acct(ct, ctinfo, *pskb, 30 * HZ);
- 
- 	return 0;
- }
+I'm completely fine with this, nice work Christoph.
+Andrew, just toss it all into your tree for now.
