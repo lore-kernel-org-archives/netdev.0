@@ -1,38 +1,53 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.19-rc6: irq 48: nobody cared
-Date: Thu, 16 Nov 2006 22:07:48 +0100
-Message-ID: <20061116210748.GI31879@stusta.de>
-References: <200611161629.45149.Krzysztof.Sierota@firma.o2.pl>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: [patch] d80211: Remove unused ENABLE_COMPRESSION, DISABLE_COMPRESSION cmds to hw->set_key
+Date: Thu, 16 Nov 2006 13:15:12 -0800
+Message-ID: <20061116211512.GA8005@devicescape.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	David Kimdon <david.kimdon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:13318 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1424626AbWKPVHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 16:07:49 -0500
-To: Krzysztof Sierota <Krzysztof.Sierota@firma.o2.pl>
-Content-Disposition: inline
-In-Reply-To: <200611161629.45149.Krzysztof.Sierota@firma.o2.pl>
+Received: from mail.devicescape.com ([207.138.119.2]:60624 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1424633AbWKPVPP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 16:15:15 -0500
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename="superag_compression_removal.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 16, 2006 at 04:29:44PM +0100, Krzysztof Sierota wrote:
-> Hi,
-> 
-> I'm getting the following in dmesg with 2.6.19-rc5 and 2.6.19-rc6 kernels quad 
-> opteron server running 64bit kernel, and the network card gets disabled. 
->...
+These two commands are currently unused.  They were previously used to enable
+hardware compression on Atheros hardware.
 
-Please send the dmesg from the latest kernel that works for you.
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-cu
-Adrian
+Index: wireless-dev/include/net/d80211.h
+===================================================================
+--- wireless-dev.orig/include/net/d80211.h
++++ wireless-dev/include/net/d80211.h
+@@ -410,7 +410,6 @@ struct ieee80211_scan_conf {
+ 
+ typedef enum {
+ 	SET_KEY, DISABLE_KEY, REMOVE_ALL_KEYS,
+-	ENABLE_COMPRESSION, DISABLE_COMPRESSION
+ } set_key_cmd;
+ 
+ /* Configuration block used by the low-level driver to tell the 802.11 code
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -3721,10 +3721,6 @@ static int bcm43xx_net_set_key(struct ne
+ 		bcm43xx_clear_keys(bcm);
+ 		err = 0;
+ 		break;
+-	case ENABLE_COMPRESSION:
+-	case DISABLE_COMPRESSION:
+-		err = 0;
+-		break;
+ 	default:
+ 		assert(0);
+ 	}
 
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+--
