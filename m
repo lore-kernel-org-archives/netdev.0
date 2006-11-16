@@ -1,61 +1,54 @@
-From: Dan Williams <dcbw@redhat.com>
+From: "Michael Renzmann" <madwifi@nospam.otaku42.de>
 Subject: Re: [Madwifi-devel] ANNOUNCE: SFLC helps developers assess ar5k
-	(enabling free Atheros HAL)
-Date: Thu, 16 Nov 2006 09:50:55 -0500
-Message-ID: <1163688655.2585.5.camel@localhost.localdomain>
+     (enabling free Atheros HAL)
+Date: Thu, 16 Nov 2006 15:56:51 +0100 (CET)
+Message-ID: <4250.194.45.26.221.1163689011.squirrel@webmail.otaku42.de>
 References: <20061115031025.GH3451@tuxdriver.com>
-	 <200611151942.14596.mb@bu3sch.de>  <20061115192054.GA10009@tuxdriver.com>
-	 <1163619541.19111.6.camel@dv>
+    <200611151942.14596.mb@bu3sch.de>
+    <20061115192054.GA10009@tuxdriver.com>
+    <200611152026.26095.mb@bu3sch.de> <455C731A.4010503@scram.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
-	lwn@lwn.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1424123AbWKPOtj@vger.kernel.org>
-To: Pavel Roskin <proski@gnu.org>
-In-Reply-To: <1163619541.19111.6.camel@dv>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Michael Buesch" <mb@bu3sch.de>,
+	madwifi-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, lwn@lwn.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1424120AbWKPO5a@vger.kernel.org>
+In-Reply-To: <455C731A.4010503@scram.de>
+To: "Jochen Friedrich" <jochen@scram.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-15 at 14:39 -0500, Pavel Roskin wrote:
-> Hello!
-> 
-> On Wed, 2006-11-15 at 14:21 -0500, John W. Linville wrote:
-> > On Wed, Nov 15, 2006 at 07:42:14PM +0100, Michael Buesch wrote:
-> > 
-> > > Now that it seems to be ok to use these openbsd sources, should I port
-> > > them to my driver framework?
-> > > I looked over the ar5k code and, well, I don't like it. ;)
-> > > I don't really like having a HAL. I'd rather prefer a "real" driver
-> > > without that HAL obfuscation.
-> > 
-> > I don't think anyone likes the HAL-based architecture.  I don't think
-> > we will accept a HAL-based driver into the upstream kernel.
-> 
-> I said it before, and it's worth repeating.  Dissolving HAL in the
-> sources is easy.  It's just a matter of moving functions around without
-> serious chances of breaking anything as long as the source compiles.
-> The whole "HAL-based architecture" can be reshuffled and eliminated by
-> one person in a few days.
-> 
-> Making things work properly takes years.  That's what MadWifi has been
-> working on for a long time, using contributions and bug reports from
-> scores of users and developers.
-> 
-> Rejecting MadWifi because it's HAL based is like throwing away a diamond
-> ring because it's too narrow.
+Hi.
 
-No, I'd personally reject madwifi not because of the HAL but because it
-uses the net80211 stack [1].  We don't need another 802.11 stack in the
-Linux kernel, of course.  But since the Devicescape people have already
-ported madwifi to d80211 (see David Kimdon's announcement on netdev on
-Oct. 17th), that appears to be a valid path to follow and at least some
-of the work has already been done.  If the HAL bits were ported to ar5k
-and folded back into the driver, I think that would be a great start.
+> At least, this way we have a chance to get USB working as well (See
+> http://madwifi.org/ticket/33).
 
-Dan
+It's not the HAL that prevents MadWifi implementing USB support. Replacing
+the binary-only HAL with OpenHAL and/or dissolving the HAL functionality
+in the driver source does not get us any closer to a working support of
+USB sticks.
 
-[1] nothing against net80211; it's a fine stack.  But There Can Be Only
-One, if just for sanity's sake.
+Quoting Sam Leffler on that topic:
+
+=== cut ===
+The Atheros-based USB devices work rather differently from the
+cardbus/pci cards.  In particular there is no hal; instead there's an
+onboard processor that runs the hal and implements a special protocol.
+This means you can reuse some of madwifi but you also (probably) need to
+redo the code some to break out different interfaces.  It's not a simple
+project.
+=== cut ===
+
+see: http://article.gmane.org/gmane.linux.drivers.madwifi.user/5380
+
+> OpenBSD seems to have a working driver (if_uath.c) for these USB WLAN
+> sticks.
+
+Which, at least for some sticks, requires a not freely distributable
+binary firmware blob, by the way (see:
+http://archives.neohapsis.com/archives/openbsd/cvs/2006-09/0233.html ).
+Nevertheless, it would be nice to have that driver ported to Linux.
+
+Bye, Mike
