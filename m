@@ -1,81 +1,44 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
-Date: Wed, 15 Nov 2006 18:43:39 -0800
-Message-ID: <20061116024511.458086000@sous-sol.org>
-References: <20061116024332.124753000@sous-sol.org>
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, mb@bu3sch.de, greg@kroah.com,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:32911 "EHLO
-	sous-sol.org") by vger.kernel.org with ESMTP id S1162245AbWKPCo3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Nov 2006 21:44:29 -0500
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Content-Disposition: inline; filename=bcm43xx-drain-tx-status-before-starting-irqs.patch
-Sender: netdev-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
+Date: Wed, 15 Nov 2006 20:51:05 -0600
+Message-ID: <455BD219.8080104@lwfinger.net>
+References: <455B63EC.8070704@madrabbit.org> <200611152015.07844.mb@bu3sch.de>
+	<455B6D74.2020507@madrabbit.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Ray Lee <ray-lk-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>
+In-Reply-To: <455B6D74.2020507-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
-------------------
+Ray Lee wrote:
+> Michael Buesch wrote:
+>> On Wednesday 15 November 2006 20:01, Ray Lee wrote:
+>>> Suggestions? Requests for <shudder> even more info?
+>> Yeah, enable bcm43xx debugging.
+> 
+> Sigh, didn't even think to look for that. Okay, enabled and compiling a new
+> kernel. This will take a few days to trigger, if the pattern holds, so in the
+> meantime, any *other* thoughts?
+> 
 
-From: Michael Buesch <mb@bu3sch.de>
+Which chip and revision do you have? Send me your equivalent of the line "bcm43xx: Chip ID 0x4306, 
+rev 0x2".
 
-Drain the Microcode TX-status-FIFO before we enable IRQs.
-This is required, because the FIFO may still have entries left
-from a previous run. Those would immediately fire after enabling
-IRQs and would lead to an oops in the DMA TXstatus handling code.
+Thanks,
 
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Signed-off-by: Chris Wright <chrisw@sous-sol.org>
----
- drivers/net/wireless/bcm43xx/bcm43xx_main.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
-
---- linux-2.6.18.2.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6.18.2/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -1463,6 +1463,23 @@ static void handle_irq_transmit_status(s
- 	}
- }
- 
-+static void drain_txstatus_queue(struct bcm43xx_private *bcm)
-+{
-+	u32 dummy;
-+
-+	if (bcm->current_core->rev < 5)
-+		return;
-+	/* Read all entries from the microcode TXstatus FIFO
-+	 * and throw them away.
-+	 */
-+	while (1) {
-+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
-+		if (!dummy)
-+			break;
-+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
-+	}
-+}
-+
- static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
- {
- 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
-@@ -3517,6 +3534,7 @@ int bcm43xx_select_wireless_core(struct 
- 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
- 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
- 	bcm43xx_security_init(bcm);
-+	drain_txstatus_queue(bcm);
- 	ieee80211softmac_start(bcm->net_dev);
- 
- 	/* Let's go! Be careful after enabling the IRQs.
-
---
+Larry
