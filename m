@@ -1,128 +1,37 @@
-From: "Krzysztof Sierota (o2.pl/tlen.pl)" <Krzysztof.Sierota@firma.o2.pl>
-Subject: Re: 2.6.19-rc6: irq 48: nobody cared
-Date: Thu, 16 Nov 2006 22:55:53 +0100
-Message-ID: <455CDE69.50601@firma.o2.pl>
-References: <200611161629.45149.Krzysztof.Sierota@firma.o2.pl> <4807377b0611161143m565f96e2g2bf2028347012ed5@mail.gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Max number of TCP sessions
+Date: Thu, 16 Nov 2006 14:21:35 -0800
+Message-ID: <20061116142135.49bf524e@freekitty>
+References: <455CC8C9.2050509@superbug.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jutrzenka.firma.o2.pl ([193.222.135.194]:7360 "EHLO
-	jutrzenka.firma.o2.pl") by vger.kernel.org with ESMTP
-	id S1424717AbWKPVz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 16:55:56 -0500
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0611161143m565f96e2g2bf2028347012ed5@mail.gmail.com>
+Received: from smtp.osdl.org ([65.172.181.4]:27863 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1424743AbWKPWVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 17:21:38 -0500
+To: James Courtier-Dutton <James@superbug.co.uk>
+In-Reply-To: <455CC8C9.2050509@superbug.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg napisa=C5=82(a):
-> On 11/16/06, Krzysztof Sierota <Krzysztof.Sierota@firma.o2.pl> wrote:
->> Hi,
->>
->> I'm getting the following in dmesg with 2.6.19-rc5 and 2.6.19-rc6=20
->> kernels quad
->> opteron server running 64bit kernel, and the network card gets disab=
-led.
->>
->> On identical server running 32bit kernel, same cards, same slots, sa=
-me
->> configuration running rc5 I see no errors.
->>
->> irq 48: nobody cared (try booting with the "irqpoll" option)
->
-> its an e1000 adapter on irq 48
->
->> 41: 579 0 0 0 IO-APIC-fasteoi eth2
->> 42: 1482 0 0 0 IO-APIC-fasteoi eth3
->> 47: 36323 0 0 0 IO-APIC-fasteoi eth4
->> 48: 99905 10 83 2 IO-APIC-fasteoi eth5
->
-> got quite a few interrupts considering there are no link events in
-> your logs for eth4 or eth5
->
-there are vlans on the interfaces.
->> ACPI: IOAPIC (id[0x04] address[0xfec00000] gsi_base[0])
->> IOAPIC[0]: apic_id 4, address 0xfec00000, GSI 0-23
->> ACPI: IOAPIC (id[0x09] address[0xfeafe000] gsi_base[40])
->> IOAPIC[1]: apic_id 9, address 0xfeafe000, GSI 40-46
->> ACPI: IOAPIC (id[0x0a] address[0xfeaff000] gsi_base[47])
->> IOAPIC[2]: apic_id 10, address 0xfeaff000, GSI 47-53
->
-> um, GSI 48 is the only interrupt using IOAPIC[2], could that be relat=
-ed?
->
->> Intel(R) PRO/1000 Network Driver - version 7.2.9-k4-NAPI
->> Copyright (c) 1999-2006 Intel Corporation.
->> ACPI: PCI Interrupt Link [LNKD] enabled at IRQ 19
->> ACPI: PCI Interrupt 0000:02:00.0[A] -> Link [LNKD] -> GSI 19 (level,=
-=20
->> low) ->
->> IRQ 19
->> PCI: Setting latency timer of device 0000:02:00.0 to 64
->> e1000: 0000:02:00.0: e1000_probe: (PCI Express:2.5Gb/s:32-bit)
->> 00:15:17:0b:82:13
->> e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
->> ACPI: PCI Interrupt Link [LNKC] enabled at IRQ 18
->> ACPI: PCI Interrupt 0000:01:00.0[A] -> Link [LNKC] -> GSI 18 (level,=
-=20
->> low) ->
->> IRQ 18
->> PCI: Setting latency timer of device 0000:01:00.0 to 64
->> e1000: 0000:01:00.0: e1000_probe: (PCI Express:2.5Gb/s:32-bit)
->> 00:15:17:0b:81:ae
->> e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
->> ACPI: PCI Interrupt 0000:06:02.0[A] -> GSI 41 (level, low) -> IRQ 41
->> e1000: 0000:06:02.0: e1000_probe: (PCI-X:100MHz:64-bit)=20
->> 00:04:23:b0:6b:6e
->> e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection
->> ACPI: PCI Interrupt 0000:06:02.1[B] -> GSI 42 (level, low) -> IRQ 42
->> e1000: 0000:06:02.1: e1000_probe: (PCI-X:100MHz:64-bit)=20
->> 00:04:23:b0:6b:6f
->> e1000: eth3: e1000_probe: Intel(R) PRO/1000 Network Connection
->> ACPI: PCI Interrupt 0000:05:03.0[A] -> GSI 47 (level, low) -> IRQ 47
->> e1000: 0000:05:03.0: e1000_probe: (PCI-X:133MHz:64-bit)=20
->> 00:30:48:57:3e:a0
->> e1000: eth4: e1000_probe: Intel(R) PRO/1000 Network Connection
->> ACPI: PCI Interrupt 0000:05:03.1[B] -> GSI 48 (level, low) -> IRQ 48
->> e1000: 0000:05:03.1: e1000_probe: (PCI-X:133MHz:64-bit)=20
->> 00:30:48:57:3e:a1
->> e1000: eth5: e1000_probe: Intel(R) PRO/1000 Network Connection
->
-> how come you aren't bringing the interfaces up? At least I don't see
-> any link messages. We request the IRQ only at open. Something else is
-> causing interrupts on the e1000 devices' lines.
-The bonding driver is using the eth0 and eth1 and is triggering the eve=
-nt:
+On Thu, 16 Nov 2006 20:23:37 +0000
+James Courtier-Dutton <James@superbug.co.uk> wrote:
 
-e1000: eth0: e1000_watchdog: NIC Link is Up 1000 Mbps Full Duplex
-bonding: bond0: enslaving eth0 as a backup interface with an up link.
-e1000: eth1: e1000_watchdog: NIC Link is Up 1000 Mbps Full Duplex
-bonding: bond0: enslaving eth1 as a backup interface with an up link.
-irq 48: nobody cared (try booting with the "irqpoll" option)
+> Hi,
+> 
+> For a host using a Pentium 4 CPU at 2.8Mhz, what is a sensible max value 
+> for number of TCP sessions this host could run under Linux?
+> Bandwidth per TCP session is likely to be about 10kbytes/second.
+> 
 
-Call Trace:
-<IRQ> [<ffffffff80249a2c>] __report_bad_irq+0x30/0x7d
-[<ffffffff80249c54>] note_interrupt+0x1db/0x21f
-[<ffffffff8024a47d>] handle_fasteoi_irq+0xa4/0xce
-[<ffffffff8020c3c7>] do_IRQ+0x7b/0xc0
-[<ffffffff80207c1e>] default_idle+0x0/0x47
-[<ffffffff80209ca1>] ret_from_intr+0x0/0xa
-<EOI> [<ffffffff80207c47>] default_idle+0x29/0x47
-[<ffffffff80207dc3>] cpu_idle+0x50/0x6f
-[<ffffffff804f76bf>] start_kernel+0x1be/0x1c0
-[<ffffffff804f7179>] _sinittext+0x179/0x17d
+Look at your fundamental limits:
 
-handlers:
-[<ffffffff8033bbc4>] (e1000_intr+0x0/0xeb)
-Disabling IRQ #48
+	* how fast is your network interface?
+	* how fast is your bus?
+	* how much kernel memory is available.
 
 
-> I suspect the IOAPIC code or ACPI code.
->
-> Jesse
->
-
-
+-- 
+Stephen Hemminger <shemminger@osdl.org>
