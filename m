@@ -1,80 +1,94 @@
-From: Steve WIse <swise@opengridcomputing.com>
-Subject: Re: [PATCH] cxgb3: Chelsio T3 1G/10G ethernet device driver
-Date: Wed, 15 Nov 2006 22:29:48 -0600
-Message-ID: <1163651388.4963.12.camel@linux-q667.site>
-References: <455BACB8.4010902@chelsio.com>
-	 <20061115163324.16263201@freekitty>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.19][TG3]: Disable TSO on 5906 if CLKREQ is enabled.
+Date: Wed, 15 Nov 2006 21:57:47 -0800
+Message-ID: <1163656668.8530.2.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: divy <divy@chelsio.com>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:54205 "EHLO
-	smtp.opengridcomputing.com") by vger.kernel.org with ESMTP
-	id S1162277AbWKPE3u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Nov 2006 23:29:50 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061115163324.16263201@freekitty>
+Received: from mms3.broadcom.com ([216.31.210.19]:54288 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1161829AbWKPFF0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 00:05:26 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-15 at 16:33 -0800, Stephen Hemminger wrote:
-> On Wed, 15 Nov 2006 16:11:36 -0800
-> divy <divy@chelsio.com> wrote:
-> 
-> > Hi,
-> > 
-> > This patch adds support for the latest Chelsio adapter, T3.
-> > 
-> > Since some files are bigger than the 40kB advertized in the submit
-> > guidelines, a monolithic patch against 2.6.19-rc5 is posted at the
-> > following URL: http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
-> > 
-> > Please advise on any other form you would like to see the code.
-> > 
-> > We wish this patch to be considered for inclusion in 2.6.20. This driver
-> > will be required by the Chelsio T3 RDMA driver which will be posted for
-> > review asap.
-> > 
-> > Cheers,
-> > Divy
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> This took me an afternoon, so I don't see why Chelsio didn't do it.
-> 
->     Port of Chelsio's 2.2.0 version driver from:
->         http://service.chelsio.com/drivers/linux/t210/cxgb2toe-2.2.0.tar.gz
->     
->     De-vendorized:
->         - removed all TCP Offload Engine support because those changes
->           will not be accepted in mainline kernel.
->         - new files run through Lindent
->         - removed code that was '#ifdef' for older kernel versions
->         - fix for 2.6.19 irq
->         - replace usage of TSC with ktime
->         - remove /proc trace debug stuff
->         - remove dead code
->         - incorporate GSO, etc.
->         - get rid of FILE_IDENT() macro
->         - fix sparse warnings by adding __iomem and __user
-> 
-> Also, I kept as many of the filenames and device names the same since
-> it is really just an extension of existing driver.
-> 
-> I'm testing it now.
-> 
+[TG3]: Disable TSO on 5906 if CLKREQ is enabled.
 
-Stephen,
+Due to hardware errata, TSO must be disabled if the PCI Express clock
+request is enabled on 5906.  The chip may hang when transmitting TSO
+frames if CLKREQ is enabled.
 
-Divy posted a new driver to support the new Chelsio T3 hardware, not the
-210 hardware.
+Update version to 3.69.
 
-Steve.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 6e86866..1dbdd6b 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -68,8 +68,8 @@ #include "tg3.h"
+ 
+ #define DRV_MODULE_NAME		"tg3"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"3.68"
+-#define DRV_MODULE_RELDATE	"November 02, 2006"
++#define DRV_MODULE_VERSION	"3.69"
++#define DRV_MODULE_RELDATE	"November 15, 2006"
+ 
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
+@@ -10366,7 +10366,7 @@ static int __devinit tg3_get_invariants(
+ 	u32 pci_state_reg, grc_misc_cfg;
+ 	u32 val;
+ 	u16 pci_cmd;
+-	int err;
++	int err, pcie_cap;
+ 
+ 	/* Force memory write invalidate off.  If we leave it on,
+ 	 * then on 5700_BX chips we have to enable a workaround.
+@@ -10541,8 +10541,19 @@ static int __devinit tg3_get_invariants(
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5906)
+ 		tp->tg3_flags2 |= TG3_FLG2_JUMBO_CAPABLE;
+ 
+-	if (pci_find_capability(tp->pdev, PCI_CAP_ID_EXP) != 0)
++	pcie_cap = pci_find_capability(tp->pdev, PCI_CAP_ID_EXP);
++	if (pcie_cap != 0) {
+ 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
++			u16 lnkctl;
++
++			pci_read_config_word(tp->pdev,
++					     pcie_cap + PCI_EXP_LNKCTL,
++					     &lnkctl);
++			if (lnkctl & PCI_EXP_LNKCTL_CLKREQ_EN)
++				tp->tg3_flags2 &= ~TG3_FLG2_HW_TSO_2;
++		}
++	}
+ 
+ 	/* If we have an AMD 762 or VIA K8T800 chipset, write
+ 	 * reordering to the mailbox registers done by the host
+@@ -11809,6 +11820,7 @@ #if TG3_TSO_SUPPORT != 0
+ 	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
+ 	    tp->pci_chip_rev_id == CHIPREV_ID_5705_A0 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906 ||
+ 	    (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0) {
+ 		tp->tg3_flags2 &= ~TG3_FLG2_TSO_CAPABLE;
+ 	} else {
+diff --git a/include/linux/pci_regs.h b/include/linux/pci_regs.h
+index c312a12..c321316 100644
+--- a/include/linux/pci_regs.h
++++ b/include/linux/pci_regs.h
+@@ -371,6 +371,7 @@ #define  PCI_EXP_DEVSTA_AUXPD	0x10	/* AU
+ #define  PCI_EXP_DEVSTA_TRPND	0x20	/* Transactions Pending */
+ #define PCI_EXP_LNKCAP		12	/* Link Capabilities */
+ #define PCI_EXP_LNKCTL		16	/* Link Control */
++#define  PCI_EXP_LNKCTL_CLKREQ_EN 0x100	/* Enable clkreq */
+ #define PCI_EXP_LNKSTA		18	/* Link Status */
+ #define PCI_EXP_SLTCAP		20	/* Slot Capabilities */
+ #define PCI_EXP_SLTCTL		24	/* Slot Control */
 
 
