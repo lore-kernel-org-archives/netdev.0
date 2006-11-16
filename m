@@ -1,89 +1,113 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
-Date: Thu, 16 Nov 2006 10:52:42 +0100
-Message-ID: <1163670762.2763.19.camel@ux156>
-References: <1161335976.21402.11.camel@devlinux-hong>
-	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
-	 <20061023145646.32bbd59f@griffin.suse.cz>
-	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
-	 <1161679134.7258.6.camel@devlinux-hong>  <1161681021.2840.23.camel@ux156>
-	 <1161764889.8668.13.camel@devlinux-hong>  <1161766245.2767.17.camel@ux156>
-	 <1163470978.7789.31.camel@devlinux-hong>  <1163607901.2705.53.camel@ux156>
+From: "Nick Kossifidis" <mickflemm@gmail.com>
+Subject: Re: [Madwifi-devel] ANNOUNCE: SFLC helps developers assess ar5k (enabling free Atheros HAL)
+Date: Thu, 16 Nov 2006 12:07:51 +0200
+Message-ID: <40f31dec0611160207hcfd5069hc7763d1e99cccd7c@mail.gmail.com>
+References: <20061115031025.GH3451@tuxdriver.com>
+	 <20061115192054.GA10009@tuxdriver.com> <1163619541.19111.6.camel@dv>
+	 <200611152102.26681.mb@bu3sch.de> <455BF908.6090006@otaku42.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>
+Cc: "Michael Buesch" <mb@bu3sch.de>, "Pavel Roskin" <proski@gnu.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	madwifi-devel@lists.sourceforge.net, lwn@lwn.net,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:1702 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1422847AbWKPJvm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 04:51:42 -0500
-To: Hong Liu <hong.liu@intel.com>
-In-Reply-To: <1163607901.2705.53.camel@ux156>
+Received: from qb-out-0506.google.com ([72.14.204.229]:34472 "EHLO
+	qb-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1423165AbWKPKHw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 05:07:52 -0500
+Received: by qb-out-0506.google.com with SMTP id z8so41176qbc
+        for <netdev@vger.kernel.org>; Thu, 16 Nov 2006 02:07:52 -0800 (PST)
+To: "Michael Renzmann" <madwifi@nospam.otaku42.de>
+In-Reply-To: <455BF908.6090006@otaku42.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-15 at 17:25 +0100, Johannes Berg wrote:
+Just in case you want to experiment, i have a working port of ar5k
+that works on madwifi-old before the BSD - HEAD merge...
 
-> Instead of putting all this into the stack, however, I think we could
-> make those drivers that require it do the bookkeeping and export
-> ieee80211_tkip_gen_phase1key and ieee80211_tkip_gen_rc4key for their
-> use. Maybe that's too much against Jiri's doctrine of "be easy on
-> drivers" though :)
+well i'm no good programmer (yet), i did what i could (i'm sure those
+define macros are nasty for most people :P) and hope that helps...
 
-Thought about this a bit more.
+you can git clone from the following link
 
-I think we should simplify the stack code by making it have *only* the
-distinction between between hardware and software crypto (on a per-key
-basis).
+rsync://rsync.ath-driver.org/gnumonks_users/mb/openhal.git
 
-This would entail getting rid of the flags
+I'm working with the following madwifi revision...
+svn checkout http://svn.madwifi.org/branches/madwifi-old -r 1142 madwifi
 
-  IEEE80211_HW_TKIP_INCLUDE_MMIC
-  IEEE80211_HW_TKIP_REQ_PHASE1_KEY
-  IEEE80211_HW_TKIP_REQ_PHASE2_KEY
+Don't forget to remove the ending ) in line 175 at
+net80211/ieee80211_radiotap.h ;-)
 
-and possibly
+Also you'll need to do some modifications to make it work with newer
+kernel versions (MODULE_PARM stuff in if_ath.c)...
 
-  IEEE80211_HW_NO_TKIP_WMM_HWACCEL
+diff -Naurp madwifi-openhal/ath/if_ath.c madwifi-openhal-fixed/ath/if_ath.c
+--- madwifi-openhal/ath/if_ath.c	2005-06-24 06:41:22.000000000 -0400
++++ madwifi-openhal-fixed/ath/if_ath.c	2006-08-04 14:49:38.000000000 -0400
+@@ -245,13 +245,20 @@ enum {
+ #endif
+
+ static	int countrycode = -1;
+-MODULE_PARM(countrycode, "i");
+-MODULE_PARM_DESC(countrycode, "Override default country code");
+ static	int outdoor = -1;
+-MODULE_PARM(outdoor, "i");
+-MODULE_PARM_DESC(outdoor, "Enable/disable outdoor use");
+ static	int xchanmode = -1;
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,52))
++MODULE_PARM(countrycode, "i");
++MODULE_PARM(outdoor, "i");
+ MODULE_PARM(xchanmode, "i");
++#else
++#include <linux/moduleparam.h>
++module_param(countrycode, int, 0);
++module_param(outdoor, int, 0);
++module_param(xchanmode, int, 0);
++#endif
++MODULE_PARM_DESC(countrycode, "Override default country code");
++MODULE_PARM_DESC(outdoor, "Enable/disable outdoor use");
+ MODULE_PARM_DESC(xchanmode, "Enable/disable extended channel mode");
+
+ int
+
+See README for more details
 
 
-Instead, I would like to provide "library" functions to do these tasks
-and let drivers use them when they are necessary.
+I haven't looked much the MadWiFi code since then, perhaps you can
+help in making ar5k work with newer madwifi versions + improve it's
+functionality to help both linux and OpenBSD.
 
-This should simplify and streamline code in the stack by getting rid of
-all the tests for these flags and associated code.
+(The name OpenHAL came from John Bicket's initial port)
 
-My reasoning for this is that
- 1) it doesn't break Jiri's doctrine of making things easy for drivers
-    because, well, simple drivers just use sw crypto
- 2) since drivers will always hard-code these flags it actually makes
-    the code more efficient -- no testing of flags required, just
-    function calls we'd be making elsewhere after testing flags
- 3) instead of drivers hard-coding the flag setting they hardcode
-    (yes, in a few more lines) the crypto they need
 
-I think putting the code into the driver vs. the stack is a trade-off we
-should make because it makes things more efficient.
+Happy coding ;-)
+Nick
 
-Could you live with a patch to do this and adjust ipw3945 accordingly?
-
-For ipw3945 it would be just an addition of a call to
-ieee80211_tkip_gen_rc4key() as it lives in the stack after this patch,
-and for bcm43xx it would be similar to the code you added within 
-"else if (flags & IEEE80211_HW_TKIP_REQ_PHASE1_KEY) {"
-
-As for IEEE80211_HW_NO_TKIP_WMM_HWACCEL, we would have to tell the
-hw->set_key routine if WME is enabled for the STA associated with the
-key. I'm not yet sure how to do this best, plus the flag isn't actually
-checked in the TX path but only the key setting path so...
-
-Basically, I think we have too much knowledge of hardware quirks in the
-stack. I'll be submitting a patch for this item later today.
-
-johannes
+2006/11/16, Michael Renzmann <madwifi@nospam.otaku42.de>:
+> Hi.
+>
+> Michael Buesch wrote:
+> > Well, it never worked for me. But I gave up trying about
+> > half a year ago. But maybe it's just stupid me. ;)
+>
+> Well, we have various support channels (an IRC channel besides two
+> mailing lists, for example) that you are welcome to make use of in case
+> of problems :)
+>
+> Bye, Mike
+>
+>
+>
+> -------------------------------------------------------------------------
+> Take Surveys. Earn Cash. Influence the Future of IT
+> Join SourceForge.net's Techsay panel and you'll get the chance to share your
+> opinions on IT & business topics through brief surveys - and earn cash
+> http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+> _______________________________________________
+> Madwifi-devel mailing list
+> Madwifi-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/madwifi-devel
+>
