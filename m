@@ -1,57 +1,78 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] cxgb3: Chelsio T3 1G/10G ethernet device driver
-Date: Thu, 16 Nov 2006 01:46:27 +0100
-Message-ID: <200611160146.27412.arnd@arndb.de>
-References: <455BACB8.4010902@chelsio.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: 2.6.19-rc5-mm2 -- bcm43xx busted (backing out the bcm43xx patches
+	fixes it)
+Date: Wed, 15 Nov 2006 20:16:37 -0600
+Message-ID: <455BCA05.8000007@lwfinger.net>
+References: <a44ae5cd0611141521pd342109jaae9e27aca3d2200@mail.gmail.com>
+	<200611152116.30734.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:48838 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1162129AbWKPArP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Nov 2006 19:47:15 -0500
-To: divy <divy@chelsio.com>
-In-Reply-To: <455BACB8.4010902@chelsio.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
+In-Reply-To: <200611152116.30734.rjw-KKrjLPT3xs0@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 16 November 2006 01:11, divy wrote:
-> This patch adds support for the latest Chelsio adapter, T3.
->
-> Since some files are bigger than the 40kB advertized in the submit
-> guidelines, a monolithic patch against 2.6.19-rc5 is posted at the
-> following URL: http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
->
-> Please advise on any other form you would like to see the code.
+Rafael J. Wysocki wrote:
+> On Wednesday, 15 November 2006 00:21, Miles Lane wrote:
+>> Hello,
+>>
+>> The last three MM kernels have fail to give me a working bcm43xx driver.
+>> The odd thing is that dmesg output seems to indicate that the driver
+>> is working okay.  NetworkManager doesn't see the driver, though.
+>> "iwlist scan" fails to find any access points, too.  iwconfig shows
+>> "Access Point: invalid".
+> 
+> I can confirm the symptoms, I see them too on my test boxes.
+> 
+>> I tried backing out the following patches, and it fixes the problem:
+>>
+>> drivers/net/wireless/bcm43xx/bcm43xx.h
+>> drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> drivers/net/wireless/bcm43xx/bcm43xx_power.c
+>> drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+>>> drivers/net/wireless/bcm43xx/bcm43xx_xmit.c 
 
-You should still attempt to post it as inline email for better review.
-The hard limit on mails is 100kb right now, IIRC, so it should be
-possible to split it up into smaller chunks for review.
+The missing patch is shown below. This patch was entitled "[PATCH] bcm43xx: Readd dropped
+assignment" and submitted to wireless-2.6 by Daniel Drake on 10/17/06, but it seems to have fallen
+through the cracks. It is a fix to a patch entitled "[PATCH] ieee80211: Move IV/ICV stripping into
+ieee80211_rx" also submitted by Daniel Drake on 9/26/2006.
 
-> We wish this patch to be considered for inclusion in 2.6.20. This driver
-> will be required by the Chelsio T3 RDMA driver which will be posted for
-> review asap.
+NOTE to maintainers: This problem affects BOTH wireless-2.6 and 2.6.19-rcX-mmY. At present, the
+"Move IV/ICV" patch has not been incorporated into 2.6.19-rcX and it is OK.
 
-Two things I noticed on a very brief review:
+Larry
 
-- The driver is _huge_. Even if your hardware is terribly complicated,
-  the fact that you need 600kb to drive it is a hint that you do
-  something wrong. In particular, the header files contain hundreds
-  of macros that are completely unused. You should get rid of them.
 
-- You define a driver specific multiplexing ioctl method. This is
-  something you really shouldn't do in a network driver, since the
-  ioctl number will conflict with other drivers. In order to get
-  the rest of your code merged, I'd suggest you split out the
-  private ioctl handling into a separate patch that you don't submit
-  for now, and then we can think of how to replace the interfaces
-  with something better, e.g. new driver-independent calls like ioctl
-  or ethtool or sysfs, or get rid of them if they turn out to be
-  not required.
+In the patch sent by Daniel Drake under the title "[PATCH] ieee80211: Move
+IV/ICV stripping into ieee80211_rx", a needed line was accidentally removed.
+As my current copy of wireless-2.6.git does not contain this line, I am
+(re)submitting a patch to restore that line.
 
-	Arnd <><
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+@@ -543,6 +543,7 @@ int bcm43xx_rx(struct bcm43xx_private *b
+  		break;
+  	}
+
++	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
+  	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
+  	case IEEE80211_FTYPE_MGMT:
+  		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
