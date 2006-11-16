@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] node-aware skb allocations
-Date: Thu, 16 Nov 2006 02:53:20 -0800 (PST)
-Message-ID: <20061116.025320.41632254.davem@davemloft.net>
-References: <20061115173643.GA17695@lst.de>
-	<20061115151646.9c8a6936.akpm@osdl.org>
+Subject: net-2.6.20 rebased
+Date: Thu, 16 Nov 2006 05:58:40 -0500 (EST)
+Message-ID: <20061116.055840.78704296.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hch@lst.de, netdev@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41141
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423801AbWKPKxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 05:53:22 -0500
-To: akpm@osdl.org
-In-Reply-To: <20061115151646.9c8a6936.akpm@osdl.org>
+Received: from localhost.localdomain ([127.0.0.1]:4078 "EHLO localhost")
+	by vger.kernel.org with ESMTP id S1423798AbWKPK6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 05:58:40 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 15 Nov 2006 15:16:46 -0800
 
-> If Dave wants to nod at it then I can merge all of it, else I can hand
-> patch 3/3 over to Dave once its prerequisites are in mainline.
+I just rebased net-2.6.20 at:
 
-I'm completely fine with this, nice work Christoph.
-Andrew, just toss it all into your tree for now.
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.20.git
+
+Al Viro has been going crazy with endianness and checksum type
+sparse annotations, which brings the patch count up to 171.
+Not bad for how long the net-2.6.20 tree has been open :-)
+
+I'm moving over the weekend, but never fear I've already made sure I
+can "ping" my new house and thus the internet is working and waiting
+for me when I get there.  I expect a total email down time of a day or
+two, I should be close to %100 next Monday or Tuesday.  In the
+interim, while my machines are moving with me, I have vger.kernel.org
+handling my email.  So if something strange happens to my email,
+that's why.
+
+The only changes I didn't get to yet are ipv6 patches from Ville
+Nuorvala.  I'll try to get those in tomorrow, but I can't guarentee
+that.  If not, I'll get to it next week.
+
+Feel free to still bomb me with patches though :-)
