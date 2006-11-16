@@ -1,39 +1,29 @@
-From: "George G. Davis" <gdavis@mvista.com>
-Subject: [PATCH] Fix an offset error when reading the CS89x0 ADD_PORT register
-Date: Thu, 16 Nov 2006 14:50:14 -0500
-Message-ID: <20061116195014.GB28540@mvista.com>
+From: James Courtier-Dutton <James@superbug.co.uk>
+Subject: Max number of TCP sessions
+Date: Thu, 16 Nov 2006 20:23:37 +0000
+Message-ID: <455CC8C9.2050509@superbug.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from homer.mvista.com ([63.81.120.158]:28084 "EHLO
-	gateway-1237.mvista.com") by vger.kernel.org with ESMTP
-	id S1424268AbWKPTuP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 14:50:15 -0500
-To: jgarzik@pobox.com
-Content-Disposition: inline
+Received: from anchor-post-33.mail.demon.net ([194.217.242.91]:30993 "EHLO
+	anchor-post-33.mail.demon.net") by vger.kernel.org with ESMTP
+	id S1424442AbWKPUXi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 15:23:38 -0500
+Received: from superbug.demon.co.uk ([80.176.146.252] helo=[192.168.0.10])
+	by anchor-post-33.mail.demon.net with esmtp (Exim 4.42)
+	id 1Gknlp-0006aH-Ai
+	for netdev@vger.kernel.org; Thu, 16 Nov 2006 20:23:37 +0000
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix an offset error when reading the CS89x0 ADD_PORT register.
+Hi,
 
-Signed-off-by: George G. Davis
----
+For a host using a Pentium 4 CPU at 2.8Mhz, what is a sensible max value 
+for number of TCP sessions this host could run under Linux?
+Bandwidth per TCP session is likely to be about 10kbytes/second.
 
-Index: linux-2.6/drivers/net/cs89x0.c
-===================================================================
---- linux-2.6.orig/drivers/net/cs89x0.c
-+++ linux-2.6/drivers/net/cs89x0.c
-@@ -588,10 +588,10 @@ cs89x0_probe1(struct net_device *dev, in
- 				goto out2;
- 			}
- 	}
--	printk(KERN_DEBUG "PP_addr at %x[%x]: 0x%x\n",
--			ioaddr, ADD_PORT, readword(ioaddr, ADD_PORT));
- 
- 	ioaddr &= ~3;
-+	printk(KERN_DEBUG "PP_addr at %x[%x]: 0x%x\n",
-+			ioaddr, ADD_PORT, readword(ioaddr, ADD_PORT));
- 	writeword(ioaddr, ADD_PORT, PP_ChipID);
- 
- 	tmp = readword(ioaddr, DATA_PORT);
+Kind Regards
+
+James
