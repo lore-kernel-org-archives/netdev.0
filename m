@@ -1,86 +1,62 @@
-From: "Miles Lane" <miles.lane@gmail.com>
-Subject: Re: 2.6.19-rc5-mm2 -- bcm43xx busted (backing out the bcm43xx patches fixes it)
-Date: Wed, 15 Nov 2006 21:45:52 -0800
-Message-ID: <a44ae5cd0611152145k1af580fcsf0c983934978a241@mail.gmail.com>
-References: <a44ae5cd0611141521pd342109jaae9e27aca3d2200@mail.gmail.com>
-	 <200611152116.30734.rjw@sisk.pl> <455BCA05.8000007@lwfinger.net>
+From: Ray Lee <ray-lk@madrabbit.org>
+Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
+Date: Wed, 15 Nov 2006 21:51:03 -0800
+Message-ID: <455BFC47.3020006@madrabbit.org>
+References: <455B63EC.8070704@madrabbit.org> <200611152015.07844.mb@bu3sch.de> <455B6D74.2020507@madrabbit.org> <455BD219.8080104@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Andrew Morton" <akpm@osdl.org>, Bcm43xx-dev@lists.berlios.de,
-	"Michael Buesch" <mb@bu3sch.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Cc: Michael Buesch <mb@bu3sch.de>, Bcm43xx-dev@lists.berlios.de,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:37519 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161830AbWKPFpy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 00:45:54 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so868395nfa
-        for <netdev@vger.kernel.org>; Wed, 15 Nov 2006 21:45:53 -0800 (PST)
-To: "Larry Finger" <Larry.Finger@lwfinger.net>
-In-Reply-To: <455BCA05.8000007@lwfinger.net>
-Content-Disposition: inline
+Received: from tapsys.com ([72.36.178.242]:22200 "EHLO tapsys.com")
+	by vger.kernel.org with ESMTP id S1161848AbWKPFwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 00:52:45 -0500
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <455BD219.8080104@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/15/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> Rafael J. Wysocki wrote:
-> > On Wednesday, 15 November 2006 00:21, Miles Lane wrote:
-> >> Hello,
-> >>
-> >> The last three MM kernels have fail to give me a working bcm43xx driver.
-> >> The odd thing is that dmesg output seems to indicate that the driver
-> >> is working okay.  NetworkManager doesn't see the driver, though.
-> >> "iwlist scan" fails to find any access points, too.  iwconfig shows
-> >> "Access Point: invalid".
-> >
-> > I can confirm the symptoms, I see them too on my test boxes.
-> >
-> >> I tried backing out the following patches, and it fixes the problem:
-> >>
-> >> drivers/net/wireless/bcm43xx/bcm43xx.h
-> >> drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> >> drivers/net/wireless/bcm43xx/bcm43xx_power.c
-> >> drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-> >>> drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
->
-> The missing patch is shown below. This patch was entitled "[PATCH] bcm43xx: Readd dropped
-> assignment" and submitted to wireless-2.6 by Daniel Drake on 10/17/06, but it seems to have fallen
-> through the cracks. It is a fix to a patch entitled "[PATCH] ieee80211: Move IV/ICV stripping into
-> ieee80211_rx" also submitted by Daniel Drake on 9/26/2006.
->
-> NOTE to maintainers: This problem affects BOTH wireless-2.6 and 2.6.19-rcX-mmY. At present, the
-> "Move IV/ICV" patch has not been incorporated into 2.6.19-rcX and it is OK.
->
-> Larry
->
->
-> In the patch sent by Daniel Drake under the title "[PATCH] ieee80211: Move
-> IV/ICV stripping into ieee80211_rx", a needed line was accidentally removed.
-> As my current copy of wireless-2.6.git does not contain this line, I am
-> (re)submitting a patch to restore that line.
->
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
->
-> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-> ===================================================================
-> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-> @@ -543,6 +543,7 @@ int bcm43xx_rx(struct bcm43xx_private *b
->                 break;
->         }
->
-> +       frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
->         switch (WLAN_FC_GET_TYPE(frame_ctl)) {
->         case IEEE80211_FTYPE_MGMT:
->                 ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
->
->
+Larry Finger wrote:
+> Ray Lee wrote:
+>> Michael Buesch wrote:
+>>> On Wednesday 15 November 2006 20:01, Ray Lee wrote:
+>>>> Suggestions? Requests for <shudder> even more info?
+>>> Yeah, enable bcm43xx debugging.
+>>
+>> Sigh, didn't even think to look for that. Okay, enabled and compiling
+>> a new kernel. This will take a few days to trigger, if the pattern holds, so
+>> in the meantime, any *other* thoughts?
+> 
+> Which chip and revision do you have? Send me your equivalent of the line
+> "bcm43xx: Chip ID 0x4306, rev 0x2".
 
-Thanks!  I have verified that this patch solves the problem for me.
+bcm43xx: Chip ID 0x4306, rev 0x3
 
-      Miles
+Also, another thing I wasn't clear about in my first email was that the netdev
+watchdog timeouts are new with rc5:
+
+$ zgrep 'NETDEV WATCH' /var/log/messages{,.0,.1.gz} | cut -d: -f2| cut -c 1-6
+| uniq -c
+   1249 Nov 13
+      6 Nov  6
+      1 Nov  7
+      3 Nov  8
+      2 Nov  9
+   5717 Nov 10
+   5652 Nov 11
+      5 Oct 29
+      3 Oct 30
+      3 Oct 31
+      4 Nov  1
+      1 Nov  2
+      1 Nov  3
+
+I booted into 2.6.19-rc5 on November 10th. Previous to that was 2.6.19-rc3.
+There really does seem to be something suspicious with that patch, yes?
+
+Thanks,
+
+Ray
