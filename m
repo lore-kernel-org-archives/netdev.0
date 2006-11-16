@@ -1,62 +1,59 @@
-From: Ray Lee <ray-lk@madrabbit.org>
-Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
-Date: Wed, 15 Nov 2006 21:51:03 -0800
-Message-ID: <455BFC47.3020006@madrabbit.org>
-References: <455B63EC.8070704@madrabbit.org> <200611152015.07844.mb@bu3sch.de> <455B6D74.2020507@madrabbit.org> <455BD219.8080104@lwfinger.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 7535] New: ARP notifications to NETLINK_ROUTE
+Date: Thu, 16 Nov 2006 01:20:36 -0800
+Message-ID: <20061116012036.dad4590a.akpm@osdl.org>
+References: <200611160911.kAG9BKmP012382@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, Bcm43xx-dev@lists.berlios.de,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>,
-	Andrew Morton <akpm@osdl.org>
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, lyricsfan@lycos.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tapsys.com ([72.36.178.242]:22200 "EHLO tapsys.com")
-	by vger.kernel.org with ESMTP id S1161848AbWKPFwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 00:52:45 -0500
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <455BD219.8080104@lwfinger.net>
+Received: from smtp.osdl.org ([65.172.181.4]:34202 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1031147AbWKPJUr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 04:20:47 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <200611160911.kAG9BKmP012382@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Larry Finger wrote:
-> Ray Lee wrote:
->> Michael Buesch wrote:
->>> On Wednesday 15 November 2006 20:01, Ray Lee wrote:
->>>> Suggestions? Requests for <shudder> even more info?
->>> Yeah, enable bcm43xx debugging.
->>
->> Sigh, didn't even think to look for that. Okay, enabled and compiling
->> a new kernel. This will take a few days to trigger, if the pattern holds, so
->> in the meantime, any *other* thoughts?
+On Thu, 16 Nov 2006 01:11:20 -0800
+bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=7535
 > 
-> Which chip and revision do you have? Send me your equivalent of the line
-> "bcm43xx: Chip ID 0x4306, rev 0x2".
-
-bcm43xx: Chip ID 0x4306, rev 0x3
-
-Also, another thing I wasn't clear about in my first email was that the netdev
-watchdog timeouts are new with rc5:
-
-$ zgrep 'NETDEV WATCH' /var/log/messages{,.0,.1.gz} | cut -d: -f2| cut -c 1-6
-| uniq -c
-   1249 Nov 13
-      6 Nov  6
-      1 Nov  7
-      3 Nov  8
-      2 Nov  9
-   5717 Nov 10
-   5652 Nov 11
-      5 Oct 29
-      3 Oct 30
-      3 Oct 31
-      4 Nov  1
-      1 Nov  2
-      1 Nov  3
-
-I booted into 2.6.19-rc5 on November 10th. Previous to that was 2.6.19-rc3.
-There really does seem to be something suspicious with that patch, yes?
-
-Thanks,
-
-Ray
+>            Summary: ARP notifications to NETLINK_ROUTE
+>     Kernel Version: 2.6.16, 2.6.17
+>             Status: NEW
+>           Severity: normal
+>              Owner: shemminger@osdl.org
+>          Submitter: lyricsfan@lycos.com
+> 
+> 
+> Most recent kernel where this bug did *NOT* occur:
+> 2.6.8 (maybe also some later version, but < 2.6.16)
+> 
+> Distribution:
+> ubuntu 6.06 desktop/server (also with standard kernel 2.6.16), knoppix 5.0.1
+> (kernel 2.6.17)
+> 
+> Hardware Environment:
+> irrelevant
+> 
+> Software Environment:
+> irrelevant
+> 
+> Problem Description:
+> While listening to the multicast group RTMGRP_NEIGH on a NETLINK_ROUTE socket,
+> on kernel 2.6.8 a RTM_NEWNEIGH message is received whenever an entry is added or
+> deleted to the ARP table. On 2.6.16, no such message is received, except for
+> IPv6 events.
+> Setting "/proc/sys/net/ipv4/neigh/*/app_solicit" to a value > 0 doesn't solve
+> the problem.
+> 
+> Steps to reproduce:
+> Open a NETLINK_ROUTE socket and listen to RTMGRP_NEIGH. Try to add a new entry
+> to the ARP table, either manually or by pinging a neighbour on the same subnet.
+> Try also to manually delete an entry, or simply let it expire. No RTM_NEWNEIGH
+> message is triggered when any of these events occurs (it IS in kernel 2.6.8).
+> 
