@@ -1,29 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.20 rebased
-Date: Thu, 16 Nov 2006 15:41:11 -0500 (EST)
-Message-ID: <20061116.154111.48531858.davem@davemloft.net>
-References: <20061116.055840.78704296.davem@davemloft.net>
-	<20061116120423.GF29920@ftp.linux.org.uk>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.19-rc6: irq 48: nobody cared
+Date: Thu, 16 Nov 2006 22:07:48 +0100
+Message-ID: <20061116210748.GI31879@stusta.de>
+References: <200611161629.45149.Krzysztof.Sierota@firma.o2.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:38120 "EHLO localhost")
-	by vger.kernel.org with ESMTP id S1424471AbWKPUlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 15:41:11 -0500
-To: viro@ftp.linux.org.uk
-In-Reply-To: <20061116120423.GF29920@ftp.linux.org.uk>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:13318 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1424626AbWKPVHt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 16:07:49 -0500
+To: Krzysztof Sierota <Krzysztof.Sierota@firma.o2.pl>
+Content-Disposition: inline
+In-Reply-To: <200611161629.45149.Krzysztof.Sierota@firma.o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@ftp.linux.org.uk>
-Date: Thu, 16 Nov 2006 12:04:23 +0000
+On Thu, Nov 16, 2006 at 04:29:44PM +0100, Krzysztof Sierota wrote:
+> Hi,
+> 
+> I'm getting the following in dmesg with 2.6.19-rc5 and 2.6.19-rc6 kernels quad 
+> opteron server running 64bit kernel, and the network card gets disabled. 
+>...
 
-> FWIW, with these patches in we have net/ nearly endian-clean.  Two
-> major exceptions are ieee80211 and sctp.  I think I've got more or
-> less sane way to deal with the latter, it won't be fun (and yes,
-> that's the queue I'm currently getting into shape).  A bunch of
-> genuine bugs in there, too, especially when it comes to sctp+ipv6...
+Please send the dmesg from the latest kernel that works for you.
 
-Looking forward to seeing that stuff Al.
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
