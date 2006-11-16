@@ -1,50 +1,61 @@
-From: Jochen Friedrich <jochen@scram.de>
-Subject: Re: ANNOUNCE: SFLC helps developers assess ar5k (enabling free Atheros
- HAL)
-Date: Thu, 16 Nov 2006 15:18:02 +0100
-Message-ID: <455C731A.4010503@scram.de>
-References: <20061115031025.GH3451@tuxdriver.com> <200611151942.14596.mb@bu3sch.de> <20061115192054.GA10009@tuxdriver.com> <200611152026.26095.mb@bu3sch.de>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [Madwifi-devel] ANNOUNCE: SFLC helps developers assess ar5k
+	(enabling free Atheros HAL)
+Date: Thu, 16 Nov 2006 09:50:55 -0500
+Message-ID: <1163688655.2585.5.camel@localhost.localdomain>
+References: <20061115031025.GH3451@tuxdriver.com>
+	 <200611151942.14596.mb@bu3sch.de>  <20061115192054.GA10009@tuxdriver.com>
+	 <1163619541.19111.6.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "John W. Linville" <linville@tuxdriver.com>,
-	madwifi-devel@lists.sourceforge.net, lwn@lwn.net, mcgrof@gmail.com,
-	david.kimdon@devicescape.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail0.scram.de ([195.226.127.110]:27408 "EHLO mail0.scram.de")
-	by vger.kernel.org with ESMTP id S1424064AbWKPOS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 09:18:58 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200611152026.26095.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
+	lwn@lwn.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1424123AbWKPOtj@vger.kernel.org>
+To: Pavel Roskin <proski@gnu.org>
+In-Reply-To: <1163619541.19111.6.camel@dv>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Hi Michael,
-
->> I don't think anyone likes the HAL-based architecture.  I don't think
->> we will accept a HAL-based driver into the upstream kernel.
+On Wed, 2006-11-15 at 14:39 -0500, Pavel Roskin wrote:
+> Hello!
 > 
-> Yeah, wanted to hear that. ;)
+> On Wed, 2006-11-15 at 14:21 -0500, John W. Linville wrote:
+> > On Wed, Nov 15, 2006 at 07:42:14PM +0100, Michael Buesch wrote:
+> > 
+> > > Now that it seems to be ok to use these openbsd sources, should I port
+> > > them to my driver framework?
+> > > I looked over the ar5k code and, well, I don't like it. ;)
+> > > I don't really like having a HAL. I'd rather prefer a "real" driver
+> > > without that HAL obfuscation.
+> > 
+> > I don't think anyone likes the HAL-based architecture.  I don't think
+> > we will accept a HAL-based driver into the upstream kernel.
+> 
+> I said it before, and it's worth repeating.  Dissolving HAL in the
+> sources is easy.  It's just a matter of moving functions around without
+> serious chances of breaking anything as long as the source compiles.
+> The whole "HAL-based architecture" can be reshuffled and eliminated by
+> one person in a few days.
+> 
+> Making things work properly takes years.  That's what MadWifi has been
+> working on for a long time, using contributions and bug reports from
+> scores of users and developers.
+> 
+> Rejecting MadWifi because it's HAL based is like throwing away a diamond
+> ring because it's too narrow.
 
-+1
+No, I'd personally reject madwifi not because of the HAL but because it
+uses the net80211 stack [1].  We don't need another 802.11 stack in the
+Linux kernel, of course.  But since the Devicescape people have already
+ported madwifi to d80211 (see David Kimdon's announcement on netdev on
+Oct. 17th), that appears to be a valid path to follow and at least some
+of the work has already been done.  If the HAL bits were ported to ar5k
+and folded back into the driver, I think that would be a great start.
 
-At least, this way we have a chance to get USB working as well (See http://madwifi.org/ticket/33).
-OpenBSD seems to have a working driver (if_uath.c) for these USB WLAN sticks.
+Dan
 
-Jochen
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iQEVAwUBRVxzGsP9a9GOLSE6AQIeRgf/ZyvmzdhP1+wjVshy2kK0BX+I+lx7y6RO
-mMmaVXPnXnHhHE4OLcf9Yrnn6d6i6rS+0CUbw60KgQouuvTFSXEFtSpIYRlXGAyj
-krMCj8bEfHhDEN8iYjbjdhP9Nx1wQ//JGyoBVpZZ5+sro6ik7wv70igFeDZ2IWg6
-38ycxDzINaV13ZscpwoHzO3NhvcSs9k99Syrh/nR6/pp+3g2vXmrsYR+hy7DMrE/
-bSI9y50h8rz6ZCire1ppDwADyBW5B1OondoRkjFYd3L8zNUu8s8xUHZ0Znz6B/cc
-yc7jyfQMsBRTUU7VsX3cWuMfA0UGlPn/0MR0+RHRJYHW5bRlStc5Kw==
-=Ajsn
------END PGP SIGNATURE-----
+[1] nothing against net80211; it's a fine stack.  But There Can Be Only
+One, if just for sanity's sake.
