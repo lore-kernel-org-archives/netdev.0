@@ -1,40 +1,81 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: 2.6.19-rc5-mm2 -- bcm43xx busted (backing out the bcm43xx patches fixes it)
-Date: Wed, 15 Nov 2006 21:26:29 -0500
-Message-ID: <20061116022624.GC3439@tuxdriver.com>
-References: <a44ae5cd0611141521pd342109jaae9e27aca3d2200@mail.gmail.com> <200611152116.30734.rjw@sisk.pl> <455BCA05.8000007@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Miles Lane <miles.lane@gmail.com>,
-	Andrew Morton <akpm@osdl.org>, Bcm43xx-dev@lists.berlios.de,
-	Michael Buesch <mb@bu3sch.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
+Date: Wed, 15 Nov 2006 18:43:39 -0800
+Message-ID: <20061116024511.458086000@sous-sol.org>
+References: <20061116024332.124753000@sous-sol.org>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, mb@bu3sch.de, greg@kroah.com,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:34576 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1162224AbWKPCb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Nov 2006 21:31:27 -0500
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Content-Disposition: inline
-In-Reply-To: <455BCA05.8000007@lwfinger.net>
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:32911 "EHLO
+	sous-sol.org") by vger.kernel.org with ESMTP id S1162245AbWKPCo3
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Nov 2006 21:44:29 -0500
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Disposition: inline; filename=bcm43xx-drain-tx-status-before-starting-irqs.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 15, 2006 at 08:16:37PM -0600, Larry Finger wrote:
+-stable review patch.  If anyone has any objections, please let us know.
+------------------
 
-> NOTE to maintainers: This problem affects BOTH wireless-2.6 and 
-> 2.6.19-rcX-mmY. At present, the
-> "Move IV/ICV" patch has not been incorporated into 2.6.19-rcX and it is OK.
+From: Michael Buesch <mb@bu3sch.de>
 
-This patch is available in the 'upstream' branch pull request I posted
-yesterday evening:
+Drain the Microcode TX-status-FIFO before we enable IRQs.
+This is required, because the FIFO may still have entries left
+from a previous run. Those would immediately fire after enabling
+IRQs and would lead to an oops in the DMA TXstatus handling code.
 
-	http://marc.theaimsgroup.com/?l=linux-netdev&m=116355611923558&w=2
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+---
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-Hth!
+--- linux-2.6.18.2.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6.18.2/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1463,6 +1463,23 @@ static void handle_irq_transmit_status(s
+ 	}
+ }
+ 
++static void drain_txstatus_queue(struct bcm43xx_private *bcm)
++{
++	u32 dummy;
++
++	if (bcm->current_core->rev < 5)
++		return;
++	/* Read all entries from the microcode TXstatus FIFO
++	 * and throw them away.
++	 */
++	while (1) {
++		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
++		if (!dummy)
++			break;
++		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
++	}
++}
++
+ static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
+ {
+ 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
+@@ -3517,6 +3534,7 @@ int bcm43xx_select_wireless_core(struct 
+ 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
+ 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
+ 	bcm43xx_security_init(bcm);
++	drain_txstatus_queue(bcm);
+ 	ieee80211softmac_start(bcm->net_dev);
+ 
+ 	/* Let's go! Be careful after enabling the IRQs.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+--
