@@ -1,27 +1,38 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: zd1211rw: Please revert commit
-Date: Thu, 16 Nov 2006 17:32:12 -0500
-Message-ID: <455CE6EC.1030401@gentoo.org>
+From: "Krzysztof Sierota (o2.pl/tlen.pl)" <Krzysztof.Sierota@firma.o2.pl>
+Subject: Re: 2.6.19-rc6: irq 48: nobody cared
+Date: Thu, 16 Nov 2006 23:38:35 +0100
+Message-ID: <455CE86B.6000609@firma.o2.pl>
+References: <200611161629.45149.Krzysztof.Sierota@firma.o2.pl> <20061116210748.GI31879@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ulrich Kunitz <kune@deine-taler.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp151.iad.emailsrvr.com ([207.97.245.151]:46566 "EHLO
-	smtp151.iad.emailsrvr.com") by vger.kernel.org with ESMTP
-	id S1753527AbWKPWfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 17:35:05 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755480AbWKPWik@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061116210748.GI31879@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+Adrian Bunk napisa=C5=82(a):
+> On Thu, Nov 16, 2006 at 04:29:44PM +0100, Krzysztof Sierota wrote:
+>  =20
+>> Hi,
+>>
+>> I'm getting the following in dmesg with 2.6.19-rc5 and 2.6.19-rc6 ke=
+rnels quad=20
+>> opteron server running 64bit kernel, and the network card gets disab=
+led.=20
+>> ...
+>>    =20
+>
+> Please send the dmesg from the latest kernel that works for you.
+>
+>  =20
+I've tested rc-[6,5,3,2] - all behave the same. 2.6.18.2 did not boot o=
+r=20
+switched the interfaces and I cannot access the machine. Will follow up=
+,=20
+when I get back to work.
 
-A user reported that commit 4e1bbd846d00a245dcf78b6b331d8a9afed8e6d7 
-(Remove unneeded packed attributes) breaks the zd1211rw driver on ARM. 
-Please revert it for 2.6.19, we may attempt this change again at a later 
-date.
-
-Thanks,
-Daniel
+K
