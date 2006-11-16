@@ -1,44 +1,38 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH  08/13] Memory Registration
-Date: Wed, 15 Nov 2006 21:59:07 -0600
-Message-ID: <20061116035907.22635.90998.stgit@dell3.ogc.int>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH  12/13] Core Debug functions
+Date: Wed, 15 Nov 2006 21:59:28 -0600
+Message-ID: <20061116035928.22635.28647.stgit@dell3.ogc.int>
 References: <20061116035826.22635.61230.stgit@dell3.ogc.int>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:50873 "EHLO
+	smtp.opengridcomputing.com") by vger.kernel.org with ESMTP
+	id S1031124AbWKPD72 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Nov 2006 22:59:28 -0500
 To: rdreier@cisco.com
 In-Reply-To: <20061116035826.22635.61230.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Functions to register memory regions.
+Debug code to dump various data structs, some of which are in 
+adapter memory.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/iwch_mem.c |  175 ++++++++++++++++++++++++++++++++
- 1 files changed, 175 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/cxgb3/core/cxio_dbg.c |  205 +++++++++++++++++++++++++++
+ 1 files changed, 205 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_mem.c b/drivers/infiniband/hw/cxgb3/iwch_mem.c
+diff --git a/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c b/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c
 new file mode 100644
-index 0000000..9aad3a0
+index 0000000..ffe5261
 --- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/iwch_mem.c
-@@ -0,0 +1,175 @@
++++ b/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c
+@@ -0,0 +1,205 @@
 +/*
 + * Copyright (c) 2006 Chelsio, Inc. All rights reserved.
 + * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
@@ -71,146 +65,176 @@ index 0000000..9aad3a0
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
 + */
-+#include <asm/byteorder.h>
-+
-+#include <rdma/iw_cm.h>
-+#include <rdma/ib_verbs.h>
-+
++#ifdef DEBUG
++#include <linux/types.h>
++#include "common.h"
++#include "cxgb3_ioctl.h"
 +#include "cxio_hal.h"
-+#include "iwch.h"
-+#include "iwch_provider.h"
++#include "cxio_wr.h"
 +
-+int iwch_register_mem(struct iwch_dev *rhp, struct iwch_pd *php,
-+					struct iwch_mr *mhp,
-+					int shift,
-+					u64 *page_list)
++void cxio_dump_tpt(struct cxio_rdev *rdev, u32 stag) 
 +{
-+	u32 stag;
-+	u32 mmid;
++	struct ch_mem_range *m;
++	u64 *data;
++	int rc;
++	int size = 32;
 +
-+
-+	if (cxio_register_phys_mem(&rhp->rdev,
-+				   &stag, mhp->attr.pdid,
-+				   mhp->attr.perms,
-+				   mhp->attr.zbva,
-+				   mhp->attr.va_fbo,
-+				   mhp->attr.len,
-+				   shift-12,
-+				   page_list,
-+				   &mhp->attr.pbl_size, &mhp->attr.pbl_addr)) {
-+		return -ENOMEM;
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
 +	}
-+	mhp->attr.state = 1;
-+	mhp->attr.stag = stag;
-+	mmid = stag >> 8;
-+	mhp->ibmr.rkey = mhp->ibmr.lkey = stag;
-+	rhp->mmid2ptr[mmid] = mhp;
-+	PDBG("%s mmid 0x%x mhp %p\n", __FUNCTION__, mmid, mhp);
-+	return 0;
++	m->mem_id = MEM_PMRX;
++	m->addr = (stag>>8) * 32 + rdev->rnic_info.tpt_base;
++	m->len = size;
++	PDBG("%s TPT addr 0x%x len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("TPT %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
 +}
 +
-+int iwch_reregister_mem(struct iwch_dev *rhp, struct iwch_pd *php,
-+					struct iwch_mr *mhp,
-+					int shift,
-+					u64 *page_list,
-+					int npages)
++void cxio_dump_pbl(struct cxio_rdev *rdev, u32 pbl_addr, uint len, u8 shift)
 +{
-+	u32 stag;
-+	u32 mmid;
++	struct ch_mem_range *m;
++	u64 *data;
++	int rc;
++	int size, npages;
 +
++	shift += 12;
++	npages = (len + (1ULL << shift) - 1) >> shift;
++	size = npages * sizeof(u64);
 +
-+	/* We could support this... */
-+	if (npages > mhp->attr.pbl_size)
-+		return -ENOMEM;
-+
-+	stag = mhp->attr.stag;
-+	if (cxio_reregister_phys_mem(&rhp->rdev,
-+				   &stag, mhp->attr.pdid,
-+				   mhp->attr.perms,
-+				   mhp->attr.zbva,
-+				   mhp->attr.va_fbo,
-+				   mhp->attr.len,
-+				   shift-12,
-+				   page_list,
-+				   &mhp->attr.pbl_size, &mhp->attr.pbl_addr)) {
-+		return -ENOMEM;
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
 +	}
-+	mhp->attr.state = 1;
-+	mhp->attr.stag = stag;
-+	mmid = stag >> 8;
-+	mhp->ibmr.rkey = mhp->ibmr.lkey = stag;
-+	rhp->mmid2ptr[mmid] = mhp;
-+	PDBG("%s mmid 0x%x mhp %p\n", __FUNCTION__, mmid, mhp);
-+	return 0;
++	m->mem_id = MEM_PMRX;
++	m->addr = pbl_addr;
++	m->len = size;
++	PDBG("%s PBL addr 0x%x len %d depth %d\n", 
++		__FUNCTION__, m->addr, m->len, npages);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("PBL %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
 +}
 +
-+int build_phys_page_list(struct ib_phys_buf *buffer_list,
-+					int num_phys_buf,
-+					u64 *iova_start,
-+					u64 *total_size,
-+					int *npages,
-+					int *shift,
-+					u64 **page_list)
++void cxio_dump_wqe(union t3_wr *wqe)
 +{
-+	u64 mask;
-+	int i, j, n;
++	u64 *data = (u64 *)wqe;
++	uint size = (uint)(be64_to_cpu(*data) & 0xff);
 +
-+	mask = 0;
-+	*total_size = 0;
-+	for (i = 0; i < num_phys_buf; ++i) {
-+		if (i != 0 && buffer_list[i].addr & ~PAGE_MASK)
-+			return -EINVAL;
-+		if (i != 0 && i != num_phys_buf - 1 &&
-+		    (buffer_list[i].size & ~PAGE_MASK))
-+			return -EINVAL;
-+		*total_size += buffer_list[i].size;
-+		if (i > 0)
-+			mask |= buffer_list[i].addr;
++	if (size == 0) 
++		size = 8;
++	while (size > 0) {
++		PDBG("WQE %p: %016llx\n", data, be64_to_cpu(*data));
++		size--;
++		data++;
 +	}
-+
-+	if (*total_size > 0xFFFFFFFFULL)
-+		return -ENOMEM;
-+
-+	/* Find largest page shift we can use to cover buffers */
-+	for (*shift = PAGE_SHIFT; *shift < 27; ++(*shift))
-+		if (num_phys_buf > 1) {
-+			if ((1ULL << *shift) & mask)
-+				break;
-+		} else {
-+			if (1ULL << *shift >=
-+			    buffer_list[0].size +
-+			    (buffer_list[0].addr & ((1ULL << *shift) - 1)))
-+				break;
-+		}
-+
-+	buffer_list[0].size += buffer_list[0].addr & ((1ULL << *shift) - 1);
-+	buffer_list[0].addr &= ~0ull << *shift;
-+
-+	*npages = 0;
-+	for (i = 0; i < num_phys_buf; ++i)
-+		*npages += (buffer_list[i].size + 
-+			(1ULL << *shift) - 1) >> *shift;
-+
-+	if (!*npages) {
-+		return -EINVAL;
-+	}
-+
-+	*page_list = kmalloc(sizeof(u64) * *npages, GFP_KERNEL);
-+	if (!*page_list) {
-+		return -ENOMEM;
-+	}
-+
-+	n = 0;
-+	for (i = 0; i < num_phys_buf; ++i)
-+		for (j = 0;
-+		     j < (buffer_list[i].size + (1ULL << *shift) - 1) >> *shift;
-+		     ++j) 
-+			(*page_list)[n++] = cpu_to_be64(buffer_list[i].addr +
-+			    ((u64) j << *shift));
-+
-+	PDBG("%s va 0x%llx mask 0x%llx shift %d len %lld pbl_size %d\n",
-+	     __FUNCTION__, *iova_start, mask, *shift, *total_size, *npages);
-+
-+	return 0;
-+
 +}
++
++void cxio_dump_wce(struct t3_cqe *wce)
++{
++	u64 *data = (u64 *)wce;
++	int size = sizeof(*wce);
++
++	while (size > 0) {
++		PDBG("WCE %p: %016llx\n", data, be64_to_cpu(*data));
++		size -= 8;
++		data++;
++	}
++}
++
++void cxio_dump_rqt(struct cxio_rdev *rdev, u32 hwtid, int nents)
++{
++	struct ch_mem_range *m;
++	int size = nents * 64;
++	u64 *data;
++	int rc;
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = ((hwtid)<<10) + rdev->rnic_info.rqt_base;
++	m->len = size;
++	PDBG("%s RQT addr 0x%x len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("RQT %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
++}
++
++void cxio_dump_tcb(struct cxio_rdev *rdev, u32 hwtid)
++{
++	struct ch_mem_range *m;
++	int size = TCB_SIZE;
++	u32 *data;
++	int rc;
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_CM;
++	m->addr = hwtid * size; 
++	m->len = size;
++	PDBG("%s TCB %d len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u32 *)m->buf;
++	while (size > 0) {
++		printk("%2u: %08x %08x %08x %08x %08x %08x %08x %08x\n", 
++			m->addr, 
++			*(data+2), *(data+3), *(data),*(data+1),
++			*(data+6), *(data+7), *(data+4), *(data+5));
++		size -= 32;
++		data += 8;
++		m->addr += 32;
++	}
++	kfree(m);
++}
++#endif
