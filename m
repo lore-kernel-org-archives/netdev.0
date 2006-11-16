@@ -1,56 +1,53 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
-Date: Thu, 16 Nov 2006 10:09:29 -0600
-Message-ID: <455C8D39.3080001@lwfinger.net>
-References: <20061116024332.124753000@sous-sol.org> <20061116024511.458086000@sous-sol.org>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: watchdog timeout panic in e1000 driver
+Date: Thu, 16 Nov 2006 09:20:01 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52013ABFE9@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	mb@bu3sch.de, greg@kroah.com,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Shaw Vrana" <shaw@vranix.com>, <netdev@vger.kernel.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:63935 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1424250AbWKPQKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 11:10:13 -0500
-To: Chris Wright <chrisw@sous-sol.org>
-In-Reply-To: <20061116024511.458086000@sous-sol.org>
+Received: from mga02.intel.com ([134.134.136.20]:17049 "EHLO mga02.intel.com")
+	by vger.kernel.org with ESMTP id S1161219AbWKPRUD convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 12:20:03 -0500
+Content-class: urn:content-classes:message
+To: "Kenzo Iwami" <k-iwami@cj.jp.nec.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Wright wrote:
-> -stable review patch.  If anyone has any objections, please let us know.
-> ------------------
+Kenzo Iwami wrote:
+>   ethtool processing holding semaphore
+>     INTERRUPT
+>       e1000_watchdog waits for semaphore to be released
 > 
-> From: Michael Buesch <mb@bu3sch.de>
+> The semaphore e1000_watchdog is waiting for can only be released when
+> ethtool resumes from interrupt after e1000_watchdog finishes
+> (basically a deadlock)
 > 
-> Drain the Microcode TX-status-FIFO before we enable IRQs.
-> This is required, because the FIFO may still have entries left
-> from a previous run. Those would immediately fire after enabling
-> IRQs and would lead to an oops in the DMA TXstatus handling code.
+> In order to solve this problem, interrupts has to be disabled on the
+> interrupted side (during ethtool processing) and not during
+> e1000_watchdog within the interrupt handler.
 > 
-> Cc: "John W. Linville" <linville@tuxdriver.com>
-> Signed-off-by: Michael Buesch <mb@bu3sch.de>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Signed-off-by: Chris Wright <chrisw@sous-sol.org>
-> ---
+> e1000_get_hw_eeprom_semaphore is called from both the interrupt level
+> and the normal level, and needs to be protected by irq code. The
+> reason the patch disables interrupts when freeing the semaphore is
+> because e1000_swfw_sync_release also calls
+> e1000_get_hw_eeprom_semaphore. 
 
-Chris,
+Doesn't this just mean that we need a spinlock or some other kind of
+semaphore around acquiring, using, and releasing this resource?  We keep
+going around and around about this but I'm pretty sure spinlocks are
+meant to be able to solve exactly this issue.
 
-We have a report of a regression between 2.6.19-rc3 and -rc5. As this patch seems to be the only one 
-that could cause the problem, please pull it from -stable while we sort out the difficulty.
+The problem is going to get considerably more nasty if we need to hold a
+spinlock with interrupts disabled for a significant amount of time, at
+which point a semaphore of some kind with a spinlock around it would
+seem to be more useful.
 
-Thanks,
+I'll work with Auke to see if we can come up with another try.
 
-Larry
-
+Jesse
