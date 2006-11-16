@@ -1,68 +1,89 @@
-From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
-Subject: Re: watchdog timeout panic in e1000 driver
-Date: Thu, 16 Nov 2006 18:23:10 +0900
-Message-ID: <455C2DFE.3050907@cj.jp.nec.com>
-References: <4538BFF2.2040207@cj.jp.nec.com> <4538F080.5020003@intel.com> <453DD678.4010606@cj.jp.nec.com> <453E3C0B.5030600@intel.com> <453F6983.6020307@cj.jp.nec.com> <453F7E1F.4020406@intel.com> <45408F7B.3050209@cj.jp.nec.com> <4540C765.4000800@intel.com> <4545E3A4.9090004@cj.jp.nec.com> <454636B0.1010004@intel.com> <20061031032218.GA7804@gmail.com> <45489F59.6030102@cj.jp.nec.com> <455AED05.9010607@cj.jp.nec.com> <455B3C3B.2070308@intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 1/2]d80211: hardware TKIP support for ipw3945
+Date: Thu, 16 Nov 2006 10:52:42 +0100
+Message-ID: <1163670762.2763.19.camel@ux156>
+References: <1161335976.21402.11.camel@devlinux-hong>
+	 <20061023144028.629dc5d8@griffin.suse.cz> <1161607680.6617.36.camel@ux156>
+	 <20061023145646.32bbd59f@griffin.suse.cz>
+	 <1161678053.7083.7.camel@devlinux-hong>  <1161678908.2840.12.camel@ux156>
+	 <1161679134.7258.6.camel@devlinux-hong>  <1161681021.2840.23.camel@ux156>
+	 <1161764889.8668.13.camel@devlinux-hong>  <1161766245.2767.17.camel@ux156>
+	 <1163470978.7789.31.camel@devlinux-hong>  <1163607901.2705.53.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Shaw Vrana <shaw@vranix.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>, Michael Buesch <mb@bu3sch.de>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:40086 "EHLO
-	tyo201.gate.nec.co.jp") by vger.kernel.org with ESMTP
-	id S1031152AbWKPJX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 04:23:27 -0500
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <455B3C3B.2070308@intel.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:1702 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1422847AbWKPJvm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 04:51:42 -0500
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1163607901.2705.53.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 2006-11-15 at 17:25 +0100, Johannes Berg wrote:
 
-Thank you for your comment.
+> Instead of putting all this into the stack, however, I think we could
+> make those drivers that require it do the bookkeeping and export
+> ieee80211_tkip_gen_phase1key and ieee80211_tkip_gen_rc4key for their
+> use. Maybe that's too much against Jiri's doctrine of "be easy on
+> drivers" though :)
 
->>> I think this problem occurs because interrupt handler is executed in same
->>> CPU as process that acquires semaphore.
->>> How about disabling interrupt while the process is holding the semaphore?
->>> I think this is possible, if the total lock time has been reduced.
->> I created the attached patch based on the method described above.
->> This patch disables interrupt while the process is holding the semaphore.
-[...]
-> I'm not sure why you would have to disable interrupts when freeing the semaphore, but 
-> more importantly I don't want to introduce irq code in the swfw handling functions.
-> 
-> Since the major (only) user running this piece of code in intterupt context is the 
-> watchdog, we might as well see if we can only disable interrupts for that code path, 
-> which would only be once per 2 seconds. We don't need to protect the ethtool path into 
-> this code as it doesn't run in irq context.
-> 
-> Would you mind giving attached patch a try and let me know if it works for you? It will 
-> disable irqs for a bit longer time than your patch, and it begs for a special 
-> check-link-in-watchdog function that doesn't take so damn long :(
+Thought about this a bit more.
 
-I tried your patch, but the system panicked with the same symptom.
+I think we should simplify the stack code by making it have *only* the
+distinction between between hardware and software crypto (on a per-key
+basis).
 
-This problem occurs because e1000_watchdog is called from the interrupt
-handler while ethtool processing is holding the semaphore.
+This would entail getting rid of the flags
 
-  ethtool processing holding semaphore
-    INTERRUPT
-      e1000_watchdog waits for semaphore to be released
+  IEEE80211_HW_TKIP_INCLUDE_MMIC
+  IEEE80211_HW_TKIP_REQ_PHASE1_KEY
+  IEEE80211_HW_TKIP_REQ_PHASE2_KEY
 
-The semaphore e1000_watchdog is waiting for can only be released when
-ethtool resumes from interrupt after e1000_watchdog finishes (basically
-a deadlock)
+and possibly
 
-In order to solve this problem, interrupts has to be disabled on the
-interrupted side (during ethtool processing) and not during
-e1000_watchdog within the interrupt handler.
+  IEEE80211_HW_NO_TKIP_WMM_HWACCEL
 
-e1000_get_hw_eeprom_semaphore is called from both the interrupt level
-and the normal level, and needs to be protected by irq code. The reason
-the patch disables interrupts when freeing the semaphore is because
-e1000_swfw_sync_release also calls e1000_get_hw_eeprom_semaphore.
 
---
-  Kenzo Iwami (k-iwami@cj.jp.nec.com)
+Instead, I would like to provide "library" functions to do these tasks
+and let drivers use them when they are necessary.
+
+This should simplify and streamline code in the stack by getting rid of
+all the tests for these flags and associated code.
+
+My reasoning for this is that
+ 1) it doesn't break Jiri's doctrine of making things easy for drivers
+    because, well, simple drivers just use sw crypto
+ 2) since drivers will always hard-code these flags it actually makes
+    the code more efficient -- no testing of flags required, just
+    function calls we'd be making elsewhere after testing flags
+ 3) instead of drivers hard-coding the flag setting they hardcode
+    (yes, in a few more lines) the crypto they need
+
+I think putting the code into the driver vs. the stack is a trade-off we
+should make because it makes things more efficient.
+
+Could you live with a patch to do this and adjust ipw3945 accordingly?
+
+For ipw3945 it would be just an addition of a call to
+ieee80211_tkip_gen_rc4key() as it lives in the stack after this patch,
+and for bcm43xx it would be similar to the code you added within 
+"else if (flags & IEEE80211_HW_TKIP_REQ_PHASE1_KEY) {"
+
+As for IEEE80211_HW_NO_TKIP_WMM_HWACCEL, we would have to tell the
+hw->set_key routine if WME is enabled for the STA associated with the
+key. I'm not yet sure how to do this best, plus the flag isn't actually
+checked in the TX path but only the key setting path so...
+
+Basically, I think we have too much knowledge of hardware quirks in the
+stack. I'll be submitting a patch for this item later today.
+
+johannes
