@@ -1,42 +1,35 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] netdev: don't allow register_netdev with blank name
-Date: Fri, 17 Nov 2006 13:41:58 -0800
-Message-ID: <20061117134158.3d3f1508@freekitty>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/10] cxgb3 - main header files
+Date: Fri, 17 Nov 2006 13:48:14 -0800
+Message-ID: <adaejs1lp7l.fsf@cisco.com>
+References: <20061117202320.25878.26769.stgit@colfax2.asicdesigners.com>
+	<20061117124902.7e69af2e@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Divy Le Ray <divy@chelsio.com>" <divy@chelsio.com>,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:33744 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1755943AbWKQVmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 16:42:47 -0500
-To: Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:62276 "EHLO
+	sj-iport-5.cisco.com") by vger.kernel.org with ESMTP
+	id S1755953AbWKQVsY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 16:48:24 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061117124902.7e69af2e@freekitty> (Stephen Hemminger's message of "Fri, 17 Nov 2006 12:49:02 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This bit of old backwards compatibility cruft can be removed in 2.6.20.
-If there is still an device that calls register_netdev()
-with a zero or blank name, it will get -EINVAL from register_netdevice().
+ > > +#define MDIO_LOCK(adapter) down(&(adapter)->mdio_lock)
+ > > +#define MDIO_UNLOCK(adapter) up(&(adapter)->mdio_lock)
+ > 
+ > Please don't wrap locks
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Plus these should probably be mutexes, not semaphores.
 
+ > > +int t3_offload_tx(struct t3cdev *tdev, struct sk_buff *skb);
+ > 
+ > What kind of offload?  You remember TOE was rejected.
 
---- linux-2.6.19-rc6.orig/net/core/dev.c	2006-11-17 13:35:04.000000000 -0800
-+++ linux-2.6.19-rc6/net/core/dev.c	2006-11-17 13:37:46.000000000 -0800
-@@ -3035,15 +3035,6 @@
- 			goto out;
- 	}
- 	
--	/*
--	 * Back compatibility hook. Kill this one in 2.5
--	 */
--	if (dev->name[0] == 0 || dev->name[0] == ' ') {
--		err = dev_alloc_name(dev, "eth%d");
--		if (err < 0)
--			goto out;
--	}
--
- 	err = register_netdevice(dev);
- out:
- 	rtnl_unlock();
+But we're OK with RDMA over TCP (iWARP) I think...
+
+ - R.
