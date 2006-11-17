@@ -1,98 +1,72 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
-Date: Thu, 16 Nov 2006 19:13:10 -0600
-Message-ID: <455D0CA6.3030604@lwfinger.net>
-References: <455B63EC.8070704@madrabbit.org> <455BFC47.3020006@madrabbit.org>
-	<455CAB2F.1060709@lwfinger.net> <200611162016.42095.mb@bu3sch.de>
-	<455CBDD7.6000507@madrabbit.org> <455CE8FB.2000803@lwfinger.net>
-	<ae017dc00611161526v6bcbddc2ve2c7e10963d25c3b@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH] fix IGMPV3_EXP() normalization bit shift value
+Date: Thu, 16 Nov 2006 18:49:30 -0700
+Message-ID: <OF53C62317.D1729E3A-ON88257229.0008EA38-88257229.000A067D@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Ray Lee <ray-lk-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>
-In-Reply-To: <ae017dc00611161526v6bcbddc2ve2c7e10963d25c3b-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: multipart/mixed; boundary="=_mixed 000A067B88257229_="
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:174 "EHLO e36.co.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1424892AbWKQBth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 20:49:37 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAH1nVUL013725
+	for <netdev@vger.kernel.org>; Thu, 16 Nov 2006 20:49:31 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAH1nVng363444
+	for <netdev@vger.kernel.org>; Thu, 16 Nov 2006 18:49:31 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAH1nVvW016040
+	for <netdev@vger.kernel.org>; Thu, 16 Nov 2006 18:49:31 -0700
+To: davem@davemloft.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ray Lee wrote:
-> First off, thanks for all your help.
-> 
-> Second off,
-> 
-> On 11/16/06, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote:
->> Ray Lee wrote:
->> >
->> > If I could figure out a way to make it repeatable, I'd happily do a 
->> blind
->> > bisect.
-> [...]
->> > I'm open to suggestions on how to make the problem trigger more than 
->> once
->> > every two days...
->>
->> I don't know what might be causing the lock problems. I'm more 
->> concerned with the NETDEV WATCHDOG
->> timeouts. AFAIK, you are the only one still reporting this error. On 
->> my system, I get an occasional
->> MAC suspend failure, sometimes followed by an BCM43xx_IRQ_XMIT_ERROR.
-> 
-> Last time I had trouble with 2.6.18-rcX, I wasn't the only one, just
-> the only one reporting it. Can you tell me why reverting the likely
-> culprit isn't an option? rc6 is out, and Linus is really pushing to
-> finalize 2.6.19 here soon.
-> 
->>  From what I read in your post, the timeouts happen a lot more often 
->> than once every two days. Once
->> we get those fixed, then we can concentrate on the locking.
-> 
-> It's becoming clear that I wasn't so clear :-). No, it doesn't happen
-> more than once every two (three, now) days. I'm saying that it's only
-> happened twice, as once the first timeout message starts, the timeouts
-> don't stop short of a reboot.
-> 
-> Or, in other words, it happened occasionally under 2.6.19-rc3, but
-> fixed itself. Under 2.6.19-rc5, it's happened less frequently (maybe),
-> but once it starts, it goes on solid until I reboot the computer.
-> Until I reboot, the laptop is fully unusable as things start hanging
-> on the rtnl_lock (X, apparently).
-> 
-> Please see http://madrabbit.org/~ray/messages.gz for the
-> /var/log/messages to understand what I mean by that. (Though, that was
-> captured before I'd rebuilt the module with debugging, unfortunately.
-> Regardless, it may help clarify what I mean here.)
-> 
-> So all the NETDEV WATCHDOG timeouts other than the first (of each of
-> the two events) appear to be bogus, or side effects of rtnl_lock being
-> held after the first time, and not clearing out.
-> 
-> <thinks...> Maybe I've got the culprit backward here. Perhaps
-> something else in my system is locking on rtnl_lock, and bcm43xx can't
-> acquire it? Could the NETDEV WATCHDOG timeouts be a side effect of
-> someone acquiring and not releasing the rtnl_lock()? Is that possible?
-> (ie, would it cause the effect I'm seeing?)
+--=_mixed 000A067B88257229_=
+Content-Type: text/plain; charset="US-ASCII"
 
-It certainly could. Please remove the new line in the hunk below for 
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:
+The IGMPV3_EXP() macro doesn't correctly shift the normalization bit, so
+time-out values are longer than they should be. Patch below for viewing
+and attached for applying.
 
-@@ -3569,6 +3586,7 @@ int bcm43xx_select_wireless_core(struct
-         bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
-         bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
-         bcm43xx_security_init(bcm);
-+       drain_txstatus_queue(bcm);
-         ieee80211softmac_start(bcm->net_dev);
+Thanks to Dirk Ooms for finding the problem in IGMPv3 - MLDv2 had a
+similar problem that was already fixed a year ago. :-(
 
-This will effectively remove _ALL_ bcm43xx patches between 2.6.19-rc3 and -rc6. If the rtnl_locks 
-still occur, bcm43xx is not causing them. The other patches are not involved for your system.
+                                                +-DLS
 
-Larry
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+
+--- linux-2.6.19-rc5/include/linux/igmp.h       2006-11-16 
+16:11:53.000000000 -0800
++++ linux-2.6.19-rc5T1/include/linux/igmp.h     2006-11-16 
+16:15:46.000000000 -0800
+@@ -191,7 +191,7 @@ struct ip_mc_list
+ #define IGMPV3_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & 
+(value))
+ #define IGMPV3_EXP(thresh, nbmant, nbexp, value) \
+        ((value) < (thresh) ? (value) : \
+-        ((IGMPV3_MASK(value, nbmant) | (1<<(nbmant+nbexp))) << \
++        ((IGMPV3_MASK(value, nbmant) | (1<<(nbmant))) << \
+          (IGMPV3_MASK((value) >> (nbmant), nbexp) + (nbexp))))
+ 
+ #define IGMPV3_QQIC(value) IGMPV3_EXP(0x80, 4, 3, value)
+
+
+--=_mixed 000A067B88257229_=
+Content-Type: application/octet-stream; name="mc.patch"
+Content-Disposition: attachment; filename="mc.patch"
+Content-Transfer-Encoding: base64
+
+LS0tIGxpbnV4LTIuNi4xOS1yYzUvaW5jbHVkZS9saW51eC9pZ21wLmgJMjAwNi0xMS0xNiAxNjox
+MTo1My4wMDAwMDAwMDAgLTA4MDAKKysrIGxpbnV4LTIuNi4xOS1yYzVUMS9pbmNsdWRlL2xpbnV4
+L2lnbXAuaAkyMDA2LTExLTE2IDE2OjE1OjQ2LjAwMDAwMDAwMCAtMDgwMApAQCAtMTkxLDcgKzE5
+MSw3IEBAIHN0cnVjdCBpcF9tY19saXN0CiAjZGVmaW5lIElHTVBWM19NQVNLKHZhbHVlLCBuYikg
+KChuYik+PTMyID8gKHZhbHVlKSA6ICgoMTw8KG5iKSktMSkgJiAodmFsdWUpKQogI2RlZmluZSBJ
+R01QVjNfRVhQKHRocmVzaCwgbmJtYW50LCBuYmV4cCwgdmFsdWUpIFwKIAkoKHZhbHVlKSA8ICh0
+aHJlc2gpID8gKHZhbHVlKSA6IFwKLSAgICAgICAgKChJR01QVjNfTUFTSyh2YWx1ZSwgbmJtYW50
+KSB8ICgxPDwobmJtYW50K25iZXhwKSkpIDw8IFwKKyAgICAgICAgKChJR01QVjNfTUFTSyh2YWx1
+ZSwgbmJtYW50KSB8ICgxPDwobmJtYW50KSkpIDw8IFwKICAgICAgICAgIChJR01QVjNfTUFTSygo
+dmFsdWUpID4+IChuYm1hbnQpLCBuYmV4cCkgKyAobmJleHApKSkpCiAKICNkZWZpbmUgSUdNUFYz
+X1FRSUModmFsdWUpIElHTVBWM19FWFAoMHg4MCwgNCwgMywgdmFsdWUpCg==
+
+--=_mixed 000A067B88257229_=--
