@@ -1,26 +1,45 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/2][XFRM]: Sub-policies beautification
-Date: Fri, 17 Nov 2006 17:52:42 +0100
-Message-ID: <20061117165242.GF8693@postel.suug.ch>
-References: <1163772616.5107.40.camel@jzny2> <20061117164253.GE8693@postel.suug.ch> <1163782194.5219.3.camel@jzny2>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH  11/13] Core Resource Allocation
+Date: Fri, 17 Nov 2006 08:54:06 -0800
+Message-ID: <adaslgim2tt.fsf@cisco.com>
+References: <20061116035826.22635.61230.stgit@dell3.ogc.int>
+	<20061116035923.22635.5397.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>,
+Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:19596 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1755736AbWKQQwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 11:52:21 -0500
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1163782194.5219.3.camel@jzny2>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:21654 "EHLO
+	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
+	id S932952AbWKQQyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 11:54:08 -0500
+To: Steve Wise <swise@opengridcomputing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-11-17 11:49
-> Good catch. I think i know how i missed that one - TheLinuxWay;->
-> theres a few __u8s in there unrelated. So i will send an additional
-> patch that fixes that and the rest of em. Sounds good?
+ > +static u32 next_random(u32 rand)
+ > +{
+ > +	u32 y, ylast;
+ > +
+ > +	y = rand;	
+ > +	ylast = y;
+ > +	y = (y * 69069) & 0xffffffff;
+ > +	y = (y & 0x80000000) + (ylast & 0x7fffffff);
+ > +	if ((y & 1))
+ > +		y = ylast ^ (y > 1) ^ (2567483615UL);
+ > +	else
+ > +		y = ylast ^ (y > 1);
+ > +	y = y ^ (y >> 11);
+ > +	y = y ^ ((y >> 7) & 2636928640UL);
+ > +	y = y ^ ((y >> 15) & 4022730752UL);
+ > +	y = y ^ (y << 18);
+ > +	return y;
+ > +}
 
-Sure
+How about just using the kernel's random32()?
+
+I haven't read the code really so I don't understand what's being
+randomized here, but random32() should be more than good enough for a
+typical randomized algorithm().
+
+ - R.
