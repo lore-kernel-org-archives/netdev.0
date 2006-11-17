@@ -1,98 +1,193 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.19-rc6: known regressions (v2)
-Date: Fri, 17 Nov 2006 21:40:36 +0100
-Message-ID: <20061117204036.GK31879@stusta.de>
-References: <Pine.LNX.4.64.0611152008450.3349@woody.osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 1/10] cxgb3 - main header files
+Date: Fri, 17 Nov 2006 12:49:02 -0800
+Message-ID: <20061117124902.7e69af2e@freekitty>
+References: <20061117202320.25878.26769.stgit@colfax2.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Thomas Gleixner <tglx@timesys.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Ingo Molnar <mingo@elte.hu>, davej@codemonkey.org.uk,
-	cpufreq@lists.linux.org.uk,
-	Alexey Starikovskiy <alexey_y_starikovskiy@linux.intel.com>,
-	Mattia Dongili <malattia@linux.it>,
-	Andre Noll <maan@systemlinux.org>, Andi Kleen <ak@suse.de>,
-	discuss@x86-64.org, Prakash Punnoor <prakash@punnoor.de>,
-	phil.el@wanadoo.fr, oprofile-list@lists.sf.net,
-	Ray Lee <ray-lk@madrabbit.org>, Michael Buesch <mb@bu3sch.de>,
-	Larry Finger <Larry.Finger@lwfinger.net>, st3@riseup.net,
-	linville@tuxdriver.com, netdev@vger.kernel.org,
-	David Brownell <david-b@pacbell.net>,
-	Len Brown <len.brown@intel.com>, linux-acpi@vger.kernel.org,
-	Ernst Herzberg <earny@net4u.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0611152008450.3349@woody.osdl.org>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.25]:5312 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1753095AbWKQUux (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 15:50:53 -0500
+To: "Divy Le Ray <divy@chelsio.com>" <divy@chelsio.com>
+In-Reply-To: <20061117202320.25878.26769.stgit@colfax2.asicdesigners.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in 2.6.19-rc6 compared to 2.6.18
-that are not yet fixed in Linus' tree.
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way possibly
-involved with one or more of these issues.
-
-Due to the huge amount of recipients, please trim the Cc when answering.
+> +
+> +struct work_struct;
+> +struct dentry;
 
 
-Subject    : cpufreq notification broken
-References : http://lkml.org/lkml/2006/11/16/177
-Submitter  : Thomas Gleixner <tglx@timesys.com>
-Caused-By  : Alan Stern <stern@rowland.harvard.edu>
-             commit b4dfdbb3c707474a2254c5b4d7e62be31a4b7da9
-Handled-By : Ingo Molnar <mingo@elte.hu>
-             Linus Torvalds <torvalds@osdl.org>
-Status     : patches are being discussed
+Why do you need these extra forward declarations?
+
+...
+
+> +
+> +struct sge_rspq {                   /* state for an SGE response queue */
+> +	unsigned int credits;       /* # of pending response credits */
+> +	unsigned int size;          /* capacity of response queue */
+> +	unsigned int cidx;          /* consumer index */
+> +	unsigned int gen;           /* current generation bit */
+> +	unsigned int polling;       /* is the queue serviced through NAPI? */
+> +	unsigned int holdoff_tmr;   /* interrupt holdoff timer in 100ns */
+> +	unsigned int next_holdoff;  /* holdoff time for next interrupt */
+> +	struct rsp_desc *desc;      /* address of HW response ring */
+> +	dma_addr_t   phys_addr;     /* physical address of the ring */
+> +	unsigned int cntxt_id;      /* SGE context id for the response q */
+> +	spinlock_t   lock;          /* guards response processing */
+> +	struct sk_buff *rx_head;    /* offload packet receive queue head */
+> +	struct sk_buff *rx_tail;    /* offload packet receive queue tail */
+
+Why not use sk_buff_head?
+
+...
+
+> +	/*
+> +	 * Dummy netdevices are needed when using multiple receive queues with
+> +	 * NAPI as each netdevice can service only one queue.
+> +	 */
+> +	struct net_device *dummy_netdev[SGE_QSETS - 1];
+>
+
+Rather than abusing, NAPI with multiple receive queue's why not do it
+by either:
+	1) changing NAPI to have multiple receive contexts
+	2) or use your own tasklet and processing.
+
+> +	struct dentry *debugfs_root;
+> +
+> +	struct semaphore mdio_lock;
+> +	spinlock_t stats_lock;
+> +	spinlock_t work_lock;
+> +};
+> +
+> +#define MDIO_LOCK(adapter) down(&(adapter)->mdio_lock)
+> +#define MDIO_UNLOCK(adapter) up(&(adapter)->mdio_lock)
+
+Please don't wrap locks
 
 
-Subject    : CPU_FREQ_GOV_ONDEMAND=y compile error
-References : http://lkml.org/lkml/2006/11/17/198
-Submitter  : alex1000@comcast.net
-Caused-By  : Alexey Starikovskiy <alexey_y_starikovskiy@linux.intel.com>
-             commit 05ca0350e8caa91a5ec9961c585c98005b6934ea
-Handled-By : Mattia Dongili <malattia@linux.it>
-Patch      : http://lkml.org/lkml/2006/11/17/236
-Status     : patch available
+> +static inline u32 t3_read_reg(adapter_t *adapter, u32 reg_addr)
+> +{
+> +	u32 val = readl(adapter->regs + reg_addr);
+> +
+> +	CH_DBG(adapter, MMIO, "read register 0x%x value 0x%x\n", reg_addr,
+> +	       val);
+> +	return val;
+> +}
+> +
+> +static inline void t3_write_reg(adapter_t *adapter, u32 reg_addr, u32 val)
+> +{
+> +	CH_DBG(adapter, MMIO, "setting register 0x%x to 0x%x\n", reg_addr,
+> +	       val);
+> +	writel(val, adapter->regs + reg_addr);
+> +}
+
+This kind of wrapper makes sense.
+
+> +static inline int t3_os_pci_save_state(adapter_t *adapter)
+> +{
+> +	return pci_save_state(adapter->pdev);
+> +}
+
+Please don't add bogus OS independent wrappers. It makes it harder for later
+maintenance.
+
+> +static inline int t3_os_pci_restore_state(adapter_t *adapter)
+> +{
+> +	return pci_restore_state(adapter->pdev);
+> +}
+> +
+> +static inline void t3_os_pci_write_config_4(adapter_t *adapter, int reg,
+> +					    u32 val)
+> +{
+> +	pci_write_config_dword(adapter->pdev, reg, val);
+> +}
+> +
+> +static inline void t3_os_pci_read_config_4(adapter_t *adapter, int reg,
+> +					   u32 *val)
+> +{
+> +	pci_read_config_dword(adapter->pdev, reg, val);
+> +}
+> +
+> +static inline void t3_os_pci_write_config_2(adapter_t *adapter, int reg,
+> +					    u16 val)
+> +{
+> +	pci_write_config_word(adapter->pdev, reg, val);
+> +}
+> +
+> +static inline void t3_os_pci_read_config_2(adapter_t *adapter, int reg,
+> +					   u16 *val)
+> +{
+> +	pci_read_config_word(adapter->pdev, reg, val);
+> +}
+> +
+> +static inline int t3_os_find_pci_capability(adapter_t *adapter, int cap)
+> +{
+> +	return pci_find_capability(adapter->pdev, cap);
+> +}
+> +
+> +static inline const char *adapter_name(adapter_t *adapter)
+> +{
+> +	return adapter->name;
+> +}
+> +
+> +static inline const char *port_name(adapter_t *adapter, unsigned int port_idx)
+> +{
+> +	return adapter->port[port_idx].dev->name;
+> +}
+
+Why not do this inline.
+
+> +static inline void t3_os_set_hw_addr(adapter_t *adapter, int port_idx,
+> +				     u8 hw_addr[])
+> +{
+> +	memcpy(adapter->port[port_idx].dev->dev_addr, hw_addr, ETH_ALEN);
+> +#ifdef ETHTOOL_GPERMADDR
+> +	memcpy(adapter->port[port_idx].dev->perm_addr, hw_addr, ETH_ALEN);
+> +#endif
+> +}
+
+Another bogus wrapper.
+
+> +/*
+> + * We use the spare atalk_ptr to map a net device to its SGE queue set.
+> + * This is a macro so it can be used as l-value.
+> + */
+> +#define dev2qset(netdev) ((netdev)->atalk_ptr)
+
+That looks a bad idea.
+
+> +
+> +#define OFFLOAD_DEVMAP_BIT 15
+> +
+> +#define tdev2adap(d) container_of(d, struct adapter, tdev)
+> +
+> +static inline int offload_running(adapter_t *adapter)
+> +{
+> +	return test_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map);
+> +}
+> +
+> +int t3_offload_tx(struct t3cdev *tdev, struct sk_buff *skb);
+
+What kind of offload?  You remember TOE was rejected.
 
 
-Subject    : x86_64: Bad page state in process 'swapper'
-References : http://lkml.org/lkml/2006/11/10/135
-             http://lkml.org/lkml/2006/11/10/208
-Submitter  : Andre Noll <maan@systemlinux.org>
-Handled-By : Andi Kleen <ak@suse.de>
-Status     : Andi is investigating
+> +#define promisc_rx_mode(rm)  ((rm)->dev->flags & IFF_PROMISC)
+> +#define allmulti_rx_mode(rm) ((rm)->dev->flags & IFF_ALLMULTI)
 
 
-Subject    : x86_64: oprofile doesn't work
-References : http://lkml.org/lkml/2006/10/27/3
-             http://lkml.org/lkml/2006/11/15/92
-Submitter  : Prakash Punnoor <prakash@punnoor.de>
-Status     : problem is being discussed
+Yet another high maintenance wrapper
 
 
-Subject    : bcm43xx: serious problems
-References : http://lkml.org/lkml/2006/11/15/296
-Submitter  : Ray Lee <ray-lk@madrabbit.org>
-Handled-By : Michael Buesch <mb@bu3sch.de>
-             Larry Finger <Larry.Finger@lwfinger.net>
-Status     : problem is being debugged
+> +struct sg_ent {                   /* SGE scatter/gather entry */
+> +	u32 len[2];
+> +	u64 addr[2];
+> +};
 
-
-Subject    : nasty ACPI regression, AE_TIME errors
-References : http://lkml.org/lkml/2006/11/15/12
-Submitter  : David Brownell <david-b@pacbell.net>
-Handled-By : Len Brown <len.brown@intel.com>
-             Alexey Starikovskiy <alexey.y.starikovskiy@linux.intel.com>
-Status     : problem is being debugged
-
-
-Subject    : ThinkPad R50p: boot fail with (lapic && on_battery)
-References : http://lkml.org/lkml/2006/10/31/333
-Submitter  : Ernst Herzberg <earny@net4u.de>
-Handled-By : Len Brown <len.brown@intel.com>
-Status     : problem is being debugged
-
+Shouldn't 2 be NPORTS or somthing.
