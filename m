@@ -1,69 +1,62 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 3/4] chelsio: procectomy
-Date: Fri, 17 Nov 2006 11:23:41 -0800
-Message-ID: <20061117112341.4c61f495@zqx3.pdx.osdl.net>
+From: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
+Date: Fri, 17 Nov 2006 15:16:06 -0500
+Message-ID: <d120d5000611171216y76098a6bv86cba96160fee0eb@mail.gmail.com>
+References: <200610031457.33215.chunkeey@web.de>
+	 <1163169740.2662.6.camel@localhost.localdomain>
+	 <200611170042.55404.dtor@insightbb.com>
+	 <200611172043.27588.chunkeey@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:47796 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1755846AbWKQUKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 15:10:23 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from hu-out-0506.google.com ([72.14.214.239]:25256 "EHLO
+	hu-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1755853AbWKQUQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 15:16:09 -0500
+Received: by hu-out-0506.google.com with SMTP id 36so449682hui
+        for <netdev@vger.kernel.org>; Fri, 17 Nov 2006 12:16:08 -0800 (PST)
+To: "chunkeey@web.de" <chunkeey@web.de>
+In-Reply-To: <200611172043.27588.chunkeey@web.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Complete removal of proc stuff from chelsio. The orignal driver had a debug
-proc interface, but not all the code got removed.
+On 11/17/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> Am Freitag, 17. November 2006 06:42 schrieben Sie:
+> > >
+> > > No, more that my card doesn't successfully associate at all even
+> > > _without_ the patch on unencrypted or WEP APs; I just can't test it,
+> > > since my card seems to be broken...
+> >
+> > FWIW I applied the patch to tonight pull form Linus's tree and my card
+> > stopped associating with my AP (WEP128, Shared key). It only associated
+> > with my neighbour router which is running without encryption.
+> can you please describe your setup? I tested WEP ("restricted") with a Netgear
+> WGT624 and a normal linux AP and haven't seen any problems so far.
+>
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+The card is WG511 talking to netgear WGR614 router. I am using WEP128
+with shared keys. Router is set to be "g" only. The OS is Fedora Core
+3 (I swear I will upgrade :) ), just recompiled wireless tools from
+sources in FC6.
 
----
- drivers/net/chelsio/cxgb2.c |   14 --------------
- 1 file changed, 14 deletions(-)
+> for debugging:
+> dmesg & iwevent output would be nice...
 
---- chelsio-t2.orig/drivers/net/chelsio/cxgb2.c
-+++ chelsio-t2/drivers/net/chelsio/cxgb2.c
-@@ -45,7 +45,6 @@
- #include <linux/if_vlan.h>
- #include <linux/mii.h>
- #include <linux/sockios.h>
--#include <linux/proc_fs.h>
- #include <linux/dma-mapping.h>
- #include <asm/uaccess.h>
- 
-@@ -780,17 +779,6 @@ static const struct ethtool_ops t1_ethto
- 	.set_tso           = set_tso,
- };
- 
--static void cxgb_proc_cleanup(struct adapter *adapter,
--					struct proc_dir_entry *dir)
--{
--	const char *name;
--	name = adapter->name;
--	remove_proc_entry(name, dir);
--}
--//#define chtoe_setup_toedev(adapter) NULL
--#define update_mtu_tab(adapter)
--#define write_smt_entry(adapter, idx)
--
- static int t1_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
- {
- 	struct adapter *adapter = dev->priv;
-@@ -1156,7 +1144,6 @@ static int __devinit init_one(struct pci
- 		if (adapter->regs) iounmap(adapter->regs);
- 		for (i = bi->port_number - 1; i >= 0; --i)
- 			if (adapter->port[i].dev) {
--				cxgb_proc_cleanup(adapter, proc_root_driver);
- 				kfree(adapter->port[i].dev);
- 			}
- 	}
-@@ -1189,7 +1176,6 @@ static void __devexit remove_one(struct 
- 		iounmap(adapter->regs);
- 		while (--i >= 0)
- 			if (adapter->port[i].dev) {
--				cxgb_proc_cleanup(adapter, proc_root_driver);
- 				kfree(adapter->port[i].dev);
- 			}
- 		pci_release_regions(pdev);
+Will do when I get home.
+
+> but I'll accept a short "sniffer" extract too. ;)
+>
+> (it would be really good, if you can provide a package dump form a working
+> setup with the old driver too!)
+>
+
+You'd have to tell me exactly what you want me to do.
+
+The reason for me trying the patch is that the card locks up
+frequently (the amber transmission light turns on stays this way).
+
+-- 
+Dmitry
