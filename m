@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPv4: ip_options_compile() how can we avoid blowing up on a
- NULL skb???
-Date: Thu, 16 Nov 2006 18:47:30 -0500 (EST)
-Message-ID: <20061116.184730.35014107.davem@davemloft.net>
-References: <9a8748490611161434oc393db0o1e1c23ba99b1c796@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: d80211: clean up some list and loop code
+Date: Thu, 16 Nov 2006 19:00:02 -0500
+Message-ID: <20061116234148.GB3297@tuxdriver.com>
+References: <1163718270.3392.19.camel@johannes.berg> <20061116232455.GA3297@tuxdriver.com> <1163720260.3392.24.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:1208 "EHLO localhost")
-	by vger.kernel.org with ESMTP id S1424600AbWKPXrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 18:47:31 -0500
-To: jesper.juhl@gmail.com
-In-Reply-To: <9a8748490611161434oc393db0o1e1c23ba99b1c796@mail.gmail.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:26379 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1424609AbWKQABL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 19:01:11 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1163720260.3392.24.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Date: Thu, 16 Nov 2006 23:34:14 +0100
+On Fri, Nov 17, 2006 at 12:37:40AM +0100, Johannes Berg wrote:
 
-> So if 'skb' is NULL, the only route I see that doesn't cause a NULL
-> pointer deref is if  (opt != NULL)  and at the same time
-> (opt->is_data != NULL)  .   Is that guaranteed in any way?
+> > FWIW, I think I prefer the "for (;;)" version for endless loops.
+> > It looks more intentional to me.  Some grep'ing showed nearly equal
+> > usage of "for (;;)" versus "while (1)".  Is there any "official"
+> > preference?  I don't see anything in CodingStyle about it.
+> 
+> I think while (1) looks more intentional, but I suppose that's because I
+> grew up with pascal where you can't do all these weird things with for
+> loops.
+> 
+> Feel free to drop this part of the patch if you wish, or, if you want, I
+> can resend without that too :)
 
-Yes, it is guarenteed, all callers  make sure these invariants
-hold true.
+No need to resend.  Any other opinions on this?  I suppose it is just
+a beached discussion...
 
-I'm very happy to accept a patch which assert's this using BUG()
-checks :-)
+-- 
+John W. Linville
+linville@tuxdriver.com
