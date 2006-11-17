@@ -1,110 +1,86 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 15/17][BNX2]: Download 5709 firmware.
-Date: Thu, 16 Nov 2006 19:14:44 -0800
-Message-ID: <1163733284.6658.48.camel@rh4>
+Subject: [PATCH 16/17][BNX2]: Add 5709 PCI ID.
+Date: Thu, 16 Nov 2006 19:14:56 -0800
+Message-ID: <1163733296.6658.49.camel@rh4>
 References: <1163731443.6658.8.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3846 "EHLO mms2.broadcom.com")
-	by vger.kernel.org with ESMTP id S1424927AbWKQCWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 21:22:19 -0500
+Received: from mms1.broadcom.com ([216.31.210.17]:35857 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1424932AbWKQCWd
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 21:22:33 -0500
 To: davem@davemloft.net
 In-Reply-To: <1163731443.6658.8.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Download 5709 firmware.
+[BNX2]: Add 5709 PCI ID.
+
+Add PCI ID and detection for 5709 copper and SerDes chips.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 52fe620..92897ef 100644
+index 92897ef..157463b 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -53,6 +53,7 @@
+@@ -86,6 +86,7 @@ typedef enum {
+ 	NC370F,
+ 	BCM5708,
+ 	BCM5708S,
++	BCM5709,
+ } board_t;
  
- #include "bnx2.h"
- #include "bnx2_fw.h"
-+#include "bnx2_fw2.h"
+ /* indexed by board_t, above */
+@@ -99,6 +100,7 @@ static const struct {
+ 	{ "HP NC370F Multifunction Gigabit Server Adapter" },
+ 	{ "Broadcom NetXtreme II BCM5708 1000Base-T" },
+ 	{ "Broadcom NetXtreme II BCM5708 1000Base-SX" },
++	{ "Broadcom NetXtreme II BCM5709 1000Base-T" },
+ 	};
  
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
-@@ -2410,7 +2411,10 @@ bnx2_init_cpus(struct bnx2 *bp)
- 	cpu_reg.spad_base = BNX2_RXP_SCRATCH;
- 	cpu_reg.mips_view_base = 0x8000000;
+ static struct pci_device_id bnx2_pci_tbl[] = {
+@@ -116,6 +118,8 @@ static struct pci_device_id bnx2_pci_tbl
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM5706S },
+ 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_5708S,
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM5708S },
++	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_5709,
++	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM5709 },
+ 	{ 0, }
+ };
  
--	fw = &bnx2_rxp_fw_06;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		fw = &bnx2_rxp_fw_09;
-+	else
-+		fw = &bnx2_rxp_fw_06;
+@@ -5854,10 +5858,15 @@ bnx2_init_board(struct pci_dev *pdev, st
+ 	bp->phy_addr = 1;
  
- 	rc = load_cpu_fw(bp, &cpu_reg, fw);
- 	if (rc)
-@@ -2430,7 +2434,10 @@ bnx2_init_cpus(struct bnx2 *bp)
- 	cpu_reg.spad_base = BNX2_TXP_SCRATCH;
- 	cpu_reg.mips_view_base = 0x8000000;
- 
--	fw = &bnx2_txp_fw_06;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		fw = &bnx2_txp_fw_09;
-+	else
-+		fw = &bnx2_txp_fw_06;
- 
- 	rc = load_cpu_fw(bp, &cpu_reg, fw);
- 	if (rc)
-@@ -2450,7 +2457,10 @@ bnx2_init_cpus(struct bnx2 *bp)
- 	cpu_reg.spad_base = BNX2_TPAT_SCRATCH;
- 	cpu_reg.mips_view_base = 0x8000000;
- 
--	fw = &bnx2_tpat_fw_06;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		fw = &bnx2_tpat_fw_09;
-+	else
-+		fw = &bnx2_tpat_fw_06;
- 
- 	rc = load_cpu_fw(bp, &cpu_reg, fw);
- 	if (rc)
-@@ -2470,12 +2480,36 @@ bnx2_init_cpus(struct bnx2 *bp)
- 	cpu_reg.spad_base = BNX2_COM_SCRATCH;
- 	cpu_reg.mips_view_base = 0x8000000;
- 
--	fw = &bnx2_com_fw_06;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		fw = &bnx2_com_fw_09;
-+	else
-+		fw = &bnx2_com_fw_06;
- 
- 	rc = load_cpu_fw(bp, &cpu_reg, fw);
- 	if (rc)
- 		goto init_cpu_err;
- 
-+	/* Initialize the Command Processor. */
-+	cpu_reg.mode = BNX2_CP_CPU_MODE;
-+	cpu_reg.mode_value_halt = BNX2_CP_CPU_MODE_SOFT_HALT;
-+	cpu_reg.mode_value_sstep = BNX2_CP_CPU_MODE_STEP_ENA;
-+	cpu_reg.state = BNX2_CP_CPU_STATE;
-+	cpu_reg.state_value_clear = 0xffffff;
-+	cpu_reg.gpr0 = BNX2_CP_CPU_REG_FILE;
-+	cpu_reg.evmask = BNX2_CP_CPU_EVENT_MASK;
-+	cpu_reg.pc = BNX2_CP_CPU_PROGRAM_COUNTER;
-+	cpu_reg.inst = BNX2_CP_CPU_INSTRUCTION;
-+	cpu_reg.bp = BNX2_CP_CPU_HW_BREAKPOINT;
-+	cpu_reg.spad_base = BNX2_CP_SCRATCH;
-+	cpu_reg.mips_view_base = 0x8000000;
-+
+ 	/* Disable WOL support if we are running on a SERDES chip. */
+-	if (CHIP_BOND_ID(bp) & CHIP_BOND_ID_SERDES_BIT) {
 +	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
-+		fw = &bnx2_cp_fw_09;
++		if (CHIP_BOND_ID(bp) != BNX2_MISC_DUAL_MEDIA_CTRL_BOND_ID_C)
++			bp->phy_flags |= PHY_SERDES_FLAG;
++	} else if (CHIP_BOND_ID(bp) & CHIP_BOND_ID_SERDES_BIT)
+ 		bp->phy_flags |= PHY_SERDES_FLAG;
 +
-+		load_cpu_fw(bp, &cpu_reg, fw);
-+		if (rc)
-+			goto init_cpu_err;
-+	}
- init_cpu_err:
- 	bnx2_gunzip_end(bp);
- 	return rc;
++	if (bp->phy_flags & PHY_SERDES_FLAG) {
+ 		bp->flags |= NO_WOL_FLAG;
+-		if (CHIP_NUM(bp) == CHIP_NUM_5708) {
++		if (CHIP_NUM(bp) != CHIP_NUM_5706) {
+ 			bp->phy_addr = 2;
+ 			reg = REG_RD_IND(bp, bp->shmem_base +
+ 					 BNX2_SHARED_HW_CFG_CONFIG);
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index fa4e1d7..6294559 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1893,6 +1893,7 @@
+ #define PCI_VENDOR_ID_BROADCOM		0x14e4
+ #define PCI_DEVICE_ID_TIGON3_5752	0x1600
+ #define PCI_DEVICE_ID_TIGON3_5752M	0x1601
++#define PCI_DEVICE_ID_NX2_5709		0x1639
+ #define PCI_DEVICE_ID_TIGON3_5700	0x1644
+ #define PCI_DEVICE_ID_TIGON3_5701	0x1645
+ #define PCI_DEVICE_ID_TIGON3_5702	0x1646
 
 
