@@ -1,85 +1,94 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH]: spidernet poor network performance
-Date: Fri, 17 Nov 2006 16:30:22 -0600
-Message-ID: <20061117223022.GO23600@austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, James K Lewis <jklewis@us.ibm.com>
+From: paul.moore@hp.com
+Subject: [PATCH 02/13] NetLabel: convert the unlabeled accept flag to use RCU
+Date: Fri, 17 Nov 2006 17:38:44 -0500
+Message-ID: <20061117224331.877832000@hp.com>
+References: <20061117223842.399078000@hp.com>
+Cc: jmorris@namei.org, Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:46524 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1755795AbWKQWaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 17:30:39 -0500
-To: akpm@osdl.org
-Content-Disposition: inline
+Received: from atlrel9.hp.com ([156.153.255.214]:48281 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S1755985AbWKQWne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 17:43:34 -0500
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=netlabel-unlbl_rculocking
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Paul Moore <paul.moore@hp.com>
 
-Andrew, 
+Currently the NetLabel unlabeled packet accept flag is an atomic type and it
+is checked for every non-NetLabel packet which comes into the system but rarely
+ever changed.  This patch changes this flag to a normal integer and protects it
+with RCU locking.
 
-Please apply.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ net/netlabel/netlabel_unlabeled.c |   28 +++++++++++++++++++++-------
+ 1 files changed, 21 insertions(+), 7 deletions(-)
 
---linas
-
-
-This patch corrects a problem seen on later kernels running 
-the NetPIPE application.  Specifically, NetPIPE would begin 
-running very slowly at the 1533 packet size. It was
-determined that Spidernet slowed with an idle DMA 
-engine.
-
-Signed-off-by: James K Lewis <jklewis@us.ibm.com>
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-
-----
- drivers/net/spider_net.c |    2 +-
- drivers/net/spider_net.h |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
-Index: linux-2.6.19-rc4-git3/drivers/net/spider_net.c
+Index: net-2.6.20_netlabel-base-work/net/netlabel/netlabel_unlabeled.c
 ===================================================================
---- linux-2.6.19-rc4-git3.orig/drivers/net/spider_net.c	2006-11-01 19:14:34.000000000 -0600
-+++ linux-2.6.19-rc4-git3/drivers/net/spider_net.c	2006-11-17 13:33:44.000000000 -0600
-@@ -1606,7 +1606,7 @@ spider_net_enable_card(struct spider_net
- 			     SPIDER_NET_INT2_MASK_VALUE);
+--- net-2.6.20_netlabel-base-work.orig/net/netlabel/netlabel_unlabeled.c
++++ net-2.6.20_netlabel-base-work/net/netlabel/netlabel_unlabeled.c
+@@ -47,7 +47,8 @@
+ #include "netlabel_unlabeled.h"
  
- 	spider_net_write_reg(card, SPIDER_NET_GDTDMACCNTR,
--			     SPIDER_NET_GDTBSTA | SPIDER_NET_GDTDCEIDIS);
-+			     SPIDER_NET_GDTBSTA);
+ /* Accept unlabeled packets flag */
+-static atomic_t netlabel_unlabel_accept_flg = ATOMIC_INIT(0);
++static DEFINE_SPINLOCK(netlabel_unlabel_acceptflg_lock);
++static u8 netlabel_unlabel_acceptflg = 0;
+ 
+ /* NetLabel Generic NETLINK CIPSOv4 family */
+ static struct genl_family netlbl_unlabel_gnl_family = {
+@@ -82,8 +83,12 @@ static void netlbl_unlabel_acceptflg_set
+ 	struct audit_buffer *audit_buf;
+ 	u8 old_val;
+ 
+-	old_val = atomic_read(&netlabel_unlabel_accept_flg);
+-	atomic_set(&netlabel_unlabel_accept_flg, value);
++	rcu_read_lock();
++	old_val = netlabel_unlabel_acceptflg;
++	spin_lock(&netlabel_unlabel_acceptflg_lock);
++	netlabel_unlabel_acceptflg = value;
++	spin_unlock(&netlabel_unlabel_acceptflg_lock);
++	rcu_read_unlock();
+ 
+ 	audit_buf = netlbl_audit_start_common(AUDIT_MAC_UNLBL_ALLOW,
+ 					      audit_info);
+@@ -148,9 +153,11 @@ static int netlbl_unlabel_list(struct sk
+ 		goto list_failure;
+ 	}
+ 
++	rcu_read_lock();
+ 	ret_val = nla_put_u8(ans_skb,
+ 			     NLBL_UNLABEL_A_ACPTFLG,
+-			     atomic_read(&netlabel_unlabel_accept_flg));
++			     netlabel_unlabel_acceptflg);
++	rcu_read_unlock();
+ 	if (ret_val != 0)
+ 		goto list_failure;
+ 
+@@ -236,10 +243,17 @@ int netlbl_unlabel_genl_init(void)
+  */
+ int netlbl_unlabel_getattr(struct netlbl_lsm_secattr *secattr)
+ {
+-	if (atomic_read(&netlabel_unlabel_accept_flg) == 1)
+-		return netlbl_secattr_init(secattr);
++	int ret_val;
++
++	rcu_read_lock();
++	if (netlabel_unlabel_acceptflg == 1) {
++		netlbl_secattr_init(secattr);
++		ret_val = 0;
++	} else
++		ret_val = -ENOMSG;
++	rcu_read_unlock();
+ 
+-	return -ENOMSG;
++	return ret_val;
  }
  
  /**
-Index: linux-2.6.19-rc4-git3/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.19-rc4-git3.orig/drivers/net/spider_net.h	2006-11-01 19:14:34.000000000 -0600
-+++ linux-2.6.19-rc4-git3/drivers/net/spider_net.h	2006-11-17 16:19:30.000000000 -0600
-@@ -24,7 +24,7 @@
- #ifndef _SPIDER_NET_H
- #define _SPIDER_NET_H
- 
--#define VERSION "1.1 A"
-+#define VERSION "1.6 A"
- 
- #include "sungem_phy.h"
- 
-@@ -217,8 +217,7 @@ extern char spider_net_driver_name[];
- #define SPIDER_NET_GDTBSTA             0x00000300
- #define SPIDER_NET_GDTDCEIDIS          0x00000002
- #define SPIDER_NET_DMA_TX_VALUE        SPIDER_NET_TX_DMA_EN | \
--                                       SPIDER_NET_GDTBSTA | \
--                                       SPIDER_NET_GDTDCEIDIS
-+                                       SPIDER_NET_GDTBSTA
- 
- #define SPIDER_NET_DMA_TX_FEND_VALUE	0x00030003
- 
-@@ -328,7 +327,8 @@ enum spider_net_int2_status {
- 	SPIDER_NET_GRISPDNGINT
- };
- 
--#define SPIDER_NET_TXINT	( (1 << SPIDER_NET_GDTFDCINT) )
-+#define SPIDER_NET_TXINT	( (1 << SPIDER_NET_GDTFDCINT) | \
-+                             (1 << SPIDER_NET_GDTDCEINT) )
- 
- /* We rely on flagged descriptor interrupts */
- #define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) )
+
+--
+paul moore
+linux security @ hp
