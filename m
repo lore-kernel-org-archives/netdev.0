@@ -1,29 +1,45 @@
-From: Bryan O'Sullivan <bos@pathscale.com>
-Subject: Re: [openib-general] [PATCH  09/13] Core WQE/CQE Types
-Date: Fri, 17 Nov 2006 10:45:07 -0800
-Message-ID: <455E0333.70602@pathscale.com>
-References: <20061116035826.22635.61230.stgit@dell3.ogc.int>	 <20061116035912.22635.21736.stgit@dell3.ogc.int>	 <455DFD23.8050504@pathscale.com> <1163788339.8457.95.camel@stevo-desktop>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH] IPv6: Fix NULL dereference in ipv6_del_addr()
+Date: Fri, 17 Nov 2006 21:27:21 +0200
+Message-ID: <455E0D19.1060405@tcs.hut.fi>
+References: <455DB884.3050203@tcs.hut.fi> <20061117.232623.61341274.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.pathscale.com ([64.160.42.68]:17116 "EHLO mx.pathscale.com")
-	by vger.kernel.org with ESMTP id S1755795AbWKQSos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 13:44:48 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <1163788339.8457.95.camel@stevo-desktop>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:60820 "EHLO mail.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1755826AbWKQT1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 14:27:23 -0500
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061117.232623.61341274.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Wise wrote:
+YOSHIFUJI Hideaki wrote:
+> In article <455DB884.3050203@tcs.hut.fi> (at Fri, 17 Nov 2006 15:26:28 +0200), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+> 
+> 
+>> -		dst_release(&rt->u.dst);
+>> +		if (rt)
+>> +			dst_release(&rt->u.dst);
+>>  	}
+> 
+> I disagree.  This does NOT fix any bugs.
+> 
+> (void *)&rt->u.dst is ever equal to (void*)rt, and
+> dst_release() checks if the argument is NULL.
 
-> It passes sparse with only a few warnings about calling memset() with a
-> size > 100000.
+As the check is unnecessary you probably want to clean up the other 
+places where rt is checked before &rt->u.dst is passed, as well ;-)
+This is done at least in addrconf.c, ndisc.c and route.c...
 
-You need to pass in CF=-D__CHECK_ENDIAN__ too, on the kernel build 
-command line.  Otherwise, the endianness annotations aren't turned on in 
-the kernel headers, and you get this nice false sense of security.
+Seriously though, you are probably right about the pointer being equal 
+to NULL in this case,  but does the C language actually guarantee that 
+the pointer to the structure and its first element are equal, or is it 
+implementation dependent? I don't have my K&R here, so I can't check.
 
-  	<b
+Regards,
+Ville
+
+
