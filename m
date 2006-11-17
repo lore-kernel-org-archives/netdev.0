@@ -1,43 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]Fix BUG of ip_rt_send_redirect()
-Date: Fri, 17 Nov 2006 17:49:34 +1100
-Message-ID: <E1GkxXa-00055c-00@gondolin.me.apana.org.au>
-References: <009301c70a0b$9d6fdb20$6004a8c0@weiyongjun>
-Cc: shemminger@osdl.org, lyw@nanjing-fnst.com, netdev@vger.kernel.org
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [BUG] CREDITS or CREDITS-YOURSELVES
+Date: Fri, 17 Nov 2006 08:25:18 +0100
+Message-ID: <20061117072518.GA1616@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@osdl.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:22790 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1755494AbWKQGts
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Nov 2006 01:49:48 -0500
-To: yjwei@nanjing-fnst.com (Wei Yongjun)
-In-Reply-To: <009301c70a0b$9d6fdb20$6004a8c0@weiyongjun>
+Received: from mx2.go2.pl ([193.17.41.42]:50085 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1755525AbWKQHTH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 02:19:07 -0500
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wei Yongjun <yjwei@nanjing-fnst.com> wrote:
-> 
-> Yes, time_after() works correctly for values that wraparound. For examples: if 
-> time a = (unsigned long)(-1), and time b = 1; time_after(b, a) = true.
-> But if a is increaseing, after a circle of jiffies, a' = a + (unsigned long)(-1) 
-> + 1 = (unsigned long)(-1) = a,
-> this time a' is after b, but time_after(b, a') still equal to true,because 
-> values that wraparound can not be making in time_after().
+Hello,
 
-I think there are two problems here:
+With great astonishment I've found none of
+these "networking" names in the CREDITS file:
+Stephen Hemminger, Thomas Graf, Alexey Kuznetsov,
+Andrew Morton, Pedro Roque, Jamal Hadi Salim,
+Herbert Xu etc.
 
-1) The first time we hit the check rate_last is zero.  We should simply
-proceed with the redirect rather than treating this as a jiffies value.
+IMHO there is something wrong with the hitherto
+way of updating this file and probably some
+additional work should be done regularly by kernel
+supervisors. Otherwise the name of this file
+should be changed to not discredit many current
+and in particular previous developers.
 
-2) When a dst is so old that the jiffies have wrapped around.  I'm
-not sure whether this is worth solving as it should be extremely rare
-unless your HZ is sufficiently large and you're on a 32-bit platform.
+Many thanks and regards
+to myself,
 
-One solution would be to periodically reset the rate_last fields to
-their original states.  Perhaps we can combine that with the GC.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jarek P.
