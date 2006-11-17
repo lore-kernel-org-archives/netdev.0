@@ -1,36 +1,31 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Add ID for Planex GW-US54Mini
-Date: Fri, 17 Nov 2006 00:13:48 +0000 (GMT)
-Message-ID: <20061117001348.204B57B40A0@zog.reactivated.net>
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:43611 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1424796AbWKQANm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 19:13:42 -0500
-To: linville@tuxdriver.com
-Cc: kune@deine-taler.de
-Sender: netdev-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPv4: ip_options_compile() how can we avoid blowing up on a NULL skb???
+Date: Fri, 17 Nov 2006 11:22:25 +1100
+Message-ID: <E1GkrUv-00043G-00@gondolin.me.apana.org.au>
+References: <9a8748490611161434oc393db0o1e1c23ba99b1c796@mail.gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1424804AbWKQAWl@vger.kernel.org>
+To: jesper.juhl@gmail.com (Jesper Juhl)
+In-Reply-To: <9a8748490611161434oc393db0o1e1c23ba99b1c796@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-zd1211 chip 14ea:ab13 v4330 high 00-90-cc AL2230_RF pa0 g---
+Jesper Juhl <jesper.juhl@gmail.com> wrote:
+> 
+> So if 'skb' is NULL, the only route I see that doesn't cause a NULL
+> pointer deref is if  (opt != NULL)  and at the same time
+> (opt->is_data != NULL)  .   Is that guaranteed in any way?  If now,
+> how come we don't blow up regularly?
 
-Tested by Tetsuya Yatagai.
+Yes that's how it's supposed to be used.  This function either constructs
+an opts structure from a packet, or it verifies the validity of a suspect
+opts structure (without a packet).  In the latter case, both opt and
+opt->is_data should be non-zero.
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
----
- zd_usb.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -51,6 +51,7 @@ static struct usb_device_id usb_ids[] = 
- 	{ USB_DEVICE(0x0586, 0x3409), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0b3b, 0x1630), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0586, 0x3401), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x14ea, 0xab13), .driver_info = DEVICE_ZD1211 },
- 	/* ZD1211B */
- 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
