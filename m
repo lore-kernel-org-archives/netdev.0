@@ -1,61 +1,49 @@
-From: paul.moore@hp.com
-Subject: [PATCH 10/13] NetLabel: use cipso_v4_doi_search() for local CIPSOv4 functions
-Date: Fri, 17 Nov 2006 17:38:52 -0500
-Message-ID: <20061117224336.711076000@hp.com>
-References: <20061117223842.399078000@hp.com>
-Cc: jmorris@namei.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] d80211: remove useless driver name field
+Date: Fri, 17 Nov 2006 23:50:35 +0100
+Message-ID: <1163803835.3392.52.camel@johannes.berg>
+References: <1163802439.3392.47.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:56729 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1755982AbWKQWni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 17:43:38 -0500
-To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=netlabel-cipso_staticfuncs
+Received: from crystal.sipsolutions.net ([195.210.38.204]:28622 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1756011AbWKQWwQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 17:52:16 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <1163802439.3392.47.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
+struct ieee80211_ops has a driver name field that's never used.
+Remove it.
 
-The cipso_v4_doi_search() function behaves the same as cipso_v4_doi_getdef()
-but is a local, static function so use it whenever possibile in the CIPSOv4
-code base.
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Signed-of-by: Paul Moore <paul.moore@hp.com>
 ---
- net/ipv4/cipso_ipv4.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+applies after the 10 patches
 
-Index: net-2.6.20_netlabel-base-work/net/ipv4/cipso_ipv4.c
-===================================================================
---- net-2.6.20_netlabel-base-work.orig/net/ipv4/cipso_ipv4.c
-+++ net-2.6.20_netlabel-base-work/net/ipv4/cipso_ipv4.c
-@@ -1136,7 +1136,7 @@ int cipso_v4_validate(unsigned char **op
- 	}
- 
- 	rcu_read_lock();
--	doi_def = cipso_v4_doi_getdef(ntohl(*((__be32 *)&opt[2])));
-+	doi_def = cipso_v4_doi_search(ntohl(*((u32 *)&opt[2])));
- 	if (doi_def == NULL) {
- 		err_offset = 2;
- 		goto validate_return_locked;
-@@ -1381,7 +1381,7 @@ int cipso_v4_sock_getattr(struct sock *s
- 
- 	doi = ntohl(*(__be32 *)&cipso_ptr[2]);
- 	rcu_read_lock();
--	doi_def = cipso_v4_doi_getdef(doi);
-+	doi_def = cipso_v4_doi_search(doi);
- 	if (doi_def == NULL) {
- 		rcu_read_unlock();
- 		return -ENOMSG;
-@@ -1449,7 +1449,7 @@ int cipso_v4_skbuff_getattr(const struct
- 
- 	doi = ntohl(*(__be32 *)&cipso_ptr[2]);
- 	rcu_read_lock();
--	doi_def = cipso_v4_doi_getdef(doi);
-+	doi_def = cipso_v4_doi_search(doi);
- 	if (doi_def == NULL)
- 		goto skbuff_getattr_return;
- 
+--- wireless-dev.orig/include/net/d80211.h	2006-11-17 23:37:10.249703408 +0100
++++ wireless-dev/include/net/d80211.h	2006-11-17 23:37:21.709703408 +0100
+@@ -531,9 +531,6 @@ struct ieee80211_wiphy {
+  * about supported hardware features and to pass function pointers to callback
+  * functions. */
+ struct ieee80211_ops {
+-	/* Driver name */
+-	char *name;
+-
+ 	/* Handler that 802.11 module calls for each transmitted frame.
+ 	 * skb contains the buffer starting from the IEEE 802.11 header.
+ 	 * The low-level driver should send the frame out based on
 
---
-paul moore
-linux security @ hp
+
