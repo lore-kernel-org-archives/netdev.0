@@ -1,31 +1,98 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH  11/13] Core Resource Allocation
-Date: Fri, 17 Nov 2006 12:37:03 -0800
-Message-ID: <ada4psxn72o.fsf@cisco.com>
-References: <20061116035826.22635.61230.stgit@dell3.ogc.int>
-	<20061116035923.22635.5397.stgit@dell3.ogc.int>
-	<adaslgim2tt.fsf@cisco.com> <1163784311.8457.44.camel@stevo-desktop>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.19-rc6: known regressions (v2)
+Date: Fri, 17 Nov 2006 21:40:36 +0100
+Message-ID: <20061117204036.GK31879@stusta.de>
+References: <Pine.LNX.4.64.0611152008450.3349@woody.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:27561 "EHLO
-	sj-iport-5.cisco.com") by vger.kernel.org with ESMTP
-	id S1755882AbWKQUhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Nov 2006 15:37:05 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <1163784311.8457.44.camel@stevo-desktop> (Steve Wise's message of "Fri, 17 Nov 2006 11:25:11 -0600")
-Sender: netdev-owner@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Thomas Gleixner <tglx@timesys.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Ingo Molnar <mingo@elte.hu>, davej@codemonkey.org.uk,
+	cpufreq@lists.linux.org.uk,
+	Alexey Starikovskiy <alexey_y_starikovskiy@linux.intel.com>,
+	Mattia Dongili <malattia@linux.it>,
+	Andre Noll <maan@systemlinux.org>, Andi Kleen <ak@suse.de>,
+	discuss@x86-64.org, Prakash Punnoor <prakash@punnoor.de>,
+	phil.el@wanadoo.fr, oprofile-list@lists.sf.net,
+	Ray Lee <ray-lk@madrabbit.org>, Michael Buesch <mb@bu3sch.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>, st3@riseup.net,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	David Brownell <david-b@pacbell.net>,
+	Len Brown <len.brown@intel.com>, linux-acpi@vger.kernel.org,
+	Ernst Herzberg <earny@net4u.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0611152008450.3349@woody.osdl.org>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > I think we can use random32() or get_random_bytes().  I need to
- > re-review how this algorithm works.  Its randomizing the stag IDs so
- > they are not predictable.
+This email lists some known regressions in 2.6.19-rc6 compared to 2.6.18
+that are not yet fixed in Linus' tree.
 
-I assume based on the algorithm you have now that they don't need to
-be cryptographically unpredictable.  So random32() would probably be
-the best thing to do (get_random_bytes() should be used sparingly,
-since it depletes the kernel entropy pool).
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
 
- - R.
+Due to the huge amount of recipients, please trim the Cc when answering.
+
+
+Subject    : cpufreq notification broken
+References : http://lkml.org/lkml/2006/11/16/177
+Submitter  : Thomas Gleixner <tglx@timesys.com>
+Caused-By  : Alan Stern <stern@rowland.harvard.edu>
+             commit b4dfdbb3c707474a2254c5b4d7e62be31a4b7da9
+Handled-By : Ingo Molnar <mingo@elte.hu>
+             Linus Torvalds <torvalds@osdl.org>
+Status     : patches are being discussed
+
+
+Subject    : CPU_FREQ_GOV_ONDEMAND=y compile error
+References : http://lkml.org/lkml/2006/11/17/198
+Submitter  : alex1000@comcast.net
+Caused-By  : Alexey Starikovskiy <alexey_y_starikovskiy@linux.intel.com>
+             commit 05ca0350e8caa91a5ec9961c585c98005b6934ea
+Handled-By : Mattia Dongili <malattia@linux.it>
+Patch      : http://lkml.org/lkml/2006/11/17/236
+Status     : patch available
+
+
+Subject    : x86_64: Bad page state in process 'swapper'
+References : http://lkml.org/lkml/2006/11/10/135
+             http://lkml.org/lkml/2006/11/10/208
+Submitter  : Andre Noll <maan@systemlinux.org>
+Handled-By : Andi Kleen <ak@suse.de>
+Status     : Andi is investigating
+
+
+Subject    : x86_64: oprofile doesn't work
+References : http://lkml.org/lkml/2006/10/27/3
+             http://lkml.org/lkml/2006/11/15/92
+Submitter  : Prakash Punnoor <prakash@punnoor.de>
+Status     : problem is being discussed
+
+
+Subject    : bcm43xx: serious problems
+References : http://lkml.org/lkml/2006/11/15/296
+Submitter  : Ray Lee <ray-lk@madrabbit.org>
+Handled-By : Michael Buesch <mb@bu3sch.de>
+             Larry Finger <Larry.Finger@lwfinger.net>
+Status     : problem is being debugged
+
+
+Subject    : nasty ACPI regression, AE_TIME errors
+References : http://lkml.org/lkml/2006/11/15/12
+Submitter  : David Brownell <david-b@pacbell.net>
+Handled-By : Len Brown <len.brown@intel.com>
+             Alexey Starikovskiy <alexey.y.starikovskiy@linux.intel.com>
+Status     : problem is being debugged
+
+
+Subject    : ThinkPad R50p: boot fail with (lapic && on_battery)
+References : http://lkml.org/lkml/2006/10/31/333
+Submitter  : Ernst Herzberg <earny@net4u.de>
+Handled-By : Len Brown <len.brown@intel.com>
+Status     : problem is being debugged
+
