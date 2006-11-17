@@ -1,32 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPv4: ip_options_compile() how can we avoid blowing up on a NULL skb???
-Date: Fri, 17 Nov 2006 16:28:12 +1100
-Message-ID: <E1GkwGq-0004tw-00@gondolin.me.apana.org.au>
-References: <200611162246.21018.dtor@insightbb.com>
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	jesper.juhl@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Dmitry Torokhov <dtor@insightbb.com>
+Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for =?utf-8?q?fullmac=09cards?=
+Date: Fri, 17 Nov 2006 00:42:53 -0500
+Message-ID: <200611170042.55404.dtor@insightbb.com>
+References: <200610031457.33215.chunkeey@web.de> <43e72e890611091516r3362945dm715276f0841ad366@mail.gmail.com> <1163169740.2662.6.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
+	"chunkeey@web.de" <chunkeey@web.de>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48900 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1162231AbWKQF2b
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Nov 2006 00:28:31 -0500
-To: dtor@insightbb.com (Dmitry Torokhov)
-In-Reply-To: <200611162246.21018.dtor@insightbb.com>
+Received: from gateway.insightbb.com ([74.128.0.19]:12695 "EHLO
+	asav12.insightbb.com") by vger.kernel.org with ESMTP
+	id S1424773AbWKQFm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 00:42:57 -0500
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1163169740.2662.6.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Torokhov <dtor@insightbb.com> wrote:
+On Friday 10 November 2006 09:42, Dan Williams wrote:
+> On Thu, 2006-11-09 at 18:16 -0500, Luis R. Rodriguez wrote:
+> > On 11/9/06, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
+> > > On 11/9/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> > > > Am Mittwoch, 8. November 2006 01:39 schrieben Sie:
+> > > > > On Fri, Nov 03, 2006 at 01:41:46PM -0500, Luis R. Rodriguez wrote:
+> > > > > > On 11/3/06, chunkeey@web.de <chunkeey@web.de> wrote:
+> > > > > > >yes, especially mgt_commit_list caused alot headaches, until I removed
+> > > > > > >DOT11_OID_PSM from the cache list.
+> > > > > > >Now, I can "hammer" it with ping -f for hours.
+> > > > > >
+> > > > > > nice, perhaps that's been the culprit all along... going to dig to see
+> > > > > > if I find a fullmac prism card. Will like to get this merged in.
+> > > > >
+> > > > > Any resolution on this?
+> > > >
+> > > > no replies.
+> > > > Seems like it works for just fine for everybody. ;)
+> > >
+> > > I found a card, I just need time to test it. Dan didn't you say you
+> > > ran into issues with the patch on your card?
 > 
-> BUG()s there would be a mechanism to document invariants so next time
-> someone is looking at the code there are no questions.
+> No, more that my card doesn't successfully associate at all even
+> _without_ the patch on unencrypted or WEP APs; I just can't test it,
+> since my card seems to be broken...
+>
 
-Well if someone is documenting this then wouldn't a comment (or even a
-kerneldoc style block) be better?
+FWIW I applied the patch to tonight pull form Linus's tree and my card
+stopped associating with my AP (WEP128, Shared key). It only associated
+with my neighbour router which is running without encryption.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Dmitry
