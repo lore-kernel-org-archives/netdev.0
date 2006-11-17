@@ -1,36 +1,30 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Add ID for Belkin F5D7050 v4000
-Date: Fri, 17 Nov 2006 00:26:40 +0000 (GMT)
-Message-ID: <20061117002640.A31A97B40A0@zog.reactivated.net>
-Cc: netdev@vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: d80211: clean up some list and loop code
+Date: Thu, 16 Nov 2006 19:26:15 -0500
+Message-ID: <20061117002609.GC3297@tuxdriver.com>
+References: <1163718270.3392.19.camel@johannes.berg> <20061116232455.GA3297@tuxdriver.com> <1163720260.3392.24.camel@johannes.berg> <20061116234148.GB3297@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:47770 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1424805AbWKQA0e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Nov 2006 19:26:34 -0500
-To: linville@tuxdriver.com
-Cc: kune@deine-taler.de
+Received: from ra.tuxdriver.com ([70.61.120.52]:33289 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1424809AbWKQAbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 19:31:14 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <20061116234148.GB3297@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-zd1211b chip 050d:705c v4810 high 00-17-3f AL2230_RF pa0 g--N
+On Thu, Nov 16, 2006 at 07:00:02PM -0500, John W. Linville wrote:
 
-Tested by Bryan Barnard
+> No need to resend.  Any other opinions on this?  I suppose it is just
+> a beached discussion...
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
----
- zd_usb.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+What the heck was I typing?
 
-Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -57,6 +57,7 @@ static struct usb_device_id usb_ids[] = 
- 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x079b, 0x0062), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x1582, 0x6003), .driver_info = DEVICE_ZD1211B },
-+	{ USB_DEVICE(0x050d, 0x705c), .driver_info = DEVICE_ZD1211B },
- 	/* "Driverless" devices that need ejecting */
- 	{ USB_DEVICE(0x0ace, 0x2011), .driver_info = DEVICE_INSTALLER },
- 	{}
+"a bikeshed discussion"
+
+-- 
+John W. Linville
+linville@tuxdriver.com
