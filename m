@@ -1,74 +1,59 @@
-From: Paul TBBle Hampson <Paul.Hampson@Pobox.com>
-Subject: Re: [PATCH]: bcm43xx-d80211: fix hwcrypto issues (mcast)
-Date: Sat, 18 Nov 2006 00:20:06 +1100
-Message-ID: <20061117132006.GA11877@keitarou>
-References: <ej09qf$2nv$1@sea.gmane.org> <200611120934.28133.mb@bu3sch.de> <20061114142959.GA17486@keitarou> <200611161507.33971.mb@bu3sch.de> <1163749589.5826.5.camel@localhost.localdomain> <1163750030.4047.1.camel@ux156> <1163750573.5826.7.camel@localhost.localdomain> <jeveles6lx.fsf@sykes.suse.de>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [PATCH] IPv6: Fix NULL dereference in ipv6_del_addr()
+Date: Fri, 17 Nov 2006 15:26:28 +0200
+Message-ID: <455DB884.3050203@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="d6Gm4EdcadzBjdND"
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linville@tuxdriver.com,
-	Michael Buesch <mb@bu3sch.de>, bcm43xx-dev@lists.berlios.de
+Content-Type: multipart/mixed;
+ boundary="------------020405030805010904040203"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from betty.cbit.net.au ([202.55.154.10]:13506 "EHLO mail.cbit.net.au")
-	by vger.kernel.org with ESMTP id S933597AbWKQNRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 08:17:42 -0500
-To: Andreas Schwab <schwab@suse.de>
-Content-Disposition: inline
-In-Reply-To: <jeveles6lx.fsf@sykes.suse.de>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:29073 "EHLO mail.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S933601AbWKQN03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 08:26:29 -0500
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------020405030805010904040203
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
---d6Gm4EdcadzBjdND
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, Nov 17, 2006 at 11:35:54AM +0100, Andreas Schwab wrote:
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> writes:
+--------------020405030805010904040203
+Content-Type: text/plain;
+ name="0001-IPv6-Fix-NULL-dereference-in-ipv6_del_addr.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="0001-IPv6-Fix-NULL-dereference-in-ipv6_del_addr.txt"
 
->> Well, the latest "released" version (fwcutter-005) contains a huge list
->> of ... v3 URLs :-) Only 2 v4 in there. I'll check SVN.
+>From 07ed0369cca6ef51013a63664b09ef402e79af9e Mon Sep 17 00:00:00 2001
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Date: Fri, 17 Nov 2006 14:05:45 +0200
+Subject: [PATCH] IPv6: Fix NULL dereference in ipv6_del_addr()
 
-> Still the same.  One of them does not exist, the other one requires
-> Javascript!
 
-MacOS X 10.4.8 Update for Intel [1] has
-AppleAirportBrcm4311 E99AD02FDD7699FA52F0B9153C8411C8
- 4.80.46.0 big-endian, supported in fwcutter-svn
+Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
+---
+ net/ipv6/addrconf.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-It's a 200MB download for just the one file, but w3m seems to be able to
-process it OK, so I assume it doesn't require Javascript.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b312a5f..5a88378 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -749,7 +749,8 @@ static void ipv6_del_addr(struct inet6_i
+ 				rt->rt6i_flags |= RTF_EXPIRES;
+ 			}
+ 		}
+-		dst_release(&rt->u.dst);
++		if (rt)
++			dst_release(&rt->u.dst);
+ 	}
+ 
+ 	in6_ifa_put(ifp);
+-- 
+1.4.3.5
 
-[1] http://www.apple.com/support/downloads/macosx1048updateintel.html
 
---=20
------------------------------------------------------------
-Paul "TBBle" Hampson, B.Sc, LPI, MCSE
-On-hiatus Asian Studies student, ANU
-The Boss, Bubblesworth Pty Ltd (ABN: 51 095 284 361)
-Paul.Hampson@Pobox.Com
-
-Of course Pacman didn't influence us as kids. If it did,
-we'd be running around in darkened rooms, popping pills and
-listening to repetitive music.
- -- Kristian Wilson, Nintendo, Inc, 1989
-
-License: http://creativecommons.org/licenses/by/2.1/au/
------------------------------------------------------------
-
---d6Gm4EdcadzBjdND
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQFFXbcGexDuohKLFuARAjsnAJ9ybjEaLlQHhNg01NBkZ1AwqKlyVgCfV+3/
-OsWQd9cvQDeqSquiDn3mp6k=
-=n7Lp
------END PGP SIGNATURE-----
-
---d6Gm4EdcadzBjdND--
+--------------020405030805010904040203--
