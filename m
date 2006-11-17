@@ -1,62 +1,41 @@
-From: Arnaldo Carvalho de Melo <acme@mandriva.com>
-Subject: [PATCH 10/10][NETROM]: Use kmemdup
-Date: Fri, 17 Nov 2006 13:20:29 -0200
-Message-ID: <20061117152028.GK17958@mandriva.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@vger.kernel.org
+From: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 1/3] NetXen: Fixed /sys mapping between device and driver
+Date: Fri, 17 Nov 2006 07:25:03 -0800
+Message-ID: <200611171525.kAHFP3ZZ005344@dut39.unminc.com>
+Cc: brazilnut@us.ibm.com, jeff@garzik.org, netxenproj@linsyssoft.com,
+	rob@netxen.com, sanjeev@netxen.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.mandriva.com ([212.85.150.183]:10127 "EHLO mx1.mandriva.com")
-	by vger.kernel.org with ESMTP id S1755718AbWKQPUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 10:20:42 -0500
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:2401 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1755729AbWKQPZD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 10:25:03 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@mandriva.com>
----
- net/netrom/nr_route.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+Signed-off-by: Amit S. Kale <amitkale@netxen.com>
 
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index c11737f..0096105 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -155,14 +155,15 @@ static int nr_add_node(ax25_address *nr,
- 		atomic_set(&nr_neigh->refcount, 1);
- 
- 		if (ax25_digi != NULL && ax25_digi->ndigi > 0) {
--			if ((nr_neigh->digipeat = kmalloc(sizeof(*ax25_digi), GFP_KERNEL)) == NULL) {
-+			nr_neigh->digipeat = kmemdup(ax25_digi,
-+						     sizeof(*ax25_digi),
-+						     GFP_KERNEL);
-+			if (nr_neigh->digipeat == NULL) {
- 				kfree(nr_neigh);
- 				if (nr_node)
- 					nr_node_put(nr_node);
- 				return -ENOMEM;
- 			}
--			memcpy(nr_neigh->digipeat, ax25_digi,
--					sizeof(*ax25_digi));
+ netxen_nic_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 145bf47..a055208 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -273,6 +273,7 @@ netxen_nic_probe(struct pci_dev *pdev, c
  		}
  
- 		spin_lock_bh(&nr_neigh_list_lock);
-@@ -432,11 +433,12 @@ static int nr_add_neigh(ax25_address *ca
- 	atomic_set(&nr_neigh->refcount, 1);
+ 		SET_MODULE_OWNER(netdev);
++		SET_NETDEV_DEV(netdev, &pdev->dev);
  
- 	if (ax25_digi != NULL && ax25_digi->ndigi > 0) {
--		if ((nr_neigh->digipeat = kmalloc(sizeof(*ax25_digi), GFP_KERNEL)) == NULL) {
-+		nr_neigh->digipeat = kmemdup(ax25_digi, sizeof(*ax25_digi),
-+					     GFP_KERNEL);
-+		if (nr_neigh->digipeat == NULL) {
- 			kfree(nr_neigh);
- 			return -ENOMEM;
- 		}
--		memcpy(nr_neigh->digipeat, ax25_digi, sizeof(*ax25_digi));
+ 		port = netdev_priv(netdev);
+ 		port->netdev = netdev;
+@@ -1043,7 +1044,7 @@ static int netxen_nic_poll(struct net_de
+ 		netxen_nic_enable_int(adapter);
  	}
  
- 	spin_lock_bh(&nr_neigh_list_lock);
--- 
-1.4.2.1.g3d5c
-
+-	return (done ? 0 : 1);
++	return (!done);
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
