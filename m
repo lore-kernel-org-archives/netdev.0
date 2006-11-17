@@ -1,91 +1,85 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 0/10] d80211: move away from wmaster towards wiphy
-Date: Fri, 17 Nov 2006 23:27:19 +0100
-Message-ID: <1163802439.3392.47.camel@johannes.berg>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH]: spidernet poor network performance
+Date: Fri, 17 Nov 2006 16:30:22 -0600
+Message-ID: <20061117223022.GO23600@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-2blsSRmHZ73z6HcdkDlL"
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, James K Lewis <jklewis@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:20623 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1753335AbWKQW3H
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Nov 2006 17:29:07 -0500
-To: netdev@vger.kernel.org
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:46524 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1755795AbWKQWaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 17:30:39 -0500
+To: akpm@osdl.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-2blsSRmHZ73z6HcdkDlL
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Andrew, 
 
-Hi,
+Please apply.
 
-Since it looks like we'll be able to move the qdisc stuff over to a new
-wiphy concept the master device is getting completely useless. Joy :)
+--linas
 
-Here's a series of patches to migrate d80211 away from the wmaster and
-more towards a wiphy concept. This series targets the driver API.
 
-Since I have no hope that netdev will like my patches, the whole series
-is available at http://johannes.sipsolutions.net/patches/d80211-wiphy/
-(and this time I made sure it's accessible :), also as
-http://johannes.sipsolutions.net/patches/d80211-wiphy.tar.bz2)
+This patch corrects a problem seen on later kernels running 
+the NetPIPE application.  Specifically, NetPIPE would begin 
+running very slowly at the 1533 packet size. It was
+determined that Spidernet slowed with an idle DMA 
+engine.
 
-d80211: clean up some stupid list and loop code
-d80211: reduce mdev usage
-d80211: reduce mdev usage
-d80211: reduce mdev usage, fix ieee80211_rx_mgmt
-d80211: reduce master ieee80211_ptr deref in scan routines
-d80211: change the cookie to be opaque
+Signed-off-by: James K Lewis <jklewis@us.ibm.com>
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-These have been submitted previously and I've used them as stepping
-stones. I removed the while (1) from the first one again in favour of
-for (;;).
+----
+ drivers/net/spider_net.c |    2 +-
+ drivers/net/spider_net.h |    8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-d80211: move hw descriptor into wiphy structure
-
-Another stepping stone in a way, moves the ieee80211_hw *hw into wiphy
-to drop some exported symbols.
-
-d80211: add a perm_addr hardware property
-
-another patch from my original series... puts the perm_addr property in
-that will be moved around in the next patch
-
-d80211: split ieee80211_hw
-
-Most interesting one :) This one splits up ieee80211_hw into
-ieee80211_ops and moves everything that could possibly be card-dependent
-(as opposed to driver dependent) into ieee80211_wiphy.
-
-d80211: introduce IEEE80211_HW_FRAG flag
-
-just a fix for the previous one.
-
-No driver updates for now, sorry.
-
-johannes
-
---=-2blsSRmHZ73z6HcdkDlL
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFXjdH/ETPhpq3jKURAl/hAJ9Beug4WoMKc1YgLwIFG76PKzhaKgCfXEbr
-n15suksXqpC6EO2oB35LiBI=
-=i/of
------END PGP SIGNATURE-----
-
---=-2blsSRmHZ73z6HcdkDlL--
-
+Index: linux-2.6.19-rc4-git3/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.19-rc4-git3.orig/drivers/net/spider_net.c	2006-11-01 19:14:34.000000000 -0600
++++ linux-2.6.19-rc4-git3/drivers/net/spider_net.c	2006-11-17 13:33:44.000000000 -0600
+@@ -1606,7 +1606,7 @@ spider_net_enable_card(struct spider_net
+ 			     SPIDER_NET_INT2_MASK_VALUE);
+ 
+ 	spider_net_write_reg(card, SPIDER_NET_GDTDMACCNTR,
+-			     SPIDER_NET_GDTBSTA | SPIDER_NET_GDTDCEIDIS);
++			     SPIDER_NET_GDTBSTA);
+ }
+ 
+ /**
+Index: linux-2.6.19-rc4-git3/drivers/net/spider_net.h
+===================================================================
+--- linux-2.6.19-rc4-git3.orig/drivers/net/spider_net.h	2006-11-01 19:14:34.000000000 -0600
++++ linux-2.6.19-rc4-git3/drivers/net/spider_net.h	2006-11-17 16:19:30.000000000 -0600
+@@ -24,7 +24,7 @@
+ #ifndef _SPIDER_NET_H
+ #define _SPIDER_NET_H
+ 
+-#define VERSION "1.1 A"
++#define VERSION "1.6 A"
+ 
+ #include "sungem_phy.h"
+ 
+@@ -217,8 +217,7 @@ extern char spider_net_driver_name[];
+ #define SPIDER_NET_GDTBSTA             0x00000300
+ #define SPIDER_NET_GDTDCEIDIS          0x00000002
+ #define SPIDER_NET_DMA_TX_VALUE        SPIDER_NET_TX_DMA_EN | \
+-                                       SPIDER_NET_GDTBSTA | \
+-                                       SPIDER_NET_GDTDCEIDIS
++                                       SPIDER_NET_GDTBSTA
+ 
+ #define SPIDER_NET_DMA_TX_FEND_VALUE	0x00030003
+ 
+@@ -328,7 +327,8 @@ enum spider_net_int2_status {
+ 	SPIDER_NET_GRISPDNGINT
+ };
+ 
+-#define SPIDER_NET_TXINT	( (1 << SPIDER_NET_GDTFDCINT) )
++#define SPIDER_NET_TXINT	( (1 << SPIDER_NET_GDTFDCINT) | \
++                             (1 << SPIDER_NET_GDTDCEINT) )
+ 
+ /* We rely on flagged descriptor interrupts */
+ #define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) )
