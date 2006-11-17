@@ -1,38 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: d80211: clean up some list and loop code
-Date: Thu, 16 Nov 2006 19:00:02 -0500
-Message-ID: <20061116234148.GB3297@tuxdriver.com>
-References: <1163718270.3392.19.camel@johannes.berg> <20061116232455.GA3297@tuxdriver.com> <1163720260.3392.24.camel@johannes.berg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Add ID for Planex GW-US54Mini
+Date: Fri, 17 Nov 2006 00:13:48 +0000 (GMT)
+Message-ID: <20061117001348.204B57B40A0@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:26379 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1424609AbWKQABL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Nov 2006 19:01:11 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1163720260.3392.24.camel@johannes.berg>
+Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:43611 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1424796AbWKQANm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Nov 2006 19:13:42 -0500
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 17, 2006 at 12:37:40AM +0100, Johannes Berg wrote:
+zd1211 chip 14ea:ab13 v4330 high 00-90-cc AL2230_RF pa0 g---
 
-> > FWIW, I think I prefer the "for (;;)" version for endless loops.
-> > It looks more intentional to me.  Some grep'ing showed nearly equal
-> > usage of "for (;;)" versus "while (1)".  Is there any "official"
-> > preference?  I don't see anything in CodingStyle about it.
-> 
-> I think while (1) looks more intentional, but I suppose that's because I
-> grew up with pascal where you can't do all these weird things with for
-> loops.
-> 
-> Feel free to drop this part of the patch if you wish, or, if you want, I
-> can resend without that too :)
+Tested by Tetsuya Yatagai.
 
-No need to resend.  Any other opinions on this?  I suppose it is just
-a beached discussion...
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
+ zd_usb.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
--- 
-John W. Linville
-linville@tuxdriver.com
+Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -51,6 +51,7 @@ static struct usb_device_id usb_ids[] = 
+ 	{ USB_DEVICE(0x0586, 0x3409), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0b3b, 0x1630), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0586, 0x3401), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x14ea, 0xab13), .driver_info = DEVICE_ZD1211 },
+ 	/* ZD1211B */
+ 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
