@@ -1,2783 +1,1904 @@
-From: "Divy Le Ray <divy@chelsio.com>" <divy@chelsio.com>
-Subject: [PATCH 9/10] cxgb3 - register definitions
-Date: Fri, 17 Nov 2006 12:25:49 -0800
-Message-ID: <20061117202549.25962.42512.stgit@colfax2.asicdesigners.com>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
+From: divy@chelsio.com
+Subject: [PATCH 3/10] cxgb3 - HW access routines - part 1
+Date: Fri, 17 Nov 2006 12:24:12 -0800
+Message-ID: <200611172024.kAHKOCoI025902@colfax2.asicdesigners.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1162424AbWKQU2A@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755870AbWKQU0G@vger.kernel.org>
 To: jeff@garzik.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-This patch implements the registers definitions for the
-Chelsio network adapter's driver.
+This patch implements the HW access routines for the
+Chelsio T3 network adapter's driver.
+This patch is split. This is the first part.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/regs.h | 2754 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 2754 insertions(+), 0 deletions(-)
+ drivers/net/cxgb3/t3_hw.c | 3288 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 3288 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
 new file mode 100644
-index 0000000..74c440b
+index 0000000..445e804
 --- /dev/null
-+++ b/drivers/net/cxgb3/regs.h
-@@ -0,0 +1,2754 @@
-+#define A_SG_CONTROL 0x0
-+
-+
-+#define S_DROPPKT    20
-+#define V_DROPPKT(x) ((x) << S_DROPPKT)
-+#define F_DROPPKT    V_DROPPKT(1U)
-+
-+
-+#define S_EGRGENCTRL    19
-+#define V_EGRGENCTRL(x) ((x) << S_EGRGENCTRL)
-+#define F_EGRGENCTRL    V_EGRGENCTRL(1U)
-+
-+
-+#define S_USERSPACESIZE    14
-+#define M_USERSPACESIZE    0x1f
-+#define V_USERSPACESIZE(x) ((x) << S_USERSPACESIZE)
-+
-+#define S_HOSTPAGESIZE    11
-+#define M_HOSTPAGESIZE    0x7
-+#define V_HOSTPAGESIZE(x) ((x) << S_HOSTPAGESIZE)
-+
-+#define S_FLMODE    9
-+#define V_FLMODE(x) ((x) << S_FLMODE)
-+#define F_FLMODE    V_FLMODE(1U)
-+
-+
-+#define S_PKTSHIFT    6
-+#define M_PKTSHIFT    0x7
-+#define V_PKTSHIFT(x) ((x) << S_PKTSHIFT)
-+
-+#define S_ONEINTMULTQ    5
-+#define V_ONEINTMULTQ(x) ((x) << S_ONEINTMULTQ)
-+#define F_ONEINTMULTQ    V_ONEINTMULTQ(1U)
-+
-+
-+#define S_BIGENDIANINGRESS    2
-+#define V_BIGENDIANINGRESS(x) ((x) << S_BIGENDIANINGRESS)
-+#define F_BIGENDIANINGRESS    V_BIGENDIANINGRESS(1U)
-+
-+
-+#define S_ISCSICOALESCING    1
-+#define V_ISCSICOALESCING(x) ((x) << S_ISCSICOALESCING)
-+#define F_ISCSICOALESCING    V_ISCSICOALESCING(1U)
-+
-+
-+#define S_GLOBALENABLE    0
-+#define V_GLOBALENABLE(x) ((x) << S_GLOBALENABLE)
-+#define F_GLOBALENABLE    V_GLOBALENABLE(1U)
-+
-+
-+#define S_AVOIDCQOVFL    24
-+#define V_AVOIDCQOVFL(x) ((x) << S_AVOIDCQOVFL)
-+#define F_AVOIDCQOVFL    V_AVOIDCQOVFL(1U)
-+
-+
-+#define S_OPTONEINTMULTQ    23
-+#define V_OPTONEINTMULTQ(x) ((x) << S_OPTONEINTMULTQ)
-+#define F_OPTONEINTMULTQ    V_OPTONEINTMULTQ(1U)
-+
-+
-+#define S_CQCRDTCTRL    22
-+#define V_CQCRDTCTRL(x) ((x) << S_CQCRDTCTRL)
-+#define F_CQCRDTCTRL    V_CQCRDTCTRL(1U)
-+
-+
-+#define A_SG_KDOORBELL 0x4
-+
-+
-+#define S_SELEGRCNTX    31
-+#define V_SELEGRCNTX(x) ((x) << S_SELEGRCNTX)
-+#define F_SELEGRCNTX    V_SELEGRCNTX(1U)
-+
-+
-+#define S_EGRCNTX    0
-+#define M_EGRCNTX    0xffff
-+#define V_EGRCNTX(x) ((x) << S_EGRCNTX)
-+
-+#define A_SG_GTS 0x8
-+
-+
-+#define S_RSPQ    29
-+
-+#define V_RSPQ(x) ((x) << S_RSPQ)
-+
-+#define G_RSPQ(x) (((x) >> S_RSPQ) & M_RSPQ)
-+
-+
-+#define S_NEWTIMER    16
-+#define M_NEWTIMER    0x1fff
-+
-+#define V_NEWTIMER(x) ((x) << S_NEWTIMER)
-+
-+#define S_NEWINDEX    0
-+#define M_NEWINDEX    0xffff
-+#define V_NEWINDEX(x) ((x) << S_NEWINDEX)
-+
-+#define A_SG_CONTEXT_CMD 0xc
-+
-+
-+#define S_CONTEXT_CMD_OPCODE    28
-+#define M_CONTEXT_CMD_OPCODE    0xf
-+#define V_CONTEXT_CMD_OPCODE(x) ((x) << S_CONTEXT_CMD_OPCODE)
-+
-+#define S_CONTEXT_CMD_BUSY    27
-+#define V_CONTEXT_CMD_BUSY(x) ((x) << S_CONTEXT_CMD_BUSY)
-+#define F_CONTEXT_CMD_BUSY    V_CONTEXT_CMD_BUSY(1U)
-+
-+
-+#define S_CQ_CREDIT    20
-+
-+#define M_CQ_CREDIT    0x7f
-+
-+#define V_CQ_CREDIT(x) ((x) << S_CQ_CREDIT)
-+
-+#define G_CQ_CREDIT(x) (((x) >> S_CQ_CREDIT) & M_CQ_CREDIT)
-+
-+
-+#define S_CQ    19
-+
-+#define V_CQ(x) ((x) << S_CQ)
-+#define F_CQ    V_CQ(1U)
-+
-+#define F_CQ    V_CQ(1U)
-+
-+
-+#define S_RESPONSEQ    18
-+#define V_RESPONSEQ(x) ((x) << S_RESPONSEQ)
-+#define F_RESPONSEQ    V_RESPONSEQ(1U)
-+
-+
-+#define S_EGRESS    17
-+#define V_EGRESS(x) ((x) << S_EGRESS)
-+#define F_EGRESS    V_EGRESS(1U)
-+
-+
-+#define S_FREELIST    16
-+#define V_FREELIST(x) ((x) << S_FREELIST)
-+#define F_FREELIST    V_FREELIST(1U)
-+
-+
-+#define S_CONTEXT    0
-+#define M_CONTEXT    0xffff
-+#define V_CONTEXT(x) ((x) << S_CONTEXT)
-+
-+#define G_CONTEXT(x) (((x) >> S_CONTEXT) & M_CONTEXT)
-+
-+
-+#define A_SG_CONTEXT_DATA0 0x10
-+
-+
-+#define A_SG_CONTEXT_DATA1 0x14
-+
-+
-+#define A_SG_CONTEXT_DATA2 0x18
-+
-+
-+#define A_SG_CONTEXT_DATA3 0x1c
-+
-+
-+#define A_SG_CONTEXT_MASK0 0x20
-+
-+
-+#define A_SG_CONTEXT_MASK1 0x24
-+
-+
-+#define A_SG_CONTEXT_MASK2 0x28
-+
-+
-+#define A_SG_CONTEXT_MASK3 0x2c
-+
-+
-+#define A_SG_RSPQ_CREDIT_RETURN 0x30
-+
-+
-+#define S_CREDITS    0
-+#define M_CREDITS    0xffff
-+#define V_CREDITS(x) ((x) << S_CREDITS)
-+
-+#define A_SG_DATA_INTR 0x34
-+
-+
-+#define S_ERRINTR    31
-+#define V_ERRINTR(x) ((x) << S_ERRINTR)
-+#define F_ERRINTR    V_ERRINTR(1U)
-+
-+
-+#define A_SG_HI_DRB_HI_THRSH 0x38
-+
-+
-+#define A_SG_HI_DRB_LO_THRSH 0x3c
-+
-+
-+#define A_SG_LO_DRB_HI_THRSH 0x40
-+
-+
-+#define A_SG_LO_DRB_LO_THRSH 0x44
-+
-+
-+#define A_SG_RSPQ_FL_STATUS 0x4c
-+
-+
-+#define S_RSPQ0DISABLED    8
-+
-+#define A_SG_EGR_RCQ_DRB_THRSH 0x54
-+
-+
-+#define S_HIRCQDRBTHRSH    16
-+#define M_HIRCQDRBTHRSH    0x7ff
-+#define V_HIRCQDRBTHRSH(x) ((x) << S_HIRCQDRBTHRSH)
-+
-+#define S_LORCQDRBTHRSH    0
-+#define M_LORCQDRBTHRSH    0x7ff
-+#define V_LORCQDRBTHRSH(x) ((x) << S_LORCQDRBTHRSH)
-+
-+#define A_SG_EGR_CNTX_BADDR 0x58
-+
-+
-+#define A_SG_INT_CAUSE 0x5c
-+
-+
-+#define S_RSPQDISABLED    3
-+#define V_RSPQDISABLED(x) ((x) << S_RSPQDISABLED)
-+#define F_RSPQDISABLED    V_RSPQDISABLED(1U)
-+
-+
-+#define S_RSPQCREDITOVERFOW    2
-+#define V_RSPQCREDITOVERFOW(x) ((x) << S_RSPQCREDITOVERFOW)
-+#define F_RSPQCREDITOVERFOW    V_RSPQCREDITOVERFOW(1U)
-+
-+
-+#define A_SG_INT_ENABLE 0x60
-+
-+
-+#define A_SG_CMDQ_CREDIT_TH 0x64
-+
-+
-+#define S_TIMEOUT    8
-+#define M_TIMEOUT    0xffffff
-+#define V_TIMEOUT(x) ((x) << S_TIMEOUT)
-+
-+#define S_THRESHOLD    0
-+#define M_THRESHOLD    0xff
-+#define V_THRESHOLD(x) ((x) << S_THRESHOLD)
-+
-+#define A_SG_TIMER_TICK 0x68
-+
-+
-+#define A_SG_CQ_CONTEXT_BADDR 0x6c
-+
-+
-+#define A_SG_OCO_BASE 0x70
-+
-+
-+#define S_BASE1    16
-+#define M_BASE1    0xffff
-+#define V_BASE1(x) ((x) << S_BASE1)
-+
-+#define A_SG_DRB_PRI_THRESH 0x74
-+
-+
-+#define A_PCIX_INT_ENABLE 0x80
-+
-+
-+#define S_MSIXPARERR    22
-+#define M_MSIXPARERR    0x7
-+
-+#define V_MSIXPARERR(x) ((x) << S_MSIXPARERR)
-+
-+#define S_CFPARERR    18
-+#define M_CFPARERR    0xf
-+
-+#define V_CFPARERR(x) ((x) << S_CFPARERR)
-+
-+#define S_RFPARERR    14
-+#define M_RFPARERR    0xf
-+
-+#define V_RFPARERR(x) ((x) << S_RFPARERR)
-+
-+#define S_WFPARERR    12
-+#define M_WFPARERR    0x3
-+
-+#define V_WFPARERR(x) ((x) << S_WFPARERR)
-+
-+#define S_PIOPARERR    11
-+#define V_PIOPARERR(x) ((x) << S_PIOPARERR)
-+#define F_PIOPARERR    V_PIOPARERR(1U)
-+
-+
-+#define S_DETUNCECCERR    10
-+#define V_DETUNCECCERR(x) ((x) << S_DETUNCECCERR)
-+#define F_DETUNCECCERR    V_DETUNCECCERR(1U)
-+
-+
-+#define S_DETCORECCERR    9
-+#define V_DETCORECCERR(x) ((x) << S_DETCORECCERR)
-+#define F_DETCORECCERR    V_DETCORECCERR(1U)
-+
-+
-+#define S_RCVSPLCMPERR    8
-+#define V_RCVSPLCMPERR(x) ((x) << S_RCVSPLCMPERR)
-+#define F_RCVSPLCMPERR    V_RCVSPLCMPERR(1U)
-+
-+
-+#define S_UNXSPLCMP    7
-+#define V_UNXSPLCMP(x) ((x) << S_UNXSPLCMP)
-+#define F_UNXSPLCMP    V_UNXSPLCMP(1U)
-+
-+
-+#define S_SPLCMPDIS    6
-+#define V_SPLCMPDIS(x) ((x) << S_SPLCMPDIS)
-+#define F_SPLCMPDIS    V_SPLCMPDIS(1U)
-+
-+
-+#define S_DETPARERR    5
-+#define V_DETPARERR(x) ((x) << S_DETPARERR)
-+#define F_DETPARERR    V_DETPARERR(1U)
-+
-+
-+#define S_SIGSYSERR    4
-+#define V_SIGSYSERR(x) ((x) << S_SIGSYSERR)
-+#define F_SIGSYSERR    V_SIGSYSERR(1U)
-+
-+
-+#define S_RCVMSTABT    3
-+#define V_RCVMSTABT(x) ((x) << S_RCVMSTABT)
-+#define F_RCVMSTABT    V_RCVMSTABT(1U)
-+
-+
-+#define S_RCVTARABT    2
-+#define V_RCVTARABT(x) ((x) << S_RCVTARABT)
-+#define F_RCVTARABT    V_RCVTARABT(1U)
-+
-+
-+#define S_SIGTARABT    1
-+#define V_SIGTARABT(x) ((x) << S_SIGTARABT)
-+#define F_SIGTARABT    V_SIGTARABT(1U)
-+
-+
-+#define S_MSTDETPARERR    0
-+#define V_MSTDETPARERR(x) ((x) << S_MSTDETPARERR)
-+#define F_MSTDETPARERR    V_MSTDETPARERR(1U)
-+
-+
-+#define A_PCIX_INT_CAUSE 0x84
-+
-+
-+#define A_PCIX_CFG 0x88
-+
-+
-+#define S_CLIDECEN    18
-+#define V_CLIDECEN(x) ((x) << S_CLIDECEN)
-+#define F_CLIDECEN    V_CLIDECEN(1U)
-+
-+
-+#define A_PCIX_MODE 0x8c
-+
-+
-+#define S_PCLKRANGE    6
-+#define M_PCLKRANGE    0x3
-+#define V_PCLKRANGE(x) ((x) << S_PCLKRANGE)
-+#define G_PCLKRANGE(x) (((x) >> S_PCLKRANGE) & M_PCLKRANGE)
-+
-+
-+#define S_PCIXINITPAT    2
-+#define M_PCIXINITPAT    0xf
-+#define V_PCIXINITPAT(x) ((x) << S_PCIXINITPAT)
-+#define G_PCIXINITPAT(x) (((x) >> S_PCIXINITPAT) & M_PCIXINITPAT)
-+
-+
-+#define S_64BIT    0
-+#define V_64BIT(x) ((x) << S_64BIT)
-+#define F_64BIT    V_64BIT(1U)
-+
-+
-+#define A_PCIE_INT_ENABLE 0x80
-+
-+
-+#define S_BISTERR    15
-+#define M_BISTERR    0xff
-+
-+#define V_BISTERR(x) ((x) << S_BISTERR)
-+
-+#define S_PCIE_MSIXPARERR    12
-+#define M_PCIE_MSIXPARERR    0x7
-+
-+#define V_PCIE_MSIXPARERR(x) ((x) << S_PCIE_MSIXPARERR)
-+
-+#define S_PCIE_CFPARERR    11
-+#define V_PCIE_CFPARERR(x) ((x) << S_PCIE_CFPARERR)
-+#define F_PCIE_CFPARERR    V_PCIE_CFPARERR(1U)
-+
-+
-+#define S_PCIE_RFPARERR    10
-+#define V_PCIE_RFPARERR(x) ((x) << S_PCIE_RFPARERR)
-+#define F_PCIE_RFPARERR    V_PCIE_RFPARERR(1U)
-+
-+
-+#define S_PCIE_WFPARERR    9
-+#define V_PCIE_WFPARERR(x) ((x) << S_PCIE_WFPARERR)
-+#define F_PCIE_WFPARERR    V_PCIE_WFPARERR(1U)
-+
-+
-+#define S_PCIE_PIOPARERR    8
-+#define V_PCIE_PIOPARERR(x) ((x) << S_PCIE_PIOPARERR)
-+#define F_PCIE_PIOPARERR    V_PCIE_PIOPARERR(1U)
-+
-+
-+#define S_UNXSPLCPLERRC    7
-+#define V_UNXSPLCPLERRC(x) ((x) << S_UNXSPLCPLERRC)
-+#define F_UNXSPLCPLERRC    V_UNXSPLCPLERRC(1U)
-+
-+
-+#define S_UNXSPLCPLERRR    6
-+#define V_UNXSPLCPLERRR(x) ((x) << S_UNXSPLCPLERRR)
-+#define F_UNXSPLCPLERRR    V_UNXSPLCPLERRR(1U)
-+
-+
-+#define A_PCIE_INT_CAUSE 0x84
-+
-+
-+#define A_PCIE_CFG 0x88
-+
-+
-+#define S_PCIE_CLIDECEN    16
-+#define V_PCIE_CLIDECEN(x) ((x) << S_PCIE_CLIDECEN)
-+#define F_PCIE_CLIDECEN    V_PCIE_CLIDECEN(1U)
-+
-+
-+#define S_CRSTWRMMODE    0
-+#define V_CRSTWRMMODE(x) ((x) << S_CRSTWRMMODE)
-+#define F_CRSTWRMMODE    V_CRSTWRMMODE(1U)
-+
-+
-+#define A_PCIE_MODE 0x8c
-+
-+
-+#define S_NUMFSTTRNSEQRX    10
-+#define M_NUMFSTTRNSEQRX    0xff
-+#define V_NUMFSTTRNSEQRX(x) ((x) << S_NUMFSTTRNSEQRX)
-+#define G_NUMFSTTRNSEQRX(x) (((x) >> S_NUMFSTTRNSEQRX) & M_NUMFSTTRNSEQRX)
-+
-+
-+#define A_PCIE_PEX_CTRL0 0x98
-+
-+
-+#define S_NUMFSTTRNSEQ    22
-+#define M_NUMFSTTRNSEQ    0xff
-+#define V_NUMFSTTRNSEQ(x) ((x) << S_NUMFSTTRNSEQ)
-+#define G_NUMFSTTRNSEQ(x) (((x) >> S_NUMFSTTRNSEQ) & M_NUMFSTTRNSEQ)
-+
-+
-+#define S_REPLAYLMT    2
-+#define M_REPLAYLMT    0xfffff
-+
-+#define V_REPLAYLMT(x) ((x) << S_REPLAYLMT)
-+
-+#define A_PCIE_PEX_CTRL1 0x9c
-+
-+
-+#define S_T3A_ACKLAT    0
-+#define M_T3A_ACKLAT    0x7ff
-+
-+#define V_T3A_ACKLAT(x) ((x) << S_T3A_ACKLAT)
-+
-+#define S_ACKLAT    0
-+#define M_ACKLAT    0x1fff
-+
-+#define V_ACKLAT(x) ((x) << S_ACKLAT)
-+
-+#define A_PCIE_PEX_ERR 0xa4
-+
-+
-+#define A_T3DBG_GPIO_EN 0xd0
-+
-+
-+#define S_GPIO11_OEN    27
-+#define V_GPIO11_OEN(x) ((x) << S_GPIO11_OEN)
-+#define F_GPIO11_OEN    V_GPIO11_OEN(1U)
-+
-+
-+#define S_GPIO10_OEN    26
-+#define V_GPIO10_OEN(x) ((x) << S_GPIO10_OEN)
-+#define F_GPIO10_OEN    V_GPIO10_OEN(1U)
-+
-+
-+#define S_GPIO7_OEN    23
-+#define V_GPIO7_OEN(x) ((x) << S_GPIO7_OEN)
-+#define F_GPIO7_OEN    V_GPIO7_OEN(1U)
-+
-+
-+#define S_GPIO6_OEN    22
-+#define V_GPIO6_OEN(x) ((x) << S_GPIO6_OEN)
-+#define F_GPIO6_OEN    V_GPIO6_OEN(1U)
-+
-+
-+#define S_GPIO5_OEN    21
-+#define V_GPIO5_OEN(x) ((x) << S_GPIO5_OEN)
-+#define F_GPIO5_OEN    V_GPIO5_OEN(1U)
-+
-+
-+#define S_GPIO4_OEN    20
-+#define V_GPIO4_OEN(x) ((x) << S_GPIO4_OEN)
-+#define F_GPIO4_OEN    V_GPIO4_OEN(1U)
-+
-+
-+#define S_GPIO2_OEN    18
-+#define V_GPIO2_OEN(x) ((x) << S_GPIO2_OEN)
-+#define F_GPIO2_OEN    V_GPIO2_OEN(1U)
-+
-+
-+#define S_GPIO1_OEN    17
-+#define V_GPIO1_OEN(x) ((x) << S_GPIO1_OEN)
-+#define F_GPIO1_OEN    V_GPIO1_OEN(1U)
-+
-+
-+#define S_GPIO0_OEN    16
-+#define V_GPIO0_OEN(x) ((x) << S_GPIO0_OEN)
-+#define F_GPIO0_OEN    V_GPIO0_OEN(1U)
-+
-+
-+#define S_GPIO10_OUT_VAL    10
-+#define V_GPIO10_OUT_VAL(x) ((x) << S_GPIO10_OUT_VAL)
-+#define F_GPIO10_OUT_VAL    V_GPIO10_OUT_VAL(1U)
-+
-+
-+#define S_GPIO7_OUT_VAL    7
-+#define V_GPIO7_OUT_VAL(x) ((x) << S_GPIO7_OUT_VAL)
-+#define F_GPIO7_OUT_VAL    V_GPIO7_OUT_VAL(1U)
-+
-+
-+#define S_GPIO6_OUT_VAL    6
-+#define V_GPIO6_OUT_VAL(x) ((x) << S_GPIO6_OUT_VAL)
-+#define F_GPIO6_OUT_VAL    V_GPIO6_OUT_VAL(1U)
-+
-+
-+#define S_GPIO5_OUT_VAL    5
-+#define V_GPIO5_OUT_VAL(x) ((x) << S_GPIO5_OUT_VAL)
-+#define F_GPIO5_OUT_VAL    V_GPIO5_OUT_VAL(1U)
-+
-+
-+#define S_GPIO4_OUT_VAL    4
-+#define V_GPIO4_OUT_VAL(x) ((x) << S_GPIO4_OUT_VAL)
-+#define F_GPIO4_OUT_VAL    V_GPIO4_OUT_VAL(1U)
-+
-+
-+#define S_GPIO2_OUT_VAL    2
-+#define V_GPIO2_OUT_VAL(x) ((x) << S_GPIO2_OUT_VAL)
-+#define F_GPIO2_OUT_VAL    V_GPIO2_OUT_VAL(1U)
-+
-+
-+#define S_GPIO1_OUT_VAL    1
-+#define V_GPIO1_OUT_VAL(x) ((x) << S_GPIO1_OUT_VAL)
-+#define F_GPIO1_OUT_VAL    V_GPIO1_OUT_VAL(1U)
-+
-+
-+#define S_GPIO0_OUT_VAL    0
-+#define V_GPIO0_OUT_VAL(x) ((x) << S_GPIO0_OUT_VAL)
-+#define F_GPIO0_OUT_VAL    V_GPIO0_OUT_VAL(1U)
-+
-+
-+#define A_T3DBG_INT_ENABLE 0xd8
-+
-+
-+#define S_GPIO11    11
-+#define V_GPIO11(x) ((x) << S_GPIO11)
-+#define F_GPIO11    V_GPIO11(1U)
-+
-+
-+#define S_GPIO10    10
-+#define V_GPIO10(x) ((x) << S_GPIO10)
-+#define F_GPIO10    V_GPIO10(1U)
-+
-+
-+#define S_GPIO7    7
-+#define V_GPIO7(x) ((x) << S_GPIO7)
-+#define F_GPIO7    V_GPIO7(1U)
-+
-+
-+#define S_GPIO6    6
-+#define V_GPIO6(x) ((x) << S_GPIO6)
-+#define F_GPIO6    V_GPIO6(1U)
-+
-+
-+#define S_GPIO5    5
-+#define V_GPIO5(x) ((x) << S_GPIO5)
-+#define F_GPIO5    V_GPIO5(1U)
-+
-+
-+#define S_GPIO4    4
-+#define V_GPIO4(x) ((x) << S_GPIO4)
-+#define F_GPIO4    V_GPIO4(1U)
-+
-+
-+#define S_GPIO3    3
-+#define V_GPIO3(x) ((x) << S_GPIO3)
-+#define F_GPIO3    V_GPIO3(1U)
-+
-+
-+#define S_GPIO2    2
-+#define V_GPIO2(x) ((x) << S_GPIO2)
-+#define F_GPIO2    V_GPIO2(1U)
-+
-+
-+#define S_GPIO1    1
-+#define V_GPIO1(x) ((x) << S_GPIO1)
-+#define F_GPIO1    V_GPIO1(1U)
-+
-+
-+#define S_GPIO0    0
-+#define V_GPIO0(x) ((x) << S_GPIO0)
-+#define F_GPIO0    V_GPIO0(1U)
-+
-+
-+#define A_T3DBG_INT_CAUSE 0xdc
-+
-+
-+#define A_T3DBG_GPIO_ACT_LOW 0xf0
-+
-+
-+#define MC7_PMRX_BASE_ADDR 0x100
-+
-+
-+#define A_MC7_CFG 0x100
-+
-+
-+#define S_IFEN    13
-+#define V_IFEN(x) ((x) << S_IFEN)
-+#define F_IFEN    V_IFEN(1U)
-+
-+
-+#define S_TERM150    11
-+#define V_TERM150(x) ((x) << S_TERM150)
-+#define F_TERM150    V_TERM150(1U)
-+
-+
-+#define S_SLOW    10
-+#define V_SLOW(x) ((x) << S_SLOW)
-+#define F_SLOW    V_SLOW(1U)
-+
-+
-+#define S_WIDTH    8
-+#define M_WIDTH    0x3
-+#define V_WIDTH(x) ((x) << S_WIDTH)
-+#define G_WIDTH(x) (((x) >> S_WIDTH) & M_WIDTH)
-+
-+
-+#define S_BKS    6
-+#define V_BKS(x) ((x) << S_BKS)
-+#define F_BKS    V_BKS(1U)
-+
-+
-+#define S_ORG    5
-+#define V_ORG(x) ((x) << S_ORG)
-+#define F_ORG    V_ORG(1U)
-+
-+
-+#define S_DEN    2
-+#define M_DEN    0x7
-+#define V_DEN(x) ((x) << S_DEN)
-+#define G_DEN(x) (((x) >> S_DEN) & M_DEN)
-+
-+
-+#define S_RDY    1
-+#define V_RDY(x) ((x) << S_RDY)
-+#define F_RDY    V_RDY(1U)
-+
-+
-+#define S_CLKEN    0
-+#define V_CLKEN(x) ((x) << S_CLKEN)
-+#define F_CLKEN    V_CLKEN(1U)
-+
-+
-+#define A_MC7_MODE 0x104
-+
-+
-+#define S_BUSY    31
-+#define V_BUSY(x) ((x) << S_BUSY)
-+#define F_BUSY    V_BUSY(1U)
-+
-+#define S_BUSY    31
-+#define V_BUSY(x) ((x) << S_BUSY)
-+#define F_BUSY    V_BUSY(1U)
-+
-+
-+#define A_MC7_EXT_MODE1 0x108
-+
-+
-+#define A_MC7_EXT_MODE2 0x10c
-+
-+
-+#define A_MC7_EXT_MODE3 0x110
-+
-+
-+#define A_MC7_PRE 0x114
-+
-+
-+#define A_MC7_REF 0x118
-+
-+
-+#define S_PREREFDIV    1
-+#define M_PREREFDIV    0x3fff
-+#define V_PREREFDIV(x) ((x) << S_PREREFDIV)
-+
-+#define S_PERREFEN    0
-+#define V_PERREFEN(x) ((x) << S_PERREFEN)
-+#define F_PERREFEN    V_PERREFEN(1U)
-+
-+
-+#define A_MC7_DLL 0x11c
-+
-+
-+#define S_DLLENB    1
-+#define V_DLLENB(x) ((x) << S_DLLENB)
-+#define F_DLLENB    V_DLLENB(1U)
-+
-+
-+#define S_DLLRST    0
-+#define V_DLLRST(x) ((x) << S_DLLRST)
-+#define F_DLLRST    V_DLLRST(1U)
-+
-+
-+#define A_MC7_PARM 0x120
-+
-+
-+#define S_ACTTOPREDLY    26
-+#define M_ACTTOPREDLY    0xf
-+#define V_ACTTOPREDLY(x) ((x) << S_ACTTOPREDLY)
-+
-+#define S_ACTTORDWRDLY    23
-+#define M_ACTTORDWRDLY    0x7
-+#define V_ACTTORDWRDLY(x) ((x) << S_ACTTORDWRDLY)
-+
-+#define S_PRECYC    20
-+#define M_PRECYC    0x7
-+#define V_PRECYC(x) ((x) << S_PRECYC)
-+
-+#define S_REFCYC    13
-+#define M_REFCYC    0x7f
-+#define V_REFCYC(x) ((x) << S_REFCYC)
-+
-+#define S_BKCYC    8
-+#define M_BKCYC    0x1f
-+#define V_BKCYC(x) ((x) << S_BKCYC)
-+
-+#define S_WRTORDDLY    4
-+#define M_WRTORDDLY    0xf
-+#define V_WRTORDDLY(x) ((x) << S_WRTORDDLY)
-+
-+#define S_RDTOWRDLY    0
-+#define M_RDTOWRDLY    0xf
-+#define V_RDTOWRDLY(x) ((x) << S_RDTOWRDLY)
-+
-+#define A_MC7_CAL 0x128
-+
-+
-+#define S_BUSY    31
-+#define V_BUSY(x) ((x) << S_BUSY)
-+#define F_BUSY    V_BUSY(1U)
-+
-+#define S_BUSY    31
-+#define V_BUSY(x) ((x) << S_BUSY)
-+#define F_BUSY    V_BUSY(1U)
-+
-+
-+#define S_CAL_FAULT    30
-+#define V_CAL_FAULT(x) ((x) << S_CAL_FAULT)
-+#define F_CAL_FAULT    V_CAL_FAULT(1U)
-+
-+
-+#define S_SGL_CAL_EN    20
-+#define V_SGL_CAL_EN(x) ((x) << S_SGL_CAL_EN)
-+#define F_SGL_CAL_EN    V_SGL_CAL_EN(1U)
-+
-+
-+#define A_MC7_ERR_ADDR 0x12c
-+
-+
-+#define A_MC7_ECC 0x130
-+
-+
-+#define S_ECCCHKEN    1
-+#define V_ECCCHKEN(x) ((x) << S_ECCCHKEN)
-+#define F_ECCCHKEN    V_ECCCHKEN(1U)
-+
-+
-+#define S_ECCGENEN    0
-+#define V_ECCGENEN(x) ((x) << S_ECCGENEN)
-+#define F_ECCGENEN    V_ECCGENEN(1U)
-+
-+
-+#define A_MC7_CE_ADDR 0x134
-+
-+
-+#define A_MC7_CE_DATA0 0x138
-+
-+
-+#define A_MC7_CE_DATA1 0x13c
-+
-+
-+#define A_MC7_CE_DATA2 0x140
-+
-+
-+#define S_DATA    0
-+#define M_DATA    0xff
-+
-+#define G_DATA(x) (((x) >> S_DATA) & M_DATA)
-+
-+
-+#define A_MC7_UE_ADDR 0x144
-+
-+
-+#define A_MC7_UE_DATA0 0x148
-+
-+
-+#define A_MC7_UE_DATA1 0x14c
-+
-+
-+#define A_MC7_UE_DATA2 0x150
-+
-+
-+#define A_MC7_BD_ADDR 0x154
-+
-+
-+#define S_ADDR    3
-+
-+#define M_ADDR    0x1fffffff
-+
-+#define A_MC7_BD_DATA0 0x158
-+
-+
-+#define A_MC7_BD_DATA1 0x15c
-+
-+
-+#define A_MC7_BD_OP 0x164
-+
-+
-+#define S_OP    0
-+
-+#define V_OP(x) ((x) << S_OP)
-+#define F_OP    V_OP(1U)
-+
-+#define F_OP    V_OP(1U)
-+#define A_SF_OP 0x6dc
-+
-+
-+#define A_MC7_BIST_ADDR_BEG 0x168
-+
-+
-+#define A_MC7_BIST_ADDR_END 0x16c
-+
-+
-+#define A_MC7_BIST_DATA 0x170
-+
-+
-+#define A_MC7_BIST_OP 0x174
-+
-+
-+
-+#define S_CONT    3
-+#define V_CONT(x) ((x) << S_CONT)
-+#define F_CONT    V_CONT(1U)
-+
-+#define F_CONT    V_CONT(1U)
-+
-+
-+#define A_MC7_INT_ENABLE 0x178
-+
-+
-+#define S_AE    17
-+#define V_AE(x) ((x) << S_AE)
-+#define F_AE    V_AE(1U)
-+
-+
-+#define S_PE    2
-+#define M_PE    0x7fff
-+
-+#define V_PE(x) ((x) << S_PE)
-+
-+#define G_PE(x) (((x) >> S_PE) & M_PE)
-+
-+
-+#define S_UE    1
-+#define V_UE(x) ((x) << S_UE)
-+#define F_UE    V_UE(1U)
-+
-+
-+#define S_CE    0
-+#define V_CE(x) ((x) << S_CE)
-+#define F_CE    V_CE(1U)
-+
-+
-+#define A_MC7_INT_CAUSE 0x17c
-+
-+
-+#define MC7_PMTX_BASE_ADDR 0x180
-+
-+
-+#define MC7_CM_BASE_ADDR 0x200
-+
-+
-+#define A_CIM_BOOT_CFG 0x280
-+
-+
-+#define S_BOOTADDR    2
-+#define M_BOOTADDR    0x3fffffff
-+#define V_BOOTADDR(x) ((x) << S_BOOTADDR)
-+
-+#define A_CIM_SDRAM_BASE_ADDR 0x28c
-+
-+
-+#define A_CIM_SDRAM_ADDR_SIZE 0x290
-+
-+
-+#define A_CIM_HOST_INT_ENABLE 0x298
-+
-+
-+#define A_CIM_HOST_INT_CAUSE 0x29c
-+
-+
-+#define S_BLKWRPLINT    12
-+#define V_BLKWRPLINT(x) ((x) << S_BLKWRPLINT)
-+#define F_BLKWRPLINT    V_BLKWRPLINT(1U)
-+
-+
-+#define S_BLKRDPLINT    11
-+#define V_BLKRDPLINT(x) ((x) << S_BLKRDPLINT)
-+#define F_BLKRDPLINT    V_BLKRDPLINT(1U)
-+
-+
-+#define S_BLKWRCTLINT    10
-+#define V_BLKWRCTLINT(x) ((x) << S_BLKWRCTLINT)
-+#define F_BLKWRCTLINT    V_BLKWRCTLINT(1U)
-+
-+
-+#define S_BLKRDCTLINT    9
-+#define V_BLKRDCTLINT(x) ((x) << S_BLKRDCTLINT)
-+#define F_BLKRDCTLINT    V_BLKRDCTLINT(1U)
-+
-+
-+#define S_BLKWRFLASHINT    8
-+#define V_BLKWRFLASHINT(x) ((x) << S_BLKWRFLASHINT)
-+#define F_BLKWRFLASHINT    V_BLKWRFLASHINT(1U)
-+
-+
-+#define S_BLKRDFLASHINT    7
-+#define V_BLKRDFLASHINT(x) ((x) << S_BLKRDFLASHINT)
-+#define F_BLKRDFLASHINT    V_BLKRDFLASHINT(1U)
-+
-+
-+#define S_SGLWRFLASHINT    6
-+#define V_SGLWRFLASHINT(x) ((x) << S_SGLWRFLASHINT)
-+#define F_SGLWRFLASHINT    V_SGLWRFLASHINT(1U)
-+
-+
-+#define S_WRBLKFLASHINT    5
-+#define V_WRBLKFLASHINT(x) ((x) << S_WRBLKFLASHINT)
-+#define F_WRBLKFLASHINT    V_WRBLKFLASHINT(1U)
-+
-+
-+#define S_BLKWRBOOTINT    4
-+#define V_BLKWRBOOTINT(x) ((x) << S_BLKWRBOOTINT)
-+#define F_BLKWRBOOTINT    V_BLKWRBOOTINT(1U)
-+
-+
-+#define S_FLASHRANGEINT    2
-+#define V_FLASHRANGEINT(x) ((x) << S_FLASHRANGEINT)
-+#define F_FLASHRANGEINT    V_FLASHRANGEINT(1U)
-+
-+
-+#define S_SDRAMRANGEINT    1
-+#define V_SDRAMRANGEINT(x) ((x) << S_SDRAMRANGEINT)
-+#define F_SDRAMRANGEINT    V_SDRAMRANGEINT(1U)
-+
-+
-+#define S_RSVDSPACEINT    0
-+#define V_RSVDSPACEINT(x) ((x) << S_RSVDSPACEINT)
-+#define F_RSVDSPACEINT    V_RSVDSPACEINT(1U)
-+
-+
-+#define A_CIM_HOST_ACC_DATA 0x2b4
-+
-+
-+#define A_TP_IN_CONFIG 0x300
-+
-+
-+
-+#define S_NICMODE    14
-+#define V_NICMODE(x) ((x) << S_NICMODE)
-+#define F_NICMODE    V_NICMODE(1U)
-+
-+#define F_NICMODE    V_NICMODE(1U)
-+
-+
-+#define S_IPV6ENABLE    15
-+#define V_IPV6ENABLE(x) ((x) << S_IPV6ENABLE)
-+#define F_IPV6ENABLE    V_IPV6ENABLE(1U)
-+
-+
-+#define A_TP_OUT_CONFIG 0x304
-+
-+
-+#define S_VLANEXTRACTIONENABLE    12
-+
-+#define A_TP_GLOBAL_CONFIG 0x308
-+
-+
-+#define S_TXPACINGENABLE    24
-+#define V_TXPACINGENABLE(x) ((x) << S_TXPACINGENABLE)
-+#define F_TXPACINGENABLE    V_TXPACINGENABLE(1U)
-+
-+
-+#define S_PATHMTU    15
-+#define V_PATHMTU(x) ((x) << S_PATHMTU)
-+#define F_PATHMTU    V_PATHMTU(1U)
-+
-+
-+#define S_IPCHECKSUMOFFLOAD    13
-+#define V_IPCHECKSUMOFFLOAD(x) ((x) << S_IPCHECKSUMOFFLOAD)
-+#define F_IPCHECKSUMOFFLOAD    V_IPCHECKSUMOFFLOAD(1U)
-+
-+
-+#define S_UDPCHECKSUMOFFLOAD    12
-+#define V_UDPCHECKSUMOFFLOAD(x) ((x) << S_UDPCHECKSUMOFFLOAD)
-+#define F_UDPCHECKSUMOFFLOAD    V_UDPCHECKSUMOFFLOAD(1U)
-+
-+
-+#define S_TCPCHECKSUMOFFLOAD    11
-+#define V_TCPCHECKSUMOFFLOAD(x) ((x) << S_TCPCHECKSUMOFFLOAD)
-+#define F_TCPCHECKSUMOFFLOAD    V_TCPCHECKSUMOFFLOAD(1U)
-+
-+
-+#define S_IPTTL    0
-+#define M_IPTTL    0xff
-+#define V_IPTTL(x) ((x) << S_IPTTL)
-+
-+#define A_TP_CMM_MM_BASE 0x314
-+
-+
-+#define A_TP_CMM_TIMER_BASE 0x318
-+
-+
-+#define S_CMTIMERMAXNUM    28
-+#define M_CMTIMERMAXNUM    0x3
-+#define V_CMTIMERMAXNUM(x) ((x) << S_CMTIMERMAXNUM)
-+
-+#define A_TP_PMM_SIZE 0x31c
-+
-+
-+#define A_TP_PMM_TX_BASE 0x320
-+
-+
-+#define A_TP_PMM_RX_BASE 0x328
-+
-+
-+#define A_TP_PMM_RX_PAGE_SIZE 0x32c
-+
-+
-+#define A_TP_PMM_RX_MAX_PAGE 0x330
-+
-+
-+#define A_TP_PMM_TX_PAGE_SIZE 0x334
-+
-+
-+#define A_TP_PMM_TX_MAX_PAGE 0x338
-+
-+
-+#define A_TP_TCP_OPTIONS 0x340
-+
-+
-+#define S_MTUDEFAULT    16
-+#define M_MTUDEFAULT    0xffff
-+#define V_MTUDEFAULT(x) ((x) << S_MTUDEFAULT)
-+
-+#define S_MTUENABLE    10
-+#define V_MTUENABLE(x) ((x) << S_MTUENABLE)
-+#define F_MTUENABLE    V_MTUENABLE(1U)
-+
-+
-+
-+#define S_SACKRX    8
-+#define V_SACKRX(x) ((x) << S_SACKRX)
-+#define F_SACKRX    V_SACKRX(1U)
-+
-+#define S_SACKMODE    4
-+
-+#define M_SACKMODE    0x3
-+
-+#define V_SACKMODE(x) ((x) << S_SACKMODE)
-+
-+#define S_WINDOWSCALEMODE    2
-+#define M_WINDOWSCALEMODE    0x3
-+#define V_WINDOWSCALEMODE(x) ((x) << S_WINDOWSCALEMODE)
-+
-+#define S_TIMESTAMPSMODE    0
-+
-+#define M_TIMESTAMPSMODE    0x3
-+
-+#define V_TIMESTAMPSMODE(x) ((x) << S_TIMESTAMPSMODE)
-+
-+#define A_TP_DACK_CONFIG 0x344
-+
-+
-+#define S_AUTOSTATE3    30
-+#define M_AUTOSTATE3    0x3
-+#define V_AUTOSTATE3(x) ((x) << S_AUTOSTATE3)
-+
-+#define S_AUTOSTATE2    28
-+#define M_AUTOSTATE2    0x3
-+#define V_AUTOSTATE2(x) ((x) << S_AUTOSTATE2)
-+
-+#define S_AUTOSTATE1    26
-+#define M_AUTOSTATE1    0x3
-+#define V_AUTOSTATE1(x) ((x) << S_AUTOSTATE1)
-+
-+#define S_BYTETHRESHOLD    5
-+#define M_BYTETHRESHOLD    0xfffff
-+#define V_BYTETHRESHOLD(x) ((x) << S_BYTETHRESHOLD)
-+
-+#define S_MSSTHRESHOLD    3
-+#define M_MSSTHRESHOLD    0x3
-+#define V_MSSTHRESHOLD(x) ((x) << S_MSSTHRESHOLD)
-+
-+#define S_AUTOCAREFUL    2
-+#define V_AUTOCAREFUL(x) ((x) << S_AUTOCAREFUL)
-+#define F_AUTOCAREFUL    V_AUTOCAREFUL(1U)
-+
-+
-+#define S_AUTOENABLE    1
-+#define V_AUTOENABLE(x) ((x) << S_AUTOENABLE)
-+#define F_AUTOENABLE    V_AUTOENABLE(1U)
-+
-+
-+
-+#define S_DACK_MODE    0
-+#define V_DACK_MODE(x) ((x) << S_DACK_MODE)
-+#define F_DACK_MODE    V_DACK_MODE(1U)
-+
-+#define A_TP_PC_CONFIG 0x348
-+
-+
-+#define S_TXTOSQUEUEMAPMODE    26
-+#define V_TXTOSQUEUEMAPMODE(x) ((x) << S_TXTOSQUEUEMAPMODE)
-+#define F_TXTOSQUEUEMAPMODE    V_TXTOSQUEUEMAPMODE(1U)
-+
-+
-+#define S_TXDEFERENABLE    20
-+#define V_TXDEFERENABLE(x) ((x) << S_TXDEFERENABLE)
-+#define F_TXDEFERENABLE    V_TXDEFERENABLE(1U)
-+
-+
-+#define S_RXCONGESTIONMODE    19
-+#define V_RXCONGESTIONMODE(x) ((x) << S_RXCONGESTIONMODE)
-+#define F_RXCONGESTIONMODE    V_RXCONGESTIONMODE(1U)
-+
-+
-+#define S_HEARBEATDACK    16
-+#define V_HEARBEATDACK(x) ((x) << S_HEARBEATDACK)
-+#define F_HEARBEATDACK    V_HEARBEATDACK(1U)
-+
-+
-+#define S_TXCONGESTIONMODE    15
-+#define V_TXCONGESTIONMODE(x) ((x) << S_TXCONGESTIONMODE)
-+#define F_TXCONGESTIONMODE    V_TXCONGESTIONMODE(1U)
-+
-+
-+#define S_LOCKTID    28
-+#define V_LOCKTID(x) ((x) << S_LOCKTID)
-+#define F_LOCKTID    V_LOCKTID(1U)
-+
-+
-+#define A_TP_TCP_BACKOFF_REG0 0x350
-+
-+
-+#define A_TP_TCP_BACKOFF_REG1 0x354
-+
-+
-+#define A_TP_TCP_BACKOFF_REG2 0x358
-+
-+
-+#define A_TP_TCP_BACKOFF_REG3 0x35c
-+
-+
-+#define A_TP_PARA_REG2 0x368
-+
-+
-+#define S_MAXRXDATA    16
-+#define M_MAXRXDATA    0xffff
-+#define V_MAXRXDATA(x) ((x) << S_MAXRXDATA)
-+
-+#define S_RXCOALESCESIZE    0
-+#define M_RXCOALESCESIZE    0xffff
-+#define V_RXCOALESCESIZE(x) ((x) << S_RXCOALESCESIZE)
-+
-+#define A_TP_PARA_REG3 0x36c
-+
-+
-+#define S_TXDATAACKIDX    16
-+#define M_TXDATAACKIDX    0xf
-+
-+#define V_TXDATAACKIDX(x) ((x) << S_TXDATAACKIDX)
-+
-+#define S_TXPACEAUTOSTRICT    10
-+#define V_TXPACEAUTOSTRICT(x) ((x) << S_TXPACEAUTOSTRICT)
-+#define F_TXPACEAUTOSTRICT    V_TXPACEAUTOSTRICT(1U)
-+
-+
-+#define S_TXPACEFIXED    9
-+#define V_TXPACEFIXED(x) ((x) << S_TXPACEFIXED)
-+#define F_TXPACEFIXED    V_TXPACEFIXED(1U)
-+
-+
-+#define S_TXPACEAUTO    8
-+#define V_TXPACEAUTO(x) ((x) << S_TXPACEAUTO)
-+#define F_TXPACEAUTO    V_TXPACEAUTO(1U)
-+
-+
-+#define S_RXCOALESCEENABLE    1
-+#define V_RXCOALESCEENABLE(x) ((x) << S_RXCOALESCEENABLE)
-+#define F_RXCOALESCEENABLE    V_RXCOALESCEENABLE(1U)
-+
-+
-+#define S_RXCOALESCEPSHEN    0
-+#define V_RXCOALESCEPSHEN(x) ((x) << S_RXCOALESCEPSHEN)
-+#define F_RXCOALESCEPSHEN    V_RXCOALESCEPSHEN(1U)
-+
-+
-+#define A_TP_PARA_REG4 0x370
-+
-+
-+#define A_TP_PARA_REG6 0x378
-+
-+
-+#define S_T3A_ENABLEESND    13
-+#define V_T3A_ENABLEESND(x) ((x) << S_T3A_ENABLEESND)
-+#define F_T3A_ENABLEESND    V_T3A_ENABLEESND(1U)
-+
-+
-+#define S_ENABLEESND    11
-+#define V_ENABLEESND(x) ((x) << S_ENABLEESND)
-+#define F_ENABLEESND    V_ENABLEESND(1U)
-+
-+
-+#define A_TP_PARA_REG7 0x37c
-+
-+
-+#define S_PMMAXXFERLEN1    16
-+#define M_PMMAXXFERLEN1    0xffff
-+#define V_PMMAXXFERLEN1(x) ((x) << S_PMMAXXFERLEN1)
-+
-+#define S_PMMAXXFERLEN0    0
-+#define M_PMMAXXFERLEN0    0xffff
-+#define V_PMMAXXFERLEN0(x) ((x) << S_PMMAXXFERLEN0)
-+
-+#define A_TP_TIMER_RESOLUTION 0x390
-+
-+
-+#define S_TIMERRESOLUTION    16
-+#define M_TIMERRESOLUTION    0xff
-+#define V_TIMERRESOLUTION(x) ((x) << S_TIMERRESOLUTION)
-+
-+#define S_TIMESTAMPRESOLUTION    8
-+#define M_TIMESTAMPRESOLUTION    0xff
-+#define V_TIMESTAMPRESOLUTION(x) ((x) << S_TIMESTAMPRESOLUTION)
-+
-+#define S_DELAYEDACKRESOLUTION    0
-+#define M_DELAYEDACKRESOLUTION    0xff
-+#define V_DELAYEDACKRESOLUTION(x) ((x) << S_DELAYEDACKRESOLUTION)
-+
-+#define A_TP_MSL 0x394
-+
-+
-+#define A_TP_RXT_MIN 0x398
-+
-+
-+#define A_TP_RXT_MAX 0x39c
-+
-+
-+#define A_TP_PERS_MIN 0x3a0
-+
-+
-+#define A_TP_PERS_MAX 0x3a4
-+
-+
-+#define A_TP_KEEP_IDLE 0x3a8
-+
-+
-+#define A_TP_KEEP_INTVL 0x3ac
-+
-+
-+#define A_TP_INIT_SRTT 0x3b0
-+
-+
-+#define A_TP_DACK_TIMER 0x3b4
-+
-+
-+#define A_TP_FINWAIT2_TIMER 0x3b8
-+
-+
-+#define A_TP_SHIFT_CNT 0x3c0
-+
-+
-+#define S_SYNSHIFTMAX    24
-+
-+#define M_SYNSHIFTMAX    0xff
-+
-+#define V_SYNSHIFTMAX(x) ((x) << S_SYNSHIFTMAX)
-+
-+#define S_RXTSHIFTMAXR1    20
-+
-+#define M_RXTSHIFTMAXR1    0xf
-+
-+#define V_RXTSHIFTMAXR1(x) ((x) << S_RXTSHIFTMAXR1)
-+
-+#define S_RXTSHIFTMAXR2    16
-+
-+#define M_RXTSHIFTMAXR2    0xf
-+
-+#define V_RXTSHIFTMAXR2(x) ((x) << S_RXTSHIFTMAXR2)
-+
-+#define S_PERSHIFTBACKOFFMAX    12
-+#define M_PERSHIFTBACKOFFMAX    0xf
-+#define V_PERSHIFTBACKOFFMAX(x) ((x) << S_PERSHIFTBACKOFFMAX)
-+
-+#define S_PERSHIFTMAX    8
-+#define M_PERSHIFTMAX    0xf
-+#define V_PERSHIFTMAX(x) ((x) << S_PERSHIFTMAX)
-+
-+#define S_KEEPALIVEMAX    0
-+
-+#define M_KEEPALIVEMAX    0xff
-+
-+#define V_KEEPALIVEMAX(x) ((x) << S_KEEPALIVEMAX)
-+
-+#define A_TP_MTU_PORT_TABLE 0x3d0
-+
-+
-+#define A_TP_CCTRL_TABLE 0x3dc
-+
-+
-+#define A_TP_MTU_TABLE 0x3e4
-+
-+
-+#define A_TP_RSS_MAP_TABLE 0x3e8
-+
-+
-+#define A_TP_RSS_LKP_TABLE 0x3ec
-+
-+
-+#define A_TP_RSS_CONFIG 0x3f0
-+
-+
-+#define S_TNL4TUPEN    29
-+#define V_TNL4TUPEN(x) ((x) << S_TNL4TUPEN)
-+#define F_TNL4TUPEN    V_TNL4TUPEN(1U)
-+
-+
-+#define S_TNL2TUPEN    28
-+#define V_TNL2TUPEN(x) ((x) << S_TNL2TUPEN)
-+#define F_TNL2TUPEN    V_TNL2TUPEN(1U)
-+
-+
-+#define S_TNLPRTEN    26
-+#define V_TNLPRTEN(x) ((x) << S_TNLPRTEN)
-+#define F_TNLPRTEN    V_TNLPRTEN(1U)
-+
-+
-+#define S_TNLMAPEN    25
-+#define V_TNLMAPEN(x) ((x) << S_TNLMAPEN)
-+#define F_TNLMAPEN    V_TNLMAPEN(1U)
-+
-+
-+#define S_TNLLKPEN    24
-+#define V_TNLLKPEN(x) ((x) << S_TNLLKPEN)
-+#define F_TNLLKPEN    V_TNLLKPEN(1U)
-+
-+
-+#define S_RRCPLCPUSIZE    4
-+#define M_RRCPLCPUSIZE    0x7
-+#define V_RRCPLCPUSIZE(x) ((x) << S_RRCPLCPUSIZE)
-+
-+#define S_RQFEEDBACKENABLE    3
-+#define V_RQFEEDBACKENABLE(x) ((x) << S_RQFEEDBACKENABLE)
-+#define F_RQFEEDBACKENABLE    V_RQFEEDBACKENABLE(1U)
-+
-+
-+#define S_DISABLE    0
-+
-+#define A_TP_TM_PIO_ADDR 0x418
-+
-+
-+#define A_TP_TM_PIO_DATA 0x41c
-+
-+
-+#define A_TP_TX_MOD_QUE_TABLE 0x420
-+
-+
-+#define A_TP_TX_RESOURCE_LIMIT 0x424
-+
-+
-+#define A_TP_TX_MOD_QUEUE_REQ_MAP 0x428
-+
-+
-+#define S_TX_MOD_QUEUE_REQ_MAP    0
-+#define M_TX_MOD_QUEUE_REQ_MAP    0xff
-+#define V_TX_MOD_QUEUE_REQ_MAP(x) ((x) << S_TX_MOD_QUEUE_REQ_MAP)
-+
-+#define A_TP_TX_MOD_QUEUE_WEIGHT1 0x42c
-+
-+
-+#define A_TP_TX_MOD_QUEUE_WEIGHT0 0x430
-+
-+
-+#define A_TP_MOD_CHANNEL_WEIGHT 0x434
-+
-+
-+#define A_TP_PIO_ADDR 0x440
-+
-+
-+#define A_TP_PIO_DATA 0x444
-+
-+
-+#define A_TP_RESET 0x44c
-+
-+
-+#define S_FLSTINITENABLE    1
-+#define V_FLSTINITENABLE(x) ((x) << S_FLSTINITENABLE)
-+#define F_FLSTINITENABLE    V_FLSTINITENABLE(1U)
-+
-+
-+#define S_TPRESET    0
-+#define V_TPRESET(x) ((x) << S_TPRESET)
-+#define F_TPRESET    V_TPRESET(1U)
-+
-+
-+#define A_TP_CMM_MM_RX_FLST_BASE 0x460
-+
-+
-+#define A_TP_CMM_MM_TX_FLST_BASE 0x464
-+
-+
-+#define A_TP_CMM_MM_PS_FLST_BASE 0x468
-+
-+
-+#define A_TP_MIB_INDEX 0x450
-+
-+
-+#define A_TP_MIB_RDATA 0x454
-+
-+
-+#define A_TP_CMM_MM_MAX_PSTRUCT 0x46c
-+
-+
-+#define A_TP_INT_ENABLE 0x470
-+
-+
-+#define A_TP_INT_CAUSE 0x474
-+
-+
-+#define A_TP_TX_MOD_Q1_Q0_RATE_LIMIT 0x8
-+
-+
-+#define A_TP_TX_DROP_CFG_CH0 0x12b
-+
-+
-+#define A_TP_TX_DROP_MODE 0x12f
-+
-+
-+#define A_TP_EGRESS_CONFIG 0x145
-+
-+
-+#define S_REWRITEFORCETOSIZE    0
-+#define V_REWRITEFORCETOSIZE(x) ((x) << S_REWRITEFORCETOSIZE)
-+#define F_REWRITEFORCETOSIZE    V_REWRITEFORCETOSIZE(1U)
-+
-+
-+#define A_TP_TX_TRC_KEY0 0x20
-+
-+
-+#define A_TP_RX_TRC_KEY0 0x120
-+
-+
-+#define A_ULPRX_CTL 0x500
-+
-+
-+#define S_ROUND_ROBIN    4
-+#define V_ROUND_ROBIN(x) ((x) << S_ROUND_ROBIN)
-+#define F_ROUND_ROBIN    V_ROUND_ROBIN(1U)
-+
-+
-+#define A_ULPRX_INT_ENABLE 0x504
-+
-+
-+#define S_PARERR    0
-+#define V_PARERR(x) ((x) << S_PARERR)
-+#define F_PARERR    V_PARERR(1U)
-+
-+
-+#define A_ULPRX_INT_CAUSE 0x508
-+
-+
-+#define A_ULPRX_ISCSI_LLIMIT 0x50c
-+
-+
-+#define A_ULPRX_ISCSI_ULIMIT 0x510
-+
-+
-+#define A_ULPRX_ISCSI_TAGMASK 0x514
-+
-+
-+#define A_ULPRX_TDDP_LLIMIT 0x51c
-+
-+
-+#define A_ULPRX_TDDP_ULIMIT 0x520
-+
-+
-+#define A_ULPRX_STAG_LLIMIT 0x52c
-+
-+
-+#define A_ULPRX_STAG_ULIMIT 0x530
-+
-+
-+#define A_ULPRX_RQ_LLIMIT 0x534
-+#define A_ULPRX_RQ_LLIMIT 0x534
-+
-+
-+#define A_ULPRX_RQ_ULIMIT 0x538
-+#define A_ULPRX_RQ_ULIMIT 0x538
-+
-+
-+#define A_ULPRX_PBL_LLIMIT 0x53c
-+
-+
-+#define A_ULPRX_PBL_ULIMIT 0x540
-+#define A_ULPRX_PBL_ULIMIT 0x540
-+
-+
-+#define A_ULPRX_TDDP_TAGMASK 0x524
-+
-+
-+#define A_ULPRX_RQ_LLIMIT 0x534
-+#define A_ULPRX_RQ_LLIMIT 0x534
-+
-+
-+#define A_ULPRX_RQ_ULIMIT 0x538
-+#define A_ULPRX_RQ_ULIMIT 0x538
-+
-+
-+#define A_ULPRX_PBL_ULIMIT 0x540
-+#define A_ULPRX_PBL_ULIMIT 0x540
-+
-+
-+#define A_ULPTX_CONFIG 0x580
-+
-+
-+#define S_CFG_RR_ARB    0
-+#define V_CFG_RR_ARB(x) ((x) << S_CFG_RR_ARB)
-+#define F_CFG_RR_ARB    V_CFG_RR_ARB(1U)
-+
-+
-+#define A_ULPTX_INT_ENABLE 0x584
-+
-+
-+#define S_PBL_BOUND_ERR_CH1    1
-+#define V_PBL_BOUND_ERR_CH1(x) ((x) << S_PBL_BOUND_ERR_CH1)
-+#define F_PBL_BOUND_ERR_CH1    V_PBL_BOUND_ERR_CH1(1U)
-+
-+
-+#define S_PBL_BOUND_ERR_CH0    0
-+#define V_PBL_BOUND_ERR_CH0(x) ((x) << S_PBL_BOUND_ERR_CH0)
-+#define F_PBL_BOUND_ERR_CH0    V_PBL_BOUND_ERR_CH0(1U)
-+
-+
-+#define A_ULPTX_INT_CAUSE 0x588
-+
-+
-+#define A_ULPTX_TPT_LLIMIT 0x58c
-+
-+
-+#define A_ULPTX_TPT_ULIMIT 0x590
-+
-+
-+#define A_ULPTX_PBL_LLIMIT 0x594
-+
-+
-+#define A_ULPTX_PBL_ULIMIT 0x598
-+
-+
-+#define A_ULPTX_DMA_WEIGHT 0x5ac
-+
-+
-+#define S_D1_WEIGHT    16
-+#define M_D1_WEIGHT    0xffff
-+#define V_D1_WEIGHT(x) ((x) << S_D1_WEIGHT)
-+
-+#define S_D0_WEIGHT    0
-+#define M_D0_WEIGHT    0xffff
-+#define V_D0_WEIGHT(x) ((x) << S_D0_WEIGHT)
-+
-+#define A_PM1_RX_CFG 0x5c0
-+
-+
-+#define A_PM1_RX_INT_ENABLE 0x5d8
-+
-+
-+#define S_ZERO_E_CMD_ERROR    18
-+#define V_ZERO_E_CMD_ERROR(x) ((x) << S_ZERO_E_CMD_ERROR)
-+#define F_ZERO_E_CMD_ERROR    V_ZERO_E_CMD_ERROR(1U)
-+
-+
-+#define S_IESPI0_FIFO2X_RX_FRAMING_ERROR    17
-+#define V_IESPI0_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_IESPI0_FIFO2X_RX_FRAMING_ERROR)
-+#define F_IESPI0_FIFO2X_RX_FRAMING_ERROR    V_IESPI0_FIFO2X_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_IESPI1_FIFO2X_RX_FRAMING_ERROR    16
-+#define V_IESPI1_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_IESPI1_FIFO2X_RX_FRAMING_ERROR)
-+#define F_IESPI1_FIFO2X_RX_FRAMING_ERROR    V_IESPI1_FIFO2X_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_IESPI0_RX_FRAMING_ERROR    15
-+#define V_IESPI0_RX_FRAMING_ERROR(x) ((x) << S_IESPI0_RX_FRAMING_ERROR)
-+#define F_IESPI0_RX_FRAMING_ERROR    V_IESPI0_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_IESPI1_RX_FRAMING_ERROR    14
-+#define V_IESPI1_RX_FRAMING_ERROR(x) ((x) << S_IESPI1_RX_FRAMING_ERROR)
-+#define F_IESPI1_RX_FRAMING_ERROR    V_IESPI1_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_IESPI0_TX_FRAMING_ERROR    13
-+#define V_IESPI0_TX_FRAMING_ERROR(x) ((x) << S_IESPI0_TX_FRAMING_ERROR)
-+#define F_IESPI0_TX_FRAMING_ERROR    V_IESPI0_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_IESPI1_TX_FRAMING_ERROR    12
-+#define V_IESPI1_TX_FRAMING_ERROR(x) ((x) << S_IESPI1_TX_FRAMING_ERROR)
-+#define F_IESPI1_TX_FRAMING_ERROR    V_IESPI1_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OCSPI0_RX_FRAMING_ERROR    11
-+#define V_OCSPI0_RX_FRAMING_ERROR(x) ((x) << S_OCSPI0_RX_FRAMING_ERROR)
-+#define F_OCSPI0_RX_FRAMING_ERROR    V_OCSPI0_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OCSPI1_RX_FRAMING_ERROR    10
-+#define V_OCSPI1_RX_FRAMING_ERROR(x) ((x) << S_OCSPI1_RX_FRAMING_ERROR)
-+#define F_OCSPI1_RX_FRAMING_ERROR    V_OCSPI1_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OCSPI0_TX_FRAMING_ERROR    9
-+#define V_OCSPI0_TX_FRAMING_ERROR(x) ((x) << S_OCSPI0_TX_FRAMING_ERROR)
-+#define F_OCSPI0_TX_FRAMING_ERROR    V_OCSPI0_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OCSPI1_TX_FRAMING_ERROR    8
-+#define V_OCSPI1_TX_FRAMING_ERROR(x) ((x) << S_OCSPI1_TX_FRAMING_ERROR)
-+#define F_OCSPI1_TX_FRAMING_ERROR    V_OCSPI1_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OCSPI0_OFIFO2X_TX_FRAMING_ERROR    7
-+#define V_OCSPI0_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OCSPI0_OFIFO2X_TX_FRAMING_ERROR)
-+#define F_OCSPI0_OFIFO2X_TX_FRAMING_ERROR    V_OCSPI0_OFIFO2X_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OCSPI1_OFIFO2X_TX_FRAMING_ERROR    6
-+#define V_OCSPI1_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OCSPI1_OFIFO2X_TX_FRAMING_ERROR)
-+#define F_OCSPI1_OFIFO2X_TX_FRAMING_ERROR    V_OCSPI1_OFIFO2X_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_IESPI_PAR_ERROR    3
-+#define M_IESPI_PAR_ERROR    0x7
-+
-+#define V_IESPI_PAR_ERROR(x) ((x) << S_IESPI_PAR_ERROR)
-+
-+#define S_OCSPI_PAR_ERROR    0
-+#define M_OCSPI_PAR_ERROR    0x7
-+
-+#define V_OCSPI_PAR_ERROR(x) ((x) << S_OCSPI_PAR_ERROR)
-+
-+#define A_PM1_RX_INT_CAUSE 0x5dc
-+
-+
-+#define A_PM1_TX_CFG 0x5e0
-+
-+
-+#define A_PM1_TX_INT_ENABLE 0x5f8
-+
-+
-+#define S_ZERO_C_CMD_ERROR    18
-+#define V_ZERO_C_CMD_ERROR(x) ((x) << S_ZERO_C_CMD_ERROR)
-+#define F_ZERO_C_CMD_ERROR    V_ZERO_C_CMD_ERROR(1U)
-+
-+
-+#define S_ICSPI0_FIFO2X_RX_FRAMING_ERROR    17
-+#define V_ICSPI0_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_ICSPI0_FIFO2X_RX_FRAMING_ERROR)
-+#define F_ICSPI0_FIFO2X_RX_FRAMING_ERROR    V_ICSPI0_FIFO2X_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_ICSPI1_FIFO2X_RX_FRAMING_ERROR    16
-+#define V_ICSPI1_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_ICSPI1_FIFO2X_RX_FRAMING_ERROR)
-+#define F_ICSPI1_FIFO2X_RX_FRAMING_ERROR    V_ICSPI1_FIFO2X_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_ICSPI0_RX_FRAMING_ERROR    15
-+#define V_ICSPI0_RX_FRAMING_ERROR(x) ((x) << S_ICSPI0_RX_FRAMING_ERROR)
-+#define F_ICSPI0_RX_FRAMING_ERROR    V_ICSPI0_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_ICSPI1_RX_FRAMING_ERROR    14
-+#define V_ICSPI1_RX_FRAMING_ERROR(x) ((x) << S_ICSPI1_RX_FRAMING_ERROR)
-+#define F_ICSPI1_RX_FRAMING_ERROR    V_ICSPI1_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_ICSPI0_TX_FRAMING_ERROR    13
-+#define V_ICSPI0_TX_FRAMING_ERROR(x) ((x) << S_ICSPI0_TX_FRAMING_ERROR)
-+#define F_ICSPI0_TX_FRAMING_ERROR    V_ICSPI0_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_ICSPI1_TX_FRAMING_ERROR    12
-+#define V_ICSPI1_TX_FRAMING_ERROR(x) ((x) << S_ICSPI1_TX_FRAMING_ERROR)
-+#define F_ICSPI1_TX_FRAMING_ERROR    V_ICSPI1_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OESPI0_RX_FRAMING_ERROR    11
-+#define V_OESPI0_RX_FRAMING_ERROR(x) ((x) << S_OESPI0_RX_FRAMING_ERROR)
-+#define F_OESPI0_RX_FRAMING_ERROR    V_OESPI0_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OESPI1_RX_FRAMING_ERROR    10
-+#define V_OESPI1_RX_FRAMING_ERROR(x) ((x) << S_OESPI1_RX_FRAMING_ERROR)
-+#define F_OESPI1_RX_FRAMING_ERROR    V_OESPI1_RX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OESPI0_TX_FRAMING_ERROR    9
-+#define V_OESPI0_TX_FRAMING_ERROR(x) ((x) << S_OESPI0_TX_FRAMING_ERROR)
-+#define F_OESPI0_TX_FRAMING_ERROR    V_OESPI0_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OESPI1_TX_FRAMING_ERROR    8
-+#define V_OESPI1_TX_FRAMING_ERROR(x) ((x) << S_OESPI1_TX_FRAMING_ERROR)
-+#define F_OESPI1_TX_FRAMING_ERROR    V_OESPI1_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OESPI0_OFIFO2X_TX_FRAMING_ERROR    7
-+#define V_OESPI0_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OESPI0_OFIFO2X_TX_FRAMING_ERROR)
-+#define F_OESPI0_OFIFO2X_TX_FRAMING_ERROR    V_OESPI0_OFIFO2X_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_OESPI1_OFIFO2X_TX_FRAMING_ERROR    6
-+#define V_OESPI1_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OESPI1_OFIFO2X_TX_FRAMING_ERROR)
-+#define F_OESPI1_OFIFO2X_TX_FRAMING_ERROR    V_OESPI1_OFIFO2X_TX_FRAMING_ERROR(1U)
-+
-+
-+#define S_ICSPI_PAR_ERROR    3
-+#define M_ICSPI_PAR_ERROR    0x7
-+
-+#define V_ICSPI_PAR_ERROR(x) ((x) << S_ICSPI_PAR_ERROR)
-+
-+#define S_OESPI_PAR_ERROR    0
-+#define M_OESPI_PAR_ERROR    0x7
-+
-+#define V_OESPI_PAR_ERROR(x) ((x) << S_OESPI_PAR_ERROR)
-+
-+#define A_PM1_TX_INT_CAUSE 0x5fc
-+
-+
-+#define A_MPS_CFG 0x600
-+
-+
-+#define S_TPRXPORTEN    4
-+#define V_TPRXPORTEN(x) ((x) << S_TPRXPORTEN)
-+#define F_TPRXPORTEN    V_TPRXPORTEN(1U)
-+
-+
-+#define S_TPTXPORT1EN    3
-+#define V_TPTXPORT1EN(x) ((x) << S_TPTXPORT1EN)
-+#define F_TPTXPORT1EN    V_TPTXPORT1EN(1U)
-+
-+
-+#define S_TPTXPORT0EN    2
-+#define V_TPTXPORT0EN(x) ((x) << S_TPTXPORT0EN)
-+#define F_TPTXPORT0EN    V_TPTXPORT0EN(1U)
-+
-+
-+#define S_PORT1ACTIVE    1
-+#define V_PORT1ACTIVE(x) ((x) << S_PORT1ACTIVE)
-+#define F_PORT1ACTIVE    V_PORT1ACTIVE(1U)
-+
-+
-+#define S_PORT0ACTIVE    0
-+#define V_PORT0ACTIVE(x) ((x) << S_PORT0ACTIVE)
-+#define F_PORT0ACTIVE    V_PORT0ACTIVE(1U)
-+
-+
-+#define S_ENFORCEPKT    11
-+#define V_ENFORCEPKT(x) ((x) << S_ENFORCEPKT)
-+#define F_ENFORCEPKT    V_ENFORCEPKT(1U)
-+
-+
-+#define A_MPS_INT_ENABLE 0x61c
-+
-+
-+#define S_MCAPARERRENB    6
-+#define M_MCAPARERRENB    0x7
-+
-+#define V_MCAPARERRENB(x) ((x) << S_MCAPARERRENB)
-+
-+#define S_RXTPPARERRENB    4
-+#define M_RXTPPARERRENB    0x3
-+
-+#define V_RXTPPARERRENB(x) ((x) << S_RXTPPARERRENB)
-+
-+#define S_TX1TPPARERRENB    2
-+#define M_TX1TPPARERRENB    0x3
-+
-+#define V_TX1TPPARERRENB(x) ((x) << S_TX1TPPARERRENB)
-+
-+#define S_TX0TPPARERRENB    0
-+#define M_TX0TPPARERRENB    0x3
-+
-+#define V_TX0TPPARERRENB(x) ((x) << S_TX0TPPARERRENB)
-+
-+#define A_MPS_INT_CAUSE 0x620
-+
-+
-+#define S_MCAPARERR    6
-+#define M_MCAPARERR    0x7
-+
-+#define V_MCAPARERR(x) ((x) << S_MCAPARERR)
-+
-+#define S_RXTPPARERR    4
-+#define M_RXTPPARERR    0x3
-+
-+#define V_RXTPPARERR(x) ((x) << S_RXTPPARERR)
-+
-+#define S_TX1TPPARERR    2
-+#define M_TX1TPPARERR    0x3
-+
-+#define V_TX1TPPARERR(x) ((x) << S_TX1TPPARERR)
-+
-+#define S_TX0TPPARERR    0
-+#define M_TX0TPPARERR    0x3
-+
-+#define V_TX0TPPARERR(x) ((x) << S_TX0TPPARERR)
-+
-+#define A_CPL_SWITCH_CNTRL 0x640
-+
-+
-+#define A_CPL_INTR_ENABLE 0x650
-+
-+
-+#define S_CIM_OVFL_ERROR    4
-+#define V_CIM_OVFL_ERROR(x) ((x) << S_CIM_OVFL_ERROR)
-+#define F_CIM_OVFL_ERROR    V_CIM_OVFL_ERROR(1U)
-+
-+
-+#define S_TP_FRAMING_ERROR    3
-+#define V_TP_FRAMING_ERROR(x) ((x) << S_TP_FRAMING_ERROR)
-+#define F_TP_FRAMING_ERROR    V_TP_FRAMING_ERROR(1U)
-+
-+
-+#define S_SGE_FRAMING_ERROR    2
-+#define V_SGE_FRAMING_ERROR(x) ((x) << S_SGE_FRAMING_ERROR)
-+#define F_SGE_FRAMING_ERROR    V_SGE_FRAMING_ERROR(1U)
-+
-+
-+#define S_CIM_FRAMING_ERROR    1
-+#define V_CIM_FRAMING_ERROR(x) ((x) << S_CIM_FRAMING_ERROR)
-+#define F_CIM_FRAMING_ERROR    V_CIM_FRAMING_ERROR(1U)
-+
-+
-+#define S_ZERO_SWITCH_ERROR    0
-+#define V_ZERO_SWITCH_ERROR(x) ((x) << S_ZERO_SWITCH_ERROR)
-+#define F_ZERO_SWITCH_ERROR    V_ZERO_SWITCH_ERROR(1U)
-+
-+
-+#define A_CPL_INTR_CAUSE 0x654
-+
-+
-+#define A_CPL_MAP_TBL_DATA 0x65c
-+
-+
-+#define A_SMB_GLOBAL_TIME_CFG 0x660
-+
-+
-+#define A_I2C_CFG 0x6a0
-+
-+
-+#define S_I2C_CLKDIV    0
-+#define M_I2C_CLKDIV    0xfff
-+#define V_I2C_CLKDIV(x) ((x) << S_I2C_CLKDIV)
-+
-+#define A_MI1_CFG 0x6b0
-+
-+
-+#define S_CLKDIV    5
-+#define M_CLKDIV    0xff
-+#define V_CLKDIV(x) ((x) << S_CLKDIV)
-+
-+#define S_ST    3
-+
-+#define M_ST    0x3
-+
-+#define V_ST(x) ((x) << S_ST)
-+
-+#define G_ST(x) (((x) >> S_ST) & M_ST)
-+
-+
-+#define S_PREEN    2
-+#define V_PREEN(x) ((x) << S_PREEN)
-+#define F_PREEN    V_PREEN(1U)
-+
-+
-+
-+#define S_MDIINV    1
-+#define V_MDIINV(x) ((x) << S_MDIINV)
-+#define F_MDIINV    V_MDIINV(1U)
-+
-+
-+#define S_MDIEN    0
-+#define V_MDIEN(x) ((x) << S_MDIEN)
-+#define F_MDIEN    V_MDIEN(1U)
-+
-+#define A_MI1_ADDR 0x6b4
-+
-+
-+#define S_PHYADDR    5
-+#define M_PHYADDR    0x1f
-+#define V_PHYADDR(x) ((x) << S_PHYADDR)
-+
-+#define S_REGADDR    0
-+#define M_REGADDR    0x1f
-+#define V_REGADDR(x) ((x) << S_REGADDR)
-+
-+#define A_MI1_DATA 0x6b8
-+
-+
-+#define A_MI1_OP 0x6bc
-+
-+
-+#define S_MDI_OP    0
-+#define M_MDI_OP    0x3
-+#define V_MDI_OP(x) ((x) << S_MDI_OP)
-+
-+#define A_SF_DATA 0x6d8
-+
-+
-+#define A_SF_OP 0x6dc
-+
-+
-+#define S_BYTECNT    1
-+#define M_BYTECNT    0x3
-+#define V_BYTECNT(x) ((x) << S_BYTECNT)
-+
-+#define A_PL_INT_ENABLE0 0x6e0
-+
-+
-+#define S_T3DBG    23
-+#define V_T3DBG(x) ((x) << S_T3DBG)
-+#define F_T3DBG    V_T3DBG(1U)
-+
-+
-+#define S_XGMAC0_1    20
-+#define V_XGMAC0_1(x) ((x) << S_XGMAC0_1)
-+#define F_XGMAC0_1    V_XGMAC0_1(1U)
-+
-+
-+#define S_XGMAC0_0    19
-+#define V_XGMAC0_0(x) ((x) << S_XGMAC0_0)
-+#define F_XGMAC0_0    V_XGMAC0_0(1U)
-+
-+
-+#define S_MC5A    18
-+#define V_MC5A(x) ((x) << S_MC5A)
-+#define F_MC5A    V_MC5A(1U)
-+
-+
-+#define S_CPL_SWITCH    12
-+#define V_CPL_SWITCH(x) ((x) << S_CPL_SWITCH)
-+#define F_CPL_SWITCH    V_CPL_SWITCH(1U)
-+
-+
-+#define S_MPS0    11
-+#define V_MPS0(x) ((x) << S_MPS0)
-+#define F_MPS0    V_MPS0(1U)
-+
-+
-+#define S_PM1_TX    10
-+#define V_PM1_TX(x) ((x) << S_PM1_TX)
-+#define F_PM1_TX    V_PM1_TX(1U)
-+
-+
-+#define S_PM1_RX    9
-+#define V_PM1_RX(x) ((x) << S_PM1_RX)
-+#define F_PM1_RX    V_PM1_RX(1U)
-+
-+
-+#define S_ULP2_TX    8
-+#define V_ULP2_TX(x) ((x) << S_ULP2_TX)
-+#define F_ULP2_TX    V_ULP2_TX(1U)
-+
-+
-+#define S_ULP2_RX    7
-+#define V_ULP2_RX(x) ((x) << S_ULP2_RX)
-+#define F_ULP2_RX    V_ULP2_RX(1U)
-+
-+
-+#define S_TP1    6
-+#define V_TP1(x) ((x) << S_TP1)
-+#define F_TP1    V_TP1(1U)
-+
-+
-+#define S_CIM    5
-+#define V_CIM(x) ((x) << S_CIM)
-+#define F_CIM    V_CIM(1U)
-+
-+
-+#define S_MC7_CM    4
-+#define V_MC7_CM(x) ((x) << S_MC7_CM)
-+#define F_MC7_CM    V_MC7_CM(1U)
-+
-+
-+#define S_MC7_PMTX    3
-+#define V_MC7_PMTX(x) ((x) << S_MC7_PMTX)
-+#define F_MC7_PMTX    V_MC7_PMTX(1U)
-+
-+
-+#define S_MC7_PMRX    2
-+#define V_MC7_PMRX(x) ((x) << S_MC7_PMRX)
-+#define F_MC7_PMRX    V_MC7_PMRX(1U)
-+
-+
-+#define S_PCIM0    1
-+#define V_PCIM0(x) ((x) << S_PCIM0)
-+#define F_PCIM0    V_PCIM0(1U)
-+
-+
-+#define S_SGE3    0
-+#define V_SGE3(x) ((x) << S_SGE3)
-+#define F_SGE3    V_SGE3(1U)
-+
-+
-+#define A_PL_INT_CAUSE0 0x6e4
-+
-+
-+#define A_PL_RST 0x6f0
-+
-+
-+#define S_CRSTWRM    1
-+#define V_CRSTWRM(x) ((x) << S_CRSTWRM)
-+#define F_CRSTWRM    V_CRSTWRM(1U)
-+
-+
-+#define A_PL_REV 0x6f4
-+
-+
-+#define A_PL_CLI 0x6f8
-+
-+
-+#define A_MC5_DB_CONFIG 0x704
-+
-+
-+#define S_TMTYPEHI    30
-+#define V_TMTYPEHI(x) ((x) << S_TMTYPEHI)
-+#define F_TMTYPEHI    V_TMTYPEHI(1U)
-+
-+
-+#define S_TMPARTSIZE    28
-+#define M_TMPARTSIZE    0x3
-+#define V_TMPARTSIZE(x) ((x) << S_TMPARTSIZE)
-+#define G_TMPARTSIZE(x) (((x) >> S_TMPARTSIZE) & M_TMPARTSIZE)
-+
-+
-+#define S_TMTYPE    26
-+#define M_TMTYPE    0x3
-+#define V_TMTYPE(x) ((x) << S_TMTYPE)
-+#define G_TMTYPE(x) (((x) >> S_TMTYPE) & M_TMTYPE)
-+
-+
-+
-+#define S_COMPEN    17
-+#define V_COMPEN(x) ((x) << S_COMPEN)
-+#define F_COMPEN    V_COMPEN(1U)
-+
-+
-+#define S_PRTYEN    6
-+#define V_PRTYEN(x) ((x) << S_PRTYEN)
-+#define F_PRTYEN    V_PRTYEN(1U)
-+
-+#define S_MBUSEN    5
-+#define V_MBUSEN(x) ((x) << S_MBUSEN)
-+#define F_MBUSEN    V_MBUSEN(1U)
-+
-+
-+#define S_DBGIEN    4
-+#define V_DBGIEN(x) ((x) << S_DBGIEN)
-+#define F_DBGIEN    V_DBGIEN(1U)
-+
-+
-+#define S_TMRDY    2
-+#define V_TMRDY(x) ((x) << S_TMRDY)
-+#define F_TMRDY    V_TMRDY(1U)
-+
-+
-+#define S_TMRST    1
-+#define V_TMRST(x) ((x) << S_TMRST)
-+#define F_TMRST    V_TMRST(1U)
-+
-+
-+
-+#define S_TMMODE    0
-+#define V_TMMODE(x) ((x) << S_TMMODE)
-+#define F_TMMODE    V_TMMODE(1U)
-+
-+#define F_TMMODE    V_TMMODE(1U)
-+
-+
-+#define A_MC5_DB_ROUTING_TABLE_INDEX 0x70c
-+
-+
-+#define A_MC5_DB_FILTER_TABLE 0x710
-+
-+
-+#define A_MC5_DB_SERVER_INDEX 0x714
-+
-+
-+#define A_MC5_DB_RSP_LATENCY 0x720
-+
-+
-+#define S_RDLAT    16
-+#define M_RDLAT    0x1f
-+#define V_RDLAT(x) ((x) << S_RDLAT)
-+
-+#define S_LRNLAT    8
-+#define M_LRNLAT    0x1f
-+#define V_LRNLAT(x) ((x) << S_LRNLAT)
-+
-+#define S_SRCHLAT    0
-+#define M_SRCHLAT    0x1f
-+#define V_SRCHLAT(x) ((x) << S_SRCHLAT)
-+
-+#define A_MC5_DB_PART_ID_INDEX 0x72c
-+
-+
-+#define A_MC5_DB_INT_ENABLE 0x740
-+
-+
-+#define S_DELACTEMPTY    18
-+#define V_DELACTEMPTY(x) ((x) << S_DELACTEMPTY)
-+#define F_DELACTEMPTY    V_DELACTEMPTY(1U)
-+
-+
-+#define S_DISPQPARERR    17
-+#define V_DISPQPARERR(x) ((x) << S_DISPQPARERR)
-+#define F_DISPQPARERR    V_DISPQPARERR(1U)
-+
-+
-+#define S_REQQPARERR    16
-+#define V_REQQPARERR(x) ((x) << S_REQQPARERR)
-+#define F_REQQPARERR    V_REQQPARERR(1U)
-+
-+
-+#define S_UNKNOWNCMD    15
-+#define V_UNKNOWNCMD(x) ((x) << S_UNKNOWNCMD)
-+#define F_UNKNOWNCMD    V_UNKNOWNCMD(1U)
-+
-+
-+#define S_NFASRCHFAIL    8
-+#define V_NFASRCHFAIL(x) ((x) << S_NFASRCHFAIL)
-+#define F_NFASRCHFAIL    V_NFASRCHFAIL(1U)
-+
-+
-+#define S_ACTRGNFULL    7
-+#define V_ACTRGNFULL(x) ((x) << S_ACTRGNFULL)
-+#define F_ACTRGNFULL    V_ACTRGNFULL(1U)
-+
-+
-+#define S_PARITYERR    6
-+#define V_PARITYERR(x) ((x) << S_PARITYERR)
-+#define F_PARITYERR    V_PARITYERR(1U)
-+
-+
-+#define A_MC5_DB_INT_CAUSE 0x744
-+
-+
-+#define A_MC5_DB_DBGI_CONFIG 0x774
-+
-+
-+#define A_MC5_DB_DBGI_REQ_CMD 0x778
-+
-+
-+#define A_MC5_DB_DBGI_REQ_ADDR0 0x77c
-+
-+
-+#define A_MC5_DB_DBGI_REQ_ADDR1 0x780
-+
-+
-+#define A_MC5_DB_DBGI_REQ_ADDR2 0x784
-+
-+
-+#define A_MC5_DB_DBGI_REQ_DATA0 0x788
-+
-+
-+#define A_MC5_DB_DBGI_REQ_DATA1 0x78c
-+
-+
-+#define A_MC5_DB_DBGI_REQ_DATA2 0x790
-+
-+
-+#define A_MC5_DB_DBGI_RSP_STATUS 0x7b0
-+
-+
-+#define S_DBGIRSPVALID    0
-+#define V_DBGIRSPVALID(x) ((x) << S_DBGIRSPVALID)
-+#define F_DBGIRSPVALID    V_DBGIRSPVALID(1U)
-+
-+
-+#define A_MC5_DB_DBGI_RSP_DATA0 0x7b4
-+
-+
-+#define A_MC5_DB_DBGI_RSP_DATA1 0x7b8
-+
-+
-+#define A_MC5_DB_DBGI_RSP_DATA2 0x7bc
-+
-+
-+#define A_MC5_DB_POPEN_DATA_WR_CMD 0x7cc
-+
-+
-+#define A_MC5_DB_POPEN_MASK_WR_CMD 0x7d0
-+
-+
-+#define A_MC5_DB_AOPEN_SRCH_CMD 0x7d4
-+
-+
-+#define A_MC5_DB_AOPEN_LRN_CMD 0x7d8
-+
-+
-+#define A_MC5_DB_SYN_SRCH_CMD 0x7dc
-+
-+
-+#define A_MC5_DB_SYN_LRN_CMD 0x7e0
-+
-+
-+#define A_MC5_DB_ACK_SRCH_CMD 0x7e4
-+
-+
-+#define A_MC5_DB_ACK_LRN_CMD 0x7e8
-+
-+
-+#define A_MC5_DB_ILOOKUP_CMD 0x7ec
-+
-+
-+#define A_MC5_DB_ELOOKUP_CMD 0x7f0
-+
-+
-+#define A_MC5_DB_DATA_WRITE_CMD 0x7f4
-+
-+
-+#define A_MC5_DB_DATA_READ_CMD 0x7f8
-+
-+
-+#define XGMAC0_0_BASE_ADDR 0x800
-+
-+
-+#define A_XGM_TX_CTRL 0x800
-+
-+
-+#define S_TXEN    0
-+#define V_TXEN(x) ((x) << S_TXEN)
-+#define F_TXEN    V_TXEN(1U)
-+
-+
-+#define A_XGM_TX_CFG 0x804
-+
-+
-+#define S_TXPAUSEEN    0
-+#define V_TXPAUSEEN(x) ((x) << S_TXPAUSEEN)
-+#define F_TXPAUSEEN    V_TXPAUSEEN(1U)
-+
-+
-+#define A_XGM_RX_CTRL 0x80c
-+
-+
-+#define S_RXEN    0
-+#define V_RXEN(x) ((x) << S_RXEN)
-+#define F_RXEN    V_RXEN(1U)
-+
-+
-+#define A_XGM_RX_CFG 0x810
-+
-+
-+#define S_DISPAUSEFRAMES    9
-+#define V_DISPAUSEFRAMES(x) ((x) << S_DISPAUSEFRAMES)
-+#define F_DISPAUSEFRAMES    V_DISPAUSEFRAMES(1U)
-+
-+
-+#define S_EN1536BFRAMES    8
-+#define V_EN1536BFRAMES(x) ((x) << S_EN1536BFRAMES)
-+#define F_EN1536BFRAMES    V_EN1536BFRAMES(1U)
-+
-+
-+#define S_ENJUMBO    7
-+#define V_ENJUMBO(x) ((x) << S_ENJUMBO)
-+#define F_ENJUMBO    V_ENJUMBO(1U)
-+
-+
-+#define S_RMFCS    6
-+#define V_RMFCS(x) ((x) << S_RMFCS)
-+#define F_RMFCS    V_RMFCS(1U)
-+
-+
-+#define S_ENHASHMCAST    2
-+#define V_ENHASHMCAST(x) ((x) << S_ENHASHMCAST)
-+#define F_ENHASHMCAST    V_ENHASHMCAST(1U)
-+
-+
-+#define S_COPYALLFRAMES    0
-+#define V_COPYALLFRAMES(x) ((x) << S_COPYALLFRAMES)
-+#define F_COPYALLFRAMES    V_COPYALLFRAMES(1U)
-+
-+
-+#define A_XGM_RX_HASH_LOW 0x814
-+
-+
-+#define A_XGM_RX_HASH_HIGH 0x818
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_1 0x81c
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_HIGH_1 0x820
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_2 0x824
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_3 0x82c
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_4 0x834
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_5 0x83c
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_6 0x844
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_7 0x84c
-+
-+
-+#define A_XGM_RX_EXACT_MATCH_LOW_8 0x854
-+
-+
-+#define A_XGM_STAT_CTRL 0x880
-+
-+
-+#define S_CLRSTATS    2
-+#define V_CLRSTATS(x) ((x) << S_CLRSTATS)
-+#define F_CLRSTATS    V_CLRSTATS(1U)
-+
-+
-+#define A_XGM_RXFIFO_CFG 0x884
-+
-+
-+#define S_RXFIFOPAUSEHWM    17
-+#define M_RXFIFOPAUSEHWM    0xfff
-+
-+#define V_RXFIFOPAUSEHWM(x) ((x) << S_RXFIFOPAUSEHWM)
-+
-+#define G_RXFIFOPAUSEHWM(x) (((x) >> S_RXFIFOPAUSEHWM) & M_RXFIFOPAUSEHWM)
-+
-+
-+#define S_RXFIFOPAUSELWM    5
-+#define M_RXFIFOPAUSELWM    0xfff
-+
-+#define V_RXFIFOPAUSELWM(x) ((x) << S_RXFIFOPAUSELWM)
-+
-+#define G_RXFIFOPAUSELWM(x) (((x) >> S_RXFIFOPAUSELWM) & M_RXFIFOPAUSELWM)
-+
-+
-+#define S_RXSTRFRWRD    1
-+#define V_RXSTRFRWRD(x) ((x) << S_RXSTRFRWRD)
-+#define F_RXSTRFRWRD    V_RXSTRFRWRD(1U)
-+
-+
-+#define S_DISERRFRAMES    0
-+#define V_DISERRFRAMES(x) ((x) << S_DISERRFRAMES)
-+#define F_DISERRFRAMES    V_DISERRFRAMES(1U)
-+
-+
-+#define A_XGM_TXFIFO_CFG 0x888
-+
-+
-+#define S_TXFIFOTHRESH    4
-+#define M_TXFIFOTHRESH    0x1ff
-+
-+#define V_TXFIFOTHRESH(x) ((x) << S_TXFIFOTHRESH)
-+
-+#define A_XGM_SERDES_CTRL 0x890
-+#define A_XGM_SERDES_CTRL0 0x8e0
-+
-+
-+#define S_SERDESRESET_    24
-+#define V_SERDESRESET_(x) ((x) << S_SERDESRESET_)
-+#define F_SERDESRESET_    V_SERDESRESET_(1U)
-+
-+
-+#define S_RXENABLE    4
-+#define V_RXENABLE(x) ((x) << S_RXENABLE)
-+#define F_RXENABLE    V_RXENABLE(1U)
-+
-+
-+#define S_TXENABLE    3
-+#define V_TXENABLE(x) ((x) << S_TXENABLE)
-+#define F_TXENABLE    V_TXENABLE(1U)
-+
-+
-+#define A_XGM_PAUSE_TIMER 0x890
-+
-+
-+#define A_XGM_RGMII_IMP 0x89c
-+
-+
-+#define S_XGM_IMPSETUPDATE    6
-+#define V_XGM_IMPSETUPDATE(x) ((x) << S_XGM_IMPSETUPDATE)
-+#define F_XGM_IMPSETUPDATE    V_XGM_IMPSETUPDATE(1U)
-+
-+
-+#define S_RGMIIIMPPD    3
-+#define M_RGMIIIMPPD    0x7
-+#define V_RGMIIIMPPD(x) ((x) << S_RGMIIIMPPD)
-+
-+#define S_RGMIIIMPPU    0
-+#define M_RGMIIIMPPU    0x7
-+#define V_RGMIIIMPPU(x) ((x) << S_RGMIIIMPPU)
-+
-+#define S_CALRESET    8
-+#define V_CALRESET(x) ((x) << S_CALRESET)
-+#define F_CALRESET    V_CALRESET(1U)
-+
-+
-+#define S_CALUPDATE    7
-+#define V_CALUPDATE(x) ((x) << S_CALUPDATE)
-+#define F_CALUPDATE    V_CALUPDATE(1U)
-+
-+
-+#define A_XGM_XAUI_IMP 0x8a0
-+
-+
-+#define S_CALBUSY    31
-+#define V_CALBUSY(x) ((x) << S_CALBUSY)
-+#define F_CALBUSY    V_CALBUSY(1U)
-+
-+
-+#define S_XGM_CALFAULT    29
-+#define V_XGM_CALFAULT(x) ((x) << S_XGM_CALFAULT)
-+#define F_XGM_CALFAULT    V_XGM_CALFAULT(1U)
-+
-+
-+#define S_CALIMP    24
-+#define M_CALIMP    0x1f
-+#define V_CALIMP(x) ((x) << S_CALIMP)
-+#define G_CALIMP(x) (((x) >> S_CALIMP) & M_CALIMP)
-+
-+
-+#define S_XAUIIMP    0
-+#define M_XAUIIMP    0x7
-+#define V_XAUIIMP(x) ((x) << S_XAUIIMP)
-+
-+#define A_XGM_RX_MAX_PKT_SIZE 0x8a8
-+#define A_XGM_RX_MAX_PKT_SIZE_ERR_CNT 0x9a4
-+
-+
-+#define A_XGM_RESET_CTRL 0x8ac
-+
-+
-+#define S_XG2G_RESET_    3
-+#define V_XG2G_RESET_(x) ((x) << S_XG2G_RESET_)
-+#define F_XG2G_RESET_    V_XG2G_RESET_(1U)
-+
-+
-+#define S_RGMII_RESET_    2
-+#define V_RGMII_RESET_(x) ((x) << S_RGMII_RESET_)
-+#define F_RGMII_RESET_    V_RGMII_RESET_(1U)
-+
-+
-+#define S_PCS_RESET_    1
-+#define V_PCS_RESET_(x) ((x) << S_PCS_RESET_)
-+#define F_PCS_RESET_    V_PCS_RESET_(1U)
-+
-+
-+#define S_MAC_RESET_    0
-+#define V_MAC_RESET_(x) ((x) << S_MAC_RESET_)
-+#define F_MAC_RESET_    V_MAC_RESET_(1U)
-+
-+
-+#define A_XGM_PORT_CFG 0x8b8
-+
-+
-+#define S_CLKDIVRESET_    3
-+#define V_CLKDIVRESET_(x) ((x) << S_CLKDIVRESET_)
-+#define F_CLKDIVRESET_    V_CLKDIVRESET_(1U)
-+
-+
-+#define S_PORTSPEED    1
-+#define M_PORTSPEED    0x3
-+
-+#define V_PORTSPEED(x) ((x) << S_PORTSPEED)
-+
-+#define S_ENRGMII    0
-+#define V_ENRGMII(x) ((x) << S_ENRGMII)
-+#define F_ENRGMII    V_ENRGMII(1U)
-+
-+
-+#define A_XGM_INT_ENABLE 0x8d4
-+
-+
-+#define S_TXFIFO_PRTY_ERR    17
-+#define M_TXFIFO_PRTY_ERR    0x7
-+
-+#define V_TXFIFO_PRTY_ERR(x) ((x) << S_TXFIFO_PRTY_ERR)
-+
-+#define S_RXFIFO_PRTY_ERR    14
-+#define M_RXFIFO_PRTY_ERR    0x7
-+
-+#define V_RXFIFO_PRTY_ERR(x) ((x) << S_RXFIFO_PRTY_ERR)
-+
-+#define S_TXFIFO_UNDERRUN    13
-+#define V_TXFIFO_UNDERRUN(x) ((x) << S_TXFIFO_UNDERRUN)
-+#define F_TXFIFO_UNDERRUN    V_TXFIFO_UNDERRUN(1U)
-+
-+
-+#define S_RXFIFO_OVERFLOW    12
-+#define V_RXFIFO_OVERFLOW(x) ((x) << S_RXFIFO_OVERFLOW)
-+#define F_RXFIFO_OVERFLOW    V_RXFIFO_OVERFLOW(1U)
-+
-+
-+#define S_SERDES_LOS    4
-+#define M_SERDES_LOS    0xf
-+
-+#define V_SERDES_LOS(x) ((x) << S_SERDES_LOS)
-+
-+#define S_XAUIPCSCTCERR    3
-+#define V_XAUIPCSCTCERR(x) ((x) << S_XAUIPCSCTCERR)
-+#define F_XAUIPCSCTCERR    V_XAUIPCSCTCERR(1U)
-+
-+
-+#define S_XAUIPCSALIGNCHANGE    2
-+#define V_XAUIPCSALIGNCHANGE(x) ((x) << S_XAUIPCSALIGNCHANGE)
-+#define F_XAUIPCSALIGNCHANGE    V_XAUIPCSALIGNCHANGE(1U)
-+
-+
-+#define A_XGM_INT_CAUSE 0x8d8
-+
-+
-+#define A_XGM_XAUI_ACT_CTRL 0x8dc
-+
-+
-+#define S_TXACTENABLE    1
-+#define V_TXACTENABLE(x) ((x) << S_TXACTENABLE)
-+#define F_TXACTENABLE    V_TXACTENABLE(1U)
-+
-+
-+#define A_XGM_SERDES_CTRL0 0x8e0
-+
-+
-+#define S_RESET3    23
-+#define V_RESET3(x) ((x) << S_RESET3)
-+#define F_RESET3    V_RESET3(1U)
-+
-+
-+#define S_RESET2    22
-+#define V_RESET2(x) ((x) << S_RESET2)
-+#define F_RESET2    V_RESET2(1U)
-+
-+
-+#define S_RESET1    21
-+#define V_RESET1(x) ((x) << S_RESET1)
-+#define F_RESET1    V_RESET1(1U)
-+
-+
-+#define S_RESET0    20
-+#define V_RESET0(x) ((x) << S_RESET0)
-+#define F_RESET0    V_RESET0(1U)
-+
-+
-+#define S_PWRDN3    19
-+#define V_PWRDN3(x) ((x) << S_PWRDN3)
-+#define F_PWRDN3    V_PWRDN3(1U)
-+
-+
-+#define S_PWRDN2    18
-+#define V_PWRDN2(x) ((x) << S_PWRDN2)
-+#define F_PWRDN2    V_PWRDN2(1U)
-+
-+
-+#define S_PWRDN1    17
-+#define V_PWRDN1(x) ((x) << S_PWRDN1)
-+#define F_PWRDN1    V_PWRDN1(1U)
-+
-+
-+#define S_PWRDN0    16
-+#define V_PWRDN0(x) ((x) << S_PWRDN0)
-+#define F_PWRDN0    V_PWRDN0(1U)
-+
-+
-+#define S_RESETPLL23    15
-+#define V_RESETPLL23(x) ((x) << S_RESETPLL23)
-+#define F_RESETPLL23    V_RESETPLL23(1U)
-+
-+
-+#define S_RESETPLL01    14
-+#define V_RESETPLL01(x) ((x) << S_RESETPLL01)
-+#define F_RESETPLL01    V_RESETPLL01(1U)
-+
-+
-+#define A_XGM_SERDES_STAT0 0x8f0
-+
-+
-+#define S_LOWSIG0    0
-+#define V_LOWSIG0(x) ((x) << S_LOWSIG0)
-+#define F_LOWSIG0    V_LOWSIG0(1U)
-+
-+
-+#define A_XGM_SERDES_STAT3 0x8fc
-+
-+
-+#define A_XGM_STAT_TX_BYTE_LOW 0x900
-+
-+
-+#define A_XGM_STAT_TX_BYTE_HIGH 0x904
-+
-+
-+#define A_XGM_STAT_TX_FRAME_LOW 0x908
-+
-+
-+#define A_XGM_STAT_TX_FRAME_HIGH 0x90c
-+
-+
-+#define A_XGM_STAT_TX_BCAST 0x910
-+
-+
-+#define A_XGM_STAT_TX_MCAST 0x914
-+
-+
-+#define A_XGM_STAT_TX_PAUSE 0x918
-+
-+
-+#define A_XGM_STAT_TX_64B_FRAMES 0x91c
-+
-+
-+#define A_XGM_STAT_TX_65_127B_FRAMES 0x920
-+
-+
-+#define A_XGM_STAT_TX_128_255B_FRAMES 0x924
-+
-+
-+#define A_XGM_STAT_TX_256_511B_FRAMES 0x928
-+
-+
-+#define A_XGM_STAT_TX_512_1023B_FRAMES 0x92c
-+
-+
-+#define A_XGM_STAT_TX_1024_1518B_FRAMES 0x930
-+
-+
-+#define A_XGM_STAT_TX_1519_MAXB_FRAMES 0x934
-+
-+
-+#define A_XGM_STAT_TX_ERR_FRAMES 0x938
-+
-+
-+#define A_XGM_STAT_RX_BYTES_LOW 0x93c
-+
-+
-+#define A_XGM_STAT_RX_BYTES_HIGH 0x940
-+
-+
-+#define A_XGM_STAT_RX_FRAMES_LOW 0x944
-+
-+
-+#define A_XGM_STAT_RX_FRAMES_HIGH 0x948
-+
-+
-+#define A_XGM_STAT_RX_BCAST_FRAMES 0x94c
-+
-+
-+#define A_XGM_STAT_RX_MCAST_FRAMES 0x950
-+
-+
-+#define A_XGM_STAT_RX_PAUSE_FRAMES 0x954
-+
-+
-+#define A_XGM_STAT_RX_64B_FRAMES 0x958
-+
-+
-+#define A_XGM_STAT_RX_65_127B_FRAMES 0x95c
-+
-+
-+#define A_XGM_STAT_RX_128_255B_FRAMES 0x960
-+
-+
-+#define A_XGM_STAT_RX_256_511B_FRAMES 0x964
-+
-+
-+#define A_XGM_STAT_RX_512_1023B_FRAMES 0x968
-+
-+
-+#define A_XGM_STAT_RX_1024_1518B_FRAMES 0x96c
-+
-+
-+#define A_XGM_STAT_RX_1519_MAXB_FRAMES 0x970
-+
-+
-+#define A_XGM_STAT_RX_SHORT_FRAMES 0x974
-+
-+
-+#define A_XGM_STAT_RX_OVERSIZE_FRAMES 0x978
-+
-+
-+#define A_XGM_STAT_RX_JABBER_FRAMES 0x97c
-+
-+
-+#define A_XGM_STAT_RX_CRC_ERR_FRAMES 0x980
-+
-+
-+#define A_XGM_STAT_RX_LENGTH_ERR_FRAMES 0x984
-+
-+
-+#define A_XGM_STAT_RX_SYM_CODE_ERR_FRAMES 0x988
-+
-+
-+#define A_XGM_SERDES_STATUS0 0x98c
-+
-+
-+#define A_XGM_SERDES_STATUS1 0x990
-+
-+
-+#define S_CMULOCK    31
-+#define V_CMULOCK(x) ((x) << S_CMULOCK)
-+#define F_CMULOCK    V_CMULOCK(1U)
-+
-+
-+#define A_XGM_RX_MAX_PKT_SIZE_ERR_CNT 0x9a4
-+
-+
-+#define A_XGM_RX_SPI4_SOP_EOP_CNT 0x9ac
-+
-+
-+#define XGMAC0_1_BASE_ADDR 0xa00
-+
-+
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -0,0 +1,3288 @@
++/*
++ * This file is part of the Chelsio T3 Ethernet driver.
++ *
++ * Copyright (C) 2003-2006 Chelsio Communications.  All rights reserved.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
++ * release for licensing terms and conditions.
++ */
++
++#include "common.h"
++#include "regs.h"
++#include "sge_defs.h"
++#include "firmware_exports.h"
++
++/**
++ *	t3_wait_op_done - wait until an operation is completed
++ *	@adapter: the adapter performing the operation
++ *	@reg: the register to check for completion
++ *	@mask: a single-bit field within @reg that indicates completion
++ *	@polarity: the value of the field when the operation is completed
++ *	@attempts: number of check iterations
++ *      @delay: delay in usecs between iterations
++ *
++ *	Wait until an operation is completed by checking a bit in a register
++ *	up to @attempts times.  Returns 0 if the operation completes and 1
++ *	otherwise.
++ */
++int t3_wait_op_done(adapter_t *adapter, int reg, u32 mask, int polarity,
++		    int attempts, int delay)
++{
++	while (1) {
++		u32 val = t3_read_reg(adapter, reg) & mask;
++
++		if (!!val == polarity)
++			return 0;
++		if (--attempts == 0)
++			return -EAGAIN;
++		if (delay)
++			udelay(delay);
++	}
++}
++
++/**
++ *	t3_write_regs - write a bunch of registers
++ *	@adapter: the adapter to program
++ *	@p: an array of register address/register value pairs
++ *	@n: the number of address/value pairs
++ *	@offset: register address offset
++ *
++ *	Takes an array of register address/register value pairs and writes each
++ *	value to the corresponding register.  Register addresses are adjusted
++ *	by the supplied offset.
++ */
++void t3_write_regs(adapter_t *adapter, const struct addr_val_pair *p, int n,
++		   unsigned int offset)
++{
++	while (n--) {
++		t3_write_reg(adapter, p->reg_addr + offset, p->val);
++		p++;
++	}
++}
++
++/**
++ *	t3_set_reg_field - set a register field to a value
++ *	@adapter: the adapter to program
++ *	@addr: the register address
++ *	@mask: specifies the portion of the register to modify
++ *	@val: the new value for the register field
++ *
++ *	Sets a register field specified by the supplied mask to the
++ *	given value.
++ */
++void t3_set_reg_field(adapter_t *adapter, unsigned int addr, u32 mask, u32 val)
++{
++	u32 v = t3_read_reg(adapter, addr) & ~mask;
++
++	t3_write_reg(adapter, addr, v | val);
++	(void) t3_read_reg(adapter, addr);      /* flush */
++}
++
++/**
++ *	t3_read_indirect - read indirectly addressed registers
++ *	@adap: the adapter
++ *	@addr_reg: register holding the indirect address
++ *	@data_reg: register holding the value of the indirect register
++ *	@vals: where the read register values are stored
++ *	@start_idx: index of first indirect register to read
++ *	@nregs: how many indirect registers to read
++ *
++ *	Reads registers that are accessed indirectly through an address/data
++ *	register pair.
++ */
++void t3_read_indirect(adapter_t *adap, unsigned int addr_reg,
++		      unsigned int data_reg, u32 *vals, unsigned int nregs,
++		      unsigned int start_idx)
++{
++	while (nregs--) {
++		t3_write_reg(adap, addr_reg, start_idx);
++		*vals++ = t3_read_reg(adap, data_reg);
++		start_idx++;
++	}
++}
++
++/**
++ *	t3_mc7_bd_read - read from MC7 through backdoor accesses
++ *	@mc7: identifies MC7 to read from
++ *	@start: index of first 64-bit word to read
++ *	@n: number of 64-bit words to read
++ *	@buf: where to store the read result
++ *
++ *	Read n 64-bit words from MC7 starting at word start, using backdoor
++ *	accesses.
++ */
++int t3_mc7_bd_read(struct mc7 *mc7, unsigned int start, unsigned int n,
++                   u64 *buf)
++{
++	static int shift[] = { 0, 0, 16, 24 };
++	static int step[]  = { 0, 32, 16, 8 };
++
++	unsigned int size64 = mc7->size / 8;  /* # of 64-bit words */
++	adapter_t *adap = mc7->adapter;
++
++	if (start >= size64 || start + n > size64)
++		return -EINVAL;
++
++	start *= (8 << mc7->width);
++	while (n--) {
++		int i;
++		u64 val64 = 0;
++
++		for (i = (1 << mc7->width) - 1; i >= 0; --i) {
++			int attempts = 10;
++			u32 val;
++
++			t3_write_reg(adap, mc7->offset + A_MC7_BD_ADDR,
++				       start);
++			t3_write_reg(adap, mc7->offset + A_MC7_BD_OP, 0);
++			val = t3_read_reg(adap, mc7->offset + A_MC7_BD_OP);
++			while ((val & F_BUSY) && attempts--)
++				val = t3_read_reg(adap,
++						  mc7->offset + A_MC7_BD_OP);
++			if (val & F_BUSY)
++				return -EIO;
++
++			val = t3_read_reg(adap, mc7->offset + A_MC7_BD_DATA1);
++			if (mc7->width == 0) {
++				val64 = t3_read_reg(adap,
++						mc7->offset + A_MC7_BD_DATA0);
++				val64 |= (u64)val << 32;
++			} else {
++				if (mc7->width > 1)
++					val >>= shift[mc7->width];
++				val64 |= (u64)val << (step[mc7->width] * i);
++			}
++			start += 8;
++		}
++		*buf++ = val64;
++	}
++	return 0;
++}
++
++/*
++ * Initialize MI1.
++ */
++static void mi1_init(adapter_t *adap, const struct adapter_info *ai)
++{
++        u32 clkdiv = adap->params.vpd.cclk / (2 * adap->params.vpd.mdc) - 1;
++        u32 val = F_PREEN | V_MDIINV(ai->mdiinv) | V_MDIEN(ai->mdien) |
++		  V_CLKDIV(clkdiv);
++
++	if (!(ai->caps & SUPPORTED_10000baseT_Full))
++		val |= V_ST(1);
++        t3_write_reg(adap, A_MI1_CFG, val);
++}
++
++#define MDIO_ATTEMPTS 10
++
++/*
++ * MI1 read/write operations for direct-addressed PHYs.
++ */
++static int mi1_read(adapter_t *adapter, int phy_addr, int mmd_addr,
++		    int reg_addr, unsigned int *valp)
++{
++	int ret;
++	u32 addr = V_REGADDR(reg_addr) | V_PHYADDR(phy_addr);
++
++	if (mmd_addr)
++		return -EINVAL;
++
++	MDIO_LOCK(adapter);
++	t3_write_reg(adapter, A_MI1_ADDR, addr);
++	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(2));
++	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	if (!ret)
++		*valp = t3_read_reg(adapter, A_MI1_DATA);
++	MDIO_UNLOCK(adapter);
++	return ret;
++}
++
++static int mi1_write(adapter_t *adapter, int phy_addr, int mmd_addr,
++		     int reg_addr, unsigned int val)
++{
++	int ret;
++	u32 addr = V_REGADDR(reg_addr) | V_PHYADDR(phy_addr);
++
++	if (mmd_addr)
++		return -EINVAL;
++
++	MDIO_LOCK(adapter);
++	t3_write_reg(adapter, A_MI1_ADDR, addr);
++	t3_write_reg(adapter, A_MI1_DATA, val);
++	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(1));
++	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	MDIO_UNLOCK(adapter);
++	return ret;
++}
++
++static struct mdio_ops mi1_mdio_ops = {
++	mi1_read,
++	mi1_write
++};
++
++/*
++ * MI1 read/write operations for indirect-addressed PHYs.
++ */
++static int mi1_ext_read(adapter_t *adapter, int phy_addr, int mmd_addr,
++			int reg_addr, unsigned int *valp)
++{
++	int ret;
++	u32 addr = V_REGADDR(mmd_addr) | V_PHYADDR(phy_addr);
++
++	MDIO_LOCK(adapter);
++	t3_write_reg(adapter, A_MI1_ADDR, addr);
++	t3_write_reg(adapter, A_MI1_DATA, reg_addr);
++	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(0));
++	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	if (!ret) {
++		t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(3));
++		ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0,
++				      MDIO_ATTEMPTS, 20);
++		if (!ret)
++			*valp = t3_read_reg(adapter, A_MI1_DATA);
++	}
++	MDIO_UNLOCK(adapter);
++	return ret;
++}
++
++static int mi1_ext_write(adapter_t *adapter, int phy_addr, int mmd_addr,
++			 int reg_addr, unsigned int val)
++{
++	int ret;
++	u32 addr = V_REGADDR(mmd_addr) | V_PHYADDR(phy_addr);
++
++	MDIO_LOCK(adapter);
++	t3_write_reg(adapter, A_MI1_ADDR, addr);
++	t3_write_reg(adapter, A_MI1_DATA, reg_addr);
++	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(0));
++	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 20);
++	if (!ret) {
++		t3_write_reg(adapter, A_MI1_DATA, val);
++		t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(1));
++		ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0,
++				      MDIO_ATTEMPTS, 20);
++	}
++	MDIO_UNLOCK(adapter);
++	return ret;
++}
++
++static struct mdio_ops mi1_mdio_ext_ops = {
++	mi1_ext_read,
++	mi1_ext_write
++};
++
++/**
++ *	t3_mdio_change_bits - modify the value of a PHY register
++ *	@phy: the PHY to operate on
++ *	@mmd: the device address
++ *	@reg: the register address
++ *	@clear: what part of the register value to mask off
++ *	@set: what part of the register value to set
++ *
++ *	Changes the value of a PHY register by applying a mask to its current
++ *	value and ORing the result with a new value.
++ */
++int t3_mdio_change_bits(struct cphy *phy, int mmd, int reg, unsigned int clear,
++			unsigned int set)
++{
++	int ret;
++	unsigned int val;
++
++	ret = mdio_read(phy, mmd, reg, &val);
++	if (!ret) {
++		val &= ~clear;
++		ret = mdio_write(phy, mmd, reg, val | set);
++	}
++	return ret;
++}
++
++/**
++ *	t3_phy_reset - reset a PHY block
++ *	@phy: the PHY to operate on
++ *	@mmd: the device address of the PHY block to reset
++ *	@wait: how long to wait for the reset to complete in 1ms increments
++ *
++ *	Resets a PHY block and optionally waits for the reset to complete.
++ *	@mmd should be 0 for 10/100/1000 PHYs and the device address to reset
++ *	for 10G PHYs.
++ */
++int t3_phy_reset(struct cphy *phy, int mmd, int wait)
++{
++	int err;
++	unsigned int ctl;
++
++	err = t3_mdio_change_bits(phy, mmd, MII_BMCR, BMCR_PDOWN, BMCR_RESET);
++	if (err || !wait)
++		return err;
++
++	do {
++		err = mdio_read(phy, mmd, MII_BMCR, &ctl);
++		if (err)
++			return err;
++		ctl &= BMCR_RESET;
++		if (ctl)
++			msleep(1);
++	} while (ctl && --wait);
++
++	return ctl ? -1 : 0;
++}
++
++/**
++ *	t3_phy_advertise - set the PHY advertisement registers for autoneg
++ *	@phy: the PHY to operate on
++ *	@advert: bitmap of capabilities the PHY should advertise
++ *
++ *	Sets a 10/100/1000 PHY's advertisement registers to advertise the
++ *	requested capabilities.
++ */
++int t3_phy_advertise(struct cphy *phy, unsigned int advert)
++{
++	int err;
++	unsigned int val = 0;
++
++	err = mdio_read(phy, 0, MII_CTRL1000, &val);
++	if (err)
++		return err;
++
++	val &= ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
++	if (advert & ADVERTISED_1000baseT_Half)
++		val |= ADVERTISE_1000HALF;
++	if (advert & ADVERTISED_1000baseT_Full)
++		val |= ADVERTISE_1000FULL;
++
++	err = mdio_write(phy, 0, MII_CTRL1000, val);
++	if (err)
++		return err;
++
++	val = 1;
++	if (advert & ADVERTISED_10baseT_Half)
++		val |= ADVERTISE_10HALF;
++	if (advert & ADVERTISED_10baseT_Full)
++		val |= ADVERTISE_10FULL;
++	if (advert & ADVERTISED_100baseT_Half)
++		val |= ADVERTISE_100HALF;
++	if (advert & ADVERTISED_100baseT_Full)
++		val |= ADVERTISE_100FULL;
++	if (advert & ADVERTISED_Pause)
++		val |= ADVERTISE_PAUSE_CAP;
++	if (advert & ADVERTISED_Asym_Pause)
++		val |= ADVERTISE_PAUSE_ASYM;
++	return mdio_write(phy, 0, MII_ADVERTISE, val);
++}
++
++/**
++ *	t3_set_phy_speed_duplex - force PHY speed and duplex
++ *	@phy: the PHY to operate on
++ *	@speed: requested PHY speed
++ *	@duplex: requested PHY duplex
++ *
++ *	Force a 10/100/1000 PHY's speed and duplex.  This also disables
++ *	auto-negotiation except for GigE, where auto-negotiation is mandatory.
++ */
++int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
++{
++	int err;
++	unsigned int ctl;
++
++	err = mdio_read(phy, 0, MII_BMCR, &ctl);
++	if (err)
++		return err;
++
++	if (speed >= 0) {
++		ctl &= ~(BMCR_SPEED100 | BMCR_SPEED1000 | BMCR_ANENABLE);
++		if (speed == SPEED_100)
++			ctl |= BMCR_SPEED100;
++		else if (speed == SPEED_1000)
++			ctl |= BMCR_SPEED1000;
++	}
++	if (duplex >= 0) {
++		ctl &= ~(BMCR_FULLDPLX | BMCR_ANENABLE);
++		if (duplex == DUPLEX_FULL)
++			ctl |= BMCR_FULLDPLX;
++	}
++	if (ctl & BMCR_SPEED1000)  /* auto-negotiation required for GigE */
++		ctl |= BMCR_ANENABLE;
++	return mdio_write(phy, 0, MII_BMCR, ctl);
++}
++
++static struct adapter_info t3_adap_info[] = {
++	{ 2, 0, 0, 0,
++	  F_GPIO2_OEN | F_GPIO4_OEN |
++	  F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, F_GPIO3 | F_GPIO5,
++	  SUPPORTED_OFFLOAD,
++	  &mi1_mdio_ops, "Chelsio PE9000" },
++	{ 2, 0, 0, 0,
++	  F_GPIO2_OEN | F_GPIO4_OEN |
++	  F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, F_GPIO3 | F_GPIO5,
++	  SUPPORTED_OFFLOAD,
++	  &mi1_mdio_ops, "Chelsio T302" },
++	{ 1, 0, 0, 0,
++	  F_GPIO1_OEN | F_GPIO6_OEN | F_GPIO7_OEN |
++	  F_GPIO1_OUT_VAL | F_GPIO6_OUT_VAL, 0,
++	  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_OFFLOAD,
++	  &mi1_mdio_ext_ops, "Chelsio T310" },
++	{ 2, 0, 0, 0,
++	  F_GPIO1_OEN | F_GPIO2_OEN | F_GPIO4_OEN | F_GPIO5_OEN | F_GPIO6_OEN |
++	  F_GPIO7_OEN | F_GPIO10_OEN | F_GPIO11_OEN | F_GPIO1_OUT_VAL |
++	  F_GPIO5_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL, 0,
++	  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_OFFLOAD,
++	  &mi1_mdio_ext_ops, "Chelsio T320" },
++};
++
++/*
++ * Return the adapter_info structure with a given index.  Out-of-range indices
++ * return NULL.
++ */
++const struct adapter_info *t3_get_adapter_info(unsigned int id)
++{
++	return id < ARRAY_SIZE(t3_adap_info) ? &t3_adap_info[id] : NULL;
++}
++
++#define CAPS_1G (SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Full | \
++		 SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg | SUPPORTED_MII)
++#define CAPS_10G (SUPPORTED_10000baseT_Full | SUPPORTED_AUI)
++
++static struct port_type_info port_types[] = {
++	{ NULL },
++	{ t3_ael1002_phy_prep, CAPS_10G | SUPPORTED_FIBRE,
++	  "10GBASE-XR" },
++	{ t3_vsc8211_phy_prep, CAPS_1G | SUPPORTED_TP | SUPPORTED_IRQ,
++	  "10/100/1000BASE-T" },
++	{ NULL, CAPS_1G | SUPPORTED_TP | SUPPORTED_IRQ,
++	  "10/100/1000BASE-T" },
++	{ t3_xaui_direct_phy_prep, CAPS_10G | SUPPORTED_TP, "10GBASE-CX4" },
++	{ NULL, CAPS_10G, "10GBASE-KX4" },
++	{ t3_qt2045_phy_prep, CAPS_10G | SUPPORTED_TP, "10GBASE-CX4" },
++	{ t3_ael1006_phy_prep, CAPS_10G | SUPPORTED_FIBRE,
++	  "10GBASE-SR" },
++	{ NULL, CAPS_10G | SUPPORTED_TP, "10GBASE-CX4" },
++};
++
++#undef CAPS_1G
++#undef CAPS_10G
++
++#define VPD_ENTRY(name, len) \
++	u8 name##_kword[2]; u8 name##_len; u8 name##_data[len]
++
++/*
++ * Partial EEPROM Vital Product Data structure.  Includes only the ID and
++ * VPD-R sections.
++ */
++struct t3_vpd {
++	u8  id_tag;
++	u8  id_len[2];
++	u8  id_data[16];
++	u8  vpdr_tag;
++	u8  vpdr_len[2];
++	VPD_ENTRY(pn, 16);                     /* part number */
++	VPD_ENTRY(ec, 16);                     /* EC level */
++	VPD_ENTRY(sn, 16);                     /* serial number */
++	VPD_ENTRY(na, 12);                     /* MAC address base */
++	VPD_ENTRY(cclk, 6);                    /* core clock */
++	VPD_ENTRY(mclk, 6);                    /* mem clock */
++	VPD_ENTRY(uclk, 6);                    /* uP clk */
++	VPD_ENTRY(mdc, 6);                     /* MDIO clk */
++	VPD_ENTRY(mt, 2);                      /* mem timing */
++	VPD_ENTRY(xaui0cfg, 6);                /* XAUI0 config */
++	VPD_ENTRY(xaui1cfg, 6);                /* XAUI1 config */
++	VPD_ENTRY(port0, 2);                   /* PHY0 complex */
++	VPD_ENTRY(port1, 2);                   /* PHY1 complex */
++	VPD_ENTRY(port2, 2);                   /* PHY2 complex */
++	VPD_ENTRY(port3, 2);                   /* PHY3 complex */
++	VPD_ENTRY(rv, 1);                      /* csum */
++	u32 pad;                  /* for multiple-of-4 sizing and alignment */
++};
++
++#define EEPROM_MAX_POLL   4
++#define EEPROM_STAT_ADDR  0x4000
++#define VPD_BASE          0xc00
++
++/**
++ *	t3_seeprom_read - read a VPD EEPROM location
++ *	@adapter: adapter to read
++ *	@addr: EEPROM address
++ *	@data: where to store the read data
++ *
++ *	Read a 32-bit word from a location in VPD EEPROM using the card's PCI
++ *	VPD ROM capability.  A zero is written to the flag bit when the
++ *	addres is written to the control register.  The hardware device will
++ *	set the flag to 1 when 4 bytes have been read into the data register.
++ */
++int t3_seeprom_read(adapter_t *adapter, u32 addr, u32 *data)
++{
++	u16 val;
++	int attempts = EEPROM_MAX_POLL;
++	unsigned int base = adapter->params.pci.vpd_cap_addr;
++
++	if ((addr >= EEPROMSIZE && addr != EEPROM_STAT_ADDR) || (addr & 3))
++		return -EINVAL;
++
++	t3_os_pci_write_config_2(adapter, base + PCI_VPD_ADDR, (u16)addr);
++	do {
++		udelay(10);
++		t3_os_pci_read_config_2(adapter, base + PCI_VPD_ADDR, &val);
++	} while (!(val & PCI_VPD_ADDR_F) && --attempts);
++
++	if (!(val & PCI_VPD_ADDR_F)) {
++		CH_ERR("%s: reading EEPROM address 0x%x failed\n",
++		       adapter_name(adapter), addr);
++		return -EIO;
++	}
++	t3_os_pci_read_config_4(adapter, base + PCI_VPD_DATA, data);
++	*data = le32_to_cpu(*data);
++	return 0;
++}
++
++/**
++ *	t3_seeprom_write - write a VPD EEPROM location
++ *	@adapter: adapter to write
++ *	@addr: EEPROM address
++ *	@data: value to write
++ *
++ *	Write a 32-bit word to a location in VPD EEPROM using the card's PCI
++ *	VPD ROM capability.
++ */
++int t3_seeprom_write(adapter_t *adapter, u32 addr, u32 data)
++{
++	u16 val;
++	int attempts = EEPROM_MAX_POLL;
++	unsigned int base = adapter->params.pci.vpd_cap_addr;
++
++	if ((addr >= EEPROMSIZE && addr != EEPROM_STAT_ADDR) || (addr & 3))
++		return -EINVAL;
++
++	t3_os_pci_write_config_4(adapter, base + PCI_VPD_DATA,
++				 cpu_to_le32(data));
++	t3_os_pci_write_config_2(adapter, base + PCI_VPD_ADDR,
++				 (u16)addr | PCI_VPD_ADDR_F);
++	do {
++		msleep(1);
++		t3_os_pci_read_config_2(adapter, base + PCI_VPD_ADDR, &val);
++	} while ((val & PCI_VPD_ADDR_F) && --attempts);
++
++	if (val & PCI_VPD_ADDR_F) {
++		CH_ERR("%s: write to EEPROM address 0x%x failed\n",
++		       adapter_name(adapter), addr);
++		return -EIO;
++	}
++	return 0;
++}
++
++/**
++ *	t3_seeprom_wp - enable/disable EEPROM write protection
++ *	@adapter: the adapter
++ *	@enable: 1 to enable write protection, 0 to disable it
++ *
++ *	Enables or disables write protection on the serial EEPROM.
++ */
++int t3_seeprom_wp(adapter_t *adapter, int enable)
++{
++	return t3_seeprom_write(adapter, EEPROM_STAT_ADDR, enable ? 0xc : 0);
++}
++
++/*
++ * Convert a character holding a hex digit to a number.
++ */
++static unsigned int hex2int(unsigned char c)
++{
++	return isdigit(c) ? c - '0' : toupper(c) - 'A' + 10;
++}
++
++/**
++ *	get_vpd_params - read VPD parameters from VPD EEPROM
++ *	@adapter: adapter to read
++ *	@p: where to store the parameters
++ *
++ *	Reads card parameters stored in VPD EEPROM.
++ */
++static int get_vpd_params(adapter_t *adapter, struct vpd_params *p)
++{
++	int i, addr, ret;
++	struct t3_vpd vpd;
++
++	/*
++	 * Card information is normally at VPD_BASE but some early cards had
++	 * it at 0.
++	 */
++	ret = t3_seeprom_read(adapter, VPD_BASE, (u32 *)&vpd);
++	if (ret)
++		return ret;
++	addr = vpd.id_tag == 0x82 ? VPD_BASE : 0;
++
++	for (i = 0; i < sizeof(vpd); i += 4) {
++		ret = t3_seeprom_read(adapter, addr + i,
++				      (u32 *)((u8 *)&vpd + i));
++		if (ret)
++			return ret;
++	}
++
++	p->cclk = simple_strtoul(vpd.cclk_data, NULL, 10);
++	p->mclk = simple_strtoul(vpd.mclk_data, NULL, 10);
++	p->uclk = simple_strtoul(vpd.uclk_data, NULL, 10);
++	p->mdc = simple_strtoul(vpd.mdc_data, NULL, 10);
++	p->mem_timing = simple_strtoul(vpd.mt_data, NULL, 10);
++
++	/* Old eeproms didn't have port information */
++	if (adapter->params.rev == 0 && !vpd.port0_data[0]) {
++		p->port_type[0] = uses_xaui(adapter) ? 1 : 2;
++		p->port_type[1] = uses_xaui(adapter) ? 6 : 2;
++	} else {
++		p->port_type[0] = (u8)hex2int(vpd.port0_data[0]);
++		p->port_type[1] = (u8)hex2int(vpd.port1_data[0]);
++		p->xauicfg[0] = simple_strtoul(vpd.xaui0cfg_data, NULL, 16);
++		p->xauicfg[1] = simple_strtoul(vpd.xaui1cfg_data, NULL, 16);
++	}
++
++	for (i = 0; i < 6; i++)
++		p->eth_base[i] = hex2int(vpd.na_data[2 * i]) * 16 +
++				 hex2int(vpd.na_data[2 * i + 1]);
++	return 0;
++}
++
++/* serial flash and firmware constants */
++enum {
++	SF_ATTEMPTS = 5,           /* max retries for SF1 operations */
++	SF_SEC_SIZE = 64 * 1024,   /* serial flash sector size */
++	SF_SIZE = SF_SEC_SIZE * 8, /* serial flash size */
++
++	/* flash command opcodes */
++	SF_PROG_PAGE    = 2,       /* program page */
++	SF_WR_DISABLE   = 4,       /* disable writes */
++	SF_RD_STATUS    = 5,       /* read status register */
++	SF_WR_ENABLE    = 6,       /* enable writes */
++	SF_RD_DATA_FAST = 0xb,     /* read flash */
++	SF_ERASE_SECTOR = 0xd8,    /* erase sector */
++
++	FW_FLASH_BOOT_ADDR = 0x70000, /* start address of FW in flash */
++	FW_VERS_ADDR = 0x77ffc     /* flash address holding FW version */
++};
++
++/**
++ *	sf1_read - read data from the serial flash
++ *	@adapter: the adapter
++ *	@byte_cnt: number of bytes to read
++ *	@cont: whether another operation will be chained
++ *	@valp: where to store the read data
++ *
++ *	Reads up to 4 bytes of data from the serial flash.  The location of
++ *	the read needs to be specified prior to calling this by issuing the
++ *	appropriate commands to the serial flash.
++ */
++static int sf1_read(adapter_t *adapter, unsigned int byte_cnt, int cont,
++		    u32 *valp)
++{
++	int ret;
++
++	if (!byte_cnt || byte_cnt > 4)
++		return -EINVAL;
++	if (t3_read_reg(adapter, A_SF_OP) & F_BUSY)
++		return -EBUSY;
++	t3_write_reg(adapter, A_SF_OP, V_CONT(cont) | V_BYTECNT(byte_cnt - 1));
++	ret = t3_wait_op_done(adapter, A_SF_OP, F_BUSY, 0, SF_ATTEMPTS, 10);
++	if (!ret)
++		*valp = t3_read_reg(adapter, A_SF_DATA);
++	return ret;
++}
++
++/**
++ *	sf1_write - write data to the serial flash
++ *	@adapter: the adapter
++ *	@byte_cnt: number of bytes to write
++ *	@cont: whether another operation will be chained
++ *	@val: value to write
++ *
++ *	Writes up to 4 bytes of data to the serial flash.  The location of
++ *	the write needs to be specified prior to calling this by issuing the
++ *	appropriate commands to the serial flash.
++ */
++static int sf1_write(adapter_t *adapter, unsigned int byte_cnt, int cont,
++		     u32 val)
++{
++	if (!byte_cnt || byte_cnt > 4)
++		return -EINVAL;
++	if (t3_read_reg(adapter, A_SF_OP) & F_BUSY)
++		return -EBUSY;
++	t3_write_reg(adapter, A_SF_DATA, val);
++	t3_write_reg(adapter, A_SF_OP,
++		     V_CONT(cont) | V_BYTECNT(byte_cnt - 1) | V_OP(1));
++	return t3_wait_op_done(adapter, A_SF_OP, F_BUSY, 0, SF_ATTEMPTS, 10);
++}
++
++/**
++ *	flash_wait_op - wait for a flash operation to complete
++ *	@adapter: the adapter
++ *	@attempts: max number of polls of the status register
++ *	@delay: delay between polls in ms
++ *
++ *	Wait for a flash operation to complete by polling the status register.
++ */
++static int flash_wait_op(adapter_t *adapter, int attempts, int delay)
++{
++	int ret;
++	u32 status;
++
++	while (1) {
++		if ((ret = sf1_write(adapter, 1, 1, SF_RD_STATUS)) != 0 ||
++		    (ret = sf1_read(adapter, 1, 0, &status)) != 0)
++			return ret;
++		if (!(status & 1))
++			return 0;
++		if (--attempts == 0)
++			return -EAGAIN;
++		if (delay)
++			msleep(delay);
++	}
++}
++
++/**
++ *	t3_read_flash - read words from serial flash
++ *	@adapter: the adapter
++ *	@addr: the start address for the read
++ *	@nwords: how many 32-bit words to read
++ *	@data: where to store the read data
++ *	@byte_oriented: whether to store data as bytes or as words
++ *
++ *	Read the specified number of 32-bit words from the serial flash.
++ *	If @byte_oriented is set the read data is stored as a byte array
++ *	(i.e., big-endian), otherwise as 32-bit words in the platform's
++ *	natural endianess.
++ */
++int t3_read_flash(adapter_t *adapter, unsigned int addr, unsigned int nwords,
++		  u32 *data, int byte_oriented)
++{
++	int ret;
++
++	if (addr + nwords * sizeof(u32) > SF_SIZE || (addr & 3))
++		return -EINVAL;
++
++	addr = swab32(addr) | SF_RD_DATA_FAST;
++
++	if ((ret = sf1_write(adapter, 4, 1, addr)) != 0 ||
++	    (ret = sf1_read(adapter, 1, 1, data)) != 0)
++		return ret;
++
++	for ( ; nwords; nwords--, data++) {
++		ret = sf1_read(adapter, 4, nwords > 1, data);
++		if (ret)
++			return ret;
++		if (byte_oriented)
++			*data = htonl(*data);
++	}
++	return 0;
++}
++
++/**
++ *	t3_write_flash - write up to a page of data to the serial flash
++ *	@adapter: the adapter
++ *	@addr: the start address to write
++ *	@n: length of data to write
++ *	@data: the data to write
++ *
++ *	Writes up to a page of data (256 bytes) to the serial flash starting
++ *	at the given address.
++ */
++static int t3_write_flash(adapter_t *adapter, unsigned int addr,
++			  unsigned int n, const u8 *data)
++{
++	int ret;
++	u32 buf[64];
++	unsigned int i, c, left, val, offset = addr & 0xff;
++
++	if (addr + n > SF_SIZE || offset + n > 256)
++		return -EINVAL;
++
++	val = swab32(addr) | SF_PROG_PAGE;
++
++	if ((ret = sf1_write(adapter, 1, 0, SF_WR_ENABLE)) != 0 ||
++	    (ret = sf1_write(adapter, 4, 1, val)) != 0)
++		return ret;
++
++	for (left = n; left; left -= c) {
++		c = min(left, 4U);
++		for (val = 0, i = 0; i < c; ++i)
++			val = (val << 8) + *data++;
++
++		ret = sf1_write(adapter, c, c != left, val);
++		if (ret)
++			return ret;
++	}
++	if ((ret = flash_wait_op(adapter, 5, 1)) != 0)
++		return ret;
++
++	/* Read the page to verify the write succeeded */
++	ret = t3_read_flash(adapter, addr & ~0xff, ARRAY_SIZE(buf), buf, 1);
++	if (ret)
++		return ret;
++
++	if (memcmp(data - n, (u8 *)buf + offset, n))
++		return -EIO;
++	return 0;
++}
++
++/**
++ *	t3_get_fw_version - read the firmware version
++ *	@adapter: the adapter
++ *	@vers: where to place the version
++ *
++ *	Reads the FW version from flash.
++ */
++int t3_get_fw_version(adapter_t *adapter, u32 *vers)
++{
++	return t3_read_flash(adapter, FW_VERS_ADDR, 1, vers, 0);
++}
++
++/**
++ *	t3_check_fw_version - check if the FW is compatible with this driver
++ *	@adapter: the adapter
++ *
++ *	Checks if an adapter's FW is compatible with the driver.  Returns 0
++ *	if the versions are compatible, a negative error otherwise.
++ */
++int t3_check_fw_version(adapter_t *adapter)
++{
++	int ret;
++	u32 vers;
++
++	ret = t3_get_fw_version(adapter, &vers);
++	if (ret)
++		return ret;
++
++	/* Minor 0xfff means the FW is an internal development-only version. */
++	if ((vers & 0xfff) == 0xfff)
++		return 0;
++
++	if (vers == 0x1002009)
++		return 0;
++
++	return -EINVAL;
++}
++
++/**
++ *	t3_flash_erase_sectors - erase a range of flash sectors
++ *	@adapter: the adapter
++ *	@start: the first sector to erase
++ *	@end: the last sector to erase
++ *
++ *	Erases the sectors in the given range.
++ */
++static int t3_flash_erase_sectors(adapter_t *adapter, int start, int end)
++{
++	while (start <= end) {
++		int ret;
++
++		if ((ret = sf1_write(adapter, 1, 0, SF_WR_ENABLE)) != 0 ||
++		    (ret = sf1_write(adapter, 4, 0,
++				     SF_ERASE_SECTOR | (start << 8))) != 0 ||
++		    (ret = flash_wait_op(adapter, 5, 500)) != 0)
++			return ret;
++		start++;
++	}
++	return 0;
++}
++
++/*
++ *	t3_load_fw - download firmware
++ *	@adapter: the adapter
++ *	@fw_data: the firrware image to write
++ *	@size: image size
++ *
++ *	Write the supplied firmware image to the card's serial flash.
++ *	The FW image has the following sections: @size - 8 bytes of code and
++ *	data, followed by 4 bytes of FW version, followed by the 32-bit
++ *	1's complement checksum of the whole image.
++ */
++int t3_load_fw(adapter_t *adapter, const u8 *fw_data, unsigned int size)
++{
++	u32 csum;
++	unsigned int i;
++	const u32 *p = (const u32 *)fw_data;
++	int ret, addr, fw_sector = FW_FLASH_BOOT_ADDR >> 16;
++
++	if (size & 3)
++		return -EINVAL;
++	if (size > FW_VERS_ADDR + 8 - FW_FLASH_BOOT_ADDR)
++		return -EFBIG;
++
++	for (csum = 0, i = 0; i < size / sizeof(csum); i++)
++		csum += ntohl(p[i]);
++	if (csum != 0xffffffff) {
++		CH_ERR("%s: corrupted firmware image, checksum %u\n",
++		       adapter_name(adapter), csum);
++		return -EINVAL;
++	}
++
++	ret = t3_flash_erase_sectors(adapter, fw_sector, fw_sector);
++	if (ret)
++		goto out;
++
++	size -= 8;  /* trim off version and checksum */
++	for (addr = FW_FLASH_BOOT_ADDR; size; ) {
++		unsigned int chunk_size = min(size, 256U);
++
++		ret = t3_write_flash(adapter, addr, chunk_size, fw_data);
++		if (ret)
++			goto out;
++
++		addr += chunk_size;
++		fw_data += chunk_size;
++		size -= chunk_size;
++	}
++
++	ret = t3_write_flash(adapter, FW_VERS_ADDR, 4, fw_data);
++out:
++	if (ret)
++		CH_ERR("%s: firmware download failed, error %d\n",
++		       adapter_name(adapter), ret);
++	return ret;
++}
++
++/**
++ *	t3_link_changed - handle interface link changes
++ *	@adapter: the adapter
++ *	@port_id: the port index that changed link state
++ *
++ *	Called when a port's link settings change to propagate the new values
++ *	to the associated PHY and MAC.  After performing the common tasks it
++ *	invokes an OS-specific handler.
++ */
++void t3_link_changed(adapter_t *adapter, int port_id)
++{
++	int link_ok, speed, duplex, fc;
++	struct cphy *phy = &adapter->port[port_id].phy;
++	struct link_config *lc = &adapter->port[port_id].link_config;
++
++	phy->ops->get_link_status(phy, &link_ok, &speed, &duplex, &fc);
++
++	lc->link_ok = (unsigned char)link_ok;
++	lc->speed = speed < 0 ? SPEED_INVALID : speed;
++	lc->duplex = duplex < 0 ? DUPLEX_INVALID : duplex;
++	if (lc->requested_fc & PAUSE_AUTONEG)
++		fc &= lc->requested_fc;
++	else
++		fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
++
++	if (link_ok && speed >= 0 && lc->autoneg == AUTONEG_ENABLE) {
++		/* Set MAC speed, duplex, and flow control to match PHY. */
++		t3_mac_set_speed_duplex_fc(&adapter->port[port_id].mac, speed,
++					   duplex, fc);
++		lc->fc = (unsigned char)fc;
++	}
++
++	t3_os_link_changed(adapter, port_id, link_ok, speed, duplex, fc);
++}
++
++/**
++ *	t3_link_start - apply link configuration to MAC/PHY
++ *	@phy: the PHY to setup
++ *	@mac: the MAC to setup
++ *	@lc: the requested link configuration
++ *
++ *	Set up a port's MAC and PHY according to a desired link configuration.
++ *	- If the PHY can auto-negotiate first decide what to advertise, then
++ *	  enable/disable auto-negotiation as desired, and reset.
++ *	- If the PHY does not auto-negotiate just reset it.
++ *	- If auto-negotiation is off set the MAC to the proper speed/duplex/FC,
++ *	  otherwise do it later based on the outcome of auto-negotiation.
++ */
++int t3_link_start(struct cphy *phy, struct cmac *mac, struct link_config *lc)
++{
++	unsigned int fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
++
++	if (lc->supported & SUPPORTED_Autoneg) {
++		lc->advertising &= ~(ADVERTISED_Asym_Pause | ADVERTISED_Pause);
++		if (fc) {
++			lc->advertising |= ADVERTISED_Asym_Pause;
++			if (fc & PAUSE_RX)
++				lc->advertising |= ADVERTISED_Pause;
++		}
++		phy->ops->advertise(phy, lc->advertising);
++
++		if (lc->autoneg == AUTONEG_DISABLE) {
++			lc->speed = lc->requested_speed;
++			lc->duplex = lc->requested_duplex;
++			lc->fc = (unsigned char)fc;
++			t3_mac_set_speed_duplex_fc(mac, lc->speed, lc->duplex,
++						   fc);
++			/* Also disables autoneg */
++			phy->ops->set_speed_duplex(phy, lc->speed, lc->duplex);
++			phy->ops->reset(phy, 0);
++		} else
++			phy->ops->autoneg_enable(phy);
++	} else {
++		t3_mac_set_speed_duplex_fc(mac, -1, -1, fc);
++		lc->fc = (unsigned char)fc;
++		phy->ops->reset(phy, 0);
++	}
++	return 0;
++}
++
++/**
++ *	t3_set_vlan_accel - control HW VLAN extraction
++ *	@adapter: the adapter
++ *	@ports: bitmap of adapter ports to operate on
++ *	@on: enable (1) or disable (0) HW VLAN extraction
++ *
++ *	Enables or disables HW extraction of VLAN tags for the given port.
++ */
++void t3_set_vlan_accel(adapter_t *adapter, unsigned int ports, int on)
++{
++	t3_set_reg_field(adapter, A_TP_OUT_CONFIG,
++			 ports << S_VLANEXTRACTIONENABLE,
++			 on ? (ports << S_VLANEXTRACTIONENABLE) : 0);
++}
++
++struct intr_info {
++	unsigned int mask;       /* bits to check in interrupt status */
++	const char *msg;         /* message to print or NULL */
++	short stat_idx;          /* stat counter to increment or -1 */
++	unsigned short fatal:1;  /* whether the condition reported is fatal */
++};
++
++/**
++ *	t3_handle_intr_status - table driven interrupt handler
++ *	@adapter: the adapter that generated the interrupt
++ *	@reg: the interrupt status register to process
++ *	@mask: a mask to apply to the interrupt status
++ *	@acts: table of interrupt actions
++ *	@stats: statistics counters tracking interrupt occurences
++ *
++ *	A table driven interrupt handler that applies a set of masks to an
++ *	interrupt status word and performs the corresponding actions if the
++ *	interrupts described by the mask have occured.  The actions include
++ *	optionally printing a warning or alert message, and optionally
++ *	incrementing a stat counter.  The table is terminated by an entry
++ *	specifying mask 0.  Returns the number of fatal interrupt conditions.
++ */
++static int t3_handle_intr_status(adapter_t *adapter, unsigned int reg,
++				 unsigned int mask,
++				 const struct intr_info *acts,
++				 unsigned long *stats)
++{
++	int fatal = 0;
++	unsigned int status = t3_read_reg(adapter, reg) & mask;
++
++	for ( ; acts->mask; ++acts) {
++		if (!(status & acts->mask)) continue;
++		if (acts->fatal) {
++			fatal++;
++			CH_ALERT("%s: %s (0x%x)\n", adapter_name(adapter),
++				 acts->msg, status & acts->mask);
++		} else if (acts->msg)
++			CH_WARN("%s: %s (0x%x)\n", adapter_name(adapter),
++				acts->msg, status & acts->mask);
++		if (acts->stat_idx >= 0)
++			stats[acts->stat_idx]++;
++	}
++	if (status)                           /* clear processed interrupts */
++		t3_write_reg(adapter, reg, status);
++	return fatal;
++}
++
++#define SGE_INTR_MASK (F_RSPQDISABLED)
++#define MC5_INTR_MASK (F_PARITYERR | F_ACTRGNFULL | F_UNKNOWNCMD | \
++		       F_REQQPARERR | F_DISPQPARERR | F_DELACTEMPTY | \
++		       F_NFASRCHFAIL)
++#define MC7_INTR_MASK (F_AE | F_UE | F_CE | V_PE(M_PE))
++#define XGM_INTR_MASK (V_TXFIFO_PRTY_ERR(M_TXFIFO_PRTY_ERR) | \
++		       V_RXFIFO_PRTY_ERR(M_RXFIFO_PRTY_ERR) | \
++		       F_TXFIFO_UNDERRUN | F_RXFIFO_OVERFLOW)
++#define PCIX_INTR_MASK (F_MSTDETPARERR | F_SIGTARABT | F_RCVTARABT | \
++			F_RCVMSTABT | F_SIGSYSERR | F_DETPARERR | \
++			F_SPLCMPDIS | F_UNXSPLCMP | F_RCVSPLCMPERR | \
++			F_DETCORECCERR | F_DETUNCECCERR | F_PIOPARERR | \
++			V_WFPARERR(M_WFPARERR) | V_RFPARERR(M_RFPARERR) | \
++			V_CFPARERR(M_CFPARERR) /* | V_MSIXPARERR(M_MSIXPARERR) */)
++#define PCIE_INTR_MASK (F_UNXSPLCPLERRR | F_UNXSPLCPLERRC | F_PCIE_PIOPARERR |\
++			F_PCIE_WFPARERR | F_PCIE_RFPARERR | F_PCIE_CFPARERR | \
++			/* V_PCIE_MSIXPARERR(M_PCIE_MSIXPARERR) | */ \
++			V_BISTERR(M_BISTERR))
++#define ULPRX_INTR_MASK F_PARERR
++#define ULPTX_INTR_MASK 0
++#define CPLSW_INTR_MASK (F_TP_FRAMING_ERROR | \
++			 F_SGE_FRAMING_ERROR | F_CIM_FRAMING_ERROR | \
++			 F_ZERO_SWITCH_ERROR)
++#define CIM_INTR_MASK (F_BLKWRPLINT | F_BLKRDPLINT | F_BLKWRCTLINT | \
++		       F_BLKRDCTLINT | F_BLKWRFLASHINT | F_BLKRDFLASHINT | \
++		       F_SGLWRFLASHINT | F_WRBLKFLASHINT | F_BLKWRBOOTINT | \
++	 	       F_FLASHRANGEINT | F_SDRAMRANGEINT | F_RSVDSPACEINT)
++#define PMTX_INTR_MASK (F_ZERO_C_CMD_ERROR | ICSPI_FRM_ERR | OESPI_FRM_ERR | \
++			V_ICSPI_PAR_ERROR(M_ICSPI_PAR_ERROR) | \
++			V_OESPI_PAR_ERROR(M_OESPI_PAR_ERROR))
++#define PMRX_INTR_MASK (F_ZERO_E_CMD_ERROR | IESPI_FRM_ERR | OCSPI_FRM_ERR | \
++			V_IESPI_PAR_ERROR(M_IESPI_PAR_ERROR) | \
++			V_OCSPI_PAR_ERROR(M_OCSPI_PAR_ERROR))
++#define MPS_INTR_MASK (V_TX0TPPARERRENB(M_TX0TPPARERRENB) | \
++		       V_TX1TPPARERRENB(M_TX1TPPARERRENB) | \
++		       V_RXTPPARERRENB(M_RXTPPARERRENB) | \
++		       V_MCAPARERRENB(M_MCAPARERRENB))
++#define PL_INTR_MASK (F_T3DBG | F_XGMAC0_0 | F_XGMAC0_1 | F_MC5A | F_PM1_TX | \
++		      F_PM1_RX | F_ULP2_TX | F_ULP2_RX | F_TP1 | F_CIM | \
++		      F_MC7_CM | F_MC7_PMTX | F_MC7_PMRX | F_SGE3 | F_PCIM0 | \
++		      F_MPS0 | F_CPL_SWITCH)
++
++/*
++ * Interrupt handler for the PCIX1 module.
++ */
++static void pci_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info pcix1_intr_info[] = {
++		{ F_MSTDETPARERR, "PCI master detected parity error", -1, 1 },
++		{ F_SIGTARABT, "PCI signaled target abort", -1, 1 },
++		{ F_RCVTARABT, "PCI received target abort", -1, 1 },
++		{ F_RCVMSTABT, "PCI received master abort", -1, 1 },
++		{ F_SIGSYSERR, "PCI signaled system error", -1, 1 },
++		{ F_DETPARERR, "PCI detected parity error", -1, 1 },
++		{ F_SPLCMPDIS, "PCI split completion discarded", -1, 1 },
++		{ F_UNXSPLCMP, "PCI unexpected split completion error", -1, 1 },
++		{ F_RCVSPLCMPERR, "PCI received split completion error", -1,
++		  1 },
++		{ F_DETCORECCERR, "PCI correctable ECC error",
++		  STAT_PCI_CORR_ECC, 0 },
++		{ F_DETUNCECCERR, "PCI uncorrectable ECC error", -1, 1 },
++		{ F_PIOPARERR, "PCI PIO FIFO parity error", -1, 1 },
++		{ V_WFPARERR(M_WFPARERR), "PCI write FIFO parity error", -1,
++		  1 },
++		{ V_RFPARERR(M_RFPARERR), "PCI read FIFO parity error", -1,
++		  1 },
++		{ V_CFPARERR(M_CFPARERR), "PCI command FIFO parity error", -1,
++		  1 },
++		{ V_MSIXPARERR(M_MSIXPARERR), "PCI MSI-X table/PBA parity "
++		  "error", -1, 1 },
++		{ 0 }
++	};
++
++	if (t3_handle_intr_status(adapter, A_PCIX_INT_CAUSE, PCIX_INTR_MASK,
++				  pcix1_intr_info, adapter->irq_stats))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * Interrupt handler for the PCIE module.
++ */
++static void pcie_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info pcie_intr_info[] = {
++		{ F_UNXSPLCPLERRR,
++		  "PCI unexpected split completion DMA read error", -1, 1 },
++		{ F_UNXSPLCPLERRC,
++		  "PCI unexpected split completion DMA command error", -1, 1 },
++		{ F_PCIE_PIOPARERR, "PCI PIO FIFO parity error", -1, 1 },
++		{ F_PCIE_WFPARERR, "PCI write FIFO parity error", -1, 1 },
++		{ F_PCIE_RFPARERR, "PCI read FIFO parity error", -1, 1 },
++		{ F_PCIE_CFPARERR, "PCI command FIFO parity error", -1, 1 },
++		{ V_PCIE_MSIXPARERR(M_PCIE_MSIXPARERR),
++		  "PCI MSI-X table/PBA parity error", -1, 1 },
++		{ V_BISTERR(M_BISTERR), "PCI BIST error", -1, 1 },
++		{ 0 }
++	};
++
++	if (t3_handle_intr_status(adapter, A_PCIE_INT_CAUSE, PCIE_INTR_MASK,
++				  pcie_intr_info, adapter->irq_stats))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * TP interrupt handler.
++ */
++static void tp_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info tp_intr_info[] = {
++		{ 0xffffff,  "TP parity error", -1, 1 },
++		{ 0x1000000, "TP out of Rx pages", -1, 1 },
++		{ 0x2000000, "TP out of Tx pages", -1, 1 },
++		{ 0 }
++	};
++
++	if (t3_handle_intr_status(adapter, A_TP_INT_CAUSE, 0xffffffff,
++				  tp_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * CIM interrupt handler.
++ */
++static void cim_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info cim_intr_info[] = {
++		{ F_RSVDSPACEINT, "CIM reserved space write", -1, 1 },
++		{ F_SDRAMRANGEINT, "CIM SDRAM address out of range", -1, 1 },
++		{ F_FLASHRANGEINT, "CIM flash address out of range", -1, 1 },
++		{ F_BLKWRBOOTINT, "CIM block write to boot space", -1, 1 },
++		{ F_WRBLKFLASHINT, "CIM write to cached flash space", -1, 1 },
++		{ F_SGLWRFLASHINT, "CIM single write to flash space", -1, 1 },
++		{ F_BLKRDFLASHINT, "CIM block read from flash space", -1, 1 },
++		{ F_BLKWRFLASHINT, "CIM block write to flash space", -1, 1 },
++		{ F_BLKRDCTLINT, "CIM block read from CTL space", -1, 1 },
++		{ F_BLKWRCTLINT, "CIM block write to CTL space", -1, 1 },
++		{ F_BLKRDPLINT, "CIM block read from PL space", -1, 1 },
++		{ F_BLKWRPLINT, "CIM block write to PL space", -1, 1 },
++		{ 0 }
++        };
++
++	if (t3_handle_intr_status(adapter, A_CIM_HOST_INT_CAUSE, 0xffffffff,
++				  cim_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * ULP RX interrupt handler.
++ */
++static void ulprx_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info ulprx_intr_info[] = {
++		{ F_PARERR, "ULP RX parity error", -1, 1 },
++		{ 0 }
++        };
++
++	if (t3_handle_intr_status(adapter, A_ULPRX_INT_CAUSE, 0xffffffff,
++				  ulprx_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * ULP TX interrupt handler.
++ */
++static void ulptx_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info ulptx_intr_info[] = {
++		{ F_PBL_BOUND_ERR_CH0, "ULP TX channel 0 PBL out of bounds",
++		  STAT_ULP_CH0_PBL_OOB, 0 },
++		{ F_PBL_BOUND_ERR_CH1, "ULP TX channel 1 PBL out of bounds",
++		  STAT_ULP_CH1_PBL_OOB, 0 },
++		{ 0 }
++        };
++
++	if (t3_handle_intr_status(adapter, A_ULPTX_INT_CAUSE, 0xffffffff,
++				  ulptx_intr_info, adapter->irq_stats))
++		t3_fatal_err(adapter);
++}
++
++#define ICSPI_FRM_ERR (F_ICSPI0_FIFO2X_RX_FRAMING_ERROR | \
++	F_ICSPI1_FIFO2X_RX_FRAMING_ERROR | F_ICSPI0_RX_FRAMING_ERROR | \
++	F_ICSPI1_RX_FRAMING_ERROR | F_ICSPI0_TX_FRAMING_ERROR | \
++	F_ICSPI1_TX_FRAMING_ERROR)
++#define OESPI_FRM_ERR (F_OESPI0_RX_FRAMING_ERROR | \
++	F_OESPI1_RX_FRAMING_ERROR | F_OESPI0_TX_FRAMING_ERROR | \
++	F_OESPI1_TX_FRAMING_ERROR | F_OESPI0_OFIFO2X_TX_FRAMING_ERROR | \
++	F_OESPI1_OFIFO2X_TX_FRAMING_ERROR)
++
++/*
++ * PM TX interrupt handler.
++ */
++static void pmtx_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info pmtx_intr_info[] = {
++		{ F_ZERO_C_CMD_ERROR, "PMTX 0-length pcmd", -1, 1 },
++		{ ICSPI_FRM_ERR, "PMTX ispi framing error", -1, 1 },
++		{ OESPI_FRM_ERR, "PMTX ospi framing error", -1, 1 },
++		{ V_ICSPI_PAR_ERROR(M_ICSPI_PAR_ERROR),
++		  "PMTX ispi parity error", -1, 1 },
++		{ V_OESPI_PAR_ERROR(M_OESPI_PAR_ERROR),
++		  "PMTX ospi parity error", -1, 1 },
++		{ 0 }
++        };
++
++	if (t3_handle_intr_status(adapter, A_PM1_TX_INT_CAUSE, 0xffffffff,
++				  pmtx_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++#define IESPI_FRM_ERR (F_IESPI0_FIFO2X_RX_FRAMING_ERROR | \
++	F_IESPI1_FIFO2X_RX_FRAMING_ERROR | F_IESPI0_RX_FRAMING_ERROR | \
++	F_IESPI1_RX_FRAMING_ERROR | F_IESPI0_TX_FRAMING_ERROR | \
++	F_IESPI1_TX_FRAMING_ERROR)
++#define OCSPI_FRM_ERR (F_OCSPI0_RX_FRAMING_ERROR | \
++	F_OCSPI1_RX_FRAMING_ERROR | F_OCSPI0_TX_FRAMING_ERROR | \
++	F_OCSPI1_TX_FRAMING_ERROR | F_OCSPI0_OFIFO2X_TX_FRAMING_ERROR | \
++	F_OCSPI1_OFIFO2X_TX_FRAMING_ERROR)
++
++/*
++ * PM RX interrupt handler.
++ */
++static void pmrx_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info pmrx_intr_info[] = {
++		{ F_ZERO_E_CMD_ERROR, "PMRX 0-length pcmd", -1, 1 },
++		{ IESPI_FRM_ERR, "PMRX ispi framing error", -1, 1 },
++		{ OCSPI_FRM_ERR, "PMRX ospi framing error", -1, 1 },
++		{ V_IESPI_PAR_ERROR(M_IESPI_PAR_ERROR),
++		  "PMRX ispi parity error", -1, 1 },
++		{ V_OCSPI_PAR_ERROR(M_OCSPI_PAR_ERROR),
++		  "PMRX ospi parity error", -1, 1 },
++		{ 0 }
++        };
++
++	if (t3_handle_intr_status(adapter, A_PM1_RX_INT_CAUSE, 0xffffffff,
++				  pmrx_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * CPL switch interrupt handler.
++ */
++static void cplsw_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info cplsw_intr_info[] = {
++//		{ F_CIM_OVFL_ERROR, "CPL switch CIM overflow", -1, 1 },
++		{ F_TP_FRAMING_ERROR, "CPL switch TP framing error", -1, 1 },
++		{ F_SGE_FRAMING_ERROR, "CPL switch SGE framing error", -1, 1 },
++		{ F_CIM_FRAMING_ERROR, "CPL switch CIM framing error", -1, 1 },
++		{ F_ZERO_SWITCH_ERROR, "CPL switch no-switch error", -1, 1 },
++		{ 0 }
++        };
++
++	if (t3_handle_intr_status(adapter, A_CPL_INTR_CAUSE, 0xffffffff,
++				  cplsw_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++/*
++ * MPS interrupt handler.
++ */
++static void mps_intr_handler(adapter_t *adapter)
++{
++	static struct intr_info mps_intr_info[] = {
++		{ 0x1ff, "MPS parity error", -1, 1 },
++		{ 0 }
++	};
++
++	if (t3_handle_intr_status(adapter, A_MPS_INT_CAUSE, 0xffffffff,
++				  mps_intr_info, NULL))
++		t3_fatal_err(adapter);
++}
++
++#define MC7_INTR_FATAL (F_UE | V_PE(M_PE) | F_AE)
++
++/*
++ * MC7 interrupt handler.
++ */
++static void mc7_intr_handler(struct mc7 *mc7)
++{
++	adapter_t *adapter = mc7->adapter;
++	u32 cause = t3_read_reg(adapter, mc7->offset + A_MC7_INT_CAUSE);
++
++	if (cause & F_CE) {
++		mc7->stats.corr_err++;
++		CH_WARN("%s: %s MC7 correctable error at addr 0x%x, "
++			"data 0x%x 0x%x 0x%x\n", adapter_name(adapter),
++			mc7->name,
++			t3_read_reg(adapter, mc7->offset + A_MC7_CE_ADDR),
++			t3_read_reg(adapter, mc7->offset + A_MC7_CE_DATA0),
++			t3_read_reg(adapter, mc7->offset + A_MC7_CE_DATA1),
++			t3_read_reg(adapter, mc7->offset + A_MC7_CE_DATA2));
++	}
++
++	if (cause & F_UE) {
++		mc7->stats.uncorr_err++;
++		CH_ALERT("%s: %s MC7 uncorrectable error at addr 0x%x, "
++			 "data 0x%x 0x%x 0x%x\n", adapter_name(adapter),
++			 mc7->name,
++			 t3_read_reg(adapter, mc7->offset + A_MC7_UE_ADDR),
++			 t3_read_reg(adapter, mc7->offset + A_MC7_UE_DATA0),
++			 t3_read_reg(adapter, mc7->offset + A_MC7_UE_DATA1),
++			 t3_read_reg(adapter, mc7->offset + A_MC7_UE_DATA2));
++	}
++
++	if (G_PE(cause)) {
++		mc7->stats.parity_err++;
++		CH_ALERT("%s: %s MC7 parity error 0x%x\n",
++			 adapter_name(adapter), mc7->name, G_PE(cause));
++	}
++
++	if (cause & F_AE) {
++		u32 addr = 0;
++
++		if (adapter->params.rev > 0)
++			addr = t3_read_reg(adapter,
++					   mc7->offset + A_MC7_ERR_ADDR);
++		mc7->stats.addr_err++;
++		CH_ALERT("%s: %s MC7 address error: 0x%x\n",
++			 adapter_name(adapter), mc7->name, addr);
++	}
++
++	if (cause & MC7_INTR_FATAL)
++		t3_fatal_err(adapter);
++
++	t3_write_reg(adapter, mc7->offset + A_MC7_INT_CAUSE, cause);
++}
++
++#define XGM_INTR_FATAL (V_TXFIFO_PRTY_ERR(M_TXFIFO_PRTY_ERR) | \
++			V_RXFIFO_PRTY_ERR(M_RXFIFO_PRTY_ERR))
++/*
++ * XGMAC interrupt handler.
++ */
++static int mac_intr_handler(adapter_t *adap, unsigned int idx)
++{
++	struct cmac *mac = &adap->port[idx].mac;
++	u32 cause = t3_read_reg(adap, A_XGM_INT_CAUSE + mac->offset);
++
++	if (cause & V_TXFIFO_PRTY_ERR(M_TXFIFO_PRTY_ERR)) {
++		mac->stats.tx_fifo_parity_err++;
++		CH_ALERT("port%d: MAC TX FIFO parity error\n", idx);
++	}
++	if (cause & V_RXFIFO_PRTY_ERR(M_RXFIFO_PRTY_ERR)) {
++		mac->stats.rx_fifo_parity_err++;
++		CH_ALERT("port%d: MAC RX FIFO parity error\n", idx);
++	}
++	if (cause & F_TXFIFO_UNDERRUN)
++		mac->stats.tx_fifo_urun++;
++	if (cause & F_RXFIFO_OVERFLOW)
++		mac->stats.rx_fifo_ovfl++;
++	if (cause & V_SERDES_LOS(M_SERDES_LOS))
++		mac->stats.serdes_signal_loss++;
++	if (cause & F_XAUIPCSCTCERR)
++		mac->stats.xaui_pcs_ctc_err++;
++	if (cause & F_XAUIPCSALIGNCHANGE)
++		mac->stats.xaui_pcs_align_change++;
++
++	t3_write_reg(adap, A_XGM_INT_CAUSE + mac->offset, cause);
++	if (cause & XGM_INTR_FATAL)
++		t3_fatal_err(adap);
++	return cause != 0;
++}
++
++/*
++ * Interrupt handler for PHY events.
++ */
++int t3_phy_intr_handler(adapter_t *adapter)
++{
++	static int intr_gpio_bits[] = { 8, 0x20 };
++
++	u32 i, cause = t3_read_reg(adapter, A_T3DBG_INT_CAUSE);
++
++	for_each_port(adapter, i) {
++		if (cause & intr_gpio_bits[i]) {
++			struct cphy *phy = &adapter->port[i].phy;
++			int phy_cause = phy->ops->intr_handler(phy);
++
++			if (phy_cause & cphy_cause_link_change)
++				t3_link_changed(adapter, i);
++			if (phy_cause & cphy_cause_fifo_error)
++				phy->fifo_errors++;
++		}
++	}
++
++	t3_write_reg(adapter, A_T3DBG_INT_CAUSE, cause);
++	return 0;
++}
++
++/*
++ * T3 slow path (non-data) interrupt handler.
++ */
++int t3_slow_intr_handler(adapter_t *adapter)
++{
++	u32 cause = t3_read_reg(adapter, A_PL_INT_CAUSE0);
++
++	cause &= adapter->slow_intr_mask;
++	if (!cause)
++		return 0;
++	if (cause & F_PCIM0) {
++		if (is_pcie(adapter))
++			pcie_intr_handler(adapter);
++		else
++			pci_intr_handler(adapter);
++	}
++	if (cause & F_SGE3)
++		t3_sge_err_intr_handler(adapter);
++	if (cause & F_MC7_PMRX)
++		mc7_intr_handler(&adapter->pmrx);
++	if (cause & F_MC7_PMTX)
++		mc7_intr_handler(&adapter->pmtx);
++	if (cause & F_MC7_CM)
++		mc7_intr_handler(&adapter->cm);
++	if (cause & F_CIM)
++		cim_intr_handler(adapter);
++	if (cause & F_TP1)
++		tp_intr_handler(adapter);
++	if (cause & F_ULP2_RX)
++		ulprx_intr_handler(adapter);
++	if (cause & F_ULP2_TX)
++		ulptx_intr_handler(adapter);
++	if (cause & F_PM1_RX)
++		pmrx_intr_handler(adapter);
++	if (cause & F_PM1_TX)
++		pmtx_intr_handler(adapter);
++	if (cause & F_CPL_SWITCH)
++		cplsw_intr_handler(adapter);
++	if (cause & F_MPS0)
++		mps_intr_handler(adapter);
++	if (cause & F_MC5A)
++		t3_mc5_intr_handler(&adapter->mc5);
++	if (cause & F_XGMAC0_0)
++		mac_intr_handler(adapter, 0);
++	if (cause & F_XGMAC0_1)
++		mac_intr_handler(adapter, 1);
++	if (cause & F_T3DBG)
++		t3_os_ext_intr_handler(adapter);
++
++	/* Clear the interrupts just processed. */
++	t3_write_reg(adapter, A_PL_INT_CAUSE0, cause);
++	(void) t3_read_reg(adapter, A_PL_INT_CAUSE0); /* flush */
++	return 1;
++}
++
++/**
++ *	t3_intr_enable - enable interrupts
++ *	@adapter: the adapter whose interrupts should be enabled
++ *
++ *	Enable interrupts by setting the interrupt enable registers of the
++ *	various HW modules and then enabling the top-level interrupt
++ *	concentrator.
++ */
++void t3_intr_enable(adapter_t *adapter)
++{
++	static struct addr_val_pair intr_en_avp[] = {
++		{ A_SG_INT_ENABLE, SGE_INTR_MASK },
++		{ A_MC7_INT_ENABLE, MC7_INTR_MASK },
++		{ A_MC7_INT_ENABLE - MC7_PMRX_BASE_ADDR + MC7_PMTX_BASE_ADDR,
++			MC7_INTR_MASK },
++		{ A_MC7_INT_ENABLE - MC7_PMRX_BASE_ADDR + MC7_CM_BASE_ADDR,
++			MC7_INTR_MASK },
++		{ A_MC5_DB_INT_ENABLE, MC5_INTR_MASK },
++		{ A_ULPRX_INT_ENABLE, ULPRX_INTR_MASK },
++		{ A_TP_INT_ENABLE, 0x3bfffff },
++		{ A_PM1_TX_INT_ENABLE, PMTX_INTR_MASK },
++		{ A_PM1_RX_INT_ENABLE, PMRX_INTR_MASK },
++		{ A_CIM_HOST_INT_ENABLE, CIM_INTR_MASK },
++		{ A_MPS_INT_ENABLE, MPS_INTR_MASK },
++	};
++
++	adapter->slow_intr_mask = PL_INTR_MASK;
++
++	t3_write_regs(adapter, intr_en_avp, ARRAY_SIZE(intr_en_avp), 0);
++
++	if (adapter->params.rev > 0) {
++		t3_write_reg(adapter, A_CPL_INTR_ENABLE,
++			     CPLSW_INTR_MASK | F_CIM_OVFL_ERROR);
++		t3_write_reg(adapter, A_ULPTX_INT_ENABLE,
++			     ULPTX_INTR_MASK | F_PBL_BOUND_ERR_CH0 |
++			     F_PBL_BOUND_ERR_CH1);
++	} else {
++		t3_write_reg(adapter, A_CPL_INTR_ENABLE, CPLSW_INTR_MASK);
++		t3_write_reg(adapter, A_ULPTX_INT_ENABLE, ULPTX_INTR_MASK);
++	}
++
++	t3_write_reg(adapter, A_T3DBG_GPIO_ACT_LOW,
++		     adapter_info(adapter)->gpio_intr);
++	t3_write_reg(adapter, A_T3DBG_INT_ENABLE,
++		     adapter_info(adapter)->gpio_intr);
++	if (is_pcie(adapter))
++		t3_write_reg(adapter, A_PCIE_INT_ENABLE, PCIE_INTR_MASK);
++	else
++		t3_write_reg(adapter, A_PCIX_INT_ENABLE, PCIX_INTR_MASK);
++	t3_write_reg(adapter, A_PL_INT_ENABLE0, adapter->slow_intr_mask);
++	(void) t3_read_reg(adapter, A_PL_INT_ENABLE0);          /* flush */
++}
++
++/**
++ *	t3_intr_disable - disable a card's interrupts
++ *	@adapter: the adapter whose interrupts should be disabled
++ *
++ *	Disable interrupts.  We only disable the top-level interrupt
++ *	concentrator and the SGE data interrupts.
++ */
++void t3_intr_disable(adapter_t *adapter)
++{
++	t3_write_reg(adapter, A_PL_INT_ENABLE0, 0);
++	(void) t3_read_reg(adapter, A_PL_INT_ENABLE0);  /* flush */
++	adapter->slow_intr_mask = 0;
++}
++
++/**
++ *	t3_intr_clear - clear all interrupts
++ *	@adapter: the adapter whose interrupts should be cleared
++ *
++ *	Clears all interrupts.
++ */
++void t3_intr_clear(adapter_t *adapter)
++{
++	static unsigned int cause_reg_addr[] = {
++		A_SG_INT_CAUSE,
++		A_SG_RSPQ_FL_STATUS,
++		A_PCIX_INT_CAUSE,
++		A_MC7_INT_CAUSE,
++		A_MC7_INT_CAUSE - MC7_PMRX_BASE_ADDR + MC7_PMTX_BASE_ADDR,
++		A_MC7_INT_CAUSE - MC7_PMRX_BASE_ADDR + MC7_CM_BASE_ADDR,
++		A_CIM_HOST_INT_CAUSE,
++		A_TP_INT_CAUSE,
++		A_MC5_DB_INT_CAUSE,
++		A_ULPRX_INT_CAUSE,
++		A_ULPTX_INT_CAUSE,
++		A_CPL_INTR_CAUSE,
++		A_PM1_TX_INT_CAUSE,
++		A_PM1_RX_INT_CAUSE,
++		A_MPS_INT_CAUSE,
++		A_T3DBG_INT_CAUSE,
++	};
++	unsigned int i;
++
++	/* Clear PHY and MAC interrupts for each port. */
++	for_each_port(adapter, i)
++		t3_port_intr_clear(adapter, i);
++
++	for (i = 0; i < ARRAY_SIZE(cause_reg_addr); ++i)
++		t3_write_reg(adapter, cause_reg_addr[i], 0xffffffff);
++
++	t3_write_reg(adapter, A_PL_INT_CAUSE0, 0xffffffff);
++	(void) t3_read_reg(adapter, A_PL_INT_CAUSE0);          /* flush */
++}
++
++/**
++ *	t3_port_intr_enable - enable port-specific interrupts
++ *	@adapter: associated adapter
++ *	@idx: index of port whose interrupts should be enabled
++ *
++ *	Enable port-specific (i.e., MAC and PHY) interrupts for the given
++ *	adapter port.
++ */
++void t3_port_intr_enable(adapter_t *adapter, int idx)
++{
++	t3_write_reg(adapter, XGM_REG(A_XGM_INT_ENABLE, idx), XGM_INTR_MASK);
++	adapter->port[idx].phy.ops->intr_enable(&adapter->port[idx].phy);
++}
++
++/**
++ *	t3_port_intr_disable - disable port-specific interrupts
++ *	@adapter: associated adapter
++ *	@idx: index of port whose interrupts should be disabled
++ *
++ *	Disable port-specific (i.e., MAC and PHY) interrupts for the given
++ *	adapter port.
++ */
++void t3_port_intr_disable(adapter_t *adapter, int idx)
++{
++	t3_write_reg(adapter, XGM_REG(A_XGM_INT_ENABLE, idx), 0);
++	adapter->port[idx].phy.ops->intr_disable(&adapter->port[idx].phy);
++}
++
++/**
++ *	t3_port_intr_clear - clear port-specific interrupts
++ *	@adapter: associated adapter
++ *	@idx: index of port whose interrupts to clear
++ *
++ *	Clear port-specific (i.e., MAC and PHY) interrupts for the given
++ *	adapter port.
++ */
++void t3_port_intr_clear(adapter_t *adapter, int idx)
++{
++	t3_write_reg(adapter, XGM_REG(A_XGM_INT_CAUSE, idx), 0xffffffff);
++	adapter->port[idx].phy.ops->intr_clear(&adapter->port[idx].phy);
++}
++
++
++/**
++ * 	t3_sge_write_context - write an SGE context
++ * 	@adapter: the adapter
++ * 	@id: the context id
++ * 	@type: the context type
++ *
++ * 	Program an SGE context with the values already loaded in the
++ * 	CONTEXT_DATA? registers.
++ */
++static int t3_sge_write_context(adapter_t *adapter, unsigned int id,
++				unsigned int type)
++{
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK0, 0xffffffff);
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK1, 0xffffffff);
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK2, 0xffffffff);
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK3, 0xffffffff);
++	t3_write_reg(adapter, A_SG_CONTEXT_CMD,
++		     V_CONTEXT_CMD_OPCODE(1) | type | V_CONTEXT(id));
++	return t3_wait_op_done(adapter, A_SG_CONTEXT_CMD, F_CONTEXT_CMD_BUSY,
++			       0, 5, 1);
++}
++
++/**
++ *	t3_sge_init_ecntxt - initialize an SGE egress context
++ *	@adapter: the adapter to configure
++ *	@id: the context id
++ *	@gts_enable: whether to enable GTS for the context
++ *	@type: the egress context type
++ *	@respq: associated response queue
++ *	@base_addr: base address of queue
++ *	@size: number of queue entries
++ *	@token: uP token
++ *	@gen: initial generation value for the context
++ *	@cidx: consumer pointer
++ *
++ *	Initialize an SGE egress context and make it ready for use.  If the
++ *	platform allows concurrent context operations, the caller is
++ *	responsible for appropriate locking.
++ */
++int t3_sge_init_ecntxt(adapter_t *adapter, unsigned int id, int gts_enable,
++		       enum sge_context_type type, int respq, u64 base_addr,
++		       unsigned int size, unsigned int token, int gen,
++		       unsigned int cidx)
++{
++	unsigned int credits = type == SGE_CNTXT_OFLD ? 0 : FW_WR_NUM;
++
++	if (base_addr & 0xfff)     /* must be 4K aligned */
++		return -EINVAL;
++	if (t3_read_reg(adapter, A_SG_CONTEXT_CMD) & F_CONTEXT_CMD_BUSY)
++		return -EBUSY;
++
++	base_addr >>= 12;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA0, V_EC_INDEX(cidx) |
++		     V_EC_CREDITS(credits) | V_EC_GTS(gts_enable));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA1, V_EC_SIZE(size) |
++		     V_EC_BASE_LO((u32)base_addr & 0xffff));
++	base_addr >>= 16;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA2, (u32)base_addr);
++	base_addr >>= 32;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA3,
++		     V_EC_BASE_HI((u32)base_addr & 0xf) | V_EC_RESPQ(respq) |
++		     V_EC_TYPE(type) | V_EC_GEN(gen) | V_EC_UP_TOKEN(token) |
++		     F_EC_VALID);
++	return t3_sge_write_context(adapter, id, F_EGRESS);
++}
++
++/**
++ *	t3_sge_init_flcntxt - initialize an SGE free-buffer list context
++ *	@adapter: the adapter to configure
++ *	@id: the context id
++ *	@gts_enable: whether to enable GTS for the context
++ *	@base_addr: base address of queue
++ *	@size: number of queue entries
++ *	@bsize: size of each buffer for this queue
++ *	@cong_thres: threshold to signal congestion to upstream producers
++ *	@gen: initial generation value for the context
++ *	@cidx: consumer pointer
++ *
++ *	Initialize an SGE free list context and make it ready for use.  The
++ *	caller is responsible for ensuring only one context operation occurs
++ *	at a time.
++ */
++int t3_sge_init_flcntxt(adapter_t *adapter, unsigned int id, int gts_enable,
++			u64 base_addr, unsigned int size, unsigned int bsize,
++			unsigned int cong_thres, int gen, unsigned int cidx)
++{
++	if (base_addr & 0xfff)     /* must be 4K aligned */
++		return -EINVAL;
++	if (t3_read_reg(adapter, A_SG_CONTEXT_CMD) & F_CONTEXT_CMD_BUSY)
++		return -EBUSY;
++
++	base_addr >>= 12;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA0, (u32)base_addr);
++	base_addr >>= 32;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA1,
++		     V_FL_BASE_HI((u32)base_addr) |
++		     V_FL_INDEX_LO(cidx & M_FL_INDEX_LO));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA2, V_FL_SIZE(size) |
++		     V_FL_GEN(gen) | V_FL_INDEX_HI(cidx >> 12) |
++		     V_FL_ENTRY_SIZE_LO(bsize & M_FL_ENTRY_SIZE_LO));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA3,
++		     V_FL_ENTRY_SIZE_HI(bsize >> (32 - S_FL_ENTRY_SIZE_LO)) |
++		     V_FL_CONG_THRES(cong_thres) | V_FL_GTS(gts_enable));
++	return t3_sge_write_context(adapter, id, F_FREELIST);
++}
++
++/**
++ *	t3_sge_init_rspcntxt - initialize an SGE response queue context
++ *	@adapter: the adapter to configure
++ *	@id: the context id
++ *	@irq_vec_idx: MSI-X interrupt vector index, 0 if no MSI-X, -1 if no IRQ
++ *	@base_addr: base address of queue
++ *	@size: number of queue entries
++ *	@fl_thres: threshold for selecting the normal or jumbo free list
++ *	@gen: initial generation value for the context
++ *	@cidx: consumer pointer
++ *
++ *	Initialize an SGE response queue context and make it ready for use.
++ *	The caller is responsible for ensuring only one context operation
++ *	occurs at a time.
++ */
++int t3_sge_init_rspcntxt(adapter_t *adapter, unsigned int id, int irq_vec_idx,
++			 u64 base_addr, unsigned int size,
++			 unsigned int fl_thres, int gen, unsigned int cidx)
++{
++	unsigned int intr = 0;
++
++	if (base_addr & 0xfff)     /* must be 4K aligned */
++		return -EINVAL;
++	if (t3_read_reg(adapter, A_SG_CONTEXT_CMD) & F_CONTEXT_CMD_BUSY)
++		return -EBUSY;
++
++	base_addr >>= 12;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA0, V_CQ_SIZE(size) |
++		     V_CQ_INDEX(cidx));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA1, (u32)base_addr);
++	base_addr >>= 32;
++	if (irq_vec_idx >= 0)
++		intr = V_RQ_MSI_VEC(irq_vec_idx) | F_RQ_INTR_EN;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA2,
++		     V_CQ_BASE_HI((u32)base_addr) | intr | V_RQ_GEN(gen));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA3, fl_thres);
++	return t3_sge_write_context(adapter, id, F_RESPONSEQ);
++}
++
++/**
++ *	t3_sge_init_cqcntxt - initialize an SGE completion queue context
++ *	@adapter: the adapter to configure
++ *	@id: the context id
++ *	@base_addr: base address of queue
++ *	@size: number of queue entries
++ *	@rspq: response queue for async notifications
++ *	@ovfl_mode: CQ overflow mode
++ *	@credits: completion queue credits
++ *	@credit_thres: the credit threshold
++ *
++ *	Initialize an SGE completion queue context and make it ready for use.
++ *	The caller is responsible for ensuring only one context operation
++ *	occurs at a time.
++ */
++int t3_sge_init_cqcntxt(adapter_t *adapter, unsigned int id, u64 base_addr,
++			unsigned int size, int rspq, int ovfl_mode,
++			unsigned int credits, unsigned int credit_thres)
++{
++	if (base_addr & 0xfff)     /* must be 4K aligned */
++		return -EINVAL;
++	if (t3_read_reg(adapter, A_SG_CONTEXT_CMD) & F_CONTEXT_CMD_BUSY)
++		return -EBUSY;
++
++	base_addr >>= 12;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA0, V_CQ_SIZE(size));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA1, (u32)base_addr);
++	base_addr >>= 32;
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA2,
++		     V_CQ_BASE_HI((u32)base_addr) | V_CQ_RSPQ(rspq) |
++		     V_CQ_GEN(1) | V_CQ_OVERFLOW_MODE(ovfl_mode));
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA3, V_CQ_CREDITS(credits) |
++		     V_CQ_CREDIT_THRES(credit_thres));
++	return t3_sge_write_context(adapter, id, F_CQ);
++}
++
++/**
++ *	t3_sge_enable_ecntxt - enable/disable an SGE egress context
++ *	@adapter: the adapter
++ *	@id: the egress context id
++ *	@enable: enable (1) or disable (0) the context
++ *
++ *	Enable or disable an SGE egress context.  The caller is responsible for
++ *	ensuring only one context operation occurs at a time.
++ */
++int t3_sge_enable_ecntxt(adapter_t *adapter, unsigned int id, int enable)
++{
++	if (t3_read_reg(adapter, A_SG_CONTEXT_CMD) & F_CONTEXT_CMD_BUSY)
++		return -EBUSY;
++
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK0, 0);
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK1, 0);
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK2, 0);
++	t3_write_reg(adapter, A_SG_CONTEXT_MASK3, F_EC_VALID);
++	t3_write_reg(adapter, A_SG_CONTEXT_DATA3, V_EC_VALID(enable));
++	t3_write_reg(adapter, A_SG_CONTEXT_CMD,
++		     V_CONTEXT_CMD_OPCODE(1) | F_EGRESS | V_CONTEXT(id));
