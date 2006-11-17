@@ -1,36 +1,35 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 3/10][NETLABEL]: Use kmemdup in cipso_ipv4.c
-Date: Fri, 17 Nov 2006 12:48:34 -0500
-Message-ID: <455DF5F2.30704@hp.com>
-References: <20061117151711.GD17958@mandriva.com>
+From: Bryan O'Sullivan <bos@pathscale.com>
+Subject: Re: [openib-general] [PATCH 02/13] Device Discovery and ULLD Linkage
+Date: Fri, 17 Nov 2006 09:53:16 -0800
+Message-ID: <455DF70C.7090400@pathscale.com>
+References: <20061116035826.22635.61230.stgit@dell3.ogc.int> <20061116035837.22635.13571.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:55178 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S933747AbWKQRsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 12:48:36 -0500
-To: Arnaldo Carvalho de Melo <acme@mandriva.com>
-In-Reply-To: <20061117151711.GD17958@mandriva.com>
+Received: from mx.pathscale.com ([64.160.42.68]:9688 "EHLO mx.pathscale.com")
+	by vger.kernel.org with ESMTP id S933753AbWKQRw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 12:52:58 -0500
+To: Steve Wise <swise@opengridcomputing.com>
+In-Reply-To: <20061116035837.22635.13571.stgit@dell3.ogc.int>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo wrote:
-> Code diff stats:
-> 
-> [acme@newtoy net-2.6.20]$ codiff /tmp/cipso_ipv4.o.before /tmp/cipso_ipv4.o.after
-> /pub/scm/linux/kernel/git/acme/net-2.6.20/net/ipv4/cipso_ipv4.c:
->   cipso_v4_cache_add |  -46
->  1 function changed, 46 bytes removed
-> [acme@newtoy net-2.6.20]$
-> 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@mandriva.com>
+Steve Wise wrote:
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+> +static inline void *vzmalloc(int size)
+> +{
+> +	void *p = vmalloc(size);
+> +	memset(p, 0, size);
+> +	return p;
+> +}
 
-Looks fine to me.
+This isn't checking the return value from vmalloc.
 
--- 
-paul moore
-linux security @ hp
+Also, we could do with a generic vzalloc and vcalloc, just as we now 
+have kzalloc and kcalloc.  There are lots of routines like this sitting 
+around.
+
+	<b
