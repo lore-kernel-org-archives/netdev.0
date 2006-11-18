@@ -1,57 +1,110 @@
-From: Sanjeev Jorapur <sanjeev@netxen.com>
-Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
-Date: Sat, 18 Nov 2006 15:58:09 +0530
-Message-ID: <1163845689.4822.6.camel@nbsanjeev>
-References: <200611171536.kAHFa3os005563@dut39.unminc.com>
-	 <20061117084049.555e14d0@localhost.localdomain>
-Reply-To: sanjeev@netxen.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>,
-	netdev <netdev@vger.kernel.org>,
-	brazilnut <brazilnut@us.ibm.com>, jeff@garzik.org,
-	netxenproj@linsyssoft.com, rob@netxen.com,
-	wendyx <wendyx@us.ibm.com>
+From: Laurent Riffard <laurent.riffard@free.fr>
+Subject: [PATCH] bonding: fix an oops when slave device does not provide get_stats
+Date: Sat, 18 Nov 2006 12:03:04 +0100
+Message-ID: <20061118110349.174515111@calimero.antadix>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:62801 "EHLO
-	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1754322AbWKRK3y
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 05:29:54 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061117084049.555e14d0@localhost.localdomain>
+Received: from smtp9.orange.fr ([193.252.22.22]:22037 "EHLO
+	smtp-msa-out09.orange.fr") by vger.kernel.org with ESMTP
+	id S1754332AbWKRLG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 06:06:58 -0500
+Received: from [192.168.1.9] (ALyon-251-1-32-45.w81-251.abo.wanadoo.fr [81.251.142.45])
+	by mwinf0907.orange.fr (SMTP Server) with ESMTP id 806161C0014E
+	for <netdev@vger.kernel.org>; Sat, 18 Nov 2006 12:06:56 +0100 (CET)
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename=bonding-fix-oops-when-slave-has-no-get_stats.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-11-17 at 08:40 -0800, Stephen Hemminger wrote:
-> On Fri, 17 Nov 2006 07:36:03 -0800
-> "Linsys Contractor Amit S. Kale" <amitkale@netxen.com> wrote:
-> 
-> > NetXen: 1G/10G Ethernet Driver updates
-> > 	- These fixes take care of driver on machines with >4G memory
-> > 	- Driver cleanup
-> > 
-> > Signed-off-by: Amit S. Kale <amitkale@netxen.com>
-> > 
-> >  netxen_nic.h          |   41 ++++++----
-> >  netxen_nic_ethtool.c  |   19 ++--
-> >  netxen_nic_hw.c       |   10 +-
-> >  netxen_nic_hw.h       |    4 
-> >  netxen_nic_init.c     |   51 +++++++++++-
-> >  netxen_nic_isr.c      |    3 
-> >  netxen_nic_main.c     |  204 +++++++++++++++++++++++++++++++++++++++++++++++---
-> >  netxen_nic_phan_reg.h |   10 +-
-> >  8 files changed, 293 insertions(+), 49 deletions(-)
-> > 
-> 
-> 
-> If you can't DMA from high memory, then don't set NETIF_F_HIGHDMA, why do
-> you need explicit bounce buffers.  If you can't DMA from unaligned address,
-> the write a small routine to copy the skb to a new one.
+Bonding driver unconditionnaly dereference get_stats function pointer
+for each of its slave device. This patch 
+- adds a check for NULL dev->get_stats pointer in bond_get_stats
+- prints a notice when the bonding device enslave a device without
+  get_stats function.
 
+Signed-off-by: Laurent Riffard <laurent.riffard@free.fr>
+---
+ drivers/net/bonding/bond_main.c |   61 ++++++++++++++++++++++------------------
+ 1 file changed, 35 insertions(+), 26 deletions(-)
 
-The hardware supports DMA into 35 bit addresses. The intent is to
-enable DMA into addresses upto 32G.
+Index: linux-2.6-mm/drivers/net/bonding/bond_main.c
+===================================================================
+--- linux-2.6-mm.orig/drivers/net/bonding/bond_main.c
++++ linux-2.6-mm/drivers/net/bonding/bond_main.c
+@@ -1336,6 +1336,13 @@ int bond_enslave(struct net_device *bond
+ 		goto err_undo_flags;
+ 	}
+ 
++	if (slave_dev->get_stats == NULL) {
++		printk(KERN_NOTICE DRV_NAME
++			": %s: the driver for slave device %s does not provide "
++			"get_stats function, network statistics will be "
++			"inaccurate.\n", bond_dev->name, slave_dev->name);
++	}
++
+ 	new_slave = kmalloc(sizeof(struct slave), GFP_KERNEL);
+ 	if (!new_slave) {
+ 		res = -ENOMEM;
+@@ -3605,33 +3612,35 @@ static struct net_device_stats *bond_get
+ 	read_lock_bh(&bond->lock);
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+-		sstats = slave->dev->get_stats(slave->dev);
++		if (slave->dev->get_stats) {
++			sstats = slave->dev->get_stats(slave->dev);
+ 
+-		stats->rx_packets += sstats->rx_packets;
+-		stats->rx_bytes += sstats->rx_bytes;
+-		stats->rx_errors += sstats->rx_errors;
+-		stats->rx_dropped += sstats->rx_dropped;
+-
+-		stats->tx_packets += sstats->tx_packets;
+-		stats->tx_bytes += sstats->tx_bytes;
+-		stats->tx_errors += sstats->tx_errors;
+-		stats->tx_dropped += sstats->tx_dropped;
+-
+-		stats->multicast += sstats->multicast;
+-		stats->collisions += sstats->collisions;
+-
+-		stats->rx_length_errors += sstats->rx_length_errors;
+-		stats->rx_over_errors += sstats->rx_over_errors;
+-		stats->rx_crc_errors += sstats->rx_crc_errors;
+-		stats->rx_frame_errors += sstats->rx_frame_errors;
+-		stats->rx_fifo_errors += sstats->rx_fifo_errors;
+-		stats->rx_missed_errors += sstats->rx_missed_errors;
+-
+-		stats->tx_aborted_errors += sstats->tx_aborted_errors;
+-		stats->tx_carrier_errors += sstats->tx_carrier_errors;
+-		stats->tx_fifo_errors += sstats->tx_fifo_errors;
+-		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
+-		stats->tx_window_errors += sstats->tx_window_errors;
++			stats->rx_packets += sstats->rx_packets;
++			stats->rx_bytes += sstats->rx_bytes;
++			stats->rx_errors += sstats->rx_errors;
++			stats->rx_dropped += sstats->rx_dropped;
++
++			stats->tx_packets += sstats->tx_packets;
++			stats->tx_bytes += sstats->tx_bytes;
++			stats->tx_errors += sstats->tx_errors;
++			stats->tx_dropped += sstats->tx_dropped;
++
++			stats->multicast += sstats->multicast;
++			stats->collisions += sstats->collisions;
++
++			stats->rx_length_errors += sstats->rx_length_errors;
++			stats->rx_over_errors += sstats->rx_over_errors;
++			stats->rx_crc_errors += sstats->rx_crc_errors;
++			stats->rx_frame_errors += sstats->rx_frame_errors;
++			stats->rx_fifo_errors += sstats->rx_fifo_errors;
++			stats->rx_missed_errors += sstats->rx_missed_errors;
++
++			stats->tx_aborted_errors += sstats->tx_aborted_errors;
++			stats->tx_carrier_errors += sstats->tx_carrier_errors;
++			stats->tx_fifo_errors += sstats->tx_fifo_errors;
++			stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
++			stats->tx_window_errors += sstats->tx_window_errors;
++		}
+ 	}
+ 
+ 	read_unlock_bh(&bond->lock);
 
-Sanjeev.
-
+--
