@@ -1,47 +1,64 @@
-From: maximilian attems <maks@sternwelten.at>
-Subject: Re: Bug#396185: sky2 freezes in 2.6.17-2-686. Maintainer confirms that it should be fixed in 2.6.19-git tree.
-Date: Sat, 18 Nov 2006 12:21:34 +0100
-Message-ID: <20061118112134.GI4213@nancy>
-References: <20061031073030.6658.11274.reportbug@kano.factory.vocord.ru> <20061031085716.GW13178@baikonur.stro.at> <20061031093051.GA3323@2ka.mipt.ru> <20061031093455.GX13178@baikonur.stro.at> <20061031094424.GA19052@2ka.mipt.ru> <20061116173532.GA10653@2ka.mipt.ru> <20061116093821.318efbe6@freekitty>
+From: jhf@columbus.rr.com (Joseph Fannin)
+Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
+Date: Sat, 18 Nov 2006 06:24:39 -0500
+Message-ID: <20061118112438.GB15349@nineveh.rivenstone.net>
+References: <455B63EC.8070704@madrabbit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, 396185@bugs.debian.org,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="kORqDWCi7qDJ0mEj"
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Bcm43xx-dev@lists.berlios.de, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:33297 "EHLO
-	baikonur.stro.at") by vger.kernel.org with ESMTP id S1754453AbWKRLVi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 06:21:38 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from ms-smtp-05.ohiordc.rr.com ([65.24.5.139]:30080 "EHLO
+	ms-smtp-05.ohiordc.rr.com") by vger.kernel.org with ESMTP
+	id S1755952AbWKRLZP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 06:25:15 -0500
+To: Ray Lee <ray-lk@madrabbit.org>
 Content-Disposition: inline
-In-Reply-To: <20061116093821.318efbe6@freekitty>
+In-Reply-To: <455B63EC.8070704@madrabbit.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Nov 2006, Stephen Hemminger wrote:
 
-> On Thu, 16 Nov 2006 20:35:32 +0300
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > On Tue, Oct 31, 2006 at 12:44:25PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > > > > > > Bug was filled against 2.6.17-9, but was fixed in recent git (2.6.19-rc3), probably also
-> > > > > > > fixed in 2.6.18.1
-> > > > > > > 
-> > > > > > > Here is link to discussion:
-> > > > > > > http://marc.theaimsgroup.com/?l=linux-netdev&m=116227512815783&w=2
-> > > > > > > 
-> > > > > > 
-> > > > > > can you try the linux-image 2.6.18, they are in unstable
-> > > > > > and the etch release images.
-> > 
-> > 2.6.18-1-686 kernel still allows to freeze sky2.
-> 
-> Fix didn't go in until 2.6.18.2
+--kORqDWCi7qDJ0mEj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-fix is in the 2.6.18-2-686 linux image, you'd better update
-your test box.
+On Wed, Nov 15, 2006 at 11:01:00AM -0800, Ray Lee wrote:
 
-thanks
- 
--- 
-maks
+> I've come back to my laptop being mostly dead after hours of it being off on
+> its own (twice now). Mostly dead meaning the keyboard is nearly
+> non-responsive, but the mouse works great (I'm in X, of course). I say 'nearly
+> dead' as sysrq-t,b works, so I'm sorta stumped there. (x-session seems to use
+> netlink, so perhaps that's the connection? ctrl-alt-f[1-7] don't do anything,
+> however.)
+
+    This sounds like what my laptop was doing in -rc5, though mine
+didn't take hours to start acting up.
+
+    I *think* it was the MSI troubles, causing interrupts to get
+lost forever.  Anyway, it went away in -rc6.
+
+    I don't have the broadcom hardware.
+
+--
+Joseph Fannin
+jfannin@gmail.com || jhf@columbus.rr.com
+
+
+--kORqDWCi7qDJ0mEj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+
+iD8DBQFFXu121/BPLCVlRuARAo1rAKCoqAGZmIEOKxvGammQ7Jndeq+56gCfe6kI
+/vXcf3d19VuTO7AdvjcJtJ4=
+=HXJQ
+-----END PGP SIGNATURE-----
+
+--kORqDWCi7qDJ0mEj--
