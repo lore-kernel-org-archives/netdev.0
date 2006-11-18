@@ -1,59 +1,49 @@
-From: Paul Bonser <misterpib@gmail.com>
-Subject: [PATCH] Networking: re-fix of doc-comment in sock.h
-Date: Sat, 18 Nov 2006 00:27:27 -0800
-Message-ID: <20061118082727.GA1250@pib>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [[PATCH][XFRM]: Sub-policies broke policy events
+Date: Sat, 18 Nov 2006 17:51:59 +0900
+Message-ID: <20061118173227.A79B.NAKAM@linux-ipv6.org>
+References: <1163770484.5107.20.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c-24-21-154-103.hsd1.or.comcast.net ([24.21.154.103]:62413 "EHLO
-	p1b.net") by vger.kernel.org with ESMTP id S1754265AbWKRIV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Nov 2006 03:21:59 -0500
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from [203.178.140.9] ([203.178.140.9]:20952 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1751471AbWKRIv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Nov 2006 03:51:57 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1163770484.5107.20.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Bonser <misterpib@gmail.com>
+On Fri, 17 Nov 2006 08:34:44 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-Restoring old, correct comment for sk_filter_release, moving it to where it should actually be, and changing new comment into proper comment for sk_filter_rcu_free, where it actually makes sense.
+> 
+> Found the cause of my problems. 
+> Dave, this is against Linus tree because it is bug fix.
+> 
+> Nakamura-san please ACK.
+> 
+> cheers,
+> jamal
 
-The original fix submitted for this on Oct 23 mistakenly documented the wrong function.
 
-Signed-off-by: Paul Bonser <misterpib@gmail.com>
+It looks fine to me. Thanks, Jamal.
 
----
+Acked-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index ac286a3..9cdbae2 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -883,18 +883,23 @@ static inline int sk_filter(struct sock 
- }
- 
- /**
-- *	sk_filter_release: Release a socket filter
-- *	@rcu: rcu_head that contains the sk_filter info to remove
-- *
-- *	Remove a filter from a socket and release its resources.
-+ * 	sk_filter_rcu_free: Free a socket filter
-+ *	@rcu: rcu_head that contains the sk_filter to free
-  */
-- 
- static inline void sk_filter_rcu_free(struct rcu_head *rcu)
- {
- 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
- 	kfree(fp);
- }
- 
-+/**
-+ *	sk_filter_release: Release a socket filter
-+ *	@sk: socket
-+ *	@fp: filter to remove
-+ *
-+ *	Remove a filter from a socket and release its resources.
-+ */
-+
- static inline void sk_filter_release(struct sock *sk, struct sk_filter *fp)
- {
- 	unsigned int size = sk_filter_len(fp);
+
+
+> [XFRM]: Sub-policies broke policy events
+> XFRM policy events are broken when sub-policy feature is turned on.
+> A simple test to verify this:
+> run ip xfrm mon on one window and add then delete a policy on another
+> window ..
+> 
+> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> 
+> ---
+-- 
+Masahide NAKAMURA
+
