@@ -1,108 +1,71 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Sat, 18 Nov 2006 18:25:25 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0611181757010.5252@yvahk01.tjqt.qr>
-References: <20061117202320.25878.26769.stgit@colfax2.asicdesigners.com>
+From: "Udayan Singh" <udayan.singh@gmail.com>
+Subject: Re: Setup of testing lab and work on development
+Date: Sat, 18 Nov 2006 23:32:39 +0530
+Message-ID: <d9a09df00611181002t76192ebfl8c130772d19a47e6@mail.gmail.com>
+References: <d9a09df00611150857i3ac7e35cr84dd61cfd55f5b4e@mail.gmail.com>
+	 <1163614554.5399.112.camel@johannes.berg>
+	 <d9a09df00611151304l11d089b5w958788ec24fc6af0@mail.gmail.com>
+	 <1163625309.5399.121.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailer.gwdg.de ([134.76.10.24]:31429 "EHLO emailer.gwdg.de")
-	by vger.kernel.org with ESMTP id S1755212AbWKRRar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Nov 2006 12:30:47 -0500
-To: "Divy Le Ray <divy@chelsio.com>" <divy@chelsio.com>
-In-Reply-To: <20061117202320.25878.26769.stgit@colfax2.asicdesigners.com>
+Received: from wx-out-0506.google.com ([66.249.82.232]:62537 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1756252AbWKRSCk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 13:02:40 -0500
+Received: by wx-out-0506.google.com with SMTP id s7so1316426wxc
+        for <netdev@vger.kernel.org>; Sat, 18 Nov 2006 10:02:40 -0800 (PST)
+To: "Johannes Berg" <johannes@sipsolutions.net>
+In-Reply-To: <1163625309.5399.121.camel@johannes.berg>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 11/16/06, Johannes Berg <johannes@sipsolutions.net> wrote:
+>
+> > e.g. bcm43xx, etc. Hence i
+> > would like to setup a test environment where i can make modifications
+> > in code (of d80211 or related driver) and test it....
+>
+> You'll need one of the cards that is supported by a d80211 driver. I've
+> used bcm43xx and rt2500usb so far.
 
-On Nov 17 2006 12:23, Divy Le Ray <divy@chelsio.com> wrote:
->Subject: [PATCH 1/10] cxgb3 - main header files
+ok, if i use the card (on the PC) :
 
-(For all files)
+bcm43xx or rt2500usb
 
-Some suggestions:
+on the AP side :
+Use a Wireless ADSL router (Huawei Quidway wa1003a series)
+It supports 802.11b/g.
 
- *  change the typedefs to struct, this includes:
-        adapter_t -> struct adapter
-
-
-
- *  function prototypes and function headers (e.g. t3_get_cong_cntl_tab)
-    are listed as
-
-        void t3_get_cong_cntl_tab(adapter_t *adap,
-                         unsigned short incr[NMTUS][NCCTRL_WIN]);
-
-    which could be shortened to
-
-        void t3_get_cong_cntl_tab(adapter_t *adap,
-                         unsigned short incr[][]);
-
-    functions where there is only one level of [], e.g.
-
-        void t3_load_mtus(adapter_t *adap, unsigned short mtus[NMTUS],
-                  unsigned short alpha[NCCTRL_WIN],
-                  unsigned short beta[NCCTRL_WIN], unsigned short mtu_cap);
-
-    could become
-
-        void t3_load_mtus(adapter_t *adap, unsigned short *mtus,
-                  unsigned short *alpha,
-                  unsigned short *beta, unsigned short mtu_cap);
-
-    depending on your taste.
+Now the point that comes to my mind is, if the "Huawei Quidway wa1003a
+series" does not support 802.11i, then how can i go about testing the
+same 802.11i ?
 
 
+My intention is that i should be able to work/test 802.11a/b/g/i/.....
+---- for that which products i should use..??
 
- *  get rid of superfluous from-void/to-void casts, such as:
-
-        cxgb3_main.c:754:  struct adapter *adapter =
-                           (struct adapter *)dev->priv;
-
-    in some places, the 'U' suffix for literal numbers is not required,
-    such as:
-
-        cxgb3_main.c:292:   unsigned int nq1 = max((unsigned
-                            int)adap->port[1].nqsets, 1U);
-
-        sge.c:2359:  qs->rspq.holdoff_tmr = max(p->coalesce_usecs * 10, 1U);
+Pls let me know your views about the above.
 
 
+>
+> > same - "participate in development on d80211"
+>
+> Well, check http://wireless.sipsolutions.net for things we still have to
+> do... and then send patches :)
+>
+> Or do something else you're interested in and send patches.
 
- *  const run 1: const'ify structs that do not change or
-    are not changed, such as
+thanks....
 
-        cxgb3_main.c:924:static char stats_strings[][ETH_GSTRING_LEN] = {
-
-        t3_hw.c:220:static struct mdio_ops mi1_mdio_ops = {
-        t3_hw.c:271:static struct mdio_ops mi1_mdio_ext_ops = {
-
-        t3_hw.c:1130:   static struct intr_info pcix1_intr_info[] = {
-        t3_hw.c:1166:   static struct intr_info pcie_intr_info[] = {
-
-    (these are just the small picture)
-
-
-
- *  const run 2: const'ify locals that do not change, such as
-
-        cxgb3_offload.c:63:     struct adapter *adapter = tdev2adap(tdev);
-
-
-
- *  const run 3: const'ify function arguments that do not change, e.g.
-
-       static inline int offload_activated(struct t3cdev *tdev)
-
-
-Note that the listed lines do not cover all source lines - cxgb3
-is quite some code.
-
-Running it through sparse gives 'context imbalance' (whatever that is - i just
-tried sparse).
-
-
-	-`J'
--- 
+>
+> johannes
+>
+>
+>
+Regards,
+Udayan
+Tata Consultancy Services
