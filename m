@@ -1,71 +1,57 @@
-From: chunkeey@web.de
-Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
-Date: Sat, 18 Nov 2006 11:18:02 +0100
-Message-ID: <200611181118.02549.chunkeey@web.de>
-References: <200610031457.33215.chunkeey@web.de> <200611172153.50278.chunkeey@web.de> <200611172327.49477.dtor@insightbb.com>
+From: Sanjeev Jorapur <sanjeev@netxen.com>
+Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
+Date: Sat, 18 Nov 2006 15:58:09 +0530
+Message-ID: <1163845689.4822.6.camel@nbsanjeev>
+References: <200611171536.kAHFa3os005563@dut39.unminc.com>
+	 <20061117084049.555e14d0@localhost.localdomain>
+Reply-To: sanjeev@netxen.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>,
+	netdev <netdev@vger.kernel.org>,
+	brazilnut <brazilnut@us.ibm.com>, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com,
+	wendyx <wendyx@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:41179 "EHLO
-	fmmailgate01.web.de") by vger.kernel.org with ESMTP
-	id S1754140AbWKRKSr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 05:18:47 -0500
-To: Dmitry Torokhov <dtor@insightbb.com>
-In-Reply-To: <200611172327.49477.dtor@insightbb.com>
-Content-Disposition: inline
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:62801 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1754322AbWKRK3y
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 05:29:54 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061117084049.555e14d0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Samstag, 18. November 2006 05:27 schrieben Sie:
->
-> OK, i'll try installing kismet on another laptop. For now that's what I
-> have from iwevent:
->
-> [root@core ~]# cat iwevents.bad
-> 21:30:52.185823   eth1     Set Mode:Managed
-where's Set Encryption key:****-****-****-****-****-****-**   Security 
-mode:restricted ? was the key set?
+On Fri, 2006-11-17 at 08:40 -0800, Stephen Hemminger wrote:
+> On Fri, 17 Nov 2006 07:36:03 -0800
+> "Linsys Contractor Amit S. Kale" <amitkale@netxen.com> wrote:
+> 
+> > NetXen: 1G/10G Ethernet Driver updates
+> > 	- These fixes take care of driver on machines with >4G memory
+> > 	- Driver cleanup
+> > 
+> > Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+> > 
+> >  netxen_nic.h          |   41 ++++++----
+> >  netxen_nic_ethtool.c  |   19 ++--
+> >  netxen_nic_hw.c       |   10 +-
+> >  netxen_nic_hw.h       |    4 
+> >  netxen_nic_init.c     |   51 +++++++++++-
+> >  netxen_nic_isr.c      |    3 
+> >  netxen_nic_main.c     |  204 +++++++++++++++++++++++++++++++++++++++++++++++---
+> >  netxen_nic_phan_reg.h |   10 +-
+> >  8 files changed, 293 insertions(+), 49 deletions(-)
+> > 
+> 
+> 
+> If you can't DMA from high memory, then don't set NETIF_F_HIGHDMA, why do
+> you need explicit bounce buffers.  If you can't DMA from unaligned address,
+> the write a small routine to copy the skb to a new one.
 
 
-> 21:30:52.226100   eth1     Set ESSID:"ALCT76_68b"
-> 21:30:54.505039   eth1     Authenticate request to XY [00 0D 0002]
-> 21:30:56.300128   eth1     Authenticate request to XY [00 0D 0002]
-ok, the error code is 0D (=unsupported Authentication Algorithm).
+The hardware supports DMA into 35 bit addresses. The intent is to
+enable DMA into addresses upto 32G.
 
->
-> [root@core ~]# cat iwevents.good
-> 21:50:50.575630   eth1     Set Mode:Managed
-> 21:50:50.604998   eth1     Set Encryption
-> key:****-****-****-****-****-****-**   Security mode:restricted
-> 21:50:50.616502   eth1     Set ESSID:"ALCT76_68b"
-> 21:50:52.880361   eth1     Authenticate request to XY : [00  00 0002]
-> 21:50:52.882638   eth1     Associate request to XY : [00 00 0002]
-> 21:50:52.883625   eth1     New Access Point/Cell address:XY
-are your wireless-tools( iwconfig, iwevent, iwlist...) up to date? they've to 
-be atleast Version 21!
+Sanjeev.
 
-
-but there's still something you can try:
-
-go to drivers/net/wireless/prism54/isl_ioctl.c
-and change in "prism54_set_auth_alg" function (somewhere at line 1040)
-next to "if (flag & IW_ENCODE_RESTRICTED) {" 
-authen = DOT11_AUTH_SK;
-to 
-authen = DOT11_AUTH_BOTH;
-
-recompile; test; report ;)
->
-> No, just netdev watchdog bitches:
->
-> Nov 16 23:15:30 core kernel: [164606.712000] NETDEV WATCHDOG: eth1:
-> transmit timed out Nov 16 23:15:30 core kernel: [164606.712000] eth1:
-> tx_timeout, scheduling a reset Nov 16 23:15:30 core kernel: [164606.712000]
-> eth1: resetting device... Nov 16 23:15:30 core kernel: [164606.712000]
-> eth1: uploading firmware... Nov 16 23:15:31 core kernel: [164606.996000]
-> eth1: firmware version: 1.0.4.3 Nov 16 23:15:31 core kernel:
-> [164606.996000] eth1: firmware upload complete Nov 16 23:15:31 core kernel:
-> [164607.232000] eth1: interface reset complete
