@@ -1,79 +1,58 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
-Date: Sat, 18 Nov 2006 13:02:04 -0600
-Message-ID: <455F58AC.3030801@lwfinger.net>
-References: <455B63EC.8070704@madrabbit.org> <20061118112438.GB15349@nineveh.rivenstone.net> <1163868955.27188.2.camel@johannes.berg> <455F3D44.4010502@lwfinger.net> <455F4271.1060405@madrabbit.org>
+Subject: Re: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
+Date: Sat, 18 Nov 2006 13:06:35 -0600
+Message-ID: <455F59BB.6060204@lwfinger.net>
+References: <20061116024332.124753000@sous-sol.org> <20061116024511.458086000@sous-sol.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Joseph Fannin <jhf@columbus.rr.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Michael Buesch <mb@bu3sch.de>,
-	Bcm43xx-dev@lists.berlios.denunk, Adrian Bunk <bunk@stusta.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756379AbWKRTDH@vger.kernel.org>
-To: Ray Lee <ray-lk@madrabbit.org>
-In-Reply-To: <455F4271.1060405@madrabbit.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	mb@bu3sch.de, greg@kroah.com,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ms-smtp-02.rdc-kc.rr.com ([24.94.166.122]:47574 "EHLO
+	ms-smtp-02.rdc-kc.rr.com") by vger.kernel.org with ESMTP
+	id S1755326AbWKRTG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 14:06:57 -0500
+To: Chris Wright <chrisw@sous-sol.org>
+In-Reply-To: <20061116024511.458086000@sous-sol.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ray Lee wrote:
-> Larry Finger wrote:
->> Johannes Berg wrote:
->>> Hah, that's a lot more plausible than bcm43xx's drain patch actually
->>> causing this. So maybe somehow interrupts for bcm43xx aren't routed
->>> properly or something...
->>>
->>> Ray, please check /proc/interrupts when this happens.
+Chris Wright wrote:
+> -stable review patch.  If anyone has any objections, please let us know.
+> ------------------
 > 
-> When it happens, I can't. The keyboard is entirely dead (I'm in X, perhaps at
-> a console it would be okay). The only thing that works is magic SysRq. even
-> ctrl-alt-f1 to get to a console doesn't work.
+> From: Michael Buesch <mb@bu3sch.de>
 > 
-> That said, /proc/interrupts doesn't show MSI routed things on my AMD64 laptop.
+> Drain the Microcode TX-status-FIFO before we enable IRQs.
+> This is required, because the FIFO may still have entries left
+> from a previous run. Those would immediately fire after enabling
+> IRQs and would lead to an oops in the DMA TXstatus handling code.
 > 
->>> I am convinced that the patch in question (drain tx status) is not
->>> causing this -- the patch should be a no-op in most cases anyway, and in
->>> those cases where it isn't a no-op it'll run only once at card init and
->>> remove some things from a hardware-internal FIFO.
-> 
-> Okay, I can buy that.
-> 
->> I agree that drain tx status should not cause the problem.
->>
->> Ray, does -rc6 solve your problem as it did for Joseph?
-> 
-> I can't get it to repeat other than the first two times. However, I
-> accidentally stopped NetworkManager from handling my wireless a few days ago,
-> and haven't restarted it, so that may play into this.
-> 
-> Humor me one last time, I beg. Did you look at the messages file I posted? (Or
-> maybe I didn't include this second bit... Damn, I need to be more careful with
-> cutting and pasting...)
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+> ---
 
-The locking stuff wasn't in any of the messages that I received.
+Chris,
 
-> The second sysrq-t shows locking stuff going on, can you tell me if it looks
-> reasonable? It still seems to me that something acquiring and not releasing
-> rtnl_lock explains what I was seeing (rtnl lock is implicated in both sysrq-t
-> backtraces). I don't know if that thing is bcm43xx, though.
-> 
-> Is this part reasonable?:
->  1 lock held by events/0/4:
->   #0:  (&bcm->mutex){--..}, at: [mutex_lock+9/16] mutex_lock+0x9/0x10
->  2 locks held by NetworkManager/4837:
->   #0:  (rtnl_mutex){--..}, at: [mutex_lock+9/16] mutex_lock+0x9/0x10
->   #1:  (&bcm->mutex){--..}, at: [mutex_lock+9/16] mutex_lock+0x9/0x10
->  1 lock held by wpa_supplicant/5953:
->   #0:  (rtnl_mutex){--..}, at: [mutex_lock+9/16] mutex_lock+0x9/0x10
+The regression turns out to be a locking problem involving bcm43xx, wpa_supplicant, and 
+NetworkManager. The exact cause is unknown; however, this patch is clearly not the problem. Please 
+reinstate it for inclusion in -stable.
 
-I'm not an expert on locking, but it certainly looks as if bcm43xx and wpa_supplicant are OK by 
-themselves, but that NetworkManager interferes. This behavior matches what I see - I don't have 
-NetworkManager on my system, but I do use wpa_supplicant, with no lockups. Of course, I have i386 
-architecture.
-
-Although NetworkManager may be the catalyst to trigger the bug, I doubt that it is the cause. 
-Strictly as a guess, I would suspect that the locking problem is in SoftMAC, where we know there can 
-be locking difficulties, but no one is fixing them because EOL is near for that component.
+Thanks,
 
 Larry
+
+
