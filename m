@@ -1,71 +1,58 @@
-From: "Udayan Singh" <udayan.singh@gmail.com>
-Subject: Re: Setup of testing lab and work on development
-Date: Sat, 18 Nov 2006 23:32:39 +0530
-Message-ID: <d9a09df00611181002t76192ebfl8c130772d19a47e6@mail.gmail.com>
-References: <d9a09df00611150857i3ac7e35cr84dd61cfd55f5b4e@mail.gmail.com>
-	 <1163614554.5399.112.camel@johannes.berg>
-	 <d9a09df00611151304l11d089b5w958788ec24fc6af0@mail.gmail.com>
-	 <1163625309.5399.121.camel@johannes.berg>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: bcm43xx regression 2.6.19rc3 -> rc5, rtnl_lock trouble?
+Date: Sat, 18 Nov 2006 19:30:01 +0100
+Message-ID: <20061118183001.GY31879@stusta.de>
+References: <455B63EC.8070704@madrabbit.org> <20061118112438.GB15349@nineveh.rivenstone.net> <1163868955.27188.2.camel@johannes.berg> <455F3D44.4010502@lwfinger.net> <455F4271.1060405@madrabbit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Joseph Fannin <jhf@columbus.rr.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	John Linville <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:62537 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1756252AbWKRSCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 13:02:40 -0500
-Received: by wx-out-0506.google.com with SMTP id s7so1316426wxc
-        for <netdev@vger.kernel.org>; Sat, 18 Nov 2006 10:02:40 -0800 (PST)
-To: "Johannes Berg" <johannes@sipsolutions.net>
-In-Reply-To: <1163625309.5399.121.camel@johannes.berg>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:32271 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1756365AbWKRSaD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 13:30:03 -0500
+To: Ray Lee <ray-lk@madrabbit.org>
 Content-Disposition: inline
+In-Reply-To: <455F4271.1060405@madrabbit.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/16/06, Johannes Berg <johannes@sipsolutions.net> wrote:
->
-> > e.g. bcm43xx, etc. Hence i
-> > would like to setup a test environment where i can make modifications
-> > in code (of d80211 or related driver) and test it....
->
-> You'll need one of the cards that is supported by a d80211 driver. I've
-> used bcm43xx and rt2500usb so far.
+On Sat, Nov 18, 2006 at 09:27:13AM -0800, Ray Lee wrote:
+> Larry Finger wrote:
+> > Johannes Berg wrote:
+> >> Hah, that's a lot more plausible than bcm43xx's drain patch actually
+> >> causing this. So maybe somehow interrupts for bcm43xx aren't routed
+> >> properly or something...
+> >>
+> >> Ray, please check /proc/interrupts when this happens.
+> 
+> When it happens, I can't. The keyboard is entirely dead (I'm in X, perhaps at
+> a console it would be okay). The only thing that works is magic SysRq. even
+> ctrl-alt-f1 to get to a console doesn't work.
+> 
+> That said, /proc/interrupts doesn't show MSI routed things on my AMD64 laptop.
+>...
 
-ok, if i use the card (on the PC) :
+If there is any interrupt related problem involved, it should be visible 
+from dmesg.
 
-bcm43xx or rt2500usb
+Can you send the complete dmesg's from -rc3, -rc5 and -rc6?
 
-on the AP side :
-Use a Wireless ADSL router (Huawei Quidway wa1003a series)
-It supports 802.11b/g.
+> Ray
 
-Now the point that comes to my mind is, if the "Huawei Quidway wa1003a
-series" does not support 802.11i, then how can i go about testing the
-same 802.11i ?
+cu
+Adrian
 
+-- 
 
-My intention is that i should be able to work/test 802.11a/b/g/i/.....
----- for that which products i should use..??
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
-Pls let me know your views about the above.
-
-
->
-> > same - "participate in development on d80211"
->
-> Well, check http://wireless.sipsolutions.net for things we still have to
-> do... and then send patches :)
->
-> Or do something else you're interested in and send patches.
-
-thanks....
-
->
-> johannes
->
->
->
-Regards,
-Udayan
-Tata Consultancy Services
