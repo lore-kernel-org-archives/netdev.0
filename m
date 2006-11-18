@@ -1,38 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/2] chelsio: 1G board support
-Date: Fri, 17 Nov 2006 17:25:39 -0800
-Message-ID: <20061117172539.1c9a512c@zqx3.pdx.osdl.net>
-References: <Pine.LNX.4.64.0611131408010.32659@potato.cts.ucla.edu>
-	<455A49D7.4050106@garzik.org>
-	<20061114153725.730fcd6d@freekitty>
-	<Pine.LNX.4.64.0611141540110.3416@potato.cts.ucla.edu>
-	<20061115170320.5078073a@freekitty>
-	<20061115190903.d61be44f.akpm@osdl.org>
-	<20061115213532.0d2350ba@localhost.localdomain>
-	<20061115215206.6bee3534.akpm@osdl.org>
-	<20061117172057.61015224@zqx3.pdx.osdl.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 00/13] NetLabel cleanups for 2.6.20 [GIT]
+Date: Fri, 17 Nov 2006 23:12:38 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0611172308070.13574@d.namei>
+References: <20061117223842.399078000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:22187 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1756122AbWKRB0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Nov 2006 20:26:09 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061117172057.61015224@zqx3.pdx.osdl.net>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:61334 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1755952AbWKREMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Nov 2006 23:12:40 -0500
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <20061117223842.399078000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is the addon to the Chelsio 10G driver to support their 1G boards.
-I extracted this from the vendor driver version 2.2 code, and cleaned it up
-to match the mainline code.
+On Fri, 17 Nov 2006, paul.moore@hp.com wrote:
 
-I don't have the hardware, so it probably doesn't work as is.  But getting
-it to development kernel will get others to fix it.
+> This patchset consists of a lot of small-ish cleanups for NetLabel and in some
+> cases labeled networking in general.  I've tested these patches for the past
+> few days and I haven't seen any regressions so please consider them for the
+> net-2.6.20 git tree.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Thanks, excellent!
 
-Patch is large 80K so please download from:
-	http://developer.osdl.org/shemminger/prototypes/chelsio-1g.patch.gz
+There was one minor compilation issue caused by including linux/skbuff.h 
+in an SELinux header, which I fixed (see below).
+
+Applied to
+git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-net-2.6.20
+
+
+---
+
+diff --git a/security/selinux/include/security.h b/security/selinux/include/security.h
+index 015f697..210eec7 100644
+--- a/security/selinux/include/security.h
++++ b/security/selinux/include/security.h
+@@ -8,7 +8,6 @@
+ #ifndef _SELINUX_SECURITY_H_
+ #define _SELINUX_SECURITY_H_
+ 
+-#include <linux/skbuff.h>
+ #include "flask.h"
+ 
+ #define SECSID_NULL			0x00000000 /* unspecified SID */
+@@ -35,6 +34,8 @@ #else
+ #define POLICYDB_VERSION_MAX	POLICYDB_VERSION_RANGETRANS
+ #endif
+ 
++struct sk_buff;
++
+ extern int selinux_enabled;
+ extern int selinux_mls_enabled;
+ 
