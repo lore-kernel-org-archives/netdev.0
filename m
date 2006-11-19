@@ -1,7 +1,8 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 4/13] d80211: reduce mdev usage, change ieee80211_rx_mgmt
-Date: Sun, 19 Nov 2006 20:26:41 +0100
-Message-ID: <1163964402.15473.47.camel@johannes.berg>
+Subject: [PATCH 5/13] d80211: reduce master ieee80211_ptr deref in scan
+	routines
+Date: Sun, 19 Nov 2006 20:27:17 +0100
+Message-ID: <1163964437.15473.49.camel@johannes.berg>
 References: <1163802439.3392.47.camel@johannes.berg>
 	 <1163963898.15473.36.camel@johannes.berg>
 Mime-Version: 1.0
@@ -17,384 +18,246 @@ Cc: Jiri Benc <jbenc@suse.cz>,
 	Michael Buesch <mbuesch@freenet.de>,
 	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:39864 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S933061AbWKST2d
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59064 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S933059AbWKST3M
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 14:28:33 -0500
+	Sun, 19 Nov 2006 14:29:12 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1163963898.15473.36.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch reduces mdev usage by replacing struct net_device *
-arguments that are never used except for dereferencing to get
-struct ieee80211_local from ieee80211_ptr by struct
-ieee80211_local directly.
-
-Also, this patch changes ieee80211_rx_mgmt to no longer be callable
-when local->apdev is NULL. All callers are updated accordingly,
-in most cases actually increasing performance by not allocating
-skbs when they won't be given to anyone anyway.
-
-Instead of abusing ieee80211_rx_mgmt also introduce
-ieee80211_rx_monitor.
+This patch changes a bunch of prototypes to have struct ieee80211_local*
+instead of struct net_device* where that makes sense.
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-11-19 20:13:56.079275208 +0100
-+++ wireless-dev/net/d80211/ieee80211.c	2006-11-19 20:13:56.719275208 +0100
-@@ -210,9 +210,16 @@ static void ieee80211_key_threshold_noti
- 					   struct ieee80211_key *key,
- 					   struct sta_info *sta)
- {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 	struct ieee80211_msg_key_notification *msg;
+--- wireless-dev.orig/net/d80211/ieee80211.c	2006-11-19 20:13:56.719275208 +0100
++++ wireless-dev/net/d80211/ieee80211.c	2006-11-19 20:13:57.379275208 +0100
+@@ -2266,7 +2266,7 @@ static int ieee80211_open(struct net_dev
+ 				local->hw->remove_interface(dev, &conf);
+ 			return res;
+ 		}
+-		ieee80211_init_scan(local->mdev);
++		ieee80211_init_scan(local);
+ 	}
+         local->open_count++;
  
-+	/* if no one will get it anyway, don't even allocate it.
-+	 * unlikely because this is only relevant for APs
-+	 * where the device must be open... */
-+	if (unlikely(!local->apdev))
-+		return;
-+
- 	skb = dev_alloc_skb(sizeof(struct ieee80211_frame_info) +
- 			    sizeof(struct ieee80211_msg_key_notification));
- 	if (!skb)
-@@ -230,7 +237,7 @@ static void ieee80211_key_threshold_noti
+@@ -2303,7 +2303,7 @@ static int ieee80211_stop(struct net_dev
  
- 	key->tx_rx_count = 0;
+ 	local->open_count--;
+         if (local->open_count == 0) {
+-		ieee80211_stop_scan(local->mdev);
++		ieee80211_stop_scan(local);
+ 		dev_close(local->mdev);
+ 		if (local->apdev)
+ 			dev_close(local->apdev);
+--- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-11-19 20:13:56.719275208 +0100
++++ wireless-dev/net/d80211/ieee80211_i.h	2006-11-19 20:13:57.379275208 +0100
+@@ -593,8 +593,8 @@ int ieee80211_set_hw_encryption(struct n
+ 				struct ieee80211_key *key);
  
--	ieee80211_rx_mgmt(dev, skb, NULL,
-+	ieee80211_rx_mgmt(local, skb, NULL,
- 			  ieee80211_msg_key_threshold_notification);
+ /* ieee80211_scan.c */
+-void ieee80211_init_scan(struct net_device *dev);
+-void ieee80211_stop_scan(struct net_device *dev);
++void ieee80211_init_scan(struct ieee80211_local *local);
++void ieee80211_stop_scan(struct ieee80211_local *local);
+ 
+ 
+ 
+--- wireless-dev.orig/net/d80211/ieee80211_scan.c	2006-11-19 20:13:50.889275208 +0100
++++ wireless-dev/net/d80211/ieee80211_scan.c	2006-11-19 20:13:57.379275208 +0100
+@@ -105,10 +105,9 @@ static void next_chan_all_modes(struct i
  }
  
-@@ -2526,45 +2533,11 @@ ieee80211_get_rate(struct ieee80211_loca
- 	return NULL;
- }
  
--
- void
--ieee80211_rx_mgmt(struct net_device *dev, struct sk_buff *skb,
--		  struct ieee80211_rx_status *status, u32 msg_type)
-+ieee80211_fill_frame_info(struct ieee80211_local *local,
-+			  struct ieee80211_frame_info *fi,
-+			  struct ieee80211_rx_status *status)
+-static void ieee80211_scan_start(struct net_device *dev,
++static void ieee80211_scan_start(struct ieee80211_local *local,
+ 				 struct ieee80211_scan_conf *conf)
  {
 -	struct ieee80211_local *local = dev->ieee80211_ptr;
--        struct ieee80211_frame_info *fi;
--        size_t hlen;
--        struct ieee80211_sub_if_data *sdata;
--
--	if (msg_type != ieee80211_msg_monitor)
--		dev = local->apdev;
--	if (!dev) {
--		dev_kfree_skb(skb);
--		return;
--	}
--        skb->dev = dev;
--
--        sdata = IEEE80211_DEV_TO_SUB_IF(dev);
--
--	if (skb_headroom(skb) < sizeof(struct ieee80211_frame_info)) {
--		I802_DEBUG_INC(local->rx_expand_skb_head);
--		if (pskb_expand_head(skb, sizeof(struct ieee80211_frame_info),
--				     0, GFP_ATOMIC)) {
--			dev_kfree_skb(skb);
--                        return;
--		}
--	}
--
--	hlen = sizeof(struct ieee80211_frame_info);
--	if (msg_type == ieee80211_msg_monitor)
--		hlen -= sizeof(fi->msg_type);
--
--	fi = (struct ieee80211_frame_info *) skb_push(skb, hlen);
--        memset(fi, 0, hlen);
--	if (msg_type != ieee80211_msg_monitor)
--		fi->msg_type = htonl(msg_type);
--	fi->version = htonl(IEEE80211_FI_VERSION);
--        fi->length = htonl(hlen);
-         if (status) {
-                 struct timespec ts;
- 		struct ieee80211_rate *rate;
-@@ -2615,27 +2588,104 @@ ieee80211_rx_mgmt(struct net_device *dev
-                 fi->ssi_noise = 0x00000000;
-                 fi->encoding = 0;
- 	} else {
-+		/* clear everything because we really don't know.
-+		 * the msg_type field isn't present on monitor frames
-+		 * so we don't know whether it will be present or not,
-+		 * but it's ok to not clear it since it'll be assigned
-+		 * anyway */
-+		memset(fi, 0, sizeof(*fi) - sizeof(fi->msg_type));
-+
-                 fi->ssi_type = htonl(ieee80211_ssi_none);
-         }
-+	fi->version = htonl(IEEE80211_FI_VERSION);
-+	fi->length = cpu_to_be32(sizeof(*fi) - sizeof(fi->msg_type));
-+}
-+
-+/* this routine is actually not just for this, but also
-+ * for pushing fake 'management' frames into userspace.
-+ * it shall be replaced by a netlink-based system. */
-+void
-+ieee80211_rx_mgmt(struct ieee80211_local *local, struct sk_buff *skb,
-+		  struct ieee80211_rx_status *status, u32 msg_type)
-+{
-+	struct ieee80211_frame_info *fi;
-+	const size_t hlen = sizeof(struct ieee80211_frame_info);
-+	struct ieee80211_sub_if_data *sdata;
-+
-+	skb->dev = local->apdev;
-+
-+	sdata = IEEE80211_DEV_TO_SUB_IF(local->apdev);
-+
-+	if (skb_headroom(skb) < hlen) {
-+		I802_DEBUG_INC(local->rx_expand_skb_head);
-+		if (pskb_expand_head(skb, hlen, 0, GFP_ATOMIC)) {
-+			dev_kfree_skb(skb);
-+                        return;
-+		}
-+	}
-+
-+	fi = (struct ieee80211_frame_info *) skb_push(skb, hlen);
- 
--        sdata->stats.rx_packets++;
--        sdata->stats.rx_bytes += skb->len;
-+	ieee80211_fill_frame_info(local, fi, status);
-+	fi->msg_type = htonl(msg_type);
- 
--        skb->mac.raw = skb->data;
-+	sdata->stats.rx_packets++;
-+	sdata->stats.rx_bytes += skb->len;
-+
-+	skb->mac.raw = skb->data;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	skb->pkt_type = PACKET_OTHERHOST;
--	skb->protocol = __constant_htons(ETH_P_802_2);
-+	skb->protocol = htons(ETH_P_802_2);
- 	memset(skb->cb, 0, sizeof(skb->cb));
--        netif_rx(skb);
-+	netif_rx(skb);
- }
- 
-+void
-+ieee80211_rx_monitor(struct net_device *dev, struct sk_buff *skb,
-+		     struct ieee80211_rx_status *status)
-+{
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+	struct ieee80211_frame_info *fi;
-+	struct ieee80211_sub_if_data *sdata;
-+	const size_t hlen = sizeof(struct ieee80211_frame_info)
-+				- sizeof(fi->msg_type);
-+
-+	skb->dev = dev;
-+
-+	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+
-+	if (skb_headroom(skb) < hlen) {
-+		I802_DEBUG_INC(local->rx_expand_skb_head);
-+		if (pskb_expand_head(skb, hlen, 0, GFP_ATOMIC)) {
-+			dev_kfree_skb(skb);
-+                        return;
-+		}
-+	}
-+
-+	fi = (struct ieee80211_frame_info *) skb_push(skb, hlen);
-+
-+	ieee80211_fill_frame_info(local, fi, status);
-+	sdata->stats.rx_packets++;
-+	sdata->stats.rx_bytes += skb->len;
-+
-+	skb->mac.raw = skb->data;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	skb->pkt_type = PACKET_OTHERHOST;
-+	skb->protocol = htons(ETH_P_802_2);
-+	memset(skb->cb, 0, sizeof(skb->cb));
-+	netif_rx(skb);
-+}
- 
- int ieee80211_radar_status(struct net_device *dev, int channel, int radar,
- 			   int radar_type)
- {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 	struct ieee80211_radar_info *msg;
- 
-+	if (!local->apdev)
-+		return 0;
-+
- 	skb = dev_alloc_skb(sizeof(struct ieee80211_frame_info) +
- 			    sizeof(struct ieee80211_radar_info));
- 
-@@ -2649,7 +2699,7 @@ int ieee80211_radar_status(struct net_de
- 	msg->radar = radar;
- 	msg->radar_type = radar_type;
- 
--	ieee80211_rx_mgmt(dev, skb, NULL, ieee80211_msg_radar);
-+	ieee80211_rx_mgmt(local, skb, NULL, ieee80211_msg_radar);
- 	return 0;
- }
- EXPORT_SYMBOL(ieee80211_radar_status);
-@@ -2657,9 +2707,15 @@ EXPORT_SYMBOL(ieee80211_radar_status);
- int ieee80211_set_aid_for_sta(struct net_device *dev, u8 *peer_address,
- 			      u16 aid)
- {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 	struct ieee80211_msg_set_aid_for_sta *msg;
- 
-+	/* unlikely because if this event only happens for APs,
-+	 * which require an open ap device. */
-+	if (unlikely(!local->apdev))
-+		return 0;
-+
- 	skb = dev_alloc_skb(sizeof(struct ieee80211_frame_info) +
- 			    sizeof(struct ieee80211_msg_set_aid_for_sta));
- 
-@@ -2672,7 +2728,7 @@ int ieee80211_set_aid_for_sta(struct net
- 	memcpy(msg->sta_address, peer_address, ETH_ALEN);
- 	msg->aid = aid;
- 
--	ieee80211_rx_mgmt(dev, skb, NULL, ieee80211_msg_set_aid_for_sta);
-+	ieee80211_rx_mgmt(local, skb, NULL, ieee80211_msg_set_aid_for_sta);
- 	return 0;
- }
- EXPORT_SYMBOL(ieee80211_set_aid_for_sta);
-@@ -3007,8 +3063,7 @@ static ieee80211_txrx_result
- ieee80211_rx_h_monitor(struct ieee80211_txrx_data *rx)
- {
- 	if (rx->sdata->type == IEEE80211_IF_TYPE_MNTR) {
--		ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
--                                  ieee80211_msg_monitor);
-+		ieee80211_rx_monitor(rx->dev, rx->skb, rx->u.rx.status);
- 		return TXRX_QUEUED;
- 	}
- 
-@@ -3080,7 +3135,10 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 			return TXRX_DROP;
- 		}
- 
--		ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-+		if (!rx->local->apdev)
-+			return TXRX_DROP;
-+
-+		ieee80211_rx_mgmt(rx->local, rx->skb, rx->u.rx.status,
- 				  ieee80211_msg_sta_not_assoc);
- 		return TXRX_QUEUED;
- 	}
-@@ -3116,8 +3174,10 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 				       MAC_ARG(hdr->addr1),
- 				       MAC_ARG(hdr->addr2),
- 				       MAC_ARG(hdr->addr3));
-+				if (!rx->local->apdev)
-+					return TXRX_DROP;
- 				ieee80211_rx_mgmt(
--					rx->dev, rx->skb, rx->u.rx.status,
-+					rx->local, rx->skb, rx->u.rx.status,
- 					ieee80211_msg_wep_frame_unknown_key);
- 				return TXRX_QUEUED;
- 			}
-@@ -3267,7 +3327,9 @@ ieee80211_rx_h_802_1x_pae(struct ieee802
- 	    rx->sdata->type != IEEE80211_IF_TYPE_STA && rx->u.rx.ra_match) {
- 		/* Pass both encrypted and unencrypted EAPOL frames to user
- 		 * space for processing. */
--		ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-+		if (!rx->local->apdev)
-+			return TXRX_DROP;
-+		ieee80211_rx_mgmt(rx->local, rx->skb, rx->u.rx.status,
-                                   ieee80211_msg_normal);
- 		return TXRX_QUEUED;
- 	}
-@@ -3328,7 +3390,9 @@ ieee80211_rx_h_mgmt(struct ieee80211_txr
- 		ieee80211_sta_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status);
- 	} else {
- 		/* Management frames are sent to hostapd for processing */
--		ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-+		if (!rx->local->apdev)
-+			return TXRX_DROP;
-+		ieee80211_rx_mgmt(rx->local, rx->skb, rx->u.rx.status,
- 				  ieee80211_msg_normal);
- 	}
- 	return TXRX_QUEUED;
-@@ -3368,7 +3432,10 @@ ieee80211_rx_h_passive_scan(struct ieee8
- 			    rx->skb->len > FCS_LEN)
- 				skb_trim(rx->skb, rx->skb->len - FCS_LEN);
- 
--                        ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-+			if (!rx->local->apdev)
-+				return TXRX_DROP;
-+			ieee80211_rx_mgmt(rx->local, rx->skb,
-+					  rx->u.rx.status,
-                                           ieee80211_msg_passive_scan);
-                         return TXRX_QUEUED;
-                 } else {
-@@ -3502,7 +3569,9 @@ static void ieee80211_rx_michael_mic_rep
- 	/* TODO: consider verifying the MIC error report with software
- 	 * implementation if we get too many spurious reports from the
- 	 * hardware. */
--	ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-+	if (!rx->local->apdev)
-+		goto ignore;
-+	ieee80211_rx_mgmt(rx->local, rx->skb, rx->u.rx.status,
- 			  ieee80211_msg_michael_mic_failure);
- 	return;
- 
-@@ -4148,7 +4217,8 @@ void ieee80211_tx_status(struct net_devi
- 			local->dot11FailedCount++;
-         }
- 
--        if (!(status->control.flags & IEEE80211_TXCTL_REQ_TX_STATUS)) {
-+        if (!(status->control.flags & IEEE80211_TXCTL_REQ_TX_STATUS)
-+            || unlikely(!local->apdev)) {
- 		dev_kfree_skb(skb);
+ 	int old_mode_idx = local->scan.mode_idx;
+ 	int old_chan_idx = local->scan.chan_idx;
+ 	struct ieee80211_hw_modes *mode = NULL;
+@@ -118,7 +117,7 @@ static void ieee80211_scan_start(struct 
+ 	if (!local->hw->passive_scan) {
+ 		printk(KERN_DEBUG "%s: Scan handler called, yet the hardware "
+ 		       "does not support passive scanning. Disabled.\n",
+-		       dev->name);
++		       local->mdev->name);
  		return;
  	}
-@@ -4167,7 +4237,7 @@ void ieee80211_tx_status(struct net_devi
- 	skb = skb2;
  
-         /* Send frame to hostapd */
--        ieee80211_rx_mgmt(dev, skb, NULL, msg_type);
-+        ieee80211_rx_mgmt(local, skb, NULL, msg_type);
+@@ -136,7 +135,7 @@ static void ieee80211_scan_start(struct 
+ 
+ 	if (!local->scan.skb) {
+ 		printk(KERN_DEBUG "%s: Scan start called even though scan.skb "
+-		       "is not set\n", dev->name);
++		       "is not set\n", local->mdev->name);
+ 	}
+ 
+ 	if (local->scan.our_mode_only) {
+@@ -163,7 +162,7 @@ static void ieee80211_scan_start(struct 
+ #if 0
+ 	printk(KERN_DEBUG "%s: Doing scan on mode: %d freq: %d chan: %d "
+ 	       "for %d ms\n",
+-	       dev->name, conf->scan_phymode, conf->scan_freq,
++	       local->mdev->name, conf->scan_phymode, conf->scan_freq,
+ 	       conf->scan_channel, conf->scan_time);
+ #endif
+ 	local->scan.rx_packets = 0;
+@@ -171,9 +170,9 @@ static void ieee80211_scan_start(struct 
+ 	local->scan.freq = chan->freq;
+ 	local->scan.in_scan = 1;
+ 
+-	ieee80211_netif_oper(dev, NETIF_STOP);
++	ieee80211_netif_oper(local->mdev, NETIF_STOP);
+ 
+-	ret = local->hw->passive_scan(dev, IEEE80211_SCAN_START, conf);
++	ret = local->hw->passive_scan(local->mdev, IEEE80211_SCAN_START, conf);
+ 
+ 	if (ret == 0) {
+ 		long usec = local->hw->channel_change_time +
+@@ -185,7 +184,7 @@ static void ieee80211_scan_start(struct 
+ 		local->scan.in_scan = 0;
+ 		if (conf->skb)
+ 			dev_kfree_skb(conf->skb);
+-		ieee80211_netif_oper(dev, NETIF_WAKE);
++		ieee80211_netif_oper(local->mdev, NETIF_WAKE);
+ 		if (ret == -EAGAIN) {
+ 			local->scan.timer.expires = jiffies +
+ 				(local->scan.interval * HZ / 100);
+@@ -193,7 +192,7 @@ static void ieee80211_scan_start(struct 
+ 			local->scan.chan_idx = old_chan_idx;
+ 		} else {
+ 			printk(KERN_DEBUG "%s: Got unknown error from "
+-			       "passive_scan %d\n", dev->name, ret);
++			       "passive_scan %d\n", local->mdev->name, ret);
+ 			local->scan.timer.expires = jiffies +
+ 				(local->scan.interval * HZ);
+ 		}
+@@ -204,10 +203,9 @@ static void ieee80211_scan_start(struct 
  }
- EXPORT_SYMBOL(ieee80211_tx_status);
  
---- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-11-19 20:13:56.069275208 +0100
-+++ wireless-dev/net/d80211/ieee80211_i.h	2006-11-19 20:13:56.719275208 +0100
-@@ -571,7 +571,7 @@ struct ieee80211_key *ieee80211_key_allo
- 					  int idx, size_t key_len, gfp_t flags);
- void ieee80211_key_free(struct ieee80211_key *key);
- void ieee80211_key_release(struct kobject *kobj);
--void ieee80211_rx_mgmt(struct net_device *dev, struct sk_buff *skb,
-+void ieee80211_rx_mgmt(struct ieee80211_local *local, struct sk_buff *skb,
- 		       struct ieee80211_rx_status *status, u32 msg_type);
- void ieee80211_prepare_rates(struct ieee80211_local *local);
- void ieee80211_tx_set_iswep(struct ieee80211_txrx_data *tx);
---- wireless-dev.orig/net/d80211/wpa.c	2006-11-19 20:13:51.199275208 +0100
-+++ wireless-dev/net/d80211/wpa.c	2006-11-19 20:13:56.719275208 +0100
-@@ -267,7 +267,10 @@ ieee80211_rx_h_michael_mic_verify(struct
- 			kfree(buf);
- 		} while (0);
  
--		ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-+		if (!rx->local->apdev)
-+			return TXRX_DROP;
-+
-+		ieee80211_rx_mgmt(rx->local, rx->skb, rx->u.rx.status,
- 				  ieee80211_msg_michael_mic_failure);
+-static void ieee80211_scan_stop(struct net_device *dev,
++static void ieee80211_scan_stop(struct ieee80211_local *local,
+ 				struct ieee80211_scan_conf *conf)
+ {
+-	struct ieee80211_local *local = dev->ieee80211_ptr;
+ 	struct ieee80211_hw_modes *mode;
+ 	struct ieee80211_channel *chan;
+ 	int wait;
+@@ -228,12 +226,12 @@ static void ieee80211_scan_stop(struct n
  
- 		return TXRX_QUEUED;
---- wireless-dev.orig/include/net/d80211_common.h	2006-11-19 20:13:51.249275208 +0100
-+++ wireless-dev/include/net/d80211_common.h	2006-11-19 20:13:56.719275208 +0100
-@@ -50,7 +50,7 @@ enum ieee80211_msg_type {
- 	ieee80211_msg_passive_scan = 3,
- 	ieee80211_msg_wep_frame_unknown_key = 4,
- 	ieee80211_msg_michael_mic_failure = 5,
--	ieee80211_msg_monitor = 6,
-+	/* hole at 6, was monitor but never sent to userspace */
- 	ieee80211_msg_sta_not_assoc = 7,
- 	ieee80211_msg_set_aid_for_sta = 8 /* used by Intersil MVC driver */,
- 	ieee80211_msg_key_threshold_notification = 9,
+ 	chan = &mode->channels[local->scan.chan_idx];
+ 
+-	local->hw->passive_scan(dev, IEEE80211_SCAN_END, conf);
++	local->hw->passive_scan(local->mdev, IEEE80211_SCAN_END, conf);
+ 
+ #ifdef CONFIG_D80211_VERBOSE_DEBUG
+ 	printk(KERN_DEBUG "%s: Did scan on mode: %d freq: %d chan: %d "
+ 	       "GOT: %d Beacon: %d (%d)\n",
+-	       dev->name,
++	       local->mdev->name,
+ 	       mode->mode, chan->freq, chan->chan,
+ 	       local->scan.rx_packets, local->scan.rx_beacon,
+ 	       local->scan.tries);
+@@ -241,7 +239,7 @@ static void ieee80211_scan_stop(struct n
+ 	local->scan.num_scans++;
+ 
+ 	local->scan.in_scan = 0;
+-	ieee80211_netif_oper(dev, NETIF_WAKE);
++	ieee80211_netif_oper(local->mdev, NETIF_WAKE);
+ 
+ 	local->scan.tries = 0;
+ 	/* Use random interval of scan.interval .. 2 * scan.interval */
+@@ -253,10 +251,9 @@ static void ieee80211_scan_stop(struct n
+ }
+ 
+ 
+-static void ieee80211_scan_handler(unsigned long uldev)
++static void ieee80211_scan_handler(unsigned long ullocal)
+ {
+-        struct net_device *dev = (struct net_device *) uldev;
+-	struct ieee80211_local *local = dev->ieee80211_ptr;
++	struct ieee80211_local *local = (struct ieee80211_local *) ullocal;
+ 	struct ieee80211_scan_conf conf;
+ 
+ 	if (local->scan.interval == 0 && !local->scan.in_scan) {
+@@ -276,15 +273,14 @@ static void ieee80211_scan_handler(unsig
+         conf.running_antenna_max = local->conf.antenna_max;
+ 
+ 	if (local->scan.in_scan == 0)
+-		ieee80211_scan_start(dev, &conf);
++		ieee80211_scan_start(local, &conf);
+ 	else
+-		ieee80211_scan_stop(dev, &conf);
++		ieee80211_scan_stop(local, &conf);
+ }
+ 
+ 
+-void ieee80211_init_scan(struct net_device *dev)
++void ieee80211_init_scan(struct ieee80211_local *local)
+ {
+-	struct ieee80211_local *local = dev->ieee80211_ptr;
+ 	struct ieee80211_hdr hdr;
+ 	u16 fc;
+ 	int len = 10;
+@@ -296,7 +292,7 @@ void ieee80211_init_scan(struct net_devi
+ 		memset(&local->scan.tx_control, 0,
+ 		       sizeof(local->scan.tx_control));
+ 		printk(KERN_DEBUG "%s: Does not support passive scan, "
+-		       "disabled\n", dev->name);
++		       "disabled\n", local->mdev->name);
+ 		return;
+ 	}
+ 
+@@ -304,7 +300,7 @@ void ieee80211_init_scan(struct net_devi
+ 	local->scan.our_mode_only = 1;
+ 	local->scan.time = 10000;
+ 	local->scan.timer.function = ieee80211_scan_handler;
+-	local->scan.timer.data = (unsigned long) dev;
++	local->scan.timer.data = (unsigned long) local;
+ 	local->scan.timer.expires = jiffies + local->scan.interval * HZ;
+ 	add_timer(&local->scan.timer);
+ 
+@@ -313,7 +309,7 @@ void ieee80211_init_scan(struct net_devi
+ 	local->scan.skb = alloc_skb(len, GFP_KERNEL);
+ 	if (!local->scan.skb) {
+ 		printk(KERN_WARNING "%s: Failed to allocate CTS packet for "
+-		       "passive scan\n", dev->name);
++		       "passive scan\n", local->mdev->name);
+ 		return;
+ 	}
+ 
+@@ -322,7 +318,7 @@ void ieee80211_init_scan(struct net_devi
+ 	hdr.duration_id =
+ 		cpu_to_le16(2 * local->hw->channel_change_time +
+ 			    local->scan.time);
+-	memcpy(hdr.addr1, dev->dev_addr, ETH_ALEN); /* DA */
++	memcpy(hdr.addr1, local->mdev->dev_addr, ETH_ALEN); /* DA */
+ 	hdr.seq_ctrl = 0;
+ 
+ 	memcpy(skb_put(local->scan.skb, len), &hdr, len);
+@@ -333,15 +329,14 @@ void ieee80211_init_scan(struct net_devi
+ 	memset(&extra, 0, sizeof(extra));
+ 	extra.endidx = local->num_curr_rates;
+ 	local->scan.tx_control.tx_rate =
+-		rate_control_get_rate(local, dev, local->scan.skb, &extra)->val;
++		rate_control_get_rate(local, local->mdev,
++				      local->scan.skb, &extra)->val;
+ 	local->scan.tx_control.flags |= IEEE80211_TXCTL_NO_ACK;
+ }
+ 
+ 
+-void ieee80211_stop_scan(struct net_device *dev)
++void ieee80211_stop_scan(struct ieee80211_local *local)
+ {
+-	struct ieee80211_local *local = dev->ieee80211_ptr;
+-
+ 	if (local->hw->passive_scan) {
+ 		del_timer_sync(&local->scan.timer);
+ 		dev_kfree_skb(local->scan.skb);
 
 
