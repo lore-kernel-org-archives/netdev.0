@@ -1,73 +1,68 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 10/13] bcm43xx: update to new d80211 driver API
-Date: Sun, 19 Nov 2006 20:43:10 +0100
-Message-ID: <200611192043.11122.mb@bu3sch.de>
-References: <1163802439.3392.47.camel@johannes.berg> <1163963898.15473.36.camel@johannes.berg> <1163964661.15473.59.camel@johannes.berg>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH][Generic netlink]: dont send empty operational attributes
+Date: Sun, 19 Nov 2006 20:54:02 +0100
+Message-ID: <20061119195402.GJ8693@postel.suug.ch>
+References: <4466a10611191117r3a933644scd0c4182cb08d43c@mail.gmail.com> <4466a10611191122r2bd16dbdmc35991c13dc9c92f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Ivo van Doorn <ivdoorn@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:6836
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S933079AbWKSTpQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 14:45:16 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1163964661.15473.59.camel@johannes.berg>
+Received: from postel.suug.ch ([194.88.212.233]:2485 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S933114AbWKSTxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 14:53:43 -0500
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
+In-Reply-To: <4466a10611191122r2bd16dbdmc35991c13dc9c92f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 19 November 2006 20:31, Johannes Berg wrote:
+* jamal <hadi@cyberus.ca> 2006-11-19 14:22
+> On 11/19/06, jamal <hadi@cyberus.ca> wrote:
+> >This is probably 2.6.19 material (a little annoyance)
+> >I am testing using a new mailer - if this patch doesnt look right let me
+> know.
+> 
+> Seems like i failed. Ok, heres the patch again..
 
-> --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-11-19 20:12:47.629275208 +0100
-> +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-11-19 20:14:01.189275208 +0100
-> @@ -285,7 +285,7 @@ void bcm43xx_debugfs_add_device(struct b
->  {
->  	struct bcm43xx_dfsentry *e;
->  	struct bcm43xx_txstatus_log *log;
-> -	char devdir[IFNAMSIZ];
-> +	char devdir[16];
+HTML mail and application/octet-stream for the patch? :-)
+Probably never made it to netdev. The patch (enclosed again)
+is fine though.
 
-What's the purpose of this?
+Dont add operations attribute headers when the family doesnt have
+any (gets annoying to see the header upon first registration
+before the commands are registered)
 
->  	assert(bcm);
->  	e = kzalloc(sizeof(*e), GFP_KERNEL);
-> @@ -308,7 +308,7 @@ void bcm43xx_debugfs_add_device(struct b
->  
->  	bcm->dfsentry = e;
->  
-> -	strncpy(devdir, bcm->net_dev->name, ARRAY_SIZE(devdir));
-> +	snprintf(devdir, sizeof(devdir), "wiphy%d", bcm->ieee->index);
->  	e->subdir = debugfs_create_dir(devdir, fs.root);
->  	e->dentry_tsf = debugfs_create_file("tsf", 0666, e->subdir,
->  	                                    bcm, &tsf_fops);
+signed-off-by: J Hadi Salim
 
-> +static struct ieee80211_ops bcm43xx_hw_ops = {
-> +	.tx = bcm43xx_net_hard_start_xmit,
-> +	.open = bcm43xx_net_open,
-> +	.stop = bcm43xx_net_stop,
-> +	.add_interface = bcm43xx_add_interface,
-> +	.remove_interface = bcm43xx_remove_interface,
-> +	.reset = bcm43xx_net_reset,
-> +	.config = bcm43xx_net_config,
-> +	.config_interface = bcm43xx_config_interface,
-> +	.set_multicast_list = bcm43xx_set_multicast_list,
-> +	.set_key = bcm43xx_net_set_key,
-> +	.get_stats = bcm43xx_net_get_stats,
-> +	.get_tx_stats = bcm43xx_net_get_tx_stats,
-> +	.conf_tx = bcm43xx_net_conf_tx,
-> +};
+---
+commit 0dc22b960a081832e6c05b59eeefbce564354b94
+tree 0659cc668f40fbe383c8d63eaa3adbec72668244
+parent e030f8294a5b9f8179dae10cdbf9dcf32aa64110
+author J Hadi Salim hadi@cyberus.ca <hadi@cyberus.ca> Sun, 19 Nov 2006 14:00:04 -0500
+committer J Hadi Salim hadi@cyberus.ca <hadi@lilsol.(none)> Sun, 19 Nov 2006 14:00:04 -0500
 
-I like that being a seperate and static struct.
+ net/netlink/genetlink.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
--- 
-Greetings Michael.
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 49bc2db..9e33d5f 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -403,6 +403,9 @@ static int ctrl_fill_info(struct genl_fa
+ 	NLA_PUT_U32(skb, CTRL_ATTR_HDRSIZE, family->hdrsize);
+ 	NLA_PUT_U32(skb, CTRL_ATTR_MAXATTR, family->maxattr);
+ 
++	if (list_empty(&family->ops_list))
++		goto ctrl_fill_done;
++
+ 	nla_ops = nla_nest_start(skb, CTRL_ATTR_OPS);
+ 	if (nla_ops == NULL)
+ 		goto nla_put_failure;
+@@ -429,6 +432,7 @@ static int ctrl_fill_info(struct genl_fa
+ 		nla_nest_end(skb, nest);
+ 	}
+ 
++ctrl_fill_done:
+ 	nla_nest_end(skb, nla_ops);
+ 
+ 	return genlmsg_end(skb, hdr);
