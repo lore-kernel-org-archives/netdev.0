@@ -1,52 +1,116 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [RFC: 2.6 patch] remove broken net drivers
-Date: Sun, 19 Nov 2006 12:53:10 +0100 (CET)
-Message-ID: <Pine.LNX.4.62.0611191249450.31733@pademelon.sonytel.be>
-References: <20061118000224.GU31879@stusta.de>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: TULIP_MWI fix for Cobalt
+Date: Sun, 19 Nov 2006 15:04:23 +0000
+Message-ID: <20061119150423.GA7655@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	funaho@jurai.org,
-	Linux/m68k on Mac <linux-mac68k@mac.linux-m68k.org>,
-	Linux/m68k <linux-m68k@lists.linux-m68k.org>, jejb@steeleye.com,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Matthias Urlichs <smurf@smurf.noris.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: romieu@fr.zoreil.com, pdh@colonel-panic.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:24502 "EHLO
-	vervifontaine.sonycom.com") by vger.kernel.org with ESMTP
-	id S1756589AbWKSLxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 06:53:11 -0500
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20061118000224.GU31879@stusta.de>
+Received: from sorrow.cyrius.com ([65.19.161.204]:34315 "EHLO
+	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S1756706AbWKSPFv
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 10:05:51 -0500
+To: val_henson@linux.intel.com, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 18 Nov 2006, Adrian Bunk wrote:
-> This patch removes net drivers that:
-> - had already been marked as BROKEN in 2.6.0 three years ago and
-> - are still marked as BROKEN.
-> 
-> These are the following drivers:
-> - MAC89x0
+Please consider the patch below.  The original consensus was that
+since this is documented in the errata it should be done by default
+rather than as a config option.  I think the original author of the
+patch doesn't have time to submit a revised version but now that
+there's a new maintainer of the Tulip code maybe there's hope to get
+this in some way.
 
-I still have a patch lying around for this one:
+This patch is being used in the Debian MIPS kernels and fixes a real
+bug.
 
-http://linux-m68k-cvs.ubb.ca/~geert/linux-m68k-2.6.x-merging/POSTPONED/357-mac89x0.diff
 
-I don't remember 100% why I put it in my POSTPONED queue. Maybe because it was
-rejected upstream?
+From: Peter Horton <pdh@colonel-panic.org>
 
-If it's OK (it compiles fine with 2.6.19-rc5), please tell me, and I'll
-resubmit it.
+This patch works around the MWI bug on the DC21143 rev 65 Tulip by ensuring
+that the receive buffers don't end on a cache line boundary (as documented
+in the errata).
 
-Gr{oetje,eeting}s,
+This patch is required for the MIPs based Cobalt Qube/RaQ as supporting the
+extra PCI commands seems to reduce the chance of a hard lockup between the
+Tulip and the PCI bridge.
 
-						Geert
+--- linux.git.orig/drivers/net/tulip/tulip_core.c	2006-01-29 21:43:40.000000000 +0000
++++ linux.git/drivers/net/tulip/tulip_core.c	2006-01-29 21:56:50.000000000 +0000
+@@ -294,6 +294,8 @@
+ 	if (tp->mii_cnt  ||  (tp->mtable  &&  tp->mtable->has_mii))
+ 		iowrite32(0x00040000, ioaddr + CSR6);
+ 
++	printk(KERN_DEBUG "%s: CSR0 %08x\n", dev->name, tp->csr0);
++
+ 	/* Reset the chip, holding bit 0 set at least 50 PCI cycles. */
+ 	iowrite32(0x00000001, ioaddr + CSR0);
+ 	udelay(100);
+@@ -1155,8 +1157,10 @@
+ 	/* if we have any cache line size at all, we can do MRM */
+ 	csr0 |= MRM;
+ 
++#ifndef CONFIG_TULIP_MWI_DC21143
+ 	/* ...and barring hardware bugs, MWI */
+ 	if (!(tp->chip_id == DC21143 && tp->revision == 65))
++#endif
+ 		csr0 |= MWI;
+ 
+ 	/* set or disable MWI in the standard PCI command bit.
+@@ -1182,7 +1186,7 @@
+ 	 */
+ 	switch (cache) {
+ 	case 8:
+-		csr0 |= MRL | (1 << CALShift) | (16 << BurstLenShift);
++		csr0 |= MRL | (1 << CALShift) | (8 << BurstLenShift);
+ 		break;
+ 	case 16:
+ 		csr0 |= MRL | (2 << CALShift) | (16 << BurstLenShift);
+Index: linux.git/drivers/net/tulip/tulip.h
+===================================================================
+--- linux.git.orig/drivers/net/tulip/tulip.h	2006-01-29 21:43:40.000000000 +0000
++++ linux.git/drivers/net/tulip/tulip.h	2006-01-29 21:52:01.000000000 +0000
+@@ -262,7 +262,15 @@
+ #define RX_RING_SIZE	128 
+ #define MEDIA_MASK     31
+ 
+-#define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */
++/* MWI can fail on 21143 rev 65 if the receive buffer ends
++   on a cache line boundary. Ensure it doesn't ...
++*/
++
++#ifdef CONFIG_TULIP_MWI_DC21143
++#define PKT_BUF_SZ		(1536 + 4)	/* Size of each temporary Rx buffer. */
++#else
++#define PKT_BUF_SZ		1536		/* Size of each temporary Rx buffer. */
++#endif
+ 
+ #define TULIP_MIN_CACHE_LINE	8	/* in units of 32-bit words */
+ 
+Index: linux.git/drivers/net/tulip/Kconfig
+===================================================================
+--- linux.git.orig/drivers/net/tulip/Kconfig	2006-01-29 21:48:09.000000000 +0000
++++ linux.git/drivers/net/tulip/Kconfig	2006-01-29 21:50:28.000000000 +0000
+@@ -57,6 +57,16 @@
+ 
+ 	  If unsure, say N.
+ 
++config TULIP_MWI_DC21143
++	bool "Enable MWI workaround on dc21143 controllers"
++	depends on TULIP_MWI
++	help
++	  This enables a workaround for MWI ("New bus configuration") on DC21143
++	  controllers.  Normally MWI is disabled on these chips because of
++	  hardware errata.
++
++	  If unsure, say N.
++
+ config TULIP_MMIO
+ 	bool "Use PCI shared mem for NIC registers"
+ 	depends on TULIP
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+-- 
+Martin Michlmayr
+http://www.cyrius.com/
