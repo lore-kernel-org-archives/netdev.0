@@ -1,430 +1,135 @@
-From: jmalicki@metacarta.com
-Subject: [PATCH] AF_UNIX recv/shutdown race
-Date: Sun, 19 Nov 2006 18:40:46 -0500 (EST)
-Message-ID: <51488.68.160.147.35.1163979646.squirrel@webmail.metacarta.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [RFT] bcm43xx-softmac: match specifications change in rssi
+ processing
+Date: Sun, 19 Nov 2006 17:44:50 -0600
+Message-ID: <4560EC72.mailJBO11D63L@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;boundary="----=_20061119184046_52859"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from silene.metacarta.com ([65.77.47.18]:8385 "EHLO
-	silene.metacarta.com") by vger.kernel.org with ESMTP
-	id S933777AbWKSXkt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 18:40:49 -0500
-To: linux-kernel@vger.kernle.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-References: 
-In-Reply-To: 
+Received: from ms-smtp-03.rdc-kc.rr.com ([24.94.166.129]:24222 "EHLO
+	ms-smtp-03.rdc-kc.rr.com") by vger.kernel.org with ESMTP
+	id S933783AbWKSXpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 18:45:20 -0500
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_20061119184046_52859
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+On September 5, 2006, Johannes Berg changed the specifications for RSSI
+processing. Implementing those changes involves specifying the bytes in
+the RX header that contain the LNA (low-noise amplifier) bits, adding a
+new argument to bcm43xx_rssi_postprocess, and the actual changes in
+the rssi processing.
 
-On some of our systems (Linux 2.6, 4-way SMP), we have found a race where
-occasionally recv() can detect a shutdown before the last bytes written to
-the socket, and will exhibit the odd behavior where recv() will return 0
-to indicate a shutdown socket, and a subsequent call will return the last
-bit data, after which it will return 0 again.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-This is demonstrated by the attached test cases (cli.c and srv.c).  Start
-one srv and several cli processes (perhaps 4-8) on a 2x dual core P4 (most
-likely other systems as well, but I haven't reproduced it on other
-configurations), and you will soon see this behavior.
-
-What happens is that in unix_stream_recvmsg, the system checks for any
-skbuffs on the queue ready to return.  Meanwhile, immediately afterwards,
-another process/processor writes an skbuff and shuts down the sock.  Our
-original reader process then checks shutdown, and returns 0.  On the next
-call, it finally sees the skbuff written.
-
-This patch combines af_unix's unix_sk(sk).readlock with
-unix_state_rlock/runlock(sk).  readlock was only ever used by bind,
-autobind, and unix_{stream,dgram}_recvmsg.  I can't see any way of
-ensuring correctness for unix_stream_recvmsg without forcing it to hold
-the state lock across getting the skbuf and checking shutdown.
-
-
-Signed-off-by: Joseph Malicki <joe.malicki@metacarta.com>
--------------------------------
-diff -rup linux-2.6.18.orig/include/net/af_unix.h
-linux-2.6.18/include/net/af_unix.h
---- linux-2.6.18.orig/include/net/af_unix.h	2006-09-19 23:42:06.000000000
--0400
-+++ linux-2.6.18/include/net/af_unix.h	2006-10-02 19:42:07.000000000 -0400
-@@ -78,7 +78,6 @@ struct unix_sock {
-         struct unix_address     *addr;
-         struct dentry		*dentry;
-         struct vfsmount		*mnt;
--	struct mutex		readlock;
-         struct sock		*peer;
-         struct sock		*other;
-         struct sock		*gc_tree;
-diff -rup linux-2.6.18.orig/net/unix/af_unix.c
-linux-2.6.18/net/unix/af_unix.c
---- linux-2.6.18.orig/net/unix/af_unix.c	2006-09-19 23:42:06.000000000 -0400
-+++ linux-2.6.18/net/unix/af_unix.c	2006-10-06 15:28:44.000000000 -0400
-@@ -50,6 +50,8 @@
-  *	     Arnaldo C. Melo	:	Remove MOD_{INC,DEC}_USE_COUNT,
-  *	     				the core infrastructure is doing that
-  *	     				for all net proto families now (2.5.69+)
-+ *	       Joseph Malicki	:	Fix SMP race between write/shutdown
-+ *					and read.
-  *
-  *
-  * Known differences from reference BSD that was tested:
-@@ -593,7 +595,6 @@ static struct sock * unix_create1(struct
- 	u->mnt	  = NULL;
- 	spin_lock_init(&u->lock);
- 	atomic_set(&u->inflight, sock ? 0 : -1);
--	mutex_init(&u->readlock); /* single task reading lock */
- 	init_waitqueue_head(&u->peer_wait);
- 	unix_insert_socket(unix_sockets_unbound, sk);
- out:
-@@ -650,7 +651,7 @@ static int unix_autobind(struct socket *
- 	struct unix_address * addr;
- 	int err;
-
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
-
- 	err = 0;
- 	if (u->addr)
-@@ -687,7 +688,7 @@ retry:
- 	spin_unlock(&unix_table_lock);
- 	err = 0;
-
--out:	mutex_unlock(&u->readlock);
-+out:	unix_state_runlock(sk);
- 	return err;
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+@@ -382,8 +382,8 @@ void bcm43xx_generate_txhdr(struct bcm43
  }
-
-@@ -770,7 +771,7 @@ static int unix_bind(struct socket *sock
- 		goto out;
- 	addr_len = err;
-
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
-
- 	err = -EINVAL;
- 	if (u->addr)
-@@ -842,7 +843,7 @@ static int unix_bind(struct socket *sock
- out_unlock:
- 	spin_unlock(&unix_table_lock);
- out_up:
--	mutex_unlock(&u->readlock);
-+	unix_state_runlock(sk);
- out:
- 	return err;
-
-@@ -1572,7 +1573,7 @@ static int unix_dgram_recvmsg(struct kio
-
- 	msg->msg_namelen = 0;
-
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
-
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
-@@ -1628,7 +1629,7 @@ static int unix_dgram_recvmsg(struct kio
- out_free:
- 	skb_free_datagram(sk,skb);
- out_unlock:
--	mutex_unlock(&u->readlock);
-+	unix_state_runlock(sk);
- out:
- 	return err;
- }
-@@ -1674,7 +1675,6 @@ static int unix_stream_recvmsg(struct ki
- 	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
- 	struct scm_cookie tmp_scm;
- 	struct sock *sk = sock->sk;
--	struct unix_sock *u = unix_sk(sk);
- 	struct sockaddr_un *sunaddr=msg->msg_name;
- 	int copied = 0;
- 	int check_creds = 0;
-@@ -1704,7 +1704,7 @@ static int unix_stream_recvmsg(struct ki
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
- 	}
-
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
-
- 	do
- 	{
-@@ -1728,7 +1728,7 @@ static int unix_stream_recvmsg(struct ki
- 			err = -EAGAIN;
- 			if (!timeo)
- 				break;
--			mutex_unlock(&u->readlock);
-+			unix_state_runlock(sk);
-
- 			timeo = unix_stream_data_wait(sk, timeo);
-
-@@ -1736,7 +1736,7 @@ static int unix_stream_recvmsg(struct ki
- 				err = sock_intr_errno(timeo);
- 				goto out;
+ 
+ static s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm,
+-				   u8 in_rssi, int ofdm,
+-				   int adjust_2053, int adjust_2050)
++				   u8 in_rssi, int ofdm, int adjust_2053,
++				   int adjust_2050, u8 lna)
+ {
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+@@ -395,12 +395,10 @@ static s8 bcm43xx_rssi_postprocess(struc
+ 			tmp = in_rssi;
+ 			if (tmp > 127)
+ 				tmp -= 256;
+-			tmp *= 73;
+-			tmp /= 64;
+ 			if (adjust_2050)
+-				tmp += 25;
++				tmp += 17;
+ 			else
+-				tmp -= 3;
++				tmp -= 4;
+ 		} else {
+ 			if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
+ 				if (in_rssi > 63)
+@@ -409,7 +407,7 @@ static s8 bcm43xx_rssi_postprocess(struc
+ 				tmp = 31 - tmp;
+ 				tmp *= -131;
+ 				tmp /= 128;
+-				tmp -= 57;
++				tmp -= 67;
+ 			} else {
+ 				tmp = in_rssi;
+ 				tmp = 31 - tmp;
+@@ -418,8 +416,23 @@ static s8 bcm43xx_rssi_postprocess(struc
+ 				tmp -= 68;
  			}
--			mutex_lock(&u->readlock);
-+			unix_state_rlock(sk);
- 			continue;
+ 			if (phy->type == BCM43xx_PHYTYPE_G &&
+-			    adjust_2050)
++			    adjust_2050) {
++				tmp += 20;
++				switch (lna) {
++				case 0:
++					tmp += 2;
++					break;
++				case 1:
++					tmp -= 19;
++					break;
++				case 2:
++					tmp -= 13;
++					break;
++				case 3:
++					tmp -= 25;
++				}
+ 				tmp += 25;
++			}
  		}
-
-@@ -1802,7 +1802,7 @@ static int unix_stream_recvmsg(struct ki
- 		}
- 	} while (size);
-
--	mutex_unlock(&u->readlock);
-+	unix_state_runlock(sk);
- 	scm_recv(sock, msg, siocb->scm, flags);
- out:
- 	return copied ? : err;
-
-
-------=_20061119184046_52859
-Content-Type: text/plain; name="af_unix_readshutdownrace.diff"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="af_unix_readshutdownrace.diff"
-
-diff -rup linux-2.6.18.orig/include/net/af_unix.h linux-2.6.18/include/net/af_unix.h
---- linux-2.6.18.orig/include/net/af_unix.h	2006-09-19 23:42:06.000000000 -0400
-+++ linux-2.6.18/include/net/af_unix.h	2006-10-02 19:42:07.000000000 -0400
-@@ -78,7 +78,6 @@ struct unix_sock {
-         struct unix_address     *addr;
-         struct dentry		*dentry;
-         struct vfsmount		*mnt;
--	struct mutex		readlock;
-         struct sock		*peer;
-         struct sock		*other;
-         struct sock		*gc_tree;
-diff -rup linux-2.6.18.orig/net/unix/af_unix.c linux-2.6.18/net/unix/af_unix.c
---- linux-2.6.18.orig/net/unix/af_unix.c	2006-09-19 23:42:06.000000000 -0400
-+++ linux-2.6.18/net/unix/af_unix.c	2006-10-06 15:28:44.000000000 -0400
-@@ -50,6 +50,8 @@
-  *	     Arnaldo C. Melo	:	Remove MOD_{INC,DEC}_USE_COUNT,
-  *	     				the core infrastructure is doing that
-  *	     				for all net proto families now (2.5.69+)
-+ *	       Joseph Malicki	:	Fix SMP race between write/shutdown
-+ *					and read.
-  *
-  *
-  * Known differences from reference BSD that was tested:
-@@ -593,7 +595,6 @@ static struct sock * unix_create1(struct
- 	u->mnt	  = NULL;
- 	spin_lock_init(&u->lock);
- 	atomic_set(&u->inflight, sock ? 0 : -1);
--	mutex_init(&u->readlock); /* single task reading lock */
- 	init_waitqueue_head(&u->peer_wait);
- 	unix_insert_socket(unix_sockets_unbound, sk);
- out:
-@@ -650,7 +651,7 @@ static int unix_autobind(struct socket *
- 	struct unix_address * addr;
- 	int err;
+ 		break;
+ 	case 0x2060:
+@@ -454,7 +467,7 @@ static s8 bcm43xx_rssinoise_postprocess(
+ 		//TODO: Incomplete specs.
+ 		ret = 0;
+ 	} else
+-		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1, 1);
++		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1, 1, 0);
  
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
- 
- 	err = 0;
- 	if (u->addr)
-@@ -687,7 +688,7 @@ retry:
- 	spin_unlock(&unix_table_lock);
- 	err = 0;
- 
--out:	mutex_unlock(&u->readlock);
-+out:	unix_state_runlock(sk);
- 	return err;
+ 	return ret;
  }
+@@ -476,6 +489,7 @@ int bcm43xx_rx(struct bcm43xx_private *b
+ 	const u16 rxflags2 = le16_to_cpu(rxhdr->flags2);
+ 	const u16 rxflags3 = le16_to_cpu(rxhdr->flags3);
+ 	const int is_ofdm = !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
++	u8 lna;
  
-@@ -770,7 +771,7 @@ static int unix_bind(struct socket *sock
- 		goto out;
- 	addr_len = err;
- 
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
- 
- 	err = -EINVAL;
- 	if (u->addr)
-@@ -842,7 +843,7 @@ static int unix_bind(struct socket *sock
- out_unlock:
- 	spin_unlock(&unix_table_lock);
- out_up:
--	mutex_unlock(&u->readlock);
-+	unix_state_runlock(sk);
- out:
- 	return err;
- 
-@@ -1572,7 +1573,7 @@ static int unix_dgram_recvmsg(struct kio
- 
- 	msg->msg_namelen = 0;
- 
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
- 
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
-@@ -1628,7 +1629,7 @@ static int unix_dgram_recvmsg(struct kio
- out_free:
- 	skb_free_datagram(sk,skb);
- out_unlock:
--	mutex_unlock(&u->readlock);
-+	unix_state_runlock(sk);
- out:
- 	return err;
- }
-@@ -1674,7 +1675,6 @@ static int unix_stream_recvmsg(struct ki
- 	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
- 	struct scm_cookie tmp_scm;
- 	struct sock *sk = sock->sk;
--	struct unix_sock *u = unix_sk(sk);
- 	struct sockaddr_un *sunaddr=msg->msg_name;
- 	int copied = 0;
- 	int check_creds = 0;
-@@ -1704,7 +1704,7 @@ static int unix_stream_recvmsg(struct ki
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
- 	}
- 
--	mutex_lock(&u->readlock);
-+	unix_state_rlock(sk);
- 
- 	do
- 	{
-@@ -1728,7 +1728,7 @@ static int unix_stream_recvmsg(struct ki
- 			err = -EAGAIN;
- 			if (!timeo)
- 				break;
--			mutex_unlock(&u->readlock);
-+			unix_state_runlock(sk);
- 
- 			timeo = unix_stream_data_wait(sk, timeo);
- 
-@@ -1736,7 +1736,7 @@ static int unix_stream_recvmsg(struct ki
- 				err = sock_intr_errno(timeo);
- 				goto out;
- 			}
--			mutex_lock(&u->readlock);
-+			unix_state_rlock(sk);
- 			continue;
- 		}
- 
-@@ -1802,7 +1802,7 @@ static int unix_stream_recvmsg(struct ki
- 		}
- 	} while (size);
- 
--	mutex_unlock(&u->readlock);
-+	unix_state_runlock(sk);
- 	scm_recv(sock, msg, siocb->scm, flags);
- out:
- 	return copied ? : err;
-------=_20061119184046_52859
-Content-Type: text/x-csrc; name="cli.c"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="cli.c"
-
-/* a client in the unix domain */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <stdio.h>
-
-int main(int argc, char *argv[])
-{
-  int conn;
-  struct sockaddr_un  serv_addr;
-
-  char buffer[4];
-  int  len;
-   
-  while( 1 ) {  
-    bzero((char *)&serv_addr,sizeof(serv_addr));
-    serv_addr.sun_family = AF_UNIX;
-    strcpy(serv_addr.sun_path, "/tmp/ugh");
-    
-    conn = socket(AF_UNIX, SOCK_STREAM,0);
-    if( conn < 0 ) {
-      perror( "couldn't create socket" );
-      return -1;
-    }
-    
-    if( connect( conn, (struct sockaddr *)&serv_addr,
-                 strlen(serv_addr.sun_path) + sizeof(serv_addr.sun_family) ) < 0 ) {
-      perror( "couldn't connect" );
-      return -1; 
-    }
-    
-    bzero(buffer, 4);
-    len = recv(conn,buffer,3,MSG_WAITALL);
-    if( len != 3 ) {
-      perror( "eh?" );
-      printf( "HUH: %d\n", len );
-      len = recv(conn,buffer,3,MSG_WAITALL);
-      if( len == 3 ) {
-        printf( "WTF: %d, %s\n", len, buffer );
-      }
-      return -1;
-    }
-    else {
-      printf( "%s\n", buffer );
-    }
-    shutdown(conn,2);
-    close(conn);
-  }
-
-   return 0;
-}
-------=_20061119184046_52859
-Content-Type: text/x-csrc; name="srv.c"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="srv.c"
-
-/* a server in the unix domain.  The pathname of 
-   the socket address is passed as an argument */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <stdio.h>
-
-int main(int argc, char *argv[])
-{
-  int listener;
-  struct sockaddr_un serv_addr;
-  int len;
-  int conn;
-  
-  listener = socket(AF_UNIX,SOCK_STREAM,0);
-  if( listener < 0 ) {
-    perror( "couldn't create socket" );
-    return -1;
-  }
-
-
-  bzero( (char *)&serv_addr, sizeof(serv_addr) );
-  serv_addr.sun_family = AF_UNIX;
-  unlink( "/tmp/ugh" );
-  strcpy( serv_addr.sun_path, "/tmp/ugh" );
-  
-  if( bind( listener, (struct sockaddr *)&serv_addr,
-            strlen(serv_addr.sun_path) + sizeof(serv_addr.sun_family) ) < 0 ) {
-    perror( "bind failed" );
-    return -1;         
-  }
-
-  listen( listener, 0 );
-  
-  while( 1 ) {
-    conn = accept( listener, NULL, NULL );
-    if( conn < 0 ) {
-      perror( "accept() failed" );
-      return -1;
-    }
-    len = write( conn, "one", 3 );
-    if(len != 3) {
-	    printf("short write: %d!\n", len);
-    }
-    shutdown( conn, 2 );
-    close( conn );
-  }
-  
-  return 0;
-}
-------=_20061119184046_52859--
-
-
+ 	if (rxflags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
+ 		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data + 2);
+@@ -493,9 +507,11 @@ int bcm43xx_rx(struct bcm43xx_private *b
+ 	memset(&stats, 0, sizeof(stats));
+ 	stats.mac_time = le16_to_cpu(rxhdr->mactime);
+ 	stats.rssi = rxhdr->rssi;
++	lna = (rxhdr->phy_rx_status2 & 0xc0000) >> 14;
+ 	stats.signal = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
+ 					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
+-					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
++					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ),
++					      lna);
+ 	stats.noise = bcm->stats.noise;
+ 	if (is_ofdm)
+ 		stats.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
+@@ -94,7 +94,7 @@ struct bcm43xx_rxhdr {
+ 	__le16 flags1;
+ 	u8 rssi;
+ 	u8 signal_quality;
+-	PAD_BYTES(2);
++	__le16 phy_rx_status2;
+ 	/* Flags field 3 */
+ 	__le16 flags3;
+ 	/* Flags field 2 */
