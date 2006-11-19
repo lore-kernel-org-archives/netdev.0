@@ -1,91 +1,100 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] d80211: fix scan issues with new ops
-Date: Sun, 19 Nov 2006 01:21:13 +0100
-Message-ID: <1163895673.15473.11.camel@johannes.berg>
-References: <1163802439.3392.47.camel@johannes.berg>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Bluetooth update for 2.6
+Date: Sun, 19 Nov 2006 01:34:33 +0100
+Message-ID: <1163896473.4413.11.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Cc: Linus Torvalds <torvalds@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:13739 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1755449AbWKSAbA
+Received: from coyote.holtmann.net ([217.160.111.169]:19940 "EHLO
+	mail.holtmann.net") by vger.kernel.org with ESMTP id S1755451AbWKSAe0
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 19:31:00 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <1163802439.3392.47.camel@johannes.berg>
+	Sat, 18 Nov 2006 19:34:26 -0500
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If hardware shall do scanning, the hw_scan operation must be set. However,
-if the driver is for multiple cards that may or may not do hardware
-scanning, it'll need a flag.
+Hi Dave,
 
-Similar issues arise with passive_scan().
+here are some additional fixes that should go into 2.6.19 before its
+final release. Please forward them to Linus as soon as possible.
 
-This patch introduces flags to fix these issues.
+Linus, I put you on CC, because Dave might be cross-country driving and
+I have no idea when he will be back online.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Regards
 
----
-more fallout from my earlier patches... this time it's the scanning ops
-that were still used as flags as well as ops.
+Marcel
 
---- wireless-dev.orig/include/net/d80211.h	2006-11-19 01:08:12.439520302 +0100
-+++ wireless-dev/include/net/d80211.h	2006-11-19 01:14:14.859520302 +0100
-@@ -504,6 +504,12 @@ struct ieee80211_wiphy {
- 	/* do hardware fragmentation */
- #define IEEE80211_HW_FRAG (1<<15)
- 
-+	/* hardware does scanning instead of software */
-+#define IEEE80211_HW_PASSIVE_SCAN (1<<16)
-+
-+	/* hardware does scanning instead of software */
-+#define IEEE80211_HW_SCAN (1<<17)
-+
- 	u32 flags;			/* hardware flags defined above */
- 
- 	/* Set to the size of a needed device specific skb headroom for TX skbs. */
-@@ -627,7 +633,8 @@ struct ieee80211_ops {
-                             struct ieee80211_scan_conf *conf);
- 
- 	/* Ask the hardware to service the scan request, no need to start
--	 * the scan state machine in stack. */
-+	 * the scan state machine in stack.
-+	 * This callback goes along with the IEEE80211_HW_SCAN flag */
- 	int (*hw_scan)(struct ieee80211_wiphy *wiphy, u8 *ssid,
- 		       size_t len);
- 
---- wireless-dev.orig/net/d80211/ieee80211_sta.c	2006-11-19 01:07:49.509520302 +0100
-+++ wireless-dev/net/d80211/ieee80211_sta.c	2006-11-19 01:18:49.879520302 +0100
-@@ -2552,7 +2552,7 @@ int ieee80211_sta_req_scan(struct net_de
- 
- 	printk(KERN_DEBUG "%s: starting scan\n", dev->name);
- 
--	if (local->ops->hw_scan) {
-+	if (local->ops->hw_scan && local->wiphy.flags & IEEE80211_HW_SCAN) {
- 		int rc = local->ops->hw_scan(local_to_wiphy(local),
- 					    ssid, ssid_len);
- 		if (!rc) {
---- wireless-dev.orig/net/d80211/ieee80211_scan.c	2006-11-19 01:18:19.249520302 +0100
-+++ wireless-dev/net/d80211/ieee80211_scan.c	2006-11-19 01:18:22.599520302 +0100
-@@ -114,7 +114,8 @@ static void ieee80211_scan_start(struct 
- 	struct ieee80211_channel *chan = NULL;
- 	int ret;
- 
--	if (!local->hw->passive_scan) {
-+	if (!local->ops->passive_scan ||
-+	    !(local->wiphy.flags & IEEE80211_HW_PASSIVE_SCAN)) {
- 		printk(KERN_DEBUG "%s: Scan handler called, yet the hardware "
- 		       "does not support passive scanning. Disabled.\n",
- 		       local->mdev->name);
+
+Please pull from
+
+        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+
+This will update the following files:
+
+ net/bluetooth/hci_event.c  |   19 +++++++++++++++++++
+ net/bluetooth/hci_sysfs.c  |    4 +++-
+ net/bluetooth/l2cap.c      |   11 +++++++----
+ net/bluetooth/rfcomm/tty.c |    2 +-
+ 4 files changed, 30 insertions(+), 6 deletions(-)
+
+through these ChangeSets:
+
+Commit: 0e040f1bba0ed4421fa5ed7973601b0ec3ce73d1 
+Author: Marcel Holtmann <marcel@holtmann.org> Sat, 18 Nov 2006 22:15:20 +0100 
+
+    [Bluetooth] Ignore L2CAP config requests on disconnect
+    
+    Any L2CAP connection in disconnecting state shall not response
+    to any further config requests from the remote side. So in case
+    such a request is received, ignore it.
+    
+    Signed-off-by: Ville Tervo <ville.tervo@nokia.com>
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: e723297071994c1b96c1d7ec5493812a4be14556 
+Author: Marcel Holtmann <marcel@holtmann.org> Sat, 18 Nov 2006 22:15:00 +0100 
+
+    [Bluetooth] Always include MTU in L2CAP config responses
+    
+    When sending a positive config response it shall include the actual
+    MTU to be used on this channel. This differs from the Bluetooth 1.1
+    specification where it was enough to acknowledge the config request.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 0fc8b237987d3b7a42813a3ae9ec0fbed9be7a92 
+Author: Marcel Holtmann <marcel@holtmann.org> Sat, 18 Nov 2006 22:14:42 +0100 
+
+    [Bluetooth] Check if RFCOMM session is still attached to the TTY
+    
+    If the RFCOMM session is no longer attached to the TTY device, then it
+    makes no sense to go through with changing the termios settings.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 61f52b9abd9b49770c9b05676fdd36e00999355f 
+Author: Marcel Holtmann <marcel@holtmann.org> Sat, 18 Nov 2006 22:14:22 +0100 
+
+    [Bluetooth] Handling pending connect attempts after inquiry
+    
+    After an inquiry completed or got canceled the Bluetooth core should
+    check for any pending connect attempts.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 3195125e559295126ad21a8552df7328e5c4f507 
+Author: Marcel Holtmann <marcel@holtmann.org> Sat, 18 Nov 2006 22:14:05 +0100 
+
+    [Bluetooth] Attach low-level connections to the Bluetooth bus
+    
+    To receive uvents for the low-level ACL and SCO links, they must be
+    assigned to a subsystem. It is enough to attach them to the already
+    established Bluetooth bus.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
 
 
