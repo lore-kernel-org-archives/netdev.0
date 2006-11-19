@@ -1,69 +1,88 @@
 From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
-Date: Sun, 19 Nov 2006 22:36:34 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0611192233270.6324@yvahk01.tjqt.qr>
-References: <20061119203006.GC29736@osprey.hogchain.net>
+Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
+Date: Sun, 19 Nov 2006 22:46:19 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0611192237170.6324@yvahk01.tjqt.qr>
+References: <20061119203050.GD29736@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: jeff@garzik.org, shemminger@osdl.org, romieu@fr.zoreil.com,
 	csnook@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailer.gwdg.de ([134.76.10.24]:63929 "EHLO emailer.gwdg.de")
-	by vger.kernel.org with ESMTP id S933388AbWKSVmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 16:42:39 -0500
+Received: from emailer.gwdg.de ([134.76.10.24]:58541 "EHLO emailer.gwdg.de")
+	by vger.kernel.org with ESMTP id S933397AbWKSVwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 16:52:55 -0500
 To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <20061119203006.GC29736@osprey.hogchain.net>
+In-Reply-To: <20061119203050.GD29736@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>+char at_driver_name[] = "atl1";
+>+static const char at_driver_string[] = "Attansic(R) L1 Ethernet Network Driver";
+>+const char at_driver_version[] = DRV_VERSION;
+>+static const char at_copyright[] =
+>+    "Copyright(c) 2005-2006 Attansic Corporation.";
+>+
 
-On Nov 19 2006 14:30, Jay Cliburn wrote:
->+
->+#define	LBYTESWAP( a )  ( ( ( (a) & 0x00ff00ff ) << 8 ) | ( ( (a) & 0xff00ff00 ) >> 8 ) )
->+#define	LONGSWAP( a )	( ( LBYTESWAP( a ) << 16 ) | ( LBYTESWAP( a ) >> 16 ) )
->+#define	SHORTSWAP( a )	( ( (a) << 8 ) | ( (a) >> 8 ) )
+>+extern s32 at_read_mac_addr(struct at_hw *hw);
+>+extern s32 at_init_hw(struct at_hw *hw);
+>+extern s32 at_get_speed_and_duplex(struct at_hw *hw, u16 * speed, u16 * duplex);
+>+extern s32 at_set_speed_and_duplex(struct at_hw *hw, u16 speed, u16 duplex);
+>+extern u32 at_auto_get_fc(struct at_adapter *adapter, u16 duplex);
+>+extern u32 at_hash_mc_addr(struct at_hw *hw, u8 * mc_addr);
+>+extern void at_hash_set(struct at_hw *hw, u32 hash_value);
+>+extern s32 at_read_phy_reg(struct at_hw *hw, u16 reg_addr, u16 * phy_data);
+>+extern s32 at_write_phy_reg(struct at_hw *hw, u32 reg_addr, u16 phy_data);
+>+extern s32 at_validate_mdi_setting(struct at_hw *hw);
+>+extern void set_mac_addr(struct at_hw *hw);
+>+extern int get_permanent_address(struct at_hw *hw);
+>+extern s32 at_phy_enter_power_saving(struct at_hw *hw);
+>+extern s32 at_reset_hw(struct at_hw *hw);
+>+extern void at_check_options(struct at_adapter *adapter);
+>+void at_set_ethtool_ops(struct net_device *netdev);
 
-Please use swab16/swab32 for these.
+Put externs in a .h file.
 
->+#define AT_DESC_UNUSED(R) \
->+	((((R)->next_to_clean > (R)->next_to_use) ? 0 : (R)->count) + \
->+	(R)->next_to_clean - (R)->next_to_use - 1)
+>+static u16 at_alloc_rx_buffers(struct at_adapter *adapter)
+>+{
+...
+>+	u16 rfd_next_to_use, next_next;
+>+	struct rx_free_desc *rfd_desc;
 >+
->+#define AT_DESC_USED(R) \
->+	(((R)->next_to_clean > (R)->next_to_use) ?	\
->+		((R)->count+(R)->next_to_use-(R)->next_to_clean+1) : \
->+		((R)->next_to_use-(R)->next_to_clean+1))
+>+	next_next = rfd_next_to_use = (u16) atomic_read(&rfd_ring->next_to_use);
 
-These look like they are on the edge to be written as a static-inline function.
-What do others think?
+Cast not needed.
 
->+#define AT_WRITE_REG(a, reg, value) ( \
->+	writel((value), ((a)->hw_addr + reg)))
->+
->+#define AT_READ_REG(a, reg) ( \
->+	readl((a)->hw_addr + reg ))
->+
->+#define AT_WRITE_REGB(a, reg, value) (\
->+	writeb((value), ((a)->hw_addr + reg)))
->+
->+#define AT_READ_REGB(a, reg) (\
->+	readb((a)->hw_addr + reg))
->+
->+#define AT_WRITE_REGW(a, reg, value) (\
->+	writew((value), ((a)->hw_addr + reg)))
->+
->+#define AT_READ_REGW(a, reg) (\
->+	readw((a)->hw_addr + reg))
->+
->+#define AT_WRITE_REG_ARRAY(a, reg, offset, value) ( \
->+	writel((value), (((a)->hw_addr + reg) + ((offset) << 2))))
->+
->+#define AT_READ_REG_ARRAY(a, reg, offset) ( \
->+	readl(((a)->hw_addr + reg) + ((offset) << 2)))
+>+		buffer_info->length = (u16) adapter->rx_buffer_len;
 
-Possibly similarly.
+>+	rrd_next_to_clean = (u16) atomic_read(&rrd_ring->next_to_clean);
 
+Same (check the others too)
+
+>+			if (++rfd_ring->next_to_clean == rfd_ring->count) {
+>+				rfd_ring->next_to_clean = 0;
+>+			}
+>+		}
+>+
+>+		buffer_info = &rfd_ring->buffer_info[rrd->buf_indx];
+>+		if (++rfd_ring->next_to_clean == rfd_ring->count) {
+>+			rfd_ring->next_to_clean = 0;
+>+		}
+
+Here is a stylistic one: {} is not needed for single-statememnt ifs.
+
+>+static irqreturn_t at_intr(int irq, void *data)
+>+{
+>+	struct at_adapter *adapter = ((struct net_device *)data)->priv;
+
+(Ahem)
+
+>+	if (0 == (status = adapter->cmb.cmb->int_stats))
+
+Someone else is probably going to complain about this one...
+
+
+I have not looked through all of it, so there are sure some more places.
 
 	-`J'
 -- 
