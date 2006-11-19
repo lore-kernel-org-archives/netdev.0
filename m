@@ -1,135 +1,77 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFT] bcm43xx-softmac: match specifications change in rssi
- processing
-Date: Sun, 19 Nov 2006 17:44:50 -0600
-Message-ID: <4560EC72.mailJBO11D63L@lwfinger.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
+Date: Sun, 19 Nov 2006 18:51:54 -0500
+Message-ID: <1163980315.2881.30.camel@localhost.localdomain>
+References: <20061116024332.124753000@sous-sol.org>
+	 <20061116024511.458086000@sous-sol.org>  <455F59BB.6060204@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
+Cc: Chris Wright <chrisw@sous-sol.org>, linux-kernel@vger.kernel.org,
+	stable@kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	mb@bu3sch.de, greg@kroah.com,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-03.rdc-kc.rr.com ([24.94.166.129]:24222 "EHLO
-	ms-smtp-03.rdc-kc.rr.com") by vger.kernel.org with ESMTP
-	id S933783AbWKSXpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 18:45:20 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:62670 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S933785AbWKSXwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 18:52:05 -0500
 To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <455F59BB.6060204@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On September 5, 2006, Johannes Berg changed the specifications for RSSI
-processing. Implementing those changes involves specifying the bytes in
-the RX header that contain the LNA (low-noise amplifier) bits, adding a
-new argument to bcm43xx_rssi_postprocess, and the actual changes in
-the rssi processing.
+On Sat, 2006-11-18 at 13:06 -0600, Larry Finger wrote:
+> Chris Wright wrote:
+> > -stable review patch.  If anyone has any objections, please let us know.
+> > ------------------
+> > 
+> > From: Michael Buesch <mb@bu3sch.de>
+> > 
+> > Drain the Microcode TX-status-FIFO before we enable IRQs.
+> > This is required, because the FIFO may still have entries left
+> > from a previous run. Those would immediately fire after enabling
+> > IRQs and would lead to an oops in the DMA TXstatus handling code.
+> > 
+> > Cc: "John W. Linville" <linville@tuxdriver.com>
+> > Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> > Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> > Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+> > ---
+> 
+> Chris,
+> 
+> The regression turns out to be a locking problem involving bcm43xx, wpa_supplicant, and 
+> NetworkManager. The exact cause is unknown; however, this patch is clearly not the problem. Please 
+> reinstate it for inclusion in -stable.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
+NM should be using wpa_supplicant underneath.  But depending on the NM
+version, NM may be issuing any one of SIWENCODE (only to clear keys),
+[S|G]IWSCAN, GIWRANGE, GIWAP, [S|G]IWMODE, [S|G]IWFREQ.  Mainly, NM
+cleans up after wpa_supplicant, gets information about the current
+connection, and does scans.  All other connection setup and handling is
+done by wpa_supplicant.  But note that NM will do any of the above
+operations at any time, no matter what wpa_supplicant is doing at that
+time.  So the locking in the driver needs to be right, but it should be
+right anyway regardless of whether either one or both of NM and
+wpa_supplicant is in the picture...
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-@@ -382,8 +382,8 @@ void bcm43xx_generate_txhdr(struct bcm43
- }
- 
- static s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm,
--				   u8 in_rssi, int ofdm,
--				   int adjust_2053, int adjust_2050)
-+				   u8 in_rssi, int ofdm, int adjust_2053,
-+				   int adjust_2050, u8 lna)
- {
- 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
- 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
-@@ -395,12 +395,10 @@ static s8 bcm43xx_rssi_postprocess(struc
- 			tmp = in_rssi;
- 			if (tmp > 127)
- 				tmp -= 256;
--			tmp *= 73;
--			tmp /= 64;
- 			if (adjust_2050)
--				tmp += 25;
-+				tmp += 17;
- 			else
--				tmp -= 3;
-+				tmp -= 4;
- 		} else {
- 			if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
- 				if (in_rssi > 63)
-@@ -409,7 +407,7 @@ static s8 bcm43xx_rssi_postprocess(struc
- 				tmp = 31 - tmp;
- 				tmp *= -131;
- 				tmp /= 128;
--				tmp -= 57;
-+				tmp -= 67;
- 			} else {
- 				tmp = in_rssi;
- 				tmp = 31 - tmp;
-@@ -418,8 +416,23 @@ static s8 bcm43xx_rssi_postprocess(struc
- 				tmp -= 68;
- 			}
- 			if (phy->type == BCM43xx_PHYTYPE_G &&
--			    adjust_2050)
-+			    adjust_2050) {
-+				tmp += 20;
-+				switch (lna) {
-+				case 0:
-+					tmp += 2;
-+					break;
-+				case 1:
-+					tmp -= 19;
-+					break;
-+				case 2:
-+					tmp -= 13;
-+					break;
-+				case 3:
-+					tmp -= 25;
-+				}
- 				tmp += 25;
-+			}
- 		}
- 		break;
- 	case 0x2060:
-@@ -454,7 +467,7 @@ static s8 bcm43xx_rssinoise_postprocess(
- 		//TODO: Incomplete specs.
- 		ret = 0;
- 	} else
--		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1, 1);
-+		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1, 1, 0);
- 
- 	return ret;
- }
-@@ -476,6 +489,7 @@ int bcm43xx_rx(struct bcm43xx_private *b
- 	const u16 rxflags2 = le16_to_cpu(rxhdr->flags2);
- 	const u16 rxflags3 = le16_to_cpu(rxhdr->flags3);
- 	const int is_ofdm = !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
-+	u8 lna;
- 
- 	if (rxflags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
- 		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data + 2);
-@@ -493,9 +507,11 @@ int bcm43xx_rx(struct bcm43xx_private *b
- 	memset(&stats, 0, sizeof(stats));
- 	stats.mac_time = le16_to_cpu(rxhdr->mactime);
- 	stats.rssi = rxhdr->rssi;
-+	lna = (rxhdr->phy_rx_status2 & 0xc0000) >> 14;
- 	stats.signal = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
- 					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
--					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
-+					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ),
-+					      lna);
- 	stats.noise = bcm->stats.noise;
- 	if (is_ofdm)
- 		stats.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
-@@ -94,7 +94,7 @@ struct bcm43xx_rxhdr {
- 	__le16 flags1;
- 	u8 rssi;
- 	u8 signal_quality;
--	PAD_BYTES(2);
-+	__le16 phy_rx_status2;
- 	/* Flags field 3 */
- 	__le16 flags3;
- 	/* Flags field 2 */
+Dan
+
+> Thanks,
+> 
+> Larry
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
