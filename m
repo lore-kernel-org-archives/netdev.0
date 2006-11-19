@@ -1,47 +1,40 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 00/13] NetLabel cleanups for 2.6.20 [GIT]
-Date: Sat, 18 Nov 2006 22:19:39 -0500 (EST)
-Message-ID: <XMMS.LNX.4.64.0611182218570.23112@d.namei>
-References: <20061117223842.399078000@hp.com> <XMMS.LNX.4.64.0611172308070.13574@d.namei>
- <200611181110.25281.paul.moore@hp.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
+Date: Sat, 18 Nov 2006 20:11:27 -0800
+Message-ID: <20061119041127.GU1397@sequoia.sous-sol.org>
+References: <20061116024332.124753000@sous-sol.org> <20061116024511.458086000@sous-sol.org> <455F59BB.6060204@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="537530981-949499154-1163906379=:23112"
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@sous-sol.org>, linux-kernel@vger.kernel.org,
+	stable@kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	mb@bu3sch.de, greg@kroah.com,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:47813 "EHLO
-	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1755749AbWKSDTl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 22:19:41 -0500
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <200611181110.25281.paul.moore@hp.com>
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:64208 "EHLO
+	sous-sol.org") by vger.kernel.org with ESMTP id S1755987AbWKSELn
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Nov 2006 23:11:43 -0500
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Disposition: inline
+In-Reply-To: <455F59BB.6060204@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+* Larry Finger (Larry.Finger@lwfinger.net) wrote:
+> The regression turns out to be a locking problem involving bcm43xx, 
+> wpa_supplicant, and NetworkManager. The exact cause is unknown; however, 
+> this patch is clearly not the problem. Please reinstate it for inclusion in 
+> -stable.
 
---537530981-949499154-1163906379=:23112
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+Thanks for the follow-up, Larry.  It's queued for next -stable.
 
-On Sat, 18 Nov 2006, Paul Moore wrote:
-
-> > There was one minor compilation issue caused by including linux/skbuff.h
-> > in an SELinux header, which I fixed (see below).
-> 
-> <scratching head>
-> Huh, sorry about that ... thanks for accepting the patches and making the fix.
-> </scratching head>
-
-Here's the error:
-
-security/selinux/ss/policydb.c:472: error: conflicting types for 
-â'class_destroy'
-include/linux/device.h:295: error: previous declaration of 
-â'class_destroy' was here
-
-
--- 
-James Morris
-<jmorris@namei.org>
---537530981-949499154-1163906379=:23112--
+thanks,
+-chris
