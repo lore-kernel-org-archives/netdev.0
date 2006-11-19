@@ -1,11 +1,11 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 13/13] d80211: fix scan issues with new ops
-Date: Sun, 19 Nov 2006 20:33:12 +0100
-Message-ID: <1163964793.15473.65.camel@johannes.berg>
-References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163963898.15473.36.camel@johannes.berg>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 10/13] bcm43xx: update to new d80211 driver API
+Date: Sun, 19 Nov 2006 20:43:10 +0100
+Message-ID: <200611192043.11122.mb@bu3sch.de>
+References: <1163802439.3392.47.camel@johannes.berg> <1163963898.15473.36.camel@johannes.berg> <1163964661.15473.59.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
 Cc: Jiri Benc <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
@@ -14,75 +14,60 @@ Cc: Jiri Benc <jbenc@suse.cz>,
 	Hong Liu <hong.liu@intel.com>,
 	David Kimdon <david.kimdon@devicescape.com>,
 	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+	Ivo van Doorn <ivdoorn@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:51900 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S933074AbWKSTgP
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:6836
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S933079AbWKSTpQ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 14:36:15 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <1163963898.15473.36.camel@johannes.berg>
+	Sun, 19 Nov 2006 14:45:16 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1163964661.15473.59.camel@johannes.berg>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If hardware shall do scanning, the hw_scan operation must be set. However,
-if the driver is for multiple cards that may or may not do hardware
-scanning, it'll need a flag.
+On Sunday 19 November 2006 20:31, Johannes Berg wrote:
 
-Similar issues arise with passive_scan().
+> --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-11-19 20:12:47.629275208 +0100
+> +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-11-19 20:14:01.189275208 +0100
+> @@ -285,7 +285,7 @@ void bcm43xx_debugfs_add_device(struct b
+>  {
+>  	struct bcm43xx_dfsentry *e;
+>  	struct bcm43xx_txstatus_log *log;
+> -	char devdir[IFNAMSIZ];
+> +	char devdir[16];
 
-This patch introduces flags to fix these issues.
+What's the purpose of this?
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+>  	assert(bcm);
+>  	e = kzalloc(sizeof(*e), GFP_KERNEL);
+> @@ -308,7 +308,7 @@ void bcm43xx_debugfs_add_device(struct b
+>  
+>  	bcm->dfsentry = e;
+>  
+> -	strncpy(devdir, bcm->net_dev->name, ARRAY_SIZE(devdir));
+> +	snprintf(devdir, sizeof(devdir), "wiphy%d", bcm->ieee->index);
+>  	e->subdir = debugfs_create_dir(devdir, fs.root);
+>  	e->dentry_tsf = debugfs_create_file("tsf", 0666, e->subdir,
+>  	                                    bcm, &tsf_fops);
 
---- wireless-dev.orig/include/net/d80211.h	2006-11-19 20:14:02.959275208 +0100
-+++ wireless-dev/include/net/d80211.h	2006-11-19 20:14:03.619275208 +0100
-@@ -504,6 +504,12 @@ struct ieee80211_hw {
- 	/* do hardware fragmentation */
- #define IEEE80211_HW_FRAG (1<<15)
- 
-+	/* hardware does scanning instead of software */
-+#define IEEE80211_HW_PASSIVE_SCAN (1<<16)
-+
-+	/* hardware does scanning instead of software */
-+#define IEEE80211_HW_SCAN (1<<17)
-+
- 	u32 flags;			/* hardware flags defined above */
- 
- 	/* Set to the size of a needed device specific skb headroom for TX skbs. */
-@@ -625,7 +631,8 @@ struct ieee80211_ops {
-                             struct ieee80211_scan_conf *conf);
- 
- 	/* Ask the hardware to service the scan request, no need to start
--	 * the scan state machine in stack. */
-+	 * the scan state machine in stack.
-+	 * This callback goes along with the IEEE80211_HW_SCAN flag. */
- 	int (*hw_scan)(struct ieee80211_hw *hw, u8 *ssid, size_t len);
- 
-         /* return low-level statistics */
---- wireless-dev.orig/net/d80211/ieee80211_sta.c	2006-11-19 20:13:58.049275208 +0100
-+++ wireless-dev/net/d80211/ieee80211_sta.c	2006-11-19 20:14:03.619275208 +0100
-@@ -2552,7 +2552,7 @@ int ieee80211_sta_req_scan(struct net_de
- 
- 	printk(KERN_DEBUG "%s: starting scan\n", dev->name);
- 
--	if (local->ops->hw_scan) {
-+	if (local->ops->hw_scan && (local->hw.flags & IEEE80211_HW_SCAN)) {
- 		int rc = local->ops->hw_scan(local_to_hw(local),
- 					    ssid, ssid_len);
- 		if (!rc) {
---- wireless-dev.orig/net/d80211/ieee80211_scan.c	2006-11-19 20:13:58.049275208 +0100
-+++ wireless-dev/net/d80211/ieee80211_scan.c	2006-11-19 20:14:03.629275208 +0100
-@@ -114,7 +114,8 @@ static void ieee80211_scan_start(struct 
- 	struct ieee80211_channel *chan = NULL;
- 	int ret;
- 
--	if (!local->ops->passive_scan) {
-+	if (!local->ops->passive_scan ||
-+	    !(local->hw.flags & IEEE80211_HW_PASSIVE_SCAN)) {
- 		printk(KERN_DEBUG "%s: Scan handler called, yet the hardware "
- 		       "does not support passive scanning. Disabled.\n",
- 		       local->mdev->name);
+> +static struct ieee80211_ops bcm43xx_hw_ops = {
+> +	.tx = bcm43xx_net_hard_start_xmit,
+> +	.open = bcm43xx_net_open,
+> +	.stop = bcm43xx_net_stop,
+> +	.add_interface = bcm43xx_add_interface,
+> +	.remove_interface = bcm43xx_remove_interface,
+> +	.reset = bcm43xx_net_reset,
+> +	.config = bcm43xx_net_config,
+> +	.config_interface = bcm43xx_config_interface,
+> +	.set_multicast_list = bcm43xx_set_multicast_list,
+> +	.set_key = bcm43xx_net_set_key,
+> +	.get_stats = bcm43xx_net_get_stats,
+> +	.get_tx_stats = bcm43xx_net_get_tx_stats,
+> +	.conf_tx = bcm43xx_net_conf_tx,
+> +};
 
+I like that being a seperate and static struct.
 
+-- 
+Greetings Michael.
