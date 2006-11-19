@@ -1,40 +1,52 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [patch 07/30] bcm43xx: Drain TX status before starting IRQs
-Date: Sat, 18 Nov 2006 20:11:27 -0800
-Message-ID: <20061119041127.GU1397@sequoia.sous-sol.org>
-References: <20061116024332.124753000@sous-sol.org> <20061116024511.458086000@sous-sol.org> <455F59BB.6060204@lwfinger.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [RFC: 2.6 patch] remove broken net drivers
+Date: Sun, 19 Nov 2006 12:53:10 +0100 (CET)
+Message-ID: <Pine.LNX.4.62.0611191249450.31733@pademelon.sonytel.be>
+References: <20061118000224.GU31879@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>, linux-kernel@vger.kernel.org,
-	stable@kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	mb@bu3sch.de, greg@kroah.com,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	funaho@jurai.org,
+	Linux/m68k on Mac <linux-mac68k@mac.linux-m68k.org>,
+	Linux/m68k <linux-m68k@lists.linux-m68k.org>, jejb@steeleye.com,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Matthias Urlichs <smurf@smurf.noris.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:64208 "EHLO
-	sous-sol.org") by vger.kernel.org with ESMTP id S1755987AbWKSELn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Nov 2006 23:11:43 -0500
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Content-Disposition: inline
-In-Reply-To: <455F59BB.6060204@lwfinger.net>
+Received: from vervifontaine.sonytel.be ([80.88.33.193]:24502 "EHLO
+	vervifontaine.sonycom.com") by vger.kernel.org with ESMTP
+	id S1756589AbWKSLxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 06:53:11 -0500
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061118000224.GU31879@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Larry Finger (Larry.Finger@lwfinger.net) wrote:
-> The regression turns out to be a locking problem involving bcm43xx, 
-> wpa_supplicant, and NetworkManager. The exact cause is unknown; however, 
-> this patch is clearly not the problem. Please reinstate it for inclusion in 
-> -stable.
+On Sat, 18 Nov 2006, Adrian Bunk wrote:
+> This patch removes net drivers that:
+> - had already been marked as BROKEN in 2.6.0 three years ago and
+> - are still marked as BROKEN.
+> 
+> These are the following drivers:
+> - MAC89x0
 
-Thanks for the follow-up, Larry.  It's queued for next -stable.
+I still have a patch lying around for this one:
 
-thanks,
--chris
+http://linux-m68k-cvs.ubb.ca/~geert/linux-m68k-2.6.x-merging/POSTPONED/357-mac89x0.diff
+
+I don't remember 100% why I put it in my POSTPONED queue. Maybe because it was
+rejected upstream?
+
+If it's OK (it compiles fine with 2.6.19-rc5), please tell me, and I'll
+resubmit it.
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
