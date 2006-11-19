@@ -1,68 +1,67 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH][Generic netlink]: dont send empty operational attributes
-Date: Sun, 19 Nov 2006 20:54:02 +0100
-Message-ID: <20061119195402.GJ8693@postel.suug.ch>
-References: <4466a10611191117r3a933644scd0c4182cb08d43c@mail.gmail.com> <4466a10611191122r2bd16dbdmc35991c13dc9c92f@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 10/13] bcm43xx: update to new d80211 driver API
+Date: Sun, 19 Nov 2006 20:52:19 +0100
+Message-ID: <1163965939.9216.2.camel@johannes.berg>
+References: <1163802439.3392.47.camel@johannes.berg>
+	 <1163963898.15473.36.camel@johannes.berg>
+	 <1163964661.15473.59.camel@johannes.berg> <200611192043.11122.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-1ZlF5jPtoACuPxjtii8d"
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Ivo van Doorn <ivdoorn@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:2485 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S933114AbWKSTxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 14:53:43 -0500
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <4466a10611191122r2bd16dbdmc35991c13dc9c92f@mail.gmail.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:16071 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S933112AbWKSTyb
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 14:54:31 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200611192043.11122.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-11-19 14:22
-> On 11/19/06, jamal <hadi@cyberus.ca> wrote:
-> >This is probably 2.6.19 material (a little annoyance)
-> >I am testing using a new mailer - if this patch doesnt look right let me
-> know.
-> 
-> Seems like i failed. Ok, heres the patch again..
 
-HTML mail and application/octet-stream for the patch? :-)
-Probably never made it to netdev. The patch (enclosed again)
-is fine though.
+--=-1ZlF5jPtoACuPxjtii8d
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Dont add operations attribute headers when the family doesnt have
-any (gets annoying to see the header upon first registration
-before the commands are registered)
+On Sun, 2006-11-19 at 20:43 +0100, Michael Buesch wrote:
+> On Sunday 19 November 2006 20:31, Johannes Berg wrote:
+>=20
+> > --- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debug=
+fs.c	2006-11-19 20:12:47.629275208 +0100
+> > +++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	=
+2006-11-19 20:14:01.189275208 +0100
+> > @@ -285,7 +285,7 @@ void bcm43xx_debugfs_add_device(struct b
+> >  {
+> >  	struct bcm43xx_dfsentry *e;
+> >  	struct bcm43xx_txstatus_log *log;
+> > -	char devdir[IFNAMSIZ];
+> > +	char devdir[16];
+>=20
+> What's the purpose of this?
 
-signed-off-by: J Hadi Salim
+Well since there's no interface name printed into that string any more
+but the wiphy%d I figured I'd not use IFNAMSIZ.
 
----
-commit 0dc22b960a081832e6c05b59eeefbce564354b94
-tree 0659cc668f40fbe383c8d63eaa3adbec72668244
-parent e030f8294a5b9f8179dae10cdbf9dcf32aa64110
-author J Hadi Salim hadi@cyberus.ca <hadi@cyberus.ca> Sun, 19 Nov 2006 14:00:04 -0500
-committer J Hadi Salim hadi@cyberus.ca <hadi@lilsol.(none)> Sun, 19 Nov 2006 14:00:04 -0500
+johannes
 
- net/netlink/genetlink.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+--=-1ZlF5jPtoACuPxjtii8d
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 49bc2db..9e33d5f 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -403,6 +403,9 @@ static int ctrl_fill_info(struct genl_fa
- 	NLA_PUT_U32(skb, CTRL_ATTR_HDRSIZE, family->hdrsize);
- 	NLA_PUT_U32(skb, CTRL_ATTR_MAXATTR, family->maxattr);
- 
-+	if (list_empty(&family->ops_list))
-+		goto ctrl_fill_done;
-+
- 	nla_ops = nla_nest_start(skb, CTRL_ATTR_OPS);
- 	if (nla_ops == NULL)
- 		goto nla_put_failure;
-@@ -429,6 +432,7 @@ static int ctrl_fill_info(struct genl_fa
- 		nla_nest_end(skb, nest);
- 	}
- 
-+ctrl_fill_done:
- 	nla_nest_end(skb, nla_ops);
- 
- 	return genlmsg_end(skb, hdr);
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFYLXz/ETPhpq3jKURAvY0AJ0fFgputYkbG4rIbSbHrBTXgmAOBACguo0H
+Yjqj3HmnHzFFbjlXAfMzot8=
+=Vtdi
+-----END PGP SIGNATURE-----
+
+--=-1ZlF5jPtoACuPxjtii8d--
+
