@@ -1,10 +1,13 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 4/10] d80211: reduce mdev usage, fix ieee80211_rx_mgmt
-Date: Sun, 19 Nov 2006 17:37:56 +0100
-Message-ID: <1163954276.15473.21.camel@johannes.berg>
-References: <20061119163545.GA25557@devicescape.com>
+Subject: Re: [PATCH] d80211: fix scan issues with new ops
+Date: Sun, 19 Nov 2006 17:50:39 +0100
+Message-ID: <1163955039.15473.26.camel@johannes.berg>
+References: <1163802439.3392.47.camel@johannes.berg>
+	 <1163895673.15473.11.camel@johannes.berg>
+	 <20061119155628.GA25061@devicescape.com>
+	 <1163954089.15473.16.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3J7ZfgxyIkhjpuVJjPKI"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-WtI22l5F2qMv2v5o8W3P"
 Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Simon Barber <simon@devicescape.com>,
@@ -14,53 +17,46 @@ Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
 	Michael Buesch <mbuesch@freenet.de>,
 	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:22954 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1756769AbWKSQjp
+Received: from crystal.sipsolutions.net ([195.210.38.204]:22213 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1756778AbWKSQw1
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 11:39:45 -0500
+	Sun, 19 Nov 2006 11:52:27 -0500
 To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061119163545.GA25557@devicescape.com>
+In-Reply-To: <1163954089.15473.16.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-3J7ZfgxyIkhjpuVJjPKI
+--=-WtI22l5F2qMv2v5o8W3P
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
+On Sun, 2006-11-19 at 17:34 +0100, Johannes Berg wrote:
 
-> > +	/* if no one will get it anyway, don't even allocate it.
-> > +	 * unlikely because this is only relevant for APs
-> > +	 * where the device must be open... */
-> > +	if (unlikely(!local->apdev))
-> > +		return;
->=20
-> Why not just let it Oops and show the bug?  In what cases is it ok
-> for apdev to not be set?
+> Well I want to allow drivers to make assign the 33 function pointers in
+> a static structure, and differences between cards must then be handled
+> in the non-static part.
 
-> Can we get whitespace changes like this in a separate patch?
+Uh, that didn't come out too well.
 
-Sure. I'll just remove it from this patch for now.
+The point is that ieee80211_ops can be static after these changes which
+is a whopping 33 function pointers or so :)
 
-> again, so should we just let the Oops happen?
-
-I'm thinking there might be race conditions where userspace does
-something, then drops the ap device but after that some operations
-complete and would lead to the oops too. Wasn't really sure.
+And only at the expense of having a few new flags.
 
 johannes
 
---=-3J7ZfgxyIkhjpuVJjPKI
+--=-WtI22l5F2qMv2v5o8W3P
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBFYIhk/ETPhpq3jKURAmYZAKCxMlnWP7RWObv1/FRPqpd48lkJhgCfYA1u
-E8MSzRpD+H/RUwjJl/Nqrmg=
-=8fqm
+iD8DBQBFYItf/ETPhpq3jKURAtMZAJsGE7b9Zxo6AWtCTykjvpcpw6OO1ACgtqCS
+g23oT6gPf9/mzn/1syLpw94=
+=m88g
 -----END PGP SIGNATURE-----
 
---=-3J7ZfgxyIkhjpuVJjPKI--
+--=-WtI22l5F2qMv2v5o8W3P--
 
