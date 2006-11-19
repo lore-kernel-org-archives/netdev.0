@@ -1,25 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH][Generic netlink]: dont send empty operational attributes
-Date: Sun, 19 Nov 2006 14:17:57 -0500
-Message-ID: <4466a10611191117r3a933644scd0c4182cb08d43c@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 0/13] move d80211 away from netdev towards wiphy
+Date: Sun, 19 Nov 2006 20:18:18 +0100
+Message-ID: <1163963898.15473.36.camel@johannes.berg>
+References: <1163802439.3392.47.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, "Thomas Graf" <tgraf@suug.ch>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-AfyHJ3KN0gEU8A9pikbi"
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:56471 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S933040AbWKSTR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 14:17:58 -0500
-Received: by ug-out-1314.google.com with SMTP id m3so1046030ugc
-        for <netdev@vger.kernel.org>; Sun, 19 Nov 2006 11:17:57 -0800 (PST)
-To: "David Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:63624 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S933046AbWKSTUI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 14:20:08 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <1163802439.3392.47.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is probably 2.6.19 material (a little annoyance)
-I am testing using a new mailer - if this patch doesnt look right let me know.
 
-cheers,
-jamal
+--=-AfyHJ3KN0gEU8A9pikbi
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+This is a repost of the whole patchset modified according to various
+comments.
+
+I've folded patches 6, 7 and 8 into one driver API update patch that is
+smaller than the three combined. Unfortunately, it's still very large.
+I've also changed the introduction of ieee80211_wiphy, in fact the patch
+doesn't introduce it at all it just moves some stuff into ieee80211_hw
+and the operations out of it.
+
+johannes
+
+--=-AfyHJ3KN0gEU8A9pikbi
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFYK36/ETPhpq3jKURAqsQAJsHCq41mgZ0cBSv8v+kaxdVmjD/sACeNF4U
+gNWs28yOTZP2lCEwlkArZHw=
+=cacg
+-----END PGP SIGNATURE-----
+
+--=-AfyHJ3KN0gEU8A9pikbi--
+
