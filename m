@@ -1,56 +1,66 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] d80211: fix scan issues with new ops
-Date: Sun, 19 Nov 2006 17:35:30 +0100
-Message-ID: <1163954130.15473.18.camel@johannes.berg>
-References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163895673.15473.11.camel@johannes.berg> <200611191715.34225.mb@bu3sch.de>
+Subject: Re: [PATCH 4/10] d80211: reduce mdev usage, fix ieee80211_rx_mgmt
+Date: Sun, 19 Nov 2006 17:37:56 +0100
+Message-ID: <1163954276.15473.21.camel@johannes.berg>
+References: <20061119163545.GA25557@devicescape.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-5i7IIQddD7i8V+BlDGJE"
-Cc: Jiri Benc <jbenc@suse.cz>,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3J7ZfgxyIkhjpuVJjPKI"
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Simon Barber <simon@devicescape.com>,
 	Jouni Malinen <jkm@devicescape.com>,
 	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
 	Michael Wu <flamingice@sourmilk.net>,
-	Ivo van Doorn <ivdoorn@gmail.com>, netdev@vger.kernel.org
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:30889 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1756771AbWKSQh3
+Received: from crystal.sipsolutions.net ([195.210.38.204]:22954 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1756769AbWKSQjp
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 11:37:29 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200611191715.34225.mb@bu3sch.de>
+	Sun, 19 Nov 2006 11:39:45 -0500
+To: David Kimdon <david.kimdon@devicescape.com>
+In-Reply-To: <20061119163545.GA25557@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-5i7IIQddD7i8V+BlDGJE
+--=-3J7ZfgxyIkhjpuVJjPKI
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2006-11-19 at 17:15 +0100, Michael Buesch wrote:
 
-> > -	if (local->ops->hw_scan) {
-> > +	if (local->ops->hw_scan && local->wiphy.flags & IEEE80211_HW_SCAN) {
+> > +	/* if no one will get it anyway, don't even allocate it.
+> > +	 * unlikely because this is only relevant for APs
+> > +	 * where the device must be open... */
+> > +	if (unlikely(!local->apdev))
+> > +		return;
 >=20
-> Please wrap this into ()
+> Why not just let it Oops and show the bug?  In what cases is it ok
+> for apdev to not be set?
 
-Good point :)
+> Can we get whitespace changes like this in a separate patch?
+
+Sure. I'll just remove it from this patch for now.
+
+> again, so should we just let the Oops happen?
+
+I'm thinking there might be race conditions where userspace does
+something, then drops the ap device but after that some operations
+complete and would lead to the oops too. Wasn't really sure.
 
 johannes
 
---=-5i7IIQddD7i8V+BlDGJE
+--=-3J7ZfgxyIkhjpuVJjPKI
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBFYIfS/ETPhpq3jKURAmoLAKC6pgEBWu/ElDvAjRNESzI2vUNqrwCgoN7a
-sbZMvOgpPw81KQaWLUtmXno=
-=4qvU
+iD8DBQBFYIhk/ETPhpq3jKURAmYZAKCxMlnWP7RWObv1/FRPqpd48lkJhgCfYA1u
+E8MSzRpD+H/RUwjJl/Nqrmg=
+=8fqm
 -----END PGP SIGNATURE-----
 
---=-5i7IIQddD7i8V+BlDGJE--
+--=-3J7ZfgxyIkhjpuVJjPKI--
 
