@@ -1,88 +1,44 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
-Date: Sun, 19 Nov 2006 22:46:19 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0611192237170.6324@yvahk01.tjqt.qr>
-References: <20061119203050.GD29736@osprey.hogchain.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.20 0/17][BNX2]: patches
+Date: Sun, 19 Nov 2006 17:15:57 -0500 (EST)
+Message-ID: <20061119.171557.41650433.davem@davemloft.net>
+References: <1163731443.6658.8.camel@rh4>
+	<1163732333.6658.22.camel@rh4>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jeff@garzik.org, shemminger@osdl.org, romieu@fr.zoreil.com,
-	csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailer.gwdg.de ([134.76.10.24]:58541 "EHLO emailer.gwdg.de")
-	by vger.kernel.org with ESMTP id S933397AbWKSVwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 16:52:55 -0500
-To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <20061119203050.GD29736@osprey.hogchain.net>
+Received: from localhost.localdomain ([127.0.0.1]:21664 "EHLO localhost")
+	by vger.kernel.org with ESMTP id S933458AbWKSWP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Nov 2006 17:15:57 -0500
+To: mchan@broadcom.com
+In-Reply-To: <1163732333.6658.22.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->+char at_driver_name[] = "atl1";
->+static const char at_driver_string[] = "Attansic(R) L1 Ethernet Network Driver";
->+const char at_driver_version[] = DRV_VERSION;
->+static const char at_copyright[] =
->+    "Copyright(c) 2005-2006 Attansic Corporation.";
->+
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 16 Nov 2006 18:58:53 -0800
 
->+extern s32 at_read_mac_addr(struct at_hw *hw);
->+extern s32 at_init_hw(struct at_hw *hw);
->+extern s32 at_get_speed_and_duplex(struct at_hw *hw, u16 * speed, u16 * duplex);
->+extern s32 at_set_speed_and_duplex(struct at_hw *hw, u16 speed, u16 duplex);
->+extern u32 at_auto_get_fc(struct at_adapter *adapter, u16 duplex);
->+extern u32 at_hash_mc_addr(struct at_hw *hw, u8 * mc_addr);
->+extern void at_hash_set(struct at_hw *hw, u32 hash_value);
->+extern s32 at_read_phy_reg(struct at_hw *hw, u16 reg_addr, u16 * phy_data);
->+extern s32 at_write_phy_reg(struct at_hw *hw, u32 reg_addr, u16 phy_data);
->+extern s32 at_validate_mdi_setting(struct at_hw *hw);
->+extern void set_mac_addr(struct at_hw *hw);
->+extern int get_permanent_address(struct at_hw *hw);
->+extern s32 at_phy_enter_power_saving(struct at_hw *hw);
->+extern s32 at_reset_hw(struct at_hw *hw);
->+extern void at_check_options(struct at_adapter *adapter);
->+void at_set_ethtool_ops(struct net_device *netdev);
+> David,  A set of BNX2 patches for 2.6.20 to fix bugs, improve
+> SerDes, and support a new chip.  Please review and apply.
+ ...
+> [PATCH 1/17][BNX2]: Fix Xen problem.
+> [PATCH 2/17][BNX2]: Improve SerDes handling.
+> [PATCH 3/17][BNX2]: Add bnx2_5706_serdes_timer().
+> [PATCH 4/17][BNX2]: Add 5708S parallel detection.
+> [PATCH 5/17][BNX2]: Remove udelay() in copper PHY code.
+> [PATCH 6/17][BNX2]: Re-organize firmware structures.
+> [PATCH 7/17][BNX2]: Add new 5709 registers (part 1).
+> [PATCH 8/17][BNX2]: Add new 5709 registers (part 2).
+> [PATCH 9/17][BNX2]: Add 5709 init code.
+> [PATCH 10/17][BNX2]: Add 5709 reset and runtime code.
+> [PATCH 11/17][BNX2]: New firmware to support 5709 (part 1).
+> [PATCH 12/17][BNX2]: New firmware to support 5709 (part 2).
+> [PATCH 13/17][BNX2]: New firmware to support 5709 (part 3).
+> [PATCH 14/17][BNX2]: New firmware to support 5709 (part 4).
+> [PATCH 15/17][BNX2]: Download 5709 firmware.
+> [PATCH 16/17][BNX2]: Add 5709 PCI ID.
+> [PATCH 17/17][BNX2]: Update version and rel date.
 
-Put externs in a .h file.
-
->+static u16 at_alloc_rx_buffers(struct at_adapter *adapter)
->+{
-...
->+	u16 rfd_next_to_use, next_next;
->+	struct rx_free_desc *rfd_desc;
->+
->+	next_next = rfd_next_to_use = (u16) atomic_read(&rfd_ring->next_to_use);
-
-Cast not needed.
-
->+		buffer_info->length = (u16) adapter->rx_buffer_len;
-
->+	rrd_next_to_clean = (u16) atomic_read(&rrd_ring->next_to_clean);
-
-Same (check the others too)
-
->+			if (++rfd_ring->next_to_clean == rfd_ring->count) {
->+				rfd_ring->next_to_clean = 0;
->+			}
->+		}
->+
->+		buffer_info = &rfd_ring->buffer_info[rrd->buf_indx];
->+		if (++rfd_ring->next_to_clean == rfd_ring->count) {
->+			rfd_ring->next_to_clean = 0;
->+		}
-
-Here is a stylistic one: {} is not needed for single-statememnt ifs.
-
->+static irqreturn_t at_intr(int irq, void *data)
->+{
->+	struct at_adapter *adapter = ((struct net_device *)data)->priv;
-
-(Ahem)
-
->+	if (0 == (status = adapter->cmb.cmb->int_stats))
-
-Someone else is probably going to complain about this one...
-
-
-I have not looked through all of it, so there are sure some more places.
-
-	-`J'
--- 
+All applied, thanks a lot Michael.
