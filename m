@@ -1,497 +1,430 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/13] move d80211 away from netdev towards wiphy
-Date: Mon, 20 Nov 2006 00:32:23 +0100
-Message-ID: <1163979143.9216.14.camel@johannes.berg>
-References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163963898.15473.36.camel@johannes.berg>
+From: jmalicki@metacarta.com
+Subject: [PATCH] AF_UNIX recv/shutdown race
+Date: Sun, 19 Nov 2006 18:40:46 -0500 (EST)
+Message-ID: <51488.68.160.147.35.1163979646.squirrel@webmail.metacarta.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Content-Type: multipart/mixed;boundary="----=_20061119184046_52859"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:38590 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S933772AbWKSXeM
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 18:34:12 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <1163963898.15473.36.camel@johannes.berg>
+Received: from silene.metacarta.com ([65.77.47.18]:8385 "EHLO
+	silene.metacarta.com") by vger.kernel.org with ESMTP
+	id S933777AbWKSXkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 18:40:49 -0500
+To: linux-kernel@vger.kernle.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+References: 
+In-Reply-To: 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alright, a bit more thought later :)
+------=_20061119184046_52859
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 
-Michael noted that letting people rename their wiphys is probably a good
-idea to have stable based on the permanent mac address or such. Will
-actually require moving the perm_addr field from struct ieee80211_hw
-into struct wiphy (as below) too so that it's possible to query it
-generically :)
+On some of our systems (Linux 2.6, 4-way SMP), we have found a race where
+occasionally recv() can detect a shutdown before the last bytes written to
+the socket, and will exhibit the odd behavior where recv() will return 0
+to indicate a shutdown socket, and a subsequent call will return the last
+bit data, after which it will return 0 again.
 
-Since d80211 also should relinquish control of this to cfg80211 I
-decided that it was a good idea to make cfg80211 handle the wiphy stuff.
-Also, I think cfg80211 should create /sys/class/ieee80211/<wiphy> to
-allow renaming to follow through in sysfs.
+This is demonstrated by the attached test cases (cli.c and srv.c).  Start
+one srv and several cli processes (perhaps 4-8) on a 2x dual core P4 (most
+likely other systems as well, but I haven't reproduced it on other
+configurations), and you will soon see this behavior.
 
-My plan would be to do this:
+What happens is that in unix_stream_recvmsg, the system checks for any
+skbuffs on the queue ready to return.  Meanwhile, immediately afterwards,
+another process/processor writes an skbuff and shuts down the sock.  Our
+original reader process then checks shutdown, and returns 0.  On the next
+call, it finally sees the skbuff written.
 
- struct ieee80211_hw {
--       /* these are assigned by d80211, don't write */
--       int index;
-+       /* points to the cfg80211 wiphy for this piece */
-+       struct wiphy *wiphy;
-+
-+       /* assigned by d80211, don't write */
-        struct ieee80211_conf conf;
+This patch combines af_unix's unix_sk(sk).readlock with
+unix_state_rlock/runlock(sk).  readlock was only ever used by bind,
+autobind, and unix_{stream,dgram}_recvmsg.  I can't see any way of
+ensuring correctness for unix_stream_recvmsg without forcing it to hold
+the state lock across getting the skbuf and checking shutdown.
 
-along with the patch below.
 
-In d80211, I'd then allocate ieee80211_hw and ieee80211_local along with
-struct wiphy by doing wiphy_new() with the right size instead of
-allocating it along with the master dev.
-
-Thoughts?
-
---- wireless-dev.orig/include/net/cfg80211.h	2006-11-20 00:16:34.999275208 +0100
-+++ wireless-dev/include/net/cfg80211.h	2006-11-20 00:23:01.569275208 +0100
-@@ -7,9 +7,10 @@
- #include <linux/netdevice.h>
- #include <net/genetlink.h>
- #include <linux/wireless.h>
-+#include <linux/device.h>
- 
- /*
-- * 802.11 configuration in-kernel interface
-+ * 802.11 configuration and wiphy management in-kernel interface
+Signed-off-by: Joseph Malicki <joe.malicki@metacarta.com>
+-------------------------------
+diff -rup linux-2.6.18.orig/include/net/af_unix.h
+linux-2.6.18/include/net/af_unix.h
+--- linux-2.6.18.orig/include/net/af_unix.h	2006-09-19 23:42:06.000000000
+-0400
++++ linux-2.6.18/include/net/af_unix.h	2006-10-02 19:42:07.000000000 -0400
+@@ -78,7 +78,6 @@ struct unix_sock {
+         struct unix_address     *addr;
+         struct dentry		*dentry;
+         struct vfsmount		*mnt;
+-	struct mutex		readlock;
+         struct sock		*peer;
+         struct sock		*other;
+         struct sock		*gc_tree;
+diff -rup linux-2.6.18.orig/net/unix/af_unix.c
+linux-2.6.18/net/unix/af_unix.c
+--- linux-2.6.18.orig/net/unix/af_unix.c	2006-09-19 23:42:06.000000000 -0400
++++ linux-2.6.18/net/unix/af_unix.c	2006-10-06 15:28:44.000000000 -0400
+@@ -50,6 +50,8 @@
+  *	     Arnaldo C. Melo	:	Remove MOD_{INC,DEC}_USE_COUNT,
+  *	     				the core infrastructure is doing that
+  *	     				for all net proto families now (2.5.69+)
++ *	       Joseph Malicki	:	Fix SMP race between write/shutdown
++ *					and read.
   *
-  * Copyright 2006 Johannes Berg <johannes@sipsolutions.net>
-  */
-@@ -164,28 +165,65 @@ struct cfg80211_ops {
- 				 int (*next_bssid)(void *data, u8 *bssid));
- };
- 
-+#define WIPHYNAMESIZE	16
-+
- /**
-- * cfg80211_register - register a wiphy with cfg80211
-+ * struct wiphy
   *
-- * register a given method structure with the cfg80211 system
-- * and associate the 'priv' pointer with it.
-+ * @wiphy_index: the wiphy index assigned to this item
-+ * @class_dev: the class device representing /sys/class/ieee80211/<wiphy-name>
-+ * @name: name of this wiphy
-+ */
-+struct wiphy {
-+	int wiphy_index;
-+	struct class_device class_dev;
-+	char name[WIPHYNAMESIZE];
-+	void *priv;
-+};
-+
-+/**
-+ * wiphy_priv - return priv from wiphy
-+ */
-+static inline void *wiphy_priv(struct wiphy *wiphy)
-+{
-+	/* no fancy alignment for now... should probably do that */
-+	return (char *)wiphy + sizeof(struct wiphy);
-+}
-+
-+/**
-+ * wiphy_new - create a new wiphy for use with cfg80211
-  *
-- * Returns a non-negative wiphy index or a negative error code.
-+ * create a new wiphy and associate the given operations with it.
-+ * @sizeof_priv bytes are allocated for private use.
-  *
-- * NOTE: for proper operation, this priv pointer MUST also be
-- * assigned to each &struct net_device's @ieee80211_ptr member!
-+ * the returned structure's driver-private pointer must be assigned
-+ * to each netdev's ieee80211_ptr for proper operation.
-  */
--extern int cfg80211_register(struct cfg80211_ops *ops, void *priv);
-+struct wiphy *wiphy_new(struct cfg80211_ops *ops, int sizeof_priv);
- 
- /**
-- * cfg80211_unregister - deregister a wiphy from cfg80211
-+ * wiphy_register - register a wiphy with cfg80211
-+ *
-+ * register the given wiphy
-+ *
-+ * Returns a non-negative wiphy index or a negative error code.
-+ */
-+extern int wiphy_register(struct wiphy *wiphy);
-+
-+/**
-+ * wiphy_unregister - deregister a wiphy from cfg80211
-  *
-  * unregister a device with the given priv pointer.
-  * After this call, no more requests can be made with this priv
-  * pointer, but the call may sleep to wait for an outstanding
-  * request that is being handled.
-  */
--extern void cfg80211_unregister(void *priv);
-+extern void wiphy_unregister(struct wiphy *wiphy);
-+
-+/**
-+ * cfg80211_free - free wiphy
-+ */
-+extern void wiphy_free(struct wiphy *wiphy);
- 
- /* helper functions specific to nl80211 */
- extern void *nl80211hdr_put(struct sk_buff *skb, u32 pid,
---- wireless-dev.orig/net/wireless/core.c	2006-11-20 00:16:35.059275208 +0100
-+++ wireless-dev/net/wireless/core.c	2006-11-20 00:23:01.569275208 +0100
-@@ -33,7 +33,7 @@ static struct cfg80211_registered_driver
- 		return NULL;
- 
- 	list_for_each_entry(drv, &cfg80211_drv_list, list) {
--		if (drv->priv == priv) {
-+		if (drv_priv(drv) == priv) {
- 			result = drv;
- 			break;
- 		}
-@@ -48,7 +48,7 @@ static struct cfg80211_registered_driver
- 	struct cfg80211_registered_driver *result = NULL, *drv;
- 
- 	list_for_each_entry(drv, &cfg80211_drv_list, list) {
--		if (drv->wiphy == wiphy) {
-+		if (drv->wiphy.wiphy_index == wiphy) {
- 			result = drv;
- 			break;
- 		}
-@@ -146,41 +146,56 @@ void cfg80211_put_drv(struct cfg80211_re
- 
- /* exported functions */
- 
--int cfg80211_register(struct cfg80211_ops *ops, void *priv)
-+struct wiphy *wiphy_new(struct cfg80211_ops *ops, int sizeof_priv)
- {
--	struct cfg80211_registered_driver *drv;
--	int res;
-+	struct cfg80211_registered_driver *result;
- 
--	if (!priv || !ops->list_interfaces)
--		return -EINVAL;
-+	int size = sizeof(struct cfg80211_registered_driver)
-+		 + sizeof_priv;
- 
--	mutex_lock(&cfg80211_drv_mutex);
-+	if (!ops->list_interfaces)
-+		return NULL;
- 
--	if (cfg80211_drv_by_priv(priv)) {
--		res = -EALREADY;
--		goto out_unlock;
--	}
-+	result = kzalloc(size, GFP_KERNEL);
-+	if (!result)
-+		return NULL;
- 
--	drv = kzalloc(sizeof(struct cfg80211_registered_driver), GFP_KERNEL);
--	if (!drv) {
--		res = -ENOMEM;
--		goto out_unlock;
--	}
-+	result->wiphy.priv = drv_priv(result);
-+
-+	result->ops = ops;
-+	mutex_init(&result->mtx);
-+
-+	return &result->wiphy;
-+}
-+EXPORT_SYMBOL_GPL(wiphy_new);
-+
-+int wiphy_register(struct wiphy *wiphy)
-+{
-+	struct cfg80211_registered_driver *drv = wiphy_to_drv(wiphy);
-+	int res;
- 
--	drv->ops = ops;
--	drv->priv = priv;
-+	mutex_lock(&cfg80211_drv_mutex);
- 
- 	if (unlikely(wiphy_counter<0)) {
- 		/* ugh, wrapped! */
--		kfree(drv);
- 		res = -ENOSPC;
- 		goto out_unlock;
- 	}
--	mutex_init(&drv->mtx);
--	drv->wiphy = wiphy_counter;
-+	drv->wiphy.wiphy_index = wiphy_counter;
- 	list_add(&drv->list, &cfg80211_drv_list);
- 	/* return wiphy number */
--	res = drv->wiphy;
-+	res = drv->wiphy.wiphy_index;
-+
-+	/* give it a proper name */
-+	snprintf(drv->wiphy.name, sizeof(drv->wiphy.name),
-+		 "wiphy%d", drv->wiphy.wiphy_index);
-+
-+	/* TODO:
-+	 * - allocate class device for /sys/class/ieee80211
-+	 * - move code over from d80211 to do all that
-+	 * - allow renaming of devices via netlink/whatever
-+	 *   and keep name up to date
-+	 */
- 
- 	/* now increase counter for the next time */
- 	wiphy_counter++;
-@@ -189,20 +204,13 @@ int cfg80211_register(struct cfg80211_op
- 	mutex_unlock(&cfg80211_drv_mutex);
- 	return res;
+  * Known differences from reference BSD that was tested:
+@@ -593,7 +595,6 @@ static struct sock * unix_create1(struct
+ 	u->mnt	  = NULL;
+ 	spin_lock_init(&u->lock);
+ 	atomic_set(&u->inflight, sock ? 0 : -1);
+-	mutex_init(&u->readlock); /* single task reading lock */
+ 	init_waitqueue_head(&u->peer_wait);
+ 	unix_insert_socket(unix_sockets_unbound, sk);
+ out:
+@@ -650,7 +651,7 @@ static int unix_autobind(struct socket *
+ 	struct unix_address * addr;
+ 	int err;
+
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
+
+ 	err = 0;
+ 	if (u->addr)
+@@ -687,7 +688,7 @@ retry:
+ 	spin_unlock(&unix_table_lock);
+ 	err = 0;
+
+-out:	mutex_unlock(&u->readlock);
++out:	unix_state_runlock(sk);
+ 	return err;
  }
--EXPORT_SYMBOL_GPL(cfg80211_register);
-+EXPORT_SYMBOL_GPL(wiphy_register);
- 
--void cfg80211_unregister(void *priv)
-+void wiphy_unregister(struct wiphy *wiphy)
- {
--	struct cfg80211_registered_driver *drv;
-+	struct cfg80211_registered_driver *drv = wiphy_to_drv(wiphy);
- 
- 	mutex_lock(&cfg80211_drv_mutex);
--	drv = cfg80211_drv_by_priv(priv);
--	if (!drv) {
--		printk(KERN_ERR "deregistering cfg80211 backend that "
--		       " was never registered!\n");
--		mutex_unlock(&cfg80211_drv_mutex);
--		return;
--	}
- 
- 	/* hold registered driver mutex during list removal as well
- 	 * to make sure no commands are in progress at the moment */
-@@ -211,11 +219,17 @@ void cfg80211_unregister(void *priv)
- 	mutex_unlock(&drv->mtx);
- 
- 	mutex_unlock(&cfg80211_drv_mutex);
-+}
-+EXPORT_SYMBOL_GPL(wiphy_unregister);
-+
-+void wiphy_free(struct wiphy *wiphy)
-+{
-+	struct cfg80211_registered_driver *drv = wiphy_to_drv(wiphy);
- 
- 	mutex_destroy(&drv->mtx);
- 	kfree(drv);
+
+@@ -770,7 +771,7 @@ static int unix_bind(struct socket *sock
+ 		goto out;
+ 	addr_len = err;
+
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
+
+ 	err = -EINVAL;
+ 	if (u->addr)
+@@ -842,7 +843,7 @@ static int unix_bind(struct socket *sock
+ out_unlock:
+ 	spin_unlock(&unix_table_lock);
+ out_up:
+-	mutex_unlock(&u->readlock);
++	unix_state_runlock(sk);
+ out:
+ 	return err;
+
+@@ -1572,7 +1573,7 @@ static int unix_dgram_recvmsg(struct kio
+
+ 	msg->msg_namelen = 0;
+
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
+
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+@@ -1628,7 +1629,7 @@ static int unix_dgram_recvmsg(struct kio
+ out_free:
+ 	skb_free_datagram(sk,skb);
+ out_unlock:
+-	mutex_unlock(&u->readlock);
++	unix_state_runlock(sk);
+ out:
+ 	return err;
  }
--EXPORT_SYMBOL_GPL(cfg80211_unregister);
-+EXPORT_SYMBOL_GPL(wiphy_free);
- 
- /* module initialisation/exit functions */
- 
---- wireless-dev.orig/net/wireless/core.h	2006-11-20 00:16:35.109275208 +0100
-+++ wireless-dev/net/wireless/core.h	2006-11-20 00:23:01.569275208 +0100
-@@ -13,16 +13,25 @@
- 
- struct cfg80211_registered_driver {
- 	struct cfg80211_ops *ops;
--	int wiphy;
--	void *priv;
- 	struct list_head list;
- 	/* we hold this mutex during any call so that
- 	 * we cannot do multiple calls at once, and also
- 	 * to avoid the deregister call to proceed while
- 	 * any call is in progress */
- 	struct mutex mtx;
-+	struct wiphy wiphy;
- };
- 
-+static inline struct cfg80211_registered_driver *wiphy_to_drv(struct wiphy *wiphy)
-+{
-+	return container_of(wiphy, struct cfg80211_registered_driver, wiphy);
-+}
-+
-+static inline void *drv_priv(struct cfg80211_registered_driver *drv)
-+{
-+	return wiphy_priv(&drv->wiphy);
-+}
-+
- extern struct mutex cfg80211_drv_mutex;
- extern struct list_head cfg80211_drv_list;
- 
---- wireless-dev.orig/net/wireless/nl80211.c	2006-11-20 00:16:35.269275208 +0100
-+++ wireless-dev/net/wireless/nl80211.c	2006-11-20 00:23:01.579275208 +0100
-@@ -112,7 +112,7 @@ static int nl80211_get_cmdlist(struct sk
- 		goto put_drv;
+@@ -1674,7 +1675,6 @@ static int unix_stream_recvmsg(struct ki
+ 	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
+ 	struct scm_cookie tmp_scm;
+ 	struct sock *sk = sock->sk;
+-	struct unix_sock *u = unix_sk(sk);
+ 	struct sockaddr_un *sunaddr=msg->msg_name;
+ 	int copied = 0;
+ 	int check_creds = 0;
+@@ -1704,7 +1704,7 @@ static int unix_stream_recvmsg(struct ki
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
  	}
+
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
+
+ 	do
+ 	{
+@@ -1728,7 +1728,7 @@ static int unix_stream_recvmsg(struct ki
+ 			err = -EAGAIN;
+ 			if (!timeo)
+ 				break;
+-			mutex_unlock(&u->readlock);
++			unix_state_runlock(sk);
+
+ 			timeo = unix_stream_data_wait(sk, timeo);
+
+@@ -1736,7 +1736,7 @@ static int unix_stream_recvmsg(struct ki
+ 				err = sock_intr_errno(timeo);
+ 				goto out;
+ 			}
+-			mutex_lock(&u->readlock);
++			unix_state_rlock(sk);
+ 			continue;
+ 		}
+
+@@ -1802,7 +1802,7 @@ static int unix_stream_recvmsg(struct ki
+ 		}
+ 	} while (size);
+
+-	mutex_unlock(&u->readlock);
++	unix_state_runlock(sk);
+ 	scm_recv(sock, msg, siocb->scm, flags);
+ out:
+ 	return copied ? : err;
+
+
+------=_20061119184046_52859
+Content-Type: text/plain; name="af_unix_readshutdownrace.diff"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="af_unix_readshutdownrace.diff"
+
+diff -rup linux-2.6.18.orig/include/net/af_unix.h linux-2.6.18/include/net/af_unix.h
+--- linux-2.6.18.orig/include/net/af_unix.h	2006-09-19 23:42:06.000000000 -0400
++++ linux-2.6.18/include/net/af_unix.h	2006-10-02 19:42:07.000000000 -0400
+@@ -78,7 +78,6 @@ struct unix_sock {
+         struct unix_address     *addr;
+         struct dentry		*dentry;
+         struct vfsmount		*mnt;
+-	struct mutex		readlock;
+         struct sock		*peer;
+         struct sock		*other;
+         struct sock		*gc_tree;
+diff -rup linux-2.6.18.orig/net/unix/af_unix.c linux-2.6.18/net/unix/af_unix.c
+--- linux-2.6.18.orig/net/unix/af_unix.c	2006-09-19 23:42:06.000000000 -0400
++++ linux-2.6.18/net/unix/af_unix.c	2006-10-06 15:28:44.000000000 -0400
+@@ -50,6 +50,8 @@
+  *	     Arnaldo C. Melo	:	Remove MOD_{INC,DEC}_USE_COUNT,
+  *	     				the core infrastructure is doing that
+  *	     				for all net proto families now (2.5.69+)
++ *	       Joseph Malicki	:	Fix SMP race between write/shutdown
++ *					and read.
+  *
+  *
+  * Known differences from reference BSD that was tested:
+@@ -593,7 +595,6 @@ static struct sock * unix_create1(struct
+ 	u->mnt	  = NULL;
+ 	spin_lock_init(&u->lock);
+ 	atomic_set(&u->inflight, sock ? 0 : -1);
+-	mutex_init(&u->readlock); /* single task reading lock */
+ 	init_waitqueue_head(&u->peer_wait);
+ 	unix_insert_socket(unix_sockets_unbound, sk);
+ out:
+@@ -650,7 +651,7 @@ static int unix_autobind(struct socket *
+ 	struct unix_address * addr;
+ 	int err;
  
--	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, drv->wiphy);
-+	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, drv->wiphy.wiphy_index);
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
  
- 	start = nla_nest_start(msg, NL80211_ATTR_CMDS);
- 	if (!start)
-@@ -178,7 +178,7 @@ static int nl80211_get_wiphys(struct sk_
- 		indexstart = nla_nest_start(msg, idx++);
- 		if (!indexstart)
- 			goto nla_put_failure;
--		NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, drv->wiphy);
-+		NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, drv->wiphy.wiphy_index);
- 		nla_nest_end(msg, indexstart);
- 	}
- 	mutex_unlock(&cfg80211_drv_mutex);
-@@ -248,7 +248,7 @@ static int nl80211_get_intfs(struct sk_b
- 		goto put_drv;
- 	}
+ 	err = 0;
+ 	if (u->addr)
+@@ -687,7 +688,7 @@ retry:
+ 	spin_unlock(&unix_table_lock);
+ 	err = 0;
  
--	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, drv->wiphy);
-+	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, drv->wiphy.wiphy_index);
+-out:	mutex_unlock(&u->readlock);
++out:	unix_state_runlock(sk);
+ 	return err;
+ }
  
- 	start = nla_nest_start(msg, NL80211_ATTR_INTERFACE_LIST);
- 	if (!start) {
-@@ -258,7 +258,7 @@ static int nl80211_get_intfs(struct sk_b
- 
- 	cb.skb = msg;
- 	cb.idx = 1;
--	err = drv->ops->list_interfaces(drv->priv, &cb, addifidx);
-+	err = drv->ops->list_interfaces(drv_priv(drv), &cb, addifidx);
- 	if (err)
- 		goto msg_free;
- 
-@@ -300,7 +300,7 @@ static int nl80211_do_inject(struct sk_b
- 		goto unlock;
- 	}
- 
--	err = drv->ops->inject_packet(drv->priv,
-+	err = drv->ops->inject_packet(drv_priv(drv),
- 		nla_data(info->attrs[NL80211_ATTR_FRAME]),
- 		nla_len(info->attrs[NL80211_ATTR_FRAME]),
- 		flags,
-@@ -334,7 +334,7 @@ static int nl80211_add_virt_intf(struct 
- 		goto unlock;
- 	}
- 
--	err = drv->ops->add_virtual_intf(drv->priv,
-+	err = drv->ops->add_virtual_intf(drv_priv(drv),
- 		nla_data(info->attrs[NL80211_ATTR_IFNAME]), type);
- 
-  unlock:
-@@ -359,7 +359,7 @@ static int nl80211_del_virt_intf(struct 
+@@ -770,7 +771,7 @@ static int unix_bind(struct socket *sock
  		goto out;
+ 	addr_len = err;
+ 
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
+ 
+ 	err = -EINVAL;
+ 	if (u->addr)
+@@ -842,7 +843,7 @@ static int unix_bind(struct socket *sock
+ out_unlock:
+ 	spin_unlock(&unix_table_lock);
+ out_up:
+-	mutex_unlock(&u->readlock);
++	unix_state_runlock(sk);
+ out:
+ 	return err;
+ 
+@@ -1572,7 +1573,7 @@ static int unix_dgram_recvmsg(struct kio
+ 
+ 	msg->msg_namelen = 0;
+ 
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
+ 
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+@@ -1628,7 +1629,7 @@ static int unix_dgram_recvmsg(struct kio
+ out_free:
+ 	skb_free_datagram(sk,skb);
+ out_unlock:
+-	mutex_unlock(&u->readlock);
++	unix_state_runlock(sk);
+ out:
+ 	return err;
+ }
+@@ -1674,7 +1675,6 @@ static int unix_stream_recvmsg(struct ki
+ 	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
+ 	struct scm_cookie tmp_scm;
+ 	struct sock *sk = sock->sk;
+-	struct unix_sock *u = unix_sk(sk);
+ 	struct sockaddr_un *sunaddr=msg->msg_name;
+ 	int copied = 0;
+ 	int check_creds = 0;
+@@ -1704,7 +1704,7 @@ static int unix_stream_recvmsg(struct ki
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
  	}
  
--	err = drv->ops->del_virtual_intf(drv->priv, ifindex);
-+	err = drv->ops->del_virtual_intf(drv_priv(drv), ifindex);
+-	mutex_lock(&u->readlock);
++	unix_state_rlock(sk);
  
-  out:
- 	cfg80211_put_drv(drv);
-@@ -421,7 +421,7 @@ static int nl80211_configure(struct sk_b
- 		config.channel = nla_get_u32(attr);
- 	}
+ 	do
+ 	{
+@@ -1728,7 +1728,7 @@ static int unix_stream_recvmsg(struct ki
+ 			err = -EAGAIN;
+ 			if (!timeo)
+ 				break;
+-			mutex_unlock(&u->readlock);
++			unix_state_runlock(sk);
  
--	err = drv->ops->configure(drv->priv, dev, &config);
-+	err = drv->ops->configure(drv_priv(drv), dev, &config);
-  out:
- 	cfg80211_put_drv(drv);
- 	dev_put(dev);
-@@ -448,7 +448,7 @@ static int nl80211_get_config(struct sk_
+ 			timeo = unix_stream_data_wait(sk, timeo);
  
- 	memset(&config, 0, sizeof(config));
+@@ -1736,7 +1736,7 @@ static int unix_stream_recvmsg(struct ki
+ 				err = sock_intr_errno(timeo);
+ 				goto out;
+ 			}
+-			mutex_lock(&u->readlock);
++			unix_state_rlock(sk);
+ 			continue;
+ 		}
  
--	drv->ops->get_config(drv->priv, dev, &config);
-+	drv->ops->get_config(drv_priv(drv), dev, &config);
+@@ -1802,7 +1802,7 @@ static int unix_stream_recvmsg(struct ki
+ 		}
+ 	} while (size);
  
- 	hdr = nl80211msg_new(&msg, info->snd_pid, info->snd_seq, 0,
- 			     NL80211_CMD_NEW_CONFIG);
-@@ -514,7 +514,7 @@ static int nl80211_set_roaming(struct sk
- 		goto out;
- 	}
- 
--	err = drv->ops->set_roaming(drv->priv, dev, roaming_control);
-+	err = drv->ops->set_roaming(drv_priv(drv), dev, roaming_control);
-  out:
- 	cfg80211_put_drv(drv);
- 	dev_put(dev);
-@@ -538,7 +538,7 @@ static int nl80211_get_roaming(struct sk
- 		goto out_put_drv;
- 	}
- 
--	err = drv->ops->get_roaming(drv->priv, dev);
-+	err = drv->ops->get_roaming(drv_priv(drv), dev);
- 	if (err < 0)
- 		goto out_put_drv;
- 
-@@ -586,7 +586,7 @@ static int nl80211_set_fixed_bssid(struc
- 		goto out;
- 	}
- 
--	err = drv->ops->set_fixed_bssid(drv->priv, dev, bssid);
-+	err = drv->ops->set_fixed_bssid(drv_priv(drv), dev, bssid);
-  out:
- 	cfg80211_put_drv(drv);
- 	dev_put(dev);
-@@ -611,7 +611,7 @@ static int nl80211_get_fixed_bssid(struc
- 		goto out_put_drv;
- 	}
- 
--	err = drv->ops->get_fixed_bssid(drv->priv, dev, bssid);
-+	err = drv->ops->get_fixed_bssid(drv_priv(drv), dev, bssid);
- 	if (err < 0)
- 		goto out_put_drv;
- 
-@@ -657,7 +657,7 @@ static int nl80211_get_association(struc
- 		goto out_put_drv;
- 	}
- 
--	err = drv->ops->get_association(drv->priv, dev, bssid);
-+	err = drv->ops->get_association(drv_priv(drv), dev, bssid);
- 	if (err < 0)
- 		goto out_put_drv;
- 
-@@ -716,7 +716,7 @@ static int nl80211_assoc_deauth(struct s
- 		goto out;
- 	}
- 
--	err = act(drv->priv, dev);
-+	err = act(drv_priv(drv), dev);
-  out:
- 	cfg80211_put_drv(drv);
- 	dev_put(dev);
-@@ -778,7 +778,7 @@ static int nl80211_get_auth_list(struct 
- 
- 	cb.skb = msg;
- 	cb.idx = 1;
--	err = drv->ops->get_auth_list(drv->priv, dev, &cb, add_bssid);
-+	err = drv->ops->get_auth_list(drv_priv(drv), dev, &cb, add_bssid);
- 	if (err)
- 		goto msg_free;
- 
-@@ -874,7 +874,7 @@ static int nl80211_initiate_scan(struct 
- 	params.channels = channels;
- 	params.n_channels = count;
- 
--	err = drv->ops->initiate_scan(drv->priv, dev, &params);
-+	err = drv->ops->initiate_scan(drv_priv(drv), dev, &params);
- 
- 	kfree(channels);
-  out:
---- wireless-dev.orig/net/wireless/wext-compat.c	2006-11-20 00:16:35.169275208 +0100
-+++ wireless-dev/net/wireless/wext-compat.c	2006-11-20 00:23:01.579275208 +0100
-@@ -121,7 +121,7 @@ static int cfg80211_wx_set_commit(struct
- 		goto out;
- 	}
- 
--	err = drv->ops->configure(drv->priv, net_dev,
-+	err = drv->ops->configure(drv_priv(drv), net_dev,
- 				  net_dev->cfg80211_wext_pending_config);
- 
- 	kfree(net_dev->cfg80211_wext_pending_config);
-@@ -532,7 +532,7 @@ static int cfg80211_wx_set_essid(struct 
- 	err = -ENOSYS;
- 	if (!drv->ops->configure || !drv->ops->get_config_valid)
- 		goto out;
--	if (!(drv->ops->get_config_valid(drv->priv, net_dev)
-+	if (!(drv->ops->get_config_valid(drv_priv(drv), net_dev)
- 			& CFG80211_CFG_VALID_SSID))
- 		goto out;
- 
+-	mutex_unlock(&u->readlock);
++	unix_state_runlock(sk);
+ 	scm_recv(sock, msg, siocb->scm, flags);
+ out:
+ 	return copied ? : err;
+------=_20061119184046_52859
+Content-Type: text/x-csrc; name="cli.c"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="cli.c"
+
+/* a client in the unix domain */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdio.h>
+
+int main(int argc, char *argv[])
+{
+  int conn;
+  struct sockaddr_un  serv_addr;
+
+  char buffer[4];
+  int  len;
+   
+  while( 1 ) {  
+    bzero((char *)&serv_addr,sizeof(serv_addr));
+    serv_addr.sun_family = AF_UNIX;
+    strcpy(serv_addr.sun_path, "/tmp/ugh");
+    
+    conn = socket(AF_UNIX, SOCK_STREAM,0);
+    if( conn < 0 ) {
+      perror( "couldn't create socket" );
+      return -1;
+    }
+    
+    if( connect( conn, (struct sockaddr *)&serv_addr,
+                 strlen(serv_addr.sun_path) + sizeof(serv_addr.sun_family) ) < 0 ) {
+      perror( "couldn't connect" );
+      return -1; 
+    }
+    
+    bzero(buffer, 4);
+    len = recv(conn,buffer,3,MSG_WAITALL);
+    if( len != 3 ) {
+      perror( "eh?" );
+      printf( "HUH: %d\n", len );
+      len = recv(conn,buffer,3,MSG_WAITALL);
+      if( len == 3 ) {
+        printf( "WTF: %d, %s\n", len, buffer );
+      }
+      return -1;
+    }
+    else {
+      printf( "%s\n", buffer );
+    }
+    shutdown(conn,2);
+    close(conn);
+  }
+
+   return 0;
+}
+------=_20061119184046_52859
+Content-Type: text/x-csrc; name="srv.c"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="srv.c"
+
+/* a server in the unix domain.  The pathname of 
+   the socket address is passed as an argument */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdio.h>
+
+int main(int argc, char *argv[])
+{
+  int listener;
+  struct sockaddr_un serv_addr;
+  int len;
+  int conn;
+  
+  listener = socket(AF_UNIX,SOCK_STREAM,0);
+  if( listener < 0 ) {
+    perror( "couldn't create socket" );
+    return -1;
+  }
+
+
+  bzero( (char *)&serv_addr, sizeof(serv_addr) );
+  serv_addr.sun_family = AF_UNIX;
+  unlink( "/tmp/ugh" );
+  strcpy( serv_addr.sun_path, "/tmp/ugh" );
+  
+  if( bind( listener, (struct sockaddr *)&serv_addr,
+            strlen(serv_addr.sun_path) + sizeof(serv_addr.sun_family) ) < 0 ) {
+    perror( "bind failed" );
+    return -1;         
+  }
+
+  listen( listener, 0 );
+  
+  while( 1 ) {
+    conn = accept( listener, NULL, NULL );
+    if( conn < 0 ) {
+      perror( "accept() failed" );
+      return -1;
+    }
+    len = write( conn, "one", 3 );
+    if(len != 3) {
+	    printf("short write: %d!\n", len);
+    }
+    shutdown( conn, 2 );
+    close( conn );
+  }
+  
+  return 0;
+}
+------=_20061119184046_52859--
 
 
