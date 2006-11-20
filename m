@@ -1,46 +1,38 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 4/13] d80211: reduce mdev usage, change
-	ieee80211_rx_mgmt
-Date: Mon, 20 Nov 2006 13:25:06 +0100
-Message-ID: <1164025506.2744.32.camel@ux156>
-References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163963898.15473.36.camel@johannes.berg>
-	 <1163964402.15473.47.camel@johannes.berg>
-	 <20061120130859.329993c8@griffin.suse.cz>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
+Date: Mon, 20 Nov 2006 13:21:59 +0100
+Message-ID: <200611201322.00495.arnd@arndb.de>
+References: <20061119203050.GD29736@osprey.hogchain.net> <200611200057.45274.arnd@arndb.de> <45614769.4020005@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
+	shemminger@osdl.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:29338 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S934115AbWKTMX4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 07:23:56 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061120130859.329993c8@griffin.suse.cz>
+Received: from moutng.kundenserver.de ([212.227.126.183]:35297 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S934114AbWKTMYX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 07:24:23 -0500
+To: Chris Snook <csnook@redhat.com>
+In-Reply-To: <45614769.4020005@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-11-20 at 13:08 +0100, Jiri Benc wrote:
+On Monday 20 November 2006 07:12, Chris Snook wrote:
+> >=20
+> > Any reason why you can't use generic_mii_ioctl?
+>=20
+> I decided to mostly leave this code alone, in the hope that we could=20
+> just rip out MII support entirely and nobody would mind. =A0What do y=
+ou think?
+>=20
 
-> offsetof(ieee80211_frame_info, msg_type)? 
+Normally, I think you should just implement mdio_read/mdio_write functi=
+ons
+and then use all the helpers from drivers/net/mii.c to implement mii_io=
+ctl
+and other functions like ethtool_gset.
 
-Hm, I guess I could do that. I could just zero out the whole struct too
-I think.
-
-> But it doesn't matter, this
-> is going to go away (hopefully soon) anyway.
-
-Right. If you don't mind I'll leave it as-is assuming that msg_type is
-the last field; I'll hopefully be able to subsume this into cfg80211
-soonish.
-
-johannes
+	Arnd <><
