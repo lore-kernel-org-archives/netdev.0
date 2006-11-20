@@ -1,75 +1,69 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 1/4] atl1: Build files for Attansic L1 driver
-Date: Mon, 20 Nov 2006 07:41:26 -0800
-Message-ID: <4561CCA6.8080209@oracle.com>
-References: <20061119202915.GB29736@osprey.hogchain.net> <20061119152432.a85d4166.randy.dunlap@oracle.com> <456145DA.804@redhat.com>
+From: =?ISO-8859-15?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: [NET_SCHED 03/06]: Fix endless loops caused by inaccurate qlen
+ counters (part 1)
+Date: Mon, 20 Nov 2006 18:07:51 +0200
+Message-ID: <4561D2D7.20209@kolumbus.fi>
+References: <20061120130834.22347.34853.sendpatchset@localhost.localdomain> <20061120130840.22347.54563.sendpatchset@localhost.localdomain> <4561BA7B.4060005@kolumbus.fi> <4561BC31.5030405@trash.net> <4561BF44.4040801@kolumbus.fi> <4561C0DA.4080609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
-	shemminger@osdl.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, devik@cdi.cz, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:54319 "EHLO
-	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S934253AbWKTPp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 10:45:28 -0500
-To: Chris Snook <csnook@redhat.com>
-In-Reply-To: <456145DA.804@redhat.com>
+Received: from mail-gw1.turkuamk.fi ([195.148.208.125]:15582 "EHLO
+	mail-gw1.turkuamk.fi") by vger.kernel.org with ESMTP
+	id S965978AbWKTQJt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 11:09:49 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4561C0DA.4080609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Snook wrote:
-> Randy Dunlap wrote:
->> On Sun, 19 Nov 2006 14:29:15 -0600 Jay Cliburn wrote:
+Patrick McHardy wrote:
+> Mika Penttil=E4 wrote:
+>  =20
+>> Patrick McHardy wrote:
 >>
->>> From: Jay Cliburn <jacliburn@bellsouth.net>
+>>    =20
+>>> Mika Penttil=E4 wrote:
+>>> =20
 >>>
->>> This patch contains the build files for the Attansic L1 gigabit ethernet
->>> adapter driver.
+>>>      =20
+>>>> Are you sure you didn't mean to :
+>>>>
+>>>> +    while ((parentid =3D sch->parent)) {
+>>>> +        sch =3D __qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
+>>>> +        cops =3D sch->ops->cl_ops;
+>>>> +        if (!(sch->q.qlen -=3D n) && cops->qlen_notify) {    <---=
+-
+>>>>    =20
+>>>>        =20
 >>>
->>> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
->>> ---
+>>> We could do that, currently the qdiscs check themselves.
+>>> The idea was mainly that they could be interested in
+>>> other changes as well, for example for recalculating
+>>> a deadline when the next packet in line changes.
 >>>
->>>  Kconfig       |   12 ++++++++++++
->>>  Makefile      |    1 +
->>>  atl1/Makefile |   30 ++++++++++++++++++++++++++++++
->>>  3 files changed, 43 insertions(+)
->>>
->>> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
->>> index 6e863aa..f503d10 100644
->>> --- a/drivers/net/Kconfig
->>> +++ b/drivers/net/Kconfig
->>> @@ -2329,6 +2329,18 @@ config QLA3XXX
->>>        To compile this driver as a module, choose M here: the module
->>>        will be called qla3xxx.
->>>  
->>> +config ATL1
->>> +    tristate "Attansic(R) L1 Gigabit Ethernet support (EXPERIMENTAL)"
->>> +    depends on NET_PCI && PCI && EXPERIMENTAL
->>> +    select CRC32
->>> +    select MII
->>> +    ---help---
->>> +      This driver supports Attansic L1 gigabit ethernet adapter.
->>> +
->>> +      To compile this driver as a module, choose M here.  The module
->>> +      will be called atl1.
->>> +
->>> +
->>>  endmenu
->>
->> One problem here is that MII depends on NET_ETHERNET, which is
->> 10/100 ethernet, which may not be enabled if someone has only
->> gigabit ethernet.  :)
-> 
-> I'm actually quite inclined to rip out all MII support entirely. There's 
-> a lot of code in this driver that needs cleaning up cosmetically, and 
-> removing deprecated features would certainly speed things up.  What do 
-> you think?
+>>>  =20
+>>>      =20
+>> But you call the notify before the decrement, which seems odd...
+>>    =20
+>
+>
+> The notification notifies of changes in a _child_ qdisc of
+> the qdisc that is notified, which already has its counter
+> decremented. The qdisc's own counter is irrelevant for
+> the qdisc itself, it doesn't make any difference whether
+> it is decremented before or after the notification.
+>
+> -
+>  =20
+Has already decremented where? As I read it you notify parent and=20
+_after_ that decrement child's counter...
+Also, shoudn't the return value of qdisc_lookup be check, I think it ca=
+n=20
+return NULL for default qdiscs.
 
-All of that sounds like a good idea to me.
-I didn't realize that MII support is deprecated.  Do you mean
-that it's deprecated for gigabit?
+--Mika
 
--- 
-~Randy
+
