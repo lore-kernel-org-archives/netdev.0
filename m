@@ -1,103 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 07/06]: Fix endless loops (part 5): netem/tbf/hfsc ->requeue
- failures
-Date: Mon, 20 Nov 2006 16:01:03 +0100
-Message-ID: <4561C32F.7000702@trash.net>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH 1/4] atl1: Build files for Attansic L1 driver
+Date: Mon, 20 Nov 2006 07:41:26 -0800
+Message-ID: <4561CCA6.8080209@oracle.com>
+References: <20061119202915.GB29736@osprey.hogchain.net> <20061119152432.a85d4166.randy.dunlap@oracle.com> <456145DA.804@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000203050906090108060206"
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
+	shemminger@osdl.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60550 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S934216AbWKTPBI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 10:01:08 -0500
-To: "David S. Miller" <davem@davemloft.net>
+Received: from agminet01.oracle.com ([141.146.126.228]:54319 "EHLO
+	agminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S934253AbWKTPp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 10:45:28 -0500
+To: Chris Snook <csnook@redhat.com>
+In-Reply-To: <456145DA.804@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000203050906090108060206
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Chris Snook wrote:
+> Randy Dunlap wrote:
+>> On Sun, 19 Nov 2006 14:29:15 -0600 Jay Cliburn wrote:
+>>
+>>> From: Jay Cliburn <jacliburn@bellsouth.net>
+>>>
+>>> This patch contains the build files for the Attansic L1 gigabit ethernet
+>>> adapter driver.
+>>>
+>>> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+>>> ---
+>>>
+>>>  Kconfig       |   12 ++++++++++++
+>>>  Makefile      |    1 +
+>>>  atl1/Makefile |   30 ++++++++++++++++++++++++++++++
+>>>  3 files changed, 43 insertions(+)
+>>>
+>>> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>>> index 6e863aa..f503d10 100644
+>>> --- a/drivers/net/Kconfig
+>>> +++ b/drivers/net/Kconfig
+>>> @@ -2329,6 +2329,18 @@ config QLA3XXX
+>>>        To compile this driver as a module, choose M here: the module
+>>>        will be called qla3xxx.
+>>>  
+>>> +config ATL1
+>>> +    tristate "Attansic(R) L1 Gigabit Ethernet support (EXPERIMENTAL)"
+>>> +    depends on NET_PCI && PCI && EXPERIMENTAL
+>>> +    select CRC32
+>>> +    select MII
+>>> +    ---help---
+>>> +      This driver supports Attansic L1 gigabit ethernet adapter.
+>>> +
+>>> +      To compile this driver as a module, choose M here.  The module
+>>> +      will be called atl1.
+>>> +
+>>> +
+>>>  endmenu
+>>
+>> One problem here is that MII depends on NET_ETHERNET, which is
+>> 10/100 ethernet, which may not be enabled if someone has only
+>> gigabit ethernet.  :)
+> 
+> I'm actually quite inclined to rip out all MII support entirely. There's 
+> a lot of code in this driver that needs cleaning up cosmetically, and 
+> removing deprecated features would certainly speed things up.  What do 
+> you think?
 
-I forgot to fix one (AFAICT purely theoretical) case ..
+All of that sounds like a good idea to me.
+I didn't realize that MII support is deprecated.  Do you mean
+that it's deprecated for gigabit?
 
-
---------------000203050906090108060206
-Content-Type: text/plain;
- name="07.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="07.diff"
-
-[NET_SCHED]: Fix endless loops (part 5): netem/tbf/hfsc ->requeue failures
-
-When peeking at the next packet in a child qdisc by calling dequeue/requeue,
-the upper qdisc qlen counter may get out of sync in case the requeue fails.
-The qdisc and the child qdisc both have their counter decremented, but since
-no packet is given to the upper qdisc it won't decrement its counter itself.
-
-requeue should not fail, so this is mostly for "correctness".
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 929cc41d7993cf356bcf1693c924e016df55a6a9
-tree 8d0017e51e6285b4d584864e564e4d4512463b99
-parent cc6f4de81d666f76192bee629473ff6fbd66286c
-author Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 15:59:14 +0100
-committer Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 15:59:14 +0100
-
- net/sched/sch_hfsc.c  |    1 +
- net/sched/sch_netem.c |    5 +----
- net/sched/sch_tbf.c   |    2 +-
- 3 files changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 2d43744..6eefa69 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -946,6 +946,7 @@ qdisc_peek_len(struct Qdisc *sch)
- 	if (unlikely(sch->ops->requeue(skb, sch) != NET_XMIT_SUCCESS)) {
- 		if (net_ratelimit())
- 			printk("qdisc_peek_len: failed to requeue\n");
-+		qdisc_tree_decrease_qlen(sch, 1);
- 		return 0;
- 	}
- 	return len;
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 672c354..79542af 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -287,13 +287,10 @@ static struct sk_buff *netem_dequeue(str
- 			psched_tdiff_t delay = PSCHED_TDIFF(cb->time_to_send, now);
- 
- 			if (q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS) {
-+				qdisc_tree_decrease_qlen(q->qdisc, 1);
- 				sch->qstats.drops++;
--
--				/* After this qlen is confused */
- 				printk(KERN_ERR "netem: queue discpline %s could not requeue\n",
- 				       q->qdisc->ops->id);
--
--				sch->q.qlen--;
- 			}
- 
- 			mod_timer(&q->timer, jiffies + PSCHED_US2JIFFIE(delay));
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 23b7624..ed9b6d9 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -250,7 +250,7 @@ static struct sk_buff *tbf_dequeue(struc
- 
- 		if (q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS) {
- 			/* When requeue fails skb is dropped */
--			sch->q.qlen--;
-+			qdisc_tree_decrease_qlen(q->qdisc, 1);
- 			sch->qstats.drops++;
- 		}
- 
-
---------------000203050906090108060206--
+-- 
+~Randy
