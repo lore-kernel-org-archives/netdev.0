@@ -1,63 +1,53 @@
-From: James Morris <jmorris@namei.org>
-Subject: [GIT] Netlabel patches for net-2.6.20
-Date: Mon, 20 Nov 2006 16:19:14 -0500 (EST)
-Message-ID: <XMMS.LNX.4.64.0611201618400.30678@d.namei>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
+Date: Mon, 20 Nov 2006 16:36:43 -0500
+Message-ID: <45621FEB.204@garzik.org>
+References: <20061119203050.GD29736@osprey.hogchain.net>	<200611200057.45274.arnd@arndb.de>	<45614769.4020005@redhat.com>	<200611201322.00495.arnd@arndb.de>	<20061120100202.6a79e382@freekitty>	<4562036E.3020409@garzik.org> <20061120121524.68cf39d8@freekitty>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Chris Snook <csnook@redhat.com>,
+	Jay Cliburn <jacliburn@bellsouth.net>, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:27565 "EHLO
-	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S966763AbWKTVTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 16:19:16 -0500
-To: "David S. Miller" <davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:24489 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S966805AbWKTVgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 16:36:54 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061120121524.68cf39d8@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave, 
+Stephen Hemminger wrote:
+> On Mon, 20 Nov 2006 14:35:10 -0500
+> Jeff Garzik <jeff@garzik.org> wrote:
+> 
+>> Stephen Hemminger wrote:
+>>> Using common MII code is good, but one problem with the existing MII code is that
+>>> it doesn't work when device is down. This makes it impossible to set speed/duplex
+>>> before device comes up.
+>>
+>> That's not true at all.  drivers/net/mii.c uses caller-provided locking 
+>> in all cases, and there is nothing that prevents the common code from 
+>> being called when the interface is down.
+>>
+>> You are probably thinking about all the netif_running() checks found in 
+>> the drivers, particularly in the ->begin() hook.
+>>
+>> 	Jeff
+>>
+>>
+> 
+> Yeah it is a driver specific thing. All users of mii seem to block changes so
+> I thought it was in base code.
 
-Please pull per below.
+Yeah.  As a bit of history, a lot of drivers would power down the phy 
+when the interface was down, and so MII would need to be inaccessible. 
+But that's really a driver policy thing.  If the driver provides a 
+"don't power down phy, when interface is downed" knob, maybe it would 
+want to support MII operations when !netif_running().
+
+	Jeff
 
 
-The following changes since commit e0355a0f485e2b4c29d1df2b4a641f1e0c6fb68c:
-  Andrea Bittau:
-        [DCCP] CCID2: Code optimizations
 
-are found in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-net-2.6.20
-
-James Morris:
-      Compile fix for
-
-Paul Moore:
-      NetLabel: use gfp_t instead of int where it makes sense
-      NetLabel: convert the unlabeled accept flag to use RCU
-      NetLabel: change netlbl_secattr_init() to return void
-      NetLabel: make netlbl_lsm_secattr struct easier/quicker to understand
-      NetLabel: check for a CIPSOv4 option before we do call into the CIPSOv4 layer
-      NetLabel: add tag verification when adding new CIPSOv4 DOI definitions
-      NetLabel: fixup the handling of CIPSOv4 tags to allow for multiple tag types
-      NetLabel: return the correct error for translated CIPSOv4 tags
-      NetLabel: use the correct CIPSOv4 MLS label limits
-      NetLabel: use cipso_v4_doi_search() for local CIPSOv4 functions
-      NetLabel: SELinux cleanups
-      SELinux: peer secid consolidation for external network labeling
-      NetLabel: honor the audit_enabled flag
-
- include/net/cipso_ipv4.h                    |    4 
- include/net/netlabel.h                      |   21 ++-
- net/ipv4/cipso_ipv4.c                       |  159 +++++++++++---------
- net/netlabel/netlabel_cipso_v4.c            |   26 ++-
- net/netlabel/netlabel_domainhash.c          |   48 +++---
- net/netlabel/netlabel_kapi.c                |   11 +
- net/netlabel/netlabel_unlabeled.c           |   36 +++-
- net/netlabel/netlabel_user.c                |    7 +
- security/selinux/hooks.c                    |   53 ++-----
- security/selinux/include/objsec.h           |    2 
- security/selinux/include/security.h         |    4 
- security/selinux/include/selinux_netlabel.h |   43 ++---
- security/selinux/include/xfrm.h             |    5 -
- security/selinux/ss/services.c              |  219 +++++++++++++--------------
- security/selinux/xfrm.c                     |   33 ----
- 15 files changed, 331 insertions(+), 340 deletions(-)
