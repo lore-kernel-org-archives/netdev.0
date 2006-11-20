@@ -1,40 +1,40 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
-Date: Mon, 20 Nov 2006 12:02:12 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0611201200190.28860@yvahk01.tjqt.qr>
-References: <20061119203006.GC29736@osprey.hogchain.net>
- <Pine.LNX.4.61.0611192233270.6324@yvahk01.tjqt.qr> <456144C1.8040809@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/13] d80211: clean up some stupid list and loop code
+Date: Mon, 20 Nov 2006 12:58:10 +0100
+Message-ID: <1164023890.2744.28.camel@ux156>
+References: <1163802439.3392.47.camel@johannes.berg>
+	 <1163963898.15473.36.camel@johannes.berg>
+	 <1163964140.15473.39.camel@johannes.berg>
+	 <20061120120133.75182913@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
-	shemminger@osdl.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailer.gwdg.de ([134.76.10.24]:27564 "EHLO emailer.gwdg.de")
-	by vger.kernel.org with ESMTP id S1756748AbWKTLRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 06:17:37 -0500
-To: Chris Snook <csnook@redhat.com>
-In-Reply-To: <456144C1.8040809@redhat.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:37849 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S934077AbWKTL5D
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 06:57:03 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061120120133.75182913@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2006-11-20 at 12:01 +0100, Jiri Benc wrote:
 
-On Nov 20 2006 01:01, Chris Snook wrote:
-> Jan Engelhardt wrote:
->> > +#define AT_READ_REG_ARRAY(a, reg, offset) ( \
->> > +	readl(((a)->hw_addr + reg) + ((offset) << 2)))
->> 
->> Possibly similarly.
->
-> Yeah, we'll inline these as well.  Would you say that level of cosmetic
-> cleanliness is required for merging, or should we focus solely on the
-> functional issues for now?
+> > +	list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
+> 
+> There is no need for _safe here.
 
-Required? No I do not think so, there is worse code than this. (Don't
-take that as an excuse to write bad code! :-)
-It's just that it's easier to read if there are less parentheses.
-These defines are a good example of border (define vs inline) cases.
+Ok, wasn't sure about that one so I left it safe (it was before I
+think). I'll remove it when I respin.
 
-
-	-`J'
--- 
+johannes
