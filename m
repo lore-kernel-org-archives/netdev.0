@@ -1,43 +1,51 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] AF_UNIX recv/shutdown race
-Date: Mon, 20 Nov 2006 13:05:17 +0100
-Message-ID: <20061120120517.GD1001@ff.dom.local>
-References: <51488.68.160.147.35.1163979646.squirrel@webmail.metacarta.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 4/13] d80211: reduce mdev usage, change
+ ieee80211_rx_mgmt
+Date: Mon, 20 Nov 2006 13:08:59 +0100
+Message-ID: <20061120130859.329993c8@griffin.suse.cz>
+References: <1163802439.3392.47.camel@johannes.berg>
+	<1163963898.15473.36.camel@johannes.berg>
+	<1163964402.15473.47.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:48069 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S934080AbWKTL66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 06:58:58 -0500
-Received: from ff.dom.local (bv170.internetdsl.tpnet.pl [80.53.205.170])
-	by poczta.o2.pl (Postfix) with ESMTP id 85A81628096
-	for <netdev@vger.kernel.org>; Mon, 20 Nov 2006 12:58:57 +0100 (CET)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <51488.68.160.147.35.1163979646.squirrel@webmail.metacarta.com>
+Received: from styx.suse.cz ([82.119.242.94]:5066 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S934098AbWKTMJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 07:09:02 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1163964402.15473.47.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20-11-2006 00:40, jmalicki@metacarta.com wrote:
-...
-> @@ -650,7 +651,7 @@ static int unix_autobind(struct socket *
->  	struct unix_address * addr;
->  	int err;
-> 
-> -	mutex_lock(&u->readlock);
-> +	unix_state_rlock(sk);
+On Sun, 19 Nov 2006 20:26:41 +0100, Johannes Berg wrote:
+> @@ -2615,27 +2588,104 @@ ieee80211_rx_mgmt(struct net_device *dev
+>                  fi->ssi_noise = 0x00000000;
+>                  fi->encoding = 0;
+>  	} else {
+> +		/* clear everything because we really don't know.
+> +		 * the msg_type field isn't present on monitor frames
+> +		 * so we don't know whether it will be present or not,
+> +		 * but it's ok to not clear it since it'll be assigned
+> +		 * anyway */
+> +		memset(fi, 0, sizeof(*fi) - sizeof(fi->msg_type));
 
-Here follows:
-        err = 0;
-        if (u->addr)
-                goto out;
+offsetof(ieee80211_frame_info, msg_type)? But it doesn't matter, this
+is going to go away (hopefully soon) anyway.
 
-        err = -ENOMEM;
-        addr = kzalloc(sizeof(*addr) + sizeof(short) + 16, GFP_KERNEL);
-        if (!addr)
-                goto out;
+Thanks,
 
-Are you sure you can use spin_lock here? 
+ Jiri
 
-Jarek P.
-
+-- 
+Jiri Benc
+SUSE Labs
