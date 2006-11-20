@@ -1,43 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.19] [IPV6]: Fix address/interface handling in UDP
- and DCCP, according to the scoping architecture.
-Date: Mon, 20 Nov 2006 09:32:22 -0800 (PST)
-Message-ID: <20061120.093222.79066541.davem@davemloft.net>
-References: <20061121.014306.76909112.yoshfuji@linux-ipv6.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 4/10] d80211: reduce mdev usage, fix ieee80211_rx_mgmt
+Date: Mon, 20 Nov 2006 18:44:38 +0100
+Message-ID: <20061120184438.5fabfb43@griffin.suse.cz>
+References: <20061119163545.GA25557@devicescape.com>
+	<1163954276.15473.21.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:18305
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S966258AbWKTRcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 12:32:20 -0500
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20061121.014306.76909112.yoshfuji@linux-ipv6.org>
+Received: from styx.suse.cz ([82.119.242.94]:61840 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S966281AbWKTRok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 12:44:40 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1163954276.15473.21.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Tue, 21 Nov 2006 01:43:06 +0900 (JST)
+On Sun, 19 Nov 2006 17:37:56 +0100, Johannes Berg wrote:
+> I'm thinking there might be race conditions where userspace does
+> something, then drops the ap device but after that some operations
+> complete and would lead to the oops too. Wasn't really sure.
 
-> [IPV6]: Fix address/interface handling in UDP and DCCP, according to the scoping architecture.
-> 
-> TCP and RAW do not have this issue.  Closes Bug #7432.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Yes, that's possible. But your check doesn't solve it.
 
-Thank you, I will look at this and apply it.
+Anyway, it's not worse than today, so ACK.
 
-I tried yesterday to pull your other fixes from branch
-"2.6.19-rc6-20061117-to-davem-20061117" at
-git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev/
-but it doesn't work:
+Thanks,
 
-error: no such remote ref refs/heads/2.6.19-rc6-20061117-to-davem-20061117
-Fetch failure: git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev/
+ Jiri
 
-Can you fix this up so I can pull in those bug fixes, or tell
-me what I am doing wrong? :-)
-
-Thanks!
+-- 
+Jiri Benc
+SUSE Labs
