@@ -1,50 +1,81 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 03/06]: Fix endless loops caused by inaccurate qlen
- counters (part 1)
-Date: Mon, 20 Nov 2006 17:42:35 +0100
-Message-ID: <4561DAFB.3000701@trash.net>
-References: <20061120130834.22347.34853.sendpatchset@localhost.localdomain> <20061120130840.22347.54563.sendpatchset@localhost.localdomain> <4561BA7B.4060005@kolumbus.fi> <4561BC31.5030405@trash.net> <4561BF44.4040801@kolumbus.fi> <4561C0DA.4080609@trash.net> <4561D2D7.20209@kolumbus.fi>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH 2.6.19] [IPV6]: Fix address/interface handling in UDP and
+ DCCP, according to the scoping architecture.
+Date: Tue, 21 Nov 2006 01:43:06 +0900 (JST)
+Message-ID: <20061121.014306.76909112.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, devik@cdi.cz, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55181 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S934262AbWKTQmi
+Received: from yue.linux-ipv6.org ([203.178.140.15]:48256 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S934266AbWKTQnG
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 11:42:38 -0500
-To: =?ISO-8859-15?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
-In-Reply-To: <4561D2D7.20209@kolumbus.fi>
+	Mon, 20 Nov 2006 11:43:06 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mika Penttil=E4 wrote:
-> Patrick McHardy wrote:
->=20
->>
->> The notification notifies of changes in a _child_ qdisc of
->> the qdisc that is notified, which already has its counter
->> decremented. The qdisc's own counter is irrelevant for
->> the qdisc itself, it doesn't make any difference whether
->> it is decremented before or after the notification.
->=20
-> Has already decremented where? As I read it you notify parent and
-> _after_ that decrement child's counter...
+[IPV6]: Fix address/interface handling in UDP and DCCP, according to the scoping architecture.
 
-No, a qdisc is notified about a child, then has its own counter
-decremented. The initial decrement of the first qdisc is done by
-the caller.
+TCP and RAW do not have this issue.  Closes Bug #7432.
 
-In most cases it is actually done after the function call for
-simplicity, but only when it doesn't matter - in all cases but
-SFQ the call is done by a qdisc for its own child qdiscs, so
-the first parent is the qdisc itself and it is known whether
-it needs to be decremented in advance or now. All upper qdiscs
-will always see the already decremented values for their childs.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-> Also, shoudn't the return value of qdisc_lookup be check, I think it =
-can
-> return NULL for default qdiscs.
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index eb0ff7a..fc4242c 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -277,7 +277,7 @@ static void dccp_v6_err(struct sk_buff *
+ 	__u64 seq;
+ 
+ 	sk = inet6_lookup(&dccp_hashinfo, &hdr->daddr, dh->dccph_dport,
+-			  &hdr->saddr, dh->dccph_sport, skb->dev->ifindex);
++			  &hdr->saddr, dh->dccph_sport, inet6_iif(skb));
+ 
+ 	if (sk == NULL) {
+ 		ICMP6_INC_STATS_BH(__in6_dev_get(skb->dev), ICMP6_MIB_INERRORS);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index e0c3934..c83f23e 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -242,14 +242,13 @@ static void udpv6_err(struct sk_buff *sk
+ {
+ 	struct ipv6_pinfo *np;
+ 	struct ipv6hdr *hdr = (struct ipv6hdr*)skb->data;
+-	struct net_device *dev = skb->dev;
+ 	struct in6_addr *saddr = &hdr->saddr;
+ 	struct in6_addr *daddr = &hdr->daddr;
+ 	struct udphdr *uh = (struct udphdr*)(skb->data+offset);
+ 	struct sock *sk;
+ 	int err;
+ 
+-	sk = udp_v6_lookup(daddr, uh->dest, saddr, uh->source, dev->ifindex);
++	sk = udp_v6_lookup(daddr, uh->dest, saddr, uh->source, inet6_iif(skb));
+    
+ 	if (sk == NULL)
+ 		return;
+@@ -348,7 +347,7 @@ static void udpv6_mcast_deliver(struct u
+ 
+ 	read_lock(&udp_hash_lock);
+ 	sk = sk_head(&udp_hash[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
+-	dif = skb->dev->ifindex;
++	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	if (!sk) {
+ 		kfree_skb(skb);
+@@ -429,7 +428,7 @@ static int udpv6_rcv(struct sk_buff **ps
+ 	 * check socket cache ... must talk to Alan about his plans
+ 	 * for sock caches... i'll skip this for now.
+ 	 */
+-	sk = udp_v6_lookup(saddr, uh->source, daddr, uh->dest, dev->ifindex);
++	sk = udp_v6_lookup(saddr, uh->source, daddr, uh->dest, inet6_iif(skb));
+ 
+ 	if (sk == NULL) {
+ 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
 
-default qdiscs can't have children, so they are never looked up.
 
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
