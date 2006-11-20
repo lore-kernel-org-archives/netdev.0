@@ -1,28 +1,50 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 4/4] atl1: Ancillary C files for Attansic L1 driver
-Date: Mon, 20 Nov 2006 07:40:46 -0500
-Message-ID: <4561A24E.2030405@redhat.com>
-References: <20061119203137.GE29736@osprey.hogchain.net>
+From: Joe Malicki <jmalicki@metacarta.com>
+Subject: Re: [PATCH] AF_UNIX recv/shutdown race
+Date: Mon, 20 Nov 2006 07:46:27 -0500
+Message-ID: <4561A3A3.7020102@metacarta.com>
+References: <20061120120517.GD1001@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, shemminger@osdl.org, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965786AbWKTMrY@vger.kernel.org>
-To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <20061119203137.GE29736@osprey.hogchain.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from silene.metacarta.com ([65.77.47.18]:1492 "EHLO
+	silene.metacarta.com") by vger.kernel.org with ESMTP
+	id S965767AbWKTMq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 07:46:58 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20061120120517.GD1001@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn wrote:
-> From: Jay Cliburn <jacliburn@bellsouth.net>
+Jarek Poplawski wrote:
+> On 20-11-2006 00:40, jmalicki@metacarta.com wrote:
+> ...
 > 
-> This patch contains auxiliary C files for the Attansic L1 gigabit ethernet
-> adapter driver.
+>>@@ -650,7 +651,7 @@ static int unix_autobind(struct socket *
+>> 	struct unix_address * addr;
+>> 	int err;
+>>
+>>-	mutex_lock(&u->readlock);
+>>+	unix_state_rlock(sk);
 > 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> ---
-I've been working with Jay on a lot of the cleanup of this driver since 
-his original submission.
+> 
+> Here follows:
+>         err = 0;
+>         if (u->addr)
+>                 goto out;
+> 
+>         err = -ENOMEM;
+>         addr = kzalloc(sizeof(*addr) + sizeof(short) + 16, GFP_KERNEL);
+>         if (!addr)
+>                 goto out;
+> 
+> Are you sure you can use spin_lock here? 
+> 
+> Jarek P.
 
-Signed-off-by: Chris Snook <csnook@redhat.com>
+You're absolutely right, I was mistaken (was being too blind about
+that).  I'm testing a new version now that's much more localized that
+shouldn't have that problem.
+
+Joe Malicki
