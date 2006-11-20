@@ -1,77 +1,145 @@
-From: "Udayan Singh" <udayan.singh@gmail.com>
-Subject: Re: Setup of testing lab and work on development
-Date: Mon, 20 Nov 2006 08:52:45 +0530
-Message-ID: <d9a09df00611191922w743c055bk18a76bb191dc5a44@mail.gmail.com>
-References: <d9a09df00611150857i3ac7e35cr84dd61cfd55f5b4e@mail.gmail.com>
-	 <1163614554.5399.112.camel@johannes.berg>
-	 <d9a09df00611151304l11d089b5w958788ec24fc6af0@mail.gmail.com>
-	 <1163625309.5399.121.camel@johannes.berg>
-	 <d9a09df00611181002t76192ebfl8c130772d19a47e6@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH/RFC] make MII and PHYLIB independent of NET_ETHERNET
+Date: Sun, 19 Nov 2006 20:22:49 -0800
+Message-ID: <20061119202249.f0acb41c.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: jgarzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:11851 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S933904AbWKTDWq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 22:22:46 -0500
-Received: by wx-out-0506.google.com with SMTP id s7so1631961wxc
-        for <netdev@vger.kernel.org>; Sun, 19 Nov 2006 19:22:45 -0800 (PST)
-To: "Johannes Berg" <johannes@sipsolutions.net>
-In-Reply-To: <d9a09df00611181002t76192ebfl8c130772d19a47e6@mail.gmail.com>
-Content-Disposition: inline
+Received: from rgminet01.oracle.com ([148.87.113.118]:20547 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S933915AbWKTEZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 23:25:16 -0500
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/18/06, Udayan Singh <udayan.singh@gmail.com> wrote:
-> On 11/16/06, Johannes Berg <johannes@sipsolutions.net> wrote:
-> >
-> > > e.g. bcm43xx, etc. Hence i
-> > > would like to setup a test environment where i can make modifications
-> > > in code (of d80211 or related driver) and test it....
-> >
-> > You'll need one of the cards that is supported by a d80211 driver. I've
-> > used bcm43xx and rt2500usb so far.
->
-> ok, if i use the card (on the PC) :
-this one is the station..
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
->
-> bcm43xx or rt2500usb
->
-> on the AP side :
-> Use a Wireless ADSL router (Huawei Quidway wa1003a series)
-> It supports 802.11b/g.
->
-> Now the point that comes to my mind is, if the "Huawei Quidway wa1003a
-> series" does not support 802.11i, then how can i go about testing the
-> same 802.11i ?
->
->
-> My intention is that i should be able to work/test 802.11a/b/g/i/.....
-> ---- for that which products i should use..??
->
-> Pls let me know your views about the above.
->
->
-> >
-> > > same - "participate in development on d80211"
-> >
-> > Well, check http://wireless.sipsolutions.net for things we still have to
-> > do... and then send patches :)
-> >
-> > Or do something else you're interested in and send patches.
->
-> thanks....
->
-> >
-> > johannes
-> >
-> >
->
+PHYLIB can be used by non-NET_ETHERNET (10/100 ethernet) devices;
+e.g., GIANFAR (gigabit) uses it.
 
-tia.
+We also have USB ethernet devices trying to use MII
+without NET_ETHERNET being enabled, so move MII outside of
+NET_ETHERNET, along with PHYLIB.
 
-Regards,
-Udayan
+They both still depend on NET && NETDEVICES.
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/Kconfig     |   15 +++++++--------
+ drivers/net/phy/Kconfig |   19 +++++--------------
+ 2 files changed, 12 insertions(+), 22 deletions(-)
+
+--- linux-2619-rc6g2.orig/drivers/net/Kconfig
++++ linux-2619-rc6g2/drivers/net/Kconfig
+@@ -145,6 +145,13 @@ config NET_SB1000
+ 
+ source "drivers/net/arcnet/Kconfig"
+ 
++config MII
++	tristate "Generic Media Independent Interface device support"
++	help
++	  Most ethernet controllers have MII transceiver either as an external
++	  or internal device.  It is safe to say Y or M here even if your
++	  ethernet card lack MII.
++
+ source "drivers/net/phy/Kconfig"
+ 
+ #
+@@ -180,14 +187,6 @@ config NET_ETHERNET
+ 	  kernel: saying N will just cause the configurator to skip all
+ 	  the questions about Ethernet network cards. If unsure, say N.
+ 
+-config MII
+-	tristate "Generic Media Independent Interface device support"
+-	depends on NET_ETHERNET
+-	help
+-	  Most ethernet controllers have MII transceiver either as an external
+-	  or internal device.  It is safe to say Y or M here even if your
+-	  ethernet card lack MII.
+-
+ source "drivers/net/arm/Kconfig"
+ 
+ config MACE
+--- linux-2619-rc6g2.orig/drivers/net/phy/Kconfig
++++ linux-2619-rc6g2/drivers/net/phy/Kconfig
+@@ -2,63 +2,54 @@
+ # PHY Layer Configuration
+ #
+ 
+-menu "PHY device support"
+-
+-config PHYLIB
++menuconfig PHYLIB
+ 	tristate "PHY Device support and infrastructure"
+-	depends on NET_ETHERNET && (BROKEN || !S390)
++	depends on (BROKEN || !S390)
+ 	help
+ 	  Ethernet controllers are usually attached to PHY
+ 	  devices.  This option provides infrastructure for
+ 	  managing PHY devices.
+ 
++if PHYLIB
++
+ comment "MII PHY device drivers"
+-	depends on PHYLIB
+ 
+ config MARVELL_PHY
+ 	tristate "Drivers for Marvell PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently has a driver for the 88E1011S
+ 	
+ config DAVICOM_PHY
+ 	tristate "Drivers for Davicom PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports dm9161e and dm9131
+ 
+ config QSEMI_PHY
+ 	tristate "Drivers for Quality Semiconductor PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the qs6612
+ 
+ config LXT_PHY
+ 	tristate "Drivers for the Intel LXT PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the lxt970, lxt971
+ 
+ config CICADA_PHY
+ 	tristate "Drivers for the Cicada PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the cis8204
+ config VITESSE_PHY
+         tristate "Drivers for the Vitesse PHYs"
+-        depends on PHYLIB
+         ---help---
+           Currently supports the vsc8244
+ 
+ config SMSC_PHY
+ 	tristate "Drivers for SMSC PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the LAN83C185 PHY
+ 
+ config FIXED_PHY
+ 	tristate "Drivers for PHY emulation on fixed speed/link"
+-	depends on PHYLIB
+ 	---help---
+ 	  Adds the driver to PHY layer to cover the boards that do not have any PHY bound,
+ 	  but with the ability to manipulate with speed/link in software. The relavant MII
+@@ -73,5 +64,5 @@ config FIXED_MII_100_FDX
+ 	bool "Emulation for 100M Fdx fixed PHY behavior"
+ 	depends on FIXED_PHY
+ 
+-endmenu
++endif #PHYLIB
+ 
+
+
+---
