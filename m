@@ -1,30 +1,28 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [NET_SCHED 07/06]: Fix endless loops (part 5): netem/tbf/hfsc
- ->requeue failures
-Date: Mon, 20 Nov 2006 10:08:51 -0800
-Message-ID: <20061120100851.4a9f5573@freekitty>
-References: <4561C32F.7000702@trash.net>
+Subject: Re: [BRIDGE] netlink: Convert bridge netlink code to new netlink
+ interface
+Date: Mon, 20 Nov 2006 10:13:17 -0800
+Message-ID: <20061120101317.5c411c3c@freekitty>
+References: <20061119171002.GH8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:21132 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S934296AbWKTSJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 13:09:02 -0500
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4561C32F.7000702@trash.net>
+Received: from smtp.osdl.org ([65.172.181.25]:63630 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S966342AbWKTSN2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 13:13:28 -0500
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061119171002.GH8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Nov 2006 16:01:03 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Sun, 19 Nov 2006 18:10:02 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> I forgot to fix one (AFAICT purely theoretical) case ..
+> Removes dependency on buggy rta_buf, fixes a memory corruption bug due to
+> a unvalidated netlink attribute, and simplifies the code.
 > 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-So this means that if requeue fails we are no longer bolluxed.
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Looks fine, please put in 2.6.20
