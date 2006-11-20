@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: don't allow register_netdev with blank name
-Date: Mon, 20 Nov 2006 18:46:18 -0500 (EST)
-Message-ID: <20061120.184618.48512591.davem@davemloft.net>
-References: <20061117134158.3d3f1508@freekitty>
+Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
+Date: Mon, 20 Nov 2006 15:58:25 -0800 (PST)
+Message-ID: <20061120.155825.59657887.davem@davemloft.net>
+References: <F09F8223E8BE7D42BDA1800B19F3440D922017@ALA-MAIL03.corp.ad.wrs.com>
+	<20061120153548.71f90b7a@freekitty>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: steve.yang@windriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:12929 "EHLO localhost")
-	by vger.kernel.org with ESMTP id S1030515AbWKTXqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 18:46:18 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:7099
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S966869AbWKTX6V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 18:58:21 -0500
 To: shemminger@osdl.org
-In-Reply-To: <20061117134158.3d3f1508@freekitty>
+In-Reply-To: <20061120153548.71f90b7a@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 17 Nov 2006 13:41:58 -0800
+Date: Mon, 20 Nov 2006 15:35:48 -0800
 
-> This bit of old backwards compatibility cruft can be removed in 2.6.20.
-> If there is still an device that calls register_netdev()
-> with a zero or blank name, it will get -EINVAL from register_netdevice().
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> I am not the final decider on this. Ask Jeff/David? Maybe there is some
+> more general work that can be done to speed up skb allocation.
 
-Applied, thanks Stephen.
+We used to have a skb_head per-cpu cache in skbuff.c but we killed
+it because SLAB was nearly as good and using generic code always
+trumps localized hacks like this.
+
+I suggest we don't regress in this area.
