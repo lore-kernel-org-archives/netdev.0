@@ -1,36 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
-Date: Mon, 20 Nov 2006 14:35:10 -0500
-Message-ID: <4562036E.3020409@garzik.org>
-References: <20061119203050.GD29736@osprey.hogchain.net>	<200611200057.45274.arnd@arndb.de>	<45614769.4020005@redhat.com>	<200611201322.00495.arnd@arndb.de> <20061120100202.6a79e382@freekitty>
+From: Faidon Liambotis <paravoid@debian.org>
+Subject: [PATCH 2.6.19-rc6] netfilter: fix panic on ip_conntrack_h323 with CONFIG_IP_NF_CT_ACCT
+Date: Mon, 20 Nov 2006 21:39:31 +0200
+Message-ID: <20061120193931.GA9913@void.cube.gr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Chris Snook <csnook@redhat.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43939 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S966535AbWKTTf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 14:35:26 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061120100202.6a79e382@freekitty>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966560AbWKTTkZ@vger.kernel.org>
+To: coreteam@netfilter.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Using common MII code is good, but one problem with the existing MII code is that
-> it doesn't work when device is down. This makes it impossible to set speed/duplex
-> before device comes up.
+H.323 connection tracking code calls ip_ct_refresh_acct() when
+processing RCFs and URQs but passes NULL as the skb.
+When CONFIG_IP_NF_CT_ACCT is enabled, the connection tracking core tries
+to derefence the skb, which results in an obvious panic.
+ago.
 
+The patch uses ip_ct_refresh() instead of ip_ct_refresh_acct() to avoid
+double accounting (suggested by Patrick McHardy).
 
-That's not true at all.  drivers/net/mii.c uses caller-provided locking 
-in all cases, and there is nothing that prevents the common code from 
-being called when the interface is down.
+Signed-off-by: Faidon Liambotis <paravoid@debian.org>
 
-You are probably thinking about all the netif_running() checks found in 
-the drivers, particularly in the ->begin() hook.
-
-	Jeff
-
-
+--- a/net/ipv4/netfilter/ip_conntrack_helper_h323.c	2006-11-15 19:07:50.000000000 +0200
++++ b/net/ipv4/netfilter/ip_conntrack_helper_h323.c	2006-11-16 11:09:46.000000000 +0200
+@@ -1417,7 +1417,7 @@ static int process_rcf(struct sk_buff **
+ 		DEBUGP
+ 		    ("ip_ct_ras: set RAS connection timeout to %u seconds\n",
+ 		     info->timeout);
+-		ip_ct_refresh_acct(ct, ctinfo, NULL, info->timeout * HZ);
++		ip_ct_refresh(ct, *pskb, info->timeout * HZ);
+ 
+ 		/* Set expect timeout */
+ 		read_lock_bh(&ip_conntrack_lock);
+@@ -1465,7 +1465,7 @@ static int process_urq(struct sk_buff **
+ 	info->sig_port[!dir] = 0;
+ 
+ 	/* Give it 30 seconds for UCF or URJ */
+-	ip_ct_refresh_acct(ct, ctinfo, NULL, 30 * HZ);
++	ip_ct_refresh(ct, *pskb, 30 * HZ);
+ 
+ 	return 0;
+ }
