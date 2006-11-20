@@ -1,56 +1,77 @@
-From: Alan <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
-Date: Mon, 20 Nov 2006 01:15:34 +0000
-Message-ID: <20061120011534.54b1e010@localhost.localdomain>
-References: <20061119202817.GA29736@osprey.hogchain.net>
+From: "Udayan Singh" <udayan.singh@gmail.com>
+Subject: Re: Setup of testing lab and work on development
+Date: Mon, 20 Nov 2006 08:52:45 +0530
+Message-ID: <d9a09df00611191922w743c055bk18a76bb191dc5a44@mail.gmail.com>
+References: <d9a09df00611150857i3ac7e35cr84dd61cfd55f5b4e@mail.gmail.com>
+	 <1163614554.5399.112.camel@johannes.berg>
+	 <d9a09df00611151304l11d089b5w958788ec24fc6af0@mail.gmail.com>
+	 <1163625309.5399.121.camel@johannes.berg>
+	 <d9a09df00611181002t76192ebfl8c130772d19a47e6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, shemminger@osdl.org, romieu@fr.zoreil.com,
-	csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:38824 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S933829AbWKTBK4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Nov 2006 20:10:56 -0500
-To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <20061119202817.GA29736@osprey.hogchain.net>
+Received: from wx-out-0506.google.com ([66.249.82.231]:11851 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S933904AbWKTDWq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Nov 2006 22:22:46 -0500
+Received: by wx-out-0506.google.com with SMTP id s7so1631961wxc
+        for <netdev@vger.kernel.org>; Sun, 19 Nov 2006 19:22:45 -0800 (PST)
+To: "Johannes Berg" <johannes@sipsolutions.net>
+In-Reply-To: <d9a09df00611181002t76192ebfl8c130772d19a47e6@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Would be nice if it used atl_ not at_ so its less likely to cause
-namespace clashes.
+On 11/18/06, Udayan Singh <udayan.singh@gmail.com> wrote:
+> On 11/16/06, Johannes Berg <johannes@sipsolutions.net> wrote:
+> >
+> > > e.g. bcm43xx, etc. Hence i
+> > > would like to setup a test environment where i can make modifications
+> > > in code (of d80211 or related driver) and test it....
+> >
+> > You'll need one of the cards that is supported by a d80211 driver. I've
+> > used bcm43xx and rt2500usb so far.
+>
+> ok, if i use the card (on the PC) :
+this one is the station..
 
-You have various macros for swaps that are pretty ugly - we have
-cpu_to and le/be_to_cpu functions for most swapping cases and these are
-generally optimised assembler (eg bswap on x86)
+>
+> bcm43xx or rt2500usb
+>
+> on the AP side :
+> Use a Wireless ADSL router (Huawei Quidway wa1003a series)
+> It supports 802.11b/g.
+>
+> Now the point that comes to my mind is, if the "Huawei Quidway wa1003a
+> series" does not support 802.11i, then how can i go about testing the
+> same 802.11i ?
+>
+>
+> My intention is that i should be able to work/test 802.11a/b/g/i/.....
+> ---- for that which products i should use..??
+>
+> Pls let me know your views about the above.
+>
+>
+> >
+> > > same - "participate in development on d80211"
+> >
+> > Well, check http://wireless.sipsolutions.net for things we still have to
+> > do... and then send patches :)
+> >
+> > Or do something else you're interested in and send patches.
+>
+> thanks....
+>
+> >
+> > johannes
+> >
+> >
+>
 
-AT_DESC_USED/UNUSED would be better as inline functions but thats not a
-serious concern.
+tia.
 
-Be careful with :1 bitfields when working with hardware - the compiler
-has more than one choice about how to pack them.
-
-The irq enable/disable use for locking on vlan appears unsafe. PCI
-interrupt delivery is asynchronous which means you can get this happen
-
-
-	card sends PCI interrupt
-	We call irq_disable
-	We take lock
-	We poke bits
-	We drop lock
-
-	PCI interrupt arrives
-
-
-This really does happen, typically its nasty to debug as well because you
-usually only get it on PIII boards on the one in n-zillion times a
-message collides and is retransmitted on the APIC bus.
-
-skb->len is unsigned so <= 0 can be == 0. More importantly the subtraction
-before the test will wrap and is completely unsafe (see at_xmit_frame)
-
-
-Alan
+Regards,
+Udayan
