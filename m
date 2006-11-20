@@ -1,34 +1,64 @@
-From: Alan <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
-Date: Mon, 20 Nov 2006 09:46:03 +0000
-Message-ID: <20061120094603.1d1e528a@localhost.localdomain>
-References: <20061119202817.GA29736@osprey.hogchain.net>
-	<20061120011534.54b1e010@localhost.localdomain>
-	<45614C80.5070303@redhat.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 1/13] d80211: clean up some stupid list and loop code
+Date: Mon, 20 Nov 2006 12:01:33 +0100
+Message-ID: <20061120120133.75182913@griffin.suse.cz>
+References: <1163802439.3392.47.camel@johannes.berg>
+	<1163963898.15473.36.camel@johannes.berg>
+	<1163964140.15473.39.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
-	shemminger@osdl.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:18315 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S934038AbWKTJmI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 04:42:08 -0500
-To: Chris Snook <csnook@redhat.com>
-In-Reply-To: <45614C80.5070303@redhat.com>
+Received: from zeus1.kernel.org ([204.152.191.4]:19615 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1755879AbWKTLFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 06:05:35 -0500
+Received: from mail.suse.cz (styx.suse.cz [82.119.242.94])
+	by zeus1.kernel.org (8.13.8/8.13.1) with ESMTP id kAKB25KP015605
+	for <netdev@vger.kernel.org>; Mon, 20 Nov 2006 11:02:20 GMT
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1163964140.15473.39.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > Be careful with :1 bitfields when working with hardware - the compiler
-> > has more than one choice about how to pack them.
-> 
-> Lacking a spec, I'm not entirely sure what the original intent was, so 
-> we're stuck with testing.  Is there a specific disambiguation technique 
-> you recommend?
+On Sun, 19 Nov 2006 20:22:20 +0100, Johannes Berg wrote:
+> --- wireless-dev.orig/net/d80211/sta_info.c	2006-11-19 20:13:52.339275208 +0100
+> +++ wireless-dev/net/d80211/sta_info.c	2006-11-19 20:13:54.119275208 +0100
+> @@ -324,16 +324,13 @@ static void sta_info_cleanup_expire_buff
+>  static void sta_info_cleanup(unsigned long data)
+>  {
+>  	struct ieee80211_local *local = (struct ieee80211_local *) data;
+> -	struct list_head *ptr;
+> +	struct sta_info *sta, *tmp;
+>  
+>  	spin_lock_bh(&local->sta_lock);
+> -	ptr = local->sta_list.next;
+> -	while (ptr && ptr != &local->sta_list) {
+> -		struct sta_info *sta = (struct sta_info *) ptr;
+> +	list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
 
-Assuming the driver works on x86 then you know how the bits are laid out.
-You may find later you need to put in ifdefs for bitfield endian-ness as
-we do in things like include/linux/ip.h
+There is no need for _safe here.
 
+>  		__sta_info_get(sta);
+>  		sta_info_cleanup_expire_buffered(local, sta);
+>  		sta_info_put(sta);
+> -		ptr = ptr->next;
+>  	}
+>  	spin_unlock_bh(&local->sta_lock);
+>  
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
