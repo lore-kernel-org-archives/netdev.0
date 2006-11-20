@@ -1,106 +1,135 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 06/06]: Fix endless loops (part 4): HTB
-Date: Mon, 20 Nov 2006 14:08:48 +0100 (MET)
-Message-ID: <20061120130848.22347.85130.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 03/06]: Fix endless loops caused by inaccurate qlen counters (part 1)
+Date: Mon, 20 Nov 2006 14:08:41 +0100 (MET)
+Message-ID: <20061120130840.22347.54563.sendpatchset@localhost.localdomain>
 References: <20061120130834.22347.34853.sendpatchset@localhost.localdomain>
 Cc: devik@cdi.cz, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:12542 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965885AbWKTNIu
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 08:08:50 -0500
+Received: from stinky.trash.net ([213.144.137.162]:9470 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S965843AbWKTNIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 08:08:43 -0500
 To: davem@davemloft.net
 In-Reply-To: <20061120130834.22347.34853.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET_SCHED]: Fix endless loops (part 4): HTB
+[NET_SCHED]: Fix endless loops caused by inaccurate qlen counters (part 1)
 
-Convert HTB to use qdisc_tree_decrease_len() and add a callback
-for deactivating a class when its child queue becomes empty.
+There are multiple problems related to qlen adjustment that can lead
+to an upper qdisc getting out of sync with the real number of packets
+queued, leading to endless dequeueing attempts by the upper layer code.
+
+All qdiscs must maintain an accurate q.qlen counter. There are basically
+two groups of operations affecting the qlen: operations that propagate
+down the tree (enqueue, dequeue, requeue, drop, reset) beginning at the
+root qdisc and operations only affecting a subtree or single qdisc
+(change, graft, delete class). Since qlen changes during operations from
+the second group don't propagate to ancestor qdiscs, their qlen values
+become desynchronized.
+
+This patch adds a function to propagate qlen changes up the qdisc tree,
+optionally calling a callback function to perform qdisc-internal
+maintenance when the child qdisc becomes empty. The follow-up patches
+will convert all qdiscs to use this function where necessary.
+
+Noticed by Timo Steinbach <tsteinbach@astaro.com>.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit cc6f4de81d666f76192bee629473ff6fbd66286c
-tree 237aa915ea3b619fb817e719821bb0667e19eafd
-parent 62ab4431af7bccd0a8cd9b1933fb03e78fd63252
-author Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 13:50:11 +0100
-committer Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 13:50:11 +0100
+commit 42706d154c660ac3915cc0debcfa09339af29de3
+tree 26dd1060dcfd2d0633d63297bb4f988d5f6c8ea8
+parent 825dfe1f03e69f3c2b56e6bd6ceea7ffe23c65bf
+author Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 13:44:49 +0100
+committer Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 13:44:49 +0100
 
- net/sched/sch_htb.c |   24 +++++++++++++++++-------
- 1 files changed, 17 insertions(+), 7 deletions(-)
+ include/net/sch_generic.h |    2 ++
+ net/sched/sch_api.c       |   38 ++++++++++++++++++++++++++++++++------
+ 2 files changed, 34 insertions(+), 6 deletions(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 3b36e9d..215e68c 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1230,11 +1230,7 @@ static int htb_graft(struct Qdisc *sch, 
- 			return -ENOBUFS;
- 		sch_tree_lock(sch);
- 		if ((*old = xchg(&cl->un.leaf.q, new)) != NULL) {
--			if (cl->prio_activity)
--				htb_deactivate(qdisc_priv(sch), cl);
--
--			/* TODO: is it correct ? Why CBQ doesn't do it ? */
--			sch->q.qlen -= (*old)->q.qlen;
-+			qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 			qdisc_reset(*old);
- 		}
- 		sch_tree_unlock(sch);
-@@ -1249,6 +1245,14 @@ static struct Qdisc *htb_leaf(struct Qdi
- 	return (cl && !cl->level) ? cl->un.leaf.q : NULL;
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 660ff0a..d61fb67 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -60,6 +60,7 @@ struct Qdisc_class_ops
+ 	int			(*graft)(struct Qdisc *, unsigned long cl,
+ 					struct Qdisc *, struct Qdisc **);
+ 	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
++	void			(*qlen_notify)(struct Qdisc *, unsigned long);
+ 
+ 	/* Class manipulation routines */
+ 	unsigned long		(*get)(struct Qdisc *, u32 classid);
+@@ -172,6 +173,7 @@ extern void dev_activate(struct net_devi
+ extern void dev_deactivate(struct net_device *dev);
+ extern void qdisc_reset(struct Qdisc *qdisc);
+ extern void qdisc_destroy(struct Qdisc *qdisc);
++extern void qdisc_tree_decrease_qlen(struct Qdisc *qdisc, unsigned int n);
+ extern struct Qdisc *qdisc_alloc(struct net_device *dev, struct Qdisc_ops *ops);
+ extern struct Qdisc *qdisc_create_dflt(struct net_device *dev,
+ 				       struct Qdisc_ops *ops, u32 parentid);
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 0b64892..1c3c779 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -191,21 +191,27 @@ int unregister_qdisc(struct Qdisc_ops *q
+    (root qdisc, all its children, children of children etc.)
+  */
+ 
+-struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
++static struct Qdisc *__qdisc_lookup(struct net_device *dev, u32 handle)
+ {
+ 	struct Qdisc *q;
+ 
+-	read_lock(&qdisc_tree_lock);
+ 	list_for_each_entry(q, &dev->qdisc_list, list) {
+-		if (q->handle == handle) {
+-			read_unlock(&qdisc_tree_lock);
++		if (q->handle == handle)
+ 			return q;
+-		}
+ 	}
+-	read_unlock(&qdisc_tree_lock);
+ 	return NULL;
  }
  
-+static void htb_qlen_notify(struct Qdisc *sch, unsigned long arg)
++struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
 +{
-+	struct htb_class *cl = (struct htb_class *)arg;
++	struct Qdisc *q;
 +
-+	if (cl->un.leaf.q->q.qlen == 0)
-+		htb_deactivate(qdisc_priv(sch), cl);
++	read_lock(&qdisc_tree_lock);
++	q = __qdisc_lookup(dev, handle);
++	read_unlock(&qdisc_tree_lock);
++	return q;
 +}
 +
- static unsigned long htb_get(struct Qdisc *sch, u32 classid)
+ static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
  {
- 	struct htb_class *cl = htb_find(classid, sch);
-@@ -1323,6 +1327,7 @@ static int htb_delete(struct Qdisc *sch,
- {
- 	struct htb_sched *q = qdisc_priv(sch);
- 	struct htb_class *cl = (struct htb_class *)arg;
-+	unsigned int qlen;
+ 	unsigned long cl;
+@@ -348,6 +354,26 @@ dev_graft_qdisc(struct net_device *dev, 
+ 	return oqdisc;
+ }
  
- 	// TODO: why don't allow to delete subtree ? references ? does
- 	// tc subsys quarantee us that in htb_destroy it holds no class
-@@ -1336,8 +1341,9 @@ static int htb_delete(struct Qdisc *sch,
- 	hlist_del_init(&cl->hlist);
- 
- 	if (!cl->level) {
--		sch->q.qlen -= cl->un.leaf.q->q.qlen;
-+		qlen = cl->un.leaf.q->q.qlen;
- 		qdisc_reset(cl->un.leaf.q);
-+		qdisc_tree_decrease_qlen(cl->un.leaf.q, qlen);
- 	}
- 
- 	if (cl->prio_activity)
-@@ -1419,8 +1425,11 @@ static int htb_change_class(struct Qdisc
- 		new_q = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops, classid);
- 		sch_tree_lock(sch);
- 		if (parent && !parent->level) {
-+			unsigned int qlen = parent->un.leaf.q->q.qlen;
++void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
++{
++	struct Qdisc_class_ops *cops;
++	unsigned long cl;
++	u32 parentid;
 +
- 			/* turn parent into inner node */
--			sch->q.qlen -= parent->un.leaf.q->q.qlen;
-+			qdisc_reset(parent->un.leaf.q);
-+			qdisc_tree_decrease_qlen(parent->un.leaf.q, qlen);
- 			qdisc_destroy(parent->un.leaf.q);
- 			if (parent->prio_activity)
- 				htb_deactivate(q, parent);
-@@ -1568,6 +1577,7 @@ static void htb_walk(struct Qdisc *sch, 
- static struct Qdisc_class_ops htb_class_ops = {
- 	.graft		=	htb_graft,
- 	.leaf		=	htb_leaf,
-+	.qlen_notify	=	htb_qlen_notify,
- 	.get		=	htb_get,
- 	.put		=	htb_put,
- 	.change		=	htb_change_class,
++	if (n == 0)
++		return;
++	while ((parentid = sch->parent)) {
++		sch = __qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
++		cops = sch->ops->cl_ops;
++		if (cops->qlen_notify) {
++			cl = cops->get(sch, parentid);
++			cops->qlen_notify(sch, cl);
++			cops->put(sch, cl);
++		}
++		sch->q.qlen -= n;
++	}
++}
++EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
+ 
+ /* Graft qdisc "new" to class "classid" of qdisc "parent" or
+    to device "dev".
