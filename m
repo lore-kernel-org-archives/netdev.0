@@ -1,38 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/4] atl1: Build files for Attansic L1 driver
-Date: Mon, 20 Nov 2006 21:04:48 +0100
-Message-ID: <20061120200448.GA15720@electric-eye.fr.zoreil.com>
-References: <20061119202915.GB29736@osprey.hogchain.net> <20061119152432.a85d4166.randy.dunlap@oracle.com> <456145DA.804@redhat.com> <4561CCA6.8080209@oracle.com> <4561D59F.5020206@redhat.com>
+From: smurf@smurf.noris.de
+Subject: Re: [RFC: 2.6 patch] remove broken net drivers
+Date: Mon, 20 Nov 2006 21:09:07 +0100
+Message-ID: <20061120200907.GB29275@smurf.noris.de>
+References: <20061118000224.GU31879@stusta.de> <Pine.LNX.4.62.0611191249450.31733@pademelon.sonytel.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
-	shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	funaho@jurai.org,
+	Linux/m68k on Mac <linux-mac68k@mac.linux-m68k.org>,
+	Linux/m68k <linux-m68k@lists.linux-m68k.org>, jejb@steeleye.com,
+	Roman Zippel <zippel@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:28582 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S966626AbWKTUIr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 15:08:47 -0500
-To: Chris Snook <csnook@redhat.com>
+Received: from smurf.noris.de ([192.109.102.42]:8068 "EHLO smurf.noris.de")
+	by vger.kernel.org with ESMTP id S966625AbWKTUKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 15:10:49 -0500
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Content-Disposition: inline
-In-Reply-To: <4561D59F.5020206@redhat.com>
+In-Reply-To: <Pine.LNX.4.62.0611191249450.31733@pademelon.sonytel.be>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Snook <csnook@redhat.com> :
-[...]
-> To be precise, mii-tool is deprecated, in favor of ethtool.  There are 
+Hi,
 
-$ man mii-tool
-[...]
-       -v, --verbose
-              Display  more  detailed  MII status information.  If used twice,
-                                                                ^^^^^^^^^^^^^
-              also display raw MII register contents.
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Geert Uytterhoeven:
+> I still have a patch lying around for this one:
+> 
+(Mine)
 
-Is there a similar feature in ethtool ?
-
+> If it's OK (it compiles fine with 2.6.19-rc5), please tell me, and I'll
+> resubmit it.
+> 
+Can somebody else please check this, if possible? I won't have time this
+week.
 -- 
-Ueimor
+Matthias Urlichs   |   {M:U} IT Design @ m-u-it.de   |  smurf@smurf.noris.de
+Disclaimer: The quote was selected randomly. Really. | http://smurf.noris.de
+ - -
+Integrated Software - A single product that deftly performs hundreds of
+        functions the user never needs and awkwardly performs the half-dozen he
+        uses constantly.
