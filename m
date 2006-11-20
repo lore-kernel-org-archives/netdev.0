@@ -1,8 +1,8 @@
 From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
-Date: Mon, 20 Nov 2006 01:12:57 -0500
-Message-ID: <45614769.4020005@redhat.com>
-References: <20061119203050.GD29736@osprey.hogchain.net> <200611200057.45274.arnd@arndb.de>
+Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
+Date: Mon, 20 Nov 2006 01:34:40 -0500
+Message-ID: <45614C80.5070303@redhat.com>
+References: <20061119202817.GA29736@osprey.hogchain.net> <20061120011534.54b1e010@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,164 +10,61 @@ Cc: Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
 	shemminger@osdl.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:2492 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S933953AbWKTGOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 01:14:12 -0500
-To: Arnd Bergmann <arnd@arndb.de>
-In-Reply-To: <200611200057.45274.arnd@arndb.de>
+Received: from mx1.redhat.com ([66.187.233.31]:26065 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S933964AbWKTGf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 01:35:59 -0500
+To: Alan <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <20061120011534.54b1e010@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann wrote:
-> On Sunday 19 November 2006 21:30, Jay Cliburn wrote:
->> This patch contains the main C file for the Attansic L1 gigabit ethernet
->> adapter driver.
-> 
-> Just a few style comments:
-> 
->> +	/* PCI config space info */
->> +	hw->vendor_id = pdev->vendor;
->> +	hw->device_id = pdev->device;
->> +	hw->subsystem_vendor_id = pdev->subsystem_vendor;
->> +	hw->subsystem_id = pdev->subsystem_device;
-> 
-> Do you actually need the copies of these fields? I guess you can
-> always access the data from pdev.
+Alan wrote:
+> Would be nice if it used atl_ not at_ so its less likely to cause
+> namespace clashes.
 
-Probably not.  Thanks for pointing this out.
+Some of this code looked like Attansic may have meant to share it 
+between drivers for atl1/atl2/atf1/atf2, but seeing as I can't find any 
+code for those, I'll convert it all to atl1_ and let Attansic generalize 
+the code if they ever decide they want to submit drivers.
 
->> +	size = sizeof(struct at_buffer) * (tpd_ring->count + rfd_ring->count);
->> +	tpd_ring->buffer_info = kmalloc(size, GFP_KERNEL);
->> +	if (unlikely(!tpd_ring->buffer_info)) {
->> +		printk(KERN_WARNING "%s: kmalloc failed , size = D%d\n", 
->> +			at_driver_name, size);
->> +		return -ENOMEM;
->> +	}
->> +	rfd_ring->buffer_info =
->> +	    (struct at_buffer *)(tpd_ring->buffer_info + tpd_ring->count);
->> +
->> +	memset(tpd_ring->buffer_info, 0, size);
+> You have various macros for swaps that are pretty ugly - we have
+> cpu_to and le/be_to_cpu functions for most swapping cases and these are
+> generally optimised assembler (eg bswap on x86)
 > 
-> Use kzalloc or kcalloc here.
-
-Good point.  I guess we should check the whole driver over for that.
-
->> +	ring_header->desc =
->> +	    pci_alloc_consistent(pdev, ring_header->size, &ring_header->dma);
->> +	if (unlikely(!ring_header->desc)) {
->> +		kfree(tpd_ring->buffer_info);
->> +		printk(KERN_WARNING 
->> +			"%s: pci_alloc_consistent failed, size = D%d\n", 
->> +			at_driver_name, size);
->> +		return -ENOMEM;
->> +	}
+> AT_DESC_USED/UNUSED would be better as inline functions but thats not a
+> serious concern.
 > 
-> Your cleanup path gets simpler if you use goto, and only one
-> instance of kfree at the end, instead of multiple return statements
-> in this function.
+> Be careful with :1 bitfields when working with hardware - the compiler
+> has more than one choice about how to pack them.
+
+Lacking a spec, I'm not entirely sure what the original intent was, so 
+we're stuck with testing.  Is there a specific disambiguation technique 
+you recommend?
+
+> The irq enable/disable use for locking on vlan appears unsafe. PCI
+> interrupt delivery is asynchronous which means you can get this happen
 > 
 > 
->> +	while (!buffer_info->alloced && !next_info->alloced) {
->> +		if (NULL != buffer_info->skb) {
->> +			buffer_info->alloced = 1;
->> +			goto next;
->> +		}
+> 	card sends PCI interrupt
+> 	We call irq_disable
+> 	We take lock
+> 	We poke bits
+> 	We drop lock
 > 
-> Instead of 'if (NULL != buffer_info->skb)', you should write
-> 'if (buffer_info->skb)', like you do elsewhere.
-
-Thanks for pointing this out.  Seeing as this code is a ripoff of e1000, 
-hacked up by Attansic, and then heavily reworked by Jay and I, there are 
-some stylistic differences, but we'll try to make it more consistent.
-
->> +	      next:
->> +		rfd_next_to_use = next_next;
->> +		if (unlikely(++next_next == rfd_ring->count))
->> +			next_next = 0;
+> 	PCI interrupt arrives
 > 
-> Labels go to the start of a line.
-
-I blame Attansic.
-
->> +#ifdef NETIF_F_HW_VLAN_TX
->> +		if (adapter->vlgrp && (rrd->pkt_flg & PACKET_FLAG_VLAN_INS)) {
->> +			u16 vlan_tag = (rrd->vlan_tag >> 4) |
->> +			    		((rrd->vlan_tag & 7) << 13) | 
->> +					((rrd->vlan_tag & 8) << 9);
->> +			vlan_hwaccel_rx(skb, adapter->vlgrp, vlan_tag);
->> +		} else
->> +#endif
 > 
-> No need for the #ifdef when submitting the driver for inclusion.
-> In this kernel version, NETIF_F_HW_VLAN_TX is always defined.
+> This really does happen, typically its nasty to debug as well because you
+> usually only get it on PIII boards on the one in n-zillion times a
+> message collides and is retransmitted on the APIC bus.
 
-Thanks.  There are a lot of ifdefs that we're not sure are always 
-defined.  Removing those would make this code much easier to review. 
-More eyes on those ifdefs would be appreciated.
+Nice catch.  I admit the VLAN code is not so well audited or tested. 
+Fortunately, the chip only seems to be on Asus M2V motherboards, at 
+least for now, but I want to audit all of the locking code at some point.
 
->> +static int at_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
->> +{
->> +	struct at_adapter *adapter = netdev_priv(netdev);
->> +/*	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;*/
->> +	struct mii_ioctl_data *data = if_mii(ifr);
->> +	unsigned long flags;
->> +
->> +	switch (cmd) {
->> +	case SIOCGMIIPHY:
->> +		data->phy_id = 0;
->> +		break;
->> +	case SIOCGMIIREG:
->> +		if (!capable(CAP_NET_ADMIN))
->> +			return -EPERM;
->> +		spin_lock_irqsave(&adapter->stats_lock, flags);
->> +		if (at_read_phy_reg
->> +		    (&adapter->hw, data->reg_num & 0x1F, &data->val_out)) {
->> +			spin_unlock_irqrestore(&adapter->stats_lock, flags);
->> +			return -EIO;
->> +		}
->> +		spin_unlock_irqrestore(&adapter->stats_lock, flags);
->> +		break;
->> +	case SIOCSMIIREG:
->> +		if (!capable(CAP_NET_ADMIN))
->> +			return -EPERM;
->> +		if (data->reg_num & ~(0x1F))
->> +			return -EFAULT;
->> +		spin_lock_irqsave(&adapter->stats_lock, flags);
->> +		printk(KERN_DEBUG "%s: at_mii_ioctl write %x %x\n", 
->> +			at_driver_name, data->reg_num,
->> +			  data->val_in);
->> +		if (at_write_phy_reg(&adapter->hw, data->reg_num, data->val_in)) {
->> +			spin_unlock_irqrestore(&adapter->stats_lock, flags);
->> +			return -EIO;
->> +		}
->> +		spin_unlock_irqrestore(&adapter->stats_lock, flags);
->> +		break;
->> +	default:
->> +		return -EOPNOTSUPP;
->> +	}
->> +	return AT_SUCCESS;
->> +}
->> +#endif				/* SIOCGMIIPHY */
-> 
-> Any reason why you can't use generic_mii_ioctl?
+> skb->len is unsigned so <= 0 can be == 0. More importantly the subtraction
+> before the test will wrap and is completely unsafe (see at_xmit_frame)
 
-I decided to mostly leave this code alone, in the hope that we could 
-just rip out MII support entirely and nobody would mind.  What do you think?
+Thanks!
 
 	-- Chris
-
->> +      err_init_hw:
->> +      err_reset:
->> +      err_register:
->> +      err_sw_init:
->> +      err_eeprom:
->> +	iounmap(adapter->hw.hw_addr);
->> +      err_ioremap:
->> +	free_netdev(netdev);
->> +      err_alloc_etherdev:
->> +	pci_release_regions(pdev);
->> +	return err;
-> 
-> It's more common to have a single label with multiple gotos instead
-> of multiple labels that all go to one statement.
-
