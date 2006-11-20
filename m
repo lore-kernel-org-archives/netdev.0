@@ -1,99 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 6/13] d80211: change the identifier netdev to
-	ieee80211_hw
-Date: Mon, 20 Nov 2006 19:04:04 +0100
-Message-ID: <1164045844.9216.24.camel@johannes.berg>
-References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163963898.15473.36.camel@johannes.berg>
-	 <1163964522.15473.52.camel@johannes.berg>
-	 <20061120185752.684b1b09@griffin.suse.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
+Date: Mon, 20 Nov 2006 10:02:02 -0800
+Message-ID: <20061120100202.6a79e382@freekitty>
+References: <20061119203050.GD29736@osprey.hogchain.net>
+	<200611200057.45274.arnd@arndb.de>
+	<45614769.4020005@redhat.com>
+	<200611201322.00495.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rmhopnW6kknYUVPz/oJq"
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:11473 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S966306AbWKTSFx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 13:05:53 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061120185752.684b1b09@griffin.suse.cz>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chris Snook <csnook@redhat.com>,
+	Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
+	romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966310AbWKTSGM@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+In-Reply-To: <200611201322.00495.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 20 Nov 2006 13:21:59 +0100
+Arnd Bergmann <arnd@arndb.de> wrote:
 
---=-rmhopnW6kknYUVPz/oJq
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2006-11-20 at 18:57 +0100, Jiri Benc wrote:
-
-> If you are at it, why not to rename ieee80211_hw to some better name?
-> We need to rename ieee80211_local and I think ieee80211_hw would be
-> very good name for it. What about renaming of ieee80211_hw to
-> ieee80211_dev?
-
-Heh. I called it ieee80211_wiphy in the first series (don't look) but
-then David said he'd prefer keeping the name to reduce diff size. It did
-reduce the diff size a bit so I kept it for now.
-
-> Setting set_frag_threshold when the card doesn't do fragmentation makes
-> no sense. Not setting set_frag_threshold when the card needs to do
-> fragmentation in hardware makes no sense as well. Therefore
-> assigning/not assigning of set_frag_threshold gives the same
-> information as the flag.
-
-Well, I guessed that some optimisations with the p54 memory allocator
-might be possible if it knows what the maximum frame size is (due to
-fragmentation smaller than max MPDU size). But yeah, that's basically
-handwaving.
-
-The point was to make the 33 function pointers independent of the actual
-hardware and only dependent on the driver so that ieee80211_ops can be
-static to reduce size of the hw description struct.
-
-> > -/* Configuration block used by the low-level driver to tell the 802.11=
- code
-> > - * about supported hardware features and to pass function pointers to =
-callback
-> > - * functions. */
-> > +/* this is driver-visible part of the per-hw state the stack keeps.
-> > + * if you change something in here, call */
+> On Monday 20 November 2006 07:12, Chris Snook wrote:
+> > >=20
+> > > Any reason why you can't use generic_mii_ioctl?
+> >=20
+> > I decided to mostly leave this code alone, in the hope that we coul=
+d=20
+> > just rip out MII support entirely and nobody would mind. =C2=A0What=
+ do you think?
+> >=20
 >=20
-> Call what?
-
-Heh. Call this function (update_hw) to notify the stack.
-
-> > -	/* ieee80211 drivers must assign this instead of the callback in
-> > +	/* This replaces the callback that would usually be in
-> >  	 * &struct net_device. dev->flags, dev->mc_count and dev->mc_list mus=
-t
+> Normally, I think you should just implement mdio_read/mdio_write func=
+tions
+> and then use all the helpers from drivers/net/mii.c to implement mii_=
+ioctl
+> and other functions like ethtool_gset.
 >=20
-> You probably want to delete the last "must".
+> 	Arnd <><
+>=20
 
-Actually, the comment should be rewritting since dev-> makes no sense
-any more.
+Using common MII code is good, but one problem with the existing MII co=
+de is that
+it doesn't work when device is down. This makes it impossible to set sp=
+eed/duplex
+before device comes up.
 
-johannes
-
---=-rmhopnW6kknYUVPz/oJq
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFYe4U/ETPhpq3jKURAj0lAJ0TMaZsUh6UKgv2T090Zdk3KYJXEACgs+LX
-dlMS8x/DHjzeO5lSJmR7kXk=
-=FVeI
------END PGP SIGNATURE-----
-
---=-rmhopnW6kknYUVPz/oJq--
-
+--=20
+Stephen Hemminger <shemminger@osdl.org>
