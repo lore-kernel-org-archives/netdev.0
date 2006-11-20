@@ -1,13 +1,14 @@
-From: Jiri Benc <jbenc@suse.cz>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH 4/13] d80211: reduce mdev usage, change
- ieee80211_rx_mgmt
-Date: Mon, 20 Nov 2006 13:08:59 +0100
-Message-ID: <20061120130859.329993c8@griffin.suse.cz>
+	ieee80211_rx_mgmt
+Date: Mon, 20 Nov 2006 13:25:06 +0100
+Message-ID: <1164025506.2744.32.camel@ux156>
 References: <1163802439.3392.47.camel@johannes.berg>
-	<1163963898.15473.36.camel@johannes.berg>
-	<1163964402.15473.47.camel@johannes.berg>
+	 <1163963898.15473.36.camel@johannes.berg>
+	 <1163964402.15473.47.camel@johannes.berg>
+	 <20061120130859.329993c8@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
 	"John W. Linville" <linville@tuxdriver.com>,
@@ -19,33 +20,27 @@ Cc: netdev@vger.kernel.org,
 	Michael Buesch <mbuesch@freenet.de>,
 	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:5066 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S934098AbWKTMJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 07:09:02 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1163964402.15473.47.camel@johannes.berg>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:29338 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S934115AbWKTMX4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 07:23:56 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061120130859.329993c8@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 19 Nov 2006 20:26:41 +0100, Johannes Berg wrote:
-> @@ -2615,27 +2588,104 @@ ieee80211_rx_mgmt(struct net_device *dev
->                  fi->ssi_noise = 0x00000000;
->                  fi->encoding = 0;
->  	} else {
-> +		/* clear everything because we really don't know.
-> +		 * the msg_type field isn't present on monitor frames
-> +		 * so we don't know whether it will be present or not,
-> +		 * but it's ok to not clear it since it'll be assigned
-> +		 * anyway */
-> +		memset(fi, 0, sizeof(*fi) - sizeof(fi->msg_type));
+On Mon, 2006-11-20 at 13:08 +0100, Jiri Benc wrote:
 
-offsetof(ieee80211_frame_info, msg_type)? But it doesn't matter, this
-is going to go away (hopefully soon) anyway.
+> offsetof(ieee80211_frame_info, msg_type)? 
 
-Thanks,
+Hm, I guess I could do that. I could just zero out the whole struct too
+I think.
 
- Jiri
+> But it doesn't matter, this
+> is going to go away (hopefully soon) anyway.
 
--- 
-Jiri Benc
-SUSE Labs
+Right. If you don't mind I'll leave it as-is assuming that msg_type is
+the last field; I'll hopefully be able to subsume this into cfg80211
+soonish.
+
+johannes
