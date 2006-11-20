@@ -1,51 +1,30 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
-Date: Mon, 20 Nov 2006 10:02:02 -0800
-Message-ID: <20061120100202.6a79e382@freekitty>
-References: <20061119203050.GD29736@osprey.hogchain.net>
-	<200611200057.45274.arnd@arndb.de>
-	<45614769.4020005@redhat.com>
-	<200611201322.00495.arnd@arndb.de>
+Subject: Re: [NET_SCHED 07/06]: Fix endless loops (part 5): netem/tbf/hfsc
+ ->requeue failures
+Date: Mon, 20 Nov 2006 10:08:51 -0800
+Message-ID: <20061120100851.4a9f5573@freekitty>
+References: <4561C32F.7000702@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Snook <csnook@redhat.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966310AbWKTSGM@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-In-Reply-To: <200611201322.00495.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.25]:21132 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S934296AbWKTSJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 13:09:02 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4561C32F.7000702@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Nov 2006 13:21:59 +0100
-Arnd Bergmann <arnd@arndb.de> wrote:
+On Mon, 20 Nov 2006 16:01:03 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> On Monday 20 November 2006 07:12, Chris Snook wrote:
-> > >=20
-> > > Any reason why you can't use generic_mii_ioctl?
-> >=20
-> > I decided to mostly leave this code alone, in the hope that we coul=
-d=20
-> > just rip out MII support entirely and nobody would mind. =C2=A0What=
- do you think?
-> >=20
->=20
-> Normally, I think you should just implement mdio_read/mdio_write func=
-tions
-> and then use all the helpers from drivers/net/mii.c to implement mii_=
-ioctl
-> and other functions like ethtool_gset.
->=20
-> 	Arnd <><
->=20
+> I forgot to fix one (AFAICT purely theoretical) case ..
+> 
 
-Using common MII code is good, but one problem with the existing MII co=
-de is that
-it doesn't work when device is down. This makes it impossible to set sp=
-eed/duplex
-before device comes up.
+So this means that if requeue fails we are no longer bolluxed.
 
---=20
+-- 
 Stephen Hemminger <shemminger@osdl.org>
