@@ -1,58 +1,55 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] d80211: remove useless driver name field
-Date: Mon, 20 Nov 2006 23:33:28 +0100
-Message-ID: <1164062008.8981.1.camel@johannes.berg>
+Subject: Re: [PATCH 6/13] d80211: change the identifier netdev to
+	ieee80211_hw
+Date: Mon, 20 Nov 2006 23:45:40 +0100
+Message-ID: <1164062740.8981.3.camel@johannes.berg>
 References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163803835.3392.52.camel@johannes.berg>
-	 <20061120183213.GB5983@instant802.com>
-	 <1164048000.9216.29.camel@johannes.berg>
-	 <20061120222147.GA7148@infradead.org>
+	 <1163963898.15473.36.camel@johannes.berg>
+	 <1163964522.15473.52.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-U8Fr/kIh16DEfO6Sg9MP"
-Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org,
-	Jiri Benc <jbenc@suse.cz>,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-GeKNqcuJGpl+5lurPHYH"
+Cc: Jiri Benc <jbenc@suse.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
 	Hong Liu <hong.liu@intel.com>,
 	David Kimdon <david.kimdon@devicescape.com>,
 	Michael Wu <flamingice@sourmilk.net>,
 	Michael Buesch <mbuesch@freenet.de>,
 	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:27372 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S966387AbWKTWf1
+Received: from crystal.sipsolutions.net ([195.210.38.204]:57574 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S966408AbWKTWrb
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 17:35:27 -0500
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20061120222147.GA7148@infradead.org>
+	Mon, 20 Nov 2006 17:47:31 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <1163964522.15473.52.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-U8Fr/kIh16DEfO6Sg9MP
+--=-GeKNqcuJGpl+5lurPHYH
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2006-11-20 at 22:21 +0000, Christoph Hellwig wrote:
+Mostly to remind myself to send a patch tomorrow...
 
-> NACK.  We don't leave unused junk in tree.  Especially not to allow
-> implementing layering violations in non-public code.
-
-No worries, patch is already in Jiri's tree :)
+I introduce ieee80211_hw->dev (struct device *) but don't actually use
+it. Of course, I should use it in the proper places :)
 
 johannes
 
---=-U8Fr/kIh16DEfO6Sg9MP
+--=-GeKNqcuJGpl+5lurPHYH
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBFYi03/ETPhpq3jKURAolHAJ9SWF+gY5wLrcXnxm10y4u2EPN1vQCgiYLz
-CoVYFGRaJCpazrmzeuinoMk=
-=yblh
+iD8DBQBFYjAU/ETPhpq3jKURAoiQAKCoLAM1ai7ZyiSWFYdSNi7oVL1sEgCeN73y
+BFF2Rc3d76xc+szvC3WCt+U=
+=MrvE
 -----END PGP SIGNATURE-----
 
---=-U8Fr/kIh16DEfO6Sg9MP--
+--=-GeKNqcuJGpl+5lurPHYH--
 
