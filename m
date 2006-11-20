@@ -1,63 +1,64 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH] d80211: remove useless driver name field
-Date: Mon, 20 Nov 2006 13:44:03 -0500
-Message-ID: <200611201344.08794.flamingice@sourmilk.net>
-References: <1163802439.3392.47.camel@johannes.berg> <1163803835.3392.52.camel@johannes.berg> <20061120183213.GB5983@instant802.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
+Date: Mon, 20 Nov 2006 10:45:53 -0800
+Message-ID: <20061120104553.434b6ec5@freekitty>
+References: <200611171536.kAHFa3os005563@dut39.unminc.com>
+	<20061117084049.555e14d0@localhost.localdomain>
+	<1163845689.4822.6.camel@nbsanjeev>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1285558.26g16SoGRt";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Cc: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>,
+	netdev <netdev@vger.kernel.org>,
+	brazilnut <brazilnut@us.ibm.com>, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com,
+	wendyx <wendyx@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:48451 "EHLO
-	annwn14.rutgers.edu") by vger.kernel.org with ESMTP id S966420AbWKTSpQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 13:45:16 -0500
-To: "Jouni Malinen" <jkm@devicescape.com>
-In-Reply-To: <20061120183213.GB5983@instant802.com>
+Received: from smtp.osdl.org ([65.172.181.25]:44959 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S966379AbWKTSuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 13:50:25 -0500
+To: sanjeev@netxen.com
+In-Reply-To: <1163845689.4822.6.camel@nbsanjeev>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1285558.26g16SoGRt
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Sat, 18 Nov 2006 15:58:09 +0530
+Sanjeev Jorapur <sanjeev@netxen.com> wrote:
 
-On Monday 20 November 2006 13:32, Jouni Malinen wrote:
-> Is this the same name field that was in struct ieee80211_hw? It was used
-> and the main reason was to allow rate control algorithms to be
-> implemented in a way which allows hardware specific features (e.g.,
-> different TX/RX status data) to be used to optimize rate selection. I
-> would not remove this field unless there is another way of allowing
-> something like this to be done in the rate control modules.
-But there's no code in the tree that actually uses it.
+> On Fri, 2006-11-17 at 08:40 -0800, Stephen Hemminger wrote:
+> > On Fri, 17 Nov 2006 07:36:03 -0800
+> > "Linsys Contractor Amit S. Kale" <amitkale@netxen.com> wrote:
+> > 
+> > > NetXen: 1G/10G Ethernet Driver updates
+> > > 	- These fixes take care of driver on machines with >4G memory
+> > > 	- Driver cleanup
+> > > 
+> > > Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+> > > 
+> > >  netxen_nic.h          |   41 ++++++----
+> > >  netxen_nic_ethtool.c  |   19 ++--
+> > >  netxen_nic_hw.c       |   10 +-
+> > >  netxen_nic_hw.h       |    4 
+> > >  netxen_nic_init.c     |   51 +++++++++++-
+> > >  netxen_nic_isr.c      |    3 
+> > >  netxen_nic_main.c     |  204 +++++++++++++++++++++++++++++++++++++++++++++++---
+> > >  netxen_nic_phan_reg.h |   10 +-
+> > >  8 files changed, 293 insertions(+), 49 deletions(-)
+> > > 
+> > 
+> > 
+> > If you can't DMA from high memory, then don't set NETIF_F_HIGHDMA, why do
+> > you need explicit bounce buffers.  If you can't DMA from unaligned address,
+> > the write a small routine to copy the skb to a new one.
+> 
+> 
+> The hardware supports DMA into 35 bit addresses. The intent is to
+> enable DMA into addresses upto 32G.
+> 
 
-Also, for drivers that properly use SET_NETDEV_DEV, it was accessible by:
-	ndev->class_dev.dev->driver->name
-Or, with these patches applied:
-	hw->dev->driver->name
+You should then set the same value for pci_set_dma_mask, because then the IOMMU
+can help. See both b44 or tg3 drivers, they have to deal with odd size masks.
+I don't think you have to do all the bounce buffer work in the driver.
 
--Michael Wu
-
---nextPart1285558.26g16SoGRt
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFYfd4T3Oqt9AH4aERAsL+AJ9KA8VlSZm4GSsz5XBvWvFgbtRubgCgxf3t
-oRv3rGRB0AtPjf3P5ajJED4=
-=j+oF
------END PGP SIGNATURE-----
-
---nextPart1285558.26g16SoGRt--
+-- 
+Stephen Hemminger <shemminger@osdl.org>
