@@ -1,43 +1,51 @@
-From: smurf@smurf.noris.de
-Subject: Re: [RFC: 2.6 patch] remove broken net drivers
-Date: Mon, 20 Nov 2006 21:09:07 +0100
-Message-ID: <20061120200907.GB29275@smurf.noris.de>
-References: <20061118000224.GU31879@stusta.de> <Pine.LNX.4.62.0611191249450.31733@pademelon.sonytel.be>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
+Date: Mon, 20 Nov 2006 12:15:24 -0800
+Message-ID: <20061120121524.68cf39d8@freekitty>
+References: <20061119203050.GD29736@osprey.hogchain.net>
+	<200611200057.45274.arnd@arndb.de>
+	<45614769.4020005@redhat.com>
+	<200611201322.00495.arnd@arndb.de>
+	<20061120100202.6a79e382@freekitty>
+	<4562036E.3020409@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jgarzik@pobox.com>,
-	netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	funaho@jurai.org,
-	Linux/m68k on Mac <linux-mac68k@mac.linux-m68k.org>,
-	Linux/m68k <linux-m68k@lists.linux-m68k.org>, jejb@steeleye.com,
-	Roman Zippel <zippel@linux-m68k.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Chris Snook <csnook@redhat.com>,
+	Jay Cliburn <jacliburn@bellsouth.net>, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smurf.noris.de ([192.109.102.42]:8068 "EHLO smurf.noris.de")
-	by vger.kernel.org with ESMTP id S966625AbWKTUKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 15:10:49 -0500
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.62.0611191249450.31733@pademelon.sonytel.be>
+Received: from smtp.osdl.org ([65.172.181.25]:63422 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S934142AbWKTURU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 15:17:20 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4562036E.3020409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, 20 Nov 2006 14:35:10 -0500
+Jeff Garzik <jeff@garzik.org> wrote:
 
-Geert Uytterhoeven:
-> I still have a patch lying around for this one:
+> Stephen Hemminger wrote:
+> > Using common MII code is good, but one problem with the existing MII code is that
+> > it doesn't work when device is down. This makes it impossible to set speed/duplex
+> > before device comes up.
 > 
-(Mine)
+> 
+> That's not true at all.  drivers/net/mii.c uses caller-provided locking 
+> in all cases, and there is nothing that prevents the common code from 
+> being called when the interface is down.
+> 
+> You are probably thinking about all the netif_running() checks found in 
+> the drivers, particularly in the ->begin() hook.
+> 
+> 	Jeff
+> 
+> 
 
-> If it's OK (it compiles fine with 2.6.19-rc5), please tell me, and I'll
-> resubmit it.
-> 
-Can somebody else please check this, if possible? I won't have time this
-week.
+Yeah it is a driver specific thing. All users of mii seem to block changes so
+I thought it was in base code.
+
+
 -- 
-Matthias Urlichs   |   {M:U} IT Design @ m-u-it.de   |  smurf@smurf.noris.de
-Disclaimer: The quote was selected randomly. Really. | http://smurf.noris.de
- - -
-Integrated Software - A single product that deftly performs hundreds of
-        functions the user never needs and awkwardly performs the half-dozen he
-        uses constantly.
+Stephen Hemminger <shemminger@osdl.org>
