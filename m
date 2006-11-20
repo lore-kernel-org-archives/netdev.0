@@ -1,82 +1,63 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 05/06]: Fix endless loops (part 3): HFSC
-Date: Mon, 20 Nov 2006 14:08:46 +0100 (MET)
-Message-ID: <20061120130845.22347.81357.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 01/06]: sch_htb: perform qlen adjustment immediately in ->delete
+Date: Mon, 20 Nov 2006 14:08:37 +0100 (MET)
+Message-ID: <20061120130836.22347.80939.sendpatchset@localhost.localdomain>
 References: <20061120130834.22347.34853.sendpatchset@localhost.localdomain>
 Cc: devik@cdi.cz, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:11262 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965884AbWKTNIr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 08:08:47 -0500
+Received: from stinky.trash.net ([213.144.137.162]:7678 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S965834AbWKTNIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 08:08:38 -0500
 To: davem@davemloft.net
 In-Reply-To: <20061120130834.22347.34853.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET_SCHED]: Fix endless loops (part 3): HFSC
+[NET_SCHED]: sch_htb: perform qlen adjustment immediately in ->delete
 
-Convert HFSC to use qdisc_tree_decrease_len() and add a callback
-for deactivating a class when its child queue becomes empty.
-
-All queue purging goes through hfsc_purge_queue(), which is used in
-three cases: grafting, class creation (when a leaf class is turned
-into an intermediate class by attaching a new class) and class
-deletion. In all cases qdisc_tree_decrease_len() is needed.
+qlen adjustment should happen immediately in ->delete and not in the
+class destroy function because the reference count will not hit zero in
+->delete (sch_api holds a reference) but in ->put. Since the qdisc
+lock is released between deletion of the class and final destruction
+this creates an externally visible error in the qlen counter.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 62ab4431af7bccd0a8cd9b1933fb03e78fd63252
-tree 79911d570a56ac3752790808ae8139983253524a
-parent 0ce9475d7baf678698eb70369f734b8feeb03e13
-author Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 13:46:23 +0100
-committer Patrick McHardy <kaber@trash.net> Mon, 20 Nov 2006 13:46:23 +0100
+commit 28ceb9f1cece3e1fa989a96a99dc76dc44d5629b
+tree 568ab7acb7b9c6d1783c5e4a23edd83ee0381e22
+parent 808dbbb6bb61173bf52946a28f99089d2efa4c55
+author Patrick McHardy <kaber@trash.net> Sun, 19 Nov 2006 06:55:10 +0100
+committer Patrick McHardy <kaber@trash.net> Sun, 19 Nov 2006 06:55:10 +0100
 
- net/sched/sch_hfsc.c |   18 +++++++++++++-----
- 1 files changed, 13 insertions(+), 5 deletions(-)
+ net/sched/sch_htb.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 1142d29..2d43744 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -957,11 +957,7 @@ hfsc_purge_queue(struct Qdisc *sch, stru
- 	unsigned int len = cl->qdisc->q.qlen;
- 
- 	qdisc_reset(cl->qdisc);
--	if (len > 0) {
--		update_vf(cl, 0, 0);
--		set_passive(cl);
--		sch->q.qlen -= len;
--	}
-+	qdisc_tree_decrease_qlen(cl->qdisc, len);
- }
- 
- static void
-@@ -1295,6 +1291,17 @@ hfsc_class_leaf(struct Qdisc *sch, unsig
- 	return NULL;
- }
- 
-+static void
-+hfsc_qlen_notify(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct hfsc_class *cl = (struct hfsc_class *)arg;
-+
-+	if (cl->qdisc->q.qlen == 0) {
-+		update_vf(cl, 0, 0);
-+		set_passive(cl);
-+	}
-+}
-+
- static unsigned long
- hfsc_get_class(struct Qdisc *sch, u32 classid)
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 4b52fa7..08fa4d0 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1269,9 +1269,9 @@ static void htb_destroy_filters(struct t
+ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
  {
-@@ -1779,6 +1786,7 @@ static struct Qdisc_class_ops hfsc_class
- 	.delete		= hfsc_delete_class,
- 	.graft		= hfsc_graft_class,
- 	.leaf		= hfsc_class_leaf,
-+	.qlen_notify	= hfsc_qlen_notify,
- 	.get		= hfsc_get_class,
- 	.put		= hfsc_put_class,
- 	.bind_tcf	= hfsc_bind_tcf,
+ 	struct htb_sched *q = qdisc_priv(sch);
++
+ 	if (!cl->level) {
+ 		BUG_TRAP(cl->un.leaf.q);
+-		sch->q.qlen -= cl->un.leaf.q->q.qlen;
+ 		qdisc_destroy(cl->un.leaf.q);
+ 	}
+ 	qdisc_put_rtab(cl->rate);
+@@ -1334,6 +1334,11 @@ static int htb_delete(struct Qdisc *sch,
+ 	/* delete from hash and active; remainder in destroy_class */
+ 	hlist_del_init(&cl->hlist);
+ 
++	if (!cl->level) {
++		sch->q.qlen -= cl->un.leaf.q->q.qlen;
++		qdisc_reset(cl->un.leaf.q);
++	}
++
+ 	if (cl->prio_activity)
+ 		htb_deactivate(q, cl);
+ 
