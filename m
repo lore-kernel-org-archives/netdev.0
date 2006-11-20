@@ -1,33 +1,45 @@
-From: Alan <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [RFC: 2.6 patch] remove the broken SKMC driver
-Date: Mon, 20 Nov 2006 23:31:53 +0000
-Message-ID: <20061120233153.34bd814d@localhost.localdomain>
-References: <20061120210648.GB31879@stusta.de>
-	<20061120140115.4cdec66a@freekitty>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
+Date: Mon, 20 Nov 2006 15:35:48 -0800
+Message-ID: <20061120153548.71f90b7a@freekitty>
+References: <F09F8223E8BE7D42BDA1800B19F3440D922017@ALA-MAIL03.corp.ad.wrs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jejb@steeleye.com
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:54167 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
-	id S1030507AbWKTXde (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 18:33:34 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061120140115.4cdec66a@freekitty>
+Received: from smtp.osdl.org ([65.172.181.25]:47257 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030528AbWKTXfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 18:35:51 -0500
+To: "Yang, Steve" <steve.yang@windriver.com>
+In-Reply-To: <F09F8223E8BE7D42BDA1800B19F3440D922017@ALA-MAIL03.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Nov 2006 14:01:15 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Mon, 20 Nov 2006 13:40:01 -0800
+"Yang, Steve" <steve.yang@windriver.com> wrote:
 
-> Are there any working microchannel drivers?  Can we drop support for microchannel
-> at the bus level?
+> Stephen,
+> 
+> Sorry for responding late. 
+> 
+> 1. I've submitted two patches, one for NAPI and the other for SKB_Cache.
+> They can go in individually. You've expressed objections to SKB_Cache.
+> What about the one for NAPI?
 
-Mr Bottomley has MCA bus. I don't think anyone else on the planet cares
-so maybe we should drop all non voyager MCA bus support and make MCA
-depend on VOYAGER ?
 
-Alan
+Yes, the NAPI one is great.
+
+> 
+> 2. As for SKB_Cache patch, your concern about "maintenance" is valid.
+> However, the cost for allocating skb is not trivial for performance,
+> hence the patch. This is backed up by performance data measured. 20%
+> difference is a conservative number here.
+> 
+
+
+I am not the final decider on this. Ask Jeff/David? Maybe there is some
+more general work that can be done to speed up skb allocation.
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
