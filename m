@@ -1,53 +1,84 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
-Date: Mon, 20 Nov 2006 16:36:43 -0500
-Message-ID: <45621FEB.204@garzik.org>
-References: <20061119203050.GD29736@osprey.hogchain.net>	<200611200057.45274.arnd@arndb.de>	<45614769.4020005@redhat.com>	<200611201322.00495.arnd@arndb.de>	<20061120100202.6a79e382@freekitty>	<4562036E.3020409@garzik.org> <20061120121524.68cf39d8@freekitty>
+From: "Yang, Steve" <steve.yang@windriver.com>
+Subject: RE: [patch] Performance enhancement patches for SB1250 MAC
+Date: Mon, 20 Nov 2006 13:40:01 -0800
+Message-ID: <F09F8223E8BE7D42BDA1800B19F3440D922017@ALA-MAIL03.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Chris Snook <csnook@redhat.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:24489 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S966805AbWKTVgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 16:36:54 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061120121524.68cf39d8@freekitty>
+Received: from mail.windriver.com ([147.11.1.11]:54951 "EHLO mail.wrs.com")
+	by vger.kernel.org with ESMTP id S966582AbWKTVkP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 16:40:15 -0500
+Content-class: urn:content-classes:message
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 20 Nov 2006 14:35:10 -0500
-> Jeff Garzik <jeff@garzik.org> wrote:
+Stephen,
+
+Sorry for responding late. 
+
+1. I've submitted two patches, one for NAPI and the other for SKB_Cache.
+They can go in individually. You've expressed objections to SKB_Cache.
+What about the one for NAPI?
+
+2. As for SKB_Cache patch, your concern about "maintenance" is valid.
+However, the cost for allocating skb is not trivial for performance,
+hence the patch. This is backed up by performance data measured. 20%
+difference is a conservative number here.
+
+Regards, 
+Steve Yang
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@osdl.org] 
+Sent: Friday, October 13, 2006 1:25 PM
+To: Yang, Steve
+Cc: netdev@vger.kernel.org
+Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
+
+On Thu, 12 Oct 2006 17:45:54 -0700
+"Yang, Steve" <steve.yang@windriver.com> wrote:
+
+> Stephen,
 > 
->> Stephen Hemminger wrote:
->>> Using common MII code is good, but one problem with the existing MII code is that
->>> it doesn't work when device is down. This makes it impossible to set speed/duplex
->>> before device comes up.
->>
->> That's not true at all.  drivers/net/mii.c uses caller-provided locking 
->> in all cases, and there is nothing that prevents the common code from 
->> being called when the interface is down.
->>
->> You are probably thinking about all the netif_running() checks found in 
->> the drivers, particularly in the ->begin() hook.
->>
->> 	Jeff
->>
->>
+> I assume the "expense" you referred to is the reserved SK cache
+buffers.
 > 
-> Yeah it is a driver specific thing. All users of mii seem to block changes so
-> I thought it was in base code.
+> 
+> 1. The SKB_CACHE does hold on to buffers which would
+>    otherwise be returned to the system (although the
+>    number it holds on to is limited and configurable).
+>    These buffers are only returned with certainty
+>    at module unload time, although with normal traffic
+>    most of them would be recycled pretty quick.  I think
+>    the cache was implemented as a stack, rather than a
+>    FIFO, which could cause a few buffers to be held for
+>    quite a while under light loads.
+> 
+> 2. SKB_CACHE, just like NAPI, is also a configurable
+>    option. Systems that need the performance have the
+>    option of turning this on, at the expense of small
+>    number of buffers; other systems which don't care
+>    much about networking performance can leave this
+>    option off.
+> 
+> 3. Can you elaborate other possible issues that you
+>    touch upon (memory starvation/race, etc.)?
+> 
+> Regards,
+> Steve Yang
 
-Yeah.  As a bit of history, a lot of drivers would power down the phy 
-when the interface was down, and so MII would need to be inaccessible. 
-But that's really a driver policy thing.  If the driver provides a 
-"don't power down phy, when interface is downed" knob, maybe it would 
-want to support MII operations when !netif_running().
+Several drivers have tried to do this in the past, but the consensus has
+been that this is a bad idea. 
 
-	Jeff
+Your code captures transmit skb's and uses them for receive. Why is this
+a good idea? It is a maintenance nightmare, it breaks a lot of the
+cleanup/initialization of skb's and means who ever changes something
+like TSO has to go looking at some driver that is doing squirrley games.
 
-
-
+Plus, your cache requires two extra lock round trips is seems.
+The cost of alloc_skb should be trivial.
