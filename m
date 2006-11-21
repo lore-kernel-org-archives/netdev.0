@@ -1,42 +1,43 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
-Date: Tue, 21 Nov 2006 21:25:41 +0100
-Message-ID: <20061121202541.GA23036@dreamland.darkstar.lan>
-References: <20061119202817.GA29736@osprey.hogchain.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: pktgen (was Re: tests of kernel modules)
+Date: Wed, 22 Nov 2006 00:22:51 +0300
+Message-ID: <20061121212251.GA5084@martell.zuzino.mipt.ru>
+References: <20061121174737.GA5220@martell.zuzino.mipt.ru> <9fa31860611211236i104cb510mb5100ea056b657db@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:60085 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.189]:63113 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1031400AbWKUUZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Nov 2006 15:25:47 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so285854nfa
-        for <netdev@vger.kernel.org>; Tue, 21 Nov 2006 12:25:46 -0800 (PST)
-To: Chris Snook <csnook@redhat.com>
+	id S1161145AbWKUVWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Nov 2006 16:22:54 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so298494nfa
+        for <netdev@vger.kernel.org>; Tue, 21 Nov 2006 13:22:53 -0800 (PST)
+To: Pavol Gono <pavol.gono@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20061119202817.GA29736@osprey.hogchain.net>
+In-Reply-To: <9fa31860611211236i104cb510mb5100ea056b657db@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Snook <csnook@redhat.com> ha scritto:
-> Jay Cliburn wrote:
->> Based upon feedback from Stephen Hemminger and Francois Romieu, please
->> consider this resubmitted patchset that provides support for the Attansic 
->> L1 gigabit ethernet adapter.  This patchset is built against 2.6.19-rc6.  
->> The original patchset was submitted 20060927.
-[...]
-> 
-> I've been working on this with Jay since his initial submission.  Thanks 
-> to everyone who has provided feedback on the resubmit.  We're currently 
-> quite short on actual testers, since the chip only seems to be on Asus 
-> M2V motherboards at present.  Please let me and Jay know if you have one 
-> of these boards and would like to test and/or have encountered bugs.
+[CCing netdev, bug in pktgen]
 
-Asus P5B-E also has L1 chip. I'll get the board in a few days and I'll
-test whatever patch you throw at me ;)
+	[build modular pktgen]
+	while true; do modprobe pktgen && rmmod pktgen; done
 
-Luca
--- 
-Not an editor command: Wq
+	BUG: warning at fs/proc/generic.c:732/remove_proc_entry()
+	 [<c016a7ad>] remove_proc_entry+0x161/0x1ca
+	 [<e19969ab>] pg_cleanup+0xd5/0xdc [pktgen]
+         [<c011fa3e>] autoremove_wake_function+0x0/0x35
+	 [<c01280bd>] sys_delete_module+0x162/0x189
+	 [<c0136500>] remove_vma+0x31/0x36
+	 [<c0136df7>] do_munmap+0x193/0x1ac
+	 [<c0102829>] sysenter_past_esp+0x56/0x79
+	 [<c02d007b>] fn_hash_delete+0x4f/0x1c7
+
+On Tue, Nov 21, 2006 at 09:36:46PM +0100, Pavol Gono wrote:
+> I am going to add two more:
+> for i in 1 2 3 4 5 ; do modprobe pktgen ; rmmod pktgen ; done
+
+Looks like it creates /proc/net/pktgen/kpktgen_%i but forgets to remove
+them.
+
