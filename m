@@ -1,40 +1,36 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH 2.6.19] bonding: incorrect bonding state reported via ioctl
-Date: Tue, 21 Nov 2006 11:46:44 -0500
-Message-ID: <20061121164643.GA2539@gospo.rdu.redhat.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [patch -mm] net namespace: empty framework
+Date: Tue, 21 Nov 2006 19:01:03 +0100
+Message-ID: <45633EDF.3050309@fr.ibm.com>
+References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, ctindel@users.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56006 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1031199AbWKUQtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 11:49:07 -0500
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cedric Le Goater <clg@fr.ibm.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Dmitry Mishin <dim@sw.ru>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031218AbWKURBN@vger.kernel.org>
+To: Kirill Korotaev <dev@sw.ru>
+In-Reply-To: <4563046B.6040909@sw.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Kirill Korotaev wrote:
+> Cedric,
+> 
+> Dmitry Mishin and Daniel Lezcano are working together on the full
+> network namespace incorporating both needs of OpenVZ and VServer/IBM.
+> 
+> Thanks,
+> Kirill
 
-This is a small fix-up to finish out the work done by Jay Vosburgh to
-add carrier-state support for bonding devices.  The output in
-/proc/net/bonding/bondX was correct, but when collecting the same info
-via an iotcl it could still be incorrect.
+Kirill,
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
+We will need this framework to move the network isolation code to the 
+ns_proxy/net_namespace structure. So if Cedric gives us a empty 
+framework it is fine, except if someone does not agree with it...
 
- bond_main.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3547,7 +3547,7 @@ static int bond_do_ioctl(struct net_devi
- 			mii->val_out = 0;
- 			read_lock_bh(&bond->lock);
- 			read_lock(&bond->curr_slave_lock);
--			if (bond->curr_active_slave) {
-+			if (netif_carrier_ok(bond->dev)) {
- 				mii->val_out = BMSR_LSTATUS;
- 			}
- 			read_unlock(&bond->curr_slave_lock);
+   -- Daniel.
