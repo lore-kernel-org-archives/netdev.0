@@ -1,67 +1,61 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: RFC/T: Trial fix for the bcm43xx - wpa_supplicant - NetworkManager deadlock
-Date: Tue, 21 Nov 2006 09:59:17 +0100
-Message-ID: <200611210959.17644.mb@bu3sch.de>
-References: <4561DBE0.2060908@lwfinger.net> <200611210017.47695.mb@bu3sch.de> <1164098989.2769.9.camel@ux156>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
+Date: Tue, 21 Nov 2006 10:09:15 +0100
+Message-ID: <200611211009.17417.netdev@axxeo.de>
+References: <11630606361046@2ka.mipt.ru> <45622228.80803@garzik.org> <456223AC.5080400@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-15"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Dan Williams <dcbw@redhat.com>, Ray Lee <ray-lk@madrabbit.org>,
-	bcm43xx-dev@lists.berlios.de, Joseph Fannin <jhf@columbus.rr.com>,
-	netdev@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:60819
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030745AbWKUJBP
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Nov 2006 04:01:15 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1164098989.2769.9.camel@ux156>
+Received: from mail.axxeo.de ([82.100.226.146]:63892 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1030768AbWKUJKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 04:10:19 -0500
+To: Ulrich Drepper <drepper@redhat.com>
+In-Reply-To: <456223AC.5080400@redhat.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 21 November 2006 09:49, Johannes Berg wrote:
-> On Tue, 2006-11-21 at 00:17 +0100, Michael Buesch wrote:
+Hi,
+
+Ulrich Drepper schrieb:
+> Jeff Garzik wrote:
+> > I think we have lived with relative timeouts for so long, it would be 
+> > unusual to change now.  select(2), poll(2), epoll_wait(2) all take 
+> > relative timeouts.
 > 
-> > So, how to fix this?
-> > Actually, do we even _have_ to disable TX when scanning? I'd say no.
-> > Opinions?
+> I'm not talking about always using absolute timeouts.
 > 
-> For active scanning we can't disable TX. And for passive scanning the
-> firmware will block unwanted frames from going out on the wrong
-> channel :)
+> I'm saying the timeout parameter should be a struct timespec* and then 
+> the flags word could have a flag meaning "this is an absolute timeout". 
+>   I.e., enable both uses,, even make relative timeouts the default. 
+> This is what the modern POSIX interfaces do, too, see clock_nanosleep.
 
+I agree here. And while you are at it: Have it say "not before" vs. "not after".
 
-Ok, so people, please do test this patch.
-I did not test it myself, but I am pretty sure it will fix
-a lot of mysterious and unobvious bugs people are seeing.
+<rant>
+And if you call "absolute timeout" an "alarm" or "deadline" everyone will agree, 
+that this is useful.
 
+Timeout means "I ran OUT of TIME to do it" and this is by definition relative
+to a starting point. A "deadline" is an absolute point in (wall) time where sth.
+has to be ready and an "alarm" is an absolute point in (wall) time where sth.
+is triggered (e.g. a bell rings on your "ALARM clock").
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+I don't know which person established that non-sense nomenclature about relative
+and absolute timouts.
+</rant>
 
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_scan.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_scan.c	2006-09-27 19:34:20.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_scan.c	2006-11-21 09:57:14.000000000 +0100
-@@ -47,7 +47,6 @@ ieee80211softmac_start_scan(struct ieee8
- 	sm->scanning = 1;
- 	spin_unlock_irqrestore(&sm->lock, flags);
- 
--	netif_tx_disable(sm->ieee->dev);
- 	ret = sm->start_scan(sm->dev);
- 	if (ret) {
- 		spin_lock_irqsave(&sm->lock, flags);
-@@ -248,7 +247,6 @@ void ieee80211softmac_scan_finished(stru
- 		if (net)
- 			sm->set_channel(sm->dev, net->channel);
- 	}
--	netif_wake_queue(sm->ieee->dev);
- 	ieee80211softmac_call_events(sm, IEEE80211SOFTMAC_EVENT_SCAN_FINISHED, NULL);
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_scan_finished);
+Regards
 
-
--- 
-Greetings Michael.
+Ingo Oeser
