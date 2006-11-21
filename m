@@ -1,14 +1,14 @@
 From: Arnaldo Carvalho de Melo <acme@mandriva.com>
-Subject: [PATCH 6/11] [IRDA]: Use kmemdup where applicable
-Date: Tue, 21 Nov 2006 01:28:20 -0200
-Message-ID: <20061121032819.GG7039@mandriva.com>
+Subject: [PATCH 7/11] [SCHED]: Use kmemdup & kzalloc where appropriate
+Date: Tue, 21 Nov 2006 01:28:37 -0200
+Message-ID: <20061121032837.GH7039@mandriva.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.mandriva.com ([212.85.150.183]:11757 "EHLO mx1.mandriva.com")
-	by vger.kernel.org with ESMTP id S1030595AbWKUD20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 22:28:26 -0500
+Received: from mx1.mandriva.com ([212.85.150.183]:13549 "EHLO mx1.mandriva.com")
+	by vger.kernel.org with ESMTP id S1030689AbWKUD2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 22:28:43 -0500
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -16,101 +16,135 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Arnaldo Carvalho de Melo <acme@mandriva.com>
 ---
- net/irda/iriap.c        |    3 +--
- net/irda/irias_object.c |    4 +---
- net/irda/irlmp.c        |    4 +---
- net/irda/irqueue.c      |    3 +--
- 4 files changed, 4 insertions(+), 10 deletions(-)
+ net/sched/act_ipt.c    |    6 ++----
+ net/sched/act_simple.c |    3 +--
+ net/sched/cls_api.c    |    3 +--
+ net/sched/em_meta.c    |    3 +--
+ net/sched/em_nbyte.c   |    4 +---
+ net/sched/ematch.c     |    3 +--
+ 6 files changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/net/irda/iriap.c b/net/irda/iriap.c
-index ab86d70..8cfd076 100644
---- a/net/irda/iriap.c
-+++ b/net/irda/iriap.c
-@@ -172,7 +172,7 @@ struct iriap_cb *iriap_open(__u8 slsap_s
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index d8c9310..a960806 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -156,10 +156,9 @@ static int tcf_ipt_init(struct rtattr *r
+ 	    rtattr_strlcpy(tname, tb[TCA_IPT_TABLE-1], IFNAMSIZ) >= IFNAMSIZ)
+ 		strcpy(tname, "mangle");
  
- 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-	t = kmalloc(td->u.target_size, GFP_KERNEL);
++	t = kmemdup(td, td->u.target_size, GFP_KERNEL);
+ 	if (unlikely(!t))
+ 		goto err2;
+-	memcpy(t, td, td->u.target_size);
  
--	self = kmalloc(sizeof(struct iriap_cb), GFP_ATOMIC);
-+	self = kzalloc(sizeof(*self), GFP_ATOMIC);
- 	if (!self) {
- 		IRDA_WARNING("%s: Unable to kmalloc!\n", __FUNCTION__);
- 		return NULL;
-@@ -181,7 +181,6 @@ struct iriap_cb *iriap_open(__u8 slsap_s
- 	/*
- 	 *  Initialize instance
- 	 */
--	memset(self, 0, sizeof(struct iriap_cb));
+ 	if ((err = ipt_init_target(t, tname, hook)) < 0)
+ 		goto err3;
+@@ -256,13 +255,12 @@ static int tcf_ipt_dump(struct sk_buff *
+ 	** for foolproof you need to not assume this
+ 	*/
  
- 	self->magic = IAS_MAGIC;
- 	self->mode = mode;
-diff --git a/net/irda/irias_object.c b/net/irda/irias_object.c
-index 56292ab..b1ee99a 100644
---- a/net/irda/irias_object.c
-+++ b/net/irda/irias_object.c
-@@ -501,13 +501,12 @@ struct ias_value *irias_new_octseq_value
- 		len = IAS_MAX_OCTET_STRING;
- 	value->len = len;
+-	t = kmalloc(ipt->tcfi_t->u.user.target_size, GFP_ATOMIC);
++	t = kmemdup(ipt->tcfi_t, ipt->tcfi_t->u.user.target_size, GFP_ATOMIC);
+ 	if (unlikely(!t))
+ 		goto rtattr_failure;
  
--	value->t.oct_seq = kmalloc(len, GFP_ATOMIC);
-+	value->t.oct_seq = kmemdup(octseq, len, GFP_ATOMIC);
- 	if (value->t.oct_seq == NULL){
- 		IRDA_WARNING("%s: Unable to kmalloc!\n", __FUNCTION__);
- 		kfree(value);
- 		return NULL;
- 	}
--	memcpy(value->t.oct_seq, octseq , len);
- 	return value;
+ 	c.bindcnt = ipt->tcf_bindcnt - bind;
+ 	c.refcnt = ipt->tcf_refcnt - ref;
+-	memcpy(t, ipt->tcfi_t, ipt->tcfi_t->u.user.target_size);
+ 	strcpy(t->u.user.name, ipt->tcfi_t->u.kernel.target->name);
+ 
+ 	RTA_PUT(skb, TCA_IPT_TARG, ipt->tcfi_t->u.user.target_size, t);
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
+index 901571a..5fe8085 100644
+--- a/net/sched/act_simple.c
++++ b/net/sched/act_simple.c
+@@ -71,11 +71,10 @@ static int tcf_simp_release(struct tcf_d
+ 
+ static int alloc_defdata(struct tcf_defact *d, u32 datalen, void *defdata)
+ {
+-	d->tcfd_defdata = kmalloc(datalen, GFP_KERNEL);
++	d->tcfd_defdata = kmemdup(defdata, datalen, GFP_KERNEL);
+ 	if (unlikely(!d->tcfd_defdata))
+ 		return -ENOMEM;
+ 	d->tcfd_datalen = datalen;
+-	memcpy(d->tcfd_defdata, defdata, datalen);
+ 	return 0;
  }
  
-@@ -522,7 +521,6 @@ struct ias_value *irias_new_missing_valu
- 	}
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 37a1840..edb8fc9 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -217,7 +217,7 @@ replay:
+ 		/* Create new proto tcf */
  
- 	value->type = IAS_MISSING;
--	value->len = 0;
+ 		err = -ENOBUFS;
+-		if ((tp = kmalloc(sizeof(*tp), GFP_KERNEL)) == NULL)
++		if ((tp = kzalloc(sizeof(*tp), GFP_KERNEL)) == NULL)
+ 			goto errout;
+ 		err = -EINVAL;
+ 		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND-1]);
+@@ -247,7 +247,6 @@ #endif
+ 			kfree(tp);
+ 			goto errout;
+ 		}
+-		memset(tp, 0, sizeof(*tp));
+ 		tp->ops = tp_ops;
+ 		tp->protocol = protocol;
+ 		tp->prio = nprio ? : tcf_auto_prio(*back);
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index d3ff350..45d47d3 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -546,10 +546,9 @@ static int meta_var_change(struct meta_v
+ {
+ 	int len = RTA_PAYLOAD(rta);
  
- 	return value;
+-	dst->val = (unsigned long) kmalloc(len, GFP_KERNEL);
++	dst->val = (unsigned long)kmemdup(RTA_DATA(rta), len, GFP_KERNEL);
+ 	if (dst->val == 0UL)
+ 		return -ENOMEM;
+-	memcpy((void *) dst->val, RTA_DATA(rta), len);
+ 	dst->len = len;
+ 	return 0;
  }
-diff --git a/net/irda/irlmp.c b/net/irda/irlmp.c
-index 5073261..0599ac1 100644
---- a/net/irda/irlmp.c
-+++ b/net/irda/irlmp.c
-@@ -641,15 +641,13 @@ struct lsap_cb *irlmp_dup(struct lsap_cb
- 	}
+diff --git a/net/sched/em_nbyte.c b/net/sched/em_nbyte.c
+index cc80bab..005db40 100644
+--- a/net/sched/em_nbyte.c
++++ b/net/sched/em_nbyte.c
+@@ -34,12 +34,10 @@ static int em_nbyte_change(struct tcf_pr
+ 		return -EINVAL;
  
- 	/* Allocate a new instance */
--	new = kmalloc(sizeof(struct lsap_cb), GFP_ATOMIC);
-+	new = kmemdup(orig, sizeof(*new), GFP_ATOMIC);
- 	if (!new)  {
- 		IRDA_DEBUG(0, "%s(), unable to kmalloc\n", __FUNCTION__);
- 		spin_unlock_irqrestore(&irlmp->unconnected_lsaps->hb_spinlock,
- 				       flags);
- 		return NULL;
- 	}
--	/* Dup */
--	memcpy(new, orig, sizeof(struct lsap_cb));
- 	/* new->lap = orig->lap; => done in the memcpy() */
- 	/* new->slsap_sel = orig->slsap_sel; => done in the memcpy() */
- 	new->conn_skb = NULL;
-diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
-index 1ba8c71..1d26cd3 100644
---- a/net/irda/irqueue.c
-+++ b/net/irda/irqueue.c
-@@ -356,14 +356,13 @@ hashbin_t *hashbin_new(int type)
- 	/*
- 	 * Allocate new hashbin
- 	 */
--	hashbin = kmalloc( sizeof(hashbin_t), GFP_ATOMIC);
-+	hashbin = kzalloc(sizeof(*hashbin), GFP_ATOMIC);
- 	if (!hashbin)
- 		return NULL;
+ 	em->datalen = sizeof(*nbyte) + nbyte->len;
+-	em->data = (unsigned long) kmalloc(em->datalen, GFP_KERNEL);
++	em->data = (unsigned long)kmemdup(data, em->datalen, GFP_KERNEL);
+ 	if (em->data == 0UL)
+ 		return -ENOBUFS;
  
- 	/*
- 	 * Initialize structure
- 	 */
--	memset(hashbin, 0, sizeof(hashbin_t));
- 	hashbin->hb_type = type;
- 	hashbin->magic = HB_MAGIC;
- 	//hashbin->hb_current = NULL;
+-	memcpy((void *) em->data, data, em->datalen);
+-
+ 	return 0;
+ }
+ 
+diff --git a/net/sched/ematch.c b/net/sched/ematch.c
+index 0fd0768..8f8a16d 100644
+--- a/net/sched/ematch.c
++++ b/net/sched/ematch.c
+@@ -251,12 +251,11 @@ static int tcf_em_validate(struct tcf_pr
+ 					goto errout;
+ 				em->data = *(u32 *) data;
+ 			} else {
+-				void *v = kmalloc(data_len, GFP_KERNEL);
++				void *v = kmemdup(data, data_len, GFP_KERNEL);
+ 				if (v == NULL) {
+ 					err = -ENOBUFS;
+ 					goto errout;
+ 				}
+-				memcpy(v, data, data_len);
+ 				em->data = (unsigned long) v;
+ 			}
+ 		}
 -- 
 1.4.2.1.g3d5c
 
