@@ -1,209 +1,72 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take25 6/6] kevent: Pipe notifications.
-Date: Tue, 21 Nov 2006 19:29:58 +0300
-Message-ID: <11641265981515@2ka.mipt.ru>
-References: <11641265981841@2ka.mipt.ru>
-Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: RFC/T: Trial fix for the bcm43xx - wpa_supplicant - NetworkManager
+	deadlock
+Date: Tue, 21 Nov 2006 10:30:59 -0600
+Message-ID: <456329C3.1040504@lwfinger.net>
+References: <4561DBE0.2060908@lwfinger.net> <200611210017.47695.mb@bu3sch.de>
+	<1164098989.2769.9.camel@ux156> <200611210959.17644.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dea.vocord.ru ([217.67.177.50]:23466 "EHLO
-	kano.factory.vocord.ru") by vger.kernel.org with ESMTP
-	id S1031089AbWKUQal convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 11:30:41 -0500
-In-Reply-To: <11641265981841@2ka.mipt.ru>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Joseph Fannin <jhf-rN3PHIWzTs1Jm/Hvfsr4+Q@public.gmane.org>, Ray Lee <ray-lk-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+In-Reply-To: <200611210959.17644.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Michael Buesch wrote:
+> On Tuesday 21 November 2006 09:49, Johannes Berg wrote:
+>> On Tue, 2006-11-21 at 00:17 +0100, Michael Buesch wrote:
+>>
+>>> So, how to fix this?
+>>> Actually, do we even _have_ to disable TX when scanning? I'd say no.
+>>> Opinions?
+>> For active scanning we can't disable TX. And for passive scanning the
+>> firmware will block unwanted frames from going out on the wrong
+>> channel :)
+> 
+> 
+> Ok, so people, please do test this patch.
+> I did not test it myself, but I am pretty sure it will fix
+> a lot of mysterious and unobvious bugs people are seeing.
 
-Pipe notifications.
+I put the equivalent into my system about 12 hours ago and have not seen any problems.
 
+Larry
 
-diff --git a/fs/pipe.c b/fs/pipe.c
-index f3b6f71..aeaee9c 100644
---- a/fs/pipe.c
-+++ b/fs/pipe.c
-@@ -16,6 +16,7 @@
- #include <linux/uio.h>
- #include <linux/highmem.h>
- #include <linux/pagemap.h>
-+#include <linux/kevent.h>
- 
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
-@@ -312,6 +313,7 @@ redo:
- 			break;
- 		}
- 		if (do_wakeup) {
-+			kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
- 			wake_up_interruptible_sync(&pipe->wait);
-  			kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
- 		}
-@@ -321,6 +323,7 @@ redo:
- 
- 	/* Signal writers asynchronously that there is more room. */
- 	if (do_wakeup) {
-+		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
- 		wake_up_interruptible(&pipe->wait);
- 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
- 	}
-@@ -490,6 +493,7 @@ redo2:
- 			break;
- 		}
- 		if (do_wakeup) {
-+			kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
- 			wake_up_interruptible_sync(&pipe->wait);
- 			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
- 			do_wakeup = 0;
-@@ -501,6 +505,7 @@ redo2:
- out:
- 	mutex_unlock(&inode->i_mutex);
- 	if (do_wakeup) {
-+		kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
- 		wake_up_interruptible(&pipe->wait);
- 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
- 	}
-@@ -605,6 +610,7 @@ pipe_release(struct inode *inode, int de
- 		free_pipe_info(inode);
- 	} else {
- 		wake_up_interruptible(&pipe->wait);
-+		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
- 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
- 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
- 	}
-diff --git a/kernel/kevent/kevent_pipe.c b/kernel/kevent/kevent_pipe.c
-new file mode 100644
-index 0000000..5080642
---- /dev/null
-+++ b/kernel/kevent/kevent_pipe.c
-@@ -0,0 +1,117 @@
-+/*
-+ * 	kevent_pipe.c
-+ * 
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/file.h>
-+#include <linux/fs.h>
-+#include <linux/kevent.h>
-+#include <linux/pipe_fs_i.h>
-+
-+static int kevent_pipe_callback(struct kevent *k)
-+{
-+	struct inode *inode = k->st->origin;
-+	struct pipe_inode_info *pipe = inode->i_pipe;
-+	int nrbufs = pipe->nrbufs;
-+
-+	if (k->event.event & KEVENT_SOCKET_RECV && nrbufs > 0) {
-+		if (!pipe->writers)
-+			return -1;
-+		return 1;
-+	}
-+	
-+	if (k->event.event & KEVENT_SOCKET_SEND && nrbufs < PIPE_BUFFERS) {
-+		if (!pipe->readers)
-+			return -1;
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int kevent_pipe_enqueue(struct kevent *k)
-+{
-+	struct file *pipe;
-+	int err = -EBADF;
-+	struct inode *inode;
-+
-+	pipe = fget(k->event.id.raw[0]);
-+	if (!pipe)
-+		goto err_out_exit;
-+
-+	inode = igrab(pipe->f_dentry->d_inode);
-+	if (!inode)
-+		goto err_out_fput;
-+
-+	err = kevent_storage_enqueue(&inode->st, k);
-+	if (err)
-+		goto err_out_iput;
-+
-+	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
-+		kevent_requeue(k);
-+		err = 0;
-+	} else {
-+		err = k->callbacks.callback(k);
-+		if (err)
-+			goto err_out_dequeue;
-+	}
-+
-+	fput(pipe);
-+
-+	return err;
-+
-+err_out_dequeue:
-+	kevent_storage_dequeue(k->st, k);
-+err_out_iput:
-+	iput(inode);
-+err_out_fput:
-+	fput(pipe);
-+err_out_exit:
-+	return err;
-+}
-+
-+int kevent_pipe_dequeue(struct kevent *k)
-+{
-+	struct inode *inode = k->st->origin;
-+
-+	kevent_storage_dequeue(k->st, k);
-+	iput(inode);
-+
-+	return 0;
-+}
-+
-+void kevent_pipe_notify(struct inode *inode, u32 event)
-+{
-+	kevent_storage_ready(&inode->st, NULL, event);
-+}
-+
-+static int __init kevent_init_pipe(void)
-+{
-+	struct kevent_callbacks sc = {
-+		.callback = &kevent_pipe_callback,
-+		.enqueue = &kevent_pipe_enqueue,
-+		.dequeue = &kevent_pipe_dequeue};
-+
-+	return kevent_add_callbacks(&sc, KEVENT_PIPE);
-+}
-+module_init(kevent_init_pipe);
-
+> 
+> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+> 
+> Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_scan.c
+> ===================================================================
+> --- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_scan.c	2006-09-27 19:34:20.000000000 +0200
+> +++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_scan.c	2006-11-21 09:57:14.000000000 +0100
+> @@ -47,7 +47,6 @@ ieee80211softmac_start_scan(struct ieee8
+>  	sm->scanning = 1;
+>  	spin_unlock_irqrestore(&sm->lock, flags);
+>  
+> -	netif_tx_disable(sm->ieee->dev);
+>  	ret = sm->start_scan(sm->dev);
+>  	if (ret) {
+>  		spin_lock_irqsave(&sm->lock, flags);
+> @@ -248,7 +247,6 @@ void ieee80211softmac_scan_finished(stru
+>  		if (net)
+>  			sm->set_channel(sm->dev, net->channel);
+>  	}
+> -	netif_wake_queue(sm->ieee->dev);
+>  	ieee80211softmac_call_events(sm, IEEE80211SOFTMAC_EVENT_SCAN_FINISHED, NULL);
+>  }
+>  EXPORT_SYMBOL_GPL(ieee80211softmac_scan_finished);
+> 
+> 
