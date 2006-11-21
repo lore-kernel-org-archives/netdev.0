@@ -1,59 +1,101 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Tue, 21 Nov 2006 21:46:05 +0300
-Message-ID: <20061121184605.GA7787@2ka.mipt.ru>
-References: <11630606361046@2ka.mipt.ru> <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
+Date: Tue, 21 Nov 2006 11:12:50 -0800
+Message-ID: <20061121111250.093c423c@freekitty>
+References: <F09F8223E8BE7D42BDA1800B19F3440D9220D5@ALA-MAIL03.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Martin Michlmayr" <tbm@cyrius.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:20402 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030869AbWKUSwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 13:52:01 -0500
-To: Ulrich Drepper <drepper@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20061121174334.GA25518@2ka.mipt.ru>
+Received: from smtp.osdl.org ([65.172.181.25]:26263 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1031327AbWKUTMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 14:12:55 -0500
+To: "Yang, Steve" <steve.yang@windriver.com>
+In-Reply-To: <F09F8223E8BE7D42BDA1800B19F3440D9220D5@ALA-MAIL03.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 21, 2006 at 08:43:34PM +0300, Evgeniy Polyakov (johnpol@2ka=
-=2Emipt.ru) wrote:
-> > I've explained this multiple times.  The struct sigevent structure =
-needs=20
-> > to be extended to get a new part in the union.  Something like
-> >=20
-> >   struct {
-> >     int kevent_fd;
-> >     void *data;
-> >   } _sigev_kevent;
-> >=20
-> > Then define SIGEV_KEVENT as a value distinct from the other SIGEV_=20
-> > values.  In the code which handles setup of timers (the timer_creat=
-e=20
-> > syscall), recognize SIGEV_KEVENT and handle it appropriately.  I.e.=
-,=20
-> > call into the code to register the event source, just like you'd do=
- with=20
-> > the current interface.  Then add the code to post an event to the e=
-vent=20
-> > queue where currently signals would be sent et voil=C3=A0.
->=20
-> Ok, I see.
-> It is doable and simple.
-> I will try to implement it tomorrow.
+On Tue, 21 Nov 2006 08:45:58 -0800
+"Yang, Steve" <steve.yang@windriver.com> wrote:
 
-I've checked the code.
-Since it will be a union, it is impossible to use _sigev_thread and it
-becomes just SIGEV_SIGNAL case with different delivery mechanism.
-Is it what you want?
+> Martin,
+> 
+> I've attached the two patches with this email.
+> 
+> Original submission email text:
+> 
+> "The attached are two network performance enhancement patches for SB1250
+> MAC. The NAPI patch applies first. Followed by the "skb cache" patch.
+> They applied and builds cleanly on 2.6.18 kernel for the following
+> kernel option combinations:
+> 
+> SBMAC_NAPI	no	yes	yes
+> SKB_CACHE	no	no	yes"
+> 
+> Regards, 
+> Steve Yang
+> 
+> -----Original Message-----
+> From: Martin Michlmayr [mailto:tbm@cyrius.com] 
+> Sent: Tuesday, November 21, 2006 6:27 AM
+> To: Stephen Hemminger
+> Cc: Yang, Steve; netdev@vger.kernel.org
+> Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
+> 
+> * Stephen Hemminger <shemminger@osdl.org> [2006-11-20 15:35]:
+> > > 1. I've submitted two patches, one for NAPI and the other for
+> SKB_Cache.
+> > > They can go in individually. You've expressed objections to
+> SKB_Cache.
+> > > What about the one for NAPI?
+> > Yes, the NAPI one is great.
+> 
+> Should Steve resend the patch so it can be added or is it queued up
+> already?  It would be nice to have this in 2.6.20.
+> --
+> Martin Michlmayr
+> tbm@cyrius.com
 
---=20
-	Evgeniy Polyakov
+One comment about the driver in general (not NAPI related), is that
+almost all uses of "volatile" in a driver are incorrect.  Especially these
+because the device memory (__iomem) should already be mapped non-cached.
+
+Volatile protects against compiler issues, not device consistency.
+
+@@ -197,13 +206,16 @@
+ 	volatile void __iomem *sbdma_config0;	/* DMA config register 0 */
+ 	volatile void __iomem *sbdma_config1;	/* DMA config register 1 */
+ 	volatile void __iomem *sbdma_dscrbase;	/* Descriptor base address */
+-	volatile void __iomem *sbdma_dscrcnt;     /* Descriptor count register */
++	volatile void __iomem *sbdma_dscrcnt;   /* Descriptor count register */
+ 	volatile void __iomem *sbdma_curdscr;	/* current descriptor address */
++	volatile void __iomem *sbdma_oodpktlost;/* pkt drop (rx only) */
++
+ 
+Also, how is this NAPI related (probably should be a different patch.
+But I no nothing about MIPS SMP.
+
+Index: linux-2.6.14-cgl/arch/mips/sibyte/bcm1480/irq.c
+===================================================================
+--- linux-2.6.14-cgl.orig/arch/mips/sibyte/bcm1480/irq.c	2006-09-20 14:58:41.000000000 -0700
++++ linux-2.6.14-cgl/arch/mips/sibyte/bcm1480/irq.c	2006-09-20 15:58:33.000000000 -0700
+@@ -144,11 +144,11 @@
+ 	unsigned long flags;
+ 	unsigned int irq_dirty;
+ 
+-	i = first_cpu(mask);
+-	if (next_cpu(i, mask) <= NR_CPUS) {
++	if (cpus_weight(mask) != 1) {
+ 		printk("attempted to set irq affinity for irq %d to multiple CPUs\n", irq);
+ 		return;
+ 	}
++	i = first_cpu(mask);
+ 
+ 	/* Convert logical CPU to physical CPU */
+ 	cpu = cpu_logical_map(i);
+
+
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
