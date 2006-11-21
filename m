@@ -1,70 +1,51 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to implicate xfs, scsi, networking, SMP
-Date: Tue, 21 Nov 2006 23:02:23 +0100
-Message-ID: <9a8748490611211402xdc2822fqbc95a77fe54d49b1@mail.gmail.com>
-References: <200611211027.41971.jesper.juhl@gmail.com>
-	 <45637566.5020802@melbourne.sgi.com>
+From: Ira Snyder <kernel@irasnyder.com>
+Subject: [PATCH] tg3: add missing unlock in tg3_open() error path
+Date: Tue, 21 Nov 2006 14:23:11 -0800
+Message-ID: <20061121142311.4d1b9510.kernel@irasnyder.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, xfs@oss.sgi.com,
-	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030205AbWKUWC1@vger.kernel.org>
-To: chatz@melbourne.sgi.com
-In-Reply-To: <45637566.5020802@melbourne.sgi.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gilford.textdrive.com ([207.7.108.53]:2271 "EHLO
+	gilford.textdrive.com") by vger.kernel.org with ESMTP
+	id S1756774AbWKUWXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Nov 2006 17:23:12 -0500
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 21/11/06, David Chatterton <chatz@melbourne.sgi.com> wrote:
-> Jesper,
->
-> In the short term, the best workaround is to use 8K stacks.
+[PATCH] tg3: add missing unlock in tg3_open() error path
 
-Yeah, that's what I'm currently doing and the box seems more stable
-(at least it has not crashed yet, but with 4K stacks it usually would
-have by now).
+Sparse noticed a locking imbalance in tg3_open(). This patch adds an unlock
+to one of the error paths, so that tg3_open() always exits without the
+lock held.
 
-> We do not see stack
-> overflow problems with NFS + XFS + volume managers + disk devices.
->
-Could the size of my devices be part of the cause? some of the logical
-volumes I have mounted are multiple TB in size?
+Signed-off-by: Ira W. Snyder <kernel@irasnyder.com>
 
+---
+commit e114d89ecaab99bc175c1db497d9c851e750ca3d
+tree d4e82d18cd108d9dea4d01b81890d86c0519048d
+parent f84c313680a21fd6c487ac17f69c4c115472e257
+author Ira W. Snyder <kernel@irasnyder.com> Mon, 20 Nov 2006 11:03:03 -0800
+committer Ira W. Snyder <kernel@irasnyder.com> Mon, 20 Nov 2006 11:03:03 -0800
 
-> Audits have been done in the past and will again be done in the future to try to
-> identify areas where XFS could use less stack space by reducing/avoid large
-> local variables. Reducing the code path is far more difficult.
->
-I realize that fixing the problem may be difficult. I just wanted to
-make sure that people were informed that there is an actual problem
-and provide as much info as possible so that perhaps in the future it
-can be fixed... :)
-I'm reading through the XFS code myself at the moment and I'll be sure
-to submit patches if I spot something that could help reduce stack
-usage.
+ drivers/net/tg3.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-
-> There is active discussion about reducing inlining:
-> http://bugzilla.kernel.org/show_bug.cgi?id=7364
->
-
-Thanks, I'll check that out.
-
-
-> I can't speak for the scsi stack usage.
->
-> Thanks for traces, I've captured this information.
->
-You are welcome. If you want/need more traces then I've got ~2.1G
-worth of traces that you can have :)
-
-
-Thank you for your reply.
-
-
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 1dbdd6b..c20bb99 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -6979,8 +6979,10 @@ static int tg3_open(struct net_device *d
+ 	tg3_full_lock(tp, 0);
+ 
+ 	err = tg3_set_power_state(tp, PCI_D0);
+-	if (err)
++	if (err) {
++		tg3_full_unlock(tp);
+ 		return err;
++	}
+ 
+ 	tg3_disable_ints(tp);
+ 	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
