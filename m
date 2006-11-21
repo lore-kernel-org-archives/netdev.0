@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
-Date: Mon, 20 Nov 2006 15:58:25 -0800 (PST)
-Message-ID: <20061120.155825.59657887.davem@davemloft.net>
-References: <F09F8223E8BE7D42BDA1800B19F3440D922017@ALA-MAIL03.corp.ad.wrs.com>
-	<20061120153548.71f90b7a@freekitty>
+Subject: Re: Bluetooth update for 2.6
+Date: Mon, 20 Nov 2006 19:14:06 -0500 (EST)
+Message-ID: <20061120.191406.21913052.davem@davemloft.net>
+References: <1163896473.4413.11.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.yang@windriver.com, netdev@vger.kernel.org
+Cc: torvalds@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:7099
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S966869AbWKTX6V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Nov 2006 18:58:21 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061120153548.71f90b7a@freekitty>
+Received: from localhost.localdomain ([127.0.0.1]:24508 "EHLO localhost")
+	by vger.kernel.org with ESMTP id S1030557AbWKUAOH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 19:14:07 -0500
+To: marcel@holtmann.org
+In-Reply-To: <1163896473.4413.11.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 20 Nov 2006 15:35:48 -0800
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Sun, 19 Nov 2006 01:34:33 +0100
 
-> I am not the final decider on this. Ask Jeff/David? Maybe there is some
-> more general work that can be done to speed up skb allocation.
+> here are some additional fixes that should go into 2.6.19 before its
+> final release. Please forward them to Linus as soon as possible.
+ ...
+> Please pull from
+> 
+>         git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
 
-We used to have a skb_head per-cpu cache in skbuff.c but we killed
-it because SLAB was nearly as good and using generic code always
-trumps localized hacks like this.
-
-I suggest we don't regress in this area.
+Pulled, thanks a lot Marcel.
