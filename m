@@ -1,101 +1,64 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
-Date: Tue, 21 Nov 2006 11:12:50 -0800
-Message-ID: <20061121111250.093c423c@freekitty>
-References: <F09F8223E8BE7D42BDA1800B19F3440D9220D5@ALA-MAIL03.corp.ad.wrs.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [RFC: net-2.6.20 patch] remove unused exports
+Date: Tue, 21 Nov 2006 20:42:05 +0100
+Message-ID: <20061121194205.GI5200@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Martin Michlmayr" <tbm@cyrius.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:26263 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1031327AbWKUTMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 14:12:55 -0500
-To: "Yang, Steve" <steve.yang@windriver.com>
-In-Reply-To: <F09F8223E8BE7D42BDA1800B19F3440D9220D5@ALA-MAIL03.corp.ad.wrs.com>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:4361 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1031346AbWKUTmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Nov 2006 14:42:05 -0500
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Nov 2006 08:45:58 -0800
-"Yang, Steve" <steve.yang@windriver.com> wrote:
+Thie patch removes the following not or no longer used exports:
+- drivers/char/random.c: secure_tcp_sequence_number
+- net/dccp/options.c: sysctl_dccp_feat_sequence_window
+- net/netlink/af_netlink.c: netlink_set_err
 
-> Martin,
-> 
-> I've attached the two patches with this email.
-> 
-> Original submission email text:
-> 
-> "The attached are two network performance enhancement patches for SB1250
-> MAC. The NAPI patch applies first. Followed by the "skb cache" patch.
-> They applied and builds cleanly on 2.6.18 kernel for the following
-> kernel option combinations:
-> 
-> SBMAC_NAPI	no	yes	yes
-> SKB_CACHE	no	no	yes"
-> 
-> Regards, 
-> Steve Yang
-> 
-> -----Original Message-----
-> From: Martin Michlmayr [mailto:tbm@cyrius.com] 
-> Sent: Tuesday, November 21, 2006 6:27 AM
-> To: Stephen Hemminger
-> Cc: Yang, Steve; netdev@vger.kernel.org
-> Subject: Re: [patch] Performance enhancement patches for SB1250 MAC
-> 
-> * Stephen Hemminger <shemminger@osdl.org> [2006-11-20 15:35]:
-> > > 1. I've submitted two patches, one for NAPI and the other for
-> SKB_Cache.
-> > > They can go in individually. You've expressed objections to
-> SKB_Cache.
-> > > What about the one for NAPI?
-> > Yes, the NAPI one is great.
-> 
-> Should Steve resend the patch so it can be added or is it queued up
-> already?  It would be nice to have this in 2.6.20.
-> --
-> Martin Michlmayr
-> tbm@cyrius.com
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-One comment about the driver in general (not NAPI related), is that
-almost all uses of "volatile" in a driver are incorrect.  Especially these
-because the device memory (__iomem) should already be mapped non-cached.
+---
 
-Volatile protects against compiler issues, not device consistency.
+ drivers/char/random.c    |    2 --
+ net/dccp/options.c       |    2 --
+ net/netlink/af_netlink.c |    1 -
+ 3 files changed, 5 deletions(-)
 
-@@ -197,13 +206,16 @@
- 	volatile void __iomem *sbdma_config0;	/* DMA config register 0 */
- 	volatile void __iomem *sbdma_config1;	/* DMA config register 1 */
- 	volatile void __iomem *sbdma_dscrbase;	/* Descriptor base address */
--	volatile void __iomem *sbdma_dscrcnt;     /* Descriptor count register */
-+	volatile void __iomem *sbdma_dscrcnt;   /* Descriptor count register */
- 	volatile void __iomem *sbdma_curdscr;	/* current descriptor address */
-+	volatile void __iomem *sbdma_oodpktlost;/* pkt drop (rx only) */
-+
+--- linux-2.6.19-rc5-mm2/net/netlink/af_netlink.c.old	2006-11-21 19:15:12.000000000 +0100
++++ linux-2.6.19-rc5-mm2/net/netlink/af_netlink.c	2006-11-21 19:15:19.000000000 +0100
+@@ -1827,7 +1827,6 @@
+ EXPORT_SYMBOL(netlink_dump_start);
+ EXPORT_SYMBOL(netlink_kernel_create);
+ EXPORT_SYMBOL(netlink_register_notifier);
+-EXPORT_SYMBOL(netlink_set_err);
+ EXPORT_SYMBOL(netlink_set_nonroot);
+ EXPORT_SYMBOL(netlink_unicast);
+ EXPORT_SYMBOL(netlink_unregister_notifier);
+--- linux-2.6.19-rc5-mm2/drivers/char/random.c.old	2006-11-21 19:19:34.000000000 +0100
++++ linux-2.6.19-rc5-mm2/drivers/char/random.c	2006-11-21 19:19:45.000000000 +0100
+@@ -1556,8 +1556,6 @@
+ 	return seq;
+ }
  
-Also, how is this NAPI related (probably should be a different patch.
-But I no nothing about MIPS SMP.
-
-Index: linux-2.6.14-cgl/arch/mips/sibyte/bcm1480/irq.c
-===================================================================
---- linux-2.6.14-cgl.orig/arch/mips/sibyte/bcm1480/irq.c	2006-09-20 14:58:41.000000000 -0700
-+++ linux-2.6.14-cgl/arch/mips/sibyte/bcm1480/irq.c	2006-09-20 15:58:33.000000000 -0700
-@@ -144,11 +144,11 @@
- 	unsigned long flags;
- 	unsigned int irq_dirty;
+-EXPORT_SYMBOL(secure_tcp_sequence_number);
+-
+ /* Generate secure starting point for ephemeral IPV4 transport port search */
+ u32 secure_ipv4_port_ephemeral(__u32 saddr, __u32 daddr, __u16 dport)
+ {
+--- linux-2.6.19-rc5-mm2/net/dccp/options.c.old	2006-11-21 20:02:28.000000000 +0100
++++ linux-2.6.19-rc5-mm2/net/dccp/options.c	2006-11-21 20:02:34.000000000 +0100
+@@ -29,8 +29,6 @@
+ int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
+ int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
  
--	i = first_cpu(mask);
--	if (next_cpu(i, mask) <= NR_CPUS) {
-+	if (cpus_weight(mask) != 1) {
- 		printk("attempted to set irq affinity for irq %d to multiple CPUs\n", irq);
- 		return;
- 	}
-+	i = first_cpu(mask);
- 
- 	/* Convert logical CPU to physical CPU */
- 	cpu = cpu_logical_map(i);
+-EXPORT_SYMBOL_GPL(sysctl_dccp_feat_sequence_window);
+-
+ void dccp_minisock_init(struct dccp_minisock *dmsk)
+ {
+ 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
 
-
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
