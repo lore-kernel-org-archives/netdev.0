@@ -1,28 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Tue, 21 Nov 2006 15:19:05 -0500
-Message-ID: <45635F39.1000708@garzik.org>
-References: <11630606361046@2ka.mipt.ru> <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <20061121184605.GA7787@2ka.mipt.ru>
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
+Date: Tue, 21 Nov 2006 21:25:41 +0100
+Message-ID: <20061121202541.GA23036@dreamland.darkstar.lan>
+References: <20061119202817.GA29736@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Alexander Viro <aviro@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031383AbWKUUTS@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061121184605.GA7787@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:60085 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1031400AbWKUUZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Nov 2006 15:25:47 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so285854nfa
+        for <netdev@vger.kernel.org>; Tue, 21 Nov 2006 12:25:46 -0800 (PST)
+To: Chris Snook <csnook@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20061119202817.GA29736@osprey.hogchain.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Another:  pass a 'flags' argument to kevent_init(2).  I guarantee you 
-will need it eventually.  It IMO would help with later binary 
-compatibility, if nothing else.  You wouldn't need a new syscall to 
-introduce struct kevent_ring_v2.
+Chris Snook <csnook@redhat.com> ha scritto:
+> Jay Cliburn wrote:
+>> Based upon feedback from Stephen Hemminger and Francois Romieu, please
+>> consider this resubmitted patchset that provides support for the Attansic 
+>> L1 gigabit ethernet adapter.  This patchset is built against 2.6.19-rc6.  
+>> The original patchset was submitted 20060927.
+[...]
+> 
+> I've been working on this with Jay since his initial submission.  Thanks 
+> to everyone who has provided feedback on the resubmit.  We're currently 
+> quite short on actual testers, since the chip only seems to be on Asus 
+> M2V motherboards at present.  Please let me and Jay know if you have one 
+> of these boards and would like to test and/or have encountered bugs.
 
-	Jeff
+Asus P5B-E also has L1 chip. I'll get the board in a few days and I'll
+test whatever patch you throw at me ;)
+
+Luca
+-- 
+Not an editor command: Wq
