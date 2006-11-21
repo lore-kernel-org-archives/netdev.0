@@ -1,51 +1,59 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [patch -mm] net namespace: empty framework
-Date: Tue, 21 Nov 2006 19:16:55 +0100
-Message-ID: <20061121181655.GA14656@MAIL.13thfloor.at>
-References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru> <45633EDF.3050309@fr.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
+Date: Tue, 21 Nov 2006 21:46:05 +0300
+Message-ID: <20061121184605.GA7787@2ka.mipt.ru>
+References: <11630606361046@2ka.mipt.ru> <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kirill Korotaev <dev@sw.ru>, Cedric Le Goater <clg@fr.ibm.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Dmitry Mishin <dim@sw.ru>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([213.145.232.33]:11413 "EHLO
-	MAIL.13thfloor.at") by vger.kernel.org with ESMTP id S1031201AbWKUSQ4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Nov 2006 13:16:56 -0500
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:20402 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030869AbWKUSwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 13:52:01 -0500
+To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <45633EDF.3050309@fr.ibm.com>
+In-Reply-To: <20061121174334.GA25518@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 21, 2006 at 07:01:03PM +0100, Daniel Lezcano wrote:
-> Kirill Korotaev wrote:
-> >Cedric,
-> >
-> >Dmitry Mishin and Daniel Lezcano are working together on the full
-> >network namespace incorporating both needs of OpenVZ and VServer/IBM.
-> >
-> >Thanks,
-> >Kirill
-> 
-> Kirill,
-> 
-> We will need this framework to move the network isolation code to the 
-> ns_proxy/net_namespace structure. So if Cedric gives us a empty 
-> framework it is fine, except if someone does not agree with it...
+On Tue, Nov 21, 2006 at 08:43:34PM +0300, Evgeniy Polyakov (johnpol@2ka=
+=2Emipt.ru) wrote:
+> > I've explained this multiple times.  The struct sigevent structure =
+needs=20
+> > to be extended to get a new part in the union.  Something like
+> >=20
+> >   struct {
+> >     int kevent_fd;
+> >     void *data;
+> >   } _sigev_kevent;
+> >=20
+> > Then define SIGEV_KEVENT as a value distinct from the other SIGEV_=20
+> > values.  In the code which handles setup of timers (the timer_creat=
+e=20
+> > syscall), recognize SIGEV_KEVENT and handle it appropriately.  I.e.=
+,=20
+> > call into the code to register the event source, just like you'd do=
+ with=20
+> > the current interface.  Then add the code to post an event to the e=
+vent=20
+> > queue where currently signals would be sent et voil=C3=A0.
+>=20
+> Ok, I see.
+> It is doable and simple.
+> I will try to implement it tomorrow.
 
-no problem here, but I think we will need another one,
-or some smart way to do the network isolation (layer 3)
-for the network namespace (as alternative to the layer 2
-approach) ...
+I've checked the code.
+Since it will be a union, it is impossible to use _sigev_thread and it
+becomes just SIGEV_SIGNAL case with different delivery mechanism.
+Is it what you want?
 
-as they are both complementary in some way, I'm not sure
-a single space will suffice ... 
-
-best,
-Herbert
-
->   -- Daniel.
+--=20
+	Evgeniy Polyakov
