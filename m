@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth update for 2.6
-Date: Mon, 20 Nov 2006 19:14:06 -0500 (EST)
-Message-ID: <20061120.191406.21913052.davem@davemloft.net>
-References: <1163896473.4413.11.camel@localhost>
+Subject: Re: [BRIDGE] netlink: Convert bridge netlink code to new netlink
+ interface
+Date: Mon, 20 Nov 2006 16:20:37 -0800 (PST)
+Message-ID: <20061120.162037.41877867.davem@davemloft.net>
+References: <20061119171002.GH8693@postel.suug.ch>
+	<20061120101317.5c411c3c@freekitty>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, netdev@vger.kernel.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:24508 "EHLO localhost")
-	by vger.kernel.org with ESMTP id S1030557AbWKUAOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Nov 2006 19:14:07 -0500
-To: marcel@holtmann.org
-In-Reply-To: <1163896473.4413.11.camel@localhost>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:30182
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S966888AbWKUAUe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Nov 2006 19:20:34 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061120101317.5c411c3c@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Sun, 19 Nov 2006 01:34:33 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Mon, 20 Nov 2006 10:13:17 -0800
 
-> here are some additional fixes that should go into 2.6.19 before its
-> final release. Please forward them to Linus as soon as possible.
- ...
-> Please pull from
+> On Sun, 19 Nov 2006 18:10:02 +0100
+> Thomas Graf <tgraf@suug.ch> wrote:
 > 
->         git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+> > Removes dependency on buggy rta_buf, fixes a memory corruption bug due to
+> > a unvalidated netlink attribute, and simplifies the code.
+> > 
+> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> Looks fine, please put in 2.6.20
 
-Pulled, thanks a lot Marcel.
+Done, thanks everyone.
