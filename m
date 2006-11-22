@@ -1,41 +1,38 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Wed, 22 Nov 2006 13:02:00 -0800
-Message-ID: <4564BAC8.6020306@redhat.com>
-References: <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <20061121184605.GA7787@2ka.mipt.ru> <4563FE71.4040807@redhat.com> <20061122104416.GD11480@2ka.mipt.ru>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: Generic Netlink HOW-TO based on Jamal's original doc
+Date: Wed, 22 Nov 2006 16:38:55 -0500
+Message-ID: <4564C36F.8050303@hp.com>
+References: <20061110173642.GL8693@postel.suug.ch> <20061113072347.GB1892@ff.dom.local> <200611130908.18644.paul.moore@hp.com> <1163427457.6825.14.camel@jzny2> <4558D061.5090802@hp.com> <1163768753.5107.11.camel@jzny2> <1163792874.5219.49.camel@jzny2> <455E4B67.9020703@hp.com> <1163869619.5221.43.camel@jzny2> <45637C8F.90001@hp.com> <20061122122723.GA1000@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757082AbWKVVFk@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061122104416.GD11480@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca,
+	Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel7.hp.com ([156.153.255.213]:8622 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S1757050AbWKVVj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 16:39:57 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20061122122723.GA1000@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> But in this case it will be impossible to have SIGEV_THREAD and SIGEV=
-_KEVENT
-> at the same time, it will be just the same as SIGEV_SIGNAL but with
-> different delivery mechanism. Is is what you expect for that?
+Jarek Poplawski wrote:
+> On Tue, Nov 21, 2006 at 05:24:15PM -0500, Paul Moore wrote:
+> 
+>>Based on the discussion with Jamal I moved some things around in the doc so that
+>>the examples were closer to the top and the details were towards the bottom.
+>>There are some other minor changes as well, mostly changes already discussed in
+>>the thread.
+> 
+> ...
+> 
+> And here is some (over)adJustin'.
+> 
+> Jarek P.
 
-Yes, that's expected.  The event if for the queue, not directed to a=20
-specific thread.
+Applied ... despite the covert Justin reference :P
 
-If in future we want to think about preferably waking a specific thread=
-=20
-we can then think about it.  But I doubt that'll be beneficial.  The=20
-thread specific part in the signal handling is only used to implement=20
-the SIGEV_THREAD notification.
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-- 
+paul moore
+linux security @ hp
