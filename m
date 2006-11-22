@@ -1,37 +1,32 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch -mm] net namespace: empty framework
-Date: Wed, 22 Nov 2006 10:55:28 +0100
-Message-ID: <45641E90.2000506@fr.ibm.com>
-References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>	<45633EDF.3050309@fr.ibm.com> <200611221121.59322.dim@openvz.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC] key management in wireless
+Date: Wed, 22 Nov 2006 09:59:23 +0100
+Message-ID: <1164185964.2751.2.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Kirill Korotaev <dev@sw.ru>, Cedric Le Goater <clg@fr.ibm.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:23877 "EHLO
-	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1031346AbWKVIzj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Nov 2006 03:55:39 -0500
-To: Dmitry Mishin <dim@openvz.org>
-In-Reply-To: <200611221121.59322.dim@openvz.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:49815 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1161994AbWKVI74
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 03:59:56 -0500
+Received: from johannes by sipsolutions.net with local (Exim 4.63)
+	(envelope-from <johannes@sipsolutions.net>)
+	id 1Gmnqq-0006W7-Bg
+	for netdev@vger.kernel.org; Wed, 22 Nov 2006 08:53:04 +0000
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin wrote:
-> This patch looks acceptable for us.
-> BTW, Daniel, we agreed to be based on the Andrey's patchset. I do not see a
-> reason, why Cedric force us to make some unnecessary work and move existent
-> patchset over his interface.
+Hey,
 
-I still agree.
-Don't blame Cedric, he just wanted to help us. BTW, it is not "his" 
-interface but the namespace interface.
+As I was reading through lwn I found the article on kernel key
+management and wondered wtf I have been smoking that I forgot that I
+wanted to use it in wireless :)
 
-   -- Daniel
+Is anyone familiar with with the key management interface and how it
+should be used here? It seems that we probably want our own upcall
+mechanism for requesting keys and should request them when encryption is
+turned on.
 
-
-
+johannes
