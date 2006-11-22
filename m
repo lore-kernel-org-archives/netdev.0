@@ -1,63 +1,78 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] net: fix kfifo_alloc() error check
-Date: Wed, 22 Nov 2006 11:02:46 -0800
-Message-ID: <20061122110246.791beabd@freekitty>
-References: <20061122183335.GA2985@APFDCB5C>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC 0/3] more power to cfg80211
+Date: Wed, 22 Nov 2006 20:18:53 +0100
+Message-ID: <1164223133.5934.19.camel@johannes.berg>
+References: <1163802439.3392.47.camel@johannes.berg>
+	 <1163963898.15473.36.camel@johannes.berg>
+	 <1163979143.9216.14.camel@johannes.berg>
+	 <20061120201402.76e69e46@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-wnCZTWd5YFuLOV6edBPi"
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:9874 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1756590AbWKVTCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 14:02:51 -0500
-To: Akinobu Mita <akinobu.mita@gmail.com>
-In-Reply-To: <20061122183335.GA2985@APFDCB5C>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:52439 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1756713AbWKVTUz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 14:20:55 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061120201402.76e69e46@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Nov 2006 03:33:35 +0900
-Akinobu Mita <akinobu.mita@gmail.com> wrote:
 
-> The return value of kfifo_alloc() should be checked by IS_ERR().
-> 
-> Cc: Stephen Hemminger <shemminger@osdl.org>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> 
-> ---
->  net/dccp/probe.c     |    2 ++
->  net/ipv4/tcp_probe.c |    2 ++
->  2 files changed, 4 insertions(+)
-> 
-> Index: work-fault-inject/net/ipv4/tcp_probe.c
-> ===================================================================
-> --- work-fault-inject.orig/net/ipv4/tcp_probe.c
-> +++ work-fault-inject/net/ipv4/tcp_probe.c
-> @@ -156,6 +156,8 @@ static __init int tcpprobe_init(void)
->  	init_waitqueue_head(&tcpw.wait);
->  	spin_lock_init(&tcpw.lock);
->  	tcpw.fifo = kfifo_alloc(bufsize, GFP_KERNEL, &tcpw.lock);
-> +	if (IS_ERR(tcpw.fifo))
-> +		return PTR_ERR(tcpw.fifo);
->  
->  	if (!proc_net_fops_create(procname, S_IRUSR, &tcpprobe_fops))
->  		goto err0;
-> Index: work-fault-inject/net/dccp/probe.c
-> ===================================================================
-> --- work-fault-inject.orig/net/dccp/probe.c
-> +++ work-fault-inject/net/dccp/probe.c
-> @@ -160,6 +160,8 @@ static __init int dccpprobe_init(void)
->  	init_waitqueue_head(&dccpw.wait);
->  	spin_lock_init(&dccpw.lock);
->  	dccpw.fifo = kfifo_alloc(bufsize, GFP_KERNEL, &dccpw.lock);
-> +	if (IS_ERR(dccpw.fifo))
-> +		return PTR_ERR(dccpw.fifo);
->  
->  	if (!proc_net_fops_create(procname, S_IRUSR, &dccpprobe_fops))
->  		goto err0;
+--=-wnCZTWd5YFuLOV6edBPi
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Good thanks
+The following patches are mostly proof-of-concept code for moving over
+stuff to cfg80211 (like the wiphy thing).
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+I've changed net_dev->ieee80211_ptr to be of struct wiphy because it
+allows accessing the wiphy by netdev easily then, and since wireless
+drivers are (after these patches) expected to register with cfg80211
+anyway it doesn't really change much. They need wiphy_priv() then but
+it's tiny.
+
+There's lots left, cfg80211 could put some default things into sysfs, we
+could notify it of added/removed netdevs (it knows when userspace does
+this, but not when the driver does by default) and put links from=20
+  class/ieee80211/<wiphy>/dev:eth1 -> ../../net/eth1
+and things like that.
+
+I'm not really sure this is the best thing we can do so I'm posting this
+for some review before I actually dive in and do those modifications.
+Also, I need to put back a symlink from class/ieee80211/<wiphy>/device
+to the hardware device. Just discovered that I apparently forgot :)
+
+The patches are tested and work fine but we lose functionality, I
+removed the possibility to create and remove virtual interfaces in
+d80211 because I wanted to put it into cfg80211 already (well, just
+needs the d80211 cfg handler...) but then didn't put it in so far.
+
+If you feel this is something worth pursuing please shout and I'll fix
+these issues and submit the patches for actual inclusion.
+
+johannes
+
+--=-wnCZTWd5YFuLOV6edBPi
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFZKKd/ETPhpq3jKURAl5JAJ0dKWhbVU8PGTC5iJzdZil7bkSq5QCeKdSB
+pbdBYtEJ8FkV22EUjWySc2g=
+=OmBP
+-----END PGP SIGNATURE-----
+
+--=-wnCZTWd5YFuLOV6edBPi--
+
