@@ -1,37 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Wed, 22 Nov 2006 07:33:46 -0500
-Message-ID: <456443AA.7060106@garzik.org>
-References: <11630606361046@2ka.mipt.ru> <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <45622228.80803@garzik.org> <456223AC.5080400@redhat.com> <456436CA.7050809@tls.msk.ru>
+From: Dmitry Mishin <dim@openvz.org>
+Subject: [PATCH 2.6.18] e1000: fix initialization irqs
+Date: Wed, 22 Nov 2006 15:49:14 +0300
+Message-ID: <200611221549.15765.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@redhat.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Alexander Viro <aviro@redhat.com>
+Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com, akpm@osdl.org,
+	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:9611 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1755096AbWKVMeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 07:34:12 -0500
-To: Michael Tokarev <mjt@tls.msk.ru>
-In-Reply-To: <456436CA.7050809@tls.msk.ru>
+Received: from mailhub.sw.ru ([195.214.233.200]:26453 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1755680AbWKVMuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 07:50:06 -0500
+To: cramerj@intel.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Tokarev wrote:
-> Can't the argument be something like u64 instead of struct timespec,
-> regardless of this discussion (relative vs absolute)?
+In case of irqpoll boot option set, e1000 may oops due to:
+1) e1000 register it's handler with e1000_request_irq
+2) spurious interrupt happens
+3) kernel tries to handle this interrupt with all available descs
+4) e1000_intr is called and oops due to not initialized clean_rx handler, 
+because e1000_up is not called yet.
 
+Solution is to initialize driver before handler registration.
 
-Newer syscalls (ppoll, pselect) take struct timespec, which is a 
-reasonable, modern form of the timeout argument...
+Signed-off-by: Dmitry Mishin <dim@openvz.org>
+Signed-off-by: Pavel Emelianov <xemul@openvz.org>
 
-	Jeff
+---
+ e1000_main.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-
+---
+--- ./drivers/net/e1000/e1000_main.c.e1000	2006-09-20 07:42:06.000000000 +0400
++++ ./drivers/net/e1000/e1000_main.c	2006-11-22 14:08:15.000000000 +0300
+@@ -1206,14 +1206,15 @@ e1000_open(struct net_device *netdev)
+ 	if ((err = e1000_setup_all_rx_resources(adapter)))
+ 		goto err_setup_rx;
+ 
+-	err = e1000_request_irq(adapter);
+-	if (err)
+-		goto err_up;
+-
+ 	e1000_power_up_phy(adapter);
+ 
+ 	if ((err = e1000_up(adapter)))
+ 		goto err_up;
++
++	err = e1000_request_irq(adapter);
++	if (err)
++		goto err_up;
++
+ 	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
+ 	if ((adapter->hw.mng_cookie.status &
+ 			  E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT)) {
