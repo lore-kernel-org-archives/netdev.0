@@ -1,73 +1,81 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch -mm] net namespace: empty framework
-Date: Wed, 22 Nov 2006 23:56:55 +0100
-Message-ID: <4564D5B7.7030307@fr.ibm.com>
-References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>	<45633EDF.3050309@fr.ibm.com> <20061121181655.GA14656@MAIL.13thfloor.at>	<456454C4.5010803@fr.ibm.com> <m1ejrvtlje.fsf@ebiederm.dsl.xmission.com>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Wed, 22 Nov 2006 15:46:42 -0800
+Message-ID: <4564E162.8040901@redhat.com>
+References: <11641265982190@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cedric Le Goater <clg@fr.ibm.com>, Kirill Korotaev <dev@sw.ru>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>, Dmitry Mishin <dim@sw.ru>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:36116 "EHLO
-	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1755198AbWKVW5L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Nov 2006 17:57:11 -0500
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1ejrvtlje.fsf@ebiederm.dsl.xmission.com>
+Received: from mx1.redhat.com ([66.187.233.31]:17587 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1757187AbWKVXuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 18:50:16 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <11641265982190@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> The justification is performance and a little on the simplicity side.
-> 
-> My personal feel is still that layer 3 is something easier done
-> as a new kind of table in an iptables type infrastructure.  And in
-> fact I believe if done that way would capture do what 90%+ of what
-> all of the iptables rules do.  So it might be a nice firewalling speed up.
-> I don't think the layer 3 idea where you just do bind filter fits
-> the namespace concept very well.
+Evgeniy Polyakov wrote:
+> + int kevent_wait(int ctl_fd, unsigned int num, __u64 timeout);
+> +
+> +ctl_fd - file descriptor referring to the kevent queue=20
+> +num - number of processed kevents=20
+> +timeout - this timeout specifies number of nanoseconds to wait until=
+ there is=20
+> +		free space in kevent queue=20
+> +
+> +Return value:
+> + number of events copied into ring buffer or negative error value.
 
-The question is why do we need to do isolation/virtualization at the 
-layer 3 ?
+This is not quite sufficient.  What we also need is a parameter which=20
+specifies which ring buffer the code assumes is currently active.  This=
+=20
+is just like the EWOULDBLOCK error in the futex.  I.e., the kernel=20
+doesn't move the thread on the wait list if the index has changed.=20
+Otherwise asynchronous ring buffer filling is impossible.  Assume this
 
-1 - for security
-2 - for ressource management
-3 - for mobility
+     thread                             kernel
 
-The last one is not implementable with a netfilter only solution. The 
-solution is to have a container id by sockets in order to identify them 
-and to descriminate the sockets owned by the container for 
-checkpoint/restart and for quescient point. If you look closely to the 
-layer 3 approach with network isolation you will see if we replace the 
-container id by the network namespace pointer, the code is the *same*.
-So we have a common code for the layer 4 for namespaces and layer 3 
-isolation. Pushing a little more the layer 3 isolation into namespaces 
-we have reach a common solution for layer 2 and layer 3 with Dmitry and 
-made the two to co-exists.
+     get current ring buffer idx
 
-The next step will be to reach a quescient point in order to 
-checkpoint/restart. The quescient point will be reach using the 
-namespace identifier, the traffic will be dropped for incoming and 
-outgoing traffic and network timers will be frozen. Should we have again 
-two approaches ? One for the layer 2 and another one for the layer 3, 
-instead of using the same mechanism for namespaces ?
-After that the checkpoint will use the network namespace in order to 
-find the sockets to be checkpointed. Should we have 2 checkpoint/restart 
-mechanisms ?
+     front and tail pointer the same
 
-I agree, some part of the layer 3 approach does not fit the namespaces 
-concept very well, but this is a conceptual vision of the namespaces. I 
-can argue, the layer 2 does not fit the namespace concept too, the 
-socket hashtable are not by namespaces, the routes cache are not by 
-namespaces, does it mean it does not fit the namespace concept at all ? 
-No, it does, but it is written to be optimized, it is a question of 
-performance...
+                                        add new entry to ring buffer
 
-I don't want to enter to the debate, again, about layer 2/3 
-isolation/virtualization, I did my best to promote layer 2 and to 
-justify layer 3 on top of that. Now, I let the network guys to decide...
+                                        bump front pointer
 
-   -- Daniel
+     call kevent_wait()
+
+
+With the interface above this leads to a deadlock.  The kernel delivere=
+d=20
+the event and is done with it.
+
+If the kevent_wait() syscall gets an additional parameter which=20
+specifies the expected front pointer the kernel wouldn't put the thread=
+=20
+to sleep since, in this case, the front pointer changed since last chec=
+ked.
+
+The kernel cannot and should not check the ring buffer is empty.=20
+Userlevel should maintain the tail pointer all by itself.  And even if=20
+the tail pointer is available to the kernel, the program might want to=20
+handle the queued events differently.
+
+The above also comes to bear without asynchronous queuing if a thread=20
+waits for more than one event and it is possible to handle both events=20
+concurrently in two threads.
+
+Passing in the expected front pointer value is flexible and efficient.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
