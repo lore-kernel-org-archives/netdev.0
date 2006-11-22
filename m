@@ -1,41 +1,64 @@
-From: Muli Ben-Yehuda <muli@il.ibm.com>
-Subject: Re: [PATCH 2/4] NetXen: temp monitoring, newer firmware support, mm footprint reduction
-Date: Wed, 22 Nov 2006 15:31:56 +0200
-Message-ID: <20061122133156.GM4118@rhun.haifa.ibm.com>
-References: <200611221321.kAMDLk7a009492@dut39.unminc.com>
+From: Dmitry Mishin <dim@openvz.org>
+Subject: Re: [patch -mm] net namespace: empty framework
+Date: Wed, 22 Nov 2006 16:34:03 +0300
+Message-ID: <200611221634.04090.dim@openvz.org>
+References: <4563007B.9010202@fr.ibm.com> <200611221121.59322.dim@openvz.org> <m1wt5nub08.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com, jeff@garzik.org,
-	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
-	wendyx@us.ibm.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Kirill Korotaev <dev@sw.ru>,
+	Cedric Le Goater <clg@fr.ibm.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Herbert Poetzl <herbert@13thfloor.at>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([195.212.29.135]:32497 "EHLO
-	mtagate2.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1755847AbWKVNcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Nov 2006 08:32:05 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate2.uk.ibm.com (8.13.8/8.13.8) with ESMTP id kAMDW0m6067202
-	for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 13:32:03 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAMDYmql2932982
-	for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 13:34:48 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAMDVu8k003439
-	for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 13:31:57 GMT
-To: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>
+Received: from mailhub.sw.ru ([195.214.233.200]:63341 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1755867AbWKVNev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 08:34:51 -0500
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1wt5nub08.fsf@ebiederm.dsl.xmission.com>
 Content-Disposition: inline
-In-Reply-To: <200611221321.kAMDLk7a009492@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 22, 2006 at 05:21:46AM -0800, Linsys Contractor Amit S. Kale wrote:
-> NetXen: 1G/10G Ethernet Driver updates
-> 	- These fixes take care of driver on machines with >4G memory
-> 	- Driver cleanup
+On Wednesday 22 November 2006 11:43, Eric W. Biederman wrote:
+> Dmitry Mishin <dim@openvz.org> writes:
+> 
+> > On Tuesday 21 November 2006 21:01, Daniel Lezcano wrote:
+> >> Kirill Korotaev wrote:
+> >> > Cedric,
+> >> >
+> >> > Dmitry Mishin and Daniel Lezcano are working together on the full
+> >> > network namespace incorporating both needs of OpenVZ and VServer/IBM.
+> >> >
+> >> > Thanks,
+> >> > Kirill
+> >>
+> >> Kirill,
+> >>
+> >> We will need this framework to move the network isolation code to the
+> >> ns_proxy/net_namespace structure. So if Cedric gives us a empty
+> >> framework it is fine, except if someone does not agree with it...
+> >>
+> >>    -- Daniel.
+> > This patch looks acceptable for us.
+> > BTW, Daniel, we agreed to be based on the Andrey's patchset. I do not see a 
+> > reason, why Cedric force us to make some unnecessary work and move existent 
+> > patchset over his interface.
+> 
+> If you are going to take that attitude.  Where was this conversation?
+> 
+> It appears several relevant people were not aware of this development
+> discussion.  So when it comes up for general review you can expect your
+> approach as well as your code to be critiqued.
+Eric, 
 
-It appears that you're implementing bounce buffering yourself - why?
-if bounce buffering is necessary, the DMA-API implementation should
-take care of this automatically (e.g., by using swiotlb).
+please read and comment Daniel's summary:
+http://marc.theaimsgroup.com/?l=linux-netdev&m=116352117000763&w=2
 
-Cheers,
-Muli
+Seems, that you missed it.
+
+-- 
+Thanks,
+Dmitry.
