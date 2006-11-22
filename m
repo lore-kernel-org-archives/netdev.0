@@ -1,49 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch -mm] net namespace: empty framework
-Date: Wed, 22 Nov 2006 10:53:57 -0700
-Message-ID: <m1ejrvtlje.fsf@ebiederm.dsl.xmission.com>
-References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>
-	<45633EDF.3050309@fr.ibm.com>
-	<20061121181655.GA14656@MAIL.13thfloor.at>
-	<456454C4.5010803@fr.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] [NET] dont insert socket dentries into dentry_hashtable.
+Date: Wed, 22 Nov 2006 19:00:36 +0100
+Message-ID: <200611221900.36216.dada1@cosmosbay.com>
+References: <20061024141739.GB18364@nuim.ie> <20061025.230615.92585270.davem@davemloft.net> <200610311948.48970.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Kirill Korotaev <dev@sw.ru>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>, Dmitry Mishin <dim@sw.ru>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756192AbWKVRz5@vger.kernel.org>
-To: Cedric Le Goater <clg@fr.ibm.com>
-In-Reply-To: <456454C4.5010803@fr.ibm.com> (Cedric Le Goater's message of
-	"Wed, 22 Nov 2006 14:46:44 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_EBJZFc9OjR8GYJP"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Al Viro <viro@ftp.linux.org.uk>, Andrew Morton <akpm@osdl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pfx2.jmh.fr ([194.153.89.55]:26322 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1756171AbWKVSAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 13:00:19 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <200610311948.48970.dada1@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cedric Le Goater <clg@fr.ibm.com> writes:
+--Boundary-00=_EBJZFc9OjR8GYJP
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
->> no problem here, but I think we will need another one,
->> or some smart way to do the network isolation (layer 3)
->> for the network namespace (as alternative to the layer 2
->> approach) ...
->
-> My feeling (Dmitry and Daniel can correct me) is that it will be
-> addressed with an unshare-like flag : NETNS2 and NETNS3.
->  
->> as they are both complementary in some way, I'm not sure
->> a single space will suffice ...
->
-> hmm, so you think there could be a 2 differents namespaces
-> for network to handle layer 2 or 3. Couldn't that be just a sub part
-> of net_namespace.
+We currently insert socket dentries into the global dentry hashtable.
+This is *suboptimal* because there is currently no way these entries can be 
+used for a lookup(). (/proc/xxx/fd/xxx uses a different mechanism). Inserting 
+them in dentry hashtable slow dcache lookups.
 
-The justification is performance and a little on the simplicity side.
 
-My personal feel is still that layer 3 is something easier done
-as a new kind of table in an iptables type infrastructure.  And in
-fact I believe if done that way would capture do what 90%+ of what
-all of the iptables rules do.  So it might be a nice firewalling speed up.
+To let __dpath() still work correctly (ie not adding a " (deleted)") after 
+dentry name, we do : 
 
-I don't think the layer 3 idea where you just do bind filter fits
-the namespace concept very well.
+- Right after d_alloc(), pretend they are hashed by clearing the 
+DCACHE_UNHASHED bit. 
 
-Eric
+- Call d_instantiate() instead of d_add() : dentry is not inserted in hash 
+table.
+
+__dpath() & friends work as intended during dentry lifetime.
+
+- At dismantle time, once dput() must clear the dentry, setting again 
+DCACHE_UNHASHED bit inside the custom d_delete() function provided by socket 
+code, so that dput() can just kill_it.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary-00=_EBJZFc9OjR8GYJP
+Content-Type: text/plain;
+  charset="utf-8";
+  name="socket_nohash_dentry.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="socket_nohash_dentry.patch"
+
+--- linux-2.6.19-rc6/net/socket.c	2006-11-22 17:33:41.000000000 +0100
++++ linux-2.6.19-rc6-ed/net/socket.c	2006-11-22 18:28:12.000000000 +0100
+@@ -306,7 +306,14 @@ static struct file_system_type sock_fs_t
+ 
+ static int sockfs_delete_dentry(struct dentry *dentry)
+ {
+-	return 1;
++	/*
++	 * At creation time, we pretended this dentry was hashed
++	 * (by clearing DCACHE_UNHASHED bit in d_flags)
++	 * At delete time, we restore the truth : not hashed.
++	 * (so that dput() can proceed correctly)
++	 */
++	dentry->d_flags |= DCACHE_UNHASHED;
++	return 0;
+ }
+ static struct dentry_operations sockfs_dentry_operations = {
+ 	.d_delete = sockfs_delete_dentry,
+@@ -354,14 +361,20 @@ static int sock_attach_fd(struct socket 
+ 
+ 	this.len = sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
+ 	this.name = name;
+-	this.hash = SOCK_INODE(sock)->i_ino;
++	this.hash = 0;
+ 
+ 	file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
+ 	if (unlikely(!file->f_dentry))
+ 		return -ENOMEM;
+ 
+ 	file->f_dentry->d_op = &sockfs_dentry_operations;
+-	d_add(file->f_dentry, SOCK_INODE(sock));
++	/*
++	 * We dont want to push this dentry into global dentry hash table. 
++	 * We pretend dentry is already hashed, by unsetting DCACHE_UNHASHED
++	 * This permits a working /proc/$pid/fd/XXX on sockets
++	 */
++	file->f_dentry->d_flags &= ~DCACHE_UNHASHED;
++	d_instantiate(file->f_dentry, SOCK_INODE(sock));
+ 	file->f_vfsmnt = mntget(sock_mnt);
+ 	file->f_mapping = file->f_dentry->d_inode->i_mapping;
+ 
+
+--Boundary-00=_EBJZFc9OjR8GYJP--
