@@ -1,84 +1,59 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Wed, 22 Nov 2006 13:44:16 +0300
-Message-ID: <20061122104416.GD11480@2ka.mipt.ru>
-References: <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <20061121184605.GA7787@2ka.mipt.ru> <4563FE71.4040807@redhat.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: Network virtualization/isolation
+Date: Wed, 22 Nov 2006 13:00:54 +0100
+Message-ID: <45643BF6.1000305@fr.ibm.com>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>	 <20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org>	 <4541CCF4.4050306@fr.ibm.com> <1162391707.5251.78.camel@jzny2> <4559DE01.5090109@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Mishin <dim@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58556 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1162028AbWKVKqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 05:46:39 -0500
-To: Ulrich Drepper <drepper@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <4563FE71.4040807@redhat.com>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:13715 "EHLO
+	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1162055AbWKVLA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 06:00:57 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id kAMB0tw5164266
+	for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 11:00:55 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAMB4NGs2920518
+	for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 12:04:23 +0100
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAMB0sqP007434
+	for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 12:00:55 +0100
+To: hadi@cyberus.ca, Stephen Hemminger <shemminger@osdl.org>,
+	netdev@vger.kernel.org
+In-Reply-To: <4559DE01.5090109@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 21, 2006 at 11:38:25PM -0800, Ulrich Drepper (drepper@redha=
-t.com) wrote:
-> Evgeniy Polyakov wrote:
-> >I've checked the code.
-> >Since it will be a union, it is impossible to use _sigev_thread and =
-it
-> >becomes just SIGEV_SIGNAL case with different delivery mechanism.
-> >Is it what you want?
->=20
-> struct sigevent is defined like this:
->=20
-> typedef struct sigevent {
->         sigval_t sigev_value;
->         int sigev_signo;
->         int sigev_notify;
->         union {
->                 int _pad[SIGEV_PAD_SIZE];
->                  int _tid;
->=20
->                 struct {
->                         void (*_function)(sigval_t);
->                         void *_attribute;       /* really pthread_att=
-r_t */
->                 } _sigev_thread;
->         } _sigev_un;
-> } sigevent_t;
->=20
->=20
-> For the SIGEV_KEVENT case:
->=20
->   sigev_notify is set to SIGEV_KEVENT (obviously)
->=20
->   sigev_value can be used for the void* data passed along with the
->   signal, just like in the case of a signal delivery
->=20
-> Now you need a way to specify the kevent descriptor.  Just add
->=20
->   int _kevent;
->=20
-> inside the union and if you want
->=20
->   #define sigev_kevent_descr _sigev_un._kevent
->=20
-> That should be all.
+Daniel Lezcano wrote:
+>> Then a matrix of how each requires what modifications in the network
+>> code. Of course all players need to agree that the description is
+>> accurate.
+>> Is there such a document?
+>>
+>> cheers,
+>> jamal
+> 
+> Hi,
+> 
+> the attached document describes the network isolation at the layer 2 and 
+> at the layer 3, it presents the pros and cons of the different 
+> approaches, their common points and the impacted network code.
+> I hope it will be helpful :)
+> 
+> Cheers.
+> 
+>    -- Daniel
 
-That what I implemented.
-But in this case it will be impossible to have SIGEV_THREAD and SIGEV_K=
-EVENT
-at the same time, it will be just the same as SIGEV_SIGNAL but with
-different delivery mechanism. Is is what you expect for that?
 
-> --=20
-> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
- St =E2=9E=A7 Mountain View,=20
-> CA =E2=9D=96
+Hi,
 
---=20
-	Evgeniy Polyakov
+does the document clarify the layer 2 / layer 3 approaches ? Does it 
+bring some elements of response ? Is there missing something in it ?
+Do you need more informations ?
+
+Regards
+
+	-- Daniel
