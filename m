@@ -1,50 +1,73 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Wed, 22 Nov 2006 14:24:00 -0800
-Message-ID: <4564CE00.9030904@redhat.com>
-References: <45564EA5.6020607@redhat.com> <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [patch -mm] net namespace: empty framework
+Date: Wed, 22 Nov 2006 23:56:55 +0100
+Message-ID: <4564D5B7.7030307@fr.ibm.com>
+References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>	<45633EDF.3050309@fr.ibm.com> <20061121181655.GA14656@MAIL.13thfloor.at>	<456454C4.5010803@fr.ibm.com> <m1ejrvtlje.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cedric Le Goater <clg@fr.ibm.com>, Kirill Korotaev <dev@sw.ru>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, Dmitry Mishin <dim@sw.ru>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:49027 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1757099AbWKVW1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 17:27:41 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061122121516.GA7229@2ka.mipt.ru>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:36116 "EHLO
+	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1755198AbWKVW5L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 17:57:11 -0500
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1ejrvtlje.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Wed, Nov 22, 2006 at 03:09:34PM +0300, Evgeniy Polyakov (johnpol@2=
-ka.mipt.ru) wrote:
->> Ok, to solve the problem in the way which should be good for both I
->> decided to implement additional syscall which will allow to mark any
->> event as ready and thus wake up appropriate threads. If userspace wi=
-ll
->> request zero events to be marked as ready, syscall will just
->> interrupt/wakeup one of the listeners parked in syscall.
+Eric W. Biederman wrote:
+> The justification is performance and a little on the simplicity side.
+> 
+> My personal feel is still that layer 3 is something easier done
+> as a new kind of table in an iptables type infrastructure.  And in
+> fact I believe if done that way would capture do what 90%+ of what
+> all of the iptables rules do.  So it might be a nice firewalling speed up.
+> I don't think the layer 3 idea where you just do bind filter fits
+> the namespace concept very well.
 
-I'll wait for the new code drop to comment.
+The question is why do we need to do isolation/virtualization at the 
+layer 3 ?
 
+1 - for security
+2 - for ressource management
+3 - for mobility
 
-> Btw, what about putting aditional multiplexer into add/remove/modify
-> switch? There will be logical 'ready' addon?
+The last one is not implementable with a netfilter only solution. The 
+solution is to have a container id by sockets in order to identify them 
+and to descriminate the sockets owned by the container for 
+checkpoint/restart and for quescient point. If you look closely to the 
+layer 3 approach with network isolation you will see if we replace the 
+container id by the network namespace pointer, the code is the *same*.
+So we have a common code for the layer 4 for namespaces and layer 3 
+isolation. Pushing a little more the layer 3 isolation into namespaces 
+we have reach a common solution for layer 2 and layer 3 with Dmitry and 
+made the two to co-exists.
 
-Is it needed?  Usually this is done with a *_wait call with a timeout o=
-f=20
-zero.  That code path might have to be optimized but it should already=20
-be there.
+The next step will be to reach a quescient point in order to 
+checkpoint/restart. The quescient point will be reach using the 
+namespace identifier, the traffic will be dropped for incoming and 
+outgoing traffic and network timers will be frozen. Should we have again 
+two approaches ? One for the layer 2 and another one for the layer 3, 
+instead of using the same mechanism for namespaces ?
+After that the checkpoint will use the network namespace in order to 
+find the sockets to be checkpointed. Should we have 2 checkpoint/restart 
+mechanisms ?
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+I agree, some part of the layer 3 approach does not fit the namespaces 
+concept very well, but this is a conceptual vision of the namespaces. I 
+can argue, the layer 2 does not fit the namespace concept too, the 
+socket hashtable are not by namespaces, the routes cache are not by 
+namespaces, does it mean it does not fit the namespace concept at all ? 
+No, it does, but it is written to be optimized, it is a question of 
+performance...
+
+I don't want to enter to the debate, again, about layer 2/3 
+isolation/virtualization, I did my best to promote layer 2 and to 
+justify layer 3 on top of that. Now, I let the network guys to decide...
+
+   -- Daniel
