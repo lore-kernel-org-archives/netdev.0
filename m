@@ -1,13 +1,13 @@
 From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: cleanups
-Date: Wed, 22 Nov 2006 00:05:53 +0000 (GMT)
-Message-ID: <20061122000553.5EB237B40A0@zog.reactivated.net>
+Subject: [PATCH RESEND] zd1211rw: Fix of a locking bug
+Date: Wed, 22 Nov 2006 00:06:06 +0000 (GMT)
+Message-ID: <20061122000606.6982A7B40A0@zog.reactivated.net>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:9150 "EHLO
-	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1756834AbWKVAFy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Nov 2006 19:05:54 -0500
+Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:58699 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1756883AbWKVAGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Nov 2006 19:06:01 -0500
 To: linville@tuxdriver.com
 Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
@@ -15,295 +15,76 @@ List-Id: netdev.vger.kernel.org
 
 From: Ulrich Kunitz <kune@deine-taler.de>
 
-Bit-field constants in zd_chip.h are now defined using a shift expression.
-The value 0x08 is now (1 << 3). The fix is intended to improve readability.
-
-Remove misleading comment in zd_mac.c: The function already returns -EPERM
-in managed mode (IW_MODE_INFRA).
-
-Remove unused code in zd_mac.c: The unused code intended for debugging
-rx_status values is no longer useful.
-
-Added dump_stack() to ZD_ASSERT macro: Output of the stack helps to debug
-assertions. Keep in mind that the ZD_ASSERT() macro only results in code,
-if DEBUG is defined.
-
-Improved comments for filter_rx()
-
-zd_usb.c: Added driver name to module init and exit functions
+This patch fixes the bug as reported in the kernel bug tracker
+under the id 7244. The bug was simply that the interrupt lock has
+been locked outside an interrupt without blocking the interrupt.
 
 Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
 Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
 
-Index: linux/drivers/net/wireless/zd1211rw/zd_chip.h
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.h
-+++ linux/drivers/net/wireless/zd1211rw/zd_chip.h
-@@ -337,24 +337,24 @@
- #define CR_MAC_PS_STATE			CTL_REG(0x050C)
- 
- #define CR_INTERRUPT			CTL_REG(0x0510)
--#define INT_TX_COMPLETE			0x00000001
--#define INT_RX_COMPLETE			0x00000002
--#define INT_RETRY_FAIL			0x00000004
--#define INT_WAKEUP			0x00000008
--#define INT_DTIM_NOTIFY			0x00000020
--#define INT_CFG_NEXT_BCN		0x00000040
--#define INT_BUS_ABORT			0x00000080
--#define INT_TX_FIFO_READY		0x00000100
--#define INT_UART			0x00000200
--#define INT_TX_COMPLETE_EN		0x00010000
--#define INT_RX_COMPLETE_EN		0x00020000
--#define INT_RETRY_FAIL_EN		0x00040000
--#define INT_WAKEUP_EN			0x00080000
--#define INT_DTIM_NOTIFY_EN		0x00200000
--#define INT_CFG_NEXT_BCN_EN		0x00400000
--#define INT_BUS_ABORT_EN		0x00800000
--#define INT_TX_FIFO_READY_EN		0x01000000
--#define INT_UART_EN			0x02000000
-+#define INT_TX_COMPLETE			(1 <<  0)
-+#define INT_RX_COMPLETE			(1 <<  1)
-+#define INT_RETRY_FAIL			(1 <<  2)
-+#define INT_WAKEUP			(1 <<  3)
-+#define INT_DTIM_NOTIFY			(1 <<  5)
-+#define INT_CFG_NEXT_BCN		(1 <<  6)
-+#define INT_BUS_ABORT			(1 <<  7)
-+#define INT_TX_FIFO_READY		(1 <<  8)
-+#define INT_UART			(1 <<  9)
-+#define INT_TX_COMPLETE_EN		(1 << 16)
-+#define INT_RX_COMPLETE_EN		(1 << 17)
-+#define INT_RETRY_FAIL_EN		(1 << 18)
-+#define INT_WAKEUP_EN			(1 << 19)
-+#define INT_DTIM_NOTIFY_EN		(1 << 21)
-+#define INT_CFG_NEXT_BCN_EN		(1 << 22)
-+#define INT_BUS_ABORT_EN		(1 << 23)
-+#define INT_TX_FIFO_READY_EN		(1 << 24)
-+#define INT_UART_EN			(1 << 25)
- 
- #define CR_TSF_LOW_PART			CTL_REG(0x0514)
- #define CR_TSF_HIGH_PART		CTL_REG(0x0518)
-@@ -398,18 +398,18 @@
-  * device will use a rate in this table that is less than or equal to the rate
-  * of the incoming frame which prompted the response */
- #define CR_BASIC_RATE_TBL		CTL_REG(0x0630)
--#define CR_RATE_1M	0x0001	/* 802.11b */
--#define CR_RATE_2M	0x0002	/* 802.11b */
--#define CR_RATE_5_5M	0x0004	/* 802.11b */
--#define CR_RATE_11M	0x0008	/* 802.11b */
--#define CR_RATE_6M      0x0100	/* 802.11g */
--#define CR_RATE_9M      0x0200	/* 802.11g */
--#define CR_RATE_12M	0x0400	/* 802.11g */
--#define CR_RATE_18M	0x0800	/* 802.11g */
--#define CR_RATE_24M     0x1000	/* 802.11g */
--#define CR_RATE_36M     0x2000	/* 802.11g */
--#define CR_RATE_48M     0x4000	/* 802.11g */
--#define CR_RATE_54M     0x8000	/* 802.11g */
-+#define CR_RATE_1M	(1 <<  0)	/* 802.11b */
-+#define CR_RATE_2M	(1 <<  1)	/* 802.11b */
-+#define CR_RATE_5_5M	(1 <<  2)	/* 802.11b */
-+#define CR_RATE_11M	(1 <<  3)	/* 802.11b */
-+#define CR_RATE_6M      (1 <<  8)	/* 802.11g */
-+#define CR_RATE_9M      (1 <<  9)	/* 802.11g */
-+#define CR_RATE_12M	(1 << 10)	/* 802.11g */
-+#define CR_RATE_18M	(1 << 11)	/* 802.11g */
-+#define CR_RATE_24M     (1 << 12)	/* 802.11g */
-+#define CR_RATE_36M     (1 << 13)	/* 802.11g */
-+#define CR_RATE_48M     (1 << 14)	/* 802.11g */
-+#define CR_RATE_54M     (1 << 15)	/* 802.11g */
- #define CR_RATES_80211G	0xff00
- #define CR_RATES_80211B	0x000f
- 
-@@ -426,9 +426,9 @@
- /* register for controlling the LEDS */
- #define CR_LED				CTL_REG(0x0644)
- /* masks for controlling LEDs */
--#define LED1				0x0100
--#define LED2				0x0200
--#define LED_SW				0x0400
-+#define LED1				(1 <<  8)
-+#define LED2				(1 <<  9)
-+#define LED_SW				(1 << 10)
- 
- /* Seems to indicate that the configuration is over.
-  */
-@@ -455,18 +455,18 @@
-  * registers, so one could argue it is a LOCK bit. But calling it
-  * LOCK_PHY_REGS makes it confusing.
-  */
--#define UNLOCK_PHY_REGS			0x0080
-+#define UNLOCK_PHY_REGS			(1 << 7)
- 
- #define CR_DEVICE_STATE			CTL_REG(0x0684)
- #define CR_UNDERRUN_CNT			CTL_REG(0x0688)
- 
- #define CR_RX_FILTER			CTL_REG(0x068c)
--#define RX_FILTER_ASSOC_RESPONSE	0x0002
--#define RX_FILTER_REASSOC_RESPONSE	0x0008
--#define RX_FILTER_PROBE_RESPONSE	0x0020
--#define RX_FILTER_BEACON		0x0100
--#define RX_FILTER_DISASSOC		0x0400
--#define RX_FILTER_AUTH			0x0800
-+#define RX_FILTER_ASSOC_RESPONSE	(1 <<  1)
-+#define RX_FILTER_REASSOC_RESPONSE	(1 <<  3)
-+#define RX_FILTER_PROBE_RESPONSE	(1 <<  5)
-+#define RX_FILTER_BEACON		(1 <<  8)
-+#define RX_FILTER_DISASSOC		(1 << 10)
-+#define RX_FILTER_AUTH			(1 << 11)
- #define AP_RX_FILTER			0x0400feff
- #define STA_RX_FILTER			0x0000ffff
- 
-Index: linux/drivers/net/wireless/zd1211rw/zd_mac.c
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -295,7 +295,6 @@ static void set_channel(struct net_devic
- 	zd_chip_set_channel(&mac->chip, channel);
- }
- 
--/* TODO: Should not work in Managed mode. */
- int zd_mac_request_channel(struct zd_mac *mac, u8 channel)
- {
- 	unsigned long lock_flags;
-@@ -773,9 +772,11 @@ static int is_data_packet_for_us(struct 
- 	       (netdev->flags & IFF_PROMISC);
- }
- 
--/* Filters receiving packets. If it returns 1 send it to ieee80211_rx, if 0
-- * return. If an error is detected -EINVAL is returned. ieee80211_rx_mgt() is
-- * called here.
-+/* Filters received packets. The function returns 1 if the packet should be
-+ * forwarded to ieee80211_rx(). If the packet should be ignored the function
-+ * returns 0. If an invalid packet is found the function returns -EINVAL.
-+ *
-+ * The function calls ieee80211_rx_mgt() directly.
-  *
-  * It has been based on ieee80211_rx_any.
-  */
-@@ -801,9 +802,9 @@ static int filter_rx(struct ieee80211_de
- 		ieee80211_rx_mgt(ieee, hdr, stats);
- 		return 0;
- 	case IEEE80211_FTYPE_CTL:
--		/* Ignore invalid short buffers */
- 		return 0;
- 	case IEEE80211_FTYPE_DATA:
-+		/* Ignore invalid short buffers */
- 		if (length < sizeof(struct ieee80211_hdr_3addr))
- 			return -EINVAL;
- 		return is_data_packet_for_us(ieee, hdr);
-@@ -1019,66 +1020,6 @@ struct iw_statistics *zd_mac_get_wireles
- 	return iw_stats;
- }
- 
--#ifdef DEBUG
--static const char* decryption_types[] = {
--	[ZD_RX_NO_WEP] = "none",
--	[ZD_RX_WEP64] = "WEP64",
--	[ZD_RX_TKIP] = "TKIP",
--	[ZD_RX_AES] = "AES",
--	[ZD_RX_WEP128] = "WEP128",
--	[ZD_RX_WEP256] = "WEP256",
--};
--
--static const char *decryption_type_string(u8 type)
--{
--	const char *s;
--
--	if (type < ARRAY_SIZE(decryption_types)) {
--		s = decryption_types[type];
--	} else {
--		s = NULL;
--	}
--	return s ? s : "unknown";
--}
--
--static int is_ofdm(u8 frame_status)
--{
--	return (frame_status & ZD_RX_OFDM);
--}
--
--void zd_dump_rx_status(const struct rx_status *status)
--{
--	const char* modulation;
--	u8 quality;
--
--	if (is_ofdm(status->frame_status)) {
--		modulation = "ofdm";
--		quality = status->signal_quality_ofdm;
--	} else {
--		modulation = "cck";
--		quality = status->signal_quality_cck;
--	}
--	pr_debug("rx status %s strength %#04x qual %#04x decryption %s\n",
--		modulation, status->signal_strength, quality,
--		decryption_type_string(status->decryption_type));
--	if (status->frame_status & ZD_RX_ERROR) {
--		pr_debug("rx error %s%s%s%s%s%s\n",
--			(status->frame_status & ZD_RX_TIMEOUT_ERROR) ?
--				"timeout " : "",
--			(status->frame_status & ZD_RX_FIFO_OVERRUN_ERROR) ?
--				"fifo " : "",
--			(status->frame_status & ZD_RX_DECRYPTION_ERROR) ?
--				"decryption " : "",
--			(status->frame_status & ZD_RX_CRC32_ERROR) ?
--				"crc32 " : "",
--			(status->frame_status & ZD_RX_NO_ADDR1_MATCH_ERROR) ?
--				"addr1 " : "",
--			(status->frame_status & ZD_RX_CRC16_ERROR) ?
--				"crc16" : "");
--	}
--}
--#endif /* DEBUG */
--
- #define LINK_LED_WORK_DELAY HZ
- 
- static void link_led_handler(void *p)
-Index: linux/drivers/net/wireless/zd1211rw/zd_def.h
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_def.h
-+++ linux/drivers/net/wireless/zd1211rw/zd_def.h
-@@ -39,6 +39,7 @@ do { \
- 	if (!(x)) { \
- 		pr_debug("%s:%d ASSERT %s VIOLATED!\n", \
- 			__FILE__, __LINE__, __stringify(x)); \
-+		dump_stack(); \
- 	} \
- } while (0)
- #else
+It appears that this patch was lost on its first submission.
+
+ zd_usb.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
+
 Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
 ===================================================================
 --- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
 +++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -1125,27 +1125,28 @@ static int __init usb_init(void)
- {
- 	int r;
- 
--	pr_debug("usb_init()\n");
-+	pr_debug("%s usb_init()\n", driver.name);
- 
- 	zd_workqueue = create_singlethread_workqueue(driver.name);
- 	if (zd_workqueue == NULL) {
--		printk(KERN_ERR "%s: couldn't create workqueue\n", driver.name);
-+		printk(KERN_ERR "%s couldn't create workqueue\n", driver.name);
- 		return -ENOMEM;
- 	}
- 
- 	r = usb_register(&driver);
- 	if (r) {
--		printk(KERN_ERR "usb_register() failed. Error number %d\n", r);
-+		printk(KERN_ERR "%s usb_register() failed. Error number %d\n",
-+		       driver.name, r);
- 		return r;
- 	}
- 
--	pr_debug("zd1211rw initialized\n");
-+	pr_debug("%s initialized\n", driver.name);
- 	return 0;
+@@ -372,15 +372,6 @@ error:
+ 	return r;
  }
  
- static void __exit usb_exit(void)
+-static void disable_read_regs_int(struct zd_usb *usb)
+-{
+-	struct zd_usb_interrupt *intr = &usb->intr;
+-
+-	spin_lock(&intr->lock);
+-	intr->read_regs_enabled = 0;
+-	spin_unlock(&intr->lock);
+-}
+-
+ #define urb_dev(urb) (&(urb)->dev->dev)
+ 
+ static inline void handle_regs_int(struct urb *urb)
+@@ -1163,10 +1154,19 @@ static void prepare_read_regs_int(struct
  {
--	pr_debug("usb_exit()\n");
-+	pr_debug("%s usb_exit()\n", driver.name);
- 	usb_deregister(&driver);
- 	destroy_workqueue(zd_workqueue);
+ 	struct zd_usb_interrupt *intr = &usb->intr;
+ 
+-	spin_lock(&intr->lock);
++	spin_lock_irq(&intr->lock);
+ 	intr->read_regs_enabled = 1;
+ 	INIT_COMPLETION(intr->read_regs.completion);
+-	spin_unlock(&intr->lock);
++	spin_unlock_irq(&intr->lock);
++}
++
++static void disable_read_regs_int(struct zd_usb *usb)
++{
++	struct zd_usb_interrupt *intr = &usb->intr;
++
++	spin_lock_irq(&intr->lock);
++	intr->read_regs_enabled = 0;
++	spin_unlock_irq(&intr->lock);
  }
+ 
+ static int get_results(struct zd_usb *usb, u16 *values,
+@@ -1178,7 +1178,7 @@ static int get_results(struct zd_usb *us
+ 	struct read_regs_int *rr = &intr->read_regs;
+ 	struct usb_int_regs *regs = (struct usb_int_regs *)rr->buffer;
+ 
+-	spin_lock(&intr->lock);
++	spin_lock_irq(&intr->lock);
+ 
+ 	r = -EIO;
+ 	/* The created block size seems to be larger than expected.
+@@ -1211,7 +1211,7 @@ static int get_results(struct zd_usb *us
+ 
+ 	r = 0;
+ error_unlock:
+-	spin_unlock(&intr->lock);
++	spin_unlock_irq(&intr->lock);
+ 	return r;
+ }
+ 
