@@ -1,76 +1,59 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2.6.18] e1000: fix initialization irqs
-Date: Wed, 22 Nov 2006 08:19:16 -0800
-Message-ID: <45647884.9080607@intel.com>
-References: <200611221549.15765.dim@openvz.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [patch -mm] net namespace: empty framework
+Date: Wed, 22 Nov 2006 10:41:54 -0600
+Message-ID: <20061122164154.GB17378@sergelap.austin.ibm.com>
+References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru> <45633EDF.3050309@fr.ibm.com> <200611221121.59322.dim@openvz.org> <4564566F.7030202@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com, akpm@osdl.org,
-	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Mishin <dim@openvz.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Kirill Korotaev <dev@sw.ru>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:44361 "EHLO mga03.intel.com")
-	by vger.kernel.org with ESMTP id S1755322AbWKVQTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 11:19:19 -0500
-To: Dmitry Mishin <dim@openvz.org>
-In-Reply-To: <200611221549.15765.dim@openvz.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:29365 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1755381AbWKVQl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 11:41:57 -0500
+To: Cedric Le Goater <clg@fr.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <4564566F.7030202@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin wrote:
-> In case of irqpoll boot option set, e1000 may oops due to:
-> 1) e1000 register it's handler with e1000_request_irq
-> 2) spurious interrupt happens
-> 3) kernel tries to handle this interrupt with all available descs
-> 4) e1000_intr is called and oops due to not initialized clean_rx handler, 
-> because e1000_up is not called yet.
+Quoting Cedric Le Goater (clg@fr.ibm.com):
+> Hello,
 > 
-> Solution is to initialize driver before handler registration.
+> Dmitry Mishin wrote:
+> 
+> > This patch looks acceptable for us.
+> 
+> good. shall we merge it then ? see comment below.
+> 
+> > BTW, Daniel, we agreed to be based on the Andrey's patchset. I do not see a
+> > reason, why Cedric force us to make some unnecessary work and move existent
+> > patchset over his interface.
+> 
+> yeah it's a bit different from andrey's but not that much and it's more in
 
-I'm not so sure of that. even if we request our irq's to be routed it does not mean that 
-we told the NIC to send them. It would suggest that you might be haunted by the MSI 
-interrupts not working 100% correctly on some non-intel platform.
+Where is Andrey's patch?
 
-Now you're telling the NIC to send interrupts before we routed them I think.
+> the spirit of uts and ipc namespace (and user namespace if that reaches the
+> kernel one day :) so that's why i made the small changes.
 
-If we _up() before we even have an interrupt, even more bad things could happen.
-
-What is the reason you wrote this workaround?
-
-Auke
+I agree the namespace frameworks should be consistent, but i don't know
+whether Andrey's is or not.  I'd like to have the framework included so
+we reduce the number of silly rewrites due to clone flag collisions etc.
 
 > 
-> Signed-off-by: Dmitry Mishin <dim@openvz.org>
-> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+> It also helping the nsproxy/namespace syscalls to have a similar interface
+> to manipulate namespaces. who knows, soon we might be able to have a 'struct
+> namespace' with a ops field to define new namespace types ?
 > 
-> ---
->  e1000_main.c |    9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> ---
-> --- ./drivers/net/e1000/e1000_main.c.e1000	2006-09-20 07:42:06.000000000 +0400
-> +++ ./drivers/net/e1000/e1000_main.c	2006-11-22 14:08:15.000000000 +0300
-> @@ -1206,14 +1206,15 @@ e1000_open(struct net_device *netdev)
->  	if ((err = e1000_setup_all_rx_resources(adapter)))
->  		goto err_setup_rx;
->  
-> -	err = e1000_request_irq(adapter);
-> -	if (err)
-> -		goto err_up;
-> -
->  	e1000_power_up_phy(adapter);
->  
->  	if ((err = e1000_up(adapter)))
->  		goto err_up;
-> +
-> +	err = e1000_request_irq(adapter);
-> +	if (err)
-> +		goto err_up;
-> +
->  	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
->  	if ((adapter->hw.mng_cookie.status &
->  			  E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT)) {
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I can also send a empty framework for user namespace  ;)
+
+Please do - then I'll rebase the patchset I sent to the containes list
+onto your patch, and resubmit the whole userns.
+
+-serge
