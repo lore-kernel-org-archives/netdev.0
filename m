@@ -1,34 +1,31 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH] ieee80211: Provide generic get_stats implementation
-Date: Wed, 22 Nov 2006 12:44:44 +0800
-Message-ID: <1164170685.2924.46.camel@debian.sh.intel.com>
-References: <20061122031546.4C1767B40A0@zog.reactivated.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [netfilter-core] [PATCH 2.6.19-rc6] netfilter: fix panic on	ip_conntrack_h323
+ with CONFIG_IP_NF_CT_ACCT
+Date: Wed, 22 Nov 2006 06:51:23 +0100
+Message-ID: <4563E55B.4070503@trash.net>
+References: <20061120193931.GA9913@void.cube.gr>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, mb@bu3sch.de,
-	ipw2100-admin@linux.intel.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41052 "EHLO mga02.intel.com")
-	by vger.kernel.org with ESMTP id S1031231AbWKVEry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Nov 2006 23:47:54 -0500
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <20061122031546.4C1767B40A0@zog.reactivated.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756902AbWKVFv2@vger.kernel.org>
+To: Faidon Liambotis <paravoid@debian.org>
+In-Reply-To: <20061120193931.GA9913@void.cube.gr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-22 at 03:15 +0000, Daniel Drake wrote:
-> bcm43xx and ipw2100 currently duplicate the same simplistic get_stats
-> handler.
-> Additionally, zd1211rw requires the same handler to fix a bug where
-> all stats
-> are reported as 0.
+Faidon Liambotis wrote:
+> H.323 connection tracking code calls ip_ct_refresh_acct() when
+> processing RCFs and URQs but passes NULL as the skb.
+> When CONFIG_IP_NF_CT_ACCT is enabled, the connection tracking core tries
+> to derefence the skb, which results in an obvious panic.
+> ago.
 > 
-> This patch adds a generic implementation to the ieee80211 layer, which
-> drivers
-> are free to override. 
+> The patch uses ip_ct_refresh() instead of ip_ct_refresh_acct() to avoid
+> double accounting (suggested by Patrick McHardy).
 
-ACK. Looks good to me.
 
-Thanks,
--yi
+Thanks, I already fixed up your first patch and sent it
+upstream/to -stable after loosing hope to hear back from
+you :)
