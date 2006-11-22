@@ -1,51 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
 Subject: Re: [patch -mm] net namespace: empty framework
-Date: Wed, 22 Nov 2006 01:43:51 -0700
-Message-ID: <m1wt5nub08.fsf@ebiederm.dsl.xmission.com>
-References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>
-	<45633EDF.3050309@fr.ibm.com> <200611221121.59322.dim@openvz.org>
+Date: Wed, 22 Nov 2006 10:55:28 +0100
+Message-ID: <45641E90.2000506@fr.ibm.com>
+References: <4563007B.9010202@fr.ibm.com> <4563046B.6040909@sw.ru>	<45633EDF.3050309@fr.ibm.com> <200611221121.59322.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Kirill Korotaev <dev@sw.ru>,
-	Cedric Le Goater <clg@fr.ibm.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kirill Korotaev <dev@sw.ru>, Cedric Le Goater <clg@fr.ibm.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Andrew Morton <akpm@osdl.org>,
-	Herbert Poetzl <herbert@13thfloor.at>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756978AbWKVIox@vger.kernel.org>
+	Herbert Poetzl <herbert@13thfloor.at>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:23877 "EHLO
+	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1031346AbWKVIzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 03:55:39 -0500
 To: Dmitry Mishin <dim@openvz.org>
-In-Reply-To: <200611221121.59322.dim@openvz.org> (Dmitry Mishin's message of
-	"Wed, 22 Nov 2006 11:21:58 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <200611221121.59322.dim@openvz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin <dim@openvz.org> writes:
-
-> On Tuesday 21 November 2006 21:01, Daniel Lezcano wrote:
->> Kirill Korotaev wrote:
->> > Cedric,
->> >
->> > Dmitry Mishin and Daniel Lezcano are working together on the full
->> > network namespace incorporating both needs of OpenVZ and VServer/IBM.
->> >
->> > Thanks,
->> > Kirill
->>
->> Kirill,
->>
->> We will need this framework to move the network isolation code to the
->> ns_proxy/net_namespace structure. So if Cedric gives us a empty
->> framework it is fine, except if someone does not agree with it...
->>
->>    -- Daniel.
+Dmitry Mishin wrote:
 > This patch looks acceptable for us.
-> BTW, Daniel, we agreed to be based on the Andrey's patchset. I do not see a 
-> reason, why Cedric force us to make some unnecessary work and move existent 
+> BTW, Daniel, we agreed to be based on the Andrey's patchset. I do not see a
+> reason, why Cedric force us to make some unnecessary work and move existent
 > patchset over his interface.
 
-If you are going to take that attitude.  Where was this conversation?
+I still agree.
+Don't blame Cedric, he just wanted to help us. BTW, it is not "his" 
+interface but the namespace interface.
 
-It appears several relevant people were not aware of this development
-discussion.  So when it comes up for general review you can expect your
-approach as well as your code to be critiqued.
+   -- Daniel
 
-Eric
+
+
