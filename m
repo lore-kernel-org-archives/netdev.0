@@ -1,80 +1,41 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC 3/3] bcm43xx: API update
-Date: Wed, 22 Nov 2006 20:25:48 +0100
-Message-ID: <1164223548.5934.29.camel@johannes.berg>
-References: <1163802439.3392.47.camel@johannes.berg>
-	 <1163963898.15473.36.camel@johannes.berg>
-	 <1163979143.9216.14.camel@johannes.berg>
-	 <20061120201402.76e69e46@griffin.suse.cz>
-	 <1164223133.5934.19.camel@johannes.berg>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2.6.18] e1000: fix initialization irqs
+Date: Wed, 22 Nov 2006 12:51:19 -0800
+Message-ID: <4564B847.80908@intel.com>
+References: <200611221549.15765.dim@openvz.org> <45647884.9080607@intel.com> <200611221943.53963.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, akpm@osdl.org, netdev@vger.kernel.org,
+	devel@openvz.org, xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60054 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1756718AbWKVT1e
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Nov 2006 14:27:34 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <1164223133.5934.19.camel@johannes.berg>
+Received: from mga01.intel.com ([192.55.52.88]:6404 "EHLO mga01.intel.com")
+	by vger.kernel.org with ESMTP id S1756756AbWKVTya (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 14:54:30 -0500
+To: Dmitry Mishin <dim@openvz.org>
+In-Reply-To: <200611221943.53963.dim@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Slight API changes in d80211 due to the introduction of wiphy.
+Dmitry Mishin wrote:
+> On Wednesday 22 November 2006 19:19, Auke Kok wrote:
+>> Now you're telling the NIC to send interrupts before we routed them I think.
+>>
+>> If we _up() before we even have an interrupt, even more bad things could happen.
+>>
+>> What is the reason you wrote this workaround?
+> The reason is simple, we've got this oops due to misrouted interrupts, 
+> misrouted_irq() function. This workaround helps us, please, advice how to  fix
+> it or fix it yourself.
 
---- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-11-22 20:10:14.859711991 +0100
-+++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-11-22 20:11:13.679711991 +0100
-@@ -308,7 +308,8 @@ void bcm43xx_debugfs_add_device(struct b
- 
- 	bcm->dfsentry = e;
- 
--	snprintf(devdir, sizeof(devdir), "wiphy%d", bcm->ieee->index);
-+	/* FIXME: should cfg80211 provide a debugfs dir that follows the renaming? */
-+	snprintf(devdir, sizeof(devdir), "wiphy%d", bcm->ieee->wiphy->wiphy_index);
- 	e->subdir = debugfs_create_dir(devdir, fs.root);
- 	e->dentry_tsf = debugfs_create_file("tsf", 0666, e->subdir,
- 	                                    bcm, &tsf_fops);
---- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-11-22 20:10:14.969711991 +0100
-+++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-11-22 20:11:13.689711991 +0100
-@@ -3179,7 +3179,8 @@ bcm->wlcore = active_core;
- 		goto error;
- 
- 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
--	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->ieee->perm_addr));
-+	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF,
-+			      (u8 *)(bcm->ieee->wiphy->perm_addr));
- 	bcm43xx_security_init(bcm);
- 	bcm43xx_measure_channel_change_time(bcm);
- 	ieee80211_update_hw(bcm->ieee);
-@@ -3446,9 +3447,9 @@ bcm->wlcore = bcm->wlcores[i];
- 
- 	/* Set the MAC address in the networking subsystem */
- 	if (is_valid_ether_addr(bcm->sprom.r1.et1mac))
--		memcpy(bcm->ieee->perm_addr, bcm->sprom.r1.et1mac, 6);
-+		SET_IEEE80211_PERM_ADDR(bcm->ieee, bcm->sprom.r1.et1mac);
- 	else
--		memcpy(bcm->ieee->perm_addr, bcm->sprom.r1.il0mac, 6);
-+		SET_IEEE80211_PERM_ADDR(bcm->ieee, bcm->sprom.r1.il0mac);
- 	bcm43xx_setup_modes(bcm);
- 
- 	assert(err == 0);
-@@ -3969,7 +3970,7 @@ static int __devinit bcm43xx_init_one(st
- 		       IEEE80211_HW_WEP_INCLUDE_IV;
- 	hw->maxssi = BCM43xx_RX_MAX_SSI;
- 	hw->queues = 1;
--	hw->dev = &pdev->dev;
-+	SET_IEEE80211_DEV(hw, &pdev->dev);
- 
- 	/* initialize the bcm43xx_private struct */
- 	bcm = bcm43xx_priv(hw);
+without knowing all the parameters that are involved, I cannot make an informed fix at 
+all. I need to see the oops, a full dmesg dump, lspci -vv, and possibly more (preferably 
+both before and after the OOPS).
 
+If you can provide those then that would really help a lot, especially since the "fix" 
+you provide introduces a great number of trap doors and other undetermined behaviour.
 
+Cheers,
+
+Auke
