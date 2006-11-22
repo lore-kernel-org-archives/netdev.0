@@ -1,70 +1,117 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: [patch -mm] net namespace: empty framework
-Date: Wed, 22 Nov 2006 19:55:56 +0300
-Message-ID: <200611221955.56942.dim@openvz.org>
-References: <4563007B.9010202@fr.ibm.com> <4564566F.7030202@fr.ibm.com> <20061122164154.GB17378@sergelap.austin.ibm.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] d80211 ethtool
+Date: Wed, 22 Nov 2006 17:59:01 +0100
+Message-ID: <200611221759.01579.IvDoorn@gmail.com>
+References: <200611221608.09234.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Cedric Le Goater <clg@fr.ibm.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Kirill Korotaev <dev@sw.ru>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755903AbWKVQ6I@vger.kernel.org>
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-In-Reply-To: <20061122164154.GB17378@sergelap.austin.ibm.com>
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Simon Barber <simon@devicescape.com>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Hong Liu <hong.liu@intel.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mbuesch@freenet.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:36303 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1755983AbWKVQ7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 11:59:09 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so586995nfa
+        for <netdev@vger.kernel.org>; Wed, 22 Nov 2006 08:59:08 -0800 (PST)
+To: netdev <netdev@vger.kernel.org>
+In-Reply-To: <200611221608.09234.IvDoorn@gmail.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 22 November 2006 19:41, Serge E. Hallyn wrote:
-> Quoting Cedric Le Goater (clg@fr.ibm.com):
-> > Hello,
-> > 
-> > Dmitry Mishin wrote:
-> > 
-> > > This patch looks acceptable for us.
-> > 
-> > good. shall we merge it then ? see comment below.
-> > 
-> > > BTW, Daniel, we agreed to be based on the Andrey's patchset. I do not see a
-> > > reason, why Cedric force us to make some unnecessary work and move existent
-> > > patchset over his interface.
-> > 
-> > yeah it's a bit different from andrey's but not that much and it's more in
-> 
-> Where is Andrey's patch?
-This thread - http://thread.gmane.org/gmane.linux.network/42666
+Initial patch was flawed in 2 ways, it didn't go to the netdev list,
+and it didn't contain a function to allow drivers to get a ieee80211_hw
+pointer from the net_device structure.
+So this time the correct patch.
 
-> 
-> > the spirit of uts and ipc namespace (and user namespace if that reaches the
-> > kernel one day :) so that's why i made the small changes.
-> 
-> I agree the namespace frameworks should be consistent, but i don't know
-> whether Andrey's is or not.  I'd like to have the framework included so
-> we reduce the number of silly rewrites due to clone flag collisions etc.
-> 
-> > 
-> > It also helping the nsproxy/namespace syscalls to have a similar interface
-> > to manipulate namespaces. who knows, soon we might be able to have a 'struct
-> > namespace' with a ops field to define new namespace types ?
-> > 
-> > I can also send a empty framework for user namespace  ;)
-> 
-> Please do - then I'll rebase the patchset I sent to the containes list
-> onto your patch, and resubmit the whole userns.
-> 
-> -serge
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+During the latest d80211 update the netdevice reference
+was removed from the drivers. This also removed the
+capability to register ethtool operations for the netdevice.
 
--- 
-Thanks,
-Dmitry.
+This patch adds the ethtool_ops reference into the
+ieee80211_ops structure, and makes sure that it will
+be set on all new interfaces that will be created.
+
+Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+
+---
+
+diff --git a/include/net/d80211.h b/include/net/d80211.h
+index 30980e1..efa52b6 100644
+--- a/include/net/d80211.h
++++ b/include/net/d80211.h
+@@ -704,6 +704,10 @@ struct ieee80211_ops {
+ 	 * needed only for IBSS mode and the result of this function is used to
+ 	 * determine whether to reply to Probe Requests. */
+ 	int (*tx_last_beacon)(struct ieee80211_hw *hw);
++
++	/* Set the ethtool_ops pointer to indicate which ethtool functionality
++	 * is supported by the driver. */
++	struct ethtool_ops *ethtool;
+ };
+ 
+ /* Allocate a new hardware device. This must be called once for each
+@@ -888,6 +892,15 @@ void ieee80211_start_queues(struct ieee8
+ void ieee80211_stop_queues(struct ieee80211_hw *hw);
+ 
+ /**
++ * ieee80211_get_hw - Get ieee80211 pointer
++ * @dev: pointer to the net_device.
++ *
++ * Drivers can use this to convert a net_device pointer to the
++ * pointer to a ieee80211_hw structure.
++ */
++struct ieee80211_hw *ieee80211_get_hw(struct net_device *dev);
++
++/**
+  * ieee80211_get_mc_list_item - iteration over items in multicast list
+  * @hw: pointer as obtained from ieee80211_alloc_hw().
+  * @prev: value returned by previous call to ieee80211_get_mc_list_item() or
+diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+index 8a87c73..b55332c 100644
+--- a/net/d80211/ieee80211.c
++++ b/net/d80211/ieee80211.c
+@@ -4814,6 +4814,13 @@ void ieee80211_stop_queues(struct ieee80
+ }
+ EXPORT_SYMBOL(ieee80211_stop_queues);
+ 
++struct ieee80211_hw *ieee80211_get_hw(struct net_device *dev)
++{
++	struct ieee80211_local *local = dev->ieee80211_ptr;
++	return &local->hw;
++}
++EXPORT_SYMBOL(ieee80211_get_hw);
++
+ struct net_device_stats *ieee80211_dev_stats(struct net_device *dev)
+ {
+ 	struct ieee80211_sub_if_data *sdata;
+diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
+index 4f20bd9..a04ad95 100644
+--- a/net/d80211/ieee80211_iface.c
++++ b/net/d80211/ieee80211_iface.c
+@@ -77,6 +77,7 @@ int ieee80211_if_add(struct net_device *
+ 	ndev->mem_end = dev->mem_end;
+ 	ndev->flags = dev->flags & IFF_MULTICAST;
+ 	SET_NETDEV_DEV(ndev, dev->class_dev.dev);
++	SET_ETHTOOL_OPS(ndev, local->ops->ethtool);
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(ndev);
+ 	sdata->type = IEEE80211_IF_TYPE_AP;
+@@ -125,6 +126,7 @@ int ieee80211_if_add_mgmt(struct ieee802
+ 	ndev->ieee80211_ptr = local;
+ 	memcpy(ndev->dev_addr, local->hw.perm_addr, ETH_ALEN);
+ 	SET_NETDEV_DEV(ndev, local->mdev->class_dev.dev);
++	SET_ETHTOOL_OPS(ndev, local->ops->ethtool);
+ 
+ 	nsdata = IEEE80211_DEV_TO_SUB_IF(ndev);
+ 	nsdata->type = IEEE80211_IF_TYPE_MGMT;
