@@ -1,71 +1,59 @@
-From: alex1000@comcast.net
-Subject: Re: Error building latest wireles-dev
-Date: Thu, 23 Nov 2006 20:58:25 +0000
-Message-ID: <112320062058.13662.45660B71000595830000355E2207022933CFCFCFCE980A040E@comcast.net>
+From: Hans Henrik Happe <hhh@imada.sdu.dk>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Thu, 23 Nov 2006 22:49:56 +0100
+Message-ID: <200611232249.56886.hhh@imada.sdu.dk>
+References: <11641265982190@2ka.mipt.ru> <20061123115504.GB20294@2ka.mipt.ru> <4565FDED.2050003@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="NextPart_Webmail_9m3u9jl4l_13662_1164315505_0"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sccrmhc13.comcast.net ([204.127.200.83]:13513 "EHLO
-	sccrmhc13.comcast.net") by vger.kernel.org with ESMTP
-	id S933972AbWKWU60 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Nov 2006 15:58:26 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from berlioz.imada.sdu.dk ([130.225.128.12]:20461 "EHLO
+	berlioz.imada.sdu.dk") by vger.kernel.org with ESMTP
+	id S1757483AbWKWVuB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Nov 2006 16:50:01 -0500
+To: Ulrich Drepper <drepper@redhat.com>
+In-Reply-To: <4565FDED.2050003@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday 23 November 2006 21:00, Ulrich Drepper wrote:
+> Evgeniy Polyakov wrote:
+> > uidx is an index, starting from which there are unread entries. It is
+> > updated by userspace when it commits entries, so it is 'consumer'
+> > pointer, while kidx is an index where kernel will put new entries, i.e.
+> > 'producer' index. We definitely need them both.
+> > Userspace can only update (implicitly by calling kevent_commit()) uidx.
+> 
+> Right, which is why exporting this entry is not needed.  Keep the 
+> interface as small as possible.
+> 
+> Userlevel has to maintain its own index.  Just assume kevent_wait 
+> returns 10 new entries and you have multiple threads.  In this case all 
+> threads take their turns and pick an entry from the ring buffer.  This 
+> basically has to be done with something like this (I ignore wrap-arounds 
+> here to simplify the example):
+> 
+>    int getidx() {
+>      while (uidx < kidx)
+>         if (atomic_cmpxchg(uidx, uidx + 1, uidx) == 0)
+>           return uidx;
+>      return -1;
+>    }
 
---NextPart_Webmail_9m3u9jl4l_13662_1164315505_0
-Content-Type: text/plain
-Content-Transfer-Encoding: 8bit
-
-I understand that it's a development tree. I'm simply reporting what I see. 
+I don't know if this falls under the simplification, but wouldn't there be a 
+race when reading/copying the event data? I guess this could be solved with 
+an extra user index. 
 
 --
-I code, therefore I am.
 
- -------------- Original message ----------------------
-From: Johannes Berg <johannes@sipsolutions.net>
-
-
-
---NextPart_Webmail_9m3u9jl4l_13662_1164315505_0
-Content-Type: message/rfc822
-
-From: Johannes Berg <johannes@sipsolutions.net>
-To: alex1000@comcast.net
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
-Subject: Re: Error building latest wireles-dev
-Date: Thu, 23 Nov 2006 19:55:50 +0000
-Content-Type: Multipart/mixed;
- boundary="NextPart_Webmail_9m3u9jl4l_13662_1164315505_1"
-
---NextPart_Webmail_9m3u9jl4l_13662_1164315505_1
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2006-11-23 at 19:32 +0000, alex1000@comcast.net wrote:
-> I get following errors when running 'make modules'
-
-Well yes. It's a dev tree and API changes broke all drivers.
-
-I can only suggest you actually read wireless dev related posts.
-Especially wireless-dev update announcements can sometimes be helpful :)
-
-johannes
-
---NextPart_Webmail_9m3u9jl4l_13662_1164315505_1
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFZfxZ/ETPhpq3jKURAqGfAKCiBmzUhBddO/f5slYMTWHJSdt1jQCgmiH1
-c3jervEfwJFMaflfbzTvDXk=
-=Z6zL
------END PGP SIGNATURE-----
-
---NextPart_Webmail_9m3u9jl4l_13662_1164315505_1--
-
---NextPart_Webmail_9m3u9jl4l_13662_1164315505_0--
+Hans Henrik Happe 
