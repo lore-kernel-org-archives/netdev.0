@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [6PACK] Masking bug in 6pack driver
-Date: Thu, 23 Nov 2006 11:48:47 -0800 (PST)
-Message-ID: <20061123.114847.93384936.davem@davemloft.net>
-References: <20061123183023.GA6556@linux-mips.org>
+Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to
+ implicate xfs, scsi, networking, SMP
+Date: Thu, 23 Nov 2006 11:54:03 -0800 (PST)
+Message-ID: <20061123.115403.84973519.davem@davemloft.net>
+References: <20061123070837.GV11034@melbourne.sgi.com>
+	<200611231416.03387.netdev@axxeo.de>
+	<1164307020.3147.3.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:11980
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933673AbWKWTsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Nov 2006 14:48:41 -0500
-To: ralf@linux-mips.org
-In-Reply-To: <20061123183023.GA6556@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@axxeo.de, dgc@sgi.com, jesper.juhl@gmail.com,
+	chatz@melbourne.sgi.com, linux-kernel@vger.kernel.org,
+	xfs@oss.sgi.com, xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: arjan@infradead.org
+In-Reply-To: <1164307020.3147.3.camel@laptopd505.fenrus.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Thu, 23 Nov 2006 18:30:23 +0000
+From: Arjan van de Ven <arjan@infradead.org>
+Date: Thu, 23 Nov 2006 19:37:00 +0100
 
-> Looks like a broken masking to me, binary not is used where bitwise not
-> was intended.
+> On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
+> > Hi there,
+> > 
+> > David Chinner schrieb:
+> > > If the softirqs were run on a different stack, then a lot of these
 > 
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> softirqs DO run on their own stack!
 
-Jeff, I've got this one.
-
-Applied, thanks a lot!
+This is a platform specific assertion :-)
