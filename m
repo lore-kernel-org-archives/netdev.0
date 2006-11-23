@@ -1,47 +1,75 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take25 1/6] kevent: Description.
-Date: Wed, 22 Nov 2006 15:52:11 -0800
-Message-ID: <4564E2AB.1020202@redhat.com>
-References: <11641265982190@2ka.mipt.ru>
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] Make udp_encap_rcv use pskb_may_pull
+Date: Thu, 23 Nov 2006 01:01:44 +0100
+Message-ID: <20061123000144.GB7452@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:6070 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1757197AbWKVXzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 18:55:52 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11641265982190@2ka.mipt.ru>
+Received: from ns2.suse.de ([195.135.220.15]:8408 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1757208AbWKWABq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Nov 2006 19:01:46 -0500
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> + struct kevent_ring
-> + {
-> +   unsigned int ring_kidx, ring_uidx, ring_over;
-> +   struct ukevent event[0];
-> + }
-> + [...]
-> +ring_uidx - index of the first entry userspace can start reading fro=
-m
 
-Do we need this value in the structure?  Userlevel cannot and should no=
-t=20
-be able to modify it.  So, userland has in any case to track the tail=20
-pointer itself.  Why then have this value at all?
+Make udp_encap_rcv use pskb_may_pull
 
-After kevent_init() the tail pointer is implicitly assumed to be 0.=20
-Since the front pointer (well index) is also zero nothing is available=20
-for reading.
+IPsec with NAT-T breaks on some notebooks using the latest e1000 chipset,
+when header split is enabled. When receiving sufficiently large packets, the
+driver puts everything up to and including the UDP header into the header
+portion of the skb, and the rest goes into the paged part. udp_encap_rcv
+forgets to use pskb_may_pull, and fails to decapsulate it. Instead, it
+passes it up it to the IKE daemon.
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+Signed-off-by: Olaf Kirch <okir@suse.de>
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+
+ net/ipv4/udp.c |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
+
+Index: linux-2.6.19-rc6/net/ipv4/udp.c
+===================================================================
+--- linux-2.6.19-rc6.orig/net/ipv4/udp.c
++++ linux-2.6.19-rc6/net/ipv4/udp.c
+@@ -928,24 +928,33 @@ static int udp_encap_rcv(struct sock * s
+ 	return 1; 
+ #else
+ 	struct udp_sock *up = udp_sk(sk);
+-  	struct udphdr *uh = skb->h.uh;
++  	struct udphdr *uh;
+ 	struct iphdr *iph;
+ 	int iphlen, len;
+   
+-	__u8 *udpdata = (__u8 *)uh + sizeof(struct udphdr);
+-	__be32 *udpdata32 = (__be32 *)udpdata;
++	__u8 *udpdata;
++	__be32 *udpdata32;
+ 	__u16 encap_type = up->encap_type;
+ 
+ 	/* if we're overly short, let UDP handle it */
+-	if (udpdata > skb->tail)
++	len = skb->len - sizeof(struct udphdr);
++	if (len <= 0)
+ 		return 1;
+ 
+ 	/* if this is not encapsulated socket, then just return now */
+ 	if (!encap_type)
+ 		return 1;
+ 
+-	len = skb->tail - udpdata;
++	/* If this is a paged skb, make sure we pull up
++	 * whatever data we need to look at. */
++	if (!pskb_may_pull(skb, sizeof(struct udphdr) + min(len, 8)))
++		return 1;
+ 
++	/* Now we can get the pointers */
++	uh = skb->h.uh;
++	udpdata = (__u8 *)uh + sizeof(struct udphdr);
++	udpdata32 = (__be32 *)udpdata;
++  
+ 	switch (encap_type) {
+ 	default:
+ 	case UDP_ENCAP_ESPINUDP:
