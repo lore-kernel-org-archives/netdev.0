@@ -1,251 +1,287 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: tulip_stop_rxtx() failed
-Date: Thu, 23 Nov 2006 13:59:17 +0200 (EET)
-Message-ID: <Pine.SOC.4.61.0611231347090.24112@math.ut.ee>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
+Date: Thu, 23 Nov 2006 15:18:40 +0300
+Message-ID: <20061123121838.GC20294@2ka.mipt.ru>
+References: <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122103828.GA11480@2ka.mipt.ru> <4564CD97.20909@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from math.ut.ee ([193.40.36.2]:28590 "EHLO math.ut.ee")
-	by vger.kernel.org with ESMTP id S1755698AbWKWL7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 06:59:21 -0500
-Received: from math.ut.ee (localhost [IPv6:::1])
-	by math.ut.ee (8.12.8+Sun/8.12.8/math-1.2) with ESMTP id kANBxI28012518
-	for <netdev@vger.kernel.org>; Thu, 23 Nov 2006 13:59:18 +0200 (EET)
-Received: from localhost (mroos@localhost)
-	by math.ut.ee (8.12.8+Sun/8.12.2/Submit) with ESMTP id kANBxHng012514
-	for <netdev@vger.kernel.org>; Thu, 23 Nov 2006 13:59:18 +0200 (EET)
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Alexander Viro <aviro@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757351AbWKWMUk@vger.kernel.org>
+To: Ulrich Drepper <drepper@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <4564CD97.20909@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Background: Motorola Powerstack II (RS/6000 clone), PRep PowerPC 
-machine, running Debian unstable userspace and latest git kernels. 1 
-21140 onboard, another in PCI slot.
+On Wed, Nov 22, 2006 at 02:22:15PM -0800, Ulrich Drepper (drepper@redha=
+t.com) wrote:
+> >I repeate - timeout is needed to tell kernel the maximum possible
+> >timeframe syscall can live. When you will tell me why you want sysca=
+ll
+> >to be interrupted when some absolute time is on the clock instead of
+> >having special event for that, then ok.
+>=20
+> This goes together with...
+>=20
+>=20
+> >I think I know why you want absolute time there - because glibc conv=
+erts
+> >most of the timeouts to absolute time since posix waiting
+> >pthread_cond_timedwait() works only with it.
+>=20
+> I did not make the decision to use absolute timeouts/deadlines.  This=
+ is=20
+> what is needed in many situations.  It's the more general way to spec=
+ify=20
+> delays.  These are real-world requirements which were taken into acco=
+unt=20
+> when designing the interfaces.
+>=20
+> For most cases I would agree that when doing AIO you need relative=20
+> timeouts.  But the event handling is not about AIO alone.  It's all=20
+> kinds of events and some/many are wall clock related.  And it is=20
+> definitely necessary in some situations to be able to interrupt if th=
+e=20
+> clock jumps ahead.  If a program deals with devices in the real world=
+=20
+> this be crucial.  The new event handling must be generic enough to=20
+> accommodate all these uses and using struct timespec* plus eventually=
+=20
+> flags does not add any measurable overhead so there is no reason to n=
+ot=20
+> do it right.
 
-Occasionally there is the message
-0000:00:06.0: tulip_stop_rxtx() failed
-during bootup. It does not happen every time, just sometimes (about half 
-boots with different git kernels). Everything seems to be working fine 
-though. So this is nothing critical but just strange.
+Timeouts are not about AIO or any other event types (there are a lot of
+them already as you can see), it is only about syscall itself.
+Please point me to _any_ syscall out there which uses absolute time
+(except settimeofday() and similar syscalls).
+=20
+> >Kevent convert it to jiffies since it uses wait_event() and friends,
+> >jiffies do not carry information about clocks to be used.
+>=20
+> Then this points to a place in the implementation which needs changin=
+g.=20
+>  The interface cannot be restricted just because the implementation=20
+> currently allow this to be implemented.
 
-0000:00:06.0 seems to be eth1. There is a message about no MII on eth1 
-that also differentiates it from eth0.
-tulip1: ***WARNING***: No MII transceiver found!
-eth1: Digital DS21140 Tulip rev 34 at MMIO 0xc2000000, 00:00:94:7A:31:8C, IRQ 10.
+Btw, do you propose to change all users of wait_event()?
 
+Interface is not restricted, it is just different from what you want it
+to be, and you did not show why it requires changes.
 
-lspci and dmesg below, any additional information on request.
+Btw, there are _no_ interfaces similar to 'wait event with absolute
+times' in kernel.
+=20
+> >	/* Short-circuit ignored signals.  */
+> >	if (sig_ignored(p, sig)) {
+> >		ret =3D 1;
+> >		goto out;
+> >	}
+> >=20
+> >almost the same happens when signal is delivered using kevent (speci=
+al
+> >case) - pending mask is not updated.
+>=20
+> Yes, and how do you set the signal mask atomically wrt to registering=
+=20
+> and unregistering signals with kevent and the syscall itself?  You=20
+> cannot.  But this is exactly which is resolved by adding the signal m=
+ask=20
+> parameter.
 
-00:00.0 Host bridge: IBM 82660 CPU to PCI Bridge (rev 02)
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
+kevent signal registering is atomic with respect to other kevent
+syscalls: control syscalls are protected by mutex and waiting syscalls
+work with queue, which is protected by appropriate lock.
 
-00:01.0 ISA bridge: Symphony Labs W83C553 (rev 10)
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
+> Programs which don't need the functionality simply pass a NULL pointe=
+r=20
+> and the cost is once again not measurable.  But don't restrict the=20
+> functionality just because you don't see a use for this in your small=
+ world.
+>=20
+> Yes, we could (later again) add new syscalls.  But this is plain stup=
+id.=20
+>  I would love to never have the epoll_wait or select syscall and just=
+=20
+> have epoll_pwait and pselect since the functionality is a superset.  =
+We=20
+> have a larger kernel ABI.  Here we can stop making the same mistake a=
+gain.
+>=20
+> For the userlevel side we might even have separate intterfaces, one w=
+ith=20
+> one without signal mask parameter.  But that's userlevel, both functi=
+ons=20
+> would use the same syscall.
 
-00:01.1 IDE interface: Symphony Labs SL82c105 (rev 05) (prog-if 8f [Master SecP SecO PriP PriO])
-	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin A routed to IRQ 0
-	Region 0: I/O ports at 800001f0 [size=8]
-	Region 1: I/O ports at 800003f4 [size=4]
-	Region 2: I/O ports at 80000170 [size=8]
-	Region 3: I/O ports at 80000374 [size=4]
-	Region 4: I/O ports at 80000000 [size=16]
-	Region 5: I/O ports at 800010b0 [size=16]
+Let me formulate signal problem here, please point me if it is correct
+or not.
 
-00:02.0 SCSI storage controller: LSI Logic / Symbios Logic 53c825 (rev 13)
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0 (4250ns min, 16000ns max), Cache Line Size: 32 bytes
-	Interrupt: pin A routed to IRQ 15
-	Region 0: I/O ports at 80001400 [size=256]
-	Region 1: Memory at c4008000 (32-bit, non-prefetchable) [size=256]
-	Region 2: Memory at c4009000 (32-bit, non-prefetchable) [size=4K]
+User registers some async signal notifications and calls poll() waiting
+for some file descriptors to became ready. When it is interrupted there
+is no knowledge about what really happend first - signal was delivered
+or file descriptor was ready.
 
-00:04.0 Ethernet controller: Digital Equipment Corporation DECchip 21140 [FasterNet] (rev 22)
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0 (5000ns min, 10000ns max), Cache Line Size: 32 bytes
-	Interrupt: pin A routed to IRQ 11
-	Region 0: I/O ports at 80001800 [size=128]
-	Region 1: Memory at c400a000 (32-bit, non-prefetchable) [size=128]
-	Expansion ROM at c1040000 [disabled] [size=256K]
+Is it correct?
 
-00:06.0 Ethernet controller: Digital Equipment Corporation DECchip 21140 [FasterNet] (rev 22)
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0 (5000ns min, 10000ns max), Cache Line Size: 32 bytes
-	Interrupt: pin A routed to IRQ 10
-	Region 0: I/O ports at 80001000 [size=128]
-	Region 1: Memory at c2000000 (32-bit, non-prefetchable) [size=128]
-	Expansion ROM at c1040000 [disabled] [size=256K]
+In case it is, let me explain why this situation can not happen with
+kevent: since signals are not delivered in the old way, but instead the=
+y
+are queued into the same queue where file descriptors are, and queueing
+is atomic, and pending signal mask is not updated, user will only read
+one event after another, which automatically (since delivery is atomic)
+means that what first was read, that was first happend.
 
-00:07.0 Mass storage controller: Silicon Image, Inc. SiI 3112 [SATALink/SATARaid] Serial ATA Controller (rev 02)
-	Subsystem: Silicon Image, Inc. SiI 3112 SATALink Controller
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-	Interrupt: pin A routed to IRQ 11
-	Region 0: I/O ports at 80001080 [size=8]
-	Region 1: I/O ports at 80001088 [size=4]
-	Region 2: I/O ports at 80001090 [size=8]
-	Region 3: I/O ports at 80001098 [size=4]
-	Region 4: I/O ports at 800010a0 [size=16]
-	Region 5: Memory at c2000200 (32-bit, non-prefetchable) [size=512]
-	Expansion ROM at c1080000 [disabled] [size=512K]
-	Capabilities: <access denied>
+So, why in the latter situation we need to specify signal mask, which
+will block some signals from _async_ delivery, since there is _no_ asyn=
+c
+delivery?
 
-00:08.0 VGA compatible controller: Cirrus Logic GD 5446 (rev 45) (prog-if 00 [VGA])
-	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin ? routed to IRQ 15
-	Region 0: Memory at c0000000 (32-bit, prefetchable) [size=32M]
-	Region 1: Memory at c2001000 (32-bit, non-prefetchable) [size=4K]
-	Expansion ROM at c4000000 [disabled] [size=32K]
+> >>There are other scenarios like this.  Fact is, signal mask handling=
+ is=20
+> >>necessary and it cannot be folded into the event handling, it's=20
+> >>orthogonal.
+> >
+> >You have too narrow look.
+> >Look broader - pselect() has signal mask to prevent race between asy=
+nc
+> >signal delivery and file descriptor readiness. With kevent both that
+> >events are delivered through the same queue, so there is no race, so
+> >kevent syscalls do not need that workaround for 20 years-old design,
+> >which can not handle different than fd events.
+>=20
+> Your failure to understand to signal model leads to wrong conclusions=
+=2E=20
+> There are races, several of them, and you cannot do anything without=20
+> signal mask parameters.  I've explained this before.
 
+Please refer to my above explaination, point me in that example what we
+are talking about. It seems we do not understand each other.
+=20
+> >>Avoiding these callbacks would help reducing the kernel interface,=20
+> >>especially for this useless since inferior timer implementation.
+> >
+> >You completely do not want to understand how kevent works and why th=
+ey=20
+> >are needed, if you would try to think that there are different than=20
+> >yours opinions, then probably we could have some progress.
+>=20
+> I think I know very well how they work meanwhile.
 
-Total memory = 256MB; using 512kB for hash table (at c0380000)
-Linux version 2.6.19-rc6 (mroos@muuseum) (gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-20)) #62 Thu Nov 23 13:33:33 EET 2006
-PReP architecture
-Entering add_active_range(0, 0, 65536) 0 entries of 256 used
-Zone PFN ranges:
-  DMA             0 ->    65536
-  Normal      65536 ->    65536
-early_node_map[1] active PFN ranges
-    0:        0 ->    65536
-On node 0 totalpages: 65536
-  DMA zone: 512 pages used for memmap
-  DMA zone: 0 pages reserved
-  DMA zone: 65024 pages, LIFO batch:15
-  Normal zone: 0 pages used for memmap
-Built 1 zonelists.  Total pages: 65024
-Kernel command line: console=ttyS0,9600 console=tty0 root=/dev/sda3 tere tere tere
-PID hash table entries: 1024 (order: 10, 4096 bytes)
-time_init: decrementer frequency = 16.649364 MHz
-Console: colour VGA+ 80x25
-Dentry cache hash table entries: 32768 (order: 5, 131072 bytes)
-Inode-cache hash table entries: 16384 (order: 4, 65536 bytes)
-Memory: 256128k available (2212k kernel code, 804k data, 140k init, 0k highmem)
-Calibrating delay loop... 299.00 BogoMIPS (lpj=1495040)
-Mount-cache hash table entries: 512
-NET: Registered protocol family 16
-PCI: Probing PCI hardware
-Setting PCI interrupts for a "Utah (Powerstack II Pro4000)"
-PCI: Cannot allocate resource region 5 of device 0000:00:01.1
-PCI: Cannot allocate resource region 1 of device 0000:00:06.0
-PCI: Cannot allocate resource region 5 of device 0000:00:07.0
-Linux Plug and Play Support v0.97 (c) Adam Belay
-SCSI subsystem initialized
-NET: Registered protocol family 2
-IP route cache hash table entries: 2048 (order: 1, 8192 bytes)
-TCP established hash table entries: 8192 (order: 5, 131072 bytes)
-TCP bind hash table entries: 4096 (order: 4, 81920 bytes)
-TCP: Hash tables configured (established 8192 bind 4096)
-TCP reno registered
-io scheduler noop registered
-io scheduler anticipatory registered
-io scheduler deadline registered
-io scheduler cfq registered (default)
-isapnp: Scanning for PnP cards...
-isapnp: No Plug & Play device found
-Generic RTC Driver v1.07
-Serial: 8250/16550 driver $Revision: 1.90 $ 4 ports, IRQ sharing disabled
-serial8250: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
-serial8250: ttyS1 at I/O 0x2f8 (irq = 3) is a 16550A
-Linux Tulip driver version 1.1.14-NAPI (May 11, 2002)
-PCI: Enabling device 0000:00:04.0 (0000 -> 0003)
-tulip0:  EEPROM default media type Autosense.
-tulip0:  Index #0 - Media AUI (#2) described by a 21140 non-MII (0) block.
-tulip0:  Index #1 - Media MII (#11) described by a 21140 MII PHY (1) block.
-tulip0:  MII transceiver #8 config 3100 status 786b advertising 01e1.
-eth0: Digital DS21140 Tulip rev 34 at MMIO 0xc400a000, 08:00:3E:28:C4:A2, IRQ 11.
-PCI: Enabling device 0000:00:06.0 (0000 -> 0003)
-tulip1:  EEPROM default media type Autosense.
-tulip1:  Index #0 - Media 10baseT (#0) described by a 21140 non-MII (0) block.
-tulip1:  Index #1 - Media 100baseTx (#3) described by a 21140 non-MII (0) block.
-tulip1:  Index #2 - Media 10baseT-FDX (#4) described by a 21140 non-MII (0) block.
-tulip1:  Index #3 - Media 100baseTx-FDX (#5) described by a 21140 non-MII (0) block.
-tulip1: ***WARNING***: No MII transceiver found!
-eth1: Digital DS21140 Tulip rev 34 at MMIO 0xc2000000, 00:00:94:7A:31:8C, IRQ 10.
-PCI: Enabling device 0000:00:02.0 (0000 -> 0003)
-sym0: <825a> rev 0x13 at pci 0000:00:02.0 irq 15
-sym0: No NVRAM, ID 7, Fast-10, SE, parity checking
-sym0: SCSI BUS has been reset.
-scsi0 : sym-2.2.3
-scsi 0:0:0:0: Direct-Access     QUANTUM  ATLAS10K3_36_WLS 020W PQ: 0 ANSI: 3
- target0:0:0: tagged command queuing enabled, command queue depth 16.
- target0:0:0: Beginning Domain Validation
- target0:0:0: asynchronous
- target0:0:0: wide asynchronous
- target0:0:0: FAST-10 WIDE SCSI 20.0 MB/s ST (100 ns, offset 8)
- target0:0:0: Domain Validation skipping write tests
- target0:0:0: Ending Domain Validation
-SCSI device sda: 71833096 512-byte hdwr sectors (36779 MB)
-sda: Write Protect is off
-sda: Mode Sense: e5 00 10 08
-SCSI device sda: drive cache: write back w/ FUA
-SCSI device sda: 71833096 512-byte hdwr sectors (36779 MB)
-sda: Write Protect is off
-sda: Mode Sense: e5 00 10 08
-SCSI device sda: drive cache: write back w/ FUA
- sda: sda1 sda2 sda3
-sd 0:0:0:0: Attached scsi disk sda
-serio: i8042 KBD port at 0x60,0x64 irq 1
-serio: i8042 AUX port at 0x60,0x64 irq 12
-mice: PS/2 mouse device common for all mice
-TCP cubic registered
-NET: Registered protocol family 1
-NET: Registered protocol family 17
-kjournald starting.  Commit interval 5 seconds
-EXT3-fs: mounted filesystem with ordered data mode.
-VFS: Mounted root (ext3 filesystem) readonly.
-Freeing unused kernel memory: 140k init
-input: AT Translated Set 2 keyboard as /class/input/input0
-atkbd.c: keyboard reset failed on isa0060/serio1
-libata version 2.00 loaded.
-PCI: Enabling device 0000:00:01.1 (0000 -> 0001)
-pata_sl82c105 0000:00:01.1: is not available: No interrupt assigned.
-sata_sil 0000:00:07.0: version 2.0
-PCI: Enabling device 0000:00:07.0 (0000 -> 0003)
-sata_sil 0000:00:07.0: cache line size not set.  Driver may not function
-ata1: SATA max UDMA/100 cmd 0xF2000280 ctl 0xF200028A bmdma 0xF2000200 irq 11
-ata2: SATA max UDMA/100 cmd 0xF20002C0 ctl 0xF20002CA bmdma 0xF2000208 irq 11
-scsi1 : sata_sil
-ata1: SATA link down (SStatus 0 SControl 310)
-scsi2 : sata_sil
-ata2: SATA link up 1.5 Gbps (SStatus 113 SControl 310)
-ata2.00: ATA-7, max UDMA/133, 625134827 sectors: LBA48 NCQ (depth 0/32)
-ata2.00: configured for UDMA/100
-scsi 2:0:0:0: Direct-Access     ATA      ST3320620AS      3.AA PQ: 0 ANSI: 5
-SCSI device sdb: 625134827 512-byte hdwr sectors (320069 MB)
-sdb: Write Protect is off
-sdb: Mode Sense: 00 3a 00 00
-SCSI device sdb: drive cache: write back
-SCSI device sdb: 625134827 512-byte hdwr sectors (320069 MB)
-sdb: Write Protect is off
-sdb: Mode Sense: 00 3a 00 00
-SCSI device sdb: drive cache: write back
- sdb: sdb1
-sd 2:0:0:0: Attached scsi disk sdb
-Adding 498004k swap on /dev/sda2.  Priority:-1 extents:1 across:498004k
-EXT3 FS on sda3, internal journal
-NET: Registered protocol family 10
-lo: Disabled Privacy Extensions
-Mobile IPv6
-device-mapper: ioctl: 4.10.0-ioctl (2006-09-14) initialised: dm-devel@redhat.com
-kjournald starting.  Commit interval 5 seconds
-EXT3 FS on sdb1, internal journal
-EXT3-fs: mounted filesystem with ordered data mode.
-ip_tables: (C) 2000-2006 Netfilter Core Team
-Netfilter messages via NETLINK v0.30.
-ip_conntrack version 2.4 (2048 buckets, 16384 max) - 232 bytes per conntrack
-eth0: Setting full-duplex based on MII#8 link partner capability of c1e1.
-0000:00:06.0: tulip_stop_rxtx() failed
-NET: Registered protocol family 5
+If that would be true, I would be very happy. Definitely.
+=20
+> >Those callbacks are neededto support different types of objects, whi=
+ch
+> >can produce events, with the same interface.
+>=20
+> Yes, but it is not necessary to expose all the different types in the=
+=20
+> userlevel APIs.  That's the issue.  Reduce the exposure of kernel=20
+> functionality to userlevel APIs.
+>=20
+> If you integrate the timer handling into the POSIX timer syscalls the=
+=20
+> callbacks in your timer patch might not need be there.  At least the=20
+> enqueue callback, if I remember correctly.  All enqueue operations ar=
+e=20
+> initiated by timer_create calls which can call the function directly.=
+=20
+> Removing the callback from the list used by add_ctl will reduce the=20
+> exposed interface.
 
--- 
-Meelis Roos (mroos@linux.ee)
+I posted a patch to implement kevent support for posix timers, it is
+quite simple in existing model. No need to remove anything, that allows
+to have flexibility and create different usage models others than what
+is required by fairly small part of the users.
+
+> >>>I can replace with -ENOSYS if you like.
+> >>It's necessary since we must be able to distinguish the errors.
+> >
+> >And what if user requests bogus event type - is it invalid condition=
+ or
+> >normal, but not handled (thus enosys)?
+>=20
+> It's ENOSYS.  Just like for system calls.  You cannot distinguish=20
+> completely invalid values from values which are correct only on later=
+=20
+> kernels.  But: the first use is a bug while the later is not a bug an=
+d=20
+> needed to write robust and well performing apps.  The former's proble=
+ms=20
+> therefore are unimportant.
+
+I implemented it to return -enosys for the case, when event type is
+smaller than maximum allowed and no subsystem is registered, and -einva=
+l=20
+for the case, when requested type is higher.
+
+> >Well, then I claim that I do not know 'thing or two about interfaces=
+ of
+> >the runtime programs expect to use', but instead I write those progr=
+amms
+> >and I know my needs. And POSIX interfaces are the last one I prefer =
+to
+> >use.
+>=20
+> Well, there it is.  You look out for yourself while I make sure that =
+all=20
+> the bases I can think of are covered.
+>=20
+> Again, if you don't want to work on the generalization, fine.  That's=
+=20
+> your right.  Nobody will think bad of you for doing this.  But don't=20
+> expect that a) I'll not try to change it and b) I'll not object to th=
+e=20
+> changes being accepted as they are.
+
+It is not about generalization, but about those who do practical work
+and those who prefer to spread theoretical thoughts, which result in
+several month of unused empty discussions.
+
+> >What if it will not be called POSIX AIO, but instead some kind of 't=
+rue
+> >AIO' or 'real AIO' or maybe 'alternative AIO'? :)
+> >It is quite sure that POSIX AIO interfaces will unlikely to be appli=
+ed
+> >there...
+>=20
+> Programmers don't like specialized OS-specific interfaces.  AIO users=
+=20
+> who put up with libaio are rare.  The same will happen with any other=
+=20
+> approach.  The Samba use is symptomatic: they need portability even i=
+f=20
+> this costs a minute percentage of performance compared to a highly=20
+> specialized implementation.
+
+Do not say for everyone - it is not a some kind of feodalism with the
+only opinion allowed - respect those who do not like/do not want what=20
+you propose them to use.
+
+> There might be some aspects of POSIX AIO which could be implemented=20
+> better on Linux.  But the important part in the name is the 'P'.
+
+I will create completely different model, POSIX completely is not
+designed for that - that model allows to specify set of tasks performed
+on object completely asycnhronous to user before object is returned -
+for example specify destination socket and filename, so async sendfile
+will asynchronously open file, transfer it to remote destination and
+probably even close (or return file descriptor). The same can be applie=
+d
+to aio read/write.
+
+> --=20
+> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
+ St =E2=9E=A7 Mountain View,=20
+> CA =E2=9D=96
+
+--=20
+	Evgeniy Polyakov
