@@ -1,57 +1,71 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Thu, 23 Nov 2006 12:34:50 -0800
-Message-ID: <456605EA.5060601@redhat.com>
-References: <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru>
+From: alex1000@comcast.net
+Subject: Re: Error building latest wireles-dev
+Date: Thu, 23 Nov 2006 20:58:25 +0000
+Message-ID: <112320062058.13662.45660B71000595830000355E2207022933CFCFCFCE980A040E@comcast.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+Content-Type: multipart/mixed; boundary="NextPart_Webmail_9m3u9jl4l_13662_1164315505_0"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51942 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1757459AbWKWUgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 15:36:05 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061123122225.GD20294@2ka.mipt.ru>
+Received: from sccrmhc13.comcast.net ([204.127.200.83]:13513 "EHLO
+	sccrmhc13.comcast.net") by vger.kernel.org with ESMTP
+	id S933972AbWKWU60 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Nov 2006 15:58:26 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
->>> Btw, what about putting aditional multiplexer into add/remove/modif=
-y
->>> switch? There will be logical 'ready' addon?
->> Is it needed?  Usually this is done with a *_wait call with a timeou=
-t of=20
->> zero.  That code path might have to be optimized but it should alrea=
-dy=20
->> be there.
->=20
-> It does not allow to mark events as ready.
-> And current interfaces wake up when either timeout is zero (in this c=
-ase
-> thread itself does not sleep and can process events), or when there i=
-s
-> _new_ work - since there is no _new_ work, when thread awakened to
-> process it was killed, kernel does not think that something is wrong.
 
-Rather than mark an existing entry as ready, how about a call to inject=
-=20
-a new ready event?
+--NextPart_Webmail_9m3u9jl4l_13662_1164315505_0
+Content-Type: text/plain
+Content-Transfer-Encoding: 8bit
 
-This would be useful to implement functionality at userlevel and still=20
-use an event queue to announce the availability.  Without this type of=20
-functionality we'd need to use indirect notification via signal or pipe=
-=20
-or something like that.
+I understand that it's a development tree. I'm simply reporting what I see. 
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+--
+I code, therefore I am.
+
+ -------------- Original message ----------------------
+From: Johannes Berg <johannes@sipsolutions.net>
+
+
+
+--NextPart_Webmail_9m3u9jl4l_13662_1164315505_0
+Content-Type: message/rfc822
+
+From: Johannes Berg <johannes@sipsolutions.net>
+To: alex1000@comcast.net
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Subject: Re: Error building latest wireles-dev
+Date: Thu, 23 Nov 2006 19:55:50 +0000
+Content-Type: Multipart/mixed;
+ boundary="NextPart_Webmail_9m3u9jl4l_13662_1164315505_1"
+
+--NextPart_Webmail_9m3u9jl4l_13662_1164315505_1
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2006-11-23 at 19:32 +0000, alex1000@comcast.net wrote:
+> I get following errors when running 'make modules'
+
+Well yes. It's a dev tree and API changes broke all drivers.
+
+I can only suggest you actually read wireless dev related posts.
+Especially wireless-dev update announcements can sometimes be helpful :)
+
+johannes
+
+--NextPart_Webmail_9m3u9jl4l_13662_1164315505_1
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFZfxZ/ETPhpq3jKURAqGfAKCiBmzUhBddO/f5slYMTWHJSdt1jQCgmiH1
+c3jervEfwJFMaflfbzTvDXk=
+=Z6zL
+-----END PGP SIGNATURE-----
+
+--NextPart_Webmail_9m3u9jl4l_13662_1164315505_1--
+
+--NextPart_Webmail_9m3u9jl4l_13662_1164315505_0--
