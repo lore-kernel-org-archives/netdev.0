@@ -1,8 +1,8 @@
 From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take25 1/6] kevent: Description.
-Date: Thu, 23 Nov 2006 12:00:45 -0800
-Message-ID: <4565FDED.2050003@redhat.com>
-References: <11641265982190@2ka.mipt.ru> <4564E2AB.1020202@redhat.com> <20061123115504.GB20294@2ka.mipt.ru>
+Subject: Re: Kevent POSIX timers support.
+Date: Thu, 23 Nov 2006 12:26:15 -0800
+Message-ID: <456603E7.9090006@redhat.com>
+References: <20061113105458.GA8182@2ka.mipt.ru> <4560F07B.10608@redhat.com> <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <20061121184605.GA7787@2ka.mipt.ru> <4563FE71.4040807@redhat.com> <20061122104416.GD11480@2ka.mipt.ru> <20061123085243.GA11575@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
@@ -13,62 +13,61 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	Christoph Hellwig <hch@infradead.org>,
 	Chase Venters <chase.venters@clientec.com>,
 	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:7385 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S933857AbWKWUBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 15:01:53 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:24547 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S933877AbWKWU1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 15:27:08 -0500
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061123115504.GB20294@2ka.mipt.ru>
+In-Reply-To: <20061123085243.GA11575@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Evgeniy Polyakov wrote:
-> uidx is an index, starting from which there are unread entries. It is
-> updated by userspace when it commits entries, so it is 'consumer'
-> pointer, while kidx is an index where kernel will put new entries, i.=
-e.
-> 'producer' index. We definitely need them both.
-> Userspace can only update (implicitly by calling kevent_commit()) uid=
-x.
+> +static int posix_kevent_init(void)
+> +{
+> +	struct kevent_callbacks tc =3D {
+> +		.callback =3D &posix_kevent_callback,
+> +		.enqueue =3D &posix_kevent_enqueue,
+> +		.dequeue =3D &posix_kevent_dequeue};
 
-Right, which is why exporting this entry is not needed.  Keep the=20
-interface as small as possible.
+How do we prevent that somebody tries to register a POSIX timer event=20
+source with kevent_ctl(KEVENT_CTL_ADD)?  This should only be possible=20
+from sys_timer_create and nowhere else.
 
-Userlevel has to maintain its own index.  Just assume kevent_wait=20
-returns 10 new entries and you have multiple threads.  In this case all=
+Can you add a parameter to kevent_enqueue indicating this is a call fro=
+m=20
+inside the kernel and then ignore certain enqueue callbacks?
+
+
+> @@ -343,23 +439,27 @@ static int posix_timer_fn(struct hrtimer
+> =20
+>  	timr =3D container_of(timer, struct k_itimer, it.real.timer);
+>  	spin_lock_irqsave(&timr->it_lock, flags);
+> +=09
+> +	if (timr->it_sigev_notify & SIGEV_KEVENT) {
+> +		kevent_storage_ready(&timr->st, NULL, KEVENT_MASK_ALL);
+> +	} else {
+
+We need to pass the data in the sigev_value meember of the struct=20
+sigevent structure passed to timer_create to the caller.  I don't see i=
+t=20
+being done here nor when the timer is created.  Do I miss something?=20
+The sigev_value value should be stored in the user/ptr member of struct=
 =20
-threads take their turns and pick an entry from the ring buffer.  This=20
-basically has to be done with something like this (I ignore wrap-around=
-s=20
-here to simplify the example):
+ukevent.
 
-   int getidx() {
-     while (uidx < kidx)
-        if (atomic_cmpxchg(uidx, uidx + 1, uidx) =3D=3D 0)
-          return uidx;
-     return -1;
-   }
 
-Very much simplified but it should show that we need a writable copy of=
-=20
-the uidx.  And this value at any time must be consistent with the index=
-=20
-the kernel assumes.
+> +		if (event.sigev_notify & SIGEV_KEVENT) {
 
-The current ring_uidx value can at best be used to reinitialize the=20
-userlevel uidx value after each kevent_wait call but this is unnecessar=
-y=20
-at best (since uidx must already have this value) and racy in problem=20
-cases (what if more than one thread gets woken concurrently with uidx=20
-having the same value and one thread stores the uidx value and=20
-immediately increments it to get an index; the second store would=20
-overwrite the increment).
+Don't use a bit.  It makes no sense to combine SIGEV_SIGNAL with=20
+SIGEV_KEVENT etc.  Only SIGEV_THREAD_ID is a special case.
 
-I can assure you that any implementation I write would not use the=20
-ring_uidx value.  Only trivial, single-threaded examples like you=20
-ring_buffer.c could ever take advantage of this value.  It's not worth =
-it.
+Just define SIGEV_KEVENT to 3 and replace the tests like the one cited=20
+above with
+
+   if (timr->it_sigev_notify =3D=3D SIGEV_KEVENT)
 
 --=20
 =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
