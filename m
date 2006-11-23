@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to
- implicate xfs, scsi, networking, SMP
-Date: Thu, 23 Nov 2006 11:54:03 -0800 (PST)
-Message-ID: <20061123.115403.84973519.davem@davemloft.net>
-References: <20061123070837.GV11034@melbourne.sgi.com>
-	<200611231416.03387.netdev@axxeo.de>
-	<1164307020.3147.3.camel@laptopd505.fenrus.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Error building latest wireles-dev
+Date: Thu, 23 Nov 2006 20:54:01 +0100
+Message-ID: <1164311641.24475.8.camel@johannes.berg>
+References: <112320061932.9051.4565F756000A19370000235B2207001641CFCFCFCE980A040E@comcast.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@axxeo.de, dgc@sgi.com, jesper.juhl@gmail.com,
-	chatz@melbourne.sgi.com, linux-kernel@vger.kernel.org,
-	xfs@oss.sgi.com, xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: arjan@infradead.org
-In-Reply-To: <1164307020.3147.3.camel@laptopd505.fenrus.org>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-we7aGtr/+YrgtHT8V3fN"
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:665 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S933874AbWKWTzv
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Nov 2006 14:55:51 -0500
+To: alex1000@comcast.net
+In-Reply-To: <112320061932.9051.4565F756000A19370000235B2207001641CFCFCFCE980A040E@comcast.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Thu, 23 Nov 2006 19:37:00 +0100
 
-> On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
-> > Hi there,
-> > 
-> > David Chinner schrieb:
-> > > If the softirqs were run on a different stack, then a lot of these
-> 
-> softirqs DO run on their own stack!
+--=-we7aGtr/+YrgtHT8V3fN
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-This is a platform specific assertion :-)
+On Thu, 2006-11-23 at 19:32 +0000, alex1000@comcast.net wrote:
+> I get following errors when running 'make modules'
+
+Well yes. It's a dev tree and API changes broke all drivers.
+
+I can only suggest you actually read wireless dev related posts.
+Especially wireless-dev update announcements can sometimes be helpful :)
+
+johannes
+
+--=-we7aGtr/+YrgtHT8V3fN
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFZfxZ/ETPhpq3jKURAqGfAKCiBmzUhBddO/f5slYMTWHJSdt1jQCgmiH1
+c3jervEfwJFMaflfbzTvDXk=
+=Z6zL
+-----END PGP SIGNATURE-----
+
+--=-we7aGtr/+YrgtHT8V3fN--
+
