@@ -1,12 +1,11 @@
-From: Ulrich Drepper <drepper@redhat.com>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [take25 1/6] kevent: Description.
-Date: Thu, 23 Nov 2006 14:34:46 -0800
-Message-ID: <45662206.1070104@redhat.com>
-References: <11641265982190@2ka.mipt.ru> <20061123115504.GB20294@2ka.mipt.ru> <4565FDED.2050003@redhat.com> <200611232249.56886.hhh@imada.sdu.dk>
+Date: Thu, 23 Nov 2006 17:48:02 -0500
+Message-ID: <45662522.9090101@garzik.org>
+References: <11641265982190@2ka.mipt.ru> <456621AC.7000009@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
@@ -14,26 +13,64 @@ Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
 	Christoph Hellwig <hch@infradead.org>,
 	Chase Venters <chase.venters@clientec.com>,
 	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:13487 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S934198AbWKWWfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 17:35:44 -0500
-To: Hans Henrik Happe <hhh@imada.sdu.dk>
-In-Reply-To: <200611232249.56886.hhh@imada.sdu.dk>
+Received: from srv5.dvmed.net ([207.36.208.214]:37050 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1757489AbWKWWsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 17:48:14 -0500
+To: Ulrich Drepper <drepper@redhat.com>
+In-Reply-To: <456621AC.7000009@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hans Henrik Happe wrote:
-> I don't know if this falls under the simplification, but wouldn't the=
-re be a=20
-> race when reading/copying the event data? I guess this could be solve=
-d with=20
-> an extra user index.=20
+Ulrich Drepper wrote:
+> Evgeniy Polyakov wrote:
+>> + int kevent_commit(int ctl_fd, unsigned int start, +     unsigned int 
+>> num, unsigned int over);
+> 
+> I think we can simplify this interface:
+> 
+>    int kevent_commit(int ctl_fd, unsigned int new_tail,
+>                      unsigned int over);
+> 
+> The kernel sets the ring_uidx value to the 'new_tail' value if the tail 
+> pointer would be incremented (module wrap around) and is not higher then 
+> the current front pointer.  The test will be a bit complicated but not 
+> more so than what the current code has to do to check for mistakes.
+> 
+> This approach has the advantage that the commit calls don't have to be 
+> synchronized.  If one thread sets the tail pointer to, say, 10 and 
+> another to 12, then it does not matter whether the first thread is 
+> delayed.  If it will eventually be executed the result is simply a no-op 
+> and since second thread's action supersedes it.
+> 
+> Maybe the current form is even impossible to use with explicit locking 
+> at userlevel.  What if one thread, which is about to call kevent_commit, 
+> if indefinitely delayed.  Then this commit request's value is never 
+> taken into account and the tail pointer is always short of what it 
+> should be.
 
-That's what I said, reading the value from the ring buffer structure's=20
-head would be racy.  All this can only work for single threaded code.
+I'm really wondering is designing for N-threads-to-1-ring is the wisest 
+choice?
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+Considering current designs, it seems more likely that a single thread 
+polls for socket activity, then dispatches work.  How often do you 
+really see in userland multiple threads polling the same set of fds, 
+then fighting to decide who will handle raised events?
+
+More likely, you will see "prefork" (start N threads, each with its own 
+ring) or a worker pool (single thread receives events, then dispatches 
+to multiple threads for execution) or even one-thread-per-fd (single 
+thread receives events, then starts new thread for handling).
+
+If you have multiple threads accessing the same ring -- a poor design 
+choice -- I would think the burden should be on the application, to 
+provide proper synchronization.
+
+If the desire is to have the kernel distributes events directly to 
+multiple threads, then the app should dup(2) the fd to be watched, and 
+create a ring buffer for each separate thread.
+
+	Jeff
+
+
