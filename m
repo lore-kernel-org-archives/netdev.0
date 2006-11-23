@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make udp_encap_rcv use pskb_may_pull
-Date: Wed, 22 Nov 2006 20:11:36 -0800 (PST)
-Message-ID: <20061122.201136.129449260.davem@davemloft.net>
-References: <20061123000144.GB7452@suse.de>
+Subject: Re: [PATCH] net: fix kfifo_alloc() error check
+Date: Wed, 22 Nov 2006 20:35:00 -0800 (PST)
+Message-ID: <20061122.203500.63996454.davem@davemloft.net>
+References: <20061122183335.GA2985@APFDCB5C>
+	<20061122110246.791beabd@freekitty>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: akinobu.mita@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39552
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:16622
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1755796AbWKWELd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Nov 2006 23:11:33 -0500
-To: okir@suse.de
-In-Reply-To: <20061123000144.GB7452@suse.de>
+	id S1755095AbWKWEe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Nov 2006 23:34:58 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061122110246.791beabd@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olaf Kirch <okir@suse.de>
-Date: Thu, 23 Nov 2006 01:01:44 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 22 Nov 2006 11:02:46 -0800
 
+> On Thu, 23 Nov 2006 03:33:35 +0900
+> Akinobu Mita <akinobu.mita@gmail.com> wrote:
 > 
-> Make udp_encap_rcv use pskb_may_pull
-> 
-> IPsec with NAT-T breaks on some notebooks using the latest e1000 chipset,
-> when header split is enabled. When receiving sufficiently large packets, the
-> driver puts everything up to and including the UDP header into the header
-> portion of the skb, and the rest goes into the paged part. udp_encap_rcv
-> forgets to use pskb_may_pull, and fails to decapsulate it. Instead, it
-> passes it up it to the IKE daemon.
-> 
-> Signed-off-by: Olaf Kirch <okir@suse.de>
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> > The return value of kfifo_alloc() should be checked by IS_ERR().
+> > 
+> > Cc: Stephen Hemminger <shemminger@osdl.org>
+> > Cc: David Miller <davem@davemloft.net>
+> > Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+ ...
+> Good thanks
 
-Excellent catch, applied, thanks Olaf.
+Looks good to me too, applied, thanks.
