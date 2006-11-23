@@ -1,97 +1,76 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [GENETLINK] ctrl: Avoid empty CTRL_ATTR_OPS attribute when dumping
-Date: Thu, 23 Nov 2006 14:47:54 +0100
-Message-ID: <20061123134754.GQ8693@postel.suug.ch>
-References: <4466a10611191122r2bd16dbdmc35991c13dc9c92f@mail.gmail.com> <20061119195402.GJ8693@postel.suug.ch> <20061121.173556.07641543.davem@davemloft.net> <20061121.174058.104035138.davem@davemloft.net>
+From: Sanjeev Jorapur <sanjeev@netxen.com>
+Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
+Date: Thu, 23 Nov 2006 08:32:52 -0800
+Message-ID: <1164299572.4505.9.camel@nbsanjeev>
+References: <200611171536.kAHFa3os005563@dut39.unminc.com>
+	 <20061117084049.555e14d0@localhost.localdomain>
+	 <1163845689.4822.6.camel@nbsanjeev>  <20061120104553.434b6ec5@freekitty>
+Reply-To: sanjeev@netxen.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>,
+	netdev <netdev@vger.kernel.org>,
+	brazilnut <brazilnut@us.ibm.com>, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com,
+	wendyx <wendyx@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:33678 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S933718AbWKWNre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 08:47:34 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061121.174058.104035138.davem@davemloft.net>
+Received: from adsl-63-194-91-143.dsl.snfc21.pacbell.net ([63.194.91.143]:5029
+	"EHLO nbsanjeev.unminc.com") by vger.kernel.org with ESMTP
+	id S1757411AbWKWQh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Nov 2006 11:37:28 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061120104553.434b6ec5@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2006-11-20 at 10:45 -0800, Stephen Hemminger wrote:
+> On Sat, 18 Nov 2006 15:58:09 +0530
+> Sanjeev Jorapur <sanjeev@netxen.com> wrote:
+> 
+> > On Fri, 2006-11-17 at 08:40 -0800, Stephen Hemminger wrote:
+> > > On Fri, 17 Nov 2006 07:36:03 -0800
+> > > "Linsys Contractor Amit S. Kale" <amitkale@netxen.com> wrote:
+> > > 
+> > > > NetXen: 1G/10G Ethernet Driver updates
+> > > > 	- These fixes take care of driver on machines with >4G memory
+> > > > 	- Driver cleanup
+> > > > 
+> > > > Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+> > > > 
+> > > >  netxen_nic.h          |   41 ++++++----
+> > > >  netxen_nic_ethtool.c  |   19 ++--
+> > > >  netxen_nic_hw.c       |   10 +-
+> > > >  netxen_nic_hw.h       |    4 
+> > > >  netxen_nic_init.c     |   51 +++++++++++-
+> > > >  netxen_nic_isr.c      |    3 
+> > > >  netxen_nic_main.c     |  204 +++++++++++++++++++++++++++++++++++++++++++++++---
+> > > >  netxen_nic_phan_reg.h |   10 +-
+> > > >  8 files changed, 293 insertions(+), 49 deletions(-)
+> > > > 
+> > > 
+> > > 
+> > > If you can't DMA from high memory, then don't set NETIF_F_HIGHDMA, why do
+> > > you need explicit bounce buffers.  If you can't DMA from unaligned address,
+> > > the write a small routine to copy the skb to a new one.
+> > 
+> > 
+> > The hardware supports DMA into 35 bit addresses. The intent is to
+> > enable DMA into addresses upto 32G.
+> > 
+> 
+> You should then set the same value for pci_set_dma_mask, because then the IOMMU
+> can help. See both b44 or tg3 drivers, they have to deal with odd size masks.
+> I don't think you have to do all the bounce buffer work in the driver.
+> 
 
-Based on Jamal's patch but compiled and even tested. :-)
+We had tried something like this earlier, but found that on some
+platforms (Opteron, IA64), we got kernel panics when the kernel
+ran out of translation entries.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+We will re-try this and let you know.
 
-Index: net-2.6.20/net/netlink/genetlink.c
-===================================================================
---- net-2.6.20.orig/net/netlink/genetlink.c	2006-11-23 14:37:54.000000000 +0100
-+++ net-2.6.20/net/netlink/genetlink.c	2006-11-23 14:39:42.000000000 +0100
-@@ -394,10 +394,7 @@
- static int ctrl_fill_info(struct genl_family *family, u32 pid, u32 seq,
- 			  u32 flags, struct sk_buff *skb, u8 cmd)
- {
--	struct nlattr *nla_ops;
--	struct genl_ops *ops;
- 	void *hdr;
--	int idx = 1;
- 
- 	hdr = genlmsg_put(skb, pid, seq, &genl_ctrl, flags, cmd);
- 	if (hdr == NULL)
-@@ -409,33 +406,39 @@
- 	NLA_PUT_U32(skb, CTRL_ATTR_HDRSIZE, family->hdrsize);
- 	NLA_PUT_U32(skb, CTRL_ATTR_MAXATTR, family->maxattr);
- 
--	nla_ops = nla_nest_start(skb, CTRL_ATTR_OPS);
--	if (nla_ops == NULL)
--		goto nla_put_failure;
-+	if (!list_empty(&family->ops_list)) {
-+		struct nlattr *nla_ops;
-+		struct genl_ops *ops;
-+		int idx = 1;
- 
--	list_for_each_entry(ops, &family->ops_list, ops_list) {
--		struct nlattr *nest;
--
--		nest = nla_nest_start(skb, idx++);
--		if (nest == NULL)
-+		nla_ops = nla_nest_start(skb, CTRL_ATTR_OPS);
-+		if (nla_ops == NULL)
- 			goto nla_put_failure;
- 
--		NLA_PUT_U32(skb, CTRL_ATTR_OP_ID, ops->cmd);
--		NLA_PUT_U32(skb, CTRL_ATTR_OP_FLAGS, ops->flags);
-+		list_for_each_entry(ops, &family->ops_list, ops_list) {
-+			struct nlattr *nest;
- 
--		if (ops->policy)
--			NLA_PUT_FLAG(skb, CTRL_ATTR_OP_POLICY);
-+			nest = nla_nest_start(skb, idx++);
-+			if (nest == NULL)
-+				goto nla_put_failure;
- 
--		if (ops->doit)
--			NLA_PUT_FLAG(skb, CTRL_ATTR_OP_DOIT);
-+			NLA_PUT_U32(skb, CTRL_ATTR_OP_ID, ops->cmd);
-+			NLA_PUT_U32(skb, CTRL_ATTR_OP_FLAGS, ops->flags);
- 
--		if (ops->dumpit)
--			NLA_PUT_FLAG(skb, CTRL_ATTR_OP_DUMPIT);
-+			if (ops->policy)
-+				NLA_PUT_FLAG(skb, CTRL_ATTR_OP_POLICY);
- 
--		nla_nest_end(skb, nest);
--	}
-+			if (ops->doit)
-+				NLA_PUT_FLAG(skb, CTRL_ATTR_OP_DOIT);
-+
-+			if (ops->dumpit)
-+				NLA_PUT_FLAG(skb, CTRL_ATTR_OP_DUMPIT);
- 
--	nla_nest_end(skb, nla_ops);
-+			nla_nest_end(skb, nest);
-+		}
-+
-+		nla_nest_end(skb, nla_ops);
-+	}
- 
- 	return genlmsg_end(skb, hdr);
- 
+Sanjeev.
+
+
+
