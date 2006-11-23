@@ -1,10 +1,11 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [take25 1/6] kevent: Description.
-Date: Thu, 23 Nov 2006 14:52:41 +0300
-Message-ID: <20061123115240.GA20294@2ka.mipt.ru>
-References: <11641265982190@2ka.mipt.ru> <4564E162.8040901@redhat.com>
+Date: Thu, 23 Nov 2006 14:55:04 +0300
+Message-ID: <20061123115504.GB20294@2ka.mipt.ru>
+References: <11641265982190@2ka.mipt.ru> <4564E2AB.1020202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>,
@@ -13,52 +14,48 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	Johann Borck <johann.borck@densedata.com>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:29379 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1757341AbWKWLx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 06:53:56 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:32195 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1757028AbWKWL4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 06:56:21 -0500
 To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <4564E162.8040901@redhat.com>
+In-Reply-To: <4564E2AB.1020202@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 22, 2006 at 03:46:42PM -0800, Ulrich Drepper (drepper@redhat.com) wrote:
+On Wed, Nov 22, 2006 at 03:52:11PM -0800, Ulrich Drepper (drepper@redha=
+t.com) wrote:
 > Evgeniy Polyakov wrote:
-> >+ int kevent_wait(int ctl_fd, unsigned int num, __u64 timeout);
-> >+
-> >+ctl_fd - file descriptor referring to the kevent queue 
-> >+num - number of processed kevents 
-> >+timeout - this timeout specifies number of nanoseconds to wait until 
-> >there is +		free space in kevent queue 
-> >+
-> >+Return value:
-> >+ number of events copied into ring buffer or negative error value.
-> 
-> This is not quite sufficient.  What we also need is a parameter which 
-> specifies which ring buffer the code assumes is currently active.  This 
-> is just like the EWOULDBLOCK error in the futex.  I.e., the kernel 
-> doesn't move the thread on the wait list if the index has changed. 
-> Otherwise asynchronous ring buffer filling is impossible.  Assume this
-> 
->     thread                             kernel
-> 
->     get current ring buffer idx
-> 
->     front and tail pointer the same
-> 
->                                        add new entry to ring buffer
-> 
->                                        bump front pointer
-> 
->     call kevent_wait()
-> 
-> 
-> With the interface above this leads to a deadlock.  The kernel delivered 
-> the event and is done with it.
+> >+ struct kevent_ring
+> >+ {
+> >+   unsigned int ring_kidx, ring_uidx, ring_over;
+> >+   struct ukevent event[0];
+> >+ }
+> >+ [...]
+> >+ring_uidx - index of the first entry userspace can start reading fr=
+om
+>=20
+> Do we need this value in the structure?  Userlevel cannot and should =
+not=20
+> be able to modify it.  So, userland has in any case to track the tail=
+=20
+> pointer itself.  Why then have this value at all?
+>=20
+> After kevent_init() the tail pointer is implicitly assumed to be 0.=20
+> Since the front pointer (well index) is also zero nothing is availabl=
+e=20
+> for reading.
 
-Kernel does not put there a new entry, it is only done inside
-kevent_wait(). Entries are put into queue (in any context), where they can be obtained
-from only kevent_wait() or kevent_get_events().
+uidx is an index, starting from which there are unread entries. It is
+updated by userspace when it commits entries, so it is 'consumer'
+pointer, while kidx is an index where kernel will put new entries, i.e.
+'producer' index. We definitely need them both.
+Userspace can only update (implicitly by calling kevent_commit()) uidx.
 
--- 
+> --=20
+> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
+ St =E2=9E=A7 Mountain View,=20
+> CA =E2=9D=96
+
+--=20
 	Evgeniy Polyakov
