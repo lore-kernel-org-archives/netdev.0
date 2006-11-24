@@ -1,65 +1,131 @@
-From: David Chinner <dgc@sgi.com>
-Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to implicate xfs, scsi, networking, SMP
-Date: Fri, 24 Nov 2006 13:05:08 +1100
-Message-ID: <20061124020508.GI11034@melbourne.sgi.com>
-References: <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com> <20061122.201013.112290046.davem@davemloft.net> <20061123070837.GV11034@melbourne.sgi.com> <200611231416.03387.netdev@axxeo.de> <1164307020.3147.3.camel@laptopd505.fenrus.org> <20061124005528.GF11034@melbourne.sgi.com> <9a8748490611231708w3abf295bw3c007acf5cdcf336@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Chinner <dgc@sgi.com>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Ingo Oeser <netdev@axxeo.de>,
-	David Miller <davem@davemloft.net>, chatz@melbourne.sgi.com,
-	linux-kernel@vger.kernel.org, xfs@oss.sgi.com,
-	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
+From: Masahide@neptune.linux-ipv6.org
+Subject: [PATCH] [IP] ADDR: Enable to add IPv6 address with valid/preferred lifetime.
+Date: Fri, 24 Nov 2006 12:11:21 +0900
+Message-ID: <7067.1132569716$1164338323@news.gmane.org>
+Cc: takamiya@po.ntts.co.jp, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:2726 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S1757566AbWKXCFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 21:05:44 -0500
-To: Jesper Juhl <jesper.juhl@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <9a8748490611231708w3abf295bw3c007acf5cdcf336@mail.gmail.com>
+Received: from usagi020.linux-ipv6.org ([203.178.140.20]:51925 "EHLO
+	neptune.linux-ipv6.org") by vger.kernel.org with ESMTP
+	id S1757588AbWKXDQE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Nov 2006 22:16:04 -0500
+To: shemminger@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 24, 2006 at 02:08:53AM +0100, Jesper Juhl wrote:
-> On 24/11/06, David Chinner <dgc@sgi.com> wrote:
-> >On Thu, Nov 23, 2006 at 07:37:00PM +0100, Arjan van de Ven wrote:
-> >> On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
-> >> > Hi there,
-> >> >
-> >> > David Chinner schrieb:
-> >> > > If the softirqs were run on a different stack, then a lot of these
-> >>
-> >> softirqs DO run on their own stack!
-> >
-> >So they run on a separate stack for 4k stacks on x86?
-> 
-> Yes, with 4K stacks there's sepperate IRQ stack.
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-Ok, thanks.
+Signed-off-by: TAKAMIYA Noriaki <takamiya@po.ntts.co.jp>
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+---
+ ip/ipaddress.c |   52 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 51 insertions(+), 1 deletions(-)
 
-> >They don't run on a separate stack for 8k stacks on x86 -
-> >Jesper's traces show that - so this may indicate an issue
-> >with the methodology used to generate the stack overflow
-> >traces inteh first place. i.e. if 4k stacks use a separate
-> >stack, then most of the reported overflows are spurious
-> >and would not normally occur on 4k stack systems..
-> >
-> 
-> Well, some of the traces show that we were down to ~3K stack free with
-> 8K stacks, so ~5K used. Even with 4K stacks and sepperate stack for
-> IRQs we will still be uncomfortably close to the edge in those cases.
-
-Sure - i didn't say there wasn't a problem - more just indicating
-that most of the traces would not have happened on a 4k stack box so
-it's harder to tell which of the traces you posted would actually
-lead to an overflow.
-
-Cheers,
-
-Dave.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 592875a..ea27d42 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -60,7 +60,8 @@ static void usage(void)
+ 	if (do_link) {
+ 		iplink_usage();
+ 	}
+-	fprintf(stderr, "Usage: ip addr {add|del} IFADDR dev STRING\n");
++	fprintf(stderr, "Usage: ip addr add IFADDR dev STRING [ LIFETIME ]\n");
++	fprintf(stderr, "       ip addr del IFADDR dev STRING\n");
+ 	fprintf(stderr, "       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]\n");
+ 	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]\n");
+ 	fprintf(stderr, "IFADDR := PREFIX | ADDR peer PREFIX\n");
+@@ -70,6 +71,9 @@ static void usage(void)
+ 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+ 	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
+ 	fprintf(stderr, "           tentative | deprecated ]\n");
++	fprintf(stderr, "LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]\n");
++	fprintf(stderr, "LFT := forever | SECONDS\n");
++
+ 	exit(-1);
+ }
+ 
+@@ -276,6 +280,16 @@ static int flush_update(void)
+ 	return 0;
+ }
+ 
++static int set_lifetime(unsigned int *lifetime, char *argv)
++{
++	if (strcmp(argv, "forever") == 0)
++		*lifetime = 0xFFFFFFFFU;
++	else if (get_u32(lifetime, argv, 0))
++		return -1;
++
++	return 0;
++}
++
+ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n, 
+ 		   void *arg)
+ {
+@@ -742,6 +756,8 @@ int ipaddr_modify(int cmd, int argc, cha
+ 	char  *d = NULL;
+ 	char  *l = NULL;
+ 	char  *lcl_arg = NULL;
++	char  *valid_lftp = NULL;
++	char  *preferred_lftp = NULL;
+ 	inet_prefix lcl;
+ 	inet_prefix peer;
+ 	int local_len = 0;
+@@ -749,6 +765,9 @@ int ipaddr_modify(int cmd, int argc, cha
+ 	int brd_len = 0;
+ 	int any_len = 0;
+ 	int scoped = 0;
++	__u32 preferred_lft = 0xFFFFFFFFU;
++	__u32 valid_lft = 0xFFFFFFFFU;
++	struct ifa_cacheinfo cinfo;
+ 
+ 	memset(&req, 0, sizeof(req));
+ 
+@@ -811,6 +830,20 @@ int ipaddr_modify(int cmd, int argc, cha
+ 			NEXT_ARG();
+ 			l = *argv;
+ 			addattr_l(&req.n, sizeof(req), IFA_LABEL, l, strlen(l)+1);
++		} else if (matches(*argv, "valid_lft") == 0) {
++			if (valid_lftp)
++				duparg("valid_lft", *argv);
++			NEXT_ARG();
++			valid_lftp = *argv;
++			if (set_lifetime(&valid_lft, *argv))
++				invarg("valid_lft value", *argv);
++		} else if (matches(*argv, "preferred_lft") == 0) {
++			if (preferred_lftp)
++				duparg("preferred_lft", *argv);
++			NEXT_ARG();
++			preferred_lftp = *argv;
++			if (set_lifetime(&preferred_lft, *argv))
++				invarg("preferred_lft value", *argv);
+ 		} else {
+ 			if (strcmp(*argv, "local") == 0) {
+ 				NEXT_ARG();
+@@ -881,6 +914,23 @@ int ipaddr_modify(int cmd, int argc, cha
+ 		return -1;
+ 	}
+ 
++	if (valid_lftp || preferred_lftp) {
++		if (!valid_lft) {
++			fprintf(stderr, "valid_lft is zero\n");
++			return -1;
++		}
++		if (valid_lft < preferred_lft) {
++			fprintf(stderr, "preferred_lft is greater than valid_lft\n");
++			return -1;
++		}
++
++		memset(&cinfo, 0, sizeof(cinfo));
++		cinfo.ifa_prefered = preferred_lft;
++		cinfo.ifa_valid = valid_lft;
++		addattr_l(&req.n, sizeof(req), IFA_CACHEINFO, &cinfo,
++			  sizeof(cinfo));
++	}
++
+ 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
+ 		exit(2);
+ 
 -- 
-Dave Chinner
-Principal Engineer
-SGI Australian Software Group
+1.4.2
+
