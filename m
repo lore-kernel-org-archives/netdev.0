@@ -1,56 +1,74 @@
-From: David Chinner <dgc@sgi.com>
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
 Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to implicate xfs, scsi, networking, SMP
-Date: Fri, 24 Nov 2006 11:55:28 +1100
-Message-ID: <20061124005528.GF11034@melbourne.sgi.com>
-References: <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com> <20061122.201013.112290046.davem@davemloft.net> <20061123070837.GV11034@melbourne.sgi.com> <200611231416.03387.netdev@axxeo.de> <1164307020.3147.3.camel@laptopd505.fenrus.org>
+Date: Fri, 24 Nov 2006 02:08:53 +0100
+Message-ID: <9a8748490611231708w3abf295bw3c007acf5cdcf336@mail.gmail.com>
+References: <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com>
+	 <20061122.201013.112290046.davem@davemloft.net>
+	 <20061123070837.GV11034@melbourne.sgi.com>
+	 <200611231416.03387.netdev@axxeo.de>
+	 <1164307020.3147.3.camel@laptopd505.fenrus.org>
+	 <20061124005528.GF11034@melbourne.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Oeser <netdev@axxeo.de>, David Chinner <dgc@sgi.com>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	chatz@melbourne.sgi.com, linux-kernel@vger.kernel.org,
-	xfs@oss.sgi.com, xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Arjan van de Ven" <arjan@infradead.org>,
+	"Ingo Oeser" <netdev@axxeo.de>,
+	"David Miller" <davem@davemloft.net>, chatz@melbourne.sgi.com,
+	linux-kernel@vger.kernel.org, xfs@oss.sgi.com,
+	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
 	linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:62108 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S1757531AbWKXA4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 19:56:04 -0500
-To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: "David Chinner" <dgc@sgi.com>
+In-Reply-To: <20061124005528.GF11034@melbourne.sgi.com>
 Content-Disposition: inline
-In-Reply-To: <1164307020.3147.3.camel@laptopd505.fenrus.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 23, 2006 at 07:37:00PM +0100, Arjan van de Ven wrote:
-> On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
-> > Hi there,
-> > 
-> > David Chinner schrieb:
-> > > If the softirqs were run on a different stack, then a lot of these
-> 
-> softirqs DO run on their own stack!
+On 24/11/06, David Chinner <dgc@sgi.com> wrote:
+> On Thu, Nov 23, 2006 at 07:37:00PM +0100, Arjan van de Ven wrote:
+> > On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
+> > > Hi there,
+> > >
+> > > David Chinner schrieb:
+> > > > If the softirqs were run on a different stack, then a lot of these
+> >
+> > softirqs DO run on their own stack!
+>
+> So they run on a separate stack for 4k stacks on x86?
+>
 
-So they run on a separate stack for 4k stacks on x86?
+Yes, with 4K stacks there's sepperate IRQ stack.
 
-They don't run on a separate stack for 8k stacks on x86 -
-Jesper's traces show that - so this may indicate an issue
-with the methodology used to generate the stack overflow
-traces inteh first place. i.e. if 4k stacks use a separate
-stack, then most of the reported overflows are spurious
-and would not normally occur on 4k stack systems..
+>From the help text for CONFIG_4KSTACKS :
 
-Can you confirm this, Arjan?
+"If you say Y here the kernel will use a 4Kb stacksize for the
+ kernel stack attached to each process/thread. This facilitates
+ running more threads on a system and also reduces the pressure
+ on the VM subsystem for higher order allocations. This option
+ will also use IRQ stacks to compensate for the reduced stackspace."
 
-Also, that means that while XFS is apparently only using <1500 bytes
-of stack through this path according to the static stack checker
-tool, there's more than 2k of extra stack usage that the tool is not
-telling me about. i.e. XFS and whatever is above/below it should
-have a full 4k to work with. I'd really like to know where that
-extra stack space is being used....
 
-Cheers,
+> They don't run on a separate stack for 8k stacks on x86 -
+> Jesper's traces show that - so this may indicate an issue
+> with the methodology used to generate the stack overflow
+> traces inteh first place. i.e. if 4k stacks use a separate
+> stack, then most of the reported overflows are spurious
+> and would not normally occur on 4k stack systems..
+>
 
-Dave.
+Well, some of the traces show that we were down to ~3K stack free with
+8K stacks, so ~5K used. Even with 4K stacks and sepperate stack for
+IRQs we will still be uncomfortably close to the edge in those cases.
+Also, I did manage to capture a single line via netconsole while
+running with 4K stacks :
+    do_IRQ: stack overflow: 492
+Unfortunately that was the only line that made it to the remote log
+server, so I don't have the actual trace for that one. But it does
+show that there really is an issue when running with 4K stacks, IRQ
+stacks or no.
+
+
 -- 
-Dave Chinner
-Principal Engineer
-SGI Australian Software Group
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
