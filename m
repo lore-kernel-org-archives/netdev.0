@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Fri, 24 Nov 2006 13:58:56 +0300
-Message-ID: <20061124105856.GE13600@2ka.mipt.ru>
-References: <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Fri, 24 Nov 2006 14:01:44 +0300
+Message-ID: <20061124110143.GF13600@2ka.mipt.ru>
+References: <11641265982190@2ka.mipt.ru> <4564E162.8040901@redhat.com> <20061123115240.GA20294@2ka.mipt.ru> <4565FA60.9000402@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,52 +12,41 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	Christoph Hellwig <hch@infradead.org>,
 	Chase Venters <chase.venters@clientec.com>,
 	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757593AbWKXLAq@vger.kernel.org>
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeus1.kernel.org ([204.152.191.4]:1201 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1757608AbWKXLC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 06:02:56 -0500
 To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <456605EA.5060601@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4565FA60.9000402@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 23, 2006 at 12:34:50PM -0800, Ulrich Drepper (drepper@redha=
+On Thu, Nov 23, 2006 at 11:45:36AM -0800, Ulrich Drepper (drepper@redha=
 t.com) wrote:
 > Evgeniy Polyakov wrote:
-> >>>Btw, what about putting aditional multiplexer into add/remove/modi=
-fy
-> >>>switch? There will be logical 'ready' addon?
-> >>Is it needed?  Usually this is done with a *_wait call with a timeo=
-ut of=20
-> >>zero.  That code path might have to be optimized but it should alre=
-ady=20
-> >>be there.
-> >
-> >It does not allow to mark events as ready.
-> >And current interfaces wake up when either timeout is zero (in this =
-case
-> >thread itself does not sleep and can process events), or when there =
-is
-> >_new_ work - since there is no _new_ work, when thread awakened to
-> >process it was killed, kernel does not think that something is wrong=
-=2E
+> >Kernel does not put there a new entry, it is only done inside
+> >kevent_wait(). Entries are put into queue (in any context), where th=
+ey can=20
+> >be obtained
+> >from only kevent_wait() or kevent_get_events().
 >=20
-> Rather than mark an existing entry as ready, how about a call to inje=
-ct=20
-> a new ready event?
->=20
-> This would be useful to implement functionality at userlevel and stil=
-l=20
-> use an event queue to announce the availability.  Without this type o=
-f=20
-> functionality we'd need to use indirect notification via signal or pi=
-pe=20
-> or something like that.
+> I know this is how it's done now.  But it is not where it has to end.=
+=20
+> IMO we have to get to a solution where new events are posted to the r=
+ing=20
+> buffer asynchronously, i.e., without a thread calling kevent_wait.  A=
+nd=20
+> then you need the extra parameter and verification.  Even if it's tod=
+ay=20
+> not needed we have to future-proof the interface since it cannot be=20
+> changed once in use.
 
-With provided patch it is possible to wakeup 'for-free' - just call
-kevent_ctl(ready) with zero number of ready events, so thread will be
-awakened if it was in poll(kevent_fd), kevent_wait() or
-kevent_get_events().
+There is a special flag in kevent_user to wake it if there are no ready
+events - kernel thread which has added new events will set it and thus
+subsequent kevent_wait() will return with updated indexes - userspace
+must check indexes after kevent_wait().
 
 > --=20
 > =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
