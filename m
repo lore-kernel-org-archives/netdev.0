@@ -1,58 +1,73 @@
-From: "Paul Moore" <paul.moore@hp.com>
-Subject: Re: [PATCH 10/13] NetLabel: use cipso_v4_doi_search() for local CIPSOv4 functions
-Date: 24 Nov 2006 13:59:00 -0500
-Message-ID: <3247221600.11766119@mail.hp.com>
-Cc: <eparis@parisplace.org>, <netdev@vger.kernel.org>,
-	<selinux@tycho.nsa.gov>, <jmorris@namei.org>, <aviro@redhat.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: d80211-drivers pull request
+Date: Fri, 24 Nov 2006 14:34:05 -0500
+Message-ID: <200611241434.27149.flamingice@sourmilk.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart1720138.YMkGTz1oqM";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, developers@islsm.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:46254 "EHLO mailhub.hp.com")
-	by vger.kernel.org with ESMTP id S935010AbWKXTAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 14:00:38 -0500
-To: <viro@ftp.linux.org.uk>
+Received: from server8.tchmachines.com ([216.180.241.250]:62907 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S935028AbWKXTfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Nov 2006 14:35:39 -0500
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------Original Message-----
-From: Al Viro <viro@ftp.linux.org.uk>
-Date: Friday, Nov 24, 2006 2:07 am
-Subject: Re: [PATCH 10/13] NetLabel: use cipso_v4_doi_search() for local CIPSOv4 functions
+--nextPart1720138.YMkGTz1oqM
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-On Thu, Nov 23, 2006 at 08:24:34PM -0500, Eric Paris wrote:
-> On Fri, 2006-11-17 at 17:38 -0500, paul.moore@hp.com wrote:
-> 
-> > Index: net-2.6.20_netlabel-base-work/net/ipv4/cipso_ipv4.c
-> > ===================================================================
-> > --- net-2.6.20_netlabel-base-work.orig/net/ipv4/cipso_ipv4.c
-> > +++ net-2.6.20_netlabel-base-work/net/ipv4/cipso_ipv4.c
-> > @@ -1136,7 +1136,7 @@ int cipso_v4_validate(unsigned char **op
-> >  	}
-> >  
-> >  	rcu_read_lock();
-> > -	doi_def = cipso_v4_doi_getdef(ntohl(*((__be32 *)&opt[2])));
-> > +	doi_def = cipso_v4_doi_search(ntohl(*((u32 *)&opt[2])));
-> >  	if (doi_def == NULL) {
-> >  		err_offset = 2;
-> >  		goto validate_return_locked;
-> 
-> 
-> This appears to reverse the previous endian work by Al Viro, was this
-> intended?
->
->Mismerge, most likely.  Fixed in net-2.6.20 since then (
->commit 835ec2525544c744333bf0da00049f323eb75c58
->Author: Al Viro <viro@zeniv.linux.org.uk>
->Date:   Mon Nov 20 18:08:37 2006 -0800
->
->    [CIPSO]: Missing annotation in cipso_ipv4 update.
->) 
->
->Note that there are two changes in that line - u32 -> __be32 and
->..._getdef -> ..._search.  They do not really conflict, but any merge tool would throw a conflict at that point and apparently it got
->resolved the dumb way...
->
+Hi,
 
-Yep, Al is right, I just made a dumb mistake when merging my code with the latest net-2.6.20 tree.  I thought I caught everything but it looks like I missed one.  Sorry.
+Please pull
+git://git.kernel.org/pub/scm/linux/kernel/git/mwu/d80211-drivers.git master
+for these patches:
 
-. paul moore
-. linux security @ hp
+Michael Wu:
+      p54: Set dummy maxssi to prevent a divide by zero.
+      p54: Add PCI driver
+      p54: Add license boilerplate
+      p54: Move eeprom readback packet filling code to common
+      Update MAINTAINERS entries for wireless drivers
+      adm8211: Reduce delays
+      adm8211: Convert to new API
+      p54: Convert to new API
 
+ MAINTAINERS                                     |   20
+ drivers/net/wireless/d80211/adm8211/adm8211.c   |  336 +++++------
+ drivers/net/wireless/d80211/adm8211/adm8211.h   |    1
+ drivers/net/wireless/d80211/p54/Kconfig         |    3
+ drivers/net/wireless/d80211/p54/Makefile        |    1
+ drivers/net/wireless/d80211/p54/prism54.h       |   41 -
+ drivers/net/wireless/d80211/p54/prism54common.c |  239 +++++---
+ drivers/net/wireless/d80211/p54/prism54common.h |   19
+ drivers/net/wireless/d80211/p54/prism54magic.h  |   33 +
+ drivers/net/wireless/d80211/p54/prism54pci.c    |  692=20
+++++++++++++++++++++++++
+ drivers/net/wireless/d80211/p54/prism54pci.h    |   99 +++
+ drivers/net/wireless/d80211/p54/prism54usb.c    |   94 +--
+ drivers/net/wireless/d80211/p54/prism54usb.h    |   20
+ 13 files changed, 1278 insertions(+), 320 deletions(-)
+
+Thanks,
+=2DMichael Wu
+
+--nextPart1720138.YMkGTz1oqM
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFZ0lCT3Oqt9AH4aERAkA+AKCE2N6oKQDamkBmbAYT8m3MAf5EegCgtwQi
+uPnq/JjwGFkXOcUPNKtjuv0=
+=fWLO
+-----END PGP SIGNATURE-----
+
+--nextPart1720138.YMkGTz1oqM--
