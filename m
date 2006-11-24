@@ -1,58 +1,50 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to
-	implicate xfs, scsi, networking, SMP
-Date: Fri, 24 Nov 2006 08:52:38 +0100
-Message-ID: <1164354759.3147.31.camel@laptopd505.fenrus.org>
-References: <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com>
-	 <20061122.201013.112290046.davem@davemloft.net>
-	 <20061123070837.GV11034@melbourne.sgi.com>
-	 <200611231416.03387.netdev@axxeo.de>
-	 <1164307020.3147.3.camel@laptopd505.fenrus.org>
-	 <20061124005528.GF11034@melbourne.sgi.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Fri, 24 Nov 2006 00:14:12 -0800
+Message-ID: <20061124001412.371ec4e7.akpm@osdl.org>
+References: <11641265982190@2ka.mipt.ru>
+	<456621AC.7000009@redhat.com>
+	<45662522.9090101@garzik.org>
+	<45663298.7000108@redhat.com>
+	<45664160.6060504@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Oeser <netdev@axxeo.de>, David Miller <davem@davemloft.net>,
-	jesper.juhl@gmail.com, chatz@melbourne.sgi.com,
-	linux-kernel@vger.kernel.org, xfs@oss.sgi.com,
-	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
+Cc: Ulrich Drepper <drepper@redhat.com>, Jeff Garzik <jeff@garzik.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:16086 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1757628AbWKXHwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Nov 2006 02:52:45 -0500
-To: David Chinner <dgc@sgi.com>
-In-Reply-To: <20061124005528.GF11034@melbourne.sgi.com>
+Received: from smtp.osdl.org ([65.172.181.25]:37092 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1755791AbWKXIQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 03:16:20 -0500
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <45664160.6060504@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-11-24 at 11:55 +1100, David Chinner wrote:
-> On Thu, Nov 23, 2006 at 07:37:00PM +0100, Arjan van de Ven wrote:
-> > On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
-> > > Hi there,
-> > > 
-> > > David Chinner schrieb:
-> > > > If the softirqs were run on a different stack, then a lot of these
-> > 
-> > softirqs DO run on their own stack!
-> 
-> So they run on a separate stack for 4k stacks on x86?
-> 
-> They don't run on a separate stack for 8k stacks on x86 -
-> Jesper's traces show that - so this may indicate an issue
-> with the methodology used to generate the stack overflow
-> traces inteh first place. i.e. if 4k stacks use a separate
-> stack, then most of the reported overflows are spurious
-> and would not normally occur on 4k stack systems..
-> 
-> Can you confirm this, Arjan?
+On Fri, 24 Nov 2006 01:48:32 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-yes there are separate stacks for softirq and hardirq context with 4K
-stacks, but not for 8K stacks.
+> > The alternative is the sorry state we have now.  In nscd, for instance, 
+> > we have one single thread waiting for incoming connections and it then 
+> > has to wake up a worker thread to handle the processing.  This is done 
+> > because we cannot "park" all threads in the accept() call since when a 
+> > new connection is announced _all_ the threads are woken.  With the new 
+> > event handling this wouldn't be the case, one thread only is woken and 
+> > we don't have to wake worker threads.  All threads can be worker threads.
+> 
+> Having one specialized thread handling the distribution of work to worker 
+> threads is better most of the time.
 
+It might be now.  Think "commodity 128-way".  Your single distribution thread
+will run out of steam.
 
--- 
-if you want to mail me at work (you don't), use arjan (at) linux.intel.com
-Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+What Ulrich is proposing is faster.  This is a new interface.  Let's design
+it to be fast.
 
