@@ -1,30 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Networking: re-fix of doc-comment in sock.h
-Date: Thu, 23 Nov 2006 20:56:24 -0500 (EST)
-Message-ID: <20061123.205624.74734820.davem@davemloft.net>
-References: <20061118082727.GA1250@pib>
+From: David Chinner <dgc@sgi.com>
+Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to implicate xfs, scsi, networking, SMP
+Date: Fri, 24 Nov 2006 13:05:08 +1100
+Message-ID: <20061124020508.GI11034@melbourne.sgi.com>
+References: <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com> <20061122.201013.112290046.davem@davemloft.net> <20061123070837.GV11034@melbourne.sgi.com> <200611231416.03387.netdev@axxeo.de> <1164307020.3147.3.camel@laptopd505.fenrus.org> <20061124005528.GF11034@melbourne.sgi.com> <9a8748490611231708w3abf295bw3c007acf5cdcf336@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Chinner <dgc@sgi.com>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Ingo Oeser <netdev@axxeo.de>,
+	David Miller <davem@davemloft.net>, chatz@melbourne.sgi.com,
+	linux-kernel@vger.kernel.org, xfs@oss.sgi.com,
+	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:27803 "EHLO localhost")
-	by vger.kernel.org with ESMTP id S1757510AbWKXB4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 20:56:24 -0500
-To: misterpib@gmail.com
-In-Reply-To: <20061118082727.GA1250@pib>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:2726 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S1757566AbWKXCFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 21:05:44 -0500
+To: Jesper Juhl <jesper.juhl@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <9a8748490611231708w3abf295bw3c007acf5cdcf336@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Bonser <misterpib@gmail.com>
-Date: Sat, 18 Nov 2006 00:27:27 -0800
+On Fri, Nov 24, 2006 at 02:08:53AM +0100, Jesper Juhl wrote:
+> On 24/11/06, David Chinner <dgc@sgi.com> wrote:
+> >On Thu, Nov 23, 2006 at 07:37:00PM +0100, Arjan van de Ven wrote:
+> >> On Thu, 2006-11-23 at 14:16 +0100, Ingo Oeser wrote:
+> >> > Hi there,
+> >> >
+> >> > David Chinner schrieb:
+> >> > > If the softirqs were run on a different stack, then a lot of these
+> >>
+> >> softirqs DO run on their own stack!
+> >
+> >So they run on a separate stack for 4k stacks on x86?
+> 
+> Yes, with 4K stacks there's sepperate IRQ stack.
 
-> From: Paul Bonser <misterpib@gmail.com>
-> 
-> Restoring old, correct comment for sk_filter_release, moving it to where it should actually be, and changing new comment into proper comment for sk_filter_rcu_free, where it actually makes sense.
-> 
-> The original fix submitted for this on Oct 23 mistakenly documented the wrong function.
-> 
-> Signed-off-by: Paul Bonser <misterpib@gmail.com>
+Ok, thanks.
 
-Applied, thanks.
+> >They don't run on a separate stack for 8k stacks on x86 -
+> >Jesper's traces show that - so this may indicate an issue
+> >with the methodology used to generate the stack overflow
+> >traces inteh first place. i.e. if 4k stacks use a separate
+> >stack, then most of the reported overflows are spurious
+> >and would not normally occur on 4k stack systems..
+> >
+> 
+> Well, some of the traces show that we were down to ~3K stack free with
+> 8K stacks, so ~5K used. Even with 4K stacks and sepperate stack for
+> IRQs we will still be uncomfortably close to the edge in those cases.
+
+Sure - i didn't say there wasn't a problem - more just indicating
+that most of the traces would not have happened on a 4k stack box so
+it's harder to tell which of the traces you posted would actually
+lead to an overflow.
+
+Cheers,
+
+Dave.
+-- 
+Dave Chinner
+Principal Engineer
+SGI Australian Software Group
