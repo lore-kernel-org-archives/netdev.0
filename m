@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [take25 1/6] kevent: Description.
-Date: Fri, 24 Nov 2006 19:31:00 +0300
-Message-ID: <20061124163100.GA21462@2ka.mipt.ru>
-References: <11641265982190@2ka.mipt.ru> <4564E162.8040901@redhat.com> <20061123115240.GA20294@2ka.mipt.ru> <4565FA60.9000402@redhat.com> <20061124110143.GF13600@2ka.mipt.ru> <456718A3.1070108@redhat.com> <20061124161406.GA5054@2ka.mipt.ru>
+Date: Fri, 24 Nov 2006 19:49:16 +0300
+Message-ID: <20061124164916.GA4012@2ka.mipt.ru>
+References: <11641265982190@2ka.mipt.ru> <4564E2AB.1020202@redhat.com> <20061123115504.GB20294@2ka.mipt.ru> <4565FDED.2050003@redhat.com> <20061124114614.GA32545@2ka.mipt.ru> <45671E16.6060005@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
@@ -13,25 +13,56 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	Johann Borck <johann.borck@densedata.com>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:60336 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S934199AbWKXQcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 11:32:42 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:35040 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S933321AbWKXQuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 11:50:08 -0500
 To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20061124161406.GA5054@2ka.mipt.ru>
+In-Reply-To: <45671E16.6060005@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 24, 2006 at 07:14:06PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> If kernel has put data asynchronously it will setup special flag, thus 
-> kevent_wait() will not sleep and will return, so thread will check new
-> entries and process them.
+On Fri, Nov 24, 2006 at 08:30:14AM -0800, Ulrich Drepper (drepper@redhat.com) wrote:
+> Evgeniy Polyakov wrote:
+> >>Very much simplified but it should show that we need a writable copy of 
+> >>the uidx.  And this value at any time must be consistent with the index 
+> >>the kernel assumes.
+> >
+> >I seriously doubt it is simpler than having index provided by kernel.
+> 
+> What has simpler to do with it?  The userlevel code should not modify 
+> the ring buffer structure at all.  If we'd do this then all operations, 
+> at least on the uidx field, would have to be atomic operations.  This is 
+> currently not the case for the kernel side since it's protected by a 
+> lock for the event queue.  Using the uidx field from userlevel would 
+> therefore just make things slower.
 
-For the clarification - only kevent_wait() updates index, userspace
-will not detect that it has changed after thread has put there new
-data.
-In case kernel thread will updated index too, you are correct,
-kevent_wait() should get index as parameter.
+That index is provided by kernel for userspace so that userspace could
+determine where indexes are - of course userspace can maintain it
+itself, but it can also use provided by kernel. It is not written
+explicitly, but only through kevent_commit().
+
+> And for what?  Changing the uidx value would make the commit syscall 
+> unnecessary.  This might be an argument but it sounds too dangerous. 
+> IMO the value should be protected by the kernel.
+> 
+> And in any case, the uidx value cannot be updated until the event 
+> actually has been processed.  But the threads still need to coordinate 
+> distributing the events from the ring buffer amongst themselves.  This 
+> will in any case require a second variable.
+> 
+> So, if you want to do away with the commit syscall, keep the uidx value. 
+>  This also requires that the ring buffer head will always be writable 
+> (something I'd like to avoid making part of the interface but I'm 
+> flexible on this).  Otherwise, the ring_uidx element can go away, it's 
+> not needed and will only make people think about wrong approaches to use it.
+
+No, head will not be writeable - it is absolutely.
+
+I do not care actually about that index, but as you have probably noticed, 
+there was such an interface already, and I changed it. So, this will be the 
+last change of the interface. You think it should not be exported -
+fine, it will not be.
 
 -- 
 	Evgeniy Polyakov
