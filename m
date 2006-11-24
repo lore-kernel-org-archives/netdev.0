@@ -1,50 +1,78 @@
-From: chunkeey@web.de
-Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
-Date: Fri, 24 Nov 2006 16:55:50 +0100
-Message-ID: <200611241655.50302.chunkeey@web.de>
-References: <200610031457.33215.chunkeey@web.de> <200611181118.02549.chunkeey@web.de> <200611220201.34717.dtor@insightbb.com>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Fri, 24 Nov 2006 08:06:59 -0800
+Message-ID: <456718A3.1070108@redhat.com>
+References: <11641265982190@2ka.mipt.ru> <4564E162.8040901@redhat.com> <20061123115240.GA20294@2ka.mipt.ru> <4565FA60.9000402@redhat.com> <20061124110143.GF13600@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:57049 "EHLO
-	fmmailgate01.web.de") by vger.kernel.org with ESMTP
-	id S1755791AbWKXPzw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Nov 2006 10:55:52 -0500
-Received: from smtp08.web.de (fmsmtp08.dlan.cinetic.de [172.20.5.216])
-	by fmmailgate01.web.de (Postfix) with ESMTP id 633753D4A78F
-	for <netdev@vger.kernel.org>; Fri, 24 Nov 2006 16:55:51 +0100 (CET)
-Received: from [87.181.127.236] (helo=debian64.daheim)
-	by smtp08.web.de with asmtp (TLSv1:AES256-SHA:256)
-	(WEB.DE 4.107 #114)
-	id 1GndP5-0003MV-00
-	for netdev@vger.kernel.org; Fri, 24 Nov 2006 16:55:51 +0100
-Received: from localhost.localdomain
-	([127.0.0.1] helo=localhost ident=chuck)
-	by debian64.daheim with esmtpa (Exim 4.63)
-	(envelope-from <chunkeey@web.de>)
-	id 1GndP4-0001iO-HT
-	for netdev@vger.kernel.org; Fri, 24 Nov 2006 16:55:50 +0100
-To: netdev@vger.kernel.org
-In-Reply-To: <200611220201.34717.dtor@insightbb.com>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:45539 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1757793AbWKXQIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 11:08:05 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061124110143.GF13600@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, 22. November 2006 08:01, you wrote:
->
-> Hmm, something funky is going on with my hotplug scripts - if I rerun
-> ifup eth1 after inserting the card it associates just fine. Sorry for
-> the false alarm, the drivers seems to be working fine.
->
-> Still not sure why old driver does not need second "ifup"...
+Evgeniy Polyakov wrote:
+>> I know this is how it's done now.  But it is not where it has to end=
+=2E=20
+>> IMO we have to get to a solution where new events are posted to the =
+ring=20
+>> buffer asynchronously, i.e., without a thread calling kevent_wait.  =
+And=20
+>> then you need the extra parameter and verification.  Even if it's to=
+day=20
+>> not needed we have to future-proof the interface since it cannot be=20
+>> changed once in use.
+>=20
+> There is a special flag in kevent_user to wake it if there are no rea=
+dy
+> events - kernel thread which has added new events will set it and thu=
+s
+> subsequent kevent_wait() will return with updated indexes - userspace
+> must check indexes after kevent_wait().
 
-old drivers? which one? the svn? 2.6.18?
+You misunderstand.  I don't want to return without waiting unconditiona=
+lly.
 
-Since, the card doesn't associate with WPA protected wlans automaticlly,
-but what about WEP or unprotected wlans? 
+There is a race which has to be closed.  It's exactly the same as in th=
+e=20
+futex syscall.  I've shown the interaction between the kernel and the=20
+thread in the previous mail.  There is inevitably a time difference=20
+between the thread checking whether the ring buffer is empty and the=20
+kernel putting the thread to sleep in the kevent_wait call.
 
-It would be nice if someone can capture the MLME frames and look
-if the card does the right thing.
+This is no problem with the current kevent_wait implementation since th=
+e=20
+ring buffer is not filled asynchronously.  But if/when it will be the=20
+kernel might add something to the ring buffer _after_ the thread checks=
+=20
+for an empty ring buffer and _before_ it enters the kernel in the=20
+kevent_wait syscall.
 
+The kevent_wait syscall will only wake the thread when a new event is=20
+posted.  We do not in general want it to be woken when the ring buffer=20
+is non empty.  This would create far too many unnecessary wakeups it=20
+there is more than one thread working on the queue.
+
+With the addition parameters for kevent_wait indicating when the callin=
+g=20
+thread last checked the ring buffer the kernel can find out whether the=
+=20
+decision to call kevent_wait was made based on outdated information or=20
+not.  Outdated in the case a new event has been posted.  In this case=20
+the thread is not put to sleep but instead returns.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
