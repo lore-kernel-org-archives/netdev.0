@@ -1,58 +1,69 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: wireless-dev updated -- 23 November 2006
-Date: Fri, 24 Nov 2006 00:49:53 +0100
-Message-ID: <1164325793.29229.3.camel@johannes.berg>
-References: <20061122174734.781c18d1@griffin.suse.cz>
-	 <20061123163308.GA8287@tuxdriver.com>
+From: Hans Henrik Happe <hhh@imada.sdu.dk>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Fri, 24 Nov 2006 01:14:04 +0100
+Message-ID: <200611240114.04877.hhh@imada.sdu.dk>
+References: <11641265982190@2ka.mipt.ru> <456621AC.7000009@redhat.com> <45662522.9090101@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Jt164bIekIf75pxlzSji"
-Cc: Jiri Benc <jbenc@suse.cz>, NetDev <netdev@vger.kernel.org>,
-	flamingice@sourmilk.net, ivdoorn@gmail.com, mb@bu3sch.de,
-	hong.liu@intel.com, mabbas@linux.intel.com
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:42655 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1757505AbWKWXvt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Nov 2006 18:51:49 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061123163308.GA8287@tuxdriver.com>
+Received: from berlioz.imada.sdu.dk ([130.225.128.12]:30460 "EHLO
+	berlioz.imada.sdu.dk") by vger.kernel.org with ESMTP
+	id S1757516AbWKXAOI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Nov 2006 19:14:08 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45662522.9090101@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday 23 November 2006 23:48, Jeff Garzik wrote:
+> I'm really wondering is designing for N-threads-to-1-ring is the wisest 
+> choice?
+> 
+> Considering current designs, it seems more likely that a single thread 
+> polls for socket activity, then dispatches work.  How often do you 
+> really see in userland multiple threads polling the same set of fds, 
+> then fighting to decide who will handle raised events?
 
---=-Jt164bIekIf75pxlzSji
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+They should not fight, but gently divide event handling work.
+ 
+> More likely, you will see "prefork" (start N threads, each with its own 
+> ring) 
 
-On Thu, 2006-11-23 at 11:33 -0500, John W. Linville wrote:
+One ring could be more busy than others, leaving all the work to one thread.
 
-> > I won't attach the patches this time as some of them are quite big and =
-all
-> > of them went to netdev a few days ago. Please note that these patches b=
-reak
-> > all d80211 drivers.
->=20
-> Driver authors, please observe the warning above.
+> or a worker pool (single thread receives events, then dispatches  
+> to multiple threads for execution) or even one-thread-per-fd (single 
+> thread receives events, then starts new thread for handling).
 
-You might want to not fix it for now and wait until we've discussed the
-[RFC] patch series about cfg80211 more because that removes
-ieee80211_hw->index again to use ieee80211_hw->wiphy->name.
+This is more like fighting :-) 
+It adds context switches and therefore extra latency for event handling. 
+ 
+> If you have multiple threads accessing the same ring -- a poor design 
+> choice -- I would think the burden should be on the application, to 
+> provide proper synchronization.
 
-Sorry about that.
+Comming from the HPC world I do not agree. Context switches should be avoided. 
+This paper is a good example from the HPC world: 
 
-johannes
+http://cobweb.ecn.purdue.edu/~vpai/Publications/majumder-lacsi04.pdf.
 
---=-Jt164bIekIf75pxlzSji
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+The latency problems introduced by context switches in this work calls for 
+even more functionality in event handling. I will not go into details now. 
+There are enough problems with kevent's current feature set and I believe 
+these extra features can be added later without breaking the API.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+--
 
-iD8DBQBFZjOh/ETPhpq3jKURApyuAKCcn3yyDcDrOcfYhWv7wVQLnVQ2UACgrzkw
-3ZcbKEOt34kUx2kfNPwmMs8=
-=hC+y
------END PGP SIGNATURE-----
-
---=-Jt164bIekIf75pxlzSji--
-
+Hans Henrik Happe
