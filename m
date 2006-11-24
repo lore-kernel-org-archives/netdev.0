@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.19-rc6-mm1: no help text for TCP_MD5SIG_DEBUG
-Date: Thu, 23 Nov 2006 17:37:15 -0800 (PST)
-Message-ID: <20061123.173715.64809898.davem@davemloft.net>
-References: <20061123021703.8550e37e.akpm@osdl.org>
-	<20061123233030.GN3557@stusta.de>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH 10/13] NetLabel: use cipso_v4_doi_search() for local
+	CIPSOv4 functions
+Date: Thu, 23 Nov 2006 20:24:34 -0500
+Message-ID: <1164331474.2079.39.camel@localhost.localdomain>
+References: <20061117223842.399078000@hp.com>
+	 <20061117224336.711076000@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, jmorris@namei.org,
+	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39642
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1757551AbWKXBhI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Nov 2006 20:37:08 -0500
-To: bunk@stusta.de
-In-Reply-To: <20061123233030.GN3557@stusta.de>
+Received: from mx1.redhat.com ([66.187.233.31]:22936 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1757549AbWKXBgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Nov 2006 20:36:47 -0500
+To: paul.moore@hp.com
+In-Reply-To: <20061117224336.711076000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Fri, 24 Nov 2006 00:30:30 +0100
+On Fri, 2006-11-17 at 17:38 -0500, paul.moore@hp.com wrote:
 
-> On Thu, Nov 23, 2006 at 02:17:03AM -0800, Andrew Morton wrote:
-> >...
-> > Changes since 2.6.19-rc5-mm2:
-> >...
-> >  git-net.patch
-> >...
-> >  git trees
-> >...
-> 
-> TCP_MD5SIG_DEBUG lacks a help text.
+> Index: net-2.6.20_netlabel-base-work/net/ipv4/cipso_ipv4.c
+> ===================================================================
+> --- net-2.6.20_netlabel-base-work.orig/net/ipv4/cipso_ipv4.c
+> +++ net-2.6.20_netlabel-base-work/net/ipv4/cipso_ipv4.c
+> @@ -1136,7 +1136,7 @@ int cipso_v4_validate(unsigned char **op
+>  	}
+>  
+>  	rcu_read_lock();
+> -	doi_def = cipso_v4_doi_getdef(ntohl(*((__be32 *)&opt[2])));
+> +	doi_def = cipso_v4_doi_search(ntohl(*((u32 *)&opt[2])));
+>  	if (doi_def == NULL) {
+>  		err_offset = 2;
+>  		goto validate_return_locked;
 
-Thanks for the report Adrian, I'll take care of this.
+
+This appears to reverse the previous endian work by Al Viro, was this
+intended?
+
+http://www.kernel.org/git/?p=linux/kernel/git/davem/net-2.6.20.git;a=commitdiff;h=8d7d47b647d7bc05443f1a8a5012e6b41be1c827
+
+-Eric
+
