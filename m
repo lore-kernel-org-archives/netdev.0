@@ -1,62 +1,55 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take25 1/6] kevent: Description.
-Date: Fri, 24 Nov 2006 15:13:12 +0300
-Message-ID: <20061124121312.GD32545@2ka.mipt.ru>
-References: <11641265982190@2ka.mipt.ru> <456621AC.7000009@redhat.com> <20061124120531.GC32545@2ka.mipt.ru>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [NET_SCHED 04/06]: Fix endless loops (part 2): "simple" qdiscs
+Date: Fri, 24 Nov 2006 13:33:50 +0100
+Message-ID: <20061124123350.GA1599@ff.dom.local>
+References: <20061120130843.22347.67166.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: devik@cdi.cz, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:5316 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S934378AbWKXMOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 07:14:02 -0500
-To: Ulrich Drepper <drepper@redhat.com>
+Received: from mx10.go2.pl ([193.17.41.74]:16779 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S934479AbWKXM1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 07:27:24 -0500
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20061124120531.GC32545@2ka.mipt.ru>
+In-Reply-To: <20061120130843.22347.67166.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 24, 2006 at 03:05:31PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Thu, Nov 23, 2006 at 02:33:16PM -0800, Ulrich Drepper (drepper@redhat.com) wrote:
-> > Evgeniy Polyakov wrote:
-> > >+ int kevent_commit(int ctl_fd, unsigned int start, 
-> > >+ 	unsigned int num, unsigned int over);
-> > 
-> > I think we can simplify this interface:
-> > 
-> >    int kevent_commit(int ctl_fd, unsigned int new_tail,
-> >                      unsigned int over);
-> > 
-> > The kernel sets the ring_uidx value to the 'new_tail' value if the tail 
-> > pointer would be incremented (module wrap around) and is not higher then 
-> > the current front pointer.  The test will be a bit complicated but not 
-> > more so than what the current code has to do to check for mistakes.
-> > 
-> > This approach has the advantage that the commit calls don't have to be 
-> > synchronized.  If one thread sets the tail pointer to, say, 10 and 
-> > another to 12, then it does not matter whether the first thread is 
-> > delayed.  If it will eventually be executed the result is simply a no-op 
-> > and since second thread's action supersedes it.
-> > 
-> > Maybe the current form is even impossible to use with explicit locking 
-> > at userlevel.  What if one thread, which is about to call kevent_commit, 
-> > if indefinitely delayed.  Then this commit request's value is never 
-> > taken into account and the tail pointer is always short of what it 
-> > should be.
+On 20-11-2006 14:08, Patrick McHardy wrote:
+> [NET_SCHED]: Fix endless loops (part 2): "simple" qdiscs
 > 
-> I like this interface, although current one does not allow special
+> Convert the "simple" qdiscs to use qdisc_tree_decrease_qlen() where
+> necessary:
+> 
+> - all graft operations
+> - destruction of old child qdiscs in prio, red and tbf change operation
+> - purging of queue in sfq change operation
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> ---
+...
+>  net/sched/sch_cbq.c    |    2 +-
+...
+> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+> index 908b10d..ba82dfa 100644
+> --- a/net/sched/sch_cbq.c
+> +++ b/net/sched/sch_cbq.c
+> @@ -1687,7 +1687,7 @@ #endif
+>  		sch_tree_lock(sch);
+>  		*old = cl->q;
+>  		cl->q = new;
+> -		sch->q.qlen -= (*old)->q.qlen;
+> +		qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
+>  		qdisc_reset(*old);
+>  		sch_tree_unlock(sch);
+>
 
-...does not require...
+Hello,
 
-> synchronization in userspace, since it calculates if new commit is in
-> the area where previous commit was.
-> Will change for the next release.
+Probably it is as usual something with my eyes but
+it seems cbq needs in cbq_delete or cbq_destroy_class
+some treatment (about qdisc_destroy) similar to htb.
 
--- 
-	Evgeniy Polyakov
+Jarek P.
