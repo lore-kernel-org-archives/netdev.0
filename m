@@ -1,81 +1,92 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take25 1/6] kevent: Description.
-Date: Fri, 24 Nov 2006 09:33:12 +0100
-Message-ID: <4566AE48.70409@cosmosbay.com>
-References: <11641265982190@2ka.mipt.ru>	<456621AC.7000009@redhat.com>	<45662522.9090101@garzik.org>	<45663298.7000108@redhat.com>	<45664160.6060504@cosmosbay.com> <20061124001412.371ec4e7.akpm@osdl.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Kevent POSIX timers support.
+Date: Fri, 24 Nov 2006 12:50:52 +0300
+Message-ID: <20061124095052.GC13600@2ka.mipt.ru>
+References: <20061120082500.GA25467@2ka.mipt.ru> <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <20061121184605.GA7787@2ka.mipt.ru> <4563FE71.4040807@redhat.com> <20061122104416.GD11480@2ka.mipt.ru> <20061123085243.GA11575@2ka.mipt.ru> <456603E7.9090006@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@redhat.com>, Jeff Garzik <jeff@garzik.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>,
 	Christoph Hellwig <hch@infradead.org>,
 	Chase Venters <chase.venters@clientec.com>,
 	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:55177 "EHLO
-	gw1.cosmosbay.com") by vger.kernel.org with ESMTP id S1757654AbWKXId5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Nov 2006 03:33:57 -0500
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061124001412.371ec4e7.akpm@osdl.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:28034 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S934526AbWKXJxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Nov 2006 04:53:07 -0500
+To: Ulrich Drepper <drepper@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <456603E7.9090006@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton a =E9crit :
-> On Fri, 24 Nov 2006 01:48:32 +0100
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Thu, Nov 23, 2006 at 12:26:15PM -0800, Ulrich Drepper (drepper@redha=
+t.com) wrote:
+> Evgeniy Polyakov wrote:
+> >+static int posix_kevent_init(void)
+> >+{
+> >+	struct kevent_callbacks tc =3D {
+> >+		.callback =3D &posix_kevent_callback,
+> >+		.enqueue =3D &posix_kevent_enqueue,
+> >+		.dequeue =3D &posix_kevent_dequeue};
 >=20
->>> The alternative is the sorry state we have now.  In nscd, for insta=
-nce,=20
->>> we have one single thread waiting for incoming connections and it t=
-hen=20
->>> has to wake up a worker thread to handle the processing.  This is d=
-one=20
->>> because we cannot "park" all threads in the accept() call since whe=
-n a=20
->>> new connection is announced _all_ the threads are woken.  With the =
-new=20
->>> event handling this wouldn't be the case, one thread only is woken =
-and=20
->>> we don't have to wake worker threads.  All threads can be worker th=
-reads.
->> Having one specialized thread handling the distribution of work to w=
-orker=20
->> threads is better most of the time.
+> How do we prevent that somebody tries to register a POSIX timer event=
+=20
+> source with kevent_ctl(KEVENT_CTL_ADD)?  This should only be possible=
+=20
+> from sys_timer_create and nowhere else.
 >=20
-> It might be now.  Think "commodity 128-way".  Your single distributio=
-n thread
-> will run out of steam.
+> Can you add a parameter to kevent_enqueue indicating this is a call f=
+rom=20
+> inside the kernel and then ignore certain enqueue callbacks?
+
+I think we need some set of flags for callbacks - where they can be
+called, maybe even from which context and so on. So userspace will not
+be allowed to create such timers through kevent API.
+Will do it for release.
+=20
+> >@@ -343,23 +439,27 @@ static int posix_timer_fn(struct hrtimer
+> >=20
+> > 	timr =3D container_of(timer, struct k_itimer, it.real.timer);
+> > 	spin_lock_irqsave(&timr->it_lock, flags);
+> >+=09
+> >+	if (timr->it_sigev_notify & SIGEV_KEVENT) {
+> >+		kevent_storage_ready(&timr->st, NULL, KEVENT_MASK_ALL);
+> >+	} else {
 >=20
-> What Ulrich is proposing is faster.  This is a new interface.  Let's =
-design
-> it to be fast.
+> We need to pass the data in the sigev_value meember of the struct=20
+> sigevent structure passed to timer_create to the caller.  I don't see=
+ it=20
+> being done here nor when the timer is created.  Do I miss something?=20
+> The sigev_value value should be stored in the user/ptr member of stru=
+ct=20
+> ukevent.
 
-Hum... I guess you didnt read my mail... I basically agree with Ulrich.
+sigev_value was stored in k_itimer structure, I just do not know where
+to put it in the ukevent provided to userspace - it can be placed in
+pointer value if you like.
 
-I just wanted to say that a fast application cannot rely only on a "let=
-'s park=20
-N threads waiting for single event in this queue", and hope kernel will=
- be=20
-smart for us.
+> >+		if (event.sigev_notify & SIGEV_KEVENT) {
+>=20
+> Don't use a bit.  It makes no sense to combine SIGEV_SIGNAL with=20
+> SIGEV_KEVENT etc.  Only SIGEV_THREAD_ID is a special case.
+>=20
+> Just define SIGEV_KEVENT to 3 and replace the tests like the one cite=
+d=20
+> above with
+>=20
+>   if (timr->it_sigev_notify =3D=3D SIGEV_KEVENT)
 
-Even with 128-ways, you still hit a central point of coordination (it c=
-an be a=20
-mutex in kevent code, a atomic uidx in userland, or whatever) for a 'ke=
-vent=20
-queue'. Once you paid the cache lines ping/pong, you wont be *fast*.
+Ok.
 
-I wish *you* dont think of kevent of only dispatching HTTP 1.0 trivial =
-web=20
-requests.
+> --=20
+> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
+ St =E2=9E=A7 Mountain View,=20
+> CA =E2=9D=96
 
-Being able to direct a particular request on a particular CPU is certai=
-nly=20
-something that cannot be hardcoded in 'the new kevent interface'.
-
-Eric
+--=20
+	Evgeniy Polyakov
