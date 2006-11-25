@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET] DECNet address netlink work
-Date: Fri, 24 Nov 2006 17:15:08 -0800 (PST)
-Message-ID: <20061124.171508.80878868.davem@davemloft.net>
-References: <20061119222326.208529546@lsx.localdomain>
+Subject: Re: [PATCHES 0/11] Use kmemdup/kzalloc in net/ + ieee80211 fix
+Date: Fri, 24 Nov 2006 17:16:50 -0800 (PST)
+Message-ID: <20061124.171650.08653661.davem@davemloft.net>
+References: <20061121032625.GA7039@mandriva.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:26005
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:21413
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S935114AbWKYBO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Nov 2006 20:14:58 -0500
-To: tgraf@suug.ch
-In-Reply-To: <20061119222326.208529546@lsx.localdomain>
+	id S935115AbWKYBQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Nov 2006 20:16:40 -0500
+To: acme@mandriva.com
+In-Reply-To: <20061121032625.GA7039@mandriva.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Sun, 19 Nov 2006 23:23:26 +0100
+From: Arnaldo Carvalho de Melo <acme@mandriva.com>
+Date: Tue, 21 Nov 2006 01:26:26 -0200
 
-> First batch of patches to convert the DECNet address
-> code to the new netlink interface.
+> Hi David,
+> 
+> 	Please consider pulling from:
+> 
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.20.git
 
-All 3 patches applied, thanks a lot Thomas.
+Pulled and pushed out, thanks a lot!
