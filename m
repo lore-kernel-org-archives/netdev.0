@@ -1,25 +1,31 @@
-From: Tim Jordan <tim@insipid.org.uk>
-Subject: jumbo frame support on realtek 8169
-Date: Sat, 25 Nov 2006 14:01:58 +0000
-Message-ID: <ECECF744-AF81-42F9-AF0F-502E3906ECB9@insipid.org.uk>
-Mime-Version: 1.0 (Apple Message framework v752.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: jumbo frame support on realtek 8169
+Date: Sat, 25 Nov 2006 15:19:47 +0100
+Message-ID: <20061125141947.GA11374@electric-eye.fr.zoreil.com>
+References: <ECECF744-AF81-42F9-AF0F-502E3906ECB9@insipid.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.bethere.co.uk ([87.194.0.68]:16845 "EHLO
-	smtp1.bethere.co.uk") by vger.kernel.org with ESMTP id S935193AbWKYOCt
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48257 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S935203AbWKYOVp
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Nov 2006 09:02:49 -0500
-Received: from [192.168.1.102] (87-194-2-119.bethere.co.uk [87.194.2.119])
-	by smtp1.bethere.co.uk (Postfix) with SMTP id 066654299C2
-	for <netdev@vger.kernel.org>; Sat, 25 Nov 2006 14:03:29 +0000 (GMT)
-To: netdev@vger.kernel.org
+	Sat, 25 Nov 2006 09:21:45 -0500
+To: Tim Jordan <tim@insipid.org.uk>
+Content-Disposition: inline
+In-Reply-To: <ECECF744-AF81-42F9-AF0F-502E3906ECB9@insipid.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Does the kernel driver support jumbo frames as I do not seem to be  
-able to enable it using ifconfig eth0 mtu 9000?
+Tim Jordan <tim@insipid.org.uk> :
+> Does the kernel driver support jumbo frames as I do not seem to be  
+> able to enable it using ifconfig eth0 mtu 9000?
 
-Regards
+Due to hardware limitation, 7200 bytes is the safe upper limit.
 
-Tim Jordan
+Note: so far the driver applies the same limit to the 8168 but I
+have not had reports nor seen documented that the 8168 exhibits the
+exact same behavior. Feedback would be welcome.
+
+-- 
+Ueimor
