@@ -1,57 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network virtualization/isolation
-Date: Sat, 25 Nov 2006 16:16:06 -0700
-Message-ID: <m1bqmvnmmh.fsf@ebiederm.dsl.xmission.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77F0F698@nekter>
+From: dean gaudet <dean@arctic.org>
+Subject: gratuitous arp
+Date: Sat, 25 Nov 2006 15:33:15 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611251526040.8068@twinlark.arctic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <hadi@cyberus.ca>, "Daniel Lezcano" <dlezcano@fr.ibm.com>,
-	"Dmitry Mishin" <dim@openvz.org>,
-	"Stephen Hemminger" <shemminger@osdl.org>,
-	<netdev@vger.kernel.org>,
-	"Linux Containers" <containers@lists.osdl.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:16521 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S935098AbWKYXRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Nov 2006 18:17:42 -0500
-To: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77F0F698@nekter> (Leonid
-	Grossman's message of "Sat, 25 Nov 2006 17:17:03 -0500")
+Received: from twinlark.arctic.org ([207.7.145.18]:46501 "EHLO
+	twinlark.arctic.org") by vger.kernel.org with ESMTP id S935212AbWKYXdQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Nov 2006 18:33:16 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Leonid Grossman" <Leonid.Grossman@neterion.com> writes:
+hi...
 
-> I did not mean kernel bypass, just L2 hw channels that for 
-> all practical purposes act as separate NICs - 
-> different MAC addresses, no blocking, independent reset, etc.
+i ran into some problems recently which would have been avoided if my box 
+did a gratuitous arp as it brought up all interfaces (the router took 
+forever to timeout the ARP entries for interface aliases).  so i set about 
+looking to see why that wasn't happening.
 
-Yes. Nearly all of what you need for safe kernel bypass.
+i either missed it, or there's no code in the kernel to do it -- but 
+that's cool, because it's easy enough to do from userland.  i'm guessing 
+this is the intention.
 
->> In the worst case I might need someone to go as far as the 
->> Grand Unified Lookup to remove all of the overheads.  Except 
->> for distributing the work load more evenly across the machine 
->> with separate interrupts and the like I see no need for 
->> separate hardware channels to make things go fast for my needs.
->> 
->> Despite the title of this thread there is no virtualization 
->> or emulation of the hardware involved.  Just enhancements to 
->> the existing hardware abstractions.
->
-> Right, I was just trying to say that IOV support (likely, from multiple
-> vendors since
-> virtualization is expected to be widely used) would provide an option to
-> export multiple
-> independent L2 interfaces from a single NIC - even if only a subset of 
-> IOV functionality would be used in this case.
+however my debian and ubuntu boxes aren't doing grat arp and don't seem to 
+have options to do it (i do know about using various other tools such as 
+arping, send_arp, garp to do it manually).
 
-Agreed, and I think I understood that.  My basic point was that it
-doesn't look to me like I need the hardware support, just that I can
-use it when it is there.
+before i go opening bugs with the distribution folks, could someone chime 
+in as to what is the recommended approach these days?  did grat arp fall 
+out of favour, or is it just a case of userland not keeping up?
 
-The core advantage I see of the multiple queues, is in being able to
-split the processing of network traffic and interrupts among multiple
-cores.
-
-Eric
+thanks
+-dean
