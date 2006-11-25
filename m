@@ -1,93 +1,57 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
-Date: Sat, 25 Nov 2006 23:43:58 +0100
-Message-ID: <20061125224358.GA29403@dreamland.darkstar.lan>
-References: <20061121202541.GA23036@dreamland.darkstar.lan>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network virtualization/isolation
+Date: Sat, 25 Nov 2006 16:16:06 -0700
+Message-ID: <m1bqmvnmmh.fsf@ebiederm.dsl.xmission.com>
+References: <78C9135A3D2ECE4B8162EBDCE82CAD77F0F698@nekter>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kronos.it@gmail.com, Chris Snook <csnook@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S967279AbWKYWoO@vger.kernel.org>
-To: Jay Cliburn <jacliburn@bellsouth.net>
-Content-Disposition: inline
-In-Reply-To: <20061121202541.GA23036@dreamland.darkstar.lan>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <hadi@cyberus.ca>, "Daniel Lezcano" <dlezcano@fr.ibm.com>,
+	"Dmitry Mishin" <dim@openvz.org>,
+	"Stephen Hemminger" <shemminger@osdl.org>,
+	<netdev@vger.kernel.org>,
+	"Linux Containers" <containers@lists.osdl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:16521 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S935098AbWKYXRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Nov 2006 18:17:42 -0500
+To: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77F0F698@nekter> (Leonid
+	Grossman's message of "Sat, 25 Nov 2006 17:17:03 -0500")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+"Leonid Grossman" <Leonid.Grossman@neterion.com> writes:
 
-Luca Tettamanti <kronos.it@gmail.com> ha scritto:
-> Chris Snook <csnook@redhat.com> ha scritto:
+> I did not mean kernel bypass, just L2 hw channels that for 
+> all practical purposes act as separate NICs - 
+> different MAC addresses, no blocking, independent reset, etc.
+
+Yes. Nearly all of what you need for safe kernel bypass.
+
+>> In the worst case I might need someone to go as far as the 
+>> Grand Unified Lookup to remove all of the overheads.  Except 
+>> for distributing the work load more evenly across the machine 
+>> with separate interrupts and the like I see no need for 
+>> separate hardware channels to make things go fast for my needs.
 >> 
->> I've been working on this with Jay since his initial submission.  Thanks 
->> to everyone who has provided feedback on the resubmit.  We're currently 
->> quite short on actual testers, since the chip only seems to be on Asus 
->> M2V motherboards at present.  Please let me and Jay know if you have one 
->> of these boards and would like to test and/or have encountered bugs.
-> 
-> Asus P5B-E also has L1 chip. I'll get the board in a few days and I'll
-> test whatever patch you throw at me ;)
+>> Despite the title of this thread there is no virtualization 
+>> or emulation of the hardware involved.  Just enhancements to 
+>> the existing hardware abstractions.
+>
+> Right, I was just trying to say that IOV support (likely, from multiple
+> vendors since
+> virtualization is expected to be widely used) would provide an option to
+> export multiple
+> independent L2 interfaces from a single NIC - even if only a subset of 
+> IOV functionality would be used in this case.
 
-Got the board, done some basic testing: so far so good :)
+Agreed, and I think I understood that.  My basic point was that it
+doesn't look to me like I need the hardware support, just that I can
+use it when it is there.
 
-The controller also supports MSI and (at least with my chipset - G965)
-it works fine:
+The core advantage I see of the multiple queues, is in being able to
+split the processing of network traffic and interrupts among multiple
+cores.
 
-218:      80649          0   PCI-MSI-edge      eth1
-
-which is nice, otherwise it ends up sharing the IRQ with SATA and USB.
-
-I also have a small patch:
-
-On probe failure and on removal the device should be disabled:
-
-Signed-Off-By: Luca Tettamanti <kronos.it@gmail.com> 
-
----
- drivers/net/atl1/atl1_main.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
-index 167e28c..4883111 100644
---- a/drivers/net/atl1/atl1_main.c
-+++ b/drivers/net/atl1/atl1_main.c
-@@ -2224,14 +2224,14 @@ static int __devinit at_probe(struct pci
- 			printk(KERN_DEBUG 
- 				"%s: no usable DMA configuration, aborting\n",
-  				at_driver_name);
--			return err;
-+			goto err_dma;
- 		}
- 		pci_using_64 = false;
- 	}
- 	/* Mark all PCI regions associated with PCI device 
- 	 * pdev as being reserved by owner at_driver_name */
- 	if ((err = pci_request_regions(pdev, at_driver_name)))
--		return err;
-+		goto err_request_regions;
- 	/* Enables bus-mastering on the device and calls 
- 	 * pcibios_set_master to do the needed arch specific settings */
- 	pci_set_master(pdev);
-@@ -2384,6 +2384,9 @@ static int __devinit at_probe(struct pci
- 	free_netdev(netdev);
-       err_alloc_etherdev:
- 	pci_release_regions(pdev);
-+      err_request_regions:
-+      err_dma:
-+	pci_disable_device(pdev);
- 	return err;
- }
- 
-@@ -2410,6 +2413,7 @@ static void __devexit at_remove(struct p
- 	iounmap(adapter->hw.hw_addr);
- 	pci_release_regions(pdev);
- 	free_netdev(netdev);
-+	pci_disable_device(pdev);
- }
- 
- static int at_suspend(struct pci_dev *pdev, pm_message_t state)
-
-
-Luca
--- 
-Not an editor command: Wq
+Eric
