@@ -1,40 +1,48 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 0/4] atl1: Revised Attansic L1 ethernet driver
-Date: Sat, 25 Nov 2006 19:33:25 -0600
-Message-ID: <4568EEE5.3080301@bellsouth.net>
-References: <20061125224358.GA29403@dreamland.darkstar.lan>
+From: James Courtier-Dutton <James@superbug.co.uk>
+Subject: Re: gratuitous arp
+Date: Sun, 26 Nov 2006 02:05:23 +0000
+Message-ID: <4568F663.7090805@superbug.co.uk>
+References: <Pine.LNX.4.64.0611251526040.8068@twinlark.arctic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf22aec.mail.bellsouth.net ([205.152.59.70]:13537 "EHLO
-	imf22aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
-	id S935227AbWKZBd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Nov 2006 20:33:28 -0500
-To: Luca Tettamanti <kronos.it@gmail.com>
-In-Reply-To: <20061125224358.GA29403@dreamland.darkstar.lan>
+Received: from anchor-post-35.mail.demon.net ([194.217.242.85]:42760 "EHLO
+	anchor-post-35.mail.demon.net") by vger.kernel.org with ESMTP
+	id S967140AbWKZCF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Nov 2006 21:05:26 -0500
+To: dean gaudet <dean@arctic.org>
+In-Reply-To: <Pine.LNX.4.64.0611251526040.8068@twinlark.arctic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Luca Tettamanti wrote:
-
-> Got the board, done some basic testing: so far so good :)
+dean gaudet wrote:
+> hi...
 > 
-> The controller also supports MSI and (at least with my chipset - G965)
-> it works fine:
+> i ran into some problems recently which would have been avoided if my box 
+> did a gratuitous arp as it brought up all interfaces (the router took 
+> forever to timeout the ARP entries for interface aliases).  so i set about 
+> looking to see why that wasn't happening.
 > 
-> 218:      80649          0   PCI-MSI-edge      eth1
+> i either missed it, or there's no code in the kernel to do it -- but 
+> that's cool, because it's easy enough to do from userland.  i'm guessing 
+> this is the intention.
 > 
-> which is nice, otherwise it ends up sharing the IRQ with SATA and USB.
+> however my debian and ubuntu boxes aren't doing grat arp and don't seem to 
+> have options to do it (i do know about using various other tools such as 
+> arping, send_arp, garp to do it manually).
 > 
-> I also have a small patch:
+> before i go opening bugs with the distribution folks, could someone chime 
+> in as to what is the recommended approach these days?  did grat arp fall 
+> out of favour, or is it just a case of userland not keeping up?
+> 
+> thanks
+> -dean
 
-Thanks for the patch.  We'll add it for the next version.
+Are you 100% sure about this?
+Have you done a packet sniff on the network?
+A lot of routers ignore gratuitous arp for security reasons.
 
-FYI, TSO performance is _really_ bad; your tx speed will drop dramatically with 
-TSO on (and it's on by default).  I haven't yet been able to find the problem. 
-If you want to improve tx performance, turn off TSO with ethtool.
+James
 
-Jay
