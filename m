@@ -1,73 +1,70 @@
-From: James Courtier-Dutton <James@superbug.co.uk>
-Subject: Re: gratuitous arp
-Date: Sun, 26 Nov 2006 13:08:41 +0000
-Message-ID: <456991D9.7000503@superbug.co.uk>
-References: <Pine.LNX.4.64.0611251526040.8068@twinlark.arctic.org> <4568F663.7090805@superbug.co.uk> <Pine.LNX.4.64.0611251819310.8068@twinlark.arctic.org>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH] softmac: remove netif_tx_disable when scanning
+Date: Sun, 26 Nov 2006 14:06:57 +0100
+Message-ID: <200611261406.58149.mb@bu3sch.de>
+References: <4568DCEB.mailLLK1Z24PM@lwfinger.net>
+	<200611261312.20442.mb@bu3sch.de> <4569912C.1000506@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchor-post-32.mail.demon.net ([194.217.242.90]:12300 "EHLO
-	anchor-post-32.mail.demon.net") by vger.kernel.org with ESMTP
-	id S935375AbWKZNIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Nov 2006 08:08:39 -0500
-To: dean gaudet <dean@arctic.org>
-In-Reply-To: <Pine.LNX.4.64.0611251819310.8068@twinlark.arctic.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+In-Reply-To: <4569912C.1000506-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-dean gaudet wrote:
-> On Sun, 26 Nov 2006, James Courtier-Dutton wrote:
+On Sunday 26 November 2006 14:05, Larry Finger wrote:
+> Michael Buesch wrote:
+> > On Sunday 26 November 2006 11:03, Johannes Berg wrote:
+> >> On Sat, 2006-11-25 at 23:05 -0500, Daniel Drake wrote:
+> >>
+> >>> Surely disabling the queue actually makes sense, in order to avoid 
+> >>> frames designated for the "current session" being transmitted on 
+> >>> different channels during scanning?
+> >> The problem is that queue disabling isn't refcounted so that a scan that
+> >> collides with bcm43xx having disabled the queue for calibration might
+> >> re-enable the queue while bcm43xx is still calibrating.
+> >>
+> >> Clearly, this doesn't fully fix the problem because softmac will try to
+> >> transmit frames during the calibration. Hence, a proper fix would be to
+> >> not remove the calls to netif_tx_disable but make them go through
+> >> softmac (ieee80211_tx_disable) to make sure that softmac doesn't try to
+> >> scan while the queues are disabled, which would fix the aforementioned
+> >> problem of softmac enabling the queue while the driver needs it disabled
+> >> for free.
+> > 
+> > Yeah, but I don't think it's worth fixing. ;)
+> > Simply removing this tx_disable in softmac fixes a _big_ bug
+> > and that must be applied. The bug of being able to scan while
+> > calibrating is very minor and not worth to fix. Fixing this
+> > will likely introduce other bugs. It's simply not worth it
+> > anymore.
 > 
->> dean gaudet wrote:
->>> hi...
->>>
->>> i ran into some problems recently which would have been avoided if my box
->>> did a gratuitous arp as it brought up all interfaces (the router took
->>> forever to timeout the ARP entries for interface aliases).  so i set about
->>> looking to see why that wasn't happening.
-> ...
->> Are you 100% sure about this?
->> Have you done a packet sniff on the network?
->> A lot of routers ignore gratuitous arp for security reasons.
+> I actually found one of these while testing WX locking as suggested by Dan Williams. His method has 
+> two scripts running at the same time with one of them doing an 'iwlist ethX scan' and the other 
+> executing an 'iwconfig ethX' as fast as possible. Running this test for 36 hours failed to indicate 
+> any locking errors, but running it without the patch under discussion led to a number of the 
+> following errors:
 > 
-> yeah i've done some packet sniffing to verify this.
+> kernel: bcm43xx: ASSERTION FAILED (!ring->suspended) at: 
+> drivers/net/wireless/bcm43xx/bcm43xx_dma.c:71:request_slot()
 > 
-> here's what happened (twice now):  i upgraded a (normally busy) box, so 
-> the MAC address changed.  the router is a cisco (not managed by me).
-> 
-> debian reboot sequence at some point brings up the primary eth0 address 
-> and very soon thereafter there will be an arp "who-has $default_gw tell 
-> $primary_addr".  that's sufficient to get the cisco to update its ARP 
-> cache for $primary_addr.  this isn't gratuitous arp, but does the trick 
-> for the $primary_addr.
-> 
-> but there's no gratuitous arp for any eth0:N aliased interfaces... and the 
-> cisco ARP cache on this ISP router seems to be set to a long timeout.  i 
-> could reach eth0:N from local net, but couldn't get outside local net from 
-> eth0:N.
-> 
-> issuing "arping -I eth0 -s $secondary_addr $default_gw" for each secondary 
-> address updated the cisco ARP cache and i could then reach eth0:N 
-> remotely.
-> 
-> so... that may not be exactly gratuitous arp, but basically i was stuck 
-> until i forced the cisco to update its ARP cache for each of the secondary 
-> addrs...
-> 
-> it seems to me it'd be nice for the init sequence to take care of this, so 
-> that other folks don't have to spend time debugging similar problems.  i 
-> just wanted to ask if i'm missing something obvious before i go open a 
-> debian bug.  (i'm tempted to see if fedora does anything differently.)
-> 
-> thanks
-> -dean
+> This error _NEVER_ happened when softmac was not allowed to disable TX.
 
-Ok, I think it is better to just do gratuitous arp on the primary interface.
-If one starts doing it on secondary interfaces, one would then have to 
-also do it for all proxy-arp addresses(if used), and thinks could start 
-getting rather messy.
+Yeah, that's the error I expected.
+Nice that you proved my point for this being an important patch. ;)
 
-James
-
+-- 
+Greetings Michael.
