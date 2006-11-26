@@ -1,40 +1,57 @@
-From: Dmitry Torokhov <dtor@insightbb.com>
-Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
-Date: Sun, 26 Nov 2006 00:27:33 -0500
-Message-ID: <200611260027.33773.dtor@insightbb.com>
-References: <200610031457.33215.chunkeey@web.de> <200611250039.03597.dtor@insightbb.com> <200611251750.37313.chunkeey@web.de>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/sched/: remove unused exports
+Date: Sun, 26 Nov 2006 07:29:31 +0100
+Message-ID: <20061126062931.GL15364@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com,
-	Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.insightbb.com ([74.128.0.19]:59779 "EHLO
-	asav10.insightbb.com") by vger.kernel.org with ESMTP
-	id S935241AbWKZF1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Nov 2006 00:27:35 -0500
-To: chunkeey@web.de
-In-Reply-To: <200611251750.37313.chunkeey@web.de>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:35856 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S967304AbWKZG31 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Nov 2006 01:29:27 -0500
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 25 November 2006 11:50, chunkeey@web.de wrote:
-> On Saturday, 25. November 2006 06:39, you wrote:
-> > Ok, it looks like the patch changed the order of netdevice registration vs.
-> > requesting firmware. My scripts are trying to set ESSID and keys before
-> > firmware even gets loaded into the card. You may want to make sure that
-> > newer distributions immune to such change before pushing the patch to
-> > mainline.
-> 
-> Ok, I think I know what was "wrong", this new patch should fix the problem.
-> Can you try it? 
->
+This patch removes the following unused EXPORT_SYMBOL's:
+- sch_api.c: qdisc_lookup
+- sch_generic.c: __netdev_watchdog_up
+- sch_generic.c: noop_qdisc_ops
+- sch_generic.c: qdisc_alloc
 
-Sorry, still need the second "ifup" to bring the card up after plugging
-it in. ping -f looks good however, I will try to stress it more and will
-report if I see anything wrong.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
--- 
-Dmitry
+---
+
+ net/sched/sch_api.c     |    1 -
+ net/sched/sch_generic.c |    3 ---
+ 2 files changed, 4 deletions(-)
+
+--- linux-2.6.19-rc6-mm1/net/sched/sch_api.c.old	2006-11-26 06:58:02.000000000 +0100
++++ linux-2.6.19-rc6-mm1/net/sched/sch_api.c	2006-11-26 06:58:16.000000000 +0100
+@@ -1277,7 +1277,6 @@
+ 
+ subsys_initcall(pktsched_init);
+ 
+-EXPORT_SYMBOL(qdisc_lookup);
+ EXPORT_SYMBOL(qdisc_get_rtab);
+ EXPORT_SYMBOL(qdisc_put_rtab);
+ EXPORT_SYMBOL(register_qdisc);
+--- linux-2.6.19-rc6-mm1/net/sched/sch_generic.c.old	2006-11-26 07:02:22.000000000 +0100
++++ linux-2.6.19-rc6-mm1/net/sched/sch_generic.c	2006-11-26 07:03:40.000000000 +0100
+@@ -606,13 +606,10 @@
+ 	qdisc_unlock_tree(dev);
+ }
+ 
+-EXPORT_SYMBOL(__netdev_watchdog_up);
+ EXPORT_SYMBOL(netif_carrier_on);
+ EXPORT_SYMBOL(netif_carrier_off);
+ EXPORT_SYMBOL(noop_qdisc);
+-EXPORT_SYMBOL(noop_qdisc_ops);
+ EXPORT_SYMBOL(qdisc_create_dflt);
+-EXPORT_SYMBOL(qdisc_alloc);
+ EXPORT_SYMBOL(qdisc_destroy);
+ EXPORT_SYMBOL(qdisc_reset);
+ EXPORT_SYMBOL(qdisc_lock_tree);
+
