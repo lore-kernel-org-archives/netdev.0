@@ -1,112 +1,114 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: gratuitous arp
-Date: Sun, 26 Nov 2006 14:52:26 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0611261417200.5650@bizon.gios.gov.pl>
-References: <Pine.LNX.4.64.0611251526040.8068@twinlark.arctic.org>
- <4568F663.7090805@superbug.co.uk> <Pine.LNX.4.64.0611251819310.8068@twinlark.arctic.org>
- <456991D9.7000503@superbug.co.uk>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED]: policer: restore compatibility with old iproute binaries
+Date: Sun, 26 Nov 2006 14:59:51 +0100
+Message-ID: <45699DD7.8080408@trash.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-911214150-1164549146=:5650"
-Cc: dean gaudet <dean@arctic.org>, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020802090709040800020208"
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
+	jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:16092 "EHLO
-	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S935392AbWKZNwg
+Received: from stinky.trash.net ([213.144.137.162]:21424 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S935396AbWKZOAI
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Nov 2006 08:52:36 -0500
-To: James Courtier-Dutton <James@superbug.co.uk>
-In-Reply-To: <456991D9.7000503@superbug.co.uk>
+	Sun, 26 Nov 2006 09:00:08 -0500
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----187430788-911214150-1164549146=:5650
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+This is a multi-part message in MIME format.
+--------------020802090709040800020208
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
 
+--------------020802090709040800020208
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-On Sun, 26 Nov 2006, James Courtier-Dutton wrote:
+[NET_SCHED]: policer: restore compatibility with old iproute binaries
 
-> dean gaudet wrote:
->> On Sun, 26 Nov 2006, James Courtier-Dutton wrote:
->>=20
->>> dean gaudet wrote:
->>>> hi...
->>>>=20
->>>> i ran into some problems recently which would have been avoided if my =
-box
->>>> did a gratuitous arp as it brought up all interfaces (the router took
->>>> forever to timeout the ARP entries for interface aliases).  so i set=
-=20
->>>> about
->>>> looking to see why that wasn't happening.
->> ...
->>> Are you 100% sure about this?
->>> Have you done a packet sniff on the network?
->>> A lot of routers ignore gratuitous arp for security reasons.
->>=20
->> yeah i've done some packet sniffing to verify this.
->>=20
->> here's what happened (twice now):  i upgraded a (normally busy) box, so =
-the=20
->> MAC address changed.  the router is a cisco (not managed by me).
->>=20
->> debian reboot sequence at some point brings up the primary eth0 address =
-and=20
->> very soon thereafter there will be an arp "who-has $default_gw tell=20
->> $primary_addr".  that's sufficient to get the cisco to update its ARP ca=
-che=20
->> for $primary_addr.  this isn't gratuitous arp, but does the trick for th=
-e=20
->> $primary_addr.
->>=20
->> but there's no gratuitous arp for any eth0:N aliased interfaces... and t=
-he=20
->> cisco ARP cache on this ISP router seems to be set to a long timeout.  i=
-=20
->> could reach eth0:N from local net, but couldn't get outside local net fr=
-om=20
->> eth0:N.
->>=20
->> issuing "arping -I eth0 -s $secondary_addr $default_gw" for each seconda=
-ry=20
->> address updated the cisco ARP cache and i could then reach eth0:N remote=
-ly.
->>=20
->> so... that may not be exactly gratuitous arp, but basically i was stuck=
-=20
->> until i forced the cisco to update its ARP cache for each of the seconda=
-ry=20
->> addrs...
->>=20
->> it seems to me it'd be nice for the init sequence to take care of this, =
-so=20
->> that other folks don't have to spend time debugging similar problems.  i=
-=20
->> just wanted to ask if i'm missing something obvious before i go open a=
-=20
->> debian bug.  (i'm tempted to see if fedora does anything differently.)
->>=20
->> thanks
->> -dean
->
-> Ok, I think it is better to just do gratuitous arp on the primary interfa=
-ce.
-> If one starts doing it on secondary interfaces, one would then have to al=
-so=20
-> do it for all proxy-arp addresses(if used), and thinks could start gettin=
-g=20
-> rather messy.
+The tc actions increased the size of struct tc_police, which broke
+compatibility with old iproute binaries since both the act_police
+and the old NET_CLS_POLICE code check for an exact size match.
 
-BTW: There is no such thing like secondary interfaces. What you use=20
-(ethX:X) is emulation of interface aliases that was necessary for linux=20
-2.2.x, more than 5 yers ago. Currently (2.4/2.6) it is possible to add=20
-many addressess to one interface - all you need is the iproute2 package=20
-and utility called "ip".
+Since the new members are not even used, the simple fix is to also
+accept the size of the old structure. Dumping is not affected since
+old userspace will receive a bigger structure, which is handled fine.
 
-Best regards,
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-911214150-1164549146=:5650--
+---
+commit 8c69566fc6b34f819d1002fdc76cdb2611e37dcb
+tree dd502f69be944acd744f19392f3e3145552ca6b2
+parent c498fe066d393b0f677fd0a857c0b25f24dd2049
+author Patrick McHardy <kaber@gw.localnet> Sun, 26 Nov 2006 14:56:09 +0100
+committer Patrick McHardy <kaber@gw.localnet> Sun, 26 Nov 2006 14:56:09 +0100
+
+ net/sched/act_police.c |   26 ++++++++++++++++++++++----
+ 1 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index fed47b6..af68e1e 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -46,6 +46,18 @@ static struct tcf_hashinfo police_hash_i
+ 	.lock	=	&police_lock,
+ };
+ 
++/* old policer structure from before tc actions */
++struct tc_police_compat
++{
++	u32			index;
++	int			action;
++	u32			limit;
++	u32			burst;
++	u32			mtu;
++	struct tc_ratespec	rate;
++	struct tc_ratespec	peakrate;
++};
++
+ /* Each policer is serialized by its individual spinlock */
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -131,12 +143,15 @@ static int tcf_act_police_locate(struct 
+ 	struct tc_police *parm;
+ 	struct tcf_police *police;
+ 	struct qdisc_rate_table *R_tab = NULL, *P_tab = NULL;
++	int size;
+ 
+ 	if (rta == NULL || rtattr_parse_nested(tb, TCA_POLICE_MAX, rta) < 0)
+ 		return -EINVAL;
+ 
+-	if (tb[TCA_POLICE_TBF-1] == NULL ||
+-	    RTA_PAYLOAD(tb[TCA_POLICE_TBF-1]) != sizeof(*parm))
++	if (tb[TCA_POLICE_TBF-1] == NULL)
++		return -EINVAL;
++	size = RTA_PAYLOAD(tb[TCA_POLICE_TBF-1]);
++	if (size != sizeof(*parm) && size != sizeof(struct tc_police_compat))
+ 		return -EINVAL;
+ 	parm = RTA_DATA(tb[TCA_POLICE_TBF-1]);
+ 
+@@ -415,12 +430,15 @@ struct tcf_police *tcf_police_locate(str
+ 	struct tcf_police *police;
+ 	struct rtattr *tb[TCA_POLICE_MAX];
+ 	struct tc_police *parm;
++	int size;
+ 
+ 	if (rtattr_parse_nested(tb, TCA_POLICE_MAX, rta) < 0)
+ 		return NULL;
+ 
+-	if (tb[TCA_POLICE_TBF-1] == NULL ||
+-	    RTA_PAYLOAD(tb[TCA_POLICE_TBF-1]) != sizeof(*parm))
++	if (tb[TCA_POLICE_TBF-1] == NULL)
++		return NULL;
++	size = RTA_PAYLOAD(tb[TCA_POLICE_TBF-1]);
++	if (size != sizeof(*parm) && size != sizeof(struct tc_police_compat))
+ 		return NULL;
+ 
+ 	parm = RTA_DATA(tb[TCA_POLICE_TBF-1]);
+
+--------------020802090709040800020208--
