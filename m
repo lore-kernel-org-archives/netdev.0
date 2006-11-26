@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] softmac: remove netif_tx_disable when scanning
-Date: Sat, 25 Nov 2006 18:16:43 -0600
-Message-ID: <4568DCEB.mailLLK1Z24PM@lwfinger.net>
+Subject: [PATCH] softmac: reduce scan debug output
+Date: Sat, 25 Nov 2006 18:30:03 -0600
+Message-ID: <4568E00B.mailM4211XMRP@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,47 +20,40 @@ Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+When scanning in debug mode, softmac is very chatty in that it puts 3 lines
+in the logs for each time it scans. This patch has only one line containing
+all the information previously reported.
 
-In the scan section of ieee80211softmac, network transmits are disabled.
-Clearly, this does not make any sense as transmit is necessary for active
-scanning, and transmits are not used when passive scanning. In addition,
-when SoftMAC re-enables transmits, it may override the wishes of a driver
-that may have very good reasons for disabling transmits. No specific
-problems can be blamed directly on this bug, but it may be responsible
-for some unexplained behavior.
-
-Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
 
 John,
 
-Please apply this to wireless-2.6 and push it upstream for inclusion in 2.6.19,
-if possible. I will be submitting it to 2.6.18.Y.
+Please apply this to wireless-2.6.
 
 Larry
 
 
-Index: linux-2.6.19-rc5/net/ieee80211/softmac/ieee80211softmac_scan.c
+Index: linux-2.6/net/ieee80211/softmac/ieee80211softmac_scan.c
 ===================================================================
---- linux-2.6.19-rc5.orig/net/ieee80211/softmac/ieee80211softmac_scan.c
-+++ linux-2.6.19-rc5/net/ieee80211/softmac/ieee80211softmac_scan.c
-@@ -47,7 +47,6 @@ ieee80211softmac_start_scan(struct ieee8
- 	sm->scanning = 1;
+--- linux-2.6.orig/net/ieee80211/softmac/ieee80211softmac_scan.c
++++ linux-2.6/net/ieee80211/softmac/ieee80211softmac_scan.c
+@@ -134,7 +134,8 @@ void ieee80211softmac_scan(void *d)
+ 	si->started = 0;
  	spin_unlock_irqrestore(&sm->lock, flags);
  
--	netif_tx_disable(sm->ieee->dev);
- 	ret = sm->start_scan(sm->dev);
- 	if (ret) {
- 		spin_lock_irqsave(&sm->lock, flags);
-@@ -248,7 +246,6 @@ void ieee80211softmac_scan_finished(stru
- 		if (net)
- 			sm->set_channel(sm->dev, net->channel);
- 	}
--	netif_wake_queue(sm->ieee->dev);
- 	ieee80211softmac_call_events(sm, IEEE80211SOFTMAC_EVENT_SCAN_FINISHED, NULL);
+-	dprintk(PFX "Scanning finished\n");
++	dprintk(PFX "Scanning finished: scanned %d channels starting with channel %d\n",
++		     sm->scaninfo->number_channels, sm->scaninfo->channels[0].channel);
+ 	ieee80211softmac_scan_finished(sm);
+ 	complete_all(&sm->scaninfo->finished);
  }
- EXPORT_SYMBOL_GPL(ieee80211softmac_scan_finished);
-
----
+@@ -182,8 +183,6 @@ int ieee80211softmac_start_scan_implemen
+ 		sm->scaninfo->channels = sm->ieee->geo.bg;
+ 		sm->scaninfo->number_channels = sm->ieee->geo.bg_channels;
+ 	}
+-	dprintk(PFX "Start scanning with channel: %d\n", sm->scaninfo->channels[0].channel);
+-	dprintk(PFX "Scanning %d channels\n", sm->scaninfo->number_channels);
+ 	sm->scaninfo->current_channel_idx = 0;
+ 	sm->scaninfo->started = 1;
+ 	sm->scaninfo->stop = 0;
