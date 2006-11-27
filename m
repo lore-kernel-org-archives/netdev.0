@@ -1,33 +1,31 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Cbe-oss-dev] [RFC][PATCH] spidernet: enable fiber autonegotiation
-Date: Mon, 27 Nov 2006 17:05:35 +0100
-Message-ID: <200611271705.36022.arnd@arndb.de>
-References: <200611271547.07433.jens@de.ibm.com> <200611271605.12784.arnd@arndb.de> <200611271646.32153.Jens.Osterkamp@gmx.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: VM deadlock avoidance
+Date: Mon, 27 Nov 2006 09:20:57 -0800 (PST)
+Message-ID: <20061127.092057.41644075.davem@davemloft.net>
+References: <1164636385.6588.28.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:38645 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1757065AbWK0QGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Nov 2006 11:06:43 -0500
-To: Jens Osterkamp <Jens.Osterkamp@gmx.de>
-In-Reply-To: <200611271646.32153.Jens.Osterkamp@gmx.de>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:24547
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1758255AbWK0RU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Nov 2006 12:20:56 -0500
+To: a.p.zijlstra@chello.nl
+In-Reply-To: <1164636385.6588.28.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 27 November 2006 16:46, Jens Osterkamp wrote:
-> Thanks for pointing me to this, I must have overlooked it. Some of it seems 
-> only applicable to the Celleb copper interface, but some of it is quite 
-> usable for us too.
-> 
-> Is it already queued upstream ?
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Mon, 27 Nov 2006 15:06:25 +0100
 
-No, I'm currently waiting for an updated series for Celleb, ported to
-the latest kernel. The spidernet patch from this series has not yet
-been submitted to netdev or jgarzik, AFAIK.
+> The patches definitely need more work but would you agree with the
+> general direction I'm working in or would you suggest yet another
+> direction?
 
-	Arnd <><
+You're definitely going to have to wait at least a week or so
+before I can review anything serious, and in any event it needs
+to be posted here so people can reply to the patch posting for
+commentary, not stuck up on some random web site which makes
+review terribly difficult.
