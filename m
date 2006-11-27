@@ -1,8 +1,8 @@
 From: Ulrich Drepper <drepper@redhat.com>
 Subject: Re: [take25 1/6] kevent: Description.
-Date: Mon, 27 Nov 2006 11:20:28 -0800
-Message-ID: <456B3A7C.20301@redhat.com>
-References: <11641265982190@2ka.mipt.ru> <4564E162.8040901@redhat.com> <20061123115240.GA20294@2ka.mipt.ru> <4565FA60.9000402@redhat.com> <20061124110143.GF13600@2ka.mipt.ru> <456718A3.1070108@redhat.com> <20061124161406.GA5054@2ka.mipt.ru>
+Date: Mon, 27 Nov 2006 11:23:25 -0800
+Message-ID: <456B3B2D.9040302@redhat.com>
+References: <11641265982190@2ka.mipt.ru> <4564E2AB.1020202@redhat.com> <20061123115504.GB20294@2ka.mipt.ru> <4565FDED.2050003@redhat.com> <20061124114614.GA32545@2ka.mipt.ru> <45671E16.6060005@redhat.com> <20061124164916.GA4012@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
@@ -15,42 +15,39 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	Johann Borck <johann.borck@densedata.com>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:25040 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S933340AbWK0TVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 14:21:00 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:37848 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1758529AbWK0T3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 14:29:34 -0500
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061124161406.GA5054@2ka.mipt.ru>
+In-Reply-To: <20061124164916.GA4012@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Evgeniy Polyakov wrote:
 
-> If kernel has put data asynchronously it will setup special flag, thu=
-s=20
-> kevent_wait() will not sleep and will return, so thread will check ne=
-w
-> entries and process them.
+> That index is provided by kernel for userspace so that userspace coul=
+d
+> determine where indexes are - of course userspace can maintain it
+> itself, but it can also use provided by kernel.
 
-This is not sufficient.
-
-The userlevel code does not commit the events until they are processed.=
+Indeed.  That's what I said.  But I also pointed out that the field is=20
+only useful in simple minded programs and certainly not in the wrappers=
 =20
-  So assume two threads at userlevel, one event is asynchronously=20
-posted.  The first thread picks it up, the second call kevent_wait.
+the runtime (glibc) will provide.
 
-With your scheme it will not be put to sleep and unnecessarily returns=20
-to userlevel.
+As you said yourself, there is no real need for the value being there,=20
+userland can keep track of it by itself.  So, let's reduce the interfac=
+e.
 
-What I propose and what has been proven to work in many situations is t=
-o=20
-have part of the kevent_wait syscall the information about "I am aware=20
-of all events up to XX; wake me only if anything beyond that is added".
 
-Please take a look at how futexes work, it's really the same concept.=20
-And it's really also simpler for the implementation.  Having such a fla=
-g=20
-is much more complicated than adding a simple index comparison before=20
-going to sleep.
+> I do not care actually about that index, but as you have probably not=
+iced,=20
+> there was such an interface already, and I changed it. So, this will =
+be the=20
+> last change of the interface. You think it should not be exported -
+> fine, it will not be.
+
+Thanks.
 
 --=20
 =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
