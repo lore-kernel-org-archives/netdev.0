@@ -1,58 +1,35 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH] ipcomp: fix crypto_alloc_comp() error check
-Date: Mon, 27 Nov 2006 14:07:22 +0900
-Message-ID: <20061127050722.GG1231@APFDCB5C>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [2.6 patch] NET_SCH_ATM doesn't need ipcommon.o
+Date: Mon, 27 Nov 2006 06:04:37 +0000
+Message-ID: <20061127060437.GA2682@infradead.org>
+References: <20061127005934.GN15364@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: chas@cmf.nrl.navy.mil, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.205]:24277 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1757009AbWK0FOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Nov 2006 00:14:31 -0500
-Received: by nz-out-0102.google.com with SMTP id s1so614725nze
-        for <netdev@vger.kernel.org>; Sun, 26 Nov 2006 21:14:30 -0800 (PST)
-To: netdev@vger.kernel.org
+Received: from pentafluge.infradead.org ([213.146.154.40]:20899 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1757060AbWK0GFK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Nov 2006 01:05:10 -0500
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
+In-Reply-To: <20061127005934.GN15364@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The return value of crypto_alloc_comp() should be checked by
-IS_ERR().
+On Mon, Nov 27, 2006 at 01:59:34AM +0100, Adrian Bunk wrote:
+> NET_SCH_ATM doesn't need ipcommon.o
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> --- linux-2.6.19-rc6-mm1/net/atm/Makefile.old	2006-11-26 08:50:05.000000000 +0100
+> +++ linux-2.6.19-rc6-mm1/net/atm/Makefile	2006-11-26 08:56:29.000000000 +0100
+> @@ -10,7 +10,6 @@
+>  atm-$(subst m,y,$(CONFIG_ATM_CLIP)) += ipcommon.o
+>  obj-$(CONFIG_ATM_BR2684) += br2684.o
+>  atm-$(subst m,y,$(CONFIG_ATM_BR2684)) += ipcommon.o
+> -atm-$(subst m,y,$(CONFIG_NET_SCH_ATM)) += ipcommon.o
 
-Cc: David Miller <davem@davemloft.net>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-
----
- net/ipv4/ipcomp.c  |    2 +-
- net/ipv6/ipcomp6.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-Index: work-fault-inject/net/ipv6/ipcomp6.c
-===================================================================
---- work-fault-inject.orig/net/ipv6/ipcomp6.c
-+++ work-fault-inject/net/ipv6/ipcomp6.c
-@@ -368,7 +368,7 @@ static struct crypto_comp **ipcomp6_allo
- 	for_each_possible_cpu(cpu) {
- 		struct crypto_comp *tfm = crypto_alloc_comp(alg_name, 0,
- 							    CRYPTO_ALG_ASYNC);
--		if (!tfm)
-+		if (IS_ERR(tfm))
- 			goto error;
- 		*per_cpu_ptr(tfms, cpu) = tfm;
- 	}
-Index: work-fault-inject/net/ipv4/ipcomp.c
-===================================================================
---- work-fault-inject.orig/net/ipv4/ipcomp.c
-+++ work-fault-inject/net/ipv4/ipcomp.c
-@@ -369,7 +369,7 @@ static struct crypto_comp **ipcomp_alloc
- 	for_each_possible_cpu(cpu) {
- 		struct crypto_comp *tfm = crypto_alloc_comp(alg_name, 0,
- 							    CRYPTO_ALG_ASYNC);
--		if (!tfm)
-+		if (IS_ERR(tfm))
- 			goto error;
- 		*per_cpu_ptr(tfms, cpu) = tfm;
- 	}
+Btw, ages ago Dave said there plans to get rid of ipcommon.c (it's just
+a single function).  Did anything ever happen towards those plans?
