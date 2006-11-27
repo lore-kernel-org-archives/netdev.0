@@ -1,49 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kevent POSIX timers support.
-Date: Mon, 27 Nov 2006 10:24:43 -0800 (PST)
-Message-ID: <20061127.102443.74556125.davem@davemloft.net>
-References: <456603E7.9090006@redhat.com>
-	<20061124095052.GC13600@2ka.mipt.ru>
-	<456B2C82.7040700@redhat.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.6.19-rc6-mm1: drivers/net/chelsio/: unused code
+Date: Mon, 27 Nov 2006 10:24:55 -0800
+Message-ID: <20061127102455.362fe88f@dxpl.pdx.osdl.net>
+References: <20061123021703.8550e37e.akpm@osdl.org>
+	<20061124001731.GO3557@stusta.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org,
-	chase.venters@clientec.com, johann.borck@densedata.com,
-	linux-kernel@vger.kernel.org, jeff@garzik.org, aviro@redhat.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758522AbWK0SYn@vger.kernel.org>
-To: drepper@redhat.com
-In-Reply-To: <456B2C82.7040700@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.25]:48775 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932313AbWK0S2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 13:28:25 -0500
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061124001731.GO3557@stusta.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Mon, 27 Nov 2006 10:20:50 -0800
+On Fri, 24 Nov 2006 01:17:31 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-> Evgeniy Polyakov wrote:
-> >> We need to pass the data in the sigev_value meember of the struct 
-> >> sigevent structure passed to timer_create to the caller.  I don't see it 
-> >> being done here nor when the timer is created.  Do I miss something? 
-> >> The sigev_value value should be stored in the user/ptr member of struct 
-> >> ukevent.
-> > 
-> > sigev_value was stored in k_itimer structure, I just do not know where
-> > to put it in the ukevent provided to userspace - it can be placed in
-> > pointer value if you like.
+> On Thu, Nov 23, 2006 at 02:17:03AM -0800, Andrew Morton wrote:
+> >...
+> > Changes since 2.6.19-rc5-mm2:
+> >...
+> > +chelsio-22-driver.patch
+> >...
+> >  netdev updates
 > 
-> sigev_value is a union and the largest element is a pointer.  So, 
-> transporting the pointer value is sufficient and it should be passed up 
-> to the user in the ptr member of struct ukevent.
+> It is suspicious that the following newly added code is completely unused:
+>   drivers/net/chelsio/ixf1010.o
+>     t1_ixf1010_ops
+>   drivers/net/chelsio/mac.o
+>     t1_chelsio_mac_ops
+>   drivers/net/chelsio/vsc8244.o
+>     t1_vsc8244_ops
+> 
+> cu
+> Adrian
+> 
 
-Now we'll have to have a compat layer for 32-bit/64-bit environments
-thanks to POSIX timers, which is rediculious.
-
-This is exactly the kind of thing I was hoping we could avoid when
-designing these data structures.  No pointers, no non-fixed sized
-types, only types which are identically sized and aligned between
-32-bit and 64-bit environments.
-
-It's OK to have these problems for things designed a long time ago
-before 32-bit/64-bit compat issues existed, but for new stuff no
-way.
+All that is gone in later version. I reposted new patches
+after -mm2 was done.
