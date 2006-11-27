@@ -1,49 +1,49 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Mon, 27 Nov 2006 10:23:39 -0800
-Message-ID: <456B2D2B.9080502@redhat.com>
-References: <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com> <20061124105856.GE13600@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kevent POSIX timers support.
+Date: Mon, 27 Nov 2006 10:24:43 -0800 (PST)
+Message-ID: <20061127.102443.74556125.davem@davemloft.net>
+References: <456603E7.9090006@redhat.com>
+	<20061124095052.GC13600@2ka.mipt.ru>
+	<456B2C82.7040700@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:14741 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1758516AbWK0SYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 13:24:05 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061124105856.GE13600@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, akpm@osdl.org, netdev@vger.kernel.org,
+	zach.brown@oracle.com, hch@infradead.org,
+	chase.venters@clientec.com, johann.borck@densedata.com,
+	linux-kernel@vger.kernel.org, jeff@garzik.org, aviro@redhat.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758522AbWK0SYn@vger.kernel.org>
+To: drepper@redhat.com
+In-Reply-To: <456B2C82.7040700@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
->=20
-> With provided patch it is possible to wakeup 'for-free' - just call
-> kevent_ctl(ready) with zero number of ready events, so thread will be
-> awakened if it was in poll(kevent_fd), kevent_wait() or
-> kevent_get_events().
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Mon, 27 Nov 2006 10:20:50 -0800
 
-Yes, I realize that.  But I wrote something else:
+> Evgeniy Polyakov wrote:
+> >> We need to pass the data in the sigev_value meember of the struct 
+> >> sigevent structure passed to timer_create to the caller.  I don't see it 
+> >> being done here nor when the timer is created.  Do I miss something? 
+> >> The sigev_value value should be stored in the user/ptr member of struct 
+> >> ukevent.
+> > 
+> > sigev_value was stored in k_itimer structure, I just do not know where
+> > to put it in the ukevent provided to userspace - it can be placed in
+> > pointer value if you like.
+> 
+> sigev_value is a union and the largest element is a pointer.  So, 
+> transporting the pointer value is sufficient and it should be passed up 
+> to the user in the ptr member of struct ukevent.
 
- >> Rather than mark an existing entry as ready, how about a call to
- >> inject a new ready event?
- >>
- >> This would be useful to implement functionality at userlevel and
- >> still use an event queue to announce the availability.  Without thi=
-s
- >> type of functionality we'd need to use indirect notification via
- >> signal or pipe or something like that.
+Now we'll have to have a compat layer for 32-bit/64-bit environments
+thanks to POSIX timers, which is rediculious.
 
-This is still something which is wanted.
+This is exactly the kind of thing I was hoping we could avoid when
+designing these data structures.  No pointers, no non-fixed sized
+types, only types which are identically sized and aligned between
+32-bit and 64-bit environments.
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
+It's OK to have these problems for things designed a long time ago
+before 32-bit/64-bit compat issues existed, but for new stuff no
+way.
