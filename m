@@ -1,134 +1,195 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [NETLINK]: Remove unused dst_pid field in netlink_skb_parms
-Date: Mon, 27 Nov 2006 10:02:38 +0100
-Message-ID: <20061127090238.GU8693@postel.suug.ch>
+Subject: [RTNETLINK]: Add rtnl_put_cacheinfo() to unify some code
+Date: Mon, 27 Nov 2006 10:03:57 +0100
+Message-ID: <20061127090357.GV8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:27351 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1757476AbWK0JCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 04:02:18 -0500
+Received: from postel.suug.ch ([194.88.212.233]:30423 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1757486AbWK0JDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 04:03:36 -0500
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The destination PID is passed directly to netlink_unicast()
-respectively netlink_multicast().
+IPv4, IPv6, and DECNet all use struct rta_cacheinfo in a similiar
+way, therefore rtnl_put_cacheinfo() is added to reuse code.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.20/include/linux/netlink.h
+Index: net-2.6.20/net/core/rtnetlink.c
 ===================================================================
---- net-2.6.20.orig/include/linux/netlink.h	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/include/linux/netlink.h	2006-11-25 15:59:14.000000000 +0100
-@@ -141,7 +141,6 @@
+--- net-2.6.20.orig/net/core/rtnetlink.c	2006-11-25 15:35:26.000000000 +0100
++++ net-2.6.20/net/core/rtnetlink.c	2006-11-25 16:09:50.000000000 +0100
+@@ -212,6 +212,24 @@
+ 	return nla_nest_cancel(skb, mx);
+ }
+ 
++int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst, u32 id,
++		       u32 ts, u32 tsage, long expires, u32 error)
++{
++	struct rta_cacheinfo ci = {
++		.rta_lastuse = jiffies_to_clock_t(jiffies - dst->lastuse),
++		.rta_used = dst->__use,
++		.rta_clntref = atomic_read(&(dst->__refcnt)),
++		.rta_error = error,
++		.rta_id =  id,
++		.rta_ts = ts,
++		.rta_tsage = tsage,
++	};
++
++	if (expires)
++		ci.rta_expires = jiffies_to_clock_t(expires);
++
++	return nla_put(skb, RTA_CACHEINFO, sizeof(ci), &ci);
++}
+ 
+ static void set_operstate(struct net_device *dev, unsigned char transition)
  {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	__u32			pid;
--	__u32			dst_pid;
- 	__u32			dst_group;
- 	kernel_cap_t		eff_cap;
- 	__u32			loginuid;	/* Login (audit) uid */
+Index: net-2.6.20/include/linux/rtnetlink.h
+===================================================================
+--- net-2.6.20.orig/include/linux/rtnetlink.h	2006-11-25 15:35:26.000000000 +0100
++++ net-2.6.20/include/linux/rtnetlink.h	2006-11-25 16:09:50.000000000 +0100
+@@ -585,6 +585,9 @@
+ 		       struct nlmsghdr *nlh, gfp_t flags);
+ extern void rtnl_set_sk_err(u32 group, int error);
+ extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
++extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
++			      u32 id, u32 ts, u32 tsage, long expires,
++			      u32 error);
+ 
+ extern void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data);
+ 
+Index: net-2.6.20/net/ipv4/route.c
+===================================================================
+--- net-2.6.20.orig/net/ipv4/route.c	2006-11-25 15:35:26.000000000 +0100
++++ net-2.6.20/net/ipv4/route.c	2006-11-25 16:09:50.000000000 +0100
+@@ -2629,7 +2629,8 @@
+ 	struct rtable *rt = (struct rtable*)skb->dst;
+ 	struct rtmsg *r;
+ 	struct nlmsghdr *nlh;
+-	struct rta_cacheinfo ci;
++	long expires;
++	u32 id = 0, ts = 0, tsage = 0, error;
+ 
+ 	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*r), flags);
+ 	if (nlh == NULL)
+@@ -2676,20 +2677,13 @@
+ 	if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
+ 		goto nla_put_failure;
+ 
+-	ci.rta_lastuse	= jiffies_to_clock_t(jiffies - rt->u.dst.lastuse);
+-	ci.rta_used	= rt->u.dst.__use;
+-	ci.rta_clntref	= atomic_read(&rt->u.dst.__refcnt);
+-	if (rt->u.dst.expires)
+-		ci.rta_expires = jiffies_to_clock_t(rt->u.dst.expires - jiffies);
+-	else
+-		ci.rta_expires = 0;
+-	ci.rta_error	= rt->u.dst.error;
+-	ci.rta_id	= ci.rta_ts = ci.rta_tsage = 0;
++	error = rt->u.dst.error;
++	expires = rt->u.dst.expires ? rt->u.dst.expires - jiffies : 0;
+ 	if (rt->peer) {
+-		ci.rta_id = rt->peer->ip_id_count;
++		id = rt->peer->ip_id_count;
+ 		if (rt->peer->tcp_ts_stamp) {
+-			ci.rta_ts = rt->peer->tcp_ts;
+-			ci.rta_tsage = xtime.tv_sec - rt->peer->tcp_ts_stamp;
++			ts = rt->peer->tcp_ts;
++			tsage = xtime.tv_sec - rt->peer->tcp_ts_stamp;
+ 		}
+ 	}
+ 
+@@ -2708,7 +2702,7 @@
+ 				} else {
+ 					if (err == -EMSGSIZE)
+ 						goto nla_put_failure;
+-					ci.rta_error = err;
++					error = err;
+ 				}
+ 			}
+ 		} else
+@@ -2716,7 +2710,9 @@
+ 			NLA_PUT_U32(skb, RTA_IIF, rt->fl.iif);
+ 	}
+ 
+-	NLA_PUT(skb, RTA_CACHEINFO, sizeof(ci), &ci);
++	if (rtnl_put_cacheinfo(skb, &rt->u.dst, id, ts, tsage,
++			       expires, error) < 0)
++		goto nla_put_failure;
+ 
+ 	return nlmsg_end(skb, nlh);
+ 
+Index: net-2.6.20/net/ipv6/route.c
+===================================================================
+--- net-2.6.20.orig/net/ipv6/route.c	2006-11-25 15:35:26.000000000 +0100
++++ net-2.6.20/net/ipv6/route.c	2006-11-25 16:09:50.000000000 +0100
+@@ -2026,7 +2026,7 @@
+ {
+ 	struct rtmsg *rtm;
+ 	struct nlmsghdr *nlh;
+-	struct rta_cacheinfo ci;
++	long expires;
+ 	u32 table;
+ 
+ 	if (prefix) {	/* user wants prefix routes only */
+@@ -2100,18 +2100,11 @@
+ 		NLA_PUT_U32(skb, RTA_OIF, rt->rt6i_dev->ifindex);
+ 
+ 	NLA_PUT_U32(skb, RTA_PRIORITY, rt->rt6i_metric);
+-	ci.rta_lastuse = jiffies_to_clock_t(jiffies - rt->u.dst.lastuse);
+-	if (rt->rt6i_expires)
+-		ci.rta_expires = jiffies_to_clock_t(rt->rt6i_expires - jiffies);
+-	else
+-		ci.rta_expires = 0;
+-	ci.rta_used = rt->u.dst.__use;
+-	ci.rta_clntref = atomic_read(&rt->u.dst.__refcnt);
+-	ci.rta_error = rt->u.dst.error;
+-	ci.rta_id = 0;
+-	ci.rta_ts = 0;
+-	ci.rta_tsage = 0;
+-	NLA_PUT(skb, RTA_CACHEINFO, sizeof(ci), &ci);
++
++	expires = rt->rt6i_expires ? rt->rt6i_expires - jiffies : 0;
++	if (rtnl_put_cacheinfo(skb, &rt->u.dst, 0, 0, 0,
++			       expires, rt->u.dst.error) < 0)
++		goto nla_put_failure;
+ 
+ 	return nlmsg_end(skb, nlh);
+ 
 Index: net-2.6.20/net/decnet/dn_route.c
 ===================================================================
---- net-2.6.20.orig/net/decnet/dn_route.c	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/net/decnet/dn_route.c	2006-11-25 15:59:14.000000000 +0100
-@@ -1592,8 +1592,6 @@
- 	if (rtm->rtm_flags & RTM_F_NOTIFY)
- 		rt->rt_flags |= RTCF_NOTIFY;
+--- net-2.6.20.orig/net/decnet/dn_route.c	2006-11-25 15:59:14.000000000 +0100
++++ net-2.6.20/net/decnet/dn_route.c	2006-11-25 16:09:50.000000000 +0100
+@@ -1469,7 +1469,7 @@
+ 	struct rtmsg *r;
+ 	struct nlmsghdr *nlh;
+ 	unsigned char *b = skb->tail;
+-	struct rta_cacheinfo ci;
++	long expires;
  
--	NETLINK_CB(skb).dst_pid = NETLINK_CB(in_skb).pid;
--
- 	err = dn_rt_fill_info(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq, RTM_NEWROUTE, 0, 0);
+ 	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*r), flags);
+ 	r = NLMSG_DATA(nlh);
+@@ -1502,16 +1502,10 @@
+ 		RTA_PUT(skb, RTA_GATEWAY, 2, &rt->rt_gateway);
+ 	if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
+ 		goto rtattr_failure;
+-	ci.rta_lastuse = jiffies_to_clock_t(jiffies - rt->u.dst.lastuse);
+-	ci.rta_used     = rt->u.dst.__use;
+-	ci.rta_clntref  = atomic_read(&rt->u.dst.__refcnt);
+-	if (rt->u.dst.expires)
+-		ci.rta_expires = jiffies_to_clock_t(rt->u.dst.expires - jiffies);
+-	else
+-		ci.rta_expires = 0;
+-	ci.rta_error    = rt->u.dst.error;
+-	ci.rta_id       = ci.rta_ts = ci.rta_tsage = 0;
+-	RTA_PUT(skb, RTA_CACHEINFO, sizeof(ci), &ci);
++	expires = rt->u.dst.expires ? rt->u.dst.expires - jiffies : 0;
++	if (rtnl_put_cacheinfo(skb, &rt->u.dst, 0, 0, 0, expires,
++			       rt->u.dst.error) < 0)
++		goto rtattr_failure;
+ 	if (rt->fl.iif)
+ 		RTA_PUT(skb, RTA_IIF, sizeof(int), &rt->fl.iif);
  
- 	if (err == 0)
-Index: net-2.6.20/net/ipv4/fib_frontend.c
-===================================================================
---- net-2.6.20.orig/net/ipv4/fib_frontend.c	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/net/ipv4/fib_frontend.c	2006-11-25 15:59:14.000000000 +0100
-@@ -811,7 +811,6 @@
- 	
- 	pid = nlh->nlmsg_pid;           /*pid of sending process */
- 	NETLINK_CB(skb).pid = 0;         /* from kernel */
--	NETLINK_CB(skb).dst_pid = pid;
- 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
- 	netlink_unicast(sk, skb, pid, MSG_DONTWAIT);
- }    
-Index: net-2.6.20/net/netfilter/nf_conntrack_netlink.c
-===================================================================
---- net-2.6.20.orig/net/netfilter/nf_conntrack_netlink.c	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/net/netfilter/nf_conntrack_netlink.c	2006-11-25 15:59:14.000000000 +0100
-@@ -751,7 +751,6 @@
- 		nf_ct_put(ct);
- 		return -ENOMEM;
- 	}
--	NETLINK_CB(skb2).dst_pid = NETLINK_CB(skb).pid;
- 
- 	err = ctnetlink_fill_info(skb2, NETLINK_CB(skb).pid, nlh->nlmsg_seq, 
- 				  IPCTNL_MSG_CT_NEW, 1, ct);
-@@ -1291,8 +1290,7 @@
- 	skb2 = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb2)
- 		goto out;
--	NETLINK_CB(skb2).dst_pid = NETLINK_CB(skb).pid;
--	
-+
- 	err = ctnetlink_exp_fill_info(skb2, NETLINK_CB(skb).pid, 
- 				      nlh->nlmsg_seq, IPCTNL_MSG_EXP_NEW,
- 				      1, exp);
-Index: net-2.6.20/net/ipv4/netfilter/ip_conntrack_netlink.c
-===================================================================
---- net-2.6.20.orig/net/ipv4/netfilter/ip_conntrack_netlink.c	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/net/ipv4/netfilter/ip_conntrack_netlink.c	2006-11-25 15:59:14.000000000 +0100
-@@ -742,7 +742,6 @@
- 		ip_conntrack_put(ct);
- 		return -ENOMEM;
- 	}
--	NETLINK_CB(skb2).dst_pid = NETLINK_CB(skb).pid;
- 
- 	err = ctnetlink_fill_info(skb2, NETLINK_CB(skb).pid, nlh->nlmsg_seq, 
- 				  IPCTNL_MSG_CT_NEW, 1, ct);
-@@ -1272,8 +1271,7 @@
- 	skb2 = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb2)
- 		goto out;
--	NETLINK_CB(skb2).dst_pid = NETLINK_CB(skb).pid;
--	
-+
- 	err = ctnetlink_exp_fill_info(skb2, NETLINK_CB(skb).pid, 
- 				      nlh->nlmsg_seq, IPCTNL_MSG_EXP_NEW,
- 				      1, exp);
-Index: net-2.6.20/net/xfrm/xfrm_user.c
-===================================================================
---- net-2.6.20.orig/net/xfrm/xfrm_user.c	2006-11-25 15:35:51.000000000 +0100
-+++ net-2.6.20/net/xfrm/xfrm_user.c	2006-11-25 15:59:14.000000000 +0100
-@@ -649,7 +649,6 @@
- 	if (!skb)
- 		return ERR_PTR(-ENOMEM);
- 
--	NETLINK_CB(skb).dst_pid = NETLINK_CB(in_skb).pid;
- 	info.in_skb = in_skb;
- 	info.out_skb = skb;
- 	info.nlmsg_seq = seq;
-@@ -1167,7 +1166,6 @@
- 	if (!skb)
- 		return ERR_PTR(-ENOMEM);
- 
--	NETLINK_CB(skb).dst_pid = NETLINK_CB(in_skb).pid;
- 	info.in_skb = in_skb;
- 	info.out_skb = skb;
- 	info.nlmsg_seq = seq;
-Index: net-2.6.20/net/netlink/af_netlink.c
-===================================================================
---- net-2.6.20.orig/net/netlink/af_netlink.c	2006-11-25 15:59:23.000000000 +0100
-+++ net-2.6.20/net/netlink/af_netlink.c	2006-11-25 15:59:43.000000000 +0100
-@@ -1153,7 +1153,6 @@
- 		goto out;
- 
- 	NETLINK_CB(skb).pid	= nlk->pid;
--	NETLINK_CB(skb).dst_pid = dst_pid;
- 	NETLINK_CB(skb).dst_group = dst_group;
- 	NETLINK_CB(skb).loginuid = audit_get_loginuid(current->audit_context);
- 	selinux_get_task_sid(current, &(NETLINK_CB(skb).sid));
