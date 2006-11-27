@@ -1,36 +1,31 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: RFC: remove NET_CLS_POLICE?
-Date: Sun, 26 Nov 2006 23:09:21 +0000
-Message-ID: <456A1EA1.8020404@andyfurniss.entadsl.com>
-References: <20061126062939.GM15364@stusta.de>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] NET_SCH_ATM doesn't need ipcommon.o
+Date: Mon, 27 Nov 2006 01:59:34 +0100
+Message-ID: <20061127005934.GN15364@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.ukfsn.org ([217.158.120.143]:22955 "EHLO mail.ukfsn.org")
-	by vger.kernel.org with ESMTP id S1754075AbWKZXJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Nov 2006 18:09:09 -0500
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20061126062939.GM15364@stusta.de>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:59913 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1755703AbWK0A7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Nov 2006 19:59:30 -0500
+To: chas@cmf.nrl.navy.mil
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> Considering that NET_CLS_POLICE has been marked as obsolete for more 
-> than one year, would a patch to remove it be acceptable?
-> 
-> cu
-> Adrian
-> 
+NET_SCH_ATM doesn't need ipcommon.o
 
-People still request the "2.4 policer" on LARTC as unlike its 
-replacement it hooks after prerouting/denat so they can police on local 
-addresses.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-There is no other way apart from IMQ, though ISTR mention of a meta 
-match one day (for ifb).
-
-Andy.
-
+--- linux-2.6.19-rc6-mm1/net/atm/Makefile.old	2006-11-26 08:50:05.000000000 +0100
++++ linux-2.6.19-rc6-mm1/net/atm/Makefile	2006-11-26 08:56:29.000000000 +0100
+@@ -10,7 +10,6 @@
+ atm-$(subst m,y,$(CONFIG_ATM_CLIP)) += ipcommon.o
+ obj-$(CONFIG_ATM_BR2684) += br2684.o
+ atm-$(subst m,y,$(CONFIG_ATM_BR2684)) += ipcommon.o
+-atm-$(subst m,y,$(CONFIG_NET_SCH_ATM)) += ipcommon.o
+ atm-$(CONFIG_PROC_FS) += proc.o
+ 
+ obj-$(CONFIG_ATM_LANE) += lec.o
