@@ -1,41 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
-Date: Mon, 27 Nov 2006 10:23:26 -0800
-Message-ID: <20061127102326.563f4e52@dxpl.pdx.osdl.net>
-References: <200611171536.kAHFa3os005563@dut39.unminc.com>
-	<20061117084049.555e14d0@localhost.localdomain>
-	<1163845689.4822.6.camel@nbsanjeev>
-	<20061120104553.434b6ec5@freekitty>
-	<1164299572.4505.9.camel@nbsanjeev>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
+Date: Mon, 27 Nov 2006 10:23:39 -0800
+Message-ID: <456B2D2B.9080502@redhat.com>
+References: <4562102B.5010503@redhat.com> <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com> <20061124105856.GE13600@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Linsys Contractor Amit S. Kale" <amitkale@netxen.com>,
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	netdev <netdev@vger.kernel.org>,
-	brazilnut <brazilnut@us.ibm.com>, jeff@garzik.org,
-	netxenproj@linsyssoft.com, rob@netxen.com,
-	wendyx <wendyx@us.ibm.com>
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:41606 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1758514AbWK0SXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 13:23:43 -0500
-To: sanjeev@netxen.com
-In-Reply-To: <1164299572.4505.9.camel@nbsanjeev>
+Received: from mx1.redhat.com ([66.187.233.31]:14741 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1758516AbWK0SYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 13:24:05 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061124105856.GE13600@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Nov 2006 08:32:52 -0800
-Sanjeev Jorapur <sanjeev@netxen.com> wrote:
+Evgeniy Polyakov wrote:
+>=20
+> With provided patch it is possible to wakeup 'for-free' - just call
+> kevent_ctl(ready) with zero number of ready events, so thread will be
+> awakened if it was in poll(kevent_fd), kevent_wait() or
+> kevent_get_events().
 
-> > 
-> > You should then set the same value for pci_set_dma_mask, because then the IOMMU
-> > can help. See both b44 or tg3 drivers, they have to deal with odd size masks.
-> > I don't think you have to do all the bounce buffer work in the driver.
-> > 
-> 
-> We had tried something like this earlier, but found that on some
-> platforms (Opteron, IA64), we got kernel panics when the kernel
-> ran out of translation entries.
+Yes, I realize that.  But I wrote something else:
 
-That's a bug, it should be fixed there.  It would make sense to reduce the size
-of the Tx queue if not enough translation entries were available.
+ >> Rather than mark an existing entry as ready, how about a call to
+ >> inject a new ready event?
+ >>
+ >> This would be useful to implement functionality at userlevel and
+ >> still use an event queue to announce the availability.  Without thi=
+s
+ >> type of functionality we'd need to use indirect notification via
+ >> signal or pipe or something like that.
+
+This is still something which is wanted.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
