@@ -1,33 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3][NET] Pack some structs
-Date: Mon, 27 Nov 2006 12:56:31 -0800 (PST)
-Message-ID: <20061127.125631.45189099.davem@davemloft.net>
-References: <20061127200324.GW11605@mandriva.com>
+Subject: Re: [PATCH] potential NULL pointer deref in net/key/af_key.c
+Date: Mon, 27 Nov 2006 13:53:33 -0800 (PST)
+Message-ID: <20061127.135333.28790424.davem@davemloft.net>
+References: <200611272244.08189.jesper.juhl@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gem@asplinux.ru, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+	kunihiro@ipinfusion.com, miyazawa@linux-ipv6.org, derek@ihtfp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:16598
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56478
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933644AbWK0U4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Nov 2006 15:56:38 -0500
-To: acme@mandriva.com
-In-Reply-To: <20061127200324.GW11605@mandriva.com>
+	id S933840AbWK0Vxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Nov 2006 16:53:30 -0500
+To: jesper.juhl@gmail.com
+In-Reply-To: <200611272244.08189.jesper.juhl@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnaldo Carvalho de Melo <acme@mandriva.com>
-Date: Mon, 27 Nov 2006 18:03:24 -0200
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Date: Mon, 27 Nov 2006 22:44:07 +0100
 
-> Hi David,
+> In net/key/af_key.c::pfkey_send_policy_notify() there's a check at the 
+> beginning of the function : 
 > 
-> 	Please consider pulling from:
+>     if (xp && xp->type != XFRM_POLICY_TYPE_MAIN)
 > 
-> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.20.git
+> this implies that 'xp' may be null when the function is called. But later 
+> on in the function we have this code : 
 > 
-> 	Already rebased from your net-2.6.20 tree.
+>     return key_notify_policy(xp, dir, c);
+> 
+> key_notify_policy() passes 'xp' to pfkey_xfrm_policy2msg_prep() that pass
+> it on to pfkey_xfrm_policy2msg_size() which dereferences it.
+> key_notify_policy() also passes 'xp' to pfkey_xfrm_policy2msg() which 
+> also dereferences it.
+> 
+> So, in pfkey_send_policy_notify() in the cases where we end up calling 
+> key_notify_policy(), we should test 'xp' for NULL.
+> 
+> (note: patch is compile tested only)
+> 
+> 
+> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 
-Looks great, pulled and push back out.
+We really need to teach your automated tool about context.
 
-Thanks Arnaldo.
+The NULL case can only occur for XFRM_MSG_FLUSHPOLICY.
+
+Look at the km_policy_notify() call sites.  You can even see from the
+net/xfrm/xfrm_user.c:xfrm_send_policy_notify() implementation of this
+callback that for XFRM_MSG_FLUSHPOLICY the "xp" argument is ignored.
