@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK]: Remove unused dst_pid field in netlink_skb_parms
-Date: Mon, 27 Nov 2006 09:26:26 -0800 (PST)
-Message-ID: <20061127.092626.63729858.davem@davemloft.net>
-References: <20061127090238.GU8693@postel.suug.ch>
+Subject: Re: [RTNETLINK]: Add rtnl_put_cacheinfo() to unify some code
+Date: Mon, 27 Nov 2006 09:27:21 -0800 (PST)
+Message-ID: <20061127.092721.11607229.davem@davemloft.net>
+References: <20061127090357.GV8693@postel.suug.ch>
+	<20061127091320.GW8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38546
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39570
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1758457AbWK0R0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Nov 2006 12:26:23 -0500
+	id S1758460AbWK0R1T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Nov 2006 12:27:19 -0500
 To: tgraf@suug.ch
-In-Reply-To: <20061127090238.GU8693@postel.suug.ch>
+In-Reply-To: <20061127091320.GW8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 27 Nov 2006 10:02:38 +0100
+Date: Mon, 27 Nov 2006 10:13:20 +0100
 
-> The destination PID is passed directly to netlink_unicast()
-> respectively netlink_multicast().
+> Resend: Need to export rtnl_put_cacheinfo() for IPv6
+> 
+> IPv4, IPv6, and DECNet all use struct rta_cacheinfo in a similiar
+> way, therefore rtnl_put_cacheinfo() is added to reuse code.
 > 
 > Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Nothing but assignments to that thing :-)  Good catch,
-applied, thanks Thomas.
+Also applied, thanks Thomas.
