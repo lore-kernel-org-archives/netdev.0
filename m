@@ -1,18 +1,22 @@
 From: Thomas Graf <tgraf@suug.ch>
 Subject: [RTNETLINK]: Add rtnl_put_cacheinfo() to unify some code
-Date: Mon, 27 Nov 2006 10:03:57 +0100
-Message-ID: <20061127090357.GV8693@postel.suug.ch>
+Date: Mon, 27 Nov 2006 10:13:20 +0100
+Message-ID: <20061127091320.GW8693@postel.suug.ch>
+References: <20061127090357.GV8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:30423 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1757486AbWK0JDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 04:03:36 -0500
+Received: from postel.suug.ch ([194.88.212.233]:38359 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1757510AbWK0JNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 04:13:00 -0500
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20061127090357.GV8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Resend: Need to export rtnl_put_cacheinfo() for IPv6
 
 IPv4, IPv6, and DECNet all use struct rta_cacheinfo in a similiar
 way, therefore rtnl_put_cacheinfo() is added to reuse code.
@@ -22,8 +26,8 @@ Signed-off-by: Thomas Graf <tgraf@suug.ch>
 Index: net-2.6.20/net/core/rtnetlink.c
 ===================================================================
 --- net-2.6.20.orig/net/core/rtnetlink.c	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/net/core/rtnetlink.c	2006-11-25 16:09:50.000000000 +0100
-@@ -212,6 +212,24 @@
++++ net-2.6.20/net/core/rtnetlink.c	2006-11-27 10:04:27.000000000 +0100
+@@ -212,6 +212,26 @@
  	return nla_nest_cancel(skb, mx);
  }
  
@@ -45,6 +49,8 @@ Index: net-2.6.20/net/core/rtnetlink.c
 +
 +	return nla_put(skb, RTA_CACHEINFO, sizeof(ci), &ci);
 +}
++
++EXPORT_SYMBOL_GPL(rtnl_put_cacheinfo);
  
  static void set_operstate(struct net_device *dev, unsigned char transition)
  {
@@ -125,7 +131,7 @@ Index: net-2.6.20/net/ipv4/route.c
 Index: net-2.6.20/net/ipv6/route.c
 ===================================================================
 --- net-2.6.20.orig/net/ipv6/route.c	2006-11-25 15:35:26.000000000 +0100
-+++ net-2.6.20/net/ipv6/route.c	2006-11-25 16:09:50.000000000 +0100
++++ net-2.6.20/net/ipv6/route.c	2006-11-26 14:58:57.000000000 +0100
 @@ -2026,7 +2026,7 @@
  {
  	struct rtmsg *rtm;
@@ -162,7 +168,7 @@ Index: net-2.6.20/net/ipv6/route.c
 Index: net-2.6.20/net/decnet/dn_route.c
 ===================================================================
 --- net-2.6.20.orig/net/decnet/dn_route.c	2006-11-25 15:59:14.000000000 +0100
-+++ net-2.6.20/net/decnet/dn_route.c	2006-11-25 16:09:50.000000000 +0100
++++ net-2.6.20/net/decnet/dn_route.c	2006-11-27 09:56:35.000000000 +0100
 @@ -1469,7 +1469,7 @@
  	struct rtmsg *r;
  	struct nlmsghdr *nlh;
