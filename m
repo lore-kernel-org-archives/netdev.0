@@ -1,116 +1,134 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH] lockdep: fix sk->sk_callback_lock locking
-Date: Tue, 28 Nov 2006 13:07:22 +0100
-Message-ID: <1164715642.6588.58.camel@twins>
-References: <1164547971.30244.22.camel@localhost.localdomain>
-	 <1164635760.6588.27.camel@twins>
-	 <1164660685.30244.36.camel@localhost.localdomain>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: Network virtualization/isolation
+Date: Tue, 28 Nov 2006 15:15:26 +0100
+Message-ID: <456C447E.5090703@fr.ibm.com>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>	<20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org>	<4541CCF4.4050306@fr.ibm.com> <1162391707.5251.78.camel@jzny2>	<4559DE01.5090109@fr.ibm.com> <m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Martin Josefsson <gandalf@wlug.westbo.se>
+Cc: hadi@cyberus.ca, Dmitry Mishin <dim@openvz.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:5920 "EHLO
-	amsfep14-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1757932AbWK1MNA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 07:13:00 -0500
-To: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>, Ingo Molnar <mingo@elte.hu>
-In-Reply-To: <1164660685.30244.36.camel@localhost.localdomain>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:49824 "EHLO
+	mtagate6.de.ibm.com") by vger.kernel.org with ESMTP id S935217AbWK1OPp
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 09:15:45 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id kASEFfFE106272
+	for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 14:15:41 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kASEJIwb2568340
+	for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 15:19:18 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kASEFfXE013360
+	for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 15:15:41 +0100
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Eric W. Biederman wrote:
 
-=========================================================
-[ INFO: possible irq lock inversion dependency detected ]
-2.6.19-rc6 #4
----------------------------------------------------------
-nc/1854 just changed the state of lock:
- (af_callback_keys + sk->sk_family#2){-.-?}, at: [<c0268a7f>] sock_def_error_report+0x1f/0x90
-but this lock was taken by another, soft-irq-safe lock in the past:
- (slock-AF_INET){-+..}
+[ snip ]
 
-and interrupts could create inverse lock ordering between them.
+>>
+>> The packets arrive to the real device and go through the routes
+>> engine. From this point, the used route is enough to know to which
+>> container the traffic can go and the sockets subset assigned to the
+>> container.
+> 
+> Note this has potentially the highest overhead of them all because
+> this is the only approach in which it is mandatory to inspect the
+> network packets to see which container they are in.
 
-stack backtrace:
- [<c0103f36>] show_trace_log_lvl+0x26/0x40
- [<c010406b>] show_trace+0x1b/0x20
- [<c01049e4>] dump_stack+0x24/0x30
- [<c013738c>] print_irq_inversion_bug+0x10c/0x130
- [<c01374f2>] check_usage_backwards+0x42/0x50
- [<c0137912>] mark_lock+0x312/0x620
- [<c0138925>] __lock_acquire+0x4c5/0xcb0
- [<c0139499>] lock_acquire+0x69/0x90
- [<c02ddc49>] _read_lock+0x39/0x50
- [<c026778c>] sock_def_wakeup+0x1c/0x60
- [<c02b7d73>] inet_shutdown+0x93/0xf0
- [<c02648d2>] sys_shutdown+0x32/0x60
- [<c0266284>] sys_socketcall+0x1d4/0x260
- [<c01031f3>] syscall_call+0x7/0xb
- =======================
+If the container is in the route information, when you use the route, 
+you have the container destination with it. I don't see the overhead here.
 
-stack backtrace:
- [<c0103f36>] show_trace_log_lvl+0x26/0x40
- [<c010406b>] show_trace+0x1b/0x20
- [<c01049e4>] dump_stack+0x24/0x30
- [<c013738c>] print_irq_inversion_bug+0x10c/0x130
- [<c01374f2>] check_usage_backwards+0x42/0x50
- [<c0137912>] mark_lock+0x312/0x620
- [<c0138925>] __lock_acquire+0x4c5/0xcb0
- [<c0139499>] lock_acquire+0x69/0x90
- [<c02ddc59>] _read_lock+0x39/0x50
- [<c0268a7f>] sock_def_error_report+0x1f/0x90
- [<c029b968>] tcp_disconnect+0x318/0x490
- [<c02b9110>] inet_stream_connect+0x220/0x260
- [<c0264adb>] sys_connect+0x6b/0x90
- [<c026614f>] sys_socketcall+0x9f/0x260
- [<c01031f3>] syscall_call+0x7/0xb
- =======================
+> 
+> My real problem with this approach besides seriously complicating
+> the administration by not delegating it is that you loose enormous
+> amounts of power.
 
-sk->sk_callback_lock is usually only read locked from softirq context
-however it seems lockdep found two spots that are reachable from process
-context, thus creating the possibility of a deadlock.
+I don't understand why you say administration is more complicated.
+unshare -> ifconfig
 
-For now fix these two call sites with manual disabling of softirqs; if
-more of these sites are found we might consider changing the read_lock() to
-read_lock_bh().
+1 container = 1 IP
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Martin Josefsson <gandalf@wlug.westbo.se>
----
- net/ipv4/af_inet.c |    2 ++
- net/ipv4/tcp.c     |    2 ++
- 2 files changed, 4 insertions(+)
+[ snip ]
 
-Index: linux-2.6-netdev/net/ipv4/af_inet.c
-===================================================================
---- linux-2.6-netdev.orig/net/ipv4/af_inet.c	2006-11-27 14:41:51.000000000 +0100
-+++ linux-2.6-netdev/net/ipv4/af_inet.c	2006-11-28 07:06:23.000000000 +0100
-@@ -731,7 +731,9 @@ int inet_shutdown(struct socket *sock, i
- 	}
- 
- 	/* Wake up anyone sleeping in poll. */
-+	local_bh_disable();
- 	sk->sk_state_change(sk);
-+	local_bh_enable();
- 	release_sock(sk);
- 	return err;
- }
-Index: linux-2.6-netdev/net/ipv4/tcp.c
-===================================================================
---- linux-2.6-netdev.orig/net/ipv4/tcp.c	2006-11-28 07:06:16.000000000 +0100
-+++ linux-2.6-netdev/net/ipv4/tcp.c	2006-11-28 07:06:20.000000000 +0100
-@@ -1765,7 +1765,9 @@ int tcp_disconnect(struct sock *sk, int 
- 
- 	BUG_TRAP(!inet->num || icsk->icsk_bind_hash);
- 
-+	local_bh_disable();
- 	sk->sk_error_report(sk);
-+	local_bh_enable();
- 	return err;
- }
- 
+> So you have two columns that you rate these things that I disagree
+> with, and you left out what the implications are for code maintenance.
+> 
+> 1) Network setup.
+>    Past a certainly point both bind filtering and Daniel's L3 use a new
+>    paradigm for managing the network code and become nearly impossible for
+>    system administrators to understand.  The classic one is routing packets
+>    between machines over the loopback interface by accident. Huh?
 
+What is this new paradigm you are talking about ?
 
+> 
+> The L2. Network setup iss simply the cost of setting up a multiple
+> machine network.  This is more complicated but it is well understood
+> and well documented today.  Plus for the common cases it is easy to
+> get a tool to automate this for you.  When you get a complicated
+> network this wins hands down because the existing tools work and
+> you don't have to retrain your sysadmins to understand what is
+> happening.
+
+unshare -> (guest) add mac address
+            (host) add mac address
+	   (guest) set ip address
+            (host) set ip address
+            (host) setup bridge
+
+1 container = 2 net devices (root + guest), 2 IPs, 2 mac addresses, 1 
+bridge.
+100 containers = 200 net devices, 200 IPs, 200 mac addresses, 1 bridge.
+
+> 
+> 2) Runtime Overhead.
+> 
+> Your analysis is confused. Bind/Accept filter is much cheaper than
+> doing a per packet evaluation in the route cache of which container
+> it belongs to.  Among other things Bind/Accept filtering allows all
+> of the global variables in the network stack to remain global and
+> only touches a slow path.  So it is both very simple and very cheap.
+> 
+> Next in line comes L2 using real network devices, and Daniel's
+> L3 thing.  Because there are multiple instances of the networking data
+> structures we have an extra pointer indirection.
+
+There is not extra networking data structure instantiation in the 
+Daniel's L3.
+> 
+> Finally we get L2 with an extra network stack traversal, because
+> we either need the full power of netfilter and traffic shaping
+> gating access to what a node is doing or we simply don't have
+> enough real network interfaces.  I assert that we can optimize
+> the lack of network interfaces away by optimizing the drivers
+> once this becomes an interesting case.
+> 
+> 3) Long Term Code Maintenance Overhead.
+> 
+> - A pure L2 implementation.  There is a big one time cost of
+>   changing all of the variable accesses.  Once that transition
+>   is complete things just work.  All code is shared so there
+>   is no real overhead.
+> 
+> - Bind/Connect/Accept filtering.  There are so few places in
+>   the code this is easy to maintain without sharing code with
+>   everyone else.
+
+For isolation too ? Can we build network migration on top of that ?
+
+> 
+> - Daniel's L3.  A big mass of special purpose code with peculiar
+>   semantics that no one else in the network stack cares about
+>   but is right in the middle of the code.
+
+Thanks Eric for all your comments.
+
+   -- Daniel
