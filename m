@@ -1,67 +1,74 @@
-From: David Chinner <dgc@sgi.com>
-Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to implicate xfs, scsi, networking, SMP
-Date: Wed, 29 Nov 2006 12:56:04 +1100
-Message-ID: <20061129015604.GA33919298@melbourne.sgi.com>
-References: <200611211027.41971.jesper.juhl@gmail.com> <45637566.5020802@melbourne.sgi.com> <9a8748490611211402xdc2822fqbc95a77fe54d49b1@mail.gmail.com> <20061121233141.GP37654165@melbourne.sgi.com> <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com> <9a8748490611220458w4d94d953v21f7a29a9f1bdb72@mail.gmail.com> <20061123011809.GY37654165@melbourne.sgi.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
+Date: Wed, 29 Nov 2006 00:56:35 +0100
+Message-ID: <m3slg3ktvw.fsf@defiant.localdomain>
+References: <m3fyc3e84s.fsf@defiant.localdomain> <456C94D2.9000602@trash.net>
+	<m3wt5fb8lz.fsf@defiant.localdomain> <456CAE0D.2080209@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Juhl <jesper.juhl@gmail.com>, chatz@melbourne.sgi.com,
-	LKML <linux-kernel@vger.kernel.org>, xfs@oss.sgi.com,
-	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org, kaos@sgi.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: David Chinner <dgc@sgi.com>
-Content-Disposition: inline
-In-Reply-To: <20061123011809.GY37654165@melbourne.sgi.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:3467 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1757796AbWK2CJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 21:09:17 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <456CAE0D.2080209@trash.net> (Patrick McHardy's message of "Tue, 28 Nov 2006 22:45:49 +0100")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 23, 2006 at 12:18:09PM +1100, David Chinner wrote:
-> On Wed, Nov 22, 2006 at 01:58:11PM +0100, Jesper Juhl wrote:
-> > 
-> > Attached are two files. The one named stack_overflows.txt.gz contains
-> > one instance of each unique stack overflow + trace that I've got.  The
-> > other file named kernel_BUG.txt.gz contains a few BUG() messages that
-> > were also in the logs.
-....
-> I've just checked on a 2.6.17 build on i386 how much stack we
-> are using (from checkstack.pl with min size reported set to 32 bytes)
-> here in XFS:
-....
-> So, assuming the stacks less than 32 bytes are 32 bytes, we've got
-> 1380 bytes in the XFS stack there, and very few functions where it
-> can be reduced further. Still, 1380 bytes is way, way short of 4KB,
-> so unless there is extra stack usage that checkstack doesn't tell us
-> about I'm not sure why this amount of usage is causing repeated
-> stack overflows with very little stack usage on either side of it.
-> 
-> Can someone enlighten me as to where all the rest of the stack
-> is being used up here?
+Patrick McHardy <kaber@trash.net> writes:
 
-FYI.
+> It might be the case that your network device has a
+> hard_header_len > LL_MAX_HEADER, which could trigger
+> a corruption.
 
-With some help from Keith Owens, we've determined that gcc 3.3.5
-resulted in XFS stack usage of about 1.9KB through the writeback and
-allocation path with another ~800 bytes of stack usage in generic
-code in this path.
+Hmm... GRE tunnels add 24 bytes... I just noticed the following code in
+include/linux/netdevice.h:
 
-The big difference between the numbers I was getting from checkstack
-and reality was CONFIG_CC_OPTIMISE_FOR_SIZE=y being set on the
-kernels I was stack checking. IOWs, CONFIG_CC_OPTIMISE_FOR_SIZE=y
-appears to reduce XFS stack usage by at least 20% and so probably
-should be used with XFS on 4k stacks.
+/*
+ *      Compute the worst case header length according to the protocols
+ *      used.
+ */
+ 
+#if !defined(CONFIG_AX25) && !defined(CONFIG_AX25_MODULE) && !defined(CONFIG_TR)
+#define LL_MAX_HEADER   32
+#else
+#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+#define LL_MAX_HEADER   96
+#else
+#define LL_MAX_HEADER   48
+#endif
+#endif
 
-Keith also confirmed that gcc-4.1's aggressive inlining of static
-functions substantially increases stack usage (by ~15%) through this
-call chain.  Given that many of the inlined static functions are not
-required by the critical path (i.e. they'd previously been factored
-out to reduce stack usage), gcc is effectively undoing past mods
-that had substantially reduced XFS's stack usage.
+#if !defined(CONFIG_NET_IPIP) && \
+    !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE)
+#define MAX_HEADER LL_MAX_HEADER
+#else
+#define MAX_HEADER (LL_MAX_HEADER + 48)
+#endif
 
-Cheers,
+I don't use AX25, Token Ring, the old IPIP tunnels nor IPv6 here, but
+I wonder if GRE tunnel (which is basically another, more compatible
+form of IPIP) need the same treatment as IPIP.
 
-Dave.
+I've confirmed that REJECTs over GRE tunnel caused that corruption.
+
+> Please try this patch on top of the REJECT patch (ideally after
+> verifying that the REJECT patch is really introducing the
+> corruption).
+
+That was certain. The patch fixed the problem, confirmed with current
+git tree as well. Thanks for looking at it.
+
+
+I'm not sure about LL_MAX_HEADER (and/or MAX_HEADER) though. Should it
+be changed as well?
+
+There are many devices adding data to header space, perhaps tacking
+devices doesn't count as the skb is being linearized in
+dev->hard_start_xmit() or equivalent path?
 -- 
-Dave Chinner
-Principal Engineer
-SGI Australian Software Group
+Krzysztof Halasa
