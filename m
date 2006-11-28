@@ -1,59 +1,51 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: ar5k and Atheros AR5005G
-Date: Tue, 28 Nov 2006 21:45:08 +0100
-Message-ID: <200611282145.08423.mb@bu3sch.de>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
+Date: Tue, 28 Nov 2006 21:48:40 +0100
+Message-ID: <m3wt5fb8lz.fsf@defiant.localdomain>
+References: <m3fyc3e84s.fsf@defiant.localdomain> <456C94D2.9000602@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
-Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
-To: Daniel Drake <ddrake@brontes3d.com>
-In-Reply-To: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
-	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
-List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
-List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
-	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: madwifi-devel-bounces@lists.sourceforge.net
-Errors-To: madwifi-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:50623 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1754665AbWK1UtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 15:49:13 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <456C94D2.9000602@trash.net> (Patrick McHardy's message of "Tue, 28 Nov 2006 20:58:10 +0100")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 28 November 2006 21:39, Daniel Drake wrote:
-> Hi,
-> 
-> I'm interested in porting the ar5k driver to Linux after the recent SFLC
-> conclusions on the legal status. However, the hardware I have here
-> appears to be unsupported by ar5k:
-> 
-> 01:04.0 0200: 168c:001a (rev 01)
->         Subsystem: 168c:2052
-> 
-> 01:04.0 Ethernet controller: Atheros Communications, Inc. AR5005G
-> 802.11abg NIC (rev 01)
->         Subsystem: Atheros Communications, Inc. Unknown device 2052
->         Flags: bus master, medium devsel, latency 168, IRQ 66
->         Memory at c0100000 (32-bit, non-prefetchable) [size=64K]
->         Capabilities: [44] Power Management version 2
-> 
-> It is a mini-PCI card.
-> 
-> Does anyone know how much work would be needed for the ar5k codebase to
-> support this hardware?
+Patrick McHardy <kaber@trash.net> writes:
 
-I started to port this at
-http://bu3sch.de/ath/atheros.git/
+>> The following commit breaks ipt_REJECT on my machine. Tested with latest
+>> 2.6.19rc*, found with git-bisect. i386, gcc-4.1.1, the usual stuff.
+>> All details available on request, of course.
+>> 
+>> commit 9d02002d2dc2c7423e5891b97727fde4d667adf1
+>
+> How sure are you about this? I can see nothing wrong with that
+> commit and can't reproduce the slab corruption. Please post
+> the rule that triggers this.
 
-I dunno how hard it is to add hw support.
+99% sure. Past this commit I get corruptions after 5 minutes at most
+(that's ADSL with USB Thomson/Alcatel Speedtouch -> PPP over ATM,
+with a GRE tunnel over that PPP).
+I'm now running 901eaf6c8f997f18ebc8fcbb85411c79161ab3b2 (i.e. the
+last commit before the one in question) for 4 hours and nothing like
+that.
 
--- 
-Greetings Michael.
+Not sure about the exact rule, but the most probable candidates are:
+-A INPUT -p tcp --tcp-flags SYN,RST,ACK SYN -j REJECT --reject-with tcp-reset
+-A INPUT -p udp -j REJECT --reject-with icmp-port-unreachable
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys - and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+Other "REJECT" rules haven't fired yet.
+
+Could be some obscure problem with GRE/Speedtouch/PPP over ATM,
+triggered by this patch, though.
+
+Perhaps I can do some experiments - just say a word.
+--
+Krzysztof Halasa
