@@ -1,50 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Kevent POSIX timers support.
-Date: Tue, 28 Nov 2006 12:16:02 +0300
-Message-ID: <20061128091602.GC15083@2ka.mipt.ru>
-References: <456B2C82.7040700@redhat.com> <20061127.102443.74556125.davem@davemloft.net> <456B3016.9020706@redhat.com> <20061127.104955.48519839.davem@davemloft.net>
+From: Jens Osterkamp <jens@de.ibm.com>
+Subject: Re: [RFC][PATCH] spidernet: enable fiber autonegotiation
+Date: Tue, 28 Nov 2006 10:18:11 +0100
+Message-ID: <200611281018.13150.jens@de.ibm.com>
+References: <OF866BFBF0.F4E98990-ON87257233.0069989E-86257233.006A0704@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org,
-	chase.venters@clientec.com, johann.borck@densedata.com,
-	linux-kernel@vger.kernel.org, jeff@garzik.org, aviro@redhat.com
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: cbe-oss-dev@ozlabs.org, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:18145 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S935742AbWK1JRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 04:17:49 -0500
-To: David Miller <davem@davemloft.net>
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:6138 "EHLO
+	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP id S935760AbWK1JSP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 04:18:15 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id kAS9IEgB159176
+	for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 09:18:14 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAS9L8rN2244622
+	for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 09:21:08 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAS9IDJO027825
+	for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 09:18:13 GMT
+To: James K Lewis <jklewis@us.ibm.com>
+In-Reply-To: <OF866BFBF0.F4E98990-ON87257233.0069989E-86257233.006A0704@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20061127.104955.48519839.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 27, 2006 at 10:49:55AM -0800, David Miller (davem@davemloft.net) wrote:
-> From: Ulrich Drepper <drepper@redhat.com>
-> Date: Mon, 27 Nov 2006 10:36:06 -0800
-> 
-> > David Miller wrote:
-> > > Now we'll have to have a compat layer for 32-bit/64-bit environments
-> > > thanks to POSIX timers, which is rediculious.
-> > 
-> > We already have compat_sys_timer_create.  It should be sufficient just 
-> > to add the conversion (if anything new is needed) there.  The pointer 
-> > value can be passed to userland in one or two int fields, I don't really 
-> > care.  When reporting the event to the user code we cannot just point 
-> > into the ring buffer anyway.  So while copying the data we can rewrite 
-> > it if necessary.  I see no need to complicate the code more than it 
-> > already is.
-> 
-> Ok, as long as that thing doesn't end up in the ring buffer entry
-> data structure, that's where the real troubles would be.
 
-Although ukevent has pointer embedded, it is unioned with u64, so there
-should be no problems until 128 bit arch appeared, which likely will not
-happen soon. There is also unused in kevent posix timers patch
-'u32 ret_val[2]' field, which can store segval's value too.
+>   On my Cell blade this failed on the latest build (be0646). Running with
+> the changes to sungem_phy does not allow the interfaces to ping anything.
+> I went back to the original and everything works again. All I did was
+> change sungem_phy and force it to be reloaded, let me know if I missed a
+> step somewhere.
 
-But the fact that ukevent does not and will not in any way have variable
-size is absolutely.
+As I stated above, this is expected behaviour :
 
--- 
-	Evgeniy Polyakov
+"This quick hack enables it with the sideeffect of breaking other bladecenter
+switch configurations."
+
+Jens
