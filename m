@@ -1,62 +1,65 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
-Date: Tue, 28 Nov 2006 19:30:43 +0100
-Message-ID: <m3fyc3e84s.fsf@defiant.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
+Date: Tue, 28 Nov 2006 10:40:32 -0800
+Message-ID: <20061128104032.6d3121ac@freekitty>
+References: <Pine.LNX.4.64.0611280733110.6776@dut39>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com, jeff@garzik.org,
+	wendyx@us.ibm.com, sanjeev@netxen.com, rob@netxen.com,
+	netxenproj@linsyssoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:11475 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1758728AbWK1Saq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 13:30:46 -0500
-To: Patrick McHardy <kaber@trash.net>
+Received: from smtp.osdl.org ([65.172.181.25]:19166 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S936032AbWK1TFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 14:05:46 -0500
+To: "Amit S. Kale" <amitkale@netxen.com>
+In-Reply-To: <Pine.LNX.4.64.0611280733110.6776@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 28 Nov 2006 08:04:40 -0800 (PST)
+"Amit S. Kale" <amitkale@netxen.com> wrote:
 
-The following commit breaks ipt_REJECT on my machine. Tested with latest
-2.6.19rc*, found with git-bisect. i386, gcc-4.1.1, the usual stuff.
-All details available on request, of course.
+> Hi Stephen,
+> 
+> <SNIP>
+> > > > you need explicit bounce buffers.  If you can't DMA from unaligned 
+> address,
+> > > > > the write a small routine to copy the skb to a new one.
+> > > >
+> > > >
+> > > > The hardware supports DMA into 35 bit addresses. The intent is to
+> > > > enable DMA into addresses upto 32G.
+> > > >
+> > >
+> > > You should then set the same value for pci_set_dma_mask, because then 
+> the IOMMU
+> > > can help. See both b44 or tg3 drivers, they have to deal with odd size 
+> masks.
+> > > I don't think you have to do all the bounce buffer work in the driver.
+> 
+> Using bounce buffers has following tradeoffs:
+> 1. Overhead of code maintenance.
+> 2. Slow performance.
+> Also on some ia64 machines we saw reduced performance because of larger 
+> ring sizes.
+> 
+> But if we remove bounce buffers and use IOMMU instead, it might not 
+> work for some Opteron configurations. On one of our Opterons we could not 
+> set the IOMMU from kernel command line (it asked to set it from the BIOS where there was no 
+> such option in the BIOS)
+> 
+> So what do you suggest, should we use the IOMMU or should we keep the 
+> bounce buffers as they are?
+> 
+> Thanks,
+> Amit Kale.
 
-commit 9d02002d2dc2c7423e5891b97727fde4d667adf1
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Oct 2 16:12:20 2006 -0700
 
-    [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
-    
-    Use ip_route_me_harder instead, which now allows to specify how we wish
-    the packet to be routed.
-    
-    Based on patch by Simon Horman <horms@verge.net.au>.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+I don't mind workarounds, it is just that the problem is not unique to your driver
+and we need a platform or general solution. There are lots of devices that stupid
+hardware and need smaller masks.
 
-The results are:
-
-Last user: [<c015f82b>](alloc_pipe_info+0x1b/0x50)
-000: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-010: ad 4e ad de ff ff ff ff ff ff ff ff dc c4 45 c0
-Next obj: start=c476fb58, len=512
-Redzone: 0x5a2cf071/0x5a2cf071.
-Last user: [<c02b5998>](kfree_skbmem+0x8/0x80)
-000: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-010: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-Slab corruption: start=c476fd64, len=512
-Redzone: 0x5a2cf071/0x5a2cf071.
-Last user: [<c02b5998>](kfree_skbmem+0x8/0x80)
-040: 6b 6b 6b 6b f5 1b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-Prev obj: start=c476fb58, len=512
-Redzone: 0x5a2cf071/0x5a2cf071.
-Last user: [<c01f76c7>](acpi_ps_parse_aml+0x1b7/0x1f2)
-000: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-010: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-Slab corruption: start=c476fd64, len=512
-Redzone: 0x5a2cf071/0x5a2cf071.
-Last user: [<c02b5998>](kfree_skbmem+0x8/0x80)
-
-and so on.
 -- 
-Krzysztof Halasa
+Stephen Hemminger <shemminger@osdl.org>
