@@ -1,54 +1,75 @@
-From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: RE: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
-Date: Tue, 28 Nov 2006 08:04:40 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611280733110.6776@dut39>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network virtualization/isolation
+Date: Tue, 28 Nov 2006 09:51:57 -0700
+Message-ID: <m1r6vnikeq.fsf@ebiederm.dsl.xmission.com>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
+	<20061026085659.33b4c6dd@freekitty>
+	<200610271134.56830.dim@openvz.org> <4541CCF4.4050306@fr.ibm.com>
+	<1162391707.5251.78.camel@jzny2> <4559DE01.5090109@fr.ibm.com>
+	<m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
+	<456C447E.5090703@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com, jeff@garzik.org,
-	wendyx@us.ibm.com, sanjeev@netxen.com, rob@netxen.com,
-	netxenproj@linsyssoft.com
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, Dmitry Mishin <dim@openvz.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:58690 "EHLO
-	nxmail.netxen.com") by vger.kernel.org with ESMTP id S935691AbWK1QEq
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 11:04:46 -0500
-To: shemminger@osdl.org
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:48514 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S935885AbWK1Qyv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 11:54:51 -0500
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <456C447E.5090703@fr.ibm.com> (Daniel Lezcano's message of "Tue,
+	28 Nov 2006 15:15:26 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
 
-<SNIP>
-> > > you need explicit bounce buffers.  If you can't DMA from unaligned 
-address,
-> > > > the write a small routine to copy the skb to a new one.
-> > >
-> > >
-> > > The hardware supports DMA into 35 bit addresses. The intent is to
-> > > enable DMA into addresses upto 32G.
-> > >
-> >
-> > You should then set the same value for pci_set_dma_mask, because then 
-the IOMMU
-> > can help. See both b44 or tg3 drivers, they have to deal with odd size 
-masks.
-> > I don't think you have to do all the bounce buffer work in the driver.
+I do not want to get into a big debate on the merits of various
+techniques at this time.  We seem to be in basic agreement
+about what we are talking about.
 
-Using bounce buffers has following tradeoffs:
-1. Overhead of code maintenance.
-2. Slow performance.
-Also on some ia64 machines we saw reduced performance because of larger 
-ring sizes.
+There is one thing I think we can all agree upon.
+- Everything except isolation at the network device/L2 layer, does not
+  allow guests to have the full power of the linux networking stack.
 
-But if we remove bounce buffers and use IOMMU instead, it might not 
-work for some Opteron configurations. On one of our Opterons we could not 
-set the IOMMU from kernel command line (it asked to set it from the BIOS where there was no 
-such option in the BIOS)
+- There has been a demonstrated use for the full power of the linux
+  networking stack in containers..
 
-So what do you suggest, should we use the IOMMU or should we keep the 
-bounce buffers as they are?
+- There are a set of techniques which look as though they will give
+  us full speed when we do isolation of the network stack at the
+  network device/L2 layer.
 
-Thanks,
-Amit Kale.
+Is there any reason why we don't want to implement network namespaces
+without the full power of the linux network stack?
+
+If there is a case where we clearly don't want the full power of the
+linux network stack in a guest but we still need a namespace we can
+start looking at the merits of the alternatives.
+
+> What is this new paradigm you are talking about ?
+
+The basic point is this.  The less like stock linux the inside of a
+container looks, and the more of a special case it is the more
+confusing it is.  The classic example is that for a system container
+routing packets between containers over the loopback interface is
+completely unexpected.
 
 
+> There is not extra networking data structure instantiation in the
+> Daniel's L3.
+Nope just an extra field which serves the same purpose.
+
+>> - Bind/Connect/Accept filtering.  There are so few places in
+>>   the code this is easy to maintain without sharing code with
+>>   everyone else.
+>
+> For isolation too ? Can we build network migration on top of that ?
+
+As long as you can take your globally visible network address with you
+when you migrate you can build network migration on top of it.  So yes
+bind/accept filtering is sufficient to implement migration, if you are
+only using IP based protocols.
+
+Eric
