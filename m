@@ -1,41 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kevent POSIX timers support.
-Date: Tue, 28 Nov 2006 11:13:00 -0800 (PST)
-Message-ID: <20061128.111300.105813754.davem@davemloft.net>
-References: <456B3016.9020706@redhat.com>
-	<20061127.104955.48519839.davem@davemloft.net>
-	<20061128091602.GC15083@2ka.mipt.ru>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 28 Nov 2006 14:13:27 -0500
+Message-ID: <20061128191321.GC16533@tuxdriver.com>
+References: <20061115012921.GF3451@tuxdriver.com> <20061115013112.GG3451@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org,
-	chase.venters@clientec.com, johann.borck@densedata.com,
-	linux-kernel@vger.kernel.org, jeff@garzik.org, aviro@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:61891
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S936037AbWK1TMz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 14:12:55 -0500
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20061128091602.GC15083@2ka.mipt.ru>
+Received: from ra.tuxdriver.com ([70.61.120.52]:29195 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S936042AbWK1TNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 14:13:47 -0500
+To: jeff@garzik.org
+Content-Disposition: inline
+In-Reply-To: <20061115013112.GG3451@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Tue, 28 Nov 2006 12:16:02 +0300
-
-> Although ukevent has pointer embedded, it is unioned with u64, so there
-> should be no problems until 128 bit arch appeared, which likely will not
-> happen soon. There is also unused in kevent posix timers patch
-> 'u32 ret_val[2]' field, which can store segval's value too.
+On Tue, Nov 14, 2006 at 08:31:12PM -0500, John W. Linville wrote:
+> The following changes since commit 4c5d3c72166676663c3917839a030b86fa758b23:
+>   John W. Linville:
+>         Merge branch 'upstream-fixes' into upstream
 > 
-> But the fact that ukevent does not and will not in any way have variable
-> size is absolutely.
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
 
-I believe that in order to be %100 safe you will need to use the
-special aligned_u64 type, as that takes care of a crucial difference
-between x86 and x86_64 API, namely that u64 needs 8-byte alignment on
-x86_64 but not on x86.
+Please ignore this request, in favor of the one to be posted later
+today.
 
-You probably know this already :-)
+-- 
+John W. Linville
+linville@tuxdriver.com
