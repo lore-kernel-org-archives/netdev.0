@@ -1,52 +1,38 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH] d80211: Reset assoc and auth retry counters
-Date: Tue, 28 Nov 2006 20:56:05 +0100
-Message-ID: <200611282056.05641.IvDoorn@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate
+ route_reverse function
+Date: Tue, 28 Nov 2006 20:58:10 +0100
+Message-ID: <456C94D2.9000602@trash.net>
+References: <m3fyc3e84s.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:29468 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S936075AbWK1T4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 14:56:18 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so2672835nfa
-        for <netdev@vger.kernel.org>; Tue, 28 Nov 2006 11:56:17 -0800 (PST)
-To: "John Linville" <linville@tuxdriver.com>, Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:14501 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S936077AbWK1T6R
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 14:58:17 -0500
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3fyc3e84s.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After a succesfull authentication and association the matching retry counter
-must be reset to 0.
-Failure to do so will result in failure to authenticate after the interface
-has been deauthenticated. This does not always happen after the first
-deauthentication, but after the interface has been several times been
-deauthenticated it will refuse to authenticate.
+Krzysztof Halasa wrote:
+> Hi,
+> 
+> The following commit breaks ipt_REJECT on my machine. Tested with latest
+> 2.6.19rc*, found with git-bisect. i386, gcc-4.1.1, the usual stuff.
+> All details available on request, of course.
+> 
+> commit 9d02002d2dc2c7423e5891b97727fde4d667adf1
 
-Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+How sure are you about this? I can see nothing wrong with that
+commit and can't reproduce the slab corruption. Please post
+the rule that triggers this.
 
----
 
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index deebbc7..04bd5cd 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -694,6 +694,7 @@ static void ieee80211_associated(struct
- 	/* TODO: remove expired BSSes */
- 
- 	ifsta->state = IEEE80211_ASSOCIATED;
-+	ifsta->assoc_tries = 0;
- 
- 	sta = sta_info_get(local, ifsta->bssid);
- 	if (!sta) {
-@@ -821,6 +822,7 @@ static void ieee80211_auth_completed(str
- {
- 	printk(KERN_DEBUG "%s: authenticated\n", dev->name);
- 	ifsta->authenticated = 1;
-+	ifsta->auth_tries = 0;
- 	ieee80211_associate(dev, ifsta);
- }
- 
+
