@@ -1,55 +1,53 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/2] chelsio: T200 support
-Date: Tue, 28 Nov 2006 12:27:26 -0800
-Message-ID: <20061128122726.756fb6ed@dxpl.pdx.osdl.net>
-References: <8A71B368A89016469F72CD08050AD334DA4F5C@maui.asicdesigners.com>
+From: Daniel Drake <ddrake@brontes3d.com>
+Subject: ar5k and Atheros AR5005G
+Date: Tue, 28 Nov 2006 15:39:12 -0500
+Message-ID: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <akpm@osdl.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:2185 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1756296AbWK1U23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 15:28:29 -0500
-To: "Felix Marti" <felix@chelsio.com>
-In-Reply-To: <8A71B368A89016469F72CD08050AD334DA4F5C@maui.asicdesigners.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+To: madwifi-devel@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Nov 2006 10:03:31 -0800
-"Felix Marti" <felix@chelsio.com> wrote:
+Hi,
 
-> Andrew:
-> > On Tue, 28 Nov 2006 00:17:38 +0100
-> > Francois Romieu <romieu@fr.zoreil.com> wrote:
-> >
-> > > Stephen Hemminger <shemminger@osdl.org> :
-> > > > This patch is experimental, it applies after the earlier 6 chelsio
-> cleanup
-> > > > patches. Tested on a pair of T210 board's.
-> > > 
-> > > The whole serie is stored as branch 'chelsio' at:
-> > >
-> git://electric-eye.fr.zoreil.com/home/romieu/linux/linux-2.6-out/.git
-> chelsio
-> >
-> > I think you meant
-> > git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git#chelsio
-> >
-> > > I have hand-edited a few patches to convert some spaces/tabs.
-> >
-> > I'll try adding this to -mm.
-> >
-> > I hope someone knows what's happening with this driver, because I've
-> > seriously lost the plot.
-> 
-> Most customers have been downloading the T2xx driver from our website in
-> order to take advantage of the TOE capability of the T2xx hardware.
-> However, there is value in updating the in-kernel driver (which supports
-> N110 and N210 only) to support the T2xx products in NIC mode. I will
-> test the patches this week and get back to the mailing list if there are
-> any issues.
-> 
+I'm interested in porting the ar5k driver to Linux after the recent SFLC
+conclusions on the legal status. However, the hardware I have here
+appears to be unsupported by ar5k:
 
-I am seeing lots of little bugs (like not using free_netdev), that would
-have been caught if the current driver was in mainline.
+01:04.0 0200: 168c:001a (rev 01)
+        Subsystem: 168c:2052
+
+01:04.0 Ethernet controller: Atheros Communications, Inc. AR5005G
+802.11abg NIC (rev 01)
+        Subsystem: Atheros Communications, Inc. Unknown device 2052
+        Flags: bus master, medium devsel, latency 168, IRQ 66
+        Memory at c0100000 (32-bit, non-prefetchable) [size=64K]
+        Capabilities: [44] Power Management version 2
+
+It is a mini-PCI card.
+
+Does anyone know how much work would be needed for the ar5k codebase to
+support this hardware?
+
+Thanks!
+-- 
+Daniel Drake
+Brontes Technologies, A 3M Company
+
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
