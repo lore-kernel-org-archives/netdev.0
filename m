@@ -1,51 +1,54 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH take2] softmac: remove netif_tx_disable when scanning
-Date: Tue, 28 Nov 2006 15:21:24 +0100
-Message-ID: <200611281521.24861.mb@bu3sch.de>
-References: <456B4C81.mail5401KMW2R@lwfinger.net>
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: RE: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
+Date: Tue, 28 Nov 2006 08:04:40 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611280733110.6776@dut39>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-In-Reply-To: <456B4C81.mail5401KMW2R-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com, jeff@garzik.org,
+	wendyx@us.ibm.com, sanjeev@netxen.com, rob@netxen.com,
+	netxenproj@linsyssoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:58690 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S935691AbWK1QEq
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 11:04:46 -0500
+To: shemminger@osdl.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 27 November 2006 21:37, Larry Finger wrote:
-> From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-> 
-> In the scan section of ieee80211softmac, network transmits are disabled.
-> When SoftMAC re-enables transmits, it may override the wishes of a driver
-> that may have very good reasons for disabling transmits. At least one failure
-> in bcm43xx can be traced to this problem. In addition, several unexplained
-> problems may arise from the unexpected enabling of transmits.
+Hi Stephen,
+
+<SNIP>
+> > > you need explicit bounce buffers.  If you can't DMA from unaligned 
+address,
+> > > > the write a small routine to copy the skb to a new one.
+> > >
+> > >
+> > > The hardware supports DMA into 35 bit addresses. The intent is to
+> > > enable DMA into addresses upto 32G.
+> > >
+> >
+> > You should then set the same value for pci_set_dma_mask, because then 
+the IOMMU
+> > can help. See both b44 or tg3 drivers, they have to deal with odd size 
+masks.
+> > I don't think you have to do all the bounce buffer work in the driver.
+
+Using bounce buffers has following tradeoffs:
+1. Overhead of code maintenance.
+2. Slow performance.
+Also on some ia64 machines we saw reduced performance because of larger 
+ring sizes.
+
+But if we remove bounce buffers and use IOMMU instead, it might not 
+work for some Opteron configurations. On one of our Opterons we could not 
+set the IOMMU from kernel command line (it asked to set it from the BIOS where there was no 
+such option in the BIOS)
+
+So what do you suggest, should we use the IOMMU or should we keep the 
+bounce buffers as they are?
+
+Thanks,
+Amit Kale.
 
 
-> Note that 
-> making this change introduces a new bug that would allow transmits for the
-> current session to be transmitted on the wrong channel;
-
-Nono, please don't confuse that.
-It does not _indruduce_ a new bug. The bug is already there. It's only less
-likely to trigger without this bugfix patch.
-
-> however, the new bug 
-> is much less severe than the one being fixed, as the new one only leads to
-> a few retransmits, whereas the old one can bring the interface down.
-
-Yeah, that too.
-
--- 
-Greetings Michael.
