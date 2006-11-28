@@ -1,41 +1,50 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] [IPVS] use msleep_interruptable() instead of ssleep()
- aka msleep()
-Date: Tue, 28 Nov 2006 10:35:01 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0611281031190.2787@u.domain.uli>
-References: <20061128062716.GA32377@verge.net.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Kevent POSIX timers support.
+Date: Tue, 28 Nov 2006 12:16:02 +0300
+Message-ID: <20061128091602.GC15083@2ka.mipt.ru>
+References: <456B2C82.7040700@redhat.com> <20061127.102443.74556125.davem@davemloft.net> <456B3016.9020706@redhat.com> <20061127.104955.48519839.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Dean Manners <deanm@ispone.com.au>,
-	Wensong Zhan <wensong@linux-vs.org>,
-	Joseph Mack NA3T <jmack@wm7d.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
+	zach.brown@oracle.com, hch@infradead.org,
+	chase.venters@clientec.com, johann.borck@densedata.com,
+	linux-kernel@vger.kernel.org, jeff@garzik.org, aviro@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:56335 "EHLO u.domain.uli")
-	by vger.kernel.org with ESMTP id S935671AbWK1IeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 03:34:18 -0500
-To: Horms <horms@verge.net.au>
-In-Reply-To: <20061128062716.GA32377@verge.net.au>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:18145 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S935742AbWK1JRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 04:17:49 -0500
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061127.104955.48519839.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 27, 2006 at 10:49:55AM -0800, David Miller (davem@davemloft.net) wrote:
+> From: Ulrich Drepper <drepper@redhat.com>
+> Date: Mon, 27 Nov 2006 10:36:06 -0800
+> 
+> > David Miller wrote:
+> > > Now we'll have to have a compat layer for 32-bit/64-bit environments
+> > > thanks to POSIX timers, which is rediculious.
+> > 
+> > We already have compat_sys_timer_create.  It should be sufficient just 
+> > to add the conversion (if anything new is needed) there.  The pointer 
+> > value can be passed to userland in one or two int fields, I don't really 
+> > care.  When reporting the event to the user code we cannot just point 
+> > into the ring buffer anyway.  So while copying the data we can rewrite 
+> > it if necessary.  I see no need to complicate the code more than it 
+> > already is.
+> 
+> Ok, as long as that thing doesn't end up in the ring buffer entry
+> data structure, that's where the real troubles would be.
 
-	Hello,
+Although ukevent has pointer embedded, it is unioned with u64, so there
+should be no problems until 128 bit arch appeared, which likely will not
+happen soon. There is also unused in kevent posix timers patch
+'u32 ret_val[2]' field, which can store segval's value too.
 
-On Tue, 28 Nov 2006, Horms wrote:
+But the fact that ukevent does not and will not in any way have variable
+size is absolutely.
 
-> Dean Manners notices that when an IPVS synchonisation daemons are
-> started the system load slowly climbs up to 1. This seems to be related
-> to the call to ssleep(1) (aka msleep(1000) in the main loop. Replacing
-> this with a call to msleep_interruptable() seems to make the problem go
-> away. Though I'm not sure that it is correct.
-
-	The same is needed for sync_backup_loop
-
-> -		ssleep(1);
-> +		msleep_interruptible(1000);
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+	Evgeniy Polyakov
