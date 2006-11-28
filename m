@@ -1,35 +1,27 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [2.6 patch] kill net/rxrpc/rxrpc_syms.c
-Date: Mon, 27 Nov 2006 19:33:13 -0800
-Message-ID: <20061127193313.d59f61f0.akpm@osdl.org>
-References: <20061126040416.GH15364@stusta.de>
-	<30354.1164626485@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHES 0/2][TCP]: pack tcp_sock
+Date: Mon, 27 Nov 2006 19:37:39 -0800 (PST)
+Message-ID: <20061127.193739.88483400.davem@davemloft.net>
+References: <20061128031545.GB4029@mandriva.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:58041 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S935062AbWK1DhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 22:37:01 -0500
-To: David Howells <dhowells@redhat.com>
-In-Reply-To: <30354.1164626485@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:18668
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S935059AbWK1Dhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Nov 2006 22:37:36 -0500
+To: acme@mandriva.com
+In-Reply-To: <20061128031545.GB4029@mandriva.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Nov 2006 11:21:25 +0000
-David Howells <dhowells@redhat.com> wrote:
+From: Arnaldo Carvalho de Melo <acme@mandriva.com>
+Date: Tue, 28 Nov 2006 01:15:46 -0200
 
-> Adrian Bunk <bunk@stusta.de> wrote:
+> 	Please consider pulling from:
 > 
-> > This patch moves the EXPORT_SYMBOL's from net/rxrpc/rxrpc_syms.c to the 
-> > files with the actual functions.
-> 
-> You can if you like.  Can you slap a blank line before each EXPORT_SYMBOL()
-> though please?
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.20.git
 
-We have a mixture of both styles and given that they waste space in return
-for no added value, people have been gradually removing these blank lines
-in many places.  Please don't add more.
-
+Looks great, pulled and pushed out, thanks Arnaldo.
