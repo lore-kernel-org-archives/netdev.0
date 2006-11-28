@@ -1,50 +1,39 @@
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Subject: Re: [2.6 patch] kill net/rxrpc/rxrpc_syms.c
-Date: Tue, 28 Nov 2006 01:54:43 -0200
-Message-ID: <39e6f6c70611271954s7cc3b6bbo237e333ae0d810ea@mail.gmail.com>
-References: <20061126040416.GH15364@stusta.de> <30354.1164626485@redhat.com>
-	 <20061127193313.d59f61f0.akpm@osdl.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 1/1] add auditing to ipsec
+Date: Tue, 28 Nov 2006 00:08:07 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0611280007220.3617@d.namei>
+References: <200611272226.kARMQGor018386@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David Howells" <dhowells@redhat.com>,
-	"Adrian Bunk" <bunk@stusta.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	herbert@gondor.apana.org.au, sgrubb@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:40089 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S935088AbWK1Dyo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Nov 2006 22:54:44 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so1882894wxd
-        for <netdev@vger.kernel.org>; Mon, 27 Nov 2006 19:54:43 -0800 (PST)
-To: "Andrew Morton" <akpm@osdl.org>
-In-Reply-To: <20061127193313.d59f61f0.akpm@osdl.org>
-Content-Disposition: inline
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:30858 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S935563AbWK1FIL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 00:08:11 -0500
+To: Joy Latten <latten@austin.ibm.com>
+In-Reply-To: <200611272226.kARMQGor018386@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/28/06, Andrew Morton <akpm@osdl.org> wrote:
-> On Mon, 27 Nov 2006 11:21:25 +0000
-> David Howells <dhowells@redhat.com> wrote:
->
-> > Adrian Bunk <bunk@stusta.de> wrote:
-> >
-> > > This patch moves the EXPORT_SYMBOL's from net/rxrpc/rxrpc_syms.c to the
-> > > files with the actual functions.
-> >
-> > You can if you like.  Can you slap a blank line before each EXPORT_SYMBOL()
-> > though please?
->
-> We have a mixture of both styles and given that they waste space in return
-> for no added value, people have been gradually removing these blank lines
-> in many places.  Please don't add more.
+On Mon, 27 Nov 2006, Joy Latten wrote:
 
-Agreed, good thing would be if we could have something like
+> This patch adds auditing to ipsec in 
+> support of labeled ipsec. 
+> An audit message occurs when an ipsec SA
+> or ipsec policy is created/deleted.
+> 
+> Patch was built against linux kernel 2.6.19-rc6.
+> Please let me know if this is acceptable. 
 
-void foo(int bar) gpl_exported
-{
-}
+Looks ok to me.
 
-I.e. some kind of __attribute__, nah, I should just get some sleep :-)
 
-- Arnaldo
+Acked-by: James Morris <jmorris@namei.org>
+
+
+
+-- 
+James Morris
+<jmorris@namei.org>
