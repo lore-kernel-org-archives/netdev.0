@@ -1,37 +1,35 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 0/7][IP] IProute2 ip command updates
-Date: Tue, 28 Nov 2006 12:19:39 +0900
-Message-ID: <456BAACB.8040508@linux-ipv6.org>
-References: <200611241231.23953.nakam@linux-ipv6.org> <20061127101255.4aee9bcd@dxpl.pdx.osdl.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [2.6 patch] kill net/rxrpc/rxrpc_syms.c
+Date: Mon, 27 Nov 2006 19:33:13 -0800
+Message-ID: <20061127193313.d59f61f0.akpm@osdl.org>
+References: <20061126040416.GH15364@stusta.de>
+	<30354.1164626485@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: takamiya@po.ntts.co.jp, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org
+Cc: Adrian Bunk <bunk@stusta.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:5595 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S935053AbWK1DTl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 22:19:41 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061127101255.4aee9bcd@dxpl.pdx.osdl.net>
+Received: from smtp.osdl.org ([65.172.181.25]:58041 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S935062AbWK1DhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Nov 2006 22:37:01 -0500
+To: David Howells <dhowells@redhat.com>
+In-Reply-To: <30354.1164626485@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Plan is to put out new iproute2 release after 2.6.19 final
+On Mon, 27 Nov 2006 11:21:25 +0000
+David Howells <dhowells@redhat.com> wrote:
 
-OK.
+> Adrian Bunk <bunk@stusta.de> wrote:
+> 
+> > This patch moves the EXPORT_SYMBOL's from net/rxrpc/rxrpc_syms.c to the 
+> > files with the actual functions.
+> 
+> You can if you like.  Can you slap a blank line before each EXPORT_SYMBOL()
+> though please?
 
-As you know, netlink related interface is changed at 2.6.19.
-I have another patches for iproute2 (libnetlink fix and Mobile
-IPv6 support). Those are depends on 2.6.19 headers.
+We have a mixture of both styles and given that they waste space in return
+for no added value, people have been gradually removing these blank lines
+in many places.  Please don't add more.
 
-So this time I'd like to know when to update your tree's kernel headers, too.
-To use this chance to test with your tree, can I send my patches with the
-header update to 2.6.19-rcX in advance (updating headers by you is also fine
-with me), or just wait till 2.6.19 final release is done?
-
-Regards,
-
--- 
-Masahide NAKAMURA
