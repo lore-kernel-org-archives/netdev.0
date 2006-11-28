@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Tue, 28 Nov 2006 13:13:27 +0300
-Message-ID: <20061128101327.GE15083@2ka.mipt.ru>
-References: <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com> <20061124105856.GE13600@2ka.mipt.ru> <456B2D2B.9080502@redhat.com>
+Subject: Re: [take25 1/6] kevent: Description.
+Date: Tue, 28 Nov 2006 13:26:49 +0300
+Message-ID: <20061128102649.GF15083@2ka.mipt.ru>
+References: <11641265982190@2ka.mipt.ru> <456621AC.7000009@redhat.com> <20061124120531.GC32545@2ka.mipt.ru> <456B3FF2.3010908@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,43 +12,38 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	Christoph Hellwig <hch@infradead.org>,
 	Chase Venters <chase.venters@clientec.com>,
 	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:30376 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S935796AbWK1KOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 05:14:45 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:62899 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S935813AbWK1K2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 05:28:12 -0500
 To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <456B2D2B.9080502@redhat.com>
+In-Reply-To: <456B3FF2.3010908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 27, 2006 at 10:23:39AM -0800, Ulrich Drepper (drepper@redha=
+On Mon, Nov 27, 2006 at 11:43:46AM -0800, Ulrich Drepper (drepper@redha=
 t.com) wrote:
 > Evgeniy Polyakov wrote:
+> >It _IS_ how previous interface worked.
 > >
-> >With provided patch it is possible to wakeup 'for-free' - just call
-> >kevent_ctl(ready) with zero number of ready events, so thread will b=
-e
-> >awakened if it was in poll(kevent_fd), kevent_wait() or
-> >kevent_get_events().
+> >	EXACTLY!
 >=20
-> Yes, I realize that.  But I wrote something else:
->=20
-> >> Rather than mark an existing entry as ready, how about a call to
-> >> inject a new ready event?
-> >>
-> >> This would be useful to implement functionality at userlevel and
-> >> still use an event queue to announce the availability.  Without th=
-is
-> >> type of functionality we'd need to use indirect notification via
-> >> signal or pipe or something like that.
->=20
-> This is still something which is wanted.
+> No, the old interface committed everything not only up to a given ind=
+ex.=20
+>  This is the huge difference which makes or breaks it.
 
-Why do we want to inject _ready_ event, when it is possible to mark
-event as ready and wakeup thread parked in syscall?
+Interface was the same - logic behind it was differnet, the only thing
+required was to add consumer's index - that is all, no need to change a
+lot of declarations, userspace and so on - just use existing interface
+and extend its functionality.=20
+
+But it does not matter anymore, later this week I will collect all
+proposed changes and implement (hopefully) last release, which will
+close most of the questions regarding userspace interfaces (except
+signal mask, it is in fluent state), so we could concentrate on
+internals and/or new kernel users.
 
 > --=20
 > =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
