@@ -1,41 +1,52 @@
-From: Horms <horms@verge.net.au>
-Subject: [PATCH] [IPVS] use msleep_interruptable() instead of ssleep() aka msleep()
-Date: Tue, 28 Nov 2006 15:27:18 +0900
-Message-ID: <20061128062716.GA32377@verge.net.au>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH-2.4] e100: incorrect use of "&&" instead of "&"
+Date: Tue, 28 Nov 2006 00:03:05 -0800
+Message-ID: <456BED39.8090402@intel.com>
+References: <20061125213517.GA5965@1wt.eu> <456B20F6.8010009@intel.com>
+ <20061128010538.GA22370@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Dean Manners <deanm@ispone.com.au>,
-	Wensong Zhan <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Joseph Mack NA3T <jmack@wm7d.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:25746 "EHLO koto.vergenet.net")
-	by vger.kernel.org with ESMTP id S935656AbWK1Gto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 01:49:44 -0500
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from vms048pub.verizon.net ([206.46.252.48]:17111 "EHLO
+	vms048pub.verizon.net") by vger.kernel.org with ESMTP
+	id S935686AbWK1HGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 02:06:34 -0500
+Received: from ahkok-mobl.jf.intel.com ([72.87.43.215])
+ by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0J9F000D5IDU7L6O@vms048.mailsrvcs.net> for
+ netdev@vger.kernel.org; Tue, 28 Nov 2006 01:05:55 -0600 (CST)
+In-reply-to: <20061128010538.GA22370@1wt.eu>
+To: Willy Tarreau <w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dean Manners notices that when an IPVS synchonisation daemons are
-started the system load slowly climbs up to 1. This seems to be related
-to the call to ssleep(1) (aka msleep(1000) in the main loop. Replacing
-this with a call to msleep_interruptable() seems to make the problem go
-away. Though I'm not sure that it is correct.
+Willy Tarreau wrote:
+> Hi Auke,
+> 
+> On Mon, Nov 27, 2006 at 09:31:34AM -0800, Auke Kok wrote:
+>> Willy Tarreau wrote:
+>>> Hi guys,
+>>>
+>>> I'm about to apply this fix to 2.4. 2.6 is not affected.
+>>> Do you have any objection ?
+>> Willy,
+>>
+>> you didn't CC netdev. linux-net is a users list, you didn't CC the 
+>> maintainers of the driver. Please do this. We're more than happy to help, 
+>> even for 2.4 kernels.
+> 
+> I'm really sorry, as I usually use netdev and not linux-net. I don't know
+> why I used this one in the first step. There might have been some fog
+> inside my head.
+> 
+> BTW, there's no clear maintainer identified for e100. At best I can find
+> "linux.nics@intel.com" in the file, without any freshness info. Is that
+> still OK or do you want to update the MAINTAINERS file ?
 
-Cc: Dean Manners <deanm@ispone.com.au>
-Signed-Off-By: Simon Horman <horms@verge.net.au>
+I'll post a patch for it, it's definately out of date :(
 
-Index: linux-2.6/net/ipv4/ipvs/ip_vs_sync.c
-===================================================================
---- linux-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2006-11-10 15:33:42.000000000 +0900
-+++ linux-2.6/net/ipv4/ipvs/ip_vs_sync.c	2006-11-10 15:33:52.000000000 +0900
-@@ -657,7 +657,7 @@
- 		if (stop_master_sync)
- 			break;
- 
--		ssleep(1);
-+		msleep_interruptible(1000);
- 	}
- 
- 	/* clean up the sync_buff queue */
+Auke
+
