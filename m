@@ -1,53 +1,62 @@
-From: "Felix Marti" <felix@chelsio.com>
-Subject: Re: [PATCH 1/2] chelsio: T200 support
-Date: Tue, 28 Nov 2006 10:03:31 -0800
-Message-ID: <8A71B368A89016469F72CD08050AD334DA4F5C@maui.asicdesigners.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
+Date: Tue, 28 Nov 2006 19:30:43 +0100
+Message-ID: <m3fyc3e84s.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:55159 "EHLO
-	stargate.chelsio.com") by vger.kernel.org with ESMTP
-	id S936002AbWK1SDr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 13:03:47 -0500
-Content-class: urn:content-classes:message
-To: <akpm@osdl.org>
+Received: from khc.piap.pl ([195.187.100.11]:11475 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1758728AbWK1Saq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 13:30:46 -0500
+To: Patrick McHardy <kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew:
-> On Tue, 28 Nov 2006 00:17:38 +0100
-> Francois Romieu <romieu@fr.zoreil.com> wrote:
->
-> > Stephen Hemminger <shemminger@osdl.org> :
-> > > This patch is experimental, it applies after the earlier 6 chelsio
-cleanup
-> > > patches. Tested on a pair of T210 board's.
-> > 
-> > The whole serie is stored as branch 'chelsio' at:
-> >
-git://electric-eye.fr.zoreil.com/home/romieu/linux/linux-2.6-out/.git
-chelsio
->
-> I think you meant
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git#chelsio
->
-> > I have hand-edited a few patches to convert some spaces/tabs.
->
-> I'll try adding this to -mm.
->
-> I hope someone knows what's happening with this driver, because I've
-> seriously lost the plot.
+Hi,
 
-Most customers have been downloading the T2xx driver from our website in
-order to take advantage of the TOE capability of the T2xx hardware.
-However, there is value in updating the in-kernel driver (which supports
-N110 and N210 only) to support the T2xx products in NIC mode. I will
-test the patches this week and get back to the mailing list if there are
-any issues.
+The following commit breaks ipt_REJECT on my machine. Tested with latest
+2.6.19rc*, found with git-bisect. i386, gcc-4.1.1, the usual stuff.
+All details available on request, of course.
 
-Regards,
-felix
+commit 9d02002d2dc2c7423e5891b97727fde4d667adf1
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Oct 2 16:12:20 2006 -0700
 
+    [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
+    
+    Use ip_route_me_harder instead, which now allows to specify how we wish
+    the packet to be routed.
+    
+    Based on patch by Simon Horman <horms@verge.net.au>.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+The results are:
+
+Last user: [<c015f82b>](alloc_pipe_info+0x1b/0x50)
+000: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+010: ad 4e ad de ff ff ff ff ff ff ff ff dc c4 45 c0
+Next obj: start=c476fb58, len=512
+Redzone: 0x5a2cf071/0x5a2cf071.
+Last user: [<c02b5998>](kfree_skbmem+0x8/0x80)
+000: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+010: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+Slab corruption: start=c476fd64, len=512
+Redzone: 0x5a2cf071/0x5a2cf071.
+Last user: [<c02b5998>](kfree_skbmem+0x8/0x80)
+040: 6b 6b 6b 6b f5 1b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+Prev obj: start=c476fb58, len=512
+Redzone: 0x5a2cf071/0x5a2cf071.
+Last user: [<c01f76c7>](acpi_ps_parse_aml+0x1b7/0x1f2)
+000: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+010: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+Slab corruption: start=c476fd64, len=512
+Redzone: 0x5a2cf071/0x5a2cf071.
+Last user: [<c02b5998>](kfree_skbmem+0x8/0x80)
+
+and so on.
+-- 
+Krzysztof Halasa
