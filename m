@@ -1,10 +1,11 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Kevent POSIX timers support.
-Date: Tue, 28 Nov 2006 12:16:58 +0300
-Message-ID: <20061128091656.GD15083@2ka.mipt.ru>
-References: <20061121095302.GA15210@2ka.mipt.ru> <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <20061121184605.GA7787@2ka.mipt.ru> <4563FE71.4040807@redhat.com> <20061122104416.GD11480@2ka.mipt.ru> <20061123085243.GA11575@2ka.mipt.ru> <456603E7.9090006@redhat.com> <20061124095052.GC13600@2ka.mipt.ru> <456B2C82.7040700@redhat.com>
+Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
+Date: Tue, 28 Nov 2006 13:13:27 +0300
+Message-ID: <20061128101327.GE15083@2ka.mipt.ru>
+References: <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com> <20061124105856.GE13600@2ka.mipt.ru> <456B2D2B.9080502@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>,
@@ -14,21 +15,45 @@ Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
 	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:20961 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S935736AbWK1JU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 04:20:56 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:30376 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S935796AbWK1KOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 05:14:45 -0500
 To: Ulrich Drepper <drepper@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <456B2C82.7040700@redhat.com>
+In-Reply-To: <456B2D2B.9080502@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 27, 2006 at 10:20:50AM -0800, Ulrich Drepper (drepper@redhat.com) wrote:
-> sigev_value is a union and the largest element is a pointer.  So, 
-> transporting the pointer value is sufficient and it should be passed up 
-> to the user in the ptr member of struct ukevent.
+On Mon, Nov 27, 2006 at 10:23:39AM -0800, Ulrich Drepper (drepper@redha=
+t.com) wrote:
+> Evgeniy Polyakov wrote:
+> >
+> >With provided patch it is possible to wakeup 'for-free' - just call
+> >kevent_ctl(ready) with zero number of ready events, so thread will b=
+e
+> >awakened if it was in poll(kevent_fd), kevent_wait() or
+> >kevent_get_events().
+>=20
+> Yes, I realize that.  But I wrote something else:
+>=20
+> >> Rather than mark an existing entry as ready, how about a call to
+> >> inject a new ready event?
+> >>
+> >> This would be useful to implement functionality at userlevel and
+> >> still use an event queue to announce the availability.  Without th=
+is
+> >> type of functionality we'd need to use indirect notification via
+> >> signal or pipe or something like that.
+>=20
+> This is still something which is wanted.
 
-That is where I've put it in current version.
+Why do we want to inject _ready_ event, when it is possible to mark
+event as ready and wakeup thread parked in syscall?
 
--- 
+> --=20
+> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
+ St =E2=9E=A7 Mountain View,=20
+> CA =E2=9D=96
+
+--=20
 	Evgeniy Polyakov
