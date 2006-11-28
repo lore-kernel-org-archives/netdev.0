@@ -1,65 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 3/3] NetXen: 64-bit memory fixes, driver cleanup
-Date: Tue, 28 Nov 2006 10:40:32 -0800
-Message-ID: <20061128104032.6d3121ac@freekitty>
-References: <Pine.LNX.4.64.0611280733110.6776@dut39>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kevent POSIX timers support.
+Date: Tue, 28 Nov 2006 11:13:00 -0800 (PST)
+Message-ID: <20061128.111300.105813754.davem@davemloft.net>
+References: <456B3016.9020706@redhat.com>
+	<20061127.104955.48519839.davem@davemloft.net>
+	<20061128091602.GC15083@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com, jeff@garzik.org,
-	wendyx@us.ibm.com, sanjeev@netxen.com, rob@netxen.com,
-	netxenproj@linsyssoft.com
+Cc: drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
+	zach.brown@oracle.com, hch@infradead.org,
+	chase.venters@clientec.com, johann.borck@densedata.com,
+	linux-kernel@vger.kernel.org, jeff@garzik.org, aviro@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:19166 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S936032AbWK1TFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 14:05:46 -0500
-To: "Amit S. Kale" <amitkale@netxen.com>
-In-Reply-To: <Pine.LNX.4.64.0611280733110.6776@dut39>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:61891
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S936037AbWK1TMz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 14:12:55 -0500
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20061128091602.GC15083@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Nov 2006 08:04:40 -0800 (PST)
-"Amit S. Kale" <amitkale@netxen.com> wrote:
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Tue, 28 Nov 2006 12:16:02 +0300
 
-> Hi Stephen,
+> Although ukevent has pointer embedded, it is unioned with u64, so there
+> should be no problems until 128 bit arch appeared, which likely will not
+> happen soon. There is also unused in kevent posix timers patch
+> 'u32 ret_val[2]' field, which can store segval's value too.
 > 
-> <SNIP>
-> > > > you need explicit bounce buffers.  If you can't DMA from unaligned 
-> address,
-> > > > > the write a small routine to copy the skb to a new one.
-> > > >
-> > > >
-> > > > The hardware supports DMA into 35 bit addresses. The intent is to
-> > > > enable DMA into addresses upto 32G.
-> > > >
-> > >
-> > > You should then set the same value for pci_set_dma_mask, because then 
-> the IOMMU
-> > > can help. See both b44 or tg3 drivers, they have to deal with odd size 
-> masks.
-> > > I don't think you have to do all the bounce buffer work in the driver.
-> 
-> Using bounce buffers has following tradeoffs:
-> 1. Overhead of code maintenance.
-> 2. Slow performance.
-> Also on some ia64 machines we saw reduced performance because of larger 
-> ring sizes.
-> 
-> But if we remove bounce buffers and use IOMMU instead, it might not 
-> work for some Opteron configurations. On one of our Opterons we could not 
-> set the IOMMU from kernel command line (it asked to set it from the BIOS where there was no 
-> such option in the BIOS)
-> 
-> So what do you suggest, should we use the IOMMU or should we keep the 
-> bounce buffers as they are?
-> 
-> Thanks,
-> Amit Kale.
+> But the fact that ukevent does not and will not in any way have variable
+> size is absolutely.
 
+I believe that in order to be %100 safe you will need to use the
+special aligned_u64 type, as that takes care of a crucial difference
+between x86 and x86_64 API, namely that u64 needs 8-byte alignment on
+x86_64 but not on x86.
 
-I don't mind workarounds, it is just that the problem is not unique to your driver
-and we need a platform or general solution. There are lots of devices that stupid
-hardware and need smaller masks.
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+You probably know this already :-)
