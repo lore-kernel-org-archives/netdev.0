@@ -1,51 +1,45 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH 0/3] NetLabel: add the remaining CIPSO tag types from the IETF draft
-Date: Wed, 29 Nov 2006 10:55:18 -0800 (PST)
-Message-ID: <889357.90007.qm@web36607.mail.mud.yahoo.com>
-References: <20061129181817.505281000@hp.com>
-Reply-To: casey@schaufler-ca.com
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] r8169: Fix iteration variable sign
+Date: Wed, 29 Nov 2006 20:48:44 +0100
+Message-ID: <200611292048.45152.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web36607.mail.mud.yahoo.com ([209.191.85.24]:42928 "HELO
-	web36607.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S967544AbWK2SzU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 13:55:20 -0500
-To: paul.moore@hp.com, netdev@vger.kernel.org, selinux@tycho.nsa.gov
-In-Reply-To: <20061129181817.505281000@hp.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:36829
+	"EHLO vs166246.vserver.de") by vger.kernel.org with ESMTP
+	id S967603AbWK2Txt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 14:53:49 -0500
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This changes the type of variable "i" in
+rtl8169_init_one() from "unsigned int" to "int".
+"i" is checked for <0 later, which can never happen
+for "unsigned". This results in broken error handling.
 
---- paul.moore@hp.com wrote:
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-> This patchset consists of three patches that add
-> support for the remaining two
-> tag types from the CIPSO draft specification, the
-> enumerated and range tags.
-> The most significant part about adding these two
-> tags is that NetLabel now has
-> the ability to represent more than 240 categories
-> (limitation imposed by the
-> current restricted bitmap tag).
-> 
-> In addition, the first patch in the set converts
-> NetLabel's contiguous char
-> string category bitmap stored in network friendly
-> bit/byte order into a sparse
-> bitmap stored in host friendly bit/byte order. 
-> While this change was not
-> required to support the new CIPSO tags, it should
-> make life much easier as the
-> old category bitmap would have proven problematic as
-> the number of usable
-> categories increases with the new tag types.  It
-> also has a side effect of
-> making the LSM specific code much less ugly.
+Index: linux-2.6/drivers/net/r8169.c
+===================================================================
+--- linux-2.6.orig/drivers/net/r8169.c	2006-11-04 19:03:28.000000000 +0100
++++ linux-2.6/drivers/net/r8169.c	2006-11-29 20:41:59.000000000 +0100
+@@ -1473,8 +1473,8 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	struct rtl8169_private *tp;
+ 	struct net_device *dev;
+ 	void __iomem *ioaddr;
+-	unsigned int i, pm_cap;
+-	int rc;
++	unsigned int pm_cap;
++	int i, rc;
+ 
+ 	if (netif_msg_drv(&debug)) {
+ 		printk(KERN_INFO "%s Gigabit Ethernet driver %s loaded\n",
 
-Fabulous. Thank you.
-
-
-Casey Schaufler
-casey@schaufler-ca.com
+-- 
+Greetings Michael.
