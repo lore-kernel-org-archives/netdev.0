@@ -1,21 +1,24 @@
 From: Wenji Wu <wenji@fnal.gov>
-Subject: [patch 2/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 17:29:27 -0600
-Message-ID: <HNEBLGGMEGLPMPPDOPMGKEAKCGAA.wenji@fnal.gov>
-References: <HNEBLGGMEGLPMPPDOPMGGEAKCGAA.wenji@fnal.gov>
+Subject: [patch 3/4] - Potential performance bottleneck for Linxu TCP
+Date: Wed, 29 Nov 2006 17:30:19 -0600
+Message-ID: <HNEBLGGMEGLPMPPDOPMGOEAKCGAA.wenji@fnal.gov>
+References: <HNEBLGGMEGLPMPPDOPMGKEAKCGAA.wenji@fnal.gov>
 Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_wvR+8WWOia3zqV21TjrsPg)"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934462AbWK2X3e@vger.kernel.org>
-In-reply-to: <HNEBLGGMEGLPMPPDOPMGGEAKCGAA.wenji@fnal.gov>
+Content-Type: multipart/mixed; boundary="Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)"
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw2.fnal.gov ([131.225.111.12]:54421 "EHLO mailgw2.fnal.gov")
+	by vger.kernel.org with ESMTP id S934638AbWK2XaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:30:25 -0500
+In-reply-to: <HNEBLGGMEGLPMPPDOPMGKEAKCGAA.wenji@fnal.gov>
 To: netdev@vger.kernel.org, davem@davemloft.net, akpm@osdl.org,
 	linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---Boundary_(ID_wvR+8WWOia3zqV21TjrsPg)
+--Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)
 Content-type: text/plain; charset=iso-8859-1
 Content-transfer-encoding: 7BIT
 
@@ -38,7 +41,7 @@ will not be TCP processed till the network applicaton resume its execution.
 If
 the system is heavily loaded, TCP can easily RTO in the Sender Side.
 
-Attached is the patch 2/4
+Attached is the patch 3/4
 
 best regards,
 
@@ -52,18 +55,29 @@ Batavia, IL, 60510
 (Email): wenji@fnal.gov
 (O): 001-630-840-4541
 
---Boundary_(ID_wvR+8WWOia3zqV21TjrsPg)
-Content-type: application/octet-stream; name=sched.h.patch
+--Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)
+Content-type: application/octet-stream; name=sched.c.patch
 Content-transfer-encoding: QUOTED-PRINTABLE
-Content-disposition: attachment; filename=sched.h.patch
+Content-disposition: attachment; filename=sched.c.patch
 
---- linux-2.6.14-old/include/linux/sched.h=092006-11-29 16:25:42.0000=
-00000 -0600=0A+++ linux-2.6.14/include/linux/sched.h=092006-11-29 10:=
-32:55.000000000 -0600=0A@@ -813,6 +813,9 @@=0A =09int cpuset_mems_gen=
-eration;=0A #endif=0A =09atomic_t fs_excl;=09/* holding fs exclusive =
-resources */=0A+=09int backlog_flag; =09/* packets wait in tcp backlo=
-g queue flag */=0A+=09int extrarun_flag;=09/* extra run flag for TCP =
-performance */=0A+=0A };=0A =0A static inline pid_t process_group(str=
-uct task_struct *tsk)=0A=
+--- linux-2.6.14-old/kernel/sched.c=092006-11-29 16:22:22.000000000 -=
+0600=0A+++ linux-2.6.14/kernel/sched.c=092006-11-29 11:29:34.00000000=
+0 -0600=0A@@ -2598,12 +2598,24 @@=0A =0A =09=09if (!rq->expired_times=
+tamp)=0A =09=09=09rq->expired_timestamp =3D jiffies;=0A-=09=09if (!TA=
+SK_INTERACTIVE(p) || EXPIRED_STARVING(rq)) {=0A-=09=09=09enqueue_task=
+(p, rq->expired);=0A-=09=09=09if (p->static_prio < rq->best_expired_p=
+rio)=0A+=09=09if(p->backlog_flag =3D=3D 0){=0A+=09=09=09if (!TASK_INT=
+ERACTIVE(p) || EXPIRED_STARVING(rq)) {=0A+=09=09=09=09enqueue_task(p,=
+ rq->expired);=0A+=09=09=09=09if (p->static_prio < rq->best_expired_p=
+rio)=0A+=09=09=09=09=09rq->best_expired_prio =3D p->static_prio;=0A+=
+=09=09=09} else=0A+=09=09=09=09enqueue_task(p, rq->active);=0A+=09=
+=09} else {=0A+=09=09=09if(EXPIRED_STARVING(rq)) {=0A+=09=09=09=09enq=
+ueue_task(p,rq->expired);=0A+=09=09=09=09if (p->static_prio < rq->bes=
+t_expired_prio)=0A =09=09=09=09rq->best_expired_prio =3D p->static_pr=
+io;=0A-=09=09} else=0A-=09=09=09enqueue_task(p, rq->active);=0A+=09=
+=09=09} else {=0A+=09=09=09=09if(!TASK_INTERACTIVE(p))=0A+=09=09=09=
+=09=09p->extrarun_flag =3D 1;=0A+=09=09=09=09enqueue_task(p,rq->activ=
+e);=0A+=09=09=09}=09=0A+=09=09}=0A =09} else {=0A =09=09/*=0A =09=
+=09 * Prevent a too long timeslice allowing a task to monopolize=0A=
 
---Boundary_(ID_wvR+8WWOia3zqV21TjrsPg)--
+--Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)--
