@@ -1,40 +1,32 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] [NET] dont insert socket dentries into
- dentry_hashtable.
-Date: Tue, 28 Nov 2006 16:13:54 -0800
-Message-ID: <20061128161354.d5c11ba5.akpm@osdl.org>
-References: <20061025.230615.92585270.davem@davemloft.net>
-	<200610311948.48970.dada1@cosmosbay.com>
-	<200611221900.36216.dada1@cosmosbay.com>
-	<20061128.153531.34751359.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [patch sungem] improved locking
+Date: Wed, 29 Nov 2006 11:19:34 +1100
+Message-ID: <1164759574.5350.115.camel@localhost.localdomain>
+References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
+	 <20061128.144911.55733883.davem@davemloft.net>
+	 <1164754644.5350.110.camel@localhost.localdomain>
+	 <20061128.154350.02290212.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, viro@ftp.linux.org.uk
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757964AbWK2AOe@vger.kernel.org>
+Cc: eric.lemoine@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:7597 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1755714AbWK2ATm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 19:19:42 -0500
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061128.153531.34751359.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20061128.154350.02290212.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Nov 2006 15:35:31 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Tue, 2006-11-28 at 15:43 -0800, David Miller wrote:
 
-> 
-> Andrew, I'm fine with these three patches, specifically:
-> 
-> [PATCH] dont insert pipe dentries into dentry_hashtable.
-> [PATCH] [DCACHE] : avoid RCU for never hashed dentries
-> [PATCH] [NET] dont insert socket dentries into dentry_hashtable.
-> 
-> Could you toss them into -mm if you haven't already?
+> At least in theory the atomic + any necessary memory barriers
+> would be cheaper than the extra PIO read we need otherwise.
 
-They were in rc6-mm2.
+Yes, IO reads are generally the worst case scenarios even on machines
+with fairly slow locks.
 
->  This
-> makes better sense then me putting it into net-2.6.20 since
-> it touches FS stuff.
-> 
+Ben.
 
-No probs, they're all lined up and ready to go, thanks.
+
