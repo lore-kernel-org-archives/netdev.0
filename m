@@ -1,50 +1,38 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Bug 7596 - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 15:42:00 -0800
-Message-ID: <20061129154200.c4db558c.akpm@osdl.org>
-References: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 0/3] NetLabel: add the remaining CIPSO tag types from
+ the IETF draft
+Date: Wed, 29 Nov 2006 18:42:47 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0611291842190.27726@d.namei>
+References: <20061129181817.505281000@hp.com> <XMMS.LNX.4.64.0611291701330.25876@d.namei>
+ <456E058F.4010503@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:63710 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S934499AbWK2XmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:42:06 -0500
-To: wenji@fnal.gov
-In-Reply-To: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:16101 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S936105AbWK2Xmv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 18:42:51 -0500
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <456E058F.4010503@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Nov 2006 17:22:10 -0600
-Wenji Wu <wenji@fnal.gov> wrote:
+On Wed, 29 Nov 2006, Paul Moore wrote:
 
-> From: Wenji Wu <wenji@fnal.gov>
+> James Morris wrote:
+> > All applied to:
+> > 	git://git.infradead.org/~jmorris/selinux-net-2.6.20
 > 
-> Greetings,
+> Thanks.
 > 
-> For Linux TCP, when the network applcaiton make system call to move data
-> from
-> socket's receive buffer to user space by calling tcp_recvmsg(). The socket
-> will
-> be locked. During the period, all the incoming packet for the TCP socket
-> will go
-> to the backlog queue without being TCP processed. Since Linux 2.6 can be
-> inerrupted mid-task, if the network application expires, and moved to the
-> expired array with the socket locked, all the packets within the backlog
-> queue
-> will not be TCP processed till the network applicaton resume its execution.
-> If
-> the system is heavily loaded, TCP can easily RTO in the Sender Side.
-> 
-> Attached is the detailed description of the problem and one possible
-> solution.
+> Did you mean your kernel.org git tree?
 
-Thanks.  The attachment will be too large for the mailing-list servers so I
-uploaded a copy to
-http://userweb.kernel.org/~akpm/Linux-TCP-Bottleneck-Analysis-Report.pdf
+There's a copy at infradead (which may have still been cloning if you 
+checked it immediately).
 
->From a quick peek it appears that you're getting around 10% improvement in
-TCP throughput, best case.
 
+
+-- 
+James Morris
+<jmorris@namei.org>
