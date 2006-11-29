@@ -1,74 +1,57 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: [patch 4/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 17:31:05 -0600
-Message-ID: <HNEBLGGMEGLPMPPDOPMGCEALCGAA.wenji@fnal.gov>
-References: <HNEBLGGMEGLPMPPDOPMGOEAKCGAA.wenji@fnal.gov>
-Reply-To: wenji@fnal.gov
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
+Date: Thu, 30 Nov 2006 00:32:19 +0100
+Message-ID: <20061129233219.GD18057@electric-eye.fr.zoreil.com>
+References: <010C7BAE6783F34D9AC336EE5A01A08802D2D762@dbde01.ent.ti.com> <20061129122444.0614cf56@freekitty> <20061129224400.GC18057@electric-eye.fr.zoreil.com> <20061129145054.741ad7c5@freekitty>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_li4hDdoClOdbXctA3VlaaA)"
+Content-Type: text/plain; charset=us-ascii
+Cc: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:3007 "EHLO mailgw1.fnal.gov")
-	by vger.kernel.org with ESMTP id S935044AbWK2XbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:31:10 -0500
-In-reply-to: <HNEBLGGMEGLPMPPDOPMGOEAKCGAA.wenji@fnal.gov>
-To: netdev@vger.kernel.org, davem@davemloft.net, akpm@osdl.org,
-	linux-kernel@vger.kernel.org
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:3534 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S967401AbWK2Xeg
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 18:34:36 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061129145054.741ad7c5@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Stephen Hemminger <shemminger@osdl.org> :
+> Francois Romieu <romieu@fr.zoreil.com> wrote:
+> > Stephen Hemminger <shemminger@osdl.org> :
+> > [...]
+> > > @@ -1682,12 +1685,11 @@ static void rtl8139_tx_timeout_task (voi
+> > >  	rtl8139_tx_clear (tp);
+> > >  	spin_unlock_irq(&tp->lock);
+> > >  
+> > > +	netif_poll_enable();
+> >                           ^ -> dev
+> > > +
+> > >  	/* ...and finally, reset everything */
+> > > -	if (netif_running(dev)) {
+> > > -		rtl8139_hw_start (dev);
+> > > -		netif_wake_queue (dev);
+> > > -	}
+> > > -	spin_unlock_bh(&tp->rx_lock);
+> > > +	rtl8139_hw_start (dev);
+> > > +	netif_wake_queue (dev);
+> > >  }
+> > 
+> > rtl8139_hw_start() may mess with cur_rx, whence a race with rtl8139_rx()
+> > if an in-flight interruption enables it a bit too fast. I'd rather go
+> > with:
+> 
+> but rt8139_rx is not possible here because we have blocked the poll
+> routine from starting.  Basically it uses the NAPI rx scheduler bit
+> to replace the rx_lock.
 
---Boundary_(ID_li4hDdoClOdbXctA3VlaaA)
-Content-type: text/plain; charset=iso-8859-1
-Content-transfer-encoding: 7BIT
+1 - the irq handler is waiting for tp->lock
+2 - rtl8139_tx_timeout_task releases the lock
+3 - rtl8139_tx_timeout_task issues netif_poll_enable
+4 - the irq handler schedules ->poll(), returns
+5 - rtl8139_hw_start() races with ->poll(), aka rtl8139_rx(), for cur_rx
 
-From: Wenji Wu <wenji@fnal.gov>
-
-Greetings,
-
-For Linux TCP, when the network applcaiton make system call to move data
-from
-socket's receive buffer to user space by calling tcp_recvmsg(). The socket
-will
-be locked. During the period, all the incoming packet for the TCP socket
-will go
-to the backlog queue without being TCP processed. Since Linux 2.6 can be
-inerrupted mid-task, if the network application expires, and moved to the
-expired array with the socket locked, all the packets within the backlog
-queue
-will not be TCP processed till the network applicaton resume its execution.
-If
-the system is heavily loaded, TCP can easily RTO in the Sender Side.
-
-Attached is the patch 3/4
-
-best regards,
-
-wenji
-
-Wenji Wu
-Network Researcher
-Fermilab, MS-368
-P.O. Box 500
-Batavia, IL, 60510
-(Email): wenji@fnal.gov
-(O): 001-630-840-4541
-
---Boundary_(ID_li4hDdoClOdbXctA3VlaaA)
-Content-type: application/octet-stream; name=fork.c.patch
-Content-transfer-encoding: QUOTED-PRINTABLE
-Content-disposition: attachment; filename=fork.c.patch
-
---- linux-2.6.14-old/kernel/fork.c=092006-11-29 16:22:25.000000000 -0=
-600=0A+++ linux-2.6.14/kernel/fork.c=092006-11-29 11:23:20.000000000 =
--0600=0A@@ -868,7 +868,7 @@=0A  *=0A  * It copies the registers, and =
-all the appropriate=0A  * parts of the process environment (as per th=
-e clone=0A- * flags). The actual kick-off is left to the caller.=0A+ =
-* flags). The actual kick-off is left to the caller.copy_process=0A  =
-*/=0A static task_t *copy_process(unsigned long clone_flags,=0A =09=
-=09=09=09 unsigned long stack_start,=0A@@ -1154,6 +1154,9 @@=0A =09wr=
-ite_unlock_irq(&tasklist_lock);=0A =09retval =3D 0;=0A =0A+=09p->back=
-log_flag =3D 0;=0A+=09p->extrarun_flag =3D 0;=0A+=0A fork_out:=0A =
-=09if (retval)=0A =09=09return ERR_PTR(retval);=0A=
-
---Boundary_(ID_li4hDdoClOdbXctA3VlaaA)--
+-- 
+Ueimor
