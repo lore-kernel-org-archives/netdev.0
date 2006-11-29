@@ -1,30 +1,28 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 0/3] NetLabel: add the remaining CIPSO tag types from
- the IETF draft
-Date: Wed, 29 Nov 2006 17:11:27 -0500
-Message-ID: <456E058F.4010503@hp.com>
-References: <20061129181817.505281000@hp.com> <XMMS.LNX.4.64.0611291701330.25876@d.namei>
+From: Steve Grubb <sgrubb@redhat.com>
+Subject: Re: [PATCH 1/1] add auditing to ipsec
+Date: Wed, 29 Nov 2006 17:31:04 -0500
+Message-ID: <200611291731.04880.sgrubb@redhat.com>
+References: <200611271911.kARJBs1J017305@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:61582 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1758380AbWK2WMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 17:12:40 -0500
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <XMMS.LNX.4.64.0611291701330.25876@d.namei>
+Received: from mx1.redhat.com ([66.187.233.31]:34720 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1758885AbWK2Wck convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 17:32:40 -0500
+To: Joy Latten <latten@austin.ibm.com>
+In-Reply-To: <200611271911.kARJBs1J017305@faith.austin.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> All applied to:
-> 	git://git.infradead.org/~jmorris/selinux-net-2.6.20
+On Monday 27 November 2006 14:11, Joy Latten wrote:
+> Please let me know if this is acceptable.
 
-Thanks.
+>From an audit perspective, it looks good. 
 
-Did you mean your kernel.org git tree?
-
--- 
-paul moore
-linux security @ hp
+-Steve
