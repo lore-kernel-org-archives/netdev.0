@@ -1,61 +1,81 @@
-From: "Li Yewang" <lyw@nanjing-fnst.com>
-Subject: Re: [PATCH]Fix BUG of ip_rt_send_redirect()
-Date: Wed, 29 Nov 2006 10:55:07 +0800
-Message-ID: <00df01c71361$c81f04e0$2a01a8c0@liyewang>
-References: <E1GkxXa-00055c-00@gondolin.me.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely
+ duplicate route_reverse function
+Date: Tue, 28 Nov 2006 20:25:35 -0800 (PST)
+Message-ID: <20061128.202535.112619392.davem@davemloft.net>
+References: <456CAE0D.2080209@trash.net>
+	<m3slg3ktvw.fsf@defiant.localdomain>
+	<456CF049.7040407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="UTF-8";
-	reply-type=original
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: khc@pm.waw.pl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:19354 "EHLO proxy.fnst.com.cn")
-	by vger.kernel.org with ESMTP id S1756821AbWK2C5q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 21:57:46 -0500
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:61126
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1758782AbWK2EZk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 23:25:40 -0500
+To: kaber@trash.net
+In-Reply-To: <456CF049.7040407@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu herbert@gondor.apana.org.au wrote:
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 29 Nov 2006 03:28:25 +0100
 
-> I think there are two problems here:
+> [NETFILTER]: ipt_REJECT: fix memory corruption
 > 
-> 1) The first time we hit the check rate_last is zero.  We should simply
-> proceed with the redirect rather than treating this as a jiffies value.
+> On devices with hard_header_len > LL_MAX_HEADER ip_route_me_harder()
+> reallocates the skb, leading to memory corruption when using the stale
+> tcph pointer to update the checksum.
 > 
-> 2) When a dst is so old that the jiffies have wrapped around.  I'm
-> not sure whether this is worth solving as it should be extremely rare
-> unless your HZ is sufficiently large and you're on a 32-bit platform.
-> 
-> One solution would be to periodically reset the rate_last fields to
-> their original states.  Perhaps we can combine that with the GC.
-> 
-> Cheers,
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Mr Herbert Xu
+Applied, thanks Patrick.
 
-Sorry for later reply
+And based upon your discovery wrt. MAX_HEADER I'm also
+applying the following.
 
- I have some questions about your advice:
-1) If the first time when we send the redirect packets, but the time_after(jiffies, b)==false.
-     So the redirect packets can not be sended.
-     This situation happens when the system of 32-bit boot on less than 5 minutes.
-     This must be the kernel bug.
+commit 93e3a20d6c67a09b867431e7d5b3e7bc97154fab
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Tue Nov 28 20:24:10 2006 -0800
 
-2) If the router used frequently, the garbage collect function can not free this dst. 
-    Next time when we want this router to send redirect packets, and if the jiffies wraparound 
-    and time_after(jiffies,b)==false, the redirect packets can not be sended. 
-    So we must consider this situation and solve this problem.
-        
+    [NET]: Fix MAX_HEADER setting.
+    
+    MAX_HEADER is either set to LL_MAX_HEADER or LL_MAX_HEADER + 48, and
+    this is controlled by a set of CONFIG_* ifdef tests.
+    
+    It is trying to use LL_MAX_HEADER + 48 when any of the tunnels are
+    enabled which set hard_header_len like this:
+    
+    dev->hard_header_len = LL_MAX_HEADER + sizeof(struct xxx);
+    
+    The correct set of tunnel drivers which do this are:
+    
+    ipip
+    ip_gre
+    ip6_tunnel
+    sit
+    
+    so make the ifdef test match.
+    
+    Noticed by Patrick McHardy.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9264139..95e86ac 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -94,7 +94,9 @@ #endif
+ #endif
+ 
+ #if !defined(CONFIG_NET_IPIP) && \
+-    !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE)
++    !defined(CONFIG_NET_IPGRE) && \
++    !defined(CONFIG_IPV6_SIT) && \
++    !defined(CONFIG_IPV6_TUNNEL)
+ #define MAX_HEADER LL_MAX_HEADER
+ #else
+ #define MAX_HEADER (LL_MAX_HEADER + 48)
