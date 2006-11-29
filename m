@@ -1,16 +1,16 @@
 From: Wenji Wu <wenji@fnal.gov>
-Subject: [patch 3/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 17:30:19 -0600
-Message-ID: <HNEBLGGMEGLPMPPDOPMGOEAKCGAA.wenji@fnal.gov>
-References: <HNEBLGGMEGLPMPPDOPMGKEAKCGAA.wenji@fnal.gov>
+Subject: [patch 4/4] - Potential performance bottleneck for Linxu TCP
+Date: Wed, 29 Nov 2006 17:31:05 -0600
+Message-ID: <HNEBLGGMEGLPMPPDOPMGCEALCGAA.wenji@fnal.gov>
+References: <HNEBLGGMEGLPMPPDOPMGOEAKCGAA.wenji@fnal.gov>
 Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)"
+Content-Type: multipart/mixed; boundary="Boundary_(ID_li4hDdoClOdbXctA3VlaaA)"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:54421 "EHLO mailgw2.fnal.gov")
-	by vger.kernel.org with ESMTP id S934638AbWK2XaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:30:25 -0500
-In-reply-to: <HNEBLGGMEGLPMPPDOPMGKEAKCGAA.wenji@fnal.gov>
+Received: from mailgw1.fnal.gov ([131.225.111.11]:3007 "EHLO mailgw1.fnal.gov")
+	by vger.kernel.org with ESMTP id S935044AbWK2XbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:31:10 -0500
+In-reply-to: <HNEBLGGMEGLPMPPDOPMGOEAKCGAA.wenji@fnal.gov>
 To: netdev@vger.kernel.org, davem@davemloft.net, akpm@osdl.org,
 	linux-kernel@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
@@ -18,10 +18,9 @@ List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)
+--Boundary_(ID_li4hDdoClOdbXctA3VlaaA)
 Content-type: text/plain; charset=iso-8859-1
 Content-transfer-encoding: 7BIT
-
 
 From: Wenji Wu <wenji@fnal.gov>
 
@@ -55,29 +54,21 @@ Batavia, IL, 60510
 (Email): wenji@fnal.gov
 (O): 001-630-840-4541
 
---Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)
-Content-type: application/octet-stream; name=sched.c.patch
+--Boundary_(ID_li4hDdoClOdbXctA3VlaaA)
+Content-type: application/octet-stream; name=fork.c.patch
 Content-transfer-encoding: QUOTED-PRINTABLE
-Content-disposition: attachment; filename=sched.c.patch
+Content-disposition: attachment; filename=fork.c.patch
 
---- linux-2.6.14-old/kernel/sched.c=092006-11-29 16:22:22.000000000 -=
-0600=0A+++ linux-2.6.14/kernel/sched.c=092006-11-29 11:29:34.00000000=
-0 -0600=0A@@ -2598,12 +2598,24 @@=0A =0A =09=09if (!rq->expired_times=
-tamp)=0A =09=09=09rq->expired_timestamp =3D jiffies;=0A-=09=09if (!TA=
-SK_INTERACTIVE(p) || EXPIRED_STARVING(rq)) {=0A-=09=09=09enqueue_task=
-(p, rq->expired);=0A-=09=09=09if (p->static_prio < rq->best_expired_p=
-rio)=0A+=09=09if(p->backlog_flag =3D=3D 0){=0A+=09=09=09if (!TASK_INT=
-ERACTIVE(p) || EXPIRED_STARVING(rq)) {=0A+=09=09=09=09enqueue_task(p,=
- rq->expired);=0A+=09=09=09=09if (p->static_prio < rq->best_expired_p=
-rio)=0A+=09=09=09=09=09rq->best_expired_prio =3D p->static_prio;=0A+=
-=09=09=09} else=0A+=09=09=09=09enqueue_task(p, rq->active);=0A+=09=
-=09} else {=0A+=09=09=09if(EXPIRED_STARVING(rq)) {=0A+=09=09=09=09enq=
-ueue_task(p,rq->expired);=0A+=09=09=09=09if (p->static_prio < rq->bes=
-t_expired_prio)=0A =09=09=09=09rq->best_expired_prio =3D p->static_pr=
-io;=0A-=09=09} else=0A-=09=09=09enqueue_task(p, rq->active);=0A+=09=
-=09=09} else {=0A+=09=09=09=09if(!TASK_INTERACTIVE(p))=0A+=09=09=09=
-=09=09p->extrarun_flag =3D 1;=0A+=09=09=09=09enqueue_task(p,rq->activ=
-e);=0A+=09=09=09}=09=0A+=09=09}=0A =09} else {=0A =09=09/*=0A =09=
-=09 * Prevent a too long timeslice allowing a task to monopolize=0A=
+--- linux-2.6.14-old/kernel/fork.c=092006-11-29 16:22:25.000000000 -0=
+600=0A+++ linux-2.6.14/kernel/fork.c=092006-11-29 11:23:20.000000000 =
+-0600=0A@@ -868,7 +868,7 @@=0A  *=0A  * It copies the registers, and =
+all the appropriate=0A  * parts of the process environment (as per th=
+e clone=0A- * flags). The actual kick-off is left to the caller.=0A+ =
+* flags). The actual kick-off is left to the caller.copy_process=0A  =
+*/=0A static task_t *copy_process(unsigned long clone_flags,=0A =09=
+=09=09=09 unsigned long stack_start,=0A@@ -1154,6 +1154,9 @@=0A =09wr=
+ite_unlock_irq(&tasklist_lock);=0A =09retval =3D 0;=0A =0A+=09p->back=
+log_flag =3D 0;=0A+=09p->extrarun_flag =3D 0;=0A+=0A fork_out:=0A =
+=09if (retval)=0A =09=09return ERR_PTR(retval);=0A=
 
---Boundary_(ID_4Xz5mGCjXxEEa50N90P26g)--
+--Boundary_(ID_li4hDdoClOdbXctA3VlaaA)--
