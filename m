@@ -1,100 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] [IPVS] transparent proxying
-Date: Wed, 29 Nov 2006 15:15:23 +0100
-Message-ID: <20061129141523.GD8693@postel.suug.ch>
-References: <20061129062126.GP25535@verge.net.au>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: Re: [PATCH] d80211: Reset assoc and auth retry counters
+Date: Wed, 29 Nov 2006 15:27:06 +0100
+Message-ID: <a32f33a40611290627q5fb9f905ued49bbae6f5670b3@mail.gmail.com>
+References: <200611282056.05641.IvDoorn@gmail.com>
+	 <20061129150928.63bf9f02@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Wensong Zhan <wensong@linux-vs.org>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Jinhua Luo <home_king@163.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:5526 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S935683AbWK2OPC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 09:15:02 -0500
-To: Horms <horms@verge.net.au>
+Received: from nz-out-0506.google.com ([64.233.162.231]:8418 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S967194AbWK2O1J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 09:27:09 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1104355nze
+        for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 06:27:08 -0800 (PST)
+To: "Jiri Benc" <jbenc@suse.cz>
+In-Reply-To: <20061129150928.63bf9f02@griffin.suse.cz>
 Content-Disposition: inline
-In-Reply-To: <20061129062126.GP25535@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Horms <horms@verge.net.au> 2006-11-29 15:21
-> This seems to be a pretty clean solution to a real problem.
-> 
-> Ultimately I would like to see IPVS move into the forward chain.
-> This seems to be a nice way to explore that, without breaking
-> any existing setups.
-> 
-> -- 
-> Horms
->   H: http://www.vergenet.net/~horms/
->   W: http://www.valinux.co.jp/en/
-> 
-> [IPVS] transparent proxying
-> 
-> Patch from Jinhua Luo <home_king@163.com> to allow a web cluseter using
-> transparent proxying. It works by simply grabing packets that have the
-> fwmark set and have not already been processed by ipvs (ip_vs_out) and
-> throwing them into ip_vs_in.
-> 
-> See: http://archive.linuxvirtualserver.org/html/lvs-users/2006-11/msg00261.html
-> 
-> Normally LVS packets are processed by ip_vs_in fron on the INPUT chain,
-> and packets that are processed in this way never show up on the FORWARD
-> chain, so they won't hit this rule.
-> 
-> This patch seems like a good precursor to moving LVS permanantly to
-> the FORWARD chain. As I'm struggling to think how it could break things.
-> 
-> The changes to the original patch are:
-> 
-> * Reformated to use tabs for indentation (instead of 4 spaces)
-> * Reformated to be < 80 columns wide
-> * Added some comments
-> * Rewrote description (this text)
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> Signed-off-by: Jinhua Luo <home_king@163.com>
-> 
-> Index: linux-2.6/net/ipv4/ipvs/ip_vs_core.c
-> ===================================================================
-> --- linux-2.6.orig/net/ipv4/ipvs/ip_vs_core.c	2006-11-28 15:30:00.000000000 +0900
-> +++ linux-2.6/net/ipv4/ipvs/ip_vs_core.c	2006-11-29 10:27:49.000000000 +0900
-> @@ -23,7 +23,9 @@
->   * Changes:
->   *	Paul `Rusty' Russell		properly handle non-linear skbs
->   *	Harald Welte			don't use nfcache
-> - *
-> + *	Jinhua Luo                      redirect packets with fwmark on
-> + *					NF_IP_FORWARD chain to ip_vs_in(),
-> + *					mainly for transparent cache cluster
->   */
->  
->  #include <linux/module.h>
-> @@ -1070,6 +1072,26 @@
->  	return ip_vs_in_icmp(pskb, &r, hooknum);
->  }
->  
-> +/*
-> + * 	This is hooked into the NF_IP_FORWARD. It catches
-> + * 	packets that have not already been handled by ipvs (out)
-> + * 	and have a fwmark set. This is to allow transparent proxying
-> + * 	of fwmark virtual services.
-> + *
-> + * 	It will not process packets that are handled by ipvs (in)
-> + * 	as they never traverse the NF_IP_FORWARD.
-> + */
-> +static unsigned int
-> +ip_vs_forward_with_fwmark(unsigned int hooknum, struct sk_buff **pskb,
-> +			  const struct net_device *in,
-> +			  const struct net_device *out,
-> +			  int (*okfn)(struct sk_buff *))
-> +{
-> +	if ((*pskb)->ipvs_property || ! (*pskb)->nfmark)
-> +		return NF_ACCEPT;
+On 11/29/06, Jiri Benc <jbenc@suse.cz> wrote:
+> On Tue, 28 Nov 2006 20:56:05 +0100, Ivo van Doorn wrote:
+> > After a succesfull authentication and association the matching retry
+> counter
+> > must be reset to 0.
+> > Failure to do so will result in failure to authenticate after the
+> interface
+> > has been deauthenticated. This does not always happen after the first
+> > deauthentication, but after the interface has been several times been
+> > deauthenticated it will refuse to authenticate.
+>
+> Thanks for spotting this, but your fix makes statistics about
+> authentication/association exported via sysfs useless. The counters
+> should be reset before a new authentication/association attempt (as is
+> done in ieee80211_sta_new_auth).
 
-This patch seems to be based on an old tree, I've renamed nfmark
-to mark in net-2.6.20. The term fwmark and nfmark shouldn't be
-used anymore.
+Sounds good to me, I was unsure where those counters should be reset anyway. :)
+
+> I think this is a more correct fix:
+> @@ -2858,7 +2866,7 @@ int ieee80211_sta_deauthenticate(struct
+>  		return -EINVAL;
+>
+>  	ieee80211_send_deauth(dev, ifsta, reason);
+> -	ieee80211_set_associated(dev, ifsta, 0);
+> +	ieee80211_set_disassoc(dev, ifsta, 1);
+>  	return 0;
+>  }
+>
+> @@ -2878,6 +2886,6 @@ int ieee80211_sta_disassociate(struct ne
+>  		return -1;
+>
+>  	ieee80211_send_disassoc(dev, ifsta, reason);
+> -	ieee80211_set_associated(dev, ifsta, 0);
+> +	ieee80211_set_disassoc(dev, ifsta, 1);
+>  	return 0;
+>  }
+>
+
+Shouldn't this last one be:
+ieee80211_set_disassoc(dev, ifsta, 0)
+
+This one is called from the IOCTL request to dissassociate,
+so the interface should still be authenticated (with a valid
+auth retry counter).
+
+Ivo
