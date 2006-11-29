@@ -1,77 +1,32 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: [patch 10/23] bcm43xx: Drain TX status before starting IRQs
-Date: Wed, 29 Nov 2006 14:00:21 -0800
-Message-ID: <20061129220430.360678000@sous-sol.org>
-References: <20061129220111.137430000@sous-sol.org>
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, mb@bu3sch.de, greg@kroah.com,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758267AbWK2WDz@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Content-Disposition: inline; filename=bcm43xx-drain-tx-status-before-starting-irqs.patch
-Sender: linux-kernel-owner@vger.kernel.org
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 0/3] NetLabel: add the remaining CIPSO tag types from
+ the IETF draft
+Date: Wed, 29 Nov 2006 17:06:11 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0611291701330.25876@d.namei>
+References: <20061129181817.505281000@hp.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:58318 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1758353AbWK2WGN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 17:06:13 -0500
+To: paul.moore@hp.com
+In-Reply-To: <20061129181817.505281000@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
-------------------
+All applied to:
+	git://git.infradead.org/~jmorris/selinux-net-2.6.20
 
-From: Michael Buesch <mb@bu3sch.de>
 
-Drain the Microcode TX-status-FIFO before we enable IRQs.
-This is required, because the FIFO may still have entries left
-from a previous run. Those would immediately fire after enabling
-IRQs and would lead to an oops in the DMA TXstatus handling code.
 
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Signed-off-by: Chris Wright <chrisw@sous-sol.org>
----
- drivers/net/wireless/bcm43xx/bcm43xx_main.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+Thanks,
 
---- linux-2.6.18.4.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ linux-2.6.18.4/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -1463,6 +1463,23 @@ static void handle_irq_transmit_status(s
- 	}
- }
- 
-+static void drain_txstatus_queue(struct bcm43xx_private *bcm)
-+{
-+	u32 dummy;
-+
-+	if (bcm->current_core->rev < 5)
-+		return;
-+	/* Read all entries from the microcode TXstatus FIFO
-+	 * and throw them away.
-+	 */
-+	while (1) {
-+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
-+		if (!dummy)
-+			break;
-+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
-+	}
-+}
-+
- static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
- {
- 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
-@@ -3517,6 +3534,7 @@ int bcm43xx_select_wireless_core(struct 
- 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
- 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
- 	bcm43xx_security_init(bcm);
-+	drain_txstatus_queue(bcm);
- 	ieee80211softmac_start(bcm->net_dev);
- 
- 	/* Let's go! Be careful after enabling the IRQs.
 
---
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
