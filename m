@@ -1,49 +1,49 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: Daniel Drake <ddrake@brontes3d.com>
 Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Wed, 29 Nov 2006 16:47:46 +0100
-Message-ID: <200611291647.46570.mb@bu3sch.de>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com> <200611291612.33448.mb@bu3sch.de> <20061129152407.GB5412@devicescape.com>
+Date: Wed, 29 Nov 2006 10:56:17 -0500
+Message-ID: <1164815777.3331.5.camel@systems03.lan.brontes3d.com>
+References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
+	 <200611282145.08423.mb@bu3sch.de>
+	 <40f31dec0611290555t42d28247x7f163527fac438c1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Nick Kossifidis <mickflemm@gmail.com>,
-	Daniel Drake <ddrake@brontes3d.com>, netdev@vger.kernel.org,
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
 	madwifi-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:31405
-	"EHLO vs166246.vserver.de") by vger.kernel.org with ESMTP
-	id S935764AbWK2Pry (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 10:47:54 -0500
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061129152407.GB5412@devicescape.com>
-Content-Disposition: inline
+Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:61322 "EHLO
+	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S967444AbWK2P4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 10:56:24 -0500
+To: Nick Kossifidis <mickflemm@gmail.com>
+In-Reply-To: <40f31dec0611290555t42d28247x7f163527fac438c1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 29 November 2006 16:24, David Kimdon wrote:
-> On Wed, Nov 29, 2006 at 04:12:33PM +0100, Michael Buesch wrote:
-> > On Wednesday 29 November 2006 15:34, Nick Kossifidis wrote:
-> > > Good luck then ;-)
-> > > 
-> > > If anyone wants to help on making ar5k work with newer madwifi
-> > > versions and fix bugs etc (that 'll also help bsd ppl) plzz mail me.
-> > > We can make it better.
-> > > 
-> > > Nick
-> > > P.S. Why not work on dawifi ?
-> > 
-> > Because it won't be merged mainline either.
+On Wed, 2006-11-29 at 15:55 +0200, Nick Kossifidis wrote:
+> I 've already ported ar5k to linux and it works with madwifi versions
+> before the bsd-head merge, you can see more infos here ->
+> http://madwifi.org/wiki/OpenHAL
 > 
-> Why do you say that?
-> 
-> There is absolutely no reason why dadwifi can't be merged into the
-> mainline once the hal issue is resolved. 
+> If i can help in any way feel free to mail ;-)
 
-Ok, I deleted my repository.
-Atheros stuff is really too frustrating to work on and
-I don't have the time anyway.
-If you believe dadwifi can be merged, please _do_ so.
+Thanks, I'm trying it out to see whether it works on my hardware. I
+compiled and loaded everything OK, ath0 appears, but it doesn't seem to
+be working.
+
+I'm using these commands:
+
+ifconfig ath0 up
+iwlist ath0 scan
+
+Should that produce scan results, or do I need to use some weird tools
+to do that? (this is my first interaction with the madwifi-old driver)
+
+Currently it pauses for a while and then doesn't present any results.
+
+Thanks!
 
 -- 
-Greetings Michael.
+Daniel Drake
+Brontes Technologies, A 3M Company
+
