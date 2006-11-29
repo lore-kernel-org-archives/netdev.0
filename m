@@ -1,59 +1,60 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [PATCH] [IPVS] transparent proxying
-Date: Wed, 29 Nov 2006 23:26:51 +0800
-Message-ID: <456DA6BB.6080800@linux-vs.org>
-References: <20061129062126.GP25535@verge.net.au>
+From: David Kimdon <david.kimdon@devicescape.com>
+Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
+Date: Wed, 29 Nov 2006 07:30:38 -0800
+Message-ID: <20061129153038.GC5412@devicescape.com>
+References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com> <200611291505.47405.mb@bu3sch.de> <40f31dec0611290634h3c411c1am61c1b6bb60bc4866@mail.gmail.com> <200611291612.33448.mb@bu3sch.de> <1164813669.2752.31.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Jinhua Luo <home_king@163.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	Daniel Drake <ddrake@brontes3d.com>, netdev@vger.kernel.org,
+	madwifi-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [202.109.113.90] ([202.109.113.90]:57737 "EHLO
-	dragon.linux-vs.org") by vger.kernel.org with ESMTP id S967419AbWK2P0y
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 10:26:54 -0500
-To: Horms <horms@verge.net.au>
-In-Reply-To: <20061129062126.GP25535@verge.net.au>
+Received: from mail.devicescape.com ([207.138.119.2]:40674 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S967415AbWK2Paq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 10:30:46 -0500
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1164813669.2752.31.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 29, 2006 at 10:21:09AM -0500, Dan Williams wrote:
+> On Wed, 2006-11-29 at 16:12 +0100, Michael Buesch wrote:
+> > On Wednesday 29 November 2006 15:34, Nick Kossifidis wrote:
+> > > Good luck then ;-)
+> > > 
+> > > If anyone wants to help on making ar5k work with newer madwifi
+> > > versions and fix bugs etc (that 'll also help bsd ppl) plzz mail me.
+> > > We can make it better.
+> > > 
+> > > Nick
+> > > P.S. Why not work on dawifi ?
+> > 
+> > Because it won't be merged mainline either.
+> 
+> I thought dadwifi was supposed to replace net80211 with d80211 (but not
+> replace the binary HAL). 
 
-Hi Horms,
+yes
 
-I see that this patch probably makes IPVS code a bit complicated and 
-packet traversing less efficiently.
+>  Aren't the two things complementary, 
 
-If I remember correctly, policy-based routing can work with IPVS in 
-kernel 2.2 and 2.4 for transparent cache cluster for a long time. It 
-should work in kernel 2.6 too.
+yes
 
-For example, we can use iptables/ipchains to mark all web traffic with 
-fwmark 1, then use policy-based routing to route all web traffic through 
-NF_IP_LOCAL_IN, so that ip_vs_in can capture the packets and load 
-balance packets to cache servers.
-ip rule add prio 100 fwmark 1 table 100
-ip route add local 0/0 dev lo table 100
+> or did
+> you just decide that starting from scratch would produce a less crufty,
+> better understood, better-d80211 integrated driver?
 
-ipvsadm -A -f 1 -s wlc
-ipvsadm -a -f 1 -w 100 -r cache1
-ipvsadm -a -f 1 -w 100 -r cache2
-ipvsadm -a -f 1 -w 100 -r cache2
+well, dadwifi will be (is) well integrated with d80211.  As far as
+cruft goes, I'd rather call it historical artifacts :-)  We are doing
+our best to minimize cruft while standing on the shoulders of madwifi.
 
-...
+-David
 
-Cheers,
-
-Wensong
-
-Horms wrote:
-> This seems to be a pretty clean solution to a real problem.
->
-> Ultimately I would like to see IPVS move into the forward chain.
-> This seems to be a nice way to explore that, without breaking
-> any existing setups.
->
->   
-
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
