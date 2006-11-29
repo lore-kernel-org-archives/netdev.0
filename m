@@ -1,47 +1,60 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] lockdep: fix sk->sk_callback_lock locking
-Date: Wed, 29 Nov 2006 09:44:28 +0100
-Message-ID: <20061129084428.GC1001@ff.dom.local>
-References: <E1GpKC4-0005Vc-00@gondolin.me.apana.org.au>
+From: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
+Subject: RE: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
+Date: Wed, 29 Nov 2006 14:20:31 +0530
+Message-ID: <010C7BAE6783F34D9AC336EE5A01A08802D2D762@dbde01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@osdl.org, mingo@elte.hu,
-	gandalf@wlug.westbo.se
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:57575 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1758798AbWK2Ihu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 03:37:50 -0500
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1GpKC4-0005Vc-00@gondolin.me.apana.org.au>
+Received: from bear.ext.ti.com ([192.94.94.41]:18576 "EHLO bear.ext.ti.com")
+	by vger.kernel.org with ESMTP id S966288AbWK2Ivd convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 03:51:33 -0500
+Content-class: urn:content-classes:message
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29-11-2006 08:49, Herbert Xu wrote:
-> Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
->> =========================================================
->> [ INFO: possible irq lock inversion dependency detected ]
->> 2.6.19-rc6 #4
->> ---------------------------------------------------------
->> nc/1854 just changed the state of lock:
->> (af_callback_keys + sk->sk_family#2){-.-?}, at: [<c0268a7f>] sock_def_error_report+0x1f/0x90
->> but this lock was taken by another, soft-irq-safe lock in the past:
->> (slock-AF_INET){-+..}
->>
->> and interrupts could create inverse lock ordering between them.
-> 
-> I think this is bogus.  The slock is not a standard lock.  When we
-> hold it in process context we don't actually hold the spin lock part
-> of it.  However, it does prevent the softirq path from running in
-> critical sections which also prevents any attempt to grab the
-> callback lock from softirq context.
-> 
-> If you still think there is a problem, please show an actual scenario
-> where it dead locks.
+Francois Romieu [mailto:romieu@fr.zoreil.com] wrote:
 
-It would be nice to have a look at other parts of stack
-backtraces probably with softirq part, which took that
-lock: sk->sk_family#2){-.-?}
+> Afaics your change may disable the Rx irq right after the poll routine
 
-Jarek P. 
+> enabled it again. It will not always work either.
+> 
+> The (slow) timeout watchdog could grab the poll handler and hack the 
+> irq mask depending on whether poll was scheduled or not.
+
+Could you please confirm whether the attached patch would work?
+I tested it and it works for me.
+
+
+Signed-off-by: Mansoor Ahamed <mansoor.ahamed@ti.com>
+
+--- old/8139too.c	2006-11-14 10:44:27.000000000 +0530
++++ new/8139too.c	2006-11-14 10:44:18.000000000 +0530
+@@ -1438,8 +1438,18 @@
+ 	if ((!(tmp & CmdRxEnb)) || (!(tmp & CmdTxEnb)))
+ 		RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
+ 
+-	/* Enable all known interrupts by setting the interrupt mask. */
+-	RTL_W16 (IntrMask, rtl8139_intr_mask);
++	local_irq_disable();
++	/* Don't enable RX if RX was already scheduled */
++	if(test_bit(__LINK_STATE_START, &dev->state) &&
++			test_bit(__LINK_STATE_RX_SCHED, &dev->state) ) {
++		/* Enable all interrupts except RX by setting the
+interrupt mask. */
++		RTL_W16 (IntrMask, rtl8139_norx_intr_mask);
++	}
++	else {
++		/* Enable all known interrupts by setting the interrupt
+mask. */ 
++		RTL_W16 (IntrMask, rtl8139_intr_mask);
++	}
++	local_irq_enable();
+ }
+
+Thanks
+Mansoor
