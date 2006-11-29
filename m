@@ -1,34 +1,77 @@
-From: "Berck E. Nash" <flyboy@gmail.com>
-Subject: Re: sky2 hang still exists in 2.6.19-rc6 --Bug#396185?
-Date: Wed, 29 Nov 2006 14:42:59 -0700
-Message-ID: <456DFEE3.5070107@gmail.com>
-References: <456D1427.70205@gmail.com> <456D30D8.20806@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:8383 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1758141AbWK2VnD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 16:43:03 -0500
-Received: by py-out-1112.google.com with SMTP id a29so1543694pyi
-        for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 13:43:03 -0800 (PST)
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <456D30D8.20806@osdl.org>
-Sender: netdev-owner@vger.kernel.org
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: [patch 10/23] bcm43xx: Drain TX status before starting IRQs
+Date: Wed, 29 Nov 2006 14:00:21 -0800
+Message-ID: <20061129220430.360678000@sous-sol.org>
+References: <20061129220111.137430000@sous-sol.org>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, mb@bu3sch.de, greg@kroah.com,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758267AbWK2WDz@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Disposition: inline; filename=bcm43xx-drain-tx-status-before-starting-irqs.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+-stable review patch.  If anyone has any objections, please let us know.
+------------------
 
-> That motherboard has dual lan, are you using both of them?
-> I don't have that chip version, so hard to tell if it is using dual port 
-> with a single chip
-> or not.  There is a hack for the dual port PCI-X version already in the 
-> driver,
-> that turns off receive checksums if both ports are in use. Please try 
-> turning off
-> receive checksums with ethtool and see if that helps.
+From: Michael Buesch <mb@bu3sch.de>
 
-I'm only using one port.  The second port is disabled in the BIOS.  The 
-problem still occurs with receive checksums off.
+Drain the Microcode TX-status-FIFO before we enable IRQs.
+This is required, because the FIFO may still have entries left
+from a previous run. Those would immediately fire after enabling
+IRQs and would lead to an oops in the DMA TXstatus handling code.
+
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+---
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+--- linux-2.6.18.4.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6.18.4/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1463,6 +1463,23 @@ static void handle_irq_transmit_status(s
+ 	}
+ }
+ 
++static void drain_txstatus_queue(struct bcm43xx_private *bcm)
++{
++	u32 dummy;
++
++	if (bcm->current_core->rev < 5)
++		return;
++	/* Read all entries from the microcode TXstatus FIFO
++	 * and throw them away.
++	 */
++	while (1) {
++		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
++		if (!dummy)
++			break;
++		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
++	}
++}
++
+ static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
+ {
+ 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
+@@ -3517,6 +3534,7 @@ int bcm43xx_select_wireless_core(struct 
+ 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
+ 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
+ 	bcm43xx_security_init(bcm);
++	drain_txstatus_queue(bcm);
+ 	ieee80211softmac_start(bcm->net_dev);
+ 
+ 	/* Let's go! Be careful after enabling the IRQs.
+
+--
