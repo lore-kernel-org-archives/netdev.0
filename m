@@ -1,60 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate route_reverse function
-Date: Wed, 29 Nov 2006 17:51:46 +1100
-Message-ID: <20061129065146.GA20681@gondor.apana.org.au>
-References: <20061128.204440.39160464.davem@davemloft.net> <E1GpHVB-0005CB-00@gondolin.me.apana.org.au> <20061128.210416.59658806.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 hang still exists in 2.6.19-rc6 --Bug#396185?
+Date: Tue, 28 Nov 2006 23:03:52 -0800
+Message-ID: <456D30D8.20806@osdl.org>
+References: <456D1427.70205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, khc@pm.waw.pl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:15121 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S935214AbWK2GwR
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 01:52:17 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061128.210416.59658806.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.25]:56224 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S935306AbWK2HDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 02:03:53 -0500
+To: "Berck E. Nash" <flyboy@gmail.com>
+In-Reply-To: <456D1427.70205@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 28, 2006 at 09:04:16PM -0800, David Miller wrote:
+Berck E. Nash wrote:
+> I've been having problems with the sky2 ethernet driver from the very
+> beginning.  I have read the following:
 >
-> > Definitely.  I'm not sure whether 48 is enough even for recursive
-> > tunnels.  This should really just be a hint.  It's OK to spend a
-> > bit of time reallocating skb's if it's too small, but it's not OK
-> > to die.
-> 
-> The recursive tunnel case is handled by the PMTU reductions
-> in the route, isn't it?
-
-Oh I wasn't suggesting that the current code is broken.
-
-I'm just emphasising that LL_MAX_HEADER is by no means the *maximum*
-header size in a Linux system.  Anybody should be able to load a
-new NIC module with a hard header size exceeding what LL_MAX_HEADER
-is and the system should still function (albeit slower since every
-packet sent down that device has to be reallocated).
-
-In particular, nested tunnels is one such device which anybody can
-construct without writing a kernel module.
-
-As to getting rid of those ifdefs, here is one idea.  We keep a
-read-mostly global variable that represents the actual current
-maximum LL header size.  Everytime a new device appears (or if
-its hard header size changes) we update this variable if needed.
-
-Hmm, we don't actually update the hard header size should the
-underlying device change for tunnels.  Good thing the tunnels
-only use that as a hint and reallocate if necessary :)
-
-This is not optimal in that it never decreases, but it's certainly
-better than a compile-time constant (e.g., people using distribution
-kernels don't necessarily use tunnels).
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=116384918914761&w=2
+>
+> And the bug described still exists for me.  I'm running 2.6.19-rc6-mm1.
+>
+That motherboard has dual lan, are you using both of them?
+I don't have that chip version, so hard to tell if it is using dual port 
+with a single chip
+or not.  There is a hack for the dual port PCI-X version already in the 
+driver,
+that turns off receive checksums if both ports are in use. Please try 
+turning off
+receive checksums with ethtool and see if that helps.
