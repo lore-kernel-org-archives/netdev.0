@@ -1,546 +1,350 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: [PATCH 1/1] add auditing to ipsec
-Date: Mon, 27 Nov 2006 13:11:54 -0600
-Message-ID: <200611271911.kARJBs1J017305@faith.austin.ibm.com>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, sgrubb@redhat.com
+From: paul.moore@hp.com
+Subject: [PATCH 3/3] NetLabel: add the ranged tag to the CIPSOv4 protocol
+Date: Wed, 29 Nov 2006 13:18:20 -0500
+Message-ID: <20061129182854.816890000@hp.com>
+References: <20061129181817.505281000@hp.com>
+Cc: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:33181 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S935852AbWK2RY4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 12:24:56 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kATHOne4027707
-	for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 12:24:49 -0500
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kATHOmBE325376
-	for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 10:24:49 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kATHOlhK028976
-	for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 10:24:48 -0700
-To: netdev@vger.kernel.org
+Received: from atlrel7.hp.com ([156.153.255.213]:40870 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S967522AbWK2S25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 13:28:57 -0500
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Disposition: inline; filename=netlabel-cipso_tag_5
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds auditing to ipsec. 
-An audit message occurs when an ipsec SA
-or ipsec policy is created/deleted.
+From: Paul Moore <paul.moore@hp.com>
 
-Patch was built against linux kernel 2.6.19-rc6.
-Please let me know if this is acceptable. 
+Add support for the ranged tag (tag type #5) to the CIPSOv4 protocol.
 
-Regards,
-Joy
+The ranged tag allows for seven, or eight if zero is the lowest category,
+category ranges to be specified in a CIPSO option.  Each range is specified by
+two unsigned 16 bit fields, each with a maximum value of 65534.  The two values
+specify the start and end of the category range; if the start of the category
+range is zero then it is omitted.
 
-Signed-off-by: Joy Latten <latten@austin.ibm.com>
+See Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt for more details.
 
----------------------------------------------------------------------------
-diff -urpN linux-2.6.18.orig/include/linux/audit.h linux-2.6.18-patch/include/linux/audit.h
---- linux-2.6.18.orig/include/linux/audit.h	2006-11-27 11:21:16.000000000 -0600
-+++ linux-2.6.18-patch/include/linux/audit.h	2006-11-27 12:28:43.000000000 -0600
-@@ -101,6 +101,10 @@
- #define AUDIT_MAC_CIPSOV4_DEL	1408	/* NetLabel: del CIPSOv4 DOI entry */
- #define AUDIT_MAC_MAP_ADD	1409	/* NetLabel: add LSM domain mapping */
- #define AUDIT_MAC_MAP_DEL	1410	/* NetLabel: del LSM domain mapping */
-+#define AUDIT_MAC_IPSEC_ADDSA	1411	/* Add a XFRM state */
-+#define AUDIT_MAC_IPSEC_DELSA	1412	/* Delete a XFRM state */
-+#define AUDIT_MAC_IPSEC_ADDSPD	1413	/* Add a XFRM policy */
-+#define AUDIT_MAC_IPSEC_DELSPD	1414	/* Delete a XFRM policy */
- 
- #define AUDIT_FIRST_KERN_ANOM_MSG   1700
- #define AUDIT_LAST_KERN_ANOM_MSG    1799
-@@ -377,6 +381,7 @@ extern void auditsc_get_stamp(struct aud
- 			      struct timespec *t, unsigned int *serial);
- extern int  audit_set_loginuid(struct task_struct *task, uid_t loginuid);
- extern uid_t audit_get_loginuid(struct audit_context *ctx);
-+extern void audit_log_task_context(struct audit_buffer *ab);
- extern int __audit_ipc_obj(struct kern_ipc_perm *ipcp);
- extern int __audit_ipc_set_perm(unsigned long qbytes, uid_t uid, gid_t gid, mode_t mode);
- extern int audit_bprm(struct linux_binprm *bprm);
-@@ -449,6 +454,7 @@ extern int audit_n_rules;
- #define audit_inode_update(i) do { ; } while (0)
- #define auditsc_get_stamp(c,t,s) do { BUG(); } while (0)
- #define audit_get_loginuid(c) ({ -1; })
-+#define audit_log_task_context(b) do { ; } while (0)
- #define audit_ipc_obj(i) ({ 0; })
- #define audit_ipc_set_perm(q,u,g,m) ({ 0; })
- #define audit_bprm(p) ({ 0; })
-diff -urpN linux-2.6.18.orig/include/net/xfrm.h linux-2.6.18-patch/include/net/xfrm.h
---- linux-2.6.18.orig/include/net/xfrm.h	2006-11-27 11:21:43.000000000 -0600
-+++ linux-2.6.18-patch/include/net/xfrm.h	2006-11-27 12:29:11.000000000 -0600
-@@ -389,6 +389,15 @@ extern int xfrm_unregister_km(struct xfr
- 
- extern unsigned int xfrm_policy_count[XFRM_POLICY_MAX*2];
- 
-+/* Audit Information */
-+struct xfrm_audit
-+{
-+	uid_t	loginuid;
-+	u32	secid;
-+};
-+void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
-+		    struct xfrm_policy *xp, struct xfrm_state *x);
-+
- static inline void xfrm_pol_hold(struct xfrm_policy *policy)
- {
- 	if (likely(policy != NULL))
-@@ -934,7 +943,7 @@ static inline int xfrm_state_sort(struct
- #endif
- extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
- extern int xfrm_state_delete(struct xfrm_state *x);
--extern void xfrm_state_flush(u8 proto);
-+extern void xfrm_state_flush(u8 proto, struct xfrm_audit *audit_info);
- extern int xfrm_replay_check(struct xfrm_state *x, __be32 seq);
- extern void xfrm_replay_advance(struct xfrm_state *x, __be32 seq);
- extern void xfrm_replay_notify(struct xfrm_state *x, int event);
-@@ -987,13 +996,13 @@ struct xfrm_policy *xfrm_policy_bysel_ct
- 					  struct xfrm_selector *sel,
- 					  struct xfrm_sec_ctx *ctx, int delete);
- struct xfrm_policy *xfrm_policy_byid(u8, int dir, u32 id, int delete);
--void xfrm_policy_flush(u8 type);
-+void xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info);
- u32 xfrm_get_acqseq(void);
- void xfrm_alloc_spi(struct xfrm_state *x, __be32 minspi, __be32 maxspi);
- struct xfrm_state * xfrm_find_acq(u8 mode, u32 reqid, u8 proto, 
- 				  xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 				  int create, unsigned short family);
--extern void xfrm_policy_flush(u8 type);
-+extern void xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info);
- extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- extern int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *xdst,
- 			  struct flowi *fl, int family, int strict);
-diff -urpN linux-2.6.18.orig/kernel/auditsc.c linux-2.6.18-patch/kernel/auditsc.c
---- linux-2.6.18.orig/kernel/auditsc.c	2006-11-27 11:19:36.000000000 -0600
-+++ linux-2.6.18-patch/kernel/auditsc.c	2006-11-27 12:26:39.000000000 -0600
-@@ -730,7 +730,7 @@ static inline void audit_free_context(st
- 		printk(KERN_ERR "audit: freed %d contexts\n", count);
- }
- 
--static void audit_log_task_context(struct audit_buffer *ab)
-+void audit_log_task_context(struct audit_buffer *ab)
- {
- 	char *ctx = NULL;
- 	ssize_t len = 0;
-@@ -759,6 +759,8 @@ error_path:
- 	return;
- }
- 
-+EXPORT_SYMBOL(audit_log_task_context);
-+
- static void audit_log_task_info(struct audit_buffer *ab, struct task_struct *tsk)
- {
- 	char name[sizeof(tsk->comm)];
-@@ -1487,6 +1489,8 @@ uid_t audit_get_loginuid(struct audit_co
- 	return ctx ? ctx->loginuid : -1;
- }
- 
-+EXPORT_SYMBOL(audit_get_loginuid);
-+
- /**
-  * __audit_mq_open - record audit data for a POSIX MQ open
-  * @oflag: open flag
-diff -urpN linux-2.6.18.orig/net/key/af_key.c linux-2.6.18-patch/net/key/af_key.c
---- linux-2.6.18.orig/net/key/af_key.c	2006-11-27 11:22:04.000000000 -0600
-+++ linux-2.6.18-patch/net/key/af_key.c	2006-11-27 12:29:32.000000000 -0600
-@@ -27,6 +27,7 @@
- #include <linux/proc_fs.h>
- #include <linux/init.h>
- #include <net/xfrm.h>
-+#include <linux/audit.h>
- 
- #include <net/sock.h>
- 
-@@ -1420,6 +1421,9 @@ static int pfkey_add(struct sock *sk, st
- 	else
- 		err = xfrm_state_update(x);
- 
-+	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
-+		       AUDIT_MAC_IPSEC_ADDSA, err ? 0 : 1, NULL, x);
-+
- 	if (err < 0) {
- 		x->km.state = XFRM_STATE_DEAD;
- 		__xfrm_state_put(x);
-@@ -1462,6 +1466,10 @@ static int pfkey_delete(struct sock *sk,
- 	}
- 	
- 	err = xfrm_state_delete(x);
-+
-+	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
-+		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
-+
- 	if (err < 0)
- 		goto out;
- 
-@@ -1637,12 +1645,15 @@ static int pfkey_flush(struct sock *sk, 
- {
- 	unsigned proto;
- 	struct km_event c;
-+	struct xfrm_audit audit_info;
- 
- 	proto = pfkey_satype2proto(hdr->sadb_msg_satype);
- 	if (proto == 0)
- 		return -EINVAL;
- 
--	xfrm_state_flush(proto);
-+	audit_info.loginuid = audit_get_loginuid(current->audit_context);
-+	audit_info.secid = 0;
-+	xfrm_state_flush(proto, &audit_info);
- 	c.data.proto = proto;
- 	c.seq = hdr->sadb_msg_seq;
- 	c.pid = hdr->sadb_msg_pid;
-@@ -2195,6 +2206,9 @@ static int pfkey_spdadd(struct sock *sk,
- 	err = xfrm_policy_insert(pol->sadb_x_policy_dir-1, xp,
- 				 hdr->sadb_msg_type != SADB_X_SPDUPDATE);
- 
-+	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
-+		       AUDIT_MAC_IPSEC_ADDSPD, err ? 0 : 1, xp, NULL);
-+
- 	if (err)
- 		goto out;
- 
-@@ -2272,6 +2286,10 @@ static int pfkey_spddelete(struct sock *
- 	xp = xfrm_policy_bysel_ctx(XFRM_POLICY_TYPE_MAIN, pol->sadb_x_policy_dir-1,
- 				   &sel, tmp.security, 1);
- 	security_xfrm_policy_free(&tmp);
-+
-+	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
-+		       AUDIT_MAC_IPSEC_DELSPD, (xp) ? 1 : 0, xp, NULL);
-+
- 	if (xp == NULL)
- 		return -ENOENT;
- 
-@@ -2406,8 +2424,11 @@ static int key_notify_policy_flush(struc
- static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
- 	struct km_event c;
-+	struct xfrm_audit audit_info;
- 
--	xfrm_policy_flush(XFRM_POLICY_TYPE_MAIN);
-+	audit_info.loginuid = audit_get_loginuid(current->audit_context);
-+	audit_info.secid = 0;
-+	xfrm_policy_flush(XFRM_POLICY_TYPE_MAIN, &audit_info);
- 	c.data.type = XFRM_POLICY_TYPE_MAIN;
- 	c.event = XFRM_MSG_FLUSHPOLICY;
- 	c.pid = hdr->sadb_msg_pid;
-diff -urpN linux-2.6.18.orig/net/xfrm/xfrm_policy.c linux-2.6.18-patch/net/xfrm/xfrm_policy.c
---- linux-2.6.18.orig/net/xfrm/xfrm_policy.c	2006-11-27 11:22:05.000000000 -0600
-+++ linux-2.6.18-patch/net/xfrm/xfrm_policy.c	2006-11-27 12:29:33.000000000 -0600
-@@ -25,6 +25,7 @@
- #include <linux/cache.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
-+#include <linux/audit.h>
- 
- #include "xfrm_hash.h"
- 
-@@ -770,7 +771,7 @@ struct xfrm_policy *xfrm_policy_byid(u8 
- }
- EXPORT_SYMBOL(xfrm_policy_byid);
- 
--void xfrm_policy_flush(u8 type)
-+void xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info)
- {
- 	int dir;
- 
-@@ -790,6 +791,9 @@ void xfrm_policy_flush(u8 type)
- 			hlist_del(&pol->byidx);
- 			write_unlock_bh(&xfrm_policy_lock);
- 
-+			xfrm_audit_log(audit_info->loginuid, audit_info->secid,
-+				       AUDIT_MAC_IPSEC_DELSPD, 1, pol, NULL);
-+
- 			xfrm_policy_kill(pol);
- 			killed++;
- 
-@@ -808,6 +812,11 @@ void xfrm_policy_flush(u8 type)
- 				hlist_del(&pol->byidx);
- 				write_unlock_bh(&xfrm_policy_lock);
- 
-+				xfrm_audit_log(audit_info->loginuid, 
-+					       audit_info->secid,
-+					       AUDIT_MAC_IPSEC_DELSPD, 1, 
-+					       pol, NULL);
-+
- 				xfrm_policy_kill(pol);
- 				killed++;
- 
-@@ -1946,6 +1955,115 @@ int xfrm_bundle_ok(struct xfrm_policy *p
- 
- EXPORT_SYMBOL(xfrm_bundle_ok);
- 
-+/* Audit addition and deletion of SAs and ipsec policy */
-+
-+void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
-+		    struct xfrm_policy *xp, struct xfrm_state *x)
-+{
-+
-+	char *secctx;
-+	u32 secctx_len;
-+	struct xfrm_sec_ctx *sctx = NULL;
-+	struct audit_buffer *audit_buf;
-+	int family;
-+	extern int audit_enabled;
-+
-+	if (audit_enabled == 0)
-+		return;
-+
-+	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC, type);
-+	if (audit_buf == NULL)
-+	return;
-+
-+	switch(type) {
-+	case AUDIT_MAC_IPSEC_ADDSA:
-+		audit_log_format(audit_buf, "SAD add: auid=%u", auid);
-+		break;
-+	case AUDIT_MAC_IPSEC_DELSA:
-+		audit_log_format(audit_buf, "SAD delete: auid=%u", auid);
-+		break;
-+	case AUDIT_MAC_IPSEC_ADDSPD:
-+		audit_log_format(audit_buf, "SPD add: auid=%u", auid);
-+		break;
-+	case AUDIT_MAC_IPSEC_DELSPD:
-+		audit_log_format(audit_buf, "SPD delete: auid=%u", auid);
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	if (sid != 0 &&
-+		security_secid_to_secctx(sid, &secctx, &secctx_len) == 0)
-+		audit_log_format(audit_buf, " subj=%s", secctx);
-+	else
-+		audit_log_task_context(audit_buf);
-+
-+	if (xp) {
-+		family = xp->selector.family;
-+		if (xp->security)
-+			sctx = xp->security;
-+	} else {
-+		family = x->props.family;
-+		if (x->security)
-+			sctx = x->security;
-+	}
-+
-+	if (sctx)
-+		audit_log_format(audit_buf,
-+				" sec_alg=%u sec_doi=%u sec_obj=%s",
-+				sctx->ctx_alg, sctx->ctx_doi, sctx->ctx_str);
-+
-+	switch(family) {
-+	case AF_INET:
-+		{
-+			struct in_addr saddr, daddr;
-+			if (xp) {
-+				saddr.s_addr = xp->selector.saddr.a4;
-+				daddr.s_addr = xp->selector.daddr.a4;
-+			} else {
-+				saddr.s_addr = x->props.saddr.a4;
-+				daddr.s_addr = x->id.daddr.a4;
-+			}
-+			audit_log_format(audit_buf,
-+					 " src=%u.%u.%u.%u dst=%u.%u.%u.%u",
-+					 NIPQUAD(saddr), NIPQUAD(daddr));
-+		}
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ net/ipv4/cipso_ipv4.c |  268 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 268 insertions(+)
+
+Index: net-2.6.20_netlabel-cats/net/ipv4/cipso_ipv4.c
+===================================================================
+--- net-2.6.20_netlabel-cats.orig/net/ipv4/cipso_ipv4.c
++++ net-2.6.20_netlabel-cats/net/ipv4/cipso_ipv4.c
+@@ -455,6 +455,10 @@ int cipso_v4_doi_add(struct cipso_v4_doi
+ 		switch (doi_def->tags[iter]) {
+ 		case CIPSO_V4_TAG_RBITMAP:
+ 			break;
++		case CIPSO_V4_TAG_RANGE:
++			if (doi_def->type != CIPSO_V4_MAP_PASS)
++				return -EINVAL;
 +			break;
-+	case AF_INET6:
-+		{
-+			struct in6_addr saddr6, daddr6;
-+			if (xp) {
-+				memcpy(&saddr6, xp->selector.saddr.a6,
-+					sizeof(struct in6_addr));
-+				memcpy(&daddr6, xp->selector.daddr.a6,
-+					sizeof(struct in6_addr));
-+			} else {
-+				memcpy(&saddr6, x->props.saddr.a6,
-+					sizeof(struct in6_addr));
-+				memcpy(&daddr6, x->id.daddr.a6,
-+					sizeof(struct in6_addr));
-+			}
-+			audit_log_format(audit_buf,
-+					 " src=" NIP6_FMT "dst=" NIP6_FMT,
-+					 NIP6(saddr6), NIP6(daddr6));
-+		}
-+		break;
+ 		case CIPSO_V4_TAG_INVALID:
+ 			if (iter == 0)
+ 				return -EINVAL;
+@@ -1045,6 +1049,148 @@ static int cipso_v4_map_cat_enum_ntoh(co
+ 	return 0;
+ }
+ 
++/**
++ * cipso_v4_map_cat_rng_valid - Checks to see if the categories are valid
++ * @doi_def: the DOI definition
++ * @rngcat: category list
++ * @rngcat_len: length of the category list in bytes
++ *
++ * Description:
++ * Checks the given categories against the given DOI definition and returns a
++ * negative value if any of the categories do not have a valid mapping and a
++ * zero value if all of the categories are valid.
++ *
++ */
++static int cipso_v4_map_cat_rng_valid(const struct cipso_v4_doi *doi_def,
++				      const unsigned char *rngcat,
++				      u32 rngcat_len)
++{
++	u16 cat_high;
++	u16 cat_low;
++	u32 cat_prev = CIPSO_V4_MAX_REM_CATS + 1;
++	u32 iter;
++
++	if (doi_def->type != CIPSO_V4_MAP_PASS || rngcat_len & 0x01)
++		return -EFAULT;
++
++	for (iter = 0; iter < rngcat_len; iter += 4) {
++		cat_high = ntohs(*((__be16 *)&rngcat[iter]));
++		if ((iter + 4) <= rngcat_len)
++			cat_low = ntohs(*((__be16 *)&rngcat[iter + 2]));
++		else
++			cat_low = 0;
++
++		if (cat_high > cat_prev)
++			return -EFAULT;
++
++		cat_prev = cat_low;
 +	}
 +
-+	if (x)
-+		audit_log_format(audit_buf, " spi=%lu(0x%lx) protocol=%s",
-+				(unsigned long)ntohl(x->id.spi),
-+				(unsigned long)ntohl(x->id.spi),
-+				x->id.proto == IPPROTO_AH ? "AH" :
-+				(x->id.proto == IPPROTO_ESP ?
-+				"ESP" : "IPCOMP"));
-+
-+	audit_log_format(audit_buf, " res=%u", result);
-+	audit_log_end(audit_buf);
++	return 0;
 +}
 +
-+EXPORT_SYMBOL(xfrm_audit_log);
++/**
++ * cipso_v4_map_cat_rng_hton - Perform a category mapping from host to network
++ * @doi_def: the DOI definition
++ * @secattr: the security attributes
++ * @net_cat: the zero'd out category list in network/CIPSO format
++ * @net_cat_len: the length of the CIPSO category list in bytes
++ *
++ * Description:
++ * Perform a label mapping to translate a local MLS category bitmap to the
++ * correct CIPSO category list using the given DOI definition.   Returns the
++ * size in bytes of the network category bitmap on success, negative values
++ * otherwise.
++ *
++ */
++static int cipso_v4_map_cat_rng_hton(const struct cipso_v4_doi *doi_def,
++				     const struct netlbl_lsm_secattr *secattr,
++				     unsigned char *net_cat,
++				     u32 net_cat_len)
++{
++	/* The constant '16' is not random, it is the maximum number of
++	 * high/low category range pairs as permitted by the CIPSO draft based
++	 * on a maximum IPv4 header length of 60 bytes - the BUG_ON() assertion
++	 * does a sanity check to make sure we don't overflow the array. */
++	int iter = -1;
++	u16 array[16];
++	u32 array_cnt = 0;
++	u32 cat_size = 0;
 +
- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- {
- 	int err = 0;
-diff -urpN linux-2.6.18.orig/net/xfrm/xfrm_state.c linux-2.6.18-patch/net/xfrm/xfrm_state.c
---- linux-2.6.18.orig/net/xfrm/xfrm_state.c	2006-11-27 11:22:05.000000000 -0600
-+++ linux-2.6.18-patch/net/xfrm/xfrm_state.c	2006-11-27 12:29:33.000000000 -0600
-@@ -20,6 +20,7 @@
- #include <linux/module.h>
- #include <linux/cache.h>
- #include <asm/uaccess.h>
-+#include <linux/audit.h>
- 
- #include "xfrm_hash.h"
- 
-@@ -238,6 +239,7 @@ static void xfrm_timer_handler(unsigned 
- 	unsigned long now = (unsigned long)xtime.tv_sec;
- 	long next = LONG_MAX;
- 	int warn = 0;
-+	int err = 0;
- 
- 	spin_lock(&x->lock);
- 	if (x->km.state == XFRM_STATE_DEAD)
-@@ -295,9 +297,14 @@ expired:
- 		next = 2;
- 		goto resched;
- 	}
--	if (!__xfrm_state_delete(x) && x->id.spi)
++	BUG_ON(net_cat_len > 30);
 +
-+	err = __xfrm_state_delete(x);
-+	if (!err && x->id.spi)
- 		km_state_expired(x, 1, 0);
- 
-+	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
-+		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
++	for (;;) {
++		iter = netlbl_secattr_catmap_walk(secattr->mls_cat, iter + 1);
++		if (iter < 0)
++			break;
++		cat_size += (iter == 0 ? 0 : sizeof(u16));
++		if (cat_size > net_cat_len)
++			return -ENOSPC;
++		array[array_cnt++] = iter;
 +
- out:
- 	spin_unlock(&x->lock);
- }
-@@ -384,9 +391,10 @@ int xfrm_state_delete(struct xfrm_state 
- }
- EXPORT_SYMBOL(xfrm_state_delete);
- 
--void xfrm_state_flush(u8 proto)
-+void xfrm_state_flush(u8 proto, struct xfrm_audit *audit_info)
- {
- 	int i;
-+	int err = 0;
- 
- 	spin_lock_bh(&xfrm_state_lock);
- 	for (i = 0; i <= xfrm_state_hmask; i++) {
-@@ -400,6 +408,11 @@ restart:
- 				spin_unlock_bh(&xfrm_state_lock);
- 
- 				xfrm_state_delete(x);
-+				err = xfrm_state_delete(x);
-+				xfrm_audit_log(audit_info->loginuid,
-+					       audit_info->secid,
-+					       AUDIT_MAC_IPSEC_DELSA,
-+					       err ? 0 : 1, NULL, x);
- 				xfrm_state_put(x);
- 
- 				spin_lock_bh(&xfrm_state_lock);
-diff -urpN linux-2.6.18.orig/net/xfrm/xfrm_user.c linux-2.6.18-patch/net/xfrm/xfrm_user.c
---- linux-2.6.18.orig/net/xfrm/xfrm_user.c	2006-11-27 11:22:05.000000000 -0600
-+++ linux-2.6.18-patch/net/xfrm/xfrm_user.c	2006-11-27 12:29:33.000000000 -0600
-@@ -31,6 +31,7 @@
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- #include <linux/in6.h>
- #endif
-+#include <linux/audit.h>
- 
- static int verify_one_alg(struct rtattr **xfrma, enum xfrm_attr_type_t type)
- {
-@@ -457,6 +458,9 @@ static int xfrm_add_sa(struct sk_buff *s
- 	else
- 		err = xfrm_state_update(x);
- 
-+	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+		       AUDIT_MAC_IPSEC_ADDSA, err ? 0 : 1, NULL, x);
-+
- 	if (err < 0) {
- 		x->km.state = XFRM_STATE_DEAD;
- 		__xfrm_state_put(x);
-@@ -525,6 +529,10 @@ static int xfrm_del_sa(struct sk_buff *s
- 	}
- 
- 	err = xfrm_state_delete(x);
-+
-+	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
-+
- 	if (err < 0)
- 		goto out;
- 
-@@ -998,6 +1006,9 @@ static int xfrm_add_policy(struct sk_buf
- 	 * a type XFRM_MSG_UPDPOLICY - JHS */
- 	excl = nlh->nlmsg_type == XFRM_MSG_NEWPOLICY;
- 	err = xfrm_policy_insert(p->dir, xp, excl);
-+	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+		       AUDIT_MAC_IPSEC_DELSPD, err ? 0 : 1, xp, NULL);
-+
- 	if (err) {
- 		security_xfrm_policy_free(xp);
- 		kfree(xp);
-@@ -1226,6 +1237,10 @@ static int xfrm_get_policy(struct sk_buf
- 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, tmp.security, delete);
- 		security_xfrm_policy_free(&tmp);
- 	}
-+	if (delete)
-+		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+			       AUDIT_MAC_IPSEC_DELSPD, (xp) ? 1 : 0, xp, NULL);
-+
- 	if (xp == NULL)
- 		return -ENOENT;
- 
-@@ -1260,8 +1275,11 @@ static int xfrm_flush_sa(struct sk_buff 
- {
- 	struct km_event c;
- 	struct xfrm_usersa_flush *p = NLMSG_DATA(nlh);
-+	struct xfrm_audit audit_info;
- 
--	xfrm_state_flush(p->proto);
-+	audit_info.loginuid = NETLINK_CB(skb).loginuid;
-+	audit_info.secid = NETLINK_CB(skb).sid;
-+	xfrm_state_flush(p->proto, &audit_info);
- 	c.data.proto = p->proto;
- 	c.event = nlh->nlmsg_type;
- 	c.seq = nlh->nlmsg_seq;
-@@ -1409,12 +1427,15 @@ static int xfrm_flush_policy(struct sk_b
- 	struct km_event c;
- 	__u8 type = XFRM_POLICY_TYPE_MAIN;
- 	int err;
-+	struct xfrm_audit audit_info;
- 
- 	err = copy_from_user_policy_type(&type, (struct rtattr **)xfrma);
- 	if (err)
- 		return err;
- 
--	xfrm_policy_flush(type);
-+	audit_info.loginuid = NETLINK_CB(skb).loginuid;
-+	audit_info.secid = NETLINK_CB(skb).sid;
-+	xfrm_policy_flush(type, &audit_info);
- 	c.data.type = type;
- 	c.event = nlh->nlmsg_type;
- 	c.seq = nlh->nlmsg_seq;
-@@ -1469,6 +1490,9 @@ static int xfrm_add_pol_expire(struct sk
- 	err = 0;
- 	if (up->hard) {
- 		xfrm_policy_delete(xp, p->dir);
-+		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+				AUDIT_MAC_IPSEC_DELSPD, 1, xp, NULL);
-+
- 	} else {
- 		// reset the timers here?
- 		printk("Dont know what to do with soft policy expire\n");
-@@ -1500,8 +1524,11 @@ static int xfrm_add_sa_expire(struct sk_
- 		goto out;
- 	km_state_expired(x, ue->hard, current->pid);
- 
--	if (ue->hard)
-+	if (ue->hard) {
- 		__xfrm_state_delete(x);
-+		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+			       AUDIT_MAC_IPSEC_DELSA, 1, NULL, x);
++		iter = netlbl_secattr_catmap_walk_rng(secattr->mls_cat, iter);
++		if (iter < 0)
++			return -EFAULT;
++		cat_size += sizeof(u16);
++		if (cat_size > net_cat_len)
++			return -ENOSPC;
++		array[array_cnt++] = iter;
 +	}
- out:
- 	spin_unlock_bh(&x->lock);
- 	xfrm_state_put(x);
++
++	for (iter = 0; array_cnt > 0;) {
++		*((__be16 *)&net_cat[iter]) = htons(array[--array_cnt]);
++		iter += 2;
++		array_cnt--;
++		if (array[array_cnt] != 0) {
++			*((__be16 *)&net_cat[iter]) = htons(array[array_cnt]);
++			iter += 2;
++		}
++	}
++
++	return cat_size;
++}
++
++/**
++ * cipso_v4_map_cat_rng_ntoh - Perform a category mapping from network to host
++ * @doi_def: the DOI definition
++ * @net_cat: the category list in network/CIPSO format
++ * @net_cat_len: the length of the CIPSO bitmap in bytes
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Perform a label mapping to translate a CIPSO category list to the correct
++ * local MLS category bitmap using the given DOI definition.  Returns zero on
++ * success, negative values on failure.
++ *
++ */
++static int cipso_v4_map_cat_rng_ntoh(const struct cipso_v4_doi *doi_def,
++				     const unsigned char *net_cat,
++				     u32 net_cat_len,
++				     struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val;
++	u32 net_iter;
++	u16 cat_low;
++	u16 cat_high;
++
++	for(net_iter = 0; net_iter < net_cat_len; net_iter += 4) {
++		cat_high = ntohs(*((__be16 *)&net_cat[net_iter]));
++		if ((net_iter + 4) <= net_cat_len)
++			cat_low = ntohs(*((__be16 *)&net_cat[net_iter + 2]));
++		else
++			cat_low = 0;
++
++		ret_val = netlbl_secattr_catmap_setrng(secattr->mls_cat,
++						       cat_low,
++						       cat_high,
++						       GFP_ATOMIC);
++		if (ret_val != 0)
++			return ret_val;
++	}
++
++	return 0;
++}
++
+ /*
+  * Protocol Handling Functions
+  */
+@@ -1266,6 +1412,98 @@ static int cipso_v4_parsetag_enum(const 
+ }
+ 
+ /**
++ * cipso_v4_gentag_rng - Generate a CIPSO ranged tag (type #5)
++ * @doi_def: the DOI definition
++ * @secattr: the security attributes
++ * @buffer: the option buffer
++ * @buffer_len: length of buffer in bytes
++ *
++ * Description:
++ * Generate a CIPSO option using the ranged tag, tag type #5.  Returns the
++ * size of the tag on success, negative values on failure.
++ *
++ */
++static int cipso_v4_gentag_rng(const struct cipso_v4_doi *doi_def,
++			       const struct netlbl_lsm_secattr *secattr,
++			       unsigned char *buffer,
++			       u32 buffer_len)
++{
++	int ret_val;
++	u32 tag_len;
++	u32 level;
++
++	if (!(secattr->flags & NETLBL_SECATTR_MLS_LVL))
++		return -EPERM;
++
++	ret_val = cipso_v4_map_lvl_hton(doi_def, secattr->mls_lvl, &level);
++	if (ret_val != 0)
++		return ret_val;
++
++	if (secattr->flags & NETLBL_SECATTR_MLS_CAT) {
++		ret_val = cipso_v4_map_cat_rng_hton(doi_def,
++						    secattr,
++						    &buffer[4],
++						    buffer_len - 4);
++		if (ret_val < 0)
++			return ret_val;
++
++		tag_len = 4 + ret_val;
++	} else
++		tag_len = 4;
++
++	buffer[0] = 0x05;
++	buffer[1] = tag_len;
++	buffer[3] = level;
++
++	return tag_len;
++}
++
++/**
++ * cipso_v4_parsetag_rng - Parse a CIPSO ranged tag
++ * @doi_def: the DOI definition
++ * @tag: the CIPSO tag
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Parse a CIPSO ranged tag (tag type #5) and return the security attributes
++ * in @secattr.  Return zero on success, negatives values on failure.
++ *
++ */
++static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
++				 const unsigned char *tag,
++				 struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val;
++	u8 tag_len = tag[1];
++	u32 level;
++
++	ret_val = cipso_v4_map_lvl_ntoh(doi_def, tag[3], &level);
++	if (ret_val != 0)
++		return ret_val;
++	secattr->mls_lvl = level;
++	secattr->flags |= NETLBL_SECATTR_MLS_LVL;
++
++	if (tag_len > 4) {
++		secattr->mls_cat = netlbl_secattr_catmap_alloc(GFP_ATOMIC);
++		if (secattr->mls_cat == NULL)
++			return -ENOMEM;
++
++		ret_val = cipso_v4_map_cat_rng_ntoh(doi_def,
++						    &tag[4],
++						    tag_len - 4,
++						    secattr);
++		if (ret_val != 0) {
++			netlbl_secattr_catmap_free(secattr->mls_cat);
++			return ret_val;
++		}
++
++		secattr->flags |= NETLBL_SECATTR_MLS_CAT;
++	}
++
++	return 0;
++}
++
++/**
+  * cipso_v4_validate - Validate a CIPSO option
+  * @option: the start of the option, on error it is set to point to the error
+  *
+@@ -1373,6 +1611,25 @@ int cipso_v4_validate(unsigned char **op
+ 				goto validate_return_locked;
+ 			}
+ 			break;
++		case CIPSO_V4_TAG_RANGE:
++			if (tag_len < 4) {
++				err_offset = opt_iter + 1;
++				goto validate_return_locked;
++			}
++
++			if (cipso_v4_map_lvl_valid(doi_def,
++						   tag[3]) < 0) {
++				err_offset = opt_iter + 3;
++				goto validate_return_locked;
++			}
++			if (tag_len > 4 &&
++			    cipso_v4_map_cat_rng_valid(doi_def,
++						       &tag[4],
++						       tag_len - 4) < 0) {
++				err_offset = opt_iter + 4;
++				goto validate_return_locked;
++			}
++			break;
+ 		default:
+ 			err_offset = opt_iter;
+ 			goto validate_return_locked;
+@@ -1492,6 +1749,12 @@ int cipso_v4_socket_setattr(const struct
+ 						   &buf[CIPSO_V4_HDR_LEN],
+ 						   buf_len - CIPSO_V4_HDR_LEN);
+ 			break;
++		case CIPSO_V4_TAG_RANGE:
++			ret_val = cipso_v4_gentag_rng(doi_def,
++						   secattr,
++						   &buf[CIPSO_V4_HDR_LEN],
++						   buf_len - CIPSO_V4_HDR_LEN);
++			break;
+ 		default:
+ 			ret_val = -EPERM;
+ 			goto socket_setattr_failure;
+@@ -1593,6 +1856,11 @@ int cipso_v4_sock_getattr(struct sock *s
+ 						 &cipso_ptr[6],
+ 						 secattr);
+ 		break;
++	case CIPSO_V4_TAG_RANGE:
++		ret_val = cipso_v4_parsetag_rng(doi_def,
++						&cipso_ptr[6],
++						secattr);
++		break;
+ 	}
+ 	rcu_read_unlock();
+ 
+
+--
+paul moore
+linux security @ hp
