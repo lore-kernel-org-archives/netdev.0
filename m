@@ -1,98 +1,67 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [PATCH] [IPVS] use msleep_interruptable() instead of ssleep() aka msleep()
-Date: Wed, 29 Nov 2006 09:58:35 +0900
-Message-ID: <20061129005834.GA25535@verge.net.au>
-References: <20061128062716.GA32377@verge.net.au> <Pine.LNX.4.58.0611281031190.2787@u.domain.uli>
+From: David Chinner <dgc@sgi.com>
+Subject: Re: 2.6.19-rc6 : Spontaneous reboots, stack overflows - seems to implicate xfs, scsi, networking, SMP
+Date: Wed, 29 Nov 2006 12:56:04 +1100
+Message-ID: <20061129015604.GA33919298@melbourne.sgi.com>
+References: <200611211027.41971.jesper.juhl@gmail.com> <45637566.5020802@melbourne.sgi.com> <9a8748490611211402xdc2822fqbc95a77fe54d49b1@mail.gmail.com> <20061121233141.GP37654165@melbourne.sgi.com> <9a8748490611211551v2ebe88fel2bcf25af004c338a@mail.gmail.com> <9a8748490611220458w4d94d953v21f7a29a9f1bdb72@mail.gmail.com> <20061123011809.GY37654165@melbourne.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Dean Manners <deanm@ispone.com.au>,
-	Wensong Zhan <wensong@linux-vs.org>,
-	Joseph Mack NA3T <jmack@wm7d.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:19100 "EHLO koto.vergenet.net")
-	by vger.kernel.org with ESMTP id S1758733AbWK2BpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 20:45:02 -0500
-To: Julian Anastasov <ja@ssi.bg>
+Cc: Jesper Juhl <jesper.juhl@gmail.com>, chatz@melbourne.sgi.com,
+	LKML <linux-kernel@vger.kernel.org>, xfs@oss.sgi.com,
+	xfs-masters@oss.sgi.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, kaos@sgi.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: David Chinner <dgc@sgi.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0611281031190.2787@u.domain.uli>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061123011809.GY37654165@melbourne.sgi.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 28, 2006 at 10:35:01AM +0200, Julian Anastasov wrote:
+On Thu, Nov 23, 2006 at 12:18:09PM +1100, David Chinner wrote:
+> On Wed, Nov 22, 2006 at 01:58:11PM +0100, Jesper Juhl wrote:
+> > 
+> > Attached are two files. The one named stack_overflows.txt.gz contains
+> > one instance of each unique stack overflow + trace that I've got.  The
+> > other file named kernel_BUG.txt.gz contains a few BUG() messages that
+> > were also in the logs.
+....
+> I've just checked on a 2.6.17 build on i386 how much stack we
+> are using (from checkstack.pl with min size reported set to 32 bytes)
+> here in XFS:
+....
+> So, assuming the stacks less than 32 bytes are 32 bytes, we've got
+> 1380 bytes in the XFS stack there, and very few functions where it
+> can be reduced further. Still, 1380 bytes is way, way short of 4KB,
+> so unless there is extra stack usage that checkstack doesn't tell us
+> about I'm not sure why this amount of usage is causing repeated
+> stack overflows with very little stack usage on either side of it.
 > 
-> 	Hello,
-> 
-> On Tue, 28 Nov 2006, Horms wrote:
-> 
-> > Dean Manners notices that when an IPVS synchonisation daemons are
-> > started the system load slowly climbs up to 1. This seems to be related
-> > to the call to ssleep(1) (aka msleep(1000) in the main loop. Replacing
-> > this with a call to msleep_interruptable() seems to make the problem go
-> > away. Though I'm not sure that it is correct.
-> 
-> 	The same is needed for sync_backup_loop
+> Can someone enlighten me as to where all the rest of the stack
+> is being used up here?
 
-Good point. It also seems as well to change it in fork_sync_thread()
-and start_sync_thread(), though these are unlikely to be causing a problem.
+FYI.
 
+With some help from Keith Owens, we've determined that gcc 3.3.5
+resulted in XFS stack usage of about 1.9KB through the writeback and
+allocation path with another ~800 bytes of stack usage in generic
+code in this path.
+
+The big difference between the numbers I was getting from checkstack
+and reality was CONFIG_CC_OPTIMISE_FOR_SIZE=y being set on the
+kernels I was stack checking. IOWs, CONFIG_CC_OPTIMISE_FOR_SIZE=y
+appears to reduce XFS stack usage by at least 20% and so probably
+should be used with XFS on 4k stacks.
+
+Keith also confirmed that gcc-4.1's aggressive inlining of static
+functions substantially increases stack usage (by ~15%) through this
+call chain.  Given that many of the inlined static functions are not
+required by the critical path (i.e. they'd previously been factored
+out to reduce stack usage), gcc is effectively undoing past mods
+that had substantially reduced XFS's stack usage.
+
+Cheers,
+
+Dave.
 -- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
-Dean Manners notices that when an IPVS synchonisation daemons are
-started the system load slowly climbs up to 1. This seems to be related
-to the call to ssleep(1) (aka msleep(1000) in the main loop. Replacing
-this with a call to msleep_interruptable() seems to make the problem go
-away. Though I'm not sure that it is correct.
-
-This is the second edition of this patch, which replaces ssleep()
-in the main loop for both the master and backup threads, as well
-as some thread synchronisation code. The latter is just for thorougness
-as it shouldn't be causing any problems.
-
-Cc: Dean Manners <deanm@ispone.com.au>
-Cc: Julian Anastasov <ja@ssi.bg>
-Signed-Off-By: Simon Horman <horms@verge.net.au>
-
-Index: linux-2.6/net/ipv4/ipvs/ip_vs_sync.c
-===================================================================
---- linux-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2006-11-28 15:30:00.000000000 +0900
-+++ linux-2.6/net/ipv4/ipvs/ip_vs_sync.c	2006-11-29 09:46:27.000000000 +0900
-@@ -657,7 +657,7 @@
- 		if (stop_master_sync)
- 			break;
- 
--		ssleep(1);
-+		msleep_interruptible(1000);
- 	}
- 
- 	/* clean up the sync_buff queue */
-@@ -714,7 +714,7 @@
- 		if (stop_backup_sync)
- 			break;
- 
--		ssleep(1);
-+		msleep_interruptible(1000);
- 	}
- 
- 	/* release the sending multicast socket */
-@@ -826,7 +826,7 @@
- 	if ((pid = kernel_thread(sync_thread, startup, 0)) < 0) {
- 		IP_VS_ERR("could not create sync_thread due to %d... "
- 			  "retrying.\n", pid);
--		ssleep(1);
-+		msleep_interruptible(1000);
- 		goto repeat;
- 	}
- 
-@@ -860,7 +860,7 @@
- 	if ((pid = kernel_thread(fork_sync_thread, &startup, 0)) < 0) {
- 		IP_VS_ERR("could not create fork_sync_thread due to %d... "
- 			  "retrying.\n", pid);
--		ssleep(1);
-+		msleep_interruptible(1000);
- 		goto repeat;
- 	}
- 
+Dave Chinner
+Principal Engineer
+SGI Australian Software Group
