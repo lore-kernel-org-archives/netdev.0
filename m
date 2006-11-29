@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch sungem] improved locking
-Date: Tue, 28 Nov 2006 15:43:50 -0800 (PST)
-Message-ID: <20061128.154350.02290212.davem@davemloft.net>
-References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
-	<20061128.144911.55733883.davem@davemloft.net>
-	<1164754644.5350.110.camel@localhost.localdomain>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] [NET] dont insert socket dentries into
+ dentry_hashtable.
+Date: Tue, 28 Nov 2006 16:13:54 -0800
+Message-ID: <20061128161354.d5c11ba5.akpm@osdl.org>
+References: <20061025.230615.92585270.davem@davemloft.net>
+	<200610311948.48970.dada1@cosmosbay.com>
+	<200611221900.36216.dada1@cosmosbay.com>
+	<20061128.153531.34751359.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.lemoine@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41179
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1757958AbWK1Xnn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 18:43:43 -0500
-To: benh@kernel.crashing.org
-In-Reply-To: <1164754644.5350.110.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, viro@ftp.linux.org.uk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757964AbWK2AOe@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061128.153531.34751359.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 29 Nov 2006 09:57:24 +1100
+On Tue, 28 Nov 2006 15:35:31 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
 > 
-> > This looks mostly fine.
-> > 
-> > I was thinking about the lockless stuff, and I wonder if there
-> > is a clever way you can get it back down to one PIO on the
-> > GREG_STAT register.
-> > 
-> > I think you'd need to have the ->poll() clear gp->status, then
-> > do a smp_wb(), right before it re-enables interrupts.
-> > 
-> > Then in the interrupt handler, you need to find a way to safely
-> > OR-in any unset bits in gp->status in a race-free manner.
+> Andrew, I'm fine with these three patches, specifically:
 > 
-> Having it atomic might work at a slightly smaller cost than a lock,
-> though atomics don't have strong ordering requirements so you'd still
-> have to be a bit careful.
+> [PATCH] dont insert pipe dentries into dentry_hashtable.
+> [PATCH] [DCACHE] : avoid RCU for never hashed dentries
+> [PATCH] [NET] dont insert socket dentries into dentry_hashtable.
+> 
+> Could you toss them into -mm if you haven't already?
 
-At least in theory the atomic + any necessary memory barriers
-would be cheaper than the extra PIO read we need otherwise.
+They were in rc6-mm2.
+
+>  This
+> makes better sense then me putting it into net-2.6.20 since
+> it touches FS stuff.
+> 
+
+No probs, they're all lined up and ready to go, thanks.
