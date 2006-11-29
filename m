@@ -1,51 +1,36 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Wed, 29 Nov 2006 17:03:21 +0100
-Message-ID: <200611291703.21648.mb@bu3sch.de>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com> <200611291638.56759.mb@bu3sch.de> <1443.194.45.26.221.1164815926.squirrel@webmail.otaku42.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] d80211: Reset assoc and auth retry counters
+Date: Wed, 29 Nov 2006 11:10:15 -0500
+Message-ID: <20061129161009.GA7569@tuxdriver.com>
+References: <200611282056.05641.IvDoorn@gmail.com> <20061129150928.63bf9f02@griffin.suse.cz> <a32f33a40611290627q5fb9f905ued49bbae6f5670b3@mail.gmail.com> <20061129153307.72ba559d@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David Kimdon" <david.kimdon@devicescape.com>,
-	"Nick Kossifidis" <mickflemm@gmail.com>,
-	"Daniel Drake" <ddrake@brontes3d.com>, netdev@vger.kernel.org,
-	madwifi-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Ivo Van Doorn <ivdoorn@gmail.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:2232
-	"EHLO vs166246.vserver.de") by vger.kernel.org with ESMTP
-	id S967455AbWK2QDf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 11:03:35 -0500
-To: "Michael Renzmann" <madwifi@nospam.otaku42.de>
-In-Reply-To: <1443.194.45.26.221.1164815926.squirrel@webmail.otaku42.de>
+Received: from ra.tuxdriver.com ([70.61.120.52]:12560 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S967453AbWK2QK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 11:10:56 -0500
+To: Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
+In-Reply-To: <20061129153307.72ba559d@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 29 November 2006 16:58, Michael Renzmann wrote:
-> Hi.
+On Wed, Nov 29, 2006 at 03:33:07PM +0100, Jiri Benc wrote:
+> On Wed, 29 Nov 2006 15:27:06 +0100, Ivo Van Doorn wrote:
+> > Shouldn't this last one be:
+> > ieee80211_set_disassoc(dev, ifsta, 0)
+> > 
+> > This one is called from the IOCTL request to dissassociate,
+> > so the interface should still be authenticated (with a valid
+> > auth retry counter).
 > 
-> > On Wednesday 29 November 2006 16:24, David Kimdon wrote:
-> >> There is absolutely no reason why dadwifi can't be merged into the
-> >> mainline once the hal issue is resolved.
-> > Last time we talked about that stuff, it was decided that
-> > we don't want a HAL... See archives.
-> 
-> IIRC Pavel already explained that getting rid of the HAL per se should be
-> no problem - it could easily be dissolved into the driver, if that is one
-> of the requirements to be fulfilled before the driver (MadWifi or DadWifi)
-> is considered for mainline inclusion. As soon as there is source available
-> to dissolve, at least.
+> Yes, of course. Thanks for being watchful :-)
 
-Ok, so who actually does the work?
-It has been talked a lot about what could and what should be done.
-But who does it?
+I'll massage this and apply it on top of wireless-dev, since I already
+applied Ivo's patch.
 
-> From what I understood the "... once the hal issue is resolved" part of
-> David's mail refered to exactly that question.
-
-Ok, I don't know what "The HAL Issue" (tm) is.
-Sounds like a hollywood movie theme to me. ;)
-
+John
 -- 
-Greetings Michael.
+John W. Linville
+linville@tuxdriver.com
