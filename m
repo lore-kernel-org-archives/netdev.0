@@ -1,35 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] lockdep: fix sk->sk_callback_lock locking
-Date: Wed, 29 Nov 2006 23:07:09 +1100
-Message-ID: <20061129120709.GB22749@gondor.apana.org.au>
-References: <E1GpKC4-0005Vc-00@gondolin.me.apana.org.au> <1164800544.6588.118.camel@twins>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [IPv4] fib: Fix out of bound access of fib_props[]
+Date: Wed, 29 Nov 2006 14:55:11 +0100
+Message-ID: <20061129135511.GZ8693@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@osdl.org, mingo@elte.hu,
-	gandalf@wlug.westbo.se
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55818 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S935467AbWK2MHZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 07:07:25 -0500
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Received: from postel.suug.ch ([194.88.212.233]:44693 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S966972AbWK2Nyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 08:54:51 -0500
+To: davem@davemloft.net
 Content-Disposition: inline
-In-Reply-To: <1164800544.6588.118.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 29, 2006 at 12:42:24PM +0100, Peter Zijlstra wrote:
-> 
-> However I'm not quite sure yet how to teach lockdep about this. The
-> proposed patch will shut it up though.
+Fixes a typo which caused fib_props[] to have the wrong size
+and makes sure the value used to index the array which is
+provided by userspace via netlink is checked to avoid out of
+bound access.
 
-As a rule I think we should never make semantic changes to shut up
-lockdep.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Index: net-2.6/net/ipv4/fib_semantics.c
+===================================================================
+--- net-2.6.orig/net/ipv4/fib_semantics.c	2006-11-29 13:33:05.000000000 +0100
++++ net-2.6/net/ipv4/fib_semantics.c	2006-11-29 13:36:13.000000000 +0100
+@@ -89,7 +89,7 @@
+ {
+ 	int	error;
+ 	u8	scope;
+-} fib_props[RTA_MAX + 1] = {
++} fib_props[RTN_MAX + 1] = {
+         {
+ 		.error	= 0,
+ 		.scope	= RT_SCOPE_NOWHERE,
+@@ -658,6 +658,9 @@
+ 	struct fib_info *ofi;
+ 	int nhs = 1;
+ 
++	if (cfg->fc_type > RTN_MAX)
++		goto err_inval;
++
+ 	/* Fast check to catch the most weird cases */
+ 	if (fib_props[cfg->fc_type].scope > cfg->fc_scope)
+ 		goto err_inval;
