@@ -1,60 +1,34 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
-Date: Wed, 29 Nov 2006 22:31:52 +0100
-Message-ID: <200611292231.53253.rjw@sisk.pl>
-References: <20061128020246.47e481eb.akpm@osdl.org> <200611292108.00578.rjw@sisk.pl> <20061129133030.18c023cf.akpm@osdl.org>
+From: "Berck E. Nash" <flyboy@gmail.com>
+Subject: Re: sky2 hang still exists in 2.6.19-rc6 --Bug#396185?
+Date: Wed, 29 Nov 2006 14:42:59 -0700
+Message-ID: <456DFEE3.5070107@gmail.com>
+References: <456D1427.70205@gmail.com> <456D30D8.20806@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, tulip-users@lists.sourceforge.net,
-	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Valerie Henson <val_henson@linux.intel.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:48586 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S1758129AbWK2Vge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 16:36:34 -0500
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061129133030.18c023cf.akpm@osdl.org>
-Content-Disposition: inline
+Received: from py-out-1112.google.com ([64.233.166.182]:8383 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1758141AbWK2VnD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 16:43:03 -0500
+Received: by py-out-1112.google.com with SMTP id a29so1543694pyi
+        for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 13:43:03 -0800 (PST)
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <456D30D8.20806@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, 29 November 2006 22:30, Andrew Morton wrote:
-> On Wed, 29 Nov 2006 21:08:00 +0100
-> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> 
-> > On Wednesday, 29 November 2006 20:54, Rafael J. Wysocki wrote:
-> > > On Tuesday, 28 November 2006 11:02, Andrew Morton wrote:
-> > > > 
-> > > > Temporarily at
-> > > > 
-> > > > http://userweb.kernel.org/~akpm/2.6.19-rc6-mm2/
-> > > > 
-> > > > Will appear eventually at
-> > > > 
-> > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.19-rc6/2.6.19-rc6-mm2/
-> > > 
-> > > A minor issue: on one of my (x86-64) test boxes the uli526x driver doesn't
-> > > work when it's first loaded.  I have to rmmod and modprobe it to make it work.
-> 
-> That isn't a minor issue.
-> 
-> > > It worked just fine on -mm1, so something must have happened to it recently.
-> > 
-> > Sorry, I was wrong.  The driver doesn't work at all, even after reload.
-> > 
-> 
-> tulip-dmfe-carrier-detection-fix.patch was added in rc6-mm2.  But you're
-> not using that (corrent?)
-> 
-> git-netdev-all changes drivers/net/tulip/de2104x.c, but you're not using
-> that either.
-> 
-> git-powerpc(!) alters drivers/net/tulip/de4x5.c, but you're not using that.
-> 
-> Beats me, sorry.  Perhaps it's due to changes in networking core.  It's
-> presumably a showstopper for statically-linked-uli526x users.  If you could
-> bisect it, please?  I'd start with git-netdev-all, then tulip-*.
+Stephen Hemminger wrote:
 
-OK, but it'll take some time.
+> That motherboard has dual lan, are you using both of them?
+> I don't have that chip version, so hard to tell if it is using dual port 
+> with a single chip
+> or not.  There is a hack for the dual port PCI-X version already in the 
+> driver,
+> that turns off receive checksums if both ports are in use. Please try 
+> turning off
+> receive checksums with ethtool and see if that helps.
+
+I'm only using one port.  The second port is disabled in the BIOS.  The 
+problem still occurs with receive checksums off.
