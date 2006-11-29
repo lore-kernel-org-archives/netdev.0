@@ -1,59 +1,50 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [SAA9730] Fix build error
-Date: Wed, 29 Nov 2006 05:44:28 +0100
-Message-ID: <20061129044428.GF15364@stusta.de>
-References: <20061128173259.GA19092@linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely
+ duplicate route_reverse function
+Date: Tue, 28 Nov 2006 20:44:40 -0800 (PST)
+Message-ID: <20061128.204440.39160464.davem@davemloft.net>
+References: <20061128.202535.112619392.davem@davemloft.net>
+	<E1GpHDJ-00059y-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, khc@pm.waw.pl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:21510 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1758786AbWK2EoY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 23:44:24 -0500
-To: Ralf Baechle <ralf@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20061128173259.GA19092@linux-mips.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56463
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1758789AbWK2Eol (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Nov 2006 23:44:41 -0500
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1GpHDJ-00059y-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 28, 2006 at 05:32:59PM +0000, Ralf Baechle wrote:
-> Confusingly NET_PCI is also set for for non-PCI EISA configurations where
-> building this driver will result in a build error due to a reference to
-> pci_release_regions.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 29 Nov 2006 15:38:29 +1100
+
+> David Miller <davem@davemloft.net> wrote:
+> > 
+> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > index 9264139..95e86ac 100644
+> > --- a/include/linux/netdevice.h
+> > +++ b/include/linux/netdevice.h
+> > @@ -94,7 +94,9 @@ #endif
+> > #endif
+> > 
+> > #if !defined(CONFIG_NET_IPIP) && \
+> > -    !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE)
+> > +    !defined(CONFIG_NET_IPGRE) && \
+> > +    !defined(CONFIG_IPV6_SIT) && \
+> > +    !defined(CONFIG_IPV6_TUNNEL)
+> > #define MAX_HEADER LL_MAX_HEADER
+> > #else
+> > #define MAX_HEADER (LL_MAX_HEADER + 48)
 > 
-> While at it, remove the EXPERIMENTAL - in all its uglyness and despite
+> What if ipip/gre are modules?
 
-Please also remove the EXPERIMENTAL from the help text.
+Good catch, I'll fix that up by adding the missing CONFIG_*_MODULE
+cases.
 
-> the sincerest attempts of the buggy hardware the driver is known to work
-> and limit the driver to the Atlas board - the only known system to ever
-> use the SAA9730 before Phillips ended the short live of the SAA9730.
-> 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 4f22c8e..6b5b745 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -1762,7 +1762,7 @@ config VIA_RHINE_NAPI
->  
->  config LAN_SAA9730
->  	bool "Philips SAA9730 Ethernet support (EXPERIMENTAL)"
-> -	depends on NET_PCI && EXPERIMENTAL && MIPS
-> +	depends on NET_PCI && PCI && MIPS_ATLAS
->  	help
->  	  The SAA9730 is a combined multimedia and peripheral controller used
->  	  in thin clients, Internet access terminals, and diskless
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Longer term this is really messy, we should handle this some
+other way.
