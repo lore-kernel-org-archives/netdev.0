@@ -1,23 +1,25 @@
-From: Martin Bligh <mbligh@mbligh.org>
-Subject: Re: [Changelog] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 15:36:14 -0800
-Message-ID: <456E196E.2080802@mbligh.org>
-References: <HNEBLGGMEGLPMPPDOPMGCEAKCGAA.wenji@fnal.gov>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Bug 7596 - Potential performance bottleneck for Linxu TCP
+Date: Wed, 29 Nov 2006 15:42:00 -0800
+Message-ID: <20061129154200.c4db558c.akpm@osdl.org>
+References: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, akpm@osdl.org,
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dvhart.com ([64.146.134.43]:7369 "EHLO dvhart.com")
-	by vger.kernel.org with ESMTP id S967420AbWK2XgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:36:15 -0500
+Received: from smtp.osdl.org ([65.172.181.25]:63710 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S934499AbWK2XmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:42:06 -0500
 To: wenji@fnal.gov
-In-Reply-To: <HNEBLGGMEGLPMPPDOPMGCEAKCGAA.wenji@fnal.gov>
+In-Reply-To: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wenji Wu wrote:
+On Wed, 29 Nov 2006 17:22:10 -0600
+Wenji Wu <wenji@fnal.gov> wrote:
+
 > From: Wenji Wu <wenji@fnal.gov>
 > 
 > Greetings,
@@ -35,14 +37,14 @@ Wenji Wu wrote:
 > will not be TCP processed till the network applicaton resume its execution.
 > If
 > the system is heavily loaded, TCP can easily RTO in the Sender Side.
+> 
+> Attached is the detailed description of the problem and one possible
+> solution.
 
+Thanks.  The attachment will be too large for the mailing-list servers so I
+uploaded a copy to
+http://userweb.kernel.org/~akpm/Linux-TCP-Bottleneck-Analysis-Report.pdf
 
-So how much difference did this patch actually make, and to what
-benchmark?
+>From a quick peek it appears that you're getting around 10% improvement in
+TCP throughput, best case.
 
-> The patch is for Linux kernel 2.6.14 Deskop and Low-latency Desktop
-
-The patch oesn't seem to be attached? Also, would be better to make
-it for the latest kernel version (2.6.19) ... 2.6.14 is rather old ;-)
-
-M
