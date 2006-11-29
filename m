@@ -1,57 +1,47 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.19-rc6-mm1: drivers/net/chelsio/: unused code
-Date: Tue, 28 Nov 2006 23:47:19 -0800
-Message-ID: <20061128234719.9b3a224d.akpm@osdl.org>
-References: <20061123021703.8550e37e.akpm@osdl.org>
-	<20061124001731.GO3557@stusta.de>
-	<20061127102455.362fe88f@dxpl.pdx.osdl.net>
-	<20061129073609.GA11084@stusta.de>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] lockdep: fix sk->sk_callback_lock locking
+Date: Wed, 29 Nov 2006 09:44:28 +0100
+Message-ID: <20061129084428.GC1001@ff.dom.local>
+References: <E1GpKC4-0005Vc-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@osdl.org, mingo@elte.hu,
+	gandalf@wlug.westbo.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:59566 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S966059AbWK2Huj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 02:50:39 -0500
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20061129073609.GA11084@stusta.de>
+Received: from poczta.o2.pl ([193.17.41.142]:57575 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1758798AbWK2Ihu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 03:37:50 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1GpKC4-0005Vc-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Nov 2006 08:36:09 +0100
-Adrian Bunk <bunk@stusta.de> wrote:
-
-> On Mon, Nov 27, 2006 at 10:24:55AM -0800, Stephen Hemminger wrote:
-> > On Fri, 24 Nov 2006 01:17:31 +0100
-> > Adrian Bunk <bunk@stusta.de> wrote:
-> > 
-> > > On Thu, Nov 23, 2006 at 02:17:03AM -0800, Andrew Morton wrote:
-> > > >...
-> > > > Changes since 2.6.19-rc5-mm2:
-> > > >...
-> > > > +chelsio-22-driver.patch
-> > > >...
-> > > >  netdev updates
-> > > 
-> > > It is suspicious that the following newly added code is completely unused:
-> > >   drivers/net/chelsio/ixf1010.o
-> > >     t1_ixf1010_ops
-> > >   drivers/net/chelsio/mac.o
-> > >     t1_chelsio_mac_ops
-> > >   drivers/net/chelsio/vsc8244.o
-> > >     t1_vsc8244_ops
-> > > 
-> > > cu
-> > > Adrian
-> > > 
-> > 
-> > All that is gone in later version. I reposted new patches
-> > after -mm2 was done.
+On 29-11-2006 08:49, Herbert Xu wrote:
+> Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>> =========================================================
+>> [ INFO: possible irq lock inversion dependency detected ]
+>> 2.6.19-rc6 #4
+>> ---------------------------------------------------------
+>> nc/1854 just changed the state of lock:
+>> (af_callback_keys + sk->sk_family#2){-.-?}, at: [<c0268a7f>] sock_def_error_report+0x1f/0x90
+>> but this lock was taken by another, soft-irq-safe lock in the past:
+>> (slock-AF_INET){-+..}
+>>
+>> and interrupts could create inverse lock ordering between them.
 > 
-> It seems these patches didn't make it into 2.6.19-rc6-mm2 ?
+> I think this is bogus.  The slock is not a standard lock.  When we
+> hold it in process context we don't actually hold the spin lock part
+> of it.  However, it does prevent the softirq path from running in
+> critical sections which also prevents any attempt to grab the
+> callback lock from softirq context.
 > 
+> If you still think there is a problem, please show an actual scenario
+> where it dead locks.
 
-I dropped that patch and picked up Francois's tree instead.
+It would be nice to have a look at other parts of stack
+backtraces probably with softirq part, which took that
+lock: sk->sk_family#2){-.-?}
+
+Jarek P. 
