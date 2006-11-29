@@ -1,60 +1,56 @@
-From: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>
-Subject: RE: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow interrupt handler to disable receive interrupts at high bi-directional traffic
-Date: Wed, 29 Nov 2006 14:20:31 +0530
-Message-ID: <010C7BAE6783F34D9AC336EE5A01A08802D2D762@dbde01.ent.ti.com>
+From: "Eric Lemoine" <eric.lemoine@gmail.com>
+Subject: Re: [patch sungem] improved locking
+Date: Wed, 29 Nov 2006 11:16:38 +0100
+Message-ID: <5cac192f0611290216u4f0d7a98w3879aa12ba3b6200@mail.gmail.com>
+References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
+	 <20061128.144911.55733883.davem@davemloft.net>
+	 <1164754644.5350.110.camel@localhost.localdomain>
+	 <20061128.154350.02290212.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:18576 "EHLO bear.ext.ti.com")
-	by vger.kernel.org with ESMTP id S966288AbWK2Ivd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 03:51:33 -0500
-Content-class: urn:content-classes:message
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Received: from ug-out-1314.google.com ([66.249.92.175]:61968 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S966680AbWK2KQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 05:16:40 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so1740251uga
+        for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 02:16:39 -0800 (PST)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20061128.154350.02290212.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] wrote:
+On 11/29/06, David Miller <davem@davemloft.net> wrote:
+> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date: Wed, 29 Nov 2006 09:57:24 +1100
+>
+> >
+> > > This looks mostly fine.
+> > >
+> > > I was thinking about the lockless stuff, and I wonder if there
+> > > is a clever way you can get it back down to one PIO on the
+> > > GREG_STAT register.
+> > >
+> > > I think you'd need to have the ->poll() clear gp->status, then
+> > > do a smp_wb(), right before it re-enables interrupts.
+> > >
+> > > Then in the interrupt handler, you need to find a way to safely
+> > > OR-in any unset bits in gp->status in a race-free manner.
+> >
+> > Having it atomic might work at a slightly smaller cost than a lock,
+> > though atomics don't have strong ordering requirements so you'd still
+> > have to be a bit careful.
+>
+> At least in theory the atomic + any necessary memory barriers
+> would be cheaper than the extra PIO read we need otherwise.
 
-> Afaics your change may disable the Rx irq right after the poll routine
-
-> enabled it again. It will not always work either.
-> 
-> The (slow) timeout watchdog could grab the poll handler and hack the 
-> irq mask depending on whether poll was scheduled or not.
-
-Could you please confirm whether the attached patch would work?
-I tested it and it works for me.
+Just a remark: the lockless impl doesn't add a PIO read, it adds a PIO
+write (to the IACK reg). FYI, I'm currently checking whether I can get
+rid of this extra PIO write, based on David's suggestion...
 
 
-Signed-off-by: Mansoor Ahamed <mansoor.ahamed@ti.com>
-
---- old/8139too.c	2006-11-14 10:44:27.000000000 +0530
-+++ new/8139too.c	2006-11-14 10:44:18.000000000 +0530
-@@ -1438,8 +1438,18 @@
- 	if ((!(tmp & CmdRxEnb)) || (!(tmp & CmdTxEnb)))
- 		RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
- 
--	/* Enable all known interrupts by setting the interrupt mask. */
--	RTL_W16 (IntrMask, rtl8139_intr_mask);
-+	local_irq_disable();
-+	/* Don't enable RX if RX was already scheduled */
-+	if(test_bit(__LINK_STATE_START, &dev->state) &&
-+			test_bit(__LINK_STATE_RX_SCHED, &dev->state) ) {
-+		/* Enable all interrupts except RX by setting the
-interrupt mask. */
-+		RTL_W16 (IntrMask, rtl8139_norx_intr_mask);
-+	}
-+	else {
-+		/* Enable all known interrupts by setting the interrupt
-mask. */ 
-+		RTL_W16 (IntrMask, rtl8139_intr_mask);
-+	}
-+	local_irq_enable();
- }
-
-Thanks
-Mansoor
+-- 
+Eric
