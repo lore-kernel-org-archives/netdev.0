@@ -1,113 +1,141 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: Network virtualization/isolation
-Date: Wed, 29 Nov 2006 06:58:57 +0100
-Message-ID: <20061129055857.GJ2826@MAIL.13thfloor.at>
-References: <45408397.8070404@fr.ibm.com> <20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org> <4541CCF4.4050306@fr.ibm.com> <1162391707.5251.78.camel@jzny2> <4559DE01.5090109@fr.ibm.com> <m1y7pzoptr.fsf@ebiederm.dsl.xmission.com> <456C447E.5090703@fr.ibm.com> <m1r6vnikeq.fsf@ebiederm.dsl.xmission.com> <456C9B8C.1010701@fr.ibm.com>
+From: Horms <horms@verge.net.au>
+Subject: [PATCH] [IPVS] transparent proxying
+Date: Wed, 29 Nov 2006 15:21:28 +0900
+Message-ID: <20061129062126.GP25535@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>, hadi@cyberus.ca,
-	Stephen Hemminger <shemminger@osdl.org>
+Cc: David Miller <davem@davemloft.net>, Julian Anastasov <ja@ssi.bg>,
+	Wensong Zhan <wensong@linux-vs.org>,
+	Joseph Mack NA3T <jmack@wm7d.net>,
+	Jinhua Luo <home_king@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([213.145.232.33]:56279 "EHLO
-	MAIL.13thfloor.at") by vger.kernel.org with ESMTP id S934366AbWK2F66
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 00:58:58 -0500
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Received: from koto.vergenet.net ([210.128.90.7]:45214 "EHLO koto.vergenet.net")
+	by vger.kernel.org with ESMTP id S934962AbWK2G31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 01:29:27 -0500
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <456C9B8C.1010701@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 28, 2006 at 09:26:52PM +0100, Daniel Lezcano wrote:
-> Eric W. Biederman wrote:
->  > I do not want to get into a big debate on the merits of various
->  > techniques at this time.  We seem to be in basic agreement
->  > about what we are talking about.
->  >
->  > There is one thing I think we can all agree upon.
->  > - Everything except isolation at the network device/L2 layer, does not
->  >   allow guests to have the full power of the linux networking stack.
-> Agree.
->  >
->  > - There has been a demonstrated use for the full power of the linux
->  >   networking stack in containers..
-> Agree.
->  >
->  > - There are a set of techniques which look as though they will give
->  >   us full speed when we do isolation of the network stack at the
->  >   network device/L2 layer.
-> Agree.
-> 
->  > Is there any reason why we don't want to implement network namespaces
->  > without the full power of the linux network stack?
-> Don't make me wrong, I never said layer 2 should not be used. I am only
-> arguing a layer 3 should use the mechanism provided by the layer 2 and
-> use a subset of it like the sockets virtualization/isolation.
-> 
-> Just IP isolation for lightweight containers, applications containers in
-> order to have mobility.
-> 
->  > If there is a case where we clearly don't want the full power of the
->  > linux network stack in a guest but we still need a namespace we can
->  > start looking at the merits of the alternatives.
-> Dmitry and I, we are looking for a l3 based on a subset of the l2 and
-> according with Herbert needs.
-> If we can provide a l3 isolation based on the l2 which:
->   - does not collide with l2
->   - fit the needs of Herbert
->   - allows the migration
->   - use common code between l2 and l3
-> Should it not be sufficient to justify to have a l3 with the l2 
-> isolation?
+This seems to be a pretty clean solution to a real problem.
 
-sounds good to me ...
+Ultimately I would like to see IPVS move into the forward chain.
+This seems to be a nice way to explore that, without breaking
+any existing setups.
 
->  >> What is this new paradigm you are talking about ?
->  >
->  > The basic point is this.  The less like stock linux the inside of a
->  > container looks, and the more of a special case it is the more
->  > confusing it is.  The classic example is that for a system container
->  > routing packets between containers over the loopback interface is
->  > completely unexpected.
-> 
-> Right for system container, but not necessary for application containers.
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
-yep
+[IPVS] transparent proxying
 
-best,
-Herbert
+Patch from Jinhua Luo <home_king@163.com> to allow a web cluseter using
+transparent proxying. It works by simply grabing packets that have the
+fwmark set and have not already been processed by ipvs (ip_vs_out) and
+throwing them into ip_vs_in.
 
->  >> There is not extra networking data structure instantiation in the
->  >> Daniel's L3.
->  > Nope just an extra field which serves the same purpose.
->  >
->  >>> - Bind/Connect/Accept filtering.  There are so few places in
->  >>>   the code this is easy to maintain without sharing code with
->  >>>   everyone else.
->  >> For isolation too ? Can we build network migration on top of that ?
-> 
->  > As long as you can take your globally visible network address with you
->  > when you migrate you can build network migration on top of it.  So yes
->  > bind/accept filtering is sufficient to implement migration, if you are
->  > only using IP based protocols.
-> 
-> When you migrate an application, you must cleanup related sockets on the
-> source machine. The cleanup can not rely on the IP addresses because you
-> will be not able to discriminate all the sockets related to the
-> container. Another stuff is the network objects life-cycle, the
-> container will die when the application will finish, the timewait
-> sockets will stay until all data are flushed to peer. You can not
-> restart a new container with the same IP address, so you need to monitor
-> the socket before relaunching a new container or unmounting the aliased
-> interface associated with the container. You need a ref counting for the
-> container and this refcount is exactly what has the network namespace.
-> Another example, you can not have several application binding to
-> INADDR_ANY:port without conflict. The multiport instantiation is exactly
-> what brings the sockets isolation/virtualization with the l2/l3.
-> 
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.osdl.org
-> https://lists.osdl.org/mailman/listinfo/containers
+See: http://archive.linuxvirtualserver.org/html/lvs-users/2006-11/msg00261.html
+
+Normally LVS packets are processed by ip_vs_in fron on the INPUT chain,
+and packets that are processed in this way never show up on the FORWARD
+chain, so they won't hit this rule.
+
+This patch seems like a good precursor to moving LVS permanantly to
+the FORWARD chain. As I'm struggling to think how it could break things.
+
+The changes to the original patch are:
+
+* Reformated to use tabs for indentation (instead of 4 spaces)
+* Reformated to be < 80 columns wide
+* Added some comments
+* Rewrote description (this text)
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jinhua Luo <home_king@163.com>
+
+Index: linux-2.6/net/ipv4/ipvs/ip_vs_core.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/ipvs/ip_vs_core.c	2006-11-28 15:30:00.000000000 +0900
++++ linux-2.6/net/ipv4/ipvs/ip_vs_core.c	2006-11-29 10:27:49.000000000 +0900
+@@ -23,7 +23,9 @@
+  * Changes:
+  *	Paul `Rusty' Russell		properly handle non-linear skbs
+  *	Harald Welte			don't use nfcache
+- *
++ *	Jinhua Luo                      redirect packets with fwmark on
++ *					NF_IP_FORWARD chain to ip_vs_in(),
++ *					mainly for transparent cache cluster
+  */
+ 
+ #include <linux/module.h>
+@@ -1070,6 +1072,26 @@
+ 	return ip_vs_in_icmp(pskb, &r, hooknum);
+ }
+ 
++/*
++ * 	This is hooked into the NF_IP_FORWARD. It catches
++ * 	packets that have not already been handled by ipvs (out)
++ * 	and have a fwmark set. This is to allow transparent proxying
++ * 	of fwmark virtual services.
++ *
++ * 	It will not process packets that are handled by ipvs (in)
++ * 	as they never traverse the NF_IP_FORWARD.
++ */
++static unsigned int
++ip_vs_forward_with_fwmark(unsigned int hooknum, struct sk_buff **pskb,
++			  const struct net_device *in,
++			  const struct net_device *out,
++			  int (*okfn)(struct sk_buff *))
++{
++	if ((*pskb)->ipvs_property || ! (*pskb)->nfmark)
++		return NF_ACCEPT;
++
++	return ip_vs_in(hooknum, pskb, in, out, okfn);
++}
+ 
+ /* After packet filtering, forward packet through VS/DR, VS/TUN,
+    or VS/NAT(change destination), so that filtering rules can be
+@@ -1082,6 +1104,16 @@
+ 	.priority       = 100,
+ };
+ 
++/* Allow transparent proxying by fishing packets
++ * out of the forward chain. */
++static struct nf_hook_ops ip_vs_forward_with_fwmark_ops = {
++	.hook		= ip_vs_forward_with_fwmark,
++	.owner		= THIS_MODULE,
++	.pf		= PF_INET,
++	.hooknum	= NF_IP_FORWARD,
++	.priority	= 101,
++};
++
+ /* After packet filtering, change source only for VS/NAT */
+ static struct nf_hook_ops ip_vs_out_ops = {
+ 	.hook		= ip_vs_out,
+@@ -1160,9 +1192,17 @@
+ 		goto cleanup_postroutingops;
+ 	}
+ 
++	ret = nf_register_hook(&ip_vs_forward_with_fwmark_ops);
++	if (ret < 0) {
++		IP_VS_ERR("can't register forward_with_fwmark hook.\n");
++		goto cleanup_forwardicmpops;
++	}
++
+ 	IP_VS_INFO("ipvs loaded.\n");
+ 	return ret;
+ 
++  cleanup_forwardicmpops:
++	nf_unregister_hook(&ip_vs_forward_icmp_ops);
+   cleanup_postroutingops:
+ 	nf_unregister_hook(&ip_vs_post_routing_ops);
+   cleanup_outops:
+@@ -1182,6 +1222,7 @@
+ 
+ static void __exit ip_vs_cleanup(void)
+ {
++	nf_unregister_hook(&ip_vs_forward_with_fwmark_ops);
+ 	nf_unregister_hook(&ip_vs_forward_icmp_ops);
+ 	nf_unregister_hook(&ip_vs_post_routing_ops);
+ 	nf_unregister_hook(&ip_vs_out_ops);
