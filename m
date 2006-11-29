@@ -1,57 +1,74 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow
- interrupt handler to disable receive interrupts at high bi-directional
- traffic
-Date: Wed, 29 Nov 2006 14:50:54 -0800
-Message-ID: <20061129145054.741ad7c5@freekitty>
-References: <010C7BAE6783F34D9AC336EE5A01A08802D2D762@dbde01.ent.ti.com>
-	<20061129122444.0614cf56@freekitty>
-	<20061129224400.GC18057@electric-eye.fr.zoreil.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
+Date: Thu, 30 Nov 2006 00:08:21 +0100
+Message-ID: <200611300008.21434.rjw@sisk.pl>
+References: <20061128020246.47e481eb.akpm@osdl.org> <20061129133030.18c023cf.akpm@osdl.org> <200611292231.53253.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>,
-	netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, tulip-users@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Valerie Henson <val_henson@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:56782 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1758917AbWK2WvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 17:51:22 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061129224400.GC18057@electric-eye.fr.zoreil.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:1740 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S1758949AbWK2XNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 18:13:11 -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <200611292231.53253.rjw@sisk.pl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Nov 2006 23:44:00 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
-
-> Stephen Hemminger <shemminger@osdl.org> :
-> [...]
-> > @@ -1682,12 +1685,11 @@ static void rtl8139_tx_timeout_task (voi
-> >  	rtl8139_tx_clear (tp);
-> >  	spin_unlock_irq(&tp->lock);
-> >  
-> > +	netif_poll_enable();
->                           ^ -> dev
-> > +
-> >  	/* ...and finally, reset everything */
-> > -	if (netif_running(dev)) {
-> > -		rtl8139_hw_start (dev);
-> > -		netif_wake_queue (dev);
-> > -	}
-> > -	spin_unlock_bh(&tp->rx_lock);
-> > +	rtl8139_hw_start (dev);
-> > +	netif_wake_queue (dev);
-> >  }
+On Wednesday, 29 November 2006 22:31, Rafael J. Wysocki wrote:
+> On Wednesday, 29 November 2006 22:30, Andrew Morton wrote:
+> > On Wed, 29 Nov 2006 21:08:00 +0100
+> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > 
+> > > On Wednesday, 29 November 2006 20:54, Rafael J. Wysocki wrote:
+> > > > On Tuesday, 28 November 2006 11:02, Andrew Morton wrote:
+> > > > > 
+> > > > > Temporarily at
+> > > > > 
+> > > > > http://userweb.kernel.org/~akpm/2.6.19-rc6-mm2/
+> > > > > 
+> > > > > Will appear eventually at
+> > > > > 
+> > > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.19-rc6/2.6.19-rc6-mm2/
+> > > > 
+> > > > A minor issue: on one of my (x86-64) test boxes the uli526x driver doesn't
+> > > > work when it's first loaded.  I have to rmmod and modprobe it to make it work.
+> > 
+> > That isn't a minor issue.
+> > 
+> > > > It worked just fine on -mm1, so something must have happened to it recently.
+> > > 
+> > > Sorry, I was wrong.  The driver doesn't work at all, even after reload.
+> > > 
+> > 
+> > tulip-dmfe-carrier-detection-fix.patch was added in rc6-mm2.  But you're
+> > not using that (corrent?)
+> > 
+> > git-netdev-all changes drivers/net/tulip/de2104x.c, but you're not using
+> > that either.
+> > 
+> > git-powerpc(!) alters drivers/net/tulip/de4x5.c, but you're not using that.
+> > 
+> > Beats me, sorry.  Perhaps it's due to changes in networking core.  It's
+> > presumably a showstopper for statically-linked-uli526x users.  If you could
+> > bisect it, please?  I'd start with git-netdev-all, then tulip-*.
 > 
-> rtl8139_hw_start() may mess with cur_rx, whence a race with rtl8139_rx()
-> if an in-flight interruption enables it a bit too fast. I'd rather go
-> with:
+> OK, but it'll take some time.
 
-but rt8139_rx is not possible here because we have blocked the poll
-routine from starting.  Basically it uses the NAPI rx scheduler bit
-to replace the rx_lock.
+OK, done.
 
-It is totally, untested.  
+It's one of these (the first one alone doesn't compile):
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+git-netdev-all.patch
+git-netdev-all-fixup.patch
+libphy-dont-do-that.patch
+
+Is a broken-out version of git-netdev-all.patch available from somewhere?
+
+Greetings,
+Rafael
