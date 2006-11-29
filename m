@@ -1,128 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely duplicate
- route_reverse function
-Date: Wed, 29 Nov 2006 03:28:25 +0100
-Message-ID: <456CF049.7040407@trash.net>
-References: <m3fyc3e84s.fsf@defiant.localdomain> <456C94D2.9000602@trash.net>	<m3wt5fb8lz.fsf@defiant.localdomain> <456CAE0D.2080209@trash.net> <m3slg3ktvw.fsf@defiant.localdomain>
+From: "Li Yewang" <lyw@nanjing-fnst.com>
+Subject: Re: [PATCH]Fix BUG of ip_rt_send_redirect()
+Date: Wed, 29 Nov 2006 10:55:07 +0800
+Message-ID: <00df01c71361$c81f04e0$2a01a8c0@liyewang>
+References: <E1GkxXa-00055c-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010903000604040803000509"
-Cc: David Miller <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>
+Content-Type: text/plain;
+	format=flowed;
+	charset="UTF-8";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:24765 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1758426AbWK2C2a
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Nov 2006 21:28:30 -0500
-To: Krzysztof Halasa <khc@pm.waw.pl>
-In-Reply-To: <m3slg3ktvw.fsf@defiant.localdomain>
+Received: from [221.6.14.228] ([221.6.14.228]:19354 "EHLO proxy.fnst.com.cn")
+	by vger.kernel.org with ESMTP id S1756821AbWK2C5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Nov 2006 21:57:46 -0500
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010903000604040803000509
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Herbert Xu herbert@gondor.apana.org.au wrote:
 
-Krzysztof Halasa wrote:
-> Patrick McHardy <kaber@trash.net> writes:
+> I think there are two problems here:
 > 
+> 1) The first time we hit the check rate_last is zero.  We should simply
+> proceed with the redirect rather than treating this as a jiffies value.
 > 
->>It might be the case that your network device has a
->>hard_header_len > LL_MAX_HEADER, which could trigger
->>a corruption.
+> 2) When a dst is so old that the jiffies have wrapped around.  I'm
+> not sure whether this is worth solving as it should be extremely rare
+> unless your HZ is sufficiently large and you're on a 32-bit platform.
 > 
+> One solution would be to periodically reset the rate_last fields to
+> their original states.  Perhaps we can combine that with the GC.
 > 
-> Hmm... GRE tunnels add 24 bytes... I just noticed the following code in
-> include/linux/netdevice.h:
-> 
-> /*
->  *      Compute the worst case header length according to the protocols
->  *      used.
->  */
-> #if !defined(CONFIG_NET_IPIP) && \
->     !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE)
-> #define MAX_HEADER LL_MAX_HEADER
-> #else
-> #define MAX_HEADER (LL_MAX_HEADER + 48)
-> #endif
-> 
-> I don't use AX25, Token Ring, the old IPIP tunnels nor IPv6 here, but
-> I wonder if GRE tunnel (which is basically another, more compatible
-> form of IPIP) need the same treatment as IPIP.
+> Cheers,
 
-Both ipip and gre do this:
+Mr Herbert Xu
 
-dev->hard_header_len    = LL_MAX_HEADER + sizeof(struct iphdr);
+Sorry for later reply
 
+ I have some questions about your advice:
+1) If the first time when we send the redirect packets, but the time_after(jiffies, b)==false.
+     So the redirect packets can not be sended.
+     This situation happens when the system of 32-bit boot on less than 5 minutes.
+     This must be the kernel bug.
 
+2) If the router used frequently, the garbage collect function can not free this dst. 
+    Next time when we want this router to send redirect packets, and if the jiffies wraparound 
+    and time_after(jiffies,b)==false, the redirect packets can not be sended. 
+    So we must consider this situation and solve this problem.
+        
 
-which explains it. It is a bug in the REJECT target, but I was
-wondering whether you were really seeing this. It looks like
-it makes sense to add GRE to the MAX_HEADER case above though.
-
->>Please try this patch on top of the REJECT patch (ideally after
->>verifying that the REJECT patch is really introducing the
->>corruption).
-> 
-> 
-> That was certain. The patch fixed the problem, confirmed with current
-> git tree as well. Thanks for looking at it.
-
-Thanks. Dave, please apply this patch.
-
-[NETFILTER]: ipt_REJECT: fix memory corruption
-
-On devices with hard_header_len > LL_MAX_HEADER ip_route_me_harder()
-reallocates the skb, leading to memory corruption when using the stale
-tcph pointer to update the checksum.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-
---------------010903000604040803000509
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
-index ad0312d..264763a 100644
---- a/net/ipv4/netfilter/ipt_REJECT.c
-+++ b/net/ipv4/netfilter/ipt_REJECT.c
-@@ -114,6 +114,14 @@ static void send_reset(struct sk_buff *o
- 	tcph->window = 0;
- 	tcph->urg_ptr = 0;
- 
-+	/* Adjust TCP checksum */
-+	tcph->check = 0;
-+	tcph->check = tcp_v4_check(tcph, sizeof(struct tcphdr),
-+				   nskb->nh.iph->saddr,
-+				   nskb->nh.iph->daddr,
-+				   csum_partial((char *)tcph,
-+						sizeof(struct tcphdr), 0));
-+
- 	/* Set DF, id = 0 */
- 	nskb->nh.iph->frag_off = htons(IP_DF);
- 	nskb->nh.iph->id = 0;
-@@ -129,14 +137,8 @@ #endif
- 	if (ip_route_me_harder(&nskb, addr_type))
- 		goto free_nskb;
- 
--	/* Adjust TCP checksum */
- 	nskb->ip_summed = CHECKSUM_NONE;
--	tcph->check = 0;
--	tcph->check = tcp_v4_check(tcph, sizeof(struct tcphdr),
--				   nskb->nh.iph->saddr,
--				   nskb->nh.iph->daddr,
--				   csum_partial((char *)tcph,
--						sizeof(struct tcphdr), 0));
-+
- 	/* Adjust IP TTL */
- 	nskb->nh.iph->ttl = dst_metric(nskb->dst, RTAX_HOPLIMIT);
- 
-
---------------010903000604040803000509--
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
