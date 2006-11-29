@@ -1,52 +1,43 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] sundance: use NULL for pointer
-Date: Wed, 29 Nov 2006 13:15:17 -0800
-Message-ID: <20061129131517.277efed0.randy.dunlap@oracle.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] r8169: Fix iteration variable sign
+Date: Wed, 29 Nov 2006 22:21:33 +0100
+Message-ID: <20061129212133.GB18057@electric-eye.fr.zoreil.com>
+References: <200611292048.45152.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:49126 "EHLO
-	rgminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1758118AbWK2VUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 16:20:46 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50348 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1758110AbWK2VWo
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 16:22:44 -0500
+To: torvalds@osdl.org
+Content-Disposition: inline
+In-Reply-To: <200611292048.45152.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+This changes the type of variable "i" in rtl8169_init_one()
+from "unsigned int" to "int". "i" is checked for < 0 later,
+which can never happen for "unsigned". This results in broken
+error handling.
+    
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Use NULL instead of 0 for pointers (cures sparse warnings).
-
-drivers/net/sundance.c:1106:16: warning: Using plain integer as NULL pointer
-drivers/net/sundance.c:1652:16: warning: Using plain integer as NULL pointer
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/sundance.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6.19-rc6-mm2.orig/drivers/net/sundance.c
-+++ linux-2.6.19-rc6-mm2/drivers/net/sundance.c
-@@ -1103,7 +1103,7 @@ reset_tx (struct net_device *dev)
- 	np->cur_tx = np->dirty_tx = 0;
- 	np->cur_task = 0;
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 5002673..c8fa9b1 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1491,8 +1491,8 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	struct rtl8169_private *tp;
+ 	struct net_device *dev;
+ 	void __iomem *ioaddr;
+-	unsigned int i, pm_cap;
+-	int rc;
++	unsigned int pm_cap;
++	int i, rc;
  
--	np->last_tx = 0;
-+	np->last_tx = NULL;
- 	iowrite8(127, ioaddr + TxDMAPollPeriod);
- 
- 	iowrite16 (StatsEnable | RxEnable | TxEnable, ioaddr + MACCtrl1);
-@@ -1649,7 +1649,7 @@ static int netdev_close(struct net_devic
- 	np->cur_tx = 0;
- 	np->dirty_tx = 0;
- 	np->cur_task = 0;
--	np->last_tx = 0;
-+	np->last_tx = NULL;
- 
- 	netif_stop_queue(dev);
- 
-
-
----
+ 	if (netif_msg_drv(&debug)) {
+ 		printk(KERN_INFO "%s Gigabit Ethernet driver %s loaded\n",
