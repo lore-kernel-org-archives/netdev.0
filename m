@@ -1,43 +1,58 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] r8169: Fix iteration variable sign
-Date: Wed, 29 Nov 2006 22:21:33 +0100
-Message-ID: <20061129212133.GB18057@electric-eye.fr.zoreil.com>
-References: <200611292048.45152.mb@bu3sch.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
+Date: Wed, 29 Nov 2006 13:30:30 -0800
+Message-ID: <20061129133030.18c023cf.akpm@osdl.org>
+References: <20061128020246.47e481eb.akpm@osdl.org>
+	<200611292054.35313.rjw@sisk.pl>
+	<200611292108.00578.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, tulip-users@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Valerie Henson <val_henson@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50348 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1758110AbWK2VWo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 16:22:44 -0500
-To: torvalds@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200611292048.45152.mb@bu3sch.de>
+Received: from smtp.osdl.org ([65.172.181.25]:34741 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1758122AbWK2Vay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 16:30:54 -0500
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+In-Reply-To: <200611292108.00578.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This changes the type of variable "i" in rtl8169_init_one()
-from "unsigned int" to "int". "i" is checked for < 0 later,
-which can never happen for "unsigned". This results in broken
-error handling.
-    
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+On Wed, 29 Nov 2006 21:08:00 +0100
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 5002673..c8fa9b1 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1491,8 +1491,8 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	struct rtl8169_private *tp;
- 	struct net_device *dev;
- 	void __iomem *ioaddr;
--	unsigned int i, pm_cap;
--	int rc;
-+	unsigned int pm_cap;
-+	int i, rc;
- 
- 	if (netif_msg_drv(&debug)) {
- 		printk(KERN_INFO "%s Gigabit Ethernet driver %s loaded\n",
+> On Wednesday, 29 November 2006 20:54, Rafael J. Wysocki wrote:
+> > On Tuesday, 28 November 2006 11:02, Andrew Morton wrote:
+> > > 
+> > > Temporarily at
+> > > 
+> > > http://userweb.kernel.org/~akpm/2.6.19-rc6-mm2/
+> > > 
+> > > Will appear eventually at
+> > > 
+> > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.19-rc6/2.6.19-rc6-mm2/
+> > 
+> > A minor issue: on one of my (x86-64) test boxes the uli526x driver doesn't
+> > work when it's first loaded.  I have to rmmod and modprobe it to make it work.
+
+That isn't a minor issue.
+
+> > It worked just fine on -mm1, so something must have happened to it recently.
+> 
+> Sorry, I was wrong.  The driver doesn't work at all, even after reload.
+> 
+
+tulip-dmfe-carrier-detection-fix.patch was added in rc6-mm2.  But you're
+not using that (corrent?)
+
+git-netdev-all changes drivers/net/tulip/de2104x.c, but you're not using
+that either.
+
+git-powerpc(!) alters drivers/net/tulip/de4x5.c, but you're not using that.
+
+Beats me, sorry.  Perhaps it's due to changes in networking core.  It's
+presumably a showstopper for statically-linked-uli526x users.  If you could
+bisect it, please?  I'd start with git-netdev-all, then tulip-*.
+
