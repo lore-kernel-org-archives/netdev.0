@@ -1,179 +1,65 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 20:02:08 -0600
-Message-ID: <2f2083e145b6.456de740@fnal.gov>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
+Date: Wed, 29 Nov 2006 18:18:09 -0800
+Message-ID: <20061129181809.c55da5e8.akpm@osdl.org>
+References: <20061128020246.47e481eb.akpm@osdl.org>
+	<200611300008.21434.rjw@sisk.pl>
+	<20061129152619.0d1ac361.akpm@osdl.org>
+	<200611300204.16507.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, tulip-users@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Valerie Henson <val_henson@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:23515 "EHLO mailgw2.fnal.gov")
-	by vger.kernel.org with ESMTP id S1753660AbWK3CCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 21:02:09 -0500
-To: Andrew Morton <akpm@osdl.org>
-Content-language: en
-Content-disposition: inline
+Received: from smtp.osdl.org ([65.172.181.25]:32955 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S936127AbWK3CSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 21:18:32 -0500
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+In-Reply-To: <200611300204.16507.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> That yield() will need to be removed - yield()'s behaviour is truly 
-> awfulif the system is otherwise busy.  What is it there for?
+On Thu, 30 Nov 2006 02:04:15 +0100
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-Please read the uploaded paper, which has detailed description.
+> > > 
+> > > git-netdev-all.patch
+> > > git-netdev-all-fixup.patch
+> > > libphy-dont-do-that.patch
+> > 
+> > Are you able to eliminate libphy-dont-do-that.patch?
+> > 
+> > > Is a broken-out version of git-netdev-all.patch available from somewhere?
+> > 
+> > Nope, and my few fumbling attempts to generate the sort of patch series
+> > which you want didn't work out too well.  One has to downgrade to
+> > git-bisect :(
+> > 
+> > What does "doesn't work" mean, btw?
+> 
+> Well, it turns out not to be 100% reproducible.  I can only reproduce it after
+> a soft reboot (eg. shutdown -r now).
+> 
+> Then, while configuring network interfaces the system says the interface name
+> is ethxx0, but it should be eth1 (eth0 is an RTL-8139, which is not used).  Now
+> if I run ifconfig, it says:
+> 
+> eth0: error fetching interface information: Device not found
+> 
+> and that's all (normally, ifconfig would show the information for lo and eth1,
+> without eth0).  Moreover, 'ifconfig eth1' says:
+> 
+> eth1: error fetching interface information: Device not found
+> 
+> Next, I run 'rmmod uli526x' and 'modprobe uli526x' and then 'ifconfig' is
+> still saying the above (about eth0), but 'ifconfig eth1' seems to work as
+> it should.  However, the interface often fails to transfer anything after
+> that.
 
-thanks,
+Lovely.  Sounds like some startup race, perhaps against userspace.
 
-wenji
-
------ Original Message -----
-From: Andrew Morton <akpm@osdl.org>
-Date: Wednesday, November 29, 2006 7:08 pm
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-
-> On Wed, 29 Nov 2006 16:53:11 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > 
-> > Please, it is very difficult to review your work the way you have
-> > submitted this patch as a set of 4 patches.  These patches have not
-> > been split up "logically", but rather they have been split up "per
-> > file" with the same exact changelog message in each patch posting.
-> > This is very clumsy, and impossible to review, and wastes a lot of
-> > mailing list bandwith.
-> > 
-> > We have an excellent file, called 
-> Documentation/SubmittingPatches, in
-> > the kernel source tree, which explains exactly how to do this
-> > correctly.
-> > 
-> > By splitting your patch into 4 patches, one for each file touched,
-> > it is impossible to review your patch as a logical whole.
-> > 
-> > Please also provide your patch inline so people can just hit reply
-> > in their mail reader client to quote your patch and comment on it.
-> > This is impossible with the attachments you've used.
-> > 
-> 
-> Here you go - joined up, cleaned up, ported to mainline and test-
-> compiled.
-> That yield() will need to be removed - yield()'s behaviour is truly 
-> awfulif the system is otherwise busy.  What is it there for?
-> 
-> 
-> 
-> From: Wenji Wu <wenji@fnal.gov>
-> 
-> For Linux TCP, when the network applcaiton make system call to move 
-> data from
-> socket's receive buffer to user space by calling tcp_recvmsg().  
-> The socket
-> will be locked.  During this period, all the incoming packet for 
-> the TCP
-> socket will go to the backlog queue without being TCP processed
-> 
-> Since Linux 2.6 can be inerrupted mid-task, if the network application
-> expires, and moved to the expired array with the socket locked, all 
-> thepackets within the backlog queue will not be TCP processed till 
-> the network
-> applicaton resume its execution.  If the system is heavily loaded, 
-> TCP can
-> easily RTO in the Sender Side.
-> 
-> 
-> 
-> include/linux/sched.h |    2 ++
-> kernel/fork.c         |    3 +++
-> kernel/sched.c        |   24 ++++++++++++++++++------
-> net/ipv4/tcp.c        |    9 +++++++++
-> 4 files changed, 32 insertions(+), 6 deletions(-)
-> 
-> diff -puN net/ipv4/tcp.c~tcp-speedup net/ipv4/tcp.c
-> --- a/net/ipv4/tcp.c~tcp-speedup
-> +++ a/net/ipv4/tcp.c
-> @@ -1109,6 +1109,8 @@ int tcp_recvmsg(struct kiocb *iocb, stru
-> 	struct task_struct *user_recv = NULL;
-> 	int copied_early = 0;
-> 
-> +	current->backlog_flag = 1;
-> +
-> 	lock_sock(sk);
-> 
-> 	TCP_CHECK_TIMER(sk);
-> @@ -1468,6 +1470,13 @@ skip_copy:
-> 
-> 	TCP_CHECK_TIMER(sk);
-> 	release_sock(sk);
-> +
-> +	current->backlog_flag = 0;
-> +	if (current->extrarun_flag == 1){
-> +        	current->extrarun_flag = 0;
-> +        	yield();
-> +	}
-> +
-> 	return copied;
-> 
-> out:
-> diff -puN include/linux/sched.h~tcp-speedup include/linux/sched.h
-> --- a/include/linux/sched.h~tcp-speedup
-> +++ a/include/linux/sched.h
-> @@ -1023,6 +1023,8 @@ struct task_struct {
-> #ifdef	CONFIG_TASK_DELAY_ACCT
-> 	struct task_delay_info *delays;
-> #endif
-> +	int backlog_flag; 	/* packets wait in tcp backlog queue flag */
-> +	int extrarun_flag;	/* extra run flag for TCP performance */
-> };
-> 
-> static inline pid_t process_group(struct task_struct *tsk)
-> diff -puN kernel/sched.c~tcp-speedup kernel/sched.c
-> --- a/kernel/sched.c~tcp-speedup
-> +++ a/kernel/sched.c
-> @@ -3099,12 +3099,24 @@ void scheduler_tick(void)
-> 
->         	if (!rq->expired_timestamp)
->                 	rq->expired_timestamp = jiffies;
-> -        	if (!TASK_INTERACTIVE(p) || expired_starving(rq)) {
-> -                	enqueue_task(p, rq->expired);
-> -                	if (p->static_prio < rq->best_expired_prio)
-> -                        	rq->best_expired_prio = p->static_prio;
-> -        	} else
-> -                	enqueue_task(p, rq->active);
-> +        	if (p->backlog_flag == 0) {
-> +                	if (!TASK_INTERACTIVE(p) || expired_starving(rq)) {
-> +                        	enqueue_task(p, rq->expired);
-> +                        	if (p->static_prio < rq->best_expired_prio)
-> +                                	rq->best_expired_prio = p-
-> >static_prio;+                	} else
-> +                        	enqueue_task(p, rq->active);
-> +        	} else {
-> +                	if (expired_starving(rq)) {
-> +                        	enqueue_task(p,rq->expired);
-> +                        	if (p->static_prio < rq->best_expired_prio)
-> +                                	rq->best_expired_prio = p-
-> >static_prio;+                	} else {
-> +                        	if (!TASK_INTERACTIVE(p))
-> +                                	p->extrarun_flag = 1;
-> +                        	enqueue_task(p,rq->active);
-> +                	}
-> +        	}
-> 	} else {
->         	/*
->                  * Prevent a too long timeslice allowing a task to 
-> monopolizediff -puN kernel/fork.c~tcp-speedup kernel/fork.c
-> --- a/kernel/fork.c~tcp-speedup
-> +++ a/kernel/fork.c
-> @@ -1032,6 +1032,9 @@ static struct task_struct *copy_process(
-> 	clear_tsk_thread_flag(p, TIF_SIGPENDING);
-> 	init_sigpending(&p->pending);
-> 
-> +	p->backlog_flag = 0;
-> +	p->extrarun_flag = 0;
-> +
-> 	p->utime = cputime_zero;
-> 	p->stime = cputime_zero;
->  	p->sched_time = 0;
-> _
-> 
-> 
+Is CONFIG_PCI_MULTITHREAD_PROBE set?  (err, we meant to disable that for
+2.6.19 but forgot).
 
