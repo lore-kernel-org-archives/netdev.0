@@ -1,85 +1,65 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: [PATCH 1/1] additional ipsec audit patch
-Date: Wed, 29 Nov 2006 17:48:41 -0600
-Message-ID: <200611292348.kATNmfMa001526@faith.austin.ibm.com>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, sgrubb@redhat.com
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Realtek 8139 driver (8139too.c) TX Timeout doesn't allow
+ interrupt handler to disable receive interrupts at high bi-directional
+ traffic
+Date: Wed, 29 Nov 2006 16:09:06 -0800
+Message-ID: <20061129160906.695b4d03@freekitty>
+References: <010C7BAE6783F34D9AC336EE5A01A08802D2D762@dbde01.ent.ti.com>
+	<20061129122444.0614cf56@freekitty>
+	<20061129224400.GC18057@electric-eye.fr.zoreil.com>
+	<20061129145054.741ad7c5@freekitty>
+	<20061129233219.GD18057@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Basheer, Mansoor Ahamed" <mansoor.ahamed@ti.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:58578 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S936113AbWK3ACQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 19:02:16 -0500
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e34.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAU02EiL024781
-	for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 19:02:14 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAU02EKr281912
-	for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 17:02:14 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAU02DUs000452
-	for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 17:02:14 -0700
-To: netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.25]:38381 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S967698AbWK3AJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 19:09:36 -0500
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20061129233219.GD18057@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch disables auditing in ipsec when CONFIG_AUDITSYSCALL is
-disabled in the kernel. 
+On Thu, 30 Nov 2006 00:32:19 +0100
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-This patch also includes a bug fix for xfrm_state.c as a result of
-original ipsec audit patch.
+> Stephen Hemminger <shemminger@osdl.org> :
+> > Francois Romieu <romieu@fr.zoreil.com> wrote:
+> > > Stephen Hemminger <shemminger@osdl.org> :
+> > > [...]
+> > > > @@ -1682,12 +1685,11 @@ static void rtl8139_tx_timeout_task (voi
+> > > >  	rtl8139_tx_clear (tp);
+> > > >  	spin_unlock_irq(&tp->lock);
+> > > >  
+> > > > +	netif_poll_enable();
+> > >                           ^ -> dev
+> > > > +
+> > > >  	/* ...and finally, reset everything */
+> > > > -	if (netif_running(dev)) {
+> > > > -		rtl8139_hw_start (dev);
+> > > > -		netif_wake_queue (dev);
+> > > > -	}
+> > > > -	spin_unlock_bh(&tp->rx_lock);
+> > > > +	rtl8139_hw_start (dev);
+> > > > +	netif_wake_queue (dev);
+> > > >  }
+> > > 
+> > > rtl8139_hw_start() may mess with cur_rx, whence a race with rtl8139_rx()
+> > > if an in-flight interruption enables it a bit too fast. I'd rather go
+> > > with:
+> > 
+> > but rt8139_rx is not possible here because we have blocked the poll
+> > routine from starting.  Basically it uses the NAPI rx scheduler bit
+> > to replace the rx_lock.
+> 
+> 1 - the irq handler is waiting for tp->lock
+> 2 - rtl8139_tx_timeout_task releases the lock
+> 3 - rtl8139_tx_timeout_task issues netif_poll_enable
+> 4 - the irq handler schedules ->poll(), returns
 
-Let me know if it looks ok.
-
-My mail gateway has been acting crazy so I apologize for any
-replicas being sent for ipsec audit patches.
-
-regards,
-Joy
-
-diff -urpN linux-2.6.18-patch/include/net/xfrm.h linux-2.6.18-patch.2/include/net/xfrm.h
---- linux-2.6.18-patch/include/net/xfrm.h	2006-11-27 12:29:11.000000000 -0600
-+++ linux-2.6.18-patch.2/include/net/xfrm.h	2006-11-28 13:26:49.000000000 -0600
-@@ -395,8 +395,13 @@ struct xfrm_audit
- 	uid_t	loginuid;
- 	u32	secid;
- };
--void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
-+
-+#ifdef CONFIG_AUDITSYSCALL
-+extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
- 		    struct xfrm_policy *xp, struct xfrm_state *x);
-+#else
-+#define xfrm_audit_log(a,s,t,r,p,x) do { ; } while (0)
-+#endif /* CONFIG_AUDITSYSCALL */
- 
- static inline void xfrm_pol_hold(struct xfrm_policy *policy)
- {
-diff -urpN linux-2.6.18-patch/net/xfrm/xfrm_policy.c linux-2.6.18-patch.2/net/xfrm/xfrm_policy.c
---- linux-2.6.18-patch/net/xfrm/xfrm_policy.c	2006-11-27 12:29:33.000000000 -0600
-+++ linux-2.6.18-patch.2/net/xfrm/xfrm_policy.c	2006-11-28 14:51:09.000000000 -0600
-@@ -1955,6 +1955,7 @@ int xfrm_bundle_ok(struct xfrm_policy *p
- 
- EXPORT_SYMBOL(xfrm_bundle_ok);
- 
-+#ifdef CONFIG_AUDITSYSCALL
- /* Audit addition and deletion of SAs and ipsec policy */
- 
- void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
-@@ -2063,6 +2064,7 @@ void xfrm_audit_log(uid_t auid, u32 sid,
- }
- 
- EXPORT_SYMBOL(xfrm_audit_log);
-+#endif /* CONFIG_AUDITSYSCALL */
- 
- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- {
-diff -urpN linux-2.6.18-patch/net/xfrm/xfrm_state.c linux-2.6.18-patch.2/net/xfrm/xfrm_state.c
---- linux-2.6.18-patch/net/xfrm/xfrm_state.c	2006-11-27 12:29:33.000000000 -0600
-+++ linux-2.6.18-patch.2/net/xfrm/xfrm_state.c	2006-11-28 12:58:56.000000000 -0600
-@@ -407,7 +407,6 @@ restart:
- 				xfrm_state_hold(x);
- 				spin_unlock_bh(&xfrm_state_lock);
- 
--				xfrm_state_delete(x);
- 				err = xfrm_state_delete(x);
- 				xfrm_audit_log(audit_info->loginuid,
- 					       audit_info->secid,
+Move the poll_enable to after hw_start() or put it inside hw_start.
+- 
+Stephen Hemminger <shemminger@osdl.org>
