@@ -1,125 +1,80 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: Re: [PATCH][IPSEC][3/7] inter address family ipsec tunnel
-Date: Thu, 30 Nov 2006 10:54:26 +0900
-Message-ID: <20061130105426.59df2b59.kazunori@miyazawa.org>
-References: <20061124143831.00f4e4af.kazunori@miyazawa.org>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Wed, 29 Nov 2006 19:56:58 -0600
+Message-ID: <2f14bf623344.456de60a@fnal.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:60099 "EHLO
-	miyazawa.org") by vger.kernel.org with ESMTP id S967818AbWK3Byy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 20:54:54 -0500
-To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-In-Reply-To: <20061124143831.00f4e4af.kazunori@miyazawa.org>
+Received: from mailgw1.fnal.gov ([131.225.111.11]:64502 "EHLO mailgw1.fnal.gov")
+	by vger.kernel.org with ESMTP id S1755139AbWK3B47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 20:56:59 -0500
+To: David Miller <davem@davemloft.net>
+Content-language: en
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Yes, when CONFIG_PREEMPT is disabled, the "problem" won't happen. That is why I put "for 2.6 desktop, low-latency desktop" in the uploaded paper. This "problem" happens in the 2.6 Desktop and Low-latency Desktop.
 
-I found a bug in my previous patch for af_key.
-The patch breaks transport mode.
-This is a fixed version.
+>We could also pepper tcp_recvmsg() with some very carefully placed preemption disable/enable calls to deal with this even with CONFIG_PREEMPT enabled.
 
-Signed-off-by: Miika Komu <miika@iki.fi>
-Signed-off-by: Diego Beltrami <Diego.Beltrami@hiit.fi>
-Signed-off-by: Kazunori Miyazawa <miyazawa@linux-ipv6.org>
+I also think about this approach. But since the "problem" happens in the 2.6 Desktop and Low-latency Desktop (not server), system responsiveness is a key feature, simply placing preemption disabled/enable call might not work.  If you want to place preemption disable/enable calls within tcp_recvmsg, you have to put them in the very beginning and end of the call. Disabling preemption would degrade system responsiveness.
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 4e18309..0e1dbfb 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1767,11 +1767,11 @@ #endif
- 
- 	/* addresses present only in tunnel mode */
- 	if (t->mode == XFRM_MODE_TUNNEL) {
--		switch (xp->family) {
-+		struct sockaddr *sa;
-+		sa = (struct sockaddr *)(rq+1);
-+		switch(sa->sa_family) {
- 		case AF_INET:
--			sin = (void*)(rq+1);
--			if (sin->sin_family != AF_INET)
--				return -EINVAL;
-+			sin = (struct sockaddr_in*)sa;
- 			t->saddr.a4 = sin->sin_addr.s_addr;
- 			sin++;
- 			if (sin->sin_family != AF_INET)
-@@ -1780,9 +1780,7 @@ #endif
- 			break;
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 		case AF_INET6:
--			sin6 = (void *)(rq+1);
--			if (sin6->sin6_family != AF_INET6)
--				return -EINVAL;
-+			sin6 = (struct sockaddr_in6*)sa;
- 			memcpy(t->saddr.a6, &sin6->sin6_addr, sizeof(struct in6_addr));
- 			sin6++;
- 			if (sin6->sin6_family != AF_INET6)
-@@ -1793,7 +1791,10 @@ #endif
- 		default:
- 			return -EINVAL;
- 		}
--	}
-+		t->encap_family = sa->sa_family;
-+	} else
-+		t->encap_family = xp->family;
-+
- 	/* No way to set this via kame pfkey */
- 	t->aalgos = t->ealgos = t->calgos = ~0;
- 	xp->xfrm_nr++;
-@@ -1830,18 +1831,25 @@ static inline int pfkey_xfrm_policy2sec_
- 
- static int pfkey_xfrm_policy2msg_size(struct xfrm_policy *xp)
- {
-+	struct xfrm_tmpl *t;
- 	int sockaddr_size = pfkey_sockaddr_size(xp->family);
--	int socklen = (xp->family == AF_INET ?
--		       sizeof(struct sockaddr_in) :
--		       sizeof(struct sockaddr_in6));
-+	int socklen = 0;
-+	int i;
-+
-+	for (i=0; i<xp->xfrm_nr; i++) {
-+		t = xp->xfrm_vec + i;
-+		socklen += (t->encap_family == AF_INET ?
-+			    sizeof(struct sockaddr_in) :
-+			    sizeof(struct sockaddr_in6));
-+	}
- 
- 	return sizeof(struct sadb_msg) +
- 		(sizeof(struct sadb_lifetime) * 3) +
- 		(sizeof(struct sadb_address) * 2) + 
- 		(sockaddr_size * 2) +
- 		sizeof(struct sadb_x_policy) +
--		(xp->xfrm_nr * (sizeof(struct sadb_x_ipsecrequest) +
--				(socklen * 2))) +
-+		(xp->xfrm_nr * sizeof(struct sadb_x_ipsecrequest)) +
-+		(socklen * 2) +
- 		pfkey_xfrm_policy2sec_ctx_size(xp);
- }
- 
-@@ -1999,7 +2007,9 @@ #endif
- 
- 		req_size = sizeof(struct sadb_x_ipsecrequest);
- 		if (t->mode == XFRM_MODE_TUNNEL)
--			req_size += 2*socklen;
-+			req_size += ((t->encap_family == AF_INET ?
-+		       		     sizeof(struct sockaddr_in) :
-+		       		     sizeof(struct sockaddr_in6)) * 2);
- 		else
- 			size -= 2*socklen;
- 		rq = (void*)skb_put(skb, req_size);
-@@ -2015,7 +2025,7 @@ #endif
- 			rq->sadb_x_ipsecrequest_level = IPSEC_LEVEL_USE;
- 		rq->sadb_x_ipsecrequest_reqid = t->reqid;
- 		if (t->mode == XFRM_MODE_TUNNEL) {
--			switch (xp->family) {
-+			switch (t->encap_family) {
- 			case AF_INET:
- 				sin = (void*)(rq+1);
- 				sin->sin_family = AF_INET;
+wenji
+
+
+
+----- Original Message -----
+From: David Miller <davem@davemloft.net>
+Date: Wednesday, November 29, 2006 7:13 pm
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+
+> From: Andrew Morton <akpm@osdl.org>
+> Date: Wed, 29 Nov 2006 17:08:35 -0800
+> 
+> > On Wed, 29 Nov 2006 16:53:11 -0800 (PST)
+> > David Miller <davem@davemloft.net> wrote:
+> > 
+> > > 
+> > > Please, it is very difficult to review your work the way you have
+> > > submitted this patch as a set of 4 patches.  These patches have 
+> not> > been split up "logically", but rather they have been split 
+> up "per
+> > > file" with the same exact changelog message in each patch posting.
+> > > This is very clumsy, and impossible to review, and wastes a lot of
+> > > mailing list bandwith.
+> > > 
+> > > We have an excellent file, called 
+> Documentation/SubmittingPatches, in
+> > > the kernel source tree, which explains exactly how to do this
+> > > correctly.
+> > > 
+> > > By splitting your patch into 4 patches, one for each file touched,
+> > > it is impossible to review your patch as a logical whole.
+> > > 
+> > > Please also provide your patch inline so people can just hit reply
+> > > in their mail reader client to quote your patch and comment on it.
+> > > This is impossible with the attachments you've used.
+> > > 
+> > 
+> > Here you go - joined up, cleaned up, ported to mainline and test-
+> compiled.> 
+> > That yield() will need to be removed - yield()'s behaviour is 
+> truly awful
+> > if the system is otherwise busy.  What is it there for?
+> 
+> What about simply turning off CONFIG_PREEMPT to fix this "problem"?
+> 
+> We always properly run the backlog (by doing a release_sock()) before
+> going to sleep otherwise except for the specific case of taking a page
+> fault during the copy to userspace.  It is only CONFIG_PREEMPT that
+> can cause this situation to occur in other circumstances as far as I
+> can see.
+> 
+> We could also pepper tcp_recvmsg() with some very carefully placed
+> preemption disable/enable calls to deal with this even with
+> CONFIG_PREEMPT enabled.
+> 
+
