@@ -1,73 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 22:30:55 -0800 (PST)
-Message-ID: <20061129.223055.05159325.davem@davemloft.net>
-References: <2f14bf623344.456de60a@fnal.gov>
-	<20061129.181950.31643130.davem@davemloft.net>
-	<20061130061758.GA2003@elte.hu>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Bug 7596 - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 07:32:52 +0100
+Message-ID: <20061130063252.GC2003@elte.hu>
+References: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov> <20061129154200.c4db558c.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wenji@fnal.gov, akpm@osdl.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: wenji@fnal.gov, netdev@vger.kernel.org, davem@davemloft.net,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:17340
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1757486AbWK3Ga4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 01:30:56 -0500
-To: mingo@elte.hu
-In-Reply-To: <20061130061758.GA2003@elte.hu>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:58053 "EHLO mx2.mail.elte.hu")
+	by vger.kernel.org with ESMTP id S1757861AbWK3GfG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 01:35:06 -0500
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061129154200.c4db558c.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 30 Nov 2006 07:17:58 +0100
 
+* Andrew Morton <akpm@osdl.org> wrote:
+
+> > Attached is the detailed description of the problem and one possible 
+> > solution.
 > 
-> * David Miller <davem@davemloft.net> wrote:
+> Thanks.  The attachment will be too large for the mailing-list servers 
+> so I uploaded a copy to 
+> http://userweb.kernel.org/~akpm/Linux-TCP-Bottleneck-Analysis-Report.pdf
 > 
-> > We can make explicitl preemption checks in the main loop of 
-> > tcp_recvmsg(), and release the socket and run the backlog if 
-> > need_resched() is TRUE.
-> > 
-> > This is the simplest and most elegant solution to this problem.
-> 
-> yeah, i like this one. If the problem is "too long locked section", then
-> the most natural solution is to "break up the lock", not to "boost the 
-> priority of the lock-holding task" (which is what the proposed patch 
-> does).
+> From a quick peek it appears that you're getting around 10% 
+> improvement in TCP throughput, best case.
 
-Ingo you're mis-read the problem :-)
+Wenji, have you tried to renice the receiving task (to say nice -20) and 
+see how much TCP throughput you get in "background load of 10.0". 
+(similarly, you could also renice the background load tasks to nice +19 
+and/or set their scheduling policy to SCHED_BATCH)
 
-The issue is that we actually don't hold any locks that prevent
-preemption, so we can take preemption points which the TCP code
-wasn't designed with in-mind.
+as far as i can see, the numbers in the paper and the patch prove the 
+following two points:
 
-Normally, we control the sleep point very carefully in the TCP
-sendmsg/recvmsg code, such that when we sleep we drop the socket
-lock and process the backlog packets that accumulated while the
-socket was locked.
+ - a task doing TCP receive with 10 other tasks running on the CPU will
+   see lower TCP throughput than if it had the CPU for itself alone.
 
-With pre-emption we can't control that properly.
+ - a patch that tweaks the scheduler to give the receiving task more
+   timeslices (i.e. raises its nice level in essence) results in ...
+   more timeslices, which results in higher receive numbers ...
 
-The problem is that we really do need to run the backlog any time
-we give up the cpu in the sendmsg/recvmsg path, or things get real
-erratic.  ACKs don't go out as early as we'd like them to, etc.
+so the most important thing to check would be, before any scheduler and 
+TCP code change is considered: if you give the task higher priority 
+/explicitly/, via nice -20, do the numbers improve? Similarly, if all 
+the other "background load" tasks are reniced to nice +19 (or their 
+policy is set to SCHED_BATCH), do you get a similar improvement?
 
-It isn't easy to do generically, perhaps, because we can only
-drop the socket lock at certain points and we need to do that to
-run the backlog.
-
-This is why my suggestion is to preempt_disable() as soon as we
-grab the socket lock, and explicitly test need_resched() at places
-where it is absolutely safe, like this:
-
-	if (need_resched()) {
-		/* Run packet backlog... */
-		release_sock(sk);
-		schedule();
-		lock_sock(sk);
-	}
-
-The socket lock is just a by-hand binary semaphore, so it doesn't
-block pre-emption.  We have to be able to sleep while holding it.
+	Ingo
