@@ -1,48 +1,35 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 1/6] mm: slab allocation fairness
-Date: Thu, 30 Nov 2006 20:40:12 +0100
-Message-ID: <1164915612.6588.171.camel@twins>
-References: <20061130101451.495412000@chello.nl> >
-	 <20061130101921.113055000@chello.nl> >
-	 <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
-	 <1164913365.6588.156.camel@twins>
-	 <Pine.LNX.4.64.0611301137120.24161@schroedinger.engr.sgi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 12:06:24 -0800 (PST)
+Message-ID: <20061130.120624.107938624.davem@davemloft.net>
+References: <20061129.181950.31643130.davem@davemloft.net>
+	<HNEBLGGMEGLPMPPDOPMGMEAMCGAA.wenji@fnal.gov>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
-	David Miller <davem@davemloft.net>
+Cc: akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:55344 "EHLO
-	amsfep14-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1031269AbWK3T5q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 14:57:46 -0500
-To: Christoph Lameter <clameter@sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0611301137120.24161@schroedinger.engr.sgi.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:21656
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1031292AbWK3UGX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 15:06:23 -0500
+To: wenji@fnal.gov
+In-Reply-To: <HNEBLGGMEGLPMPPDOPMGMEAMCGAA.wenji@fnal.gov>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-30 at 11:37 -0800, Christoph Lameter wrote:
-> On Thu, 30 Nov 2006, Peter Zijlstra wrote:
-> 
-> > On Thu, 2006-11-30 at 10:52 -0800, Christoph Lameter wrote:
-> > 
-> > > I would think that one would need a rank with each cached object and 
-> > > free slab in order to do this the right way.
-> > 
-> > Allocation hardness is a temporal attribute, ie. it changes over time.
-> > Hence I do it per slab.
-> 
-> cached objects are also temporal and change over time.
+From: Wenji Wu <wenji@fnal.gov>
+Date: Thu, 30 Nov 2006 10:08:22 -0600
 
-Sure, but there is nothing wrong with using a slab page with a lower
-allocation rank when there is memory aplenty. 
+> If the higher prioirty processes become runnable (e.g., interactive
+> process), you better yield the CPU, instead of continuing this process. If
+> it is the case that the process within tcp_recvmsg() is expriring, then, you
+> can continue the process to go ahead to process backlog.
 
-I'm just not seeing how keeping all individual page ranks would make
-this better.
+Yes, I understand this, and I made that point in one of my
+replies to Ingo Molnar last night.
 
-The only thing that matters is the actual free pages limit, not that of
-a few allocation ago. The stored rank is a safe shortcut for it allows
-harder allocation to use easily obtainable free space not the other way
-around.
+The only seemingly remaining possibility is to find a way to allow
+input packet processing, at least enough to emit ACKs, during
+tcp_recvmsg() processing.
 
