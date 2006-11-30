@@ -1,43 +1,40 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH][NET_SCHED] sch_htb: turn intermediate classes into leaves
-Date: Thu, 30 Nov 2006 13:50:40 +0100
-Message-ID: <20061130125040.GB2081@ff.dom.local>
-References: <20061127070401.GA1886@ff.dom.local> <456ABA07.1010508@trash.net> <20061128063948.GA1818@ff.dom.local> <456ECDFA.9080207@trash.net>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH 2.6.18] declance: Fix RX ownership handover
+Date: Thu, 30 Nov 2006 13:06:15 +0000 (GMT)
+Message-ID: <Pine.LNX.4.64N.0611301257300.1757@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Martin Devera <devik@cdi.cz>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:14261 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S936304AbWK3MoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 07:44:01 -0500
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <456ECDFA.9080207@trash.net>
+Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:19726 "EHLO
+	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP id S936287AbWK3NGT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 08:06:19 -0500
+To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 30, 2006 at 01:26:34PM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-> > [NET_SCHED] sch_htb:
-> > 
-> > [PATCH 2.6.19-rc6 with "Fix endless loops" set of patches]
-> > 
-> > - turn intermediate classes into leaves again when their
-> >   last child is deleted (struct htb_class changed)
-> 
-> Looks good to me too, but it still seems to be missing
-> class level adjustment after deletion. The classification
-> function refuses to queue packets to classes with level > 0.
+ The change for PMAD support introduced a bug, where the ownership of RX 
+descriptors was given back to the LANCE in the wrong way.  Occasional 
+lockups would happen as a result.  This is a fix for this problem.
 
-+static void htb_parent_to_leaf(struct htb_class *cl, struct Qdisc *new_q)
-+{
-+	struct htb_class *parent = cl->parent;
-+
-+	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
-+
-+	parent->level = 0;
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+ Tested with the onboard LANCE of a DECstation 5000/133.
 
-I've thought this is enough, but probably you mean something
-else? 
+ Please apply.
 
-Jarek P.
+  Maciej
+
+patch-mips-2.6.18-20060920-pmax-lance-rx-fix-0
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/net/declance.c linux-mips-2.6.18-20060920/drivers/net/declance.c
+--- linux-mips-2.6.18-20060920.macro/drivers/net/declance.c	2006-11-23 02:55:34.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/net/declance.c	2006-11-30 02:26:34.000000000 +0000
+@@ -628,7 +628,6 @@ static int lance_rx(struct net_device *d
+ 		/* Return the packet to the pool */
+ 		*rds_ptr(rd, mblength, lp->type) = 0;
+ 		*rds_ptr(rd, length, lp->type) = -RX_BUFF_SIZE | 0xf000;
+-		*rds_ptr(rd, rmd1, lp->type) = LE_R1_OWN;
+ 		*rds_ptr(rd, rmd1, lp->type) =
+ 			((lp->rx_buf_ptr_lnc[entry] >> 16) & 0xff) | LE_R1_OWN;
+ 		lp->rx_new = (entry + 1) & RX_RING_MOD_MASK;
