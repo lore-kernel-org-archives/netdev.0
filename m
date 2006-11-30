@@ -1,30 +1,29 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: Christoph Lameter <clameter@sgi.com>
 Subject: Re: [RFC][PATCH 1/6] mm: slab allocation fairness
-Date: Thu, 30 Nov 2006 20:02:45 +0100
-Message-ID: <1164913365.6588.156.camel@twins>
-References: <20061130101451.495412000@chello.nl> >
-	 <20061130101921.113055000@chello.nl> >
-	  <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
+Date: Thu, 30 Nov 2006 11:33:32 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0611301132530.24161@schroedinger.engr.sgi.com>
+References: <20061130101451.495412000@chello.nl> >  <20061130101921.113055000@chello.nl>
+ >   <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
+ <1164912915.6588.153.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:35478 "EHLO
-	amsfep12-int.chello.nl") by vger.kernel.org with ESMTP
-	id S967124AbWK3Tb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 14:31:28 -0500
-To: Christoph Lameter <clameter@sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:55957 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S1031238AbWK3Tdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 14:33:38 -0500
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+In-Reply-To: <1164912915.6588.153.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-30 at 10:52 -0800, Christoph Lameter wrote:
+On Thu, 30 Nov 2006, Peter Zijlstra wrote:
 
-> I would think that one would need a rank with each cached object and 
-> free slab in order to do this the right way.
+> No, the forced allocation is to test the allocation hardness at that
+> point in time. I could not think of another way to test that than to
+> actually to an allocation.
 
-Allocation hardness is a temporal attribute, ie. it changes over time.
-Hence I do it per slab.
-
+Typically we do this by checking the number of free pages in a zone 
+compared to the high low limits. See mmzone.h.
+ 
