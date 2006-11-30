@@ -1,50 +1,56 @@
-From: Mike Galbraith <efault@gmx.de>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Thu, 30 Nov 2006 07:04:25 +0100
-Message-ID: <1164866665.5913.33.camel@Homer.simpson.net>
-References: <HNEBLGGMEGLPMPPDOPMGCEAKCGAA.wenji@fnal.gov>
-	 <HNEBLGGMEGLPMPPDOPMGGEAKCGAA.wenji@fnal.gov>
-	 <20061129.165311.45739865.davem@davemloft.net>
-	 <20061129170835.72bd40b3.akpm@osdl.org>
+Date: Thu, 30 Nov 2006 07:17:58 +0100
+Message-ID: <20061130061758.GA2003@elte.hu>
+References: <2f14bf623344.456de60a@fnal.gov> <20061129.181950.31643130.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, wenji@fnal.gov,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756050AbWK3GEc@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061129170835.72bd40b3.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: wenji@fnal.gov, akpm@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757092AbWK3GTo@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061129.181950.31643130.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-11-29 at 17:08 -0800, Andrew Morton wrote:
-> +		if (p->backlog_flag == 0) {
-> +			if (!TASK_INTERACTIVE(p) || expired_starving(rq)) {
-> +				enqueue_task(p, rq->expired);
-> +				if (p->static_prio < rq->best_expired_prio)
-> +					rq->best_expired_prio = p->static_prio;
-> +			} else
-> +				enqueue_task(p, rq->active);
-> +		} else {
-> +			if (expired_starving(rq)) {
-> +				enqueue_task(p,rq->expired);
-> +				if (p->static_prio < rq->best_expired_prio)
-> +					rq->best_expired_prio = p->static_prio;
-> +			} else {
-> +				if (!TASK_INTERACTIVE(p))
-> +					p->extrarun_flag = 1;
-> +				enqueue_task(p,rq->active);
-> +			}
-> +		}
 
-(oh my, doing that to the scheduler upsets my tummy, but that aside...)
+* David Miller <davem@davemloft.net> wrote:
 
-I don't see how that can really solve anything.  "Interactive" tasks
-starting to use cpu heftily can still preempt and keep the special cased
-cpu hog off the cpu for ages.  It also only takes one task in the
-expired array to trigger the forced array switch with a fully loaded
-cpu, and once any task hits the expired array, a stream of wakeups can
-prevent the switch from completing for as long as you can keep wakeups
-happening.
+> We can make explicitl preemption checks in the main loop of 
+> tcp_recvmsg(), and release the socket and run the backlog if 
+> need_resched() is TRUE.
+> 
+> This is the simplest and most elegant solution to this problem.
 
-	-Mike
+yeah, i like this one. If the problem is "too long locked section", then
+the most natural solution is to "break up the lock", not to "boost the 
+priority of the lock-holding task" (which is what the proposed patch 
+does).
+
+[ Also note that "sprinkle the code with preempt_disable()" kind of
+  solutions, besides hurting interactivity, are also a pain to resolve 
+  in something like PREEMPT_RT. (unlike say a spinlock, 
+  preempt_disable() is quite opaque in what data structure it protects, 
+  etc., making it hard to convert it to a preemptible primitive) ]
+
+> The one suggested in your patch and paper are way overkill, there is 
+> no reason to solve a TCP specific problem inside of the generic 
+> scheduler.
+
+agreed.
+
+What we could also add is a /reverse/ mechanism to the scheduler: a task 
+could query whether it has just a small amount of time left in its 
+timeslice, and could in that case voluntarily drop its current lock and 
+yield, and thus give up its current timeslice and wait for a new, full 
+timeslice, instead of being forcibly preempted due to lack of timeslices 
+with a possibly critical lock still held.
+
+But the suggested solution here, to "prolong the running of this task 
+just a little bit longer" only starts a perpetual arms race between 
+users of such a facility and other kernel subsystems. (besides not being 
+adequate anyway, there can always be /so/ long lock-hold times that the 
+scheduler would have no other option but to preempt the task)
+
+	Ingo
