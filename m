@@ -1,85 +1,64 @@
 From: Joy Latten <latten@austin.ibm.com>
-Subject: [PATCH 1/1] additional change to ipsec audit
-Date: Thu, 30 Nov 2006 15:50:43 -0600
-Message-ID: <200611302150.kAULoh8o008591@faith.austin.ibm.com>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	jmorris@namei.org, sgrubb@redhat.com
+Subject: Re: [PATCH 1/1] additional ipsec audit patch
+Date: Thu, 30 Nov 2006 17:44:36 -0600
+Message-ID: <1164930276.17737.530.camel@faith.austin.ibm.com>
+References: <200611292348.kATNmfMa001526@faith.austin.ibm.com>
+	 <XMMS.LNX.4.64.0611291918530.28053@d.namei>
+	 <XMMS.LNX.4.64.0611291932200.28199@d.namei>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	herbert@gondor.apana.org.au, sgrubb@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:22944 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S967942AbWK3WEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 17:04:15 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAUM4Ex1018892
-	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 17:04:14 -0500
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAUM4EHm240428
-	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 17:04:14 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAUM4Dxh019524
-	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 17:04:14 -0500
-To: netdev@vger.kernel.org
+Received: from e36.co.us.ibm.com ([32.97.110.154]:61595 "EHLO
+	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S966999AbWK3X6J
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 18:58:09 -0500
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAUNw8TK020312
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 18:58:08 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAUNw870538730
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 16:58:08 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAUNw7IO028498
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 16:58:08 -0700
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <XMMS.LNX.4.64.0611291932200.28199@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry! Sign off included this time. 
+On Wed, 2006-11-29 at 19:32 -0500, James Morris wrote:
+> On Wed, 29 Nov 2006, James Morris wrote:
+> 
+> > On Wed, 29 Nov 2006, Joy Latten wrote:
+> > 
+> > > This patch disables auditing in ipsec when CONFIG_AUDITSYSCALL is
+> > > disabled in the kernel. 
+> > > 
+> > > This patch also includes a bug fix for xfrm_state.c as a result of
+> > > original ipsec audit patch.
+> > > 
+> > > Let me know if it looks ok.
+> > 
+> > 
+> > Also, the last patch contains no Signed-off-by: line, please resend.
+> 
+> And, what is the testing status of these patches?
+> 
+I ran a stress test overnight using labeled ipsec on a patched lspp55 kernel 
+using racoon last week.
 
-This patch disables auditing in ipsec when CONFIG_AUDITSYSCALL is
-disabled in the kernel. 
+The additional patch to xfrm_state.c was my fault when rebasing to
+2.6.19-rc6 to send upstream. I plan to run an ipv4 and ipv6 stress test
+tonight and tomorrow using labeled ipsec with auditing enabled on the
+lspp56 kernel, which contains ipsec audit patch, to ensure no regression
+has occurred. I can also run an ipv4 and ipv6 stress tests
+with regular ipsec over the weekend for further ensurance.   
 
-This patch also includes a bug fix for xfrm_state.c as a result of
-original ipsec audit patch.
+I compiled and did unit test with SELINUX disabled, AUDITSYSCALL
+disabled, and with both enabled. 
 
 regards,
 Joy
-
-Signed-off-by: Joy Latten latten@austin.ibm.com
-
----------------------------------------------------------------------------
-diff -urpN linux-2.6.18-patch/include/net/xfrm.h linux-2.6.18-patch.2/include/net/xfrm.h
---- linux-2.6.18-patch/include/net/xfrm.h	2006-11-27 12:29:11.000000000 -0600
-+++ linux-2.6.18-patch.2/include/net/xfrm.h	2006-11-28 13:26:49.000000000 -0600
-@@ -395,8 +395,13 @@ struct xfrm_audit
- 	uid_t	loginuid;
- 	u32	secid;
- };
--void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
-+
-+#ifdef CONFIG_AUDITSYSCALL
-+extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
- 		    struct xfrm_policy *xp, struct xfrm_state *x);
-+#else
-+#define xfrm_audit_log(a,s,t,r,p,x) do { ; } while (0)
-+#endif /* CONFIG_AUDITSYSCALL */
- 
- static inline void xfrm_pol_hold(struct xfrm_policy *policy)
- {
-diff -urpN linux-2.6.18-patch/net/xfrm/xfrm_policy.c linux-2.6.18-patch.2/net/xfrm/xfrm_policy.c
---- linux-2.6.18-patch/net/xfrm/xfrm_policy.c	2006-11-27 12:29:33.000000000 -0600
-+++ linux-2.6.18-patch.2/net/xfrm/xfrm_policy.c	2006-11-28 14:51:09.000000000 -0600
-@@ -1955,6 +1955,7 @@ int xfrm_bundle_ok(struct xfrm_policy *p
- 
- EXPORT_SYMBOL(xfrm_bundle_ok);
- 
-+#ifdef CONFIG_AUDITSYSCALL
- /* Audit addition and deletion of SAs and ipsec policy */
- 
- void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
-@@ -2063,6 +2064,7 @@ void xfrm_audit_log(uid_t auid, u32 sid,
- }
- 
- EXPORT_SYMBOL(xfrm_audit_log);
-+#endif /* CONFIG_AUDITSYSCALL */
- 
- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- {
-diff -urpN linux-2.6.18-patch/net/xfrm/xfrm_state.c linux-2.6.18-patch.2/net/xfrm/xfrm_state.c
---- linux-2.6.18-patch/net/xfrm/xfrm_state.c	2006-11-27 12:29:33.000000000 -0600
-+++ linux-2.6.18-patch.2/net/xfrm/xfrm_state.c	2006-11-28 12:58:56.000000000 -0600
-@@ -407,7 +407,6 @@ restart:
- 				xfrm_state_hold(x);
- 				spin_unlock_bh(&xfrm_state_lock);
- 
--				xfrm_state_delete(x);
- 				err = xfrm_state_delete(x);
- 				xfrm_audit_log(audit_info->loginuid,
- 					       audit_info->secid,
