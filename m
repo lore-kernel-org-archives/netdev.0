@@ -1,31 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Fix iteration variable sign
-Date: Thu, 30 Nov 2006 19:56:36 +0100
-Message-ID: <20061130185636.GB16390@electric-eye.fr.zoreil.com>
-References: <200611292048.45152.mb@bu3sch.de> <20061129212133.GB18057@electric-eye.fr.zoreil.com> <456EBE87.1070806@pobox.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [RFC][PATCH 5/6] slab: kmem_cache_objs_to_pages()
+Date: Thu, 30 Nov 2006 19:55:17 +0100
+Message-ID: <1164912917.6588.155.camel@twins>
+References: <20061130101451.495412000@chello.nl> >
+	 <20061130101922.175620000@chello.nl> >
+	  <Pine.LNX.4.64.0611301053340.23820@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@osdl.org, Michael Buesch <mb@bu3sch.de>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:19165 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S967871AbWK3S6V
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 13:58:21 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <456EBE87.1070806@pobox.com>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:50553 "EHLO
+	amsfep13-int.chello.nl") by vger.kernel.org with ESMTP
+	id S967882AbWK3TBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 14:01:41 -0500
+To: Christoph Lameter <clameter@sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0611301053340.23820@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> :
-[...]
-> should this go into #upstream rather than #upstream-fixes?
+On Thu, 2006-11-30 at 10:55 -0800, Christoph Lameter wrote:
+> On Thu, 30 Nov 2006, Peter Zijlstra wrote:
+> 
+> > +unsigned int kmem_cache_objs_to_pages(struct kmem_cache *cachep, int nr)
+> > +{
+> > +	return ((nr + cachep->num - 1) / cachep->num) << cachep->gfporder;
+> 
+> cachep->num refers to the number of objects in a slab of gfporder.
 
-It's already in.
+Ah, my bad, thanks!
 
-The attribution does not follow the ordering of the Signed-off-by
-but the S-o-b are fine.
+> thus
+> 
+> return (nr + cachep->num - 1) / cachep->num;
+> 
+> But then this is very optimistic estimate that assumes a single node and 
+> no free objects in between.
 
--- 
-Ueimor
+Right, perhaps my bad in wording the intent; the needed information is
+how many more pages would I need to grow the slab with in order to store
+so many new object.
+
