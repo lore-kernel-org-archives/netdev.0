@@ -1,43 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 18:19:50 -0800 (PST)
-Message-ID: <20061129.181950.31643130.davem@davemloft.net>
-References: <2f14bf623344.456de60a@fnal.gov>
+From: Michael Renzmann <madwifi@nospam.otaku42.de>
+Subject: Re: ar5k and Atheros AR5005G
+Date: Thu, 30 Nov 2006 06:33:36 +0100
+Message-ID: <456E6D30.9030904@otaku42.de>
+References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
+	<200611291638.56759.mb@bu3sch.de>
+	<1443.194.45.26.221.1164815926.squirrel@webmail.otaku42.de>
+	<200611291703.21648.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:31631
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S936133AbWK3CTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Nov 2006 21:19:51 -0500
-To: wenji@fnal.gov
-In-Reply-To: <2f14bf623344.456de60a@fnal.gov>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
+	Nick Kossifidis <mickflemm@gmail.com>
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200611291703.21648.mb@bu3sch.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Wenji Wu <wenji@fnal.gov>
-Date: Wed, 29 Nov 2006 19:56:58 -0600
+Hi.
 
-> >We could also pepper tcp_recvmsg() with some very carefully placed
-> >preemption disable/enable calls to deal with this even with
-> >CONFIG_PREEMPT enabled.
->
-> I also think about this approach. But since the "problem" happens in
-> the 2.6 Desktop and Low-latency Desktop (not server), system
-> responsiveness is a key feature, simply placing preemption
-> disabled/enable call might not work.  If you want to place
-> preemption disable/enable calls within tcp_recvmsg, you have to put
-> them in the very beginning and end of the call. Disabling preemption
-> would degrade system responsiveness.
+Michael Buesch wrote:
+>> IIRC Pavel already explained that getting rid of the HAL per se should be
+>> no problem - it could easily be dissolved into the driver, if that is one
+>> of the requirements to be fulfilled before the driver (MadWifi or DadWifi)
+>> is considered for mainline inclusion. As soon as there is source available
+>> to dissolve, at least.
+> Ok, so who actually does the work?
 
-We can make explicitl preemption checks in the main loop of
-tcp_recvmsg(), and release the socket and run the backlog if
-need_resched() is TRUE.
+The MadWifi team? It won't happen today or tomorrow, but I'm confident 
+that it will happen. Any contribution to that effort is highly welcome - 
+the more people help, the faster will the goal be reached.
 
-This is the simplest and most elegant solution to this problem.
+>> From what I understood the "... once the hal issue is resolved" part of
+>> David's mail refered to exactly that question.
+> Ok, I don't know what "The HAL Issue" (tm) is.
 
-The one suggested in your patch and paper are way overkill, there is
-no reason to solve a TCP specific problem inside of the generic
-scheduler.
+You referred to the archives where that exact "issue"(s) (binary-only, 
+non-free, no sources, unwanted level of abstraction) has/have been 
+discussed in lenght, but you claim you didn't have a clue what David was 
+talking about? Come on.
+
+Bye, Mike
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
