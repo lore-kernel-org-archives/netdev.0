@@ -1,29 +1,69 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [RFC][PATCH 1/6] mm: slab allocation fairness
-Date: Thu, 30 Nov 2006 11:33:32 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611301132530.24161@schroedinger.engr.sgi.com>
-References: <20061130101451.495412000@chello.nl> >  <20061130101921.113055000@chello.nl>
- >   <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
- <1164912915.6588.153.camel@twins>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: e100 breakage located
+Date: Thu, 30 Nov 2006 11:34:19 -0800
+Message-ID: <4807377b0611301134q33d1cd78l5a1f2eda33da21bc@mail.gmail.com>
+References: <45641A4E.6020505@ufomechanic.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Michael.ODonnell@stratus.com,
+	"NetDEV list" <netdev@vger.kernel.org>,
+	"Auke Kok" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:55957 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S1031238AbWK3Tdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 14:33:38 -0500
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-In-Reply-To: <1164912915.6588.153.camel@twins>
+Received: from ug-out-1314.google.com ([66.249.92.169]:63904 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1031255AbWK3TeV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 14:34:21 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so2215600uga
+        for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 11:34:20 -0800 (PST)
+To: "Amin Azez" <azez@ufomechanic.net>
+In-Reply-To: <45641A4E.6020505@ufomechanic.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Nov 2006, Peter Zijlstra wrote:
+sorry for the delay, your mail got marked as spam.  In the future
+please copy networking issues to netdev@vger.kernel.org, and be sure
+to copy the maintainers of the driver you're having problems with
+(they are in the MAINTAINERS file)
 
-> No, the forced allocation is to test the allocation hardness at that
-> point in time. I could not think of another way to test that than to
-> actually to an allocation.
+On 11/22/06, Amin Azez <azez@ufomechanic.net> wrote:
+> I notice a patch in 2005 from Micahel O'Donnel to the e100.c driver has
+> stopped auto-crossover working on some e100 devices we use.
+>
+> On one system the auto-negotiation was restored by commenting out:
+> (nic->mac == mac_82551_10) in function e100_phy_init where the MDI/MDI-X
+> is disabled.
 
-Typically we do this by checking the number of free pages in a zone 
-compared to the high low limits. See mmzone.h.
- 
+are you sure that patch did that?  What version of e100 are you using?
+we've since enabled MDI-X on most parts with this patch:
+http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=60ffa478759f39a2eb3be1ed179bc3764804b2c8;hp=09e590e5d5a93f2eaa748a89c623258e6bad1648
+
+Please try the latest kernel or the latest e100 available from e1000.sf.net
+if that doesn't work we'll need to know what kernel are you using?
+
+> lspci reports:
+>  01:04.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100]
+> (rev 10)
+>  01:04.0 Class 0200: 8086:1229 (rev 10)
+>
+> and on another device
+>  01:05.0 Ethernet controller: Intel Corp. 82559ER (rev 10)
+>  01:01.0 Class 0200: 8086:1209 (rev 10)
+>
+> So it is true that we are revision 10, but 82557/9 not 82551.
+
+you're getting confused between decimal and hex.  82551 is rev 16 (0x10)
+
+> I must confess that having gotten this far, I am lost. Of course I can
+> "fix" the driver for our hardware but I am not sure how to contrive a
+> general fix.
+>
+> Maybe the actual damage is done in
+>  e100_get_defaults(struct nic *nic)
+> where nic->mac is set to nic->rev_id ?
+>
+> But it generally seems to be a failure to take into account the actual
+> hardware type, and only consider the revision.
+
+the only relevant way to tell e100 parts apart is the revision id
