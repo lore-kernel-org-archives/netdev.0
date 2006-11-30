@@ -1,69 +1,50 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH 2.6.18] declance: Support the I/O ASIC LANCE w/o TURBOchannel
-Date: Thu, 30 Nov 2006 13:15:05 +0000 (GMT)
-Message-ID: <Pine.LNX.4.64N.0611301306460.1757@blysk.ds.pg.gda.pl>
+From: "Nordlund Kim (Nokia-NET/Helsinki)" <Kim.Nordlund@nokia.com>
+Subject: Re: [PKT_SCHED] act_gact: division by zero
+Date: Thu, 30 Nov 2006 15:51:04 +0200 (EET)
+Message-ID: <Pine.LNX.4.44.0611301530590.4036-100000@dhcp09282.ntc.nokia.com>
+References: <456ECBC5.3080501@trash.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
+Cc: "Nordlund Kim (Nokia-NET/Helsinki)" <Kim.Nordlund@nokia.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:26635 "EHLO
-	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP id S936390AbWK3NPJ
+Received: from mgw-ext04.nokia.com ([131.228.20.96]:15758 "EHLO
+	mgw-ext04.nokia.com") by vger.kernel.org with ESMTP id S936321AbWK3Nvd
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 08:15:09 -0500
-To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
+	Thu, 30 Nov 2006 08:51:33 -0500
+To: ext Patrick McHardy <kaber@trash.net>
+In-Reply-To: <456ECBC5.3080501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- The onboard LANCE of I/O ASIC systems is not a TURBOchannel device, at 
-least from the software point of view.  Therefore it does not rely on any 
-kernel TURBOchannel bus services and can be supported even if support for 
-TURBOchannel has not been enabled in the configuration.
 
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
----
- Tested with the onboard LANCE of a DECstation 5000/133.
+On Thu, 30 Nov 2006, ext Patrick McHardy wrote:
+> I think it should reject an invalid configuration or handle
+> the zero case correctly by not dividing.
 
- Please apply.
+You are correct. Not returning -EINVAL, because someone might
+want to use the value zero in some future gact_prob algorithm?
 
-  Maciej
+Signed-off-by: Kim Nordlund <kim.nordlund@nokia.com>
 
-patch-mips-2.6.18-20060920-declance-tc-0
-diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/net/declance.c linux-mips-2.6.18-20060920/drivers/net/declance.c
---- linux-mips-2.6.18-20060920.macro/drivers/net/declance.c	2006-11-23 02:55:34.000000000 +0000
-+++ linux-mips-2.6.18-20060920/drivers/net/declance.c	2006-11-30 02:31:19.000000000 +0000
-@@ -1068,7 +1068,6 @@ static int __init dec_lance_init(const i
- 	lp->type = type;
- 	lp->slot = slot;
- 	switch (type) {
--#ifdef CONFIG_TC
- 	case ASIC_LANCE:
- 		dev->base_addr = CKSEG1ADDR(dec_kn_slot_base + IOASIC_LANCE);
+diff -rub linux-2.6.19-orig/net/sched/act_gact.c linux/net/sched/act_gact.c
+--- linux-2.6.19-orig/net/sched/act_gact.c	2006-11-29 23:57:37.000000000 +0200
++++ linux/net/sched/act_gact.c	2006-11-30 15:33:12.000000000 +0200
+@@ -48,14 +48,14 @@
+ #ifdef CONFIG_GACT_PROB
+ static int gact_net_rand(struct tcf_gact *gact)
+ {
+-	if (net_random() % gact->tcfg_pval)
++	if (!gact->tcfg_pval || net_random() % gact->tcfg_pval)
+ 		return gact->tcf_action;
+ 	return gact->tcfg_paction;
+ }
  
-@@ -1112,7 +1111,7 @@ static int __init dec_lance_init(const i
- 			     CPHYSADDR(dev->mem_start) << 3);
- 
- 		break;
--
-+#ifdef CONFIG_TC
- 	case PMAD_LANCE:
- 		claim_tc_card(slot);
- 
-@@ -1143,7 +1142,6 @@ static int __init dec_lance_init(const i
- 
- 		break;
- #endif
--
- 	case PMAX_LANCE:
- 		dev->irq = dec_interrupt[DEC_IRQ_LANCE];
- 		dev->base_addr = CKSEG1ADDR(KN01_SLOT_BASE + KN01_LANCE);
-@@ -1298,10 +1296,8 @@ static int __init dec_lance_probe(void)
- 	/* Then handle onboard devices. */
- 	if (dec_interrupt[DEC_IRQ_LANCE] >= 0) {
- 		if (dec_interrupt[DEC_IRQ_LANCE_MERR] >= 0) {
--#ifdef CONFIG_TC
- 			if (dec_lance_init(ASIC_LANCE, -1) >= 0)
- 				count++;
--#endif
- 		} else if (!TURBOCHANNEL) {
- 			if (dec_lance_init(PMAX_LANCE, -1) >= 0)
- 				count++;
+ static int gact_determ(struct tcf_gact *gact)
+ {
+-	if (gact->tcf_bstats.packets % gact->tcfg_pval)
++	if (!gact->tcfg_pval || gact->tcf_bstats.packets % gact->tcfg_pval)
+ 		return gact->tcf_action;
+ 	return gact->tcfg_paction;
+ }
+
