@@ -1,108 +1,85 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
-Date: Thu, 30 Nov 2006 22:32:02 +0100
-Message-ID: <200611302232.03608.rjw@sisk.pl>
-References: <20061128020246.47e481eb.akpm@osdl.org> <200611302121.28518.rjw@sisk.pl> <20061130131240.21b1e889.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: [PATCH 1/1] additional change to ipsec audit
+Date: Thu, 30 Nov 2006 15:50:43 -0600
+Message-ID: <200611302150.kAULoh8o008591@faith.austin.ibm.com>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	jmorris@namei.org, sgrubb@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:63960 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S967918AbWK3Vgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 16:36:54 -0500
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061130131240.21b1e889.akpm@osdl.org>
-Content-Disposition: inline
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:22944 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S967942AbWK3WEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 17:04:15 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAUM4Ex1018892
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 17:04:14 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAUM4EHm240428
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 17:04:14 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAUM4Dxh019524
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 17:04:14 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Trimmed the Cc list a bit.]
+Sorry! Sign off included this time. 
 
-On Thursday, 30 November 2006 22:12, Andrew Morton wrote:
-> On Thu, 30 Nov 2006 21:21:27 +0100
-> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> 
-> > On Thursday, 30 November 2006 02:04, Rafael J. Wysocki wrote:
-> > > On Thursday, 30 November 2006 00:26, Andrew Morton wrote:
-> > > > On Thu, 30 Nov 2006 00:08:21 +0100
-> > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > 
-> > > > > On Wednesday, 29 November 2006 22:31, Rafael J. Wysocki wrote:
-> > > > > > On Wednesday, 29 November 2006 22:30, Andrew Morton wrote:
-> > > > > > > On Wed, 29 Nov 2006 21:08:00 +0100
-> > > > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > > > > 
-> > > > > > > > On Wednesday, 29 November 2006 20:54, Rafael J. Wysocki wrote:
-> > > > > > > > > On Tuesday, 28 November 2006 11:02, Andrew Morton wrote:
-> > > > > > > > > > 
-> > > > > > > > > > Temporarily at
-> > > > > > > > > > 
-> > > > > > > > > > http://userweb.kernel.org/~akpm/2.6.19-rc6-mm2/
-> > > > > > > > > > 
-> > > > > > > > > > Will appear eventually at
-> > > > > > > > > > 
-> > > > > > > > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.19-rc6/2.6.19-rc6-mm2/
-> > > > > > > > > 
-> > > > > > > > > A minor issue: on one of my (x86-64) test boxes the uli526x driver doesn't
-> > > > > > > > > work when it's first loaded.  I have to rmmod and modprobe it to make it work.
-> > > > > > > 
-> > > > > > > That isn't a minor issue.
-> > > > > > > 
-> > > > > > > > > It worked just fine on -mm1, so something must have happened to it recently.
-> > > > > > > > 
-> > > > > > > > Sorry, I was wrong.  The driver doesn't work at all, even after reload.
-> > > > > > > > 
-> > > > > > > 
-> > > > > > > tulip-dmfe-carrier-detection-fix.patch was added in rc6-mm2.  But you're
-> > > > > > > not using that (corrent?)
-> > > > > > > 
-> > > > > > > git-netdev-all changes drivers/net/tulip/de2104x.c, but you're not using
-> > > > > > > that either.
-> > > > > > > 
-> > > > > > > git-powerpc(!) alters drivers/net/tulip/de4x5.c, but you're not using that.
-> > > > > > > 
-> > > > > > > Beats me, sorry.  Perhaps it's due to changes in networking core.  It's
-> > > > > > > presumably a showstopper for statically-linked-uli526x users.  If you could
-> > > > > > > bisect it, please?  I'd start with git-netdev-all, then tulip-*.
-> > > > > > 
-> > > > > > OK, but it'll take some time.
-> > > > > 
-> > > > > OK, done.
-> > > > > 
-> > > > > It's one of these (the first one alone doesn't compile):
-> > > > > 
-> > > > > git-netdev-all.patch
-> > > > > git-netdev-all-fixup.patch
-> > > > > libphy-dont-do-that.patch
-> > 
-> > Hm, all of these patches are the same as in -mm1 which hasn't caused any
-> > problems to appear on this box.
-> > 
-> > So, it seems there's another change between -mm1 and -mm2 that causes this
-> > to happen.
-> > 
-> 
-> It would be nice to eliminate libphy-dont-do-that.patch if poss - that was
-> a rogue akpm patch aimed at some incomprehensible gobbledigook in the
-> netdev tree (and to fix the current_is_keventd-not-exported-to-modules
-> bug).
+This patch disables auditing in ipsec when CONFIG_AUDITSYSCALL is
+disabled in the kernel. 
 
-Unfortunately the kernel doesn't compile without it ...
+This patch also includes a bug fix for xfrm_state.c as a result of
+original ipsec audit patch.
 
-Well, I think I'll try to find the patch that contains the change which has
-triggered this.
+regards,
+Joy
 
-Now it looks like the problem is 100% reproducible after a fresh poweron as
-long as I don't run a non-failing kernel on the box.  [Symptoms tend to vary,
-though.  Sometimes the reloading of uli526x doesn't help at all, sometimes
-it makes the interface appear but without the possibility to transmit data,
-and sometimes it makes the interface work.]
+Signed-off-by: Joy Latten latten@austin.ibm.com
 
-> I have a feeling that your bug will be cheerily merged into mainline soon. 
-> That might of course mean that someone will hit it more firmly and it'll
-> get fixed.
-
-Yes, that's possible.
+---------------------------------------------------------------------------
+diff -urpN linux-2.6.18-patch/include/net/xfrm.h linux-2.6.18-patch.2/include/net/xfrm.h
+--- linux-2.6.18-patch/include/net/xfrm.h	2006-11-27 12:29:11.000000000 -0600
++++ linux-2.6.18-patch.2/include/net/xfrm.h	2006-11-28 13:26:49.000000000 -0600
+@@ -395,8 +395,13 @@ struct xfrm_audit
+ 	uid_t	loginuid;
+ 	u32	secid;
+ };
+-void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
++
++#ifdef CONFIG_AUDITSYSCALL
++extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
+ 		    struct xfrm_policy *xp, struct xfrm_state *x);
++#else
++#define xfrm_audit_log(a,s,t,r,p,x) do { ; } while (0)
++#endif /* CONFIG_AUDITSYSCALL */
+ 
+ static inline void xfrm_pol_hold(struct xfrm_policy *policy)
+ {
+diff -urpN linux-2.6.18-patch/net/xfrm/xfrm_policy.c linux-2.6.18-patch.2/net/xfrm/xfrm_policy.c
+--- linux-2.6.18-patch/net/xfrm/xfrm_policy.c	2006-11-27 12:29:33.000000000 -0600
++++ linux-2.6.18-patch.2/net/xfrm/xfrm_policy.c	2006-11-28 14:51:09.000000000 -0600
+@@ -1955,6 +1955,7 @@ int xfrm_bundle_ok(struct xfrm_policy *p
+ 
+ EXPORT_SYMBOL(xfrm_bundle_ok);
+ 
++#ifdef CONFIG_AUDITSYSCALL
+ /* Audit addition and deletion of SAs and ipsec policy */
+ 
+ void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
+@@ -2063,6 +2064,7 @@ void xfrm_audit_log(uid_t auid, u32 sid,
+ }
+ 
+ EXPORT_SYMBOL(xfrm_audit_log);
++#endif /* CONFIG_AUDITSYSCALL */
+ 
+ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ {
+diff -urpN linux-2.6.18-patch/net/xfrm/xfrm_state.c linux-2.6.18-patch.2/net/xfrm/xfrm_state.c
+--- linux-2.6.18-patch/net/xfrm/xfrm_state.c	2006-11-27 12:29:33.000000000 -0600
++++ linux-2.6.18-patch.2/net/xfrm/xfrm_state.c	2006-11-28 12:58:56.000000000 -0600
+@@ -407,7 +407,6 @@ restart:
+ 				xfrm_state_hold(x);
+ 				spin_unlock_bh(&xfrm_state_lock);
+ 
+-				xfrm_state_delete(x);
+ 				err = xfrm_state_delete(x);
+ 				xfrm_audit_log(audit_info->loginuid,
+ 					       audit_info->secid,
