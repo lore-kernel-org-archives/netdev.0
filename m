@@ -1,65 +1,30 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Thu, 30 Nov 2006 08:35:04 +0100
-Message-ID: <20061130073504.GA19437@elte.hu>
-References: <20061130061758.GA2003@elte.hu> <20061129.223055.05159325.davem@davemloft.net> <20061130064758.GD2003@elte.hu> <20061129.231258.65649383.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Broken commit: [NETFILTER]: ipt_REJECT: remove largely   duplicate route_reverse function
+Date: Thu, 30 Nov 2006 09:31:30 +0100
+Message-ID: <20061130083130.GA2081@ff.dom.local>
+References: <20061129073505.GB1001@ff.dom.local> <m3ac2a1ee6.fsf@defiant.localdomain> <m364cy1dxl.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wenji@fnal.gov, akpm@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:27839 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1758596AbWK3HhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 02:37:19 -0500
-To: David Miller <davem@davemloft.net>
+Received: from poczta.o2.pl ([193.17.41.142]:40849 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1759066AbWK3IYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 03:24:50 -0500
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Content-Disposition: inline
-In-Reply-To: <20061129.231258.65649383.davem@davemloft.net>
+In-Reply-To: <m364cy1dxl.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* David Miller <davem@davemloft.net> wrote:
-
-> > furthermore, the tweak allows the shifting of processing from a 
-> > prioritized process context into a highest-priority softirq context. 
-> > (it's not proven that there is any significant /net win/ of 
-> > performance: all that was proven is that if we shift TCP processing 
-> > from process context into softirq context then TCP throughput of 
-> > that otherwise penalized process context increases.)
+On Wed, Nov 29, 2006 at 04:16:06PM +0100, Krzysztof Halasa wrote:
+> Krzysztof Halasa <khc@pm.waw.pl> writes:
 > 
-> If we preempt with any packets in the backlog, we send no ACKs and the 
-> sender cannot send thus the pipe empties.  That's the problem, this 
-> has nothing to do with scheduler priorities or stuff like that IMHO. 
-> The argument goes that if the reschedule is delayed long enough, the 
-> ACKs will exceed the round trip time and trigger retransmits which 
-> will absolutely kill performance.
+> > I wound't care less btw.
+> 
+> s/wound/couldn/, eh those foreign languages...
 
-yes, but i disagree a bit about the characterisation of the problem. The 
-question in my opinion is: how is TCP processing prioritized for this 
-particular socket, which is attached to the process context which was 
-preempted.
+So, you say, you don't care about David Miller's credits?
+It isn't nice. He could be very disappointed...
 
-normally, normally quite a bit of TCP processing happens in a softirq 
-context (in fact most of it happens there), and softirq contexts have no 
-fairness whatsoever - they preempt whatever processing is going on, 
-regardless of any priority preferences of the user!
-
-what was observed here were the effects of completely throttling TCP 
-processing for a given socket. I think such throttling can in fact be 
-desirable: there is a /reason/ why the process context was preempted: in 
-that load scenario there was 10 times more processing requested from the 
-CPU than it can possibly service. It's a serious overload situation and 
-it's the scheduler's task to prioritize between workloads!
-
-normally such kind of "throttling" of the TCP stack for this particular 
-socket does not happen. Note that there's no performance lost: we dont 
-do TCP processing because there are /9 other tasks for this CPU to run/, 
-and the scheduler has a tough choice.
-
-Now i agree that there are more intelligent ways to throttle and less 
-intelligent ways to throttle, but the notion to allow a given workload 
-'steal' CPU time from other workloads by allowing it to push its 
-processing into a softirq is i think unfair. (and this issue is 
-partially addressed by my softirq threading patches in -rt :-)
-
-	Ingo
+Jarek P. 
