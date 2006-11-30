@@ -1,53 +1,49 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: [PATCH] mv643xx add missing brackets
-Date: Thu, 30 Nov 2006 10:35:37 +0100
-Message-ID: <200611301035.37786.m.kozlowski@tuxland.pl>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 12:52:33 +0300
+Message-ID: <20061130095232.GA8990@2ka.mipt.ru>
+References: <20061130061758.GA2003@elte.hu> <20061129.223055.05159325.davem@davemloft.net> <20061130064758.GD2003@elte.hu> <20061129.231258.65649383.davem@davemloft.net> <20061130073504.GA19437@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, wenji@fnal.gov, akpm@osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-664.zgora.dialog.net.pl ([81.168.226.152]:23825 "EHLO
-	tuxland.pl") by vger.kernel.org with ESMTP id S933073AbWK3JgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 04:36:06 -0500
-To: dale@farnsworth.org, mlachwani@mvista.com
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:31184 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S933718AbWK3Jyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 04:54:52 -0500
+To: Ingo Molnar <mingo@elte.hu>
 Content-Disposition: inline
+In-Reply-To: <20061130073504.GA19437@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, Nov 30, 2006 at 08:35:04AM +0100, Ingo Molnar (mingo@elte.hu) wrote:
+> what was observed here were the effects of completely throttling TCP 
+> processing for a given socket. I think such throttling can in fact be 
+> desirable: there is a /reason/ why the process context was preempted: in 
+> that load scenario there was 10 times more processing requested from the 
+> CPU than it can possibly service. It's a serious overload situation and 
+> it's the scheduler's task to prioritize between workloads!
+> 
+> normally such kind of "throttling" of the TCP stack for this particular 
+> socket does not happen. Note that there's no performance lost: we dont 
+> do TCP processing because there are /9 other tasks for this CPU to run/, 
+> and the scheduler has a tough choice.
+> 
+> Now i agree that there are more intelligent ways to throttle and less 
+> intelligent ways to throttle, but the notion to allow a given workload 
+> 'steal' CPU time from other workloads by allowing it to push its 
+> processing into a softirq is i think unfair. (and this issue is 
+> partially addressed by my softirq threading patches in -rt :-)
 
-	This patch adds missing brackets.
+Doesn't the provided solution is just a in-kernel variant of the
+SCHED_FIFO set from userspace? Why kernel should be able to mark some
+users as having higher priority?
+What if workload of the system is targeted to not the maximum TCP
+performance, but maximum other-task performance, which will be broken
+with provided patch.
 
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-
- include/linux/mv643xx.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6.19-rc6-mm2-a/include/linux/mv643xx.h	2006-11-16 05:03:40.000000000 +0100
-+++ linux-2.6.19-rc6-mm2-b/include/linux/mv643xx.h	2006-11-30 01:10:53.000000000 +0100
-@@ -724,7 +724,7 @@
- #define MV643XX_ETH_RX_FIFO_URGENT_THRESHOLD_REG(port)             (0x2470 + (port<<10))
- #define MV643XX_ETH_TX_FIFO_URGENT_THRESHOLD_REG(port)             (0x2474 + (port<<10))
- #define MV643XX_ETH_RX_MINIMAL_FRAME_SIZE_REG(port)                (0x247c + (port<<10))
--#define MV643XX_ETH_RX_DISCARDED_FRAMES_COUNTER(port)              (0x2484 + (port<<10)
-+#define MV643XX_ETH_RX_DISCARDED_FRAMES_COUNTER(port)              (0x2484 + (port<<10))
- #define MV643XX_ETH_PORT_DEBUG_0_REG(port)                         (0x248c + (port<<10))
- #define MV643XX_ETH_PORT_DEBUG_1_REG(port)                         (0x2490 + (port<<10))
- #define MV643XX_ETH_PORT_INTERNAL_ADDR_ERROR_REG(port)             (0x2494 + (port<<10))
-@@ -1135,7 +1135,7 @@ struct mv64xxx_i2c_pdata {
- #define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_1	(1<<19)
- #define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_2	(1<<20)
- #define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_3	((1<<20) | (1<<19))
--#define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_4	((1<<21)
-+#define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_4	((1<<21))
- #define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_5	((1<<21) | (1<<19))
- #define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_6	((1<<21) | (1<<20))
- #define MV643XX_ETH_DEFAULT_RX_UDP_QUEUE_7	((1<<21) | (1<<20) | (1<<19))
-
+> 	Ingo
 
 -- 
-Regards,
-
-	Mariusz Kozlowski
+	Evgeniy Polyakov
