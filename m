@@ -1,54 +1,48 @@
 From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Bug 7596 - Potential performance bottleneck for Linxu TCP
-Date: Thu, 30 Nov 2006 07:32:52 +0100
-Message-ID: <20061130063252.GC2003@elte.hu>
-References: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov> <20061129154200.c4db558c.akpm@osdl.org>
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 07:47:58 +0100
+Message-ID: <20061130064758.GD2003@elte.hu>
+References: <2f14bf623344.456de60a@fnal.gov> <20061129.181950.31643130.davem@davemloft.net> <20061130061758.GA2003@elte.hu> <20061129.223055.05159325.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wenji@fnal.gov, netdev@vger.kernel.org, davem@davemloft.net,
+Cc: wenji@fnal.gov, akpm@osdl.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:58053 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1757861AbWK3GfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 01:35:06 -0500
-To: Andrew Morton <akpm@osdl.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:49821 "EHLO mx2.mail.elte.hu")
+	by vger.kernel.org with ESMTP id S1758001AbWK3GuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 01:50:11 -0500
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20061129154200.c4db558c.akpm@osdl.org>
+In-Reply-To: <20061129.223055.05159325.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-* Andrew Morton <akpm@osdl.org> wrote:
+* David Miller <davem@davemloft.net> wrote:
 
-> > Attached is the detailed description of the problem and one possible 
-> > solution.
+> > yeah, i like this one. If the problem is "too long locked section", 
+> > then the most natural solution is to "break up the lock", not to 
+> > "boost the priority of the lock-holding task" (which is what the 
+> > proposed patch does).
 > 
-> Thanks.  The attachment will be too large for the mailing-list servers 
-> so I uploaded a copy to 
-> http://userweb.kernel.org/~akpm/Linux-TCP-Bottleneck-Analysis-Report.pdf
-> 
-> From a quick peek it appears that you're getting around 10% 
-> improvement in TCP throughput, best case.
+> Ingo you're mis-read the problem :-)
 
-Wenji, have you tried to renice the receiving task (to say nice -20) and 
-see how much TCP throughput you get in "background load of 10.0". 
-(similarly, you could also renice the background load tasks to nice +19 
-and/or set their scheduling policy to SCHED_BATCH)
+yeah, the problem isnt too long locked section but "too much time spent 
+holding a lock" and hence opening up ourselves to possible negative 
+side-effects of the scheduler's fairness algorithm when it forces a 
+preemption of that process context with that lock held (and forcing all 
+subsequent packets to be backlogged).
 
-as far as i can see, the numbers in the paper and the patch prove the 
-following two points:
+but please read my last mail - i think i'm slowly starting to wake up 
+;-) I dont think there is any real problem: a tweak to the scheduler 
+that in essence gives TCP-using tasks a preference changes the balance 
+of workloads. Such an explicit tweak is possible already.
 
- - a task doing TCP receive with 10 other tasks running on the CPU will
-   see lower TCP throughput than if it had the CPU for itself alone.
-
- - a patch that tweaks the scheduler to give the receiving task more
-   timeslices (i.e. raises its nice level in essence) results in ...
-   more timeslices, which results in higher receive numbers ...
-
-so the most important thing to check would be, before any scheduler and 
-TCP code change is considered: if you give the task higher priority 
-/explicitly/, via nice -20, do the numbers improve? Similarly, if all 
-the other "background load" tasks are reniced to nice +19 (or their 
-policy is set to SCHED_BATCH), do you get a similar improvement?
+furthermore, the tweak allows the shifting of processing from a 
+prioritized process context into a highest-priority softirq context. 
+(it's not proven that there is any significant /net win/ of performance: 
+all that was proven is that if we shift TCP processing from process 
+context into softirq context then TCP throughput of that otherwise 
+penalized process context increases.)
 
 	Ingo
