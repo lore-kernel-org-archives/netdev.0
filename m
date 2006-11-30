@@ -1,39 +1,42 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][NET_SCHED] sch_cbq: deactivating when grafting, purging
- etc.
-Date: Thu, 30 Nov 2006 13:22:47 +0100
-Message-ID: <456ECD17.2010202@trash.net>
-References: <20061127065614.GB1625@ff.dom.local> <456AB61B.3040205@trash.net> <20061127104140.GA2866@ff.dom.local> <456AC07E.6000606@trash.net> <20061128063743.GA1797@ff.dom.local>
+Subject: Re: [PKT_SCHED] act_gact: division by zero
+Date: Thu, 30 Nov 2006 13:17:09 +0100
+Message-ID: <456ECBC5.3080501@trash.net>
+References: <Pine.LNX.4.44.0611301309550.14993-100000@dhcp09282.ntc.nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:18883 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S936383AbWK3MWx
+Received: from stinky.trash.net ([213.144.137.162]:57282 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S936317AbWK3MRQ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 07:22:53 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061128063743.GA1797@ff.dom.local>
+	Thu, 30 Nov 2006 07:17:16 -0500
+To: "Nordlund Kim (Nokia-NET/Helsinki)" <Kim.Nordlund@nokia.com>
+In-Reply-To: <Pine.LNX.4.44.0611301309550.14993-100000@dhcp09282.ntc.nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> [NET_SCHED] sch_cbq:
+Nordlund Kim (Nokia-NET/Helsinki) wrote:
+> tc qdisc add dev eth1 handle ffff: ingress
+> tc filter add dev eth1 protocol ip parent ffff: pref 99 basic \
+>    flowid 1:1 action pass random determ drop 0
+>                                              ^
+> the above cause a division by zero in the kernel on the first
+> packet in.
 > 
-> [PATCH 2.6.19-rc6 with "Fix endless loops" set of patches]
+> Signed-off-by: Kim Nordlund <kim.nordlund@nokia.com>
 > 
-> - P. McHardy's "Fix endless loops" patch supplement
->   (cbq_graft, cbq_qlen_notify, cbq_delete, cbq_class_ops)
-> 
-> - deactivating of active classes when q.qlen drops to zero
->   (cbq_drop)
-> 
-> - a redundant instruction removed from cbq_deactivate_class
-> 
-> PS: probably htb_deactivate in htb_delete and
-> cbq_deactivate_class in cbq_delete are also
-> redundant now.
+> diff -rub linux-2.6.19-orig/net/sched/act_gact.c linux/net/sched/act_gact.c
+> --- linux-2.6.19-orig/net/sched/act_gact.c	2006-11-29 23:57:37.000000000 +0200
+> +++ linux/net/sched/act_gact.c	2006-11-30 13:22:37.000000000 +0200
+> @@ -111,7 +111,7 @@
+>  	if (tb[TCA_GACT_PROB-1] != NULL) {
+>  		struct tc_gact_p *p_parm = RTA_DATA(tb[TCA_GACT_PROB-1]);
+>  		gact->tcfg_paction = p_parm->paction;
+> -		gact->tcfg_pval    = p_parm->pval;
+> +		gact->tcfg_pval    = p_parm->pval ? : 1;
 
-This looks good, thanks.
 
+I think it should reject an invalid configuration or handle
+the zero case correctly by not dividing.
