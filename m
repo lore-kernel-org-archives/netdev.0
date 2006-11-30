@@ -1,62 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 23:12:58 -0800 (PST)
-Message-ID: <20061129.231258.65649383.davem@davemloft.net>
-References: <20061130061758.GA2003@elte.hu>
-	<20061129.223055.05159325.davem@davemloft.net>
-	<20061130064758.GD2003@elte.hu>
+From: "Alexey Dobriyan" <adobriyan@gmail.com>
+Subject: Re: pktgen
+Date: Thu, 30 Nov 2006 10:30:45 +0300
+Message-ID: <b6fcc0a0611292330n42fb1485h59804cc94a332f19@mail.gmail.com>
+References: <20061121212251.GA5084@martell.zuzino.mipt.ru>
+	 <20061128.153325.10304536.davem@davemloft.net>
+	 <20061129200437.GA5152@martell.zuzino.mipt.ru>
+	 <20061129.174943.112291690.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wenji@fnal.gov, akpm@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: pavol.gono@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:13968
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1758497AbWK3HM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 02:12:59 -0500
-To: mingo@elte.hu
-In-Reply-To: <20061130064758.GD2003@elte.hu>
+Received: from nf-out-0910.google.com ([64.233.182.186]:29189 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1758543AbWK3Has (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 02:30:48 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so3160419nfa
+        for <netdev@vger.kernel.org>; Wed, 29 Nov 2006 23:30:46 -0800 (PST)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20061129.174943.112291690.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 30 Nov 2006 07:47:58 +0100
+On 11/30/06, David Miller <davem@davemloft.net> wrote:
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Wed, 29 Nov 2006 23:04:37 +0300
+>
+> > Looks like worker thread strategically clears it if scheduled at wrong
+> > moment.
+> >
+> > --- a/net/core/pktgen.c
+> > +++ b/net/core/pktgen.c
+> > @@ -3292,7 +3292,6 @@ static void pktgen_thread_worker(struct
+> >
+> >  	init_waitqueue_head(&t->queue);
+> >
+> > -	t->control &= ~(T_TERMINATE);
+> >  	t->control &= ~(T_RUN);
+> >  	t->control &= ~(T_STOP);
+> >  	t->control &= ~(T_REMDEVALL);
+>
+> Good catch Alexey.  Did you rerun the load/unload test with
+> this fix applied?  If it fixes things, I'll merge it.
 
-> furthermore, the tweak allows the shifting of processing from a 
-> prioritized process context into a highest-priority softirq context. 
-> (it's not proven that there is any significant /net win/ of performance: 
-> all that was proven is that if we shift TCP processing from process 
-> context into softirq context then TCP throughput of that otherwise 
-> penalized process context increases.)
+Well, yes, it fixes things, except Ctrl+C getting you out of
+modprobe/rmmod loop will spit
+backtrace again. And other flags: T_RUN, T_STOP. Clearance is not
+needed due to kZalloc and
+create bugs as demostrated.
 
-If we preempt with any packets in the backlog, we send no ACKs and the
-sender cannot send thus the pipe empties.  That's the problem, this
-has nothing to do with scheduler priorities or stuff like that IMHO.
-The argument goes that if the reschedule is delayed long enough, the
-ACKs will exceed the round trip time and trigger retransmits which
-will absolutely kill performance.
-
-The only reason we block input packet processing while we hold this
-lock is because we don't want the receive queue changing from
-underneath us while we're copying data to userspace.
-
-Furthermore once you preempt in this particular way, no input
-packet processing occurs in that socket still, exacerbating the
-situation.
-
-Anyways, even if we somehow unlocked the socket and ran the backlog at
-preemption points, by hand, since we've thus deferred the whole work
-of processing whatever is in the backlog until the preemption point,
-we've lost our quantum already, so it's perhaps not legal to do the
-deferred processing as the preemption signalling point from a fairness
-perspective.
-
-It would be different if we really did the packet processing at the
-original moment (where we had to queue to the socket backlog because
-it was locked, in softirq) because then we'd return from the softirq
-and hit the preemption point earlier or whatever.
-
-Therefore, perhaps the best would be to see if there is a way we can
-still allow input packet processing even while running the majority of
-TCP's recvmsg().  It won't be easy :)
+Give me some time.
