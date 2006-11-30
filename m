@@ -1,36 +1,45 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Thu, 30 Nov 2006 21:54:28 +0100
-Message-ID: <20061130205428.GA21140@elte.hu>
-References: <20061130103240.GA25733@elte.hu> <20061130.122258.68041055.davem@davemloft.net> <20061130203026.GD14696@elte.hu> <20061130.123853.10298783.davem@davemloft.net> <20061130204908.GA19393@elte.hu>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: RE: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 14:58:00 -0600
+Message-ID: <HNEBLGGMEGLPMPPDOPMGAEAOCGAA.wenji@fnal.gov>
+References: <20061130202034.GB14696@elte.hu>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, nickpiggin@yahoo.com.au, wenji@fnal.gov,
-	akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	David Miller <davem@davemloft.net>, akpm@osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:9413 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1031458AbWK3UzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 15:55:07 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061130204908.GA19393@elte.hu>
+Received: from mailgw2.fnal.gov ([131.225.111.12]:32896 "EHLO mailgw2.fnal.gov")
+	by vger.kernel.org with ESMTP id S935687AbWK3U6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 15:58:06 -0500
+In-reply-to: <20061130202034.GB14696@elte.hu>
+To: Ingo Molnar <mingo@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+>if you still have the test-setup, could you nevertheless try setting the
+>priority of the receiving TCP task to nice -20 and see what kind of
+>performance you get?
 
-> [...] Instead what i'd like to see is more TCP performance (and a 
-> nicer over-the-wire behavior - no retransmits for example) /with the 
-> same 10% CPU time used/. Are we in rough agreement?
+A process with nice of -20 can easily get the interactivity status. When it
+expires, it still go back to the active array. It just hide the TCP problem,
+instead of solving it.
 
-put in another way: i'd like to see the "TCP bytes transferred per CPU 
-time spent by the TCP stack" ratio to be maximized in a load-independent 
-way (part of which is the sender host too: to not cause unnecessary 
-retransmits is important as well). In a high-load scenario this means 
-that any measure that purely improves TCP throughput by giving it more 
-cycles is not a real improvement. So the focus should be on throttling 
-intelligently and without causing extra work on the sender side either - 
-not on trying to circumvent throttling measures.
+For a process with nice value of -20, it will have the following advantages
+over other processes:
+(1) its timeslice is 800ms, the timeslice of a process with a nice value of
+0 is 100ms
+(2) it has higher priority than other processes
+(3) it is easier to gain the interactivity status.
 
-	Ingo
+The chances that the process expires and moves to the expired array with
+packets within backlog is much reduces, but still has the chance.
+
+
+wenji
+
+
