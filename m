@@ -1,47 +1,55 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 1/6] mm: slab allocation fairness
-Date: Thu, 30 Nov 2006 21:15:15 +0100
-Message-ID: <1164917715.6588.177.camel@twins>
-References: <20061130101451.495412000@chello.nl> >
-	 <20061130101921.113055000@chello.nl> >
-	 <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
-	 <1164913365.6588.156.camel@twins>
-	 <Pine.LNX.4.64.0611301137120.24161@schroedinger.engr.sgi.com>
-	 <1164915612.6588.171.camel@twins>
-	 <Pine.LNX.4.64.0611301210190.24331@schroedinger.engr.sgi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 12:22:58 -0800 (PST)
+Message-ID: <20061130.122258.68041055.davem@davemloft.net>
+References: <456EAD6E.6040709@yahoo.com.au>
+	<20061130102205.GA20654@2ka.mipt.ru>
+	<20061130103240.GA25733@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
-	David Miller <davem@davemloft.net>
+Cc: johnpol@2ka.mipt.ru, nickpiggin@yahoo.com.au, wenji@fnal.gov,
+	akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:20668 "EHLO
-	amsfep16-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1031346AbWK3UV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 15:21:29 -0500
-To: Christoph Lameter <clameter@sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0611301210190.24331@schroedinger.engr.sgi.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:29411
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1031341AbWK3UW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 15:22:57 -0500
+To: mingo@elte.hu
+In-Reply-To: <20061130103240.GA25733@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-30 at 12:11 -0800, Christoph Lameter wrote:
-> On Thu, 30 Nov 2006, Peter Zijlstra wrote:
-> 
-> > Sure, but there is nothing wrong with using a slab page with a lower
-> > allocation rank when there is memory aplenty. 
-> 
-> What does "a slab page with a lower allocation rank" mean? Slab pages have 
-> no allocation ranks that I am aware of.
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 30 Nov 2006 11:32:40 +0100
 
-I just added allocation rank and didn't you suggest tracking it for all
-slab pages instead of per slab?
+> Note that even without the change the TCP receiving task is already 
+> getting a disproportionate share of cycles due to softirq processing! 
+> Under a load of 10.0 it went from 500 mbits to 74 mbits, while the 
+> 'fair' share would be 50 mbits. So the TCP receiver /already/ has an 
+> unfair advantage. The patch only deepends that unfairness.
 
-The rank is an expression of how hard it was to get that page, with 0
-being the hardest allocation (ALLOC_NO_WATERMARK) and 16 the easiest
-(ALLOC_WMARK_HIGH).
+I want to point out something which is slightly misleading about this
+kind of analysis.
 
-I store the rank of the last allocated page and retest the rank when a
-gfp flag indicates a higher rank, that is when the current slab
-allocation would have failed to grow the slab under the conditions of
-the previous allocation.
+Your disk I/O speed doesn't go down by a factor of 10 just because 9
+other non disk I/O tasks are running, yet for TCP that's seemingly OK
+:-)
 
+Not looking at input TCP packets enough to send out the ACKs is the
+same as "forgetting" to queue some I/O requests that can go to the
+controller right now.
+
+That's the problem, TCP performance is intimately tied to ACK
+feedback.  So we should find a way to make sure ACK feedback goes
+out, in preference to other tcp_recvmsg() processing.
+
+What really should pace the TCP sender in this kind of situation is
+the advertised window, not the lack of ACKs.  Lack of an ACK mean the
+packet didn't get there, which is the wrong signal in this kind of
+situation, whereas a closing window means "application can't keep
+up with the data rate, hold on..." and is the proper flow control
+signal in this high load scenerio.
+
+If you don't send ACKs, packets are retransmitted when there is no
+reason for it, and that borders on illegal. :-)
