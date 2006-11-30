@@ -1,51 +1,125 @@
-From: home_king <home_king@163.com>
-Subject: Re: [PATCH] [IPVS] transparent proxying
-Date: Thu, 30 Nov 2006 09:49:18 +0800
-Message-ID: <456E389E.7090809@163.com>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: Re: [PATCH][IPSEC][3/7] inter address family ipsec tunnel
+Date: Thu, 30 Nov 2006 10:54:26 +0900
+Message-ID: <20061130105426.59df2b59.kazunori@miyazawa.org>
+References: <20061124143831.00f4e4af.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Horms" <horms@verge.net.au>, netdev@vger.kernel.org,
-	"David Miller" <davem@davemloft.net>,
-	"Julian Anastasov" <ja@ssi.bg>, "Joseph Mack NA3T" <jmack@wm7d.net>
+Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-14.163.com ([220.181.12.14]:51344 "HELO m12-14.163.com")
-	by vger.kernel.org with SMTP id S967814AbWK3BvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 20:51:12 -0500
-To: "Wensong Zhang" <wensong@linux-vs.org>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:60099 "EHLO
+	miyazawa.org") by vger.kernel.org with ESMTP id S967818AbWK3Byy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Nov 2006 20:54:54 -0500
+To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+In-Reply-To: <20061124143831.00f4e4af.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi, Wensong. Thanks for your appraise.
+Hello,
 
- > I see that this patch probably makes IPVS code a bit complicated and
- > packet traversing less efficiently.
+I found a bug in my previous patch for af_key.
+The patch breaks transport mode.
+This is a fixed version.
 
-In my opinion, worry about the side-effect to the packet throughput is not
-necessary. First, normal packets with mark rarely appear in the 
-NF_IP_FORWARD
-chain, while people mark packets aiming at the network administration job
-usually on the NF_IP_LOCAL_IN or NF_IP_OUTPUT chain. Second, the new hook fn
-is called after ipvs SNAT hook fn, and pass the packets handled by the 
-latter
-hook fn by simply checking the ipvs_property flag, so it would not 
-disturb the
-SNAT job. Third, the new hook fn is just a thin wrapper of ip_vs_in(), 
-so now
-that all packets which go through NF_IP_LOCAL_IN will be entirely checked up
-by ip_vs_in(), no matter they are virtual-server relative or not, why we 
-mind
-that a comparatively small quantity of packets which go through 
-NF_IP_FORWARD
-will be checked too?
+Signed-off-by: Miika Komu <miika@iki.fi>
+Signed-off-by: Diego Beltrami <Diego.Beltrami@hiit.fi>
+Signed-off-by: Kazunori Miyazawa <miyazawa@linux-ipv6.org>
 
- > If I remember correctly, policy-based routing can work with IPVS in
- > kernel 2.2 and 2.4 for transparent cache cluster for a long time. It
- > should work in kernel 2.6 too.
-
-Indeed, policy route can help too, but the patch provides a native manner to
-deploy transparent proxy, and meanwhile, this manner will not break the
-backbone networking context, such as policy routing setting, iptables 
-rules,
-etc.
-
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 4e18309..0e1dbfb 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1767,11 +1767,11 @@ #endif
+ 
+ 	/* addresses present only in tunnel mode */
+ 	if (t->mode == XFRM_MODE_TUNNEL) {
+-		switch (xp->family) {
++		struct sockaddr *sa;
++		sa = (struct sockaddr *)(rq+1);
++		switch(sa->sa_family) {
+ 		case AF_INET:
+-			sin = (void*)(rq+1);
+-			if (sin->sin_family != AF_INET)
+-				return -EINVAL;
++			sin = (struct sockaddr_in*)sa;
+ 			t->saddr.a4 = sin->sin_addr.s_addr;
+ 			sin++;
+ 			if (sin->sin_family != AF_INET)
+@@ -1780,9 +1780,7 @@ #endif
+ 			break;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		case AF_INET6:
+-			sin6 = (void *)(rq+1);
+-			if (sin6->sin6_family != AF_INET6)
+-				return -EINVAL;
++			sin6 = (struct sockaddr_in6*)sa;
+ 			memcpy(t->saddr.a6, &sin6->sin6_addr, sizeof(struct in6_addr));
+ 			sin6++;
+ 			if (sin6->sin6_family != AF_INET6)
+@@ -1793,7 +1791,10 @@ #endif
+ 		default:
+ 			return -EINVAL;
+ 		}
+-	}
++		t->encap_family = sa->sa_family;
++	} else
++		t->encap_family = xp->family;
++
+ 	/* No way to set this via kame pfkey */
+ 	t->aalgos = t->ealgos = t->calgos = ~0;
+ 	xp->xfrm_nr++;
+@@ -1830,18 +1831,25 @@ static inline int pfkey_xfrm_policy2sec_
+ 
+ static int pfkey_xfrm_policy2msg_size(struct xfrm_policy *xp)
+ {
++	struct xfrm_tmpl *t;
+ 	int sockaddr_size = pfkey_sockaddr_size(xp->family);
+-	int socklen = (xp->family == AF_INET ?
+-		       sizeof(struct sockaddr_in) :
+-		       sizeof(struct sockaddr_in6));
++	int socklen = 0;
++	int i;
++
++	for (i=0; i<xp->xfrm_nr; i++) {
++		t = xp->xfrm_vec + i;
++		socklen += (t->encap_family == AF_INET ?
++			    sizeof(struct sockaddr_in) :
++			    sizeof(struct sockaddr_in6));
++	}
+ 
+ 	return sizeof(struct sadb_msg) +
+ 		(sizeof(struct sadb_lifetime) * 3) +
+ 		(sizeof(struct sadb_address) * 2) + 
+ 		(sockaddr_size * 2) +
+ 		sizeof(struct sadb_x_policy) +
+-		(xp->xfrm_nr * (sizeof(struct sadb_x_ipsecrequest) +
+-				(socklen * 2))) +
++		(xp->xfrm_nr * sizeof(struct sadb_x_ipsecrequest)) +
++		(socklen * 2) +
+ 		pfkey_xfrm_policy2sec_ctx_size(xp);
+ }
+ 
+@@ -1999,7 +2007,9 @@ #endif
+ 
+ 		req_size = sizeof(struct sadb_x_ipsecrequest);
+ 		if (t->mode == XFRM_MODE_TUNNEL)
+-			req_size += 2*socklen;
++			req_size += ((t->encap_family == AF_INET ?
++		       		     sizeof(struct sockaddr_in) :
++		       		     sizeof(struct sockaddr_in6)) * 2);
+ 		else
+ 			size -= 2*socklen;
+ 		rq = (void*)skb_put(skb, req_size);
+@@ -2015,7 +2025,7 @@ #endif
+ 			rq->sadb_x_ipsecrequest_level = IPSEC_LEVEL_USE;
+ 		rq->sadb_x_ipsecrequest_reqid = t->reqid;
+ 		if (t->mode == XFRM_MODE_TUNNEL) {
+-			switch (xp->family) {
++			switch (t->encap_family) {
+ 			case AF_INET:
+ 				sin = (void*)(rq+1);
+ 				sin->sin_family = AF_INET;
