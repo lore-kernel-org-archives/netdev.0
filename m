@@ -1,80 +1,179 @@
 From: Wenji Wu <wenji@fnal.gov>
 Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Wed, 29 Nov 2006 19:56:58 -0600
-Message-ID: <2f14bf623344.456de60a@fnal.gov>
+Date: Wed, 29 Nov 2006 20:02:08 -0600
+Message-ID: <2f2083e145b6.456de740@fnal.gov>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7BIT
-Cc: akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:64502 "EHLO mailgw1.fnal.gov")
-	by vger.kernel.org with ESMTP id S1755139AbWK3B47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 20:56:59 -0500
-To: David Miller <davem@davemloft.net>
+Received: from mailgw2.fnal.gov ([131.225.111.12]:23515 "EHLO mailgw2.fnal.gov")
+	by vger.kernel.org with ESMTP id S1753660AbWK3CCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Nov 2006 21:02:09 -0500
+To: Andrew Morton <akpm@osdl.org>
 Content-language: en
 Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes, when CONFIG_PREEMPT is disabled, the "problem" won't happen. That is why I put "for 2.6 desktop, low-latency desktop" in the uploaded paper. This "problem" happens in the 2.6 Desktop and Low-latency Desktop.
+> That yield() will need to be removed - yield()'s behaviour is truly 
+> awfulif the system is otherwise busy.  What is it there for?
 
->We could also pepper tcp_recvmsg() with some very carefully placed preemption disable/enable calls to deal with this even with CONFIG_PREEMPT enabled.
+Please read the uploaded paper, which has detailed description.
 
-I also think about this approach. But since the "problem" happens in the 2.6 Desktop and Low-latency Desktop (not server), system responsiveness is a key feature, simply placing preemption disabled/enable call might not work.  If you want to place preemption disable/enable calls within tcp_recvmsg, you have to put them in the very beginning and end of the call. Disabling preemption would degrade system responsiveness.
+thanks,
 
 wenji
 
-
-
 ----- Original Message -----
-From: David Miller <davem@davemloft.net>
-Date: Wednesday, November 29, 2006 7:13 pm
+From: Andrew Morton <akpm@osdl.org>
+Date: Wednesday, November 29, 2006 7:08 pm
 Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
 
-> From: Andrew Morton <akpm@osdl.org>
-> Date: Wed, 29 Nov 2006 17:08:35 -0800
+> On Wed, 29 Nov 2006 16:53:11 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> > On Wed, 29 Nov 2006 16:53:11 -0800 (PST)
-> > David Miller <davem@davemloft.net> wrote:
 > > 
-> > > 
-> > > Please, it is very difficult to review your work the way you have
-> > > submitted this patch as a set of 4 patches.  These patches have 
-> not> > been split up "logically", but rather they have been split 
-> up "per
-> > > file" with the same exact changelog message in each patch posting.
-> > > This is very clumsy, and impossible to review, and wastes a lot of
-> > > mailing list bandwith.
-> > > 
-> > > We have an excellent file, called 
+> > Please, it is very difficult to review your work the way you have
+> > submitted this patch as a set of 4 patches.  These patches have not
+> > been split up "logically", but rather they have been split up "per
+> > file" with the same exact changelog message in each patch posting.
+> > This is very clumsy, and impossible to review, and wastes a lot of
+> > mailing list bandwith.
+> > 
+> > We have an excellent file, called 
 > Documentation/SubmittingPatches, in
-> > > the kernel source tree, which explains exactly how to do this
-> > > correctly.
-> > > 
-> > > By splitting your patch into 4 patches, one for each file touched,
-> > > it is impossible to review your patch as a logical whole.
-> > > 
-> > > Please also provide your patch inline so people can just hit reply
-> > > in their mail reader client to quote your patch and comment on it.
-> > > This is impossible with the attachments you've used.
-> > > 
+> > the kernel source tree, which explains exactly how to do this
+> > correctly.
 > > 
-> > Here you go - joined up, cleaned up, ported to mainline and test-
-> compiled.> 
-> > That yield() will need to be removed - yield()'s behaviour is 
-> truly awful
-> > if the system is otherwise busy.  What is it there for?
+> > By splitting your patch into 4 patches, one for each file touched,
+> > it is impossible to review your patch as a logical whole.
+> > 
+> > Please also provide your patch inline so people can just hit reply
+> > in their mail reader client to quote your patch and comment on it.
+> > This is impossible with the attachments you've used.
+> > 
 > 
-> What about simply turning off CONFIG_PREEMPT to fix this "problem"?
+> Here you go - joined up, cleaned up, ported to mainline and test-
+> compiled.
+> That yield() will need to be removed - yield()'s behaviour is truly 
+> awfulif the system is otherwise busy.  What is it there for?
 > 
-> We always properly run the backlog (by doing a release_sock()) before
-> going to sleep otherwise except for the specific case of taking a page
-> fault during the copy to userspace.  It is only CONFIG_PREEMPT that
-> can cause this situation to occur in other circumstances as far as I
-> can see.
 > 
-> We could also pepper tcp_recvmsg() with some very carefully placed
-> preemption disable/enable calls to deal with this even with
-> CONFIG_PREEMPT enabled.
+> 
+> From: Wenji Wu <wenji@fnal.gov>
+> 
+> For Linux TCP, when the network applcaiton make system call to move 
+> data from
+> socket's receive buffer to user space by calling tcp_recvmsg().  
+> The socket
+> will be locked.  During this period, all the incoming packet for 
+> the TCP
+> socket will go to the backlog queue without being TCP processed
+> 
+> Since Linux 2.6 can be inerrupted mid-task, if the network application
+> expires, and moved to the expired array with the socket locked, all 
+> thepackets within the backlog queue will not be TCP processed till 
+> the network
+> applicaton resume its execution.  If the system is heavily loaded, 
+> TCP can
+> easily RTO in the Sender Side.
+> 
+> 
+> 
+> include/linux/sched.h |    2 ++
+> kernel/fork.c         |    3 +++
+> kernel/sched.c        |   24 ++++++++++++++++++------
+> net/ipv4/tcp.c        |    9 +++++++++
+> 4 files changed, 32 insertions(+), 6 deletions(-)
+> 
+> diff -puN net/ipv4/tcp.c~tcp-speedup net/ipv4/tcp.c
+> --- a/net/ipv4/tcp.c~tcp-speedup
+> +++ a/net/ipv4/tcp.c
+> @@ -1109,6 +1109,8 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+> 	struct task_struct *user_recv = NULL;
+> 	int copied_early = 0;
+> 
+> +	current->backlog_flag = 1;
+> +
+> 	lock_sock(sk);
+> 
+> 	TCP_CHECK_TIMER(sk);
+> @@ -1468,6 +1470,13 @@ skip_copy:
+> 
+> 	TCP_CHECK_TIMER(sk);
+> 	release_sock(sk);
+> +
+> +	current->backlog_flag = 0;
+> +	if (current->extrarun_flag == 1){
+> +        	current->extrarun_flag = 0;
+> +        	yield();
+> +	}
+> +
+> 	return copied;
+> 
+> out:
+> diff -puN include/linux/sched.h~tcp-speedup include/linux/sched.h
+> --- a/include/linux/sched.h~tcp-speedup
+> +++ a/include/linux/sched.h
+> @@ -1023,6 +1023,8 @@ struct task_struct {
+> #ifdef	CONFIG_TASK_DELAY_ACCT
+> 	struct task_delay_info *delays;
+> #endif
+> +	int backlog_flag; 	/* packets wait in tcp backlog queue flag */
+> +	int extrarun_flag;	/* extra run flag for TCP performance */
+> };
+> 
+> static inline pid_t process_group(struct task_struct *tsk)
+> diff -puN kernel/sched.c~tcp-speedup kernel/sched.c
+> --- a/kernel/sched.c~tcp-speedup
+> +++ a/kernel/sched.c
+> @@ -3099,12 +3099,24 @@ void scheduler_tick(void)
+> 
+>         	if (!rq->expired_timestamp)
+>                 	rq->expired_timestamp = jiffies;
+> -        	if (!TASK_INTERACTIVE(p) || expired_starving(rq)) {
+> -                	enqueue_task(p, rq->expired);
+> -                	if (p->static_prio < rq->best_expired_prio)
+> -                        	rq->best_expired_prio = p->static_prio;
+> -        	} else
+> -                	enqueue_task(p, rq->active);
+> +        	if (p->backlog_flag == 0) {
+> +                	if (!TASK_INTERACTIVE(p) || expired_starving(rq)) {
+> +                        	enqueue_task(p, rq->expired);
+> +                        	if (p->static_prio < rq->best_expired_prio)
+> +                                	rq->best_expired_prio = p-
+> >static_prio;+                	} else
+> +                        	enqueue_task(p, rq->active);
+> +        	} else {
+> +                	if (expired_starving(rq)) {
+> +                        	enqueue_task(p,rq->expired);
+> +                        	if (p->static_prio < rq->best_expired_prio)
+> +                                	rq->best_expired_prio = p-
+> >static_prio;+                	} else {
+> +                        	if (!TASK_INTERACTIVE(p))
+> +                                	p->extrarun_flag = 1;
+> +                        	enqueue_task(p,rq->active);
+> +                	}
+> +        	}
+> 	} else {
+>         	/*
+>                  * Prevent a too long timeslice allowing a task to 
+> monopolizediff -puN kernel/fork.c~tcp-speedup kernel/fork.c
+> --- a/kernel/fork.c~tcp-speedup
+> +++ a/kernel/fork.c
+> @@ -1032,6 +1032,9 @@ static struct task_struct *copy_process(
+> 	clear_tsk_thread_flag(p, TIF_SIGPENDING);
+> 	init_sigpending(&p->pending);
+> 
+> +	p->backlog_flag = 0;
+> +	p->extrarun_flag = 0;
+> +
+> 	p->utime = cputime_zero;
+> 	p->stime = cputime_zero;
+>  	p->sched_time = 0;
+> _
+> 
 > 
 
