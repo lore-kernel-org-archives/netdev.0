@@ -1,40 +1,57 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] r8169: Fix iteration variable sign
-Date: Thu, 30 Nov 2006 15:14:14 +0100
-Message-ID: <200611301514.14400.mb@bu3sch.de>
-References: <200611292048.45152.mb@bu3sch.de> <20061129212133.GB18057@electric-eye.fr.zoreil.com> <456EBE87.1070806@pobox.com>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: RE: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 10:08:22 -0600
+Message-ID: <HNEBLGGMEGLPMPPDOPMGMEAMCGAA.wenji@fnal.gov>
+References: <20061129.181950.31643130.davem@davemloft.net>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, torvalds@osdl.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:63454
-	"EHLO vs166246.vserver.de") by vger.kernel.org with ESMTP
-	id S936422AbWK3OOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 09:14:24 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <456EBE87.1070806@pobox.com>
-Content-Disposition: inline
+Received: from mailgw2.fnal.gov ([131.225.111.12]:2951 "EHLO mailgw2.fnal.gov")
+	by vger.kernel.org with ESMTP id S967828AbWK3QMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 11:12:44 -0500
+In-reply-to: <20061129.181950.31643130.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 30 November 2006 12:20, Jeff Garzik wrote:
-> Francois Romieu wrote:
-> > This changes the type of variable "i" in rtl8169_init_one()
-> > from "unsigned int" to "int". "i" is checked for < 0 later,
-> > which can never happen for "unsigned". This results in broken
-> > error handling.
-> >     
-> > Signed-off-by: Michael Buesch <mb@bu3sch.de>
-> > Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> 
-> ACK but doesn't seem to apply to 2.6.19?
-> 
-> should this go into #upstream rather than #upstream-fixes?
 
-Hm, I did this against latest linus' tree.
 
--- 
-Greetings Michael.
+>We can make explicitl preemption checks in the main loop of
+>tcp_recvmsg(), and release the socket and run the backlog if
+>need_resched() is TRUE.
+
+>This is the simplest and most elegant solution to this problem.
+
+
+I am not sure whether this approach will work. How can you make the explicit
+preemption checks?
+
+
+
+For Desktop case, yes, you can make the explicit preemption checks at some
+points whether need_resched() is true. But when need_resched() is true, you
+can not decide whether it is triggered by higher priority processes becoming
+runnable, or the process within tcp_recvmsg being expiring.
+
+
+If the higher prioirty processes become runnable (e.g., interactive
+process), you better yield the CPU, instead of continuing this process. If
+it is the case that the process within tcp_recvmsg() is expriring, then, you
+can continue the process to go ahead to process backlog.
+
+For Low-latency Desktop case, I believe it is very hard to make the checks.
+We do not know when the process is going to expire, or when higher priority
+process will become runnable. The process could expire at any moment, or
+higher priority process could become runnnable at any moment. If we do not
+want to tradeoff system responsiveness, where do you want to make the check?
+If you just make the chekc, then need_resched() become TRUE, what are you
+going to do in this case?
+
+wenji
+
+
+
+
