@@ -1,28 +1,36 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [RFC][PATCH 1/6] mm: slab allocation fairness
-Date: Thu, 30 Nov 2006 12:11:03 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0611301210190.24331@schroedinger.engr.sgi.com>
-References: <20061130101451.495412000@chello.nl> >  <20061130101921.113055000@chello.nl>
- >  <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
- <1164913365.6588.156.camel@twins>  <Pine.LNX.4.64.0611301137120.24161@schroedinger.engr.sgi.com>
- <1164915612.6588.171.camel@twins>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 12:14:43 -0800 (PST)
+Message-ID: <20061130.121443.116355312.davem@davemloft.net>
+References: <20061130095232.GA8990@2ka.mipt.ru>
+	<456EAD6E.6040709@yahoo.com.au>
+	<20061130102205.GA20654@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
-	David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nickpiggin@yahoo.com.au, mingo@elte.hu, wenji@fnal.gov,
+	akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx1-ext.sgi.com ([192.48.179.11]:6363 "EHLO omx1.sgi.com")
-	by vger.kernel.org with ESMTP id S1031336AbWK3ULK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 15:11:10 -0500
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-In-Reply-To: <1164915612.6588.171.camel@twins>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41613
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1031371AbWK3UOl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 15:14:41 -0500
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20061130102205.GA20654@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Nov 2006, Peter Zijlstra wrote:
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 30 Nov 2006 13:22:06 +0300
 
-> Sure, but there is nothing wrong with using a slab page with a lower
-> allocation rank when there is memory aplenty. 
+> It steals timeslices from other processes to complete tcp_recvmsg()
+> task, and only when it does it for too long, it will be preempted.
+> Processing backlog queue on behalf of need_resched() will break
+> fairness too - processing itself can take a lot of time, so process
+> can be scheduled away in that part too.
 
-What does "a slab page with a lower allocation rank" mean? Slab pages have 
-no allocation ranks that I am aware of.
+Yes, at this point I agree with this analysis.
+
+Currently I am therefore advocating some way to allow
+full input packet handling even amidst tcp_recvmsg()
+processing.
