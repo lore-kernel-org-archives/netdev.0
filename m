@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Thu, 30 Nov 2006 12:38:53 -0800 (PST)
-Message-ID: <20061130.123853.10298783.davem@davemloft.net>
-References: <20061130103240.GA25733@elte.hu>
-	<20061130.122258.68041055.davem@davemloft.net>
-	<20061130203026.GD14696@elte.hu>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: RE: [patch 1/4] - Potential performance bottleneck for Linxu TCP
+Date: Thu, 30 Nov 2006 14:42:58 -0600
+Message-ID: <HNEBLGGMEGLPMPPDOPMGIEANCGAA.wenji@fnal.gov>
+References: <20061130.121443.116355312.davem@davemloft.net>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, nickpiggin@yahoo.com.au, wenji@fnal.gov,
-	akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: nickpiggin@yahoo.com.au, mingo@elte.hu, akpm@osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60884
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1031407AbWK3Uiv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 15:38:51 -0500
-To: mingo@elte.hu
-In-Reply-To: <20061130203026.GD14696@elte.hu>
+Received: from mailgw2.fnal.gov ([131.225.111.12]:41454 "EHLO mailgw2.fnal.gov")
+	by vger.kernel.org with ESMTP id S967175AbWK3UnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 15:43:03 -0500
+In-reply-to: <20061130.121443.116355312.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 30 Nov 2006 21:30:26 +0100
+> It steals timeslices from other processes to complete tcp_recvmsg()
+> task, and only when it does it for too long, it will be preempted.
+> Processing backlog queue on behalf of need_resched() will break
+> fairness too - processing itself can take a lot of time, so process
+> can be scheduled away in that part too.
 
-> disk I/O is typically not CPU bound, and i believe these TCP tests /are/ 
-> CPU-bound. Otherwise there would be no expiry of the timeslice to begin 
-> with and the TCP receiver task would always be boosted to 'interactive' 
-> status by the scheduler and would happily chug along at 500 mbits ...
+It does steal timeslices from other processes to complete tcp_recvmsg()
+task. But I do not think it will  take long. When processing backlog, the
+processed packets will go to the receive buffer, the TCP flow control will
+take effect to slow down the sender.
 
-It's about the prioritization of the work.
 
-If all disk I/O were shut off and frozen while we copy file
-data into userspace, you'd see the same problem for disk I/O.
+The data receiving process might be preempted by higher priority processes.
+Only the data recieving process stays in the active array, the problem is
+not that bad because the process might resume its execution soon. The worst
+case is that it expires and is moved to the active array with packets within
+the backlog queue.
+
+
+wenji
+
+
