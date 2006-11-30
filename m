@@ -1,35 +1,52 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 0/5] NetXen: 1G/10G Ethernet Driver updates
-Date: Thu, 30 Nov 2006 10:46:19 -0800
-Message-ID: <20061130184619.GA32261@us.ibm.com>
+Subject: [PATCH 1/5] NetXen: Fixed /sys mapping between device and driver
+Date: Thu, 30 Nov 2006 10:48:57 -0800
+Message-ID: <20061130184857.GA32292@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
 	rob@netxen.com, sanjeev@netxen.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:229 "EHLO e35.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1031176AbWK3Sqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 13:46:33 -0500
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAUIkOQP017597
-	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 13:46:24 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAUIkNqk476086
-	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 11:46:24 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAUIkNR6026710
-	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 11:46:23 -0700
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:42125 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1031180AbWK3StD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 13:49:03 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kAUIn2Re016780
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 13:49:02 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kAUIn2Mw228650
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 13:49:02 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kAUIn1tY004394
+	for <netdev@vger.kernel.org>; Thu, 30 Nov 2006 13:49:02 -0500
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The first patch sent by Amit on 29 Nov applied, but the following three
-patches did not apply to Jeff's #upstream tree.  Here are the corrected
-2nd, 3rd, and 4th patches, with a repeat of the 1st for completeness.
-There is a 5th patch which fixes a bug caused by casting a 16-bit
-variable into a 32-bit one and using the address.
 
+Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+
+diff -Nupr netdev-2.6/drivers/net/netxen.orig/netxen_nic_main.c netdev-2.6/drivers/net/netxen/netxen_nic_main.c
+--- netdev-2.6/drivers/net/netxen.orig/netxen_nic_main.c	2006-11-29 12:13:58.000000000 -0800
++++ netdev-2.6/drivers/net/netxen/netxen_nic_main.c	2006-11-30 09:17:51.000000000 -0800
+@@ -273,6 +273,7 @@ netxen_nic_probe(struct pci_dev *pdev, c
+ 		}
+ 
+ 		SET_MODULE_OWNER(netdev);
++		SET_NETDEV_DEV(netdev, &pdev->dev);
+ 
+ 		port = netdev_priv(netdev);
+ 		port->netdev = netdev;
+@@ -1043,7 +1044,7 @@ static int netxen_nic_poll(struct net_de
+ 		netxen_nic_enable_int(adapter);
+ 	}
+ 
+-	return (done ? 0 : 1);
++	return !done;
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
 -- 
 Don Fry
 brazilnut@us.ibm.com
