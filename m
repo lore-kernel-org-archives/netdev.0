@@ -1,42 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull from 'upstream-fixes' branch of wireless-2.6
-Date: Thu, 30 Nov 2006 06:01:17 -0500
-Message-ID: <456EB9FD.9060707@garzik.org>
-References: <20061128194016.GE16533@tuxdriver.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: [RFC][PATCH V2 1/3] enable bonding to enslave non ARPHRD_ETHER
+ netdevices
+Date: Thu, 30 Nov 2006 13:09:42 +0200
+Message-ID: <456EBBF6.3070802@voltaire.com>
+References: <Pine.LNX.4.64.0611301256130.26156@zuben> <Pine.LNX.4.64.0611301256530.26156@zuben>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: openib-general@openib.org, Roland Dreier <rdreier@cisco.com>,
+	Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34519 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S935753AbWK3LBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 06:01:21 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061128194016.GE16533@tuxdriver.com>
+Received: from taurus.voltaire.com ([193.47.165.240]:3549 "EHLO
+	taurus.voltaire.com") by vger.kernel.org with ESMTP id S936072AbWK3LJv
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 06:09:51 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0611301256530.26156@zuben>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit 0579e303553655245e8a6616bd8b4428b07d63a2:
->   Linus Torvalds:
->         Merge branch 'for-linus' of git://git.kernel.org/.../drzeus/mmc
+Or Gerlitz wrote:
+> Index: net-2.6.20/drivers/net/bonding/bonding.h
+> ===================================================================
+> --- net-2.6.20.orig/drivers/net/bonding/bonding.h	2006-11-30 10:54:23.000000000 +0200
+> +++ net-2.6.20/drivers/net/bonding/bonding.h	2006-11-30 10:58:10.000000000 +0200
+> @@ -201,6 +201,7 @@ struct bonding {
+>  	struct   list_head vlan_list;
+>  	struct   vlan_group *vlgrp;
+>  	struct   packet_type arp_mon_pt;
+> +	s8       do_set_mac_addr;
+>  };
 > 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
-> 
-> John W. Linville:
->       Revert "zd1211rw: Removed unneeded packed attributes"
-> 
-> Michael Buesch:
->       softmac: remove netif_tx_disable when scanning
-> 
-> Ulrich Kunitz:
->       zd1211rw: Fix of a locking bug
-> 
-> Zhu Yi:
->       ieee80211: Fix kernel panic when QoS is enabled
-> 
+>  /**
 
-pulled
+oops - this piece belongs to the second patch, which actually uses the 
+added field, sorry for that. I will fix it for the next version.
+
+Or.
 
