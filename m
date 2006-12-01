@@ -1,43 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pktgen
-Date: Fri, 01 Dec 2006 15:25:51 -0800 (PST)
-Message-ID: <20061201.152551.56052748.davem@davemloft.net>
-References: <20061130.201423.118625277.davem@davemloft.net>
-	<17775.58441.678623.396102@robur.slu.se>
-	<b6fcc0a0612010151s4231cae6n9252f8816406e1d2@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [netfilter-core] [2.6 patch] net/*/nf_conntrack_*.c:possible
+ cleanups
+Date: Sat, 02 Dec 2006 00:34:22 +0100
+Message-ID: <4570BBFE.8090209@trash.net>
+References: <20061201210113.GI11084@stusta.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, greearb@candelatech.com,
-	pavol.gono@gmail.com, netdev@vger.kernel.org
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:7853
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1162338AbWLAXZp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Dec 2006 18:25:45 -0500
-To: adobriyan@gmail.com
-In-Reply-To: <b6fcc0a0612010151s4231cae6n9252f8816406e1d2@mail.gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:56273 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1162345AbWLAXbT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 18:31:19 -0500
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061201210113.GI11084@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Alexey Dobriyan" <adobriyan@gmail.com>
-Date: Fri, 1 Dec 2006 12:51:53 +0300
-
-> On 12/1/06, Robert Olsson <Robert.Olsson@data.slu.se> wrote:
-> > David Miller writes:
-> >  > Agreed.
-> >  >
-> >  > Robert, please fix this by using a completion so that we can
-> >  > wait for the threads to start up, something like this:
-> >
-> > Included. It passes my test but Alexey and others test.
+Adrian Bunk wrote:
+> This patch contains the following possible cleanups:
+> - make the following needlessly global functions static:
+>   - net/netfilter/nf_conntrack_core.c: nf_conntrack_register_cache()
+>   - net/netfilter/nf_conntrack_core.c: nf_conntrack_unregister_cache()
+>   - net/netfilter/nf_conntrack_core.c: __nf_conntrack_attach()
+>   - net/netfilter/nf_conntrack_core.c: set_hashsize()
+>   - net/netfilter/nf_conntrack_proto_sctp.c: nf_conntrack_proto_sctp_init()
+>   - net/netfilter/nf_conntrack_proto_sctp.c: nf_conntrack_proto_sctp_fini()
+> - make the following needlessly global variables/locks/structs static:
+>   - net/ipv6/netfilter/nf_conntrack_reasm.c: nf_ct_frag6_secret_interval
+>   - net/ipv6/netfilter/nf_conntrack_reasm.c: nf_ct_frag6_mem
+>   - net/netfilter/nf_conntrack_core.c: nf_ct_cache_lock
+>   - net/netfilter/nf_conntrack_proto_sctp.c: nf_conntrack_protocol_sctp4
+>   - net/netfilter/nf_conntrack_proto_sctp.c: nf_conntrack_protocol_sctp6
+> - #if 0 the following unused global functions:
+>   - net/ipv6/netfilter/nf_conntrack_reasm.c: nf_ct_frag6_kfree_frags()
+>   - net/netfilter/nf_conntrack_core.c: nf_conntrack_tuple_taken()
+>   - net/netfilter/nf_conntrack_core.c: nf_ct_invert_tuplepr()
+> - remove the following unused or write-only variables:
+>   - net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c: nat_module_is_loaded
+>   - net/ipv6/netfilter/nf_conntrack_reasm.c: nf_ct_frag6_nqueues
+> - remove the following unused hooks:
+>   - net/netfilter/nf_conntrack_core.c: nf_conntrack_destroyed()
+>   - net/netfilter/nf_conntrack_ftp.c: nf_nat_ftp_hook()
+> - remove the following unused EXPORT_SYMBOL's:
+>   - nf_ct_iterate_cleanup
+>   - nf_ct_protos
+>   - nf_ct_l3protos
 > 
-> Confused now. Is my "t->control &= ~(T_TERMINATE);" fix deprecated by
-> completions?
+> Please review which of these changes make sense and which might conflict 
+> with pending patches.
 
-The completions solve the bug completely.
+Thanks Adrian. We have a large nf_conntrack merge coming up, which
+conflicts with this patch and includes new users of some of these
+symbols. Please send your patch again once these changes have
+been merged.
 
-But later on we should integate a change that eliminates
-these spurious t->control bit clears at the start of the
-pktgen thread execution, it just isn't needed to fix the
-bug so we can make it later.
