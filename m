@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [-mm patch] net/: possible cleanups
-Date: Thu, 30 Nov 2006 17:28:06 -0800 (PST)
-Message-ID: <20061130.172806.125565481.davem@davemloft.net>
-References: <20061123021703.8550e37e.akpm@osdl.org>
-	<20061124215820.GI28363@stusta.de>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/5 addendum] NetXen
+Date: Thu, 30 Nov 2006 20:31:23 -0500
+Message-ID: <456F85EB.80308@garzik.org>
+References: <20061130185602.GA32337@us.ibm.com> <456F7436.8060500@garzik.org> <20061201002743.GA17257@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, amitkale@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
+	wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:14993
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1031717AbWLAB2E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 20:28:04 -0500
-To: bunk@stusta.de
-In-Reply-To: <20061124215820.GI28363@stusta.de>
+Received: from srv5.dvmed.net ([207.36.208.214]:25987 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1031709AbWLABb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 20:31:26 -0500
+To: Don Fry <brazilnut@us.ibm.com>
+In-Reply-To: <20061201002743.GA17257@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Fri, 24 Nov 2006 22:58:20 +0100
-
-> This patch contains the following possible cleanups:
-> - make the following needlessly global functions statis:
->   - ipv4/tcp.c: __tcp_alloc_md5sig_pool()
->   - ipv4/tcp_ipv4.c: tcp_v4_reqsk_md5_lookup()
->   - ipv4/udplite.c: udplite_rcv()
->   - ipv4/udplite.c: udplite_err()
-> - make the following needlessly global structs static:
->   - ipv4/tcp_ipv4.c: tcp_request_sock_ipv4_ops
->   - ipv4/tcp_ipv4.c: tcp_sock_ipv4_specific
->   - ipv6/tcp_ipv6.c: tcp_request_sock_ipv6_ops
-> - net/ipv{4,6}/udplite.c: remove inline's from static functions
->                           (gcc should know best when to inline them)
+Don Fry wrote:
+> On Thu, Nov 30, 2006 at 07:15:50PM -0500, Jeff Garzik wrote:
+>> Don Fry wrote:
+>>> The NetXen patches fix many problems in the current #upstream version of
+>>> the driver.  It has warts and probably lots of bugs still, but it is
+>>> better than what is queued for mainline inclusion at this time.  Please
+>>> apply to 2.6.20.
+>> Please resync with netdev#upstream, and update for comments on netdev...
+>>
+>> 	Jeff
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> I think I am up to date with netdev#upstream.  Maybe I am pointed at the
+> wrong place.  Is the correct git tree at?
+> http://www.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git/
+> 
+> and then to get to the upstream branch I do
+> git-checkout upstream
 
-Applied, thanks Adrian.
+That's the one.  The key is making sure you have the top-of-tree, it 
+might not have mirrored out yet.
+
+$ cat netdev-2.6/.git/refs/heads/upstream
+5e3f6b98b639c611c45751081c59ae9a04081964
