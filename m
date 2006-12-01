@@ -1,32 +1,23 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/2][GENETLINK] add cmd dump completion
-Date: Fri, 1 Dec 2006 13:50:02 +0100
-Message-ID: <20061201125002.GF8693@postel.suug.ch>
-References: <1164972828.3562.11.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 0/3] NetXen: 1G/10G Ethernet Driver updates
+Date: Fri, 1 Dec 2006 05:28:57 -0800
+Message-ID: <200612011328.kB1DSvAh014476@dut39.unminc.com>
+Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
+	sanjeev@netxen.com, shemminger@osdl.org, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:25278 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1031318AbWLAMtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 07:49:41 -0500
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1164972828.3562.11.camel@localhost>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:51532 "EHLO
+	nxmail.netxen.com") by vger.kernel.org with ESMTP id S1755523AbWLAN3F
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 08:29:05 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-12-01 06:33
-> Sorry, subject was a little messed in the previous one, but should
-> be fine going forward ..
-> 
-> cheers,
-> jamal
-> 
+Hi,
 
-> [GENETLINK] add cmd dump completion
-> 
-> Remove assumption that generic netlink commands cannot have dump
-> completion callbacks.
+Thanks Ueimor, Stephen, and Jeff!
+We have incorporated all your feedbacks, and rebased wrt 5e3f6b98b639c611c45751081c59ae9a04081964.
+I will be sending patchset shortly.
 
-This looks good.
+--Amit
