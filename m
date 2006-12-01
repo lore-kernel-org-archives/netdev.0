@@ -1,36 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 1/1] add auditing to ipsec
-Date: Fri, 01 Dec 2006 06:50:45 -0500
-Message-ID: <1164973845.3562.14.camel@localhost>
-References: <200611272226.kARMQGor018386@faith.austin.ibm.com>
-	 <XMMS.LNX.4.64.0611280007220.3617@d.namei>
-Reply-To: hadi@cyberus.ca
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [RFC][PATCH 1/6] mm: slab allocation fairness
+Date: Fri, 01 Dec 2006 12:28:47 +0100
+Message-ID: <1164972527.6588.186.camel@twins>
+References: <20061130101451.495412000@chello.nl> >
+	 <20061130101921.113055000@chello.nl> >
+	 <Pine.LNX.4.64.0611301049220.23820@schroedinger.engr.sgi.com>
+	 <1164912915.6588.153.camel@twins>
+	 <Pine.LNX.4.64.0611301132530.24161@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Joy Latten <latten@austin.ibm.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, herbert@gondor.apana.org.au, sgrubb@redhat.com
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.224]:53719 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S936476AbWLALuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Dec 2006 06:50:50 -0500
-Received: by nz-out-0102.google.com with SMTP id s1so1518631nze
-        for <netdev@vger.kernel.org>; Fri, 01 Dec 2006 03:50:49 -0800 (PST)
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <XMMS.LNX.4.64.0611280007220.3617@d.namei>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:1935 "EHLO
+	amsfep12-int.chello.nl") by vger.kernel.org with ESMTP
+	id S936488AbWLALy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 06:54:28 -0500
+To: Christoph Lameter <clameter@sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0611301132530.24161@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-28-11 at 00:08 -0500, James Morris wrote:
-> On Mon, 27 Nov 2006, Joy Latten wrote:
-
-> Looks ok to me.
+On Thu, 2006-11-30 at 11:33 -0800, Christoph Lameter wrote:
+> On Thu, 30 Nov 2006, Peter Zijlstra wrote:
 > 
+> > No, the forced allocation is to test the allocation hardness at that
+> > point in time. I could not think of another way to test that than to
+> > actually to an allocation.
+> 
+> Typically we do this by checking the number of free pages in a zone 
+> compared to the high low limits. See mmzone.h.
 
-Seems like a lot of other xfrm commands are not covered though?
-Design intent?
-
-cheers,
-jamal
+This doesn't work under high load because of direct reclaim. And if I go
+run direct reclaim to test if I can raise the free pages level to an
+acceptable level for the given gfp flags, I might as well do the whole
+allocation.
 
