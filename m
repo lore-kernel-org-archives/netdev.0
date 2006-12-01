@@ -1,62 +1,42 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] skge: don't clear MC state on link down
-Date: Fri, 1 Dec 2006 11:41:08 -0800
-Message-ID: <20061201114108.6166cb47@freekitty>
-References: <20061130163531.GB8772@gospo.rdu.redhat.com>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: Multiple end-points behind same NAT
+Date: Fri, 01 Dec 2006 14:32:17 -0600
+Message-ID: <45709151.6060803@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: dgoeddel@trustedcs.com, chanson@trustedcs.com, bphan@trustedcs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:41433 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1031762AbWLATlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 14:41:13 -0500
-To: Andy Gospodarek <andy@greyhouse.net>,
-	Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20061130163531.GB8772@gospo.rdu.redhat.com>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:13477 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S936550AbWLAUc2
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 15:32:28 -0500
+Received: (from smmsp@localhost)
+	by tcsfw4.tcs-sec.com (8.12.2/8.12.2) id kB1KWRF0029790
+	for <netdev@vger.kernel.org>; Fri, 1 Dec 2006 15:32:27 -0500 (EST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I would rather fix Andy's problem by not clearing
-multicast information on link down.
+Hi,
 
-Also, add code to restore multicast state after ethtool phy reset.
+I am wondering if 26sec supports NAT-Traversal for multiple
+endpoints behind the same NAT. In looking at xfrm_tmpl it's
+not obvious to me that it's supported, at least going by the
+following from the setkey man page:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- drivers/net/skge.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+             When NAT-T is enabled in the kernel, policy matching for ESP over
+             UDP packets may be done on endpoint addresses and port (this
+             depends on the system.  System that do not perform the port check
+             cannot support multiple endpoints behind the same NAT).  When
+             using ESP over UDP, you can specify port numbers in the endpoint
+             addresses to get the correct matching.  Here is an example:
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index b294903..010fc65 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -2154,8 +2154,6 @@ static void yukon_link_down(struct skge_
- 	int port = skge->port;
- 	u16 ctrl;
- 
--	gm_phy_write(hw, port, PHY_MARV_INT_MASK, 0);
--
- 	ctrl = gma_read16(hw, port, GM_GP_CTRL);
- 	ctrl &= ~(GM_GPCR_RX_ENA | GM_GPCR_TX_ENA);
- 	gma_write16(hw, port, GM_GP_CTRL, ctrl);
-@@ -2167,7 +2165,6 @@ static void yukon_link_down(struct skge_
- 		gm_phy_write(hw, port, PHY_MARV_AUNE_ADV, ctrl);
- 	}
- 
--	yukon_reset(hw, port);
- 	skge_link_down(skge);
- 
- 	yukon_init(hw, port);
-@@ -2268,6 +2265,8 @@ static void skge_phy_reset(struct skge_p
- 		yukon_init(hw, port);
- 	}
- 	mutex_unlock(&hw->phy_mutex);
-+
-+	dev->set_multicast_list(dev);
- }
- 
- /* Basic MII support */
--- 
-1.4.1
+             spdadd 10.0.11.0/24[any] 10.0.11.33/32[any] any -P out ipsec
+                 esp/tunnel/192.168.0.1[4500]-192.168.1.2[30000]/require ;
 
+Or is this to be accomplished in a different way?
+
+Thanks,
+
+venkat
