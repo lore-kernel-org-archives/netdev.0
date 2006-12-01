@@ -1,39 +1,57 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Fri, 1 Dec 2006 13:37:55 -0500
-Message-ID: <43e72e890612011037t5011e4d8ma234ac993236d080@mail.gmail.com>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
-	 <200611291612.33448.mb@bu3sch.de>
-	 <20061129152407.GB5412@devicescape.com>
-	 <200611291638.56759.mb@bu3sch.de>
-	 <20061129160328.GA22602@devicescape.com>
-	 <20061129121312.4cfc254f@freekitty>
-	 <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/3] NetXen: 64-bit memory fixes
+Date: Fri, 1 Dec 2006 10:56:13 -0800
+Message-ID: <20061201105613.57821d87@freekitty>
+References: <200612011340.kB1DeEhR014690@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David Kimdon" <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
-	"Nick Kossifidis" <mickflemm@gmail.com>,
-	"Michael Buesch" <mb@bu3sch.de>
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, brazilnut@us.ibm.com,
+	jeff@garzik.org, netxenproj@linsyssoft.com, rob@netxen.com,
+	romieu@fr.zoreil.com, sanjeev@netxen.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:54908 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1031718AbWLASh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Dec 2006 13:37:58 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so2501702uga
-        for <netdev@vger.kernel.org>; Fri, 01 Dec 2006 10:37:56 -0800 (PST)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.25]:29130 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1759346AbWLAS6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 13:58:16 -0500
+To: "Amit S. Kale" <amitkale@netxen.com>
+In-Reply-To: <200612011340.kB1DeEhR014690@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/1/06, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
+Please don't mix whitespace and other fixes at same time.
+Add a cleanup patch at beginning or end of series.
 
-> * madwifi-1152-openhal: based on madwifi-1152, patched with my patch,
-> added openhal, old hal removed. Working free solution. Should exist
-> just as a reference and to allow users to checkout a working free
-> alternative in the mean time.
+Please don't add other things like the driver name this in with bounce buffer
+patch. Why the name change from netxen to netxen_nic?
 
-typo meant 1142
+
+> +/* Bounce buffer index */
+> +struct bounce_index {
+> +	/* Index of a buffer */
+> +	unsigned buffer_index;
+> +	/* Offset inside the buffer */
+> +	unsigned buffer_offset;
+> +};
+> +
+> +#define IS_BOUNCE 0xcafebb
+
+Magic number? is this safe? why? there is a Documentation
+file for these magic-number.txt.
+
+> diff --git a/drivers/net/netxen/netxen_nic_isr.c b/drivers/net/netxen/netxen_nic_isr.c
+> index ae180fe..f6ae9fd 100644
+> --- a/drivers/net/netxen/netxen_nic_isr.c
+> +++ b/drivers/net/netxen/netxen_nic_isr.c
+> @@ -68,8 +68,7 @@ struct net_device_stats *netxen_nic_get_
+>  void netxen_indicate_link_status(struct netxen_adapter *adapter, u32 portno,
+>  				 u32 link)
+>  {
+> -	struct netxen_port *pport = adapter->port[portno];
+> -	struct net_device *netdev = pport->netdev;
+> +	struct net_device *netdev = (adapter->port[portno])->netdev;
+>  
+
+Parens unnecessary here.
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
