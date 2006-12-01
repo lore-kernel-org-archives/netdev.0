@@ -1,27 +1,43 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/3] NetXen: driver cleanup, removed unnecessary __iomem
- type casts
-Date: Fri, 01 Dec 2006 08:15:43 -0800
-Message-ID: <4570552F.7010401@osdl.org>
-References: <200612011336.kB1DaMQL014614@dut39.unminc.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: pktgen
+Date: Fri, 1 Dec 2006 18:18:02 +0100
+Message-ID: <17776.25546.260105.848354@robur.slu.se>
+References: <b6fcc0a0611292330n42fb1485h59804cc94a332f19@mail.gmail.com>
+	<17774.39482.949953.625608@robur.slu.se>
+	<456F15F7.3000700@candelatech.com>
+	<20061130.201423.118625277.davem@davemloft.net>
+	<17775.58441.678623.396102@robur.slu.se>
+	<b6fcc0a0612010151s4231cae6n9252f8816406e1d2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com, jeff@garzik.org,
-	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
+Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>,
+	"David Miller" <davem@davemloft.net>, greearb@candelatech.com,
+	pavol.gono@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:30609 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1031552AbWLAQQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 11:16:41 -0500
-To: "Amit S. Kale" <amitkale@netxen.com>
-In-Reply-To: <200612011336.kB1DaMQL014614@dut39.unminc.com>
+Received: from mx1.slu.se ([130.238.96.70]:21417 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S1031648AbWLARSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 12:18:31 -0500
+To: "Alexey Dobriyan" <adobriyan@gmail.com>
+In-Reply-To: <b6fcc0a0612010151s4231cae6n9252f8816406e1d2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Amit S. Kale wrote:
 
+Alexey Dobriyan writes:
 
-> +#define NUM_SUPPORTED_BOARDS (sizeof(netxen_boards)/sizeof(struct netxen_brdinfo
->   
-You could use ARRAYSIZE(netxen_boards) for this you know.
+ > 
+ > Confused now. Is my "t->control &= ~(T_TERMINATE);" fix deprecated by
+ > completions?
+ 
+ It's not needed with completion patch as this does the job a bit more
+ mainstream. The T_TERMINATE seems to work well I've tested on machine
+ with CPU:s. Only once I noticed that only 2 of 4 threads got started 
+ but it could be something else...
+
+ And the race is hardly seen with any real use of pktgen.. .Let's hear
+ what others... and completions was out-of-date.
+
+ Cheers.
+					--ro
+ 
