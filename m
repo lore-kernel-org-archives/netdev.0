@@ -1,34 +1,28 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [patch 1/4] - Potential performance bottleneck for Linxu TCP
-Date: Fri, 1 Dec 2006 12:53:07 +0300
-Message-ID: <20061201095306.GA21232@2ka.mipt.ru>
-References: <20061130095232.GA8990@2ka.mipt.ru> <456EAD6E.6040709@yahoo.com.au> <20061130102205.GA20654@2ka.mipt.ru> <20061130.121443.116355312.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH 0/2][GENETLINK] Some cleanups
+Date: Fri, 01 Dec 2006 06:22:39 -0500
+Message-ID: <1164972159.3562.4.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: nickpiggin@yahoo.com.au, mingo@elte.hu, wenji@fnal.gov,
-	akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759295AbWLAJxc@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.233]:44985 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S936424AbWLALWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 06:22:43 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1515006nze
+        for <netdev@vger.kernel.org>; Fri, 01 Dec 2006 03:22:43 -0800 (PST)
 To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061130.121443.116355312.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 30, 2006 at 12:14:43PM -0800, David Miller (davem@davemloft.net) wrote:
-> > It steals timeslices from other processes to complete tcp_recvmsg()
-> > task, and only when it does it for too long, it will be preempted.
-> > Processing backlog queue on behalf of need_resched() will break
-> > fairness too - processing itself can take a lot of time, so process
-> > can be scheduled away in that part too.
-> 
-> Yes, at this point I agree with this analysis.
-> 
-> Currently I am therefore advocating some way to allow
-> full input packet handling even amidst tcp_recvmsg()
-> processing.
+Using these 2 patches to test how well my lil soldier is doing with
+this new email settings; so if they come out mangled, yell.
 
-Isn't it a step in direction of full tcp processing bound to process
-context? :)
+Patches against net-2.6.20 from an hour ago.
 
--- 
-	Evgeniy Polyakov
+cheers,
+jamal
+
