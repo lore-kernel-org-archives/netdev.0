@@ -1,52 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/5] sky2: receive error handling fix
-Date: Fri, 01 Dec 2006 14:29:33 -0800
-Message-ID: <20061201223217.701523945@osdl.org>
-References: <20061201222931.730523290@osdl.org>
-Cc: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pktgen
+Date: Fri, 01 Dec 2006 15:17:37 -0800 (PST)
+Message-ID: <20061201.151737.124084161.davem@davemloft.net>
+References: <456F15F7.3000700@candelatech.com>
+	<20061130.201423.118625277.davem@davemloft.net>
+	<20061201082225.GA19683@infradead.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, Robert.Olsson@data.slu.se,
+	adobriyan@gmail.com, pavol.gono@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:30649 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1162131AbWLAWew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 17:34:52 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-rcv-err.patch
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:27778
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1162219AbWLAXRb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 18:17:31 -0500
+To: hch@infradead.org
+In-Reply-To: <20061201082225.GA19683@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If sky2 detects out of memory, or gets a bad frame, it reuses the same receive
-buffer, but forgets to poke the hardware. This could lead to the receiver
-getting stuck if there were lots of errors.
+From: Christoph Hellwig <hch@infradead.org>
+Date: Fri, 1 Dec 2006 08:22:25 +0000
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> On Thu, Nov 30, 2006 at 08:14:23PM -0800, David Miller wrote:
+> > Agreed.
+> > 
+> > Robert, please fix this by using a completion so that we can
+> > wait for the threads to start up, something like this:
+> 
+> No, that's wrong aswell :)  Please use the kthread_ API that takes
+> care of all this.  kernel_thread is going away mid-term, so you'd
+> have to do this work anyway.
 
-
----
- drivers/net/sky2.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
---- netdev-2.6.orig/drivers/net/sky2.c	2006-12-01 14:19:32.000000000 -0800
-+++ netdev-2.6/drivers/net/sky2.c	2006-12-01 14:23:21.000000000 -0800
-@@ -2065,7 +2065,7 @@
- 		case OP_RXSTAT:
- 			skb = sky2_receive(dev, length, status);
- 			if (!skb)
--				break;
-+				goto force_update;
- 
- 			skb->protocol = eth_type_trans(skb, dev);
- 			dev->last_rx = jiffies;
-@@ -2081,8 +2081,8 @@
- 
- 			/* Update receiver after 16 frames */
- 			if (++buf_write[le->link] == RX_BUF_WRITE) {
--				sky2_put_idx(hw, rxqaddr[le->link],
--					     sky2->rx_put);
-+force_update:
-+				sky2_put_idx(hw, rxqaddr[le->link], sky2->rx_put);
- 				buf_write[le->link] = 0;
- 			}
- 
-
---
-Stephen Hemminger <shemminger@osdl.org>
+I was going to suggest this Christophe, but I wanted a change small
+and easy enough to verify in order to merge the fix into the -stable
+branch.  Converting the thing over to kthread would make the change
+more risky in such a context.
 
