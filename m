@@ -1,30 +1,38 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] zd1211rw: Support for multicast addresses
-Date: Thu, 30 Nov 2006 20:57:10 -0500
-Message-ID: <456F8BF6.7020304@gentoo.org>
-References: <20061201005807.C04067B409F@zog.reactivated.net> <20061130175036.35f0ccf7@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/5] NetXen: temp monitoring, newer firmware support, mm
+ footprint reduction
+Date: Thu, 30 Nov 2006 19:13:11 -0800
+Message-ID: <20061130191311.4d9ba296@localhost.localdomain>
+References: <20061130185002.GA32305@us.ibm.com>
+	<20061201000204.GA19837@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	kune@deine-taler.de, benoit.papillault@free.fr
+Cc: Don Fry <brazilnut@us.ibm.com>, netdev@vger.kernel.org,
+	amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
+	rob@netxen.com, sanjeev@netxen.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:28600 "EHLO
-	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
-	id S1757011AbWLACEO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Nov 2006 21:04:14 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061130175036.35f0ccf7@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.25]:18663 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1758380AbWLADN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 22:13:56 -0500
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20061201000204.GA19837@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Why all the trouble do it off work queue? Is someone calling
-> set_multicast_list with IRQ's disabled?
 
-Register I/O involves sleeping, so we need to be in process context.
+> > @@ -869,7 +937,10 @@ static inline void netxen_nic_disable_in
+> >  	/*
+> >  	 * ISR_INT_MASK: Can be read from window 0 or 1.
+> >  	 */
+> > -	writel(0x7ff, (void __iomem *)(adapter->ahw.pci_base + ISR_INT_MASK));
+> > +	writel(0x7ff,
+> > +	       (void __iomem
+> > +		*)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
+> > +
+> 
+> Yuck
 
-in_atomic() returns non-zero in the set_multicast_list handler. I 
-couldn't tell you which codepath this is in.
+If pci_base were correctly typed __iomem the casting would not
+be needed.
 
-Daniel
