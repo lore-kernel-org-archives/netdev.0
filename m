@@ -1,38 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/5] NetXen: temp monitoring, newer firmware support, mm
- footprint reduction
-Date: Thu, 30 Nov 2006 19:13:11 -0800
-Message-ID: <20061130191311.4d9ba296@localhost.localdomain>
-References: <20061130185002.GA32305@us.ibm.com>
-	<20061201000204.GA19837@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] net/sched/: remove unused exports
+Date: Thu, 30 Nov 2006 19:51:00 -0800 (PST)
+Message-ID: <20061130.195100.102614532.davem@davemloft.net>
+References: <20061126062931.GL15364@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Don Fry <brazilnut@us.ibm.com>, netdev@vger.kernel.org,
-	amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
-	rob@netxen.com, sanjeev@netxen.com, wendyx@us.ibm.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:18663 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1758380AbWLADN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Nov 2006 22:13:56 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061201000204.GA19837@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41413
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1758543AbWLADu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Nov 2006 22:50:58 -0500
+To: bunk@stusta.de
+In-Reply-To: <20061126062931.GL15364@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Adrian Bunk <bunk@stusta.de>
+Date: Sun, 26 Nov 2006 07:29:31 +0100
 
-> > @@ -869,7 +937,10 @@ static inline void netxen_nic_disable_in
-> >  	/*
-> >  	 * ISR_INT_MASK: Can be read from window 0 or 1.
-> >  	 */
-> > -	writel(0x7ff, (void __iomem *)(adapter->ahw.pci_base + ISR_INT_MASK));
-> > +	writel(0x7ff,
-> > +	       (void __iomem
-> > +		*)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
-> > +
+> This patch removes the following unused EXPORT_SYMBOL's:
+> - sch_api.c: qdisc_lookup
+> - sch_generic.c: __netdev_watchdog_up
+> - sch_generic.c: noop_qdisc_ops
+> - sch_generic.c: qdisc_alloc
 > 
-> Yuck
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-If pci_base were correctly typed __iomem the casting would not
-be needed.
-
+Applied, thanks Adrian.
