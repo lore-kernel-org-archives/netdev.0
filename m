@@ -1,72 +1,48 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: Re: [PATCH][IPSEC][6/7] inter address family ipsec tunnel
-Date: Fri, 01 Dec 2006 14:07:04 +0900
-Message-ID: <456FB878.4080109@miyazawa.org>
-References: <20061124143901.0db589b8.kazunori@miyazawa.org> <20061130.170503.35356518.davem@davemloft.net>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH] zd1211rw: Support for multicast addresses
+Date: Fri, 1 Dec 2006 07:27:59 +0100
+Message-ID: <20061201062758.GA20548@p15091797.pureserver.info>
+References: <20061201005807.C04067B409F@zog.reactivated.net> <20061130175036.35f0ccf7@localhost.localdomain> <456F8BF6.7020304@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, linville@tuxdriver.com,
+	netdev@vger.kernel.org, benoit.papillault@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:9630 "EHLO
-	miyazawa.org") by vger.kernel.org with ESMTP id S1758886AbWLAFHp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Dec 2006 00:07:45 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061130.170503.35356518.davem@davemloft.net>
+Received: from deine-taler.de ([217.160.107.63]:47565 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1759151AbWLAG2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 01:28:00 -0500
+To: Daniel Drake <dsd@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <456F8BF6.7020304@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-> Date: Fri, 24 Nov 2006 14:39:01 +0900
+On 06-11-30 20:57 Daniel Drake wrote:
+
+> Stephen Hemminger wrote:
+> >Why all the trouble do it off work queue? Is someone calling
+> >set_multicast_list with IRQ's disabled?
 > 
->> This patch fixes mtu calculation of IPv4
->>
->> ip_append_data should refer the mtu of "dst" not "path".
->> if "dst" is stacked, "path" is the actual dst_entry in
->> the routing table.
->> therefore the mtu of "path" equals link mtu which is
->> depends on the device so that it ignores the header length
->> and the trailer length
->> "dst" has mtu for creating packet.
->>
->> Signed-off-by: Miika Komu <miika@iki.fi>
->> Signed-off-by: Diego Beltrami <Diego.Beltrami@hiit.fi>
->> Signed-off-by: Kazunori Miyazawa <miyazawa@linux-ipv6.org>
+> Register I/O involves sleeping, so we need to be in process context.
 > 
-> I'm not sure about this change.
+> in_atomic() returns non-zero in the set_multicast_list handler. I 
+> couldn't tell you which codepath this is in.
 > 
-> If you look at the code in this function, "mtu" is always used with
-> adjustments via 'exthdrlen' (which is set to rt->u.dst.header_len).
-> So it seems the encapsulation is taken into account.
-> 
+> Daniel
 
-Oh, sorry. I misread the code.
-I tested with IPv4 over IPv4 IPsec tunnel. The original code works.
-Sorry this patch was wrong. Please throw away [6/7] and [7/7].
+The function dev_mc_upload() (net/core/dev_mcast.c) calls
+netif_tx_lock_bh() which locks the tx spinlock.
 
-> Perhaps any problem you are seeing is some artifact of the ipv6 in
-> ipv4 tunnel implementation.  Otherwise we'd have other reports of this
-> problem, wouldn't we?
+The ZD1211 is a USB chip. Register reads will always require
+sleeping, if the driver should not spend CPU cycles on polling in
+atomic mode. One could implement register writes without waiting
+for completion of the writes, but asynchronous error messages for
+the writes would make debugging difficult. Additionally hardware
+register accesses includes setting a firmware lock, which reqires
+a register read. Given all that the driver is always sleeping in
+the register access paths. RX and TX paths don't require register
+access and work in atomic mode. 
 
-The easy test is that you create IPv6 over IPv6 IPsec tunnel between 2 
-hosts, the tunnel is terminated by themselves, and send icmp echo
-packets which are longer than the mtu such as 2000. Then it seems
-that the kernel  returns too big messages to ping6.
-I guess mtu calculation and/or building packets of IPv6 has some problem
-
-If you use another host (SGW) to encapsulate the packets,
-I think it succeeds because SGW returns a too big message and the
-packet sending host learns and fragments properly.
-
-I had same situation like IPv6 over IPv6 IPsec self tunneling
-under IPv6 over IPv4 IPsec tunneling test.
-
-I'm going to trace the problem.
-
-Thank you.
-
---
-Kazunori Miyazawa
+-- 
+Uli Kunitz
