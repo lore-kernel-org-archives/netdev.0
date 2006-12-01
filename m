@@ -1,289 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] NET_SCH_ATM doesn't need ipcommon.o
-Date: Thu, 30 Nov 2006 21:05:57 -0800 (PST)
-Message-ID: <20061130.210557.55834997.davem@davemloft.net>
-References: <20061127005934.GN15364@stusta.de>
-	<20061127060437.GA2682@infradead.org>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: Re: [PATCH][IPSEC][6/7] inter address family ipsec tunnel
+Date: Fri, 01 Dec 2006 14:07:04 +0900
+Message-ID: <456FB878.4080109@miyazawa.org>
+References: <20061124143901.0db589b8.kazunori@miyazawa.org> <20061130.170503.35356518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, chas@cmf.nrl.navy.mil,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:28851
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1758980AbWLAFFy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Dec 2006 00:05:54 -0500
-To: hch@infradead.org
-In-Reply-To: <20061127060437.GA2682@infradead.org>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:9630 "EHLO
+	miyazawa.org") by vger.kernel.org with ESMTP id S1758886AbWLAFHp
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 00:07:45 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061130.170503.35356518.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 27 Nov 2006 06:04:37 +0000
-
-> On Mon, Nov 27, 2006 at 01:59:34AM +0100, Adrian Bunk wrote:
-> > NET_SCH_ATM doesn't need ipcommon.o
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> > 
-> > --- linux-2.6.19-rc6-mm1/net/atm/Makefile.old	2006-11-26 08:50:05.000000000 +0100
-> > +++ linux-2.6.19-rc6-mm1/net/atm/Makefile	2006-11-26 08:56:29.000000000 +0100
-> > @@ -10,7 +10,6 @@
-> >  atm-$(subst m,y,$(CONFIG_ATM_CLIP)) += ipcommon.o
-> >  obj-$(CONFIG_ATM_BR2684) += br2684.o
-> >  atm-$(subst m,y,$(CONFIG_ATM_BR2684)) += ipcommon.o
-> > -atm-$(subst m,y,$(CONFIG_NET_SCH_ATM)) += ipcommon.o
+David Miller wrote:
+> From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> Date: Fri, 24 Nov 2006 14:39:01 +0900
 > 
-> Btw, ages ago Dave said there plans to get rid of ipcommon.c (it's just
-> a single function).  Did anything ever happen towards those plans?
+>> This patch fixes mtu calculation of IPv4
+>>
+>> ip_append_data should refer the mtu of "dst" not "path".
+>> if "dst" is stacked, "path" is the actual dst_entry in
+>> the routing table.
+>> therefore the mtu of "path" equals link mtu which is
+>> depends on the device so that it ignores the header length
+>> and the trailer length
+>> "dst" has mtu for creating packet.
+>>
+>> Signed-off-by: Miika Komu <miika@iki.fi>
+>> Signed-off-by: Diego Beltrami <Diego.Beltrami@hiit.fi>
+>> Signed-off-by: Kazunori Miyazawa <miyazawa@linux-ipv6.org>
+> 
+> I'm not sure about this change.
+> 
+> If you look at the code in this function, "mtu" is always used with
+> adjustments via 'exthdrlen' (which is set to rt->u.dst.header_len).
+> So it seems the encapsulation is taken into account.
+> 
 
-Let's get rid of that crap.  I just checked the following into
-my net-2.6.20 tree.
+Oh, sorry. I misread the code.
+I tested with IPv4 over IPv4 IPsec tunnel. The original code works.
+Sorry this patch was wrong. Please throw away [6/7] and [7/7].
 
-commit 5465ae68b5ec11b2820db3f9b4c6fd94f113da44
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Thu Nov 30 21:05:23 2006 -0800
+> Perhaps any problem you are seeing is some artifact of the ipv6 in
+> ipv4 tunnel implementation.  Otherwise we'd have other reports of this
+> problem, wouldn't we?
 
-    [ATM]: Kill ipcommon.[ch]
-    
-    All that remained was skb_migrate() and that was overkill
-    for what the two call sites were trying to do.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+The easy test is that you create IPv6 over IPv6 IPsec tunnel between 2 
+hosts, the tunnel is terminated by themselves, and send icmp echo
+packets which are longer than the mtu such as 2000. Then it seems
+that the kernel  returns too big messages to ping6.
+I guess mtu calculation and/or building packets of IPv6 has some problem
 
-diff --git a/net/atm/Makefile b/net/atm/Makefile
-index 89656d6..cc50bd1 100644
---- a/net/atm/Makefile
-+++ b/net/atm/Makefile
-@@ -7,10 +7,7 @@ mpoa-objs	:= mpc.o mpoa_caches.o mpoa_pr
- 
- obj-$(CONFIG_ATM) += atm.o
- obj-$(CONFIG_ATM_CLIP) += clip.o
--atm-$(subst m,y,$(CONFIG_ATM_CLIP)) += ipcommon.o
- obj-$(CONFIG_ATM_BR2684) += br2684.o
--atm-$(subst m,y,$(CONFIG_ATM_BR2684)) += ipcommon.o
--atm-$(subst m,y,$(CONFIG_NET_SCH_ATM)) += ipcommon.o
- atm-$(CONFIG_PROC_FS) += proc.o
- 
- obj-$(CONFIG_ATM_LANE) += lec.o
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index b04162f..83a1c1b 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -23,7 +23,6 @@ #include <linux/seq_file.h>
- #include <linux/atmbr2684.h>
- 
- #include "common.h"
--#include "ipcommon.h"
- 
- /*
-  * Define this to use a version of the code which interacts with the higher
-@@ -500,11 +499,12 @@ Note: we do not have explicit unassign, 
- */
- 	int err;
- 	struct br2684_vcc *brvcc;
--	struct sk_buff_head copy;
- 	struct sk_buff *skb;
-+	struct sk_buff_head *rq;
- 	struct br2684_dev *brdev;
- 	struct net_device *net_dev;
- 	struct atm_backend_br2684 be;
-+	unsigned long flags;
- 
- 	if (copy_from_user(&be, arg, sizeof be))
- 		return -EFAULT;
-@@ -554,12 +554,30 @@ Note: we do not have explicit unassign, 
- 	brvcc->old_push = atmvcc->push;
- 	barrier();
- 	atmvcc->push = br2684_push;
--	skb_queue_head_init(&copy);
--	skb_migrate(&sk_atm(atmvcc)->sk_receive_queue, &copy);
--	while ((skb = skb_dequeue(&copy)) != NULL) {
-+
-+	rq = &sk_atm(atmvcc)->sk_receive_queue;
-+
-+	spin_lock_irqsave(&rq->lock, flags);
-+	if (skb_queue_empty(rq)) {
-+		skb = NULL;
-+	} else {
-+		/* NULL terminate the list.  */
-+		rq->prev->next = NULL;
-+		skb = rq->next;
-+	}
-+	rq->prev = rq->next = (struct sk_buff *)rq;
-+	rq->qlen = 0;
-+	spin_unlock_irqrestore(&rq->lock, flags);
-+
-+	while (skb) {
-+		struct sk_buff *next = skb->next;
-+
-+		skb->next = skb->prev = NULL;
- 		BRPRIV(skb->dev)->stats.rx_bytes -= skb->len;
- 		BRPRIV(skb->dev)->stats.rx_packets--;
- 		br2684_push(atmvcc, skb);
-+
-+		skb = next;
- 	}
- 	__module_get(THIS_MODULE);
- 	return 0;
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index 1c41693..5f8a1d2 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -38,7 +38,6 @@ #include <asm/atomic.h>
- 
- #include "common.h"
- #include "resources.h"
--#include "ipcommon.h"
- #include <net/atmclip.h>
- 
- 
-@@ -469,8 +468,9 @@ static struct net_device_stats *clip_get
- static int clip_mkip(struct atm_vcc *vcc, int timeout)
- {
- 	struct clip_vcc *clip_vcc;
--	struct sk_buff_head copy;
- 	struct sk_buff *skb;
-+	struct sk_buff_head *rq;
-+	unsigned long flags;
- 
- 	if (!vcc->push)
- 		return -EBADFD;
-@@ -490,10 +490,26 @@ static int clip_mkip(struct atm_vcc *vcc
- 	clip_vcc->old_pop = vcc->pop;
- 	vcc->push = clip_push;
- 	vcc->pop = clip_pop;
--	skb_queue_head_init(&copy);
--	skb_migrate(&sk_atm(vcc)->sk_receive_queue, &copy);
-+
-+	rq = &sk_atm(vcc)->sk_receive_queue;
-+
-+	spin_lock_irqsave(&rq->lock, flags);
-+	if (skb_queue_empty(rq)) {
-+		skb = NULL;
-+	} else {
-+		/* NULL terminate the list.  */
-+		rq->prev->next = NULL;
-+		skb = rq->next;
-+	}
-+	rq->prev = rq->next = (struct sk_buff *)rq;
-+	rq->qlen = 0;
-+	spin_unlock_irqrestore(&rq->lock, flags);
-+
- 	/* re-process everything received between connection setup and MKIP */
--	while ((skb = skb_dequeue(&copy)) != NULL)
-+	while (skb) {
-+		struct sk_buff *next = skb->next;
-+
-+		skb->next = skb->prev = NULL;
- 		if (!clip_devs) {
- 			atm_return(vcc, skb->truesize);
- 			kfree_skb(skb);
-@@ -506,6 +522,9 @@ static int clip_mkip(struct atm_vcc *vcc
- 			PRIV(skb->dev)->stats.rx_bytes -= len;
- 			kfree_skb(skb);
- 		}
-+
-+		skb = next;
-+	}
- 	return 0;
- }
- 
-diff --git a/net/atm/ipcommon.c b/net/atm/ipcommon.c
-deleted file mode 100644
-index 1d3de42..0000000
---- a/net/atm/ipcommon.c
-+++ /dev/null
-@@ -1,63 +0,0 @@
--/* net/atm/ipcommon.c - Common items for all ways of doing IP over ATM */
--
--/* Written 1996-2000 by Werner Almesberger, EPFL LRC/ICA */
--
--
--#include <linux/module.h>
--#include <linux/string.h>
--#include <linux/skbuff.h>
--#include <linux/netdevice.h>
--#include <linux/in.h>
--#include <linux/atmdev.h>
--#include <linux/atmclip.h>
--
--#include "common.h"
--#include "ipcommon.h"
--
--
--#if 0
--#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
--#else
--#define DPRINTK(format,args...)
--#endif
--
--
--/*
-- * skb_migrate appends the list at "from" to "to", emptying "from" in the
-- * process. skb_migrate is atomic with respect to all other skb operations on
-- * "from" and "to". Note that it locks both lists at the same time, so to deal
-- * with the lock ordering, the locks are taken in address order.
-- *
-- * This function should live in skbuff.c or skbuff.h.
-- */
--
--
--void skb_migrate(struct sk_buff_head *from, struct sk_buff_head *to)
--{
--	unsigned long flags;
--	struct sk_buff *skb_from = (struct sk_buff *) from;
--	struct sk_buff *skb_to = (struct sk_buff *) to;
--	struct sk_buff *prev;
--
--	if ((unsigned long) from < (unsigned long) to) {
--		spin_lock_irqsave(&from->lock, flags);
--		spin_lock_nested(&to->lock, SINGLE_DEPTH_NESTING);
--	} else {
--		spin_lock_irqsave(&to->lock, flags);
--		spin_lock_nested(&from->lock, SINGLE_DEPTH_NESTING);
--	}
--	prev = from->prev;
--	from->next->prev = to->prev;
--	prev->next = skb_to;
--	to->prev->next = from->next;
--	to->prev = from->prev;
--	to->qlen += from->qlen;
--	spin_unlock(&to->lock);
--	from->prev = skb_from;
--	from->next = skb_from;
--	from->qlen = 0;
--	spin_unlock_irqrestore(&from->lock, flags);
--}
--
--
--EXPORT_SYMBOL(skb_migrate);
-diff --git a/net/atm/ipcommon.h b/net/atm/ipcommon.h
-deleted file mode 100644
-index d72165f..0000000
---- a/net/atm/ipcommon.h
-+++ /dev/null
-@@ -1,22 +0,0 @@
--/* net/atm/ipcommon.h - Common items for all ways of doing IP over ATM */
--
--/* Written 1996-2000 by Werner Almesberger, EPFL LRC/ICA */
--
--
--#ifndef NET_ATM_IPCOMMON_H
--#define NET_ATM_IPCOMMON_H
--
--
--#include <linux/string.h>
--#include <linux/skbuff.h>
--#include <linux/netdevice.h>
--#include <linux/atmdev.h>
--
--/*
-- * Appends all skbs from "from" to "to". The operation is atomic with respect
-- * to all other skb operations on "from" or "to".
-- */
--
--void skb_migrate(struct sk_buff_head *from,struct sk_buff_head *to);
--
--#endif
+If you use another host (SGW) to encapsulate the packets,
+I think it succeeds because SGW returns a too big message and the
+packet sending host learns and fragments properly.
+
+I had same situation like IPv6 over IPv6 IPsec self tunneling
+under IPv6 over IPv4 IPsec tunneling test.
+
+I'm going to trace the problem.
+
+Thank you.
+
+--
+Kazunori Miyazawa
