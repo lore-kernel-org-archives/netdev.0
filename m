@@ -1,45 +1,52 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: 2.6.19: very low transmit speed after suspend/resume with Sky2
-Date: Sat, 2 Dec 2006 23:37:03 +0100
-Message-ID: <20061202223703.GA16068@dose.home.local>
-References: <20061202091626.GA20734@thinkpad.home.local> <20061202131833.GA3673@thinkpad.home.local> <4571ED2C.6040005@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH  v2 00/13] 2.6.20 Chelsio T3 RDMA Driver
+Date: Sat, 02 Dec 2006 16:49:17 -0600
+Message-ID: <20061202224917.27014.15424.stgit@dell3.ogc.int>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, openib-general@openib.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:54704 "EHLO
-	eazy.amigager.de") by vger.kernel.org with ESMTP id S936570AbWLBWhF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 17:37:05 -0500
-Received: from dose.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
-	by eazy.amigager.de (Postfix) with ESMTP id D833025C3B3
-	for <netdev@vger.kernel.org>; Sat,  2 Dec 2006 23:37:02 +0100 (CET)
-Received: from scorpion by dose.home.local with local (Exim 4.63)
-	(envelope-from <tino.keitel@tikei.de>)
-	id 1GqdTj-0004LZ-6e
-	for netdev@vger.kernel.org; Sat, 02 Dec 2006 23:37:03 +0100
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <4571ED2C.6040005@osdl.org>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:17305 "EHLO
+	smtp.opengridcomputing.com") by vger.kernel.org with ESMTP
+	id S936579AbWLBWtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 17:49:18 -0500
+To: rdreier@cisco.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 02, 2006 at 13:16:28 -0800, Stephen Hemminger wrote:
 
-[...]
+Version 2 changes:
 
-> Most likely, the problem is similar to one I am working. The 
+- Make code sparse endian clean
+- Use IDRs for mapping QP and CQ IDs to structure pointers instead of arrays
+- Clean up confusing bitfields
+- Use random32() instead of local random function
+- Use krefs to track endpoint reference counts
+- Misc nits
 
-Great to hear that someone is working on this. If you need a tester,
-just ask. :-)
+-----
 
-> device_resume code gets run before
-> BIOS. And the BIOS wakeup screws up the device. The proper fix will 
-> happen in 2.6.20.
-> If you are using MSI, turn that off.
+The following series implements the Chelsio T3 iWARP/RDMA Driver to
+be considered for inclusion in 2.6.20.  It depends on the Chelsio T3
+Ethernet Driver which is also under review now for 2.6.20. See:
 
-I don't use it:
+http://www.mail-archive.com/netdev@vger.kernel.org/msg26619.html
 
-# CONFIG_PCI_MSI is not set
+The patches are against 2.6.19.
 
-Regards,
-Tino
+This patch series can also be pulled from:
+
+	http://www.opengridcomputing.com/downloads/iw_cxgb3_patches_v2.tar.bz2
+
+The Chelsio T3 Ethernet Driver patch can be pulled from:
+
+	http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+
+A complete GIT kernel tree with all the T3 drivers can be pulled from:
+
+	git://staging.openfabrics.org/~swise/cxgb3.git
+
+Thanks,
+
+Steve.
