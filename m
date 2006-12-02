@@ -1,89 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.19: Kernel panic with "ifconfig eth0 up"
-Date: Sat, 02 Dec 2006 01:15:52 -0800 (PST)
-Message-ID: <20061202.011552.75188818.davem@davemloft.net>
-References: <200612021030.17796.m.hanninen@kymp.net>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: 2.6.19: very low transmit speed after suspend/resume with Sky2
+Date: Sat, 2 Dec 2006 10:16:28 +0100
+Message-ID: <20061202091626.GA20734@thinkpad.home.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53673
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1162853AbWLBJPv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Dec 2006 04:15:51 -0500
-To: m.hanninen@kymp.net
-In-Reply-To: <200612021030.17796.m.hanninen@kymp.net>
+Received: from eazy.amigager.de ([213.239.192.238]:12719 "EHLO
+	eazy.amigager.de") by vger.kernel.org with ESMTP id S1162855AbWLBJQ0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 04:16:26 -0500
+Received: from thinkpad.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
+	by eazy.amigager.de (Postfix) with ESMTP id 404A425C3AE
+	for <netdev@vger.kernel.org>; Sat,  2 Dec 2006 10:16:25 +0100 (CET)
+Received: from scorpion by thinkpad.home.local with local (Exim 4.63)
+	(envelope-from <tino.keitel@tikei.de>)
+	id 1GqQyy-0005Ya-HD
+	for netdev@vger.kernel.org; Sat, 02 Dec 2006 10:16:28 +0100
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Marko H=E4nninen <m.hanninen@kymp.net>
-Date: Sat, 2 Dec 2006 10:30:17 +0200
+Hi folks,                                            
+                                                     
+since 2.6.19 I have the problem that I get lousy transmit speeds of < 1 
+mbit/s.
 
-> Hi,
->=20
-> I'm having a kernel panic issue when bringing eth0 up. It happens eve=
-ry time=20
-> with command "ifconfig eth0 up". This is vanilla 2.6.19 kernel from k=
-ernel.org.=20
-> Works ok with 2.6.18.3. The system is a Acer Aspire 5021 WLMI laptop.
-> Is there anything I can try? I'm not subscribed to the list, so pleas=
-e CC me.
+Here is a quick test, the 5th column is the transfer speed in mbit/s:
 
-Known problem mentioned on the lists a few times already,
-here is the fix:
+>From the affected machine to my laptop over WLAN (the affected machine
+is connected to a Fast Ethernet switch):
 
-commit c28728decc37fe52c8cdf48b3e0c0cf9b0c2fefb
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Wed Nov 29 18:14:47 2006 -0800
+$ nttcp -r -l 1400 -n 500 dose
+l   700000    8.16   0.04    0.6867    155.5469   824  101.04   22887.6     
+1   700000    8.15   0.00    0.6873 560000.0000   500  61.37    50000000.0    
 
-    [IPV6] NDISC: Calculate packet length correctly for allocation.
-   =20
-    MAX_HEADER does not include the ipv6 header length in it,
-    so we need to add it in explicitly.
-   =20
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Only 0,68 mbit/s during transmit. :-(
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 73eb8c3..c42d4c2 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -441,7 +441,8 @@ static void ndisc_send_na(struct net_dev
-         struct sk_buff *skb;
- 	int err;
-=20
--	len =3D sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
-+	len =3D sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) +
-+		sizeof(struct in6_addr);
-=20
- 	/* for anycast or proxy, solicited_addr !=3D src_addr */
- 	ifp =3D ipv6_get_ifaddr(solicited_addr, dev, 1);
-@@ -556,7 +557,8 @@ void ndisc_send_ns(struct net_device *de
- 	if (err < 0)
- 		return;
-=20
--	len =3D sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
-+	len =3D sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) +
-+		sizeof(struct in6_addr);
- 	send_llinfo =3D dev->addr_len && !ipv6_addr_any(saddr);
- 	if (send_llinfo)
- 		len +=3D ndisc_opt_addr_space(dev);
-@@ -632,7 +634,7 @@ void ndisc_send_rs(struct net_device *de
- 	if (err < 0)
- 		return;
-=20
--	len =3D sizeof(struct icmp6hdr);
-+	len =3D sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr);
- 	if (dev->addr_len)
- 		len +=3D ndisc_opt_addr_space(dev);
-=20
-@@ -1381,7 +1383,8 @@ void ndisc_send_redirect(struct sk_buff=20
- 			 struct in6_addr *target)
- {
- 	struct sock *sk =3D ndisc_socket->sk;
--	int len =3D sizeof(struct icmp6hdr) + 2 * sizeof(struct in6_addr);
-+	int len =3D sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) +
-+		2 * sizeof(struct in6_addr);
- 	struct sk_buff *buff;
- 	struct icmp6hdr *icmph;
- 	struct in6_addr saddr_buf;
+>From my laptop to the affected machine:
+
+$ nttcp -l 1400 -n 5000 dose
+l  7000000    2.21   0.03   25.3427   1999.8572  5000  2262.74  178558.7     
+1  7000000    2.25   0.07   24.8363    823.4810  9268  4110.41  136286.1 
+
+This is ok, 25 mbit/s during receive, limited by the WLAN in the
+laptop.
+
+After reboot:
+
+$ nttcp -l 1400 -n 5000 dose
+l  7000000    2.04   0.03   27.5005   1749.8906  5000  2455.40  156240.2
+1  7000000    2.08   0.06   26.9843    999.9464  9455  4556.00  168830.2
+
+Now I got 27 mbit/s during receive, that's ok for WLAN.
+
+Re-tested with 2.6.18.2 after a suspend/resume cycle:
+
+$ nttcp -l 1500 -n 5000 dose
+l  7500000  2.15  0.05   27.9219   1249.9219    5000   2326.83  104160.2
+1  7500000  2.20  0.04   27.2441   1499.9250    5178   2351.16  129443.5
+
+$ nttcp -r -l 1500 -n 5000 dose
+l  7500000  2.07  0.09   28.9676    681.7794    5182   2501.83  58883.0
+1  7500000  1.98  0.03   30.2748   2142.7806    5000   2522.90  178565.1
+
+lspci output:
+
+01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
+PCI-E Gigabit Ethernet Controller (rev 22)
+
+Any hints what I could try to get the full performance in 2.6.19?
+
+Regards,
+Tino
