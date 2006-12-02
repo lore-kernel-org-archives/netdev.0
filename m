@@ -1,90 +1,53 @@
-From: maximilian attems <maks@sternwelten.at>
-Subject: Re: RFC: removing the dgrs net driver
-Date: Sat, 2 Dec 2006 18:31:36 +0100
-Message-ID: <20061202173136.GM30153@baikonur.stro.at>
-References: <20061202171932.GP11084@stusta.de>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: zd1211 ported to Devicescape stack
+Date: Sat, 2 Dec 2006 18:57:37 +0100
+Message-ID: <20061202175737.GA5577@p15091797.pureserver.info>
+References: <200612020316.50965.flamingice@sourmilk.net> <4571A295.4030700@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Nathanael Nerode <neroden@fastmail.fm>,
-	Andres Salomon <dilinger@debian.org>
+Cc: Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Luis Rodriguez <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:38928 "EHLO
-	baikonur.stro.at") by vger.kernel.org with ESMTP id S1424262AbWLBR3m
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 12:29:42 -0500
-To: Adrian Bunk <bunk@stusta.de>
+Received: from deine-taler.de ([217.160.107.63]:21204 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1424292AbWLBR5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 12:57:38 -0500
+To: Daniel Drake <dsd@gentoo.org>
 Content-Disposition: inline
-In-Reply-To: <20061202171932.GP11084@stusta.de>
+In-Reply-To: <4571A295.4030700@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 02, 2006 at 06:19:32PM +0100, Adrian Bunk wrote:
-> Based on the information in the email forwarded below I'd remove the 
-> dgrs net driver (this wasn't the first driver shipped with the kernel 
-> without any hardware ever produced...).
-> 
-> Is this OK or is there any doubt whether this information is true?
-> 
-> cu
-> Adrian
+On 06-12-02 10:58 Daniel Drake wrote:
 
-ok thanks for doing this,
-as the reporter was to lazy to cook up a proper patch for that.
+> Michael Wu wrote:
+> >Hi,
+> >	I have finished a port of the zd1211 driver to the Devicescape 
+> >	802.11 stack. 
+> 
+> Yeah!! thanks so much for doing this.
+> 
+> Are you willing to maintain this in terms of porting upcoming patches to 
+> it? I think I also speak for Ulrich when I say that at the moment we are 
+> more concerned about getting our work into mainline and don't have time 
+> to maintain a ported driver, but we will be happy to switch immediately 
+> as soon as devicescape is declared ready for mainline inclusion.
 
-there is zero bug report for dgrs on the debian bts nor did i find
-one in bugzilla.kernel.org. redhat guys might want to verify on their
-side.
+I intend to track the d80211 stack, care for the forward porting
+and see also a number of things, which should be done for d80211.
 
- 
-> ----- Forwarded message from Nathanael Nerode <neroden@fastmail.fm> -----
-> 
-> Date:	Sun, 24 Sep 2006 13:00:12 -0400
-> From: Nathanael Nerode <neroden@fastmail.fm>
-> To: netdev@vger.kernel.org
-> Subject: Please remove useless dgrs driver
-> 
-> An official email from digi.com to Andres Salomon <dilinger@debian.org>
-> explained:
-> 
->  Dear Andres:
-> 
->  After further research, we found that this product was killed in place
->  and never reached the market.  We would like to request that this not be
->  included.
-> 
-> Copy at http://wiki.debian.org/KernelFirmwareLicensing (this was discovered
-> during research into firmware licensing).
-> 
-> The drgs driver is useless (no hardware to drive) and should be removed.
-> The files which should be deleted from the tree are:
->         drivers/net/dgrs.c
->         drivers/net/dgrs.h
->         drivers/net/dgrs_es4h.h
->         drivers/net/dgrs_plx9060.h
->         drivers/net/dgrs_i82596.h
->         drivers/net/dgrs_ether.h
->         drivers/net/dgrs_asstruct.h
->         drivers/net/dgrs_bcomm.h
->         drivers/net/dgrs_firmware.c
-> 
-> It will probably also be necessary to delete some stuff from drivers/net/Kconfig
-> and drivers/net/Makefile, but I assume that this will be trivial for any
-> net maintainer.
-> 
-> Thanks in advance for doing this.
-> 
-> -- 
-> Nathanael Nerode  <neroden@fastmail.fm>
-> 
-> "(Instead, we front-load the flamewars and grudges in
-> the interest of efficiency.)" --Steve Lanagasek,
-> http://lists.debian.org/debian-devel/2005/09/msg01056.html
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> ----- End forwarded message -----
---
-maks
+- 802.11a support
+- better d80211 integration (d80211_tx_status, led stuff)
+- cleanups
+
+Daniel your hardware crypto patches should certainly be included
+here.
+
+This will make the d80211 driver the development branch and the
+mainline driver the maintenance branch. As already stated I intend
+care for forwardportsi of the mainline fixes, but IMHO we should
+not care to much for backports and backport compatibility. 
+
+-- 
+Uli Kunitz
