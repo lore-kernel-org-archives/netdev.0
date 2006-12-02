@@ -1,130 +1,83 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 06/10] chelsio: cleanup pm3393 code
-Date: Fri, 01 Dec 2006 16:36:18 -0800
-Message-ID: <20061202003707.591450000@osdl.org>
+Subject: [PATCH 08/10] chelsio: add MSI support
+Date: Fri, 01 Dec 2006 16:36:20 -0800
+Message-ID: <20061202003707.741158000@osdl.org>
 References: <20061202003612.573260000@osdl.org>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:48354 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1162422AbWLBAjk (ORCPT
+Received: from smtp.osdl.org ([65.172.181.25]:48610 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1162424AbWLBAjk (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 19:39:40 -0500
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=pm3393-rmon.patch
+Content-Disposition: inline; filename=chelsio-msi.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace macro with function for updating RMON values
+Using MSI can avoid sharing IRQ and associated overhead.
+Tested on PCI-X.
 
-Cleanups:
-	* remove unused enum's
-	* Fix comment format
-
-Signed-off-by: Stephen HEmminger <shemminger@osdl.org>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 ---
- drivers/net/chelsio/pm3393.c |   69 ++++++++++++++++++-------------------------
- 1 file changed, 29 insertions(+), 40 deletions(-)
+ drivers/net/chelsio/common.h |    1 +
+ drivers/net/chelsio/cxgb2.c  |   20 +++++++++++++++++---
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
---- chelsio-t2.orig/drivers/net/chelsio/pm3393.c
-+++ chelsio-t2/drivers/net/chelsio/pm3393.c
-@@ -43,22 +43,6 @@
- #include "elmer0.h"
- #include "suni1x10gexp_regs.h"
+--- chelsio.orig/drivers/net/chelsio/common.h
++++ chelsio/drivers/net/chelsio/common.h
+@@ -228,6 +228,7 @@ struct adapter_params {
+ 	unsigned short chip_revision;
+ 	unsigned char  chip_version;
+ 	unsigned char  is_asic;
++	unsigned char  has_msi;
+ };
  
--/* 802.3ae 10Gb/s MDIO Manageable Device(MMD)
-- */
--enum {
--	MMD_RESERVED,
--	MMD_PMAPMD,
--	MMD_WIS,
--	MMD_PCS,
--	MMD_PHY_XGXS,	/* XGMII Extender Sublayer */
--	MMD_DTE_XGXS,
--};
--
--enum {
--	PHY_XGXS_CTRL_1,
--	PHY_XGXS_STATUS_1
--};
--
- #define OFFSET(REG_ADDR)    (REG_ADDR << 2)
+ struct link_config {
+--- chelsio.orig/drivers/net/chelsio/cxgb2.c
++++ chelsio/drivers/net/chelsio/cxgb2.c
+@@ -107,6 +107,10 @@ static int t1powersave = 1;	/* HW defaul
+ module_param(t1powersave, int, 0);
+ MODULE_PARM_DESC(t1powersave, "Enable/Disable T1 powersaving mode");
  
- /* Max frame size PM3393 can handle. Includes Ethernet header and CRC. */
-@@ -128,12 +112,12 @@ static int pm3393_reset(struct cmac *cma
- 
- /*
-  * Enable interrupts for the PM3393
--
--	1. Enable PM3393 BLOCK interrupts.
--	2. Enable PM3393 Master Interrupt bit(INTE)
--	3. Enable ELMER's PM3393 bit.
--	4. Enable Terminator external interrupt.
--*/
-+ *
-+ *	1. Enable PM3393 BLOCK interrupts.
-+ *	2. Enable PM3393 Master Interrupt bit(INTE)
-+ *	3. Enable ELMER's PM3393 bit.
-+ *	4. Enable Terminator external interrupt.
-+ */
- static int pm3393_interrupt_enable(struct cmac *cmac)
- {
- 	u32 pl_intr;
-@@ -261,11 +245,7 @@ static int pm3393_interrupt_clear(struct
- static int pm3393_interrupt_handler(struct cmac *cmac)
- {
- 	u32 master_intr_status;
--/*
--	1. Read master interrupt register.
--	2. Read BLOCK's interrupt status registers.
--	3. Handle BLOCK interrupts.
--*/
++static int disable_msi = 0;
++module_param(disable_msi, int, 0);
++MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt (MSI)");
 +
- 	/* Read the master interrupt status register. */
- 	pmread(cmac, SUNI1x10GEXP_REG_MASTER_INTERRUPT_STATUS,
- 	       &master_intr_status);
-@@ -473,20 +453,29 @@ static int pm3393_set_speed_duplex_fc(st
- 	return 0;
+ static const char pci_speed[][4] = {
+ 	"33", "66", "100", "133"
+ };
+@@ -215,11 +219,19 @@ static int cxgb_up(struct adapter *adapt
+ 	}
+ 
+ 	t1_interrupts_clear(adapter);
+-	if ((err = request_irq(adapter->pdev->irq,
+-			       t1_select_intr_handler(adapter), IRQF_SHARED,
+-			       adapter->name, adapter))) {
++
++	adapter->params.has_msi = !disable_msi && pci_enable_msi(adapter->pdev) == 0;
++	err = request_irq(adapter->pdev->irq,
++			  t1_select_intr_handler(adapter),
++			  adapter->params.has_msi ? 0 : IRQF_SHARED,
++			  adapter->name, adapter);
++	if (err) {
++		if (adapter->params.has_msi)
++			pci_disable_msi(adapter->pdev);
++
+ 		goto out_err;
+ 	}
++
+ 	t1_sge_start(adapter->sge);
+ 	t1_interrupts_enable(adapter);
+  out_err:
+@@ -234,6 +246,8 @@ static void cxgb_down(struct adapter *ad
+ 	t1_sge_stop(adapter->sge);
+ 	t1_interrupts_disable(adapter);
+ 	free_irq(adapter->pdev->irq, adapter);
++	if (adapter->params.has_msi)
++		pci_disable_msi(adapter->pdev);
  }
  
-+static void pm3393_rmon_update(struct adapter *adapter, u32 offs, u64 *val,
-+			       int over)
-+{
-+	u32 val0, val1, val2;
-+
-+	t1_tpi_read(adapter, offs, &val0);
-+	t1_tpi_read(adapter, offs + 4, &val1);
-+	t1_tpi_read(adapter, offs + 8, &val2);
-+
-+	*val &= ~0ull << 40;
-+	*val |= val0 & 0xffff;
-+	*val |= (val1 & 0xffff) << 16;
-+	*val |= (u64)(val2 & 0xff) << 32;
-+
-+	if (over)
-+		*val += 1ull << 40;
-+}
-+
- #define RMON_UPDATE(mac, name, stat_name) \
--	{ \
--		t1_tpi_read((mac)->adapter, OFFSET(name), &val0);	\
--		t1_tpi_read((mac)->adapter, OFFSET(((name)+1)), &val1); \
--		t1_tpi_read((mac)->adapter, OFFSET(((name)+2)), &val2); \
--		(mac)->stats.stat_name = ((u64)val0 & 0xffff) | \
--						(((u64)val1 & 0xffff) << 16) | \
--						(((u64)val2 & 0xff) << 32) | \
--						((mac)->stats.stat_name & \
--							(~(u64)0 << 40)); \
--		if (ro &	\
--			((name -  SUNI1x10GEXP_REG_MSTAT_COUNTER_0_LOW) >> 2)) \
--			(mac)->stats.stat_name += ((u64)1 << 40); \
--	}
-+	pm3393_rmon_update((mac)->adapter, OFFSET(name), 		\
-+			   &(mac)->stats.stat_name,			\
-+		   (ro &((name - SUNI1x10GEXP_REG_MSTAT_COUNTER_0_LOW) >> 2)))
-+
- 
- static const struct cmac_statistics *pm3393_update_statistics(struct cmac *mac,
- 							      int flag)
+ static int cxgb_open(struct net_device *dev)
 
 -- 
 
