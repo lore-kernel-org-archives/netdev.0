@@ -1,122 +1,113 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: XFRM changing the view of xfrm_aevent_id
-Date: Sat, 02 Dec 2006 06:09:08 -0500
-Message-ID: <1165057748.3564.1.camel@localhost>
-References: <1164983872.3562.45.camel@localhost>
-	 <20061201.200858.25157271.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Florian Westphal <fw-kernel@strlen.de>
+Subject: [patch] net/tipc: kmalloc/kzalloc conversion
+Date: Sat, 2 Dec 2006 12:09:44 +0100
+Message-ID: <20061202110944.GA15887@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-56zMA56yVHfvpdIA8P/e"
-Cc: hidden@balabit.hu, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:47826 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1162349AbWLBLJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 06:09:13 -0500
-Received: by py-out-1112.google.com with SMTP id a29so1962144pyi
-        for <netdev@vger.kernel.org>; Sat, 02 Dec 2006 03:09:12 -0800 (PST)
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061201.200858.25157271.davem@davemloft.net>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:51934 "EHLO
+	Chamillionaire.breakpoint.cc") by vger.kernel.org with ESMTP
+	id S1162219AbWLBLLj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 06:11:39 -0500
+To: kernel-janitors@lists.osdl.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Florian Westphal <fw@strlen.de>
 
---=-56zMA56yVHfvpdIA8P/e
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+convert kmalloc/memset to kzalloc.
 
-On Fri, 2006-01-12 at 20:08 -0800, David Miller wrote:
-
-> 
-> Let's change it now while we still can.
-> 
-> A few months from now, I will probably not give the same
-> answer :)
-
-:-> Ok, here it is ...
-
-cheers,
-jamal
-
-
---=-56zMA56yVHfvpdIA8P/e
-Content-Disposition: attachment; filename=aevent-break
-Content-Type: text/plain; name=aevent-break; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-[XFRM] fix aevent structuring to be more complete
-
-aevents can not uniquely identify an SA. We break the ABI with
-this patch, but consensus is that since it is not yet utilized
-by any (known) application then it is fine (better do it now than
-later).
-
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 
 ---
-commit 4bacaeb2cea3c6684f9b3acc54f71958bb2c25c5
-tree c5f416a504abdb7583b799fec5245495c462bc92
-parent 5465ae68b5ec11b2820db3f9b4c6fd94f113da44
-author Jamal Hadi Salim <hadi@cyberus.ca> Sat, 02 Dec 2006 06:05:42 -0500
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sat, 02 Dec 2006 06:05:42 -0500
 
- Documentation/networking/xfrm_sync.txt |    5 ++++-
- include/linux/xfrm.h                   |    2 ++
- net/xfrm/xfrm_user.c                   |    4 +++-
- 3 files changed, 9 insertions(+), 2 deletions(-)
+compile tested only.
 
-diff --git a/Documentation/networking/xfrm_sync.txt b/Documentation/networking/xfrm_sync.txt
-index 8be626f..fb88f1d 100644
---- a/Documentation/networking/xfrm_sync.txt
-+++ b/Documentation/networking/xfrm_sync.txt
-@@ -47,10 +47,13 @@ aevent_id structure looks like:
+index 1bb7570..730c5c4 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -774,8 +774,8 @@ int tipc_bclink_set_queue_limits(u32 lim
  
-    struct xfrm_aevent_id {
-              struct xfrm_usersa_id           sa_id;
-+             xfrm_address_t                  saddr;
-              __u32                           flags;
-+             __u32                           reqid;
-    };
+ int tipc_bclink_init(void)
+ {
+-	bcbearer = kmalloc(sizeof(*bcbearer), GFP_ATOMIC);
+-	bclink = kmalloc(sizeof(*bclink), GFP_ATOMIC);
++	bcbearer = kzalloc(sizeof(*bcbearer), GFP_ATOMIC);
++	bclink = kzalloc(sizeof(*bclink), GFP_ATOMIC);
+ 	if (!bcbearer || !bclink) {
+  nomem:
+ 	 	warn("Multicast link creation failed, no memory\n");
+@@ -786,14 +786,12 @@ int tipc_bclink_init(void)
+ 		return -ENOMEM;
+ 	}
  
--xfrm_usersa_id in this message layout identifies the SA.
-+The unique SA is identified by the combination of xfrm_usersa_id, 
-+reqid and saddr.
+-	memset(bcbearer, 0, sizeof(struct bcbearer));
+ 	INIT_LIST_HEAD(&bcbearer->bearer.cong_links);
+ 	bcbearer->bearer.media = &bcbearer->media;
+ 	bcbearer->media.send_msg = tipc_bcbearer_send;
+ 	sprintf(bcbearer->media.name, "tipc-multicast");
  
- flags are used to indicate different things. The possible
- flags are:
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 7907c42..088ba81 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -289,7 +289,9 @@ struct xfrm_usersa_id {
+ 	bcl = &bclink->link;
+-	memset(bclink, 0, sizeof(struct bclink));
+ 	INIT_LIST_HEAD(&bcl->waiting_ports);
+ 	bcl->next_out_no = 1;
+ 	spin_lock_init(&bclink->node.lock);
+index 049242e..2d3f486 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -1052,12 +1052,11 @@ int tipc_nametbl_init(void)
+ {
+ 	int array_size = sizeof(struct hlist_head) * tipc_nametbl_size;
  
- struct xfrm_aevent_id {
- 	struct xfrm_usersa_id		sa_id;
-+	xfrm_address_t			saddr;
- 	__u32				flags;
-+	__u32				reqid;
- };
+-	table.types = kmalloc(array_size, GFP_ATOMIC);
++	table.types = kzalloc(array_size, GFP_ATOMIC);
+ 	if (!table.types)
+ 		return -ENOMEM;
  
- struct xfrm_userspi_info {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 055b72f..6f97665 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1281,10 +1281,12 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, struct km_eve
- 	id = NLMSG_DATA(nlh);
- 	nlh->nlmsg_flags = 0;
+ 	write_lock_bh(&tipc_nametbl_lock);
+-	memset(table.types, 0, array_size);
+ 	table.local_publ_count = 0;
+ 	write_unlock_bh(&tipc_nametbl_lock);
+ 	return 0;
+index 886bda5..76c2abb 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -60,7 +60,7 @@ struct node *tipc_node_create(u32 addr)
+ 	struct node *n_ptr;
+         struct node **curr_node;
  
--	id->sa_id.daddr = x->id.daddr;
-+	memcpy(&id->sa_id.daddr, &x->id.daddr,sizeof(x->id.daddr));
- 	id->sa_id.spi = x->id.spi;
- 	id->sa_id.family = x->props.family;
- 	id->sa_id.proto = x->id.proto;
-+	memcpy(&id->saddr, &x->props.saddr,sizeof(x->props.saddr));
-+	id->reqid = x->props.reqid;
- 	id->flags = c->data.aevent;
+-	n_ptr = kmalloc(sizeof(*n_ptr),GFP_ATOMIC);
++	n_ptr = kzalloc(sizeof(*n_ptr),GFP_ATOMIC);
+ 	if (!n_ptr) {
+ 		warn("Node creation failed, no memory\n");
+ 		return NULL;
+@@ -75,7 +75,6 @@ struct node *tipc_node_create(u32 addr)
+ 		return NULL;
+ 	}
+ 		
+-	memset(n_ptr, 0, sizeof(*n_ptr));
+ 	n_ptr->addr = addr;
+                 spin_lock_init(&n_ptr->lock);
+ 	INIT_LIST_HEAD(&n_ptr->nsub);
+index 7a918f1..ddade73 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -350,7 +350,7 @@ static void subscr_subscribe(struct tipc
  
- 	RTA_PUT(skb, XFRMA_REPLAY_VAL, sizeof(x->replay), &x->replay);
-
---=-56zMA56yVHfvpdIA8P/e--
-
+ 	/* Allocate subscription object */
+ 
+-	sub = kmalloc(sizeof(*sub), GFP_ATOMIC);
++	sub = kzalloc(sizeof(*sub), GFP_ATOMIC);
+ 	if (!sub) {
+ 		warn("Subscription rejected, no memory\n");
+ 		subscr_terminate(subscriber);
+@@ -359,7 +359,6 @@ static void subscr_subscribe(struct tipc
+ 
+ 	/* Initialize subscription object */
+ 
+-	memset(sub, 0, sizeof(*sub));
+ 	sub->seq.type = htohl(s->seq.type, subscriber->swap);
+ 	sub->seq.lower = htohl(s->seq.lower, subscriber->swap);
+ 	sub->seq.upper = htohl(s->seq.upper, subscriber->swap);
