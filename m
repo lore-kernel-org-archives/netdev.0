@@ -1,75 +1,122 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: 2.6.19: very low transmit speed after suspend/resume with Sky2
-Date: Sat, 2 Dec 2006 10:16:28 +0100
-Message-ID: <20061202091626.GA20734@thinkpad.home.local>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: XFRM changing the view of xfrm_aevent_id
+Date: Sat, 02 Dec 2006 06:09:08 -0500
+Message-ID: <1165057748.3564.1.camel@localhost>
+References: <1164983872.3562.45.camel@localhost>
+	 <20061201.200858.25157271.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="=-56zMA56yVHfvpdIA8P/e"
+Cc: hidden@balabit.hu, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:12719 "EHLO
-	eazy.amigager.de") by vger.kernel.org with ESMTP id S1162855AbWLBJQ0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 04:16:26 -0500
-Received: from thinkpad.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
-	by eazy.amigager.de (Postfix) with ESMTP id 404A425C3AE
-	for <netdev@vger.kernel.org>; Sat,  2 Dec 2006 10:16:25 +0100 (CET)
-Received: from scorpion by thinkpad.home.local with local (Exim 4.63)
-	(envelope-from <tino.keitel@tikei.de>)
-	id 1GqQyy-0005Ya-HD
-	for netdev@vger.kernel.org; Sat, 02 Dec 2006 10:16:28 +0100
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from py-out-1112.google.com ([64.233.166.177]:47826 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1162349AbWLBLJN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 06:09:13 -0500
+Received: by py-out-1112.google.com with SMTP id a29so1962144pyi
+        for <netdev@vger.kernel.org>; Sat, 02 Dec 2006 03:09:12 -0800 (PST)
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061201.200858.25157271.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi folks,                                            
-                                                     
-since 2.6.19 I have the problem that I get lousy transmit speeds of < 1 
-mbit/s.
 
-Here is a quick test, the 5th column is the transfer speed in mbit/s:
+--=-56zMA56yVHfvpdIA8P/e
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
->From the affected machine to my laptop over WLAN (the affected machine
-is connected to a Fast Ethernet switch):
+On Fri, 2006-01-12 at 20:08 -0800, David Miller wrote:
 
-$ nttcp -r -l 1400 -n 500 dose
-l   700000    8.16   0.04    0.6867    155.5469   824  101.04   22887.6     
-1   700000    8.15   0.00    0.6873 560000.0000   500  61.37    50000000.0    
+> 
+> Let's change it now while we still can.
+> 
+> A few months from now, I will probably not give the same
+> answer :)
 
-Only 0,68 mbit/s during transmit. :-(
+:-> Ok, here it is ...
 
->From my laptop to the affected machine:
+cheers,
+jamal
 
-$ nttcp -l 1400 -n 5000 dose
-l  7000000    2.21   0.03   25.3427   1999.8572  5000  2262.74  178558.7     
-1  7000000    2.25   0.07   24.8363    823.4810  9268  4110.41  136286.1 
 
-This is ok, 25 mbit/s during receive, limited by the WLAN in the
-laptop.
+--=-56zMA56yVHfvpdIA8P/e
+Content-Disposition: attachment; filename=aevent-break
+Content-Type: text/plain; name=aevent-break; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-After reboot:
+[XFRM] fix aevent structuring to be more complete
 
-$ nttcp -l 1400 -n 5000 dose
-l  7000000    2.04   0.03   27.5005   1749.8906  5000  2455.40  156240.2
-1  7000000    2.08   0.06   26.9843    999.9464  9455  4556.00  168830.2
+aevents can not uniquely identify an SA. We break the ABI with
+this patch, but consensus is that since it is not yet utilized
+by any (known) application then it is fine (better do it now than
+later).
 
-Now I got 27 mbit/s during receive, that's ok for WLAN.
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Re-tested with 2.6.18.2 after a suspend/resume cycle:
+---
+commit 4bacaeb2cea3c6684f9b3acc54f71958bb2c25c5
+tree c5f416a504abdb7583b799fec5245495c462bc92
+parent 5465ae68b5ec11b2820db3f9b4c6fd94f113da44
+author Jamal Hadi Salim <hadi@cyberus.ca> Sat, 02 Dec 2006 06:05:42 -0500
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sat, 02 Dec 2006 06:05:42 -0500
 
-$ nttcp -l 1500 -n 5000 dose
-l  7500000  2.15  0.05   27.9219   1249.9219    5000   2326.83  104160.2
-1  7500000  2.20  0.04   27.2441   1499.9250    5178   2351.16  129443.5
+ Documentation/networking/xfrm_sync.txt |    5 ++++-
+ include/linux/xfrm.h                   |    2 ++
+ net/xfrm/xfrm_user.c                   |    4 +++-
+ 3 files changed, 9 insertions(+), 2 deletions(-)
 
-$ nttcp -r -l 1500 -n 5000 dose
-l  7500000  2.07  0.09   28.9676    681.7794    5182   2501.83  58883.0
-1  7500000  1.98  0.03   30.2748   2142.7806    5000   2522.90  178565.1
+diff --git a/Documentation/networking/xfrm_sync.txt b/Documentation/networking/xfrm_sync.txt
+index 8be626f..fb88f1d 100644
+--- a/Documentation/networking/xfrm_sync.txt
++++ b/Documentation/networking/xfrm_sync.txt
+@@ -47,10 +47,13 @@ aevent_id structure looks like:
+ 
+    struct xfrm_aevent_id {
+              struct xfrm_usersa_id           sa_id;
++             xfrm_address_t                  saddr;
+              __u32                           flags;
++             __u32                           reqid;
+    };
+ 
+-xfrm_usersa_id in this message layout identifies the SA.
++The unique SA is identified by the combination of xfrm_usersa_id, 
++reqid and saddr.
+ 
+ flags are used to indicate different things. The possible
+ flags are:
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 7907c42..088ba81 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -289,7 +289,9 @@ struct xfrm_usersa_id {
+ 
+ struct xfrm_aevent_id {
+ 	struct xfrm_usersa_id		sa_id;
++	xfrm_address_t			saddr;
+ 	__u32				flags;
++	__u32				reqid;
+ };
+ 
+ struct xfrm_userspi_info {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 055b72f..6f97665 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1281,10 +1281,12 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, struct km_eve
+ 	id = NLMSG_DATA(nlh);
+ 	nlh->nlmsg_flags = 0;
+ 
+-	id->sa_id.daddr = x->id.daddr;
++	memcpy(&id->sa_id.daddr, &x->id.daddr,sizeof(x->id.daddr));
+ 	id->sa_id.spi = x->id.spi;
+ 	id->sa_id.family = x->props.family;
+ 	id->sa_id.proto = x->id.proto;
++	memcpy(&id->saddr, &x->props.saddr,sizeof(x->props.saddr));
++	id->reqid = x->props.reqid;
+ 	id->flags = c->data.aevent;
+ 
+ 	RTA_PUT(skb, XFRMA_REPLAY_VAL, sizeof(x->replay), &x->replay);
 
-lspci output:
+--=-56zMA56yVHfvpdIA8P/e--
 
-01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
-PCI-E Gigabit Ethernet Controller (rev 22)
-
-Any hints what I could try to get the full performance in 2.6.19?
-
-Regards,
-Tino
