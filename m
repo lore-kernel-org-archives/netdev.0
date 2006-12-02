@@ -1,211 +1,40 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH  v2 08/13] Memory Registration
-Date: Sat, 02 Dec 2006 16:50:38 -0600
-Message-ID: <20061202225038.27014.90811.stgit@dell3.ogc.int>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH  v2 00/13] 2.6.20 Chelsio T3 RDMA Driver
+Date: Sun, 3 Dec 2006 00:13:30 +0100
+Message-ID: <20061202231329.GA10719@electric-eye.fr.zoreil.com>
 References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com
+Content-Type: text/plain; charset=us-ascii
+Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936589AbWLBXQh@vger.kernel.org>
+To: Steve Wise <swise@opengridcomputing.com>
+Content-Disposition: inline
 In-Reply-To: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Steve Wise <swise@opengridcomputing.com> :
+[...]
+> Version 2 changes:
+> 
+> - Make code sparse endian clean
+> - Use IDRs for mapping QP and CQ IDs to structure pointers instead of arrays
+> - Clean up confusing bitfields
+> - Use random32() instead of local random function
+> - Use krefs to track endpoint reference counts
+> - Misc nits
+> 
+> -----
+> 
+> The following series implements the Chelsio T3 iWARP/RDMA Driver to
+> be considered for inclusion in 2.6.20.  It depends on the Chelsio T3
+> Ethernet Driver which is also under review now for 2.6.20. See:
 
-Functions to register memory regions.
+I understood that Stephen expressed some doubts regarding the inclusion
+of TOE enabled features.
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+Was his point addressed ?
 
- drivers/infiniband/hw/cxgb3/iwch_mem.c |  170 ++++++++++++++++++++++++++++++++
- 1 files changed, 170 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_mem.c b/drivers/infiniband/hw/cxgb3/iwch_mem.c
-new file mode 100644
-index 0000000..774d11e
---- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/iwch_mem.c
-@@ -0,0 +1,170 @@
-+/*
-+ * Copyright (c) 2006 Chelsio, Inc. All rights reserved.
-+ * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include <asm/byteorder.h>
-+
-+#include <rdma/iw_cm.h>
-+#include <rdma/ib_verbs.h>
-+
-+#include "cxio_hal.h"
-+#include "iwch.h"
-+#include "iwch_provider.h"
-+
-+int iwch_register_mem(struct iwch_dev *rhp, struct iwch_pd *php,
-+					struct iwch_mr *mhp,
-+					int shift,
-+					__be64 *page_list)
-+{
-+	u32 stag;
-+	u32 mmid;
-+
-+
-+	if (cxio_register_phys_mem(&rhp->rdev,
-+				   &stag, mhp->attr.pdid,
-+				   mhp->attr.perms,
-+				   mhp->attr.zbva,
-+				   mhp->attr.va_fbo,
-+				   mhp->attr.len,
-+				   shift-12,
-+				   page_list,
-+				   &mhp->attr.pbl_size, &mhp->attr.pbl_addr))
-+		return -ENOMEM;
-+	mhp->attr.state = 1;
-+	mhp->attr.stag = stag;
-+	mmid = stag >> 8;
-+	mhp->ibmr.rkey = mhp->ibmr.lkey = stag;
-+	insert_handle(rhp, &rhp->mmidr, mhp, mmid); 
-+	PDBG("%s mmid 0x%x mhp %p\n", __FUNCTION__, mmid, mhp);
-+	return 0;
-+}
-+
-+int iwch_reregister_mem(struct iwch_dev *rhp, struct iwch_pd *php,
-+					struct iwch_mr *mhp,
-+					int shift,
-+					__be64 *page_list,
-+					int npages)
-+{
-+	u32 stag;
-+	u32 mmid;
-+
-+
-+	/* We could support this... */
-+	if (npages > mhp->attr.pbl_size)
-+		return -ENOMEM;
-+
-+	stag = mhp->attr.stag;
-+	if (cxio_reregister_phys_mem(&rhp->rdev,
-+				   &stag, mhp->attr.pdid,
-+				   mhp->attr.perms,
-+				   mhp->attr.zbva,
-+				   mhp->attr.va_fbo,
-+				   mhp->attr.len,
-+				   shift-12,
-+				   page_list,
-+				   &mhp->attr.pbl_size, &mhp->attr.pbl_addr))
-+		return -ENOMEM;
-+	mhp->attr.state = 1;
-+	mhp->attr.stag = stag;
-+	mmid = stag >> 8;
-+	mhp->ibmr.rkey = mhp->ibmr.lkey = stag;
-+	insert_handle(rhp, &rhp->mmidr, mhp, mmid); 
-+	PDBG("%s mmid 0x%x mhp %p\n", __FUNCTION__, mmid, mhp);
-+	return 0;
-+}
-+
-+int build_phys_page_list(struct ib_phys_buf *buffer_list,
-+					int num_phys_buf,
-+					u64 *iova_start,
-+					u64 *total_size,
-+					int *npages,
-+					int *shift,
-+					__be64 **page_list)
-+{
-+	u64 mask;
-+	int i, j, n;
-+
-+	mask = 0;
-+	*total_size = 0;
-+	for (i = 0; i < num_phys_buf; ++i) {
-+		if (i != 0 && buffer_list[i].addr & ~PAGE_MASK)
-+			return -EINVAL;
-+		if (i != 0 && i != num_phys_buf - 1 &&
-+		    (buffer_list[i].size & ~PAGE_MASK))
-+			return -EINVAL;
-+		*total_size += buffer_list[i].size;
-+		if (i > 0)
-+			mask |= buffer_list[i].addr;
-+	}
-+
-+	if (*total_size > 0xFFFFFFFFULL)
-+		return -ENOMEM;
-+
-+	/* Find largest page shift we can use to cover buffers */
-+	for (*shift = PAGE_SHIFT; *shift < 27; ++(*shift))
-+		if (num_phys_buf > 1) {
-+			if ((1ULL << *shift) & mask)
-+				break;
-+		} else 
-+			if (1ULL << *shift >=
-+			    buffer_list[0].size +
-+			    (buffer_list[0].addr & ((1ULL << *shift) - 1)))
-+				break;
-+
-+	buffer_list[0].size += buffer_list[0].addr & ((1ULL << *shift) - 1);
-+	buffer_list[0].addr &= ~0ull << *shift;
-+
-+	*npages = 0;
-+	for (i = 0; i < num_phys_buf; ++i)
-+		*npages += (buffer_list[i].size + 
-+			(1ULL << *shift) - 1) >> *shift;
-+
-+	if (!*npages)
-+		return -EINVAL;
-+
-+	*page_list = kmalloc(sizeof(u64) * *npages, GFP_KERNEL);
-+	if (!*page_list)
-+		return -ENOMEM;
-+
-+	n = 0;
-+	for (i = 0; i < num_phys_buf; ++i)
-+		for (j = 0;
-+		     j < (buffer_list[i].size + (1ULL << *shift) - 1) >> *shift;
-+		     ++j) 
-+			(*page_list)[n++] = cpu_to_be64(buffer_list[i].addr +
-+			    ((u64) j << *shift));
-+
-+	PDBG("%s va 0x%llx mask 0x%llx shift %d len %lld pbl_size %d\n",
-+	     __FUNCTION__, *iova_start, mask, *shift, *total_size, *npages);
-+
-+	return 0;
-+
-+}
+-- 
+Ueimor
