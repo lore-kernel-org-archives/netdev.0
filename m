@@ -1,47 +1,58 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 03/10] chelsio: remove unused mutex
-Date: Fri, 01 Dec 2006 16:36:15 -0800
-Message-ID: <20061202003707.338053000@osdl.org>
+Subject: [PATCH 02/10] chelsio: use kzalloc
+Date: Fri, 01 Dec 2006 16:36:14 -0800
+Message-ID: <20061202003707.268826000@osdl.org>
 References: <20061202003612.573260000@osdl.org>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:39394 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1162415AbWLBAj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 19:39:29 -0500
+Received: from smtp.osdl.org ([65.172.181.25]:43490 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1162418AbWLBAjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 19:39:35 -0500
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=chelsio-mutex.patch
+Content-Disposition: inline; filename=chelsio-kzalloc.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This mutex is unused in current (non TOE) code.
+Use kzalloc in several places.
 
-Signed-off-by: Stephen Hemminger<shemminger@osdl.org>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
 
 ---
- drivers/net/chelsio/common.h |    1 -
- drivers/net/chelsio/cxgb2.c  |    1 -
- 2 files changed, 2 deletions(-)
+ drivers/net/chelsio/mv88x201x.c |    4 ++--
+ drivers/net/chelsio/pm3393.c    |    3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
---- chelsio-t2.orig/drivers/net/chelsio/common.h
-+++ chelsio-t2/drivers/net/chelsio/common.h
-@@ -212,7 +212,6 @@ struct adapter {
- 	struct work_struct stats_update_task;
- 	struct timer_list stats_update_timer;
+--- chelsio.orig/drivers/net/chelsio/mv88x201x.c
++++ chelsio/drivers/net/chelsio/mv88x201x.c
+@@ -205,11 +205,11 @@ static struct cphy *mv88x201x_phy_create
+ 					 struct mdio_ops *mdio_ops)
+ {
+ 	u32 val;
+-	struct cphy *cphy = kmalloc(sizeof(*cphy), GFP_KERNEL);
++	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
  
--	struct semaphore mib_mutex;
- 	spinlock_t tpi_lock;
- 	spinlock_t work_lock;
- 	/* guards async operations */
---- chelsio-t2.orig/drivers/net/chelsio/cxgb2.c
-+++ chelsio-t2/drivers/net/chelsio/cxgb2.c
-@@ -1040,7 +1040,6 @@ static int __devinit init_one(struct pci
- 			adapter->msg_enable = dflt_msg_enable;
- 			adapter->mmio_len = mmio_len;
+ 	if (!cphy)
+ 		return NULL;
+-	memset(cphy, 0, sizeof(*cphy));
++
+ 	cphy_init(cphy, adapter, phy_addr, &mv88x201x_ops, mdio_ops);
  
--			init_MUTEX(&adapter->mib_mutex);
- 			spin_lock_init(&adapter->tpi_lock);
- 			spin_lock_init(&adapter->work_lock);
- 			spin_lock_init(&adapter->async_lock);
+ 	/* Commands the PHY to enable XFP's clock. */
+--- chelsio.orig/drivers/net/chelsio/pm3393.c
++++ chelsio/drivers/net/chelsio/pm3393.c
+@@ -631,10 +631,9 @@ static struct cmac *pm3393_mac_create(ad
+ {
+ 	struct cmac *cmac;
+ 
+-	cmac = kmalloc(sizeof(*cmac) + sizeof(cmac_instance), GFP_KERNEL);
++	cmac = kzalloc(sizeof(*cmac) + sizeof(cmac_instance), GFP_KERNEL);
+ 	if (!cmac)
+ 		return NULL;
+-	memset(cmac, 0, sizeof(*cmac));
+ 
+ 	cmac->ops = &pm3393_ops;
+ 	cmac->instance = (cmac_instance *) (cmac + 1);
 
 -- 
 
