@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: XFRM changing the view of xfrm_aevent_id
-Date: Fri, 01 Dec 2006 20:08:58 -0800 (PST)
-Message-ID: <20061201.200858.25157271.davem@davemloft.net>
-References: <1164983872.3562.45.camel@localhost>
+Subject: Re: [netfilter-core] [2.6 patch] remove ip{,6}_queue
+Date: Fri, 01 Dec 2006 20:10:28 -0800 (PST)
+Message-ID: <20061201.201028.71163999.davem@davemloft.net>
+References: <20061201205954.GH11084@stusta.de>
+	<4570B912.6060105@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hidden@balabit.hu, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
+Cc: bunk@stusta.de, laforge@netfilter.org, netdev@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:4529
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:64729
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1162451AbWLBEIv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Dec 2006 23:08:51 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1164983872.3562.45.camel@localhost>
+	id S1162764AbWLBEKW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Dec 2006 23:10:22 -0500
+To: kaber@trash.net
+In-Reply-To: <4570B912.6060105@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Fri, 01 Dec 2006 09:37:52 -0500
+From: Patrick McHardy <kaber@trash.net>
+Date: Sat, 02 Dec 2006 00:21:54 +0100
 
-> The structure currently looks like
+> We really can't remove ip_queue. Many users use this, there is no binary
+> compatible interface and even the compat replacement for the originally
+> statically linked library doesn't work. There is also no real necessity
+> to remove the code, so the feature-removal-schedule entry should be
+> removed instead.
 > 
-> struct xfrm_aevent_id {
->         struct xfrm_usersa_id           sa_id;
->         __u32                           flags;
-> };
-> 
-> I could add the two items mentioned above in it and break the ABI.
-> This may sound dangerous, but the usage of this ABI is not widespread.
-> AFAIK, the only other person who might have used this is Kristzian (on
-> CC).
-> 
-> If this is considered evil, then i will transfer the two items in
-> a new TLV but it wont be as pretty.
-> 
-> Thoughts?
+> Dave, please apply this patch. Thanks.
 
-Let's change it now while we still can.
-
-A few months from now, I will probably not give the same
-answer :)
+Done, thanks.
