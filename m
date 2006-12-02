@@ -1,82 +1,63 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [RFC][GENETLINK] introduce command names
-Date: Sat, 02 Dec 2006 07:11:36 -0500
-Message-ID: <1165061496.3564.11.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: Re: 2.6.19: very low transmit speed after suspend/resume with Sky2
+Date: Sat, 2 Dec 2006 14:18:33 +0100
+Message-ID: <20061202131833.GA3673@thinkpad.home.local>
+References: <20061202091626.GA20734@thinkpad.home.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-t39vuPjZvUE1XaVFz3pB"
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.228]:62306 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1162975AbWLBMLk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 07:11:40 -0500
-Received: by nz-out-0102.google.com with SMTP id s1so1671557nze
-        for <netdev@vger.kernel.org>; Sat, 02 Dec 2006 04:11:40 -0800 (PST)
-To: Thomas Graf <tgraf@suug.ch>
+Received: from eazy.amigager.de ([213.239.192.238]:51375 "EHLO
+	eazy.amigager.de") by vger.kernel.org with ESMTP id S1423816AbWLBNSb
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 08:18:31 -0500
+Received: from thinkpad.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
+	by eazy.amigager.de (Postfix) with ESMTP id EBF1825C3AE
+	for <netdev@vger.kernel.org>; Sat,  2 Dec 2006 14:18:29 +0100 (CET)
+Received: from scorpion by thinkpad.home.local with local (Exim 4.63)
+	(envelope-from <tino.keitel@tikei.de>)
+	id 1GqUlF-0000xx-E3
+	for netdev@vger.kernel.org; Sat, 02 Dec 2006 14:18:33 +0100
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20061202091626.GA20734@thinkpad.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, Dec 02, 2006 at 10:16:28 +0100, Tino Keitel wrote:
+> Hi folks,                                            
+>                                                      
+> since 2.6.19 I have the problem that I get lousy transmit speeds of < 1 
+> mbit/s.
+> 
+> Here is a quick test, the 5th column is the transfer speed in mbit/s:
+> 
+> From the affected machine to my laptop over WLAN (the affected machine
+> is connected to a Fast Ethernet switch):
+> 
+> $ nttcp -r -l 1400 -n 500 dose
+> l   700000    8.16   0.04    0.6867    155.5469   824  101.04   22887.6     
+> 1   700000    8.15   0.00    0.6873 560000.0000   500  61.37    50000000.0    
+> 
+> Only 0,68 mbit/s during transmit. :-(
+> 
+> From my laptop to the affected machine:
+> 
+> $ nttcp -l 1400 -n 5000 dose
+> l  7000000    2.21   0.03   25.3427   1999.8572  5000  2262.74  178558.7     
+> 1  7000000    2.25   0.07   24.8363    823.4810  9268  4110.41  136286.1 
+> 
+> This is ok, 25 mbit/s during receive, limited by the WLAN in the
+> laptop.
+> 
+> After reboot:
+> 
+> $ nttcp -l 1400 -n 5000 dose
+> l  7000000    2.04   0.03   27.5005   1749.8906  5000  2455.40  156240.2
+> 1  7000000    2.08   0.06   26.9843    999.9464  9455  4556.00  168830.2
+> 
+> Now I got 27 mbit/s during receive, that's ok for WLAN.
 
---=-t39vuPjZvUE1XaVFz3pB
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Sorry, I should give the number for _transmit_ here. This was ok, too.
 
-Dave,
-Same as before:
-If there is no objections on this approach, please apply this patch.
-Against net-2.6.20
-
-cheers,
-jamal
-
-
---=-t39vuPjZvUE1XaVFz3pB
-Content-Disposition: attachment; filename=genl_cmd_name
-Content-Type: text/plain; name=genl_cmd_name; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-[GENETLINK] introduce command names
-
-Introduce optional command names.
-While command names can be put in user space by the author of the
-command, this alleviates things for the discovery process without
-requiring any user space code written.
-In a recent tutorial that i gave, the desire for this feature was
-the highest.
-
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
----
-commit c3b92488bea3f11a6cc7c1c59101444c26ad12ce
-tree 52166fb1ea684e989fef16de89c85fb9bf551bb8
-parent b6ac8f41bdd2edd9d215e376efa47261e9b118a1
-author Jamal Hadi Salim <hadi@cyberus.ca> Sat, 02 Dec 2006 07:08:15 -0500
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sat, 02 Dec 2006 07:08:15 -0500
-
- include/net/genetlink.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 7fd131c..52bc278 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -49,6 +49,7 @@ struct genl_info
- /**
-  * struct genl_ops - generic netlink operations
-  * @cmd: command identifier
-+ * @name: command name
-  * @flags: flags
-  * @policy: attribute validation policy
-  * @doit: standard command callback
-@@ -58,6 +59,7 @@ struct genl_info
- struct genl_ops
- {
- 	u8			cmd;
-+	char			name[GENL_NAMSIZ];
- 	unsigned int		flags;
- 	struct nla_policy	*policy;
- 	int		       (*doit)(struct sk_buff *skb,
-
---=-t39vuPjZvUE1XaVFz3pB--
-
+Regards,
+Tino
