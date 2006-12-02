@@ -1,84 +1,78 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] amd8111e use standard CRC lib
-Date: Fri, 1 Dec 2006 16:10:50 -0800
-Message-ID: <20061201161050.4fdd15cf@dxpl.pdx.osdl.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
+Date: Sat, 2 Dec 2006 01:07:39 +0100
+Message-ID: <200612020107.40214.rjw@sisk.pl>
+References: <20061128020246.47e481eb.akpm@osdl.org> <20061129181809.c55da5e8.akpm@osdl.org> <20061201012049.GA20352@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	tulip-users@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>,
+	Valerie Henson <val_henson@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:15832 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161807AbWLBAK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 19:10:59 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:31975 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S1161830AbWLBAMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Dec 2006 19:12:31 -0500
+To: Greg KH <greg@kroah.com>
+In-Reply-To: <20061201012049.GA20352@kroah.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I noticed this driver (and several others) reinvent their own copy of the
-existing CRC library. Don't have the hardware, but tested by extracting
-code and comparing result.
+On Friday, 1 December 2006 02:20, Greg KH wrote:
+> On Wed, Nov 29, 2006 at 06:18:09PM -0800, Andrew Morton wrote:
+> > On Thu, 30 Nov 2006 02:04:15 +0100
+> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > 
+> > > > > 
+> > > > > git-netdev-all.patch
+> > > > > git-netdev-all-fixup.patch
+> > > > > libphy-dont-do-that.patch
+> > > > 
+> > > > Are you able to eliminate libphy-dont-do-that.patch?
+> > > > 
+> > > > > Is a broken-out version of git-netdev-all.patch available from somewhere?
+> > > > 
+> > > > Nope, and my few fumbling attempts to generate the sort of patch series
+> > > > which you want didn't work out too well.  One has to downgrade to
+> > > > git-bisect :(
+> > > > 
+> > > > What does "doesn't work" mean, btw?
+> > > 
+> > > Well, it turns out not to be 100% reproducible.  I can only reproduce it after
+> > > a soft reboot (eg. shutdown -r now).
+> > > 
+> > > Then, while configuring network interfaces the system says the interface name
+> > > is ethxx0, but it should be eth1 (eth0 is an RTL-8139, which is not used).  Now
+> > > if I run ifconfig, it says:
+> > > 
+> > > eth0: error fetching interface information: Device not found
+> > > 
+> > > and that's all (normally, ifconfig would show the information for lo and eth1,
+> > > without eth0).  Moreover, 'ifconfig eth1' says:
+> > > 
+> > > eth1: error fetching interface information: Device not found
+> > > 
+> > > Next, I run 'rmmod uli526x' and 'modprobe uli526x' and then 'ifconfig' is
+> > > still saying the above (about eth0), but 'ifconfig eth1' seems to work as
+> > > it should.  However, the interface often fails to transfer anything after
+> > > that.
+> > 
+> > Lovely.  Sounds like some startup race, perhaps against userspace.
+> > 
+> > Is CONFIG_PCI_MULTITHREAD_PROBE set?  (err, we meant to disable that for
+> > 2.6.19 but forgot).
+> 
+> No, I disabled it for 2.6.19, -mm turns it back on :)
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+But it's not set in my .config.
 
----
- drivers/net/amd8111e.c |   27 +--------------------------
- drivers/net/amd8111e.h |    4 ----
- 2 files changed, 1 insertion(+), 30 deletions(-)
+Greetings,
+Rafael
 
---- old/drivers/net/amd8111e.c
-+++ new/drivers/net/amd8111e.c
-@@ -1490,32 +1490,7 @@ static void amd8111e_read_regs(struct am
- 	buf[12] = readl(mmio + STAT0);
- }
- 
--/*
--amd8111e crc generator implementation is different from the kernel
--ether_crc() function.
--*/
--static int amd8111e_ether_crc(int len, char* mac_addr)
--{
--	int i,byte;
--	unsigned char octet;
--	u32 crc= INITCRC;
--
--	for(byte=0; byte < len; byte++){
--		octet = mac_addr[byte];
--		for( i=0;i < 8; i++){
--			/*If the next bit form the input stream is 1,subtract				 the divisor (CRC32) from the dividend(crc).*/
--			if( (octet & 0x1) ^ (crc & 0x1) ){
--				crc >>= 1;
--				crc ^= CRC32;
--			}
--			else
--				crc >>= 1;
- 
--			octet >>= 1;
--		}
--	}
--	return crc;
--}
- /*
- This function sets promiscuos mode, all-multi mode or the multicast address
- list to the device.
-@@ -1556,7 +1531,7 @@ static void amd8111e_set_multicast_list(
- 	mc_filter[1] = mc_filter[0] = 0;
- 	for (i = 0, mc_ptr = dev->mc_list; mc_ptr && i < dev->mc_count;
- 		     i++, mc_ptr = mc_ptr->next) {
--		bit_num = ( amd8111e_ether_crc(ETH_ALEN,mc_ptr->dmi_addr)							 >> 26 ) & 0x3f;
-+		bit_num = (ether_crc_le(ETH_ALEN, mc_ptr->dmi_addr) >> 26) & 0x3f;
- 		mc_filter[bit_num >> 5] |= 1 << (bit_num & 31);
- 	}
- 	amd8111e_writeq(*(u64*)mc_filter,lp->mmio+ LADRF);
---- chelsio-t2.orig/drivers/net/amd8111e.h
-+++ chelsio-t2/drivers/net/amd8111e.h
-@@ -651,10 +651,6 @@ typedef enum {
- /* driver ioctl parameters */
- #define AMD8111E_REG_DUMP_LEN	 13*sizeof(u32)
- 
--/* crc generator constants */
--#define CRC32 0xedb88320
--#define INITCRC 0xFFFFFFFF
--
- /* amd8111e desriptor format */
- 
- struct amd8111e_tx_dr{
+
+-- 
+You never change things by fighting the existing reality.
+		R. Buckminster Fuller
