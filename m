@@ -1,77 +1,57 @@
-From: Michael Wu <flamingice@sourmilk.net>
+From: Daniel Drake <dsd@gentoo.org>
 Subject: Re: zd1211 ported to Devicescape stack
-Date: Sat, 2 Dec 2006 09:54:15 -0500
-Message-ID: <200612020954.20469.flamingice@sourmilk.net>
-References: <200612020316.50965.flamingice@sourmilk.net> <20061202132539.GB18326@p15091797.pureserver.info>
+Date: Sat, 02 Dec 2006 10:58:13 -0500
+Message-ID: <4571A295.4030700@gentoo.org>
+References: <200612020316.50965.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3913223.XNfAAP2vfS";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
+Cc: Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org,
 	John Linville <linville@tuxdriver.com>,
 	Luis Rodriguez <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:22167 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1031567AbWLBOyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 09:54:54 -0500
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <20061202132539.GB18326@p15091797.pureserver.info>
+Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:15816 "EHLO
+	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
+	id S1759466AbWLBQFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 11:05:45 -0500
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200612020316.50965.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3913223.XNfAAP2vfS
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Michael Wu wrote:
+> Hi,
+> 	I have finished a port of the zd1211 driver to the Devicescape 802.11 stack. 
 
-On Saturday 02 December 2006 08:25, Ulrich Kunitz wrote:
-> > 	- The original driver does not seem to check if a frame has been
-> > successfully TXed (as in RXed an ACK), so the port does not properly
-> > report to the stack whether or not a TX succeeded.
->
-> TX is atomic. Do you really want to spin for the received ACK? Layer 2
-> doesn't need to make any guarantees for packet transmission, so I have
-> trouble to see the point here. The Linux Device Driver book says
-> explicitly that packet transmission must not have been completed
-> at the point in time the function returns.
->
-And it doesn't. Sleeping at that point would be bad. However, the p54 drive=
-r=20
-looks for special frames from the card that report the success/failure of=20
-sent frames, and adm8211 can tell if a frame was TXed successfully on TX ri=
-ng=20
-cleanup. The notification is then done by calling ieee80211_tx_status, not =
-by=20
-returning an error code. No sleeping necessary. This is needed for the uppe=
-r=20
-layer to resend frames and to also do rate control.
+Yeah!! thanks so much for doing this.
 
-> I would suggest to maintain it until d80211 has
-> complete regulatory domains support.
->
-Why? It's not like any other d80211 drivers have regulatory domains support=
-,=20
-and they need the exactly the same features that zd1211 needs. Also, the=20
-limited support for regulatory domains that d80211 does have restricts it t=
-o=20
-channels 1-11 (FCC) regardless, so the code would not be effective.
+Are you willing to maintain this in terms of porting upcoming patches to 
+it? I think I also speak for Ulrich when I say that at the moment we are 
+more concerned about getting our work into mainline and don't have time 
+to maintain a ported driver, but we will be happy to switch immediately 
+as soon as devicescape is declared ready for mainline inclusion.
 
-Thanks,
-=2DMichael Wu
+> 	- The original driver does not seem to check if a frame has been successfully 
+> TXed (as in RXed an ACK), so the port does not properly report to the stack 
+> whether or not a TX succeeded.
 
---nextPart3913223.XNfAAP2vfS
-Content-Type: application/pgp-signature
+Indeed, the situation is that silence means transmission succeeded, and 
+we get a retry_failed interrupt if it didn't.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+> 	- d80211 doesn't tell us the size of the next fragment, so that part of the 
+> hardware TX header isn't set anymore. This might be fixed in the future.
 
-iD8DBQBFcZOcT3Oqt9AH4aERApWQAJ9sQn6IbgAvwr13YlNLfph0RZUAtgCgiA03
-7V3gS7IT/cJicaIpdx8QcUw=
-=JDES
------END PGP SIGNATURE-----
+Even though ieee80211 appeared to have the infrastructure to do so, I 
+don't think it was ever passing us multiple fragments. So this is no big 
+deal.
 
---nextPart3913223.XNfAAP2vfS--
+> 	- The LED link status isn't too reliable - I haven't found a way to reliably 
+> tell if the upper layer thinks it is associated, and I don't know how to use 
+> the LED api. Not too worried about this issue though.
+
+Watch out, the single most common bug report for zd1211rw (vs vendor 
+driver) was that the LED didn't blink until recently :)
+
+Thanks!
+Daniel
+
