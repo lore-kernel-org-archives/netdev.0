@@ -1,57 +1,78 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: zd1211 ported to Devicescape stack
-Date: Sat, 02 Dec 2006 10:58:13 -0500
-Message-ID: <4571A295.4030700@gentoo.org>
-References: <200612020316.50965.flamingice@sourmilk.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: RFC: removing the dgrs net driver
+Date: Sat, 2 Dec 2006 18:19:32 +0100
+Message-ID: <20061202171932.GP11084@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>,
-	Luis Rodriguez <mcgrof@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nathanael Nerode <neroden@fastmail.fm>,
+	Andres Salomon <dilinger@debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:15816 "EHLO
-	smtp131.iad.emailsrvr.com") by vger.kernel.org with ESMTP
-	id S1759466AbWLBQFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 11:05:45 -0500
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200612020316.50965.flamingice@sourmilk.net>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:36357 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1424235AbWLBRT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 12:19:27 -0500
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Wu wrote:
-> Hi,
-> 	I have finished a port of the zd1211 driver to the Devicescape 802.11 stack. 
+Based on the information in the email forwarded below I'd remove the 
+dgrs net driver (this wasn't the first driver shipped with the kernel 
+without any hardware ever produced...).
 
-Yeah!! thanks so much for doing this.
+Is this OK or is there any doubt whether this information is true?
 
-Are you willing to maintain this in terms of porting upcoming patches to 
-it? I think I also speak for Ulrich when I say that at the moment we are 
-more concerned about getting our work into mainline and don't have time 
-to maintain a ported driver, but we will be happy to switch immediately 
-as soon as devicescape is declared ready for mainline inclusion.
+cu
+Adrian
 
-> 	- The original driver does not seem to check if a frame has been successfully 
-> TXed (as in RXed an ACK), so the port does not properly report to the stack 
-> whether or not a TX succeeded.
 
-Indeed, the situation is that silence means transmission succeeded, and 
-we get a retry_failed interrupt if it didn't.
+----- Forwarded message from Nathanael Nerode <neroden@fastmail.fm> -----
 
-> 	- d80211 doesn't tell us the size of the next fragment, so that part of the 
-> hardware TX header isn't set anymore. This might be fixed in the future.
+Date:	Sun, 24 Sep 2006 13:00:12 -0400
+From: Nathanael Nerode <neroden@fastmail.fm>
+To: netdev@vger.kernel.org
+Subject: Please remove useless dgrs driver
 
-Even though ieee80211 appeared to have the infrastructure to do so, I 
-don't think it was ever passing us multiple fragments. So this is no big 
-deal.
+An official email from digi.com to Andres Salomon <dilinger@debian.org>
+explained:
 
-> 	- The LED link status isn't too reliable - I haven't found a way to reliably 
-> tell if the upper layer thinks it is associated, and I don't know how to use 
-> the LED api. Not too worried about this issue though.
+ Dear Andres:
 
-Watch out, the single most common bug report for zd1211rw (vs vendor 
-driver) was that the LED didn't blink until recently :)
+ After further research, we found that this product was killed in place
+ and never reached the market.  We would like to request that this not be
+ included.
 
-Thanks!
-Daniel
+Copy at http://wiki.debian.org/KernelFirmwareLicensing (this was discovered
+during research into firmware licensing).
+
+The drgs driver is useless (no hardware to drive) and should be removed.
+The files which should be deleted from the tree are:
+        drivers/net/dgrs.c
+        drivers/net/dgrs.h
+        drivers/net/dgrs_es4h.h
+        drivers/net/dgrs_plx9060.h
+        drivers/net/dgrs_i82596.h
+        drivers/net/dgrs_ether.h
+        drivers/net/dgrs_asstruct.h
+        drivers/net/dgrs_bcomm.h
+        drivers/net/dgrs_firmware.c
+
+It will probably also be necessary to delete some stuff from drivers/net/Kconfig
+and drivers/net/Makefile, but I assume that this will be trivial for any
+net maintainer.
+
+Thanks in advance for doing this.
+
+-- 
+Nathanael Nerode  <neroden@fastmail.fm>
+
+"(Instead, we front-load the flamewars and grudges in
+the interest of efficiency.)" --Steve Lanagasek,
+http://lists.debian.org/debian-devel/2005/09/msg01056.html
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+----- End forwarded message -----
 
