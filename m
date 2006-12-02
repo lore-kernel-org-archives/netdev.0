@@ -1,52 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] 2.6 driver for Silan SC92031
-Date: Sat, 02 Dec 2006 17:27:51 -0500
-Message-ID: <4571FDE7.9060203@pobox.com>
-References: <4571FC49.5060208@cesarb.net>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: Re: 2.6.19: very low transmit speed after suspend/resume with Sky2
+Date: Sat, 2 Dec 2006 23:37:03 +0100
+Message-ID: <20061202223703.GA16068@dose.home.local>
+References: <20061202091626.GA20734@thinkpad.home.local> <20061202131833.GA3673@thinkpad.home.local> <4571ED2C.6040005@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:22975 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S936569AbWLBW1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Dec 2006 17:27:55 -0500
-To: Cesar Eduardo Barros <cesarb@cesarb.net>
-In-Reply-To: <4571FC49.5060208@cesarb.net>
+Received: from eazy.amigager.de ([213.239.192.238]:54704 "EHLO
+	eazy.amigager.de") by vger.kernel.org with ESMTP id S936570AbWLBWhF
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 17:37:05 -0500
+Received: from dose.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
+	by eazy.amigager.de (Postfix) with ESMTP id D833025C3B3
+	for <netdev@vger.kernel.org>; Sat,  2 Dec 2006 23:37:02 +0100 (CET)
+Received: from scorpion by dose.home.local with local (Exim 4.63)
+	(envelope-from <tino.keitel@tikei.de>)
+	id 1GqdTj-0004LZ-6e
+	for netdev@vger.kernel.org; Sat, 02 Dec 2006 23:37:03 +0100
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <4571ED2C.6040005@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cesar Eduardo Barros wrote:
-> From: Cesar Eduardo Barros <cesarb@cesarb.net>
-> 
-> This is a driver for the Silan SC92031/Rsltek 8139D NIC chip. It's a
-> rewrite of the vendor 2.4 driver for 2.6, and has been lightly tested
-> on a 2.6.17 x86-64 kernel with the Ubuntu patches (as a out-of-tree
-> module only).
-> 
-> This chip is found on at least one counterfeit Encore ENL832-TX-RENT
-> NIC [1], which came with a mini-CD with the 2.4 driver. A slightly
-> older version of the driver was found at [2]. The main difference
-> between them is that the newer one has a small bugfix in the RX path,
-> a lot of gratuitous renaming of functions, all the printable strings
-> changed to show as a "Rsltek 8139D" [sic], and a PCI ID of 8139 instead
-> of 2031.
-> 
-> This patch has been modified to apply cleanly on 2.6.19; to run on
-> 2.6.17, just add back the struct pt_regs* argument to the interrupt
-> handler and to its call at poll_controller(). It compiles on 2.6.19 for
-> x86-64 as a module.
-> 
-> [1] See http://www.encore-usa.com/faq.php under ENL832-TX-RENT for more
->     information
-> [2] Look for SL_LINUX.ZIP (which is really a .tar.gz) at
->     http://broadbandforum.in/dataone_Intex_LAN_cardlinux-t4207-s15.html
-> 
-> Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+On Sat, Dec 02, 2006 at 13:16:28 -0800, Stephen Hemminger wrote:
 
-Seems like it would be best to modify the existing 8139 driver...
+[...]
 
-	Jeff
+> Most likely, the problem is similar to one I am working. The 
 
+Great to hear that someone is working on this. If you need a tester,
+just ask. :-)
 
+> device_resume code gets run before
+> BIOS. And the BIOS wakeup screws up the device. The proper fix will 
+> happen in 2.6.20.
+> If you are using MSI, turn that off.
 
+I don't use it:
+
+# CONFIG_PCI_MSI is not set
+
+Regards,
+Tino
