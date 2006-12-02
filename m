@@ -1,60 +1,78 @@
-From: =?iso-8859-1?Q?Michal_Ruzicka?= <michal.ruzicka@comstar.cz>
-Subject: Re: Multiple end-points behind same NAT
-Date: Sat, 2 Dec 2006 20:15:05 +0100
-Message-ID: <007a01c71646$683a6e10$12a110ac@main>
-References: <45709151.6060803@trustedcs.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: d80211-drivers pull request
+Date: Sat, 2 Dec 2006 14:44:50 -0500
+Message-ID: <200612021445.08620.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
+Content-Type: multipart/signed;
+  boundary="nextPart4209684.Whxk0gnac0";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: <dgoeddel@trustedcs.com>, <chanson@trustedcs.com>,
-	<bphan@trustedcs.com>
+Cc: netdev@vger.kernel.org, Daniel Drake <dsd@gentoo.org>,
+	Ulrich Kunitz <kune@deine-taler.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbox.netro.cz ([62.240.185.5]:11151 "EHLO mbox.netro.cz")
-	by vger.kernel.org with ESMTP id S1424392AbWLBTQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Dec 2006 14:16:45 -0500
-To: "Venkat Yekkirala" <vyekkirala@trustedcs.com>,
-	<netdev@vger.kernel.org>
+Received: from server8.tchmachines.com ([216.180.241.250]:56230 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1758509AbWLBTpb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 14:45:31 -0500
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+--nextPart4209684.Whxk0gnac0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-although I'm not a kernel guru I think I've got something to say to this.
+Hi John,
 
->
-> I am wondering if 26sec supports NAT-Traversal for multiple
-> endpoints behind the same NAT. In looking at xfrm_tmpl it's
-> not obvious to me that it's supported, ...
+Please pull
+git://git.kernel.org/pub/scm/linux/kernel/git/mwu/d80211-drivers.git up
+for these patches:
 
-You are looking at the rignt place indeed. Just to make you sure, there is 
-really no space to store the port infomation of the tunnel endpoints in the 
-xfrm_tmpl structure.
-The structure xfrm_state (a kernel structuture for holding SA's) is a bit 
-different story though. Although the port information is not stored directly 
-in the structure either, there is the encap member pointing to a 
-xfrm_encap_tmpl structure which is used to hold the required information.
+Michael Wu (4):
+      zd1211-d80211: Copy zd1211 driver to d80211 directory
+      zd1211-d80211: Hook up Kconfig and Makefiles
+      zd1211-d80211: Port zd1211 to Devicescape stack
+      p54: Don't send startup packet again on next ifup (USB)
 
-The consequences of this are:
-1) The IKE dameon (or the key manager as it is called in the kernel context) 
-can't get the full infomation from the kernel required to be a successful 
-initiator in the case of  multiple peers behind the same NAT. (Though you 
-might be able to get it working with a single peer behind the NAT if you 
-configure the port forwarding at the NAT box carefuly.)
+ Kconfig                  |    1
+ Makefile                 |    1
+ p54/prism54usb.c         |   26
+ zd1211rw/Kconfig         |   19
+ zd1211rw/Makefile        |   11
+ zd1211rw/zd_chip.c       | 1655=20
++++++++++++++++++++++++++++++++++++++++++++++++
+ zd1211rw/zd_chip.h       |  845 +++++++++++++++++++++++
+ zd1211rw/zd_def.h        |   54 +
+ zd1211rw/zd_ieee80211.h  |   68 +
+ zd1211rw/zd_mac.c        |  638 ++++++++++++++++++
+ zd1211rw/zd_mac.h        |  247 +++++++
+ zd1211rw/zd_rf.c         |  156 ++++
+ zd1211rw/zd_rf.h         |   83 ++
+ zd1211rw/zd_rf_al2230.c  |  373 ++++++++++
+ zd1211rw/zd_rf_al7230b.c |  274 +++++++
+ zd1211rw/zd_rf_rf2959.c  |  279 +++++++
+ zd1211rw/zd_types.h      |   71 ++
+ zd1211rw/zd_usb.c        | 1423 ++++++++++++++++++++++++++++++++++++++++
+ zd1211rw/zd_usb.h        |  243 ++++++
+ zd1211rw/zd_util.c       |   82 ++
+ zd1211rw/zd_util.h       |   29
+ 21 files changed, 6574 insertions(+), 4 deletions(-)
 
-2) If there was an IKE daemon which could be told the required port 
-information by some other means then directly by the kernel it should be 
-possible to make it work despite the deficiencies of the kernel. I don't 
-know if there is any IKE daemon capable of this, but I'm sure racoon can't 
-do that.
+Thanks,
+=2DMichael Wu
 
-3) It is possible to get this working the other way around: If the boxes 
-behind the NAT were the initiators then it should work just fine at least if 
-tunnel mode was used. There are some problems with the transport mode but 
-even that can be made to work for certain scenarios.
+--nextPart4209684.Whxk0gnac0
+Content-Type: application/pgp-signature
 
-Regards,
-Michal 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
+iD8DBQBFcdfET3Oqt9AH4aERApb9AJ9WkmLtzQrtvl5OfiGxHR8ydMJx6ACdEfjr
+MEp4oERJvRnXLD84W/mcDbk=
+=ceJW
+-----END PGP SIGNATURE-----
+
+--nextPart4209684.Whxk0gnac0--
