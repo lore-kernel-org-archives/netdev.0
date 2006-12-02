@@ -1,78 +1,66 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: d80211-drivers pull request
-Date: Sat, 2 Dec 2006 14:44:50 -0500
-Message-ID: <200612021445.08620.flamingice@sourmilk.net>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: zd1211 ported to Devicescape stack
+Date: Sat, 2 Dec 2006 20:53:34 +0100
+Message-ID: <20061202195334.GA6080@p15091797.pureserver.info>
+References: <200612020316.50965.flamingice@sourmilk.net> <4571A295.4030700@gentoo.org> <20061202175737.GA5577@p15091797.pureserver.info> <4571CC0C.2070309@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4209684.Whxk0gnac0";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Drake <dsd@gentoo.org>,
-	Ulrich Kunitz <kune@deine-taler.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Luis Rodriguez <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:56230 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1758509AbWLBTpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 14:45:31 -0500
-To: John Linville <linville@tuxdriver.com>
+Received: from deine-taler.de ([217.160.107.63]:25557 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1424164AbWLBTxf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 14:53:35 -0500
+To: Daniel Drake <dsd@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <4571CC0C.2070309@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart4209684.Whxk0gnac0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On 06-12-02 13:55 Daniel Drake wrote:
 
-Hi John,
+> Ulrich Kunitz wrote:
+> >I intend to track the d80211 stack, care for the forward porting
+> >and see also a number of things, which should be done for d80211.
+> 
+> OK, sorry for the false assumptions in my last mail.
 
-Please pull
-git://git.kernel.org/pub/scm/linux/kernel/git/mwu/d80211-drivers.git up
-for these patches:
+It's true, I have not much time during the week to work on it. But
+a few hours over the weekend are always possible.
 
-Michael Wu (4):
-      zd1211-d80211: Copy zd1211 driver to d80211 directory
-      zd1211-d80211: Hook up Kconfig and Makefiles
-      zd1211-d80211: Port zd1211 to Devicescape stack
-      p54: Don't send startup packet again on next ifup (USB)
+> In that case, I guess we should both switch to developing zd1211rw on 
+> d80211 primarily. I am still interested in seeing stuff in mainline so I 
+> will spend time backporting some of the new developments (but nothing 
+> major).
 
- Kconfig                  |    1
- Makefile                 |    1
- p54/prism54usb.c         |   26
- zd1211rw/Kconfig         |   19
- zd1211rw/Makefile        |   11
- zd1211rw/zd_chip.c       | 1655=20
-+++++++++++++++++++++++++++++++++++++++++++++++
- zd1211rw/zd_chip.h       |  845 +++++++++++++++++++++++
- zd1211rw/zd_def.h        |   54 +
- zd1211rw/zd_ieee80211.h  |   68 +
- zd1211rw/zd_mac.c        |  638 ++++++++++++++++++
- zd1211rw/zd_mac.h        |  247 +++++++
- zd1211rw/zd_rf.c         |  156 ++++
- zd1211rw/zd_rf.h         |   83 ++
- zd1211rw/zd_rf_al2230.c  |  373 ++++++++++
- zd1211rw/zd_rf_al7230b.c |  274 +++++++
- zd1211rw/zd_rf_rf2959.c  |  279 +++++++
- zd1211rw/zd_types.h      |   71 ++
- zd1211rw/zd_usb.c        | 1423 ++++++++++++++++++++++++++++++++++++++++
- zd1211rw/zd_usb.h        |  243 ++++++
- zd1211rw/zd_util.c       |   82 ++
- zd1211rw/zd_util.h       |   29
- 21 files changed, 6574 insertions(+), 4 deletions(-)
+That's ok. However I wouldn't like to step back from changes
+simply to make backporting easier. It doesn't feel like things are
+handled in the kernel.
 
-Thanks,
-=2DMichael Wu
+> We should also use this opportunity to switch to developing in kernel 
+> git trees (as opposed to external kernel module git trees) for the 
+> d80211 port.
 
---nextPart4209684.Whxk0gnac0
-Content-Type: application/pgp-signature
+It shouldn't surprise you that I'm in violent agreement.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+> To start with, I would ask you to pull my git tree then John (or 
+> Michael?) would pull from you. We should start this at the point when 
+> Michael's port enters wireless-dev.git
+> 
+> What do you think?
 
-iD8DBQBFcdfET3Oqt9AH4aERApb9AJ9WkmLtzQrtvl5OfiGxHR8ydMJx6ACdEfjr
-MEp4oERJvRnXLD84W/mcDbk=
-=ceJW
------END PGP SIGNATURE-----
+I really liked the way it worked out between both of us. I think
+the master branch worked pretty well and we hadn't a lot of
+arguments about changes, which were put in there. So I wouldn't
+mind if you would continue to handle the upstream also for d80211.
+But for now I could agree to maintain the upstream branch. It
+it works exactly well between the three of us, Michael could take
+over that task also. 
 
---nextPart4209684.Whxk0gnac0--
+Michael do you agree on a common upstream branch, which only
+contains agreed patches?
+
+-- 
+Uli Kunitz
