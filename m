@@ -1,54 +1,77 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
+From: Michael Wu <flamingice@sourmilk.net>
 Subject: Re: zd1211 ported to Devicescape stack
-Date: Sat, 2 Dec 2006 14:25:39 +0100
-Message-ID: <20061202132539.GB18326@p15091797.pureserver.info>
-References: <200612020316.50965.flamingice@sourmilk.net>
+Date: Sat, 2 Dec 2006 09:54:15 -0500
+Message-ID: <200612020954.20469.flamingice@sourmilk.net>
+References: <200612020316.50965.flamingice@sourmilk.net> <20061202132539.GB18326@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart3913223.XNfAAP2vfS";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
 	John Linville <linville@tuxdriver.com>,
 	Luis Rodriguez <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:45050 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1424003AbWLBNZk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 08:25:40 -0500
-To: Michael Wu <flamingice@sourmilk.net>
-Content-Disposition: inline
-In-Reply-To: <200612020316.50965.flamingice@sourmilk.net>
+Received: from server8.tchmachines.com ([216.180.241.250]:22167 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1031567AbWLBOyy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 09:54:54 -0500
+To: Ulrich Kunitz <kune@deine-taler.de>
+In-Reply-To: <20061202132539.GB18326@p15091797.pureserver.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+--nextPart3913223.XNfAAP2vfS
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> 	I have finished a port of the zd1211 driver to the Devicescape 802.11 stack. 
+On Saturday 02 December 2006 08:25, Ulrich Kunitz wrote:
+> > 	- The original driver does not seem to check if a frame has been
+> > successfully TXed (as in RXed an ACK), so the port does not properly
+> > report to the stack whether or not a TX succeeded.
+>
+> TX is atomic. Do you really want to spin for the received ACK? Layer 2
+> doesn't need to make any guarantees for packet transmission, so I have
+> trouble to see the point here. The Linux Device Driver book says
+> explicitly that packet transmission must not have been completed
+> at the point in time the function returns.
+>
+And it doesn't. Sleeping at that point would be bad. However, the p54 drive=
+r=20
+looks for special frames from the card that report the success/failure of=20
+sent frames, and adm8211 can tell if a frame was TXed successfully on TX ri=
+ng=20
+cleanup. The notification is then done by calling ieee80211_tx_status, not =
+by=20
+returning an error code. No sleeping necessary. This is needed for the uppe=
+r=20
+layer to resend frames and to also do rate control.
 
-This is absolutely great news. I will look into it and check it
-today.
+> I would suggest to maintain it until d80211 has
+> complete regulatory domains support.
+>
+Why? It's not like any other d80211 drivers have regulatory domains support=
+,=20
+and they need the exactly the same features that zd1211 needs. Also, the=20
+limited support for regulatory domains that d80211 does have restricts it t=
+o=20
+channels 1-11 (FCC) regardless, so the code would not be effective.
 
-> 	- The original driver does not seem to check if a frame has been successfully 
-> TXed (as in RXed an ACK), so the port does not properly report to the stack 
-> whether or not a TX succeeded.
+Thanks,
+=2DMichael Wu
 
-TX is atomic. Do you really want to spin for the received ACK? Layer 2 doesn't
-need to make any guarantees for packet transmission, so I have
-trouble to see the point here. The Linux Device Driver book says
-explicitly that packet transmission must not have been completed
-at the point in time the function returns.
+--nextPart3913223.XNfAAP2vfS
+Content-Type: application/pgp-signature
 
-> 	-Because d80211 does not have complete regulatory domains support yet, the 
-> associated code was trimmed to the bare minimum of reading the region code. 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-I have to look into it, but the code we had, didn't rely on upper
-layer support. I would suggest to maintain it until d80211 has
-complete regulatory domains support.
+iD8DBQBFcZOcT3Oqt9AH4aERApWQAJ9sQn6IbgAvwr13YlNLfph0RZUAtgCgiA03
+7V3gS7IT/cJicaIpdx8QcUw=
+=JDES
+-----END PGP SIGNATURE-----
 
-> 	- The LED link status isn't too reliable - I haven't found a way to reliably 
-> tell if the upper layer thinks it is associated, and I don't know how to use 
-> the LED api. Not too worried about this issue though.
-
-It took us also some time to do it for softmac. But it appears
-that the d80211 stack needs still a fair amount of work.
-
--- 
-Uli Kunitz
+--nextPart3913223.XNfAAP2vfS--
