@@ -1,63 +1,54 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: 2.6.19: very low transmit speed after suspend/resume with Sky2
-Date: Sat, 2 Dec 2006 14:18:33 +0100
-Message-ID: <20061202131833.GA3673@thinkpad.home.local>
-References: <20061202091626.GA20734@thinkpad.home.local>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: zd1211 ported to Devicescape stack
+Date: Sat, 2 Dec 2006 14:25:39 +0100
+Message-ID: <20061202132539.GB18326@p15091797.pureserver.info>
+References: <200612020316.50965.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Luis Rodriguez <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:51375 "EHLO
-	eazy.amigager.de") by vger.kernel.org with ESMTP id S1423816AbWLBNSb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 08:18:31 -0500
-Received: from thinkpad.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
-	by eazy.amigager.de (Postfix) with ESMTP id EBF1825C3AE
-	for <netdev@vger.kernel.org>; Sat,  2 Dec 2006 14:18:29 +0100 (CET)
-Received: from scorpion by thinkpad.home.local with local (Exim 4.63)
-	(envelope-from <tino.keitel@tikei.de>)
-	id 1GqUlF-0000xx-E3
-	for netdev@vger.kernel.org; Sat, 02 Dec 2006 14:18:33 +0100
-To: netdev@vger.kernel.org
+Received: from deine-taler.de ([217.160.107.63]:45050 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1424003AbWLBNZk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Dec 2006 08:25:40 -0500
+To: Michael Wu <flamingice@sourmilk.net>
 Content-Disposition: inline
-In-Reply-To: <20061202091626.GA20734@thinkpad.home.local>
+In-Reply-To: <200612020316.50965.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 02, 2006 at 10:16:28 +0100, Tino Keitel wrote:
-> Hi folks,                                            
->                                                      
-> since 2.6.19 I have the problem that I get lousy transmit speeds of < 1 
-> mbit/s.
-> 
-> Here is a quick test, the 5th column is the transfer speed in mbit/s:
-> 
-> From the affected machine to my laptop over WLAN (the affected machine
-> is connected to a Fast Ethernet switch):
-> 
-> $ nttcp -r -l 1400 -n 500 dose
-> l   700000    8.16   0.04    0.6867    155.5469   824  101.04   22887.6     
-> 1   700000    8.15   0.00    0.6873 560000.0000   500  61.37    50000000.0    
-> 
-> Only 0,68 mbit/s during transmit. :-(
-> 
-> From my laptop to the affected machine:
-> 
-> $ nttcp -l 1400 -n 5000 dose
-> l  7000000    2.21   0.03   25.3427   1999.8572  5000  2262.74  178558.7     
-> 1  7000000    2.25   0.07   24.8363    823.4810  9268  4110.41  136286.1 
-> 
-> This is ok, 25 mbit/s during receive, limited by the WLAN in the
-> laptop.
-> 
-> After reboot:
-> 
-> $ nttcp -l 1400 -n 5000 dose
-> l  7000000    2.04   0.03   27.5005   1749.8906  5000  2455.40  156240.2
-> 1  7000000    2.08   0.06   26.9843    999.9464  9455  4556.00  168830.2
-> 
-> Now I got 27 mbit/s during receive, that's ok for WLAN.
+Hi Michael,
 
-Sorry, I should give the number for _transmit_ here. This was ok, too.
+> 	I have finished a port of the zd1211 driver to the Devicescape 802.11 stack. 
 
-Regards,
-Tino
+This is absolutely great news. I will look into it and check it
+today.
+
+> 	- The original driver does not seem to check if a frame has been successfully 
+> TXed (as in RXed an ACK), so the port does not properly report to the stack 
+> whether or not a TX succeeded.
+
+TX is atomic. Do you really want to spin for the received ACK? Layer 2 doesn't
+need to make any guarantees for packet transmission, so I have
+trouble to see the point here. The Linux Device Driver book says
+explicitly that packet transmission must not have been completed
+at the point in time the function returns.
+
+> 	-Because d80211 does not have complete regulatory domains support yet, the 
+> associated code was trimmed to the bare minimum of reading the region code. 
+
+I have to look into it, but the code we had, didn't rely on upper
+layer support. I would suggest to maintain it until d80211 has
+complete regulatory domains support.
+
+> 	- The LED link status isn't too reliable - I haven't found a way to reliably 
+> tell if the upper layer thinks it is associated, and I don't know how to use 
+> the LED api. Not too worried about this issue though.
+
+It took us also some time to do it for softmac. But it appears
+that the d80211 stack needs still a fair amount of work.
+
+-- 
+Uli Kunitz
