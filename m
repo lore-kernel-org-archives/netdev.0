@@ -1,157 +1,227 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Network virtualization/isolation
-Date: Sun, 03 Dec 2006 09:13:18 -0500
-Message-ID: <1165155198.3517.86.camel@localhost>
-References: <453F8800.9070603@fr.ibm.com>	<45408397.8070404@fr.ibm.com>
-	 <20061026085659.33b4c6dd@freekitty>	<200610271134.56830.dim@openvz.org>
-	 <4541CCF4.4050306@fr.ibm.com>	<1162391707.5251.78.camel@jzny2>
-	 <4559DE01.5090109@fr.ibm.com>	<m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
-	 <456C447E.5090703@fr.ibm.com>	<m1r6vnikeq.fsf@ebiederm.dsl.xmission.com>
-	 <456C9B8C.1010701@fr.ibm.com> <m14psji6lw.fsf@ebiederm.dsl.xmission.com>
-	 <456DEBAC.4060106@hp.com>  <456E055F.8020100@fr.ibm.com>
-	 <1165148762.3517.58.camel@localhost>
+Subject: [PATCH][XFRM] Optimize policy dumping
+Date: Sun, 03 Dec 2006 10:11:47 -0500
+Message-ID: <1165158707.3517.92.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-JmUWlf6tZVo196+rARub"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.224]:18282 "EHLO
+Received: from nz-out-0506.google.com ([64.233.162.228]:41613 "EHLO
 	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S933705AbWLCONY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 09:13:24 -0500
-Received: by nz-out-0102.google.com with SMTP id s1so1730340nze
-        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 06:13:23 -0800 (PST)
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <1165148762.3517.58.camel@localhost>
+	id S1759691AbWLCPLv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 10:11:51 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1733629nze
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 07:11:50 -0800 (PST)
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have removed the Re: just to add some freshness to the discussion
 
-So i read quickly the rest of the discussions. I was almost suprised to
-find that i agree with Eric on a lot of opinions (we also agree that
-vindaloo is good for you i guess);->
-The two issues that stood out for me (in addition to what i already said
-below):
-
-1) the solution must ease the migration of containers; i didnt see
-anything about migrating them to another host across a network, but i
-assume that this is a given.
-2) the socket level bind/accept filtering with multiple IPs. From
-reading what Herbert has, it seems they have figured a clever way to
-optimize this path albeit some challenges (speacial casing for raw
-filters) etc.
-
-I am wondering if one was to use the two level muxing of the socket
-layer, how much more performance improvement the above scheme provides
-for #2? 
-Consider the case of L2 where by the time the packet hits the socket
-layer on incoming, the VE is already known; in such a case, the lookup
-would be very cheap. The advantage being you get rid of the speacial
-casing altogether. I dont see any issues with binds per multiple IPs etc
-using such a technique.
-
-For the case of #1 above, wouldnt it be also easier if the tables for
-netdevices, PIDs etc were per VE (using the 2 level mux)?
+--=-JmUWlf6tZVo196+rARub
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
 
-In any case, folks, i hope i am not treading on anyones toes; i know
-each one of you has implemented and has users and i am trying to be as 
-neutral as i can (but clearly biased;->).
+This improves dumping performance of xfrm policies. I started getting
+bothered when i noticed it took upto a minute dumping 60K policies from
+the kernel.
+
+I have another one i am testing that uses the same approach for SAs.
+Will send in the next hour.
+Against net-2.6.20.
 
 cheers,
 jamal
 
+--=-JmUWlf6tZVo196+rARub
+Content-Disposition: attachment; filename=xfrm_pol_opt
+Content-Type: text/plain; name=xfrm_pol_opt; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
+[XFRM] Optimize policy dumping
 
-On Sun, 2006-03-12 at 07:26 -0500, jamal wrote:
-> On Wed, 2006-14-11 at 16:17 +0100, Daniel Lezcano wrote:
-> > The attached document describes the network isolation at the layer 2
-> > and at the layer 3 ..
-> 
-> Daniel,
-> 
-> I apologize for taking this long to get back to you. The document (I
-> hope) made it clear to me at least the difference between the two
-> approaches. So thanks for taking the time to put it together.
-> 
-> So here are my thoughts ...
-> I havent read the rest of the thread so i may be repeating some of the
-> discussion; i have time today, I will try to catchup with the
-> discussion.
-> 
-> * i think the L2 approach is the more complete of the two approaches:
-> 
-> It caters to more applications: eg i can have network elements such as
-> virtual bridges and routers. It doesnt seem like i can do that with the
-> L3 approach. I think this in itself is a powerful enough reason to
-> disqualify the L3 approach.
-> 
-> Leading from the above, I dont have to make _a single line of code
-> change_ to any of the network element management tools inside the
-> container. i.e i can just run quagga and OSPF and BGP will work as is or
-> the bridge daemon and STP will work as is or tc to control "real"
-> devices or ip to control "real" ip addresses. Virtual routers and
-> bridges are real world applications (if you want more info ask me or ask
-> google, she knows).
-> 
-> **** This wasnt clear to me from the doc on the L3 side of things, so
-> please correct me: 
-> because of the pid virtualization in the L2 approach(openvz?) I can run
-> all applications as is. They just dont know they are running on a
-> virtual environment. To use an extreme example: if i picked apache as a
-> binary compiled 10 years ago, it will run on the L2 approach but not on
-> the L3 approach. Is this understanding correct?  I find it hard to
-> believe that the L3 approach wouldnt work this way - it may be just my
-> reading into the doc.
-> 
-> So lets say the approach taken is that of L2 (I am biased towards this
-> because i want to be able to do virtual bridges and routers). The
-> disadvantage of the L2 approach (or is it just the openvz?) approach is:
-> 
-> - it is clear theres a lot more code needed to allow for the two level
-> multiplexing every where. i.e first you mux to select the namespace then
-> you do other things like find a pid, netdevice, ip address etc. I am
-> also not sure how complete that code is; you clearly get everything
-> attached to netdevices for free (eg networkc scheduler block) - which is
-> nice in itself; but you may have to do the muxing code for other blocks.
-> If my understanding is correct everything in the net subsystem has this
-> mux levels already in place (at least with openvz)? I think each
-> subsystem may have its own merit discussed (eg the L3 tables with the
-> recent changes from Patrick allow up to 2^32 -1 tables, so a muxing
-> layer at L3 maybe unnecessary)
-> ---> To me this 2 level muxing looks like a clean design in that there
-> is consistency (i.e no hack thats specific to just one sub-subsystem but
-> not others). With this approach one could imagine hardware support that
-> does the first level of muxing (selecting a namespace for you). This is
-> clearly already happening with NICs supporting several unicast MAC
-> addresses. 
-> I think the litmus test for this approach is the answer to the question:
-> If i compiled in the containers in and do not use the namespaces, how
-> much more overhead is there for the host path? I would hope that it is
-> as close to 0 as possible. It should certainly be 0 if i dont compile in
-> containers.
-> 
-> - The desire for many MAC addresses. I dont think this is a killer
-> issue. NICs are begining to show up which capabilities for many unicast
-> MACs; many current have multicast hardware tables that can be used for
-> stashing unicast MAC addresses; it has also been shown you can use
-> multicast MAC addresses and get away with it if there is no conflict
-> (protocols such as VRRP, CARP etc do this).
-> 
-> - Manageability from the host side. It seems to be more complex with the
-> L2 than with L3. But so what? These tools are written from scratch and
-> there is no "backward compatibility" baggage.
-> 
-> Ok, I am out of coffee for the last 10 minutes;-> But above sit my views
-> worth about $0.02 Canadian (which is about $0.02 US these days).
-> 
-> I will try later to catch up with the discussion that started from
-> Daniels original posting.
-> 
-> cheers,
-> jamal
+This code is Fuugly. This patch doesnt make it fuglier.
+I could have optimized more but PFKEY is a fugly protocol because
+of a rather incomplete 2 phase commit semantics.
+Therefore, it adds more overhead that we have to carry around.
+
+>From RFC 2367:
+"
+3.1.10 SADB_DUMP
+   The SADB_DUMP message causes the kernel to dump the operating
+    system's entire Key Table to the requesting key socket.....
+    Each Security Association is returned in its own SADB_DUMP message.
+    A SADB_DUMP message with a sadb_seq field of zero indicates the end
+    of the dump transaction. The dump message is used for debugging
+    purposes only and is not intended for production use.
+
+    Support for the dump message MAY be discontinued in future versions
+    of PF_KEY.  Key management applications MUST NOT depend on this
+    message for basic operation.
+"
+
+Note the funny comment above on the dump message being discontinued at
+some point and is only for debugging ;->
+The way to eventually fix this IMO and reach the goals stated by
+Davem of making "pfkey more robust" is to add to pfkey a socket->cb
+structure. For now i think this even improves the pfkey by reducing
+the compute. The advantages are noticeable when you have a large number
+of policies installed.
+I have tested this with setkey (which uses the same API as racoon) and all
+looks fine.
+I was more interested in the performance of netlink side though; so
+heres some numbers with 40K policies installed (i hacked ip xfrm so
+it doesnt print the output):
+
+---
+
+1) original with sub-policies compiled in ..
+speedopolis:~# time ./ip xf pol
+
+real    0m22.274s
+user    0m0.000s
+sys     0m22.269s
+
+2) Turn off sub-policies
+
+speedopolis:~# ./ip xf pol
+
+real    0m13.496s
+user    0m0.000s
+sys     0m13.493s
+
+i suppose the above is to be expected
+
+3) With this patch and no subpolicies
+
+speedopolis:~# ./ip xf pol
+
+real    0m7.751s
+user    0m0.012s
+sys     0m7.740s
+
+speedopolis:~#
+
+------------
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit 0355ced4a81a1af96b4531680e9c593d3967a5f1
+tree dd60c3be71f4bd460d2e15e81689560099751daa
+parent c3b92488bea3f11a6cc7c1c59101444c26ad12ce
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 03 Dec 2006 10:04:44 -0500
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 03 Dec 2006 10:04:44 -0500
+
+ net/xfrm/xfrm_policy.c |   73 ++++++++++++++++++++++++++++--------------------
+ 1 files changed, 43 insertions(+), 30 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 64d3938..c8a98ca 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -860,57 +860,70 @@ EXPORT_SYMBOL(xfrm_policy_flush);
+ int xfrm_policy_walk(u8 type, int (*func)(struct xfrm_policy *, int, int, void*),
+ 		     void *data)
+ {
+-	struct xfrm_policy *pol;
+ 	struct hlist_node *entry;
+-	int dir, count, error;
++	int dir = 0, last_dir = 0, count = 0, error = -ENOENT;
++	struct xfrm_policy *pol = NULL, *send_pol = NULL, *last_pol = NULL;
+ 
+ 	read_lock_bh(&xfrm_policy_lock);
+-	count = 0;
++
+ 	for (dir = 0; dir < 2*XFRM_POLICY_MAX; dir++) {
+ 		struct hlist_head *table = xfrm_policy_bydst[dir].table;
+ 		int i;
+ 
+ 		hlist_for_each_entry(pol, entry,
+ 				     &xfrm_policy_inexact[dir], bydst) {
+-			if (pol->type == type)
+-				count++;
+-		}
+-		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
+-			hlist_for_each_entry(pol, entry, table + i, bydst) {
+-				if (pol->type == type)
+-					count++;
++			if (count && send_pol && send_pol != last_pol) {
++				error = func(send_pol, dir % XFRM_POLICY_MAX, count, data);
++				if (error)
++					goto out;
++				send_pol = NULL;
+ 			}
+-		}
+-	}
+-
+-	if (count == 0) {
+-		error = -ENOENT;
+-		goto out;
+-	}
+-
+-	for (dir = 0; dir < 2*XFRM_POLICY_MAX; dir++) {
+-		struct hlist_head *table = xfrm_policy_bydst[dir].table;
+-		int i;
+ 
+-		hlist_for_each_entry(pol, entry,
+-				     &xfrm_policy_inexact[dir], bydst) {
+ 			if (pol->type != type)
+ 				continue;
+-			error = func(pol, dir % XFRM_POLICY_MAX, --count, data);
+-			if (error)
+-				goto out;
++
++			if (!count) {
++				last_pol = send_pol = pol;
++			} else {
++				send_pol = last_pol;
++				last_pol = pol;
++			}
++
++			last_dir = dir;
++			count++;
+ 		}
++
+ 		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
+ 			hlist_for_each_entry(pol, entry, table + i, bydst) {
++				if (count && send_pol && send_pol != last_pol) {
++					error = func(send_pol, dir % XFRM_POLICY_MAX, count, data);
++					send_pol = NULL;
++					if (error)
++						goto out;
++				}
+ 				if (pol->type != type)
+ 					continue;
+-				error = func(pol, dir % XFRM_POLICY_MAX, --count, data);
+-				if (error)
+-					goto out;
++				if (!count) {
++					last_pol = send_pol = pol;
++				} else {
++					send_pol = last_pol;
++					last_pol = pol;
++				}
++				last_dir = dir;
++				count++;
+ 			}
+ 		}
+ 	}
+-	error = 0;
++
++	if (send_pol && send_pol != last_pol) {
++		error = func(send_pol, last_dir % XFRM_POLICY_MAX, count, data);
++	}
++
++	if (count) {
++		BUG_TRAP(last_pol == NULL);
++		error = func(send_pol, last_dir % XFRM_POLICY_MAX, 0, data);
++	}
++
+ out:
+ 	read_unlock_bh(&xfrm_policy_lock);
+ 	return error;
+
+--=-JmUWlf6tZVo196+rARub--
 
