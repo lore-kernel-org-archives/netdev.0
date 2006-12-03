@@ -1,141 +1,91 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/5] r8169: more magic during initialization of the hardware
-Date: Mon, 4 Dec 2006 00:54:55 +0100
-Message-ID: <20061203235454.GB3625@electric-eye.fr.zoreil.com>
+Subject: [PATCH 2/5] r8169: tweak the PCI data parity error recovery
+Date: Mon, 4 Dec 2006 00:58:13 +0100
+Message-ID: <20061203235813.GC3625@electric-eye.fr.zoreil.com>
 References: <20061203235257.GA3625@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Darren Salt <linux@youmustbejoking.demon.co.uk>
+Cc: netdev@vger.kernel.org, Martin Michlmayr <tbm@cyrius.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Riku Voipio <riku.voipio@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:29318 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1760026AbWLCX6h
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:30598 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1760046AbWLCX7G
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 18:58:37 -0500
+	Sun, 3 Dec 2006 18:59:06 -0500
 To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
 In-Reply-To: <20061203235257.GA3625@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mostly taken from Realtek's driver.
+The 8110SB based n2100 board signals a lot of what ought to be
+PCI data parity errors durint operation of the 8169 as target.
+Experiment proved that the driver can ignore the error and
+process the packet as if nothing had happened.
 
-It's a bit yucky but the original is even worse.
+Let's add an ad-hoc knob to enable users to fix their system while
+avoiding the risks of a wholesale change.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: Darren Salt <linux@youmustbejoking.demon.co.uk>
 ---
- drivers/net/r8169.c |   58 +++++++++++++++++++++++++++++++++++++++------------
- 1 files changed, 44 insertions(+), 14 deletions(-)
+ drivers/net/r8169.c |   17 +++++++++++++----
+ 1 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 45d3ca4..c8fa9b1 100644
+index c8fa9b1..7438049 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -1815,12 +1815,25 @@ static void rtl8169_hw_reset(void __iome
- 	RTL_R8(ChipCmd);
+@@ -225,6 +225,7 @@ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl
+ 
+ static int rx_copybreak = 200;
+ static int use_dac;
++static int ignore_parity_err;
+ static struct {
+ 	u32 msg_enable;
+ } debug = { -1 };
+@@ -469,6 +470,8 @@ module_param(use_dac, int, 0);
+ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
+ module_param_named(debug, debug.msg_enable, int, 0);
+ MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
++module_param_named(ignore_parity_err, ignore_parity_err, bool, 0);
++MODULE_PARM_DESC(ignore_parity_err, "Ignore PCI parity error as target. Default: false");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(RTL8169_VERSION);
+ 
+@@ -2380,12 +2383,17 @@ static void rtl8169_pcierr_interrupt(str
+ 	/*
+ 	 * The recovery sequence below admits a very elaborated explanation:
+ 	 * - it seems to work;
+-	 * - I did not see what else could be done.
++	 * - I did not see what else could be done;
++	 * - it makes iop3xx happy.
+ 	 *
+ 	 * Feel free to adjust to your needs.
+ 	 */
+-	pci_write_config_word(pdev, PCI_COMMAND,
+-			      pci_cmd | PCI_COMMAND_SERR | PCI_COMMAND_PARITY);
++	if (ignore_parity_err)
++		pci_cmd &= ~PCI_COMMAND_PARITY;
++	else
++		pci_cmd |= PCI_COMMAND_SERR | PCI_COMMAND_PARITY;
++
++	pci_write_config_word(pdev, PCI_COMMAND, pci_cmd);
+ 
+ 	pci_write_config_word(pdev, PCI_STATUS,
+ 		pci_status & (PCI_STATUS_DETECTED_PARITY |
+@@ -2399,10 +2407,11 @@ static void rtl8169_pcierr_interrupt(str
+ 		tp->cp_cmd &= ~PCIDAC;
+ 		RTL_W16(CPlusCmd, tp->cp_cmd);
+ 		dev->features &= ~NETIF_F_HIGHDMA;
+-		rtl8169_schedule_work(dev, rtl8169_reinit_task);
+ 	}
+ 
+ 	rtl8169_hw_reset(ioaddr);
++
++	rtl8169_schedule_work(dev, rtl8169_reinit_task);
  }
  
--static void
--rtl8169_hw_start(struct net_device *dev)
-+static void rtl8169_set_rx_tx_config_registers(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u32 cfg = rtl8169_rx_config;
-+
-+	cfg |= (RTL_R32(RxConfig) & rtl_chip_info[tp->chipset].RxConfigMask);
-+	RTL_W32(RxConfig, cfg);
-+
-+	/* Set DMA burst size and Interframe Gap Time */
-+	RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-+		(InterFrameGap << TxInterFrameGapShift));
-+}
-+
-+static void rtl8169_hw_start(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	struct pci_dev *pdev = tp->pci_dev;
-+	u16 cmd;
- 	u32 i;
- 
- 	/* Soft reset the chip. */
-@@ -1833,6 +1846,11 @@ rtl8169_hw_start(struct net_device *dev)
- 		msleep_interruptible(1);
- 	}
- 
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_05) {
-+		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | PCIMulRW);
-+		pci_write_config_byte(pdev, PCI_CACHE_LINE_SIZE, 0x08);
-+	}
-+
- 	if (tp->mac_version == RTL_GIGA_MAC_VER_13) {
- 		pci_write_config_word(pdev, 0x68, 0x00);
- 		pci_write_config_word(pdev, 0x69, 0x08);
-@@ -1840,8 +1858,6 @@ rtl8169_hw_start(struct net_device *dev)
- 
- 	/* Undocumented stuff. */
- 	if (tp->mac_version == RTL_GIGA_MAC_VER_05) {
--		u16 cmd;
--
- 		/* Realtek's r1000_n.c driver uses '&& 0x01' here. Well... */
- 		if ((RTL_R8(Config2) & 0x07) & 0x01)
- 			RTL_W32(0x7c, 0x0007ffff);
-@@ -1853,23 +1869,29 @@ rtl8169_hw_start(struct net_device *dev)
- 		pci_write_config_word(pdev, PCI_COMMAND, cmd);
- 	}
- 
--
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
-+	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
-+		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
- 
- 	/* Low hurts. Let's disable the filtering. */
- 	RTL_W16(RxMaxSize, 16383);
- 
--	/* Set Rx Config register */
--	i = rtl8169_rx_config |
--		(RTL_R32(RxConfig) & rtl_chip_info[tp->chipset].RxConfigMask);
--	RTL_W32(RxConfig, i);
-+	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
-+		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+		rtl8169_set_rx_tx_config_registers(tp);
- 
--	/* Set DMA burst size and Interframe Gap Time */
--	RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
--		(InterFrameGap << TxInterFrameGapShift));
-+	cmd = RTL_R16(CPlusCmd);
-+	RTL_W16(CPlusCmd, cmd);
- 
--	tp->cp_cmd |= RTL_R16(CPlusCmd) | PCIMulRW;
-+	tp->cp_cmd |= cmd | PCIMulRW;
- 
- 	if ((tp->mac_version == RTL_GIGA_MAC_VER_02) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_03)) {
-@@ -1895,7 +1917,15 @@ rtl8169_hw_start(struct net_device *dev)
- 	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
- 	RTL_W32(RxDescAddrHigh, ((u64) tp->RxPhyAddr >> 32));
- 	RTL_W32(RxDescAddrLow, ((u64) tp->RxPhyAddr & DMA_32BIT_MASK));
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+
-+	if ((tp->mac_version != RTL_GIGA_MAC_VER_01) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_02) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_03) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_04)) {
-+		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+		rtl8169_set_rx_tx_config_registers(tp);
-+	}
-+
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
- 
- 	/* Initially a 10 us delay. Turned it into a PCI commit. - FR */
+ static void
 -- 
 1.4.2.3
