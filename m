@@ -1,172 +1,323 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 20/26] rt2x00: Call activity_led()
-Date: Sun, 3 Dec 2006 19:18:58 +0100
-Message-ID: <200612031918.58679.IvDoorn@gmail.com>
+Subject: [PATCH 17/26] rt2x00: Move rt2x00usb_vendor_request out of header
+Date: Sun, 3 Dec 2006 19:18:59 +0100
+Message-ID: <200612031919.00075.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:18521 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.184]:25433 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1758818AbWLCSTW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 13:19:22 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so4144331nfa
-        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:22 -0800 (PST)
+	id S1758826AbWLCST3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 13:19:29 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so4144386nfa
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:28 -0800 (PST)
 To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Call activity_led() function after each rxdone run
-to make the led blink.
+Remove the rt2x00usb_vendor_request from the rt2x00usb.h
+header, and place it into the rt2x00_vendor_request.
+This means that the rt2x00_vendor_request function
+needs a timeout value especially for commands that
+require a lot of time (i.e. Firmware writing).
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-03 14:52:04.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-03 15:09:41.000000000 +0100
-@@ -1597,6 +1597,11 @@
- 		rt2x00_desc_write(rxd, 0, word0);
- 		rt2x00_ring_index_inc(ring);
- 	}
-+
-+	/*
-+	 * Update LED.
-+	 */
-+	rt2400pci_activity_led(rt2x00dev, 0);
- }
- 
- static void rt2400pci_txdone(void *data)
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2400pci.h wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2400pci.h
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-12-03 13:04:38.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-12-03 15:08:03.000000000 +0100
-@@ -943,6 +943,14 @@
- static int rt2400pci_tx_last_beacon(struct ieee80211_hw *hw);
- 
- /*
-+ * LED control functions.
-+ */
-+static void rt2400pci_enable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt2400pci_disable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt2400pci_activity_led(struct rt2x00_dev *rt2x00dev,
-+	char activity);
-+
-+/*
-  * Radio control functions.
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 14:21:53.000000000 +0100
++++ wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 14:36:31.000000000 +0100
+@@ -64,18 +64,31 @@
+  * the access attempt is considered to have failed,
+  * and we will print an error.
   */
- static int rt2400pci_enable_radio(struct rt2x00_dev *rt2x00dev);
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-03 14:52:32.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-03 15:09:55.000000000 +0100
-@@ -1760,6 +1760,11 @@
- 		rt2x00_desc_write(rxd, 0, word0);
- 		rt2x00_ring_index_inc(ring);
- 	}
-+
-+	/*
-+	 * Update LED.
-+	 */
-+	rt2500pci_activity_led(rt2x00dev, 0);
- }
- 
- static void rt2500pci_txdone(void *data)
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500pci.h wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500pci.h
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-12-03 13:04:44.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-12-03 15:08:18.000000000 +0100
-@@ -1210,6 +1210,14 @@
- static int rt2500pci_tx_last_beacon(struct ieee80211_hw *hw);
- 
- /*
-+ * LED control functions.
-+ */
-+static void rt2500pci_enable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt2500pci_disable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt2500pci_activity_led(struct rt2x00_dev *rt2x00dev,
-+	char activity);
-+
-+/*
-  * Radio control functions.
-  */
- static int rt2500pci_enable_radio(struct rt2x00_dev *rt2x00dev);
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 14:52:36.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 15:10:04.000000000 +0100
-@@ -1737,6 +1737,11 @@
- 
- 		rt2x00_ring_index_inc(ring);
- 	}
-+
-+	/*
-+	 * Update LED.
-+	 */
-+	rt2500usb_activity_led(rt2x00dev, 0);
- }
- 
- static void rt2500usb_txdone(void *data)
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500usb.h wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500usb.h
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-12-03 13:04:50.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-12-03 15:08:28.000000000 +0100
-@@ -712,6 +712,14 @@
- 	struct sk_buff *skb, struct ieee80211_tx_control *control);
- 
- /*
-+ * LED control functions.
-+ */
-+static void rt2500usb_enable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt2500usb_disable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt2500usb_activity_led(struct rt2x00_dev *rt2x00dev,
-+	char activity);
-+
-+/*
-  * Radio control functions.
-  */
- static int rt2500usb_enable_radio(struct rt2x00_dev *rt2x00dev);
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 14:52:40.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 15:10:28.000000000 +0100
-@@ -940,7 +940,6 @@
- 	if (!rssi)
- 		goto exit;
- 
+-static void rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
++static int rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
+ 	const u8 request, const u8 type, const u16 offset,
+-	u32 value, void *buffer, const u16 buffer_length)
++	u32 value, void *buffer, const u16 buffer_length, const u16 timeout)
+ {
+-	int status = rt2x00usb_vendor_request(
+-		rt2x00dev, request, type, offset,
+-		value, buffer, buffer_length, REGISTER_TIMEOUT);
 -
+-	if (status < 0)
+-		ERROR("vendor request error. Request 0x%02x failed "
+-			"for offset 0x%04x with error %d.\n",
+-			request, offset, status);
++	struct usb_device *usb_dev = interface_to_usbdev(
++		rt2x00dev_usb(rt2x00dev));
++	int status;
++	unsigned int i;
++
++	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
++		status = usb_control_msg(
++			usb_dev,
++			(type == USB_VENDOR_REQUEST_IN) ?
++				usb_rcvctrlpipe(usb_dev, 0) :
++				usb_sndctrlpipe(usb_dev, 0),
++			request, type, value, offset, buffer, buffer_length,
++			timeout);
++		if (status >= 0)
++			return 0;
++	}
++
++	ERROR("vendor request error. Request 0x%02x failed "
++		"for offset 0x%04x with error %d.\n", request, offset, status);
++
++	return status;
+ }
+ 
+ static inline void rt2x00_register_read(
+@@ -85,7 +98,7 @@
+ 	__le16 reg;
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
+-		offset, 0x00, &reg, 2);
++		offset, 0x00, &reg, 2, REGISTER_TIMEOUT);
+ 	*value = le16_to_cpu(reg);
+ }
+ 
+@@ -95,7 +108,7 @@
+ {
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
+-		offset, 0x00, value, length);
++		offset, 0x00, value, length, REGISTER_TIMEOUT);
+ }
+ 
+ static inline void rt2x00_register_write(
+@@ -105,7 +118,7 @@
+ 	__le16 reg = cpu_to_le16(value);
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
+-		offset, 0x00, &reg, 2);
++		offset, 0x00, &reg, 2, REGISTER_TIMEOUT);
+ }
+ 
+ static inline void rt2x00_register_multiwrite(
+@@ -114,7 +127,7 @@
+ {
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
+-		offset, 0x00, value, length);
++		offset, 0x00, value, length, REGISTER_TIMEOUT);
+ }
+ 
+ static u16 rt2x00_bbp_check(const struct rt2x00_dev *rt2x00dev)
+@@ -1071,9 +1084,11 @@
+ 		return -EBUSY;
+ 
+ 	rt2x00_vendor_request(rt2x00dev, USB_DEVICE_MODE,
+-		USB_VENDOR_REQUEST_OUT, 0x00, USB_MODE_TEST, NULL, 0);
++		USB_VENDOR_REQUEST_OUT, 0x0000, USB_MODE_TEST, NULL, 0,
++		REGISTER_TIMEOUT);
+ 	rt2x00_vendor_request(rt2x00dev, USB_SINGLE_WRITE,
+-		USB_VENDOR_REQUEST_OUT, 0x0308, 0xf0, NULL, 0);
++		USB_VENDOR_REQUEST_OUT, 0x0308, 0xf0, NULL, 0,
++		REGISTER_TIMEOUT);
+ 
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR13, 0x1111);
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR14, 0x1e11);
+@@ -1392,7 +1407,7 @@
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
+ 
+ 	rt2x00_vendor_request(rt2x00dev, USB_RX_CONTROL,
+-		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0);
++		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0, REGISTER_TIMEOUT);
+ 
+ 	ring = &rt2x00dev->ring[RING_RX];
+ 	for (i = 0; i < ring->stats.limit; i++)
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-12-03 14:30:31.000000000 +0100
+@@ -73,32 +73,4 @@
+ #define USB_MODE_FIRMWARE	0x08	/* RT73USB */
+ #define USB_MODE_WAKEUP		0x09	/* RT73USB */
+ 
+-/*
+- * Vendor request command for sending
+- * vendor specific instructions to the device.
+- */
+-static inline int rt2x00usb_vendor_request(const struct rt2x00_dev *rt2x00dev,
+-	const u8 request, const u8 type, const u16 offset,
+-	u32 value, void *buffer, const u16 buffer_length, const u16 timeout)
+-{
+-	struct usb_device *usb_dev = interface_to_usbdev(
+-		rt2x00dev_usb(rt2x00dev));
+-	int status;
+-	unsigned int i;
+-
+-	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+-		status = usb_control_msg(
+-			usb_dev,
+-			(type == USB_VENDOR_REQUEST_IN) ?
+-				usb_rcvctrlpipe(usb_dev, 0) :
+-				usb_sndctrlpipe(usb_dev, 0),
+-			request, type, value, offset, buffer, buffer_length,
+-			timeout);
+-		if (status >= 0)
+-			return 0;
+-	}
+-
+-	return status;
+-}
+-
+ #endif /* RT2X00USB_H */
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 14:23:22.000000000 +0100
++++ wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 14:37:02.000000000 +0100
+@@ -66,18 +66,31 @@
+  * the access attempt is considered to have failed,
+  * and we will print an error.
+  */
+-static void rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
++static int rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
+ 	const u8 request, const u8 type, const u16 offset,
+-	u32 value, void *buffer, const u16 buffer_length)
++	u32 value, void *buffer, const u16 buffer_length, const u16 timeout)
+ {
+-	int status = rt2x00usb_vendor_request(
+-		rt2x00dev, request, type, offset,
+-		value, buffer, buffer_length, REGISTER_TIMEOUT);
+-
+-	if (status < 0)
+-		ERROR("vendor request error. Request 0x%02x failed "
+-			"for offset 0x%04x with error %d.\n",
+-			request, offset, status);
++	struct usb_device *usb_dev = interface_to_usbdev(
++		rt2x00dev_usb(rt2x00dev));
++	int status;
++	unsigned int i;
++
++	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
++		status = usb_control_msg(
++			usb_dev,
++			(type == USB_VENDOR_REQUEST_IN) ?
++				usb_rcvctrlpipe(usb_dev, 0) :
++				usb_sndctrlpipe(usb_dev, 0),
++			request, type, value, offset, buffer, buffer_length,
++			timeout);
++		if (status >= 0)
++			return 0;
++	}
++
++	ERROR("vendor request error. Request 0x%02x failed "
++		"for offset 0x%04x with error %d.\n", request, offset, status);
++
++	return status;
+ }
+ 
+ static inline void rt2x00_register_read(
+@@ -85,9 +98,9 @@
+ 	const u16 offset, u32 *value)
+ {
+ 	__le32 reg;
+- 	rt2x00_vendor_request(
+- 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
+-		offset, 0x00, reg, 4);
++	rt2x00_vendor_request(
++		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
++		offset, 0x00, &reg, 4, REGISTER_TIMEOUT);
+ 	*value = le32_to_cpu(reg);
+ }
+ 
+@@ -97,7 +110,7 @@
+ {
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
+-		offset, 0x00, value, length);
++		offset, 0x00, value, length, REGISTER_TIMEOUT);
+ }
+ 
+ static inline void rt2x00_register_write(
+@@ -107,7 +120,7 @@
+ 	__le32 reg = cpu_to_le32(value);
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
+-		offset, 0x00, &reg, 4);
++		offset, 0x00, &reg, 4, REGISTER_TIMEOUT);
+ }
+ 
+ static inline void rt2x00_register_multiwrite(
+@@ -116,7 +129,7 @@
+ {
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
+-		offset, 0x00, value, length);
++		offset, 0x00, value, length, REGISTER_TIMEOUT);
+ }
+ 
+ static u32 rt2x00_bbp_check(const struct rt2x00_dev *rt2x00dev)
+@@ -923,7 +936,7 @@
+ 
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_LED_CONTROL, USB_VENDOR_REQUEST_OUT,
+-		0x00, rt2x00dev->led_reg, NULL, 0);
++		0x00, rt2x00dev->led_reg, NULL, 0, REGISTER_TIMEOUT);
+ }
+ 
+ static void rt73usb_disable_led(struct rt2x00_dev *rt2x00dev)
+@@ -934,7 +947,7 @@
+ 
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_LED_CONTROL, USB_VENDOR_REQUEST_OUT,
+-		0x00, rt2x00dev->led_reg, NULL, 0);
++		0x00, rt2x00dev->led_reg, NULL, 0, REGISTER_TIMEOUT);
+ }
+ 
+ static void rt73usb_activity_led(struct rt2x00_dev *rt2x00dev, char rssi)
+@@ -959,7 +972,7 @@
+ 
+ 	rt2x00_vendor_request(
+ 		rt2x00dev, USB_LED_CONTROL, USB_VENDOR_REQUEST_OUT,
+-		led, rt2x00dev->led_reg, NULL, 0);
++		led, rt2x00dev->led_reg, NULL, 0, REGISTER_TIMEOUT);
+ }
+ 
+ /*
+@@ -979,7 +992,7 @@
+ 	if (!put_to_sleep)
+ 		rt2x00_vendor_request(rt2x00dev,
+ 			USB_DEVICE_MODE, USB_VENDOR_REQUEST_OUT,
+-			0x00, USB_MODE_WAKEUP, NULL, 0);
++			0x00, USB_MODE_WAKEUP, NULL, 0, REGISTER_TIMEOUT);
+ 
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR12, &reg);
+ 	rt2x00_set_field32(&reg, MAC_CSR12_FORCE_WAKEUP, !put_to_sleep);
+@@ -989,7 +1002,7 @@
+ 	if (put_to_sleep)
+ 		rt2x00_vendor_request(rt2x00dev,
+ 			USB_DEVICE_MODE, USB_VENDOR_REQUEST_OUT,
+-			0x00, USB_MODE_SLEEP, NULL, 0);
++			0x00, USB_MODE_SLEEP, NULL, 0, REGISTER_TIMEOUT);
+ 
  	/*
- 	 * Update LED.
+ 	 * Device is not guarenteed to be in the requested state yet.
+@@ -1086,10 +1099,9 @@
+ 
+ 	/*
+ 	 * Send firmware request to device to load firmware,
+-	 * use the rt2x00usb_vendor_request() function
+-	 * since we need to specify a long timeout time.
++	 * we need to specify a long timeout time.
  	 */
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt61pci.h
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-12-03 14:01:38.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-12-03 15:08:39.000000000 +0100
-@@ -1375,6 +1375,13 @@
- 	struct sk_buff *skb, struct ieee80211_tx_control *control);
+-	status = rt2x00usb_vendor_request(rt2x00dev, USB_DEVICE_MODE,
++	status = rt2x00_vendor_request(rt2x00dev, USB_DEVICE_MODE,
+ 		USB_VENDOR_REQUEST_OUT, 0x00, USB_MODE_FIRMWARE,
+ 		NULL, 0, REGISTER_TIMEOUT_FIRMWARE);
+ 	if (status  < 0) {
+@@ -1648,7 +1660,7 @@
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
  
- /*
-+ * LED control functions.
-+ */
-+static void rt61pci_enable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt61pci_disable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt61pci_activity_led(struct rt2x00_dev *rt2x00dev, char rssi);
-+
-+/*
-  * Radio control functions.
-  */
- static int rt61pci_enable_radio(struct rt2x00_dev *rt2x00dev);
-diff -rU3 wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt73usb.h wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt73usb.h
---- wireless-dev-channel/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-12-03 14:01:58.000000000 +0100
-+++ wireless-dev-led/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-12-03 15:08:49.000000000 +0100
-@@ -957,6 +957,13 @@
- 	struct sk_buff *skb, struct ieee80211_tx_control *control);
+ 	rt2x00_vendor_request(rt2x00dev, USB_RX_CONTROL,
+-		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0);
++		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0, REGISTER_TIMEOUT);
  
- /*
-+ * LED control functions.
-+ */
-+static void rt73usb_enable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt73usb_disable_led(struct rt2x00_dev *rt2x00dev);
-+static void rt73usb_activity_led(struct rt2x00_dev *rt2x00dev, char rssi);
-+
-+/*
-  * Radio control functions.
-  */
- static int rt73usb_enable_radio(struct rt2x00_dev *rt2x00dev);
+ 	ring = &rt2x00dev->ring[RING_RX];
+ 	for (i = 0; i < ring->stats.limit; i++)
