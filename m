@@ -1,323 +1,366 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 17/26] rt2x00: Move rt2x00usb_vendor_request out of header
-Date: Sun, 3 Dec 2006 19:18:59 +0100
-Message-ID: <200612031919.00075.IvDoorn@gmail.com>
+Subject: [PATCH 22/26] rt2x00: Fix various initialization problems
+Date: Sun, 3 Dec 2006 19:18:57 +0100
+Message-ID: <200612031918.57702.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:25433 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.189]:19032 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1758826AbWLCST3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 13:19:29 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so4144386nfa
-        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:28 -0800 (PST)
+	id S1758816AbWLCSTT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 13:19:19 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so4144307nfa
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:18 -0800 (PST)
 To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the rt2x00usb_vendor_request from the rt2x00usb.h
-header, and place it into the rt2x00_vendor_request.
-This means that the rt2x00_vendor_request function
-needs a timeout value especially for commands that
-require a lot of time (i.e. Firmware writing).
+Always use kzalloc instead of kmalloc.
+Remove duplicate init functions.
+And destroy the workqueue before freeing
+resources, otherwise a thread on the queue might
+still want to access that resource.
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 14:21:53.000000000 +0100
-+++ wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 14:36:31.000000000 +0100
-@@ -64,18 +64,31 @@
-  * the access attempt is considered to have failed,
-  * and we will print an error.
-  */
--static void rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
-+static int rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
- 	const u8 request, const u8 type, const u16 offset,
--	u32 value, void *buffer, const u16 buffer_length)
-+	u32 value, void *buffer, const u16 buffer_length, const u16 timeout)
- {
--	int status = rt2x00usb_vendor_request(
--		rt2x00dev, request, type, offset,
--		value, buffer, buffer_length, REGISTER_TIMEOUT);
--
--	if (status < 0)
--		ERROR("vendor request error. Request 0x%02x failed "
--			"for offset 0x%04x with error %d.\n",
--			request, offset, status);
-+	struct usb_device *usb_dev = interface_to_usbdev(
-+		rt2x00dev_usb(rt2x00dev));
-+	int status;
-+	unsigned int i;
-+
-+	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
-+		status = usb_control_msg(
-+			usb_dev,
-+			(type == USB_VENDOR_REQUEST_IN) ?
-+				usb_rcvctrlpipe(usb_dev, 0) :
-+				usb_sndctrlpipe(usb_dev, 0),
-+			request, type, value, offset, buffer, buffer_length,
-+			timeout);
-+		if (status >= 0)
-+			return 0;
-+	}
-+
-+	ERROR("vendor request error. Request 0x%02x failed "
-+		"for offset 0x%04x with error %d.\n", request, offset, status);
-+
-+	return status;
- }
+diff -rU3 wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-03 15:14:07.000000000 +0100
++++ wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-03 15:21:22.000000000 +0100
+@@ -771,7 +771,7 @@
+ 	/*
+ 	 * Allocate all ring entries.
+ 	 */
+-	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
++	ring->entry = kzalloc(ring->stats.limit * sizeof(struct data_entry),
+ 		GFP_KERNEL);
+ 	if (!ring->entry)
+ 		return -ENOMEM;
+@@ -791,6 +791,7 @@
+ 	 * addresses.
+ 	 */
+ 	for (i = 0; i < ring->stats.limit; i++) {
++		ring->entry[i].flags = 0;
+ 		ring->entry[i].ring = ring;
+ 		ring->entry[i].skb = NULL;
+ 		ring->entry[i].priv = ring->data_addr
+@@ -1174,16 +1175,6 @@
+ 	}
  
- static inline void rt2x00_register_read(
-@@ -85,7 +98,7 @@
- 	__le16 reg;
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
--		offset, 0x00, &reg, 2);
-+		offset, 0x00, &reg, 2, REGISTER_TIMEOUT);
- 	*value = le16_to_cpu(reg);
- }
- 
-@@ -95,7 +108,7 @@
- {
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
--		offset, 0x00, value, length);
-+		offset, 0x00, value, length, REGISTER_TIMEOUT);
- }
- 
- static inline void rt2x00_register_write(
-@@ -105,7 +118,7 @@
- 	__le16 reg = cpu_to_le16(value);
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
--		offset, 0x00, &reg, 2);
-+		offset, 0x00, &reg, 2, REGISTER_TIMEOUT);
- }
- 
- static inline void rt2x00_register_multiwrite(
-@@ -114,7 +127,7 @@
- {
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
--		offset, 0x00, value, length);
-+		offset, 0x00, value, length, REGISTER_TIMEOUT);
- }
- 
- static u16 rt2x00_bbp_check(const struct rt2x00_dev *rt2x00dev)
-@@ -1071,9 +1084,11 @@
- 		return -EBUSY;
- 
- 	rt2x00_vendor_request(rt2x00dev, USB_DEVICE_MODE,
--		USB_VENDOR_REQUEST_OUT, 0x00, USB_MODE_TEST, NULL, 0);
-+		USB_VENDOR_REQUEST_OUT, 0x0000, USB_MODE_TEST, NULL, 0,
-+		REGISTER_TIMEOUT);
- 	rt2x00_vendor_request(rt2x00dev, USB_SINGLE_WRITE,
--		USB_VENDOR_REQUEST_OUT, 0x0308, 0xf0, NULL, 0);
-+		USB_VENDOR_REQUEST_OUT, 0x0308, 0xf0, NULL, 0,
-+		REGISTER_TIMEOUT);
- 
- 	rt2x00_register_write(rt2x00dev, MAC_CSR13, 0x1111);
- 	rt2x00_register_write(rt2x00dev, MAC_CSR14, 0x1e11);
-@@ -1392,7 +1407,7 @@
- 	rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
- 
- 	rt2x00_vendor_request(rt2x00dev, USB_RX_CONTROL,
--		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0);
-+		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0, REGISTER_TIMEOUT);
- 
- 	ring = &rt2x00dev->ring[RING_RX];
- 	for (i = 0; i < ring->stats.limit; i++)
-diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h
---- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-12-02 14:24:40.000000000 +0100
-+++ wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-12-03 14:30:31.000000000 +0100
-@@ -73,32 +73,4 @@
- #define USB_MODE_FIRMWARE	0x08	/* RT73USB */
- #define USB_MODE_WAKEUP		0x09	/* RT73USB */
- 
--/*
-- * Vendor request command for sending
-- * vendor specific instructions to the device.
-- */
--static inline int rt2x00usb_vendor_request(const struct rt2x00_dev *rt2x00dev,
--	const u8 request, const u8 type, const u16 offset,
--	u32 value, void *buffer, const u16 buffer_length, const u16 timeout)
--{
--	struct usb_device *usb_dev = interface_to_usbdev(
--		rt2x00dev_usb(rt2x00dev));
--	int status;
--	unsigned int i;
--
--	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
--		status = usb_control_msg(
--			usb_dev,
--			(type == USB_VENDOR_REQUEST_IN) ?
--				usb_rcvctrlpipe(usb_dev, 0) :
--				usb_sndctrlpipe(usb_dev, 0),
--			request, type, value, offset, buffer, buffer_length,
--			timeout);
--		if (status >= 0)
--			return 0;
+ 	/*
+-	 * Initialize all registers.
+-	 */
+-	if (rt2400pci_init_rings(rt2x00dev) ||
+-	    rt2400pci_init_registers(rt2x00dev) ||
+-	    rt2400pci_init_bbp(rt2x00dev)) {
+-		ERROR("Register initialization failed.\n");
+-		goto exit_fail;
 -	}
 -
--	return status;
--}
--
- #endif /* RT2X00USB_H */
-diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 14:23:22.000000000 +0100
-+++ wireless-dev-vendor/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 14:37:02.000000000 +0100
-@@ -66,18 +66,31 @@
-  * the access attempt is considered to have failed,
-  * and we will print an error.
-  */
--static void rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
-+static int rt2x00_vendor_request(const struct rt2x00_dev *rt2x00dev,
- 	const u8 request, const u8 type, const u16 offset,
--	u32 value, void *buffer, const u16 buffer_length)
-+	u32 value, void *buffer, const u16 buffer_length, const u16 timeout)
+-	/*
+ 	 * Reset the channel_change_time value
+ 	 * to make sure it will be correctly initialized
+ 	 * after the radio has been enabled.
+@@ -2677,6 +2668,14 @@
+ static void rt2400pci_free_dev(struct rt2x00_dev *rt2x00dev)
  {
--	int status = rt2x00usb_vendor_request(
--		rt2x00dev, request, type, offset,
--		value, buffer, buffer_length, REGISTER_TIMEOUT);
--
--	if (status < 0)
--		ERROR("vendor request error. Request 0x%02x failed "
--			"for offset 0x%04x with error %d.\n",
--			request, offset, status);
-+	struct usb_device *usb_dev = interface_to_usbdev(
-+		rt2x00dev_usb(rt2x00dev));
-+	int status;
-+	unsigned int i;
-+
-+	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
-+		status = usb_control_msg(
-+			usb_dev,
-+			(type == USB_VENDOR_REQUEST_IN) ?
-+				usb_rcvctrlpipe(usb_dev, 0) :
-+				usb_sndctrlpipe(usb_dev, 0),
-+			request, type, value, offset, buffer, buffer_length,
-+			timeout);
-+		if (status >= 0)
-+			return 0;
+ 	/*
++	 * Free workqueue.
++	 */
++	if (likely(rt2x00dev->workqueue)) {
++		destroy_workqueue(rt2x00dev->workqueue);
++		rt2x00dev->workqueue = NULL;
 +	}
 +
-+	ERROR("vendor request error. Request 0x%02x failed "
-+		"for offset 0x%04x with error %d.\n", request, offset, status);
-+
-+	return status;
- }
- 
- static inline void rt2x00_register_read(
-@@ -85,9 +98,9 @@
- 	const u16 offset, u32 *value)
- {
- 	__le32 reg;
-- 	rt2x00_vendor_request(
-- 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
--		offset, 0x00, reg, 4);
-+	rt2x00_vendor_request(
-+		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
-+		offset, 0x00, &reg, 4, REGISTER_TIMEOUT);
- 	*value = le32_to_cpu(reg);
- }
- 
-@@ -97,7 +110,7 @@
- {
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_READ, USB_VENDOR_REQUEST_IN,
--		offset, 0x00, value, length);
-+		offset, 0x00, value, length, REGISTER_TIMEOUT);
- }
- 
- static inline void rt2x00_register_write(
-@@ -107,7 +120,7 @@
- 	__le32 reg = cpu_to_le32(value);
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
--		offset, 0x00, &reg, 4);
-+		offset, 0x00, &reg, 4, REGISTER_TIMEOUT);
- }
- 
- static inline void rt2x00_register_multiwrite(
-@@ -116,7 +129,7 @@
- {
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_MULTI_WRITE, USB_VENDOR_REQUEST_OUT,
--		offset, 0x00, value, length);
-+		offset, 0x00, value, length, REGISTER_TIMEOUT);
- }
- 
- static u32 rt2x00_bbp_check(const struct rt2x00_dev *rt2x00dev)
-@@ -923,7 +936,7 @@
- 
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_LED_CONTROL, USB_VENDOR_REQUEST_OUT,
--		0x00, rt2x00dev->led_reg, NULL, 0);
-+		0x00, rt2x00dev->led_reg, NULL, 0, REGISTER_TIMEOUT);
- }
- 
- static void rt73usb_disable_led(struct rt2x00_dev *rt2x00dev)
-@@ -934,7 +947,7 @@
- 
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_LED_CONTROL, USB_VENDOR_REQUEST_OUT,
--		0x00, rt2x00dev->led_reg, NULL, 0);
-+		0x00, rt2x00dev->led_reg, NULL, 0, REGISTER_TIMEOUT);
- }
- 
- static void rt73usb_activity_led(struct rt2x00_dev *rt2x00dev, char rssi)
-@@ -959,7 +972,7 @@
- 
- 	rt2x00_vendor_request(
- 		rt2x00dev, USB_LED_CONTROL, USB_VENDOR_REQUEST_OUT,
--		led, rt2x00dev->led_reg, NULL, 0);
-+		led, rt2x00dev->led_reg, NULL, 0, REGISTER_TIMEOUT);
- }
- 
- /*
-@@ -979,7 +992,7 @@
- 	if (!put_to_sleep)
- 		rt2x00_vendor_request(rt2x00dev,
- 			USB_DEVICE_MODE, USB_VENDOR_REQUEST_OUT,
--			0x00, USB_MODE_WAKEUP, NULL, 0);
-+			0x00, USB_MODE_WAKEUP, NULL, 0, REGISTER_TIMEOUT);
- 
- 	rt2x00_register_read(rt2x00dev, MAC_CSR12, &reg);
- 	rt2x00_set_field32(&reg, MAC_CSR12_FORCE_WAKEUP, !put_to_sleep);
-@@ -989,7 +1002,7 @@
- 	if (put_to_sleep)
- 		rt2x00_vendor_request(rt2x00dev,
- 			USB_DEVICE_MODE, USB_VENDOR_REQUEST_OUT,
--			0x00, USB_MODE_SLEEP, NULL, 0);
-+			0x00, USB_MODE_SLEEP, NULL, 0, REGISTER_TIMEOUT);
- 
- 	/*
- 	 * Device is not guarenteed to be in the requested state yet.
-@@ -1086,10 +1099,9 @@
- 
- 	/*
- 	 * Send firmware request to device to load firmware,
--	 * use the rt2x00usb_vendor_request() function
--	 * since we need to specify a long timeout time.
-+	 * we need to specify a long timeout time.
++	/*
+ 	 * Free ring structures.
  	 */
--	status = rt2x00usb_vendor_request(rt2x00dev, USB_DEVICE_MODE,
-+	status = rt2x00_vendor_request(rt2x00dev, USB_DEVICE_MODE,
- 		USB_VENDOR_REQUEST_OUT, 0x00, USB_MODE_FIRMWARE,
- 		NULL, 0, REGISTER_TIMEOUT_FIRMWARE);
- 	if (status  < 0) {
-@@ -1648,7 +1660,7 @@
- 	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
+ 	kfree(rt2x00dev->ring);
+@@ -2696,14 +2695,6 @@
+ 	}
  
- 	rt2x00_vendor_request(rt2x00dev, USB_RX_CONTROL,
--		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0);
-+		USB_VENDOR_REQUEST_OUT, 0x00, 0x00, NULL, 0, REGISTER_TIMEOUT);
+ 	/*
+-	 * Free workqueue.
+-	 */
+-	if (likely(rt2x00dev->workqueue)) {
+-		destroy_workqueue(rt2x00dev->workqueue);
+-		rt2x00dev->workqueue = NULL;
+-	}
+-
+-	/*
+ 	 * Free ieee80211_hw memory.
+ 	 */
+ 	if (likely(rt2x00dev->hw->modes)) {
+diff -rU3 wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-03 15:14:05.000000000 +0100
++++ wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-03 15:21:27.000000000 +0100
+@@ -864,7 +864,7 @@
+ 	/*
+ 	 * Allocate all ring entries.
+ 	 */
+-	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
++	ring->entry = kzalloc(ring->stats.limit * sizeof(struct data_entry),
+ 		GFP_KERNEL);
+ 	if (!ring->entry)
+ 		return -ENOMEM;
+@@ -884,6 +884,7 @@
+ 	 * addresses.
+ 	 */
+ 	for (i = 0; i < ring->stats.limit; i++) {
++		ring->entry[i].flags = 0;
+ 		ring->entry[i].ring = ring;
+ 		ring->entry[i].skb = NULL;
+ 		ring->entry[i].priv = ring->data_addr
+@@ -1299,16 +1300,6 @@
+ 	}
  
- 	ring = &rt2x00dev->ring[RING_RX];
- 	for (i = 0; i < ring->stats.limit; i++)
+ 	/*
+-	 * Initialize all registers.
+-	 */
+-	if (rt2500pci_init_rings(rt2x00dev) ||
+-	    rt2500pci_init_registers(rt2x00dev) ||
+-	    rt2500pci_init_bbp(rt2x00dev)) {
+-		ERROR("Register initialization failed.\n");
+-		goto exit_fail;
+-	}
+-
+-	/*
+ 	 * Reset the channel_change_time value
+ 	 * to make sure it will be correctly initialized
+ 	 * after the radio has been enabled.
+@@ -2978,6 +2969,14 @@
+ static void rt2500pci_free_dev(struct rt2x00_dev *rt2x00dev)
+ {
+ 	/*
++	 * Free workqueue.
++	 */
++	if (likely(rt2x00dev->workqueue)) {
++		destroy_workqueue(rt2x00dev->workqueue);
++		rt2x00dev->workqueue = NULL;
++	}
++
++	/*
+ 	 * Free ring structures.
+ 	 */
+ 	kfree(rt2x00dev->ring);
+@@ -2997,14 +2996,6 @@
+ 	}
+ 
+ 	/*
+-	 * Free workqueue.
+-	 */
+-	if (likely(rt2x00dev->workqueue)) {
+-		destroy_workqueue(rt2x00dev->workqueue);
+-		rt2x00dev->workqueue = NULL;
+-	}
+-
+-	/*
+ 	 * Free ieee80211_hw memory.
+ 	 */
+ 	if (likely(rt2x00dev->hw->modes)) {
+diff -rU3 wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 15:14:10.000000000 +0100
++++ wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 15:21:33.000000000 +0100
+@@ -917,7 +917,7 @@
+ 	/*
+ 	 * Allocate all ring entries.
+ 	 */
+-	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
++	ring->entry = kzalloc(ring->stats.limit * sizeof(struct data_entry),
+ 		GFP_KERNEL);
+ 	if (!ring->entry)
+ 		return -ENOMEM;
+@@ -939,6 +939,7 @@
+ 	 */
+ 	status = 0;
+ 	for (i = 0; i < ring->stats.limit; i++) {
++		ring->entry[i].flags = 0;
+ 		ring->entry[i].ring = ring;
+ 		ring->entry[i].priv =
+ 			(!status) ? usb_alloc_urb(0, GFP_KERNEL) : NULL;
+@@ -1265,16 +1266,6 @@
+ 	}
+ 
+ 	/*
+-	 * Initialize all registers.
+-	 */
+-	if (rt2500usb_init_rings(rt2x00dev) ||
+-	    rt2500usb_init_registers(rt2x00dev) ||
+-	    rt2500usb_init_bbp(rt2x00dev)) {
+-		ERROR("Register initialization failed.\n");
+-		goto exit_fail;
+-	}
+-
+-	/*
+ 	 * Reset the channel_change_time value
+ 	 * to make sure it will be correctly initialized
+ 	 * after the radio has been enabled.
+@@ -2803,6 +2794,14 @@
+ static void rt2500usb_free_dev(struct rt2x00_dev *rt2x00dev)
+ {
+ 	/*
++	 * Free workqueue.
++	 */
++	if (likely(rt2x00dev->workqueue)) {
++		destroy_workqueue(rt2x00dev->workqueue);
++		rt2x00dev->workqueue = NULL;
++	}
++
++	/*
+ 	 * Free ring structures.
+ 	 */
+ 	kfree(rt2x00dev->ring);
+@@ -2814,14 +2813,6 @@
+ 	kfree(rt2x00dev->eeprom);
+ 
+ 	/*
+-	 * Free workqueue.
+-	 */
+-	if (likely(rt2x00dev->workqueue)) {
+-		destroy_workqueue(rt2x00dev->workqueue);
+-		rt2x00dev->workqueue = NULL;
+-	}
+-
+-	/*
+ 	 * Free ieee80211_hw memory.
+ 	 */
+ 	if (likely(rt2x00dev->hw->modes)) {
+diff -rU3 wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 15:14:18.000000000 +0100
++++ wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 15:21:35.000000000 +0100
+@@ -1291,7 +1291,7 @@
+ 	/*
+ 	 * Allocate all ring entries.
+ 	 */
+-	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
++	ring->entry = kzalloc(ring->stats.limit * sizeof(struct data_entry),
+ 		GFP_KERNEL);
+ 	if (!ring->entry)
+ 		return -ENOMEM;
+@@ -1311,6 +1311,7 @@
+ 	 * addresses.
+ 	 */
+ 	for (i = 0; i < ring->stats.limit; i++) {
++		ring->entry[i].flags = 0;
+ 		ring->entry[i].ring = ring;
+ 		ring->entry[i].skb = NULL;
+ 		ring->entry[i].priv = ring->data_addr
+@@ -1738,16 +1739,6 @@
+ 	}
+ 
+ 	/*
+-	 * Initialize all registers.
+-	 */
+-	if (rt61pci_init_rings(rt2x00dev) ||
+-	    rt61pci_init_registers(rt2x00dev) ||
+-	    rt61pci_init_bbp(rt2x00dev)) {
+-		ERROR("Register initialization failed.\n");
+-		goto exit_fail;
+-	}
+-
+-	/*
+ 	 * Reset the channel_change_time value
+ 	 * to make sure it will be correctly initialized
+ 	 * after the radio has been enabled.
+@@ -3506,6 +3497,14 @@
+ static void rt61pci_free_dev(struct rt2x00_dev *rt2x00dev)
+ {
+ 	/*
++	 * Free workqueue.
++	 */
++	if (likely(rt2x00dev->workqueue)) {
++		destroy_workqueue(rt2x00dev->workqueue);
++		rt2x00dev->workqueue = NULL;
++	}
++
++	/*
+ 	 * Free ring structures.
+ 	 */
+ 	kfree(rt2x00dev->ring);
+@@ -3525,14 +3524,6 @@
+ 	}
+ 
+ 	/*
+-	 * Free workqueue.
+-	 */
+-	if (likely(rt2x00dev->workqueue)) {
+-		destroy_workqueue(rt2x00dev->workqueue);
+-		rt2x00dev->workqueue = NULL;
+-	}
+-
+-	/*
+ 	 * Free ieee80211_hw memory.
+ 	 */
+ 	if (likely(rt2x00dev->hw->modes)) {
+diff -rU3 wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-ringfull/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 15:14:33.000000000 +0100
++++ wireless-dev-init/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 15:21:44.000000000 +0100
+@@ -1149,7 +1149,7 @@
+ 	/*
+ 	 * Allocate all ring entries.
+ 	 */
+-	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
++	ring->entry = kzalloc(ring->stats.limit * sizeof(struct data_entry),
+ 		GFP_KERNEL);
+ 	if (!ring->entry)
+ 		return -ENOMEM;
+@@ -1171,6 +1171,7 @@
+ 	 */
+ 	status = 0;
+ 	for (i = 0; i < ring->stats.limit; i++) {
++		ring->entry[i].flags = 0;
+ 		ring->entry[i].ring = ring;
+ 		ring->entry[i].priv =
+ 			(!status) ? usb_alloc_urb(0, GFP_KERNEL) :  NULL;
+@@ -1521,16 +1522,6 @@
+ 	}
+ 
+ 	/*
+-	 * Initialize all registers.
+-	 */
+-	if (rt73usb_init_rings(rt2x00dev) ||
+-	    rt73usb_init_registers(rt2x00dev) ||
+-	    rt73usb_init_bbp(rt2x00dev)) {
+-		ERROR("Register initialization failed.\n");
+-		goto exit_fail;
+-	}
+-
+-	/*
+ 	 * Reset the channel_change_time value
+ 	 * to make sure it will be correctly initialized
+ 	 * after the radio has been enabled.
+@@ -3147,6 +3138,14 @@
+ static void rt73usb_free_dev(struct rt2x00_dev *rt2x00dev)
+ {
+ 	/*
++	 * Free workqueue.
++	 */
++	if (likely(rt2x00dev->workqueue)) {
++		destroy_workqueue(rt2x00dev->workqueue);
++		rt2x00dev->workqueue = NULL;
++	}
++
++	/*
+ 	 * Free ring structures.
+ 	 */
+ 	kfree(rt2x00dev->ring);
+@@ -3158,14 +3157,6 @@
+ 	kfree(rt2x00dev->eeprom);
+ 
+ 	/*
+-	 * Free workqueue.
+-	 */
+-	if (likely(rt2x00dev->workqueue)) {
+-		destroy_workqueue(rt2x00dev->workqueue);
+-		rt2x00dev->workqueue = NULL;
+-	}
+-
+-	/*
+ 	 * Free ieee80211_hw memory.
+ 	 */
+ 	if (likely(rt2x00dev->hw->modes)) {
