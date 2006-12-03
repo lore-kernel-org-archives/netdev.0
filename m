@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: XFRM changing the view of xfrm_aevent_id
-Date: Sat, 02 Dec 2006 22:22:56 -0800 (PST)
-Message-ID: <20061202.222256.97293883.davem@davemloft.net>
-References: <1164983872.3562.45.camel@localhost>
-	<20061201.200858.25157271.davem@davemloft.net>
-	<1165057748.3564.1.camel@localhost>
+From: Maxime Austruy <maxime@tralhalla.org>
+Subject: [PATCH] softmac: fix unbalanced mutex_lock/unlock in ieee80211softmac_wx_set_mlme
+Date: Sat, 2 Dec 2006 23:42:03 -0800
+Message-ID: <20061203074203.GB5785@tralhalla.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hidden@balabit.hu, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:17307
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S936671AbWLCGXm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 01:23:42 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1165057748.3564.1.camel@localhost>
+Received: from alnrmhc11.comcast.net ([206.18.177.51]:39345 "EHLO
+	alnrmhc11.comcast.net") by vger.kernel.org with ESMTP
+	id S1425022AbWLCHmH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 02:42:07 -0500
+To: linville@tuxdriver.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Sat, 02 Dec 2006 06:09:08 -0500
 
-> On Fri, 2006-01-12 at 20:08 -0800, David Miller wrote:
-> 
-> > 
-> > Let's change it now while we still can.
-> > 
-> > A few months from now, I will probably not give the same
-> > answer :)
-> 
-> :-> Ok, here it is ...
+Found a hang while playing with wpa_supplicant and a zd1211 usb adapter
+using linux 2.6.19.  The problem is that ieee80211softmac_wx_set_mlme
+forgets to release a mutex when mlme->cmd is IW_MLME_DEAUTH.  The fix
+below allows me to kill wpa_supplicant and to restart it without having
+to reboot the machine. FWIW, it seems that the problem was introduced
+between 2.6.19-rc2 and 2.6.19-rc3 when this function was changed to use
+a mutex.
 
-Applied thanks.
+Signed-off-by: Maxime Austruy <maxime@tralhalla.org>
+
+--
+ net/ieee80211/softmac/ieee80211softmac_wx.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- linux.orig/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-11-29 13:57:37.000000000 -0800
++++ linux/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-12-02 22:58:20.000000000 -0800
+@@ -495,7 +495,8 @@ ieee80211softmac_wx_set_mlme(struct net_
+ 			printk(KERN_DEBUG PFX "wx_set_mlme: we should know the net here...\n");
+ 			goto out;
+ 		}
+-		return ieee80211softmac_deauth_req(mac, net, reason);
++		err =  ieee80211softmac_deauth_req(mac, net, reason);
++		goto out;
+ 	case IW_MLME_DISASSOC:
+ 		ieee80211softmac_send_disassoc_req(mac, reason);
+ 		mac->associnfo.associated = 0;
