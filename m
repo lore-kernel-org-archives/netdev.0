@@ -1,377 +1,535 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 10/26] rt2x00: WMM ring priority
-Date: Sun, 3 Dec 2006 19:19:02 +0100
-Message-ID: <200612031919.03080.IvDoorn@gmail.com>
+Subject: [PATCH 01/26] rt2x00: ethtool
+Date: Sun, 3 Dec 2006 19:19:05 +0100
+Message-ID: <200612031919.06078.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:19032 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.191]:55900 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1759967AbWLCSTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 13:19:32 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so4144307nfa
-        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:31 -0800 (PST)
+	id S1758883AbWLCSTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 13:19:39 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so4144432nfa
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:37 -0800 (PST)
 To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rt61pci and rt73usb have the WMM ring priorities
-backwards. RING_AC_VO is the most important ring
-while RING_AC_BK the least important ring.
-Lets reorder the ring handling.
-(And fix some small typos in the comments regarding
-the rings)
+Latest d80211 stack no longer provides any ethtool support.
+At the moment there is no quick replacement possible for
+the ethtool features (debugfs is under investigation, but
+requires more work).
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt2400pci.h wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt2400pci.h
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-12-03 12:49:55.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-12-03 13:04:38.000000000 +0100
-@@ -870,7 +870,7 @@
- #define RXD_W7_RESERVED			FIELD32(0xffffffff)
+diff -rU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-02 14:52:12.000000000 +0100
+@@ -35,7 +35,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+-#include <linux/ethtool.h>
  
- /*
-- * TX ring index number for rt2x00_pci structure.
-+ * TX ring index number for rt2x00_dev structure.
-  */
- enum ring_index {
- 	RING_PRIO = 0,
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt2500pci.h wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt2500pci.h
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-12-03 12:50:28.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-12-03 13:04:44.000000000 +0100
-@@ -1145,7 +1145,7 @@
- #define RXD_W10_DROP			FIELD32(0x00000001)
- 
- /*
-- * TX ring index number for rt2x00_pci structure.
-+ * TX ring index number for rt2x00_dev structure.
-  */
- enum ring_index {
- 	RING_PRIO = 0,
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt2500usb.h wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt2500usb.h
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-12-03 13:00:52.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-12-03 13:04:50.000000000 +0100
-@@ -652,7 +652,7 @@
- #define RXD_W3_EIV			FIELD32(0xffffffff)
- 
- /*
-- * TX ring index number for rt2x00_usb structure.
-+ * TX ring index number for rt2x00_dev structure.
-  */
- enum ring_index {
- 	RING_PRIO = 0,
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 12:48:43.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 13:08:21.000000000 +0100
-@@ -1320,16 +1320,16 @@
- 	if (rt61pci_alloc_dma_ring(rt2x00dev, RING_RX,
- 		rt61pci_rxdone, RX_ENTRIES, DATA_FRAME_SIZE,
- 		RXD_DESC_SIZE) ||
--	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_BK,
-+	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_VO,
- 		rt61pci_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
--	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_BE,
-+	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_VI,
- 		rt61pci_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
--	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_VI,
-+	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_BE,
- 		rt61pci_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
--	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_VO,
-+	    rt61pci_alloc_dma_ring(rt2x00dev, RING_AC_BK,
- 		rt61pci_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
- 	    rt61pci_alloc_dma_ring(rt2x00dev, RING_PRIO,
-@@ -1347,10 +1347,10 @@
- static void rt61pci_free_rings(struct rt2x00_dev *rt2x00dev)
- {
- 	rt61pci_free_ring(rt2x00dev, RING_RX);
--	rt61pci_free_ring(rt2x00dev, RING_AC_BK);
--	rt61pci_free_ring(rt2x00dev, RING_AC_BE);
--	rt61pci_free_ring(rt2x00dev, RING_AC_VI);
- 	rt61pci_free_ring(rt2x00dev, RING_AC_VO);
-+	rt61pci_free_ring(rt2x00dev, RING_AC_VI);
-+	rt61pci_free_ring(rt2x00dev, RING_AC_BE);
-+	rt61pci_free_ring(rt2x00dev, RING_AC_BK);
- 	rt61pci_free_ring(rt2x00dev, RING_PRIO);
- 	rt61pci_free_ring(rt2x00dev, RING_BEACON);
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -343,81 +342,6 @@
  }
-@@ -1429,10 +1429,10 @@
- 	 * Initialize rings.
- 	 */
- 	rt61pci_init_rxring(rt2x00dev, RING_RX);
--	rt61pci_init_txring(rt2x00dev, RING_AC_BK);
--	rt61pci_init_txring(rt2x00dev, RING_AC_BE);
--	rt61pci_init_txring(rt2x00dev, RING_AC_VI);
- 	rt61pci_init_txring(rt2x00dev, RING_AC_VO);
-+	rt61pci_init_txring(rt2x00dev, RING_AC_VI);
-+	rt61pci_init_txring(rt2x00dev, RING_AC_BE);
-+	rt61pci_init_txring(rt2x00dev, RING_AC_BK);
- 	rt61pci_init_txring(rt2x00dev, RING_PRIO);
- 	rt61pci_init_txring(rt2x00dev, RING_BEACON);
- 
-@@ -1441,40 +1441,40 @@
- 	 */
- 	reg = 0;
- 	rt2x00_set_field32(&reg, TX_RING_CSR0_AC0_RING_SIZE,
--		rt2x00dev->ring[RING_AC_BK].stats.limit);
-+		rt2x00dev->ring[RING_AC_VO].stats.limit);
- 	rt2x00_set_field32(&reg, TX_RING_CSR0_AC1_RING_SIZE,
--		rt2x00dev->ring[RING_AC_BE].stats.limit);
--	rt2x00_set_field32(&reg, TX_RING_CSR0_AC2_RING_SIZE,
- 		rt2x00dev->ring[RING_AC_VI].stats.limit);
-+	rt2x00_set_field32(&reg, TX_RING_CSR0_AC2_RING_SIZE,
-+		rt2x00dev->ring[RING_AC_BE].stats.limit);
- 	rt2x00_set_field32(&reg, TX_RING_CSR0_AC3_RING_SIZE,
--		rt2x00dev->ring[RING_AC_VO].stats.limit);
-+		rt2x00dev->ring[RING_AC_BK].stats.limit);
- 	rt2x00_register_write(rt2x00dev, TX_RING_CSR0, reg);
- 
- 	reg = 0;
- 	rt2x00_set_field32(&reg, TX_RING_CSR1_MGMT_RING_SIZE,
- 		rt2x00dev->ring[RING_PRIO].stats.limit);
- 	rt2x00_set_field32(&reg, TX_RING_CSR1_TXD_SIZE,
--		rt2x00dev->ring[RING_AC_BK].desc_size / 4);
-+		rt2x00dev->ring[RING_AC_VO].desc_size / 4);
- 	rt2x00_register_write(rt2x00dev, TX_RING_CSR1, reg);
- 
- 	reg = 0;
- 	rt2x00_set_field32(&reg, AC0_BASE_CSR_RING_REGISTER,
--		rt2x00dev->ring[RING_AC_BK].data_dma);
-+		rt2x00dev->ring[RING_AC_VO].data_dma);
- 	rt2x00_register_write(rt2x00dev, AC0_BASE_CSR, reg);
- 
- 	reg = 0;
- 	rt2x00_set_field32(&reg, AC1_BASE_CSR_RING_REGISTER,
--		rt2x00dev->ring[RING_AC_BE].data_dma);
-+		rt2x00dev->ring[RING_AC_VI].data_dma);
- 	rt2x00_register_write(rt2x00dev, AC1_BASE_CSR, reg);
- 
- 	reg = 0;
- 	rt2x00_set_field32(&reg, AC2_BASE_CSR_RING_REGISTER,
--		rt2x00dev->ring[RING_AC_VI].data_dma);
-+		rt2x00dev->ring[RING_AC_BE].data_dma);
- 	rt2x00_register_write(rt2x00dev, AC2_BASE_CSR, reg);
- 
- 	reg = 0;
- 	rt2x00_set_field32(&reg, AC3_BASE_CSR_RING_REGISTER,
--		rt2x00dev->ring[RING_AC_VO].data_dma);
-+		rt2x00dev->ring[RING_AC_BK].data_dma);
- 	rt2x00_register_write(rt2x00dev, AC3_BASE_CSR, reg);
- 
- 	reg = 0;
-@@ -2317,10 +2317,10 @@
- 	 * to start scanning.
- 	 */
- 	if (rt2x00dev->scan &&
--	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BK]) &&
--	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BE]) &&
--	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_VI]) &&
- 	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_VO]) &&
-+	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_VI]) &&
-+	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BE]) &&
-+	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BK]) &&
- 	    rt2x00_ring_empty(&rt2x00dev->ring[RING_PRIO]))
- 		rt2x00_signal_scan(rt2x00dev->scan, SCANNING_READY);
- }
-@@ -2374,7 +2374,7 @@
- 	 */
- 	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_TXDONE))
- 		queue_work(rt2x00dev->workqueue,
--			&rt2x00dev->ring[RING_AC_BK].irq_work);
-+			&rt2x00dev->ring[RING_AC_VO].irq_work);
- 
- 	return IRQ_HANDLED;
- }
-@@ -2827,17 +2827,17 @@
- 	struct rt2x00_dev *rt2x00dev = hw->priv;
- 
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA0],
--		&rt2x00dev->ring[RING_AC_BK].stats,
--		sizeof(rt2x00dev->ring[RING_AC_BK].stats));
-+		&rt2x00dev->ring[RING_AC_VO].stats,
-+		sizeof(rt2x00dev->ring[RING_AC_VO].stats));
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA1],
--		&rt2x00dev->ring[RING_AC_BE].stats,
--		sizeof(rt2x00dev->ring[RING_AC_BE].stats));
--	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA2],
- 		&rt2x00dev->ring[RING_AC_VI].stats,
- 		sizeof(rt2x00dev->ring[RING_AC_VI].stats));
-+	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA2],
-+		&rt2x00dev->ring[RING_AC_BE].stats,
-+		sizeof(rt2x00dev->ring[RING_AC_BE].stats));
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA3],
--		&rt2x00dev->ring[RING_AC_VO].stats,
--		sizeof(rt2x00dev->ring[RING_AC_VO].stats));
-+		&rt2x00dev->ring[RING_AC_BK].stats,
-+		sizeof(rt2x00dev->ring[RING_AC_BK].stats));
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA4],
- 		&rt2x00dev->ring[RING_PRIO].stats,
- 		sizeof(rt2x00dev->ring[RING_PRIO].stats));
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt61pci.h
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-12-03 12:51:17.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-12-03 13:04:29.000000000 +0100
-@@ -1309,13 +1309,13 @@
- #define RXD_W15_RESERVED		FIELD32(0xffffffff)
  
  /*
-- * TX ring index number for rt2x00_pci structure.
-+ * TX ring index number for rt2x00_dev structure.
+- * Ethtool handlers.
+- */
+-static void rt2400pci_get_drvinfo(struct net_device *net_dev,
+-	struct ethtool_drvinfo *drvinfo)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	strcpy(drvinfo->driver, DRV_NAME);
+-	strcpy(drvinfo->version, DRV_VERSION);
+-	strcpy(drvinfo->fw_version, "N/A");
+-	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
+-	drvinfo->eedump_len = EEPROM_SIZE;
+-	drvinfo->regdump_len = CSR_REG_SIZE;
+-}
+-
+-static int rt2400pci_get_regs_len(struct net_device *net_dev)
+-{
+-	return CSR_REG_SIZE;
+-}
+-
+-static void rt2400pci_get_regs(struct net_device *net_dev,
+-	struct ethtool_regs *regs, void *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
+-	regs->version = rt2x00_rev(&rt2x00dev->chip);
+-	regs->len = CSR_REG_SIZE;
+-}
+-
+-#ifdef CONFIG_RT2400PCI_DEBUG
+-static u32 rt2400pci_get_msglevel(struct net_device *net_dev)
+-{
+-	return rt2x00_debug_level;
+-}
+-
+-static void rt2400pci_set_msglevel(struct net_device *net_dev, u32 msg)
+-{
+-	rt2x00_debug_level = !!msg;
+-}
+-#endif /* CONFIG_RT2400PCI_DEBUG */
+-
+-static int rt2400pci_get_eeprom_len(struct net_device *net_dev)
+-{
+-	return EEPROM_SIZE;
+-}
+-
+-static int rt2400pci_get_eeprom(struct net_device *net_dev,
+-	struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	eeprom->magic = 0xbad;
+-
+-	rt2x00_eeprom_multiread(rt2x00dev,
+-		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
+-
+-	return 0;
+-}
+-
+-static struct ethtool_ops rt2400pci_ethtool_ops = {
+-	.get_drvinfo	= rt2400pci_get_drvinfo,
+-	.get_regs_len	= rt2400pci_get_regs_len,
+-	.get_regs	= rt2400pci_get_regs,
+-#ifdef CONFIG_RT2400PCI_DEBUG
+-	.get_msglevel	= rt2400pci_get_msglevel,
+-	.set_msglevel	= rt2400pci_set_msglevel,
+-#endif /* CONFIG_RT2400PCI_DEBUG */
+-	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= rt2400pci_get_eeprom_len,
+-	.get_eeprom	= rt2400pci_get_eeprom,
+-	.get_perm_addr	= ethtool_op_get_perm_addr,
+-};
+-
+-/*
+  * Configuration handlers.
   */
- enum ring_index {
--	RING_AC_BK = 0,
--	RING_AC_BE = 1,
--	RING_AC_VI = 2,
--	RING_AC_VO = 3,
-+	RING_AC_VO = 0,
-+	RING_AC_VI = 1,
-+	RING_AC_BE = 2,
-+	RING_AC_BK = 3,
- 	RING_PRIO = 4,
- 	RING_BEACON = 5,
- 	RING_RX = 6,
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 12:48:57.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 13:10:11.000000000 +0100
-@@ -1186,16 +1186,16 @@
- 	if (rt73usb_alloc_dma_ring(rt2x00dev, RING_RX,
- 		rt73usb_rxdone, RX_ENTRIES, DATA_FRAME_SIZE,
- 		RXD_DESC_SIZE) ||
--	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_BK,
-+	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_VO,
- 		rt73usb_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
--	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_BE,
-+	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_VI,
- 		rt73usb_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
--	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_VI,
-+	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_BE,
- 		rt73usb_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
--	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_VO,
-+	    rt73usb_alloc_dma_ring(rt2x00dev, RING_AC_BK,
- 		rt73usb_txdone, TX_ENTRIES, DATA_FRAME_SIZE,
- 		TXD_DESC_SIZE) ||
- 	    rt73usb_alloc_dma_ring(rt2x00dev, RING_PRIO,
-@@ -1213,10 +1213,10 @@
- static void rt73usb_free_rings(struct rt2x00_dev *rt2x00dev)
- {
- 	rt73usb_free_ring(rt2x00dev, RING_RX);
--	rt73usb_free_ring(rt2x00dev, RING_AC_BK);
--	rt73usb_free_ring(rt2x00dev, RING_AC_BE);
--	rt73usb_free_ring(rt2x00dev, RING_AC_VI);
- 	rt73usb_free_ring(rt2x00dev, RING_AC_VO);
-+	rt73usb_free_ring(rt2x00dev, RING_AC_VI);
-+	rt73usb_free_ring(rt2x00dev, RING_AC_BE);
-+	rt73usb_free_ring(rt2x00dev, RING_AC_BK);
- 	rt73usb_free_ring(rt2x00dev, RING_PRIO);
- 	rt73usb_free_ring(rt2x00dev, RING_BEACON);
+ static void rt2400pci_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -2861,7 +2785,6 @@
+ 		goto exit_disable_device;
+ 	}
+ 
+-	SET_ETHTOOL_OPS(net_dev, &rt2400pci_ethtool_ops);
+ 	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+ 
+ 	pci_set_drvdata(pci_dev, net_dev);
+diff -rU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-02 14:52:11.000000000 +0100
+@@ -35,7 +35,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+-#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -343,81 +342,6 @@
  }
-@@ -1273,10 +1273,10 @@
- static int rt73usb_init_rings(struct rt2x00_dev *rt2x00dev)
- {
- 	rt73usb_init_rxring(rt2x00dev, RING_RX);
--	rt73usb_init_txring(rt2x00dev, RING_AC_BK);
--	rt73usb_init_txring(rt2x00dev, RING_AC_BE);
--	rt73usb_init_txring(rt2x00dev, RING_AC_VI);
- 	rt73usb_init_txring(rt2x00dev, RING_AC_VO);
-+	rt73usb_init_txring(rt2x00dev, RING_AC_VI);
-+	rt73usb_init_txring(rt2x00dev, RING_AC_BE);
-+	rt73usb_init_txring(rt2x00dev, RING_AC_BK);
- 	rt73usb_init_txring(rt2x00dev, RING_PRIO);
- 	rt73usb_init_txring(rt2x00dev, RING_BEACON);
- 
-@@ -1620,19 +1620,19 @@
- 	for (i = 0; i < ring->stats.limit; i++)
- 		usb_kill_urb(rt2x00_urb(&ring->entry[i]));
- 
--	ring = &rt2x00dev->ring[RING_AC_BK];
-+	ring = &rt2x00dev->ring[RING_AC_VO];
- 	for (i = 0; i < ring->stats.limit; i++)
- 		usb_kill_urb(rt2x00_urb(&ring->entry[i]));
- 
--	ring = &rt2x00dev->ring[RING_AC_BE];
-+	ring = &rt2x00dev->ring[RING_AC_VI];
- 	for (i = 0; i < ring->stats.limit; i++)
- 		usb_kill_urb(rt2x00_urb(&ring->entry[i]));
- 
--	ring = &rt2x00dev->ring[RING_AC_VI];
-+	ring = &rt2x00dev->ring[RING_AC_BE];
- 	for (i = 0; i < ring->stats.limit; i++)
- 		usb_kill_urb(rt2x00_urb(&ring->entry[i]));
- 
--	ring = &rt2x00dev->ring[RING_AC_VO];
-+	ring = &rt2x00dev->ring[RING_AC_BK];
- 	for (i = 0; i < ring->stats.limit; i++)
- 		usb_kill_urb(rt2x00_urb(&ring->entry[i]));
- 
-@@ -2035,10 +2035,10 @@
- 	 * to start scanning.
- 	 */
- 	if (rt2x00dev->scan &&
--	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BK]) &&
--	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BE]) &&
--	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_VI]) &&
- 	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_VO]) &&
-+	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_VI]) &&
-+	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BE]) &&
-+	    rt2x00_ring_empty(&rt2x00dev->ring[RING_AC_BK]) &&
- 	    rt2x00_ring_empty(&rt2x00dev->ring[RING_PRIO]))
- 		rt2x00_signal_scan(rt2x00dev->scan, SCANNING_READY);
- 
-@@ -2524,17 +2524,17 @@
- 	struct rt2x00_dev *rt2x00dev = hw->priv;
- 
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA0],
--		&rt2x00dev->ring[RING_AC_BK].stats,
--		sizeof(rt2x00dev->ring[RING_AC_BK].stats));
-+		&rt2x00dev->ring[RING_AC_VO].stats,
-+		sizeof(rt2x00dev->ring[RING_AC_VO].stats));
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA1],
--		&rt2x00dev->ring[RING_AC_BE].stats,
--		sizeof(rt2x00dev->ring[RING_AC_BE].stats));
--	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA2],
- 		&rt2x00dev->ring[RING_AC_VI].stats,
- 		sizeof(rt2x00dev->ring[RING_AC_VI].stats));
-+	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA2],
-+		&rt2x00dev->ring[RING_AC_BE].stats,
-+		sizeof(rt2x00dev->ring[RING_AC_BE].stats));
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA3],
--		&rt2x00dev->ring[RING_AC_VO].stats,
--		sizeof(rt2x00dev->ring[RING_AC_VO].stats));
-+		&rt2x00dev->ring[RING_AC_BK].stats,
-+		sizeof(rt2x00dev->ring[RING_AC_BK].stats));
- 	memcpy(&stats->data[IEEE80211_TX_QUEUE_DATA4],
- 		&rt2x00dev->ring[RING_PRIO].stats,
- 		sizeof(rt2x00dev->ring[RING_PRIO].stats));
-diff -rU3 wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.h wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt73usb.h
---- wireless-dev-usbeeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-12-03 13:01:47.000000000 +0100
-+++ wireless-dev-ringindex/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-12-03 13:04:31.000000000 +0100
-@@ -891,13 +891,13 @@
- #define RXD_W5_RESERVED			FIELD32(0xffffffff)
  
  /*
-- * TX ring index number for rt2x00_usb structure.
-+ * TX ring index number for rt2x00_dev structure.
+- * Ethtool handlers.
+- */
+-static void rt2500pci_get_drvinfo(struct net_device *net_dev,
+-	struct ethtool_drvinfo *drvinfo)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	strcpy(drvinfo->driver, DRV_NAME);
+-	strcpy(drvinfo->version, DRV_VERSION);
+-	strcpy(drvinfo->fw_version, "N/A");
+-	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
+-	drvinfo->eedump_len = EEPROM_SIZE;
+-	drvinfo->regdump_len = CSR_REG_SIZE;
+-}
+-
+-static int rt2500pci_get_regs_len(struct net_device *net_dev)
+-{
+-	return CSR_REG_SIZE;
+-}
+-
+-static void rt2500pci_get_regs(struct net_device *net_dev,
+-	struct ethtool_regs *regs, void *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
+-	regs->version = rt2x00_rev(&rt2x00dev->chip);
+-	regs->len = CSR_REG_SIZE;
+-}
+-
+-#ifdef CONFIG_RT2500PCI_DEBUG
+-static u32 rt2500pci_get_msglevel(struct net_device *net_dev)
+-{
+-	return rt2x00_debug_level;
+-}
+-
+-static void rt2500pci_set_msglevel(struct net_device *net_dev, u32 msg)
+-{
+-	rt2x00_debug_level = !!msg;
+-}
+-#endif /* CONFIG_RT2500PCI_DEBUG */
+-
+-static int rt2500pci_get_eeprom_len(struct net_device *net_dev)
+-{
+-	return EEPROM_SIZE;
+-}
+-
+-static int rt2500pci_get_eeprom(struct net_device *net_dev,
+-	struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	eeprom->magic = 0xbad;
+-
+-	rt2x00_eeprom_multiread(rt2x00dev,
+-		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
+-
+-	return 0;
+-}
+-
+-static struct ethtool_ops rt2500pci_ethtool_ops = {
+-	.get_drvinfo	= rt2500pci_get_drvinfo,
+-	.get_regs_len	= rt2500pci_get_regs_len,
+-	.get_regs	= rt2500pci_get_regs,
+-#ifdef CONFIG_RT2500PCI_DEBUG
+-	.get_msglevel	= rt2500pci_get_msglevel,
+-	.set_msglevel	= rt2500pci_set_msglevel,
+-#endif /* CONFIG_RT2500PCI_DEBUG */
+-	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= rt2500pci_get_eeprom_len,
+-	.get_eeprom	= rt2500pci_get_eeprom,
+-	.get_perm_addr	= ethtool_op_get_perm_addr,
+-};
+-
+-/*
+  * Configuration handlers.
   */
- enum ring_index {
--	RING_AC_BK = 0,
--	RING_AC_BE = 1,
--	RING_AC_VI = 2,
--	RING_AC_VO = 3,
-+	RING_AC_VO = 0,
-+	RING_AC_VI = 1,
-+	RING_AC_BE = 2,
-+	RING_AC_BK = 3,
- 	RING_PRIO = 4,
- 	RING_BEACON = 5,
- 	RING_RX = 6,
+ static void rt2500pci_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -3146,7 +3070,6 @@
+ 		goto exit_disable_device;
+ 	}
+ 
+-	SET_ETHTOOL_OPS(net_dev, &rt2500pci_ethtool_ops);
+ 	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+ 
+ 	pci_set_drvdata(pci_dev, net_dev);
+diff -rU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-02 14:52:10.000000000 +0100
+@@ -34,7 +34,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+-#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -215,81 +214,6 @@
+ }
+ 
+ /*
+- * Ethtool handlers.
+- */
+-static void rt2500usb_get_drvinfo(struct net_device *net_dev,
+-	struct ethtool_drvinfo *drvinfo)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	strcpy(drvinfo->driver, DRV_NAME);
+-	strcpy(drvinfo->version, DRV_VERSION);
+-	strcpy(drvinfo->fw_version, "N/A");
+-	strcpy(drvinfo->bus_info, rt2x00dev_usb(rt2x00dev)->dev.bus_id);
+-	drvinfo->eedump_len = EEPROM_SIZE;
+-	drvinfo->regdump_len = CSR_REG_SIZE;
+-}
+-
+-static int rt2500usb_get_regs_len(struct net_device *net_dev)
+-{
+-	return CSR_REG_SIZE;
+-}
+-
+-static void rt2500usb_get_regs(struct net_device *net_dev,
+-	struct ethtool_regs *regs, void *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
+-	regs->version = rt2x00_rev(&rt2x00dev->chip);
+-	regs->len = CSR_REG_SIZE;
+-}
+-
+-#ifdef CONFIG_RT2500USB_DEBUG
+-static u32 rt2500usb_get_msglevel(struct net_device *net_dev)
+-{
+-	return rt2x00_debug_level;
+-}
+-
+-static void rt2500usb_set_msglevel(struct net_device *net_dev, u32 msg)
+-{
+-	rt2x00_debug_level = !!msg;
+-}
+-#endif /* CONFIG_RT2500USB_DEBUG */
+-
+-static int rt2500usb_get_eeprom_len(struct net_device *net_dev)
+-{
+-	return EEPROM_SIZE;
+-}
+-
+-static int rt2500usb_get_eeprom(struct net_device *net_dev,
+-	struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	eeprom->magic = 0xbad;
+-
+-	rt2x00_eeprom_multiread(rt2x00dev,
+-		eeprom->offset, (void*)data, eeprom->len);
+-
+-	return 0;
+-}
+-
+-static struct ethtool_ops rt2500usb_ethtool_ops = {
+-	.get_drvinfo	= rt2500usb_get_drvinfo,
+-	.get_regs_len	= rt2500usb_get_regs_len,
+-	.get_regs	= rt2500usb_get_regs,
+-#ifdef CONFIG_RT2500USB_DEBUG
+-	.get_msglevel	= rt2500usb_get_msglevel,
+-	.set_msglevel	= rt2500usb_set_msglevel,
+-#endif /* CONFIG_RT2500USB_DEBUG */
+-	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= rt2500usb_get_eeprom_len,
+-	.get_eeprom	= rt2500usb_get_eeprom,
+-	.get_perm_addr	= ethtool_op_get_perm_addr,
+-};
+-
+-/*
+  * Configuration handlers.
+  */
+ static void rt2500usb_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -2803,7 +2727,6 @@
+ 		goto exit_put_device;
+ 	}
+ 
+-	SET_ETHTOOL_OPS(net_dev, &rt2500usb_ethtool_ops);
+ 	SET_NETDEV_DEV(net_dev, &usb_intf->dev);
+ 
+ 	usb_set_intfdata(usb_intf, net_dev);
+diff -rU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-02 14:52:10.000000000 +0100
+@@ -36,7 +36,6 @@
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+ #include <linux/firmware.h>
+-#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -374,81 +373,6 @@
+ }
+ 
+ /*
+- * Ethtool handlers.
+- */
+-static void rt61pci_get_drvinfo(struct net_device *net_dev,
+-	struct ethtool_drvinfo *drvinfo)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	strcpy(drvinfo->driver, DRV_NAME);
+-	strcpy(drvinfo->version, DRV_VERSION);
+-	strcpy(drvinfo->fw_version, rt2x00_fw(&rt2x00dev->chip));
+-	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
+-	drvinfo->eedump_len = EEPROM_SIZE;
+-	drvinfo->regdump_len = CSR_REG_SIZE;
+-}
+-
+-static int rt61pci_get_regs_len(struct net_device *net_dev)
+-{
+-	return CSR_REG_SIZE;
+-}
+-
+-static void rt61pci_get_regs(struct net_device *net_dev,
+-	struct ethtool_regs *regs, void *data)
+-{
+-	struct rt2x00_dev	*rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
+-	regs->version = rt2x00_rev(&rt2x00dev->chip);
+-	regs->len = CSR_REG_SIZE;
+-}
+-
+-#ifdef CONFIG_RT61PCI_DEBUG
+-static u32 rt61pci_get_msglevel(struct net_device *net_dev)
+-{
+-	return rt2x00_debug_level;
+-}
+-
+-static void rt61pci_set_msglevel(struct net_device *net_dev, u32 msg)
+-{
+-	rt2x00_debug_level = !!msg;
+-}
+-#endif /* CONFIG_RT61PCI_DEBUG */
+-
+-static int rt61pci_get_eeprom_len(struct net_device *net_dev)
+-{
+-	return EEPROM_SIZE;
+-}
+-
+-static int rt61pci_get_eeprom(struct net_device *net_dev,
+-	struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	eeprom->magic = 0xbad;
+-
+-	rt2x00_eeprom_multiread(rt2x00dev,
+-		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
+-
+-	return 0;
+-}
+-
+-static struct ethtool_ops rt61pci_ethtool_ops = {
+-	.get_drvinfo	= rt61pci_get_drvinfo,
+-	.get_regs_len	= rt61pci_get_regs_len,
+-	.get_regs	= rt61pci_get_regs,
+-#ifdef CONFIG_RT61PCI_DEBUG
+-	.get_msglevel	= rt61pci_get_msglevel,
+-	.set_msglevel	= rt61pci_set_msglevel,
+-#endif /* CONFIG_RT61PCI_DEBUG */
+-	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= rt61pci_get_eeprom_len,
+-	.get_eeprom	= rt61pci_get_eeprom,
+-	.get_perm_addr	= ethtool_op_get_perm_addr,
+-};
+-
+-/*
+  * Configuration handlers.
+  */
+ static void rt61pci_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -3663,7 +3587,6 @@
+ 		goto exit_disable_device;
+ 	}
+ 
+-	SET_ETHTOOL_OPS(net_dev, &rt61pci_ethtool_ops);
+ 	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+ 
+ 	pci_set_drvdata(pci_dev, net_dev);
+diff -rU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-02 14:52:09.000000000 +0100
+@@ -35,7 +35,6 @@
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+ #include <linux/firmware.h>
+-#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -216,81 +215,6 @@
+ }
+ 
+ /*
+- * Ethtool handlers.
+- */
+-static void rt73usb_get_drvinfo(struct net_device *net_dev,
+-	struct ethtool_drvinfo *drvinfo)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	strcpy(drvinfo->driver, DRV_NAME);
+-	strcpy(drvinfo->version, DRV_VERSION);
+-	strcpy(drvinfo->fw_version, rt2x00_fw(&rt2x00dev->chip));
+-	strcpy(drvinfo->bus_info, rt2x00dev_usb(rt2x00dev)->dev.bus_id);
+-	drvinfo->eedump_len = EEPROM_SIZE;
+-	drvinfo->regdump_len = CSR_REG_SIZE;
+-}
+-
+-static int rt73usb_get_regs_len(struct net_device *net_dev)
+-{
+-	return CSR_REG_SIZE;
+-}
+-
+-static void rt73usb_get_regs(struct net_device *net_dev,
+-	struct ethtool_regs *regs, void *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
+-	regs->version = rt2x00_rev(&rt2x00dev->chip);
+-	regs->len = CSR_REG_SIZE;
+-}
+-
+-#ifdef CONFIG_RT73USB_DEBUG
+-static u32 rt73usb_get_msglevel(struct net_device *net_dev)
+-{
+-	return rt2x00_debug_level;
+-}
+-
+-static void rt73usb_set_msglevel(struct net_device *net_dev, u32 msg)
+-{
+-	rt2x00_debug_level = !!msg;
+-}
+-#endif /* CONFIG_RT73USB_DEBUG */
+-
+-static int rt73usb_get_eeprom_len(struct net_device *net_dev)
+-{
+-	return EEPROM_SIZE;
+-}
+-
+-static int rt73usb_get_eeprom(struct net_device *net_dev,
+-	struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+-
+-	eeprom->magic = 0xbad;
+-
+-	rt2x00_eeprom_multiread(rt2x00dev,
+-		eeprom->offset, (void*)data, eeprom->len);
+-
+-	return 0;
+-}
+-
+-static struct ethtool_ops rt73usb_ethtool_ops = {
+-	.get_drvinfo	= rt73usb_get_drvinfo,
+-	.get_regs_len	= rt73usb_get_regs_len,
+-	.get_regs	= rt73usb_get_regs,
+-#ifdef CONFIG_RT73USB_DEBUG
+-	.get_msglevel	= rt73usb_get_msglevel,
+-	.set_msglevel	= rt73usb_set_msglevel,
+-#endif /* CONFIG_RT2500USB_DEBUG */
+-	.get_link	= ethtool_op_get_link,
+-	.get_eeprom_len	= rt73usb_get_eeprom_len,
+-	.get_eeprom	= rt73usb_get_eeprom,
+-	.get_perm_addr	= ethtool_op_get_perm_addr,
+-};
+-
+-/*
+  * Configuration handlers.
+  */
+ static void rt73usb_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -3169,7 +3093,6 @@
+ 		goto exit_put_device;
+ 	}
+ 
+-	SET_ETHTOOL_OPS(net_dev, &rt73usb_ethtool_ops);
+ 	SET_NETDEV_DEV(net_dev, &usb_intf->dev);
+ 
+ 	usb_set_intfdata(usb_intf, net_dev);
