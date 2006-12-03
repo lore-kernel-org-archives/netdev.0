@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 24/26] rt2x00: Misc. fixes
-Date: Sun, 3 Dec 2006 19:18:56 +0100
-Message-ID: <200612031918.56659.IvDoorn@gmail.com>
+Subject: [PATCH 26/26] rt2x00: Move CRC into seperate module
+Date: Sun, 3 Dec 2006 19:18:55 +0100
+Message-ID: <200612031918.55494.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,625 +10,290 @@ Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.189]:19032 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1758790AbWLCSTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 13:19:14 -0500
+	id S1758789AbWLCSTM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 13:19:12 -0500
 Received: by nf-out-0910.google.com with SMTP id o25so4144307nfa
-        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:13 -0800 (PST)
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 10:19:11 -0800 (PST)
 To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Misc fixes.
-
-* Correctly set the RFCSR value using the setfield function.
-* Remove the DISABLE_RX register setting during initialization.
-* Changing the durationid should not add but overwrite. (sparse fix)
-* Prevent false warnings about ignoring ring initialization,
-  by only mentioning which rings have been initialized.
+Move the crc handling of rt61pci and rt73usb into a seperate module.
+This will create the crc-itu-t module inside the rt2x00 folder.
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-03 15:21:22.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-03 15:48:37.000000000 +0100
-@@ -188,7 +188,8 @@
- 	return;
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/Kconfig wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/Kconfig
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-12-03 16:13:58.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-12-03 16:17:48.000000000 +0100
+@@ -40,6 +40,7 @@
+ config RT61PCI
+ 	tristate "Ralink rt61 pci/pcmcia support"
+ 	depends on RT2X00 && FW_LOADER && PCI
++	select CRC_ITU_T
+ 	select EEPROM_93CX6
+ 	---help---
+ 	This is an experimental driver for the Ralink rt61 wireless chip.
+@@ -69,6 +70,7 @@
+ config RT73USB
+ 	tristate "Ralink rt73 usb support"
+ 	depends on RT2X00 && FW_LOADER && USB
++	select CRC_ITU_T
+ 	---help---
+ 	This is an experimental driver for the Ralink rt73 wireless chip.
  
- rf_write:
--	reg = value;
-+	reg = 0;
-+	rt2x00_set_field32(&reg, RFCSR_VALUE, value);
- 	rt2x00_set_field32(&reg, RFCSR_NUMBER_OF_BITS, 20);
- 	rt2x00_set_field32(&reg, RFCSR_IF_SELECT, 0);
- 	rt2x00_set_field32(&reg, RFCSR_BUSY, 1);
-@@ -882,7 +883,6 @@
- 		rt2x00_desc_read(rxd, 0, &word);
- 		rt2x00_set_field32(&word, RXD_W0_OWNER_NIC, 1);
- 		rt2x00_desc_write(rxd, 0, word);
--
- 	}
+@@ -88,3 +90,11 @@
+ 	These chipsets are found inside the Ralink wireless cards.
  
- 	rt2x00_ring_index_clear(ring);
-@@ -1011,10 +1011,6 @@
- 
- 	rt2x00_register_write(rt2x00dev, CNT3, 0x3f080000);
- 
--	rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
--	rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
--	rt2x00_register_write(rt2x00dev, RXCSR0, reg);
--
- 	rt2x00_register_write(rt2x00dev, MACCSR0, 0x00217223);
- 	rt2x00_register_write(rt2x00dev, MACCSR1, 0x00235518);
- 
-@@ -1372,7 +1368,7 @@
- 	frame_control = IEEE80211_FTYPE_CTL | IEEE80211_STYPE_RTS;
- 	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
- 
--	ieee80211hdr->duration_id += cpu_to_le16(duration);
-+	ieee80211hdr->duration_id = cpu_to_le16(duration);
- 
- 	ieee80211hdr->seq_ctrl = 0;
- 
-@@ -1984,7 +1980,7 @@
- 	rt2400pci_config_txpower(rt2x00dev, conf->power_level);
- 	rt2400pci_config_antenna(rt2x00dev, conf->antenna_sel);
- 	rt2400pci_config_duration(rt2x00dev,
--				  conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
-+		(conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME));
- 	rt2400pci_config_phymode(rt2x00dev, conf->phymode);
- 
- 	/*
-@@ -2127,7 +2123,7 @@
- 	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
--	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-+	rt2x00dev->scan = kzalloc(sizeof(struct scanning), GFP_ATOMIC);
- 	if (!rt2x00dev->scan)
- 		return -ENOMEM;
- 
-@@ -2206,10 +2202,8 @@
- 	 * per queue. So by default we only configure the TX queue,
- 	 * and ignore all other configurations.
- 	 */
--	if (queue != IEEE80211_TX_QUEUE_DATA0) {
--		NOTICE("Ignoring configuration for queue %d.\n", queue);
-+	if (queue != IEEE80211_TX_QUEUE_DATA0)
- 		return -EINVAL;
--	}
- 
- 	memcpy(&ring->tx_params, params, sizeof(*params));
- 
-@@ -2232,6 +2226,9 @@
- 	 */
- 	rt2400pci_config_cw(rt2x00dev, &ring->tx_params);
- 
-+	INFO("Configured TX ring %d - CWmin: %d, CWmax: %d.\n",
-+		queue, ring->tx_params.cw_min, ring->tx_params.cw_max);
+ 	When compiled as a module, this driver will be called "eeprom_93c6.ko".
 +
- 	return 0;
- }
- 
-@@ -2267,10 +2264,9 @@
- static void rt2400pci_reset_tsf(struct ieee80211_hw *hw)
- {
- 	struct rt2x00_dev *rt2x00dev = hw->priv;
--	u32 reg = 0;
- 
--	rt2x00_register_write(rt2x00dev, CSR16, reg);
--	rt2x00_register_write(rt2x00dev, CSR17, reg);
-+	rt2x00_register_write(rt2x00dev, CSR16, 0);
-+	rt2x00_register_write(rt2x00dev, CSR17, 0);
- }
- 
- static int rt2400pci_beacon_update(struct ieee80211_hw *hw,
-@@ -2293,6 +2289,9 @@
- 	 */
- 	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
- 
-+	/*
-+	 * Update the beacon entry.
-+	 */
- 	memcpy(rt2x00_data_addr(entry), skb->data, skb->len);
- 	rt2400pci_write_tx_desc(rt2x00dev, rt2x00_desc_addr(entry),
- 		skb, control);
-@@ -2470,7 +2469,7 @@
- 	/*
- 	 * Check if the BBP tuning should be enabled.
- 	 */
--	if (!rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RX_AGCVGC))
-+	if (!rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RX_AGCVGC_TUNING))
- 		SET_FLAG(rt2x00dev, CONFIG_DISABLE_LINK_TUNING);
- 
- 	return 0;
-@@ -2713,6 +2712,9 @@
- 	rt2x00dev->dev = pci_dev;
- 	rt2x00dev->hw = hw;
- 
-+	/*
-+	 * Allocate the CSR memory.
-+	 */
- 	rt2x00dev->csr_addr = ioremap(
- 		pci_resource_start(rt2x00dev_pci(rt2x00dev), 0),
- 		pci_resource_len(rt2x00dev_pci(rt2x00dev), 0));
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2400pci.h wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2400pci.h
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-12-03 15:08:03.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-12-03 15:33:27.000000000 +0100
-@@ -738,7 +738,7 @@
- #define EEPROM_ANTENNA_RX_DEFAULT	FIELD16(0x0030)
- #define EEPROM_ANTENNA_RF_TYPE		FIELD16(0x0040)
- #define EEPROM_ANTENNA_LED_MODE		FIELD16(0x0180)
--#define EEPROM_ANTENNA_RX_AGCVGC	FIELD16(0x0200)
-+#define EEPROM_ANTENNA_RX_AGCVGC_TUNING	FIELD16(0x0200)
- #define EEPROM_ANTENNA_HARDWARE_RADIO	FIELD16(0x0400)
++config CRC_ITU_T
++	tristate "CRC ITU-T V.41 functions"
++	help
++	  This option is provided for the case where no in-kernel-tree
++	  modules require CRC ITU-T V.41 functions, but a module built outside
++	  the kernel tree does. Such modules that use library CRC ITU-T V.41
++	  functions require M here.
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/Makefile wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/Makefile
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/Makefile	2006-12-03 16:13:58.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/Makefile	2006-12-03 16:17:19.000000000 +0100
+@@ -3,4 +3,5 @@
+ obj-$(CONFIG_RT61PCI)		+= rt61pci.o
+ obj-$(CONFIG_RT2500USB)		+= rt2500usb.o
+ obj-$(CONFIG_RT73USB)		+= rt73usb.o
++obj-$(CONFIG_CRC_ITU_T)		+= crc-itu-t.o
+ obj-$(CONFIG_EEPROM_93CX6)	+= eeprom_93cx6.o
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c	1970-01-01 01:00:00.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c	2006-12-03 16:15:35.000000000 +0100
+@@ -0,0 +1,66 @@
++/*
++ *	crc-itu-t.c
++ *
++ * This source code is licensed under the GNU General Public License,
++ * Version 2. See the file COPYING for more details.
++ */
++
++#include <linux/types.h>
++#include <linux/module.h>
++
++#include "crc-itu-t.h"
++
++MODULE_AUTHOR("http://rt2x00.serialmonkey.com");
++MODULE_DESCRIPTION("CRC ITU-T V.41 calculations");
++MODULE_LICENSE("GPL");
++
++/** CRC table for the CRC ITU-T V.41 0x0x1021 (x^16 + x^12 + x^15 + 1) */
++const u16 crc_itu_t_table[256] = {
++	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
++	0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
++	0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7, 0x62d6,
++	0x9339, 0x8318, 0xb37b, 0xa35a, 0xd3bd, 0xc39c, 0xf3ff, 0xe3de,
++	0x2462, 0x3443, 0x0420, 0x1401, 0x64e6, 0x74c7, 0x44a4, 0x5485,
++	0xa56a, 0xb54b, 0x8528, 0x9509, 0xe5ee, 0xf5cf, 0xc5ac, 0xd58d,
++	0x3653, 0x2672, 0x1611, 0x0630, 0x76d7, 0x66f6, 0x5695, 0x46b4,
++	0xb75b, 0xa77a, 0x9719, 0x8738, 0xf7df, 0xe7fe, 0xd79d, 0xc7bc,
++	0x48c4, 0x58e5, 0x6886, 0x78a7, 0x0840, 0x1861, 0x2802, 0x3823,
++	0xc9cc, 0xd9ed, 0xe98e, 0xf9af, 0x8948, 0x9969, 0xa90a, 0xb92b,
++	0x5af5, 0x4ad4, 0x7ab7, 0x6a96, 0x1a71, 0x0a50, 0x3a33, 0x2a12,
++	0xdbfd, 0xcbdc, 0xfbbf, 0xeb9e, 0x9b79, 0x8b58, 0xbb3b, 0xab1a,
++	0x6ca6, 0x7c87, 0x4ce4, 0x5cc5, 0x2c22, 0x3c03, 0x0c60, 0x1c41,
++	0xedae, 0xfd8f, 0xcdec, 0xddcd, 0xad2a, 0xbd0b, 0x8d68, 0x9d49,
++	0x7e97, 0x6eb6, 0x5ed5, 0x4ef4, 0x3e13, 0x2e32, 0x1e51, 0x0e70,
++	0xff9f, 0xefbe, 0xdfdd, 0xcffc, 0xbf1b, 0xaf3a, 0x9f59, 0x8f78,
++	0x9188, 0x81a9, 0xb1ca, 0xa1eb, 0xd10c, 0xc12d, 0xf14e, 0xe16f,
++	0x1080, 0x00a1, 0x30c2, 0x20e3, 0x5004, 0x4025, 0x7046, 0x6067,
++	0x83b9, 0x9398, 0xa3fb, 0xb3da, 0xc33d, 0xd31c, 0xe37f, 0xf35e,
++	0x02b1, 0x1290, 0x22f3, 0x32d2, 0x4235, 0x5214, 0x6277, 0x7256,
++	0xb5ea, 0xa5cb, 0x95a8, 0x8589, 0xf56e, 0xe54f, 0xd52c, 0xc50d,
++	0x34e2, 0x24c3, 0x14a0, 0x0481, 0x7466, 0x6447, 0x5424, 0x4405,
++	0xa7db, 0xb7fa, 0x8799, 0x97b8, 0xe75f, 0xf77e, 0xc71d, 0xd73c,
++	0x26d3, 0x36f2, 0x0691, 0x16b0, 0x6657, 0x7676, 0x4615, 0x5634,
++	0xd94c, 0xc96d, 0xf90e, 0xe92f, 0x99c8, 0x89e9, 0xb98a, 0xa9ab,
++	0x5844, 0x4865, 0x7806, 0x6827, 0x18c0, 0x08e1, 0x3882, 0x28a3,
++	0xcb7d, 0xdb5c, 0xeb3f, 0xfb1e, 0x8bf9, 0x9bd8, 0xabbb, 0xbb9a,
++	0x4a75, 0x5a54, 0x6a37, 0x7a16, 0x0af1, 0x1ad0, 0x2ab3, 0x3a92,
++	0xfd2e, 0xed0f, 0xdd6c, 0xcd4d, 0xbdaa, 0xad8b, 0x9de8, 0x8dc9,
++	0x7c26, 0x6c07, 0x5c64, 0x4c45, 0x3ca2, 0x2c83, 0x1ce0, 0x0cc1,
++	0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
++	0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
++};
++EXPORT_SYMBOL(crc_itu_t_table);
++
++/**
++ * crc_itu_t - Compute the CRC-ITU-T for the data buffer
++ * @crc: previous CRC value
++ * @buffer: data pointer
++ * @len: number of bytes in the buffer
++ */
++u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len)
++{
++	while (len--)
++		crc = crc_itu_t_byte(crc, *buffer++);
++	return crc;
++}
++EXPORT_SYMBOL(crc_itu_t);
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h	1970-01-01 01:00:00.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h	2006-08-01 13:18:16.000000000 +0200
+@@ -0,0 +1,27 @@
++/*
++ *	crc-itu-t.h - CRC ITU-T V.41 routine
++ *
++ * Implements the standard CRC ITU-T V.41:
++ *   Width 16
++ *   Poly  0x1021 (x^16 + x^12 + x^15 + 1)
++ *   Init  0
++ *
++ * This source code is licensed under the GNU General Public License,
++ * Version 2. See the file COPYING for more details.
++ */
++
++#ifndef CRC_ITU_T_H
++#define CRC_ITU_T_H
++
++#include <linux/types.h>
++
++extern u16 const crc_itu_t_table[256];
++
++extern u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len);
++
++static inline u16 crc_itu_t_byte(u16 crc, const u8 data)
++{
++	return (crc << 8) ^ crc_itu_t_table[((crc >> 8) ^ data) & 0xff];
++}
++
++#endif /* CRC_ITU_T_H */
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h	2006-12-02 14:24:40.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,82 +0,0 @@
+-/*
+-	Copyright (C) 2004 - 2006 rt2x00 SourceForge Project
+-	<http://rt2x00.serialmonkey.com>
+-
+-	This program is free software; you can redistribute it and/or modify
+-	it under the terms of the GNU General Public License as published by
+-	the Free Software Foundation; either version 2 of the License, or
+-	(at your option) any later version.
+-
+-	This program is distributed in the hope that it will be useful,
+-	but WITHOUT ANY WARRANTY; without even the implied warranty of
+-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-	GNU General Public License for more details.
+-
+-	You should have received a copy of the GNU General Public License
+-	along with this program; if not, write to the
+-	Free Software Foundation, Inc.,
+-	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+- */
+-
+-/*
+-	Module: rt2x00
+-	Abstract: rt2x00 CRC implementation for firmware validation.
+-	Supported chipsets: rt2561, rt2561s, rt2661 & rt2573
+- */
+-
+-#ifndef RT2X00CRC_H
+-#define RT2X00CRC_H
+-
+-static const u16 rt2x00crc_table[256] = {
+-	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
+-	0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
+-	0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7, 0x62d6,
+-	0x9339, 0x8318, 0xb37b, 0xa35a, 0xd3bd, 0xc39c, 0xf3ff, 0xe3de,
+-	0x2462, 0x3443, 0x0420, 0x1401, 0x64e6, 0x74c7, 0x44a4, 0x5485,
+-	0xa56a, 0xb54b, 0x8528, 0x9509, 0xe5ee, 0xf5cf, 0xc5ac, 0xd58d,
+-	0x3653, 0x2672, 0x1611, 0x0630, 0x76d7, 0x66f6, 0x5695, 0x46b4,
+-	0xb75b, 0xa77a, 0x9719, 0x8738, 0xf7df, 0xe7fe, 0xd79d, 0xc7bc,
+-	0x48c4, 0x58e5, 0x6886, 0x78a7, 0x0840, 0x1861, 0x2802, 0x3823,
+-	0xc9cc, 0xd9ed, 0xe98e, 0xf9af, 0x8948, 0x9969, 0xa90a, 0xb92b,
+-	0x5af5, 0x4ad4, 0x7ab7, 0x6a96, 0x1a71, 0x0a50, 0x3a33, 0x2a12,
+-	0xdbfd, 0xcbdc, 0xfbbf, 0xeb9e, 0x9b79, 0x8b58, 0xbb3b, 0xab1a,
+-	0x6ca6, 0x7c87, 0x4ce4, 0x5cc5, 0x2c22, 0x3c03, 0x0c60, 0x1c41,
+-	0xedae, 0xfd8f, 0xcdec, 0xddcd, 0xad2a, 0xbd0b, 0x8d68, 0x9d49,
+-	0x7e97, 0x6eb6, 0x5ed5, 0x4ef4, 0x3e13, 0x2e32, 0x1e51, 0x0e70,
+-	0xff9f, 0xefbe, 0xdfdd, 0xcffc, 0xbf1b, 0xaf3a, 0x9f59, 0x8f78,
+-	0x9188, 0x81a9, 0xb1ca, 0xa1eb, 0xd10c, 0xc12d, 0xf14e, 0xe16f,
+-	0x1080, 0x00a1, 0x30c2, 0x20e3, 0x5004, 0x4025, 0x7046, 0x6067,
+-	0x83b9, 0x9398, 0xa3fb, 0xb3da, 0xc33d, 0xd31c, 0xe37f, 0xf35e,
+-	0x02b1, 0x1290, 0x22f3, 0x32d2, 0x4235, 0x5214, 0x6277, 0x7256,
+-	0xb5ea, 0xa5cb, 0x95a8, 0x8589, 0xf56e, 0xe54f, 0xd52c, 0xc50d,
+-	0x34e2, 0x24c3, 0x14a0, 0x0481, 0x7466, 0x6447, 0x5424, 0x4405,
+-	0xa7db, 0xb7fa, 0x8799, 0x97b8, 0xe75f, 0xf77e, 0xc71d, 0xd73c,
+-	0x26d3, 0x36f2, 0x0691, 0x16b0, 0x6657, 0x7676, 0x4615, 0x5634,
+-	0xd94c, 0xc96d, 0xf90e, 0xe92f, 0x99c8, 0x89e9, 0xb98a, 0xa9ab,
+-	0x5844, 0x4865, 0x7806, 0x6827, 0x18c0, 0x08e1, 0x3882, 0x28a3,
+-	0xcb7d, 0xdb5c, 0xeb3f, 0xfb1e, 0x8bf9, 0x9bd8, 0xabbb, 0xbb9a,
+-	0x4a75, 0x5a54, 0x6a37, 0x7a16, 0x0af1, 0x1ad0, 0x2ab3, 0x3a92,
+-	0xfd2e, 0xed0f, 0xdd6c, 0xcd4d, 0xbdaa, 0xad8b, 0x9de8, 0x8dc9,
+-	0x7c26, 0x6c07, 0x5c64, 0x4c45, 0x3ca2, 0x2c83, 0x1ce0, 0x0cc1,
+-	0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
+-	0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
+-};
+-
+-static inline u16
+-rt2x00crc_byte(u16 crc, const u8 data)
+-{
+-	return (crc << 8) ^ rt2x00crc_table[((crc >> 8) ^ data) & 0xff];
+-}
+-
+-/*
+- * Compute the rt2x00 CRC for the data buffer
+- */
+-static inline u16
+-rt2x00crc(u16 crc, const u8 *buffer, size_t len)
+-{
+-	while (len--)
+-		crc = rt2x00crc_byte(crc, *buffer++);
+-	return crc;
+-}
+-
+-#endif /* RT2X00CRC_H */
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 16:14:21.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 16:20:20.000000000 +0100
+@@ -55,6 +55,7 @@
+ #include "rt2x00pci.h"
+ #include "rt2x00crc.h"
+ #include "rt61pci.h"
++#include "crc-itu-t.h"
+ #include "eeprom_93cx6.h"
  
  /*
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-03 15:21:27.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-03 15:48:55.000000000 +0100
-@@ -188,7 +188,8 @@
- 	return;
- 
- rf_write:
--	reg = value;
-+	reg = 0;
-+	rt2x00_set_field32(&reg, RFCSR_VALUE, value);
- 	rt2x00_set_field32(&reg, RFCSR_NUMBER_OF_BITS, 20);
- 	rt2x00_set_field32(&reg, RFCSR_IF_SELECT, 0);
- 	rt2x00_set_field32(&reg, RFCSR_BUSY, 1);
-@@ -1094,10 +1095,6 @@
- 
- 	rt2x00_register_write(rt2x00dev, CNT3, 0);
- 
--	rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
--	rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
--	rt2x00_register_write(rt2x00dev, RXCSR0, reg);
--
- 	rt2x00_register_write(rt2x00dev, GPIOCSR, 0x0000ff00);
- 	rt2x00_register_write(rt2x00dev, TESTCSR, 0x000000f0);
- 
-@@ -1497,7 +1494,7 @@
- 	frame_control = IEEE80211_FTYPE_CTL | IEEE80211_STYPE_RTS;
- 	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
- 
--	ieee80211hdr->duration_id += cpu_to_le16(duration);
-+	ieee80211hdr->duration_id = cpu_to_le16(duration);
- 
- 	ieee80211hdr->seq_ctrl = 0;
- 
-@@ -2147,7 +2144,7 @@
- 	rt2500pci_config_txpower(rt2x00dev, conf->power_level);
- 	rt2500pci_config_antenna(rt2x00dev, conf->antenna_sel);
- 	rt2500pci_config_duration(rt2x00dev,
--				  conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
-+		(conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME));
- 	rt2500pci_config_phymode(rt2x00dev, conf->phymode);
- 
- 	/*
-@@ -2286,7 +2283,7 @@
- 	/*
- 	 * Allocate scanning structure to store scanning info.
+@@ -1182,8 +1183,8 @@
+ 	 * and set those 2 bytes to 0 when calculating CRC.
  	 */
--	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-+	rt2x00dev->scan = kzalloc(sizeof(struct scanning), GFP_ATOMIC);
- 	if (!rt2x00dev->scan)
- 		return -ENOMEM;
+ 	reg = 0;
+-	crc = rt2x00crc(0, fw->data, fw->size - 2);
+-	crc = rt2x00crc(crc, (u8*)&reg, 2);
++	crc = crc_itu_t(0, fw->data, fw->size - 2);
++	crc = crc_itu_t(crc, (u8*)&reg, 2);
  
-@@ -2361,10 +2358,8 @@
- 	struct data_ring *ring;
- 
- 	ring = rt2x00_get_ring(rt2x00dev, queue);
--	if (unlikely(!ring)) {
--		NOTICE("Ignoring configuration for queue %d.\n", queue);
-+	if (unlikely(!ring))
- 		return -EINVAL;
--	}
- 
- 	memcpy(&ring->tx_params, params, sizeof(*params));
- 
-@@ -2385,6 +2380,10 @@
- 	if (!params->aifs)
- 		ring->tx_params.aifs = 2;
- 
-+	INFO("Configured TX ring %d - CWmin: %d, CWmax: %d, Aifs: %d.\n",
-+		queue, ring->tx_params.cw_min, ring->tx_params.cw_max,
-+		ring->tx_params.aifs);
-+
- 	return 0;
- }
- 
-@@ -2420,10 +2419,9 @@
- static void rt2500pci_reset_tsf(struct ieee80211_hw *hw)
- {
- 	struct rt2x00_dev *rt2x00dev = hw->priv;
--	u32 reg = 0;
- 
--	rt2x00_register_write(rt2x00dev, CSR16, reg);
--	rt2x00_register_write(rt2x00dev, CSR17, reg);
-+	rt2x00_register_write(rt2x00dev, CSR16, 0);
-+	rt2x00_register_write(rt2x00dev, CSR17, 0);
- }
- 
- static int rt2500pci_beacon_update(struct ieee80211_hw *hw,
-@@ -2446,6 +2444,9 @@
- 	 */
- 	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
- 
-+	/*
-+	 * Update the beacon entry.
-+	 */
- 	memcpy(rt2x00_data_addr(entry), skb->data, skb->len);
- 	rt2500pci_write_tx_desc(rt2x00dev, rt2x00_desc_addr(entry),
- 		skb, control);
-@@ -3014,6 +3015,9 @@
- 	rt2x00dev->dev = pci_dev;
- 	rt2x00dev->hw = hw;
- 
-+	/*
-+	 * Allocate the CSR memory.
-+	 */
- 	rt2x00dev->csr_addr = ioremap(
- 		pci_resource_start(rt2x00dev_pci(rt2x00dev), 0),
- 		pci_resource_len(rt2x00dev_pci(rt2x00dev), 0));
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 15:28:17.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-03 15:48:36.000000000 +0100
-@@ -217,14 +217,17 @@
- 		udelay(REGISTER_BUSY_DELAY);
- 	}
- 
--	ERROR("RFCSR register busy. Write failed.\n");
-+	ERROR("PHY_CSR10 register busy. Write failed.\n");
- 	return;
- 
- rf_write:
--	reg = value & 0x0000ffff;
-+	reg = 0;
-+	rt2x00_set_field16(&reg, PHY_CSR9_RF_VALUE, value & 0x0000ffff);
- 	rt2x00_register_write(rt2x00dev, PHY_CSR9, reg);
- 
--	reg = (value >> 16) & 0x0000ffff;
-+	reg = 0;
-+	rt2x00_set_field16(&reg, PHY_CSR10_RF_VALUE,
-+		(value >> 16) & 0x0000ffff);
- 	rt2x00_set_field16(&reg, PHY_CSR10_RF_NUMBER_OF_BITS, 20);
- 	rt2x00_set_field16(&reg, PHY_CSR10_RF_IF_SELECT, 0);
- 	rt2x00_set_field16(&reg, PHY_CSR10_RF_BUSY, 1);
-@@ -1456,7 +1459,7 @@
- 	frame_control = IEEE80211_FTYPE_CTL | IEEE80211_STYPE_RTS;
- 	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
- 
--	ieee80211hdr->duration_id += cpu_to_le16(duration);
-+	ieee80211hdr->duration_id = cpu_to_le16(duration);
- 
- 	ieee80211hdr->seq_ctrl = 0;
- 
-@@ -2077,7 +2080,7 @@
- 	rt2500usb_config_txpower(rt2x00dev, conf->power_level);
- 	rt2500usb_config_antenna(rt2x00dev, conf->antenna_sel);
- 	rt2500usb_config_duration(rt2x00dev,
--				  conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
-+		(conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME));
- 	rt2500usb_config_phymode(rt2x00dev, conf->phymode);
- 
- 	/*
-@@ -2218,7 +2221,7 @@
- 	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
--	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-+	rt2x00dev->scan = kzalloc(sizeof(struct scanning), GFP_ATOMIC);
- 	if (!rt2x00dev->scan)
- 		return -ENOMEM;
- 
-@@ -2279,10 +2282,8 @@
- 	struct data_ring *ring;
- 
- 	ring = rt2x00_get_ring(rt2x00dev, queue);
--	if (unlikely(!ring)) {
--		NOTICE("Ignoring configuration for queue %d.\n", queue);
-+	if (unlikely(!ring))
- 		return -EINVAL;
--	}
- 
- 	memcpy(&ring->tx_params, params, sizeof(*params));
- 
-@@ -2303,6 +2304,10 @@
- 	if (!params->aifs)
- 		ring->tx_params.aifs = 2;
- 
-+	INFO("Configured TX ring %d - CWmin: %d, CWmax: %d, Aifs: %d.\n",
-+		queue, ring->tx_params.cw_min, ring->tx_params.cw_max,
-+		ring->tx_params.aifs);
-+
- 	return 0;
- }
- 
-@@ -2338,6 +2343,9 @@
- 	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
- 
-+	/*
-+	 * Update the beacon entry.
-+	 */
- 	memcpy(rt2x00_txdata_addr(entry), skb->data, skb->len);
- 	rt2500usb_write_tx_desc(rt2x00dev,
- 		rt2x00_txdesc_addr(entry), skb, control);
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-12-03 14:13:46.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-12-03 15:44:04.000000000 +0100
-@@ -419,7 +419,7 @@
- struct rt2x00_chip {
- 	u16 rt;
- 	u16 rf;
--	u16 rev;
-+	u32 rev;
- 	u8 fw_h;
- 	u8 fw_l;
- };
-@@ -428,9 +428,9 @@
-  * Set chipset data.
-  */
- static inline void rt2x00_set_chip(struct rt2x00_chip *chipset,
--	const u16 rt, const u16 rf, const u16 rev)
-+	const u16 rt, const u16 rf, const u32 rev)
- {
--	INFO("Chipset detected - rt: %04x, rf: %04x, rev: %04x.\n",
-+	INFO("Chipset detected - rt: %04x, rf: %04x, rev: %08x.\n",
- 		rt, rf, rev);
- 
- 	chipset->rt = rt;
-@@ -1065,6 +1065,7 @@
- 			stats->dot11RTSFailureCount++;
- 	}
- }
-+
- /*
-  * Device specific rate value.
-  * We will have to create the device specific rate value
-@@ -1207,7 +1208,7 @@
- 	 * Set the sequence number for this frame,
- 	 * but do not change the fragment number.
- 	 */
--	ieee80211hdr->seq_ctrl |= cpu_to_le16((*seq << 4) & 0xfff0);
-+	ieee80211hdr->seq_ctrl |= cpu_to_le16(*seq & IEEE80211_SCTL_SEQ);
- 
- 	/*
- 	 * Since the dscape stack sends all packets and
-@@ -1217,7 +1218,7 @@
- 	 * counter should be increased.
- 	 */
- 	if (!ieee80211_get_morefrag(ieee80211hdr))
--		*seq = (*seq + 1) & 0x0fff;
-+		*seq = (*seq + 0x10) & IEEE80211_SCTL_SEQ;
- }
+ 	if (crc != (fw->data[fw->size - 2] << 8 | fw->data[fw->size - 1])) {
+ 		ERROR("Firmware CRC error.\n");
+diff -rNU3 wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-base/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 16:14:21.000000000 +0100
++++ wireless-dev-crc/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 16:20:22.000000000 +0100
+@@ -52,6 +52,7 @@
+ #include "rt2x00usb.h"
+ #include "rt2x00crc.h"
+ #include "rt73usb.h"
++#include "crc-itu-t.h"
  
  /*
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 15:21:35.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-03 15:48:35.000000000 +0100
-@@ -191,11 +191,12 @@
- 		udelay(REGISTER_BUSY_DELAY);
- 	}
- 
--	ERROR("RFCSR register busy. Write failed.\n");
-+	ERROR("PHY_CSR4 register busy. Write failed.\n");
- 	return;
- 
- rf_write:
--	reg = value;
-+	reg = 0;
-+	rt2x00_set_field32(&reg, PHY_CSR4_VALUE, value);
- 	rt2x00_set_field32(&reg, PHY_CSR4_NUMBER_OF_BITS, 21);
- 	rt2x00_set_field32(&reg, PHY_CSR4_IF_SELECT, 0);
- 	rt2x00_set_field32(&reg, PHY_CSR4_BUSY, 1);
-@@ -288,6 +289,7 @@
- 	 * We only need to set the BSS ID MASK at the correct offset.
+  * Register access.
+@@ -1081,8 +1082,8 @@
+ 	 * and set those 2 bytes to 0 when calculating CRC.
  	 */
- 	memcpy(&reg, bssid, ETH_ALEN);
-+	rt2x00_set_field32(&reg[1], MAC_CSR5_BSS_ID_MASK, 3);
- 	rt2x00_register_multiwrite(rt2x00dev, MAC_CSR4, &reg[0], sizeof(reg));
- }
+ 	reg = 0;
+-	crc = rt2x00crc(0, fw->data, fw->size - 2);
+-	crc = rt2x00crc(crc, (u8*)&reg, 2);
++	crc = crc_itu_t(0, fw->data, fw->size - 2);
++	crc = crc_itu_t(crc, (u8*)&reg, 2);
  
-@@ -1088,7 +1090,6 @@
- 		rt2x00_register_write(rt2x00dev, SOFT_RESET_CSR, 0x00000005);
- 		rt2x00_register_write(rt2x00dev, IO_CNTL_CSR, 0x0000001c);
- 		rt2x00_register_write(rt2x00dev, PCI_USEC_CSR, 0x00000060);
--
- 		rt2x00_mcu_request(rt2x00dev, MCU_SLEEP, 0xff, 0x00, 0x00);
- 	} else {
- 		rt2x00_register_write(rt2x00dev, SOFT_RESET_CSR, 0x00000007);
-@@ -1941,7 +1942,7 @@
- 	frame_control = IEEE80211_FTYPE_CTL | IEEE80211_STYPE_RTS;
- 	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
- 
--	ieee80211hdr->duration_id += cpu_to_le16(duration);
-+	ieee80211hdr->duration_id = cpu_to_le16(duration);
- 
- 	ieee80211hdr->seq_ctrl = 0;
- 
-@@ -2235,8 +2236,6 @@
- 	    !rt2x00_get_field32(word, TXD_W0_VALID))
- 		return;
- 
--	ack = rt2x00_get_field32(word, TXD_W0_ACK);
--
- 	entry->tx_status.flags = 0;
- 	entry->tx_status.queue_length = entry->ring->stats.limit;
- 	entry->tx_status.queue_number = entry->tx_status.control.queue;
-@@ -2641,7 +2640,7 @@
- 	rt61pci_config_txpower(rt2x00dev, conf->power_level);
- 	rt61pci_config_antenna(rt2x00dev, conf->antenna_sel, conf->phymode);
- 	rt61pci_config_duration(rt2x00dev,
--				conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
-+		(conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME));
- 	rt61pci_config_phymode(rt2x00dev, conf->phymode);
- 
- 	/*
-@@ -2780,7 +2779,7 @@
- 	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
--	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-+	rt2x00dev->scan = kzalloc(sizeof(struct scanning), GFP_ATOMIC);
- 	if (!rt2x00dev->scan)
- 		return -ENOMEM;
- 
-@@ -2855,10 +2854,8 @@
- 	struct data_ring *ring;
- 
- 	ring = rt2x00_get_ring(rt2x00dev, queue);
--	if (unlikely(!ring)) {
--		NOTICE("Ignoring configuration for queue %d.\n", queue);
-+	if (unlikely(!ring))
- 		return -EINVAL;
--	}
- 
- 	memcpy(&ring->tx_params, params, sizeof(*params));
- 
-@@ -2879,6 +2876,10 @@
- 	if (!params->aifs)
- 		ring->tx_params.aifs = 2;
- 
-+	INFO("Configured TX ring %d - CWmin: %d, CWmax: %d, Aifs: %d.\n",
-+		queue, ring->tx_params.cw_min, ring->tx_params.cw_max,
-+		ring->tx_params.aifs);
-+
- 	return 0;
- }
- 
-@@ -2923,10 +2924,9 @@
- static void rt61pci_reset_tsf(struct ieee80211_hw *hw)
- {
- 	struct rt2x00_dev *rt2x00dev = hw->priv;
--	u32 reg = 0;
- 
--	rt2x00_register_write(rt2x00dev, TXRX_CSR12, reg);
--	rt2x00_register_write(rt2x00dev, TXRX_CSR13, reg);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR12, 0);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR13, 0);
- }
- 
- static int rt61pci_beacon_update(struct ieee80211_hw *hw,
-@@ -2944,6 +2944,9 @@
- 	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
- 
-+	/*
-+	 * Update the beacon entry.
-+	 */
- 	memcpy(rt2x00_data_addr(entry), skb->data, skb->len);
- 	rt61pci_write_tx_desc(rt2x00dev, rt2x00_desc_addr(entry),
- 		skb, control);
-@@ -3542,6 +3545,9 @@
- 	rt2x00dev->dev = pci_dev;
- 	rt2x00dev->hw = hw;
- 
-+	/*
-+	 * Allocate the CSR memory.
-+	 */
- 	rt2x00dev->csr_addr = ioremap(
- 		pci_resource_start(rt2x00dev_pci(rt2x00dev), 0),
- 		pci_resource_len(rt2x00dev_pci(rt2x00dev), 0));
-diff -rU3 wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-usb/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 15:27:24.000000000 +0100
-+++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-03 15:48:35.000000000 +0100
-@@ -218,11 +218,12 @@
- 		udelay(REGISTER_BUSY_DELAY);
- 	}
- 
--	ERROR("RFCSR register busy. Write failed.\n");
-+	ERROR("PHY_CSR4 register busy. Write failed.\n");
- 	return;
- 
- rf_write:
--	reg = value;
-+	reg = 0;
-+	rt2x00_set_field32(&reg, PHY_CSR4_VALUE, value);
- 	rt2x00_set_field32(&reg, PHY_CSR4_NUMBER_OF_BITS, 20);
- 	rt2x00_set_field32(&reg, PHY_CSR4_IF_SELECT, 0);
- 	rt2x00_set_field32(&reg, PHY_CSR4_BUSY, 1);
-@@ -295,6 +296,7 @@
- 	 * We only need to set the BSS ID MASK at the correct offset.
- 	 */
- 	memcpy(&reg, bssid, ETH_ALEN);
-+	rt2x00_set_field32(&reg[1], MAC_CSR5_BSS_ID_MASK, 3);
- 	rt2x00_register_multiwrite(rt2x00dev, MAC_CSR4, &reg[0], sizeof(reg));
- }
- 
-@@ -1719,7 +1721,7 @@
- 	frame_control = IEEE80211_FTYPE_CTL | IEEE80211_STYPE_RTS;
- 	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
- 
--	ieee80211hdr->duration_id += cpu_to_le16(duration);
-+	ieee80211hdr->duration_id = cpu_to_le16(duration);
- 
- 	ieee80211hdr->seq_ctrl = 0;
- 
-@@ -2349,7 +2351,7 @@
- 	rt73usb_config_txpower(rt2x00dev, conf->power_level);
- 	rt73usb_config_antenna(rt2x00dev, conf->antenna_sel, conf->phymode);
- 	rt73usb_config_duration(rt2x00dev,
--				conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME);
-+		(conf->flags & IEEE80211_CONF_SHORT_SLOT_TIME));
- 	rt73usb_config_phymode(rt2x00dev, conf->phymode);
- 
- 	/*
-@@ -2490,7 +2492,7 @@
- 	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
--	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-+	rt2x00dev->scan = kzalloc(sizeof(struct scanning), GFP_ATOMIC);
- 	if (!rt2x00dev->scan)
- 		return -ENOMEM;
- 
-@@ -2565,10 +2567,8 @@
- 	struct data_ring *ring;
- 
- 	ring = rt2x00_get_ring(rt2x00dev, queue);
--	if (unlikely(!ring)) {
--		NOTICE("Ignoring configuration for queue %d.\n", queue);
-+	if (unlikely(!ring))
- 		return -EINVAL;
--	}
- 
- 	memcpy(&ring->tx_params, params, sizeof(*params));
- 
-@@ -2589,6 +2589,10 @@
- 	if (!params->aifs)
- 		ring->tx_params.aifs = 2;
- 
-+	INFO("Configured TX ring %d - CWmin: %d, CWmax: %d, Aifs: %d.\n",
-+		queue, ring->tx_params.cw_min, ring->tx_params.cw_max,
-+		ring->tx_params.aifs);
-+
- 	return 0;
- }
- 
-@@ -2633,10 +2637,9 @@
- static void rt73usb_reset_tsf(struct ieee80211_hw *hw)
- {
- 	struct rt2x00_dev *rt2x00dev = hw->priv;
--	u32 reg = 0;
- 
--	rt2x00_register_write(rt2x00dev, TXRX_CSR12, reg);
--	rt2x00_register_write(rt2x00dev, TXRX_CSR13, reg);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR12, 0);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR13, 0);
- }
- 
- static int rt73usb_beacon_update(struct ieee80211_hw *hw,
-@@ -2656,6 +2659,9 @@
- 	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
- 
-+	/*
-+	 * Update the beacon entry.
-+	 */
- 	memcpy(rt2x00_data_addr(entry), skb->data, skb->len);
- 	rt73usb_write_tx_desc(rt2x00dev,
- 		rt2x00_desc_addr(entry), skb, control);
+ 	if (crc != (fw->data[fw->size - 2] << 8 | fw->data[fw->size - 1])) {
+ 		ERROR("Firmware CRC error.\n");
