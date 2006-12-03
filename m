@@ -1,47 +1,42 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] phylib help text fixes
-Date: Sun, 3 Dec 2006 10:55:46 -0800
-Message-ID: <20061203105546.5ed1b71b.randy.dunlap@oracle.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless
+	radio
+Date: Sun, 03 Dec 2006 20:18:02 +0100
+Message-ID: <1165173482.3233.240.camel@laptopd505.fenrus.org>
+References: <200612031936.34343.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
+Cc: Dmitry Torokhov <dtor@insightbb.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Lennart Poettering <lennart@poettering.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:47511 "EHLO
-	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1759987AbWLCSzK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 13:55:10 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:34265 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1760022AbWLCTSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 14:18:16 -0500
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200612031936.34343.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On Sun, 2006-12-03 at 19:36 +0100, Ivo van Doorn wrote:
+> +
+> +       down(&master->key_sem);
+> + 
 
-Fix help text typos.
-Fix help text width to be < 80 columns:  better for editors and for
-  menuconfig in 80-column terms.
+Hi,
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/phy/Kconfig |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+this one seems to be used as a mutex only, please consider using a mutex
+instead, as is the default for new code since 2.6.16 or so....
 
---- linux-2.6.19-rc6-mm2.orig/drivers/net/phy/Kconfig
-+++ linux-2.6.19-rc6-mm2/drivers/net/phy/Kconfig
-@@ -56,9 +56,10 @@ config BROADCOM_PHY
- config FIXED_PHY
- 	tristate "Drivers for PHY emulation on fixed speed/link"
- 	---help---
--	  Adds the driver to PHY layer to cover the boards that do not have any PHY bound,
--	  but with the ability to manipulate with speed/link in software. The relavant MII
--	  speed/duplex parameters could be effectively handled in user-specified  fuction.
-+	  Adds the driver to PHY layer to cover the boards that do not have
-+	  any PHY bound, but with the ability to manipulate the speed/link
-+	  in software. The relevant MII speed/duplex parameters could be
-+	  effectively handled in user-specified functions.
- 	  Currently tested with mpc866ads.
- 
- config FIXED_MII_10_FDX
+Greetings,
+   Arjan van de Ven
 
+-- 
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
 
----
