@@ -1,124 +1,139 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH  v2 02/13] Device Discovery and ULLD Linkage
-Date: Sun, 3 Dec 2006 17:03:35 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0612031658160.25425@yvahk01.tjqt.qr>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
- <20061202224937.27014.951.stgit@dell3.ogc.int>
+From: jamal <hadi@cyberus.ca>
+Subject: [XFRM] Optimize SA dumping
+Date: Sun, 03 Dec 2006 11:33:30 -0500
+Message-ID: <1165163610.3517.96.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rdreier@cisco.com, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-FEE7EVVy4v1fEeXIQQOX"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer-b2.gwdg.de ([134.76.10.29]:55222 "EHLO mailer-b2.gwdg.de")
-	by vger.kernel.org with ESMTP id S1756305AbWLCQ3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Dec 2006 11:29:33 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <20061202224937.27014.951.stgit@dell3.ogc.int>
+Received: from nz-out-0506.google.com ([64.233.162.234]:40645 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1756869AbWLCQdg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 11:33:36 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1739154nze
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 08:33:35 -0800 (PST)
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+
+--=-FEE7EVVy4v1fEeXIQQOX
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
 
+Ok, heres is the SA version and the numbers.
+Against net-2.6.20
 
-Some questions,suggestions,:
-
->+cxgb3_cpl_handler_func t3c_handlers[NUM_CPL_CMDS];
-
-Can it be static'ified? (I suppose not.)
-
->+struct cxgb3_client t3c_client = {
->+	.name = "iw_cxgb3",
->+	.add = open_rnic_dev,
->+	.remove = close_rnic_dev,
->+	.handlers = t3c_handlers,
->+	.redirect = iwch_ep_redirect
->+};
-
-Can it be const'ified?
-
->+static void rnic_init(struct iwch_dev *rnicp)
->+{
->+	PDBG("%s iwch_dev %p\n", __FUNCTION__,  rnicp);
->+	idr_init(&rnicp->cqidr);
->+	idr_init(&rnicp->qpidr);
->+	idr_init(&rnicp->mmidr);
->+	spin_lock_init(&rnicp->lock);
->+
->+	rnicp->attr.vendor_id = 0x168;
->+	rnicp->attr.vendor_part_id = 7;
-
-Sugg.:
-
-   typeof(rnicp->attr) *a = &rnicp->attr; // replace typeof with proper thing
-   a->vendor_id = 0x168;
-   a->vendor_part_id = 7;
-
-shortens the lines a bit.
-
->+	rnicp->attr.max_qps = T3_MAX_NUM_QP - 32;
->+	rnicp->attr.max_wrs = (1UL << 24) - 1;
->+	rnicp->attr.max_sge_per_wr = T3_MAX_SGE;
->+	rnicp->attr.max_sge_per_rdma_write_wr = T3_MAX_SGE;
->+	rnicp->attr.max_cqs = T3_MAX_NUM_CQ - 1;
->+	rnicp->attr.max_cqes_per_cq = (1UL << 24) - 1;
->+	rnicp->attr.max_mem_regs = cxio_num_stags(&rnicp->rdev);
->+	rnicp->attr.max_phys_buf_entries = T3_MAX_PBL_SIZE;
->+	rnicp->attr.max_pds = T3_MAX_NUM_PD - 1;
->+	rnicp->attr.mem_pgsizes_bitmask = 0x7FFF;	/* 4KB-128MB */
->+	rnicp->attr.can_resize_wq = 0;
->+	rnicp->attr.max_rdma_reads_per_qp = 8;
->+	rnicp->attr.max_rdma_read_resources =
->+	    rnicp->attr.max_rdma_reads_per_qp * rnicp->attr.max_qps;
->+	rnicp->attr.max_rdma_read_qp_depth = 8;	/* IRD */
->+	rnicp->attr.max_rdma_read_depth =
->+	    rnicp->attr.max_rdma_read_qp_depth * rnicp->attr.max_qps;
->+	rnicp->attr.rq_overflow_handled = 0;
->+	rnicp->attr.can_modify_ird = 0;
->+	rnicp->attr.can_modify_ord = 0;
->+	rnicp->attr.max_mem_windows = rnicp->attr.max_mem_regs - 1;
->+	rnicp->attr.stag0_value = 1;
->+	rnicp->attr.zbva_support = 1;
->+	rnicp->attr.local_invalidate_fence = 1;
->+	rnicp->attr.cq_overflow_detection = 1;
->+	return;
->+}
->+
->--- /dev/null
->+++ b/drivers/infiniband/hw/cxgb3/iwch.h
->+static inline int t3b_device(struct iwch_dev *rhp)
->+{
->+	return (rhp->rdev.t3cdev_p->type == T3B);
->+}
->+
->+static inline int t3a_device(struct iwch_dev *rhp)
->+{
->+	return (rhp->rdev.t3cdev_p->type == T3A);
->+}
-
-These two can be constified for sure: static inline int t3a_device(const 
-struct iwch_dev *rhp)
-
->+
->+static inline struct iwch_cq *get_chp(struct iwch_dev *rhp, u32 cqid)
->+{
->+	return idr_find(&rhp->cqidr, cqid);
->+}
->+
->+static inline struct iwch_qp *get_qhp(struct iwch_dev *rhp, u32 qpid)
->+{
->+	return idr_find(&rhp->qpidr, qpid);
->+}
->+
->+static inline struct iwch_mr *get_mhp(struct iwch_dev *rhp, u32 mmid)
->+{
->+	return idr_find(&rhp->mmidr, mmid);
->+}
-
-Here I am not sure.
+cheers,
+jamal
 
 
+--=-FEE7EVVy4v1fEeXIQQOX
+Content-Disposition: attachment; filename=xfrm_sa_dumpopt
+Content-Type: text/plain; name=xfrm_sa_dumpopt; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
+[XFRM] Optimize SA dumping
 
-	-`J'
--- 
+Same comments as in "[XFRM] Optimize policy dumping"
+
+Again, the same issue as in the policy optimization; we could do better
+only if we didnt have to do bending backwards to make pfkey happy.
+In the future we could move some of this burden to pfkey itself.
+For now this is better than whats there today.
+
+The numbers are (20K SAs):
+
+------
+1) before the change ..
+speedopolis:~# time ./ip xf sta
+
+real    0m5.321s
+user    0m0.004s
+sys     0m5.316s
+
+2) after the change ...
+speedopolis:~# time ./ip x state
+
+real    0m1.994s
+user    0m0.000s
+sys     0m1.992s
+------
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit 8a0f11d0e7197624341ab0536fbf24af5cb67e2b
+tree 48dc4e907733e9c6989e7c4e8ac9bcd72c4d26b6
+parent 0355ced4a81a1af96b4531680e9c593d3967a5f1
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 03 Dec 2006 10:29:50 -0500
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 03 Dec 2006 10:29:50 -0500
+
+ net/xfrm/xfrm_state.c |   38 +++++++++++++++++++++++---------------
+ 1 files changed, 23 insertions(+), 15 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 864962b..148b148 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1099,32 +1099,40 @@ int xfrm_state_walk(u8 proto, int (*func)(struct xfrm_state *, int, void*),
+ 		    void *data)
+ {
+ 	int i;
+-	struct xfrm_state *x;
+ 	struct hlist_node *entry;
++	struct xfrm_state *x, *send_x = NULL, *last_x = NULL;
+ 	int count = 0;
+-	int err = 0;
++	int err = -ENOENT;
+ 
+ 	spin_lock_bh(&xfrm_state_lock);
+-	for (i = 0; i <= xfrm_state_hmask; i++) {
+-		hlist_for_each_entry(x, entry, xfrm_state_bydst+i, bydst) {
+-			if (xfrm_id_proto_match(x->id.proto, proto))
+-				count++;
+-		}
+-	}
+-	if (count == 0) {
+-		err = -ENOENT;
+-		goto out;
+-	}
+ 
+ 	for (i = 0; i <= xfrm_state_hmask; i++) {
+ 		hlist_for_each_entry(x, entry, xfrm_state_bydst+i, bydst) {
++			if (count && send_x != last_x) {
++				err = func(send_x, count, data);
++				if (err)
++					goto out;
++				send_x = NULL;
++			}
+ 			if (!xfrm_id_proto_match(x->id.proto, proto))
+ 				continue;
+-			err = func(x, --count, data);
+-			if (err)
+-				goto out;
++
++			if (!count) {
++				last_x = send_x = x;
++			} else {
++				send_x = last_x;
++				last_x = x;
++			}
++			count++;
+ 		}
+ 	}
++
++	if (send_x && send_x != last_x) 
++		err = func(send_x, count, data);
++	if (count) {
++		BUG_TRAP(last_x == NULL);
++		err = func(last_x, 0, data);
++	}
+ out:
+ 	spin_unlock_bh(&xfrm_state_lock);
+ 	return err;
+
+--=-FEE7EVVy4v1fEeXIQQOX--
+
