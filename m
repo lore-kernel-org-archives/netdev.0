@@ -1,150 +1,154 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPSEC][6/7] inter address family ipsec tunnel
-Date: Sun, 03 Dec 2006 19:12:08 -0800 (PST)
-Message-ID: <20061203.191208.74749805.davem@davemloft.net>
-References: <20061203.175847.08320724.davem@davemloft.net>
-	<20061203.182814.74748972.davem@davemloft.net>
-	<45738CE1.3070304@miyazawa.org>
+From: Robert Martin <robertm83@gmail.com>
+Subject: NETDEV-BCM43XX BUG - Failure to associate AP with latest devscape
+ git pull..
+Date: Sun, 03 Dec 2006 16:21:03 -0500
+Message-ID: <45733FBF.5020800@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47844
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1759712AbWLDDMa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 22:12:30 -0500
-To: kazunori@miyazawa.org
-In-Reply-To: <45738CE1.3070304@miyazawa.org>
+Received: from wx-out-0506.google.com ([66.249.82.238]:12777 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1759191AbWLDDVN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 22:21:13 -0500
+Received: by wx-out-0506.google.com with SMTP id h27so3658513wxd
+        for <netdev@vger.kernel.org>; Sun, 03 Dec 2006 19:21:12 -0800 (PST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Date: Mon, 04 Dec 2006 11:50:09 +0900
+Kernel = 2.6.19 SMP
+bcmwl5 firmware = 4.10.40.0
+Devscape bcm43xx_d80211 driver = Latest git pull
+Wireless card =  Broadcom Corporation Dell Wireless 1390 WLAN Mini-PCI 
+Card (rev 01) (PCI-E)
 
-> Thank you for your tracing the bug.
-> 
-> I understood the issue.
-> Mmm, if we can not use ut->family, can we use
-> ut->id.family instead?
-> 
-> Or is it also uninitialized?
+I seem to be having a problem associating with my AP--everything appears 
+fine and I can bring my wireless adapter up (the LED lights up 
+correctly), and I don't see complaints about firmware/IRQs in the dmesg 
+output.  I am able to see operating APs with an "iwlist wlan0 scan", but 
+I am unable to connect to the AP, with or without WEP encryption enabled 
+(tried none, hex and ascii; nothing worked).  This is with the latest 
+wireless-dev pull and a vanilla 2.6.19 kernel with "irqpoll" option 
+enabled, otherwise it misbehaves.  I would be happy to give more 
+information if requested, or try different kernel/firmware options.
 
-struct xfrm_id does not have a family field
+Here I have provided my dhclient connect attempt output with the 
+relevant tcpdump.  Thank you greatly for your time.
 
-struct xfrm_id
-{
-	xfrm_address_t	daddr;
-	__be32		spi;
-	__u8		proto;
-};
+========DHCLIENT ATTEMPT OUTPUT 
+BEGIN======================================================
+Internet Systems Consortium DHCP Client V3.0.4-RedHat
+Copyright 2004-2006 Internet Systems Consortium.
+All rights reserved.
+For info, please visit
 
-That's what ut->id is.
+wmaster0: unknown hardware address type 801
+/sbin/dhclient-script: configuration for wlan0 not found. Continuing 
+with defaults.
+/etc/sysconfig/network-scripts/network-functions: line 78: wlan0: No 
+such file or directory
+wmaster0: unknown hardware address type 801
+Listening on LPF/wlan0/00:14:a5:da:ba:87
+Sending on   LPF/wlan0/00:14:a5:da:ba:87
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 4
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 9
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 11
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 9
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 14
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 6
+No DHCPOFFERS received.
+No working leases in persistent database - sleeping.
+/sbin/dhclient-script: configuration for wlan0 not found. Continuing 
+with defaults.
+/etc/sysconfig/network-scripts/network-functions: line 78: wlan0: No 
+such file or directory
 
-You're thinking of xfrm_usersa_id, which is used by
-another structure, xfrm_aevent_id.
+========DHCLIENT CONNECT OUTPUT 
+END=======================================================
 
-For the time being I'm thinking of using the following
-patch.  I removed the xp->family clobbering, the AF_KEY
-changes don't do this, so there is no reason for the
-xfrm_user side to do it either.
+========TCPDUMP (tcpdump -vvv -i wlan0 -XX) OUTPUT 
+BEGIN========================================================
 
-Every path that leads to copy_templates() will perform
-a validate_tmpl() which will change ut->family == 0
-to the policy's family value.  Any other non-supported
-value will trigger an error.
+19:04:08.726651 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 6187 0101 0600 789b  ...D.C.4a.....x.
+       0x0030:  990d 0000 0000 0000 0000 0000 0000 0000  ................
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+19:04:12.001529 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, secs:4, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 6183 0101 0600 789b  ...D.C.4a.....x.
+       0x0030:  990d 0004 0000 0000 0000 0000 0000 0000  ................
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+19:04:21.000548 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, secs:13, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 617a 0101 0600 789b  ...D.C.4az....x.
+       0x0030:  990d 000d 0000 0000 0000 0000 0000 0000  ................
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+19:04:32.001816 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, secs:24, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 616f 0101 0600 789b  ...D.C.4ao....x.
+       0x0030:  990d 0018 0000 0000 0000 0000 0000 0000  ................
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+19:04:40.001672 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, secs:32, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 6167 0101 0600 789b  ...D.C.4ag....x.
+       0x0030:  990d 0020 0000 0000 0000 0000 0000 0000  ................
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+19:04:49.000321 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, secs:41, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 615e 0101 0600 789b  ...D.C.4a^....x.
+       0x0030:  990d 0029 0000 0000 0000 0000 0000 0000  ...)............
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+19:05:03.000152 IP (tos 0x10, ttl  16, id 0, offset 0, flags [none], 
+proto: UDP (17), length: 328) 0.0.0.0.bootpc > 255.255.255.255.bootps: 
+BOOTP/DHCP, Request from 00:14:a5:da:ba:87 (oui Unknown), length: 300, 
+xid:0x789b990d, secs:55, flags: [none] (0x0000)
+         Client Ethernet Address: 00:14:a5:da:ba:87 (oui Unknown) [|bootp]
+       0x0000:  ffff ffff ffff 0014 a5da ba87 0800 4510  ..............E.
+       0x0010:  0148 0000 0000 1011 a996 0000 0000 ffff  .H..............
+       0x0020:  ffff 0044 0043 0134 6150 0101 0600 789b  ...D.C.4aP....x.
+       0x0030:  990d 0037 0000 0000 0000 0000 0000 0000  ...7............
+       0x0040:  0000 0000 0000 0014 a5da ba87 0000 0000  ................
+       0x0050:  0000 0000 0000 0000 0000 0000 0000 0000  ................
 
-Let's hope this fix is sufficient.  I'm about to test
-this now.
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 6f97665..311205f 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -858,7 +858,6 @@ static void copy_templates(struct xfrm_p
- 	int i;
- 
- 	xp->xfrm_nr = nr;
--	xp->family = ut->family;
- 	for (i = 0; i < nr; i++, ut++) {
- 		struct xfrm_tmpl *t = &xp->xfrm_vec[i];
- 
-@@ -876,19 +875,53 @@ static void copy_templates(struct xfrm_p
- 	}
- }
- 
-+static int validate_tmpl(int nr, struct xfrm_user_tmpl *ut, u16 family)
-+{
-+	int i;
-+
-+	if (nr > XFRM_MAX_DEPTH)
-+		return -EINVAL;
-+
-+	for (i = 0; i < nr; i++) {
-+		/* We never validated the ut->family value, so many
-+		 * applications simply leave it at zero.  The check was
-+		 * never made and ut->family was ignored because all
-+		 * templates could be assumed to have the same family as
-+		 * the policy itself.  Now that we will have ipv4-in-ipv6
-+		 * and ipv6-in-ipv4 tunnels, this is no longer true.
-+		 */
-+		if (!ut[i].family)
-+			ut[i].family = family;
-+
-+		switch (ut[i].family) {
-+		case AF_INET:
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case AF_INET6:
-+			break;
-+#endif
-+		default:
-+			return -EINVAL;
-+		};
-+	}
-+
-+	return 0;
-+}
-+
- static int copy_from_user_tmpl(struct xfrm_policy *pol, struct rtattr **xfrma)
- {
- 	struct rtattr *rt = xfrma[XFRMA_TMPL-1];
--	struct xfrm_user_tmpl *utmpl;
--	int nr;
- 
- 	if (!rt) {
- 		pol->xfrm_nr = 0;
- 	} else {
--		nr = (rt->rta_len - sizeof(*rt)) / sizeof(*utmpl);
-+		struct xfrm_user_tmpl *utmpl = RTA_DATA(rt);
-+		int nr = (rt->rta_len - sizeof(*rt)) / sizeof(*utmpl);
-+		int err;
- 
--		if (nr > XFRM_MAX_DEPTH)
--			return -EINVAL;
-+		err = validate_tmpl(nr, utmpl, pol->family);
-+		if (err)
-+			return err;
- 
- 		copy_templates(pol, RTA_DATA(rt), nr);
- 	}
-@@ -1530,7 +1563,8 @@ static int xfrm_add_acquire(struct sk_bu
- 	}
- 
- 	/*   build an XP */
--	xp = xfrm_policy_construct(&ua->policy, (struct rtattr **) xfrma, &err);        if (!xp) {
-+	xp = xfrm_policy_construct(&ua->policy, (struct rtattr **) xfrma, &err);
-+	if (!xp) {
- 		kfree(x);
- 		return err;
- 	}
-@@ -1979,7 +2013,7 @@ #endif
- 		return NULL;
- 
- 	nr = ((len - sizeof(*p)) / sizeof(*ut));
--	if (nr > XFRM_MAX_DEPTH)
-+	if (validate_tmpl(nr, ut, p->sel.family))
- 		return NULL;
- 
- 	if (p->dir > XFRM_POLICY_OUT)
+===========TCPDUMP OUTPUT 
+END==============================================================
