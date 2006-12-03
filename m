@@ -1,47 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network virtualization/isolation
-Date: Sun, 03 Dec 2006 09:00:59 -0700
-Message-ID: <m1y7ppdl50.fsf@ebiederm.dsl.xmission.com>
-References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
-	<20061026085659.33b4c6dd@freekitty>
-	<200610271134.56830.dim@openvz.org> <4541CCF4.4050306@fr.ibm.com>
-	<1162391707.5251.78.camel@jzny2> <4559DE01.5090109@fr.ibm.com>
-	<m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
-	<456C447E.5090703@fr.ibm.com>
-	<m1r6vnikeq.fsf@ebiederm.dsl.xmission.com>
-	<456C9B8C.1010701@fr.ibm.com>
-	<m14psji6lw.fsf@ebiederm.dsl.xmission.com> <456DEBAC.4060106@hp.com>
-	<456E055F.8020100@fr.ibm.com> <1165148762.3517.58.camel@localhost>
-	<1165155198.3517.86.camel@localhost>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] softmac: fix unbalanced mutex_lock/unlock in ieee80211softmac_wx_set_mlme
+Date: Sun, 03 Dec 2006 10:23:32 -0600
+Message-ID: <4572FA04.6010906@lwfinger.net>
+References: <20061203074203.GB5785@tralhalla.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, devel@openvz.org,
-	Linux Containers <containers@lists.osdl.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:3205 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1754282AbWLCQDD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 11:03:03 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1165155198.3517.86.camel@localhost> (hadi@cyberus.ca's message
-	of "Sun, 03 Dec 2006 09:13:18 -0500")
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:31936 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1755795AbWLCQXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 11:23:35 -0500
+To: Maxime Austruy <maxime@tralhalla.org>
+In-Reply-To: <20061203074203.GB5785@tralhalla.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Maxime Austruy wrote:
+> Found a hang while playing with wpa_supplicant and a zd1211 usb adapter
+> using linux 2.6.19.  The problem is that ieee80211softmac_wx_set_mlme
+> forgets to release a mutex when mlme->cmd is IW_MLME_DEAUTH.  The fix
+> below allows me to kill wpa_supplicant and to restart it without having
+> to reboot the machine. FWIW, it seems that the problem was introduced
+> between 2.6.19-rc2 and 2.6.19-rc3 when this function was changed to use
+> a mutex.
+> 
+> Signed-off-by: Maxime Austruy <maxime@tralhalla.org>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> 
+> --
+>  net/ieee80211/softmac/ieee80211softmac_wx.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> --- linux.orig/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-11-29 13:57:37.000000000 -0800
+> +++ linux/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-12-02 22:58:20.000000000 -0800
+> @@ -495,7 +495,8 @@ ieee80211softmac_wx_set_mlme(struct net_
+>  			printk(KERN_DEBUG PFX "wx_set_mlme: we should know the net here...\n");
+>  			goto out;
+>  		}
+> -		return ieee80211softmac_deauth_req(mac, net, reason);
+> +		err =  ieee80211softmac_deauth_req(mac, net, reason);
+> +		goto out;
+>  	case IW_MLME_DISASSOC:
+>  		ieee80211softmac_send_disassoc_req(mac, reason);
+>  		mac->associnfo.associated = 0;
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Ok.  Just a quick summary of where I see the discussion.
-
-We all agree that L2 isolation is needed at some point.
-
-The approaches discussed for L2 and L3 are sufficiently orthogonal
-that we can implement then in either order.  You would need to
-unshare L3 to unshare L2, but if we think of them as two separate
-namespaces we are likely to be in better shape.
-
-The L3 discussion still has the problem that there has not been
-agreement on all of the semantics yet.
-
-More comments after I get some sleep.
-
-Eric
