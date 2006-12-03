@@ -1,45 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH  v2 00/13] 2.6.20 Chelsio T3 RDMA Driver
-Date: Sat, 02 Dec 2006 16:24:47 -0800
-Message-ID: <4572194F.8060309@osdl.org>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202231329.GA10719@electric-eye.fr.zoreil.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 7621] New: 2.6.19 breaks IPv6
+Date: Sat, 2 Dec 2006 19:20:09 -0800
+Message-ID: <20061202192009.05277ebf.akpm@osdl.org>
+References: <200612021923.kB2JNsLw018910@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise@opengridcomputing.com>, rdreier@cisco.com,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1424902AbWLCA2N@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061202231329.GA10719@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jasmin-bugs@pacifica.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.25]:50313 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1759493AbWLCCUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Dec 2006 21:20:33 -0500
+To: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+In-Reply-To: <200612021923.kB2JNsLw018910@fire-2.osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Steve Wise <swise@opengridcomputing.com> :
-> [...]
->   
->> Version 2 changes:
->>
->> - Make code sparse endian clean
->> - Use IDRs for mapping QP and CQ IDs to structure pointers instead of arrays
->> - Clean up confusing bitfields
->> - Use random32() instead of local random function
->> - Use krefs to track endpoint reference counts
->> - Misc nits
->>
->> -----
->>
->> The following series implements the Chelsio T3 iWARP/RDMA Driver to
->> be considered for inclusion in 2.6.20.  It depends on the Chelsio T3
->> Ethernet Driver which is also under review now for 2.6.20. See:
->>     
->
-> I understood that Stephen expressed some doubts regarding the inclusion
-> of TOE enabled features.
->
-> Was his point addressed ?
->
->   
-
-My comments were about different hardware.
+> On Sat, 2 Dec 2006 11:23:54 -0800 bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=7621
+> 
+>            Summary: 2.6.19 breaks IPv6
+>     Kernel Version: 2.6.19
+>             Status: NEW
+>           Severity: high
+>              Owner: yoshfuji@linux-ipv6.org
+>          Submitter: jasmin-bugs@pacifica.ch
+> 
+> 
+> Vanille 2.6.19 oops'es at boot. With the patch from 
+> http://marc.theaimsgroup.com/?l=linux-kernel&m=116485303623545&w=2 it boots 
+> but IPv6 stopps working. I can't ping/traceroute any host. Network setup has 
+> not changed.
+> 
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
