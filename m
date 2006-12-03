@@ -1,49 +1,45 @@
-From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Subject: Re: [PATCH] 2.6 driver for Silan SC92031
-Date: Sat, 02 Dec 2006 22:23:05 -0200
-Message-ID: <457218E9.7070902@cesarb.net>
-References: <4571FC49.5060208@cesarb.net> <4571FDE7.9060203@pobox.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH  v2 00/13] 2.6.20 Chelsio T3 RDMA Driver
+Date: Sat, 02 Dec 2006 16:24:47 -0800
+Message-ID: <4572194F.8060309@osdl.org>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202231329.GA10719@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-02.mandic.com.br ([200.225.81.133]:34999 "EHLO
-	smtp-02.mandic.com.br") by vger.kernel.org with ESMTP
-	id S1424727AbWLCAXM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Dec 2006 19:23:12 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4571FDE7.9060203@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Steve Wise <swise@opengridcomputing.com>, rdreier@cisco.com,
+	netdev@vger.kernel.org, openib-general@openib.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1424902AbWLCA2N@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20061202231329.GA10719@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik escreveu:
-> Cesar Eduardo Barros wrote:
->> From: Cesar Eduardo Barros <cesarb@cesarb.net>
+Francois Romieu wrote:
+> Steve Wise <swise@opengridcomputing.com> :
+> [...]
+>   
+>> Version 2 changes:
 >>
->> This is a driver for the Silan SC92031/Rsltek 8139D NIC chip. It's a
->> rewrite of the vendor 2.4 driver for 2.6, and has been lightly tested
->> on a 2.6.17 x86-64 kernel with the Ubuntu patches (as a out-of-tree
->> module only).
+>> - Make code sparse endian clean
+>> - Use IDRs for mapping QP and CQ IDs to structure pointers instead of arrays
+>> - Clean up confusing bitfields
+>> - Use random32() instead of local random function
+>> - Use krefs to track endpoint reference counts
+>> - Misc nits
 >>
-> 
-> Seems like it would be best to modify the existing 8139 driver...
+>> -----
+>>
+>> The following series implements the Chelsio T3 iWARP/RDMA Driver to
+>> be considered for inclusion in 2.6.20.  It depends on the Chelsio T3
+>> Ethernet Driver which is also under review now for 2.6.20. See:
+>>     
+>
+> I understood that Stephen expressed some doubts regarding the inclusion
+> of TOE enabled features.
+>
+> Was his point addressed ?
+>
+>   
 
-I'm not sure it would help. Either the hardware differences are too 
-large (for instance, the MII/link part, where the way the vendor driver 
-did things implies the MII has only the two basic registers plus two 
-vendor registers, meaning I simply cannot use the generic mii code) or 
-the code is already modified from the 8139 driver (the vendor driver 
-seems to be based on an old version of either pci-skeleton.c or 
-8139too.c, and I based my rewrite on the vendor driver).
-
-Of course, one thing I probably will copy from 8139too.c later is the 
-NAPI code; I wanted to avoid the extra locking complexity in this first 
-version (the fact that the interrupt status register is cleared on 
-reading only makes things more complex). If you can suggest other things 
-to copy, it would be good, since the copied code is less likely to be wrong.
-
--- 
-Cesar Eduardo Barros
-cesarb@cesarb.net
-cesar.barros@gmail.com
+My comments were about different hardware.
