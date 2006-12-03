@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rose_add_loopback_node: propagate -E
-Date: Sat, 02 Dec 2006 22:17:59 -0800 (PST)
-Message-ID: <20061202.221759.25475605.davem@davemloft.net>
-References: <20061202213339.GB2714@martell.zuzino.mipt.ru>
+Subject: Re: RFC: XFRM changing the view of xfrm_aevent_id
+Date: Sat, 02 Dec 2006 22:22:56 -0800 (PST)
+Message-ID: <20061202.222256.97293883.davem@davemloft.net>
+References: <1164983872.3562.45.camel@localhost>
+	<20061201.200858.25157271.davem@davemloft.net>
+	<1165057748.3564.1.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org
+Cc: hidden@balabit.hu, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42161
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:17307
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1424997AbWLCGSp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 01:18:45 -0500
-To: adobriyan@gmail.com
-In-Reply-To: <20061202213339.GB2714@martell.zuzino.mipt.ru>
+	id S936671AbWLCGXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 01:23:42 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1165057748.3564.1.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Sun, 3 Dec 2006 00:33:39 +0300
+From: jamal <hadi@cyberus.ca>
+Date: Sat, 02 Dec 2006 06:09:08 -0500
 
-> David Binderman's icc logs:
-> net/rose/rose_route.c(399): remark #593: variable "err" was set but never used
+> On Fri, 2006-01-12 at 20:08 -0800, David Miller wrote:
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> > 
+> > Let's change it now while we still can.
+> > 
+> > A few months from now, I will probably not give the same
+> > answer :)
+> 
+> :-> Ok, here it is ...
 
-Applied, thanks Alexey.
+Applied thanks.
