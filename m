@@ -1,88 +1,47 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: [PATCH] softmac: Fixed handling of deassociation from AP
-Date: Sun, 3 Dec 2006 16:32:00 +0100
-Message-ID: <20061203153200.GA26888@p15091797.pureserver.info>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network virtualization/isolation
+Date: Sun, 03 Dec 2006 09:00:59 -0700
+Message-ID: <m1y7ppdl50.fsf@ebiederm.dsl.xmission.com>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
+	<20061026085659.33b4c6dd@freekitty>
+	<200610271134.56830.dim@openvz.org> <4541CCF4.4050306@fr.ibm.com>
+	<1162391707.5251.78.camel@jzny2> <4559DE01.5090109@fr.ibm.com>
+	<m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
+	<456C447E.5090703@fr.ibm.com>
+	<m1r6vnikeq.fsf@ebiederm.dsl.xmission.com>
+	<456C9B8C.1010701@fr.ibm.com>
+	<m14psji6lw.fsf@ebiederm.dsl.xmission.com> <456DEBAC.4060106@hp.com>
+	<456E055F.8020100@fr.ibm.com> <1165148762.3517.58.camel@localhost>
+	<1165155198.3517.86.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, devel@openvz.org,
+	Linux Containers <containers@lists.osdl.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:21460 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S936778AbWLCPcB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 10:32:01 -0500
-To: linville@tuxdriver.com
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:3205 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1754282AbWLCQDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 11:03:03 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1165155198.3517.86.camel@localhost> (hadi@cyberus.ca's message
+	of "Sun, 03 Dec 2006 09:13:18 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In 2.6.19 a deauthentication from the AP doesn't start a
-reassociation by the softmac code. It appears that
-mac->associnfo.associating must be set and the
-ieee80211softmac_assoc_work function must be scheduled. This patch
-fixes that.
 
-Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
----
- net/ieee80211/softmac/ieee80211softmac_assoc.c |   14 ++++++++++++--
- net/ieee80211/softmac/ieee80211softmac_auth.c  |    2 ++
- net/ieee80211/softmac/ieee80211softmac_priv.h  |    2 ++
- 3 files changed, 16 insertions(+), 2 deletions(-)
+Ok.  Just a quick summary of where I see the discussion.
 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index cf51c87..614aa8d 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -427,6 +427,17 @@ ieee80211softmac_handle_assoc_response(s
- 	return 0;
- }
- 
-+void
-+ieee80211softmac_try_reassoc(struct ieee80211softmac_device *mac)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&mac->lock, flags);
-+	mac->associnfo.associating = 1;
-+	schedule_work(&mac->associnfo.work);
-+	spin_unlock_irqrestore(&mac->lock, flags);
-+}
-+
- int
- ieee80211softmac_handle_disassoc(struct net_device * dev,
- 				 struct ieee80211_disassoc *disassoc)
-@@ -445,8 +456,7 @@ ieee80211softmac_handle_disassoc(struct 
- 	dprintk(KERN_INFO PFX "got disassoc frame\n");
- 	ieee80211softmac_disassoc(mac);
- 
--	/* try to reassociate */
--	schedule_work(&mac->associnfo.work);
-+	ieee80211softmac_try_reassoc(mac);
- 
- 	return 0;
- }
-diff --git a/net/ieee80211/softmac/ieee80211softmac_auth.c b/net/ieee80211/softmac/ieee80211softmac_auth.c
-index 4cef39e..88897e4 100644
---- a/net/ieee80211/softmac/ieee80211softmac_auth.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_auth.c
-@@ -328,6 +328,8 @@ ieee80211softmac_deauth_from_net(struct 
- 	/* can't transmit data right now... */
- 	netif_carrier_off(mac->dev);
- 	spin_unlock_irqrestore(&mac->lock, flags);
-+
-+	ieee80211softmac_try_reassoc(mac);
- }
- 
- /* 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_priv.h b/net/ieee80211/softmac/ieee80211softmac_priv.h
-index 0642e09..3ae894f 100644
---- a/net/ieee80211/softmac/ieee80211softmac_priv.h
-+++ b/net/ieee80211/softmac/ieee80211softmac_priv.h
-@@ -238,4 +238,6 @@ void ieee80211softmac_call_events_locked
- int ieee80211softmac_notify_internal(struct ieee80211softmac_device *mac,
- 	int event, void *event_context, notify_function_ptr fun, void *context, gfp_t gfp_mask);
- 
-+void ieee80211softmac_try_reassoc(struct ieee80211softmac_device *mac);
-+
- #endif /* IEEE80211SOFTMAC_PRIV_H_ */
--- 
-1.4.1
+We all agree that L2 isolation is needed at some point.
+
+The approaches discussed for L2 and L3 are sufficiently orthogonal
+that we can implement then in either order.  You would need to
+unshare L3 to unshare L2, but if we think of them as two separate
+namespaces we are likely to be in better shape.
+
+The L3 discussion still has the problem that there has not been
+agreement on all of the semantics yet.
+
+More comments after I get some sleep.
+
+Eric
