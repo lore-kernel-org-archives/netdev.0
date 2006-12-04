@@ -1,45 +1,68 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][XFRM] Optimize policy dumping
-Date: Mon, 04 Dec 2006 15:26:12 +0100
-Message-ID: <45743004.8050606@trash.net>
-References: <1165158707.3517.92.camel@localhost>	 <45741386.5070002@trash.net> <1165238776.3664.40.camel@localhost>	 <45742825.8040004@trash.net>  <45742964.9000905@trash.net>	 <1165240725.3664.72.camel@localhost>  <45742B6D.7010509@trash.net> <1165241469.3664.81.camel@localhost>
+Subject: RFC: consistent disable_xfrm behaviour
+Date: Mon, 04 Dec 2006 15:59:54 +0100
+Message-ID: <457437EA.7000406@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030406050300030204020307"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54451 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S936892AbWLDOXF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 09:23:05 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1165241469.3664.81.camel@localhost>
+Received: from stinky.trash.net ([213.144.137.162]:46713 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936971AbWLDO4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 09:56:47 -0500
+Received: from [192.168.0.100] (unknown [195.158.167.17])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by stinky.trash.net (Postfix) with ESMTP id A4D67948A9
+	for <netdev@vger.kernel.org>; Mon,  4 Dec 2006 15:56:45 +0100 (MET)
+To: Linux Netdev List <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2006-04-12 at 15:06 +0100, Patrick McHardy wrote:
-> 
-> 
->>Both ways are fine I guess. But the counting has almost no
->>overhead with the patch I sent, so I'm not sure if its worth
->>adding a callback (which still needs to get the last policy/SA
->>as argument, so that part won't get any nicer).
->>
->
-> The only arguement for the callback is it will lead to eventually
-> having some semi-reliable dump for pfkey. But i think that is a separate
-> issue to be tackled later.
+This is a multi-part message in MIME format.
+--------------030406050300030204020307
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Agreed, that also looks a bit tricker than the optimization.
+Currently the behaviour of disable_xfrm is inconsistent between
+locally generated and forwarded packets. For locally generated
+packets disable_xfrm disables the policy lookup if it is set on
+the output device, for forwarded traffic however it looks at the
+input device. This makes it impossible to disable xfrm on all
+devices but a dummy device and use normal routing to direct
+traffic to that device.
 
-> I am actually scratching my head a little as to what happens when the
-> pfkey socket recv is full.
+The Documentation is not exactly clear about whether the input
+or output device is meant, but the way I read it talks about
+the output device as well (since encryption is only done at
+output):
 
-dump_sp() doesn't check the return value of pfkey_broadcast, so I
-guess it will just try to stuff more and more data in the recv queue,
-leading to either all messages after the last one fitting getting
-dropped or random drops if dumping and reading happen in parallel.
+disable_xfrm - BOOLEAN
 
-setkey will loop forever if it doesn't receive the zero sequence
-number.
+        Disable IPSEC encryption on this interface, whatever the policy
+
+Opinions?
+
+
+--------------030406050300030204020307
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 9f3924c..164a7ee 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1780,7 +1780,7 @@ #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
+ #endif
+ 	if (in_dev->cnf.no_policy)
+ 		rth->u.dst.flags |= DST_NOPOLICY;
+-	if (in_dev->cnf.no_xfrm)
++	if (out_dev->cnf.no_xfrm)
+ 		rth->u.dst.flags |= DST_NOXFRM;
+ 	rth->fl.fl4_dst	= daddr;
+ 	rth->rt_dst	= daddr;
+
+--------------030406050300030204020307--
