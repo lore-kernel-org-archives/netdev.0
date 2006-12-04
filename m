@@ -1,58 +1,77 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: Network virtualization/isolation
-Date: Mon, 4 Dec 2006 18:19:00 +0300
-Message-ID: <200612041819.01017.dim@openvz.org>
-References: <453F8800.9070603@fr.ibm.com> <1165155198.3517.86.camel@localhost> <m1y7ppdl50.fsf@ebiederm.dsl.xmission.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED]: cls_fw: fix NULL pointer dereference
+Date: Mon, 04 Dec 2006 16:34:46 +0100
+Message-ID: <45744016.8080707@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	devel@openvz.org, Linux Containers <containers@lists.osdl.org>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@vger.kernel.org, Cedric Goater <clg@fr.ibm.com>
+Content-Type: multipart/mixed;
+ boundary="------------060001090006000803020506"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:48968 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936997AbWLDPUE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 10:20:04 -0500
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1y7ppdl50.fsf@ebiederm.dsl.xmission.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:47377 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937005AbWLDPbk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 10:31:40 -0500
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 03 December 2006 19:00, Eric W. Biederman wrote:
-> Ok.  Just a quick summary of where I see the discussion.
->
-> We all agree that L2 isolation is needed at some point.
-As we all agreed on this, may be it is time to send patches one-by-one?
-For the beggining, I propose to resend Cedric's empty namespace patch as base 
-for others - it is really empty, but necessary in order to move further.
+This is a multi-part message in MIME format.
+--------------060001090006000803020506
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-After this patch and the following net namespace unshare patch will be 
-accepted, I could send network devices virtualization patches for review and 
-discussion.
+Fix a regression from my nfmark mask patch for cls_fw.
 
-What do you think?
+Thomas, Jamal, do you have an idea what this "old method" stuff
+is used for? It seems it is only used during the below mentioned
+race.
 
->
-> The approaches discussed for L2 and L3 are sufficiently orthogonal
-> that we can implement then in either order.  You would need to
-> unshare L3 to unshare L2, but if we think of them as two separate
-> namespaces we are likely to be in better shape.
->
-> The L3 discussion still has the problem that there has not been
-> agreement on all of the semantics yet.
->
-> More comments after I get some sleep.
->
-> Eric
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
--- 
-Thanks,
-Dmitry.
+--------------060001090006000803020506
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[NET_SCHED]: cls_fw: fix NULL pointer dereference
+
+When the first fw classifier is initialized, there is a small window
+between the ->init() and ->change() calls, during which the classifier
+is active but not entirely set up and tp->root is still NULL (->init()
+does nothing).
+
+When a packet is queued during this window a NULL pointer dereference
+occurs in fw_classify() when trying to dereference head->mask;
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 07aac6f7b7e43bc1bb960b2f41a02e81d4e25ead
+tree 523108861c92ec7e513fbc8561a57b5e1c56c1eb
+parent d916faace3efc0bf19fe9a615a1ab8fa1a24cd93
+author Patrick McHardy <kaber@trash.net> Mon, 04 Dec 2006 16:29:07 +0100
+committer Patrick McHardy <kaber@trash.net> Mon, 04 Dec 2006 16:29:07 +0100
+
+ net/sched/cls_fw.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index f59a2c4..c797d6a 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -101,9 +101,10 @@ static int fw_classify(struct sk_buff *s
+ 	struct fw_head *head = (struct fw_head*)tp->root;
+ 	struct fw_filter *f;
+ 	int r;
+-	u32 id = skb->mark & head->mask;
++	u32 id = skb->mark;
+ 
+ 	if (head != NULL) {
++		id &= head->mask;
+ 		for (f=head->ht[fw_hash(id)]; f; f=f->next) {
+ 			if (f->id == id) {
+ 				*res = f->res;
+
+--------------060001090006000803020506--
