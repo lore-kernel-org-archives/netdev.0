@@ -1,47 +1,36 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v2 03/13] Provider Methods and Data Structures
-Date: Mon, 04 Dec 2006 10:28:25 -0600
-Message-ID: <1165249706.32724.35.camel@stevo-desktop>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-	 <20061202224947.27014.59189.stgit@dell3.ogc.int>
-	 <1165147639.3233.211.camel@laptopd505.fenrus.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC][GENETLINK] move command capabilities  to flags
+Date: Mon, 4 Dec 2006 17:31:15 +0100
+Message-ID: <20061204163115.GR8693@postel.suug.ch>
+References: <1165060612.3564.8.camel@localhost> <20061204092041.GN8693@postel.suug.ch> <1165237269.3664.15.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:60491 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S937098AbWLDQ2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:28:25 -0500
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1165147639.3233.211.camel@laptopd505.fenrus.org>
+Received: from postel.suug.ch ([194.88.212.233]:38086 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S937106AbWLDQay (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 11:30:54 -0500
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1165237269.3664.15.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-12-03 at 13:07 +0100, Arjan van de Ven wrote:
-> On Sat, 2006-12-02 at 16:49 -0600, Steve Wise wrote:
+* jamal <hadi@cyberus.ca> 2006-12-04 08:01
+> The savings bytes is one aspect; the other is the cleanliness.
+> transfering a boolean in that many bits is a little of overkill.
+> I think it is better to fix it now than later.
+> I know you mentioned libnl uses it. But that is something you can change
+> on your side. I dont know of any other app that uses it. 
+
+Right but if some distro is based on exactly 2.6.19 the specific libnl
+parts won't work at all for a long time.
+
+> > If you
+> > really want to do it, remove the obsoleted attribute types, I don't
+> > like dead bodies laying around :-)
 > 
-> > +
-> > +static struct ib_ah *iwch_ah_create(struct ib_pd *pd,
-> > +				    struct ib_ah_attr *ah_attr)
-> > +{
-> > +	return ERR_PTR(-ENOSYS);
-> > +}
-> 
-> 
-> -ENOSYS is just about ALWAYS a bug in that it's guaranteed to be the
-> wrong error code ;)
+> I could resend the patch getting rid of those definitions. 
 
-This is a method that is not supported by the iWARP transport.  ENOSYS
-indicates this.  I _think_ this is SOP for the infinband subsystem.
-
-Roland, I think at one time we were talking about changing the Core to
-better handle this?  Either with attributes/capabilities that the low
-level driver can set, or by set these method ptrs to NULL and the core
-should handle it in the wrapper function...
-
-
-Steve.
-
+OK, I can live with it, I don't care for the breakage much.
