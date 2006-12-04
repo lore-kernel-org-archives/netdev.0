@@ -1,46 +1,54 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Kernel header changes break glibc build
-Date: Mon, 4 Dec 2006 10:13:41 +0100
-Message-ID: <20061204091341.GM8693@postel.suug.ch>
-References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org>
+From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Mon, 04 Dec 2006 18:14:37 +0900
+Message-ID: <4573E6FD.3030905@cj.jp.nec.com>
+References: <36D9DB17C6DE9E40B059440DB8D95F52013ABFE9@orsmsx418.amr.corp.intel.com> <4562D207.60301@cj.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Joseph S. Myers" <joseph@codesourcery.com>,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	Shaw Vrana <shaw@vranix.com>, netdev@vger.kernel.org,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:19342 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1759822AbWLDJNU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 04:13:20 -0500
-To: David Woodhouse <dwmw2@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1165148731.12649.51.camel@pmac.infradead.org>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:15772 "EHLO
+	tyo201.gate.nec.co.jp") by vger.kernel.org with ESMTP
+	id S1759858AbWLDJOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 04:14:49 -0500
+To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+In-Reply-To: <4562D207.60301@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Woodhouse <dwmw2@infradead.org> 2006-12-03 12:25
-> Thomas, this is in response to your changes in
-> http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=1823730fbc89fadde72a7bb3b7bdf03cc7b8835c;hp=47f68512d2685431f1781830dfcbab31bda87644
-> in which you create <linux/if_addr.h> and require that it's included
-> directly rather than being part of (or even included from)
-> <linux/rtnetlink.h>. Was there a good reason for changing that
-> user-visible header? Is there a reason not to include if_addr.h from
-> rtnetlink.h as Joseph's patch does?
+Hi,
 
-Userspace is not supposd to directly include kernel headers, instead
-it has to make local copies and compile against them. Binary
-compatibility is always guaranteed but in times of development within
-a stable tree it's wrong to assume that headers never change.
+>> Doesn't this just mean that we need a spinlock or some other kind of
+>> semaphore around acquiring, using, and releasing this resource?  We keep
+>> going around and around about this but I'm pretty sure spinlocks are
+>> meant to be able to solve exactly this issue.
+>>
+>> The problem is going to get considerably more nasty if we need to hold a
+>> spinlock with interrupts disabled for a significant amount of time, at
+>> which point a semaphore of some kind with a spinlock around it would
+>> seem to be more useful.
+> 
+> Even if spin_lock() was used to protect this resource, it is still possible
+> for an interrupt to kick in and call e1000_watchdog. In this case,
+> e1000_get_software_semaphore() will be called from within the interrupt
+> handler and the problem will still occur.
+> 
+> In order to solve this problem, interrupt should be disabled (for example,
+> spin_lock_irqsave).
+> The interrupt handler can't run while the process is holding this resource,
+> and this problem doesn't occur.
+> 
+>> I'll work with Auke to see if we can come up with another try.
+> 
+> Do you have any updates about your test code?
 
-I do not agree with the change to include if_addr.h in rtnetlink.h.
-The point is to move bits apart and have multiple small pieces
-of header files defining a specific rtnetlink family which are a
-lot easier to maintain for both kernel and userspace than one giant
-rtnetlink.h for everything.
+Does the fix I previously proposed have problems?
+If it does, I'd like to help find investigate another fix to solve
+this problem.
 
-> I suspect that if the IF{L,}A_{PAYLOAD,RTA} macros aren't used in the
-> kernel then the best answer is for glibc to define those for itself.
-
-Right, if they did it right they would only have noticed when they
-updated the kernel headers to some newer versions and only had to
-move the bits to some compat header.
+-- 
+  Kenzo Iwami (k-iwami@cj.jp.nec.com)
