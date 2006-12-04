@@ -1,54 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC][GENETLINK] introduce command names
-Date: Mon, 04 Dec 2006 12:49:49 -0500
-Message-ID: <1165254589.3643.32.camel@localhost>
-References: <1165061496.3564.11.camel@localhost>
-	 <20061204092857.GO8693@postel.suug.ch> <1165237742.3664.22.camel@localhost>
-	 <20061204163451.GS8693@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][XFRM] Optimize policy dumping
+Date: Mon, 04 Dec 2006 18:59:31 +0100
+Message-ID: <45746203.2030400@trash.net>
+References: <1165158707.3517.92.camel@localhost>	 <45741386.5070002@trash.net> <1165238776.3664.40.camel@localhost>	 <45742825.8040004@trash.net>  <45742964.9000905@trash.net>	 <1165240725.3664.72.camel@localhost>  <1165241100.3664.75.camel@localhost>	 <1165246635.3643.6.camel@localhost>  <457444E0.8060801@trash.net> <1165254213.3643.25.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.239]:53645 "EHLO
-	nz-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S935370AbWLDRty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 12:49:54 -0500
-Received: by nz-out-0102.google.com with SMTP id s1so1915374nze
-        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 09:49:53 -0800 (PST)
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20061204163451.GS8693@postel.suug.ch>
+Received: from stinky.trash.net ([213.144.137.162]:50254 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932068AbWLDR4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 12:56:23 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1165254213.3643.25.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-04-12 at 17:34 +0100, Thomas Graf wrote:
-> * jamal <hadi@cyberus.ca> 2006-12-04 08:09
-> > Just makes the discovery more knowledgeable. 
-...
-...
-> > It would be a lot more human friendly to put better readability in the
-> > commands.
-> 
-> I don't agree to waste so much text section just to fancy up some
-> userspace tool which is mainly a toy while developing. 
+jamal wrote:
+> Ok, both looked good except for the test of a single entry.
+> This was because you would break out of the loop with count of 0.
+> The patch against yours would look like something attached for the state
+> case. Dont forget there are two spots on the policy side of things;->
 
-Hey, it is not a toy ;->
+You're right, that case was also broken. With your patch on top
+it looks all right.
 
-> If you
-> really need it, do it in userspace like libnl.
-...
-....
-> > That is the real agenda actually. To be honest i dont know how realistic
-> > it would be. But one of the next things is to output the command
-> > policies.
-> 
-> Once we go that path we can reconsider a patch based on this which
-> includes the bits to dump the information to userspace. Until then
-> I don't see the point in this.
+> You can either submit both patches or i could later today. If you do,
+> please look at some of the comments i made in the first patch and
+> include them. 
 
-Ok, fair enough lets defer it for then.
-
-cheers,
-jamal
-
+I'd prefer if you did it since you're already testing the thing :)
