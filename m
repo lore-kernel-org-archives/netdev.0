@@ -1,48 +1,53 @@
-From: Andrew Victor <andrew@sanpeople.com>
-Subject: [PATCH 2.6.19] AT91RM9200 Ethernet update 3
-Date: 04 Dec 2006 14:50:24 +0200
-Message-ID: <1165236624.4606.111.camel@fuzzie.sanpeople.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][GENETLINK] move command capabilities  to flags
+Date: Mon, 04 Dec 2006 08:01:09 -0500
+Message-ID: <1165237269.3664.15.camel@localhost>
+References: <1165060612.3564.8.camel@localhost>
+	 <20061204092041.GN8693@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from za-gw.sanpeople.com ([196.211.225.226]:2826 "EHLO
-	za-gw.sanpeople.com") by vger.kernel.org with ESMTP id S936797AbWLDNAK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 08:00:10 -0500
-To: netdev@vger.kernel.org
+Received: from nz-out-0506.google.com ([64.233.162.236]:17892 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S936798AbWLDNBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 08:01:16 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1850711nze
+        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 05:01:13 -0800 (PST)
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061204092041.GN8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A minor fix to the Atmel AT91RM9200 Ethernet driver.
+On Mon, 2006-04-12 at 10:20 +0100, Thomas Graf wrote:
+> * jamal <hadi@cyberus.ca> 2006-12-02 06:56
+> > 
+> > Dave,
+> > If there is no objections on this approach, please apply this patch.
+> > Against net-2.6.20
+> > 
+> > cheers,
+> > jamal
+> 
+> > This patch moves command capabilities to command flags. Other than
+> > being cleaner, saves several bytes.
+> 
+> Is it worth to save these 12 bytes by breaking compatibility? 
 
-1. Use dev_alloc_skb() instead of alloc_skb().
-2. It is not necessary to adjust skb->len manually.
+The savings bytes is one aspect; the other is the cleanliness.
+transfering a boolean in that many bits is a little of overkill.
+I think it is better to fix it now than later.
+I know you mentioned libnl uses it. But that is something you can change
+on your side. I dont know of any other app that uses it. 
 
+> If you
+> really want to do it, remove the obsoleted attribute types, I don't
+> like dead bodies laying around :-)
 
-Signed-off-by: Andrew Victor <andrew@sanpeople.com>
+I could resend the patch getting rid of those definitions. 
 
-
-diff -urN linux-2.6.19-final.orig/drivers/net/arm/at91_ether.c linux-2.6.19-final/drivers/net/arm/at91_ether.c
---- linux-2.6.19-final.orig/drivers/net/arm/at91_ether.c	Mon Dec  4 14:42:05 2006
-+++ linux-2.6.19-final/drivers/net/arm/at91_ether.c	Mon Dec  4 14:43:57 2006
-@@ -855,14 +855,13 @@
- 	while (dlist->descriptors[lp->rxBuffIndex].addr & EMAC_DESC_DONE) {
- 		p_recv = dlist->recv_buf[lp->rxBuffIndex];
- 		pktlen = dlist->descriptors[lp->rxBuffIndex].size & 0x7ff;	/* Length of frame including FCS */
--		skb = alloc_skb(pktlen + 2, GFP_ATOMIC);
-+		skb = dev_alloc_skb(pktlen + 2);
- 		if (skb != NULL) {
- 			skb_reserve(skb, 2);
- 			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
- 
- 			skb->dev = dev;
- 			skb->protocol = eth_type_trans(skb, dev);
--			skb->len = pktlen;
- 			dev->last_rx = jiffies;
- 			lp->stats.rx_bytes += pktlen;
- 			netif_rx(skb);
-
-
+cheers,
+jamal
 
