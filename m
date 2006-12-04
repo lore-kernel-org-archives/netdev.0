@@ -1,40 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: (usagi-core 31727) Re: [PATCH][IPSEC][6/7] inter address
- family ipsec tunnel
-Date: Sun, 03 Dec 2006 22:33:36 -0800 (PST)
-Message-ID: <20061203.223336.71087901.davem@davemloft.net>
-References: <45738CE1.3070304@miyazawa.org>
-	<20061203.191208.74749805.davem@davemloft.net>
-	<4573A375.7010100@miyazawa.org>
+From: weidong <weid@nanjing-fnst.com>
+Subject: [patch] Fix SNMPv2 "ipOutNoRoutes" counter error
+Date: Mon, 4 Dec 2006 07:10:31 +0000 (UTC)
+Message-ID: <1165337386.2545.4.camel@LINE>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38888
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S934363AbWLDGdg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 01:33:36 -0500
-To: kazunori@miyazawa.org
-In-Reply-To: <4573A375.7010100@miyazawa.org>
+Received: from [221.6.14.228] ([221.6.14.228]:54732 "EHLO proxy.fnst.com.cn")
+	by vger.kernel.org with ESMTP id S1758807AbWLDHKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 02:10:17 -0500
+To: netdev@vger.kernel.org
+Date: Tue, 05 Dec 2006 11:49:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Date: Mon, 04 Dec 2006 13:26:29 +0900
+Hi All:
+    When I tested linux kernel 2.6.18.3, and find that kernel statistics
+about IPSTATS_MIB_OUTNOROUTES which exsits in file /proc/net/snmp
+doesn't increase correctly.  The criteria conform to RFC2011:
 
-> If uninitialized ut->family is AF_INET or AF_INET6 by chance
-> and the family of outer addresses (ut->saddr) is differnt
-> ut->family, it results some garbage in the kernel as you know.
-> 
-> I think it does not results any oops or a segmentation fault
-> because xfrm_address always has enough length (16 bytes) to wrong
-> access.
-> 
->  From the point of view of security, the policy has garbege
-> templates, but the selector is valid and it mangates applying
-> IPsec. So it result blocking the traffic.
-> Accordingly, I think it falls down to secure side.
+  ipOutNoRoutes OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The number of IP datagrams discarded because no route could
+            be found to transmit them to their destination.  Note that
+            this counter includes any packets counted in ipForwDatagrams
+            which meet this `no-route' criterion.  Note that this
+            includes any datagrams which a host cannot route because all
+            of its default routers are down."
+    ::= { ip 12 }
 
-Yes, I am beginning to think it is safe too.
+When a host received an IP packet, but the destination address is not
+this host. The kernel just discards the IP packet but with no increment
+for this counter.
+
+When a router received an IP packet that this router can't forward due
+to no route found. Kernel just simply invoke ip_error(), and send ICMP
+packet. Also do nothing for this counter.
+
+Signed-off-by: Wei Dong <weid@nanjing-fnst.com>
+
+diff -ruN old/net/ipv4/icmp.c new/net/ipv4/icmp.c
+--- old/net/ipv4/icmp.c	2006-09-20 00:42:06.000000000 -0300
++++ new/net/ipv4/icmp.c	2006-12-04 11:46:39.000000000 -0300
+@@ -580,6 +580,9 @@
+ 		icmp_param.data_len = room;
+ 	icmp_param.head_len = sizeof(struct icmphdr);
+ 
++	if (code == ICMP_NET_UNREACH)
++		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
++
+ 	icmp_push_reply(&icmp_param, &ipc, rt);
+ ende:
+ 	ip_rt_put(rt);
+diff -ruN old/net/ipv4/ip_input.c new/net/ipv4/ip_input.c
+--- old/net/ipv4/ip_input.c	2006-09-20 00:42:06.000000000 -0300
++++ new/net/ipv4/ip_input.c	2006-11-29 11:15:52.000000000 -0300
+@@ -340,8 +340,10 @@
+ 		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
+ 					 skb->dev);
+ 		if (unlikely(err)) {
+-			if (err == -EHOSTUNREACH)
++			if (err == -EHOSTUNREACH) {
+ 				IP_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
++				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
++			}
+ 			goto drop; 
+ 		}
+ 	}
+
+
