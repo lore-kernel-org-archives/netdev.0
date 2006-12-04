@@ -1,44 +1,152 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 1/1] myri10ge: write as 2 32-byte blocks in myri10ge_submit_8rx
-Date: Mon, 04 Dec 2006 11:33:31 +0100
-Message-ID: <4573F97B.90707@myri.com>
-References: <4573F8ED.3050304@myri.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Mon, 4 Dec 2006 14:08:26 +0300
+Message-ID: <20061204110825.GA26251@2ka.mipt.ru>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202224958.27014.65970.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:35721 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1758542AbWLDKeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 05:34:20 -0500
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <4573F8ED.3050304@myri.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:6363 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S935957AbWLDLMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 06:12:02 -0500
+To: Steve Wise <swise@opengridcomputing.com>
+Content-Disposition: inline
+In-Reply-To: <20061202224958.27014.65970.stgit@dell3.ogc.int>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the myri10ge_submit_8rx() routine, write the 64 byte request block as
-2 32-byte blocks so that it is handled by the hardware pio write handler
-if write-combining is enabled.
+On Sat, Dec 02, 2006 at 04:49:58PM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
+> +static int send_halfclose(struct iwch_ep *ep, gfp_t gfp)
+> +{
+> +	struct cpl_close_con_req *req;
+> +	struct sk_buff *skb;
+> +
+> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> +	skb = get_skb(NULL, sizeof(*req), gfp);
+> +	if (!skb) {
+> +		printk(KERN_ERR MOD "%s - failed to alloc skb\n", __FUNCTION__);
+> +		return -ENOMEM;
+> +	}
+> +	skb->priority = CPL_PRIORITY_DATA;
+> +	set_arp_failure_handler(skb, arp_failure_discard);
+> +	req = (struct cpl_close_con_req *) skb_put(skb, sizeof(*req));
+> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_CLOSE_CON));
+> +	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
+> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_CON_REQ, ep->hwtid));
+> +	l2t_send(ep->com.tdev, skb, ep->l2t);
+> +	return 0;
+> +}
+> +
+> +static int send_abort(struct iwch_ep *ep, struct sk_buff *skb, gfp_t gfp)
+> +{
+> +	struct cpl_abort_req *req;
+> +
+> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> +	skb = get_skb(skb, sizeof(*req), gfp);
+> +	if (!skb) {
+> +		printk(KERN_ERR MOD "%s - failed to alloc skb.\n",
+> +		       __FUNCTION__);
+> +		return -ENOMEM;
+> +	}
+> +	skb->priority = CPL_PRIORITY_DATA;
+> +	set_arp_failure_handler(skb, abort_arp_failure);
+> +	req = (struct cpl_abort_req *) skb_put(skb, sizeof(*req));
+> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_REQ));
+> +	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
+> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ABORT_REQ, ep->hwtid));
+> +	req->cmd = CPL_ABORT_SEND_RST;
+> +	l2t_send(ep->com.tdev, skb, ep->l2t);
+> +	return 0;
+> +}
+> +
+> +static int send_connect(struct iwch_ep *ep)
+> +{
+> +	struct cpl_act_open_req *req;
+> +	struct sk_buff *skb;
+> +	u32 opt0h, opt0l, opt2;
+> +	unsigned int mtu_idx;
+> +	int wscale;
+> +
+> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> +
+> +	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
+> +	if (!skb) {
+> +		printk(KERN_ERR MOD "%s - failed to alloc skb.\n",
+> +		       __FUNCTION__);
+> +		return -ENOMEM;
+> +	}
+> +	mtu_idx = find_best_mtu(T3C_DATA(ep->com.tdev), dst_mtu(ep->dst));
+> +	wscale = compute_wscale(rcv_win);
+> +	opt0h = V_NAGLE(0) |
+> +	    V_NO_CONG(nocong) |
+> +	    V_KEEP_ALIVE(1) |
+> +	    F_TCAM_BYPASS |
+> +	    V_WND_SCALE(wscale) |
+> +	    V_MSS_IDX(mtu_idx) |
+> +	    V_L2T_IDX(ep->l2t->idx) | V_TX_CHANNEL(ep->l2t->smt_idx);
+> +	opt0l = V_TOS((ep->tos >> 2) & M_TOS) | V_RCV_BUFSIZ(rcv_win>>10);
+> +	opt2 = V_FLAVORS_VALID(0) | V_CONG_CONTROL_FLAVOR(0);
+> +	skb->priority = CPL_PRIORITY_SETUP;
+> +	set_arp_failure_handler(skb, act_open_req_arp_failure);
+> +
+> +	req = (struct cpl_act_open_req *) skb_put(skb, sizeof(*req));
+> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ, ep->atid));
+> +	req->local_port = ep->com.local_addr.sin_port;
+> +	req->peer_port = ep->com.remote_addr.sin_port;
+> +	req->local_ip = ep->com.local_addr.sin_addr.s_addr;
+> +	req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
+> +	req->opt0h = htonl(opt0h);
+> +	req->opt0l = htonl(opt0l);
+> +	req->params = 0;
+> +	req->opt2 = htonl(opt2);
+> +	l2t_send(ep->com.tdev, skb, ep->l2t);
+> +	return 0;
+> +}
 
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- drivers/net/myri10ge/myri10ge.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+...
 
-Index: linux-2.6.19/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-2.6.19.orig/drivers/net/myri10ge/myri10ge.c	2006-11-29 22:57:37.000000000 +0100
-+++ linux-2.6.19/drivers/net/myri10ge/myri10ge.c	2006-12-04 11:22:48.000000000 +0100
-@@ -790,7 +790,9 @@
- 
- 	low = src->addr_low;
- 	src->addr_low = DMA_32BIT_MASK;
--	myri10ge_pio_copy(dst, src, 8 * sizeof(*src));
-+	myri10ge_pio_copy(dst, src, 4 * sizeof(*src));
-+	mb();
-+	myri10ge_pio_copy(dst + 4, src + 4, 4 * sizeof(*src));
- 	mb();
- 	src->addr_low = low;
- 	__raw_writel(low, &dst->addr_low);
+> +static int act_establish(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
+> +{
+> +	struct iwch_ep *ep = ctx;
+> +	struct cpl_act_establish *req = cplhdr(skb);
+> +	unsigned int tid = GET_TID(req);
+> +
+> +	PDBG("%s ep %p tid %d\n", __FUNCTION__, ep, tid);
+> +
+> +	dst_confirm(ep->dst);
+> +
+> +	/* setup the hwtid for this connection */
+> +	ep->hwtid = tid;
+> +	cxgb3_insert_tid(ep->com.tdev, &t3c_client, ep, tid);
+> +
+> +	ep->snd_seq = ntohl(req->snd_isn);
+> +
+> +	set_emss(ep, ntohs(req->tcp_opt));
+> +
+> +	/* dealloc the atid */
+> +	cxgb3_free_atid(ep->com.tdev, ep->atid);
+> +
+> +	/* start MPA negotiation */
+> +	send_mpa_req(ep, skb);
+> +
+> +	return 0;
+> +}
+> +
+> +static void abort_connection(struct iwch_ep *ep, struct sk_buff *skb)
+> +{
+> +	PDBG("%s ep %p\n", __FILE__, ep);
+> +	state_set(&ep->com, ABORTING);
+> +	send_abort(ep, skb, GFP_KERNEL);
+> +}
 
+Could you convince network core developers that it is not own TCP
+implementation which will mess with existing one?
 
+This and a lot of other changes in this driver definitely says you
+implement your own stack of protocols on top of infiniband hardware.
+
+-- 
+	Evgeniy Polyakov
