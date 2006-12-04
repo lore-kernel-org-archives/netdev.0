@@ -1,70 +1,120 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [XFRM] Optimize SA dumping
-Date: Mon, 04 Dec 2006 14:39:40 +0100
-Message-ID: <4574251C.8000906@trash.net>
-References: <1165163610.3517.96.camel@localhost>	 <4574164B.1000505@trash.net> <1165238866.3664.43.camel@localhost>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Network virtualization/isolation
+Date: Mon, 04 Dec 2006 08:44:54 -0500
+Message-ID: <1165239894.3664.61.camel@localhost>
+References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
+	 <20061026085659.33b4c6dd@freekitty> <200610271134.56830.dim@openvz.org>
+	 <4541CCF4.4050306@fr.ibm.com> <1162391707.5251.78.camel@jzny2>
+	 <4559DE01.5090109@fr.ibm.com> <m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
+	 <456C447E.5090703@fr.ibm.com> <m1r6vnikeq.fsf@ebiederm.dsl.xmission.com>
+	 <456C9B8C.1010701@fr.ibm.com> <m14psji6lw.fsf@ebiederm.dsl.xmission.com>
+	 <456DEBAC.4060106@hp.com> <456E055F.8020100@fr.ibm.com>
+	 <1165148762.3517.58.camel@localhost> <1165155198.3517.86.camel@localhost>
+	 <m1slfvuabf.fsf@ebiederm.dsl.xmission.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, devel@openvz.org,
+	Linux Containers <containers@lists.osdl.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:10160 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S936848AbWLDNgd
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 08:36:33 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1165238866.3664.43.camel@localhost>
+Received: from nz-out-0506.google.com ([64.233.162.237]:49703 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S936850AbWLDNpB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 08:45:01 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1859367nze
+        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 05:45:01 -0800 (PST)
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1slfvuabf.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2006-04-12 at 13:36 +0100, Patrick McHardy wrote:
+On Mon, 2006-04-12 at 05:15 -0700, Eric W. Biederman wrote:
+> jamal <hadi@cyberus.ca> writes:
 > 
->>jamal wrote:
->>
->>> 	for (i = 0; i <= xfrm_state_hmask; i++) {
->>> 		hlist_for_each_entry(x, entry, xfrm_state_bydst+i, bydst) {
->>>+			if (count && send_x != last_x) {
->>>+				err = func(send_x, count, data);
->>>+				if (err)
->>>+					goto out;
->>>+				send_x = NULL;
->>>+			}
->>> 			if (!xfrm_id_proto_match(x->id.proto, proto))
->>> 				continue;
->>
->>After you sent send_x and set it to NULL, it will be different from
->>last_x (since that is != NULL) and the NULL pointer will be given
->>to func() when continuing here.
->>
+
+> Containers are a necessary first step to getting migration and checkpoint/restart
+> assistance from the kernel.
+
+Isnt it like a MUST have if you are doing things from scratch instead of
+it being an after thought.
+
 > 
+> > 2) the socket level bind/accept filtering with multiple IPs. From
+> > reading what Herbert has, it seems they have figured a clever way to
+> > optimize this path albeit some challenges (speacial casing for raw
+> > filters) etc.
+> >
+> > I am wondering if one was to use the two level muxing of the socket
+> > layer, how much more performance improvement the above scheme provides
+> > for #2? 
 > 
-> This one you lost me. Can you give me an example? one or two SAs found?
+> I don't follow this question. 
 
-More than three SAs, so we have:
+if you had the sockets tables being in two level mux, first level to
+hash on namespace which leads to an indirection pointer to the table
+to find the socket and its bindings (with zero code changes to the
+socket code), then isnt this "fast enough"? Clearly you can optimize as
+in the case of bind/accept filtering, but then you may have to do that
+for every socket family/protocol (eg netlink doesnt have IP addresses,
+but the binding to multiple groups is possible)
 
-send_x = last_x = NULL
+Am i making any more sense? ;->
 
-1. iteration:
+> > Consider the case of L2 where by the time the packet hits the socket
+> > layer on incoming, the VE is already known; in such a case, the lookup
+> > would be very cheap. The advantage being you get rid of the speacial
+> > casing altogether. I dont see any issues with binds per multiple IPs etc
+> > using such a technique.
+> >
+> > For the case of #1 above, wouldnt it be also easier if the tables for
+> > netdevices, PIDs etc were per VE (using the 2 level mux)?
+> 
+> Generally yes.  s/VE/namespace/.  There is a case with hash tables where
+> it seems saner to add an additional entry because hash it is hard to dynamically
+> allocate a hash table, (because they need something large then a
+> single page allocation).  
 
-send_x = last_x = first policy
+A page to store the namespace indirection hash doesnt seem to be such a
+big waste; i wonder though why you even need a page. If i had 256 hash
+buckets with 1024 namespaces, it is still not too much of an overhead.
 
-2. iteration:
+> But for everything else yes it makes things
+> much easier if you have a per namespace data structure.  
 
-send_x = first policy
-last_x = second policy
+Ok, I am sure youve done the research; i am just being a devils
+advocate.
 
-3. iteration:
+> A practical question is can we replace hash tables with some variant of
+> trie or radix-tree and not take a performance hit.  Given the better scaling of
+> tress to different workload sizes if we can use them so much the
+> better.  Especially because a per namespace split gives us a lot of
+> good properties.
 
-dump send_x, set send_x = NULL
-continue at continue statement
+Is there a patch somewhere i can stare at that you guys agree on?
 
-4. iteration:
+> Well we rather expect to bash heads until we can come up with something
+> we all can agree on with the people who more regularly have to maintain
+> the code.  The discussions so far have largely been warm ups, to actually
+> doing something.
+> 
+> Getting feedback from people who regularly work with the networking stack
+> is appreciated.
 
-We have send_x = NULL and last_x != NULL, so send_x != last_x,
-leading to dump(NULL, ...)
+I hope i am being helpful;
+It seems to me that folks doing the different implementations may have
+had different apps in mind. IMO, as long as the solution caters for all
+apps (can you do virtual bridges/routers?), then we should be fine.
+Intrusiveness may not be so bad if it needs to be done once. I have to
+say i like the approach where the core code and algorithms are
+untouched. Thats why i am humping on the two level mux approach, where
+one level is to mux and find the namespace indirection and the second
+step is to use the current datastructures and algorithms as is. I dont
+know how much more cleaner or less intrusive you can be compared to
+that. If i compile out the first level mux, I have my old net stack as
+is, untouched.
 
-> In any case, if i go the done callback approach, I can get rid of all
-> this tracking thing ...
+cheers,
+jamal
 
-I need to read your other mail first before commenting on this :)
