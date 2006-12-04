@@ -1,1338 +1,2206 @@
 From: Divy Le Ray <None@chelsio.com>
-Subject: [PATCH 6/10] cxgb3 - on board memory, MAC and PHY
-Date: Mon, 04 Dec 2006 11:45:18 -0800
-Message-ID: <20061204194518.9113.20373.stgit@localhost.localdomain>
+Subject: [PATCH 9/10] cxgb3 - register definitions
+Date: Mon, 04 Dec 2006 11:45:42 -0800
+Message-ID: <20061204194542.9151.31674.stgit@localhost.localdomain>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:13454 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937342AbWLDTpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 14:45:34 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966246AbWLDTtF@vger.kernel.org>
 To: jeff@garzik.org
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-This patch implements on board memory, MAC and PHY management
-for the Chelsio T3 network adapter's driver.
+This patch implements the registers definitions for the
+Chelsio network adapter's driver.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/ael1002.c |  231 ++++++++++++++++++++++
- drivers/net/cxgb3/mc5.c     |  456 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/cxgb3/vsc8211.c |  208 ++++++++++++++++++++
- drivers/net/cxgb3/xgmac.c   |  389 +++++++++++++++++++++++++++++++++++++
- 4 files changed, 1284 insertions(+), 0 deletions(-)
+ drivers/net/cxgb3/regs.h | 2177 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 2177 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
 new file mode 100755
-index 0000000..5f4eb7e
+index 0000000..11a0864
 --- /dev/null
-+++ b/drivers/net/cxgb3/ael1002.c
-@@ -0,0 +1,231 @@
-+/*
-+ * This file is part of the Chelsio T3 Ethernet driver.
-+ *
-+ * Copyright (C) 2005-2006 Chelsio Communications.  All rights reserved.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
-+ */
-+
-+#include "common.h"
-+#include "regs.h"
-+
-+enum {
-+	AEL100X_TX_DISABLE = 9,
-+	AEL100X_TX_CONFIG1 = 0xc002,
-+	AEL1002_PWR_DOWN_HI = 0xc011,
-+	AEL1002_PWR_DOWN_LO = 0xc012,
-+	AEL1002_XFI_EQL = 0xc015,
-+	AEL1002_LB_EN = 0xc017,
-+
-+	LASI_CTRL = 0x9002,
-+	LASI_STAT = 0x9005
-+};
-+
-+static void ael100x_txon(struct cphy *phy)
-+{
-+	int tx_on_gpio = phy->addr == 0 ? F_GPIO7_OUT_VAL : F_GPIO2_OUT_VAL;
-+
-+	msleep(100);
-+	t3_set_reg_field(phy->adapter, A_T3DBG_GPIO_EN, 0, tx_on_gpio);
-+	msleep(30);
-+}
-+
-+static int ael1002_power_down(struct cphy *phy, int enable)
-+{
-+	int err;
-+
-+	err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL100X_TX_DISABLE, !!enable);
-+	if (!err)
-+		err = t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, MII_BMCR,
-+					  BMCR_PDOWN, enable ? BMCR_PDOWN : 0);
-+	return err;
-+}
-+
-+static int ael1002_reset(struct cphy *phy, int wait)
-+{
-+	int err;
-+
-+	if ((err = ael1002_power_down(phy, 0)) ||
-+	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL100X_TX_CONFIG1, 1)) ||
-+	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL1002_PWR_DOWN_HI, 0)) ||
-+	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL1002_PWR_DOWN_LO, 0)) ||
-+	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL1002_XFI_EQL, 0x18)) ||
-+	    (err = t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, AEL1002_LB_EN,
-+				       0, 1 << 5)))
-+		return err;
-+	return 0;
-+}
-+
-+static int ael1002_intr_noop(struct cphy *phy)
-+{
-+	return 0;
-+}
-+
-+static int ael100x_get_link_status(struct cphy *phy, int *link_ok,
-+				   int *speed, int *duplex, int *fc)
-+{
-+	if (link_ok) {
-+		unsigned int status;
-+		int err = mdio_read(phy, MDIO_DEV_PMA_PMD, MII_BMSR, &status);
-+
-+		/*
-+		 * BMSR_LSTATUS is latch-low, so if it is 0 we need to read it
-+		 * once more to get the current link state.
-+		 */
-+		if (!err && !(status & BMSR_LSTATUS))
-+			err = mdio_read(phy, MDIO_DEV_PMA_PMD, MII_BMSR,
-+					&status);
-+		if (err)
-+			return err;
-+		*link_ok = !!(status & BMSR_LSTATUS);
-+	}
-+	if (speed)
-+		*speed = SPEED_10000;
-+	if (duplex)
-+		*duplex = DUPLEX_FULL;
-+	return 0;
-+}
-+
-+static struct cphy_ops ael1002_ops = {
-+	.reset = ael1002_reset,
-+	.intr_enable = ael1002_intr_noop,
-+	.intr_disable = ael1002_intr_noop,
-+	.intr_clear = ael1002_intr_noop,
-+	.intr_handler = ael1002_intr_noop,
-+	.get_link_status = ael100x_get_link_status,
-+	.power_down = ael1002_power_down,
-+};
-+
-+void t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			 int phy_addr, const struct mdio_ops *mdio_ops)
-+{
-+	cphy_init(phy, adapter, phy_addr, &ael1002_ops, mdio_ops);
-+	ael100x_txon(phy);
-+}
-+
-+static int ael1006_reset(struct cphy *phy, int wait)
-+{
-+	return t3_phy_reset(phy, MDIO_DEV_PMA_PMD, wait);
-+}
-+
-+static int ael1006_intr_enable(struct cphy *phy)
-+{
-+	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 1);
-+}
-+
-+static int ael1006_intr_disable(struct cphy *phy)
-+{
-+	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 0);
-+}
-+
-+static int ael1006_intr_clear(struct cphy *phy)
-+{
-+	u32 val;
-+
-+	return mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &val);
-+}
-+
-+static int ael1006_intr_handler(struct cphy *phy)
-+{
-+	unsigned int status;
-+	int err = mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &status);
-+
-+	if (err)
-+		return err;
-+	return (status & 1) ? cphy_cause_link_change : 0;
-+}
-+
-+static int ael1006_power_down(struct cphy *phy, int enable)
-+{
-+	return t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, MII_BMCR,
-+				   BMCR_PDOWN, enable ? BMCR_PDOWN : 0);
-+}
-+
-+static struct cphy_ops ael1006_ops = {
-+	.reset = ael1006_reset,
-+	.intr_enable = ael1006_intr_enable,
-+	.intr_disable = ael1006_intr_disable,
-+	.intr_clear = ael1006_intr_clear,
-+	.intr_handler = ael1006_intr_handler,
-+	.get_link_status = ael100x_get_link_status,
-+	.power_down = ael1006_power_down,
-+};
-+
-+void t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			 int phy_addr, const struct mdio_ops *mdio_ops)
-+{
-+	cphy_init(phy, adapter, phy_addr, &ael1006_ops, mdio_ops);
-+	ael100x_txon(phy);
-+}
-+
-+static struct cphy_ops qt2045_ops = {
-+	.reset = ael1006_reset,
-+	.intr_enable = ael1006_intr_enable,
-+	.intr_disable = ael1006_intr_disable,
-+	.intr_clear = ael1006_intr_clear,
-+	.intr_handler = ael1006_intr_handler,
-+	.get_link_status = ael100x_get_link_status,
-+	.power_down = ael1006_power_down,
-+};
-+
-+void t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
-+			const struct mdio_ops *mdio_ops)
-+{
-+	unsigned int stat;
-+
-+	cphy_init(phy, adapter, phy_addr, &qt2045_ops, mdio_ops);
-+
-+	/*
-+	 * Some cards where the PHY is supposed to be at address 0 actually
-+	 * have it at 1.
-+	 */
-+	if (!phy_addr && !mdio_read(phy, MDIO_DEV_PMA_PMD, MII_BMSR, &stat) &&
-+	    stat == 0xffff)
-+		phy->addr = 1;
-+}
-+
-+static int xaui_direct_reset(struct cphy *phy, int wait)
-+{
-+	return 0;
-+}
-+
-+static int xaui_direct_get_link_status(struct cphy *phy, int *link_ok,
-+				       int *speed, int *duplex, int *fc)
-+{
-+	if (link_ok) {
-+		unsigned int status;
-+
-+		status = t3_read_reg(phy->adapter,
-+				     XGM_REG(A_XGM_SERDES_STAT0, phy->addr));
-+		*link_ok = !(status & F_LOWSIG0);
-+	}
-+	if (speed)
-+		*speed = SPEED_10000;
-+	if (duplex)
-+		*duplex = DUPLEX_FULL;
-+	return 0;
-+}
-+
-+static int xaui_direct_power_down(struct cphy *phy, int enable)
-+{
-+	return 0;
-+}
-+
-+static struct cphy_ops xaui_direct_ops = {
-+	.reset = xaui_direct_reset,
-+	.intr_enable = ael1002_intr_noop,
-+	.intr_disable = ael1002_intr_noop,
-+	.intr_clear = ael1002_intr_noop,
-+	.intr_handler = ael1002_intr_noop,
-+	.get_link_status = xaui_direct_get_link_status,
-+	.power_down = xaui_direct_power_down,
-+};
-+
-+void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			     int phy_addr, const struct mdio_ops *mdio_ops)
-+{
-+	cphy_init(phy, adapter, 1, &xaui_direct_ops, mdio_ops);
-+}
-diff --git a/drivers/net/cxgb3/mc5.c b/drivers/net/cxgb3/mc5.c
-new file mode 100755
-index 0000000..fb182fd
---- /dev/null
-+++ b/drivers/net/cxgb3/mc5.c
-@@ -0,0 +1,456 @@
-+/*
-+ * This file is part of the Chelsio T3 Ethernet driver.
-+ *
-+ * Copyright (C) 2003-2006 Chelsio Communications.  All rights reserved.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
-+ */
-+
-+#include "common.h"
-+#include "regs.h"
-+
-+enum {
-+	IDT75P52100 = 4,
-+	IDT75N43102 = 5
-+};
-+
-+/* DBGI command mode */
-+enum {
-+	DBGI_MODE_MBUS = 0,
-+	DBGI_MODE_IDT52100 = 5
-+};
-+
-+/* IDT 75P52100 commands */
-+#define IDT_CMD_READ   0
-+#define IDT_CMD_WRITE  1
-+#define IDT_CMD_SEARCH 2
-+#define IDT_CMD_LEARN  3
-+
-+/* IDT LAR register address and value for 144-bit mode (low 32 bits) */
-+#define IDT_LAR_ADR0   	0x180006
-+#define IDT_LAR_MODE144	0xffff0000
-+
-+/* IDT SCR and SSR addresses (low 32 bits) */
-+#define IDT_SCR_ADR0  0x180000
-+#define IDT_SSR0_ADR0 0x180002
-+#define IDT_SSR1_ADR0 0x180004
-+
-+/* IDT GMR base address (low 32 bits) */
-+#define IDT_GMR_BASE_ADR0 0x180020
-+
-+/* IDT data and mask array base addresses (low 32 bits) */
-+#define IDT_DATARY_BASE_ADR0 0
-+#define IDT_MSKARY_BASE_ADR0 0x80000
-+
-+/* IDT 75N43102 commands */
-+#define IDT4_CMD_SEARCH144 3
-+#define IDT4_CMD_WRITE     4
-+#define IDT4_CMD_READ      5
-+
-+/* IDT 75N43102 SCR address (low 32 bits) */
-+#define IDT4_SCR_ADR0  0x3
-+
-+/* IDT 75N43102 GMR base addresses (low 32 bits) */
-+#define IDT4_GMR_BASE0 0x10
-+#define IDT4_GMR_BASE1 0x20
-+#define IDT4_GMR_BASE2 0x30
-+
-+/* IDT 75N43102 data and mask array base addresses (low 32 bits) */
-+#define IDT4_DATARY_BASE_ADR0 0x1000000
-+#define IDT4_MSKARY_BASE_ADR0 0x2000000
-+
-+#define MAX_WRITE_ATTEMPTS 5
-+
-+#define MAX_ROUTES 2048
-+
-+/*
-+ * Issue a command to the TCAM and wait for its completion.  The address and
-+ * any data required by the command must have been setup by the caller.
-+ */
-+static int mc5_cmd_write(struct adapter *adapter, u32 cmd)
-+{
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_CMD, cmd);
-+	return t3_wait_op_done(adapter, A_MC5_DB_DBGI_RSP_STATUS,
-+			       F_DBGIRSPVALID, 1, MAX_WRITE_ATTEMPTS, 1);
-+}
-+
-+static inline void dbgi_wr_addr3(struct adapter *adapter, u32 v1, u32 v2,
-+				 u32 v3)
-+{
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR0, v1);
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR1, v2);
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR2, v3);
-+}
-+
-+static inline void dbgi_wr_data3(struct adapter *adapter, u32 v1, u32 v2,
-+				 u32 v3)
-+{
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_DATA0, v1);
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_DATA1, v2);
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_DATA2, v3);
-+}
-+
-+static inline void dbgi_rd_rsp3(struct adapter *adapter, u32 * v1, u32 * v2,
-+				u32 * v3)
-+{
-+	*v1 = t3_read_reg(adapter, A_MC5_DB_DBGI_RSP_DATA0);
-+	*v2 = t3_read_reg(adapter, A_MC5_DB_DBGI_RSP_DATA1);
-+	*v3 = t3_read_reg(adapter, A_MC5_DB_DBGI_RSP_DATA2);
-+}
-+
-+/*
-+ * Write data to the TCAM register at address (0, 0, addr_lo) using the TCAM
-+ * command cmd.  The data to be written must have been set up by the caller.
-+ * Returns -1 on failure, 0 on success.
-+ */
-+static int mc5_write(struct adapter *adapter, u32 addr_lo, u32 cmd)
-+{
-+	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR0, addr_lo);
-+	if (mc5_cmd_write(adapter, cmd) == 0)
-+		return 0;
-+	CH_ERR("%s: MC5 timeout writing to TCAM address 0x%x\n",
-+	       adapter->name, addr_lo);
-+	return -1;
-+}
-+
-+static int init_mask_data_array(struct mc5 *mc5, u32 mask_array_base,
-+				u32 data_array_base, u32 write_cmd,
-+				int addr_shift)
-+{
-+	unsigned int i;
-+	struct adapter *adap = mc5->adapter;
-+
-+	/*
-+	 * We need the size of the TCAM data and mask arrays in terms of
-+	 * 72-bit entries.
-+	 */
-+	unsigned int size72 = mc5->tcam_size;
-+	unsigned int server_base = t3_read_reg(adap, A_MC5_DB_SERVER_INDEX);
-+
-+	if (mc5->mode == MC5_MODE_144_BIT) {
-+		size72 *= 2;	/* 1 144-bit entry is 2 72-bit entries */
-+		server_base *= 2;
-+	}
-+
-+	/* Clear the data array */
-+	dbgi_wr_data3(adap, 0, 0, 0);
-+	for (i = 0; i < size72; i++)
-+		if (mc5_write(adap, data_array_base + (i << addr_shift),
-+			      write_cmd))
-+			return -1;
-+
-+	/* Initialize the mask array. */
-+	dbgi_wr_data3(adap, 0xffffffff, 0xffffffff, 0xff);
-+	for (i = 0; i < size72; i++) {
-+		if (i == server_base)	/* entering server or routing region */
-+			t3_write_reg(adap, A_MC5_DB_DBGI_REQ_DATA0,
-+				     mc5->mode == MC5_MODE_144_BIT ?
-+				     0xfffffff9 : 0xfffffffd);
-+		if (mc5_write(adap, mask_array_base + (i << addr_shift),
-+			      write_cmd))
-+			return -1;
-+	}
-+	return 0;
-+}
-+
-+static int init_idt52100(struct mc5 *mc5)
-+{
-+	int i;
-+	struct adapter *adap = mc5->adapter;
-+
-+	t3_write_reg(adap, A_MC5_DB_RSP_LATENCY,
-+		     V_RDLAT(0x15) | V_LRNLAT(0x15) | V_SRCHLAT(0x15));
-+	t3_write_reg(adap, A_MC5_DB_PART_ID_INDEX, 2);
-+
-+	/*
-+	 * Use GMRs 14-15 for ELOOKUP, GMRs 12-13 for SYN lookups, and
-+	 * GMRs 8-9 for ACK- and AOPEN searches.
-+	 */
-+	t3_write_reg(adap, A_MC5_DB_POPEN_DATA_WR_CMD, IDT_CMD_WRITE);
-+	t3_write_reg(adap, A_MC5_DB_POPEN_MASK_WR_CMD, IDT_CMD_WRITE);
-+	t3_write_reg(adap, A_MC5_DB_AOPEN_SRCH_CMD, IDT_CMD_SEARCH);
-+	t3_write_reg(adap, A_MC5_DB_AOPEN_LRN_CMD, IDT_CMD_LEARN);
-+	t3_write_reg(adap, A_MC5_DB_SYN_SRCH_CMD, IDT_CMD_SEARCH | 0x6000);
-+	t3_write_reg(adap, A_MC5_DB_SYN_LRN_CMD, IDT_CMD_LEARN);
-+	t3_write_reg(adap, A_MC5_DB_ACK_SRCH_CMD, IDT_CMD_SEARCH);
-+	t3_write_reg(adap, A_MC5_DB_ACK_LRN_CMD, IDT_CMD_LEARN);
-+	t3_write_reg(adap, A_MC5_DB_ILOOKUP_CMD, IDT_CMD_SEARCH);
-+	t3_write_reg(adap, A_MC5_DB_ELOOKUP_CMD, IDT_CMD_SEARCH | 0x7000);
-+	t3_write_reg(adap, A_MC5_DB_DATA_WRITE_CMD, IDT_CMD_WRITE);
-+	t3_write_reg(adap, A_MC5_DB_DATA_READ_CMD, IDT_CMD_READ);
-+
-+	/* Set DBGI command mode for IDT TCAM. */
-+	t3_write_reg(adap, A_MC5_DB_DBGI_CONFIG, DBGI_MODE_IDT52100);
-+
-+	/* Set up LAR */
-+	dbgi_wr_data3(adap, IDT_LAR_MODE144, 0, 0);
-+	if (mc5_write(adap, IDT_LAR_ADR0, IDT_CMD_WRITE))
-+		goto err;
-+
-+	/* Set up SSRs */
-+	dbgi_wr_data3(adap, 0xffffffff, 0xffffffff, 0);
-+	if (mc5_write(adap, IDT_SSR0_ADR0, IDT_CMD_WRITE) ||
-+	    mc5_write(adap, IDT_SSR1_ADR0, IDT_CMD_WRITE))
-+		goto err;
-+
-+	/* Set up GMRs */
-+	for (i = 0; i < 32; ++i) {
-+		if (i >= 12 && i < 15)
-+			dbgi_wr_data3(adap, 0xfffffff9, 0xffffffff, 0xff);
-+		else if (i == 15)
-+			dbgi_wr_data3(adap, 0xfffffff9, 0xffff8007, 0xff);
-+		else
-+			dbgi_wr_data3(adap, 0xffffffff, 0xffffffff, 0xff);
-+
-+		if (mc5_write(adap, IDT_GMR_BASE_ADR0 + i, IDT_CMD_WRITE))
-+			goto err;
-+	}
-+
-+	/* Set up SCR */
-+	dbgi_wr_data3(adap, 1, 0, 0);
-+	if (mc5_write(adap, IDT_SCR_ADR0, IDT_CMD_WRITE))
-+		goto err;
-+
-+	return init_mask_data_array(mc5, IDT_MSKARY_BASE_ADR0,
-+				    IDT_DATARY_BASE_ADR0, IDT_CMD_WRITE, 0);
-+err:
-+	return -EIO;
-+}
-+
-+static int init_idt43102(struct mc5 *mc5)
-+{
-+	int i;
-+	struct adapter *adap = mc5->adapter;
-+
-+	t3_write_reg(adap, A_MC5_DB_RSP_LATENCY,
-+		     adap->params.rev == 0 ? V_RDLAT(0xd) | V_SRCHLAT(0x11) :
-+		     V_RDLAT(0xd) | V_SRCHLAT(0x12));
-+
-+	/*
-+	 * Use GMRs 24-25 for ELOOKUP, GMRs 20-21 for SYN lookups, and no mask
-+	 * for ACK- and AOPEN searches.
-+	 */
-+	t3_write_reg(adap, A_MC5_DB_POPEN_DATA_WR_CMD, IDT4_CMD_WRITE);
-+	t3_write_reg(adap, A_MC5_DB_POPEN_MASK_WR_CMD, IDT4_CMD_WRITE);
-+	t3_write_reg(adap, A_MC5_DB_AOPEN_SRCH_CMD,
-+		     IDT4_CMD_SEARCH144 | 0x3800);
-+	t3_write_reg(adap, A_MC5_DB_SYN_SRCH_CMD, IDT4_CMD_SEARCH144);
-+	t3_write_reg(adap, A_MC5_DB_ACK_SRCH_CMD, IDT4_CMD_SEARCH144 | 0x3800);
-+	t3_write_reg(adap, A_MC5_DB_ILOOKUP_CMD, IDT4_CMD_SEARCH144 | 0x3800);
-+	t3_write_reg(adap, A_MC5_DB_ELOOKUP_CMD, IDT4_CMD_SEARCH144 | 0x800);
-+	t3_write_reg(adap, A_MC5_DB_DATA_WRITE_CMD, IDT4_CMD_WRITE);
-+	t3_write_reg(adap, A_MC5_DB_DATA_READ_CMD, IDT4_CMD_READ);
-+
-+	t3_write_reg(adap, A_MC5_DB_PART_ID_INDEX, 3);
-+
-+	/* Set DBGI command mode for IDT TCAM. */
-+	t3_write_reg(adap, A_MC5_DB_DBGI_CONFIG, DBGI_MODE_IDT52100);
-+
-+	/* Set up GMRs */
-+	dbgi_wr_data3(adap, 0xffffffff, 0xffffffff, 0xff);
-+	for (i = 0; i < 7; ++i)
-+		if (mc5_write(adap, IDT4_GMR_BASE0 + i, IDT4_CMD_WRITE))
-+			goto err;
-+
-+	for (i = 0; i < 4; ++i)
-+		if (mc5_write(adap, IDT4_GMR_BASE2 + i, IDT4_CMD_WRITE))
-+			goto err;
-+
-+	dbgi_wr_data3(adap, 0xfffffff9, 0xffffffff, 0xff);
-+	if (mc5_write(adap, IDT4_GMR_BASE1, IDT4_CMD_WRITE) ||
-+	    mc5_write(adap, IDT4_GMR_BASE1 + 1, IDT4_CMD_WRITE) ||
-+	    mc5_write(adap, IDT4_GMR_BASE1 + 4, IDT4_CMD_WRITE))
-+		goto err;
-+
-+	dbgi_wr_data3(adap, 0xfffffff9, 0xffff8007, 0xff);
-+	if (mc5_write(adap, IDT4_GMR_BASE1 + 5, IDT4_CMD_WRITE))
-+		goto err;
-+
-+	/* Set up SCR */
-+	dbgi_wr_data3(adap, 0xf0000000, 0, 0);
-+	if (mc5_write(adap, IDT4_SCR_ADR0, IDT4_CMD_WRITE))
-+		goto err;
-+
-+	return init_mask_data_array(mc5, IDT4_MSKARY_BASE_ADR0,
-+				    IDT4_DATARY_BASE_ADR0, IDT4_CMD_WRITE, 1);
-+err:
-+	return -EIO;
-+}
-+
-+/* Put MC5 in DBGI mode. */
-+static inline void mc5_dbgi_mode_enable(const struct mc5 *mc5)
-+{
-+	t3_write_reg(mc5->adapter, A_MC5_DB_CONFIG,
-+		     V_TMMODE(mc5->mode == MC5_MODE_72_BIT) | F_DBGIEN);
-+}
-+
-+/* Put MC5 in M-Bus mode. */
-+static void mc5_dbgi_mode_disable(const struct mc5 *mc5)
-+{
-+	t3_write_reg(mc5->adapter, A_MC5_DB_CONFIG,
-+		     V_TMMODE(mc5->mode == MC5_MODE_72_BIT) |
-+		     V_COMPEN(mc5->mode == MC5_MODE_72_BIT) |
-+		     V_PRTYEN(mc5->parity_enabled) | F_MBUSEN);
-+}
-+
-+/*
-+ * Initialization that requires the OS and protocol layers to already
-+ * be intialized goes here.
-+ */
-+int t3_mc5_init(struct mc5 *mc5, unsigned int nservers, unsigned int nfilters,
-+		unsigned int nroutes)
-+{
-+	u32 cfg;
-+	int err;
-+	unsigned int tcam_size = mc5->tcam_size;
-+	struct adapter *adap = mc5->adapter;
-+
-+	if (nroutes > MAX_ROUTES || nroutes + nservers + nfilters > tcam_size)
-+		return -EINVAL;
-+
-+	/* Reset the TCAM */
-+	cfg = t3_read_reg(adap, A_MC5_DB_CONFIG) & ~F_TMMODE;
-+	cfg |= V_TMMODE(mc5->mode == MC5_MODE_72_BIT) | F_TMRST;
-+	t3_write_reg(adap, A_MC5_DB_CONFIG, cfg);
-+	if (t3_wait_op_done(adap, A_MC5_DB_CONFIG, F_TMRDY, 1, 500, 0)) {
-+		CH_ERR("%s: TCAM reset timed out\n", adap->name);
-+		return -1;
-+	}
-+
-+	t3_write_reg(adap, A_MC5_DB_ROUTING_TABLE_INDEX, tcam_size - nroutes);
-+	t3_write_reg(adap, A_MC5_DB_FILTER_TABLE,
-+		     tcam_size - nroutes - nfilters);
-+	t3_write_reg(adap, A_MC5_DB_SERVER_INDEX,
-+		     tcam_size - nroutes - nfilters - nservers);
-+
-+	mc5->parity_enabled = 1;
-+
-+	/* All the TCAM addresses we access have only the low 32 bits non 0 */
-+	t3_write_reg(adap, A_MC5_DB_DBGI_REQ_ADDR1, 0);
-+	t3_write_reg(adap, A_MC5_DB_DBGI_REQ_ADDR2, 0);
-+
-+	mc5_dbgi_mode_enable(mc5);
-+
-+	switch (mc5->part_type) {
-+	case IDT75P52100:
-+		err = init_idt52100(mc5);
-+		break;
-+	case IDT75N43102:
-+		err = init_idt43102(mc5);
-+		break;
-+	default:
-+		CH_ERR("%s: Unsupported TCAM type %d\n", adap->name,
-+		       mc5->part_type);
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+	mc5_dbgi_mode_disable(mc5);
-+	return err;
-+}
-+
-+/*
-+ *	read_mc5_range - dump a part of the memory managed by MC5
-+ *	@mc5: the MC5 handle
-+ *	@start: the start address for the dump
-+ *	@n: number of 72-bit words to read
-+ *	@buf: result buffer
-+ *
-+ *	Read n 72-bit words from MC5 memory from the given start location.
-+ */
-+int t3_read_mc5_range(const struct mc5 *mc5, unsigned int start,
-+		      unsigned int n, u32 * buf)
-+{
-+	u32 read_cmd;
-+	int err = 0;
-+	struct adapter *adap = mc5->adapter;
-+
-+	if (mc5->part_type == IDT75P52100)
-+		read_cmd = IDT_CMD_READ;
-+	else if (mc5->part_type == IDT75N43102)
-+		read_cmd = IDT4_CMD_READ;
-+	else
-+		return -EINVAL;
-+
-+	mc5_dbgi_mode_enable(mc5);
-+
-+	while (n--) {
-+		t3_write_reg(adap, A_MC5_DB_DBGI_REQ_ADDR0, start++);
-+		if (mc5_cmd_write(adap, read_cmd)) {
-+			err = -EIO;
-+			break;
-+		}
-+		dbgi_rd_rsp3(adap, buf + 2, buf + 1, buf);
-+		buf += 3;
-+	}
-+
-+	mc5_dbgi_mode_disable(mc5);
-+	return 0;
-+}
-+
-+#define MC5_INT_FATAL (F_PARITYERR | F_REQQPARERR | F_DISPQPARERR)
-+
-+/*
-+ * MC5 interrupt handler
-+ */
-+void t3_mc5_intr_handler(struct mc5 *mc5)
-+{
-+	struct adapter *adap = mc5->adapter;
-+	u32 cause = t3_read_reg(adap, A_MC5_DB_INT_CAUSE);
-+
-+	if ((cause & F_PARITYERR) && mc5->parity_enabled) {
-+		CH_ALERT("%s: MC5 parity error\n", adap->name);
-+		mc5->stats.parity_err++;
-+	}
-+
-+	if (cause & F_REQQPARERR) {
-+		CH_ALERT("%s: MC5 request queue parity error\n",
-+			 adap->name);
-+		mc5->stats.reqq_parity_err++;
-+	}
-+
-+	if (cause & F_DISPQPARERR) {
-+		CH_ALERT("%s: MC5 dispatch queue parity error\n",
-+			 adap->name);
-+		mc5->stats.dispq_parity_err++;
-+	}
-+
-+	if (cause & F_ACTRGNFULL)
-+		mc5->stats.active_rgn_full++;
-+	if (cause & F_NFASRCHFAIL)
-+		mc5->stats.nfa_srch_err++;
-+	if (cause & F_UNKNOWNCMD)
-+		mc5->stats.unknown_cmd++;
-+	if (cause & F_DELACTEMPTY)
-+		mc5->stats.del_act_empty++;
-+	if (cause & MC5_INT_FATAL)
-+		t3_fatal_err(adap);
-+
-+	t3_write_reg(adap, A_MC5_DB_INT_CAUSE, cause);
-+}
-+
-+void __devinit t3_mc5_prep(struct adapter *adapter, struct mc5 *mc5, int mode)
-+{
-+#define K * 1024
-+
-+	static unsigned int tcam_part_size[] = {	/* in K 72-bit entries */
-+		64 K, 128 K, 256 K, 32 K
-+	};
-+
-+#undef K
-+
-+	u32 cfg = t3_read_reg(adapter, A_MC5_DB_CONFIG);
-+
-+	mc5->adapter = adapter;
-+	mc5->mode = (unsigned char)mode;
-+	mc5->part_type = (unsigned char)G_TMTYPE(cfg);
-+	if (cfg & F_TMTYPEHI)
-+		mc5->part_type |= 4;
-+
-+	mc5->tcam_size = tcam_part_size[G_TMPARTSIZE(cfg)];
-+	if (mode == MC5_MODE_144_BIT)
-+		mc5->tcam_size /= 2;
-+}
-diff --git a/drivers/net/cxgb3/vsc8211.c b/drivers/net/cxgb3/vsc8211.c
-new file mode 100755
-index 0000000..6a0a815
---- /dev/null
-+++ b/drivers/net/cxgb3/vsc8211.c
-@@ -0,0 +1,208 @@
-+/*
-+ * This file is part of the Chelsio T3 Ethernet driver.
-+ *
-+ * Copyright (C) 2005-2006 Chelsio Communications.  All rights reserved.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
-+ */
-+
-+#include "common.h"
-+
-+/* VSC8211 PHY specific registers. */
-+enum {
-+	VSC8211_INTR_ENABLE = 25,
-+	VSC8211_INTR_STATUS = 26,
-+	VSC8211_AUX_CTRL_STAT = 28,
-+};
-+
-+enum {
-+	VSC_INTR_RX_ERR = 1 << 0,
-+	VSC_INTR_MS_ERR = 1 << 1,	/* master/slave resolution error */
-+	VSC_INTR_CABLE = 1 << 2,	/* cable impairment */
-+	VSC_INTR_FALSE_CARR = 1 << 3,	/* false carrier */
-+	VSC_INTR_MEDIA_CHG = 1 << 4,	/* AMS media change */
-+	VSC_INTR_RX_FIFO = 1 << 5,	/* Rx FIFO over/underflow */
-+	VSC_INTR_TX_FIFO = 1 << 6,	/* Tx FIFO over/underflow */
-+	VSC_INTR_DESCRAMBL = 1 << 7,	/* descrambler lock-lost */
-+	VSC_INTR_SYMBOL_ERR = 1 << 8,	/* symbol error */
-+	VSC_INTR_NEG_DONE = 1 << 10,	/* autoneg done */
-+	VSC_INTR_NEG_ERR = 1 << 11,	/* autoneg error */
-+	VSC_INTR_LINK_CHG = 1 << 13,	/* link change */
-+	VSC_INTR_ENABLE = 1 << 15,	/* interrupt enable */
-+};
-+
-+#define CFG_CHG_INTR_MASK (VSC_INTR_LINK_CHG | VSC_INTR_NEG_ERR | \
-+	 		   VSC_INTR_NEG_DONE)
-+#define INTR_MASK (CFG_CHG_INTR_MASK | VSC_INTR_TX_FIFO | VSC_INTR_RX_FIFO | \
-+		   VSC_INTR_ENABLE)
-+
-+/* PHY specific auxiliary control & status register fields */
-+#define S_ACSR_ACTIPHY_TMR    0
-+#define M_ACSR_ACTIPHY_TMR    0x3
-+#define V_ACSR_ACTIPHY_TMR(x) ((x) << S_ACSR_ACTIPHY_TMR)
-+
-+#define S_ACSR_SPEED    3
-+#define M_ACSR_SPEED    0x3
-+#define G_ACSR_SPEED(x) (((x) >> S_ACSR_SPEED) & M_ACSR_SPEED)
-+
-+#define S_ACSR_DUPLEX 5
-+#define F_ACSR_DUPLEX (1 << S_ACSR_DUPLEX)
-+
-+#define S_ACSR_ACTIPHY 6
-+#define F_ACSR_ACTIPHY (1 << S_ACSR_ACTIPHY)
-+
-+/*
-+ * Reset the PHY.  This PHY completes reset immediately so we never wait.
-+ */
-+static int vsc8211_reset(struct cphy *cphy, int wait)
-+{
-+	return t3_phy_reset(cphy, 0, 0);
-+}
-+
-+static int vsc8211_intr_enable(struct cphy *cphy)
-+{
-+	return mdio_write(cphy, 0, VSC8211_INTR_ENABLE, INTR_MASK);
-+}
-+
-+static int vsc8211_intr_disable(struct cphy *cphy)
-+{
-+	return mdio_write(cphy, 0, VSC8211_INTR_ENABLE, 0);
-+}
-+
-+static int vsc8211_intr_clear(struct cphy *cphy)
-+{
-+	u32 val;
-+
-+	/* Clear PHY interrupts by reading the register. */
-+	return mdio_read(cphy, 0, VSC8211_INTR_STATUS, &val);
-+}
-+
-+static int vsc8211_autoneg_enable(struct cphy *cphy)
-+{
-+	return t3_mdio_change_bits(cphy, 0, MII_BMCR, BMCR_PDOWN | BMCR_ISOLATE,
-+				   BMCR_ANENABLE | BMCR_ANRESTART);
-+}
-+
-+static int vsc8211_autoneg_restart(struct cphy *cphy)
-+{
-+	return t3_mdio_change_bits(cphy, 0, MII_BMCR, BMCR_PDOWN | BMCR_ISOLATE,
-+				   BMCR_ANRESTART);
-+}
-+
-+static int vsc8211_get_link_status(struct cphy *cphy, int *link_ok,
-+				   int *speed, int *duplex, int *fc)
-+{
-+	unsigned int bmcr, status, lpa, adv;
-+	int err, sp = -1, dplx = -1, pause = 0;
-+
-+	err = mdio_read(cphy, 0, MII_BMCR, &bmcr);
-+	if (!err)
-+		err = mdio_read(cphy, 0, MII_BMSR, &status);
-+	if (err)
-+		return err;
-+
-+	if (link_ok) {
-+		/*
-+		 * BMSR_LSTATUS is latch-low, so if it is 0 we need to read it
-+		 * once more to get the current link state.
-+		 */
-+		if (!(status & BMSR_LSTATUS))
-+			err = mdio_read(cphy, 0, MII_BMSR, &status);
-+		if (err)
-+			return err;
-+		*link_ok = (status & BMSR_LSTATUS) != 0;
-+	}
-+	if (!(bmcr & BMCR_ANENABLE)) {
-+		dplx = (bmcr & BMCR_FULLDPLX) ? DUPLEX_FULL : DUPLEX_HALF;
-+		if (bmcr & BMCR_SPEED1000)
-+			sp = SPEED_1000;
-+		else if (bmcr & BMCR_SPEED100)
-+			sp = SPEED_100;
-+		else
-+			sp = SPEED_10;
-+	} else if (status & BMSR_ANEGCOMPLETE) {
-+		err = mdio_read(cphy, 0, VSC8211_AUX_CTRL_STAT, &status);
-+		if (err)
-+			return err;
-+
-+		dplx = (status & F_ACSR_DUPLEX) ? DUPLEX_FULL : DUPLEX_HALF;
-+		sp = G_ACSR_SPEED(status);
-+		if (sp == 0)
-+			sp = SPEED_10;
-+		else if (sp == 1)
-+			sp = SPEED_100;
-+		else
-+			sp = SPEED_1000;
-+
-+		if (fc && dplx == DUPLEX_FULL) {
-+			err = mdio_read(cphy, 0, MII_LPA, &lpa);
-+			if (!err)
-+				err = mdio_read(cphy, 0, MII_ADVERTISE, &adv);
-+			if (err)
-+				return err;
-+
-+			if (lpa & adv & ADVERTISE_PAUSE_CAP)
-+				pause = PAUSE_RX | PAUSE_TX;
-+			else if ((lpa & ADVERTISE_PAUSE_CAP) &&
-+				 (lpa & ADVERTISE_PAUSE_ASYM) &&
-+				 (adv & ADVERTISE_PAUSE_ASYM))
-+				pause = PAUSE_TX;
-+			else if ((lpa & ADVERTISE_PAUSE_ASYM) &&
-+				 (adv & ADVERTISE_PAUSE_CAP))
-+				pause = PAUSE_RX;
-+		}
-+	}
-+	if (speed)
-+		*speed = sp;
-+	if (duplex)
-+		*duplex = dplx;
-+	if (fc)
-+		*fc = pause;
-+	return 0;
-+}
-+
-+static int vsc8211_power_down(struct cphy *cphy, int enable)
-+{
-+	return t3_mdio_change_bits(cphy, 0, MII_BMCR, BMCR_PDOWN,
-+				   enable ? BMCR_PDOWN : 0);
-+}
-+
-+static int vsc8211_intr_handler(struct cphy *cphy)
-+{
-+	unsigned int cause;
-+	int err, cphy_cause = 0;
-+
-+	err = mdio_read(cphy, 0, VSC8211_INTR_STATUS, &cause);
-+	if (err)
-+		return err;
-+
-+	cause &= INTR_MASK;
-+	if (cause & CFG_CHG_INTR_MASK)
-+		cphy_cause |= cphy_cause_link_change;
-+	if (cause & (VSC_INTR_RX_FIFO | VSC_INTR_TX_FIFO))
-+		cphy_cause |= cphy_cause_fifo_error;
-+	return cphy_cause;
-+}
-+
-+static struct cphy_ops vsc8211_ops = {
-+	.reset = vsc8211_reset,
-+	.intr_enable = vsc8211_intr_enable,
-+	.intr_disable = vsc8211_intr_disable,
-+	.intr_clear = vsc8211_intr_clear,
-+	.intr_handler = vsc8211_intr_handler,
-+	.autoneg_enable = vsc8211_autoneg_enable,
-+	.autoneg_restart = vsc8211_autoneg_restart,
-+	.advertise = t3_phy_advertise,
-+	.set_speed_duplex = t3_set_phy_speed_duplex,
-+	.get_link_status = vsc8211_get_link_status,
-+	.power_down = vsc8211_power_down,
-+};
-+
-+void t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
-+			 int phy_addr, const struct mdio_ops *mdio_ops)
-+{
-+	cphy_init(phy, adapter, phy_addr, &vsc8211_ops, mdio_ops);
-+}
-diff --git a/drivers/net/cxgb3/xgmac.c b/drivers/net/cxgb3/xgmac.c
-new file mode 100755
-index 0000000..f99e34f
---- /dev/null
-+++ b/drivers/net/cxgb3/xgmac.c
-@@ -0,0 +1,389 @@
-+/*
-+ * This file is part of the Chelsio T3 Ethernet driver.
-+ *
-+ * Copyright (C) 2005-2006 Chelsio Communications.  All rights reserved.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
-+ */
-+
-+#include "common.h"
-+#include "regs.h"
-+
-+/*
-+ * # of exact address filters.  The first one is used for the station address,
-+ * the rest are available for multicast addresses.
-+ */
-+#define EXACT_ADDR_FILTERS 8
-+
-+static inline int macidx(const struct cmac *mac)
-+{
-+	return mac->offset / (XGMAC0_1_BASE_ADDR - XGMAC0_0_BASE_ADDR);
-+}
-+
-+static void xaui_serdes_reset(struct cmac *mac)
-+{
-+	static unsigned int clear[] = {
-+		F_PWRDN0 | F_PWRDN1, F_RESETPLL01, F_RESET0 | F_RESET1,
-+		F_PWRDN2 | F_PWRDN3, F_RESETPLL23, F_RESET2 | F_RESET3
-+	};
-+
-+	int i;
-+	struct adapter *adap = mac->adapter;
-+	u32 ctrl = A_XGM_SERDES_CTRL0 + mac->offset;
-+
-+	t3_write_reg(adap, ctrl, adap->params.vpd.xauicfg[macidx(mac)] |
-+		     F_RESET3 | F_RESET2 | F_RESET1 | F_RESET0 |
-+		     F_PWRDN3 | F_PWRDN2 | F_PWRDN1 | F_PWRDN0 |
-+		     F_RESETPLL23 | F_RESETPLL01);
-+	(void)t3_read_reg(adap, ctrl);
-+	udelay(15);
-+
-+	for (i = 0; i < ARRAY_SIZE(clear); i++) {
-+		t3_set_reg_field(adap, ctrl, clear[i], 0);
-+		udelay(15);
-+	}
-+}
-+
-+void t3b_pcs_reset(struct cmac *mac)
-+{
-+	t3_set_reg_field(mac->adapter, A_XGM_RESET_CTRL + mac->offset,
-+			 F_PCS_RESET_, 0);
-+	udelay(20);
-+	t3_set_reg_field(mac->adapter, A_XGM_RESET_CTRL + mac->offset, 0,
-+			 F_PCS_RESET_);
-+}
-+
-+int t3_mac_reset(struct cmac *mac)
-+{
-+	static struct addr_val_pair mac_reset_avp[] = {
-+		{A_XGM_TX_CTRL, 0},
-+		{A_XGM_RX_CTRL, 0},
-+		{A_XGM_RX_CFG, F_DISPAUSEFRAMES | F_EN1536BFRAMES |
-+		 F_RMFCS | F_ENJUMBO | F_ENHASHMCAST},
-+		{A_XGM_RX_HASH_LOW, 0},
-+		{A_XGM_RX_HASH_HIGH, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_1, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_2, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_3, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_4, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_5, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_6, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_7, 0},
-+		{A_XGM_RX_EXACT_MATCH_LOW_8, 0},
-+		{A_XGM_STAT_CTRL, F_CLRSTATS}
-+	};
-+	u32 val;
-+	struct adapter *adap = mac->adapter;
-+	unsigned int oft = mac->offset;
-+
-+	t3_write_reg(adap, A_XGM_RESET_CTRL + oft, F_MAC_RESET_);
-+	(void)t3_read_reg(adap, A_XGM_RESET_CTRL + oft);	/* flush */
-+
-+	t3_write_regs(adap, mac_reset_avp, ARRAY_SIZE(mac_reset_avp), oft);
-+	t3_set_reg_field(adap, A_XGM_RXFIFO_CFG + oft,
-+			 F_RXSTRFRWRD | F_DISERRFRAMES,
-+			 uses_xaui(adap) ? 0 : F_RXSTRFRWRD);
-+
-+	if (uses_xaui(adap)) {
-+		if (adap->params.rev == 0) {
-+			t3_set_reg_field(adap, A_XGM_SERDES_CTRL + oft, 0,
-+					 F_RXENABLE | F_TXENABLE);
-+			if (t3_wait_op_done(adap, A_XGM_SERDES_STATUS1 + oft,
-+					    F_CMULOCK, 1, 5, 2)) {
-+				CH_ERR
-+				    ("%s: MAC %d XAUI SERDES CMU lock failed\n",
-+				     adap->name, macidx(mac));
-+				return -1;
-+			}
-+			t3_set_reg_field(adap, A_XGM_SERDES_CTRL + oft, 0,
-+					 F_SERDESRESET_);
-+		} else
-+			xaui_serdes_reset(mac);
-+	}
-+
-+	if (adap->params.rev > 0)
-+		t3_write_reg(adap, A_XGM_PAUSE_TIMER + oft, 0xf000);
-+
-+	val = F_MAC_RESET_;
-+	if (is_10G(adap))
-+		val |= F_PCS_RESET_;
-+	else if (uses_xaui(adap))
-+		val |= F_PCS_RESET_ | F_XG2G_RESET_;
-+	else
-+		val |= F_RGMII_RESET_ | F_XG2G_RESET_;
-+	t3_write_reg(adap, A_XGM_RESET_CTRL + oft, val);
-+	(void)t3_read_reg(adap, A_XGM_RESET_CTRL + oft);	/* flush */
-+	if ((val & F_PCS_RESET_) && adap->params.rev) {
-+		msleep(1);
-+		t3b_pcs_reset(mac);
-+	}
-+
-+	memset(&mac->stats, 0, sizeof(mac->stats));
-+	return 0;
-+}
-+
-+/*
-+ * Set the exact match register 'idx' to recognize the given Ethernet address.
-+ */
-+static void set_addr_filter(struct cmac *mac, int idx, const u8 * addr)
-+{
-+	u32 addr_lo, addr_hi;
-+	unsigned int oft = mac->offset + idx * 8;
-+
-+	addr_lo = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
-+	addr_hi = (addr[5] << 8) | addr[4];
-+
-+	t3_write_reg(mac->adapter, A_XGM_RX_EXACT_MATCH_LOW_1 + oft, addr_lo);
-+	t3_write_reg(mac->adapter, A_XGM_RX_EXACT_MATCH_HIGH_1 + oft, addr_hi);
-+}
-+
-+/* Set one of the station's unicast MAC addresses. */
-+int t3_mac_set_address(struct cmac *mac, unsigned int idx, u8 addr[6])
-+{
-+	if (idx >= mac->nucast)
-+		return -EINVAL;
-+	set_addr_filter(mac, idx, addr);
-+	return 0;
-+}
-+
-+/*
-+ * Specify the number of exact address filters that should be reserved for
-+ * unicast addresses.  Caller should reload the unicast and multicast addresses
-+ * after calling this.
-+ */
-+int t3_mac_set_num_ucast(struct cmac *mac, int n)
-+{
-+	if (n > EXACT_ADDR_FILTERS)
-+		return -EINVAL;
-+	mac->nucast = n;
-+	return 0;
-+}
-+
-+/* Calculate the RX hash filter index of an Ethernet address */
-+static int hash_hw_addr(const u8 * addr)
-+{
-+	int hash = 0, octet, bit, i = 0, c;
-+
-+	for (octet = 0; octet < 6; ++octet)
-+		for (c = addr[octet], bit = 0; bit < 8; c >>= 1, ++bit) {
-+			hash ^= (c & 1) << i;
-+			if (++i == 6)
-+				i = 0;
-+		}
-+	return hash;
-+}
-+
-+int t3_mac_set_rx_mode(struct cmac *mac, struct t3_rx_mode *rm)
-+{
-+	u32 val, hash_lo, hash_hi;
-+	struct adapter *adap = mac->adapter;
-+	unsigned int oft = mac->offset;
-+
-+	val = t3_read_reg(adap, A_XGM_RX_CFG + oft) & ~F_COPYALLFRAMES;
-+	if (rm->dev->flags & IFF_PROMISC)
-+		val |= F_COPYALLFRAMES;
-+	t3_write_reg(adap, A_XGM_RX_CFG + oft, val);
-+
-+	if (rm->dev->flags & IFF_ALLMULTI)
-+		hash_lo = hash_hi = 0xffffffff;
-+	else {
-+		u8 *addr;
-+		int exact_addr_idx = mac->nucast;
-+
-+		hash_lo = hash_hi = 0;
-+		while ((addr = t3_get_next_mcaddr(rm)))
-+			if (exact_addr_idx < EXACT_ADDR_FILTERS)
-+				set_addr_filter(mac, exact_addr_idx++, addr);
-+			else {
-+				int hash = hash_hw_addr(addr);
-+
-+				if (hash < 32)
-+					hash_lo |= (1 << hash);
-+				else
-+					hash_hi |= (1 << (hash - 32));
-+			}
-+	}
-+
-+	t3_write_reg(adap, A_XGM_RX_HASH_LOW + oft, hash_lo);
-+	t3_write_reg(adap, A_XGM_RX_HASH_HIGH + oft, hash_hi);
-+	return 0;
-+}
-+
-+int t3_mac_set_mtu(struct cmac *mac, unsigned int mtu)
-+{
-+	int hwm, lwm;
-+	unsigned int thres, v;
-+	struct adapter *adap = mac->adapter;
-+
-+	/*
-+	 * MAX_FRAME_SIZE inludes header + FCS, mtu doesn't.  The HW max
-+	 * packet size register includes header, but not FCS.
-+	 */
-+	mtu += 14;
-+	if (mtu > MAX_FRAME_SIZE - 4)
-+		return -EINVAL;
-+	t3_write_reg(adap, A_XGM_RX_MAX_PKT_SIZE + mac->offset, mtu);
-+
-+	/*
-+	 * Adjust the PAUSE frame watermarks.  We always set the LWM, and the
-+	 * HWM only if flow-control is enabled.
-+	 */
-+	hwm = max(MAC_RXFIFO_SIZE - 3 * mtu, MAC_RXFIFO_SIZE / 2U);
-+	hwm = min(hwm, 3 * MAC_RXFIFO_SIZE / 4 + 1024);
-+	lwm = hwm - 1024;
-+	v = t3_read_reg(adap, A_XGM_RXFIFO_CFG + mac->offset);
-+	v &= ~V_RXFIFOPAUSELWM(M_RXFIFOPAUSELWM);
-+	v |= V_RXFIFOPAUSELWM(lwm / 8);
-+	if (G_RXFIFOPAUSEHWM(v))
-+		v = (v & ~V_RXFIFOPAUSEHWM(M_RXFIFOPAUSEHWM)) |
-+		    V_RXFIFOPAUSEHWM(hwm / 8);
-+	t3_write_reg(adap, A_XGM_RXFIFO_CFG + mac->offset, v);
-+
-+	/* Adjust the TX FIFO threshold based on the MTU */
-+	thres = (adap->params.vpd.cclk * 1000) / 15625;
-+	thres = (thres * mtu) / 1000;
-+	if (is_10G(adap))
-+		thres /= 10;
-+	thres = mtu > thres ? (mtu - thres + 7) / 8 : 0;
-+	thres = max(thres, 8U);	/* need at least 8 */
-+	t3_set_reg_field(adap, A_XGM_TXFIFO_CFG + mac->offset,
-+			 V_TXFIFOTHRESH(M_TXFIFOTHRESH), V_TXFIFOTHRESH(thres));
-+	return 0;
-+}
-+
-+int t3_mac_set_speed_duplex_fc(struct cmac *mac, int speed, int duplex, int fc)
-+{
-+	u32 val;
-+	struct adapter *adap = mac->adapter;
-+	unsigned int oft = mac->offset;
-+
-+	if (duplex >= 0 && duplex != DUPLEX_FULL)
-+		return -EINVAL;
-+	if (speed >= 0) {
-+		if (speed == SPEED_10)
-+			val = V_PORTSPEED(0);
-+		else if (speed == SPEED_100)
-+			val = V_PORTSPEED(1);
-+		else if (speed == SPEED_1000)
-+			val = V_PORTSPEED(2);
-+		else if (speed == SPEED_10000)
-+			val = V_PORTSPEED(3);
-+		else
-+			return -EINVAL;
-+
-+		t3_set_reg_field(adap, A_XGM_PORT_CFG + oft,
-+				 V_PORTSPEED(M_PORTSPEED), val);
-+	}
-+
-+	val = t3_read_reg(adap, A_XGM_RXFIFO_CFG + oft);
-+	val &= ~V_RXFIFOPAUSEHWM(M_RXFIFOPAUSEHWM);
-+	if (fc & PAUSE_TX)
-+		val |= V_RXFIFOPAUSEHWM(G_RXFIFOPAUSELWM(val) + 128);	/* +1KB */
-+	t3_write_reg(adap, A_XGM_RXFIFO_CFG + oft, val);
-+
-+	t3_set_reg_field(adap, A_XGM_TX_CFG + oft, F_TXPAUSEEN,
-+			 (fc & PAUSE_RX) ? F_TXPAUSEEN : 0);
-+	return 0;
-+}
-+
-+int t3_mac_enable(struct cmac *mac, int which)
-+{
-+	int idx = macidx(mac);
-+	struct adapter *adap = mac->adapter;
-+	unsigned int oft = mac->offset;
-+
-+	if (which & MAC_DIRECTION_TX) {
-+		t3_write_reg(adap, A_XGM_TX_CTRL + oft, F_TXEN);
-+		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_CFG_CH0 + idx);
-+		t3_write_reg(adap, A_TP_PIO_DATA, 0xbf000001);
-+		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_MODE);
-+		t3_set_reg_field(adap, A_TP_PIO_DATA, 1 << idx, 1 << idx);
-+	}
-+	if (which & MAC_DIRECTION_RX)
-+		t3_write_reg(adap, A_XGM_RX_CTRL + oft, F_RXEN);
-+	return 0;
-+}
-+
-+int t3_mac_disable(struct cmac *mac, int which)
-+{
-+	int idx = macidx(mac);
-+	struct adapter *adap = mac->adapter;
-+
-+	if (which & MAC_DIRECTION_TX) {
-+		t3_write_reg(adap, A_XGM_TX_CTRL + mac->offset, 0);
-+		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_CFG_CH0 + idx);
-+		t3_write_reg(adap, A_TP_PIO_DATA, 0xc000001f);
-+		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_MODE);
-+		t3_set_reg_field(adap, A_TP_PIO_DATA, 1 << idx, 0);
-+	}
-+	if (which & MAC_DIRECTION_RX)
-+		t3_write_reg(adap, A_XGM_RX_CTRL + mac->offset, 0);
-+	return 0;
-+}
-+
-+/*
-+ * This function is called periodically to accumulate the current values of the
-+ * RMON counters into the port statistics.  Since the packet counters are only
-+ * 32 bits they can overflow in ~286 secs at 10G, so the function should be
-+ * called more frequently than that.  The byte counters are 45-bit wide, they
-+ * would overflow in ~7.8 hours.
-+ */
-+const struct mac_stats *t3_mac_update_stats(struct cmac *mac)
-+{
-+#define RMON_READ(mac, addr) t3_read_reg(mac->adapter, addr + mac->offset)
-+#define RMON_UPDATE(mac, name, reg) \
-+	(mac)->stats.name += (u64)RMON_READ(mac, A_XGM_STAT_##reg)
-+#define RMON_UPDATE64(mac, name, reg_lo, reg_hi) \
-+	(mac)->stats.name += RMON_READ(mac, A_XGM_STAT_##reg_lo) + \
-+			     ((u64)RMON_READ(mac, A_XGM_STAT_##reg_hi) << 32)
-+
-+	u32 v, lo;
-+
-+	RMON_UPDATE64(mac, rx_octets, RX_BYTES_LOW, RX_BYTES_HIGH);
-+	RMON_UPDATE64(mac, rx_frames, RX_FRAMES_LOW, RX_FRAMES_HIGH);
-+	RMON_UPDATE(mac, rx_mcast_frames, RX_MCAST_FRAMES);
-+	RMON_UPDATE(mac, rx_bcast_frames, RX_BCAST_FRAMES);
-+	RMON_UPDATE(mac, rx_fcs_errs, RX_CRC_ERR_FRAMES);
-+	RMON_UPDATE(mac, rx_pause, RX_PAUSE_FRAMES);
-+	RMON_UPDATE(mac, rx_jabber, RX_JABBER_FRAMES);
-+	RMON_UPDATE(mac, rx_short, RX_SHORT_FRAMES);
-+	RMON_UPDATE(mac, rx_symbol_errs, RX_SYM_CODE_ERR_FRAMES);
-+
-+	RMON_UPDATE(mac, rx_too_long, RX_OVERSIZE_FRAMES);
-+	mac->stats.rx_too_long += RMON_READ(mac, A_XGM_RX_MAX_PKT_SIZE_ERR_CNT);
-+
-+	RMON_UPDATE(mac, rx_frames_64, RX_64B_FRAMES);
-+	RMON_UPDATE(mac, rx_frames_65_127, RX_65_127B_FRAMES);
-+	RMON_UPDATE(mac, rx_frames_128_255, RX_128_255B_FRAMES);
-+	RMON_UPDATE(mac, rx_frames_256_511, RX_256_511B_FRAMES);
-+	RMON_UPDATE(mac, rx_frames_512_1023, RX_512_1023B_FRAMES);
-+	RMON_UPDATE(mac, rx_frames_1024_1518, RX_1024_1518B_FRAMES);
-+	RMON_UPDATE(mac, rx_frames_1519_max, RX_1519_MAXB_FRAMES);
-+
-+	RMON_UPDATE64(mac, tx_octets, TX_BYTE_LOW, TX_BYTE_HIGH);
-+	RMON_UPDATE64(mac, tx_frames, TX_FRAME_LOW, TX_FRAME_HIGH);
-+	RMON_UPDATE(mac, tx_mcast_frames, TX_MCAST);
-+	RMON_UPDATE(mac, tx_bcast_frames, TX_BCAST);
-+	RMON_UPDATE(mac, tx_pause, TX_PAUSE);
-+	/* This counts error frames in general (bad FCS, underrun, etc). */
-+	RMON_UPDATE(mac, tx_underrun, TX_ERR_FRAMES);
-+
-+	RMON_UPDATE(mac, tx_frames_64, TX_64B_FRAMES);
-+	RMON_UPDATE(mac, tx_frames_65_127, TX_65_127B_FRAMES);
-+	RMON_UPDATE(mac, tx_frames_128_255, TX_128_255B_FRAMES);
-+	RMON_UPDATE(mac, tx_frames_256_511, TX_256_511B_FRAMES);
-+	RMON_UPDATE(mac, tx_frames_512_1023, TX_512_1023B_FRAMES);
-+	RMON_UPDATE(mac, tx_frames_1024_1518, TX_1024_1518B_FRAMES);
-+	RMON_UPDATE(mac, tx_frames_1519_max, TX_1519_MAXB_FRAMES);
-+
-+	/* The next stat isn't clear-on-read. */
-+	t3_write_reg(mac->adapter, A_TP_MIB_INDEX, mac->offset ? 51 : 50);
-+	v = t3_read_reg(mac->adapter, A_TP_MIB_RDATA);
-+	lo = (u32) mac->stats.rx_cong_drops;
-+	mac->stats.rx_cong_drops += (u64) (v - lo);
-+
-+	return &mac->stats;
-+}
++++ b/drivers/net/cxgb3/regs.h
+@@ -0,0 +1,2177 @@
++#define A_SG_CONTROL 0x0
++
++#define S_DROPPKT    20
++#define V_DROPPKT(x) ((x) << S_DROPPKT)
++#define F_DROPPKT    V_DROPPKT(1U)
++
++#define S_EGRGENCTRL    19
++#define V_EGRGENCTRL(x) ((x) << S_EGRGENCTRL)
++#define F_EGRGENCTRL    V_EGRGENCTRL(1U)
++
++#define S_USERSPACESIZE    14
++#define M_USERSPACESIZE    0x1f
++#define V_USERSPACESIZE(x) ((x) << S_USERSPACESIZE)
++
++#define S_HOSTPAGESIZE    11
++#define M_HOSTPAGESIZE    0x7
++#define V_HOSTPAGESIZE(x) ((x) << S_HOSTPAGESIZE)
++
++#define S_FLMODE    9
++#define V_FLMODE(x) ((x) << S_FLMODE)
++#define F_FLMODE    V_FLMODE(1U)
++
++#define S_PKTSHIFT    6
++#define M_PKTSHIFT    0x7
++#define V_PKTSHIFT(x) ((x) << S_PKTSHIFT)
++
++#define S_ONEINTMULTQ    5
++#define V_ONEINTMULTQ(x) ((x) << S_ONEINTMULTQ)
++#define F_ONEINTMULTQ    V_ONEINTMULTQ(1U)
++
++#define S_BIGENDIANINGRESS    2
++#define V_BIGENDIANINGRESS(x) ((x) << S_BIGENDIANINGRESS)
++#define F_BIGENDIANINGRESS    V_BIGENDIANINGRESS(1U)
++
++#define S_ISCSICOALESCING    1
++#define V_ISCSICOALESCING(x) ((x) << S_ISCSICOALESCING)
++#define F_ISCSICOALESCING    V_ISCSICOALESCING(1U)
++
++#define S_GLOBALENABLE    0
++#define V_GLOBALENABLE(x) ((x) << S_GLOBALENABLE)
++#define F_GLOBALENABLE    V_GLOBALENABLE(1U)
++
++#define S_AVOIDCQOVFL    24
++#define V_AVOIDCQOVFL(x) ((x) << S_AVOIDCQOVFL)
++#define F_AVOIDCQOVFL    V_AVOIDCQOVFL(1U)
++
++#define S_OPTONEINTMULTQ    23
++#define V_OPTONEINTMULTQ(x) ((x) << S_OPTONEINTMULTQ)
++#define F_OPTONEINTMULTQ    V_OPTONEINTMULTQ(1U)
++
++#define S_CQCRDTCTRL    22
++#define V_CQCRDTCTRL(x) ((x) << S_CQCRDTCTRL)
++#define F_CQCRDTCTRL    V_CQCRDTCTRL(1U)
++
++#define A_SG_KDOORBELL 0x4
++
++#define S_SELEGRCNTX    31
++#define V_SELEGRCNTX(x) ((x) << S_SELEGRCNTX)
++#define F_SELEGRCNTX    V_SELEGRCNTX(1U)
++
++#define S_EGRCNTX    0
++#define M_EGRCNTX    0xffff
++#define V_EGRCNTX(x) ((x) << S_EGRCNTX)
++
++#define A_SG_GTS 0x8
++
++#define S_RSPQ    29
++#define M_RSPQ    0x7
++#define V_RSPQ(x) ((x) << S_RSPQ)
++#define G_RSPQ(x) (((x) >> S_RSPQ) & M_RSPQ)
++
++#define S_NEWTIMER    16
++#define M_NEWTIMER    0x1fff
++#define V_NEWTIMER(x) ((x) << S_NEWTIMER)
++
++#define S_NEWINDEX    0
++#define M_NEWINDEX    0xffff
++#define V_NEWINDEX(x) ((x) << S_NEWINDEX)
++
++#define A_SG_CONTEXT_CMD 0xc
++
++#define S_CONTEXT_CMD_OPCODE    28
++#define M_CONTEXT_CMD_OPCODE    0xf
++#define V_CONTEXT_CMD_OPCODE(x) ((x) << S_CONTEXT_CMD_OPCODE)
++
++#define S_CONTEXT_CMD_BUSY    27
++#define V_CONTEXT_CMD_BUSY(x) ((x) << S_CONTEXT_CMD_BUSY)
++#define F_CONTEXT_CMD_BUSY    V_CONTEXT_CMD_BUSY(1U)
++
++#define S_CQ_CREDIT    20
++
++#define M_CQ_CREDIT    0x7f
++
++#define V_CQ_CREDIT(x) ((x) << S_CQ_CREDIT)
++
++#define G_CQ_CREDIT(x) (((x) >> S_CQ_CREDIT) & M_CQ_CREDIT)
++
++#define S_CQ    19
++
++#define V_CQ(x) ((x) << S_CQ)
++#define F_CQ    V_CQ(1U)
++
++#define S_RESPONSEQ    18
++#define V_RESPONSEQ(x) ((x) << S_RESPONSEQ)
++#define F_RESPONSEQ    V_RESPONSEQ(1U)
++
++#define S_EGRESS    17
++#define V_EGRESS(x) ((x) << S_EGRESS)
++#define F_EGRESS    V_EGRESS(1U)
++
++#define S_FREELIST    16
++#define V_FREELIST(x) ((x) << S_FREELIST)
++#define F_FREELIST    V_FREELIST(1U)
++
++#define S_CONTEXT    0
++#define M_CONTEXT    0xffff
++#define V_CONTEXT(x) ((x) << S_CONTEXT)
++
++#define G_CONTEXT(x) (((x) >> S_CONTEXT) & M_CONTEXT)
++
++#define A_SG_CONTEXT_DATA0 0x10
++
++#define A_SG_CONTEXT_DATA1 0x14
++
++#define A_SG_CONTEXT_DATA2 0x18
++
++#define A_SG_CONTEXT_DATA3 0x1c
++
++#define A_SG_CONTEXT_MASK0 0x20
++
++#define A_SG_CONTEXT_MASK1 0x24
++
++#define A_SG_CONTEXT_MASK2 0x28
++
++#define A_SG_CONTEXT_MASK3 0x2c
++
++#define A_SG_RSPQ_CREDIT_RETURN 0x30
++
++#define S_CREDITS    0
++#define M_CREDITS    0xffff
++#define V_CREDITS(x) ((x) << S_CREDITS)
++
++#define A_SG_DATA_INTR 0x34
++
++#define S_ERRINTR    31
++#define V_ERRINTR(x) ((x) << S_ERRINTR)
++#define F_ERRINTR    V_ERRINTR(1U)
++
++#define A_SG_HI_DRB_HI_THRSH 0x38
++
++#define A_SG_HI_DRB_LO_THRSH 0x3c
++
++#define A_SG_LO_DRB_HI_THRSH 0x40
++
++#define A_SG_LO_DRB_LO_THRSH 0x44
++
++#define A_SG_RSPQ_FL_STATUS 0x4c
++
++#define S_RSPQ0DISABLED    8
++
++#define A_SG_EGR_RCQ_DRB_THRSH 0x54
++
++#define S_HIRCQDRBTHRSH    16
++#define M_HIRCQDRBTHRSH    0x7ff
++#define V_HIRCQDRBTHRSH(x) ((x) << S_HIRCQDRBTHRSH)
++
++#define S_LORCQDRBTHRSH    0
++#define M_LORCQDRBTHRSH    0x7ff
++#define V_LORCQDRBTHRSH(x) ((x) << S_LORCQDRBTHRSH)
++
++#define A_SG_EGR_CNTX_BADDR 0x58
++
++#define A_SG_INT_CAUSE 0x5c
++
++#define S_RSPQDISABLED    3
++#define V_RSPQDISABLED(x) ((x) << S_RSPQDISABLED)
++#define F_RSPQDISABLED    V_RSPQDISABLED(1U)
++
++#define S_RSPQCREDITOVERFOW    2
++#define V_RSPQCREDITOVERFOW(x) ((x) << S_RSPQCREDITOVERFOW)
++#define F_RSPQCREDITOVERFOW    V_RSPQCREDITOVERFOW(1U)
++
++#define A_SG_INT_ENABLE 0x60
++
++#define A_SG_CMDQ_CREDIT_TH 0x64
++
++#define S_TIMEOUT    8
++#define M_TIMEOUT    0xffffff
++#define V_TIMEOUT(x) ((x) << S_TIMEOUT)
++
++#define S_THRESHOLD    0
++#define M_THRESHOLD    0xff
++#define V_THRESHOLD(x) ((x) << S_THRESHOLD)
++
++#define A_SG_TIMER_TICK 0x68
++
++#define A_SG_CQ_CONTEXT_BADDR 0x6c
++
++#define A_SG_OCO_BASE 0x70
++
++#define S_BASE1    16
++#define M_BASE1    0xffff
++#define V_BASE1(x) ((x) << S_BASE1)
++
++#define A_SG_DRB_PRI_THRESH 0x74
++
++#define A_PCIX_INT_ENABLE 0x80
++
++#define S_MSIXPARERR    22
++#define M_MSIXPARERR    0x7
++
++#define V_MSIXPARERR(x) ((x) << S_MSIXPARERR)
++
++#define S_CFPARERR    18
++#define M_CFPARERR    0xf
++
++#define V_CFPARERR(x) ((x) << S_CFPARERR)
++
++#define S_RFPARERR    14
++#define M_RFPARERR    0xf
++
++#define V_RFPARERR(x) ((x) << S_RFPARERR)
++
++#define S_WFPARERR    12
++#define M_WFPARERR    0x3
++
++#define V_WFPARERR(x) ((x) << S_WFPARERR)
++
++#define S_PIOPARERR    11
++#define V_PIOPARERR(x) ((x) << S_PIOPARERR)
++#define F_PIOPARERR    V_PIOPARERR(1U)
++
++#define S_DETUNCECCERR    10
++#define V_DETUNCECCERR(x) ((x) << S_DETUNCECCERR)
++#define F_DETUNCECCERR    V_DETUNCECCERR(1U)
++
++#define S_DETCORECCERR    9
++#define V_DETCORECCERR(x) ((x) << S_DETCORECCERR)
++#define F_DETCORECCERR    V_DETCORECCERR(1U)
++
++#define S_RCVSPLCMPERR    8
++#define V_RCVSPLCMPERR(x) ((x) << S_RCVSPLCMPERR)
++#define F_RCVSPLCMPERR    V_RCVSPLCMPERR(1U)
++
++#define S_UNXSPLCMP    7
++#define V_UNXSPLCMP(x) ((x) << S_UNXSPLCMP)
++#define F_UNXSPLCMP    V_UNXSPLCMP(1U)
++
++#define S_SPLCMPDIS    6
++#define V_SPLCMPDIS(x) ((x) << S_SPLCMPDIS)
++#define F_SPLCMPDIS    V_SPLCMPDIS(1U)
++
++#define S_DETPARERR    5
++#define V_DETPARERR(x) ((x) << S_DETPARERR)
++#define F_DETPARERR    V_DETPARERR(1U)
++
++#define S_SIGSYSERR    4
++#define V_SIGSYSERR(x) ((x) << S_SIGSYSERR)
++#define F_SIGSYSERR    V_SIGSYSERR(1U)
++
++#define S_RCVMSTABT    3
++#define V_RCVMSTABT(x) ((x) << S_RCVMSTABT)
++#define F_RCVMSTABT    V_RCVMSTABT(1U)
++
++#define S_RCVTARABT    2
++#define V_RCVTARABT(x) ((x) << S_RCVTARABT)
++#define F_RCVTARABT    V_RCVTARABT(1U)
++
++#define S_SIGTARABT    1
++#define V_SIGTARABT(x) ((x) << S_SIGTARABT)
++#define F_SIGTARABT    V_SIGTARABT(1U)
++
++#define S_MSTDETPARERR    0
++#define V_MSTDETPARERR(x) ((x) << S_MSTDETPARERR)
++#define F_MSTDETPARERR    V_MSTDETPARERR(1U)
++
++#define A_PCIX_INT_CAUSE 0x84
++
++#define A_PCIX_CFG 0x88
++
++#define S_CLIDECEN    18
++#define V_CLIDECEN(x) ((x) << S_CLIDECEN)
++#define F_CLIDECEN    V_CLIDECEN(1U)
++
++#define A_PCIX_MODE 0x8c
++
++#define S_PCLKRANGE    6
++#define M_PCLKRANGE    0x3
++#define V_PCLKRANGE(x) ((x) << S_PCLKRANGE)
++#define G_PCLKRANGE(x) (((x) >> S_PCLKRANGE) & M_PCLKRANGE)
++
++#define S_PCIXINITPAT    2
++#define M_PCIXINITPAT    0xf
++#define V_PCIXINITPAT(x) ((x) << S_PCIXINITPAT)
++#define G_PCIXINITPAT(x) (((x) >> S_PCIXINITPAT) & M_PCIXINITPAT)
++
++#define S_64BIT    0
++#define V_64BIT(x) ((x) << S_64BIT)
++#define F_64BIT    V_64BIT(1U)
++
++#define A_PCIE_INT_ENABLE 0x80
++
++#define S_BISTERR    15
++#define M_BISTERR    0xff
++
++#define V_BISTERR(x) ((x) << S_BISTERR)
++
++#define S_PCIE_MSIXPARERR    12
++#define M_PCIE_MSIXPARERR    0x7
++
++#define V_PCIE_MSIXPARERR(x) ((x) << S_PCIE_MSIXPARERR)
++
++#define S_PCIE_CFPARERR    11
++#define V_PCIE_CFPARERR(x) ((x) << S_PCIE_CFPARERR)
++#define F_PCIE_CFPARERR    V_PCIE_CFPARERR(1U)
++
++#define S_PCIE_RFPARERR    10
++#define V_PCIE_RFPARERR(x) ((x) << S_PCIE_RFPARERR)
++#define F_PCIE_RFPARERR    V_PCIE_RFPARERR(1U)
++
++#define S_PCIE_WFPARERR    9
++#define V_PCIE_WFPARERR(x) ((x) << S_PCIE_WFPARERR)
++#define F_PCIE_WFPARERR    V_PCIE_WFPARERR(1U)
++
++#define S_PCIE_PIOPARERR    8
++#define V_PCIE_PIOPARERR(x) ((x) << S_PCIE_PIOPARERR)
++#define F_PCIE_PIOPARERR    V_PCIE_PIOPARERR(1U)
++
++#define S_UNXSPLCPLERRC    7
++#define V_UNXSPLCPLERRC(x) ((x) << S_UNXSPLCPLERRC)
++#define F_UNXSPLCPLERRC    V_UNXSPLCPLERRC(1U)
++
++#define S_UNXSPLCPLERRR    6
++#define V_UNXSPLCPLERRR(x) ((x) << S_UNXSPLCPLERRR)
++#define F_UNXSPLCPLERRR    V_UNXSPLCPLERRR(1U)
++
++#define A_PCIE_INT_CAUSE 0x84
++
++#define A_PCIE_CFG 0x88
++
++#define S_PCIE_CLIDECEN    16
++#define V_PCIE_CLIDECEN(x) ((x) << S_PCIE_CLIDECEN)
++#define F_PCIE_CLIDECEN    V_PCIE_CLIDECEN(1U)
++
++#define S_CRSTWRMMODE    0
++#define V_CRSTWRMMODE(x) ((x) << S_CRSTWRMMODE)
++#define F_CRSTWRMMODE    V_CRSTWRMMODE(1U)
++
++#define A_PCIE_MODE 0x8c
++
++#define S_NUMFSTTRNSEQRX    10
++#define M_NUMFSTTRNSEQRX    0xff
++#define V_NUMFSTTRNSEQRX(x) ((x) << S_NUMFSTTRNSEQRX)
++#define G_NUMFSTTRNSEQRX(x) (((x) >> S_NUMFSTTRNSEQRX) & M_NUMFSTTRNSEQRX)
++
++#define A_PCIE_PEX_CTRL0 0x98
++
++#define S_NUMFSTTRNSEQ    22
++#define M_NUMFSTTRNSEQ    0xff
++#define V_NUMFSTTRNSEQ(x) ((x) << S_NUMFSTTRNSEQ)
++#define G_NUMFSTTRNSEQ(x) (((x) >> S_NUMFSTTRNSEQ) & M_NUMFSTTRNSEQ)
++
++#define S_REPLAYLMT    2
++#define M_REPLAYLMT    0xfffff
++
++#define V_REPLAYLMT(x) ((x) << S_REPLAYLMT)
++
++#define A_PCIE_PEX_CTRL1 0x9c
++
++#define S_T3A_ACKLAT    0
++#define M_T3A_ACKLAT    0x7ff
++
++#define V_T3A_ACKLAT(x) ((x) << S_T3A_ACKLAT)
++
++#define S_ACKLAT    0
++#define M_ACKLAT    0x1fff
++
++#define V_ACKLAT(x) ((x) << S_ACKLAT)
++
++#define A_PCIE_PEX_ERR 0xa4
++
++#define A_T3DBG_GPIO_EN 0xd0
++
++#define S_GPIO11_OEN    27
++#define V_GPIO11_OEN(x) ((x) << S_GPIO11_OEN)
++#define F_GPIO11_OEN    V_GPIO11_OEN(1U)
++
++#define S_GPIO10_OEN    26
++#define V_GPIO10_OEN(x) ((x) << S_GPIO10_OEN)
++#define F_GPIO10_OEN    V_GPIO10_OEN(1U)
++
++#define S_GPIO7_OEN    23
++#define V_GPIO7_OEN(x) ((x) << S_GPIO7_OEN)
++#define F_GPIO7_OEN    V_GPIO7_OEN(1U)
++
++#define S_GPIO6_OEN    22
++#define V_GPIO6_OEN(x) ((x) << S_GPIO6_OEN)
++#define F_GPIO6_OEN    V_GPIO6_OEN(1U)
++
++#define S_GPIO5_OEN    21
++#define V_GPIO5_OEN(x) ((x) << S_GPIO5_OEN)
++#define F_GPIO5_OEN    V_GPIO5_OEN(1U)
++
++#define S_GPIO4_OEN    20
++#define V_GPIO4_OEN(x) ((x) << S_GPIO4_OEN)
++#define F_GPIO4_OEN    V_GPIO4_OEN(1U)
++
++#define S_GPIO2_OEN    18
++#define V_GPIO2_OEN(x) ((x) << S_GPIO2_OEN)
++#define F_GPIO2_OEN    V_GPIO2_OEN(1U)
++
++#define S_GPIO1_OEN    17
++#define V_GPIO1_OEN(x) ((x) << S_GPIO1_OEN)
++#define F_GPIO1_OEN    V_GPIO1_OEN(1U)
++
++#define S_GPIO0_OEN    16
++#define V_GPIO0_OEN(x) ((x) << S_GPIO0_OEN)
++#define F_GPIO0_OEN    V_GPIO0_OEN(1U)
++
++#define S_GPIO10_OUT_VAL    10
++#define V_GPIO10_OUT_VAL(x) ((x) << S_GPIO10_OUT_VAL)
++#define F_GPIO10_OUT_VAL    V_GPIO10_OUT_VAL(1U)
++
++#define S_GPIO7_OUT_VAL    7
++#define V_GPIO7_OUT_VAL(x) ((x) << S_GPIO7_OUT_VAL)
++#define F_GPIO7_OUT_VAL    V_GPIO7_OUT_VAL(1U)
++
++#define S_GPIO6_OUT_VAL    6
++#define V_GPIO6_OUT_VAL(x) ((x) << S_GPIO6_OUT_VAL)
++#define F_GPIO6_OUT_VAL    V_GPIO6_OUT_VAL(1U)
++
++#define S_GPIO5_OUT_VAL    5
++#define V_GPIO5_OUT_VAL(x) ((x) << S_GPIO5_OUT_VAL)
++#define F_GPIO5_OUT_VAL    V_GPIO5_OUT_VAL(1U)
++
++#define S_GPIO4_OUT_VAL    4
++#define V_GPIO4_OUT_VAL(x) ((x) << S_GPIO4_OUT_VAL)
++#define F_GPIO4_OUT_VAL    V_GPIO4_OUT_VAL(1U)
++
++#define S_GPIO2_OUT_VAL    2
++#define V_GPIO2_OUT_VAL(x) ((x) << S_GPIO2_OUT_VAL)
++#define F_GPIO2_OUT_VAL    V_GPIO2_OUT_VAL(1U)
++
++#define S_GPIO1_OUT_VAL    1
++#define V_GPIO1_OUT_VAL(x) ((x) << S_GPIO1_OUT_VAL)
++#define F_GPIO1_OUT_VAL    V_GPIO1_OUT_VAL(1U)
++
++#define S_GPIO0_OUT_VAL    0
++#define V_GPIO0_OUT_VAL(x) ((x) << S_GPIO0_OUT_VAL)
++#define F_GPIO0_OUT_VAL    V_GPIO0_OUT_VAL(1U)
++
++#define A_T3DBG_INT_ENABLE 0xd8
++
++#define S_GPIO11    11
++#define V_GPIO11(x) ((x) << S_GPIO11)
++#define F_GPIO11    V_GPIO11(1U)
++
++#define S_GPIO10    10
++#define V_GPIO10(x) ((x) << S_GPIO10)
++#define F_GPIO10    V_GPIO10(1U)
++
++#define S_GPIO7    7
++#define V_GPIO7(x) ((x) << S_GPIO7)
++#define F_GPIO7    V_GPIO7(1U)
++
++#define S_GPIO6    6
++#define V_GPIO6(x) ((x) << S_GPIO6)
++#define F_GPIO6    V_GPIO6(1U)
++
++#define S_GPIO5    5
++#define V_GPIO5(x) ((x) << S_GPIO5)
++#define F_GPIO5    V_GPIO5(1U)
++
++#define S_GPIO4    4
++#define V_GPIO4(x) ((x) << S_GPIO4)
++#define F_GPIO4    V_GPIO4(1U)
++
++#define S_GPIO3    3
++#define V_GPIO3(x) ((x) << S_GPIO3)
++#define F_GPIO3    V_GPIO3(1U)
++
++#define S_GPIO2    2
++#define V_GPIO2(x) ((x) << S_GPIO2)
++#define F_GPIO2    V_GPIO2(1U)
++
++#define S_GPIO1    1
++#define V_GPIO1(x) ((x) << S_GPIO1)
++#define F_GPIO1    V_GPIO1(1U)
++
++#define S_GPIO0    0
++#define V_GPIO0(x) ((x) << S_GPIO0)
++#define F_GPIO0    V_GPIO0(1U)
++
++#define A_T3DBG_INT_CAUSE 0xdc
++
++#define A_T3DBG_GPIO_ACT_LOW 0xf0
++
++#define MC7_PMRX_BASE_ADDR 0x100
++
++#define A_MC7_CFG 0x100
++
++#define S_IFEN    13
++#define V_IFEN(x) ((x) << S_IFEN)
++#define F_IFEN    V_IFEN(1U)
++
++#define S_TERM150    11
++#define V_TERM150(x) ((x) << S_TERM150)
++#define F_TERM150    V_TERM150(1U)
++
++#define S_SLOW    10
++#define V_SLOW(x) ((x) << S_SLOW)
++#define F_SLOW    V_SLOW(1U)
++
++#define S_WIDTH    8
++#define M_WIDTH    0x3
++#define V_WIDTH(x) ((x) << S_WIDTH)
++#define G_WIDTH(x) (((x) >> S_WIDTH) & M_WIDTH)
++
++#define S_BKS    6
++#define V_BKS(x) ((x) << S_BKS)
++#define F_BKS    V_BKS(1U)
++
++#define S_ORG    5
++#define V_ORG(x) ((x) << S_ORG)
++#define F_ORG    V_ORG(1U)
++
++#define S_DEN    2
++#define M_DEN    0x7
++#define V_DEN(x) ((x) << S_DEN)
++#define G_DEN(x) (((x) >> S_DEN) & M_DEN)
++
++#define S_RDY    1
++#define V_RDY(x) ((x) << S_RDY)
++#define F_RDY    V_RDY(1U)
++
++#define S_CLKEN    0
++#define V_CLKEN(x) ((x) << S_CLKEN)
++#define F_CLKEN    V_CLKEN(1U)
++
++#define A_MC7_MODE 0x104
++
++#define S_BUSY    31
++#define V_BUSY(x) ((x) << S_BUSY)
++#define F_BUSY    V_BUSY(1U)
++
++#define S_BUSY    31
++#define V_BUSY(x) ((x) << S_BUSY)
++#define F_BUSY    V_BUSY(1U)
++
++#define A_MC7_EXT_MODE1 0x108
++
++#define A_MC7_EXT_MODE2 0x10c
++
++#define A_MC7_EXT_MODE3 0x110
++
++#define A_MC7_PRE 0x114
++
++#define A_MC7_REF 0x118
++
++#define S_PREREFDIV    1
++#define M_PREREFDIV    0x3fff
++#define V_PREREFDIV(x) ((x) << S_PREREFDIV)
++
++#define S_PERREFEN    0
++#define V_PERREFEN(x) ((x) << S_PERREFEN)
++#define F_PERREFEN    V_PERREFEN(1U)
++
++#define A_MC7_DLL 0x11c
++
++#define S_DLLENB    1
++#define V_DLLENB(x) ((x) << S_DLLENB)
++#define F_DLLENB    V_DLLENB(1U)
++
++#define S_DLLRST    0
++#define V_DLLRST(x) ((x) << S_DLLRST)
++#define F_DLLRST    V_DLLRST(1U)
++
++#define A_MC7_PARM 0x120
++
++#define S_ACTTOPREDLY    26
++#define M_ACTTOPREDLY    0xf
++#define V_ACTTOPREDLY(x) ((x) << S_ACTTOPREDLY)
++
++#define S_ACTTORDWRDLY    23
++#define M_ACTTORDWRDLY    0x7
++#define V_ACTTORDWRDLY(x) ((x) << S_ACTTORDWRDLY)
++
++#define S_PRECYC    20
++#define M_PRECYC    0x7
++#define V_PRECYC(x) ((x) << S_PRECYC)
++
++#define S_REFCYC    13
++#define M_REFCYC    0x7f
++#define V_REFCYC(x) ((x) << S_REFCYC)
++
++#define S_BKCYC    8
++#define M_BKCYC    0x1f
++#define V_BKCYC(x) ((x) << S_BKCYC)
++
++#define S_WRTORDDLY    4
++#define M_WRTORDDLY    0xf
++#define V_WRTORDDLY(x) ((x) << S_WRTORDDLY)
++
++#define S_RDTOWRDLY    0
++#define M_RDTOWRDLY    0xf
++#define V_RDTOWRDLY(x) ((x) << S_RDTOWRDLY)
++
++#define A_MC7_CAL 0x128
++
++#define S_BUSY    31
++#define V_BUSY(x) ((x) << S_BUSY)
++#define F_BUSY    V_BUSY(1U)
++
++#define S_BUSY    31
++#define V_BUSY(x) ((x) << S_BUSY)
++#define F_BUSY    V_BUSY(1U)
++
++#define S_CAL_FAULT    30
++#define V_CAL_FAULT(x) ((x) << S_CAL_FAULT)
++#define F_CAL_FAULT    V_CAL_FAULT(1U)
++
++#define S_SGL_CAL_EN    20
++#define V_SGL_CAL_EN(x) ((x) << S_SGL_CAL_EN)
++#define F_SGL_CAL_EN    V_SGL_CAL_EN(1U)
++
++#define A_MC7_ERR_ADDR 0x12c
++
++#define A_MC7_ECC 0x130
++
++#define S_ECCCHKEN    1
++#define V_ECCCHKEN(x) ((x) << S_ECCCHKEN)
++#define F_ECCCHKEN    V_ECCCHKEN(1U)
++
++#define S_ECCGENEN    0
++#define V_ECCGENEN(x) ((x) << S_ECCGENEN)
++#define F_ECCGENEN    V_ECCGENEN(1U)
++
++#define A_MC7_CE_ADDR 0x134
++
++#define A_MC7_CE_DATA0 0x138
++
++#define A_MC7_CE_DATA1 0x13c
++
++#define A_MC7_CE_DATA2 0x140
++
++#define S_DATA    0
++#define M_DATA    0xff
++
++#define G_DATA(x) (((x) >> S_DATA) & M_DATA)
++
++#define A_MC7_UE_ADDR 0x144
++
++#define A_MC7_UE_DATA0 0x148
++
++#define A_MC7_UE_DATA1 0x14c
++
++#define A_MC7_UE_DATA2 0x150
++
++#define A_MC7_BD_ADDR 0x154
++
++#define S_ADDR    3
++
++#define M_ADDR    0x1fffffff
++
++#define A_MC7_BD_DATA0 0x158
++
++#define A_MC7_BD_DATA1 0x15c
++
++#define A_MC7_BD_OP 0x164
++
++#define S_OP    0
++
++#define V_OP(x) ((x) << S_OP)
++#define F_OP    V_OP(1U)
++
++#define F_OP    V_OP(1U)
++#define A_SF_OP 0x6dc
++
++#define A_MC7_BIST_ADDR_BEG 0x168
++
++#define A_MC7_BIST_ADDR_END 0x16c
++
++#define A_MC7_BIST_DATA 0x170
++
++#define A_MC7_BIST_OP 0x174
++
++#define S_CONT    3
++#define V_CONT(x) ((x) << S_CONT)
++#define F_CONT    V_CONT(1U)
++
++#define F_CONT    V_CONT(1U)
++
++#define A_MC7_INT_ENABLE 0x178
++
++#define S_AE    17
++#define V_AE(x) ((x) << S_AE)
++#define F_AE    V_AE(1U)
++
++#define S_PE    2
++#define M_PE    0x7fff
++
++#define V_PE(x) ((x) << S_PE)
++
++#define G_PE(x) (((x) >> S_PE) & M_PE)
++
++#define S_UE    1
++#define V_UE(x) ((x) << S_UE)
++#define F_UE    V_UE(1U)
++
++#define S_CE    0
++#define V_CE(x) ((x) << S_CE)
++#define F_CE    V_CE(1U)
++
++#define A_MC7_INT_CAUSE 0x17c
++
++#define MC7_PMTX_BASE_ADDR 0x180
++
++#define MC7_CM_BASE_ADDR 0x200
++
++#define A_CIM_BOOT_CFG 0x280
++
++#define S_BOOTADDR    2
++#define M_BOOTADDR    0x3fffffff
++#define V_BOOTADDR(x) ((x) << S_BOOTADDR)
++
++#define A_CIM_SDRAM_BASE_ADDR 0x28c
++
++#define A_CIM_SDRAM_ADDR_SIZE 0x290
++
++#define A_CIM_HOST_INT_ENABLE 0x298
++
++#define A_CIM_HOST_INT_CAUSE 0x29c
++
++#define S_BLKWRPLINT    12
++#define V_BLKWRPLINT(x) ((x) << S_BLKWRPLINT)
++#define F_BLKWRPLINT    V_BLKWRPLINT(1U)
++
++#define S_BLKRDPLINT    11
++#define V_BLKRDPLINT(x) ((x) << S_BLKRDPLINT)
++#define F_BLKRDPLINT    V_BLKRDPLINT(1U)
++
++#define S_BLKWRCTLINT    10
++#define V_BLKWRCTLINT(x) ((x) << S_BLKWRCTLINT)
++#define F_BLKWRCTLINT    V_BLKWRCTLINT(1U)
++
++#define S_BLKRDCTLINT    9
++#define V_BLKRDCTLINT(x) ((x) << S_BLKRDCTLINT)
++#define F_BLKRDCTLINT    V_BLKRDCTLINT(1U)
++
++#define S_BLKWRFLASHINT    8
++#define V_BLKWRFLASHINT(x) ((x) << S_BLKWRFLASHINT)
++#define F_BLKWRFLASHINT    V_BLKWRFLASHINT(1U)
++
++#define S_BLKRDFLASHINT    7
++#define V_BLKRDFLASHINT(x) ((x) << S_BLKRDFLASHINT)
++#define F_BLKRDFLASHINT    V_BLKRDFLASHINT(1U)
++
++#define S_SGLWRFLASHINT    6
++#define V_SGLWRFLASHINT(x) ((x) << S_SGLWRFLASHINT)
++#define F_SGLWRFLASHINT    V_SGLWRFLASHINT(1U)
++
++#define S_WRBLKFLASHINT    5
++#define V_WRBLKFLASHINT(x) ((x) << S_WRBLKFLASHINT)
++#define F_WRBLKFLASHINT    V_WRBLKFLASHINT(1U)
++
++#define S_BLKWRBOOTINT    4
++#define V_BLKWRBOOTINT(x) ((x) << S_BLKWRBOOTINT)
++#define F_BLKWRBOOTINT    V_BLKWRBOOTINT(1U)
++
++#define S_FLASHRANGEINT    2
++#define V_FLASHRANGEINT(x) ((x) << S_FLASHRANGEINT)
++#define F_FLASHRANGEINT    V_FLASHRANGEINT(1U)
++
++#define S_SDRAMRANGEINT    1
++#define V_SDRAMRANGEINT(x) ((x) << S_SDRAMRANGEINT)
++#define F_SDRAMRANGEINT    V_SDRAMRANGEINT(1U)
++
++#define S_RSVDSPACEINT    0
++#define V_RSVDSPACEINT(x) ((x) << S_RSVDSPACEINT)
++#define F_RSVDSPACEINT    V_RSVDSPACEINT(1U)
++
++#define A_CIM_HOST_ACC_CTRL 0x2b0
++
++#define S_HOSTBUSY    17
++#define V_HOSTBUSY(x) ((x) << S_HOSTBUSY)
++#define F_HOSTBUSY    V_HOSTBUSY(1U)
++
++#define A_CIM_HOST_ACC_DATA 0x2b4
++
++#define A_TP_IN_CONFIG 0x300
++
++#define S_NICMODE    14
++#define V_NICMODE(x) ((x) << S_NICMODE)
++#define F_NICMODE    V_NICMODE(1U)
++
++#define F_NICMODE    V_NICMODE(1U)
++
++#define S_IPV6ENABLE    15
++#define V_IPV6ENABLE(x) ((x) << S_IPV6ENABLE)
++#define F_IPV6ENABLE    V_IPV6ENABLE(1U)
++
++#define A_TP_OUT_CONFIG 0x304
++
++#define S_VLANEXTRACTIONENABLE    12
++
++#define A_TP_GLOBAL_CONFIG 0x308
++
++#define S_TXPACINGENABLE    24
++#define V_TXPACINGENABLE(x) ((x) << S_TXPACINGENABLE)
++#define F_TXPACINGENABLE    V_TXPACINGENABLE(1U)
++
++#define S_PATHMTU    15
++#define V_PATHMTU(x) ((x) << S_PATHMTU)
++#define F_PATHMTU    V_PATHMTU(1U)
++
++#define S_IPCHECKSUMOFFLOAD    13
++#define V_IPCHECKSUMOFFLOAD(x) ((x) << S_IPCHECKSUMOFFLOAD)
++#define F_IPCHECKSUMOFFLOAD    V_IPCHECKSUMOFFLOAD(1U)
++
++#define S_UDPCHECKSUMOFFLOAD    12
++#define V_UDPCHECKSUMOFFLOAD(x) ((x) << S_UDPCHECKSUMOFFLOAD)
++#define F_UDPCHECKSUMOFFLOAD    V_UDPCHECKSUMOFFLOAD(1U)
++
++#define S_TCPCHECKSUMOFFLOAD    11
++#define V_TCPCHECKSUMOFFLOAD(x) ((x) << S_TCPCHECKSUMOFFLOAD)
++#define F_TCPCHECKSUMOFFLOAD    V_TCPCHECKSUMOFFLOAD(1U)
++
++#define S_IPTTL    0
++#define M_IPTTL    0xff
++#define V_IPTTL(x) ((x) << S_IPTTL)
++
++#define A_TP_CMM_MM_BASE 0x314
++
++#define A_TP_CMM_TIMER_BASE 0x318
++
++#define S_CMTIMERMAXNUM    28
++#define M_CMTIMERMAXNUM    0x3
++#define V_CMTIMERMAXNUM(x) ((x) << S_CMTIMERMAXNUM)
++
++#define A_TP_PMM_SIZE 0x31c
++
++#define A_TP_PMM_TX_BASE 0x320
++
++#define A_TP_PMM_RX_BASE 0x328
++
++#define A_TP_PMM_RX_PAGE_SIZE 0x32c
++
++#define A_TP_PMM_RX_MAX_PAGE 0x330
++
++#define A_TP_PMM_TX_PAGE_SIZE 0x334
++
++#define A_TP_PMM_TX_MAX_PAGE 0x338
++
++#define A_TP_TCP_OPTIONS 0x340
++
++#define S_MTUDEFAULT    16
++#define M_MTUDEFAULT    0xffff
++#define V_MTUDEFAULT(x) ((x) << S_MTUDEFAULT)
++
++#define S_MTUENABLE    10
++#define V_MTUENABLE(x) ((x) << S_MTUENABLE)
++#define F_MTUENABLE    V_MTUENABLE(1U)
++
++#define S_SACKRX    8
++#define V_SACKRX(x) ((x) << S_SACKRX)
++#define F_SACKRX    V_SACKRX(1U)
++
++#define S_SACKMODE    4
++
++#define M_SACKMODE    0x3
++
++#define V_SACKMODE(x) ((x) << S_SACKMODE)
++
++#define S_WINDOWSCALEMODE    2
++#define M_WINDOWSCALEMODE    0x3
++#define V_WINDOWSCALEMODE(x) ((x) << S_WINDOWSCALEMODE)
++
++#define S_TIMESTAMPSMODE    0
++
++#define M_TIMESTAMPSMODE    0x3
++
++#define V_TIMESTAMPSMODE(x) ((x) << S_TIMESTAMPSMODE)
++
++#define A_TP_DACK_CONFIG 0x344
++
++#define S_AUTOSTATE3    30
++#define M_AUTOSTATE3    0x3
++#define V_AUTOSTATE3(x) ((x) << S_AUTOSTATE3)
++
++#define S_AUTOSTATE2    28
++#define M_AUTOSTATE2    0x3
++#define V_AUTOSTATE2(x) ((x) << S_AUTOSTATE2)
++
++#define S_AUTOSTATE1    26
++#define M_AUTOSTATE1    0x3
++#define V_AUTOSTATE1(x) ((x) << S_AUTOSTATE1)
++
++#define S_BYTETHRESHOLD    5
++#define M_BYTETHRESHOLD    0xfffff
++#define V_BYTETHRESHOLD(x) ((x) << S_BYTETHRESHOLD)
++
++#define S_MSSTHRESHOLD    3
++#define M_MSSTHRESHOLD    0x3
++#define V_MSSTHRESHOLD(x) ((x) << S_MSSTHRESHOLD)
++
++#define S_AUTOCAREFUL    2
++#define V_AUTOCAREFUL(x) ((x) << S_AUTOCAREFUL)
++#define F_AUTOCAREFUL    V_AUTOCAREFUL(1U)
++
++#define S_AUTOENABLE    1
++#define V_AUTOENABLE(x) ((x) << S_AUTOENABLE)
++#define F_AUTOENABLE    V_AUTOENABLE(1U)
++
++#define S_DACK_MODE    0
++#define V_DACK_MODE(x) ((x) << S_DACK_MODE)
++#define F_DACK_MODE    V_DACK_MODE(1U)
++
++#define A_TP_PC_CONFIG 0x348
++
++#define S_TXTOSQUEUEMAPMODE    26
++#define V_TXTOSQUEUEMAPMODE(x) ((x) << S_TXTOSQUEUEMAPMODE)
++#define F_TXTOSQUEUEMAPMODE    V_TXTOSQUEUEMAPMODE(1U)
++
++#define S_MODULATEUNIONMODE    22
++#define V_MODULATEUNIONMODE(x) ((x) << S_MODULATEUNIONMODE)
++#define F_MODULATEUNIONMODE    V_MODULATEUNIONMODE(1U)
++
++#define S_TXDEFERENABLE    20
++#define V_TXDEFERENABLE(x) ((x) << S_TXDEFERENABLE)
++#define F_TXDEFERENABLE    V_TXDEFERENABLE(1U)
++
++#define S_RXCONGESTIONMODE    19
++#define V_RXCONGESTIONMODE(x) ((x) << S_RXCONGESTIONMODE)
++#define F_RXCONGESTIONMODE    V_RXCONGESTIONMODE(1U)
++
++#define S_HEARBEATDACK    16
++#define V_HEARBEATDACK(x) ((x) << S_HEARBEATDACK)
++#define F_HEARBEATDACK    V_HEARBEATDACK(1U)
++
++#define S_TXCONGESTIONMODE    15
++#define V_TXCONGESTIONMODE(x) ((x) << S_TXCONGESTIONMODE)
++#define F_TXCONGESTIONMODE    V_TXCONGESTIONMODE(1U)
++
++#define S_LOCKTID    28
++#define V_LOCKTID(x) ((x) << S_LOCKTID)
++#define F_LOCKTID    V_LOCKTID(1U)
++
++#define A_TP_TCP_BACKOFF_REG0 0x350
++
++#define A_TP_TCP_BACKOFF_REG1 0x354
++
++#define A_TP_TCP_BACKOFF_REG2 0x358
++
++#define A_TP_TCP_BACKOFF_REG3 0x35c
++
++#define A_TP_PARA_REG2 0x368
++
++#define S_MAXRXDATA    16
++#define M_MAXRXDATA    0xffff
++#define V_MAXRXDATA(x) ((x) << S_MAXRXDATA)
++
++#define S_RXCOALESCESIZE    0
++#define M_RXCOALESCESIZE    0xffff
++#define V_RXCOALESCESIZE(x) ((x) << S_RXCOALESCESIZE)
++
++#define A_TP_PARA_REG3 0x36c
++
++#define S_TXDATAACKIDX    16
++#define M_TXDATAACKIDX    0xf
++
++#define V_TXDATAACKIDX(x) ((x) << S_TXDATAACKIDX)
++
++#define S_TXPACEAUTOSTRICT    10
++#define V_TXPACEAUTOSTRICT(x) ((x) << S_TXPACEAUTOSTRICT)
++#define F_TXPACEAUTOSTRICT    V_TXPACEAUTOSTRICT(1U)
++
++#define S_TXPACEFIXED    9
++#define V_TXPACEFIXED(x) ((x) << S_TXPACEFIXED)
++#define F_TXPACEFIXED    V_TXPACEFIXED(1U)
++
++#define S_TXPACEAUTO    8
++#define V_TXPACEAUTO(x) ((x) << S_TXPACEAUTO)
++#define F_TXPACEAUTO    V_TXPACEAUTO(1U)
++
++#define S_RXCOALESCEENABLE    1
++#define V_RXCOALESCEENABLE(x) ((x) << S_RXCOALESCEENABLE)
++#define F_RXCOALESCEENABLE    V_RXCOALESCEENABLE(1U)
++
++#define S_RXCOALESCEPSHEN    0
++#define V_RXCOALESCEPSHEN(x) ((x) << S_RXCOALESCEPSHEN)
++#define F_RXCOALESCEPSHEN    V_RXCOALESCEPSHEN(1U)
++
++#define A_TP_PARA_REG4 0x370
++
++#define A_TP_PARA_REG6 0x378
++
++#define S_T3A_ENABLEESND    13
++#define V_T3A_ENABLEESND(x) ((x) << S_T3A_ENABLEESND)
++#define F_T3A_ENABLEESND    V_T3A_ENABLEESND(1U)
++
++#define S_ENABLEESND    11
++#define V_ENABLEESND(x) ((x) << S_ENABLEESND)
++#define F_ENABLEESND    V_ENABLEESND(1U)
++
++#define A_TP_PARA_REG7 0x37c
++
++#define S_PMMAXXFERLEN1    16
++#define M_PMMAXXFERLEN1    0xffff
++#define V_PMMAXXFERLEN1(x) ((x) << S_PMMAXXFERLEN1)
++
++#define S_PMMAXXFERLEN0    0
++#define M_PMMAXXFERLEN0    0xffff
++#define V_PMMAXXFERLEN0(x) ((x) << S_PMMAXXFERLEN0)
++
++#define A_TP_TIMER_RESOLUTION 0x390
++
++#define S_TIMERRESOLUTION    16
++#define M_TIMERRESOLUTION    0xff
++#define V_TIMERRESOLUTION(x) ((x) << S_TIMERRESOLUTION)
++
++#define S_TIMESTAMPRESOLUTION    8
++#define M_TIMESTAMPRESOLUTION    0xff
++#define V_TIMESTAMPRESOLUTION(x) ((x) << S_TIMESTAMPRESOLUTION)
++
++#define S_DELAYEDACKRESOLUTION    0
++#define M_DELAYEDACKRESOLUTION    0xff
++#define V_DELAYEDACKRESOLUTION(x) ((x) << S_DELAYEDACKRESOLUTION)
++
++#define A_TP_MSL 0x394
++
++#define A_TP_RXT_MIN 0x398
++
++#define A_TP_RXT_MAX 0x39c
++
++#define A_TP_PERS_MIN 0x3a0
++
++#define A_TP_PERS_MAX 0x3a4
++
++#define A_TP_KEEP_IDLE 0x3a8
++
++#define A_TP_KEEP_INTVL 0x3ac
++
++#define A_TP_INIT_SRTT 0x3b0
++
++#define A_TP_DACK_TIMER 0x3b4
++
++#define A_TP_FINWAIT2_TIMER 0x3b8
++
++#define A_TP_SHIFT_CNT 0x3c0
++
++#define S_SYNSHIFTMAX    24
++
++#define M_SYNSHIFTMAX    0xff
++
++#define V_SYNSHIFTMAX(x) ((x) << S_SYNSHIFTMAX)
++
++#define S_RXTSHIFTMAXR1    20
++
++#define M_RXTSHIFTMAXR1    0xf
++
++#define V_RXTSHIFTMAXR1(x) ((x) << S_RXTSHIFTMAXR1)
++
++#define S_RXTSHIFTMAXR2    16
++
++#define M_RXTSHIFTMAXR2    0xf
++
++#define V_RXTSHIFTMAXR2(x) ((x) << S_RXTSHIFTMAXR2)
++
++#define S_PERSHIFTBACKOFFMAX    12
++#define M_PERSHIFTBACKOFFMAX    0xf
++#define V_PERSHIFTBACKOFFMAX(x) ((x) << S_PERSHIFTBACKOFFMAX)
++
++#define S_PERSHIFTMAX    8
++#define M_PERSHIFTMAX    0xf
++#define V_PERSHIFTMAX(x) ((x) << S_PERSHIFTMAX)
++
++#define S_KEEPALIVEMAX    0
++
++#define M_KEEPALIVEMAX    0xff
++
++#define V_KEEPALIVEMAX(x) ((x) << S_KEEPALIVEMAX)
++
++#define A_TP_MTU_PORT_TABLE 0x3d0
++
++#define A_TP_CCTRL_TABLE 0x3dc
++
++#define A_TP_MTU_TABLE 0x3e4
++
++#define A_TP_RSS_MAP_TABLE 0x3e8
++
++#define A_TP_RSS_LKP_TABLE 0x3ec
++
++#define A_TP_RSS_CONFIG 0x3f0
++
++#define S_TNL4TUPEN    29
++#define V_TNL4TUPEN(x) ((x) << S_TNL4TUPEN)
++#define F_TNL4TUPEN    V_TNL4TUPEN(1U)
++
++#define S_TNL2TUPEN    28
++#define V_TNL2TUPEN(x) ((x) << S_TNL2TUPEN)
++#define F_TNL2TUPEN    V_TNL2TUPEN(1U)
++
++#define S_TNLPRTEN    26
++#define V_TNLPRTEN(x) ((x) << S_TNLPRTEN)
++#define F_TNLPRTEN    V_TNLPRTEN(1U)
++
++#define S_TNLMAPEN    25
++#define V_TNLMAPEN(x) ((x) << S_TNLMAPEN)
++#define F_TNLMAPEN    V_TNLMAPEN(1U)
++
++#define S_TNLLKPEN    24
++#define V_TNLLKPEN(x) ((x) << S_TNLLKPEN)
++#define F_TNLLKPEN    V_TNLLKPEN(1U)
++
++#define S_RRCPLCPUSIZE    4
++#define M_RRCPLCPUSIZE    0x7
++#define V_RRCPLCPUSIZE(x) ((x) << S_RRCPLCPUSIZE)
++
++#define S_RQFEEDBACKENABLE    3
++#define V_RQFEEDBACKENABLE(x) ((x) << S_RQFEEDBACKENABLE)
++#define F_RQFEEDBACKENABLE    V_RQFEEDBACKENABLE(1U)
++
++#define S_DISABLE    0
++
++#define A_TP_TM_PIO_ADDR 0x418
++
++#define A_TP_TM_PIO_DATA 0x41c
++
++#define A_TP_TX_MOD_QUE_TABLE 0x420
++
++#define A_TP_TX_RESOURCE_LIMIT 0x424
++
++#define A_TP_TX_MOD_QUEUE_REQ_MAP 0x428
++
++#define S_TX_MOD_QUEUE_REQ_MAP    0
++#define M_TX_MOD_QUEUE_REQ_MAP    0xff
++#define V_TX_MOD_QUEUE_REQ_MAP(x) ((x) << S_TX_MOD_QUEUE_REQ_MAP)
++
++#define A_TP_TX_MOD_QUEUE_WEIGHT1 0x42c
++
++#define A_TP_TX_MOD_QUEUE_WEIGHT0 0x430
++
++#define A_TP_MOD_CHANNEL_WEIGHT 0x434
++
++#define A_TP_PIO_ADDR 0x440
++
++#define A_TP_PIO_DATA 0x444
++
++#define A_TP_RESET 0x44c
++
++#define S_FLSTINITENABLE    1
++#define V_FLSTINITENABLE(x) ((x) << S_FLSTINITENABLE)
++#define F_FLSTINITENABLE    V_FLSTINITENABLE(1U)
++
++#define S_TPRESET    0
++#define V_TPRESET(x) ((x) << S_TPRESET)
++#define F_TPRESET    V_TPRESET(1U)
++
++#define A_TP_CMM_MM_RX_FLST_BASE 0x460
++
++#define A_TP_CMM_MM_TX_FLST_BASE 0x464
++
++#define A_TP_CMM_MM_PS_FLST_BASE 0x468
++
++#define A_TP_MIB_INDEX 0x450
++
++#define A_TP_MIB_RDATA 0x454
++
++#define A_TP_CMM_MM_MAX_PSTRUCT 0x46c
++
++#define A_TP_INT_ENABLE 0x470
++
++#define A_TP_INT_CAUSE 0x474
++
++#define A_TP_TX_MOD_Q1_Q0_RATE_LIMIT 0x8
++
++#define A_TP_TX_DROP_CFG_CH0 0x12b
++
++#define A_TP_TX_DROP_MODE 0x12f
++
++#define A_TP_EGRESS_CONFIG 0x145
++
++#define S_REWRITEFORCETOSIZE    0
++#define V_REWRITEFORCETOSIZE(x) ((x) << S_REWRITEFORCETOSIZE)
++#define F_REWRITEFORCETOSIZE    V_REWRITEFORCETOSIZE(1U)
++
++#define A_TP_TX_TRC_KEY0 0x20
++
++#define A_TP_RX_TRC_KEY0 0x120
++
++#define A_ULPRX_CTL 0x500
++
++#define S_ROUND_ROBIN    4
++#define V_ROUND_ROBIN(x) ((x) << S_ROUND_ROBIN)
++#define F_ROUND_ROBIN    V_ROUND_ROBIN(1U)
++
++#define A_ULPRX_INT_ENABLE 0x504
++
++#define S_PARERR    0
++#define V_PARERR(x) ((x) << S_PARERR)
++#define F_PARERR    V_PARERR(1U)
++
++#define A_ULPRX_INT_CAUSE 0x508
++
++#define A_ULPRX_ISCSI_LLIMIT 0x50c
++
++#define A_ULPRX_ISCSI_ULIMIT 0x510
++
++#define A_ULPRX_ISCSI_TAGMASK 0x514
++
++#define A_ULPRX_TDDP_LLIMIT 0x51c
++
++#define A_ULPRX_TDDP_ULIMIT 0x520
++
++#define A_ULPRX_STAG_LLIMIT 0x52c
++
++#define A_ULPRX_STAG_ULIMIT 0x530
++
++#define A_ULPRX_RQ_LLIMIT 0x534
++#define A_ULPRX_RQ_LLIMIT 0x534
++
++#define A_ULPRX_RQ_ULIMIT 0x538
++#define A_ULPRX_RQ_ULIMIT 0x538
++
++#define A_ULPRX_PBL_LLIMIT 0x53c
++
++#define A_ULPRX_PBL_ULIMIT 0x540
++#define A_ULPRX_PBL_ULIMIT 0x540
++
++#define A_ULPRX_TDDP_TAGMASK 0x524
++
++#define A_ULPRX_RQ_LLIMIT 0x534
++#define A_ULPRX_RQ_LLIMIT 0x534
++
++#define A_ULPRX_RQ_ULIMIT 0x538
++#define A_ULPRX_RQ_ULIMIT 0x538
++
++#define A_ULPRX_PBL_ULIMIT 0x540
++#define A_ULPRX_PBL_ULIMIT 0x540
++
++#define A_ULPTX_CONFIG 0x580
++
++#define S_CFG_RR_ARB    0
++#define V_CFG_RR_ARB(x) ((x) << S_CFG_RR_ARB)
++#define F_CFG_RR_ARB    V_CFG_RR_ARB(1U)
++
++#define A_ULPTX_INT_ENABLE 0x584
++
++#define S_PBL_BOUND_ERR_CH1    1
++#define V_PBL_BOUND_ERR_CH1(x) ((x) << S_PBL_BOUND_ERR_CH1)
++#define F_PBL_BOUND_ERR_CH1    V_PBL_BOUND_ERR_CH1(1U)
++
++#define S_PBL_BOUND_ERR_CH0    0
++#define V_PBL_BOUND_ERR_CH0(x) ((x) << S_PBL_BOUND_ERR_CH0)
++#define F_PBL_BOUND_ERR_CH0    V_PBL_BOUND_ERR_CH0(1U)
++
++#define A_ULPTX_INT_CAUSE 0x588
++
++#define A_ULPTX_TPT_LLIMIT 0x58c
++
++#define A_ULPTX_TPT_ULIMIT 0x590
++
++#define A_ULPTX_PBL_LLIMIT 0x594
++
++#define A_ULPTX_PBL_ULIMIT 0x598
++
++#define A_ULPTX_DMA_WEIGHT 0x5ac
++
++#define S_D1_WEIGHT    16
++#define M_D1_WEIGHT    0xffff
++#define V_D1_WEIGHT(x) ((x) << S_D1_WEIGHT)
++
++#define S_D0_WEIGHT    0
++#define M_D0_WEIGHT    0xffff
++#define V_D0_WEIGHT(x) ((x) << S_D0_WEIGHT)
++
++#define A_PM1_RX_CFG 0x5c0
++
++#define A_PM1_RX_INT_ENABLE 0x5d8
++
++#define S_ZERO_E_CMD_ERROR    18
++#define V_ZERO_E_CMD_ERROR(x) ((x) << S_ZERO_E_CMD_ERROR)
++#define F_ZERO_E_CMD_ERROR    V_ZERO_E_CMD_ERROR(1U)
++
++#define S_IESPI0_FIFO2X_RX_FRAMING_ERROR    17
++#define V_IESPI0_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_IESPI0_FIFO2X_RX_FRAMING_ERROR)
++#define F_IESPI0_FIFO2X_RX_FRAMING_ERROR    V_IESPI0_FIFO2X_RX_FRAMING_ERROR(1U)
++
++#define S_IESPI1_FIFO2X_RX_FRAMING_ERROR    16
++#define V_IESPI1_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_IESPI1_FIFO2X_RX_FRAMING_ERROR)
++#define F_IESPI1_FIFO2X_RX_FRAMING_ERROR    V_IESPI1_FIFO2X_RX_FRAMING_ERROR(1U)
++
++#define S_IESPI0_RX_FRAMING_ERROR    15
++#define V_IESPI0_RX_FRAMING_ERROR(x) ((x) << S_IESPI0_RX_FRAMING_ERROR)
++#define F_IESPI0_RX_FRAMING_ERROR    V_IESPI0_RX_FRAMING_ERROR(1U)
++
++#define S_IESPI1_RX_FRAMING_ERROR    14
++#define V_IESPI1_RX_FRAMING_ERROR(x) ((x) << S_IESPI1_RX_FRAMING_ERROR)
++#define F_IESPI1_RX_FRAMING_ERROR    V_IESPI1_RX_FRAMING_ERROR(1U)
++
++#define S_IESPI0_TX_FRAMING_ERROR    13
++#define V_IESPI0_TX_FRAMING_ERROR(x) ((x) << S_IESPI0_TX_FRAMING_ERROR)
++#define F_IESPI0_TX_FRAMING_ERROR    V_IESPI0_TX_FRAMING_ERROR(1U)
++
++#define S_IESPI1_TX_FRAMING_ERROR    12
++#define V_IESPI1_TX_FRAMING_ERROR(x) ((x) << S_IESPI1_TX_FRAMING_ERROR)
++#define F_IESPI1_TX_FRAMING_ERROR    V_IESPI1_TX_FRAMING_ERROR(1U)
++
++#define S_OCSPI0_RX_FRAMING_ERROR    11
++#define V_OCSPI0_RX_FRAMING_ERROR(x) ((x) << S_OCSPI0_RX_FRAMING_ERROR)
++#define F_OCSPI0_RX_FRAMING_ERROR    V_OCSPI0_RX_FRAMING_ERROR(1U)
++
++#define S_OCSPI1_RX_FRAMING_ERROR    10
++#define V_OCSPI1_RX_FRAMING_ERROR(x) ((x) << S_OCSPI1_RX_FRAMING_ERROR)
++#define F_OCSPI1_RX_FRAMING_ERROR    V_OCSPI1_RX_FRAMING_ERROR(1U)
++
++#define S_OCSPI0_TX_FRAMING_ERROR    9
++#define V_OCSPI0_TX_FRAMING_ERROR(x) ((x) << S_OCSPI0_TX_FRAMING_ERROR)
++#define F_OCSPI0_TX_FRAMING_ERROR    V_OCSPI0_TX_FRAMING_ERROR(1U)
++
++#define S_OCSPI1_TX_FRAMING_ERROR    8
++#define V_OCSPI1_TX_FRAMING_ERROR(x) ((x) << S_OCSPI1_TX_FRAMING_ERROR)
++#define F_OCSPI1_TX_FRAMING_ERROR    V_OCSPI1_TX_FRAMING_ERROR(1U)
++
++#define S_OCSPI0_OFIFO2X_TX_FRAMING_ERROR    7
++#define V_OCSPI0_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OCSPI0_OFIFO2X_TX_FRAMING_ERROR)
++#define F_OCSPI0_OFIFO2X_TX_FRAMING_ERROR    V_OCSPI0_OFIFO2X_TX_FRAMING_ERROR(1U)
++
++#define S_OCSPI1_OFIFO2X_TX_FRAMING_ERROR    6
++#define V_OCSPI1_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OCSPI1_OFIFO2X_TX_FRAMING_ERROR)
++#define F_OCSPI1_OFIFO2X_TX_FRAMING_ERROR    V_OCSPI1_OFIFO2X_TX_FRAMING_ERROR(1U)
++
++#define S_IESPI_PAR_ERROR    3
++#define M_IESPI_PAR_ERROR    0x7
++
++#define V_IESPI_PAR_ERROR(x) ((x) << S_IESPI_PAR_ERROR)
++
++#define S_OCSPI_PAR_ERROR    0
++#define M_OCSPI_PAR_ERROR    0x7
++
++#define V_OCSPI_PAR_ERROR(x) ((x) << S_OCSPI_PAR_ERROR)
++
++#define A_PM1_RX_INT_CAUSE 0x5dc
++
++#define A_PM1_TX_CFG 0x5e0
++
++#define A_PM1_TX_INT_ENABLE 0x5f8
++
++#define S_ZERO_C_CMD_ERROR    18
++#define V_ZERO_C_CMD_ERROR(x) ((x) << S_ZERO_C_CMD_ERROR)
++#define F_ZERO_C_CMD_ERROR    V_ZERO_C_CMD_ERROR(1U)
++
++#define S_ICSPI0_FIFO2X_RX_FRAMING_ERROR    17
++#define V_ICSPI0_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_ICSPI0_FIFO2X_RX_FRAMING_ERROR)
++#define F_ICSPI0_FIFO2X_RX_FRAMING_ERROR    V_ICSPI0_FIFO2X_RX_FRAMING_ERROR(1U)
++
++#define S_ICSPI1_FIFO2X_RX_FRAMING_ERROR    16
++#define V_ICSPI1_FIFO2X_RX_FRAMING_ERROR(x) ((x) << S_ICSPI1_FIFO2X_RX_FRAMING_ERROR)
++#define F_ICSPI1_FIFO2X_RX_FRAMING_ERROR    V_ICSPI1_FIFO2X_RX_FRAMING_ERROR(1U)
++
++#define S_ICSPI0_RX_FRAMING_ERROR    15
++#define V_ICSPI0_RX_FRAMING_ERROR(x) ((x) << S_ICSPI0_RX_FRAMING_ERROR)
++#define F_ICSPI0_RX_FRAMING_ERROR    V_ICSPI0_RX_FRAMING_ERROR(1U)
++
++#define S_ICSPI1_RX_FRAMING_ERROR    14
++#define V_ICSPI1_RX_FRAMING_ERROR(x) ((x) << S_ICSPI1_RX_FRAMING_ERROR)
++#define F_ICSPI1_RX_FRAMING_ERROR    V_ICSPI1_RX_FRAMING_ERROR(1U)
++
++#define S_ICSPI0_TX_FRAMING_ERROR    13
++#define V_ICSPI0_TX_FRAMING_ERROR(x) ((x) << S_ICSPI0_TX_FRAMING_ERROR)
++#define F_ICSPI0_TX_FRAMING_ERROR    V_ICSPI0_TX_FRAMING_ERROR(1U)
++
++#define S_ICSPI1_TX_FRAMING_ERROR    12
++#define V_ICSPI1_TX_FRAMING_ERROR(x) ((x) << S_ICSPI1_TX_FRAMING_ERROR)
++#define F_ICSPI1_TX_FRAMING_ERROR    V_ICSPI1_TX_FRAMING_ERROR(1U)
++
++#define S_OESPI0_RX_FRAMING_ERROR    11
++#define V_OESPI0_RX_FRAMING_ERROR(x) ((x) << S_OESPI0_RX_FRAMING_ERROR)
++#define F_OESPI0_RX_FRAMING_ERROR    V_OESPI0_RX_FRAMING_ERROR(1U)
++
++#define S_OESPI1_RX_FRAMING_ERROR    10
++#define V_OESPI1_RX_FRAMING_ERROR(x) ((x) << S_OESPI1_RX_FRAMING_ERROR)
++#define F_OESPI1_RX_FRAMING_ERROR    V_OESPI1_RX_FRAMING_ERROR(1U)
++
++#define S_OESPI0_TX_FRAMING_ERROR    9
++#define V_OESPI0_TX_FRAMING_ERROR(x) ((x) << S_OESPI0_TX_FRAMING_ERROR)
++#define F_OESPI0_TX_FRAMING_ERROR    V_OESPI0_TX_FRAMING_ERROR(1U)
++
++#define S_OESPI1_TX_FRAMING_ERROR    8
++#define V_OESPI1_TX_FRAMING_ERROR(x) ((x) << S_OESPI1_TX_FRAMING_ERROR)
++#define F_OESPI1_TX_FRAMING_ERROR    V_OESPI1_TX_FRAMING_ERROR(1U)
++
++#define S_OESPI0_OFIFO2X_TX_FRAMING_ERROR    7
++#define V_OESPI0_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OESPI0_OFIFO2X_TX_FRAMING_ERROR)
++#define F_OESPI0_OFIFO2X_TX_FRAMING_ERROR    V_OESPI0_OFIFO2X_TX_FRAMING_ERROR(1U)
++
++#define S_OESPI1_OFIFO2X_TX_FRAMING_ERROR    6
++#define V_OESPI1_OFIFO2X_TX_FRAMING_ERROR(x) ((x) << S_OESPI1_OFIFO2X_TX_FRAMING_ERROR)
++#define F_OESPI1_OFIFO2X_TX_FRAMING_ERROR    V_OESPI1_OFIFO2X_TX_FRAMING_ERROR(1U)
++
++#define S_ICSPI_PAR_ERROR    3
++#define M_ICSPI_PAR_ERROR    0x7
++
++#define V_ICSPI_PAR_ERROR(x) ((x) << S_ICSPI_PAR_ERROR)
++
++#define S_OESPI_PAR_ERROR    0
++#define M_OESPI_PAR_ERROR    0x7
++
++#define V_OESPI_PAR_ERROR(x) ((x) << S_OESPI_PAR_ERROR)
++
++#define A_PM1_TX_INT_CAUSE 0x5fc
++
++#define A_MPS_CFG 0x600
++
++#define S_TPRXPORTEN    4
++#define V_TPRXPORTEN(x) ((x) << S_TPRXPORTEN)
++#define F_TPRXPORTEN    V_TPRXPORTEN(1U)
++
++#define S_TPTXPORT1EN    3
++#define V_TPTXPORT1EN(x) ((x) << S_TPTXPORT1EN)
++#define F_TPTXPORT1EN    V_TPTXPORT1EN(1U)
++
++#define S_TPTXPORT0EN    2
++#define V_TPTXPORT0EN(x) ((x) << S_TPTXPORT0EN)
++#define F_TPTXPORT0EN    V_TPTXPORT0EN(1U)
++
++#define S_PORT1ACTIVE    1
++#define V_PORT1ACTIVE(x) ((x) << S_PORT1ACTIVE)
++#define F_PORT1ACTIVE    V_PORT1ACTIVE(1U)
++
++#define S_PORT0ACTIVE    0
++#define V_PORT0ACTIVE(x) ((x) << S_PORT0ACTIVE)
++#define F_PORT0ACTIVE    V_PORT0ACTIVE(1U)
++
++#define S_ENFORCEPKT    11
++#define V_ENFORCEPKT(x) ((x) << S_ENFORCEPKT)
++#define F_ENFORCEPKT    V_ENFORCEPKT(1U)
++
++#define A_MPS_INT_ENABLE 0x61c
++
++#define S_MCAPARERRENB    6
++#define M_MCAPARERRENB    0x7
++
++#define V_MCAPARERRENB(x) ((x) << S_MCAPARERRENB)
++
++#define S_RXTPPARERRENB    4
++#define M_RXTPPARERRENB    0x3
++
++#define V_RXTPPARERRENB(x) ((x) << S_RXTPPARERRENB)
++
++#define S_TX1TPPARERRENB    2
++#define M_TX1TPPARERRENB    0x3
++
++#define V_TX1TPPARERRENB(x) ((x) << S_TX1TPPARERRENB)
++
++#define S_TX0TPPARERRENB    0
++#define M_TX0TPPARERRENB    0x3
++
++#define V_TX0TPPARERRENB(x) ((x) << S_TX0TPPARERRENB)
++
++#define A_MPS_INT_CAUSE 0x620
++
++#define S_MCAPARERR    6
++#define M_MCAPARERR    0x7
++
++#define V_MCAPARERR(x) ((x) << S_MCAPARERR)
++
++#define S_RXTPPARERR    4
++#define M_RXTPPARERR    0x3
++
++#define V_RXTPPARERR(x) ((x) << S_RXTPPARERR)
++
++#define S_TX1TPPARERR    2
++#define M_TX1TPPARERR    0x3
++
++#define V_TX1TPPARERR(x) ((x) << S_TX1TPPARERR)
++
++#define S_TX0TPPARERR    0
++#define M_TX0TPPARERR    0x3
++
++#define V_TX0TPPARERR(x) ((x) << S_TX0TPPARERR)
++
++#define A_CPL_SWITCH_CNTRL 0x640
++
++#define A_CPL_INTR_ENABLE 0x650
++
++#define S_CIM_OVFL_ERROR    4
++#define V_CIM_OVFL_ERROR(x) ((x) << S_CIM_OVFL_ERROR)
++#define F_CIM_OVFL_ERROR    V_CIM_OVFL_ERROR(1U)
++
++#define S_TP_FRAMING_ERROR    3
++#define V_TP_FRAMING_ERROR(x) ((x) << S_TP_FRAMING_ERROR)
++#define F_TP_FRAMING_ERROR    V_TP_FRAMING_ERROR(1U)
++
++#define S_SGE_FRAMING_ERROR    2
++#define V_SGE_FRAMING_ERROR(x) ((x) << S_SGE_FRAMING_ERROR)
++#define F_SGE_FRAMING_ERROR    V_SGE_FRAMING_ERROR(1U)
++
++#define S_CIM_FRAMING_ERROR    1
++#define V_CIM_FRAMING_ERROR(x) ((x) << S_CIM_FRAMING_ERROR)
++#define F_CIM_FRAMING_ERROR    V_CIM_FRAMING_ERROR(1U)
++
++#define S_ZERO_SWITCH_ERROR    0
++#define V_ZERO_SWITCH_ERROR(x) ((x) << S_ZERO_SWITCH_ERROR)
++#define F_ZERO_SWITCH_ERROR    V_ZERO_SWITCH_ERROR(1U)
++
++#define A_CPL_INTR_CAUSE 0x654
++
++#define A_CPL_MAP_TBL_DATA 0x65c
++
++#define A_SMB_GLOBAL_TIME_CFG 0x660
++
++#define A_I2C_CFG 0x6a0
++
++#define S_I2C_CLKDIV    0
++#define M_I2C_CLKDIV    0xfff
++#define V_I2C_CLKDIV(x) ((x) << S_I2C_CLKDIV)
++
++#define A_MI1_CFG 0x6b0
++
++#define S_CLKDIV    5
++#define M_CLKDIV    0xff
++#define V_CLKDIV(x) ((x) << S_CLKDIV)
++
++#define S_ST    3
++
++#define M_ST    0x3
++
++#define V_ST(x) ((x) << S_ST)
++
++#define G_ST(x) (((x) >> S_ST) & M_ST)
++
++#define S_PREEN    2
++#define V_PREEN(x) ((x) << S_PREEN)
++#define F_PREEN    V_PREEN(1U)
++
++#define S_MDIINV    1
++#define V_MDIINV(x) ((x) << S_MDIINV)
++#define F_MDIINV    V_MDIINV(1U)
++
++#define S_MDIEN    0
++#define V_MDIEN(x) ((x) << S_MDIEN)
++#define F_MDIEN    V_MDIEN(1U)
++
++#define A_MI1_ADDR 0x6b4
++
++#define S_PHYADDR    5
++#define M_PHYADDR    0x1f
++#define V_PHYADDR(x) ((x) << S_PHYADDR)
++
++#define S_REGADDR    0
++#define M_REGADDR    0x1f
++#define V_REGADDR(x) ((x) << S_REGADDR)
++
++#define A_MI1_DATA 0x6b8
++
++#define A_MI1_OP 0x6bc
++
++#define S_MDI_OP    0
++#define M_MDI_OP    0x3
++#define V_MDI_OP(x) ((x) << S_MDI_OP)
++
++#define A_SF_DATA 0x6d8
++
++#define A_SF_OP 0x6dc
++
++#define S_BYTECNT    1
++#define M_BYTECNT    0x3
++#define V_BYTECNT(x) ((x) << S_BYTECNT)
++
++#define A_PL_INT_ENABLE0 0x6e0
++
++#define S_T3DBG    23
++#define V_T3DBG(x) ((x) << S_T3DBG)
++#define F_T3DBG    V_T3DBG(1U)
++
++#define S_XGMAC0_1    20
++#define V_XGMAC0_1(x) ((x) << S_XGMAC0_1)
++#define F_XGMAC0_1    V_XGMAC0_1(1U)
++
++#define S_XGMAC0_0    19
++#define V_XGMAC0_0(x) ((x) << S_XGMAC0_0)
++#define F_XGMAC0_0    V_XGMAC0_0(1U)
++
++#define S_MC5A    18
++#define V_MC5A(x) ((x) << S_MC5A)
++#define F_MC5A    V_MC5A(1U)
++
++#define S_CPL_SWITCH    12
++#define V_CPL_SWITCH(x) ((x) << S_CPL_SWITCH)
++#define F_CPL_SWITCH    V_CPL_SWITCH(1U)
++
++#define S_MPS0    11
++#define V_MPS0(x) ((x) << S_MPS0)
++#define F_MPS0    V_MPS0(1U)
++
++#define S_PM1_TX    10
++#define V_PM1_TX(x) ((x) << S_PM1_TX)
++#define F_PM1_TX    V_PM1_TX(1U)
++
++#define S_PM1_RX    9
++#define V_PM1_RX(x) ((x) << S_PM1_RX)
++#define F_PM1_RX    V_PM1_RX(1U)
++
++#define S_ULP2_TX    8
++#define V_ULP2_TX(x) ((x) << S_ULP2_TX)
++#define F_ULP2_TX    V_ULP2_TX(1U)
++
++#define S_ULP2_RX    7
++#define V_ULP2_RX(x) ((x) << S_ULP2_RX)
++#define F_ULP2_RX    V_ULP2_RX(1U)
++
++#define S_TP1    6
++#define V_TP1(x) ((x) << S_TP1)
++#define F_TP1    V_TP1(1U)
++
++#define S_CIM    5
++#define V_CIM(x) ((x) << S_CIM)
++#define F_CIM    V_CIM(1U)
++
++#define S_MC7_CM    4
++#define V_MC7_CM(x) ((x) << S_MC7_CM)
++#define F_MC7_CM    V_MC7_CM(1U)
++
++#define S_MC7_PMTX    3
++#define V_MC7_PMTX(x) ((x) << S_MC7_PMTX)
++#define F_MC7_PMTX    V_MC7_PMTX(1U)
++
++#define S_MC7_PMRX    2
++#define V_MC7_PMRX(x) ((x) << S_MC7_PMRX)
++#define F_MC7_PMRX    V_MC7_PMRX(1U)
++
++#define S_PCIM0    1
++#define V_PCIM0(x) ((x) << S_PCIM0)
++#define F_PCIM0    V_PCIM0(1U)
++
++#define S_SGE3    0
++#define V_SGE3(x) ((x) << S_SGE3)
++#define F_SGE3    V_SGE3(1U)
++
++#define A_PL_INT_CAUSE0 0x6e4
++
++#define A_PL_RST 0x6f0
++
++#define S_CRSTWRM    1
++#define V_CRSTWRM(x) ((x) << S_CRSTWRM)
++#define F_CRSTWRM    V_CRSTWRM(1U)
++
++#define A_PL_REV 0x6f4
++
++#define A_PL_CLI 0x6f8
++
++#define A_MC5_DB_CONFIG 0x704
++
++#define S_TMTYPEHI    30
++#define V_TMTYPEHI(x) ((x) << S_TMTYPEHI)
++#define F_TMTYPEHI    V_TMTYPEHI(1U)
++
++#define S_TMPARTSIZE    28
++#define M_TMPARTSIZE    0x3
++#define V_TMPARTSIZE(x) ((x) << S_TMPARTSIZE)
++#define G_TMPARTSIZE(x) (((x) >> S_TMPARTSIZE) & M_TMPARTSIZE)
++
++#define S_TMTYPE    26
++#define M_TMTYPE    0x3
++#define V_TMTYPE(x) ((x) << S_TMTYPE)
++#define G_TMTYPE(x) (((x) >> S_TMTYPE) & M_TMTYPE)
++
++#define S_COMPEN    17
++#define V_COMPEN(x) ((x) << S_COMPEN)
++#define F_COMPEN    V_COMPEN(1U)
++
++#define S_PRTYEN    6
++#define V_PRTYEN(x) ((x) << S_PRTYEN)
++#define F_PRTYEN    V_PRTYEN(1U)
++
++#define S_MBUSEN    5
++#define V_MBUSEN(x) ((x) << S_MBUSEN)
++#define F_MBUSEN    V_MBUSEN(1U)
++
++#define S_DBGIEN    4
++#define V_DBGIEN(x) ((x) << S_DBGIEN)
++#define F_DBGIEN    V_DBGIEN(1U)
++
++#define S_TMRDY    2
++#define V_TMRDY(x) ((x) << S_TMRDY)
++#define F_TMRDY    V_TMRDY(1U)
++
++#define S_TMRST    1
++#define V_TMRST(x) ((x) << S_TMRST)
++#define F_TMRST    V_TMRST(1U)
++
++#define S_TMMODE    0
++#define V_TMMODE(x) ((x) << S_TMMODE)
++#define F_TMMODE    V_TMMODE(1U)
++
++#define F_TMMODE    V_TMMODE(1U)
++
++#define A_MC5_DB_ROUTING_TABLE_INDEX 0x70c
++
++#define A_MC5_DB_FILTER_TABLE 0x710
++
++#define A_MC5_DB_SERVER_INDEX 0x714
++
++#define A_MC5_DB_RSP_LATENCY 0x720
++
++#define S_RDLAT    16
++#define M_RDLAT    0x1f
++#define V_RDLAT(x) ((x) << S_RDLAT)
++
++#define S_LRNLAT    8
++#define M_LRNLAT    0x1f
++#define V_LRNLAT(x) ((x) << S_LRNLAT)
++
++#define S_SRCHLAT    0
++#define M_SRCHLAT    0x1f
++#define V_SRCHLAT(x) ((x) << S_SRCHLAT)
++
++#define A_MC5_DB_PART_ID_INDEX 0x72c
++
++#define A_MC5_DB_INT_ENABLE 0x740
++
++#define S_DELACTEMPTY    18
++#define V_DELACTEMPTY(x) ((x) << S_DELACTEMPTY)
++#define F_DELACTEMPTY    V_DELACTEMPTY(1U)
++
++#define S_DISPQPARERR    17
++#define V_DISPQPARERR(x) ((x) << S_DISPQPARERR)
++#define F_DISPQPARERR    V_DISPQPARERR(1U)
++
++#define S_REQQPARERR    16
++#define V_REQQPARERR(x) ((x) << S_REQQPARERR)
++#define F_REQQPARERR    V_REQQPARERR(1U)
++
++#define S_UNKNOWNCMD    15
++#define V_UNKNOWNCMD(x) ((x) << S_UNKNOWNCMD)
++#define F_UNKNOWNCMD    V_UNKNOWNCMD(1U)
++
++#define S_NFASRCHFAIL    8
++#define V_NFASRCHFAIL(x) ((x) << S_NFASRCHFAIL)
++#define F_NFASRCHFAIL    V_NFASRCHFAIL(1U)
++
++#define S_ACTRGNFULL    7
++#define V_ACTRGNFULL(x) ((x) << S_ACTRGNFULL)
++#define F_ACTRGNFULL    V_ACTRGNFULL(1U)
++
++#define S_PARITYERR    6
++#define V_PARITYERR(x) ((x) << S_PARITYERR)
++#define F_PARITYERR    V_PARITYERR(1U)
++
++#define A_MC5_DB_INT_CAUSE 0x744
++
++#define A_MC5_DB_DBGI_CONFIG 0x774
++
++#define A_MC5_DB_DBGI_REQ_CMD 0x778
++
++#define A_MC5_DB_DBGI_REQ_ADDR0 0x77c
++
++#define A_MC5_DB_DBGI_REQ_ADDR1 0x780
++
++#define A_MC5_DB_DBGI_REQ_ADDR2 0x784
++
++#define A_MC5_DB_DBGI_REQ_DATA0 0x788
++
++#define A_MC5_DB_DBGI_REQ_DATA1 0x78c
++
++#define A_MC5_DB_DBGI_REQ_DATA2 0x790
++
++#define A_MC5_DB_DBGI_RSP_STATUS 0x7b0
++
++#define S_DBGIRSPVALID    0
++#define V_DBGIRSPVALID(x) ((x) << S_DBGIRSPVALID)
++#define F_DBGIRSPVALID    V_DBGIRSPVALID(1U)
++
++#define A_MC5_DB_DBGI_RSP_DATA0 0x7b4
++
++#define A_MC5_DB_DBGI_RSP_DATA1 0x7b8
++
++#define A_MC5_DB_DBGI_RSP_DATA2 0x7bc
++
++#define A_MC5_DB_POPEN_DATA_WR_CMD 0x7cc
++
++#define A_MC5_DB_POPEN_MASK_WR_CMD 0x7d0
++
++#define A_MC5_DB_AOPEN_SRCH_CMD 0x7d4
++
++#define A_MC5_DB_AOPEN_LRN_CMD 0x7d8
++
++#define A_MC5_DB_SYN_SRCH_CMD 0x7dc
++
++#define A_MC5_DB_SYN_LRN_CMD 0x7e0
++
++#define A_MC5_DB_ACK_SRCH_CMD 0x7e4
++
++#define A_MC5_DB_ACK_LRN_CMD 0x7e8
++
++#define A_MC5_DB_ILOOKUP_CMD 0x7ec
++
++#define A_MC5_DB_ELOOKUP_CMD 0x7f0
++
++#define A_MC5_DB_DATA_WRITE_CMD 0x7f4
++
++#define A_MC5_DB_DATA_READ_CMD 0x7f8
++
++#define XGMAC0_0_BASE_ADDR 0x800
++
++#define A_XGM_TX_CTRL 0x800
++
++#define S_TXEN    0
++#define V_TXEN(x) ((x) << S_TXEN)
++#define F_TXEN    V_TXEN(1U)
++
++#define A_XGM_TX_CFG 0x804
++
++#define S_TXPAUSEEN    0
++#define V_TXPAUSEEN(x) ((x) << S_TXPAUSEEN)
++#define F_TXPAUSEEN    V_TXPAUSEEN(1U)
++
++#define A_XGM_RX_CTRL 0x80c
++
++#define S_RXEN    0
++#define V_RXEN(x) ((x) << S_RXEN)
++#define F_RXEN    V_RXEN(1U)
++
++#define A_XGM_RX_CFG 0x810
++
++#define S_DISPAUSEFRAMES    9
++#define V_DISPAUSEFRAMES(x) ((x) << S_DISPAUSEFRAMES)
++#define F_DISPAUSEFRAMES    V_DISPAUSEFRAMES(1U)
++
++#define S_EN1536BFRAMES    8
++#define V_EN1536BFRAMES(x) ((x) << S_EN1536BFRAMES)
++#define F_EN1536BFRAMES    V_EN1536BFRAMES(1U)
++
++#define S_ENJUMBO    7
++#define V_ENJUMBO(x) ((x) << S_ENJUMBO)
++#define F_ENJUMBO    V_ENJUMBO(1U)
++
++#define S_RMFCS    6
++#define V_RMFCS(x) ((x) << S_RMFCS)
++#define F_RMFCS    V_RMFCS(1U)
++
++#define S_ENHASHMCAST    2
++#define V_ENHASHMCAST(x) ((x) << S_ENHASHMCAST)
++#define F_ENHASHMCAST    V_ENHASHMCAST(1U)
++
++#define S_COPYALLFRAMES    0
++#define V_COPYALLFRAMES(x) ((x) << S_COPYALLFRAMES)
++#define F_COPYALLFRAMES    V_COPYALLFRAMES(1U)
++
++#define A_XGM_RX_HASH_LOW 0x814
++
++#define A_XGM_RX_HASH_HIGH 0x818
++
++#define A_XGM_RX_EXACT_MATCH_LOW_1 0x81c
++
++#define A_XGM_RX_EXACT_MATCH_HIGH_1 0x820
++
++#define A_XGM_RX_EXACT_MATCH_LOW_2 0x824
++
++#define A_XGM_RX_EXACT_MATCH_LOW_3 0x82c
++
++#define A_XGM_RX_EXACT_MATCH_LOW_4 0x834
++
++#define A_XGM_RX_EXACT_MATCH_LOW_5 0x83c
++
++#define A_XGM_RX_EXACT_MATCH_LOW_6 0x844
++
++#define A_XGM_RX_EXACT_MATCH_LOW_7 0x84c
++
++#define A_XGM_RX_EXACT_MATCH_LOW_8 0x854
++
++#define A_XGM_STAT_CTRL 0x880
++
++#define S_CLRSTATS    2
++#define V_CLRSTATS(x) ((x) << S_CLRSTATS)
++#define F_CLRSTATS    V_CLRSTATS(1U)
++
++#define A_XGM_RXFIFO_CFG 0x884
++
++#define S_RXFIFOPAUSEHWM    17
++#define M_RXFIFOPAUSEHWM    0xfff
++
++#define V_RXFIFOPAUSEHWM(x) ((x) << S_RXFIFOPAUSEHWM)
++
++#define G_RXFIFOPAUSEHWM(x) (((x) >> S_RXFIFOPAUSEHWM) & M_RXFIFOPAUSEHWM)
++
++#define S_RXFIFOPAUSELWM    5
++#define M_RXFIFOPAUSELWM    0xfff
++
++#define V_RXFIFOPAUSELWM(x) ((x) << S_RXFIFOPAUSELWM)
++
++#define G_RXFIFOPAUSELWM(x) (((x) >> S_RXFIFOPAUSELWM) & M_RXFIFOPAUSELWM)
++
++#define S_RXSTRFRWRD    1
++#define V_RXSTRFRWRD(x) ((x) << S_RXSTRFRWRD)
++#define F_RXSTRFRWRD    V_RXSTRFRWRD(1U)
++
++#define S_DISERRFRAMES    0
++#define V_DISERRFRAMES(x) ((x) << S_DISERRFRAMES)
++#define F_DISERRFRAMES    V_DISERRFRAMES(1U)
++
++#define A_XGM_TXFIFO_CFG 0x888
++
++#define S_TXFIFOTHRESH    4
++#define M_TXFIFOTHRESH    0x1ff
++
++#define V_TXFIFOTHRESH(x) ((x) << S_TXFIFOTHRESH)
++
++#define A_XGM_SERDES_CTRL 0x890
++#define A_XGM_SERDES_CTRL0 0x8e0
++
++#define S_SERDESRESET_    24
++#define V_SERDESRESET_(x) ((x) << S_SERDESRESET_)
++#define F_SERDESRESET_    V_SERDESRESET_(1U)
++
++#define S_RXENABLE    4
++#define V_RXENABLE(x) ((x) << S_RXENABLE)
++#define F_RXENABLE    V_RXENABLE(1U)
++
++#define S_TXENABLE    3
++#define V_TXENABLE(x) ((x) << S_TXENABLE)
++#define F_TXENABLE    V_TXENABLE(1U)
++
++#define A_XGM_PAUSE_TIMER 0x890
++
++#define A_XGM_RGMII_IMP 0x89c
++
++#define S_XGM_IMPSETUPDATE    6
++#define V_XGM_IMPSETUPDATE(x) ((x) << S_XGM_IMPSETUPDATE)
++#define F_XGM_IMPSETUPDATE    V_XGM_IMPSETUPDATE(1U)
++
++#define S_RGMIIIMPPD    3
++#define M_RGMIIIMPPD    0x7
++#define V_RGMIIIMPPD(x) ((x) << S_RGMIIIMPPD)
++
++#define S_RGMIIIMPPU    0
++#define M_RGMIIIMPPU    0x7
++#define V_RGMIIIMPPU(x) ((x) << S_RGMIIIMPPU)
++
++#define S_CALRESET    8
++#define V_CALRESET(x) ((x) << S_CALRESET)
++#define F_CALRESET    V_CALRESET(1U)
++
++#define S_CALUPDATE    7
++#define V_CALUPDATE(x) ((x) << S_CALUPDATE)
++#define F_CALUPDATE    V_CALUPDATE(1U)
++
++#define A_XGM_XAUI_IMP 0x8a0
++
++#define S_CALBUSY    31
++#define V_CALBUSY(x) ((x) << S_CALBUSY)
++#define F_CALBUSY    V_CALBUSY(1U)
++
++#define S_XGM_CALFAULT    29
++#define V_XGM_CALFAULT(x) ((x) << S_XGM_CALFAULT)
++#define F_XGM_CALFAULT    V_XGM_CALFAULT(1U)
++
++#define S_CALIMP    24
++#define M_CALIMP    0x1f
++#define V_CALIMP(x) ((x) << S_CALIMP)
++#define G_CALIMP(x) (((x) >> S_CALIMP) & M_CALIMP)
++
++#define S_XAUIIMP    0
++#define M_XAUIIMP    0x7
++#define V_XAUIIMP(x) ((x) << S_XAUIIMP)
++
++#define A_XGM_RX_MAX_PKT_SIZE 0x8a8
++#define A_XGM_RX_MAX_PKT_SIZE_ERR_CNT 0x9a4
++
++#define A_XGM_RESET_CTRL 0x8ac
++
++#define S_XG2G_RESET_    3
++#define V_XG2G_RESET_(x) ((x) << S_XG2G_RESET_)
++#define F_XG2G_RESET_    V_XG2G_RESET_(1U)
++
++#define S_RGMII_RESET_    2
++#define V_RGMII_RESET_(x) ((x) << S_RGMII_RESET_)
++#define F_RGMII_RESET_    V_RGMII_RESET_(1U)
++
++#define S_PCS_RESET_    1
++#define V_PCS_RESET_(x) ((x) << S_PCS_RESET_)
++#define F_PCS_RESET_    V_PCS_RESET_(1U)
++
++#define S_MAC_RESET_    0
++#define V_MAC_RESET_(x) ((x) << S_MAC_RESET_)
++#define F_MAC_RESET_    V_MAC_RESET_(1U)
++
++#define A_XGM_PORT_CFG 0x8b8
++
++#define S_CLKDIVRESET_    3
++#define V_CLKDIVRESET_(x) ((x) << S_CLKDIVRESET_)
++#define F_CLKDIVRESET_    V_CLKDIVRESET_(1U)
++
++#define S_PORTSPEED    1
++#define M_PORTSPEED    0x3
++
++#define V_PORTSPEED(x) ((x) << S_PORTSPEED)
++
++#define S_ENRGMII    0
++#define V_ENRGMII(x) ((x) << S_ENRGMII)
++#define F_ENRGMII    V_ENRGMII(1U)
++
++#define A_XGM_INT_ENABLE 0x8d4
++
++#define S_TXFIFO_PRTY_ERR    17
++#define M_TXFIFO_PRTY_ERR    0x7
++
++#define V_TXFIFO_PRTY_ERR(x) ((x) << S_TXFIFO_PRTY_ERR)
++
++#define S_RXFIFO_PRTY_ERR    14
++#define M_RXFIFO_PRTY_ERR    0x7
++
++#define V_RXFIFO_PRTY_ERR(x) ((x) << S_RXFIFO_PRTY_ERR)
++
++#define S_TXFIFO_UNDERRUN    13
++#define V_TXFIFO_UNDERRUN(x) ((x) << S_TXFIFO_UNDERRUN)
++#define F_TXFIFO_UNDERRUN    V_TXFIFO_UNDERRUN(1U)
++
++#define S_RXFIFO_OVERFLOW    12
++#define V_RXFIFO_OVERFLOW(x) ((x) << S_RXFIFO_OVERFLOW)
++#define F_RXFIFO_OVERFLOW    V_RXFIFO_OVERFLOW(1U)
++
++#define S_SERDES_LOS    4
++#define M_SERDES_LOS    0xf
++
++#define V_SERDES_LOS(x) ((x) << S_SERDES_LOS)
++
++#define S_XAUIPCSCTCERR    3
++#define V_XAUIPCSCTCERR(x) ((x) << S_XAUIPCSCTCERR)
++#define F_XAUIPCSCTCERR    V_XAUIPCSCTCERR(1U)
++
++#define S_XAUIPCSALIGNCHANGE    2
++#define V_XAUIPCSALIGNCHANGE(x) ((x) << S_XAUIPCSALIGNCHANGE)
++#define F_XAUIPCSALIGNCHANGE    V_XAUIPCSALIGNCHANGE(1U)
++
++#define A_XGM_INT_CAUSE 0x8d8
++
++#define A_XGM_XAUI_ACT_CTRL 0x8dc
++
++#define S_TXACTENABLE    1
++#define V_TXACTENABLE(x) ((x) << S_TXACTENABLE)
++#define F_TXACTENABLE    V_TXACTENABLE(1U)
++
++#define A_XGM_SERDES_CTRL0 0x8e0
++
++#define S_RESET3    23
++#define V_RESET3(x) ((x) << S_RESET3)
++#define F_RESET3    V_RESET3(1U)
++
++#define S_RESET2    22
++#define V_RESET2(x) ((x) << S_RESET2)
++#define F_RESET2    V_RESET2(1U)
++
++#define S_RESET1    21
++#define V_RESET1(x) ((x) << S_RESET1)
++#define F_RESET1    V_RESET1(1U)
++
++#define S_RESET0    20
++#define V_RESET0(x) ((x) << S_RESET0)
++#define F_RESET0    V_RESET0(1U)
++
++#define S_PWRDN3    19
++#define V_PWRDN3(x) ((x) << S_PWRDN3)
++#define F_PWRDN3    V_PWRDN3(1U)
++
++#define S_PWRDN2    18
++#define V_PWRDN2(x) ((x) << S_PWRDN2)
++#define F_PWRDN2    V_PWRDN2(1U)
++
++#define S_PWRDN1    17
++#define V_PWRDN1(x) ((x) << S_PWRDN1)
++#define F_PWRDN1    V_PWRDN1(1U)
++
++#define S_PWRDN0    16
++#define V_PWRDN0(x) ((x) << S_PWRDN0)
++#define F_PWRDN0    V_PWRDN0(1U)
++
++#define S_RESETPLL23    15
++#define V_RESETPLL23(x) ((x) << S_RESETPLL23)
++#define F_RESETPLL23    V_RESETPLL23(1U)
++
++#define S_RESETPLL01    14
++#define V_RESETPLL01(x) ((x) << S_RESETPLL01)
++#define F_RESETPLL01    V_RESETPLL01(1U)
++
++#define A_XGM_SERDES_STAT0 0x8f0
++
++#define S_LOWSIG0    0
++#define V_LOWSIG0(x) ((x) << S_LOWSIG0)
++#define F_LOWSIG0    V_LOWSIG0(1U)
++
++#define A_XGM_SERDES_STAT3 0x8fc
++
++#define A_XGM_STAT_TX_BYTE_LOW 0x900
++
++#define A_XGM_STAT_TX_BYTE_HIGH 0x904
++
++#define A_XGM_STAT_TX_FRAME_LOW 0x908
++
++#define A_XGM_STAT_TX_FRAME_HIGH 0x90c
++
++#define A_XGM_STAT_TX_BCAST 0x910
++
++#define A_XGM_STAT_TX_MCAST 0x914
++
++#define A_XGM_STAT_TX_PAUSE 0x918
++
++#define A_XGM_STAT_TX_64B_FRAMES 0x91c
++
++#define A_XGM_STAT_TX_65_127B_FRAMES 0x920
++
++#define A_XGM_STAT_TX_128_255B_FRAMES 0x924
++
++#define A_XGM_STAT_TX_256_511B_FRAMES 0x928
++
++#define A_XGM_STAT_TX_512_1023B_FRAMES 0x92c
++
++#define A_XGM_STAT_TX_1024_1518B_FRAMES 0x930
++
++#define A_XGM_STAT_TX_1519_MAXB_FRAMES 0x934
++
++#define A_XGM_STAT_TX_ERR_FRAMES 0x938
++
++#define A_XGM_STAT_RX_BYTES_LOW 0x93c
++
++#define A_XGM_STAT_RX_BYTES_HIGH 0x940
++
++#define A_XGM_STAT_RX_FRAMES_LOW 0x944
++
++#define A_XGM_STAT_RX_FRAMES_HIGH 0x948
++
++#define A_XGM_STAT_RX_BCAST_FRAMES 0x94c
++
++#define A_XGM_STAT_RX_MCAST_FRAMES 0x950
++
++#define A_XGM_STAT_RX_PAUSE_FRAMES 0x954
++
++#define A_XGM_STAT_RX_64B_FRAMES 0x958
++
++#define A_XGM_STAT_RX_65_127B_FRAMES 0x95c
++
++#define A_XGM_STAT_RX_128_255B_FRAMES 0x960
++
++#define A_XGM_STAT_RX_256_511B_FRAMES 0x964
++
++#define A_XGM_STAT_RX_512_1023B_FRAMES 0x968
++
++#define A_XGM_STAT_RX_1024_1518B_FRAMES 0x96c
++
++#define A_XGM_STAT_RX_1519_MAXB_FRAMES 0x970
++
++#define A_XGM_STAT_RX_SHORT_FRAMES 0x974
++
++#define A_XGM_STAT_RX_OVERSIZE_FRAMES 0x978
++
++#define A_XGM_STAT_RX_JABBER_FRAMES 0x97c
++
++#define A_XGM_STAT_RX_CRC_ERR_FRAMES 0x980
++
++#define A_XGM_STAT_RX_LENGTH_ERR_FRAMES 0x984
++
++#define A_XGM_STAT_RX_SYM_CODE_ERR_FRAMES 0x988
++
++#define A_XGM_SERDES_STATUS0 0x98c
++
++#define A_XGM_SERDES_STATUS1 0x990
++
++#define S_CMULOCK    31
++#define V_CMULOCK(x) ((x) << S_CMULOCK)
++#define F_CMULOCK    V_CMULOCK(1U)
++
++#define A_XGM_RX_MAX_PKT_SIZE_ERR_CNT 0x9a4
++
++#define A_XGM_RX_SPI4_SOP_EOP_CNT 0x9ac
++
++#define XGMAC0_1_BASE_ADDR 0xa00
