@@ -1,94 +1,155 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network virtualization/isolation
-Date: Mon, 04 Dec 2006 05:15:00 -0700
-Message-ID: <m1slfvuabf.fsf@ebiederm.dsl.xmission.com>
-References: <453F8800.9070603@fr.ibm.com> <45408397.8070404@fr.ibm.com>
-	<20061026085659.33b4c6dd@freekitty>
-	<200610271134.56830.dim@openvz.org> <4541CCF4.4050306@fr.ibm.com>
-	<1162391707.5251.78.camel@jzny2> <4559DE01.5090109@fr.ibm.com>
-	<m1y7pzoptr.fsf@ebiederm.dsl.xmission.com>
-	<456C447E.5090703@fr.ibm.com>
-	<m1r6vnikeq.fsf@ebiederm.dsl.xmission.com>
-	<456C9B8C.1010701@fr.ibm.com>
-	<m14psji6lw.fsf@ebiederm.dsl.xmission.com> <456DEBAC.4060106@hp.com>
-	<456E055F.8020100@fr.ibm.com> <1165148762.3517.58.camel@localhost>
-	<1165155198.3517.86.camel@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][XFRM] Optimize policy dumping
+Date: Mon, 04 Dec 2006 13:24:38 +0100
+Message-ID: <45741386.5070002@trash.net>
+References: <1165158707.3517.92.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, devel@openvz.org,
-	Linux Containers <containers@lists.osdl.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46037 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S936182AbWLDMQb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 07:16:31 -0500
+Received: from stinky.trash.net ([213.144.137.162]:38826 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S936239AbWLDMVc
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 07:21:32 -0500
 To: hadi@cyberus.ca
-In-Reply-To: <1165155198.3517.86.camel@localhost> (hadi@cyberus.ca's message
-	of "Sun, 03 Dec 2006 09:13:18 -0500")
+In-Reply-To: <1165158707.3517.92.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> writes:
+jamal wrote:
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 64d3938..c8a98ca 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -860,57 +860,70 @@ EXPORT_SYMBOL(xfrm_policy_flush);
+>  int xfrm_policy_walk(u8 type, int (*func)(struct xfrm_policy *, int, int, void*),
+>  		     void *data)
+>  {
+> -	struct xfrm_policy *pol;
+>  	struct hlist_node *entry;
+> -	int dir, count, error;
+> +	int dir = 0, last_dir = 0, count = 0, error = -ENOENT;
+> +	struct xfrm_policy *pol = NULL, *send_pol = NULL, *last_pol = NULL;
+>  
+>  	read_lock_bh(&xfrm_policy_lock);
+> -	count = 0;
+> +
+>  	for (dir = 0; dir < 2*XFRM_POLICY_MAX; dir++) {
+>  		struct hlist_head *table = xfrm_policy_bydst[dir].table;
+>  		int i;
+>  
+>  		hlist_for_each_entry(pol, entry,
+>  				     &xfrm_policy_inexact[dir], bydst) {
+> -			if (pol->type == type)
+> -				count++;
+> -		}
+> -		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
+> -			hlist_for_each_entry(pol, entry, table + i, bydst) {
+> -				if (pol->type == type)
+> -					count++;
+> +			if (count && send_pol && send_pol != last_pol) {
+> +				error = func(send_pol, dir % XFRM_POLICY_MAX, count, data);
+> +				if (error)
+> +					goto out;
+> +				send_pol = NULL;
+>  			}
+> -		}
+> -	}
+> -
+> -	if (count == 0) {
+> -		error = -ENOENT;
+> -		goto out;
+> -	}
+> -
+> -	for (dir = 0; dir < 2*XFRM_POLICY_MAX; dir++) {
+> -		struct hlist_head *table = xfrm_policy_bydst[dir].table;
+> -		int i;
+>  
+> -		hlist_for_each_entry(pol, entry,
+> -				     &xfrm_policy_inexact[dir], bydst) {
+>  			if (pol->type != type)
+>  				continue;
+> -			error = func(pol, dir % XFRM_POLICY_MAX, --count, data);
+> -			if (error)
+> -				goto out;
+> +
+> +			if (!count) {
+> +				last_pol = send_pol = pol;
+> +			} else {
+> +				send_pol = last_pol;
+> +				last_pol = pol;
+> +			}
+> +
+> +			last_dir = dir;
+> +			count++;
+>  		}
+> +
+>  		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
+>  			hlist_for_each_entry(pol, entry, table + i, bydst) {
+> +				if (count && send_pol && send_pol != last_pol) {
+> +					error = func(send_pol, dir % XFRM_POLICY_MAX, count, data);
+> +					send_pol = NULL;
+> +					if (error)
+> +						goto out;
+> +				}
+>  				if (pol->type != type)
+>  					continue;
+> -				error = func(pol, dir % XFRM_POLICY_MAX, --count, data);
+> -				if (error)
+> -					goto out;
+> +				if (!count) {
+> +					last_pol = send_pol = pol;
+> +				} else {
+> +					send_pol = last_pol;
+> +					last_pol = pol;
+> +				}
+> +				last_dir = dir;
+> +				count++;
+>  			}
+>  		}
+>  	}
+> -	error = 0;
+> +
+> +	if (send_pol && send_pol != last_pol) {
+> +		error = func(send_pol, last_dir % XFRM_POLICY_MAX, count, data);
+> +	}
+> +
+> +	if (count) {
+> +		BUG_TRAP(last_pol == NULL);
+> +		error = func(send_pol, last_dir % XFRM_POLICY_MAX, 0, data);
+> +	}
+> +
+>  out:
+>  	read_unlock_bh(&xfrm_policy_lock);
+>  	return error;
 
-> I have removed the Re: just to add some freshness to the discussion
->
-> So i read quickly the rest of the discussions. I was almost suprised to
-> find that i agree with Eric on a lot of opinions (we also agree that
-> vindaloo is good for you i guess);->
-> The two issues that stood out for me (in addition to what i already said
-> below):
->
-> 1) the solution must ease the migration of containers; i didnt see
-> anything about migrating them to another host across a network, but i
-> assume that this is a given.
 
-It is mostly a given.  It is a goal for some of us and not for others.
-Containers are a necessary first step to getting migration and checkpoint/restart
-assistance from the kernel.
+A few cases that will behave incorrectly:
 
-> 2) the socket level bind/accept filtering with multiple IPs. From
-> reading what Herbert has, it seems they have figured a clever way to
-> optimize this path albeit some challenges (speacial casing for raw
-> filters) etc.
->
-> I am wondering if one was to use the two level muxing of the socket
-> layer, how much more performance improvement the above scheme provides
-> for #2? 
+- two policies in xfrm_policy_inexact with the same direction:
+  after the first iteration we have last_pol = send_pol = first policy
+  and no messages sent, after the second iteration we have
+  send_pol = first policy, last_pol = second policy and still no
+  messages sent. Since send_pol && send_pol != last_pol, the
+  second to last block will send send_pol with last_dir, since
+  count > 0 the last block will send send_pol again. So we get
+  two times the first policy and zero times the second one.
 
-I don't follow this question. 
+- same case as above, but policies in opposite directions. The
+  first policy will again be sent twice, but with last_dir, which
+  is the direction of the second policy.
 
-> Consider the case of L2 where by the time the packet hits the socket
-> layer on incoming, the VE is already known; in such a case, the lookup
-> would be very cheap. The advantage being you get rid of the speacial
-> casing altogether. I dont see any issues with binds per multiple IPs etc
-> using such a technique.
->
-> For the case of #1 above, wouldnt it be also easier if the tables for
-> netdevices, PIDs etc were per VE (using the 2 level mux)?
+- three policies in xfrm_policy_inexact, two with similar direction,
+  one with opposite direction. The first two iterations look similar
+  and no policies are dumped, during the third iteration we have
+  count && send_pol && send_pol != last_pol. So send_pol (the
+  first policy) is sent, but with direction dir, which is at that
+  time the opposite direction of the policy.
 
-Generally yes.  s/VE/namespace/.  There is a case with hash tables where
-it seems saner to add an additional entry because hash it is hard to dynamically
-allocate a hash table, (because they need something large then a
-single page allocation).  But for everything else yes it makes things
-much easier if you have a per namespace data structure.  
 
-A practical question is can we replace hash tables with some variant of
-trie or radix-tree and not take a performance hit.  Given the better scaling of
-tress to different workload sizes if we can use them so much the
-better.  Especially because a per namespace split gives us a lot of
-good properties.
+I guess its easy to construct more cases. In general I don't see
+how remebering only the last direction can work since two policies
+with potentially different directions are remembered. Within the
+loop you always use dir, which also look wrong.
 
-> In any case, folks, i hope i am not treading on anyones toes; i know
-> each one of you has implemented and has users and i am trying to be as 
-> neutral as i can (but clearly biased;->).
-
-Well we rather expect to bash heads until we can come up with something
-we all can agree on with the people who more regularly have to maintain
-the code.  The discussions so far have largely been warm ups, to actually
-doing something.
-
-Getting feedback from people who regularly work with the networking stack
-is appreciated.
-
-Eric
