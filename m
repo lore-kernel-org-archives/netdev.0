@@ -1,64 +1,77 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6.19] AT91RM9200 Ethernet update 3
-Date: Mon, 4 Dec 2006 10:08:31 -0800
-Message-ID: <20061204100831.0af6790f@freekitty>
-References: <1165236624.4606.111.camel@fuzzie.sanpeople.com>
+From: Paul Collins <paul-uANAyHgy5MnD+ROgJ3VA+kB+6BGkLq7r@public.gmane.org>
+Subject: Re: NETDEV-BCM43XX BUG - Failure to associate AP with latest devscape
+	git pull..
+Date: Tue, 05 Dec 2006 07:28:40 +1300
+Message-ID: <87r6vfh5wn.fsf@briny.internal.ondioline.org>
+References: <45733FBF.5020800@gmail.com>
+	<87y7pogj1k.fsf@briny.internal.ondioline.org>
+	<1165237252.2738.5.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:47021 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936673AbWLDSIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 13:08:43 -0500
-To: Andrew Victor <andrew@sanpeople.com>
-In-Reply-To: <1165236624.4606.111.camel@fuzzie.sanpeople.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Robert Martin <robertm83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <1165237252.2738.5.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org> (Dan Williams's
+	message of "Mon\, 04 Dec 2006 08\:00\:52 -0500")
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04 Dec 2006 14:50:24 +0200
-Andrew Victor <andrew@sanpeople.com> wrote:
+Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
 
-> A minor fix to the Atmel AT91RM9200 Ethernet driver.
-> 
-> 1. Use dev_alloc_skb() instead of alloc_skb().
-> 2. It is not necessary to adjust skb->len manually.
-> 
-> 
-> Signed-off-by: Andrew Victor <andrew@sanpeople.com>
-> 
-> 
-> diff -urN linux-2.6.19-final.orig/drivers/net/arm/at91_ether.c linux-2.6.19-final/drivers/net/arm/at91_ether.c
-> --- linux-2.6.19-final.orig/drivers/net/arm/at91_ether.c	Mon Dec  4 14:42:05 2006
-> +++ linux-2.6.19-final/drivers/net/arm/at91_ether.c	Mon Dec  4 14:43:57 2006
-> @@ -855,14 +855,13 @@
->  	while (dlist->descriptors[lp->rxBuffIndex].addr & EMAC_DESC_DONE) {
->  		p_recv = dlist->recv_buf[lp->rxBuffIndex];
->  		pktlen = dlist->descriptors[lp->rxBuffIndex].size & 0x7ff;	/* Length of frame including FCS */
-> -		skb = alloc_skb(pktlen + 2, GFP_ATOMIC);
-> +		skb = dev_alloc_skb(pktlen + 2);
->  		if (skb != NULL) {
->  			skb_reserve(skb, 2);
->  			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
->  
->  			skb->dev = dev;
->  			skb->protocol = eth_type_trans(skb, dev);
-> -			skb->len = pktlen;
->  			dev->last_rx = jiffies;
->  			lp->stats.rx_bytes += pktlen;
->  			netif_rx(skb);
+> On Mon, 2006-12-04 at 21:30 +1300, Paul Collins wrote:
+>> Robert Martin <robertm83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>> 
+>> > I seem to be having a problem associating with my AP--everything
+>> > appears fine and I can bring my wireless adapter up (the LED lights up
+>> > correctly), and I don't see complaints about firmware/IRQs in the
+>> > dmesg output.  I am able to see operating APs with an "iwlist wlan0
+>> > scan", but I am unable to connect to the AP, with or without WEP
+>> > encryption enabled (tried none, hex and ascii; nothing worked).  This
+>> > is with the latest wireless-dev pull and a vanilla 2.6.19 kernel with
+>> > "irqpoll" option enabled, otherwise it misbehaves.  I would be happy
+>> > to give more information if requested, or try different
+>> > kernel/firmware options.
+>> 
+>> I started playing with wireless-dev's bcm43xx-d80211 recently and
+>> noticed that I had to set the frequency manually.  When I did that,
+>> setting the ap manually caused the card to associate immediately.
 >
+> That sounds suspiciously like the driver either doesn't have the correct
+> scan results to be able to pick the AP's frequency, or is not correctly
+> searching those scan results to find it...  If the AP is in the scan
+> list, the driver should definitely be able to find & set the frequency
+> for the AP, _unless_ you've previously specified a non-zero frequency
+> for iwconfig ethX freq [1].  Do you see your AP in the 'iwlist wlan0
+> scan' output?
 
-Use netdev_alloc_skb instead. It sets skb->dev so you don't have to.
-Setting skb->len is redundant since that is what skb_put() does.
+Yes, this is how I noticed that iwconfig was reporting a different
+frequency to that listed in iwlist scan.
 
-It would be best if you didn't have to copy data at all and could
-receive directly into the skb.
-
-If you have to copy received data, it is better to implement NAPI since that
-allows you to copy data in soft irq. The existing code will cause poor realtime
-performance since the driver is copying received data with IRQ's disabled.
+>> Here's the sequence of commands I run.  (The driver seems stable on my
+>> hardware, so I've only had to do this twice in the last week, and then
+>> only for reasons unrelated to the driver.)
+>> 
+>>  ip link set up wlan0
+>>  iwlist wlan0 scan
+>>  iwconfig wlan0 essid $essid key $wep_key
+>>  iwconfig wlan0
+>> (note frequencies differ)
+>>  iwconfig wlan0 freq $freq_from_iwlist_scan
+>>  iwconfig wlan0 ap $ap_mac_address
+>>  dhclient wlan0
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+Paul Collins
+Wellington, New Zealand
+
+Dag vijandelijk luchtschip de huismeester is dood
