@@ -1,119 +1,28 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: Network virtualization/isolation
-Date: Mon, 4 Dec 2006 18:19:26 +0100
-Message-ID: <20061204171926.GB11687@MAIL.13thfloor.at>
-References: <453F8800.9070603@fr.ibm.com> <200612041819.01017.dim@openvz.org> <20061204164332.GA11687@MAIL.13thfloor.at> <200612042002.49094.dim@openvz.org>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: RFC: consistent disable_xfrm behaviour
+Date: Mon, 4 Dec 2006 20:20:01 +0300
+Message-ID: <20061204172001.GA17423@ms2.inr.ac.ru>
+References: <457437EA.7000406@trash.net> <XMMS.LNX.4.64.0612041005260.4314@d.namei> <45743CC1.1080904@trash.net> <20061204165253.GA11905@ms2.inr.ac.ru> <457454CF.7040308@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, hadi@cyberus.ca,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Linux Kernel ML <linux-kernel@vger.kernel.org>
+Cc: James Morris <jmorris@namei.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([213.145.232.33]:45238 "EHLO
-	MAIL.13thfloor.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757289AbWLDRT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 12:19:27 -0500
-To: Dmitry Mishin <dim@openvz.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:39869 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1758751AbWLDRUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 12:20:07 -0500
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <200612042002.49094.dim@openvz.org>
+In-Reply-To: <457454CF.7040308@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 04, 2006 at 08:02:48PM +0300, Dmitry Mishin wrote:
-> On Monday 04 December 2006 19:43, Herbert Poetzl wrote:
-> > On Mon, Dec 04, 2006 at 06:19:00PM +0300, Dmitry Mishin wrote:
-> > > On Sunday 03 December 2006 19:00, Eric W. Biederman wrote:
-> > > > Ok.  Just a quick summary of where I see the discussion.
-> > > >
-> > > > We all agree that L2 isolation is needed at some point.
-> > >
-> > > As we all agreed on this, may be it is time to send patches
-> > > one-by-one? For the beggining, I propose to resend Cedric's
-> > > empty namespace patch as base for others - it is really empty,
-> > > but necessary in order to move further.
-> > >
-> > > After this patch and the following net namespace unshare
-> > > patch will be accepted,
-> >
-> > well, I have neither seen any performance tests showing
-> > that the following is true:
-> >
-> >  - no change on network performance without the
-> >    space enabled
-> >  - no change on network performance on the host
-> >    with the network namespaces enabled
-> >  - no measureable overhead inside the network
-> >    namespace
-> >  - good scaleability for a larger number of network
-> >    namespaces
+Hello!
 
-> These questions are for complete L2 implementation, 
-> not for these 2 empty patches. 
+> Here's the patch again properly signed off.
 
-well, I fear that we will have lot of overhead
-'sneaking' in via small patches (with almost
-unnoticeable overhead) making the 2.6 branch slower
-and slower (regarding networking) so IMHO a complete
-solution should be drafted, and tested performance
-wise, we can then adjust it and possibley improve
-it, untill it shows no measureable overhead ...
+I think it is correct.
 
-but IMHO it should be developed 'outside' the kernel,
-in small and reviewable pieces which are constantly
-updated to match the recent kernels ... something
-like stacked git or quilt ...
-
-> If you need some data relating to Andrey's
-> implementation, I'll get it. Which test do you accept?
-
-hmm, I think a good mix of netperf, netpipe and
-iperf would be a good start, probably network folks
-know better tests to exercise the stack ... at least
-I hope so ...
-
-of course, a good explanation _why_ this or that
-code path does not add overhead here or there is
-nice to have too ...
-
-best,
-Herbert
-
-> > > I could send network devices virtualization patches for
-> > > review and discussion.
-> >
-> > that won't hurt ...
-> >
-> > best,
-> > Herbert
-> >
-> > > What do you think?
-> > >
-> > > > The approaches discussed for L2 and L3 are sufficiently orthogonal
-> > > > that we can implement then in either order.  You would need to
-> > > > unshare L3 to unshare L2, but if we think of them as two separate
-> > > > namespaces we are likely to be in better shape.
-> > > >
-> > > > The L3 discussion still has the problem that there has not been
-> > > > agreement on all of the semantics yet.
-> > > >
-> > > > More comments after I get some sleep.
-> > > >
-> > > > Eric
-> > > > -
-> > > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > >
-> > > --
-> > > Thanks,
-> > > Dmitry.
-> > > _______________________________________________
-> > > Containers mailing list
-> > > Containers@lists.osdl.org
-> > > https://lists.osdl.org/mailman/listinfo/containers
-> 
-> -- 
-> Thanks,
-> Dmitry.
+Alexey
