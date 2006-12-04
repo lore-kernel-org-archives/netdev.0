@@ -1,111 +1,97 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: 2.6.19-rc6-mm2: uli526x only works after reload
-Date: Mon, 4 Dec 2006 15:13:59 -0800
-Message-ID: <20061204231359.GB9413@kroah.com>
-References: <20061128020246.47e481eb.akpm@osdl.org> <20061130131240.21b1e889.akpm@osdl.org> <200611302232.03608.rjw@sisk.pl> <200612010208.29331.rjw@sisk.pl>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: Intel 82559 NIC corrupted EEPROM
+Date: Mon, 4 Dec 2006 15:26:11 -0800
+Message-ID: <4807377b0612041526k1bace33ag5d4f75826716a87@mail.gmail.com>
+References: <454B7C3A.3000308@privacy.net> <454BF0F1.5050700@zytor.com>
+	 <45506C9A.5010009@privacy.net> <4551B7B8.8080601@privacy.net>
+	 <4807377b0611080926x21bd6326xc5e7683100d20948@mail.gmail.com>
+	 <45533801.7000809@privacy.net>
+	 <4807377b0611291055o6e28c66ft9edeb3c8363dd49b@mail.gmail.com>
+	 <45704001.9040108@privacy.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	auke-jan.h.kok@intel.com, bunk@stusta.de, jgarzik@pobox.com,
+	saw@saw.sw.com.sg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:41027 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758562AbWLDXOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 18:14:17 -0500
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Received: from ug-out-1314.google.com ([66.249.92.175]:26172 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967790AbWLDX0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 18:26:15 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so3158153uga
+        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 15:26:12 -0800 (PST)
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+In-Reply-To: <45704001.9040108@privacy.net>
 Content-Disposition: inline
-In-Reply-To: <200612010208.29331.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 01, 2006 at 02:08:28AM +0100, Rafael J. Wysocki wrote:
-> On Thursday, 30 November 2006 22:32, Rafael J. Wysocki wrote:
-> > [Trimmed the Cc list a bit.]
-> > 
-> > On Thursday, 30 November 2006 22:12, Andrew Morton wrote:
-> > > On Thu, 30 Nov 2006 21:21:27 +0100
-> > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > 
-> > > > On Thursday, 30 November 2006 02:04, Rafael J. Wysocki wrote:
-> > > > > On Thursday, 30 November 2006 00:26, Andrew Morton wrote:
-> > > > > > On Thu, 30 Nov 2006 00:08:21 +0100
-> > > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > > > 
-> > > > > > > On Wednesday, 29 November 2006 22:31, Rafael J. Wysocki wrote:
-> > > > > > > > On Wednesday, 29 November 2006 22:30, Andrew Morton wrote:
-> > > > > > > > > On Wed, 29 Nov 2006 21:08:00 +0100
-> > > > > > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > > > > > > 
-> > > > > > > > > > On Wednesday, 29 November 2006 20:54, Rafael J. Wysocki wrote:
-> > > > > > > > > > > On Tuesday, 28 November 2006 11:02, Andrew Morton wrote:
-> > > > > > > > > > > > 
-> > > > > > > > > > > > Temporarily at
-> > > > > > > > > > > > 
-> > > > > > > > > > > > http://userweb.kernel.org/~akpm/2.6.19-rc6-mm2/
-> > > > > > > > > > > > 
-> > > > > > > > > > > > Will appear eventually at
-> > > > > > > > > > > > 
-> > > > > > > > > > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.19-rc6/2.6.19-rc6-mm2/
-> > > > > > > > > > > 
-> > > > > > > > > > > A minor issue: on one of my (x86-64) test boxes the uli526x driver doesn't
-> > > > > > > > > > > work when it's first loaded.  I have to rmmod and modprobe it to make it work.
-> > > > > > > > > 
-> > > > > > > > > That isn't a minor issue.
-> > > > > > > > > 
-> > > > > > > > > > > It worked just fine on -mm1, so something must have happened to it recently.
-> > > > > > > > > > 
-> > > > > > > > > > Sorry, I was wrong.  The driver doesn't work at all, even after reload.
-> > > > > > > > > > 
-> > > > > > > > > 
-> > > > > > > > > tulip-dmfe-carrier-detection-fix.patch was added in rc6-mm2.  But you're
-> > > > > > > > > not using that (corrent?)
-> > > > > > > > > 
-> > > > > > > > > git-netdev-all changes drivers/net/tulip/de2104x.c, but you're not using
-> > > > > > > > > that either.
-> > > > > > > > > 
-> > > > > > > > > git-powerpc(!) alters drivers/net/tulip/de4x5.c, but you're not using that.
-> > > > > > > > > 
-> > > > > > > > > Beats me, sorry.  Perhaps it's due to changes in networking core.  It's
-> > > > > > > > > presumably a showstopper for statically-linked-uli526x users.  If you could
-> > > > > > > > > bisect it, please?  I'd start with git-netdev-all, then tulip-*.
-> > > > > > > > 
-> > > > > > > > OK, but it'll take some time.
-> > > > > > > 
-> > > > > > > OK, done.
-> > > > > > > 
-> > > > > > > It's one of these (the first one alone doesn't compile):
-> > > > > > > 
-> > > > > > > git-netdev-all.patch
-> > > > > > > git-netdev-all-fixup.patch
-> > > > > > > libphy-dont-do-that.patch
-> > > > 
-> > > > Hm, all of these patches are the same as in -mm1 which hasn't caused any
-> > > > problems to appear on this box.
-> > > > 
-> > > > So, it seems there's another change between -mm1 and -mm2 that causes this
-> > > > to happen.
-> > > > 
-> > > 
-> > > It would be nice to eliminate libphy-dont-do-that.patch if poss - that was
-> > > a rogue akpm patch aimed at some incomprehensible gobbledigook in the
-> > > netdev tree (and to fix the current_is_keventd-not-exported-to-modules
-> > > bug).
-> > 
-> > Unfortunately the kernel doesn't compile without it ...
-> > 
-> > Well, I think I'll try to find the patch that contains the change which has
-> > triggered this.
-> 
-> It looks like the winner is:
-> 
-> gregkh-driver-driver-core-fixes-sysfs_create_link-retval-checks-in-core.c.patch
-> 
-> Without this patch there are no problems, with this patch applied the problems
-> (with uli526x, when it's the second interface and the first one is not used)
-> occur, almost 100% of the time.
+On 12/1/06, John <me@privacy.net> wrote:
+> > can you try adding mdelay(100); in e100_eeprom_load before the for loop,
+> > and then change the multiple udelay(4) to mdelay(1) in e100_eeprom_read
+>
+> I applied the attached patch.
+>
+> Loading the driver now takes around one minute :-)
 
-Ok, I've now removed this from my tree.
+ouch, but yep, thats what happens when you use "super extra delay"
 
-thanks,
+> I ran 'source load_unload' 25 times in a loop.
+>
+> The first 12 times were successful. The last 13 times failed.
+> (cf. attached archive)
+>
+> I noticed something very strange.
+>
+> The number of words obviously in error (0xFFFF) returned by the EEPROM
+> on 00:09.0 is not constant.
 
-greg k-h
+That is very strange, I would think that maybe you have something else
+on the bus with the e100 that may be hogging bus cycles you have
+failing hardware (maybe a bad eeprom, or possibly a bad mac chip)
+
+> $ grep -c 0xFFFF insmod*
+> insmod_300.txt:0
+> insmod_301.txt:0
+> insmod_302.txt:0
+> insmod_303.txt:0
+> insmod_304.txt:0
+> insmod_305.txt:0
+> insmod_306.txt:0
+> insmod_307.txt:0
+> insmod_308.txt:0
+> insmod_309.txt:0
+> insmod_310.txt:0
+> insmod_311.txt:0
+> insmod_312.txt:1
+> insmod_313.txt:5
+> insmod_314.txt:24
+> insmod_315.txt:45
+> insmod_316.txt:243
+> insmod_317.txt:256
+> insmod_318.txt:256
+> insmod_319.txt:256
+> insmod_320.txt:256
+> insmod_321.txt:256
+> insmod_322.txt:256
+> insmod_323.txt:253
+> insmod_324.txt:240
+
+this is even stranger, does it cycle back down (sine wave) to zero
+again?  The delays did seem to work, at least sometimes.  This
+indicates that something needs that extra delay to successfully read
+the eeprom.  I might try changing all the udelay(4) to udelay(40) (x10
+increase) and see if that gives you a happy medium of "most times
+driver loads without error"
+
+John, this problem seems to be very specific to your hardware.  I know
+that you have put in a lot of time debugging this, but I'm not sure
+what we can do from here.  If this were a generic code problem more
+people would be reporting the issue.
+
+What would you like to do?  At this stage I would like e100 to work
+better than it is, but I'm not sure what to do next.
+
+Thanks for your patience on this issue,
+  Jesse
