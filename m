@@ -1,64 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC][GENETLINK] introduce command names
-Date: Mon, 4 Dec 2006 17:34:51 +0100
-Message-ID: <20061204163451.GS8693@postel.suug.ch>
-References: <1165061496.3564.11.camel@localhost> <20061204092857.GO8693@postel.suug.ch> <1165237742.3664.22.camel@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NET_SCHED]: cls_fw: fix NULL pointer dereference
+Date: Mon, 04 Dec 2006 17:39:29 +0100
+Message-ID: <45744F41.8020609@trash.net>
+References: <45744016.8080707@trash.net> <1165249502.3643.9.camel@localhost> <20061204162823.GQ8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:38103 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937102AbWLDQea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 11:34:30 -0500
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1165237742.3664.22.camel@localhost>
+Received: from stinky.trash.net ([213.144.137.162]:48686 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937110AbWLDQgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:36:22 -0500
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061204162823.GQ8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-12-04 08:09
-> Just makes the discovery more knowledgeable. 
-> Theres a hidden meaning in that i would like if possible to create
-> as much of user space as possible without the user having a single line
-> written. Heres how i output the discovered families at the moment
-> without the patch.
+Thomas Graf wrote:
+> * jamal <hadi@cyberus.ca> 2006-12-04 11:25
 > 
-> -----
-> hadi@lilsol:~/git-trees/iproute2/nov22/genl$ ./genl ctrl ls
-> Added Family  Name: nlctrl
->         ID: 0x10  Version: 0x1  header size: 0  max attribs: 6 
->         commands supported: 
->                 #1:  ID-0x3  flags-0x0 
->                         Capabilities:  has policy; can doit; can dumpit
+>>On Mon, 2006-04-12 at 16:34 +0100, Patrick McHardy wrote:
+>>
+>>>Fix a regression from my nfmark mask patch for cls_fw.
+>>>
+>>>Thomas, Jamal, do you have an idea what this "old method" stuff
+>>>is used for? It seems it is only used during the below mentioned
+>>>race.
+>>
+>>AFAIK, that has been there forever. Alexey may know. I am not
+>>sure if removing it will break any scripts etc.
 > 
-> Added Family  Name: TASKSTATS
->         ID: 0x11  Version: 0x1  header size: 0  max attribs: 4 
->         commands supported: 
->                 #1:  ID-0x1  flags-0x0 
->                         Capabilities:  has policy; can doit;
 > 
-> hadi@lilsol:~/git-trees/iproute2/nov22/genl$ 
-> -----------
-> 
-> It would be a lot more human friendly to put better readability in the
-> commands.
+> You mean the scripts get upset when the kernel oopses?
 
-I don't agree to waste so much text section just to fancy up some
-userspace tool which is mainly a toy while developing. If you
-really need it, do it in userspace like libnl.
+Well, it won't oops without my broken patch :)
 
-> > Userspace should
-> > be aware of operation numbers when using it. I'm all for this if
-> > the direction is to move towards having some form of scriptable
-> > genetlink tool which can be used to communicate with simple genetlink
-> > families.
-> > 
-> 
-> That is the real agenda actually. To be honest i dont know how realistic
-> it would be. But one of the next things is to output the command
-> policies.
+It just seems this code is entirely useless and the only
+thing it does is cause short term unexpected behaviour
+during the race I mentioned.
 
-Once we go that path we can reconsider a patch based on this which
-includes the bits to dump the information to userspace. Until then
-I don't see the point in this.
+One thing we should probably do is to move the tp->root
+allocation to the init function in cls_fw and the others
+implementing it as dummy to at least close the race
+between ->init and ->change. I'll look into that as a
+follow-up patch.
