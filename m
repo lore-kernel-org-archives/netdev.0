@@ -1,33 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][XFRM] Optimize policy dumping
-Date: Mon, 04 Dec 2006 18:59:31 +0100
-Message-ID: <45746203.2030400@trash.net>
-References: <1165158707.3517.92.camel@localhost>	 <45741386.5070002@trash.net> <1165238776.3664.40.camel@localhost>	 <45742825.8040004@trash.net>  <45742964.9000905@trash.net>	 <1165240725.3664.72.camel@localhost>  <1165241100.3664.75.camel@localhost>	 <1165246635.3643.6.camel@localhost>  <457444E0.8060801@trash.net> <1165254213.3643.25.camel@localhost>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 10/10] chelesio: transmit locking (plus bug fix).
+Date: Mon, 4 Dec 2006 09:58:28 -0800
+Message-ID: <20061204095828.0e50f359@freekitty>
+References: <20061202003612.573260000@osdl.org>
+	<20061202003707.873200000@osdl.org>
+	<5cac192f0612030245j434db528sd7bc755408827cf7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50254 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932068AbWLDR4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 12:56:23 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1165254213.3643.25.camel@localhost>
+Received: from smtp.osdl.org ([65.172.181.25]:45845 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936085AbWLDR6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 12:58:40 -0500
+To: "Eric Lemoine" <eric.lemoine@gmail.com>
+In-Reply-To: <5cac192f0612030245j434db528sd7bc755408827cf7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Ok, both looked good except for the test of a single entry.
-> This was because you would break out of the loop with count of 0.
-> The patch against yours would look like something attached for the state
-> case. Dont forget there are two spots on the policy side of things;->
+On Sun, 3 Dec 2006 11:45:09 +0100
+"Eric Lemoine" <eric.lemoine@gmail.com> wrote:
 
-You're right, that case was also broken. With your patch on top
-it looks all right.
-
-> You can either submit both patches or i could later today. If you do,
-> please look at some of the comments i made in the first patch and
-> include them. 
-
-I'd prefer if you did it since you're already testing the thing :)
+> Stephen,
+> 
+> On 12/2/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+> > If transmit lock is contended on, then push return code back
+> > and retry at higher level.
+> 
+> Looking at qdisc_restart, it seems to me that the NETDEV_TX_LOCKED
+> return code must only be used if the device features LLTX. With your
+> patch, if q->lock is already grabbed, qdisc_restart is going to
+> requeue skb without going through the collision section of
+> qdisc_restart.
+>
+The Chelsio driver already sets LLTX (see drivers/net/chelsio/cxgb2.c)
