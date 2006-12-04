@@ -1,152 +1,31 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Mon, 4 Dec 2006 14:08:26 +0300
-Message-ID: <20061204110825.GA26251@2ka.mipt.ru>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202224958.27014.65970.stgit@dell3.ogc.int>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH 2.6.18] declance: Support the I/O ASIC LANCE w/o TURBOchannel
+Date: Mon, 4 Dec 2006 12:06:08 +0000 (GMT)
+Message-ID: <Pine.LNX.4.64N.0612041204580.12525@blysk.ds.pg.gda.pl>
+References: <Pine.LNX.4.64N.0611301306460.1757@blysk.ds.pg.gda.pl>
+ <45710CFE.5090007@pobox.com> <20061201214626.1c50dd38.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: rdreier@cisco.com, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:6363 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S935957AbWLDLMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 06:12:02 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-Content-Disposition: inline
-In-Reply-To: <20061202224958.27014.65970.stgit@dell3.ogc.int>
+Received: from pollux.ds.pg.gda.pl ([153.19.208.7]:41736 "EHLO
+	pollux.ds.pg.gda.pl") by vger.kernel.org with ESMTP
+	id S1759001AbWLDMGM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 07:06:12 -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061201214626.1c50dd38.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 02, 2006 at 04:49:58PM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
-> +static int send_halfclose(struct iwch_ep *ep, gfp_t gfp)
-> +{
-> +	struct cpl_close_con_req *req;
-> +	struct sk_buff *skb;
-> +
-> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
-> +	skb = get_skb(NULL, sizeof(*req), gfp);
-> +	if (!skb) {
-> +		printk(KERN_ERR MOD "%s - failed to alloc skb\n", __FUNCTION__);
-> +		return -ENOMEM;
-> +	}
-> +	skb->priority = CPL_PRIORITY_DATA;
-> +	set_arp_failure_handler(skb, arp_failure_discard);
-> +	req = (struct cpl_close_con_req *) skb_put(skb, sizeof(*req));
-> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_CLOSE_CON));
-> +	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
-> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_CON_REQ, ep->hwtid));
-> +	l2t_send(ep->com.tdev, skb, ep->l2t);
-> +	return 0;
-> +}
-> +
-> +static int send_abort(struct iwch_ep *ep, struct sk_buff *skb, gfp_t gfp)
-> +{
-> +	struct cpl_abort_req *req;
-> +
-> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
-> +	skb = get_skb(skb, sizeof(*req), gfp);
-> +	if (!skb) {
-> +		printk(KERN_ERR MOD "%s - failed to alloc skb.\n",
-> +		       __FUNCTION__);
-> +		return -ENOMEM;
-> +	}
-> +	skb->priority = CPL_PRIORITY_DATA;
-> +	set_arp_failure_handler(skb, abort_arp_failure);
-> +	req = (struct cpl_abort_req *) skb_put(skb, sizeof(*req));
-> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_REQ));
-> +	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
-> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ABORT_REQ, ep->hwtid));
-> +	req->cmd = CPL_ABORT_SEND_RST;
-> +	l2t_send(ep->com.tdev, skb, ep->l2t);
-> +	return 0;
-> +}
-> +
-> +static int send_connect(struct iwch_ep *ep)
-> +{
-> +	struct cpl_act_open_req *req;
-> +	struct sk_buff *skb;
-> +	u32 opt0h, opt0l, opt2;
-> +	unsigned int mtu_idx;
-> +	int wscale;
-> +
-> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
-> +
-> +	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
-> +	if (!skb) {
-> +		printk(KERN_ERR MOD "%s - failed to alloc skb.\n",
-> +		       __FUNCTION__);
-> +		return -ENOMEM;
-> +	}
-> +	mtu_idx = find_best_mtu(T3C_DATA(ep->com.tdev), dst_mtu(ep->dst));
-> +	wscale = compute_wscale(rcv_win);
-> +	opt0h = V_NAGLE(0) |
-> +	    V_NO_CONG(nocong) |
-> +	    V_KEEP_ALIVE(1) |
-> +	    F_TCAM_BYPASS |
-> +	    V_WND_SCALE(wscale) |
-> +	    V_MSS_IDX(mtu_idx) |
-> +	    V_L2T_IDX(ep->l2t->idx) | V_TX_CHANNEL(ep->l2t->smt_idx);
-> +	opt0l = V_TOS((ep->tos >> 2) & M_TOS) | V_RCV_BUFSIZ(rcv_win>>10);
-> +	opt2 = V_FLAVORS_VALID(0) | V_CONG_CONTROL_FLAVOR(0);
-> +	skb->priority = CPL_PRIORITY_SETUP;
-> +	set_arp_failure_handler(skb, act_open_req_arp_failure);
-> +
-> +	req = (struct cpl_act_open_req *) skb_put(skb, sizeof(*req));
-> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ, ep->atid));
-> +	req->local_port = ep->com.local_addr.sin_port;
-> +	req->peer_port = ep->com.remote_addr.sin_port;
-> +	req->local_ip = ep->com.local_addr.sin_addr.s_addr;
-> +	req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
-> +	req->opt0h = htonl(opt0h);
-> +	req->opt0l = htonl(opt0l);
-> +	req->params = 0;
-> +	req->opt2 = htonl(opt2);
-> +	l2t_send(ep->com.tdev, skb, ep->l2t);
-> +	return 0;
-> +}
+On Fri, 1 Dec 2006, Andrew Morton wrote:
 
-...
+> > can you (or Andrew) please resend your patches against 2.6.19?
+> > 
+> 
+> I have then all (I think) queued up.  Will send once I've done a round
+> of build-testing.
 
-> +static int act_establish(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
-> +{
-> +	struct iwch_ep *ep = ctx;
-> +	struct cpl_act_establish *req = cplhdr(skb);
-> +	unsigned int tid = GET_TID(req);
-> +
-> +	PDBG("%s ep %p tid %d\n", __FUNCTION__, ep, tid);
-> +
-> +	dst_confirm(ep->dst);
-> +
-> +	/* setup the hwtid for this connection */
-> +	ep->hwtid = tid;
-> +	cxgb3_insert_tid(ep->com.tdev, &t3c_client, ep, tid);
-> +
-> +	ep->snd_seq = ntohl(req->snd_isn);
-> +
-> +	set_emss(ep, ntohs(req->tcp_opt));
-> +
-> +	/* dealloc the atid */
-> +	cxgb3_free_atid(ep->com.tdev, ep->atid);
-> +
-> +	/* start MPA negotiation */
-> +	send_mpa_req(ep, skb);
-> +
-> +	return 0;
-> +}
-> +
-> +static void abort_connection(struct iwch_ep *ep, struct sk_buff *skb)
-> +{
-> +	PDBG("%s ep %p\n", __FILE__, ep);
-> +	state_set(&ep->com, ABORTING);
-> +	send_abort(ep, skb, GFP_KERNEL);
-> +}
+ Thanks a lot, Andrew.
 
-Could you convince network core developers that it is not own TCP
-implementation which will mess with existing one?
-
-This and a lot of other changes in this driver definitely says you
-implement your own stack of protocols on top of infiniband hardware.
-
--- 
-	Evgeniy Polyakov
+  Maciej
