@@ -1,49 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: NETDEV-BCM43XX BUG - Failure to associate AP with latest
-	devscape git pull..
-Date: Mon, 04 Dec 2006 09:45:50 +0100
-Message-ID: <1165221950.5553.49.camel@johannes.berg>
-References: <45733FBF.5020800@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless
+	radio
+Date: Mon, 04 Dec 2006 09:53:43 +0100
+Message-ID: <1165222423.12640.15.camel@localhost>
+References: <200612031936.34343.IvDoorn@gmail.com>
+	 <1165175065.3178.10.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Uk7rnucMQ2bbktdsydgU"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Ivo van Doorn <ivdoorn@gmail.com>,
+	Dmitry Torokhov <dtor@insightbb.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Lennart Poettering <lennart@poettering.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>, davidz@redhat.com,
+	Bastien Nocera <bnocera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:52617 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1759171AbWLDIpz
+Received: from coyote.holtmann.net ([217.160.111.169]:51911 "EHLO
+	mail.holtmann.net") by vger.kernel.org with ESMTP id S1759735AbWLDIyS
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 03:45:55 -0500
-To: Robert Martin <robertm83@gmail.com>
-In-Reply-To: <45733FBF.5020800@gmail.com>
+	Mon, 4 Dec 2006 03:54:18 -0500
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1165175065.3178.10.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Dan,
 
---=-Uk7rnucMQ2bbktdsydgU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> 3) How does this interact with HAL?  What's the userspace interface that
+> HAL will listen to to receive the signals?  NetworkManager will need to
+> listen to HAL for these, as rfkill switches are one big thing that NM
+> does not handle now due to lack of a standard mechanism.
+> 
+> In any case, any movement on rfkill interface/handling standardization
+> is quite welcome :)
 
-On Sun, 2006-12-03 at 16:21 -0500, Robert Martin wrote:
+I want some handling for the Bluetooth rfkill in HAL, so our config
+application can physically turn on/off the Bluetooth chip with a simple
+method call to the HAL D-Bus interface. We also need to discover the
+existence of such a rfkill switch.
 
-> I would be happy to give more=20
-> information if requested, or try different kernel/firmware options.
+Regards
 
-Has it ever worked? I'm curious because the PCI-E chips are 4318s which
-are known to not work properly due to missing/wrong TX power
-calibration.
+Marcel
 
-johannes
-
---=-Uk7rnucMQ2bbktdsydgU
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFc+A+/ETPhpq3jKURAkm7AJ9AkmvYwsKfgfD+RHbWzpMMjcJitwCdEtHK
-dTaI+qgZBjAJN/rbFRuVM9A=
-=hh/n
------END PGP SIGNATURE-----
-
---=-Uk7rnucMQ2bbktdsydgU--
 
