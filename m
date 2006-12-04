@@ -1,35 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [NET_SCHED]: cls_fw: fix NULL pointer dereference
-Date: Mon, 4 Dec 2006 17:28:23 +0100
-Message-ID: <20061204162823.GQ8693@postel.suug.ch>
-References: <45744016.8080707@trash.net> <1165249502.3643.9.camel@localhost>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH  v2 03/13] Provider Methods and Data Structures
+Date: Mon, 04 Dec 2006 10:28:25 -0600
+Message-ID: <1165249706.32724.35.camel@stevo-desktop>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
+	 <20061202224947.27014.59189.stgit@dell3.ogc.int>
+	 <1165147639.3233.211.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:38067 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937094AbWLDQ2D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 11:28:03 -0500
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1165249502.3643.9.camel@localhost>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:60491 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S937098AbWLDQ2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:28:25 -0500
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1165147639.3233.211.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-12-04 11:25
-> On Mon, 2006-04-12 at 16:34 +0100, Patrick McHardy wrote:
-> > Fix a regression from my nfmark mask patch for cls_fw.
-> > 
-> > Thomas, Jamal, do you have an idea what this "old method" stuff
-> > is used for? It seems it is only used during the below mentioned
-> > race.
+On Sun, 2006-12-03 at 13:07 +0100, Arjan van de Ven wrote:
+> On Sat, 2006-12-02 at 16:49 -0600, Steve Wise wrote:
 > 
-> AFAIK, that has been there forever. Alexey may know. I am not
-> sure if removing it will break any scripts etc.
+> > +
+> > +static struct ib_ah *iwch_ah_create(struct ib_pd *pd,
+> > +				    struct ib_ah_attr *ah_attr)
+> > +{
+> > +	return ERR_PTR(-ENOSYS);
+> > +}
+> 
+> 
+> -ENOSYS is just about ALWAYS a bug in that it's guaranteed to be the
+> wrong error code ;)
 
-You mean the scripts get upset when the kernel oopses?
+This is a method that is not supported by the iWARP transport.  ENOSYS
+indicates this.  I _think_ this is SOP for the infinband subsystem.
 
-Very good spotting Patrick!
+Roland, I think at one time we were talking about changing the Core to
+better handle this?  Either with attributes/capabilities that the low
+level driver can set, or by set these method ptrs to NULL and the core
+should handle it in the wrapper function...
+
+
+Steve.
+
