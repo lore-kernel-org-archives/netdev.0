@@ -1,98 +1,150 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH][IPSEC][6/7] inter address family ipsec tunnel
-Date: Mon, 04 Dec 2006 11:50:09 +0900
-Message-ID: <45738CE1.3070304@miyazawa.org>
-References: <20061130.170503.35356518.davem@davemloft.net>	<456FB878.4080109@miyazawa.org>	<20061203.175847.08320724.davem@davemloft.net> <20061203.182814.74748972.davem@davemloft.net>
+Date: Sun, 03 Dec 2006 19:12:08 -0800 (PST)
+Message-ID: <20061203.191208.74749805.davem@davemloft.net>
+References: <20061203.175847.08320724.davem@davemloft.net>
+	<20061203.182814.74748972.davem@davemloft.net>
+	<45738CE1.3070304@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:11980 "EHLO
-	miyazawa.org") by vger.kernel.org with ESMTP id S1759030AbWLDCus
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Dec 2006 21:50:48 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061203.182814.74748972.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47844
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1759712AbWLDDMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Dec 2006 22:12:30 -0500
+To: kazunori@miyazawa.org
+In-Reply-To: <45738CE1.3070304@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Date: Mon, 04 Dec 2006 11:50:09 +0900
 
-Thank you for your tracing the bug.
+> Thank you for your tracing the bug.
+> 
+> I understood the issue.
+> Mmm, if we can not use ut->family, can we use
+> ut->id.family instead?
+> 
+> Or is it also uninitialized?
 
-I understood the issue.
-Mmm, if we can not use ut->family, can we use
-ut->id.family instead?
+struct xfrm_id does not have a family field
 
-Or is it also uninitialized?
+struct xfrm_id
+{
+	xfrm_address_t	daddr;
+	__be32		spi;
+	__u8		proto;
+};
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Sun, 03 Dec 2006 17:58:47 -0800 (PST)
-> 
->> Kazunori, a bug from the changes I did apply:
->>
->> [  761.318131] kernel BUG at net/key/af_key.c:1925!
-> 
-> I found the problem, it's because of the xfrm_user.c change where
-> we clobber the xp->family value with ut->family.
-> 
-> But we never ever verified nor cared about the ut->family value
-> because previously templates were all of the same family as the
-> policy, so there was no reason to check or verify the ut->family
-> value.
-> 
-> So applications left it at zero.
-> 
-> This means you did no testing of the xfrm_user.c netlink changes.
-> 
-> We can "fix" this with some patch like the below, changing
-> ut->family to xp->family if it is left at zero, but it is clear
-> that since we've never checked this value it can be any value.
-> What if it is left uninitialized by the application and the
-> garbage value just happens to be AF_INET6 or something?
-> 
-> To me this means that ut->family is %100 unreliable and we cannot
-> count on it in any way, and we'll need to specify the family in
-> some other way.
-> 
-> BTW, is it OK to clobber the entire policy's xp->family with the
-> top-most ut->family?  Shouldn't the application set the policy's
-> family to AF_INET6 if it wants the outer-most template to be
-> AF_INET6?
-> 
-> How can changing the policy family be valid?  Doing this means we'll
-> interpret the selectors of the policy differently from what the
-> application originally provided.  This setting of xp->family therefore
-> cannot make any sense, it must remain at whatever value the
-> application gave us.
-> 
-> I really regret applying these patches, they are in a very bad shape
-> and poorly designed.  Now every openswan user will get an OOPS
-> when they try to bring up their tunnels with Linus's current tree.
-> 
-> I think instead of the patch below, I'm going to revert at least
-> the xfrm_user part of these changes. :-/
-> 
-> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-> index 6f97665..76c7cdc 100644
-> --- a/net/xfrm/xfrm_user.c
-> +++ b/net/xfrm/xfrm_user.c
-> @@ -857,6 +857,11 @@ static void copy_templates(struct xfrm_p
->  {
->  	int i;
->  
-> +
-> +	/* Backward compat for older applications.  */
-> +	if (ut->family == 0)
-> +		ut->family = xp->family;
-> +
->  	xp->xfrm_nr = nr;
->  	xp->family = ut->family;
->  	for (i = 0; i < nr; i++, ut++) {
-> 
+That's what ut->id is.
 
---
-Kazunori Miyazawa
+You're thinking of xfrm_usersa_id, which is used by
+another structure, xfrm_aevent_id.
+
+For the time being I'm thinking of using the following
+patch.  I removed the xp->family clobbering, the AF_KEY
+changes don't do this, so there is no reason for the
+xfrm_user side to do it either.
+
+Every path that leads to copy_templates() will perform
+a validate_tmpl() which will change ut->family == 0
+to the policy's family value.  Any other non-supported
+value will trigger an error.
+
+Let's hope this fix is sufficient.  I'm about to test
+this now.
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 6f97665..311205f 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -858,7 +858,6 @@ static void copy_templates(struct xfrm_p
+ 	int i;
+ 
+ 	xp->xfrm_nr = nr;
+-	xp->family = ut->family;
+ 	for (i = 0; i < nr; i++, ut++) {
+ 		struct xfrm_tmpl *t = &xp->xfrm_vec[i];
+ 
+@@ -876,19 +875,53 @@ static void copy_templates(struct xfrm_p
+ 	}
+ }
+ 
++static int validate_tmpl(int nr, struct xfrm_user_tmpl *ut, u16 family)
++{
++	int i;
++
++	if (nr > XFRM_MAX_DEPTH)
++		return -EINVAL;
++
++	for (i = 0; i < nr; i++) {
++		/* We never validated the ut->family value, so many
++		 * applications simply leave it at zero.  The check was
++		 * never made and ut->family was ignored because all
++		 * templates could be assumed to have the same family as
++		 * the policy itself.  Now that we will have ipv4-in-ipv6
++		 * and ipv6-in-ipv4 tunnels, this is no longer true.
++		 */
++		if (!ut[i].family)
++			ut[i].family = family;
++
++		switch (ut[i].family) {
++		case AF_INET:
++			break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		case AF_INET6:
++			break;
++#endif
++		default:
++			return -EINVAL;
++		};
++	}
++
++	return 0;
++}
++
+ static int copy_from_user_tmpl(struct xfrm_policy *pol, struct rtattr **xfrma)
+ {
+ 	struct rtattr *rt = xfrma[XFRMA_TMPL-1];
+-	struct xfrm_user_tmpl *utmpl;
+-	int nr;
+ 
+ 	if (!rt) {
+ 		pol->xfrm_nr = 0;
+ 	} else {
+-		nr = (rt->rta_len - sizeof(*rt)) / sizeof(*utmpl);
++		struct xfrm_user_tmpl *utmpl = RTA_DATA(rt);
++		int nr = (rt->rta_len - sizeof(*rt)) / sizeof(*utmpl);
++		int err;
+ 
+-		if (nr > XFRM_MAX_DEPTH)
+-			return -EINVAL;
++		err = validate_tmpl(nr, utmpl, pol->family);
++		if (err)
++			return err;
+ 
+ 		copy_templates(pol, RTA_DATA(rt), nr);
+ 	}
+@@ -1530,7 +1563,8 @@ static int xfrm_add_acquire(struct sk_bu
+ 	}
+ 
+ 	/*   build an XP */
+-	xp = xfrm_policy_construct(&ua->policy, (struct rtattr **) xfrma, &err);        if (!xp) {
++	xp = xfrm_policy_construct(&ua->policy, (struct rtattr **) xfrma, &err);
++	if (!xp) {
+ 		kfree(x);
+ 		return err;
+ 	}
+@@ -1979,7 +2013,7 @@ #endif
+ 		return NULL;
+ 
+ 	nr = ((len - sizeof(*p)) / sizeof(*ut));
+-	if (nr > XFRM_MAX_DEPTH)
++	if (validate_tmpl(nr, ut, p->sel.family))
+ 		return NULL;
+ 
+ 	if (p->dir > XFRM_POLICY_OUT)
