@@ -1,53 +1,32 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][XFRM] Optimize policy dumping
-Date: Mon, 04 Dec 2006 10:37:15 -0500
-Message-ID: <1165246635.3643.6.camel@localhost>
-References: <1165158707.3517.92.camel@localhost>
-	 <45741386.5070002@trash.net> <1165238776.3664.40.camel@localhost>
-	 <45742825.8040004@trash.net>  <45742964.9000905@trash.net>
-	 <1165240725.3664.72.camel@localhost>  <1165241100.3664.75.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Mon, 04 Dec 2006 07:45:52 -0800
+Message-ID: <ada8xhnk6kv.fsf@cisco.com>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
+	<20061202224958.27014.65970.stgit@dell3.ogc.int>
+	<20061204110825.GA26251@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.227]:58317 "EHLO
-	nz-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S937030AbWLDPhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 10:37:21 -0500
-Received: by nz-out-0102.google.com with SMTP id s1so1884360nze
-        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 07:37:19 -0800 (PST)
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <1165241100.3664.75.camel@localhost>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:33704 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936981AbWLDPqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 10:46:03 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061204110825.GA26251@2ka.mipt.ru> (Evgeniy Polyakov's message of "Mon, 4 Dec 2006 14:08:26 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-04-12 at 09:05 -0500, jamal wrote:
-> Patrick,
-> 
-> Your approach is much cleaner. Let me give these a few tests then
-> I will repost later today; forget about the callback approach for now.
-> 
+ > Could you convince network core developers that it is not own TCP
+ > implementation which will mess with existing one?
 
-I have just applied the policy patch; havent compiled or tested (the
-setup takes me a while to put together). But by staring, I am seeing
-that you will end up with the same thing of sending a NULL or the same
-entry twice.
+I'm not qualified to comment on this...
 
-Consider a simple hypothetical test. You have one one entry in the 
-xfrm_policy_inexact table that matches. It happens to be the fifth out
-of 10 elements. You find it at the 5th iteration. At the sixth iteration
-you send it and last becomes null. 
+ > This and a lot of other changes in this driver definitely says you
+ > implement your own stack of protocols on top of infiniband hardware.
 
-All the way down, you call func with a NULL entry. You could add a check
-to make sure it only gets invoked when last is not null, but the result
-is in such a case, you will never send a 0 count element. I am sure
-there could be other tricky scenarios like this that could be
-constructed.
+...but I do know this driver is for 10-gig ethernet HW.
 
-Thoughts.
-
-cheers,
-jamal
-
+ - R.
