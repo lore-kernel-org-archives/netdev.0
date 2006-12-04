@@ -1,74 +1,79 @@
-From: weidong <weid@nanjing-fnst.com>
-Subject: [patch] Fix SNMPv2 "ipOutNoRoutes" counter error
-Date: Mon, 4 Dec 2006 07:10:31 +0000 (UTC)
-Message-ID: <1165337386.2545.4.camel@LINE>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: d80211-drivers updated (zd1211rw-d80211 synced with zd1211rw)
+Date: Mon, 4 Dec 2006 02:50:39 -0500
+Message-ID: <200612040250.43955.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart27101685.FISB4SX8rk";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:54732 "EHLO proxy.fnst.com.cn")
-	by vger.kernel.org with ESMTP id S1758807AbWLDHKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 02:10:17 -0500
-To: netdev@vger.kernel.org
-Date: Tue, 05 Dec 2006 11:49:46 -0500
+Received: from server8.tchmachines.com ([216.180.241.250]:59032 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1759005AbWLDHv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 02:51:29 -0500
+To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All:
-    When I tested linux kernel 2.6.18.3, and find that kernel statistics
-about IPSTATS_MIB_OUTNOROUTES which exsits in file /proc/net/snmp
-doesn't increase correctly.  The criteria conform to RFC2011:
+--nextPart27101685.FISB4SX8rk
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-  ipOutNoRoutes OBJECT-TYPE
-    SYNTAX      Counter32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION
-            "The number of IP datagrams discarded because no route could
-            be found to transmit them to their destination.  Note that
-            this counter includes any packets counted in ipForwDatagrams
-            which meet this `no-route' criterion.  Note that this
-            includes any datagrams which a host cannot route because all
-            of its default routers are down."
-    ::= { ip 12 }
+Hi,
+	I've just "ported" 8 patches that were in the wireless-2.6 version of=20
+zd1211rw that weren't in the wireless-dev version. All of them, except for=
+=20
+the cleanups patch, applied with just an offset, and all of the broken hunk=
+s=20
+in the cleanups patch were just thrown away since the code they were=20
+modifying doesn't exist anymore.
 
-When a host received an IP packet, but the destination address is not
-this host. The kernel just discards the IP packet but with no increment
-for this counter.
+      zd1211rw-d80211: Fix of a locking bug
+      zd1211rw-d80211: Revert "zd1211rw: Removed unneeded packed attributes"
+      zd1211rw-d80211: Add 3 more device IDs
+      zd1211rw-d80211: Add ID for ZyXEL G-220
+      zd1211rw-d80211: Add ID for Planex GW-US54Mini
+      zd1211rw-d80211: Add ID for Belkin F5D7050 v4000
+      zd1211rw-d80211: cleanups
+      zd1211rw-d80211: Optimized handling of zero length entries in length=
+=20
+info
 
-When a router received an IP packet that this router can't forward due
-to no route found. Kernel just simply invoke ip_error(), and send ICMP
-packet. Also do nothing for this counter.
+git://git.kernel.org/pub/scm/linux/kernel/git/mwu/d80211-drivers.git
 
-Signed-off-by: Wei Dong <weid@nanjing-fnst.com>
+These patches are in the week-48 branch. (I think it should actually be=20
+week-49, but I realized after I committed..) I'll post a pull request at th=
+e=20
+end of every week when there are patches and branch. Patches sent here can =
+be=20
+expected to be merged in a day. Other (d80211) wireless drivers are welcome=
+=20
+to send patches this way if they do not have their own git tree for Linvill=
+e=20
+to pull.
 
-diff -ruN old/net/ipv4/icmp.c new/net/ipv4/icmp.c
---- old/net/ipv4/icmp.c	2006-09-20 00:42:06.000000000 -0300
-+++ new/net/ipv4/icmp.c	2006-12-04 11:46:39.000000000 -0300
-@@ -580,6 +580,9 @@
- 		icmp_param.data_len = room;
- 	icmp_param.head_len = sizeof(struct icmphdr);
- 
-+	if (code == ICMP_NET_UNREACH)
-+		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
-+
- 	icmp_push_reply(&icmp_param, &ipc, rt);
- ende:
- 	ip_rt_put(rt);
-diff -ruN old/net/ipv4/ip_input.c new/net/ipv4/ip_input.c
---- old/net/ipv4/ip_input.c	2006-09-20 00:42:06.000000000 -0300
-+++ new/net/ipv4/ip_input.c	2006-11-29 11:15:52.000000000 -0300
-@@ -340,8 +340,10 @@
- 		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
- 					 skb->dev);
- 		if (unlikely(err)) {
--			if (err == -EHOSTUNREACH)
-+			if (err == -EHOSTUNREACH) {
- 				IP_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
-+				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
-+			}
- 			goto drop; 
- 		}
- 	}
+Currently, patches are going into the week-48 branch, but I will switch to=
+=20
+putting patches in the master branch and branching off master before every=
+=20
+pull request for next week.
 
+=2DMichael Wu
 
+--nextPart27101685.FISB4SX8rk
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFc9NTT3Oqt9AH4aERAt3gAKCommktFVBX59LIsrL3vv5fh9s2SQCgkD7C
+kgfhpON4EPbS7itVLMZSZlI=
+=S0RP
+-----END PGP SIGNATURE-----
+
+--nextPart27101685.FISB4SX8rk--
