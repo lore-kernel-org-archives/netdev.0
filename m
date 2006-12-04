@@ -1,93 +1,133 @@
-From: Dmitry Mishin <dim@openvz.org>
-Subject: Re: Network virtualization/isolation
-Date: Mon, 4 Dec 2006 20:02:48 +0300
-Message-ID: <200612042002.49094.dim@openvz.org>
-References: <453F8800.9070603@fr.ibm.com> <200612041819.01017.dim@openvz.org> <20061204164332.GA11687@MAIL.13thfloor.at>
+From: Dan Nicolaescu <dann@ics.uci.edu>
+Subject: [patch] add net_device_stats support to ethtool
+Date: Mon, 04 Dec 2006 09:06:18 -0800
+Message-ID: <200612041706.kB4H6KKY016426@oogie-boogie.ics.uci.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Mishin <dim@openvz.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, hadi@cyberus.ca,
-	Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:47742 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937196AbWLDRDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 12:03:19 -0500
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20061204164332.GA11687@MAIL.13thfloor.at>
-Content-Disposition: inline
+Received: from oogie-boogie.ics.uci.edu ([128.195.1.41]:48837 "EHLO
+	oogie-boogie.ics.uci.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937200AbWLDRGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 12:06:37 -0500
+Received: from mothra.ics.uci.edu (mothra.ics.uci.edu [128.195.6.93])
+	by oogie-boogie.ics.uci.edu (8.13.6/8.13.6) with ESMTP id kB4H6KKY016426
+	for <netdev@vger.kernel.org>; Mon, 4 Dec 2006 09:06:20 -0800 (PST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 04 December 2006 19:43, Herbert Poetzl wrote:
-> On Mon, Dec 04, 2006 at 06:19:00PM +0300, Dmitry Mishin wrote:
-> > On Sunday 03 December 2006 19:00, Eric W. Biederman wrote:
-> > > Ok.  Just a quick summary of where I see the discussion.
-> > >
-> > > We all agree that L2 isolation is needed at some point.
-> >
-> > As we all agreed on this, may be it is time to send patches
-> > one-by-one? For the beggining, I propose to resend Cedric's
-> > empty namespace patch as base for others - it is really empty,
-> > but necessary in order to move further.
-> >
-> > After this patch and the following net namespace unshare
-> > patch will be accepted,
->
-> well, I have neither seen any performance tests showing
-> that the following is true:
->
->  - no change on network performance without the
->    space enabled
->  - no change on network performance on the host
->    with the network namespaces enabled
->  - no measureable overhead inside the network
->    namespace
->  - good scaleability for a larger number of network
->    namespaces
-These questions are for complete L2 implementation, not for these 2 empty 
-patches. If you need some data relating to Andrey's implementation, I'll get 
-it. Which test do you accept?
- 
->
-> > I could send network devices virtualization patches for
-> > review and discussion.
->
-> that won't hurt ...
->
-> best,
-> Herbert
->
-> > What do you think?
-> >
-> > > The approaches discussed for L2 and L3 are sufficiently orthogonal
-> > > that we can implement then in either order.  You would need to
-> > > unshare L3 to unshare L2, but if we think of them as two separate
-> > > namespaces we are likely to be in better shape.
-> > >
-> > > The L3 discussion still has the problem that there has not been
-> > > agreement on all of the semantics yet.
-> > >
-> > > More comments after I get some sleep.
-> > >
-> > > Eric
-> > > -
-> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> > --
-> > Thanks,
-> > Dmitry.
-> > _______________________________________________
-> > Containers mailing list
-> > Containers@lists.osdl.org
-> > https://lists.osdl.org/mailman/listinfo/containers
+Hi,
 
--- 
-Thanks,
-Dmitry.
+"ethtool -S" only supports devices that have custom code written to
+print the stats. A lot of drivers use "struct net_device_stats", so
+adding code to ethtool would make it very easy for such drivers to
+add support for "ethtool -S". The drivers would just need to add this: 
+
+	.get_strings	   = ethtool_op_net_device_stats_get_strings,
+	.get_stats_count   = ethtool_op_net_device_stats_get_stats_count,
+	.get_ethtool_stats = ethtool_op_net_device_get_ethtool_stats,
+
+ to their struct ethtool_ops
+
+
+(The function names are not the best... Suggestions for better ones
+are welcome)
+
+Is there any interest to have this in the kernel? 
+
+The patch contains straightforward implementation for the
+.get_strings, .get_stats_count and .get_ethtool_stats ethtool_ops methods.
+
+Thanks
+        --Dan
+
+--- ethtool.c~	2004-12-24 13:35:50.000000000 -0800
++++ ethtool.c	2006-12-01 08:55:26.000000000 -0800
+@@ -809,6 +809,64 @@
+ 	return -EOPNOTSUPP;
+ }
+ 
++
++#define NET_DEVICE_NUM_STATS (sizeof(struct net_device_stats) / sizeof(unsigned long))
++
++static struct {
++	const char string[ETH_GSTRING_LEN];
++} ethtool_net_device_stats_keys[NET_DEVICE_NUM_STATS] = {
++	{ "rx_packets"},	 
++	{ "tx_packets"},	 
++	{ "rx_bytes"},	 
++	{ "tx_bytes"},	 
++	{ "rx_errors"},	 
++	{ "tx_errors"},	 
++	{ "rx_dropped"},	 
++	{ "tx_dropped"},	 
++	{ "multicast"},	 
++	{ "collisions"},
++	{ "rx_length_errors"},
++	{ "rx_over_errors"},	 
++	{ "rx_crc_errors"},	 
++	{ "rx_frame_errors"}, 
++	{ "rx_fifo_errors"},	 
++	{ "rx_missed_errors"},
++	{ "tx_aborted_errors"},
++	{ "tx_carrier_errors"},
++	{ "tx_fifo_errors"},
++	{ "tx_heartbeat_errors"},
++	{ "tx_window_errors"},
++	{ "rx_compressed"},
++	{ "tx_compressed"}
++};
++
++int ethtool_op_net_device_stats_get_stats_count(struct net_device *dev)
++{
++	return NET_DEVICE_NUM_STATS;
++}
++
++void ethtool_op_net_device_stats_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	switch (stringset) {
++	case ETH_SS_STATS:
++		memcpy(buf, &ethtool_net_device_stats_keys, sizeof(ethtool_net_device_stats_keys));
++		break;
++	default:
++		WARN_ON(1);	/* we need a WARN() */
++		break;
++	}
++}
++
++void ethtool_op_net_device_get_ethtool_stats(struct net_device *dev,
++					      struct ethtool_stats *estats, u64 *tmp_stats)
++{
++	u32 i;
++	u64 *dest = tmp_stats;
++	unsigned long *src = (unsigned long*)dev->get_stats(dev);
++	for (i = 0; i < estats->n_stats; i++)
++	  *dest++ = *src++;
++}
++
+ EXPORT_SYMBOL(dev_ethtool);
+ EXPORT_SYMBOL(ethtool_op_get_link);
+ EXPORT_SYMBOL(ethtool_op_get_sg);
+@@ -817,3 +875,6 @@
+ EXPORT_SYMBOL(ethtool_op_set_sg);
+ EXPORT_SYMBOL(ethtool_op_set_tso);
+ EXPORT_SYMBOL(ethtool_op_set_tx_csum);
++EXPORT_SYMBOL(ethtool_op_net_device_stats_get_stats_count);
++EXPORT_SYMBOL(ethtool_op_net_device_stats_get_strings);
++EXPORT_SYMBOL(ethtool_op_net_device_get_ethtool_stats);
+--- ethtool.h~	2006-09-05 12:29:45.000000000 -0700
++++ ethtool.h	2006-12-01 08:51:46.000000000 -0800
+@@ -260,6 +260,12 @@
+ int ethtool_op_set_sg(struct net_device *dev, u32 data);
+ u32 ethtool_op_get_tso(struct net_device *dev);
+ int ethtool_op_set_tso(struct net_device *dev, u32 data);
++int ethtool_op_net_device_stats_get_stats_count(struct net_device *dev);
++void ethtool_op_net_device_stats_get_strings(struct net_device *dev,
++					     u32 stringset, u8 *buf);
++void ethtool_op_net_device_get_ethtool_stats(struct net_device *dev,
++					     struct ethtool_stats *estats,
++					     u64 *tmp_stats);
+ 
+ /**
+  * &ethtool_ops - Alter and report network device settings
+
