@@ -1,38 +1,54 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v2 03/13] Provider Methods and Data Structures
-Date: Mon, 04 Dec 2006 10:50:48 -0600
-Message-ID: <1165251048.32724.37.camel@stevo-desktop>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-	 <20061202224947.27014.59189.stgit@dell3.ogc.int>
-	 <1165147639.3233.211.camel@laptopd505.fenrus.org>
-	 <1165249706.32724.35.camel@stevo-desktop>  <adaodqjip91.fsf@cisco.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network virtualization/isolation
+Date: Mon, 04 Dec 2006 09:52:10 -0700
+Message-ID: <m1odqj8uyt.fsf@ebiederm.dsl.xmission.com>
+References: <453F8800.9070603@fr.ibm.com> <1165239894.3664.61.camel@localhost>
+	<m1k617u10x.fsf@ebiederm.dsl.xmission.com>
+	<200612041900.42768.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	devel@openvz.org, Linux Containers <containers@lists.osdl.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:60864 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S937119AbWLDQu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:50:57 -0500
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <adaodqjip91.fsf@cisco.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45294 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937135AbWLDQxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:53:21 -0500
+To: Dmitry Mishin <dim@openvz.org>
+In-Reply-To: <200612041900.42768.dim@openvz.org> (Dmitry Mishin's message of
+	"Mon, 4 Dec 2006 19:00:42 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-12-04 at 08:45 -0800, Roland Dreier wrote:
->  > Roland, I think at one time we were talking about changing the Core to
->  > better handle this?  Either with attributes/capabilities that the low
->  > level driver can set, or by set these method ptrs to NULL and the core
->  > should handle it in the wrapper function...
-> 
-> Yes, it would make sense to change the midlayer so we have different
-> sets of mandatory functions for IB and iWARP drivers.  For example,
-> the iwcm functions probably should be mandatory for iWARP devices, right?
-> 
+Dmitry Mishin <dim@openvz.org> writes:
 
-Yes. The iWARP devices must all support the iwcm methods for sure.
+> On Monday 04 December 2006 18:35, Eric W. Biederman wrote:
+> [skip]
+>> Where and when you look to find the network namespace that applies to
+>> a packet is the primary difference between the OpenVZ L2
+>> implementation and my L2 implementation.
+>>
+>> If there is a better and less intrusive while still being obvious
+>> method I am all for it.  I do not like the OpenVZ thing of doing the
+>> lookup once and then stashing the value in current and the special
+>> casing the exceptions.
+> Why?
 
+I like it when things are obvious and not implied.
 
+The implementations seems to favor fewer lines of code touched over
+maintainability of the code.  Which if you are maintaining out of
+tree code is fine.  At leas that was my impression last time
+I looked at the code.
 
+I know there are a lot of silly things in the existing implementations
+because they were initially written without the expectation of being
+able to merge the code into the main kernel.  This resulted in some
+non-general interfaces, and a preference for patches that touch
+as few lines of code as possible.  
+
+Anyway this has bit has been discussed before and we can discuss it
+seriously in the context of patch review.
+
+Eric
