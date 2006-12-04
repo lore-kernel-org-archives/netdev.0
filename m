@@ -1,71 +1,44 @@
 From: akpm@osdl.org
-Subject: [patch 2/8] 8139too: force media setting cleanup
-Date: Mon, 04 Dec 2006 15:04:50 -0800
-Message-ID: <200612042305.kB4N5xIY007990@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, leewkb@yahoo.com
+Subject: [patch 4/8] bonding: incorrect bonding state reported via ioctl
+Date: Mon, 04 Dec 2006 15:04:54 -0800
+Message-ID: <200612042306.kB4N63Ki008001@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, andy@greyhouse.net,
+	shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:53628 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:53660 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937449AbWLDXGK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 18:06:10 -0500
+	id S937450AbWLDXGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 18:06:15 -0500
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernard Lee <leewkb@yahoo.com>
+From: Andy Gospodarek <andy@greyhouse.net>
 
-Setting bit 4 & 5 alone in 8139too module media option does not really
-force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
-8139too module does not force media setting.  Therefore, bit 0-3 requires
-to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
-stated in module description.
+This is a small fix-up to finish out the work done by Jay Vosburgh to add
+carrier-state support for bonding devices.  The output in
+/proc/net/bonding/bondX was correct, but when collecting the same info via
+an iotcl it could still be incorrect.
 
-It can be fixed by changing rtl8139_private structure default_port bitfield
-from 4-bit to 6-bit.
-
-Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
-suggested that bit 9 is freed.  A remark is added to module description
-that bit 0 can be used to force setting.  It helps to clarify 10Mbps
-half-duplex mode.
-
-Signed-off-by: Bernard Lee <leewkb@yahoo.com>
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Stephen Hemminger <shemminger@osdl.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/8139too.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
---- a/drivers/net/8139too.c~8139too-force-media-setting-fix
-+++ a/drivers/net/8139too.c
-@@ -586,7 +586,7 @@ struct rtl8139_private {
- 	signed char phys[4];		/* MII device addresses. */
- 	char twistie, twist_row, twist_col;	/* Twister tune state. */
- 	unsigned int watchdog_fired : 1;
--	unsigned int default_port : 4;	/* Last dev->if_port value. */
-+	unsigned int default_port : 6;	/* Last dev->if_port value. */
- 	unsigned int have_thread : 1;
- 	spinlock_t lock;
- 	spinlock_t rx_lock;
-@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
- module_param(debug, int, 0);
- MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
--MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
-+MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
- 
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
-@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
- 	/* The lower four bits are the media type. */
- 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
- 	if (option > 0) {
--		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
--		tp->default_port = option & 0xFF;
-+		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
-+		tp->default_port = option & 0x3F;
- 		if (tp->default_port)
- 			tp->mii.force_media = 1;
- 	}
+diff -puN drivers/net/bonding/bond_main.c~bonding-incorrect-bonding-state-reported-via-ioctl drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c~bonding-incorrect-bonding-state-reported-via-ioctl
++++ a/drivers/net/bonding/bond_main.c
+@@ -3684,7 +3684,7 @@ static int bond_do_ioctl(struct net_devi
+ 			mii->val_out = 0;
+ 			read_lock_bh(&bond->lock);
+ 			read_lock(&bond->curr_slave_lock);
+-			if (bond->curr_active_slave) {
++			if (netif_carrier_ok(bond->dev)) {
+ 				mii->val_out = BMSR_LSTATUS;
+ 			}
+ 			read_unlock(&bond->curr_slave_lock);
 _
