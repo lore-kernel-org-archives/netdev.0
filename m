@@ -1,52 +1,37 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v2 00/13] 2.6.20 Chelsio T3 RDMA Driver
-Date: Mon, 04 Dec 2006 10:24:34 -0600
-Message-ID: <1165249474.32724.30.camel@stevo-desktop>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-	 <20061202231329.GA10719@electric-eye.fr.zoreil.com>
-	 <4572194F.8060309@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [NET_SCHED]: cls_fw: fix NULL pointer dereference
+Date: Mon, 04 Dec 2006 11:25:02 -0500
+Message-ID: <1165249502.3643.9.camel@localhost>
+References: <45744016.8080707@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, rdreier@cisco.com,
-	netdev@vger.kernel.org, openib-general@openib.org,
-	linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:51572 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S937084AbWLDQYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:24:34 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <4572194F.8060309@osdl.org>
+Received: from nz-out-0506.google.com ([64.233.162.224]:15687 "EHLO
+	nz-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S937085AbWLDQZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 11:25:05 -0500
+Received: by nz-out-0102.google.com with SMTP id s1so1895970nze
+        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 08:25:04 -0800 (PST)
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45744016.8080707@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >>     
-> >
-> > I understood that Stephen expressed some doubts regarding the inclusion
-> > of TOE enabled features.
-> >
-> > Was his point addressed ?
-> >
-> >   
+On Mon, 2006-04-12 at 16:34 +0100, Patrick McHardy wrote:
+> Fix a regression from my nfmark mask patch for cls_fw.
 > 
-> My comments were about different hardware.
+> Thomas, Jamal, do you have an idea what this "old method" stuff
+> is used for? It seems it is only used during the below mentioned
+> race.
 
+AFAIK, that has been there forever. Alexey may know. I am not
+sure if removing it will break any scripts etc.
 
-Just to clarify:  
-
-Stephen is working on the Chelsio T2 HW driver.  
-
-The drivers Divy and I are submitting are for the new Chelsio T3
-hardware.  Two drivers are being submitted:  The Ethernet driver
-(submitted by Divy) and the RDMA driver (submitted by me) which requires
-the Ethernet driver.  The RDMA driver will live in
-drivers/infiniband/hw/cxgb3 and the Ethernet driver will live in
-drivers/net/cxgb3.
-
-
-Steve.
-
-
-
+cheers,
+jamal
 
