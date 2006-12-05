@@ -1,31 +1,72 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for mobility
- header.
-Date: Tue, 05 Dec 2006 10:04:14 -0500
-Message-ID: <45758A6E.9010209@hp.com>
-References: <11653130071739-git-send-email-nakam@linux-ipv6.org> <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Tue, 05 Dec 2006 09:07:33 -0600
+Message-ID: <1165331253.16087.21.camel@stevo-desktop>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
+	 <20061202224958.27014.65970.stgit@dell3.ogc.int>
+	 <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
+	 <1165249251.32724.26.camel@stevo-desktop>
+	 <20061205051356.GA26845@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, nakam@linux-ipv6.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:40354 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968267AbWLEPER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 10:04:17 -0500
-To: =?windows-1252?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:53597 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S968268AbWLEPHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:07:33 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061205051356.GA26845@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / ???? wrote:
->> Add checksum default defines for mobility header(MH).
->> As the result kernel's behavior is to handle MH checksum
->> as default.
+On Tue, 2006-12-05 at 08:13 +0300, Evgeniy Polyakov wrote:
+> On Mon, Dec 04, 2006 at 10:20:51AM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
+> > >  > This and a lot of other changes in this driver definitely says you
+> > >  > implement your own stack of protocols on top of infiniband hardware.
+> > > 
+> > > ...but I do know this driver is for 10-gig ethernet HW.
+> > > 
+> > 
+> > There is no SW TCP stack in this driver.  The HW supports RDMA over
+> > TCP/IP/10GbE in HW and this is required for zero-copy RDMA over Ethernet
+> > (aka iWARP).  The device is a 10 GbE device, not Infiniband.  The
+> > Ethernet driver, upon which the rdma driver depends, acts both like a
+> > traditional Ethernet NIC for the Linux stack as well as a TCP offload
+> > device for the RDMA driver allowing establishment of RDMA connections.
+> > The Connection Manager (patch 04/13) sends/receives messages from the
+> > Ethernet driver that sets up HW TCP connections for doing RDMA.  While
+> > this is indeed implementing TCP offload, it is _not_ integrating it with
+> > the sockets layer nor the linux stack and offloading sockets
+> > connections.  Its only supporting offload connections for the RDMA
+> > driver to do iWARP.   The Ammasso device is another example of this
+> > (drivers/infiniband/hw/amso1100).  Deep iSCSI adapters are another
+> > example of this.
 > 
-> I'd like to hold this on.  I need to check RFC.
+> So what will happen when application will create a socket, bind it to
+> that NIC, and then try to establish a TCP connection? How NIC will
+> decide that received packets are from socket but not for internal TCP
+> state machine handled by that device?
 
-That looks correct according to 3775.
+The HW knows which TCP connections are offloaded by virtue of the fact
+that they were setup via the RDMA subsystem.  Any other TCP traffic (and
+all other non TCP traffic) gets passed to the host stack.
 
--Brian
+> 
+> As a side note, does all iwarp devices _require_ to have very
+> limited TCP engine implemented it in its hardware, or it is possible
+> to work with external SW stack?
+
+It is possible, but not very interesting.
+
+One could implement an all-software iWARP stack.  The iWARP protocols
+are just TCP payload and _could_ be implemented in user mode on top of a
+socket.  However, this isn't very interesting:  the goal of iWARP (and
+RDMA for that matter) is to allow direct placement of data into user
+memory with 0 copies done by the host CPU.  low latency.
+
+Steve.
+
+
