@@ -1,44 +1,55 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 1/2] [IPV6] RAW: Don't release unlocked sock.
-Date: Tue,  5 Dec 2006 19:03:14 +0900
-Message-ID: <11653129943938-git-send-email-nakam@linux-ipv6.org>
+Subject: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for mobility header.
+Date: Tue,  5 Dec 2006 19:03:27 +0900
+Message-ID: <11653130071739-git-send-email-nakam@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi020.linux-ipv6.org ([203.178.140.20]:55566 "EHLO
+Received: from usagi020.linux-ipv6.org ([203.178.140.20]:55567 "EHLO
 	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S967638AbWLEKDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 05:03:49 -0500
+	with ESMTP id S967808AbWLEKD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 05:03:56 -0500
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When user builds IPv6 header and send it through raw socket, kernel
-tries to release unlocked sock. (Kernel log shows
-"BUG: bad unlock balance detected" with enabled debug option.)
-
-The lock is held only for non-hdrincl sock in this function
-then this patch fix to do nothing about lock for hdrincl one.
+Add checksum default defines for mobility header(MH).
+As the result kernel's behavior is to handle MH checksum
+as default.
 
 Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 ---
- net/ipv6/raw.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/ipv6/raw.c |   15 +++++++++++++--
+ 1 files changed, 13 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index d6dedc4..aa1d420 100644
+index aa1d420..389fa32 100644
 --- a/net/ipv6/raw.c
 +++ b/net/ipv6/raw.c
-@@ -855,7 +855,8 @@ back_from_confirm:
+@@ -1095,10 +1095,21 @@ static void rawv6_close(struct sock *sk,
+ 
+ static int rawv6_init_sk(struct sock *sk)
+ {
+-	if (inet_sk(sk)->num == IPPROTO_ICMPV6) {
+-		struct raw6_sock *rp = raw6_sk(sk);
++	struct raw6_sock *rp = raw6_sk(sk);
++
++	switch (inet_sk(sk)->num) {
++	case IPPROTO_ICMPV6:
+ 		rp->checksum = 1;
+ 		rp->offset   = 2;
++		break;
++#ifdef CONFIG_IPV6_MIP6
++	case IPPROTO_MH:
++		rp->checksum = 1;
++		rp->offset   = 4;
++		break;
++#endif
++	default:
++		break;
  	}
- done:
- 	dst_release(dst);
--	release_sock(sk);
-+	if (!inet->hdrincl)
-+		release_sock(sk);
- out:	
- 	fl6_sock_release(flowlabel);
- 	return err<0?err:len;
+ 	return(0);
+ }
 -- 
 1.4.2
 
