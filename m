@@ -1,199 +1,454 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: sparse warnings
-Date: Tue, 5 Dec 2006 12:03:41 -0800
-Message-ID: <20061205120341.630564b8@freekitty>
+Subject: [PATCH] netxen: sparse warning and ioctl bug fixes
+Date: Tue, 5 Dec 2006 12:07:17 -0800
+Message-ID: <20061205120717.2e362ddf@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:50567 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:51530 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968670AbWLEUE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 15:04:29 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
+	id S1031233AbWLEULZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 15:11:25 -0500
+To: "Amit S. Kale" <amitkale@netxen.com>,
+	Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Get rid of sparse warnings in sky2 driver because of mixed enum
-usage.
+Fix sparse warnings and get rid of casts that hide misuse
+of __user pointers.  There were two real bugs here:
+  * ioctl was copying uninitialized stack om NETXEN_NIC_NAME
+  * ioctl was dereferencing a user pointer
+    in nettxen_nic_cmd_clear_stats.
+
+IMHO the ioctl usage in this driver is going to be more maintenance
+burden than useful. and should be removed.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 ---
- drivers/net/sky2.c |   18 ++++--------------
- drivers/net/sky2.h |   53 +++++++++++++++++++++++++---------------------------
- 2 files changed, 29 insertions(+), 42 deletions(-)
+ drivers/net/netxen/netxen_nic.h       |    5 +
+ drivers/net/netxen/netxen_nic_hdr.h   |  128 +++++++++++++++++----------------
+ drivers/net/netxen/netxen_nic_init.c  |   38 +++++-----
+ drivers/net/netxen/netxen_nic_ioctl.h |    2 -
+ drivers/net/netxen/netxen_nic_main.c  |   34 +++------
+ 5 files changed, 99 insertions(+), 108 deletions(-)
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 842abd9..ae91571 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -522,7 +522,7 @@ static void sky2_phy_init(struct sky2_hw
- 		/* set Tx LED (LED_TX) to blink mode on Rx OR Tx activity */
- 		ledctrl |= PHY_M_LED_BLINK_RT(BLINK_84MS) | PHY_M_LEDC_TX_CTRL;
- 		/* turn off the Rx LED (LED_RX) */
--		ledover |= PHY_M_LED_MO_RX(MO_LED_OFF);
-+		ledover &= ~PHY_M_LED_MO_RX;
- 	}
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index d925053..f66ebe3 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -916,9 +916,8 @@ void netxen_tso_check(struct netxen_adap
+ 		      struct cmd_desc_type0 *desc, struct sk_buff *skb);
+ int netxen_nic_hw_resources(struct netxen_adapter *adapter);
+ void netxen_nic_clear_stats(struct netxen_adapter *adapter);
+-int
+-netxen_nic_do_ioctl(struct netxen_adapter *adapter, void *u_data,
+-		    struct netxen_port *port);
++int netxen_nic_do_ioctl(struct netxen_adapter *adapter, void __user *u_data,
++			struct netxen_port *port);
+ int netxen_nic_rx_has_work(struct netxen_adapter *adapter);
+ int netxen_nic_tx_has_work(struct netxen_adapter *adapter);
+ void netxen_watchdog_task(unsigned long v);
+diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+index 72c6ec4..2461afc 100644
+--- a/drivers/net/netxen/netxen_nic_hdr.h
++++ b/drivers/net/netxen/netxen_nic_hdr.h
+@@ -228,139 +228,139 @@ enum {
+ /*  This field defines CRB adr [31:20] of the agents */
  
- 	if (hw->chip_id == CHIP_ID_YUKON_EC_U && hw->chip_rev == CHIP_REV_YU_EC_A1) {
-@@ -545,7 +545,7 @@ static void sky2_phy_init(struct sky2_hw
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_MN	\
+-	((NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_MN_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_MN_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PH	\
+-	((NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_PH_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_PH_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_MS	\
+-	((NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_MS_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H0_CH_HUB_ADR << 7) | NETXEN_HW_MS_CRB_AGT_ADR)
  
- 		if (sky2->autoneg == AUTONEG_DISABLE || sky2->speed == SPEED_100) {
- 			/* turn on 100 Mbps LED (LED_LINK100) */
--			ledover |= PHY_M_LED_MO_100(MO_LED_ON);
-+			ledover |= PHY_M_LED_MO_100;
- 		}
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PS	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_PS_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_PS_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SS	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SS_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SS_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX3	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX3_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_QMS	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_QMS_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_QMS_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQS0	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQS1	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQS2	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQS3	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SQGS3_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_C2C0	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_C2C0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_C2C0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_C2C1	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_C2C1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_C2C1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX2	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX4	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX4_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX4_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX7	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX7_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX7_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX9	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX9_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_RPMX9_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SMB	\
+-	((NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SMB_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H1_CH_HUB_ADR << 7) | NETXEN_HW_SMB_CRB_AGT_ADR)
  
- 		if (ledover)
-@@ -2917,18 +2917,8 @@ static void sky2_led(struct sky2_hw *hw,
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_NIU	\
+-	((NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_NIU_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_NIU_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_I2C0	\
+-	((NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_I2C0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_I2C0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_I2C1	\
+-	((NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_I2C1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H2_CH_HUB_ADR << 7) | NETXEN_HW_I2C1_CRB_AGT_ADR)
  
- 	default:
- 		gm_phy_write(hw, port, PHY_MARV_LED_CTRL, 0);
--		gm_phy_write(hw, port, PHY_MARV_LED_OVER,
--			     on ? PHY_M_LED_MO_DUP(MO_LED_ON) |
--			     PHY_M_LED_MO_10(MO_LED_ON) |
--			     PHY_M_LED_MO_100(MO_LED_ON) |
--			     PHY_M_LED_MO_1000(MO_LED_ON) |
--			     PHY_M_LED_MO_RX(MO_LED_ON)
--			     : PHY_M_LED_MO_DUP(MO_LED_OFF) |
--			     PHY_M_LED_MO_10(MO_LED_OFF) |
--			     PHY_M_LED_MO_100(MO_LED_OFF) |
--			     PHY_M_LED_MO_1000(MO_LED_OFF) |
--			     PHY_M_LED_MO_RX(MO_LED_OFF));
--
-+		gm_phy_write(hw, port, PHY_MARV_LED_OVER, 
-+			     on ? PHY_M_LED_ALL : 0);
- 	}
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SRE	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SRE_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SRE_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_EG	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_EG_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_EG_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX0	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_QMN	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_QM_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_QM_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQN0	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQN1	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQN2	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SQN3	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_SQG3_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX1	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX5	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX5_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX5_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX6	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX6_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX6_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_RPMX8	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX8_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_RPMX8_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_CAS0	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_CAS1	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_CAS2	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_CAS3	\
+-	((NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H3_CH_HUB_ADR << 7) | NETXEN_HW_CAS3_CRB_AGT_ADR)
+ 
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGNI	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGNI_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGNI_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGND	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGND_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGND_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGN0	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGN1	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGN2	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGN3	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGN3_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGNC	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGNC_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGNC_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGR0	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGR1	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGR2	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGR3	\
+-	((NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H4_CH_HUB_ADR << 7) | NETXEN_HW_PEGR3_CRB_AGT_ADR)
+ 
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGSI	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSI_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSI_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGSD	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSD_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSD_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGS0	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGS1	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGS2	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS2_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS2_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGS3	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS3_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGS3_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_PGSC	\
+-	((NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSC_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H5_CH_HUB_ADR << 7) | NETXEN_HW_PEGSC_CRB_AGT_ADR)
+ 
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_CAM	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_NCM_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_NCM_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_TIMR	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_TMR_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_TMR_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_XDMA	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_XDMA_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_XDMA_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_SN	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_SN_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_SN_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_I2Q	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_I2Q_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_I2Q_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_ROMUSB	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_ROMUSB_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_ROMUSB_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_OCM0	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_OCM0_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_OCM0_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_OCM1	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_OCM1_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_OCM1_CRB_AGT_ADR)
+ #define NETXEN_HW_CRB_HUB_AGT_ADR_LPC	\
+-	((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_LPC_CRB_AGT_ADR)
++	(((u32)NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_LPC_CRB_AGT_ADR)
+ 
+ /*
+  * MAX_RCV_CTX : The number of receive contexts that are available on
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 0dca029..042766e 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -49,7 +49,7 @@ #define NETXEN_ADDR_ERROR ((unsigned lon
+ 
+ #define crb_addr_transform(name) \
+ 	crb_addr_xform[NETXEN_HW_PX_MAP_CRB_##name] = \
+-	NETXEN_HW_CRB_HUB_AGT_ADR_##name << 20
++		NETXEN_HW_CRB_HUB_AGT_ADR_##name << 20
+ 
+ #define NETXEN_NIC_XDMA_RESET 0x8000ff
+ 
+@@ -1168,18 +1168,15 @@ netxen_nic_clear_statistics(struct netxe
  }
  
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 7760545..713d2c5 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -608,7 +608,7 @@ enum {
- 	PHY_ADDR_MARV	= 0,
- };
+ int
+-netxen_nic_do_ioctl(struct netxen_adapter *adapter, void *u_data,
++netxen_nic_do_ioctl(struct netxen_adapter *adapter, void __user *u_data,
+ 		    struct netxen_port *port)
+ {
+ 	struct netxen_nic_ioctl_data data;
+-	struct netxen_nic_ioctl_data *up_data;
+ 	int retval = 0;
+ 	struct netxen_statistics netxen_stats;
  
--#define RB_ADDR(offs, queue) (B16_RAM_REGS + (queue) + (offs))
-+#define RB_ADDR(offs, queue) ((u16) B16_RAM_REGS + (queue) + (offs))
- 
- 
- enum {
-@@ -1060,7 +1060,7 @@ enum {
- 	PHY_M_PC_EN_DET_PLUS	= 3<<8, /* Energy Detect Plus (Mode 2) */
- };
- 
--#define PHY_M_PC_MDI_XMODE(x)	(((x)<<5) & PHY_M_PC_MDIX_MSK)
-+#define PHY_M_PC_MDI_XMODE(x)	(((u16)(x)<<5) & PHY_M_PC_MDIX_MSK)
- 
- enum {
- 	PHY_M_PC_MAN_MDI	= 0, /* 00 = Manual MDI configuration */
-@@ -1156,13 +1156,13 @@ enum {
- 	PHY_M_EC_TX_TIM_CT  = 1<<1, /* RGMII Tx Timing Control */
- 	PHY_M_EC_TRANS_DIS  = 1<<0, /* Transmitter Disable (88E1111 only) */};
- 
--#define PHY_M_EC_M_DSC(x)	((x)<<10 & PHY_M_EC_M_DSC_MSK)
-+#define PHY_M_EC_M_DSC(x)	((u16)(x)<<10 & PHY_M_EC_M_DSC_MSK)
- 					/* 00=1x; 01=2x; 10=3x; 11=4x */
--#define PHY_M_EC_S_DSC(x)	((x)<<8 & PHY_M_EC_S_DSC_MSK)
-+#define PHY_M_EC_S_DSC(x)	((u16)(x)<<8 & PHY_M_EC_S_DSC_MSK)
- 					/* 00=dis; 01=1x; 10=2x; 11=3x */
--#define PHY_M_EC_DSC_2(x)	((x)<<9 & PHY_M_EC_M_DSC_MSK2)
-+#define PHY_M_EC_DSC_2(x)	((u16)(x)<<9 & PHY_M_EC_M_DSC_MSK2)
- 					/* 000=1x; 001=2x; 010=3x; 011=4x */
--#define PHY_M_EC_MAC_S(x)	((x)<<4 & PHY_M_EC_MAC_S_MSK)
-+#define PHY_M_EC_MAC_S(x)	((u16)(x)<<4 & PHY_M_EC_MAC_S_MSK)
- 					/* 01X=0; 110=2.5; 111=25 (MHz) */
- 
- /* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
-@@ -1173,7 +1173,7 @@ enum {
- };
- /* !!! Errata in spec. (1 = disable) */
- 
--#define PHY_M_PC_DSC(x)			(((x)<<12) & PHY_M_PC_DSC_MSK)
-+#define PHY_M_PC_DSC(x)			(((u16)(x)<<12) & PHY_M_PC_DSC_MSK)
- 											/* 100=5x; 101=6x; 110=7x; 111=8x */
- enum {
- 	MAC_TX_CLK_0_MHZ	= 2,
-@@ -1203,7 +1203,7 @@ enum {
- 	PHY_M_LEDC_TX_C_MSB	= 1<<0, /* Tx Control (MSB, 88E1111 only) */
- };
- 
--#define PHY_M_LED_PULS_DUR(x)	(((x)<<12) & PHY_M_LEDC_PULS_MSK)
-+#define PHY_M_LED_PULS_DUR(x)	(((u16)(x)<<12) & PHY_M_LEDC_PULS_MSK)
- 
- /*****  PHY_MARV_PHY_STAT (page 3)16 bit r/w	Polarity Control Reg. *****/
- enum {
-@@ -1233,7 +1233,7 @@ enum {
- 	PULS_1300MS	= 7,/* 1.3 s to 2.7 s */
- };
- 
--#define PHY_M_LED_BLINK_RT(x)	(((x)<<8) & PHY_M_LEDC_BL_R_MSK)
-+#define PHY_M_LED_BLINK_RT(x)	(((u16)(x)<<8) & PHY_M_LEDC_BL_R_MSK)
- 
- enum {
- 	BLINK_42MS	= 0,/* 42 ms */
-@@ -1243,21 +1243,18 @@ enum {
- 	BLINK_670MS	= 4,/* 670 ms */
- };
- 
--/*****  PHY_MARV_LED_OVER	16 bit r/w	Manual LED Override Reg *****/
--#define PHY_M_LED_MO_SGMII(x)	((x)<<14) /* Bit 15..14:  SGMII AN Timer */
--										/* Bit 13..12:	reserved */
--#define PHY_M_LED_MO_DUP(x)	((x)<<10) /* Bit 11..10:  Duplex */
--#define PHY_M_LED_MO_10(x)	((x)<<8) /* Bit  9.. 8:  Link 10 */
--#define PHY_M_LED_MO_100(x)	((x)<<6) /* Bit  7.. 6:  Link 100 */
--#define PHY_M_LED_MO_1000(x)	((x)<<4) /* Bit  5.. 4:  Link 1000 */
--#define PHY_M_LED_MO_RX(x)	((x)<<2) /* Bit  3.. 2:  Rx */
--#define PHY_M_LED_MO_TX(x)	((x)<<0) /* Bit  1.. 0:  Tx */
+-	up_data = (void *)u_data;
 -
-+/**** PHY_MARV_LED_OVER    16 bit r/w LED control */
- enum {
--	MO_LED_NORM	= 0,
--	MO_LED_BLINK	= 1,
--	MO_LED_OFF	= 2,
--	MO_LED_ON	= 3,
-+	PHY_M_LED_MO_DUP  = 3<<10,/* Bit 11..10:  Duplex */
-+	PHY_M_LED_MO_10	  = 3<<8, /* Bit  9.. 8:  Link 10 */
-+	PHY_M_LED_MO_100  = 3<<6, /* Bit  7.. 6:  Link 100 */
-+	PHY_M_LED_MO_1000 = 3<<4, /* Bit  5.. 4:  Link 1000 */
-+	PHY_M_LED_MO_RX	  = 3<<2, /* Bit  3.. 2:  Rx */
-+	PHY_M_LED_MO_TX	  = 3<<0, /* Bit  1.. 0:  Tx */
+ 	DPRINTK(INFO, "doing ioctl for %p\n", adapter);
+-	if (copy_from_user(&data, (void __user *)up_data, sizeof(data))) {
++	if (copy_from_user(&data, u_data, sizeof(data))) {
+ 		/* evil user tried to crash the kernel */
+ 		DPRINTK(ERR, "bad copy from userland: %d\n", (int)sizeof(data));
+ 		retval = -EFAULT;
+@@ -1199,8 +1196,9 @@ netxen_nic_do_ioctl(struct netxen_adapte
+ 		if ((retval = netxen_nic_hw_read_wx(adapter, data.off,
+ 						    &(data.u), data.size)))
+ 			goto error_out;
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
 +
-+	PHY_M_LED_ALL	  = PHY_M_LED_MO_DUP | PHY_M_LED_MO_10 
-+			    | PHY_M_LED_MO_100 | PHY_M_LED_MO_1000
-+			    | PHY_M_LED_MO_RX,
++		if (copy_to_user(u_data + offsetof(typeof(data), u),
++				 &(data.u),  data.size)) {
+ 			DPRINTK(ERR, "bad copy to userland: %d\n",
+ 				(int)sizeof(data));
+ 			retval = -EFAULT;
+@@ -1232,8 +1230,9 @@ netxen_nic_do_ioctl(struct netxen_adapte
+ 							(u32 *) & (data.u));
+ 			break;
+ 		}
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
++
++		if (copy_to_user(u_data + offsetof(typeof(data), u),
++				 &(data.u), data.size)) {
+ 			DPRINTK(ERR, "bad copy to userland: %d\n",
+ 				(int)sizeof(data));
+ 			retval = -EFAULT;
+@@ -1264,26 +1263,24 @@ netxen_nic_do_ioctl(struct netxen_adapte
+ 	case netxen_nic_cmd_get_stats:
+ 		data.rv =
+ 		    netxen_nic_fill_statistics(adapter, port, &netxen_stats);
+-		if (copy_to_user
+-		    ((void __user *)(up_data->ptr), (void *)&netxen_stats,
+-		     sizeof(struct netxen_statistics))) {
++
++		if (copy_to_user(data.ptr, &netxen_stats,
++				 sizeof(struct netxen_statistics))) {
+ 			DPRINTK(ERR, "bad copy to userland: %d\n",
+ 				(int)sizeof(netxen_stats));
+ 			retval = -EFAULT;
+ 			goto error_out;
+ 		}
+-		up_data->rv = data.rv;
+ 		break;
+ 
+ 	case netxen_nic_cmd_clear_stats:
+ 		data.rv = netxen_nic_clear_statistics(adapter, port);
+-		up_data->rv = data.rv;
+ 		break;
+ 
+ 	case netxen_nic_cmd_get_version:
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), NETXEN_NIC_LINUX_VERSIONID,
+-		     sizeof(NETXEN_NIC_LINUX_VERSIONID))) {
++		if (copy_to_user(u_data + offsetof(typeof(data), u),
++				 NETXEN_NIC_LINUX_VERSIONID,
++				 sizeof(NETXEN_NIC_LINUX_VERSIONID))) {
+ 			DPRINTK(ERR, "bad copy to userland: %d\n",
+ 				(int)sizeof(data));
+ 			retval = -EFAULT;
+@@ -1296,7 +1293,10 @@ netxen_nic_do_ioctl(struct netxen_adapte
+ 		retval = -EOPNOTSUPP;
+ 		goto error_out;
+ 	}
+-	put_user(data.rv, (u16 __user *) (&(up_data->rv)));
++
++	put_user(data.rv, 
++		 &(((struct netxen_nic_ioctl_data __user *)u_data)->rv));
++
+ 	DPRINTK(INFO, "done ioctl for %p well.\n", adapter);
+ 
+       error_out:
+diff --git a/drivers/net/netxen/netxen_nic_ioctl.h b/drivers/net/netxen/netxen_nic_ioctl.h
+index 23e53ad..cefccf1 100644
+--- a/drivers/net/netxen/netxen_nic_ioctl.h
++++ b/drivers/net/netxen/netxen_nic_ioctl.h
+@@ -58,7 +58,7 @@ struct netxen_nic_ioctl_data {
+ 	u32 size;
+ 	u32 rv;
+ 	char u[64];
+-	void *ptr;
++	void __user *ptr;
  };
  
- /*****  PHY_MARV_EXT_CTRL_2	16 bit r/w	Ext. PHY Specific Ctrl 2 *****/
-@@ -1294,9 +1291,9 @@ enum {
- 	PHY_M_FELP_LED0_MSK = 0xf, /* Bit  3.. 0: LED0 Mask (SPEED) */
- };
+ struct netxen_statistics {
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 1cb662d..827336f 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -105,10 +105,7 @@ netxen_nic_probe(struct pci_dev *pdev, c
+ 	struct net_device *netdev = NULL;
+ 	struct netxen_adapter *adapter = NULL;
+ 	struct netxen_port *port = NULL;
+-	u8 *mem_ptr0 = NULL;
+-	u8 *mem_ptr1 = NULL;
+-	u8 *mem_ptr2 = NULL;
+-
++	u8 __iomem *mem_ptr0, *mem_ptr1, *mem_ptr2;
+ 	unsigned long mem_base, mem_len;
+ 	int pci_using_dac, i, err;
+ 	int ring;
+@@ -152,7 +149,7 @@ netxen_nic_probe(struct pci_dev *pdev, c
+ 	mem_ptr2 =
+ 	    ioremap(mem_base + THIRD_PAGE_GROUP_START, THIRD_PAGE_GROUP_SIZE);
  
--#define PHY_M_FELP_LED2_CTRL(x)	(((x)<<8) & PHY_M_FELP_LED2_MSK)
--#define PHY_M_FELP_LED1_CTRL(x)	(((x)<<4) & PHY_M_FELP_LED1_MSK)
--#define PHY_M_FELP_LED0_CTRL(x)	(((x)<<0) & PHY_M_FELP_LED0_MSK)
-+#define PHY_M_FELP_LED2_CTRL(x)	(((u16)(x)<<8) & PHY_M_FELP_LED2_MSK)
-+#define PHY_M_FELP_LED1_CTRL(x)	(((u16)(x)<<4) & PHY_M_FELP_LED1_MSK)
-+#define PHY_M_FELP_LED0_CTRL(x)	(((u16)(x)<<0) & PHY_M_FELP_LED0_MSK)
+-	if ((mem_ptr0 == 0UL) || (mem_ptr1 == 0UL) || (mem_ptr2 == 0UL)) {
++	if (!mem_ptr0 || !mem_ptr1 || !mem_ptr2) {
+ 		DPRINTK(1, ERR,
+ 			"Cannot remap adapter memory aborting.:"
+ 			"0 -> %p, 1 -> %p, 2 -> %p\n",
+@@ -1099,38 +1096,33 @@ #endif
+ static int
+ netxen_nic_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ {
+-	int err = 0;
+-	unsigned long nr_bytes = 0;
+ 	struct netxen_port *port = netdev_priv(netdev);
+ 	struct netxen_adapter *adapter = port->adapter;
+-	char dev_name[NETXEN_NIC_NAME_LEN];
  
- enum {
- 	LED_PAR_CTRL_COLX	= 0x00,
-@@ -1552,8 +1549,8 @@ enum {
- 	GM_SMI_CT_BUSY		= 1<<3,	/* Bit  3:	Busy (Operation in progress) */
- };
+ 	DPRINTK(INFO, "doing ioctl for %s\n", netdev->name);
+ 	switch (cmd) {
+ 	case NETXEN_NIC_CMD:
+-		err = netxen_nic_do_ioctl(adapter, (void *)ifr->ifr_data, port);
++		return netxen_nic_do_ioctl(adapter, ifr->ifr_data, port);
+ 		break;
  
--#define GM_SMI_CT_PHY_AD(x)	(((x)<<11) & GM_SMI_CT_PHY_A_MSK)
--#define GM_SMI_CT_REG_AD(x)	(((x)<<6) & GM_SMI_CT_REG_A_MSK)
-+#define GM_SMI_CT_PHY_AD(x)	(((u16)(x)<<11) & GM_SMI_CT_PHY_A_MSK)
-+#define GM_SMI_CT_REG_AD(x)	(((u16)(x)<<6) & GM_SMI_CT_REG_A_MSK)
+ 	case NETXEN_NIC_NAME:
+ 		DPRINTK(INFO, "ioctl cmd for NetXen\n");
+ 		if (ifr->ifr_data) {
+-			sprintf(dev_name, "%s-%d", NETXEN_NIC_NAME_RSP,
+-				port->portnum);
+-			nr_bytes = copy_to_user((char *)ifr->ifr_data, dev_name,
+-						NETXEN_NIC_NAME_LEN);
+-			if (nr_bytes)
+-				err = -EIO;
+-
++			char dev_name[NETXEN_NIC_NAME_LEN];
++			memset(dev_name, 0, NETXEN_NIC_NAME_LEN);
++			snprintf(dev_name, NETXEN_NIC_NAME_LEN,
++				 "%s-%d", NETXEN_NIC_NAME_RSP, port->portnum);
++
++			if (copy_to_user(ifr->ifr_data, dev_name, 
++					 NETXEN_NIC_NAME_LEN))
++				return -EFAULT;
+ 		}
+-		break;
++		return 0;
  
- /*	GM_PHY_ADDR				16 bit r/w	GPHY Address Register */
- enum {
+ 	default:
+ 		DPRINTK(INFO, "ioctl cmd %x not supported\n", cmd);
+-		err = -EOPNOTSUPP;
+-		break;
++		return -EOPNOTSUPP;
+ 	}
+-
+-	return err;
+ }
+ 
+ static struct pci_driver netxen_driver = {
 -- 
 1.4.1
 
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
