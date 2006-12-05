@@ -1,84 +1,73 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Tue, 5 Dec 2006 13:57:34 -0500
-Message-ID: <43e72e890612051057y61c3a735w6e72888a0ea447ef@mail.gmail.com>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
-	 <200611291612.33448.mb@bu3sch.de>
-	 <20061129152407.GB5412@devicescape.com>
-	 <200611291638.56759.mb@bu3sch.de>
-	 <20061129160328.GA22602@devicescape.com>
-	 <20061129121312.4cfc254f@freekitty>
-	 <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
-	 <3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
-	 <43e72e890612050715g9568cfv945f28ccbf796801@mail.gmail.com>
-	 <20061205091820.2480f92e@freekitty>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] Add Broadcom PHY support
+Date: Tue, 5 Dec 2006 13:50:22 -0600
+Message-ID: <1DFF488A-7BF4-4BC7-A398-A27753335028@freescale.com>
+References: <E1GrTGu-0005QS-OH@lucciola> <1165298581.29784.58.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Renzmann" <madwifi@nospam.otaku42.de>,
-	"David Kimdon" <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
-	"Nick Kossifidis" <mickflemm@gmail.com>,
-	"Michael Buesch" <mb@bu3sch.de>, "Reyk Floeter" <reyk@openbsd.org>
+Cc: Amy Fong <amy.fong@windriver.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.224]:1755 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968626AbWLES5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 13:57:38 -0500
-Received: by wr-out-0506.google.com with SMTP id i7so2011946wra
-        for <netdev@vger.kernel.org>; Tue, 05 Dec 2006 10:57:36 -0800 (PST)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20061205091820.2480f92e@freekitty>
-Content-Disposition: inline
+Received: from az33egw02.freescale.net ([192.88.158.103]:42172 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030613AbWLETum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 14:50:42 -0500
+In-Reply-To: <1165298581.29784.58.camel@localhost.localdomain>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/5/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> On Tue, 5 Dec 2006 10:15:33 -0500
-> "Luis R. Rodriguez" <mcgrof@gmail.com> wrote:
->
-> > On 12/5/06, Michael Renzmann <madwifi@nospam.otaku42.de> wrote:
-> >  openhal here.
-> > >
-> > > I've set up the suggested branches, with slight changing to the proposed
-> > > names:
-> > >
-> > > * http://svn.madwifi.org/branches/madwifi-old-openhal (based on r1142)
-> > > * http://svn.madwifi.org/branches/dadwifi-openhal (based on r1827)
-> > >
-> > > Neither of them has received any modifications yet, they are basically
-> > > copies of the mentioned revisions. I'm currently lacking the time to
-> > > import Nick's work into the madwifi-old-openhal branch, for example - it
-> > > would be nice if someone else could work on that.
-> >
-> > CC'ing Reyk Foeter.
-> >
-> > Committed Nick's port of ar5k (openal) to both branches, both now have
-> > the openhal. Please note (very important):
-> >
-> > We are basing our openhal on OpenBSD's ar5k. Because of this and since
-> > the GPL does not allow us to commit changes on the GPL version back to
-> > the BSD version please sumbit your non-linux enhancements to the HAL
-> > to "Reyk Floeter" <reyk@openbsd.org> and CC madwifi-devel.
-> >
-> > We have an openhal.org which we can start to use, should Reyk want, to
-> > use as the master tree of the ar5k to make sure any enhancements on
-> > the HAL go to both BSD and Linux. The licensing on the master tree
-> > should be kept BSD as Reyk wants it to be. This way Linux or BSD
-> > contributions can go into one tree and later revisions can be added to
-> > dadwifi/openbsd with their own specific BSD'isms and Linux'isms. Keep
-> > in mind the Linux port will remain dual licensed BSD/GPL. Let me know
-> > what you think Reyk.
-> >
-> >   Luis
->
-> All the more reason to merge the HAL in and make it disappear
 
-Agreed in the long term -- but this should not happen immediately as
-otherwise we'd only get a completely free driver by the time this
-hardware is outdated and reached its end of life. For now I'd say lets
-stick to dadwifi+openhal effort, analyze net80211 from the ground up
-and port to devicescape any features we are currently lacking. I can
-help work on this fulltime.
+On Dec 5, 2006, at 00:03, Benjamin Herrenschmidt wrote:
 
-  Luis
+>
+>> I believe that this fiber enabling can be done by defining  
+>> config_init in the phy_driver struct.
+>>
+>> struct phy_driver {
+>> <snip>
+>>         /* Called to initialize the PHY,
+>> 	 * including after a reset */
+>> 	int (*config_init)(struct phy_device *phydev);
+>> <snip>
+>> };
+>
+> Well... I don't know for sure... thing is, enabling the fiber mode  
+> is a
+> rather platform specific thing. So it's the MAC driver that knows  
+> wether
+> it wants it on a PHY and should call into the driver.
+>
+> It's difficult to abstract all possible PHY config options tho... some
+> MACs might want to enable low power, some don't because they have  
+> issues
+> with it, that sort of thing, though.
+>
+> Not sure what the best solution is at this point... Maybe an ascii
+> string to pass the PHY driver is the most flexible, though a bit  
+> yucky,
+> or we try to have a list of all the possible configuration options in
+> phy.h and people just add new ones that they need as they add support
+> for them...
+>
+> Sounds grossly like an in-kernel ioctl tho...
+
+
+Each phy_device structure now has a dev_flags field that can be  
+modified by the controller's code upon connecting.  The PHY driver  
+can then check that field for PHY-specific, platform-specific  
+interactions.  For instance, on the newer CDS, there's a Marvell PHY  
+which requires configurable resistance changes to work in RGMII  
+mode.  So there's a flag for that.  Basically, each PHY driver  
+specifies its own flags, and the platform code is currently  
+responsible for setting those flags appropriately.  A string might be  
+more flexible, but I'm operating on the hope that there shouldn't be  
+too many of these.
+
+For Fiber mode, or other such changes, we might want to add another  
+field, like the interface field, to describe standard external  
+interfaces.  The call to phy_connect() is beginning to get a bit  
+long, though.
+
+Andy
