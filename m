@@ -1,33 +1,65 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Mon, 04 Dec 2006 21:27:09 -0800
-Message-ID: <aday7pmgbf6.fsf@cisco.com>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-	<20061202224958.27014.65970.stgit@dell3.ogc.int>
-	<20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
-	<20061205050725.GA26033@2ka.mipt.ru> <ada3b7uhqlk.fsf@cisco.com>
-	<20061205051657.GB26845@2ka.mipt.ru>
+From: Amy Fong <amy.fong@windriver.com>
+Subject: Re: [PATCH] Add Broadcom PHY support
+Date: Tue, 5 Dec 2006 00:55:16 -0500 (EST)
+Message-ID: <E1GrTGu-0005QS-OH@lucciola>
+References: <1165266999.29784.20.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:24994 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967562AbWLEF1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 00:27:18 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061205051657.GB26845@2ka.mipt.ru> (Evgeniy Polyakov's message of "Tue, 5 Dec 2006 08:16:58 +0300")
+Received: from mail.windriver.com ([147.11.1.11]:47146 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967409AbWLEFze (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 00:55:34 -0500
+In-Reply-To: <1165266999.29784.20.camel@localhost.localdomain>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > So will each new NIC implement some parts of TCP stack in theirs drivers?
+> On Fri, 2006-09-15 at 16:15 -0400, Amy Fong wrote:
+> > [PATCH] Add Broadcom PHY support
+> > 
+> > This patch adds a driver to support the bcm5421s and bcm5461s PHY
+> > 
+> > Kernel version:  linux-2.6.18-rc6
+> > 
+> > Signed-off-by: Amy Fong 
+> 
+> Some 5421's need special initialisation (see drivers/net/sungem_phy.c),
+> might be worth having them there too. I was also wondering... for
+> spidernet, we need to enable the fiber mode on the PHY. Does phylib has
+> an API for that ?
+> 
+> I'd like to look into moving sungem and spidernet over to phylib.
+> 
+> Ben.
 
-I hope not.  The driver we merged (amso1100) did it completely in FW,
-with a separate MAC and IP interface for the RDMA connections.  I
-think we better understand the Chelsio driver pretty well and think it
-over carefully before we merge it.
 
-Thanks for pointing this stuff out.
+I believe that this fiber enabling can be done by defining config_init in the phy_driver struct.
 
- - R.
+struct phy_driver {
+<snip>
+        /* Called to initialize the PHY,
+	 * including after a reset */
+	int (*config_init)(struct phy_device *phydev);
+<snip>
+};
+
+ie.
+
+static struct phy_driver bcm5421s_driver = {
+<snip>
+	.config_init = bcm5421s_phy_config,
+<snip>
+};
+
+int bcm5421s_phy_config(struct phy_device *phydev)
+{
+...
+	/* enable fiber mode here... */
+...
+}
+
+Amy
