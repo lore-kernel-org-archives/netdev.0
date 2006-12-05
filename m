@@ -1,64 +1,51 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 7/7] [IP] XFRM: Mobility header support.
-Date: Tue,  5 Dec 2006 19:16:12 +0900
-Message-ID: <116531377212-git-send-email-nakam@linux-ipv6.org>
-Cc: netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
+Date: Tue, 5 Dec 2006 10:32:39 +0000
+Message-ID: <20061205103239.GA10312@infradead.org>
+References: <200612031936.34343.IvDoorn@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Torokhov <dtor@insightbb.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Lennart Poettering <lennart@poettering.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi020.linux-ipv6.org ([203.178.140.20]:38936 "EHLO
-	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1759781AbWLEKQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 05:16:41 -0500
-To: shemminger@osdl.org
+Received: from pentafluge.infradead.org ([213.146.154.40]:44991 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937423AbWLEKco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 05:32:44 -0500
+To: Ivo van Doorn <ivdoorn@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <200612031936.34343.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
----
- ip/ipxfrm.c |    9 +++++++++
- ip/xfrm.h   |    3 +++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+> +/*
+> + * Function called by the key driver when the rfkill structure
+> + * needs to be registered.
+> + */
+> +int rfkill_register_key(struct rfkill *rfkill, int init_status)
+> +{
+> +	struct rfkill_type *type = &master->type[rfkill->key_type];
+> +	struct rfkill_key *key;
+> +	int status;
+> +
+> +	if (!rfkill)
+> +		return -EINVAL;	
+> +
+> +	if (rfkill->key_type >= KEY_TYPE_MAX)
+> +		return -EINVAL;
+> +
+> +	/*
+> +	 * Increase module use count to prevent this
+> +	 * module to be unloaded while there are still
+> +	 * registered keys.
+> +	 */
+> +	if (!try_module_get(THIS_MODULE))
+> +		return -EBUSY;
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 7c9fd0b..9c8b4bd 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -483,6 +483,14 @@ void xfrm_selector_print(struct xfrm_sel
- 		if (sel->dport_mask)
- 			fprintf(fp, "code %u ", ntohs(sel->dport));
- 		break;
-+	case IPPROTO_MH:
-+		if (sel->sport_mask)
-+			fprintf(fp, "type %u ", ntohs(sel->sport));
-+		if (sel->dport_mask) {
-+			if (show_stats > 0)
-+				fprintf(fp, "(dport) 0x%.4x ", sel->dport);
-+		}
-+		break;
- 	}
- 
- 	if (sel->ifindex > 0) {
-@@ -1111,6 +1119,7 @@ static int xfrm_selector_upspec_parse(st
- 		switch (sel->proto) {
- 		case IPPROTO_ICMP:
- 		case IPPROTO_ICMPV6:
-+		case IPPROTO_MH:
- 			break;
- 		default:
- 			fprintf(stderr, "\"type\" and \"code\" are invalid with proto=%s\n", strxf_proto(sel->proto));
-diff --git a/ip/xfrm.h b/ip/xfrm.h
-index d33ff94..03db37b 100644
---- a/ip/xfrm.h
-+++ b/ip/xfrm.h
-@@ -35,6 +35,9 @@ #endif
- #ifndef IPPPROTO_DCCP
- # define IPPROTO_DCCP	33
- #endif
-+#ifndef IPPROTO_MH
-+# define IPPROTO_MH	135
-+#endif
- 
- #define XFRMS_RTA(x)  ((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_usersa_info))))
- #define XFRMS_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct xfrm_usersa_info))
--- 
-1.4.2
+This is obviously broken.  Please add a "struct module *owner;"
+field to struct rfkill instead.
 
