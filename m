@@ -1,54 +1,58 @@
 From: Steve Wise <swise@opengridcomputing.com>
 Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Tue, 05 Dec 2006 09:46:18 -0600
-Message-ID: <1165333578.16087.60.camel@stevo-desktop>
+Date: Tue, 05 Dec 2006 10:02:09 -0600
+Message-ID: <1165334529.16087.69.camel@stevo-desktop>
 References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
 	 <20061202224958.27014.65970.stgit@dell3.ogc.int>
-	 <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
-	 <20061205050725.GA26033@2ka.mipt.ru> <ada3b7uhqlk.fsf@cisco.com>
-	 <20061205051657.GB26845@2ka.mipt.ru> <aday7pmgbf6.fsf@cisco.com>
-	 <1165331676.16087.29.camel@stevo-desktop>
-	 <20061205152736.GA2274@2ka.mipt.ru>
+	 <20061204110825.GA26251@2ka.mipt.ru>  <ada8xhnk6kv.fsf@cisco.com>
+	 <1165249251.32724.26.camel@stevo-desktop>  <45754DE3.1020505@ens-lyon.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+Cc: Roland Dreier <rdreier@cisco.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
 	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:39990 "EHLO
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:55973 "EHLO
 	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S937498AbWLEPqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:46:18 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061205152736.GA2274@2ka.mipt.ru>
+	by vger.kernel.org with ESMTP id S968391AbWLEQCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 11:02:10 -0500
+To: Brice Goglin <Brice.Goglin@ens-lyon.org>
+In-Reply-To: <45754DE3.1020505@ens-lyon.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-12-05 at 18:27 +0300, Evgeniy Polyakov wrote:
-> On Tue, Dec 05, 2006 at 09:14:36AM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
-> > Chelsio doesn't implement TCP stack in the driver.  Just like Ammasso,
-> > it sends messages to the HW to setup connections.  It differs from
-> > Ammasso in at least 2 ways:
-> > 
-> > 1) Ammasso does the MPA negotiations in FW/HW.  Chelsio does it in the
-> > RDMA driver.  So there is code in the Chelsio driver to handle MPA
-> > startup negotiation (the exchange of 2 packets over the TCP connection
-> > while its still in streaming more).  BTW: This code _could_ be moved
-> > into the core IWCM if we find it could be used by other rnic devices
-> > (don't know yet).
-> > 
-> > 2) Ammasso implments a 100% deep adapter.  It does ARP, routing, IP,
-> > TCP, and IWARP protocols all in firmware/hw.  It had 2 mac addresses
-> > simulating 2 ethernet ports.  One exclusively for RDMA connections, and
-> > one for host stack traffic.  Chelsio implements a shallower adapter that
-> > only does TCP in HW.  ARP, for instance, is handled by the native stack
-> > and the rdma driver uses netevents to maintain arp tables in the HW for
-> > use by the offloaded TCP connections.
+On Tue, 2006-12-05 at 11:45 +0100, Brice Goglin wrote:
+> Steve Wise wrote:
+> > There is no SW TCP stack in this driver.  The HW supports RDMA over
+> > TCP/IP/10GbE in HW and this is required for zero-copy RDMA over Ethernet
+> > (aka iWARP).  The device is a 10 GbE device, not Infiniband.
 > 
-> So breifly saying - there is TCP stack implementation (including ARP and
-> routing and other parts) in hardware/firmware/driver which is guaranteed
-> to not be visible to host other than in form of high-level dataflow.
-> Am I right here?
+> Then, I wonder why the driver goes in drivers/infiniband/ :)
 
-For Ammasso, yes.  
+drivers/infiniband support both IB and IWARP transports.
+
+> Is there really no way to only keep the actual hw infiniband there, move
+> iwarp/rdma drivers in drivers/net/something/ and the core stuff in
+> net/something/ ?
+> 
+
+Sure, this _could_ be done, but what I think you're missing is that
+applications use the interface exported by drivers/infiniband over both
+IB -and- IWARP transports.  The application can be written to not care
+which transport is used.   Examples of apps that can run over both
+transports using the same common interface: 
+
+user mode: MVAPICH2, OMPI, IMPI, HPMPI, 
+kernel mode: NFS-RDMA, iSER.  
+
+Note that the include directory used by drivers/infiniband is now
+include/rdma.  Perhaps drivers/infiniband should be renamed to
+drivers/rdma as well at some point...
+
+
+
+Steve.
+
+
 
