@@ -1,42 +1,44 @@
-From: Sebastian Krahmer <krahmer@suse.de>
-Subject: TCP dynamic system
-Date: Tue, 5 Dec 2006 10:59:20 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0612051056180.12433@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [PATCH 1/2] [IPV6] RAW: Don't release unlocked sock.
+Date: Tue,  5 Dec 2006 19:03:14 +0900
+Message-ID: <11653129943938-git-send-email-nakam@linux-ipv6.org>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49077 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759904AbWLEJ7W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 04:59:22 -0500
-Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id 6692321756
-	for <netdev@vger.kernel.org>; Tue,  5 Dec 2006 10:59:20 +0100 (CET)
-To: netdev@vger.kernel.org
+Received: from usagi020.linux-ipv6.org ([203.178.140.20]:55566 "EHLO
+	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S967638AbWLEKDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 05:03:49 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+When user builds IPv6 header and send it through raw socket, kernel
+tries to release unlocked sock. (Kernel log shows
+"BUG: bad unlock balance detected" with enabled debug option.)
 
-Hi,
+The lock is held only for non-hdrincl sock in this function
+then this patch fix to do nothing about lock for hdrincl one.
 
-Does anyone know a good book on the nature of TCP? Means,
-how does all the algorithms (Nagle, ...) delayed, quick, opt-ack,
-winodw-size, MSS etc. affect the thruput and so on? Something
-that explains (hopefully as good as TCP Illustrated) which parameters
-cause what effects. There are some papers which describe this or
-that single topic but not a whole view.
-I am not subscribed to the list, so please take me into Cc or
-answer off-list :-)
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+---
+ net/ipv6/raw.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-thx,
-Sebastian
-
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index d6dedc4..aa1d420 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -855,7 +855,8 @@ back_from_confirm:
+ 	}
+ done:
+ 	dst_release(dst);
+-	release_sock(sk);
++	if (!inet->hdrincl)
++		release_sock(sk);
+ out:	
+ 	fl6_sock_release(flowlabel);
+ 	return err<0?err:len;
 -- 
-~
-~ perl self.pl
-~ $_='print"\$_=\47$_\47;eval"';eval
-~ krahmer@suse.de - SuSE Security Team
-~
+1.4.2
 
