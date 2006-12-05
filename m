@@ -1,65 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Tue, 5 Dec 2006 20:26:50 +0300
-Message-ID: <20061205172649.GA20229@2ka.mipt.ru>
-References: <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com> <20061205050725.GA26033@2ka.mipt.ru> <1165330925.16087.13.camel@stevo-desktop> <20061205151905.GA18275@2ka.mipt.ru> <1165333198.16087.53.camel@stevo-desktop> <20061205155932.GA32380@2ka.mipt.ru> <1165335162.16087.79.camel@stevo-desktop> <20061205163008.GA30211@2ka.mipt.ru> <1165337245.16087.95.camel@stevo-desktop>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 1/7] Sync with 2.6.19 kernel header about include/linux.
+Date: Tue, 5 Dec 2006 09:34:12 -0800
+Message-ID: <20061205093412.6eb0df6a@freekitty>
+References: <11653137213434-git-send-email-nakam@linux-ipv6.org>
+	<20061205104211.GW8693@postel.suug.ch>
+	<45755BB5.2060707@linux-ipv6.org>
+	<20061205115415.GY8693@postel.suug.ch>
+	<4575659C.6050904@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:52277 "EHLO 2ka.mipt.ru"
+Received: from smtp.osdl.org ([65.172.181.25]:55178 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968502AbWLEReM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 12:34:12 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-Content-Disposition: inline
-In-Reply-To: <1165337245.16087.95.camel@stevo-desktop>
+	id S968503AbWLERe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 12:34:26 -0500
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <4575659C.6050904@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 05, 2006 at 10:47:25AM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
-> > And if there were a dataflow between addr/port a.b to addr/port c.d
-> > already, it will either terminated?
-> > 
-> > Considering the following sequence:
-> > handlers->t3c_handlers->sched()->work_queue->work_handlers()->for
-> > example CPL_PASS_ACCEPT_REQ->pass_accept_req() - it just parses incoming
-> > skb and sets port/addr/route and other fields to be used as a base for rdma
-> > connection. What if it just a usual network packet from kernelspace or 
-> > userspace with the same payload as should be sent by remote rdma system?
-> > 
-> 
-> That skb isn't a network packet.  Its a CPL_PASS_ACCEPT_REQ message (see
-> struct cpl_pass_accept_req in the Ethernet driver t3_cpl.h).  If the
-> RDMA driver hadn't registered to listen on that addr/port, it would
-> never get this skb.  Once a connection is established, the MPA messages
-> (and any TCP payload data) is delivered to the RDMA driver in the form
-> of skb's containing struct cpl_rx_data.  So these skbs aren't just TCP
-> packets at all.  They either control messages or TCP payload. Either way
-> they are encapsulated in CPL message structures.
-> 
-> Does this make sense?
- 
-Almost - except the case about where those skbs are coming from?
-It looks like they are obtained from network, since it is ethernet
-driver, and if they match some set of rules, they are considered as valid 
-MPA negotiation protocol.
+On Tue, 05 Dec 2006 21:27:08 +0900
+Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
 
-If it is correct, it means that any packet in the network can be
-potentially 'stolen' by rdma hardware, although it was part of the usual
-dataflow. 
-If that packets are not from ethernet network, but from different
-low-level, then there is a question (besides why this driver is called
-ethernet if it manages different hardware) about how connection over
-that different media is being setup and since packets contain perfectly
-valid IP addresses and ports.
+> Thomas Graf wrote:
+> >>> Why are you reverting this?
+> >> I just update the header about include/linux without thinking.
+> >> Should I have to update them except fib_rules.h?
+> > 
+> > The iproute2 git tree already contains patches for the
+> > 2.6.20 release.
+> 
+> OK, thanks. Can you know another patch which is already
+> updated to newer version except fib_fules.h, iprule.c?
+> 
+> Regards,
+> 
 
-And, btw, not related question - does postponing the whole skb multiplexing 
-to work queue result in lower latency and/or higher speed?
-Since there are a lot of tricks introduced to minimize gap between
-interrupt/napi polling and protocol processing, so such huge postponing
-with the whole context switch looks strange.
+Rather than apply your patch I am just rerunning my header extract
+script against latest 2.6.19-git7 tree
 
 -- 
-	Evgeniy Polyakov
+Stephen Hemminger <shemminger@osdl.org>
