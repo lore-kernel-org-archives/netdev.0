@@ -1,31 +1,46 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: ipw2100/2200 driver updates
-Date: Tue, 5 Dec 2006 14:40:34 +0800
-Message-ID: <20061205064033.GA18179@mail.intel.com>
+Subject: [PATCH 1/5] ipw2100: Make ipw2100 depends on known working platforms
+Date: Tue, 5 Dec 2006 14:40:52 +0800
+Message-ID: <20061205064052.GA18227@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:6632 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:7524 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967131AbWLEHIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 02:08:35 -0500
+	id S967391AbWLEHIq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 02:08:46 -0500
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
+[ Resubmit, if you still don't like it, I'll drop. ]
 
-Here are some small updates for ipw2100/2200 drivers.
+ipw2100 driver doesn't support big endian by now.
 
-[PATCH 1/5] ipw2100: Make ipw2100 depends on known working platforms
-[PATCH 2/5] ipw2200: Add IEEE80211_RADIOTAP_TSFT for promiscuous mode
-[PATCH 3/5] Update version ipw2200 stamp to 1.2.0
-[PATCH 4/5] ipw2200: Fix a typo
-[PATCH 5/5] ipw2200: Fix debug output endian issue
+Signed-off-by: Karol Lewandowski <kl@jasmine.eu.org>
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
+---
 
-Thanks,
--yi
+ drivers/net/wireless/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+d664c6332284edba4278a1f3b18b453ef4d39faf
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index aefa4cb..c2495c5 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -146,7 +146,7 @@ comment "Wireless 802.11b ISA/PCI cards 
+ 
+ config IPW2100
+ 	tristate "Intel PRO/Wireless 2100 Network Connection"
+-	depends on NET_RADIO && PCI
++	depends on NET_RADIO && PCI && (X86 || X86_64 || IA64 || BROKEN)
+ 	select FW_LOADER
+ 	select IEEE80211
+ 	---help---
+-- 
+1.2.6
