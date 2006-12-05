@@ -1,64 +1,47 @@
-From: "Michael Renzmann" <madwifi@nospam.otaku42.de>
-Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Tue, 5 Dec 2006 15:39:06 +0100 (CET)
-Message-ID: <3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
-    <200611291612.33448.mb@bu3sch.de>
-    <20061129152407.GB5412@devicescape.com>
-    <200611291638.56759.mb@bu3sch.de>
-    <20061129160328.GA22602@devicescape.com>
-    <20061129121312.4cfc254f@freekitty>
-    <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Tue, 05 Dec 2006 09:02:05 -0600
+Message-ID: <1165330925.16087.13.camel@stevo-desktop>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
+	 <20061202224958.27014.65970.stgit@dell3.ogc.int>
+	 <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
+	 <20061205050725.GA26033@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Stephen Hemminger" <shemminger@osdl.org>,
-	"David Kimdon" <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
-	"Nick Kossifidis" <mickflemm@gmail.com>,
-	"Michael Buesch" <mb@bu3sch.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from legolas.otaku42.de ([217.24.0.78]:37733 "EHLO
-	legolas.otaku42.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967460AbWLEOjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 09:39:22 -0500
-In-Reply-To: <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:49628 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760096AbWLEPCH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:02:07 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061205050725.GA26033@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all.
+On Tue, 2006-12-05 at 08:07 +0300, Evgeniy Polyakov wrote:
+> On Mon, Dec 04, 2006 at 07:45:52AM -0800, Roland Dreier (rdreier@cisco.com) wrote:
+> >  > This and a lot of other changes in this driver definitely says you
+> >  > implement your own stack of protocols on top of infiniband hardware.
+> > 
+> > ...but I do know this driver is for 10-gig ethernet HW.
+> 
+> It is for iwarp/rdma from description.
+> If it is 10ge, then why does it parse incomping packet headers and
+> implements initial tcp state machine?
+> 
 
-> To make things easier for development I'd like to suggest a few madwif
-> ibranches created:
->
-> * madwifi-1152-openhal: based on madwifi-1152, patched with my patch,
-> added openhal, old hal removed. Working free solution. Should exist
-> just as a reference and to allow users to checkout a working free
-> alternative in the mean time.
->
-> * madwifi-dadwifi-openal: based on the latest dadwifi with the
-> openhal, old hal removed. As dadwifi gets updated you can pull updates
-> to this branch. As the openhal advances you can make updates to the
-> openhal here.
+Its not implementing the TCP state machine at all. Its implementing the
+MPA state machine (see the iWARP internet drafts).  These packets are
+TCP payload.  MPA is used to negotiate RDMA mode on a TCP connection.
+This entails an exchange of 2 messages on the TCP connection.  Once this
+is exchanged and both side agree, the connection is bound to an RDMA QP
+and the connection moved into RDMA mode.  From that point on, all IO is
+done via the post_send() and post_recv().
 
-I've set up the suggested branches, with slight changing to the proposed
-names:
 
-* http://svn.madwifi.org/branches/madwifi-old-openhal (based on r1142)
-* http://svn.madwifi.org/branches/dadwifi-openhal (based on r1827)
+Steve. 
 
-Neither of them has received any modifications yet, they are basically
-copies of the mentioned revisions. I'm currently lacking the time to
-import Nick's work into the madwifi-old-openhal branch, for example - it
-would be nice if someone else could work on that.
-
-The MadWifi project happily provides any interested party access to the
-resources we have at hands - including (but not limited to) r/w access to
-the repository, an account for our Trac (used to manage tickets for bugs,
-patches, ...), e-mail, .... Let me know if you need something in that
-regard and I'll try to get it done. We'd love to support these efforts
-where possible.
-
-Bye, Mike
 
