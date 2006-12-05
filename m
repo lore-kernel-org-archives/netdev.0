@@ -1,34 +1,30 @@
-From: Brice Goglin <Brice.Goglin@ens-lyon.org>
-Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Tue, 05 Dec 2006 11:45:55 +0100
-Message-ID: <45754DE3.1020505@ens-lyon.org>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>	 <20061202224958.27014.65970.stgit@dell3.ogc.int>	 <20061204110825.GA26251@2ka.mipt.ru>  <ada8xhnk6kv.fsf@cisco.com> <1165249251.32724.26.camel@stevo-desktop>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for
+ mobility header.
+Date: Tue, 05 Dec 2006 20:02:42 +0900 (JST)
+Message-ID: <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
+References: <11653130071739-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iona.labri.fr ([147.210.8.143]:51732 "EHLO iona.labri.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937501AbWLEKqI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 05:46:08 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <1165249251.32724.26.camel@stevo-desktop>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:39253 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759940AbWLELCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 06:02:30 -0500
+To: davem@davemloft.net, nakam@linux-ipv6.org
+In-Reply-To: <11653130071739-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Wise wrote:
-> There is no SW TCP stack in this driver.  The HW supports RDMA over
-> TCP/IP/10GbE in HW and this is required for zero-copy RDMA over Ethernet
-> (aka iWARP).  The device is a 10 GbE device, not Infiniband.
+In article <11653130071739-git-send-email-nakam@linux-ipv6.org> (at Tue,  5 Dec 2006 19:03:27 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
 
-Then, I wonder why the driver goes in drivers/infiniband/ :)
+> Add checksum default defines for mobility header(MH).
+> As the result kernel's behavior is to handle MH checksum
+> as default.
 
-Is there really no way to only keep the actual hw infiniband there, move
-iwarp/rdma drivers in drivers/net/something/ and the core stuff in
-net/something/ ?
+I'd like to hold this on.  I need to check RFC.
 
-Brice
-
+--yoshfuji
