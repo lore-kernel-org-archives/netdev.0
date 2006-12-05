@@ -1,78 +1,78 @@
-From: Robert Martin <robertm83@gmail.com>
-Subject: Re: NETDEV-BCM43XX BUG - Failure to associate AP with latest devscape
- git pull..
-Date: Mon, 04 Dec 2006 18:46:35 -0500
-Message-ID: <4574B35B.5070207@gmail.com>
-References: <45733FBF.5020800@gmail.com>	<87y7pogj1k.fsf@briny.internal.ondioline.org>	<45745D2B.1090700@gmail.com>	<87ac231ari.fsf@briny.internal.ondioline.org>	<45746370.4070205@gmail.com> <8764cr190q.fsf@briny.internal.ondioline.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Mon, 04 Dec 2006 16:46:06 -0800
+Message-ID: <4574C14E.2060108@intel.com>
+References: <36D9DB17C6DE9E40B059440DB8D95F52013ABFE9@orsmsx418.amr.corp.intel.com> <4562D207.60301@cj.jp.nec.com> <4573E6FD.3030905@cj.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Shaw Vrana <shaw@vranix.com>, netdev@vger.kernel.org,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:21431 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967907AbWLEAqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 19:46:47 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so3960507wxd
-        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 16:46:46 -0800 (PST)
-To: Robert Martin <robertm83@gmail.com>, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
-In-Reply-To: <8764cr190q.fsf@briny.internal.ondioline.org>
+Received: from mga01.intel.com ([192.55.52.88]:22730 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967922AbWLEAw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Dec 2006 19:52:58 -0500
+To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+In-Reply-To: <4573E6FD.3030905@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Collins wrote:
-> (Please use reply-to-all to keep Cc:s intact, and place new material
-> below quoted material.)
->
-> Robert Martin <robertm83@gmail.com> writes:
->
->   
->> Paul Collins wrote:
->>     
->>> Robert Martin <robertm83@gmail.com> writes:
+Kenzo Iwami wrote:
+> Hi,
+> 
+>>> Doesn't this just mean that we need a spinlock or some other kind of
+>>> semaphore around acquiring, using, and releasing this resource?  We keep
+>>> going around and around about this but I'm pretty sure spinlocks are
+>>> meant to be able to solve exactly this issue.
 >>>
->>>       
->>>> Alas, that seems to have been the problem, I was getting different
->>>> frequencies.  Once I manually set the frequency, dhclient worked
->>>> perfectly.  The only problem now is that I seem to be limited to very
->>>> slow speeds (on the order of 5-20K/s, or ~120 kilobits/s).
->>>>         
->>> I guess the speed problem is due to the general state of BCM4318
->>> support, as mentioned by the developers.
->>>
->>> I'm glad the frequency thing isn't some weird glitch that only I am
->>> experiencing though.
->>>
->>>       
->> I'm pretty sure that I'm using a 4311 chip... lspci -n gives...
+>>> The problem is going to get considerably more nasty if we need to hold a
+>>> spinlock with interrupts disabled for a significant amount of time, at
+>>> which point a semaphore of some kind with a spinlock around it would
+>>> seem to be more useful.
+>> Even if spin_lock() was used to protect this resource, it is still possible
+>> for an interrupt to kick in and call e1000_watchdog. In this case,
+>> e1000_get_software_semaphore() will be called from within the interrupt
+>> handler and the problem will still occur.
 >>
->> 03:00.0 0280: 14e4:4311 (rev 01)
+>> In order to solve this problem, interrupt should be disabled (for example,
+>> spin_lock_irqsave).
+>> The interrupt handler can't run while the process is holding this resource,
+>> and this problem doesn't occur.
 >>
->> ...I might have been mistaken about it being a PCI-E chip in that
->> case.  One additional question, it seems the link quality is very low;
->> "iwconfig wlan0" tells me it's 3/100 after associating with my AP.
->> Could that be the power issue that Johannes Berg was speaking of?  I'm
->> curious as to what speeds you're running at, and what your link
->> quality is.
->>     
->
-> My card (a 4306) seems to be running at 11Mbps.  No idea how to change
-> it: iwconfig doesn't report the current rate (I had to go digging in
-> sysfs) and trying to change it with iwconfig fails with "Operation not
-> supported".
->
-> Here's the signal info:
->
->         Link Quality=228/100  Signal level=-32 dBm  Noise level=-70 dBm
->
-> The machine is about 3 metres from the AP.
->
->   
-A quick test just incase the information is somehow helpful... I moved 
-to within two meters of my AP with nothing blocking the way--the link 
-quality jumped up to 46/100 (vs 3/100 5m away and a wall blocking), 
-though there was no increase in speed (still limited to ~120 kilobits/s).
+>>> I'll work with Auke to see if we can come up with another try.
+>> Do you have any updates about your test code?
+> 
+> Does the fix I previously proposed have problems?
+> If it does, I'd like to help find investigate another fix to solve
+> this problem.
 
-Before:  Link Quality=3/100  Signal level=-73 dBm  Noise level=-66 dBm
+There are several issues that are conflicting and mixing that make it less than 
+intuitive to decide what the better fix is.
 
-After: Link Quality=46/100  Signal level=-49 dBm  Noise level=-69 dBm
+Most of all, we discussed that adding a spinlock is not going to fix the underlying 
+problem of contention, as the code that would need to be spinlocked can sleep. Not a 
+good thing.
+
+Adding state tracking code in the form of atomics might solve the issue too, but then we 
+need to do this in quite a few locations. And it comes down to the fact that we really 
+want all users of the semaphore to halt in case it is in use.
+
+Reducing the swfw semaphore time is a usefull exercise, but requires an amazing amount 
+of changes to all of the phy code to make sure we're not locking it too long, and even 
+then I doubt that we will reduce the maximum lock time to acceptable levels.
+
+The watchdog then, appears to needlessly lock the semaphore every two seconds. this is 
+because even though the link is up and we're already setup, we go through the trouble of 
+doing all the PHY reads, which are protected by the semaphores.
+
+I'm currently testing a watchdog version which completely bypasses these checks in case 
+the MAC didn't detect a link change, and we already are setup completely. In that case, 
+all we need to do is update stats and reschedule the timer.
+
+I'll keep you posted on progress.
+
+Cheers,
+
+Auke
