@@ -1,56 +1,67 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Tue, 05 Dec 2006 09:14:36 -0600
-Message-ID: <1165331676.16087.29.camel@stevo-desktop>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-	 <20061202224958.27014.65970.stgit@dell3.ogc.int>
-	 <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
-	 <20061205050725.GA26033@2ka.mipt.ru> <ada3b7uhqlk.fsf@cisco.com>
-	 <20061205051657.GB26845@2ka.mipt.ru>  <aday7pmgbf6.fsf@cisco.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
+Date: Tue, 5 Dec 2006 10:15:33 -0500
+Message-ID: <43e72e890612050715g9568cfv945f28ccbf796801@mail.gmail.com>
+References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
+	 <200611291612.33448.mb@bu3sch.de>
+	 <20061129152407.GB5412@devicescape.com>
+	 <200611291638.56759.mb@bu3sch.de>
+	 <20061129160328.GA22602@devicescape.com>
+	 <20061129121312.4cfc254f@freekitty>
+	 <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
+	 <3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Cc: "Stephen Hemminger" <shemminger@osdl.org>,
+	"David Kimdon" <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
+	"Nick Kossifidis" <mickflemm@gmail.com>,
+	"Michael Buesch" <mb@bu3sch.de>, "Reyk Floeter" <reyk@openbsd.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:53578 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S968280AbWLEPOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:14:36 -0500
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <aday7pmgbf6.fsf@cisco.com>
+Received: from wr-out-0506.google.com ([64.233.184.233]:24854 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968283AbWLEPPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:15:34 -0500
+Received: by wr-out-0506.google.com with SMTP id i7so1917411wra
+        for <netdev@vger.kernel.org>; Tue, 05 Dec 2006 07:15:33 -0800 (PST)
+To: "Michael Renzmann" <madwifi@nospam.otaku42.de>
+In-Reply-To: <3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-12-04 at 21:27 -0800, Roland Dreier wrote:
->  > So will each new NIC implement some parts of TCP stack in theirs drivers?
-> 
-> I hope not.  The driver we merged (amso1100) did it completely in FW,
-> with a separate MAC and IP interface for the RDMA connections.  I
-> think we better understand the Chelsio driver pretty well and think it
-> over carefully before we merge it.
-> 
+On 12/5/06, Michael Renzmann <madwifi@nospam.otaku42.de> wrote:
+ openhal here.
+>
+> I've set up the suggested branches, with slight changing to the proposed
+> names:
+>
+> * http://svn.madwifi.org/branches/madwifi-old-openhal (based on r1142)
+> * http://svn.madwifi.org/branches/dadwifi-openhal (based on r1827)
+>
+> Neither of them has received any modifications yet, they are basically
+> copies of the mentioned revisions. I'm currently lacking the time to
+> import Nick's work into the madwifi-old-openhal branch, for example - it
+> would be nice if someone else could work on that.
 
-Chelsio doesn't implement TCP stack in the driver.  Just like Ammasso,
-it sends messages to the HW to setup connections.  It differs from
-Ammasso in at least 2 ways:
+CC'ing Reyk Foeter.
 
-1) Ammasso does the MPA negotiations in FW/HW.  Chelsio does it in the
-RDMA driver.  So there is code in the Chelsio driver to handle MPA
-startup negotiation (the exchange of 2 packets over the TCP connection
-while its still in streaming more).  BTW: This code _could_ be moved
-into the core IWCM if we find it could be used by other rnic devices
-(don't know yet).
+Committed Nick's port of ar5k (openal) to both branches, both now have
+the openhal. Please note (very important):
 
-2) Ammasso implments a 100% deep adapter.  It does ARP, routing, IP,
-TCP, and IWARP protocols all in firmware/hw.  It had 2 mac addresses
-simulating 2 ethernet ports.  One exclusively for RDMA connections, and
-one for host stack traffic.  Chelsio implements a shallower adapter that
-only does TCP in HW.  ARP, for instance, is handled by the native stack
-and the rdma driver uses netevents to maintain arp tables in the HW for
-use by the offloaded TCP connections.
+We are basing our openhal on OpenBSD's ar5k. Because of this and since
+the GPL does not allow us to commit changes on the GPL version back to
+the BSD version please sumbit your non-linux enhancements to the HAL
+to "Reyk Floeter" <reyk@openbsd.org> and CC madwifi-devel.
 
-Steve.
+We have an openhal.org which we can start to use, should Reyk want, to
+use as the master tree of the ar5k to make sure any enhancements on
+the HAL go to both BSD and Linux. The licensing on the master tree
+should be kept BSD as Reyk wants it to be. This way Linux or BSD
+contributions can go into one tree and later revisions can be added to
+dadwifi/openbsd with their own specific BSD'isms and Linux'isms. Keep
+in mind the Linux port will remain dual licensed BSD/GPL. Let me know
+what you think Reyk.
 
-
-
+  Luis
