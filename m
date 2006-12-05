@@ -1,44 +1,31 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Tue, 05 Dec 2006 09:03:35 -0600
-Message-ID: <1165331015.16087.16.camel@stevo-desktop>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int>
-	 <20061202224958.27014.65970.stgit@dell3.ogc.int>
-	 <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
-	 <20061205050725.GA26033@2ka.mipt.ru>  <ada3b7uhqlk.fsf@cisco.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for mobility
+ header.
+Date: Tue, 05 Dec 2006 10:04:14 -0500
+Message-ID: <45758A6E.9010209@hp.com>
+References: <11653130071739-git-send-email-nakam@linux-ipv6.org> <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, nakam@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:53592 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S968260AbWLEPDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:03:35 -0500
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <ada3b7uhqlk.fsf@cisco.com>
+Received: from atlrel8.hp.com ([156.153.255.206]:40354 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S968267AbWLEPER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 10:04:17 -0500
+To: =?windows-1252?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-12-04 at 21:13 -0800, Roland Dreier wrote:
->  > It is for iwarp/rdma from description.
+YOSHIFUJI Hideaki / ???? wrote:
+>> Add checksum default defines for mobility header(MH).
+>> As the result kernel's behavior is to handle MH checksum
+>> as default.
 > 
-> Yes, iWARP on top of 10G ethernet.
-> 
->  > If it is 10ge, then why does it parse incomping packet headers and
->  > implements initial tcp state machine?
-> 
-> To establish connections to run RDMA over, I guess.  iWARP is RDMA
-> over TCP.
-> 
+> I'd like to hold this on.  I need to check RFC.
 
-The driver uses messages exchanged to and from the HW via the Ethernet
-driver to setup TCP connections.  No TCP processing is done in the host.
-The hardware does all the TCP processing.
+That looks correct according to 3775.
 
-
-Steve.
-
-
-
+-Brian
