@@ -1,39 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Generic Netlink doc now wiki-ized
-Date: Mon, 4 Dec 2006 20:23:35 -0800
-Message-ID: <20061204202335.0ccbf167@localhost.localdomain>
-References: <200612041839.57840.paul.moore@hp.com>
-	<20061204.193432.28788221.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Tue, 5 Dec 2006 08:07:25 +0300
+Message-ID: <20061205050725.GA26033@2ka.mipt.ru>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202224958.27014.65970.stgit@dell3.ogc.int> <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:48560 "EHLO smtp.osdl.org"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:39467 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968330AbWLEEXm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Dec 2006 23:23:42 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061204.193432.28788221.davem@davemloft.net>
+	id S968361AbWLEFKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 00:10:49 -0500
+To: Roland Dreier <rdreier@cisco.com>
+Content-Disposition: inline
+In-Reply-To: <ada8xhnk6kv.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 04 Dec 2006 19:34:32 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Mon, Dec 04, 2006 at 07:45:52AM -0800, Roland Dreier (rdreier@cisco.com) wrote:
+>  > This and a lot of other changes in this driver definitely says you
+>  > implement your own stack of protocols on top of infiniband hardware.
+> 
+> ...but I do know this driver is for 10-gig ethernet HW.
 
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Mon, 4 Dec 2006 18:39:57 -0500
-> 
-> > Clicky clicky...
-> > 
-> >  * http://linux-net.osdl.org/index.php/Generic_Netlink_HOWTO
-> 
-> Nice.
-> 
-> We should add a reference to this somewhere in the tree
-> probably.
+It is for iwarp/rdma from description.
+If it is 10ge, then why does it parse incomping packet headers and
+implements initial tcp state machine?
 
-Moved the intro paragraph off to:
-	http://linux-net.osdl.org/index.php/Netlink
-and ref'd on the main page
-Add Generic Netlink HOWTO under that
+>  - R.
+
+-- 
+	Evgeniy Polyakov
