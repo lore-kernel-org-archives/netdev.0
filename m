@@ -1,38 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for
- mobility header.
-Date: Wed, 06 Dec 2006 00:28:11 +0900 (JST)
-Message-ID: <20061206.002811.95754004.yoshfuji@linux-ipv6.org>
-References: <11653130071739-git-send-email-nakam@linux-ipv6.org>
-	<20061205.200242.01826773.yoshfuji@linux-ipv6.org>
-	<45758A6E.9010209@hp.com>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 1/1] myri10ge: write as 2 32-byte blocks in myri10ge_submit_8rx
+Date: Tue, 05 Dec 2006 16:28:22 +0100
+Message-ID: <45759016.3050207@myri.com>
+References: <4573F8ED.3050304@myri.com> <4573F97B.90707@myri.com> <4574B0F9.9070409@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nakam@linux-ipv6.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39268 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968297AbWLEP16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:27:58 -0500
-To: brian.haley@hp.com
-In-Reply-To: <45758A6E.9010209@hp.com>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:55657 "EHLO
+	myri.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S968303AbWLEP2k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 10:28:40 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4574B0F9.9070409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <45758A6E.9010209@hp.com> (at Tue, 05 Dec 2006 10:04:14 -0500), Brian Haley <brian.haley@hp.com> says:
+Jeff Garzik wrote:
+> Brice Goglin wrote:
+>> In the myri10ge_submit_8rx() routine, write the 64 byte request block as
+>> 2 32-byte blocks so that it is handled by the hardware pio write handler
+>> if write-combining is enabled.
+>>
+>> Signed-off-by: Brice Goglin <brice@myri.com>
+>> ---
+>>  drivers/net/myri10ge/myri10ge.c |    4 +++-
+>>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> ACK, can you resend due to patch collision in #upstream?
 
-> YOSHIFUJI Hideaki wrote:
-> >> Add checksum default defines for mobility header(MH).
-> >> As the result kernel's behavior is to handle MH checksum
-> >> as default.
-> > 
-> > I'd like to hold this on.  I need to check RFC.
-> 
-> That looks correct according to 3775.
+Ok, I wasn't aware of the annotation fixes from Al Viro. Maybe I should
+add a MAINTAINER entry so that I could get CC'ed more often when changes
+are done in myri10ge ?
 
-I'm thinking about difference RFC.
+Anyway, I will resent an updated patch as a reply to this mail soon.
 
---yoshfuji
+Brice
+
