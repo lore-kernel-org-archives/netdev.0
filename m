@@ -1,67 +1,66 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Tue, 5 Dec 2006 10:15:33 -0500
-Message-ID: <43e72e890612050715g9568cfv945f28ccbf796801@mail.gmail.com>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
-	 <200611291612.33448.mb@bu3sch.de>
-	 <20061129152407.GB5412@devicescape.com>
-	 <200611291638.56759.mb@bu3sch.de>
-	 <20061129160328.GA22602@devicescape.com>
-	 <20061129121312.4cfc254f@freekitty>
-	 <43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
-	 <3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Tue, 5 Dec 2006 18:19:06 +0300
+Message-ID: <20061205151905.GA18275@2ka.mipt.ru>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202224958.27014.65970.stgit@dell3.ogc.int> <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com> <20061205050725.GA26033@2ka.mipt.ru> <1165330925.16087.13.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>,
-	"David Kimdon" <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
-	"Nick Kossifidis" <mickflemm@gmail.com>,
-	"Michael Buesch" <mb@bu3sch.de>, "Reyk Floeter" <reyk@openbsd.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.233]:24854 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968283AbWLEPPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 10:15:34 -0500
-Received: by wr-out-0506.google.com with SMTP id i7so1917411wra
-        for <netdev@vger.kernel.org>; Tue, 05 Dec 2006 07:15:33 -0800 (PST)
-To: "Michael Renzmann" <madwifi@nospam.otaku42.de>
-In-Reply-To: <3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54228 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S968290AbWLEPX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 10:23:29 -0500
+To: Steve Wise <swise@opengridcomputing.com>
 Content-Disposition: inline
+In-Reply-To: <1165330925.16087.13.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/5/06, Michael Renzmann <madwifi@nospam.otaku42.de> wrote:
- openhal here.
->
-> I've set up the suggested branches, with slight changing to the proposed
-> names:
->
-> * http://svn.madwifi.org/branches/madwifi-old-openhal (based on r1142)
-> * http://svn.madwifi.org/branches/dadwifi-openhal (based on r1827)
->
-> Neither of them has received any modifications yet, they are basically
-> copies of the mentioned revisions. I'm currently lacking the time to
-> import Nick's work into the madwifi-old-openhal branch, for example - it
-> would be nice if someone else could work on that.
+On Tue, Dec 05, 2006 at 09:02:05AM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
+> > >  > This and a lot of other changes in this driver definitely says you
+> > >  > implement your own stack of protocols on top of infiniband hardware.
+> > > 
+> > > ...but I do know this driver is for 10-gig ethernet HW.
+> > 
+> > It is for iwarp/rdma from description.
+> > If it is 10ge, then why does it parse incomping packet headers and
+> > implements initial tcp state machine?
+> > 
+> 
+> Its not implementing the TCP state machine at all. Its implementing the
+> MPA state machine (see the iWARP internet drafts).  These packets are
+> TCP payload.  MPA is used to negotiate RDMA mode on a TCP connection.
+> This entails an exchange of 2 messages on the TCP connection.  Once this
+> is exchanged and both side agree, the connection is bound to an RDMA QP
+> and the connection moved into RDMA mode.  From that point on, all IO is
+> done via the post_send() and post_recv().
 
-CC'ing Reyk Foeter.
+And why does rdma require window scaling, keep alive, nagle and other
+interesting options from TCP spec?
 
-Committed Nick's port of ar5k (openal) to both branches, both now have
-the openhal. Please note (very important):
+This really looks like initial implementation of TCP in hardware - you
+setup flags like doing the same using setsockopt() and then hardware
+manages the flow like network stack manages TCP state machine changes.
 
-We are basing our openhal on OpenBSD's ar5k. Because of this and since
-the GPL does not allow us to commit changes on the GPL version back to
-the BSD version please sumbit your non-linux enhancements to the HAL
-to "Reyk Floeter" <reyk@openbsd.org> and CC madwifi-devel.
+According to draft-culley-iwarp-mpa-03.txt this layer can do a lot of
+things with valid TCP flow like
 
-We have an openhal.org which we can start to use, should Reyk want, to
-use as the master tree of the ar5k to make sure any enhancements on
-the HAL go to both BSD and Linux. The licensing on the master tree
-should be kept BSD as Reyk wants it to be. This way Linux or BSD
-contributions can go into one tree and later revisions can be added to
-dadwifi/openbsd with their own specific BSD'isms and Linux'isms. Keep
-in mind the Linux port will remain dual licensed BSD/GPL. Let me know
-what you think Reyk.
+   5.  The TCP sender puts the FPDUs into the TCP stream.  If the TCP
+       Sender is MPA-aware, it segments the TCP stream in such a way
+       that a TCP Segment boundary is also the boundary of an FPDU.  
+       TCP then passes each segment to the IP layer for transmission.
 
-  Luis
+Phrases like "MPA-aware TCP" rises a lot of questions - briefly saying
+that hardware (even if it is called ethernet driver) can create and work
+with own TCP flows potentially modified in the way it likes which is seen 
+in driver. Likely such flows will not be seen by upper layers like OS 
+network stack according to hardware descriptions.
+
+Is it correct?
+
+> Steve. 
+
+-- 
+	Evgeniy Polyakov
