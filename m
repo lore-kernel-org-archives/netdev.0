@@ -1,54 +1,66 @@
-From: paul.moore@hp.com
-Subject: [PATCH] Netlink: add a pointer to the Generic Netlink wiki page
-Date: Tue, 05 Dec 2006 12:26:10 -0500
-Message-ID: <20061205172625.536651000@hp.com>
-References: <20061205172609.850935000@hp.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH  v2 04/13] Connection Manager
+Date: Tue, 5 Dec 2006 20:32:22 +0300
+Message-ID: <20061205173221.GB24149@2ka.mipt.ru>
+References: <ada8xhnk6kv.fsf@cisco.com> <20061205050725.GA26033@2ka.mipt.ru> <1165330925.16087.13.camel@stevo-desktop> <20061205151905.GA18275@2ka.mipt.ru> <1165333198.16087.53.camel@stevo-desktop> <20061205155932.GA32380@2ka.mipt.ru> <1165335162.16087.79.camel@stevo-desktop> <20061205163008.GA30211@2ka.mipt.ru> <1165337245.16087.95.camel@stevo-desktop> <20061205172649.GA20229@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:52373 "EHLO atlrel9.hp.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:52271 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968494AbWLER2p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 12:28:45 -0500
-Received: from smtp2.fc.hp.com (smtp2.fc.hp.com [15.11.136.114])
-	by atlrel9.hp.com (Postfix) with ESMTP id F0F7338E04
-	for <netdev@vger.kernel.org>; Tue,  5 Dec 2006 12:27:59 -0500 (EST)
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=netlink-genl_wiki_pointer
+	id S968501AbWLERcz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 12:32:55 -0500
+To: Steve Wise <swise@opengridcomputing.com>
+Content-Disposition: inline
+In-Reply-To: <20061205172649.GA20229@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
+On Tue, Dec 05, 2006 at 08:26:49PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> On Tue, Dec 05, 2006 at 10:47:25AM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
+> > > And if there were a dataflow between addr/port a.b to addr/port c.d
+> > > already, it will either terminated?
+> > > 
+> > > Considering the following sequence:
+> > > handlers->t3c_handlers->sched()->work_queue->work_handlers()->for
+> > > example CPL_PASS_ACCEPT_REQ->pass_accept_req() - it just parses incoming
+> > > skb and sets port/addr/route and other fields to be used as a base for rdma
+> > > connection. What if it just a usual network packet from kernelspace or 
+> > > userspace with the same payload as should be sent by remote rdma system?
+> > > 
+> > 
+> > That skb isn't a network packet.  Its a CPL_PASS_ACCEPT_REQ message (see
+> > struct cpl_pass_accept_req in the Ethernet driver t3_cpl.h).  If the
+> > RDMA driver hadn't registered to listen on that addr/port, it would
+> > never get this skb.  Once a connection is established, the MPA messages
+> > (and any TCP payload data) is delivered to the RDMA driver in the form
+> > of skb's containing struct cpl_rx_data.  So these skbs aren't just TCP
+> > packets at all.  They either control messages or TCP payload. Either way
+> > they are encapsulated in CPL message structures.
+> > 
+> > Does this make sense?
+>  
+> Almost - except the case about where those skbs are coming from?
+> It looks like they are obtained from network, since it is ethernet
+> driver, and if they match some set of rules, they are considered as valid 
+> MPA negotiation protocol.
+> 
+> If it is correct, it means that any packet in the network can be
+> potentially 'stolen' by rdma hardware, although it was part of the usual
+> dataflow. 
+> If that packets are not from ethernet network, but from different
+> low-level, then there is a question (besides why this driver is called
+> ethernet if it manages different hardware) about how connection over
+> that different media is being setup and since packets contain perfectly
+> valid IP addresses and ports.
 
-Add a pointer to the OSDL wiki page on Generic Netlink.
+It looks like I've answered myself - it is _not_ ethernet driver, but
+rdma one, and although it gets all data through skbs from ethernet
+driver, the latter gets them not from ethernet network.
+And thus addresses and ports and all other information can not be mixed
+between the two.
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
- Documentation/networking/00-INDEX            |    2 ++
- Documentation/networking/generic_netlink.txt |    3 +++
- 2 files changed, 5 insertions(+)
-
-Index: net-2.6.20_netlink-doc/Documentation/networking/00-INDEX
-===================================================================
---- net-2.6.20_netlink-doc.orig/Documentation/networking/00-INDEX
-+++ net-2.6.20_netlink-doc/Documentation/networking/00-INDEX
-@@ -58,6 +58,8 @@ fore200e.txt
- 	- FORE Systems PCA-200E/SBA-200E ATM NIC driver info.
- framerelay.txt
- 	- info on using Frame Relay/Data Link Connection Identifier (DLCI).
-+generic_netlink.txt
-+	- info on Generic Netlink
- ip-sysctl.txt
- 	- /proc/sys/net/ipv4/* variables
- ip_dynaddr.txt
-Index: net-2.6.20_netlink-doc/Documentation/networking/generic_netlink.txt
-===================================================================
---- /dev/null
-+++ net-2.6.20_netlink-doc/Documentation/networking/generic_netlink.txt
-@@ -0,0 +1,3 @@
-+A wiki document on how to use Generic Netlink can be found here:
-+
-+ * http://linux-net.osdl.org/index.php/Generic_Netlink_HOWTO
-
---
-paul moore
-linux security @ hp
-
+-- 
+	Evgeniy Polyakov
