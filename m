@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Netlink: add a pointer to the Generic Netlink wiki page
-Date: Tue, 05 Dec 2006 13:50:08 -0800 (PST)
-Message-ID: <20061205.135008.09951333.davem@davemloft.net>
-References: <20061205172609.850935000@hp.com>
-	<20061205172625.536651000@hp.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: 2.6.19-rc6-mm2: Network device naming starts at 1 instead of 0
+Date: Tue, 05 Dec 2006 14:07:39 -0800
+Message-ID: <4575EDAB.6060305@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40644
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758771AbWLEVuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 16:50:02 -0500
-To: paul.moore@hp.com
-In-Reply-To: <20061205172625.536651000@hp.com>
+Received: from mga03.intel.com ([143.182.124.21]:27424 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760214AbWLEWHx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 17:07:53 -0500
+To: Andrew Morton <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: paul.moore@hp.com
-Date: Tue, 05 Dec 2006 12:26:10 -0500
+[resend]
 
-> From: Paul Moore <paul.moore@hp.com>
-> 
-> Add a pointer to the OSDL wiki page on Generic Netlink.
-> 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+Quick note: I loaded up 2.6.19-rc6-mm2 on a platform here and noticed that the onboard
+e1000 NIC was enumerated to eth1 instead of eth0. on 2.6.18.5 and any other kernel I
+used before, it was properly named eth0 after startup. eth0 itself is completely missing
+(-ENODEV).
 
-Applied, thanks Paul.
+I'll try to see if I can point out the culprit, but perhaps this rings a bell to anyone.
+
+Cheers,
+
+Auke
