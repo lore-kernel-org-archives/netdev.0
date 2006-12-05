@@ -1,69 +1,75 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: 'embedded people' and the 'embedded world' (was: Re: [RFC patch] driver for the Opencores Ethernet Controller)
-Date: Tue, 5 Dec 2006 01:29:36 +0100
-Message-ID: <20061205002936.GA23400@xi.wantstofly.org>
-References: <200612041801.kB4I11F4018165@oogie-boogie.ics.uci.edu> <20061204180734.GA21561@xi.wantstofly.org> <200612041827.kB4IRqrW019090@oogie-boogie.ics.uci.edu>
+From: Paul Collins <paul-uANAyHgy5MnD+ROgJ3VA+kB+6BGkLq7r@public.gmane.org>
+Subject: Re: NETDEV-BCM43XX BUG - Failure to associate AP with latest devscape
+	git pull..
+Date: Tue, 05 Dec 2006 13:28:05 +1300
+Message-ID: <8764cr190q.fsf@briny.internal.ondioline.org>
+References: <45733FBF.5020800@gmail.com>
+	<87y7pogj1k.fsf@briny.internal.ondioline.org>
+	<45745D2B.1090700@gmail.com>
+	<87ac231ari.fsf@briny.internal.ondioline.org>
+	<45746370.4070205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm@lists.arm.linux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:37894 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967886AbWLEA3j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 19:29:39 -0500
-To: Dan Nicolaescu <dann@ics.uci.edu>
-Content-Disposition: inline
-In-Reply-To: <200612041827.kB4IRqrW019090@oogie-boogie.ics.uci.edu>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Robert Martin <robertm83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <45746370.4070205-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Robert Martin's message of "Mon\, 04
+	Dec 2006 13\:05\:36 -0500")
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 04, 2006 at 10:27:52AM -0800, Dan Nicolaescu wrote:
+(Please use reply-to-all to keep Cc:s intact, and place new material
+below quoted material.)
 
-> I didn't know about "platform drivers" before your mail. I guess I
-> could convert it to that if that is the right thing to do. 
-> (It might be an overkill given that the device is kind of simple and
-> embedded people prefer small code...)
+Robert Martin <robertm83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-BTW (and this is not specifically directed to you.)
+> Paul Collins wrote:
+>> Robert Martin <robertm83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>>
+>>> Alas, that seems to have been the problem, I was getting different
+>>> frequencies.  Once I manually set the frequency, dhclient worked
+>>> perfectly.  The only problem now is that I seem to be limited to very
+>>> slow speeds (on the order of 5-20K/s, or ~120 kilobits/s).
+>>
+>> I guess the speed problem is due to the general state of BCM4318
+>> support, as mentioned by the developers.
+>>
+>> I'm glad the frequency thing isn't some weird glitch that only I am
+>> experiencing though.
+>>
+> I'm pretty sure that I'm using a 4311 chip... lspci -n gives...
+>
+> 03:00.0 0280: 14e4:4311 (rev 01)
+>
+> ...I might have been mistaken about it being a PCI-E chip in that
+> case.  One additional question, it seems the link quality is very low;
+> "iwconfig wlan0" tells me it's 3/100 after associating with my AP.
+> Could that be the power issue that Johannes Berg was speaking of?  I'm
+> curious as to what speeds you're running at, and what your link
+> quality is.
 
-I count myself as an 'embedded person', having contributed a thing or
-two to the Linux ARM kernel port and doing most of my Linux hacking on
-ARM platforms, but I certainly don't share your opinion w.r.t. what
-'embedded people' want or don't want.
+My card (a 4306) seems to be running at 11Mbps.  No idea how to change
+it: iwconfig doesn't report the current rate (I had to go digging in
+sysfs) and trying to change it with iwconfig fails with "Operation not
+supported".
 
-Nor do I share any of the opinions of most 'embedded people' who
-proclaim to be representing 'the embedded world' to 'the outside world',
-the opinions that have gotten the embedded crowd the bad reputation
-that we have gotten over the years.
+Here's the signal info:
 
-- "We can't use existing kernel infrastructure because we are special."
+        Link Quality=228/100  Signal level=-32 dBm  Noise level=-70 dBm
 
-- "Let's save 8 bytes and 2 cycles in a slow path by throwing all
-  established and sane kernel design principles out of the window."
+The machine is about 3 metres from the AP.
 
-- "If we code this in a really ugly, unmaintainable, incompatible,
-  incomprehensible way, we can save 3 cycles in the slow path.  Let's
-  do it."
+-- 
+Paul Collins
+Wellington, New Zealand
 
-- "All our code lives in a separately maintained tree, and everyone
-  wanting to use Linux on our CPUs will have to use our 'Cirrus Logic
-  Linux 2.6.8.1 version 1.3.2' release[*].  We can't be bothered to
-  merge with upstream because we are special."
-
-- "There's nothing wrong with a function having 500 lines."
-
-- "We are using 2.4.6 because it is more stable than all that
-  newfangled 2.6 stuff."
-
-- etc.
-
-It does piss me off from time to time that these people are out there,
-and that they claim to be speaking in my name when they spout their
-nonsense.
-
-For all the 'non-embedded' folks out there: the next time you hear
-someone claiming to be representing 'the embedded world', please take
-whatever they say with a bag of salt.
-
-
-[*] Seriously, I didn't make this up.
+Dag vijandelijk luchtschip de huismeester is dood
