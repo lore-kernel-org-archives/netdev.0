@@ -1,30 +1,55 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for
- mobility header.
-Date: Tue, 05 Dec 2006 20:02:42 +0900 (JST)
-Message-ID: <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
-References: <11653130071739-git-send-email-nakam@linux-ipv6.org>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH 1/7] Sync with 2.6.19 kernel header about include/linux.
+Date: Tue, 05 Dec 2006 20:44:53 +0900
+Message-ID: <45755BB5.2060707@linux-ipv6.org>
+References: <11653137213434-git-send-email-nakam@linux-ipv6.org> <20061205104211.GW8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39253 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759940AbWLELCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 06:02:30 -0500
-To: davem@davemloft.net, nakam@linux-ipv6.org
-In-Reply-To: <11653130071739-git-send-email-nakam@linux-ipv6.org>
+Received: from [203.178.140.9] ([203.178.140.9]:43575 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S937517AbWLELo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 06:44:57 -0500
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061205104211.GW8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <11653130071739-git-send-email-nakam@linux-ipv6.org> (at Tue,  5 Dec 2006 19:03:27 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
+Thomas Graf wrote:
+> * Masahide NAKAMURA <nakam@linux-ipv6.org> 2006-12-05 19:15
+>> diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+>> index 8270aac..4418c8d 100644
+>> --- a/include/linux/fib_rules.h
+>> +++ b/include/linux/fib_rules.h
+>> @@ -6,7 +6,6 @@ #include <linux/rtnetlink.h>
+>>  
+>>  /* rule is permanent, and cannot be deleted */
+>>  #define FIB_RULE_PERMANENT	1
+>> -#define FIB_RULE_INVERT		2
+>>
+>>  struct fib_rule_hdr
+>>  {
+>> @@ -35,7 +34,7 @@ enum
+>>  	FRA_UNUSED3,
+>>  	FRA_UNUSED4,
+>>  	FRA_UNUSED5,
+>> -	FRA_FWMARK,	/* mark */
+>> +	FRA_FWMARK,	/* netfilter mark */
+>>  	FRA_FLOW,	/* flow/class id */
+>>  	FRA_UNUSED6,
+>>  	FRA_UNUSED7,
+> 
+> Why are you reverting this?
 
-> Add checksum default defines for mobility header(MH).
-> As the result kernel's behavior is to handle MH checksum
-> as default.
+I just update the header about include/linux without thinking.
+Should I have to update them except fib_rules.h?
 
-I'd like to hold this on.  I need to check RFC.
+Anyway, I'll fix "[PATCH 1/7]" and send it again.
 
---yoshfuji
+Thanks,
+
+
+-- 
+Masahide NAKAMURA
