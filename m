@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for
- mobility header.
-Date: Tue, 05 Dec 2006 13:49:18 -0800 (PST)
-Message-ID: <20061205.134918.94889883.davem@davemloft.net>
-References: <11653130071739-git-send-email-nakam@linux-ipv6.org>
-	<20061205.200242.01826773.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] Netlink: add a pointer to the Generic Netlink wiki page
+Date: Tue, 05 Dec 2006 13:50:08 -0800 (PST)
+Message-ID: <20061205.135008.09951333.davem@davemloft.net>
+References: <20061205172609.850935000@hp.com>
+	<20061205172625.536651000@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nakam@linux-ipv6.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40642
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40644
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759182AbWLEVtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 16:49:12 -0500
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1758771AbWLEVuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 16:50:02 -0500
+To: paul.moore@hp.com
+In-Reply-To: <20061205172625.536651000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Tue, 05 Dec 2006 20:02:42 +0900 (JST)
+From: paul.moore@hp.com
+Date: Tue, 05 Dec 2006 12:26:10 -0500
 
-> In article <11653130071739-git-send-email-nakam@linux-ipv6.org> (at Tue,  5 Dec 2006 19:03:27 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
+> From: Paul Moore <paul.moore@hp.com>
 > 
-> > Add checksum default defines for mobility header(MH).
-> > As the result kernel's behavior is to handle MH checksum
-> > as default.
+> Add a pointer to the OSDL wiki page on Generic Netlink.
 > 
-> I'd like to hold this on.  I need to check RFC.
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Ok.
+Applied, thanks Paul.
