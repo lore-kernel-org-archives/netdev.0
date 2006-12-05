@@ -1,58 +1,76 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: Re: [PATCH 5/9] pcmcia: conf.ConfigBase and conf.Present consolidation
-Date: Wed, 6 Dec 2006 00:36:19 +0100
-Message-ID: <20061205233618.GB31463@pingi.kke.suse.de>
-References: <20061205015942.GA2624@dominikbrodowski.de> <20061205021716.GF2624@dominikbrodowski.de>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: [PATCH] zd1211rw-d80211: check IEEE80211_TXCTL_USE_CTS_PROTECT
+Date: Tue, 5 Dec 2006 18:48:52 -0500
+Message-ID: <200612051848.57138.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: linux-pcmcia@lists.infradead.org, alan@lxorguk.ukuu.org.uk,
-	bluez-devel@lists.sf.net, isdn4linux@listserv.isdn4linux.de,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-serial@vger.kernel.org, linux-parport@lists.infradead.org,
-	linux-usb-devel@lists.sourceforge.net, laforge@gnumonks.org
-Content-Disposition: inline
-In-Reply-To: <20061205021716.GF2624@dominikbrodowski.de>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart24282050.Vrlut0OJjZ";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.rutgers.edu ([128.6.72.243]:47708 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755519AbWLEXtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 18:49:13 -0500
+To: Daniel Drake <dsd@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 04, 2006 at 09:17:16PM -0500, Dominik Brodowski wrote:
-> From: Dominik Brodowski <linux@dominikbrodowski.net>
-> Date: Wed, 25 Oct 2006 21:49:27 -0400
-> Subject: [PATCH] pcmcia: conf.ConfigBase and conf.Present consolidation
-> 
-> struct pcmcia_device *p_dev->conf.ConfigBase and .Present are set in almost
-> all PCMICA driver right at the beginning, using the same calls but slightly
-> different implementations. Unfiy this in the PCMCIA core.
-> 
-> Includes a small bugfix ("drivers/net/pcmcia/xirc2ps_cs.c: remove unused
-> label") from and Signed-off-by Adrian Bunk <bunk@stusta.de>
-> 
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> ---
->  drivers/ata/pata_pcmcia.c               |    7 -----
->  drivers/bluetooth/bluecard_cs.c         |   38 +------------------------------
->  drivers/bluetooth/bt3c_cs.c             |   20 +---------------
->  drivers/bluetooth/btuart_cs.c           |   20 +---------------
->  drivers/bluetooth/dtl1_cs.c             |   20 +---------------
->  drivers/char/pcmcia/cm4000_cs.c         |   20 ----------------
->  drivers/char/pcmcia/cm4040_cs.c         |   20 ----------------
->  drivers/char/pcmcia/synclink_cs.c       |    7 -----
->  drivers/ide/legacy/ide-cs.c             |    6 -----
+--nextPart24282050.Vrlut0OJjZ
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
+zd1211rw-d80211: check IEEE80211_TXCTL_USE_CTS_PROTECT
 
->  drivers/isdn/hardware/avm/avm_cs.c      |   22 ------------------
->  drivers/isdn/hisax/avma1_cs.c           |   22 ------------------
->  drivers/isdn/hisax/elsa_cs.c            |   17 -------------
->  drivers/isdn/hisax/sedlbauer_cs.c       |   10 --------
->  drivers/isdn/hisax/teles_cs.c           |   17 -------------
+This makes zd1211 check for IEEE80211_TXCTL_USE_CTS_PROTECT and set things
+appropriately in the hardware TX header.
 
-Acked-by: Karsten Keil <kkeil@suse.de>
-for ISDN.
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+=2D--
 
-...
+ drivers/net/wireless/d80211/zd1211rw/zd_mac.c |   14 +++++---------
+ 1 files changed, 5 insertions(+), 9 deletions(-)
 
--- 
-Karsten Keil
-SuSE Labs
-ISDN development
+diff --git a/drivers/net/wireless/d80211/zd1211rw/zd_mac.c=20
+b/drivers/net/wireless/d80211/zd1211rw/zd_mac.c
+index dde972d..a76fa6a 100644
+=2D-- a/drivers/net/wireless/d80211/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/d80211/zd1211rw/zd_mac.c
+@@ -248,15 +248,11 @@ static void cs_set_control(struct zd_mac
+ 	if ((fctl & IEEE80211_FCTL_STYPE) =3D=3D IEEE80211_STYPE_PSPOLL)
+ 		cs->control |=3D ZD_CS_PS_POLL_FRAME;
+=20
+=2D	if (flags & IEEE80211_TXCTL_USE_RTS_CTS) {
+=2D		/* FIXME: check the logic */
+=2D		if (ZD_CS_TYPE(cs->modulation) =3D=3D ZD_CS_OFDM) {
+=2D			/* 802.11g */
+=2D			cs->control |=3D ZD_CS_SELF_CTS;
+=2D		} else { /* 802.11b */
+=2D			cs->control |=3D ZD_CS_RTS;
+=2D		}
+=2D	}
++	if (flags & IEEE80211_TXCTL_USE_RTS_CTS)
++		cs->control |=3D ZD_CS_RTS;
++
++	if (flags & IEEE80211_TXCTL_USE_CTS_PROTECT)
++		cs->control |=3D ZD_CS_SELF_CTS;
+=20
+ 	/* FIXME: Management frame? */
+ }
+
+--nextPart24282050.Vrlut0OJjZ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFdgVoT3Oqt9AH4aERAiQwAJ0WP1fWNCp3iwJJMyvTctkjKJUQiACbBmhB
+2phk4SnY9ktjAauq/Z6BP0M=
+=qmHa
+-----END PGP SIGNATURE-----
+
+--nextPart24282050.Vrlut0OJjZ--
