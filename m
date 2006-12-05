@@ -1,55 +1,35 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for mobility header.
-Date: Tue,  5 Dec 2006 19:03:27 +0900
-Message-ID: <11653130071739-git-send-email-nakam@linux-ipv6.org>
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [PATCH 0/7] iproute2: 2.6.19 updates and Mobile IPv6 support for
+ ip command
+Date: Tue, 05 Dec 2006 19:15:33 +0900
+Message-ID: <457546C5.20700@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi020.linux-ipv6.org ([203.178.140.20]:55567 "EHLO
-	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S967808AbWLEKD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 05:03:56 -0500
-To: davem@davemloft.net
+Received: from [203.178.140.9] ([203.178.140.9]:58028 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S937435AbWLEKPg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 05:15:36 -0500
+To: shemminger@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add checksum default defines for mobility header(MH).
-As the result kernel's behavior is to handle MH checksum
-as default.
+Hello,
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
----
- net/ipv6/raw.c |   15 +++++++++++++--
- 1 files changed, 13 insertions(+), 2 deletions(-)
+These are iproute2 updates:
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index aa1d420..389fa32 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1095,10 +1095,21 @@ static void rawv6_close(struct sock *sk,
- 
- static int rawv6_init_sk(struct sock *sk)
- {
--	if (inet_sk(sk)->num == IPPROTO_ICMPV6) {
--		struct raw6_sock *rp = raw6_sk(sk);
-+	struct raw6_sock *rp = raw6_sk(sk);
-+
-+	switch (inet_sk(sk)->num) {
-+	case IPPROTO_ICMPV6:
- 		rp->checksum = 1;
- 		rp->offset   = 2;
-+		break;
-+#ifdef CONFIG_IPV6_MIP6
-+	case IPPROTO_MH:
-+		rp->checksum = 1;
-+		rp->offset   = 4;
-+		break;
-+#endif
-+	default:
-+		break;
- 	}
- 	return(0);
- }
+o Kernel header updates for 2.6.19
+o libnetlink header updates to fit with 2.6.19 kernel
+o Mobile IPv6 xfrm support for ip command
+
+Since I could not build with the define nor find it on the kernel tree,
+It also contains a patch which disable FIB_RULE_INVERT.
+
+Please review and apply them.
+
+Thanks,
+
 -- 
-1.4.2
-
+Masahide NAKAMURA
