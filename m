@@ -1,66 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: NETDEV-BCM43XX BUG - Failure to associate AP with
-	latest	devscape git pull..
-Date: Tue, 05 Dec 2006 10:25:28 +0100
-Message-ID: <1165310728.22536.1.camel@johannes.berg>
-References: <45733FBF.5020800@gmail.com>
-	 <1165221950.5553.49.camel@johannes.berg>  <4574662B.8000903@gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH 2.6.20] [IPV6]: Repair IPv6 Fragments
+Date: Tue, 05 Dec 2006 18:28:28 +0900 (JST)
+Message-ID: <20061205.182828.110151638.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-v18SG7RxbL2tDz48hO2S"
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kozakai@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:56333 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967467AbWLEJZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 04:25:41 -0500
-To: Robert Martin <robertm83@gmail.com>
-In-Reply-To: <4574662B.8000903@gmail.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:39248 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937409AbWLEJ2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 04:28:15 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
---=-v18SG7RxbL2tDz48hO2S
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+The commit "[IPV6]: Use kmemdup" (commit-id:
+af879cc704372ef762584e916129d19ffb39e844) broke IPv6 fragments.
 
-On Mon, 2006-12-04 at 13:17 -0500, Robert Martin wrote:
+Bug was spotted by Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>.
 
-> 03:00.0 0280: 14e4:4311 (rev 01)
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-4311 is pci-e though, iirc. Linux just shows pci-e like pci devices.
+-- 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index e05ecbb..e9212c7 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -624,13 +624,13 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 		skb_shinfo(skb)->frag_list = NULL;
+ 		/* BUILD HEADER */
+ 
++		*prevhdr = NEXTHDR_FRAGMENT;
+ 		tmp_hdr = kmemdup(skb->nh.raw, hlen, GFP_ATOMIC);
+ 		if (!tmp_hdr) {
+ 			IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_FRAGFAILS);
+ 			return -ENOMEM;
+ 		}
+ 
+-		*prevhdr = NEXTHDR_FRAGMENT;
+ 		__skb_pull(skb, hlen);
+ 		fh = (struct frag_hdr*)__skb_push(skb, sizeof(struct frag_hdr));
+ 		skb->nh.raw = __skb_push(skb, hlen);
 
-
->        Capabilities: [d0] Express Legacy Endpoint IRQ 0
->                Device: Supported: MaxPayload 128 bytes, PhantFunc 0,=20
-> ExtTag+
->                Device: Latency L0s <4us, L1 unlimited
->                Device: AtnBtn- AtnInd- PwrInd-
->                Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported=
--
->                Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
->                Device: MaxPayload 128 bytes, MaxReadReq 128 bytes
->                Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s, Port 0
->                Link: Latency L0s <4us, L1 <64us
->                Link: ASPM Disabled RCB 64 bytes CommClk- ExtSynch-
->                Link: Speed 2.5Gb/s, Width x1
->        Capabilities: [100] Advanced Error Reporting
->        Capabilities: [13c] Virtual Channel
-
-looks like pci-e capabilities to me..
-
-johannes
-
---=-v18SG7RxbL2tDz48hO2S
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFdTsI/ETPhpq3jKURAqh+AJwKCB3vjsbplDZ8Bi6kjPebhKJ+SgCfWSjq
-1Obdkm4pnKx33GMornqM67Q=
-=e/d/
------END PGP SIGNATURE-----
-
---=-v18SG7RxbL2tDz48hO2S--
-
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
