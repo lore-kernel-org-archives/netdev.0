@@ -1,83 +1,363 @@
-From: Robert Martin <robertm83@gmail.com>
-Subject: Re: NETDEV-BCM43XX BUG - Failure to associate AP with latest	devscape
- git pull..
-Date: Mon, 04 Dec 2006 13:17:15 -0500
-Message-ID: <4574662B.8000903@gmail.com>
-References: <45733FBF.5020800@gmail.com> <1165221950.5553.49.camel@johannes.berg>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless
+ radio
+Date: Mon, 4 Dec 2006 16:18:42 -0800
+Message-ID: <20061204161842.a8673e6e.randy.dunlap@oracle.com>
+References: <200612031936.34343.IvDoorn@gmail.com>
+	<1165173618.3233.243.camel@laptopd505.fenrus.org>
+	<200612032328.12093.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Dmitry Torokhov <dtor@insightbb.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Lennart Poettering <lennart@poettering.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:11011 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936571AbWLEARS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 19:17:18 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so3954178wxd
-        for <netdev@vger.kernel.org>; Mon, 04 Dec 2006 16:17:17 -0800 (PST)
-To: netdev@vger.kernel.org
-In-Reply-To: <1165221950.5553.49.camel@johannes.berg>
+Received: from rgminet01.oracle.com ([148.87.113.118]:33114 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937175AbWLEATa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 19:19:30 -0500
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200612032328.12093.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've only had the laptop (Compaq V6000Z series) for about a week, so I'd 
-be unable to tell you if the driver had worked before, but I seem to 
-have had the same problem that Paul Collins did pertaining to frequency 
-mismatch.  Setting it manually to the value "iwlist" gave me for the AP 
-makes it work, albeit at very slow speeds (driver issue?).  I might have 
-been mistaken about the PCI-E, the lspci -n gives me...
+On Sun, 3 Dec 2006 23:28:11 +0100 Ivo van Doorn wrote:
 
-03:00.0 0280: 14e4:4311 (rev 01)
+> rfkill with the fixes as suggested by Arjan.
+>  - instead of a semaphore a mutex is now being used.
+>  - open_count changing is now locked by the mutex.
+> 
+> ---
+> 
+> diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
+> index ba0e88c..6986d59 100644
+> --- a/drivers/input/misc/Kconfig
+> +++ b/drivers/input/misc/Kconfig
+> @@ -79,4 +79,19 @@ config HP_SDC_RTC
+>  	  Say Y here if you want to support the built-in real time clock
+>  	  of the HP SDC controller.
+>  
+> +config RFKILL
+> +	tristate "RF button support"
 
-...and lspci -vvv gives me...
+	depends on SYSFS
 
-03:00.0 Network controller: Broadcom Corporation Dell Wireless 1390 WLAN 
-Mini-PCI Card (rev 01)
-       Subsystem: Hewlett-Packard Company Unknown device 1363
-       Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
-ParErr- Stepping- SERR+ FastB2B-
-       Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-       Latency: 0, Cache Line Size: 64 bytes
-       Interrupt: pin A routed to IRQ 22
-       Region 0: Memory at b3200000 (32-bit, non-prefetchable) [size=16K]
-       Capabilities: [40] Power Management version 2
-               Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
-PME(D0-,D1-,D2-,D3hot-,D3cold-)
-               Status: D0 PME-Enable- DSel=0 DScale=2 PME-
-       Capabilities: [58] Message Signalled Interrupts: 64bit- Queue=0/0 
-Enable-
-               Address: 00000000  Data: 0000
-       Capabilities: [d0] Express Legacy Endpoint IRQ 0
-               Device: Supported: MaxPayload 128 bytes, PhantFunc 0, 
-ExtTag+
-               Device: Latency L0s <4us, L1 unlimited
-               Device: AtnBtn- AtnInd- PwrInd-
-               Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
-               Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-               Device: MaxPayload 128 bytes, MaxReadReq 128 bytes
-               Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s, Port 0
-               Link: Latency L0s <4us, L1 <64us
-               Link: ASPM Disabled RCB 64 bytes CommClk- ExtSynch-
-               Link: Speed 2.5Gb/s, Width x1
-       Capabilities: [100] Advanced Error Reporting
-       Capabilities: [13c] Virtual Channel
+> +	help
+> +	  If you say yes here, the rfkill driver will be build
 
-...although I could have sworn I read somewhere that this series uses 
-the PCI-E mini bus.  Thank you for your time.
+s/build/built/
 
+> +	  which allowed network devices to register their hardware
 
-Johannes Berg wrote:
-> On Sun, 2006-12-03 at 16:21 -0500, Robert Martin wrote:
->
->   
->> I would be happy to give more 
->> information if requested, or try different kernel/firmware options.
->>     
->
-> Has it ever worked? I'm curious because the PCI-E chips are 4318s which
-> are known to not work properly due to missing/wrong TX power
-> calibration.
->
-> johannes
->   
+s/allowed/allows/
 
+> +	  RF button which controls the radio state. This driver
+> +	  will then create an input device for it.
+> +
+> +	  When the input device is not used, the rfkill driver
+> +	  will make sure that when the RF button is pressed the radio
+> +	  is enabled or disabled accordingly. When the input device
+> +	  has been opened by the user this radio control will be left
+> +	  to the user, and rfkill will only send the RF button status
+> +	  change to userspace.
+> +
+>  endif
+> diff --git a/drivers/input/misc/rfkill.c b/drivers/input/misc/rfkill.c
+> new file mode 100644
+> index 0000000..4777d73
+> --- /dev/null
+> +++ b/drivers/input/misc/rfkill.c
+> @@ -0,0 +1,887 @@
+
+[snip]
+
+> +/*
+> + * Function called by the key driver to report the new status
+> + * of the key.
+> + */
+> +void rfkill_report_event(struct rfkill *rfkill, int new_status)
+> +{
+> +	mutex_lock(&master->mutex);
+> +
+> +	if (rfkill_check_key(rfkill->key, new_status))
+> +		schedule_work(&master->toggle_work);
+> +
+> +	mutex_unlock(&master->mutex);
+> +}
+> +EXPORT_SYMBOL_GPL(rfkill_report_event);
+
+Please use kernel-doc notation for non-static functions.
+See Documentation/kernel-doc-nano-HOWTO.txt for more info.
+
+> +/*
+> + * Function called by the key driver when the rfkill structure
+> + * needs to be registered.
+> + */
+
+kernel-doc please.
+
+> +int rfkill_register_key(struct rfkill *rfkill, int init_status)
+> +{
+> +	struct rfkill_type *type = &master->type[rfkill->key_type];
+> +	struct rfkill_key *key;
+> +	int status;
+> +
+> +	if (!rfkill)
+> +		return -EINVAL;	
+> +
+> +	if (rfkill->key_type >= KEY_TYPE_MAX)
+> +		return -EINVAL;
+> +
+> +	/*
+> +	 * Increase module use count to prevent this
+> +	 * module to be unloaded while there are still
+> +	 * registered keys.
+> +	 */
+> +	if (!try_module_get(THIS_MODULE))
+> +		return -EBUSY;
+> +
+> +	mutex_lock(&master->mutex);
+> +
+> +	/*
+> +	 * Initialize key, and if required the type.
+> +	 */
+> +	status = rfkill_add_type_key(type);
+> +	if (status)
+> +		goto exit;
+> +
+> +	key = rfkill_key_init(rfkill, init_status);
+> +	if (!key) {
+> +		status = -ENOMEM;
+> +		goto exit_type;
+> +	}
+> +
+> +	/*
+> +	 * Add key to our list.
+> +	 */
+> +	list_add(&key->entry, &master->key_list);
+> +
+> +	/*
+> +	 * Check if we need polling, and if we do
+> +	 * increase the poll required counter and check
+> +	 * if we weren't polling yet.
+> +	 */
+> +	if (rfkill->poll && !master->poll_required++)
+> +		schedule_delayed_work(&master->poll_work, RFKILL_POLL_DELAY);
+> +
+> +	mutex_unlock(&master->mutex);
+> +
+> +	return 0;
+> +
+> +exit_type:
+> +	rfkill_del_type_key(type);
+> +
+> +exit:
+> +	mutex_unlock(&master->mutex);
+> +	module_put(THIS_MODULE);
+> +
+> +	return status;
+> +}
+> +EXPORT_SYMBOL_GPL(rfkill_register_key);
+> +
+> +/*
+> + * Function called by the key driver when the rfkill structure
+> + * needs to be deregistered.
+> + */
+
+kernel-doc
+
+> +int rfkill_deregister_key(struct rfkill *rfkill)
+> +{
+> +	struct rfkill_type *type;
+> +
+> +	if (!rfkill || !rfkill->key)
+> +		return -EINVAL;
+> +
+> +	mutex_lock(&master->mutex);
+> +
+> +	/*
+> +	 * Cancel delayed work if this is the last key
+> +	 * that requires polling. It is not bad if
+> +	 * if the workqueue is still running,
+> +	 * the workqueue won't rearm itself since the
+> +	 * poll_required variable has been set.
+> +	 * and we have protected the list with a semaphore.
+> +	 */
+> +	if (rfkill->poll && !--master->poll_required)
+> +		cancel_delayed_work(&master->poll_work);
+> +
+> +	/*
+> +	 * Delete the rfkill structure to the list.
+> +	 */
+> +	list_del(&rfkill->key->entry);
+> +
+> +	/*
+> +	 * Deinitialize key.
+> +	 */
+> +	type = rfkill->key->type;
+> +	rfkill_key_deinit(rfkill->key);
+> +	rfkill_del_type_key(type);
+> +
+> +	mutex_unlock(&master->mutex);
+> +
+> +	/*
+> +	 * rfkill entry has been removed,
+> +	 * decrease module use count.
+> +	 */
+> +	module_put(THIS_MODULE);
+> +	
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(rfkill_deregister_key);
+
+> diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
+> new file mode 100644
+> index 0000000..a455548
+> --- /dev/null
+> +++ b/include/linux/rfkill.h
+> @@ -0,0 +1,140 @@
+> +/*
+> +	RF button support
+> +	Laptops are quite often equiped with a RF key to enable or
+
+                                equipped with an RF key
+
+> +	disable the radio of the wireless device attached to that key.
+> +	This wireless device usually is an integrated wireless network device,
+> +	infrared or bluetooth device.
+> +	Some of these devices will disable the radio automatically when the
+> +	RF key has been pressed, while other devices need to be polled
+> +	for the RF key status, and leave the action to be taken up to the
+> +	driver for that particular device.
+> +	But in all cases the only interface that will have its radio disabled
+> +	will be the device that has the RF key attached to it. It could however
+> +	be desired that userspace performs this disabling of the radios in case
+> +	more things than just disabling a single radio is desired.
+> +
+> +	The rfkill driver will contain a list of all devices with a RF button,
+
+                                                             with an RF button,
+
+> +	and hardware drivers need to register their hardware to the rfkill
+> +	interface. Rfkill will then take care of everything. If the RF key
+> +	requires polling to obtain the status this will be handled by rfkill.
+> +	If the RF key does not require polling but sends for example interrupts,
+> +	the hardware driver can report the change of status to rfkill, without
+> +	having to do any other action.
+> +	Once the status of the key has changed and the hardware does not
+> +	automatically enable or disable the radio rfkill provides the
+> +	interface to do this correctly.
+> +
+> +	For each registered hardware button an input device will be created.
+> +	If this input device has been opened by the user, rfkill will send a
+> +	signal to userspace instead of the hardware about the new button
+> +	status. This will allow userpace to perform the correct steps
+> +	in order to bring down all interfaces.
+> + */
+> +
+> +#ifndef RFKILL_H
+> +#define RFKILL_H
+> +
+> +#include <linux/device.h>
+> +
+> +#define RFKILL_POLL_DELAY	( HZ / 10 )
+> +
+> +enum key_type {
+> +	KEY_TYPE_WIFI = 0,
+> +	KEY_TYPE_BlUETOOTH = 1,
+> +	KEY_TYPE_IRDA = 2,
+> +	KEY_TYPE_MAX = 3,
+> +};
+> +
+> +/**
+> + * struct rfkill - rfkill button control structure.
+> + *
+
+No "blank line" between the struct name and its parameters.
+
+> + * @dev_name: Name of the interface. This will become the name
+> + * 	of the input device which will be created for this button.
+> + * @dev: Pointer to the device structure to which this button belongs to.
+> + * @data: Pointer to the RF button drivers private data which will be
+> + * 	passed along with the radio and polling handlers.
+> + * @poll(void *data): Optional handler which will frequently be
+> + * 	called to determine the current status of the RF button.
+> + * @enable_radio(void *data): Optional handler to enable the radio
+> + * 	once the RF button has been pressed and the hardware does enable
+> + * 	the radio automaticly.
+> + * @disable_radio(void *data): Optional handler to disable the radio
+> + * 	once the RF button has been pressed and the hardware does disable
+> + * 	the radio automaticly.
+> + * @key_type: Radio type which the button controls, the value stored
+> + * 	here should be a value from enum key_type.
+> + * @key: Internal pointer that should not be touched by key driver.
+> + *
+> + * This structure can be used by a key driver to register the key
+> + * to the rfkill driver in order to take control of the reporting
+> + * to userspace or handling of radio status.
+> + */
+> +struct rfkill {
+> +	const char *dev_name;
+> +
+> +	struct device *dev;
+> +
+> +	void *data;
+> +	int (*poll)(void *data);
+> +	void (*enable_radio)(void *data);
+> +	void (*disable_radio)(void *data);
+> +
+> +	unsigned int key_type;
+> +
+> +	struct rfkill_key *key;
+> +};
+> +
+> +/**
+> + * rfkill_register_key - Deregister a previously registered rfkill structre.
+
+                                                                     structure.
+
+> + * @rfkill: rfkill structure to be deregistered
+> + * @init_status: initial status of the key at the time this function is called
+> + *
+> + * This function should be called by the key driver when the rfkill structure
+> + * needs to be registered. Immediately from registration the key driver
+> + * should be able to receive calls through the poll, enable_radio and
+> + * disable_radio handlers if those were registered.
+> + */
+> +int rfkill_register_key(struct rfkill *rfkill, int init_status);
+> +
+> +/**
+> + * rfkill_deregister_key - Deregister a previously registered rfkill structre.
+
+"structure"
+
+> + * @rfkill: rfkill structure to be deregistered
+> + *
+> + * This function should be called by the key driver when the rfkill structure
+> + * needs to be deregistered. This function may only be called if it was
+> + * previously registered with rfkill_register_key.
+> + */
+> +int rfkill_deregister_key(struct rfkill *rfkill);
+> +
+> +/**
+> + * rfkill_report_event - Report change in key status to rfkill handler.
+> + * @rfkill: rfkill structure registered by key driver
+> + * @new_status: new key status
+> + *
+> + * This function should be called by the key driver if it has not provided
+> + * a poll handler with rfkill. As soon as the key driver has determined
+> + * the status of the key has changed it should report the new status
+> + * through this function.
+> + */
+> +void rfkill_report_event(struct rfkill *rfkill, int new_status);
+> +
+> +#endif /* RFKILL_H */
+
+---
+~Randy
