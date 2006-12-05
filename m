@@ -1,252 +1,268 @@
-From: Andrew Victor <andrew@sanpeople.com>
-Subject: [PATCH 2.6.19 1/4] AT91RM9200 Ethernet: Remove 'at91_dev' and use
-	netdev_priv()
-Date: 05 Dec 2006 15:09:16 +0200
-Message-ID: <1165324155.12515.67.camel@fuzzie.sanpeople.com>
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: [PATCH 4/9] pcmcia: remove prod_id indirection
+Date: Mon, 4 Dec 2006 21:12:51 -0500
+Message-ID: <20061205021250.GE2624@dominikbrodowski.de>
+References: <20061205015942.GA2624@dominikbrodowski.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from za-gw.sanpeople.com ([196.211.225.226]:3600 "EHLO
-	za-gw.sanpeople.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937529AbWLENTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 08:19:11 -0500
-To: netdev@vger.kernel.org
+Received: from isilmar.linta.de ([213.239.214.66]:48243 "EHLO linta.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S937542AbWLENT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 08:19:56 -0500
+To: linux-pcmcia@lists.infradead.org
+Content-Disposition: inline
+In-Reply-To: <20061205015942.GA2624@dominikbrodowski.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the global 'at91_dev' variable.
-Use netdev_priv() instead of casting dev->priv directly.
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Date: Sun, 4 Jun 2006 18:06:13 +0200
+Subject: [PATCH] pcmcia: remove prod_id indirection
 
-Signed-off-by: Andrew Victor <andrew@sanpeople.com>
+As we read out the product information strings (VERS_1) from the PCMCIA device
+in the PCMCIA core, and device drivers can access those reliably in struct
+pcmcia_device's fields prod_id[], remove additional product information string
+detection logic from PCMCIA device drivers.
 
+Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+---
+ drivers/isdn/hardware/avm/avm_cs.c |   14 +++-----------
+ drivers/isdn/hisax/avma1_cs.c      |   14 +++-----------
+ drivers/net/pcmcia/3c574_cs.c      |    9 +++------
+ drivers/net/pcmcia/smc91c92_cs.c   |   27 ++++++++-------------------
+ drivers/net/pcmcia/xirc2ps_cs.c    |   19 ++++---------------
+ drivers/net/wireless/ray_cs.c      |   15 +++++----------
+ drivers/telephony/ixj_pcmcia.c     |   30 ++++++++++++++----------------
+ 7 files changed, 40 insertions(+), 88 deletions(-)
 
-diff -urN linux-2.6.19-final.orig/drivers/net/arm/at91_ether.c linux-2.6.19-final/drivers/net/arm/at91_ether.c
---- linux-2.6.19-final.orig/drivers/net/arm/at91_ether.c	Tue Dec  5 10:13:03 2006
-+++ linux-2.6.19-final/drivers/net/arm/at91_ether.c	Tue Dec  5 10:41:45 2006
-@@ -41,8 +41,6 @@
- #define DRV_NAME	"at91_ether"
- #define DRV_VERSION	"1.0"
+diff --git a/drivers/isdn/hardware/avm/avm_cs.c b/drivers/isdn/hardware/avm/avm_cs.c
+index 7bbfd85..db3755b 100644
+--- a/drivers/isdn/hardware/avm/avm_cs.c
++++ b/drivers/isdn/hardware/avm/avm_cs.c
+@@ -217,18 +217,10 @@ static int avmcs_config(struct pcmcia_de
+     }
  
--static struct net_device *at91_dev;
+     do {
 -
- static struct timer_list check_timer;
- #define LINK_POLL_INTERVAL	(HZ)
- 
-@@ -146,7 +144,7 @@
-  */
- static void update_linkspeed(struct net_device *dev, int silent)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned int bmsr, bmcr, lpa, mac_cfg;
- 	unsigned int speed, duplex;
- 
-@@ -199,7 +197,7 @@
- static irqreturn_t at91ether_phy_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned int phy;
- 
+-	tuple.Attributes = 0;
+-	tuple.TupleData = buf;
+-	tuple.TupleDataMax = 254;
+-	tuple.TupleOffset = 0;
+-	tuple.DesiredTuple = CISTPL_VERS_1;
+-
+ 	devname[0] = 0;
+-	if( !first_tuple(link, &tuple, &parse) && parse.version_1.ns > 1 ) {
+-	    strlcpy(devname,parse.version_1.str + parse.version_1.ofs[1], 
+-			sizeof(devname));
+-	}
++	if (link->prod_id[1])
++		strlcpy(devname, link->prod_id[1], sizeof(devname));
++
  	/*
-@@ -242,7 +240,7 @@
-  */
- static void enable_phyirq(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned int dsintr, irq_number;
- 	int status;
+          * find IO port
+          */
+diff --git a/drivers/isdn/hisax/avma1_cs.c b/drivers/isdn/hisax/avma1_cs.c
+index ac28e32..40c9b02 100644
+--- a/drivers/isdn/hisax/avma1_cs.c
++++ b/drivers/isdn/hisax/avma1_cs.c
+@@ -239,18 +239,10 @@ static int avma1cs_config(struct pcmcia_
+     }
  
-@@ -294,7 +292,7 @@
-  */
- static void disable_phyirq(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned int dsintr;
- 	unsigned int irq_number;
- 
-@@ -340,7 +338,7 @@
- #if 0
- static void reset_phy(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned int bmcr;
- 
- 	spin_lock_irq(&lp->lock);
-@@ -590,7 +588,7 @@
- 
- static int at91ether_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	int ret;
- 
- 	spin_lock_irq(&lp->lock);
-@@ -611,7 +609,7 @@
- 
- static int at91ether_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	int ret;
- 
- 	spin_lock_irq(&lp->lock);
-@@ -627,7 +625,7 @@
- 
- static int at91ether_nwayreset(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	int ret;
- 
- 	spin_lock_irq(&lp->lock);
-@@ -658,7 +656,7 @@
- 
- static int at91ether_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	int res;
- 
- 	if (!netif_running(dev))
-@@ -680,7 +678,7 @@
-  */
- static void at91ether_start(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	struct recv_desc_bufs *dlist, *dlist_phys;
- 	int i;
- 	unsigned long ctl;
-@@ -712,7 +710,7 @@
-  */
- static int at91ether_open(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned long ctl;
- 
- 	if (!is_valid_ether_addr(dev->dev_addr))
-@@ -752,7 +750,7 @@
-  */
- static int at91ether_close(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned long ctl;
- 
- 	/* Disable Receiver and Transmitter */
-@@ -779,7 +777,7 @@
-  */
- static int at91ether_tx(struct sk_buff *skb, struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 
- 	if (at91_emac_read(AT91_EMAC_TSR) & AT91_EMAC_TSR_BNQ) {
- 		netif_stop_queue(dev);
-@@ -811,7 +809,7 @@
-  */
- static struct net_device_stats *at91ether_stats(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	int ale, lenerr, seqe, lcol, ecol;
- 
- 	if (netif_running(dev)) {
-@@ -847,7 +845,7 @@
-  */
- static void at91ether_rx(struct net_device *dev)
- {
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	struct recv_desc_bufs *dlist;
- 	unsigned char *p_recv;
- 	struct sk_buff *skb;
-@@ -891,7 +889,7 @@
- static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
--	struct at91_private *lp = (struct at91_private *) dev->priv;
-+	struct at91_private *lp = netdev_priv(dev);
- 	unsigned long intstatus, ctl;
- 
- 	/* MAC Interrupt Status register indicates what interrupts are pending.
-@@ -939,9 +937,6 @@
- 	unsigned int val;
- 	int res;
- 
--	if (at91_dev)			/* already initialized */
--		return 0;
+     do {
 -
- 	dev = alloc_etherdev(sizeof(struct at91_private));
- 	if (!dev)
- 		return -ENOMEM;
-@@ -957,7 +952,7 @@
+-	tuple.Attributes = 0;
+-	tuple.TupleData = buf;
+-	tuple.TupleDataMax = 254;
+-	tuple.TupleOffset = 0;
+-	tuple.DesiredTuple = CISTPL_VERS_1;
+-
+ 	devname[0] = 0;
+-	if( !first_tuple(link, &tuple, &parse) && parse.version_1.ns > 1 ) {
+-	    strlcpy(devname,parse.version_1.str + parse.version_1.ofs[1], 
+-			sizeof(devname));
+-	}
++	if (link->prod_id[1])
++		strlcpy(devname, link->prod_id[1], sizeof(devname));
++
+ 	/*
+          * find IO port
+          */
+diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
+index 0460099..420f70b 100644
+--- a/drivers/net/pcmcia/3c574_cs.c
++++ b/drivers/net/pcmcia/3c574_cs.c
+@@ -397,12 +397,9 @@ static int tc574_config(struct pcmcia_de
+ 			goto failed;
+ 		}
  	}
+-	tuple.DesiredTuple = CISTPL_VERS_1;
+-	if (pcmcia_get_first_tuple(link, &tuple) == CS_SUCCESS &&
+-		pcmcia_get_tuple_data(link, &tuple) == CS_SUCCESS &&
+-		pcmcia_parse_tuple(link, &tuple, &parse) == CS_SUCCESS) {
+-		cardname = parse.version_1.str + parse.version_1.ofs[1];
+-	} else
++	if (link->prod_id[1])
++		cardname = link->prod_id[1];
++	else
+ 		cardname = "3Com 3c574";
  
- 	/* Allocate memory for DMA Receive descriptors */
--	lp = (struct at91_private *)dev->priv;
-+	lp = netdev_priv(dev);
- 	lp->dlist = (struct recv_desc_bufs *) dma_alloc_coherent(NULL, sizeof(struct recv_desc_bufs), (dma_addr_t *) &lp->dlist_phys, GFP_KERNEL);
- 	if (lp->dlist == NULL) {
- 		free_irq(dev->irq, dev);
-@@ -1024,7 +1019,6 @@
- 		dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
- 		return res;
+ 	{
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index ae024bf..bf40848 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -560,16 +560,8 @@ static int mhz_setup(struct pcmcia_devic
+ 
+     /* Read the station address from the CIS.  It is stored as the last
+        (fourth) string in the Version 1 Version/ID tuple. */
+-    tuple->DesiredTuple = CISTPL_VERS_1;
+-    if (first_tuple(link, tuple, parse) != CS_SUCCESS) {
+-	rc = -1;
+-	goto free_cfg_mem;
+-    }
+-    /* Ugh -- the EM1144 card has two VERS_1 tuples!?! */
+-    if (next_tuple(link, tuple, parse) != CS_SUCCESS)
+-	first_tuple(link, tuple, parse);
+-    if (parse->version_1.ns > 3) {
+-	station_addr = parse->version_1.str + parse->version_1.ofs[3];
++    if (link->prod_id[3]) {
++	station_addr = link->prod_id[3];
+ 	if (cvt_ascii_address(dev, station_addr) == 0) {
+ 		rc = 0;
+ 		goto free_cfg_mem;
+@@ -744,15 +736,12 @@ static int smc_setup(struct pcmcia_devic
  	}
--	at91_dev = dev;
+     }
+     /* Try the third string in the Version 1 Version/ID tuple. */
+-    tuple->DesiredTuple = CISTPL_VERS_1;
+-    if (first_tuple(link, tuple, parse) != CS_SUCCESS) {
+-	rc = -1;
+-	goto free_cfg_mem;
+-    }
+-    station_addr = parse->version_1.str + parse->version_1.ofs[2];
+-    if (cvt_ascii_address(dev, station_addr) == 0) {
+-	rc = 0;
+-	goto free_cfg_mem;
++    if (link->prod_id[2]) {
++	station_addr = link->prod_id[2];
++	if (cvt_ascii_address(dev, station_addr) == 0) {
++		rc = 0;
++		goto free_cfg_mem;
++	}
+     }
  
- 	/* Determine current link speed */
- 	spin_lock_irq(&lp->lock);
-@@ -1115,15 +1109,16 @@
- 
- static int __devexit at91ether_remove(struct platform_device *pdev)
+     rc = -1;
+diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
+index f3914f5..d627361 100644
+--- a/drivers/net/pcmcia/xirc2ps_cs.c
++++ b/drivers/net/pcmcia/xirc2ps_cs.c
+@@ -707,22 +707,11 @@ set_card_type(struct pcmcia_device *link
+  * Returns: true if this is a CE2
+  */
+ static int
+-has_ce2_string(struct pcmcia_device * link)
++has_ce2_string(struct pcmcia_device * p_dev)
  {
--	struct at91_private *lp = (struct at91_private *) at91_dev->priv;
-+	struct net_device *dev = platform_get_drvdata(pdev);
-+	struct at91_private *lp = netdev_priv(dev);
- 
--	unregister_netdev(at91_dev);
--	free_irq(at91_dev->irq, at91_dev);
-+	unregister_netdev(dev);
-+	free_irq(dev->irq, dev);
- 	dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
- 	clk_put(lp->ether_clk);
- 
--	free_netdev(at91_dev);
--	at91_dev = NULL;
-+	platform_set_drvdata(pdev, NULL);
-+	free_netdev(dev);
- 	return 0;
+-    tuple_t tuple;
+-    cisparse_t parse;
+-    u_char buf[256];
+-
+-    tuple.Attributes = 0;
+-    tuple.TupleData = buf;
+-    tuple.TupleDataMax = 254;
+-    tuple.TupleOffset = 0;
+-    tuple.DesiredTuple = CISTPL_VERS_1;
+-    if (!first_tuple(link, &tuple, &parse) && parse.version_1.ns > 2) {
+-	if (strstr(parse.version_1.str + parse.version_1.ofs[2], "CE2"))
+-	    return 1;
+-    }
+-    return 0;
++	if (p_dev->prod_id[2] && strstr(p_dev->prod_id[2], "CE2"))
++		return 1;
++	return 0;
  }
  
-@@ -1131,8 +1126,8 @@
+ /****************
+diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
+index 7fbfc9e..75cdc3e 100644
+--- a/drivers/net/wireless/ray_cs.c
++++ b/drivers/net/wireless/ray_cs.c
+@@ -433,16 +433,11 @@ static int ray_config(struct pcmcia_devi
  
- static int at91ether_suspend(struct platform_device *pdev, pm_message_t mesg)
+     /* Determine card type and firmware version */
+     buf[0] = buf[MAX_TUPLE_SIZE - 1] = 0;
+-    tuple.DesiredTuple = CISTPL_VERS_1;
+-    CS_CHECK(GetFirstTuple, pcmcia_get_first_tuple(link, &tuple));
+-    tuple.TupleData = buf;
+-    tuple.TupleDataMax = MAX_TUPLE_SIZE;
+-    tuple.TupleOffset = 2;
+-    CS_CHECK(GetTupleData, pcmcia_get_tuple_data(link, &tuple));
+-
+-    for (i=0; i<tuple.TupleDataLen - 4; i++) 
+-        if (buf[i] == 0) buf[i] = ' ';
+-    printk(KERN_INFO "ray_cs Detected: %s\n",buf);
++    printk(KERN_INFO "ray_cs Detected: %s%s%s%s\n",
++	   link->prod_id[0] ? link->prod_id[0] : " ",
++	   link->prod_id[1] ? link->prod_id[1] : " ",
++	   link->prod_id[2] ? link->prod_id[2] : " ",
++	   link->prod_id[3] ? link->prod_id[3] : " ");
+ 
+     /* Now allocate an interrupt line.  Note that this does not
+        actually assign a handler to the interrupt.
+diff --git a/drivers/telephony/ixj_pcmcia.c b/drivers/telephony/ixj_pcmcia.c
+index dda0ca4..3f88978 100644
+--- a/drivers/telephony/ixj_pcmcia.c
++++ b/drivers/telephony/ixj_pcmcia.c
+@@ -69,25 +69,21 @@ do { last_fn = (fn); if ((last_ret = (re
+ 
+ static void ixj_get_serial(struct pcmcia_device * link, IXJ * j)
  {
--	struct at91_private *lp = (struct at91_private *) at91_dev->priv;
- 	struct net_device *net_dev = platform_get_drvdata(pdev);
-+	struct at91_private *lp = netdev_priv(net_dev);
- 	int phy_irq = lp->board_data.phy_irq_pin;
- 
- 	if (netif_running(net_dev)) {
-@@ -1149,8 +1144,8 @@
- 
- static int at91ether_resume(struct platform_device *pdev)
- {
--	struct at91_private *lp = (struct at91_private *) at91_dev->priv;
- 	struct net_device *net_dev = platform_get_drvdata(pdev);
-+	struct at91_private *lp = netdev_priv(net_dev);
- 	int phy_irq = lp->board_data.phy_irq_pin;
- 
- 	if (netif_running(net_dev)) {
-
-
+-	tuple_t tuple;
+-	u_short buf[128];
+ 	char *str;
+-	int last_ret, last_fn, i, place;
++	int i, place;
+ 	DEBUG(0, "ixj_get_serial(0x%p)\n", link);
+-	tuple.TupleData = (cisdata_t *) buf;
+-	tuple.TupleOffset = 0;
+-	tuple.TupleDataMax = 80;
+-	tuple.Attributes = 0;
+-	tuple.DesiredTuple = CISTPL_VERS_1;
+-	CS_CHECK(GetFirstTuple, pcmcia_get_first_tuple(link, &tuple));
+-	CS_CHECK(GetTupleData, pcmcia_get_tuple_data(link, &tuple));
+-	str = (char *) buf;
+-	printk("PCMCIA Version %d.%d\n", str[0], str[1]);
+-	str += 2;
++
++	str = link->prod_id[0];
++	if (!str)
++		goto cs_failed;
+ 	printk("%s", str);
+-	str = str + strlen(str) + 1;
++	str = link->prod_id[1];
++	if (!str)
++		goto cs_failed;
+ 	printk(" %s", str);
+-	str = str + strlen(str) + 1;
++	str = link->prod_id[2];
++	if (!str)
++		goto cs_failed;
+ 	place = 1;
+ 	for (i = strlen(str) - 1; i >= 0; i--) {
+ 		switch (str[i]) {
+@@ -122,7 +118,9 @@ static void ixj_get_serial(struct pcmcia
+ 		}
+ 		place = place * 0x10;
+ 	}
+-	str = str + strlen(str) + 1;
++	str = link->prod_id[3];
++	if (!str)
++		goto cs_failed;
+ 	printk(" version %s\n", str);
+       cs_failed:
+ 	return;
+-- 
+1.4.4
 
