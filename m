@@ -1,75 +1,172 @@
-From: Li Yewang <lyw@nanjing-fnst.com>
-Subject: Re:[PATCH]Fix BUG of ip_rt_send_redirect()
-Date: Wed, 29 Nov 2006 16:08:45 +0800
-Message-ID: <1164787726.14560.11.camel@localhost.localdomain>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 2/10] cxgb3 - main source file
+Date: Tue, 05 Dec 2006 00:29:45 -0800
+Message-ID: <45752DF9.50002@chelsio.com>
+References: <20061204194421.9061.66228.stgit@localhost.localdomain> <20061204130934.21b26a74@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au
+Cc: Divy Le Ray <None@chelsio.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:52623 "EHLO proxy.fnst.com.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759859AbWLEIUy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 03:20:54 -0500
-To: netdev@vger.kernel.org
+Received: from stargate.chelsio.com ([12.22.49.110]:18381 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937494AbWLEIaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 03:30:07 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061204130934.21b26a74@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Stephen,
 
-> 
->I think there are two problems here:
-> 
->1)The first time we hit the check rate_last is zero. We should simply
->proceed with the redirect rather than treating this as a jiffies value.
-> 
->2)When a dst is so old that the jiffies have wrapped around.  I'm
->not sure whether this is worth solving as it should be extremely rare
->unless your HZ is sufficiently large and you're on a 32-bit platform.
-> 
->One solution would be to periodically reset the rate_last fields to
->their original states.  Perhaps we can combine that with the GC.
+Thanks for the review. Please see my replies inline.
 
+Stephen Hemminger wrote:
 
-Mr Herbert Xu:
+> O
+>   
+>> + * If we have multiple receive queues per port serviced by NAPI we need one
+>> + * netdevice per queue as NAPI operates on netdevices.  We already have one
+>> + * netdevice, namely the one associated with the interface, so we use dummy
+>> + * ones for any additional queues.  Note that these netdevices exist purely
+>> + * so that NAPI has something to work with, they do not represent network
+>> + * ports and are not registered.
+>> + */
+>> +static int init_dummy_netdevs(struct adapter *adap)
+>> +{
+>> +	int i, j, dummy_idx = 0;
+>> +	struct net_device *nd;
+>> +
+>> +	for_each_port(adap, i) {
+>> +		const struct port_info *pi = &adap->port[i];
+>> +
+>> +		for (j = 0; j < pi->nqsets - 1; j++) {
+>> +			if (!adap->dummy_netdev[dummy_idx]) {
+>> +				nd = alloc_netdev(0, "", ether_setup);
+>> +				if (!nd)
+>> +					goto free_all;
+>> +
+>> +				nd->priv = adap;
+>> +				nd->weight = 64;
+>> +				set_bit(__LINK_STATE_START, &nd->state);
+>> +				adap->dummy_netdev[dummy_idx] = nd;
+>> +			}
+>> +			strcpy(adap->dummy_netdev[dummy_idx]->name,
+>> +			       pi->dev->name);
+>> +			dummy_idx++;
+>> +		}
+>> +	}
+>> +	return 0;
+>> +
+>> +free_all:
+>> +	while (--dummy_idx >= 0) {
+>> +		free_netdev(adap->dummy_netdev[dummy_idx]);
+>> +		adap->dummy_netdev[dummy_idx] = NULL;
+>> +	}
+>> +	return -ENOMEM;
+>> +}
+>>     
+>
+>
+> I understand this, but it seems more trouble than it is worth
+> and adds longterm maintance burden to NAPI and receive management code.
+>
+> You would be better off doing your own scheduling in a tasklet.
+>
+>   
+This code is directly inspired from the backlog_dev mechanism in 
+net/core/dev.c.
+NAPI provides fairness between adapters. Using our own scheduling would 
+conflict with this.
+>
+>   
+>> +	case SIOCCHIOCTL:
+>> +		return cxgb_extension_ioctl(dev, req->ifr_data);
+>>     
+>
+>
+> Adding a chelsio specific ioctl value isn't going to get accepted.
+> You need to use SIOCDEVPRIVATE, and figure out how to do 32bit/64bit
+> ioctl compatibility for it.
+>   
+SIOCCHIOCTL is defined as SIOCDEVPRIVATE in cxgb3_ioctl.h.
+>   
+>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>> +static void cxgb_netpoll(struct net_device *dev)
+>> +{
+>> +	unsigned long flags;
+>> +	struct adapter *adapter = dev->priv;
+>> +	struct sge_qset *qs = dev2qset(dev);
+>> +
+>> +	local_irq_save(flags);
+>> +	t3_intr_handler(adapter, qs->rspq.polling) (adapter->pdev->irq,
+>> +						    adapter);
+>> +	local_irq_restore(flags);
+>> +}
+>> +#endif
+>>     
+>
+> IRQ's are always disabled when netpoll is called.
+>   
+Okay, will fix.
+>   
+>> +	for (i = 0; i < ai->nports; ++i) {
+>> +		struct net_device *netdev;
+>> +
+>> +		netdev = alloc_etherdev(adapter ? 0 : sizeof(*adapter));
+>> +		if (!netdev) {
+>> +			err = -ENOMEM;
+>> +			goto out_free_dev;
+>> +		}
+>> +
+>> +		if (!adapter) {
+>> +			adapter = netdev->priv;
+>> +
+>> +			adapter->pdev = pdev;
+>> +			adapter->port[0].dev = netdev;	// so we don't leak it
+>> +
+>> +			adapter->regs = ioremap_nocache(mmio_start, mmio_len);
+>> +			if (!adapter->regs) {
+>> +				CH_ERR("%s: cannot map device registers\n",
+>> +				       pci_name(pdev));
+>> +				err = -ENOMEM;
+>> +				goto out_free_dev;
+>> +			}
+>> +
+>> +			adapter->name = pci_name(pdev);
+>> +			adapter->msg_enable = dflt_msg_enable;
+>> +			adapter->mmio_len = mmio_len;
+>> +			INIT_LIST_HEAD(&adapter->adapter_list);
+>> +			mutex_init(&adapter->mdio_lock);
+>> +			spin_lock_init(&adapter->work_lock);
+>> +			spin_lock_init(&adapter->stats_lock);
+>> +
+>> +			INIT_WORK(&adapter->ext_intr_handler_task,
+>> +				  ext_intr_task, adapter);
+>> +			INIT_WORK(&adapter->adap_check_task, t3_adap_check_task,
+>> +				  adapter);
+>> +
+>> +			pci_set_drvdata(pdev, netdev);
+>> +		}
+>>
+>>     
+>
+> It looks like you are repeating the same method of doing multi-port that you
+> did on cxgb2. It was wrong then, and it is wrong now:
+>
+> DON'T
+> 	use if_port to distinguish port. if_port is legacy field see IF_PORT_XXX
+> 	allocate adapter as part of 1st interface
+> 	set dev->priv differently on each port
+> 	don't use array in adapter structure for each port
+> DO
+> 	allocate adapter separately
+> 	use netdev_priv() for per port data
+> 	use port->adapter for adapter access
+>   
+We're fixing it.
 
-According to your advice, I have made another patch for the redirect
-bug.
-
-This patch does not think of the jiffies wraparound any more.
-Because if the router sends a redirect packet for the first time,
-the redirect route cache entry will be created in the route cache.
-If this entry is used frequently(This should be extremely rare), 
-the rate_last will be update to the current jiffies when it sends 
-the redirect packet. So we don't concern about the jiffies wraparound.
-If this entry does not be used for a long time, the GC will remove 
-it from route cache. Next time if we want to use this entry, 
-the redirect entry will be created in the route cache again, and the
-rate_last will be initialized to 0. So we don't care of the jiffies
-wraparound too.
-
-
-Following is my patch:
-
-Signed-off-by: Li Yewang <lyw@nanjing-fnst.com>
-
---- linux-2.6.19/net/ipv4/route.c.org 2006-12-05 10:47:02.402147160
-+0800
-+++ linux-2.6.19/net/ipv4/route.c 2006-12-05 10:48:26.339386760 +0800
-@@ -1327,7 +1327,8 @@ void ip_rt_send_redirect(struct sk_buff 
-  /* Check for load limit; set rate_last to the latest sent
-   * redirect.
-   */
-- if (time_after(jiffies,
-+ if (rt->u.dst.rate_last == 0 ||
-+     time_after(jiffies,
-          (rt->u.dst.rate_last +
-    (ip_rt_redirect_load << rt->u.dst.rate_tokens)))) {
-   icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, rt->rt_gateway);
-
-
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+Cheers,
+Divy
 
