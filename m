@@ -1,73 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [Madwifi-devel] ar5k and Atheros AR5005G
-Date: Tue, 5 Dec 2006 09:18:20 -0800
-Message-ID: <20061205091820.2480f92e@freekitty>
-References: <1164746352.31456.22.camel@systems03.lan.brontes3d.com>
-	<200611291612.33448.mb@bu3sch.de>
-	<20061129152407.GB5412@devicescape.com>
-	<200611291638.56759.mb@bu3sch.de>
-	<20061129160328.GA22602@devicescape.com>
-	<20061129121312.4cfc254f@freekitty>
-	<43e72e890612011035hf24aeb6wd20f8e93d2238c68@mail.gmail.com>
-	<3459.194.45.26.221.1165329546.squirrel@webmail.otaku42.de>
-	<43e72e890612050715g9568cfv945f28ccbf796801@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Renzmann" <madwifi@nospam.otaku42.de>,
-	"David Kimdon" <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net,
-	"Nick Kossifidis" <mickflemm@gmail.com>,
-	"Michael Buesch" <mb@bu3sch.de>, "Reyk Floeter" <reyk@openbsd.org>
+From: paul.moore@hp.com
+Subject: [PATCH] Netlink: add a pointer to the Generic Netlink wiki page
+Date: Tue, 05 Dec 2006 12:26:10 -0500
+Message-ID: <20061205172625.536651000@hp.com>
+References: <20061205172609.850935000@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:52578 "EHLO smtp.osdl.org"
+Received: from atlrel9.hp.com ([156.153.255.214]:52373 "EHLO atlrel9.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968482AbWLERUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 12:20:17 -0500
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890612050715g9568cfv945f28ccbf796801@mail.gmail.com>
+	id S968494AbWLER2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 12:28:45 -0500
+Received: from smtp2.fc.hp.com (smtp2.fc.hp.com [15.11.136.114])
+	by atlrel9.hp.com (Postfix) with ESMTP id F0F7338E04
+	for <netdev@vger.kernel.org>; Tue,  5 Dec 2006 12:27:59 -0500 (EST)
+To: netdev@vger.kernel.org
+Content-Disposition: inline; filename=netlink-genl_wiki_pointer
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Dec 2006 10:15:33 -0500
-"Luis R. Rodriguez" <mcgrof@gmail.com> wrote:
+From: Paul Moore <paul.moore@hp.com>
 
-> On 12/5/06, Michael Renzmann <madwifi@nospam.otaku42.de> wrote:
->  openhal here.
-> >
-> > I've set up the suggested branches, with slight changing to the proposed
-> > names:
-> >
-> > * http://svn.madwifi.org/branches/madwifi-old-openhal (based on r1142)
-> > * http://svn.madwifi.org/branches/dadwifi-openhal (based on r1827)
-> >
-> > Neither of them has received any modifications yet, they are basically
-> > copies of the mentioned revisions. I'm currently lacking the time to
-> > import Nick's work into the madwifi-old-openhal branch, for example - it
-> > would be nice if someone else could work on that.
-> 
-> CC'ing Reyk Foeter.
-> 
-> Committed Nick's port of ar5k (openal) to both branches, both now have
-> the openhal. Please note (very important):
-> 
-> We are basing our openhal on OpenBSD's ar5k. Because of this and since
-> the GPL does not allow us to commit changes on the GPL version back to
-> the BSD version please sumbit your non-linux enhancements to the HAL
-> to "Reyk Floeter" <reyk@openbsd.org> and CC madwifi-devel.
-> 
-> We have an openhal.org which we can start to use, should Reyk want, to
-> use as the master tree of the ar5k to make sure any enhancements on
-> the HAL go to both BSD and Linux. The licensing on the master tree
-> should be kept BSD as Reyk wants it to be. This way Linux or BSD
-> contributions can go into one tree and later revisions can be added to
-> dadwifi/openbsd with their own specific BSD'isms and Linux'isms. Keep
-> in mind the Linux port will remain dual licensed BSD/GPL. Let me know
-> what you think Reyk.
-> 
->   Luis
+Add a pointer to the OSDL wiki page on Generic Netlink.
 
-All the more reason to merge the HAL in and make it disappear
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ Documentation/networking/00-INDEX            |    2 ++
+ Documentation/networking/generic_netlink.txt |    3 +++
+ 2 files changed, 5 insertions(+)
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Index: net-2.6.20_netlink-doc/Documentation/networking/00-INDEX
+===================================================================
+--- net-2.6.20_netlink-doc.orig/Documentation/networking/00-INDEX
++++ net-2.6.20_netlink-doc/Documentation/networking/00-INDEX
+@@ -58,6 +58,8 @@ fore200e.txt
+ 	- FORE Systems PCA-200E/SBA-200E ATM NIC driver info.
+ framerelay.txt
+ 	- info on using Frame Relay/Data Link Connection Identifier (DLCI).
++generic_netlink.txt
++	- info on Generic Netlink
+ ip-sysctl.txt
+ 	- /proc/sys/net/ipv4/* variables
+ ip_dynaddr.txt
+Index: net-2.6.20_netlink-doc/Documentation/networking/generic_netlink.txt
+===================================================================
+--- /dev/null
++++ net-2.6.20_netlink-doc/Documentation/networking/generic_netlink.txt
+@@ -0,0 +1,3 @@
++A wiki document on how to use Generic Netlink can be found here:
++
++ * http://linux-net.osdl.org/index.php/Generic_Netlink_HOWTO
+
+--
+paul moore
+linux security @ hp
+
