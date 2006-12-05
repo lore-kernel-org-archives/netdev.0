@@ -1,52 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH 2.6.20] [IPV6]: Repair IPv6 Fragments
-Date: Tue, 05 Dec 2006 18:28:28 +0900 (JST)
-Message-ID: <20061205.182828.110151638.yoshfuji@linux-ipv6.org>
+From: Sebastian Krahmer <krahmer@suse.de>
+Subject: TCP dynamic system
+Date: Tue, 5 Dec 2006 10:59:20 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0612051056180.12433@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kozakai@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39248 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937409AbWLEJ2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 04:28:15 -0500
-To: davem@davemloft.net
+Received: from cantor2.suse.de ([195.135.220.15]:49077 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759904AbWLEJ7W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 04:59:22 -0500
+Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx2.suse.de (Postfix) with ESMTP id 6692321756
+	for <netdev@vger.kernel.org>; Tue,  5 Dec 2006 10:59:20 +0100 (CET)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-The commit "[IPV6]: Use kmemdup" (commit-id:
-af879cc704372ef762584e916129d19ffb39e844) broke IPv6 fragments.
+Hi,
 
-Bug was spotted by Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>.
+Does anyone know a good book on the nature of TCP? Means,
+how does all the algorithms (Nagle, ...) delayed, quick, opt-ack,
+winodw-size, MSS etc. affect the thruput and so on? Something
+that explains (hopefully as good as TCP Illustrated) which parameters
+cause what effects. There are some papers which describe this or
+that single topic but not a whole view.
+I am not subscribed to the list, so please take me into Cc or
+answer off-list :-)
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
--- 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e05ecbb..e9212c7 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -624,13 +624,13 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 		skb_shinfo(skb)->frag_list = NULL;
- 		/* BUILD HEADER */
- 
-+		*prevhdr = NEXTHDR_FRAGMENT;
- 		tmp_hdr = kmemdup(skb->nh.raw, hlen, GFP_ATOMIC);
- 		if (!tmp_hdr) {
- 			IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_FRAGFAILS);
- 			return -ENOMEM;
- 		}
- 
--		*prevhdr = NEXTHDR_FRAGMENT;
- 		__skb_pull(skb, hlen);
- 		fh = (struct frag_hdr*)__skb_push(skb, sizeof(struct frag_hdr));
- 		skb->nh.raw = __skb_push(skb, hlen);
+thx,
+Sebastian
 
 -- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+~
+~ perl self.pl
+~ $_='print"\$_=\47$_\47;eval"';eval
+~ krahmer@suse.de - SuSE Security Team
+~
+
