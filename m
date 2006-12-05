@@ -1,38 +1,35 @@
-From: Andrew Victor <andrew@sanpeople.com>
-Subject: Re: [PATCH 2.6.19] AT91RM9200 Ethernet update 2
-Date: 05 Dec 2006 08:15:58 +0200
-Message-ID: <1165299358.12510.6.camel@fuzzie.sanpeople.com>
-References: <1165236128.4606.104.camel@fuzzie.sanpeople.com>
-	 <20061204100124.619de892@freekitty>
+From: Valerie Henson <val_henson@linux.intel.com>
+Subject: Re: tulip_stop_rxtx() failed
+Date: Mon, 4 Dec 2006 22:34:10 -0800
+Message-ID: <20061205063410.GE8482@goober>
+References: <Pine.SOC.4.61.0611231347090.24112@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from za-gw.sanpeople.com ([196.211.225.226]:3285 "EHLO
-	za-gw.sanpeople.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936198AbWLEGZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 01:25:46 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061204100124.619de892@freekitty>
+Received: from mga06.intel.com ([134.134.136.21]:42355 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S937455AbWLEG5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 01:57:47 -0500
+To: Meelis Roos <mroos@linux.ee>
+Content-Disposition: inline
+In-Reply-To: <Pine.SOC.4.61.0611231347090.24112@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi Stephen,
+On Thu, Nov 23, 2006 at 01:59:17PM +0200, Meelis Roos wrote:
+> Background: Motorola Powerstack II (RS/6000 clone), PRep PowerPC 
+> machine, running Debian unstable userspace and latest git kernels. 1 
+> 21140 onboard, another in PCI slot.
+> 
+> Occasionally there is the message
+> 0000:00:06.0: tulip_stop_rxtx() failed
+> during bootup. It does not happen every time, just sometimes (about half 
+> boots with different git kernels). Everything seems to be working fine 
+> though. So this is nothing critical but just strange.
 
-> poll_controller is always called with interrupts already disabled.
+I'm planning on making that message print out only at debug level > 0.
+It pops up on initialization of a couple of my cards, with no apparent
+ill effects, and I've had reports of log spamming due to it.
 
-All the other network drivers I looked at seem to disable the interrupt.
-
-
-> The third argument to interrupt routines was dropped (struct pt_regs) in 2.6.19.
-> Maybe that never got fixed in ARM?
-
-My mistake - ARM was fixed up.
-I rarely compile with netconsole support so this change slipped through.
-
-
-Regards,
-  Andrew Victor
-
-
+-VAL
