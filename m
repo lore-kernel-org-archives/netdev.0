@@ -1,32 +1,40 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: 2.6.19-git6 header error
-Date: Mon, 4 Dec 2006 17:26:45 -0800
-Message-ID: <20061204172645.50b6568d.randy.dunlap@oracle.com>
-References: <20061204170324.41fedf13.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][GENETLINK] move command capabilities to flags
+Date: Mon, 04 Dec 2006 19:32:05 -0800 (PST)
+Message-ID: <20061204.193205.08322970.davem@davemloft.net>
+References: <20061204180000.GU8693@postel.suug.ch>
+	<1165266463.3643.46.camel@localhost>
+	<20061204212341.GV8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:48569 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967977AbWLEB0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 20:26:05 -0500
-To: Randy Dunlap <randy.dunlap@oracle.com>
-In-Reply-To: <20061204170324.41fedf13.randy.dunlap@oracle.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47098
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S968053AbWLEDcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Dec 2006 22:32:03 -0500
+To: tgraf@suug.ch
+In-Reply-To: <20061204212341.GV8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 4 Dec 2006 17:03:24 -0800 Randy Dunlap wrote:
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon, 4 Dec 2006 22:23:41 +0100
 
-> linux-2.6.19-git6/usr/include/linux/netfilter.h requires linux/rcupdate.h, which does not exist in exported headers
-> make[3]: *** [/var/linsrc/linux-2.6.19-git6/usr/include/linux/.check.netfilter.h] Error 1
-> make[2]: *** [linux] Error 2
-> make[1]: *** [headers_check] Error 2
-> make: *** [vmlinux] Error 2
+> * jamal <hadi@cyberus.ca> 2006-12-04 16:07
+> > On Mon, 2006-04-12 at 19:00 +0100, Thomas Graf wrote:
+> > > * jamal <hadi@cyberus.ca> 2006-12-04 12:48
+> > 
+> > > > We can resolve that by uping the version for the controller.
+> > > > User will use that a signal.
+> > > 
+> > > Good idea, makes me happy :-) please do that in your patch as well.
+> > 
+> > 
+> > Ok, here she goes... 
+> > If looks good, Dave please apply to net-2.6.20
+> 
+> Looks good.
 
-Oops, Al has already fixed this one.
-
----
-~Randy
+Applied, thanks everyone.
