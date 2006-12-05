@@ -1,55 +1,37 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [PATCH  v2 04/13] Connection Manager
-Date: Tue, 5 Dec 2006 08:13:57 +0300
-Message-ID: <20061205051356.GA26845@2ka.mipt.ru>
-References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202224958.27014.65970.stgit@dell3.ogc.int> <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com> <1165249251.32724.26.camel@stevo-desktop>
+Date: Tue, 5 Dec 2006 08:16:58 +0300
+Message-ID: <20061205051657.GB26845@2ka.mipt.ru>
+References: <20061202224917.27014.15424.stgit@dell3.ogc.int> <20061202224958.27014.65970.stgit@dell3.ogc.int> <20061204110825.GA26251@2ka.mipt.ru> <ada8xhnk6kv.fsf@cisco.com> <20061205050725.GA26033@2ka.mipt.ru> <ada3b7uhqlk.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org,
 	openib-general@openib.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:39492 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53588 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968368AbWLEFOO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Dec 2006 00:14:14 -0500
-To: Steve Wise <swise@opengridcomputing.com>
+	id S967643AbWLEFRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 00:17:16 -0500
+To: Roland Dreier <rdreier@cisco.com>
 Content-Disposition: inline
-In-Reply-To: <1165249251.32724.26.camel@stevo-desktop>
+In-Reply-To: <ada3b7uhqlk.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 04, 2006 at 10:20:51AM -0600, Steve Wise (swise@opengridcomputing.com) wrote:
-> >  > This and a lot of other changes in this driver definitely says you
-> >  > implement your own stack of protocols on top of infiniband hardware.
-> > 
-> > ...but I do know this driver is for 10-gig ethernet HW.
-> > 
+On Mon, Dec 04, 2006 at 09:13:59PM -0800, Roland Dreier (rdreier@cisco.com) wrote:
+>  > It is for iwarp/rdma from description.
 > 
-> There is no SW TCP stack in this driver.  The HW supports RDMA over
-> TCP/IP/10GbE in HW and this is required for zero-copy RDMA over Ethernet
-> (aka iWARP).  The device is a 10 GbE device, not Infiniband.  The
-> Ethernet driver, upon which the rdma driver depends, acts both like a
-> traditional Ethernet NIC for the Linux stack as well as a TCP offload
-> device for the RDMA driver allowing establishment of RDMA connections.
-> The Connection Manager (patch 04/13) sends/receives messages from the
-> Ethernet driver that sets up HW TCP connections for doing RDMA.  While
-> this is indeed implementing TCP offload, it is _not_ integrating it with
-> the sockets layer nor the linux stack and offloading sockets
-> connections.  Its only supporting offload connections for the RDMA
-> driver to do iWARP.   The Ammasso device is another example of this
-> (drivers/infiniband/hw/amso1100).  Deep iSCSI adapters are another
-> example of this.
+> Yes, iWARP on top of 10G ethernet.
+> 
+>  > If it is 10ge, then why does it parse incomping packet headers and
+>  > implements initial tcp state machine?
+> 
+> To establish connections to run RDMA over, I guess.  iWARP is RDMA
+> over TCP.
 
-So what will happen when application will create a socket, bind it to
-that NIC, and then try to establish a TCP connection? How NIC will
-decide that received packets are from socket but not for internal TCP
-state machine handled by that device?
+So will each new NIC implement some parts of TCP stack in theirs drivers?
 
-As a side note, does all iwarp devices _require_ to have very
-limited TCP engine implemented it in its hardware, or it is possible
-to work with external SW stack?
- 
-> Steve.
+>  - R.
 
 -- 
 	Evgeniy Polyakov
