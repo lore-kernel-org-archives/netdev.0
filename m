@@ -1,59 +1,37 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] softmac: Fixed handling of deassociation from AP
-Date: Wed, 6 Dec 2006 23:51:06 +0100
-Message-ID: <200612062351.07016.mb@bu3sch.de>
-References: <4576D778.mailLQC18T1PN@lwfinger.net> <200612062152.36475.mb@bu3sch.de> <20061206215101.GA24100@p15091797.pureserver.info>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: Re: [PATCH] irlan: fix header build warning
+Date: Thu, 7 Dec 2006 00:57:50 +0200
+Message-ID: <20061206225750.GA17679@sortiz.org>
+References: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>,
-	John Linville <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:55740
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937761AbWLFWvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 17:51:21 -0500
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <20061206215101.GA24100@p15091797.pureserver.info>
+Received: from smtp5.orange.fr ([193.252.22.26]:38840 "EHLO
+	smtp-msa-out05.orange.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S937763AbWLFW5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 17:57:53 -0500
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Content-Disposition: inline
+In-Reply-To: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 06 December 2006 22:51, Ulrich Kunitz wrote:
-> On 06-12-06 21:52 Michael Buesch wrote:
+Hi Randy,
+
+Thanks for the patch. Looks fine to me.
+
+On Wed, Dec 06, 2006 at 11:44:07AM -0800, Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> > On Wednesday 06 December 2006 21:17, Ulrich Kunitz wrote:
-> > > On 06-12-06 18:52 Michael Buesch wrote:
-> > > 
-> > > > All data in mac->associnfo is protected by mac->associnfo->mutex
-> > > > and _not_ mac->lock.
-> > > 
-> > > Are you sure?
-> > 
-> > Yes I am.
-> > 
-> > > One can find for instance the following function in 
-> > > ieee80211softmac_assoc.c:
-> > 
-> > This is not the first time we notice that locking
-> > is completely broken in softmac. ;)
+> Fix compile warning when CONFIG_PROC_FS=n:
 > 
-> So the right thing would be to add another work function
-> (*_start_reassoc_work) which sets the associating variable and
-> calls then *_assoc_work? 
+> include/net/irda/irlan_filter.h:31: warning: 'struct seq_file' declared inside parameter list
+> include/net/irda/irlan_filter.h:31: warning: its scope is only this definition or declaration, which is probably not what you want
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-Ah, well. I think the right thing doesn't exist.
-Even if you replace the lock by the mutex, it's still racy.
-The whole lock design of softmac is broken and racy and we
-can't simply fix that with a oneliner.
-
-I'd say, John, apply the original patch as-is, as it does
-more good than harm.
-
-Basically, I just wanted to point out that this is not race-free.
-But I think we can live with it.
-
--- 
-Greetings Michael.
+Cheers,
+Samuel.
