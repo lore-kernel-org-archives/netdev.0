@@ -1,48 +1,38 @@
-From: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
-Date: Wed, 6 Dec 2006 17:10:56 -0500
-Message-ID: <d120d5000612061410l3f4e0c4x60c5456c17ef4d61@mail.gmail.com>
-References: <200612031936.34343.IvDoorn@gmail.com>
-	 <200612050027.15253.IvDoorn@gmail.com>
-	 <d120d5000612060637s69ff235fo85a2db923a728a00@mail.gmail.com>
-	 <200612062031.57148.IvDoorn@gmail.com>
-	 <d120d5000612061218x4eac87e0jc18409f82bb7c99c@mail.gmail.com>
-	 <20061206230546.41519771@logostar.upir.cz>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 0/16] Spidernet RX Misc cleanups and fixes
+Date: Wed, 6 Dec 2006 16:32:23 -0600
+Message-ID: <20061206223223.GH17931@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Ivo van Doorn" <ivdoorn@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "John Linville" <linville@tuxdriver.com>,
-	"Lennart Poettering" <lennart@poettering.net>,
-	"Johannes Berg" <johannes@sipsolutions.net>,
-	"Larry Finger" <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Geoff Levand <geoffrey.levand@am.sony.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu-out-0506.google.com ([72.14.214.224]:4334 "EHLO
-	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937719AbWLFWK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 17:10:58 -0500
-Received: by hu-out-0506.google.com with SMTP id 34so5262279hui
-        for <netdev@vger.kernel.org>; Wed, 06 Dec 2006 14:10:56 -0800 (PST)
-To: "Jiri Benc" <jbenc@suse.cz>
-In-Reply-To: <20061206230546.41519771@logostar.upir.cz>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:60692 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937748AbWLFWc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 17:32:26 -0500
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kB6MWP1E010517
+	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 17:32:25 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kB6MWP1L398586
+	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 15:32:25 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kB6MWN6m009187
+	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 15:32:24 -0700
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/6/06, Jiri Benc <jbenc@suse.cz> wrote:
-> On Wed, 6 Dec 2006 15:18:12 -0500, Dmitry Torokhov wrote:
-> > On 12/6/06, Ivo van Doorn <ivdoorn@gmail.com> wrote:
-> > > Ok, so input device opening should not block the rfkill signal and the rfkill handler
-> > > should still go through with its work unless a different config option indicates that
-> > > userspace wants to handle the event.
-> >
-> > I don't think a config option is a good idea unless by config option
-> > you mean a sysfs attribute.
->
-> What about using EVIOCGRAB ioctl for this?
->
 
-Will not work when the button is on your USB keyboard ;)
+Andrew, 
 
--- 
-Dmitry
+Please apply and forward upstream. This series of 16 small patches 
+consist of mostly of various cleanups, a few fixes, and a clarification
+of the flow of the RX side of the spidernet ethernet driver.  The 
+first patch, though, is a resubmit of an old patch.
+
+--linas
