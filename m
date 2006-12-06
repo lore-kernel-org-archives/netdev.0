@@ -1,151 +1,254 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [PATCH 1/5] r8169: more magic during initialization of the hardware
-Date: Wed, 06 Dec 2006 15:28:27 +1000
-Message-ID: <457654FB.5020507@snapgear.com>
-References: <20061203235257.GA3625@electric-eye.fr.zoreil.com> <20061203235454.GB3625@electric-eye.fr.zoreil.com>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: Re: [PATCH][IPSEC][5/7] inter address family ipsec tunnel
+Date: Wed, 6 Dec 2006 20:35:40 +0900
+Message-ID: <20061206203540.a03dae5c.kazunori@miyazawa.org>
+References: <20061124143852.e899dbaf.kazunori@miyazawa.org>
+	<20061130.164903.26534926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Darren Salt <linux@youmustbejoking.demon.co.uk>
+Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:35789 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760138AbWLFF2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 00:28:36 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061203235454.GB3625@electric-eye.fr.zoreil.com>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:42993 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1760505AbWLFLjq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Dec 2006 06:39:46 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061130.164903.26534926.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Mostly taken from Realtek's driver.
+On Thu, 30 Nov 2006 16:49:03 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> Date: Fri, 24 Nov 2006 14:38:52 +0900
 > 
-> It's a bit yucky but the original is even worse.
-
-This patch fixes a performance regression for my 8169s.
-But it appears to have a typo, see below.
-
-
+> > +static inline void ip6ip_ecn_decapsulate(struct sk_buff *skb)
+> > +{
+> > +	if (INET_ECN_is_ce(ipv6_get_dsfield(skb->nh.ipv6h)))
+> > +			IP_ECN_set_ce(skb->h.ipiph);
+> > +}
+> > +
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Signed-off-by: Darren Salt <linux@youmustbejoking.demon.co.uk>
-> ---
->  drivers/net/r8169.c |   58 +++++++++++++++++++++++++++++++++++++++------------
->  1 files changed, 44 insertions(+), 14 deletions(-)
+> Please fix this extra tab indentation :-)
 > 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 45d3ca4..c8fa9b1 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -1815,12 +1815,25 @@ static void rtl8169_hw_reset(void __iome
->  	RTL_R8(ChipCmd);
->  }
->  
-> -static void
-> -rtl8169_hw_start(struct net_device *dev)
-> +static void rtl8169_set_rx_tx_config_registers(struct rtl8169_private *tp)
-> +{
-> +	void __iomem *ioaddr = tp->mmio_addr;
-> +	u32 cfg = rtl8169_rx_config;
-> +
-> +	cfg |= (RTL_R32(RxConfig) & rtl_chip_info[tp->chipset].RxConfigMask);
-> +	RTL_W32(RxConfig, cfg);
-> +
-> +	/* Set DMA burst size and Interframe Gap Time */
-> +	RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-> +		(InterFrameGap << TxInterFrameGapShift));
-> +}
-> +
-> +static void rtl8169_hw_start(struct net_device *dev)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
->  	void __iomem *ioaddr = tp->mmio_addr;
->  	struct pci_dev *pdev = tp->pci_dev;
-> +	u16 cmd;
->  	u32 i;
->  
->  	/* Soft reset the chip. */
-> @@ -1833,6 +1846,11 @@ rtl8169_hw_start(struct net_device *dev)
->  		msleep_interruptible(1);
->  	}
->  
-> +	if (tp->mac_version == RTL_GIGA_MAC_VER_05) {
-> +		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | PCIMulRW);
-> +		pci_write_config_byte(pdev, PCI_CACHE_LINE_SIZE, 0x08);
-> +	}
-> +
->  	if (tp->mac_version == RTL_GIGA_MAC_VER_13) {
->  		pci_write_config_word(pdev, 0x68, 0x00);
->  		pci_write_config_word(pdev, 0x69, 0x08);
-> @@ -1840,8 +1858,6 @@ rtl8169_hw_start(struct net_device *dev)
->  
->  	/* Undocumented stuff. */
->  	if (tp->mac_version == RTL_GIGA_MAC_VER_05) {
-> -		u16 cmd;
-> -
->  		/* Realtek's r1000_n.c driver uses '&& 0x01' here. Well... */
->  		if ((RTL_R8(Config2) & 0x07) & 0x01)
->  			RTL_W32(0x7c, 0x0007ffff);
-> @@ -1853,23 +1869,29 @@ rtl8169_hw_start(struct net_device *dev)
->  		pci_write_config_word(pdev, PCI_COMMAND, cmd);
->  	}
->  
-> -
->  	RTL_W8(Cfg9346, Cfg9346_Unlock);
-> +	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
-> +		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-> +
->  	RTL_W8(EarlyTxThres, EarlyTxThld);
->  
->  	/* Low hurts. Let's disable the filtering. */
->  	RTL_W16(RxMaxSize, 16383);
->  
-> -	/* Set Rx Config register */
-> -	i = rtl8169_rx_config |
-> -		(RTL_R32(RxConfig) & rtl_chip_info[tp->chipset].RxConfigMask);
-> -	RTL_W32(RxConfig, i);
-> +	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
-> +		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-> +		rtl8169_set_rx_tx_config_registers(tp);
+> Thank you.
+> 
 
-Should this RTL_W8() be deleted?
-Otherwise there is an indentation/braces mismatch.
+I fixed. As mentioned in another mail, I mixed up the changes
+in my previous patch. This adds "IPv6 over IPv4 IPsec tunnel".
+The fix of extra tab is included in another mail.
 
 
->  
-> -	/* Set DMA burst size and Interframe Gap Time */
-> -	RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-> -		(InterFrameGap << TxInterFrameGapShift));
-> +	cmd = RTL_R16(CPlusCmd);
-> +	RTL_W16(CPlusCmd, cmd);
->  
-> -	tp->cp_cmd |= RTL_R16(CPlusCmd) | PCIMulRW;
-> +	tp->cp_cmd |= cmd | PCIMulRW;
->  
->  	if ((tp->mac_version == RTL_GIGA_MAC_VER_02) ||
->  	    (tp->mac_version == RTL_GIGA_MAC_VER_03)) {
-> @@ -1895,7 +1917,15 @@ rtl8169_hw_start(struct net_device *dev)
->  	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
->  	RTL_W32(RxDescAddrHigh, ((u64) tp->RxPhyAddr >> 32));
->  	RTL_W32(RxDescAddrLow, ((u64) tp->RxPhyAddr & DMA_32BIT_MASK));
-> -	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-> +
-> +	if ((tp->mac_version != RTL_GIGA_MAC_VER_01) &&
-> +	    (tp->mac_version != RTL_GIGA_MAC_VER_02) &&
-> +	    (tp->mac_version != RTL_GIGA_MAC_VER_03) &&
-> +	    (tp->mac_version != RTL_GIGA_MAC_VER_04)) {
-> +		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-> +		rtl8169_set_rx_tx_config_registers(tp);
-> +	}
-> +
->  	RTL_W8(Cfg9346, Cfg9346_Lock);
->  
->  	/* Initially a 10 us delay. Turned it into a PCI commit. - FR */
+Signed-off-by: Miika Komu <miika@iki.fi>
+Signed-off-by: Diego Beltrami <Diego.Beltrami@hiit.fi>
+Signed-off-by: Kazunori Miyazawa <miyazawa@linux-ipv6.org>
+
+---
+ net/ipv4/xfrm4_mode_tunnel.c |   57 ++++++++++++++++++++++++++++++++++--------
+ net/ipv6/xfrm6_policy.c      |   48 +++++++++++++++++++++++++----------
+ 2 files changed, 80 insertions(+), 25 deletions(-)
+
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index e23c21d..e54c549 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -23,6 +23,12 @@ static inline void ipip_ecn_decapsulate(
+ 		IP_ECN_set_ce(inner_iph);
+ }
+ 
++static inline void ipip6_ecn_decapsulate(struct iphdr *iph, struct sk_buff *skb)
++{
++	if (INET_ECN_is_ce(iph->tos))
++		IP6_ECN_set_ce(skb->nh.ipv6h);
++}
++
+ /* Add encapsulation header.
+  *
+  * The top IP header will be constructed per RFC 2401.  The following fields
+@@ -36,6 +42,7 @@ static inline void ipip_ecn_decapsulate(
+ static int xfrm4_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb->dst;
++	struct xfrm_dst *xdst = (struct xfrm_dst*)dst;
+ 	struct iphdr *iph, *top_iph;
+ 	int flags;
+ 
+@@ -48,15 +55,27 @@ static int xfrm4_tunnel_output(struct xf
+ 	top_iph->ihl = 5;
+ 	top_iph->version = 4;
+ 
++	flags = x->props.flags;
++
+ 	/* DS disclosed */
+-	top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
++	if (xdst->route->ops->family == AF_INET) {
++		top_iph->protocol = IPPROTO_IPIP;
++		top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
++		top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
++			0 : (iph->frag_off & htons(IP_DF));
++	}
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++	else {
++		struct ipv6hdr *ipv6h = (struct ipv6hdr*)iph;
++		top_iph->protocol = IPPROTO_IPV6;
++		top_iph->tos = INET_ECN_encapsulate(iph->tos, ipv6_get_dsfield(ipv6h));
++		top_iph->frag_off = 0;
++	}
++#endif
+ 
+-	flags = x->props.flags;
+ 	if (flags & XFRM_STATE_NOECN)
+ 		IP_ECN_clear(top_iph);
+ 
+-	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
+-		0 : (iph->frag_off & htons(IP_DF));
+ 	if (!top_iph->frag_off)
+ 		__ip_select_ident(top_iph, dst->child, 0);
+ 
+@@ -64,7 +83,6 @@ static int xfrm4_tunnel_output(struct xf
+ 
+ 	top_iph->saddr = x->props.saddr.a4;
+ 	top_iph->daddr = x->id.daddr.a4;
+-	top_iph->protocol = IPPROTO_IPIP;
+ 
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+ 	return 0;
+@@ -75,8 +93,16 @@ static int xfrm4_tunnel_input(struct xfr
+ 	struct iphdr *iph = skb->nh.iph;
+ 	int err = -EINVAL;
+ 
+-	if (iph->protocol != IPPROTO_IPIP)
+-		goto out;
++	switch(iph->protocol){
++		case IPPROTO_IPIP:
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++		case IPPROTO_IPV6:
++			break;
++#endif
++		default:
++			goto out;
++	}
++
+ 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+ 		goto out;
+ 
+@@ -84,10 +110,19 @@ static int xfrm4_tunnel_input(struct xfr
+ 	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+ 		goto out;
+ 
+-	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
+-		ipv4_copy_dscp(iph, skb->h.ipiph);
+-	if (!(x->props.flags & XFRM_STATE_NOECN))
+-		ipip_ecn_decapsulate(skb);
++	if (iph->protocol == IPPROTO_IPIP) {
++		if (x->props.flags & XFRM_STATE_DECAP_DSCP)
++			ipv4_copy_dscp(iph, skb->h.ipiph);
++		if (!(x->props.flags & XFRM_STATE_NOECN))
++			ipip_ecn_decapsulate(skb);
++	}
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++	else {
++		if (!(x->props.flags & XFRM_STATE_NOECN))
++			ipip6_ecn_decapsulate(iph, skb);
++		skb->protocol = htons(ETH_P_IPV6);
++	}
++#endif
+ 	skb->mac.raw = memmove(skb->data - skb->mac_len,
+ 			       skb->mac.raw, skb->mac_len);
+ 	skb->nh.raw = skb->data;
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 8dffd4d..a7f28bf 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -131,16 +131,19 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 	struct dst_entry *dst, *dst_prev;
+ 	struct rt6_info *rt0 = (struct rt6_info*)(*dst_p);
+ 	struct rt6_info *rt  = rt0;
+-	struct in6_addr *remote = &fl->fl6_dst;
+-	struct in6_addr *local  = &fl->fl6_src;
+ 	struct flowi fl_tunnel = {
+ 		.nl_u = {
+ 			.ip6_u = {
+-				.saddr = *local,
+-				.daddr = *remote
++				.saddr = fl->fl6_src,
++				.daddr = fl->fl6_dst,
+ 			}
+ 		}
+ 	};
++	union {
++		struct in6_addr *in6;
++		struct in_addr *in;
++	} remote, local;
++	unsigned short encap_family = 0;
+ 	int i;
+ 	int err = 0;
+ 	int header_len = 0;
+@@ -153,7 +156,6 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 	for (i = 0; i < nx; i++) {
+ 		struct dst_entry *dst1 = dst_alloc(&xfrm6_dst_ops);
+ 		struct xfrm_dst *xdst;
+-		int tunnel = 0;
+ 
+ 		if (unlikely(dst1 == NULL)) {
+ 			err = -ENOBUFS;
+@@ -178,18 +180,33 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		dst1->next = dst_prev;
+ 		dst_prev = dst1;
+ 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
+-			remote = __xfrm6_bundle_addr_remote(xfrm[i], remote);
+-			local  = __xfrm6_bundle_addr_local(xfrm[i], local);
+-			tunnel = 1;
++			encap_family = xfrm[i]->props.family;
++			if (encap_family == AF_INET6) {
++				remote.in6 = (struct in6_addr*)&xfrm[i]->id.daddr;
++				local.in6 = (struct in6_addr*)&xfrm[i]->props.saddr;
++			} else if(encap_family == AF_INET){
++				remote.in = (struct in_addr*)&xfrm[i]->id.daddr;
++				local.in = (struct in_addr*)&xfrm[i]->props.saddr;
++			}
+ 		}
+ 		__xfrm6_bundle_len_inc(&header_len, &nfheader_len, xfrm[i]);
+ 		trailer_len += xfrm[i]->props.trailer_len;
++		if (encap_family) {
++			switch(encap_family) {
++			case AF_INET:
++				fl_tunnel.fl4_dst = remote.in->s_addr;
++				fl_tunnel.fl4_src = local.in->s_addr;
++				break;
++			case AF_INET6:
++				ipv6_addr_copy(&fl_tunnel.fl6_dst, remote.in6);
++				ipv6_addr_copy(&fl_tunnel.fl6_src, local.in6);
++				break;
++			default:
++				BUG_ON(1);
++			}
+ 
+-		if (tunnel) {
+-			ipv6_addr_copy(&fl_tunnel.fl6_dst, remote);
+-			ipv6_addr_copy(&fl_tunnel.fl6_src, local);
+-			err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
+-					      &fl_tunnel, AF_INET6);
++ 			err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
++					      &fl_tunnel, encap_family);
+ 			if (err)
+ 				goto error;
+ 		} else
+@@ -224,7 +241,10 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		/* Copy neighbour for reachability confirmation */
+ 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
+ 		dst_prev->input		= rt->u.dst.input;
+-		dst_prev->output	= xfrm6_output;
++		if (dst_prev->xfrm->props.family == AF_INET6)
++			dst_prev->output	= xfrm6_output;
++		else
++			dst_prev->output	= xfrm4_output;
+ 		/* Sheit... I remember I did this right. Apparently,
+ 		 * it was magically lost, so this code needs audit */
+ 		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
+-- 
+1.4.1
 
