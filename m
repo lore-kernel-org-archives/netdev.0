@@ -1,181 +1,115 @@
 From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: Re: [PATCH][IPSEC][5/7] inter address family ipsec tunnel
-Date: Wed, 6 Dec 2006 20:35:40 +0900
-Message-ID: <20061206203540.a03dae5c.kazunori@miyazawa.org>
-References: <20061124143852.e899dbaf.kazunori@miyazawa.org>
-	<20061130.164903.26534926.davem@davemloft.net>
+Subject: Re: [PATCH][IPSEC][4/7] inter address family ipsec tunnel
+Date: Wed, 6 Dec 2006 20:35:37 +0900
+Message-ID: <20061206203537.2e5ba9ec.kazunori@miyazawa.org>
+References: <20061124143839.8559449b.kazunori@miyazawa.org>
+	<20061130.164827.57154936.davem@davemloft.net>
+	<456FB283.9090904@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: davem@davemloft.net, miika@iki.fi, Diego.Beltrami@hiit.fi,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from usagi004.linux-ipv6.org ([203.178.140.4]:42993 "EHLO
 	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1760505AbWLFLjq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Dec 2006 06:39:46 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061130.164903.26534926.davem@davemloft.net>
+	id S1760504AbWLFLjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Dec 2006 06:39:45 -0500
+To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+In-Reply-To: <456FB283.9090904@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Nov 2006 16:49:03 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Fri, 01 Dec 2006 13:41:39 +0900
+Kazunori MIYAZAWA <kazunori@miyazawa.org> wrote:
 
-> From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-> Date: Fri, 24 Nov 2006 14:38:52 +0900
+> David Miller wrote:
+> > From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> > Date: Fri, 24 Nov 2006 14:38:39 +0900
+> > 
+> > What is going on here?
+> > 
+> >> +			/* Without this, the atomic inc below segfaults */
+> >> +			if (encap_family == AF_INET6) {
+> >> +				rt->peer = NULL;
+> >> +				rt_bind_peer(rt,1);
+> >> +			}
+> >  ...
+> >> -		dst_prev->output	= xfrm4_output;
+> >> +		if (dst_prev->xfrm->props.family == AF_INET)
+> >> +			dst_prev->output = xfrm4_output;
+> >> +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+> >> +		else
+> >> +			dst_prev->output = xfrm6_output;
+> >> +#endif
+> >>  		if (rt->peer)
+> >>  			atomic_inc(&rt->peer->refcnt);
+> > 
+> > If it's non-NULL and you get a segfault for atomic_inc() that
+> > means there is garbage here, and it seems that if you're
+> > setting it to NULL explicitly then it's just a workaround
+> > for whatever problem is causing it to be non-NULL to begin
+> > with.
+> > 
+> > What is putting a non-valid pointer value there?  Is this an IPV6 or
+> > IPSEC dst route by chance?  If so, that makes this change really
+> > wrong, and we are corrupting the route by running rt_bind_peer() on
+> > it.  rt_bind_peer() is only valid on ipv4 route entries.
 > 
-> > +static inline void ip6ip_ecn_decapsulate(struct sk_buff *skb)
-> > +{
-> > +	if (INET_ECN_is_ce(ipv6_get_dsfield(skb->nh.ipv6h)))
-> > +			IP_ECN_set_ce(skb->h.ipiph);
-> > +}
-> > +
+> Thank you for your good catch.
+> I think atomic_inc must be done in case of props.family == AF_INET.
+> And we probably should manage reference count of the device in case of
+> AF_INET6.
 > 
-> Please fix this extra tab indentation :-)
+> Anyway I'll check and fix it.
 > 
 > Thank you.
 > 
 
-I fixed. As mentioned in another mail, I mixed up the changes
-in my previous patch. This adds "IPv6 over IPv4 IPsec tunnel".
-The fix of extra tab is included in another mail.
+Hello David,
 
+Sorry, I mixed up changes in the patches. I described that [4/7] will add
+"IPv6 over IPv4 IPsec tunnel". However I send a patch for "IPv4 over IPv6"
+as a reply because it includes the discussing item.
+So this patch adds IPv4 over IPv6 IPsec tunnel. It's complicated.
+
+I deleted subustituting NULL for rt->peer and moved atomic_inc stuff
+under the "if" section.
+
+BTW, I have a question about descrementing the reference count of rt->peer.
+The reference cound in normal "dst" structure is decremented by calling
+inet_putpeer from ipv4_dst_destroy. But xfrm4_dst_destroy does not call inet_putpeer.
+Where do we decrement the count? Should xfrm4_dst_destroy do that?
 
 Signed-off-by: Miika Komu <miika@iki.fi>
 Signed-off-by: Diego Beltrami <Diego.Beltrami@hiit.fi>
 Signed-off-by: Kazunori Miyazawa <miyazawa@linux-ipv6.org>
 
----
- net/ipv4/xfrm4_mode_tunnel.c |   57 ++++++++++++++++++++++++++++++++++--------
- net/ipv6/xfrm6_policy.c      |   48 +++++++++++++++++++++++++----------
- 2 files changed, 80 insertions(+), 25 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index e23c21d..e54c549 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -23,6 +23,12 @@ static inline void ipip_ecn_decapsulate(
- 		IP_ECN_set_ce(inner_iph);
- }
- 
-+static inline void ipip6_ecn_decapsulate(struct iphdr *iph, struct sk_buff *skb)
-+{
-+	if (INET_ECN_is_ce(iph->tos))
-+		IP6_ECN_set_ce(skb->nh.ipv6h);
-+}
-+
- /* Add encapsulation header.
-  *
-  * The top IP header will be constructed per RFC 2401.  The following fields
-@@ -36,6 +42,7 @@ static inline void ipip_ecn_decapsulate(
- static int xfrm4_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb->dst;
-+	struct xfrm_dst *xdst = (struct xfrm_dst*)dst;
- 	struct iphdr *iph, *top_iph;
- 	int flags;
- 
-@@ -48,15 +55,27 @@ static int xfrm4_tunnel_output(struct xf
- 	top_iph->ihl = 5;
- 	top_iph->version = 4;
- 
-+	flags = x->props.flags;
-+
- 	/* DS disclosed */
--	top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
-+	if (xdst->route->ops->family == AF_INET) {
-+		top_iph->protocol = IPPROTO_IPIP;
-+		top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
-+		top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
-+			0 : (iph->frag_off & htons(IP_DF));
-+	}
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	else {
-+		struct ipv6hdr *ipv6h = (struct ipv6hdr*)iph;
-+		top_iph->protocol = IPPROTO_IPV6;
-+		top_iph->tos = INET_ECN_encapsulate(iph->tos, ipv6_get_dsfield(ipv6h));
-+		top_iph->frag_off = 0;
-+	}
-+#endif
- 
--	flags = x->props.flags;
- 	if (flags & XFRM_STATE_NOECN)
- 		IP_ECN_clear(top_iph);
- 
--	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
--		0 : (iph->frag_off & htons(IP_DF));
- 	if (!top_iph->frag_off)
- 		__ip_select_ident(top_iph, dst->child, 0);
- 
-@@ -64,7 +83,6 @@ static int xfrm4_tunnel_output(struct xf
- 
- 	top_iph->saddr = x->props.saddr.a4;
- 	top_iph->daddr = x->id.daddr.a4;
--	top_iph->protocol = IPPROTO_IPIP;
- 
- 	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
- 	return 0;
-@@ -75,8 +93,16 @@ static int xfrm4_tunnel_input(struct xfr
- 	struct iphdr *iph = skb->nh.iph;
- 	int err = -EINVAL;
- 
--	if (iph->protocol != IPPROTO_IPIP)
--		goto out;
-+	switch(iph->protocol){
-+		case IPPROTO_IPIP:
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+		case IPPROTO_IPV6:
-+			break;
-+#endif
-+		default:
-+			goto out;
-+	}
-+
- 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
- 		goto out;
- 
-@@ -84,10 +110,19 @@ static int xfrm4_tunnel_input(struct xfr
- 	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
- 		goto out;
- 
--	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
--		ipv4_copy_dscp(iph, skb->h.ipiph);
--	if (!(x->props.flags & XFRM_STATE_NOECN))
--		ipip_ecn_decapsulate(skb);
-+	if (iph->protocol == IPPROTO_IPIP) {
-+		if (x->props.flags & XFRM_STATE_DECAP_DSCP)
-+			ipv4_copy_dscp(iph, skb->h.ipiph);
-+		if (!(x->props.flags & XFRM_STATE_NOECN))
-+			ipip_ecn_decapsulate(skb);
-+	}
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	else {
-+		if (!(x->props.flags & XFRM_STATE_NOECN))
-+			ipip6_ecn_decapsulate(iph, skb);
-+		skb->protocol = htons(ETH_P_IPV6);
-+	}
-+#endif
- 	skb->mac.raw = memmove(skb->data - skb->mac_len,
- 			       skb->mac.raw, skb->mac_len);
- 	skb->nh.raw = skb->data;
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 8dffd4d..a7f28bf 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -131,16 +131,19 @@ __xfrm6_bundle_create(struct xfrm_policy
+---
+ net/ipv4/xfrm4_policy.c      |   68 ++++++++++++++++++++++++++++++++----------
+ net/ipv6/xfrm6_mode_tunnel.c |   42 ++++++++++++++++++++------
+ 2 files changed, 83 insertions(+), 27 deletions(-)
+
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index d4107bb..37b14e8 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -72,17 +72,20 @@ __xfrm4_bundle_create(struct xfrm_policy
  	struct dst_entry *dst, *dst_prev;
- 	struct rt6_info *rt0 = (struct rt6_info*)(*dst_p);
- 	struct rt6_info *rt  = rt0;
--	struct in6_addr *remote = &fl->fl6_dst;
--	struct in6_addr *local  = &fl->fl6_src;
+ 	struct rtable *rt0 = (struct rtable*)(*dst_p);
+ 	struct rtable *rt = rt0;
+-	__be32 remote = fl->fl4_dst;
+-	__be32 local  = fl->fl4_src;
  	struct flowi fl_tunnel = {
  		.nl_u = {
- 			.ip6_u = {
--				.saddr = *local,
--				.daddr = *remote
-+				.saddr = fl->fl6_src,
-+				.daddr = fl->fl6_dst,
+ 			.ip4_u = {
+-				.saddr = local,
+-				.daddr = remote,
++				.saddr = fl->fl4_src,
++				.daddr = fl->fl4_dst,
+ 				.tos = fl->fl4_tos
  			}
  		}
  	};
@@ -185,70 +119,181 @@ index 8dffd4d..a7f28bf 100644
 +	} remote, local;
 +	unsigned short encap_family = 0;
  	int i;
- 	int err = 0;
+ 	int err;
  	int header_len = 0;
-@@ -153,7 +156,6 @@ __xfrm6_bundle_create(struct xfrm_policy
+@@ -94,7 +97,6 @@ __xfrm4_bundle_create(struct xfrm_policy
  	for (i = 0; i < nx; i++) {
- 		struct dst_entry *dst1 = dst_alloc(&xfrm6_dst_ops);
+ 		struct dst_entry *dst1 = dst_alloc(&xfrm4_dst_ops);
  		struct xfrm_dst *xdst;
 -		int tunnel = 0;
  
  		if (unlikely(dst1 == NULL)) {
  			err = -ENOBUFS;
-@@ -178,18 +180,33 @@ __xfrm6_bundle_create(struct xfrm_policy
+@@ -116,19 +118,45 @@ __xfrm4_bundle_create(struct xfrm_policy
+ 
  		dst1->next = dst_prev;
  		dst_prev = dst1;
- 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
--			remote = __xfrm6_bundle_addr_remote(xfrm[i], remote);
--			local  = __xfrm6_bundle_addr_local(xfrm[i], local);
+-		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
+-			remote = xfrm[i]->id.daddr.a4;
+-			local  = xfrm[i]->props.saddr.a4;
 -			tunnel = 1;
++
++		if (xfrm[i]->props.mode == XFRM_MODE_TUNNEL) {
 +			encap_family = xfrm[i]->props.family;
-+			if (encap_family == AF_INET6) {
-+				remote.in6 = (struct in6_addr*)&xfrm[i]->id.daddr;
-+				local.in6 = (struct in6_addr*)&xfrm[i]->props.saddr;
-+			} else if(encap_family == AF_INET){
++
++			switch(encap_family) {
++			case AF_INET:
 +				remote.in = (struct in_addr*)&xfrm[i]->id.daddr;
 +				local.in = (struct in_addr*)&xfrm[i]->props.saddr;
++				break;
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++			case AF_INET6:
++				remote.in6 = (struct in6_addr*)&xfrm[i]->id.daddr;
++				local.in6 = (struct in6_addr*)&xfrm[i]->props.saddr;
++				break;
++#endif
++			default:
++				BUG_ON(1);
 +			}
  		}
- 		__xfrm6_bundle_len_inc(&header_len, &nfheader_len, xfrm[i]);
+ 		header_len += xfrm[i]->props.header_len;
  		trailer_len += xfrm[i]->props.trailer_len;
+ 
+-		if (tunnel) {
+-			fl_tunnel.fl4_src = local;
+-			fl_tunnel.fl4_dst = remote;
 +		if (encap_family) {
 +			switch(encap_family) {
 +			case AF_INET:
 +				fl_tunnel.fl4_dst = remote.in->s_addr;
 +				fl_tunnel.fl4_src = local.in->s_addr;
 +				break;
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 +			case AF_INET6:
 +				ipv6_addr_copy(&fl_tunnel.fl6_dst, remote.in6);
 +				ipv6_addr_copy(&fl_tunnel.fl6_src, local.in6);
 +				break;
++#endif
 +			default:
 +				BUG_ON(1);
 +			}
- 
--		if (tunnel) {
--			ipv6_addr_copy(&fl_tunnel.fl6_dst, remote);
--			ipv6_addr_copy(&fl_tunnel.fl6_src, local);
--			err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
--					      &fl_tunnel, AF_INET6);
-+ 			err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
+ 			err = xfrm_dst_lookup((struct xfrm_dst **)&rt,
+-					      &fl_tunnel, AF_INET);
 +					      &fl_tunnel, encap_family);
  			if (err)
  				goto error;
  		} else
-@@ -224,7 +241,10 @@ __xfrm6_bundle_create(struct xfrm_policy
- 		/* Copy neighbour for reachability confirmation */
+@@ -162,10 +190,16 @@ __xfrm4_bundle_create(struct xfrm_policy
+ 		/* Copy neighbout for reachability confirmation */
  		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
  		dst_prev->input		= rt->u.dst.input;
--		dst_prev->output	= xfrm6_output;
-+		if (dst_prev->xfrm->props.family == AF_INET6)
-+			dst_prev->output	= xfrm6_output;
+-		dst_prev->output	= xfrm4_output;
+-		if (rt->peer)
+-			atomic_inc(&rt->peer->refcnt);
+-		x->u.rt.peer = rt->peer;
++		if (dst_prev->xfrm->props.family == AF_INET) {
++			dst_prev->output = xfrm4_output;
++			if (rt->peer)
++				atomic_inc(&rt->peer->refcnt);
++			x->u.rt.peer = rt->peer;
++		}
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 +		else
-+			dst_prev->output	= xfrm4_output;
++			dst_prev->output = xfrm6_output;
++#endif
  		/* Sheit... I remember I did this right. Apparently,
  		 * it was magically lost, so this code needs audit */
- 		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
+ 		x->u.rt.rt_flags = rt0->rt_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index 5e7d8a7..51eb59d 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -25,6 +25,12 @@ static inline void ipip6_ecn_decapsulate
+ 		IP6_ECN_set_ce(inner_iph);
+ }
+ 
++static inline void ip6ip_ecn_decapsulate(struct sk_buff *skb)
++{
++	if (INET_ECN_is_ce(ipv6_get_dsfield(skb->nh.ipv6h)))
++		IP_ECN_set_ce(skb->h.ipiph);
++}
++
+ /* Add encapsulation header.
+  *
+  * The top IP header will be constructed per RFC 2401.  The following fields
+@@ -40,6 +46,7 @@ static inline void ipip6_ecn_decapsulate
+ static int xfrm6_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb->dst;
++	struct xfrm_dst *xdst = (struct xfrm_dst*)dst;
+ 	struct ipv6hdr *iph, *top_iph;
+ 	int dsfield;
+ 
+@@ -52,16 +59,24 @@ static int xfrm6_tunnel_output(struct xf
+ 	skb->h.ipv6h = top_iph + 1;
+ 
+ 	top_iph->version = 6;
+-	top_iph->priority = iph->priority;
+-	top_iph->flow_lbl[0] = iph->flow_lbl[0];
+-	top_iph->flow_lbl[1] = iph->flow_lbl[1];
+-	top_iph->flow_lbl[2] = iph->flow_lbl[2];
++	if (xdst->route->ops->family == AF_INET6) {
++		top_iph->priority = iph->priority;
++		top_iph->flow_lbl[0] = iph->flow_lbl[0];
++		top_iph->flow_lbl[1] = iph->flow_lbl[1];
++		top_iph->flow_lbl[2] = iph->flow_lbl[2];
++		top_iph->nexthdr = IPPROTO_IPV6; 
++	} else {
++		top_iph->priority = 0;
++		top_iph->flow_lbl[0] = 0;
++		top_iph->flow_lbl[1] = 0;
++		top_iph->flow_lbl[2] = 0;
++		top_iph->nexthdr = IPPROTO_IPIP;
++	}
+ 	dsfield = ipv6_get_dsfield(top_iph);
+ 	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
+ 	if (x->props.flags & XFRM_STATE_NOECN)
+ 		dsfield &= ~INET_ECN_MASK;
+ 	ipv6_change_dsfield(top_iph, 0, dsfield);
+-	top_iph->nexthdr = IPPROTO_IPV6; 
+ 	top_iph->hop_limit = dst_metric(dst->child, RTAX_HOPLIMIT);
+ 	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
+ 	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
+@@ -72,7 +87,8 @@ static int xfrm6_tunnel_input(struct xfr
+ {
+ 	int err = -EINVAL;
+ 
+-	if (skb->nh.raw[IP6CB(skb)->nhoff] != IPPROTO_IPV6)
++	if (skb->nh.raw[IP6CB(skb)->nhoff] != IPPROTO_IPV6
++	    && skb->nh.raw[IP6CB(skb)->nhoff] != IPPROTO_IPIP)
+ 		goto out;
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		goto out;
+@@ -81,10 +97,16 @@ static int xfrm6_tunnel_input(struct xfr
+ 	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+ 		goto out;
+ 
+-	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
+-		ipv6_copy_dscp(skb->nh.ipv6h, skb->h.ipv6h);
+-	if (!(x->props.flags & XFRM_STATE_NOECN))
+-		ipip6_ecn_decapsulate(skb);
++	if (skb->nh.raw[IP6CB(skb)->nhoff] == IPPROTO_IPV6) {
++		if (x->props.flags & XFRM_STATE_DECAP_DSCP)
++			ipv6_copy_dscp(skb->nh.ipv6h, skb->h.ipv6h);
++		if (!(x->props.flags & XFRM_STATE_NOECN))
++			ipip6_ecn_decapsulate(skb);
++	} else {
++		if (!(x->props.flags & XFRM_STATE_NOECN))
++			ip6ip_ecn_decapsulate(skb);
++		skb->protocol = htons(ETH_P_IP);
++	}
+ 	skb->mac.raw = memmove(skb->data - skb->mac_len,
+ 			       skb->mac.raw, skb->mac_len);
+ 	skb->nh.raw = skb->data;
 -- 
 1.4.1
+
+
+
+
 
