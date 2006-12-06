@@ -1,52 +1,107 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Kernel header changes break glibc build
-Date: Wed, 6 Dec 2006 15:31:46 +0100
-Message-ID: <20061206143146.GD8693@postel.suug.ch>
-References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz> <20061206135931.GB8693@postel.suug.ch> <1165414039.5253.233.camel@pmac.infradead.org> <20061206141841.GN9556@sunsite.mff.cuni.cz>
+From: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
+Date: Wed, 6 Dec 2006 09:37:10 -0500
+Message-ID: <d120d5000612060637s69ff235fo85a2db923a728a00@mail.gmail.com>
+References: <200612031936.34343.IvDoorn@gmail.com>
+	 <d120d5000612041415r2f471e78s4feb86d22b7706d5@mail.gmail.com>
+	 <200612050027.15253.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Ulrich Drepper <drepper@redhat.com>,
-	"Joseph S. Myers" <joseph@codesourcery.com>,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"John Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>,
+	"Lennart Poettering" <lennart@poettering.net>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:48254 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760629AbWLFOb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Dec 2006 09:31:26 -0500
-To: Jakub Jelinek <jakub@redhat.com>
+Received: from nf-out-0910.google.com ([64.233.182.187]:13176 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760634AbWLFOhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 09:37:12 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so570219nfa
+        for <netdev@vger.kernel.org>; Wed, 06 Dec 2006 06:37:10 -0800 (PST)
+To: "Ivo van Doorn" <ivdoorn@gmail.com>
+In-Reply-To: <200612050027.15253.IvDoorn@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20061206141841.GN9556@sunsite.mff.cuni.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Jakub Jelinek <jakub@redhat.com> 2006-12-06 15:18
-> There are the kernel's own headers and kernel ABI headers for userland use.
-> Until recently the latter has been maintained by various distributions
-> and manually occassionally updated to sync a little bit with kernel ABI
-> additions (new syscalls, etc.)., but now, thanks to David, these are
-> generated from kernel's own headers.  If the macros were part of
-> such ABI
+On 12/4/06, Ivo van Doorn <ivdoorn@gmail.com> wrote:
+> > I am still not sure that tight coupling of input device with rfkill
+> > structure is such a good idea. Quite often the button is separated
+> > from the device itself and radio control is done via BIOS SMM (see
+> > wistron driver) or there is no special button at all and users might
+> > want to assign one of their standard keyboard buttons to be an RF
+> > switch.
+>
+> Making sure rfkill supports keys that are not handled by the driver
+> is a bit hard. Just as drivers that can only check if the button is
+> toggled and not what the current state is.
+> The problem is that it is hard to make a clean split between the
+> 2 different button controls. Not all drivers allow the radio to be
+> enabled while the button status are indicating the radio should
+> be off.
 
-Macros can't possibly be part of an ABI :-) You probably mean API.
+If they do not allow controlling the state of the radio
+programmatically then it should not be part of rfkill I am afraid. It
+is like the power switch - if you hold it for so long it kills the
+power to the box and there is nothing you can do about it.
 
-> (I don't think these macros were meant to be #ifdef __KERNEL__
-> and just by omission exported to userland), then if you change
-> the kernel headers (which of course you can do, that's kernel private
-> headers), then you IMNSHO should also add magic to make headers_install
-> to keep the kernel ABI headers for userland headers stable.
+> The buttons that are already integrated into the keyboard,
+> by example by using a Fn key combo don't control the device
+> directly. So the driver cannot offer anything to the rfkill driver.
+> Such buttons should be mapped in userspace without the help of rfkill,
+> since the kernel cannot detect if that key belonged to a radio
+> control key or not.
+>
 
-At the time they were added they were meant to be exported but netlink
-has evolved and we now have a type safe API. Guess what, I'm going to
-remove more bits of the old interface because they are no longer needed.
+That is my point. Given the fact that there are keys that are not
+directly connected with the radio switch userspace will have to handle
+them (wait for events then turn off radios somehow). You are
+advocating that userspace should also implement 2nd method for buttons
+that belong to rfkill interface. I do not understand the need for 2nd
+interface. If you separate radio switch from button code then
+userspace only need to implement 1st interface and be done with it.
+You will have set of cards that provide interface to enable/disable
+their transmitters and set of buttons that signal userspace desired
+state change. If both switch and button is implemented by the same
+driver then the driver can implement automatic button handling.
+Otherwise userspace help is necessary.
 
-> Which in this case would mean if you decide rtnetlink.h shouldn't include
-> the newly added if_addr.h that you add rules for generating the userland
-> rtnetlink.h such that it will include linux/if_addr.h and define the
-> macros you intentionally omitted.
+> > I think it would be better if there was an rfkill class listing all
+> > controlled devices (preferrably grouped by their type - WiFi, BT,
+> > IRDA, etc) and if every group would provide an attribute allowing to
+> > control state of the whole group (do we realistically need to kill
+> > just one interface? Wouldn't ifconfig be suitable for that?). The
+>
+> There have been mixed feelings on the netdev list about what should
+> exactly happen when the button is pressed. The possible options are:
+>
+> 1 - rfkill will kill all interfaces
+> 2 - rfkill will kill all interfaces of the same type (wifi, bt, irda)
+> 3 - rfkill will kill the interface it belongs to
+>
+> Personally I would favour the second option, but used the third after hearing
+> objections to the second method. So since there are also fans of
+> the third option I think there should be a decision made about what the
+> correct option is, so rfkill can follow that method.
 
-Sure, moving these bits to some compat header which gets automatically
-included by make install_headers instead of removing them sounds
-like a good compromise, it just has to be clear that they are deprecated
-and not supposed to be used by new code.
+Fans of the 3rd method, speak up ;)
+
+>
+> > attribute should be a tri-state on/off/auto, "auto" meaning the driver
+> > itself manages radio state. This would avoid another tacky IMHO point
+> > that in your implementation mere opening of an input device takes over
+> > RF driver. Explicit control allow applications "snoop" RF state
+> > without disturbing it.
+>
+> Currently userspace can always check the state of the button whenever
+> they like by checking the sysfs entry.
+>
+
+Unless the key is not directly connected to the driver (so there is no
+sysfs entry). Again you force 2 different interfaces.
+
+-- 
+Dmitry
