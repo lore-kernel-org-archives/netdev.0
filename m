@@ -1,107 +1,93 @@
-From: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
-Date: Wed, 6 Dec 2006 09:37:10 -0500
-Message-ID: <d120d5000612060637s69ff235fo85a2db923a728a00@mail.gmail.com>
-References: <200612031936.34343.IvDoorn@gmail.com>
-	 <d120d5000612041415r2f471e78s4feb86d22b7706d5@mail.gmail.com>
-	 <200612050027.15253.IvDoorn@gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] softmac: Fixed handling of deassociation from AP
+Date: Wed, 06 Dec 2006 08:45:12 -0600
+Message-ID: <4576D778.mailLQC18T1PN@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"John Linville" <linville@tuxdriver.com>,
-	"Jiri Benc" <jbenc@suse.cz>,
-	"Lennart Poettering" <lennart@poettering.net>,
-	"Johannes Berg" <johannes@sipsolutions.net>,
-	"Larry Finger" <Larry.Finger@lwfinger.net>
+Cc: kune@deine-taler.de, Michael Buesch <mb@bu3sch.de>,
+	netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
+	Stefano Brivio <st3@riseup.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:13176 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760634AbWLFOhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 09:37:12 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so570219nfa
-        for <netdev@vger.kernel.org>; Wed, 06 Dec 2006 06:37:10 -0800 (PST)
-To: "Ivo van Doorn" <ivdoorn@gmail.com>
-In-Reply-To: <200612050027.15253.IvDoorn@gmail.com>
-Content-Disposition: inline
+Received: from ms-smtp-02.rdc-kc.rr.com ([24.94.166.122]:48967 "EHLO
+	ms-smtp-02.rdc-kc.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760646AbWLFOp4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 09:45:56 -0500
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/4/06, Ivo van Doorn <ivdoorn@gmail.com> wrote:
-> > I am still not sure that tight coupling of input device with rfkill
-> > structure is such a good idea. Quite often the button is separated
-> > from the device itself and radio control is done via BIOS SMM (see
-> > wistron driver) or there is no special button at all and users might
-> > want to assign one of their standard keyboard buttons to be an RF
-> > switch.
->
-> Making sure rfkill supports keys that are not handled by the driver
-> is a bit hard. Just as drivers that can only check if the button is
-> toggled and not what the current state is.
-> The problem is that it is hard to make a clean split between the
-> 2 different button controls. Not all drivers allow the radio to be
-> enabled while the button status are indicating the radio should
-> be off.
+From:  Ulrich Kunitz <kune@deine-taler.de>
+ 
+A deauthentication from the AP doesn't start a reassociation by
+SoftMAC. To fix this mac->associnfo.associating must be set and the
+ieee80211softmac_assoc_work function must be scheduled.
 
-If they do not allow controlling the state of the radio
-programmatically then it should not be part of rfkill I am afraid. It
-is like the power switch - if you hold it for so long it kills the
-power to the box and there is nothing you can do about it.
+Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-> The buttons that are already integrated into the keyboard,
-> by example by using a Fn key combo don't control the device
-> directly. So the driver cannot offer anything to the rfkill driver.
-> Such buttons should be mapped in userspace without the help of rfkill,
-> since the kernel cannot detect if that key belonged to a radio
-> control key or not.
->
+ net/ieee80211/softmac/ieee80211softmac_assoc.c |   14 ++++++++++++--
+ net/ieee80211/softmac/ieee80211softmac_auth.c  |    2 ++
+ net/ieee80211/softmac/ieee80211softmac_priv.h  |    2 ++
+ 3 files changed, 16 insertions(+), 2 deletions(-)
 
-That is my point. Given the fact that there are keys that are not
-directly connected with the radio switch userspace will have to handle
-them (wait for events then turn off radios somehow). You are
-advocating that userspace should also implement 2nd method for buttons
-that belong to rfkill interface. I do not understand the need for 2nd
-interface. If you separate radio switch from button code then
-userspace only need to implement 1st interface and be done with it.
-You will have set of cards that provide interface to enable/disable
-their transmitters and set of buttons that signal userspace desired
-state change. If both switch and button is implemented by the same
-driver then the driver can implement automatic button handling.
-Otherwise userspace help is necessary.
+Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_assoc.c
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_assoc.c
++++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_assoc.c
+@@ -427,6 +427,17 @@ ieee80211softmac_handle_assoc_response(s
+ 	return 0;
+ }
+ 
++void
++ieee80211softmac_try_reassoc(struct ieee80211softmac_device *mac)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&mac->lock, flags);
++	mac->associnfo.associating = 1;
++	schedule_work(&mac->associnfo.work);
++	spin_unlock_irqrestore(&mac->lock, flags);
++}
++
+ int
+ ieee80211softmac_handle_disassoc(struct net_device * dev,
+ 				 struct ieee80211_disassoc *disassoc)
+@@ -445,8 +456,7 @@ ieee80211softmac_handle_disassoc(struct 
+ 	dprintk(KERN_INFO PFX "got disassoc frame\n");
+ 	ieee80211softmac_disassoc(mac);
+ 
+-	/* try to reassociate */
+-	schedule_work(&mac->associnfo.work);
++	ieee80211softmac_try_reassoc(mac);
+ 
+ 	return 0;
+ }
+Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_auth.c
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_auth.c
++++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_auth.c
+@@ -334,6 +334,8 @@ ieee80211softmac_deauth_from_net(struct 
+ 	/* can't transmit data right now... */
+ 	netif_carrier_off(mac->dev);
+ 	spin_unlock_irqrestore(&mac->lock, flags);
++
++	ieee80211softmac_try_reassoc(mac);
+ }
+ 
+ /* 
+Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_priv.h
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_priv.h
++++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_priv.h
+@@ -238,4 +238,6 @@ void ieee80211softmac_call_events_locked
+ int ieee80211softmac_notify_internal(struct ieee80211softmac_device *mac,
+ 	int event, void *event_context, notify_function_ptr fun, void *context, gfp_t gfp_mask);
+ 
++void ieee80211softmac_try_reassoc(struct ieee80211softmac_device *mac);
++
+ #endif /* IEEE80211SOFTMAC_PRIV_H_ */
 
-> > I think it would be better if there was an rfkill class listing all
-> > controlled devices (preferrably grouped by their type - WiFi, BT,
-> > IRDA, etc) and if every group would provide an attribute allowing to
-> > control state of the whole group (do we realistically need to kill
-> > just one interface? Wouldn't ifconfig be suitable for that?). The
->
-> There have been mixed feelings on the netdev list about what should
-> exactly happen when the button is pressed. The possible options are:
->
-> 1 - rfkill will kill all interfaces
-> 2 - rfkill will kill all interfaces of the same type (wifi, bt, irda)
-> 3 - rfkill will kill the interface it belongs to
->
-> Personally I would favour the second option, but used the third after hearing
-> objections to the second method. So since there are also fans of
-> the third option I think there should be a decision made about what the
-> correct option is, so rfkill can follow that method.
+---
 
-Fans of the 3rd method, speak up ;)
-
->
-> > attribute should be a tri-state on/off/auto, "auto" meaning the driver
-> > itself manages radio state. This would avoid another tacky IMHO point
-> > that in your implementation mere opening of an input device takes over
-> > RF driver. Explicit control allow applications "snoop" RF state
-> > without disturbing it.
->
-> Currently userspace can always check the state of the button whenever
-> they like by checking the sysfs entry.
->
-
-Unless the key is not directly connected to the driver (so there is no
-sysfs entry). Again you force 2 different interfaces.
-
--- 
-Dmitry
