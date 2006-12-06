@@ -1,7 +1,7 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 10/16] Spidernet Remove unused variable
-Date: Wed, 6 Dec 2006 17:41:18 -0600
-Message-ID: <20061206234117.GJ4649@austin.ibm.com>
+Subject: [PATCH 11/16] Spidernet RX Chain tail
+Date: Wed, 6 Dec 2006 17:42:38 -0600
+Message-ID: <20061206234238.GK4649@austin.ibm.com>
 References: <20061206223223.GH17931@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,19 +10,19 @@ Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
 	Arnd Bergmann <arnd@arndb.de>,
 	Geoff Levand <geoffrey.levand@am.sony.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:33446 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937807AbWLFXlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Dec 2006 18:41:25 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kB6NfOkF020644
-	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:41:24 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kB6NfOo5212898
-	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:41:24 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kB6NfNoE002778
-	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:41:24 -0500
+Received: from e36.co.us.ibm.com ([32.97.110.154]:52761 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937810AbWLFXml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 18:42:41 -0500
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kB6Nge7D006845
+	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:42:40 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kB6NgdO9540180
+	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 16:42:40 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kB6Ngccv027169
+	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 16:42:39 -0700
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 In-Reply-To: <20061206223223.GH17931@austin.ibm.com>
@@ -30,57 +30,55 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Remove unused variable; this makes code easier to read.
-Tweak commentary.
+Tell the hardware the location of the rx ring tail.
+More punctuation cleanup.
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 Cc: James K Lewis <jklewis@us.ibm.com>
 Cc: Arnd Bergmann <arnd@arndb.de>
 
 ----
- drivers/net/spider_net.c |   11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/spider_net.c |   15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
 Index: linux-2.6.19-git7/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.19-git7.orig/drivers/net/spider_net.c	2006-12-06 16:03:09.000000000 -0600
-+++ linux-2.6.19-git7/drivers/net/spider_net.c	2006-12-06 16:03:11.000000000 -0600
-@@ -341,17 +341,16 @@ spider_net_free_rx_chain_contents(struct
-  * @card: card structure
-  * @descr: descriptor to re-init
-  *
-- * return 0 on succes, <0 on failure
-+ * Return 0 on succes, <0 on failure.
-  *
-- * allocates a new rx skb, iommu-maps it and attaches it to the descriptor.
-- * Activate the descriptor state-wise
-+ * Allocates a new rx skb, iommu-maps it and attaches it to the 
-+ * descriptor. Mark the descriptor as activated, ready-to-use.
-  */
- static int
- spider_net_prepare_rx_descr(struct spider_net_card *card,
- 			    struct spider_net_descr *descr)
- {
- 	dma_addr_t buf;
--	int error = 0;
- 	int offset;
- 	int bufsize;
- 
-@@ -379,7 +378,7 @@ spider_net_prepare_rx_descr(struct spide
- 		(SPIDER_NET_RXBUF_ALIGN - 1);
- 	if (offset)
- 		skb_reserve(descr->skb, SPIDER_NET_RXBUF_ALIGN - offset);
--	/* io-mmu-map the skb */
-+	/* iommu-map the skb */
- 	buf = pci_map_single(card->pdev, descr->skb->data,
- 			SPIDER_NET_MAX_FRAME, PCI_DMA_FROMDEVICE);
- 	descr->buf_addr = buf;
-@@ -394,7 +393,7 @@ spider_net_prepare_rx_descr(struct spide
- 					 SPIDER_NET_DMAC_NOINTR_COMPLETE;
- 	}
- 
--	return error;
-+	return 0;
+--- linux-2.6.19-git7.orig/drivers/net/spider_net.c	2006-12-06 16:03:11.000000000 -0600
++++ linux-2.6.19-git7/drivers/net/spider_net.c	2006-12-06 16:03:13.000000000 -0600
+@@ -457,10 +457,10 @@ spider_net_refill_rx_chain(struct spider
  }
  
  /**
+- * spider_net_alloc_rx_skbs - allocates rx skbs in rx descriptor chains
++ * spider_net_alloc_rx_skbs - Allocates rx skbs in rx descriptor chains
+  * @card: card structure
+  *
+- * returns 0 on success, <0 on failure
++ * Returns 0 on success, <0 on failure.
+  */
+ static int
+ spider_net_alloc_rx_skbs(struct spider_net_card *card)
+@@ -471,17 +471,18 @@ spider_net_alloc_rx_skbs(struct spider_n
+ 	result = -ENOMEM;
+ 
+ 	chain = &card->rx_chain;
+-	/* put at least one buffer into the chain. if this fails,
+-	 * we've got a problem. if not, spider_net_refill_rx_chain
+-	 * will do the rest at the end of this function */
++	/* Put at least one buffer into the chain. if this fails,
++	 * we've got a problem. If not, spider_net_refill_rx_chain
++	 * will do the rest at the end of this function. */
+ 	if (spider_net_prepare_rx_descr(card, chain->head))
+ 		goto error;
+ 	else
+ 		chain->head = chain->head->next;
+ 
+-	/* this will allocate the rest of the rx buffers; if not, it's
+-	 * business as usual later on */
++	/* This will allocate the rest of the rx buffers;
++	 * if not, it's business as usual later on. */
+ 	spider_net_refill_rx_chain(card);
++	spider_net_enable_rxchtails(card);
+ 	spider_net_enable_rxdmac(card);
+ 	return 0;
+ 
