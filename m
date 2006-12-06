@@ -1,41 +1,31 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] netfilter: fix non-ANSI func. decl.
-Date: Tue, 5 Dec 2006 19:37:13 -0800
-Message-ID: <20061205193713.e6f106a3.randy.dunlap@oracle.com>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: iproute2 update
+Date: Wed, 06 Dec 2006 12:58:08 +0900
+Message-ID: <45763FD0.5050101@linux-ipv6.org>
+References: <20061205101757.7a35bcbe@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org
+Cc: Jamal <hadi@cyberus.ca>, Thomas Graf <tgraf@suug.ch>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:35955 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759861AbWLFDgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 22:36:48 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from [203.178.140.9] ([203.178.140.9]:39740 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1759900AbWLFD6I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 22:58:08 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061205101757.7a35bcbe@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+Stephen Hemminger wrote:
+> I am about to push out a new version, so if you have any more patches pending
+> the window is about to close.
+> 
+> Please retest with current git tree
+> 
 
-Fix non-ANSI function declaration:
-net/netfilter/nf_conntrack_core.c:1096:25: warning: non-ANSI function declaration of function 'nf_conntrack_flush'
+Brief tests for MIPv6 xfrm are passed with the tree on kernel 2.6.19.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/netfilter/nf_conntrack_core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2.6.19-git7.orig/net/netfilter/nf_conntrack_core.c
-+++ linux-2.6.19-git7/net/netfilter/nf_conntrack_core.c
-@@ -1093,7 +1093,7 @@ static void free_conntrack_hash(struct l
- 			   get_order(sizeof(struct list_head) * size));
- }
- 
--void nf_conntrack_flush()
-+void nf_conntrack_flush(void)
- {
- 	nf_ct_iterate_cleanup(kill_all, NULL);
- }
-
-
----
+-- 
+Masahide NAKAMURA
