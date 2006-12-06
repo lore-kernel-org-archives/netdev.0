@@ -1,76 +1,37 @@
-From: Michael Krause <krause@cup.hp.com>
-Subject: Re: [openib-general] [PATCH  v2 04/13] Connection Manager
-Date: Tue, 05 Dec 2006 17:27:14 -0800
-Message-ID: <6.2.0.14.2.20061205172536.086fa438@esmail.cup.hp.com>
-References: <20061205050725.GA26033@2ka.mipt.ru>
- <1165330925.16087.13.camel@stevo-desktop>
- <20061205151905.GA18275@2ka.mipt.ru>
- <1165333198.16087.53.camel@stevo-desktop>
- <20061205155932.GA32380@2ka.mipt.ru>
- <1165335162.16087.79.camel@stevo-desktop>
- <20061205163008.GA30211@2ka.mipt.ru>
- <1165337245.16087.95.camel@stevo-desktop>
- <20061205172649.GA20229@2ka.mipt.ru>
- <1165341100.16087.109.camel@stevo-desktop>
- <20061205180939.GA26384@2ka.mipt.ru>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH wireless-2.6-git] prism54: WPA/RSN support for fullmac cards
+Date: Tue, 5 Dec 2006 20:44:13 -0500
+Message-ID: <20061206014407.GB9830@tuxdriver.com>
+References: <200610031457.33215.chunkeey@web.de> <200611251750.37313.chunkeey@web.de> <200611260027.33773.dtor@insightbb.com> <200611261147.49231.chunkeey@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: netdev@vger.kernel.org, "Roland Dreier" <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, openib-general@openib.org,
-	"Divy Le Ray" <divy@chelsio.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759618AbWLFBpx@vger.kernel.org>
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Steve Wise" <swise@opengridcomputing.com>
-In-Reply-To: <20061205180939.GA26384@2ka.mipt.ru>
-References: <20061205050725.GA26033@2ka.mipt.ru>
- <1165330925.16087.13.camel@stevo-desktop>
- <20061205151905.GA18275@2ka.mipt.ru>
- <1165333198.16087.53.camel@stevo-desktop>
- <20061205155932.GA32380@2ka.mipt.ru>
- <1165335162.16087.79.camel@stevo-desktop>
- <20061205163008.GA30211@2ka.mipt.ru>
- <1165337245.16087.95.camel@stevo-desktop>
- <20061205172649.GA20229@2ka.mipt.ru>
- <1165341100.16087.109.camel@stevo-desktop>
- <20061205180939.GA26384@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Torokhov <dtor@insightbb.com>, netdev@vger.kernel.org,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>, mcgrof@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:3636 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759666AbWLFCLj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 21:11:39 -0500
+To: chunkeey@web.de
+Content-Disposition: inline
+In-Reply-To: <200611261147.49231.chunkeey@web.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-If you require more details on how this all works - it was fully explored 
-in the IETF RDDP workgroup - may I suggest a reading of the RDMA Security 
-Considerations draft which goes through many of the issues on how one 
-relates to a host stack.   This complements the MPA spec and supports much 
-of what Steve has already responded to during this string of e-mails.  We 
-took a great deal of time and debate to insure this can work efficiently 
-and without confusion in terms of who owns what and when.
-
-Mike
-
-
-
-At 10:09 AM 12/5/2006, Evgeniy Polyakov wrote:
->On Tue, Dec 05, 2006 at 11:51:40AM -0600, Steve Wise 
->(swise@opengridcomputing.com) wrote:
-> > > Almost - except the case about where those skbs are coming from?
-> > > It looks like they are obtained from network, since it is ethernet
-> > > driver, and if they match some set of rules, they are considered as 
-> valid
-> > > MPA negotiation protocol.
+On Sun, Nov 26, 2006 at 11:47:49AM +0100, chunkeey@web.de wrote:
+> On Sunday, 26. November 2006 06:27, you wrote:
 > >
-> > They come from the Ethernet driver, but that driver manages multiple HW
-> > queues and these packets come from an offload queue, not the NIC queue.
-> > So the HW demultiplexes.
->
->Ok, thanks for explaination.
->
->--
->         Evgeniy Polyakov
->
->_______________________________________________
->openib-general mailing list
->openib-general@openib.org
->http://openib.org/mailman/listinfo/openib-general
->
->To unsubscribe, please visit 
->http://openib.org/mailman/listinfo/openib-general
+> > Sorry, still need the second "ifup" to bring the card up after plugging
+> > it in. ping -f looks good however, I will try to stress it more and will
+> > report if I see anything wrong.
+> 
+> Well, some docs about the chips and firmware would be very handy... 
+> has anyone access to conexant's library?
+
+FYI...after latest round of merges, that patch that I've been carrying
+in the pending branch of wireless-2.6 no longer applies.
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
