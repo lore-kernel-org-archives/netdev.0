@@ -1,48 +1,52 @@
 From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: Kernel header changes break glibc build
-Date: Wed, 6 Dec 2006 15:23:27 +0100
-Message-ID: <20061206142327.GC8693@postel.suug.ch>
-References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz> <20061206135931.GB8693@postel.suug.ch> <1165414039.5253.233.camel@pmac.infradead.org>
+Date: Wed, 6 Dec 2006 15:31:46 +0100
+Message-ID: <20061206143146.GD8693@postel.suug.ch>
+References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz> <20061206135931.GB8693@postel.suug.ch> <1165414039.5253.233.camel@pmac.infradead.org> <20061206141841.GN9556@sunsite.mff.cuni.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Jelinek <jakub@redhat.com>, 	Ulrich Drepper <drepper@redhat.com>, 	"Joseph S. Myers" <joseph@codesourcery.com>, netdev@vger.kernel.org, 	libc-alpha@sourceware.org, akpm@osdl.org, 	"David S. Miller" <davem@davemloft.net>
-Return-path: <libc-alpha-return-19606-glibc-alpha=m.gmane.org@sourceware.org>
-To: David Woodhouse <dwmw2@infradead.org>
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	Ulrich Drepper <drepper@redhat.com>,
+	"Joseph S. Myers" <joseph@codesourcery.com>,
+	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:48254 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760629AbWLFOb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Dec 2006 09:31:26 -0500
+To: Jakub Jelinek <jakub@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <1165414039.5253.233.camel@pmac.infradead.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <20061206141841.GN9556@sunsite.mff.cuni.cz>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Woodhouse <dwmw2@infradead.org> 2006-12-06 14:07
-> On Wed, 2006-12-06 at 14:59 +0100, Thomas Graf wrote:
-> > Are you suggesting that the kernel has to keep macros around which
-> > are of no use to the kernel itself just because glibc uses them?
-> 
-> No, although in fact that _is_ the only reason we use these horrid __uXX
-> types rather than proper C datatypes, isn't it?
+* Jakub Jelinek <jakub@redhat.com> 2006-12-06 15:18
+> There are the kernel's own headers and kernel ABI headers for userland use.
+> Until recently the latter has been maintained by various distributions
+> and manually occassionally updated to sync a little bit with kernel ABI
+> additions (new syscalls, etc.)., but now, thanks to David, these are
+> generated from kernel's own headers.  If the macros were part of
+> such ABI
 
-Alright, so we agree that there must be a possibility of getting rid of
-deprecated crap which leads to interface abusage.
+Macros can't possibly be part of an ABI :-) You probably mean API.
 
-Fixing things is as simple as #ifndef IFA_MAX respectively IFLA_RTA in
-some compat header.
+> (I don't think these macros were meant to be #ifdef __KERNEL__
+> and just by omission exported to userland), then if you change
+> the kernel headers (which of course you can do, that's kernel private
+> headers), then you IMNSHO should also add magic to make headers_install
+> to keep the kernel ABI headers for userland headers stable.
 
-> I'm suggesting that if you want to change things around as you did, you
-> should make sure the users of those headers adapt to cope. You did fix
-> the in-kernel users; you neglected to fix glibc -- and as far as I can
-> tell you didn't even bother to _warn_ glibc folks.
+At the time they were added they were meant to be exported but netlink
+has evolved and we now have a type safe API. Guess what, I'm going to
+remove more bits of the old interface because they are no longer needed.
 
-I didn't warn them because I didn't know better. I was under the
-impression that glibc still maintains their own set of headers
-and will fix this automatically when they look at the diff. That's
-what I do for my userspace applications that use kernel headers.
+> Which in this case would mean if you decide rtnetlink.h shouldn't include
+> the newly added if_addr.h that you add rules for generating the userland
+> rtnetlink.h such that it will include linux/if_addr.h and define the
+> macros you intentionally omitted.
 
-Ideally install_headers would do the trick but it often fails f.e.
-when some application which uses bsd features thus including net/if.h
-also wants to use new linux features and includes linux/if.h which
-then conflicts.
+Sure, moving these bits to some compat header which gets automatically
+included by make install_headers instead of removing them sounds
+like a good compromise, it just has to be clear that they are deprecated
+and not supposed to be used by new code.
