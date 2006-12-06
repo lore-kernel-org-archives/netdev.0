@@ -1,76 +1,79 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH] zd1211rw-d80211: check IEEE80211_TXCTL_USE_CTS_PROTECT
-Date: Tue, 5 Dec 2006 18:48:52 -0500
-Message-ID: <200612051848.57138.flamingice@sourmilk.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 0/7] chelsio: lightweight review
+Date: Wed, 6 Dec 2006 01:10:07 +0100
+Message-ID: <20061206001007.GA27423@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart24282050.Vrlut0OJjZ";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:47708 "EHLO
-	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755519AbWLEXtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Dec 2006 18:49:13 -0500
-To: Daniel Drake <dsd@gentoo.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57997 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756807AbWLFANW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Dec 2006 19:13:22 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart24282050.Vrlut0OJjZ
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+The serie applies against netdev-2.6#upstream-linus or linux-2.6#master
 
-zd1211rw-d80211: check IEEE80211_TXCTL_USE_CTS_PROTECT
+Patches have been compiled. No further test.
 
-This makes zd1211 check for IEEE80211_TXCTL_USE_CTS_PROTECT and set things
-appropriately in the hardware TX header.
+It is available as:
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git#chelsio
 
- drivers/net/wireless/d80211/zd1211rw/zd_mac.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+Former 'chelsio' branch is archived as 'chelsio-20061206'.
 
-diff --git a/drivers/net/wireless/d80211/zd1211rw/zd_mac.c=20
-b/drivers/net/wireless/d80211/zd1211rw/zd_mac.c
-index dde972d..a76fa6a 100644
-=2D-- a/drivers/net/wireless/d80211/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/d80211/zd1211rw/zd_mac.c
-@@ -248,15 +248,11 @@ static void cs_set_control(struct zd_mac
- 	if ((fctl & IEEE80211_FCTL_STYPE) =3D=3D IEEE80211_STYPE_PSPOLL)
- 		cs->control |=3D ZD_CS_PS_POLL_FRAME;
-=20
-=2D	if (flags & IEEE80211_TXCTL_USE_RTS_CTS) {
-=2D		/* FIXME: check the logic */
-=2D		if (ZD_CS_TYPE(cs->modulation) =3D=3D ZD_CS_OFDM) {
-=2D			/* 802.11g */
-=2D			cs->control |=3D ZD_CS_SELF_CTS;
-=2D		} else { /* 802.11b */
-=2D			cs->control |=3D ZD_CS_RTS;
-=2D		}
-=2D	}
-+	if (flags & IEEE80211_TXCTL_USE_RTS_CTS)
-+		cs->control |=3D ZD_CS_RTS;
-+
-+	if (flags & IEEE80211_TXCTL_USE_CTS_PROTECT)
-+		cs->control |=3D ZD_CS_SELF_CTS;
-=20
- 	/* FIXME: Management frame? */
- }
 
---nextPart24282050.Vrlut0OJjZ
-Content-Type: application/pgp-signature
+Distance from 'master' (e62438630ca37539c8cc1553710bbfaa3cf960a7)
+-----------------------------------------------------------------
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+c021b7a9f2dcb8867f513983c42049b46bc97999
+e9c87a1d5674c56a33288177913b27911cefc7a3
+b335493ac99e2a4c716e597d6a11108fc670db90
+4cf12df7a8e19339038f4e7952abf85554733916
+89e9d8ea4fbd032872e0a96b3f455b9de912b1f6
+3c086dfee287469d5ee7b860eaec9be56b4ef0ef
+9b59cb170afa01d1dd86383c5178b9c306dbd275
 
-iD8DBQBFdgVoT3Oqt9AH4aERAiQwAJ0WP1fWNCp3iwJJMyvTctkjKJUQiACbBmhB
-2phk4SnY9ktjAauq/Z6BP0M=
-=qmHa
------END PGP SIGNATURE-----
+Diffstat
+--------
 
---nextPart24282050.Vrlut0OJjZ--
+ drivers/net/chelsio/common.h    |    2 
+ drivers/net/chelsio/cpl5_cmd.h  |   18 ++--
+ drivers/net/chelsio/cxgb2.c     |  161 ++++++++++++++++++-------------------
+ drivers/net/chelsio/elmer0.h    |   40 +++++----
+ drivers/net/chelsio/espi.c      |   44 +++++-----
+ drivers/net/chelsio/fpga_defs.h |    6 +
+ drivers/net/chelsio/gmac.h      |   11 ++
+ drivers/net/chelsio/ixf1010.c   |   13 ++-
+ drivers/net/chelsio/mv88e1xxx.c |   27 +++---
+ drivers/net/chelsio/my3126.c    |   16 ++--
+ drivers/net/chelsio/pm3393.c    |    8 +-
+ drivers/net/chelsio/sge.c       |  172 ++++++++++++++++++---------------------
+ drivers/net/chelsio/subr.c      |   89 ++++++++++----------
+ drivers/net/chelsio/tp.c        |   62 +++++++-------
+ drivers/net/chelsio/vsc7326.c   |   75 ++++++++---------
+ drivers/net/chelsio/vsc8244.c   |   41 +++++----
+ 16 files changed, 388 insertions(+), 397 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu:
+      chelsio: move return, break and continue statements on their own line
+      chelsio: the return statement is not a function
+      chelsio: spaces, tabs and friends
+      chelsio: use netdev_priv
+      chelsio: useless curly braces
+      chelsio: useless test in cxgb2::remove_one
+      chelsio: misc cleanups in sge
+
+Patch
+-----
+
+See following messages.
+
+-- 
+Ueimor
