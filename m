@@ -1,69 +1,46 @@
-From: Jakub Jelinek <jakub@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: Kernel header changes break glibc build
-Date: Wed, 6 Dec 2006 14:57:30 +0100
-Message-ID: <20061206135730.GM9556@sunsite.mff.cuni.cz>
-References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz> <1165413068.5253.223.camel@pmac.infradead.org>
-Reply-To: Jakub Jelinek <jakub@redhat.com>
+Date: Wed, 6 Dec 2006 14:59:31 +0100
+Message-ID: <20061206135931.GB8693@postel.suug.ch>
+References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ulrich Drepper <drepper@redhat.com>, Thomas Graf <tgraf@suug.ch>,         "Joseph S. Myers" <joseph@codesourcery.com>, netdev@vger.kernel.org,         libc-alpha@sourceware.org, akpm@osdl.org,         "David S. Miller" <davem@davemloft.net>
-Return-path: <libc-alpha-return-19601-glibc-alpha=m.gmane.org@sourceware.org>
-To: David Woodhouse <dwmw2@infradead.org>
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	"Joseph S. Myers" <joseph@codesourcery.com>,
+	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:48094 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760606AbWLFN7L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Dec 2006 08:59:11 -0500
+To: Jakub Jelinek <jakub@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <1165413068.5253.223.camel@pmac.infradead.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <20061206134308.GL9556@sunsite.mff.cuni.cz>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 06, 2006 at 01:51:07PM +0000, David Woodhouse wrote:
-> On Wed, 2006-12-06 at 14:43 +0100, Jakub Jelinek wrote:
+* Jakub Jelinek <jakub@redhat.com> 2006-12-06 14:43
+> On Wed, Dec 06, 2006 at 01:01:54PM +0000, David Woodhouse wrote:
+> > No. They _are_ doing it right -- they're running 'make headers_install'
+> > against the 2.6.19 kernel and only _now_ are they finding that we broke
+> > it without even the courtesy of a warning, let alone any consultation.
 > > 
-> > +/* 2.6.19 kernel headers helpfully removed some macros and
-> > +   moved lots of stuff into new headers, some of which aren't
-> > +   included by linux/rtnetlink.h.  */
-> > +
-> > +#ifndef IFA_MAX
-> > +struct ifaddrmsg
-> > +{
-> > +  uint8_t ifa_family;
-> > +  uint8_t ifa_prefixlen;
-> > +  uint8_t ifa_flags;
-> > +  uint8_t ifa_scope;
-> > +  uint32_t ifa_index;
-> > +};
-> > +
-> > +enum
-> > +{
-> > +  IFA_UNSPEC,
-> > +  IFA_ADDRESS,
-> > +  IFA_LOCAL,
-> > +  IFA_LABEL,
-> > +  IFA_BROADCAST,
-> > +  IFA_ANYCAST,
-> > +  IFA_CACHEINFO,
-> > +  IFA_MULTICAST
-> > +};
-> > +#endif
-> > +
-> > +#ifndef IFA_F_SECONDARY
-> > +# define IFA_F_SECONDARY       0x01
-> > +# define IFA_F_TEMPORARY       IFA_F_SECONDARY
-> > +# define IFA_F_HOMEADDRESS     0x10
-> > +# define IFA_F_DEPRECATED      0x20
-> > +#endif
+> > If _we_ had done it right, then they would have been warned when we
+> > decided to change this, and we wouldn't have just released 2.6.19 with
+> > changes which break the glibc build.
 > 
-> This much is still available from the new <linux/if_addr.h> -- you could
-> include that directly instead of copying it.
+> Yeah, I don't think glibc was doing anything wrong and the 2.6.19
+> changes to the make headers_install created headers mean we'd
+> either need to add configure checks for the headers (we can't
+> simply #include <linux/if_addr.h> because that header didn't
+> exist pre 2.6.19 and IF*_{RTA,PAYLOAD} macros were dropped anyway),
+> or we need to start defining this ourselves.
 
-Yes, but as I said, I'd need to add configure checks for that, using
-#include <linux/if_addr.h>
-alone breaks build with older headers.
-glibc so far managed to build without a single configure check for header
-existence, this would be the first place where something like that is
-needed.
+Are you suggesting that the kernel has to keep macros around which
+are of no use to the kernel itself just because glibc uses them?
 
-	Jakub
+What's wrong with copying the headers and ship them? Every glibc
+release is based on some kernel version anyway and its no problem
+to run glibc compiled with a 2.6.19 header set on a 2.6.18 kernel.
