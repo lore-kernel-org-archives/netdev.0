@@ -1,42 +1,54 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] irlan: fix header build warning
-Date: Wed, 6 Dec 2006 11:44:07 -0800
-Message-ID: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH] softmac: Fixed handling of deassociation from AP
+Date: Wed, 6 Dec 2006 21:17:15 +0100
+Message-ID: <20061206201715.GA23021@p15091797.pureserver.info>
+References: <4576D778.mailLQC18T1PN@lwfinger.net> <200612061852.04216.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>,
+	John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:39609 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937558AbWLFTn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 14:43:28 -0500
-To: netdev <netdev@vger.kernel.org>
+Received: from deine-taler.de ([217.160.107.63]:59855 "EHLO
+	p15091797.pureserver.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937606AbWLFURQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 15:17:16 -0500
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200612061852.04216.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On 06-12-06 18:52 Michael Buesch wrote:
 
-Fix compile warning when CONFIG_PROC_FS=n:
+> All data in mac->associnfo is protected by mac->associnfo->mutex
+> and _not_ mac->lock.
 
-include/net/irda/irlan_filter.h:31: warning: 'struct seq_file' declared inside parameter list
-include/net/irda/irlan_filter.h:31: warning: its scope is only this definition or declaration, which is probably not what you want
+Are you sure? One can find for instance the following function in
+ieee80211softmac_assoc.c:
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/net/irda/irlan_filter.h |    1 +
- 1 file changed, 1 insertion(+)
+void
+ieee80211softmac_disassoc(struct ieee80211softmac_device *mac)
+{
+        unsigned long flags;
 
---- linux-2.6.19-git7.orig/include/net/irda/irlan_filter.h
-+++ linux-2.6.19-git7/include/net/irda/irlan_filter.h
-@@ -28,6 +28,7 @@
- void irlan_check_command_param(struct irlan_cb *self, char *param, 
- 			       char *value);
- void irlan_filter_request(struct irlan_cb *self, struct sk_buff *skb);
-+struct seq_file;
- void irlan_print_filter(struct seq_file *seq, int filter_type);
- 
- #endif /* IRLAN_FILTER_H */
+        spin_lock_irqsave(&mac->lock, flags);
+        if (mac->associnfo.associating)
+                cancel_delayed_work(&mac->associnfo.timeout);
 
+        netif_carrier_off(mac->dev);
 
----
+        mac->associnfo.associated = 0;
+        mac->associnfo.bssvalid = 0;
+        mac->associnfo.associating = 0;
+        ieee80211softmac_init_bss(mac);
+        ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
+        spin_unlock_irqrestore(&mac->lock, flags);
+}
+
+Cheers,
+
+Uli
+
+-- 
+Uli Kunitz
