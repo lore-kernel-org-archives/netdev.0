@@ -1,37 +1,36 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: Re: [PATCH] irlan: fix header build warning
-Date: Thu, 7 Dec 2006 00:57:50 +0200
-Message-ID: <20061206225750.GA17679@sortiz.org>
-References: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [IPROUTE2 PATCH][DOC] clarify "ok" and "pass"
+Date: Wed, 6 Dec 2006 14:58:50 -0800
+Message-ID: <20061206145850.202ac960@freekitty>
+References: <1165427067.3749.19.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Marco Berizzi <pupilla@hotmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.orange.fr ([193.252.22.26]:38840 "EHLO
-	smtp-msa-out05.orange.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S937763AbWLFW5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 17:57:53 -0500
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Content-Disposition: inline
-In-Reply-To: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
+Received: from smtp.osdl.org ([65.172.181.25]:52028 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S937765AbWLFXCC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Dec 2006 18:02:02 -0500
+To: hadi@cyberus.ca
+In-Reply-To: <1165427067.3749.19.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Randy,
+On Wed, 06 Dec 2006 12:44:26 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-Thanks for the patch. Looks fine to me.
+> 
+> a small one.
+> I have a few more but just run out of cycles for now; 
+> if you dont mind holding before releasing for a short while so i can
+> get them out I will appreciate it.
+> 
+> cheers,
+> jamal
+> 
 
-On Wed, Dec 06, 2006 at 11:44:07AM -0800, Randy Dunlap wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Fix compile warning when CONFIG_PROC_FS=n:
-> 
-> include/net/irda/irlan_filter.h:31: warning: 'struct seq_file' declared inside parameter list
-> include/net/irda/irlan_filter.h:31: warning: its scope is only this definition or declaration, which is probably not what you want
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+applied all 4 thanks
 
-Cheers,
-Samuel.
+-- 
+Stephen Hemminger <shemminger@osdl.org>
