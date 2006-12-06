@@ -1,41 +1,65 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: Kernel header changes break glibc build
-Date: Wed, 6 Dec 2006 20:34:12 +0000
-Message-ID: <20061206203411.GI4587@ftp.linux.org.uk>
-References: <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz> <20061206135931.GB8693@postel.suug.ch> <1165414039.5253.233.camel@pmac.infradead.org> <20061206141841.GN9556@sunsite.mff.cuni.cz> <20061206143146.GD8693@postel.suug.ch> <20061206171336.GB4587@ftp.linux.org.uk> <20061206202639.GG8693@postel.suug.ch>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] softmac: Fixed handling of deassociation from AP
+Date: Wed, 6 Dec 2006 21:52:35 +0100
+Message-ID: <200612062152.36475.mb@bu3sch.de>
+References: <4576D778.mailLQC18T1PN@lwfinger.net> <200612061852.04216.mb@bu3sch.de> <20061206201715.GA23021@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Jelinek <jakub@redhat.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ulrich Drepper <drepper@redhat.com>,
-	"Joseph S. Myers" <joseph@codesourcery.com>,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>,
+	John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:58732 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937611AbWLFUeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 15:34:18 -0500
-To: Thomas Graf <tgraf@suug.ch>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:38801
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937630AbWLFUw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 15:52:59 -0500
+To: Ulrich Kunitz <kune@deine-taler.de>
+In-Reply-To: <20061206201715.GA23021@p15091797.pureserver.info>
 Content-Disposition: inline
-In-Reply-To: <20061206202639.GG8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 06, 2006 at 09:26:39PM +0100, Thomas Graf wrote:
-> * Al Viro <viro@ftp.linux.org.uk> 2006-12-06 17:13
-> > On Wed, Dec 06, 2006 at 03:31:46PM +0100, Thomas Graf wrote:
-> >  
-> > > At the time they were added they were meant to be exported but netlink
-> > > has evolved and we now have a type safe API.
-> > 
-> > Where?  AFAICS, netlink might be considered type-safe only within an
-> > address family...
+On Wednesday 06 December 2006 21:17, Ulrich Kunitz wrote:
+> On 06-12-06 18:52 Michael Buesch wrote:
 > 
-> The new interface can be found in net/netlink.h, it obsoletes the
-> old interface which is spread over linux/netlink.h and linux/rtnetlink.h
+> > All data in mac->associnfo is protected by mac->associnfo->mutex
+> > and _not_ mac->lock.
+> 
+> Are you sure?
 
-... and for different address families you have conflicting policies.
-You can't tell if ATTR_... means __le16, __be32, 16byte-array or something
-else - the answer depends on the code interpreting the damn thing.
-Moreover, you get zero warnings if you use wrong accessor to decode.
+Yes I am.
+
+> One can find for instance the following function in 
+> ieee80211softmac_assoc.c:
+
+This is not the first time we notice that locking
+is completely broken in softmac. ;)
+
+> void
+> ieee80211softmac_disassoc(struct ieee80211softmac_device *mac)
+> {
+>         unsigned long flags;
+> 
+>         spin_lock_irqsave(&mac->lock, flags);
+>         if (mac->associnfo.associating)
+>                 cancel_delayed_work(&mac->associnfo.timeout);
+> 
+>         netif_carrier_off(mac->dev);
+> 
+>         mac->associnfo.associated = 0;
+>         mac->associnfo.bssvalid = 0;
+>         mac->associnfo.associating = 0;
+>         ieee80211softmac_init_bss(mac);
+>         ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
+>         spin_unlock_irqrestore(&mac->lock, flags);
+> }
+> 
+> Cheers,
+> 
+> Uli
+> 
+
+-- 
+Greetings Michael.
