@@ -1,31 +1,46 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: Kernel header changes break glibc build
-Date: Wed, 6 Dec 2006 17:13:36 +0000
-Message-ID: <20061206171336.GB4587@ftp.linux.org.uk>
-References: <Pine.LNX.4.64.0610061718370.18057@digraph.polyomino.org.uk> <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <1165410114.5253.218.camel@pmac.infradead.org> <20061206134308.GL9556@sunsite.mff.cuni.cz> <20061206135931.GB8693@postel.suug.ch> <1165414039.5253.233.camel@pmac.infradead.org> <20061206141841.GN9556@sunsite.mff.cuni.cz> <20061206143146.GD8693@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NET_SCHED]: cls_fw: fix NULL pointer dereference
+Date: Wed, 06 Dec 2006 18:17:50 +0100
+Message-ID: <4576FB3E.8000702@trash.net>
+References: <20061206131807.GA2858@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Jelinek <jakub@redhat.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ulrich Drepper <drepper@redhat.com>,
-	"Joseph S. Myers" <joseph@codesourcery.com>,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:56286 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936837AbWLFROE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 12:14:04 -0500
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20061206143146.GD8693@postel.suug.ch>
+Received: from stinky.trash.net ([213.144.137.162]:34322 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936860AbWLFRRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 12:17:54 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20061206131807.GA2858@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 06, 2006 at 03:31:46PM +0100, Thomas Graf wrote:
- 
-> At the time they were added they were meant to be exported but netlink
-> has evolved and we now have a type safe API.
+Jarek Poplawski wrote:
+> On 04-12-2006 16:34, Patrick McHardy wrote:
+> 
+>>Thomas, Jamal, do you have an idea what this "old method" stuff
+>>is used for? It seems it is only used during the below mentioned
+>>race.
+> 
+> 
+> Sorry for eavesdropping, but have a look at htb_classify
+> starting comment. It is also used by unofficial but quite
+> popular IPMARK target. 
 
-Where?  AFAICS, netlink might be considered type-safe only within an
-address family...
+Yes I know, I just didn't see how it could be configured to
+really use that code. But while trying to explain the flow
+that would always lead to tp->root != NULL in this mail, I
+noticed I missed something :)
+
+At the top of fw_change:
+
+        if (!opt)
+                return handle ? -EINVAL : 0;
+
+which happens when adding a fw classifier without specifying any
+arguments. My previous fix is still enough, but we can't remove
+this of course.
+
