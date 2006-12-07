@@ -1,48 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: network devices don't handle pci_dma_mapping_error()'s
-Date: Wed, 06 Dec 2006 23:24:59 -0800 (PST)
-Message-ID: <20061206.232459.31658283.davem@davemloft.net>
-References: <20061206.165418.54722201.davem@davemloft.net>
-	<20061206165835.5391b75d@dxpl.pdx.osdl.net>
-	<200612071155.23412.amitkale@linsyssoft.com>
+Subject: Re: [PATCH][IPSEC][4/7] inter address family ipsec tunnel
+Date: Wed, 06 Dec 2006 23:37:49 -0800 (PST)
+Message-ID: <20061206.233749.122048397.davem@davemloft.net>
+References: <20061130.164827.57154936.davem@davemloft.net>
+	<456FB283.9090904@miyazawa.org>
+	<20061206203537.2e5ba9ec.kazunori@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, muli@il.ibm.com, jeff@garzik.org,
-	amitkale@netxen.com, netdev@vger.kernel.org, brazilnut@us.ibm.com,
-	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
+Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44807
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44398
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1031791AbWLGHYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 02:24:48 -0500
-To: amitkale@linsyssoft.com
-In-Reply-To: <200612071155.23412.amitkale@linsyssoft.com>
+	by vger.kernel.org with ESMTP id S1031803AbWLGHhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 02:37:37 -0500
+To: kazunori@miyazawa.org
+In-Reply-To: <20061206203537.2e5ba9ec.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Amit S. Kale" <amitkale@linsyssoft.com>
-Date: Thu, 7 Dec 2006 11:55:22 +0530
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Date: Wed, 6 Dec 2006 20:35:37 +0900
 
-> We can let a driver handle dma mapping errors using these->
+> Sorry, I mixed up changes in the patches. I described that [4/7] will add
+> "IPv6 over IPv4 IPsec tunnel". However I send a patch for "IPv4 over IPv6"
+> as a reply because it includes the discussing item.
+> So this patch adds IPv4 over IPv6 IPsec tunnel. It's complicated.
 > 
-> 1.Reduce the size of a receive ring. This will free some possibly remapped 
-> memory, reducing pressure on iommu. We also need to printk a message so that 
-> a user knows the reason why receive ring was shrunk. Growing it when iommu 
-> pressure goes down will result in a ping-pong.
-> 2. Force processing of receive and transmit ring. This will ensure that the 
-> buffers processed by hardware are freed, reducing iommu pressure.
-> 
-> 3. If we need to do (1) and (2) a predefined number of times (say 20), stop 
-> the queue. Stopping the queue in general will cause a ping-pong, so it should 
-> be avoided as far as possible.
+> I deleted subustituting NULL for rt->peer and moved atomic_inc stuff
+> under the "if" section.
 
-This scheme assumes the networking card is the culprit.  In many
-workloads it will not be and these efforts will be in vain and perhaps
-even make the situation worse.  There's not reason to run the RX and
-TX queues, and even shrink them, when the FC controller has most of
-the IOMMU entires tied up.
+I have applied this patch, thanks for fixing it up.
 
-That's why users needs to queue up and get feedback when IOMMU space
-is made available.
+> BTW, I have a question about descrementing the reference count of
+> rt->peer.  The reference cound in normal "dst" structure is
+> decremented by calling inet_putpeer from ipv4_dst_destroy. But
+> xfrm4_dst_destroy does not call inet_putpeer.  Where do we decrement
+> the count? Should xfrm4_dst_destroy do that?
+
+Indeed, it is a real leak.  And yes, I believe that xfrm4_dst_destroy()
+should release it.  I will make this fix, thank you.
