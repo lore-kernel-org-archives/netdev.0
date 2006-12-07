@@ -1,159 +1,56 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] convert hh_lock to seqlock
-Date: Thu, 7 Dec 2006 11:33:09 -0800
-Message-ID: <20061207113309.2f892cf1@localhost>
+Subject: Re: network devices don't handle pci_dma_mapping_error()'s
+Date: Thu, 7 Dec 2006 12:07:52 -0800
+Message-ID: <20061207120752.35f56c15@localhost>
+References: <20061206.165418.54722201.davem@davemloft.net>
+	<20061206165835.5391b75d@dxpl.pdx.osdl.net>
+	<200612071155.23412.amitkale@linsyssoft.com>
+	<20061206.232459.31658283.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: amitkale@linsyssoft.com, muli@il.ibm.com, jeff@garzik.org,
+	amitkale@netxen.com, netdev@vger.kernel.org, brazilnut@us.ibm.com,
+	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
+	sanjeev@netxen.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:59248 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:34633 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S938001AbWLGTdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 14:33:21 -0500
+	id S1163254AbWLGUJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 15:09:28 -0500
 To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061206.232459.31658283.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The hard header cache is in the main output path, so using
-seqlock instead of reader/writer lock should reduce overhead.
+On Wed, 06 Dec 2006 23:24:59 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- include/linux/netdevice.h |    2 +-
- include/net/neighbour.h   |   18 ++++++++++++++++++
- net/core/neighbour.c      |   11 ++++++-----
- net/ipv4/ip_output.c      |   14 +++-----------
- net/ipv6/ip6_output.c     |   15 +++------------
- 5 files changed, 31 insertions(+), 29 deletions(-)
+> From: "Amit S. Kale" <amitkale@linsyssoft.com>
+> Date: Thu, 7 Dec 2006 11:55:22 +0530
+> 
+> > We can let a driver handle dma mapping errors using these->
+> > 
+> > 1.Reduce the size of a receive ring. This will free some possibly remapped 
+> > memory, reducing pressure on iommu. We also need to printk a message so that 
+> > a user knows the reason why receive ring was shrunk. Growing it when iommu 
+> > pressure goes down will result in a ping-pong.
+> > 2. Force processing of receive and transmit ring. This will ensure that the 
+> > buffers processed by hardware are freed, reducing iommu pressure.
+> > 
+> > 3. If we need to do (1) and (2) a predefined number of times (say 20), stop 
+> > the queue. Stopping the queue in general will cause a ping-pong, so it should 
+> > be avoided as far as possible.
+> 
+> This scheme assumes the networking card is the culprit.  In many
+> workloads it will not be and these efforts will be in vain and perhaps
+> even make the situation worse.  There's not reason to run the RX and
+> TX queues, and even shrink them, when the FC controller has most of
+> the IOMMU entires tied up.
+> 
+> That's why users needs to queue up and get feedback when IOMMU space
+> is made available.
 
---- linux-2.6.19.orig/include/linux/netdevice.h	2006-12-05 13:55:54.000000000 -0800
-+++ linux-2.6.19/include/linux/netdevice.h	2006-12-06 10:29:15.000000000 -0800
-@@ -199,7 +199,7 @@
-                                          */
- 	u16		hh_len;		/* length of header */
- 	int		(*hh_output)(struct sk_buff *skb);
--	rwlock_t	hh_lock;
-+	seqlock_t	hh_lock;
- 
- 	/* cached hardware header; allow for machine alignment needs.        */
- #define HH_DATA_MOD	16
---- linux-2.6.19.orig/include/net/neighbour.h	2006-12-05 13:36:16.000000000 -0800
-+++ linux-2.6.19/include/net/neighbour.h	2006-12-06 14:53:52.000000000 -0800
-@@ -309,6 +309,24 @@
- 	return 0;
- }
- 
-+static inline int neigh_hh_output(struct hh_cache *hh, struct sk_buff *skb)
-+{
-+	unsigned seq;
-+	int hh_len;
-+
-+	do {
-+		int hh_alen;
-+
-+		seq = read_seqbegin(&hh->hh_lock);
-+		hh_len = hh->hh_len;
-+		hh_alen = HH_DATA_ALIGN(hh_len);
-+		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
-+	} while (read_seqretry(&hh->hh_lock, seq));
-+
-+	skb_push(skb, hh_len);
-+	return hh->hh_output(skb);
-+}
-+
- static inline struct neighbour *
- __neigh_lookup(struct neigh_table *tbl, const void *pkey, struct net_device *dev, int creat)
- {
---- linux-2.6.19.orig/net/core/neighbour.c	2006-12-05 13:55:54.000000000 -0800
-+++ linux-2.6.19/net/core/neighbour.c	2006-12-06 10:29:15.000000000 -0800
-@@ -577,9 +577,10 @@
- 	while ((hh = neigh->hh) != NULL) {
- 		neigh->hh = hh->hh_next;
- 		hh->hh_next = NULL;
--		write_lock_bh(&hh->hh_lock);
-+
-+		write_seqlock_bh(&hh->hh_lock);
- 		hh->hh_output = neigh_blackhole;
--		write_unlock_bh(&hh->hh_lock);
-+		write_sequnlock_bh(&hh->hh_lock);
- 		if (atomic_dec_and_test(&hh->hh_refcnt))
- 			kfree(hh);
- 	}
-@@ -897,9 +898,9 @@
- 
- 	if (update) {
- 		for (hh = neigh->hh; hh; hh = hh->hh_next) {
--			write_lock_bh(&hh->hh_lock);
-+			write_seqlock_bh(&hh->hh_lock);
- 			update(hh, neigh->dev, neigh->ha);
--			write_unlock_bh(&hh->hh_lock);
-+			write_sequnlock_bh(&hh->hh_lock);
- 		}
- 	}
- }
-@@ -1089,7 +1090,7 @@
- 			break;
- 
- 	if (!hh && (hh = kzalloc(sizeof(*hh), GFP_ATOMIC)) != NULL) {
--		rwlock_init(&hh->hh_lock);
-+		seqlock_init(&hh->hh_lock);
- 		hh->hh_type = protocol;
- 		atomic_set(&hh->hh_refcnt, 0);
- 		hh->hh_next = NULL;
---- linux-2.6.19.orig/net/ipv4/ip_output.c	2006-12-05 13:55:54.000000000 -0800
-+++ linux-2.6.19/net/ipv4/ip_output.c	2006-12-06 10:29:15.000000000 -0800
-@@ -164,7 +164,6 @@
- static inline int ip_finish_output2(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb->dst;
--	struct hh_cache *hh = dst->hh;
- 	struct net_device *dev = dst->dev;
- 	int hh_len = LL_RESERVED_SPACE(dev);
- 
-@@ -183,16 +182,9 @@
- 		skb = skb2;
- 	}
- 
--	if (hh) {
--		int hh_alen;
--
--		read_lock_bh(&hh->hh_lock);
--		hh_alen = HH_DATA_ALIGN(hh->hh_len);
--  		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
--		read_unlock_bh(&hh->hh_lock);
--	        skb_push(skb, hh->hh_len);
--		return hh->hh_output(skb);
--	} else if (dst->neighbour)
-+	if (dst->hh)
-+		return neigh_hh_output(dst->hh, skb);
-+	else if (dst->neighbour)
- 		return dst->neighbour->output(skb);
- 
- 	if (net_ratelimit())
---- linux-2.6.19.orig/net/ipv6/ip6_output.c	2006-12-05 13:55:54.000000000 -0800
-+++ linux-2.6.19/net/ipv6/ip6_output.c	2006-12-06 10:33:24.000000000 -0800
-@@ -72,20 +72,11 @@
- 
- static inline int ip6_output_finish(struct sk_buff *skb)
- {
--
- 	struct dst_entry *dst = skb->dst;
--	struct hh_cache *hh = dst->hh;
--
--	if (hh) {
--		int hh_alen;
- 
--		read_lock_bh(&hh->hh_lock);
--		hh_alen = HH_DATA_ALIGN(hh->hh_len);
--		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
--		read_unlock_bh(&hh->hh_lock);
--	        skb_push(skb, hh->hh_len);
--		return hh->hh_output(skb);
--	} else if (dst->neighbour)
-+	if (dst->hh)
-+		return neigh_hh_output(dst->hh, skb);
-+	else if (dst->neighbour)
- 		return dst->neighbour->output(skb);
- 
- 	IP6_INC_STATS_BH(ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
+Looking at other subsystems, the disk code seems to return I/O errors
+if dma mapping fails. Perhaps this discussion needs to move off to lkml
+or the platform lists.
