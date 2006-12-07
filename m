@@ -1,38 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [NETLINK]: Restore API compatibility of address and neighbour bits
-Date: Thu, 7 Dec 2006 11:55:02 +0100
-Message-ID: <20061207105502.GJ8693@postel.suug.ch>
-References: <200612062033.34754.stefan@loplof.de> <20061206.165638.30168567.davem@davemloft.net> <20061207104721.GI8693@postel.suug.ch> <20061207.025140.75779834.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: NAPI and shared interrupt control
+Date: Thu, 07 Dec 2006 21:56:02 +1100
+Message-ID: <1165488962.5027.6.camel@localhost.localdomain>
+References: <20061207094502.GA19479@gate.ebshome.net>
+	 <20061207.015954.52181319.davem@davemloft.net>
+	 <20061207101555.GB19479@gate.ebshome.net>
+	 <20061207.022010.120465413.davem@davemloft.net>
+	 <20061207102257.GC19479@gate.ebshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefan@loplof.de, dwmw2@infradead.org, joseph@codesourcery.com,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:52817 "EHLO postel.suug.ch"
+Received: from gate.crashing.org ([63.228.1.57]:40814 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1032019AbWLGKyl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 05:54:41 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061207.025140.75779834.davem@davemloft.net>
+	id S1032019AbWLGKzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 05:55:22 -0500
+To: Eugene Surovegin <ebs@ebshome.net>
+In-Reply-To: <20061207102257.GC19479@gate.ebshome.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Restore API compatibility due to bits moved from rtnetlink.h to
-separate headers.
+On Thu, 2006-12-07 at 02:22 -0800, Eugene Surovegin wrote:
+> On Thu, Dec 07, 2006 at 02:20:10AM -0800, David Miller wrote:
+> > It also just occured to me that even if you use the dummy device
+> > approach, it's the dummy device's quota that will be used by the
+> > generic ->poll() downcall into the driver.
+> 
+> Yes, that's true. That's why I made this parameter 
+> Konfig-configurable. Yes, this is not as flexible as run-time 
+> configuration available for a real netdev, but better than nothing and 
+> nobody has complained yet :)
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Can we maybe change the dummy device weight as emacs get added to a
+MAL ?
 
-Index: net-2.6/include/linux/rtnetlink.h
-===================================================================
---- net-2.6.orig/include/linux/rtnetlink.h	2006-12-07 11:25:29.000000000 +0100
-+++ net-2.6/include/linux/rtnetlink.h	2006-12-07 11:32:25.000000000 +0100
-@@ -3,6 +3,8 @@
- 
- #include <linux/netlink.h>
- #include <linux/if_link.h>
-+#include <linux/if_addr.h>
-+#include <linux/neighbour.h>
- 
- /****
-  *		Routing/neighbour discovery messages.
+Dave, the main point of my initial email was: should we provide a
+routine from the net core to initialize such dummy devices properly ?
+I'm a little worried that some day, the NAPI code will change and the
+initialisations done by the driver will not be enough anymore...
+
+Cheers,
+Ben.
+
+
+
