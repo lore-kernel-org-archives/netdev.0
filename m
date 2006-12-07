@@ -1,33 +1,31 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: 2.6.19: very low transmit speed after suspend/resume with Sky2
-Date: Thu, 7 Dec 2006 11:32:19 +0100
-Message-ID: <20061207103219.GA9864@dose.home.local>
-References: <20061202091626.GA20734@thinkpad.home.local> <20061202131833.GA3673@thinkpad.home.local> <4571ED2C.6040005@osdl.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Kernel header changes break glibc build
+Date: Thu, 7 Dec 2006 11:47:21 +0100
+Message-ID: <20061207104721.GI8693@postel.suug.ch>
+References: <1165148731.12649.51.camel@pmac.infradead.org> <20061204091341.GM8693@postel.suug.ch> <200612062033.34754.stefan@loplof.de> <20061206.165638.30168567.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>
+Cc: stefan@loplof.de, dwmw2@infradead.org, joseph@codesourcery.com,
+	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:37261 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1032002AbWLGKcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 05:32:20 -0500
-To: netdev@vger.kernel.org
+Received: from postel.suug.ch ([194.88.212.233]:52764 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1032009AbWLGKrA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 05:47:00 -0500
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4571ED2C.6040005@osdl.org>
+In-Reply-To: <20061206.165638.30168567.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 02, 2006 at 13:16:28 -0800, Stephen Hemminger wrote:
+* David Miller <davem@davemloft.net> 2006-12-06 16:56
+> That's enough for me.
+> 
+> Thomas we need to restore things to how they were before.
+> If that means including if_addr.h from rtnetlink.h so be it.
+> 
+> We can't break shit like this, there are no excuses, especially
+> now that we properly frob the headers for userspace consumption
+> in the kernel tree.
 
-[...]
-
-> Most likely, the problem is similar to one I am working. The 
-> device_resume code gets run before
-> BIOS. And the BIOS wakeup screws up the device. The proper fix will 
-> happen in 2.6.20.
-
-Hum, are you talking about suspend to RAM here? I forgot to mention
-that I use suspend to disk.
-
-Regards,
-Tino
+So you want to restore IFLA_RTA/IFLA_PAYLOAD etc. as well?
