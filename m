@@ -1,34 +1,55 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/16] Spidernet DMA coalescing
-Date: Thu, 7 Dec 2006 10:11:51 +0000
-Message-ID: <20061207101151.GB27904@infradead.org>
-References: <20061206223223.GH17931@austin.ibm.com> <20061206232745.GA4649@austin.ibm.com>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: NAPI and shared interrupt control
+Date: Thu, 7 Dec 2006 02:15:55 -0800
+Message-ID: <20061207101555.GB19479@gate.ebshome.net>
+References: <1165465446.5469.189.camel@localhost.localdomain> <20061207.011627.43485384.davem@davemloft.net> <20061207094502.GA19479@gate.ebshome.net> <20061207.015954.52181319.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Geoff Levand <geoffrey.levand@am.sony.com>
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:39617 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031934AbWLGKMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 05:12:02 -0500
-To: Linas Vepstas <linas@austin.ibm.com>
+Received: from gate.ebshome.net ([208.106.21.240]:47955 "EHLO gate.ebshome.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031964AbWLGKPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 05:15:55 -0500
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20061206232745.GA4649@austin.ibm.com>
+In-Reply-To: <20061207.015954.52181319.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 06, 2006 at 05:27:45PM -0600, Linas Vepstas wrote:
+On Thu, Dec 07, 2006 at 01:59:54AM -0800, David Miller wrote:
+> From: Eugene Surovegin <ebs@ebshome.net>
+> Date: Thu, 7 Dec 2006 01:45:02 -0800
 > 
-> The current driver code performs 512 DMA mappings of a bunch of 
-> 32-byte structures. This is silly, as they are all in contiguous 
-> memory. Ths patch changes the code to DMA map the entie area
-> with just one call.
+> > I fail to see how this is not even more ugly and more complex than the 
+> > solution we have right now. Instead of trivial "orthogonal" polling 
+> > code you are suggesting adding additional complexity - handle 
+> > dynamic selection of that "master" EMAC and also handling situation 
+> > when this master device goes down and you have to switch to 
+> > another one without disturbing polling for other active devices. Why 
+> > all this? This hw is ugly enough as it is.
+> 
+> Don't do dynamic selection, that indeed would be dumb.
+> 
+> Instead, just pick one of them to act as the polling master.
+> Each EMAC has a backpointer to the master EMAC, and trigger
+> the poll via that indirection.
 
-This is still wrong.  The descriptor array must be in dma_alloc_coherent
-memory, not a streaming mapping.  (I also think I pointed this out a while
-ago when I made dma_alloc_coherent node-aware)
+Well, dev_close() explicitly checks and modifies state bits related 
+to NAPI polling. From quick look I don't think it's safe to take down 
+"master" device and expect NAPI polling to still work.
+
+> 
+> With this shared interrupt scheme and lack of hw interrupt
+> mitigation, how did the designers of this chip expect people
+> to do interrupt mitigation?  I suppose they expected you to
+> do it by standing on your head :-)
+
+There are more fun stuff in this hw - max buffer size is around 4080 
+bytes so we have to split packets on TX and assemble on RX (meaning 
+doing memcpy) for jumbo frames. You have to reset MAC on almost every 
+register change, etc
+
+-- 
+Eugene
 
