@@ -1,42 +1,48 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: change spinlocks and remove timers in favor of workqueues
-Date: Thu, 07 Dec 2006 12:22:01 -0800
-Message-ID: <200612072022.kB7KM1gv012011@death.nxdomain.ibm.com>
-References: <20061130162322.GA8772@gospo.rdu.redhat.com> <200611301938.kAUJchgv020451@death.nxdomain.ibm.com> <bdfc5d6e0611301215o3e3e0c73wb22156b57ba7ed0f@mail.gmail.com> <200612050049.kB50nwgv023439@death.nxdomain.ibm.com> <bdfc5d6e0612061801wc276619l3c4b6d498ca4e8fd@mail.gmail.com> <200612070646.kB76kbgv004791@death.nxdomain.ibm.com> <bdfc5d6e0612070525u320b0b65j161819b730e3b9ac@mail.gmail.com>
-Cc: netdev@vger.kernel.org
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] convert hh_lock to seqlock
+Date: Thu, 07 Dec 2006 21:23:07 +0100
+Message-ID: <4578782B.4010908@cosmosbay.com>
+References: <20061207113309.2f892cf1@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:60530 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1163278AbWLGUWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 15:22:16 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kB7KM71r026592
-	for <netdev@vger.kernel.org>; Thu, 7 Dec 2006 15:22:07 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kB7KM3rU539786
-	for <netdev@vger.kernel.org>; Thu, 7 Dec 2006 13:22:06 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kB7KM3G7027971
-	for <netdev@vger.kernel.org>; Thu, 7 Dec 2006 13:22:03 -0700
-To: "Andy Gospodarek" <andy@greyhouse.net>
-In-reply-to: <bdfc5d6e0612070525u320b0b65j161819b730e3b9ac@mail.gmail.com> 
+Received: from sp604002mt.neufgp.fr ([84.96.92.61]:63313 "EHLO sMtp.neuf.fr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1163340AbWLGVBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 16:01:50 -0500
+Received: from [192.168.30.10] ([84.7.37.114]) by sp604002mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0J9X003AM7A03PC0@sp604002mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Thu, 07 Dec 2006 21:22:49 +0100 (CET)
+In-reply-to: <20061207113309.2f892cf1@localhost>
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
-[...]
->My patch actually only uses a single workqueue for each bond (almost
->exactly like yours in-fact) with 4 different types of work that can be
->placed on it.
+Stephen Hemminger a =E9crit :
+> The hard header cache is in the main output path, so using
+> seqlock instead of reader/writer lock should reduce overhead.
+>=20
 
-	Well, what I was trying to say was that there are still multiple
-independently scheduled thingies on the workqueue (although you can't
-ever have all of them going at the same time), whereas in the Big Patch,
-there's only one scheduled thingie on the workqueue, and everything is
-dispatched from within its single handler (making it less complicated to
-pause all of the "timers" for mutual exclusion purposes).
+Nice work Stephen, I am very interested.
 
-	-J
+Did you benchmarked it ?
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+I ask because I think hh_refcnt frequent changes may defeat the gain yo=
+u want=20
+(ie avoiding cache line ping pongs between cpus). seqlock are definitly=
+ better=20
+than rwlock, but if we really keep cache lines shared.
+
+So I would suggest reordering fields of hh_cache and adding one=20
+____cacheline_aligned_in_smp to keep hh_refcnt in another cache line.
+
+(hh_len, hh_lock and hh_data should be placed on a 'mostly read' cache =
+line)
+
+Thank you
+Eric
+
