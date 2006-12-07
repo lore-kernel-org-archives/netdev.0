@@ -1,52 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: network devices don't handle pci_dma_mapping_error()'s
-Date: Wed, 06 Dec 2006 16:54:18 -0800 (PST)
-Message-ID: <20061206.165418.54722201.davem@davemloft.net>
-References: <20061204103949.3d05b1ff@freekitty>
-	<20061205070045.GE3619@rhun.ibm.com>
-	<20061206101644.27eeaf14@freekitty>
+Subject: Re: Kernel header changes break glibc build
+Date: Wed, 06 Dec 2006 16:56:38 -0800 (PST)
+Message-ID: <20061206.165638.30168567.davem@davemloft.net>
+References: <1165148731.12649.51.camel@pmac.infradead.org>
+	<20061204091341.GM8693@postel.suug.ch>
+	<200612062033.34754.stefan@loplof.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: muli@il.ibm.com, jeff@garzik.org, amitkale@netxen.com,
-	netdev@vger.kernel.org, brazilnut@us.ibm.com,
-	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
+Cc: tgraf@suug.ch, dwmw2@infradead.org, joseph@codesourcery.com,
+	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44812
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42050
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S937867AbWLGAyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:54:08 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061206101644.27eeaf14@freekitty>
+	by vger.kernel.org with ESMTP id S937870AbWLGA41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:56:27 -0500
+To: stefan@loplof.de
+In-Reply-To: <200612062033.34754.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 6 Dec 2006 10:16:44 -0800
+From: Stefan Rompf <stefan@loplof.de>
+Date: Wed, 6 Dec 2006 20:32:40 +0100 (MET)
 
-> I think it is really only an issue for drivers that turn on HIGH_DMA
-> and have limited mask values. The majority of drivers either only handle
-> 32 bit (!HIGH_DMA) or do full 64 bit mapping. I don't know the details
-> of how we manage IOMMU, but doesn't mapping always work for those drivers.
+> Am Montag, 4. Dezember 2006 10:13 schrieb Thomas Graf:
 > 
-> That just leaves devices with odd size mask values that need to be
-> handle mapping errors.
+> > I do not agree with the change to include if_addr.h in rtnetlink.h.
+> > The point is to move bits apart and have multiple small pieces
+> > of header files defining a specific rtnetlink family which are a
+> > lot easier to maintain for both kernel and userspace than one giant
+> > rtnetlink.h for everything.
+> 
+> According to a user's report, your change also broke compilation of my 
+> dhcpclient because it neeeds if_addr.h since 2.6.19. Any suggestion how to 
+> make one source code build on 2.6.19 and older headers? I hope you don't want 
+> me to check on UTS_RELEASE in a userspace program?
 
-Not true.
+That's enough for me.
 
-On platforms such as sparc64 the IOMMU is used for all DMA mappings,
-no matter what, because only IOMMU based mappings can do prefetching
-and write-combining in the PCI controller.
+Thomas we need to restore things to how they were before.
+If that means including if_addr.h from rtnetlink.h so be it.
 
-The problem with just silently dropping packets that can't get DMA
-mapped is that you're going to drop a very large sequence of these
-while the IOMMU is out of space, and that to me looks like a bad
-quality of implementation decision.
+We can't break shit like this, there are no excuses, especially
+now that we properly frob the headers for userspace consumption
+in the kernel tree.
 
-The IOMMU layer really needs a way to callback the driver to tell it
-when space is available, or something similar.
+Before you hit the reply button, read me again, there are no excuses
+for this breakage we've caused.  We must fix it now.
 
-FWIW, Solaris handles this by blocking when the IOMMU is out of space
-since under Solaris even interrupt contexts can block (via interrupt
-threads).
+Thanks.
