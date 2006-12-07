@@ -1,65 +1,51 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: network devices don't handle pci_dma_mapping_error()'s
-Date: Wed, 6 Dec 2006 16:58:35 -0800
-Message-ID: <20061206165835.5391b75d@dxpl.pdx.osdl.net>
-References: <20061204103949.3d05b1ff@freekitty>
-	<20061205070045.GE3619@rhun.ibm.com>
-	<20061206101644.27eeaf14@freekitty>
-	<20061206.165418.54722201.davem@davemloft.net>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] irlan: fix header build warning
+Date: Wed, 6 Dec 2006 17:08:18 -0800
+Message-ID: <20061206170818.86c355cb.randy.dunlap@oracle.com>
+References: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
+	<20061206.165717.21938171.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: muli@il.ibm.com, jeff@garzik.org, amitkale@netxen.com,
-	netdev@vger.kernel.org, brazilnut@us.ibm.com,
-	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
+Cc: netdev@vger.kernel.org, samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:60935 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937891AbWLGBCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Dec 2006 20:02:25 -0500
+Received: from rgminet01.oracle.com ([148.87.113.118]:56477 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937894AbWLGBHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 20:07:37 -0500
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061206.165418.54722201.davem@davemloft.net>
+In-Reply-To: <20061206.165717.21938171.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 06 Dec 2006 16:54:18 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Wed, 06 Dec 2006 16:57:17 -0800 (PST) David Miller wrote:
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Wed, 6 Dec 2006 10:16:44 -0800
-> 
-> > I think it is really only an issue for drivers that turn on HIGH_DMA
-> > and have limited mask values. The majority of drivers either only handle
-> > 32 bit (!HIGH_DMA) or do full 64 bit mapping. I don't know the details
-> > of how we manage IOMMU, but doesn't mapping always work for those drivers.
-> > 
-> > That just leaves devices with odd size mask values that need to be
-> > handle mapping errors.
-> 
-> Not true.
-> 
-> On platforms such as sparc64 the IOMMU is used for all DMA mappings,
-> no matter what, because only IOMMU based mappings can do prefetching
-> and write-combining in the PCI controller.
-> 
-> The problem with just silently dropping packets that can't get DMA
-> mapped is that you're going to drop a very large sequence of these
-> while the IOMMU is out of space, and that to me looks like a bad
-> quality of implementation decision.
-> 
-> The IOMMU layer really needs a way to callback the driver to tell it
-> when space is available, or something similar.
-> 
-> FWIW, Solaris handles this by blocking when the IOMMU is out of space
-> since under Solaris even interrupt contexts can block (via interrupt
-> threads).
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> How about we protect these function externs with CONFIG_PROC_FS ifdefs
+> instead?
 
-The more robust way would be to stop the queue (like flow control)
-and return busy. You would need a timer though to handle the case
-where some disk i/o stole all the mappings and then network device flow
-blocked.
+Sure.
+
+---
+From: Randy Dunlap <randy.dunlap@oracle.com>
+
+Fix compile warning when CONFIG_PROC_FS=n:
+
+include/net/irda/irlan_filter.h:31: warning: 'struct seq_file' declared inside parameter list
+include/net/irda/irlan_filter.h:31: warning: its scope is only this definition or declaration, which is probably not what you want
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ include/net/irda/irlan_filter.h |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- linux-2.6.19-git7.orig/include/net/irda/irlan_filter.h
++++ linux-2.6.19-git7/include/net/irda/irlan_filter.h
+@@ -28,6 +28,8 @@
+ void irlan_check_command_param(struct irlan_cb *self, char *param, 
+ 			       char *value);
+ void irlan_filter_request(struct irlan_cb *self, struct sk_buff *skb);
++#ifdef CONFIG_PROC_FS
+ void irlan_print_filter(struct seq_file *seq, int filter_type);
++#endif
+ 
+ #endif /* IRLAN_FILTER_H */
