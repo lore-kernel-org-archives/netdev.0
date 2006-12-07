@@ -1,43 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH/RFC] make MII and PHYLIB independent of NET_ETHERNET
-Date: Thu, 07 Dec 2006 04:58:48 -0500
-Message-ID: <4577E5D8.4010500@pobox.com>
-References: <20061119202249.f0acb41c.randy.dunlap@oracle.com>	<456EBC16.8050006@pobox.com> <20061202154345.fb3b4b6a.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NAPI and shared interrupt control
+Date: Thu, 07 Dec 2006 01:59:54 -0800 (PST)
+Message-ID: <20061207.015954.52181319.davem@davemloft.net>
+References: <1165465446.5469.189.camel@localhost.localdomain>
+	<20061207.011627.43485384.davem@davemloft.net>
+	<20061207094502.GA19479@gate.ebshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36122 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031930AbWLGJ6v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 04:58:51 -0500
-To: Randy Dunlap <randy.dunlap@oracle.com>
-In-Reply-To: <20061202154345.fb3b4b6a.randy.dunlap@oracle.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57785
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1031937AbWLGJ7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 04:59:42 -0500
+To: ebs@ebshome.net
+In-Reply-To: <20061207094502.GA19479@gate.ebshome.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy Dunlap wrote:
-> On Thu, 30 Nov 2006 06:10:14 -0500 Jeff Garzik wrote:
-> 
->> ACK, but patch doesn't apply to #upstream
-> 
-> Does it work to patch -mm instead?  (below)
-> 
-> ---
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> PHYLIB can be used by non-NET_ETHERNET (10/100 ethernet) devices;
-> e.g., GIANFAR (gigabit) uses it.
-> 
-> We also have USB ethernet devices trying to use MII
-> without NET_ETHERNET being enabled, so move MII outside of
-> NET_ETHERNET, along with PHYLIB.
-> 
-> They both still depend on NET && NETDEVICES.
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+From: Eugene Surovegin <ebs@ebshome.net>
+Date: Thu, 7 Dec 2006 01:45:02 -0800
 
-still didn't apply
+> I fail to see how this is not even more ugly and more complex than the 
+> solution we have right now. Instead of trivial "orthogonal" polling 
+> code you are suggesting adding additional complexity - handle 
+> dynamic selection of that "master" EMAC and also handling situation 
+> when this master device goes down and you have to switch to 
+> another one without disturbing polling for other active devices. Why 
+> all this? This hw is ugly enough as it is.
 
+Don't do dynamic selection, that indeed would be dumb.
+
+Instead, just pick one of them to act as the polling master.
+Each EMAC has a backpointer to the master EMAC, and trigger
+the poll via that indirection.
+
+With this shared interrupt scheme and lack of hw interrupt
+mitigation, how did the designers of this chip expect people
+to do interrupt mitigation?  I suppose they expected you to
+do it by standing on your head :-)
 
