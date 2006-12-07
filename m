@@ -1,43 +1,38 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 1/16] Spidernet DMA coalescing
-Date: Thu, 7 Dec 2006 11:16:30 -0600
-Message-ID: <20061207171630.GA4614@austin.ibm.com>
-References: <20061206223223.GH17931@austin.ibm.com>
-	<20061206232745.GA4649@austin.ibm.com>
-	<20061206230847.dfd7cb18.akpm@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.19] AT91RM9200 Ethernet update 3
+Date: Thu, 7 Dec 2006 09:19:57 -0800
+Message-ID: <20061207091957.390e68a3@freekitty>
+References: <1165236624.4606.111.camel@fuzzie.sanpeople.com>
+	<20061204100831.0af6790f@freekitty>
+	<1165303792.12510.55.camel@fuzzie.sanpeople.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
-	jgarzik@pobox.com, Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061206230847.dfd7cb18.akpm@osdl.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.25]:47285 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1162556AbWLGRUx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 12:20:53 -0500
+To: Andrew Victor <andrew@sanpeople.com>
+In-Reply-To: <1165303792.12510.55.camel@fuzzie.sanpeople.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 06, 2006 at 11:08:47PM -0800, Andrew Morton wrote:
+On 05 Dec 2006 09:29:52 +0200
+Andrew Victor <andrew@sanpeople.com> wrote:
+
+> hi Stephen,
 > 
-> It worries me when a patch series gets resent a few hours later.
+> > Use netdev_alloc_skb instead. It sets skb->dev so you don't have to.
 > 
-> Did anything change?
+> netdev_alloc_skb() seems to cause 2 function calls [__netdev_alloc_skb()
+> and __alloc_skb()], instead of just 1 for the dev_alloc_skb() case.
+> It might be more efficient if the driver manually sets skb->dev.
 
-I did not resend this patch series.  However, I did receive a large 
-number of MTA errors:
-   <linuxppc-dev@ozlabs.org>: mail forwarding loop for linuxppc-dev@ozlabs.org
+That is trivial, and netdev_alloc_skb() is setup to handle other
+issues in future.
 
-which might be related to what you saw.
 
-(I also cc'ed several lists, and delivry on one of the lists may have
-been delayed by a few hours??)
-
---linas
+-- 
+Stephen Hemminger <shemminger@osdl.org>
