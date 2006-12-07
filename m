@@ -1,64 +1,50 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: drivers/net/chelsio/my3126.c: inconsequent NULL checking
-Date: Thu, 7 Dec 2006 14:22:51 +0100
-Message-ID: <9a8748490612070522v2a4f8446l9833758526c3a1ba@mail.gmail.com>
-References: <20061207113452.GD8963@stusta.de>
+From: "Andy Gospodarek" <andy@greyhouse.net>
+Subject: Re: [PATCH] bonding: change spinlocks and remove timers in favor of workqueues
+Date: Thu, 7 Dec 2006 08:25:14 -0500
+Message-ID: <bdfc5d6e0612070525u320b0b65j161819b730e3b9ac@mail.gmail.com>
+References: <20061130162322.GA8772@gospo.rdu.redhat.com>
+	 <200611301938.kAUJchgv020451@death.nxdomain.ibm.com>
+	 <bdfc5d6e0611301215o3e3e0c73wb22156b57ba7ed0f@mail.gmail.com>
+	 <200612050049.kB50nwgv023439@death.nxdomain.ibm.com>
+	 <bdfc5d6e0612061801wc276619l3c4b6d498ca4e8fd@mail.gmail.com>
+	 <200612070646.kB76kbgv004791@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.238]:19943 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1032183AbWLGNWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 08:22:52 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so529419wxd
-        for <netdev@vger.kernel.org>; Thu, 07 Dec 2006 05:22:51 -0800 (PST)
-To: "Adrian Bunk" <bunk@stusta.de>
-In-Reply-To: <20061207113452.GD8963@stusta.de>
+Received: from ug-out-1314.google.com ([66.249.92.172]:9298 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1032209AbWLGNZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 08:25:15 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so461527uga
+        for <netdev@vger.kernel.org>; Thu, 07 Dec 2006 05:25:14 -0800 (PST)
+To: "Jay Vosburgh" <fubar@us.ibm.com>
+In-Reply-To: <200612070646.kB76kbgv004791@death.nxdomain.ibm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/12/06, Adrian Bunk <bunk@stusta.de> wrote:
-> The Coverity checker spotted the following inconsequent NULL checking
-> introduced by commit f1d3d38af75789f1b82969b83b69cab540609789:
+On 12/7/06, Jay Vosburgh <fubar@us.ibm.com> wrote:
 >
-> <--  snip  -->
+>         I don't see a problem in starting with your patch; the end state
+> will be sufficiently different (e.g., the four workqueues would
+> ultimately be consolidated into one) that it's still a good testbed to
+> start with.
+
+My patch actually only uses a single workqueue for each bond (almost
+exactly like yours in-fact) with 4 different types of work that can be
+placed on it.
+
 >
-> ...
-> static struct cphy *my3126_phy_create(adapter_t *adapter,
->                         int phy_addr, struct mdio_ops *mdio_ops)
-> {
->         struct cphy *cphy = kzalloc(sizeof (*cphy), GFP_KERNEL);
->
->         if (cphy)
->                 cphy_init(cphy, adapter, phy_addr, &my3126_ops, mdio_ops);
->
->         INIT_WORK(&cphy->phy_update, my3216_poll, cphy);
->         cphy->bmsr = 0;
->
->         return (cphy);
-> }
-> ...
->
-> <--  snip  -->
->
-> It doesn't make sense to first check whether "cphy" is NULL and
-> dereference it unconditionally later.
+>         The only other minor issue is that after this week, I will be
+> off for the holidays (and far, far away from email) for the next month.
 >
 
-How about simply changing
-         if (cphy)
-                 cphy_init(cphy, adapter, phy_addr, &my3126_ops, mdio_ops);
-into
-         if (!cphy)
-                 return NULL;
+Good to know.
 
-callers need to be able to handle that ofcourse, but I haven't checked that yet.
-
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+>         -J
+>
+> ---
+>         -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
