@@ -1,51 +1,37 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] irlan: fix header build warning
-Date: Wed, 6 Dec 2006 17:08:18 -0800
-Message-ID: <20061206170818.86c355cb.randy.dunlap@oracle.com>
-References: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
-	<20061206.165717.21938171.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: network devices don't handle pci_dma_mapping_error()'s
+Date: Wed, 06 Dec 2006 17:13:17 -0800 (PST)
+Message-ID: <20061206.171317.85392745.davem@davemloft.net>
+References: <20061206101644.27eeaf14@freekitty>
+	<20061206.165418.54722201.davem@davemloft.net>
+	<20061206165835.5391b75d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, samuel@sortiz.org
+Cc: muli@il.ibm.com, jeff@garzik.org, amitkale@netxen.com,
+	netdev@vger.kernel.org, brazilnut@us.ibm.com,
+	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
+	sanjeev@netxen.com, wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:56477 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937894AbWLGBHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 20:07:37 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061206.165717.21938171.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57873
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S937893AbWLGBNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 20:13:07 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061206165835.5391b75d@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 06 Dec 2006 16:57:17 -0800 (PST) David Miller wrote:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 6 Dec 2006 16:58:35 -0800
 
-> How about we protect these function externs with CONFIG_PROC_FS ifdefs
-> instead?
+> The more robust way would be to stop the queue (like flow control)
+> and return busy. You would need a timer though to handle the case
+> where some disk i/o stole all the mappings and then network device flow
+> blocked.
 
-Sure.
-
----
-From: Randy Dunlap <randy.dunlap@oracle.com>
-
-Fix compile warning when CONFIG_PROC_FS=n:
-
-include/net/irda/irlan_filter.h:31: warning: 'struct seq_file' declared inside parameter list
-include/net/irda/irlan_filter.h:31: warning: its scope is only this definition or declaration, which is probably not what you want
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/net/irda/irlan_filter.h |    2 ++
- 1 file changed, 2 insertions(+)
-
---- linux-2.6.19-git7.orig/include/net/irda/irlan_filter.h
-+++ linux-2.6.19-git7/include/net/irda/irlan_filter.h
-@@ -28,6 +28,8 @@
- void irlan_check_command_param(struct irlan_cb *self, char *param, 
- 			       char *value);
- void irlan_filter_request(struct irlan_cb *self, struct sk_buff *skb);
-+#ifdef CONFIG_PROC_FS
- void irlan_print_filter(struct seq_file *seq, int filter_type);
-+#endif
- 
- #endif /* IRLAN_FILTER_H */
+You need some kind of fairness, yes, that's why I suggested a
+callback.  When your DMA allocation fails, you get into the rear of
+the FIFO, when a free occurs, we callback starting from the head of
+the FIFO.  You don't get removed from the FIFO unless at least one of
+your DMA allocation retries succeed.
