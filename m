@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: network devices don't handle pci_dma_mapping_error()'s
-Date: Wed, 06 Dec 2006 18:31:26 -0800 (PST)
-Message-ID: <20061206.183126.59673915.davem@davemloft.net>
-References: <20061206165835.5391b75d@dxpl.pdx.osdl.net>
-	<20061206.171317.85392745.davem@davemloft.net>
-	<45777A0C.4010901@hp.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] [IrDA] PXA FIR code device model
+	conversion
+Date: Wed, 06 Dec 2006 20:08:11 -0800 (PST)
+Message-ID: <20061206.200811.115924048.davem@davemloft.net>
+References: <20061207005053.GA21131@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, muli@il.ibm.com, jeff@garzik.org,
-	amitkale@netxen.com, netdev@vger.kernel.org, brazilnut@us.ibm.com,
-	netxenproj@linsyssoft.com, rob@netxen.com, romieu@fr.zoreil.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52460
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S967699AbWLGCbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 21:31:15 -0500
-To: rick.jones2@hp.com
-In-Reply-To: <45777A0C.4010901@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: akpm-3NddpPZAyC0@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	pmiscml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+In-Reply-To: <20061207005053.GA21131-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Wed, 06 Dec 2006 18:18:52 -0800
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Thu, 7 Dec 2006 02:50:53 +0200
 
-> While tossing a TCP|UDP|SCTP|etc packet could be plusungood, especially 
-> if the IOMMU fills frequently (for some suitable definiton of 
-> frequently), is it really worth the effort to save say an ACK?
+> pxaficp_ir.c was not converted to the device model framework.
+> 
+> Signed-off-by: Paul Sokolovsky <pmiscml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
+> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-ACKs are less important than data packets sure.
+Applied.
 
-But the drivers shouldn't be parsing packets at transmit time to
-decide what to do.
-
-And when this kind of thing fails, it's going to fail for all
-the packets currently queued up to the device for transmit.
-So it's likely not "just an ACK", but rather a set of several
-packets composed of ACKs and data packets.
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
