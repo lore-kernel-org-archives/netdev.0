@@ -1,51 +1,34 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 5/7] d80211: remove unused references to sub interface
-	data
-Date: Thu, 07 Dec 2006 13:29:19 +0100
-Message-ID: <1165494559.3582.3.camel@johannes.berg>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 6/7] d80211: fix invalid check for sub interface type AP
+Date: Thu, 7 Dec 2006 13:47:19 +0100
+Message-ID: <20061207134719.524d0819@griffin.suse.cz>
 References: <20061207004238.540749000@devicescape.com>
-	 <20061207004526.GE16252@devicescape.com>
+	<20061207004532.GF16252@devicescape.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zeE66IISsASjyowvUnll"
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:38082 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1032111AbWLGM3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 07:29:32 -0500
+Received: from styx.suse.cz ([82.119.242.94]:59346 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1032149AbWLGMrH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 07:47:07 -0500
 To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061207004526.GE16252@devicescape.com>
+In-Reply-To: <20061207004532.GF16252@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Patches 1 to 6 have been applied to my tree.
 
---=-zeE66IISsASjyowvUnll
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Thanks,
 
-On Wed, 2006-12-06 at 16:45 -0800, David Kimdon wrote:
-> plain text document attachment (unused-sdata.patch)
-> In these three cases the pointer returned by IEEE80211_DEV_TO_SUB_IF()
-> is never used.
+ Jiri
 
-Good catch, I must have introduced this when converting the prototypes.
-Thanks.
+On Wed, 6 Dec 2006 16:45:32 -0800, David Kimdon wrote:
+> We should be checking the type member, not the raw pointer.
+> 
+> Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 
-johannes
-
---=-zeE66IISsASjyowvUnll
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFeAke/ETPhpq3jKURAkCMAKC31JJGcaTvfcZV+090m8H5q92BJACcD5tD
-+2FhGVg1r25/jXma2+kn7so=
-=fnuQ
------END PGP SIGNATURE-----
-
---=-zeE66IISsASjyowvUnll--
-
+-- 
+Jiri Benc
+SUSE Labs
