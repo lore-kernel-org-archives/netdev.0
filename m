@@ -1,42 +1,51 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [patch 7/7] d80211: do not pass an invalid key index to
- set_key()
-Date: Thu, 7 Dec 2006 13:25:05 +0100
-Message-ID: <20061207132505.049363e6@griffin.suse.cz>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 5/7] d80211: remove unused references to sub interface
+	data
+Date: Thu, 07 Dec 2006 13:29:19 +0100
+Message-ID: <1165494559.3582.3.camel@johannes.berg>
 References: <20061207004238.540749000@devicescape.com>
-	<20061207004540.GG16252@devicescape.com>
+	 <20061207004526.GE16252@devicescape.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zeE66IISsASjyowvUnll"
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:58465 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1032128AbWLGMYy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 07:24:54 -0500
+Received: from crystal.sipsolutions.net ([195.210.38.204]:38082 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1032111AbWLGM3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 07:29:32 -0500
 To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20061207004540.GG16252@devicescape.com>
+In-Reply-To: <20061207004526.GE16252@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Dec 2006 16:45:40 -0800, David Kimdon wrote:
-> Index: wireless-dev/net/d80211/ieee80211_ioctl.c
-> ===================================================================
-> --- wireless-dev.orig/net/d80211/ieee80211_ioctl.c
-> +++ wireless-dev/net/d80211/ieee80211_ioctl.c
-> @@ -612,7 +612,7 @@ static int ieee80211_set_encryption(stru
->  
->  	if (alg == ALG_NONE) {
->  		keyconf = NULL;
-> -		if (try_hwaccel && key && local->ops->set_key &&
-> +		if (try_hwaccel && key && key->hw_key_idx != -1 && local->ops->set_key &&
 
-Use HW_KEY_IDX_INVALID, please.
+--=-zeE66IISsASjyowvUnll
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
+On Wed, 2006-12-06 at 16:45 -0800, David Kimdon wrote:
+> plain text document attachment (unused-sdata.patch)
+> In these three cases the pointer returned by IEEE80211_DEV_TO_SUB_IF()
+> is never used.
 
- Jiri
+Good catch, I must have introduced this when converting the prototypes.
+Thanks.
 
--- 
-Jiri Benc
-SUSE Labs
+johannes
+
+--=-zeE66IISsASjyowvUnll
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFeAke/ETPhpq3jKURAkCMAKC31JJGcaTvfcZV+090m8H5q92BJACcD5tD
++2FhGVg1r25/jXma2+kn7so=
+=fnuQ
+-----END PGP SIGNATURE-----
+
+--=-zeE66IISsASjyowvUnll--
+
