@@ -1,124 +1,132 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] convert hh_lock to seqlock
-Date: Thu, 07 Dec 2006 23:27:00 +0100
-Message-ID: <45789534.1050703@cosmosbay.com>
-References: <20061207113309.2f892cf1@localhost>
- <4578782B.4010908@cosmosbay.com> <20061207131553.45e4388b@localhost>
+From: "Carl Yang \(caryang\)" <caryang@cisco.com>
+Subject: RE: [openib-general] [RFC] [PATCH V2 0/3] bonding support foroperation over IPoIB
+Date: Thu, 7 Dec 2006 14:27:31 -0800
+Message-ID: <A3C7F222C349444DA8B01D881740A0030109116F@xmb-sjc-226.amer.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Roland Dreier \(rdreier\)" <rdreier@cisco.com>,
+	"Jay Vosburgh" <fubar@us.ibm.com>, <openib-general@openib.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604003mt.neufgp.fr ([84.96.92.56]:37648 "EHLO smTp.neuf.fr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1163496AbWLGW0o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 17:26:44 -0500
-Received: from [192.168.30.10] ([84.7.37.114]) by sp604003mt.gpm.neuf.ld
- (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
- with ESMTP id <0J9X003G7D0HRJE0@sp604003mt.gpm.neuf.ld> for
- netdev@vger.kernel.org; Thu, 07 Dec 2006 23:26:42 +0100 (CET)
-In-reply-to: <20061207131553.45e4388b@localhost>
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:35162 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1163523AbWLGW1j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 17:27:39 -0500
+Content-class: urn:content-classes:message
+To: "Or Gerlitz" <ogerlitz@voltaire.com>, <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger a =C3=A9crit :
-> On Thu, 07 Dec 2006 21:23:07 +0100
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
->> Stephen Hemminger a =C3=A9crit :
->>> The hard header cache is in the main output path, so using
->>> seqlock instead of reader/writer lock should reduce overhead.
->>>
->> Nice work Stephen, I am very interested.
->>
->> Did you benchmarked it ?
->>
->> I ask because I think hh_refcnt frequent changes may defeat the gain=
- you want=20
->> (ie avoiding cache line ping pongs between cpus). seqlock are defini=
-tly better=20
->> than rwlock, but if we really keep cache lines shared.
->>
->> So I would suggest reordering fields of hh_cache and adding one=20
->> ____cacheline_aligned_in_smp to keep hh_refcnt in another cache line=
-=2E
->>
->> (hh_len, hh_lock and hh_data should be placed on a 'mostly read' cac=
-he line)
->>
->> Thank you
->> Eric
->=20
-> It doesn't make any visible performance difference for real networks;=
-=20
-> copies and device issues are much larger.
+Or,
 
-Hum, so 'my' machines must be unreal :)
+Can you please forward me (or to the email alias) "an example bonding
+sysfs script which can be used to set bonding to work with patches 1-3?"
 
->=20
-> The hh_refcnt is used only when creating destroying neighbor entries,
-> so except under DoS attack it doesn't make a lot of difference.
-> The hh_lock is used on each packet sent.
-
-Some machines create/delete 10.000 entries per second in rt_cache.
-I believe they are real. DoS ? you tell it, some people wont agree.
+Thanks,
+Carl
 
 
-# grep eth0 /proc/net/rt_cache|head -n 10000|cut -f13|sort -u|wc -l
-     359
-(13th field of /proc/net/rt_cache is HHRef)
+-----Original Message-----
+From: openib-general-bounces@openib.org
+[mailto:openib-general-bounces@openib.org] On Behalf Of Or Gerlitz
+Sent: Thursday, November 30, 2006 2:57 AM
+To: netdev@vger.kernel.org
+Cc: Roland Dreier (rdreier); Jay Vosburgh; openib-general@openib.org
+Subject: [openib-general] [RFC] [PATCH V2 0/3] bonding support
+foroperation over IPoIB
 
-# rtstat -c1000 -i1
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache=
-|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cach=
-e|rt_cache|
-  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_mart=
-i|=20
-out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|=
-out_hlis|
-         |        |     tot|      mc|     ute|        |  an_dst|  an_sr=
-c|=20
-    |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_s=
-earch|
-  2467048|2479640328|1334812199|       0|       0|      34|       0|=20
-117112|6139056109|7510556324|       0|       0|       0|       0|=20
-0|8864696485|9819074477|
-  2465642|   16594|    4791|       0|       0|       0|       0|       =
-0|=20
-2387|    2738|       0|       0|       0|       0|       0|   21878|   =
- 7478|
-  2464482|   16505|    4765|       0|       0|       0|       0|       =
-0|=20
-2460|    2669|       0|       0|       0|       0|       0|   22224|   =
- 7499|
-  2463512|   17281|    4640|       0|       0|       0|       0|       =
-0|=20
-2449|    2632|       0|       0|       0|       0|       0|   22069|   =
- 7240|
-  2462651|   16504|    4314|       0|       0|       0|       0|       =
-0|=20
-2446|    2497|       0|       0|       0|       0|       0|   20796|   =
- 6979|
-  2462175|   18152|    5792|       0|       0|       0|       0|       =
-0|=20
-2448|    2791|       0|       0|       0|       0|       0|   26164|   =
- 7731|
-  2461889|   16970|    5059|       0|       0|       0|       0|       =
-0|=20
-2535|    2829|       0|       0|       0|       0|       0|   22614|   =
- 7595|
-  2461719|   16446|    4643|       0|       0|       0|       0|       =
-0|=20
-2496|    2717|       0|       0|       0|       0|       0|   21347|   =
- 7354|
-  2461775|   17098|    4782|       0|       0|       0|       0|       =
-0|=20
-2386|    2570|       0|       0|       0|       0|       0|   22448|   =
- 7049|
+This patch series is a second version (see below link to V1) of the
+suggested changes to the bonding driver such that it would be able to
+support non ARPHRD_ETHER netdevices for its High-Availability
+(active-backup) mode.
 
+The motivation is to enable the bonding driver on its HA mode to work
+with the IP over Infiniband (IPoIB) driver. With these patches I was
+able to enslave IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast
+and ICMP traffic with fail-over and fail-back working fine. My working
+env was the net-2.6.20 git.
 
+More over, as IPoIB is also the IB ARP provider for the RDMA CM driver
+which is used by native IB ULPs whose addressing scheme is based on IP
+(eg iSER, SDP, Lustre, NFSoRDMA, RDS), bonding support for IPoIB devices
+**enables** HA for these ULPs. This holds as when the ULP is informed by
+the IB HW on the failure of the current IB connection, it just need to
+reconnect, where the bonding device will now issue the IB ARP over the
+active IPoIB slave.
 
-Thank you
-Eric
+The first patch changes some of the bond netdevice attributes and
+functions to be that of the active slave for the case of the enslaved
+device not being of ARPHRD_ETHER type. Basically it overrides those
+setting done by ether_setup(), which are netdevice **type** dependent
+and hence might be not appropriate for devices of other types. It also
+enforces mutual exclusion on bonding slaves from dissimilar ether types,
+as was concluded over the v1 discussion.
+
+IPoIB (see Documentation/infiniband/ipoib.txt) MAC address is made of a
+3 bytes IB QP (Queue Pair) number and 16 bytes IB port GID (Global ID)
+of the port this IPoIB device is bounded to. The QP is a resource
+created by the IB HW and the GID is an identifier burned into the HCA (i
+have omitted here some details which are not important for the bonding
+RFC).
+
+Basically the IPoIB spec and impl. do not allow for setting the MAC
+address of an IPoIB device and this work was made under this assumption.
+
+Hence, the second patch allows for enslaving netdevices which do not
+support the set_mac_address() function. In that case the bond mac
+address is the one of the active slave, where remote peers are notified
+on the mac address
+(neighbour) change by Gratuitous ARP sent by bonding when fail-over
+occurs (this is already done by the bonding code).
+
+Normally, the bonding driver is UP before any enslavement takes place.
+Once a netdevice is UP, the network stack acts to have it join some
+multicast groups (eg the all-hosts 224.0.0.1). Now, since ether_setup()
+have set the bonding device type to be ARPHRD_ETHER and address len to
+be ETHER_ALEN, the net core code computes a wrong multicast link
+address. This is b/c ip_eth_mc_map() is called where for mcast joins
+taking place **after** the enslavement another ip_xxx_mc_map() is called
+(eg ip_ib_mc_map() when the bond type is ARPHRD_INFINIBAND)
+
+The third patch handles this problem by allowing to enslave devices when
+the bonding device is not up. Over the discussion held at the previous
+post this seemed to be the most clean way to go, where it is not
+expected to cause instabilities.
+
+These patches are not enough for configuration of IPoIB bonding through
+tools (eg /sbin/ifenslave and /sbin/ifup) provided by packages such as
+sysconfig and initscripts, specifically since these tools sets the
+bonding device to be UP before enslaving anything. Once this patchset
+gets positive/feedback the next step would be to look how to enhance the
+tools/packages so it would be possible to bond/enslave with the modified
+code. As suggested by the bonding maintainer, this step can potentially
+involve converting ifenslave to be a script based on the bonding sysfs
+infrastructure rather on the somehow obsoleted
+Documentation/networking/ifenslave.c
+
+For the ease of potential testers, I will post an example bonding sysfs
+script which can be used to set bonding to work with patches 1-3 (let me
+know!)
+
+Or.
+
+changes from V1 (the links point to V1 0-3/3)
+
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115926582209736&w=2
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115926599515568&w=2
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115926599430055&w=2
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115926599415729&w=2
+
++ enforce mutual exclusion on the slaves ether types don't attempt to 
++ set the bond mtu when enslaving a non ARPHRD_ETHER device rather than 
++ hack the bond device ether type through mod params allow enslavement
+  when the bond device is not up
+
+_______________________________________________
+openib-general mailing list
+openib-general@openib.org
+http://openib.org/mailman/listinfo/openib-general
+
+To unsubscribe, please visit
+http://openib.org/mailman/listinfo/openib-general
