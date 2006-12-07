@@ -1,116 +1,77 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 4/7][TG3]: Allow partial speed advertisement.
-Date: Wed, 06 Dec 2006 23:46:47 -0800
-Message-ID: <1165477607.8488.30.camel@rh4>
+Subject: [PATCH 6/7][TG3]: Use msleep.
+Date: Wed, 06 Dec 2006 23:47:17 -0800
+Message-ID: <1165477637.8488.32.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3275 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3248 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031748AbWLGG4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 01:56:45 -0500
+	id S1031750AbWLGG5L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 01:57:11 -0500
 To: davem@davemloft.net, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Allow partial speed advertisement.
+[TG3]: Use msleep.
 
-Honor the advertisement bitmask from ethtool.  We used to always
-advertise the full capability when autoneg was set to on.
+Change some udelay() in some eeprom functions to msleep().  Eeprom
+related functions are always called from sleepable context.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 6a2f019..5dfeb64 100644
+index 99fb4e4..61e9533 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1558,12 +1558,6 @@ static void tg3_phy_copper_begin(struct
- 
- 		tg3_writephy(tp, MII_ADVERTISE, new_adv);
- 	} else if (tp->link_config.speed == SPEED_INVALID) {
--		tp->link_config.advertising =
--			(ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
--			 ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
--			 ADVERTISED_1000baseT_Half | ADVERTISED_1000baseT_Full |
--			 ADVERTISED_Autoneg | ADVERTISED_MII);
--
- 		if (tp->tg3_flags & TG3_FLAG_10_100_ONLY)
- 			tp->link_config.advertising &=
- 				~(ADVERTISED_1000baseT_Half |
-@@ -1707,25 +1701,36 @@ static int tg3_init_5401phy_dsp(struct t
- 	return err;
- }
- 
--static int tg3_copper_is_advertising_all(struct tg3 *tp)
-+static int tg3_copper_is_advertising_all(struct tg3 *tp, u32 mask)
+@@ -9467,16 +9467,12 @@ static void __devinit tg3_get_5906_nvram
+ /* Chips other than 5700/5701 use the NVRAM for fetching info. */
+ static void __devinit tg3_nvram_init(struct tg3 *tp)
  {
--	u32 adv_reg, all_mask;
-+	u32 adv_reg, all_mask = 0;
-+
-+	if (mask & ADVERTISED_10baseT_Half)
-+		all_mask |= ADVERTISE_10HALF;
-+	if (mask & ADVERTISED_10baseT_Full)
-+		all_mask |= ADVERTISE_10FULL;
-+	if (mask & ADVERTISED_100baseT_Half)
-+		all_mask |= ADVERTISE_100HALF;
-+	if (mask & ADVERTISED_100baseT_Full)
-+		all_mask |= ADVERTISE_100FULL;
+-	int j;
+-
+ 	tw32_f(GRC_EEPROM_ADDR,
+ 	     (EEPROM_ADDR_FSM_RESET |
+ 	      (EEPROM_DEFAULT_CLOCK_PERIOD <<
+ 	       EEPROM_ADDR_CLKPERD_SHIFT)));
  
- 	if (tg3_readphy(tp, MII_ADVERTISE, &adv_reg))
- 		return 0;
+-	/* XXX schedule_timeout() ... */
+-	for (j = 0; j < 100; j++)
+-		udelay(10);
++	msleep(1);
  
--	all_mask = (ADVERTISE_10HALF | ADVERTISE_10FULL |
--		    ADVERTISE_100HALF | ADVERTISE_100FULL);
- 	if ((adv_reg & all_mask) != all_mask)
- 		return 0;
- 	if (!(tp->tg3_flags & TG3_FLAG_10_100_ONLY)) {
- 		u32 tg3_ctrl;
+ 	/* Enable seeprom accesses. */
+ 	tw32_f(GRC_LOCAL_CTRL,
+@@ -9537,12 +9533,12 @@ static int tg3_nvram_read_using_eeprom(s
+ 	      EEPROM_ADDR_ADDR_MASK) |
+ 	     EEPROM_ADDR_READ | EEPROM_ADDR_START);
  
-+		all_mask = 0;
-+		if (mask & ADVERTISED_1000baseT_Half)
-+			all_mask |= ADVERTISE_1000HALF;
-+		if (mask & ADVERTISED_1000baseT_Full)
-+			all_mask |= ADVERTISE_1000FULL;
-+
- 		if (tg3_readphy(tp, MII_TG3_CTRL, &tg3_ctrl))
- 			return 0;
+-	for (i = 0; i < 10000; i++) {
++	for (i = 0; i < 1000; i++) {
+ 		tmp = tr32(GRC_EEPROM_ADDR);
  
--		all_mask = (MII_TG3_CTRL_ADV_1000_HALF |
--			    MII_TG3_CTRL_ADV_1000_FULL);
- 		if ((tg3_ctrl & all_mask) != all_mask)
- 			return 0;
+ 		if (tmp & EEPROM_ADDR_COMPLETE)
+ 			break;
+-		udelay(100);
++		msleep(1);
  	}
-@@ -1885,7 +1890,8 @@ static int tg3_setup_copper_phy(struct t
- 				/* Force autoneg restart if we are exiting
- 				 * low power mode.
- 				 */
--				if (!tg3_copper_is_advertising_all(tp))
-+				if (!tg3_copper_is_advertising_all(tp,
-+						tp->link_config.advertising))
- 					current_link_up = 0;
- 			} else {
- 				current_link_up = 0;
-@@ -10156,7 +10162,7 @@ static int __devinit tg3_phy_probe(struc
+ 	if (!(tmp & EEPROM_ADDR_COMPLETE))
+ 		return -EBUSY;
+@@ -9667,12 +9663,12 @@ static int tg3_nvram_write_block_using_e
+ 			EEPROM_ADDR_START |
+ 			EEPROM_ADDR_WRITE);
  
- 	if (!(tp->tg3_flags2 & TG3_FLG2_ANY_SERDES) &&
- 	    !(tp->tg3_flags & TG3_FLAG_ENABLE_ASF)) {
--		u32 bmsr, adv_reg, tg3_ctrl;
-+		u32 bmsr, adv_reg, tg3_ctrl, mask;
+-		for (j = 0; j < 10000; j++) {
++		for (j = 0; j < 1000; j++) {
+ 			val = tr32(GRC_EEPROM_ADDR);
  
- 		tg3_readphy(tp, MII_BMSR, &bmsr);
- 		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
-@@ -10180,7 +10186,10 @@ static int __devinit tg3_phy_probe(struc
- 					     MII_TG3_CTRL_ENABLE_AS_MASTER);
+ 			if (val & EEPROM_ADDR_COMPLETE)
+ 				break;
+-			udelay(100);
++			msleep(1);
  		}
- 
--		if (!tg3_copper_is_advertising_all(tp)) {
-+		mask = (ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
-+			ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
-+			ADVERTISED_1000baseT_Half | ADVERTISED_1000baseT_Full);
-+		if (!tg3_copper_is_advertising_all(tp, mask)) {
- 			tg3_writephy(tp, MII_ADVERTISE, adv_reg);
- 
- 			if (!(tp->tg3_flags & TG3_FLAG_10_100_ONLY))
+ 		if (!(val & EEPROM_ADDR_COMPLETE)) {
+ 			rc = -EBUSY;
 
 
