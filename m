@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NAPI and shared interrupt control
-Date: Thu, 07 Dec 2006 01:59:54 -0800 (PST)
-Message-ID: <20061207.015954.52181319.davem@davemloft.net>
-References: <1165465446.5469.189.camel@localhost.localdomain>
-	<20061207.011627.43485384.davem@davemloft.net>
-	<20061207094502.GA19479@gate.ebshome.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] netxen: sparse warning and ioctl bug fixes
+Date: Thu, 07 Dec 2006 05:00:11 -0500
+Message-ID: <4577E62B.2080704@pobox.com>
+References: <20061205120717.2e362ddf@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: benh@kernel.crashing.org, netdev@vger.kernel.org
+Cc: "Amit S. Kale" <amitkale@netxen.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57785
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1031937AbWLGJ7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 04:59:42 -0500
-To: ebs@ebshome.net
-In-Reply-To: <20061207094502.GA19479@gate.ebshome.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:36146 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031941AbWLGKAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 05:00:16 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061205120717.2e362ddf@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eugene Surovegin <ebs@ebshome.net>
-Date: Thu, 7 Dec 2006 01:45:02 -0800
+Stephen Hemminger wrote:
+> Fix sparse warnings and get rid of casts that hide misuse
+> of __user pointers.  There were two real bugs here:
+>   * ioctl was copying uninitialized stack om NETXEN_NIC_NAME
+>   * ioctl was dereferencing a user pointer
+>     in nettxen_nic_cmd_clear_stats.
+> 
+> IMHO the ioctl usage in this driver is going to be more maintenance
+> burden than useful. and should be removed.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-> I fail to see how this is not even more ugly and more complex than the 
-> solution we have right now. Instead of trivial "orthogonal" polling 
-> code you are suggesting adding additional complexity - handle 
-> dynamic selection of that "master" EMAC and also handling situation 
-> when this master device goes down and you have to switch to 
-> another one without disturbing polling for other active devices. Why 
-> all this? This hw is ugly enough as it is.
+ACK but netxen is in heavy flux right now, with upstream workqueue 
+changes, changes from Amit, etc.  so, it didn't apply.
 
-Don't do dynamic selection, that indeed would be dumb.
+Ever considered submitting via git?  :)
 
-Instead, just pick one of them to act as the polling master.
-Each EMAC has a backpointer to the master EMAC, and trigger
-the poll via that indirection.
+	Jeff
 
-With this shared interrupt scheme and lack of hw interrupt
-mitigation, how did the designers of this chip expect people
-to do interrupt mitigation?  I suppose they expected you to
-do it by standing on your head :-)
+
 
