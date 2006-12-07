@@ -1,41 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] [IrDA] PXA FIR code device model
-	conversion
-Date: Wed, 06 Dec 2006 20:08:11 -0800 (PST)
-Message-ID: <20061206.200811.115924048.davem@davemloft.net>
-References: <20061207005053.GA21131@sortiz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] [IrDA] Incorrect TTP header reservation
+Date: Wed, 06 Dec 2006 20:09:19 -0800 (PST)
+Message-ID: <20061206.200919.85705721.davem@davemloft.net>
+References: <20061207005117.GB21131@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm-3NddpPZAyC0@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	pmiscml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-In-Reply-To: <20061207005053.GA21131-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: jeetlinux@yahoo.co.in, irda-users@lists.sourceforge.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46780
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S968703AbWLGEJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 23:09:08 -0500
+To: samuel@sortiz.org
+In-Reply-To: <20061207005117.GB21131@sortiz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Thu, 7 Dec 2006 02:50:53 +0200
+From: Samuel Ortiz <samuel@sortiz.org>
+Date: Thu, 7 Dec 2006 02:51:17 +0200
 
-> pxaficp_ir.c was not converted to the device model framework.
+> We must reserve SAR + MAX_HEADER bytes for IrLMP to fit in.
 > 
-> Signed-off-by: Paul Sokolovsky <pmiscml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> Patch from Jeet Chaudhuri <jeetlinux@yahoo.co.in>
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-Applied.
+Also applied.
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys - and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+Are you sending this patch to -stable?  Please do.
