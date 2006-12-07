@@ -1,50 +1,51 @@
-From: "Andy Gospodarek" <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: change spinlocks and remove timers in favor of workqueues
-Date: Thu, 7 Dec 2006 08:25:14 -0500
-Message-ID: <bdfc5d6e0612070525u320b0b65j161819b730e3b9ac@mail.gmail.com>
-References: <20061130162322.GA8772@gospo.rdu.redhat.com>
-	 <200611301938.kAUJchgv020451@death.nxdomain.ibm.com>
-	 <bdfc5d6e0611301215o3e3e0c73wb22156b57ba7ed0f@mail.gmail.com>
-	 <200612050049.kB50nwgv023439@death.nxdomain.ibm.com>
-	 <bdfc5d6e0612061801wc276619l3c4b6d498ca4e8fd@mail.gmail.com>
-	 <200612070646.kB76kbgv004791@death.nxdomain.ibm.com>
+From: Roy Marples <uberlord@gentoo.org>
+Subject: [PATCH] prism54: set carrier flags correctly
+Date: Thu, 7 Dec 2006 15:47:05 +0000
+Message-ID: <200612071547.05987.uberlord@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:9298 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1032209AbWLGNZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 08:25:15 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so461527uga
-        for <netdev@vger.kernel.org>; Thu, 07 Dec 2006 05:25:14 -0800 (PST)
-To: "Jay Vosburgh" <fubar@us.ibm.com>
-In-Reply-To: <200612070646.kB76kbgv004791@death.nxdomain.ibm.com>
+Received: from rsm.demon.co.uk ([80.177.111.50]:45153 "EHLO mail.marples.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759440AbWLGPrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Dec 2006 10:47:16 -0500
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/7/06, Jay Vosburgh <fubar@us.ibm.com> wrote:
->
->         I don't see a problem in starting with your patch; the end state
-> will be sufficiently different (e.g., the four workqueues would
-> ultimately be consolidated into one) that it's still a good testbed to
-> start with.
+prism54 should set the carrier flags correctly when it thinks the link can be used.
 
-My patch actually only uses a single workqueue for each bond (almost
-exactly like yours in-fact) with 4 different types of work that can be
-placed on it.
+Signed-off-by: Roy Marples <uberlord@gentoo.org>
 
->
->         The only other minor issue is that after this week, I will be
-> off for the holidays (and far, far away from email) for the next month.
->
-
-Good to know.
-
->         -J
->
-> ---
->         -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
+--- a/drivers/net/wireless/prism54/isl_ioctl.c	2006-08-24 10:48:50.000000000 +0100
++++ b/drivers/net/wireless/prism54/isl_ioctl.c	2006-08-24 10:29:32.000000000 +0100
+@@ -1573,8 +1573,11 @@
+ 		} else
+ 			send_simple_event(netdev_priv(ndev),
+ 					  "Link established");
+-	} else
++		netif_carrier_on(ndev);
++	} else {
+ 		send_simple_event(netdev_priv(ndev), "Link lost");
++		netif_carrier_off(ndev);
++	}
+ }
+ 
+ /* Beacon/ProbeResp payload header */
+--- a/drivers/net/wireless/prism54/islpci_dev.c	2006-08-24 10:48:50.000000000 +0100
++++ b/drivers/net/wireless/prism54/islpci_dev.c	2006-08-24 10:30:31.000000000 +0100
+@@ -387,7 +387,9 @@
+ 	}
+ 
+ 	netif_start_queue(ndev);
+-/*      netif_mark_up( ndev ); */
++
++	/* Turn off carrier unless we know we have associated */
++	netif_carrier_off(ndev);
+ 
+ 	return 0;
+ }
