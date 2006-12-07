@@ -1,37 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] memory barrier cleanups
-Date: Wed, 06 Dec 2006 16:47:29 -0800 (PST)
-Message-ID: <20061206.164729.41652274.davem@davemloft.net>
-References: <20061206214946.GA22159@linux-mips.org>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH 1/2] [IrDA] PXA FIR code device model conversion
+Date: Thu, 7 Dec 2006 02:50:53 +0200
+Message-ID: <20061207005053.GA21131@sortiz.org>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: irda-users@lists.sourceforge.net,
+	Paul Sokolovsky <pmiscml@gmail.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58355
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S937862AbWLGArS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:47:18 -0500
-To: ralf@linux-mips.org
-In-Reply-To: <20061206214946.GA22159@linux-mips.org>
+Received: from smtp10.orange.fr ([193.252.22.21]:18436 "EHLO
+	smtp-msa-out10.orange.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S937864AbWLGAu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:50:58 -0500
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Wed, 6 Dec 2006 21:49:46 +0000
+Hi Dave,
 
-> I believe all the below memory barriers only matter on SMP so therefore
-> the smp_* variant of the barrier should be used.
-> 
-> I'm wondering if the barrier in net/ipv4/inet_timewait_sock.c should be
-> dropped entirely.  schedule_work's implementation currently implies a
-> memory barrier and I think sane semantics of schedule_work() should imply
-> a memory barrier, as needed so the caller shouldn't have to worry.
-> It's not quite obvious why the barrier in net/packet/af_packet.c is
-> needed; maybe it should be implied through flush_dcache_page?
-> 
+pxaficp_ir.c was not converted to the device model framework.
 
-I'll check out that timewait sock case later, but AF_PACKET mmap() is
-totally broken on D-cache aliasing architectures.  Many years ago
-I tried to fix this up with Alexey but those talks went nowhere :)
+Signed-off-by: Paul Sokolovsky <pmiscml@gmail.com>
+Cc: <stable@kernel.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+---
+ drivers/net/irda/pxaficp_ir.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+index f9a1c88..9137e23 100644
+--- a/drivers/net/irda/pxaficp_ir.c
++++ b/drivers/net/irda/pxaficp_ir.c
+@@ -704,9 +704,9 @@ static int pxa_irda_stop(struct net_devi
+ 	return 0;
+ }
+ 
+-static int pxa_irda_suspend(struct device *_dev, pm_message_t state)
++static int pxa_irda_suspend(struct platform_device *_dev, pm_message_t state)
+ {
+-	struct net_device *dev = dev_get_drvdata(_dev);
++	struct net_device *dev = platform_get_drvdata(_dev);
+ 	struct pxa_irda *si;
+ 
+ 	if (dev && netif_running(dev)) {
+@@ -718,9 +718,9 @@ static int pxa_irda_suspend(struct devic
+ 	return 0;
+ }
+ 
+-static int pxa_irda_resume(struct device *_dev)
++static int pxa_irda_resume(struct platform_device *_dev)
+ {
+-	struct net_device *dev = dev_get_drvdata(_dev);
++	struct net_device *dev = platform_get_drvdata(_dev);
+ 	struct pxa_irda *si;
+ 
+ 	if (dev && netif_running(dev)) {
+@@ -746,9 +746,8 @@ static int pxa_irda_init_iobuf(iobuff_t 
+ 	return io->head ? 0 : -ENOMEM;
+ }
+ 
+-static int pxa_irda_probe(struct device *_dev)
++static int pxa_irda_probe(struct platform_device *pdev)
+ {
+-	struct platform_device *pdev = to_platform_device(_dev);
+ 	struct net_device *dev;
+ 	struct pxa_irda *si;
+ 	unsigned int baudrate_mask;
+@@ -822,9 +821,9 @@ err_mem_1:
+ 	return err;
+ }
+ 
+-static int pxa_irda_remove(struct device *_dev)
++static int pxa_irda_remove(struct platform_device *_dev)
+ {
+-	struct net_device *dev = dev_get_drvdata(_dev);
++	struct net_device *dev = platform_get_drvdata(_dev);
+ 
+ 	if (dev) {
+ 		struct pxa_irda *si = netdev_priv(dev);
+@@ -840,9 +839,10 @@ static int pxa_irda_remove(struct device
+ 	return 0;
+ }
+ 
+-static struct device_driver pxa_ir_driver = {
+-	.name		= "pxa2xx-ir",
+-	.bus		= &platform_bus_type,
++static struct platform_driver pxa_ir_driver = {
++	.driver         = {
++		.name   = "pxa2xx-ir",
++	},
+ 	.probe		= pxa_irda_probe,
+ 	.remove		= pxa_irda_remove,
+ 	.suspend	= pxa_irda_suspend,
+@@ -851,12 +851,12 @@ static struct device_driver pxa_ir_drive
+ 
+ static int __init pxa_irda_init(void)
+ {
+-	return driver_register(&pxa_ir_driver);
++	return platform_driver_register(&pxa_ir_driver);
+ }
+ 
+ static void __exit pxa_irda_exit(void)
+ {
+-	driver_unregister(&pxa_ir_driver);
++	platform_driver_unregister(&pxa_ir_driver);
+ }
+ 
+ module_init(pxa_irda_init);
+-- 
+1.4.2.3
 
