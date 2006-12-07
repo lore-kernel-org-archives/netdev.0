@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] memory barrier cleanups
-Date: Thu, 07 Dec 2006 00:10:54 -0800 (PST)
-Message-ID: <20061207.001054.35032500.davem@davemloft.net>
-References: <20061206214946.GA22159@linux-mips.org>
+Subject: Re: [PATCH 1/7][TG3]: Fix Phy loopback.
+Date: Thu, 07 Dec 2006 00:20:03 -0800 (PST)
+Message-ID: <20061207.002003.93399884.davem@davemloft.net>
+References: <1165477566.8488.27.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41454
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60874
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1031829AbWLGIKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 03:10:43 -0500
-To: ralf@linux-mips.org
-In-Reply-To: <20061206214946.GA22159@linux-mips.org>
+	by vger.kernel.org with ESMTP id S1031831AbWLGITv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 03:19:51 -0500
+To: mchan@broadcom.com
+In-Reply-To: <1165477566.8488.27.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Wed, 6 Dec 2006 21:49:46 +0000
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 06 Dec 2006 23:46:06 -0800
 
-> I believe all the below memory barriers only matter on SMP so therefore
-> the smp_* variant of the barrier should be used.
+> [TG3]: Fix Phy loopback.
 > 
-> I'm wondering if the barrier in net/ipv4/inet_timewait_sock.c should be
-> dropped entirely.  schedule_work's implementation currently implies a
-> memory barrier and I think sane semantics of schedule_work() should imply
-> a memory barrier, as needed so the caller shouldn't have to worry.
-> It's not quite obvious why the barrier in net/packet/af_packet.c is
-> needed; maybe it should be implied through flush_dcache_page?
+> Phy loopback on most 10/100 devices need to be run in 1Gbps mode in
+> GMII mode.
 > 
->   Ralf
-> 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Ok, Ralf this looks good, and I think your suspicions are
-correct about the timewait case, I'll just delete that memory
-barrier.  I put it there and aparently for now justifiable
-reason :-)
+Applied, thanks Michael.
