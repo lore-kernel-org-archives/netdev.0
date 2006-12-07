@@ -1,89 +1,102 @@
-From: Chris Lalancette <clalance@redhat.com>
-Subject: Re: [PATCH]: Fix netpoll arp_reply for multiple routers
-Date: Thu, 07 Dec 2006 16:44:45 -0500
-Message-ID: <45788B4D.2020403@redhat.com>
-References: <4576EFD2.1070100@redhat.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
+Date: Thu, 7 Dec 2006 22:53:13 +0100
+Message-ID: <200612072253.14492.IvDoorn@gmail.com>
+References: <200612031936.34343.IvDoorn@gmail.com> <200612062241.58476.IvDoorn@gmail.com> <d120d5000612061404x3f6e18e7qd3601c3b450a5f91@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"John Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>,
+	"Lennart Poettering" <lennart@poettering.net>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47932 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163447AbWLGVor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Dec 2006 16:44:47 -0500
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id kB7LikLx028756
-	for <netdev@vger.kernel.org>; Thu, 7 Dec 2006 16:44:46 -0500
-Received: from pobox.corp.redhat.com (pobox.corp.redhat.com [10.11.255.20])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id kB7LikGZ021715
-	for <netdev@vger.kernel.org>; Thu, 7 Dec 2006 16:44:46 -0500
-To: Chris Lalancette <clalance@redhat.com>
-In-Reply-To: <4576EFD2.1070100@redhat.com>
+Received: from ug-out-1314.google.com ([66.249.92.173]:57219 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1163469AbWLGVxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 16:53:21 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so588530uga
+        for <netdev@vger.kernel.org>; Thu, 07 Dec 2006 13:53:20 -0800 (PST)
+To: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
+In-Reply-To: <d120d5000612061404x3f6e18e7qd3601c3b450a5f91@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Lalancette wrote:
-> All,
->      Attached is a patch to fix arp_reply when you have multiple possible routers doing ARP requests to you.  Currently arp_reply always replies to the MAC address that it was given when it starts.  However, if you have multiple routers that can ARP request you, you might respond to the wrong router; in which case the other router will eventually drop you from it's ARP cache and stop delivering packets to you.  The fix is to always reply to the router that asked you, not the one you have hard-coded.
->      I do not have the setup to test this; the customer that does have the setup has tested the patch and reports that it fixes the problems they were having.
-> 
-> 
-> Signed-off-by: Chris Lalancette <clalance@redhat.com>
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 3c58846..5833b21 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -331,6 +331,7 @@ static void arp_reply(struct sk_buff *sk
->  	unsigned char *arp_ptr;
->  	int size, type = ARPOP_REPLY, ptype = ETH_P_ARP;
->  	__be32 sip, tip;
-> +	unsigned char *sha;
->  	struct sk_buff *send_skb;
->  	struct netpoll *np = NULL;
->  
-> @@ -357,9 +358,14 @@ static void arp_reply(struct sk_buff *sk
->  	    arp->ar_op != htons(ARPOP_REQUEST))
->  		return;
->  
-> -	arp_ptr = (unsigned char *)(arp+1) + skb->dev->addr_len;
-> +	arp_ptr = (unsigned char *)(arp+1);
-> +	/* save the location of the src hw addr */
-> +	sha = arp_ptr;
-> +	arp_ptr += skb->dev->addr_len;
->  	memcpy(&sip, arp_ptr, 4);
-> -	arp_ptr += 4 + skb->dev->addr_len;
-> +	arp_ptr += 4;
-> +	/* if we actually cared about dst hw addr, it would get copied here */
-> +	arp_ptr += skb->dev->addr_len;
->  	memcpy(&tip, arp_ptr, 4);
->  
->  	/* Should we ignore arp? */
-> @@ -382,7 +388,7 @@ static void arp_reply(struct sk_buff *sk
->  
->  	if (np->dev->hard_header &&
->  	    np->dev->hard_header(send_skb, skb->dev, ptype,
-> -				 np->remote_mac, np->local_mac,
-> +				 sha, np->local_mac,
->  				 send_skb->len) < 0) {
->  		kfree_skb(send_skb);
->  		return;
-> @@ -406,7 +412,7 @@ static void arp_reply(struct sk_buff *sk
->  	arp_ptr += np->dev->addr_len;
->  	memcpy(arp_ptr, &tip, 4);
->  	arp_ptr += 4;
-> -	memcpy(arp_ptr, np->remote_mac, np->dev->addr_len);
-> +	memcpy(arp_ptr, sha, np->dev->addr_len);
->  	arp_ptr += np->dev->addr_len;
->  	memcpy(arp_ptr, &sip, 4);
->  
+Hi,
 
-All,
-     Sorry for the confusion...this was already picked up by akpm on linux-net.  Please don't take the patch.
+> > > >  2 - Hardware key that does not control the hardware radio and does not report anything to userspace
+> > >
+> > > Kind of uninteresting button ;)
+> >
+> > And this is the button that rfkill was originally designed for.
+> > Laptops with integrated WiFi cards from Ralink have a hardware button that don't send anything to
+> > userspace (unless the ACPI event is read) and does not directly control the radio itself.
+> >
+> 
+> So what does such a button do? I am confused here...
 
-Thanks,
-Chris Lalancette
+Without a handler like rfkill, it does nothing besides toggling a bit in a register.
+The Ralink chipsets have a couple of registers that represent the state of that key.
+Besides that, there are no notifications to the userspace nor does it directly control the
+radio.
+That is where rfkill came in with the toggle handler that will listen to the register
+to check if the key has been pressed and properly process the key event.
+
+> > And this event should be reported by a generic approach right? So it should
+> > be similar as with your point 2 below. But this would mean that the driver
+> > should create the input device. Or can a driver send the KEY_WIFI event
+> > over a main layer without the need of a personal input device?
+> > I am not that familiar with the input device layer in the kernel, and this is
+> > my first attempt on creating something for it, so I might have missed something. ;)
+> 
+> Yes, I think the driver should just create an input device. You may
+> provide a generic implementation for a polled button and have driver
+> instantiate it but I do not think that a single RFkill button device
+> is needed - you won't have too many of them in a single system anyway
+> (I think you will normally have 1, 2 at the most).
+
+Ok, this is something that can be added as notice in the rfkill description
+to make sure drivers which supports keys that handle the radio event themselves
+should handle everything themselves and just use the KEY_RFKILL event for the
+input device.
+
+> > > 3. A device without transmitter but with a button - just register with
+> > > input core. Userspace will have to manage state of other devices with
+> > > transmitters in response to button presses.
+> >
+> > This is clear too. Rfkill is only intended for drivers that control a device with
+> > a transmitter (WiFi, Bluetooth, IRDA) that have a button that is intended to
+> > do something with the radio/transmitter.
+> >
+> > > Does this make sense?
+> >
+> > Yes, this was what I intended to do with rfkill, so at that point we have
+> > the same goal.
+> >
+> 
+> I think it is almost the same. I also want support RF devices that can
+> control radio state but lack a button. This is covered by mixing 2)
+> and 3) in kernel and for userspace looks exactly like 2) with a
+> button.
+
+Ok, this means making the change in rfkill to instead support 1) and 2)
+and change it into 2) and 3) that would be possible and would make it possible
+again to change the radio state to something different then the key indicates.
+That was previously removed because of support for 1) devices.
+
+> ...
+> > >
+> > > I don't think a config option is a good idea unless by config option
+> > > you mean a sysfs attribute.
+> >
+> > I indeed meant a sysfs attribute. I should have been more clear on this. :)
+> >
+> 
+> OK :)
+> 
+
+Ivo
