@@ -1,49 +1,43 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: Re: [patch 7/7] d80211: do not pass an invalid key index to set_key()
-Date: Thu, 7 Dec 2006 09:01:25 -0800
-Message-ID: <20061207170125.GB1476@devicescape.com>
-References: <20061207004540.GG16252@devicescape.com> <20061207132505.049363e6@griffin.suse.cz>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 1/16] Spidernet DMA coalescing
+Date: Thu, 7 Dec 2006 11:16:30 -0600
+Message-ID: <20061207171630.GA4614@austin.ibm.com>
+References: <20061206223223.GH17931@austin.ibm.com>
+	<20061206232745.GA4649@austin.ibm.com>
+	<20061206230847.dfd7cb18.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:58294 "EHLO
-	mail.devicescape.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1032460AbWLGRBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Dec 2006 12:01:30 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	jgarzik@pobox.com, Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20061207132505.049363e6@griffin.suse.cz>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061206230847.dfd7cb18.akpm@osdl.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 06, 2006 at 11:08:47PM -0800, Andrew Morton wrote:
+> 
+> It worries me when a patch series gets resent a few hours later.
+> 
+> Did anything change?
 
-> Use HW_KEY_IDX_INVALID, please.
+I did not resend this patch series.  However, I did receive a large 
+number of MTA errors:
+   <linuxppc-dev@ozlabs.org>: mail forwarding loop for linuxppc-dev@ozlabs.org
 
-oops, here you go (also fixed bad indentation):
+which might be related to what you saw.
 
-------
+(I also cc'ed several lists, and delivry on one of the lists may have
+been delayed by a few hours??)
 
-d80211: do not pass an invalid key index to set_key()
-
-If a hardware key has not been configured then there is no point
-to calling DISABLE_KEY.
-
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
-
-Index: wireless-dev/net/d80211/ieee80211_ioctl.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211_ioctl.c
-+++ wireless-dev/net/d80211/ieee80211_ioctl.c
-@@ -612,7 +612,9 @@ static int ieee80211_set_encryption(stru
- 
- 	if (alg == ALG_NONE) {
- 		keyconf = NULL;
--		if (try_hwaccel && key && local->ops->set_key &&
-+		if (try_hwaccel && key &&
-+		    key->hw_key_idx != HW_KEY_IDX_INVALID &&
-+		    local->ops->set_key &&
- 		    (keyconf = ieee80211_key_data2conf(local, key)) != NULL &&
- 		    local->ops->set_key(local_to_hw(local), DISABLE_KEY,
- 				       sta_addr, keyconf, sta ? sta->aid : 0)) {
+--linas
