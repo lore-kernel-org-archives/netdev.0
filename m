@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [IrDA] Incorrect TTP header reservation
-Date: Wed, 06 Dec 2006 20:09:19 -0800 (PST)
-Message-ID: <20061206.200919.85705721.davem@davemloft.net>
-References: <20061207005117.GB21131@sortiz.org>
+Subject: Re: [PATCH] irlan: fix header build warning
+Date: Wed, 06 Dec 2006 20:10:24 -0800 (PST)
+Message-ID: <20061206.201024.75446456.davem@davemloft.net>
+References: <20061206114407.9b835a7a.randy.dunlap@oracle.com>
+	<20061206.165717.21938171.davem@davemloft.net>
+	<20061206170818.86c355cb.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeetlinux@yahoo.co.in, irda-users@lists.sourceforge.net,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46780
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46785
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S968703AbWLGEJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 23:09:08 -0500
-To: samuel@sortiz.org
-In-Reply-To: <20061207005117.GB21131@sortiz.org>
+	by vger.kernel.org with ESMTP id S968704AbWLGEKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 23:10:13 -0500
+To: randy.dunlap@oracle.com
+In-Reply-To: <20061206170818.86c355cb.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel@sortiz.org>
-Date: Thu, 7 Dec 2006 02:51:17 +0200
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Wed, 6 Dec 2006 17:08:18 -0800
 
-> We must reserve SAR + MAX_HEADER bytes for IrLMP to fit in.
+> On Wed, 06 Dec 2006 16:57:17 -0800 (PST) David Miller wrote:
 > 
-> Patch from Jeet Chaudhuri <jeetlinux@yahoo.co.in>
-> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+> > How about we protect these function externs with CONFIG_PROC_FS ifdefs
+> > instead?
+> 
+> Sure.
+> 
+> ---
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> Fix compile warning when CONFIG_PROC_FS=n:
+> 
+> include/net/irda/irlan_filter.h:31: warning: 'struct seq_file' declared inside parameter list
+> include/net/irda/irlan_filter.h:31: warning: its scope is only this definition or declaration, which is probably not what you want
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Also applied.
-
-Are you sending this patch to -stable?  Please do.
+Looks great, applied.
