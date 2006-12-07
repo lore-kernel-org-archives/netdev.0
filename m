@@ -1,115 +1,52 @@
 From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH 1/2] [IrDA] PXA FIR code device model conversion
-Date: Thu, 7 Dec 2006 02:50:53 +0200
-Message-ID: <20061207005053.GA21131@sortiz.org>
+Subject: [PATCH 2/2] [IrDA] Incorrect TTP header reservation
+Date: Thu, 7 Dec 2006 02:51:17 +0200
+Message-ID: <20061207005117.GB21131@sortiz.org>
 Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: irda-users@lists.sourceforge.net,
-	Paul Sokolovsky <pmiscml@gmail.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@osdl.org>
+Cc: jeetlinux@yahoo.co.in, irda-users@lists.sourceforge.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp10.orange.fr ([193.252.22.21]:18436 "EHLO
-	smtp-msa-out10.orange.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S937864AbWLGAu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:50:58 -0500
+Received: from smtp19.orange.fr ([80.12.242.19]:20926 "EHLO
+	smtp-msa-out19.orange.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S937865AbWLGAvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:51:20 -0500
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+We must reserve SAR + MAX_HEADER bytes for IrLMP to fit in.
 
-pxaficp_ir.c was not converted to the device model framework.
-
-Signed-off-by: Paul Sokolovsky <pmiscml@gmail.com>
-Cc: <stable@kernel.org>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
+Patch from Jeet Chaudhuri <jeetlinux@yahoo.co.in>
 Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 ---
- drivers/net/irda/pxaficp_ir.c |   26 +++++++++++++-------------
- 1 files changed, 13 insertions(+), 13 deletions(-)
+ net/irda/irttp.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
-index f9a1c88..9137e23 100644
---- a/drivers/net/irda/pxaficp_ir.c
-+++ b/drivers/net/irda/pxaficp_ir.c
-@@ -704,9 +704,9 @@ static int pxa_irda_stop(struct net_devi
- 	return 0;
- }
+diff --git a/net/irda/irttp.c b/net/irda/irttp.c
+index 252f110..03504f3 100644
+--- a/net/irda/irttp.c
++++ b/net/irda/irttp.c
+@@ -1100,7 +1100,7 @@ int irttp_connect_request(struct tsap_cb
+ 			return -ENOMEM;
  
--static int pxa_irda_suspend(struct device *_dev, pm_message_t state)
-+static int pxa_irda_suspend(struct platform_device *_dev, pm_message_t state)
- {
--	struct net_device *dev = dev_get_drvdata(_dev);
-+	struct net_device *dev = platform_get_drvdata(_dev);
- 	struct pxa_irda *si;
+ 		/* Reserve space for MUX_CONTROL and LAP header */
+-		skb_reserve(tx_skb, TTP_MAX_HEADER);
++		skb_reserve(tx_skb, TTP_MAX_HEADER + TTP_SAR_HEADER);
+ 	} else {
+ 		tx_skb = userdata;
+ 		/*
+@@ -1349,7 +1349,7 @@ int irttp_connect_response(struct tsap_c
+ 			return -ENOMEM;
  
- 	if (dev && netif_running(dev)) {
-@@ -718,9 +718,9 @@ static int pxa_irda_suspend(struct devic
- 	return 0;
- }
- 
--static int pxa_irda_resume(struct device *_dev)
-+static int pxa_irda_resume(struct platform_device *_dev)
- {
--	struct net_device *dev = dev_get_drvdata(_dev);
-+	struct net_device *dev = platform_get_drvdata(_dev);
- 	struct pxa_irda *si;
- 
- 	if (dev && netif_running(dev)) {
-@@ -746,9 +746,8 @@ static int pxa_irda_init_iobuf(iobuff_t 
- 	return io->head ? 0 : -ENOMEM;
- }
- 
--static int pxa_irda_probe(struct device *_dev)
-+static int pxa_irda_probe(struct platform_device *pdev)
- {
--	struct platform_device *pdev = to_platform_device(_dev);
- 	struct net_device *dev;
- 	struct pxa_irda *si;
- 	unsigned int baudrate_mask;
-@@ -822,9 +821,9 @@ err_mem_1:
- 	return err;
- }
- 
--static int pxa_irda_remove(struct device *_dev)
-+static int pxa_irda_remove(struct platform_device *_dev)
- {
--	struct net_device *dev = dev_get_drvdata(_dev);
-+	struct net_device *dev = platform_get_drvdata(_dev);
- 
- 	if (dev) {
- 		struct pxa_irda *si = netdev_priv(dev);
-@@ -840,9 +839,10 @@ static int pxa_irda_remove(struct device
- 	return 0;
- }
- 
--static struct device_driver pxa_ir_driver = {
--	.name		= "pxa2xx-ir",
--	.bus		= &platform_bus_type,
-+static struct platform_driver pxa_ir_driver = {
-+	.driver         = {
-+		.name   = "pxa2xx-ir",
-+	},
- 	.probe		= pxa_irda_probe,
- 	.remove		= pxa_irda_remove,
- 	.suspend	= pxa_irda_suspend,
-@@ -851,12 +851,12 @@ static struct device_driver pxa_ir_drive
- 
- static int __init pxa_irda_init(void)
- {
--	return driver_register(&pxa_ir_driver);
-+	return platform_driver_register(&pxa_ir_driver);
- }
- 
- static void __exit pxa_irda_exit(void)
- {
--	driver_unregister(&pxa_ir_driver);
-+	platform_driver_unregister(&pxa_ir_driver);
- }
- 
- module_init(pxa_irda_init);
+ 		/* Reserve space for MUX_CONTROL and LAP header */
+-		skb_reserve(tx_skb, TTP_MAX_HEADER);
++		skb_reserve(tx_skb, TTP_MAX_HEADER + TTP_SAR_HEADER);
+ 	} else {
+ 		tx_skb = userdata;
+ 		/*
 -- 
 1.4.2.3
 
