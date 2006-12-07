@@ -1,74 +1,87 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 16/16] Spidernet Rework RX linked list
-Date: Wed, 6 Dec 2006 17:51:02 -0600
-Message-ID: <20061206235102.GP4649@austin.ibm.com>
-References: <20061206223223.GH17931@austin.ibm.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] softmac: Fixed handling of deassociation from AP
+Date: Wed, 06 Dec 2006 18:36:56 -0600
+Message-ID: <45776228.2050005@lwfinger.net>
+References: <4576D778.mailLQC18T1PN@lwfinger.net> <200612062152.36475.mb@bu3sch.de> <20061206215101.GA24100@p15091797.pureserver.info> <200612062351.07016.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Geoff Levand <geoffrey.levand@am.sony.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>,
+	John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:49503 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937816AbWLFXvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Dec 2006 18:51:08 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kB6NpUo2003999
-	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:51:30 -0500
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kB6Np3kg210894
-	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:51:03 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kB6Np2Il025882
-	for <netdev@vger.kernel.org>; Wed, 6 Dec 2006 18:51:03 -0500
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061206223223.GH17931@austin.ibm.com>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:42567 "EHLO
+	mtiwmhc13.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S937841AbWLGAh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Dec 2006 19:37:26 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200612062351.07016.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Michael Buesch wrote:
+> On Wednesday 06 December 2006 22:51, Ulrich Kunitz wrote:
+>> On 06-12-06 21:52 Michael Buesch wrote:
+>>
+>>> On Wednesday 06 December 2006 21:17, Ulrich Kunitz wrote:
+>>>> On 06-12-06 18:52 Michael Buesch wrote:
+>>>>
+>>>>> All data in mac->associnfo is protected by mac->associnfo->mutex
+>>>>> and _not_ mac->lock.
+>>>> Are you sure?
+>>> Yes I am.
+>>>
+>>>> One can find for instance the following function in 
+>>>> ieee80211softmac_assoc.c:
+>>> This is not the first time we notice that locking
+>>> is completely broken in softmac. ;)
+>> So the right thing would be to add another work function
+>> (*_start_reassoc_work) which sets the associating variable and
+>> calls then *_assoc_work? 
+> 
+> Ah, well. I think the right thing doesn't exist.
+> Even if you replace the lock by the mutex, it's still racy.
+> The whole lock design of softmac is broken and racy and we
+> can't simply fix that with a oneliner.
+> 
+> I'd say, John, apply the original patch as-is, as it does
+> more good than harm.
+> 
+> Basically, I just wanted to point out that this is not race-free.
+> But I think we can live with it.
 
-Make the hardware perceive the RX descriptor ring as a 
-null-terminated linked list, instead of a circular ring.
+In struct ieee80211softmac_device, there are the following entries:
+...
+	spinlock_t lock;
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: James K Lewis <jklewis@us.ibm.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
+         u8 running; /* SoftMAC started? */
+         u8 scanning;
 
-----
- drivers/net/spider_net.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+         struct ieee80211softmac_scaninfo *scaninfo;
+         struct ieee80211softmac_assoc_info associnfo;
+         struct ieee80211softmac_bss_info bssinfo;
+...
 
-Index: linux-2.6.19-git7/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.19-git7.orig/drivers/net/spider_net.c	2006-12-06 16:03:20.000000000 -0600
-+++ linux-2.6.19-git7/drivers/net/spider_net.c	2006-12-06 16:05:48.000000000 -0600
-@@ -389,9 +389,13 @@ spider_net_prepare_rx_descr(struct spide
- 		card->spider_stats.rx_iommu_map_error++;
- 		descr->dmac_cmd_status = SPIDER_NET_DESCR_NOT_IN_USE;
- 	} else {
-+		descr->next_descr_addr = 0;
- 		wmb();
- 		descr->dmac_cmd_status = SPIDER_NET_DESCR_CARDOWNED |
- 					 SPIDER_NET_DMAC_NOINTR_COMPLETE;
-+
-+		wmb();
-+		descr->prev->next_descr_addr = descr->bus_addr;
- 	}
- 
- 	return 0;
-@@ -1676,12 +1680,6 @@ spider_net_open(struct net_device *netde
- 					+ card->num_tx_desc * sizeof(struct spider_net_descr),
- 	                          card->num_rx_desc);
- 
--	descr = card->rx_chain.head;
--	do {
--		descr->next_descr_addr = descr->next->bus_addr;
--		descr = descr->next;
--	} while (descr != card->rx_chain.head);
--
- 	/* allocate rx skbs */
- 	if (spider_net_alloc_rx_skbs(card))
- 		goto alloc_skbs_failed;
+In struct ieee80211softmac_assoc_info, we have the following entries:
+
+         struct mutex mutex;
+         struct ieee80211softmac_essid associate_essid;
+         char bssid[ETH_ALEN];
+         u8 static_essid;
+         u8 short_preamble_available;
+         u8 associating;
+         u8 associated;
+         u8 assoc_wait;
+         u8 bssvalid;
+         u8 bssfixed;
+
+Although it has been amply demonstrated in this forum that I know nothing about locking, it seems to 
+me that the mutex protects only the association data; whereas the spinlock protects more data, but 
+does include the association data. If this is correct, then the original posted code is not wrong, 
+only protecting data unnecessarily.
+
+Please point out the error in my logic. I'm trying to learn.
+
+Larry
+
+
