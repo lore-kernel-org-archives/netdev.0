@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
- expected EINVAL/ENOTTY
-Date: Fri, 08 Dec 2006 13:36:33 -0800 (PST)
-Message-ID: <20061208.133633.77400985.davem@davemloft.net>
-References: <20061208095055.38fef768@localhost>
+From: Daniel Jacobowitz <drow@false.org>
+Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour  bits
+Date: Fri, 8 Dec 2006 16:36:14 -0500
+Message-ID: <20061208213614.GA28903@nevyn.them.org>
+References: <20061207.025140.75779834.davem@davemloft.net> <20061207105502.GJ8693@postel.suug.ch> <200612081526.12651.stefan@loplof.de> <20061208.133334.55725556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stefan@loplof.de, tgraf@suug.ch, dwmw2@infradead.org,
+	joseph@codesourcery.com, netdev@vger.kernel.org,
+	libc-alpha@sourceware.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45083
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1947306AbWLHVgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 16:36:22 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061208095055.38fef768@localhost>
+Received: from nevyn.them.org ([66.93.172.17]:58485 "EHLO nevyn.them.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1947309AbWLHVgd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 16:36:33 -0500
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20061208.133334.55725556.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 8 Dec 2006 09:50:55 -0800
+On Fri, Dec 08, 2006 at 01:33:34PM -0800, David Miller wrote:
+> From: Stefan Rompf <stefan@loplof.de>
+> Date: Fri, 8 Dec 2006 15:25:18 +0100 (MET)
+> 
+> > The _RTA and _PAYLOAD-macros are also part of userspace headers and need to be
+> > restored. Both dhcpclient and quagga need at least IFA_RTA and IFLA_RTA to
+> > compile, but there may be more macros than in the following patch. You may want
+> > to look at keepalived, iproute, ...
+> 
+> Those are not coming back, sorry.  They are really broken
+> and usage is extremely discouraged.
+> 
+> iproute got fixed, dhcpclient and friends should get fixed to not use
+> them either
 
-> ioctl(TCSBRK,1)	errno
-> pty		0
-> pipe		22/EINVAL
-> /dev/null	25/ENOTTY
-> reg_file	25/ENOTTY
-> socket		14/EFAULT
+Does this mean glibc should also?
 
-If you call a TTY ioctl on a socket, it might not work, don't
-you think?
-
-ioctl values are numbered in the namespace of the object they are
-called upon, so an ioctl of value X can mean something different for a
-TTY than it does for socket.
-
-You're passing a garbage pointer to whatever socket ioctl happens
-to be aliased to the same value as TCSBRK on your platform.
+-- 
+Daniel Jacobowitz
+CodeSourcery
