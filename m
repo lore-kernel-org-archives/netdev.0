@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 12/22] e1000: Fix powerdown link loss when forced to gig speed
-Date: Fri, 08 Dec 2006 15:03:11 -0800
-Message-ID: <20061208230311.30109.32860.stgit@gitlost.site>
+Subject: [PATCH 15/22] e1000: simplify msi specific interrupt handler
+Date: Fri, 08 Dec 2006 15:03:18 -0800
+Message-ID: <20061208230318.30109.63413.stgit@gitlost.site>
 References: <20061208230209.30109.49157.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,53 +9,121 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:4388 "EHLO gitlost.site"
+Received: from [63.64.152.142] ([63.64.152.142]:4391 "EHLO gitlost.site"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761264AbWLHWxF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 17:53:05 -0500
+	id S1761262AbWLHWxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 17:53:55 -0500
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20061208230209.30109.49157.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-disable phy power mode to prevent the NIC from attempting to autoneg
-to i10/100mbit when running in forced gig mode as it would lose link at
-shutdown. This allows you to force gig speed and still use WoL/IPMI
-after shutdow.
+Simplify the msi interrupt handler to avoid issues with delayed ICR reads.
+This avoids adapter specific problems at the cost of some performance.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ drivers/net/e1000/e1000.h      |    1 -
+ drivers/net/e1000/e1000_main.c |   60 +++++++++++++---------------------------
+ 2 files changed, 19 insertions(+), 42 deletions(-)
 
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index f091042..8e7acb0 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -257,7 +257,6 @@ struct e1000_adapter {
+ 	spinlock_t tx_queue_lock;
+ #endif
+ 	atomic_t irq_sem;
+-	unsigned int detect_link;
+ 	unsigned int total_tx_bytes;
+ 	unsigned int total_tx_packets;
+ 	unsigned int total_rx_bytes;
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index c5c764f..9ddcadd 100644
+index 67fc379..cb6b732 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -819,6 +819,20 @@ e1000_reset(struct e1000_adapter *adapte
- 	if (e1000_init_hw(&adapter->hw))
- 		DPRINTK(PROBE, ERR, "Hardware Error\n");
- 	e1000_update_mng_vlan(adapter);
-+
-+	/* if (adapter->hwflags & HWFLAGS_PHY_PWR_BIT) { */
-+	if (adapter->hw.mac_type >= e1000_82544 &&
-+	    adapter->hw.mac_type <= e1000_82547_rev_2 &&
-+	    adapter->hw.autoneg == 1 &&
-+	    adapter->hw.autoneg_advertised == ADVERTISE_1000_FULL) {
-+		uint32_t ctrl = E1000_READ_REG(&adapter->hw, CTRL);
-+		/* clear phy power management bit if we are in gig only mode,
-+		 * which if enabled will attempt negotiation to 100Mb, which
-+		 * can cause a loss of link at power off or driver unload */
-+		ctrl &= ~E1000_CTRL_SWDPIN3;
-+		E1000_WRITE_REG(&adapter->hw, CTRL, ctrl);
-+	}
-+
- 	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
- 	E1000_WRITE_REG(&adapter->hw, VET, ETHERNET_IEEE_VLAN_TYPE);
+@@ -3778,8 +3778,8 @@ e1000_update_stats(struct e1000_adapter 
+  * @data: pointer to a network interface device structure
+  **/
  
+-static
+-irqreturn_t e1000_intr_msi(int irq, void *data)
++static irqreturn_t
++e1000_intr_msi(int irq, void *data)
+ {
+ 	struct net_device *netdev = data;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+@@ -3787,49 +3787,27 @@ irqreturn_t e1000_intr_msi(int irq, void
+ #ifndef CONFIG_E1000_NAPI
+ 	int i;
+ #endif
++	uint32_t icr = E1000_READ_REG(hw, ICR);
+ 
+-	/* this code avoids the read of ICR but has to get 1000 interrupts
+-	 * at every link change event before it will notice the change */
+-	if (++adapter->detect_link >= 1000) {
+-		uint32_t icr = E1000_READ_REG(hw, ICR);
+ #ifdef CONFIG_E1000_NAPI
+-		/* read ICR disables interrupts using IAM, so keep up with our
+-		 * enable/disable accounting */
+-		atomic_inc(&adapter->irq_sem);
++	/* read ICR disables interrupts using IAM, so keep up with our
++	 * enable/disable accounting */
++	atomic_inc(&adapter->irq_sem);
+ #endif
+-		adapter->detect_link = 0;
+-		if ((icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) &&
+-		    (icr & E1000_ICR_INT_ASSERTED)) {
+-			hw->get_link_status = 1;
+-			/* 80003ES2LAN workaround--
+-			* For packet buffer work-around on link down event;
+-			* disable receives here in the ISR and
+-			* reset adapter in watchdog
+-			*/
+-			if (netif_carrier_ok(netdev) &&
+-			    (adapter->hw.mac_type == e1000_80003es2lan)) {
+-				/* disable receives */
+-				uint32_t rctl = E1000_READ_REG(hw, RCTL);
+-				E1000_WRITE_REG(hw, RCTL, rctl & ~E1000_RCTL_EN);
+-			}
+-			/* guard against interrupt when we're going down */
+-			if (!test_bit(__E1000_DOWN, &adapter->flags))
+-				mod_timer(&adapter->watchdog_timer,
+-				          jiffies + 1);
++	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
++		hw->get_link_status = 1;
++		/* 80003ES2LAN workaround-- For packet buffer work-around on
++		 * link down event; disable receives here in the ISR and reset
++		 * adapter in watchdog */
++		if (netif_carrier_ok(netdev) &&
++		    (adapter->hw.mac_type == e1000_80003es2lan)) {
++			/* disable receives */
++			uint32_t rctl = E1000_READ_REG(hw, RCTL);
++			E1000_WRITE_REG(hw, RCTL, rctl & ~E1000_RCTL_EN);
+ 		}
+-	} else {
+-		E1000_WRITE_REG(hw, ICR, (0xffffffff & ~(E1000_ICR_RXSEQ |
+-		                                         E1000_ICR_LSC)));
+-		/* bummer we have to flush here, but things break otherwise as
+-		 * some event appears to be lost or delayed and throughput
+-		 * drops.  In almost all tests this flush is un-necessary */
+-		E1000_WRITE_FLUSH(hw);
+-#ifdef CONFIG_E1000_NAPI
+-		/* Interrupt Auto-Mask (IAM)...upon writing ICR, interrupts are
+-		 * masked.  No need for the IMC write, but it does mean we
+-		 * should account for it ASAP. */
+-		atomic_inc(&adapter->irq_sem);
+-#endif
++		/* guard against interrupt when we're going down */
++		if (!test_bit(__E1000_DOWN, &adapter->flags))
++			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 	}
+ 
+ #ifdef CONFIG_E1000_NAPI
 
 
 
