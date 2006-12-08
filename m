@@ -1,53 +1,59 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
- expected EINVAL/ENOTTY
-Date: Fri, 8 Dec 2006 14:00:21 -0800
-Message-ID: <20061208140021.27e9ab2d@freekitty>
-References: <20061208095055.38fef768@localhost>
-	<20061208.133633.77400985.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 3/16] Spidernet RX Locking
+Date: Sat, 09 Dec 2006 09:47:05 +1100
+Message-ID: <1165618025.1103.85.camel@localhost.localdomain>
+References: <20061206223223.GH17931@austin.ibm.com>
+	 <20061206233134.GC4649@austin.ibm.com> <4577E850.6040500@pobox.com>
+	 <20061207175046.GB4614@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	James K Lewis <jklewis@us.ibm.com>, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:42261 "EHLO smtp.osdl.org"
+Received: from gate.crashing.org ([63.228.1.57]:34695 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1947415AbWLHWAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 17:00:25 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061208.133633.77400985.davem@davemloft.net>
+	id S1761248AbWLHWrg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 17:47:36 -0500
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20061207175046.GB4614@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 08 Dec 2006 13:36:33 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+A spinlock is expensive in the fast path, which is why Jeff says it's
+invasive.
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Fri, 8 Dec 2006 09:50:55 -0800
+> spider_net_decode_one_descr() is called from
+> spider_net_poll() (which is the netdev->poll callback)
+> and also from spider_net_handle_rxram_full(). 
 > 
-> > ioctl(TCSBRK,1)	errno
-> > pty		0
-> > pipe		22/EINVAL
-> > /dev/null	25/ENOTTY
-> > reg_file	25/ENOTTY
-> > socket		14/EFAULT
+> The rxramfull routine is called from a tasklet that
+> is fired off after a "RX ram full" interrupt is receved.
+> This interrupt is generated when the hardware runs out
+> of space to store incoming packets. We are seeing this
+> interrupt fire when the CPU is heavily loaded, and a
+> lot of traffic is being fired at the device.
+
+How often does that interrupt happen in that case ?
+
+A better approach is to keep the fast path (ie. poll()) lockless, and in
+handle_rxram_full(), the slow path, protect against poll using
+netif_disable_poll(). Though that means using a work queue, not a
+tasklet, since it needs to schedule.
+
+> > and what other 
+> > non-sledgehammer approaches were discarded before arriving at this one?
 > 
-> If you call a TTY ioctl on a socket, it might not work, don't
-> you think?
-> 
-> ioctl values are numbered in the namespace of the object they are
-> called upon, so an ioctl of value X can mean something different for a
-> TTY than it does for socket.
+> Well, I'm not that good at kernel programming, so I guess
+> I did not perceive this as a "sledgehammer."  And alternative
+> approach is to simply ignore the rxramfull interrupt entirely,
+> and depend on poll() do all the work.   I'll try this shortly.
 
-That is not true on BSD or other unix standardish ioctl's.
-There are no conflicts between the TIOC... values and the SIOC... values
+or you can schedule rx work from the rxramfull interrupt after setting a
+"something bad happened" flag. Then, poll can check this flag and do the
+right thing.
 
-> You're passing a garbage pointer to whatever socket ioctl happens
-> to be aliased to the same value as TCSBRK on your platform.
+Ben.
 
-It's not the garbage pointer. 
 
-Seems like one of those annoying standards compliance test
-return value bugs that shouldn't really hit an application.
--- 
-Stephen Hemminger <shemminger@osdl.org>
