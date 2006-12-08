@@ -1,112 +1,72 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Marvell Libertas wifi
-Date: Fri, 08 Dec 2006 08:17:24 -0500
-Message-ID: <1165583844.3075.10.camel@localhost.localdomain>
-References: <a728f9f90612070932x72e1d25u82ed3ea92984ccfc@mail.gmail.com>
-	 <1165527420.5482.26.camel@localhost.localdomain>
-	 <a728f9f90612072203h77cb388eq465ad7487c7452b0@mail.gmail.com>
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: [PATCH] MACB: Use struct delayed_work instead of struct work_struct
+Date: Fri, 8 Dec 2006 14:37:35 +0100
+Message-ID: <20061208143735.7050553a@dhcp-252-105.norway.atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Patrice Vilchez <patrice.vilchez@rfo.atmel.com>,
+	Andrew Victor <andrew@sanpeople.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35485 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760700AbWLHNPX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 08:15:23 -0500
-To: Alex Deucher <alexdeucher@gmail.com>
-In-Reply-To: <a728f9f90612072203h77cb388eq465ad7487c7452b0@mail.gmail.com>
+Received: from nat-132.atmel.no ([80.232.32.132]:51369 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758606AbWLHNiE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 08:38:04 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-12-08 at 01:03 -0500, Alex Deucher wrote:
-> On 12/7/06, Dan Williams <dcbw@redhat.com> wrote:
-> > On Thu, 2006-12-07 at 12:32 -0500, Alex Deucher wrote:
-> > > I just wanted to check on the status of the libertas driver from
-> > > Marvell for the OLPC project.  I haven't really been able to find out
-> >
-> > The driver needs quite a bit of love.  It's only been used for embedded
-> > devices so far and has quite a few NDIS-isms sprinkled throughout.  It's
-> > also something like 30,000 LoC, which is completely bogus.  There's no
-> > reason it should be that large given that it's a FullMAC-type part.
-> >
-> > We're slowly working on cleaning it up for submission to the kernel.
-> > That process will probably take until after the holidays.  We are
-> > removing unused code/defines, cleaning up WEXT compliance, making
-> > operations like association and scanning asynchronous, converting
-> > private IOCTLs to debugfs, fixing the power-saving code, and adding
-> > draft 802.11s wireless mesh functionality to the firmware and the
-> > driver.
-> >
-> > Are you developing a device based on the 8388?  AFAIK, the chip does not
-> > appear in any consumer devices that are generally available to the
-> > public, and certainly isn't sold to Linksys or DLink for consumer USB
-> > dongles.  It does show up in embedded situations like the Nokia N80
-> > mobile phone and a few other small gadgets like that.
-> >
-> > > much about this driver other than the commits to the olpc and
-> > > infradead libertas git trees.  The olpc laptop uses the usb interface
-> >
-> > Correct; the 8388 module is connected directly to the USB traces coming
-> > out of the 5536 Geode companion chip on the OLPC motherboard.
-> >
-> > > and that seems to be what is supported at the moment (although some
-> > > comments in the code allude to pci and sdio interfaces as well).  Does
-> >
-> > Yes; the part evidently has other interface variants, though code for
-> > those variants was not provided in the initial driver sources which
-> > Marvell GPL-ed in April.
-> >
-> > > anyone know what the plan is for merging this driver into mainline?
-> > > What about pci support?  Did Marvell donate any code for the PCI
-> > > interface? If not how hard would it be to add PCI support?  I
-> >
-> > No code for PCI was donated, and we don't have any 8388 PCI cards at
-> > OLPC.
-> >
-> > > requested databooks from Marvell months ago, but never got anywhere.
-> > > I'd like to see better support for this chip and would be willing to
-> > > help out.  Any updates would be much appreciated.
-> >
-> > Be aware that I _think_ there are a few chips in the Libertas line; we
-> > are using the 8388.  The current driver only supports that specific
-> > part.
-> >
-> > That said, if you've got hardware, we'd love patches, certainly accept
-> > patches that provided PCI support and fixed bugs in the driver.  We may
-> > also be able to provide USB 8388 reference dongles for people willing to
-> > help out with the development of the driver.
-> >
-> 
-> Yes, that appears to be the case.  I just wasn't sure how
-> similar/dissimilar they are.  I have a 11ab:1fa7 on my motherboard,
-> and I've seen quite a few Marvel chips floating around on cardbus and
-> pci cards.  I'm hoping the cores are pretty similar and one could just
-> add some pci glue to make the olpc driver work.  Does anyone at the
-> olpc have any contacts at Marvell that could clarify the situation or
-> might know if they are willing to release the code for the pci
-> variants, etc.?
+The macb driver calls schedule_delayed_work() and friends, so we need
+to use a struct delayed_work along with it. The conversion was
+explained by David Howells on lkml Dec 5 2006:
 
-What's the numbers on the chip?  We know that the _8338_ part (which
-may/may not be part of the Libertas family, we're not sure) doesn't
-work, and that's shipping on USB dongles from Linksys.  If you could get
-a bit more info off the surface of the chip, that would help.  The 8338
-part, for example, has a different firmware load sequence and a
-different sized RAM than the 8388 which we're using, and is incompatible
-with the current driver.
+http://lkml.org/lkml/2006/12/5/269
 
-Dan
+Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
+---
+ drivers/net/macb.c |    6 +++---
+ drivers/net/macb.h |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-> Thanks,
-> 
-> Alex
-> 
-> > Cheers,
-> > Dan
-> >
-> > > Thanks,
-> > >
-> > > Alex
-> > >
-> > > PS, please CC: me on replies as I'm not on this list.
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index bd0ce98..3496d19 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -267,9 +267,9 @@ static void macb_update_stats(struct mac
+ 		*p += readl(reg);
+ }
+ 
+-static void macb_periodic_task(void *arg)
++static void macb_periodic_task(struct work_struct *work)
+ {
+-	struct macb *bp = arg;
++	struct macb *bp = container_of(work, struct macb, periodic_task.work);
+ 
+ 	macb_update_stats(bp);
+ 	macb_check_media(bp, 1, 0);
+@@ -1088,7 +1088,7 @@ static int __devinit macb_probe(struct p
+ 
+ 	dev->base_addr = regs->start;
+ 
+-	INIT_WORK(&bp->periodic_task, macb_periodic_task, bp);
++	INIT_DELAYED_WORK(&bp->periodic_task, macb_periodic_task);
+ 	mutex_init(&bp->mdio_mutex);
+ 	init_completion(&bp->mdio_complete);
+ 
+diff --git a/drivers/net/macb.h b/drivers/net/macb.h
+index 8c253db..e3fcb2e 100644
+--- a/drivers/net/macb.h
++++ b/drivers/net/macb.h
+@@ -377,7 +377,7 @@ struct macb {
+ 
+ 	unsigned int		rx_pending, tx_pending;
+ 
+-	struct work_struct	periodic_task;
++	struct delayed_work	periodic_task;
+ 
+ 	struct mutex		mdio_mutex;
+ 	struct completion	mdio_complete;
+-- 
+1.4.3.3
 
