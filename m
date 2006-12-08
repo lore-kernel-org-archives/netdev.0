@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 07/22] e1000: omit stats for broken counter in 82543
-Date: Fri, 08 Dec 2006 15:02:59 -0800
-Message-ID: <20061208230259.30109.29745.stgit@gitlost.site>
+Subject: [PATCH 13/22] e1000: disable TSO when debugging slab
+Date: Fri, 08 Dec 2006 15:03:13 -0800
+Message-ID: <20061208230313.30109.28746.stgit@gitlost.site>
 References: <20061208230209.30109.49157.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,43 +9,44 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:4383 "EHLO gitlost.site"
+Received: from [63.64.152.142] ([63.64.152.142]:4389 "EHLO gitlost.site"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761247AbWLHWxB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 17:53:01 -0500
+	id S1761261AbWLHWxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 17:53:08 -0500
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20061208230209.30109.49157.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-82543 does not count tx_carrier_errors properly in FD mode.
+CONFIG_DEBUG_SLAB kills TSO on the 82544, so we're better off turing TSO
+off in this rare case, assuming performance is not an issue for people
+running slab debugging.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/net/e1000/e1000_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index dc76e01..7639b4d 100644
+index 9ddcadd..12f9f61 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -3592,7 +3592,12 @@ e1000_update_stats(struct e1000_adapter 
- 	adapter->net_stats.tx_errors = adapter->stats.txerrc;
- 	adapter->net_stats.tx_aborted_errors = adapter->stats.ecol;
- 	adapter->net_stats.tx_window_errors = adapter->stats.latecol;
--	adapter->net_stats.tx_carrier_errors = adapter->stats.tncrs;
-+	if (adapter->hw.mac_type == e1000_82543 &&
-+	    adapter->link_duplex == FULL_DUPLEX) {
-+		adapter->net_stats.tx_carrier_errors = 0;
-+		adapter->stats.tncrs = 0;
-+	} else
-+		adapter->net_stats.tx_carrier_errors = adapter->stats.tncrs;
+@@ -998,6 +998,12 @@ e1000_probe(struct pci_dev *pdev,
+ 	   (adapter->hw.mac_type != e1000_82547))
+ 		netdev->features |= NETIF_F_TSO;
  
- 	/* Tx Dropped needs to be maintained elsewhere */
- 
++#ifdef CONFIG_DEBUG_SLAB
++	/* 82544's work arounds do not play nicely with DEBUG SLAB */
++	if (adapter->hw.mac_type == e1000_82544)
++		netdev->features &= ~NETIF_F_TSO;
++#endif
++
+ #ifdef NETIF_F_TSO6
+ 	if (adapter->hw.mac_type > e1000_82547_rev_2)
+ 		netdev->features |= NETIF_F_TSO6;
 
 
 
