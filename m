@@ -1,56 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NET_SCHED] sch_htb: turn intermediate classes into
- leaves
-Date: Fri, 08 Dec 2006 00:27:23 -0800 (PST)
-Message-ID: <20061208.002723.118951657.davem@davemloft.net>
-References: <456ECDFA.9080207@trash.net>
-	<20061130125040.GB2081@ff.dom.local>
-	<456ED8C0.4020608@trash.net>
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Subject: Re: 'embedded people' and the 'embedded world' (was: Re: [RFC patch] driver for the Opencores Ethernet Controller)
+Date: Fri, 8 Dec 2006 11:00:31 +0100
+Message-ID: <20061208100031.GU6778@pengutronix.de>
+References: <200612041801.kB4I11F4018165@oogie-boogie.ics.uci.edu> <20061204180734.GA21561@xi.wantstofly.org> <200612041827.kB4IRqrW019090@oogie-boogie.ics.uci.edu> <20061205002936.GA23400@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@o2.pl, netdev@vger.kernel.org, devik@cdi.cz
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Dan Nicolaescu <dann@ics.uci.edu>, netdev@vger.kernel.org,
+	linux-arm@lists.arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50382
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1425163AbWLHI1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 03:27:09 -0500
-To: kaber@trash.net
-In-Reply-To: <456ED8C0.4020608@trash.net>
+Received: from metis.extern.pengutronix.de ([83.236.181.26]:44575 "EHLO
+	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1425306AbWLHKAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 05:00:40 -0500
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Disposition: inline
+In-Reply-To: <20061205002936.GA23400@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 30 Nov 2006 14:12:32 +0100
+Lennert,
 
-> Jarek Poplawski wrote:
-> > On Thu, Nov 30, 2006 at 01:26:34PM +0100, Patrick McHardy wrote:
-> > 
-> >>Jarek Poplawski wrote:
-> >>
-> >>>[NET_SCHED] sch_htb:
-> >>>
-> >>>[PATCH 2.6.19-rc6 with "Fix endless loops" set of patches]
-> >>>
-> >>>- turn intermediate classes into leaves again when their
-> >>>  last child is deleted (struct htb_class changed)
-> >>
-> >>Looks good to me too, but it still seems to be missing
-> >>class level adjustment after deletion. The classification
-> >>function refuses to queue packets to classes with level > 0.
-> > 
-> > 
-> > +static void htb_parent_to_leaf(struct htb_class *cl, struct Qdisc *new_q)
-> > +{
-> > +	struct htb_class *parent = cl->parent;
-> > +
-> > +	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
-> > +
-> > +	parent->level = 0;
-> > 
-> > I've thought this is enough, but probably you mean something
-> > else? 
-> 
-> I missed that, thanks.
+On Tue, Dec 05, 2006 at 01:29:36AM +0100, Lennert Buytenhek wrote:
+> BTW (and this is not specifically directed to you.)
 
-Patch applied, thanks again.
+One cannot say this loud enough.
+
+Acked-By: Robert Schwebel <r.schwebel@pengutronix.de>
+
+Robert
+-- 
+ Dipl.-Ing. Robert Schwebel | http://www.pengutronix.de
+ Pengutronix - Linux Solutions for Science and Industry
+   Handelsregister:  Amtsgericht Hildesheim, HRA 2686
+     Hannoversche Str. 2, 31134 Hildesheim, Germany
+   Phone: +49-5121-206917-0 |  Fax: +49-5121-206917-9
+
