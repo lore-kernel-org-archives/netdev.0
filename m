@@ -1,59 +1,86 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 3/16] Spidernet RX Locking
-Date: Sat, 09 Dec 2006 09:47:05 +1100
-Message-ID: <1165618025.1103.85.camel@localhost.localdomain>
-References: <20061206223223.GH17931@austin.ibm.com>
-	 <20061206233134.GC4649@austin.ibm.com> <4577E850.6040500@pobox.com>
-	 <20061207175046.GB4614@austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	James K Lewis <jklewis@us.ibm.com>, linuxppc-dev@ozlabs.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH 00/22] ixgb, e1000 fixes
+Date: Fri, 08 Dec 2006 15:02:09 -0800
+Message-ID: <20061208230209.30109.49157.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:34695 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761248AbWLHWrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 17:47:36 -0500
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20061207175046.GB4614@austin.ibm.com>
+Received: from [63.64.152.142] ([63.64.152.142]:4351 "EHLO gitlost.site"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1761251AbWLHWwC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 17:52:02 -0500
+To: "Garzik, Jeff" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A spinlock is expensive in the fast path, which is why Jeff says it's
-invasive.
 
-> spider_net_decode_one_descr() is called from
-> spider_net_poll() (which is the netdev->poll callback)
-> and also from spider_net_handle_rxram_full(). 
-> 
-> The rxramfull routine is called from a tasklet that
-> is fired off after a "RX ram full" interrupt is receved.
-> This interrupt is generated when the hardware runs out
-> of space to store incoming packets. We are seeing this
-> interrupt fire when the CPU is heavily loaded, and a
-> lot of traffic is being fired at the device.
+Hi,
 
-How often does that interrupt happen in that case ?
+This patch series contains exclusively fixes for ixgb and e1000. Most
+importantly, it addresses two issues in the recently merged msi interrupt
+handler and dynamic itr code, as well as some major manageability
+feature handling code.
 
-A better approach is to keep the fast path (ie. poll()) lockless, and in
-handle_rxram_full(), the slow path, protect against poll using
-netif_disable_poll(). Though that means using a work queue, not a
-tasklet, since it needs to schedule.
+These patches apply against netdev-2.6 #upstream-linus commit
+0ae851352a87db3f829511816a2da227860bf585. Please pull:
 
-> > and what other 
-> > non-sledgehammer approaches were discarded before arriving at this one?
-> 
-> Well, I'm not that good at kernel programming, so I guess
-> I did not perceive this as a "sledgehammer."  And alternative
-> approach is to simply ignore the rxramfull interrupt entirely,
-> and depend on poll() do all the work.   I'll try this shortly.
+git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-linus
 
-or you can schedule rx work from the rxramfull interrupt after setting a
-"something bad happened" flag. Then, poll can check this flag and do the
-right thing.
+to receive them.
 
-Ben.
+Cheers,
+
+Auke
+
+---
+Bruce Allan <bruce.w.allan@intel.com>:
+     e1000: Fix PBA allocation calculations
+     e1000: set max frame size before enabling new link settings
+
+Jesse Brandeburg <jesse.brandeburg@intel.com>:
+     e1000: Fix early TSO completion
+     ixgb: Maybe stop TX if not enough free descriptors
+     e1000: dynamic itr code fixes
+     e1000: minor tso ipv6 cleanups
+     e1000: omit stats for broken counter in 82543
+     e1000: Fix all manageability workarounds
+     e1000: Make copybreak parameter changeable by user.
+     e1000: Fire a link even interrupt instead of a watchdog at init.
+     e1000: Fix powerdown link loss when forced to gig speed
+     e1000: disable TSO when debugging slab
+     e1000: always turn on receives on esb2
+     e1000: simplify msi specific interrupt handler
+     e1000: Rewrite parm handling code to warn when forcing autoneg to gig only.
+     e1000: Don't set tipg (fiber) timings for pci-e adapters to fix fiber output
+     e1000: Fix poor quad port performance with NAPI
+
+Jeff Kirsher <jeffrey.t.kirsher@intel.com>:
+     e1000: For older adapters, we know that the pci bus type is pci.
+
+Auke Kok <auke-jan.h.kok@intel.com>:
+     e1000: display FC link properties
+     e1000: Version increment 7.3.20-k2 and minor cleanups
+
+Aaron Salter <aaron.k.salter@intel.com>:
+     ixgb: Write RA register high word first, increment version
+
+---
+ drivers/net/e1000/e1000.h         |    7 +-
+ drivers/net/e1000/e1000_ethtool.c |    3 +
+ drivers/net/e1000/e1000_hw.c      |   59 +++---
+ drivers/net/e1000/e1000_hw.h      |    2 +
+ drivers/net/e1000/e1000_main.c    |  455 ++++++++++++++++++++++++-------------
+ drivers/net/e1000/e1000_osdep.h   |    9 +-
+ drivers/net/e1000/e1000_param.c   |   19 +-
+ drivers/net/ixgb/ixgb.h           |    1 +
+ drivers/net/ixgb/ixgb_ethtool.c   |    1 +
+ drivers/net/ixgb/ixgb_hw.c        |    3 +-
+ drivers/net/ixgb/ixgb_main.c      |   60 +++++-
+ 11 files changed, 398 insertions(+), 221 deletions(-)
 
 
+---
+Auke Kok <auke-jan.h.kok@intel.com>
