@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour
- bits
-Date: Fri, 08 Dec 2006 13:33:34 -0800 (PST)
-Message-ID: <20061208.133334.55725556.davem@davemloft.net>
-References: <20061207.025140.75779834.davem@davemloft.net>
-	<20061207105502.GJ8693@postel.suug.ch>
-	<200612081526.12651.stefan@loplof.de>
+Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
+ expected EINVAL/ENOTTY
+Date: Fri, 08 Dec 2006 13:36:33 -0800 (PST)
+Message-ID: <20061208.133633.77400985.davem@davemloft.net>
+References: <20061208095055.38fef768@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, dwmw2@infradead.org, joseph@codesourcery.com,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39552
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45083
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1947276AbWLHVdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 16:33:24 -0500
-To: stefan@loplof.de
-In-Reply-To: <200612081526.12651.stefan@loplof.de>
+	by vger.kernel.org with ESMTP id S1947306AbWLHVgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 16:36:22 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061208095055.38fef768@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Rompf <stefan@loplof.de>
-Date: Fri, 8 Dec 2006 15:25:18 +0100 (MET)
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 8 Dec 2006 09:50:55 -0800
 
-> The _RTA and _PAYLOAD-macros are also part of userspace headers and need to be
-> restored. Both dhcpclient and quagga need at least IFA_RTA and IFLA_RTA to
-> compile, but there may be more macros than in the following patch. You may want
-> to look at keepalived, iproute, ...
+> ioctl(TCSBRK,1)	errno
+> pty		0
+> pipe		22/EINVAL
+> /dev/null	25/ENOTTY
+> reg_file	25/ENOTTY
+> socket		14/EFAULT
 
-Those are not coming back, sorry.  They are really broken
-and usage is extremely discouraged.
+If you call a TTY ioctl on a socket, it might not work, don't
+you think?
 
-iproute got fixed, dhcpclient and friends should get fixed to not use
-them either
+ioctl values are numbered in the namespace of the object they are
+called upon, so an ioctl of value X can mean something different for a
+TTY than it does for socket.
 
+You're passing a garbage pointer to whatever socket ioctl happens
+to be aliased to the same value as TCSBRK on your platform.
