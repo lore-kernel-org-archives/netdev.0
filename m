@@ -1,49 +1,53 @@
-From: Daniel Jacobowitz <drow@false.org>
-Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour bits
-Date: Fri, 8 Dec 2006 16:52:06 -0500
-Message-ID: <20061208215206.GA29601@nevyn.them.org>
-References: <200612081526.12651.stefan@loplof.de> <20061208.133334.55725556.davem@davemloft.net> <20061208213614.GA28903@nevyn.them.org> <20061208.134752.131916271.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
+ expected EINVAL/ENOTTY
+Date: Fri, 8 Dec 2006 14:00:21 -0800
+Message-ID: <20061208140021.27e9ab2d@freekitty>
+References: <20061208095055.38fef768@localhost>
+	<20061208.133633.77400985.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefan@loplof.de, tgraf@suug.ch, dwmw2@infradead.org,
-	joseph@codesourcery.com, netdev@vger.kernel.org,
-	libc-alpha@sourceware.org, akpm@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nevyn.them.org ([66.93.172.17]:56299 "EHLO nevyn.them.org"
+Received: from smtp.osdl.org ([65.172.181.25]:42261 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1947404AbWLHVwO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 16:52:14 -0500
+	id S1947415AbWLHWAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Dec 2006 17:00:25 -0500
 To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061208.134752.131916271.davem@davemloft.net>
+In-Reply-To: <20061208.133633.77400985.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 08, 2006 at 01:47:52PM -0800, David Miller wrote:
-> > > > The _RTA and _PAYLOAD-macros are also part of userspace headers and need to be
-> > > > restored. Both dhcpclient and quagga need at least IFA_RTA and IFLA_RTA to
-> > > > compile, but there may be more macros than in the following patch. You may want
-> > > > to look at keepalived, iproute, ...
+On Fri, 08 Dec 2006 13:36:33 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> GLIBC does not use them.
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Fri, 8 Dec 2006 09:50:55 -0800
+> 
+> > ioctl(TCSBRK,1)	errno
+> > pty		0
+> > pipe		22/EINVAL
+> > /dev/null	25/ENOTTY
+> > reg_file	25/ENOTTY
+> > socket		14/EFAULT
+> 
+> If you call a TTY ioctl on a socket, it might not work, don't
+> you think?
+> 
+> ioctl values are numbered in the namespace of the object they are
+> called upon, so an ioctl of value X can mean something different for a
+> TTY than it does for socket.
 
-Aren't these the ones you're talking about?
+That is not true on BSD or other unix standardish ioctl's.
+There are no conflicts between the TIOC... values and the SIOC... values
 
-sysdeps/unix/sysv/linux/check_pf.c:                   struct rtattr *rta = IFA_RTA (ifam);
-sysdeps/unix/sysv/linux/if_index.c:           struct rtattr *rta = IFLA_RTA (ifim);
-sysdeps/unix/sysv/linux/ifaddrs.c:            struct rtattr *rta = IFLA_RTA (ifim);
-sysdeps/unix/sysv/linux/ifaddrs.c:            struct rtattr *rta = IFLA_RTA (ifim);
-sysdeps/unix/sysv/linux/ifaddrs.c:            struct rtattr *rta = IFA_RTA (ifam);
+> You're passing a garbage pointer to whatever socket ioctl happens
+> to be aliased to the same value as TCSBRK on your platform.
 
-sysdeps/unix/sysv/linux/if_index.c:           size_t rtasize = IFLA_PAYLOAD (nlh);
-sysdeps/unix/sysv/linux/if_index.c:               size_t rta_payload = RTA_PAYLOAD (rta);
-sysdeps/unix/sysv/linux/ifaddrs.c:            size_t rtasize = IFLA_PAYLOAD (nlh);
-sysdeps/unix/sysv/linux/ifaddrs.c:                size_t rta_payload = RTA_PAYLOAD (rta);
-sysdeps/unix/sysv/linux/ifaddrs.c:            size_t rtasize = IFLA_PAYLOAD (nlh);
-sysdeps/unix/sysv/linux/ifaddrs.c:                size_t rta_payload = RTA_PAYLOAD (rta);
-sysdeps/unix/sysv/linux/ifaddrs.c:            size_t rtasize = IFA_PAYLOAD (nlh);
-sysdeps/unix/sysv/linux/ifaddrs.c:                size_t rta_payload = RTA_PAYLOAD (rta);
+It's not the garbage pointer. 
 
+Seems like one of those annoying standards compliance test
+return value bugs that shouldn't really hit an application.
 -- 
-Daniel Jacobowitz
-CodeSourcery
+Stephen Hemminger <shemminger@osdl.org>
