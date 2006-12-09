@@ -1,65 +1,78 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 04/26] rt2x00: EEPROM 93Cx6
-Date: Fri, 8 Dec 2006 21:00:10 -0500
-Message-ID: <200612082100.14592.flamingice@sourmilk.net>
-References: <200612031919.05228.IvDoorn@gmail.com> <200612031339.28148.flamingice@sourmilk.net> <200612081956.14158.IvDoorn@gmail.com>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [Devel] Re: Network virtualization/isolation
+Date: Sat, 9 Dec 2006 04:50:02 +0100
+Message-ID: <20061209035002.GA11747@MAIL.13thfloor.at>
+References: <453F8800.9070603@fr.ibm.com> <1165239894.3664.61.camel@localhost> <m1k617u10x.fsf@ebiederm.dsl.xmission.com> <200612041900.42768.dim@openvz.org> <m1odqj8uyt.fsf@ebiederm.dsl.xmission.com> <4576AF68.2070604@sw.ru> <20061206183036.GA16927@MAIL.13thfloor.at> <m164cm2m9u.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1193024.TKOSXMlCtf";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Kirill Korotaev <dev@sw.ru>,
+	Linux Containers <containers@lists.osdl.org>,
+	Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org,
+	hadi@cyberus.ca, Stephen Hemminger <shemminger@osdl.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:53866 "EHLO
-	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S936279AbWLICAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 21:00:40 -0500
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200612081956.14158.IvDoorn@gmail.com>
+Received: from MAIL.13thfloor.at ([213.145.232.33]:55079 "EHLO
+	MAIL.13thfloor.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757050AbWLIDuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 22:50:04 -0500
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Disposition: inline
+In-Reply-To: <m164cm2m9u.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1193024.TKOSXMlCtf
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, Dec 08, 2006 at 12:57:49PM -0700, Eric W. Biederman wrote:
+> Herbert Poetzl <herbert@13thfloor.at> writes:
+> 
+> >> But, ok, it is not the real point to argue so much imho 
+> >> and waste our time instead of doing things.
 
-On Friday 08 December 2006 13:56, Ivo van Doorn wrote:
-> I have checked the adm80211 code as well, it seems to behave quite the
-> same, with the most notable difference the fact that adm80211 writes the
-> READ_OPCODE and the word index within a single command, while in
-> eeprom_93cx6 this is split into 2 seperate write commands.
-> I have not yet tested the exact impact for rt2x00 devices when they would
-> combine the write commands, but if that has no impact (or the adm80211
-> suffers no impact when the write commands are being split) then rt2x00 and
-> adm80211 could indeed share the eeprom_93cx6 module.
-Hm, which way is the correct way? (is there a correct way?)
+> > well, IMHO better talk (and think) first, then implement
+> > something ... not the other way round, and then start
+> > fixing up the mess ...
+> 
+> Well we need a bit of both.
 
-> If eeprom_93cx6 is moved to the /lib folder of the kernel, should it be
-> approved by a different maintainer first?
->
-I don't think so, but I'm not sure. BTW, I think there can actually be anot=
-her=20
-user of this code. Take a look at drivers/scsi/aic7xxx/aic7xxx_93cx6.c
+hmm, are 'we' in a hurry here?
 
-I'm not sure who the maintainer for this is. Should be okay to just have=20
-adm8211 and rt2x00 using eeprom_93cx6 for now, unless you have a spare=20
-aic7xxx supported device lying around. ;)
+until recently, 'Linux' (mainline) didn't even want
+to hear about OS Level virtualization, now there
+is a rush to quickly get 'something' in, not knowing
+or caring if it is usable at all?
 
-Thanks,
-=2DMichael Wu
+I think there are a lot of 'potential users' for
+this kind of virtualization, and so 'we' can test
+almost all aspects outside of mainline, and once
+we know the stuff works as expected, then we can
+integrate it ...
 
---nextPart1193024.TKOSXMlCtf
-Content-Type: application/pgp-signature
+the UTS namespace was something 'we all' had already
+implemented in this (or a very similar) way, and in
+one or two interations, it should actually work as 
+expected. nevertheless, it was one of the simplest
+spaces ...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+we do not yet know the details for the IPC namespace,
+as IPC is not that easy to check as UTS, and 'we'
+haven't gotten real world feedback on that yet ...
 
-iD8DBQBFehiuT3Oqt9AH4aERAjfHAJ9SE0uK3YNOafLEB4i+fHTl327XKACfbwaH
-+uoXTC02U48s7HZObkObhpY=
-=vjhU
------END PGP SIGNATURE-----
+so personally I think we should start some serious
+testing on the upcoming namespaces, and we should
+continue discussing the various approaches, until
+'we' can agree on the (almost) 'perfect' solution
 
---nextPart1193024.TKOSXMlCtf--
+> This is thankfully not exported to user space, so as long 
+> as our implementation is correct it doesn't much matter.
+
+that's something I do not really agree with, stuff
+integrated into the kernel should be well designed
+and it should be tested ...
+
+best,
+Herbert
+
+> I do agree with the point that context may make sense. 
+> I have yet to be convinced though.
+> 
+> Eric
