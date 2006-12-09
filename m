@@ -1,45 +1,51 @@
-From: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Subject: Re: [PATCH 2.6.17.13 2/2] LARTC: trace control for netem: kernelspace
-Date: Sat, 09 Dec 2006 10:17:55 +0100
-Message-ID: <457A7F43.3020004@tik.ee.ethz.ch>
-References: <4514DC9A.2000505@tik.ee.ethz.ch>	<20060925132800.09856e10@dxpl.pdx.osdl.net>	<45198AF5.9090909@tik.ee.ethz.ch> <20060926134531.3ec4991a@freekitty>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour
+ bits
+Date: Sat, 9 Dec 2006 10:56:50 +0100 (MET)
+Message-ID: <200612091057.30071.stefan@loplof.de>
+References: <20061207.025140.75779834.davem@davemloft.net>
+ <200612081526.12651.stefan@loplof.de>
+ <20061208.133334.55725556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@VGER.KERNEL.ORG, netem@osdl.org
+Cc: tgraf@suug.ch, dwmw2@infradead.org, joseph@codesourcery.com,
+	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060926134531.3ec4991a@freekitty>
+Received: from mo-p07-ob.rzone.de ([81.169.146.188]:10185 "EHLO
+	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935001AbWLIJ6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 04:58:37 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061208.133334.55725556.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephens
+Am Freitag, 8. Dezember 2006 22:33 schrieb David Miller:
 
-I just wanted to ask you if everything went right with TCN and we will
-find it in 2.6.20 as you wrote two months ago.
+> [IF(L)A_(RTA|PAYLOAD) macros]
+>
+> iproute got fixed, dhcpclient and friends should get fixed to not use
+> them either
 
-Cheers
-Rainer
+Today's git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git 
+contains stuff like
 
-Stephen Hemminger wrote:
-> On Tue, 26 Sep 2006 22:17:57 +0200
-> Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
->
->   
->> Hi Stephens
->>
->> We merged your changes into our patch
->> http://tcn.hypert.net/tcn_kernel_2_6_18.patch
->> Please let us know if we should do further adoptions to our
->> implementation and/or resubmit the adapted patch.
->>
->> Cheers+thanx,
->> Rainer
->>     
->
-> I'll test it out, and send off to Dave for 2.6.20, 2.6.19 is so in
-> flux right now that adding more seems not like a good idea.
->
->
->   
+#ifndef IFA_RTA
+#define IFA_RTA(r) \
+        ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct 
+ifaddrmsg))))
+#endif
 
+and still uses these macros in various places. I wouldn't call that fixed.
+
+Even though the macros are back now, what is the suggested replacement for 
+userspace programs? The new nla_get_*()-inlines in net/netlink.h are not even 
+exported by make headers_install.
+
+For new projects, I'll just use libnetlink. dhcpclient however is also 
+targeted at embedded systems (and has been used to learn about netlink ;-), 
+so I don't plan to link it to another not so small library.
+
+Stefan
