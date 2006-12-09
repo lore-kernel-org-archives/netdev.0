@@ -1,36 +1,41 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [NETLINK]: Schedule removal of old macros exported to userspace
-Date: Sat, 09 Dec 2006 22:02:55 +0000
-Message-ID: <1165701775.27042.9.camel@shinybook.infradead.org>
-References: <20061208.134752.131916271.davem@davemloft.net> 	 <200612091249.39302.stefan@loplof.de> 	 <20061209125533.GO8693@postel.suug.ch> 	 <200612091559.05232.stefan@loplof.de>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] d80211: Fix errorcode in ieee80211_update_hw
+Date: Sat, 9 Dec 2006 23:09:43 +0100
+Message-ID: <200612092309.44166.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,  drow@false.org, joseph@codesourcery.com, netdev@vger.kernel.org,  libc-alpha@sourceware.org, akpm@osdl.org, linux-kernel@vger.kernel.org
-Return-path: <libc-alpha-return-19649-glibc-alpha=m.gmane.org@sourceware.org>
-To: Stefan Rompf <stefan@loplof.de>
-In-Reply-To: <200612091559.05232.stefan@loplof.de>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49721
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758682AbWLIWKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 17:10:47 -0500
+To: Jiri Benc <jbenc@suse.cz>, linville@tuxdriver.com
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-12-09 at 15:58 +0100, Stefan Rompf wrote:
-> But when even glibc needs internal compat headers to compile with the second 
-> kernel version that provides userspace headers, what is the long-term - even 
-> mid-term - perspective of make headers_install then?
+ieee80211_update_hw should return a proper error code
+instead of hardcoded -1.
 
-We've only _just_ started paying attention to what we export. I tried to
-keep the initial cut of headers_install very simple and uncontentious --
-sticking to implementation, and not policy. So I didn't do a
-particularly thorough cull of stuff that we shouldn't be exposing --
-it's expected that we may lose _some_ more stuff.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-But breaking userspace like _this_ isn't acceptable, and we're not doing
-it.
+Index: wireless-dev/net/d80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/d80211/ieee80211.c	2006-12-07 17:25:19.000000000 +0100
++++ wireless-dev/net/d80211/ieee80211.c	2006-12-09 23:07:43.000000000 +0100
+@@ -4644,7 +4644,7 @@ int ieee80211_update_hw(struct ieee80211
+ 
+ 	if (!hw->modes || !hw->modes->channels || !hw->modes->rates ||
+ 	    !hw->modes->num_channels || !hw->modes->num_rates)
+-		return -1;
++		return -EINVAL;
+ 
+ 	ieee80211_precalc_modes(local);
+ 	local->hw.conf.phymode = hw->modes[0].mode;
+
 
 -- 
-dwmw2
+Greetings Michael.
