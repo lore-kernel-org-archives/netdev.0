@@ -1,86 +1,72 @@
-From: Tomasz Torcz <zdzichu@irc.pl>
-Subject: Re: [Devel] Re: Network virtualization/isolation
-Date: Sat, 9 Dec 2006 12:27:34 +0100
-Message-ID: <20061209112734.GA4646@irc.pl>
-References: <453F8800.9070603@fr.ibm.com> <1165239894.3664.61.camel@localhost> <m1k617u10x.fsf@ebiederm.dsl.xmission.com> <200612041900.42768.dim@openvz.org> <m1odqj8uyt.fsf@ebiederm.dsl.xmission.com> <4576AF68.2070604@sw.ru> <20061206183036.GA16927@MAIL.13thfloor.at> <m164cm2m9u.fsf@ebiederm.dsl.xmission.com> <20061209035002.GA11747@MAIL.13thfloor.at>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [NETLINK]: Schedule removal of old macros exported to userspace
+Date: Sat, 9 Dec 2006 12:49:34 +0100 (MET)
+Message-ID: <200612091249.39302.stefan@loplof.de>
+References: <20061208.134752.131916271.davem@davemloft.net>
+ <20061208.171455.11932070.davem@davemloft.net>
+ <20061209103953.GN8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="5vNYLRcllDrimb99"
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Kirill Korotaev <dev@sw.ru>,
-	Linux Containers <containers@lists.osdl.org>,
-	Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org,
-	hadi@cyberus.ca, Stephen Hemminger <shemminger@osdl.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Linus Torvalds <torvalds@osdl.org>
+Content-Type: text/plain;  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, drow@false.org,
+	dwmw2@infradead.org, joseph@codesourcery.com,
+	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nsm.pl ([195.34.211.229]:37253 "EHLO nsm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936919AbWLIL1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Dec 2006 06:27:45 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by nsm.pl (Postfix) with ESMTP id 0EE60D794F
-	for <netdev@vger.kernel.org>; Sat,  9 Dec 2006 12:27:40 +0100 (CET)
-Received: from nsm.pl ([195.34.211.229])
-	by localhost (nsm.pl [127.0.0.1]) (amavisd-new, port 10024) with ESMTP
-	id A7k-s6JtiBX6 for <netdev@vger.kernel.org>;
-	Sat,  9 Dec 2006 12:27:39 +0100 (CET)
-Received: from matthew.ogrody.nsm.pl (unknown [10.10.174.98])
-	by nsm.pl (Postfix) with SMTP id 61BC7D7951
-	for <netdev@vger.kernel.org>; Sat,  9 Dec 2006 12:27:33 +0100 (CET)
-To: Herbert Poetzl <herbert@13thfloor.at>
+Received: from mo-p07-ob.rzone.de ([81.169.146.188]:37036 "EHLO
+	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967811AbWLILwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 06:52:09 -0500
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061209103953.GN8693@postel.suug.ch>
 Content-Disposition: inline
-In-Reply-To: <20061209035002.GA11747@MAIL.13thfloor.at>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Am Samstag, 9. Dezember 2006 11:39 schrieb Thomas Graf:
 
---5vNYLRcllDrimb99
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+[Added linux-kernel to CC]
 
-On Sat, Dec 09, 2006 at 04:50:02AM +0100, Herbert Poetzl wrote:
-> On Fri, Dec 08, 2006 at 12:57:49PM -0700, Eric W. Biederman wrote:
-> > Herbert Poetzl <herbert@13thfloor.at> writes:
-> >=20
-> > >> But, ok, it is not the real point to argue so much imho=20
-> > >> and waste our time instead of doing things.
->=20
-> > > well, IMHO better talk (and think) first, then implement
-> > > something ... not the other way round, and then start
-> > > fixing up the mess ...
-> >=20
-> > Well we need a bit of both.
->=20
-> hmm, are 'we' in a hurry here?
->=20
-> until recently, 'Linux' (mainline) didn't even want
-> to hear about OS Level virtualization, now there
-> is a rush to quickly get 'something' in, not knowing
-> or caring if it is usable at all?
+> Index: net-2.6/Documentation/feature-removal-schedule.txt
+> ===================================================================
+> --- net-2.6.orig/Documentation/feature-removal-schedule.txt	2006-12-09
 
-  Maybe beacuse other Operating Systems have it? For example Solaris'
-Crossbow...
+NAK.
 
+> +What:  Netlink message and attribute parsing macros
+> +When:  July 2007
+> +Why:   The old interface which often lead to buggy code has been replaced
+> +       with a new type safe interface. Parts of this interface, mainly
+> +       macros, has been exported to userspace via linux/netlink.h and
+> +       linux/rtnetlink.h. Use of this interface is discontinued, all
+> helper +       and utility macros will be removed. Userspace applications
+> should use +       one of the available libraries.
+> +Who:   Thomas Graf <tgraf@suug.ch>
 
---=20
-Tomasz Torcz               RIP is irrevelant. Spoofing is futile.
-zdzichu@irc.-nie.spam-.pl     Your routes will be aggreggated. -- Alex Yuri=
-ev
+So glibc should be linked to libnl that depends on glibc to compile? Be 
+serious!
 
+I see a worrying tendency of kernel developers trying to push their 
+stable-api-is-nonsense approach to userspace. You cannot just go ahead and 
+remove userspace API that has been exported for years in a six month period. 
+99,9% of application developers are not even aware that 
+feature-removal-schedule.txt exists. Sorry, these macros will have to stay 
+for *years*, even though they are ugly.
 
---5vNYLRcllDrimb99
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+Btw, do you know why I didn't realize the breakage before a user alerted me? I 
+stopped testing and running every new kernel. Reason? It was stated that 
+2.6.18 requires a mandatory upgrade of udev bloat. Last time I needed to 
+compile a new udev because of incompatible sysfs changes, it took me over 
+three hours to get my notebook running again. Considering that I need to do 
+actual money earning work on that system, 2.6.17.x runs nicely and has no new 
+bugs that concern me, I just keep using it. Collateral damage.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: gpg --search-keys Tomasz Torcz
+You know, I'm not so happy with the in kernel stable-api-is-nonsense approach 
+because it does create insecurity for developers and therefore bugs. Anyway, 
+I accept it, I'm just a part time kernel hacker. But behaving towards 
+applications developers this way is *deadly* for linux acceptance! Stuff like 
+KDE, or a postgres database server, or whatever is complex enough that 
+developers don't have time to follow userspace breakage introduced just 
+because of ugly macros.
 
-iD8DBQFFep2m10UJr+75NrkRAgvMAJ9trKuD1fLvOCxR3BQRxgX2dkieuwCfQYbg
-XpFjG2x6MiOClkdR25cBEkE=
-=8ZdI
------END PGP SIGNATURE-----
-
---5vNYLRcllDrimb99--
+Stefan
