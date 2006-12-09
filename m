@@ -1,51 +1,46 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour
- bits
-Date: Sat, 9 Dec 2006 10:56:50 +0100 (MET)
-Message-ID: <200612091057.30071.stefan@loplof.de>
-References: <20061207.025140.75779834.davem@davemloft.net>
- <200612081526.12651.stefan@loplof.de>
- <20061208.133334.55725556.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [NETLINK]: Schedule removal of old macros exported to userspace
+Date: Sat, 9 Dec 2006 11:39:53 +0100
+Message-ID: <20061209103953.GN8693@postel.suug.ch>
+References: <20061208.134752.131916271.davem@davemloft.net> <20061208215206.GA29601@nevyn.them.org> <20061208.164345.71119524.davem@davemloft.net> <20061208.171455.11932070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, dwmw2@infradead.org, joseph@codesourcery.com,
-	netdev@vger.kernel.org, libc-alpha@sourceware.org, akpm@osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p07-ob.rzone.de ([81.169.146.188]:10185 "EHLO
-	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935001AbWLIJ6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 04:58:37 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: drow@false.org, stefan@loplof.de, dwmw2@infradead.org, 	joseph@codesourcery.com, netdev@vger.kernel.org, 	libc-alpha@sourceware.org, akpm@osdl.org
+Return-path: <libc-alpha-return-19642-glibc-alpha=m.gmane.org@sourceware.org>
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061208.133334.55725556.davem@davemloft.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061208.171455.11932070.davem@davemloft.net>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, 8. Dezember 2006 22:33 schrieb David Miller:
 
-> [IF(L)A_(RTA|PAYLOAD) macros]
->
-> iproute got fixed, dhcpclient and friends should get fixed to not use
-> them either
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Today's git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git 
-contains stuff like
-
-#ifndef IFA_RTA
-#define IFA_RTA(r) \
-        ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct 
-ifaddrmsg))))
-#endif
-
-and still uses these macros in various places. I wouldn't call that fixed.
-
-Even though the macros are back now, what is the suggested replacement for 
-userspace programs? The new nla_get_*()-inlines in net/netlink.h are not even 
-exported by make headers_install.
-
-For new projects, I'll just use libnetlink. dhcpclient however is also 
-targeted at embedded systems (and has been used to learn about netlink ;-), 
-so I don't plan to link it to another not so small library.
-
-Stefan
+Index: net-2.6/Documentation/feature-removal-schedule.txt
+===================================================================
+--- net-2.6.orig/Documentation/feature-removal-schedule.txt	2006-12-09 11:29:25.000000000 +0100
++++ net-2.6/Documentation/feature-removal-schedule.txt	2006-12-09 11:37:54.000000000 +0100
+@@ -6,6 +6,18 @@ be removed from this file.
+ 
+ ---------------------------
+ 
++What:	Netlink message and attribute parsing macros
++When:	July 2007
++Why:	The old interface which often lead to buggy code has been replaced
++	with a new type safe interface. Parts of this interface, mainly
++	macros, has been exported to userspace via linux/netlink.h and
++	linux/rtnetlink.h. Use of this interface is discontinued, all helper
++	and utility macros will be removed. Userspace applications should use
++	one of the available libraries.
++Who:	Thomas Graf <tgraf@suug.ch>
++
++---------------------------
++
+ What:	/sys/devices/.../power/state
+ 	dev->power.power_state
+ 	dpm_runtime_{suspend,resume)()
