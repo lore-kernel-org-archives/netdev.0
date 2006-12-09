@@ -1,33 +1,72 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [NETLINK]: Schedule removal of old macros exported to userspace
-Date: Sat, 9 Dec 2006 15:58:01 +0100 (MET)
-Message-ID: <200612091559.05232.stefan@loplof.de>
-References: <20061208.134752.131916271.davem@davemloft.net>  <200612091249.39302.stefan@loplof.de>  <20061209125533.GO8693@postel.suug.ch>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [Devel] Re: Network virtualization/isolation
+Date: Sat, 9 Dec 2006 20:04:14 +0100
+Message-ID: <20061209190414.GA12377@MAIL.13thfloor.at>
+References: <453F8800.9070603@fr.ibm.com> <1165239894.3664.61.camel@localhost> <m1k617u10x.fsf@ebiederm.dsl.xmission.com> <200612041900.42768.dim@openvz.org> <m1odqj8uyt.fsf@ebiederm.dsl.xmission.com> <4576AF68.2070604@sw.ru> <20061206183036.GA16927@MAIL.13thfloor.at> <m164cm2m9u.fsf@ebiederm.dsl.xmission.com> <20061209035002.GA11747@MAIL.13thfloor.at> <20061209112734.GA4646@irc.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, drow@false.org, dwmw2@infradead.org,  joseph@codesourcery.com, netdev@vger.kernel.org, libc-alpha@sourceware.org,  akpm@osdl.org, linux-kernel@vger.kernel.org
-Return-path: <libc-alpha-return-19645-glibc-alpha=m.gmane.org@sourceware.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20061209125533.GO8693@postel.suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Kirill Korotaev <dev@sw.ru>,
+	Linux Containers <containers@lists.osdl.org>,
+	Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org,
+	hadi@cyberus.ca, Stephen Hemminger <shemminger@osdl.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Linus Torvalds <torvalds@osdl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MAIL.13thfloor.at ([213.145.232.33]:44500 "EHLO
+	MAIL.13thfloor.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761818AbWLITEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 14:04:15 -0500
+To: Tomasz Torcz <zdzichu@irc.pl>
 Content-Disposition: inline
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <20061209112734.GA4646@irc.pl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Samstag, 9. Dezember 2006 13:55 schrieb Thomas Graf:
+On Sat, Dec 09, 2006 at 12:27:34PM +0100, Tomasz Torcz wrote:
+> On Sat, Dec 09, 2006 at 04:50:02AM +0100, Herbert Poetzl wrote:
+> > On Fri, Dec 08, 2006 at 12:57:49PM -0700, Eric W. Biederman wrote:
+> > > Herbert Poetzl <herbert@13thfloor.at> writes:
+> > > 
+> > > >> But, ok, it is not the real point to argue so much imho 
+> > > >> and waste our time instead of doing things.
+> > 
+> > > > well, IMHO better talk (and think) first, then implement
+> > > > something ... not the other way round, and then start
+> > > > fixing up the mess ...
+> > > 
+> > > Well we need a bit of both.
+> > 
+> > hmm, are 'we' in a hurry here?
+> > 
+> > until recently, 'Linux' (mainline) didn't even want
+> > to hear about OS Level virtualization, now there
+> > is a rush to quickly get 'something' in, not knowing
+> > or caring if it is usable at all?
+> 
+> Maybe beacuse other Operating Systems have it? 
 
-> Please calm down a bit. I didn't claim that glibc should be linking to
-> libnl. glibc is obviously a special case which can simply copy the existing
-> macros into some internal compat header just like any other application
-> that doesn't wish to use any of the libraries available.
+well, that wasn't a good enough reason four years 
+ago, when Linux-VServer tried to push a 'jail'
+implementation into mainline (was called security
+contexts back then, and maintained by Jacques Gelinas)
 
-But when even glibc needs internal compat headers to compile with the second 
-kernel version that provides userspace headers, what is the long-term - even 
-mid-term - perspective of make headers_install then?
+> For example Solaris' Crossbow...
 
-Stefan
+yes, but the technology isn't really new, not even
+on Linux and not even in the Open Source community
+
+but don't get me wrong here, I'm absolutely for
+having virtualization (or virtualization elements)
+in mainline, I just don't want to see a Q&D hack
+'we' have to suffer from the next two years :)
+
+HTC,
+Herbert
+
+> -- 
+> Tomasz Torcz               RIP is irrevelant. Spoofing is futile.
+> zdzichu@irc.-nie.spam-.pl     Your routes will be aggreggated. -- Alex Yuriev
+> 
+
+
