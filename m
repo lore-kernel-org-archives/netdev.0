@@ -1,79 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour
- bits
-Date: Fri, 08 Dec 2006 17:14:55 -0800 (PST)
-Message-ID: <20061208.171455.11932070.davem@davemloft.net>
-References: <20061208.134752.131916271.davem@davemloft.net>
-	<20061208215206.GA29601@nevyn.them.org>
-	<20061208.164345.71119524.davem@davemloft.net>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH 04/26] rt2x00: EEPROM 93Cx6
+Date: Fri, 8 Dec 2006 21:00:10 -0500
+Message-ID: <200612082100.14592.flamingice@sourmilk.net>
+References: <200612031919.05228.IvDoorn@gmail.com> <200612031339.28148.flamingice@sourmilk.net> <200612081956.14158.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart1193024.TKOSXMlCtf";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: stefan@loplof.de, tgraf@suug.ch, dwmw2@infradead.org,
-	joseph@codesourcery.com, netdev@vger.kernel.org,
-	libc-alpha@sourceware.org, akpm@osdl.org
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35509
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761333AbWLIBOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 20:14:46 -0500
-To: drow@false.org
-In-Reply-To: <20061208.164345.71119524.davem@davemloft.net>
+Received: from smtp.rutgers.edu ([128.6.72.243]:53866 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S936279AbWLICAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 21:00:40 -0500
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200612081956.14158.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 08 Dec 2006 16:43:45 -0800 (PST)
+--nextPart1193024.TKOSXMlCtf
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> hohum... guess we'll need to bring back that crap too...
-> 
-> i'll take care of this
+On Friday 08 December 2006 13:56, Ivo van Doorn wrote:
+> I have checked the adm80211 code as well, it seems to behave quite the
+> same, with the most notable difference the fact that adm80211 writes the
+> READ_OPCODE and the word index within a single command, while in
+> eeprom_93cx6 this is split into 2 seperate write commands.
+> I have not yet tested the exact impact for rt2x00 devices when they would
+> combine the write commands, but if that has no impact (or the adm80211
+> suffers no impact when the write commands are being split) then rt2x00 and
+> adm80211 could indeed share the eeprom_93cx6 module.
+Hm, which way is the correct way? (is there a correct way?)
 
-Here's what I'll push into the tree.
+> If eeprom_93cx6 is moved to the /lib folder of the kernel, should it be
+> approved by a different maintainer first?
+>
+I don't think so, but I'm not sure. BTW, I think there can actually be anot=
+her=20
+user of this code. Take a look at drivers/scsi/aic7xxx/aic7xxx_93cx6.c
 
-commit c0279128f20aa3580b0b43aaa49f351f6bad5f30
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Fri Dec 8 17:05:13 2006 -0800
+I'm not sure who the maintainer for this is. Should be okay to just have=20
+adm8211 and rt2x00 using eeprom_93cx6 for now, unless you have a spare=20
+aic7xxx supported device lying around. ;)
 
-    [NETLINK]: Put {IFA,IFLA}_{RTA,PAYLOAD} macros back for userspace.
-    
-    GLIBC uses them etc.
-    
-    They are guarded by ifndef __KERNEL__ so nobody will start
-    accidently using them in the kernel again, it's just for
-    userspace.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Thanks,
+=2DMichael Wu
 
-diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
-index dbe8f61..d557e4c 100644
---- a/include/linux/if_addr.h
-+++ b/include/linux/if_addr.h
-@@ -52,4 +52,10 @@ struct ifa_cacheinfo
- 	__u32	tstamp; /* updated timestamp, hundredths of seconds */
- };
- 
-+/* backwards compatibility for userspace */
-+#ifndef __KERNEL__
-+#define IFA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
-+#define IFA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
-+#endif
-+
- #endif
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index e963a07..35ed3b5 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -82,6 +82,12 @@ #define IFLA_WEIGHT IFLA_WEIGHT
- 
- #define IFLA_MAX (__IFLA_MAX - 1)
- 
-+/* backwards compatibility for userspace */
-+#ifndef __KERNEL__
-+#define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
-+#define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
-+#endif
-+
- /* ifi_flags.
- 
-    IFF_* flags.
+--nextPart1193024.TKOSXMlCtf
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFehiuT3Oqt9AH4aERAjfHAJ9SE0uK3YNOafLEB4i+fHTl327XKACfbwaH
++uoXTC02U48s7HZObkObhpY=
+=vjhU
+-----END PGP SIGNATURE-----
+
+--nextPart1193024.TKOSXMlCtf--
