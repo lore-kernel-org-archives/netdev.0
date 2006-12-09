@@ -1,38 +1,79 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour  bits
-Date: Fri, 08 Dec 2006 16:43:45 -0800 (PST)
-Message-ID: <20061208.164345.71119524.davem@davemloft.net>
-References: <20061208213614.GA28903@nevyn.them.org> 	<20061208.134752.131916271.davem@davemloft.net> 	<20061208215206.GA29601@nevyn.them.org>
+Subject: Re: [NETLINK]: Restore API compatibility of address and neighbour
+ bits
+Date: Fri, 08 Dec 2006 17:14:55 -0800 (PST)
+Message-ID: <20061208.171455.11932070.davem@davemloft.net>
+References: <20061208.134752.131916271.davem@davemloft.net>
+	<20061208215206.GA29601@nevyn.them.org>
+	<20061208.164345.71119524.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stefan@loplof.de, tgraf@suug.ch, dwmw2@infradead.org,  joseph@codesourcery.com, netdev@vger.kernel.org,  libc-alpha@sourceware.org, akpm@osdl.org
-Return-path: <libc-alpha-return-19638-glibc-alpha=m.gmane.org@sourceware.org>
+Cc: stefan@loplof.de, tgraf@suug.ch, dwmw2@infradead.org,
+	joseph@codesourcery.com, netdev@vger.kernel.org,
+	libc-alpha@sourceware.org, akpm@osdl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35509
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761333AbWLIBOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 20:14:46 -0500
 To: drow@false.org
-In-Reply-To: <20061208215206.GA29601@nevyn.them.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <20061208.164345.71119524.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Jacobowitz <drow@false.org>
-Date: Fri, 8 Dec 2006 16:52:06 -0500
+From: David Miller <davem@davemloft.net>
+Date: Fri, 08 Dec 2006 16:43:45 -0800 (PST)
 
-> On Fri, Dec 08, 2006 at 01:47:52PM -0800, David Miller wrote:
-> > > > > The _RTA and _PAYLOAD-macros are also part of userspace headers and need to be
-> > > > > restored. Both dhcpclient and quagga need at least IFA_RTA and IFLA_RTA to
-> > > > > compile, but there may be more macros than in the following patch. You may want
-> > > > > to look at keepalived, iproute, ...
+> hohum... guess we'll need to bring back that crap too...
 > 
-> > GLIBC does not use them.
-> 
-> Aren't these the ones you're talking about?
-> 
-> sysdeps/unix/sysv/linux/check_pf.c:                   struct rtattr *rta = IFA_RTA (ifam);
+> i'll take care of this
 
-hohum... guess we'll need to bring back that crap too...
+Here's what I'll push into the tree.
 
-i'll take care of this
+commit c0279128f20aa3580b0b43aaa49f351f6bad5f30
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Fri Dec 8 17:05:13 2006 -0800
+
+    [NETLINK]: Put {IFA,IFLA}_{RTA,PAYLOAD} macros back for userspace.
+    
+    GLIBC uses them etc.
+    
+    They are guarded by ifndef __KERNEL__ so nobody will start
+    accidently using them in the kernel again, it's just for
+    userspace.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
+index dbe8f61..d557e4c 100644
+--- a/include/linux/if_addr.h
++++ b/include/linux/if_addr.h
+@@ -52,4 +52,10 @@ struct ifa_cacheinfo
+ 	__u32	tstamp; /* updated timestamp, hundredths of seconds */
+ };
+ 
++/* backwards compatibility for userspace */
++#ifndef __KERNEL__
++#define IFA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
++#define IFA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
++#endif
++
+ #endif
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index e963a07..35ed3b5 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -82,6 +82,12 @@ #define IFLA_WEIGHT IFLA_WEIGHT
+ 
+ #define IFLA_MAX (__IFLA_MAX - 1)
+ 
++/* backwards compatibility for userspace */
++#ifndef __KERNEL__
++#define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
++#define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
++#endif
++
+ /* ifi_flags.
+ 
+    IFF_* flags.
