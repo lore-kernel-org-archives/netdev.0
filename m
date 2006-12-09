@@ -1,72 +1,239 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [Devel] Re: Network virtualization/isolation
-Date: Sat, 9 Dec 2006 20:04:14 +0100
-Message-ID: <20061209190414.GA12377@MAIL.13thfloor.at>
-References: <453F8800.9070603@fr.ibm.com> <1165239894.3664.61.camel@localhost> <m1k617u10x.fsf@ebiederm.dsl.xmission.com> <200612041900.42768.dim@openvz.org> <m1odqj8uyt.fsf@ebiederm.dsl.xmission.com> <4576AF68.2070604@sw.ru> <20061206183036.GA16927@MAIL.13thfloor.at> <m164cm2m9u.fsf@ebiederm.dsl.xmission.com> <20061209035002.GA11747@MAIL.13thfloor.at> <20061209112734.GA4646@irc.pl>
+From: Cesar Eduardo Barros <cesarb@cesarb.net>
+Subject: Re: [PATCH] 2.6 driver for Silan SC92031 (second try)
+Date: Sat, 09 Dec 2006 18:28:38 -0200
+Message-ID: <457B1C76.3080008@cesarb.net>
+References: <4579C842.5000809@cesarb.net> <20061208220114.b531bee0.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Kirill Korotaev <dev@sw.ru>,
-	Linux Containers <containers@lists.osdl.org>,
-	Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org,
-	hadi@cyberus.ca, Stephen Hemminger <shemminger@osdl.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Linus Torvalds <torvalds@osdl.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([213.145.232.33]:44500 "EHLO
-	MAIL.13thfloor.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761818AbWLITEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 14:04:15 -0500
-To: Tomasz Torcz <zdzichu@irc.pl>
-Content-Disposition: inline
-In-Reply-To: <20061209112734.GA4646@irc.pl>
+Received: from smtp-01.mandic.com.br ([200.225.81.132]:40558 "EHLO
+	smtp-01.mandic.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937665AbWLIU2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 15:28:44 -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20061208220114.b531bee0.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 09, 2006 at 12:27:34PM +0100, Tomasz Torcz wrote:
-> On Sat, Dec 09, 2006 at 04:50:02AM +0100, Herbert Poetzl wrote:
-> > On Fri, Dec 08, 2006 at 12:57:49PM -0700, Eric W. Biederman wrote:
-> > > Herbert Poetzl <herbert@13thfloor.at> writes:
-> > > 
-> > > >> But, ok, it is not the real point to argue so much imho 
-> > > >> and waste our time instead of doing things.
-> > 
-> > > > well, IMHO better talk (and think) first, then implement
-> > > > something ... not the other way round, and then start
-> > > > fixing up the mess ...
-> > > 
-> > > Well we need a bit of both.
-> > 
-> > hmm, are 'we' in a hurry here?
-> > 
-> > until recently, 'Linux' (mainline) didn't even want
-> > to hear about OS Level virtualization, now there
-> > is a rush to quickly get 'something' in, not knowing
-> > or caring if it is usable at all?
+Andrew Morton escreveu:
+> On Fri, 08 Dec 2006 18:17:06 -0200
+> Cesar Eduardo Barros <cesarb@cesarb.net> wrote:
 > 
-> Maybe beacuse other Operating Systems have it? 
-
-well, that wasn't a good enough reason four years 
-ago, when Linux-VServer tried to push a 'jail'
-implementation into mainline (was called security
-contexts back then, and maintained by Jacques Gelinas)
-
-> For example Solaris' Crossbow...
-
-yes, but the technology isn't really new, not even
-on Linux and not even in the Open Source community
-
-but don't get me wrong here, I'm absolutely for
-having virtualization (or virtualization elements)
-in mainline, I just don't want to see a Q&D hack
-'we' have to suffer from the next two years :)
-
-HTC,
-Herbert
-
-> -- 
-> Tomasz Torcz               RIP is irrevelant. Spoofing is futile.
-> zdzichu@irc.-nie.spam-.pl     Your routes will be aggreggated. -- Alex Yuriev
+>> From: Cesar Eduardo Barros <cesarb@cesarb.net>
+>>
+>> +	} while(unlikely(cmpxchg(&priv->intr_status,
 > 
+> You'll have the arm maintainer after you with a pointy stick.
+> 
+> cmpxchg is only available on certain architectures.  It would be acceptable
+> to make this driver depend on X86 (or something).  Better to rewrite this
+> code so it doesn't use cmpxchg.
+
+Fixed. As long as I make sure the interrupt and the tasklet never run at the
+same time, I do not need to protect intr_status against concurrent modification.
+
+Also fixed a potential bug where the tasklet could end up permanently disabled.
+
+Apply on top of the previous (2.0b) patch (if you prefer a merged patch, just
+ask and I'll make one).
+
+It has received the same testing as the previous one, only for less time (I'm
+using it right now).
+
+Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+
+---
+
+diff -uprN -X linux-2.6.19.orig/Documentation/dontdiff linux-2.6.19-2.0b/drivers/net/sc92031.c linux-2.6.19/drivers/net/sc92031.c
+--- linux-2.6.19-2.0b/drivers/net/sc92031.c	2006-12-09 17:53:22.000000000 -0200
++++ linux-2.6.19/drivers/net/sc92031.c	2006-12-09 17:55:20.000000000 -0200
+@@ -34,7 +34,7 @@
+
+ #define SC92031_NAME "sc92031"
+ #define SC92031_DESCRIPTION "Silan SC92031 PCI Fast Ethernet Adapter driver"
+-#define SC92031_VERSION "2.0b"
++#define SC92031_VERSION "2.0c"
+
+ /* BAR 0 is MMIO, BAR 1 is PIO */
+ #ifndef SC92031_USE_BAR
+@@ -261,6 +261,12 @@ enum PMConfigBits {
+  * Use mmiowb() before unlocking if the hardware was written to.
+  */
+
++/* Locking rules for the interrupt:
++ * - the interrupt and the tasklet never run at the same time
++ * - neither run between sc92031_disable_interrupts and
++ *   sc92031_enable_interrupt
++ */
++
+ struct sc92031_priv {
+ 	spinlock_t		lock;
+ 	/* iomap.h cookie */
+@@ -288,6 +294,7 @@ struct sc92031_priv {
+
+ 	/* copies of some hardware registers */
+ 	u32			intr_status;
++	atomic_t		intr_mask;
+ 	u32			rx_config;
+ 	u32			tx_config;
+ 	u32			pm_config;
+@@ -304,6 +311,13 @@ struct sc92031_priv {
+ 	struct net_device_stats	stats;
+ };
+
++/* I don't know which registers can be safely read; however, I can guess
++ * MAC0 is one of them. */
++static inline void _sc92031_dummy_read(void __iomem *port_base)
++{
++	ioread32(port_base + MAC0);
++}
++
+ static u32 _sc92031_mii_wait(void __iomem *port_base)
+ {
+ 	u32 mii_status;
+@@ -348,12 +362,18 @@ static void sc92031_disable_interrupts(s
+ 	struct sc92031_priv *priv = netdev_priv(dev);
+ 	void __iomem *port_base = priv->port_base;
+
+-	tasklet_disable(&priv->tasklet);
++	/* tell the tasklet/interrupt not to enable interrupts */
++	atomic_set(&priv->intr_mask, 0);
++	wmb();
+
++	/* stop interrupts */
+ 	iowrite32(0, port_base + IntrMask);
++	_sc92031_dummy_read(port_base);
+ 	mmiowb();
+
++	/* wait for any concurrent interrupt/tasklet to finish */
+ 	synchronize_irq(dev->irq);
++	tasklet_disable(&priv->tasklet);
+ }
+
+ static void sc92031_enable_interrupts(struct net_device *dev)
+@@ -363,6 +383,9 @@ static void sc92031_enable_interrupts(st
+
+ 	tasklet_enable(&priv->tasklet);
+
++	atomic_set(&priv->intr_mask, IntrBits);
++	wmb();
++
+ 	iowrite32(IntrBits, port_base + IntrMask);
+ 	mmiowb();
+ }
+@@ -608,6 +631,7 @@ static void _sc92031_reset(struct net_de
+
+ 	/* clear old register values */
+ 	priv->intr_status = 0;
++	atomic_set(&priv->intr_mask, 0);
+ 	priv->rx_config = 0;
+ 	priv->tx_config = 0;
+ 	priv->mc_flags = 0;
+@@ -824,9 +848,9 @@ static void sc92031_tasklet(unsigned lon
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct sc92031_priv *priv = netdev_priv(dev);
+ 	void __iomem *port_base = priv->port_base;
+-	u32 intr_status;
++	u32 intr_status, intr_mask;
+
+-	intr_status = xchg(&priv->intr_status, 0);
++	intr_status = priv->intr_status;
+
+ 	spin_lock(&priv->lock);
+
+@@ -851,7 +875,10 @@ static void sc92031_tasklet(unsigned lon
+ 		_sc92031_link_tasklet(dev);
+
+ out:
+-	iowrite32(IntrBits, port_base + IntrMask);
++	intr_mask = atomic_read(&priv->intr_mask);
++	rmb();
++
++	iowrite32(intr_mask, port_base + IntrMask);
+ 	mmiowb();
+
+ 	spin_unlock(&priv->lock);
+@@ -862,29 +889,33 @@ static irqreturn_t sc92031_interrupt(int
+ 	struct net_device *dev = dev_id;
+ 	struct sc92031_priv *priv = netdev_priv(dev);
+ 	void __iomem *port_base = priv->port_base;
+-	u32 intr_status, old_intr_status, new_intr_status;
++	u32 intr_status, intr_mask;
++
++	/* mask interrupts before clearing IntrStatus */
++	iowrite32(0, port_base + IntrMask);
++	_sc92031_dummy_read(port_base);
+
+ 	intr_status = ioread32(port_base + IntrStatus);
+ 	if (unlikely(intr_status == 0xffffffff))
+-		return IRQ_NONE;
++		return IRQ_NONE;	// hardware has gone missing
+
+ 	intr_status &= IntrBits;
+ 	if (!intr_status)
+-		return IRQ_NONE;
+-
+-	do {
+-		old_intr_status = priv->intr_status;
+-		new_intr_status = old_intr_status | intr_status;
+-	} while(unlikely(cmpxchg(&priv->intr_status,
+-					old_intr_status, new_intr_status)
+-			!= old_intr_status));
+-
+-	iowrite32(0, port_base + IntrMask);
+-	mmiowb();
++		goto out_none;
+
++	priv->intr_status = intr_status;
+ 	tasklet_schedule(&priv->tasklet);
+
+ 	return IRQ_HANDLED;
++
++out_none:
++	intr_mask = atomic_read(&priv->intr_mask);
++	rmb();
++
++	iowrite32(intr_mask, port_base + IntrMask);
++	mmiowb();
++
++	return IRQ_NONE;
+ }
+
+ static struct net_device_stats *sc92031_get_stats(struct net_device *dev)
+@@ -1007,7 +1038,7 @@ static int sc92031_open(struct net_devic
+
+ 	priv->pm_config = 0;
+
+-	sc92031_disable_interrupts(dev);
++	/* Interrupts already disabled by sc92031_stop or sc92031_probe */
+ 	spin_lock(&priv->lock);
+
+ 	_sc92031_reset(dev);
+@@ -1442,6 +1473,9 @@ static int __devinit sc92031_probe(struc
+ 	priv->port_base = port_base;
+ 	priv->pdev = pdev;
+ 	tasklet_init(&priv->tasklet, sc92031_tasklet, (unsigned long)dev);
++	/* Fudge tasklet count so the call to sc92031_enable_interrupts at
++	 * sc92031_open will work correctly */
++	tasklet_disable_nosync(&priv->tasklet);
+
+ 	/* PCI PM Wakeup */
+ 	iowrite32((~PM_LongWF & ~PM_LWPTN) | PM_Enable, port_base + PMConfig);
+@@ -1527,7 +1561,7 @@ static int sc92031_resume(struct pci_dev
+ 	if (!netif_running(dev))
+ 		goto out;
+
+-	sc92031_disable_interrupts(dev);
++	/* Interrupts already disabled by sc92031_suspend */
+ 	spin_lock(&priv->lock);
+
+ 	_sc92031_reset(dev);
 
 
+-- 
+Cesar Eduardo Barros
+cesarb@cesarb.net
+cesar.barros@gmail.com
