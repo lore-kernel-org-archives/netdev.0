@@ -1,58 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
- expected EINVAL/ENOTTY
-Date: Sat, 09 Dec 2006 01:05:45 -0800 (PST)
-Message-ID: <20061209.010545.126590710.davem@davemloft.net>
-References: <20061208140021.27e9ab2d@freekitty>
-	<20061208.163349.74721527.davem@davemloft.net>
-	<457A6E83.2070708@cosmosbay.com>
+From: Amin Azez <azez@ufomechanic.net>
+Subject: Re: e100 breakage located
+Date: Sat, 09 Dec 2006 09:17:07 +0000
+Message-ID: <457A7F13.6050002@ufomechanic.net>
+References: <45641A4E.6020505@ufomechanic.net> <4807377b0611301134q33d1cd78l5a1f2eda33da21bc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org, hch@lst.de
+Cc: linux-kernel@vger.kernel.org, Michael.ODonnell@stratus.com,
+	NetDEV list <netdev@vger.kernel.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49325
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S936480AbWLIJFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 04:05:39 -0500
-To: dada1@cosmosbay.com
-In-Reply-To: <457A6E83.2070708@cosmosbay.com>
+Received: from anchor-post-35.mail.demon.net ([194.217.242.85]:1512 "EHLO
+	anchor-post-35.mail.demon.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S936563AbWLIJRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 04:17:00 -0500
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0611301134q33d1cd78l5a1f2eda33da21bc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sat, 09 Dec 2006 09:06:27 +0100
+Jesse Brandeburg wrote:
+> sorry for the delay, your mail got marked as spam.  In the future
+> please copy networking issues to netdev@vger.kernel.org, and be sure
+> to copy the maintainers of the driver you're having problems with
+> (they are in the MAINTAINERS file)
+>
+> On 11/22/06, Amin Azez <azez@ufomechanic.net> wrote:
+>> I notice a patch in 2005 from Micahel O'Donnel to the e100.c driver has
+>> stopped auto-crossover working on some e100 devices we use.
+>>
+>> On one system the auto-negotiation was restored by commenting out:
+>> (nic->mac == mac_82551_10) in function e100_phy_init where the MDI/MDI-X
+>> is disabled.
+>
+> are you sure that patch did that?  What version of e100 are you using?
+> we've since enabled MDI-X on most parts with this patch:
+> http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=60ffa478759f39a2eb3be1ed179bc3764804b2c8;hp=09e590e5d5a93f2eaa748a89c623258e6bad1648 
+>
+>
+> Please try the latest kernel or the latest e100 available from 
+> e1000.sf.net
+> if that doesn't work we'll need to know what kernel are you using?
+Let me have another check and get back to you.
 
-> Well, as long you/we dont break isattty() (which try an 
-> ioctl(fd,TCGETS,&termios) on the fd), it should be OK.
-> 
-> So TCGETS *MUST* return an error on a socket (and other non tty files)
+It will be at least a week though.
 
-Actually, did anyone actually bother to look at what's happening
-here in this case?  It's not an ioctl number aliasing issue at
-all, rather dev_ioctl() blindly tries to copy a structure in
-from userspace before checking the ioctl number against the
-list of ioctls it actually understands.
+Thanks for your response.
 
-That's the bug, anyone care to code up the fix to guard that
-copy_from_user() call in dev_ioctl() with a big switch statement
-verification on the ioctl number?
-
-Something like:
-
-	switch (cmd) {
-	case SIOC*:
-		break;
-	default:
-		if (cmd == SIOCWANDEV ||
-		    (cmd >= SIOCDEVPRIVATE &&
-		     cmd <= SIOCDEVPRIVATE + 15))
-			break;
-		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
-			break;
-		return -EINVAL;
-	}
-	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
-		return -EFAULT;
-
-Thanks.
+Sam
