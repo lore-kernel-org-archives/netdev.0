@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: [NETLINK]: Schedule removal of old macros exported to userspace
-Date: Sat, 09 Dec 2006 13:50:30 -0800 (PST)
-Message-ID: <20061209.135030.112606922.davem@davemloft.net>
-References: <200612091249.39302.stefan@loplof.de>
-	<20061209125533.GO8693@postel.suug.ch>
-	<200612091559.05232.stefan@loplof.de>
+Date: Sat, 09 Dec 2006 22:02:55 +0000
+Message-ID: <1165701775.27042.9.camel@shinybook.infradead.org>
+References: <20061208.134752.131916271.davem@davemloft.net> 	 <200612091249.39302.stefan@loplof.de> 	 <20061209125533.GO8693@postel.suug.ch> 	 <200612091559.05232.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, drow@false.org, dwmw2@infradead.org,
-	joseph@codesourcery.com, netdev@vger.kernel.org,
-	libc-alpha@sourceware.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35464
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758414AbWLIVu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 16:50:29 -0500
-To: stefan@loplof.de
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,  drow@false.org, joseph@codesourcery.com, netdev@vger.kernel.org,  libc-alpha@sourceware.org, akpm@osdl.org, linux-kernel@vger.kernel.org
+Return-path: <libc-alpha-return-19649-glibc-alpha=m.gmane.org@sourceware.org>
+To: Stefan Rompf <stefan@loplof.de>
 In-Reply-To: <200612091559.05232.stefan@loplof.de>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Rompf <stefan@loplof.de>
-Date: Sat, 9 Dec 2006 15:58:01 +0100 (MET)
-
+On Sat, 2006-12-09 at 15:58 +0100, Stefan Rompf wrote:
 > But when even glibc needs internal compat headers to compile with the second 
 > kernel version that provides userspace headers, what is the long-term - even 
 > mid-term - perspective of make headers_install then?
 
-Relax Stefan, I'll make sure these macros never go away.
+We've only _just_ started paying attention to what we export. I tried to
+keep the initial cut of headers_install very simple and uncontentious --
+sticking to implementation, and not policy. So I didn't do a
+particularly thorough cull of stuff that we shouldn't be exposing --
+it's expected that we may lose _some_ more stuff.
 
-They may emit warnings, via __attribute__((deprecated)), at
-some point, but they will never be flat out removed.
+But breaking userspace like _this_ isn't acceptable, and we're not doing
+it.
+
+-- 
+dwmw2
