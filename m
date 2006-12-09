@@ -1,51 +1,42 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 22/22] # This series applies on GIT commit 0ae851352a87db3f829511816a2da227860bf585
-Date: Fri, 08 Dec 2006 15:03:34 -0800
-Message-ID: <20061208230334.30109.36168.stgit@gitlost.site>
-References: <20061208230209.30109.49157.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
+ expected EINVAL/ENOTTY
+Date: Fri, 08 Dec 2006 16:33:49 -0800 (PST)
+Message-ID: <20061208.163349.74721527.davem@davemloft.net>
+References: <20061208095055.38fef768@localhost>
+	<20061208.133633.77400985.davem@davemloft.net>
+	<20061208140021.27e9ab2d@freekitty>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:4398 "EHLO gitlost.site"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1947470AbWLHWyB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Dec 2006 17:54:01 -0500
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20061208230209.30109.49157.stgit@gitlost.site>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38557
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761296AbWLIAdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Dec 2006 19:33:39 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061208140021.27e9ab2d@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 8 Dec 2006 14:00:21 -0800
 
-00_ixgb_sentinel.patch
-01_ixgb_maybe_stop_tx.patch
-02_ixgb_reorder_write.patch
-03_e1000_add_fc_detect_printout.patch
-04_e1000_itr_fixups.patch
-05_e1000_cosmetic_csum_changes.patch
-06_e1000_fix_tx_carrier_errors.patch
-07_e1000_init_release_manageability.patch
-08_e1000_pba_calc.patch
-09_e1000_copybreak_size_parm.patch
-10_e1000_fire_link_event.patch
-11_e1000_phy_link_power_mode.patch
-12_e1000_debug_slab_82544.patch
-13_e1000_start_rx_unit.patch
-14_e1000_msi_intr_fixes.patch
-15_e1000_gig_full_forcing.patch
-16_e1000_set_framesiz_before_reset.patch
-17_e1000_set_type_to_pci.patch
-18_e1000_tipg_type.patch
-19_e1000_e1000_clean_tx_irq.patch
-20_e1000_cleanups_version.patch
----
+> That is not true on BSD or other unix standardish ioctl's.
+> There are no conflicts between the TIOC... values and the SIOC... values
 
- 0 files changed, 0 insertions(+), 0 deletions(-)
+There is absolutely nothing that we can do about this under
+Linux without breaking every single application out there.
 
+We allocated these values a long long time ago, before we
+got the idea that we should perhaps use some kind of
+macro system (as we mostly do now) to keep the values from
+conflicting.
 
+> Seems like one of those annoying standards compliance test
+> return value bugs that shouldn't really hit an application.
 
-
----
-Auke Kok <auke-jan.h.kok@intel.com>
+Being non-compliant, and being unable to become compliant,
+it actually a feature and a huge weight off of our shoulders,
+don't you think?  :-)
