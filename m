@@ -1,199 +1,57 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH] d80211: remove pkt_type/pkt_probe_resp
-Date: Sat, 9 Dec 2006 01:44:54 -0500
-Message-ID: <200612090144.59126.flamingice@sourmilk.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [Bug 7635] New: ioctl(fd,TCSBRK,1) on socket yields EFAULT,
+ expected EINVAL/ENOTTY
+Date: Sat, 09 Dec 2006 09:06:27 +0100
+Message-ID: <457A6E83.2070708@cosmosbay.com>
+References: <20061208095055.38fef768@localhost>
+ <20061208.133633.77400985.davem@davemloft.net>
+ <20061208140021.27e9ab2d@freekitty>
+ <20061208.163349.74721527.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1322207.7nJZillaCu";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:49593 "EHLO
-	server8.tchmachines.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759218AbWLIGqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Dec 2006 01:46:04 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Received: from sp604003mt.neufgp.fr ([84.96.92.56]:39860 "EHLO smTp.neuf.fr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1760517AbWLIIGQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Dec 2006 03:06:16 -0500
+Received: from [192.168.30.10] ([84.7.129.212]) by sp604003mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0J9Z009NVYIBR222@sp604003mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Sat, 09 Dec 2006 09:06:11 +0100 (CET)
+In-reply-to: <20061208.163349.74721527.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1322207.7nJZillaCu
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+David Miller a =E9crit :
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Fri, 8 Dec 2006 14:00:21 -0800
+>=20
+>> That is not true on BSD or other unix standardish ioctl's.
+>> There are no conflicts between the TIOC... values and the SIOC... va=
+lues
+>=20
+> There is absolutely nothing that we can do about this under
+> Linux without breaking every single application out there.
+>=20
+> We allocated these values a long long time ago, before we
+> got the idea that we should perhaps use some kind of
+> macro system (as we mostly do now) to keep the values from
+> conflicting.
+>=20
+>> Seems like one of those annoying standards compliance test
+>> return value bugs that shouldn't really hit an application.
+>=20
+> Being non-compliant, and being unable to become compliant,
+> it actually a feature and a huge weight off of our shoulders,
+> don't you think?  :-)
 
-d80211: remove pkt_type/pkt_probe_resp
+Well, as long you/we dont break isattty() (which try an=20
+ioctl(fd,TCGETS,&termios) on the fd), it should be OK.
 
-Nobody uses pkt_type, and the information can be obtained from the
-header. This removes it and the associated code that keeps tracks of it.
+So TCGETS *MUST* return an error on a socket (and other non tty files)
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
-
- include/net/d80211.h       |    1 -
- net/d80211/ieee80211.c     |    7 -------
- net/d80211/ieee80211_i.h   |    3 +--
- net/d80211/ieee80211_sta.c |   17 +++++++----------
- 4 files changed, 8 insertions(+), 20 deletions(-)
-
-diff --git a/include/net/d80211.h b/include/net/d80211.h
-index 30980e1..f7f6318 100644
-=2D-- a/include/net/d80211.h
-+++ b/include/net/d80211.h
-@@ -135,7 +135,6 @@ struct ieee80211_low_level_stats {
- #define HW_KEY_IDX_INVALID -1
-=20
- struct ieee80211_tx_control {
-=2D	enum { PKT_NORMAL =3D 0, PKT_PROBE_RESP } pkt_type;
- 	int tx_rate; /* Transmit rate, given as the hw specific value for the
- 		      * rate (from struct ieee80211_rate) */
- 	int rts_cts_rate; /* Transmit rate for RTS/CTS frame, given as the hw
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 6e10db5..5ea51a5 100644
-=2D-- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -1395,8 +1395,6 @@ static int ieee80211_master_start_xmit(s
- 		control.flags |=3D IEEE80211_TXCTL_REQ_TX_STATUS;
- 	if (pkt_data->do_not_encrypt)
- 		control.flags |=3D IEEE80211_TXCTL_DO_NOT_ENCRYPT;
-=2D	control.pkt_type =3D
-=2D		pkt_data->pkt_probe_resp ? PKT_PROBE_RESP : PKT_NORMAL;
- 	if (pkt_data->requeue)
- 		control.flags |=3D IEEE80211_TXCTL_REQUEUE;
- 	control.queue =3D pkt_data->queue;
-@@ -1628,10 +1626,6 @@ ieee80211_mgmt_start_xmit(struct sk_buff
-         pkt_data->ifindex =3D sdata->dev->ifindex;
- 	pkt_data->mgmt_iface =3D (sdata->type =3D=3D IEEE80211_IF_TYPE_MGMT);
-=20
-=2D	if ((fc & IEEE80211_FCTL_FTYPE) =3D=3D IEEE80211_FTYPE_MGMT &&
-=2D	    (fc & IEEE80211_FCTL_STYPE) =3D=3D IEEE80211_STYPE_PROBE_RESP)
-=2D		pkt_data->pkt_probe_resp =3D 1;
-=2D
- 	skb->priority =3D 20; /* use hardcoded priority for mgmt TX queue */
- 	skb->dev =3D sdata->local->mdev;
-=20
-@@ -4050,7 +4044,6 @@ static void ieee80211_remove_tx_extra(st
- 	pkt_data->mgmt_iface =3D (control->type =3D=3D IEEE80211_IF_TYPE_MGMT);
- 	pkt_data->req_tx_status =3D !!(control->flags & IEEE80211_TXCTL_REQ_TX_ST=
-ATUS);
- 	pkt_data->do_not_encrypt =3D !!(control->flags & IEEE80211_TXCTL_DO_NOT_E=
-NCRYPT);
-=2D	pkt_data->pkt_probe_resp =3D (control->pkt_type =3D=3D PKT_PROBE_RESP);
- 	pkt_data->requeue =3D !!(control->flags & IEEE80211_TXCTL_REQUEUE);
- 	pkt_data->queue =3D control->queue;
-=20
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index ef303da..02fbdea 100644
-=2D-- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -155,10 +155,9 @@ struct ieee80211_tx_packet_data {
- 	unsigned long jiffies;
- 	unsigned int req_tx_status:1;
- 	unsigned int do_not_encrypt:1;
-=2D	unsigned int pkt_probe_resp:1;
- 	unsigned int requeue:1;
-=2D	unsigned int queue:4;
- 	unsigned int mgmt_iface:1;
-+	unsigned int queue:4;
- };
-=20
- struct ieee80211_tx_stored_packet {
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 04bd5cd..7594022 100644
-=2D-- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -384,7 +384,7 @@ static void ieee80211_set_associated(str
-=20
-=20
- static void ieee80211_sta_tx(struct net_device *dev, struct sk_buff *skb,
-=2D			     int encrypt, int probe_resp)
-+			     int encrypt)
- {
- 	struct ieee80211_sub_if_data *sdata;
- 	struct ieee80211_tx_packet_data *pkt_data;
-@@ -398,8 +398,6 @@ static void ieee80211_sta_tx(struct net_
- 	pkt_data->ifindex =3D sdata->dev->ifindex;
- 	pkt_data->mgmt_iface =3D (sdata->type =3D=3D IEEE80211_IF_TYPE_MGMT);
- 	pkt_data->do_not_encrypt =3D !encrypt;
-=2D	if (probe_resp)
-=2D		pkt_data->pkt_probe_resp =3D 1;
-=20
- 	dev_queue_xmit(skb);
- }
-@@ -436,7 +434,7 @@ static void ieee80211_send_auth(struct n
- 	if (extra)
- 		memcpy(skb_put(skb, extra_len), extra, extra_len);
-=20
-=2D	ieee80211_sta_tx(dev, skb, encrypt, 0);
-+	ieee80211_sta_tx(dev, skb, encrypt);
- }
-=20
-=20
-@@ -573,7 +571,7 @@ static void ieee80211_send_assoc(struct
- 	if (ifsta->assocreq_ies)
- 		memcpy(ifsta->assocreq_ies, ies, ifsta->assocreq_ies_len);
-=20
-=2D	ieee80211_sta_tx(dev, skb, 0, 0);
-+	ieee80211_sta_tx(dev, skb, 0);
- }
-=20
-=20
-@@ -600,7 +598,7 @@ static void ieee80211_send_deauth(struct
- 	skb_put(skb, 2);
- 	mgmt->u.deauth.reason_code =3D cpu_to_le16(reason);
-=20
-=2D	ieee80211_sta_tx(dev, skb, 0, 0);
-+	ieee80211_sta_tx(dev, skb, 0);
- }
-=20
-=20
-@@ -627,7 +625,7 @@ static void ieee80211_send_disassoc(stru
- 	skb_put(skb, 2);
- 	mgmt->u.disassoc.reason_code =3D cpu_to_le16(reason);
-=20
-=2D	ieee80211_sta_tx(dev, skb, 0, 0);
-+	ieee80211_sta_tx(dev, skb, 0);
- }
-=20
-=20
-@@ -803,7 +801,7 @@ static void ieee80211_send_probe_req(str
- 			*pos =3D rate->rate / 5;
- 	}
-=20
-=2D	ieee80211_sta_tx(dev, skb, 0, 0);
-+	ieee80211_sta_tx(dev, skb, 0);
- }
-=20
-=20
-@@ -1693,7 +1691,7 @@ static void ieee80211_rx_mgmt_probe_req(
- 	printk(KERN_DEBUG "%s: Sending ProbeResp to " MAC_FMT "\n",
- 	       dev->name, MAC_ARG(resp->da));
- #endif /* CONFIG_D80211_IBSS_DEBUG */
-=2D	ieee80211_sta_tx(dev, skb, 0, 1);
-+	ieee80211_sta_tx(dev, skb, 0);
- }
-=20
-=20
-@@ -2046,7 +2044,6 @@ static int ieee80211_sta_join_ibss(struc
- 		}
-=20
- 		memset(&control, 0, sizeof(control));
-=2D		control.pkt_type =3D PKT_PROBE_RESP;
- 		memset(&extra, 0, sizeof(extra));
- 		extra.endidx =3D local->num_curr_rates;
- 		rate =3D rate_control_get_rate(local, dev, skb, &extra);
-
---nextPart1322207.7nJZillaCu
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFeltrT3Oqt9AH4aERAtn4AJ4u8NFIIQVCOTHujTHpkFZCAYLuYACg1Tnz
-yb8WHoo/yPwCZgk03sxDN4s=
-=8+il
------END PGP SIGNATURE-----
-
---nextPart1322207.7nJZillaCu--
+Eric
