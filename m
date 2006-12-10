@@ -1,56 +1,82 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] ieee80211softmac: Fix errors related to the work_struct
- changes
-Date: Sun, 10 Dec 2006 10:40:56 -0800
-Message-ID: <20061210104056.572db071.akpm@osdl.org>
-References: <20061210173908.GB29871@p15091797.pureserver.info>
-	<200612101849.47179.mb@bu3sch.de>
-	<20061210183536.GC29871@p15091797.pureserver.info>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: baycom_epp.c compile failure
+Date: Sun, 10 Dec 2006 11:56:17 -0800
+Message-ID: <20061210115617.c98c5369.randy.dunlap@oracle.com>
+References: <20061210005632.d980f651.akpm@osdl.org>
+	<20061210125735.GA3058@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>, dsd@gentoo.org
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:47922 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762339AbWLJSmb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Dec 2006 13:42:31 -0500
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <20061210183536.GC29871@p15091797.pureserver.info>
+Received: from rgminet01.oracle.com ([148.87.113.118]:46380 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762430AbWLJTzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 14:55:37 -0500
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20061210125735.GA3058@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 Dec 2006 19:35:36 +0100
-Ulrich Kunitz <kune@deine-taler.de> wrote:
+On Sun, 10 Dec 2006 12:57:35 +0000 Ralf Baechle wrote:
 
-> The problem is that you there are now different work structures:
-> struct work_struct and struct delayed_work. The quick fix seems to
-> have been to change all old work_structs as associnfo's work to
-> delayed_work. The way the structures are designed calling
-> schedule_work or schedule_delayed_work doesn't matter, but you
-> will get a gcc warning, because the pointer types are not
-> identical. This change works around the warning in the same way as
-> the other schedule_work calls for associnfo's work.
+> On Sun, Dec 10, 2006 at 12:56:32AM -0800, Andrew Morton wrote:
+> 
+> > drivers/net/hamradio/baycom_epp.c: In function 'baycom_probe':
+> > drivers/net/hamradio/baycom_epp.c:1180: error: 'ax25_nocall' undeclared (first use in this function)
+> > drivers/net/hamradio/baycom_epp.c:1180: error: (Each undeclared identifier is reported only once
+> > drivers/net/hamradio/baycom_epp.c:1180: error: for each function it appears in.)
+> 
+> Will look into it later today.
 
-David proposed the below.  Does it fix things for you?
+and after baycom:
 
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c~workstruct-fix-ieee80211-softmac-compile-problem
-+++ a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -438,7 +438,7 @@ ieee80211softmac_try_reassoc(struct ieee
- 
- 	spin_lock_irqsave(&mac->lock, flags);
- 	mac->associnfo.associating = 1;
--	schedule_work(&mac->associnfo.work);
-+	schedule_delayed_work(&mac->associnfo.work, 0);
- 	spin_unlock_irqrestore(&mac->lock, flags);
- }
- 
-_
+net/ax25/ax25_route.c:295: warning: implicit declaration of function 'ax2asc'
+net/ax25/ax25_route.c:295: warning: assignment makes pointer from integer without a cast
+net/ax25/ax25_route.c:316: warning: format '%s' expects type 'char *', but argument 3 has ty
+pe 'int'
+net/ax25/ax25_uid.c:184: warning: implicit declaration of function 'ax2asc'
+net/ax25/ax25_uid.c:184: warning: format '%s' expects type 'char *', but argument 4 has type
+ 'int'
+net/ax25/af_ax25.c:1893: warning: implicit declaration of function 'ax2asc'
+net/ax25/af_ax25.c:1894: warning: format '%s' expects type 'char *', but argument 5 has type
+ 'int'
+net/ax25/af_ax25.c:1895: warning: format '%s' expects type 'char *', but argument 3 has type
+ 'int'
+net/ax25/af_ax25.c:1900: warning: format '%s' expects type 'char *', but argument 3 has type
+ 'int'
+net/netrom/af_netrom.c:1292: warning: implicit declaration of function 'ax2asc'
+net/netrom/af_netrom.c:1292: warning: format '%-9s' expects type 'char *', but argument 3 ha
+s type 'int'
+net/netrom/af_netrom.c:1293: warning: format '%-9s' expects type 'char *', but argument 3 ha
+s type 'int'
+net/netrom/af_netrom.c:1319: warning: format '%-9s' expects type 'char *', but argument 3 ha
+s type 'int'
+net/netrom/nr_route.c:900: warning: implicit declaration of function 'ax2asc'
+net/netrom/nr_route.c:903: warning: format '%-9s' expects type 'char *', but argument 3 has 
+type 'int'
+net/netrom/nr_route.c:989: warning: format '%-9s' expects type 'char *', but argument 4 has 
+type 'int'
+net/netrom/nr_route.c:994: warning: format '%s' expects type 'char *', but argument 3 has ty
+pe 'int'
+net/rose/af_rose.c:1397: warning: implicit declaration of function 'ax2asc'
+net/rose/af_rose.c:1397: warning: format '%-9s' expects type 'char *', but argument 4 has ty
+pe 'int'
+net/rose/af_rose.c:1402: warning: assignment makes pointer from integer without a cast
+net/rose/rose_route.c:871: warning: implicit declaration of function 'ax2asc'
+net/rose/rose_route.c:871: warning: format '%s' expects type 'char *', but argument 2 has ty
+pe 'int'
+net/rose/rose_route.c:1185: warning: pointer/integer type mismatch in conditional expression
+net/rose/rose_route.c:1196: warning: format '%s' expects type 'char *', but argument 3 has t
+ype 'int'
+net/rose/rose_route.c:1270: warning: format '%-9s' expects type 'char *', but argument 5 has
+ type 'int'
+net/rose/rose_route.c:1281: warning: format '%-9s' expects type 'char *', but argument 5 has
+ type 'int'
+net/rose/rose_subr.c:340: warning: implicit declaration of function 'asc2ax'
+net/rose/rose_subr.c:460: warning: implicit declaration of function 'ax2asc'
+net/rose/rose_subr.c:460: warning: assignment makes pointer from integer without a cast
+net/rose/rose_subr.c:475: warning: assignment makes pointer from integer without a cast
 
-> I'm not sure, whether the breaking of the workqueue API is really
-> worth it. What I see is that the change introduced choices and
-> choices make things more complex.
-
-It is kinda sucky.  But it saves a bit of space in kernel data structures.
+---
+~Randy
