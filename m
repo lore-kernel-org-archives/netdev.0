@@ -1,65 +1,57 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: [PATCH] ieee80211softmac: Fix errors related to the work_struct changes
-Date: Sun, 10 Dec 2006 18:39:08 +0100
-Message-ID: <20061210173908.GB29871@p15091797.pureserver.info>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] ieee80211softmac: Fix mutex_lock at exit of ieee80211_softmac_get_genie
+Date: Sun, 10 Dec 2006 18:39:28 +0100
+Message-ID: <200612101839.28687.mb@bu3sch.de>
+References: <20061210172701.GA29871@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>,
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
 	"John W. Linville" <linville@tuxdriver.com>,
+	Andrew Morton <akpm@osdl.org>,
 	Johannes Berg <johannes@sipsolutions.net>, dsd@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:54162 "EHLO
-	p15091797.pureserver.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762266AbWLJRjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 12:39:09 -0500
-To: netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52660
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762278AbWLJRkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 12:40:16 -0500
+To: stable@kernel.org
+In-Reply-To: <20061210172701.GA29871@p15091797.pureserver.info>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The signature of work functions changed recently from a context
-pointer to the work structure pointer. This caused a problem in
-the ieee80211softmac code, because the ieee80211softmac_assox_work
-function has  been called directly with a parameter explicitly
-casted to (void*). This compiled correctly but resulted in a
-softlock, because mutex_lock was called with the wrong memory
-address. The patch fixes the problem. Another issue was a wrong
-call of the schedule_work function. Softmac works again and this
-fixes the problem I mentioned earlier in the zd1211rw rx tasklet
-patch. The patch is against Linus' tree (commit af1713e0).
+This is
 
-Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
----
- net/ieee80211/softmac/ieee80211softmac_assoc.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index eec1a1d..a824852 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -167,7 +167,7 @@ static void
- ieee80211softmac_assoc_notify_scan(struct net_device *dev, int event_type, void *context)
- {
- 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
--	ieee80211softmac_assoc_work((void*)mac);
-+	ieee80211softmac_assoc_work(&mac->associnfo.work.work);
- }
- 
- static void
-@@ -177,7 +177,7 @@ ieee80211softmac_assoc_notify_auth(struc
- 
- 	switch (event_type) {
- 	case IEEE80211SOFTMAC_EVENT_AUTHENTICATED:
--		ieee80211softmac_assoc_work((void*)mac);
-+		ieee80211softmac_assoc_work(&mac->associnfo.work.work);
- 		break;
- 	case IEEE80211SOFTMAC_EVENT_AUTH_FAILED:
- 	case IEEE80211SOFTMAC_EVENT_AUTH_TIMEOUT:
-@@ -438,7 +438,7 @@ ieee80211softmac_try_reassoc(struct ieee
- 
- 	spin_lock_irqsave(&mac->lock, flags);
- 	mac->associnfo.associating = 1;
--	schedule_work(&mac->associnfo.work);
-+	schedule_delayed_work(&mac->associnfo.work, 0);
- 	spin_unlock_irqrestore(&mac->lock, flags);
- }
+and also to be put into the -stable tree.
+
+
+On Sunday 10 December 2006 18:27, Ulrich Kunitz wrote:
+> ieee80211softmac_wx_get_genie locks the associnfo mutex at
+> function exit. This patch fixes it. The patch is against Linus'
+> tree (commit af1713e0).
+> 
+> Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
+> ---
+>  net/ieee80211/softmac/ieee80211softmac_wx.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ieee80211/softmac/ieee80211softmac_wx.c b/net/ieee80211/softmac/ieee80211softmac_wx.c
+> index 480d72c..fa2f7da 100644
+> --- a/net/ieee80211/softmac/ieee80211softmac_wx.c
+> +++ b/net/ieee80211/softmac/ieee80211softmac_wx.c
+> @@ -463,7 +463,7 @@ ieee80211softmac_wx_get_genie(struct net
+>  			err = -E2BIG;
+>  	}
+>  	spin_unlock_irqrestore(&mac->lock, flags);
+> -	mutex_lock(&mac->associnfo.mutex);
+> +	mutex_unlock(&mac->associnfo.mutex);
+>  
+>  	return err;
+>  }
+
+-- 
+Greetings Michael.
