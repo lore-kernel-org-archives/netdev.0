@@ -1,67 +1,81 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] Re: baycom_epp.c compile failure
-Date: Sun, 10 Dec 2006 20:42:39 +0000
-Message-ID: <20061210204239.GA14501@linux-mips.org>
-References: <20061210005632.d980f651.akpm@osdl.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] softmac: Fix for work struct changes
+Date: Sun, 10 Dec 2006 15:37:27 -0600
+Message-ID: <457C7E17.mail8SI11YW8G@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:49832 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762555AbWLJUmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 15:42:44 -0500
-Received: from localhost.localdomain ([127.0.0.1]:47043 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20039343AbWLJUmn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Dec 2006 20:42:43 +0000
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061210005632.d980f651.akpm@osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fix foobar in 15b1c0e822f578306332d4f4c449250db5c5dceb and
-e8cc49bb0fdb9e18a99e6780073d1400ba2b0d1f patch series.
+From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+The signature of work functions changed recently from a context
+pointer to the work structure pointer. This caused a problem in
+the ieee80211softmac code, because the ieee80211softmac_assox_work
+function has  been called directly with a parameter explicitly
+casted to (void*). This compiled correctly but resulted in a
+softlock, because mutex_lock was called with the wrong memory
+address. The patch fixes the problem. Another issue was a wrong
+call of the schedule_work function. Softmac works again and this
+fixes the problem I mentioned earlier in the zd1211rw rx tasklet
+patch. The patch is against Linus' tree (commit af1713e0).
 
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 8a83db0..153b6dc 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -1177,7 +1177,7 @@ static void baycom_probe(struct net_devi
- 	dev->mtu = AX25_DEF_PACLEN;        /* eth_mtu is the default */
- 	dev->addr_len = AX25_ADDR_LEN;     /* sizeof an ax.25 address */
- 	memcpy(dev->broadcast, &ax25_bcast, AX25_ADDR_LEN);
--	memcpy(dev->dev_addr, &ax25_nocall, AX25_ADDR_LEN);
-+	memcpy(dev->dev_addr, &null_ax25_address, AX25_ADDR_LEN);
- 	dev->tx_queue_len = 16;
- 
- 	/* New style flags */
-diff --git a/include/net/ax25.h b/include/net/ax25.h
-index e1d116f..14b72d8 100644
---- a/include/net/ax25.h
-+++ b/include/net/ax25.h
-@@ -285,6 +285,8 @@ extern struct sock *ax25_make_new(struct
- extern const ax25_address ax25_bcast;
- extern const ax25_address ax25_defaddr;
- extern const ax25_address null_ax25_address;
-+extern char *ax2asc(char *buf, const ax25_address *);
-+extern void asc2ax(ax25_address *addr, const char *callsign);
- extern int ax25cmp(const ax25_address *, const ax25_address *);
- extern int ax25digicmp(const ax25_digi *, const ax25_digi *);
- extern const unsigned char *ax25_addr_parse(const unsigned char *, int,
-diff --git a/net/ax25/ax25_addr.c b/net/ax25/ax25_addr.c
-index 21a0616..97a49c7 100644
---- a/net/ax25/ax25_addr.c
-+++ b/net/ax25/ax25_addr.c
-@@ -83,7 +83,7 @@ EXPORT_SYMBOL(ax2asc);
-  */
- void asc2ax(ax25_address *addr, const char *callsign)
+Signed-off-by: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+Acked-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
+
+John,
+
+This patch should be pushed upstream to 2.6.20. At the moment, the work
+struct changes have not yet propagated to wireless-2.6. When they do,
+it will be needed there as well.
+
+Larry
+
+ net/ieee80211/softmac/ieee80211softmac_assoc.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
+index eec1a1d..a824852 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
++++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
+@@ -167,7 +167,7 @@ static void
+ ieee80211softmac_assoc_notify_scan(struct net_device *dev, int event_type, void *context)
  {
--	char *s;
-+	const char *s;
- 	int n;
+ 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
+-	ieee80211softmac_assoc_work((void*)mac);
++	ieee80211softmac_assoc_work(&mac->associnfo.work.work);
+ }
  
- 	for (s = callsign, n = 0; n < 6; n++) {
+ static void
+@@ -177,7 +177,7 @@ ieee80211softmac_assoc_notify_auth(struc
+ 
+ 	switch (event_type) {
+ 	case IEEE80211SOFTMAC_EVENT_AUTHENTICATED:
+-		ieee80211softmac_assoc_work((void*)mac);
++		ieee80211softmac_assoc_work(&mac->associnfo.work.work);
+ 		break;
+ 	case IEEE80211SOFTMAC_EVENT_AUTH_FAILED:
+ 	case IEEE80211SOFTMAC_EVENT_AUTH_TIMEOUT:
+@@ -438,7 +438,7 @@ ieee80211softmac_try_reassoc(struct ieee
+ 
+ 	spin_lock_irqsave(&mac->lock, flags);
+ 	mac->associnfo.associating = 1;
+-	schedule_work(&mac->associnfo.work);
++	schedule_delayed_work(&mac->associnfo.work, 0);
+ 	spin_unlock_irqrestore(&mac->lock, flags);
+ }
