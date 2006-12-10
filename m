@@ -1,82 +1,67 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: baycom_epp.c compile failure
-Date: Sun, 10 Dec 2006 11:56:17 -0800
-Message-ID: <20061210115617.c98c5369.randy.dunlap@oracle.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] Re: baycom_epp.c compile failure
+Date: Sun, 10 Dec 2006 20:42:39 +0000
+Message-ID: <20061210204239.GA14501@linux-mips.org>
 References: <20061210005632.d980f651.akpm@osdl.org>
-	<20061210125735.GA3058@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:46380 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762430AbWLJTzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 14:55:37 -0500
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20061210125735.GA3058@linux-mips.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:49832 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762555AbWLJUmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 15:42:44 -0500
+Received: from localhost.localdomain ([127.0.0.1]:47043 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20039343AbWLJUmn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Dec 2006 20:42:43 +0000
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061210005632.d980f651.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 Dec 2006 12:57:35 +0000 Ralf Baechle wrote:
+Fix foobar in 15b1c0e822f578306332d4f4c449250db5c5dceb and
+e8cc49bb0fdb9e18a99e6780073d1400ba2b0d1f patch series.
 
-> On Sun, Dec 10, 2006 at 12:56:32AM -0800, Andrew Morton wrote:
-> 
-> > drivers/net/hamradio/baycom_epp.c: In function 'baycom_probe':
-> > drivers/net/hamradio/baycom_epp.c:1180: error: 'ax25_nocall' undeclared (first use in this function)
-> > drivers/net/hamradio/baycom_epp.c:1180: error: (Each undeclared identifier is reported only once
-> > drivers/net/hamradio/baycom_epp.c:1180: error: for each function it appears in.)
-> 
-> Will look into it later today.
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-and after baycom:
-
-net/ax25/ax25_route.c:295: warning: implicit declaration of function 'ax2asc'
-net/ax25/ax25_route.c:295: warning: assignment makes pointer from integer without a cast
-net/ax25/ax25_route.c:316: warning: format '%s' expects type 'char *', but argument 3 has ty
-pe 'int'
-net/ax25/ax25_uid.c:184: warning: implicit declaration of function 'ax2asc'
-net/ax25/ax25_uid.c:184: warning: format '%s' expects type 'char *', but argument 4 has type
- 'int'
-net/ax25/af_ax25.c:1893: warning: implicit declaration of function 'ax2asc'
-net/ax25/af_ax25.c:1894: warning: format '%s' expects type 'char *', but argument 5 has type
- 'int'
-net/ax25/af_ax25.c:1895: warning: format '%s' expects type 'char *', but argument 3 has type
- 'int'
-net/ax25/af_ax25.c:1900: warning: format '%s' expects type 'char *', but argument 3 has type
- 'int'
-net/netrom/af_netrom.c:1292: warning: implicit declaration of function 'ax2asc'
-net/netrom/af_netrom.c:1292: warning: format '%-9s' expects type 'char *', but argument 3 ha
-s type 'int'
-net/netrom/af_netrom.c:1293: warning: format '%-9s' expects type 'char *', but argument 3 ha
-s type 'int'
-net/netrom/af_netrom.c:1319: warning: format '%-9s' expects type 'char *', but argument 3 ha
-s type 'int'
-net/netrom/nr_route.c:900: warning: implicit declaration of function 'ax2asc'
-net/netrom/nr_route.c:903: warning: format '%-9s' expects type 'char *', but argument 3 has 
-type 'int'
-net/netrom/nr_route.c:989: warning: format '%-9s' expects type 'char *', but argument 4 has 
-type 'int'
-net/netrom/nr_route.c:994: warning: format '%s' expects type 'char *', but argument 3 has ty
-pe 'int'
-net/rose/af_rose.c:1397: warning: implicit declaration of function 'ax2asc'
-net/rose/af_rose.c:1397: warning: format '%-9s' expects type 'char *', but argument 4 has ty
-pe 'int'
-net/rose/af_rose.c:1402: warning: assignment makes pointer from integer without a cast
-net/rose/rose_route.c:871: warning: implicit declaration of function 'ax2asc'
-net/rose/rose_route.c:871: warning: format '%s' expects type 'char *', but argument 2 has ty
-pe 'int'
-net/rose/rose_route.c:1185: warning: pointer/integer type mismatch in conditional expression
-net/rose/rose_route.c:1196: warning: format '%s' expects type 'char *', but argument 3 has t
-ype 'int'
-net/rose/rose_route.c:1270: warning: format '%-9s' expects type 'char *', but argument 5 has
- type 'int'
-net/rose/rose_route.c:1281: warning: format '%-9s' expects type 'char *', but argument 5 has
- type 'int'
-net/rose/rose_subr.c:340: warning: implicit declaration of function 'asc2ax'
-net/rose/rose_subr.c:460: warning: implicit declaration of function 'ax2asc'
-net/rose/rose_subr.c:460: warning: assignment makes pointer from integer without a cast
-net/rose/rose_subr.c:475: warning: assignment makes pointer from integer without a cast
-
----
-~Randy
+diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
+index 8a83db0..153b6dc 100644
+--- a/drivers/net/hamradio/baycom_epp.c
++++ b/drivers/net/hamradio/baycom_epp.c
+@@ -1177,7 +1177,7 @@ static void baycom_probe(struct net_devi
+ 	dev->mtu = AX25_DEF_PACLEN;        /* eth_mtu is the default */
+ 	dev->addr_len = AX25_ADDR_LEN;     /* sizeof an ax.25 address */
+ 	memcpy(dev->broadcast, &ax25_bcast, AX25_ADDR_LEN);
+-	memcpy(dev->dev_addr, &ax25_nocall, AX25_ADDR_LEN);
++	memcpy(dev->dev_addr, &null_ax25_address, AX25_ADDR_LEN);
+ 	dev->tx_queue_len = 16;
+ 
+ 	/* New style flags */
+diff --git a/include/net/ax25.h b/include/net/ax25.h
+index e1d116f..14b72d8 100644
+--- a/include/net/ax25.h
++++ b/include/net/ax25.h
+@@ -285,6 +285,8 @@ extern struct sock *ax25_make_new(struct
+ extern const ax25_address ax25_bcast;
+ extern const ax25_address ax25_defaddr;
+ extern const ax25_address null_ax25_address;
++extern char *ax2asc(char *buf, const ax25_address *);
++extern void asc2ax(ax25_address *addr, const char *callsign);
+ extern int ax25cmp(const ax25_address *, const ax25_address *);
+ extern int ax25digicmp(const ax25_digi *, const ax25_digi *);
+ extern const unsigned char *ax25_addr_parse(const unsigned char *, int,
+diff --git a/net/ax25/ax25_addr.c b/net/ax25/ax25_addr.c
+index 21a0616..97a49c7 100644
+--- a/net/ax25/ax25_addr.c
++++ b/net/ax25/ax25_addr.c
+@@ -83,7 +83,7 @@ EXPORT_SYMBOL(ax2asc);
+  */
+ void asc2ax(ax25_address *addr, const char *callsign)
+ {
+-	char *s;
++	const char *s;
+ 	int n;
+ 
+ 	for (s = callsign, n = 0; n < 6; n++) {
