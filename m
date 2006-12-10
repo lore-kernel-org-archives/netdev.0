@@ -1,132 +1,247 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH  v3 13/13] Kconfig/Makefile
-Date: Sun, 10 Dec 2006 16:39:16 -0600
-Message-ID: <20061210223916.27166.82130.stgit@dell3.ogc.int>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: [PATCH  v3 12/13] Core Debug functions
+Date: Sun, 10 Dec 2006 16:38:46 -0600
+Message-ID: <20061210223846.27166.55367.stgit@dell3.ogc.int>
 References: <20061210223244.27166.36192.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, openib-general@openib.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760331AbWLJWjT@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
 To: rdreier@cisco.com
 In-Reply-To: <20061210223244.27166.36192.stgit@dell3.ogc.int>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
+
+Debug code to dump various data structs, some of which are in 
+adapter memory.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/Kconfig              |    1 +
- drivers/infiniband/Makefile             |    1 +
- drivers/infiniband/hw/cxgb3/Kconfig     |   27 +++++++++++++++++++++++++++
- drivers/infiniband/hw/cxgb3/Makefile    |   12 ++++++++++++
- drivers/infiniband/hw/cxgb3/locking.txt |   25 +++++++++++++++++++++++++
- 5 files changed, 66 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/cxgb3/core/cxio_dbg.c |  205 +++++++++++++++++++++++++++
+ 1 files changed, 205 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
-index 59b3932..06453ab 100644
---- a/drivers/infiniband/Kconfig
-+++ b/drivers/infiniband/Kconfig
-@@ -38,6 +38,7 @@ source "drivers/infiniband/hw/mthca/Kcon
- source "drivers/infiniband/hw/ipath/Kconfig"
- source "drivers/infiniband/hw/ehca/Kconfig"
- source "drivers/infiniband/hw/amso1100/Kconfig"
-+source "drivers/infiniband/hw/cxgb3/Kconfig"
- 
- source "drivers/infiniband/ulp/ipoib/Kconfig"
- 
-diff --git a/drivers/infiniband/Makefile b/drivers/infiniband/Makefile
-index 570b30a..69bdd55 100644
---- a/drivers/infiniband/Makefile
-+++ b/drivers/infiniband/Makefile
-@@ -3,6 +3,7 @@ obj-$(CONFIG_INFINIBAND_MTHCA)		+= hw/mt
- obj-$(CONFIG_INFINIBAND_IPATH)		+= hw/ipath/
- obj-$(CONFIG_INFINIBAND_EHCA)		+= hw/ehca/
- obj-$(CONFIG_INFINIBAND_AMSO1100)	+= hw/amso1100/
-+obj-$(CONFIG_INFINIBAND_CXGB3)		+= hw/cxgb3/
- obj-$(CONFIG_INFINIBAND_IPOIB)		+= ulp/ipoib/
- obj-$(CONFIG_INFINIBAND_SRP)		+= ulp/srp/
- obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/iser/
-diff --git a/drivers/infiniband/hw/cxgb3/Kconfig b/drivers/infiniband/hw/cxgb3/Kconfig
+diff --git a/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c b/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c
 new file mode 100644
-index 0000000..84f0f6e
+index 0000000..22f4f75
 --- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/Kconfig
-@@ -0,0 +1,27 @@
-+config INFINIBAND_CXGB3
-+	tristate "Chelsio RDMA Driver"
-+	depends on CHELSIO_T3 && INFINIBAND
-+	select GENERIC_ALLOCATOR
-+	---help---
-+	  This is an iWARP/RDMA driver for the Chelsio T3 1GbE and
-+	  10GbE adapters.
++++ b/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c
+@@ -0,0 +1,205 @@
++/*
++ * Copyright (c) 2006 Chelsio, Inc. All rights reserved.
++ * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifdef DEBUG
++#include <linux/types.h>
++#include "common.h"
++#include "cxgb3_ioctl.h"
++#include "cxio_hal.h"
++#include "cxio_wr.h"
 +
-+          For general information about Chelsio and our products, visit
-+          our website at <http://www.chelsio.com>.
++void cxio_dump_tpt(struct cxio_rdev *rdev, u32 stag) 
++{
++	struct ch_mem_range *m;
++	u64 *data;
++	int rc;
++	int size = 32;
 +
-+          For customer support, please visit our customer support page at
-+          <http://www.chelsio.com/support.htm>.
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = (stag>>8) * 32 + rdev->rnic_info.tpt_base;
++	m->len = size;
++	PDBG("%s TPT addr 0x%x len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
 +
-+          Please send feedback to <linux-bugs@chelsio.com>.
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("TPT %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
++}
 +
-+          To compile this driver as a module, choose M here: the module
-+          will be called iw_cxgb3.
++void cxio_dump_pbl(struct cxio_rdev *rdev, u32 pbl_addr, uint len, u8 shift)
++{
++	struct ch_mem_range *m;
++	u64 *data;
++	int rc;
++	int size, npages;
 +
-+config INFINIBAND_CXGB3_DEBUG
-+	bool "Verbose debugging output"
-+	depends on INFINIBAND_CXGB3
-+	default n
-+	---help---
-+	  This option causes the Chelsio RDMA driver to produce copious
-+	  amounts of debug messages.  Select this if you are developing
-+	  the driver or trying to diagnose a problem.
-diff --git a/drivers/infiniband/hw/cxgb3/Makefile b/drivers/infiniband/hw/cxgb3/Makefile
-new file mode 100644
-index 0000000..0df2b3d
---- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/Makefile
-@@ -0,0 +1,12 @@
-+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/cxgb3 \
-+		-I$(TOPDIR)/drivers/infiniband/hw/cxgb3/core 
++	shift += 12;
++	npages = (len + (1ULL << shift) - 1) >> shift;
++	size = npages * sizeof(u64);
 +
-+obj-$(CONFIG_INFINIBAND_CXGB3) += iw_cxgb3.o
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = pbl_addr;
++	m->len = size;
++	PDBG("%s PBL addr 0x%x len %d depth %d\n", 
++		__FUNCTION__, m->addr, m->len, npages);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
 +
-+iw_cxgb3-y :=  iwch_cm.o iwch_ev.o iwch_cq.o iwch_qp.o iwch_mem.o \
-+	       iwch_provider.o iwch.o core/cxio_hal.o core/cxio_resource.o
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("PBL %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
++}
 +
-+ifdef CONFIG_INFINIBAND_CXGB3_DEBUG
-+EXTRA_CFLAGS += -DDEBUG -O1 -g 
-+iw_cxgb3-y += core/cxio_dbg.o
-+endif
-diff --git a/drivers/infiniband/hw/cxgb3/locking.txt b/drivers/infiniband/hw/cxgb3/locking.txt
-new file mode 100644
-index 0000000..e5e9991
---- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/locking.txt
-@@ -0,0 +1,25 @@
-+cq lock:
-+	- spin lock
-+	- used to synchronize the t3_cq
++void cxio_dump_wqe(union t3_wr *wqe)
++{
++	__be64 *data = (__be64 *)wqe;
++	uint size = (uint)(be64_to_cpu(*data) & 0xff);
 +
-+qp lock:
-+	- spin lock
-+	- used to synchronize updates to the qp state, attrs, and the t3_wq.
-+	- touched on interrupt and process context
-+	
-+rnicp lock:
-+	- spin lock
-+	- touched on interrupt and process context
-+	- used around lookup tables mapping CQID and QPID to a structure.
-+	- used also to bump the refcnt atomically with the lookup.
++	if (size == 0) 
++		size = 8;
++	while (size > 0) {
++		PDBG("WQE %p: %016llx\n", data, be64_to_cpu(*data));
++		size--;
++		data++;
++	}
++}
 +
-+poll:
-+	lock+disable on cq lock
-+		lock qp lock for each cqe that is polled around the call
-+		to cxio_poll_cq().
-+	
-+post: 
-+	lock+disable qp lock
++void cxio_dump_wce(struct t3_cqe *wce)
++{
++	__be64 *data = (__be64 *)wce;
++	int size = sizeof(*wce);
 +
-+global mutex iwch_mutex:
-+	used to maintain global device list.
++	while (size > 0) {
++		PDBG("WCE %p: %016llx\n", data, be64_to_cpu(*data));
++		size -= 8;
++		data++;
++	}
++}
++
++void cxio_dump_rqt(struct cxio_rdev *rdev, u32 hwtid, int nents)
++{
++	struct ch_mem_range *m;
++	int size = nents * 64;
++	u64 *data;
++	int rc;
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = ((hwtid)<<10) + rdev->rnic_info.rqt_base;
++	m->len = size;
++	PDBG("%s RQT addr 0x%x len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("RQT %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
++}
++
++void cxio_dump_tcb(struct cxio_rdev *rdev, u32 hwtid)
++{
++	struct ch_mem_range *m;
++	int size = TCB_SIZE;
++	u32 *data;
++	int rc;
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_CM;
++	m->addr = hwtid * size; 
++	m->len = size;
++	PDBG("%s TCB %d len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u32 *)m->buf;
++	while (size > 0) {
++		printk("%2u: %08x %08x %08x %08x %08x %08x %08x %08x\n", 
++			m->addr, 
++			*(data+2), *(data+3), *(data),*(data+1),
++			*(data+6), *(data+7), *(data+4), *(data+5));
++		size -= 32;
++		data += 8;
++		m->addr += 32;
++	}
++	kfree(m);
++}
++#endif
