@@ -1,61 +1,127 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Please make CONFIG_CFG80211 harder to enable
-Date: Sun, 10 Dec 2006 14:27:20 +0100
-Message-ID: <200612101427.20817.mb@bu3sch.de>
-References: <1165654123.2816.29.camel@portland.localdomain> <20061209160640.GA3365@tuxdriver.com> <87hcw49rg8.fsf@briny.internal.ondioline.org>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: [IPROUTE2 PATCH] Fixes for tc help commands
+Date: Sun, 10 Dec 2006 16:33:05 +0200
+Message-ID: <200612101633.05306.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_hqBfFAD9Q+pOJWP"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:43905
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760515AbWLJN2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Dec 2006 08:28:13 -0500
-To: Pavel Roskin <proski@gnu.org>,
-	Paul Collins <paul@briny.ondioline.org>
-In-Reply-To: <87hcw49rg8.fsf@briny.internal.ondioline.org>
-Content-Disposition: inline
+Received: from hax.kala.ee ([194.126.124.39]:43733 "HELO hax.kala.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1760803AbWLJOdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Dec 2006 09:33:10 -0500
+To: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 10 December 2006 07:48, Paul Collins wrote:
-> "John W. Linville" <linville@tuxdriver.com> writes:
-> 
-> > On Sat, Dec 09, 2006 at 03:48:43AM -0500, Pavel Roskin wrote:
-> >> Hello!
-> >> 
-> >> Somebody please mark CONFIG_CFG80211 in wireless-dev.git as
-> >> experimental/broken/incomplete/whatever.  Not only doesn't it work, but
-> >> it also breaks Wireless Extensions if enabled, even if CONFIG_D80211 is
-> >> disabled.
-> >> 
-> >> Driver developers should know that if they enable CONFIG_CFG80211 they
-> >> won't be able to debug their drivers effectifely; they'll have to fix
-> >> cfg80211 first.
-> >
-> > Perhaps you could be more specific?  I'm sending this to you from a
-> > box booted on the current (~1 week old) wireless-dev kernel using a
-> > WEXT-configured ipw2200 device.
-> >
-> > What problems are you experiencing?  CFG80211 shouldn't interfere w/
-> > WEXT if a driver doesn't support it.
-> 
-> I think I hit this too when I started playing with wireless-dev a week
-> or so ago.  I had CFG80211 enabled and iwconfig reported "wireless
+--Boundary-00=_hqBfFAD9Q+pOJWP
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Ehm, guys?
-cfg80211 is not usable in its current form because there isn't
-even a damn userspace tool to interact with nl80211.
-So why don't you just disable the option for the time being? That's
-not too hard, I guess, and it magically fixes _all_ of your problems.
+* "tc [class|qdisc|filter] get" doesn't exist, remove it from inline help.
 
-Another optional possibility would be to _implement_ the cfg80211
-in d80211 and the standalone drivers, so at least the compatibility
-layer works.
-Come on guys, get your hands dirty instead of talking bullshit about
-development code.
+* Add "replace" to "tc [class|filter] get" inline help.
+
+* Fix "tc [class|qdisc|filter] help" output:
+
+  ~$ tc class help
+  [snip]
+  Command "help" is unknown, try "tc class help".
+  ~$
+
+
+
+with my best wishes,
 
 -- 
-Greetings Michael.
+Hasso Tepper
+Elion Enterprises Ltd. [AS3249]
+Data Communication Network Administrator
+
+--Boundary-00=_hqBfFAD9Q+pOJWP
+Content-Type: text/x-diff;
+  charset="iso-8859-15";
+  name="iproute2-tc-help.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="iproute2-tc-help.patch"
+
+diff --git a/tc/tc_class.c b/tc/tc_class.c
+index fb0b6b2..774497a 100644
+--- a/tc/tc_class.c
++++ b/tc/tc_class.c
+@@ -29,7 +29,7 @@ static void usage(void);
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: tc class [ add | del | change | get ] dev STRING\n");
++	fprintf(stderr, "Usage: tc class [ add | del | change | replace | show ] dev STRING\n");
+ 	fprintf(stderr, "       [ classid CLASSID ] [ root | parent CLASSID ]\n");
+ 	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
+ 	fprintf(stderr, "\n");
+@@ -315,8 +315,10 @@ int do_class(int argc, char **argv)
+ 	if (matches(*argv, "list") == 0 || matches(*argv, "show") == 0
+ 	    || matches(*argv, "lst") == 0)
+ 		return tc_class_list(argc-1, argv+1);
+-	if (matches(*argv, "help") == 0)
++	if (matches(*argv, "help") == 0) {
+ 		usage();
++		return 0;
++	}
+ 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc class help\".\n", *argv);
+ 	return -1;
+ }
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+index 3e102cd..008f0c1 100644
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -32,7 +32,7 @@ static void usage(void);
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: tc filter [ add | del | change | get ] dev STRING\n");
++	fprintf(stderr, "Usage: tc filter [ add | del | change | replace | show ] dev STRING\n");
+ 	fprintf(stderr, "       [ pref PRIO ] [ protocol PROTO ]\n");
+ 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
+ 	fprintf(stderr, "       [ root | classid CLASSID ] [ handle FILTERID ]\n");
+@@ -363,8 +363,10 @@ int do_filter(int argc, char **argv)
+ 	if (matches(*argv, "list") == 0 || matches(*argv, "show") == 0
+ 	    || matches(*argv, "lst") == 0)
+ 		return tc_filter_list(argc-1, argv+1);
+-	if (matches(*argv, "help") == 0)
++	if (matches(*argv, "help") == 0) {
+ 		usage();
++		return 0;
++        }
+ 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc filter help\".\n", *argv);
+ 	return -1;
+ }
+diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
+index 0b16923..1256f07 100644
+--- a/tc/tc_qdisc.c
++++ b/tc/tc_qdisc.c
+@@ -29,7 +29,7 @@ static int usage(void);
+ 
+ static int usage(void)
+ {
+-	fprintf(stderr, "Usage: tc qdisc [ add | del | replace | change | get ] dev STRING\n");
++	fprintf(stderr, "Usage: tc qdisc [ add | del | replace | change | show ] dev STRING\n");
+ 	fprintf(stderr, "       [ handle QHANDLE ] [ root | ingress | parent CLASSID ]\n");
+ 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
+ 	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
+@@ -316,8 +316,10 @@ int do_qdisc(int argc, char **argv)
+ 	if (matches(*argv, "list") == 0 || matches(*argv, "show") == 0
+ 	    || matches(*argv, "lst") == 0)
+ 		return tc_qdisc_list(argc-1, argv+1);
+-	if (matches(*argv, "help") == 0)
++	if (matches(*argv, "help") == 0) {
+ 		usage();
++		return 0;
++        }
+ 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc qdisc help\".\n", *argv);
+ 	return -1;
+ }
+
+--Boundary-00=_hqBfFAD9Q+pOJWP--
