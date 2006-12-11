@@ -1,72 +1,92 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 3/16] Spidernet RX Locking
-Date: Mon, 11 Dec 2006 15:07:11 -0600
-Message-ID: <20061211210711.GA4329@austin.ibm.com>
-References: <20061206223223.GH17931@austin.ibm.com> <20061206233134.GC4649@austin.ibm.com> <4577E850.6040500@pobox.com> <20061207175046.GB4614@austin.ibm.com> <1165618025.1103.85.camel@localhost.localdomain>
+From: "Leigh Brown" <leigh@solinno.co.uk>
+Subject: kernel panic with the newly merged md5 signature support
+Date: Mon, 11 Dec 2006 21:38:58 -0000 (GMT)
+Message-ID: <36718.81.105.127.245.1165873138.squirrel@www.solinno.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	James K Lewis <jklewis@us.ibm.com>, linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:60016 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758682AbWLKVHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Dec 2006 16:07:19 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBBL7Isd029179
-	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 16:07:18 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBBL7DGI227830
-	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 16:07:13 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBBL7BwE007034
-	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 16:07:12 -0500
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Content-Disposition: inline
-In-Reply-To: <1165618025.1103.85.camel@localhost.localdomain>
+Received: from mwuml021.modern-world.net ([193.110.88.84]:4014 "EHLO
+	mwuml021.modern-world.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S937672AbWLKVjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Dec 2006 16:39:00 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 09, 2006 at 09:47:05AM +1100, Benjamin Herrenschmidt wrote:
-> A spinlock is expensive in the fast path, which is why Jeff says it's
-> invasive.
-> 
-> > spider_net_decode_one_descr() is called from
-> > spider_net_poll() (which is the netdev->poll callback)
-> > and also from spider_net_handle_rxram_full(). 
-> > 
-> > The rxramfull routine is called from a tasklet that
-> > is fired off after a "RX ram full" interrupt is receved.
-> > This interrupt is generated when the hardware runs out
-> > of space to store incoming packets. We are seeing this
-> > interrupt fire when the CPU is heavily loaded, and a
-> > lot of traffic is being fired at the device.
-> 
-> How often does that interrupt happen in that case ?
+Hello,
 
-It is hard to reproduce; it is highly dependent on kernel version
-and network config. It seems to occur when the system is somehow
-loaded, and the tcp stack is unable to empty out the rx ring in a
-timely manner. Jim is able o trigger this trivially for some kernels, 
-but not others.
+I decided to try out the md5 signature support, with a view to eventually
+fixing up Quagga to make use of it.  As the API has changed quite a bit,
+I modified a simple echo client/server as a simple test.  I compiled
+up 2.6.19-git17 and ran it under debian etch.
 
-> A better approach is to keep the fast path (ie. poll()) lockless, and in
-> handle_rxram_full(), the slow path, protect against poll using
-> netif_disable_poll(). Though that means using a work queue, not a
-> tasklet, since it needs to schedule.
+Unfortunately, both the client and server machines panic (actually I'm
+using qemu to make things easy for myself).  Although my test programs
+might be buggy, I don't believe they should cause a panic.
 
-Yes. Actually, I am thinking of treating this interrupt as if it were
-just another RX interrupt. What the original drivers seemed to want to
-do was to treat this as some sort of "high priority" rx interrupt, but
-there doesn't seem to be any real way of doing this, so it seems simpler
-just to rip out the tasklet and leave it at that.
+Has anyone got this stuff working yet?
 
-> or you can schedule rx work from the rxramfull interrupt after setting a
-> "something bad happened" flag. Then, poll can check this flag and do the
-> right thing.
+I've attached the client panic below.  Both panics, the kernel .config
+and the source code for the test client and server can be found at:
 
-Yes, exactly.
+http://www.solinno.co.uk/md5sig/
 
---linas
-> 
+Thanks,
+
+Leigh.
+
+BUG: unable to handle kernel NULL pointer dereference at virtual address
+00000000
+ printing eip:
+c026e678
+*pde = 00000000
+Oops: 0000 [#1]
+SMP
+Modules linked in: ipv6 dm_snapshot dm_mirror dm_mod loop tsdev psmouse
+serio_raw pcspkr evdev ext3 jbd mbcache ide_cd cdrom ide_disk ne2k_pci
+8390 piix generic ide_core processor
+CPU:    0
+EIP:    0060:[<c026e678>]    Not tainted VLI
+EFLAGS: 00000206   (2.6.19-git17 #1)
+EIP is at __tcp_get_md5sig_pool+0x3c/0x40
+eax: 00000000   ebx: 00000000   ecx: c703aaa0   edx: 00000003
+esi: 230a0a0a   edi: c6c0ceec   ebp: 0000003c   esp: c0359e30
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, ti=c0358000 task=c032db60 task.ti=c0358000)
+Stack: 0000003c c027a4ba 00000001 c7b96274 c703ac40 c74ec0d0 c020dc13
+0000001d
+       c1103fb8 c1103fb4 c0390f20 c0359eec c01c6114 00000000 c0119dcc
+00000000
+       00000002 c1103540 ffffffff 00000000 00000000 c74ec0d0 c0347950
+c6d35ac0
+Call Trace:
+ [<c027a4ba>] tcp_v4_do_calc_md5_hash+0x20/0x1a9
+ [<c020dc13>] __add_entropy_words+0x5f/0x18b
+ [<c01c6114>] __next_cpu+0x12/0x1f
+ [<c0119dcc>] find_busiest_group+0x1bf/0x4b4
+ [<c0275118>] tcp_transmit_skb+0x36f/0x449
+ [<c0276da8>] tcp_retransmit_skb+0x1d0/0x268
+ [<c026fda3>] tcp_enter_loss+0xb6/0x208
+ [<c02788d2>] tcp_write_timer+0x0/0xae
+ [<c02787ca>] tcp_retransmit_timer+0x278/0x380
+ [<c01338b6>] hrtimer_run_queues+0x4d/0xcf
+ [<c027894a>] tcp_write_timer+0x78/0xae
+ [<c0128461>] run_timer_softirq+0x10b/0x166
+ [<c01241aa>] __do_softirq+0x60/0xba
+ [<c0124235>] do_softirq+0x31/0x35
+ [<c0104f72>] do_IRQ+0x62/0x74
+ [<c01003d2>] init+0x0/0x162
+ [<c01036a7>] common_interrupt+0x23/0x28
+ [<c0101018>] default_idle+0x0/0x39
+ [<c010103f>] default_idle+0x27/0x39
+ [<c01010f4>] cpu_idle+0xa0/0xb9
+ [<c035e83d>] start_kernel+0x1f4/0x1f8
+ [<c035e292>] unknown_bootoption+0x0/0x181
+ =======================
+Code: 3c c0 8b 0d 38 db 3c c0 a1 34 db 3c c0 42 85 c9 0f 45 c2 a3 34 db 3c
+c0 b0 01 86 05 e4 78 34 c0 31 c0 85 c9 74 07 f7 d1 8b 04 99 <8b> 00 5b c3
+a1 38 db 3c c0 e9 e7 fd ff ff 90 90 56 53 89 c3 0f
+EIP: [<c026e678>] __tcp_get_md5sig_pool+0x3c/0x40 SS:ESP 0068:c0359e30
+ <0>Kernel panic - not syncing: Fatal exception in interrupt
+
