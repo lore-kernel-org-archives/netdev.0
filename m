@@ -1,33 +1,37 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] MACB: Use struct delayed_work instead of struct work_struct
-Date: Mon, 11 Dec 2006 09:32:23 -0500
-Message-ID: <457D6BF7.6030707@pobox.com>
-References: <20061208143735.7050553a@dhcp-252-105.norway.atmel.com>
+Subject: Re: [PATCH 01/22] e1000: Fix early TSO completion
+Date: Mon, 11 Dec 2006 09:36:14 -0500
+Message-ID: <457D6CDE.8070400@pobox.com>
+References: <20061208230209.30109.49157.stgit@gitlost.site> <20061208230246.30109.2309.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
-	Patrice Vilchez <patrice.vilchez@rfo.atmel.com>,
-	Andrew Victor <andrew@sanpeople.com>
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46182 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:46272 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935738AbWLKOc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Dec 2006 09:32:28 -0500
-To: Haavard Skinnemoen <hskinnemoen@atmel.com>
-In-Reply-To: <20061208143735.7050553a@dhcp-252-105.norway.atmel.com>
+	id S935864AbWLKOgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Dec 2006 09:36:17 -0500
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20061208230246.30109.2309.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Haavard Skinnemoen wrote:
-> The macb driver calls schedule_delayed_work() and friends, so we need
-> to use a struct delayed_work along with it. The conversion was
-> explained by David Howells on lkml Dec 5 2006:
+Kok, Auke wrote:
+> This fix was already merged in commit 96f9c2e277768099479fbed7c3b69c294b1fadef
+> but reverted in commit 989316ddfeafd0e8fb51a4d811383769ad62637a. After
+> stresstesting we found that the fix does not add new regressions and
+> works around a TX hang spotted by several users.
 > 
-> http://lkml.org/lkml/2006/12/5/269
-> 
-> Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-applied this, and the raw register access patch
+ACK content except for one detail:  don't add new NETIF_F_TSO ifdefs. 
+Modern 2.6 kernel code should simply assume that TSO is present.
+
+	Jeff
 
 
