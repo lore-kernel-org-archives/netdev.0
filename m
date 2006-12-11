@@ -1,62 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] Fix SNMPv2 "ipOutNoRoutes" counter error
-Date: Sun, 10 Dec 2006 22:48:48 -0800 (PST)
-Message-ID: <20061210.224848.55508191.davem@davemloft.net>
-References: <1165337386.2545.4.camel@LINE>
+Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for
+ mobility header.
+Date: Sun, 10 Dec 2006 22:50:55 -0800 (PST)
+Message-ID: <20061210.225055.45514229.davem@davemloft.net>
+References: <11653130071739-git-send-email-nakam@linux-ipv6.org>
+	<20061205.200242.01826773.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: nakam@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47898
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47901
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762589AbWLKGst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Dec 2006 01:48:49 -0500
-To: weid@nanjing-fnst.com
-In-Reply-To: <1165337386.2545.4.camel@LINE>
+	by vger.kernel.org with ESMTP id S1760276AbWLKGu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Dec 2006 01:50:56 -0500
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20061205.200242.01826773.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: weidong <weid@nanjing-fnst.com>
-Date: Tue, 05 Dec 2006 11:49:46 -0500
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Tue, 05 Dec 2006 20:02:42 +0900 (JST)
 
-> Hi All:
->     When I tested linux kernel 2.6.18.3, and find that kernel statistics
-> about IPSTATS_MIB_OUTNOROUTES which exsits in file /proc/net/snmp
-> doesn't increase correctly.  The criteria conform to RFC2011:
+> In article <11653130071739-git-send-email-nakam@linux-ipv6.org> (at Tue,  5 Dec 2006 19:03:27 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
 > 
->   ipOutNoRoutes OBJECT-TYPE
->     SYNTAX      Counter32
->     MAX-ACCESS  read-only
->     STATUS      current
->     DESCRIPTION
->             "The number of IP datagrams discarded because no route could
->             be found to transmit them to their destination.  Note that
->             this counter includes any packets counted in ipForwDatagrams
->             which meet this `no-route' criterion.  Note that this
->             includes any datagrams which a host cannot route because all
->             of its default routers are down."
->     ::= { ip 12 }
+> > Add checksum default defines for mobility header(MH).
+> > As the result kernel's behavior is to handle MH checksum
+> > as default.
 > 
-> When a host received an IP packet, but the destination address is not
-> this host. The kernel just discards the IP packet but with no increment
-> for this counter.
-> 
-> When a router received an IP packet that this router can't forward due
-> to no route found. Kernel just simply invoke ip_error(), and send ICMP
-> packet. Also do nothing for this counter.
-> 
-> Signed-off-by: Wei Dong <weid@nanjing-fnst.com>
+> I'd like to hold this on.  I need to check RFC.
 
-Hosts which have forwarding disabled, are not forwarding and
-therefore not routing in the sense being described here.
+Is there any resolution about this?
 
-So bumping this counter when the ip_forward sysctl is "0" makes
-no sense.
-
-We are not even getting to the "output" path when the route lookup
-fails in ip_rcv_finish().  This means this silly SNMP "output" route
-failed counter will get bumped like crazy when promiscuous mode is
-enabled on an interface, and that makes zero sense.
-
-This patch, at least in it's current form, is not correct.
+Thanks.
