@@ -1,52 +1,39 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC 0/3] more power to cfg80211
-Date: Mon, 11 Dec 2006 14:03:11 +0100
-Message-ID: <20061211140311.503dd4ca@griffin.suse.cz>
-References: <1163802439.3392.47.camel@johannes.berg>
-	<1163963898.15473.36.camel@johannes.berg>
-	<1163979143.9216.14.camel@johannes.berg>
-	<20061120201402.76e69e46@griffin.suse.cz>
-	<1164223133.5934.19.camel@johannes.berg>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] myri10ge: pci msi and express state save/restore
+Date: Mon, 11 Dec 2006 09:29:09 -0500
+Message-ID: <457D6B35.8000801@pobox.com>
+References: <20061208085231.7aec5ce3@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Hong Liu <hong.liu@intel.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Ivo van Doorn <ivdoorn@gmail.com>
+Cc: Brice Goglin <brice@myri.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:40224 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1762887AbWLKNDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Dec 2006 08:03:00 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1164223133.5934.19.camel@johannes.berg>
+Received: from srv5.dvmed.net ([207.36.208.214]:46164 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935436AbWLKO3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Dec 2006 09:29:15 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061208085231.7aec5ce3@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Nov 2006 20:18:53 +0100, Johannes Berg wrote:
-> The following patches are mostly proof-of-concept code for moving over
-> stuff to cfg80211 (like the wiphy thing).
+Stephen Hemminger wrote:
+> The PCI MSI and express state are already saved and restored by the
+> current versions of pci_save_state/pci_restore_state.
+> Therefore it should no longer be necessary for the driver to do it.
+> This patch has not been tested on the hardware.
 > 
-> I've changed net_dev->ieee80211_ptr to be of struct wiphy because it
-> allows accessing the wiphy by netdev easily then, and since wireless
-> drivers are (after these patches) expected to register with cfg80211
-> anyway it doesn't really change much. They need wiphy_priv() then but
-> it's tiny.
+> On suspend, handle pci_set_power_state errors, and on resume
+> handle failures in pci_resume_state().
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Sorry for the late answer.
+Since Brice is an active maintainer, I would prefer to receive this 
+patch via Brice.  I have a pile of patches from him, and don't want to 
+invalidate that pile for this patch, even though this patch looks fairly 
+sane to me.
 
-I like the concept and think this is a way to go.
+	Jeff
 
-Thanks,
 
- Jiri
 
--- 
-Jiri Benc
-SUSE Labs
