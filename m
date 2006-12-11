@@ -1,15 +1,15 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/7] chelsio: the return statement is not a function
-Date: Tue, 12 Dec 2006 00:20:56 +0100
-Message-ID: <20061211232056.GC8568@electric-eye.fr.zoreil.com>
+Subject: [PATCH 1/7] chelsio: move return, break and continue statements on their own line
+Date: Tue, 12 Dec 2006 00:20:46 +0100
+Message-ID: <20061211232046.GB8568@electric-eye.fr.zoreil.com>
 References: <20061211231558.GA8568@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40050 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40051 "EHLO
 	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbWLKXVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750722AbWLKXVD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 11 Dec 2006 18:21:03 -0500
 To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
@@ -19,137 +19,133 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/chelsio/my3126.c  |   16 ++++++++--------
- drivers/net/chelsio/vsc7326.c |   12 ++++++------
- 2 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/chelsio/espi.c      |    3 ++-
+ drivers/net/chelsio/ixf1010.c   |    9 ++++++---
+ drivers/net/chelsio/mv88e1xxx.c |    6 ++++--
+ drivers/net/chelsio/subr.c      |    6 ++++--
+ drivers/net/chelsio/vsc7326.c   |    3 ++-
+ drivers/net/chelsio/vsc8244.c   |    3 ++-
+ 6 files changed, 20 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/chelsio/my3126.c b/drivers/net/chelsio/my3126.c
-index c7731b6..3e4e57f 100644
---- a/drivers/net/chelsio/my3126.c
-+++ b/drivers/net/chelsio/my3126.c
-@@ -10,25 +10,25 @@ static int my3126_reset(struct cphy *cph
- 	 * This can be done through registers.  It is not required since
- 	 * a full chip reset is used.
- 	 */
--	return (0);
-+	return 0;
- }
- 
- static int my3126_interrupt_enable(struct cphy *cphy)
+diff --git a/drivers/net/chelsio/espi.c b/drivers/net/chelsio/espi.c
+index 4192f0f..44d2603 100644
+--- a/drivers/net/chelsio/espi.c
++++ b/drivers/net/chelsio/espi.c
+@@ -301,7 +301,8 @@ void t1_espi_set_misc_ctrl(adapter_t *ad
  {
- 	schedule_delayed_work(&cphy->phy_update, HZ/30);
- 	t1_tpi_read(cphy->adapter, A_ELMER0_GPO, &cphy->elmer_gpo);
--	return (0);
-+	return 0;
- }
+ 	struct peespi *espi = adapter->espi;
  
- static int my3126_interrupt_disable(struct cphy *cphy)
+-	if (!is_T2(adapter)) return;
++	if (!is_T2(adapter))
++		return;
+ 	spin_lock(&espi->lock);
+ 	espi->misc_ctrl = (val & ~MON_MASK) |
+ 			  (espi->misc_ctrl & MON_MASK);
+diff --git a/drivers/net/chelsio/ixf1010.c b/drivers/net/chelsio/ixf1010.c
+index 5b8f144..91a5bf7 100644
+--- a/drivers/net/chelsio/ixf1010.c
++++ b/drivers/net/chelsio/ixf1010.c
+@@ -273,7 +273,8 @@ static int mac_set_rx_mode(struct cmac *
+ static int mac_set_mtu(struct cmac *mac, int mtu)
  {
- 	cancel_rearming_delayed_work(&cphy->phy_update);
--	return (0);
-+	return 0;
- }
+ 	/* MAX_FRAME_SIZE inludes header + FCS, mtu doesn't */
+-	if (mtu > (MAX_FRAME_SIZE - 14 - 4)) return -EINVAL;
++	if (mtu > (MAX_FRAME_SIZE - 14 - 4))
++		return -EINVAL;
+ 	t1_tpi_write(mac->adapter, MACREG(mac, REG_MAX_FRAME_SIZE),
+ 		     mtu + 14 + 4);
+ 	return 0;
+@@ -460,10 +461,12 @@ static struct cmac *ixf1010_mac_create(a
+ 	struct cmac *mac;
+ 	u32 val;
  
- static int my3126_interrupt_clear(struct cphy *cphy)
+-	if (index > 9) return NULL;
++	if (index > 9)
++		return NULL;
+ 
+ 	mac = kzalloc(sizeof(*mac) + sizeof(cmac_instance), GFP_KERNEL);
+-	if (!mac) return NULL;
++	if (!mac)
++		return NULL;
+ 
+ 	mac->ops = &ixf1010_ops;
+ 	mac->instance = (cmac_instance *)(mac + 1);
+diff --git a/drivers/net/chelsio/mv88e1xxx.c b/drivers/net/chelsio/mv88e1xxx.c
+index 28ac93f..75fac85 100644
+--- a/drivers/net/chelsio/mv88e1xxx.c
++++ b/drivers/net/chelsio/mv88e1xxx.c
+@@ -308,7 +308,8 @@ static int mv88e1xxx_interrupt_handler(s
+ 				MV88E1XXX_INTERRUPT_STATUS_REGISTER,
+ 				&cause);
+ 		cause &= INTR_ENABLE_MASK;
+-		if (!cause) break;
++		if (!cause)
++			break;
+ 
+ 		if (cause & MV88E1XXX_INTR_LINK_CHNG) {
+ 			(void) simple_mdio_read(cphy,
+@@ -360,7 +361,8 @@ static struct cphy *mv88e1xxx_phy_create
  {
--	return (0);
-+	return 0;
- }
+ 	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
  
- #define OFFSET(REG_ADDR)    (REG_ADDR << 2)
-@@ -102,7 +102,7 @@ static void my3216_poll(struct work_stru
+-	if (!cphy) return NULL;
++	if (!cphy)
++		return NULL;
  
- static int my3126_set_loopback(struct cphy *cphy, int on)
- {
--	return (0);
-+	return 0;
- }
+ 	cphy_init(cphy, adapter, phy_addr, &mv88e1xxx_ops, mdio_ops);
  
- /* To check the activity LED */
-@@ -146,7 +146,7 @@ static int my3126_get_link_status(struct
- 	if (fc)
- 		*fc = PAUSE_RX | PAUSE_TX;
+diff --git a/drivers/net/chelsio/subr.c b/drivers/net/chelsio/subr.c
+index 22ed9a3..38dbaf2 100644
+--- a/drivers/net/chelsio/subr.c
++++ b/drivers/net/chelsio/subr.c
+@@ -612,7 +612,8 @@ #ifdef CONFIG_CHELSIO_T1_1G
+                 int i, port_bit;
+ 		for_each_port(adapter, i) {
+ 			port_bit = i + 1;
+-			if (!(cause & (1 << port_bit))) continue;
++			if (!(cause & (1 << port_bit)))
++				continue;
  
--	return (0);
-+	return 0;
- }
+ 	                phy = adapter->port[i].phy;
+ 			phy_cause = phy->ops->interrupt_handler(phy);
+@@ -688,7 +689,8 @@ #ifdef CONFIG_CHELSIO_T1_COUGAR
  
- static void my3126_destroy(struct cphy *cphy)
-@@ -176,7 +176,7 @@ static struct cphy *my3126_phy_create(ad
- 	INIT_DELAYED_WORK(&cphy->phy_update, my3216_poll);
- 	cphy->bmsr = 0;
+ 			for_each_port(adapter, i) {
+ 				port_bit = i ? i + 1 : 0;
+-				if (!(cause & (1 << port_bit))) continue;
++				if (!(cause & (1 << port_bit)))
++					continue;
  
--	return (cphy);
-+	return cphy;
- }
- 
- /* Chip Reset */
-@@ -197,7 +197,7 @@ static int my3126_phy_reset(adapter_t * 
- 	val |= 0x8000;
- 	t1_tpi_write(adapter, A_ELMER0_GPO, val);
- 	udelay(100);
--	return (0);
-+	return 0;
- }
- 
- struct gphy t1_my3126_ops = {
+ 				phy = adapter->port[i].phy;
+ 				phy_cause = phy->ops->interrupt_handler(phy);
 diff --git a/drivers/net/chelsio/vsc7326.c b/drivers/net/chelsio/vsc7326.c
-index 3355441..8c4a31e 100644
+index 85dc3b1..3355441 100644
 --- a/drivers/net/chelsio/vsc7326.c
 +++ b/drivers/net/chelsio/vsc7326.c
-@@ -256,7 +256,7 @@ static int bist_rd(adapter_t *adapter, i
- 	else if((result & (1<<8)) != 0x0)
- 		CH_ERR("bist read error: 0x%x\n", result);
+@@ -686,7 +686,8 @@ static struct cmac *vsc7326_mac_create(a
+ 	int i;
  
--	return(result & 0xff);
-+	return (result & 0xff);
- }
+ 	mac = kzalloc(sizeof(*mac) + sizeof(cmac_instance), GFP_KERNEL);
+-	if (!mac) return NULL;
++	if (!mac)
++		return NULL;
  
- static int bist_wr(adapter_t *adapter, int moduleid, int address, int value)
-@@ -286,7 +286,7 @@ static int bist_wr(adapter_t *adapter, i
- 	else if((result & (1<<26)) != 0x0)
- 		CH_ERR("bist write error: 0x%x\n", result);
- 
--	return(0);
-+	return 0;
- }
- 
- static int run_bist(adapter_t *adapter, int moduleid)
-@@ -295,7 +295,7 @@ static int run_bist(adapter_t *adapter, 
- 	(void) bist_wr(adapter,moduleid, 0x00, 0x02);
- 	(void) bist_wr(adapter,moduleid, 0x01, 0x01);
- 
--	return(0);
-+	return 0;
- }
- 
- static int check_bist(adapter_t *adapter, int moduleid)
-@@ -309,14 +309,14 @@ static int check_bist(adapter_t *adapter
- 	if ((result & 3) != 0x3)
- 		CH_ERR("Result: 0x%x  BIST error in ram %d, column: 0x%04x\n",
- 			result, moduleid, column);
--	return(0);
-+	return 0;
- }
- 
- static int enable_mem(adapter_t *adapter, int moduleid)
+ 	mac->ops = &vsc7326_ops;
+ 	mac->instance = (cmac_instance *)(mac + 1);
+diff --git a/drivers/net/chelsio/vsc8244.c b/drivers/net/chelsio/vsc8244.c
+index c493e78..f947cf6 100644
+--- a/drivers/net/chelsio/vsc8244.c
++++ b/drivers/net/chelsio/vsc8244.c
+@@ -347,7 +347,8 @@ static struct cphy* vsc8244_phy_create(a
  {
- 	/*enable mem*/
- 	(void) bist_wr(adapter,moduleid, 0x00, 0x00);
--	return(0);
-+	return 0;
- }
+ 	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
  
- static int run_bist_all(adapter_t *adapter)
-@@ -358,7 +358,7 @@ static int run_bist_all(adapter_t *adapt
- 	udelay(300);
- 	vsc_write(adapter, REG_MEM_BIST, 0x0);
- 	mdelay(10);
--	return(0);
-+	return 0;
- }
+-	if (!cphy) return NULL;
++	if (!cphy)
++		return NULL;
  
- static int mac_intr_handler(struct cmac *mac)
+ 	cphy_init(cphy, adapter, phy_addr, &vsc8244_ops, mdio_ops);
+ 
 -- 
 1.4.2.3
 
