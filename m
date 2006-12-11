@@ -1,104 +1,89 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: [PATCH] ieee80211softmac: Fix errors related to the work_struct
- changes
-Date: Mon, 11 Dec 2006 11:34:15 -0600
-Message-ID: <457D9697.4090206@lwfinger.net>
-References: <20061210173908.GB29871@p15091797.pureserver.info>	<200612101849.47179.mb@bu3sch.de>	<20061210183536.GC29871@p15091797.pureserver.info> <20061210104056.572db071.akpm@osdl.org>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 7665] New: getsockopt(IPV6_*CAST_HOPS) returns
+ -1
+Date: Mon, 11 Dec 2006 09:56:23 -0800
+Message-ID: <20061211095623.09fb0c40.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ulrich Kunitz <kune@deine-taler.de>, Michael Buesch <mb@bu3sch.de>,
-	netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>, dsd@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:49112 "EHLO
-	mtiwmhc12.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762992AbWLKRec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Dec 2006 12:34:32 -0500
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20061210104056.572db071.akpm@osdl.org>
+Received: from smtp.osdl.org ([65.172.181.25]:49295 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S937379AbWLKR4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Dec 2006 12:56:25 -0500
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id kBBHuNID024605
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 09:56:24 -0800
+Received: from box (shell0.pdx.osdl.net [10.9.0.31])
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id kBBHuN13001300
+	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 09:56:23 -0800
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Sun, 10 Dec 2006 19:35:36 +0100
-> Ulrich Kunitz <kune@deine-taler.de> wrote:
-> 
->> The problem is that you there are now different work structures:
->> struct work_struct and struct delayed_work. The quick fix seems to
->> have been to change all old work_structs as associnfo's work to
->> delayed_work. The way the structures are designed calling
->> schedule_work or schedule_delayed_work doesn't matter, but you
->> will get a gcc warning, because the pointer types are not
->> identical. This change works around the warning in the same way as
->> the other schedule_work calls for associnfo's work.
-> 
-> David proposed the below.  Does it fix things for you?
-> 
-> --- a/net/ieee80211/softmac/ieee80211softmac_assoc.c~workstruct-fix-ieee80211-softmac-compile-problem
-> +++ a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-> @@ -438,7 +438,7 @@ ieee80211softmac_try_reassoc(struct ieee
->  
->  	spin_lock_irqsave(&mac->lock, flags);
->  	mac->associnfo.associating = 1;
-> -	schedule_work(&mac->associnfo.work);
-> +	schedule_delayed_work(&mac->associnfo.work, 0);
->  	spin_unlock_irqrestore(&mac->lock, flags);
->  }
->  
-> _
-> 
->> I'm not sure, whether the breaking of the workqueue API is really
->> worth it. What I see is that the change introduced choices and
->> choices make things more complex.
-> 
-> It is kinda sucky.  But it saves a bit of space in kernel data structures.
 
-The above patch fixes a compile problem; however, the code still hangs when the network is started.
-You need two additional hunks as shown below.
 
-Larry
-=========================================================================
+Begin forwarded message:
 
-From: Ulrich Kunitz <kune@deine-taler.de>
+Date: Mon, 11 Dec 2006 07:18:20 -0800
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 7665] New: getsockopt(IPV6_*CAST_HOPS) returns -1
 
-The signature of work functions changed recently from a context
-pointer to the work structure pointer. This caused a problem in
-the ieee80211softmac code, because the ieee80211softmac_assoc_work
-function has  been called directly with a parameter explicitly
-casted to (void*). This compiled correctly but resulted in a
-softlock, because mutex_lock was called with the wrong memory
-address. The patch fixes the problem. Another issue was a wrong
-call of the schedule_work function. Softmac works again and this
-fixes the problem I mentioned earlier in the zd1211rw rx tasklet
-patch. The patch is against Linus' tree (commit af1713e0).
 
-Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
-Acked-by: Michael Buesch <mb@bu3sch.de>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
+http://bugzilla.kernel.org/show_bug.cgi?id=7665
 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c 
-b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index eec1a1d..a824852 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -167,7 +167,7 @@ static void
-  ieee80211softmac_assoc_notify_scan(struct net_device *dev, int event_type, void *context)
-  {
-  	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
--	ieee80211softmac_assoc_work((void*)mac);
-+	ieee80211softmac_assoc_work(&mac->associnfo.work.work);
-  }
+           Summary: getsockopt(IPV6_*CAST_HOPS) returns -1
+    Kernel Version: 2.6.19
+            Status: NEW
+          Severity: normal
+             Owner: yoshfuji@linux-ipv6.org
+         Submitter: rdenis@simphalempin.com
 
-  static void
-@@ -177,7 +177,7 @@ ieee80211softmac_assoc_notify_auth(struc
 
-  	switch (event_type) {
-  	case IEEE80211SOFTMAC_EVENT_AUTHENTICATED:
--		ieee80211softmac_assoc_work((void*)mac);
-+		ieee80211softmac_assoc_work(&mac->associnfo.work.work);
-  		break;
-  	case IEEE80211SOFTMAC_EVENT_AUTH_FAILED:
-  	case IEEE80211SOFTMAC_EVENT_AUTH_TIMEOUT:
+Most recent kernel where this bug did *NOT* occur: N/A
+Distribution: Debian Sid
+Hardware Environment: i386
+Software Environment: glibc 2.3.6
+Problem Description:
+
+Where fd is a socket (datagram or raw) with IPv6 protocol family,
+getsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, ...) succeeds, but the returned 
+hop limit is -1. connect()'ing the socket first does not solve the problem.
+
+Same problem with IPV6_MULTICAST_HOPS.
+
+Steps to reproduce:
+
+Compile and run the following test case:
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+
+int main (void)
+{
+        int fd, val;
+        socklen_t len = sizeof (val);
+        struct sockaddr_in6 addr;
+
+        memset (&addr, 0, sizeof (addr));
+        fd = socket (AF_INET6, SOCK_RAW, IPPROTO_UDP);
+        addr.sin6_family = AF_INET6;
+        addr.sin6_addr.s6_addr[15] = 1;
+        connect (fd, (struct sockaddr *)&addr, sizeof (addr));
+
+        if (fd == -1) return 1;
+        if (getsockopt (fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &val, &len) == 0)
+                printf ("Default unicast hops limit: %d\n", val);
+        if (getsockopt (fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, &len) == 
+0)
+                printf ("Default multicast hops limit: %d\n", val);
+        return 0;
+}
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
