@@ -1,89 +1,131 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 7665] New: getsockopt(IPV6_*CAST_HOPS) returns
- -1
-Date: Mon, 11 Dec 2006 09:56:23 -0800
-Message-ID: <20061211095623.09fb0c40.akpm@osdl.org>
+From: Vitaly Bordug <vbordug@ru.mvista.com>
+Subject: [PATCH] [FS_ENET] OF-related update for FEC and SCC MAC's
+Date: Mon, 11 Dec 2006 21:00:49 +0300
+Message-ID: <20061211180048.17991.59030.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:49295 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937379AbWLKR4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Dec 2006 12:56:25 -0500
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id kBBHuNID024605
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 09:56:24 -0800
-Received: from box (shell0.pdx.osdl.net [10.9.0.31])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id kBBHuN13001300
-	for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 09:56:23 -0800
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+To: Jeff Garzik <jeff@garzik.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
 
+Updated direct resource pass with ioremap call, make it grant proper IRQ
+mapping, stuff incompatible with the new approach were respectively put  under 
+#ifndef CONFIG_PPC_MERGE.
+---
 
-Begin forwarded message:
+ drivers/net/fs_enet/mac-fec.c |   13 +++++++++----
+ drivers/net/fs_enet/mac-scc.c |    6 ++++--
+ drivers/net/phy/fixed.c       |    2 +-
+ 3 files changed, 14 insertions(+), 7 deletions(-)
 
-Date: Mon, 11 Dec 2006 07:18:20 -0800
-From: bugme-daemon@bugzilla.kernel.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 7665] New: getsockopt(IPV6_*CAST_HOPS) returns -1
-
-
-http://bugzilla.kernel.org/show_bug.cgi?id=7665
-
-           Summary: getsockopt(IPV6_*CAST_HOPS) returns -1
-    Kernel Version: 2.6.19
-            Status: NEW
-          Severity: normal
-             Owner: yoshfuji@linux-ipv6.org
-         Submitter: rdenis@simphalempin.com
-
-
-Most recent kernel where this bug did *NOT* occur: N/A
-Distribution: Debian Sid
-Hardware Environment: i386
-Software Environment: glibc 2.3.6
-Problem Description:
-
-Where fd is a socket (datagram or raw) with IPv6 protocol family,
-getsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, ...) succeeds, but the returned 
-hop limit is -1. connect()'ing the socket first does not solve the problem.
-
-Same problem with IPV6_MULTICAST_HOPS.
-
-Steps to reproduce:
-
-Compile and run the following test case:
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-
-int main (void)
-{
-        int fd, val;
-        socklen_t len = sizeof (val);
-        struct sockaddr_in6 addr;
-
-        memset (&addr, 0, sizeof (addr));
-        fd = socket (AF_INET6, SOCK_RAW, IPPROTO_UDP);
-        addr.sin6_family = AF_INET6;
-        addr.sin6_addr.s6_addr[15] = 1;
-        connect (fd, (struct sockaddr *)&addr, sizeof (addr));
-
-        if (fd == -1) return 1;
-        if (getsockopt (fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &val, &len) == 0)
-                printf ("Default unicast hops limit: %d\n", val);
-        if (getsockopt (fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, &len) == 
-0)
-                printf ("Default multicast hops limit: %d\n", val);
-        return 0;
-}
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+index c2c5fd4..474d6d7 100644
+--- a/drivers/net/fs_enet/mac-fec.c
++++ b/drivers/net/fs_enet/mac-fec.c
+@@ -104,9 +104,9 @@ static int do_pd_setup(struct fs_enet_pr
+ 	fep->interrupt = platform_get_irq_byname(pdev,"interrupt");
+ 	if (fep->interrupt < 0)
+ 		return -EINVAL;
+-	
++
+ 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
+-	fep->fec.fecp =(void*)r->start;
++	fep->fec.fecp = (void *)ioremap(r->start, r->end - r->start + 1);
+ 
+ 	if(fep->fec.fecp == NULL)
+ 		return -EINVAL;
+@@ -319,11 +319,14 @@ #endif
+ 	 * Clear any outstanding interrupt.
+ 	 */
+ 	FW(fecp, ievent, 0xffc0);
++#ifndef CONFIG_PPC_MERGE
+ 	FW(fecp, ivec, (fep->interrupt / 2) << 29);
+-	
++#else
++	FW(fecp, ivec, (irq_map[fep->interrupt].hwirq / 2) << 29);
++#endif
+ 
+ 	/*
+-	 * adjust to speed (only for DUET & RMII) 
++	 * adjust to speed (only for DUET & RMII)
+ 	 */
+ #ifdef CONFIG_DUET
+ 	if (fpi->use_rmii) {
+@@ -418,6 +421,7 @@ static void stop(struct net_device *dev)
+ 
+ static void pre_request_irq(struct net_device *dev, int irq)
+ {
++#ifndef CONFIG_PPC_MERGE
+ 	immap_t *immap = fs_enet_immap;
+ 	u32 siel;
+ 
+@@ -431,6 +435,7 @@ static void pre_request_irq(struct net_d
+ 			siel &= ~(0x80000000 >> (irq & ~1));
+ 		out_be32(&immap->im_siu_conf.sc_siel, siel);
+ 	}
++#endif
+ }
+ 
+ static void post_free_irq(struct net_device *dev, int irq)
+diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
+index 95ec587..62057f4 100644
+--- a/drivers/net/fs_enet/mac-scc.c
++++ b/drivers/net/fs_enet/mac-scc.c
+@@ -121,13 +121,13 @@ static int do_pd_setup(struct fs_enet_pr
+ 		return -EINVAL;
+ 
+ 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
+-	fep->scc.sccp = (void *)r->start;
++	fep->scc.sccp = (void *)ioremap(r->start, r->end - r->start + 1);
+ 
+ 	if (fep->scc.sccp == NULL)
+ 		return -EINVAL;
+ 
+ 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram");
+-	fep->scc.ep = (void *)r->start;
++	fep->scc.ep = (void *)ioremap(r->start, r->end - r->start + 1);
+ 
+ 	if (fep->scc.ep == NULL)
+ 		return -EINVAL;
+@@ -397,6 +397,7 @@ static void stop(struct net_device *dev)
+ 
+ static void pre_request_irq(struct net_device *dev, int irq)
+ {
++#ifndef CONFIG_PPC_MERGE
+ 	immap_t *immap = fs_enet_immap;
+ 	u32 siel;
+ 
+@@ -410,6 +411,7 @@ static void pre_request_irq(struct net_d
+ 			siel &= ~(0x80000000 >> (irq & ~1));
+ 		out_be32(&immap->im_siu_conf.sc_siel, siel);
+ 	}
++#endif
+ }
+ 
+ static void post_free_irq(struct net_device *dev, int irq)
+diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+index 096d4a1..8613539 100644
+--- a/drivers/net/phy/fixed.c
++++ b/drivers/net/phy/fixed.c
+@@ -349,7 +349,7 @@ #ifdef CONFIG_FIXED_MII_100_FDX
+ 	fixed_mdio_register_device(0, 100, 1);
+ #endif
+ 
+-#ifdef CONFIX_FIXED_MII_10_FDX
++#ifdef CONFIG_FIXED_MII_10_FDX
+ 	fixed_mdio_register_device(0, 10, 1);
+ #endif
+ 	return 0;
