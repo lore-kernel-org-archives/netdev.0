@@ -1,79 +1,155 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 0/7] chelsio: introduction
-Date: Tue, 12 Dec 2006 00:15:58 +0100
-Message-ID: <20061211231558.GA8568@electric-eye.fr.zoreil.com>
+Subject: [PATCH 2/7] chelsio: the return statement is not a function
+Date: Tue, 12 Dec 2006 00:20:56 +0100
+Message-ID: <20061211232056.GC8568@electric-eye.fr.zoreil.com>
+References: <20061211231558.GA8568@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59705 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40050 "EHLO
 	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750716AbWLKXRG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Dec 2006 18:17:06 -0500
+	id S1750721AbWLKXVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Dec 2006 18:21:03 -0500
 To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20061211231558.GA8568@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The serie applies against netdev-2.6#upstream-linus or linux-2.6#master
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/chelsio/my3126.c  |   16 ++++++++--------
+ drivers/net/chelsio/vsc7326.c |   12 ++++++------
+ 2 files changed, 14 insertions(+), 14 deletions(-)
 
-Patches have been compiled. No further test.
-
-It is available as:
-
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git#chelsio
-
-Former 'chelsio' branch is archived as 'chelsio-20061211'.
-
-Distance from Linus's trunk (8af905b4a403ce74b8d907b50bccc453a58834bc)
-----------------------------------------------------------------------
-
-6822b9d59faceb62a7044849cff012d6cf20ad7a
-1f3d073359a4f78731fabc1ef2d9b8cc8dcff16b
-e4b382e3b6df583f53bd56285ab32d25924fe653
-1699093b113c327f0b8e79aeae73eba5c6b30910
-e284e11a7ede38ed441c52aa51c7bf48a6623e0d
-18f6e5536f6c00fe27b19745eb8577432bb6bc95
-36959faf64235eb0509420b91d950279f797f58e
-
-Diffstat
---------
-
- drivers/net/chelsio/common.h      |    2 
- drivers/net/chelsio/cpl5_cmd.h    |   18 ++--
- drivers/net/chelsio/cxgb2.c       |  149 ++++++++++++-------------------
- drivers/net/chelsio/elmer0.h      |   40 ++++----
- drivers/net/chelsio/espi.c        |   44 +++++----
- drivers/net/chelsio/fpga_defs.h   |    6 +
- drivers/net/chelsio/gmac.h        |   11 ++
- drivers/net/chelsio/ixf1010.c     |  100 ++++++++++++---------
- drivers/net/chelsio/mv88e1xxx.c   |   27 +++---
- drivers/net/chelsio/my3126.c      |   16 ++-
- drivers/net/chelsio/pm3393.c      |   91 +++++++++++--------
- drivers/net/chelsio/sge.c         |  178 +++++++++++++++++--------------------
- drivers/net/chelsio/subr.c        |   89 +++++++++----------
- drivers/net/chelsio/tp.c          |   62 ++++++-------
- drivers/net/chelsio/vsc7326.c     |  139 +++++++++++++++--------------
- drivers/net/chelsio/vsc7326_reg.h |  139 ++++++++++++++++-------------
- drivers/net/chelsio/vsc8244.c     |   41 ++++-----
- 17 files changed, 580 insertions(+), 572 deletions(-)
-
-Shortlog
---------
-
-Francois Romieu:
-      chelsio: move return, break and continue statements on their own line
-      chelsio: the return statement is not a function
-      chelsio: spaces, tabs and friends
-      chelsio: useless curly braces
-      chelsio: useless test in cxgb2::remove_one
-      chelsio: misc cleanups in sge
-      chelsio: tabulate the update of the statistic counters
-
-Patch
------
-
-See following messages.
-
+diff --git a/drivers/net/chelsio/my3126.c b/drivers/net/chelsio/my3126.c
+index c7731b6..3e4e57f 100644
+--- a/drivers/net/chelsio/my3126.c
++++ b/drivers/net/chelsio/my3126.c
+@@ -10,25 +10,25 @@ static int my3126_reset(struct cphy *cph
+ 	 * This can be done through registers.  It is not required since
+ 	 * a full chip reset is used.
+ 	 */
+-	return (0);
++	return 0;
+ }
+ 
+ static int my3126_interrupt_enable(struct cphy *cphy)
+ {
+ 	schedule_delayed_work(&cphy->phy_update, HZ/30);
+ 	t1_tpi_read(cphy->adapter, A_ELMER0_GPO, &cphy->elmer_gpo);
+-	return (0);
++	return 0;
+ }
+ 
+ static int my3126_interrupt_disable(struct cphy *cphy)
+ {
+ 	cancel_rearming_delayed_work(&cphy->phy_update);
+-	return (0);
++	return 0;
+ }
+ 
+ static int my3126_interrupt_clear(struct cphy *cphy)
+ {
+-	return (0);
++	return 0;
+ }
+ 
+ #define OFFSET(REG_ADDR)    (REG_ADDR << 2)
+@@ -102,7 +102,7 @@ static void my3216_poll(struct work_stru
+ 
+ static int my3126_set_loopback(struct cphy *cphy, int on)
+ {
+-	return (0);
++	return 0;
+ }
+ 
+ /* To check the activity LED */
+@@ -146,7 +146,7 @@ static int my3126_get_link_status(struct
+ 	if (fc)
+ 		*fc = PAUSE_RX | PAUSE_TX;
+ 
+-	return (0);
++	return 0;
+ }
+ 
+ static void my3126_destroy(struct cphy *cphy)
+@@ -176,7 +176,7 @@ static struct cphy *my3126_phy_create(ad
+ 	INIT_DELAYED_WORK(&cphy->phy_update, my3216_poll);
+ 	cphy->bmsr = 0;
+ 
+-	return (cphy);
++	return cphy;
+ }
+ 
+ /* Chip Reset */
+@@ -197,7 +197,7 @@ static int my3126_phy_reset(adapter_t * 
+ 	val |= 0x8000;
+ 	t1_tpi_write(adapter, A_ELMER0_GPO, val);
+ 	udelay(100);
+-	return (0);
++	return 0;
+ }
+ 
+ struct gphy t1_my3126_ops = {
+diff --git a/drivers/net/chelsio/vsc7326.c b/drivers/net/chelsio/vsc7326.c
+index 3355441..8c4a31e 100644
+--- a/drivers/net/chelsio/vsc7326.c
++++ b/drivers/net/chelsio/vsc7326.c
+@@ -256,7 +256,7 @@ static int bist_rd(adapter_t *adapter, i
+ 	else if((result & (1<<8)) != 0x0)
+ 		CH_ERR("bist read error: 0x%x\n", result);
+ 
+-	return(result & 0xff);
++	return (result & 0xff);
+ }
+ 
+ static int bist_wr(adapter_t *adapter, int moduleid, int address, int value)
+@@ -286,7 +286,7 @@ static int bist_wr(adapter_t *adapter, i
+ 	else if((result & (1<<26)) != 0x0)
+ 		CH_ERR("bist write error: 0x%x\n", result);
+ 
+-	return(0);
++	return 0;
+ }
+ 
+ static int run_bist(adapter_t *adapter, int moduleid)
+@@ -295,7 +295,7 @@ static int run_bist(adapter_t *adapter, 
+ 	(void) bist_wr(adapter,moduleid, 0x00, 0x02);
+ 	(void) bist_wr(adapter,moduleid, 0x01, 0x01);
+ 
+-	return(0);
++	return 0;
+ }
+ 
+ static int check_bist(adapter_t *adapter, int moduleid)
+@@ -309,14 +309,14 @@ static int check_bist(adapter_t *adapter
+ 	if ((result & 3) != 0x3)
+ 		CH_ERR("Result: 0x%x  BIST error in ram %d, column: 0x%04x\n",
+ 			result, moduleid, column);
+-	return(0);
++	return 0;
+ }
+ 
+ static int enable_mem(adapter_t *adapter, int moduleid)
+ {
+ 	/*enable mem*/
+ 	(void) bist_wr(adapter,moduleid, 0x00, 0x00);
+-	return(0);
++	return 0;
+ }
+ 
+ static int run_bist_all(adapter_t *adapter)
+@@ -358,7 +358,7 @@ static int run_bist_all(adapter_t *adapt
+ 	udelay(300);
+ 	vsc_write(adapter, REG_MEM_BIST, 0x0);
+ 	mdelay(10);
+-	return(0);
++	return 0;
+ }
+ 
+ static int mac_intr_handler(struct cmac *mac)
 -- 
-Ueimor
+1.4.2.3
+
