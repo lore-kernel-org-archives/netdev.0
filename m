@@ -1,26 +1,71 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: examples of setting ip address/netmask/etc.. on a device
-Date: Tue, 12 Dec 2006 14:08:46 -0800
-Message-ID: <adahcw0u5qp.fsf@cisco.com>
-References: <A02AEA26-70F9-4B55-A88A-235B3FF4C9F9@kernel.crashing.org>
+From: "Leigh Brown" <leigh@solinno.co.uk>
+Subject: Re: kernel panic with the newly merged md5 signature support
+Date: Tue, 12 Dec 2006 22:22:13 -0000 (GMT)
+Message-ID: <60194.81.105.127.245.1165962133.squirrel@www.solinno.co.uk>
+References: <36718.81.105.127.245.1165873138.squirrel@www.solinno.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:22818 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932470AbWLLWIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 17:08:50 -0500
-To: Kumar Gala <galak@kernel.crashing.org>
-In-Reply-To: <A02AEA26-70F9-4B55-A88A-235B3FF4C9F9@kernel.crashing.org> (Kumar Gala's message of "Tue, 12 Dec 2006 15:01:53 -0600")
+Received: from mwuml021.modern-world.net ([193.110.88.84]:2525 "EHLO
+	mwuml021.modern-world.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932482AbWLLWWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 17:22:15 -0500
+In-Reply-To: <36718.81.105.127.245.1165873138.squirrel@www.solinno.co.uk>
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > I was wondering if there were any examples of net devices that expect
- > to be told the ip information for their connection (things doing
- > forms of offload).  If so can someone point me at a driver that does
- > this.
+On Mon, December 11, 2006 9:38 pm, I said:
+> I decided to try out the md5 signature support, with a view to eventually
+> fixing up Quagga to make use of it.  As the API has changed quite a bit,
+> I modified a simple echo client/server as a simple test.  I compiled
+> up 2.6.19-git17 and ran it under debian etch.
+>
+> Unfortunately, both the client and server machines panic (actually I'm
+> using qemu to make things easy for myself).  Although my test programs
+> might be buggy, I don't believe they should cause a panic.
+>
+> Has anyone got this stuff working yet?
 
-I don't know much about the HW details but drivers/infiniband/hw/amso1100
-does something like that.  drivers/infiniband is somewhat misnamed
-these days but amso1100 is a driver for RDMA over ethernet hardware.
+This seems bogus to me :-
+
+struct tcp_md5sig_pool *__tcp_get_md5sig_pool(int cpu)
+{
+        struct tcp_md5sig_pool **p;
+        spin_lock(&tcp_md5sig_pool_lock);
+        p = tcp_md5sig_pool;
+        if (p)
+                tcp_md5sig_users++;
+        spin_unlock(&tcp_md5sig_pool_lock);
+        return (p ? *per_cpu_ptr(p, cpu) : NULL);
+}
+
+void __tcp_put_md5sig_pool(void) {
+        __tcp_free_md5sig_pool(tcp_md5sig_pool);
+}
+
+Certainly commenting out the body of __tcp_put_md5sig_pool gets things
+working.
+
+I'm not sure what the correct way forward is.  Could these functions
+not be just:
+
+struct tcp_md5sig_pool *__tcp_get_md5sig_pool(int cpu)
+{
+        struct tcp_md5sig_pool **p = tcp_md5_sig_pool;
+	BUG_ON(!p);
+	return *per_cpu_ptr(p, cpu);
+}
+
+void __tcp_put_md5sig_pool(void) {
+        /* nuffin */
+}
+
+In other words, can we assume that the pool is allocated when we call
+tcp_get_md5sig_pool?
+
+Thanks,
+
+Leigh.
+
