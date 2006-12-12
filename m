@@ -1,43 +1,48 @@
-From: "Eric Lemoine" <eric.lemoine@gmail.com>
-Subject: Re: [patch sungem] improved locking
-Date: Tue, 12 Dec 2006 06:49:26 +0100
-Message-ID: <5cac192f0612112149i14583a31p7fa7c5496efaa94a@mail.gmail.com>
-References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
-	 <20061128.144911.55733883.davem@davemloft.net>
-	 <5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
-	 <20061211.174351.104064300.davem@davemloft.net>
-	 <5cac192f0612112133p71966d8bt51e98fecabc312d5@mail.gmail.com>
-	 <1165901783.11914.36.camel@localhost.localdomain>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: dhcpclient netlink bugs (was Re: [NETLINK]: Schedule removal of old  macros exported to userspace)
+Date: Tue, 12 Dec 2006 07:56:30 +0100 (MET)
+Message-ID: <200612120757.24880.stefan@loplof.de>
+References: <20061208.164345.71119524.davem@davemloft.net>  <200612101109.34149.stefan@loplof.de>  <20061210121505.GQ8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:1365 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbWLLFt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 00:49:28 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1565625uga
-        for <netdev@vger.kernel.org>; Mon, 11 Dec 2006 21:49:27 -0800 (PST)
-To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>
-In-Reply-To: <1165901783.11914.36.camel@localhost.localdomain>
+Cc: netdev@vger.kernel.org, libc-alpha@sourceware.org
+Return-path: <libc-alpha-return-19661-glibc-alpha=m.gmane.org@sourceware.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20061210121505.GQ8693@postel.suug.ch>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
 List-Id: netdev.vger.kernel.org
 
-On 12/12/06, Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> On Tue, 2006-12-12 at 06:33 +0100, Eric Lemoine wrote:
-> > On 12/12/06, David Miller <davem@davemloft.net> wrote:
-> > > [...]
-> > > Anyways, Eric your changes look fine as far as I can tell, can you
-> > > give them a really good testing on some SMP boxes?
-> >
-> > Unfortunately I can't, I don't have the hardware (only an old ibook here).
->
-> I do however, I'll give it a beating on a dual G5 as soon as I get a
-> chance. I'm pretty swamped at the moment and the box is used by somebody
-> else today.
+Am Sonntag, 10. Dezember 2006 13:15 schrieb Thomas Graf:
 
-Ok, thanks a lot Benjamin.
--- 
-Eric
+> > Please send me the list of bugs you've spotted. Of course I want to fix
+> > them.
+>
+> Sure...
+>
+> static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len) {
+>   if (len < sizeof(*msg)) return;
+>
+>   while(NLMSG_OK(msg,len)) {
+>     if (nlcb_run &&
+> 	nlcb_pid == msg->nlmsg_pid &&
+> 	nlcb_seq == msg->nlmsg_seq) {
+>       nlcb_function(msg, nlcb_args);
+>
+> Missing check for sufficient payload, family specific header
+> and attributes are accessed directly, you've only made sure
+> a netlink message header is present so far.
+
+Yes, the code has quite some trust into the kernel that if it answers the 
+asked question the answer is semantically correct. But to be fair, if you 
+issue a write(), you also expect the number of bytes written in return and 
+not the msec taken ;-) Will fix that and the other stuff you pointed out, 
+thanks!
+
+Stefan
