@@ -1,68 +1,52 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/loopback.c: convert to module_init()
-Date: Tue, 12 Dec 2006 17:24:35 +0100
-Message-ID: <20061212162435.GW28443@stusta.de>
+Subject: [2.6 patch] bonding.h: "extern inline" -> "static inline"
+Date: Tue, 12 Dec 2006 17:24:39 +0100
+Message-ID: <20061212162439.GX28443@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, ctindel@users.sourceforge.net,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:3403 "HELO
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:3405 "HELO
 	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751518AbWLLQYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 11:24:25 -0500
-To: jgarzik@pobox.com
+	with SMTP id S1751512AbWLLQY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 11:24:29 -0500
+To: Jay Vosburgh <fubar@us.ibm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch converts drivers/net/loopback.c to using module_init().
+"extern inline" generates a warning with -Wmissing-prototypes and I'm
+currently working on getting the kernel cleaned up for adding this to
+the CFLAGS since it will help us to avoid a nasty class of runtime
+errors.
+
+If there are places that really need a forced inline, __always_inline
+would be the correct solution.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
- drivers/net/Space.c    |   11 -----------
- drivers/net/loopback.c |    4 +++-
- 2 files changed, 3 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bonding.h |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
---- linux-2.6.19-mm1/drivers/net/loopback.c.old	2006-12-12 15:59:02.000000000 +0100
-+++ linux-2.6.19-mm1/drivers/net/loopback.c	2006-12-12 16:02:11.000000000 +0100
-@@ -229,9 +229,11 @@
- };
+--- linux-2.6.19-mm1/drivers/net/bonding/bonding.h.old	2006-12-12 15:57:43.000000000 +0100
++++ linux-2.6.19-mm1/drivers/net/bonding/bonding.h	2006-12-12 15:58:17.000000000 +0100
+@@ -237,12 +237,13 @@
+ #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
+ 					 BOND_ARP_VALIDATE_BACKUP)
  
- /* Setup and register the loopback device. */
--int __init loopback_init(void)
-+static int __init loopback_init(void)
+-extern inline int slave_do_arp_validate(struct bonding *bond, struct slave *slave)
++static inline int slave_do_arp_validate(struct bonding *bond,
++					struct slave *slave)
  {
- 	return register_netdev(&loopback_dev);
- };
+ 	return bond->params.arp_validate & (1 << slave->state);
+ }
  
-+module_init(loopback_init);
-+
- EXPORT_SYMBOL(loopback_dev);
---- linux-2.6.19-mm1/drivers/net/Space.c.old	2006-12-12 15:59:11.000000000 +0100
-+++ linux-2.6.19-mm1/drivers/net/Space.c	2006-12-12 16:01:35.000000000 +0100
-@@ -345,22 +345,11 @@
- #endif
- 
- 
--/*
-- *	The loopback device is global so it can be directly referenced
-- *	by the network code. Also, it must be first on device list.
-- */
--extern int loopback_init(void);
--
- /*  Statically configured drivers -- order matters here. */
- static int __init net_olddevs_init(void)
+-extern inline u32 slave_last_rx(struct bonding *bond, struct slave *slave)
++static inline u32 slave_last_rx(struct bonding *bond, struct slave *slave)
  {
- 	int num;
- 
--	if (loopback_init()) {
--		printk(KERN_ERR "Network loopback device setup failed\n");
--	}
--
--
- #ifdef CONFIG_SBNI
- 	for (num = 0; num < 8; ++num)
- 		sbni_probe(num);
+ 	if (slave_do_arp_validate(bond, slave))
+ 		return slave->last_arp_rx;
 
