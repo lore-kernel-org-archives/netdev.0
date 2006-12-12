@@ -1,52 +1,38 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] bonding.h: "extern inline" -> "static inline"
-Date: Tue, 12 Dec 2006 17:24:39 +0100
-Message-ID: <20061212162439.GX28443@stusta.de>
+From: Ray Lee <ray-lk@madrabbit.org>
+Subject: Re: ieee80211 sleeping in invalid context
+Date: Tue, 12 Dec 2006 09:51:26 -0800
+Message-ID: <457EEC1E.9000806@madrabbit.org>
+References: <455B63EC.8070704@madrabbit.org> <455F58AC.3030801@lwfinger.net> <457E2AE2.1020108@madrabbit.org> <200612121014.30309.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, ctindel@users.sourceforge.net,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:3405 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751512AbWLLQY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 11:24:29 -0500
-To: Jay Vosburgh <fubar@us.ibm.com>
-Content-Disposition: inline
+Received: from tapsys.com ([72.36.178.242]:34726 "EHLO tapsys.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932281AbWLLRvf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Dec 2006 12:51:35 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200612121014.30309.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"extern inline" generates a warning with -Wmissing-prototypes and I'm
-currently working on getting the kernel cleaned up for adding this to
-the CFLAGS since it will help us to avoid a nasty class of runtime
-errors.
+Michael Buesch wrote:
+> Congratulations to your decision ;)
 
-If there are places that really need a forced inline, __always_inline
-would be the correct solution.
+Sometimes making decisions via Brownian motion has its advantages.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Which kernel are you using?
 
----
+Hmm, I'm using the mercurial repository, let me see if I can translate that to a git
+head... Looks like git tree c2bb88baa52429b6b76e3ba4272cb2b29713c5a8 . (Which is from
+less than 24 hours ago.)
 
- drivers/net/bonding/bonding.h |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> There is some locking breakage in latest kernels with softmac.
+> I attached the fixes for the known bugs.
 
---- linux-2.6.19-mm1/drivers/net/bonding/bonding.h.old	2006-12-12 15:57:43.000000000 +0100
-+++ linux-2.6.19-mm1/drivers/net/bonding/bonding.h	2006-12-12 15:58:17.000000000 +0100
-@@ -237,12 +237,13 @@
- #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
- 					 BOND_ARP_VALIDATE_BACKUP)
- 
--extern inline int slave_do_arp_validate(struct bonding *bond, struct slave *slave)
-+static inline int slave_do_arp_validate(struct bonding *bond,
-+					struct slave *slave)
- {
- 	return bond->params.arp_validate & (1 << slave->state);
- }
- 
--extern inline u32 slave_last_rx(struct bonding *bond, struct slave *slave)
-+static inline u32 slave_last_rx(struct bonding *bond, struct slave *slave)
- {
- 	if (slave_do_arp_validate(bond, slave))
- 		return slave->last_arp_rx;
+Okay, I'll apply to my local copy, rebuild, and try again. I'll let you know what
+happens.
 
+Ray
