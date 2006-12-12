@@ -1,41 +1,42 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: d80211-drivers pull request (week-48)
-Date: Tue, 12 Dec 2006 10:35:07 +0100
-Message-ID: <200612121035.07382.mb@bu3sch.de>
-References: <200612110101.58710.flamingice@sourmilk.net> <457E00D4.7010201@gentoo.org>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [NETLINK]: Schedule removal of old macros exported to userspace
+Date: Tue, 12 Dec 2006 11:23:51 +0000
+Message-ID: <1165922631.5253.623.camel@pmac.infradead.org>
+References: <20061208.134752.131916271.davem@davemloft.net>
+	 <200612091249.39302.stefan@loplof.de>
+	 <20061209125533.GO8693@postel.suug.ch>
+	 <200612091559.05232.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Michael Wu <flamingice@sourmilk.net>,
-	John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Ulrich Kunitz <kune@deine-taler.de>
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	drow@false.org, joseph@codesourcery.com, netdev@vger.kernel.org,
+	libc-alpha@sourceware.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:44945
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008AbWLLJfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 04:35:39 -0500
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <457E00D4.7010201@gentoo.org>
-Content-Disposition: inline
+Received: from pentafluge.infradead.org ([213.146.154.40]:36436 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932199AbWLLLZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 06:25:13 -0500
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200612091559.05232.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 12 December 2006 02:07, Daniel Drake wrote:
-> Michael Wu wrote:
-> >       zd1211rw-d80211: Use ieee80211_tx_status
-> 
-> I've thought some more about this and I'm not so sure that this is the 
-> right approach.
-> 
-> Can't devicescape be taught that the ZD1211 handles retries in hardware 
-> and the stack doesn't need to worry about it?
-> 
-> What does devicescape do in response to not getting an ack?
+On Sat, 2006-12-09 at 15:58 +0100, Stefan Rompf wrote:
+> But when even glibc needs internal compat headers to compile with the second 
+> kernel version that provides userspace headers, what is the long-term - even 
+> mid-term - perspective of make headers_install then?
 
-It does ratecontrol based on that.
-Basically: No ACK == failed packet. If too many failures,
-lower the rate.
+Bear in mind that with the first cut of the headers_install I was trying
+to keep it entirely uncontentious and stick to _mechanism_, not policy.
+The _first_ set of exported headers still aren't ideal, and we're still
+cleaning up some parts of them (like properly getting rid of the
+_syscallX() macros, etc.). 
 
+We've only just started to be sensible about what we export to userspace
+-- it's not entirely set in stone at this point, 
+ 
 -- 
-Greetings Michael.
+dwmw2
+
