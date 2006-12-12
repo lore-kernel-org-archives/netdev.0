@@ -1,121 +1,70 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH] zd1211rw-d80211: Use LED class
-Date: Tue, 12 Dec 2006 18:26:34 -0500
-Message-ID: <200612121826.38479.flamingice@sourmilk.net>
-References: <200612110044.12205.flamingice@sourmilk.net> <200612112032.08646.flamingice@sourmilk.net> <20061212223835.GA8487@p15091797.pureserver.info>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: d80211-drivers pull request (week-48)
+Date: Wed, 13 Dec 2006 00:39:55 +0100
+Message-ID: <20061212233955.GB8487@p15091797.pureserver.info>
+References: <200612110101.58710.flamingice@sourmilk.net> <457E00D4.7010201@gentoo.org> <200612112120.58157.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart5072988.LuYIfk2A59";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>,
+	John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:12401 "EHLO
-	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932566AbWLLX5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 18:57:00 -0500
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <20061212223835.GA8487@p15091797.pureserver.info>
+Received: from deine-taler.de ([217.160.107.63]:59700 "EHLO
+	p15091797.pureserver.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932582AbWLMALY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 19:11:24 -0500
+To: Michael Wu <flamingice@sourmilk.net>
+Content-Disposition: inline
+In-Reply-To: <200612112120.58157.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart5072988.LuYIfk2A59
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On 06-12-11 21:20 Michael Wu wrote:
 
-On Tuesday 12 December 2006 17:38, Ulrich Kunitz wrote:
-> Micheal, how resetting an LED every second is overkill is beyond
-> me.
-I mean it is overkill in that is more than needed.
+> On Monday 11 December 2006 20:07, Daniel Drake wrote:
+> > Michael Wu wrote:
+> > >       zd1211rw-d80211: Use ieee80211_tx_status
+> >
+> > I've thought some more about this and I'm not so sure that this is the
+> > right approach.
+> >
+> > Can't devicescape be taught that the ZD1211 handles retries in hardware
+> > and the stack doesn't need to worry about it?
+> >
+> All 802.11 devices have to be able to handle retries in hardware to do random 
+> backoff properly. Still, the stack wants to know what happened.
+> 
+> > I think I remember reading that devicescape uses failed transmission
+> > rate in the rate adjustment calculations. Even without this racy ack
+> > system we can still achieve that - the device tells us every time it
+> > retries a transmit, and then it sends a special interrupt at the end
+> > saying that all retries failed.
+> >
+> Yes, but it also uses successful transmissions in rate adjustment.
+> 
+> I don't think this race is such a big deal. It will only happen when someone 
+> is really trying to mess with the link, and would cause the rate control to 
+> jump to the highest speed. However, if someone is really trying to mess with 
+> the link this way, the stability of the link is in trouble anyways. Wait for 
+> stations to send frames, and send an ack for every unicast frame - everyone 
+> will get confused. To actually mess with this code, the attacker would have 
+> to transmit acks nearly continuously as it can't tell exactly when is a good 
+> time to screw things up, and the driver recovers as soon as the queue is 
+> emptied. Someone transmitting all the time is a problem for all wireless 
+> cards. :)
 
-> On a USB 2.0 port the available bandwidth is much higher than=20
-> on the air. Notify also that the LED is flip-flopped on tx packets
-> (which might include ACKs), so you simply don't know, when it
-> becomes dark.
-Ah, but if we transmit an ACK, we know because we receive a unicast frame. =
-And=20
-then we can rearm the TX LED reset timer. Any other cases?
+Just two observations:
 
-> If nothing is transmitted the LED stays on, but if=20
-> something is transmitted you might have to guess. That's the
-> reason why I added the reset code. BTW the driver makes the LED
-> blinks in a certain sequence (1s on, 2s off) while scanning. It is
-> quite useful for debugging. You cannot do that without workqueues.
->
-I don't think being able to flash pretty patterns while scanning is very=20
-convincing reason to keep this. ;)
+1) The retry-failed-interrupt message contains the destination
+   MAC address of the transmitted message. 
+2) We could get easily two acks for the same transmission.
+3) We could get ACKs or retry-failed-interrupts for packets, for
+   which no status has been requested by the upper layers.
 
-> > The upper layer does not know about the LEDs of individual devices. It
-> > merely provides a number of LED triggers which device drivers can choose
-> > to listen to - which sounds like what you're suggesting.
->
-> No, this is not true. The upper layer has to support a Link-LED
-> trigger. I believe that event triggers are a generic concept and
-> should not be LED-specific. These triggers should inform about
-> LINK status changes and the driver has to know, whether it has a
-> LINK LED to switch or a LCD to display some information. There
-> might be also other uses than for switching LEDs.
->
-Yes, userspace can do that by listening for the SIOCGIWAP wireless event. L=
-ED=20
-triggers allow this to be done easily by default with no userspace=20
-intervention. A link LED trigger would be added in addition to the usual=20
-wireless event.
+I suggest that the skbs as buffer for the URB transmissions. Check
+ACK/NAK for all packets, but still prepare the status only for
+packets, which requested it. We could add a timeout value to each
+packet to make sure, that we don't ACK or NAK packets, which have
+been overdue.
 
-> > Switching to using LED class makes the housekeeping & workqueue code not
-> > do anything useful, so I removed it. I am not against the housekeeping &
-> > workqueue code - but right now this is dead code that will unnecessarily
-> > cause zd1211rw-d80211 not to compile when wireless-dev gets the workque=
-ue
-> > api changes. (of course, d80211 doesn't compile either with the workque=
-ue
-> > changes, but I'm working out a patch for that..)
->
-> No, it is not dead code as I explained.  Your patch is removing
-> functionality and if I undestand right, might work in the future.
-> But it is not tested and doesn't care for the activity
-> flip-flopping.
->
-It has been tested to the point where I can manually control the state of t=
-he=20
-LED from userspace via sysfs. I had to switch to using LED_OFF (or rather,=
-=20
-LED_DISABLED now) since the blinking behavior of LED_SCANNING made turning=
-=20
-off the LED not guaranteed. Turning off the link LED thus forces the activi=
-ty=20
-light off also, but that minor and can be easily fixed.
-
-The activity flip flopping can be fixed as I mentioned further above, and I=
- do=20
-intend to make this all work (eg. link LED trigger) as I need p54 to suppor=
-t=20
-blinking its LEDs. Do you really mind breaking the LED blinking for now? Ho=
-w=20
-many users are going to be affected while things are being sorted out?
-
-If you really think the idea of LED classes and LED triggers is that=20
-incredibly bad, I will drop this patch and just fix the workqueues. However=
-,=20
-as far as I can tell, it helps move policy out of the kernel while allowing=
-=20
-the most common use case to continue to work without userspace intervention.
-
-=2DMichael Wu
-
---nextPart5072988.LuYIfk2A59
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFfzquT3Oqt9AH4aERAtX3AJ4ynNryv3RCvpXePBlbmGo3vWowiQCgmTfx
-o7HWk7Wv1t5ZrAvLJO+2ofY=
-=jx4D
------END PGP SIGNATURE-----
-
---nextPart5072988.LuYIfk2A59--
+-- 
+Uli Kunitz
