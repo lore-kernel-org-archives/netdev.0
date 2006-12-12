@@ -1,51 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch sungem] improved locking
-Date: Mon, 11 Dec 2006 17:43:51 -0800 (PST)
-Message-ID: <20061211.174351.104064300.davem@davemloft.net>
-References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
-	<20061128.144911.55733883.davem@davemloft.net>
-	<5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: d80211-drivers pull request (week-48)
+Date: Mon, 11 Dec 2006 21:20:53 -0500
+Message-ID: <200612112120.58157.flamingice@sourmilk.net>
+References: <200612110101.58710.flamingice@sourmilk.net> <457E00D4.7010201@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart6704088.cAKzk32vUW";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Ulrich Kunitz <kune@deine-taler.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59753
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750847AbWLLBnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Dec 2006 20:43:52 -0500
-To: eric.lemoine@gmail.com
-In-Reply-To: <5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
+Received: from smtp.rutgers.edu ([128.6.72.243]:9385 "EHLO annwn14.rutgers.edu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750869AbWLLCVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Dec 2006 21:21:20 -0500
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <457E00D4.7010201@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Eric Lemoine" <eric.lemoine@gmail.com>
-Date: Wed, 29 Nov 2006 11:56:30 +0100
+--nextPart6704088.cAKzk32vUW
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> I don't understand why we'd need all this.
-> 
-> I think the following code for gem_interrupt should do the trick:
-...
-> The important thing is: we __netif_rx_schedule even if gem_status is 0
-> (shared irq case) because we don't want to miss events should the
-> following scenario occur:
+On Monday 11 December 2006 20:07, Daniel Drake wrote:
+> Michael Wu wrote:
+> >       zd1211rw-d80211: Use ieee80211_tx_status
+>
+> I've thought some more about this and I'm not so sure that this is the
+> right approach.
+>
+> Can't devicescape be taught that the ZD1211 handles retries in hardware
+> and the stack doesn't need to worry about it?
+>
+All 802.11 devices have to be able to handle retries in hardware to do rand=
+om=20
+backoff properly. Still, the stack wants to know what happened.
 
-I see, I miseed the bit where we're reading the status register
-also in the ->poll() loop.
+> I think I remember reading that devicescape uses failed transmission
+> rate in the rate adjustment calculations. Even without this racy ack
+> system we can still achieve that - the device tells us every time it
+> retries a transmit, and then it sends a special interrupt at the end
+> saying that all retries failed.
+>
+Yes, but it also uses successful transmissions in rate adjustment.
 
-Reading the status register at least twice every interrupt is
-really expensive.
+I don't think this race is such a big deal. It will only happen when someon=
+e=20
+is really trying to mess with the link, and would cause the rate control to=
+=20
+jump to the highest speed. However, if someone is really trying to mess wit=
+h=20
+the link this way, the stability of the link is in trouble anyways. Wait fo=
+r=20
+stations to send frames, and send an ack for every unicast frame - everyone=
+=20
+will get confused. To actually mess with this code, the attacker would have=
+=20
+to transmit acks nearly continuously as it can't tell exactly when is a goo=
+d=20
+time to screw things up, and the driver recovers as soon as the queue is=20
+emptied. Someone transmitting all the time is a problem for all wireless=20
+cards. :)
 
-I hope there is a lesson being learned, and nobody out there is
-making modern networking NICs that put the interrupt status
-in a register.
+=2DMichael Wu
 
-It should always be in a DMA'd status block, without any exception.
-This way it can be polled in the cheapest manner possible.  When the
-status block is in main memory, the CPU only takes the "cost" of a
-read when the value actually changes.
+--nextPart6704088.cAKzk32vUW
+Content-Type: application/pgp-signature
 
-Anyways, Eric your changes look fine as far as I can tell, can you
-give them a really good testing on some SMP boxes?  Then we can
-think about putting it into 2.6.21 or similar, I don't want to
-put any more major networking changes into 2.6.20 at this time.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFfhIKT3Oqt9AH4aERAqB/AJ4yX/rLgwJUkm25cZ2nrgJMOsorrQCfZhAc
+EL23fVDNbMgjbgn5REbVJcs=
+=FKAr
+-----END PGP SIGNATURE-----
+
+--nextPart6704088.cAKzk32vUW--
