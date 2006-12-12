@@ -1,51 +1,99 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2.6.19] e100: replace kmalloc with kcalloc
-Date: Tue, 12 Dec 2006 10:34:26 -0800
-Message-ID: <457EF632.4060106@intel.com>
-References: <1165942531.5611.7.camel@localhost>
+From: Kai Engert <kengert@redhat.com>
+Subject: [PATCH 2.6.19.1] prism54: add ethtool -i interface
+Date: Tue, 12 Dec 2006 21:09:41 +0100
+Message-ID: <457F0C85.7030303@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, trivial@kernel.org,
-	john.ronciak@intel.com, NetDev <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26448 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:33155 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbWLLSeb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Dec 2006 13:34:31 -0500
-To: Yan Burman <burman.yan@gmail.com>
-In-Reply-To: <1165942531.5611.7.camel@localhost>
+	id S932425AbWLLUJo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Dec 2006 15:09:44 -0500
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id kBCK9hDd026512
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 15:09:43 -0500
+Received: from pobox.stuttgart.redhat.com (pobox.stuttgart.redhat.com [172.16.2.10])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id kBCK9gmN018158
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 15:09:43 -0500
+Received: from [10.32.4.13] (vpn-4-13.str.redhat.com [10.32.4.13])
+	by pobox.stuttgart.redhat.com (8.12.8/8.12.8) with ESMTP id kBCK9fxY002206
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 21:09:42 +0100
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yan Burman wrote:
-> Replace kmalloc+memset with kcalloc
+Add support for "ethtool -i" to prism54 driver.
 
-ACK, fine with me.
+ethtool -i queries the specified device for 
+associated driver information.
 
-> Signed-off-by: Yan Burman <burman.yan@gmail.com>
-> 
-> diff -rubp linux-2.6.19-rc5_orig/drivers/net/e100.c linux-2.6.19-rc5_kzalloc/drivers/net/e100.c
-> --- linux-2.6.19-rc5_orig/drivers/net/e100.c	2006-11-09 12:16:21.000000000 +0200
-> +++ linux-2.6.19-rc5_kzalloc/drivers/net/e100.c	2006-11-11 22:44:04.000000000 +0200
-> @@ -1930,9 +1930,8 @@ static int e100_rx_alloc_list(struct nic
->  	nic->rx_to_use = nic->rx_to_clean = NULL;
->  	nic->ru_running = RU_UNINITIALIZED;
->  
-> -	if(!(nic->rxs = kmalloc(sizeof(struct rx) * count, GFP_ATOMIC)))
-> +	if(!(nic->rxs = kcalloc(count, sizeof(struct rx), GFP_ATOMIC)))
->  		return -ENOMEM;
-> -	memset(nic->rxs, 0, sizeof(struct rx) * count);
->  
->  	for(rx = nic->rxs, i = 0; i < count; rx++, i++) {
->  		rx->next = (i + 1 < count) ? rx + 1 : nic->rxs;
-> 
-> 
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+This helps tools like Fedora's system-config-network to 
+provide GUI management of network devices.
+I learned how to write this patch by reading the ipw2100 
+driver code.
+
+Signed-off-by: Kai Engert <kengert@redhat.com>
+
+--- linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.h.preke	2006-12-11 20:32:53.000000000 +0100
++++ linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.h	2006-12-12 20:33:09.000000000 +0100
+@@ -212,4 +212,8 @@
+
+int islpci_free_memory(islpci_private *);
+struct net_device *islpci_setup(struct pci_dev *);
++
++#define DRV_NAME	"prism54"
++#define DRV_VERSION	"1.2"
++
+#endif				/* _ISLPCI_DEV_H */
+--- linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.c.preke	2006-12-11 20:32:53.000000000 +0100
++++ linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.c	2006-12-12 20:33:09.000000000 +0100
+@@ -22,6 +22,7 @@
+#include <linux/module.h>
+
+#include <linux/netdevice.h>
++#include <linux/ethtool.h>
+#include <linux/pci.h>
+#include <linux/etherdevice.h>
+#include <linux/delay.h>
+@@ -788,6 +789,17 @@
+}
+#endif
+
++static void islpci_ethtool_get_drvinfo(struct net_device *dev,
++                                       struct ethtool_drvinfo *info)
++{
++	strcpy(info->driver, DRV_NAME);
++	strcpy(info->version, DRV_VERSION);
++}
++
++static struct ethtool_ops islpci_ethtool_ops = {
++	.get_drvinfo = islpci_ethtool_get_drvinfo,
++};
++
+struct net_device *
+islpci_setup(struct pci_dev *pdev)
+{
+@@ -814,6 +826,7 @@
+	ndev->do_ioctl = &prism54_ioctl;
+	ndev->wireless_handlers =
+	    (struct iw_handler_def *) &prism54_handler_def;
++	ndev->ethtool_ops = &islpci_ethtool_ops;
+
+	ndev->hard_start_xmit = &islpci_eth_transmit;
+	/* ndev->set_multicast_list = &islpci_set_multicast_list; */
+--- linux-2.6.19.1/drivers/net/wireless/prism54/islpci_hotplug.c.preke	2006-12-11 20:32:53.000000000 +0100
++++ linux-2.6.19.1/drivers/net/wireless/prism54/islpci_hotplug.c	2006-12-12 20:33:09.000000000 +0100
+@@ -29,9 +29,6 @@
+#include "islpci_mgt.h"		/* for pc_debug */
+#include "isl_oid.h"
+
+-#define DRV_NAME	"prism54"
+-#define DRV_VERSION	"1.2"
+-
+MODULE_AUTHOR("[Intersil] R.Bastings and W.Termorshuizen, The prism54.org Development Team <prism54-devel@prism54.org>");
+MODULE_DESCRIPTION("The Prism54 802.11 Wireless LAN adapter");
+MODULE_LICENSE("GPL");
+
+
+
