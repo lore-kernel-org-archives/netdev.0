@@ -1,62 +1,48 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH 1/3] d80211: fix wep.c breakage
-Date: Tue, 12 Dec 2006 12:52:36 -0500
-Message-ID: <200612121252.41956.flamingice@sourmilk.net>
+From: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: ieee80211 sleeping in invalid context
+Date: Tue, 12 Dec 2006 12:31:58 -0600
+Message-ID: <457EF59E.8050001@lwfinger.net>
+References: <455B63EC.8070704@madrabbit.org> <455F58AC.3030801@lwfinger.net>
+	<457E2AE2.1020108@madrabbit.org> <200612121014.30309.mb@bu3sch.de>
+	<457EEC1E.9000806@madrabbit.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1713169.ETpqtAHRsB";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:48080 "EHLO
-	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932304AbWLLR4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 12:56:42 -0500
-To: John Linville <linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Ray Lee <ray-lk-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>
+In-Reply-To: <457EEC1E.9000806-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1713169.ETpqtAHRsB
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Ray Lee wrote:
+> Michael Buesch wrote:
+>> Congratulations to your decision ;)
+> 
+> Sometimes making decisions via Brownian motion has its advantages.
+> 
+>> Which kernel are you using?
+> 
+> Hmm, I'm using the mercurial repository, let me see if I can translate that to a git
+> head... Looks like git tree c2bb88baa52429b6b76e3ba4272cb2b29713c5a8 . (Which is from
+> less than 24 hours ago.)
+> 
+>> There is some locking breakage in latest kernels with softmac.
+>> I attached the fixes for the known bugs.
+> 
+> Okay, I'll apply to my local copy, rebuild, and try again. I'll let you know what
+> happens.
 
-d80211: fix wep.c breakage
+Please note that the 3rd hunk of the second patch that Michael sent is already in Linus's 
+2.6.19-gitXX tree. You may get that part rejected by patch.
 
-This patch fixes wep.c, which was broken by Al Viro's severing
-skbuff.h -> mm.h patch.
-
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
-
- net/d80211/wep.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/d80211/wep.c b/net/d80211/wep.c
-index dee8eae..6a96ade 100644
-=2D-- a/net/d80211/wep.c
-+++ b/net/d80211/wep.c
-@@ -15,6 +15,7 @@
- #include <linux/crc32.h>
- #include <linux/crypto.h>
- #include <linux/err.h>
-+#include <linux/mm.h>
- #include <asm/scatterlist.h>
-=20
- #include <net/d80211.h>
-
---nextPart1713169.ETpqtAHRsB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFfuxpT3Oqt9AH4aERAuHFAJsFj7Hsnzqf/zEXCsUEN1CLcZ3K+wCeMklo
-a24KUjCzWo1OA/d7Nw6oliw=
-=euPp
------END PGP SIGNATURE-----
-
---nextPart1713169.ETpqtAHRsB--
+Larry
