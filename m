@@ -1,38 +1,72 @@
-From: Ray Lee <ray-lk@madrabbit.org>
-Subject: Re: ieee80211 sleeping in invalid context
-Date: Tue, 12 Dec 2006 09:51:26 -0800
-Message-ID: <457EEC1E.9000806@madrabbit.org>
-References: <455B63EC.8070704@madrabbit.org> <455F58AC.3030801@lwfinger.net> <457E2AE2.1020108@madrabbit.org> <200612121014.30309.mb@bu3sch.de>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: [PATCH 2/3] d80211: fix wme.c breakage
+Date: Tue, 12 Dec 2006 12:53:52 -0500
+Message-ID: <200612121253.57165.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: multipart/signed;
+  boundary="nextPart4522741.1ockAJALd6";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tapsys.com ([72.36.178.242]:34726 "EHLO tapsys.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932281AbWLLRvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Dec 2006 12:51:35 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200612121014.30309.mb@bu3sch.de>
+Received: from smtp.rutgers.edu ([128.6.72.243]:52346 "EHLO
+	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932307AbWLLR4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 12:56:42 -0500
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> Congratulations to your decision ;)
+--nextPart4522741.1ockAJALd6
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Sometimes making decisions via Brownian motion has its advantages.
+d80211: fix wme.c breakage
 
-> Which kernel are you using?
+This fixes wme.c, which was broken by a recent qdisc api change.
 
-Hmm, I'm using the mercurial repository, let me see if I can translate that to a git
-head... Looks like git tree c2bb88baa52429b6b76e3ba4272cb2b29713c5a8 . (Which is from
-less than 24 hours ago.)
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+=2D--
 
-> There is some locking breakage in latest kernels with softmac.
-> I attached the fixes for the known bugs.
+ net/d80211/wme.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Okay, I'll apply to my local copy, rebuild, and try again. I'll let you know what
-happens.
+diff --git a/net/d80211/wme.c b/net/d80211/wme.c
+index b9505dc..bffdce9 100644
+=2D-- a/net/d80211/wme.c
++++ b/net/d80211/wme.c
+@@ -432,7 +432,8 @@ static int wme_qdiscop_init(struct Qdisc
+ 	/* create child queues */
+ 	for (i =3D 0; i < queues; i++) {
+ 		skb_queue_head_init(&q->requeued[i]);
+=2D		q->queues[i] =3D qdisc_create_dflt(qd->dev, &CHILD_QDISC_OPS);
++		q->queues[i] =3D qdisc_create_dflt(qd->dev, &CHILD_QDISC_OPS,
++						 qd->handle);
+ 		if (q->queues[i] =3D=3D 0) {
+ 			q->queues[i] =3D &noop_qdisc;
+ 			printk(KERN_ERR "%s child qdisc %i creation failed", dev->name, i);
+@@ -658,7 +659,7 @@ void ieee80211_install_qdisc(struct net_
+ {
+ 	struct Qdisc *qdisc;
+=20
+=2D	qdisc =3D qdisc_create_dflt(dev, &wme_qdisc_ops);
++	qdisc =3D qdisc_create_dflt(dev, &wme_qdisc_ops, TC_H_ROOT);
+ 	if (!qdisc) {
+ 		printk(KERN_ERR "%s: qdisc installation failed\n", dev->name);
+ 		return;
 
-Ray
+--nextPart4522741.1ockAJALd6
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFfuy1T3Oqt9AH4aERAvO6AJ9M1kezDJ4kMj1hdfPy671q/j/WegCaAvxV
+DHytkkyztxboDjZ7X3/55QY=
+=jkrH
+-----END PGP SIGNATURE-----
+
+--nextPart4522741.1ockAJALd6--
