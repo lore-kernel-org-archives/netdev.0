@@ -1,48 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [take26-resend1 0/8] kevent: Generic event handling mechanism.
-Date: Tue, 12 Dec 2006 08:39:33 -0500
-Message-ID: <457EB115.3020407@garzik.org>
-References: <1165848619971@2ka.mipt.ru> <457D764E.9040308@garzik.org> <20061212053902.GC14420@2ka.mipt.ru>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [patch] remove NETIF_F_TSO ifdefery
+Date: Tue, 12 Dec 2006 08:05:46 -0800
+Message-ID: <1551EAE59135BE47B544934E30FC4FC093FDAE@NT-IRVA-0751.brcm.ad.broadcom.com>
+References: <457EAE1B.4070906@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55574 "EHLO mail.dvmed.net"
+Received: from mms1.broadcom.com ([216.31.210.17]:4085 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbWLLNjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Dec 2006 08:39:47 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061212053902.GC14420@2ka.mipt.ru>
+	id S1751490AbWLLQF5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 11:05:57 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <457EAE1B.4070906@garzik.org>
+To: "Jeff Garzik" <jeff@garzik.org>,
+	"Arjan van de Ven" <arjan@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Mon, Dec 11, 2006 at 10:16:30AM -0500, Jeff Garzik (jeff@garzik.org) wrote:
->> Comments:
->>
->> * [oh, everybody will hate me for saying this, but...]  to me, "kevent" 
->> implies an internal kernel subsystem.  I would rather call it "uevent" 
->> or anything else lacking a 'k' prefix.
+Jeff Garzik write:
+
+> Seems sane, though bnx2 and tg3 might want trivial modifications.  I 
+> dunno if DaveM and mchan want to keep BCM_TSO and TG3_SUPPORT_TSO 
+> defines (you kept them, I prefer to kill them).
 > 
-> It is kernel subsystem indeed, which exports some of its part to
-> userspace.
-> I previously thought that prefix 'k' can only be confused with KDE.
 
-It is a true statement to say "without the kevent subsystem, userspace 
-lacks uevent handling".
-
-And let's be honest, the main consumers of this will be userspace apps, 
-and a few in-kernel users pretending to be userspace apps (kernel threads).
-
-	Jeff
-
-
+I agree with Jeff.  Those can be killed. 
 
