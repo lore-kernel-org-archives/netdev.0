@@ -1,99 +1,37 @@
-From: Kai Engert <kengert@redhat.com>
-Subject: [PATCH 2.6.19.1] prism54: add ethtool -i interface
-Date: Tue, 12 Dec 2006 21:09:41 +0100
-Message-ID: <457F0C85.7030303@redhat.com>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: wake on LAN with sky2
+Date: Tue, 12 Dec 2006 21:27:20 +0100
+Message-ID: <20061212202720.GA12047@thinkpad.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33155 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932425AbWLLUJo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Dec 2006 15:09:44 -0500
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id kBCK9hDd026512
-	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 15:09:43 -0500
-Received: from pobox.stuttgart.redhat.com (pobox.stuttgart.redhat.com [172.16.2.10])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id kBCK9gmN018158
-	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 15:09:43 -0500
-Received: from [10.32.4.13] (vpn-4-13.str.redhat.com [10.32.4.13])
-	by pobox.stuttgart.redhat.com (8.12.8/8.12.8) with ESMTP id kBCK9fxY002206
-	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 21:09:42 +0100
+Received: from eazy.amigager.de ([213.239.192.238]:54693 "EHLO
+	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932396AbWLLU1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 15:27:21 -0500
+Received: from thinkpad.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
+	by eazy.amigager.de (Postfix) with ESMTP id ADD4D25C3E0
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 21:27:19 +0100 (CET)
+Received: from scorpion by thinkpad.home.local with local (Exim 4.63)
+	(envelope-from <tino.keitel@tikei.de>)
+	id 1GuEDh-0003Ba-6c
+	for netdev@vger.kernel.org; Tue, 12 Dec 2006 21:27:21 +0100
 To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for "ethtool -i" to prism54 driver.
+Hi folks,
 
-ethtool -i queries the specified device for 
-associated driver information.
+I just tried the sk98lin driver version 8.41.2.3 and was happy that it
+seems to support wake on LAN with the Marvell 88E8053 PCIe chip.
+However, after resume from suspend to RAM, the machine hangs. As it
+doesn't hang with sky2, it looks like this particular driver breaks
+suspend to RAM. ($%&?#!!!)
 
-This helps tools like Fedora's system-config-network to 
-provide GUI management of network devices.
-I learned how to write this patch by reading the ipw2100 
-driver code.
+A quick look into sk98lin_suspend() shows that there is not much stuff
+in there. Am I right that I just have to port that stuff to sky2? The
+affected file skge.c is licenced under the GPL v2 or later.
 
-Signed-off-by: Kai Engert <kengert@redhat.com>
-
---- linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.h.preke	2006-12-11 20:32:53.000000000 +0100
-+++ linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.h	2006-12-12 20:33:09.000000000 +0100
-@@ -212,4 +212,8 @@
-
-int islpci_free_memory(islpci_private *);
-struct net_device *islpci_setup(struct pci_dev *);
-+
-+#define DRV_NAME	"prism54"
-+#define DRV_VERSION	"1.2"
-+
-#endif				/* _ISLPCI_DEV_H */
---- linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.c.preke	2006-12-11 20:32:53.000000000 +0100
-+++ linux-2.6.19.1/drivers/net/wireless/prism54/islpci_dev.c	2006-12-12 20:33:09.000000000 +0100
-@@ -22,6 +22,7 @@
-#include <linux/module.h>
-
-#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-#include <linux/pci.h>
-#include <linux/etherdevice.h>
-#include <linux/delay.h>
-@@ -788,6 +789,17 @@
-}
-#endif
-
-+static void islpci_ethtool_get_drvinfo(struct net_device *dev,
-+                                       struct ethtool_drvinfo *info)
-+{
-+	strcpy(info->driver, DRV_NAME);
-+	strcpy(info->version, DRV_VERSION);
-+}
-+
-+static struct ethtool_ops islpci_ethtool_ops = {
-+	.get_drvinfo = islpci_ethtool_get_drvinfo,
-+};
-+
-struct net_device *
-islpci_setup(struct pci_dev *pdev)
-{
-@@ -814,6 +826,7 @@
-	ndev->do_ioctl = &prism54_ioctl;
-	ndev->wireless_handlers =
-	    (struct iw_handler_def *) &prism54_handler_def;
-+	ndev->ethtool_ops = &islpci_ethtool_ops;
-
-	ndev->hard_start_xmit = &islpci_eth_transmit;
-	/* ndev->set_multicast_list = &islpci_set_multicast_list; */
---- linux-2.6.19.1/drivers/net/wireless/prism54/islpci_hotplug.c.preke	2006-12-11 20:32:53.000000000 +0100
-+++ linux-2.6.19.1/drivers/net/wireless/prism54/islpci_hotplug.c	2006-12-12 20:33:09.000000000 +0100
-@@ -29,9 +29,6 @@
-#include "islpci_mgt.h"		/* for pc_debug */
-#include "isl_oid.h"
-
--#define DRV_NAME	"prism54"
--#define DRV_VERSION	"1.2"
--
-MODULE_AUTHOR("[Intersil] R.Bastings and W.Termorshuizen, The prism54.org Development Team <prism54-devel@prism54.org>");
-MODULE_DESCRIPTION("The Prism54 802.11 Wireless LAN adapter");
-MODULE_LICENSE("GPL");
-
-
-
+Regards,
+Tino
