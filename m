@@ -1,58 +1,156 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: Fw: [Bugme-new] [Bug 7665] New: getsockopt(IPV6_*CAST_HOPS) returns -1
-Date: Tue, 12 Dec 2006 09:08:14 +0100
-Message-ID: <200612120908.19378@auguste.remlab.net>
-References: <20061211095623.09fb0c40.akpm@osdl.org> <457DD3EB.9030201@hp.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: ieee80211 sleeping in invalid context
+Date: Tue, 12 Dec 2006 10:14:29 +0100
+Message-ID: <200612121014.30309.mb@bu3sch.de>
+References: <455B63EC.8070704@madrabbit.org> <455F58AC.3030801@lwfinger.net> <457E2AE2.1020108@madrabbit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 27.mail-out.ovh.net ([213.186.38.137]:45123 "HELO
-	27.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750970AbWLLIIc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 03:08:32 -0500
-To: Brian Haley <brian.haley@hp.com>
-In-Reply-To: <457DD3EB.9030201@hp.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:35050
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932153AbWLLJPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 04:15:00 -0500
+To: Ray Lee <ray-lk@madrabbit.org>
+In-Reply-To: <457E2AE2.1020108@madrabbit.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Hello,
+On Tuesday 12 December 2006 05:06, Ray Lee wrote:
+> Hey all, more data on my bcm43xx problem report from a few weeks back.
+> 
+> By random chance I acquired a brain, and decided to rebuild my latest kernel
 
-Le lundi 11 d=E9cembre 2006 22:55, Brian Haley a =E9crit :
-> Andrew Morton wrote:
-> > Where fd is a socket (datagram or raw) with IPv6 protocol family,
-> > getsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, ...) succeeds, but
-> > the returned hop limit is -1. connect()'ing the socket first does
-> > not solve the problem.
->
-> An IPv6 socket's hoplimit value is not set at creation time, instead,
-> the hoplimit in an outgoing packet is set dynamically at transmit
-> time to one of the following (in this order):
->
-> 1. Hoplimit route metric (if set)
-> 2. Outgoing interface value (/proc/sys/net/ipv6/conf/ethX/hop_limit)
-> 3. Global IPv6 value (/proc/sys/net/ipv6/conf/all/hop_limit)
->
-> A setsockopt() value *will* override this.
+Congratulations to your decision ;)
 
-Relevant standard (RFC 3493) notes:
+> Dec 11 19:34:47 phoenix kernel: [   57.044691] WARNING at kernel/mutex.c:132 __mutex_lock_common()
+> Dec 11 19:34:47 phoenix kernel: [   57.044694]
 
-   The IPV6_UNICAST_HOPS option may be used with getsockopt() to
-   determine the hop limit value that the system will use for subsequen=
-t
-   unicast packets sent via that socket.
+I'm not sure what's happening here. Either one of the following
+assertions is failing:
 
-I don't reckon -1 could be the hop limit value. IMHO, the value from=20
-case 1 (if socket is connected to some destination), otherwise case 2=20
-(if bound to a scope interface) or ultimately the default hop limit=20
-ought to be returned instead, as it will be most often correct, while=20
-the current behavior is always wrong, unless setsockopt() has been used=
-=20
-first. I don't if some people may think doing a route lookup in=20
-getsockopt might be overly expensive, but at least the two other cases=20
-should be ok, particularly the last one.
+038 #define spin_lock_mutex(lock, flags)                    \
+039         do {                                            \
+040                 struct mutex *l = container_of(lock, struct mutex, wait_lock); \
+041                                                         \
+042                 DEBUG_LOCKS_WARN_ON(in_interrupt());    \
+043                 local_irq_save(flags);                  \
+044                 __raw_spin_lock(&(lock)->raw_lock);     \
+045                 DEBUG_LOCKS_WARN_ON(l->magic != l);     \
+046         } while (0)
 
---=20
-R=E9mi Denis-Courmont
+Which kernel are you using?
+There is some locking breakage in latest kernels with softmac.
+I attached the fixes for the known bugs.
+
+
+
+
+
+
+From: Michael Buesch <mb@bu3sch.de>
+To: stable@kernel.org
+Date: Sun, 10 Dec 2006 18:39:28 +0100
+Message-Id: <200612101839.28687.mb@bu3sch.de>
+Cc: Andrew Morton <akpm@osdl.org>, Johannes Berg <johannes@sipsolutions.net>, "John W. Linville" <linville@tuxdriver.com>, dsd@gentoo.org
+Subject: ieee80211softmac: Fix mutex_lock at exit of ieee80211_softmac_get_genie
+
+From: Ulrich Kunitz <kune@deine-taler.de>
+
+ieee80211softmac_wx_get_genie locks the associnfo mutex at
+function exit. This patch fixes it. The patch is against Linus'
+tree (commit af1713e0).
+
+Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+---
+ net/ieee80211/softmac/ieee80211softmac_wx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2.6.19.1.orig/net/ieee80211/softmac/ieee80211softmac_wx.c
++++ linux-2.6.19.1/net/ieee80211/softmac/ieee80211softmac_wx.c
+@@ -463,7 +463,7 @@ ieee80211softmac_wx_get_genie(struct net
+ 			err = -E2BIG;
+ 	}
+ 	spin_unlock_irqrestore(&mac->lock, flags);
+-	mutex_lock(&mac->associnfo.mutex);
++	mutex_unlock(&mac->associnfo.mutex);
+ 
+ 	return err;
+ }
+
+
+
+
+
+
+
+
+From: Ulrich Kunitz <kune@deine-taler.de>
+
+The signature of work functions changed recently from a context
+pointer to the work structure pointer. This caused a problem in
+the ieee80211softmac code, because the ieee80211softmac_assox_work
+function has  been called directly with a parameter explicitly
+casted to (void*). This compiled correctly but resulted in a
+softlock, because mutex_lock was called with the wrong memory
+address. The patch fixes the problem. Another issue was a wrong
+call of the schedule_work function. Softmac works again and this
+fixes the problem I mentioned earlier in the zd1211rw rx tasklet
+patch. The patch is against Linus' tree (commit af1713e0).
+
+Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
+Acked-by: Michael Buesch <mb@bu3sch.de>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+
+John,
+
+This patch should be pushed upstream to 2.6.20. At the moment, the work
+struct changes have not yet propagated to wireless-2.6. When they do,
+it will be needed there as well.
+
+Larry
+
+ net/ieee80211/softmac/ieee80211softmac_assoc.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
+index eec1a1d..a824852 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
++++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
+@@ -167,7 +167,7 @@ static void
+ ieee80211softmac_assoc_notify_scan(struct net_device *dev, int event_type, void *context)
+ {
+ 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
+-	ieee80211softmac_assoc_work((void*)mac);
++	ieee80211softmac_assoc_work(&mac->associnfo.work.work);
+ }
+ 
+ static void
+@@ -177,7 +177,7 @@ ieee80211softmac_assoc_notify_auth(struc
+ 
+ 	switch (event_type) {
+ 	case IEEE80211SOFTMAC_EVENT_AUTHENTICATED:
+-		ieee80211softmac_assoc_work((void*)mac);
++		ieee80211softmac_assoc_work(&mac->associnfo.work.work);
+ 		break;
+ 	case IEEE80211SOFTMAC_EVENT_AUTH_FAILED:
+ 	case IEEE80211SOFTMAC_EVENT_AUTH_TIMEOUT:
+@@ -438,7 +438,7 @@ ieee80211softmac_try_reassoc(struct ieee
+ 
+ 	spin_lock_irqsave(&mac->lock, flags);
+ 	mac->associnfo.associating = 1;
+-	schedule_work(&mac->associnfo.work);
++	schedule_delayed_work(&mac->associnfo.work, 0);
+ 	spin_unlock_irqrestore(&mac->lock, flags);
+ }
+
+
+-- 
+Greetings Michael.
