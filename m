@@ -1,66 +1,122 @@
-From: Dmitry Torokhov <dtor@insightbb.com>
-Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
-Date: Tue, 12 Dec 2006 00:12:25 -0500
-Message-ID: <200612120012.28911.dtor@insightbb.com>
-References: <200612031936.34343.IvDoorn@gmail.com> <d120d5000612061404x3f6e18e7qd3601c3b450a5f91@mail.gmail.com> <200612072253.14492.IvDoorn@gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH] add init_dummy_netdev() for napi only dummy intefaces
+Date: Tue, 12 Dec 2006 16:27:38 +1100
+Message-ID: <1165901258.11914.32.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	Lennart Poettering <lennart@poettering.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eugene Surovegin <ebs@ebshome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.insightbb.com ([74.128.0.19]:45257 "EHLO
-	asav00.insightbb.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158AbWLLFMd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 00:12:33 -0500
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200612072253.14492.IvDoorn@gmail.com>
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:40999 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751169AbWLLF1s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Dec 2006 00:27:48 -0500
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ivo,
+This adds an init_dummy_netdev() function that gets a network device
+structure (allocation and lifetime entirely under caller's control) and
+initialize the minimum amount of fields so it can be used to schedule
+NAPI polls without registering a full blown interface. This is to be
+used by drivers that need to tie several hardware interfaces to a single
+NAPI poll scheduler due to HW limitations.
 
-On Thursday 07 December 2006 16:53, Ivo van Doorn wrote:
-> Hi,
->=20
-> > > > > =A02 - Hardware key that does not control the hardware radio =
-and does not report anything to userspace
-> > > >
-> > > > Kind of uninteresting button ;)
-> > >
-> > > And this is the button that rfkill was originally designed for.
-> > > Laptops with integrated WiFi cards from Ralink have a hardware bu=
-tton that don't send anything to
-> > > userspace (unless the ACPI event is read) and does not directly c=
-ontrol the radio itself.
-> > >
-> >=20
-> > So what does such a button do? I am confused here...
->=20
-> Without a handler like rfkill, it does nothing besides toggling a bit=
- in a register.
-> The Ralink chipsets have a couple of registers that represent the sta=
-te of that key.
-> Besides that, there are no notifications to the userspace nor does it=
- directly control the
-> radio.
-> That is where rfkill came in with the toggle handler that will listen=
- to the register
-> to check if the key has been pressed and properly process the key eve=
-nt.
+It also updates the ibm_emac driver to use that instead of doing it's
+own initializations by hand.
 
-In this case the driver can make the button state available to userspac=
-e so
-thsi is really type 2) driver as far as I can see. The fact that the bu=
-tton
-is not reported to userspace yet should not get into our way of classif=
-ying
-it.
+Symbol is exported GPL only a I don't think we want binary drivers doing
+that sort of acrobatics (if we want them at all).
 
---=20
-Dmitry
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
+
+I'm shit at inventing function names so feel free to come up with
+something nicer !
+
+Index: linux-cell/drivers/net/ibm_emac/ibm_emac_mal.c
+===================================================================
+--- linux-cell.orig/drivers/net/ibm_emac/ibm_emac_mal.c	2006-12-12 16:13:27.000000000 +1100
++++ linux-cell/drivers/net/ibm_emac/ibm_emac_mal.c	2006-12-12 16:23:21.000000000 +1100
+@@ -426,11 +426,10 @@ static int __init mal_probe(struct ocp_d
+ 	mal->def = ocpdev->def;
+ 
+ 	INIT_LIST_HEAD(&mal->poll_list);
+-	set_bit(__LINK_STATE_START, &mal->poll_dev.state);
++	init_dummy_netdev(&mal->poll_dev);
+ 	mal->poll_dev.weight = CONFIG_IBM_EMAC_POLL_WEIGHT;
+ 	mal->poll_dev.poll = mal_poll;
+ 	mal->poll_dev.priv = mal;
+-	atomic_set(&mal->poll_dev.refcnt, 1);
+ 
+ 	INIT_LIST_HEAD(&mal->list);
+ 
+Index: linux-cell/include/linux/netdevice.h
+===================================================================
+--- linux-cell.orig/include/linux/netdevice.h	2006-12-12 16:06:24.000000000 +1100
++++ linux-cell/include/linux/netdevice.h	2006-12-12 16:12:17.000000000 +1100
+@@ -454,6 +454,7 @@ struct net_device
+ 	       NETREG_UNREGISTERING,	/* called unregister_netdevice */
+ 	       NETREG_UNREGISTERED,	/* completed unregister todo */
+ 	       NETREG_RELEASED,		/* called free_netdev */
++	       NETREG_DUMMY,		/* dummy device for NAPI poll */
+ 	} reg_state;
+ 
+ 	/* Called after device is detached from network. */
+@@ -581,6 +582,7 @@ extern int		dev_close(struct net_device 
+ extern int		dev_queue_xmit(struct sk_buff *skb);
+ extern int		register_netdevice(struct net_device *dev);
+ extern int		unregister_netdevice(struct net_device *dev);
++extern int		init_dummy_netdev(struct net_device *dev);
+ extern void		free_netdev(struct net_device *dev);
+ extern void		synchronize_net(void);
+ extern int 		register_netdevice_notifier(struct notifier_block *nb);
+Index: linux-cell/net/core/dev.c
+===================================================================
+--- linux-cell.orig/net/core/dev.c	2006-12-12 16:01:59.000000000 +1100
++++ linux-cell/net/core/dev.c	2006-12-12 16:23:23.000000000 +1100
+@@ -3007,6 +3007,42 @@ out_err:
+ }
+ 
+ /**
++ *	init_dummy_netdev	- init a dummy network device for NAPI
++ *	@dev: device to init
++ *
++ *	This takes a network device structure and initialize the minimum
++ *	amount of fields so it can be used to schedule NAPI polls without
++ *	registering a full blown interface. This is to be used by drivers
++ *	that need to tie several hardware interfaces to a single NAPI
++ *	poll scheduler due to HW limitations.
++ */
++int init_dummy_netdev(struct net_device *dev)
++{
++	/* Clear everything. Note we don't initialize spinlocks
++	 * are they aren't supposed to be taken by any of the
++	 * NAPI code and this dummy netdev is supposed to be
++	 * only ever used for NAPI polls
++	 */
++	memset(dev, 0, sizeof(struct net_device));
++
++	/* make sure we BUG if trying to hit standard
++	 * register/unregister code path
++	 */
++	dev->reg_state = NETREG_DUMMY;
++
++	/* initialize the ref count */
++	atomic_set(&dev->refcnt, 1);
++
++	/* a dummy interface is started by default */
++	set_bit(__LINK_STATE_PRESENT, &dev->state);
++	set_bit(__LINK_STATE_START, &dev->state);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(init_dummy_netdev);
++
++
++/**
+  *	register_netdev	- register a network device
+  *	@dev: device to register
+  *
+
+
