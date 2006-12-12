@@ -1,161 +1,54 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take27 5/8] kevent: Timer notifications.
-Date: Tue, 12 Dec 2006 10:03:09 +0300
-Message-ID: <1165906989601@2ka.mipt.ru>
-References: <11659069892270@2ka.mipt.ru>
-Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
+Date: Tue, 12 Dec 2006 08:47:07 +0100
+Message-ID: <a32f33a40612112347hd359ca5q5962e12301d31bd6@mail.gmail.com>
+References: <200612031936.34343.IvDoorn@gmail.com>
+	 <d120d5000612061404x3f6e18e7qd3601c3b450a5f91@mail.gmail.com>
+	 <200612072253.14492.IvDoorn@gmail.com>
+	 <200612120012.28911.dtor@insightbb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dea.vocord.ru ([217.67.177.50]:40625 "EHLO
-	kano.factory.vocord.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932095AbWLLHDr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 02:03:47 -0500
-In-Reply-To: <11659069892270@2ka.mipt.ru>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"John Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>,
+	"Lennart Poettering" <lennart@poettering.net>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750962AbWLLHrL@vger.kernel.org>
+To: "Dmitry Torokhov" <dtor@insightbb.com>
+In-Reply-To: <200612120012.28911.dtor@insightbb.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-Timer notifications.
+> > > > > > 2 - Hardware key that does not control the hardware radio and does not report anything to userspace
+> > > > >
+> > > > > Kind of uninteresting button ;)
+> > > >
+> > > > And this is the button that rfkill was originally designed for.
+> > > > Laptops with integrated WiFi cards from Ralink have a hardware button that don't send anything to
+> > > > userspace (unless the ACPI event is read) and does not directly control the radio itself.
+> > > >
+> > >
+> > > So what does such a button do? I am confused here...
+> >
+> > Without a handler like rfkill, it does nothing besides toggling a bit in a register.
+> > The Ralink chipsets have a couple of registers that represent the state of that key.
+> > Besides that, there are no notifications to the userspace nor does it directly control the
+> > radio.
+> > That is where rfkill came in with the toggle handler that will listen to the register
+> > to check if the key has been pressed and properly process the key event.
+>
+> In this case the driver can make the button state available to userspace so
+> thsi is really type 2) driver as far as I can see. The fact that the button
+> is not reported to userspace yet should not get into our way of classifying
+> it.
 
-Timer notifications can be used for fine grained per-process time 
-management, since interval timers are very inconvenient to use, 
-and they are limited.
+I was indeed considering it as a type 2) device.
+I am currently working on revising the rfkill driver to work as you suggested,
+so I hope to have a new patch ready for you soon.
 
-This subsystem uses high-resolution timers.
-id.raw[0] is used as number of seconds
-id.raw[1] is used as number of nanoseconds
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
-new file mode 100644
-index 0000000..df93049
---- /dev/null
-+++ b/kernel/kevent/kevent_timer.c
-@@ -0,0 +1,112 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/hrtimer.h>
-+#include <linux/jiffies.h>
-+#include <linux/kevent.h>
-+
-+struct kevent_timer
-+{
-+	struct hrtimer		ktimer;
-+	struct kevent_storage	ktimer_storage;
-+	struct kevent		*ktimer_event;
-+};
-+
-+static int kevent_timer_func(struct hrtimer *timer)
-+{
-+	struct kevent_timer *t = container_of(timer, struct kevent_timer, ktimer);
-+	struct kevent *k = t->ktimer_event;
-+
-+	kevent_storage_ready(&t->ktimer_storage, NULL, KEVENT_MASK_ALL);
-+	hrtimer_forward(timer, timer->base->softirq_time,
-+			ktime_set(k->event.id.raw[0], k->event.id.raw[1]));
-+	return HRTIMER_RESTART;
-+}
-+
-+static struct lock_class_key kevent_timer_key;
-+
-+static int kevent_timer_enqueue(struct kevent *k)
-+{
-+	int err;
-+	struct kevent_timer *t;
-+
-+	t = kmalloc(sizeof(struct kevent_timer), GFP_KERNEL);
-+	if (!t)
-+		return -ENOMEM;
-+
-+	hrtimer_init(&t->ktimer, CLOCK_MONOTONIC, HRTIMER_REL);
-+	t->ktimer.expires = ktime_set(k->event.id.raw[0], k->event.id.raw[1]);
-+	t->ktimer.function = kevent_timer_func;
-+	t->ktimer_event = k;
-+
-+	err = kevent_storage_init(&t->ktimer, &t->ktimer_storage);
-+	if (err)
-+		goto err_out_free;
-+	lockdep_set_class(&t->ktimer_storage.lock, &kevent_timer_key);
-+
-+	err = kevent_storage_enqueue(&t->ktimer_storage, k);
-+	if (err)
-+		goto err_out_st_fini;
-+
-+	hrtimer_start(&t->ktimer, t->ktimer.expires, HRTIMER_REL);
-+
-+	return 0;
-+
-+err_out_st_fini:
-+	kevent_storage_fini(&t->ktimer_storage);
-+err_out_free:
-+	kfree(t);
-+
-+	return err;
-+}
-+
-+static int kevent_timer_dequeue(struct kevent *k)
-+{
-+	struct kevent_storage *st = k->st;
-+	struct kevent_timer *t = container_of(st, struct kevent_timer, ktimer_storage);
-+
-+	hrtimer_cancel(&t->ktimer);
-+	kevent_storage_dequeue(st, k);
-+	kfree(t);
-+
-+	return 0;
-+}
-+
-+static int kevent_timer_callback(struct kevent *k)
-+{
-+	k->event.ret_data[0] = jiffies_to_msecs(jiffies);
-+	return 1;
-+}
-+
-+static int __init kevent_init_timer(void)
-+{
-+	struct kevent_callbacks tc = {
-+		.callback = &kevent_timer_callback,
-+		.enqueue = &kevent_timer_enqueue,
-+		.dequeue = &kevent_timer_dequeue};
-+
-+	return kevent_add_callbacks(&tc, KEVENT_TIMER);
-+}
-+module_init(kevent_init_timer);
-+
-
+Ivo
