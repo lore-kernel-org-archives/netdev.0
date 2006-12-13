@@ -1,58 +1,41 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
-Date: Wed, 13 Dec 2006 11:08:01 -0800
-Message-ID: <20061213110801.1dd849ec@dxpl.pdx.osdl.net>
-References: <20061212162435.GW28443@stusta.de>
-	<20061212.171756.85408589.davem@davemloft.net>
+Subject: Re: [PATCH] add init_dummy_netdev() for napi only dummy intefaces
+Date: Wed, 13 Dec 2006 11:35:37 -0800
+Message-ID: <20061213113537.6baf410f@dxpl.pdx.osdl.net>
+References: <1165901258.11914.32.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eugene Surovegin <ebs@ebshome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:59777 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:34015 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965083AbWLMTLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 14:11:22 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061212.171756.85408589.davem@davemloft.net>
+	id S932671AbWLMTfp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 14:35:45 -0500
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1165901258.11914.32.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Dec 2006 17:17:56 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Tue, 12 Dec 2006 16:27:38 +1100
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-> From: Adrian Bunk <bunk@stusta.de>
-> Date: Tue, 12 Dec 2006 17:24:35 +0100
+> This adds an init_dummy_netdev() function that gets a network device
+> structure (allocation and lifetime entirely under caller's control) and
+> initialize the minimum amount of fields so it can be used to schedule
+> NAPI polls without registering a full blown interface. This is to be
+> used by drivers that need to tie several hardware interfaces to a single
+> NAPI poll scheduler due to HW limitations.
 > 
-> > This patch converts drivers/net/loopback.c to using module_init().
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> It also updates the ibm_emac driver to use that instead of doing it's
+> own initializations by hand.
 > 
-> I'm not %100 sure of this one, let's look at the comment you
-> are deleting:
+> Symbol is exported GPL only a I don't think we want binary drivers doing
+> that sort of acrobatics (if we want them at all).
 > 
-> > -/*
-> > - *	The loopback device is global so it can be directly referenced
-> > - *	by the network code. Also, it must be first on device list.
-> > - */
-> > -extern int loopback_init(void);
-> > -
-> 
-> in particular notice the part that says "it must be first on the
-> device list".
-> 
-> I'm not sure whether that is important any longer.  It probably isn't,
-> but we should verify it before applying such a patch.
-> 
-> Since module_init() effectively == device_initcall() for statically
-> built objects, which loopback always is, the Makefile ordering does
-> not seem to indicate to me that there is anything guarenteeing
-> this "first on the list" invariant.  At least not via object
-> file ordering.
-> 
-> So this gives some support to the idea that loopback_dev's position
-> on the device list no longer matters.
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> ---
 
-The dst code makes assumptions that loopback is ifindex 1 as well.
-NAK on Adrian's change, it doesn't buy anything
+Could we split off the NAPI context part of network_device instead?
+I'll work up something for 2.6.21.
