@@ -1,33 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
-Date: Wed, 13 Dec 2006 21:49:33 +0100
-Message-ID: <20061213204933.GW8693@postel.suug.ch>
-References: <20061212162435.GW28443@stusta.de> <20061212.171756.85408589.davem@davemloft.net> <20061213201213.GK4587@ftp.linux.org.uk>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
+Date: Wed, 13 Dec 2006 15:54:25 -0500
+Message-ID: <20061213205425.GC26415@csclub.uwaterloo.ca>
+References: <20061213180032.241265000.midnight@suse.cz> <20061213171205.GB26415@csclub.uwaterloo.ca> <1166031523.4741.0.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, bunk@stusta.de,
-	jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:60164 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750838AbWLMUtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 15:49:14 -0500
-To: Al Viro <viro@ftp.linux.org.uk>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:46416 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750862AbWLMUy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 15:54:26 -0500
+To: Dan Williams <dcbw@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20061213201213.GK4587@ftp.linux.org.uk>
+In-Reply-To: <1166031523.4741.0.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Al Viro <viro@ftp.linux.org.uk> 2006-12-13 20:12
-> On Tue, Dec 12, 2006 at 05:17:56PM -0800, David Miller wrote:
-> > I'm not sure whether that is important any longer.  It probably isn't,
-> > but we should verify it before applying such a patch.
-> 
-> There might be practical considerations along the lines of "we want
-> lookups for loopback to be fast"...
+On Wed, Dec 13, 2006 at 12:38:43PM -0500, Dan Williams wrote:
+> How, by private ioctls?  That's just wrong; I believe you still need to
+> go through the 4-way handshake to get the right keying information even
+> if you use PSK, which means you still need the supplicant, right?
 
-What is this discussion actually about? Since we started registering
-devices directly hooked into the init process before device_initcall()
-the order is random. Even the bonding device is registered before the
-loopback.
+All I did was add this to /etc/network/interfaces:
+
+iface wlan0 inet static
+        address 192.168.1.51
+        network 192.168.1.0
+        netmask 255.255.255.0
+        gateway 192.168.1.254
+        broadcast 192.168.1.255
+        pre-up ifconfig wlan0 up
+        pre-up iwpriv wlan0 set AuthMode=WPAPSK
+        pre-up iwpriv wlan0 set EncrypType=TKIP
+        pre-up iwconfig wlan0 essid USR8054
+        pre-up iwpriv wlan0 set WPAPSK="My WPA passphrase..."
+
+It seems to work, although I guess I could be wrong.  It was what I
+found in the documentation for the rt2x00 driver for doing WPA.  It
+looks nothing like the wpa_supplicant stuff I used to have with an older
+version of the driver.  My understanding was that the rt2x00 driver
+and/or d80211 stack took care of it now.
+
+--
+Len Sorensen
