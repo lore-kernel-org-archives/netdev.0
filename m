@@ -1,67 +1,59 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: wake on LAN with sky2
-Date: Thu, 14 Dec 2006 00:40:58 +0100
-Message-ID: <20061213234058.GA19990@dose.home.local>
-References: <20061212202720.GA12047@thinkpad.home.local> <20061213145818.6223ffbb@dxpl.pdx.osdl.net>
+From: "Leigh Brown" <leigh@solinno.co.uk>
+Subject: Re: kernel panic with the newly merged md5 signature support
+Date: Wed, 13 Dec 2006 23:43:50 -0000 (GMT)
+Message-ID: <45575.81.105.127.245.1166053430.squirrel@www.solinno.co.uk>
+References: <60194.81.105.127.245.1165962133.squirrel@www.solinno.co.uk>
+    <20061212.142523.85408861.davem@davemloft.net>
+    <45239.81.105.127.245.1165964614.squirrel@www.solinno.co.uk>
+    <20061212.172935.106265967.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:33194 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751686AbWLNAAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 19:00:40 -0500
-Received: from dose.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
-	by eazy.amigager.de (Postfix) with ESMTP id B6C9925C3E0
-	for <netdev@vger.kernel.org>; Thu, 14 Dec 2006 00:40:59 +0100 (CET)
-Received: from scorpion by dose.home.local with local (Exim 4.63)
-	(envelope-from <tino.keitel@tikei.de>)
-	id 1Gudic-0005oM-E9
-	for netdev@vger.kernel.org; Thu, 14 Dec 2006 00:40:58 +0100
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20061213145818.6223ffbb@dxpl.pdx.osdl.net>
+Received: from mwuml021.modern-world.net ([193.110.88.84]:1668 "EHLO
+	mwuml021.modern-world.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779AbWLNAHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 19:07:51 -0500
+In-Reply-To: <20061212.172935.106265967.davem@davemloft.net>
+To: "David Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 14:58:18 -0800, Stephen Hemminger wrote:
-> On Tue, 12 Dec 2006 21:27:20 +0100
-> Tino Keitel <tino.keitel@tikei.de> wrote:
-> 
-> > Hi folks,
-> > 
-> > I just tried the sk98lin driver version 8.41.2.3 and was happy that it
-> > seems to support wake on LAN with the Marvell 88E8053 PCIe chip.
-> > However, after resume from suspend to RAM, the machine hangs. As it
-> > doesn't hang with sky2, it looks like this particular driver breaks
-> > suspend to RAM. ($%&?#!!!)
-> 
-> 
-> 
-> > A quick look into sk98lin_suspend() shows that there is not much stuff
-> > in there. Am I right that I just have to port that stuff to sky2? The
-> > affected file skge.c is licenced under the GPL v2 or later.
-> > 
-> > Regards,
-> > Tino
-> > -
-> 
-> 
-> I was working on Wol for sky2, and got part way, but discovered that on my
-> test machine there were worse problems. The current code in the power management
-> resume runs the ACPI finish routine after the device resume. The ACPI finish
-> routine calls the BIOS, the BIOS then breaks MSI support.
-> 
-> The fix for that will be to reorder the PM resume code, but doing it right
-> means making the process thaw code SMP safe....  There are some patches
-> slowly working through the PM tree to fix this..
-> 
-> Anyway, this is as far as I got.
+On Wed, December 13, 2006 1:29 am, David Miller said:
+> I think we're still not onto the right fix.
+>
+> I took a look, and the issue seems to simply be that the
+> __tcp_put_md5sig_pool() is not doing the reference count
+> thing that __tcp_get_md5sig_pool() does (via tcp_md5sig_users).
+>
+> The direct call to __tcp_free_md5sig_pool() seems to be
+> what causes this problem, we should be invoking
+> tcp_free_md5sig_pool() instead.
+>
+> Can you give this patch a try?  Thanks.
+[...]
 
-Thanks for the patch. I just tried it with 2.6.19. The link LED on the
-switch is active after suspend, but no wakeup after sending the WOL
-packets, neigher with p nor with g setting in ethtool. After the
-resume, the interface is silent, I have to reload sky2.ko to get it
-working again.
+I just had to kill the parameter:-
 
-Regards,
-Tino
+--- net/ipv4/tcp.c.orig	2006-12-10 21:46:26.000000000 +0000
++++ net/ipv4/tcp.c	2006-12-13 17:38:29.000000000 +0000
+@@ -2362,7 +2362,7 @@ struct tcp_md5sig_pool *__tcp_get_md5sig
+ EXPORT_SYMBOL(__tcp_get_md5sig_pool);
+
+ void __tcp_put_md5sig_pool(void) {
+-	__tcp_free_md5sig_pool(tcp_md5sig_pool);
++	tcp_free_md5sig_pool();
+ }
+
+ EXPORT_SYMBOL(__tcp_put_md5sig_pool);
+
+It still seems to me that it shouldn't be necessary to alloc and free
+the pool from tcp_(get|put)_md5sig_pool, as you'll always have alloc'd
+the pool before calculating the hash, but I'm happy enough as at least
+its working now.
+
+Cheers,
+
+Leigh.
+
