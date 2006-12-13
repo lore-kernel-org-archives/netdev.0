@@ -1,48 +1,59 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 1/16] Spidernet DMA coalescing
-Date: Wed, 13 Dec 2006 11:27:14 -0600
-Message-ID: <20061213172714.GQ4329@austin.ibm.com>
-References: <20061206223223.GH17931@austin.ibm.com> <20061206232745.GA4649@austin.ibm.com> <20061207101151.GB27904@infradead.org>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
+Date: Wed, 13 Dec 2006 18:49:07 +0100
+Message-ID: <200612131849.07265.IvDoorn@gmail.com>
+References: <20061213180032.241265000.midnight@suse.cz> <20061213171205.GB26415@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Geoff Levand <geoffrey.levand@am.sony.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:34542 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751600AbWLMR1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:27:24 -0500
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBDHRG9L001387
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 12:27:16 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBDHRFLK526882
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 10:27:15 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBDHREiV006501
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 10:27:15 -0700
-To: Christoph Hellwig <hch@infradead.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:2389 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610AbWLMRtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:49:18 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so582734nfa
+        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:49:17 -0800 (PST)
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+In-Reply-To: <20061213171205.GB26415@csclub.uwaterloo.ca>
 Content-Disposition: inline
-In-Reply-To: <20061207101151.GB27904@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 07, 2006 at 10:11:51AM +0000, Christoph Hellwig wrote:
-> On Wed, Dec 06, 2006 at 05:27:45PM -0600, Linas Vepstas wrote:
-> > 
-> > The current driver code performs 512 DMA mappings of a bunch of 
-> > 32-byte structures. This is silly, as they are all in contiguous 
-> > memory. Ths patch changes the code to DMA map the entie area
-> > with just one call.
+On Wednesday 13 December 2006 18:12, Lennart Sorensen wrote:
+> On Wed, Dec 13, 2006 at 06:00:35PM +0100, Jiri Benc wrote:
+> > John, in addition to the previous pull request, please also apply the
+> > following two fixes.
 > 
-> This is still wrong.  The descriptor array must be in dma_alloc_coherent
-> memory, not a streaming mapping.  (I also think I pointed this out a while
-> ago when I made dma_alloc_coherent node-aware)
+> What is the state of the rx2x00 driver by now?  I have been playing
+> around with an rt2500 based card, with some success but not enough for
+> me to switch over from wired ethernet yet on my machine.  I used to get
+> lots of hard lockups, but with the latest cvs snapshot in debian's
+> rt2x00-source package, it no longer seems to lockup.  It also now works
+> with WPA without using wpa_supplicant (Yay!  Good work.), it does
+> however very frequently pause the transfer, and then after a while (20
+> or 30 seconds probably) it will start moving data again and my transfer
+> will continue.  Is this considered normal for now?  My card happens to
+> be a linksys WMP54G version 4.0.  At least pauses beat crashes.  It's
+> going the right way for a work in progress.
+> 
+> I guess I should go read the bug tracking system and try out newer cvs
+> versions. :)
 
-Sorry, I missed this the first time. I'm splitting this off now; will 
-resubmit shortly.
+Well results seem to vary between users. Since recently users have started
+reporting panics and freezes with rt2x00. I have not yet traced that problem
+to the source, because the panics I have received don't contain any rt2x00
+or d80211 functions. But the presence of the rt2x00 module is the
+important factor in reproducing the crash. :(
+Others however seem to have more success with rt2x00, master mode
+seems to work with reasonable speed. Association with managed mode
+is still very shortlifed. People who manage to get associated are being
+kicked from the AP quite quickly. (This could be because d80211 is not
+sending NULL-frames every once in a while).
 
---linas
+But since results vary much between users, I can still descrive the rt2x00
+state as "experimental driver"
+
+Ivo
