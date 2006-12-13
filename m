@@ -1,34 +1,42 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 04/26] rt2x00: EEPROM 93Cx6
-Date: Wed, 13 Dec 2006 12:05:20 -0500
-Message-ID: <20061213170520.GE26412@csclub.uwaterloo.ca>
-References: <200612031919.05228.IvDoorn@gmail.com> <a32f33a40612090505j23251626k891edae1c06b6fb2@mail.gmail.com> <20061213154415.GA26415@csclub.uwaterloo.ca> <200612131747.42035.IvDoorn@gmail.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: [PATCH] rt2x00: Fix crc-itu-t dependency
+Date: Wed, 13 Dec 2006 18:07:13 +0100
+Message-ID: <200612131807.13620.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wu <flamingice@sourmilk.net>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:33656 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965032AbWLMRFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:05:21 -0500
-To: Ivo van Doorn <ivdoorn@gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.188]:26800 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965007AbWLMRH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:07:26 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so573894nfa
+        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:07:25 -0800 (PST)
+To: "John Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <200612131747.42035.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 05:47:41PM +0100, Ivo van Doorn wrote:
-> Do you need to actually write data to the eeprom chip?
-> Currently the module does not support writing to the eeprom,
-> this is something I could add (The original Ralink code, where this module
-> is based on also contains the code to write to the EEPROM).
+crc-itu-t should only appear in the kernel configuration menu
+when rt2x00 is enabled. The module should only be build when
+rt2x00 is used, otherwise crc-itu-t is simply in the wrong
+location since it is not a network driver.
 
-I am going to use it to write the custom pci vendor ID to the eeprom, so
-yes I intend to write to it.  The code appears as if it has the ability
-to write to the eeprom but I didn't look at all of it carefully yet.  I
-don't actually have any need to read it back, although I intend to do so
-to verify the contents.
+Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
---
-Len Sorensen
+---
+
+diff --git a/drivers/net/wireless/d80211/rt2x00/Kconfig b/drivers/net/wireless/d80211/rt2x00/Kconfig
+index c2c2a60..18d61c3 100644
+--- a/drivers/net/wireless/d80211/rt2x00/Kconfig
++++ b/drivers/net/wireless/d80211/rt2x00/Kconfig
+@@ -93,6 +93,7 @@ config EEPROM_93CX6
+ 
+ config CRC_ITU_T
+ 	tristate "CRC ITU-T V.41 functions"
++	depends on RT2X00
+ 	help
+ 	  This option is provided for the case where no in-kernel-tree
+ 	  modules require CRC ITU-T V.41 functions, but a module built outside
