@@ -1,35 +1,96 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] drivers/net: spidernet driver on Celleb
-Date: Wed, 13 Dec 2006 10:52:39 -0600
-Message-ID: <20061213165239.GO4329@austin.ibm.com>
-References: <200612120525.kBC5PpWC009418@toshiba.co.jp> <20061213011435.GN4329@austin.ibm.com> <1165982077.11914.123.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>, netdev@vger.kernel.org,
-	jim@jklewis.com, linuxppc-dev@ozlabs.org
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [PATCH 1/2] rt2x00: fix breakage after pkt_type field was removed
+Date: Wed, 13 Dec 2006 18:00:36 +0100 (CET)
+Message-ID: <20061213170036.E313D3AA7EF@silver.suse.cz>
+References: <20061213180032.241265000.midnight@suse.cz>
+Cc: netdev@vger.kernel.org, Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:46110 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965030AbWLMQxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 11:53:06 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBDGqooK023464
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 11:52:50 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBDGqlit499736
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:52:47 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBDGqkD8026084
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:52:47 -0700
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Content-Disposition: inline
-In-Reply-To: <1165982077.11914.123.camel@localhost.localdomain>
+Received: from styx.suse.cz ([82.119.242.94]:44735 "EHLO silver.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965032AbWLMQ4G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 11:56:06 -0500
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20061213180032.241265000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 02:54:37PM +1100, Benjamin Herrenschmidt wrote:
-> Cell blade because it's using a fiber link
+Fix breakage after pkt_type field was removed from ieee80211_tx_control.
 
-Oh. I didn't know that. 
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
---linas
+---
+ drivers/net/wireless/d80211/rt2x00/rt2400pci.c |    2 +-
+ drivers/net/wireless/d80211/rt2x00/rt2500pci.c |    2 +-
+ drivers/net/wireless/d80211/rt2x00/rt2500usb.c |    2 +-
+ drivers/net/wireless/d80211/rt2x00/rt2x00.h    |    3 +++
+ drivers/net/wireless/d80211/rt2x00/rt61pci.c   |    2 +-
+ drivers/net/wireless/d80211/rt2x00/rt73usb.c   |    2 +-
+ 6 files changed, 8 insertions(+), 5 deletions(-)
+
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+@@ -1428,7 +1428,7 @@ static void rt2400pci_write_tx_desc(stru
+ 	 * to be inserted into the frame.
+ 	 */
+ 	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++			   is_probe_resp(frame_control));
+ 
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+@@ -1569,7 +1569,7 @@ static void rt2500pci_write_tx_desc(stru
+ 	 * to be inserted into the frame.
+ 	 */
+ 	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++			   is_probe_resp(frame_control));
+ 
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+@@ -1540,7 +1540,7 @@ static void rt2500usb_write_tx_desc(stru
+ 	 * to be inserted into the frame.
+ 	 */
+ 	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++			   is_probe_resp(frame_control));
+ 
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2x00.h
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2x00.h
+@@ -130,6 +130,9 @@ static int rt2x00_debug_level = 0;
+ #define is_rts_frame(__fc) \
+ 	( !!((((__fc) &  IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL) && \
+ 	     (((__fc) &  IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_RTS)) )
++#define is_probe_resp(__fc) \
++	( !!((((__fc) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) && \
++	     (((__fc) & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP)) )
+ 
+ /*
+  * TX result flags.
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+@@ -2024,7 +2024,7 @@ static void rt61pci_write_tx_desc(struct
+ 	 * to be inserted into the frame.
+ 	 */
+ 	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++			   is_probe_resp(frame_control));
+ 
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+@@ -1803,7 +1803,7 @@ static void rt73usb_write_tx_desc(struct
+ 	 * to be inserted into the frame.
+ 	 */
+ 	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++			   is_probe_resp(frame_control));
+ 
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
