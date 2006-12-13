@@ -1,122 +1,66 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: drivers/net/netxen/: usage of uninitialized variables
-Date: Wed, 13 Dec 2006 14:07:21 +0100
-Message-ID: <20061213130721.GG3851@stusta.de>
+Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
+Date: Wed, 13 Dec 2006 14:40:42 +0100
+Message-ID: <20061213134042.GI3851@stusta.de>
+References: <20061212162435.GW28443@stusta.de> <20061212.171756.85408589.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964924AbWLMNHQ@vger.kernel.org>
-To: amitkale@netxen.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:2531 "HELO
+	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S964967AbWLMNkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 08:40:33 -0500
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20061212.171756.85408589.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker spotted the following places where variables are 
-being used uninitialized:
+On Tue, Dec 12, 2006 at 05:17:56PM -0800, David Miller wrote:
+> From: Adrian Bunk <bunk@stusta.de>
+> Date: Tue, 12 Dec 2006 17:24:35 +0100
+> 
+> > This patch converts drivers/net/loopback.c to using module_init().
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> I'm not %100 sure of this one, let's look at the comment you
+> are deleting:
+> 
+> > -/*
+> > - *	The loopback device is global so it can be directly referenced
+> > - *	by the network code. Also, it must be first on device list.
+> > - */
+> > -extern int loopback_init(void);
+> > -
+> 
+> in particular notice the part that says "it must be first on the
+> device list".
+> 
+> I'm not sure whether that is important any longer.  It probably isn't,
+> but we should verify it before applying such a patch.
+> 
+> Since module_init() effectively == device_initcall() for statically
+> built objects, which loopback always is, the Makefile ordering does
+> not seem to indicate to me that there is anything guarenteeing
+> this "first on the list" invariant.  At least not via object
+> file ordering.
+> 
+> So this gives some support to the idea that loopback_dev's position
+> on the device list no longer matters.
 
+That far I already was.
 
-drivers/net/netxen/netxen_nic_ethtool.c:
+Additionally:
+- it works for me (but my e100 is always initialized before loop)
+- I didn't spot any obvious interdependency with the other Space.c
+  drivers
 
-<--  snip  -->
-
-...
-static u32 netxen_nic_get_link(struct net_device *dev)
-{
-        struct netxen_port *port = netdev_priv(dev);
-        struct netxen_adapter *adapter = port->adapter;
-        __le32 status;
-
-        /* read which mode */
-        if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
-                if (adapter->phy_read
-                    && adapter->phy_read(adapter, port->portnum,
-                                         NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-                                         &status) != 0)
-                        return -EIO;
-                else
-                        return (netxen_get_phy_link(status));
-...
-
-<--  snip  -->
-
-"status" is not initiazlized if !adapter->phy_read.
-
-
-drivers/net/netxen/netxen_nic_ethtool.c:
-
-<--  snip  -->
-
-...
-static int
-netxen_nic_set_settings(struct net_device *dev, struct ethtool_cmd 
-*ecmd)
-{
-        struct netxen_port *port = netdev_priv(dev);
-        struct netxen_adapter *adapter = port->adapter;
-        __le32 status;
-
-        /* read which mode */
-        if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
-                /* autonegotiation */
-                if (adapter->phy_write
-                    && adapter->phy_write(adapter, port->portnum,
-                                          NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
-                                          (__le32) ecmd->autoneg) != 0)
-                        return -EIO;
-                else
-                        port->link_autoneg = ecmd->autoneg;
-
-                if (adapter->phy_read
-                    && adapter->phy_read(adapter, port->portnum,
-                                         NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-                                         &status) != 0)
-                        return -EIO;
-
-                /* speed */
-                switch (ecmd->speed) {
-                case SPEED_10:
-                        netxen_set_phy_speed(status, 0);
-                        break;
-                case SPEED_100:
-                        netxen_set_phy_speed(status, 1);
-                        break;
-                case SPEED_1000:
-                        netxen_set_phy_speed(status, 2);
-                        break;
-                }
-...
-
-<--  snip  -->
-
-"status" is not initiazlized if !adapter->phy_read.
-
-
-drivers/net/netxen/netxen_nic_isr.c:
-
-<--  snip  -->
-
-void netxen_handle_port_int(struct netxen_adapter *adapter, u32 portno,
-                            u32 enable)
-{
-        __le32 int_src;
-        struct netxen_port *port;
-
-        /*  This should clear the interrupt source */
-        if (adapter->phy_read)
-                adapter->phy_read(adapter, portno,
-                                  NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS,
-                                  &int_src);
-        if (int_src == 0) {
-                DPRINTK(INFO, "No phy interrupts for port #%d\n", portno);
-                return;
-        }
-...
-
-<--  snip  -->
-
-"int_src" is not initiazlized if !adapter->phy_read.
-
+It could be I missed anything, but I don't see any better way to verify 
+this than getting the patch into the next -mm and wait whether someone 
+will scream...
 
 cu
 Adrian
@@ -127,3 +71,4 @@ Adrian
         of the darkness. There had been need of rain for many days.
        "Only a promise," Lao Er said.
                                        Pearl S. Buck - Dragon Seed
+
