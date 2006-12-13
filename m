@@ -1,53 +1,82 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
-Date: Thu, 14 Dec 2006 00:31:28 +0100
-Message-ID: <20061213233128.GD3629@stusta.de>
-References: <20061212162435.GW28443@stusta.de> <20061212.171756.85408589.davem@davemloft.net> <20061213201213.GK4587@ftp.linux.org.uk> <20061213204933.GW8693@postel.suug.ch> <20061213150143.2672e0b1@dxpl.pdx.osdl.net> <20061213231217.GB3629@stusta.de> <20061213231848.GY8693@postel.suug.ch>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 2/14] Spidernet add net_ratelimit to suppress long output
+Date: Thu, 14 Dec 2006 10:31:19 +1100
+Message-ID: <1166052679.6838.1.camel@concordia.ozlabs.ibm.com>
+References: <20061213210010.GR4329@austin.ibm.com>
+	<20061213210825.GB1915@austin.ibm.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Al Viro <viro@ftp.linux.org.uk>,
-	David Miller <davem@davemloft.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:2569 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751751AbWLMXbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 18:31:19 -0500
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20061213231848.GY8693@postel.suug.ch>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============1263411494=="
+Cc: Andrew Morton <akpm@osdl.org>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, Christoph Hellwig <hch@infradead.org>,
+	linuxppc-dev@ozlabs.org, Jens Osterkamp <Jens.Osterkamp@gmx.de>,
+	jgarzik@pobox.com, James K Lewis <jim@jklewis.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20061213210825.GB1915@austin.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Mime-version: 1.0
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 14, 2006 at 12:18:48AM +0100, Thomas Graf wrote:
-> * Adrian Bunk <bunk@stusta.de> 2006-12-14 00:12
-> > On Wed, Dec 13, 2006 at 03:01:43PM -0800, Stephen Hemminger wrote:
-> > > Loopback should be there before protocols are started. It makes sense
-> > > to have a standard startup order.
-> > 
-> > This actually becomes easier after my patch:
-> > 
-> > Now that it's untangled from net_olddevs_init(), you can simply change 
-> > the module_init(loopback_init) to a different initcall level.
-> 
-> Not really, the device management inits as subsys, the ip layer hooks
-> into fs_initcall() which comes right after. The loopback was actually
-> registered after the protocol so far. I think Adrian's patch is fine
-> if the module_init() is changed to device_initcall().
 
-It doesn't matter (and I don't care) since for the non-modular case 
-(that always applies for loopback), there's:
-  #define __initcall(fn) device_initcall(fn)
-  #define module_init(x)  __initcall(x);
+--===============1263411494==
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-fdv73rC2xthXo/Eyyjvj"
 
-cu
-Adrian
 
--- 
+--=-fdv73rC2xthXo/Eyyjvj
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+On Wed, 2006-12-13 at 15:08 -0600, Linas Vepstas wrote:
+> This patch adds net_ratelimit to many of the printks in order to
+> limit extraneous warning messages (created in response to Bug 28554).
 
+Bug 28554 in which bug tracking system? I can't find it in LTC or
+kernel.org bugzilla.
+
+cheers
+
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
+
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-fdv73rC2xthXo/Eyyjvj
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+
+iD8DBQBFgI1GdSjSd0sB4dIRAtBdAJ95zoWGfyJ1BxzNqiHtpidDKuXPowCfcRPx
+HvyBrUoJ5EfmJIY9lGcoZZE=
+=ADeF
+-----END PGP SIGNATURE-----
+
+--=-fdv73rC2xthXo/Eyyjvj--
+
+
+--===============1263411494==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@ozlabs.org
+https://ozlabs.org/mailman/listinfo/linuxppc-dev
+--===============1263411494==--
