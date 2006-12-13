@@ -1,51 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
-Date: Tue, 12 Dec 2006 17:17:56 -0800 (PST)
-Message-ID: <20061212.171756.85408589.davem@davemloft.net>
-References: <20061212162435.GW28443@stusta.de>
+Subject: Re: kernel panic with the newly merged md5 signature support
+Date: Tue, 12 Dec 2006 17:29:35 -0800 (PST)
+Message-ID: <20061212.172935.106265967.davem@davemloft.net>
+References: <60194.81.105.127.245.1165962133.squirrel@www.solinno.co.uk>
+	<20061212.142523.85408861.davem@davemloft.net>
+	<45239.81.105.127.245.1165964614.squirrel@www.solinno.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50995
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36003
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932371AbWLMBR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 20:17:57 -0500
-To: bunk@stusta.de
-In-Reply-To: <20061212162435.GW28443@stusta.de>
+	by vger.kernel.org with ESMTP id S1751573AbWLMB3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 20:29:36 -0500
+To: leigh@solinno.co.uk
+In-Reply-To: <45239.81.105.127.245.1165964614.squirrel@www.solinno.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Tue, 12 Dec 2006 17:24:35 +0100
+From: "Leigh Brown" <leigh@solinno.co.uk>
+Date: Tue, 12 Dec 2006 23:03:34 -0000 (GMT)
 
-> This patch converts drivers/net/loopback.c to using module_init().
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Well, the inline functions seem okay in that regard, but I'll bow to
+> your superior judgement.
 
-I'm not %100 sure of this one, let's look at the comment you
-are deleting:
+I think we're still not onto the right fix.
 
-> -/*
-> - *	The loopback device is global so it can be directly referenced
-> - *	by the network code. Also, it must be first on device list.
-> - */
-> -extern int loopback_init(void);
-> -
+I took a look, and the issue seems to simply be that the
+__tcp_put_md5sig_pool() is not doing the reference count
+thing that __tcp_get_md5sig_pool() does (via tcp_md5sig_users).
 
-in particular notice the part that says "it must be first on the
-device list".
+The direct call to __tcp_free_md5sig_pool() seems to be
+what causes this problem, we should be invoking
+tcp_free_md5sig_pool() instead.
 
-I'm not sure whether that is important any longer.  It probably isn't,
-but we should verify it before applying such a patch.
+Can you give this patch a try?  Thanks.
 
-Since module_init() effectively == device_initcall() for statically
-built objects, which loopback always is, the Makefile ordering does
-not seem to indicate to me that there is anything guarenteeing
-this "first on the list" invariant.  At least not via object
-file ordering.
-
-So this gives some support to the idea that loopback_dev's position
-on the device list no longer matters.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 090c690..4c57019 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2364,8 +2364,9 @@ struct tcp_md5sig_pool *__tcp_get_md5sig
+ 
+ EXPORT_SYMBOL(__tcp_get_md5sig_pool);
+ 
+-void __tcp_put_md5sig_pool(void) {
+-	__tcp_free_md5sig_pool(tcp_md5sig_pool);
++void __tcp_put_md5sig_pool(void)
++{
++	tcp_free_md5sig_pool(tcp_md5sig_pool);
+ }
+ 
+ EXPORT_SYMBOL(__tcp_put_md5sig_pool);
