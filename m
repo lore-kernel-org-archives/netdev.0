@@ -1,49 +1,33 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 2/4][SCTP]: Enable auto loading of SCTP when creating an
-	ipv6 SCTP socket.
-Date: Wed, 13 Dec 2006 12:44:47 -0800
-Message-ID: <1166042687.4670.11.camel@w-sridhar2.beaverton.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
+Date: Wed, 13 Dec 2006 21:49:33 +0100
+Message-ID: <20061213204933.GW8693@postel.suug.ch>
+References: <20061212162435.GW28443@stusta.de> <20061212.171756.85408589.davem@davemloft.net> <20061213201213.GK4587@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, bunk@stusta.de,
+	jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:46164 "EHLO e4.ny.us.ibm.com"
+Received: from postel.suug.ch ([194.88.212.233]:60164 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843AbWLMUpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 15:45:22 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBDKisMl013928
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 15:44:54 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBDKisEi219736
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 15:44:54 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBDKis2O018432
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 15:44:54 -0500
-To: davem@davemloft.net
+	id S1750838AbWLMUtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 15:49:14 -0500
+To: Al Viro <viro@ftp.linux.org.uk>
+Content-Disposition: inline
+In-Reply-To: <20061213201213.GK4587@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[SCTP]: Enable auto loading of SCTP when creating an ipv6 SCTP socket.
+* Al Viro <viro@ftp.linux.org.uk> 2006-12-13 20:12
+> On Tue, Dec 12, 2006 at 05:17:56PM -0800, David Miller wrote:
+> > I'm not sure whether that is important any longer.  It probably isn't,
+> > but we should verify it before applying such a patch.
+> 
+> There might be practical considerations along the lines of "we want
+> lookups for loopback to be fast"...
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-
----
- net/sctp/protocol.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index b61f334..3a3db56 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1258,6 +1258,7 @@ module_exit(sctp_exit);
-  * __stringify doesn't likes enums, so use IPPROTO_SCTP value (132) directly.
-  */
- MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-132");
-+MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-132");
- MODULE_AUTHOR("Linux Kernel SCTP developers <lksctp-developers@lists.sourceforge.net>");
- MODULE_DESCRIPTION("Support for the SCTP protocol (RFC2960)");
- MODULE_LICENSE("GPL");
-
-
+What is this discussion actually about? Since we started registering
+devices directly hooked into the init process before device_initcall()
+the order is random. Even the bonding device is registered before the
+loopback.
