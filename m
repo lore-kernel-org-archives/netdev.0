@@ -1,50 +1,40 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 7/14] d80211: do not pass an invalid key index to set_key()
-Date: Wed, 13 Dec 2006 17:41:42 +0100 (CET)
-Message-ID: <20061213164142.878203AA6BF@silver.suse.cz>
-References: <20061213174109.005697000.midnight@suse.cz>
-Cc: netdev@vger.kernel.org
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
+Date: Wed, 13 Dec 2006 12:12:05 -0500
+Message-ID: <20061213171205.GB26415@csclub.uwaterloo.ca>
+References: <20061213180032.241265000.midnight@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:57267 "EHLO silver.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965033AbWLMRIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 12:08:55 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061213174109.005697000.midnight@suse.cz>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:33919 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965042AbWLMRMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:12:07 -0500
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20061213180032.241265000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Kimdon <david.kimdon@devicescape.com>
+On Wed, Dec 13, 2006 at 06:00:35PM +0100, Jiri Benc wrote:
+> John, in addition to the previous pull request, please also apply the
+> following two fixes.
 
-d80211: do not pass an invalid key index to set_key()
+What is the state of the rx2x00 driver by now?  I have been playing
+around with an rt2500 based card, with some success but not enough for
+me to switch over from wired ethernet yet on my machine.  I used to get
+lots of hard lockups, but with the latest cvs snapshot in debian's
+rt2x00-source package, it no longer seems to lockup.  It also now works
+with WPA without using wpa_supplicant (Yay!  Good work.), it does
+however very frequently pause the transfer, and then after a while (20
+or 30 seconds probably) it will start moving data again and my transfer
+will continue.  Is this considered normal for now?  My card happens to
+be a linksys WMP54G version 4.0.  At least pauses beat crashes.  It's
+going the right way for a work in progress.
 
-If a hardware key has not been configured then there is no point
-to calling DISABLE_KEY.
+I guess I should go read the bug tracking system and try out newer cvs
+versions. :)
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
-
----
-
- net/d80211/ieee80211_ioctl.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-0efae98fe404771fc3660f1d6023ab692149ddec
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 4be86c9..416d92e 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -612,7 +612,9 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 
- 	if (alg == ALG_NONE) {
- 		keyconf = NULL;
--		if (try_hwaccel && key && local->ops->set_key &&
-+		if (try_hwaccel && key &&
-+		    key->hw_key_idx != HW_KEY_IDX_INVALID &&
-+		    local->ops->set_key &&
- 		    (keyconf = ieee80211_key_data2conf(local, key)) != NULL &&
- 		    local->ops->set_key(local_to_hw(local), DISABLE_KEY,
- 				       sta_addr, keyconf, sta ? sta->aid : 0)) {
--- 
-1.3.0
-
+--
+Len Sorensen
