@@ -1,55 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kernel panic with the newly merged md5 signature support
-Date: Tue, 12 Dec 2006 17:29:35 -0800 (PST)
-Message-ID: <20061212.172935.106265967.davem@davemloft.net>
-References: <60194.81.105.127.245.1165962133.squirrel@www.solinno.co.uk>
-	<20061212.142523.85408861.davem@davemloft.net>
-	<45239.81.105.127.245.1165964614.squirrel@www.solinno.co.uk>
+Subject: Re: [Bugme-new] [Bug 7665] New: getsockopt(IPV6_*CAST_HOPS)
+ returns -1
+Date: Tue, 12 Dec 2006 17:11:21 -0800 (PST)
+Message-ID: <20061212.171121.21596915.davem@davemloft.net>
+References: <457DD3EB.9030201@hp.com>
+	<200612120908.19378@auguste.remlab.net>
+	<457F1C2B.9000800@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: rdenis@simphalempin.com, akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36003
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36006
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751573AbWLMB3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 20:29:36 -0500
-To: leigh@solinno.co.uk
-In-Reply-To: <45239.81.105.127.245.1165964614.squirrel@www.solinno.co.uk>
+	by vger.kernel.org with ESMTP id S932318AbWLMBcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 20:32:15 -0500
+To: brian.haley@hp.com
+In-Reply-To: <457F1C2B.9000800@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Leigh Brown" <leigh@solinno.co.uk>
-Date: Tue, 12 Dec 2006 23:03:34 -0000 (GMT)
+From: Brian Haley <brian.haley@hp.com>
+Date: Tue, 12 Dec 2006 16:16:27 -0500
 
-> Well, the inline functions seem okay in that regard, but I'll bow to
-> your superior judgement.
+> The following patch seems to work for me, but this code has behaved this 
+> way for a while, so don't know if it will break any existing apps.
+> 
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-I think we're still not onto the right fix.
+I like this patch so I have applied it, thanks Brian.  I'll
+push it to -stable too.
 
-I took a look, and the issue seems to simply be that the
-__tcp_put_md5sig_pool() is not doing the reference count
-thing that __tcp_get_md5sig_pool() does (via tcp_md5sig_users).
+I wonder, since the most accurate return value is tied to the route,
+what is expected of this getsockopt() before a socket's identity
+(and therefore route) is known?
 
-The direct call to __tcp_free_md5sig_pool() seems to be
-what causes this problem, we should be invoking
-tcp_free_md5sig_pool() instead.
-
-Can you give this patch a try?  Thanks.
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 090c690..4c57019 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2364,8 +2364,9 @@ struct tcp_md5sig_pool *__tcp_get_md5sig
- 
- EXPORT_SYMBOL(__tcp_get_md5sig_pool);
- 
--void __tcp_put_md5sig_pool(void) {
--	__tcp_free_md5sig_pool(tcp_md5sig_pool);
-+void __tcp_put_md5sig_pool(void)
-+{
-+	tcp_free_md5sig_pool(tcp_md5sig_pool);
- }
- 
- EXPORT_SYMBOL(__tcp_put_md5sig_pool);
+I suppose returning the default value, which Brian's patch does,
+is a reasonable best-effort.
