@@ -1,85 +1,60 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 14/14] Spidernet Rework RX linked list
-Date: Wed, 13 Dec 2006 15:25:05 -0600
-Message-ID: <20061213212505.GN1915@austin.ibm.com>
-References: <20061213210010.GR4329@austin.ibm.com>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
+Date: Wed, 13 Dec 2006 22:28:15 +0100
+Message-ID: <a32f33a40612131328i177600dfh7f6437f4b5ed1bb8@mail.gmail.com>
+References: <20061213180032.241265000.midnight@suse.cz>
+	 <20061213171205.GB26415@csclub.uwaterloo.ca>
+	 <1166031523.4741.0.camel@localhost.localdomain>
+	 <20061213205425.GC26415@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
-	Christoph Hellwig <hch@infradead.org>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	Jens Osterkamp <Jens.Osterkamp@gmx.de>,
-	James K Lewis <jim@jklewis.com>,
-	Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Dan Williams" <dcbw@redhat.com>, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:46913 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751080AbWLMVZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 16:25:08 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBDLPYUj005473
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 16:25:34 -0500
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBDLP7UF270250
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 16:25:07 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBDLP5UY032148
-	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 16:25:07 -0500
-To: Andrew Morton <akpm@osdl.org>
+Received: from wr-out-0506.google.com ([64.233.184.233]:34740 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbWLMV2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 16:28:17 -0500
+Received: by wr-out-0506.google.com with SMTP id i7so218866wra
+        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 13:28:17 -0800 (PST)
+To: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+In-Reply-To: <20061213205425.GC26415@csclub.uwaterloo.ca>
 Content-Disposition: inline
-In-Reply-To: <20061213210010.GR4329@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-Make the hardware perceive the RX descriptor ring as a 
-null-terminated linked list, instead of a circular ring.
+> > How, by private ioctls?  That's just wrong; I believe you still need to
+> > go through the 4-way handshake to get the right keying information even
+> > if you use PSK, which means you still need the supplicant, right?
+>
+> All I did was add this to /etc/network/interfaces:
+>
+> iface wlan0 inet static
+>         address 192.168.1.51
+>         network 192.168.1.0
+>         netmask 255.255.255.0
+>         gateway 192.168.1.254
+>         broadcast 192.168.1.255
+>         pre-up ifconfig wlan0 up
+>         pre-up iwpriv wlan0 set AuthMode=WPAPSK
+>         pre-up iwpriv wlan0 set EncrypType=TKIP
+>         pre-up iwconfig wlan0 essid USR8054
+>         pre-up iwpriv wlan0 set WPAPSK="My WPA passphrase..."
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: James K Lewis <jklewis@us.ibm.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
+That is definately the rt2500 legacy driver and _not_ the rt2x00 driver.
 
-----
- drivers/net/spider_net.c |   12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+> It seems to work, although I guess I could be wrong.  It was what I
+> found in the documentation for the rt2x00 driver for doing WPA.  It
+> looks nothing like the wpa_supplicant stuff I used to have with an older
+> version of the driver.  My understanding was that the rt2x00 driver
+> and/or d80211 stack took care of it now.
 
-Index: linux-2.6.19-git7/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.19-git7.orig/drivers/net/spider_net.c	2006-12-13 14:32:13.000000000 -0600
-+++ linux-2.6.19-git7/drivers/net/spider_net.c	2006-12-13 14:33:21.000000000 -0600
-@@ -419,9 +419,13 @@ spider_net_prepare_rx_descr(struct spide
- 		card->spider_stats.rx_iommu_map_error++;
- 		descr->dmac_cmd_status = SPIDER_NET_DESCR_NOT_IN_USE;
- 	} else {
-+		descr->next_descr_addr = 0;
- 		wmb();
- 		descr->dmac_cmd_status = SPIDER_NET_DESCR_CARDOWNED |
- 					 SPIDER_NET_DMAC_NOINTR_COMPLETE;
-+
-+		wmb();
-+		descr->prev->next_descr_addr = descr->bus_addr;
- 	}
- 
- 	return 0;
-@@ -1650,7 +1654,6 @@ int
- spider_net_open(struct net_device *netdev)
- {
- 	struct spider_net_card *card = netdev_priv(netdev);
--	struct spider_net_descr *descr;
- 	int result;
- 
- 	result = spider_net_init_chain(card, &card->tx_chain);
-@@ -1662,13 +1665,6 @@ spider_net_open(struct net_device *netde
- 	if (result)
- 		goto alloc_rx_failed;
- 
--	/* Make a ring of of bus addresses */
--	descr = card->rx_chain.ring;
--	do {
--		descr->next_descr_addr = descr->next->bus_addr;
--		descr = descr->next;
--	} while (descr != card->rx_chain.ring);
--
- 	/* Allocate rx skbs */
- 	if (spider_net_alloc_rx_skbs(card))
- 		goto alloc_skbs_failed;
+Correct, that is why those iwpriv commands are the clear evidence
+you are not using rt2x00 but rt2500 legacy. Check which driver is loaded
+rt2500 means legacy
+rt2500pci means rt2x00.
+
+Ivo
