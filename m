@@ -1,34 +1,64 @@
-From: "Michael Bommarito" <mjbommar@umich.edu>
-Subject: [PATCH 2.6.19-git19] BUG due to bad argument to ieee80211softmac_assoc_work
-Date: Wed, 13 Dec 2006 13:17:12 -0500
-Message-ID: <5b8e20700612131017n1cd8aff3qbe41351435427e25@mail.gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.17.13 2/2] LARTC: trace control for netem:
+ kernelspace
+Date: Wed, 13 Dec 2006 10:16:56 -0800
+Message-ID: <20061213101656.6068c793@dxpl.pdx.osdl.net>
+References: <4514DC9A.2000505@tik.ee.ethz.ch>
+	<20060925132800.09856e10@dxpl.pdx.osdl.net>
+	<45198AF5.9090909@tik.ee.ethz.ch>
+	<20060926134531.3ec4991a@freekitty>
+	<457A7F43.3020004@tik.ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, netem@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:21290 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751607AbWLMSRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 13:17:14 -0500
-Received: by an-out-0708.google.com with SMTP id b33so78977ana
-        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 10:17:13 -0800 (PST)
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.25]:56269 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932657AbWLMSep (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 13:34:45 -0500
+To: Rainer Baumann <baumann@tik.ee.ethz.ch>
+In-Reply-To: <457A7F43.3020004@tik.ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This didn't get much attention on bugzilla and I figured it was
-important enough to forward along to the whole list since it's been
-lingering around in ieee80211-softmac since 19-git5 at least.
-http://bugzilla.kernel.org/show_bug.cgi?id=7657
+On Sat, 09 Dec 2006 10:17:55 +0100
+Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
 
-Somebody was passing the whole mac device structure to
-ieee80211softmac_assoc_work instead of just the assocation work, which
-lead to much death and locking.
+> Hi Stephens
+> 
+> I just wanted to ask you if everything went right with TCN and we will
+> find it in 2.6.20 as you wrote two months ago.
+> 
+> Cheers
+> Rainer
+> 
+> Stephen Hemminger wrote:
+> > On Tue, 26 Sep 2006 22:17:57 +0200
+> > Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
+> >
+> >   
+> >> Hi Stephens
+> >>
+> >> We merged your changes into our patch
+> >> http://tcn.hypert.net/tcn_kernel_2_6_18.patch
+> >> Please let us know if we should do further adoptions to our
+> >> implementation and/or resubmit the adapted patch.
+> >>
+> >> Cheers+thanx,
+> >> Rainer
+> >>     
+> >
+> > I'll test it out, and send off to Dave for 2.6.20, 2.6.19 is so in
+> > flux right now that adding more seems not like a good idea.
+> >
+> >
+> >   
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Attached is a patch that fixes this (the actual change is two lines
-but context provided in patch for review).  The dmesg containing call
-trace is attached to the bugzilla entry above.
-
--Mike
+If I get a cleaned up version to test, I have some time to check it
+before 2.6.20
