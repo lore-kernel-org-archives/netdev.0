@@ -1,70 +1,56 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: d80211-drivers pull request (week-48)
-Date: Wed, 13 Dec 2006 00:39:55 +0100
-Message-ID: <20061212233955.GB8487@p15091797.pureserver.info>
-References: <200612110101.58710.flamingice@sourmilk.net> <457E00D4.7010201@gentoo.org> <200612112120.58157.flamingice@sourmilk.net>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] drivers/net: spidernet driver on Celleb
+Date: Tue, 12 Dec 2006 19:14:35 -0600
+Message-ID: <20061213011435.GN4329@austin.ibm.com>
+References: <200612120525.kBC5PpWC009418@toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Drake <dsd@gentoo.org>,
-	John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: jim@jklewis.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:59700 "EHLO
-	p15091797.pureserver.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932582AbWLMALY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Dec 2006 19:11:24 -0500
-To: Michael Wu <flamingice@sourmilk.net>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:42904 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932263AbWLMBOp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Dec 2006 20:14:45 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e3.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBD1EaBp010059
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 20:14:36 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBD1EaWM196706
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 20:14:36 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBD1Eaqt027248
+	for <netdev@vger.kernel.org>; Tue, 12 Dec 2006 20:14:36 -0500
+To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Content-Disposition: inline
-In-Reply-To: <200612112120.58157.flamingice@sourmilk.net>
+In-Reply-To: <200612120525.kBC5PpWC009418@toshiba.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-12-11 21:20 Michael Wu wrote:
-
-> On Monday 11 December 2006 20:07, Daniel Drake wrote:
-> > Michael Wu wrote:
-> > >       zd1211rw-d80211: Use ieee80211_tx_status
-> >
-> > I've thought some more about this and I'm not so sure that this is the
-> > right approach.
-> >
-> > Can't devicescape be taught that the ZD1211 handles retries in hardware
-> > and the stack doesn't need to worry about it?
-> >
-> All 802.11 devices have to be able to handle retries in hardware to do random 
-> backoff properly. Still, the stack wants to know what happened.
+On Tue, Dec 12, 2006 at 02:25:50PM +0900, Ishizaki Kou wrote:
 > 
-> > I think I remember reading that devicescape uses failed transmission
-> > rate in the rate adjustment calculations. Even without this racy ack
-> > system we can still achieve that - the device tells us every time it
-> > retries a transmit, and then it sends a special interrupt at the end
-> > saying that all retries failed.
-> >
-> Yes, but it also uses successful transmissions in rate adjustment.
-> 
-> I don't think this race is such a big deal. It will only happen when someone 
-> is really trying to mess with the link, and would cause the rate control to 
-> jump to the highest speed. However, if someone is really trying to mess with 
-> the link this way, the stability of the link is in trouble anyways. Wait for 
-> stations to send frames, and send an ack for every unicast frame - everyone 
-> will get confused. To actually mess with this code, the attacker would have 
-> to transmit acks nearly continuously as it can't tell exactly when is a good 
-> time to screw things up, and the driver recovers as soon as the queue is 
-> emptied. Someone transmitting all the time is a problem for all wireless 
-> cards. :)
+> Following are the changes.
+> -This patch enables auto-negotiation.
+> -Loading firmware is done when spidernet_open() is called.
+> -And this patch adds other several small changes for Celleb. 
+> -This patch is not tested on CellBlade.
 
-Just two observations:
+I just tested this, and it does not work. Jim Lewis is gone
+until the new year. However, as he was leaving, he grumbled something
+about how autonegotiation simply won't work on the spider. 
+(I didn't think to ask about the details). Perhaps he'll 
+look at his email soon?
 
-1) The retry-failed-interrupt message contains the destination
-   MAC address of the transmitted message. 
-2) We could get easily two acks for the same transmission.
-3) We could get ACKs or retry-failed-interrupts for packets, for
-   which no status has been requested by the upper layers.
+I've been trying to figure out how to modify the patch to make it 
+work anyway, but so far, no success. 
 
-I suggest that the skbs as buffer for the URB transmissions. Check
-ACK/NAK for all packets, but still prepare the status only for
-packets, which requested it. We could add a timeout value to each
-packet to make sure, that we don't ACK or NAK packets, which have
-been overdue.
+Basically, in genmii_poll_link(), 
+  status = phy_read(phy, MII_BMSR);
+    status & BMSR_LSTATUS will always be zero.
 
--- 
-Uli Kunitz
+So I tried ignoring this value, and calling setup_forced()
+However, this still doesn't get the thing working.
+I am somewhat at a loss to see why right now, since
+I don't see what may be causing this.
+
+--linas
+
