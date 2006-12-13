@@ -1,55 +1,56 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] d80211: Fix 64bit printk warnings
-Date: Wed, 13 Dec 2006 18:54:01 +0100
-Message-ID: <200612131854.01410.mb@bu3sch.de>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
+Date: Wed, 13 Dec 2006 18:56:57 +0100
+Message-ID: <200612131856.58877.IvDoorn@gmail.com>
+References: <20061213180032.241265000.midnight@suse.cz> <20061213171205.GB26415@csclub.uwaterloo.ca> <1166031523.4741.0.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49876
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965058AbWLMRz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:55:26 -0500
-To: Jiri Benc <jbenc@suse.cz>, John Linville <linville@tuxdriver.com>
+Received: from nf-out-0910.google.com ([64.233.182.189]:9860 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965062AbWLMR5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:57:11 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so584429nfa
+        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:57:09 -0800 (PST)
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1166031523.4741.0.camel@localhost.localdomain>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix several warnings due to incompatible datatypes on
-64bit platforms.
+On Wednesday 13 December 2006 18:38, Dan Williams wrote:
+> On Wed, 2006-12-13 at 12:12 -0500, Lennart Sorensen wrote:
+> > On Wed, Dec 13, 2006 at 06:00:35PM +0100, Jiri Benc wrote:
+> > > John, in addition to the previous pull request, please also apply the
+> > > following two fixes.
+> > 
+> > What is the state of the rx2x00 driver by now?  I have been playing
+> > around with an rt2500 based card, with some success but not enough for
+> > me to switch over from wired ethernet yet on my machine.  I used to get
+> > lots of hard lockups, but with the latest cvs snapshot in debian's
+> > rt2x00-source package, it no longer seems to lockup.  It also now works
+> > with WPA without using wpa_supplicant (Yay!  Good work.), it does
+> 
+> How, by private ioctls?  That's just wrong; I believe you still need to
+> go through the 4-way handshake to get the right keying information even
+> if you use PSK, which means you still need the supplicant, right?
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+rt2x00 completely uses the dscape stack, so I am not sure how he is
+managing this wpa without wpa_supplicant with rt2x00.
+Lennart, are you using rt2x00 or the legacy rt2500 driver?
 
-Index: jbenc-dscape.git/net/d80211/ieee80211_sta.c
-===================================================================
---- jbenc-dscape.git.orig/net/d80211/ieee80211_sta.c	2006-12-13 18:44:27.000000000 +0100
-+++ jbenc-dscape.git/net/d80211/ieee80211_sta.c	2006-12-13 18:49:59.000000000 +0100
-@@ -1371,9 +1371,12 @@ static void ieee80211_rx_bss_info(struct
- 		if (time_after(jiffies, last_tsf_debug + 5 * HZ)) {
- 			printk(KERN_DEBUG "RX beacon SA=" MAC_FMT " BSSID="
- 			       MAC_FMT " TSF=0x%llx BCN=0x%llx diff=%lld "
--			       "@%ld\n",
-+			       "@%lu\n",
- 			       MAC_ARG(mgmt->sa), MAC_ARG(mgmt->bssid),
--			       tsf, timestamp, tsf - timestamp, jiffies);
-+			       (unsigned long long)tsf,
-+			       (unsigned long long)timestamp,
-+			       (unsigned long long)(tsf - timestamp),
-+			       jiffies);
- 			last_tsf_debug = jiffies;
- 		}
- #endif /* CONFIG_D80211_IBSS_DEBUG */
-@@ -2697,7 +2700,7 @@ ieee80211_sta_scan_result(struct net_dev
- 		if (buf) {
- 			memset(&iwe, 0, sizeof(iwe));
- 			iwe.cmd = IWEVCUSTOM;
--			sprintf(buf, "tsf=%016llx", bss->timestamp);
-+			sprintf(buf, "tsf=%016llx", (unsigned long long)(bss->timestamp));
- 			iwe.u.data.length = strlen(buf);
- 			current_ev = iwe_stream_add_point(current_ev, end_buf,
- 							  &iwe, buf);
+> > however very frequently pause the transfer, and then after a while (20
+> > or 30 seconds probably) it will start moving data again and my transfer
+> > will continue.  Is this considered normal for now?  My card happens to
+> > be a linksys WMP54G version 4.0.  At least pauses beat crashes.  It's
+> > going the right way for a work in progress.
+> > 
+> > I guess I should go read the bug tracking system and try out newer cvs
+> > versions. :)
 
--- 
-Greetings Michael.
+Ivo
