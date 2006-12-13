@@ -1,47 +1,45 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Subject: Re: [patch sungem] improved locking
-Date: Wed, 13 Dec 2006 14:12:13 +1100
-Message-ID: <1165979533.11914.114.camel@localhost.localdomain>
-References: <5cac192f0611132328i52d6d615g28d8c493dc028621@mail.gmail.com>
-	 <20061113.234456.78492515.davem@davemloft.net>
-	 <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
-	 <20061128.144911.55733883.davem@davemloft.net>
-	 <5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
+Date: Wed, 13 Dec 2006 15:07:24 +1100
+Message-ID: <1165982844.11914.125.camel@localhost.localdomain>
+References: <5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
 	 <5cac192f0611291437g26fefebdocdacbb0cd2aa2fdd@mail.gmail.com>
+	 <1165979533.11914.114.camel@localhost.localdomain>
+	 <20061212.200334.59657088.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: eric.lemoine@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:49093 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:49108 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932593AbWLMEEY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Dec 2006 23:04:24 -0500
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f0611291437g26fefebdocdacbb0cd2aa2fdd@mail.gmail.com>
+	id S932592AbWLMEHc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Dec 2006 23:07:32 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061212.200334.59657088.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Been hitting a raw throughput in both directions plus a few other things
-on a dual G5 and the driver didn't crash :-)
+On Tue, 2006-12-12 at 20:03 -0800, David Miller wrote:
+> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date: Wed, 13 Dec 2006 14:12:13 +1100
+> 
+> > David, could that be the pause stuff not working properly ?
+> 
+> It could be, but if the tg3 says flow control is up in the kernel logs
+> things ought to be OK.
 
-I'm seeing a problem though but I'm not sure it's related to your patch,
-I'll have to test without it.
+tg3 says
 
-Basically, if I use a slightly modified versio of tridge's socklib (raw
-xput test, basically, a tcp connection with one side pushing as fast as
-it can a known pattern and the other one just receiving and verifying
-the data integrity), it works fine when running only one side (either rx
-or tx, doesn't matter).
+tg3: eth0: Link is up at 1000 Mbps, full duplex.
+tg3: eth0: Flow control is on for TX and on for RX.
 
-But if I start it both ways (that is both a receiver and a sender on the
-GMAC box) and the other end is a tg3 (quad g5), then I'm getting a lot
-of eth0: RX MAC fifo overflow smac[02045822 but there are other numbers
-here every now and then] errors on the sungem side.
+but sungem says
 
-David, could that be the pause stuff not working properly ?
+eth0: Link is up at 1000 Mbps, full-duplex.
+eth0: Pause is disabled
 
-The link is gigabit and the tg3 side doesn't complain about anything.
+Hrm... I suppose I need to dig more. No time to do that today though.
 
 Ben.
 
