@@ -1,40 +1,53 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
-Date: Wed, 13 Dec 2006 17:28:58 -0500
-Message-ID: <20061213222858.GA8589@csclub.uwaterloo.ca>
-References: <20061213180032.241265000.midnight@suse.cz> <20061213171205.GB26415@csclub.uwaterloo.ca> <1166031523.4741.0.camel@localhost.localdomain> <20061213205425.GC26415@csclub.uwaterloo.ca> <a32f33a40612131328i177600dfh7f6437f4b5ed1bb8@mail.gmail.com>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH] zd1211rw-d80211: Use LED class
+Date: Wed, 13 Dec 2006 23:54:52 +0100
+Message-ID: <20061213225452.GC20700@p15091797.pureserver.info>
+References: <200612110044.12205.flamingice@sourmilk.net> <200612112032.08646.flamingice@sourmilk.net> <20061212223835.GA8487@p15091797.pureserver.info> <200612121826.38479.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:35316 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751645AbWLMW27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 17:28:59 -0500
-To: Ivo Van Doorn <ivdoorn@gmail.com>
+Received: from deine-taler.de ([217.160.107.63]:55383 "EHLO
+	p15091797.pureserver.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676AbWLMWyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 17:54:53 -0500
+To: Michael Wu <flamingice@sourmilk.net>
 Content-Disposition: inline
-In-Reply-To: <a32f33a40612131328i177600dfh7f6437f4b5ed1bb8@mail.gmail.com>
+In-Reply-To: <200612121826.38479.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 10:28:15PM +0100, Ivo Van Doorn wrote:
-> That is definately the rt2500 legacy driver and _not_ the rt2x00 driver.
+Michael,
 
-Yeah I just noticed that a few minutes ago.  I had been trying out both
-to see how they worked, and I left the old module loaded by accident.
+please detach a little bit from LEDs.
 
-> Correct, that is why those iwpriv commands are the clear evidence
-> you are not using rt2x00 but rt2500 legacy. Check which driver is loaded
-> rt2500 means legacy
-> rt2500pci means rt2x00.
+A trigger is a generic concept. It doesn't need to have a special
+binding to what it triggers. It could be a buzzer, it could be
+an LED, it could be text output on an LCD.
 
-Yep I am now poking with the wpa_supplicant again, getting other
-interesting messages from it.
+So we could have link status change trigger, for which functions
+could be registered. There is no reason for the upper layer d80211
+code to know, that it triggers an LED. A netlink event generator
+could only be one of the users of those generic triggers.
 
-I will try to give a report on how my system behaves with the 2x00
-driver soon since apparently some of my testing was with the wrong
-driver.  Oops. :)
+My other opinion is that I find it overkill to handle the LED on a
+WLAN adapter as an independent device instantiating a device class
+in Linux. I mean on the other hands we break APIs for four or
+eight bytes and here we spend a whole device strucuture and sysfs
+directory for something the wlan device firmware represents with a
+single bit. To call the housekeeping functions overkill under
+these circumstances appears not to be very rational.
 
---
-Len Sorensen
+It should also be mentioned that the LEDs on the ZD1211 devices
+are not independent devices, because they are partly controlled
+by the firmware. That's exactly where some of the issues with your
+patch are.
+
+Let the device drivers do the blinking, but give them a chance to
+know about status changes at the MAC layer, without mandating to
+implement a LED device. Using the same triggers by a netlink event
+generator, would make the code even simpler.
+
+-- 
+Uli Kunitz
