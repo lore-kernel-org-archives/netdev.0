@@ -1,41 +1,76 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] add init_dummy_netdev() for napi only dummy intefaces
-Date: Wed, 13 Dec 2006 11:35:37 -0800
-Message-ID: <20061213113537.6baf410f@dxpl.pdx.osdl.net>
-References: <1165901258.11914.32.camel@localhost.localdomain>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
+Date: Wed, 13 Dec 2006 20:36:23 +0100
+Message-ID: <20061213193623.GA3629@stusta.de>
+References: <20061212162435.GW28443@stusta.de> <20061212.171756.85408589.davem@davemloft.net> <20061213110801.1dd849ec@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eugene Surovegin <ebs@ebshome.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:34015 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932671AbWLMTfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 14:35:45 -0500
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1165901258.11914.32.camel@localhost.localdomain>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:1918 "HELO
+	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S932674AbWLMTgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 14:36:14 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061213110801.1dd849ec@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Dec 2006 16:27:38 +1100
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+On Wed, Dec 13, 2006 at 11:08:01AM -0800, Stephen Hemminger wrote:
+> On Tue, 12 Dec 2006 17:17:56 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Adrian Bunk <bunk@stusta.de>
+> > Date: Tue, 12 Dec 2006 17:24:35 +0100
+> > 
+> > > This patch converts drivers/net/loopback.c to using module_init().
+> > > 
+> > > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> > 
+> > I'm not %100 sure of this one, let's look at the comment you
+> > are deleting:
+> > 
+> > > -/*
+> > > - *	The loopback device is global so it can be directly referenced
+> > > - *	by the network code. Also, it must be first on device list.
+> > > - */
+> > > -extern int loopback_init(void);
+> > > -
+> > 
+> > in particular notice the part that says "it must be first on the
+> > device list".
+> > 
+> > I'm not sure whether that is important any longer.  It probably isn't,
+> > but we should verify it before applying such a patch.
+> > 
+> > Since module_init() effectively == device_initcall() for statically
+> > built objects, which loopback always is, the Makefile ordering does
+> > not seem to indicate to me that there is anything guarenteeing
+> > this "first on the list" invariant.  At least not via object
+> > file ordering.
+> > 
+> > So this gives some support to the idea that loopback_dev's position
+> > on the device list no longer matters.
+> 
+> The dst code makes assumptions that loopback is ifindex 1 as well.
+>...
 
-> This adds an init_dummy_netdev() function that gets a network device
-> structure (allocation and lifetime entirely under caller's control) and
-> initialize the minimum amount of fields so it can be used to schedule
-> NAPI polls without registering a full blown interface. This is to be
-> used by drivers that need to tie several hardware interfaces to a single
-> NAPI poll scheduler due to HW limitations.
-> 
-> It also updates the ibm_emac driver to use that instead of doing it's
-> own initializations by hand.
-> 
-> Symbol is exported GPL only a I don't think we want binary drivers doing
-> that sort of acrobatics (if we want them at all).
-> 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
+But that assumption is already false for drivers not handled by Space.c:
 
-Could we split off the NAPI context part of network_device instead?
-I'll work up something for 2.6.21.
+E.g. on my computer [1], eth0 [2] has ifindex 1 and lo has ifindex 2.
+
+cu
+Adrian
+
+[1] plain 2.6.16.36
+[2] built-in e100 driver
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
