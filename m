@@ -1,39 +1,48 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 04/26] rt2x00: EEPROM 93Cx6
-Date: Wed, 13 Dec 2006 18:17:23 +0100
-Message-ID: <200612131817.23735.IvDoorn@gmail.com>
-References: <200612031919.05228.IvDoorn@gmail.com> <200612131747.42035.IvDoorn@gmail.com> <20061213170520.GE26412@csclub.uwaterloo.ca>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 1/16] Spidernet DMA coalescing
+Date: Wed, 13 Dec 2006 11:27:14 -0600
+Message-ID: <20061213172714.GQ4329@austin.ibm.com>
+References: <20061206223223.GH17931@austin.ibm.com> <20061206232745.GA4649@austin.ibm.com> <20061207101151.GB27904@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Wu <flamingice@sourmilk.net>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Geoff Levand <geoffrey.levand@am.sony.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:36474 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965046AbWLMRRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:17:35 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so575973nfa
-        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:17:33 -0800 (PST)
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-In-Reply-To: <20061213170520.GE26412@csclub.uwaterloo.ca>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:34542 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600AbWLMR1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:27:24 -0500
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBDHRG9L001387
+	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 12:27:16 -0500
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBDHRFLK526882
+	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 10:27:15 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBDHREiV006501
+	for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 10:27:15 -0700
+To: Christoph Hellwig <hch@infradead.org>
 Content-Disposition: inline
+In-Reply-To: <20061207101151.GB27904@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 13 December 2006 18:05, Lennart Sorensen wrote:
-> On Wed, Dec 13, 2006 at 05:47:41PM +0100, Ivo van Doorn wrote:
-> > Do you need to actually write data to the eeprom chip?
-> > Currently the module does not support writing to the eeprom,
-> > this is something I could add (The original Ralink code, where this module
-> > is based on also contains the code to write to the EEPROM).
+On Thu, Dec 07, 2006 at 10:11:51AM +0000, Christoph Hellwig wrote:
+> On Wed, Dec 06, 2006 at 05:27:45PM -0600, Linas Vepstas wrote:
+> > 
+> > The current driver code performs 512 DMA mappings of a bunch of 
+> > 32-byte structures. This is silly, as they are all in contiguous 
+> > memory. Ths patch changes the code to DMA map the entie area
+> > with just one call.
 > 
-> I am going to use it to write the custom pci vendor ID to the eeprom, so
-> yes I intend to write to it.  The code appears as if it has the ability
-> to write to the eeprom but I didn't look at all of it carefully yet.  I
-> don't actually have any need to read it back, although I intend to do so
-> to verify the contents.
+> This is still wrong.  The descriptor array must be in dma_alloc_coherent
+> memory, not a streaming mapping.  (I also think I pointed this out a while
+> ago when I made dma_alloc_coherent node-aware)
 
-Currently the module does not contain any code to actually write to
-the eeprom. I'll create a patch to add support for the writing.
+Sorry, I missed this the first time. I'm splitting this off now; will 
+resubmit shortly.
+
+--linas
