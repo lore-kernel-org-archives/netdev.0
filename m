@@ -1,33 +1,34 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 1/2] rt2x00: fix breakage after pkt_type field was removed
-Date: Wed, 13 Dec 2006 18:00:13 +0100
-Message-ID: <200612131800.13590.IvDoorn@gmail.com>
-References: <20061213170036.E313D3AA7EF@silver.suse.cz>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH 04/26] rt2x00: EEPROM 93Cx6
+Date: Wed, 13 Dec 2006 12:05:20 -0500
+Message-ID: <20061213170520.GE26412@csclub.uwaterloo.ca>
+References: <200612031919.05228.IvDoorn@gmail.com> <a32f33a40612090505j23251626k891edae1c06b6fb2@mail.gmail.com> <20061213154415.GA26415@csclub.uwaterloo.ca> <200612131747.42035.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:19781 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965014AbWLMRAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:00:25 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so572401nfa
-        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:00:23 -0800 (PST)
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061213170036.E313D3AA7EF@silver.suse.cz>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:33656 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965032AbWLMRFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:05:21 -0500
+To: Ivo van Doorn <ivdoorn@gmail.com>
 Content-Disposition: inline
+In-Reply-To: <200612131747.42035.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 13 December 2006 18:00, Jiri Benc wrote:
-> Fix breakage after pkt_type field was removed from ieee80211_tx_control.
+On Wed, Dec 13, 2006 at 05:47:41PM +0100, Ivo van Doorn wrote:
+> Do you need to actually write data to the eeprom chip?
+> Currently the module does not support writing to the eeprom,
+> this is something I could add (The original Ralink code, where this module
+> is based on also contains the code to write to the EEPROM).
 
-Hmm, I must have missed that patch.
-Your patch looks good to me.
-Thanks
+I am going to use it to write the custom pci vendor ID to the eeprom, so
+yes I intend to write to it.  The code appears as if it has the ability
+to write to the eeprom but I didn't look at all of it carefully yet.  I
+don't actually have any need to read it back, although I intend to do so
+to verify the contents.
 
-> Signed-off-by: Jiri Benc <jbenc@suse.cz>
-
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com
+--
+Len Sorensen
