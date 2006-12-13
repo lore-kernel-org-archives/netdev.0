@@ -1,60 +1,39 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
-Date: Wed, 13 Dec 2006 22:28:15 +0100
-Message-ID: <a32f33a40612131328i177600dfh7f6437f4b5ed1bb8@mail.gmail.com>
-References: <20061213180032.241265000.midnight@suse.cz>
-	 <20061213171205.GB26415@csclub.uwaterloo.ca>
-	 <1166031523.4741.0.camel@localhost.localdomain>
-	 <20061213205425.GC26415@csclub.uwaterloo.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: latest linux git doesn't compile ucc_geth_phy.c and ucc_geth.c
+Date: Wed, 13 Dec 2006 15:34:36 -0600
+Message-ID: <CB1C9185-2489-4121-BCE4-58D028A56672@kernel.crashing.org>
+References: <1166013887.30422.54.camel@gentoo-jocke.transmode.se>
+	<45803CE3.4030600@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Dan Williams" <dcbw@redhat.com>, "Jiri Benc" <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.233]:34740 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbWLMV2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 16:28:17 -0500
-Received: by wr-out-0506.google.com with SMTP id i7so218866wra
-        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 13:28:17 -0800 (PST)
-To: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-In-Reply-To: <20061213205425.GC26415@csclub.uwaterloo.ca>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
+	Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <45803CE3.4030600@freescale.com>
+To: Timur Tabi <timur@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-> > How, by private ioctls?  That's just wrong; I believe you still need to
-> > go through the 4-way handshake to get the right keying information even
-> > if you use PSK, which means you still need the supplicant, right?
+> I just posted two patches to linuxppc-dev that fix these problems.   
+> The message
+> are titled:
 >
-> All I did was add this to /etc/network/interfaces:
+> [PATCH] Update ucc_geth.c for new workqueue structure
+> [PATCH] Fix phy_read/write redefinition errors in ucc_geth_phy.c
 >
-> iface wlan0 inet static
->         address 192.168.1.51
->         network 192.168.1.0
->         netmask 255.255.255.0
->         gateway 192.168.1.254
->         broadcast 192.168.1.255
->         pre-up ifconfig wlan0 up
->         pre-up iwpriv wlan0 set AuthMode=WPAPSK
->         pre-up iwpriv wlan0 set EncrypType=TKIP
->         pre-up iwconfig wlan0 essid USR8054
->         pre-up iwpriv wlan0 set WPAPSK="My WPA passphrase..."
+> I've tested these on an 8360EMDS, and Kumar has reviewed and signed  
+> off on the
+> code, so I think they're good.  Please let me know if they're not.
 
-That is definately the rt2500 legacy driver and _not_ the rt2x00 driver.
+You should really copy Jeff Garzik and the netdev list on these patches.
 
-> It seems to work, although I guess I could be wrong.  It was what I
-> found in the documentation for the rt2x00 driver for doing WPA.  It
-> looks nothing like the wpa_supplicant stuff I used to have with an older
-> version of the driver.  My understanding was that the rt2x00 driver
-> and/or d80211 stack took care of it now.
-
-Correct, that is why those iwpriv commands are the clear evidence
-you are not using rt2x00 but rt2500 legacy. Check which driver is loaded
-rt2500 means legacy
-rt2500pci means rt2x00.
-
-Ivo
+- k
