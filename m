@@ -1,40 +1,39 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 0/2] d80211, rt2x00: fixes
-Date: Wed, 13 Dec 2006 12:12:05 -0500
-Message-ID: <20061213171205.GB26415@csclub.uwaterloo.ca>
-References: <20061213180032.241265000.midnight@suse.cz>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 04/26] rt2x00: EEPROM 93Cx6
+Date: Wed, 13 Dec 2006 18:17:23 +0100
+Message-ID: <200612131817.23735.IvDoorn@gmail.com>
+References: <200612031919.05228.IvDoorn@gmail.com> <200612131747.42035.IvDoorn@gmail.com> <20061213170520.GE26412@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:33919 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965042AbWLMRMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:12:07 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Received: from nf-out-0910.google.com ([64.233.182.187]:36474 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965046AbWLMRRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 12:17:35 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so575973nfa
+        for <netdev@vger.kernel.org>; Wed, 13 Dec 2006 09:17:33 -0800 (PST)
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+In-Reply-To: <20061213170520.GE26412@csclub.uwaterloo.ca>
 Content-Disposition: inline
-In-Reply-To: <20061213180032.241265000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 06:00:35PM +0100, Jiri Benc wrote:
-> John, in addition to the previous pull request, please also apply the
-> following two fixes.
+On Wednesday 13 December 2006 18:05, Lennart Sorensen wrote:
+> On Wed, Dec 13, 2006 at 05:47:41PM +0100, Ivo van Doorn wrote:
+> > Do you need to actually write data to the eeprom chip?
+> > Currently the module does not support writing to the eeprom,
+> > this is something I could add (The original Ralink code, where this module
+> > is based on also contains the code to write to the EEPROM).
+> 
+> I am going to use it to write the custom pci vendor ID to the eeprom, so
+> yes I intend to write to it.  The code appears as if it has the ability
+> to write to the eeprom but I didn't look at all of it carefully yet.  I
+> don't actually have any need to read it back, although I intend to do so
+> to verify the contents.
 
-What is the state of the rx2x00 driver by now?  I have been playing
-around with an rt2500 based card, with some success but not enough for
-me to switch over from wired ethernet yet on my machine.  I used to get
-lots of hard lockups, but with the latest cvs snapshot in debian's
-rt2x00-source package, it no longer seems to lockup.  It also now works
-with WPA without using wpa_supplicant (Yay!  Good work.), it does
-however very frequently pause the transfer, and then after a while (20
-or 30 seconds probably) it will start moving data again and my transfer
-will continue.  Is this considered normal for now?  My card happens to
-be a linksys WMP54G version 4.0.  At least pauses beat crashes.  It's
-going the right way for a work in progress.
-
-I guess I should go read the bug tracking system and try out newer cvs
-versions. :)
-
---
-Len Sorensen
+Currently the module does not contain any code to actually write to
+the eeprom. I'll create a patch to add support for the writing.
