@@ -1,33 +1,58 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH] eeprom_93cx6: Add write support
-Date: Wed, 13 Dec 2006 14:06:51 -0500
-Message-ID: <20061213190651.GF26412@csclub.uwaterloo.ca>
-References: <200612131956.51000.IvDoorn@gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [2.6 patch] drivers/net/loopback.c: convert to module_init()
+Date: Wed, 13 Dec 2006 11:08:01 -0800
+Message-ID: <20061213110801.1dd849ec@dxpl.pdx.osdl.net>
+References: <20061212162435.GW28443@stusta.de>
+	<20061212.171756.85408589.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Michael Wu <flamingice@sourmilk.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:39654 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965078AbWLMTGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 14:06:51 -0500
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200612131956.51000.IvDoorn@gmail.com>
+Received: from smtp.osdl.org ([65.172.181.25]:59777 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965083AbWLMTLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 14:11:22 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20061212.171756.85408589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 07:56:50PM +0100, Ivo van Doorn wrote:
-> This patch addes support for writing to the eeprom,
-> this also moves some duplicate code into seperate functions.
+On Tue, 12 Dec 2006 17:17:56 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Adrian Bunk <bunk@stusta.de>
+> Date: Tue, 12 Dec 2006 17:24:35 +0100
 > 
-> Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+> > This patch converts drivers/net/loopback.c to using module_init().
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> I'm not %100 sure of this one, let's look at the comment you
+> are deleting:
+> 
+> > -/*
+> > - *	The loopback device is global so it can be directly referenced
+> > - *	by the network code. Also, it must be first on device list.
+> > - */
+> > -extern int loopback_init(void);
+> > -
+> 
+> in particular notice the part that says "it must be first on the
+> device list".
+> 
+> I'm not sure whether that is important any longer.  It probably isn't,
+> but we should verify it before applying such a patch.
+> 
+> Since module_init() effectively == device_initcall() for statically
+> built objects, which loopback always is, the Makefile ordering does
+> not seem to indicate to me that there is anything guarenteeing
+> this "first on the list" invariant.  At least not via object
+> file ordering.
+> 
+> So this gives some support to the idea that loopback_dev's position
+> on the device list no longer matters.
 
-Thank you.  I will have a try with that to see if I can get that to work
-with the jsm driver.  Too bad the serial drivers don't have any
-geteeprom/seteeprom standard ioctl's the way ethtool does for network
-devices.
-
---
-Len Sorensen
+The dst code makes assumptions that loopback is ifindex 1 as well.
+NAK on Adrian's change, it doesn't buy anything
