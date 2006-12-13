@@ -1,82 +1,74 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 2/14] Spidernet add net_ratelimit to suppress long output
-Date: Thu, 14 Dec 2006 10:31:19 +1100
-Message-ID: <1166052679.6838.1.camel@concordia.ozlabs.ibm.com>
-References: <20061213210010.GR4329@austin.ibm.com>
-	<20061213210825.GB1915@austin.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH] zd1211rw-d80211: Use LED class
+Date: Wed, 13 Dec 2006 18:37:37 -0500
+Message-ID: <200612131837.41663.flamingice@sourmilk.net>
+References: <200612110044.12205.flamingice@sourmilk.net> <200612121826.38479.flamingice@sourmilk.net> <20061213225452.GC20700@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1263411494=="
-Cc: Andrew Morton <akpm@osdl.org>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, Christoph Hellwig <hch@infradead.org>,
-	linuxppc-dev@ozlabs.org, Jens Osterkamp <Jens.Osterkamp@gmx.de>,
-	jgarzik@pobox.com, James K Lewis <jim@jklewis.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20061213210825.GB1915@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: multipart/signed;
+  boundary="nextPart6706508.9PeZhy7sI9";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.rutgers.edu ([128.6.72.243]:34323 "EHLO
+	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751800AbWLMXiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 18:38:06 -0500
+To: Ulrich Kunitz <kune@deine-taler.de>
+In-Reply-To: <20061213225452.GC20700@p15091797.pureserver.info>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---===============1263411494==
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-fdv73rC2xthXo/Eyyjvj"
-
-
---=-fdv73rC2xthXo/Eyyjvj
-Content-Type: text/plain
+--nextPart6706508.9PeZhy7sI9
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2006-12-13 at 15:08 -0600, Linas Vepstas wrote:
-> This patch adds net_ratelimit to many of the printks in order to
-> limit extraneous warning messages (created in response to Bug 28554).
-
-Bug 28554 in which bug tracking system? I can't find it in LTC or
-kernel.org bugzilla.
-
-cheers
-
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-fdv73rC2xthXo/Eyyjvj
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQBFgI1GdSjSd0sB4dIRAtBdAJ95zoWGfyJ1BxzNqiHtpidDKuXPowCfcRPx
-HvyBrUoJ5EfmJIY9lGcoZZE=
-=ADeF
------END PGP SIGNATURE-----
-
---=-fdv73rC2xthXo/Eyyjvj--
-
-
---===============1263411494==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
---===============1263411494==--
+On Wednesday 13 December 2006 17:54, Ulrich Kunitz wrote:
+> I mean on the other hands we break APIs for four or=20
+> eight bytes and here we spend a whole device strucuture and sysfs
+> directory for something the wlan device firmware represents with a
+> single bit. To call the housekeeping functions overkill under
+> these circumstances appears not to be very rational.
+>
+I do not consider the housekeeping functions overkill, but the function tha=
+t=20
+it performs (eg. not confusing the user by keeping the LED off) can be done=
+=20
+with less brute force.
+
+> It should also be mentioned that the LEDs on the ZD1211 devices
+> are not independent devices, because they are partly controlled
+> by the firmware. That's exactly where some of the issues with your
+> patch are.
+>
+The link light can be treated as an independent device as long as the other=
+=20
+LED bit is not flipped. As I mentioned before, fixing that isn't a problem.
+
+> Let the device drivers do the blinking, but give them a chance to
+> know about status changes at the MAC layer, without mandating to
+> implement a LED device.=20
+I guess you don't like the LED trigger code currently in d80211 then and wo=
+uld=20
+rather see it removed. As far as I can tell, this patch is just a symptom o=
+f=20
+that issue.
+
+=2DMichael Wu
+
+--nextPart6706508.9PeZhy7sI9
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFgI7FT3Oqt9AH4aERAhMgAKCjOaDvCwxT16Z5H/c6vLxRRpN6EQCfeSRy
+p7H7dIVLBCTO6cD1hXwI838=
+=RPHt
+-----END PGP SIGNATURE-----
+
+--nextPart6706508.9PeZhy7sI9--
