@@ -1,117 +1,207 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [AX.25 3/7] Fix unchecked ax25_listen_register uses
-Date: Thu, 14 Dec 2006 23:42:09 +0100
-Message-ID: <11661361342916-git-send-email-ralf@linux-mips.org>
+Subject: [AX.25 5/7] Fix unchecked ax25_linkfail_register uses
+Date: Thu, 14 Dec 2006 23:42:11 +0100
+Message-ID: <1166136135289-git-send-email-ralf@linux-mips.org>
 References: <11661361331883-git-send-email-ralf@linux-mips.org>
 Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
 	Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:47091 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbWLNXOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 18:14:43 -0500
 To: "David S. Miller" <davem@davemloft.net>
 In-Reply-To: <11661361331883-git-send-email-ralf@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix ax25_listen_register to return something that's a sane error code,
-then all callers to use it.
+ax25_linkfail_register uses kmalloc and the callers were ignoring the
+error value.  Rewrite to let the caller deal with the allocation.  This
+allows the use of static allocation of kmalloc use entirely.
 
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
- net/ax25/ax25_iface.c |    7 ++++---
- net/netrom/nr_dev.c   |   24 ++++++++++++++++++------
- net/rose/af_rose.c    |    3 ++-
- 3 files changed, 24 insertions(+), 10 deletions(-)
+ include/net/ax25.h     |   10 +++++++-
+ net/ax25/ax25_iface.c  |   55 ++++++++-----------------------------------------
+ net/netrom/af_netrom.c |    8 +++++--
+ net/rose/af_rose.c     |    8 +++++--
+ 4 files changed, 29 insertions(+), 52 deletions(-)
 
+Index: linux-net/include/net/ax25.h
+===================================================================
+--- linux-net.orig/include/net/ax25.h
++++ linux-net/include/net/ax25.h
+@@ -342,8 +342,14 @@ struct ax25_protocol {
+ 
+ extern void ax25_register_pid(struct ax25_protocol *ap);
+ extern void ax25_protocol_release(unsigned int);
+-extern int __must_check ax25_linkfail_register(void (*)(ax25_cb *, int));
+-extern void ax25_linkfail_release(void (*)(ax25_cb *, int));
++
++struct ax25_linkfail {
++	struct hlist_node lf_node;
++	void (*func)(ax25_cb *, int);
++};
++
++extern void ax25_linkfail_register(struct ax25_linkfail *lf);
++extern void ax25_linkfail_release(struct ax25_linkfail *lf);
+ extern int __must_check ax25_listen_register(ax25_address *,
+ 	struct net_device *);
+ extern void ax25_listen_release(ax25_address *, struct net_device *);
 Index: linux-net/net/ax25/ax25_iface.c
 ===================================================================
 --- linux-net.orig/net/ax25/ax25_iface.c
 +++ linux-net/net/ax25/ax25_iface.c
-@@ -154,7 +154,7 @@ int ax25_listen_register(ax25_address *c
- 		return 0;
+@@ -32,10 +32,7 @@
+ static struct ax25_protocol *protocol_list;
+ static DEFINE_RWLOCK(protocol_list_lock);
  
- 	if ((listen = kmalloc(sizeof(*listen), GFP_ATOMIC)) == NULL)
--		return 0;
-+		return -ENOMEM;
+-static struct linkfail_struct {
+-	struct linkfail_struct *next;
+-	void (*func)(ax25_cb *, int);
+-} *linkfail_list = NULL;
++static HLIST_HEAD(ax25_linkfail_list);
+ static DEFINE_SPINLOCK(linkfail_lock);
  
- 	listen->callsign = *callsign;
- 	listen->dev      = dev;
-@@ -164,7 +164,7 @@ int ax25_listen_register(ax25_address *c
- 	listen_list  = listen;
- 	spin_unlock_bh(&listen_lock);
+ static struct listen_struct {
+@@ -93,54 +90,19 @@ void ax25_protocol_release(unsigned int 
  
--	return 1;
-+	return 0;
- }
+ EXPORT_SYMBOL(ax25_protocol_release);
  
- EXPORT_SYMBOL(ax25_listen_register);
-@@ -225,7 +225,8 @@ int ax25_listen_mine(ax25_address *calls
- 
- 	spin_lock_bh(&listen_lock);
- 	for (listen = listen_list; listen != NULL; listen = listen->next)
--		if (ax25cmp(&listen->callsign, callsign) == 0 && (listen->dev == dev || listen->dev == NULL)) {
-+		if (ax25cmp(&listen->callsign, callsign) == 0 &&
-+		    (listen->dev == dev || listen->dev == NULL)) {
- 			spin_unlock_bh(&listen_lock);
- 			return 1;
- 	}
-Index: linux-net/net/netrom/nr_dev.c
-===================================================================
---- linux-net.orig/net/netrom/nr_dev.c
-+++ linux-net/net/netrom/nr_dev.c
-@@ -128,25 +128,37 @@ static int nr_header(struct sk_buff *skb
- 	return -37;
- }
- 
--static int nr_set_mac_address(struct net_device *dev, void *addr)
-+static int __must_check nr_set_mac_address(struct net_device *dev, void *addr)
+-int ax25_linkfail_register(void (*func)(ax25_cb *, int))
++void ax25_linkfail_register(struct ax25_linkfail *lf)
  {
- 	struct sockaddr *sa = addr;
-+	int err;
-+
-+	if (!memcmp(dev->dev_addr, sa->sa_data, dev->addr_len))
-+		return 0;
-+
-+	if (dev->flags & IFF_UP) {
-+		err = ax25_listen_register((ax25_address *)sa->sa_data, NULL);
-+		if (err)
-+			return err;
- 
--	if (dev->flags & IFF_UP)
- 		ax25_listen_release((ax25_address *)dev->dev_addr, NULL);
-+	}
- 
- 	memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
- 
--	if (dev->flags & IFF_UP)
--		ax25_listen_register((ax25_address *)dev->dev_addr, NULL);
+-	struct linkfail_struct *linkfail;
 -
- 	return 0;
+-	if ((linkfail = kmalloc(sizeof(*linkfail), GFP_ATOMIC)) == NULL)
+-		return 0;
+-
+-	linkfail->func = func;
+-
+ 	spin_lock_bh(&linkfail_lock);
+-	linkfail->next = linkfail_list;
+-	linkfail_list  = linkfail;
++	hlist_add_head(&lf->lf_node, &ax25_linkfail_list);
+ 	spin_unlock_bh(&linkfail_lock);
+-
+-	return 1;
  }
  
- static int nr_open(struct net_device *dev)
+ EXPORT_SYMBOL(ax25_linkfail_register);
+ 
+-void ax25_linkfail_release(void (*func)(ax25_cb *, int))
++void ax25_linkfail_release(struct ax25_linkfail *lf)
  {
-+	int err;
-+
-+	err = ax25_listen_register((ax25_address *)dev->dev_addr, NULL);
-+	if (err)
-+		return err;
-+
- 	netif_start_queue(dev);
--	ax25_listen_register((ax25_address *)dev->dev_addr, NULL);
-+
- 	return 0;
+-	struct linkfail_struct *s, *linkfail;
+-
+ 	spin_lock_bh(&linkfail_lock);
+-	linkfail = linkfail_list;
+-	if (linkfail == NULL) {
+-		spin_unlock_bh(&linkfail_lock);
+-		return;
+-	}
+-
+-	if (linkfail->func == func) {
+-		linkfail_list = linkfail->next;
+-		spin_unlock_bh(&linkfail_lock);
+-		kfree(linkfail);
+-		return;
+-	}
+-
+-	while (linkfail != NULL && linkfail->next != NULL) {
+-		if (linkfail->next->func == func) {
+-			s = linkfail->next;
+-			linkfail->next = linkfail->next->next;
+-			spin_unlock_bh(&linkfail_lock);
+-			kfree(s);
+-			return;
+-		}
+-
+-		linkfail = linkfail->next;
+-	}
++	hlist_del_init(&lf->lf_node);
+ 	spin_unlock_bh(&linkfail_lock);
  }
  
+@@ -237,11 +199,12 @@ int (*ax25_protocol_function(unsigned in
+ 
+ void ax25_link_failed(ax25_cb *ax25, int reason)
+ {
+-	struct linkfail_struct *linkfail;
++	struct ax25_linkfail *lf;
++	struct hlist_node *node;
+ 
+ 	spin_lock_bh(&linkfail_lock);
+-	for (linkfail = linkfail_list; linkfail != NULL; linkfail = linkfail->next)
+-		(linkfail->func)(ax25, reason);
++	hlist_for_each_entry(lf, node, &ax25_linkfail_list, lf_node)
++		lf->func(ax25, reason);
+ 	spin_unlock_bh(&linkfail_lock);
+ }
+ 
+Index: linux-net/net/netrom/af_netrom.c
+===================================================================
+--- linux-net.orig/net/netrom/af_netrom.c
++++ linux-net/net/netrom/af_netrom.c
+@@ -1382,6 +1382,10 @@ static struct ax25_protocol nr_pid = {
+ 	.func	= nr_route_frame
+ };
+ 
++static struct ax25_linkfail nr_linkfail_notifier = {
++	.func	= nr_link_failed,
++};
++
+ static int __init nr_proto_init(void)
+ {
+ 	int i;
+@@ -1430,7 +1434,7 @@ static int __init nr_proto_init(void)
+ 	register_netdevice_notifier(&nr_dev_notifier);
+ 
+ 	ax25_register_pid(&nr_pid);
+-	ax25_linkfail_register(nr_link_failed);
++	ax25_linkfail_register(&nr_linkfail_notifier);
+ 
+ #ifdef CONFIG_SYSCTL
+ 	nr_register_sysctl();
+@@ -1479,7 +1483,7 @@ static void __exit nr_exit(void)
+ 	nr_unregister_sysctl();
+ #endif
+ 
+-	ax25_linkfail_release(nr_link_failed);
++	ax25_linkfail_release(&nr_linkfail_notifier);
+ 	ax25_protocol_release(AX25_P_NETROM);
+ 
+ 	unregister_netdevice_notifier(&nr_dev_notifier);
 Index: linux-net/net/rose/af_rose.c
 ===================================================================
 --- linux-net.orig/net/rose/af_rose.c
 +++ linux-net/net/rose/af_rose.c
-@@ -1314,7 +1314,8 @@ static int rose_ioctl(struct socket *soc
- 		if (copy_from_user(&rose_callsign, argp, sizeof(ax25_address)))
- 			return -EFAULT;
- 		if (ax25cmp(&rose_callsign, &null_ax25_address) != 0)
--			ax25_listen_register(&rose_callsign, NULL);
-+			return ax25_listen_register(&rose_callsign, NULL);
-+
- 		return 0;
+@@ -1487,6 +1487,10 @@ static struct ax25_protocol rose_pid = {
+ 	.func	= rose_route_frame
+ };
  
- 	case SIOCRSGL2CALL:
++static struct ax25_linkfail rose_linkfail_notifier = {
++	.func	= rose_link_failed
++};
++
+ static int __init rose_proto_init(void)
+ {
+ 	int i;
+@@ -1537,7 +1541,7 @@ static int __init rose_proto_init(void)
+ 	register_netdevice_notifier(&rose_dev_notifier);
+ 
+ 	ax25_register_pid(&rose_pid);
+-	ax25_linkfail_register(rose_link_failed);
++	ax25_linkfail_register(&rose_linkfail_notifier);
+ 
+ #ifdef CONFIG_SYSCTL
+ 	rose_register_sysctl();
+@@ -1585,7 +1589,7 @@ static void __exit rose_exit(void)
+ 	rose_rt_free();
+ 
+ 	ax25_protocol_release(AX25_P_ROSE);
+-	ax25_linkfail_release(rose_link_failed);
++	ax25_linkfail_release(&rose_linkfail_notifier);
+ 
+ 	if (ax25cmp(&rose_callsign, &null_ax25_address) != 0)
+ 		ax25_listen_release(&rose_callsign, NULL);
