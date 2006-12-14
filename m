@@ -1,43 +1,49 @@
-From: Alex Romosan <romosan@sycorax.lbl.gov>
-Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
-Date: Thu, 14 Dec 2006 14:57:45 -0800
-Message-ID: <87k60uaxw6.fsf@sycorax.lbl.gov>
-References: <87psammchi.fsf@sycorax.lbl.gov>
-	<20061214133023.0b266d8e@freekitty> <87odq6azel.fsf@sycorax.lbl.gov>
-	<20061214144734.03300fa6@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4][SCTP]: Change adaption -> adaptation as per the
+ latest API draft.
+Date: Thu, 14 Dec 2006 14:59:29 -0800 (PST)
+Message-ID: <20061214.145929.116355686.davem@davemloft.net>
+References: <1166060332.4670.37.camel@w-sridhar2.beaverton.ibm.com>
+	<20061213.180340.26278674.davem@davemloft.net>
+	<1166134936.13207.30.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sycorax.lbl.gov ([128.3.5.196]:3999 "EHLO sycorax.lbl.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750844AbWLNW5u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 17:57:50 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061214144734.03300fa6@freekitty> (message from Stephen
-	Hemminger on Thu, 14 Dec 2006 14:47:34 -0800)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54155
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751634AbWLNW7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 17:59:42 -0500
+To: sri@us.ibm.com
+In-Reply-To: <1166134936.13207.30.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Thu, 14 Dec 2006 14:22:16 -0800
 
-> Another useful bit of information is the statistics (ethtool -S eth0).
-> When there were flow control bugs, they would show up as count of 1.
+> On Wed, 2006-12-13 at 18:03 -0800, David Miller wrote:
+> > From: Sridhar Samudrala <sri@us.ibm.com>
+> > Date: Wed, 13 Dec 2006 17:38:52 -0800
+> > 
+> > > These parameters are not used by user-space apps. They define the
+> > > parameters used by the protocol in SCTP headers that go on wire.
+> > 
+> > There is no __KERNEL__ ifdef protection for these defines,
+> > and the linux/sctp.h header is exported to userspace via
+> > include/linux/Kbuild, therefore the interface is exposed to
+> > userspace and you cannot break it.
+> 
+> I didn't know that all the files under include/linux are exported
+> to userspace.
 
-we'll see if the machine locks up again.
+Not all of them, only select ones specified in the Kbuild file.
 
-> Are you doing jumbo frames (MTU > 1500)?
+If these structures and defines are meant for kernel-only, or only
+partially so, you should either annotate linux/sctp.h with
+appropriate __KERNEL__ ifdefs, or remove the header file from
+include/linux/Kbuild
 
-no (or at least i don't think so). how can i tell?
-
-assuming the machine doesn't lock up with msi interrupts disabled, do
-you want me to do anything to debug why the driver locks up when the
-msi interrupts are enabled?
-
---alex--
-
--- 
-| I believe the moment is at hand when, by a paranoiac and active |
-|  advance of the mind, it will be possible (simultaneously with  |
-|  automatism and other passive states) to systematize confusion  |
-|  and thus to help to discredit completely the world of reality. |
+You cannot remove the file from Kbuild if it somehow is required
+by your SCTP user.h header file, for example.
