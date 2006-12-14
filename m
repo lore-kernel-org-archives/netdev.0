@@ -1,225 +1,140 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 1/6] d80211: add IEEE802.11e/WMM MLMEs, Status Code and Reason Code
-Date: Thu, 14 Dec 2006 12:02:04 +0800
-Message-ID: <20061214040204.GA10643@mail.intel.com>
+Subject: [PATCH 2/6] d80211: create "wifi.h" to define WIFI OUIs
+Date: Thu, 14 Dec 2006 12:02:16 +0800
+Message-ID: <20061214040216.GA10652@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25884 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:46733 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750960AbWLNEOA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 23:14:00 -0500
+	id S1750956AbWLNEON (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 23:14:13 -0500
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Replace hard coded WIFI OUIs and parse TSPEC information element.
+
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
 ---
 
- include/net/d80211_mgmt.h |  148 +++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 148 insertions(+), 0 deletions(-)
+ net/d80211/ieee80211_sta.c |   36 ++++++++++++++++++++++++++++++++----
+ net/d80211/wifi.h          |   28 ++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+), 4 deletions(-)
+ create mode 100644 net/d80211/wifi.h
 
-d83f6236e756f5f0bb1484d991884444f06704de
-diff --git a/include/net/d80211_mgmt.h b/include/net/d80211_mgmt.h
-index 87141d4..450c0a2 100644
---- a/include/net/d80211_mgmt.h
-+++ b/include/net/d80211_mgmt.h
-@@ -14,6 +14,39 @@
+d30f04a9e760702363bdad8aef47477762f6d06f
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index 4985afe..cf11e88 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -27,6 +27,7 @@
  
- #include <linux/types.h>
- 
-+struct ieee802_11_ts_info {
-+	__le16 traffic_type:1;
-+	__le16 tsid:4;
-+	__le16 direction:2;
-+	__le16 access_policy:2;
-+	__le16 aggregation:1;
-+	__le16 apsd:1;
-+	__le16 up:3;
-+	__le16 ack_policy:2;
-+	u8 schedule:1;
-+	u8 reserved:7;
-+} __attribute__ ((packed));
-+
-+struct ieee802_11_elem_tspec {
-+	struct ieee802_11_ts_info ts_info;
-+	__le16 nominal_msdu_size;
-+	__le16 max_msdu_size;
-+	__le32 min_service_interval;
-+	__le32 max_service_interval;
-+	__le32 inactivity_interval;
-+	__le32 suspension_interval;
-+	__le32 service_start_time;
-+	__le32 min_data_rate;
-+	__le32 mean_data_rate;
-+	__le32 peak_data_rate;
-+	__le32 burst_size;
-+	__le32 delay_bound;
-+	__le32 min_phy_rate;
-+	__le16 surplus_band_allow;
-+	__le16 medium_time;
-+} __attribute__ ((packed));
-+
-+
- struct ieee80211_mgmt {
- 	__le16 frame_control;
- 	__le16 duration;
-@@ -81,9 +114,51 @@ struct ieee80211_mgmt {
- 				struct {
- 					u8 action_code;
- 					u8 dialog_token;
-+					u8 variable[0];
-+				} __attribute__ ((packed)) addts_req;
-+				struct {
-+					u8 action_code;
-+					u8 dialog_token;
-+					__le16 status_code;
-+					u8 variable[0];
-+				} __attribute__ ((packed)) addts_resp;
-+				struct {
-+					u8 action_code;
-+					struct ieee802_11_ts_info ts_info;
-+					__le16 reason_code;
-+				} __attribute__ ((packed)) delts;
-+				struct {
-+					u8 action_code;
-+					u8 dialog_token;
- 					u8 status_code;
- 					u8 variable[0];
- 				} __attribute__ ((packed)) wme_action;
-+				struct {
-+					u8 action_code;
-+					u8 dest[6];
-+					u8 src[6];
-+					__le16 capab_info;
-+					__le16 timeout;
-+					/* Followed by Supported Rates and
-+					 * Extended Supported Rates */
-+					u8 variable[0];
-+				} __attribute__ ((packed)) dls_req;
-+				struct {
-+					u8 action_code;
-+					__le16 status_code;
-+					u8 dest[6];
-+					u8 src[6];
-+					/* Followed by Capability Information,
-+					 * Supported Rates and Extended
-+					 * Supported Rates */
-+					u8 variable[0];
-+				} __attribute__ ((packed)) dls_resp;
-+				struct {
-+					u8 action_code;
-+					u8 dest[6];
-+					u8 src[6];
-+					__le16 reason_code;
-+				} __attribute__ ((packed)) dls_teardown;
- 				struct{
- 					u8 action_code;
- 					u8 element_id;
-@@ -150,6 +225,18 @@ enum ieee80211_statuscode {
- 	WLAN_STATUS_UNSUPP_RSN_VERSION = 44,
- 	WLAN_STATUS_INVALID_RSN_IE_CAP = 45,
- 	WLAN_STATUS_CIPHER_SUITE_REJECTED = 46,
-+	/* 802.11e */
-+	WLAN_STATUS_UNSPECIFIED_QOS = 32,
-+	WLAN_STATUS_ASSOC_DENIED_NOBANDWIDTH = 33,
-+	WLAN_STATUS_ASSOC_DENIED_LOWACK = 34,
-+	WLAN_STATUS_ASSOC_DENIED_UNSUPP_QOS = 35,
-+	WLAN_STATUS_REQUEST_DECLINED = 37,
-+	WLAN_STATUS_INVALID_QOS_PARAM = 38,
-+	WLAN_STATUS_CHANGE_TSPEC = 39,
-+	WLAN_STATUS_WAIT_TS_DELAY = 47,
-+	WLAN_STATUS_NO_DIRECT_LINK = 48,
-+	WLAN_STATUS_STA_NOT_PRESENT = 49,
-+	WLAN_STATUS_STA_NOT_QSTA = 50,
+ #include <net/d80211.h>
+ #include <net/d80211_mgmt.h>
++#include "wifi.h"
+ #include "ieee80211_i.h"
+ #include "ieee80211_rate.h"
+ #include "hostapd_ioctl.h"
+@@ -97,6 +98,8 @@ struct ieee802_11_elems {
+ 	u8 wmm_info_len;
+ 	u8 *wmm_param;
+ 	u8 wmm_param_len;
++	u8 *tspec;
++	u8 tspec_len;
  };
  
- 
-@@ -180,9 +267,43 @@ enum ieee80211_reasoncode {
- 	WLAN_REASON_INVALID_RSN_IE_CAP = 22,
- 	WLAN_REASON_IEEE8021X_FAILED = 23,
- 	WLAN_REASON_CIPHER_SUITE_REJECTED = 24,
-+	/* 802.11e */
-+	WLAN_REASON_DISASSOC_UNSPECIFIED_QOS = 32,
-+	WLAN_REASON_DISASSOC_QAP_NO_BANDWIDTH = 33,
-+	WLAN_REASON_DISASSOC_LOW_ACK = 34,
-+	WLAN_REASON_DISASSOC_QAP_EXCEED_TXOP = 35,
-+	WLAN_REASON_QSTA_LEAVE_QBSS = 36,
-+	WLAN_REASON_QSTA_NOT_USE = 37,
-+	WLAN_REASON_QSTA_REQUIRE_SETUP = 38,
-+	WLAN_REASON_QSTA_TIMEOUT = 39,
-+	WLAN_REASON_QSTA_CIPHER_NOT_SUPP = 45,
- };
- 
- 
-+/* Category Code */
-+enum ieee80211_category {
-+	WLAN_CATEGORY_SPECTRUM_MGMT = 0,
-+	WLAN_CATEGORY_QOS = 1,
-+	WLAN_CATEGORY_DLS = 2,
-+	WLAN_CATEGORY_BACK = 3,
-+	WLAN_CATEGORY_WMM = 17,
+ typedef enum { ParseOK = 0, ParseUnknown = 1, ParseFailed = -1 } ParseRes;
+@@ -165,17 +168,34 @@ static ParseRes ieee802_11_parse_elems(u
+ 			if (elen >= 4 && pos[0] == 0x00 && pos[1] == 0x50 &&
+ 			    pos[2] == 0xf2) {
+ 				/* Microsoft OUI (00:50:F2) */
+-				if (pos[3] == 1) {
++				if (pos[3] == WIFI_OUI_TYPE_WPA) {
+ 					/* OUI Type 1 - WPA IE */
+ 					elems->wpa = pos;
+ 					elems->wpa_len = elen;
+-				} else if (elen >= 5 && pos[3] == 2) {
+-					if (pos[4] == 0) {
++				} else if (elen >= 5 &&
++					   pos[3] == WIFI_OUI_TYPE_WMM) {
++					switch (pos[4]) {
++					case WIFI_OUI_STYPE_WMM_INFO:
+ 						elems->wmm_info = pos;
+ 						elems->wmm_info_len = elen;
+-					} else if (pos[4] == 1) {
++						break;
++					case WIFI_OUI_STYPE_WMM_PARAM:
+ 						elems->wmm_param = pos;
+ 						elems->wmm_param_len = elen;
++						break;
++					case WIFI_OUI_STYPE_WMM_TSPEC:
++						if (elen != 61) {
++							printk(KERN_ERR "Wrong "
++							       "TSPEC size.\n");
++							break;
++						}
++						elems->tspec = pos + 6;
++						elems->tspec_len = elen - 6;
++						break;
++					default:
++						//printk(KERN_ERR "Unsupported "
++						//       "WiFi OUI %d\n", pos[4]);
++						break;
+ 					}
+ 				}
+ 			}
+@@ -192,6 +212,14 @@ static ParseRes ieee802_11_parse_elems(u
+ 			elems->ext_supp_rates = pos;
+ 			elems->ext_supp_rates_len = elen;
+ 			break;
++		case WLAN_EID_TSPEC:
++			if (elen != 55) {
++				printk(KERN_ERR "Wrong TSPEC size.\n");
++				break;
++			}
++			elems->tspec = pos;
++			elems->tspec_len = elen;
++			break;
+ 		default:
+ #if 0
+ 			printk(KERN_DEBUG "IEEE 802.11 element parse ignored "
+diff --git a/net/d80211/wifi.h b/net/d80211/wifi.h
+new file mode 100644
+index 0000000..8ed1b63
+--- /dev/null
++++ b/net/d80211/wifi.h
+@@ -0,0 +1,28 @@
++/*
++ * This file defines Wi-Fi(r) OUIs for 80211.o
++ * Copyright 2006, Zhu Yi <yi.zhu@intel.com>  Intel Corp.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#ifndef D802_11_WIFI_H
++#define D802_11_WIFI_H
++
++/* WI-FI Alliance OUI Type and Subtype */
++enum wifi_oui_type {
++	WIFI_OUI_TYPE_WPA = 1,
++	WIFI_OUI_TYPE_WMM = 2,
++	WIFI_OUI_TYPE_WSC = 4,
++	WIFI_OUI_TYPE_PSD = 6,
 +};
 +
-+/* QoS Action Code */
-+enum ieee80211_qos_actioncode {
-+	WLAN_ACTION_QOS_ADDTS_REQ = 0,
-+	WLAN_ACTION_QOS_ADDTS_RESP = 1,
-+	WLAN_ACTION_QOS_DELTS = 2,
-+	WLAN_ACTION_QOS_SCHEDULE = 3,
++enum wifi_oui_stype_wmm {
++	WIFI_OUI_STYPE_WMM_INFO = 0,
++	WIFI_OUI_STYPE_WMM_PARAM = 1,
++	WIFI_OUI_STYPE_WMM_TSPEC = 2,
 +};
 +
-+/* DLS Action Code */
-+enum ieee80211_dls_actioncode {
-+	WLAN_ACTION_DLS_REQ = 0,
-+	WLAN_ACTION_DLS_RESP = 1,
-+	WLAN_ACTION_DLS_TEARDOWN = 2,
-+};
 +
- /* Information Element IDs */
- enum ieee80211_eid {
- 	WLAN_EID_SSID = 0,
-@@ -198,6 +319,15 @@ enum ieee80211_eid {
- 	WLAN_EID_HP_PARAMS = 8,
- 	WLAN_EID_HP_TABLE = 9,
- 	WLAN_EID_REQUEST = 10,
-+	/* 802.11e */
-+	WLAN_EID_QBSS_LOAD = 11,
-+	WLAN_EID_EDCA_PARAM_SET = 12,
-+	WLAN_EID_TSPEC = 13,
-+	WLAN_EID_TCLAS = 14,
-+	WLAN_EID_SCHEDULE = 15,
-+	WLAN_EID_TS_DELAY = 43,
-+	WLAN_EID_TCLAS_PROCESSING = 44,
-+	WLAN_EID_QOS_CAPA = 46,
- 	/* 802.11h */
- 	WLAN_EID_PWR_CONSTRAINT = 32,
- 	WLAN_EID_PWR_CAPABILITY = 33,
-@@ -220,4 +350,22 @@ enum ieee80211_eid {
- 	WLAN_EID_QOS_PARAMETER = 222
- };
- 
-+enum ieee80211_tsinfo_direction {
-+	WLAN_TSINFO_UPLINK = 0,
-+	WLAN_TSINFO_DOWNLINK = 1,
-+	WLAN_TSINFO_DIRECTLINK = 2,
-+	WLAN_TSINFO_BIDIRECTIONAL = 3,
-+};
-+
-+enum ieee80211_tsinfo_access {
-+	WLAN_TSINFO_EDCA = 1,
-+	WLAN_TSINFO_HCCA = 2,
-+	WLAN_TSINFO_HEMM = 3,
-+};
-+
-+enum ieee80211_tsinfo_psb {
-+	WLAN_TSINFO_PSB_LEGACY = 0,
-+	WLAN_TSINFO_PSB_APSD = 1,
-+};
-+
- #endif /* D802_11_MGMT_H */
++#endif /* D802_11_WIFI_H */
 -- 
 1.2.6
