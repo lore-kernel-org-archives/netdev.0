@@ -1,7 +1,7 @@
 From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH  v4 11/13] Core Resource Allocation
-Date: Thu, 14 Dec 2006 07:58:07 -0600
-Message-ID: <20061214135807.21159.36678.stgit@dell3.ogc.int>
+Subject: [PATCH  v4 12/13] Core Debug functions
+Date: Thu, 14 Dec 2006 07:58:38 -0600
+Message-ID: <20061214135837.21159.29330.stgit@dell3.ogc.int>
 References: <20061214135233.21159.78613.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -25,21 +25,21 @@ Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
 
-Core functions to carve up adapter memory, stag, qp, and cq IDs.
+Debug code to dump various data structs, some of which are in 
+adapter memory.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/core/cxio_resource.c |  331 ++++++++++++++++++++++
- drivers/infiniband/hw/cxgb3/core/cxio_resource.h |   70 +++++
- 2 files changed, 401 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/cxgb3/core/cxio_dbg.c |  205 +++++++++++++++++++++++++++
+ 1 files changed, 205 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/core/cxio_resource.c b/drivers/infiniband/hw/cxgb3/core/cxio_resource.c
+diff --git a/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c b/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c
 new file mode 100644
-index 0000000..444df15
+index 0000000..22f4f75
 --- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/core/cxio_resource.c
-@@ -0,0 +1,331 @@
++++ b/drivers/infiniband/hw/cxgb3/core/cxio_dbg.c
+@@ -0,0 +1,205 @@
 +/*
 + * Copyright (c) 2006 Chelsio, Inc. All rights reserved.
 + * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
@@ -72,378 +72,176 @@ index 0000000..444df15
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
 + */
-+/* Crude resource management */
-+#include <linux/kernel.h>
-+#include <linux/random.h>
-+#include <linux/slab.h>
-+#include <linux/kfifo.h>
-+#include <linux/spinlock.h>
-+#include <linux/errno.h>
-+#include "cxio_resource.h"
++#ifdef DEBUG
++#include <linux/types.h>
++#include "common.h"
++#include "cxgb3_ioctl.h"
 +#include "cxio_hal.h"
++#include "cxio_wr.h"
 +
-+static struct kfifo *rhdl_fifo;
-+static spinlock_t rhdl_fifo_lock;
-+
-+#define RANDOM_SIZE 16
-+
-+static int __cxio_init_resource_fifo(struct kfifo **fifo,
-+				   spinlock_t *fifo_lock,
-+				   u32 nr, u32 skip_low,
-+				   u32 skip_high,
-+				   int random)
++void cxio_dump_tpt(struct cxio_rdev *rdev, u32 stag) 
 +{
-+	u32 i, j, entry = 0, idx;
-+	u32 random_bytes;
-+	u32 rarray[16];
-+	spin_lock_init(fifo_lock);
++	struct ch_mem_range *m;
++	u64 *data;
++	int rc;
++	int size = 32;
 +
-+	*fifo = kfifo_alloc(nr * sizeof(u32), GFP_KERNEL, fifo_lock);
-+	if (IS_ERR(*fifo))
-+		return -ENOMEM;
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = (stag>>8) * 32 + rdev->rnic_info.tpt_base;
++	m->len = size;
++	PDBG("%s TPT addr 0x%x len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
 +
-+	for (i = 0; i < skip_low + skip_high; i++)
-+		__kfifo_put(*fifo, (unsigned char *) &entry, sizeof(u32));
-+	if (random) {
-+		j = 0;
-+		random_bytes = random32();
-+		for (i = 0; i < RANDOM_SIZE; i++)
-+			rarray[i] = i + skip_low;
-+		for (i = skip_low + RANDOM_SIZE; i < nr - skip_high; i++) {
-+			if (j >= RANDOM_SIZE) {
-+				j = 0;
-+				random_bytes = random32();
-+			}
-+			idx = (random_bytes >> (j * 2)) & 0xF;
-+			__kfifo_put(*fifo, 
-+				(unsigned char *) &rarray[idx],
-+				sizeof(u32));
-+			rarray[idx] = i;
-+			j++;	
-+		}
-+		for (i = 0; i < RANDOM_SIZE; i++)
-+			__kfifo_put(*fifo, 
-+				(unsigned char *) &rarray[i],
-+				sizeof(u32));
-+	} else
-+		for (i = skip_low; i < nr - skip_high; i++)
-+			__kfifo_put(*fifo, (unsigned char *) &i, sizeof(u32));
-+
-+	for (i = 0; i < skip_low + skip_high; i++)
-+		kfifo_get(*fifo, (unsigned char *) &entry, sizeof(u32));
-+	return 0;
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("TPT %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
 +}
 +
-+static int cxio_init_resource_fifo(struct kfifo **fifo, spinlock_t * fifo_lock,
-+				   u32 nr, u32 skip_low, u32 skip_high)
++void cxio_dump_pbl(struct cxio_rdev *rdev, u32 pbl_addr, uint len, u8 shift)
 +{
-+	return (__cxio_init_resource_fifo(fifo, fifo_lock, nr, skip_low, 
-+					  skip_high, 0));
++	struct ch_mem_range *m;
++	u64 *data;
++	int rc;
++	int size, npages;
++
++	shift += 12;
++	npages = (len + (1ULL << shift) - 1) >> shift;
++	size = npages * sizeof(u64);
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = pbl_addr;
++	m->len = size;
++	PDBG("%s PBL addr 0x%x len %d depth %d\n", 
++		__FUNCTION__, m->addr, m->len, npages);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("PBL %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
 +}
 +
-+static int cxio_init_resource_fifo_random(struct kfifo **fifo,
-+				   spinlock_t * fifo_lock,
-+				   u32 nr, u32 skip_low, u32 skip_high)
++void cxio_dump_wqe(union t3_wr *wqe)
 +{
++	__be64 *data = (__be64 *)wqe;
++	uint size = (uint)(be64_to_cpu(*data) & 0xff);
 +
-+	return (__cxio_init_resource_fifo(fifo, fifo_lock, nr, skip_low, 
-+					  skip_high, 1));
++	if (size == 0) 
++		size = 8;
++	while (size > 0) {
++		PDBG("WQE %p: %016llx\n", data, be64_to_cpu(*data));
++		size--;
++		data++;
++	}
 +}
 +
-+static int cxio_init_qpid_fifo(struct cxio_rdev *rdev_p)
++void cxio_dump_wce(struct t3_cqe *wce)
 +{
-+	u32 i;
++	__be64 *data = (__be64 *)wce;
++	int size = sizeof(*wce);
 +
-+	spin_lock_init(&rdev_p->rscp->qpid_fifo_lock);
-+
-+	rdev_p->rscp->qpid_fifo = kfifo_alloc(T3_MAX_NUM_QP * sizeof(u32), 
-+					      GFP_KERNEL, 
-+					      &rdev_p->rscp->qpid_fifo_lock);
-+	if (IS_ERR(rdev_p->rscp->qpid_fifo))
-+		return -ENOMEM;
-+
-+	for (i = 16; i < T3_MAX_NUM_QP; i++)
-+		if (!(i & rdev_p->qpmask))
-+			__kfifo_put(rdev_p->rscp->qpid_fifo, 
-+				    (unsigned char *) &i, sizeof(u32));
-+	return 0;
++	while (size > 0) {
++		PDBG("WCE %p: %016llx\n", data, be64_to_cpu(*data));
++		size -= 8;
++		data++;
++	}
 +}
 +
-+int cxio_hal_init_rhdl_resource(u32 nr_rhdl)
++void cxio_dump_rqt(struct cxio_rdev *rdev, u32 hwtid, int nents)
 +{
-+	return cxio_init_resource_fifo(&rhdl_fifo, &rhdl_fifo_lock, nr_rhdl, 1,
-+				       0);
++	struct ch_mem_range *m;
++	int size = nents * 64;
++	u64 *data;
++	int rc;
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_PMRX;
++	m->addr = ((hwtid)<<10) + rdev->rnic_info.rqt_base;
++	m->len = size;
++	PDBG("%s RQT addr 0x%x len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u64 *)m->buf;
++	while (size > 0) {
++		PDBG("RQT %08x: %016llx\n", m->addr, (u64)*data);
++		size -= 8;
++		data++;
++		m->addr += 8;
++	}
++	kfree(m);
 +}
 +
-+void cxio_hal_destroy_rhdl_resource(void)
++void cxio_dump_tcb(struct cxio_rdev *rdev, u32 hwtid)
 +{
-+	kfifo_free(rhdl_fifo);
++	struct ch_mem_range *m;
++	int size = TCB_SIZE;
++	u32 *data;
++	int rc;
++
++	m = kmalloc(sizeof(*m) + size, GFP_ATOMIC);
++	if (!m) {
++		PDBG("%s couldn't allocate memory.\n", __FUNCTION__);
++		return;
++	}
++	m->mem_id = MEM_CM;
++	m->addr = hwtid * size; 
++	m->len = size;
++	PDBG("%s TCB %d len %d\n", __FUNCTION__, m->addr, m->len);
++	rc = rdev->t3cdev_p->ctl(rdev->t3cdev_p, RDMA_GET_MEM, m);
++	if (rc) {
++		PDBG("%s toectl returned error %d\n", __FUNCTION__, rc);
++		kfree(m);
++		return;
++	}
++
++	data = (u32 *)m->buf;
++	while (size > 0) {
++		printk("%2u: %08x %08x %08x %08x %08x %08x %08x %08x\n", 
++			m->addr, 
++			*(data+2), *(data+3), *(data),*(data+1),
++			*(data+6), *(data+7), *(data+4), *(data+5));
++		size -= 32;
++		data += 8;
++		m->addr += 32;
++	}
++	kfree(m);
 +}
-+
-+/* nr_* must be power of 2 */
-+int cxio_hal_init_resource(struct cxio_rdev *rdev_p,
-+			   u32 nr_tpt, u32 nr_pbl,
-+			   u32 nr_rqt, u32 nr_qpid, u32 nr_cqid, u32 nr_pdid)
-+{
-+	int err = 0;
-+	struct cxio_hal_resource *rscp;
-+
-+	rscp = kmalloc(sizeof(*rscp), GFP_KERNEL);
-+	if (!rscp)
-+		return -ENOMEM;
-+	rdev_p->rscp = rscp;
-+	err = cxio_init_resource_fifo_random(&rscp->tpt_fifo,
-+				      &rscp->tpt_fifo_lock, 
-+				      nr_tpt, 1, 0);
-+	if (err)
-+		goto tpt_err;
-+	err = cxio_init_qpid_fifo(rdev_p);
-+	if (err)
-+		goto qpid_err;
-+	err = cxio_init_resource_fifo(&rscp->cqid_fifo, &rscp->cqid_fifo_lock, 
-+				      nr_cqid, 1, 0);
-+	if (err)
-+		goto cqid_err;
-+	err = cxio_init_resource_fifo(&rscp->pdid_fifo, &rscp->pdid_fifo_lock, 
-+				      nr_pdid, 1, 0);
-+	if (err)
-+		goto pdid_err;
-+	return 0;
-+pdid_err:
-+	kfifo_free(rscp->cqid_fifo);
-+cqid_err:
-+	kfifo_free(rscp->qpid_fifo);
-+qpid_err:
-+	kfifo_free(rscp->tpt_fifo);
-+tpt_err:
-+	return -ENOMEM;
-+}
-+
-+/*
-+ * returns 0 if no resource available
-+ */
-+static inline u32 cxio_hal_get_resource(struct kfifo *fifo)
-+{
-+	u32 entry;
-+	if (kfifo_get(fifo, (unsigned char *) &entry, sizeof(u32)))
-+		return entry;
-+	else
-+		return 0;	/* fifo emptry */
-+}
-+
-+static inline void cxio_hal_put_resource(struct kfifo *fifo, u32 entry)
-+{
-+	BUG_ON(kfifo_put(fifo, (unsigned char *) &entry, sizeof(u32)) == 0);
-+}
-+
-+u32 cxio_hal_get_rhdl(void)
-+{
-+	return cxio_hal_get_resource(rhdl_fifo);
-+}
-+
-+void cxio_hal_put_rhdl(u32 rhdl)
-+{
-+	cxio_hal_put_resource(rhdl_fifo, rhdl);
-+}
-+
-+u32 cxio_hal_get_stag(struct cxio_hal_resource *rscp)
-+{
-+	return cxio_hal_get_resource(rscp->tpt_fifo);
-+}
-+
-+void cxio_hal_put_stag(struct cxio_hal_resource *rscp, u32 stag)
-+{
-+	cxio_hal_put_resource(rscp->tpt_fifo, stag);
-+}
-+
-+u32 cxio_hal_get_qpid(struct cxio_hal_resource *rscp)
-+{
-+	u32 qpid = cxio_hal_get_resource(rscp->qpid_fifo);
-+	PDBG("%s qpid 0x%x\n", __FUNCTION__, qpid);
-+	return qpid;
-+}
-+
-+void cxio_hal_put_qpid(struct cxio_hal_resource *rscp, u32 qpid)
-+{
-+	PDBG("%s qpid 0x%x\n", __FUNCTION__, qpid);
-+	cxio_hal_put_resource(rscp->qpid_fifo, qpid);
-+}
-+
-+u32 cxio_hal_get_cqid(struct cxio_hal_resource *rscp)
-+{
-+	return cxio_hal_get_resource(rscp->cqid_fifo);
-+}
-+
-+void cxio_hal_put_cqid(struct cxio_hal_resource *rscp, u32 cqid)
-+{
-+	cxio_hal_put_resource(rscp->cqid_fifo, cqid);
-+}
-+
-+u32 cxio_hal_get_pdid(struct cxio_hal_resource *rscp)
-+{
-+	return cxio_hal_get_resource(rscp->pdid_fifo);
-+}
-+
-+void cxio_hal_put_pdid(struct cxio_hal_resource *rscp, u32 pdid)
-+{
-+	cxio_hal_put_resource(rscp->pdid_fifo, pdid);
-+}
-+
-+void cxio_hal_destroy_resource(struct cxio_hal_resource *rscp)
-+{
-+	kfifo_free(rscp->tpt_fifo);
-+	kfifo_free(rscp->cqid_fifo);
-+	kfifo_free(rscp->qpid_fifo);
-+	kfifo_free(rscp->pdid_fifo);
-+	kfree(rscp);
-+}
-+
-+/*
-+ * PBL Memory Manager.  Uses Linux generic allocator.
-+ */
-+
-+#define MIN_PBL_SHIFT 8			/* 256B == min PBL size (32 entries) */
-+#define PBL_CHUNK 2*1024*1024 		
-+
-+u32 cxio_hal_pblpool_alloc(struct cxio_rdev *rdev_p, int size)
-+{
-+	unsigned long addr = gen_pool_alloc(rdev_p->pbl_pool, size);
-+	PDBG("%s addr 0x%x size %d\n", __FUNCTION__, (u32)addr, size);
-+	return (u32)addr;
-+}
-+
-+void cxio_hal_pblpool_free(struct cxio_rdev *rdev_p, u32 addr, int size)
-+{
-+	PDBG("%s addr 0x%x size %d\n", __FUNCTION__, addr, size);
-+	gen_pool_free(rdev_p->pbl_pool, (unsigned long)addr, size);
-+}
-+
-+int cxio_hal_pblpool_create(struct cxio_rdev *rdev_p)
-+{
-+	unsigned long i;
-+	rdev_p->pbl_pool = gen_pool_create(MIN_PBL_SHIFT, -1);
-+	if (rdev_p->pbl_pool)
-+		for (i = rdev_p->rnic_info.pbl_base; 
-+		     i <= rdev_p->rnic_info.pbl_top - PBL_CHUNK + 1; 
-+		     i += PBL_CHUNK)
-+			gen_pool_add(rdev_p->pbl_pool, i, PBL_CHUNK, -1);
-+	return rdev_p->pbl_pool ? 0 : -ENOMEM;
-+}
-+
-+void cxio_hal_pblpool_destroy(struct cxio_rdev *rdev_p)
-+{
-+	gen_pool_destroy(rdev_p->pbl_pool);
-+}
-+
-+/*
-+ * RQT Memory Manager.  Uses Linux generic allocator.
-+ */
-+
-+#define MIN_RQT_SHIFT 10	/* 1KB == mini RQT size (16 entries) */
-+#define RQT_CHUNK 2*1024*1024 		
-+
-+u32 cxio_hal_rqtpool_alloc(struct cxio_rdev *rdev_p, int size)
-+{
-+	unsigned long addr = gen_pool_alloc(rdev_p->rqt_pool, size << 6);
-+	PDBG("%s addr 0x%x size %d\n", __FUNCTION__, (u32)addr, size << 6);
-+	return (u32)addr;
-+}
-+
-+void cxio_hal_rqtpool_free(struct cxio_rdev *rdev_p, u32 addr, int size)
-+{
-+	PDBG("%s addr 0x%x size %d\n", __FUNCTION__, addr, size << 6);
-+	gen_pool_free(rdev_p->rqt_pool, (unsigned long)addr, size << 6);
-+}
-+
-+int cxio_hal_rqtpool_create(struct cxio_rdev *rdev_p)
-+{
-+	unsigned long i;
-+	rdev_p->rqt_pool = gen_pool_create(MIN_RQT_SHIFT, -1);
-+	if (rdev_p->rqt_pool)
-+		for (i = rdev_p->rnic_info.rqt_base; 
-+		     i <= rdev_p->rnic_info.rqt_top - RQT_CHUNK + 1; 
-+		     i += RQT_CHUNK)
-+			gen_pool_add(rdev_p->rqt_pool, i, RQT_CHUNK, -1);
-+	return rdev_p->rqt_pool ? 0 : -ENOMEM;
-+}
-+
-+void cxio_hal_rqtpool_destroy(struct cxio_rdev *rdev_p)
-+{
-+	gen_pool_destroy(rdev_p->rqt_pool);
-+}
-diff --git a/drivers/infiniband/hw/cxgb3/core/cxio_resource.h b/drivers/infiniband/hw/cxgb3/core/cxio_resource.h
-new file mode 100644
-index 0000000..a6bbe83
---- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/core/cxio_resource.h
-@@ -0,0 +1,70 @@
-+/*
-+ * Copyright (c) 2006 Chelsio, Inc. All rights reserved.
-+ * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef __CXIO_RESOURCE_H__
-+#define __CXIO_RESOURCE_H__
-+
-+#include <linux/kernel.h>
-+#include <linux/random.h>
-+#include <linux/slab.h>
-+#include <linux/kfifo.h>
-+#include <linux/spinlock.h>
-+#include <linux/errno.h>
-+#include <linux/genalloc.h>
-+#include "cxio_hal.h"
-+
-+extern int cxio_hal_init_rhdl_resource(u32 nr_rhdl);
-+extern void cxio_hal_destroy_rhdl_resource(void);
-+extern int cxio_hal_init_resource(struct cxio_rdev *rdev_p,
-+				  u32 nr_tpt, u32 nr_pbl,
-+				  u32 nr_rqt, u32 nr_qpid, u32 nr_cqid,
-+				  u32 nr_pdid);
-+extern u32 cxio_hal_get_stag(struct cxio_hal_resource *rscp);
-+extern void cxio_hal_put_stag(struct cxio_hal_resource *rscp, u32 stag);
-+extern u32 cxio_hal_get_qpid(struct cxio_hal_resource *rscp);
-+extern void cxio_hal_put_qpid(struct cxio_hal_resource *rscp, u32 qpid);
-+extern u32 cxio_hal_get_cqid(struct cxio_hal_resource *rscp);
-+extern void cxio_hal_put_cqid(struct cxio_hal_resource *rscp, u32 cqid);
-+extern void cxio_hal_destroy_resource(struct cxio_hal_resource *rscp);
-+
-+#define PBL_OFF(rdev_p, a) ( (a) - (rdev_p)->rnic_info.pbl_base )
-+extern int cxio_hal_pblpool_create(struct cxio_rdev *rdev_p);
-+extern void cxio_hal_pblpool_destroy(struct cxio_rdev *rdev_p);
-+extern u32 cxio_hal_pblpool_alloc(struct cxio_rdev *rdev_p, int size);
-+extern void cxio_hal_pblpool_free(struct cxio_rdev *rdev_p, u32 addr, int size);
-+
-+#define RQT_OFF(rdev_p, a) ( (a) - (rdev_p)->rnic_info.rqt_base )
-+extern int cxio_hal_rqtpool_create(struct cxio_rdev *rdev_p);
-+extern void cxio_hal_rqtpool_destroy(struct cxio_rdev *rdev_p);
-+extern u32 cxio_hal_rqtpool_alloc(struct cxio_rdev *rdev_p, int size);
-+extern void cxio_hal_rqtpool_free(struct cxio_rdev *rdev_p, u32 addr, int size);
 +#endif
