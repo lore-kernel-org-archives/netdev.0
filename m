@@ -1,63 +1,51 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/3][BNX2]: Fix panic in bnx2_tx_int().
-Date: Wed, 13 Dec 2006 18:30:33 -0800
-Message-ID: <1166063433.30522.5.camel@rh4>
+Subject: [PATCH 3/3][BNX2]: Fix minor loopback problem.
+Date: Wed, 13 Dec 2006 18:31:19 -0800
+Message-ID: <1166063479.30522.7.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: cjk@techma.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2155 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2702 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751942AbWLNBr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Dec 2006 20:47:59 -0500
+	id S1751934AbWLNBs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 20:48:26 -0500
 To: davem@davemloft.net, agospoda@redhat.com, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Fix panic in bnx2_tx_int().
+[BNX2]: Fix minor loopback problem.
 
-There was an off-by-one bug in bnx2_tx_avail().  If the tx ring is
-completely full, the producer and consumer indices may be apart by
-256 even though the ring size is only 255.  One entry in the ring is
-unused and must be properly accounted for when calculating the number
-of available entries.  The bug caused the tx ring entries to be
-reused by mistake, overwriting active entries, and ultimately causing
-it to crash.
+Use the configured MAC address instead of the permanent MAC address
+for loopback frames.
 
-This bug rarely occurs because the tx ring is rarely completely full.
-We always stop when there is less than MAX_SKB_FRAGS entries available
-in the ring.
-
-Thanks to Corey Kovacs <cjk@techma.com> and Andy Gospodarek
-<agospoda@redhat.com> for reporting the problem and helping to collect
-debug information.
+Update version to 1.5.2.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 7d824cf..f296c37 100644
+index 4fa7cef..ada5e9b 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -217,9 +217,16 @@ static inline u32 bnx2_tx_avail(struct b
- 	u32 diff;
+@@ -57,8 +57,8 @@
  
- 	smp_mb();
--	diff = TX_RING_IDX(bp->tx_prod) - TX_RING_IDX(bp->tx_cons);
--	if (diff > MAX_TX_DESC_CNT)
--		diff = (diff & MAX_TX_DESC_CNT) - 1;
-+
-+	/* The ring uses 256 indices for 255 entries, one of them
-+	 * needs to be skipped.
-+	 */
-+	diff = bp->tx_prod - bp->tx_cons;
-+	if (unlikely(diff >= TX_DESC_CNT)) {
-+		diff &= 0xffff;
-+		if (diff == TX_DESC_CNT)
-+			diff = MAX_TX_DESC_CNT;
-+	}
- 	return (bp->tx_ring_size - diff);
- }
+ #define DRV_MODULE_NAME		"bnx2"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.5.1"
+-#define DRV_MODULE_RELDATE	"November 15, 2006"
++#define DRV_MODULE_VERSION	"1.5.2"
++#define DRV_MODULE_RELDATE	"December 13, 2006"
  
+ #define RUN_AT(x) (jiffies + (x))
+ 
+@@ -4005,7 +4005,7 @@ bnx2_run_loopback(struct bnx2 *bp, int l
+ 	if (!skb)
+ 		return -ENOMEM;
+ 	packet = skb_put(skb, pkt_size);
+-	memcpy(packet, bp->mac_addr, 6);
++	memcpy(packet, bp->dev->dev_addr, 6);
+ 	memset(packet + 6, 0x0, 8);
+ 	for (i = 14; i < pkt_size; i++)
+ 		packet[i] = (unsigned char) (i & 0xff);
 
 
