@@ -1,38 +1,71 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 6/6] d80211: add sysfs interface for QoS functions
-Date: Thu, 14 Dec 2006 12:23:39 +0100
-Message-ID: <20061214122339.37fc6b6d@griffin.suse.cz>
-References: <20061214040302.GA10689@mail.intel.com>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: [PATCH v4 00/13] 2.6.20 Chelsio T3 RDMA Driver
+Date: Thu, 14 Dec 2006 07:52:33 -0600
+Message-ID: <20061214135233.21159.78613.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:53395 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932621AbWLNLXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 06:23:16 -0500
-To: yi.zhu@intel.com
-In-Reply-To: <20061214040302.GA10689@mail.intel.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: rdreier@cisco.com
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Dec 2006 12:03:02 +0800, Zhu Yi wrote:
-> The sysfs interface here is only a proof of concept. It provides a way for
-> the userspace applications to use the advanced QoS features supported by
-> d80211 stack. The finial solution should be switched to cfg80211.
 
-So... what about implementing that into cfg80211? :-)
+Roland, 
 
-I'm not inclined towards this patch (even if you address Stephen's
-comment).
+I think this is ready to go once the ethernet driver is pulled in.
+
+Version 4 changes:
+
+- Cleaned up spacing in the Kconfig file
+- Remove locking.txt file - its not needed
+- Remove -O1 from the debug config option
+- BugFix: support new LLD interface for dual-port adapters
+
+Version 3 changes:
+
+- BugFix: Don't use mutex inside of the mmap function.
+- BugFix: Move QP to TERMINATE when TERMINATE AE is processed
+- Support the new work queue design
+- Merged up to linus's tree as of 12/8/2006
+- Misc nits
+
+Version 2 changes:
+
+- Make code sparse endian clean
+- Use IDRs for mapping QP and CQ IDs to structure pointers instead
+  of arrays
+- Clean up confusing bitfields
+- Use random32() instead of local random function
+- Use krefs to track endpoint reference counts
+- Misc nits
+
+-----
+
+The following series implements the Chelsio T3 iWARP/RDMA Driver to
+be considered for inclusion in 2.6.20.  It depends on the Chelsio T3
+Ethernet driver which is also under review now for 2.6.20. 
+
+The latest Chelsio T3 Ethernet driver patch can be pulled from:
+
+	http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+
+A complete GIT kernel tree with all the T3 drivers can be pulled from:
+
+	git://staging.openfabrics.org/~swise/cxgb3.git
 
 Thanks,
 
- Jiri
-
-(Btw, it will take me some time to review patches 4 and 5.)
-
--- 
-Jiri Benc
-SUSE Labs
+Steve.
