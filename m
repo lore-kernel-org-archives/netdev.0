@@ -1,146 +1,117 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [AX.25 1/7] Mark all kmalloc users __must_check
-Date: Thu, 14 Dec 2006 23:42:07 +0100
-Message-ID: <11661361331883-git-send-email-ralf@linux-mips.org>
+Subject: [AX.25 3/7] Fix unchecked ax25_listen_register uses
+Date: Thu, 14 Dec 2006 23:42:09 +0100
+Message-ID: <11661361342916-git-send-email-ralf@linux-mips.org>
+References: <11661361331883-git-send-email-ralf@linux-mips.org>
 Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
 	Ralf Baechle <ralf@linux-mips.org>
 Return-path: <linux-hams-owner@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <11661361331883-git-send-email-ralf@linux-mips.org>
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The recent fix 0506d4068bad834aab1141b5dc5e748eb175c6b3 made obvious that
-error values were not being propagated through the AX.25 stack.  To help
-with that this patch marks all kmalloc users in the AX.25, NETROM and
-ROSE stacks as __must_check.
+Fix ax25_listen_register to return something that's a sane error code,
+then all callers to use it.
 
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
- include/net/ax25.h    |   11 ++++++-----
- include/net/rose.h    |    4 ++--
- net/ax25/af_ax25.c    |    4 ++--
- net/ax25/ax25_route.c |    2 +-
- net/netrom/nr_route.c |    8 +++++---
- net/rose/rose_route.c |    2 +-
- 6 files changed, 17 insertions(+), 14 deletions(-)
+ net/ax25/ax25_iface.c |    7 ++++---
+ net/netrom/nr_dev.c   |   24 ++++++++++++++++++------
+ net/rose/af_rose.c    |    3 ++-
+ 3 files changed, 24 insertions(+), 10 deletions(-)
 
-Index: linux-net/include/net/ax25.h
+Index: linux-net/net/ax25/ax25_iface.c
 ===================================================================
---- linux-net.orig/include/net/ax25.h
-+++ linux-net/include/net/ax25.h
-@@ -277,7 +277,7 @@ struct sock *ax25_get_socket(ax25_addres
- extern ax25_cb *ax25_find_cb(ax25_address *, ax25_address *, ax25_digi *, struct net_device *);
- extern void ax25_send_to_raw(ax25_address *, struct sk_buff *, int);
- extern void ax25_destroy_socket(ax25_cb *);
--extern ax25_cb *ax25_create_cb(void);
-+extern ax25_cb * __must_check ax25_create_cb(void);
- extern void ax25_fillin_cb(ax25_cb *, ax25_dev *);
- extern struct sock *ax25_make_new(struct sock *, struct ax25_dev *);
+--- linux-net.orig/net/ax25/ax25_iface.c
++++ linux-net/net/ax25/ax25_iface.c
+@@ -154,7 +154,7 @@ int ax25_listen_register(ax25_address *c
+ 		return 0;
  
-@@ -333,11 +333,12 @@ extern void ax25_ds_t3timer_expiry(ax25_
- extern void ax25_ds_idletimer_expiry(ax25_cb *);
+ 	if ((listen = kmalloc(sizeof(*listen), GFP_ATOMIC)) == NULL)
+-		return 0;
++		return -ENOMEM;
  
- /* ax25_iface.c */
--extern int  ax25_protocol_register(unsigned int, int (*)(struct sk_buff *, ax25_cb *));
-+extern int __must_check ax25_protocol_register(unsigned int, int (*)(struct sk_buff *, ax25_cb *));
- extern void ax25_protocol_release(unsigned int);
--extern int  ax25_linkfail_register(void (*)(ax25_cb *, int));
-+extern int __must_check ax25_linkfail_register(void (*)(ax25_cb *, int));
- extern void ax25_linkfail_release(void (*)(ax25_cb *, int));
--extern int  ax25_listen_register(ax25_address *, struct net_device *);
-+extern int __must_check ax25_listen_register(ax25_address *,
-+	struct net_device *);
- extern void ax25_listen_release(ax25_address *, struct net_device *);
- extern int  (*ax25_protocol_function(unsigned int))(struct sk_buff *, ax25_cb *);
- extern int  ax25_listen_mine(ax25_address *, struct net_device *);
-@@ -415,7 +416,7 @@ extern unsigned long ax25_display_timer(
- /* ax25_uid.c */
- extern int  ax25_uid_policy;
- extern ax25_uid_assoc *ax25_findbyuid(uid_t);
--extern int  ax25_uid_ioctl(int, struct sockaddr_ax25 *);
-+extern int __must_check ax25_uid_ioctl(int, struct sockaddr_ax25 *);
- extern struct file_operations ax25_uid_fops;
- extern void ax25_uid_free(void);
+ 	listen->callsign = *callsign;
+ 	listen->dev      = dev;
+@@ -164,7 +164,7 @@ int ax25_listen_register(ax25_address *c
+ 	listen_list  = listen;
+ 	spin_unlock_bh(&listen_lock);
  
-Index: linux-net/include/net/rose.h
-===================================================================
---- linux-net.orig/include/net/rose.h
-+++ linux-net/include/net/rose.h
-@@ -193,8 +193,8 @@ extern struct file_operations rose_neigh
- extern struct file_operations rose_nodes_fops;
- extern struct file_operations rose_routes_fops;
- 
--extern int  rose_add_loopback_neigh(void);
--extern int  rose_add_loopback_node(rose_address *);
-+extern int __must_check rose_add_loopback_neigh(void);
-+extern int __must_check rose_add_loopback_node(rose_address *);
- extern void rose_del_loopback_node(rose_address *);
- extern void rose_rt_device_down(struct net_device *);
- extern void rose_link_device_down(struct net_device *);
-Index: linux-net/net/ax25/af_ax25.c
-===================================================================
---- linux-net.orig/net/ax25/af_ax25.c
-+++ linux-net/net/ax25/af_ax25.c
-@@ -1088,8 +1088,8 @@ out:
- /*
-  *	FIXME: nonblock behaviour looks like it may have a bug.
-  */
--static int ax25_connect(struct socket *sock, struct sockaddr *uaddr,
--	int addr_len, int flags)
-+static int __must_check ax25_connect(struct socket *sock,
-+	struct sockaddr *uaddr, int addr_len, int flags)
- {
- 	struct sock *sk = sock->sk;
- 	ax25_cb *ax25 = ax25_sk(sk), *ax25t;
-Index: linux-net/net/ax25/ax25_route.c
-===================================================================
---- linux-net.orig/net/ax25/ax25_route.c
-+++ linux-net/net/ax25/ax25_route.c
-@@ -71,7 +71,7 @@ void ax25_rt_device_down(struct net_devi
- 	write_unlock(&ax25_route_lock);
+-	return 1;
++	return 0;
  }
  
--static int ax25_rt_add(struct ax25_routes_struct *route)
-+static int __must_check ax25_rt_add(struct ax25_routes_struct *route)
- {
- 	ax25_route *ax25_rt;
- 	ax25_dev *ax25_dev;
-Index: linux-net/net/rose/rose_route.c
-===================================================================
---- linux-net.orig/net/rose/rose_route.c
-+++ linux-net/net/rose/rose_route.c
-@@ -52,7 +52,7 @@ struct rose_neigh *rose_loopback_neigh;
-  *	Add a new route to a node, and in the process add the node and the
-  *	neighbour if it is new.
-  */
--static int rose_add_node(struct rose_route_struct *rose_route,
-+static int __must_check rose_add_node(struct rose_route_struct *rose_route,
- 	struct net_device *dev)
- {
- 	struct rose_node  *rose_node, *rose_tmpn, *rose_tmpp;
-Index: linux-net/net/netrom/nr_route.c
-===================================================================
---- linux-net.orig/net/netrom/nr_route.c
-+++ linux-net/net/netrom/nr_route.c
-@@ -87,8 +87,9 @@ static void nr_remove_neigh(struct nr_ne
-  *	Add a new route to a node, and in the process add the node and the
-  *	neighbour if it is new.
-  */
--static int nr_add_node(ax25_address *nr, const char *mnemonic, ax25_address *ax25,
--	ax25_digi *ax25_digi, struct net_device *dev, int quality, int obs_count)
-+static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
-+	ax25_address *ax25, ax25_digi *ax25_digi, struct net_device *dev,
-+	int quality, int obs_count)
- {
- 	struct nr_node  *nr_node;
- 	struct nr_neigh *nr_neigh;
-@@ -406,7 +407,8 @@ static int nr_del_node(ax25_address *cal
- /*
-  *	Lock a neighbour with a quality.
-  */
--static int nr_add_neigh(ax25_address *callsign, ax25_digi *ax25_digi, struct net_device *dev, unsigned int quality)
-+static int __must_check nr_add_neigh(ax25_address *callsign,
-+	ax25_digi *ax25_digi, struct net_device *dev, unsigned int quality)
- {
- 	struct nr_neigh *nr_neigh;
+ EXPORT_SYMBOL(ax25_listen_register);
+@@ -225,7 +225,8 @@ int ax25_listen_mine(ax25_address *calls
  
+ 	spin_lock_bh(&listen_lock);
+ 	for (listen = listen_list; listen != NULL; listen = listen->next)
+-		if (ax25cmp(&listen->callsign, callsign) == 0 && (listen->dev == dev || listen->dev == NULL)) {
++		if (ax25cmp(&listen->callsign, callsign) == 0 &&
++		    (listen->dev == dev || listen->dev == NULL)) {
+ 			spin_unlock_bh(&listen_lock);
+ 			return 1;
+ 	}
+Index: linux-net/net/netrom/nr_dev.c
+===================================================================
+--- linux-net.orig/net/netrom/nr_dev.c
++++ linux-net/net/netrom/nr_dev.c
+@@ -128,25 +128,37 @@ static int nr_header(struct sk_buff *skb
+ 	return -37;
+ }
+ 
+-static int nr_set_mac_address(struct net_device *dev, void *addr)
++static int __must_check nr_set_mac_address(struct net_device *dev, void *addr)
+ {
+ 	struct sockaddr *sa = addr;
++	int err;
++
++	if (!memcmp(dev->dev_addr, sa->sa_data, dev->addr_len))
++		return 0;
++
++	if (dev->flags & IFF_UP) {
++		err = ax25_listen_register((ax25_address *)sa->sa_data, NULL);
++		if (err)
++			return err;
+ 
+-	if (dev->flags & IFF_UP)
+ 		ax25_listen_release((ax25_address *)dev->dev_addr, NULL);
++	}
+ 
+ 	memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
+ 
+-	if (dev->flags & IFF_UP)
+-		ax25_listen_register((ax25_address *)dev->dev_addr, NULL);
+-
+ 	return 0;
+ }
+ 
+ static int nr_open(struct net_device *dev)
+ {
++	int err;
++
++	err = ax25_listen_register((ax25_address *)dev->dev_addr, NULL);
++	if (err)
++		return err;
++
+ 	netif_start_queue(dev);
+-	ax25_listen_register((ax25_address *)dev->dev_addr, NULL);
++
+ 	return 0;
+ }
+ 
+Index: linux-net/net/rose/af_rose.c
+===================================================================
+--- linux-net.orig/net/rose/af_rose.c
++++ linux-net/net/rose/af_rose.c
+@@ -1314,7 +1314,8 @@ static int rose_ioctl(struct socket *soc
+ 		if (copy_from_user(&rose_callsign, argp, sizeof(ax25_address)))
+ 			return -EFAULT;
+ 		if (ax25cmp(&rose_callsign, &null_ax25_address) != 0)
+-			ax25_listen_register(&rose_callsign, NULL);
++			return ax25_listen_register(&rose_callsign, NULL);
++
+ 		return 0;
+ 
+ 	case SIOCRSGL2CALL:
