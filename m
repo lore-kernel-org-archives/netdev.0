@@ -1,111 +1,75 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH  v4 13/13] Kconfig/Makefile
-Date: Thu, 14 Dec 2006 07:59:08 -0600
-Message-ID: <20061214135908.21159.80049.stgit@dell3.ogc.int>
-References: <20061214135233.21159.78613.stgit@dell3.ogc.int>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
+Date: Thu, 14 Dec 2006 15:07:06 +0000
+Message-ID: <200612141507.06888@strip-the-willow>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=us-ascii
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com
-In-Reply-To: <20061214135233.21159.78613.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53117 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932801AbWLNPWU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 10:22:20 -0500
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+While looking at DCCP sequence numbers, I stumbled over a problem with
+the following definition of before in tcp.h:
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+static inline int before(__u32 seq1, __u32 seq2)
+{
+        return (__s32)(seq1-seq2) < 0;
+}
+
+Problem: This definition suffers from an an ambiguity, i.e. always
+                   
+           before(a, (a + 2^31) % 2^32)) = 1
+           before((a + 2^31) % 2^32), a) = 1
+ 
+         In text: when the difference between a and b amounts to 2^31,
+         a is always considered `before' b, the function can not decide. 
+         The reason is that implicitly 0 is `before' 1 ... 2^31-1 ... 2^31
+      
+Solution: There is a simple fix, by defining before in such a way that 
+          0 is no longer `before' 2^31, i.e. 0 `before' 1 ... 2^31-1
+          By not using the middle between 0 and 2^32, before can be made 
+          unambiguous. 
+          This is achieved by testing whether seq2-seq1 > 0 (using signed
+          32-bit arithmetic).
+
+I attach a patch to codify this. Also the `after' relation is basically 
+a redefinition of `before', it is now defined as a macro after before.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
+ tcp.h |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
- drivers/infiniband/Kconfig           |    1 +
- drivers/infiniband/Makefile          |    1 +
- drivers/infiniband/hw/cxgb3/Kconfig  |   27 +++++++++++++++++++++++++++
- drivers/infiniband/hw/cxgb3/Makefile |   12 ++++++++++++
- 4 files changed, 41 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
-index 59b3932..06453ab 100644
---- a/drivers/infiniband/Kconfig
-+++ b/drivers/infiniband/Kconfig
-@@ -38,6 +38,7 @@ source "drivers/infiniband/hw/mthca/Kcon
- source "drivers/infiniband/hw/ipath/Kconfig"
- source "drivers/infiniband/hw/ehca/Kconfig"
- source "drivers/infiniband/hw/amso1100/Kconfig"
-+source "drivers/infiniband/hw/cxgb3/Kconfig"
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index c99774f..b7d8317 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -242,14 +242,9 @@ extern int tcp_memory_pressure;
  
- source "drivers/infiniband/ulp/ipoib/Kconfig"
+ static inline int before(__u32 seq1, __u32 seq2)
+ {
+-        return (__s32)(seq1-seq2) < 0;
++        return (__s32)(seq2-seq1) > 0;
+ }
+-
+-static inline int after(__u32 seq1, __u32 seq2)
+-{
+-	return (__s32)(seq2-seq1) < 0;
+-}
+-
++#define after(seq2, seq1) 	before(seq1, seq2)
  
-diff --git a/drivers/infiniband/Makefile b/drivers/infiniband/Makefile
-index 570b30a..69bdd55 100644
---- a/drivers/infiniband/Makefile
-+++ b/drivers/infiniband/Makefile
-@@ -3,6 +3,7 @@ obj-$(CONFIG_INFINIBAND_MTHCA)		+= hw/mt
- obj-$(CONFIG_INFINIBAND_IPATH)		+= hw/ipath/
- obj-$(CONFIG_INFINIBAND_EHCA)		+= hw/ehca/
- obj-$(CONFIG_INFINIBAND_AMSO1100)	+= hw/amso1100/
-+obj-$(CONFIG_INFINIBAND_CXGB3)		+= hw/cxgb3/
- obj-$(CONFIG_INFINIBAND_IPOIB)		+= ulp/ipoib/
- obj-$(CONFIG_INFINIBAND_SRP)		+= ulp/srp/
- obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/iser/
-diff --git a/drivers/infiniband/hw/cxgb3/Kconfig b/drivers/infiniband/hw/cxgb3/Kconfig
-new file mode 100644
-index 0000000..d3db264
---- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/Kconfig
-@@ -0,0 +1,27 @@
-+config INFINIBAND_CXGB3
-+	tristate "Chelsio RDMA Driver"
-+	depends on CHELSIO_T3 && INFINIBAND
-+	select GENERIC_ALLOCATOR
-+	---help---
-+	  This is an iWARP/RDMA driver for the Chelsio T3 1GbE and
-+	  10GbE adapters.
-+
-+	  For general information about Chelsio and our products, visit
-+	  our website at <http://www.chelsio.com>.
-+
-+	  For customer support, please visit our customer support page at
-+	  <http://www.chelsio.com/support.htm>.
-+
-+	  Please send feedback to <linux-bugs@chelsio.com>.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called iw_cxgb3.
-+
-+config INFINIBAND_CXGB3_DEBUG
-+	bool "Verbose debugging output"
-+	depends on INFINIBAND_CXGB3
-+	default n
-+	---help---
-+	  This option causes the Chelsio RDMA driver to produce copious
-+	  amounts of debug messages.  Select this if you are developing
-+	  the driver or trying to diagnose a problem.
-diff --git a/drivers/infiniband/hw/cxgb3/Makefile b/drivers/infiniband/hw/cxgb3/Makefile
-new file mode 100644
-index 0000000..7a89f6d
---- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/Makefile
-@@ -0,0 +1,12 @@
-+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/cxgb3 \
-+		-I$(TOPDIR)/drivers/infiniband/hw/cxgb3/core 
-+
-+obj-$(CONFIG_INFINIBAND_CXGB3) += iw_cxgb3.o
-+
-+iw_cxgb3-y :=  iwch_cm.o iwch_ev.o iwch_cq.o iwch_qp.o iwch_mem.o \
-+	       iwch_provider.o iwch.o core/cxio_hal.o core/cxio_resource.o
-+
-+ifdef CONFIG_INFINIBAND_CXGB3_DEBUG
-+EXTRA_CFLAGS += -DDEBUG -g 
-+iw_cxgb3-y += core/cxio_dbg.o
-+endif
+ /* is s2<=s1<=s3 ? */
+ static inline int between(__u32 seq1, __u32 seq2, __u32 seq3)
+
+
