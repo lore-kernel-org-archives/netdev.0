@@ -1,76 +1,69 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/4] net: uninline netif_rx_reschedule
-Date: Thu, 14 Dec 2006 12:48:16 -0800
-Message-ID: <20061214204900.888889000@osdl.org>
-References: <20061214204814.631279000@osdl.org>
-Cc: netdev@vger.kernel.org
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: NAPI wait before enabling irq's [was Re: [Cbe-oss-dev] Spider DMA wrongness]
+Date: Thu, 14 Dec 2006 14:54:32 -0600
+Message-ID: <20061214205432.GA4329@austin.ibm.com>
+References: <OFBF8BBD4B.0E5AEA34-ON8725721F.005D5313-8625721F.005EAC5D@us.ibm.com> <1162931892.28571.497.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: James K Lewis <jklewis@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
+	"cbe-oss-dev@ozlabs.org" <cbe-oss-dev@ozlabs.org>,
+	cbe-oss-dev-bounces+jklewis=us.ibm.com@ozlabs.org,
+	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:56881 "EHLO smtp.osdl.org"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:45799 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932906AbWLNUwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 15:52:45 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline; filename=netif_rx_reschedule.patch
+	id S932637AbWLNUyj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 15:54:39 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e3.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBEKsXJf027491
+	for <netdev@vger.kernel.org>; Thu, 14 Dec 2006 15:54:33 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBEKsXM5225996
+	for <netdev@vger.kernel.org>; Thu, 14 Dec 2006 15:54:33 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBEKsWXr006458
+	for <netdev@vger.kernel.org>; Thu, 14 Dec 2006 15:54:33 -0500
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Disposition: inline
+In-Reply-To: <1162931892.28571.497.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move netif_rx_reschedule out of line, so that softnet_data can be
-made local.
+On Wed, Nov 08, 2006 at 07:38:12AM +1100, Benjamin Herrenschmidt wrote:
+> 
+> What about Linas patches to do interrupt mitigation with NAPI polling ?
+> That didn't end up working ?
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+It seems to be "working as designed", which is different than "working
+as naively expected".
 
+For large packets: 
+-- a packet comes in
+-- rx interrupt generated
+-- rx interrupts turned off
+-- tcp poll function runs, receives packet
+-- completes all work before next packet has arrived, 
+   so interupts are turned back on.
+-- go to start
 
---- linux-2.6.20-rc1.orig/include/linux/netdevice.h
-+++ linux-2.6.20-rc1/include/linux/netdevice.h
-@@ -851,21 +851,7 @@ static inline void netif_rx_schedule(str
- /* Try to reschedule poll. Called by dev->poll() after netif_rx_complete().
-  * Do not inline this?
-  */
--static inline int netif_rx_reschedule(struct net_device *dev, int undo)
--{
--	if (netif_rx_schedule_prep(dev)) {
--		unsigned long flags;
--
--		dev->quota += undo;
--
--		local_irq_save(flags);
--		list_add_tail(&dev->poll_list, &__get_cpu_var(softnet_data).poll_list);
--		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
--		local_irq_restore(flags);
--		return 1;
--	}
--	return 0;
--}
-+extern int netif_rx_reschedule(struct net_device *dev, int undo);
- 
- /* Remove interface from poll list: it must be in the poll list
-  * on current cpu. This primitive is called by dev->poll(), when
---- linux-2.6.20-rc1.orig/net/core/dev.c
-+++ linux-2.6.20-rc1/net/core/dev.c
-@@ -1132,6 +1132,23 @@ void __netif_rx_schedule(struct net_devi
- }
- EXPORT_SYMBOL(__netif_rx_schedule);
- 
-+int netif_rx_reschedule(struct net_device *dev, int undo)
-+{
-+	if (netif_rx_schedule_prep(dev)) {
-+		unsigned long flags;
-+
-+		dev->quota += undo;
-+
-+		local_irq_save(flags);
-+		list_add_tail(&dev->poll_list, &__get_cpu_var(softnet_data).poll_list);
-+		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-+		local_irq_restore(flags);
-+		return 1;
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(netif_rx_reschedule);
-+
- void dev_kfree_skb_any(struct sk_buff *skb)
- {
- 	if (in_irq() || irqs_disabled())
+This results in a high number of interrupts, and a high cpu usage.
+We were able to prove that napi works by stalling in the poll function
+just long enough to allow the next packet to arrive.  In this case, 
+napi works great, and number of irqs is vastly reduced. 
 
--- 
+Unfortunately, I could not figure out any simple way of turning this
+into acceptable code.  I can't just wait a little bit before turning 
+on interrupts.  Some network apps, such as netpipe, want to receive 
+something before sending the next thing. Without the interrupt, the
+packet just sits there, and the OS doesn't realize (until milliseconds
+later) that there's a packet that can be handled.  This is a variant
+of the so-called "rotting packet" discussed in the napi docs.
+
+What is needed is for the tcp stack to wait for 
+  1500Bytes / (1Gbit/sec) = 12 microsecs
+and then poll again. If there are *still* no new packets, then and
+only then do we re-enable interrupts. This would require a new napi.
+Presuming the network stack folks find it even remotely acceptable.
+
+--linas
 
