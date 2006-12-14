@@ -1,38 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4][SCTP]: Change adaption -> adaptation as per the
- latest API draft.
-Date: Wed, 13 Dec 2006 18:03:40 -0800 (PST)
-Message-ID: <20061213.180340.26278674.davem@davemloft.net>
-References: <1166042692.4670.13.camel@w-sridhar2.beaverton.ibm.com>
-	<20061213.163554.63998920.davem@davemloft.net>
-	<1166060332.4670.37.camel@w-sridhar2.beaverton.ibm.com>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH 0/6] d80211: add more IEEE802.11e/WMM support
+Date: Thu, 14 Dec 2006 12:01:48 +0800
+Message-ID: <20061214040148.GA10633@mail.intel.com>
+Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36390
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751904AbWLNCDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Dec 2006 21:03:46 -0500
-To: sri@us.ibm.com
-In-Reply-To: <1166060332.4670.37.camel@w-sridhar2.beaverton.ibm.com>
+Received: from mga02.intel.com ([134.134.136.20]:31539 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750925AbWLNENs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Dec 2006 23:13:48 -0500
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 13 Dec 2006 17:38:52 -0800
+Hi,
 
-> These parameters are not used by user-space apps. They define the
-> parameters used by the protocol in SCTP headers that go on wire.
+The following patches add more advanced IEEE802.11e/WMM features for d80211.
+Your comments are welcome.
 
-There is no __KERNEL__ ifdef protection for these defines,
-and the linux/sctp.h header is exported to userspace via
-include/linux/Kbuild, therefore the interface is exposed to
-userspace and you cannot break it.
 
-Those are the facts.
+[PATCH 1/6] d80211: add IEEE802.11e/WMM MLMEs, Status Code and Reason Code
+[PATCH 2/6] d80211: create "wifi.h" to define WIFI OUIs
+[PATCH 3/6] d80211: fix classify_1d() priority selection
+[PATCH 4/6] d80211: add IEEE802.11e/WMM Traffic Stream (TS) Management support
+[PATCH 5/6] d80211: add IEEE 802.11e Direct Link Setup (DLS) support
+[PATCH 6/6] d80211: add sysfs interface for QoS functions
 
-Your lksctp tool package might provide an alternative header,
-that's fine, but it doesn't change the situations with respect
-to linux/sctp.h
+
+Thanks,
+-yi
