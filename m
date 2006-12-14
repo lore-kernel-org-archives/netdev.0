@@ -1,207 +1,155 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [AX.25 5/7] Fix unchecked ax25_linkfail_register uses
-Date: Thu, 14 Dec 2006 23:42:11 +0100
-Message-ID: <1166136135289-git-send-email-ralf@linux-mips.org>
+Subject: [AX.25 7/7] Fix unchecked rose_add_loopback_neigh uses
+Date: Thu, 14 Dec 2006 23:42:13 +0100
+Message-ID: <11661361353489-git-send-email-ralf@linux-mips.org>
 References: <11661361331883-git-send-email-ralf@linux-mips.org>
 Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
 	Ralf Baechle <ralf@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:47091 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780AbWLNXOn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 18:14:43 -0500
+Return-path: <linux-hams-owner@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 In-Reply-To: <11661361331883-git-send-email-ralf@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ax25_linkfail_register uses kmalloc and the callers were ignoring the
+rose_add_loopback_neigh uses kmalloc and the callers were ignoring the
 error value.  Rewrite to let the caller deal with the allocation.  This
 allows the use of static allocation of kmalloc use entirely.
 
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
- include/net/ax25.h     |   10 +++++++-
- net/ax25/ax25_iface.c  |   55 ++++++++-----------------------------------------
- net/netrom/af_netrom.c |    8 +++++--
- net/rose/af_rose.c     |    8 +++++--
- 4 files changed, 29 insertions(+), 52 deletions(-)
+ include/net/rose.h       |    4 ++--
+ net/rose/rose_loopback.c |    5 +++--
+ net/rose/rose_route.c    |   45 +++++++++++++++++++++------------------------
+ 3 files changed, 26 insertions(+), 28 deletions(-)
 
-Index: linux-net/include/net/ax25.h
+Index: linux-net/include/net/rose.h
 ===================================================================
---- linux-net.orig/include/net/ax25.h
-+++ linux-net/include/net/ax25.h
-@@ -342,8 +342,14 @@ struct ax25_protocol {
+--- linux-net.orig/include/net/rose.h
++++ linux-net/include/net/rose.h
+@@ -188,12 +188,12 @@ extern void rose_kick(struct sock *);
+ extern void rose_enquiry_response(struct sock *);
  
- extern void ax25_register_pid(struct ax25_protocol *ap);
- extern void ax25_protocol_release(unsigned int);
--extern int __must_check ax25_linkfail_register(void (*)(ax25_cb *, int));
--extern void ax25_linkfail_release(void (*)(ax25_cb *, int));
-+
-+struct ax25_linkfail {
-+	struct hlist_node lf_node;
-+	void (*func)(ax25_cb *, int);
-+};
-+
-+extern void ax25_linkfail_register(struct ax25_linkfail *lf);
-+extern void ax25_linkfail_release(struct ax25_linkfail *lf);
- extern int __must_check ax25_listen_register(ax25_address *,
- 	struct net_device *);
- extern void ax25_listen_release(ax25_address *, struct net_device *);
-Index: linux-net/net/ax25/ax25_iface.c
+ /* rose_route.c */
+-extern struct rose_neigh *rose_loopback_neigh;
++extern struct rose_neigh rose_loopback_neigh;
+ extern struct file_operations rose_neigh_fops;
+ extern struct file_operations rose_nodes_fops;
+ extern struct file_operations rose_routes_fops;
+ 
+-extern int __must_check rose_add_loopback_neigh(void);
++extern void rose_add_loopback_neigh(void);
+ extern int __must_check rose_add_loopback_node(rose_address *);
+ extern void rose_del_loopback_node(rose_address *);
+ extern void rose_rt_device_down(struct net_device *);
+Index: linux-net/net/rose/rose_loopback.c
 ===================================================================
---- linux-net.orig/net/ax25/ax25_iface.c
-+++ linux-net/net/ax25/ax25_iface.c
-@@ -32,10 +32,7 @@
- static struct ax25_protocol *protocol_list;
- static DEFINE_RWLOCK(protocol_list_lock);
+--- linux-net.orig/net/rose/rose_loopback.c
++++ linux-net/net/rose/rose_loopback.c
+@@ -79,7 +79,8 @@ static void rose_loopback_timer(unsigned
  
--static struct linkfail_struct {
--	struct linkfail_struct *next;
--	void (*func)(ax25_cb *, int);
--} *linkfail_list = NULL;
-+static HLIST_HEAD(ax25_linkfail_list);
- static DEFINE_SPINLOCK(linkfail_lock);
+ 		skb->h.raw = skb->data;
  
- static struct listen_struct {
-@@ -93,54 +90,19 @@ void ax25_protocol_release(unsigned int 
+-		if ((sk = rose_find_socket(lci_o, rose_loopback_neigh)) != NULL) {
++		sk = rose_find_socket(lci_o, &rose_loopback_neigh);
++		if (sk) {
+ 			if (rose_process_rx_frame(sk, skb) == 0)
+ 				kfree_skb(skb);
+ 			continue;
+@@ -87,7 +88,7 @@ static void rose_loopback_timer(unsigned
  
- EXPORT_SYMBOL(ax25_protocol_release);
+ 		if (frametype == ROSE_CALL_REQUEST) {
+ 			if ((dev = rose_dev_get(dest)) != NULL) {
+-				if (rose_rx_call_request(skb, dev, rose_loopback_neigh, lci_o) == 0)
++				if (rose_rx_call_request(skb, dev, &rose_loopback_neigh, lci_o) == 0)
+ 					kfree_skb(skb);
+ 			} else {
+ 				kfree_skb(skb);
+Index: linux-net/net/rose/rose_route.c
+===================================================================
+--- linux-net.orig/net/rose/rose_route.c
++++ linux-net/net/rose/rose_route.c
+@@ -46,7 +46,7 @@ static DEFINE_SPINLOCK(rose_neigh_list_l
+ static struct rose_route *rose_route_list;
+ static DEFINE_SPINLOCK(rose_route_list_lock);
  
--int ax25_linkfail_register(void (*func)(ax25_cb *, int))
-+void ax25_linkfail_register(struct ax25_linkfail *lf)
+-struct rose_neigh *rose_loopback_neigh;
++struct rose_neigh rose_loopback_neigh;
+ 
+ /*
+  *	Add a new route to a node, and in the process add the node and the
+@@ -361,33 +361,30 @@ out:
+ /*
+  *	Add the loopback neighbour.
+  */
+-int rose_add_loopback_neigh(void)
++void rose_add_loopback_neigh(void)
  {
--	struct linkfail_struct *linkfail;
+-	if ((rose_loopback_neigh = kmalloc(sizeof(struct rose_neigh), GFP_ATOMIC)) == NULL)
+-		return -ENOMEM;
++	struct rose_neigh *sn = &rose_loopback_neigh;
+ 
+-	rose_loopback_neigh->callsign  = null_ax25_address;
+-	rose_loopback_neigh->digipeat  = NULL;
+-	rose_loopback_neigh->ax25      = NULL;
+-	rose_loopback_neigh->dev       = NULL;
+-	rose_loopback_neigh->count     = 0;
+-	rose_loopback_neigh->use       = 0;
+-	rose_loopback_neigh->dce_mode  = 1;
+-	rose_loopback_neigh->loopback  = 1;
+-	rose_loopback_neigh->number    = rose_neigh_no++;
+-	rose_loopback_neigh->restarted = 1;
++	sn->callsign  = null_ax25_address;
++	sn->digipeat  = NULL;
++	sn->ax25      = NULL;
++	sn->dev       = NULL;
++	sn->count     = 0;
++	sn->use       = 0;
++	sn->dce_mode  = 1;
++	sn->loopback  = 1;
++	sn->number    = rose_neigh_no++;
++	sn->restarted = 1;
+ 
+-	skb_queue_head_init(&rose_loopback_neigh->queue);
++	skb_queue_head_init(&sn->queue);
+ 
+-	init_timer(&rose_loopback_neigh->ftimer);
+-	init_timer(&rose_loopback_neigh->t0timer);
++	init_timer(&sn->ftimer);
++	init_timer(&sn->t0timer);
+ 
+ 	spin_lock_bh(&rose_neigh_list_lock);
+-	rose_loopback_neigh->next = rose_neigh_list;
+-	rose_neigh_list           = rose_loopback_neigh;
++	sn->next = rose_neigh_list;
++	rose_neigh_list           = sn;
+ 	spin_unlock_bh(&rose_neigh_list_lock);
 -
--	if ((linkfail = kmalloc(sizeof(*linkfail), GFP_ATOMIC)) == NULL)
--		return 0;
--
--	linkfail->func = func;
--
- 	spin_lock_bh(&linkfail_lock);
--	linkfail->next = linkfail_list;
--	linkfail_list  = linkfail;
-+	hlist_add_head(&lf->lf_node, &ax25_linkfail_list);
- 	spin_unlock_bh(&linkfail_lock);
--
--	return 1;
+-	return 0;
  }
  
- EXPORT_SYMBOL(ax25_linkfail_register);
+ /*
+@@ -421,13 +418,13 @@ int rose_add_loopback_node(rose_address 
+ 	rose_node->mask         = 10;
+ 	rose_node->count        = 1;
+ 	rose_node->loopback     = 1;
+-	rose_node->neighbour[0] = rose_loopback_neigh;
++	rose_node->neighbour[0] = &rose_loopback_neigh;
  
--void ax25_linkfail_release(void (*func)(ax25_cb *, int))
-+void ax25_linkfail_release(struct ax25_linkfail *lf)
- {
--	struct linkfail_struct *s, *linkfail;
--
- 	spin_lock_bh(&linkfail_lock);
--	linkfail = linkfail_list;
--	if (linkfail == NULL) {
--		spin_unlock_bh(&linkfail_lock);
--		return;
--	}
--
--	if (linkfail->func == func) {
--		linkfail_list = linkfail->next;
--		spin_unlock_bh(&linkfail_lock);
--		kfree(linkfail);
--		return;
--	}
--
--	while (linkfail != NULL && linkfail->next != NULL) {
--		if (linkfail->next->func == func) {
--			s = linkfail->next;
--			linkfail->next = linkfail->next->next;
--			spin_unlock_bh(&linkfail_lock);
--			kfree(s);
--			return;
--		}
--
--		linkfail = linkfail->next;
--	}
-+	hlist_del_init(&lf->lf_node);
- 	spin_unlock_bh(&linkfail_lock);
- }
+ 	/* Insert at the head of list. Address is always mask=10 */
+ 	rose_node->next = rose_node_list;
+ 	rose_node_list  = rose_node;
  
-@@ -237,11 +199,12 @@ int (*ax25_protocol_function(unsigned in
+-	rose_loopback_neigh->count++;
++	rose_loopback_neigh.count++;
  
- void ax25_link_failed(ax25_cb *ax25, int reason)
- {
--	struct linkfail_struct *linkfail;
-+	struct ax25_linkfail *lf;
-+	struct hlist_node *node;
+ out:
+ 	spin_unlock_bh(&rose_node_list_lock);
+@@ -458,7 +455,7 @@ void rose_del_loopback_node(rose_address
  
- 	spin_lock_bh(&linkfail_lock);
--	for (linkfail = linkfail_list; linkfail != NULL; linkfail = linkfail->next)
--		(linkfail->func)(ax25, reason);
-+	hlist_for_each_entry(lf, node, &ax25_linkfail_list, lf_node)
-+		lf->func(ax25, reason);
- 	spin_unlock_bh(&linkfail_lock);
- }
+ 	rose_remove_node(rose_node);
  
-Index: linux-net/net/netrom/af_netrom.c
-===================================================================
---- linux-net.orig/net/netrom/af_netrom.c
-+++ linux-net/net/netrom/af_netrom.c
-@@ -1382,6 +1382,10 @@ static struct ax25_protocol nr_pid = {
- 	.func	= nr_route_frame
- };
+-	rose_loopback_neigh->count--;
++	rose_loopback_neigh.count--;
  
-+static struct ax25_linkfail nr_linkfail_notifier = {
-+	.func	= nr_link_failed,
-+};
-+
- static int __init nr_proto_init(void)
- {
- 	int i;
-@@ -1430,7 +1434,7 @@ static int __init nr_proto_init(void)
- 	register_netdevice_notifier(&nr_dev_notifier);
- 
- 	ax25_register_pid(&nr_pid);
--	ax25_linkfail_register(nr_link_failed);
-+	ax25_linkfail_register(&nr_linkfail_notifier);
- 
- #ifdef CONFIG_SYSCTL
- 	nr_register_sysctl();
-@@ -1479,7 +1483,7 @@ static void __exit nr_exit(void)
- 	nr_unregister_sysctl();
- #endif
- 
--	ax25_linkfail_release(nr_link_failed);
-+	ax25_linkfail_release(&nr_linkfail_notifier);
- 	ax25_protocol_release(AX25_P_NETROM);
- 
- 	unregister_netdevice_notifier(&nr_dev_notifier);
-Index: linux-net/net/rose/af_rose.c
-===================================================================
---- linux-net.orig/net/rose/af_rose.c
-+++ linux-net/net/rose/af_rose.c
-@@ -1487,6 +1487,10 @@ static struct ax25_protocol rose_pid = {
- 	.func	= rose_route_frame
- };
- 
-+static struct ax25_linkfail rose_linkfail_notifier = {
-+	.func	= rose_link_failed
-+};
-+
- static int __init rose_proto_init(void)
- {
- 	int i;
-@@ -1537,7 +1541,7 @@ static int __init rose_proto_init(void)
- 	register_netdevice_notifier(&rose_dev_notifier);
- 
- 	ax25_register_pid(&rose_pid);
--	ax25_linkfail_register(rose_link_failed);
-+	ax25_linkfail_register(&rose_linkfail_notifier);
- 
- #ifdef CONFIG_SYSCTL
- 	rose_register_sysctl();
-@@ -1585,7 +1589,7 @@ static void __exit rose_exit(void)
- 	rose_rt_free();
- 
- 	ax25_protocol_release(AX25_P_ROSE);
--	ax25_linkfail_release(rose_link_failed);
-+	ax25_linkfail_release(&rose_linkfail_notifier);
- 
- 	if (ax25cmp(&rose_callsign, &null_ax25_address) != 0)
- 		ax25_listen_release(&rose_callsign, NULL);
+ out:
+ 	spin_unlock_bh(&rose_node_list_lock);
