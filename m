@@ -1,35 +1,111 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 0/10] cxgb3: Chelsio T3 1G/10G ethernet device driver
-Date: Wed, 13 Dec 2006 21:40:39 -0800
-Message-ID: <4580E3D7.3050708@chelsio.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Divy Le Ray <None@chelsio.com>
+Subject: [PATCH 10/10] cxgb3 - build files and versioning
+Date: Wed, 13 Dec 2006 21:44:15 -0800
+Message-ID: <20061214054415.5914.65780.stgit@localhost.localdomain>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:8716 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959AbWLNGO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 01:14:58 -0500
-To: Jeff Garzik <jeff@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751967AbWLNGPF@vger.kernel.org>
+To: jeff@garzik.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+From: Divy Le Ray <divy@chelsio.com>
 
-I resubmit the patch supporting the latest Chelsio T3 adapter.
-It incorporates the last feedbacks for code cleanup.
-It is built gainst Linus'tree.
+This patch implements build files and versioning for the 
+Chelsio T3 network adapter's driver.
 
-We think the driver is now ready to be merged.
-Can you please advise on the next steps for inclusion in 2.6.20 ?
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-A corresponding monolithic patch is posted at the following URL:
-http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+ drivers/net/Kconfig         |   18 ++++++++++++++++++
+ drivers/net/Makefile        |    1 +
+ drivers/net/cxgb3/Makefile  |    8 ++++++++
+ drivers/net/cxgb3/version.h |   24 ++++++++++++++++++++++++
+ 4 files changed, 51 insertions(+), 0 deletions(-)
 
-This driver is required by the Chelsio T3 RDMA driver
-which was updated on 12/10/2006.
-
-Cheers,
-Divy
-
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 8aa8dd0..f8742f1 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2392,6 +2392,24 @@ config CHELSIO_T1_NAPI
+ 	  NAPI is a driver API designed to reduce CPU and interrupt load
+ 	  when the driver is receiving lots of packets from the card.
+ 
++config CHELSIO_T3
++        tristate "Chelsio Communications T3 10Gb Ethernet support"
++        depends on PCI
++        help
++          This driver supports Chelsio T3-based gigabit and 10Gb Ethernet
++          adapters.
++
++          For general information about Chelsio and our products, visit
++          our website at <http://www.chelsio.com>.
++
++          For customer support, please visit our customer support page at
++          <http://www.chelsio.com/support.htm>.
++
++          Please send feedback to <linux-bugs@chelsio.com>.
++
++          To compile this driver as a module, choose M here: the module
++          will be called cxgb3.
++
+ config EHEA
+ 	tristate "eHEA Ethernet support"
+ 	depends on IBMEBUS
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 4c0d4e5..5c66643 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -6,6 +6,7 @@ obj-$(CONFIG_E1000) += e1000/
+ obj-$(CONFIG_IBM_EMAC) += ibm_emac/
+ obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_CHELSIO_T1) += chelsio/
++obj-$(CONFIG_CHELSIO_T3) += cxgb3/
+ obj-$(CONFIG_EHEA) += ehea/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+diff --git a/drivers/net/cxgb3/Makefile b/drivers/net/cxgb3/Makefile
+new file mode 100755
+index 0000000..3434679
+--- /dev/null
++++ b/drivers/net/cxgb3/Makefile
+@@ -0,0 +1,8 @@
++#
++# Chelsio T3 driver
++#
++
++obj-$(CONFIG_CHELSIO_T3) += cxgb3.o
++
++cxgb3-objs := cxgb3_main.o ael1002.o vsc8211.o t3_hw.o mc5.o \
++	      xgmac.o sge.o l2t.o cxgb3_offload.o
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
+new file mode 100755
+index 0000000..1413ea3
+--- /dev/null
++++ b/drivers/net/cxgb3/version.h
+@@ -0,0 +1,24 @@
++/*****************************************************************************
++ *                                                                           *
++ * File:                                                                     *
++ *  version.h                                                                *
++ *                                                                           *
++ * Description:                                                              *
++ *  Chelsio driver version defines.                                          *
++ *                                                                           *
++ * Copyright (c) 2003 - 2006 Chelsio Communications, Inc.                    *
++ * All rights reserved.                                                      *
++ *                                                                           *
++ * Maintainers: maintainers@chelsio.com                                      *
++ *                                                                           *
++ * http://www.chelsio.com                                                    *
++ *                                                                           *
++ ****************************************************************************/
++/* $Date: 2006/10/31 18:57:51 $ $RCSfile: version.h,v $ $Revision: 1.3 $ */
++#ifndef __CHELSIO_VERSION_H
++#define __CHELSIO_VERSION_H
++#define DRV_DESC "Chelsio T3 Network Driver"
++#define DRV_NAME "cxgb3"
++/* Driver version */
++#define DRV_VERSION "1.0"
++#endif				/* __CHELSIO_VERSION_H */
