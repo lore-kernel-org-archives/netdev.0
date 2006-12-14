@@ -1,49 +1,55 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2.6.19-git19] BUG due to bad argument to
-	ieee80211softmac_assoc_work
-Date: Thu, 14 Dec 2006 16:06:40 +0100
-Message-ID: <1166108800.3161.11.camel@johannes.berg>
-References: <5b8e20700612131017n1cd8aff3qbe41351435427e25@mail.gmail.com>
+Subject: Re: [PATCH 6/6] d80211: add sysfs interface for QoS functions
+Date: Thu, 14 Dec 2006 16:04:14 +0100
+Message-ID: <1166108654.3161.9.camel@johannes.berg>
+References: <20061214040302.GA10689@mail.intel.com>
+	 <20061214122339.37fc6b6d@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-1dJt2Ny4W+ooYdMe3982"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-MUnGbcmGvA031sbRd7MV"
+Cc: yi.zhu@intel.com, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:53232 "EHLO
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53234 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932820AbWLNPsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 10:48:08 -0500
-To: Michael Bommarito <mjbommar@umich.edu>
-In-Reply-To: <5b8e20700612131017n1cd8aff3qbe41351435427e25@mail.gmail.com>
+	with ESMTP id S932818AbWLNPsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 10:48:10 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061214122339.37fc6b6d@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-1dJt2Ny4W+ooYdMe3982
+--=-MUnGbcmGvA031sbRd7MV
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2006-12-13 at 13:17 -0500, Michael Bommarito wrote:
+On Thu, 2006-12-14 at 12:23 +0100, Jiri Benc wrote:
+> On Thu, 14 Dec 2006 12:03:02 +0800, Zhu Yi wrote:
+> > The sysfs interface here is only a proof of concept. It provides a way =
+for
+> > the userspace applications to use the advanced QoS features supported b=
+y
+> > d80211 stack. The finial solution should be switched to cfg80211.
+>=20
+> So... what about implementing that into cfg80211? :-)
 
-> Attached is a patch that fixes this (the actual change is two lines
-> but context provided in patch for review).  The dmesg containing call
-> trace is attached to the bugzilla entry above.
-
-You forgot to attach the patch but IIRC it's been found and fixed
-already.
+I agree, we should put this into cfg80211/nl80211 from the start. It's
+not really hard to still have some things over WE and start using
+cfg/nl80211 now.
 
 johannes
 
---=-1dJt2Ny4W+ooYdMe3982
+--=-MUnGbcmGvA031sbRd7MV
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD4DBQBFgWiA/ETPhpq3jKURAmMKAJjs76OLuHAEKBoOBR7cP6z3pmcGAJ0WXjAC
-VXTTqCmp2EiE/QlQhyqkSw==
-=I/8J
+iD8DBQBFgWfu/ETPhpq3jKURArBzAJ4+LDaM+oJEyyMuQh7dJ6QjZzjEhwCgnlVE
+hT8wrD4YRh6sAgE0MEaI6Ws=
+=8e8t
 -----END PGP SIGNATURE-----
 
---=-1dJt2Ny4W+ooYdMe3982--
+--=-MUnGbcmGvA031sbRd7MV--
 
