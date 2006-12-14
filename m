@@ -1,75 +1,49 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
-Date: Thu, 14 Dec 2006 15:07:06 +0000
-Message-ID: <200612141507.06888@strip-the-willow>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2.6.19-git19] BUG due to bad argument to
+	ieee80211softmac_assoc_work
+Date: Thu, 14 Dec 2006 16:06:40 +0100
+Message-ID: <1166108800.3161.11.camel@johannes.berg>
+References: <5b8e20700612131017n1cd8aff3qbe41351435427e25@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-1dJt2Ny4W+ooYdMe3982"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53117 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932801AbWLNPWU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 10:22:20 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53232 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932820AbWLNPsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 10:48:08 -0500
+To: Michael Bommarito <mjbommar@umich.edu>
+In-Reply-To: <5b8e20700612131017n1cd8aff3qbe41351435427e25@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While looking at DCCP sequence numbers, I stumbled over a problem with
-the following definition of before in tcp.h:
 
-static inline int before(__u32 seq1, __u32 seq2)
-{
-        return (__s32)(seq1-seq2) < 0;
-}
+--=-1dJt2Ny4W+ooYdMe3982
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Problem: This definition suffers from an an ambiguity, i.e. always
-                   
-           before(a, (a + 2^31) % 2^32)) = 1
-           before((a + 2^31) % 2^32), a) = 1
- 
-         In text: when the difference between a and b amounts to 2^31,
-         a is always considered `before' b, the function can not decide. 
-         The reason is that implicitly 0 is `before' 1 ... 2^31-1 ... 2^31
-      
-Solution: There is a simple fix, by defining before in such a way that 
-          0 is no longer `before' 2^31, i.e. 0 `before' 1 ... 2^31-1
-          By not using the middle between 0 and 2^32, before can be made 
-          unambiguous. 
-          This is achieved by testing whether seq2-seq1 > 0 (using signed
-          32-bit arithmetic).
+On Wed, 2006-12-13 at 13:17 -0500, Michael Bommarito wrote:
 
-I attach a patch to codify this. Also the `after' relation is basically 
-a redefinition of `before', it is now defined as a macro after before.
+> Attached is a patch that fixes this (the actual change is two lines
+> but context provided in patch for review).  The dmesg containing call
+> trace is attached to the bugzilla entry above.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- tcp.h |    9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+You forgot to attach the patch but IIRC it's been found and fixed
+already.
 
+johannes
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c99774f..b7d8317 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -242,14 +242,9 @@ extern int tcp_memory_pressure;
- 
- static inline int before(__u32 seq1, __u32 seq2)
- {
--        return (__s32)(seq1-seq2) < 0;
-+        return (__s32)(seq2-seq1) > 0;
- }
--
--static inline int after(__u32 seq1, __u32 seq2)
--{
--	return (__s32)(seq2-seq1) < 0;
--}
--
-+#define after(seq2, seq1) 	before(seq1, seq2)
- 
- /* is s2<=s1<=s3 ? */
- static inline int between(__u32 seq1, __u32 seq2, __u32 seq3)
+--=-1dJt2Ny4W+ooYdMe3982
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD4DBQBFgWiA/ETPhpq3jKURAmMKAJjs76OLuHAEKBoOBR7cP6z3pmcGAJ0WXjAC
+VXTTqCmp2EiE/QlQhyqkSw==
+=I/8J
+-----END PGP SIGNATURE-----
+
+--=-1dJt2Ny4W+ooYdMe3982--
 
