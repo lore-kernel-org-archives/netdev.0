@@ -1,48 +1,59 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/14] Spidernet DMA coalescing
-Date: Thu, 14 Dec 2006 11:05:17 +0000
-Message-ID: <20061214110517.GA13377@infradead.org>
-References: <20061213210010.GR4329@austin.ibm.com>
-	<20061213210659.GA1915@austin.ibm.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 3/6] d80211: fix classify_1d() priority selection
+Date: Thu, 14 Dec 2006 12:13:58 +0100
+Message-ID: <20061214121358.6bd586b0@griffin.suse.cz>
+References: <20061214040227.GA10661@mail.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, Christoph Hellwig <hch@infradead.org>,
-	linuxppc-dev@ozlabs.org, Jens Osterkamp <Jens.Osterkamp@gmx.de>,
-	jgarzik@pobox.com, James K Lewis <jim@jklewis.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Linas Vepstas <linas@austin.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20061213210659.GA1915@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:53076 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932528AbWLNLNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 06:13:35 -0500
+To: yi.zhu@intel.com
+In-Reply-To: <20061214040227.GA10661@mail.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 13, 2006 at 03:06:59PM -0600, Linas Vepstas wrote:
+On Thu, 14 Dec 2006 12:02:27 +0800, Zhu Yi wrote:
+> I don't see any reason why packets with DSCP=0x40 should have lower IEEE
+> 802.1D priority than packets with DSCP=0x20. Spare > Background. No?
+
+Hm, seems so. Jouni, is there any reason for this?
+
 > 
-> The current driver code performs 512 DMA mappings of a bunch of 
-> 32-byte ring descriptor structures. This is silly, as they are 
-> all in contiguous memory. This patch changes the code to 
-> dma_map_coherent() each rx/tx ring as a whole.
+> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+> 
+> ---
+> 
+>  net/d80211/wme.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> e1765ea0d80ad86619300d3253e801883fd745a5
+> diff --git a/net/d80211/wme.c b/net/d80211/wme.c
+> index b9505dc..f26fe6c 100644
+> --- a/net/d80211/wme.c
+> +++ b/net/d80211/wme.c
+> @@ -131,9 +131,9 @@ static inline unsigned classify_1d(struc
+>  	dscp = ip->tos & 0xfc;
+>  	switch (dscp) {
+>  	case 0x20:
+> -		return 2;
+> -	case 0x40:
+>  		return 1;
+> +	case 0x40:
+> +		return 2;
+>  	case 0x60:
+>  		return 3;
+>  	case 0x80:
 
-It's acutally dma_alloc_coherent now that you updated the patch :)
+Thanks,
 
-> +	chain->ring = dma_alloc_coherent(&card->pdev->dev, alloc_size,
-> +		&chain->dma_addr, GFP_KERNEL);
->  
-> +	if (!chain->ring)
-> +		return -ENOMEM;
->  
-> +	descr = chain->ring;
-> +	memset(descr, 0, alloc_size);
+ Jiri
 
-dma_alloc_coherent is defined to zero the allocated memory, so you
-won't need this memset.
+-- 
+Jiri Benc
+SUSE Labs
