@@ -1,40 +1,52 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: [PATCH 2.6.19-git19] BUG due to bad argument to ieee80211softmac_assoc_work
-Date: Thu, 14 Dec 2006 18:47:15 -0600
-Message-ID: <4581F093.3020806@lwfinger.net>
-References: <5b8e20700612131017n1cd8aff3qbe41351435427e25@mail.gmail.com>	 <341A1CE8-DF10-4CD5-B675-89449256EAB5@deine-taler.de> <5b8e20700612141348l66af58b6lb6899b710d1d9c14@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [patch sungem] improved locking
+Date: Fri, 15 Dec 2006 11:59:06 +1100
+Message-ID: <1166144346.31351.41.camel@localhost.localdomain>
+References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
+	 <20061128.144911.55733883.davem@davemloft.net>
+	 <5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
+	 <20061211.174351.104064300.davem@davemloft.net>
+	 <5cac192f0612112133p71966d8bt51e98fecabc312d5@mail.gmail.com>
+	 <1165901783.11914.36.camel@localhost.localdomain>
+	 <5cac192f0612112149i14583a31p7fa7c5496efaa94a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Uli Kunitz <kune@deine-taler.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932635AbWLOArh@vger.kernel.org>
-To: Michael Bommarito <michael.bommarito@gmail.com>
-In-Reply-To: <5b8e20700612141348l66af58b6lb6899b710d1d9c14@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:38792 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750770AbWLOA73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 19:59:29 -0500
+To: Eric Lemoine <eric.lemoine@gmail.com>
+In-Reply-To: <5cac192f0612112149i14583a31p7fa7c5496efaa94a@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Bommarito wrote:
-> Hello Uli,
->  Yes, apologies, I had been waiting for an abandoned bugzilla entry
-> to get attention, and when I realized it was assigned to a dead-end, I
-> had simply posted the patch without checking for prior messages.
->  I was further confused by the fact that it hadn't made its way into
-> any of the 19-gitX sets (and for that matter, the window for
-> 2.6.20-rc1 has come and gone and this still remains unfixed), despite
-> how clear the error was and how trivial the fix seems.
+On Tue, 2006-12-12 at 06:49 +0100, Eric Lemoine wrote:
+> On 12/12/06, Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+> > On Tue, 2006-12-12 at 06:33 +0100, Eric Lemoine wrote:
+> > > On 12/12/06, David Miller <davem@davemloft.net> wrote:
+> > > > [...]
+> > > > Anyways, Eric your changes look fine as far as I can tell, can you
+> > > > give them a really good testing on some SMP boxes?
+> > >
+> > > Unfortunately I can't, I don't have the hardware (only an old ibook here).
+> >
+> > I do however, I'll give it a beating on a dual G5 as soon as I get a
+> > chance. I'm pretty swamped at the moment and the box is used by somebody
+> > else today.
+> 
+> Ok, thanks a lot Benjamin.
 
-I was not aware that a bugzilla entry existed for this problem. I learned about it when my system 
-would hang on bootup if the bcm43xx card was installed. By bisection, I learned which commit was 
-causing the problem. About that time, the complete fix was discussed on the netdev and bcm43xx 
-mailing lists. I was a little perturbed that only part of the fix was accepted into 2.6.19-gitX.
+Patched driver's been running fine for a couple of days & nights with
+constant beating... just those RX MAC fifo overflows every now and then
+(though they cause no data corruption and no big hit on the driver perfs
+neither). I suppose still worth investigating when I have a bit of time,
+I must have done something stupid with the pause settings.
 
-The full fix was pushed to John Linville on Dec. 10, who pushed it on to Jeff Garzik on Dec. 11. I 
-have not yet seen any message sending it on to Andrew Morton or Linus.
+In the meantime, Eric's patch is all good.
 
-A bug fix will always be accepted, particularly one that only changes 2 lines - it is only a new 
-feature that will no longer be accepted once the -rc1 stage is reached. If this message doesn't do 
-the trick and it isn't included by -rc2, I'll ping Jeff to see what happened. Changes always take 
-longer than one likes, but one needs to be careful.
+Ben.
 
-Larry
+
