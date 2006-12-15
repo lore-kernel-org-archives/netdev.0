@@ -1,72 +1,54 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 3/6] d80211: fix classify_1d() priority selection
-Date: Fri, 15 Dec 2006 14:53:26 +0100
-Message-ID: <20061215145326.46af16de@griffin.suse.cz>
-References: <20061214040227.GA10661@mail.intel.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a linked list
+Date: Fri, 15 Dec 2006 14:54:55 +0100
+Message-ID: <200612151454.55508.mb@bu3sch.de>
+References: <200612141920.11439.mb@bu3sch.de> <20061215144859.49a9c8f3@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Simon Barber <simon@devicescape.com>
+Cc: bcm43xx-dev@lists.berlios.de, linville@tuxdriver.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:47795 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752145AbWLONw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 08:52:57 -0500
-To: yi.zhu@intel.com
-In-Reply-To: <20061214040227.GA10661@mail.intel.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:38670
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbWLONzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 08:55:18 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061215144859.49a9c8f3@griffin.suse.cz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Dec 2006 12:02:27 +0800, Zhu Yi wrote:
-> I don't see any reason why packets with DSCP=0x40 should have lower IEEE
-> 802.1D priority than packets with DSCP=0x20. Spare > Background. No?
+On Friday 15 December 2006 14:48, Jiri Benc wrote:
+> On Thu, 14 Dec 2006 19:20:11 +0100, Michael Buesch wrote:
+> > This turns the PHY-modes list into a linked list.
+> > The advantage is that drivers can add modes dynamically, as they probe
+> > them and don't have to settle to a given arraysize at the beginning
+> > of probing.
+> 
+> ACK.
 
-Applied to my tree, thanks.
+Thanks. Will submit fixes for the other drivers, too.
 
-I also applied the following patch on top of it:
+> > @@ -198,8 +200,7 @@ static int ieee80211_ioctl_scan(struct n
+> >  		param->u.scan.last_rx = local->scan.rx_packets;
+> >  		local->scan.rx_packets = -1;
+> >  	}
+> > -	param->u.scan.channel = local->hw.modes[local->scan.mode_idx].
+> > -		channels[local->scan.chan_idx].chan;
+> > +	param->u.scan.channel = 
+> > local->scan.mode->channels[local->scan.chan_idx].chan;
+> >  
+> >  	return 0;
+> >  }
+> 
+> The patch is malformed. Fixed and applied to my tree.
 
---
-Subject: [PATCH] d80211: simplify classify_1d
+I'm sorry. Forgot to remove the "wrap at ~80chars option in my mailer.
 
-The switch in classify_1d can be simplified to a bit operation.
-
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
-
----
- net/d80211/wme.c |   19 ++-----------------
- 1 files changed, 2 insertions(+), 17 deletions(-)
-
---- dscape.orig/net/d80211/wme.c
-+++ dscape/net/d80211/wme.c
-@@ -129,24 +129,9 @@ static inline unsigned classify_1d(struc
- 	ip = (struct iphdr *) (skb->data + offset);
- 
- 	dscp = ip->tos & 0xfc;
--	switch (dscp) {
--	case 0x20:
--		return 1;
--	case 0x40:
--		return 2;
--	case 0x60:
--		return 3;
--	case 0x80:
--		return 4;
--	case 0xa0:
--		return 5;
--	case 0xc0:
--		return 6;
--	case 0xe0:
--		return 7;
--	default:
-+	if (dscp & 0x1c)
- 		return 0;
--	}
-+	return dscp >> 5;
- }
- 
+Can you also apply the bcm43xx fix for this to your tree?
+I think that should be easiest and prevent long-living breakage.
 
 -- 
-Jiri Benc
-SUSE Labs
+Greetings Michael.
