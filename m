@@ -1,52 +1,58 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [patch sungem] improved locking
-Date: Fri, 15 Dec 2006 11:59:06 +1100
-Message-ID: <1166144346.31351.41.camel@localhost.localdomain>
-References: <5cac192f0611141354l3a4aa130ve741c9d6a7a49d0a@mail.gmail.com>
-	 <20061128.144911.55733883.davem@davemloft.net>
-	 <5cac192f0611290256l7067ce21r39881486f6e21289@mail.gmail.com>
-	 <20061211.174351.104064300.davem@davemloft.net>
-	 <5cac192f0612112133p71966d8bt51e98fecabc312d5@mail.gmail.com>
-	 <1165901783.11914.36.camel@localhost.localdomain>
-	 <5cac192f0612112149i14583a31p7fa7c5496efaa94a@mail.gmail.com>
+From: Alex Romosan <romosan@sycorax.lbl.gov>
+Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
+Date: Thu, 14 Dec 2006 17:04:01 -0800
+Message-ID: <87mz5qnf5q.fsf@sycorax.lbl.gov>
+References: <87psammchi.fsf@sycorax.lbl.gov>
+	<20061214133023.0b266d8e@freekitty> <87odq6azel.fsf@sycorax.lbl.gov>
+	<20061214144734.03300fa6@freekitty> <87zm9qkqsj.fsf@sycorax.lbl.gov>
+	<20061214153146.52d5de40@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:38792 "EHLO gate.crashing.org"
+Received: from sycorax.lbl.gov ([128.3.5.196]:3239 "EHLO sycorax.lbl.gov"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750770AbWLOA73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 19:59:29 -0500
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f0612112149i14583a31p7fa7c5496efaa94a@mail.gmail.com>
+	id S932559AbWLOBEF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 20:04:05 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061214153146.52d5de40@freekitty> (message from Stephen
+	Hemminger on Thu, 14 Dec 2006 15:31:46 -0800)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-12-12 at 06:49 +0100, Eric Lemoine wrote:
-> On 12/12/06, Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> > On Tue, 2006-12-12 at 06:33 +0100, Eric Lemoine wrote:
-> > > On 12/12/06, David Miller <davem@davemloft.net> wrote:
-> > > > [...]
-> > > > Anyways, Eric your changes look fine as far as I can tell, can you
-> > > > give them a really good testing on some SMP boxes?
-> > >
-> > > Unfortunately I can't, I don't have the hardware (only an old ibook here).
-> >
-> > I do however, I'll give it a beating on a dual G5 as soon as I get a
-> > chance. I'm pretty swamped at the moment and the box is used by somebody
-> > else today.
-> 
-> Ok, thanks a lot Benjamin.
+Stephen Hemminger <shemminger@osdl.org> writes:
 
-Patched driver's been running fine for a couple of days & nights with
-constant beating... just those RX MAC fifo overflows every now and then
-(though they cause no data corruption and no big hit on the driver perfs
-neither). I suppose still worth investigating when I have a bit of time,
-I must have done something stupid with the pause settings.
+> If this is repeatable... and mac_pause is always one then the
+> problem is hardware flow control.  I saw bugs before in the bus
+> interface where it would not resume on unaligned buffer, but
+> that was on receive.
 
-In the meantime, Eric's patch is all good.
+i tried to switch over to the latest vendor driver but unfortunately
+it doesn't work with kernel 2.6.19+. it still uses CHECKSUM_HW which
+looks like it was replaced by CHECKSUM_PARTIAL and CHECKSUM_COMPLETE
+was also added. i think i can replace CHECKSUM_HW in the marvell
+driver with CHECKSUM_PARTIAL, except for a couple of places where i
+i am not sure what i am supposed to do. the first instance it says (i
+am kind of paraphrasing here since i am copying from the screen and
+not cutting and pasting):
 
-Ben.
+/** does the HW need to evaluate checksum for TCP or UDP packets?
+if (pMessage->ip_summed == CHECKSUM_HW)
 
+maybe this needs to be replace with CHECKSUM_PARTIAL. the second one
 
+/** TCP checksum offload
+if ((pSKPacket->pMbuf->ip_summed == CHECKSUM_HW) &&
+(SetOpcodePacketFlag == SK_TRUE)
+
+i wonder if this is supposed to be CHECKSUM_COMPLETE
+
+if you have any suggestions, i'll appreciate it.
+
+--alex--
+
+-- 
+| I believe the moment is at hand when, by a paranoiac and active |
+|  advance of the mind, it will be possible (simultaneously with  |
+|  automatism and other passive states) to systematize confusion  |
+|  and thus to help to discredit completely the world of reality. |
