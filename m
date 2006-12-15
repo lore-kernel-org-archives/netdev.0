@@ -1,52 +1,50 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Bridge & it's MAC address question
-Date: Fri, 15 Dec 2006 14:19:08 +0100
-Message-ID: <20061215131908.GC11579@xi.wantstofly.org>
-References: <200610301527.15018.dim@openvz.org>
-	<20061030072837.51177183@localhost.localdomain>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a
+ linked list
+Date: Fri, 15 Dec 2006 14:48:59 +0100
+Message-ID: <20061215144859.49a9c8f3@griffin.suse.cz>
+References: <200612141920.11439.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org, bridge@osdl.org,
-   devel@openvz.org
-Return-path: <bridge-bounces@lists.osdl.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20061030072837.51177183@localhost.localdomain>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:47723 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752136AbWLONs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 08:48:29 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200612141920.11439.mb@bu3sch.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 30, 2006 at 07:28:37AM -0800, Stephen Hemminger wrote:
+On Thu, 14 Dec 2006 19:20:11 +0100, Michael Buesch wrote:
+> This turns the PHY-modes list into a linked list.
+> The advantage is that drivers can add modes dynamically, as they probe
+> them and don't have to settle to a given arraysize at the beginning
+> of probing.
 
-> > Could somebody explain, why bridge uses minimal MAC of the attached dev=
-ices?
-> > It makes this address instable, variable during bridge life-cycle, whic=
-h is =
+ACK.
 
-> > not good for DHCP. For example, I want to attach multiple virtual devic=
-es to =
+> @@ -198,8 +200,7 @@ static int ieee80211_ioctl_scan(struct n
+>  		param->u.scan.last_rx = local->scan.rx_packets;
+>  		local->scan.rx_packets = -1;
+>  	}
+> -	param->u.scan.channel = local->hw.modes[local->scan.mode_idx].
+> -		channels[local->scan.chan_idx].chan;
+> +	param->u.scan.channel = 
+> local->scan.mode->channels[local->scan.chan_idx].chan;
+>  
+>  	return 0;
+>  }
 
-> > one physical. Then, I need to make sure that after each virtual device =
+The patch is malformed. Fixed and applied to my tree.
 
-> > addition, bridge addr is not changed and still addr of the physical dev=
-ice.  =
+Thanks,
 
-> > Why not to use MAC of the first attached device?
-> =
+ Jiri
 
-> The bridge physical address is the minimum of all the attached devices.
-> This is done because the STP standard requires it.  You can reset it
-> to be the same as any of the attached devices. This will not cause a
-> problem unless using STP.
-
-You can in fact use any MAC address.  The STP standard recommends using
-the minimum address, as that is deterministic, and so it doesn't depend
-on the order in which you enslave subdevices.
+-- 
+Jiri Benc
+SUSE Labs
