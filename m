@@ -1,151 +1,50 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] smc911x: fix netpoll compilation faliure
-Date: Fri, 15 Dec 2006 12:55:18 -0800
-Message-ID: <20061215125518.c2bfee56.akpm@osdl.org>
-References: <20061215161328.9797232d.vitalywool@gmail.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH] adm8211: Fix compilation for d80211 hwmode API change
+Date: Fri, 15 Dec 2006 16:34:15 -0500
+Message-ID: <200612151634.19137.flamingice@sourmilk.net>
+References: <200612152044.05268.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart6667380.7oO7sHFSQz";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, John Linville <linville@tuxdriver.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:43955 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964861AbWLOUzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 15:55:21 -0500
-To: Vitaly Wool <vitalywool@gmail.com>
-In-Reply-To: <20061215161328.9797232d.vitalywool@gmail.com>
+Received: from smtp.rutgers.edu ([128.6.72.243]:63950 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751785AbWLOVej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 16:34:39 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200612152044.05268.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Dec 2006 16:13:28 +0300
-Vitaly Wool <vitalywool@gmail.com> wrote:
+--nextPart6667380.7oO7sHFSQz
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> Hello folks,
-> 
-> the trivial patch below fixes the compilation failure for smc911x.c when NET_POLL_CONTROLLER is set.
-> 
->  drivers/net/smc911x.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
-> 
-> diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-> index 2c43433..797ab91 100644
-> --- a/drivers/net/smc911x.c
-> +++ b/drivers/net/smc911x.c
-> @@ -1331,7 +1331,7 @@ smc911x_rx_dma_irq(int dma, void *data)
->  static void smc911x_poll_controller(struct net_device *dev)
->  {
->  	disable_irq(dev->irq);
-> -	smc911x_interrupt(dev->irq, dev, NULL);
-> +	smc911x_interrupt(dev->irq, dev);
->  	enable_irq(dev->irq);
->  }
->  #endif
+On Friday 15 December 2006 14:44, Michael Buesch wrote:
+> This fixes compilation for the d80211 hwmode API change.
+>
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+>
+ACK, looks good to me.
 
-That's a 2.6.19 fix, yes?
+-Michael Wu
 
-It looks like this driver needs a 2.6.20 fix also...
+--nextPart6667380.7oO7sHFSQz
+Content-Type: application/pgp-signature
 
-From: Andrew Morton <akpm@osdl.org>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-Teach this driver about the workqueue changes.
+iD8DBQBFgxTbT3Oqt9AH4aERAoeRAKDKjmcIcjTeRIBvMapPwkh5IXsaXgCfRTFO
+CUQ/nJzb8wOYkv3G36zZAD0=
+=NzGh
+-----END PGP SIGNATURE-----
 
-Cc: Vitaly Wool <vitalywool@gmail.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- drivers/net/smc911x.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
-
-diff -puN drivers/net/smc911x.c~smc911-workqueue-fixes drivers/net/smc911x.c
---- a/drivers/net/smc911x.c~smc911-workqueue-fixes
-+++ a/drivers/net/smc911x.c
-@@ -148,6 +148,8 @@ struct smc911x_local {
- 	int tx_throttle;
- 	spinlock_t lock;
- 
-+	struct net_device *netdev;
-+
- #ifdef SMC_USE_DMA
- 	/* DMA needs the physical address of the chip */
- 	u_long physaddr;
-@@ -948,10 +950,11 @@ static void smc911x_phy_check_media(stru
-  * of autonegotiation.)  If the RPC ANEG bit is cleared, the selection
-  * is controlled by the RPC SPEED and RPC DPLX bits.
-  */
--static void smc911x_phy_configure(void *data)
-+static void smc911x_phy_configure(struct work_struct *work)
- {
--	struct net_device *dev = data;
--	struct smc911x_local *lp = netdev_priv(dev);
-+	struct smc911x_local *lp = container_of(work, struct smc911x_local,
-+						phy_configure);
-+	struct net_device *dev = lp->netdev;
- 	unsigned long ioaddr = dev->base_addr;
- 	int phyaddr = lp->mii.phy_id;
- 	int my_phy_caps; /* My PHY capabilities */
-@@ -1495,6 +1498,8 @@ static void smc911x_set_multicast_list(s
- static int
- smc911x_open(struct net_device *dev)
- {
-+	struct smc911x_local *lp = netdev_priv(dev);
-+
- 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __FUNCTION__);
- 
- 	/*
-@@ -1511,7 +1516,7 @@ smc911x_open(struct net_device *dev)
- 	smc911x_reset(dev);
- 
- 	/* Configure the PHY, initialize the link state */
--	smc911x_phy_configure(dev);
-+	smc911x_phy_configure(&lp->phy_configure);
- 
- 	/* Turn on Tx + Rx */
- 	smc911x_enable(dev);
-@@ -2060,7 +2065,7 @@ static int __init smc911x_probe(struct n
- 	dev->poll_controller = smc911x_poll_controller;
- #endif
- 
--	INIT_WORK(&lp->phy_configure, smc911x_phy_configure, dev);
-+	INIT_WORK(&lp->phy_configure, smc911x_phy_configure);
- 	lp->mii.phy_id_mask = 0x1f;
- 	lp->mii.reg_num_mask = 0x1f;
- 	lp->mii.force_media = 0;
-@@ -2154,6 +2159,7 @@ static int smc911x_drv_probe(struct plat
- {
- 	struct net_device *ndev;
- 	struct resource *res;
-+	struct smc911x_local *lp;
- 	unsigned int *addr;
- 	int ret;
- 
-@@ -2183,6 +2189,8 @@ static int smc911x_drv_probe(struct plat
- 
- 	ndev->dma = (unsigned char)-1;
- 	ndev->irq = platform_get_irq(pdev, 0);
-+	lp = netdev_priv(ndev);
-+	lp->netdev = ndev;
- 
- 	addr = ioremap(res->start, SMC911X_IO_EXTENT);
- 	if (!addr) {
-@@ -2204,7 +2212,6 @@ out:
- 	}
- #ifdef SMC_USE_DMA
- 	else {
--		struct smc911x_local *lp = netdev_priv(ndev);
- 		lp->physaddr = res->start;
- 		lp->dev = &pdev->dev;
- 	}
-@@ -2275,7 +2282,7 @@ static int smc911x_drv_resume(struct pla
- 			smc911x_reset(ndev);
- 			smc911x_enable(ndev);
- 			if (lp->phy_type != 0)
--				smc911x_phy_configure(ndev);
-+				smc911x_phy_configure(&lp->phy_configure);
- 			netif_device_attach(ndev);
- 		}
- 	}
-_
-
+--nextPart6667380.7oO7sHFSQz--
