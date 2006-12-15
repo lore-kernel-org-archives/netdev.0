@@ -1,49 +1,39 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: EEPROM infrastructure (was: [PATCH] eeprom_93cx6: Add write support)
-Date: Fri, 15 Dec 2006 12:58:55 +0100
-Message-ID: <200612151258.56213.netdev@axxeo.de>
-References: <200612131956.51000.IvDoorn@gmail.com> <20061213190651.GF26412@csclub.uwaterloo.ca>
+From: Vitaly Wool <vitalywool@gmail.com>
+Subject: [PATCH] smc911x: fix netpoll compilation faliure
+Date: Fri, 15 Dec 2006 16:13:28 +0300
+Message-ID: <20061215161328.9797232d.vitalywool@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ivo van Doorn <ivdoorn@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Michael Wu <flamingice@sourmilk.net>,
-	linux-kernel@vger.kernel.org, Ingo Oeser <ioe-lkml@rameria.de>
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:36850 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752053AbWLOMRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 07:17:05 -0500
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-In-Reply-To: <20061213190651.GF26412@csclub.uwaterloo.ca>
-Content-Disposition: inline
+Received: from rtsoft2.corbina.net ([85.21.88.2]:40501 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with SMTP id S1752107AbWLONUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 08:20:03 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennart Sorensen schrieb:
-> On Wed, Dec 13, 2006 at 07:56:50PM +0100, Ivo van Doorn wrote:
-> > This patch addes support for writing to the eeprom,
-> > this also moves some duplicate code into seperate functions.
-> > 
-> > Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
-> 
-> Thank you.  I will have a try with that to see if I can get that to work
-> with the jsm driver.  Too bad the serial drivers don't have any
-> geteeprom/seteeprom standard ioctl's the way ethtool does for network
-> devices.
+Hello folks,
 
-It might be even better to have eeprom writing infrastructure.
+the trivial patch below fixes the compilation failure for smc911x.c when NET_POLL_CONTROLLER is set.
 
-Many device types come with eeproms today and they implement
-it per driver or subsystem. On embedded platforms these EEPROMs
-might even be shared among different devices.
+ drivers/net/smc911x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-So it might be time to generalize this like we did with LEDs.
+Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
 
-Any comments?
-
-Regards
-
-Ingo Oeser
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index 2c43433..797ab91 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -1331,7 +1331,7 @@ smc911x_rx_dma_irq(int dma, void *data)
+ static void smc911x_poll_controller(struct net_device *dev)
+ {
+ 	disable_irq(dev->irq);
+-	smc911x_interrupt(dev->irq, dev, NULL);
++	smc911x_interrupt(dev->irq, dev);
+ 	enable_irq(dev->irq);
+ }
+ #endif
