@@ -1,41 +1,40 @@
-From: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a
-	linked list
-Date: Fri, 15 Dec 2006 15:06:55 +0100
-Message-ID: <20061215150655.50a728c4@griffin.suse.cz>
-References: <200612141920.11439.mb@bu3sch.de>
-	<20061215144859.49a9c8f3@griffin.suse.cz>
-	<200612151454.55508.mb@bu3sch.de>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 00/14] E1000 bugfix series for 2.6.20
+Date: Fri, 15 Dec 2006 09:07:48 -0500
+Message-ID: <4582AC34.9060408@garzik.org>
+References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <4582AB02.3010609@garzik.org> <4582AB67.4000201@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-In-Reply-To: <200612151454.55508.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:54968 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752169AbWLOOHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 09:07:50 -0500
+To: Arjan van de Ven <arjan@linux.intel.com>
+In-Reply-To: <4582AB67.4000201@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Dec 2006 14:54:55 +0100, Michael Buesch wrote:
-> Can you also apply the bcm43xx fix for this to your tree?
-> I think that should be easiest and prevent long-living breakage.
+Arjan van de Ven wrote:
+> Jeff Garzik wrote:
+>> Arjan van de Ven wrote:
+>>> Hi,
+>>>
+>>> this patch series contains critical bugfixes to the e1000 driver for
+>>> 2.6.20 (and 3 very low intrusive features that help in testing). Without
+>>> these patches e1000 is totally unusable on my test machine.
+>>
+>> Didn't Auke just submit these, and have them ACKd/NAKd as appropriate?
+>>
+> 
+> they're not in 2.6.20-rc1 so I suspect they didn't go anywhere...
+> (and Auke is on holiday for a bit afaik)
 
-It doesn't apply :-( It's probably easy to fix but I'd rather leave it
-to you to not make any damage.
+They didn't get applied because the patches need the revisions I requested.
 
-Thanks,
+	Jeff
 
- Jiri
 
--- 
-Jiri Benc
-SUSE Labs
+
