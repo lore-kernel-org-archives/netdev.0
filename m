@@ -1,50 +1,75 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a linked list
-Date: Sat, 16 Dec 2006 01:40:11 -0500
-Message-ID: <200612160140.16446.flamingice@sourmilk.net>
-References: <200612141920.11439.mb@bu3sch.de>
+From: jeffery <bucove@telus.net>
+Subject: acx-20060215 for etch
+Date: Fri, 15 Dec 2006 11:32:08 -0800
+Message-ID: <4582F838.9050308@telus.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2577606.bZvCAkSvsc";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@suse.cz, linville@tuxdriver.com, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:25067 "EHLO
-	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030647AbWLPGke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Dec 2006 01:40:34 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200612141920.11439.mb@bu3sch.de>
+Received: from defout.telus.net ([204.209.205.55]:33872 "EHLO defout.telus.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030608AbWLPHf4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Dec 2006 02:35:56 -0500
+To: perbj@stanford.edu, netdev@vger.kernel.org,
+	acx100-devel@lists.sourceforge.net,
+	acx100-users@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2577606.bZvCAkSvsc
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+pci.c needed a fix for etch..
 
-On Thursday 14 December 2006 13:20, Michael Buesch wrote:
-> -int ieee80211_update_hw(struct ieee80211_hw *hw)
-> +int ieee80211_register_hwmode(struct ieee80211_hw *hw,
-> +			      struct ieee80211_hw_mode *mode)
-Looks like this function never returns nonzero now. Can it return void=20
-instead? This would simplify the fixes for drivers a bit.
+I added the includes for utsrelease.h as they were needed for the=20
+declaration of UTS_RELEASE in debian etch...
 
-=2DMichael Wu
+as the acx tarball downloaded into debian etch:
+~~~~~~~~~~~~~
 
---nextPart2577606.bZvCAkSvsc
-Content-Type: application/pgp-signature
+debian:/usr/src/acx-20060215# make -C /lib/modules/`uname -r`/build M=3D=
+`pwd`
+make: Entering directory `/usr/src/linux-headers-2.6.18-3-686'
+CC [M] /usr/src/acx-20060215/pci.o
+In file included from /usr/src/acx-20060215/acx.h:2,
+from /usr/src/acx-20060215/pci.c:55:
+/usr/src/acx-20060215/wlan_compat.h:246: warning: =91packed=92 attribut=
+e=20
+ignored for field of type =91u8[6]=92
+/usr/src/acx-20060215/wlan_compat.h:247: warning: =91packed=92 attribut=
+e=20
+ignored for field of type =91u8[6]=92
+/usr/src/acx-20060215/wlan_compat.h:253: warning: =91packed=92 attribut=
+e=20
+ignored for field of type =91u8=92
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBFg5TQT3Oqt9AH4aERAiLBAJ956yucHJick57LyBJ6UO4cEOLscQCfXj9C
-VSEMQmYdZaIMxCCUd4s5Rxg=
-=bHwf
------END PGP SIGNATURE-----
+<snip>
 
---nextPart2577606.bZvCAkSvsc--
+/usr/src/acx-20060215/pci.c: In function =91acxpci_e_probe=92:
+/usr/src/acx-20060215/pci.c:1653: error: =91UTS_RELEASE=92 undeclared (=
+first=20
+use in this function)
+/usr/src/acx-20060215/pci.c:1653: error: (Each undeclared identifier is=
+=20
+reported only once
+/usr/src/acx-20060215/pci.c:1653: error: for each function it appears i=
+n.)
+make[1]: *** [/usr/src/acx-20060215/pci.o] Error 1
+make: *** [_module_/usr/src/acx-20060215] Error 2
+make: Leaving directory `/usr/src/linux-headers-2.6.18-3-686'
+debian:/usr/src/acx-20060215#
+
+~~~~~~~~~~~
+
+after researching and discovering these declarations had been put into=20
+separate includes.h for etch,
+I entered pci.c and in the includes header added the line
+
+#include <linux/utsrelease.h>
+
+and it compiled beautifully.
+I haven't touched source code for over 12 years.
+Totally made my day.
+
+
+
+=2E..jeffery
