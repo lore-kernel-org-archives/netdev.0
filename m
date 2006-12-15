@@ -1,78 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 3/3] chelsio: more receive cleanup
-Date: Fri, 15 Dec 2006 14:55:33 -0800
-Message-ID: <20061215145533.4cda3f23@freekitty>
-References: <20061215190716.956791000@osdl.org>
-	<20061215190813.803776000@osdl.org>
-	<20061215201019.GA11385@electric-eye.fr.zoreil.com>
+From: Marcelo Tosatti <marcelo@kvack.org>
+Subject: [PATCH] Marvell Libertas 8388 802.11b/g USB driver
+Date: Fri, 15 Dec 2006 20:51:23 -0200
+Message-ID: <20061215225123.GA3231@dmt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Dan Williams <dcbw@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"John W. Linville" <linville@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:51922 "EHLO smtp.osdl.org"
+Received: from kanga.kvack.org ([66.96.29.28]:43592 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030329AbWLOW4B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 17:56:01 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061215201019.GA11385@electric-eye.fr.zoreil.com>
+	id S1030350AbWLOXAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 18:00:20 -0500
+To: netdev <netdev@vger.kernel.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Dec 2006 21:10:19 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+Hi, 
 
-> Stephen Hemminger <shemminger@osdl.org> :
-> [...]
-> > --- linux-2.6.20-rc1.orig/drivers/net/chelsio/sge.c
-> > +++ linux-2.6.20-rc1/drivers/net/chelsio/sge.c
-> [...]
-> > @@ -1059,37 +1062,33 @@ static void recycle_fl_buf(struct freelQ
-> >   *	threshold and the packet is too big to copy, or (b) the packet should
-> >   *	be copied but there is no memory for the copy.
-> >   */
-> > -static inline struct sk_buff *get_packet(struct pci_dev *pdev,
-> > -					 struct freelQ *fl, unsigned int len,
-> > -					 int dma_pad, int skb_pad,
-> > -					 unsigned int copy_thres,
-> > -					 unsigned int drop_thres)
-> > +static inline struct sk_buff *get_packet(struct pci_dev *pdev, struct freelQ *fl,
-> > +					 unsigned int len)
-> >  {
-> >  	struct sk_buff *skb;
-> > -	struct freelQ_ce *ce = &fl->centries[fl->cidx];
-> > +	const struct freelQ_ce *ce = &fl->centries[fl->cidx];
-> > +
-> > +	if (len < copybreak) {
-> 
-> If you are into cleanups, maybe add likely/unlikely (and remove the inline) ?
+Marvell released a GPL driver for their 8388 wireless chip for USB
+interface back in April.
 
-Why, you can't predict copybreak on off
+The 8388 is the device being used by the OLPC laptop.
 
-> 
-> > +		skb = alloc_skb(len + 2, GFP_ATOMIC);
-> > +		if (!skb)
-> > +			goto use_orig_buf;
-> >  
-> > -	if (len < copy_thres) {
-> > -		skb = alloc_skb(len + skb_pad, GFP_ATOMIC);
-> > -		if (likely(skb != NULL)) {
-> > -			skb_reserve(skb, skb_pad);
-> > -			skb_put(skb, len);
-> > -			pci_dma_sync_single_for_cpu(pdev,
-> > +		skb_reserve(skb, 2);	/* align IP header */
-> 
-> s/2/NET_IP_ALIGN/
+We have been working on cleaning it up for mainline inclusion. I think
+the moment for wider review has arrived.
 
-This is wrong, NET_IP_ALIGN is for DMA buffers only. It is defined
-as 0 for those platforms where DMA alignment is important. In this
-case we are copying, so we want to force 2.
+Since the diff is pretty large (700K) I've put it on the web at:
+http://dev.laptop.org/~marcelo/libertas-8388-15122006.patch
 
-> Btw, since the driver supports netpoll, its blind enabling of interrupts
-> in t1_poll() seems old-fashoined (see thread starting at
-> http://lkml.org/lkml/2006/12/12/86)
-> 
+And its GIT tree resides at:
+http://git.infradead.org/?p=libertas-2.6.git;a=log
 
+Comments are welcome
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
