@@ -1,32 +1,37 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH 6/6] d80211: add sysfs interface for QoS functions
-Date: Fri, 15 Dec 2006 11:27:43 +0800
-Message-ID: <1166153263.2929.98.camel@debian.sh.intel.com>
-References: <20061214040302.GA10689@mail.intel.com>
-	 <20061214122339.37fc6b6d@griffin.suse.cz>
+From: Alex Romosan <romosan@sycorax.lbl.gov>
+Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
+Date: Thu, 14 Dec 2006 19:53:45 -0800
+Message-ID: <878xh9rf06.fsf@sycorax.lbl.gov>
+References: <87mz5qnf5q.fsf@sycorax.lbl.gov>
+	<E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
+	<20061214192218.35a7f8e1@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41504 "EHLO mga02.intel.com"
+Received: from sycorax.lbl.gov ([128.3.5.196]:3686 "EHLO sycorax.lbl.gov"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751743AbWLODaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 22:30:07 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061214122339.37fc6b6d@griffin.suse.cz>
+	id S965062AbWLODx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 22:53:56 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061214192218.35a7f8e1@localhost.localdomain> (message from
+	Stephen Hemminger on Thu, 14 Dec 2006 19:22:18 -0800)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-12-14 at 12:23 +0100, Jiri Benc wrote:
-> So... what about implementing that into cfg80211? :-)
-> 
-> I'm not inclined towards this patch (even if you address Stephen's
-> comment). 
+Stephen Hemminger <shemminger@osdl.org> writes:
 
-OK. This is only for my testing (or maybe someone else wants to try the
-code). I'm not asking to merge it. When all the other code is reviewed
-and accepted, I will write a cfg80211 interface for it.
+> I have a fixed up version of the vendor driver, I'll repackage it tomorrow.
 
-Thanks,
--yi
+as per the include file, i ended up replacing all the CHECKSUM_HW with
+CHECkSUM_PARTIAL since the functions in questions had to do with
+transmit. seems to be working so far without any lockups. we'll see
+how long this lasts.
+
+--alex--
+
+-- 
+| I believe the moment is at hand when, by a paranoiac and active |
+|  advance of the mind, it will be possible (simultaneously with  |
+|  automatism and other passive states) to systematize confusion  |
+|  and thus to help to discredit completely the world of reality. |
