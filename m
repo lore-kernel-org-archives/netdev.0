@@ -1,32 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 14/14] e1000: No-delay link detection at interface up
-Date: Fri, 15 Dec 2006 09:50:58 -0500
-Message-ID: <4582B652.9060608@garzik.org>
-References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <1166175754.3365.137.camel@laptopd505.fenrus.org> <4582B2EA.9010501@garzik.org> <4582B341.8030604@linux.intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] d80211: add missing \n in skb queue warning
+Date: Fri, 15 Dec 2006 15:56:15 +0100
+Message-ID: <1166194575.3462.16.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55355 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752681AbWLOOu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 09:50:59 -0500
-To: Arjan van de Ven <arjan@linux.intel.com>
-In-Reply-To: <4582B341.8030604@linux.intel.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:55396 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752644AbWLOO4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 09:56:00 -0500
+To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan van de Ven wrote:
-> Jeff Garzik wrote:
->> ACK, though you can also just schedule the timer to run immediately, 
->> or even run it yourself inside spin_lock_bh()
-> 
-> sure but this is very simple, clean and obvious ;)
+This just adds a missing \n I noticed when I got the warning (see my
+other mail)
 
-Hence the ACK...
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-	Jeff
-
+--- wireless-dev.orig/net/d80211/ieee80211.c	2006-12-14 20:14:50.150611855 +0100
++++ wireless-dev/net/d80211/ieee80211.c	2006-12-14 20:14:55.118611855 +0100
+@@ -4709,7 +4709,7 @@ void ieee80211_unregister_hw(struct ieee
+ 
+ 	if (skb_queue_len(&local->skb_queue)
+ 			|| skb_queue_len(&local->skb_queue_unreliable))
+-		printk(KERN_WARNING "%s: skb_queue not empty",
++		printk(KERN_WARNING "%s: skb_queue not empty\n",
+ 		       local->mdev->name);
+ 	skb_queue_purge(&local->skb_queue);
+ 	skb_queue_purge(&local->skb_queue_unreliable);
 
 
