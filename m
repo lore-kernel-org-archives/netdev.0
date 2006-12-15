@@ -1,339 +1,819 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 04/14] e1000: consolidate managability enabling/disabling
-Date: Fri, 15 Dec 2006 10:57:38 -0500
-Message-ID: <4582C5F2.6090205@garzik.org>
-References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <1166175176.3365.118.camel@laptopd505.fenrus.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] netxen: remove private ioctl
+Date: Fri, 15 Dec 2006 07:57:08 -0800
+Message-ID: <20061215075708.57a1b6b6@localhost.localdomain>
+References: <20061205120717.2e362ddf@freekitty>
+	<20061207100903.GA27904@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070006040008050004010905"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Amit S. Kale" <amitkale@netxen.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55800 "EHLO mail.dvmed.net"
+Received: from smtp.osdl.org ([65.172.181.25]:48364 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752773AbWLOP5l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 10:57:41 -0500
-To: Arjan van de Ven <arjan@linux.intel.com>
-In-Reply-To: <1166175176.3365.118.camel@laptopd505.fenrus.org>
+	id S1752775AbWLOP7R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 10:59:17 -0500
+To: Christoph Hellwig <hch@infradead.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20061207100903.GA27904@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070006040008050004010905
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+The netxen driver includes a private ioctl that provides access
+to functionality that is already available in other ways. The PCI
+layer has application access hooks (see setpci), and the statistics
+are available in ethtool/netstats.
 
-Arjan van de Ven wrote:
-> Subject: e1000: consolidate managability enabling/disabling
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> Several bugs existed in how we handle manageability issues all over the driver.
-> This patch consolidates all the managability release and init code in two single
-> functions and call them from appropriate locations. This fixes several
-> BMC packet redirect issues and powerup/down hiccups.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+---
+ drivers/net/netxen/netxen_nic.h         |   11 -
+ drivers/net/netxen/netxen_nic_ethtool.c |    5 -
+ drivers/net/netxen/netxen_nic_hw.c      |  294 -------------------------------
+ drivers/net/netxen/netxen_nic_init.c    |  237 -------------------------
+ drivers/net/netxen/netxen_nic_ioctl.h   |   77 --------
+ drivers/net/netxen/netxen_nic_main.c    |   45 -----
+ 6 files changed, 1 insertions(+), 668 deletions(-)
 
-The revisions for this patch were "major revisions", as you had warned. 
-  See attached.
-
-	Jeff
-
-
-
---------------070006040008050004010905
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch"
-
-commit fa359ae5b1c4ddbd5a5ba3bc72d4276efbc6654a
-Author: Jeff Garzik <jeff@garzik.org>
-Date:   Fri Dec 15 10:56:10 2006 -0500
-
-    e1000: consolidate managability enabling/disabling
-    
-    Several bugs existed in how we handle manageability issues all
-    over the driver.  This patch consolidates all the managability
-    release and init code in two single functions and call them from
-    appropriate locations. This fixes several BMC packet redirect issues
-    and powerup/down hiccups.
-    
-    Originally from Jesse Brandeburg <jesse.brandeburg@intel.com>, rewritten
-    to use feature flags by me.
-    
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
-
-fa359ae5b1c4ddbd5a5ba3bc72d4276efbc6654a
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index ce82eb5..1ea556e 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -448,6 +448,10 @@ e1000_set_mac_type(struct e1000_hw *hw)
- 	if (hw->mac_type == e1000_82543)
- 		hw->bad_tx_carr_stats_fd = TRUE;
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index b5410be..b4c4fc0 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -1027,14 +1027,6 @@ int netxen_nic_hw_read_wx(struct netxen_
+ 			  int len);
+ int netxen_nic_hw_write_wx(struct netxen_adapter *adapter, u64 off, void *data,
+ 			   int len);
+-int netxen_nic_hw_read_ioctl(struct netxen_adapter *adapter, u64 off,
+-			     void *data, int len);
+-int netxen_nic_hw_write_ioctl(struct netxen_adapter *adapter, u64 off,
+-			      void *data, int len);
+-int netxen_nic_pci_mem_write_ioctl(struct netxen_adapter *adapter,
+-				   u64 off, void *data, int size);
+-int netxen_nic_pci_mem_read_ioctl(struct netxen_adapter *adapter,
+-				  u64 off, void *data, int size);
+ void netxen_crb_writelit_adapter(struct netxen_adapter *adapter,
+ 				 unsigned long off, int data);
  
-+	/* capable of receiving management packets to the host */
-+	if (hw->mac_type >= e1000_82571)
-+		hw->has_manc2h = TRUE;
-+
- 	return E1000_SUCCESS;
- }
+@@ -1067,9 +1059,6 @@ void netxen_tso_check(struct netxen_adap
+ 		      struct cmd_desc_type0 *desc, struct sk_buff *skb);
+ int netxen_nic_hw_resources(struct netxen_adapter *adapter);
+ void netxen_nic_clear_stats(struct netxen_adapter *adapter);
+-int
+-netxen_nic_do_ioctl(struct netxen_adapter *adapter, void *u_data,
+-		    struct netxen_port *port);
+ int netxen_nic_rx_has_work(struct netxen_adapter *adapter);
+ int netxen_nic_tx_has_work(struct netxen_adapter *adapter);
+ void netxen_watchdog_task(struct work_struct *work);
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index 2ab4885..3404461 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -42,7 +42,6 @@ #include <linux/version.h>
+ #include "netxen_nic_hw.h"
+ #include "netxen_nic.h"
+ #include "netxen_nic_phan_reg.h"
+-#include "netxen_nic_ioctl.h"
  
-@@ -7823,9 +7827,8 @@ e1000_enable_mng_pass_thru(struct e1000_hw *hw)
-             fwsm = E1000_READ_REG(hw, FWSM);
-             factps = E1000_READ_REG(hw, FACTPS);
- 
--            if (((fwsm & E1000_FWSM_MODE_MASK) ==
--                (e1000_mng_mode_pt << E1000_FWSM_MODE_SHIFT)) &&
--                (factps & E1000_FACTPS_MNGCG))
-+            if ((((fwsm & E1000_FWSM_MODE_MASK) >> E1000_FWSM_MODE_SHIFT) ==
-+                   e1000_mng_mode_pt) && !(factps & E1000_FACTPS_MNGCG))
-                 return TRUE;
-         } else
-             if ((manc & E1000_MANC_SMBUS_EN) && !(manc & E1000_MANC_ASF_EN))
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index fef1f7b..18a4ae4 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -1301,6 +1301,7 @@ struct e1000_ffvt_entry {
- #define E1000_82542_RSSIR       E1000_RSSIR
- #define E1000_82542_KUMCTRLSTA E1000_KUMCTRLSTA
- #define E1000_82542_SW_FW_SYNC E1000_SW_FW_SYNC
-+#define E1000_82542_MANC2H      E1000_MANC2H
- 
- /* Statistics counters collected by the MAC */
- struct e1000_hw_stats {
-@@ -1461,6 +1462,7 @@ struct e1000_hw {
- 	boolean_t		leave_av_bit_off;
- 	boolean_t		kmrn_lock_loss_workaround_disabled;
- 	boolean_t		bad_tx_carr_stats_fd;
-+	boolean_t		has_manc2h;
+ struct netxen_nic_stats {
+ 	char stat_string[ETH_GSTRING_LEN];
+@@ -79,8 +78,7 @@ static const struct netxen_nic_stats net
+ 	{"tx_bytes", NETXEN_NIC_STAT(stats.txbytes)},
  };
  
+-#define NETXEN_NIC_STATS_LEN	\
+-	sizeof(netxen_nic_gstrings_stats) / sizeof(struct netxen_nic_stats)
++#define NETXEN_NIC_STATS_LEN	ARRAY_SIZE(netxen_nic_gstrings_stats)
  
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 0816de2..7a51283 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -464,6 +464,52 @@ e1000_get_hw_control(struct e1000_adapter *adapter)
+ static const char netxen_nic_gstrings_test[][ETH_GSTRING_LEN] = {
+ 	"Register_Test_offline", "EEPROM_Test_offline",
+@@ -711,7 +709,6 @@ netxen_nic_get_ethtool_stats(struct net_
+ 		    (netxen_nic_gstrings_stats[index].sizeof_stat ==
+ 		     sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
  	}
+-
  }
  
-+static void
-+e1000_init_manageability(struct e1000_adapter *adapter)
-+{
-+	if (adapter->en_mng_pt) {
-+		uint32_t manc = E1000_READ_REG(&adapter->hw, MANC);
-+
-+		/* disable hardware interception of ARP */
-+		manc &= ~(E1000_MANC_ARP_EN);
-+
-+		/* enable receiving management packets to the host */
-+		/* this will probably generate destination unreachable messages
-+		 * from the host OS, but the packets will be handled on SMBUS */
-+		if (adapter->hw.has_manc2h) {
-+			uint32_t manc2h = E1000_READ_REG(&adapter->hw, MANC2H);
-+
-+			manc |= E1000_MANC_EN_MNG2HOST;
-+#define E1000_MNG2HOST_PORT_623 (1 << 5)
-+#define E1000_MNG2HOST_PORT_664 (1 << 6)
-+			manc2h |= E1000_MNG2HOST_PORT_623;
-+			manc2h |= E1000_MNG2HOST_PORT_664;
-+			E1000_WRITE_REG(&adapter->hw, MANC2H, manc2h);
-+		}
-+
-+		E1000_WRITE_REG(&adapter->hw, MANC, manc);
-+	}
-+}
-+
-+static void
-+e1000_release_manageability(struct e1000_adapter *adapter)
-+{
-+	if (adapter->en_mng_pt) {
-+		uint32_t manc = E1000_READ_REG(&adapter->hw, MANC);
-+
-+		/* re-enable hardware interception of ARP */
-+		manc |= E1000_MANC_ARP_EN;
-+
-+		if (adapter->hw.has_manc2h)
-+			manc &= ~E1000_MANC_EN_MNG2HOST;
-+
-+		/* don't explicitly have to mess with MANC2H since
-+		 * MANC has an enable disable that gates MANC2H */
-+
-+		E1000_WRITE_REG(&adapter->hw, MANC, manc);
-+	}
-+}
-+
- int
- e1000_up(struct e1000_adapter *adapter)
- {
-@@ -475,6 +521,7 @@ e1000_up(struct e1000_adapter *adapter)
- 	e1000_set_multi(netdev);
- 
- 	e1000_restore_vlan(adapter);
-+	e1000_init_manageability(adapter);
- 
- 	e1000_configure_tx(adapter);
- 	e1000_setup_rctl(adapter);
-@@ -614,7 +661,7 @@ e1000_reinit_locked(struct e1000_adapter *adapter)
- void
- e1000_reset(struct e1000_adapter *adapter)
- {
--	uint32_t pba, manc;
-+	uint32_t pba;
- 	uint16_t fc_high_water_mark = E1000_FC_HIGH_DIFF;
- 
- 	/* Repartition Pba for greater than 9k mtu
-@@ -705,14 +752,7 @@ e1000_reset(struct e1000_adapter *adapter)
- 		                    phy_data);
- 	}
- 
--	if ((adapter->en_mng_pt) &&
--	    (adapter->hw.mac_type >= e1000_82540) &&
--	    (adapter->hw.mac_type < e1000_82571) &&
--	    (adapter->hw.media_type == e1000_media_type_copper)) {
--		manc = E1000_READ_REG(&adapter->hw, MANC);
--		manc |= (E1000_MANC_ARP_EN | E1000_MANC_EN_MNG2HOST);
--		E1000_WRITE_REG(&adapter->hw, MANC, manc);
--	}
-+	e1000_release_manageability(adapter);
+ struct ethtool_ops netxen_nic_ethtool_ops = {
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 9147b60..5dac50c 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -997,297 +997,3 @@ void netxen_nic_flash_print(struct netxe
+ 		       fw_major, fw_minor);
  }
  
- /**
-@@ -1078,22 +1118,13 @@ e1000_remove(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
--	uint32_t manc;
- #ifdef CONFIG_E1000_NAPI
- 	int i;
- #endif
- 
- 	flush_scheduled_work();
- 
--	if (adapter->hw.mac_type >= e1000_82540 &&
--	    adapter->hw.mac_type < e1000_82571 &&
--	    adapter->hw.media_type == e1000_media_type_copper) {
--		manc = E1000_READ_REG(&adapter->hw, MANC);
--		if (manc & E1000_MANC_SMBUS_EN) {
--			manc |= E1000_MANC_ARP_EN;
--			E1000_WRITE_REG(&adapter->hw, MANC, manc);
--		}
--	}
-+	e1000_release_manageability(adapter);
- 
- 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
- 	 * would have already happened in close and is redundant. */
-@@ -5011,7 +5042,7 @@ e1000_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
--	uint32_t ctrl, ctrl_ext, rctl, manc, status;
-+	uint32_t ctrl, ctrl_ext, rctl, status;
- 	uint32_t wufc = adapter->wol;
- #ifdef CONFIG_PM
- 	int retval = 0;
-@@ -5080,16 +5111,12 @@ e1000_suspend(struct pci_dev *pdev, pm_message_t state)
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
- 	}
- 
--	if (adapter->hw.mac_type >= e1000_82540 &&
--	    adapter->hw.mac_type < e1000_82571 &&
--	    adapter->hw.media_type == e1000_media_type_copper) {
--		manc = E1000_READ_REG(&adapter->hw, MANC);
--		if (manc & E1000_MANC_SMBUS_EN) {
--			manc |= E1000_MANC_ARP_EN;
--			E1000_WRITE_REG(&adapter->hw, MANC, manc);
--			pci_enable_wake(pdev, PCI_D3hot, 1);
--			pci_enable_wake(pdev, PCI_D3cold, 1);
--		}
-+	e1000_release_manageability(adapter);
-+
-+	/* make sure adapter isn't asleep if manageability is enabled */
-+	if (adapter->en_mng_pt) {
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
- 	}
- 
- 	if (adapter->hw.phy_type == e1000_phy_igp_3)
-@@ -5115,7 +5142,7 @@ e1000_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
--	uint32_t manc, err;
-+	uint32_t err;
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	e1000_pci_restore_state(adapter);
-@@ -5135,19 +5162,13 @@ e1000_resume(struct pci_dev *pdev)
- 	e1000_reset(adapter);
- 	E1000_WRITE_REG(&adapter->hw, WUS, ~0);
- 
-+	e1000_init_manageability(adapter);
-+
- 	if (netif_running(netdev))
- 		e1000_up(adapter);
- 
- 	netif_device_attach(netdev);
- 
--	if (adapter->hw.mac_type >= e1000_82540 &&
--	    adapter->hw.mac_type < e1000_82571 &&
--	    adapter->hw.media_type == e1000_media_type_copper) {
--		manc = E1000_READ_REG(&adapter->hw, MANC);
--		manc &= ~(E1000_MANC_ARP_EN);
--		E1000_WRITE_REG(&adapter->hw, MANC, manc);
--	}
+-int netxen_crb_read_val(struct netxen_adapter *adapter, unsigned long off)
+-{
+-	int data;
+-	netxen_nic_hw_read_wx(adapter, off, &data, 4);
+-	return data;
+-}
 -
- 	/* If the controller is 82573 and f/w is AMT, do not set
- 	 * DRV_LOAD until the interface is up.  For all other cases,
- 	 * let the f/w know that the h/w is now under the control
-@@ -5248,7 +5269,8 @@ static void e1000_io_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev->priv;
--	uint32_t manc, swsm;
-+
-+	e1000_init_manageability(adapter);
- 
- 	if (netif_running(netdev)) {
- 		if (e1000_up(adapter)) {
-@@ -5259,26 +5281,14 @@ static void e1000_io_resume(struct pci_dev *pdev)
- 
- 	netif_device_attach(netdev);
- 
--	if (adapter->hw.mac_type >= e1000_82540 &&
--	    adapter->hw.mac_type < e1000_82571 &&
--	    adapter->hw.media_type == e1000_media_type_copper) {
--		manc = E1000_READ_REG(&adapter->hw, MANC);
--		manc &= ~(E1000_MANC_ARP_EN);
--		E1000_WRITE_REG(&adapter->hw, MANC, manc);
--	}
+-int netxen_nic_hw_write_ioctl(struct netxen_adapter *adapter, u64 off,
+-			      void *data, int len)
+-{
+-	void *addr;
+-	u64 offset = off;
+-	u8 *mem_ptr = NULL;
+-	unsigned long mem_base;
+-	unsigned long mem_page;
 -
--	switch (adapter->hw.mac_type) {
--	case e1000_82573:
--		swsm = E1000_READ_REG(&adapter->hw, SWSM);
--		E1000_WRITE_REG(&adapter->hw, SWSM,
--				swsm | E1000_SWSM_DRV_LOAD);
+-	if (ADDR_IN_WINDOW1(off)) {
+-		addr = NETXEN_CRB_NORMALIZE(adapter, off);
+-		if (!addr) {
+-			mem_base = pci_resource_start(adapter->ahw.pdev, 0);
+-			offset = NETXEN_CRB_NORMAL(off);
+-			mem_page = offset & PAGE_MASK;
+-			if (mem_page != ((offset + len - 1) & PAGE_MASK))
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE * 2);
+-			else
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE);
+-			if (mem_ptr == 0UL) {
+-				return 1;
+-			}
+-			addr = mem_ptr;
+-			addr += offset & (PAGE_SIZE - 1);
+-		}
+-	} else {
+-		addr = pci_base_offset(adapter, off);
+-		if (!addr) {
+-			mem_base = pci_resource_start(adapter->ahw.pdev, 0);
+-			mem_page = off & PAGE_MASK;
+-			if (mem_page != ((off + len - 1) & PAGE_MASK))
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE * 2);
+-			else
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE);
+-			if (mem_ptr == 0UL) {
+-				return 1;
+-			}
+-			addr = mem_ptr;
+-			addr += off & (PAGE_SIZE - 1);
+-		}
+-		netxen_nic_pci_change_crbwindow(adapter, 0);
+-	}
+-	switch (len) {
+-	case 1:
+-		writeb(*(u8 *) data, addr);
+-		break;
+-	case 2:
+-		writew(*(u16 *) data, addr);
+-		break;
+-	case 4:
+-		writel(*(u32 *) data, addr);
+-		break;
+-	case 8:
+-		writeq(*(u64 *) data, addr);
 -		break;
 -	default:
+-		DPRINTK(INFO,
+-			"writing data %lx to offset %llx, num words=%d\n",
+-			*(unsigned long *)data, off, (len >> 3));
+-
+-		netxen_nic_hw_block_write64((u64 __iomem *) data, addr,
+-					    (len >> 3));
 -		break;
 -	}
-+	/* If the controller is 82573 and f/w is AMT, do not set
-+	 * DRV_LOAD until the interface is up.  For all other cases,
-+	 * let the f/w know that the h/w is now under the control
-+	 * of the driver. */
-+	if (adapter->hw.mac_type != e1000_82573 ||
-+	    !e1000_check_mng_mode(&adapter->hw))
-+		e1000_get_hw_control(adapter);
+-
+-	if (!ADDR_IN_WINDOW1(off))
+-		netxen_nic_pci_change_crbwindow(adapter, 1);
+-	if (mem_ptr)
+-		iounmap(mem_ptr);
+-	return 0;
+-}
+-
+-int netxen_nic_hw_read_ioctl(struct netxen_adapter *adapter, u64 off,
+-			     void *data, int len)
+-{
+-	void *addr;
+-	u64 offset;
+-	u8 *mem_ptr = NULL;
+-	unsigned long mem_base;
+-	unsigned long mem_page;
+-
+-	if (ADDR_IN_WINDOW1(off)) {
+-		addr = NETXEN_CRB_NORMALIZE(adapter, off);
+-		if (!addr) {
+-			mem_base = pci_resource_start(adapter->ahw.pdev, 0);
+-			offset = NETXEN_CRB_NORMAL(off);
+-			mem_page = offset & PAGE_MASK;
+-			if (mem_page != ((offset + len - 1) & PAGE_MASK))
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE * 2);
+-			else
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE);
+-			if (mem_ptr == 0UL) {
+-				*(u8 *) data = 0;
+-				return 1;
+-			}
+-			addr = mem_ptr;
+-			addr += offset & (PAGE_SIZE - 1);
+-		}
+-	} else {
+-		addr = pci_base_offset(adapter, off);
+-		if (!addr) {
+-			mem_base = pci_resource_start(adapter->ahw.pdev, 0);
+-			mem_page = off & PAGE_MASK;
+-			if (mem_page != ((off + len - 1) & PAGE_MASK))
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE * 2);
+-			else
+-				mem_ptr =
+-				    ioremap(mem_base + mem_page, PAGE_SIZE);
+-			if (mem_ptr == 0UL)
+-				return 1;
+-			addr = mem_ptr;
+-			addr += off & (PAGE_SIZE - 1);
+-		}
+-		netxen_nic_pci_change_crbwindow(adapter, 0);
+-	}
+-	switch (len) {
+-	case 1:
+-		*(u8 *) data = readb(addr);
+-		break;
+-	case 2:
+-		*(u16 *) data = readw(addr);
+-		break;
+-	case 4:
+-		*(u32 *) data = readl(addr);
+-		break;
+-	case 8:
+-		*(u64 *) data = readq(addr);
+-		break;
+-	default:
+-		netxen_nic_hw_block_read64((u64 __iomem *) data, addr,
+-					   (len >> 3));
+-		break;
+-	}
+-	if (!ADDR_IN_WINDOW1(off))
+-		netxen_nic_pci_change_crbwindow(adapter, 1);
+-	if (mem_ptr)
+-		iounmap(mem_ptr);
+-	return 0;
+-}
+-
+-int netxen_nic_pci_mem_write_ioctl(struct netxen_adapter *adapter, u64 off,
+-				   void *data, int size)
+-{
+-	void *addr;
+-	int ret = 0;
+-	u8 *mem_ptr = NULL;
+-	unsigned long mem_base;
+-	unsigned long mem_page;
+-
+-	if (data == NULL || off > (128 * 1024 * 1024)) {
+-		printk(KERN_ERR "%s: data: %p off:%llx\n",
+-		       netxen_nic_driver_name, data, off);
+-		return 1;
+-	}
+-	off = netxen_nic_pci_set_window(adapter, off);
+-	/* Corner case : Malicious user tried to break the driver by reading
+-	   last few bytes in ranges and tries to read further addresses.
+-	 */
+-	if (!pci_base(adapter, off + size - 1) && pci_base(adapter, off)) {
+-		printk(KERN_ERR "%s: Invalid access to memory address range"
+-		       " 0x%llx - 0x%llx\n", netxen_nic_driver_name, off,
+-		       off + size);
+-		return 1;
+-	}
+-	addr = pci_base_offset(adapter, off);
+-	DPRINTK(INFO, "writing data %llx to offset %llx\n",
+-		*(unsigned long long *)data, off);
+-	if (!addr) {
+-		mem_base = pci_resource_start(adapter->ahw.pdev, 0);
+-		mem_page = off & PAGE_MASK;
+-		/* Map two pages whenever user tries to access addresses in two
+-		   consecutive pages.
+-		 */
+-		if (mem_page != ((off + size - 1) & PAGE_MASK))
+-			mem_ptr = ioremap(mem_base + mem_page, PAGE_SIZE * 2);
+-		else
+-			mem_ptr = ioremap(mem_base + mem_page, PAGE_SIZE);
+-		if (mem_ptr == 0UL) {
+-			return 1;
+-		}
+-		addr = mem_ptr;
+-		addr += off & (PAGE_SIZE - 1);
+-	}
+-	switch (size) {
+-	case 1:
+-		writeb(*(u8 *) data, addr);
+-		break;
+-	case 2:
+-		writew(*(u16 *) data, addr);
+-		break;
+-	case 4:
+-		writel(*(u32 *) data, addr);
+-		break;
+-	case 8:
+-		writeq(*(u64 *) data, addr);
+-		break;
+-	default:
+-		DPRINTK(INFO,
+-			"writing data %lx to offset %llx, num words=%d\n",
+-			*(unsigned long *)data, off, (size >> 3));
+-
+-		netxen_nic_hw_block_write64((u64 __iomem *) data, addr,
+-					    (size >> 3));
+-		break;
+-	}
+-
+-	if (mem_ptr)
+-		iounmap(mem_ptr);
+-	DPRINTK(INFO, "wrote %llx\n", *(unsigned long long *)data);
+-
+-	return ret;
+-}
+-
+-int netxen_nic_pci_mem_read_ioctl(struct netxen_adapter *adapter,
+-				  u64 off, void *data, int size)
+-{
+-	void *addr;
+-	int ret = 0;
+-	u8 *mem_ptr = NULL;
+-	unsigned long mem_base;
+-	unsigned long mem_page;
+-
+-	if (data == NULL || off > (128 * 1024 * 1024)) {
+-		printk(KERN_ERR "%s: data: %p off:%llx\n",
+-		       netxen_nic_driver_name, data, off);
+-		return 1;
+-	}
+-	off = netxen_nic_pci_set_window(adapter, off);
+-	/* Corner case : Malicious user tried to break the driver by reading
+-	   last few bytes in ranges and tries to read further addresses.
+-	 */
+-	if (!pci_base(adapter, off + size - 1) && pci_base(adapter, off)) {
+-		printk(KERN_ERR "%s: Invalid access to memory address range"
+-		       " 0x%llx - 0x%llx\n", netxen_nic_driver_name, off,
+-		       off + size);
+-		return 1;
+-	}
+-	addr = pci_base_offset(adapter, off);
+-	if (!addr) {
+-		mem_base = pci_resource_start(adapter->ahw.pdev, 0);
+-		mem_page = off & PAGE_MASK;
+-		/* Map two pages whenever user tries to access addresses in two
+-		   consecutive pages.
+-		 */
+-		if (mem_page != ((off + size - 1) & PAGE_MASK))
+-			mem_ptr = ioremap(mem_base + mem_page, PAGE_SIZE * 2);
+-		else
+-			mem_ptr = ioremap(mem_base + mem_page, PAGE_SIZE);
+-		if (mem_ptr == 0UL) {
+-			*(u8 *) data = 0;
+-			return 1;
+-		}
+-		addr = mem_ptr;
+-		addr += off & (PAGE_SIZE - 1);
+-	}
+-	switch (size) {
+-	case 1:
+-		*(u8 *) data = readb(addr);
+-		break;
+-	case 2:
+-		*(u16 *) data = readw(addr);
+-		break;
+-	case 4:
+-		*(u32 *) data = readl(addr);
+-		break;
+-	case 8:
+-		*(u64 *) data = readq(addr);
+-		break;
+-	default:
+-		netxen_nic_hw_block_read64((u64 __iomem *) data, addr,
+-					   (size >> 3));
+-		break;
+-	}
+-
+-	if (mem_ptr)
+-		iounmap(mem_ptr);
+-	DPRINTK(INFO, "read %llx\n", *(unsigned long long *)data);
+-
+-	return ret;
+-}
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 869725f..deacc61 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -35,7 +35,6 @@ #include <linux/netdevice.h>
+ #include <linux/delay.h>
+ #include "netxen_nic.h"
+ #include "netxen_nic_hw.h"
+-#include "netxen_nic_ioctl.h"
+ #include "netxen_nic_phan_reg.h"
  
--	if (netif_running(netdev))
--		mod_timer(&adapter->watchdog_timer, jiffies);
+ struct crb_addr_pair {
+@@ -1273,52 +1272,6 @@ int netxen_nic_tx_has_work(struct netxen
+ 	return 0;
  }
  
- /* e1000_main.c */
+-int
+-netxen_nic_fill_statistics(struct netxen_adapter *adapter,
+-			   struct netxen_port *port,
+-			   struct netxen_statistics *netxen_stats)
+-{
+-	void __iomem *addr;
+-
+-	if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
+-		netxen_nic_pci_change_crbwindow(adapter, 0);
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_TX_BYTE_CNT,
+-					   &(netxen_stats->tx_bytes));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_TX_FRAME_CNT,
+-					   &(netxen_stats->tx_packets));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_RX_BYTE_CNT,
+-					   &(netxen_stats->rx_bytes));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_RX_FRAME_CNT,
+-					   &(netxen_stats->rx_packets));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_AGGR_ERROR_CNT,
+-					   &(netxen_stats->rx_errors));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_CRC_ERROR_CNT,
+-					   &(netxen_stats->rx_crc_errors));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR,
+-					   &(netxen_stats->
+-					     rx_long_length_error));
+-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR,
+-					   &(netxen_stats->
+-					     rx_short_length_error));
+-
+-		netxen_nic_pci_change_crbwindow(adapter, 1);
+-	} else {
+-		spin_lock_bh(&adapter->tx_lock);
+-		netxen_stats->tx_bytes = port->stats.txbytes;
+-		netxen_stats->tx_packets = port->stats.xmitedframes +
+-		    port->stats.xmitfinished;
+-		netxen_stats->rx_bytes = port->stats.rxbytes;
+-		netxen_stats->rx_packets = port->stats.no_rcv;
+-		netxen_stats->rx_errors = port->stats.rcvdbadskb;
+-		netxen_stats->tx_errors = port->stats.nocmddescriptor;
+-		netxen_stats->rx_short_length_error = port->stats.uplcong;
+-		netxen_stats->rx_long_length_error = port->stats.uphcong;
+-		netxen_stats->rx_crc_errors = 0;
+-		netxen_stats->rx_mac_errors = 0;
+-		spin_unlock_bh(&adapter->tx_lock);
+-	}
+-	return 0;
+-}
+ 
+ void netxen_nic_clear_stats(struct netxen_adapter *adapter)
+ {
+@@ -1332,193 +1285,3 @@ void netxen_nic_clear_stats(struct netxe
+ 	}
+ }
+ 
+-int
+-netxen_nic_clear_statistics(struct netxen_adapter *adapter,
+-			    struct netxen_port *port)
+-{
+-	int data = 0;
+-
+-	netxen_nic_pci_change_crbwindow(adapter, 0);
+-
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_TX_BYTE_CNT, &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_TX_FRAME_CNT,
+-				    &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_RX_BYTE_CNT, &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_RX_FRAME_CNT,
+-				    &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_AGGR_ERROR_CNT,
+-				    &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_CRC_ERROR_CNT,
+-				    &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR,
+-				    &data);
+-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR,
+-				    &data);
+-
+-	netxen_nic_pci_change_crbwindow(adapter, 1);
+-	netxen_nic_clear_stats(adapter);
+-	return 0;
+-}
+-
+-int
+-netxen_nic_do_ioctl(struct netxen_adapter *adapter, void *u_data,
+-		    struct netxen_port *port)
+-{
+-	struct netxen_nic_ioctl_data data;
+-	struct netxen_nic_ioctl_data *up_data;
+-	int retval = 0;
+-	struct netxen_statistics netxen_stats;
+-
+-	up_data = (void *)u_data;
+-
+-	DPRINTK(INFO, "doing ioctl for %p\n", adapter);
+-	if (copy_from_user(&data, (void __user *)up_data, sizeof(data))) {
+-		/* evil user tried to crash the kernel */
+-		DPRINTK(ERR, "bad copy from userland: %d\n", (int)sizeof(data));
+-		retval = -EFAULT;
+-		goto error_out;
+-	}
+-
+-	/* Shouldn't access beyond legal limits of  "char u[64];" member */
+-	if (!data.ptr && (data.size > sizeof(data.u))) {
+-		/* evil user tried to crash the kernel */
+-		DPRINTK(ERR, "bad size: %d\n", data.size);
+-		retval = -EFAULT;
+-		goto error_out;
+-	}
+-
+-	switch (data.cmd) {
+-	case netxen_nic_cmd_pci_read:
+-		if ((retval = netxen_nic_hw_read_ioctl(adapter, data.off,
+-						       &(data.u), data.size)))
+-			goto error_out;
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
+-			DPRINTK(ERR, "bad copy to userland: %d\n",
+-				(int)sizeof(data));
+-			retval = -EFAULT;
+-			goto error_out;
+-		}
+-		data.rv = 0;
+-		break;
+-
+-	case netxen_nic_cmd_pci_write:
+-		if ((retval = netxen_nic_hw_write_ioctl(adapter, data.off,
+-							&(data.u), data.size)))
+-			goto error_out;
+-		data.rv = 0;
+-		break;
+-
+-	case netxen_nic_cmd_pci_mem_read:
+-		if (netxen_nic_pci_mem_read_ioctl(adapter, data.off, &(data.u),
+-						  data.size)) {
+-			DPRINTK(ERR, "Failed to read the data.\n");
+-			retval = -EFAULT;
+-			goto error_out;
+-		}
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
+-			DPRINTK(ERR, "bad copy to userland: %d\n",
+-				(int)sizeof(data));
+-			retval = -EFAULT;
+-			goto error_out;
+-		}
+-		data.rv = 0;
+-		break;
+-
+-	case netxen_nic_cmd_pci_mem_write:
+-		if ((retval = netxen_nic_pci_mem_write_ioctl(adapter, data.off,
+-							     &(data.u),
+-							     data.size)))
+-			goto error_out;
+-		data.rv = 0;
+-		break;
+-
+-	case netxen_nic_cmd_pci_config_read:
+-		switch (data.size) {
+-		case 1:
+-			data.rv = pci_read_config_byte(adapter->ahw.pdev,
+-						       data.off,
+-						       (char *)&(data.u));
+-			break;
+-		case 2:
+-			data.rv = pci_read_config_word(adapter->ahw.pdev,
+-						       data.off,
+-						       (short *)&(data.u));
+-			break;
+-		case 4:
+-			data.rv = pci_read_config_dword(adapter->ahw.pdev,
+-							data.off,
+-							(u32 *) & (data.u));
+-			break;
+-		}
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
+-			DPRINTK(ERR, "bad copy to userland: %d\n",
+-				(int)sizeof(data));
+-			retval = -EFAULT;
+-			goto error_out;
+-		}
+-		break;
+-
+-	case netxen_nic_cmd_pci_config_write:
+-		switch (data.size) {
+-		case 1:
+-			data.rv = pci_write_config_byte(adapter->ahw.pdev,
+-							data.off,
+-							*(char *)&(data.u));
+-			break;
+-		case 2:
+-			data.rv = pci_write_config_word(adapter->ahw.pdev,
+-							data.off,
+-							*(short *)&(data.u));
+-			break;
+-		case 4:
+-			data.rv = pci_write_config_dword(adapter->ahw.pdev,
+-							 data.off,
+-							 *(u32 *) & (data.u));
+-			break;
+-		}
+-		break;
+-
+-	case netxen_nic_cmd_get_stats:
+-		data.rv =
+-		    netxen_nic_fill_statistics(adapter, port, &netxen_stats);
+-		if (copy_to_user
+-		    ((void __user *)(up_data->ptr), (void *)&netxen_stats,
+-		     sizeof(struct netxen_statistics))) {
+-			DPRINTK(ERR, "bad copy to userland: %d\n",
+-				(int)sizeof(netxen_stats));
+-			retval = -EFAULT;
+-			goto error_out;
+-		}
+-		up_data->rv = data.rv;
+-		break;
+-
+-	case netxen_nic_cmd_clear_stats:
+-		data.rv = netxen_nic_clear_statistics(adapter, port);
+-		up_data->rv = data.rv;
+-		break;
+-
+-	case netxen_nic_cmd_get_version:
+-		if (copy_to_user
+-		    ((void __user *)&(up_data->u), NETXEN_NIC_LINUX_VERSIONID,
+-		     sizeof(NETXEN_NIC_LINUX_VERSIONID))) {
+-			DPRINTK(ERR, "bad copy to userland: %d\n",
+-				(int)sizeof(data));
+-			retval = -EFAULT;
+-			goto error_out;
+-		}
+-		break;
+-
+-	default:
+-		DPRINTK(INFO, "bad command %d for %p\n", data.cmd, adapter);
+-		retval = -EOPNOTSUPP;
+-		goto error_out;
+-	}
+-	put_user(data.rv, (&(up_data->rv)));
+-	DPRINTK(INFO, "done ioctl for %p well.\n", adapter);
+-
+-      error_out:
+-	return retval;
+-}
+diff --git a/drivers/net/netxen/netxen_nic_ioctl.h b/drivers/net/netxen/netxen_nic_ioctl.h
+deleted file mode 100644
+index 1221fa5..0000000
+--- a/drivers/net/netxen/netxen_nic_ioctl.h
++++ /dev/null
+@@ -1,77 +0,0 @@
+-/*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
+- * All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version 2
+- * of the License, or (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+- * MA  02111-1307, USA.
+- *
+- * The full GNU General Public License is included in this distribution
+- * in the file called LICENSE.
+- *
+- * Contact Information:
+- *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- */
+-
+-#ifndef __NETXEN_NIC_IOCTL_H__
+-#define __NETXEN_NIC_IOCTL_H__
+-
+-#include <linux/sockios.h>
+-
+-#define NETXEN_CMD_START	SIOCDEVPRIVATE
+-#define NETXEN_NIC_CMD		(NETXEN_CMD_START + 1)
+-#define NETXEN_NIC_NAME		(NETXEN_CMD_START + 2)
+-#define NETXEN_NIC_NAME_LEN	16
+-#define NETXEN_NIC_NAME_RSP	"NETXEN-UNM"
+-
+-typedef enum {
+-	netxen_nic_cmd_none = 0,
+-	netxen_nic_cmd_pci_read,
+-	netxen_nic_cmd_pci_write,
+-	netxen_nic_cmd_pci_mem_read,
+-	netxen_nic_cmd_pci_mem_write,
+-	netxen_nic_cmd_pci_config_read,
+-	netxen_nic_cmd_pci_config_write,
+-	netxen_nic_cmd_get_stats,
+-	netxen_nic_cmd_clear_stats,
+-	netxen_nic_cmd_get_version
+-} netxen_nic_ioctl_cmd_t;
+-
+-struct netxen_nic_ioctl_data {
+-	u32 cmd;
+-	u32 unused1;
+-	u64 off;
+-	u32 size;
+-	u32 rv;
+-	char u[64];
+-	void *ptr;
+-};
+-
+-struct netxen_statistics {
+-	u64 rx_packets;
+-	u64 tx_packets;
+-	u64 rx_bytes;
+-	u64 rx_errors;
+-	u64 tx_bytes;
+-	u64 tx_errors;
+-	u64 rx_crc_errors;
+-	u64 rx_short_length_error;
+-	u64 rx_long_length_error;
+-	u64 rx_mac_errors;
+-};
+-
+-#endif				/* __NETXEN_NIC_IOCTL_H_ */
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 575b71b..1658ca1 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -38,7 +38,6 @@ #include "netxen_nic_hw.h"
+ #include "netxen_nic.h"
+ #define DEFINE_GLOBAL_RECV_CRB
+ #include "netxen_nic_phan_reg.h"
+-#include "netxen_nic_ioctl.h"
+ 
+ #include <linux/dma-mapping.h>
+ #include <linux/vmalloc.h>
+@@ -75,8 +74,6 @@ static void netxen_tx_timeout(struct net
+ static void netxen_tx_timeout_task(struct work_struct *work);
+ static void netxen_watchdog(unsigned long);
+ static int netxen_handle_int(struct netxen_adapter *, struct net_device *);
+-static int netxen_nic_ioctl(struct net_device *netdev,
+-			    struct ifreq *ifr, int cmd);
+ static int netxen_nic_poll(struct net_device *dev, int *budget);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void netxen_nic_poll_controller(struct net_device *netdev);
+@@ -383,7 +380,6 @@ #endif
+ 		netdev->set_multicast_list = netxen_nic_set_multi;
+ 		netdev->set_mac_address = netxen_nic_set_mac;
+ 		netdev->change_mtu = netxen_nic_change_mtu;
+-		netdev->do_ioctl = netxen_nic_ioctl;
+ 		netdev->tx_timeout = netxen_tx_timeout;
+ 		netdev->watchdog_timeo = HZ;
+ 
+@@ -1137,47 +1133,6 @@ static void netxen_nic_poll_controller(s
+ 	enable_irq(adapter->irq);
+ }
+ #endif
+-/*
+- * netxen_nic_ioctl ()    We provide the tcl/phanmon support through these
+- * ioctls.
+- */
+-static int
+-netxen_nic_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+-{
+-	int err = 0;
+-	unsigned long nr_bytes = 0;
+-	struct netxen_port *port = netdev_priv(netdev);
+-	struct netxen_adapter *adapter = port->adapter;
+-	char dev_name[NETXEN_NIC_NAME_LEN];
+-
+-	DPRINTK(INFO, "doing ioctl for %s\n", netdev->name);
+-	switch (cmd) {
+-	case NETXEN_NIC_CMD:
+-		err = netxen_nic_do_ioctl(adapter, (void *)ifr->ifr_data, port);
+-		break;
+-
+-	case NETXEN_NIC_NAME:
+-		DPRINTK(INFO, "ioctl cmd for NetXen\n");
+-		if (ifr->ifr_data) {
+-			sprintf(dev_name, "%s-%d", NETXEN_NIC_NAME_RSP,
+-				port->portnum);
+-			nr_bytes =
+-			    copy_to_user((char __user *)ifr->ifr_data, dev_name,
+-					 NETXEN_NIC_NAME_LEN);
+-			if (nr_bytes)
+-				err = -EIO;
+-
+-		}
+-		break;
+-
+-	default:
+-		DPRINTK(INFO, "ioctl cmd %x not supported\n", cmd);
+-		err = -EOPNOTSUPP;
+-		break;
+-	}
+-
+-	return err;
+-}
+ 
+ static struct pci_driver netxen_driver = {
+ 	.name = netxen_nic_driver_name,
+-- 
+1.4.2.4
 
---------------070006040008050004010905--
