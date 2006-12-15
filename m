@@ -1,40 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
-Date: Thu, 14 Dec 2006 19:22:18 -0800
-Message-ID: <20061214192218.35a7f8e1@localhost.localdomain>
-References: <87mz5qnf5q.fsf@sycorax.lbl.gov>
-	<E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH 2/6] d80211: create "wifi.h" to define WIFI OUIs
+Date: Fri, 15 Dec 2006 11:22:36 +0800
+Message-ID: <1166152956.2929.93.camel@debian.sh.intel.com>
+References: <20061214040216.GA10652@mail.intel.com>
+	 <20061214113150.54523e61@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: romosan@sycorax.lbl.gov (Alex Romosan), netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:55623 "EHLO smtp.osdl.org"
+Received: from mga02.intel.com ([134.134.136.20]:20374 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751740AbWLODXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 22:23:01 -0500
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
+	id S1751742AbWLODZA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 22:25:00 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061214113150.54523e61@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Dec 2006 13:24:32 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Thu, 2006-12-14 at 11:31 +0100, Jiri Benc wrote:
+> AFAIK "wifi" is a trademark and we want to avoid using it. "wlan" seems
+> to be a better alternative for the prefixes. Also, I don't see a reason
+> for a separate header file here.
 
-> Alex Romosan <romosan@sycorax.lbl.gov> wrote:
->  /** does the HW need to evaluate checksum for TCP or UDP packets?
-> > if (pMessage->ip_summed == CHECKSUM_HW)
-> > 
-> > maybe this needs to be replace with CHECKSUM_PARTIAL. the second one
-> > 
-> > /** TCP checksum offload
-> > if ((pSKPacket->pMbuf->ip_summed == CHECKSUM_HW) &&
-> > (SetOpcodePacketFlag == SK_TRUE)
-> > 
-> > i wonder if this is supposed to be CHECKSUM_COMPLETE
-> 
-> The rule of thumb is that it's COMPLETE for RX, and PARTIAL for TX.
-> 
-> Cheers,
+WI-FI(r) is a trademark, but wifi and WIFI_XXX are not. I'm OK with
+putting these to existed headers.
 
-I have a fixed up version of the vendor driver, I'll repackage it tomorrow.
+Thanks,
+-yi
