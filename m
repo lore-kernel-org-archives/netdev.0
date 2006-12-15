@@ -1,35 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 05/14] e1000: Fix Wake-on-Lan with forced gigabit speed
-Date: Fri, 15 Dec 2006 11:00:00 -0500
-Message-ID: <4582C680.1050604@garzik.org>
-References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <1166175226.3365.119.camel@laptopd505.fenrus.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [Bridge] Bridge & it's MAC address question
+Date: Fri, 15 Dec 2006 17:04:29 +0100
+Message-ID: <20061215160429.GC12679@xi.wantstofly.org>
+References: <200610301527.15018.dim@openvz.org> <20061030072837.51177183@localhost.localdomain> <20061215131908.GC11579@xi.wantstofly.org> <20061215075236.321e6a07@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org,
+	bridge@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55822 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751689AbWLOQAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 11:00:05 -0500
-To: Arjan van de Ven <arjan@linux.intel.com>
-In-Reply-To: <1166175226.3365.119.camel@laptopd505.fenrus.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:57892 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbWLOQEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 11:04:31 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061215075236.321e6a07@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan van de Ven wrote:
-> Subject: e1000: Fix Wake-on-Lan with forced gigabit speed
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+[ dropped subscriber-only openvz.org list ]
+
+On Fri, Dec 15, 2006 at 07:52:36AM -0800, Stephen Hemminger wrote:
+
+> > > The bridge physical address is the minimum of all the attached devices.
+> > > This is done because the STP standard requires it.  You can reset it
+> > > to be the same as any of the attached devices. This will not cause a
+> > > problem unless using STP.
+> > 
+> > You can in fact use any MAC address.  The STP standard recommends using
+> > the minimum address, as that is deterministic, and so it doesn't depend
+> > on the order in which you enslave subdevices.
 > 
-> If the user has forced gigabit speed, phy power management must be disabled;
-> otherwise the NIC would try to negotiate to a linkspeed of 10/100 mbit on
-> shutdown, which would lead to a total loss of link. This loss of link breaks
-> Wake-on-Lan and IPMI.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> So should restriction be lifted?
 
-ACK patches 5 and 6
+We should definitely allow users to override the MAC address of a
+bridge interface.
 
 
+> Please update wiki page FAQ, or I'll do it
+
+Please do.
