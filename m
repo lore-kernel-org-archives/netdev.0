@@ -1,39 +1,52 @@
-From: Vitaly Wool <vitalywool@gmail.com>
-Subject: [PATCH] smc911x: fix netpoll compilation faliure
-Date: Fri, 15 Dec 2006 16:13:28 +0300
-Message-ID: <20061215161328.9797232d.vitalywool@gmail.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: Bridge & it's MAC address question
+Date: Fri, 15 Dec 2006 14:19:08 +0100
+Message-ID: <20061215131908.GC11579@xi.wantstofly.org>
+References: <200610301527.15018.dim@openvz.org>
+	<20061030072837.51177183@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:40501 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1752107AbWLONUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 08:20:03 -0500
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitry Mishin <dim@openvz.org>, netdev@vger.kernel.org, bridge@osdl.org,
+   devel@openvz.org
+Return-path: <bridge-bounces@lists.osdl.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061030072837.51177183@localhost.localdomain>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.osdl.org>
+List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
+Sender: bridge-bounces@lists.osdl.org
+Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Hello folks,
+On Mon, Oct 30, 2006 at 07:28:37AM -0800, Stephen Hemminger wrote:
 
-the trivial patch below fixes the compilation failure for smc911x.c when NET_POLL_CONTROLLER is set.
+> > Could somebody explain, why bridge uses minimal MAC of the attached dev=
+ices?
+> > It makes this address instable, variable during bridge life-cycle, whic=
+h is =
 
- drivers/net/smc911x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> > not good for DHCP. For example, I want to attach multiple virtual devic=
+es to =
 
-Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
+> > one physical. Then, I need to make sure that after each virtual device =
 
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index 2c43433..797ab91 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -1331,7 +1331,7 @@ smc911x_rx_dma_irq(int dma, void *data)
- static void smc911x_poll_controller(struct net_device *dev)
- {
- 	disable_irq(dev->irq);
--	smc911x_interrupt(dev->irq, dev, NULL);
-+	smc911x_interrupt(dev->irq, dev);
- 	enable_irq(dev->irq);
- }
- #endif
+> > addition, bridge addr is not changed and still addr of the physical dev=
+ice.  =
+
+> > Why not to use MAC of the first attached device?
+> =
+
+> The bridge physical address is the minimum of all the attached devices.
+> This is done because the STP standard requires it.  You can reset it
+> to be the same as any of the attached devices. This will not cause a
+> problem unless using STP.
+
+You can in fact use any MAC address.  The STP standard recommends using
+the minimum address, as that is deterministic, and so it doesn't depend
+on the order in which you enslave subdevices.
