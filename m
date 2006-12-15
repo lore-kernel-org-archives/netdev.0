@@ -1,120 +1,57 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 13/14] e1000: 3 new driver stats for managability testing
-Date: Fri, 15 Dec 2006 11:17:23 -0500
-Message-ID: <4582CA93.5040206@garzik.org>
-References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <1166175701.3365.135.camel@laptopd505.fenrus.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 0/10] cxgb3: Chelsio T3 1G/10G ethernet device driver
+Date: Fri, 15 Dec 2006 10:57:58 -0600
+Message-ID: <1166201878.2304.11.camel@stevo-desktop>
+References: <4580E3D7.3050708@chelsio.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050108030508090408050800"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55972 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752814AbWLOQRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 11:17:25 -0500
-To: Arjan van de Ven <arjan@linux.intel.com>
-In-Reply-To: <1166175701.3365.135.camel@laptopd505.fenrus.org>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:52490 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752902AbWLOQ56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 11:57:58 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4580E3D7.3050708@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050108030508090408050800
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hey Jeff,
 
-Arjan van de Ven wrote:
-> Subject: e1000: 3 new driver stats for managability testing
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Is this driver in your queue for merging?  The Chelsio T3 RDMA driver
+that depends on the T3 Ethernet driver is also ready to be merged.
+
+I was just wondering if its in queue, or if there is something else we
+need to do.
+
+Thanks,
+
+Steve.
+
+
+On Wed, 2006-12-13 at 21:40 -0800, Divy Le Ray wrote:
+> Jeff,
 > 
-> Add 3 extra packet redirect counters for tracking purposes to make sure we
-> can test that all packets arrive properly.
+> I resubmit the patch supporting the latest Chelsio T3 adapter.
+> It incorporates the last feedbacks for code cleanup.
+> It is built gainst Linus'tree.
 > 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> We think the driver is now ready to be merged.
+> Can you please advise on the next steps for inclusion in 2.6.20 ?
+> 
+> A corresponding monolithic patch is posted at the following URL:
+> http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+> 
+> This driver is required by the Chelsio T3 RDMA driver
+> which was updated on 12/10/2006.
+> 
+> Cheers,
+> Divy
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-as revised...
-
-
---------------050108030508090408050800
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch"
-
-commit 979b575f7666d12157d8b975f022bf8fb6d23c64
-Author: Jeff Garzik <jeff@garzik.org>
-Date:   Fri Dec 15 11:16:33 2006 -0500
-
-    e1000: 3 new driver stats for managability testing
-    
-    Add 3 extra packet redirect counters for tracking purposes to make sure
-    we can test that all packets arrive properly.
-    
-    Originally from Jesse Brandeburg <jesse.brandeburg@intel.com>,
-    rewritten to use feature flags by me.
-    
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
-
-979b575f7666d12157d8b975f022bf8fb6d23c64
-diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
-index da459f7..fb96c87 100644
---- a/drivers/net/e1000/e1000_ethtool.c
-+++ b/drivers/net/e1000/e1000_ethtool.c
-@@ -100,6 +100,9 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
- 	{ "rx_csum_offload_errors", E1000_STAT(hw_csum_err) },
- 	{ "rx_header_split", E1000_STAT(rx_hdr_split) },
- 	{ "alloc_rx_buff_failed", E1000_STAT(alloc_rx_buff_failed) },
-+	{ "tx_smbus", E1000_STAT(stats.mgptc) },
-+	{ "rx_smbus", E1000_STAT(stats.mgprc) },
-+	{ "dropped_smbus", E1000_STAT(stats.mgpdc) },
- };
- 
- #define E1000_QUEUE_STATS_LEN 0
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 5a6a61e..9be4469 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -458,6 +458,9 @@ e1000_set_mac_type(struct e1000_hw *hw)
- 	if (hw->mac_type == e1000_80003es2lan)
- 		hw->rx_needs_kicking = TRUE;
- 
-+	if (hw->mac_type > e1000_82544)
-+		hw->has_smbus = TRUE;
-+
- 	return E1000_SUCCESS;
- }
- 
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index 15b8625..d671058 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -1464,6 +1464,7 @@ struct e1000_hw {
- 	boolean_t		bad_tx_carr_stats_fd;
- 	boolean_t		has_manc2h;
- 	boolean_t		rx_needs_kicking;
-+	boolean_t		has_smbus;
- };
- 
- 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 3f40a90..b06b51a 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3743,6 +3743,13 @@ e1000_update_stats(struct e1000_adapter *adapter)
- 			adapter->phy_stats.receive_errors += phy_tmp;
- 	}
- 
-+	/* Management Stats */
-+	if (adapter->hw.has_smbus) {
-+		adapter->stats.mgptc += E1000_READ_REG(hw, MGTPTC);
-+		adapter->stats.mgprc += E1000_READ_REG(hw, MGTPRC);
-+		adapter->stats.mgpdc += E1000_READ_REG(hw, MGTPDC);
-+	}
-+
- 	spin_unlock_irqrestore(&adapter->stats_lock, flags);
- }
- #ifdef CONFIG_PCI_MSI
-
---------------050108030508090408050800--
