@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3][BNX2]: Fix bug in bnx2_nvram_write().
-Date: Thu, 14 Dec 2006 15:57:25 -0800 (PST)
-Message-ID: <20061214.155725.119273211.davem@davemloft.net>
-References: <1166063439.30522.6.camel@rh4>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: agospoda@redhat.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56935
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751051AbWLOA2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 19:28:55 -0500
-To: mchan@broadcom.com
-In-Reply-To: <1166063439.30522.6.camel@rh4>
-Sender: netdev-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: dhcpclient netlink bugs (was Re: [NETLINK]: Schedule removal of old macros exported to userspace)
+Date: Fri, 15 Dec 2006 11:46:50 +1100
+Message-ID: <E1Gv1Du-0002B1-00@gondolin.me.apana.org.au>
+References: <200612120757.24880.stefan@loplof.de>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, libc-alpha@sourceware.org
+Return-path: <libc-alpha-return-19699-glibc-alpha=m.gmane.org@sourceware.org>
+To: stefan@loplof.de (Stefan Rompf)
+In-Reply-To: <200612120757.24880.stefan@loplof.de>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 13 Dec 2006 18:30:39 -0800
+Stefan Rompf <stefan@loplof.de> wrote:
+>
+> Yes, the code has quite some trust into the kernel that if it answers the 
+> asked question the answer is semantically correct. But to be fair, if you 
+> issue a write(), you also expect the number of bytes written in return and 
+> not the msec taken ;-) Will fix that and the other stuff you pointed out, 
+> thanks!
 
-> [BNX2]: Fix bug in bnx2_nvram_write().
-> 
-> Length was not calculated correctly if the NVRAM offset is on a non-
-> aligned offset.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+I hope you checked that the message is really from the kernel (based on
+saddr).  Unconnected sockets can receive messages from any user on the
+host.
 
-Applied, thanks a lot.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
