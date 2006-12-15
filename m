@@ -1,42 +1,40 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH 1/6] d80211: add IEEE802.11e/WMM MLMEs, Status Code and
-	Reason Code
-Date: Fri, 15 Dec 2006 11:18:53 +0800
-Message-ID: <1166152733.2929.89.camel@debian.sh.intel.com>
-References: <20061214040204.GA10643@mail.intel.com>
-	 <20061214112704.1442a344@griffin.suse.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
+Date: Thu, 14 Dec 2006 19:22:18 -0800
+Message-ID: <20061214192218.35a7f8e1@localhost.localdomain>
+References: <87mz5qnf5q.fsf@sycorax.lbl.gov>
+	<E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michael Wu <flamingice@sourmilk.net>
+Cc: romosan@sycorax.lbl.gov (Alex Romosan), netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30760 "EHLO mga02.intel.com"
+Received: from smtp.osdl.org ([65.172.181.25]:55623 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751640AbWLODVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Dec 2006 22:21:16 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061214112704.1442a344@griffin.suse.cz>
+	id S1751740AbWLODXB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 22:23:01 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-12-14 at 11:27 +0100, Jiri Benc wrote:
-> On Thu, 14 Dec 2006 12:02:04 +0800, Zhu Yi wrote:
-> > Signed-off-by: Zhu Yi <yi.zhu@intel.com>
-> 
-> Please Cc: me and John Linville on d80211 patches otherwise your
-> chances of review (and inclusion) are much lower.
-> 
-> In addition to comments from Michael (which are all perfectly valid and
-> you need to address all of them):
-> 
-> > +struct ieee802_11_ts_info {
-> 
-> Choose a name consistent with the rest of the header (e.g. ieee80211_
-> prefix).
+On Fri, 15 Dec 2006 13:24:32 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-OK.
+> Alex Romosan <romosan@sycorax.lbl.gov> wrote:
+>  /** does the HW need to evaluate checksum for TCP or UDP packets?
+> > if (pMessage->ip_summed == CHECKSUM_HW)
+> > 
+> > maybe this needs to be replace with CHECKSUM_PARTIAL. the second one
+> > 
+> > /** TCP checksum offload
+> > if ((pSKPacket->pMbuf->ip_summed == CHECKSUM_HW) &&
+> > (SetOpcodePacketFlag == SK_TRUE)
+> > 
+> > i wonder if this is supposed to be CHECKSUM_COMPLETE
+> 
+> The rule of thumb is that it's COMPLETE for RX, and PARTIAL for TX.
+> 
+> Cheers,
 
-Thanks,
--yi
+I have a fixed up version of the vendor driver, I'll repackage it tomorrow.
