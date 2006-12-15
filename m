@@ -1,174 +1,118 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/3] chelsio: NAPI speed improvement
-Date: Fri, 15 Dec 2006 11:07:18 -0800
-Message-ID: <20061215190813.718242000@osdl.org>
-References: <20061215190716.956791000@osdl.org>
-Cc: netdev@vger.kernel.org
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] rt2x00: Fix PKT_PROBE_RESP breakage
+Date: Fri, 15 Dec 2006 20:39:20 +0100
+Message-ID: <200612152039.20635.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Linville, John" <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	rt2400-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:36266 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753233AbWLOTMp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 14:12:45 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=chelsio-napi2.patch
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:46543
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300AbWLOTkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 14:40:15 -0500
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Speedup and cleanup the receive processing by eliminating the
-mmio read and a lock round trip.
+Fix breakage from removal of PKT_PROBE_RESP.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
----
- drivers/net/chelsio/sge.c |   82 ++++++++++++++++++++--------------------------
- 1 file changed, 37 insertions(+), 45 deletions(-)
 
---- linux-2.6.20-rc1.orig/drivers/net/chelsio/sge.c
-+++ linux-2.6.20-rc1/drivers/net/chelsio/sge.c
-@@ -1576,6 +1576,14 @@ static int process_responses(struct adap
- 	return budget;
- }
+Index: jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+===================================================================
+--- jbenc-dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-15 19:43:04.000000000 +0100
++++ jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-12-15 19:43:14.000000000 +0100
+@@ -1427,8 +1427,11 @@ static void rt2400pci_write_tx_desc(stru
+ 	 * Beacons and probe responses require the tsf timestamp
+ 	 * to be inserted into the frame.
+ 	 */
+-	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++	if (control->queue == IEEE80211_TX_QUEUE_BEACON)
++		req_timestamp = 1;
++	if ((frame_control & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT &&
++	    (frame_control & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP)
++		req_timestamp = 1;
  
-+static inline int responses_pending(const struct adapter *adapter)
-+{
-+	const struct respQ *Q = &adapter->sge->respQ;
-+	const struct respQ_e *e = &Q->entries[Q->cidx];
-+
-+	return (e->GenerationBit == Q->genbit);
-+}
-+
- #ifdef CONFIG_CHELSIO_T1_NAPI
- /*
-  * A simpler version of process_responses() that handles only pure (i.e.,
-@@ -1585,13 +1593,16 @@ static int process_responses(struct adap
-  * which the caller must ensure is a valid pure response.  Returns 1 if it
-  * encounters a valid data-carrying response, 0 otherwise.
-  */
--static int process_pure_responses(struct adapter *adapter, struct respQ_e *e)
-+static int process_pure_responses(struct adapter *adapter)
- {
- 	struct sge *sge = adapter->sge;
- 	struct respQ *q = &sge->respQ;
-+	struct respQ_e *e = &q->entries[q->cidx];
- 	unsigned int flags = 0;
- 	unsigned int cmdq_processed[SGE_CMDQ_N] = {0, 0};
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+Index: jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+===================================================================
+--- jbenc-dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-15 19:43:04.000000000 +0100
++++ jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-12-15 19:43:14.000000000 +0100
+@@ -1568,8 +1568,11 @@ static void rt2500pci_write_tx_desc(stru
+ 	 * Beacons and probe responses require the tsf timestamp
+ 	 * to be inserted into the frame.
+ 	 */
+-	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++	if (control->queue == IEEE80211_TX_QUEUE_BEACON)
++		req_timestamp = 1;
++	if ((frame_control & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT &&
++	    (frame_control & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP)
++		req_timestamp = 1;
  
-+	if (e->DataValid)
-+		return 1;
- 	do {
- 		flags |= e->Qsleeping;
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+Index: jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+===================================================================
+--- jbenc-dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-15 19:43:04.000000000 +0100
++++ jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-12-15 19:43:14.000000000 +0100
+@@ -1539,8 +1539,11 @@ static void rt2500usb_write_tx_desc(stru
+ 	 * Beacons and probe responses require the tsf timestamp
+ 	 * to be inserted into the frame.
+ 	 */
+-	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++	if (control->queue == IEEE80211_TX_QUEUE_BEACON)
++		req_timestamp = 1;
++	if ((frame_control & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT &&
++	    (frame_control & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP)
++		req_timestamp = 1;
  
-@@ -1627,22 +1638,17 @@ static int process_pure_responses(struct
- int t1_poll(struct net_device *dev, int *budget)
- {
- 	struct adapter *adapter = dev->priv;
--	int effective_budget = min(*budget, dev->quota);
--	int work_done = process_responses(adapter, effective_budget);
-+	int work_done;
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+Index: jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+===================================================================
+--- jbenc-dscape.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-15 15:58:04.000000000 +0100
++++ jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-12-15 19:44:13.000000000 +0100
+@@ -2023,8 +2023,11 @@ static void rt61pci_write_tx_desc(struct
+ 	 * Beacons and probe responses require the tsf timestamp
+ 	 * to be inserted into the frame.
+ 	 */
+-	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++	if (control->queue == IEEE80211_TX_QUEUE_BEACON)
++		req_timestamp = 1;
++	if ((frame_control & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT &&
++	    (frame_control & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP)
++		req_timestamp = 1;
  
-+	work_done = process_responses(adapter, min(*budget, dev->quota));
- 	*budget -= work_done;
- 	dev->quota -= work_done;
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
+Index: jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+===================================================================
+--- jbenc-dscape.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-15 15:58:04.000000000 +0100
++++ jbenc-dscape/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-12-15 19:46:11.000000000 +0100
+@@ -1802,8 +1802,11 @@ static void rt73usb_write_tx_desc(struct
+ 	 * Beacons and probe responses require the tsf timestamp
+ 	 * to be inserted into the frame.
+ 	 */
+-	req_timestamp = !!(control->queue == IEEE80211_TX_QUEUE_BEACON ||
+-		  	   control->pkt_type == PKT_PROBE_RESP);
++	if (control->queue == IEEE80211_TX_QUEUE_BEACON)
++		req_timestamp = 1;
++	if ((frame_control & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT &&
++	    (frame_control & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP)
++		req_timestamp = 1;
  
--	if (work_done >= effective_budget)
-+	if (unlikely(responses_pending(adapter)))
- 		return 1;
- 
-- 	spin_lock_irq(&adapter->async_lock);
--	__netif_rx_complete(dev);
-+	netif_rx_complete(dev);
- 	writel(adapter->sge->respQ.cidx, adapter->regs + A_SG_SLEEPING);
--	writel(adapter->slow_intr_mask | F_PL_INTR_SGE_DATA,
--	       adapter->regs + A_PL_ENABLE);
-- 	spin_unlock_irq(&adapter->async_lock);
--
- 	return 0;
- }
- 
-@@ -1652,44 +1658,34 @@ int t1_poll(struct net_device *dev, int 
- irqreturn_t t1_interrupt(int irq, void *data)
- {
- 	struct adapter *adapter = data;
-- 	struct net_device *dev = adapter->sge->netdev;
- 	struct sge *sge = adapter->sge;
-- 	u32 cause;
--	int handled = 0;
-+	int handled;
- 
--	cause = readl(adapter->regs + A_PL_CAUSE);
--	if (cause == 0 || cause == ~0)
--		return IRQ_NONE;
-+	if (likely(responses_pending(adapter))) {
-+		struct net_device *dev = sge->netdev;
- 
--	spin_lock(&adapter->async_lock);
-- 	if (cause & F_PL_INTR_SGE_DATA) {
--		struct respQ *q = &adapter->sge->respQ;
--		struct respQ_e *e = &q->entries[q->cidx];
--
-- 		handled = 1;
-- 		writel(F_PL_INTR_SGE_DATA, adapter->regs + A_PL_CAUSE);
--
--		if (e->GenerationBit == q->genbit &&
--		    __netif_rx_schedule_prep(dev)) {
--			if (e->DataValid || process_pure_responses(adapter, e)) {
--				/* mask off data IRQ */
--				writel(adapter->slow_intr_mask,
--				       adapter->regs + A_PL_ENABLE);
--				__netif_rx_schedule(sge->netdev);
--				goto unlock;
--			}
--			/* no data, no NAPI needed */
--			netif_poll_enable(dev);
-+		writel(F_PL_INTR_SGE_DATA, adapter->regs + A_PL_CAUSE);
- 
-+		if (__netif_rx_schedule_prep(dev)) {
-+			if (process_pure_responses(adapter)) {
-+				__netif_rx_schedule(dev);
-+			} else {
-+				/* no data, no NAPI needed */
-+				writel(sge->respQ.cidx,
-+				       adapter->regs + A_SG_SLEEPING);
-+				netif_poll_enable(dev);	/* undo schedule_prep */
-+			}
- 		}
--		writel(q->cidx, adapter->regs + A_SG_SLEEPING);
--	} else
--		handled = t1_slow_intr_handler(adapter);
-+		return IRQ_HANDLED;
-+	}
-+
-+	spin_lock(&adapter->async_lock);
-+	handled = t1_slow_intr_handler(adapter);
-+	spin_unlock(&adapter->async_lock);
- 
- 	if (!handled)
- 		sge->stats.unhandled_irqs++;
--unlock:
--	spin_unlock(&adapter->async_lock);
-+
- 	return IRQ_RETVAL(handled != 0);
- }
- 
-@@ -1712,17 +1708,13 @@ unlock:
- irqreturn_t t1_interrupt(int irq, void *cookie)
- {
- 	int work_done;
--	struct respQ_e *e;
- 	struct adapter *adapter = cookie;
--	struct respQ *Q = &adapter->sge->respQ;
- 
- 	spin_lock(&adapter->async_lock);
--	e = &Q->entries[Q->cidx];
--	prefetch(e);
- 
- 	writel(F_PL_INTR_SGE_DATA, adapter->regs + A_PL_CAUSE);
- 
--	if (likely(e->GenerationBit == Q->genbit))
-+	if (likely(responses_pending(adapter))
- 		work_done = process_responses(adapter, -1);
- 	else
- 		work_done = t1_slow_intr_handler(adapter);
+ 	/*
+ 	 * Determine with what IFS priority this frame should be send.
 
 -- 
-
+Greetings Michael.
