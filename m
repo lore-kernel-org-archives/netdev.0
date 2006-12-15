@@ -1,49 +1,71 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a
- linked list
-Date: Fri, 15 Dec 2006 14:48:59 +0100
-Message-ID: <20061215144859.49a9c8f3@griffin.suse.cz>
-References: <200612141920.11439.mb@bu3sch.de>
+Subject: Re: [PATCH 3/6] d80211: fix classify_1d() priority selection
+Date: Fri, 15 Dec 2006 14:53:26 +0100
+Message-ID: <20061215145326.46af16de@griffin.suse.cz>
+References: <20061214040227.GA10661@mail.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Simon Barber <simon@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:47723 "EHLO mail.suse.cz"
+Received: from styx.suse.cz ([82.119.242.94]:47795 "EHLO mail.suse.cz"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752136AbWLONs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 08:48:29 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200612141920.11439.mb@bu3sch.de>
+	id S1752145AbWLONw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 08:52:57 -0500
+To: yi.zhu@intel.com
+In-Reply-To: <20061214040227.GA10661@mail.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Dec 2006 19:20:11 +0100, Michael Buesch wrote:
-> This turns the PHY-modes list into a linked list.
-> The advantage is that drivers can add modes dynamically, as they probe
-> them and don't have to settle to a given arraysize at the beginning
-> of probing.
+On Thu, 14 Dec 2006 12:02:27 +0800, Zhu Yi wrote:
+> I don't see any reason why packets with DSCP=0x40 should have lower IEEE
+> 802.1D priority than packets with DSCP=0x20. Spare > Background. No?
 
-ACK.
+Applied to my tree, thanks.
 
-> @@ -198,8 +200,7 @@ static int ieee80211_ioctl_scan(struct n
->  		param->u.scan.last_rx = local->scan.rx_packets;
->  		local->scan.rx_packets = -1;
->  	}
-> -	param->u.scan.channel = local->hw.modes[local->scan.mode_idx].
-> -		channels[local->scan.chan_idx].chan;
-> +	param->u.scan.channel = 
-> local->scan.mode->channels[local->scan.chan_idx].chan;
->  
->  	return 0;
->  }
+I also applied the following patch on top of it:
 
-The patch is malformed. Fixed and applied to my tree.
+--
+Subject: [PATCH] d80211: simplify classify_1d
 
-Thanks,
+The switch in classify_1d can be simplified to a bit operation.
 
- Jiri
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
+
+---
+ net/d80211/wme.c |   19 ++-----------------
+ 1 files changed, 2 insertions(+), 17 deletions(-)
+
+--- dscape.orig/net/d80211/wme.c
++++ dscape/net/d80211/wme.c
+@@ -129,24 +129,9 @@ static inline unsigned classify_1d(struc
+ 	ip = (struct iphdr *) (skb->data + offset);
+ 
+ 	dscp = ip->tos & 0xfc;
+-	switch (dscp) {
+-	case 0x20:
+-		return 1;
+-	case 0x40:
+-		return 2;
+-	case 0x60:
+-		return 3;
+-	case 0x80:
+-		return 4;
+-	case 0xa0:
+-		return 5;
+-	case 0xc0:
+-		return 6;
+-	case 0xe0:
+-		return 7;
+-	default:
++	if (dscp & 0x1c)
+ 		return 0;
+-	}
++	return dscp >> 5;
+ }
+ 
 
 -- 
 Jiri Benc
