@@ -1,61 +1,82 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 03/14] e1000: omit stats for broken counter in 82543
-Date: Fri, 15 Dec 2006 09:30:21 -0500
-Message-ID: <4582B17D.3070500@garzik.org>
-References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <1166175100.3365.115.camel@laptopd505.fenrus.org>
+Subject: Re: [patch 04/14] e1000: consolidate managability enabling/disabling
+Date: Fri, 15 Dec 2006 09:32:30 -0500
+Message-ID: <4582B1FE.5070801@garzik.org>
+References: <1166174907.3365.108.camel@laptopd505.fenrus.org> <1166175176.3365.118.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55112 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55128 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752621AbWLOOaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 09:30:23 -0500
+	id S1752001AbWLOOcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 09:32:32 -0500
 To: Arjan van de Ven <arjan@linux.intel.com>
-In-Reply-To: <1166175100.3365.115.camel@laptopd505.fenrus.org>
+In-Reply-To: <1166175176.3365.118.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Arjan van de Ven wrote:
-> Subject: e1000: omit stats for broken counter in 82543
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> The 82543 chip does not count tx_carrier_errors properly in FD mode;
-> report zeros instead of garbage.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-> ---
-> 
->  drivers/net/e1000/e1000_main.c |    5 +++++
->  1 file changed, 5 insertions(+), 0 deletion(-)
-> 
-> Index: linux-2.6/drivers/net/e1000/e1000_main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/e1000/e1000_main.c
-> +++ linux-2.6/drivers/net/e1000/e1000_main.c
-> @@ -3580,7 +3580,12 @@ e1000_update_stats(struct e1000_adapter 
->  	adapter->net_stats.tx_errors = adapter->stats.txerrc;
->  	adapter->net_stats.tx_aborted_errors = adapter->stats.ecol;
->  	adapter->net_stats.tx_window_errors = adapter->stats.latecol;
->  	adapter->net_stats.tx_carrier_errors = adapter->stats.tncrs;
-> +	if (adapter->hw.mac_type == e1000_82543 &&
-> +	    adapter->link_duplex == FULL_DUPLEX) {
-> +		adapter->net_stats.tx_carrier_errors = 0;
-> +		adapter->stats.tncrs = 0;
+> +static void
+> +e1000_init_manageability(struct e1000_adapter *adapter)
+> +{
+> +	if (adapter->en_mng_pt) {
+> +		uint32_t manc2h = E1000_READ_REG(&adapter->hw, MANC2H);
+> +		uint32_t manc = E1000_READ_REG(&adapter->hw, MANC);
+> +
+> +		/* disable hardware interception of ARP */
+> +		manc &= ~(E1000_MANC_ARP_EN);
+> +
+> +		/* enable receiving management packets to the host */
+> +		/* this will probably generate destination unreachable messages
+> +		 * from the host OS, but the packets will be handled on SMBUS */
+> +		if (adapter->hw.mac_type >= e1000_82571) {
+> +			manc |= E1000_MANC_EN_MNG2HOST;
+> +#define E1000_MNG2HOST_PORT_623 (1 << 5)
+> +#define E1000_MNG2HOST_PORT_664 (1 << 6)
+> +			manc2h |= E1000_MNG2HOST_PORT_623;
+> +			manc2h |= E1000_MNG2HOST_PORT_664;
+> +			E1000_WRITE_REG(&adapter->hw, MANC2H, manc2h);
+> +		}
+> +
+> +		E1000_WRITE_REG(&adapter->hw, MANC, manc);
 > +	}
+> +}
+> +
+> +static void
+> +e1000_release_manageability(struct e1000_adapter *adapter)
+> +{
+> +	if (adapter->en_mng_pt) {
+> +		uint32_t manc = E1000_READ_REG(&adapter->hw, MANC);
+> +
+> +		/* re-enable hardware interception of ARP */
+> +		manc |= E1000_MANC_ARP_EN;
+> +
+> +		if (adapter->hw.mac_type >= e1000_82571)
+> +			manc &= ~E1000_MANC_EN_MNG2HOST;
+> +
+> +		/* don't explicitly have to mess with MANC2H since
+> +		 * MANC has an enable disable that gates MANC2H */
+> +
+> +		E1000_WRITE_REG(&adapter->hw, MANC, manc);
+> +	}
+> +}
 
-Needs to use an "i have broken stats" feature flag, rather than adding 
-yet another mac_type test into the code.  This testing of MAC type 
-rather than feature flags is a major e1000 problem, and it bloats the 
-driver quite a bit.  Intel has been told for /months/ this is a problem, 
-yet I still see patches like this.
-
-This is one of the comments I sent to Auke.
-
-	Jeff
+This patch adds more error-probe mac_type tests, rather than a simple 
+and tough-to-screw-up E1000_HAS_MGMT feature bit.
 
 
+> +	/* If the controller is 82573 and f/w is AMT, do not set
+> +	 * DRV_LOAD until the interface is up.  For all other cases,
+> +	 * let the f/w know that the h/w is now under the control
+> +	 * of the driver. */
+> +	if (adapter->hw.mac_type != e1000_82573 ||
+> +	    !e1000_check_mng_mode(&adapter->hw))
+> +		e1000_get_hw_control(adapter);
+>  
+> -	if (netif_running(netdev))
+> -		mod_timer(&adapter->watchdog_timer, jiffies);
+
+ditto
 
