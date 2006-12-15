@@ -1,71 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 13/22] e1000: disable TSO when debugging slab
-Date: Fri, 15 Dec 2006 13:42:14 +1100
-Message-ID: <E1Gv31a-0002Vl-00@gondolin.me.apana.org.au>
-References: <457D6F69.9090509@pobox.com>
-Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, auke@foo-projects.org,
-	john.ronciak@intel.com
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH 1/6] d80211: add IEEE802.11e/WMM MLMEs, Status Code and
+	Reason Code
+Date: Fri, 15 Dec 2006 11:18:53 +0800
+Message-ID: <1166152733.2929.89.camel@debian.sh.intel.com>
+References: <20061214040204.GA10643@mail.intel.com>
+	 <20061214112704.1442a344@griffin.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Wu <flamingice@sourmilk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4681 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965044AbWLOCmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Dec 2006 21:42:38 -0500
-To: jgarzik@pobox.com (Jeff Garzik)
-In-Reply-To: <457D6F69.9090509@pobox.com>
+Received: from mga02.intel.com ([134.134.136.20]:30760 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751640AbWLODVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Dec 2006 22:21:16 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20061214112704.1442a344@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->>  
->> +#ifdef CONFIG_DEBUG_SLAB
->> +     /* 82544's work arounds do not play nicely with DEBUG SLAB */
->> +     if (adapter->hw.mac_type == e1000_82544)
->> +             netdev->features &= ~NETIF_F_TSO;
->> +#endif
+On Thu, 2006-12-14 at 11:27 +0100, Jiri Benc wrote:
+> On Thu, 14 Dec 2006 12:02:04 +0800, Zhu Yi wrote:
+> > Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 > 
-> ACK, provided that you greatly enhance the comment to explain -why-, not 
-> just the desired results.
+> Please Cc: me and John Linville on d80211 patches otherwise your
+> chances of review (and inclusion) are much lower.
+> 
+> In addition to comments from Michael (which are all perfectly valid and
+> you need to address all of them):
+> 
+> > +struct ieee802_11_ts_info {
+> 
+> Choose a name consistent with the rest of the header (e.g. ieee80211_
+> prefix).
 
-Actually, CONFIG_DEBUG_SLAB is not the only thing that can break the
-82544 work-around, Xen for example will also generate packets that
-breaks it.  Jesse has a more recent fix that resolves both problems.
+OK.
 
-I've updated his patch to make it smaller.
-
-Note that the only reason we don't see this normally is because the
-TCP stack starts writing from the end, i.e., it writes the TCP header
-first then slaps on the IP header, etc.  So the end of the TCP header
-(skb->tail - 1 here) is always aligned correctly.
-
-Had we made the start of the IP header (e.g., IPv6) 8-byte aligned
-instead, this would happen for normal TCP traffic as well.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 73f3a85..2c6ba42 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3168,6 +3168,16 @@ #ifdef NETIF_F_TSO
- 		if (skb->data_len && (hdr_len == (skb->len - skb->data_len))) {
- 			switch (adapter->hw.mac_type) {
- 				unsigned int pull_size;
-+			case e1000_82544:
-+				/* Make sure we have room to chop off 4 bytes,
-+				 * and that the end alignment will work out to
-+				 * this hardware's requirements
-+				 * NOTE: this is a TSO only workaround
-+				 * if end byte alignment not correct move us
-+				 * into the next dword */
-+				if ((unsigned long)(skb->tail - 1) & 4)
-+					break;
-+				/* fall through */
- 			case e1000_82571:
- 			case e1000_82572:
- 			case e1000_82573:
+Thanks,
+-yi
