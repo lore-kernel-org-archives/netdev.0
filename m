@@ -1,58 +1,69 @@
-From: Carlos =?ISO-8859-1?Q?Mart=EDn?= Nieto <carlos@cmartin.tk>
-Subject: Re: acx-20060215 for etch
-Date: Sat, 16 Dec 2006 12:43:06 +0100
-Message-ID: <1166269386.2168.13.camel@localhost>
-References: <4582F838.9050308@telus.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/sctp/: make 2 functions static
+Date: Sat, 16 Dec 2006 14:57:03 +0100
+Message-ID: <20061216135703.GE3388@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-wpduv4Ia5aQBFXBqpn5g"
-Cc: perbj@stanford.edu, netdev@vger.kernel.org,
-	acx100-devel@lists.sourceforge.net,
-	acx100-users@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: lksctp-developers@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 200.red-82-159-198.user.auna.net ([82.159.198.200]:43875 "EHLO
-	indy.cmartin.tk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965430AbWLPMBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Dec 2006 07:01:07 -0500
-To: jeffery <bucove@telus.net>
-In-Reply-To: <4582F838.9050308@telus.net>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:3345 "HELO
+	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753716AbWLPN5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Dec 2006 08:57:04 -0500
+To: sri@us.ibm.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch makes the following needlessly global functions static:
+- ipv6.c: sctp_inet6addr_event()
+- protocol.c: sctp_inetaddr_event()
 
---=-wpduv4Ia5aQBFXBqpn5g
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-On vie, 2006-12-15 at 11:32 -0800, jeffery wrote:
-> pci.c needed a fix for etch..
->=20
-> I added the includes for utsrelease.h as they were needed for the=20
-> declaration of UTS_RELEASE in debian etch...
->=20
-> as the acx tarball downloaded into debian etch:
+---
 
- This is an old tarball. Current in etch is acx-20060521-3. If you do
-want to fix it up for Debian, you want to talk to the Debian maintainer
-for it. (you can get info about the package at
-http://packages.qa.debian.org/a/acx100.html)
+ include/net/sctp/sctp.h |    2 --
+ net/sctp/ipv6.c         |    4 ++--
+ net/sctp/protocol.c     |    4 ++--
+ 3 files changed, 4 insertions(+), 6 deletions(-)
 
-   cmn
---=20
-Carlos Mart=C3=ADn Nieto    |   http://www.cmartin.tk
-Hobbyist programmer    |
-
-
---=-wpduv4Ia5aQBFXBqpn5g
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBFg9vKEVXxXOiy6a4RAisdAJ4rPKfvB1mwwRuhVAW3TNxOhh4f0wCeMTSj
-Y4gjh8OM2bixfct/w3tYZ0Q=
-=E+uV
------END PGP SIGNATURE-----
-
---=-wpduv4Ia5aQBFXBqpn5g--
+--- linux-2.6.20-rc1-mm1/net/sctp/ipv6.c.old	2006-12-16 01:05:15.000000000 +0100
++++ linux-2.6.20-rc1-mm1/net/sctp/ipv6.c	2006-12-16 01:05:40.000000000 +0100
+@@ -79,8 +79,8 @@
+ #include <asm/uaccess.h>
+ 
+ /* Event handler for inet6 address addition/deletion events.  */
+-int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+-                        void *ptr)
++static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
++				void *ptr)
+ {
+ 	struct inet6_ifaddr *ifa = (struct inet6_ifaddr *)ptr;
+ 	struct sctp_sockaddr_entry *addr;
+--- linux-2.6.20-rc1-mm1/include/net/sctp/sctp.h.old	2006-12-16 01:05:47.000000000 +0100
++++ linux-2.6.20-rc1-mm1/include/net/sctp/sctp.h	2006-12-16 01:05:53.000000000 +0100
+@@ -128,8 +128,6 @@
+ 				     int flags);
+ extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+ extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
+-int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+-                        void *ptr);
+ 
+ /*
+  * sctp/socket.c
+--- linux-2.6.20-rc1-mm1/net/sctp/protocol.c.old	2006-12-16 01:05:59.000000000 +0100
++++ linux-2.6.20-rc1-mm1/net/sctp/protocol.c	2006-12-16 01:06:07.000000000 +0100
+@@ -601,8 +601,8 @@
+ }
+ 
+ /* Event handler for inet address addition/deletion events.  */
+-int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+-                        void *ptr)
++static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
++			       void *ptr)
+ {
+ 	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+ 	struct sctp_sockaddr_entry *addr;
 
