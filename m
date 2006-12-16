@@ -1,48 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
-Date: Fri, 15 Dec 2006 17:25:20 -0800
-Message-ID: <20061215172520.62022520@freekitty>
-References: <87mz5qnf5q.fsf@sycorax.lbl.gov>
-	<E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
-	<20061214192218.35a7f8e1@localhost.localdomain>
-	<878xh9rf06.fsf@sycorax.lbl.gov>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 0/2] A bugfix patchset for NetLabel
+Date: Fri, 15 Dec 2006 20:19:56 -0500 (EST)
+Message-ID: <XMMS.LNX.4.64.0612151840370.26929@d.namei>
+References: <20061215214926.018950000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:33851 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030422AbWLPBZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 20:25:56 -0500
-To: Alex Romosan <romosan@sycorax.lbl.gov>
-In-Reply-To: <878xh9rf06.fsf@sycorax.lbl.gov>
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:46340 "EHLO
+	mail6.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030526AbWLPB0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 20:26:38 -0500
+To: paul.moore@hp.com
+In-Reply-To: <20061215214926.018950000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Dec 2006 19:53:45 -0800
-Alex Romosan <romosan@sycorax.lbl.gov> wrote:
+On Fri, 15 Dec 2006, paul.moore@hp.com wrote:
 
-> Stephen Hemminger <shemminger@osdl.org> writes:
-> 
-> > I have a fixed up version of the vendor driver, I'll repackage it tomorrow.
-> 
-> as per the include file, i ended up replacing all the CHECKSUM_HW with
-> CHECkSUM_PARTIAL since the functions in questions had to do with
-> transmit. seems to be working so far without any lockups. we'll see
-> how long this lasts.
-> 
-> --alex--
-> 
+> This patch set fixes two bugs that were found recently when adding new CIPSOv4
+> DOI definitions.  These patches are pretty small and have been tested by a few
+> different people on several different platforms.
 
-I fixed a bunch of stuff (see ChangeLog) and made a 2.6.19 or later
-version see:
-	http://developer.osdl.org/shemminger/prototypes/sk98lin-8.41.tar.gz
+Applied to git://git.infradead.org/~jmorris/selinux-2.6#fixes
 
-It is too noisy in the console log, because it shows how many times
-the driver dope slaps itself senseless...  Basically every 250ms when
-it is idle it resets, sorry it's the kind of code you right to "make it work"
-and ship it which is why vendor drivers suck.
+> Please apply these for 2.6.20 and they should probably be pushed to the 2.6.19
+> stable tree as well; is there anything special I need to do for that?
+
+I'm not sure that they qualify.
+
+The first is a privileged operation, right?
+
+For the second, what are the implications of mapping to zero?
+
+
+Also review Documentation/stable_kernel_rules.txt.
+
+
+
+
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+James Morris
+<jmorris@namei.org>
