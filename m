@@ -1,46 +1,81 @@
-From: Alex Romosan <romosan@sycorax.lbl.gov>
-Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
-Date: Fri, 15 Dec 2006 17:53:11 -0800
-Message-ID: <87odq4y5bs.fsf@sycorax.lbl.gov>
-References: <87mz5qnf5q.fsf@sycorax.lbl.gov>
-	<E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
-	<20061214192218.35a7f8e1@localhost.localdomain>
-	<878xh9rf06.fsf@sycorax.lbl.gov> <20061215172520.62022520@freekitty>
+From: David Young <dyoung@pobox.com>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver
+Date: Fri, 15 Dec 2006 21:03:22 -0600
+Message-ID: <20061216030322.GV31900@che.ojctech.com>
+References: <20061215225123.GA3231@dmt> <200612152152.25419.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Cc: Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Dan Williams <dcbw@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"John W. Linville" <linville@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sycorax.lbl.gov ([128.3.5.196]:3678 "EHLO sycorax.lbl.gov"
+Received: from che.ojctech.com ([64.198.255.2]:52965 "EHLO che.ojctech.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753222AbWLPBxS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 20:53:18 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061215172520.62022520@freekitty> (message from Stephen
-	Hemminger on Fri, 15 Dec 2006 17:25:20 -0800)
+	id S932138AbWLPDNM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 22:13:12 -0500
+To: Michael Wu <flamingice@sourmilk.net>
+Content-Disposition: inline
+In-Reply-To: <200612152152.25419.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+On Fri, Dec 15, 2006 at 09:52:20PM -0500, Michael Wu wrote:
+> On Friday 15 December 2006 17:51, Marcelo Tosatti wrote:
+> >--- a/include/net/ieee80211_radiotap.h
+> >+++ b/include/net/ieee80211_radiotap.h
+> >@@ -168,6 +168,23 @@ struct ieee80211_radiotap_header {
+> >  *      Unitless indication of the Rx/Tx antenna for this packet.
+> >  *      The first antenna is antenna 0.
+> >  *
+> >+ * IEEE80211_RADIOTAP_RX_FLAGS          u_int16_t       bitmap
+> >+ *
+> >+ *     Properties of received frames. See flags defined below.
+> >+ *
+> >+ * IEEE80211_RADIOTAP_TX_FLAGS          u_int16_t       bitmap
+> >+ *
+> >+ *     Properties of transmitted frames. See flags defined below.
+> >+ *
+> >+ * IEEE80211_RADIOTAP_RTS_RETRIES       u_int8_t        data
+> >+ *
+> >+ *     Number of rts retries a transmitted frame used.
+> >+ *
+> >+ * IEEE80211_RADIOTAP_DATA_RETRIES      u_int8_t        data
+> >+ *
+> >+ *     Number of unicast retries a transmitted frame used.
+> >+ *
+> >+ *
+> >  * IEEE80211_RADIOTAP_FCS              u32       data
+> >  *
+> >  *     FCS from frame in network byte order.
+> >@@ -187,7 +204,11 @@ enum ieee80211_radiotap_type {
+> >        IEEE80211_RADIOTAP_ANTENNA = 11,
+> >        IEEE80211_RADIOTAP_DB_ANTSIGNAL = 12,
+> >        IEEE80211_RADIOTAP_DB_ANTNOISE = 13,
+> >-       IEEE80211_RADIOTAP_EXT = 31,
+> >+       IEEE80211_RADIOTAP_RX_FLAGS = 14,
+> >+       IEEE80211_RADIOTAP_TX_FLAGS = 15,
+> >+       IEEE80211_RADIOTAP_RTS_RETRIES = 16,
+> >+       IEEE80211_RADIOTAP_DATA_RETRIES = 17,
+> >+       IEEE80211_RADIOTAP_EXT = 31
+> > };
+> >
+> > /* Channel flags. */
+> Did you send this part to netbsd also? We really don't want to fork 
+> radiotap. ;) Also, this should be in a separate patch, but I'm guessing it's 
+> all rolled together for convenience.
 
-> I fixed a bunch of stuff (see ChangeLog) and made a 2.6.19 or later
-> version see:
-> 	http://developer.osdl.org/shemminger/prototypes/sk98lin-8.41.tar.gz
->
-> It is too noisy in the console log, because it shows how many times
-> the driver dope slaps itself senseless...  Basically every 250ms when
-> it is idle it resets, sorry it's the kind of code you right to "make it work"
-> and ship it which is why vendor drivers suck.
+No, especially since NetBSD is where I keep the authoritative definitions.
 
-i'll give it a try on monday when i go back to work. in the meantime
-i've been running with my "fixed" version of the vendor driver and so
-far it's been working without any problems (i've been transferring
-lots of data in and out of the computer the whole day). if there is
-anything i can do to help debug the kernel sky2 driver let me know.
+How have you defined RX_FLAGS and TX_FLAGS?
 
---alex--
+BTW, IEEE80211_RADIOTAP_FCS (above) never made it into radiotap.  No bit
+is reserved.
+
+Dave
 
 -- 
-| I believe the moment is at hand when, by a paranoiac and active |
-|  advance of the mind, it will be possible (simultaneously with  |
-|  automatism and other passive states) to systematize confusion  |
-|  and thus to help to discredit completely the world of reality. |
+David Young             OJC Technologies
+dyoung@ojctech.com      Urbana, IL * (217) 278-3933
