@@ -1,42 +1,61 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a linked list
-Date: Sat, 1 Jan 2000 01:23:26 +0100
-Message-ID: <200001010123.27251.mb@bu3sch.de>
-References: <200612141920.11439.mb@bu3sch.de> <200612160140.16446.flamingice@sourmilk.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: linux-2.6.20-rc1-gd1998ef3 build #203 failed
+Date: Sat, 16 Dec 2006 18:12:49 +0300
+Message-ID: <20061216151249.GA28463@2ka.mipt.ru>
+References: <200612161546.47455.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@suse.cz, linville@tuxdriver.com, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39314
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161036AbWLPPN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Dec 2006 10:13:58 -0500
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200612160140.16446.flamingice@sourmilk.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:56477 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161044AbWLPPTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Dec 2006 10:19:54 -0500
+To: Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>
 Content-Disposition: inline
+In-Reply-To: <200612161546.47455.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 16 December 2006 07:40, Michael Wu wrote:
-> On Thursday 14 December 2006 13:20, Michael Buesch wrote:
-> > -int ieee80211_update_hw(struct ieee80211_hw *hw)
-> > +int ieee80211_register_hwmode(struct ieee80211_hw *hw,
-> > +			      struct ieee80211_hw_mode *mode)
-> Looks like this function never returns nonzero now. Can it return void 
-> instead? This would simplify the fixes for drivers a bit.
+On Sat, Dec 16, 2006 at 03:46:45PM +0100, Toralf F=C3=B6rster (toralf.f=
+oerster@gmx.de) wrote:
+>=20
+> Hello,
+>=20
+> the build with the attached .config failed, make ends with:
+>   LD      init/built-in.o
+>   LD      .tmp_vmlinux1
+> net/built-in.o: In function `__inet_check_established':
+> inet_hashtables.c:(.text+0x2b338): undefined reference to `net_statis=
+tics'
+> inet_hashtables.c:(.text+0x2b35d): undefined reference to `net_statis=
+tics'
+> net/built-in.o: In function `inet_twdr_do_twkill_work':
+> inet_timewait_sock.c:(.text+0x2babb): undefined reference to `net_sta=
+tistics'
+> net/built-in.o: In function `inet_twdr_twcal_tick':
+> : undefined reference to `net_statistics'
+> net/built-in.o: In function `tcp_enter_memory_pressure':
+> : undefined reference to `net_statistics'
+> net/built-in.o:tcp.c:(.text+0x2e2c1): more undefined references to `n=
+et_statistics' follow
+> net/built-in.o: In function `inet6_create':
+> ...
+> net/built-in.o:(.data+0xfff8): undefined reference to `inet_accept'
+> net/built-in.o:(.data+0x10010): undefined reference to `inet_shutdown=
+'
+> net/built-in.o:(.data+0x10024): undefined reference to `inet_sendmsg'
+> make: *** [.tmp_vmlinux1] Error 1
+>=20
+> Here's the config:
 
-Well, theoretically, yes.
-Maybe it's only my personal way to do things, but I usually
-let such API register functions return an error code, because
-if we internally change it only slightly, it often turns out
-we need an error code. For example let's say we need to
-kmalloc something in that function for some reason.
+I've built your config just fine with
+d1998ef38a13c4e74c69df55ccd38b0440c429b2 (the latest tree for now)  git=
+ -=20
+either you have some misconfiguration in scripts, or you got version in=
+=20
+the middle of struct transformations.=20
 
-If you say, well, breaking the API again is ok, when this is required,
-send a patch. ;)
-
--- 
-Greetings Michael.
+--=20
+	Evgeniy Polyakov
