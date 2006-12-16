@@ -1,30 +1,68 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH 2.6.18 2/2] LARTC: trace control for netem: kernelspace
-Date: Sat, 16 Dec 2006 22:11:47 +0100
-Message-ID: <20061216211147.GA4853@c3po.0xdef.net>
-References: <45827B60.4010809@tik.ee.ethz.ch> <20061216151141.GB3641@c3po.0xdef.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] d80211: constify ieee80211_ops pointer
+Date: Sat, 16 Dec 2006 23:57:03 +0100
+Message-ID: <200612162357.03541.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-To: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Rainer Baumann <baumann@tik.ee.ethz.ch>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@VGER.KERNEL.ORG, netem@osdl.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:55311
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422751AbWLPW6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Dec 2006 17:58:08 -0500
+To: Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
-In-Reply-To: <20061216151141.GB3641@c3po.0xdef.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+const-ify the ieee80211_ops pointer to allow
+* The compiler to do opimizations
+* The drivers to declare this structure const.
 
->This patch isn't ok ( maybe this patch benefit from gcc padding behaviours):
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-Ignore this - I thought this function returns a pointer ... 
-(take a look at my email signature :-)
-
-HGN
-
+Index: jbenc-dscape/include/net/d80211.h
+===================================================================
+--- jbenc-dscape.orig/include/net/d80211.h	2006-12-16 23:52:35.000000000 +0100
++++ jbenc-dscape/include/net/d80211.h	2006-12-16 23:53:51.000000000 +0100
+@@ -740,7 +740,7 @@ struct ieee80211_ops {
+  * priv_data_len.
+  */
+ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
+-					struct ieee80211_ops *ops);
++					const struct ieee80211_ops *ops);
+ 
+ /* Register hardware device to the IEEE 802.11 code and kernel. Low-level
+  * drivers must call this function before using any other IEEE 802.11
+Index: jbenc-dscape/net/d80211/ieee80211.c
+===================================================================
+--- jbenc-dscape.orig/net/d80211/ieee80211.c	2006-12-16 23:52:35.000000000 +0100
++++ jbenc-dscape/net/d80211/ieee80211.c	2006-12-16 23:54:19.000000000 +0100
+@@ -4392,7 +4392,7 @@ static void rate_control_deinitialize(st
+ }
+ 
+ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
+-					      struct ieee80211_ops *ops)
++					const struct ieee80211_ops *ops)
+ {
+ 	struct net_device *mdev;
+         struct ieee80211_local *local;
+Index: jbenc-dscape/net/d80211/ieee80211_i.h
+===================================================================
+--- jbenc-dscape.orig/net/d80211/ieee80211_i.h	2006-12-16 23:52:35.000000000 +0100
++++ jbenc-dscape/net/d80211/ieee80211_i.h	2006-12-16 23:54:32.000000000 +0100
+@@ -333,7 +333,7 @@ struct ieee80211_local {
+ 	 * it first anyway so they become a no-op */
+ 	struct ieee80211_hw hw;
+ 
+-	struct ieee80211_ops *ops;
++	const struct ieee80211_ops *ops;
+ 
+ 	/* List of registered struct ieee80211_hw_mode */
+ 	struct list_head modes_list;
 
 
 -- 
-COFFEE.EXE Missing - Insert Cup and Press Any Key. 
-
+Greetings Michael.
