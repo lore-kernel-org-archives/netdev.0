@@ -1,45 +1,47 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 0/2] A bugfix patchset for NetLabel
-Date: Fri, 15 Dec 2006 20:19:56 -0500 (EST)
-Message-ID: <XMMS.LNX.4.64.0612151840370.26929@d.namei>
-References: <20061215214926.018950000@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 3/3] chelsio: more receive cleanup
+Date: Fri, 15 Dec 2006 17:28:00 -0800
+Message-ID: <20061215172800.52713c89@freekitty>
+References: <20061215190716.956791000@osdl.org>
+	<20061215190813.803776000@osdl.org>
+	<20061215201019.GA11385@electric-eye.fr.zoreil.com>
+	<20061215145533.4cda3f23@freekitty>
+	<20061216002604.GA11284@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:46340 "EHLO
-	mail6.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030526AbWLPB0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Dec 2006 20:26:38 -0500
-To: paul.moore@hp.com
-In-Reply-To: <20061215214926.018950000@hp.com>
+Received: from smtp.osdl.org ([65.172.181.25]:34005 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030528AbWLPB2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 20:28:11 -0500
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20061216002604.GA11284@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Dec 2006, paul.moore@hp.com wrote:
+On Sat, 16 Dec 2006 01:26:04 +0100
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-> This patch set fixes two bugs that were found recently when adding new CIPSOv4
-> DOI definitions.  These patches are pretty small and have been tested by a few
-> different people on several different platforms.
+> Stephen Hemminger <shemminger@osdl.org> :
+> > Francois Romieu <romieu@fr.zoreil.com> wrote:
+> [...]
+> > Why, you can't predict copybreak on off
+> 
+> Plain gut feeling. I'd rather spend extra cycles on small packets (whose
+> allocation is already optimized) and keep the normal packets less expensive
+> on a 10Gb/s network card.
+>
 
-Applied to git://git.infradead.org/~jmorris/selinux-2.6#fixes
+Likely/unlikely is an optimization that doesn't make a big difference and
+I would rather the compiler choose unless it is something obvious like
+an error path or external interrupt (like PHY).
 
-> Please apply these for 2.6.20 and they should probably be pushed to the 2.6.19
-> stable tree as well; is there anything special I need to do for that?
-
-I'm not sure that they qualify.
-
-The first is a privileged operation, right?
-
-For the second, what are the implications of mapping to zero?
-
-
-Also review Documentation/stable_kernel_rules.txt.
-
-
-
+There was some discussion on LKML, which I mostly forgot, that hinted that
+on some architectures using likely/unlikely incorrectly could have a major
+hit.
 
 
 -- 
-James Morris
-<jmorris@namei.org>
+Stephen Hemminger <shemminger@osdl.org>
