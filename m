@@ -1,39 +1,42 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH 2.6.18 2/2] LARTC: trace control for netem: kernelspace
-Date: Sat, 16 Dec 2006 16:11:41 +0100
-Message-ID: <20061216151141.GB3641@c3po.0xdef.net>
-References: <45827B60.4010809@tik.ee.ethz.ch>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [S2IO] De-typedef driver
+Date: Sat, 16 Dec 2006 11:39:46 -0500
+Message-ID: <45842152.10408@garzik.org>
+References: <78C9135A3D2ECE4B8162EBDCE82CAD77010097D1@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@VGER.KERNEL.ORG,
-	netem@osdl.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-To: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Content-Disposition: inline
-In-Reply-To: <45827B60.4010809@tik.ee.ethz.ch>
+Received: from srv5.dvmed.net ([207.36.208.214]:34820 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161122AbWLPQjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Dec 2006 11:39:53 -0500
+To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77010097D1@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Rainer Baumann | 2006-12-15 11:39:28 [+0100]:
+Ramkrishna Vepa wrote:
+>> I stomped over the s2io driver when doing an allyesconfig build for
+> IP27
+>> where there was a namespace collision between the IP27 code and the
+> s2io
+>> driver which both use a nic_t.  I decieded both were broken, IP27
+> should
+>> not export the type and s2io was a totally typedef polluted piece of
+> code.
+>> So here's the s2io part of the fix.
+> [Ram] Agreed this is a problem. Please leave the typedef but change
+> nic_t to xframe_t. This will make it unique and is a much simpler
+> change.
 
->Patch for linux kernel 2.6.18.13:
->http://tcn.hypert.net/tcn_kernel_configfs.patch
+More simple yes, but not any closer to the Linux kernel (and POSIX) 
+preferred style.
 
-This patch isn't ok ( maybe this patch benefit from gcc padding behaviours):
+Most kernel devs' brains work better after applying Ralf's patch...
 
-static struct pktdelay get_next_delay(struct netem_sched_data *q)
-{
-  struct pktdelay retval;
-
-  [...]
-
-  return retval;
-}
-
-There are also some tiny coding style issues.
+	Jeff
 
 
-Hagen
 
-PS: please setup you mua to break lines - it's a little bit difficult to read
-you mails
