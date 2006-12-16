@@ -1,39 +1,50 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 4/4][TG3]: Update version and reldate.
-Date: Fri, 15 Dec 2006 22:49:06 -0800
-Message-ID: <1166251746.30429.12.camel@rh4>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH 1/2] d80211: Turn PHYmode list from an array into a linked list
+Date: Sat, 16 Dec 2006 01:40:11 -0500
+Message-ID: <200612160140.16446.flamingice@sourmilk.net>
+References: <200612141920.11439.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart2577606.bZvCAkSvsc";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
+Cc: jbenc@suse.cz, linville@tuxdriver.com, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2775 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030615AbWLPF7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Dec 2006 00:59:37 -0500
-To: davem@davemloft.net, netdev@vger.kernel.org
+Received: from smtp.rutgers.edu ([128.6.72.243]:25067 "EHLO
+	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030647AbWLPGke (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Dec 2006 01:40:34 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200612141920.11439.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Update version and reldate.
+--nextPart2577606.bZvCAkSvsc
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Update version to 3.71.
+On Thursday 14 December 2006 13:20, Michael Buesch wrote:
+> -int ieee80211_update_hw(struct ieee80211_hw *hw)
+> +int ieee80211_register_hwmode(struct ieee80211_hw *hw,
+> +			      struct ieee80211_hw_mode *mode)
+Looks like this function never returns nonzero now. Can it return void=20
+instead? This would simplify the fixes for drivers a bit.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+=2DMichael Wu
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 6ee399c..cfdbca2 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -68,8 +68,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.70"
--#define DRV_MODULE_RELDATE	"December 1, 2006"
-+#define DRV_MODULE_VERSION	"3.71"
-+#define DRV_MODULE_RELDATE	"December 15, 2006"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+--nextPart2577606.bZvCAkSvsc
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
+iD8DBQBFg5TQT3Oqt9AH4aERAiLBAJ956yucHJick57LyBJ6UO4cEOLscQCfXj9C
+VSEMQmYdZaIMxCCUd4s5Rxg=
+=bHwf
+-----END PGP SIGNATURE-----
+
+--nextPart2577606.bZvCAkSvsc--
