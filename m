@@ -1,44 +1,63 @@
-From: Erik Andersen <andersen@codepoet.org>
-Subject: Re: [patch] scrub non-__GLIBC__ checks in linux/socket.h and linux/stat.h
-Date: Sat, 16 Dec 2006 11:57:26 -0700
-Message-ID: <20061216185726.GA17496@codepoet.org>
-References: <8bd0f97a0612161042g3b61d42csd54cae46e4864f30@mail.gmail.com>
-Reply-To: andersen@codepoet.org
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [ANN] Acrypto asynchronous crypto layer 2.6.19 release.
+Date: Sat, 16 Dec 2006 22:15:22 +0300
+Message-ID: <20061216191521.GA26549@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, Alexey Dobriyan <adobriyan@gmail.com>,
-	"Robert P. J. Day" <rpjday@mindspring.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965412AbWLPS52@vger.kernel.org>
-To: Mike Frysinger <vapier.adi@gmail.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53194 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161382AbWLPTPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Dec 2006 14:15:30 -0500
+To: linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <8bd0f97a0612161042g3b61d42csd54cae46e4864f30@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat Dec 16, 2006 at 01:42:11PM -0500, Mike Frysinger wrote:
-> On 11/30/06, Robert P. J. Day <rpjday@mindspring.com> wrote:
-> >but there are a few other
-> >cases which still contain compound preprocessor directives such as:
-> >
-> >  #if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
-> >
-> >having never worked with unifdef before, i guess i was being overly
-> >optimistic in thinking that it, if i "unifdef"ed __KERNEL__, it might
-> >at least simplify the expression.  oh, well ... live and learn.
-> 
-> userspace should be worrying about userspace, so having the socket.h
-> and stat.h pollute the namespace in the non-glibc case is wrong and
-> pretty much prevents any other libc from utilizing these headers
-> sanely unless they set up the __GLIBC__ define themselves (which
-> sucks)
-> -mike
+Hello.
 
-Ack from me.  I'd love to see this applied so uClibc could
-stop have to define __GLIBC__
+I am pleased to announce new release of the acrypto for 2.6.19 kernel -
+first asynchronous crypto layer for Linux kernel 2.6.
 
- -Erik
+Acrypto allows to handle crypto requests asynchronously in hardware.
 
---
-Erik B. Andersen             http://codepoet-consulting.com/
---This message was written using 73% post-consumer electrons--
+Acrypto supports following features:
+ * multiple asynchronous crypto device queues
+ * crypto session routing (allows to complete single crypto session when
+   several operations (crypto, hmac, anything) are completed)
+ * crypto session binding (bind crypto processing to specified device)
+ * modular load balancing (one can created load balancer which will get
+   into account for example pid of the calling process)
+ * crypto session batching genetically implemented by design (acrypto
+   provides the whole data structure to crypto device, i.e. it is
+   possible to use acrypto as a bridge which routes requests between
+   completely different devices, since it does not differentiate between
+   users, just handles requests)
+ * crypto session priority
+ * different kinds of crypto operation(RNG, asymmetrical crypto, HMAC and
+   any other)
+
+Combined patchset includes:
+ * acrypto core
+ * IPsec ESP4 port to acrypto
+ * dm-crypt port to acrypto
+ * OCF to acrypto bridge, which allows to run OCF device
+   drivers with acrypto (for example ixp4xx), requires OCF installed.
+
+Ported crypto drivers and benchmarks can be found on acrypto homepage:
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=acrypto
+
+Changes from previous release:
+ * moved to 2.6.19 crypto API where it is used
+ * updated XFRM engine
+ * bugfixes
+
+2.6.16 - 2.6.18 releases moved to maintenance mode.
+
+Patchset is not attached due to its size (192kb).
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+-- 
+	Evgeniy Polyakov
